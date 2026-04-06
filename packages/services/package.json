@@ -1,0 +1,42 @@
+{
+  "name": "@kehto/services",
+  "version": "0.1.0",
+  "description": "Reference service implementations for the napplet protocol — audio, notifications, and extensible service handlers",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@kehto/runtime": "workspace:*"
+  },
+  "peerDependencies": {
+    "@napplet/core": ">=0.1.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "build": "tsup",
+    "type-check": "tsc --noEmit",
+    "test:unit": "echo 'no unit tests yet'"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kehto/runtime.git",
+    "directory": "packages/services"
+  },
+  "keywords": ["nostr", "napplet", "kehto", "services", "audio", "notifications"]
+}
