@@ -6,15 +6,18 @@
     "build": "turbo run build",
     "type-check": "turbo run type-check",
     "test": "turbo run test",
-    "test:unit": "turbo run test:unit",
+    "test:unit": "vitest run",
     "lint": "turbo run lint",
     "version-packages": "changeset version",
     "publish-packages": "turbo run build && changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
+    "@vitest/coverage-v8": "^4.1.2",
+    "nostr-tools": "^2.23.3",
     "turbo": "^2.5.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.2"
   },
   "packageManager": "pnpm@10.8.0",
   "pnpm": {
