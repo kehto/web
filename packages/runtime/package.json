@@ -28,7 +28,8 @@
   "devDependencies": {
     "@napplet/core": "link:/home/sandwich/Develop/napplet/packages/core",
     "tsup": "^8.5.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.2"
   },
   "scripts": {
     "build": "tsup",
