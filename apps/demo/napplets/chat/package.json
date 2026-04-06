@@ -1,0 +1,20 @@
+{
+  "name": "@kehto/demo-chat",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@napplet/shim": "link:/home/sandwich/Develop/napplet/packages/shim",
+    "@napplet/sdk": "link:/home/sandwich/Develop/napplet/packages/sdk"
+  },
+  "devDependencies": {
+    "@napplet/vite-plugin": "link:/home/sandwich/Develop/napplet/packages/vite-plugin",
+    "vite": "^6.3.0",
+    "typescript": "^5.9.3"
+  }
+}
