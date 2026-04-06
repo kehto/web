@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: false
   excludeLinksFromLockfile: false
 
+overrides:
+  '@napplet/core': link:/home/sandwich/Develop/napplet/packages/core
+
 importers:
 
   .:
@@ -32,6 +35,9 @@ importers:
       '@kehto/acl':
         specifier: workspace:*
         version: link:../acl
+      '@napplet/core':
+        specifier: link:/home/sandwich/Develop/napplet/packages/core
+        version: link:../../../napplet/packages/core
       '@noble/curves':
         specifier: ^2.0.0
         version: 2.0.1
@@ -51,6 +57,9 @@ importers:
       '@kehto/runtime':
         specifier: workspace:*
         version: link:../runtime
+      '@napplet/core':
+        specifier: link:/home/sandwich/Develop/napplet/packages/core
+        version: link:../../../napplet/packages/core
     devDependencies:
       tsup:
         specifier: ^8.5.0
@@ -64,6 +73,9 @@ importers:
       '@kehto/runtime':
         specifier: workspace:*
         version: link:../runtime
+      '@napplet/core':
+        specifier: link:/home/sandwich/Develop/napplet/packages/core
+        version: link:../../../napplet/packages/core
     devDependencies:
       nostr-tools:
         specifier: ^2.23.3

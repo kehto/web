@@ -26,6 +26,7 @@
     "@napplet/core": ">=0.1.0"
   },
   "devDependencies": {
+    "@napplet/core": "link:/home/sandwich/Develop/napplet/packages/core",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3"
   },
