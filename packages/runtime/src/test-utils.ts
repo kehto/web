@@ -189,8 +189,8 @@ export function createMockRuntimeAdapter(overrides?: Partial<RuntimeAdapter>): M
   uuidCounter = 0;
 
   const hooks: RuntimeAdapter = {
-    sendToNapplet(windowId: string, msg: unknown[]) {
-      sent.push({ windowId, message: msg });
+    sendToNapplet(windowId: string, msg: unknown[] | import('./types.js').NappletMessage) {
+      sent.push({ windowId, message: msg as unknown[] });
     },
     relayPool: createMockRelayPool(),
     cache: createMockCache(),

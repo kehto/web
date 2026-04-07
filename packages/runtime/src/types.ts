@@ -5,7 +5,7 @@
  * to host napplets. No DOM types, no browser APIs.
  */
 
-import type { NostrEvent, NostrFilter, Capability, ServiceDescriptor } from '@napplet/core';
+import type { NostrEvent, NostrFilter, Capability, ServiceDescriptor, NappletMessage } from '@napplet/core';
 
 // ─── ACL Check Event ──────────────────────────────────────────────────────
 
@@ -30,21 +30,23 @@ export interface AclCheckEvent {
   capability: string;
   /** The enforcement decision. */
   decision: 'allow' | 'deny';
-  /** The triggering NIP-01 message, if available. */
-  message?: unknown[];
+  /** The triggering message, if available. Accepts NIP-01 arrays or NIP-5D NappletMessage envelopes. */
+  message?: unknown[] | NappletMessage;
 }
 
 // ─── Message Transport ─────────────────────────────────────────────────────
 
 /**
- * Abstract message sender — the runtime calls this to send NIP-01 messages
+ * Abstract message sender — the runtime calls this to send messages
  * back to a specific napplet. The transport layer (postMessage, WebSocket,
  * IPC channel, etc.) is the implementor's concern.
  *
+ * Accepts both NIP-01 array format (legacy) and NIP-5D NappletMessage envelope format.
+ *
  * @param windowId - Target napplet's identifier
- * @param msg - NIP-01 message array (e.g., ['EVENT', subId, event])
+ * @param msg - NIP-01 message array (e.g., ['EVENT', subId, event]) or NIP-5D envelope
  */
-export type SendToNapplet = (windowId: string, msg: unknown[]) => void;
+export type SendToNapplet = (windowId: string, msg: unknown[] | NappletMessage) => void;
 
 // ─── Subscription Handle ───────────────────────────────────────────────────
 
@@ -390,10 +392,14 @@ export interface CompatibilityReport {
 // ─── SessionEntry ─────────────────────────────────────────────────────────
 
 /**
- * Registry entry mapping a napplet's pubkey to its runtime metadata.
- * Created after a successful NIP-42 AUTH handshake.
+ * Registry entry mapping a napplet's windowId to its runtime metadata.
+ * Created after a successful identity establishment (AUTH handshake or NIP-5D origin registration).
  */
 export interface SessionEntry {
+  /**
+   * @deprecated NIP-5D: AUTH keypair no longer exists. Empty string for NIP-5D sessions.
+   * Kept for backward compatibility during legacy support period.
+   */
   pubkey: string;
   windowId: string;
   origin: string;
@@ -403,6 +409,12 @@ export interface SessionEntry {
   registeredAt: number;
   /** Persistent GUID for this iframe instance, assigned by the runtime. Survives page reloads. */
   instanceId: string;
+  /**
+   * How session identity was established.
+   * 'source' = NIP-5D (identity registered at iframe creation via originRegistry).
+   * 'auth' = legacy AUTH handshake (pubkey is the derived keypair pubkey).
+   */
+  identitySource: 'auth' | 'source';
 }
 
 /** @deprecated Use SessionEntry. Will be removed in v0.9.0. */
@@ -594,7 +606,12 @@ export interface RuntimeAdapter {
    */
   cache?: CacheAdapter;
 
-  /** Auth state and signing. */
+  /**
+   * Auth state and signing.
+   *
+   * NIP-5D path: getUserPubkey() provides the shell user's identity (not napplet's).
+   * getSigner() is the primary concern — used for proxied signing operations from napplets.
+   */
   auth: AuthAdapter;
 
   /** Runtime configuration. */
@@ -624,7 +641,11 @@ export interface RuntimeAdapter {
   /** DM sending (optional). */
   dm?: DmAdapter;
 
-  /** Shell secret persistence (for deterministic keypair derivation). */
+  /**
+   * Shell secret persistence (for deterministic keypair derivation).
+   * @deprecated NIP-5D: Shell secrets are no longer needed when using the NIP-5D origin-based
+   * identity path. Kept for backward compatibility with legacy AUTH sessions.
+   */
   shellSecretPersistence?: ShellSecretPersistence;
 
   /** Hash verification (optional — if absent, hash verification is skipped). */
@@ -683,3 +704,8 @@ export interface RuntimeAdapter {
    */
   getConfigOverrides?(): RuntimeConfigOverrides;
 }
+
+// ─── Re-exports ───────────────────────────────────────────────────────────────
+
+/** Re-export NappletMessage from @napplet/core for consumer convenience. */
+export type { NappletMessage };

@@ -44,6 +44,12 @@ export interface SessionRegistry {
   getPendingUpdate(windowId: string): PendingUpdate | undefined;
   /** Clear a pending update for a window. */
   clearPendingUpdate(windowId: string): void;
+  /**
+   * Get the full entry for a napplet by windowId directly.
+   * NIP-5D: Required for sessions where pubkey is '' (identity established via originRegistry).
+   * Unlike getEntry(pubkey), this works when pubkey is empty.
+   */
+  getEntryByWindowId(windowId: string): SessionEntry | undefined;
   /** Clear all registrations and pending updates. */
   clear(): void;
 }
@@ -67,12 +73,14 @@ export type NappKeyRegistry = SessionRegistry;
 export function createSessionRegistry(notifier?: PendingUpdateNotifier): SessionRegistry {
   const byWindowId = new Map<string, string>();
   const byPubkey = new Map<string, SessionEntry>();
+  const byWindowIdEntry = new Map<string, SessionEntry>();
   const pendingUpdates = new Map<string, PendingUpdate>();
 
   return {
     register(windowId: string, entry: SessionEntry): void {
       byWindowId.set(windowId, entry.pubkey);
       byPubkey.set(entry.pubkey, entry);
+      byWindowIdEntry.set(windowId, entry);
     },
 
     unregister(windowId: string): void {
@@ -81,6 +89,7 @@ export function createSessionRegistry(notifier?: PendingUpdateNotifier): Session
         byPubkey.delete(pubkey);
         byWindowId.delete(windowId);
       }
+      byWindowIdEntry.delete(windowId);
       pendingUpdates.delete(windowId);
     },
 
@@ -110,6 +119,10 @@ export function createSessionRegistry(notifier?: PendingUpdateNotifier): Session
       return byPubkey.get(pubkey)?.instanceId;
     },
 
+    getEntryByWindowId(windowId: string): SessionEntry | undefined {
+      return byWindowIdEntry.get(windowId);
+    },
+
     setPendingUpdate(windowId: string, update: PendingUpdate): void {
       pendingUpdates.set(windowId, update);
       notifier?.(windowId);
@@ -127,6 +140,7 @@ export function createSessionRegistry(notifier?: PendingUpdateNotifier): Session
     clear(): void {
       byWindowId.clear();
       byPubkey.clear();
+      byWindowIdEntry.clear();
       pendingUpdates.clear();
     },
   };

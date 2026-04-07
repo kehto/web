@@ -394,6 +394,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
       pubkey: authEvent.pubkey, windowId, origin: '*',
       type: nappletType, dTag, aggregateHash, registeredAt: Date.now(),
       instanceId: registration?.instanceId ?? hooks.crypto.randomUUID(),
+      identitySource: 'auth',
     };
 
     // Clean up pending registration
