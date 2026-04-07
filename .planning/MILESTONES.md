@@ -22,3 +22,15 @@
 - `docs/SERVICES-MIGRATION.md` (1023 lines)
 
 **Archive:** [v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) | [v1.0-REQUIREMENTS.md](milestones/v1.0-REQUIREMENTS.md)
+
+### v1.1: NIP-5D Migration Implementation
+**Shipped:** 2026-04-07
+**Phases:** 4 | **Plans:** 8 | **Requirements:** 16/16
+
+**Key Accomplishments:**
+1. @kehto/acl: 2-segment identity keys, NUB domain resolution, localStorage migration (75 tests)
+2. @kehto/runtime: NUB dispatch (envelope-only), AUTH removed (~269 lines), 4 domain handlers (61 tests)
+3. @kehto/shell: Envelope-only guard, window.nostr injection, capability advertisement, ACL migration trigger
+4. @kehto/services: All 6 handlers migrated to NappletMessage envelope format (34 tests)
+
+**Archive:** [v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md) | [v1.1-REQUIREMENTS.md](milestones/v1.1-REQUIREMENTS.md)
