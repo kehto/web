@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: scaffold
-milestone_name: Initial Scaffold
-status: seeded
-stopped_at: Repo scaffolded from @napplet v0.13.0 Phase 62
-last_updated: "2026-04-06"
-last_activity: 2026-04-06
+milestone: v1.0
+milestone_name: NIP-5D Migration & Gap Analysis
+status: defining_requirements
+stopped_at: Defining requirements for v1.0
+last_updated: "2026-04-07"
+last_activity: 2026-04-07
 progress:
   total_phases: 0
   completed_phases: 0
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Seeded by @napplet v0.13.0 Phase 62 — awaiting source migration (Phase 63).
+**Current focus:** NIP-5D migration documents and gap analysis for each kehto package.
 
 ## Current Position
 
-Phase: — (no phases yet — source migration happens from @napplet repo)
+Phase: Not started (defining requirements)
 Plan: —
-Status: Seeded
-Last activity: 2026-04-06 — Repository scaffolded
+Status: Defining requirements
+Last activity: 2026-04-07 — Milestone v1.0 started
 
 Progress: [----------] 0%
 
@@ -46,6 +46,6 @@ Decisions are logged in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-04-06
-Stopped at: Repository scaffolded
-Resume: Source migration driven from @napplet Phase 63
+Last session: 2026-04-07
+Stopped at: Defining requirements for v1.0
+Resume: Define requirements, then create roadmap
