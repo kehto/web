@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: NIP-5D Migration Implementation
-status: executing
-stopped_at: Completed 09-01-PLAN.md
-last_updated: "2026-04-07T23:04:43.174Z"
+status: verifying
+stopped_at: Completed 09-02-PLAN.md
+last_updated: "2026-04-07T23:09:48.816Z"
 last_activity: 2026-04-07
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 9
-  completed_plans: 8
+  completed_plans: 9
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 Phase: 09 (kehto-services-implementation) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-07
 
 Progress: [----------] 0% (v1.1)
@@ -55,6 +55,7 @@ Progress: [----------] 0% (v1.1)
 | Phase 08-kehto-shell-implementation P01 | 4 | 3 tasks | 6 files |
 | Phase 08-kehto-shell-implementation P02 | 2 | 3 tasks | 3 files |
 | Phase 09-kehto-services-implementation P01 | 8 | 2 tasks | 5 files |
+| Phase 09-kehto-services-implementation P02 | 3 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,8 @@ Progress: [----------] 0% (v1.1)
 - [Phase 09-kehto-services-implementation]: ServiceHandler.handleMessage is NappletMessage-only — unknown[] removed, compile errors catch all missed migrations
 - [Phase 09-kehto-services-implementation]: routeServiceMessage routes NUB-domain by message.type prefix; IFC services by message.topic prefix on ifc.emit
 - [Phase 09-kehto-services-implementation]: signer-service.ts switches on message.type for 7 operations, responds with typed .result/.error envelopes; other service handlers deferred to Plan 09-02
+- [Phase 09-kehto-services-implementation]: IFC-routed services (audio, notifications) read action from topic.slice(prefix.length) on ifc.emit messages
+- [Phase 09-kehto-services-implementation]: Legacy helpers parseContent/extractTopic/createResponseEvent deleted — payload is already parsed in envelope format
 
 ### Blockers/Concerns
 
@@ -95,6 +98,6 @@ Progress: [----------] 0% (v1.1)
 
 ## Session Continuity
 
-Last session: 2026-04-07T23:04:43.172Z
-Stopped at: Completed 09-01-PLAN.md
+Last session: 2026-04-07T23:09:48.814Z
+Stopped at: Completed 09-02-PLAN.md
 Resume: Run `/gsd:plan-phase 6` to plan @kehto/acl Implementation
