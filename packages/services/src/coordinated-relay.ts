@@ -2,14 +2,14 @@
  * coordinated-relay.ts — Composite relay + cache ServiceHandler.
  *
  * Combines relay pool and cache into a single service that handles
- * REQ by querying both sources, deduplicating events by ID, and
- * sending a unified EOSE after both sources complete.
+ * relay.subscribe by querying both sources, deduplicating events by ID,
+ * and sending a unified EOSE after both sources complete.
  *
  * This is a convenience helper for shell implementors. Those who need
  * custom coordination can write their own composite service.
  */
 
-import type { NostrEvent, NostrFilter } from '@napplet/core';
+import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 import type { ServiceHandler } from '@kehto/runtime';
 import type { RelayPoolServiceOptions } from './relay-pool-service.js';
 import type { CacheServiceOptions } from './cache-service.js';
@@ -77,10 +77,10 @@ interface TrackedSub {
  * Create a coordinated relay service that combines relay pool and cache
  * into a single ServiceHandler with dedup and unified EOSE.
  *
- * On REQ: queries cache first, then subscribes to relay pool. Events
- * are deduplicated by ID. EOSE is sent after both sources complete.
- * On EVENT: publishes to relay pool and stores in cache.
- * On CLOSE: cancels relay pool subscription.
+ * On relay.subscribe: queries cache first, then subscribes to relay pool.
+ * Events are deduplicated by ID. EOSE is sent after both sources complete.
+ * On relay.publish: publishes to relay pool and stores in cache.
+ * On relay.close: cancels relay pool subscription.
  *
  * @param options - Relay pool and cache implementations to coordinate
  * @returns A ServiceHandler ready for runtime.registerService('relay', handler)
@@ -97,13 +97,13 @@ export function createCoordinatedRelay(options: CoordinatedRelayOptions): Servic
   const timeoutMs = options.eoseTimeoutMs ?? DEFAULT_EOSE_TIMEOUT_MS;
   const subs = new Map<string, TrackedSub>();
 
-  function maybeSendEose(subKey: string, subId: string, send: (msg: unknown[]) => void): void {
+  function maybeSendEose(subKey: string, subId: string, send: (msg: NappletMessage) => void): void {
     const sub = subs.get(subKey);
     if (!sub || sub.eoseSent) return;
     if (sub.cacheEose && sub.relayEose) {
       sub.eoseSent = true;
       clearTimeout(sub.eoseTimer);
-      send(['EOSE', subId]);
+      send({ type: 'relay.eose', subId } as NappletMessage);
     }
   }
 
@@ -114,13 +114,11 @@ export function createCoordinatedRelay(options: CoordinatedRelayOptions): Servic
       description: 'Coordinated relay pool + cache with dedup and unified EOSE',
     },
 
-    handleMessage(windowId: string, message: unknown[], send: (msg: unknown[]) => void): void {
-      const verb = message[0];
-
-      if (verb === 'REQ') {
-        const subId = message[1] as string;
+    handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
+      if (message.type === 'relay.subscribe') {
+        const subId = (message as any).subId as string;
         if (typeof subId !== 'string') return;
-        const filters = message.slice(2) as NostrFilter[];
+        const filters = (message as any).filters as NostrFilter[];
         const subKey = `${windowId}:${subId}`;
 
         // Cancel existing subscription for this key
@@ -136,7 +134,7 @@ export function createCoordinatedRelay(options: CoordinatedRelayOptions): Servic
 
         // Neither source available — send EOSE immediately
         if (!cacheAvailable && !relayAvailable) {
-          send(['EOSE', subId]);
+          send({ type: 'relay.eose', subId } as NappletMessage);
           return;
         }
 
@@ -153,7 +151,7 @@ export function createCoordinatedRelay(options: CoordinatedRelayOptions): Servic
         function deliver(event: NostrEvent): void {
           if (tracked.seenIds.has(event.id)) return;
           tracked.seenIds.add(event.id);
-          if (subs.has(subKey)) send(['EVENT', subId, event]);
+          if (subs.has(subKey)) send({ type: 'relay.event', subId, event } as NappletMessage);
         }
 
         // Query cache (async)
@@ -199,8 +197,8 @@ export function createCoordinatedRelay(options: CoordinatedRelayOptions): Servic
         return;
       }
 
-      if (verb === 'CLOSE') {
-        const subId = message[1] as string;
+      if (message.type === 'relay.close') {
+        const subId = (message as any).subId as string;
         if (typeof subId !== 'string') return;
         const subKey = `${windowId}:${subId}`;
         const entry = subs.get(subKey);
@@ -212,8 +210,8 @@ export function createCoordinatedRelay(options: CoordinatedRelayOptions): Servic
         return;
       }
 
-      if (verb === 'EVENT') {
-        const event = message[1] as NostrEvent | undefined;
+      if (message.type === 'relay.publish') {
+        const event = (message as any).event as NostrEvent | undefined;
         if (!event || typeof event !== 'object') return;
         // Publish to relay pool
         if (options.relayPool.isAvailable()) {

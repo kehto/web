@@ -3,10 +3,10 @@
  *
  * Wraps an existing relay pool implementation (subscribe, publish,
  * selectRelayTier, isAvailable) as a ServiceHandler that receives
- * raw NIP-01 messages and manages subscription lifecycle.
+ * relay NUB envelope messages and manages subscription lifecycle.
  */
 
-import type { NostrEvent, NostrFilter } from '@napplet/core';
+import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 import type { ServiceHandler } from '@kehto/runtime';
 
 // Timer globals available in all JS runtimes
@@ -77,12 +77,12 @@ interface TrackedSubscription {
  * Create a relay pool service that wraps an existing relay pool
  * implementation as a ServiceHandler.
  *
- * Handles REQ (subscribe), CLOSE (unsubscribe), and EVENT (publish) verbs.
+ * Handles relay.subscribe, relay.close, and relay.publish envelopes.
  * Tracks subscriptions per windowId:subId for lifecycle management.
  * Sets a 15-second EOSE fallback timer on each subscription.
  *
  * @param options - Relay pool implementation to wrap
- * @returns A ServiceHandler ready for runtime.registerService('relay-pool', handler)
+ * @returns A ServiceHandler ready for runtime.registerService('relay', handler)
  *
  * @example
  * ```ts
@@ -94,7 +94,7 @@ interface TrackedSubscription {
  *   selectRelayTier: (f) => applesauce.getRelays(f),
  *   isAvailable: () => applesauce.connected,
  * });
- * runtime.registerService('relay-pool', pool);
+ * runtime.registerService('relay', pool);
  * ```
  */
 export function createRelayPoolService(options: RelayPoolServiceOptions): ServiceHandler {
@@ -107,13 +107,11 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
       description: 'Relay pool subscription and publishing',
     },
 
-    handleMessage(windowId: string, message: unknown[], send: (msg: unknown[]) => void): void {
-      const verb = message[0];
-
-      if (verb === 'REQ') {
-        const subId = message[1] as string;
+    handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
+      if (message.type === 'relay.subscribe') {
+        const subId = (message as any).subId as string;
         if (typeof subId !== 'string') return;
-        const filters = message.slice(2) as NostrFilter[];
+        const filters = (message as any).filters as NostrFilter[];
         const subKey = `${windowId}:${subId}`;
 
         // Cancel existing subscription for this key if any
@@ -125,7 +123,7 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
         }
 
         if (!options.isAvailable()) {
-          send(['EOSE', subId]);
+          send({ type: 'relay.eose', subId } as NappletMessage);
           return;
         }
 
@@ -135,7 +133,7 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
         const eoseTimer = setTimeout(() => {
           if (!eoseSent) {
             eoseSent = true;
-            send(['EOSE', subId]);
+            send({ type: 'relay.eose', subId } as NappletMessage);
           }
         }, EOSE_FALLBACK_MS);
 
@@ -144,19 +142,19 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
             clearTimeout(eoseTimer);
             if (!eoseSent) {
               eoseSent = true;
-              send(['EOSE', subId]);
+              send({ type: 'relay.eose', subId } as NappletMessage);
             }
             return;
           }
-          send(['EVENT', subId, item]);
+          send({ type: 'relay.event', subId, event: item } as NappletMessage);
         }, relayUrls);
 
         tracked.set(subKey, { handle, eoseTimer });
         return;
       }
 
-      if (verb === 'CLOSE') {
-        const subId = message[1] as string;
+      if (message.type === 'relay.close') {
+        const subId = (message as any).subId as string;
         if (typeof subId !== 'string') return;
         const subKey = `${windowId}:${subId}`;
         const entry = tracked.get(subKey);
@@ -168,8 +166,8 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
         return;
       }
 
-      if (verb === 'EVENT') {
-        const event = message[1] as NostrEvent | undefined;
+      if (message.type === 'relay.publish') {
+        const event = (message as any).event as NostrEvent | undefined;
         if (event && typeof event === 'object' && options.isAvailable()) {
           options.publish(event);
         }

@@ -2,12 +2,12 @@
  * cache-service.ts — Local event cache as a ServiceHandler.
  *
  * Wraps an existing cache implementation (query, store, isAvailable)
- * as a ServiceHandler that receives raw NIP-01 messages. Cache
- * subscriptions are one-shot queries — REQ triggers a query and
- * immediate EOSE, unlike relay pool subscriptions which stay open.
+ * as a ServiceHandler that receives relay NUB envelope messages. Cache
+ * subscriptions are one-shot queries — relay.subscribe triggers a query
+ * and immediate EOSE, unlike relay pool subscriptions which stay open.
  */
 
-import type { NostrEvent, NostrFilter } from '@napplet/core';
+import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 import type { ServiceHandler } from '@kehto/runtime';
 
 /**
@@ -50,8 +50,8 @@ export interface CacheServiceOptions {
  * Create a cache service that wraps an existing cache implementation
  * as a ServiceHandler.
  *
- * Cache REQ subscriptions are one-shot — they query, deliver results,
- * send EOSE, and are done. No long-lived subscription tracking needed.
+ * Cache relay.subscribe subscriptions are one-shot — they query, deliver
+ * results, send EOSE, and are done. No long-lived subscription tracking needed.
  * Cache query failures are best-effort: EOSE is sent even on failure.
  *
  * @param options - Cache implementation to wrap
@@ -77,16 +77,14 @@ export function createCacheService(options: CacheServiceOptions): ServiceHandler
       description: 'Local event cache (IndexedDB, worker relay, etc.)',
     },
 
-    handleMessage(_windowId: string, message: unknown[], send: (msg: unknown[]) => void): void {
-      const verb = message[0];
-
-      if (verb === 'REQ') {
-        const subId = message[1] as string;
+    handleMessage(_windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
+      if (message.type === 'relay.subscribe') {
+        const subId = (message as any).subId as string;
         if (typeof subId !== 'string') return;
-        const filters = message.slice(2) as NostrFilter[];
+        const filters = (message as any).filters as NostrFilter[];
 
         if (!options.isAvailable()) {
-          send(['EOSE', subId]);
+          send({ type: 'relay.eose', subId } as NappletMessage);
           return;
         }
 
@@ -94,19 +92,19 @@ export function createCacheService(options: CacheServiceOptions): ServiceHandler
           .query(filters)
           .then((events) => {
             for (const event of events) {
-              send(['EVENT', subId, event]);
+              send({ type: 'relay.event', subId, event } as NappletMessage);
             }
-            send(['EOSE', subId]);
+            send({ type: 'relay.eose', subId } as NappletMessage);
           })
           .catch(() => {
             // Cache query is best-effort — send EOSE even on failure
-            send(['EOSE', subId]);
+            send({ type: 'relay.eose', subId } as NappletMessage);
           });
         return;
       }
 
-      if (verb === 'EVENT') {
-        const event = message[1] as NostrEvent | undefined;
+      if (message.type === 'relay.publish') {
+        const event = (message as any).event as NostrEvent | undefined;
         if (event && typeof event === 'object' && options.isAvailable()) {
           try {
             options.store(event);
