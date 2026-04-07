@@ -477,19 +477,17 @@ export interface AclEntryExternal {
 
 /**
  * Handler for service-specific messages from napplets.
- * Services receive raw NIP-01 message arrays and respond via the `send` callback.
- * The same interface is used for all services regardless of what NIP-01 verbs they handle.
+ * Services receive NIP-5D NappletMessage envelopes and respond via the `send` callback.
+ * The same interface is used for all services regardless of what NUB domain they handle.
  *
  * @example
  * ```ts
  * const audioHandler: ServiceHandler = {
  *   descriptor: { name: 'audio', version: '1.0.0' },
  *   handleMessage(windowId, message, send) {
- *     const [verb, ...rest] = message;
- *     if (verb === 'EVENT') {
- *       const event = rest[0] as NostrEvent;
- *       // process audio event...
- *       send(['OK', event.id, true, '']);
+ *     if (message.type === 'ifc.emit') {
+ *       // process audio ifc event...
+ *       send({ type: 'ifc.emit.result', id: (message as any).id });
  *     }
  *   },
  * };
@@ -499,13 +497,17 @@ export interface ServiceHandler {
   /** Metadata describing this service. */
   descriptor: ServiceDescriptor;
   /**
-   * Handle a raw NIP-01 message from a napplet.
+   * Handle a NIP-5D envelope from a napplet.
    *
    * @param windowId - The requesting napplet's window identifier
-   * @param message - Raw NIP-01 message array (e.g., ['EVENT', event], ['REQ', subId, ...filters])
-   * @param send - Callback to send NIP-01 response messages back to the napplet
+   * @param message - NappletMessage JSON envelope (e.g., { type: 'signer.signEvent', id, event })
+   * @param send - Callback to send NappletMessage responses back to the napplet
    */
-  handleMessage(windowId: string, message: unknown[], send: (msg: unknown[]) => void): void;
+  handleMessage(
+    windowId: string,
+    message: NappletMessage,
+    send: (msg: NappletMessage) => void,
+  ): void;
   /**
    * Called when a napplet window is destroyed. Services should clean up
    * any state associated with the window.

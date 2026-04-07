@@ -479,17 +479,14 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
           const cacheService = !serviceRegistry['relay'] ? serviceRegistry['cache'] : undefined;
 
           if (relayService) {
-            const legacyMsg = ['REQ', subId, ...filters];
-            const send = (resp: unknown[]): void => {
+            relayService.handleMessage(windowId, msg, (resp: NappletMessage) => {
               if (!subscriptions.has(subKey)) return;
-              if (Array.isArray(resp) && resp[0] === 'EVENT') {
-                hooks.sendToNapplet(windowId, { type: 'relay.event', subId, event: resp[2] as NostrEvent } as NappletMessage);
-              } else if (Array.isArray(resp) && resp[0] === 'EOSE') {
-                hooks.sendToNapplet(windowId, { type: 'relay.eose', subId } as NappletMessage);
-              }
-            };
-            relayService.handleMessage(windowId, legacyMsg, send);
-            if (cacheService) cacheService.handleMessage(windowId, legacyMsg, send);
+              hooks.sendToNapplet(windowId, resp);
+            });
+            if (cacheService) cacheService.handleMessage(windowId, msg, (resp: NappletMessage) => {
+              if (!subscriptions.has(subKey)) return;
+              hooks.sendToNapplet(windowId, resp);
+            });
             return;
           }
         }
@@ -540,7 +537,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
 
         const relayService = serviceRegistry['relay'] ?? serviceRegistry['relay-pool'];
         if (relayService) {
-          relayService.handleMessage(windowId, ['CLOSE', subId], () => {});
+          relayService.handleMessage(windowId, msg, () => {});
         }
         hooks.relayPool?.untrackSubscription(subKey);
         hooks.sendToNapplet(windowId, { type: 'relay.closed', subId, message: '' } as NappletMessage);
@@ -563,12 +560,9 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
 
         const relayService = serviceRegistry['relay'] ?? serviceRegistry['relay-pool'];
         if (relayService) {
-          const send = (resp: unknown[]): void => {
-            if (Array.isArray(resp) && resp[0] === 'OK') {
-              hooks.sendToNapplet(windowId, { type: 'relay.publish.result', id, accepted: resp[2] as boolean, message: (resp[3] as string) || '' } as NappletMessage);
-            }
-          };
-          relayService.handleMessage(windowId, ['EVENT', event], send);
+          relayService.handleMessage(windowId, msg, (resp: NappletMessage) => {
+            hooks.sendToNapplet(windowId, resp);
+          });
         } else if (hooks.relayPool?.isAvailable()) {
           hooks.relayPool.publish(event);
           hooks.sendToNapplet(windowId, { type: 'relay.publish.result', id, accepted: true } as NappletMessage);
@@ -613,23 +607,9 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     // Signer service takes priority if registered
     const signerService = serviceRegistry['signer'];
     if (signerService) {
-      // Delegate to signer service using legacy format (Phase 9 will update to NUB)
-      signerService.handleMessage(
-        windowId,
-        ['EVENT', { kind: 29001, tags: [['method', action], ['id', id]], content: JSON.stringify(m), pubkey: '', created_at: 0, id: '', sig: '' }],
-        (resp) => {
-          if (Array.isArray(resp) && resp[0] === 'EVENT') {
-            const evt = resp[2] as any;
-            const resultTag = evt?.tags?.find((t: string[]) => t[0] === 'result');
-            if (resultTag) {
-              try {
-                const result = JSON.parse(resultTag[1]);
-                sendResult(typeof result === 'object' ? result : { value: result });
-              } catch { sendResult({ value: resultTag[1] }); }
-            }
-          }
-        },
-      );
+      signerService.handleMessage(windowId, msg, (resp: NappletMessage) => {
+        hooks.sendToNapplet(windowId, resp);
+      });
       return;
     }
 

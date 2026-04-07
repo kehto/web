@@ -1,51 +1,65 @@
 /**
- * service-dispatch.ts — Generic topic-prefix routing for registered services.
+ * service-dispatch.ts — NIP-5D envelope routing for registered services.
  *
- * Routes IPC-PEER events to the correct ServiceHandler based on the topic
- * prefix (text before ':'). Services receive raw NIP-01 message arrays via
- * handleMessage() and respond via the send callback.
+ * Routes NappletMessage envelopes to the correct ServiceHandler based on the
+ * message type domain prefix. NUB-domain services (signer.*, relay.*, storage.*)
+ * are routed by the domain part of message.type. IFC-routed services (audio,
+ * notifications) receive ifc.emit messages and are routed by topic prefix.
  */
 
-import type { NostrEvent } from '@napplet/core';
+import type { NappletMessage } from '@napplet/core';
 import type { ServiceRegistry, SendToNapplet } from './types.js';
 
 /**
- * Route an IPC-PEER event to the matching service handler by topic prefix.
- * Extracts the prefix before ':' from the topic, looks up the handler in the
- * service registry, and calls handleMessage() with an ['EVENT', event] message.
+ * Route a NappletMessage envelope to the matching service handler.
+ *
+ * NUB-domain services are routed by the domain prefix of message.type
+ * (e.g., 'signer.signEvent' -> 'signer' service).
+ *
+ * IFC-routed services receive ifc.emit messages and are routed by the
+ * topic prefix before ':' (e.g., topic 'audio:play' -> 'audio' service).
  *
  * Returns true if a service handled the message, false otherwise.
  *
- * @param windowId - The napplet window that sent the event
- * @param event - The IPC-PEER event to route
- * @param topic - The full topic string (e.g., 'audio:register')
+ * @param windowId - The napplet window that sent the message
+ * @param message - The NappletMessage envelope to route
  * @param services - The service registry to look up handlers
  * @param sendToNapplet - Callback to send messages back to the napplet
- * @returns true if a service handled the event, false if no matching service
+ * @returns true if a service handled the message, false if no matching service
  *
  * @example
  * ```ts
- * const handled = routeServiceMessage(windowId, event, 'audio:play', services, sendToNapplet);
- * if (!handled) eventBuffer.bufferAndDeliver(event, windowId);
+ * const handled = routeServiceMessage(windowId, msg, services, sendToNapplet);
+ * if (!handled) { // fallback handling }
  * ```
  */
 export function routeServiceMessage(
   windowId: string,
-  event: NostrEvent,
-  topic: string,
+  message: NappletMessage,
   services: ServiceRegistry,
   sendToNapplet: SendToNapplet,
 ): boolean {
-  const colonIndex = topic.indexOf(':');
-  if (colonIndex === -1) return false;
+  const send = (msg: NappletMessage): void => sendToNapplet(windowId, msg);
 
-  const prefix = topic.slice(0, colonIndex);
-  const handler = services[prefix];
-  if (!handler) return false;
+  // NUB-domain services: signer.*, relay.*, storage.* route by type prefix
+  const domain = message.type.split('.')[0];
+  const handler = services[domain];
+  if (handler) {
+    handler.handleMessage(windowId, message, send);
+    return true;
+  }
 
-  const send = (msg: unknown[]): void => sendToNapplet(windowId, msg);
-  handler.handleMessage(windowId, ['EVENT', event], send);
-  return true;
+  // IFC-routed services: audio and notifications receive ifc.emit with topic prefix
+  if (message.type === 'ifc.emit' && typeof (message as any).topic === 'string') {
+    const prefix = ((message as any).topic as string).split(':')[0];
+    const ifcHandler = services[prefix];
+    if (ifcHandler) {
+      ifcHandler.handleMessage(windowId, message, send);
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**
