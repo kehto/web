@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: NIP-5D Migration Implementation
-status: executing
-stopped_at: Completed 06-02-PLAN.md (resolveCapabilitiesNub NUB domain resolution)
-last_updated: "2026-04-07T21:49:41.780Z"
+status: verifying
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-04-07T21:52:22.407Z"
 last_activity: 2026-04-07
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 Phase: 06 (kehto-acl-implementation) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-07
 
 Progress: [----------] 0% (v1.1)
@@ -48,6 +48,7 @@ Progress: [----------] 0% (v1.1)
 
 *Updated after each plan completion*
 | Phase 06-kehto-acl-implementation P02 | 2 | 2 tasks | 3 files |
+| Phase 06-kehto-acl-implementation P01 | 4 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -60,6 +61,8 @@ Progress: [----------] 0% (v1.1)
 - Dedicated `.error` type suffix for error responses
 - [Phase 06-kehto-acl-implementation]: resolveCapabilitiesNub placed in @kehto/acl alongside CAP_* constants — canonical capability mapping
 - [Phase 06-kehto-acl-implementation]: NubMessage defined locally in resolve.ts to preserve zero-dep constraint of @kehto/acl
+- [Phase 06-kehto-acl-implementation]: toKey() is the single point of change for ACL key schema — all mutations delegate to it, updating it propagates NIP-5D 2-segment format everywhere
+- [Phase 06-kehto-acl-implementation]: migrateAclState() uses conservative merge semantics: OR caps, OR blocked, MAX quota — never silently removes permissions
 
 ### Blockers/Concerns
 
@@ -68,6 +71,6 @@ Progress: [----------] 0% (v1.1)
 
 ## Session Continuity
 
-Last session: 2026-04-07T21:49:41.778Z
-Stopped at: Completed 06-02-PLAN.md (resolveCapabilitiesNub NUB domain resolution)
+Last session: 2026-04-07T21:52:22.404Z
+Stopped at: Completed 06-01-PLAN.md
 Resume: Run `/gsd:plan-phase 6` to plan @kehto/acl Implementation

@@ -65,7 +65,7 @@ Plans:
 
 **Spec reference:** Each phase corresponds to one migration doc in `/docs/`.
 
-- [ ] **Phase 6: @kehto/acl Implementation** - Implement Identity key schema change, NUB capability resolution, and ACL state migration utility
+- [x] **Phase 6: @kehto/acl Implementation** - Implement Identity key schema change, NUB capability resolution, and ACL state migration utility (completed 2026-04-07)
 - [ ] **Phase 7: @kehto/runtime Implementation** - Replace NIP-01 verb dispatch with NUB domain-prefix dispatch, remove AUTH, rewrite handlers, anchor session identity
 - [ ] **Phase 8: @kehto/shell Implementation** - Enforce envelope-only guard, inject window.nostr, advertise capabilities, trigger ACL migration
 - [ ] **Phase 9: @kehto/services Implementation** - Migrate ServiceHandler interface and all service handlers to NappletMessage envelope format
@@ -85,7 +85,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — Identity key schema change (toKey dTag:hash) + migrateAclState() utility + tests
+- [x] 06-01-PLAN.md — Identity key schema change (toKey dTag:hash) + migrateAclState() utility + tests
 - [x] 06-02-PLAN.md — resolveCapabilitiesNub() NUB domain resolution + tests
 
 ### Phase 7: @kehto/runtime Implementation
@@ -137,7 +137,7 @@ v1.0 phases are complete. v1.1 executes: 6 → 7 → 8 → 9 (phases 8 and 9 may
 | 3. Runtime Migration Doc | v1.0 | 2/2 | Complete | 2026-04-07 |
 | 4. Shell Migration Doc | v1.0 | 1/1 | Complete | 2026-04-07 |
 | 5. Services Migration Doc | v1.0 | 1/1 | Complete | 2026-04-07 |
-| 6. @kehto/acl Implementation | v1.1 | 1/2 | In Progress|  |
+| 6. @kehto/acl Implementation | v1.1 | 2/2 | Complete   | 2026-04-07 |
 | 7. @kehto/runtime Implementation | v1.1 | 0/? | Not started | - |
 | 8. @kehto/shell Implementation | v1.1 | 0/? | Not started | - |
 | 9. @kehto/services Implementation | v1.1 | 0/? | Not started | - |
