@@ -58,8 +58,18 @@ export function migrateAclState(state: AclState): AclState {
       }
       migrated = true;
     } else {
-      // Already new format or other key — preserve as-is
-      newEntries[key] = entry;
+      // Already new format or other key — merge if collision with a previously migrated entry
+      const existing = newEntries[key];
+      if (existing) {
+        // Collision: old-format entry was processed first under the same key — merge
+        newEntries[key] = {
+          caps: existing.caps | entry.caps,
+          blocked: existing.blocked || entry.blocked,
+          quota: Math.max(existing.quota, entry.quota),
+        };
+      } else {
+        newEntries[key] = entry;
+      }
     }
   }
 

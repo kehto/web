@@ -25,7 +25,7 @@
   "scripts": {
     "build": "tsup",
     "type-check": "tsc --noEmit",
-    "test:unit": "echo 'no unit tests yet'"
+    "test:unit": "vitest run --config ../../vitest.config.ts"
   },
   "license": "MIT",
   "repository": {
