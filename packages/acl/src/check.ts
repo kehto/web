@@ -10,17 +10,19 @@ import type { AclState, Identity } from './types.js';
 /**
  * Compute composite key from identity fields.
  *
+ * Under NIP-5D v0.1.0, the key is 'dTag:hash' (pubkey is ignored).
+ *
  * @param identity - Napplet identity
- * @returns Composite key string 'pubkey:dTag:hash'
+ * @returns Composite key string 'dTag:hash'
  *
  * @example
  * ```ts
- * toKey({ pubkey: 'abc', dTag: 'chat', hash: 'ff00' })
- * // => 'abc:chat:ff00'
+ * toKey({ dTag: 'chat', hash: 'ff00' })
+ * // => 'chat:ff00'
  * ```
  */
 export function toKey(identity: Identity): string {
-  return `${identity.pubkey}:${identity.dTag}:${identity.hash}`;
+  return `${identity.dTag}:${identity.hash}`;
 }
 
 /**
@@ -44,7 +46,7 @@ export function toKey(identity: Identity): string {
  * import { CAP_RELAY_READ } from '@kehto/acl';
  *
  * const state = createState('restrictive');
- * const id = { pubkey: 'abc', dTag: 'chat', hash: 'ff00' };
+ * const id = { dTag: 'chat', hash: 'ff00' };
  *
  * check(state, id, CAP_RELAY_READ); // false (restrictive, no entry)
  *

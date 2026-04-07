@@ -39,12 +39,17 @@ export const CAP_NONE = 0;
 /**
  * Napplet identity — composite key for ACL lookups.
  *
- * @param pubkey - Ephemeral session public key (hex)
- * @param dTag - Derived tag (deterministic from pubkey + napp type)
+ * Under NIP-5D v0.1.0, identity is assigned from the NIP-5A manifest
+ * at iframe creation time. The pubkey field is no longer used.
+ *
+ * @param pubkey - (deprecated) Ephemeral AUTH keypair pubkey. Ignored by toKey().
+ * @param dTag - Derived tag (deterministic from napp type)
  * @param hash - Aggregate hash of napplet build artifacts
  */
 export interface Identity {
-  readonly pubkey: string;
+  /** @deprecated NIP-5D: AUTH keypair no longer exists. Pass '' or omit entirely.
+   *  Kept as optional for backward compatibility during data migration. */
+  readonly pubkey?: string;
   readonly dTag: string;
   readonly hash: string;
 }
@@ -73,7 +78,7 @@ export interface AclEntry {
  *
  * @param defaultPolicy - 'permissive' grants all caps to unknown identities;
  *                        'restrictive' denies all caps to unknown identities
- * @param entries - Map from composite key ('pubkey:dTag:hash') to AclEntry
+ * @param entries - Map from composite key ('dTag:hash') to AclEntry
  */
 export interface AclState {
   readonly defaultPolicy: 'permissive' | 'restrictive';
