@@ -32,20 +32,21 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 @napplet/core is the shared foundation. It lives in @napplet and is consumed by @kehto as a peer dependency.
 
-## Current State
+## Current Milestone: v1.1 NIP-5D Migration Implementation
 
-**Shipped:** v1.0 — NIP-5D Migration & Gap Analysis (2026-04-07)
+**Goal:** Implement the code changes described in the v1.0 migration documents — update all 4 kehto packages to support NIP-5D v0.1.0 envelope format. Clean break — no backward compatibility with the old NIP-01 array format.
 
-Five migration/analysis documents produced covering the complete specification delta between the previous napplet protocol and NIP-5D v0.1.0. All 17 requirements satisfied, cross-document consistency verified.
+**Target features:**
+- @kehto/acl: Identity key schema change, capability-to-NUB mapping
+- @kehto/runtime: NUB dispatch (envelope-only), AUTH removal, handler rewrites, session identity
+- @kehto/shell: Envelope guard, window.nostr injection, capability advertisement
+- @kehto/services: ServiceHandler interface change, per-handler migration
 
-**Deliverables in `/docs/`:**
-- GAP-ANALYSIS.md — boundary contracts, wire format, silent failures
-- ACL-MIGRATION.md — identity schema, capability mapping, data migration
-- RUNTIME-MIGRATION.md — NUB dispatch, AUTH removal, handler rewrites, session identity
-- SHELL-MIGRATION.md — envelope guard, window.nostr injection, capability advertisement
-- SERVICES-MIGRATION.md — ServiceHandler interface, per-handler migration paths
+**Key context:** Each migration doc in /docs/ is the spec for its phase. No dual-mode dispatch — clean break from NIP-01 arrays. Migration order: acl → runtime → (shell ‖ services).
 
-**Next:** Code implementation of the migration changes documented in v1.0.
+## Previous State
+
+**Shipped:** v1.0 — NIP-5D Migration & Gap Analysis (2026-04-07) — 5 migration docs in /docs/
 
 ## Key Decisions
 
