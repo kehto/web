@@ -163,6 +163,9 @@ importers:
 
   packages/shell:
     dependencies:
+      '@kehto/acl':
+        specifier: workspace:*
+        version: link:../acl
       '@kehto/runtime':
         specifier: workspace:*
         version: link:../runtime

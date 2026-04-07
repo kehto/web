@@ -1,14 +1,17 @@
 /**
  * ACL Store — composite-keyed capability registry for napplet identity.
  *
- * ACL entries are keyed by pubkey:dTag:aggregateHash — a composite key
- * that ties permissions to a specific napplet build.
+ * ACL entries are keyed by dTag:aggregateHash — a 2-segment composite key
+ * that ties permissions to a specific napplet build (NIP-5D format).
+ * Old 3-segment keys (pubkey:dTag:hash) are automatically migrated via migrateAclState().
  *
  * Default policy is PERMISSIVE: unknown identities have all capabilities granted.
  */
 
 import type { Capability } from '@napplet/core';
 import { ALL_CAPABILITIES, DESTRUCTIVE_KINDS } from '@napplet/core';
+import { migrateAclState } from '@kehto/acl';
+import type { AclState } from '@kehto/acl';
 import type { AclEntry } from './types.js';
 
 const STORAGE_KEY = 'napplet:acl';
@@ -31,6 +34,25 @@ function aclKey(pubkey: string, dTag: string, aggregateHash: string): string {
 }
 
 const store = new Map<string, InternalAclEntry>();
+
+// Capability name to bit position mapping for bitfield conversion (matches @kehto/acl/types.ts)
+const CAP_BITS: Record<string, number> = {
+  'relay:read': 1, 'relay:write': 2, 'cache:read': 4, 'cache:write': 8,
+  'hotkey:forward': 16, 'sign:event': 32, 'sign:nip04': 64, 'sign:nip44': 128,
+  'state:read': 256, 'state:write': 512,
+};
+
+function capArrayToBitfield(caps: Capability[]): number {
+  let bits = 0;
+  for (const cap of caps) bits |= (CAP_BITS[cap] ?? 0);
+  return bits;
+}
+
+function bitfieldToCapArray(bits: number): Capability[] {
+  return (Object.entries(CAP_BITS)
+    .filter(([, bit]) => (bits & bit) !== 0)
+    .map(([name]) => name)) as Capability[];
+}
 
 function getOrCreate(pubkey: string, dTag: string, aggregateHash: string): InternalAclEntry {
   const key = aclKey(pubkey, dTag, aggregateHash);
@@ -204,12 +226,12 @@ export const aclStore = {
     }
   },
 
-  /** Load the ACL store from localStorage. */
+  /** Load the ACL store from localStorage. Migrates old 3-segment keys to 2-segment format. */
   load(): void {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
-      const entries = JSON.parse(raw) as Array<
+      let entries = JSON.parse(raw) as Array<
         [string, {
           pubkey: string;
           dTag?: string;
@@ -219,6 +241,40 @@ export const aclStore = {
           stateQuota?: number;
         }]
       >;
+
+      // Check for old 3-segment keys and migrate if needed
+      const hasOldKeys = entries.some(([key]) => key.split(':').length === 3);
+      if (hasOldKeys) {
+        // Build temporary AclState for migration
+        const tempState: AclState = {
+          defaultPolicy: 'permissive',
+          entries: Object.fromEntries(
+            entries.map(([key, val]) => [key, {
+              caps: capArrayToBitfield(val.capabilities),
+              blocked: val.blocked,
+              quota: val.stateQuota ?? DEFAULT_STATE_QUOTA,
+            }])
+          ),
+        };
+        const migrated = migrateAclState(tempState);
+        if (migrated !== tempState) {
+          // Rebuild entries from migrated state
+          entries = Object.entries(migrated.entries).map(([key, entry]) => {
+            const parts = key.split(':');
+            return [key, {
+              pubkey: '',
+              dTag: parts[0] ?? '',
+              aggregateHash: parts[1] ?? '',
+              capabilities: bitfieldToCapArray(entry.caps),
+              blocked: entry.blocked,
+              stateQuota: entry.quota,
+            }] as [string, typeof entries[0][1]];
+          });
+          // Re-persist migrated data immediately
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+        }
+      }
+
       store.clear();
       for (const [key, val] of entries) {
         if (val.dTag === undefined || val.aggregateHash === undefined) continue;

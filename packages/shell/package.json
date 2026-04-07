@@ -18,6 +18,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@kehto/acl": "workspace:*",
     "@kehto/runtime": "workspace:*"
   },
   "peerDependencies": {
