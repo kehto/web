@@ -56,9 +56,9 @@ Plans:
   2. The AUTH machinery removal scope is quantified (~40% of current code) with a list of affected files and functions
   3. The relay, signer, storage, and ifc handler rewrites required by envelope format are documented
   4. The SessionEntry identity anchor decision (post-AUTH) is documented with the chosen design and rationale
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
-- [ ] 03-01-PLAN.md -- NUB dispatch design, AUTH removal scope (sections 1-2)
+- [x] 03-01-PLAN.md -- NUB dispatch design, AUTH removal scope (sections 1-2)
 - [ ] 03-02-PLAN.md -- Handler rewrites for envelope format, SessionEntry identity anchor (sections 3-4)
 
 ### Phase 4: Shell Migration Doc
@@ -89,6 +89,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Gap Analysis | 2/2 | Complete   | 2026-04-07 |
 | 2. ACL Migration Doc | 1/1 | Complete   | 2026-04-07 |
-| 3. Runtime Migration Doc | 0/2 | Not started | - |
+| 3. Runtime Migration Doc | 1/2 | In Progress|  |
 | 4. Shell Migration Doc | 0/? | Not started | - |
 | 5. Services Migration Doc | 0/? | Not started | - |

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-acl-migration-doc-01-PLAN.md
-last_updated: "2026-04-07T18:01:38.033Z"
+stopped_at: Completed 03-runtime-migration-doc-01-PLAN.md
+last_updated: "2026-04-07T18:14:06.565Z"
 last_activity: 2026-04-07
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 5
+  completed_plans: 4
   percent: 0
 ---
 
@@ -54,6 +54,7 @@ Progress: [----------] 0%
 *Updated after each plan completion*
 | Phase 01-gap-analysis P02 | 5 | 2 tasks | 1 files |
 | Phase 02-acl-migration-doc P01 | 2 | 2 tasks | 1 files |
+| Phase 03-runtime-migration-doc P01 | 15 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,9 @@ Recent decisions affecting current work:
 - [Phase 02-acl-migration-doc]: Identity.pubkey kept optional (not removed) for backward compat — toKey() ignores it under NIP-5D
 - [Phase 02-acl-migration-doc]: migrateAclState() belongs in @kehto/shell acl-store.ts — @kehto/acl is a pure zero-dep module with no I/O
 - [Phase 02-acl-migration-doc]: IFC NUB reuses relay:write/relay:read rather than introducing new capability bits
+- [Phase 03-runtime-migration-doc]: Dual-mode dispatch is the correct transition strategy: NUB path checked first, legacy array path as fallback — NIP-5D napplets bypass AUTH queue entirely
+- [Phase 03-runtime-migration-doc]: AUTH removal is phased: Phase 1 adds NUB path (no AUTH touch), Phase 2 makes AUTH optional for legacy, Phase 3 removes AUTH entirely when legacy support ends
+- [Phase 03-runtime-migration-doc]: Source-based identity (MessageEvent.source) replaces AUTH as security boundary; originRegistry.register() must be called synchronously at iframe creation before any messages arrive
 
 ### Pending Todos
 
@@ -84,6 +88,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-07T17:59:37.648Z
-Stopped at: Completed 02-acl-migration-doc-01-PLAN.md
+Last session: 2026-04-07T18:14:06.562Z
+Stopped at: Completed 03-runtime-migration-doc-01-PLAN.md
 Resume file: None

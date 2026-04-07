@@ -20,8 +20,8 @@
 
 ## Runtime Migration
 
-- [ ] **RT-01**: Document NUB dispatch design replacing NIP-01 verb switch
-- [ ] **RT-02**: Document AUTH machinery removal scope (~40% of current code)
+- [x] **RT-01**: Document NUB dispatch design replacing NIP-01 verb switch
+- [x] **RT-02**: Document AUTH machinery removal scope (~40% of current code)
 - [ ] **RT-03**: Document relay/signer/storage/ifc handler rewrites for envelope format
 - [ ] **RT-04**: Document SessionEntry identity anchor decision (post-AUTH)
 
