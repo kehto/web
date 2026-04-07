@@ -34,11 +34,11 @@ Spec: `docs/SHELL-MIGRATION.md`
 
 Spec: `docs/SERVICES-MIGRATION.md`
 
-- [ ] **SVC-I01**: Update ServiceHandler interface (unknown[] → NappletMessage)
-- [ ] **SVC-I02**: Migrate signer service handler to envelope format
+- [x] **SVC-I01**: Update ServiceHandler interface (unknown[] → NappletMessage)
+- [x] **SVC-I02**: Migrate signer service handler to envelope format
 - [ ] **SVC-I03**: Migrate audio and notifications handlers to IFC envelope format
 - [ ] **SVC-I04**: Migrate relay-pool, cache, and coordinated-relay handlers
-- [ ] **SVC-I05**: Add identitySource guard for getPubkey() calls
+- [x] **SVC-I05**: Add identitySource guard for getPubkey() calls
 
 ## Future Requirements
 

@@ -135,7 +135,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 09-01-PLAN.md — ServiceHandler interface change, service-dispatch rewrite, runtime delegation updates, signer service migration + tests
+- [x] 09-01-PLAN.md — ServiceHandler interface change, service-dispatch rewrite, runtime delegation updates, signer service migration + tests
 - [ ] 09-02-PLAN.md — Audio + notifications (IFC-routed) + relay-pool + cache + coordinated-relay migrations + notification tests
 
 ## Progress

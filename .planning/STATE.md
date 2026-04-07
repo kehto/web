@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: NIP-5D Migration Implementation
-status: verifying
-stopped_at: Completed 08-02-PLAN.md
-last_updated: "2026-04-07T22:50:10.184Z"
+status: executing
+stopped_at: Completed 09-01-PLAN.md
+last_updated: "2026-04-07T23:04:43.174Z"
 last_activity: 2026-04-07
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 9
+  completed_plans: 8
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-07)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 08 — kehto-shell-implementation
+**Current focus:** Phase 09 — kehto-services-implementation
 
 ## Current Position
 
-Phase: 9
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 09 (kehto-services-implementation) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
 Last activity: 2026-04-07
 
 Progress: [----------] 0% (v1.1)
@@ -54,6 +54,7 @@ Progress: [----------] 0% (v1.1)
 | Phase 07-kehto-runtime-implementation P03 | 6 minutes | 2 tasks | 4 files |
 | Phase 08-kehto-shell-implementation P01 | 4 | 3 tasks | 6 files |
 | Phase 08-kehto-shell-implementation P02 | 2 | 3 tasks | 3 files |
+| Phase 09-kehto-services-implementation P01 | 8 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,9 @@ Progress: [----------] 0% (v1.1)
 - [Phase 08-kehto-shell-implementation]: Clean break: no Array.isArray fallback in handleMessage — NIP-5D envelope-only per CONTEXT.md decision
 - [Phase 08-kehto-shell-implementation]: sendChallenge removed from ShellBridge interface entirely — NIP-5D has no AUTH challenge handshake
 - [Phase 08-kehto-shell-implementation]: shell.ready handled locally in bridge, not forwarded to runtime — shell handshake is adapter concern only
+- [Phase 09-kehto-services-implementation]: ServiceHandler.handleMessage is NappletMessage-only — unknown[] removed, compile errors catch all missed migrations
+- [Phase 09-kehto-services-implementation]: routeServiceMessage routes NUB-domain by message.type prefix; IFC services by message.topic prefix on ifc.emit
+- [Phase 09-kehto-services-implementation]: signer-service.ts switches on message.type for 7 operations, responds with typed .result/.error envelopes; other service handlers deferred to Plan 09-02
 
 ### Blockers/Concerns
 
@@ -91,6 +95,6 @@ Progress: [----------] 0% (v1.1)
 
 ## Session Continuity
 
-Last session: 2026-04-07T22:46:33.201Z
-Stopped at: Completed 08-02-PLAN.md
+Last session: 2026-04-07T23:04:43.172Z
+Stopped at: Completed 09-01-PLAN.md
 Resume: Run `/gsd:plan-phase 6` to plan @kehto/acl Implementation
