@@ -211,7 +211,243 @@ const registry = new Map<Window, OriginEntry>();
 
 ## 2. window.nostr Injection (SH-02)
 
-*See Task 2 — placeholder for Section 2.*
+### 2.1 Background
+
+Under RUNTIME-SPEC v2.0.0, napplets accessed signing through the **signer proxy** protocol (RUNTIME-SPEC sections 4.1–4.7). Napplets sent signing requests as ephemeral kind 29001 events over postMessage; the shell responded with kind 29002 response events. The `@napplet/shim` installed a `window.nostr` object that internally used this round-trip mechanism — napplets could call `window.nostr.signEvent(event)` and the shim translated the call to a kind 29001 postMessage and awaited the kind 29002 response.
+
+The napplet never had a "real" NIP-07 interface — it had a proxy that looked like NIP-07 from the call site, but used postMessage under the hood. The shell's `auth.getSigner()` provided the actual NIP-07 signer; it never surfaced to the iframe directly.
+
+**NIP-5D changes this:** The specification states "Shells MUST provide a NIP-07 window.nostr implementation to each napplet iframe." This is a **shell responsibility**, not just a shim responsibility.
+
+The implication for napplets without `@napplet/shim`: a vanilla JavaScript napplet that uses only `window.nostr` (standard NIP-07) must still have signing capability. If `window.nostr` is only provided by the shim's internal postMessage proxy, a shim-less napplet gets nothing. The NIP-5D MUST requirement closes this gap by requiring the shell to ensure `window.nostr` is available regardless of whether the napplet includes the shim.
+
+---
+
+### 2.2 The Sandbox Constraint
+
+This is the core challenge. Napplet iframes use `sandbox="allow-scripts"` **without** `allow-same-origin`. This has critical security implications:
+
+| Constraint | Implication | Why it matters |
+|------------|-------------|---------------|
+| No `allow-same-origin` | The iframe has an **opaque origin** (`null`) | Cross-origin rules apply even when hosted on the same domain |
+| Opaque origin | Cannot access parent's `window.nostr` | `window.parent.nostr` is inaccessible from inside the sandbox |
+| Cross-origin iframe | `iframe.contentWindow.nostr = ...` blocked | Setting properties on a cross-origin window throws a security error |
+| Cross-origin document | `iframe.contentDocument` inaccessible | Cannot inject `<script>` tags via DOM manipulation |
+
+The following approaches that work for same-origin iframes **do NOT work** for napplet iframes:
+
+**1. Direct property injection — FAILS:**
+```javascript
+// In the shell page:
+const iframe = document.createElement('iframe');
+iframe.src = nappletUrl;
+document.body.appendChild(iframe);
+iframe.contentWindow.nostr = myNostr; // SecurityError: cross-origin window
+```
+The iframe is cross-origin due to the opaque origin created by `sandbox` without `allow-same-origin`. Any attempt to set properties on `iframe.contentWindow` after creation throws a `DOMException`.
+
+**2. Script tag injection via DOM — FAILS:**
+```javascript
+// In the shell page:
+const script = iframe.contentDocument.createElement('script'); // SecurityError
+```
+`iframe.contentDocument` is null or inaccessible for cross-origin frames — the browser refuses to give the parent access to the child's document.
+
+**3. Parent window interception — FAILS:**
+```javascript
+// In the napplet iframe:
+window.nostr = window.parent.nostr; // SecurityError: cannot access cross-origin parent property
+```
+The napplet cannot reach into the parent page's scope either. The `window.parent` reference is accessible, but accessing properties on it (other than `postMessage` and a few safe methods) throws.
+
+The constraint is fundamental: **any injection mechanism must deliver the nostr implementation INTO the iframe's JavaScript context without relying on cross-origin property access.**
+
+---
+
+### 2.3 Design Options
+
+Three viable mechanisms exist for delivering a `window.nostr` implementation into a sandboxed napplet iframe:
+
+---
+
+**Option A: srcdoc with injected bootstrap script**
+
+The shell constructs the iframe's HTML content using the `srcdoc` attribute instead of a `src` URL. Before the napplet's actual content, the shell injects a `<script>` block that defines `window.nostr`:
+
+```html
+<!-- Shell constructs this HTML and sets iframe.srcdoc = ... -->
+<!DOCTYPE html>
+<html>
+<head>
+<script>
+// Injected by shell — runs before napplet code
+window.nostr = {
+  async getPublicKey() {
+    return shellRequest('signer.getPublicKey', {});
+  },
+  async signEvent(event) {
+    return shellRequest('signer.signEvent', { event });
+  },
+  // ... nip04, nip44, getRelays
+};
+
+function shellRequest(type, params) {
+  return new Promise((resolve, reject) => {
+    const id = crypto.randomUUID();
+    window.addEventListener('message', function handler(e) {
+      if (e.data?.type === type + '.result' && e.data?.id === id) {
+        window.removeEventListener('message', handler);
+        if (e.data.error) reject(new Error(e.data.error));
+        else resolve(e.data.result ?? e.data);
+      }
+    });
+    window.parent.postMessage({ type, id, ...params }, '*');
+  });
+}
+</script>
+</head>
+<body>
+<!-- Napplet HTML content here -->
+</body>
+</html>
+```
+
+- **Pro:** Shell fully controls `window.nostr` injection — it runs synchronously before any napplet code
+- **Pro:** Works with `sandbox="allow-scripts"` — no `allow-same-origin` needed
+- **Pro:** `window.nostr` is available synchronously when napplet module code runs
+- **Con:** Requires the shell to fetch the napplet HTML and wrap it in a shell-provided srcdoc. Changes the iframe loading model from `src` URL to `srcdoc` blob, which has implications for relative URL resolution inside the napplet
+- **Con:** Large napplet HTML payloads may hit srcdoc size limits in some browsers (typically several MB, but the limit is implementation-specific)
+- **Con:** Napplet's `document.URL` and `location.href` return `about:srcdoc` instead of the original URL, which may affect napplets that rely on URL-based routing
+
+---
+
+**Option B: postMessage-based initialization handshake**
+
+The napplet loads normally via `src` URL. When it loads, the shim (or a minimal bootstrap included in the napplet build) sends a `{ type: "shell.ready" }` postMessage to the parent. The shell responds with `{ type: "shell.init", capabilities: {...}, services: [...] }`. The shim then knows that `window.nostr` requests should use `signer.*` NUB envelope messages, which it already handles via the postMessage proxy.
+
+```
+Napplet loads → shim sends { type: "shell.ready" }
+             → shell responds { type: "shell.init", capabilities: { nubs: [...], sandbox: [...] }, services: [...] }
+             → shim installs capabilities, window.nostr already proxied via signer.* NUBs
+```
+
+- **Pro:** No change to iframe loading model — napplet still loads from its URL
+- **Pro:** Works with any sandbox configuration
+- **Pro:** The shim already handles all NIP-07 methods via signer.* NUB postMessage proxy — `window.nostr` was already available via the shim before NIP-5D
+- **Con:** `window.nostr` is **not** available synchronously — napplet module-level code that calls `window.nostr.getPublicKey()` immediately on import will fail. The handshake requires a round-trip message before the shim's capabilities are confirmed
+- **Con:** Requires the napplet to include `@napplet/shim` — vanilla JS napplets without the shim have no `window.nostr` until the shell provides one via another mechanism
+
+---
+
+**Option C: Shim-as-shell-provided-bootstrap**
+
+The shell injects the `@napplet/shim` bundle URL into the napplet HTML as the first `<script>` tag, using either the srcdoc mechanism or a Service Worker that intercepts the napplet URL and prepends the shim. The shim itself provides `window.nostr` via its internal signer.* NUB proxy.
+
+```javascript
+// Shell intercepts napplet HTML fetch (via Service Worker), prepends:
+<script src="https://cdn.jsdelivr.net/npm/@napplet/shim@latest/dist/shim.min.js"></script>
+```
+
+- **Pro:** Single implementation of `window.nostr` (the shim) — no duplication between shell-injected proxy and shim proxy
+- **Pro:** The shim already handles all NIP-07 methods and capability queries
+- **Con:** Still requires srcdoc or Service Worker for injection — the mechanism complexity is preserved
+- **Con:** Couples the shell to the specific shim CDN URL or bundled path — an update to the shim requires an update to the shell's injection mechanism
+- **Con:** Service Worker intercept adds a non-trivial service worker lifecycle dependency to every napplet host
+
+---
+
+### 2.4 Recommended Approach
+
+**Recommendation: Option B (postMessage handshake) as the primary mechanism, with Option A (srcdoc) as the fallback for shim-less napplets.**
+
+**Rationale:**
+
+The NIP-5D MUST requirement — "Shells MUST provide a NIP-07 window.nostr implementation" — does not specify the *mechanism*. The requirement is satisfied if `window.nostr` exists and works in the napplet's JavaScript context by the time the napplet's application code runs.
+
+For `@napplet/shim` v0.2.0+ napplets (the primary audience):
+
+- The shim's internal `window.nostr` implementation already uses signer.* NUB postMessage messages. This proxy works today for the kind 29001/29002 round-trip and will work for NIP-5D envelope messages after the guard fix (Section 1). The shell "provides" `window.nostr` by ensuring the signer.* NUB messages are handled — whether the shim loads the nostr object or the shell injects it, the end result for the napplet is the same.
+- The Option B handshake (shell.ready / shell.init) solves the one remaining gap: injecting the capability set and service list synchronously. The shim can request these at load time and fall back to safe defaults while awaiting the response.
+
+For vanilla JS napplets (no shim):
+
+- The shell SHOULD use Option A (srcdoc bootstrap) to inject a minimal `window.nostr` proxy before the napplet's script runs. The injected proxy uses the same `signer.*` NUB envelope messages.
+- This is a fallback path; most napplets will use the shim and the Option B path.
+
+**Critical implementation note:** The shell MUST NOT inject the user's private key or raw signer credentials into the iframe. All signing is proxied through the shell — the iframe's `window.nostr` makes postMessage calls to the shell, which forwards them to `auth.getSigner()` and returns the result. The raw cryptographic material never leaves the shell page.
+
+---
+
+### 2.5 NIP-07 Method Coverage
+
+All six NIP-07 method groups must be supported. Each maps to a corresponding `signer.*` NUB message type:
+
+| NIP-07 Method | NUB Message Type | Response Type | ACL Capability |
+|---------------|-----------------|---------------|---------------|
+| `window.nostr.getPublicKey()` | `signer.getPublicKey` | `signer.getPublicKey.result` (field: `publicKey`) | None (always allowed) |
+| `window.nostr.signEvent(event)` | `signer.signEvent` | `signer.signEvent.result` (field: `event`) | `sign:event` |
+| `window.nostr.getRelays()` | `signer.getRelays` | `signer.getRelays.result` (field: `relays`) | None (always allowed) |
+| `window.nostr.nip04.encrypt(pubkey, plaintext)` | `signer.nip04.encrypt` | `signer.nip04.encrypt.result` (field: `ciphertext`) | `sign:nip04` |
+| `window.nostr.nip04.decrypt(pubkey, ciphertext)` | `signer.nip04.decrypt` | `signer.nip04.decrypt.result` (field: `plaintext`) | `sign:nip04` |
+| `window.nostr.nip44.encrypt(pubkey, plaintext)` | `signer.nip44.encrypt` | `signer.nip44.encrypt.result` (field: `ciphertext`) | `sign:nip44` |
+| `window.nostr.nip44.decrypt(pubkey, ciphertext)` | `signer.nip44.decrypt` | `signer.nip44.decrypt.result` (field: `plaintext`) | `sign:nip44` |
+
+**Wire format for NUB signer messages (NIP-5D):**
+
+```typescript
+// Request (napplet → shell via postMessage)
+{ type: "signer.signEvent", id: "uuid", event: { kind: 1, ... } }
+
+// Response (shell → napplet via postMessage)
+{ type: "signer.signEvent.result", id: "uuid", event: { kind: 1, sig: "...", ... } }
+
+// Error response
+{ type: "signer.signEvent.result", id: "uuid", error: "capability sign:event not granted" }
+```
+
+The `id` field is a client-generated UUID. The shell echoes it on the response so the napplet's `window.nostr` proxy can match responses to pending requests.
+
+---
+
+### 2.6 Security Boundaries
+
+**Shell controls which napplet gets which signer:**
+
+The `AuthHooks.getSigner()` (defined in `types.ts` line 127) returns the NIP-07 compatible signer for the **current user**. Each `signer.*` NUB request is routed through the runtime's dispatch path, which resolves the requesting `windowId` to a session entry before forwarding to the signer. The shell MUST NOT give one napplet access to a signer intended for a different user.
+
+**ACL enforcement — signer operations are gated:**
+
+All `signer.*` NUB requests go through the runtime's ACL enforcement path before reaching the signer. Specifically:
+
+- `signer.signEvent` → requires `sign:event` capability (ACL bit `CAP_SIGN_EVENT`)
+- `signer.nip04.*` → requires `sign:nip04` capability (ACL bit `CAP_SIGN_NIP04`)
+- `signer.nip44.*` → requires `sign:nip44` capability (ACL bit `CAP_SIGN_NIP44`)
+- `signer.getPublicKey`, `signer.getRelays` → no ACL requirement (informational only)
+
+The `window.nostr` proxy in the iframe MUST route through these ACL gates — it MUST NOT bypass them by calling the signer directly. The correct path is: `napplet calls window.nostr.signEvent()` → postMessage `signer.signEvent` → runtime ACL gate → `auth.getSigner().signEvent()` → response.
+
+**Consent gating for destructive signing kinds:**
+
+Signing requests for kinds 0 (metadata), 3 (contacts), 5 (deletion), and 10002 (relay list) MUST always prompt the user for approval via the `registerConsentHandler` callback. This is a safety floor that cannot be waived by ACL grants. The consent gate is enforced at the `signer.signEvent` handler in the runtime, not in the `window.nostr` proxy — the proxy simply relays the request.
+
+**No raw key exposure:**
+
+The shell MUST NOT inject the user's private key (`nsec`, raw bytes, or any representation) into the iframe's JavaScript context. The injected `window.nostr` proxy calls `window.parent.postMessage(...)` for every operation — the shell receives the request, signs using `auth.getSigner()`, and returns only the signed result. The private key never crosses the postMessage boundary.
+
+**Origin validation:**
+
+The `window.nostr` proxy in the iframe sends postMessages to `window.parent` using the `'*'` target origin (since the iframe's own origin is opaque and cannot filter on the parent's origin). The shell-side handler in `handleMessage()` validates that the request arrived from a known registered window (`originRegistry.getWindowId(event.source)`) before processing any `signer.*` request. Requests from unregistered windows are silently dropped.
+
+---
+
+### 2.7 Affected Files
+
+| File | Change | Impact |
+|------|--------|--------|
+| `packages/shell/src/shell-bridge.ts` or new `packages/shell/src/shell-init.ts` | `window.nostr` bootstrap script generation (Option A) and/or shell.ready/shell.init handshake handler (Option B) | **HIGH** — new injection logic, may be extracted to a dedicated module for clarity |
+| `packages/shell/src/hooks-adapter.ts` | `auth.getSigner()` and `auth.getUserPubkey()` usage in signer NUB handler | **LOW** — existing `AuthAdapter` already wires to `shellHooks.auth.getSigner()`; no change to adapter needed if the runtime's signer handler uses these existing hooks |
+| `packages/shell/src/types.ts` | Optional `ShellNostrBootstrap` hook type if Option A is used (the shell needs to construct the bootstrap script for srcdoc injection) | **LOW** — additive only |
+| `napplet/packages/shim/src/index.ts` | Replace kind 29001/29002 postMessage proxy with `signer.*` NUB envelope messages; add `shell.ready` init message; read capability set from `shell.init` response | **HIGH** — lives in @napplet repo, not @kehto; coordinated change required with @napplet release |
 
 ---
 
