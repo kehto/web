@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: NIP-5D Migration Implementation
-status: executing
-stopped_at: Completed 07-02-PLAN.md
-last_updated: "2026-04-07T22:18:25.107Z"
+status: verifying
+stopped_at: Completed 07-03-PLAN.md
+last_updated: "2026-04-07T22:26:55.046Z"
 last_activity: 2026-04-07
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 Phase: 07 (kehto-runtime-implementation) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-07
 
 Progress: [----------] 0% (v1.1)
@@ -51,6 +51,7 @@ Progress: [----------] 0% (v1.1)
 | Phase 06-kehto-acl-implementation P01 | 4 | 2 tasks | 8 files |
 | Phase 07-kehto-runtime-implementation P01 | 3 minutes | 2 tasks | 6 files |
 | Phase 07-kehto-runtime-implementation P02 | 5 minutes | 2 tasks | 4 files |
+| Phase 07-kehto-runtime-implementation P03 | 6 minutes | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,8 @@ Progress: [----------] 0% (v1.1)
 - [Phase 07-kehto-runtime-implementation]: NUB handler stubs respond with .error type suffix — Plan 03 will fill in full implementations
 - [Phase 07-kehto-runtime-implementation]: handleShellCommand and handleHotkeyForward kept in runtime.ts — will be migrated in Phase 8 (shell)
 - [Phase 07-kehto-runtime-implementation]: discoverySubscriptions removed — dead code after handleReq deletion (only consumer)
+- [Phase 07-kehto-runtime-implementation]: isBusKind check uses filters.length > 0 guard to avoid vacuous true on empty filter arrays
+- [Phase 07-kehto-runtime-implementation]: handleStorageNub placed in state-handler.ts alongside legacy handleStateRequest — both exported
 
 ### Blockers/Concerns
 
@@ -79,6 +82,6 @@ Progress: [----------] 0% (v1.1)
 
 ## Session Continuity
 
-Last session: 2026-04-07T22:18:25.105Z
-Stopped at: Completed 07-02-PLAN.md
+Last session: 2026-04-07T22:26:55.043Z
+Stopped at: Completed 07-03-PLAN.md
 Resume: Run `/gsd:plan-phase 6` to plan @kehto/acl Implementation

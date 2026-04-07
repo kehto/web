@@ -103,7 +103,7 @@ Plans:
 Plans:
 - [x] 07-01-PLAN.md — Type contracts, SessionEntry identity anchor, enforce gate for NUB dispatch
 - [x] 07-02-PLAN.md — handleMessage rewrite (envelope-only), AUTH removal (~269 lines)
-- [ ] 07-03-PLAN.md — Relay/signer/storage/IFC handler implementations + dispatch tests
+- [x] 07-03-PLAN.md — Relay/signer/storage/IFC handler implementations + dispatch tests
 
 ### Phase 8: @kehto/shell Implementation
 **Goal**: @kehto/shell accepts only NappletMessage envelopes, injects window.nostr into sandboxed iframes, and advertises supported capabilities
