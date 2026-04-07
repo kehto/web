@@ -371,12 +371,526 @@ See PITFALLS.md security mistakes section for the full list of post-AUTH securit
 
 ---
 
-## 3. Handler Rewrites for Envelope Format
+## 3. Handler Rewrites for Envelope Format (RT-03)
 
-*(Documented in Plan 02)*
+### 3.1 Overview
+
+Four NUB domain handlers replace the current verb/kind dispatch in `runtime.ts`. The old model routed every inbound message through one of six verb cases (`EVENT`, `REQ`, `CLOSE`, `COUNT`, `REGISTER`, `AUTH`) and then sub-dispatched on `event.kind` to detect signer requests (kind 29001), IPC_PEER traffic (kind 29003), and service discovery (kind 29010).
+
+The new model uses the NUB domain prefix (`msg.type.split('.')[0]`) to dispatch to one of four dedicated handlers: `handleRelayMessage`, `handleSignerMessage`, `handleStorageMessage`, and `handleIfcMessage`. Each handler owns one NUB domain and processes only the flat JSON envelope objects defined in the NIP-5D `@napplet/nub-*` packages.
+
+This section documents each handler's old code path, new message shapes, capability requirements, and affected source files. The [capability mapping table](#14-capability-resolution-migration) in Section 1.4 serves as the authoritative reference for `resolveCapabilitiesNub()` — the per-handler notes below cross-reference it.
+
+**References:**
+- Wire format before/after tables: [GAP-ANALYSIS.md section 1](./GAP-ANALYSIS.md#1-wire-format-change-gap-01)
+- Capability resolution pseudocode: [ACL-MIGRATION.md section 2](./ACL-MIGRATION.md#2-capability-constant-to-nub-domain-mapping)
+- PITFALLS.md Pitfall 5 (ServiceHandler interface), Pitfall 6 (storage proxy), Pitfall 7 (signer proxy), Pitfall 8 (IFC handler mismatch)
 
 ---
 
-## 4. SessionEntry Identity Anchor
+### 3.2 Relay Handler
 
-*(Documented in Plan 02)*
+#### Old Code Path
+
+Relay operations were split across four verb cases in `dispatchVerb()` (lines 224–232) and then through the `handleEvent`, `handleReq`, `handleClose`, and `handleCount` functions. All use NIP-01 array structures:
+
+- **REQ** (`handleReq`, line 660): extracts `subId = msg[1]`, filters from `msg.slice(2)`, subscribes to relay pool via `hooks.relayPool.subscribe()` or delegates to a registered `relay` service, sends buffered events on subscribe, sends `['EOSE', subId]`.
+- **EVENT publish** (`handleEvent`, line 561): extracts `event = msg[1]`, validates pubkey and replay, resolves `relay:write` capability, calls `hooks.relayPool.publish()` (or relay service), responds with `['OK', eventId, true/false, reason]`.
+- **CLOSE** (`handleClose`, invoked from verb switch): closes subscription by subKey, calls `pool.untrackSubscription()`, sends `['CLOSED', subId, '']`.
+- **COUNT** (`handleCount`): extracts `subId` and filters, delegates to relay service if available, sends `['COUNT', subId, {count}]`.
+
+#### New Message Shapes
+
+**Inbound (napplet → shell):**
+
+| NUB Type | Old Format | New Format |
+|----------|-----------|-----------|
+| `relay.subscribe` | `["REQ", "sub-1", {"kinds":[1],"limit":10}]` | `{"type":"relay.subscribe","id":"uuid","subId":"uuid","filters":[...]}` |
+| `relay.close` | `["CLOSE", "sub-1"]` | `{"type":"relay.close","id":"uuid","subId":"uuid"}` |
+| `relay.publish` | `["EVENT", {"kind":1,"content":"hello",...}]` | `{"type":"relay.publish","id":"uuid","event":{...}}` |
+| `relay.query` | `["COUNT", "count-1", {"kinds":[1]}]` | `{"type":"relay.query","id":"uuid","filters":[...]}` |
+
+**Outbound (shell → napplet):**
+
+| Response Type | Old Format | New Format |
+|--------------|-----------|-----------|
+| `relay.event` | `["EVENT", "sub-1", {"kind":1,...}]` | `{"type":"relay.event","subId":"uuid","event":{...}}` |
+| `relay.eose` | `["EOSE", "sub-1"]` | `{"type":"relay.eose","subId":"uuid"}` |
+| `relay.closed` | `["CLOSED", "sub-1", ""]` | `{"type":"relay.closed","subId":"uuid","message":""}` |
+| `relay.publish.result` (accepted) | `["OK", "event-id", true, ""]` | `{"type":"relay.publish.result","id":"uuid","accepted":true}` |
+| `relay.publish.result` (rejected) | `["OK", "event-id", false, "blocked: ..."]` | `{"type":"relay.publish.result","id":"uuid","accepted":false,"message":"blocked: ..."}` |
+| `relay.query.result` | `["COUNT", "count-1", {"count":42}]` | `{"type":"relay.query.result","id":"uuid","count":42}` |
+
+#### Capability Mapping
+
+| Operation | Required Capability | Notes |
+|-----------|-------------------|-------|
+| `relay.subscribe` | `relay:read` (sender) | REQ equivalent |
+| `relay.close` | none | Napplet closes its own subscription |
+| `relay.publish` | `relay:write` (sender) + `relay:read` (recipient) | Recipient must have read to receive |
+| `relay.query` | `relay:read` (sender) | COUNT equivalent |
+
+#### Affected Files
+
+| File | Change |
+|------|--------|
+| `packages/runtime/src/runtime.ts` | Remove `handleReq`, `handleClose`, `handleCount` verb cases; replace EVENT relay path with `relay.publish` in new handler |
+| `packages/runtime/src/enforce.ts` | `resolveCapabilitiesNub()` relay domain branch |
+
+---
+
+### 3.3 Signer Handler
+
+#### Old Code Path
+
+Signer requests arrive as `["EVENT", event]` where `event.kind === BusKind.SIGNER_REQUEST` (29001). The detection point is inside `handleEvent()` (lines 561–658):
+
+```typescript
+// runtime.ts:601–614
+case BusKind.SIGNER_REQUEST: {
+  const signerService = serviceRegistry['signer'];
+  if (signerService) {
+    signerService.handleMessage(
+      windowId,
+      ['EVENT', event],
+      (msg) => hooks.sendToNapplet(windowId, msg),
+    );
+    return;
+  }
+  // Fallback: use internal signer handler (requires hooks.auth.getSigner)
+  handleSignerRequest(event, windowId, pubkey);
+  return;
+}
+```
+
+The internal `handleSignerRequest()` path reads the `method` tag from `event.tags`, routes to `hooks.auth.getSigner()` methods, and responds with a kind 29002 SIGNER_RESPONSE event delivered as `["EVENT", sub-id, responseEvent]`.
+
+#### New Message Shapes
+
+**Inbound (napplet → shell):**
+
+| NUB Type | Old Format | New Format |
+|----------|-----------|-----------|
+| `signer.signEvent` | `["EVENT", {"kind":29001,"tags":[["method","signEvent"],["id","uuid"],["param","event","{...}"]],...}]` | `{"type":"signer.signEvent","id":"uuid","event":{...}}` |
+| `signer.getPublicKey` | `["EVENT", {"kind":29001,"tags":[["method","getPublicKey"],["id","uuid"]],...}]` | `{"type":"signer.getPublicKey","id":"uuid"}` |
+| `signer.getRelays` | `["EVENT", {"kind":29001,"tags":[["method","getRelays"],["id","uuid"]],...}]` | `{"type":"signer.getRelays","id":"uuid"}` |
+| `signer.nip04.encrypt` | `["EVENT", {"kind":29001,"tags":[["method","nip04.encrypt"],["params","pubkey","plain"]],...}]` | `{"type":"signer.nip04.encrypt","id":"uuid","pubkey":"...","plaintext":"..."}` |
+| `signer.nip04.decrypt` | *(same pattern as nip04.encrypt)* | `{"type":"signer.nip04.decrypt","id":"uuid","pubkey":"...","ciphertext":"..."}` |
+| `signer.nip44.encrypt` | *(same pattern)* | `{"type":"signer.nip44.encrypt","id":"uuid","pubkey":"...","plaintext":"..."}` |
+| `signer.nip44.decrypt` | *(same pattern)* | `{"type":"signer.nip44.decrypt","id":"uuid","pubkey":"...","ciphertext":"..."}` |
+
+**Outbound (shell → napplet):**
+
+| Response Type | Old Format | New Format |
+|--------------|-----------|-----------|
+| `signer.signEvent.result` | `["EVENT", "sub-id", {"kind":29002,"tags":[["id","uuid"],["method","signEvent"],["result","{...}"]],...}]` | `{"type":"signer.signEvent.result","id":"uuid","event":{...}}` |
+| `signer.getPublicKey.result` | *(kind 29002, method=getPublicKey)* | `{"type":"signer.getPublicKey.result","id":"uuid","pubkey":"..."}` |
+| `signer.getRelays.result` | *(kind 29002, method=getRelays)* | `{"type":"signer.getRelays.result","id":"uuid","relays":{...}}` |
+| `signer.nip04.encrypt.result` | *(kind 29002, method=nip04.encrypt)* | `{"type":"signer.nip04.encrypt.result","id":"uuid","ciphertext":"..."}` |
+| `signer.nip04.decrypt.result` | *(kind 29002)* | `{"type":"signer.nip04.decrypt.result","id":"uuid","plaintext":"..."}` |
+| `signer.nip44.encrypt.result` | *(kind 29002)* | `{"type":"signer.nip44.encrypt.result","id":"uuid","ciphertext":"..."}` |
+| `signer.nip44.decrypt.result` | *(kind 29002)* | `{"type":"signer.nip44.decrypt.result","id":"uuid","plaintext":"..."}` |
+
+#### Capability Mapping
+
+| Operation | Required Capability | Notes |
+|-----------|-------------------|-------|
+| `signer.signEvent` | `sign:event` (sender) | — |
+| `signer.getPublicKey` | `sign:event` (sender) | Same capability as signing |
+| `signer.getRelays` | `sign:event` (sender) | — |
+| `signer.nip04.encrypt` / `.decrypt` | `sign:nip04` (sender) | — |
+| `signer.nip44.encrypt` / `.decrypt` | `sign:nip44` (sender) | — |
+
+#### Affected Files
+
+| File | Change |
+|------|--------|
+| `packages/runtime/src/runtime.ts` | Remove `BusKind.SIGNER_REQUEST` case from `handleEvent()`; add `handleSignerMessage()` function |
+| `packages/runtime/src/service-dispatch.ts` | Update `routeServiceMessage()` to accept NUB envelope (see Pitfall 5) |
+| `packages/runtime/src/enforce.ts` | `resolveCapabilitiesNub()` signer domain branch |
+
+**Pitfall 7 reference:** `BusKind.SIGNER_REQUEST` and `BusKind.SIGNER_RESPONSE` remain exported from `@napplet/core/src/legacy.ts` as `@deprecated`. After migration, these constants must not appear in non-legacy runtime dispatch paths. Any signer service handler in `@kehto/services` that operates on `["EVENT", event]` arrays with `kind === 29001` also needs updating (Pitfall 5).
+
+---
+
+### 3.4 Storage Handler
+
+#### Old Code Path
+
+Storage requests arrive as `["EVENT", event]` where `event.kind === BusKind.IPC_PEER` (29003) and the `t` tag begins with `shell:state-`. Detection is in `handleEvent()` at lines 619–623:
+
+```typescript
+// runtime.ts:619–623
+case BusKind.IPC_PEER: {
+  const topic = event.tags?.find((t) => t[0] === 't')?.[1];
+  if (topic?.startsWith('shell:state-')) {
+    handleStateRequest(windowId, event, hooks.sendToNapplet, sessionRegistry, aclState, hooks.statePersistence);
+    return;
+  }
+```
+
+`handleStateRequest()` in `state-handler.ts` (lines 74–155) reads the `topic` tag to route (`shell:state-get`, `shell:state-set`, `shell:state-remove`, `shell:state-clear`, `shell:state-keys`), reads additional tags for correlation `id`, `key`, and `value`, then calls `statePersistence` methods and responds with a kind 29003 IPC_PEER event with topic `napplet:state-response`.
+
+Key scoping logic (`napplet-state:${dTag}:${aggregateHash}:${key}` prefix) and quota enforcement (`aclState.getStateQuota()`) live in `state-handler.ts` lines 14–33 and 111–116 respectively.
+
+#### New Message Shapes
+
+**Inbound (napplet → shell):**
+
+| NUB Type | Old Format | New Format |
+|----------|-----------|-----------|
+| `storage.get` | `["EVENT", {"kind":29003,"tags":[["t","shell:state-get"],["id","uuid"],["key","theme"]],...}]` | `{"type":"storage.get","id":"uuid","key":"theme"}` |
+| `storage.set` | `["EVENT", {"kind":29003,"tags":[["t","shell:state-set"],["id","uuid"],["key","theme"],["value","dark"]],...}]` | `{"type":"storage.set","id":"uuid","key":"theme","value":"dark"}` |
+| `storage.remove` | `["EVENT", {"kind":29003,"tags":[["t","shell:state-remove"],["id","uuid"],["key","theme"]],...}]` | `{"type":"storage.remove","id":"uuid","key":"theme"}` |
+| `storage.clear` | `["EVENT", {"kind":29003,"tags":[["t","shell:state-clear"],["id","uuid"]],...}]` | `{"type":"storage.clear","id":"uuid"}` |
+| `storage.keys` | `["EVENT", {"kind":29003,"tags":[["t","shell:state-keys"],["id","uuid"]],...}]` | `{"type":"storage.keys","id":"uuid"}` |
+
+**Outbound (shell → napplet):**
+
+| Response Type | Old Format | New Format |
+|--------------|-----------|-----------|
+| `storage.get.result` | `["EVENT", "__shell__", {"kind":29003,"tags":[["t","napplet:state-response"],["id","uuid"],["value","dark"],["found","true"]],...}]` | `{"type":"storage.get.result","id":"uuid","value":"dark","found":true}` |
+| `storage.set.result` | `["EVENT", "__shell__", {"kind":29003,"tags":[["t","napplet:state-response"],["id","uuid"],["ok","true"]],...}]` | `{"type":"storage.set.result","id":"uuid","ok":true}` |
+| `storage.remove.result` | *(same as set)* | `{"type":"storage.remove.result","id":"uuid","ok":true}` |
+| `storage.clear.result` | *(same)* | `{"type":"storage.clear.result","id":"uuid","ok":true}` |
+| `storage.keys.result` | `["EVENT", "__shell__", {"kind":29003,"tags":[["t","napplet:state-response"],["id","uuid"],["key","theme"],["key","lang"]],...}]` | `{"type":"storage.keys.result","id":"uuid","keys":["theme","lang"]}` |
+
+#### Capability Mapping
+
+| Operation | Required Capability | Notes |
+|-----------|-------------------|-------|
+| `storage.get` | `state:read` (sender) | — |
+| `storage.keys` | `state:read` (sender) | — |
+| `storage.set` | `state:write` (sender) | — |
+| `storage.remove` | `state:write` (sender) | — |
+| `storage.clear` | `state:write` (sender) | — |
+
+#### Storage Scoping — UNCHANGED
+
+The key scoping and quota enforcement logic in `state-handler.ts` is transport-agnostic and changes only the message format, not the storage logic itself:
+
+- **Key prefix format:** `napplet-state:${dTag}:${aggregateHash}:${userKey}` — unchanged
+- **Legacy key migration:** triple-read (new format → legacy-with-pubkey → old prefix) — unchanged
+- **Quota enforcement:** `aclState.getStateQuota()` called on write operations — unchanged
+
+The new `handleStorageMessage()` function accepts the NUB envelope and extracts `id`, `key`, `value` directly from flat object fields rather than from tag arrays, then delegates to the same underlying storage logic.
+
+#### Affected Files
+
+| File | Change |
+|------|--------|
+| `packages/runtime/src/runtime.ts` | Remove `shell:state-*` topic check from `IPC_PEER` case; add `handleStorageMessage()` function |
+| `packages/runtime/src/state-handler.ts` | Full rewrite of `handleStateRequest()` to accept NUB envelope; preserve scoping and quota logic |
+| `packages/runtime/src/enforce.ts` | `resolveCapabilitiesNub()` storage domain branch |
+
+**Pitfall 6 reference:** After migration, `state-handler.ts` must not import `BusKind.IPC_PEER`. Topic-tag extraction (`event.tags?.find((t) => t[0] === 't')`) is replaced by direct field access (`msg.key`, `msg.value`). The `shell:state-*` topic namespace becomes dead code.
+
+---
+
+### 3.5 IFC Handler
+
+#### Old Code Path
+
+IFC (inter-frame communication) used the same kind 29003 IPC_PEER path as storage, but with non-`shell:` topics. After the storage check in `handleEvent()` (lines 619–623), all remaining IPC_PEER events fell through to service dispatch and then to `eventBuffer.bufferAndDeliver()` (lines 647–650):
+
+```typescript
+// runtime.ts:647–650
+if (topic && routeServiceMessage(windowId, event, topic, serviceRegistry, hooks.sendToNapplet)) {
+  return;
+}
+eventBuffer.bufferAndDeliver(event, windowId);
+```
+
+`eventBuffer.bufferAndDeliver()` (in `event-buffer.ts`) added the event to a ring buffer and delivered it to any open NIP-01 subscription that matched the event (kind 29003 with matching `#t` tag filter). There was no explicit subscribe/unsubscribe for IFC — any napplet with an open `REQ { kinds: [29003], "#t": ["profile:open"] }` would receive the event.
+
+This means IFC had no explicit lifecycle: subscriptions were registered via standard REQ, IFC topics were delivered through the same event buffer as relay events, and there was no way to distinguish an IFC subscription from a relay subscription at the protocol level.
+
+#### New Message Shapes
+
+**Inbound (napplet → shell):**
+
+| NUB Type | Old Format | New Format |
+|----------|-----------|-----------|
+| `ifc.emit` | `["EVENT", {"kind":29003,"tags":[["t","profile:open"]],"content":"{...}",...}]` | `{"type":"ifc.emit","topic":"profile:open","payload":{...}}` |
+| `ifc.subscribe` | *(no equivalent — implicit via REQ)* | `{"type":"ifc.subscribe","id":"uuid","topic":"profile:open"}` |
+| `ifc.unsubscribe` | *(no equivalent — via CLOSE)* | `{"type":"ifc.unsubscribe","id":"uuid","topic":"profile:open"}` |
+
+**Outbound (shell → napplet):**
+
+| Response Type | Old Format | New Format |
+|--------------|-----------|-----------|
+| `ifc.event` | `["EVENT", "sub-id", {"kind":29003,"tags":[["t","profile:open"]],"content":"{...}",...}]` | `{"type":"ifc.event","topic":"profile:open","payload":{...},"sender":"windowId"}` |
+
+#### New Subscription Lifecycle
+
+The IFC handler introduces explicit topic subscriptions — this is **net new behavior** with no direct equivalent in the old runtime:
+
+1. **`ifc.subscribe`** — registers a `(windowId, topic)` binding in a new IFC subscription registry (separate from the relay `subscriptions` map). Returns no response (or an optional `ifc.subscribe.result`).
+2. **`ifc.emit`** — looks up all windows subscribed to the given topic (excluding the sender's windowId), delivers `{ type: "ifc.event", topic, payload, sender: windowId }` to each subscriber via `hooks.sendToNapplet`.
+3. **`ifc.unsubscribe`** — removes the `(windowId, topic)` binding.
+
+The old system required napplets to send a standard REQ to receive IFC events. Under NIP-5D, napplets call `window.napplet.ifc.on(topic, handler)` which internally sends `ifc.subscribe`. The runtime no longer needs to match IFC events against NIP-01 filter objects.
+
+#### Capability Mapping
+
+| Operation | Required Capability | Notes |
+|-----------|-------------------|-------|
+| `ifc.emit` | `relay:write` (sender) + `relay:read` (recipient) | Reuses relay capability bits per [ACL-MIGRATION.md section 2](./ACL-MIGRATION.md#2-capability-constant-to-nub-domain-mapping) |
+| `ifc.subscribe` | `relay:read` (sender) | — |
+| `ifc.unsubscribe` | `relay:read` (sender) | — |
+
+#### Affected Files
+
+| File | Change |
+|------|--------|
+| `packages/runtime/src/runtime.ts` | Remove `IPC_PEER` kind 29003 fallthrough path; add `handleIfcMessage()` with IFC subscription registry |
+| `packages/runtime/src/event-buffer.ts` | IFC delivery is replaced by direct `sendToNapplet` dispatch — `bufferAndDeliver` no longer used for IFC topics |
+| `packages/runtime/src/service-dispatch.ts` | IFC topic routing via `routeServiceMessage()` no longer applies — IFC is now a first-class NUB domain, not a service |
+| `packages/runtime/src/enforce.ts` | `resolveCapabilitiesNub()` ifc domain branch |
+
+**Pitfall 8 reference:** After migration, the old IPC_PEER path (`event.kind === BusKind.IPC_PEER`) must not handle IFC topics. The distinction from storage: storage handler still exists (rewritten), but IFC routing via `eventBuffer.bufferAndDeliver` is replaced entirely by the new explicit subscription model.
+
+---
+
+### 3.6 Service Discovery Replacement
+
+#### Old Code Path
+
+Service discovery used a REQ with filter `{ kinds: [29010] }`. `handleReq()` detected this via `isDiscoveryReq(filters)` (lines 672–682) and called `handleDiscoveryReq()` from `service-discovery.ts`, which synthesized kind 29010 events with `s`, `v`, `d` tags for each registered service:
+
+```typescript
+// runtime.ts:672–682
+if (isDiscoveryReq(filters)) {
+  const send = (msg: unknown[]): void => hooks.sendToNapplet(windowId, msg);
+  const generateId = (): string => ...;
+  const sub = handleDiscoveryReq(windowId, subId, serviceRegistry, send, generateId);
+  discoverySubscriptions.set(discSubKey, sub);
+  subscriptions.set(discSubKey, { windowId, filters });
+  return;
+}
+```
+
+The napplet received synthetic `["EVENT", subId, { kind: 29010, tags: [["s","audio"],["v","1.0.0"]] }]` events, then `["EOSE", subId]`.
+
+#### New Approach
+
+Under NIP-5D, service discovery is **synchronous at initialization time** — not a message round-trip. The `@napplet/shim` exposes:
+
+- `window.napplet.shell.supports(nubType)` — checks if the shell supports a given NUB domain (e.g., `relay`, `signer`, `storage`)
+- `window.napplet.services.has(serviceName)` — checks if a named service is registered
+
+These APIs are populated by the shell communicating its supported NUBs and services to the shim at iframe creation time (part of the initial `window.napplet` initialization handshake documented in the Phase 4 shell migration). No postMessage round-trip is needed for discovery.
+
+#### Impact
+
+| Item | Change |
+|------|--------|
+| `packages/runtime/src/service-discovery.ts` | Becomes dead code — no handler for kind 29010 in NIP-5D path |
+| `packages/runtime/src/runtime.ts` | Remove `isDiscoveryReq()` check and `discoverySubscriptions` map from `handleReq()` |
+
+The `service-discovery.ts` module can be deleted in Phase 3 of the AUTH/legacy removal strategy (Section 2.4). During dual-mode transition (Phase 1), it must remain for legacy napplets that still send kind 29010 REQs.
+
+---
+
+### 3.7 File Impact Matrix
+
+Summary of all runtime source files and what changes drives each modification:
+
+| File | Change Type | NUB Domain(s) | Notes |
+|------|------------|---------------|-------|
+| `packages/runtime/src/runtime.ts` | Major rewrite | relay, signer, storage, ifc | Add 4 new NUB handlers; remove verb-switch cases; remove `IPC_PEER` kind-dispatch branching |
+| `packages/runtime/src/state-handler.ts` | Full rewrite | storage | New function signature accepts NUB envelope; preserves key-scoping and quota logic |
+| `packages/runtime/src/enforce.ts` | New function | all | Add `resolveCapabilitiesNub()` alongside existing `resolveCapabilities()` |
+| `packages/runtime/src/event-buffer.ts` | Interface change | ifc | `bufferAndDeliver()` no longer used for IFC delivery; IFC uses direct `sendToNapplet` |
+| `packages/runtime/src/service-dispatch.ts` | Update | (services) | `routeServiceMessage()` must accept NUB envelope when `ServiceHandler` interface updates (Pitfall 5) |
+| `packages/runtime/src/service-discovery.ts` | Remove (Phase 3) | (none) | Dead code after NIP-5D migration; kept during dual-mode transition for legacy napplets |
+| `packages/runtime/src/types.ts` | Interface update | all | `ServiceHandler.handleMessage` signature updated; `SendToNapplet` may need widening |
+
+---
+
+## 4. SessionEntry Identity Anchor (RT-04)
+
+### 4.1 Background
+
+Under RUNTIME-SPEC v2.0.0, `SessionEntry.pubkey` was set to the AUTH-derived ephemeral keypair public key after successful handshake (in `handleAuth()`, lines 325–464). This pubkey served three roles:
+
+1. **Session authentication token** — proved the napplet completed a valid AUTH challenge-response
+2. **ACL lookup key component** — first segment of the `pubkey:dTag:hash` composite ACL key
+3. **Unique session identifier** — different instances of the same napplet received different pubkeys from the shell's `deriveKeypair()` function
+
+NIP-5D v0.1.0 eliminates the AUTH keypair. `SessionEntry.pubkey` has no natural value — there is no IDENTITY message, no challenge, no signing operation. This section documents the design decision for what replaces it.
+
+---
+
+### 4.2 Current SessionEntry Schema
+
+The current type definition in `packages/runtime/src/types.ts` (lines 396–406):
+
+```typescript
+// packages/runtime/src/types.ts:390–406
+export interface SessionEntry {
+  pubkey: string;        // AUTH keypair public key — NEEDS REPLACEMENT
+  windowId: string;      // iframe window reference — UNCHANGED (gains importance)
+  origin: string;        // MessageEvent.origin — UNCHANGED
+  type: string;          // session type discriminant — REVIEW
+  dTag: string;          // napplet app identifier — UNCHANGED
+  aggregateHash: string; // build/version hash — UNCHANGED
+  registeredAt: number;  // timestamp — UNCHANGED
+  instanceId: string;    // persistent iframe GUID — UNCHANGED
+}
+```
+
+Current usage of `SessionEntry.pubkey`:
+
+- `sessionRegistry.register(windowId, entry)` stores `byWindowId.set(windowId, entry.pubkey)` and `byPubkey.set(entry.pubkey, entry)` (session-registry.ts lines 73–76) — the registry is currently keyed by pubkey
+- `sessionRegistry.getPubkey(windowId)` returns the pubkey; this is the gate check in `handleMessage()` at line 1010: `if (!sessionRegistry.getPubkey(windowId)) { ... queue ... }`
+- `handleEvent()` reads pubkey at line 570 for ACL enforcement
+- `handleStateRequest()` calls `sessionRegistry.getPubkey(windowId)` at line 86 and errors with `'auth-required: not registered'` if undefined
+- ACL composite key in `enforce.ts`: `checkAcl(pubkey, dTag, aggregateHash, capability)` uses pubkey as first argument
+
+---
+
+### 4.3 Design Options
+
+Three candidate replacements for `SessionEntry.pubkey`:
+
+**Option A: windowId as pubkey**
+
+Set `pubkey` to the `windowId` string. This is the simplest change and preserves the "unique per session" property. The ACL composite key would conceptually be `windowId:dTag:hash`.
+
+- **Pro:** One-line change in session creation; `getPubkey()` still returns a non-empty value; `if (!getPubkey())` gate still works
+- **Pro:** Unique per session (different windows = different windowIds)
+- **Con:** `windowId` is runtime-ephemeral — it changes every page load or iframe recreation. Persisted ACL entries keyed on `windowId:dTag:hash` would silently fail to match on next load (same problem as the pubkey-based key, just with a different ephemeral value)
+- **Con:** Conceptually wrong — windowId is a frame reference, not an identity token
+
+**Option B: Empty string**
+
+Set `pubkey` to `''` (empty string). ACL lookup uses `dTag:hash` per [ACL-MIGRATION.md section 1](./ACL-MIGRATION.md#1-identity-key-schema-change) — pubkey is already ignored in `toKey()` after the ACL migration. The empty string signals "NIP-5D session with no keypair identity".
+
+- **Pro:** Aligns cleanly with ACL-MIGRATION.md — `Identity.pubkey` is deprecated and optional, `toKey()` produces `dTag:hash` regardless
+- **Pro:** Backward compatible at the field level — existing code that reads `session.pubkey` gets an empty string and can branch on it
+- **Pro:** Allows gradual removal — the `pubkey` field can be deleted in a future cleanup once legacy support ends
+- **Con:** `if (!session.pubkey)` evaluates to `false` for NIP-5D sessions, which may break guards that used pubkey as an authentication signal — these guards need to be identified and updated
+
+**Option C: Remove pubkey field entirely**
+
+Delete `SessionEntry.pubkey`. This is the cleanest option architecturally.
+
+- **Pro:** Forces all consumers to update and removes the misleading field
+- **Pro:** Eliminates the conceptual confusion about what pubkey means in a NIP-5D session
+- **Con:** Largest code surface change — every call site that reads or writes `session.pubkey` must be updated
+- **Con:** Incompatible with the dual-mode transition — legacy AUTH napplets still set pubkey to the derived keypair. Removing the field breaks legacy mode entirely.
+- **Con:** Requires updating `SessionRegistry` internals (currently `byPubkey` map) and the `getEntry(pubkey)` / `getWindowId(pubkey)` methods
+
+---
+
+### 4.4 Chosen Design: Option B (empty string) with identitySource discriminant
+
+**Rationale:**
+
+Option B is selected for the following reasons:
+
+1. **Aligns with ACL-MIGRATION.md** — `Identity.pubkey` is already declared optional and deprecated in the ACL package. The `toKey()` function ignores it; the composite key is `dTag:hash`. A `pubkey = ''` in SessionEntry propagates correctly through `checkAcl(pubkey, dTag, aggregateHash, cap)` — the ACL module produces `dTag:hash` composite key regardless.
+
+2. **Preserves backward compatibility** — Legacy AUTH napplets can still set `pubkey` to the derived keypair pubkey. The `sessionRegistry.byPubkey` map continues to work for legacy lookups. Dual-mode dispatch (Section 1.3) requires legacy sessions to remain functional.
+
+3. **Allows phased removal** — The `pubkey` field can be marked `@deprecated` in this migration and removed in a future cleanup pass once `@napplet/shim` v0.1.x legacy support is dropped (Phase 3 of AUTH removal, Section 2.4).
+
+4. **Adds `identitySource` discriminant** — Rather than relying on `pubkey === ''` as a signal, a dedicated `identitySource` field explicitly distinguishes session types. This avoids the "guard breaks on empty string" concern in Option B's downside.
+
+The added `identitySource` field replaces the `authenticated` boolean that was implicit in the old model (a session was "authenticated" if `getPubkey()` returned a non-empty value):
+
+- `identitySource: 'auth'` — legacy session; AUTH handshake completed; `pubkey` is the derived keypair pubkey
+- `identitySource: 'source'` — NIP-5D session; identity established at iframe creation via `originRegistry`; `pubkey` is `''`
+
+---
+
+### 4.5 New SessionEntry Schema
+
+Target TypeScript type (post-migration):
+
+```typescript
+export interface SessionEntry {
+  /**
+   * @deprecated NIP-5D: AUTH keypair no longer exists. Empty string for NIP-5D sessions.
+   * Kept for backward compatibility during legacy (@napplet/shim v0.1.x) support period.
+   * Will be removed in a future cleanup pass once AUTH removal Phase 3 completes.
+   */
+  pubkey: string;
+  /** iframe window reference — primary session identity under NIP-5D */
+  windowId: string;
+  /** MessageEvent.origin (opaque 'null' for sandboxed iframes — use windowId, not origin) */
+  origin: string;
+  /** Session type discriminant (preserved from existing schema) */
+  type: string;
+  /** Napplet application identifier from NIP-5A manifest */
+  dTag: string;
+  /** Build/version hash from NIP-5A manifest */
+  aggregateHash: string;
+  /** Unix timestamp when session was registered */
+  registeredAt: number;
+  /** Persistent GUID for this iframe instance, assigned by the runtime */
+  instanceId: string;
+  /**
+   * How session identity was established.
+   * 'source' = NIP-5D (identity at iframe creation via originRegistry).
+   * 'auth' = legacy AUTH handshake (pubkey is the derived keypair pubkey).
+   */
+  identitySource: 'auth' | 'source';
+}
+```
+
+**Gate check migration:**
+
+The `handleMessage()` gate at line 1010 currently uses `!sessionRegistry.getPubkey(windowId)` to detect unauthenticated sessions. After migration, the NUB dispatch path bypasses this gate entirely (dual-mode dispatch checks NUB envelope format first, before the gate). The gate remains in the legacy array path only. Internally, `getPubkey()` still returns `''` for NIP-5D sessions, so the gate correctly routes legacy sessions to the `pendingAuthQueue` — NIP-5D sessions never reach it.
+
+For code that previously checked `if (session.pubkey)` as an authentication signal, the equivalent post-migration check is:
+
+```typescript
+// Before: implicit auth signal via non-empty pubkey
+if (!session.pubkey) return sendError('auth-required');
+
+// After: explicit identity source check
+if (session.identitySource === 'auth' && !session.pubkey) return sendError('auth-required');
+// For NIP-5D sessions: identitySource === 'source' always passes
+```
+
+---
+
+### 4.6 Session Creation Flow
+
+#### NIP-5D Path (new)
+
+1. Shell loads napplet via NIP-5A manifest — `dTag` and `aggregateHash` are known before iframe creation
+2. Shell calls `originRegistry.register(iframe.contentWindow, windowId, { dTag, aggregateHash })` **synchronously before the `<iframe src="...">` attribute is set** (see Section 2.5 security note)
+3. Shell (or runtime via a new hook) creates `SessionEntry` with:
+   ```typescript
+   { pubkey: '', dTag, aggregateHash, windowId, origin: '', type: 'nip5d',
+     registeredAt: Date.now(), instanceId: ..., identitySource: 'source' }
+   ```
+4. Runtime calls `sessionRegistry.register(windowId, entry)` immediately
+5. First message from napplet arrives — NUB dispatch path in `handleMessage()` routes it to the appropriate domain handler without touching `pendingAuthQueue`
+
+#### Legacy AUTH Path (preserved)
+
+1. Shell creates iframe — `windowId` registered but no session yet
+2. Napplet sends `["REGISTER", { dTag, claimedHash }]`
+3. `handleRegister()` derives keypair via `deriveKeypair(shellSecret, dTag, aggregateHash)`, sends `["IDENTITY", { pubkey, privkey, ... }]`, calls `sendChallenge()`
+4. Napplet signs kind 22242 AUTH event with derived privkey, sends `["AUTH", authEvent]`
+5. `handleAuth()` verifies signature, creates `SessionEntry` with:
+   ```typescript
+   { pubkey: derivedPubkeyHex, dTag, aggregateHash, windowId, ..., identitySource: 'auth' }
+   ```
+6. `sessionRegistry.register(windowId, entry)` — `getPubkey(windowId)` now returns non-empty pubkey
+7. `pendingAuthQueue` drained — queued messages dispatched
+
+---
+
+### 4.7 Downstream Package Impact
+
+| Package | Impact | Notes |
+|---------|--------|-------|
+| `@kehto/acl` | Already aligned | `Identity.pubkey` is optional and deprecated; `toKey()` produces `dTag:hash`; no code changes needed in the ACL package itself |
+| `@kehto/shell` | Session creation updated | `shell-bridge.ts` session creation path must pass `identitySource: 'source'` when registering NIP-5D napplets; `sendChallenge()` removal (Section 2.2) is independent of identity anchor change |
+| `@kehto/services` | Guard update | Any service handler that calls `sessionRegistry.getPubkey(windowId)` and errors on empty string must check `identitySource` instead; service handlers receiving NUB envelopes do not use pubkey for routing |
+| `@kehto/runtime` (internal) | `state-handler.ts` | Line 86 `if (!pubkey)` guard must be updated — for NIP-5D sessions `pubkey === ''` but `identitySource === 'source'`; storage should proceed for both session types |
