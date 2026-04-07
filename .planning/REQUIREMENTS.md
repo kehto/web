@@ -58,7 +58,22 @@ Spec: `docs/SERVICES-MIGRATION.md`
 
 | REQ-ID | Phase | Plan | Status |
 |--------|-------|------|--------|
-| (filled by roadmapper) | | | |
+| ACL-I01 | Phase 6 | TBD | Pending |
+| ACL-I02 | Phase 6 | TBD | Pending |
+| ACL-I03 | Phase 6 | TBD | Pending |
+| RT-I01 | Phase 7 | TBD | Pending |
+| RT-I02 | Phase 7 | TBD | Pending |
+| RT-I03 | Phase 7 | TBD | Pending |
+| RT-I04 | Phase 7 | TBD | Pending |
+| SH-I01 | Phase 8 | TBD | Pending |
+| SH-I02 | Phase 8 | TBD | Pending |
+| SH-I03 | Phase 8 | TBD | Pending |
+| SH-I04 | Phase 8 | TBD | Pending |
+| SVC-I01 | Phase 9 | TBD | Pending |
+| SVC-I02 | Phase 9 | TBD | Pending |
+| SVC-I03 | Phase 9 | TBD | Pending |
+| SVC-I04 | Phase 9 | TBD | Pending |
+| SVC-I05 | Phase 9 | TBD | Pending |
 
 ---
 *Requirements defined: 2026-04-07*
