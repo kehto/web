@@ -387,20 +387,603 @@ import type { NappletMessage } from '@napplet/core';
 
 ### 2.2 Audio Service Migration
 
-*(placeholder — see Task 2)*
+#### 2.2.1 Old Code Path
+
+`createAudioService()` in `audio-service.ts` returns a ServiceHandler whose `handleMessage` at line 165:
+
+1. Checks `message[0] !== 'EVENT' || !message[1]` (line 167) — guards against non-EVENT arrays
+2. Casts `message[1] as NostrEvent` (line 168)
+3. Checks `event.kind !== BusKind.IPC_PEER` (29003) (line 171) — discards non-IPC events
+4. Calls `extractTopic(event)` to get `event.tags?.find((t) => t[0] === 't')?.[1]` (lines 69–71)
+5. Checks `topic?.startsWith('audio:')` (line 173) — discards non-audio topics
+6. Strips prefix with `topic.slice(6)` to get action: `'register'`, `'unregister'`, `'state-changed'`, `'mute'` (line 97)
+7. Calls `parseContent(event)` — `JSON.parse(event.content)` — to get action payload (lines 54–64)
+8. For `'mute'` action, responds via `send(['EVENT', '__shell__', createResponseEvent('napplet:audio-muted', { muted })])` (line 146)
+
+Three helper functions exist solely to bridge the array format:
+- `parseContent(event)` (lines 54–64): parses JSON content from `event.content`
+- `extractTopic(event)` (lines 69–71): gets the `t` tag value from `event.tags`
+- `createResponseEvent(topic, content)` (lines 76–86): builds a synthetic kind 29003 IPC_PEER event for responses
+
+#### 2.2.2 New Message Shapes
+
+Audio is an **IFC-routed service** under NIP-5D. It does not receive a NUB-domain message like signer (which receives `signer.*` types directly). Instead, audio messages arrive as `ifc.emit` envelopes with `topic` matching `audio:*`. The `routeServiceMessage()` function routes by `message.topic` prefix when `message.type === 'ifc.emit'`.
+
+**Inbound (napplet → shell):**
+
+| Action | Old Format | New Format |
+|--------|-----------|-----------|
+| `register` | `['EVENT', {kind:29003, tags:[['t','audio:register']], content:'{"nappletClass":"...","title":"..."}'}]` | `{type:'ifc.emit', topic:'audio:register', payload:{nappletClass:'...', title:'...'}}` |
+| `unregister` | `['EVENT', {kind:29003, tags:[['t','audio:unregister']], content:'{}'}]` | `{type:'ifc.emit', topic:'audio:unregister', payload:{}}` |
+| `state-changed` | `['EVENT', {kind:29003, tags:[['t','audio:state-changed']], content:'{"title":"..."}'}]` | `{type:'ifc.emit', topic:'audio:state-changed', payload:{title:'...'}}` |
+| `mute` | `['EVENT', {kind:29003, tags:[['t','audio:mute']], content:'{"windowId":"...","muted":true}'}]` | `{type:'ifc.emit', topic:'audio:mute', payload:{windowId:'...', muted:true}}` |
+
+**Outbound (shell → napplet) — mute response only:**
+
+| Response | Old Format | New Format |
+|----------|-----------|-----------|
+| Mute notification | `['EVENT', '__shell__', {kind:29003, tags:[['t','napplet:audio-muted']], content:'{"muted":true}'}]` | `{type:'ifc.event', topic:'napplet:audio-muted', payload:{muted:true}}` |
+
+#### 2.2.3 New Code Structure
+
+Target `handleMessage` receives an `ifc.emit` envelope and reads flat fields:
+
+```typescript
+handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
+  // Only handle ifc.emit messages with audio:* topic
+  if (message.type !== 'ifc.emit') return;
+  const topic = message.topic as string | undefined;
+  if (!topic?.startsWith('audio:')) return;
+
+  const action = topic.slice(6); // 'audio:'.length === 6
+  const payload = (message.payload ?? {}) as Record<string, unknown>;
+
+  switch (action) {
+    case 'register': {
+      const nappletClass = typeof payload.nappletClass === 'string' ? payload.nappletClass : '';
+      const title = typeof payload.title === 'string' ? payload.title : '';
+      sources.set(windowId, { windowId, nappletClass, title, muted: false });
+      notify();
+      break;
+    }
+    case 'unregister': {
+      if (sources.delete(windowId)) notify();
+      break;
+    }
+    case 'state-changed': {
+      const source = sources.get(windowId);
+      if (!source) return;
+      if (typeof payload.title === 'string') source.title = payload.title;
+      notify();
+      break;
+    }
+    case 'mute': {
+      const targetWindowId = typeof payload.windowId === 'string' ? payload.windowId : windowId;
+      const muted = payload.muted === true;
+      const source = sources.get(targetWindowId);
+      if (source) {
+        source.muted = muted;
+        notify();
+      }
+      send({ type: 'ifc.event', topic: 'napplet:audio-muted', payload: { muted } });
+      break;
+    }
+  }
+}
+```
+
+#### 2.2.4 Simplification
+
+The NIP-5D migration eliminates three helper functions entirely:
+
+| Helper | Lines | Reason for Removal |
+|--------|-------|-------------------|
+| `parseContent(event)` | 54–64 | `payload` in the envelope is already a parsed object |
+| `extractTopic(event)` | 69–71 | `message.topic` is a flat string field |
+| `createResponseEvent(topic, content)` | 76–86 | Responses are plain envelope objects, not synthetic NostrEvents |
+
+The core audio state logic is **unchanged**:
+- `sources` Map tracking active audio sources per window
+- `notify()` calling `onChange` with a copy of the sources Map
+- `onWindowDestroyed` removing sources on window close
+- The four action handlers (register, unregister, state-changed, mute) and their state mutations
+
+`BusKind` import can be removed. `NostrEvent` import can be removed.
+
+---
 
 ### 2.3 Notification Service Migration
 
-*(placeholder — see Task 2)*
+#### 2.3.1 Old Code Path
+
+`createNotificationService()` in `notification-service.ts` follows the same entry pattern as audio:
+
+1. Checks `message[0] !== 'EVENT' || !message[1]` (line 254)
+2. Checks `event.kind !== BusKind.IPC_PEER` (line 258)
+3. Calls `extractTopic(event)` (line 259), checks `topic?.startsWith('notifications:')` (line 260)
+4. Strips prefix with `topic.slice(14)` to get action (line 159): `'create'`, `'dismiss'`, `'read'`, `'list'`
+5. Calls `parseContent(event)` for `create`, `dismiss`, `read` actions
+6. Responds with `send(['EVENT', '__shell__', createResponseEvent(...)])` for `create` (ack with id) and `list`
+
+Same three helper functions exist: `parseContent`, `extractTopic`, `createResponseEvent` (lines 81–113).
+
+#### 2.3.2 New Message Shapes
+
+Notifications is also an **IFC-routed service** — receives `ifc.emit` envelopes with `notifications:*` topics.
+
+**Inbound (napplet → shell):**
+
+| Action | Old Format | New Format |
+|--------|-----------|-----------|
+| `create` | `['EVENT', {kind:29003, tags:[['t','notifications:create']], content:'{"title":"...","body":"..."}'}]` | `{type:'ifc.emit', topic:'notifications:create', payload:{title:'...', body:'...'}}` |
+| `dismiss` | `['EVENT', {kind:29003, tags:[['t','notifications:dismiss']], content:'{"id":"notif-..."}'}]` | `{type:'ifc.emit', topic:'notifications:dismiss', payload:{id:'notif-...'}}` |
+| `read` | `['EVENT', {kind:29003, tags:[['t','notifications:read']], content:'{"id":"notif-..."}'}]` | `{type:'ifc.emit', topic:'notifications:read', payload:{id:'notif-...'}}` |
+| `list` | `['EVENT', {kind:29003, tags:[['t','notifications:list']], content:'{}'}]` | `{type:'ifc.emit', topic:'notifications:list', payload:{}}` |
+
+**Outbound (shell → napplet):**
+
+| Response | Old Format | New Format |
+|----------|-----------|-----------|
+| Create ack | `['EVENT', '__shell__', {kind:29003, tags:[['t','notifications:created']], content:'{"id":"notif-..."}'}]` | `{type:'ifc.event', topic:'notifications:created', payload:{id:'notif-...'}}` |
+| List response | `['EVENT', '__shell__', {kind:29003, tags:[['t','notifications:listed']], content:'{"notifications":[...]}'}]` | `{type:'ifc.event', topic:'notifications:listed', payload:{notifications:[...]}}` |
+
+#### 2.3.3 New Code Structure
+
+Target `handleMessage` — same structural pattern as audio:
+
+```typescript
+handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
+  if (message.type !== 'ifc.emit') return;
+  const topic = message.topic as string | undefined;
+  if (!topic?.startsWith('notifications:')) return;
+
+  const action = topic.slice(14); // 'notifications:'.length === 14
+  const payload = (message.payload ?? {}) as Record<string, unknown>;
+
+  switch (action) {
+    case 'create': {
+      const title = typeof payload.title === 'string' ? payload.title : '';
+      const body = typeof payload.body === 'string' ? payload.body : '';
+      const id = generateId();
+      const notification: Notification = { id, windowId, title, body, read: false, createdAt: Math.floor(Date.now() / 1000) };
+      const list = getWindowNotifications(windowId);
+      list.push(notification);
+      enforceLimit(list);
+      notify();
+      send({ type: 'ifc.event', topic: 'notifications:created', payload: { id } });
+      break;
+    }
+    case 'dismiss': {
+      const id = typeof payload.id === 'string' ? payload.id : '';
+      if (!id) return;
+      const found = findById(id);
+      if (found) {
+        const [foundWindowId, , index] = found;
+        const list = notifications.get(foundWindowId);
+        if (list) {
+          list.splice(index, 1);
+          if (list.length === 0) notifications.delete(foundWindowId);
+          notify();
+        }
+      }
+      break;
+    }
+    case 'read': {
+      const id = typeof payload.id === 'string' ? payload.id : '';
+      if (!id) return;
+      const found = findById(id);
+      if (found) {
+        const [, notification] = found;
+        if (!notification.read) { notification.read = true; notify(); }
+      }
+      break;
+    }
+    case 'list': {
+      const windowNotifs = notifications.get(windowId) ?? [];
+      send({ type: 'ifc.event', topic: 'notifications:listed', payload: { notifications: windowNotifs } });
+      break;
+    }
+  }
+}
+```
+
+The same three helpers (`parseContent`, `extractTopic`, `createResponseEvent`) are eliminated. Core notification logic is **unchanged**: `notifications` Map, `generateId()`, `enforceLimit()`, `findById()`, CRUD action handlers.
+
+#### 2.3.4 ID Counter
+
+The module-level `idCounter` variable (line 22) is unaffected by the migration. It is internal state for generating unique notification IDs — not wire-format dependent. `generateId()` continues to produce `notif-${Date.now()}-${idCounter}` strings.
+
+---
 
 ### 2.4 Relay Pool Service Migration
 
-*(placeholder — see Task 2)*
+#### 2.4.1 Old Code Path
+
+`createRelayPoolService()` in `relay-pool-service.ts` is structurally different from audio and notifications. It does **not** receive IPC_PEER events via topic routing. It receives **raw NIP-01 verbs directly** — REQ, CLOSE, EVENT — as message[0]:
+
+```typescript
+handleMessage(windowId: string, message: unknown[], send: (msg: unknown[]) => void): void {
+  const verb = message[0];
+
+  if (verb === 'REQ') {
+    const subId = message[1] as string;
+    const filters = message.slice(2) as NostrFilter[];
+    // subscribe to relay pool...
+    send(['EOSE', subId]);  // or send(['EVENT', subId, event])
+  }
+
+  if (verb === 'CLOSE') {
+    const subId = message[1] as string;
+    // unsubscribe...
+  }
+
+  if (verb === 'EVENT') {
+    const event = message[1] as NostrEvent;
+    options.publish(event);
+  }
+}
+```
+
+This is because relay-pool is a service that **replaces** the runtime's built-in relay handling. The runtime passes relay-verb messages directly to the service rather than routing to the network. Subscription state is tracked in a `tracked` Map keyed by `${windowId}:${subId}`, with a 15-second EOSE fallback timer per subscription.
+
+#### 2.4.2 New Message Shapes
+
+Under NIP-5D, the relay pool service receives **relay NUB envelopes** instead of NIP-01 verb arrays:
+
+| Operation | Old Format | New Format |
+|-----------|-----------|-----------|
+| Subscribe | `['REQ', subId, ...filters]` | `{type:'relay.subscribe', id:'uuid', subId:'uuid', filters:[...]}` |
+| Close | `['CLOSE', subId]` | `{type:'relay.close', id:'uuid', subId:'uuid'}` |
+| Publish | `['EVENT', event]` | `{type:'relay.publish', id:'uuid', event:{...}}` |
+| Event (out) | `send(['EVENT', subId, event])` | `send({type:'relay.event', subId:'uuid', event:{...}})` |
+| EOSE (out) | `send(['EOSE', subId])` | `send({type:'relay.eose', subId:'uuid'})` |
+
+#### 2.4.3 New Code Structure
+
+Target `handleMessage` switches on `message.type` and reads flat fields instead of positional array elements:
+
+```typescript
+handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
+  if (message.type === 'relay.subscribe') {
+    const subId = message.subId as string;
+    const filters = message.filters as NostrFilter[];
+    const subKey = `${windowId}:${subId}`;
+
+    // Cancel existing subscription for this key
+    const existing = tracked.get(subKey);
+    if (existing) {
+      existing.handle.unsubscribe();
+      clearTimeout(existing.eoseTimer);
+      tracked.delete(subKey);
+    }
+
+    if (!options.isAvailable()) {
+      send({ type: 'relay.eose', subId });
+      return;
+    }
+
+    const relayUrls = options.selectRelayTier(filters);
+    let eoseSent = false;
+
+    const eoseTimer = setTimeout(() => {
+      if (!eoseSent) { eoseSent = true; send({ type: 'relay.eose', subId }); }
+    }, EOSE_FALLBACK_MS);
+
+    const handle = options.subscribe(filters, (item) => {
+      if (item === 'EOSE') {
+        clearTimeout(eoseTimer);
+        if (!eoseSent) { eoseSent = true; send({ type: 'relay.eose', subId }); }
+        return;
+      }
+      send({ type: 'relay.event', subId, event: item });
+    }, relayUrls);
+
+    tracked.set(subKey, { handle, eoseTimer });
+    return;
+  }
+
+  if (message.type === 'relay.close') {
+    const subId = message.subId as string;
+    const entry = tracked.get(`${windowId}:${subId}`);
+    if (entry) {
+      entry.handle.unsubscribe();
+      clearTimeout(entry.eoseTimer);
+      tracked.delete(`${windowId}:${subId}`);
+    }
+    return;
+  }
+
+  if (message.type === 'relay.publish') {
+    const event = message.event as NostrEvent | undefined;
+    if (event && typeof event === 'object' && options.isAvailable()) {
+      options.publish(event);
+    }
+    return;
+  }
+}
+```
+
+**What stays the same:**
+- `tracked` Map keyed by `${windowId}:${subId}` — unchanged
+- EOSE fallback timer logic — unchanged
+- `options.subscribe()`, `options.publish()`, `options.isAvailable()`, `options.selectRelayTier()` calls — unchanged
+- `onWindowDestroyed` cleanup loop — unchanged
+
+**What changes:**
+- `verb = message[0]` → `message.type` for routing
+- `message[1] as string` (subId) → `message.subId as string`
+- `message.slice(2) as NostrFilter[]` → `message.filters as NostrFilter[]`
+- `send(['EVENT', subId, item])` → `send({ type: 'relay.event', subId, event: item })`
+- `send(['EOSE', subId])` → `send({ type: 'relay.eose', subId })`
+
+#### 2.4.4 Routing Change
+
+Under NIP-5D, the runtime's NUB dispatch sends `relay.*` messages to the relay-pool service by domain prefix match. The service is registered as `'relay'` or `'relay-pool'` — the key must match what `routeServiceMessage()` uses for domain lookup (`message.type.split('.')[0]` === `'relay'`). If using the key `'relay-pool'`, the service registration name does not match the `relay` domain prefix. Shells should register the relay pool service as `'relay'`:
+
+```typescript
+runtime.registerService('relay', createRelayPoolService(options));
+// Not: runtime.registerService('relay-pool', ...)
+```
+
+---
 
 ### 2.5 Cache Service Migration
 
-*(placeholder — see Task 2)*
+#### 2.5.1 Old Code Path
+
+`createCacheService()` in `cache-service.ts` follows the same verb-dispatch pattern as relay-pool, but handles only `'REQ'` and `'EVENT'`:
+
+- **REQ** (line 83): one-shot query — extracts `subId = message[1]`, `filters = message.slice(2)`, calls `options.query(filters)`, sends events + EOSE, no long-lived subscription
+- **EVENT** (line 108): store — extracts `event = message[1]`, calls `options.store(event)` best-effort
+
+Cache subscriptions are **one-shot** (query, deliver, EOSE, done) — no subscription tracking, no EOSE timer.
+
+#### 2.5.2 New Message Shapes
+
+Cache receives the same relay NUB envelopes as relay-pool (it is also a relay-tier implementation):
+
+| Operation | Old Format | New Format |
+|-----------|-----------|-----------|
+| Query (subscribe) | `['REQ', subId, ...filters]` | `{type:'relay.subscribe', id:'uuid', subId:'uuid', filters:[...]}` |
+| Store (publish) | `['EVENT', event]` | `{type:'relay.publish', id:'uuid', event:{...}}` |
+| Event (out) | `send(['EVENT', subId, event])` | `send({type:'relay.event', subId:'uuid', event:{...}})` |
+| EOSE (out) | `send(['EOSE', subId])` | `send({type:'relay.eose', subId:'uuid'})` |
+
+#### 2.5.3 New Code Structure
+
+```typescript
+handleMessage(_windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
+  if (message.type === 'relay.subscribe') {
+    const subId = message.subId as string;
+    const filters = message.filters as NostrFilter[];
+
+    if (!options.isAvailable()) {
+      send({ type: 'relay.eose', subId });
+      return;
+    }
+
+    options.query(filters)
+      .then((events) => {
+        for (const event of events) send({ type: 'relay.event', subId, event });
+        send({ type: 'relay.eose', subId });
+      })
+      .catch(() => {
+        send({ type: 'relay.eose', subId }); // best-effort
+      });
+    return;
+  }
+
+  if (message.type === 'relay.publish') {
+    const event = message.event as NostrEvent | undefined;
+    if (event && typeof event === 'object' && options.isAvailable()) {
+      try { options.store(event); } catch { /* best-effort */ }
+    }
+    return;
+  }
+}
+```
+
+#### 2.5.4 Routing Consideration
+
+Cache service is typically registered as `'cache'` not `'relay'`. Under NIP-5D, the NUB domain prefix for relay operations is `'relay'` — so `routeServiceMessage()` looks for `services['relay']`. There are two valid patterns for combining relay pool and cache:
+
+**Pattern A — Coordinated relay as single `'relay'` service** (recommended):
+```typescript
+runtime.registerService('relay', createCoordinatedRelay({ relayPool: myPool, cache: myCache }));
+// coordinated-relay handles both sources internally, registered under 'relay' domain
+```
+
+**Pattern B — Separate services, runtime dispatches to both**:
+```typescript
+runtime.registerService('relay', createRelayPoolService(myPool));
+runtime.registerService('cache', createCacheService(myCache));
+// Requires runtime to dispatch relay.* messages to BOTH 'relay' and 'cache' handlers
+// This needs additional routing logic in routeServiceMessage() — 'cache' does not match 'relay' domain
+```
+
+Pattern A is simpler and recommended. Pattern B requires the shell to add custom dispatch logic since the standard domain-prefix routing only delivers to one service per domain. If Pattern B is used, the cache service key must be changed to `'relay-cache'` and the routing logic extended, or the shell must manually fan out relay messages.
+
+---
 
 ### 2.6 Coordinated Relay Service Migration
 
-*(placeholder — see Task 2)*
+#### 2.6.1 Old Code Path
+
+`createCoordinatedRelay()` in `coordinated-relay.ts` is a composite service. Its `handleMessage` (line 117) uses the same NIP-01 verb dispatch as relay-pool (`verb === 'REQ'`, `'CLOSE'`, `'EVENT'`), but coordinates two sources:
+
+- **REQ**: queries cache first (async), then subscribes to relay pool; events deduplicated by `seenIds` Set; unified EOSE after both `cacheEose` and `relayEose` flags are set
+- **CLOSE**: cancels relay pool subscription handle
+- **EVENT**: publishes to relay pool and stores in cache
+
+Internal state per subscription (keyed by `${windowId}:${subId}`) is tracked via `TrackedSub` interface: `seenIds`, `cacheEose`, `relayEose`, `eoseSent`, `eoseTimer`, `relayHandle`.
+
+The `maybeSendEose()` helper (line 100) checks both flags and sends `['EOSE', subId]` once when both sources complete.
+
+#### 2.6.2 New Code Structure
+
+Target `handleMessage` switches on `message.type` while preserving the full dual-source coordination logic:
+
+```typescript
+handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
+  if (message.type === 'relay.subscribe') {
+    const subId = message.subId as string;
+    const filters = message.filters as NostrFilter[];
+    const subKey = `${windowId}:${subId}`;
+
+    // Cancel existing subscription
+    const existing = subs.get(subKey);
+    if (existing) {
+      existing.relayHandle?.unsubscribe();
+      clearTimeout(existing.eoseTimer);
+      subs.delete(subKey);
+    }
+
+    const cacheAvailable = options.cache.isAvailable();
+    const relayAvailable = options.relayPool.isAvailable();
+
+    if (!cacheAvailable && !relayAvailable) {
+      send({ type: 'relay.eose', subId });
+      return;
+    }
+
+    const tracked: TrackedSub = { seenIds: new Set(), cacheEose: !cacheAvailable,
+      relayEose: !relayAvailable, eoseSent: false, eoseTimer: null, relayHandle: null };
+    subs.set(subKey, tracked);
+
+    function deliver(event: NostrEvent): void {
+      if (tracked.seenIds.has(event.id)) return;
+      tracked.seenIds.add(event.id);
+      if (subs.has(subKey)) send({ type: 'relay.event', subId, event });
+    }
+
+    if (cacheAvailable) {
+      options.cache.query(filters).then((events) => {
+        for (const event of events) deliver(event);
+        tracked.cacheEose = true;
+        maybeSendEose(subKey, subId, send);
+      }).catch(() => { tracked.cacheEose = true; maybeSendEose(subKey, subId, send); });
+    }
+
+    if (relayAvailable) {
+      tracked.eoseTimer = setTimeout(() => {
+        if (!tracked.eoseSent) { tracked.relayEose = true; maybeSendEose(subKey, subId, send); }
+      }, timeoutMs);
+
+      const relayUrls = options.relayPool.selectRelayTier(filters);
+      tracked.relayHandle = options.relayPool.subscribe(filters, (item) => {
+        if (item === 'EOSE') {
+          clearTimeout(tracked.eoseTimer);
+          tracked.relayEose = true;
+          maybeSendEose(subKey, subId, send);
+          return;
+        }
+        deliver(item);
+        if (cacheAvailable) { try { options.cache.store(item); } catch { /* best-effort */ } }
+      }, relayUrls);
+    }
+    return;
+  }
+
+  if (message.type === 'relay.close') {
+    const subId = message.subId as string;
+    const entry = subs.get(`${windowId}:${subId}`);
+    if (entry) {
+      entry.relayHandle?.unsubscribe();
+      clearTimeout(entry.eoseTimer);
+      subs.delete(`${windowId}:${subId}`);
+    }
+    return;
+  }
+
+  if (message.type === 'relay.publish') {
+    const event = message.event as NostrEvent | undefined;
+    if (!event || typeof event !== 'object') return;
+    if (options.relayPool.isAvailable()) options.relayPool.publish(event);
+    if (options.cache.isAvailable()) { try { options.cache.store(event); } catch { /* best-effort */ } }
+    return;
+  }
+}
+```
+
+The `maybeSendEose()` helper also updates from array to envelope:
+
+```typescript
+function maybeSendEose(subKey: string, subId: string, send: (msg: NappletMessage) => void): void {
+  const sub = subs.get(subKey);
+  if (!sub || sub.eoseSent) return;
+  if (sub.cacheEose && sub.relayEose) {
+    sub.eoseSent = true;
+    clearTimeout(sub.eoseTimer);
+    send({ type: 'relay.eose', subId });  // was: send(['EOSE', subId])
+  }
+}
+```
+
+**What stays the same:**
+- `TrackedSub` interface — unchanged (internal state only)
+- `subs` Map keyed by `${windowId}:${subId}` — unchanged
+- Dual-source coordination logic (cacheEose + relayEose flags, maybeSendEose) — unchanged
+- Event deduplication by `seenIds` Set — unchanged
+- EOSE fallback timer — unchanged
+- Cache-on-relay-receive (line 194–196) — unchanged
+- `onWindowDestroyed` cleanup — unchanged
+
+#### 2.6.3 Note on Composition
+
+`CoordinatedRelayOptions` wraps `RelayPoolServiceOptions` and `CacheServiceOptions` internally. These option interfaces are **unchanged** — they describe the underlying relay pool and cache implementations, not the wire format. The migration only affects the `ServiceHandler` entry point (`handleMessage` signature and verb routing) and the response format (the `send` callback).
+
+Coordinated relay should be registered as `'relay'` so the NUB domain prefix lookup matches:
+
+```typescript
+runtime.registerService('relay', createCoordinatedRelay({ relayPool: myPool, cache: myCache }));
+```
+
+---
+
+## 3. Migration Summary
+
+### 3.1 File Impact Matrix
+
+| File | Change Type | Notes |
+|------|------------|-------|
+| `packages/runtime/src/types.ts` | Interface update | `ServiceHandler.handleMessage` and `SendToNapplet` signatures change; breaks all six service implementations at compile time |
+| `packages/runtime/src/service-dispatch.ts` | Rewrite | `routeServiceMessage()` routing changes from topic-prefix + event wrap to `message.type` domain prefix |
+| `packages/services/src/signer-service.ts` | Full `handleMessage` rewrite | NUB-domain service; remove kind 29001 check, tag extraction, JSON.parse; switch on `message.type`; remove `BusKind` import |
+| `packages/services/src/audio-service.ts` | Full `handleMessage` rewrite + helper removal | IFC-routed; remove `parseContent`, `extractTopic`, `createResponseEvent`; read from `message.topic` and `message.payload`; remove `BusKind` import |
+| `packages/services/src/notification-service.ts` | Full `handleMessage` rewrite + helper removal | IFC-routed; same pattern as audio; `BusKind` import removed |
+| `packages/services/src/relay-pool-service.ts` | Full `handleMessage` rewrite | Relay NUB service; replace verb string checks with `message.type`; replace array positional reads with flat field reads; update `send()` calls |
+| `packages/services/src/cache-service.ts` | Full `handleMessage` rewrite | Relay NUB service; same pattern as relay-pool; one-shot query logic preserved |
+| `packages/services/src/coordinated-relay.ts` | Full `handleMessage` rewrite | Composite relay NUB service; verb routing → type routing; update `send()` calls in `deliver()` and `maybeSendEose()`; internal coordination logic unchanged |
+
+### 3.2 Migration Order
+
+The recommended migration sequence minimizes broken states:
+
+1. **Update `ServiceHandler` interface in `types.ts`** — changes `message: unknown[]` to `message: NappletMessage` and `send` callback type. This will break all six service implementations at compile time, making all remaining migrations visible.
+2. **Update `service-dispatch.ts` routing** — change `routeServiceMessage()` signature and routing logic to accept NUB envelopes.
+3. **Migrate `signer-service.ts`** — NUB-domain service, most complex (seven operations, consent gating). Migrate first because it is a standalone NUB domain with no IFC dependency.
+4. **Migrate `audio-service.ts` and `notification-service.ts`** (parallel) — both are IFC-routed services with the same structural pattern. Can be migrated simultaneously.
+5. **Migrate `relay-pool-service.ts` and `cache-service.ts`** (parallel) — both are relay NUB services with verb-to-type substitution. Can be migrated simultaneously.
+6. **Migrate `coordinated-relay.ts`** — depends on `RelayPoolServiceOptions` and `CacheServiceOptions` (unchanged), but wraps the relay NUB pattern from steps 5. Migrate last to benefit from already-understood relay NUB patterns.
+
+### 3.3 Testing Strategy
+
+Existing tests in `packages/services/src/`:
+- `signer-service.test.ts` — must be updated to send `NappletMessage` objects instead of `['EVENT', kind-29001-event]` arrays
+- `notification-service.test.ts` — must be updated to send `{type:'ifc.emit', topic:'notifications:create', payload:{...}}` envelopes instead of `['EVENT', kind-29003-event]` arrays
+
+The test structure (mock `send` callback, verify `send` was called with expected response, verify internal state changes) stays the same — only the message format changes. A pattern like:
+
+```typescript
+// Before
+handler.handleMessage('win-1', ['EVENT', buildIpcEvent('notifications:create', { title: 'Hello' })], mockSend);
+expect(mockSend).toHaveBeenCalledWith(['EVENT', '__shell__', expect.objectContaining({ kind: 29003 })]);
+
+// After
+handler.handleMessage('win-1', { type: 'ifc.emit', topic: 'notifications:create', payload: { title: 'Hello' } }, mockSend);
+expect(mockSend).toHaveBeenCalledWith({ type: 'ifc.event', topic: 'notifications:created', payload: expect.objectContaining({ id: expect.any(String) }) });
+```
+
+Audio service has no dedicated test file — testing through integration or a new unit test file would cover the `register`, `unregister`, `state-changed`, and `mute` action paths. Relay pool and cache services also lack dedicated test files; the coordinated relay's dual-source dedup logic would benefit from direct unit tests.
+
+After migration, the TypeScript compiler enforces message format correctness at the `handleMessage` call sites — mismatched formats that previously silently failed at runtime will now produce compile errors.
