@@ -9,7 +9,7 @@
 Spec: `docs/ACL-MIGRATION.md`
 
 - [ ] **ACL-I01**: Implement Identity key schema change (pubkey:dTag:hash → dTag:hash) in acl types and toKey()
-- [ ] **ACL-I02**: Update capability enforcement to use NUB domain resolution (resolveCapabilitiesNub)
+- [x] **ACL-I02**: Update capability enforcement to use NUB domain resolution (resolveCapabilitiesNub)
 - [ ] **ACL-I03**: Implement migrateAclState() utility for persisted ACL data
 
 ## Runtime Implementation
