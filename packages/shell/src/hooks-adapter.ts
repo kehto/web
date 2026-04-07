@@ -91,7 +91,7 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
 
   // ─── sendToNapplet: windowId → Window lookup → postMessage ────────────
 
-  const sendToNapplet: SendToNapplet = (windowId: string, msg: unknown[]): void => {
+  const sendToNapplet: SendToNapplet = (windowId, msg) => {
     const win = originRegistry.getIframeWindow(windowId);
     if (win) win.postMessage(msg, '*');
   };
@@ -323,6 +323,7 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
 
   // ─── Shell Secret Persistence (localStorage-backed) ─────────────────────
 
+  /** @deprecated NIP-5D: Shell secrets are no longer needed for source-based identity. Retained for legacy AUTH sessions. */
   const shellSecretPersistence: ShellSecretPersistence = {
     get(): Uint8Array | null {
       try {
@@ -340,6 +341,7 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
 
   // ─── GUID Persistence (localStorage-backed) ────────────────────────────
 
+  /** @deprecated NIP-5D: Per-window GUIDs are no longer needed. Retained for legacy session persistence. */
   const guidPersistence: GuidPersistence = {
     get(windowId: string): string | null {
       try {
