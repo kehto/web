@@ -2,14 +2,20 @@
  * enforce.ts — Single ACL enforcement gate for the runtime.
  *
  * All message paths pass through enforce() before any handler acts.
- * resolveCapabilities() maps each message type to the required capability.
+ * resolveCapabilities() maps each message type to the required capability (legacy NIP-01).
+ * resolveCapabilitiesNub() maps NIP-5D NUB message types to capabilities (re-exported from @kehto/acl).
  * Both functions are designed to be the sole ACL chokepoint — no handler
  * should call @kehto/acl directly.
  */
 
 import type { Capability, NostrEvent } from '@napplet/core';
 import { BusKind, TOPICS } from '@napplet/core';
+import type { NubMessage } from '@kehto/acl';
 import type { AclCheckEvent } from './types.js';
+
+// Re-export NUB capability resolution for consumers who import through enforce.ts
+export { resolveCapabilitiesNub } from '@kehto/acl';
+export type { NubMessage } from '@kehto/acl';
 
 // ─── Capability Resolution ────────────────────────────────────────────────────
 
@@ -173,6 +179,64 @@ export function createEnforceGate(config: EnforceConfig): (pubkey: string, capab
 
     // Audit logging — every check, both allows and denials
     const identity = { pubkey, dTag, hash: aggregateHash };
+    const decision = allowed ? 'allow' as const : 'deny' as const;
+
+    if (onAclCheck) {
+      onAclCheck({ identity, capability, decision, message });
+    }
+
+    return { allowed, capability };
+  };
+}
+
+// ─── NUB Enforcement Gate (NIP-5D) ───────────────────────────────────────────
+
+/**
+ * Enforcement gate configuration for NIP-5D NUB handlers.
+ * Uses windowId for identity resolution instead of pubkey (which is '' in NIP-5D sessions).
+ *
+ * @param checkAcl - The ACL check function
+ * @param resolveIdentityByWindowId - Maps windowId to identity (dTag, aggregateHash)
+ * @param onAclCheck - Optional audit callback, called on every enforceNub() check
+ */
+export interface NubEnforceConfig {
+  checkAcl: AclChecker;
+  resolveIdentityByWindowId: (windowId: string) => { dTag: string; aggregateHash: string } | undefined;
+  onAclCheck?: (event: AclCheckEvent) => void;
+}
+
+/**
+ * Create an enforcement gate for NIP-5D NUB message handlers.
+ *
+ * Unlike createEnforceGate (which resolves identity by pubkey), this factory
+ * resolves identity by windowId — necessary for NIP-5D sessions where pubkey is ''.
+ *
+ * @param config - NUB enforcement configuration
+ * @returns An enforceNub function that resolves identity by windowId
+ *
+ * @example
+ * ```ts
+ * const gate = createNubEnforceGate({
+ *   checkAcl: aclStore.check,
+ *   resolveIdentityByWindowId: (wid) => sessionRegistry.getEntryByWindowId(wid),
+ *   onAclCheck: hooks.onAclCheck,
+ * });
+ * const result = gate('win-1', 'relay:write', { type: 'relay.publish' });
+ * // result.allowed === true | false
+ * ```
+ */
+export function createNubEnforceGate(config: NubEnforceConfig): (windowId: string, capability: Capability, message?: NubMessage) => EnforceResult {
+  const { checkAcl, resolveIdentityByWindowId, onAclCheck } = config;
+
+  return function enforceNub(windowId: string, capability: Capability, message?: NubMessage): EnforceResult {
+    const entry = resolveIdentityByWindowId(windowId);
+    const dTag = entry?.dTag ?? '';
+    const aggregateHash = entry?.aggregateHash ?? '';
+
+    // NIP-5D: pass empty string for pubkey — toKey() ignores it (uses dTag:hash)
+    const allowed = checkAcl('', dTag, aggregateHash, capability);
+
+    const identity = { pubkey: '', dTag, hash: aggregateHash };
     const decision = allowed ? 'allow' as const : 'deny' as const;
 
     if (onAclCheck) {

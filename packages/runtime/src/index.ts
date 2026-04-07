@@ -36,11 +36,12 @@ export type {
   HashVerifierAdapter,
   VerificationCacheEntry,
   RuntimeConfigOverrides,
+  NappletMessage,
 } from './types.js';
 
 // ─── Enforcement Gate ──────────────────────────────────────────────────────
-export { createEnforceGate, resolveCapabilities, formatDenialReason } from './enforce.js';
-export type { CapabilityResolution, EnforceResult, EnforceConfig, IdentityResolver, AclChecker } from './enforce.js';
+export { createEnforceGate, createNubEnforceGate, resolveCapabilities, resolveCapabilitiesNub, formatDenialReason } from './enforce.js';
+export type { CapabilityResolution, EnforceResult, EnforceConfig, NubEnforceConfig, IdentityResolver, AclChecker, NubMessage } from './enforce.js';
 
 // ─── SessionRegistry ──────────────────────────────────────────────────────
 export { createSessionRegistry, createNappKeyRegistry } from './session-registry.js';
