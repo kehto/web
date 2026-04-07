@@ -30,9 +30,9 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Every window.napplet interface is listed with its NUB domain assignment and optionality status
   4. All silent failure points where old runtime drops new-format messages are inventoried with reproduction steps
   5. Per-package boundary contracts (send/receive surface) are documented and can be referenced by Phases 2-5
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
-- [ ] 01-01-PLAN.md -- Wire format, AUTH/identity, NUB domain mapping (sections 1-3)
+- [x] 01-01-PLAN.md -- Wire format, AUTH/identity, NUB domain mapping (sections 1-3)
 - [ ] 01-02-PLAN.md -- Silent failure inventory, boundary contracts (sections 4-5)
 
 ### Phase 2: ACL Migration Doc
@@ -82,7 +82,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Gap Analysis | 0/2 | Planned | - |
+| 1. Gap Analysis | 1/2 | In Progress|  |
 | 2. ACL Migration Doc | 0/? | Not started | - |
 | 3. Runtime Migration Doc | 0/? | Not started | - |
 | 4. Shell Migration Doc | 0/? | Not started | - |

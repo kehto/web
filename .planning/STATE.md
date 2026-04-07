@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: NIP-5D Migration & Gap Analysis
-status: ready_to_plan
-stopped_at: Roadmap created — 5 phases, 17 requirements mapped
-last_updated: "2026-04-07"
-last_activity: 2026-04-07
+milestone: v0.1.0
+milestone_name: milestone
+status: planning
+stopped_at: Completed 01-gap-analysis-01-PLAN.md
+last_updated: "2026-04-07T17:40:50.202Z"
+last_activity: 2026-04-07 — Roadmap created, 5 phases, 17 requirements fully mapped
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
   percent: 0
 ---
 
@@ -35,6 +35,7 @@ Progress: [----------] 0%
 ## Performance Metrics
 
 **Velocity:**
+
 - Total plans completed: 0
 - Average duration: —
 - Total execution time: 0 hours
@@ -46,10 +47,12 @@ Progress: [----------] 0%
 | - | - | - | - |
 
 **Recent Trend:**
+
 - Last 5 plans: —
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 01-gap-analysis P01 | 3 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -60,6 +63,8 @@ Recent decisions affecting current work:
 
 - Roadmap: Gap Analysis (Phase 1) goes first — its boundary contracts are inputs to all package migration docs
 - Roadmap: Phases 4 and 5 depend on both Phase 1 and Phase 3 (shell and services depend on runtime interfaces)
+- [Phase 01-gap-analysis]: Dual-mode AUTH framing: NIP-5D napplets use source-based identity; legacy napplets can still AUTH (matches PITFALLS.md Pitfall 1)
+- [Phase 01-gap-analysis]: GAP-ANALYSIS.md sections 1-3 written atomically from pre-populated RESEARCH.md; document structure: summary table -> per-gap sections with before/after -> placeholders for plan 02
 
 ### Pending Todos
 
@@ -73,6 +78,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-07
-Stopped at: Roadmap created — ready to plan Phase 1
+Last session: 2026-04-07T17:40:50.200Z
+Stopped at: Completed 01-gap-analysis-01-PLAN.md
 Resume file: None
