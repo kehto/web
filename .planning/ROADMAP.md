@@ -98,7 +98,12 @@ Plans:
   2. All AUTH-related code paths are removed; the runtime compiles without them
   3. relay, signer, storage, and ifc handlers accept and return NappletMessage envelopes in all code paths
   4. `SessionEntry` carries an `identitySource` discriminant and an empty-string sentinel for pre-identity sessions
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 07-01-PLAN.md — Type contracts, SessionEntry identity anchor, enforce gate for NUB dispatch
+- [ ] 07-02-PLAN.md — handleMessage rewrite (envelope-only), AUTH removal (~269 lines)
+- [ ] 07-03-PLAN.md — Relay/signer/storage/IFC handler implementations + dispatch tests
 
 ### Phase 8: @kehto/shell Implementation
 **Goal**: @kehto/shell accepts only NappletMessage envelopes, injects window.nostr into sandboxed iframes, and advertises supported capabilities
