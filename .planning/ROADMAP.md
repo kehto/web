@@ -82,7 +82,11 @@ Plans:
   2. `resolveCapabilitiesNub()` resolves capability grants using NUB domain strings, not legacy capability names
   3. `migrateAclState()` reads old-format `pubkey:dTag:hash` keys from storage and rewrites them as `dTag:hash` without data loss
   4. ACL tests pass with the new key format and no test references the old three-part key schema
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — Identity key schema change (toKey dTag:hash) + migrateAclState() utility + tests
+- [ ] 06-02-PLAN.md — resolveCapabilitiesNub() NUB domain resolution + tests
 
 ### Phase 7: @kehto/runtime Implementation
 **Goal**: @kehto/runtime dispatches exclusively via NUB domain-prefix, with no AUTH machinery and envelope-only message handling
@@ -133,7 +137,7 @@ v1.0 phases are complete. v1.1 executes: 6 → 7 → 8 → 9 (phases 8 and 9 may
 | 3. Runtime Migration Doc | v1.0 | 2/2 | Complete | 2026-04-07 |
 | 4. Shell Migration Doc | v1.0 | 1/1 | Complete | 2026-04-07 |
 | 5. Services Migration Doc | v1.0 | 1/1 | Complete | 2026-04-07 |
-| 6. @kehto/acl Implementation | v1.1 | 0/? | Not started | - |
+| 6. @kehto/acl Implementation | v1.1 | 0/2 | Planned | - |
 | 7. @kehto/runtime Implementation | v1.1 | 0/? | Not started | - |
 | 8. @kehto/shell Implementation | v1.1 | 0/? | Not started | - |
 | 9. @kehto/services Implementation | v1.1 | 0/? | Not started | - |
