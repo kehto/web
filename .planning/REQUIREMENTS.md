@@ -53,7 +53,23 @@
 
 | REQ-ID | Phase | Plan | Status |
 |--------|-------|------|--------|
-| (filled by roadmapper) | | | |
+| GAP-01 | Phase 1 | TBD | Pending |
+| GAP-02 | Phase 1 | TBD | Pending |
+| GAP-03 | Phase 1 | TBD | Pending |
+| GAP-04 | Phase 1 | TBD | Pending |
+| GAP-05 | Phase 1 | TBD | Pending |
+| ACL-01 | Phase 2 | TBD | Pending |
+| ACL-02 | Phase 2 | TBD | Pending |
+| ACL-03 | Phase 2 | TBD | Pending |
+| RT-01 | Phase 3 | TBD | Pending |
+| RT-02 | Phase 3 | TBD | Pending |
+| RT-03 | Phase 3 | TBD | Pending |
+| RT-04 | Phase 3 | TBD | Pending |
+| SH-01 | Phase 4 | TBD | Pending |
+| SH-02 | Phase 4 | TBD | Pending |
+| SH-03 | Phase 4 | TBD | Pending |
+| SVC-01 | Phase 5 | TBD | Pending |
+| SVC-02 | Phase 5 | TBD | Pending |
 
 ---
 *Requirements defined: 2026-04-07*
