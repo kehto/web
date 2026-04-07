@@ -2,11 +2,13 @@
  * shell-bridge.ts — Browser adapter over @kehto/runtime.
  *
  * Thin shell that converts browser MessageEvents into windowId-based
- * messages for the runtime engine. All protocol logic (AUTH, REQ, EVENT,
- * CLOSE, COUNT, signer proxying, shell commands) lives in @kehto/runtime.
+ * NIP-5D envelope messages for the runtime engine. All protocol logic
+ * (NUB dispatch, ACL enforcement, subscription lifecycle, signer proxying)
+ * lives in @kehto/runtime.
  *
  * The only browser-specific concern here is extracting the source Window
- * from a MessageEvent and mapping it to a windowId via originRegistry.
+ * from a MessageEvent, mapping it to a windowId via originRegistry, and
+ * routing shell.ready/shell.init handshake locally.
  */
 
 import { createRuntime } from '@kehto/runtime';
@@ -17,16 +19,20 @@ import { sessionRegistry, nappKeyRegistry } from './session-registry.js';
 import { aclStore } from './acl-store.js';
 import { manifestCache } from './manifest-cache.js';
 import { audioManager } from './audio-manager.js';
-import type { ShellAdapter } from './types.js';
+import type { ShellAdapter, ShellCapabilities } from './types.js';
+import type { NappletMessage } from '@napplet/core';
+import { buildShellCapabilities } from './shell-init.js';
 
 // ─── Public interface ────────────────────────────────────────────────────────
 
 /**
- * Shell-side message bridge that handles NIP-01 communication with napplet iframes.
+ * Shell-side message bridge that handles NIP-5D communication with napplet iframes.
  *
  * The bridge acts as a browser adapter: it receives raw MessageEvents from
  * window.addEventListener('message', ...), extracts the source Window, resolves
- * it to a windowId via originRegistry, and delegates to the runtime engine.
+ * it to a windowId via originRegistry, and delegates NIP-5D envelope messages
+ * to the runtime engine. The shell.ready/shell.init capability handshake is
+ * handled locally within the bridge and never forwarded to the runtime.
  *
  * @example
  * ```ts
@@ -34,13 +40,19 @@ import type { ShellAdapter } from './types.js';
  *
  * const bridge = createShellBridge(hooks);
  * window.addEventListener('message', bridge.handleMessage);
- * bridge.sendChallenge('window-1');
  * ```
  */
 export interface ShellBridge {
   /**
    * Handle an incoming postMessage from a napplet iframe.
-   * Dispatches to the appropriate verb handler (EVENT, REQ, CLOSE, COUNT, AUTH).
+   *
+   * Only NIP-5D envelope objects (plain objects with a `.type` string) are
+   * accepted. NIP-01 arrays and all other message shapes are silently dropped
+   * (clean break — no legacy array fallback).
+   *
+   * shell.ready messages are handled locally: the bridge responds with shell.init
+   * containing the capability set and registered service list. All other envelopes
+   * are delegated to the runtime's NUB domain dispatch.
    *
    * @param event - The raw MessageEvent from window.addEventListener('message', ...)
    * @example
@@ -51,22 +63,14 @@ export interface ShellBridge {
   handleMessage(event: MessageEvent): void;
 
   /**
-   * Send a NIP-42 AUTH challenge to a napplet window, initiating the handshake.
-   *
-   * @param windowId - The window identifier registered via originRegistry
-   * @example
-   * ```ts
-   * bridge.sendChallenge('napp-window-1');
-   * ```
-   */
-  sendChallenge(windowId: string): void;
-
-  /**
    * Inject a shell-originated event into subscription delivery.
-   * Used for broadcasting shell state changes (e.g., auth identity) to napplets.
+   *
+   * Under NIP-5D, shell-originated events are forwarded to napplets as
+   * ifc.event envelope messages. The runtime's injectEvent() handles
+   * the per-session routing.
    *
    * @param topic - The event topic tag value (e.g., 'auth:identity-changed')
-   * @param payload - The event content, will be JSON.stringify'd
+   * @param payload - The event content
    * @example
    * ```ts
    * bridge.injectEvent('auth:identity-changed', { pubkey: userPubkey });
@@ -152,15 +156,25 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
       const windowId = originRegistry.getWindowId(sourceWindow);
       if (!windowId) return;
       const msg = event.data;
-      if (!Array.isArray(msg) || msg.length < 2) return;
-      // Delegate to runtime — runtime handles verb dispatch, AUTH, queueing
-      runtime.handleMessage(windowId, msg);
-    },
 
-    /** @deprecated NIP-5D: AUTH challenge handshake no longer used. No-op retained for API compatibility. */
-    sendChallenge(_windowId: string): void {
-      // NIP-5D: runtime.sendChallenge() was removed in Phase 07.
-      // AUTH challenge is no longer issued — identity is established via originRegistry at iframe creation.
+      // NIP-5D envelope-only guard (clean break — no legacy array support)
+      if (typeof msg !== 'object' || msg === null || typeof msg.type !== 'string') return;
+
+      // Handle shell.ready handshake locally (not forwarded to runtime)
+      if (msg.type === 'shell.ready') {
+        const capabilities = buildShellCapabilities(hooks);
+        const initMsg: NappletMessage & { capabilities: ShellCapabilities; services: string[] } = {
+          type: 'shell.init',
+          capabilities,
+          services: Object.keys(hooks.services ?? {}),
+        };
+        const win = originRegistry.getIframeWindow(windowId);
+        if (win) win.postMessage(initMsg, '*');
+        return;
+      }
+
+      // Delegate to runtime — runtime handles NUB domain dispatch
+      runtime.handleMessage(windowId, msg);
     },
 
     injectEvent(topic: string, payload: unknown): void {
