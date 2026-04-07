@@ -132,7 +132,11 @@ Plans:
   3. audio and notifications handlers process IFC-envelope messages and produce valid NappletMessage responses
   4. relay-pool, cache, and coordinated-relay handlers are rewritten to envelope format and pass their handler tests
   5. `signer.getPublicKey` returns an error response when `session.identitySource` is unset; it does not silently return undefined
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 09-01-PLAN.md — ServiceHandler interface change, service-dispatch rewrite, runtime delegation updates, signer service migration + tests
+- [ ] 09-02-PLAN.md — Audio + notifications (IFC-routed) + relay-pool + cache + coordinated-relay migrations + notification tests
 
 ## Progress
 
@@ -149,4 +153,4 @@ v1.0 phases are complete. v1.1 executes: 6 → 7 → 8 → 9 (phases 8 and 9 may
 | 6. @kehto/acl Implementation | v1.1 | 2/2 | Complete   | 2026-04-07 |
 | 7. @kehto/runtime Implementation | v1.1 | 0/? | Not started | - |
 | 8. @kehto/shell Implementation | v1.1 | 2/2 | Complete   | 2026-04-07 |
-| 9. @kehto/services Implementation | v1.1 | 0/? | Not started | - |
+| 9. @kehto/services Implementation | v1.1 | 0/2 | Not started | - |
