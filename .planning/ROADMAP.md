@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Gap Analysis** - Document spec delta between previous and NIP-5D v0.1.0, establishing boundary contracts for all packages (completed 2026-04-07)
 - [x] **Phase 2: ACL Migration Doc** - Document identity schema changes, capability constant remapping, and persisted data migration for @kehto/acl (completed 2026-04-07)
-- [ ] **Phase 3: Runtime Migration Doc** - Document NUB dispatch design, AUTH removal scope, handler rewrites, and session identity changes for @kehto/runtime
+- [x] **Phase 3: Runtime Migration Doc** - Document NUB dispatch design, AUTH removal scope, handler rewrites, and session identity changes for @kehto/runtime (completed 2026-04-07)
 - [ ] **Phase 4: Shell Migration Doc** - Document envelope guard update, window.nostr injection, and capability advertisement design for @kehto/shell
 - [ ] **Phase 5: Services Migration Doc** - Document ServiceHandler interface change and per-handler migration for @kehto/services
 
@@ -56,10 +56,10 @@ Plans:
   2. The AUTH machinery removal scope is quantified (~40% of current code) with a list of affected files and functions
   3. The relay, signer, storage, and ifc handler rewrites required by envelope format are documented
   4. The SessionEntry identity anchor decision (post-AUTH) is documented with the chosen design and rationale
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [x] 03-01-PLAN.md -- NUB dispatch design, AUTH removal scope (sections 1-2)
-- [ ] 03-02-PLAN.md -- Handler rewrites for envelope format, SessionEntry identity anchor (sections 3-4)
+- [x] 03-02-PLAN.md -- Handler rewrites for envelope format, SessionEntry identity anchor (sections 3-4)
 
 ### Phase 4: Shell Migration Doc
 **Goal**: A migration document for @kehto/shell exists that describes envelope guard updates, window.nostr injection, and capability advertisement design
@@ -89,6 +89,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Gap Analysis | 2/2 | Complete   | 2026-04-07 |
 | 2. ACL Migration Doc | 1/1 | Complete   | 2026-04-07 |
-| 3. Runtime Migration Doc | 1/2 | In Progress|  |
+| 3. Runtime Migration Doc | 2/2 | Complete   | 2026-04-07 |
 | 4. Shell Migration Doc | 0/? | Not started | - |
 | 5. Services Migration Doc | 0/? | Not started | - |
