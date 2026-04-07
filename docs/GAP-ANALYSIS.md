@@ -546,7 +546,7 @@ export interface ServiceHandler {
 | audio | `event.kind === 29003` (IPC_PEER) + `t` tag prefix `audio:` | `message.type === "ifc.emit"` with `topic.startsWith("audio:")` | From IPC_PEER response → `{ type: "ifc.event", topic: "audio:...", payload }` |
 | notifications | `event.kind === 29003` (IPC_PEER) + `t` tag prefix `notifications:` | `message.type === "ifc.emit"` with `topic.startsWith("notifications:")` | From IPC_PEER response → `{ type: "ifc.event", ... }` |
 
-**Verification criterion:** `serviceHandler.handleMessage(windowId, { type: "signer.getPublicKey", id: "uuid" }, send)` results in `send` being called with `{ type: "signer.getPublicKey.result", id: "uuid", publicKey: "..." }`.
+**Verification criterion:** `serviceHandler.handleMessage(windowId, { type: "signer.getPublicKey", id: "uuid" }, send)` results in `send` being called with `{ type: "signer.getPublicKey.result", id: "uuid", pubkey: "..." }`.
 
 **Affected files:** `packages/runtime/src/types.ts` (ServiceHandler interface), `packages/services/src/` (all handler implementations)
 
