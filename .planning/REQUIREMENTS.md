@@ -33,8 +33,8 @@
 
 ## Services Migration
 
-- [ ] **SVC-01**: Document ServiceHandler interface change (unknown[] → NappletMessage)
-- [ ] **SVC-02**: Document per-handler migration (signer, audio, notifications)
+- [x] **SVC-01**: Document ServiceHandler interface change (unknown[] → NappletMessage)
+- [x] **SVC-02**: Document per-handler migration (signer, audio, notifications)
 
 ## Future Requirements
 

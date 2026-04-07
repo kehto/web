@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 04-shell-migration-doc-01-PLAN.md
-last_updated: "2026-04-07T18:41:37.315Z"
+status: executing
+stopped_at: Completed 05-services-migration-doc-01-PLAN.md
+last_updated: "2026-04-07T18:16:00Z"
 last_activity: 2026-04-07
 progress:
   total_phases: 5
-  completed_phases: 4
-  total_plans: 6
-  completed_plans: 6
-  percent: 0
+  completed_phases: 5
+  total_plans: 7
+  completed_plans: 7
+  percent: 100
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-07)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 04 — shell-migration-doc
+**Current focus:** Phase 05 — services-migration-doc
 
 ## Current Position
 
 Phase: 5
-Plan: Not started
-Status: Phase complete — ready for verification
+Plan: 1 (complete)
+Status: All phases complete — ready for milestone verification
 Last activity: 2026-04-07
 
 Progress: [----------] 0%
@@ -57,6 +57,7 @@ Progress: [----------] 0%
 | Phase 03-runtime-migration-doc P01 | 15 | 1 tasks | 1 files |
 | Phase 03-runtime-migration-doc P02 | 6 | 2 tasks | 1 files |
 | Phase 04-shell-migration-doc P01 | 4m | 2 tasks | 1 files |
+| Phase 05-services-migration-doc P01 | 6m | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,9 @@ Recent decisions affecting current work:
 - [Phase 04-shell-migration-doc]: window.nostr injection: Option B (postMessage handshake) primary + Option A (srcdoc) fallback for shim-less napplets
 - [Phase 04-shell-migration-doc]: originRegistry.register() enhanced with optional identity metadata { dTag, aggregateHash } for source-based identity at message entry
 - [Phase 04-shell-migration-doc]: ShellCapabilities injected alongside window.nostr at iframe creation — unified init step for all three window.napplet components
+- [Phase 05-services-migration-doc]: IFC-routed services (audio, notifications) receive ifc.emit envelopes with topic prefix — not a dedicated NUB domain, routing is still by topic prefix from message.topic flat field
+- [Phase 05-services-migration-doc]: Coordinated relay registered as 'relay' domain key so NUB prefix routing matches — Pattern A preferred over Pattern B (separate services)
+- [Phase 05-services-migration-doc]: parseContent/extractTopic/createResponseEvent helpers in audio and notifications are eliminated — payload is already parsed in NappletMessage envelope
 
 ### Pending Todos
 
@@ -96,6 +100,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-07T18:39:07.836Z
-Stopped at: Completed 04-shell-migration-doc-01-PLAN.md
+Last session: 2026-04-07T18:16:00Z
+Stopped at: Completed 05-services-migration-doc-01-PLAN.md
 Resume file: None

@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: ACL Migration Doc** - Document identity schema changes, capability constant remapping, and persisted data migration for @kehto/acl (completed 2026-04-07)
 - [x] **Phase 3: Runtime Migration Doc** - Document NUB dispatch design, AUTH removal scope, handler rewrites, and session identity changes for @kehto/runtime (completed 2026-04-07)
 - [x] **Phase 4: Shell Migration Doc** - Document envelope guard update, window.nostr injection, and capability advertisement design for @kehto/shell (completed 2026-04-07)
-- [ ] **Phase 5: Services Migration Doc** - Document ServiceHandler interface change and per-handler migration for @kehto/services
+- [x] **Phase 5: Services Migration Doc** - Document ServiceHandler interface change and per-handler migration for @kehto/services (completed 2026-04-07)
 
 ## Phase Details
 
@@ -80,9 +80,9 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. The ServiceHandler interface change (unknown[] → NappletMessage) is documented with the old and new signatures and migration impact
   2. The migration path for each built-in handler (signer, audio, notifications) is individually documented
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
-- [ ] 05-01-PLAN.md -- ServiceHandler interface change, per-handler migration (signer, audio, notifications, relay-pool, cache, coordinated-relay)
+- [x] 05-01-PLAN.md -- ServiceHandler interface change, per-handler migration (signer, audio, notifications, relay-pool, cache, coordinated-relay)
 
 ## Progress
 
@@ -95,4 +95,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. ACL Migration Doc | 1/1 | Complete   | 2026-04-07 |
 | 3. Runtime Migration Doc | 2/2 | Complete   | 2026-04-07 |
 | 4. Shell Migration Doc | 1/1 | Complete   | 2026-04-07 |
-| 5. Services Migration Doc | 0/1 | Not started | - |
+| 5. Services Migration Doc | 1/1 | Complete   | 2026-04-07 |
