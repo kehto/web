@@ -184,7 +184,6 @@ describe('shell -> runtime -> acl -> core integration', () => {
     it('creates runtime with mock hooks — no browser dependencies', () => {
       expect(runtime).toBeDefined();
       expect(typeof runtime.handleMessage).toBe('function');
-      expect(typeof runtime.sendChallenge).toBe('function');
       expect(typeof runtime.injectEvent).toBe('function');
       expect(typeof runtime.destroy).toBe('function');
       expect(typeof runtime.registerConsentHandler).toBe('function');
@@ -196,11 +195,13 @@ describe('shell -> runtime -> acl -> core integration', () => {
       expect(runtime.manifestCache).toBeDefined();
     });
 
-    it('runtime sends AUTH challenge using core AUTH_KIND', () => {
-      runtime.sendChallenge('test-win');
-      const msg = mock.sent.find(m => m.message[0] === 'AUTH');
-      expect(msg).toBeDefined();
-      expect(msg!.windowId).toBe('test-win');
+    it('runtime accepts NappletMessage envelopes (NIP-5D)', () => {
+      const windowId = 'test-win';
+      runtime.sessionRegistry.register(windowId, '', { identitySource: 'source' } as any);
+      runtime.aclState.grant('', 'test-dtag', 'test-hash', 'relay:read');
+      runtime.handleMessage(windowId, { type: 'relay.subscribe', id: 'req-1', subId: 'sub-1', filters: [{ kinds: [1] }] } as any);
+      const response = mock.sent.find(m => (m.message as any).type === 'relay.eose');
+      expect(response).toBeDefined();
     });
   });
 
@@ -254,62 +255,31 @@ describe('shell -> runtime -> acl -> core integration', () => {
 
   // ─── Full chain: runtime with ACL enforcement ────────────────────────────
 
-  describe('full chain: runtime -> acl enforcement -> core types', () => {
-    it('runtime enforces ACL revocation using core capability strings', async () => {
+  describe('full chain: runtime -> acl enforcement -> core types (NIP-5D)', () => {
+    it('runtime enforces ACL revocation using NUB envelope format', () => {
       const mock = createMockRuntimeAdapter();
       const runtime = createRuntime(mock.hooks);
 
-      // Authenticate a napplet
       const windowId = 'win-chain-test';
-      const pubkey = 'e'.repeat(64);
-      const dTag = parseInt(pubkey.slice(0, 8), 16).toString(36) + 'chain-napp';
+      const dTag = 'chain-napp';
       const hash = 'f'.repeat(64);
 
-      runtime.sendChallenge(windowId);
-      const challengeMsg = mock.sent.find(
-        m => m.windowId === windowId && m.message[0] === 'AUTH',
-      );
-      const challenge = challengeMsg!.message[1] as string;
+      // Register source-based session (NIP-5D — no AUTH)
+      runtime.sessionRegistry.register(windowId, '', { identitySource: 'source', dTag, aggregateHash: hash } as any);
 
-      const authEvent: NostrEvent = {
-        id: 'auth-chain-' + '0'.repeat(53),
-        pubkey,
-        created_at: Math.floor(Date.now() / 1000),
-        kind: AUTH_KIND,
-        tags: [
-          ['challenge', challenge],
-          ['relay', SHELL_BRIDGE_URI],
-          ['type', 'chain-napp'],
-          ['aggregateHash', hash],
-        ],
-        content: '',
-        sig: '0'.repeat(128),
-      };
-      runtime.handleMessage(windowId, ['AUTH', authEvent]);
-      await new Promise(resolve => setTimeout(resolve, 10));
+      // Grant relay:read, but NOT relay:write
+      runtime.aclState.grant('', dTag, hash, 'relay:read');
 
-      // Verify auth succeeded
-      expect(runtime.sessionRegistry.getPubkey(windowId)).toBe(pubkey);
-
-      // Revoke relay:write using runtime's aclState
-      runtime.aclState.revoke(pubkey, dTag, hash, 'relay:write');
-
-      // Try to publish — should be denied
+      // Try to publish — should be denied (no relay:write)
       mock.sent.length = 0;
-      const event: NostrEvent = {
-        id: 'chain-evt-' + '0'.repeat(54),
-        pubkey,
-        created_at: Math.floor(Date.now() / 1000),
-        kind: 1,
-        tags: [],
-        content: 'test',
-        sig: '0'.repeat(128),
-      };
-      runtime.handleMessage(windowId, ['EVENT', event]);
+      runtime.handleMessage(windowId, {
+        type: 'relay.publish',
+        id: 'pub-1',
+        event: { id: 'evt-1', pubkey: 'a'.repeat(64), created_at: 0, kind: 1, tags: [], content: 'test', sig: '0'.repeat(128) },
+      } as any);
 
-      const ok = mock.sent.find(m => m.message[0] === 'OK' && m.message[2] === false);
-      expect(ok).toBeDefined();
-      expect(ok!.message[3]).toContain('denied: relay:write');
+      const denied = mock.sent.find(m => (m.message as any).type === 'relay.publish.error');
+      expect(denied).toBeDefined();
 
       runtime.destroy();
     });

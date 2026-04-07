@@ -139,11 +139,11 @@ export function createAclState(
 
     getEntry(pubkey: string, dTag: string, aggregateHash: string): AclEntryExternal | undefined {
       const id = toIdentity(pubkey, dTag, aggregateHash);
-      const key = `${id.pubkey}:${id.dTag}:${id.hash}`;
+      const key = `${id.dTag}:${id.hash}`;
       const entry = state.entries[key];
       if (!entry) return undefined;
       return {
-        pubkey,
+        pubkey: pubkey || '',
         capabilities: bitsToCapabilities(entry.caps),
         blocked: entry.blocked,
         stateQuota: entry.quota,
@@ -154,7 +154,7 @@ export function createAclState(
       return Object.entries(state.entries).map(([key, entry]) => {
         const parts = key.split(':');
         return {
-          pubkey: parts[0],
+          pubkey: '',
           capabilities: bitsToCapabilities(entry.caps),
           blocked: entry.blocked,
           stateQuota: entry.quota,
