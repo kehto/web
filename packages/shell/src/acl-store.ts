@@ -29,8 +29,8 @@ interface InternalAclEntry {
   stateQuota: number;
 }
 
-function aclKey(pubkey: string, dTag: string, aggregateHash: string): string {
-  return `${pubkey}:${dTag}:${aggregateHash}`;
+function aclKey(_pubkey: string, dTag: string, aggregateHash: string): string {
+  return `${dTag}:${aggregateHash}`;
 }
 
 const store = new Map<string, InternalAclEntry>();
