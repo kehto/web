@@ -80,7 +80,9 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. The ServiceHandler interface change (unknown[] → NappletMessage) is documented with the old and new signatures and migration impact
   2. The migration path for each built-in handler (signer, audio, notifications) is individually documented
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 05-01-PLAN.md -- ServiceHandler interface change, per-handler migration (signer, audio, notifications, relay-pool, cache, coordinated-relay)
 
 ## Progress
 
@@ -93,4 +95,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. ACL Migration Doc | 1/1 | Complete   | 2026-04-07 |
 | 3. Runtime Migration Doc | 2/2 | Complete   | 2026-04-07 |
 | 4. Shell Migration Doc | 1/1 | Complete   | 2026-04-07 |
-| 5. Services Migration Doc | 0/? | Not started | - |
+| 5. Services Migration Doc | 0/1 | Not started | - |
