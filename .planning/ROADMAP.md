@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Gap Analysis** - Document spec delta between previous and NIP-5D v0.1.0, establishing boundary contracts for all packages (completed 2026-04-07)
 - [x] **Phase 2: ACL Migration Doc** - Document identity schema changes, capability constant remapping, and persisted data migration for @kehto/acl (completed 2026-04-07)
 - [x] **Phase 3: Runtime Migration Doc** - Document NUB dispatch design, AUTH removal scope, handler rewrites, and session identity changes for @kehto/runtime (completed 2026-04-07)
-- [ ] **Phase 4: Shell Migration Doc** - Document envelope guard update, window.nostr injection, and capability advertisement design for @kehto/shell
+- [x] **Phase 4: Shell Migration Doc** - Document envelope guard update, window.nostr injection, and capability advertisement design for @kehto/shell (completed 2026-04-07)
 - [ ] **Phase 5: Services Migration Doc** - Document ServiceHandler interface change and per-handler migration for @kehto/services
 
 ## Phase Details
@@ -69,9 +69,9 @@ Plans:
   1. The envelope guard update required in shell-bridge.ts is documented with the old check, new check, and migration steps
   2. The window.nostr injection mechanism for sandboxed iframes is fully described including security boundaries
   3. The shell.supports() capability advertisement design is documented with the API shape and behavior
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
-- [ ] 04-01-PLAN.md -- Envelope guard update, window.nostr injection, capability advertisement (sections 1-3)
+- [x] 04-01-PLAN.md -- Envelope guard update, window.nostr injection, capability advertisement (sections 1-3)
 
 ### Phase 5: Services Migration Doc
 **Goal**: A migration document for @kehto/services exists that describes the ServiceHandler interface change and all per-handler migration paths
@@ -92,5 +92,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Gap Analysis | 2/2 | Complete   | 2026-04-07 |
 | 2. ACL Migration Doc | 1/1 | Complete   | 2026-04-07 |
 | 3. Runtime Migration Doc | 2/2 | Complete   | 2026-04-07 |
-| 4. Shell Migration Doc | 0/1 | Not started | - |
+| 4. Shell Migration Doc | 1/1 | Complete   | 2026-04-07 |
 | 5. Services Migration Doc | 0/? | Not started | - |

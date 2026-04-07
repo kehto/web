@@ -27,9 +27,9 @@
 
 ## Shell Migration
 
-- [ ] **SH-01**: Document envelope guard update in shell-bridge.ts
-- [ ] **SH-02**: Document window.nostr injection mechanism for sandboxed iframes
-- [ ] **SH-03**: Document shell.supports() capability advertisement design
+- [x] **SH-01**: Document envelope guard update in shell-bridge.ts
+- [x] **SH-02**: Document window.nostr injection mechanism for sandboxed iframes
+- [x] **SH-03**: Document shell.supports() capability advertisement design
 
 ## Services Migration
 
