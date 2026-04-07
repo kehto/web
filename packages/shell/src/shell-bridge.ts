@@ -157,8 +157,10 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
       runtime.handleMessage(windowId, msg);
     },
 
-    sendChallenge(windowId: string): void {
-      runtime.sendChallenge(windowId);
+    /** @deprecated NIP-5D: AUTH challenge handshake no longer used. No-op retained for API compatibility. */
+    sendChallenge(_windowId: string): void {
+      // NIP-5D: runtime.sendChallenge() was removed in Phase 07.
+      // AUTH challenge is no longer issued — identity is established via originRegistry at iframe creation.
     },
 
     injectEvent(topic: string, payload: unknown): void {
