@@ -5,9 +5,10 @@
 export type { NostrEvent, NostrFilter, Capability } from '@napplet/core';
 export { ALL_CAPABILITIES, BusKind, AUTH_KIND, SHELL_BRIDGE_URI, PROTOCOL_VERSION, REPLAY_WINDOW_SECONDS, DESTRUCTIVE_KINDS } from '@napplet/core';
 export type { BusKindValue } from '@napplet/core';
+export type { NappletMessage } from '@napplet/core';
 
 // Import Capability type locally for use in this file's shell-specific types
-import type { Capability, NostrEvent, NostrFilter, ServiceDescriptor } from '@napplet/core';
+import type { Capability, NostrEvent, NostrFilter, ServiceDescriptor, NappletMessage } from '@napplet/core';
 import type { RuntimeConfigOverrides } from '@kehto/runtime';
 import type { ServiceHandler, ServiceRegistry } from '@kehto/runtime';
 
@@ -18,17 +19,22 @@ export type { ServiceDescriptor, ServiceHandler, ServiceRegistry };
 
 /**
  * Registry entry mapping a napplet's pubkey to its runtime metadata.
- * Created after a successful NIP-42 AUTH handshake.
+ * Created after a successful NIP-42 AUTH handshake or NIP-5D origin registration.
  * @example
  * ```ts
  * const entry: SessionEntry = {
  *   pubkey: 'abc123...', windowId: 'win-1', origin: '*',
  *   type: 'chat', dTag: '3chat', aggregateHash: 'deadbeef',
  *   registeredAt: Date.now(), instanceId: 'guid-123',
+ *   identitySource: 'auth',
  * };
  * ```
  */
 export interface SessionEntry {
+  /**
+   * @deprecated NIP-5D: AUTH keypair no longer exists. Empty string for NIP-5D sessions.
+   * Kept for backward compatibility during legacy support period.
+   */
   pubkey: string;
   windowId: string;
   origin: string;
@@ -38,6 +44,12 @@ export interface SessionEntry {
   registeredAt: number;
   /** Persistent GUID for this iframe instance, assigned by the runtime. Survives page reloads. */
   instanceId: string;
+  /**
+   * How session identity was established.
+   * 'source' = NIP-5D (identity registered at iframe creation via originRegistry).
+   * 'auth' = legacy AUTH handshake (pubkey is the derived keypair pubkey).
+   */
+  identitySource: 'auth' | 'source';
 }
 
 /** @deprecated Use SessionEntry. Will be removed in v0.9.0. */
@@ -190,8 +202,19 @@ export interface AclCheckEvent {
   capability: string;
   /** The enforcement decision. */
   decision: 'allow' | 'deny';
-  /** The triggering NIP-01 message, if available. */
-  message?: unknown[];
+  /** The triggering message, if available. Accepts NIP-01 arrays or NIP-5D NappletMessage envelopes. */
+  message?: NappletMessage | unknown[];
+}
+
+/**
+ * Static capability set injected into napplet iframes at creation time.
+ * Used by window.napplet.shell.supports() for synchronous capability queries.
+ */
+export interface ShellCapabilities {
+  /** NUB domain prefixes the shell handles (e.g., 'relay', 'signer', 'storage', 'ifc'). */
+  nubs: string[];
+  /** Sandbox permissions derived from iframe sandbox attribute tokens (e.g., 'popups', 'modals'). */
+  sandbox: string[];
 }
 
 // ─── ShellAdapter ────────────────────────────────────────────────────────────
@@ -226,6 +249,12 @@ export interface ShellAdapter {
   onAclCheck?: (event: AclCheckEvent) => void;
   /** Called when aggregate hash verification fails (computed != declared). */
   onHashMismatch?: (dTag: string, claimed: string, computed: string) => void;
+  /**
+   * Called at iframe creation for NIP-5D napplets.
+   * Returns identity metadata for originRegistry.register().
+   * Return null for non-NIP-5D (legacy) iframes.
+   */
+  onNip5dIframeCreate?: (windowId: string) => { dTag: string; aggregateHash: string } | null;
   /**
    * Optional service extensions. Each key is a service name (e.g., 'audio',
    * 'notifications'). Napplets discover available services via kind 29010
