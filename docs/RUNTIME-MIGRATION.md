@@ -169,6 +169,7 @@ function resolveCapabilitiesNub(msg: NappletMessage): CapabilityResolution {
         ? { senderCap: 'relay:write', recipientCap: 'relay:read' }
         : { senderCap: 'relay:read', recipientCap: null };
     case 'signer':
+      if (action === 'getPublicKey' || action === 'getRelays') return { senderCap: null, recipientCap: null };
       if (action?.startsWith('nip04')) return { senderCap: 'sign:nip04', recipientCap: null };
       if (action?.startsWith('nip44')) return { senderCap: 'sign:nip44', recipientCap: null };
       return { senderCap: 'sign:event', recipientCap: null };
@@ -197,8 +198,8 @@ function resolveCapabilitiesNub(msg: NappletMessage): CapabilityResolution {
 | `relay.query` | `relay:read` | sender | COUNT equivalent |
 | `relay.publish` | `relay:write` + `relay:read` | sender + recipient | EVENT publish; recipient must have read to receive |
 | `signer.signEvent` | `sign:event` | sender | kind 29001 method=signEvent equivalent |
-| `signer.getPublicKey` | `sign:event` | sender | kind 29001 method=getPublicKey equivalent |
-| `signer.getRelays` | `sign:event` | sender | kind 29001 method=getRelays equivalent |
+| `signer.getPublicKey` | none | sender | read-only; no ACL check required |
+| `signer.getRelays` | none | sender | read-only; no ACL check required |
 | `signer.nip04.encrypt` | `sign:nip04` | sender | kind 29001 method=nip04.encrypt equivalent |
 | `signer.nip04.decrypt` | `sign:nip04` | sender | kind 29001 method=nip04.decrypt equivalent |
 | `signer.nip44.encrypt` | `sign:nip44` | sender | kind 29001 method=nip44.encrypt equivalent |
@@ -426,7 +427,7 @@ Relay operations were split across four verb cases in `dispatchVerb()` (lines 22
 | Operation | Required Capability | Notes |
 |-----------|-------------------|-------|
 | `relay.subscribe` | `relay:read` (sender) | REQ equivalent |
-| `relay.close` | none | Napplet closes its own subscription |
+| `relay.close` | `relay:read` (sender) | Napplet closes its own subscription |
 | `relay.publish` | `relay:write` (sender) + `relay:read` (recipient) | Recipient must have read to receive |
 | `relay.query` | `relay:read` (sender) | COUNT equivalent |
 
@@ -496,8 +497,8 @@ The internal `handleSignerRequest()` path reads the `method` tag from `event.tag
 | Operation | Required Capability | Notes |
 |-----------|-------------------|-------|
 | `signer.signEvent` | `sign:event` (sender) | — |
-| `signer.getPublicKey` | `sign:event` (sender) | Same capability as signing |
-| `signer.getRelays` | `sign:event` (sender) | — |
+| `signer.getPublicKey` | none | Read-only; no ACL check required |
+| `signer.getRelays` | none | Read-only; no ACL check required |
 | `signer.nip04.encrypt` / `.decrypt` | `sign:nip04` (sender) | — |
 | `signer.nip44.encrypt` / `.decrypt` | `sign:nip44` (sender) | — |
 

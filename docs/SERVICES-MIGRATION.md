@@ -987,3 +987,37 @@ expect(mockSend).toHaveBeenCalledWith({ type: 'ifc.event', topic: 'notifications
 Audio service has no dedicated test file — testing through integration or a new unit test file would cover the `register`, `unregister`, `state-changed`, and `mute` action paths. Relay pool and cache services also lack dedicated test files; the coordinated relay's dual-source dedup logic would benefit from direct unit tests.
 
 After migration, the TypeScript compiler enforces message format correctness at the `handleMessage` call sites — mismatched formats that previously silently failed at runtime will now produce compile errors.
+
+---
+
+### 3.4 identitySource Guard for getPubkey() Calls
+
+Any service handler that calls `sessionRegistry.getPubkey(windowId)` to retrieve the napplet's public key must check the `identitySource` discriminant before treating an empty string as an error.
+
+**Context:** Under NIP-5D (RUNTIME-MIGRATION.md section 4.4 and 4.5), sessions with `identitySource: 'source'` intentionally have `pubkey === ''` — there is no AUTH keypair. `sessionRegistry.getPubkey(windowId)` returns `''` for these sessions, not `undefined`. Code that guards on `if (!pubkey)` or `if (pubkey === '')` will incorrectly reject valid NIP-5D sessions.
+
+**Pattern to apply:**
+
+```typescript
+// Before (breaks for NIP-5D sessions)
+const pubkey = sessionRegistry.getPubkey(windowId);
+if (!pubkey) {
+  send({ type: `${message.type}.error`, id: message.id as string, error: 'auth-required: not registered' });
+  return;
+}
+// Use pubkey for ACL or response routing...
+
+// After (checks identity source instead)
+const session = sessionRegistry.getEntry(windowId);
+if (!session) {
+  send({ type: `${message.type}.error`, id: message.id as string, error: 'auth-required: not registered' });
+  return;
+}
+// For NIP-5D sessions: session.identitySource === 'source', session.pubkey === ''
+// For legacy AUTH sessions: session.identitySource === 'auth', session.pubkey is the derived keypair pubkey
+const pubkey = session.pubkey; // '' for NIP-5D — do not error on empty string
+```
+
+**Where this applies:** Any service handler that retrieves and acts on the napplet's pubkey. The signer service (`signer-service.ts`) does not need this guard because signing operations use the shell's own signer (via `options.getSigner()`), not the napplet's pubkey. Service handlers that use the napplet's pubkey for access control or response routing must apply this guard.
+
+**Reference:** See RUNTIME-MIGRATION.md section 4.7 for the full downstream package impact table, including the note that `@kehto/services` guard updates are required when service handlers check `identitySource`.

@@ -94,7 +94,7 @@ const sendToNapplet: SendToNapplet = (windowId: string, msg: NappletMessage | un
 
 The implementation (`win.postMessage(msg, '*')`) does **not change** — `postMessage` accepts any structured-cloneable value, whether an array or a plain object. The signature change is for TypeScript type safety only: it ensures callers cannot accidentally pass a non-NIP-5D envelope to a shell that now needs to forward NIP-5D envelope objects.
 
-This mirrors the `RuntimeAdapter.sendToNapplet` type update in RUNTIME-MIGRATION.md section 4.7:
+This mirrors the `RuntimeAdapter.sendToNapplet` type update in RUNTIME-MIGRATION.md section 1.5:
 
 ```typescript
 // packages/runtime/src/types.ts (post-migration)
@@ -206,6 +206,36 @@ const registry = new Map<Window, OriginEntry>();
 | `packages/shell/src/types.ts` | `SessionEntry.identitySource` (1.7), `AclCheckEvent.message` widening (1.7), `ShellAdapter` NIP-5D hook (1.7) | **HIGH** — type definitions for consumers |
 | `packages/shell/src/origin-registry.ts` | Enhanced `register()` with identity metadata (1.5) | **MEDIUM** — enables source-based identity at entry point |
 | `packages/shell/src/index.ts` | Re-exports: `NappletMessage` type from `@napplet/core` if not already exported; `ShellCapabilities` type (see Section 3) | **LOW** — export surface update |
+
+---
+
+### 1.9 ACL State Migration (migrateAclState)
+
+The shell owns the ACL persistence layer — `@kehto/shell` reads and writes ACL state via `localStorage` under the key `napplet:acl` (managed in `acl-store.ts`). Because the shell holds persisted ACL data, it is also responsible for triggering the one-time ACL key schema migration when the updated runtime (with `toKey()` changed from `pubkey:dTag:hash` to `dTag:hash`) is first deployed.
+
+**Where the migration runs:**
+
+The migration utility `migrateAclState()` must be called inside `aclStore.load()`, immediately after deserializing the stored ACL state and before returning it to the runtime. This ensures that every existing ACL entry is re-keyed to the new format before any ACL check is performed with the updated `resolveCapabilitiesNub()` logic.
+
+**Implementation pattern (`acl-store.ts`):**
+
+```typescript
+// acl-store.ts — post-migration load()
+async function load(): Promise<AclState> {
+  const raw = localStorage.getItem('napplet:acl');
+  if (!raw) return createDefaultAclState();
+  const state = deserialize(raw);
+  // One-time migration: re-key old pubkey:dTag:hash entries to dTag:hash
+  migrateAclState(state);
+  return state;
+}
+```
+
+**Migration logic:** See [ACL-MIGRATION.md section 3](./ACL-MIGRATION.md#3-persisted-acl-data-migration) for the full step-by-step strategy, including the detection heuristic (3-segment key split), merge behaviour on conflict, and the decision to save immediately after migration to avoid re-running on every load.
+
+**Why the shell owns this:** `@kehto/acl` is a pure, zero-dependency module with no knowledge of storage. It provides `serialize()` / `deserialize()` but never calls `localStorage` directly. `@kehto/runtime` does not touch ACL persistence either — it receives a pre-loaded `AclState` object via the `RuntimeAdapter` hooks. The shell's `acl-store.ts` is the only site that reads from and writes to `localStorage`, making it the correct and only location to trigger the migration.
+
+**Affected file:** `packages/shell/src/acl-store.ts`
 
 ---
 
@@ -384,7 +414,7 @@ All six NIP-07 method groups must be supported. Each maps to a corresponding `si
 
 | NIP-07 Method | NUB Message Type | Response Type | ACL Capability |
 |---------------|-----------------|---------------|---------------|
-| `window.nostr.getPublicKey()` | `signer.getPublicKey` | `signer.getPublicKey.result` (field: `publicKey`) | None (always allowed) |
+| `window.nostr.getPublicKey()` | `signer.getPublicKey` | `signer.getPublicKey.result` (field: `pubkey`) | None (always allowed) |
 | `window.nostr.signEvent(event)` | `signer.signEvent` | `signer.signEvent.result` (field: `event`) | `sign:event` |
 | `window.nostr.getRelays()` | `signer.getRelays` | `signer.getRelays.result` (field: `relays`) | None (always allowed) |
 | `window.nostr.nip04.encrypt(pubkey, plaintext)` | `signer.nip04.encrypt` | `signer.nip04.encrypt.result` (field: `ciphertext`) | `sign:nip04` |
@@ -402,7 +432,7 @@ All six NIP-07 method groups must be supported. Each maps to a corresponding `si
 { type: "signer.signEvent.result", id: "uuid", event: { kind: 1, sig: "...", ... } }
 
 // Error response
-{ type: "signer.signEvent.result", id: "uuid", error: "capability sign:event not granted" }
+{ type: "signer.signEvent.error", id: "uuid", error: "capability sign:event not granted" }
 ```
 
 The `id` field is a client-generated UUID. The shell echoes it on the response so the napplet's `window.nostr` proxy can match responses to pending requests.

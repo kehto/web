@@ -127,7 +127,7 @@ Under RUNTIME-SPEC v2.0.0, `packages/runtime/src/enforce.ts` mapped NIP-01 verb 
 | `CAP_CACHE_READ` | 4 | `cache:read` | (no NUB — internal) | N/A — cache is shell-internal | N/A (not triggered by napplet messages) |
 | `CAP_CACHE_WRITE` | 8 | `cache:write` | (no NUB — internal) | N/A — cache is shell-internal | N/A |
 | `CAP_HOTKEY_FORWARD` | 16 | `hotkey:forward` | `keyboard` (future) | forward | verb=`EVENT` kind=`HOTKEY_FORWARD` |
-| `CAP_SIGN_EVENT` | 32 | `sign:event` | `signer` | signEvent, getPublicKey, getRelays | verb=`EVENT` kind=`29001` (SIGNER_REQUEST) |
+| `CAP_SIGN_EVENT` | 32 | `sign:event` | `signer` | signEvent | verb=`EVENT` kind=`29001` (SIGNER_REQUEST) method=`signEvent` |
 | `CAP_SIGN_NIP04` | 64 | `sign:nip04` | `signer` | nip04.encrypt, nip04.decrypt | verb=`EVENT` kind=`29001` method=`nip04.*` |
 | `CAP_SIGN_NIP44` | 128 | `sign:nip44` | `signer` | nip44.encrypt, nip44.decrypt | verb=`EVENT` kind=`29001` method=`nip44.*` |
 | `CAP_STATE_READ` | 256 | `state:read` | `storage` | get, keys | verb=`EVENT` kind=`29003` topic=`shell:state-get/keys` |
@@ -150,6 +150,7 @@ function resolveCapabilitiesNub(msg: NappletMessage): CapabilityResolution {
         ? { senderCap: 'relay:write', recipientCap: 'relay:read' }
         : { senderCap: 'relay:read', recipientCap: null };
     case 'signer':
+      if (action === 'getPublicKey' || action === 'getRelays') return { senderCap: null, recipientCap: null };
       if (action?.startsWith('nip04')) return { senderCap: 'sign:nip04', recipientCap: null };
       if (action?.startsWith('nip44')) return { senderCap: 'sign:nip44', recipientCap: null };
       return { senderCap: 'sign:event', recipientCap: null };
