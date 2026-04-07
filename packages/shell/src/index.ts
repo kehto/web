@@ -13,13 +13,14 @@ export { adaptHooks } from './hooks-adapter.js';
 export type { BrowserDeps } from './hooks-adapter.js';
 
 // Protocol types (re-exported from @napplet/core for backwards compatibility)
-export type { NostrEvent, NostrFilter, Capability } from '@napplet/core';
+export type { NostrEvent, NostrFilter, Capability, NappletMessage } from '@napplet/core';
 export { BusKind, AUTH_KIND, SHELL_BRIDGE_URI, PROTOCOL_VERSION, ALL_CAPABILITIES, DESTRUCTIVE_KINDS, REPLAY_WINDOW_SECONDS } from '@napplet/core';
 export type { BusKindValue } from '@napplet/core';
 
 // Types for host app integration (shell-specific)
 export type {
   ShellAdapter,
+  ShellCapabilities,
   RelayPoolHooks,
   RelayPoolLike,
   RelayConfigHooks,
@@ -39,6 +40,9 @@ export type {
   ServiceHandler,
   ServiceRegistry,
 } from './types.js';
+
+// Shell initialization — nostr bootstrap and capability construction
+export { generateNostrBootstrap, buildShellCapabilities } from './shell-init.js';
 
 // Session registry
 export { sessionRegistry, nappKeyRegistry } from './session-registry.js';
