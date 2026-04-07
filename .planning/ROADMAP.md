@@ -30,7 +30,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Every window.napplet interface is listed with its NUB domain assignment and optionality status
   4. All silent failure points where old runtime drops new-format messages are inventoried with reproduction steps
   5. Per-package boundary contracts (send/receive surface) are documented and can be referenced by Phases 2-5
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 01-01-PLAN.md -- Wire format, AUTH/identity, NUB domain mapping (sections 1-3)
+- [ ] 01-02-PLAN.md -- Silent failure inventory, boundary contracts (sections 4-5)
 
 ### Phase 2: ACL Migration Doc
 **Goal**: A migration document for @kehto/acl exists that describes every breaking change in the ACL subsystem and how to migrate persisted ACL data to the new format
@@ -79,7 +82,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Gap Analysis | 0/? | Not started | - |
+| 1. Gap Analysis | 0/2 | Planned | - |
 | 2. ACL Migration Doc | 0/? | Not started | - |
 | 3. Runtime Migration Doc | 0/? | Not started | - |
 | 4. Shell Migration Doc | 0/? | Not started | - |
