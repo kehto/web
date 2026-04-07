@@ -19,14 +19,15 @@ import type {
   WindowManagerAdapter,
   RelayConfigAdapter,
   AclCheckEvent,
+  SessionEntry,
 } from './types.js';
-import type { NostrEvent, NostrFilter } from '@napplet/core';
+import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 
 // ─── Recorded message types ─────────────────────────────────────────────────
 
 export interface SentMessage {
   windowId: string;
-  message: unknown[];
+  message: unknown[] | NappletMessage;
 }
 
 export interface MockRuntimeContext {
@@ -189,8 +190,8 @@ export function createMockRuntimeAdapter(overrides?: Partial<RuntimeAdapter>): M
   uuidCounter = 0;
 
   const hooks: RuntimeAdapter = {
-    sendToNapplet(windowId: string, msg: unknown[] | import('./types.js').NappletMessage) {
-      sent.push({ windowId, message: msg as unknown[] });
+    sendToNapplet(windowId: string, msg: unknown[] | NappletMessage) {
+      sent.push({ windowId, message: msg });
     },
     relayPool: createMockRelayPool(),
     cache: createMockCache(),
@@ -223,4 +224,63 @@ export function createMockRuntimeAdapter(overrides?: Partial<RuntimeAdapter>): M
       uuidCounter = 0;
     },
   };
+}
+
+// ─── NIP-5D Test Helpers ──────────────────────────────────────────────────────
+
+/**
+ * Create a NIP-5D session entry for use in tests.
+ * The pubkey is empty string — identity comes from origin registration.
+ *
+ * @param windowId - The napplet's window identifier
+ * @param dTag - The napplet's dTag (NIP-5D identifier)
+ * @param aggregateHash - The napplet's aggregate hash
+ * @returns A SessionEntry suitable for registering in tests
+ *
+ * @example
+ * ```ts
+ * const entry = createNip5dSessionEntry('win-1', 'my-napp', 'abc123...');
+ * runtime.sessionRegistry.register('win-1', entry);
+ * ```
+ */
+export function createNip5dSessionEntry(windowId: string, dTag: string, aggregateHash: string): SessionEntry {
+  return {
+    pubkey: '',
+    windowId,
+    origin: '',
+    type: 'nip5d',
+    dTag,
+    aggregateHash,
+    registeredAt: Date.now(),
+    instanceId: `guid-${windowId}`,
+    identitySource: 'source',
+  };
+}
+
+/**
+ * Find a NIP-5D envelope response in the sent messages by type.
+ * Useful for asserting that a handler returned an envelope with the expected type.
+ *
+ * @param sent - The sent messages array from MockRuntimeContext
+ * @param type - The expected envelope type (e.g., 'relay.req.error')
+ * @returns The matching NappletMessage, or undefined if not found
+ *
+ * @example
+ * ```ts
+ * const errMsg = findEnvelopeResponse(ctx.sent, 'relay.req.error');
+ * expect(errMsg).toBeDefined();
+ * expect((errMsg as any).error).toBe('not implemented');
+ * ```
+ */
+export function findEnvelopeResponse(sent: SentMessage[], type: string): NappletMessage | undefined {
+  for (const s of sent) {
+    if (
+      typeof s.message === 'object' &&
+      !Array.isArray(s.message) &&
+      (s.message as NappletMessage).type === type
+    ) {
+      return s.message as NappletMessage;
+    }
+  }
+  return undefined;
 }
