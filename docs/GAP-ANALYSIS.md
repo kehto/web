@@ -249,8 +249,319 @@ The `theme` NUB domain exists in NIP-5D v0.1.0 but kehto has no existing infrast
 
 ---
 
-## 4. Silent Failure Inventory
-<!-- Completed in Plan 02 -->
+## 4. Silent Failure Inventory (GAP-04)
 
-## 5. Per-Package Boundary Contracts
-<!-- Completed in Plan 02 -->
+When a NIP-5D napplet sends envelope messages (`{ type: "domain.action", ... }`) to a kehto shell running the current NIP-01 runtime, those messages are silently dropped at multiple points. No errors are thrown, no responses are sent. This section inventories every such failure point with exact code locations and reproduction steps.
+
+### Failure Point 1: ShellBridge Array Guard
+
+**File:** `packages/shell/src/shell-bridge.ts`
+**Function:** `createShellBridge` → `handleMessage`
+**Line:** 155
+**Code:**
+```typescript
+if (!Array.isArray(msg) || msg.length < 2) return;
+```
+**What fails:** ANY `{ type: "..." }` envelope object from an updated `@napplet/shim`. All NUB messages are silently dropped here before ever reaching the runtime. This is the first and most complete failure point — 100% of NIP-5D traffic is discarded.
+**Reproduction:** Send `{ type: "relay.subscribe", id: "x", subId: "x", filters: [] }` via postMessage to a kehto shell. `ShellBridge.handleMessage` receives the event but returns on line 155. No error, no response.
+**Impact:** CRITICAL — total communication blackout for NIP-5D napplets. No message of any kind reaches the runtime.
+
+### Failure Point 2: Runtime handleMessage Array Check
+
+**File:** `packages/runtime/src/runtime.ts`
+**Function:** `handleMessage`
+**Line:** 1005
+**Code:**
+```typescript
+if (!Array.isArray(msg) || msg.length < 2) return;
+```
+**What fails:** Even if an envelope object bypasses the shell-bridge guard (e.g., in direct unit tests or if shell-bridge is replaced), the runtime's own guard drops it again. This is the runtime's primary entry-point defense.
+**Reproduction:** Call `runtime.handleMessage(windowId, { type: "relay.subscribe", ... } as any)`. Returns immediately on line 1005 before any verb dispatch occurs.
+**Impact:** CRITICAL — secondary defense ensures no envelope reaches verb dispatch, even in test environments.
+
+### Failure Point 3: AUTH Queue — Messages Queued Forever
+
+**File:** `packages/runtime/src/runtime.ts`
+**Function:** `handleMessage`
+**Lines:** 1010–1014
+**Code:**
+```typescript
+if (!sessionRegistry.getPubkey(windowId)) {
+  let queue = pendingAuthQueue.get(windowId);
+  if (!queue) { queue = []; pendingAuthQueue.set(windowId, queue); }
+  queue.push({ msg, windowId });
+  return;
+}
+```
+**What fails:** Updated `@napplet/shim` (v0.2.0) no longer sends `REGISTER` or `AUTH` messages. The runtime never calls `sessionRegistry.setPubkey(windowId)` for these sessions. All messages from NIP-5D napplets are pushed into `pendingAuthQueue` forever — the queue is only drained on successful AUTH completion, which never happens. The queue grows without bound.
+**Reproduction:** Load a napplet using `@napplet/shim` v0.2.0. Send any NUB message. Check `pendingAuthQueue.size` — grows indefinitely. No message is ever dispatched.
+**Impact:** CRITICAL — memory leak plus complete message loss for all NIP-5D sessions. Any messages that somehow reach this point (e.g., in a partially migrated shell) are silently held forever.
+
+### Failure Point 4: enforce.ts Unknown Verb Fallback
+
+**File:** `packages/runtime/src/enforce.ts`
+**Function:** `resolveCapabilities`
+**Lines:** 99–102
+**Code:**
+```typescript
+default:
+  // Unknown verb — require relay:write as a safe default
+  return { senderCap: 'relay:write', recipientCap: null };
+```
+**What fails:** If an envelope object somehow passes both array guards (e.g., in a direct unit test), `resolveCapabilities` receives `msg[0]` = `undefined` (no positional verb). Falls to the default case and requires `relay:write`. A `relay.subscribe` request — which should require `relay:read` — is checked against `relay:write` instead. Napplets holding only `relay:read` capability are incorrectly denied.
+**Reproduction:** Pass `[{ type: "relay.subscribe", ... }]` (wrapped in array) to `resolveCapabilities`. Returns `{ senderCap: 'relay:write', recipientCap: null }` instead of `{ senderCap: 'relay:read', recipientCap: null }`.
+**Impact:** HIGH — wrong capability enforced. Napplets with only `relay:read` grants cannot subscribe to relay events even if allowed by ACL.
+
+### Failure Point 5: state-handler.ts Topic Routing
+
+**File:** `packages/runtime/src/state-handler.ts`
+**Function:** `handleStateRequest`
+**Lines:** 82–84
+**Code:**
+```typescript
+const topic = event.tags?.find((t) => t[0] === 't')?.[1];
+const key = event.tags?.find((t) => t[0] === 'key')?.[1];
+const correlationId = event.tags?.find((t) => t[0] === 'id')?.[1] ?? '';
+```
+**What fails:** `handleStateRequest` is only called from `runtime.ts:622` after detecting a `BusKind.IPC_PEER` kind event with a `shell:state-*` topic tag. Since `storage.get` envelope objects (`{ type: "storage.get", ... }`) are never recognized as `BusKind.IPC_PEER` events, this handler is never invoked for NIP-5D storage requests. `window.napplet.storage.getItem()` in the napplet hangs until the shim's internal timeout fires.
+**Reproduction:** With `@napplet/shim` v0.2.0: `await window.napplet.storage.getItem('key')` — hangs until shim timeout (typically 5–30 seconds). No response ever arrives.
+**Impact:** HIGH — storage API completely non-functional for NIP-5D napplets. Any napplet persisting settings or state across sessions is broken.
+
+### Failure Point 6: service-dispatch.ts Topic-Prefix Routing
+
+**File:** `packages/runtime/src/service-dispatch.ts`
+**Function:** `routeServiceMessage`
+**Lines:** 39–44
+**Code:**
+```typescript
+const colonIndex = topic.indexOf(':');
+if (colonIndex === -1) return false;
+const prefix = topic.slice(0, colonIndex);
+const handler = services[prefix];
+if (!handler) return false;
+handler.handleMessage(windowId, ['EVENT', event], send);
+```
+**What fails:** `ifc.emit` envelope objects never produce an `IPC_PEER` event with a `t` tag — so `routeServiceMessage` is never called for NUB `ifc.emit` messages. Additionally, even if it were called with an `ifc.emit` envelope, the function expects a colon-separated topic (e.g., `audio:play`) but `ifc.emit` uses dot notation in its `type` field. `colonIndex === -1` for `type: "ifc.emit"`, so it returns `false` immediately. All NUB-format service messages (audio playback, notifications via ifc.emit) are silently unrouted.
+**Reproduction:** Register an audio service handler. Send `{ type: "ifc.emit", topic: "audio:play", payload: {} }` from an updated shim. `routeServiceMessage` is never invoked. The audio handler never fires.
+**Impact:** HIGH — all service handlers (audio, notifications) are unreachable via NIP-5D messages. Any @kehto/services extension is dead for NIP-5D napplets.
+
+### Summary Table
+
+| # | File | Line | Severity | Affected NUB Domains |
+|---|------|------|----------|----------------------|
+| 1 | `packages/shell/src/shell-bridge.ts` | 155 | CRITICAL | All (relay, signer, storage, ifc) |
+| 2 | `packages/runtime/src/runtime.ts` | 1005 | CRITICAL | All (relay, signer, storage, ifc) |
+| 3 | `packages/runtime/src/runtime.ts` | 1010–1014 | CRITICAL | All (relay, signer, storage, ifc) |
+| 4 | `packages/runtime/src/enforce.ts` | 99–102 | HIGH | relay (wrong cap: read vs write) |
+| 5 | `packages/runtime/src/state-handler.ts` | 82–84 | HIGH | storage (get, set, remove, clear, keys) |
+| 6 | `packages/runtime/src/service-dispatch.ts` | 39–44 | HIGH | ifc (audio, notifications via ifc.emit) |
+
+**Migration priority: CRITICAL** — these are the first things that must be fixed. Without addressing Failure Points 1–3, no NIP-5D napplet can communicate at all with a kehto shell. Failure Points 4–6 become reachable only after the first three are resolved.
+
+---
+
+## 5. Per-Package Boundary Contracts (GAP-05)
+
+This section defines the prescriptive boundary contracts for each kehto package. "Prescriptive" means these contracts state what each package MUST accept and emit after migration. Downstream migration docs (Phases 2–5) reference these contracts as their source of truth. Each contract includes TypeScript interface snippets showing the old and new types, and a verification criterion defining when migration is correct.
+
+### 5.1 @kehto/acl Boundary Contract
+
+**What crosses the boundary:** `check(state, identity, cap)` — called by `packages/runtime/src/enforce.ts`
+
+**Current identity type (`packages/acl/src/types.ts`):**
+```typescript
+interface Identity {
+  readonly pubkey: string;   // AUTH keypair pubkey — CHANGES
+  readonly dTag: string;     // unchanged
+  readonly hash: string;     // unchanged
+}
+// Composite key: pubkey:dTag:hash
+// (packages/acl/src/check.ts:22-24)
+function toKey(identity: Identity): string {
+  return `${identity.pubkey}:${identity.dTag}:${identity.hash}`;
+}
+```
+
+**Target identity contract (after migration):**
+```typescript
+interface Identity {
+  readonly pubkey: string;   // DEPRECATED — becomes windowId or empty string
+  readonly dTag: string;     // unchanged
+  readonly hash: string;     // unchanged
+}
+// Composite key MUST change to: dTag:hash
+// pubkey field kept for backward compat during data migration only
+```
+
+**Verification criterion:** `aclStore.check(state, { pubkey: '', dTag: 'chat', hash: 'abc' }, CAP_RELAY_READ)` returns the expected grant/deny value. Existing persisted ACL entries under `pubkey:dTag:hash` keys require a one-time migration utility before the key schema change is deployed.
+
+**Affected files:** `packages/acl/src/types.ts`, `packages/acl/src/check.ts`
+
+---
+
+### 5.2 @kehto/runtime Boundary Contract
+
+**Inbound surface — what the runtime accepts:**
+
+Current:
+```typescript
+// packages/runtime/src/runtime.ts:1004
+handleMessage(windowId: string, msg: unknown[]): void;
+// Only processes NIP-01 arrays: ["VERB", ...params]
+```
+
+Target:
+```typescript
+handleMessage(windowId: string, msg: NappletMessage | unknown[]): void;
+// Must process both:
+//   - NappletMessage: { type: string, ...payload } (NIP-5D envelope)
+//   - unknown[]: ["VERB", ...] (legacy NIP-01, for transition period)
+```
+
+**Outbound surface — what the runtime sends via `RuntimeAdapter.sendToNapplet`:**
+
+Current:
+```typescript
+// packages/runtime/src/types.ts:47
+type SendToNapplet = (windowId: string, msg: unknown[]) => void;
+// All responses are NIP-01 arrays: ["OK", ...], ["EVENT", ...], ["CLOSED", ...]
+```
+
+Target:
+```typescript
+type SendToNapplet = (windowId: string, msg: NappletMessage | unknown[]) => void;
+// Responses are NIP-5D envelopes: { type: "relay.event", ... }
+// Legacy arrays maintained during transition
+```
+
+**Dispatch model change — from verb switch to domain-prefix dispatch:**
+
+Current: `dispatchVerb(verb, msg, windowId)` switches on `msg[0]` (e.g., `"REQ"`, `"EVENT"`, `"CLOSE"`).
+
+Target pattern:
+```typescript
+if (typeof msg === 'object' && msg !== null && 'type' in msg) {
+  const domain = (msg as NappletMessage).type.split('.')[0];
+  switch (domain) {
+    case 'relay':   return handleRelayMessage(windowId, msg as NappletMessage);
+    case 'signer':  return handleSignerMessage(windowId, msg as NappletMessage);
+    case 'storage': return handleStorageMessage(windowId, msg as NappletMessage);
+    case 'ifc':     return handleIfcMessage(windowId, msg as NappletMessage);
+    default:        return; // unknown domain — silently drop per NIP-5D spec
+  }
+}
+// Fallback to legacy array dispatch for backward compat
+```
+
+**Verification criterion:** A napplet sending `{ type: "relay.subscribe", id: "x", subId: "x", filters: [{kinds:[1]}] }` receives back `{ type: "relay.eose", subId: "x" }` within 1 second when no matching events exist.
+
+**Affected files:** `packages/runtime/src/runtime.ts`, `packages/runtime/src/types.ts`, `packages/runtime/src/enforce.ts`
+
+---
+
+### 5.3 @kehto/shell Boundary Contract
+
+**Inbound surface — `ShellBridge.handleMessage(event: MessageEvent)`:**
+
+Current:
+```typescript
+// packages/shell/src/shell-bridge.ts:149-158
+handleMessage(event: MessageEvent): void {
+  const msg = event.data;
+  if (!Array.isArray(msg) || msg.length < 2) return;  // <-- DROP POINT (line 155)
+  runtime.handleMessage(windowId, msg);
+}
+```
+
+Target:
+```typescript
+handleMessage(event: MessageEvent): void {
+  const msg = event.data;
+  // Accept NIP-5D envelope objects:
+  if (typeof msg === 'object' && msg !== null && typeof msg.type === 'string') {
+    runtime.handleMessage(windowId, msg);
+    return;
+  }
+  // Legacy: accept NIP-01 arrays:
+  if (Array.isArray(msg) && msg.length >= 2) {
+    runtime.handleMessage(windowId, msg);
+    return;
+  }
+  // All else: silently drop (per NIP-5D spec)
+}
+```
+
+**Outbound surface — `sendToNapplet` via `ShellAdapter`:**
+
+Current:
+```typescript
+// packages/shell/src/types.ts — ShellAdapter
+sendToNapplet: (windowId: string, msg: unknown[]) => void;
+```
+
+Target:
+```typescript
+sendToNapplet: (windowId: string, msg: NappletMessage | unknown[]) => void;
+```
+
+**Verification criterion:** `window.addEventListener('message', ...)` in a napplet iframe receives `{ type: "relay.event", subId: "x", event: {...} }` (not `["EVENT", "x", {...}]`) after migration.
+
+**Affected files:** `packages/shell/src/shell-bridge.ts`, `packages/shell/src/types.ts`
+
+---
+
+### 5.4 @kehto/services Boundary Contract
+
+**Handler interface — what services receive:**
+
+Current:
+```typescript
+// packages/runtime/src/types.ts:486-496
+export interface ServiceHandler {
+  descriptor: ServiceDescriptor;
+  handleMessage(windowId: string, message: unknown[], send: (msg: unknown[]) => void): void;
+  // message is ['EVENT', event] where event.kind is BusKind.SIGNER_REQUEST (29001) etc.
+  onWindowDestroyed?(windowId: string): void;
+}
+```
+
+Target:
+```typescript
+export interface ServiceHandler {
+  descriptor: ServiceDescriptor;
+  handleMessage(
+    windowId: string,
+    message: NappletMessage,              // { type: "signer.signEvent", id, event }
+    send: (msg: NappletMessage) => void   // { type: "signer.signEvent.result", ... }
+  ): void;
+  onWindowDestroyed?(windowId: string): void;
+}
+```
+
+**Per-service migration contracts:**
+
+| Service | Old Trigger | New Trigger | Response Format Change |
+|---------|-------------|-------------|------------------------|
+| signer | `event.kind === 29001` (BusKind.SIGNER_REQUEST) + `method` tag | `message.type === "signer.signEvent"` (or other `signer.*` types) | From kind 29002 event → `{ type: "signer.signEvent.result", id, event }` |
+| audio | `event.kind === 29003` (IPC_PEER) + `t` tag prefix `audio:` | `message.type === "ifc.emit"` with `topic.startsWith("audio:")` | From IPC_PEER response → `{ type: "ifc.event", topic: "audio:...", payload }` |
+| notifications | `event.kind === 29003` (IPC_PEER) + `t` tag prefix `notifications:` | `message.type === "ifc.emit"` with `topic.startsWith("notifications:")` | From IPC_PEER response → `{ type: "ifc.event", ... }` |
+
+**Verification criterion:** `serviceHandler.handleMessage(windowId, { type: "signer.getPublicKey", id: "uuid" }, send)` results in `send` being called with `{ type: "signer.getPublicKey.result", id: "uuid", publicKey: "..." }`.
+
+**Affected files:** `packages/runtime/src/types.ts` (ServiceHandler interface), `packages/services/src/` (all handler implementations)
+
+---
+
+### Migration Priority Rankings
+
+| # | Section | Priority | Rationale | Suggested Phase |
+|---|---------|----------|-----------|-----------------|
+| 1 | Wire Format (GAP-01) | HIGH | Blocks all NIP-5D communication at two guard points | Phase 3 (Runtime), Phase 4 (Shell) |
+| 2 | Identity/AUTH (GAP-02) | HIGH | NIP-5D napplets queued forever in pendingAuthQueue without fix | Phase 3 (Runtime) |
+| 3 | NUB Domain Mapping (GAP-03) | MEDIUM | shell.supports() stub and window.nostr injection blocking detection | Phase 4 (Shell) |
+| 4 | Silent Failures (GAP-04) | CRITICAL | First thing to fix — no NIP-5D messages reach handlers at all | Phase 3 (Runtime), Phase 4 (Shell) |
+| 5 | Boundary Contracts (GAP-05) | N/A (prescriptive) | These ARE the migration targets | Phases 2–5 |
+
+**Suggested migration order (per dependency analysis):**
+
+`@kehto/acl` (no deps, no blockers) → `@kehto/runtime` (depends on acl types) → `@kehto/shell` (depends on runtime interface) → `@kehto/services` (depends on runtime dispatch model)
