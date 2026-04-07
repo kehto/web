@@ -26,8 +26,8 @@ Spec: `docs/RUNTIME-MIGRATION.md`
 Spec: `docs/SHELL-MIGRATION.md`
 
 - [x] **SH-I01**: Replace Array.isArray envelope guard with envelope-only check
-- [ ] **SH-I02**: Implement window.nostr injection for sandboxed iframes
-- [ ] **SH-I03**: Implement shell.supports() capability advertisement
+- [x] **SH-I02**: Implement window.nostr injection for sandboxed iframes
+- [x] **SH-I03**: Implement shell.supports() capability advertisement
 - [x] **SH-I04**: Integrate migrateAclState() trigger in acl-store.ts
 
 ## Services Implementation

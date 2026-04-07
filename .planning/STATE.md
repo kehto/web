@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: NIP-5D Migration Implementation
-status: executing
-stopped_at: Completed 08-01-PLAN.md
-last_updated: "2026-04-07T22:42:54.855Z"
+status: verifying
+stopped_at: Completed 08-02-PLAN.md
+last_updated: "2026-04-07T22:46:33.203Z"
 last_activity: 2026-04-07
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 Phase: 08 (kehto-shell-implementation) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-07
 
 Progress: [----------] 0% (v1.1)
@@ -53,6 +53,7 @@ Progress: [----------] 0% (v1.1)
 | Phase 07-kehto-runtime-implementation P02 | 5 minutes | 2 tasks | 4 files |
 | Phase 07-kehto-runtime-implementation P03 | 6 minutes | 2 tasks | 4 files |
 | Phase 08-kehto-shell-implementation P01 | 4 | 3 tasks | 6 files |
+| Phase 08-kehto-shell-implementation P02 | 2 | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,9 @@ Progress: [----------] 0% (v1.1)
 - [Phase 08-kehto-shell-implementation]: OriginEntry stores optional dTag/aggregateHash for NIP-5D iframes; nullable for legacy non-NIP-5D iframes
 - [Phase 08-kehto-shell-implementation]: ACL migration at deserialization boundary: detect 3-segment keys, migrate via migrateAclState, re-persist immediately — no dual-mode
 - [Phase 08-kehto-shell-implementation]: sendToNapplet parameter types inferred from SendToNapplet type (remove explicit msg: unknown[]) — accepts NappletMessage | unknown[]
+- [Phase 08-kehto-shell-implementation]: Clean break: no Array.isArray fallback in handleMessage — NIP-5D envelope-only per CONTEXT.md decision
+- [Phase 08-kehto-shell-implementation]: sendChallenge removed from ShellBridge interface entirely — NIP-5D has no AUTH challenge handshake
+- [Phase 08-kehto-shell-implementation]: shell.ready handled locally in bridge, not forwarded to runtime — shell handshake is adapter concern only
 
 ### Blockers/Concerns
 
@@ -87,6 +91,6 @@ Progress: [----------] 0% (v1.1)
 
 ## Session Continuity
 
-Last session: 2026-04-07T22:42:54.852Z
-Stopped at: Completed 08-01-PLAN.md
+Last session: 2026-04-07T22:46:33.201Z
+Stopped at: Completed 08-02-PLAN.md
 Resume: Run `/gsd:plan-phase 6` to plan @kehto/acl Implementation
