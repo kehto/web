@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: NIP-5D Migration Implementation
-status: verifying
-stopped_at: Completed 07-03-PLAN.md
-last_updated: "2026-04-07T22:29:41.175Z"
+status: executing
+stopped_at: Completed 08-01-PLAN.md
+last_updated: "2026-04-07T22:42:54.855Z"
 last_activity: 2026-04-07
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 7
+  completed_plans: 6
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-07)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 07 — kehto-runtime-implementation
+**Current focus:** Phase 08 — kehto-shell-implementation
 
 ## Current Position
 
-Phase: 8
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 08 (kehto-shell-implementation) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
 Last activity: 2026-04-07
 
 Progress: [----------] 0% (v1.1)
@@ -52,6 +52,7 @@ Progress: [----------] 0% (v1.1)
 | Phase 07-kehto-runtime-implementation P01 | 3 minutes | 2 tasks | 6 files |
 | Phase 07-kehto-runtime-implementation P02 | 5 minutes | 2 tasks | 4 files |
 | Phase 07-kehto-runtime-implementation P03 | 6 minutes | 2 tasks | 4 files |
+| Phase 08-kehto-shell-implementation P01 | 4 | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,10 @@ Progress: [----------] 0% (v1.1)
 - [Phase 07-kehto-runtime-implementation]: discoverySubscriptions removed — dead code after handleReq deletion (only consumer)
 - [Phase 07-kehto-runtime-implementation]: isBusKind check uses filters.length > 0 guard to avoid vacuous true on empty filter arrays
 - [Phase 07-kehto-runtime-implementation]: handleStorageNub placed in state-handler.ts alongside legacy handleStateRequest — both exported
+- [Phase 08-kehto-shell-implementation]: Shell SessionEntry identitySource mirrors runtime's version exactly — same field, same values, keeps types in sync
+- [Phase 08-kehto-shell-implementation]: OriginEntry stores optional dTag/aggregateHash for NIP-5D iframes; nullable for legacy non-NIP-5D iframes
+- [Phase 08-kehto-shell-implementation]: ACL migration at deserialization boundary: detect 3-segment keys, migrate via migrateAclState, re-persist immediately — no dual-mode
+- [Phase 08-kehto-shell-implementation]: sendToNapplet parameter types inferred from SendToNapplet type (remove explicit msg: unknown[]) — accepts NappletMessage | unknown[]
 
 ### Blockers/Concerns
 
@@ -82,6 +87,6 @@ Progress: [----------] 0% (v1.1)
 
 ## Session Continuity
 
-Last session: 2026-04-07T22:26:55.043Z
-Stopped at: Completed 07-03-PLAN.md
+Last session: 2026-04-07T22:42:54.852Z
+Stopped at: Completed 08-01-PLAN.md
 Resume: Run `/gsd:plan-phase 6` to plan @kehto/acl Implementation

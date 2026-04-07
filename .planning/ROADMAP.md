@@ -118,7 +118,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 08-01-PLAN.md — Type contracts, origin-registry identity metadata, ACL migration trigger, hooks-adapter widening
+- [x] 08-01-PLAN.md — Type contracts, origin-registry identity metadata, ACL migration trigger, hooks-adapter widening
 - [ ] 08-02-PLAN.md — Shell-bridge envelope-only rewrite, shell-init (nostr bootstrap + capability advertisement), exports
 
 ### Phase 9: @kehto/services Implementation
