@@ -101,7 +101,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — Type contracts, SessionEntry identity anchor, enforce gate for NUB dispatch
+- [x] 07-01-PLAN.md — Type contracts, SessionEntry identity anchor, enforce gate for NUB dispatch
 - [ ] 07-02-PLAN.md — handleMessage rewrite (envelope-only), AUTH removal (~269 lines)
 - [ ] 07-03-PLAN.md — Relay/signer/storage/IFC handler implementations + dispatch tests
 
