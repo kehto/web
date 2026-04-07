@@ -16,7 +16,7 @@ Spec: `docs/ACL-MIGRATION.md`
 
 Spec: `docs/RUNTIME-MIGRATION.md`
 
-- [ ] **RT-I01**: Replace NIP-01 verb switch with NUB domain-prefix dispatch (envelope-only, no dual-mode)
+- [x] **RT-I01**: Replace NIP-01 verb switch with NUB domain-prefix dispatch (envelope-only, no dual-mode)
 - [x] **RT-I02**: Remove AUTH machinery entirely (~24% of runtime.ts)
 - [ ] **RT-I03**: Rewrite relay/signer/storage/ifc handlers for envelope format
 - [x] **RT-I04**: Implement SessionEntry identity anchor (empty string + identitySource discriminant)

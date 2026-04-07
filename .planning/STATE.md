@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: NIP-5D Migration Implementation
 status: executing
-stopped_at: Completed 07-01-PLAN.md
-last_updated: "2026-04-07T22:11:04.360Z"
+stopped_at: Completed 07-02-PLAN.md
+last_updated: "2026-04-07T22:18:25.107Z"
 last_activity: 2026-04-07
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 ## Current Position
 
 Phase: 07 (kehto-runtime-implementation) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-07
 
@@ -50,6 +50,7 @@ Progress: [----------] 0% (v1.1)
 | Phase 06-kehto-acl-implementation P02 | 2 | 2 tasks | 3 files |
 | Phase 06-kehto-acl-implementation P01 | 4 | 2 tasks | 8 files |
 | Phase 07-kehto-runtime-implementation P01 | 3 minutes | 2 tasks | 6 files |
+| Phase 07-kehto-runtime-implementation P02 | 5 minutes | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,9 @@ Progress: [----------] 0% (v1.1)
 - [Phase 07-kehto-runtime-implementation]: identitySource discriminant 'auth'|'source' on SessionEntry — explicit field preferred over optional pubkey presence check
 - [Phase 07-kehto-runtime-implementation]: createNubEnforceGate resolves identity by windowId — necessary for NIP-5D sessions where pubkey is empty string
 - [Phase 07-kehto-runtime-implementation]: resolveCapabilitiesNub re-exported from enforce.ts (not re-implemented) — single canonical source in @kehto/acl
+- [Phase 07-kehto-runtime-implementation]: NUB handler stubs respond with .error type suffix — Plan 03 will fill in full implementations
+- [Phase 07-kehto-runtime-implementation]: handleShellCommand and handleHotkeyForward kept in runtime.ts — will be migrated in Phase 8 (shell)
+- [Phase 07-kehto-runtime-implementation]: discoverySubscriptions removed — dead code after handleReq deletion (only consumer)
 
 ### Blockers/Concerns
 
@@ -75,6 +79,6 @@ Progress: [----------] 0% (v1.1)
 
 ## Session Continuity
 
-Last session: 2026-04-07T22:11:04.357Z
-Stopped at: Completed 07-01-PLAN.md
+Last session: 2026-04-07T22:18:25.105Z
+Stopped at: Completed 07-02-PLAN.md
 Resume: Run `/gsd:plan-phase 6` to plan @kehto/acl Implementation
