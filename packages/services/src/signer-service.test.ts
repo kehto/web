@@ -1,30 +1,23 @@
 /**
  * signer-service.test.ts — Unit tests for the signer service.
+ *
+ * Tests NIP-5D envelope format: all operations use typed NappletMessage
+ * inputs and expect typed result/error responses.
  */
 
 declare function setTimeout(cb: () => void, ms?: number): unknown;
 
 import { describe, it, expect } from 'vitest';
 import { createSignerService } from './signer-service.js';
-import { BusKind } from '@napplet/core';
-import type { NostrEvent } from '@napplet/core';
+import type { NappletMessage, NostrEvent } from '@napplet/core';
 import type { Signer } from '@kehto/runtime';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const WINDOW_ID = 'win-test-1';
 
-function makeSignerEvent(overrides: Partial<NostrEvent> = {}): NostrEvent {
-  return {
-    id: 'evt-' + Math.random().toString(36).slice(2).padEnd(58, '0'),
-    pubkey: 'a'.repeat(64),
-    created_at: Math.floor(Date.now() / 1000),
-    kind: BusKind.SIGNER_REQUEST,
-    tags: [['id', 'corr-1'], ['method', 'getPublicKey']],
-    content: '',
-    sig: '0'.repeat(128),
-    ...overrides,
-  };
+function makeSignerMessage(type: string, fields: Record<string, unknown> = {}): NappletMessage {
+  return { type, id: 'corr-1', ...fields } as NappletMessage;
 }
 
 function createMockSigner(): Signer & {
@@ -85,214 +78,172 @@ describe('createSignerService', () => {
     });
   });
 
-  it('ignores non-EVENT messages', () => {
-    const signer = createMockSigner();
-    const service = createSignerService({ getSigner: () => signer });
-    const sent: unknown[][] = [];
-    const send = (msg: unknown[]): void => { sent.push(msg); };
-
-    service.handleMessage(WINDOW_ID, ['REQ', 'sub-1', { kinds: [29001] }], send);
-    expect(sent).toHaveLength(0);
-  });
-
-  it('ignores events with wrong kind', () => {
-    const signer = createMockSigner();
-    const service = createSignerService({ getSigner: () => signer });
-    const sent: unknown[][] = [];
-    const send = (msg: unknown[]): void => { sent.push(msg); };
-
-    const event = makeSignerEvent({ kind: 1 });
-    service.handleMessage(WINDOW_ID, ['EVENT', event], send);
-    expect(sent).toHaveLength(0);
-  });
-
   it('returns error when no signer configured', async () => {
     const service = createSignerService({ getSigner: () => null });
-    const sent: unknown[][] = [];
-    const send = (msg: unknown[]): void => { sent.push(msg); };
+    const sent: NappletMessage[] = [];
+    const send = (msg: NappletMessage): void => { sent.push(msg); };
 
-    const event = makeSignerEvent();
-    service.handleMessage(WINDOW_ID, ['EVENT', event], send);
+    service.handleMessage(WINDOW_ID, makeSignerMessage('signer.getPublicKey'), send);
     await nextTick();
 
     expect(sent).toHaveLength(1);
-    expect(sent[0][0]).toBe('OK');
-    expect(sent[0][2]).toBe(false);
-    expect(sent[0][3]).toContain('no signer configured');
+    expect(sent[0].type).toBe('signer.getPublicKey.error');
+    expect((sent[0] as any).error).toContain('no signer configured');
+  });
+
+  it('returns error with matching .error type for any operation', async () => {
+    const service = createSignerService({ getSigner: () => null });
+    const sent: NappletMessage[] = [];
+    const send = (msg: NappletMessage): void => { sent.push(msg); };
+
+    service.handleMessage(WINDOW_ID, makeSignerMessage('signer.signEvent'), send);
+    await nextTick();
+
+    expect(sent[0].type).toBe('signer.signEvent.error');
+    expect((sent[0] as any).id).toBe('corr-1');
   });
 
   describe('getPublicKey', () => {
-    it('returns pubkey via kind 29002 response', async () => {
+    it('returns pubkey in result envelope', async () => {
       const signer = createMockSigner();
       const service = createSignerService({ getSigner: () => signer });
-      const sent: unknown[][] = [];
-      const send = (msg: unknown[]): void => { sent.push(msg); };
+      const sent: NappletMessage[] = [];
+      const send = (msg: NappletMessage): void => { sent.push(msg); };
 
-      const event = makeSignerEvent({ tags: [['id', 'corr-1'], ['method', 'getPublicKey']] });
-      service.handleMessage(WINDOW_ID, ['EVENT', event], send);
+      service.handleMessage(WINDOW_ID, makeSignerMessage('signer.getPublicKey', { id: 'corr-1' }), send);
       await nextTick();
 
-      // Should have EVENT (kind 29002) and OK
-      const eventMsg = sent.find((m) => m[0] === 'EVENT');
-      expect(eventMsg).toBeDefined();
-      const responseEvent = eventMsg![2] as Partial<NostrEvent>;
-      expect(responseEvent.kind).toBe(BusKind.SIGNER_RESPONSE);
-      const resultTag = responseEvent.tags?.find((t) => t[0] === 'result');
-      expect(resultTag).toBeDefined();
-      expect(JSON.parse(resultTag![1])).toMatch(/test-pubkey/);
-
-      const okMsg = sent.find((m) => m[0] === 'OK');
-      expect(okMsg).toBeDefined();
-      expect(okMsg![2]).toBe(true);
+      expect(sent).toHaveLength(1);
+      expect(sent[0].type).toBe('signer.getPublicKey.result');
+      expect((sent[0] as any).id).toBe('corr-1');
+      expect((sent[0] as any).pubkey).toMatch(/test-pubkey/);
     });
   });
 
   describe('signEvent', () => {
-    it('signs and returns event via kind 29002 response', async () => {
+    it('signs and returns event in result envelope', async () => {
       const signer = createMockSigner();
       const service = createSignerService({ getSigner: () => signer });
-      const sent: unknown[][] = [];
-      const send = (msg: unknown[]): void => { sent.push(msg); };
+      const sent: NappletMessage[] = [];
+      const send = (msg: NappletMessage): void => { sent.push(msg); };
 
       const eventToSign: NostrEvent = {
         id: '', pubkey: 'a'.repeat(64), created_at: 1000, kind: 1, tags: [], content: 'hello', sig: '',
       };
-      const event = makeSignerEvent({
-        tags: [['id', 'corr-2'], ['method', 'signEvent'], ['event', JSON.stringify(eventToSign)]],
-      });
-      service.handleMessage(WINDOW_ID, ['EVENT', event], send);
+      service.handleMessage(WINDOW_ID, makeSignerMessage('signer.signEvent', { id: 'corr-2', event: eventToSign }), send);
       await nextTick();
 
       expect(signer.calls).toContain('signEvent');
-      const eventMsg = sent.find((m) => m[0] === 'EVENT');
-      expect(eventMsg).toBeDefined();
-      const responseEvent = eventMsg![2] as Partial<NostrEvent>;
-      expect(responseEvent.kind).toBe(BusKind.SIGNER_RESPONSE);
+      expect(sent).toHaveLength(1);
+      expect(sent[0].type).toBe('signer.signEvent.result');
+      expect((sent[0] as any).id).toBe('corr-2');
+      expect((sent[0] as any).event).toBeDefined();
     });
 
-    it('returns error OK for invalid event JSON', async () => {
+    it('returns error when event is missing', async () => {
       const signer = createMockSigner();
       const service = createSignerService({ getSigner: () => signer });
-      const sent: unknown[][] = [];
-      const send = (msg: unknown[]): void => { sent.push(msg); };
+      const sent: NappletMessage[] = [];
+      const send = (msg: NappletMessage): void => { sent.push(msg); };
 
-      const event = makeSignerEvent({
-        tags: [['id', 'corr-3'], ['method', 'signEvent'], ['event', 'not-json']],
-      });
-      service.handleMessage(WINDOW_ID, ['EVENT', event], send);
+      service.handleMessage(WINDOW_ID, makeSignerMessage('signer.signEvent', { id: 'corr-3' }), send);
       await nextTick();
 
-      const okMsg = sent.find((m) => m[0] === 'OK');
-      expect(okMsg).toBeDefined();
-      expect(okMsg![2]).toBe(false);
-      expect(okMsg![3]).toContain('invalid event JSON');
+      expect(sent[0].type).toBe('signer.signEvent.error');
+      expect((sent[0] as any).error).toContain('missing event');
     });
   });
 
   describe('getRelays', () => {
-    it('returns relay config via kind 29002 response', async () => {
+    it('returns relay config in result envelope', async () => {
       const signer = createMockSigner();
       const service = createSignerService({ getSigner: () => signer });
-      const sent: unknown[][] = [];
-      const send = (msg: unknown[]): void => { sent.push(msg); };
+      const sent: NappletMessage[] = [];
+      const send = (msg: NappletMessage): void => { sent.push(msg); };
 
-      const event = makeSignerEvent({ tags: [['id', 'corr-4'], ['method', 'getRelays']] });
-      service.handleMessage(WINDOW_ID, ['EVENT', event], send);
+      service.handleMessage(WINDOW_ID, makeSignerMessage('signer.getRelays', { id: 'corr-4' }), send);
       await nextTick();
 
       expect(signer.calls).toContain('getRelays');
-      const eventMsg = sent.find((m) => m[0] === 'EVENT');
-      expect(eventMsg).toBeDefined();
+      expect(sent).toHaveLength(1);
+      expect(sent[0].type).toBe('signer.getRelays.result');
+      expect((sent[0] as any).relays).toBeDefined();
     });
   });
 
   describe('nip04', () => {
-    it('nip04.encrypt works correctly', async () => {
+    it('nip04.encrypt returns ciphertext in result envelope', async () => {
       const signer = createMockSigner();
       const service = createSignerService({ getSigner: () => signer });
-      const sent: unknown[][] = [];
-      const send = (msg: unknown[]): void => { sent.push(msg); };
+      const sent: NappletMessage[] = [];
+      const send = (msg: NappletMessage): void => { sent.push(msg); };
 
-      const event = makeSignerEvent({
-        tags: [['id', 'corr-5'], ['method', 'nip04.encrypt'], ['params', 'peer-pubkey', 'hello']],
-      });
-      service.handleMessage(WINDOW_ID, ['EVENT', event], send);
+      service.handleMessage(WINDOW_ID, makeSignerMessage('signer.nip04.encrypt', { id: 'corr-5', pubkey: 'peer-pubkey', plaintext: 'hello' }), send);
       await nextTick();
 
       expect(signer.calls).toContain('nip04.encrypt');
-      const okMsg = sent.find((m) => m[0] === 'OK');
-      expect(okMsg![2]).toBe(true);
+      expect(sent[0].type).toBe('signer.nip04.encrypt.result');
+      expect((sent[0] as any).ciphertext).toContain('encrypted:hello');
     });
 
-    it('nip04.decrypt works correctly', async () => {
+    it('nip04.decrypt returns plaintext in result envelope', async () => {
       const signer = createMockSigner();
       const service = createSignerService({ getSigner: () => signer });
-      const sent: unknown[][] = [];
-      const send = (msg: unknown[]): void => { sent.push(msg); };
+      const sent: NappletMessage[] = [];
+      const send = (msg: NappletMessage): void => { sent.push(msg); };
 
-      const event = makeSignerEvent({
-        tags: [['id', 'corr-6'], ['method', 'nip04.decrypt'], ['params', 'peer-pubkey', 'ciphertext']],
-      });
-      service.handleMessage(WINDOW_ID, ['EVENT', event], send);
+      service.handleMessage(WINDOW_ID, makeSignerMessage('signer.nip04.decrypt', { id: 'corr-6', pubkey: 'peer-pubkey', ciphertext: 'ciphertext' }), send);
       await nextTick();
 
       expect(signer.calls).toContain('nip04.decrypt');
-      const okMsg = sent.find((m) => m[0] === 'OK');
-      expect(okMsg![2]).toBe(true);
+      expect(sent[0].type).toBe('signer.nip04.decrypt.result');
+      expect((sent[0] as any).plaintext).toContain('decrypted:ciphertext');
     });
   });
 
   describe('nip44', () => {
-    it('nip44.encrypt works correctly', async () => {
+    it('nip44.encrypt returns ciphertext in result envelope', async () => {
       const signer = createMockSigner();
       const service = createSignerService({ getSigner: () => signer });
-      const sent: unknown[][] = [];
-      const send = (msg: unknown[]): void => { sent.push(msg); };
+      const sent: NappletMessage[] = [];
+      const send = (msg: NappletMessage): void => { sent.push(msg); };
 
-      const event = makeSignerEvent({
-        tags: [['id', 'corr-7'], ['method', 'nip44.encrypt'], ['params', 'peer-pubkey', 'hello44']],
-      });
-      service.handleMessage(WINDOW_ID, ['EVENT', event], send);
+      service.handleMessage(WINDOW_ID, makeSignerMessage('signer.nip44.encrypt', { id: 'corr-7', pubkey: 'peer-pubkey', plaintext: 'hello44' }), send);
       await nextTick();
 
       expect(signer.calls).toContain('nip44.encrypt');
-      const okMsg = sent.find((m) => m[0] === 'OK');
-      expect(okMsg![2]).toBe(true);
+      expect(sent[0].type).toBe('signer.nip44.encrypt.result');
+      expect((sent[0] as any).ciphertext).toContain('encrypted44:hello44');
     });
 
-    it('nip44.decrypt works correctly', async () => {
+    it('nip44.decrypt returns plaintext in result envelope', async () => {
       const signer = createMockSigner();
       const service = createSignerService({ getSigner: () => signer });
-      const sent: unknown[][] = [];
-      const send = (msg: unknown[]): void => { sent.push(msg); };
+      const sent: NappletMessage[] = [];
+      const send = (msg: NappletMessage): void => { sent.push(msg); };
 
-      const event = makeSignerEvent({
-        tags: [['id', 'corr-8'], ['method', 'nip44.decrypt'], ['params', 'peer-pubkey', 'ciphertext44']],
-      });
-      service.handleMessage(WINDOW_ID, ['EVENT', event], send);
+      service.handleMessage(WINDOW_ID, makeSignerMessage('signer.nip44.decrypt', { id: 'corr-8', pubkey: 'peer-pubkey', ciphertext: 'ciphertext44' }), send);
       await nextTick();
 
       expect(signer.calls).toContain('nip44.decrypt');
-      const okMsg = sent.find((m) => m[0] === 'OK');
-      expect(okMsg![2]).toBe(true);
+      expect(sent[0].type).toBe('signer.nip44.decrypt.result');
+      expect((sent[0] as any).plaintext).toContain('decrypted44:ciphertext44');
     });
   });
 
   describe('unknown method', () => {
-    it('returns error OK for unknown method', async () => {
+    it('returns error envelope for unknown signer type', async () => {
       const signer = createMockSigner();
       const service = createSignerService({ getSigner: () => signer });
-      const sent: unknown[][] = [];
-      const send = (msg: unknown[]): void => { sent.push(msg); };
+      const sent: NappletMessage[] = [];
+      const send = (msg: NappletMessage): void => { sent.push(msg); };
 
-      const event = makeSignerEvent({ tags: [['id', 'corr-9'], ['method', 'unknownMethod']] });
-      service.handleMessage(WINDOW_ID, ['EVENT', event], send);
+      service.handleMessage(WINDOW_ID, makeSignerMessage('signer.unknownMethod', { id: 'corr-9' }), send);
       await nextTick();
 
-      const okMsg = sent.find((m) => m[0] === 'OK');
-      expect(okMsg).toBeDefined();
-      expect(okMsg![2]).toBe(false);
-      expect((okMsg![3] as string)).toContain('Unknown signer method');
+      expect(sent).toHaveLength(1);
+      expect(sent[0].type).toBe('signer.unknownMethod.error');
+      expect((sent[0] as any).error).toContain('Unknown signer method');
     });
   });
 
@@ -308,46 +259,38 @@ describe('createSignerService', () => {
           resolve(true);
         },
       });
-      const sent: unknown[][] = [];
-      const send = (msg: unknown[]): void => { sent.push(msg); };
+      const sent: NappletMessage[] = [];
+      const send = (msg: NappletMessage): void => { sent.push(msg); };
 
       // Kind 0 is a destructive kind
       const eventToSign: NostrEvent = {
         id: '', pubkey: 'a'.repeat(64), created_at: 1000, kind: 0, tags: [], content: '{}', sig: '',
       };
-      const event = makeSignerEvent({
-        tags: [['id', 'corr-10'], ['method', 'signEvent'], ['event', JSON.stringify(eventToSign)]],
-      });
-      service.handleMessage(WINDOW_ID, ['EVENT', event], send);
+      service.handleMessage(WINDOW_ID, makeSignerMessage('signer.signEvent', { id: 'corr-10', event: eventToSign }), send);
       await nextTick(20);
 
       expect(consentCalls).toHaveLength(1);
       expect(consentCalls[0].kind).toBe(0);
-      const okMsg = sent.find((m) => m[0] === 'OK');
-      expect(okMsg![2]).toBe(true);
+      expect(sent[0].type).toBe('signer.signEvent.result');
     });
 
-    it('returns error OK when user rejects consent', async () => {
+    it('returns error envelope when user rejects consent', async () => {
       const signer = createMockSigner();
       const service = createSignerService({
         getSigner: () => signer,
         onConsentNeeded: ({ resolve }) => { resolve(false); },
       });
-      const sent: unknown[][] = [];
-      const send = (msg: unknown[]): void => { sent.push(msg); };
+      const sent: NappletMessage[] = [];
+      const send = (msg: NappletMessage): void => { sent.push(msg); };
 
       const eventToSign: NostrEvent = {
         id: '', pubkey: 'a'.repeat(64), created_at: 1000, kind: 3, tags: [], content: '[]', sig: '',
       };
-      const event = makeSignerEvent({
-        tags: [['id', 'corr-11'], ['method', 'signEvent'], ['event', JSON.stringify(eventToSign)]],
-      });
-      service.handleMessage(WINDOW_ID, ['EVENT', event], send);
+      service.handleMessage(WINDOW_ID, makeSignerMessage('signer.signEvent', { id: 'corr-11', event: eventToSign }), send);
       await nextTick(20);
 
-      const okMsg = sent.find((m) => m[0] === 'OK');
-      expect(okMsg![2]).toBe(false);
-      expect((okMsg![3] as string)).toContain('user rejected');
+      expect(sent[0].type).toBe('signer.signEvent.error');
+      expect((sent[0] as any).error).toContain('user rejected');
     });
 
     it('skips consent for non-destructive kinds', async () => {
@@ -360,22 +303,18 @@ describe('createSignerService', () => {
           resolve(true);
         },
       });
-      const sent: unknown[][] = [];
-      const send = (msg: unknown[]): void => { sent.push(msg); };
+      const sent: NappletMessage[] = [];
+      const send = (msg: NappletMessage): void => { sent.push(msg); };
 
       // Kind 1 is NOT a destructive kind
       const eventToSign: NostrEvent = {
         id: '', pubkey: 'a'.repeat(64), created_at: 1000, kind: 1, tags: [], content: 'hello', sig: '',
       };
-      const event = makeSignerEvent({
-        tags: [['id', 'corr-12'], ['method', 'signEvent'], ['event', JSON.stringify(eventToSign)]],
-      });
-      service.handleMessage(WINDOW_ID, ['EVENT', event], send);
+      service.handleMessage(WINDOW_ID, makeSignerMessage('signer.signEvent', { id: 'corr-12', event: eventToSign }), send);
       await nextTick(20);
 
       expect(consentCalls).toHaveLength(0);
-      const okMsg = sent.find((m) => m[0] === 'OK');
-      expect(okMsg![2]).toBe(true);
+      expect(sent[0].type).toBe('signer.signEvent.result');
     });
 
     it('uses custom consentKinds when provided', async () => {
@@ -389,16 +328,14 @@ describe('createSignerService', () => {
           resolve(true);
         },
       });
-      const sent: unknown[][] = [];
-      const send = (msg: unknown[]): void => { sent.push(msg); };
+      const sent: NappletMessage[] = [];
+      const send = (msg: NappletMessage): void => { sent.push(msg); };
 
       // Kind 0 should NOT trigger consent (not in custom list)
       const eventToSign0: NostrEvent = {
         id: '', pubkey: 'a'.repeat(64), created_at: 1000, kind: 0, tags: [], content: '{}', sig: '',
       };
-      service.handleMessage(WINDOW_ID, ['EVENT', makeSignerEvent({
-        tags: [['id', 'corr-13a'], ['method', 'signEvent'], ['event', JSON.stringify(eventToSign0)]],
-      })], send);
+      service.handleMessage(WINDOW_ID, makeSignerMessage('signer.signEvent', { id: 'corr-13a', event: eventToSign0 }), send);
       await nextTick(20);
 
       expect(consentCalls).toHaveLength(0);
@@ -407,9 +344,7 @@ describe('createSignerService', () => {
       const eventToSign9999: NostrEvent = {
         id: '', pubkey: 'a'.repeat(64), created_at: 1001, kind: 9999, tags: [], content: '', sig: '',
       };
-      service.handleMessage(WINDOW_ID, ['EVENT', makeSignerEvent({
-        tags: [['id', 'corr-13b'], ['method', 'signEvent'], ['event', JSON.stringify(eventToSign9999)]],
-      })], send);
+      service.handleMessage(WINDOW_ID, makeSignerMessage('signer.signEvent', { id: 'corr-13b', event: eventToSign9999 }), send);
       await nextTick(20);
 
       expect(consentCalls).toHaveLength(1);

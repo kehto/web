@@ -1,14 +1,13 @@
 /**
  * signer-service.ts — Signer service implementation.
  *
- * Extracts the signer request/response handling from the runtime into
- * a standalone ServiceHandler. Napplets send kind 29001 signer requests;
- * the service dispatches to the configured signer and responds with
- * kind 29002 result events.
+ * Handles NIP-5D signer.* envelope messages from napplets, dispatching to the
+ * configured signer and responding with typed result/error envelopes.
+ * Supports all 7 signer operations: getPublicKey, signEvent, getRelays,
+ * nip04.encrypt, nip04.decrypt, nip44.encrypt, nip44.decrypt.
  */
 
-import type { NostrEvent } from '@napplet/core';
-import { BusKind } from '@napplet/core';
+import type { NappletMessage, NostrEvent } from '@napplet/core';
 import type { ServiceHandler, Signer } from '@kehto/runtime';
 
 /** Default kinds that require user consent before signing. */
@@ -56,11 +55,11 @@ export interface SignerServiceOptions {
 }
 
 /**
- * Create a signer service that handles NIP-07 compatible signing requests.
+ * Create a signer service that handles NIP-5D signer.* envelope messages.
  *
- * Napplets send kind 29001 events with method/params tags. The service
- * dispatches to the configured signer and responds with kind 29002
- * result events via the send callback.
+ * Napplets send typed envelopes (e.g., { type: 'signer.signEvent', id, event }).
+ * The service dispatches to the configured signer and responds with result or
+ * error envelopes (e.g., { type: 'signer.signEvent.result', id, event }).
  *
  * @param options - Signer configuration including getSigner and optional consent handler
  * @returns A ServiceHandler ready for runtime.registerService('signer', handler)
@@ -85,118 +84,132 @@ export function createSignerService(options: SignerServiceOptions): ServiceHandl
       description: 'NIP-07 compatible signer proxy',
     },
 
-    handleMessage(windowId: string, message: unknown[], send: (msg: unknown[]) => void): void {
-      if (message[0] !== 'EVENT') return;
-      const event = message[1] as NostrEvent | undefined;
-      if (!event || typeof event !== 'object') return;
-      if (event.kind !== BusKind.SIGNER_REQUEST) return;
-
-      const corrId = event.tags?.find((t) => t[0] === 'id')?.[1] ?? event.id;
-      const method = event.tags?.find((t) => t[0] === 'method')?.[1];
-
-      function sendOk(success: boolean, reason: string): void {
-        send(['OK', event!.id, success, reason]);
-      }
+    handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
+      const corrId = (message as any).id as string | undefined;
 
       const maybeSigner = options.getSigner();
       if (!maybeSigner) {
-        sendOk(false, 'error: no signer configured');
+        send({ type: `${message.type}.error`, id: corrId, error: 'no signer configured' } as NappletMessage);
         return;
       }
       const signer = maybeSigner;
 
-      function dispatch(eventToSign: NostrEvent | null): void {
-        const signerPromise: Promise<unknown> = (() => {
-          switch (method) {
-            case 'getPublicKey':
-              return Promise.resolve(signer.getPublicKey?.());
-            case 'signEvent':
-              return eventToSign
-                ? (signer.signEvent?.(eventToSign) ?? Promise.resolve(null))
-                : Promise.resolve(null);
-            case 'getRelays':
-              return Promise.resolve(signer.getRelays?.() ?? {});
-            case 'nip04.encrypt': {
-              const p = event!.tags?.find((t) => t[0] === 'params');
-              return signer.nip04?.encrypt(p?.[1] ?? '', p?.[2] ?? '') ?? Promise.resolve('');
-            }
-            case 'nip04.decrypt': {
-              const p = event!.tags?.find((t) => t[0] === 'params');
-              return signer.nip04?.decrypt(p?.[1] ?? '', p?.[2] ?? '') ?? Promise.resolve('');
-            }
-            case 'nip44.encrypt': {
-              const p = event!.tags?.find((t) => t[0] === 'params');
-              return signer.nip44?.encrypt(p?.[1] ?? '', p?.[2] ?? '') ?? Promise.resolve('');
-            }
-            case 'nip44.decrypt': {
-              const p = event!.tags?.find((t) => t[0] === 'params');
-              return signer.nip44?.decrypt(p?.[1] ?? '', p?.[2] ?? '') ?? Promise.resolve('');
-            }
-            default:
-              return Promise.reject(new Error(`Unknown signer method: ${method}`));
-          }
-        })();
-
-        signerPromise
-          .then((result) => {
-            const responseEvent: Partial<NostrEvent> = {
-              kind: BusKind.SIGNER_RESPONSE,
-              pubkey: '',
-              created_at: Math.floor(Date.now() / 1000),
-              tags: [
-                ['id', corrId],
-                ['method', method ?? ''],
-                ['result', JSON.stringify(result)],
-              ],
-              content: '',
-              id: '',
-              sig: '',
-            };
-            send(['EVENT', '__signer__', responseEvent]);
-            sendOk(true, '');
-          })
-          .catch((err: unknown) => {
-            sendOk(false, `error: ${(err as Error).message ?? 'signing failed'}`);
-          });
-      }
-
-      // Handle signEvent with consent gating for destructive kinds
-      const eventTag = event.tags?.find((t) => t[0] === 'event')?.[1];
-      if (method === 'signEvent' && eventTag) {
-        let eventToSign: NostrEvent;
-        try {
-          eventToSign = JSON.parse(eventTag) as NostrEvent;
-        } catch {
-          sendOk(false, 'error: invalid event JSON');
-          return;
-        }
-
-        if (consentKinds.has(eventToSign.kind) && options.onConsentNeeded) {
-          new Promise<boolean>((resolve) => {
-            options.onConsentNeeded!({
-              windowId,
-              event: eventToSign,
-              resolve,
-            });
-          })
-            .then((allowed) => {
-              if (!allowed) {
-                sendOk(false, 'error: user rejected');
-                return;
-              }
-              dispatch(eventToSign);
+      switch (message.type) {
+        case 'signer.getPublicKey': {
+          Promise.resolve(signer.getPublicKey?.())
+            .then((pubkey) => {
+              send({ type: 'signer.getPublicKey.result', id: corrId, pubkey } as NappletMessage);
             })
-            .catch(() => {
-              sendOk(false, 'error: consent check failed');
+            .catch((err: unknown) => {
+              send({ type: 'signer.getPublicKey.error', id: corrId, error: (err as Error).message ?? 'getPublicKey failed' } as NappletMessage);
             });
-          return;
+          break;
         }
 
-        dispatch(eventToSign);
-        return;
-      }
+        case 'signer.signEvent': {
+          const eventToSign = (message as any).event as NostrEvent | undefined;
+          if (!eventToSign) {
+            send({ type: 'signer.signEvent.error', id: corrId, error: 'missing event' } as NappletMessage);
+            break;
+          }
 
-      dispatch(null);
+          const doSign = (): void => {
+            (signer.signEvent?.(eventToSign) ?? Promise.resolve(null))
+              .then((signed) => {
+                send({ type: 'signer.signEvent.result', id: corrId, event: signed } as NappletMessage);
+              })
+              .catch((err: unknown) => {
+                send({ type: 'signer.signEvent.error', id: corrId, error: (err as Error).message ?? 'signEvent failed' } as NappletMessage);
+              });
+          };
+
+          if (consentKinds.has(eventToSign.kind) && options.onConsentNeeded) {
+            new Promise<boolean>((resolve) => {
+              options.onConsentNeeded!({ windowId, event: eventToSign, resolve });
+            })
+              .then((allowed) => {
+                if (!allowed) {
+                  send({ type: 'signer.signEvent.error', id: corrId, error: 'user rejected' } as NappletMessage);
+                  return;
+                }
+                doSign();
+              })
+              .catch(() => {
+                send({ type: 'signer.signEvent.error', id: corrId, error: 'consent check failed' } as NappletMessage);
+              });
+          } else {
+            doSign();
+          }
+          break;
+        }
+
+        case 'signer.getRelays': {
+          Promise.resolve(signer.getRelays?.() ?? {})
+            .then((relays) => {
+              send({ type: 'signer.getRelays.result', id: corrId, relays } as NappletMessage);
+            })
+            .catch((err: unknown) => {
+              send({ type: 'signer.getRelays.error', id: corrId, error: (err as Error).message ?? 'getRelays failed' } as NappletMessage);
+            });
+          break;
+        }
+
+        case 'signer.nip04.encrypt': {
+          const pubkey = (message as any).pubkey as string ?? '';
+          const plaintext = (message as any).plaintext as string ?? '';
+          (signer.nip04?.encrypt(pubkey, plaintext) ?? Promise.resolve(''))
+            .then((ciphertext) => {
+              send({ type: 'signer.nip04.encrypt.result', id: corrId, ciphertext } as NappletMessage);
+            })
+            .catch((err: unknown) => {
+              send({ type: 'signer.nip04.encrypt.error', id: corrId, error: (err as Error).message ?? 'nip04.encrypt failed' } as NappletMessage);
+            });
+          break;
+        }
+
+        case 'signer.nip04.decrypt': {
+          const pubkey = (message as any).pubkey as string ?? '';
+          const ciphertext = (message as any).ciphertext as string ?? '';
+          (signer.nip04?.decrypt(pubkey, ciphertext) ?? Promise.resolve(''))
+            .then((plaintext) => {
+              send({ type: 'signer.nip04.decrypt.result', id: corrId, plaintext } as NappletMessage);
+            })
+            .catch((err: unknown) => {
+              send({ type: 'signer.nip04.decrypt.error', id: corrId, error: (err as Error).message ?? 'nip04.decrypt failed' } as NappletMessage);
+            });
+          break;
+        }
+
+        case 'signer.nip44.encrypt': {
+          const pubkey = (message as any).pubkey as string ?? '';
+          const plaintext = (message as any).plaintext as string ?? '';
+          (signer.nip44?.encrypt(pubkey, plaintext) ?? Promise.resolve(''))
+            .then((ciphertext) => {
+              send({ type: 'signer.nip44.encrypt.result', id: corrId, ciphertext } as NappletMessage);
+            })
+            .catch((err: unknown) => {
+              send({ type: 'signer.nip44.encrypt.error', id: corrId, error: (err as Error).message ?? 'nip44.encrypt failed' } as NappletMessage);
+            });
+          break;
+        }
+
+        case 'signer.nip44.decrypt': {
+          const pubkey = (message as any).pubkey as string ?? '';
+          const ciphertext = (message as any).ciphertext as string ?? '';
+          (signer.nip44?.decrypt(pubkey, ciphertext) ?? Promise.resolve(''))
+            .then((plaintext) => {
+              send({ type: 'signer.nip44.decrypt.result', id: corrId, plaintext } as NappletMessage);
+            })
+            .catch((err: unknown) => {
+              send({ type: 'signer.nip44.decrypt.error', id: corrId, error: (err as Error).message ?? 'nip44.decrypt failed' } as NappletMessage);
+            });
+          break;
+        }
+
+        default:
+          send({ type: `${message.type}.error`, id: corrId, error: `Unknown signer method: ${message.type}` } as NappletMessage);
+          break;
+      }
     },
 
     // Signer has no per-window state to clean up
