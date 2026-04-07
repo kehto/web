@@ -2,18 +2,16 @@
  * runtime.ts — The napplet protocol engine factory.
  *
  * createRuntime(hooks) creates the complete protocol engine that handles
- * all five NIP-01 verbs (EVENT, REQ, CLOSE, COUNT, AUTH), subscription
- * lifecycle, AUTH handshake, signer proxying, and shell command routing.
+ * NIP-5D NUB domain dispatch, ACL enforcement, subscription lifecycle,
+ * signer proxying, and shell command routing.
  *
  * No browser APIs. No DOM. No localStorage. No postMessage.
  * All I/O is delegated to RuntimeAdapter.
  */
 
-import type { NostrEvent, NostrFilter, Capability, RegisterPayload, IdentityPayload } from '@napplet/core';
+import type { NostrEvent, NostrFilter, Capability, NappletMessage } from '@napplet/core';
 import {
-  AUTH_KIND, SHELL_BRIDGE_URI,
   BusKind, ALL_CAPABILITIES,
-  VERB_REGISTER, VERB_IDENTITY,
 } from '@napplet/core';
 
 // Timer globals are available in all JS runtimes (Node.js, Deno, Bun, browsers)
@@ -21,14 +19,11 @@ import {
 declare function setTimeout(callback: () => void, ms: number): unknown;
 declare function clearTimeout(id: unknown): void;
 import type {
-  RuntimeAdapter, SessionEntry, ConsentRequest, ConsentHandler,
+  RuntimeAdapter, ConsentRequest, ConsentHandler,
   ServiceHandler, ServiceRegistry, CompatibilityReport, ServiceInfo,
-  VerificationCacheEntry,
 } from './types.js';
-import { deriveKeypair, getOrCreateShellSecret } from './key-derivation.js';
 import { routeServiceMessage, notifyServiceWindowDestroyed } from './service-dispatch.js';
-import { handleDiscoveryReq, isDiscoveryReq, createServiceDiscoveryEvent } from './service-discovery.js';
-import type { DiscoverySubscription } from './service-discovery.js';
+import { createServiceDiscoveryEvent } from './service-discovery.js';
 import { createSessionRegistry } from './session-registry.js';
 import type { SessionRegistry } from './session-registry.js';
 import { createAclState } from './acl-state.js';
@@ -38,39 +33,33 @@ import type { ManifestCache } from './manifest-cache.js';
 import { createReplayDetector } from './replay.js';
 import { createEventBuffer, matchesAnyFilter, RING_BUFFER_SIZE } from './event-buffer.js';
 import type { SubscriptionEntry } from './event-buffer.js';
-import { createEnforceGate, resolveCapabilities, formatDenialReason } from './enforce.js';
-import { handleStateRequest } from './state-handler.js';
+import { createEnforceGate, createNubEnforceGate, resolveCapabilities, resolveCapabilitiesNub, formatDenialReason } from './enforce.js';
+import type { NubEnforceConfig } from './enforce.js';
 
 // ─── Runtime Interface ─────────────────────────────────────────────────────
 
 /**
- * The napplet protocol engine — handles all NIP-01 verb dispatch,
- * AUTH handshake, ACL enforcement, subscription lifecycle.
+ * The napplet protocol engine — handles NIP-5D NUB domain dispatch,
+ * ACL enforcement, subscription lifecycle.
  *
  * @example
  * ```ts
  * import { createRuntime } from '@kehto/runtime';
  *
  * const runtime = createRuntime(hooks);
- * runtime.handleMessage('window-1', ['REQ', 'sub1', { kinds: [1] }]);
+ * runtime.handleMessage('window-1', { type: 'relay.req', id: 'sub1', filters: [{ kinds: [1] }] });
  * ```
  */
 export interface Runtime {
   /**
-   * Handle an incoming NIP-01 message from a napplet.
+   * Handle an incoming NIP-5D NappletMessage envelope from a napplet.
    * The caller is responsible for identifying the source (windowId).
+   * Legacy NIP-01 arrays are silently dropped (clean break — no dual-mode).
    *
    * @param windowId - The identifier of the napplet that sent the message
-   * @param msg - The raw NIP-01 message array
+   * @param msg - The raw message (NappletMessage envelopes are processed; other types dropped)
    */
-  handleMessage(windowId: string, msg: unknown[]): void;
-
-  /**
-   * Send a NIP-42 AUTH challenge to a napplet window.
-   *
-   * @param windowId - The window identifier
-   */
-  sendChallenge(windowId: string): void;
+  handleMessage(windowId: string, msg: unknown): void;
 
   /**
    * Inject a shell-originated event into subscription delivery.
@@ -132,16 +121,13 @@ export interface Runtime {
  * ```ts
  * const runtime = createRuntime(hooks);
  * // On incoming message from napplet:
- * runtime.handleMessage(windowId, msg);
+ * runtime.handleMessage(windowId, { type: 'relay.req', id: 'sub1', filters: [] });
  * ```
  */
 export function createRuntime(hooks: RuntimeAdapter): Runtime {
   // ─── Module-level state ──────────────────────────────────────────────────
 
-  const pendingChallenges = new Map<string, string>();
   const subscriptions = new Map<string, SubscriptionEntry>();
-  const pendingAuthQueue = new Map<string, Array<{ msg: unknown[]; windowId: string }>>();
-  const authInFlight = new Set<string>();
   let _consentHandler: ConsentHandler | null = null;
 
   // ─── Service Registry (static from hooks + dynamic from registerService) ──
@@ -164,10 +150,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   /** Tracks consented undeclared service usage per session: "windowId:serviceName" */
   const undeclaredServiceConsents = new Set<string>();
 
-  // ─── Discovery Subscription Tracking ──────────────────────────────────────
-  /** Open kind 29010 subscriptions that should receive live service updates. */
-  const discoverySubscriptions = new Map<string, DiscoverySubscription>();
-
   // ─── Sub-module instances ────────────────────────────────────────────────
 
   const sessionRegistry = createSessionRegistry(hooks.onPendingUpdate);
@@ -189,6 +171,16 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     onAclCheck: hooks.onAclCheck,
   });
 
+  const enforceNub = createNubEnforceGate({
+    checkAcl: (pubkey, dTag, aggregateHash, capability) =>
+      aclState.check(pubkey, dTag, aggregateHash, capability),
+    resolveIdentityByWindowId: (windowId) => {
+      const entry = sessionRegistry.getEntryByWindowId(windowId);
+      return entry ? { dTag: entry.dTag, aggregateHash: entry.aggregateHash } : undefined;
+    },
+    onAclCheck: hooks.onAclCheck,
+  });
+
   const eventBuffer = createEventBuffer(
     hooks.sendToNapplet,
     sessionRegistry,
@@ -199,276 +191,15 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
       : undefined,
   );
 
-  // ─── Shell Secret (for deterministic keypair derivation) ────────────────
-  const shellSecret = hooks.shellSecretPersistence
-    ? getOrCreateShellSecret(hooks.shellSecretPersistence, (len) => hooks.crypto.randomBytes(len))
-    : null;
-
-  // ─── REGISTER/IDENTITY state ───────────────────────────────────────────
-  const pendingRegistrations = new Map<string, {
-    dTag: string;
-    aggregateHash: string;
-    pubkey: string;
-    instanceId: string;
-  }>();
-
-  /** Set of pubkeys that are delegated napplet keys — must NOT publish to external relays. */
-  const delegatedPubkeys = new Set<string>();
-
   // Load persisted state
   aclState.load();
   manifestCache.load();
-
-  // ─── Verb handlers ───────────────────────────────────────────────────────
-
-  function dispatchVerb(verb: unknown, msg: unknown[], windowId: string): void {
-    switch (verb) {
-      case 'EVENT': handleEvent(msg, windowId); break;
-      case 'REQ': handleReq(msg, windowId); break;
-      case 'CLOSE': handleClose(msg, windowId); break;
-      case 'COUNT': handleCount(msg, windowId); break;
-      case VERB_REGISTER: void handleRegister(msg, windowId); break;
-    }
-  }
-
-  // ─── REGISTER Handler (Phase 46) ─────────────────────────────────────────
-
-  async function handleRegister(msg: unknown[], windowId: string): Promise<void> {
-    const payload = msg[1] as RegisterPayload | undefined;
-    if (!payload || typeof payload !== 'object') {
-      hooks.sendToNapplet(windowId, ['NOTICE', 'invalid REGISTER payload']);
-      return;
-    }
-
-    const { dTag, claimedHash } = payload;
-    if (!dTag || typeof dTag !== 'string') {
-      hooks.sendToNapplet(windowId, ['NOTICE', 'REGISTER requires dTag']);
-      return;
-    }
-
-    const aggregateHash = (typeof claimedHash === 'string') ? claimedHash : '';
-
-    // Derive deterministic keypair
-    if (!shellSecret) {
-      hooks.sendToNapplet(windowId, ['NOTICE', 'shell secret not available — cannot derive keypair']);
-      return;
-    }
-
-    const derived = deriveKeypair(shellSecret, dTag, aggregateHash);
-    delegatedPubkeys.add(derived.pubkeyHex);
-
-    // Assign or retrieve persistent GUID for this iframe
-    let instanceId: string;
-    if (hooks.guidPersistence) {
-      const existing = hooks.guidPersistence.get(windowId);
-      if (existing) {
-        instanceId = existing;
-      } else {
-        instanceId = hooks.crypto.randomUUID();
-        hooks.guidPersistence.set(windowId, instanceId);
-      }
-    } else {
-      instanceId = hooks.crypto.randomUUID();
-    }
-
-    // Store registration state for the upcoming AUTH
-    pendingRegistrations.set(windowId, {
-      dTag, aggregateHash, pubkey: derived.pubkeyHex, instanceId,
-    });
-
-    // ─── Aggregate hash verification (VERIFY-01, VERIFY-02, VERIFY-03) ──────
-    if (aggregateHash && hooks.hashVerifier) {
-      const manifestEventId = `${dTag}:${aggregateHash}`;
-
-      if (manifestCache.hasVerification(manifestEventId)) {
-        const cached = manifestCache.getVerification(manifestEventId)!;
-        if (!cached.valid) {
-          hooks.onHashMismatch?.(dTag, aggregateHash, cached.aggregateHash);
-        }
-      } else {
-        try {
-          const computed = await hooks.hashVerifier.computeHash(windowId, []);
-
-          if (computed !== null) {
-            const valid = computed === aggregateHash;
-            const verificationEntry: VerificationCacheEntry = {
-              aggregateHash: computed,
-              valid,
-              verifiedAt: Date.now(),
-            };
-
-            manifestCache.setVerification(manifestEventId, verificationEntry);
-
-            if (!valid) {
-              hooks.onHashMismatch?.(dTag, aggregateHash, computed);
-            }
-          }
-        } catch {
-          // Verification error — proceed without blocking (best-effort)
-        }
-      }
-    }
-
-    // Send IDENTITY to napplet
-    const identityPayload: IdentityPayload = {
-      pubkey: derived.pubkeyHex,
-      privkey: derived.privkeyHex,
-      dTag,
-      aggregateHash,
-    };
-    hooks.sendToNapplet(windowId, [VERB_IDENTITY, identityPayload]);
-
-    // Send AUTH challenge (the napplet will sign with the delegated key)
-    runtimeInstance.sendChallenge(windowId);
-  }
-
-  async function handleAuth(msg: unknown[], windowId: string): Promise<void> {
-    const authEvent = msg[1] as NostrEvent | undefined;
-    if (!authEvent || typeof authEvent !== 'object') return;
-    const eventId = authEvent.id ?? '';
-
-    function sendOkFail(reason: string): void {
-      hooks.sendToNapplet(windowId, ['OK', eventId, false, `auth-required: ${reason}`]);
-    }
-
-    function rejectAuth(reason: string): void {
-      const queue = pendingAuthQueue.get(windowId);
-      const queueSize = queue?.length ?? 0;
-      pendingAuthQueue.delete(windowId);
-      sendOkFail(reason);
-      if (queueSize > 0) {
-        hooks.sendToNapplet(windowId, ['NOTICE', `${queueSize} queued message(s) dropped due to auth failure`]);
-      }
-    }
-
-    if (authEvent.kind !== AUTH_KIND) { rejectAuth('event kind must be 22242'); return; }
-
-    const challengeTag = authEvent.tags?.find((t) => t[0] === 'challenge');
-    const pendingChallenge = pendingChallenges.get(windowId);
-    if (!challengeTag || challengeTag[1] !== pendingChallenge) { rejectAuth('challenge mismatch'); return; }
-
-    const relayTag = authEvent.tags?.find((t) => t[0] === 'relay');
-    if (!relayTag || relayTag[1] !== SHELL_BRIDGE_URI) { rejectAuth('relay tag must be napplet://shell'); return; }
-
-    const now = Math.floor(Date.now() / 1000);
-    if (Math.abs(now - authEvent.created_at) > 60) { rejectAuth('event created_at too far from now'); return; }
-
-    authInFlight.add(windowId);
-    let sigValid: boolean;
-    try { sigValid = await hooks.crypto.verifyEvent(authEvent); }
-    finally { authInFlight.delete(windowId); }
-    if (!sigValid) { rejectAuth('invalid signature'); return; }
-
-    const typeTag = authEvent.tags?.find((t) => t[0] === 'type');
-    if (!typeTag) { rejectAuth('missing required type tag'); return; }
-    const nappletType = typeTag[1];
-    const hashTag = authEvent.tags?.find((t) => t[0] === 'aggregateHash');
-    if (!hashTag) { rejectAuth('missing required aggregateHash tag'); return; }
-
-    // Use pre-registered identity if REGISTER was received (Phase 46)
-    const registration = pendingRegistrations.get(windowId);
-    if (registration) {
-      // Verify the AUTH pubkey matches what we delegated
-      if (authEvent.pubkey !== registration.pubkey) {
-        rejectAuth('pubkey mismatch — AUTH must use delegated key from IDENTITY');
-        pendingRegistrations.delete(windowId);
-        return;
-      }
-    }
-
-    // Prefer registration data when available, fall back to AUTH event tags
-    const dTag = registration?.dTag
-      ?? (parseInt(authEvent.pubkey.slice(0, 8), 16).toString(36) + nappletType);
-    const aggregateHash = registration?.aggregateHash ?? hashTag[1];
-
-    // Helper: cache manifest entry while preserving any pre-populated requires.
-    function cacheManifest(pubkey: string, dTag: string, hash: string): void {
-      const existingRequires = manifestCache.getRequires(pubkey, dTag);
-      manifestCache.set({
-        pubkey, dTag, aggregateHash: hash, verifiedAt: Date.now(),
-        requires: existingRequires.length > 0 ? existingRequires : undefined,
-      });
-    }
-
-    const entry: SessionEntry = {
-      pubkey: authEvent.pubkey, windowId, origin: '*',
-      type: nappletType, dTag, aggregateHash, registeredAt: Date.now(),
-      instanceId: registration?.instanceId ?? hooks.crypto.randomUUID(),
-      identitySource: 'auth',
-    };
-
-    // Clean up pending registration
-    pendingRegistrations.delete(windowId);
-
-    // Check for napp updates
-    const previousCacheEntry = manifestCache.get(authEvent.pubkey, dTag);
-    const isUpdate = previousCacheEntry
-      && previousCacheEntry.aggregateHash !== aggregateHash
-      && previousCacheEntry.aggregateHash !== '';
-
-    if (isUpdate) {
-      const updateBehavior = hooks.config.getNappUpdateBehavior();
-      if (updateBehavior === 'banner') {
-        sessionRegistry.setPendingUpdate(windowId, {
-          windowId, pubkey: authEvent.pubkey, dTag,
-          oldHash: previousCacheEntry!.aggregateHash, newHash: aggregateHash,
-          resolve: (action) => {
-            if (action === 'accept') {
-              cacheManifest(authEvent.pubkey, dTag, aggregateHash);
-              sessionRegistry.register(windowId, entry);
-              sessionRegistry.clearPendingUpdate(windowId);
-              const queued = pendingAuthQueue.get(windowId);
-              pendingAuthQueue.delete(windowId);
-              if (queued) for (const { msg: qMsg } of queued) dispatchVerb(qMsg[0], qMsg, windowId);
-            } else {
-              pendingAuthQueue.delete(windowId);
-              sessionRegistry.clearPendingUpdate(windowId);
-              hooks.sendToNapplet(windowId, ['OK', eventId, false, 'blocked: update rejected']);
-            }
-          },
-        });
-        pendingChallenges.delete(windowId);
-        hooks.sendToNapplet(windowId, ['OK', eventId, true, '']);
-        return;
-      }
-      if (updateBehavior === 'auto-grant') {
-        const oldAcl = aclState.getEntry(authEvent.pubkey, dTag, previousCacheEntry!.aggregateHash);
-        if (oldAcl) for (const cap of oldAcl.capabilities) aclState.grant(authEvent.pubkey, dTag, aggregateHash, cap as Capability);
-      }
-      cacheManifest(authEvent.pubkey, dTag, aggregateHash);
-    }
-
-    if (aggregateHash && !manifestCache.has(authEvent.pubkey, dTag, aggregateHash)) {
-      cacheManifest(authEvent.pubkey, dTag, aggregateHash);
-    }
-
-    sessionRegistry.register(windowId, entry);
-    pendingChallenges.delete(windowId);
-
-    // ─── Compatibility check (Phase 22) ─────────────────────────────────────
-    const requires = manifestCache.getRequires(authEvent.pubkey, dTag);
-    const isCompatible = checkCompatibility(requires, windowId, eventId);
-    if (!isCompatible) {
-      // Strict mode: blocked. Do not dispatch queued messages.
-      pendingAuthQueue.delete(windowId);
-      return;
-    }
-
-    hooks.sendToNapplet(windowId, ['OK', eventId, true, '']);
-
-    const queued = pendingAuthQueue.get(windowId);
-    pendingAuthQueue.delete(windowId);
-    if (queued) for (const { msg: qMsg } of queued) dispatchVerb(qMsg[0], qMsg, windowId);
-
-    const userPubkey = hooks.auth.getUserPubkey();
-    if (userPubkey) runtimeInstance.injectEvent('auth:identity-changed', { pubkey: userPubkey });
-  }
 
   // ─── Compatibility Check (Phase 22) ─────────────────────────────────────
 
   /**
    * Check if a napplet's declared service requirements are satisfied.
-   * Called after AUTH succeeds but before queued messages are dispatched.
+   * Called after session establishment but before message dispatch.
    *
    * Returns true if compatible (or permissive mode allows loading).
    * Returns false only in strict mode when required services are missing.
@@ -557,299 +288,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
 
     // No consent handler registered — silently drop undeclared service usage
     return false;
-  }
-
-  function handleEvent(msg: unknown[], windowId: string): void {
-    const event = msg[1] as NostrEvent | undefined;
-    if (!event || typeof event !== 'object') return;
-    const eventId = event.id ?? '';
-
-    function sendOk(success: boolean, reason: string): void {
-      hooks.sendToNapplet(windowId, ['OK', eventId, success, reason]);
-    }
-
-    const pubkey = sessionRegistry.getPubkey(windowId);
-    if (!pubkey) { sendOk(false, 'auth-required: complete AUTH first'); return; }
-
-    const replayResult = replayDetector.check(event);
-    if (replayResult !== null) { sendOk(false, replayResult); return; }
-
-    // Resolve and enforce the required capability for this message
-    const caps = resolveCapabilities(msg);
-    if (caps.senderCap) {
-      const result = enforce(pubkey, caps.senderCap, msg);
-      if (!result.allowed) { sendOk(false, formatDenialReason(result.capability)); return; }
-    }
-
-    // SEC-01: Events signed by delegated napplet keys must not reach external relays.
-    // Internal bus kinds (signer requests, IPC, hotkeys) are allowed — only standard
-    // relay-bound events are blocked.
-    if (delegatedPubkeys.has(event.pubkey)
-        && event.kind !== BusKind.SIGNER_REQUEST
-        && event.kind !== BusKind.SIGNER_RESPONSE
-        && event.kind !== BusKind.HOTKEY_FORWARD
-        && event.kind !== BusKind.IPC_PEER
-        && event.kind !== BusKind.REGISTRATION
-        && event.kind !== BusKind.METADATA
-        && event.kind !== BusKind.NIPDB_REQUEST
-        && event.kind !== BusKind.NIPDB_RESPONSE
-        && event.kind !== BusKind.SERVICE_DISCOVERY) {
-      sendOk(false, 'blocked: delegated keys cannot publish to external relays — use signer proxy');
-      return;
-    }
-
-    switch (event.kind) {
-      case BusKind.SIGNER_REQUEST: {
-        // Service path: dispatch to registered signer service if available
-        const signerService = serviceRegistry['signer'];
-        if (signerService) {
-          signerService.handleMessage(
-            windowId,
-            ['EVENT', event],
-            (msg) => hooks.sendToNapplet(windowId, msg),
-          );
-          return;
-        }
-        // Fallback: use internal signer handler (requires hooks.auth.getSigner)
-        handleSignerRequest(event, windowId, pubkey);
-        return;
-      }
-      case BusKind.HOTKEY_FORWARD:
-        try { handleHotkeyForward(event); } catch { /* Best-effort hotkey forwarding */ }
-        break;
-      case BusKind.IPC_PEER: {
-        const topic = event.tags?.find((t) => t[0] === 't')?.[1];
-        if (topic?.startsWith('shell:state-')) {
-          handleStateRequest(windowId, event, hooks.sendToNapplet, sessionRegistry, aclState, hooks.statePersistence);
-          return;
-        }
-        if (topic?.startsWith('shell:') || topic === 'shell:create-window' || topic === 'shell:send-dm') {
-          handleShellCommand(event, windowId, topic!);
-          return;
-        }
-
-        // ─── Undeclared service consent check (Phase 22) ──────────────────────
-        // Extract service name from topic prefix (e.g., 'audio:play' -> 'audio')
-        if (topic && topic.includes(':')) {
-          const serviceName = topic.split(':')[0];
-          // Only check if this looks like a service topic (registered service prefix)
-          if (registeredServices.has(serviceName)) {
-            const pubkeyForCheck = sessionRegistry.getPubkey(windowId) ?? '';
-            const allowed = checkUndeclaredService(
-              windowId, pubkeyForCheck, serviceName, event,
-              () => { eventBuffer.bufferAndDeliver(event, windowId); },
-            );
-            if (!allowed) return; // Waiting for consent or denied
-            // If allowed (declared or cached consent), fall through to normal dispatch
-          }
-        }
-
-        // Service dispatch — route by topic prefix to registered handlers
-        if (topic && routeServiceMessage(windowId, event, topic, serviceRegistry, hooks.sendToNapplet)) {
-          return;
-        }
-        eventBuffer.bufferAndDeliver(event, windowId);
-        break;
-      }
-      default:
-        eventBuffer.bufferAndDeliver(event, windowId);
-        break;
-    }
-    sendOk(true, '');
-  }
-
-  function handleReq(msg: unknown[], windowId: string): void {
-    const subId = msg[1] as string | undefined;
-    if (typeof subId !== 'string') return;
-    const filters = (msg.slice(2) as NostrFilter[]) ?? [];
-    const pubkey = sessionRegistry.getPubkey(windowId);
-    if (!pubkey) { hooks.sendToNapplet(windowId, ['CLOSED', subId, 'auth-required']); return; }
-    {
-      const result = enforce(pubkey, 'relay:read', msg);
-      if (!result.allowed) { hooks.sendToNapplet(windowId, ['CLOSED', subId, formatDenialReason(result.capability)]); return; }
-    }
-
-    // ─── Service Discovery Interception ──────────────────────────────────────
-    if (isDiscoveryReq(filters)) {
-      const send = (msg: unknown[]): void => hooks.sendToNapplet(windowId, msg);
-      const generateId = (): string =>
-        hooks.crypto.randomUUID().replace(/-/g, '').slice(0, 64).padEnd(64, '0');
-      const sub = handleDiscoveryReq(windowId, subId, serviceRegistry, send, generateId);
-      const discSubKey = `${windowId}:${subId}`;
-      discoverySubscriptions.set(discSubKey, sub);
-      // Also track in main subscriptions map for CLOSE handling
-      subscriptions.set(discSubKey, { windowId, filters });
-      return;
-    }
-
-    const subKey = `${windowId}:${subId}`;
-    subscriptions.set(subKey, { windowId, filters });
-
-    const seenIds = new Set<string>();
-    function deliver(event: NostrEvent): void {
-      if (seenIds.has(event.id)) return;
-      seenIds.add(event.id);
-      if (subscriptions.has(subKey)) hooks.sendToNapplet(windowId, ['EVENT', subId, event]);
-    }
-
-    // Replay buffered events
-    for (const bufferedEvent of eventBuffer.getBufferedEvents()) {
-      if (matchesAnyFilter(bufferedEvent, filters)) deliver(bufferedEvent);
-    }
-
-    const isBusKind = filters.every((f) => f.kinds?.every((k) => k >= 29000 && k < 30000));
-
-    // ─── Service dispatch path: route REQ to registered relay/cache services ──
-    if (!isBusKind) {
-      const relayService = serviceRegistry['relay'] ?? serviceRegistry['relay-pool'];
-      const cacheService = !serviceRegistry['relay'] ? serviceRegistry['cache'] : undefined;
-
-      if (relayService) {
-        const send = (m: unknown[]): void => {
-          if (subscriptions.has(subKey)) hooks.sendToNapplet(windowId, m);
-        };
-        relayService.handleMessage(windowId, msg, send);
-        if (cacheService) {
-          cacheService.handleMessage(windowId, msg, send);
-        }
-        return;
-      }
-    }
-
-    // ─── Fallback: use internal relay pool + cache hooks ──────────────────────
-
-    // Query local cache
-    const cache = hooks.cache;
-    if (cache?.isAvailable() && !isBusKind) {
-      cache.query(filters)
-        .then((cachedEvents) => { for (const event of cachedEvents) deliver(event); })
-        .catch(() => { /* Cache query is best-effort */ });
-    }
-
-    // Subscribe to relay pool
-    const pool = hooks.relayPool;
-    if (pool?.isAvailable() && !isBusKind) {
-      const relayUrls = pool.selectRelayTier(filters);
-      let eoseSent = false;
-      const eoseFallbackTimer = setTimeout(() => {
-        if (!eoseSent) { eoseSent = true; hooks.sendToNapplet(windowId, ['EOSE', subId]); }
-      }, 15_000);
-
-      const subscription = pool.subscribe(filters, (item) => {
-        if (item === 'EOSE') {
-          clearTimeout(eoseFallbackTimer);
-          if (!eoseSent) { eoseSent = true; hooks.sendToNapplet(windowId, ['EOSE', subId]); }
-          return;
-        }
-        const event = item as NostrEvent;
-        deliver(event);
-        if (cache?.isAvailable() && !isBusKind) {
-          try { cache.store(event); } catch { /* Cache write is best-effort */ }
-        }
-      }, relayUrls);
-
-      pool.trackSubscription(subKey, () => {
-        clearTimeout(eoseFallbackTimer);
-        subscription.unsubscribe();
-      });
-    } else if (!isBusKind) {
-      hooks.sendToNapplet(windowId, ['EOSE', subId]);
-    }
-  }
-
-  function handleClose(msg: unknown[], windowId: string): void {
-    const subId = msg[1] as string | undefined;
-    if (typeof subId !== 'string') return;
-    const subKey = `${windowId}:${subId}`;
-    subscriptions.delete(subKey);
-    discoverySubscriptions.delete(subKey);
-
-    // Service dispatch: forward CLOSE to registered relay service
-    const relayService = serviceRegistry['relay'] ?? serviceRegistry['relay-pool'];
-    if (relayService) {
-      relayService.handleMessage(windowId, msg, () => { /* CLOSE has no response */ });
-    }
-
-    // Fallback: use internal relay pool hook (no-op if relayPool not provided)
-    hooks.relayPool?.untrackSubscription(subKey);
-  }
-
-  function handleCount(msg: unknown[], windowId: string): void {
-    const countId = msg[1] as string | undefined;
-    if (typeof countId !== 'string') return;
-    const filters = (msg.slice(2) as NostrFilter[]) ?? [];
-    const pubkey = sessionRegistry.getPubkey(windowId);
-    if (!pubkey) { hooks.sendToNapplet(windowId, ['CLOSED', countId, 'auth-required']); return; }
-    {
-      const result = enforce(pubkey, 'relay:read', msg);
-      if (!result.allowed) { hooks.sendToNapplet(windowId, ['CLOSED', countId, formatDenialReason(result.capability)]); return; }
-    }
-    let count = 0;
-    for (const event of eventBuffer.getBufferedEvents()) {
-      if (matchesAnyFilter(event, filters)) count++;
-    }
-    hooks.sendToNapplet(windowId, ['COUNT', countId, { count }]);
-  }
-
-  // ─── Signer Request Handler ──────────────────────────────────────────────
-
-  function handleSignerRequest(event: NostrEvent, windowId: string, pubkey: string): void {
-    const corrId = event.tags?.find((t) => t[0] === 'id')?.[1] ?? event.id;
-    const method = event.tags?.find((t) => t[0] === 'method')?.[1];
-
-    function sendOk(success: boolean, reason: string): void {
-      hooks.sendToNapplet(windowId, ['OK', event.id, success, reason]);
-    }
-
-    const maybeSigner = hooks.auth.getSigner();
-    if (!maybeSigner) { sendOk(false, 'error: no signer configured'); return; }
-    const signer = maybeSigner;
-
-    function dispatch(eventToSign: NostrEvent | null): void {
-      const signerPromise: Promise<unknown> = (() => {
-        switch (method) {
-          case 'getPublicKey': return Promise.resolve(signer.getPublicKey?.());
-          case 'signEvent': return eventToSign ? (signer.signEvent?.(eventToSign) ?? Promise.resolve(null)) : Promise.resolve(null);
-          case 'getRelays': return Promise.resolve(signer.getRelays?.() ?? {});
-          case 'nip04.encrypt': { const p = event.tags?.find((t) => t[0] === 'params'); return signer.nip04?.encrypt(p?.[1] ?? '', p?.[2] ?? '') ?? Promise.resolve(''); }
-          case 'nip04.decrypt': { const p = event.tags?.find((t) => t[0] === 'params'); return signer.nip04?.decrypt(p?.[1] ?? '', p?.[2] ?? '') ?? Promise.resolve(''); }
-          case 'nip44.encrypt': { const p = event.tags?.find((t) => t[0] === 'params'); return signer.nip44?.encrypt(p?.[1] ?? '', p?.[2] ?? '') ?? Promise.resolve(''); }
-          case 'nip44.decrypt': { const p = event.tags?.find((t) => t[0] === 'params'); return signer.nip44?.decrypt(p?.[1] ?? '', p?.[2] ?? '') ?? Promise.resolve(''); }
-          default: return Promise.reject(new Error(`Unknown signer method: ${method}`));
-        }
-      })();
-
-      signerPromise.then((result) => {
-        const responseEvent: Partial<NostrEvent> = {
-          kind: BusKind.SIGNER_RESPONSE, pubkey,
-          created_at: Math.floor(Date.now() / 1000),
-          tags: [['id', corrId], ['method', method ?? ''], ['result', JSON.stringify(result)]],
-          content: '',
-        };
-        eventBuffer.deliverToSubscriptions(responseEvent as NostrEvent, null);
-        sendOk(true, '');
-      }).catch((err: unknown) => {
-        sendOk(false, `error: ${(err as Error).message ?? 'signing failed'}`);
-      });
-    }
-
-    const eventTag = event.tags?.find((t) => t[0] === 'event')?.[1];
-    if (method === 'signEvent' && eventTag) {
-      let eventToSign: NostrEvent;
-      try { eventToSign = JSON.parse(eventTag) as NostrEvent; } catch { sendOk(false, 'error: invalid event JSON'); return; }
-      if (aclState.requiresPrompt(eventToSign.kind) && _consentHandler) {
-        new Promise<boolean>((resolve) => {
-          _consentHandler!({ windowId, pubkey, event: eventToSign, resolve });
-        }).then((allowed) => {
-          if (!allowed) { sendOk(false, 'error: user rejected'); return; }
-          dispatch(eventToSign);
-        }).catch(() => { sendOk(false, 'error: consent check failed'); });
-        return;
-      }
-      dispatch(eventToSign);
-      return;
-    }
-    dispatch(null);
   }
 
   // ─── Hotkey Forward Handler ──────────────────────────────────────────────
@@ -1000,33 +438,67 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     }
   }
 
+  // ─── NUB Domain Handlers (NIP-5D envelope dispatch) ──────────────────────
+
+  function handleRelayMessage(windowId: string, msg: NappletMessage): void {
+    // TODO: Plan 03 implements full relay handler
+    // Stub: acknowledge receipt
+    const id = (msg as any).id ?? '';
+    hooks.sendToNapplet(windowId, { type: `${msg.type}.error`, id, error: 'not implemented' } as NappletMessage);
+  }
+
+  function handleSignerMessage(windowId: string, msg: NappletMessage): void {
+    // TODO: Plan 03 implements full signer handler
+    const id = (msg as any).id ?? '';
+    hooks.sendToNapplet(windowId, { type: `${msg.type}.error`, id, error: 'not implemented' } as NappletMessage);
+  }
+
+  function handleStorageMessage(windowId: string, msg: NappletMessage): void {
+    // TODO: Plan 03 implements full storage handler
+    const id = (msg as any).id ?? '';
+    hooks.sendToNapplet(windowId, { type: `${msg.type}.error`, id, error: 'not implemented' } as NappletMessage);
+  }
+
+  function handleIfcMessage(_windowId: string, _msg: NappletMessage): void {
+    // TODO: Plan 03 implements full IFC handler
+    // IFC emit has no response — just drop for now
+  }
+
   // ─── Main message handler ────────────────────────────────────────────────
 
-  function handleMessage(windowId: string, msg: unknown[]): void {
-    if (!Array.isArray(msg) || msg.length < 2) return;
-    const [verb] = msg;
-    if (verb === 'AUTH') { void handleAuth(msg, windowId); return; }
-    // REGISTER must be handled before AUTH (pre-authentication handshake)
-    if (verb === VERB_REGISTER) { void handleRegister(msg, windowId); return; }
-    if (!sessionRegistry.getPubkey(windowId)) {
-      let queue = pendingAuthQueue.get(windowId);
-      if (!queue) { queue = []; pendingAuthQueue.set(windowId, queue); }
-      queue.push({ msg, windowId });
-      return;
+  function handleMessage(windowId: string, msg: unknown): void {
+    // NIP-5D envelope-only dispatch — no legacy array support (clean break)
+    if (typeof msg !== 'object' || msg === null || !('type' in msg)) return;
+    const envelope = msg as NappletMessage;
+    const dotIdx = envelope.type.indexOf('.');
+    if (dotIdx === -1) return; // malformed type — no domain.action
+
+    const domain = envelope.type.slice(0, dotIdx);
+
+    // ACL enforcement: resolve capability requirement, enforce if non-null
+    const caps = resolveCapabilitiesNub(envelope);
+    if (caps.senderCap) {
+      const result = enforceNub(windowId, caps.senderCap as Capability, envelope);
+      if (!result.allowed) {
+        const id = (envelope as any).id ?? '';
+        hooks.sendToNapplet(windowId, { type: `${envelope.type}.error`, id, error: formatDenialReason(result.capability) } as NappletMessage);
+        return;
+      }
     }
-    dispatchVerb(verb, msg, windowId);
+
+    switch (domain) {
+      case 'relay':   return handleRelayMessage(windowId, envelope);
+      case 'signer':  return handleSignerMessage(windowId, envelope);
+      case 'storage': return handleStorageMessage(windowId, envelope);
+      case 'ifc':     return handleIfcMessage(windowId, envelope);
+      default:        return; // unknown domain — silently drop per NIP-5D spec
+    }
   }
 
   // ─── Public interface ────────────────────────────────────────────────────
 
   const runtimeInstance: Runtime = {
     handleMessage,
-
-    sendChallenge(windowId: string): void {
-      const challenge = hooks.crypto.randomUUID();
-      pendingChallenges.set(windowId, challenge);
-      hooks.sendToNapplet(windowId, ['AUTH', challenge]);
-    },
 
     injectEvent(topic: string, payload: unknown): void {
       const uuid = hooks.crypto.randomUUID().replace(/-/g, '').slice(0, 64).padEnd(64, '0');
@@ -1045,17 +517,11 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     destroy(): void {
       manifestCache.persist();
       aclState.persist();
-      pendingChallenges.clear();
-      pendingAuthQueue.clear();
-      authInFlight.clear();
       replayDetector.clear();
       subscriptions.clear();
-      discoverySubscriptions.clear();
       eventBuffer.clear();
       registeredServices.clear();
       undeclaredServiceConsents.clear();
-      pendingRegistrations.clear();
-      delegatedPubkeys.clear();
     },
 
     registerConsentHandler(handler: ConsentHandler): void {
@@ -1070,17 +536,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
         version: handler.descriptor.version,
         description: handler.descriptor.description,
       });
-      // Push discovery event to all open discovery subscriptions (D-10)
-      if (discoverySubscriptions.size > 0) {
-        const id = hooks.crypto.randomUUID().replace(/-/g, '').slice(0, 64).padEnd(64, '0');
-        const event = createServiceDiscoveryEvent(handler, id);
-        for (const [subKey, sub] of discoverySubscriptions) {
-          // Only push if the subscription is still active
-          if (subscriptions.has(subKey)) {
-            hooks.sendToNapplet(sub.windowId, ['EVENT', sub.subId, event]);
-          }
-        }
-      }
     },
 
     unregisterService(name: string): void {
@@ -1097,16 +552,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
           hooks.relayPool?.untrackSubscription(key);
         }
       }
-      // Clean up discovery subscriptions for this window
-      for (const [key] of discoverySubscriptions) {
-        if (key.startsWith(`${windowId}:`)) {
-          discoverySubscriptions.delete(key);
-        }
-      }
-      // Clean up pending auth state
-      pendingChallenges.delete(windowId);
-      pendingAuthQueue.delete(windowId);
-      authInFlight.delete(windowId);
       // Notify service handlers
       notifyServiceWindowDestroyed(windowId, serviceRegistry);
     },
