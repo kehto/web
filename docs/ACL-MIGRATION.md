@@ -191,4 +191,155 @@ The `ifc` NUB (inter-napplet communication) reuses `relay:write` for sending and
 
 If future requirements demand IFC-specific access control (e.g., allow relay publish but deny IFC), new capability bits should be introduced at that time. For the NIP-5D v0.1.0 migration, the `relay:write`/`relay:read` reuse is the correct approach.
 
-<!-- Section 3: Persisted ACL Data Migration (added by Task 2) -->
+---
+
+## 3. Persisted ACL Data Migration
+
+### Overview
+
+`@kehto/shell` persists ACL state via `serialize()` to `localStorage` under the key `napplet:acl`. The serialized format is `JSON.stringify(aclState)` where `aclState.entries` is a plain object keyed by composite strings. After the identity key schema change described in Section 1, old persisted entries stored under `pubkey:dTag:hash` keys become **orphaned** — `toKey()` now produces `dTag:hash`, so all lookups against old entries miss every time. The `defaultPolicy` then determines the outcome for every napplet instead of the stored grants and blocks. A one-time migration is required before deploying the `toKey()` change to production.
+
+### Persisted Data Format
+
+**Old format (RUNTIME-SPEC v2.0.0):**
+
+```json
+{
+  "defaultPolicy": "permissive",
+  "entries": {
+    "3a1b2c...f9:chat:e3b0c4...42": { "caps": 33, "blocked": false, "quota": 524288 },
+    "7d8e9f...a1:notes:ab12cd...ef": { "caps": 1023, "blocked": false, "quota": 524288 }
+  }
+}
+```
+
+**New format (NIP-5D v0.1.0):**
+
+```json
+{
+  "defaultPolicy": "permissive",
+  "entries": {
+    "chat:e3b0c4...42": { "caps": 33, "blocked": false, "quota": 524288 },
+    "notes:ab12cd...ef": { "caps": 1023, "blocked": false, "quota": 524288 }
+  }
+}
+```
+
+The `defaultPolicy` and `AclEntry` values (`caps`, `blocked`, `quota`) are unchanged. Only the entry keys change.
+
+### Migration Strategy
+
+**Step 1: Detect old-format entries.**
+
+On shell startup (or the first ACL load after the migration is deployed), deserialize the stored ACL state using `deserialize()`. Scan `aclState.entries` for keys that match the old 3-segment pattern — specifically, keys that contain exactly two `:` characters (i.e., `key.split(':').length === 3`). If no 3-segment keys are found, skip migration entirely.
+
+**Precondition:** This detection assumes that `dTag` values and `hash` values never contain `:` characters. This holds today: `dTag` is a NIP-5A d-tag identifier (alphanumeric + hyphens) and `hash` is a hex string. If future dTag formats introduce colons, the segment-count heuristic must be updated.
+
+**Step 2: Extract `dTag:hash` from old keys.**
+
+For each old-format key in the form `pubkey:dTag:hash`, split on `:` and take the **last two segments**: `parts[1]` (`dTag`) and `parts[2]` (`hash`). Reconstruct the new key as `` `${parts[1]}:${parts[2]}` ``.
+
+**Step 3: Merge entries.**
+
+For each extracted `dTag:hash` key, check whether an entry already exists under the new key (possible if some sessions used NIP-5D after a partial migration or a fresh-start rollout):
+
+- **No existing entry:** Copy the old entry as-is under the new key.
+- **Existing entry present:** Merge using a security-conservative strategy:
+  - `caps`: OR the two bitfields (`existing.caps | old.caps`) — never silently removes a granted capability
+  - `blocked`: OR the two flags (`existing.blocked || old.blocked`) — blocks if either source was blocked
+  - `quota`: Maximum of the two values (`Math.max(existing.quota, old.quota)`) — keeps the higher allocation
+
+**Step 4: Remove old-format keys.**
+
+After all new entries have been written, delete all keys with 3 segments from the entries record. The result contains only new-format `dTag:hash` keys.
+
+**Step 5: Persist.**
+
+Serialize the migrated state using `serialize()` and write it back to `localStorage` under `napplet:acl`. Migration is complete.
+
+### Migration Utility (Pseudocode)
+
+```typescript
+import type { AclState, AclEntry } from '@kehto/acl';
+
+function migrateAclState(state: AclState): AclState {
+  const newEntries: Record<string, AclEntry> = {};
+  let migrated = false;
+
+  for (const [key, entry] of Object.entries(state.entries)) {
+    const parts = key.split(':');
+    if (parts.length === 3) {
+      // Old format: pubkey:dTag:hash -> dTag:hash
+      const newKey = `${parts[1]}:${parts[2]}`;
+      const existing = newEntries[newKey];
+      if (existing) {
+        // Merge: union caps, preserve block, max quota
+        newEntries[newKey] = {
+          caps: existing.caps | entry.caps,
+          blocked: existing.blocked || entry.blocked,
+          quota: Math.max(existing.quota, entry.quota),
+        };
+      } else {
+        newEntries[newKey] = entry;
+      }
+      migrated = true;
+    } else {
+      // Already new format or other key — preserve as-is
+      newEntries[key] = entry;
+    }
+  }
+
+  if (!migrated) return state; // No old entries found — return original unchanged
+
+  return { defaultPolicy: state.defaultPolicy, entries: newEntries };
+}
+```
+
+This function is pure: it takes an `AclState` and returns a new `AclState` (or the original if no migration was needed). It produces no side effects and requires no I/O.
+
+### Rollback Considerations
+
+**Pre-migration backup.** Before running migration, save the raw localStorage value to a backup key. This is two localStorage operations:
+
+```typescript
+const raw = localStorage.getItem('napplet:acl');
+if (raw) localStorage.setItem('napplet:acl:backup-v2', raw);
+```
+
+The backup key `napplet:acl:backup-v2` preserves the old-format data in its original string form, allowing exact restoration.
+
+**Rollback procedure.** If migration causes issues (e.g., a bug in the merge step corrupts entries), restore the backup:
+
+```typescript
+const backup = localStorage.getItem('napplet:acl:backup-v2');
+if (backup) localStorage.setItem('napplet:acl', backup);
+```
+
+**Critical:** Rollback requires reverting *both* the ACL data (to old-format keys) *and* the `toKey()` function (back to `pubkey:dTag:hash`). A partial rollback — restoring old-format data while keeping the new `toKey()` — leaves the ACL in a broken state where all stored entries are permanently orphaned. Both changes must be deployed and rolled back together.
+
+**Idempotency.** The `migrateAclState()` function is idempotent. Running it on already-migrated data (no 3-segment keys) returns the original state unchanged (`if (!migrated) return state`). Running it multiple times on migrated data is safe.
+
+**Data loss risk: LOW.** The only scenario where meaningful data could be lost is if two different napplet pubkeys had separate ACL entries for the same `(dTag, hash)` pair — i.e., two sessions of the same napplet build with different AUTH keys. The merge strategy handles this conservatively: it never removes a granted capability (OR caps), never unblocks (OR blocked), and never reduces quota (MAX quota). In the worst case, a napplet receives more capabilities than the most-recently-set entry intended. This is a deliberate security-conservative tradeoff: data corruption in the direction of more access (not less) is preferable for a migration utility, and the shell operator can always revoke specific capabilities after migration.
+
+**Forward compatibility.** The `deserialize()` function in `@kehto/acl` validates entry structure (`caps: number`, `blocked: boolean`, `quota: number`) without inspecting key string format. Both old-format and new-format keys are valid string keys. No changes to `deserialize()` are required.
+
+### Where Migration Runs
+
+The migration utility belongs in **`@kehto/shell`**, not `@kehto/acl`. This is consistent with `@kehto/acl`'s design as a pure, zero-dependency module with no I/O. The `@kehto/acl` module receives an `AclState` object — it never touches `localStorage` or any storage backend. The shell's `acl-store.ts` owns the persistence adapter (reading from and writing to `localStorage`), making it the natural and correct location for the migration step.
+
+Suggested trigger point: `aclStore.load()` — after deserializing from localStorage, run `migrateAclState()` on the result. If the returned state differs from the input (`migrated === true`), immediately persist the migrated state back. On the next load, no 3-segment keys will be found and migration is skipped.
+
+This means migration runs **exactly once per browser context**: the first `aclStore.load()` call after the new shell version is deployed detects old-format keys, migrates them, persists the new format, and all subsequent loads find only new-format keys.
+
+### Summary
+
+The following checklist covers all changes required to complete the `@kehto/acl` identity key migration:
+
+- [ ] `Identity.pubkey` made optional (`pubkey?: string`) and marked `@deprecated` in `packages/acl/src/types.ts`
+- [ ] `toKey()` changed from `` `${pubkey}:${dTag}:${hash}` `` to `` `${dTag}:${hash}` `` in `packages/acl/src/check.ts`
+- [ ] `AclState.entries` JSDoc updated from `'pubkey:dTag:hash'` to `'dTag:hash'` in `packages/acl/src/types.ts`
+- [ ] Migration utility (`migrateAclState()`) added to `@kehto/shell` `acl-store.ts`
+- [ ] Backup key (`napplet:acl:backup-v2`) written before migration runs
+- [ ] All 10 capability constants unchanged — verified in Section 2
+- [ ] `deserialize()` unchanged — already format-agnostic, no key inspection
+
