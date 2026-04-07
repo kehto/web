@@ -12,7 +12,7 @@ This milestone produces five migration/analysis documents — one gap analysis t
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Gap Analysis** - Document spec delta between previous and NIP-5D v0.1.0, establishing boundary contracts for all packages
+- [x] **Phase 1: Gap Analysis** - Document spec delta between previous and NIP-5D v0.1.0, establishing boundary contracts for all packages (completed 2026-04-07)
 - [ ] **Phase 2: ACL Migration Doc** - Document identity schema changes, capability constant remapping, and persisted data migration for @kehto/acl
 - [ ] **Phase 3: Runtime Migration Doc** - Document NUB dispatch design, AUTH removal scope, handler rewrites, and session identity changes for @kehto/runtime
 - [ ] **Phase 4: Shell Migration Doc** - Document envelope guard update, window.nostr injection, and capability advertisement design for @kehto/shell
@@ -30,10 +30,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Every window.napplet interface is listed with its NUB domain assignment and optionality status
   4. All silent failure points where old runtime drops new-format messages are inventoried with reproduction steps
   5. Per-package boundary contracts (send/receive surface) are documented and can be referenced by Phases 2-5
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [x] 01-01-PLAN.md -- Wire format, AUTH/identity, NUB domain mapping (sections 1-3)
-- [ ] 01-02-PLAN.md -- Silent failure inventory, boundary contracts (sections 4-5)
+- [x] 01-02-PLAN.md -- Silent failure inventory, boundary contracts (sections 4-5)
 
 ### Phase 2: ACL Migration Doc
 **Goal**: A migration document for @kehto/acl exists that describes every breaking change in the ACL subsystem and how to migrate persisted ACL data to the new format
@@ -82,7 +82,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Gap Analysis | 1/2 | In Progress|  |
+| 1. Gap Analysis | 2/2 | Complete   | 2026-04-07 |
 | 2. ACL Migration Doc | 0/? | Not started | - |
 | 3. Runtime Migration Doc | 0/? | Not started | - |
 | 4. Shell Migration Doc | 0/? | Not started | - |

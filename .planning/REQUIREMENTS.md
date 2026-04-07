@@ -9,8 +9,8 @@
 - [x] **GAP-01**: Document wire format change (NIP-01 arrays → JSON envelopes) with before/after examples
 - [x] **GAP-02**: Document AUTH handshake elimination and identity model change
 - [x] **GAP-03**: Map each window.napplet interface to its NUB domain with optionality status
-- [ ] **GAP-04**: Inventory silent failure points where old runtime drops new-format messages
-- [ ] **GAP-05**: Document per-package boundary contracts (what each package sends/receives)
+- [x] **GAP-04**: Inventory silent failure points where old runtime drops new-format messages
+- [x] **GAP-05**: Document per-package boundary contracts (what each package sends/receives)
 
 ## ACL Migration
 
