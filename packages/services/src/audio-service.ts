@@ -6,8 +6,7 @@
  * Browser-agnostic — no DOM, no window, no postMessage.
  */
 
-import type { NostrEvent, ServiceDescriptor } from '@napplet/core';
-import { BusKind } from '@napplet/core';
+import type { ServiceDescriptor, NappletMessage } from '@napplet/core';
 import type { ServiceHandler } from '@kehto/runtime';
 import type { AudioSource, AudioServiceOptions } from './types.js';
 
@@ -48,111 +47,6 @@ export function createAudioService(options?: AudioServiceOptions): ServiceHandle
     onChange?.(new Map(sources));
   }
 
-  /**
-   * Parse JSON content from an event, returning undefined on failure.
-   */
-  function parseContent(event: NostrEvent): Record<string, unknown> | undefined {
-    try {
-      const parsed: unknown = JSON.parse(event.content);
-      if (typeof parsed === 'object' && parsed !== null) {
-        return parsed as Record<string, unknown>;
-      }
-    } catch {
-      /* Invalid JSON — ignore event */
-    }
-    return undefined;
-  }
-
-  /**
-   * Extract the topic string from an event's tags.
-   */
-  function extractTopic(event: NostrEvent): string | undefined {
-    return event.tags?.find((t) => t[0] === 't')?.[1];
-  }
-
-  /**
-   * Create a synthetic IPC-PEER event to send back to a napplet.
-   */
-  function createResponseEvent(topic: string, content: Record<string, unknown>): NostrEvent {
-    return {
-      id: `audio-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      pubkey: '__shell__',
-      created_at: Math.floor(Date.now() / 1000),
-      kind: BusKind.IPC_PEER,
-      tags: [['t', topic]],
-      content: JSON.stringify(content),
-      sig: '',
-    };
-  }
-
-  function handleAudioEvent(
-    windowId: string,
-    event: NostrEvent,
-    send: (msg: unknown[]) => void,
-  ): void {
-    const topic = extractTopic(event);
-    if (!topic) return;
-
-    // Strip the 'audio:' prefix to get the action
-    const action = topic.slice(6); // 'audio:'.length === 6
-
-    switch (action) {
-      case 'register': {
-        const content = parseContent(event);
-        if (!content) return;
-        const nappletClass = typeof content.nappletClass === 'string' ? content.nappletClass : '';
-        const title = typeof content.title === 'string' ? content.title : '';
-        sources.set(windowId, { windowId, nappletClass, title, muted: false });
-        notify();
-        break;
-      }
-
-      case 'unregister': {
-        if (sources.delete(windowId)) {
-          notify();
-        }
-        break;
-      }
-
-      case 'state-changed': {
-        const source = sources.get(windowId);
-        if (!source) return;
-        const content = parseContent(event);
-        if (!content) return;
-        if (typeof content.title === 'string') {
-          source.title = content.title;
-        }
-        notify();
-        break;
-      }
-
-      case 'mute': {
-        // Mute command — can target a specific window or default to sender
-        const content = parseContent(event);
-        if (!content) return;
-        const targetWindowId = typeof content.windowId === 'string'
-          ? content.windowId
-          : windowId;
-        const muted = content.muted === true;
-
-        const source = sources.get(targetWindowId);
-        if (source) {
-          source.muted = muted;
-          notify();
-        }
-
-        // Send mute notification back to the target napplet
-        const muteResponse = createResponseEvent('napplet:audio-muted', { muted });
-        send(['EVENT', '__shell__', muteResponse]);
-        break;
-      }
-
-      default:
-        // Unknown audio action — ignore
-        break;
-    }
-  }
-
   const descriptor: ServiceDescriptor = {
     name: 'audio',
     version: AUDIO_SERVICE_VERSION,
@@ -162,17 +56,60 @@ export function createAudioService(options?: AudioServiceOptions): ServiceHandle
   return {
     descriptor,
 
-    handleMessage(windowId: string, message: unknown[], send: (msg: unknown[]) => void): void {
-      // Services receive ['EVENT', event] messages from the runtime's service dispatch
-      if (message[0] !== 'EVENT' || !message[1]) return;
-      const event = message[1] as NostrEvent;
-
-      // Only handle IPC-PEER events with audio:* topics
-      if (event.kind !== BusKind.IPC_PEER) return;
-      const topic = extractTopic(event);
+    handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
+      if (message.type !== 'ifc.emit') return;
+      const topic = (message as any).topic as string | undefined;
       if (!topic?.startsWith('audio:')) return;
 
-      handleAudioEvent(windowId, event, send);
+      const action = topic.slice(6); // 'audio:'.length === 6
+      const payload = ((message as any).payload ?? {}) as Record<string, unknown>;
+
+      switch (action) {
+        case 'register': {
+          const nappletClass = typeof payload.nappletClass === 'string' ? payload.nappletClass : '';
+          const title = typeof payload.title === 'string' ? payload.title : '';
+          sources.set(windowId, { windowId, nappletClass, title, muted: false });
+          notify();
+          break;
+        }
+
+        case 'unregister': {
+          if (sources.delete(windowId)) {
+            notify();
+          }
+          break;
+        }
+
+        case 'state-changed': {
+          const source = sources.get(windowId);
+          if (!source) return;
+          if (typeof payload.title === 'string') {
+            source.title = payload.title;
+          }
+          notify();
+          break;
+        }
+
+        case 'mute': {
+          const targetWindowId = typeof payload.windowId === 'string'
+            ? payload.windowId
+            : windowId;
+          const muted = payload.muted === true;
+
+          const source = sources.get(targetWindowId);
+          if (source) {
+            source.muted = muted;
+            notify();
+          }
+
+          send({ type: 'ifc.event', topic: 'napplet:audio-muted', payload: { muted } } as NappletMessage);
+          break;
+        }
+
+        default:
+          // Unknown audio action — ignore
+          break;
+      }
     },
 
     onWindowDestroyed(windowId: string): void {

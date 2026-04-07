@@ -7,8 +7,7 @@
  * through the onChange callback. Browser-agnostic — no DOM, no window.
  */
 
-import type { NostrEvent, ServiceDescriptor } from '@napplet/core';
-import { BusKind } from '@napplet/core';
+import type { ServiceDescriptor, NappletMessage } from '@napplet/core';
 import type { ServiceHandler } from '@kehto/runtime';
 import type { Notification, NotificationServiceOptions } from './types.js';
 
@@ -76,43 +75,6 @@ export function createNotificationService(options?: NotificationServiceOptions):
   }
 
   /**
-   * Parse JSON content from an event, returning undefined on failure.
-   */
-  function parseContent(event: NostrEvent): Record<string, unknown> | undefined {
-    try {
-      const parsed: unknown = JSON.parse(event.content);
-      if (typeof parsed === 'object' && parsed !== null) {
-        return parsed as Record<string, unknown>;
-      }
-    } catch {
-      /* Invalid JSON — ignore event */
-    }
-    return undefined;
-  }
-
-  /**
-   * Extract the topic string from an event's tags.
-   */
-  function extractTopic(event: NostrEvent): string | undefined {
-    return event.tags?.find((t) => t[0] === 't')?.[1];
-  }
-
-  /**
-   * Create a synthetic IPC-PEER event to send back to a napplet.
-   */
-  function createResponseEvent(topic: string, content: Record<string, unknown>): NostrEvent {
-    return {
-      id: `notif-resp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      pubkey: '__shell__',
-      created_at: Math.floor(Date.now() / 1000),
-      kind: BusKind.IPC_PEER,
-      tags: [['t', topic]],
-      content: JSON.stringify(content),
-      sig: '',
-    };
-  }
-
-  /**
    * Ensure a window's notification list exists.
    */
   function getWindowNotifications(windowId: string): Notification[] {
@@ -147,99 +109,6 @@ export function createNotificationService(options?: NotificationServiceOptions):
     return undefined;
   }
 
-  function handleNotificationEvent(
-    windowId: string,
-    event: NostrEvent,
-    send: (msg: unknown[]) => void,
-  ): void {
-    const topic = extractTopic(event);
-    if (!topic) return;
-
-    // Strip the 'notifications:' prefix to get the action
-    const action = topic.slice(14); // 'notifications:'.length === 14
-
-    switch (action) {
-      case 'create': {
-        const content = parseContent(event);
-        if (!content) return;
-        const title = typeof content.title === 'string' ? content.title : '';
-        const body = typeof content.body === 'string' ? content.body : '';
-
-        const id = generateId();
-        const notification: Notification = {
-          id,
-          windowId,
-          title,
-          body,
-          read: false,
-          createdAt: Math.floor(Date.now() / 1000),
-        };
-
-        const list = getWindowNotifications(windowId);
-        list.push(notification);
-        enforceLimit(list);
-        notify();
-
-        // Acknowledge creation with assigned ID
-        const ack = createResponseEvent('notifications:created', { id });
-        send(['EVENT', '__shell__', ack]);
-        break;
-      }
-
-      case 'dismiss': {
-        const content = parseContent(event);
-        if (!content) return;
-        const id = typeof content.id === 'string' ? content.id : '';
-        if (!id) return;
-
-        const found = findById(id);
-        if (found) {
-          const [foundWindowId, , index] = found;
-          const list = notifications.get(foundWindowId);
-          if (list) {
-            list.splice(index, 1);
-            // Clean up empty lists
-            if (list.length === 0) {
-              notifications.delete(foundWindowId);
-            }
-            notify();
-          }
-        }
-        break;
-      }
-
-      case 'read': {
-        const content = parseContent(event);
-        if (!content) return;
-        const id = typeof content.id === 'string' ? content.id : '';
-        if (!id) return;
-
-        const found = findById(id);
-        if (found) {
-          const [, notification] = found;
-          if (!notification.read) {
-            notification.read = true;
-            notify();
-          }
-        }
-        break;
-      }
-
-      case 'list': {
-        const windowNotifs = notifications.get(windowId) ?? [];
-        const response = createResponseEvent('notifications:listed', {
-          notifications: windowNotifs,
-        });
-        send(['EVENT', '__shell__', response]);
-        break;
-      }
-
-      default:
-        // Unknown notification action — ignore
-        break;
-    }
-  }
-
   const descriptor: ServiceDescriptor = {
     name: 'notifications',
     version: NOTIFICATION_SERVICE_VERSION,
@@ -249,17 +118,83 @@ export function createNotificationService(options?: NotificationServiceOptions):
   return {
     descriptor,
 
-    handleMessage(windowId: string, message: unknown[], send: (msg: unknown[]) => void): void {
-      // Services receive ['EVENT', event] messages from the runtime's service dispatch
-      if (message[0] !== 'EVENT' || !message[1]) return;
-      const event = message[1] as NostrEvent;
-
-      // Only handle IPC-PEER events with notifications:* topics
-      if (event.kind !== BusKind.IPC_PEER) return;
-      const topic = extractTopic(event);
+    handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
+      if (message.type !== 'ifc.emit') return;
+      const topic = (message as any).topic as string | undefined;
       if (!topic?.startsWith('notifications:')) return;
 
-      handleNotificationEvent(windowId, event, send);
+      const action = topic.slice(14); // 'notifications:'.length === 14
+      const payload = ((message as any).payload ?? {}) as Record<string, unknown>;
+
+      switch (action) {
+        case 'create': {
+          const title = typeof payload.title === 'string' ? payload.title : '';
+          const body = typeof payload.body === 'string' ? payload.body : '';
+
+          const id = generateId();
+          const notification: Notification = {
+            id,
+            windowId,
+            title,
+            body,
+            read: false,
+            createdAt: Math.floor(Date.now() / 1000),
+          };
+
+          const list = getWindowNotifications(windowId);
+          list.push(notification);
+          enforceLimit(list);
+          notify();
+
+          send({ type: 'ifc.event', topic: 'notifications:created', payload: { id } } as NappletMessage);
+          break;
+        }
+
+        case 'dismiss': {
+          const id = typeof payload.id === 'string' ? payload.id : '';
+          if (!id) return;
+
+          const found = findById(id);
+          if (found) {
+            const [foundWindowId, , index] = found;
+            const list = notifications.get(foundWindowId);
+            if (list) {
+              list.splice(index, 1);
+              // Clean up empty lists
+              if (list.length === 0) {
+                notifications.delete(foundWindowId);
+              }
+              notify();
+            }
+          }
+          break;
+        }
+
+        case 'read': {
+          const id = typeof payload.id === 'string' ? payload.id : '';
+          if (!id) return;
+
+          const found = findById(id);
+          if (found) {
+            const [, notification] = found;
+            if (!notification.read) {
+              notification.read = true;
+              notify();
+            }
+          }
+          break;
+        }
+
+        case 'list': {
+          const windowNotifs = notifications.get(windowId) ?? [];
+          send({ type: 'ifc.event', topic: 'notifications:listed', payload: { notifications: windowNotifs } } as NappletMessage);
+          break;
+        }
+
+        default:
+          // Unknown notification action — ignore
+          break;
+      }
     },
 
     onWindowDestroyed(windowId: string): void {
