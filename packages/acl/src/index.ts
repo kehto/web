@@ -15,7 +15,7 @@
  * // Create state with restrictive default (deny unknown identities)
  * let state = createState('restrictive');
  *
- * const id = { pubkey: 'abc...', dTag: 'chat', hash: 'ff00...' };
+ * const id = { dTag: 'chat', hash: 'ff00...' };
  *
  * // Grant relay read access
  * state = grant(state, id, CAP_RELAY_READ);
@@ -69,3 +69,10 @@ export {
   serialize,
   deserialize,
 } from './mutations.js';
+
+// Migration utility
+export { migrateAclState } from './migrate.js';
+
+// NUB domain resolution
+export type { CapabilityResolution, NubMessage } from './resolve.js';
+export { resolveCapabilitiesNub } from './resolve.js';
