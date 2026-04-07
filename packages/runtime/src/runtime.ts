@@ -35,6 +35,7 @@ import { createEventBuffer, matchesAnyFilter, RING_BUFFER_SIZE } from './event-b
 import type { SubscriptionEntry } from './event-buffer.js';
 import { createEnforceGate, createNubEnforceGate, resolveCapabilities, resolveCapabilitiesNub, formatDenialReason } from './enforce.js';
 import type { NubEnforceConfig } from './enforce.js';
+import { handleStorageNub } from './state-handler.js';
 
 // ─── Runtime Interface ─────────────────────────────────────────────────────
 
@@ -128,6 +129,8 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   // ─── Module-level state ──────────────────────────────────────────────────
 
   const subscriptions = new Map<string, SubscriptionEntry>();
+  /** IFC topic subscriptions: Map<topic, Set<windowId>> */
+  const ifcSubscriptions = new Map<string, Set<string>>();
   let _consentHandler: ConsentHandler | null = null;
 
   // ─── Service Registry (static from hooks + dynamic from registerService) ──
@@ -441,27 +444,299 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   // ─── NUB Domain Handlers (NIP-5D envelope dispatch) ──────────────────────
 
   function handleRelayMessage(windowId: string, msg: NappletMessage): void {
-    // TODO: Plan 03 implements full relay handler
-    // Stub: acknowledge receipt
-    const id = (msg as any).id ?? '';
-    hooks.sendToNapplet(windowId, { type: `${msg.type}.error`, id, error: 'not implemented' } as NappletMessage);
+    const m = msg as any;
+    const dotIdx = msg.type.indexOf('.');
+    const action = msg.type.slice(dotIdx + 1);
+
+    switch (action) {
+      case 'subscribe': {
+        const subId = m.subId as string;
+        const filters = (m.filters ?? []) as NostrFilter[];
+        if (!subId) return;
+
+        const subKey = `${windowId}:${subId}`;
+        subscriptions.set(subKey, { windowId, filters });
+
+        const seenIds = new Set<string>();
+        function deliver(event: NostrEvent): void {
+          if (seenIds.has(event.id)) return;
+          seenIds.add(event.id);
+          if (subscriptions.has(subKey)) {
+            hooks.sendToNapplet(windowId, { type: 'relay.event', subId, event } as NappletMessage);
+          }
+        }
+
+        // Replay buffered events
+        for (const bufferedEvent of eventBuffer.getBufferedEvents()) {
+          if (matchesAnyFilter(bufferedEvent, filters)) deliver(bufferedEvent);
+        }
+
+        const isBusKind = filters.length > 0 && filters.every((f) => f.kinds?.every((k) => k >= 29000 && k < 30000));
+
+        // Service dispatch path
+        if (!isBusKind) {
+          const relayService = serviceRegistry['relay'] ?? serviceRegistry['relay-pool'];
+          const cacheService = !serviceRegistry['relay'] ? serviceRegistry['cache'] : undefined;
+
+          if (relayService) {
+            const legacyMsg = ['REQ', subId, ...filters];
+            const send = (resp: unknown[]): void => {
+              if (!subscriptions.has(subKey)) return;
+              if (Array.isArray(resp) && resp[0] === 'EVENT') {
+                hooks.sendToNapplet(windowId, { type: 'relay.event', subId, event: resp[2] as NostrEvent } as NappletMessage);
+              } else if (Array.isArray(resp) && resp[0] === 'EOSE') {
+                hooks.sendToNapplet(windowId, { type: 'relay.eose', subId } as NappletMessage);
+              }
+            };
+            relayService.handleMessage(windowId, legacyMsg, send);
+            if (cacheService) cacheService.handleMessage(windowId, legacyMsg, send);
+            return;
+          }
+        }
+
+        // Fallback: internal relay pool + cache hooks
+        const cache = hooks.cache;
+        if (cache?.isAvailable() && !isBusKind) {
+          cache.query(filters)
+            .then((cachedEvents) => { for (const event of cachedEvents) deliver(event); })
+            .catch(() => {});
+        }
+
+        const pool = hooks.relayPool;
+        if (pool?.isAvailable() && !isBusKind) {
+          const relayUrls = pool.selectRelayTier(filters);
+          let eoseSent = false;
+          const eoseFallbackTimer = setTimeout(() => {
+            if (!eoseSent) { eoseSent = true; hooks.sendToNapplet(windowId, { type: 'relay.eose', subId } as NappletMessage); }
+          }, 15_000);
+
+          const subscription = pool.subscribe(filters, (item) => {
+            if (item === 'EOSE') {
+              clearTimeout(eoseFallbackTimer);
+              if (!eoseSent) { eoseSent = true; hooks.sendToNapplet(windowId, { type: 'relay.eose', subId } as NappletMessage); }
+              return;
+            }
+            deliver(item as NostrEvent);
+            if (cache?.isAvailable() && !isBusKind) {
+              try { cache.store(item as NostrEvent); } catch { /* best-effort */ }
+            }
+          }, relayUrls);
+
+          pool.trackSubscription(subKey, () => {
+            clearTimeout(eoseFallbackTimer);
+            subscription.unsubscribe();
+          });
+        } else if (!isBusKind) {
+          hooks.sendToNapplet(windowId, { type: 'relay.eose', subId } as NappletMessage);
+        }
+        break;
+      }
+
+      case 'close': {
+        const subId = m.subId as string;
+        if (!subId) return;
+        const subKey = `${windowId}:${subId}`;
+        subscriptions.delete(subKey);
+
+        const relayService = serviceRegistry['relay'] ?? serviceRegistry['relay-pool'];
+        if (relayService) {
+          relayService.handleMessage(windowId, ['CLOSE', subId], () => {});
+        }
+        hooks.relayPool?.untrackSubscription(subKey);
+        hooks.sendToNapplet(windowId, { type: 'relay.closed', subId, message: '' } as NappletMessage);
+        break;
+      }
+
+      case 'publish': {
+        const event = m.event as NostrEvent | undefined;
+        const id = (m.id as string) ?? '';
+        if (!event || typeof event !== 'object') {
+          hooks.sendToNapplet(windowId, { type: 'relay.publish.error', id, error: 'invalid event' } as NappletMessage);
+          return;
+        }
+
+        const replayResult = replayDetector.check(event);
+        if (replayResult !== null) {
+          hooks.sendToNapplet(windowId, { type: 'relay.publish.result', id, accepted: false, message: replayResult } as NappletMessage);
+          return;
+        }
+
+        const relayService = serviceRegistry['relay'] ?? serviceRegistry['relay-pool'];
+        if (relayService) {
+          const send = (resp: unknown[]): void => {
+            if (Array.isArray(resp) && resp[0] === 'OK') {
+              hooks.sendToNapplet(windowId, { type: 'relay.publish.result', id, accepted: resp[2] as boolean, message: (resp[3] as string) || '' } as NappletMessage);
+            }
+          };
+          relayService.handleMessage(windowId, ['EVENT', event], send);
+        } else if (hooks.relayPool?.isAvailable()) {
+          hooks.relayPool.publish(event);
+          hooks.sendToNapplet(windowId, { type: 'relay.publish.result', id, accepted: true } as NappletMessage);
+        } else {
+          hooks.sendToNapplet(windowId, { type: 'relay.publish.result', id, accepted: false, message: 'no relay pool available' } as NappletMessage);
+        }
+
+        // Buffer and deliver to local subscribers
+        eventBuffer.bufferAndDeliver(event, windowId);
+        break;
+      }
+
+      case 'query': {
+        const id = (m.id as string) ?? '';
+        const filters = (m.filters ?? []) as NostrFilter[];
+        let count = 0;
+        for (const event of eventBuffer.getBufferedEvents()) {
+          if (matchesAnyFilter(event, filters)) count++;
+        }
+        hooks.sendToNapplet(windowId, { type: 'relay.query.result', id, count } as NappletMessage);
+        break;
+      }
+
+      default: break;
+    }
   }
 
   function handleSignerMessage(windowId: string, msg: NappletMessage): void {
-    // TODO: Plan 03 implements full signer handler
-    const id = (msg as any).id ?? '';
-    hooks.sendToNapplet(windowId, { type: `${msg.type}.error`, id, error: 'not implemented' } as NappletMessage);
+    const m = msg as any;
+    const id = (m.id as string) ?? '';
+    // Extract action: for 'signer.nip04.encrypt' -> 'nip04.encrypt'
+    const action = msg.type.split('.').slice(1).join('.');
+
+    function sendError(error: string): void {
+      hooks.sendToNapplet(windowId, { type: `${msg.type}.error`, id, error } as NappletMessage);
+    }
+
+    function sendResult(payload: Record<string, unknown>): void {
+      hooks.sendToNapplet(windowId, { type: `${msg.type}.result`, id, ...payload } as NappletMessage);
+    }
+
+    // Signer service takes priority if registered
+    const signerService = serviceRegistry['signer'];
+    if (signerService) {
+      // Delegate to signer service using legacy format (Phase 9 will update to NUB)
+      signerService.handleMessage(
+        windowId,
+        ['EVENT', { kind: 29001, tags: [['method', action], ['id', id]], content: JSON.stringify(m), pubkey: '', created_at: 0, id: '', sig: '' }],
+        (resp) => {
+          if (Array.isArray(resp) && resp[0] === 'EVENT') {
+            const evt = resp[2] as any;
+            const resultTag = evt?.tags?.find((t: string[]) => t[0] === 'result');
+            if (resultTag) {
+              try {
+                const result = JSON.parse(resultTag[1]);
+                sendResult(typeof result === 'object' ? result : { value: result });
+              } catch { sendResult({ value: resultTag[1] }); }
+            }
+          }
+        },
+      );
+      return;
+    }
+
+    // Internal signer fallback
+    const maybeSigner = hooks.auth.getSigner();
+    if (!maybeSigner) { sendError('no signer configured'); return; }
+    const signer = maybeSigner;
+
+    function dispatch(eventToSign: NostrEvent | null): void {
+      const signerPromise: Promise<unknown> = (() => {
+        switch (action) {
+          case 'getPublicKey': return Promise.resolve(signer.getPublicKey?.());
+          case 'signEvent': return eventToSign ? (signer.signEvent?.(eventToSign) ?? Promise.resolve(null)) : Promise.resolve(null);
+          case 'getRelays': return Promise.resolve(signer.getRelays?.() ?? {});
+          case 'nip04.encrypt': return signer.nip04?.encrypt(m.pubkey ?? '', m.plaintext ?? '') ?? Promise.resolve('');
+          case 'nip04.decrypt': return signer.nip04?.decrypt(m.pubkey ?? '', m.ciphertext ?? '') ?? Promise.resolve('');
+          case 'nip44.encrypt': return signer.nip44?.encrypt(m.pubkey ?? '', m.plaintext ?? '') ?? Promise.resolve('');
+          case 'nip44.decrypt': return signer.nip44?.decrypt(m.pubkey ?? '', m.ciphertext ?? '') ?? Promise.resolve('');
+          default: return Promise.reject(new Error(`Unknown signer method: ${action}`));
+        }
+      })();
+
+      signerPromise.then((result) => {
+        switch (action) {
+          case 'getPublicKey':
+            sendResult({ pubkey: result as string }); break;
+          case 'signEvent':
+            sendResult({ event: result as NostrEvent }); break;
+          case 'getRelays':
+            sendResult({ relays: result as Record<string, { read: boolean; write: boolean }> }); break;
+          case 'nip04.encrypt':
+          case 'nip44.encrypt':
+            sendResult({ ciphertext: result as string }); break;
+          case 'nip04.decrypt':
+          case 'nip44.decrypt':
+            sendResult({ plaintext: result as string }); break;
+          default:
+            sendResult({ value: result }); break;
+        }
+      }).catch((err: unknown) => {
+        sendError((err as Error).message ?? 'signing failed');
+      });
+    }
+
+    // Consent check for destructive signing kinds
+    if (action === 'signEvent' && m.event) {
+      const eventToSign = m.event as NostrEvent;
+      if (aclState.requiresPrompt(eventToSign.kind) && _consentHandler) {
+        new Promise<boolean>((resolve) => {
+          _consentHandler!({ windowId, pubkey: '', event: eventToSign, resolve });
+        }).then((allowed) => {
+          if (!allowed) { sendError('user rejected'); return; }
+          dispatch(eventToSign);
+        }).catch(() => { sendError('consent check failed'); });
+        return;
+      }
+      dispatch(eventToSign);
+      return;
+    }
+    dispatch(null);
   }
 
   function handleStorageMessage(windowId: string, msg: NappletMessage): void {
-    // TODO: Plan 03 implements full storage handler
-    const id = (msg as any).id ?? '';
-    hooks.sendToNapplet(windowId, { type: `${msg.type}.error`, id, error: 'not implemented' } as NappletMessage);
+    handleStorageNub(windowId, msg, hooks.sendToNapplet, sessionRegistry, aclState, hooks.statePersistence);
   }
 
-  function handleIfcMessage(_windowId: string, _msg: NappletMessage): void {
-    // TODO: Plan 03 implements full IFC handler
-    // IFC emit has no response — just drop for now
+  function handleIfcMessage(windowId: string, msg: NappletMessage): void {
+    const m = msg as any;
+    const dotIdx = msg.type.indexOf('.');
+    const action = msg.type.slice(dotIdx + 1);
+
+    switch (action) {
+      case 'emit': {
+        const topic = m.topic as string;
+        const payload = m.payload;
+        if (!topic) return;
+
+        // Deliver to all subscribers of this topic except sender
+        const subscribers = ifcSubscriptions.get(topic);
+        if (subscribers) {
+          for (const subscriberWindowId of subscribers) {
+            if (subscriberWindowId === windowId) continue; // don't echo to sender
+            hooks.sendToNapplet(subscriberWindowId, { type: 'ifc.event', topic, payload, sender: windowId } as NappletMessage);
+          }
+        }
+        break;
+      }
+      case 'subscribe': {
+        const topic = m.topic as string;
+        if (!topic) return;
+        let subs = ifcSubscriptions.get(topic);
+        if (!subs) { subs = new Set(); ifcSubscriptions.set(topic, subs); }
+        subs.add(windowId);
+        break;
+      }
+      case 'unsubscribe': {
+        const topic = m.topic as string;
+        if (!topic) return;
+        const subs = ifcSubscriptions.get(topic);
+        if (subs) {
+          subs.delete(windowId);
+          if (subs.size === 0) ifcSubscriptions.delete(topic);
+        }
+        break;
+      }
+      default: break;
+    }
   }
 
   // ─── Main message handler ────────────────────────────────────────────────
@@ -519,6 +794,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
       aclState.persist();
       replayDetector.clear();
       subscriptions.clear();
+      ifcSubscriptions.clear();
       eventBuffer.clear();
       registeredServices.clear();
       undeclaredServiceConsents.clear();
@@ -551,6 +827,11 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
           subscriptions.delete(key);
           hooks.relayPool?.untrackSubscription(key);
         }
+      }
+      // Clean up IFC subscriptions for this window
+      for (const [topic, subs] of ifcSubscriptions) {
+        subs.delete(windowId);
+        if (subs.size === 0) ifcSubscriptions.delete(topic);
       }
       // Notify service handlers
       notifyServiceWindowDestroyed(windowId, serviceRegistry);

@@ -5,7 +5,7 @@
  * by delegating storage to StatePersistence. No localStorage.
  */
 
-import type { NostrEvent } from '@napplet/core';
+import type { NostrEvent, NappletMessage } from '@napplet/core';
 import { BusKind } from '@napplet/core';
 import type { SendToNapplet, StatePersistence } from './types.js';
 import type { SessionRegistry } from './session-registry.js';
@@ -150,6 +150,105 @@ export function handleStateRequest(
     }
     default:
       sendError(sendToNapplet, windowId, correlationId, `unknown state topic: ${topic}`);
+      break;
+  }
+}
+
+/**
+ * Handle a NIP-5D NUB storage message from a napplet.
+ * Routes to the appropriate operation (get, set, remove, clear, keys) based on msg.type action.
+ * Uses NappletMessage envelope format for all responses.
+ *
+ * @param windowId - The window identifier of the requesting napplet
+ * @param msg - The NappletMessage containing the storage request
+ * @param sendToNapplet - Transport function to send responses
+ * @param sessionRegistry - Identity registry for looking up napplet session identity
+ * @param aclState - ACL state for quota checks
+ * @param statePersistence - State storage backend
+ */
+export function handleStorageNub(
+  windowId: string,
+  msg: NappletMessage,
+  sendToNapplet: SendToNapplet,
+  sessionRegistry: SessionRegistry,
+  aclState: AclStateContainer,
+  statePersistence: StatePersistence,
+): void {
+  const m = msg as any;
+  const id = (m.id as string) ?? '';
+  const action = msg.type.split('.')[1];
+
+  function sendResult(payload: Record<string, unknown>): void {
+    sendToNapplet(windowId, { type: `${msg.type}.result`, id, ...payload } as NappletMessage);
+  }
+  function sendErrorNub(error: string): void {
+    sendToNapplet(windowId, { type: `${msg.type}.error`, id, error } as NappletMessage);
+  }
+
+  // Identity lookup via windowId (NIP-5D path)
+  const entry = sessionRegistry.getEntryByWindowId(windowId);
+  if (!entry) { sendErrorNub('not registered'); return; }
+
+  const { dTag, aggregateHash, pubkey } = entry;
+  const prefix = `napplet-state:${dTag}:${aggregateHash}:`;
+  const legacyPrefix = pubkey ? `napplet-state:${pubkey}:${dTag}:${aggregateHash}:` : '';
+
+  switch (action) {
+    case 'get': {
+      const key = m.key as string;
+      if (!key) { sendErrorNub('missing key'); return; }
+      const newKey = scopedKey(dTag, aggregateHash, key);
+      // Triple-read for migration: new format, legacy-with-pubkey, old prefix
+      let result = statePersistence.get(newKey);
+      if (result === null && pubkey) {
+        result = statePersistence.get(legacyScopedKey(pubkey, dTag, aggregateHash, key));
+      }
+      if (result === null && pubkey) {
+        result = statePersistence.get(`napp-state:${pubkey}:${dTag}:${aggregateHash}:${key}`);
+      }
+      sendResult({ value: result ?? '', found: result !== null });
+      break;
+    }
+    case 'set': {
+      const key = m.key as string;
+      const value = (m.value as string) ?? '';
+      if (!key) { sendErrorNub('missing key'); return; }
+      const quota = aclState.getStateQuota(pubkey ?? '', dTag, aggregateHash);
+      const sk = scopedKey(dTag, aggregateHash, key);
+      const newWriteBytes = byteLength(sk + value);
+      const existingBytes = statePersistence.calculateBytes(prefix, key);
+      if (existingBytes + newWriteBytes > quota) {
+        sendErrorNub(`quota exceeded: napplet state limit is ${quota} bytes`);
+        return;
+      }
+      const success = statePersistence.set(sk, value);
+      sendResult({ ok: success });
+      break;
+    }
+    case 'remove': {
+      const key = m.key as string;
+      if (!key) { sendErrorNub('missing key'); return; }
+      statePersistence.remove(scopedKey(dTag, aggregateHash, key));
+      sendResult({ ok: true });
+      break;
+    }
+    case 'clear': {
+      statePersistence.clear(prefix);
+      if (legacyPrefix) statePersistence.clear(legacyPrefix);
+      sendResult({ ok: true });
+      break;
+    }
+    case 'keys': {
+      const newKeys = statePersistence.keys(prefix);
+      const legacyKeys = legacyPrefix ? statePersistence.keys(legacyPrefix) : [];
+      const userKeySet = new Set<string>();
+      for (const k of newKeys) userKeySet.add(k.startsWith(prefix) ? k.slice(prefix.length) : k);
+      for (const k of legacyKeys) userKeySet.add(k.startsWith(legacyPrefix) ? k.slice(legacyPrefix.length) : k);
+      sendResult({ keys: Array.from(userKeySet) });
+      break;
+    }
+    default:
+      sendErrorNub(`unknown storage action: ${action}`);
       break;
   }
 }

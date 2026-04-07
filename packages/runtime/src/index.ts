@@ -68,7 +68,7 @@ export { createRuntime } from './runtime.js';
 export type { Runtime } from './runtime.js';
 
 // ─── State Handler ─────────────────────────────────────────────────────────
-export { handleStateRequest, cleanupNappState } from './state-handler.js';
+export { handleStateRequest, handleStorageNub, cleanupNappState } from './state-handler.js';
 
 // ─── Service Dispatch ─────────────────────────────────────────────────────
 export { routeServiceMessage, notifyServiceWindowDestroyed } from './service-dispatch.js';
