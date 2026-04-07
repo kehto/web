@@ -283,8 +283,9 @@ describe('NIP-5D Envelope Dispatch', () => {
       runtimeWithSigner.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
 
       runtimeWithSigner.handleMessage(WINDOW_ID, { type: 'signer.getPublicKey', id: 'req-pk' } as NappletMessage);
-      // Need to flush microtasks for async signer resolution
-      await new Promise((r) => setTimeout(r, 10));
+      // Flush microtasks for async Promise resolution
+      await Promise.resolve();
+      await Promise.resolve();
 
       const result = findEnvelopeResponse(ctxWithSigner.sent, 'signer.getPublicKey.result');
       expect(result).toBeDefined();
@@ -319,7 +320,9 @@ describe('NIP-5D Envelope Dispatch', () => {
         id: 'req-sign',
         event: eventToSign,
       } as NappletMessage);
-      await new Promise((r) => setTimeout(r, 10));
+      // Flush microtasks for async Promise resolution
+      await Promise.resolve();
+      await Promise.resolve();
 
       const result = findEnvelopeResponse(ctxWithSigner.sent, 'signer.signEvent.result');
       expect(result).toBeDefined();
