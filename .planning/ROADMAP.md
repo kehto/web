@@ -43,7 +43,9 @@ Plans:
   1. The document shows the old and new identity key schemas side-by-side (pubkey:dTag:hash vs dTag:hash) with migration logic
   2. Every capability constant is mapped to its NUB domain (e.g., CAP_RELAY_READ → relay)
   3. A concrete persisted ACL data migration strategy is documented with steps and rollback considerations
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 02-01-PLAN.md -- Identity schema change, capability-to-NUB mapping, persisted data migration strategy
 
 ### Phase 3: Runtime Migration Doc
 **Goal**: A migration document for @kehto/runtime exists that describes the NUB dispatch design, AUTH removal scope, handler rewrites, and session identity anchor decision
@@ -83,7 +85,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Gap Analysis | 2/2 | Complete   | 2026-04-07 |
-| 2. ACL Migration Doc | 0/? | Not started | - |
+| 2. ACL Migration Doc | 0/1 | Not started | - |
 | 3. Runtime Migration Doc | 0/? | Not started | - |
 | 4. Shell Migration Doc | 0/? | Not started | - |
 | 5. Services Migration Doc | 0/? | Not started | - |
