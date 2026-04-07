@@ -14,9 +14,9 @@
 
 ## ACL Migration
 
-- [ ] **ACL-01**: Document Identity key schema change (pubkey:dTag:hash → dTag:hash)
-- [ ] **ACL-02**: Map capability constants to NUB domains (CAP_RELAY_READ → relay, etc.)
-- [ ] **ACL-03**: Document persisted ACL data migration strategy
+- [x] **ACL-01**: Document Identity key schema change (pubkey:dTag:hash → dTag:hash)
+- [x] **ACL-02**: Map capability constants to NUB domains (CAP_RELAY_READ → relay, etc.)
+- [x] **ACL-03**: Document persisted ACL data migration strategy
 
 ## Runtime Migration
 

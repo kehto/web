@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-gap-analysis-02-PLAN.md
-last_updated: "2026-04-07T17:50:37.603Z"
+stopped_at: Completed 02-acl-migration-doc-01-PLAN.md
+last_updated: "2026-04-07T17:59:37.651Z"
 last_activity: 2026-04-07
 progress:
   total_phases: 5
-  completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  completed_phases: 2
+  total_plans: 3
+  completed_plans: 3
   percent: 0
 ---
 
@@ -53,6 +53,7 @@ Progress: [----------] 0%
 
 *Updated after each plan completion*
 | Phase 01-gap-analysis P02 | 5 | 2 tasks | 1 files |
+| Phase 02-acl-migration-doc P01 | 2 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,9 @@ Recent decisions affecting current work:
 - [Phase 01-gap-analysis]: GAP-ANALYSIS.md sections 1-3 written atomically from pre-populated RESEARCH.md; document structure: summary table -> per-gap sections with before/after -> placeholders for plan 02
 - [Phase 01-gap-analysis]: Tasks 1 and 2 combined into a single commit since both target docs/GAP-ANALYSIS.md and research was pre-populated in RESEARCH.md
 - [Phase 01-gap-analysis]: All 6 silent failure point line numbers verified against live source files before writing into GAP-ANALYSIS.md
+- [Phase 02-acl-migration-doc]: Identity.pubkey kept optional (not removed) for backward compat — toKey() ignores it under NIP-5D
+- [Phase 02-acl-migration-doc]: migrateAclState() belongs in @kehto/shell acl-store.ts — @kehto/acl is a pure zero-dep module with no I/O
+- [Phase 02-acl-migration-doc]: IFC NUB reuses relay:write/relay:read rather than introducing new capability bits
 
 ### Pending Todos
 
@@ -80,6 +84,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-07T17:45:50.537Z
-Stopped at: Completed 01-gap-analysis-02-PLAN.md
+Last session: 2026-04-07T17:59:37.648Z
+Stopped at: Completed 02-acl-migration-doc-01-PLAN.md
 Resume file: None
