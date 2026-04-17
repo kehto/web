@@ -9,7 +9,7 @@
 
 ---
 
-## Known Constraints (v1.3)
+## Milestone Constraints
 
 - `@napplet/core` is not yet published to npm — all `@napplet/*` packages resolve via `pnpm.overrides` `link:` entries to `/home/sandwich/Develop/napplet/*`. Verify deduplication with `pnpm ls @napplet/core --depth 5` before each Playwright run. Demo must never add `@napplet/core` as a direct dep.
 - `DRIFT-CORE-06` (`packages/runtime/src/core-compat.ts`) stays intact — do not delete it or add new consumers in v1.3.
@@ -19,13 +19,15 @@
 
 ---
 
-## v1.3: Demo Functional & Playwright Parity
+## Current Milestone: v1.3 — Demo Functional & Playwright Parity
 
 **Milestone Goal:** Adapt `apps/demo` and its bundled napplets to the canonical v1.2 `@kehto/*` + `@napplet/*` NIP-5D interfaces; rewrite the Playwright suite; drive a build→run→Playwright→fix iteration loop until every panel, napplet, and spec is green.
 
+**Phases:** 16–22 (7 phases) | **Requirements:** 35/35 mapped
+
 **Cross-cutting requirement — E2E-11 (iteration-loop discipline):** Every phase from Phase 17 onward must close with a recorded build→run→Playwright (MCP)→fix loop. Phases do not close on `tsc`/`vitest` green alone. E2E-11 is formally closed in Phase 22 when the full green suite is recorded against the built artifact.
 
-### Phases
+## Phases
 
 - [ ] **Phase 16: Harness Triage & Playwright Infrastructure** — Delete obsolete specs, extend harness driver API, fix timing/isolation pitfalls
 - [ ] **Phase 17: Demo App Rewire** — Boot demo clean against v1.2 APIs; all 8 service nodes live; signer/ACL/debugger wired
