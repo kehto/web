@@ -774,3 +774,101 @@ describe('NIP-5D Envelope Dispatch', () => {
     });
   });
 });
+
+// ─── Theme NUB dispatch (TH-01 + TH-04) ────────────────────────────────────────
+
+describe('theme NUB dispatch (TH-01 + TH-04)', () => {
+  it('TH-01 happy path: napplet with theme:read reaches a registered theme service', () => {
+    const ctx2 = createMockRuntimeAdapter();
+    const runtime2 = createRuntime(ctx2.hooks);
+    runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+    // Default ACL policy is 'permissive', so an unregistered identity passes
+    // theme:read. Explicitly granting keeps the test robust to future policy
+    // changes (restrictive default, etc.).
+    runtime2.aclState.grant('', TEST_DTAG, TEST_HASH, 'theme:read');
+
+    const serviceCalls: Array<{ windowId: string; msgType: string }> = [];
+    runtime2.registerService('theme', {
+      descriptor: { name: 'theme', version: '1.0.0' },
+      handleMessage(wid, msg, send) {
+        serviceCalls.push({ windowId: wid, msgType: msg.type });
+        if (msg.type === 'theme.get') {
+          const m = msg as NappletMessage & { id?: string };
+          send({
+            type: 'theme.get.result',
+            id: m.id ?? '',
+            theme: {
+              colors: { background: '#0a0a0a', text: '#e0e0e0', primary: '#7aa2f7' },
+            },
+          } as NappletMessage);
+        }
+      },
+    });
+
+    runtime2.handleMessage(WINDOW_ID, {
+      type: 'theme.get',
+      id: 'q-1',
+    } as NappletMessage);
+
+    expect(serviceCalls).toHaveLength(1);
+    expect(serviceCalls[0]).toEqual({ windowId: WINDOW_ID, msgType: 'theme.get' });
+
+    const result = findEnvelopeResponse(ctx2.sent, 'theme.get.result');
+    expect(result).toBeDefined();
+    expect((result as any).id).toBe('q-1');
+    expect((result as any).theme.colors.background).toBe('#0a0a0a');
+  });
+
+  it('TH-04 ACL denial: napplet without theme:read gets theme.get.error without reaching service', () => {
+    const ctx2 = createMockRuntimeAdapter();
+    const runtime2 = createRuntime(ctx2.hooks);
+    runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+    // Block the napplet — blocked identities fail ALL capability checks
+    // regardless of the default policy, so theme:read is denied.
+    runtime2.aclState.block('', TEST_DTAG, TEST_HASH);
+
+    const serviceCalls: string[] = [];
+    runtime2.registerService('theme', {
+      descriptor: { name: 'theme', version: '1.0.0' },
+      handleMessage(_wid, msg, _send) {
+        serviceCalls.push(msg.type);
+      },
+    });
+
+    runtime2.handleMessage(WINDOW_ID, {
+      type: 'theme.get',
+      id: 'q-denied',
+    } as NappletMessage);
+
+    // Service MUST NOT be invoked when ACL denies the request.
+    expect(serviceCalls).toHaveLength(0);
+
+    const err = findEnvelopeResponse(ctx2.sent, 'theme.get.error');
+    expect(err).toBeDefined();
+    expect((err as any).id).toBe('q-denied');
+    expect(typeof (err as any).error).toBe('string');
+    expect((err as any).error).toMatch(/denied|theme:read/i);
+  });
+
+  it('fallback: emits theme.get.result with the canonical default theme when no theme service is registered', () => {
+    const ctx2 = createMockRuntimeAdapter();
+    const runtime2 = createRuntime(ctx2.hooks);
+    runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+    runtime2.aclState.grant('', TEST_DTAG, TEST_HASH, 'theme:read');
+
+    // Do NOT register a theme service — exercise the runtime fallback path.
+    runtime2.handleMessage(WINDOW_ID, {
+      type: 'theme.get',
+      id: 'q-fallback',
+    } as NappletMessage);
+
+    const result = findEnvelopeResponse(ctx2.sent, 'theme.get.result');
+    expect(result).toBeDefined();
+    expect((result as any).id).toBe('q-fallback');
+    const theme = (result as any).theme;
+    expect(theme).toBeDefined();
+    expect(theme.colors.background).toBe('#0a0a0a');
+    expect(theme.colors.text).toBe('#e0e0e0');
+    expect(theme.colors.primary).toBe('#7aa2f7');
+  });
+});
