@@ -15,8 +15,14 @@ import {
   type NostrEvent,
   type ConsentRequest,
 } from '@kehto/shell';
-import { createIdentityService, createNotificationService } from '@kehto/services';
-import type { Notification } from '@kehto/services';
+import {
+  createIdentityService,
+  createNotificationService,
+  createKeysService,
+  createMediaService,
+  createThemeService,
+} from '@kehto/services';
+import type { Notification, ThemeService } from '@kehto/services';
 import { getSigner, getSignerConnectionState } from './signer-connection.js';
 import { demoConfig } from './demo-config.js';
 import { pushAclEvent } from './acl-history.js';
@@ -85,6 +91,21 @@ export interface DemoPathAuditEntry {
 export type DemoSignerMode = 'service' | 'fallback';
 
 export const DEMO_SIGNER_MODE: DemoSignerMode = 'service';
+
+/** Services that expose NIP-5D envelopes but have no real host backend in v1.3. */
+export const STUB_ONLY_SERVICES: readonly string[] = ['keys', 'media'] as const;
+
+/** All 8 NIP-5D-adjacent topology node names the demo renders on boot. */
+export const DEMO_TOPOLOGY_SERVICE_NAMES: readonly string[] = [
+  'identity',
+  'keys',
+  'media',
+  'notifications',
+  'relay',
+  'signer',
+  'storage',
+  'theme',
+] as const;
 
 export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
   {
@@ -288,11 +309,33 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
     onChange: notificationOnChange,
     maxPerWindow: 50,
   });
+  const keysService = createKeysService({
+    onForward: (event) => {
+      // Stub: log to console for demo visibility; real hotkey wiring deferred to v1.4+
+      console.debug('[demo] keys.forward (stub-only):', event.key, { ctrl: event.ctrlKey, alt: event.altKey, shift: event.shiftKey, meta: event.metaKey });
+    },
+  });
+  const mediaService = createMediaService({
+    onSessionCreate: (windowId, sessionId, metadata) => {
+      console.debug('[demo] media.session.create (stub-only):', windowId, sessionId, metadata);
+    },
+  });
+  const themeServiceBundle = createThemeService({
+    onBroadcast: (envelope) => {
+      // Fan-out handled by shell-bridge.publishTheme() at the session-registry level.
+      // This hook is diagnostic only.
+      console.debug('[demo] theme.changed broadcast envelope:', envelope.type);
+    },
+  });
+  _themeServiceBundle = themeServiceBundle;
   const services = {
     identity: createIdentityService({
       getSigner,
     }),
     notifications: notificationService,
+    keys: keysService,
+    media: mediaService,
+    theme: themeServiceBundle.handler,
   };
   // Expose the notification service handler so the controller can dispatch to it directly
   _notificationServiceHandler = notificationService;
@@ -421,7 +464,7 @@ export interface NappletInfo {
 }
 
 const napplets = new Map<string, NappletInfo>();
-const demoServiceNames = new Set<string>(['identity', 'notifications']);
+const demoServiceNames = new Set<string>(DEMO_TOPOLOGY_SERVICE_NAMES);
 let nappletCounter = 0;
 
 /** Permanent store of all service handler references — never deleted, used for re-registration on toggle-on. */
@@ -431,10 +474,16 @@ const serviceHandlerStore = new Map<string, ServiceHandler>();
 const disabledServices = new Set<string>();
 
 let _notificationServiceHandler: ServiceHandler | null = null;
+let _themeServiceBundle: ThemeService | null = null;
 
 /** Get the registered notification service handler for direct host dispatch. */
 export function getNotificationServiceHandler(): ServiceHandler | null {
   return _notificationServiceHandler;
+}
+
+/** Get the registered theme service bundle (exposes .publishTheme for host theme toggles). */
+export function getThemeServiceBundle(): ThemeService | null {
+  return _themeServiceBundle;
 }
 
 // --- Public API ---
