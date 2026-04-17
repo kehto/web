@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.3
-milestone_name: Demo Functional & Playwright Parity
-status: roadmap_complete
-stopped_at: "Roadmap written — ready to plan Phase 16"
-last_updated: "2026-04-18T00:00:00.000Z"
-last_activity: 2026-04-18
+milestone_name: — Demo Functional & Playwright Parity
+status: executing
+stopped_at: Completed 16-01-PLAN.md — seven legacy specs deleted, E2E-01 closed
+last_updated: "2026-04-17T23:10:42.673Z"
+last_activity: 2026-04-17
 progress:
   total_phases: 7
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 4
+  completed_plans: 1
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Milestone v1.3 — Phase 16: Harness Triage & Playwright Infrastructure
+**Current focus:** Phase 16 — Harness Triage & Playwright Infrastructure
 
 ## Current Position
 
-Phase: 16 of 22 (Harness Triage & Playwright Infrastructure)
-Plan: — (not yet planned)
-Status: Ready to plan
-Last activity: 2026-04-18 — v1.3 roadmap written (Phases 16–22, 35 requirements mapped)
+Phase: 16 (Harness Triage & Playwright Infrastructure) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
+Last activity: 2026-04-17
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -47,6 +47,7 @@ Progress: [░░░░░░░░░░] 0%
 ## Performance Metrics
 
 **Velocity:**
+
 - Total plans completed: 0 (v1.3)
 - Average duration: —
 - Total execution time: —
@@ -58,6 +59,7 @@ Progress: [░░░░░░░░░░] 0%
 | - | - | - | - |
 
 *Updated after each plan completion*
+| Phase 16-harness-triage-playwright-infrastructure P01 | 8 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -67,6 +69,7 @@ Progress: [░░░░░░░░░░] 0%
 - [v1.2] `createDispatch()` + `registerNub()` is canonical dispatch; per-runtime instance required.
 - [v1.2] `DRIFT-CORE-06` (`packages/runtime/src/core-compat.ts`) stays intact; no new consumers.
 - [v1.3] `feed` napplet relay.subscribe delivery mechanism is an open decision — resolve at Phase 20 planning via `/gsd:discuss-phase 20`.
+- [Phase 16-01]: All 7 legacy v1.1 signer/AUTH/BusKind specs deleted; BusKind-referencing specs (kind 29003/29004) treated as anti-term violations; each deletion has explicit replacement mapping to a named future phase + REQ-ID
 
 ### Blockers/Concerns
 
@@ -75,6 +78,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18
-Stopped at: v1.3 roadmap written — 35 requirements mapped across Phases 16–22
+Last session: 2026-04-17T23:10:42.671Z
+Stopped at: Completed 16-01-PLAN.md — seven legacy specs deleted, E2E-01 closed
 Resume: `/gsd:plan-phase 16`
