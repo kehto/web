@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — NIP-5D Conformance & Full NUB Coverage
-status: executing
-stopped_at: Completed 10-01-PLAN.md (NIP-5D canonical sync verification, verify-only)
-last_updated: "2026-04-17T11:44:25.762Z"
+status: verifying
+stopped_at: Completed 10-02-PLAN.md (v1.2 NIP-5D cross-package drift audit, SPEC-02 satisfied) — Phase 10 complete, ready for verification
+last_updated: "2026-04-17T13:25:45.160Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-17)
 
 ## Current Position
 
-Phase: 10 (spec-conformance-audit) — EXECUTING
+Phase: 10 (spec-conformance-audit) — COMPLETE (ready for verification)
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-17
 
-Progress: [----------] 0% (v1.2)
+Progress: [██████████] 100% (Phase 10 plans complete — v1.2 overall 1/6 phases)
 
 ## Milestone v1.2 Phases (rescoped)
 
@@ -61,6 +61,7 @@ Progress: [----------] 0% (v1.2)
 | Phase 10 P01 | 4min | 2 tasks | 2 files |
 | Phase 10 P02 | 6min | 2 tasks | 1 files |
 | Phase 10 P01 | 1min | 2 tasks | 0 files |
+| Phase 10 P02 | 18min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,8 @@ Recent decisions affecting current work (full log in PROJECT.md):
 - [Phase 10]: Audit established six-column drift table shape as kehto v1.3+ spec-conformance precedent; IDs never renumber, new NUBs append new DRIFT-* rows
 - [Phase 10]: storage.clear is a kehto unilateral extension (not in @napplet/nub-storage) — DRIFT-SVC-06 removes it from NUB dispatch; internal cleanupNappState helper remains for lifecycle cleanup
 - [Phase 10]: Plan 10-01 executed as verify-only (zero file changes) — commit 604337a canonical sync still valid at v1.2 milestone; empty commits preserve per-task audit trail
+- [Phase 10]: 40 stable DRIFT-* IDs partition kehto v1.2 remediation work into Phase 11 (3 rows — peer-dep prereqs), Phase 12 (32 rows — shell conformance + 7 non-theme nubs + ACL), Phase 13 (3 rows — theme), Phase 14 (2 rows — dispatch refactor)
+- [Phase 10]: docs/v1.2-NIP-5D-AUDIT.md locked as authoritative input for Phase 11-14 planning — downstream planners filter by Target Phase column, no re-audit of source required
 
 ### Blockers/Concerns
 
@@ -88,6 +91,6 @@ Recent decisions affecting current work (full log in PROJECT.md):
 
 ## Session Continuity
 
-Last session: 2026-04-17T11:44:25.759Z
-Stopped at: Completed 10-01-PLAN.md (NIP-5D canonical sync verification, verify-only)
+Last session: 2026-04-17T13:25:45.156Z
+Stopped at: Completed 10-02-PLAN.md (v1.2 NIP-5D cross-package drift audit, SPEC-02 satisfied) — Phase 10 complete, ready for verification
 Resume: Run `/gsd:plan-phase 10` to begin Spec Conformance Audit.
