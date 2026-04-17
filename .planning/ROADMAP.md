@@ -129,5 +129,5 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
 | 11. Nub Peer Deps & Type Imports | 2/2 | Complete    | 2026-04-17 |
 | 12. Shell Conformance & Seven-Nub Coverage | 11/11 | Complete    | 2026-04-17 |
 | 13. Theme Nub Implementation | 2/2 | Complete    | 2026-04-17 |
-| 14. Dispatch Refactor | 1/1 | Complete   | 2026-04-17 |
+| 14. Dispatch Refactor | 1/1 | Complete    | 2026-04-17 |
 | 15. Milestone Validation & Release Prep | 0/TBD | Not started | - |

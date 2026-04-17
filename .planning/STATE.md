@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: — NIP-5D Conformance & Full NUB Coverage
 status: verifying
 stopped_at: Completed 14-01-PLAN.md — dispatch refactor (createDispatch + 8 registerNub adapters); 449 tests green; DISPATCH-01/02/03 satisfied
-last_updated: "2026-04-17T20:35:02.714Z"
+last_updated: "2026-04-17T20:38:17.549Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
@@ -25,8 +25,8 @@ See: .planning/PROJECT.md (updated 2026-04-17)
 
 ## Current Position
 
-Phase: 14 (dispatch-refactor) — EXECUTING
-Plan: 1 of 1
+Phase: 15
+Plan: Not started
 Status: Phase complete — ready for verification
 Last activity: 2026-04-17
 
