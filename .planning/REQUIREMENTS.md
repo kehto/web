@@ -58,8 +58,8 @@ Migrate legacy napplets to `@napplet/sdk`; expand with single-purpose napplets u
 Triage legacy E2E specs; add NIP-5D-canonical golden-path specs; both test layers green.
 
 - [x] **E2E-01**: Obsolete specs deleted from `tests/e2e/`: `auth-handshake.spec.ts`, `auth.spec.ts`, `signer-delegation.spec.ts`, `acl-matrix-signer.spec.ts`; any other spec that references `window.nostr`, `signer-service`, `BusKind`, or kind 29001/29002 injection.
-- [ ] **E2E-02**: `@playwright/test` upgraded to `^1.54.0` (minimum); specs use `page.consoleMessages()` / `page.pageErrors()` / `consoleMessage.timestamp()` for console + error capture per-spec.
-- [ ] **E2E-03**: `playwright.config.ts` runs an array `webServer` — harness at `:4173` (existing) + demo at `:4174` (new). `turbo.json` adds a `build:napplets` pipeline task so `pnpm test:build` builds napplet dists before Playwright runs.
+- [x] **E2E-02**: `@playwright/test` upgraded to `^1.54.0` (minimum); specs use `page.consoleMessages()` / `page.pageErrors()` / `consoleMessage.timestamp()` for console + error capture per-spec.
+- [x] **E2E-03**: `playwright.config.ts` runs an array `webServer` — harness at `:4173` (existing) + demo at `:4174` (new). `turbo.json` adds a `build:napplets` pipeline task so `pnpm test:build` builds napplet dists before Playwright runs.
 - [ ] **E2E-04**: Harness driver API (`tests/e2e/harness/harness.ts`) extended with NIP-5D envelope helpers: `__injectEnvelope__`, `__getNubMessage__`, `__getServiceNames__`, `__registerService__`, `__unregisterService__`, `__getNotifications__`, `__setIdentityPubkey__`. All helpers return structured-clone-safe primitives.
 - [ ] **E2E-05**: `waitForNappletReady(page, frameSelector)` helper exists and is used by every frame-touching spec; canonical `beforeEach` fixture (`goto('/') → __aclClear__() → __clearLocalStorage__()`) is shared across all ACL-touching specs; `page.reload()` forbidden in specs that touch ACL state.
 - [ ] **E2E-06**: Layer-B demo-surface specs green: `demo-boot`, `demo-node-inspector`, `demo-debugger`, `demo-service-toggle`, `demo-notification-service` (migrated).
@@ -130,8 +130,8 @@ No `changeset publish` — that is deferred until `@napplet/core` publishes to n
 | NAP-08 | Phase 20 | Pending |
 | NAP-09 | Phase 20 | Pending |
 | E2E-01 | Phase 16 | Complete |
-| E2E-02 | Phase 16 | Pending |
-| E2E-03 | Phase 16 | Pending |
+| E2E-02 | Phase 16 | Complete |
+| E2E-03 | Phase 16 | Complete |
 | E2E-04 | Phase 16 | Pending |
 | E2E-05 | Phase 16 | Pending |
 | E2E-06 | Phase 17 | Pending |
