@@ -106,7 +106,8 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
   1. @kehto/runtime constructs its dispatcher via `createDispatch()` imported from `@napplet/core` — no local dispatcher class remains.
   2. All eight nub domain handlers (identity, ifc, keys, media, notify, relay, storage, theme) are registered through `registerNub()` at runtime startup.
   3. The inbound message path in `runtime.ts` contains no domain-specific `switch` or `if (type === …)` branches for NUB messages; routing delegates entirely to `dispatch()`.
-**Plans**: TBD
+**Plans**: 1 plan
+  - [ ] 14-01-PLAN.md — Replace NUB domain switch with createDispatch + 8 registerNub adapters (DISPATCH-01, DISPATCH-02, DISPATCH-03)
 
 ### Phase 15: Milestone Validation & Release Prep
 **Goal**: Prove the milestone is shippable — every existing test passes against the new peer-dep set, and every republished kehto package has a changeset.
@@ -128,5 +129,5 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
 | 11. Nub Peer Deps & Type Imports | 2/2 | Complete    | 2026-04-17 |
 | 12. Shell Conformance & Seven-Nub Coverage | 11/11 | Complete    | 2026-04-17 |
 | 13. Theme Nub Implementation | 2/2 | Complete    | 2026-04-17 |
-| 14. Dispatch Refactor | 0/TBD | Not started | - |
+| 14. Dispatch Refactor | 0/1 | Not started | - |
 | 15. Milestone Validation & Release Prep | 0/TBD | Not started | - |
