@@ -7,6 +7,8 @@
  * nip04.encrypt, nip04.decrypt, nip44.encrypt, nip44.decrypt.
  */
 
+// DRIFT-SVC-01 — Phase 12: migrate getPublicKey/getRelays to identity-service; DELETE signEvent, nip04.encrypt/decrypt, nip44.encrypt/decrypt (shell-mediated via relay.publishEncrypted)
+
 import type { NappletMessage, NostrEvent } from '@napplet/core';
 import type { ServiceHandler, Signer } from '@kehto/runtime';
 

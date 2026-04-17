@@ -16,7 +16,7 @@ import type { Capability } from './core-compat.js';
 import { BusKind, ALL_CAPABILITIES } from './core-compat.js';
 
 // NUB message types — types-only imports from @napplet/nub-* peer deps (v1.2).
-// Phase 11-02 / DRIFT-CORE-05: replaces hand-copied `msg as any` castings with real
+// Phase 11-02 / DRIFT-CORE-05: replaces hand-copied widening casts with real
 // upstream unions. Phase 12 handler rewrites will narrow per-branch (DRIFT-RT-08/09).
 import type { StorageMessage } from '@napplet/nub-storage';
 import type { IfcMessage } from '@napplet/nub-ifc';
@@ -627,6 +627,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     }
 
     // Signer service takes priority if registered
+    // DRIFT-RT-10 — Phase 12: remove signer service-registry branch (tied to DRIFT-RT-07 handleSignerMessage deletion)
     const signerService = serviceRegistry['signer'];
     if (signerService) {
       signerService.handleMessage(windowId, msg, (resp: NappletMessage) => {
@@ -771,6 +772,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
 
     switch (domain) {
       case 'relay':   return handleRelayMessage(windowId, envelope);
+      // DRIFT-RT-06 — Phase 12: remove case 'signer'; canonical NIP-5D has no signer domain (split into identity + shell-internal signing)
       case 'signer':  return handleSignerMessage(windowId, envelope);
       case 'storage': return handleStorageMessage(windowId, envelope);
       case 'ifc':     return handleIfcMessage(windowId, envelope);

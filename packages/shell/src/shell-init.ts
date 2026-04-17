@@ -13,6 +13,9 @@
  *    bundling @napplet/shim.
  */
 
+// DRIFT-SHELL-01 — Phase 12: delete generateNostrBootstrap() and all window.nostr injection; canonical NIP-5D forbids window.nostr in napplet iframes
+// DRIFT-SHELL-03 — Phase 12: signing moves into shell-owned relay-publish paths (relay.publishEncrypted); remove signer postMessage surface
+
 import type { ShellAdapter, ShellCapabilities } from './types.js';
 
 /**
@@ -39,6 +42,8 @@ import type { ShellAdapter, ShellCapabilities } from './types.js';
  * // caps.sandbox => []
  * ```
  */
+// DRIFT-SHELL-02 — Phase 12: route sandbox perms through 'perm:<permission>' namespace; bare names kept only for NUB-capability lookups
+// DRIFT-SHELL-04 — Phase 12: replace ['signer', 'storage', 'ifc'] with canonical 8-domain list ['relay','identity','storage','ifc','theme','keys','media','notify']
 export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
   const nubs: string[] = ['signer', 'storage', 'ifc'];
   // relay is conditional on relayPool being provided

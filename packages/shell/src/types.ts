@@ -226,6 +226,7 @@ export interface AclCheckEvent {
  * Used by window.napplet.shell.supports() for synchronous capability queries.
  */
 export interface ShellCapabilities {
+  // DRIFT-SHELL-04 — Phase 12: update ShellCapabilities.nubs JSDoc to canonical 8-domain set (relay/identity/storage/ifc/theme/keys/media/notify)
   /** NUB domain prefixes the shell handles (e.g., 'relay', 'signer', 'storage', 'ifc'). */
   nubs: string[];
   /** Sandbox permissions derived from iframe sandbox attribute tokens (e.g., 'popups', 'modals'). */

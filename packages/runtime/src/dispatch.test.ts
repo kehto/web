@@ -562,6 +562,7 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect((err as any).error).toBeDefined();
     });
 
+    // DRIFT-RT-06 — Phase 12: replace with identity.getPublicKey test once handleSignerMessage is deleted
     it('signer.getPublicKey bypasses ACL (no capability required)', () => {
       // Even with napplet blocked, getPublicKey should pass ACL (senderCap is null)
       // but fail because no signer is configured

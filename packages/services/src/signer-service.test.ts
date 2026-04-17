@@ -5,6 +5,8 @@
  * inputs and expect typed result/error responses.
  */
 
+// DRIFT-SVC-07 — Phase 12: migrate getPublicKey/getRelays cases to identity-service.test.ts; delete signEvent/nip04/nip44 cases (rationale: no napplet-visible signing in canonical NIP-5D)
+
 declare function setTimeout(cb: () => void, ms?: number): unknown;
 
 import { describe, it, expect } from 'vitest';
