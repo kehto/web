@@ -28,9 +28,9 @@ Align @kehto with the **canonical NIP-5D spec** (maintained at `https://github.c
 
 Driven by spec deltas in the canonical NIP-5D.
 
-- [ ] **SH-C01**: @kehto/shell does **NOT** provide `window.nostr` to napplet iframes (reverses v1.1 `SH-I02`). Any `window.nostr` injection code in the shell-side bridge is removed; tests asserting injection are deleted or replaced.
+- [x] **SH-C01**: @kehto/shell does **NOT** provide `window.nostr` to napplet iframes (reverses v1.1 `SH-I02`). Any `window.nostr` injection code in the shell-side bridge is removed; tests asserting injection are deleted or replaced.
 - [ ] **SH-C02**: `shell.supports()` uses the `perm:<permission>` namespace for sandbox permissions (e.g., `shell.supports('perm:popups')` replaces `shell.supports('popups')`). NUB-capability lookups retain the bare name.
-- [ ] **SH-C03**: @kehto/shell mediates signing and encryption via `relay.publish` / `relay.publishEncrypted` — napplets have no code path that exposes raw signing keys or plaintext of encrypted payloads.
+- [x] **SH-C03**: @kehto/shell mediates signing and encryption via `relay.publish` / `relay.publishEncrypted` — napplets have no code path that exposes raw signing keys or plaintext of encrypted payloads.
 
 ## Category 3: NUB Package Adoption (NUB)
 

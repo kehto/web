@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — NIP-5D Conformance & Full NUB Coverage
-status: verifying
-stopped_at: Completed 11-02-PLAN.md — Phase 11 ready for verification
-last_updated: "2026-04-17T14:27:05.703Z"
+status: executing
+stopped_at: Completed 12-01-PLAN.md — SH-C01 satisfied, SH-C03 partial
+last_updated: "2026-04-17T18:50:09.253Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 15
+  completed_plans: 5
   percent: 100
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-17)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 11 — nub-peer-deps-type-imports
+**Current focus:** Phase 12 — shell-conformance-seven-nub-coverage
 
 ## Current Position
 
-Phase: 12
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 12 (shell-conformance-seven-nub-coverage) — EXECUTING
+Plan: 2 of 11
+Status: Ready to execute
 Last activity: 2026-04-17
 
 Progress: [██████████] 100% (Phase 10 plans complete — v1.2 overall 1/6 phases)
@@ -64,6 +64,7 @@ Progress: [██████████] 100% (Phase 10 plans complete — v1.
 | Phase 10 P02 | 18min | 2 tasks | 1 files |
 | Phase 11 P01 | 3min | 3 tasks | 6 files |
 | Phase 11 P02 | 11min | 3 tasks | 17 files |
+| Phase 12 P01 | 3 min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -91,6 +92,9 @@ Recent decisions affecting current work (full log in PROJECT.md):
 - [Phase 11]: Added DRIFT-CORE-06 — Phase 11-deviation compat shim (packages/runtime/src/core-compat.ts) to restore legacy @napplet/core exports (Capability, BusKind, ALL_CAPABILITIES, DESTRUCTIVE_KINDS, REPLAY_WINDOW_SECONDS, ServiceDescriptor, AUTH_KIND, SHELL_BRIDGE_URI, PROTOCOL_VERSION, TOPICS.STATE_*) removed in napplet v0.2.0+. Slated for deletion in Phase 12/14.
 - [Phase 11]: Cross-package compat re-exports route through @kehto/runtime barrel — shell + services migrate @napplet/core imports to @kehto/runtime with a single import swap rather than duplicating shims per package.
 - [Phase 11]: Widen-via-intersection pattern (as unknown as NubBase & { subId?: ...; filters?: ... }) for handleRelayMessage/handleIfcMessage — dispatch cleaves by sub-action string rather than msg.type discriminant, so direct union narrowing requires Phase 12 handler rewrites. Transitional pattern annotated with DRIFT-RT-08/09 widening markers.
+- [Phase 12]: Hard-deleted generateNostrBootstrap; canonical 8-domain nub list replaces signer/storage/ifc
+- [Phase 12]: Source-text regression tests (readFileSync + regex) established as pattern for canonical-spec posture enforcement
+- [Phase 12]: vitest include pattern widened to packages/*/tests/** — establishes src/tests separation as a valid layout for future plans
 
 ### Blockers/Concerns
 
@@ -99,6 +103,6 @@ Recent decisions affecting current work (full log in PROJECT.md):
 
 ## Session Continuity
 
-Last session: 2026-04-17T14:18:52.399Z
-Stopped at: Completed 11-02-PLAN.md — Phase 11 ready for verification
+Last session: 2026-04-17T18:50:09.250Z
+Stopped at: Completed 12-01-PLAN.md — SH-C01 satisfied, SH-C03 partial
 Resume: Run `/gsd:plan-phase 10` to begin Spec Conformance Audit.
