@@ -78,8 +78,8 @@ export type DemoProtocolPath =
   | 'ipc-receive'
   | 'state-read'
   | 'state-write'
-  | 'signer-request'
-  | 'signer-response';
+  | 'identity-request'
+  | 'relay-publish-signed';
 
 export interface DemoPathAuditEntry {
   path: DemoProtocolPath;
@@ -168,16 +168,16 @@ export const DEMO_PROTOCOL_PATHS: DemoPathAuditEntry[] = [
     explanation: 'shell:state-set, remove, and clear topics require state write permission.',
   },
   {
-    path: 'signer-request',
-    capability: 'sign:event',
+    path: 'identity-request',
+    capability: 'identity:read',
     direction: 'napplet->runtime',
-    explanation: 'Kind 29001 signer requests are checked as sign:event before service dispatch.',
+    explanation: 'identity.getPublicKey reads flow through ShellAdapter.auth.getSigner; the shell signs relay.publish envelopes internally, not via a separate signer service.',
   },
   {
-    path: 'signer-response',
-    capability: 'sign:event',
+    path: 'relay-publish-signed',
+    capability: 'relay:write',
     direction: 'runtime->napplet',
-    explanation: 'Signer responses come back from the configured signer service after an allowed request.',
+    explanation: 'relay.publish envelopes are signed by the shell-internal signer before being handed to the relay pool; napplets never see the signing step.',
   },
 ];
 

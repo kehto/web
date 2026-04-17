@@ -1,15 +1,14 @@
 /**
- * signer-demo.ts -- Mock signer for demonstrating NIP-07 proxy delegation.
+ * signer-demo.ts — Mock ephemeral signer for the demo host.
  *
- * Provides a mock signer that the shell's AuthHooks.getSigner() returns.
- * The demo host now registers a signer service, and that service delegates
- * to this mock signer through runtime hooks. The hook remains available as a
- * fallback path if the service is removed, but the demo should label that
- * runtime fallback explicitly instead of implying it is the primary topology.
+ * Provides a demo keypair for `ShellAdapter.auth.getSigner`. The shell
+ * consumes this signer internally to sign `relay.publish` envelopes per
+ * NIP-5D — napplets never see the signer directly (NIP-5D MUST NOT
+ * clause, see D-01 / D-02).
  *
- * The mock signer:
- * 1. Signs non-destructive kinds immediately (demonstrates sign:event flow)
- * 2. Both flows are visible in the debugger as kind 29001 request + kind 29002 response
+ * No `window.nostr`, no `signer-service`, no BusKind.SIGNER_* — all of
+ * those were removed in v1.2. Signing happens inside the shell's
+ * `relay.publish` handler, not as a separate kind 29001/29002 flow.
  */
 
 import { generateSecretKey, getPublicKey, finalizeEvent } from 'nostr-tools/pure';

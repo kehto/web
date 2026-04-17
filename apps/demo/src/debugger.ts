@@ -40,8 +40,8 @@ export const DEBUGGER_PATH_LABELS: DemoProtocolPath[] = [
   'ipc-receive',
   'state-read',
   'state-write',
-  'signer-request',
-  'signer-response',
+  'identity-request',
+  'relay-publish-signed',
 ];
 
 function extractEvent(msg: TappedMessage): Record<string, unknown> | null {
@@ -55,7 +55,7 @@ function pathFromReason(reason?: string): DemoProtocolPath | null {
   if (!reason) return null;
   if (reason.includes('state:read')) return 'state-read';
   if (reason.includes('state:write')) return 'state-write';
-  if (reason.includes('sign:event')) return 'signer-request';
+  if (reason.includes('sign:event')) return 'identity-request';
   if (reason.includes('relay:read')) return 'relay-subscribe';
   if (reason.includes('relay:write')) return 'relay-publish';
   return null;

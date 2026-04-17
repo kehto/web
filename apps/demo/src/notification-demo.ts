@@ -13,8 +13,8 @@
  */
 
 import type { Notification } from '@kehto/services';
-import { BusKind } from '@kehto/shell';
 import type { ServiceHandler } from '@kehto/shell';
+import type { NappletMessage } from '@kehto/shell';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -84,28 +84,28 @@ export function createDemoNotificationController(): DemoNotificationController {
   }
 
   /**
-   * Build an IPC_PEER event for a notifications:* topic and dispatch it
+   * Build a canonical ifc.emit envelope for a notifications:* topic and dispatch it
    * directly to the service handler, bypassing the auth check that the
    * runtime applies to napplet-originated messages. The host shell is
    * trusted and doesn't go through AUTH.
+   *
+   * Uses canonical NappletMessage envelope shape (type: 'ifc.emit', topic, payload)
+   * per D-01 — no BusKind.IPC_PEER, no kind 29003 NIP-01 arrays.
    */
-  function dispatchNotificationAction(topic: string, content: Record<string, unknown>): void {
+  function dispatchNotificationAction(topic: string, payload: Record<string, unknown>): void {
     if (!_serviceHandler) {
       console.warn('[notification-demo] service not connected — cannot dispatch', topic);
       return;
     }
-    const event = {
+    const envelope: NappletMessage = {
+      type: 'ifc.emit',
       id: `notif-host-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      pubkey: '__demo-host__',
-      created_at: Math.floor(Date.now() / 1000),
-      kind: BusKind.IPC_PEER,
-      tags: [['t', topic]],
-      content: JSON.stringify(content),
-      sig: '',
-    };
+      topic,
+      payload,
+    } as NappletMessage & { topic: string; payload: Record<string, unknown> };
     // Send directly to the service handler — the onChange callback will
     // propagate state changes back to handleServiceChange.
-    _serviceHandler.handleMessage(DEMO_HOST_WINDOW_ID, ['EVENT', event], (_msg) => {
+    _serviceHandler.handleMessage(DEMO_HOST_WINDOW_ID, envelope, (_msg) => {
       // Responses from the service (e.g., notifications:created) are
       // informational in the host context — no napplet to route them to.
     });
@@ -151,16 +151,14 @@ export function createDemoNotificationController(): DemoNotificationController {
         return;
       }
       const wid = windowId ?? DEMO_HOST_WINDOW_ID;
-      const event = {
+      // Use canonical ifc.emit envelope — no BusKind.IPC_PEER, no NIP-01 arrays.
+      const envelope: NappletMessage = {
+        type: 'ifc.emit',
         id: `notif-host-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        pubkey: '__demo-host__',
-        created_at: Math.floor(Date.now() / 1000),
-        kind: BusKind.IPC_PEER,
-        tags: [['t', 'notifications:list']],
-        content: '{}',
-        sig: '',
-      };
-      _serviceHandler.handleMessage(wid, ['EVENT', event], (_msg) => {
+        topic: 'notifications:list',
+        payload: {},
+      } as NappletMessage & { topic: string; payload: Record<string, unknown> };
+      _serviceHandler.handleMessage(wid, envelope, (_msg) => {
         // notifications:listed response — host doesn't need to forward it
       });
     },

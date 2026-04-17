@@ -29,7 +29,7 @@ export interface SignerConnectionState {
   error: string | null;
 }
 
-/** Minimal NIP-07 window.nostr interface. */
+/** NIP-07 browser-extension signer interface (read from `globalThis` during `connectNip07`; never exposed to napplets per NIP-5D MUST NOT clause D-01). */
 export interface Nip07Signer {
   getPublicKey(): Promise<string>;
   signEvent(event: Record<string, unknown>): Promise<Record<string, unknown>>;
@@ -71,7 +71,7 @@ function _setState(next: SignerConnectionState): void {
 }
 
 /**
- * Build a Signer-compatible adapter over window.nostr (NIP-07).
+ * Build a Signer-compatible adapter over the NIP-07 browser-extension signer.
  * Forwards all available methods and returns null/undefined for unavailable ones.
  */
 function buildNip07Adapter(nostr: Nip07Signer): Signer {
@@ -140,15 +140,20 @@ export function recordSignerRequest(record: SignerRequestRecord): void {
  * On failure, sets the error field and clears isConnecting.
  */
 export async function connectNip07(): Promise<void> {
-  const nostr = (window as unknown as Record<string, unknown>).nostr as Nip07Signer | undefined;
-  if (!nostr || typeof nostr.getPublicKey !== 'function') {
+  // Read the NIP-07 extension signer from globalThis (standard NIP-07 discovery).
+  // This is NOT `window.nostr` exposed to napplets — the extension injects it
+  // and the shell host reads it here to build an internal Signer adapter.
+  // Per D-01/D-02: napplets never see `window.nostr`; signing flows through
+  // identity.getPublicKey + relay.publish envelopes (17-03 rewires).
+  const extensionSigner = (globalThis as unknown as Record<string, unknown>).nostr as Nip07Signer | undefined;
+  if (!extensionSigner || typeof extensionSigner.getPublicKey !== 'function') {
     _setState({ ..._state, error: 'No NIP-07 extension detected', isConnecting: false });
     return;
   }
   _setState({ ..._state, isConnecting: true, error: null });
   try {
-    const pubkey = await nostr.getPublicKey();
-    _activeSigner = buildNip07Adapter(nostr);
+    const pubkey = await extensionSigner.getPublicKey();
+    _activeSigner = buildNip07Adapter(extensionSigner);
     _setState({
       ..._state,
       method: 'nip07',

@@ -417,9 +417,9 @@ export function installActivityProjection(
     pushActivity('topology-node-acl', entry);
     pushActivity('topology-node-runtime', entry);
 
-    // Service node: signer-related messages
+    // Service node: identity/signing-related messages
     if (
-      (path === 'signer-request' || path === 'signer-response') &&
+      (path === 'identity-request' || path === 'relay-publish-signed') &&
       topology.services.includes('signer')
     ) {
       pushActivity('topology-node-service-signer', entry);
