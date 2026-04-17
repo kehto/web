@@ -73,3 +73,31 @@ export type { ConsentRequest } from '@kehto/runtime';
 // Topic constants for shell command routing
 export { TOPICS } from './topics.js';
 export type { TopicKey, TopicValue } from './topics.js';
+
+// ─── Per-domain proxies (Plan 12-11) ────────────────────────────────────────
+// Canonical shell-side composition seams for the five non-storage NUB
+// domains. createShellBridge() does NOT wire these by default — the runtime
+// already owns 8-domain dispatch. Host apps may compose these proxies to
+// intercept or augment napplet↔shell traffic per domain.
+export { createIdentityProxy } from './identity-proxy.js';
+export type { IdentityProxy, IdentityProxyDeps, ProxyOriginRegistry } from './identity-proxy.js';
+export { createThemeProxy } from './theme-proxy.js';
+export type { ThemeProxy, ThemeProxyDeps } from './theme-proxy.js';
+export { createKeysProxy } from './keys-proxy.js';
+export type { KeysProxy, KeysProxyDeps } from './keys-proxy.js';
+export { createMediaProxy } from './media-proxy.js';
+export type { MediaProxy, MediaProxyDeps } from './media-proxy.js';
+export { createNotifyProxy } from './notify-proxy.js';
+export type { NotifyProxy, NotifyProxyDeps } from './notify-proxy.js';
+
+// ─── Keys-forwarder (Plan 12-11, NUB-05 shell-side) ─────────────────────────
+// Host-keydown → keys.forward envelope pump. Auto-attached by
+// createShellBridge(); also exported for host apps that want to manage
+// their own forwarder instance.
+export { createKeysForwarder } from './keys-forwarder.js';
+export type {
+  KeysForwarder,
+  KeysForwarderDeps,
+  KeysForwarderOriginRegistry,
+  KeysForwarderSessionRegistry,
+} from './keys-forwarder.js';
