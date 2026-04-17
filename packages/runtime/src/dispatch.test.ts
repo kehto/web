@@ -654,4 +654,107 @@ describe('NIP-5D Envelope Dispatch', () => {
       }).not.toThrow();
     });
   });
+
+  // ─── Keys Handler (NUB-05 / Plan 12-05) ─────────────────────────────────
+  describe('keys handler', () => {
+    it('routes keys.* to registered keys service (keys.registerAction -> .result)', () => {
+      const ctx2 = createMockRuntimeAdapter();
+      const runtime2 = createRuntime(ctx2.hooks);
+      runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+
+      // Minimal ServiceHandler stub for the 'keys' domain
+      runtime2.registerService('keys', {
+        descriptor: { name: 'keys', version: '1.0.0' },
+        handleMessage(_wid, msg, send) {
+          if (msg.type === 'keys.registerAction') {
+            const m = msg as NappletMessage & { id: string; action: { id: string; defaultKey?: string } };
+            send({
+              type: 'keys.registerAction.result',
+              id: m.id,
+              actionId: m.action.id,
+              ...(m.action.defaultKey ? { binding: m.action.defaultKey } : {}),
+            } as NappletMessage);
+          }
+        },
+      });
+
+      runtime2.handleMessage(WINDOW_ID, {
+        type: 'keys.registerAction',
+        id: 'r1',
+        action: { id: 'editor.save', label: 'Save', defaultKey: 'Ctrl+S' },
+      } as NappletMessage);
+
+      const reply = findEnvelopeResponse(ctx2.sent, 'keys.registerAction.result');
+      expect(reply).toBeDefined();
+      expect((reply as any).id).toBe('r1');
+      expect((reply as any).actionId).toBe('editor.save');
+      expect((reply as any).binding).toBe('Ctrl+S');
+    });
+
+    it('fallback: keys.forward invokes hooks.hotkeys.executeHotkeyFromForward when no service registered', () => {
+      const forwardSpy: Array<Record<string, unknown>> = [];
+      const ctx2 = createMockRuntimeAdapter({
+        hotkeys: {
+          executeHotkeyFromForward(event) {
+            forwardSpy.push(event as unknown as Record<string, unknown>);
+          },
+        },
+      });
+      const runtime2 = createRuntime(ctx2.hooks);
+      runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+
+      runtime2.handleMessage(WINDOW_ID, {
+        type: 'keys.forward',
+        key: 's',
+        code: 'KeyS',
+        ctrl: true,
+        alt: false,
+        shift: false,
+        meta: false,
+      } as NappletMessage);
+
+      expect(forwardSpy).toHaveLength(1);
+      expect(forwardSpy[0]).toEqual({
+        key: 's',
+        code: 'KeyS',
+        ctrlKey: true,
+        altKey: false,
+        shiftKey: false,
+        metaKey: false,
+      });
+      // fire-and-forget — no envelope back to napplet
+      expect(ctx2.sent).toHaveLength(0);
+    });
+
+    it('fallback: keys.registerAction emits keys.registerAction.result when no service registered', () => {
+      const ctx2 = createMockRuntimeAdapter();
+      const runtime2 = createRuntime(ctx2.hooks);
+      runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+
+      runtime2.handleMessage(WINDOW_ID, {
+        type: 'keys.registerAction',
+        id: 'r2',
+        action: { id: 'viewer.zoom', label: 'Zoom', defaultKey: 'Ctrl+=' },
+      } as NappletMessage);
+
+      const reply = findEnvelopeResponse(ctx2.sent, 'keys.registerAction.result');
+      expect(reply).toBeDefined();
+      expect((reply as any).id).toBe('r2');
+      expect((reply as any).actionId).toBe('viewer.zoom');
+      expect((reply as any).binding).toBe('Ctrl+=');
+    });
+
+    it('fallback: keys.unregisterAction emits no envelope (fire-and-forget)', () => {
+      const ctx2 = createMockRuntimeAdapter();
+      const runtime2 = createRuntime(ctx2.hooks);
+      runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+
+      runtime2.handleMessage(WINDOW_ID, {
+        type: 'keys.unregisterAction',
+        actionId: 'editor.save',
+      } as NappletMessage);
+
+      expect(ctx2.sent).toHaveLength(0);
+    });
+  });
 });
