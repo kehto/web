@@ -769,6 +769,85 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     }
   }
 
+  function handleKeysMessage(windowId: string, msg: NappletMessage): void {
+    const keysService = serviceRegistry['keys'];
+    if (keysService) {
+      keysService.handleMessage(windowId, msg, (resp: NappletMessage) => {
+        hooks.sendToNapplet(windowId, resp);
+      });
+      return;
+    }
+
+    // Fallback: route keys.forward directly to hooks.hotkeys.executeHotkeyFromForward
+    // so existing hosts continue to receive forwarded hotkeys even without a registered
+    // 'keys' service. Translates wire-shape (ctrl/alt/shift/meta) -> DOM-shape
+    // (ctrlKey/altKey/shiftKey/metaKey) to match the HotkeyAdapter contract.
+    if (msg.type === 'keys.forward') {
+      const m = msg as NappletMessage & {
+        key?: string; code?: string;
+        ctrl?: boolean; alt?: boolean; shift?: boolean; meta?: boolean;
+      };
+      hooks.hotkeys.executeHotkeyFromForward({
+        key: m.key ?? '',
+        code: m.code ?? '',
+        ctrlKey: !!m.ctrl,
+        altKey: !!m.alt,
+        shiftKey: !!m.shift,
+        metaKey: !!m.meta,
+      });
+      return;
+    }
+
+    // Fallback: emit spec-correct keys.registerAction.result so napplets see a
+    // reply envelope even without a 'keys' service. Echoes the action.defaultKey
+    // as the binding hint (stub behavior — real shell-side bindings arrive later
+    // via DRIFT-SHELL-06 keys-forwarder / future shell push path).
+    if (msg.type === 'keys.registerAction') {
+      const m = msg as NappletMessage & {
+        id?: string; action?: { id: string; defaultKey?: string };
+      };
+      hooks.sendToNapplet(windowId, {
+        type: 'keys.registerAction.result',
+        id: m.id ?? '',
+        actionId: m.action?.id ?? '',
+        ...(m.action?.defaultKey ? { binding: m.action.defaultKey } : {}),
+      } as NappletMessage);
+      return;
+    }
+
+    // keys.unregisterAction: fire-and-forget per @napplet/nub-keys — nothing to emit.
+    // Unknown keys.* sub-actions: silently drop (spec-consistent with default branch).
+  }
+
+  function handleNotifyMessage(windowId: string, msg: NappletMessage): void {
+    const notifyService = serviceRegistry['notify'];
+    if (notifyService) {
+      notifyService.handleMessage(windowId, msg, (resp: NappletMessage) => {
+        hooks.sendToNapplet(windowId, resp);
+      });
+      return;
+    }
+    // Fallback: emit spec-correct result envelopes for notify.send and
+    // notify.permission.request so napplets see a reply even without a
+    // registered 'notify' service. Other actions (dismiss/badge/channel.register)
+    // are fire-and-forget per @napplet/nub-notify and produce no envelope.
+    if (msg.type === 'notify.send') {
+      const m = msg as NappletMessage & { id?: string };
+      hooks.sendToNapplet(windowId, {
+        type: 'notify.send.result',
+        id: m.id ?? '',
+        notificationId: `shell-${Date.now()}`,
+      } as NappletMessage);
+    } else if (msg.type === 'notify.permission.request') {
+      const m = msg as NappletMessage & { id?: string };
+      hooks.sendToNapplet(windowId, {
+        type: 'notify.permission.result',
+        id: m.id ?? '',
+        granted: true,
+      } as NappletMessage);
+    }
+  }
+
   // ─── Main message handler ────────────────────────────────────────────────
 
   function handleMessage(windowId: string, msg: unknown): void {
@@ -795,7 +874,9 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
       case 'relay':   return handleRelayMessage(windowId, envelope);
       // DRIFT-RT-06 — Phase 12: remove case 'signer'; canonical NIP-5D has no signer domain (split into identity + shell-internal signing)
       case 'signer':  return handleSignerMessage(windowId, envelope);
+      case 'keys':    return handleKeysMessage(windowId, envelope);
       case 'media':   return handleMediaMessage(windowId, envelope);
+      case 'notify':  return handleNotifyMessage(windowId, envelope);
       case 'storage': return handleStorageMessage(windowId, envelope);
       case 'ifc':     return handleIfcMessage(windowId, envelope);
       default:        return; // unknown domain — silently drop per NIP-5D spec
