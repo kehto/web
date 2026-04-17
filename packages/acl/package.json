@@ -18,6 +18,17 @@
     "access": "public"
   },
   "dependencies": {},
+  "peerDependencies": {
+    "@napplet/core": "^0.2.0",
+    "@napplet/nub-identity": "^0.2.0",
+    "@napplet/nub-ifc": "^0.2.0",
+    "@napplet/nub-keys": "^0.2.0",
+    "@napplet/nub-media": "^0.2.0",
+    "@napplet/nub-notify": "^0.2.0",
+    "@napplet/nub-relay": "^0.2.0",
+    "@napplet/nub-storage": "^0.2.0",
+    "@napplet/nub-theme": "^0.2.0"
+  },
   "devDependencies": {
     "tsup": "^8.5.0",
     "typescript": "^5.9.3"
