@@ -20,7 +20,7 @@ Align @kehto with the **canonical NIP-5D spec** (maintained at `https://github.c
 
 ## Category 1: NIP-5D Spec Conformance (SPEC)
 
-- [ ] **SPEC-01**: kehto repo carries an authoritative reference to the current NIP-5D spec (local copy at `specs/NIP-5D.md`, synced from the canonical source `https://github.com/dskvr/nips/tree/nip/5d`)
+- [x] **SPEC-01**: kehto repo carries an authoritative reference to the current NIP-5D spec (local copy at `specs/NIP-5D.md`, synced from the canonical source `https://github.com/dskvr/nips/tree/nip/5d`)
 - [ ] **SPEC-02**: Cross-package audit documents every NIP-5D requirement not yet satisfied by @kehto/runtime, @kehto/shell, @kehto/acl, or @kehto/services (grouped by package; includes nub-package message surface coverage)
 - [ ] **SPEC-03**: All drift items identified by SPEC-02 that are not covered by SHELL/NUB/DISPATCH-specific requirements are resolved in code
 

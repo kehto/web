@@ -47,7 +47,9 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
   1. A contributor can open kehto's repo and find the canonical NIP-5D spec at `specs/NIP-5D.md`, with README pointing at the upstream source `https://github.com/dskvr/nips/tree/nip/5d`.
   2. A written audit document lists every spec requirement that is not yet satisfied by @kehto/runtime, @kehto/shell, @kehto/acl, or @kehto/services, grouped by package. The audit explicitly covers: `window.nostr` (MUST NOT be provided), `shell.supports('perm:*')` naming, shell-mediated signing/encryption, and every message type exported by all 8 `@napplet/nub-*` packages.
   3. Every drift item in the audit has a concrete owning package, a one-line remediation note, and a Target Phase (12/13/14) so downstream plans can be generated mechanically.
-**Plans**: TBD
+**Plans**: 2 plans
+  - [x] 10-01-PLAN.md — Verify canonical NIP-5D spec and README pointer (SPEC-01)
+  - [ ] 10-02-PLAN.md — Produce cross-package drift audit at docs/v1.2-NIP-5D-AUDIT.md (SPEC-02)
 
 ### Phase 11: Nub Peer Deps & Type Imports
 **Goal**: Kehto consumes napplet's new package graph — `@napplet/core@^0.2.0` plus all eight `@napplet/nub-*` packages — and speaks their types directly instead of local duplicates.
@@ -108,7 +110,7 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 10. Spec Conformance Audit | 0/TBD | Not started | - |
+| 10. Spec Conformance Audit | 1/2 | In Progress|  |
 | 11. Nub Peer Deps & Type Imports | 0/TBD | Not started | - |
 | 12. Shell Conformance & Seven-Nub Coverage | 0/TBD | Not started | - |
 | 13. Theme Nub Implementation | 0/TBD | Not started | - |
