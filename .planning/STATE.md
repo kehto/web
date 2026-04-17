@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — NIP-5D Conformance & Full NUB Coverage
 status: executing
-stopped_at: Completed 12-06-PLAN.md — NUB-06 satisfied, DRIFT-RT-03 + DRIFT-SVC-04 closed
-last_updated: "2026-04-17T19:02:32.655Z"
+stopped_at: Completed 12-07-PLAN.md — NUB-07 + DRIFT-RT-04/SVC-05 closed; notify dispatch + stub service shipped
+last_updated: "2026-04-17T19:05:08.792Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 15
-  completed_plans: 7
+  completed_plans: 9
   percent: 100
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-17)
 ## Current Position
 
 Phase: 12 (shell-conformance-seven-nub-coverage) — EXECUTING
-Plan: 3 of 11
+Plan: 5 of 11
 Status: Ready to execute
 Last activity: 2026-04-17
 
@@ -67,6 +67,8 @@ Progress: [██████████] 100% (Phase 10 plans complete — v1.
 | Phase 12 P01 | 3 min | 2 tasks | 5 files |
 | Phase 12 P02 | 3min | 2 tasks | 3 files |
 | Phase 12 P06 | 3min | 2 tasks | 4 files |
+| Phase 12 P05 | 4min | 2 tasks | 7 files |
+| Phase 12 P07 | 5 min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -102,6 +104,8 @@ Recent decisions affecting current work (full log in PROJECT.md):
 - [Phase 12]: Plan 12-06: media-service dispatches on full message.type literal (not action-suffix) to avoid dotIdx.slice pitfall with multi-segment types like 'media.session.create'
 - [Phase 12]: Plan 12-06: media-service coexists with legacy audio-service.ts — audio-service continues tracking audio:* ifc topics; media-service is the canonical nub-media NIP-5D envelope path
 - [Phase 12]: Plan 12-06: runtime fallback emits media.session.create.result even when no media service registered — guarantees napplets receive a reply envelope for the one media.* request type that expects one
+- [Phase 12]: Plan 12-05: Runtime fallback-handler pattern established — case 'keys': delegates to serviceRegistry['keys'] with inline spec-correct fallback envelopes (keys.registerAction.result, hotkey forwarding) so napplets never hang even when no service is registered. Same pattern expected for identity/media/notify handlers.
+- [Phase 12]: Plan 12-05: Wire<->DOM field translation (ctrl/alt/shift/meta <-> ctrlKey/altKey/shiftKey/metaKey) happens symmetrically in keys-service.ts AND runtime fallback so the existing HotkeyAdapter contract stays stable; host shells don't need to change their HotkeyAdapter shape.
 
 ### Blockers/Concerns
 
@@ -110,6 +114,6 @@ Recent decisions affecting current work (full log in PROJECT.md):
 
 ## Session Continuity
 
-Last session: 2026-04-17T19:02:32.652Z
-Stopped at: Completed 12-06-PLAN.md — NUB-06 satisfied, DRIFT-RT-03 + DRIFT-SVC-04 closed
+Last session: 2026-04-17T19:05:08.789Z
+Stopped at: Completed 12-07-PLAN.md — NUB-07 + DRIFT-RT-04/SVC-05 closed; notify dispatch + stub service shipped
 Resume: Run `/gsd:plan-phase 10` to begin Spec Conformance Audit.

@@ -10,11 +10,11 @@
  * current napplet workspace without changing behavior.
  *
  * DRIFT-CORE-06 — Phase 11-deviation (tracked in 11-02-SUMMARY.md deviation log):
- *   All identifiers here are slated for removal. Phase 12 replaces the v1.1 NIP-01
- *   code paths that consume them (see DRIFT-RT-06..10, DRIFT-ACL-05..08); the
- *   canonical NIP-5D surface has no BusKind / ALL_CAPABILITIES / DESTRUCTIVE_KINDS.
- *   Phase 14 will delete this file once the switch dispatch is rewritten against
- *   `@napplet/core` dispatch + nub unions (DRIFT-CORE-01, DRIFT-CORE-02).
+ *   All identifiers here are slated for removal. Phase 12 replaced the v1.1 NIP-01
+ *   signer/ACL code paths that consumed them; the canonical NIP-5D surface has no
+ *   BusKind / ALL_CAPABILITIES / DESTRUCTIVE_KINDS. Phase 14 will delete this file
+ *   once the switch dispatch is rewritten against `@napplet/core` dispatch + nub
+ *   unions (DRIFT-CORE-01, DRIFT-CORE-02).
  *
  * DO NOT add new consumers. Phase 12+ handler code must import from the relevant
  * `@napplet/nub-*` package instead.
@@ -43,9 +43,10 @@ export const ALL_CAPABILITIES: readonly Capability[] = [
   'state:read', 'state:write',
 ] as const;
 
-// DRIFT-CORE-06 — Phase 11-deviation: kinds that require user consent before signing.
-// Phase 12 deletes alongside handleSignerMessage (DRIFT-RT-07). v1.1 callers use
-// `.has()` — keep Set-shaped to avoid widening their call sites in Phase 11.
+// DRIFT-CORE-06 — Phase 11-deviation: kinds that required user consent before signing
+// in v1.1. NIP-5D has no napplet-visible signing surface (see identity-service.ts
+// migration note); this constant is retained only for backward compat with legacy
+// v1.1 NIP-01 call sites. Phase 14 removes it alongside the rest of this shim.
 export const DESTRUCTIVE_KINDS: ReadonlySet<number> = new Set([0, 3, 5, 10002]);
 
 // DRIFT-CORE-06 — Phase 11-deviation: replay detection window; v1.1 NIP-01 semantic.
@@ -62,10 +63,10 @@ export interface ServiceDescriptor {
 }
 
 // DRIFT-CORE-06 — Phase 11-deviation: BusKind kind constants used by v1.1 NIP-01
-// dispatch paths (service-discovery, shell commands, state responses). Phase 12
-// deletes SIGNER_REQUEST (DRIFT-RT-06/07); other kinds (IPC_PEER, HOTKEY_FORWARD,
-// SERVICE_DISCOVERY) remain internal for the v1.1 shell:* topic path until
-// Phase 12 migrates to NUB envelopes.
+// dispatch paths (service-discovery, shell commands, state responses). SIGNER_REQUEST
+// is retained only for legacy v1.1 call sites; the canonical NIP-5D path has no
+// napplet-visible signer surface. IPC_PEER, HOTKEY_FORWARD, SERVICE_DISCOVERY remain
+// internal for the v1.1 shell:* topic path until Phase 14 deletes this shim.
 export const BusKind = {
   IPC_PEER: 29000,
   HOTKEY_FORWARD: 29001,

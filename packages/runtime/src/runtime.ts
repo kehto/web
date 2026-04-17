@@ -610,89 +610,56 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     }
   }
 
-  // DRIFT-RT-07 — Phase 12: delete handleSignerMessage; encryption primitives become private helpers called by handleRelayMessage for relay.publishEncrypted
-  function handleSignerMessage(windowId: string, msg: NappletMessage): void {
-    // DRIFT-RT-07 — Phase 12: handleSignerMessage deleted; signer domain dissolved into identity + relay.publishEncrypted
-    const m = msg as any;
-    const id = (m.id as string) ?? '';
-    // Extract action: for 'signer.nip04.encrypt' -> 'nip04.encrypt'
-    const action = msg.type.split('.').slice(1).join('.');
-
-    function sendError(error: string): void {
-      hooks.sendToNapplet(windowId, { type: `${msg.type}.error`, id, error } as NappletMessage);
-    }
-
-    function sendResult(payload: Record<string, unknown>): void {
-      hooks.sendToNapplet(windowId, { type: `${msg.type}.result`, id, ...payload } as NappletMessage);
-    }
-
-    // Signer service takes priority if registered
-    // DRIFT-RT-10 — Phase 12: remove signer service-registry branch (tied to DRIFT-RT-07 handleSignerMessage deletion)
-    const signerService = serviceRegistry['signer'];
-    if (signerService) {
-      signerService.handleMessage(windowId, msg, (resp: NappletMessage) => {
+  function handleIdentityMessage(windowId: string, msg: NappletMessage): void {
+    // If a host-supplied identity service is registered, route to it.
+    const identityService = serviceRegistry['identity'];
+    if (identityService) {
+      identityService.handleMessage(windowId, msg, (resp: NappletMessage) => {
         hooks.sendToNapplet(windowId, resp);
       });
       return;
     }
 
-    // Internal signer fallback
-    const maybeSigner = hooks.auth.getSigner();
-    if (!maybeSigner) { sendError('no signer configured'); return; }
-    const signer = maybeSigner;
+    // No identity service registered — fall back to hooks.auth.getSigner() for the
+    // two read-only identity-mapping cases (getPublicKey/getRelays) so existing hosts
+    // do not break. The other 7 actions return spec-correct default/empty payloads
+    // so napplets always receive a result envelope rather than a silent drop.
+    const id = (msg as NappletMessage & { id?: string }).id ?? '';
+    const action = msg.type.slice('identity.'.length);
+    const signer = hooks.auth.getSigner();
 
-    function dispatch(eventToSign: NostrEvent | null): void {
-      const signerPromise: Promise<unknown> = (() => {
-        switch (action) {
-          case 'getPublicKey': return Promise.resolve(signer.getPublicKey?.());
-          case 'signEvent': return eventToSign ? (signer.signEvent?.(eventToSign) ?? Promise.resolve(null)) : Promise.resolve(null);
-          case 'getRelays': return Promise.resolve(signer.getRelays?.() ?? {});
-          case 'nip04.encrypt': return signer.nip04?.encrypt(m.pubkey ?? '', m.plaintext ?? '') ?? Promise.resolve('');
-          case 'nip04.decrypt': return signer.nip04?.decrypt(m.pubkey ?? '', m.ciphertext ?? '') ?? Promise.resolve('');
-          case 'nip44.encrypt': return signer.nip44?.encrypt(m.pubkey ?? '', m.plaintext ?? '') ?? Promise.resolve('');
-          case 'nip44.decrypt': return signer.nip44?.decrypt(m.pubkey ?? '', m.ciphertext ?? '') ?? Promise.resolve('');
-          default: return Promise.reject(new Error(`Unknown signer method: ${action}`));
-        }
-      })();
-
-      signerPromise.then((result) => {
-        switch (action) {
-          case 'getPublicKey':
-            sendResult({ pubkey: result as string }); break;
-          case 'signEvent':
-            sendResult({ event: result as NostrEvent }); break;
-          case 'getRelays':
-            sendResult({ relays: result as Record<string, { read: boolean; write: boolean }> }); break;
-          case 'nip04.encrypt':
-          case 'nip44.encrypt':
-            sendResult({ ciphertext: result as string }); break;
-          case 'nip04.decrypt':
-          case 'nip44.decrypt':
-            sendResult({ plaintext: result as string }); break;
-          default:
-            sendResult({ value: result }); break;
-        }
-      }).catch((err: unknown) => {
-        sendError((err as Error).message ?? 'signing failed');
-      });
+    function sendError(error: string): void {
+      hooks.sendToNapplet(windowId, { type: `${msg.type}.error`, id, error } as NappletMessage);
+    }
+    function sendResult(payload: Record<string, unknown>): void {
+      hooks.sendToNapplet(windowId, { type: `${msg.type}.result`, id, ...payload } as NappletMessage);
     }
 
-    // Consent check for destructive signing kinds
-    if (action === 'signEvent' && m.event) {
-      const eventToSign = m.event as NostrEvent;
-      if (aclState.requiresPrompt(eventToSign.kind) && _consentHandler) {
-        new Promise<boolean>((resolve) => {
-          _consentHandler!({ windowId, pubkey: '', event: eventToSign, resolve });
-        }).then((allowed) => {
-          if (!allowed) { sendError('user rejected'); return; }
-          dispatch(eventToSign);
-        }).catch(() => { sendError('consent check failed'); });
+    switch (action) {
+      case 'getPublicKey': {
+        if (!signer) { sendError('no signer configured'); return; }
+        Promise.resolve(signer.getPublicKey?.())
+          .then((pubkey) => sendResult({ pubkey }))
+          .catch((err: unknown) => sendError((err as Error)?.message ?? 'getPublicKey failed'));
         return;
       }
-      dispatch(eventToSign);
-      return;
+      case 'getRelays': {
+        if (!signer) { sendError('no signer configured'); return; }
+        Promise.resolve(signer.getRelays?.() ?? {})
+          .then((relays) => sendResult({ relays }))
+          .catch((err: unknown) => sendError((err as Error)?.message ?? 'getRelays failed'));
+        return;
+      }
+      case 'getProfile': sendResult({ profile: null }); return;
+      case 'getFollows': sendResult({ pubkeys: [] }); return;
+      case 'getList':    sendResult({ entries: [] }); return;
+      case 'getZaps':    sendResult({ zaps: [] }); return;
+      case 'getMutes':   sendResult({ pubkeys: [] }); return;
+      case 'getBlocked': sendResult({ pubkeys: [] }); return;
+      case 'getBadges':  sendResult({ badges: [] }); return;
+      default:
+        sendError(`Unknown identity action: ${action}`);
     }
-    dispatch(null);
   }
 
   function handleStorageMessage(windowId: string, msg: NappletMessage): void {
@@ -871,15 +838,14 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     }
 
     switch (domain) {
-      case 'relay':   return handleRelayMessage(windowId, envelope);
-      // DRIFT-RT-06 — Phase 12: remove case 'signer'; canonical NIP-5D has no signer domain (split into identity + shell-internal signing)
-      case 'signer':  return handleSignerMessage(windowId, envelope);
-      case 'keys':    return handleKeysMessage(windowId, envelope);
-      case 'media':   return handleMediaMessage(windowId, envelope);
-      case 'notify':  return handleNotifyMessage(windowId, envelope);
-      case 'storage': return handleStorageMessage(windowId, envelope);
-      case 'ifc':     return handleIfcMessage(windowId, envelope);
-      default:        return; // unknown domain — silently drop per NIP-5D spec
+      case 'relay':    return handleRelayMessage(windowId, envelope);
+      case 'identity': return handleIdentityMessage(windowId, envelope);
+      case 'keys':     return handleKeysMessage(windowId, envelope);
+      case 'media':    return handleMediaMessage(windowId, envelope);
+      case 'notify':   return handleNotifyMessage(windowId, envelope);
+      case 'storage':  return handleStorageMessage(windowId, envelope);
+      case 'ifc':      return handleIfcMessage(windowId, envelope);
+      default:         return; // unknown domain — silently drop per NIP-5D spec
     }
   }
 
