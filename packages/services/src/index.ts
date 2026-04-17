@@ -57,3 +57,11 @@ export type { CacheServiceOptions } from './cache-service.js';
 // ─── Coordinated Relay (composite service) ────────────────────────────────
 export { createCoordinatedRelay } from './coordinated-relay.js';
 export type { CoordinatedRelayOptions } from './coordinated-relay.js';
+
+// ─── Keys Service (NIP-5D keys NUB — stub) ────────────────────────────────
+export { createKeysService } from './keys-service.js';
+export type { KeysServiceOptions } from './keys-service.js';
+
+// ─── Media Service (NIP-5D media NUB — stub) ──────────────────────────────
+export { createMediaService } from './media-service.js';
+export type { MediaServiceOptions } from './media-service.js';
