@@ -21,9 +21,9 @@
  * `@napplet/nub-*` package or from `@kehto/acl/capabilities` instead.
  */
 
-// DRIFT-CORE-06 — Capability string union. Phase 12 content parity with
-// @kehto/acl/capabilities ALL_CAPABILITIES (signer caps removed, 7 v1.2
-// additions). Shim removal scheduled for Phase 14.
+// DRIFT-CORE-06 — Capability string union. Content parity with
+// @kehto/acl/capabilities ALL_CAPABILITIES (Plan 12-10 alignment: signer
+// caps removed, 7 v1.2 additions). Shim removal scheduled for Phase 14.
 export type Capability =
   | 'relay:read'
   | 'relay:write'
