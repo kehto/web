@@ -1023,6 +1023,36 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     }
   }
 
+  // Canonical theme fallback — keep values synchronized with
+  // @kehto/services's DEFAULT_THEME constant (packages/services/src/theme-service.ts).
+  // Not imported from @kehto/services to avoid a runtime->services dependency
+  // (services already depends on runtime; one-way only).
+  const THEME_FALLBACK_DEFAULT = {
+    colors: { background: '#0a0a0a', text: '#e0e0e0', primary: '#7aa2f7' },
+  } as const;
+
+  function handleThemeMessage(windowId: string, msg: NappletMessage): void {
+    const themeService = serviceRegistry['theme'];
+    if (themeService) {
+      themeService.handleMessage(windowId, msg, (resp: NappletMessage) => {
+        hooks.sendToNapplet(windowId, resp);
+      });
+      return;
+    }
+    // Fallback: emit spec-correct theme.get.result with the canonical default
+    // theme so napplets always see a reply envelope even without a registered
+    // 'theme' service. theme.changed is shell-initiated (Plan 13-02) —
+    // napplets should never send it; silently drop if they do.
+    if (msg.type === 'theme.get') {
+      const m = msg as NappletMessage & { id?: string };
+      hooks.sendToNapplet(windowId, {
+        type: 'theme.get.result',
+        id: m.id ?? '',
+        theme: THEME_FALLBACK_DEFAULT,
+      } as NappletMessage);
+    }
+  }
+
   // ─── Main message handler ────────────────────────────────────────────────
 
   function handleMessage(windowId: string, msg: unknown): void {
@@ -1053,6 +1083,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
       case 'notify':   return handleNotifyMessage(windowId, envelope);
       case 'storage':  return handleStorageMessage(windowId, envelope);
       case 'ifc':      return handleIfcMessage(windowId, envelope);
+      case 'theme':    return handleThemeMessage(windowId, envelope);
       default:         return; // unknown domain — silently drop per NIP-5D spec
     }
   }

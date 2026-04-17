@@ -70,3 +70,7 @@ export type { MediaServiceOptions } from './media-service.js';
 // See notify-service.ts JSDoc for the coexistence contract.
 export { createNotifyService } from './notify-service.js';
 export type { NotifyServiceOptions } from './notify-service.js';
+
+// ─── Theme Service (NIP-5D theme NUB) ─────────────────────────────────────
+export { createThemeService } from './theme-service.js';
+export type { ThemeServiceOptions, ThemeService } from './theme-service.js';
