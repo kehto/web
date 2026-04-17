@@ -76,3 +76,16 @@ export { migrateAclState } from './migrate.js';
 // NUB domain resolution
 export type { CapabilityResolution, NubMessage } from './resolve.js';
 export { resolveCapabilitiesNub } from './resolve.js';
+
+// Canonical capability strings (v1.2 — 8-domain NIP-5D surface)
+export {
+  ALL_CAPABILITIES,
+  CAP_IDENTITY_READ,
+  CAP_KEYS_BIND,
+  CAP_KEYS_FORWARD,
+  CAP_MEDIA_CONTROL,
+  CAP_NOTIFY_SEND,
+  CAP_NOTIFY_CHANNEL,
+  CAP_THEME_READ,
+} from './capabilities.js';
+export type { Capability } from './capabilities.js';
