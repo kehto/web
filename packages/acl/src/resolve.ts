@@ -63,6 +63,7 @@ export interface CapabilityResolution {
  * | `ifc`     | emit                             | `relay:write`  | `relay:read`   |
  * | `ifc`     | subscribe, listen                | `relay:read`   | null           |
  * | `theme`   | any                              | null           | null           |
+ * | `signer`  | *all*                            | *(DEPRECATED — removed in Phase 12, DRIFT-ACL-05)* |                 |
  * | unknown   | any                              | null           | null           |
  *
  * Note: `ifc` reuses `relay:read`/`relay:write` intentionally — inter-napplet
@@ -102,10 +103,12 @@ export interface CapabilityResolution {
 export function resolveCapabilitiesNub(msg: NubMessage): CapabilityResolution {
   const [domain, action] = msg.type.split('.');
   switch (domain) {
+    // DRIFT-ACL-06 — Phase 12: split publish vs publishEncrypted (publishEncrypted needs sign:nip44 composite gate)
     case 'relay':
       return action === 'publish'
         ? { senderCap: 'relay:write', recipientCap: 'relay:read' }
         : { senderCap: 'relay:read', recipientCap: null };
+    // DRIFT-ACL-05 — Phase 12: remove case 'signer' entirely; migrate getPublicKey/getRelays to identity; drop nip04/nip44/signEvent
     case 'signer':
       if (action === 'getPublicKey' || action === 'getRelays') {
         return { senderCap: null, recipientCap: null };
@@ -113,10 +116,12 @@ export function resolveCapabilitiesNub(msg: NubMessage): CapabilityResolution {
       if (action?.startsWith('nip04')) return { senderCap: 'sign:nip04', recipientCap: null };
       if (action?.startsWith('nip44')) return { senderCap: 'sign:nip44', recipientCap: null };
       return { senderCap: 'sign:event', recipientCap: null };
+    // DRIFT-ACL-08 — Phase 12: narrow to get/set/remove/keys only; drop storage.clear (not in @napplet/nub-storage)
     case 'storage':
       return (action === 'get' || action === 'keys')
         ? { senderCap: 'state:read', recipientCap: null }
         : { senderCap: 'state:write', recipientCap: null };
+    // DRIFT-ACL-07 — Phase 12: extend branch to cover channel.open/emit/broadcast/list/close (open-time ACL semantics)
     case 'ifc':
       return action === 'emit'
         ? { senderCap: 'relay:write', recipientCap: 'relay:read' }
