@@ -2,7 +2,7 @@
  * dispatch.test.ts — Unit tests for @kehto/runtime NIP-5D NUB domain dispatch.
  *
  * Tests NappletMessage envelope dispatch, domain routing, ACL enforcement,
- * and all 4 domain handler implementations (relay, signer, storage, ifc).
+ * and domain handler implementations (relay, identity, storage, ifc, …).
  * All tests run in Node.js without browser globals.
  */
 
@@ -117,10 +117,10 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(eose).toBeDefined();
     });
 
-    it('routes signer.* to signer handler', () => {
-      runtime.handleMessage(WINDOW_ID, { type: 'signer.getPublicKey', id: 'req-1' } as NappletMessage);
-      // No signer configured — should get error
-      const err = findEnvelopeResponse(ctx.sent, 'signer.getPublicKey.error');
+    it('routes identity.* to identity handler', () => {
+      runtime.handleMessage(WINDOW_ID, { type: 'identity.getPublicKey', id: 'req-1' } as NappletMessage);
+      // No signer configured — fallback path emits identity.getPublicKey.error
+      const err = findEnvelopeResponse(ctx.sent, 'identity.getPublicKey.error');
       expect(err).toBeDefined();
     });
 
@@ -258,17 +258,17 @@ describe('NIP-5D Envelope Dispatch', () => {
     });
   });
 
-  // ─── Signer Handler ─────────────────────────────────────────────────────────
+  // ─── Identity Handler ───────────────────────────────────────────────────────
 
-  describe('signer handler', () => {
-    it('signer.getPublicKey returns error when no signer configured', () => {
-      runtime.handleMessage(WINDOW_ID, { type: 'signer.getPublicKey', id: 'req-1' } as NappletMessage);
-      const err = findEnvelopeResponse(ctx.sent, 'signer.getPublicKey.error');
+  describe('identity handler', () => {
+    it('identity.getPublicKey returns error when no signer configured', () => {
+      runtime.handleMessage(WINDOW_ID, { type: 'identity.getPublicKey', id: 'req-1' } as NappletMessage);
+      const err = findEnvelopeResponse(ctx.sent, 'identity.getPublicKey.error');
       expect(err).toBeDefined();
       expect((err as any).error).toContain('no signer');
     });
 
-    it('signer.getPublicKey returns pubkey when signer is configured', async () => {
+    it('identity.getPublicKey returns pubkey when signer is configured', async () => {
       const ctxWithSigner = createMockRuntimeAdapter({
         auth: {
           getUserPubkey: () => 'user_pubkey_hex',
@@ -282,59 +282,60 @@ describe('NIP-5D Envelope Dispatch', () => {
       const runtimeWithSigner = createRuntime(ctxWithSigner.hooks);
       runtimeWithSigner.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
 
-      runtimeWithSigner.handleMessage(WINDOW_ID, { type: 'signer.getPublicKey', id: 'req-pk' } as NappletMessage);
+      runtimeWithSigner.handleMessage(WINDOW_ID, { type: 'identity.getPublicKey', id: 'req-pk' } as NappletMessage);
       // Flush microtasks for async Promise resolution
       await Promise.resolve();
       await Promise.resolve();
 
-      const result = findEnvelopeResponse(ctxWithSigner.sent, 'signer.getPublicKey.result');
+      const result = findEnvelopeResponse(ctxWithSigner.sent, 'identity.getPublicKey.result');
       expect(result).toBeDefined();
       expect((result as any).pubkey).toBe('user_pubkey_hex');
     });
 
-    it('signer.signEvent delegates to signer and returns signed event', async () => {
-      const eventToSign = {
-        id: '',
-        pubkey: 'user_pubkey_hex',
-        created_at: Math.floor(Date.now() / 1000),
-        kind: 1,
-        tags: [],
-        content: 'hello',
-        sig: '',
-      };
-
+    it('identity.getRelays returns relays map when signer is configured', async () => {
       const ctxWithSigner = createMockRuntimeAdapter({
         auth: {
           getUserPubkey: () => 'user_pubkey_hex',
           getSigner: () => ({
             getPublicKey: () => 'user_pubkey_hex',
-            signEvent: async (e: any) => ({ ...e, sig: 'test-sig' }),
+            getRelays: () => ({ 'wss://relay.example.com': { read: true, write: true } }),
           }),
         },
       });
       const runtimeWithSigner = createRuntime(ctxWithSigner.hooks);
       runtimeWithSigner.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
 
-      runtimeWithSigner.handleMessage(WINDOW_ID, {
-        type: 'signer.signEvent',
-        id: 'req-sign',
-        event: eventToSign,
-      } as NappletMessage);
-      // Flush microtasks for async Promise resolution
+      runtimeWithSigner.handleMessage(WINDOW_ID, { type: 'identity.getRelays', id: 'req-relays' } as NappletMessage);
       await Promise.resolve();
       await Promise.resolve();
 
-      const result = findEnvelopeResponse(ctxWithSigner.sent, 'signer.signEvent.result');
+      const result = findEnvelopeResponse(ctxWithSigner.sent, 'identity.getRelays.result');
       expect(result).toBeDefined();
-      expect((result as any).event.sig).toBe('test-sig');
+      expect((result as any).relays).toEqual({
+        'wss://relay.example.com': { read: true, write: true },
+      });
     });
 
-    it('signer.getPublicKey bypasses ACL (senderCap is null)', () => {
-      // Even without state:read or relay:read, getPublicKey should get to the handler
-      // Here the only failure is "no signer" not "acl denied"
-      runtime.handleMessage(WINDOW_ID, { type: 'signer.getPublicKey', id: 'req-pk-acl' } as NappletMessage);
-      const err = findEnvelopeResponse(ctx.sent, 'signer.getPublicKey.error');
-      // Error is from missing signer, not from ACL
+    it('identity.getProfile returns result with profile: null (stub fallback)', () => {
+      runtime.handleMessage(WINDOW_ID, { type: 'identity.getProfile', id: 'req-profile' } as NappletMessage);
+      const result = findEnvelopeResponse(ctx.sent, 'identity.getProfile.result');
+      expect(result).toBeDefined();
+      expect((result as any).profile).toBeNull();
+    });
+
+    it('identity.getFollows returns result with pubkeys: [] (stub fallback)', () => {
+      runtime.handleMessage(WINDOW_ID, { type: 'identity.getFollows', id: 'req-follows' } as NappletMessage);
+      const result = findEnvelopeResponse(ctx.sent, 'identity.getFollows.result');
+      expect(result).toBeDefined();
+      expect((result as any).pubkeys).toEqual([]);
+    });
+
+    it('identity.getPublicKey bypasses ACL (senderCap is null pre-12-10)', () => {
+      // resolveCapabilitiesNub returns { senderCap: null, recipientCap: null } for
+      // identity.* pre-Plan-12-10. The envelope therefore reaches the handler even
+      // when the napplet is blocked; the only failure is "no signer".
+      runtime.handleMessage(WINDOW_ID, { type: 'identity.getPublicKey', id: 'req-pk-acl' } as NappletMessage);
+      const err = findEnvelopeResponse(ctx.sent, 'identity.getPublicKey.error');
       expect(err).toBeDefined();
       expect((err as any).error).not.toContain('denied');
       expect((err as any).error).toContain('no signer');
@@ -562,16 +563,15 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect((err as any).error).toBeDefined();
     });
 
-    // DRIFT-RT-06 — Phase 12: replace with identity.getPublicKey test once handleSignerMessage is deleted
-    it('signer.getPublicKey bypasses ACL (no capability required)', () => {
+    it('identity.getPublicKey bypasses ACL (no capability required pre-12-10)', () => {
       // Even with napplet blocked, getPublicKey should pass ACL (senderCap is null)
-      // but fail because no signer is configured
+      // but fail because no signer is configured. Plan 12-10 will add identity:read.
       runtime.aclState.block('', TEST_DTAG, TEST_HASH);
 
-      runtime.handleMessage(WINDOW_ID, { type: 'signer.getPublicKey', id: 'req-pk-blocked' } as NappletMessage);
+      runtime.handleMessage(WINDOW_ID, { type: 'identity.getPublicKey', id: 'req-pk-blocked' } as NappletMessage);
 
-      // Should NOT get ACL error — should get signer error instead
-      const aclErr = findEnvelopeResponse(ctx.sent, 'signer.getPublicKey.error');
+      // Should NOT get ACL error — should get identity error instead
+      const aclErr = findEnvelopeResponse(ctx.sent, 'identity.getPublicKey.error');
       expect(aclErr).toBeDefined();
       // Error is about missing signer, not ACL
       expect((aclErr as any).error).toContain('no signer');
