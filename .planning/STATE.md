@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: executing
-stopped_at: "Completed 16-02-PLAN.md (Playwright infrastructure, build:napplets turbo task)"
-last_updated: "2026-04-17T23:11:11.550Z"
+stopped_at: Completed 16-03-PLAN.md (NIP-5D envelope-aware driver globals, globals.d.ts)
+last_updated: "2026-04-17T23:16:18.176Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 4
-  completed_plans: 2
+  completed_plans: 3
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 16 (Harness Triage & Playwright Infrastructure) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-04-17
 
@@ -61,6 +61,7 @@ Progress: [░░░░░░░░░░] 0%
 *Updated after each plan completion*
 | Phase 16-harness-triage-playwright-infrastructure P01 | 8 | 2 tasks | 7 files |
 | Phase 16 P02 | 2min | 3 tasks | 4 files |
+| Phase 16-harness-triage-playwright-infrastructure P03 | 3min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,9 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 16-01]: All 7 legacy v1.1 signer/AUTH/BusKind specs deleted; BusKind-referencing specs (kind 29003/29004) treated as anti-term violations; each deletion has explicit replacement mapping to a named future phase + REQ-ID
 - [Phase 16]: Use preview (not dev) for all E2E webServer commands — dev mode emits aggregateHash='' via @napplet/vite-plugin, poisoning ACL state; both harness and demo use preview for symmetry
 - [Phase 16]: Array-form webServer in playwright.config.ts enables single pnpm test:e2e invocation to spin up both harness :4173 and demo :4174 preview servers
+- [Phase 16-harness-triage-playwright-infrastructure]: globals.d.ts owns the Window interface — harness.ts uses triple-slash reference instead of inline declare global block
+- [Phase 16-harness-triage-playwright-infrastructure]: __getNotifications__ returns [] until Phase 19 wires notification-service state propagation (intentional stub)
+- [Phase 16-harness-triage-playwright-infrastructure]: serviceShadow Set is harness-local because runtime.serviceRegistry is not publicly enumerable via the Runtime type
 
 ### Blockers/Concerns
 
@@ -81,6 +85,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-17T23:11:11.547Z
-Stopped at: Completed 16-02-PLAN.md (Playwright infrastructure, build:napplets turbo task)
+Last session: 2026-04-17T23:16:18.173Z
+Stopped at: Completed 16-03-PLAN.md (NIP-5D envelope-aware driver globals, globals.d.ts)
 Resume: `/gsd:plan-phase 16`

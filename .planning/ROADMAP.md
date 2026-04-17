@@ -51,10 +51,10 @@
   3. `waitForNappletReady(page, frameSelector)` is callable from any spec and reliably waits for a sandboxed iframe's execution context before proceeding — no spec skips it.
   4. The canonical `beforeEach` fixture (`goto('/') → __aclClear__() → __clearLocalStorage__()`) is shared via a fixture file; no spec uses `page.reload()` on ACL-touching flows.
   5. `playwright.config.ts` runs a two-entry `webServer` array (harness `:4173` + demo `:4174`); `turbo.json` includes a `build:napplets` pipeline task; `@playwright/test` is on `^1.54.0` or higher.
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 - [x] 16-01-PLAN.md — Delete legacy specs (E2E-01)
 - [x] 16-02-PLAN.md — Playwright 1.54 bump + webServer array + build:napplets turbo task (E2E-02, E2E-03)
-- [ ] 16-03-PLAN.md — Extend harness with 7 NIP-5D globals + readiness flag + globals.d.ts (E2E-04)
+- [x] 16-03-PLAN.md — Extend harness with 7 NIP-5D globals + readiness flag + globals.d.ts (E2E-04)
 - [ ] 16-04-PLAN.md — Shared helpers (waitForNappletReady, aclBeforeEach) + migrate acl-enforcement spec (E2E-05)
 
 ### Phase 17: Demo App Rewire
@@ -140,7 +140,7 @@ The `relay-subscribe` Playwright spec cannot be marked green until this decision
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 16. Harness Triage & Playwright Infrastructure | v1.3 | 2/4 | In Progress|  |
+| 16. Harness Triage & Playwright Infrastructure | v1.3 | 3/4 | In Progress|  |
 | 17. Demo App Rewire | v1.3 | 0/TBD | Not started | - |
 | 18. Napplet SDK Migration | v1.3 | 0/TBD | Not started | - |
 | 19. Core-Domain Napplets | v1.3 | 0/TBD | Not started | - |
