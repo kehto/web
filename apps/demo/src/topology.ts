@@ -3,6 +3,8 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const LeaderLine: any;
 
+import { STUB_ONLY_SERVICES } from './shell-host.js';
+
 export type TopologyNodeRole = 'napplet' | 'shell' | 'acl' | 'runtime' | 'service';
 
 // Inline the signer state types here to avoid a circular import with signer-connection.ts
@@ -470,10 +472,14 @@ export function renderDemoTopology(topology: DemoTopology): string {
     .map(
       (service) => {
         const isSigner = service === 'signer';
+        const isStub = STUB_ONLY_SERVICES.includes(service);
+        const stubBadge = isStub
+          ? '<span class="stub-badge" style="display:inline-block;padding:1px 5px;margin-left:6px;background:#2a2a4a;color:#b388ff;border-radius:4px;font-size:9px;letter-spacing:0.1em;text-transform:uppercase">stub-only</span>'
+          : '';
         const innerContent = isSigner
           ? renderSignerNodeContent(topology.signerState)
           : `<div class="topology-node-kicker">service</div>
-            <div class="topology-node-title">${service}</div>`;
+            <div class="topology-node-title">${service}${stubBadge}</div>`;
         return `
         <div class="topology-service-branch">
           <article
@@ -482,6 +488,7 @@ export function renderDemoTopology(topology: DemoTopology): string {
             data-topology-node="service"
             data-node-id="${getServiceNodeId(service)}"
             data-service-name="${service}"
+            data-service-stub="${isStub ? 'true' : 'false'}"
             style="position:relative"
           >
             <button

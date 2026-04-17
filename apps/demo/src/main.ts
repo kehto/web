@@ -15,6 +15,7 @@ import {
   getNapplets,
   loadNapplet,
   getNotificationServiceHandler,
+  getThemeServiceBundle,
   relay,
   toggleService,
 } from './shell-host.js';
@@ -255,6 +256,16 @@ if (debuggerEl) {
   debuggerEl.addSystemMessage(`shell booted -- host pubkey: ${getDemoHostPubkey().substring(0, 16)}...`);
   debuggerEl.addSystemMessage(getDemoHostAuditSummary());
   debuggerEl.addSystemMessage('notification service registered -- host callbacks active');
+}
+
+// ─── Theme Broadcast Placeholder ──────────────────────────────────────────
+// The theme service is registered in shell-host createDemoHooks. Any host UI
+// that flips dark/light mode calls `relay.publishTheme(theme)` which fan-outs
+// `theme.changed` envelopes to every session via session-registry.
+// 17-05 wires the actual host toggle button; this block proves the seam exists.
+const _themeBundle = getThemeServiceBundle();
+if (_themeBundle) {
+  debuggerEl?.addSystemMessage('theme service registered -- publishTheme seam ready');
 }
 
 // ─── Config Change Logging ──────────────────────────────────────────────────
