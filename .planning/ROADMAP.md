@@ -30,7 +30,7 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
 
 ## Phases
 
-- [ ] **Phase 10: Spec Conformance Audit** — Pin canonical NIP-5D at `specs/NIP-5D.md` and produce a cross-package drift audit covering spec text + 8-nub message surface.
+- [x] **Phase 10: Spec Conformance Audit** — Pin canonical NIP-5D at `specs/NIP-5D.md` and produce a cross-package drift audit covering spec text + 8-nub message surface. (completed 2026-04-17)
 - [ ] **Phase 11: Nub Peer Deps & Type Imports** — Bump `@napplet/core` to `^0.2.0`, add the eight `@napplet/nub-*` peer deps, replace hand-copied types (including the old `signer.*` set) with imports.
 - [ ] **Phase 12: Shell Conformance & Seven-Nub Coverage** — Remove `window.nostr` injection, rename to `perm:*` namespace, mediate signing/encryption through the shell, and close every drift item for the seven non-theme nubs (identity, ifc, keys, media, notify, relay, storage) — including ACL capability mapping for the full surface.
 - [ ] **Phase 13: Theme Nub Implementation** — Add the eighth nub end-to-end: runtime route, reference service, shell adapter, ACL gates.
@@ -49,7 +49,7 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
   3. Every drift item in the audit has a concrete owning package, a one-line remediation note, and a Target Phase (12/13/14) so downstream plans can be generated mechanically.
 **Plans**: 2 plans
   - [x] 10-01-PLAN.md — Verify canonical NIP-5D spec and README pointer (SPEC-01)
-  - [ ] 10-02-PLAN.md — Produce cross-package drift audit at docs/v1.2-NIP-5D-AUDIT.md (SPEC-02)
+  - [x] 10-02-PLAN.md — Produce cross-package drift audit at docs/v1.2-NIP-5D-AUDIT.md (SPEC-02)
 
 ### Phase 11: Nub Peer Deps & Type Imports
 **Goal**: Kehto consumes napplet's new package graph — `@napplet/core@^0.2.0` plus all eight `@napplet/nub-*` packages — and speaks their types directly instead of local duplicates.
@@ -110,7 +110,7 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 10. Spec Conformance Audit | 1/2 | In Progress|  |
+| 10. Spec Conformance Audit | 2/2 | Complete   | 2026-04-17 |
 | 11. Nub Peer Deps & Type Imports | 0/TBD | Not started | - |
 | 12. Shell Conformance & Seven-Nub Coverage | 0/TBD | Not started | - |
 | 13. Theme Nub Implementation | 0/TBD | Not started | - |
