@@ -43,7 +43,7 @@ All 8 napplet nub packages are consumed as peer deps and fully handled.
 - [x] **NUB-05**: Every message type exported by `@napplet/nub-keys` (`forward`, `register`, `unregister`, `register.result`, `bindings`, `action`) is dispatched and handled
 - [x] **NUB-06**: Every message type exported by `@napplet/nub-media` (session `create`/`update`/`destroy`, `state`, `capabilities`, `command`, `controls`, `create.result`) is dispatched and handled
 - [x] **NUB-07**: Every message type exported by `@napplet/nub-notify` (`send`, `dismiss`, `badge`, `channel.register`, `permission.request`, `send.result`, `permission.result`, `action`, `clicked`, `dismissed`, `controls`) is dispatched and handled
-- [ ] **NUB-08**: Every message type exported by `@napplet/nub-relay` (`subscribe`, `close`, `publish`, `publishEncrypted`, `query`, `event`, `eose`, `closed`, `publish.result`, `publishEncrypted.result`, `query.result`) is dispatched and produces the spec-correct envelope. Signing and NIP-44 encryption are handled internally by the shell before the event reaches the wire.
+- [x] **NUB-08**: Every message type exported by `@napplet/nub-relay` (`subscribe`, `close`, `publish`, `publishEncrypted`, `query`, `event`, `eose`, `closed`, `publish.result`, `publishEncrypted.result`, `query.result`) is dispatched and produces the spec-correct envelope. Signing and NIP-44 encryption are handled internally by the shell before the event reaches the wire.
 - [x] **NUB-09**: Every message type exported by `@napplet/nub-storage` (`get`, `set`, `remove`, `keys`, plus their `.result` envelopes) is dispatched and handled
 - [ ] **NUB-10**: @kehto/acl capability mapping covers the full message surface exposed by each `@napplet/nub-*` package across all 8 domains
 
@@ -108,7 +108,7 @@ Explicit exclusions for v1.2:
 | NUB-05 | — |
 | NUB-06 | — |
 | NUB-07 | 12 (Plan 12-07) |
-| NUB-08 | — |
+| NUB-08 | 12 (Plan 12-08) |
 | NUB-09 | 12 (Plan 12-09) |
 | NUB-10 | — |
 | TH-01 | — |
