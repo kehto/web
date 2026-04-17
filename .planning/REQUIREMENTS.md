@@ -14,7 +14,7 @@ Align @kehto with the current NIP-5D spec (as maintained in `napplet/specs/NIP-5
 
 ## Category 1: NIP-5D Spec Conformance (SPEC)
 
-- [ ] **SPEC-01**: kehto repo carries an authoritative reference to the current NIP-5D spec (local copy or versioned pointer to `napplet/specs/NIP-5D.md`)
+- [x] **SPEC-01**: kehto repo carries an authoritative reference to the current NIP-5D spec (local copy or versioned pointer to `napplet/specs/NIP-5D.md`)
 - [ ] **SPEC-02**: Cross-package audit documents every NIP-5D requirement not yet satisfied by kehto (runtime, shell, acl, services)
 - [ ] **SPEC-03**: All drift items identified by SPEC-02 are resolved in code
 

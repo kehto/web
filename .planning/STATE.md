@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.2
-milestone_name: NIP-5D Conformance & Full NUB Coverage
-status: roadmapped
-stopped_at: Roadmap written — ready to plan Phase 10
-last_updated: "2026-04-17T00:00:00.000Z"
+milestone_name: — NIP-5D Conformance & Full NUB Coverage
+status: executing
+stopped_at: Completed 10-01-PLAN.md (spec snapshot + README)
+last_updated: "2026-04-17T09:50:54.842Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-17)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Milestone v1.2 — NIP-5D Conformance & Full NUB Coverage
+**Current focus:** Phase 10 — spec-conformance-audit
 
 ## Current Position
 
-Phase: 10 of 15 (Spec Conformance Audit) — not started
-Plan: — (awaiting `/gsd:plan-phase 10`)
-Status: Roadmapped, ready to plan Phase 10
-Last activity: 2026-04-17 — v1.2 roadmap created (6 phases, 20/20 requirements mapped)
+Phase: 10 (spec-conformance-audit) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
+Last activity: 2026-04-17
 
 Progress: [----------] 0% (v1.2)
 
@@ -58,6 +58,7 @@ Progress: [----------] 0% (v1.2)
 | - | - | - | - |
 
 *Updated after each plan completion*
+| Phase 10 P01 | 4min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,8 @@ Recent decisions affecting current work (full log in PROJECT.md):
 - [v1.2 roadmap] Dispatch refactor (Phase 14) executes AFTER all five domain handlers are complete and green, so the switch-removal can be validated against a passing test suite.
 - [v1.2 roadmap] DEPS-01 (peer-dep bump) and NUB-01/02 (type imports) are grouped in Phase 11 because handler work in Phase 12 depends on the new types being resolvable.
 - [v1.2 roadmap] Theme (Phase 13) is sequenced after Phase 11 but independent of Phase 12 — can parallelize once nub-theme types are available.
+- [Phase 10]: Provenance header for synced specs is exactly 6 lines so 'tail -n +7 specs/NIP-5D.md' yields upstream byte-identical content — drift detection reduces to a single diff command.
+- [Phase 10]: Top-level README's ## Specification section is the canonical pointer to the pinned spec + upstream URL; keeps the repo root README minimal (30 lines) while satisfying SPEC-01.
 
 ### Blockers/Concerns
 
@@ -79,6 +82,6 @@ Recent decisions affecting current work (full log in PROJECT.md):
 
 ## Session Continuity
 
-Last session: 2026-04-17
-Stopped at: Roadmap written for v1.2 (phases 10–15, 20/20 requirements mapped)
+Last session: 2026-04-17T09:50:54.839Z
+Stopped at: Completed 10-01-PLAN.md (spec snapshot + README)
 Resume: Run `/gsd:plan-phase 10` to begin Spec Conformance Audit.

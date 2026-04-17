@@ -39,7 +39,7 @@
   2. A written audit document lists every spec requirement that is not yet satisfied by @kehto/runtime, @kehto/shell, @kehto/acl, or @kehto/services, grouped by package.
   3. Every drift item in the audit has a concrete owning package and a one-line remediation note, so it can be fed directly into Phase 12 plans.
 **Plans**: 2 plans
-  - [ ] 10-01-PLAN.md — Copy NIP-5D spec to `specs/NIP-5D.md` and document sync source in `README.md` (SPEC-01)
+  - [x] 10-01-PLAN.md — Copy NIP-5D spec to `specs/NIP-5D.md` and document sync source in `README.md` (SPEC-01)
   - [ ] 10-02-PLAN.md — Produce cross-package NIP-5D drift audit at `docs/v1.2-NIP-5D-AUDIT.md` (SPEC-02)
 
 ### Phase 11: Nub Peer Deps & Type Imports
@@ -100,7 +100,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 10. Spec Conformance Audit | 0/2 | Not started | - |
+| 10. Spec Conformance Audit | 1/2 | In Progress|  |
 | 11. Nub Peer Deps & Type Imports | 0/TBD | Not started | - |
 | 12. Four-Nub Full Coverage & Drift Fixes | 0/TBD | Not started | - |
 | 13. Theme Nub Implementation | 0/TBD | Not started | - |
