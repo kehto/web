@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — NIP-5D Conformance & Full NUB Coverage
 status: executing
-stopped_at: Completed 12-10-PLAN.md — ACL consolidation + audit closure; 26 Phase 12 rows resolved; zero DRIFT-*-Phase 12 markers remaining.
-last_updated: "2026-04-17T19:46:51.006Z"
+stopped_at: Completed 13-01-PLAN.md — theme NUB runtime route + reference service + TH-04 ACL enforcement test (61 tests green, TH-01/TH-02/TH-04 closed)
+last_updated: "2026-04-17T20:08:10.303Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 15
-  completed_plans: 15
+  total_plans: 17
+  completed_plans: 16
   percent: 100
 ---
 
@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-17)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 12 — shell-conformance-seven-nub-coverage
+**Current focus:** Phase 13 — theme-nub-implementation
 
 ## Current Position
 
-Phase: 13
-Plan: Not started
+Phase: 13 (theme-nub-implementation) — EXECUTING
+Plan: 2 of 2
 Status: Ready to execute
 Last activity: 2026-04-17
 
@@ -75,6 +75,7 @@ Progress: [██████████] 100% (Phase 10 plans complete — v1.
 | Phase 12 P08 | 10min | 2 tasks | 3 files |
 | Phase 12 P11 | 7min | 3 tasks | 10 files |
 | Phase 12 P10 | 10min | 3 tasks | 8 files |
+| Phase 13 P01 | 4 min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -127,6 +128,10 @@ Recent decisions affecting current work (full log in PROJECT.md):
 - [Phase 12]: Shell per-domain proxies are optional composition seams — createShellBridge() does NOT compose them by default; the runtime owns 8-domain dispatch and proxies exist as public API for host-app interception.
 - [Phase 12]: keys-forwarder takes hasKeysForwardCap(pubkey) as injected function (not direct aclStore import), defaulting to window but falling back to EventTarget in SSR — keeps the module SSR-safe and trivially stub-testable without a DOM.
 - [Phase 12]: Plan 12-10: resolveCapabilitiesNub rewritten per-domain helpers; signer domain deleted; signer bits 5-7 reclaimed by identity:read/keys:bind/keys:forward; audit doc annotated with per-plan Phase 12 closure.
+- [Phase 13]: Plan 13-01: ThemeService return-bundle shape { handler, publishTheme, getCurrentTheme } — host-facing publishTheme sits outside ServiceHandler so the shell adapter can wrap it directly without attaching to handler
+- [Phase 13]: Plan 13-01: onBroadcast callback injection over direct sendToNapplet coupling — keeps createThemeService browser-agnostic; Plan 13-02 shell adapter wires onBroadcast to sendToNapplet fanout
+- [Phase 13]: Plan 13-01: Runtime fallback THEME_FALLBACK_DEFAULT mirrored from services DEFAULT_THEME rather than imported — preserves one-way services->runtime dependency; sync contract documented in JSDoc on both constants
+- [Phase 13]: Plan 13-01: TH-04 ACL denial test uses aclState.block() rather than targeted revoke — default policy is permissive, so block reliably denies ALL caps including theme:read regardless of future policy shifts
 
 ### Blockers/Concerns
 
@@ -135,6 +140,6 @@ Recent decisions affecting current work (full log in PROJECT.md):
 
 ## Session Continuity
 
-Last session: 2026-04-17T19:39:50.731Z
-Stopped at: Completed 12-10-PLAN.md — ACL consolidation + audit closure; 26 Phase 12 rows resolved; zero DRIFT-*-Phase 12 markers remaining.
+Last session: 2026-04-17T20:08:10.300Z
+Stopped at: Completed 13-01-PLAN.md — theme NUB runtime route + reference service + TH-04 ACL enforcement test (61 tests green, TH-01/TH-02/TH-04 closed)
 Resume: Run `/gsd:plan-phase 10` to begin Spec Conformance Audit.

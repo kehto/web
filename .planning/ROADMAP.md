@@ -95,7 +95,7 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
   3. The hosting application can call a documented @kehto/shell adapter API to publish a theme change, and all registered napplets observe a `theme.changed` event.
   4. A napplet without the `theme` capability is denied via @kehto/acl with the same error shape used by the other seven nubs.
 **Plans**: 2 plans
-  - [ ] 13-01-PLAN.md — Runtime case 'theme' + reference theme-service + TH-04 ACL enforcement test (TH-01, TH-02, TH-04)
+  - [x] 13-01-PLAN.md — Runtime case 'theme' + reference theme-service + TH-04 ACL enforcement test (TH-01, TH-02, TH-04)
   - [ ] 13-02-PLAN.md — Shell adapter bridge.publishTheme() + audit/requirements closure (TH-03)
 
 ### Phase 14: Dispatch Refactor
@@ -127,6 +127,6 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
 | 10. Spec Conformance Audit | 2/2 | Complete    | 2026-04-17 |
 | 11. Nub Peer Deps & Type Imports | 2/2 | Complete    | 2026-04-17 |
 | 12. Shell Conformance & Seven-Nub Coverage | 11/11 | Complete    | 2026-04-17 |
-| 13. Theme Nub Implementation | 0/TBD | Not started | - |
+| 13. Theme Nub Implementation | 1/2 | In Progress|  |
 | 14. Dispatch Refactor | 0/TBD | Not started | - |
 | 15. Milestone Validation & Release Prep | 0/TBD | Not started | - |
