@@ -6,6 +6,7 @@
  * survives persist/load round-trips.
  */
 import { test, expect } from '@playwright/test';
+import { aclBeforeEach } from './helpers/index.js';
 
 interface TappedMessage {
   index: number;
@@ -29,10 +30,7 @@ test.describe('ACL Enforcement', () => {
   let nappEntry: { pubkey: string; dTag: string; aggregateHash: string };
 
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.waitForFunction(() => (window as any).__SHELL_READY__ === true, { timeout: 10000 });
-    await page.evaluate(() => (window as any).__aclClear__());
-    await page.evaluate(() => (window as any).__clearLocalStorage__());
+    await aclBeforeEach(page);
 
     // Load auth-napplet and wait for AUTH OK
     windowId = await page.evaluate(() => (window as any).__loadNapplet__('auth-napplet'));
