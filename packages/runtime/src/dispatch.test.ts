@@ -872,3 +872,60 @@ describe('theme NUB dispatch (TH-01 + TH-04)', () => {
     expect(theme.colors.primary).toBe('#7aa2f7');
   });
 });
+
+// ─── createDispatch integration (Phase 14 DISPATCH-01/02/03) ───────────────────
+
+describe('createDispatch integration (Phase 14 DISPATCH-01/02/03)', () => {
+  it('registerNub integration: all 8 NUB domains route through createDispatch', () => {
+    const ctx2 = createMockRuntimeAdapter();
+    const runtime2 = createRuntime(ctx2.hooks);
+    runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+    // Ensure theme:read is granted so theme.get reaches the fallback path (not ACL-denied).
+    runtime2.aclState.grant('', TEST_DTAG, TEST_HASH, 'theme:read');
+
+    // Send one canonical-shaped envelope per registered domain.
+    const envelopes: NappletMessage[] = [
+      { type: 'relay.subscribe', subId: 'sub-d', filters: [] } as NappletMessage,
+      { type: 'identity.getPublicKey', id: 'id-d' } as NappletMessage,
+      { type: 'keys.registerAction', id: 'k-d', action: { id: 'a', label: 'A', defaultKey: 'Ctrl+A' } } as NappletMessage,
+      { type: 'media.session.create', id: 'm-d' } as NappletMessage,
+      { type: 'notify.send', id: 'n-d', notification: { title: 't', body: 'b' } } as NappletMessage,
+      { type: 'storage.get', id: 's-d', key: 'k' } as NappletMessage,
+      { type: 'ifc.subscribe', id: 'i-d', topic: 't' } as NappletMessage,
+      { type: 'theme.get', id: 't-d' } as NappletMessage,
+    ];
+
+    for (const env of envelopes) {
+      runtime2.handleMessage(WINDOW_ID, env);
+    }
+
+    // Each of the 8 envelopes must have produced at least one response envelope
+    // (either .result, .error, .eose, or a side-channel event like ifc.event/ifc.subscribe.result).
+    // If any domain's handler is missing from registerNub() at runtime startup,
+    // nubDispatch.dispatch() returns false and nothing is emitted — test fails.
+    const domainsWithResponse = new Set<string>();
+    for (const sent of ctx2.sent) {
+      if (typeof sent.message === 'object' && sent.message !== null && !Array.isArray(sent.message)) {
+        const type = (sent.message as NappletMessage).type;
+        const dot = type.indexOf('.');
+        if (dot > 0) domainsWithResponse.add(type.slice(0, dot));
+      }
+    }
+    // Expect every one of the 8 domains to have produced at least one reply envelope.
+    for (const d of ['relay', 'identity', 'keys', 'media', 'notify', 'storage', 'ifc', 'theme']) {
+      expect(domainsWithResponse.has(d), `domain ${d} produced no response envelope — handler not registered via registerNub()?`).toBe(true);
+    }
+  });
+
+  it('unknown NUB domain: dispatch returns false, no envelope emitted (NIP-5D silent drop)', () => {
+    const ctx2 = createMockRuntimeAdapter();
+    const runtime2 = createRuntime(ctx2.hooks);
+    runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+
+    runtime2.handleMessage(WINDOW_ID, { type: 'bogus.action', id: 'req-x' } as NappletMessage);
+
+    // Unknown domain — dispatch() returns false; runtime must NOT emit any envelope
+    // (no .error, no .result). Matches pre-existing NIP-5D silent-drop behavior.
+    expect(ctx2.sent).toHaveLength(0);
+  });
+});
