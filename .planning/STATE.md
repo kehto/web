@@ -4,7 +4,7 @@ milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: verifying
 stopped_at: Completed 16-04-PLAN.md (shared Playwright helpers + acl-enforcement.spec.ts migration)
-last_updated: "2026-04-17T23:20:48.597Z"
+last_updated: "2026-04-17T23:24:09.331Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 7
@@ -25,8 +25,8 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 ## Current Position
 
-Phase: 16 (Harness Triage & Playwright Infrastructure) — EXECUTING
-Plan: 4 of 4
+Phase: 17
+Plan: Not started
 Status: Phase complete — ready for verification
 Last activity: 2026-04-17
 
