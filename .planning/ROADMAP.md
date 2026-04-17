@@ -100,7 +100,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 10. Spec Conformance Audit | 2/2 | Complete   | 2026-04-17 |
+| 10. Spec Conformance Audit | 2/2 | Complete    | 2026-04-17 |
 | 11. Nub Peer Deps & Type Imports | 0/TBD | Not started | - |
 | 12. Four-Nub Full Coverage & Drift Fixes | 0/TBD | Not started | - |
 | 13. Theme Nub Implementation | 0/TBD | Not started | - |
