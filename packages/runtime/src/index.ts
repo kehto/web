@@ -76,3 +76,19 @@ export { routeServiceMessage, notifyServiceWindowDestroyed } from './service-dis
 // ─── Service Discovery ────────────────────────────────────────────────────────
 export { createServiceDiscoveryEvent, handleDiscoveryReq, isDiscoveryReq } from './service-discovery.js';
 export type { DiscoverySubscription } from './service-discovery.js';
+
+// ─── @napplet/core v1.1 compatibility shims ────────────────────────────────
+// DRIFT-CORE-06 — Phase 11-deviation: re-export legacy types/constants that were
+// dropped from @napplet/core v0.2.0+ (napplet phases 81 + 87). Consumers still
+// import these symbols through @kehto/runtime; Phase 12/14 will delete both
+// the shim and its consumers.
+export type { Capability, BusKindValue, ServiceDescriptor } from './core-compat.js';
+export {
+  ALL_CAPABILITIES,
+  DESTRUCTIVE_KINDS,
+  REPLAY_WINDOW_SECONDS,
+  BusKind,
+  AUTH_KIND,
+  SHELL_BRIDGE_URI,
+  PROTOCOL_VERSION,
+} from './core-compat.js';

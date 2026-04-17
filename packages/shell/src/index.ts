@@ -13,9 +13,19 @@ export { adaptHooks } from './hooks-adapter.js';
 export type { BrowserDeps } from './hooks-adapter.js';
 
 // Protocol types (re-exported from @napplet/core for backwards compatibility)
-export type { NostrEvent, NostrFilter, Capability, NappletMessage } from '@napplet/core';
-export { BusKind, AUTH_KIND, SHELL_BRIDGE_URI, PROTOCOL_VERSION, ALL_CAPABILITIES, DESTRUCTIVE_KINDS, REPLAY_WINDOW_SECONDS } from '@napplet/core';
-export type { BusKindValue } from '@napplet/core';
+export type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
+// DRIFT-CORE-06 — Phase 11-deviation: Capability, BusKind, etc. now come from
+// @kehto/runtime's core-compat shim (napplet/core dropped these in v0.2.0+).
+export type { Capability, BusKindValue } from '@kehto/runtime';
+export {
+  BusKind,
+  AUTH_KIND,
+  SHELL_BRIDGE_URI,
+  PROTOCOL_VERSION,
+  ALL_CAPABILITIES,
+  DESTRUCTIVE_KINDS,
+  REPLAY_WINDOW_SECONDS,
+} from '@kehto/runtime';
 
 // Types for host app integration (shell-specific)
 export type {

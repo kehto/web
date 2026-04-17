@@ -8,8 +8,10 @@
  * Default policy is PERMISSIVE: unknown identities have all capabilities granted.
  */
 
-import type { Capability } from '@napplet/core';
-import { ALL_CAPABILITIES, DESTRUCTIVE_KINDS } from '@napplet/core';
+// DRIFT-CORE-06 — Phase 11-deviation: Capability, ALL_CAPABILITIES, DESTRUCTIVE_KINDS
+// dropped from @napplet/core v0.2.0+ (napplet phase-87). Sourced from runtime shim.
+import type { Capability } from '@kehto/runtime';
+import { ALL_CAPABILITIES, DESTRUCTIVE_KINDS } from '@kehto/runtime';
 import { migrateAclState } from '@kehto/acl';
 import type { AclState } from '@kehto/acl';
 import type { AclEntry } from './types.js';

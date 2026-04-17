@@ -6,8 +6,10 @@
  * Browser-agnostic — no DOM, no window, no postMessage.
  */
 
-import type { ServiceDescriptor, NappletMessage } from '@napplet/core';
-import type { ServiceHandler } from '@kehto/runtime';
+import type { NappletMessage } from '@napplet/core';
+// DRIFT-CORE-06 — Phase 11-deviation: ServiceDescriptor dropped from @napplet/core
+// v0.2.0+ (napplet phase-81). Re-exported from @kehto/runtime's core-compat shim.
+import type { ServiceDescriptor, ServiceHandler } from '@kehto/runtime';
 import type { AudioSource, AudioServiceOptions } from './types.js';
 
 /** Audio service version — follows semver. */

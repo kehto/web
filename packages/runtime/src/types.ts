@@ -5,7 +5,10 @@
  * to host napplets. No DOM types, no browser APIs.
  */
 
-import type { NostrEvent, NostrFilter, Capability, ServiceDescriptor, NappletMessage } from '@napplet/core';
+import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
+// DRIFT-CORE-06 — Phase 11-deviation: Capability (napplet phase-87) and
+// ServiceDescriptor (napplet phase-81) removed from @napplet/core v0.2.0+.
+import type { Capability, ServiceDescriptor } from './core-compat.js';
 
 // ─── ACL Check Event ──────────────────────────────────────────────────────
 

@@ -7,7 +7,8 @@
  */
 
 import type { NostrEvent } from '@napplet/core';
-import { BusKind } from '@napplet/core';
+// DRIFT-CORE-06 — Phase 11-deviation: BusKind removed from @napplet/core v0.2.0+.
+import { BusKind } from './core-compat.js';
 import type { ServiceHandler, ServiceRegistry } from './types.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────

@@ -6,7 +6,9 @@
  * (windowId strings, persistence interfaces, sendToNapplet callbacks).
  */
 
-import type { NostrEvent, NostrFilter, Capability } from '@napplet/core';
+import type { NostrEvent, NostrFilter } from '@napplet/core';
+// DRIFT-CORE-06 — Phase 11-deviation: Capability dropped from @napplet/core v0.2.0+.
+import type { Capability } from '@kehto/runtime';
 import type {
   RuntimeAdapter,
   RelayPoolAdapter,

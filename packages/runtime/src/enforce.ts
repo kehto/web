@@ -8,8 +8,11 @@
  * should call @kehto/acl directly.
  */
 
-import type { Capability, NostrEvent } from '@napplet/core';
-import { BusKind, TOPICS } from '@napplet/core';
+import type { NostrEvent } from '@napplet/core';
+// DRIFT-CORE-06 — Phase 11-deviation: Capability, BusKind, and state TOPICS
+// removed from @napplet/core v0.2.0+ (napplet phase-87). Sourced from local shim.
+import type { Capability } from './core-compat.js';
+import { BusKind, STATE_TOPICS } from './core-compat.js';
 import type { NubMessage } from '@kehto/acl';
 import type { AclCheckEvent } from './types.js';
 
@@ -81,14 +84,15 @@ export function resolveCapabilities(msg: unknown[]): CapabilityResolution {
       if (event.kind === BusKind.IPC_PEER) {
         const topic = event.tags?.find((t: string[]) => t[0] === 't')?.[1];
 
-        if (topic === TOPICS.STATE_GET || topic === TOPICS.STATE_KEYS) {
+        // DRIFT-CORE-06 — Phase 11-deviation: STATE_* topics now sourced from local shim.
+        if (topic === STATE_TOPICS.STATE_GET || topic === STATE_TOPICS.STATE_KEYS) {
           return { senderCap: 'state:read', recipientCap: null };
         }
 
         if (
-          topic === TOPICS.STATE_SET ||
-          topic === TOPICS.STATE_REMOVE ||
-          topic === TOPICS.STATE_CLEAR
+          topic === STATE_TOPICS.STATE_SET ||
+          topic === STATE_TOPICS.STATE_REMOVE ||
+          topic === STATE_TOPICS.STATE_CLEAR
         ) {
           return { senderCap: 'state:write', recipientCap: null };
         }

@@ -6,7 +6,10 @@
  */
 
 import type { NostrEvent, NappletMessage } from '@napplet/core';
-import { BusKind } from '@napplet/core';
+// DRIFT-CORE-06 — Phase 11-deviation: BusKind removed from @napplet/core v0.2.0+.
+import { BusKind } from './core-compat.js';
+// Phase 11-02 / DRIFT-CORE-05: narrow storage dispatch to canonical nub-storage union.
+import type { StorageMessage } from '@napplet/nub-storage';
 import type { SendToNapplet, StatePersistence } from './types.js';
 import type { SessionRegistry } from './session-registry.js';
 import type { AclStateContainer } from './acl-state.js';
@@ -174,8 +177,15 @@ export function handleStorageNub(
   aclState: AclStateContainer,
   statePersistence: StatePersistence,
 ): void {
-  const m = msg as any;
-  const id = (m.id as string) ?? '';
+  // DRIFT-ACL-08 — Phase 12: narrow after storage.clear removal (storage.clear is
+  // not in @napplet/nub-storage). Storage.clear branch below still needs access to
+  // the legacy request shape, so widen via `unknown as` with per-branch typing.
+  const m = msg as unknown as StorageMessage & {
+    id?: string;
+    key?: string;
+    value?: string;
+  };
+  const id = m.id ?? '';
   const action = msg.type.split('.')[1];
 
   function sendResult(payload: Record<string, unknown>): void {

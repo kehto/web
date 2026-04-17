@@ -5,7 +5,9 @@
  * events to subscribed napplets via the abstract sendToNapplet transport.
  */
 
-import type { NostrEvent, NostrFilter, Capability } from '@napplet/core';
+import type { NostrEvent, NostrFilter } from '@napplet/core';
+// DRIFT-CORE-06 — Phase 11-deviation: Capability removed from @napplet/core v0.2.0+.
+import type { Capability } from './core-compat.js';
 import type { SendToNapplet } from './types.js';
 import type { SessionRegistry } from './session-registry.js';
 import type { EnforceResult } from './enforce.js';

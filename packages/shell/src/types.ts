@@ -1,19 +1,34 @@
 // @kehto/shell — Shell-specific types and hook interfaces.
 // Protocol types (NostrEvent, NostrFilter, Capability, constants) are imported from @napplet/core.
 
-// Protocol types and constants re-exported from @napplet/core
-export type { NostrEvent, NostrFilter, Capability } from '@napplet/core';
-export { ALL_CAPABILITIES, BusKind, AUTH_KIND, SHELL_BRIDGE_URI, PROTOCOL_VERSION, REPLAY_WINDOW_SECONDS, DESTRUCTIVE_KINDS } from '@napplet/core';
-export type { BusKindValue } from '@napplet/core';
+// Protocol types and constants re-exported from @napplet/core and the runtime shim.
+// DRIFT-CORE-06 — Phase 11-deviation: Capability, BusKind, ALL_CAPABILITIES,
+// DESTRUCTIVE_KINDS, REPLAY_WINDOW_SECONDS, SHELL_BRIDGE_URI, PROTOCOL_VERSION,
+// AUTH_KIND, BusKindValue, ServiceDescriptor were dropped from @napplet/core v0.2.0+
+// (napplet phases 81 + 87). Now re-exported through @kehto/runtime's core-compat shim.
+export type { NostrEvent, NostrFilter } from '@napplet/core';
+export type { Capability, BusKindValue, ServiceDescriptor } from '@kehto/runtime';
+export {
+  ALL_CAPABILITIES,
+  BusKind,
+  AUTH_KIND,
+  SHELL_BRIDGE_URI,
+  PROTOCOL_VERSION,
+  REPLAY_WINDOW_SECONDS,
+  DESTRUCTIVE_KINDS,
+} from '@kehto/runtime';
 export type { NappletMessage } from '@napplet/core';
 
 // Import Capability type locally for use in this file's shell-specific types
-import type { Capability, NostrEvent, NostrFilter, ServiceDescriptor, NappletMessage } from '@napplet/core';
+import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
+// DRIFT-CORE-06 — Phase 11-deviation: see above.
+import type { Capability, ServiceDescriptor } from '@kehto/runtime';
 import type { RuntimeConfigOverrides } from '@kehto/runtime';
 import type { ServiceHandler, ServiceRegistry } from '@kehto/runtime';
 
 // Re-export service types so shell consumers can still import from @kehto/shell
-export type { ServiceDescriptor, ServiceHandler, ServiceRegistry };
+// (ServiceDescriptor already re-exported above from @kehto/runtime — DRIFT-CORE-06).
+export type { ServiceHandler, ServiceRegistry };
 
 // ─── Registry Types ─────────────────────────────────────────────────────────
 

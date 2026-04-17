@@ -5,8 +5,10 @@
  * AclPersistence. No localStorage or DOM references.
  */
 
-import type { Capability } from '@napplet/core';
-import { DESTRUCTIVE_KINDS } from '@napplet/core';
+// DRIFT-CORE-06 — Phase 11-deviation: Capability + DESTRUCTIVE_KINDS removed from
+// @napplet/core v0.2.0+ (napplet phase-87). Sourced from local core-compat shim.
+import type { Capability } from './core-compat.js';
+import { DESTRUCTIVE_KINDS } from './core-compat.js';
 import type { AclState, Identity } from '@kehto/acl';
 import {
   createState, check, grant, revoke, block, unblock,

@@ -9,10 +9,21 @@
  * All I/O is delegated to RuntimeAdapter.
  */
 
-import type { NostrEvent, NostrFilter, Capability, NappletMessage } from '@napplet/core';
-import {
-  BusKind, ALL_CAPABILITIES,
-} from '@napplet/core';
+import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
+// DRIFT-CORE-06 — Phase 11-deviation: Capability, BusKind, ALL_CAPABILITIES removed
+// from @napplet/core v0.2.0+ (napplet phase-87). Sourced from local core-compat shim.
+import type { Capability } from './core-compat.js';
+import { BusKind, ALL_CAPABILITIES } from './core-compat.js';
+
+// NUB message types — types-only imports from @napplet/nub-* peer deps (v1.2).
+// Phase 11-02 / DRIFT-CORE-05: replaces hand-copied `msg as any` castings with real
+// upstream unions. Phase 12 handler rewrites will narrow per-branch (DRIFT-RT-08/09).
+import type { StorageMessage } from '@napplet/nub-storage';
+import type { IfcMessage } from '@napplet/nub-ifc';
+import type { RelayNubMessage } from '@napplet/nub-relay';
+/** Alias to match the canonical nub-relay union name used by callers (`RelayMessage` is
+ *  the base interface; `RelayNubMessage` is the full discriminated union). */
+type RelayMessage = RelayNubMessage;
 
 // Timer globals are available in all JS runtimes (Node.js, Deno, Bun, browsers)
 // but not included in the ES2022 lib. Declare them to avoid needing DOM lib.
@@ -444,14 +455,23 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   // ─── NUB Domain Handlers (NIP-5D envelope dispatch) ──────────────────────
 
   function handleRelayMessage(windowId: string, msg: NappletMessage): void {
-    const m = msg as any;
+    // DRIFT-RT-08 — Phase 12: handler dispatches by sub-action string rather than by
+    // msg.type discriminant, so we widen to `unknown` through RelayMessage and
+    // access fields per-branch. Phase 12 handler rewrite narrows each case against
+    // the canonical RelayNubMessage discriminant union.
+    const m = msg as unknown as RelayMessage & {
+      subId?: string;
+      filters?: NostrFilter[];
+      event?: NostrEvent;
+      id?: string;
+    };
     const dotIdx = msg.type.indexOf('.');
     const action = msg.type.slice(dotIdx + 1);
 
     switch (action) {
       case 'subscribe': {
-        const subId = m.subId as string;
-        const filters = (m.filters ?? []) as NostrFilter[];
+        const subId = m.subId ?? '';
+        const filters = m.filters ?? [];
         if (!subId) return;
 
         const subKey = `${windowId}:${subId}`;
@@ -530,7 +550,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
       }
 
       case 'close': {
-        const subId = m.subId as string;
+        const subId = m.subId ?? '';
         if (!subId) return;
         const subKey = `${windowId}:${subId}`;
         subscriptions.delete(subKey);
@@ -545,8 +565,8 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
       }
 
       case 'publish': {
-        const event = m.event as NostrEvent | undefined;
-        const id = (m.id as string) ?? '';
+        const event = m.event;
+        const id = m.id ?? '';
         if (!event || typeof event !== 'object') {
           hooks.sendToNapplet(windowId, { type: 'relay.publish.error', id, error: 'invalid event' } as NappletMessage);
           return;
@@ -576,8 +596,8 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
       }
 
       case 'query': {
-        const id = (m.id as string) ?? '';
-        const filters = (m.filters ?? []) as NostrFilter[];
+        const id = m.id ?? '';
+        const filters = m.filters ?? [];
         let count = 0;
         for (const event of eventBuffer.getBufferedEvents()) {
           if (matchesAnyFilter(event, filters)) count++;
@@ -590,7 +610,9 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     }
   }
 
+  // DRIFT-RT-07 — Phase 12: delete handleSignerMessage; encryption primitives become private helpers called by handleRelayMessage for relay.publishEncrypted
   function handleSignerMessage(windowId: string, msg: NappletMessage): void {
+    // DRIFT-RT-07 — Phase 12: handleSignerMessage deleted; signer domain dissolved into identity + relay.publishEncrypted
     const m = msg as any;
     const id = (m.id as string) ?? '';
     // Extract action: for 'signer.nip04.encrypt' -> 'nip04.encrypt'
@@ -677,13 +699,19 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   }
 
   function handleIfcMessage(windowId: string, msg: NappletMessage): void {
-    const m = msg as any;
+    // DRIFT-RT-09 — Phase 12: ifc.channel.* sub-protocol unhandled today; handler
+    // dispatches by sub-action rather than by msg.type discriminant. Widen through
+    // IfcMessage with per-branch optional fields until Phase 12 adds channel routing.
+    const m = msg as unknown as IfcMessage & {
+      topic?: string;
+      payload?: unknown;
+    };
     const dotIdx = msg.type.indexOf('.');
     const action = msg.type.slice(dotIdx + 1);
 
     switch (action) {
       case 'emit': {
-        const topic = m.topic as string;
+        const topic = m.topic ?? '';
         const payload = m.payload;
         if (!topic) return;
 
@@ -698,7 +726,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
         break;
       }
       case 'subscribe': {
-        const topic = m.topic as string;
+        const topic = m.topic ?? '';
         if (!topic) return;
         let subs = ifcSubscriptions.get(topic);
         if (!subs) { subs = new Set(); ifcSubscriptions.set(topic, subs); }
@@ -706,7 +734,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
         break;
       }
       case 'unsubscribe': {
-        const topic = m.topic as string;
+        const topic = m.topic ?? '';
         if (!topic) return;
         const subs = ifcSubscriptions.get(topic);
         if (subs) {
@@ -735,7 +763,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     if (caps.senderCap) {
       const result = enforceNub(windowId, caps.senderCap as Capability, envelope);
       if (!result.allowed) {
-        const id = (envelope as any).id ?? '';
+        const id = (envelope as NappletMessage & { id?: string }).id ?? '';
         hooks.sendToNapplet(windowId, { type: `${envelope.type}.error`, id, error: formatDenialReason(result.capability) } as NappletMessage);
         return;
       }

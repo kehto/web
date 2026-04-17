@@ -6,7 +6,8 @@
  */
 
 import type { NostrEvent } from '@napplet/core';
-import { REPLAY_WINDOW_SECONDS } from '@napplet/core';
+// DRIFT-CORE-06 — Phase 11-deviation: REPLAY_WINDOW_SECONDS removed from @napplet/core v0.2.0+.
+import { REPLAY_WINDOW_SECONDS } from './core-compat.js';
 
 /**
  * Replay detection engine. Tracks seen event IDs and validates timestamps.
