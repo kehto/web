@@ -223,16 +223,45 @@ export interface AclCheckEvent {
 
 /**
  * Static capability set injected into napplet iframes at creation time.
- * Used by window.napplet.shell.supports() for synchronous capability queries.
+ * Used by `window.napplet.shell.supports()` for synchronous capability queries.
+ *
+ * Per canonical NIP-5D (specs/NIP-5D.md lines 81-94), supports() distinguishes
+ * two namespaces:
+ *
+ *   - Bare names (or optional `nub:` prefix) for NUB-capability lookups,
+ *     resolved against the `nubs` array — e.g. `supports('relay')`,
+ *     `supports('identity')`.
+ *   - The `perm:<permission>` prefix for sandbox-permission lookups, resolved
+ *     against the `sandbox` array — e.g. `supports('perm:popups')`,
+ *     `supports('perm:modals')`.
+ *
+ * The two namespaces do not cross: a bare-name lookup never matches a sandbox
+ * entry and a `perm:`-prefixed lookup never matches a NUB entry.
  */
 export interface ShellCapabilities {
   /**
    * NUB domain prefixes the shell handles. Canonical 8-domain set from @napplet/nub-*:
    * relay, identity, storage, ifc, theme, keys, media, notify. `relay` is conditional
    * on the RelayPoolHooks being provided.
+   *
+   * Entries are bare domain names — `'relay'`, `'identity'`, etc. They MUST NOT
+   * carry the `perm:` prefix; that prefix is reserved for the `sandbox` array.
+   * Napplets query NUB support via `supports('<domain>')` (or, equivalently,
+   * `supports('nub:<domain>')`).
    */
   nubs: string[];
-  /** Sandbox permissions derived from iframe sandbox attribute tokens (e.g., 'popups', 'modals'). */
+  /**
+   * Sandbox permissions under the `perm:<permission>` namespace. Each entry
+   * MUST begin with the literal prefix `'perm:'` — e.g. `'perm:popups'`,
+   * `'perm:modals'`, `'perm:downloads'`. Napplets call
+   * `shell.supports('perm:<permission>')` to check sandbox entitlements.
+   *
+   * The `perm:` prefix is what separates sandbox permissions from NUB
+   * capabilities; bare-name entries here violate the NIP-5D contract and will
+   * be unreachable through `supports()` (see specs/NIP-5D.md §6 and lines
+   * 81-94). NUB-capability lookups (on `nubs`) retain the bare-name
+   * convention and do NOT use the `perm:` prefix.
+   */
   sandbox: string[];
 }
 

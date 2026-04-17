@@ -26,17 +26,20 @@ const CANONICAL_NUB_DOMAINS = [
  *   relay (gated on hooks.relayPool), identity, storage, ifc, theme, keys, media, notify.
  *
  * Sandbox permissions are left empty by default — host apps may extend after
- * construction. All sandbox permission strings are expected in the `perm:<permission>`
- * namespace per specs/NIP-5D.md (see shell.supports() rename).
+ * construction. Sandbox entries returned here (and any host-app extensions)
+ * MUST use the canonical `perm:<permission>` form — e.g. `'perm:popups'`,
+ * `'perm:modals'`, `'perm:downloads'`. Napplets rely on the `perm:` prefix to
+ * distinguish sandbox permissions from NUB-capability lookups (bare names,
+ * resolved against `caps.nubs`); see specs/NIP-5D.md lines 81-94.
  *
  * @param hooks - The ShellAdapter provided by the host app
- * @returns ShellCapabilities with nubs and sandbox arrays
+ * @returns ShellCapabilities with nubs (bare-named) and sandbox (perm:-prefixed) arrays
  * @example
  * ```ts
  * const caps = buildShellCapabilities(hooks);
  * // caps.nubs => ['relay','identity','storage','ifc','theme','keys','media','notify']
- * //              (relay present when hooks.relayPool is provided)
- * // caps.sandbox => []
+ * //              (relay present when hooks.relayPool is provided; bare names only)
+ * // caps.sandbox => []   // host app may extend with 'perm:popups', etc.
  * ```
  */
 export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
