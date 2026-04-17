@@ -117,7 +117,8 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
   1. `pnpm -r test` passes green with `@napplet/core@0.2.0` and the eight `@napplet/nub-*` peer deps resolved. Tests tied to removed `signer.*` functionality have been migrated to `identity.*` / `relay.publishEncrypted` semantics or deleted with a recorded rationale.
   2. Every `@kehto/*` package that ships code changes in v1.2 has a changeset entry in `.changeset/` describing the change.
   3. `pnpm build` produces clean ESM output for all four packages with no type errors.
-**Plans**: TBD
+**Plans**: 1 plan
+  - [ ] 15-01-PLAN.md — Create 4 changesets + delete legacy shell-runtime-integration test + run validation gate (DEPS-02, DEPS-03)
 
 ## Progress
 
@@ -130,4 +131,4 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
 | 12. Shell Conformance & Seven-Nub Coverage | 11/11 | Complete    | 2026-04-17 |
 | 13. Theme Nub Implementation | 2/2 | Complete    | 2026-04-17 |
 | 14. Dispatch Refactor | 1/1 | Complete    | 2026-04-17 |
-| 15. Milestone Validation & Release Prep | 0/TBD | Not started | - |
+| 15. Milestone Validation & Release Prep |  0/1   | Not started | - |
