@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: — NIP-5D Conformance & Full NUB Coverage
 status: verifying
 stopped_at: Completed 13-02-PLAN.md — bridge.publishTheme shell adapter + Phase 13 audit closure (447 tests green, TH-03 closed, Phase 13 end-to-end complete)
-last_updated: "2026-04-17T20:16:48.064Z"
+last_updated: "2026-04-17T20:20:08.941Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
@@ -25,8 +25,8 @@ See: .planning/PROJECT.md (updated 2026-04-17)
 
 ## Current Position
 
-Phase: 13 (theme-nub-implementation) — EXECUTING
-Plan: 2 of 2
+Phase: 14
+Plan: Not started
 Status: Phase complete — ready for verification
 Last activity: 2026-04-17
 
