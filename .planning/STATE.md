@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — NIP-5D Conformance & Full NUB Coverage
 status: executing
-stopped_at: Completed 12-01-PLAN.md — SH-C01 satisfied, SH-C03 partial
-last_updated: "2026-04-17T18:50:09.253Z"
+stopped_at: Completed 12-02-PLAN.md — SH-C02 satisfied, DRIFT-SHELL-02 closed
+last_updated: "2026-04-17T18:55:55.923Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 15
-  completed_plans: 5
+  completed_plans: 6
   percent: 100
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-17)
 ## Current Position
 
 Phase: 12 (shell-conformance-seven-nub-coverage) — EXECUTING
-Plan: 2 of 11
+Plan: 3 of 11
 Status: Ready to execute
 Last activity: 2026-04-17
 
@@ -65,6 +65,7 @@ Progress: [██████████] 100% (Phase 10 plans complete — v1.
 | Phase 11 P01 | 3min | 3 tasks | 6 files |
 | Phase 11 P02 | 11min | 3 tasks | 17 files |
 | Phase 12 P01 | 3 min | 2 tasks | 5 files |
+| Phase 12 P02 | 3min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,8 @@ Recent decisions affecting current work (full log in PROJECT.md):
 - [Phase 12]: Hard-deleted generateNostrBootstrap; canonical 8-domain nub list replaces signer/storage/ifc
 - [Phase 12]: Source-text regression tests (readFileSync + regex) established as pattern for canonical-spec posture enforcement
 - [Phase 12]: vitest include pattern widened to packages/*/tests/** — establishes src/tests separation as a valid layout for future plans
+- [Phase 12]: Plan 12-02: ShellCapabilities JSDoc documents the canonical two-namespace supports() contract (bare names for nubs, perm:<permission> for sandbox); no shell-side supports() helper added (napplet shim computes locally)
+- [Phase 12]: Plan 12-02: Per-field JSDoc pattern — each ShellCapabilities array field documents its own prefix convention so violations are visible at the type-declaration site
 
 ### Blockers/Concerns
 
@@ -103,6 +106,6 @@ Recent decisions affecting current work (full log in PROJECT.md):
 
 ## Session Continuity
 
-Last session: 2026-04-17T18:50:09.250Z
-Stopped at: Completed 12-01-PLAN.md — SH-C01 satisfied, SH-C03 partial
+Last session: 2026-04-17T18:55:55.920Z
+Stopped at: Completed 12-02-PLAN.md — SH-C02 satisfied, DRIFT-SHELL-02 closed
 Resume: Run `/gsd:plan-phase 10` to begin Spec Conformance Audit.
