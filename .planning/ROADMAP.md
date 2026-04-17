@@ -94,7 +94,9 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
   2. The reference theme service in @kehto/services answers `theme.get` with the current theme and broadcasts `theme.changed` when the host updates it.
   3. The hosting application can call a documented @kehto/shell adapter API to publish a theme change, and all registered napplets observe a `theme.changed` event.
   4. A napplet without the `theme` capability is denied via @kehto/acl with the same error shape used by the other seven nubs.
-**Plans**: TBD
+**Plans**: 2 plans
+  - [ ] 13-01-PLAN.md — Runtime case 'theme' + reference theme-service + TH-04 ACL enforcement test (TH-01, TH-02, TH-04)
+  - [ ] 13-02-PLAN.md — Shell adapter bridge.publishTheme() + audit/requirements closure (TH-03)
 
 ### Phase 14: Dispatch Refactor
 **Goal**: Replace @kehto/runtime's hand-rolled domain switch with napplet/core's formal dispatch infrastructure, so kehto matches the spec's dispatch contract instead of reimplementing it.
