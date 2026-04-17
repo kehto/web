@@ -39,7 +39,7 @@ All 8 napplet nub packages are consumed as peer deps and fully handled.
 - [x] **NUB-01**: `@napplet/nub-identity`, `@napplet/nub-ifc`, `@napplet/nub-keys`, `@napplet/nub-media`, `@napplet/nub-notify`, `@napplet/nub-relay`, `@napplet/nub-storage`, and `@napplet/nub-theme` are declared as peer dependencies on every `@kehto/*` package (uniform rule; types-only consumption)
 - [x] **NUB-02**: Hand-copied NUB message type and constant definitions in kehto are replaced with imports from the respective `@napplet/nub-*` package. Old `signer.*` local types are deleted; consumers migrate to `identity.*` (read-only nostr identity info) and `relay.publish` / `relay.publishEncrypted` (signing/encryption via shell mediation).
 - [x] **NUB-03**: Every message type exported by `@napplet/nub-identity` (`getPublicKey`, `getRelays`, `getProfile`, `getFollows`, `getList`, `getZaps`, `getMutes`, `getBlocked`, `getBadges`, plus their `.result` envelopes) is dispatched by @kehto/runtime and answered by a reference service
-- [ ] **NUB-04**: Every message type exported by `@napplet/nub-ifc` (topic + channel sub-protocol: `emit`, `subscribe`, `subscribe.result`, `unsubscribe`, `event`, `channel.open`, `channel.open.result`, `channel.emit`, `channel.event`, `channel.broadcast`, `channel.list`, `channel.list.result`, `channel.close`, `channel.closed`) is dispatched and handled
+- [x] **NUB-04**: Every message type exported by `@napplet/nub-ifc` (topic + channel sub-protocol: `emit`, `subscribe`, `subscribe.result`, `unsubscribe`, `event`, `channel.open`, `channel.open.result`, `channel.emit`, `channel.event`, `channel.broadcast`, `channel.list`, `channel.list.result`, `channel.close`, `channel.closed`) is dispatched and handled
 - [x] **NUB-05**: Every message type exported by `@napplet/nub-keys` (`forward`, `register`, `unregister`, `register.result`, `bindings`, `action`) is dispatched and handled
 - [x] **NUB-06**: Every message type exported by `@napplet/nub-media` (session `create`/`update`/`destroy`, `state`, `capabilities`, `command`, `controls`, `create.result`) is dispatched and handled
 - [x] **NUB-07**: Every message type exported by `@napplet/nub-notify` (`send`, `dismiss`, `badge`, `channel.register`, `permission.request`, `send.result`, `permission.result`, `action`, `clicked`, `dismissed`, `controls`) is dispatched and handled
@@ -104,7 +104,7 @@ Explicit exclusions for v1.2:
 | NUB-01 | — |
 | NUB-02 | — |
 | NUB-03 | — |
-| NUB-04 | — |
+| NUB-04 | 12 (Plan 12-04) |
 | NUB-05 | — |
 | NUB-06 | — |
 | NUB-07 | 12 (Plan 12-07) |
