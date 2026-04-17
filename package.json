@@ -10,13 +10,14 @@
     "test:e2e": "pnpm test:build && npx playwright test",
     "test:build": "pnpm build",
     "test:serve": "pnpm --filter @test/harness dev",
+    "test:serve:demo": "pnpm --filter @kehto/demo preview --port 4174",
     "lint": "turbo run lint",
     "version-packages": "changeset version",
     "publish-packages": "turbo run build && changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
-    "@playwright/test": "^1.52.0",
+    "@playwright/test": "^1.54.0",
     "@vitest/coverage-v8": "^4.1.2",
     "nostr-tools": "^2.23.3",
     "turbo": "^2.5.0",
