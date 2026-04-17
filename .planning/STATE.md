@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — NIP-5D Conformance & Full NUB Coverage
 status: executing
-stopped_at: Completed 12-11-PLAN.md — 5 per-domain proxies + keys-forwarder; DRIFT-SHELL-06/07/08 closed; SH-C03 + NUB-05 complete.
-last_updated: "2026-04-17T19:36:58.332Z"
+stopped_at: Completed 12-10-PLAN.md — ACL consolidation + audit closure; 26 Phase 12 rows resolved; zero DRIFT-*-Phase 12 markers remaining.
+last_updated: "2026-04-17T19:39:50.734Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 15
-  completed_plans: 14
+  completed_plans: 15
   percent: 100
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-17)
 ## Current Position
 
 Phase: 12 (shell-conformance-seven-nub-coverage) — EXECUTING
-Plan: 9 of 11
+Plan: 10 of 11
 Status: Ready to execute
 Last activity: 2026-04-17
 
@@ -74,6 +74,7 @@ Progress: [██████████] 100% (Phase 10 plans complete — v1.
 | Phase 12 P04 | 9min | 2 tasks | 3 files |
 | Phase 12 P08 | 10min | 2 tasks | 3 files |
 | Phase 12 P11 | 7min | 3 tasks | 10 files |
+| Phase 12 P10 | 10min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -125,6 +126,7 @@ Recent decisions affecting current work (full log in PROJECT.md):
 - [Phase 12]: Plan 12-08: default encryption='nip44' matches @napplet/nub-relay RelayPublishEncryptedMessage interface default and v1.2 canonical DM path; 'nip04' explicit opt-in; any other scheme → ok:false unsupported error.
 - [Phase 12]: Shell per-domain proxies are optional composition seams — createShellBridge() does NOT compose them by default; the runtime owns 8-domain dispatch and proxies exist as public API for host-app interception.
 - [Phase 12]: keys-forwarder takes hasKeysForwardCap(pubkey) as injected function (not direct aclStore import), defaulting to window but falling back to EventTarget in SSR — keeps the module SSR-safe and trivially stub-testable without a DOM.
+- [Phase 12]: Plan 12-10: resolveCapabilitiesNub rewritten per-domain helpers; signer domain deleted; signer bits 5-7 reclaimed by identity:read/keys:bind/keys:forward; audit doc annotated with per-plan Phase 12 closure.
 
 ### Blockers/Concerns
 
@@ -133,6 +135,6 @@ Recent decisions affecting current work (full log in PROJECT.md):
 
 ## Session Continuity
 
-Last session: 2026-04-17T19:36:50.281Z
-Stopped at: Completed 12-11-PLAN.md — 5 per-domain proxies + keys-forwarder; DRIFT-SHELL-06/07/08 closed; SH-C03 + NUB-05 complete.
+Last session: 2026-04-17T19:39:50.731Z
+Stopped at: Completed 12-10-PLAN.md — ACL consolidation + audit closure; 26 Phase 12 rows resolved; zero DRIFT-*-Phase 12 markers remaining.
 Resume: Run `/gsd:plan-phase 10` to begin Spec Conformance Audit.
