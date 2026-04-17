@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — NIP-5D Conformance & Full NUB Coverage
-status: executing
-stopped_at: Completed 13-01-PLAN.md — theme NUB runtime route + reference service + TH-04 ACL enforcement test (61 tests green, TH-01/TH-02/TH-04 closed)
-last_updated: "2026-04-17T20:08:10.303Z"
+status: verifying
+stopped_at: Completed 13-02-PLAN.md — bridge.publishTheme shell adapter + Phase 13 audit closure (447 tests green, TH-03 closed, Phase 13 end-to-end complete)
+last_updated: "2026-04-17T20:16:48.064Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 17
-  completed_plans: 16
+  completed_plans: 17
   percent: 100
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-17)
 
 Phase: 13 (theme-nub-implementation) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-17
 
 Progress: [██████████] 100% (Phase 10 plans complete — v1.2 overall 1/6 phases)
@@ -76,6 +76,7 @@ Progress: [██████████] 100% (Phase 10 plans complete — v1.
 | Phase 12 P11 | 7min | 3 tasks | 10 files |
 | Phase 12 P10 | 10min | 3 tasks | 8 files |
 | Phase 13 P01 | 4 min | 2 tasks | 5 files |
+| Phase 13 P02 | 5min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -132,6 +133,9 @@ Recent decisions affecting current work (full log in PROJECT.md):
 - [Phase 13]: Plan 13-01: onBroadcast callback injection over direct sendToNapplet coupling — keeps createThemeService browser-agnostic; Plan 13-02 shell adapter wires onBroadcast to sendToNapplet fanout
 - [Phase 13]: Plan 13-01: Runtime fallback THEME_FALLBACK_DEFAULT mirrored from services DEFAULT_THEME rather than imported — preserves one-way services->runtime dependency; sync contract documented in JSDoc on both constants
 - [Phase 13]: Plan 13-01: TH-04 ACL denial test uses aclState.block() rather than targeted revoke — default policy is permissive, so block reliably denies ALL caps including theme:read regardless of future policy shifts
+- [Phase 13]: Plan 13-02: publishTheme uses runtime.sessionRegistry.getAllEntries() (not shell singleton) — runtime is canonical registered-napplet authority; tests seed bridge.runtime.sessionRegistry accordingly
+- [Phase 13]: Plan 13-02: publishTheme does NOT use theme-proxy.ts — theme-proxy is napplet-facing (dispatch+emit for single windowId); publishTheme is host-facing broadcast (shell → every napplet); CONTEXT.md pinned this separation
+- [Phase 13]: Plan 13-02: publishTheme added directly on ShellBridge interface (not a separate proxy) — first-class bridge broadcast method pattern; sets precedent for future shell→all-napplets push APIs
 
 ### Blockers/Concerns
 
@@ -140,6 +144,6 @@ Recent decisions affecting current work (full log in PROJECT.md):
 
 ## Session Continuity
 
-Last session: 2026-04-17T20:08:10.300Z
-Stopped at: Completed 13-01-PLAN.md — theme NUB runtime route + reference service + TH-04 ACL enforcement test (61 tests green, TH-01/TH-02/TH-04 closed)
+Last session: 2026-04-17T20:16:48.061Z
+Stopped at: Completed 13-02-PLAN.md — bridge.publishTheme shell adapter + Phase 13 audit closure (447 tests green, TH-03 closed, Phase 13 end-to-end complete)
 Resume: Run `/gsd:plan-phase 10` to begin Spec Conformance Audit.

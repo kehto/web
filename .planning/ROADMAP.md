@@ -33,7 +33,7 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
 - [x] **Phase 10: Spec Conformance Audit** — Pin canonical NIP-5D at `specs/NIP-5D.md` and produce a cross-package drift audit covering spec text + 8-nub message surface. (completed 2026-04-17)
 - [x] **Phase 11: Nub Peer Deps & Type Imports** — Bump `@napplet/core` to `^0.2.0`, add the eight `@napplet/nub-*` peer deps, replace hand-copied types (including the old `signer.*` set) with imports. (completed 2026-04-17)
 - [x] **Phase 12: Shell Conformance & Seven-Nub Coverage** — Remove `window.nostr` injection, rename to `perm:*` namespace, mediate signing/encryption through the shell, and close every drift item for the seven non-theme nubs (identity, ifc, keys, media, notify, relay, storage) — including ACL capability mapping for the full surface. (completed 2026-04-17)
-- [ ] **Phase 13: Theme Nub Implementation** — Add the eighth nub end-to-end: runtime route, reference service, shell adapter, ACL gates.
+- [x] **Phase 13: Theme Nub Implementation** — Add the eighth nub end-to-end: runtime route, reference service, shell adapter, ACL gates. (completed 2026-04-17)
 - [ ] **Phase 14: Dispatch Refactor** — Replace the hand-rolled switch with napplet/core's `createDispatch()` / `registerNub()` / `dispatch()` infrastructure; register all 8 nub handlers through it.
 - [ ] **Phase 15: Milestone Validation & Release Prep** — Green tests against the new peer-dep set (with `signer.*` tests migrated or deleted) and changesets for every republished package.
 
@@ -96,7 +96,7 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
   4. A napplet without the `theme` capability is denied via @kehto/acl with the same error shape used by the other seven nubs.
 **Plans**: 2 plans
   - [x] 13-01-PLAN.md — Runtime case 'theme' + reference theme-service + TH-04 ACL enforcement test (TH-01, TH-02, TH-04)
-  - [ ] 13-02-PLAN.md — Shell adapter bridge.publishTheme() + audit/requirements closure (TH-03)
+  - [x] 13-02-PLAN.md — Shell adapter bridge.publishTheme() + audit/requirements closure (TH-03)
 
 ### Phase 14: Dispatch Refactor
 **Goal**: Replace @kehto/runtime's hand-rolled domain switch with napplet/core's formal dispatch infrastructure, so kehto matches the spec's dispatch contract instead of reimplementing it.
@@ -127,6 +127,6 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
 | 10. Spec Conformance Audit | 2/2 | Complete    | 2026-04-17 |
 | 11. Nub Peer Deps & Type Imports | 2/2 | Complete    | 2026-04-17 |
 | 12. Shell Conformance & Seven-Nub Coverage | 11/11 | Complete    | 2026-04-17 |
-| 13. Theme Nub Implementation | 1/2 | In Progress|  |
+| 13. Theme Nub Implementation | 2/2 | Complete   | 2026-04-17 |
 | 14. Dispatch Refactor | 0/TBD | Not started | - |
 | 15. Milestone Validation & Release Prep | 0/TBD | Not started | - |
