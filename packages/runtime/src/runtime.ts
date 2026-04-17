@@ -748,6 +748,27 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     }
   }
 
+  function handleMediaMessage(windowId: string, msg: NappletMessage): void {
+    const mediaService = serviceRegistry['media'];
+    if (mediaService) {
+      mediaService.handleMessage(windowId, msg, (resp: NappletMessage) => {
+        hooks.sendToNapplet(windowId, resp);
+      });
+      return;
+    }
+    // Fallback: emit spec-correct result for media.session.create so napplets
+    // get an envelope even without a registered media service. Other media.*
+    // actions are fire-and-forget per @napplet/nub-media and silently dropped.
+    if (msg.type === 'media.session.create') {
+      const m = msg as NappletMessage & { id?: string; sessionId?: string };
+      hooks.sendToNapplet(windowId, {
+        type: 'media.session.create.result',
+        id: m.id ?? '',
+        sessionId: m.sessionId ?? '',
+      } as NappletMessage);
+    }
+  }
+
   // ─── Main message handler ────────────────────────────────────────────────
 
   function handleMessage(windowId: string, msg: unknown): void {
@@ -774,6 +795,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
       case 'relay':   return handleRelayMessage(windowId, envelope);
       // DRIFT-RT-06 — Phase 12: remove case 'signer'; canonical NIP-5D has no signer domain (split into identity + shell-internal signing)
       case 'signer':  return handleSignerMessage(windowId, envelope);
+      case 'media':   return handleMediaMessage(windowId, envelope);
       case 'storage': return handleStorageMessage(windowId, envelope);
       case 'ifc':     return handleIfcMessage(windowId, envelope);
       default:        return; // unknown domain — silently drop per NIP-5D spec
