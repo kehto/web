@@ -2,7 +2,7 @@
 
 **Milestone:** v1.2
 **Defined:** 2026-04-17
-**Status:** Draft (pending roadmap)
+**Status:** Roadmapped (phases 10–15)
 
 ## Overview
 
@@ -70,30 +70,30 @@ Explicit exclusions for v1.2:
 
 ## Traceability
 
-*(Populated by gsd-roadmapper after phase mapping)*
-
 | Requirement | Phase |
 |-------------|-------|
-| SPEC-01 | — |
-| SPEC-02 | — |
-| SPEC-03 | — |
-| NUB-01 | — |
-| NUB-02 | — |
-| NUB-03 | — |
-| NUB-04 | — |
-| NUB-05 | — |
-| NUB-06 | — |
-| NUB-07 | — |
-| THEME-01 | — |
-| THEME-02 | — |
-| THEME-03 | — |
-| THEME-04 | — |
-| DISPATCH-01 | — |
-| DISPATCH-02 | — |
-| DISPATCH-03 | — |
-| DEPS-01 | — |
-| DEPS-02 | — |
-| DEPS-03 | — |
+| SPEC-01 | Phase 10 |
+| SPEC-02 | Phase 10 |
+| SPEC-03 | Phase 12 |
+| NUB-01 | Phase 11 |
+| NUB-02 | Phase 11 |
+| NUB-03 | Phase 12 |
+| NUB-04 | Phase 12 |
+| NUB-05 | Phase 12 |
+| NUB-06 | Phase 12 |
+| NUB-07 | Phase 12 |
+| THEME-01 | Phase 13 |
+| THEME-02 | Phase 13 |
+| THEME-03 | Phase 13 |
+| THEME-04 | Phase 13 |
+| DISPATCH-01 | Phase 14 |
+| DISPATCH-02 | Phase 14 |
+| DISPATCH-03 | Phase 14 |
+| DEPS-01 | Phase 11 |
+| DEPS-02 | Phase 15 |
+| DEPS-03 | Phase 15 |
+
+**Coverage:** 20/20 requirements mapped — no orphans, no duplicates.
 
 ---
 *Last updated: 2026-04-17*
