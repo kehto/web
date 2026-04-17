@@ -56,9 +56,9 @@ All 8 napplet nub packages are consumed as peer deps and fully handled.
 
 ## Category 5: Dispatch Refactor (DISPATCH)
 
-- [ ] **DISPATCH-01**: @kehto/runtime creates its dispatcher via `createDispatch()` from @napplet/core instead of a hand-rolled switch
-- [ ] **DISPATCH-02**: All eight nub domain handlers are registered via `registerNub()` at runtime startup
-- [ ] **DISPATCH-03**: Inbound envelope routing in `runtime.ts` delegates to `dispatch()` with no domain-specific branching
+- [x] **DISPATCH-01**: @kehto/runtime creates its dispatcher via `createDispatch()` from @napplet/core instead of a hand-rolled switch
+- [x] **DISPATCH-02**: All eight nub domain handlers are registered via `registerNub()` at runtime startup
+- [x] **DISPATCH-03**: Inbound envelope routing in `runtime.ts` delegates to `dispatch()` with no domain-specific branching
 
 ## Category 6: Peer Dep Upgrade (DEPS)
 

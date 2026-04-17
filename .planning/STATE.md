@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — NIP-5D Conformance & Full NUB Coverage
 status: verifying
-stopped_at: Completed 13-02-PLAN.md — bridge.publishTheme shell adapter + Phase 13 audit closure (447 tests green, TH-03 closed, Phase 13 end-to-end complete)
-last_updated: "2026-04-17T20:20:08.941Z"
+stopped_at: Completed 14-01-PLAN.md — dispatch refactor (createDispatch + 8 registerNub adapters); 449 tests green; DISPATCH-01/02/03 satisfied
+last_updated: "2026-04-17T20:35:02.714Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
-  completed_phases: 4
-  total_plans: 17
-  completed_plans: 17
+  completed_phases: 5
+  total_plans: 18
+  completed_plans: 18
   percent: 100
 ---
 
@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-17)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 13 — theme-nub-implementation
+**Current focus:** Phase 14 — dispatch-refactor
 
 ## Current Position
 
-Phase: 14
-Plan: Not started
+Phase: 14 (dispatch-refactor) — EXECUTING
+Plan: 1 of 1
 Status: Phase complete — ready for verification
 Last activity: 2026-04-17
 
@@ -77,6 +77,7 @@ Progress: [██████████] 100% (Phase 10 plans complete — v1.
 | Phase 12 P10 | 10min | 3 tasks | 8 files |
 | Phase 13 P01 | 4 min | 2 tasks | 5 files |
 | Phase 13 P02 | 5min | 2 tasks | 4 files |
+| Phase 14 P01 | 2 min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -136,6 +137,9 @@ Recent decisions affecting current work (full log in PROJECT.md):
 - [Phase 13]: Plan 13-02: publishTheme uses runtime.sessionRegistry.getAllEntries() (not shell singleton) — runtime is canonical registered-napplet authority; tests seed bridge.runtime.sessionRegistry accordingly
 - [Phase 13]: Plan 13-02: publishTheme does NOT use theme-proxy.ts — theme-proxy is napplet-facing (dispatch+emit for single windowId); publishTheme is host-facing broadcast (shell → every napplet); CONTEXT.md pinned this separation
 - [Phase 13]: Plan 13-02: publishTheme added directly on ShellBridge interface (not a separate proxy) — first-class bridge broadcast method pattern; sets precedent for future shell→all-napplets push APIs
+- [Phase 14]: Plan 14-01: Per-runtime createDispatch() instance (not module-level singleton) + runtime-scoped currentWindowId closure bridges NubHandler(msg) → handleXxxMessage(windowId, msg) without rewriting 8 handler signatures; 8-case switch deleted, delegates to nubDispatch.dispatch(envelope) after ACL gate unchanged
+- [Phase 14]: Plan 14-01: Named adapter functions (relayAdapter, identityAdapter, etc.) passed to registerNub() preserve stack traces on error paths — inline arrows in registerNub() calls would anonymize the stack frame
+- [Phase 14]: Plan 14-01: core-compat.ts (DRIFT-CORE-06) preserved and NOT modified — it covers Capability/BusKind/ALL_CAPABILITIES/etc. which are NOT dispatch-related; removal is an upstream concern when napplet/core restores those re-exports
 
 ### Blockers/Concerns
 
@@ -144,6 +148,6 @@ Recent decisions affecting current work (full log in PROJECT.md):
 
 ## Session Continuity
 
-Last session: 2026-04-17T20:16:48.061Z
-Stopped at: Completed 13-02-PLAN.md — bridge.publishTheme shell adapter + Phase 13 audit closure (447 tests green, TH-03 closed, Phase 13 end-to-end complete)
+Last session: 2026-04-17T20:34:51.971Z
+Stopped at: Completed 14-01-PLAN.md — dispatch refactor (createDispatch + 8 registerNub adapters); 449 tests green; DISPATCH-01/02/03 satisfied
 Resume: Run `/gsd:plan-phase 10` to begin Spec Conformance Audit.

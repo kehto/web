@@ -34,7 +34,7 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
 - [x] **Phase 11: Nub Peer Deps & Type Imports** — Bump `@napplet/core` to `^0.2.0`, add the eight `@napplet/nub-*` peer deps, replace hand-copied types (including the old `signer.*` set) with imports. (completed 2026-04-17)
 - [x] **Phase 12: Shell Conformance & Seven-Nub Coverage** — Remove `window.nostr` injection, rename to `perm:*` namespace, mediate signing/encryption through the shell, and close every drift item for the seven non-theme nubs (identity, ifc, keys, media, notify, relay, storage) — including ACL capability mapping for the full surface. (completed 2026-04-17)
 - [x] **Phase 13: Theme Nub Implementation** — Add the eighth nub end-to-end: runtime route, reference service, shell adapter, ACL gates. (completed 2026-04-17)
-- [ ] **Phase 14: Dispatch Refactor** — Replace the hand-rolled switch with napplet/core's `createDispatch()` / `registerNub()` / `dispatch()` infrastructure; register all 8 nub handlers through it.
+- [x] **Phase 14: Dispatch Refactor** — Replace the hand-rolled switch with napplet/core's `createDispatch()` / `registerNub()` / `dispatch()` infrastructure; register all 8 nub handlers through it. (completed 2026-04-17)
 - [ ] **Phase 15: Milestone Validation & Release Prep** — Green tests against the new peer-dep set (with `signer.*` tests migrated or deleted) and changesets for every republished package.
 
 ## Phase Details
@@ -107,7 +107,7 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
   2. All eight nub domain handlers (identity, ifc, keys, media, notify, relay, storage, theme) are registered through `registerNub()` at runtime startup.
   3. The inbound message path in `runtime.ts` contains no domain-specific `switch` or `if (type === …)` branches for NUB messages; routing delegates entirely to `dispatch()`.
 **Plans**: 1 plan
-  - [ ] 14-01-PLAN.md — Replace NUB domain switch with createDispatch + 8 registerNub adapters (DISPATCH-01, DISPATCH-02, DISPATCH-03)
+  - [x] 14-01-PLAN.md — Replace NUB domain switch with createDispatch + 8 registerNub adapters (DISPATCH-01, DISPATCH-02, DISPATCH-03)
 
 ### Phase 15: Milestone Validation & Release Prep
 **Goal**: Prove the milestone is shippable — every existing test passes against the new peer-dep set, and every republished kehto package has a changeset.
@@ -129,5 +129,5 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
 | 11. Nub Peer Deps & Type Imports | 2/2 | Complete    | 2026-04-17 |
 | 12. Shell Conformance & Seven-Nub Coverage | 11/11 | Complete    | 2026-04-17 |
 | 13. Theme Nub Implementation | 2/2 | Complete    | 2026-04-17 |
-| 14. Dispatch Refactor | 0/1 | Not started | - |
+| 14. Dispatch Refactor | 1/1 | Complete   | 2026-04-17 |
 | 15. Milestone Validation & Release Prep | 0/TBD | Not started | - |
