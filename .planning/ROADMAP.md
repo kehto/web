@@ -73,7 +73,17 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
   3. Every message type exported by `@napplet/nub-identity`, `-ifc`, `-keys`, `-media`, `-notify`, `-relay`, and `-storage` flows through runtime dispatch to a service handler, producing the spec-correct result or error envelope. `relay.publish` and `relay.publishEncrypted` are the only paths that touch signing/encryption, and those happen inside the shell.
   4. Every drift item identified in the Phase 10 audit targeted at Phase 12 is resolved in code, with the audit document updated to reflect closure.
   5. `resolveCapabilitiesNub` in @kehto/acl maps a capability for every message type exposed by all 8 nub packages — no NUB message reaches runtime without an explicit ACL entry.
-**Plans**: TBD
+**Plans**: 10 plans
+  - [ ] 12-01-PLAN.md — Remove window.nostr injection + signer shell exports (SH-C01, SH-C03, DRIFT-SHELL-01/03/04)
+  - [ ] 12-02-PLAN.md — Rename shell.supports() to perm: namespace (SH-C02, DRIFT-SHELL-02)
+  - [ ] 12-03-PLAN.md — identity nub dispatch + identity-service (split/delete signer-service) (NUB-03, DRIFT-RT-01/06/07/10, DRIFT-SVC-01/02/07)
+  - [ ] 12-04-PLAN.md — ifc channel sub-protocol routing + subscribe.result (NUB-04, DRIFT-RT-09)
+  - [ ] 12-05-PLAN.md — keys nub dispatch + stub keys-service (NUB-05, DRIFT-RT-02, DRIFT-SVC-03)
+  - [ ] 12-06-PLAN.md — media nub dispatch + stub media-service (NUB-06, DRIFT-RT-03, DRIFT-SVC-04)
+  - [ ] 12-07-PLAN.md — notify nub dispatch + stub notify-service (NUB-07, DRIFT-RT-04, DRIFT-SVC-05)
+  - [ ] 12-08-PLAN.md — relay.publishEncrypted shell-mediated path (NUB-08, SH-C03, DRIFT-RT-08, DRIFT-SVC-08)
+  - [ ] 12-09-PLAN.md — storage nub handler retrofit to canonical 4 actions (NUB-09, DRIFT-ACL-08 code-side)
+  - [ ] 12-10-PLAN.md — ACL capabilities.ts + resolveCapabilitiesNub 8-domain + audit closure (NUB-10, SPEC-03, DRIFT-ACL-01..09)
 
 ### Phase 13: Theme Nub Implementation
 **Goal**: Add the `theme` NUB end-to-end — runtime route, reference service, shell adapter API, plus any theme-specific tests. ACL mapping for `theme` already landed in Phase 12's NUB-10 work, so this phase is purely behavioral.
@@ -114,7 +124,7 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
 |-------|----------------|--------|-----------|
 | 10. Spec Conformance Audit | 2/2 | Complete    | 2026-04-17 |
 | 11. Nub Peer Deps & Type Imports | 2/2 | Complete    | 2026-04-17 |
-| 12. Shell Conformance & Seven-Nub Coverage | 0/TBD | Not started | - |
+| 12. Shell Conformance & Seven-Nub Coverage | 0/10 | In progress | - |
 | 13. Theme Nub Implementation | 0/TBD | Not started | - |
 | 14. Dispatch Refactor | 0/TBD | Not started | - |
 | 15. Milestone Validation & Release Prep | 0/TBD | Not started | - |
