@@ -1,3 +1,4 @@
+/// <reference path="./globals.d.ts" />
 /**
  * harness.ts -- Shell test harness boot script.
  *
@@ -9,52 +10,15 @@
  *   await page.evaluate(() => window.__loadNapplet__('auth-napplet'))
  *   const msgs = await page.evaluate(() => window.__TEST_MESSAGES__)
  *   await page.evaluate(() => window.__clearMessages__())
+ *
+ * Window global types are declared in globals.d.ts (Plan 16-03).
  */
 
 import { createShellBridge, originRegistry } from '@kehto/shell';
-import type { ShellBridge, Capability } from '@kehto/shell';
+import type { Capability } from '@kehto/shell';
+import type { NappletMessage } from '@napplet/core';
 import { createMockHooks } from '@test/helpers';
-import type { MockHooksResult } from '@test/helpers';
 import { createMessageTap } from '@test/helpers';
-import type { MessageTap, TappedMessage } from '@test/helpers';
-
-// --- Types for window globals ---
-declare global {
-  interface Window {
-    __SHELL_READY__: boolean;
-    __TEST_MESSAGES__: TappedMessage[];
-    __loadNapplet__: (name: string, params?: Record<string, string>) => string;
-    __unloadNapplet__: (windowId: string) => void;
-    __clearMessages__: () => void;
-    __getRelay__: () => ShellBridge;
-    __getMockHooks__: () => MockHooksResult;
-    __injectMessage__: (windowId: string, data: unknown[]) => void;
-    __createSubscription__: (windowId: string, subId: string, filters: unknown[]) => void;
-    __publishEvent__: (windowId: string, event: unknown) => void;
-    __closeSubscription__: (windowId: string, subId: string) => void;
-    __getChallenge__: (windowId: string) => string | undefined;
-    __getNappletFrames__: () => string[];
-    // --- Phase 4: Capability test globals ---
-    __aclRevoke__: (pubkey: string, dTag: string, hash: string, cap: string) => void;
-    __aclGrant__: (pubkey: string, dTag: string, hash: string, cap: string) => void;
-    __aclBlock__: (pubkey: string, dTag: string, hash: string) => void;
-    __aclUnblock__: (pubkey: string, dTag: string, hash: string) => void;
-    __aclPersist__: () => void;
-    __aclLoad__: () => void;
-    __aclClear__: () => void;
-    __aclCheck__: (pubkey: string, dTag: string, hash: string, cap: string) => boolean;
-    __aclGetEntry__: (pubkey: string, dTag: string, hash: string) => unknown;
-    __getNappPubkey__: (windowId: string) => string | undefined;
-    __getNappEntry__: (windowId: string) => { pubkey: string; dTag: string; aggregateHash: string } | undefined;
-    __setSigner__: (signer: unknown) => void;
-    __setConsentHandler__: (mode: 'auto-approve' | 'auto-deny') => void;
-    __injectShellEvent__: (topic: string, payload: unknown) => void;
-    __getLocalStorageKeys__: () => string[];
-    __getLocalStorageItem__: (key: string) => string | null;
-    __setLocalStorageItem__: (key: string, value: string) => void;
-    __clearLocalStorage__: () => void;
-  }
-}
 
 // --- Initialize ---
 
@@ -351,3 +315,168 @@ tap.onMessage((msg) => {
 });
 
 logStatus('Shell ready -- waiting for napplet load commands');
+
+// ─── NIP-5D Envelope-Aware Driver API (Plan 16-03) ──────────────────────────
+//
+// All globals below must return structured-clone-safe values.
+// Source of truth: .planning/research/PITFALLS.md (Anti-Pattern 2).
+
+/**
+ * Shadow log of NIP-5D envelopes observed from each napplet.
+ * Populated by intercepting non-array postMessage traffic in the message listener.
+ * Keyed by windowId.
+ */
+const envelopeLog = new Map<string, NappletMessage[]>();
+
+/**
+ * Shadow registry of service names — tracks initial services from createMockHooks
+ * plus any added via __registerService__. Maintained independently of the runtime's
+ * internal serviceRegistry because that Map is not publicly enumerable on the
+ * Runtime type surface.
+ */
+const serviceShadow = new Set<string>(
+  Object.keys(mockResult.hooks.services ?? {})
+);
+
+/**
+ * Shadow log of notifications — populated if the mock notification service is wired.
+ * If not wired, __getNotifications__ returns an empty array (Phase 19 will extend
+ * this when the toaster napplet lands).
+ */
+const notificationsShadow: Array<{
+  id: string;
+  title: string;
+  body?: string;
+  read: boolean;
+  windowId?: string;
+}> = [];
+
+// ─── Envelope interception ──────────────────────────────────────────────────
+//
+// Hook a separate window.addEventListener('message') listener alongside the
+// existing relay.handleMessage listener. When a non-array plain-object message
+// with a `type: string` property arrives from a registered napplet frame,
+// record a deep clone in envelopeLog.
+window.addEventListener('message', (event: MessageEvent) => {
+  if (!event.source || Array.isArray(event.data)) return;
+  const windowId = originRegistry.getWindowId(event.source as Window);
+  if (!windowId) return;
+  const data = event.data;
+  if (data && typeof data === 'object' && typeof (data as Record<string, unknown>).type === 'string') {
+    const clone = JSON.parse(JSON.stringify(data)) as NappletMessage;
+    const arr = envelopeLog.get(windowId) ?? [];
+    arr.push(clone);
+    envelopeLog.set(windowId, arr);
+  }
+});
+
+/**
+ * Inject a NIP-5D envelope into the runtime as if posted by the given napplet.
+ * Synchronous — the envelope passes through relay.handleMessage immediately.
+ * @param windowId - Harness-assigned window id for the napplet iframe.
+ * @param envelope - A NIP-5D NappletMessage (must include `type: string`).
+ */
+window.__injectEnvelope__ = (windowId: string, envelope: NappletMessage): void => {
+  const iframe = nappletFrames.get(windowId);
+  if (!iframe?.contentWindow) throw new Error(`No iframe for windowId: ${windowId}`);
+  const event = new MessageEvent('message', {
+    data: envelope,
+    source: iframe.contentWindow,
+    origin: 'null',
+  });
+  window.dispatchEvent(event);
+};
+
+/**
+ * Return the most recent NIP-5D envelope recorded for a napplet, optionally
+ * filtered by envelope type. Deep-cloned — safe to return from page.evaluate().
+ * @param windowId - The harness-assigned window id.
+ * @param type - Optional envelope type filter (e.g., "relay.publish").
+ * @returns The last matching NappletMessage, or null if none recorded.
+ */
+window.__getNubMessage__ = (windowId: string, type?: string): NappletMessage | null => {
+  const arr = envelopeLog.get(windowId) ?? [];
+  const filtered = type ? arr.filter(m => m.type === type) : arr;
+  if (filtered.length === 0) return null;
+  const last = filtered[filtered.length - 1];
+  return JSON.parse(JSON.stringify(last)) as NappletMessage;
+};
+
+/**
+ * Snapshot of currently registered service names.
+ * Returns a plain array — structured-clone-safe by construction.
+ * @returns An array of service names (e.g., ["identity", "notifications"]).
+ */
+window.__getServiceNames__ = (): string[] => [...serviceShadow];
+
+/**
+ * Register a service with the runtime by evaluating `handlerScript` in the harness context.
+ * `handlerScript` MUST be a JS expression that evaluates to a ServiceHandler
+ * (e.g., `({ name: "x", version: "1.0", handleMessage: (w, m, send) => null })`).
+ * @param name - The service name to register.
+ * @param handlerScript - A JS expression (not a full function body) evaluating to a ServiceHandler.
+ * @returns true if registration succeeded; false if the script evaluation threw.
+ */
+window.__registerService__ = (name: string, handlerScript: string): boolean => {
+  try {
+    // eslint-disable-next-line no-new-func -- test-only eval path
+    const handler = new Function(`return (${handlerScript});`)();
+    if (!handler || typeof handler.handleMessage !== 'function') return false;
+    relay.runtime.registerService(name, handler);
+    serviceShadow.add(name);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Unregister a service by name.
+ * @param name - The service name previously registered.
+ * @returns true if a service was removed; false if no such service existed.
+ */
+window.__unregisterService__ = (name: string): boolean => {
+  if (!serviceShadow.has(name)) return false;
+  relay.runtime.unregisterService(name);
+  serviceShadow.delete(name);
+  return true;
+};
+
+/**
+ * Snapshot the notification-service state, filtered by windowId.
+ * Returns [] if no notification service is wired (Phase 19 extends this when
+ * the toaster napplet lands and notification-service state propagation is wired).
+ * @param windowId - Optional filter; if omitted, returns all notifications.
+ * @returns An array of serializable notification entries.
+ */
+window.__getNotifications__ = (windowId?: string) => {
+  const filtered = windowId
+    ? notificationsShadow.filter(n => n.windowId === windowId)
+    : notificationsShadow;
+  return filtered.map(n => ({
+    id: n.id,
+    title: n.title,
+    body: n.body,
+    read: n.read,
+  }));
+};
+
+/**
+ * Override the mock signer's user pubkey.
+ * Delegates to MockHooksResult.setUserPubkey().
+ * @param pubkey - 64-char hex pubkey string.
+ */
+window.__setIdentityPubkey__ = (pubkey: string): void => {
+  mockResult.setUserPubkey(pubkey);
+};
+
+/**
+ * Readiness flag per napplet: true if the runtime has acknowledged this napplet's
+ * session (i.e., sessionRegistry has an entry for its pubkey).
+ * Consumed by tests/e2e/helpers/wait-for-napplet-ready.ts (Plan 16-04).
+ * @param windowId - The napplet's window id.
+ * @returns true if the napplet's session is acknowledged; false otherwise.
+ */
+window.__nappletReady__ = (windowId: string): boolean => {
+  return Boolean(relay.runtime.sessionRegistry.getPubkey(windowId));
+};
