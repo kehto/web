@@ -9,6 +9,14 @@ overrides:
   '@napplet/shim': link:/home/sandwich/Develop/napplet/packages/shim
   '@napplet/sdk': link:/home/sandwich/Develop/napplet/packages/sdk
   '@napplet/vite-plugin': link:/home/sandwich/Develop/napplet/packages/vite-plugin
+  '@napplet/nub-identity': link:/home/sandwich/Develop/napplet/packages/nubs/identity
+  '@napplet/nub-ifc': link:/home/sandwich/Develop/napplet/packages/nubs/ifc
+  '@napplet/nub-keys': link:/home/sandwich/Develop/napplet/packages/nubs/keys
+  '@napplet/nub-media': link:/home/sandwich/Develop/napplet/packages/nubs/media
+  '@napplet/nub-notify': link:/home/sandwich/Develop/napplet/packages/nubs/notify
+  '@napplet/nub-relay': link:/home/sandwich/Develop/napplet/packages/nubs/relay
+  '@napplet/nub-storage': link:/home/sandwich/Develop/napplet/packages/nubs/storage
+  '@napplet/nub-theme': link:/home/sandwich/Develop/napplet/packages/nubs/theme
 
 importers:
 
@@ -109,6 +117,34 @@ importers:
         version: 6.4.2(jiti@2.6.1)
 
   packages/acl:
+    dependencies:
+      '@napplet/core':
+        specifier: link:/home/sandwich/Develop/napplet/packages/core
+        version: link:../../../napplet/packages/core
+      '@napplet/nub-identity':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/identity
+        version: link:../../../napplet/packages/nubs/identity
+      '@napplet/nub-ifc':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/ifc
+        version: link:../../../napplet/packages/nubs/ifc
+      '@napplet/nub-keys':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/keys
+        version: link:../../../napplet/packages/nubs/keys
+      '@napplet/nub-media':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/media
+        version: link:../../../napplet/packages/nubs/media
+      '@napplet/nub-notify':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/notify
+        version: link:../../../napplet/packages/nubs/notify
+      '@napplet/nub-relay':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/relay
+        version: link:../../../napplet/packages/nubs/relay
+      '@napplet/nub-storage':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/storage
+        version: link:../../../napplet/packages/nubs/storage
+      '@napplet/nub-theme':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/theme
+        version: link:../../../napplet/packages/nubs/theme
     devDependencies:
       tsup:
         specifier: ^8.5.0
@@ -125,6 +161,30 @@ importers:
       '@napplet/core':
         specifier: link:/home/sandwich/Develop/napplet/packages/core
         version: link:../../../napplet/packages/core
+      '@napplet/nub-identity':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/identity
+        version: link:../../../napplet/packages/nubs/identity
+      '@napplet/nub-ifc':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/ifc
+        version: link:../../../napplet/packages/nubs/ifc
+      '@napplet/nub-keys':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/keys
+        version: link:../../../napplet/packages/nubs/keys
+      '@napplet/nub-media':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/media
+        version: link:../../../napplet/packages/nubs/media
+      '@napplet/nub-notify':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/notify
+        version: link:../../../napplet/packages/nubs/notify
+      '@napplet/nub-relay':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/relay
+        version: link:../../../napplet/packages/nubs/relay
+      '@napplet/nub-storage':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/storage
+        version: link:../../../napplet/packages/nubs/storage
+      '@napplet/nub-theme':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/theme
+        version: link:../../../napplet/packages/nubs/theme
       '@noble/curves':
         specifier: ^2.0.0
         version: 2.0.1
@@ -150,6 +210,30 @@ importers:
       '@napplet/core':
         specifier: link:/home/sandwich/Develop/napplet/packages/core
         version: link:../../../napplet/packages/core
+      '@napplet/nub-identity':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/identity
+        version: link:../../../napplet/packages/nubs/identity
+      '@napplet/nub-ifc':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/ifc
+        version: link:../../../napplet/packages/nubs/ifc
+      '@napplet/nub-keys':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/keys
+        version: link:../../../napplet/packages/nubs/keys
+      '@napplet/nub-media':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/media
+        version: link:../../../napplet/packages/nubs/media
+      '@napplet/nub-notify':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/notify
+        version: link:../../../napplet/packages/nubs/notify
+      '@napplet/nub-relay':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/relay
+        version: link:../../../napplet/packages/nubs/relay
+      '@napplet/nub-storage':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/storage
+        version: link:../../../napplet/packages/nubs/storage
+      '@napplet/nub-theme':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/theme
+        version: link:../../../napplet/packages/nubs/theme
     devDependencies:
       tsup:
         specifier: ^8.5.0
@@ -172,6 +256,30 @@ importers:
       '@napplet/core':
         specifier: link:/home/sandwich/Develop/napplet/packages/core
         version: link:../../../napplet/packages/core
+      '@napplet/nub-identity':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/identity
+        version: link:../../../napplet/packages/nubs/identity
+      '@napplet/nub-ifc':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/ifc
+        version: link:../../../napplet/packages/nubs/ifc
+      '@napplet/nub-keys':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/keys
+        version: link:../../../napplet/packages/nubs/keys
+      '@napplet/nub-media':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/media
+        version: link:../../../napplet/packages/nubs/media
+      '@napplet/nub-notify':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/notify
+        version: link:../../../napplet/packages/nubs/notify
+      '@napplet/nub-relay':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/relay
+        version: link:../../../napplet/packages/nubs/relay
+      '@napplet/nub-storage':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/storage
+        version: link:../../../napplet/packages/nubs/storage
+      '@napplet/nub-theme':
+        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/theme
+        version: link:../../../napplet/packages/nubs/theme
     devDependencies:
       nostr-tools:
         specifier: ^2.23.3
