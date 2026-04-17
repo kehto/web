@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
-status: executing
-stopped_at: Completed 16-03-PLAN.md (NIP-5D envelope-aware driver globals, globals.d.ts)
-last_updated: "2026-04-17T23:16:18.176Z"
+status: verifying
+stopped_at: Completed 16-04-PLAN.md (shared Playwright helpers + acl-enforcement.spec.ts migration)
+last_updated: "2026-04-17T23:20:48.597Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 7
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 Phase: 16 (Harness Triage & Playwright Infrastructure) — EXECUTING
 Plan: 4 of 4
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-17
 
 Progress: [░░░░░░░░░░] 0%
@@ -62,6 +62,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 16-harness-triage-playwright-infrastructure P01 | 8 | 2 tasks | 7 files |
 | Phase 16 P02 | 2min | 3 tasks | 4 files |
 | Phase 16-harness-triage-playwright-infrastructure P03 | 3min | 3 tasks | 3 files |
+| Phase 16-harness-triage-playwright-infrastructure P04 | 3min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 16-harness-triage-playwright-infrastructure]: globals.d.ts owns the Window interface — harness.ts uses triple-slash reference instead of inline declare global block
 - [Phase 16-harness-triage-playwright-infrastructure]: __getNotifications__ returns [] until Phase 19 wires notification-service state propagation (intentional stub)
 - [Phase 16-harness-triage-playwright-infrastructure]: serviceShadow Set is harness-local because runtime.serviceRegistry is not publicly enumerable via the Runtime type
+- [Phase 16-04]: waitForNappletReady polls window.__nappletReady__(windowId) — not frameLocator, not DOM sentinel — because the flag encapsulates sessionRegistry acknowledgment (PITFALLS.md Pitfall 1)
+- [Phase 16-04]: page.reload() banned in ACL specs; page.goto('/') is the only correct reset that recreates module-level singletons (PITFALLS.md Pitfall 5); ESLint rule enforcement deferred to v1.4
 
 ### Blockers/Concerns
 
@@ -85,6 +88,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-17T23:16:18.173Z
-Stopped at: Completed 16-03-PLAN.md (NIP-5D envelope-aware driver globals, globals.d.ts)
+Last session: 2026-04-17T23:20:48.595Z
+Stopped at: Completed 16-04-PLAN.md (shared Playwright helpers + acl-enforcement.spec.ts migration)
 Resume: `/gsd:plan-phase 16`

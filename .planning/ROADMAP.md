@@ -29,7 +29,7 @@
 
 ## Phases
 
-- [ ] **Phase 16: Harness Triage & Playwright Infrastructure** — Delete obsolete specs, extend harness driver API, fix timing/isolation pitfalls
+- [x] **Phase 16: Harness Triage & Playwright Infrastructure** — Delete obsolete specs, extend harness driver API, fix timing/isolation pitfalls (completed 2026-04-17)
 - [ ] **Phase 17: Demo App Rewire** — Boot demo clean against v1.2 APIs; all 8 service nodes live; signer/ACL/debugger wired
 - [ ] **Phase 18: Napplet SDK Migration** — Migrate `bot` + `chat` from raw `window.addEventListener` to `@napplet/sdk`
 - [ ] **Phase 19: Core-Domain Napplets** — Add `composer`, `preferences`, `toaster`; relay/storage/notify specs green
@@ -51,11 +51,11 @@
   3. `waitForNappletReady(page, frameSelector)` is callable from any spec and reliably waits for a sandboxed iframe's execution context before proceeding — no spec skips it.
   4. The canonical `beforeEach` fixture (`goto('/') → __aclClear__() → __clearLocalStorage__()`) is shared via a fixture file; no spec uses `page.reload()` on ACL-touching flows.
   5. `playwright.config.ts` runs a two-entry `webServer` array (harness `:4173` + demo `:4174`); `turbo.json` includes a `build:napplets` pipeline task; `@playwright/test` is on `^1.54.0` or higher.
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 - [x] 16-01-PLAN.md — Delete legacy specs (E2E-01)
 - [x] 16-02-PLAN.md — Playwright 1.54 bump + webServer array + build:napplets turbo task (E2E-02, E2E-03)
 - [x] 16-03-PLAN.md — Extend harness with 7 NIP-5D globals + readiness flag + globals.d.ts (E2E-04)
-- [ ] 16-04-PLAN.md — Shared helpers (waitForNappletReady, aclBeforeEach) + migrate acl-enforcement spec (E2E-05)
+- [x] 16-04-PLAN.md — Shared helpers (waitForNappletReady, aclBeforeEach) + migrate acl-enforcement spec (E2E-05)
 
 ### Phase 17: Demo App Rewire
 **Goal**: The demo application boots cleanly against the canonical v1.2 `@kehto/*` APIs — zero legacy references, all 8 service nodes visible in topology, signer/NIP-46/ACL/debugger surfaces wired and functional.
@@ -140,7 +140,7 @@ The `relay-subscribe` Playwright spec cannot be marked green until this decision
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 16. Harness Triage & Playwright Infrastructure | v1.3 | 3/4 | In Progress|  |
+| 16. Harness Triage & Playwright Infrastructure | v1.3 | 4/4 | Complete   | 2026-04-17 |
 | 17. Demo App Rewire | v1.3 | 0/TBD | Not started | - |
 | 18. Napplet SDK Migration | v1.3 | 0/TBD | Not started | - |
 | 19. Core-Domain Napplets | v1.3 | 0/TBD | Not started | - |
