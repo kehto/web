@@ -29,7 +29,15 @@
       "@napplet/core": "link:/home/sandwich/Develop/napplet/packages/core",
       "@napplet/shim": "link:/home/sandwich/Develop/napplet/packages/shim",
       "@napplet/sdk": "link:/home/sandwich/Develop/napplet/packages/sdk",
-      "@napplet/vite-plugin": "link:/home/sandwich/Develop/napplet/packages/vite-plugin"
+      "@napplet/vite-plugin": "link:/home/sandwich/Develop/napplet/packages/vite-plugin",
+      "@napplet/nub-identity": "link:/home/sandwich/Develop/napplet/packages/nubs/identity",
+      "@napplet/nub-ifc": "link:/home/sandwich/Develop/napplet/packages/nubs/ifc",
+      "@napplet/nub-keys": "link:/home/sandwich/Develop/napplet/packages/nubs/keys",
+      "@napplet/nub-media": "link:/home/sandwich/Develop/napplet/packages/nubs/media",
+      "@napplet/nub-notify": "link:/home/sandwich/Develop/napplet/packages/nubs/notify",
+      "@napplet/nub-relay": "link:/home/sandwich/Develop/napplet/packages/nubs/relay",
+      "@napplet/nub-storage": "link:/home/sandwich/Develop/napplet/packages/nubs/storage",
+      "@napplet/nub-theme": "link:/home/sandwich/Develop/napplet/packages/nubs/theme"
     }
   }
 }
