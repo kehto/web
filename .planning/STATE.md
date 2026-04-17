@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
-status: verifying
-stopped_at: Completed 16-04-PLAN.md (shared Playwright helpers + acl-enforcement.spec.ts migration)
-last_updated: "2026-04-17T23:24:09.331Z"
+status: executing
+stopped_at: Completed 17-02-PLAN.md (register 8 service nodes + topology stub markers)
+last_updated: "2026-04-17T23:56:54.974Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 7
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 11
+  completed_plans: 5
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 16 — Harness Triage & Playwright Infrastructure
+**Current focus:** Phase 17 — Demo App Rewire
 
 ## Current Position
 
-Phase: 17
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 17 (Demo App Rewire) — EXECUTING
+Plan: 2 of 7
+Status: Ready to execute
 Last activity: 2026-04-17
 
 Progress: [░░░░░░░░░░] 0%
@@ -63,6 +63,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 16 P02 | 2min | 3 tasks | 4 files |
 | Phase 16-harness-triage-playwright-infrastructure P03 | 3min | 3 tasks | 3 files |
 | Phase 16-harness-triage-playwright-infrastructure P04 | 3min | 3 tasks | 4 files |
+| Phase 17-demo-app-rewire P02 | 12min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 16-harness-triage-playwright-infrastructure]: serviceShadow Set is harness-local because runtime.serviceRegistry is not publicly enumerable via the Runtime type
 - [Phase 16-04]: waitForNappletReady polls window.__nappletReady__(windowId) — not frameLocator, not DOM sentinel — because the flag encapsulates sessionRegistry acknowledgment (PITFALLS.md Pitfall 1)
 - [Phase 16-04]: page.reload() banned in ACL specs; page.goto('/') is the only correct reset that recreates module-level singletons (PITFALLS.md Pitfall 5); ESLint rule enforcement deferred to v1.4
+- [Phase 17-demo-app-rewire]: demoServiceNames seeded with 8 domains (including topology-only relay/storage/signer) so topology renders 8 nodes without requiring ServiceHandler registration for those 3 — consistent with D-03/D-04
+- [Phase 17-demo-app-rewire]: STUB_ONLY_SERVICES in shell-host.ts drives topology badge rendering — single source of truth avoids duplication between shell-host and topology
 
 ### Blockers/Concerns
 
@@ -88,6 +91,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-17T23:20:48.595Z
-Stopped at: Completed 16-04-PLAN.md (shared Playwright helpers + acl-enforcement.spec.ts migration)
+Last session: 2026-04-17T23:56:54.971Z
+Stopped at: Completed 17-02-PLAN.md (register 8 service nodes + topology stub markers)
 Resume: `/gsd:plan-phase 16`
