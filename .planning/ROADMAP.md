@@ -59,7 +59,9 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
   1. Every `@kehto/*` package.json shows `@napplet/core` at `^0.2.0` and all 8 `@napplet/nub-*` packages declared as peer deps at `^0.2.0`.
   2. All kehto source files that previously hand-copied NUB message types or constants now import them from the matching `@napplet/nub-*` package — no duplicate type aliases remain. Hand-copied `signer.*` types and locally declared signer interfaces are deleted.
   3. `pnpm build` and `pnpm type-check` succeed on a clean install against the new peer-dep set. Type errors at signer call sites are stubbed or widened intentionally with `// DRIFT-* — Phase 12` markers so Phase 12 plans can close them.
-**Plans**: TBD
+**Plans**: 2 plans
+  - [ ] 11-01-PLAN.md — Bump @napplet/core to ^0.2.0, declare 8 @napplet/nub-* peer deps, add pnpm overrides, verify clean install (DEPS-01, NUB-01)
+  - [ ] 11-02-PLAN.md — Replace hand-copied/msg-as-any NUB types with `import type` from @napplet/nub-* packages; annotate signer.* call sites with DRIFT-<ID> — Phase 12 markers; green build + type-check (NUB-02)
 
 ### Phase 12: Shell Conformance & Seven-Nub Coverage
 **Goal**: Remove every canonical-NIP-5D violation in @kehto/shell, close every drift item for the seven non-theme nubs, and extend ACL capability mapping to the full 8-domain surface (theme-domain ACL also lands here since it's trivial to add alongside the others — theme's runtime/service/shell wiring is Phase 13).
@@ -111,7 +113,7 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 10. Spec Conformance Audit | 2/2 | Complete    | 2026-04-17 |
-| 11. Nub Peer Deps & Type Imports | 0/TBD | Not started | - |
+| 11. Nub Peer Deps & Type Imports | 0/2 | Not started | - |
 | 12. Shell Conformance & Seven-Nub Coverage | 0/TBD | Not started | - |
 | 13. Theme Nub Implementation | 0/TBD | Not started | - |
 | 14. Dispatch Refactor | 0/TBD | Not started | - |
