@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — NIP-5D Conformance & Full NUB Coverage
 status: executing
-stopped_at: Completed 12-07-PLAN.md — NUB-07 + DRIFT-RT-04/SVC-05 closed; notify dispatch + stub service shipped
-last_updated: "2026-04-17T19:05:17.329Z"
+stopped_at: Completed 12-03-PLAN.md — NUB-03 satisfied; 9 identity.* actions dispatched; signer domain fully deleted (DRIFT-RT-06/07/10, DRIFT-SVC-01/02/07 closed)
+last_updated: "2026-04-17T19:09:15.447Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 15
-  completed_plans: 9
+  completed_plans: 10
   percent: 100
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-17)
 ## Current Position
 
 Phase: 12 (shell-conformance-seven-nub-coverage) — EXECUTING
-Plan: 5 of 11
+Plan: 6 of 11
 Status: Ready to execute
 Last activity: 2026-04-17
 
@@ -69,6 +69,7 @@ Progress: [██████████] 100% (Phase 10 plans complete — v1.
 | Phase 12 P06 | 3min | 2 tasks | 4 files |
 | Phase 12 P05 | 4min | 2 tasks | 7 files |
 | Phase 12 P07 | 5 min | 2 tasks | 6 files |
+| Phase 12 P03 | 9min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -108,6 +109,9 @@ Recent decisions affecting current work (full log in PROJECT.md):
 - [Phase 12]: Plan 12-05: Wire<->DOM field translation (ctrl/alt/shift/meta <-> ctrlKey/altKey/shiftKey/metaKey) happens symmetrically in keys-service.ts AND runtime fallback so the existing HotkeyAdapter contract stays stable; host shells don't need to change their HotkeyAdapter shape.
 - [Phase 12]: Plan 12-07: notify-service coexists with legacy notification-service.ts — two distinct service names ('notify' nub vs 'notifications' ifc-emit); explicit coexistence contract documented in notify-service.ts JSDoc
 - [Phase 12]: Plan 12-07: runtime fallback emits notify.send.result + notify.permission.result when no 'notify' service is registered — the two notify.* request types that expect a reply always produce one; dismiss/badge/channel.register stay fire-and-forget per @napplet/nub-notify
+- [Phase 12]: Plan 12-03: Delete signer domain entirely — getPublicKey/getRelays migrate to identity.*; signEvent/nip04/nip44 have no napplet-visible home (shell-mediated signing routes through relay.publish/publishEncrypted)
+- [Phase 12]: Plan 12-03: Identity runtime handler ships with fallback path (signer-backed getPublicKey/getRelays; default/empty payloads for other 7 actions) so hosts without registerService('identity') still receive spec-correct envelopes
+- [Phase 12]: Plan 12-03: Identity ACL-denial test in identity-service.test.ts asserts envelope shape only (TODO(12-10)) — real resolveCapabilitiesNub identity branch is Plan 12-10's deliverable
 
 ### Blockers/Concerns
 
@@ -116,6 +120,6 @@ Recent decisions affecting current work (full log in PROJECT.md):
 
 ## Session Continuity
 
-Last session: 2026-04-17T19:05:08.789Z
-Stopped at: Completed 12-07-PLAN.md — NUB-07 + DRIFT-RT-04/SVC-05 closed; notify dispatch + stub service shipped
+Last session: 2026-04-17T19:09:15.444Z
+Stopped at: Completed 12-03-PLAN.md — NUB-03 satisfied; 9 identity.* actions dispatched; signer domain fully deleted (DRIFT-RT-06/07/10, DRIFT-SVC-01/02/07 closed)
 Resume: Run `/gsd:plan-phase 10` to begin Spec Conformance Audit.
