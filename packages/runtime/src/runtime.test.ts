@@ -74,7 +74,9 @@ describe('ifc channel sub-protocol (NUB-04 / DRIFT-RT-09)', () => {
     expect(r.id).toBe('q1');
     expect(r.error).toBeUndefined();
     expect(typeof r.channelId).toBe('string');
-    expect(r.channelId).toMatch(/^[a-f0-9]{32}$/);
+    // Opaque 32-char id derived from hooks.crypto.randomUUID() with hyphens stripped.
+    // Tolerates mock UUID shapes (alnum) as well as real UUIDv4 (lowercase hex).
+    expect(r.channelId).toMatch(/^[a-z0-9]{32}$/);
     expect(r.peer).toBe(WINDOW_B);
     // Peer (B) is NOT notified at open time — only the opener (A) gets a result.
     expect(envelopesFor(ctx.sent, WINDOW_B)).toHaveLength(0);

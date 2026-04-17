@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — NIP-5D Conformance & Full NUB Coverage
 status: executing
-stopped_at: Completed 12-03-PLAN.md — NUB-03 satisfied; 9 identity.* actions dispatched; signer domain fully deleted (DRIFT-RT-06/07/10, DRIFT-SVC-01/02/07 closed)
-last_updated: "2026-04-17T19:09:15.447Z"
+stopped_at: Completed 12-09-PLAN.md — NUB-09 satisfied; handleStorageNub narrowed to canonical 4 actions (get/set/remove/keys); storage.clear explicitly rejected; DRIFT-ACL-08 code-side closed (ACL-side in Plan 12-10)
+last_updated: "2026-04-17T19:17:07.468Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 15
-  completed_plans: 10
+  completed_plans: 11
   percent: 100
 ---
 
@@ -70,6 +70,7 @@ Progress: [██████████] 100% (Phase 10 plans complete — v1.
 | Phase 12 P05 | 4min | 2 tasks | 7 files |
 | Phase 12 P07 | 5 min | 2 tasks | 6 files |
 | Phase 12 P03 | 9min | 2 tasks | 7 files |
+| Phase 12 P09 | 4 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -112,6 +113,9 @@ Recent decisions affecting current work (full log in PROJECT.md):
 - [Phase 12]: Plan 12-03: Delete signer domain entirely — getPublicKey/getRelays migrate to identity.*; signEvent/nip04/nip44 have no napplet-visible home (shell-mediated signing routes through relay.publish/publishEncrypted)
 - [Phase 12]: Plan 12-03: Identity runtime handler ships with fallback path (signer-backed getPublicKey/getRelays; default/empty payloads for other 7 actions) so hosts without registerService('identity') still receive spec-correct envelopes
 - [Phase 12]: Plan 12-03: Identity ACL-denial test in identity-service.test.ts asserts envelope shape only (TODO(12-10)) — real resolveCapabilitiesNub identity branch is Plan 12-10's deliverable
+- [Phase 12]: Plan 12-09: Keep ok alongside canonical error on storage.set/remove.result for backward-compat; Phase 15 decides whether to drop ok pre-release. Napplets SHOULD check !result.error (canonical) rather than result.ok === true (legacy).
+- [Phase 12]: Plan 12-09: storage.clear gets explicit case in handleStorageNub emitting 'storage.clear is not in @napplet/nub-storage; action not supported' rather than default fall-through — improves observability for napplets still sending legacy action. Internal cleanupNappState() helper retained for destroyWindow() lifecycle cleanup (not napplet-reachable).
+- [Phase 12]: Plan 12-09: Direct-dispatch test harness pattern established — call handleStorageNub() directly to test handler-shape envelopes bypassing ACL; ACL-denial tests route through createRuntime().handleMessage() to exercise createNubEnforceGate + formatDenialReason. Reusable for any per-nub handler test file needing both coverage paths.
 
 ### Blockers/Concerns
 
@@ -120,6 +124,6 @@ Recent decisions affecting current work (full log in PROJECT.md):
 
 ## Session Continuity
 
-Last session: 2026-04-17T19:09:15.444Z
-Stopped at: Completed 12-03-PLAN.md — NUB-03 satisfied; 9 identity.* actions dispatched; signer domain fully deleted (DRIFT-RT-06/07/10, DRIFT-SVC-01/02/07 closed)
+Last session: 2026-04-17T19:16:54.238Z
+Stopped at: Completed 12-09-PLAN.md — NUB-09 satisfied; handleStorageNub narrowed to canonical 4 actions (get/set/remove/keys); storage.clear explicitly rejected; DRIFT-ACL-08 code-side closed (ACL-side in Plan 12-10)
 Resume: Run `/gsd:plan-phase 10` to begin Spec Conformance Audit.

@@ -142,6 +142,11 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   const subscriptions = new Map<string, SubscriptionEntry>();
   /** IFC topic subscriptions: Map<topic, Set<windowId>> */
   const ifcSubscriptions = new Map<string, Set<string>>();
+  /** IFC channel registry: channelId -> { peerA (opener), peerB (target) }. */
+  interface IfcChannel { channelId: string; peerA: string; peerB: string; }
+  const ifcChannels = new Map<string, IfcChannel>();
+  /** Fast lookup: windowId -> channelIds the window participates in. */
+  const ifcChannelsByWindow = new Map<string, Set<string>>();
   let _consentHandler: ConsentHandler | null = null;
 
   // ─── Service Registry (static from hooks + dynamic from registerService) ──
@@ -666,13 +671,60 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     handleStorageNub(windowId, msg, hooks.sendToNapplet, sessionRegistry, aclState, hooks.statePersistence);
   }
 
+  // ─── IFC Channel Registry Helpers ────────────────────────────────────────
+  // Per-runtime point-to-point channel bookkeeping used by handleIfcMessage
+  // for the channel.* sub-protocol (@napplet/nub-ifc).
+
+  function ifcAddChannel(channelId: string, peerA: string, peerB: string): void {
+    ifcChannels.set(channelId, { channelId, peerA, peerB });
+    for (const w of [peerA, peerB]) {
+      let set = ifcChannelsByWindow.get(w);
+      if (!set) { set = new Set(); ifcChannelsByWindow.set(w, set); }
+      set.add(channelId);
+    }
+  }
+
+  function ifcRemoveChannel(channelId: string): void {
+    const ch = ifcChannels.get(channelId);
+    if (!ch) return;
+    ifcChannels.delete(channelId);
+    for (const w of [ch.peerA, ch.peerB]) {
+      const set = ifcChannelsByWindow.get(w);
+      if (set) { set.delete(channelId); if (set.size === 0) ifcChannelsByWindow.delete(w); }
+    }
+  }
+
+  function ifcPeerOf(channelId: string, self: string): string | null {
+    const ch = ifcChannels.get(channelId);
+    if (!ch) return null;
+    if (ch.peerA === self) return ch.peerB;
+    if (ch.peerB === self) return ch.peerA;
+    return null;
+  }
+
+  function ifcGenerateChannelId(): string {
+    return hooks.crypto.randomUUID().replace(/-/g, '').slice(0, 32);
+  }
+
+  /**
+   * Resolve an ifc.channel.open target string to a windowId.
+   * Accepts either a direct windowId match or a pubkey match against a
+   * registered session. Returns null if unresolved.
+   */
+  function ifcResolveTarget(target: string): string | null {
+    if (sessionRegistry.getEntryByWindowId(target)) return target;
+    const entries = sessionRegistry.getAllEntries();
+    const byPubkey = entries.find((e) => e.pubkey === target);
+    return byPubkey?.windowId ?? null;
+  }
+
   function handleIfcMessage(windowId: string, msg: NappletMessage): void {
-    // DRIFT-RT-09 — Phase 12: ifc.channel.* sub-protocol unhandled today; handler
-    // dispatches by sub-action rather than by msg.type discriminant. Widen through
-    // IfcMessage with per-branch optional fields until Phase 12 adds channel routing.
     const m = msg as unknown as IfcMessage & {
+      id?: string;
       topic?: string;
       payload?: unknown;
+      target?: string;
+      channelId?: string;
     };
     const dotIdx = msg.type.indexOf('.');
     const action = msg.type.slice(dotIdx + 1);
@@ -691,15 +743,20 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
             hooks.sendToNapplet(subscriberWindowId, { type: 'ifc.event', topic, payload, sender: windowId } as NappletMessage);
           }
         }
-        break;
+        return;
       }
       case 'subscribe': {
+        const id = m.id ?? '';
         const topic = m.topic ?? '';
-        if (!topic) return;
+        if (!topic) {
+          hooks.sendToNapplet(windowId, { type: 'ifc.subscribe.result', id, error: 'missing topic' } as NappletMessage);
+          return;
+        }
         let subs = ifcSubscriptions.get(topic);
         if (!subs) { subs = new Set(); ifcSubscriptions.set(topic, subs); }
         subs.add(windowId);
-        break;
+        hooks.sendToNapplet(windowId, { type: 'ifc.subscribe.result', id } as NappletMessage);
+        return;
       }
       case 'unsubscribe': {
         const topic = m.topic ?? '';
@@ -709,9 +766,62 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
           subs.delete(windowId);
           if (subs.size === 0) ifcSubscriptions.delete(topic);
         }
-        break;
+        return;
       }
-      default: break;
+
+      case 'channel.open': {
+        const id = m.id ?? '';
+        const target = m.target ?? '';
+        const peerWindow = ifcResolveTarget(target);
+        if (!peerWindow) {
+          hooks.sendToNapplet(windowId, { type: 'ifc.channel.open.result', id, error: 'target not found' } as NappletMessage);
+          return;
+        }
+        const channelId = ifcGenerateChannelId();
+        ifcAddChannel(channelId, windowId, peerWindow);
+        hooks.sendToNapplet(windowId, { type: 'ifc.channel.open.result', id, channelId, peer: peerWindow } as NappletMessage);
+        return;
+      }
+      case 'channel.emit': {
+        const channelId = m.channelId ?? '';
+        const peer = ifcPeerOf(channelId, windowId);
+        if (!peer) return; // unknown channel — silently drop
+        hooks.sendToNapplet(peer, { type: 'ifc.channel.event', channelId, sender: windowId, payload: m.payload } as NappletMessage);
+        return;
+      }
+      case 'channel.broadcast': {
+        const channels = ifcChannelsByWindow.get(windowId);
+        if (!channels) return;
+        for (const channelId of channels) {
+          const peer = ifcPeerOf(channelId, windowId);
+          if (peer) hooks.sendToNapplet(peer, { type: 'ifc.channel.event', channelId, sender: windowId, payload: m.payload } as NappletMessage);
+        }
+        return;
+      }
+      case 'channel.list': {
+        const id = m.id ?? '';
+        const channels: Array<{ id: string; peer: string }> = [];
+        const set = ifcChannelsByWindow.get(windowId);
+        if (set) {
+          for (const channelId of set) {
+            const peer = ifcPeerOf(channelId, windowId);
+            if (peer) channels.push({ id: channelId, peer });
+          }
+        }
+        hooks.sendToNapplet(windowId, { type: 'ifc.channel.list.result', id, channels } as NappletMessage);
+        return;
+      }
+      case 'channel.close': {
+        const channelId = m.channelId ?? '';
+        const peer = ifcPeerOf(channelId, windowId);
+        if (!peer) return;
+        hooks.sendToNapplet(windowId, { type: 'ifc.channel.closed', channelId } as NappletMessage);
+        hooks.sendToNapplet(peer,     { type: 'ifc.channel.closed', channelId } as NappletMessage);
+        ifcRemoveChannel(channelId);
+        return;
+      }
+
+      default: return;
     }
   }
 
@@ -874,6 +984,8 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
       replayDetector.clear();
       subscriptions.clear();
       ifcSubscriptions.clear();
+      ifcChannels.clear();
+      ifcChannelsByWindow.clear();
       eventBuffer.clear();
       registeredServices.clear();
       undeclaredServiceConsents.clear();
@@ -911,6 +1023,19 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
       for (const [topic, subs] of ifcSubscriptions) {
         subs.delete(windowId);
         if (subs.size === 0) ifcSubscriptions.delete(topic);
+      }
+      // Clean up IFC channels this window participates in — notify each peer
+      // with ifc.channel.closed before removing the channel entry.
+      const channelIds = ifcChannelsByWindow.get(windowId);
+      if (channelIds) {
+        // Snapshot because ifcRemoveChannel mutates the set during iteration.
+        for (const channelId of [...channelIds]) {
+          const peer = ifcPeerOf(channelId, windowId);
+          if (peer) {
+            hooks.sendToNapplet(peer, { type: 'ifc.channel.closed', channelId } as NappletMessage);
+          }
+          ifcRemoveChannel(channelId);
+        }
       }
       // Notify service handlers
       notifyServiceWindowDestroyed(windowId, serviceRegistry);
