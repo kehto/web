@@ -7,16 +7,18 @@
  * currently registered in `runtime.sessionRegistry` receives a
  * `theme.changed` envelope via `originRegistry.getIframeWindow(windowId)
  * .postMessage(envelope, '*')`. This mirrors the multi-napplet fanout
- * pattern established by `keys-forwarder.ts` (lines 131-147) and reuses
- * the module-level `sessionRegistry` + `originRegistry` singletons.
+ * pattern established by `keys-forwarder.ts` (lines 131-147).
  *
  * Test strategy:
- *   - Seed the real module-level singletons (`sessionRegistry`,
- *     `originRegistry`) so the bridge sees the same state a running shell
- *     would. Clear them in `beforeEach`/`afterEach` to keep tests isolated.
+ *   - Populate `bridge.runtime.sessionRegistry` (the Runtime's own instance)
+ *     and the shell's module-level `originRegistry` singleton — these are
+ *     the two sources `publishTheme` iterates.
  *   - Construct minimal fake iframe windows (`{ postMessage: vi.fn() }`)
  *     cast through `unknown` to `Window` — mirrors the identity-proxy and
  *     keys-forwarder test patterns.
+ *   - Clear `originRegistry` in beforeEach/afterEach to keep tests isolated
+ *     across the file. Each test creates a fresh bridge, so each runtime's
+ *     session registry starts empty.
  *   - Build a minimal `ShellAdapter` whose methods are no-ops; the bridge
  *     only exercises `adaptHooks` at construction time, and `publishTheme`
  *     does not reach into the hook surface.
@@ -25,7 +27,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createShellBridge } from './shell-bridge.js';
 import { originRegistry } from './origin-registry.js';
-import { sessionRegistry } from './session-registry.js';
 import type { ShellAdapter, SessionEntry } from './types.js';
 import type { Theme } from '@napplet/nub-theme';
 
@@ -101,31 +102,32 @@ function makeSessionEntry(overrides: Partial<SessionEntry>): SessionEntry {
 describe('ShellBridge.publishTheme (TH-03, Plan 13-02)', () => {
   beforeEach(() => {
     originRegistry.clear();
-    sessionRegistry.clear();
   });
 
   afterEach(() => {
     originRegistry.clear();
-    sessionRegistry.clear();
   });
 
   it('broadcasts theme.changed to every registered napplet window', () => {
     const iframeA = makeFakeIframe();
     const iframeB = makeFakeIframe();
 
-    // Register two napplets with the module-level singletons.
+    // Register iframes with the shell-side origin registry (module singleton).
     originRegistry.register(iframeA as unknown as Window, 'win-A');
     originRegistry.register(iframeB as unknown as Window, 'win-B');
-    sessionRegistry.register(
+
+    const bridge = createShellBridge(makeTestHooks());
+
+    // Seed the runtime's own session registry (distinct from the shell
+    // singleton) — publishTheme iterates runtime.sessionRegistry.getAllEntries().
+    bridge.runtime.sessionRegistry.register(
       'win-A',
       makeSessionEntry({ windowId: 'win-A', pubkey: 'pk-A' }),
     );
-    sessionRegistry.register(
+    bridge.runtime.sessionRegistry.register(
       'win-B',
       makeSessionEntry({ windowId: 'win-B', pubkey: 'pk-B' }),
     );
-
-    const bridge = createShellBridge(makeTestHooks());
 
     const theme: Theme = {
       colors: { background: '#111', text: '#eee', primary: '#f0f' },
@@ -149,16 +151,16 @@ describe('ShellBridge.publishTheme (TH-03, Plan 13-02)', () => {
     // Register only win-A in the origin registry; win-B has a session entry
     // but no origin-registry mapping (simulates a stale session).
     originRegistry.register(iframeA as unknown as Window, 'win-A');
-    sessionRegistry.register(
+
+    const bridge = createShellBridge(makeTestHooks());
+    bridge.runtime.sessionRegistry.register(
       'win-A',
       makeSessionEntry({ windowId: 'win-A', pubkey: 'pk-A' }),
     );
-    sessionRegistry.register(
+    bridge.runtime.sessionRegistry.register(
       'win-B',
       makeSessionEntry({ windowId: 'win-B', pubkey: 'pk-B' }),
     );
-
-    const bridge = createShellBridge(makeTestHooks());
 
     const theme: Theme = {
       colors: { background: '#000', text: '#fff', primary: '#f00' },

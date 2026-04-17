@@ -51,7 +51,7 @@ All 8 napplet nub packages are consumed as peer deps and fully handled.
 
 - [x] **TH-01**: @kehto/runtime registers a `theme` dispatch route that accepts `theme.get` and returns `theme.get.result`
 - [x] **TH-02**: @kehto/services provides a reference theme service that handles `theme.get` and broadcasts `theme.changed` on updates
-- [ ] **TH-03**: @kehto/shell exposes an adapter API for the hosting application to publish theme changes to registered napplets
+- [x] **TH-03**: @kehto/shell exposes an adapter API for the hosting application to publish theme changes to registered napplets
 - [x] **TH-04**: @kehto/acl enforces capability gates for the `theme` domain consistent with the other seven nubs
 
 ## Category 5: Dispatch Refactor (DISPATCH)
@@ -111,10 +111,10 @@ Explicit exclusions for v1.2:
 | NUB-08 | 12 (Plan 12-08) |
 | NUB-09 | 12 (Plan 12-09) |
 | NUB-10 | — |
-| TH-01 | — |
-| TH-02 | — |
-| TH-03 | — |
-| TH-04 | — |
+| TH-01 | 13 (Plan 13-01) |
+| TH-02 | 13 (Plan 13-01) |
+| TH-03 | 13 (Plan 13-02) |
+| TH-04 | 13 (Plan 13-01) |
 | DISPATCH-01 | — |
 | DISPATCH-02 | — |
 | DISPATCH-03 | — |

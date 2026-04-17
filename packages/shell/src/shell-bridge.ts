@@ -21,6 +21,7 @@ import { manifestCache } from './manifest-cache.js';
 import { audioManager } from './audio-manager.js';
 import type { ShellAdapter, ShellCapabilities } from './types.js';
 import type { NappletMessage } from '@napplet/core';
+import type { Theme } from '@napplet/nub-theme';
 import { buildShellCapabilities } from './shell-init.js';
 import { createKeysForwarder } from './keys-forwarder.js';
 import type { KeysForwarder } from './keys-forwarder.js';
@@ -106,6 +107,31 @@ export interface ShellBridge {
    * ```
    */
   registerConsentHandler(handler: (request: ConsentRequest) => void): void;
+
+  /**
+   * Publish a theme update to every registered napplet.
+   *
+   * Posts a `theme.changed` envelope (shell → napplet push) to every
+   * window currently tracked by the runtime's sessionRegistry, using
+   * the browser-adapter originRegistry to resolve windowId → iframe.
+   * Napplets whose window cannot be resolved (stale sessions) are
+   * silently skipped; this method never throws.
+   *
+   * ACL is enforced BY THE RECIPIENT NAPPLET — the runtime's
+   * `themeMap` in @kehto/acl assigns `recipientCap: 'theme:read'` for
+   * `theme.changed`, and @napplet/shim drops pushes the napplet lacks
+   * the capability for. Hosts should not self-filter here.
+   *
+   * @param theme - The new theme payload to broadcast.
+   * @example
+   * ```ts
+   * bridge.publishTheme({
+   *   colors: { background: '#0a0a0a', text: '#e0e0e0', primary: '#7aa2f7' },
+   *   title: 'Dark',
+   * });
+   * ```
+   */
+  publishTheme(theme: Theme): void;
 
   /**
    * Access the underlying runtime instance for advanced use cases.
@@ -212,6 +238,16 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
 
     registerConsentHandler(handler: (request: ConsentRequest) => void): void {
       runtime.registerConsentHandler(handler);
+    },
+
+    publishTheme(theme: Theme): void {
+      const envelope: NappletMessage = { type: 'theme.changed', theme } as NappletMessage;
+      const entries = runtime.sessionRegistry.getAllEntries();
+      for (const entry of entries) {
+        const win = originRegistry.getIframeWindow(entry.windowId);
+        if (!win) continue;
+        win.postMessage(envelope, '*');
+      }
     },
 
     get runtime() {
