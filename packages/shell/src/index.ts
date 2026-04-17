@@ -51,8 +51,8 @@ export type {
   ServiceRegistry,
 } from './types.js';
 
-// Shell initialization — nostr bootstrap and capability construction
-export { generateNostrBootstrap, buildShellCapabilities } from './shell-init.js';
+// Shell initialization — capability construction for shell.ready / shell.init handshake
+export { buildShellCapabilities } from './shell-init.js';
 
 // Session registry
 export { sessionRegistry, nappKeyRegistry } from './session-registry.js';
