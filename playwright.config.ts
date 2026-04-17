@@ -22,10 +22,18 @@ export default defineConfig({
       },
     },
   ],
-  webServer: {
-    command: 'pnpm test:serve',
-    url: 'http://localhost:4173',
-    reuseExistingServer: !process.env.CI,
-    timeout: 60000,
-  },
+  webServer: [
+    {
+      command: 'pnpm --filter @test/harness preview',
+      url: 'http://localhost:4173',
+      reuseExistingServer: !process.env.CI,
+      timeout: 60000,
+    },
+    {
+      command: 'pnpm --filter @kehto/demo preview --port 4174',
+      url: 'http://localhost:4174',
+      reuseExistingServer: !process.env.CI,
+      timeout: 60000,
+    },
+  ],
 });
