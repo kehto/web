@@ -127,5 +127,3 @@ Every DRIFT-<ID> marker added in Phase 11 (Phase 12-targeted) is DELETED as part
 - Separate migration doc — a paragraph in `identity-service.ts` JSDoc + a note in REQUIREMENTS.md DEPS-03 suffice for v1.2 release. Phase 15 changelog rollup captures the full story.
 
 </deferred>
-</content>
-</invoke>
