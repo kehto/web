@@ -50,7 +50,9 @@
   1. `pnpm -r exec cat package.json` shows `@napplet/core` at `^0.2.0` and the five `@napplet/nub-*` packages declared as peer deps on the relevant @kehto/* packages.
   2. All kehto source files that previously hand-copied NUB message types or constants now import them from the matching `@napplet/nub-*` package — no duplicate type aliases remain.
   3. `pnpm build` and `pnpm type-check` succeed on a clean install against the new peer-dep set.
-**Plans**: TBD
+**Plans**: 2 plans
+  - [ ] 11-01-PLAN.md — Add pnpm overrides for five @napplet/nub-* packages and bump peer deps to ^0.2.0 across all four @kehto packages (DEPS-01, NUB-01)
+  - [ ] 11-02-PLAN.md — Replace hand-copied / ad-hoc NUB type handling with direct `import type` from `@napplet/nub-<domain>` at use sites; run pnpm build/type-check/test (NUB-02)
 
 ### Phase 12: Four-Nub Full Coverage & Drift Fixes
 **Goal**: @kehto/runtime dispatches — and @kehto/services handles — every message type exported by the ifc, relay, signer, and storage nubs, while fixing every drift item found by Phase 10. ACL capability mapping is extended to cover the full nub message surface.
@@ -101,7 +103,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 10. Spec Conformance Audit | 2/2 | Complete    | 2026-04-17 |
-| 11. Nub Peer Deps & Type Imports | 0/TBD | Not started | - |
+| 11. Nub Peer Deps & Type Imports | 0/2 | Not started | - |
 | 12. Four-Nub Full Coverage & Drift Fixes | 0/TBD | Not started | - |
 | 13. Theme Nub Implementation | 0/TBD | Not started | - |
 | 14. Dispatch Refactor | 0/TBD | Not started | - |
