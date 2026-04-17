@@ -1,249 +1,283 @@
-# Feature Landscape: NIP-5D Migration & Gap Analysis
+# Feature Research: v1.3 Demo-Functional & Playwright Parity
 
-**Domain:** Napplet protocol runtime — shell-side implementation
-**Researched:** 2026-04-07
-**Confidence:** HIGH — all findings sourced directly from live code in napplet/ and kehto/
+**Domain:** Sandboxed plugin runtime showcase — host-app demo + napplet suite + E2E validation
+**Researched:** 2026-04-18
+**Confidence:** HIGH — all findings sourced from live codebase (v1.2 packages + demo source + spec)
 
 ---
 
-## Context: What Changed in NIP-5D
+## Context
 
-The NIP-5D spec (v0.1.0, JSON envelope era) replaces the prior NIP-01 bus wire format with a structured JSON envelope protocol. The core change:
+v1.2 shipped canonical NIP-5D conformance with 8 nub domains fully implemented in `@kehto/*`. The demo (`apps/demo`) and its two napplets (`bot`, `chat`) still use legacy patterns: they listen for raw `['OK', ...]` arrays via `window.addEventListener('message')` instead of the envelope-only `@napplet/sdk` API surface. Several E2E specs exercise APIs that were deleted in v1.2 (signer-service, window.nostr, BusKind.SIGNER_REQUEST as kind 29001, etc.).
 
-**Before (NIP-01 bus):**
-```
-napplet → shell:  ['EVENT', event]  ['REQ', subId, ...filters]  ['REGISTER', payload]
-shell → napplet:  ['EVENT', subId, event]  ['OK', id, true, '']  ['IDENTITY', payload]
-```
+v1.3 does **no protocol-level changes**. It is entirely a consume-and-showcase milestone. The target state: every demo surface, napplet, and Playwright spec works cleanly against the v1.2 `@kehto/*` + `@napplet/*` API surface.
 
-**After (NIP-5D JSON envelope):**
-```
-napplet → shell:  { type: 'relay.subscribe', id, subId, filters }
-shell → napplet:  { type: 'relay.event', subId, event }
-```
+---
 
-The new spec also eliminates the explicit REGISTER/IDENTITY/AUTH handshake verbs. Identity is now assigned at iframe creation via `MessageEvent.source` mapping — no negotiation. NUBs (Napplet Unified Blueprints) define all message domains. `window.napplet.shell.supports(nubName)` replaces the old capability flags.
+## The 8 NUB Domains — Reference Mapping
 
-The shim (`@napplet/shim`) has already been fully migrated to envelope format. The kehto runtime still handles only NIP-01 arrays. This is the primary gap.
+Each domain has a stub reference service in `@kehto/services` (v1.2). The demo must wire real demo UX on top.
+
+| Domain | Capability | What Shell Does | Current Demo State |
+|--------|-----------|-----------------|-------------------|
+| `identity` | — | Returns signer pubkey, profile reads | Partially wired: signer modal + NIP-46 client, no profile-viewer napplet |
+| `ifc` | `relay:read` / `relay:write` | Routes topic pub/sub between napplets | Exercised by bot↔chat; no standalone napplet |
+| `keys` | (hotkey:forward) | Forwards keyboard shortcuts from napplet to host | Topology node exists in services; no exercising napplet |
+| `media` | — | Audio play/pause, volume, metadata | Stub service only; no demo napplet, no topology UI |
+| `notify` | — | Create/list/read/dismiss notifications | Fully wired: notification node + inspector + toast layer |
+| `relay` | `relay:read` / `relay:write` | Subscribe, publish, publishEncrypted | Exercised by chat napplet; no standalone feed/composer |
+| `storage` | `state:read` / `state:write` | Scoped key-value store per napplet | Exercised by bot (rules) + chat (history); no standalone napplet |
+| `theme` | — | Publish theme object to napplets | `bridge.publishTheme()` exists; no demo surface or napplet |
 
 ---
 
 ## Table Stakes
 
-Features that must exist for the migration to be complete. Missing any = kehto does not implement current NIP-5D.
+These must work for the demo to be called "functional." A developer evaluating kehto expects all of these on day one.
 
-| Feature | Why Required | Complexity | Depends On |
-|---------|--------------|------------|------------|
-| **Runtime: JSON envelope dispatch** | `shell-bridge.ts` currently rejects non-array messages (`!Array.isArray(msg)`). The shim sends `{ type: 'relay.subscribe', ... }`. Nothing works without this. | Medium | @napplet/core dispatch infra already exists (`registerNub`, `dispatch`) |
-| **Runtime: relay NUB handler** | Replaces NIP-01 REQ/CLOSE/EVENT verbs. Shell must handle `relay.subscribe`, `relay.close`, `relay.publish`, `relay.query`. | Medium | @napplet/nub-relay types already defined |
-| **Runtime: signer NUB handler** | Replaces NIP-01 signer-over-bus. Shell must handle `signer.getPublicKey`, `signer.signEvent`, `signer.getRelays`, `signer.nip04.*`, `signer.nip44.*`. | Medium | @napplet/nub-signer types already defined |
-| **Runtime: storage NUB handler** | Replaces NIP-01 state-handler. Shell must handle `storage.get`, `storage.set`, `storage.remove`, `storage.keys`. | Low | @napplet/nub-storage types; StatePersistence adapter unchanged |
-| **Runtime: ifc NUB handler** | Replaces NIP-01 IPC-PEER (kind 29003) routing. Must handle `ifc.emit`, `ifc.subscribe`, `ifc.unsubscribe`, `ifc.event`, and optionally channel messages. | Medium | @napplet/nub-ifc types already defined |
-| **Runtime: `SendToNapplet` signature change** | Currently `SendToNapplet = (windowId, msg: unknown[]) => void`. Must also support sending JSON envelope objects. Options: union type or replace entirely. | Low | All call sites in runtime.ts and service-dispatch.ts |
-| **Shell: `handleMessage` accepts objects** | `shell-bridge.ts` line 155: `if (!Array.isArray(msg) || msg.length < 2) return;` — this guard drops all envelope messages. Must route objects to envelope handler and arrays to legacy handler (or drop legacy). | Low | envelope dispatch in runtime |
-| **Migration doc: @kehto/acl** | Package itself doesn't change (pure capability bitfield module). Doc must confirm ACL caps map correctly to new NUB domains. | Low | No code changes expected |
-| **Migration doc: @kehto/runtime** | Largest surface area. Documents removed NIP-01 verbs, new NUB handlers, changed internal types (SendToNapplet, ServiceHandler). | High | All other migration docs |
-| **Migration doc: @kehto/shell** | ShellBridge.handleMessage guard change. ShellAdapter interface audit. Services interface change if ServiceHandler changes. | Medium | @kehto/runtime migration |
-| **Migration doc: @kehto/services** | ServiceHandler.handleMessage currently receives NIP-01 arrays. Under envelope format it would receive typed NUB messages. Must document the interface change and provide before/after. | Medium | @kehto/runtime migration |
-| **Gap analysis document** | Comparison of previous spec vs NIP-5D v0.1.0. Identifies removed, changed, and added concepts. | Medium | All of the above |
+### A. Demo App Rewire
 
----
+| Feature | Why Expected | Complexity | NUB Domain |
+|---------|--------------|------------|-----------|
+| Boot without `window.nostr` or signer-service | v1.2 MUST NOT mandate removed from spec; demo must model the canonical contract | LOW | identity |
+| Topology renders all 8 service nodes | Developer must see the full domain map immediately on load | LOW | all |
+| Shell node shows ephemeral host pubkey | Basic "host is alive" proof | LOW | identity |
+| Signer modal: NIP-07 + NIP-46 flows | Canonical identity onboarding; no window.nostr path | MEDIUM | identity |
+| Signer node reflects connected state (pubkey, method badge, recent requests) | Shows that identity.* is live | LOW | identity |
+| ACL panel grants/revokes per-napplet capabilities | Core promise of the runtime: host controls what napplets can do | LOW | all |
+| ACL history ring buffer + modal | Audit trail for capability decisions | LOW | all |
+| Debugger tap shows real NIP-5D envelope verbs | Messages are now `{ type }` objects, not NIP-01 arrays | MEDIUM | all |
+| Service toggle buttons (enable/disable per-service) | Demonstrates runtime service isolation | LOW | all |
+| Color-mode edge animation (flash/rolling/decay/last/trace) | Makes message flow visually legible | LOW | all |
+| Node inspector (click topology node → right-side detail pane) | Drill-down into per-node state | LOW | all |
+| Kinds panel (NIP event kinds reference) | Dev reference — already built, must remain functional | LOW | — |
+| Constants panel (protocol constants reference) | Dev reference — already built, must remain functional | LOW | — |
 
-## window.napplet Interface Changes
+### B. Napplet Showcase — Domain Coverage
 
-The `NappletGlobal` interface in `@napplet/core` defines five namespaces. Per the milestone context, "almost all are now optional." Here is the current state sourced from the code:
+One purpose-built napplet per domain that convincingly exercises the nub contract. The "demonstrably working" bar is: a developer watching the demo can see the napplet send a message, the topology edge animate, and the host respond — all without opening DevTools.
 
-### Current NappletGlobal (from @napplet/core/src/types.ts)
+| Napplet | Domain | "Demonstrably Working" Behavior | Complexity |
+|---------|--------|--------------------------------|-----------|
+| **feed** | relay (subscribe) | Subscribes to `{ kinds: [1], limit: 20 }`, renders received text events in a scrollable list; EOSE triggers "loaded" label | MEDIUM |
+| **composer** | relay (publish + publishEncrypted) | Text input + "Publish" button → `relay.publish(kind:1)`; optional "Encrypted" toggle → `relay.publishEncrypted` (NIP-44 default); shows OK/denied in status area | MEDIUM |
+| **profile-viewer** | identity | Calls `identity.getPublicKey()` → shows truncated pubkey; calls `identity.getProfile()` → shows name/about/picture if returned by signer | MEDIUM |
+| **hotkey-chord** | keys | Registers a demo hotkey chord (e.g., Ctrl+Shift+K) via `keys.register()`; shows "chord fired" in UI when host forwards the keypress | MEDIUM |
+| **media-controller** | media | Play/pause/volume buttons wired to `media.*` requests; displays current track title + playback state returned by service | MEDIUM |
+| **toaster** | notify | "Create Notification" button → `notify.create({ title, body })`; displays own notification in a mini list, reflects `notify.list` response | SMALL |
+| **preferences** | storage | Renders 3-4 editable preference fields (e.g., display name, theme preference); saves via `storage.setItem`, loads on mount via `storage.getItem`; shows "saved" / "loaded" status | SMALL |
+| **theme-switcher** | theme | Shows current theme colors from `theme.get()`; provides "Light / Dark / Custom" toggle that calls host `publishTheme()`; reflects `theme.changed` push events | MEDIUM |
+| **multiplayer-chat** (migrate from `chat`) | ifc | Sends `ifc.emit('chat:message')`, receives `ifc.on('bot:response')`; also calls `relay.publish` so both ifc + relay domains are exercised simultaneously | MEDIUM |
+| **bot** (migrate from `bot`) | ifc + storage | Receives `ifc.on('chat:message')`, stores learned rules via `storage.setItem/getItem`, emits `ifc.emit('bot:response')` | MEDIUM |
 
-All five namespaces are **required** (no `?` modifier) in the TypeScript interface:
+**Complexity key:** SMALL = 1-2 days; MEDIUM = 3-5 days; LARGE = 1+ week
 
-```ts
-interface NappletGlobal {
-  relay: { subscribe, publish, query }     // required
-  ipc: { emit, on }                        // required
-  services: { list, has }                  // required
-  storage: { getItem, setItem, removeItem, keys }  // required
-  shell: NappletGlobalShell                // required (just supports())
-}
-```
+### C. Playwright Suite
 
-The shim (`@napplet/shim/src/index.ts`) installs all five at runtime. The `shell.supports()` stub returns `false` with a TODO comment — it is not yet connected to actual shell capability data.
-
-### NUB Domains (from @napplet/core/src/envelope.ts)
-
-Five NUB domains are recognized by the type system:
-- `relay` — NIP-01 relay proxy (subscribe, publish, query)
-- `signer` — NIP-07/NIP-44 signing delegation
-- `storage` — Scoped key-value storage proxy
-- `ifc` — Inter-frame communication (topic pub/sub + channels)
-- `theme` — Read-only shell theme access (NEW)
-
-The `theme` NUB is entirely new — not present in the previous NIP-01 bus implementation.
-
-### NIP-5D Spec Position on Optional Interfaces
-
-NIP-5D v0.1.0 specifies:
-- Shells MUST implement `window.napplet.shell.supports()` — the only mandatory method
-- `window.napplet.services.has()` is mentioned as service discovery API
-- All NUB interfaces are optional: shells MAY support any subset
-- Napplets MUST gracefully degrade when a capability is absent
-
-This means the migration impact on kehto is: the packages must handle NUB messages when they exist, but the ShellAdapter interface gains optional fields, not required ones.
-
----
-
-## New NUBS Interfaces
-
-### Theme NUB (window.napplet.theme) — Net New
-
-The `@napplet/nub-theme` package defines a theme interface not present in the previous system:
-
-| Message | Direction | Payload |
-|---------|-----------|---------|
-| `theme.get` | napplet → shell | `{ id }` |
-| `theme.get.result` | shell → napplet | `{ id, theme?, error? }` |
-| `theme.changed` | shell → napplet | `{ theme }` (push, no id) |
-
-Theme payload structure:
-```ts
-interface Theme {
-  colors: { background, text, primary }  // required
-  fonts?: { body?, title? }              // optional
-  background?: { url, mode, mime }       // optional
-  title?: string                         // optional
-}
-```
-
-Kehto has no current theme handling. This NUB requires:
-- A new handler in `@kehto/runtime` for `theme.*` messages
-- A new adapter interface `ThemeAdapter` to provide theme data to the runtime
-- A `theme` entry in `ShellAdapter`
-
-### IFC Channel Mode — Net New within IFC NUB
-
-The IFC NUB has two modes. The previous NIP-01 IPC-PEER bus only had the topic pub/sub mode. Channel mode is new:
-
-| Message | Direction | Purpose |
-|---------|-----------|---------|
-| `ifc.channel.open` | napplet → shell | Open point-to-point channel |
-| `ifc.channel.open.result` | shell → napplet | Channel ID or error |
-| `ifc.channel.emit` | napplet → shell | Send on open channel |
-| `ifc.channel.event` | shell → napplet | Receive on channel |
-| `ifc.channel.broadcast` | napplet → shell | Broadcast to all channels |
-| `ifc.channel.list` | napplet → shell | List open channels |
-| `ifc.channel.list.result` | shell → napplet | Channel list |
-| `ifc.channel.close` | napplet → shell | Close channel |
-| `ifc.channel.closed` | shell → napplet | Channel closed notification |
-
-Key difference from topic pub/sub: ACL is checked at `channel.open` time only. Subsequent messages on the channel bypass per-message ACL checks.
+| Spec | What It Proves | Type | Complexity |
+|------|---------------|------|-----------|
+| **demo-boot** | Shell mounts, all 8 service nodes visible, topology edges rendered, napplets reach AUTH | golden path | SMALL |
+| **napplet-auth** | Each napplet successfully completes identity assignment (replaces old `auth-handshake.spec.ts`) | golden path | SMALL |
+| **acl-grant-revoke** | Grant/revoke per capability; napplet sees denial in its status area (replaces `acl-enforcement`) | capability matrix | MEDIUM |
+| **acl-block-unblock** | Block entire napplet; all operations denied; unblock restores | capability matrix | SMALL |
+| **relay-subscribe** | `feed` napplet: topology edge animates; debugger shows `relay.subscribe` + `relay.event` | domain | MEDIUM |
+| **relay-publish** | `composer` napplet: publish flow; OK visible in debugger and napplet status | domain | MEDIUM |
+| **relay-publish-encrypted** | `composer` napplet: publishEncrypted flow; shell does NIP-44 internally; no ciphertext sent from napplet | domain | MEDIUM |
+| **identity-flow** | `profile-viewer` napplet: `identity.getPublicKey()` returns connected signer pubkey | domain | MEDIUM |
+| **ifc-roundtrip** | `multiplayer-chat` → `bot` → `multiplayer-chat` round-trip; both napplet status areas reflect message receipt | domain | MEDIUM |
+| **storage-persist** | `preferences` napplet: setItem → reload page → getItem returns same value | domain | MEDIUM |
+| **notify-lifecycle** | `toaster` napplet: create → list → read → dismiss; host toast layer and napplet UI both update | domain | MEDIUM |
+| **theme-broadcast** | `theme-switcher` napplet: toggle triggers `publishTheme()` host-side; other napplets receive `theme.changed` push | domain | MEDIUM |
+| **acl-revoke-relay-write** | Revoke `relay:write`; composer publish denied with legible reason in debugger | capability matrix | SMALL |
+| **acl-revoke-storage-write** | Revoke `state:write`; preferences save denied | capability matrix | SMALL |
+| **demo-node-inspector** | Click each topology node → inspector pane opens with role content | demo surface | SMALL |
+| **demo-debugger** | Debugger receives envelope events (type strings, not NIP-01 verbs) while napplets are active | demo surface | SMALL |
+| **demo-service-toggle** | Toggle a service off → napplet request fails; toggle back on → succeeds | demo surface | SMALL |
+| **demo-notification-service** | Migrate existing spec to canonical API (no BusKind; pure envelope events) | demo surface | SMALL |
+| **harness-smoke** | Test harness boot, `__SHELL_READY__`, `__loadNapplet__`, `__TEST_MESSAGES__` | infrastructure | SMALL |
 
 ---
 
 ## Differentiators
 
-Features that improve the migration quality beyond minimum correctness.
+Features that make this demo stand out as a developer resource beyond "it runs."
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| **Legacy NIP-01 compatibility shim** | Allow old napplets still using NIP-01 bus to keep working during transition. Shell-bridge routes arrays to old handler, objects to envelope handler. | Low | The existing NIP-01 handler can coexist; just relax the guard in shell-bridge |
-| **`shell.supports()` fully wired** | Currently returns `false` (stub). Wire it to report actual registered NUBs. Napplets need this for graceful degradation. | Low | Requires shell to pass capability data during iframe creation or via shim init message |
-| **ServiceHandler: envelope-native interface** | Migrate `ServiceHandler.handleMessage(windowId, msg: unknown[], send)` to accept typed NUB messages instead of NIP-01 arrays. Eliminates legacy coupling from service layer. | Medium | Breaking change for existing @kehto/services implementations |
-| **theme NUB in @kehto/shell** | Hook into shell adapter for theme data delivery. Enables napplets to match the host UI skin automatically. | Medium | New ShellAdapter.theme field; no existing infrastructure |
+| **Per-edge directional animation with 5 color modes** | Makes protocol traffic visible; turns an abstract concept into observable flow | LOW | Already built; needs napplet traffic to animate |
+| **ACL audit history** | Real-time log of every capability decision; useful for debugging security contracts | LOW | Already built; ring buffer wired to `onAclCheck` hook |
+| **Inline debugger tap showing envelope `type` strings** | Developer can read the wire protocol without DevTools; confirms what spec says matches what runs | MEDIUM | Requires updating the debugger to display JSON envelope keys |
+| **Service enable/disable toggle per node** | Demonstrates that services are runtime-pluggable; not hardwired | LOW | Already built; needs more napplets to make this interesting |
+| **Node inspector with per-role content** | Click ACL node → see grant/revoke table; click runtime node → see registered NUBs; click napplet node → see capability state | LOW | Already built; extend with NUB list for runtime node |
+| **publishEncrypted as first-class demo** | Shows the shell-mediated encryption model: napplet sends plaintext, shell does NIP-44, no keys ever cross the sandbox boundary | MEDIUM | Requires `composer` napplet |
+| **theme-broadcast round-trip** | Makes the theme domain tangible; napplets visually change when host toggles theme | MEDIUM | Requires `theme-switcher` + at least one theme-consuming napplet |
+| **Playwright MCP loop as development discipline** | Each phase ends with a live Playwright run; failures drive fixes before moving on | LOW | Process, not code |
 
 ---
 
 ## Anti-Features
 
-Features that would be harmful to include in this migration.
+These must be explicitly excluded. Call them out so no phase plan re-introduces them.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| **Force-remove NIP-01 bus** | Existing integrators (hyprgate) may still use NIP-01 arrays. Removing it breaks them immediately. | Deprecate: keep the array path working, add envelope path alongside it. Document removal timeline. |
-| **Migrate @napplet/core types** | @napplet/core lives in the napplet repo, not kehto. Kehto is a consumer, not an owner. | Document the dependency version needed, update peer dep ranges. |
-| **Rewrite ServiceHandler to be async** | Not required by NIP-5D. Current sync interface is fine for NUB routing. | Keep sync; handle async internally within service implementations if needed. |
-| **Implement theme NUB in this milestone** | Requires new ShellAdapter integration that has no reference implementation yet. Scope creep. | Document as a gap (requires future NUB support), not a migration blocker. |
+| **Rebuild `window.nostr` as a napplet-visible surface** | Canonically forbidden by NIP-5D ("Shells MUST NOT provide window.nostr"); rebuilding it would make the demo demonstrate the wrong contract | Use `identity.getPublicKey()` and `relay.publish` / `relay.publishEncrypted` exclusively |
+| **Raw `window.addEventListener('message')` in napplets** | The current bot/chat napplets do this; it bypasses the `@napplet/sdk` envelope API and listens for legacy `['OK', ...]` arrays directly | Migrate to `@napplet/sdk`'s `relay`, `ipc`, `storage` objects; AUTH is implicit via shim, no explicit event listener needed |
+| **Signer-service as a separate registered service** | Was deleted in v1.2; shell mediates all signing via `relay.publishEncrypted` internally | Demo must show the canonical path: napplet calls `relay.publish` → shell signs internally; no signer-service |
+| **BusKind / kind 29001 / kind 29002 in napplet code** | These are now internal shell implementation details, not part of the napplet-visible protocol | Use `@napplet/sdk` which abstracts this |
+| **Demo napplets that directly use `ipc.emit` + `relay.publish` in the same send path** | The current `chat` napplet emits to both relay and ifc for a single message, conflating two domains | Single-domain napplets; `multiplayer-chat` should focus on `ifc`, `composer` on `relay.publish` |
+| **E2E specs that inject raw kind 29001 / kind 29003 events via `__publishEvent__`** | These specs test the internal signer protocol, which is no longer napplet-visible; they are testing deleted API | Delete `acl-matrix-signer.spec.ts`, `signer-delegation.spec.ts`; replace with domain-level specs against real napplets |
+| **E2E specs that depend on `#chat-status` / `#bot-status` auth badge pattern** | These DOM IDs couple the spec to the napplet's legacy auth listener; the badge pattern goes away with the SDK migration | Playwright specs should look for napplet-rendered status using SDK-produced state |
+| **Mega-napplet that exercises all domains** | NIP-5D philosophy: "A napplet SHOULD be single-purpose rather than monolithic"; a multi-domain napplet obscures what each NUB does | One napplet per domain in the showcase |
+| **CI/CD integration in this milestone** | Deferred by PROJECT.md decision; adding it creates scope drift | Run Playwright locally via Playwright MCP; no CI setup |
 
 ---
 
 ## Feature Dependencies
 
 ```
-JSON envelope dispatch in runtime
-  → relay NUB handler
-  → signer NUB handler
-  → storage NUB handler
-  → ifc NUB handler (topic pub/sub)
-      → ifc channel mode (optional extension)
-  → theme NUB handler (new, optional)
+Napplet SDK migration (bot, chat → @napplet/sdk)
+  └──required by──> multiplayer-chat napplet (ifc domain)
+  └──required by──> Playwright specs that interact with real napplets
 
-shell-bridge guard relaxation
-  → depends on: JSON envelope dispatch in runtime
+Demo shell boot (no window.nostr, no signer-service)
+  └──required by──> all napplets loading and reaching identity state
+  └──required by──> all domain specs
 
-SendToNapplet signature update
-  → depends on: chosen dispatch strategy (parallel or replace)
-  → gates: migration doc for @kehto/runtime
-  → gates: migration doc for @kehto/services (ServiceHandler changes)
+identity domain wired (signer modal + identity service)
+  └──required by──> profile-viewer napplet
+  └──required by──> relay.publish (shell needs signer to sign internally)
+  └──required by──> relay.publishEncrypted
 
-shell.supports() wired
-  → depends on: shell-bridge passing capability list to shim
+relay.publish working end-to-end
+  └──required by──> composer napplet
+  └──required by──> relay-publish Playwright spec
+  └──enhances──> relay.publishEncrypted (same path, adds encryption step)
+
+ifc domain working (multiplayer-chat → bot round-trip)
+  └──required by──> ifc-roundtrip Playwright spec
+  └──depends on──> both napplets migrated to @napplet/sdk
+
+storage domain working
+  └──required by──> preferences napplet
+  └──required by──> storage-persist Playwright spec
+
+notify domain working (already done in v1.2)
+  └──required by──> toaster napplet
+  └──enhances──> demo-notification-service spec (already written, needs API update)
+
+theme domain wired (bridge.publishTheme exists)
+  └──required by──> theme-switcher napplet
+  └──required by──> theme-broadcast Playwright spec
+  └──note──> theme-broadcast requires at least one theme-consuming napplet to observe the push
+
+Playwright harness (test infra)
+  └──required by──> all E2E specs
+  └──note──> harness-smoke spec verifies the harness itself; must pass before domain specs run
+
+E2E triage (delete obsolete specs)
+  └──must happen before──> Playwright green run
+  └──targets──> signer-delegation.spec.ts, acl-matrix-signer.spec.ts, auth.spec.ts (legacy verb tests)
 ```
 
----
+### Dependency Notes
 
-## Capability Mapping: Old Caps to New NUB Domains
-
-The `Capability` type and `@kehto/acl` bitfields remain unchanged. The mapping to NUB domains is:
-
-| Capability | NUB Domain | Notes |
-|------------|-----------|-------|
-| `relay:read` | `relay` | REQ/CLOSE enforcement → relay.subscribe/close |
-| `relay:write` | `relay` | EVENT enforcement → relay.publish |
-| `cache:read` | (internal) | Not a NUB; cache is now a shell implementation detail |
-| `cache:write` | (internal) | Not a NUB; cache write goes through relay.publish path |
-| `hotkey:forward` | (keyboard) | Not a NUB domain; keyboard.forward is a non-NUB envelope message |
-| `sign:event` | `signer` | SIGNER_REQUEST → signer.signEvent |
-| `sign:nip04` | `signer` | → signer.nip04.encrypt/decrypt |
-| `sign:nip44` | `signer` | → signer.nip44.encrypt/decrypt |
-| `state:read` | `storage` | STATE_REQUEST → storage.get/keys |
-| `state:write` | `storage` | → storage.set/remove |
-
-ACL enforcement logic in `@kehto/acl` is unaffected. Only the trigger points in the runtime handlers change (they now fire on NUB message types instead of NIP-01 verbs).
+- **relay.publish requires identity**: Shell signs events internally before publishing; if no signer is connected, publish returns an error. The demo should either auto-connect a demo ephemeral signer or make the "no signer" error state a teachable moment.
+- **theme-broadcast depends on relay working**: `publishTheme()` is a host-side push (not a napplet request), but observing the `theme.changed` response in a napplet requires the napplet to have completed identity assignment — which runs through the same postMessage channel as relay.
+- **Playwright demo-functional specs depend on the demo server running**: Unlike the harness specs (which boot a minimal test shell), the demo specs spawn a real `vite` dev server and interact with the full demo app. These take longer and must be run after all napplet migrations are complete.
+- **ACL specs should run against real napplets, not `__publishEvent__`**: The old harness-level specs injected raw protocol events; the new specs should interact through the napplet UIs (fill text, click button) so the full envelope path is exercised.
 
 ---
 
-## MVP Recommendation
+## MVP Definition for v1.3
 
-Minimum viable migration (all four packages functional with NIP-5D):
+### Must Have (Phase Blocker)
 
-1. **Relax shell-bridge guard** — one-line change, enables envelope messages to reach runtime
-2. **Add envelope dispatch path in runtime** — route `{ type }` objects through `@napplet/core` dispatch
-3. **Implement relay, signer, storage NUB handlers** — direct port of existing NIP-01 verb handlers to envelope format
-4. **Implement ifc topic pub/sub handler** — replace IPC-PEER (kind 29003) routing
-5. **Write four migration docs + gap analysis** — primary deliverable of this milestone
+- [ ] Demo boots without errors; all 8 service nodes visible; signer modal works (NIP-07 + NIP-46)
+- [ ] `multiplayer-chat` + `bot` napplets migrated to `@napplet/sdk`; ifc round-trip observable in debugger
+- [ ] `composer` napplet: relay.publish and relay.publishEncrypted flows work; debugger shows correct envelope types
+- [ ] `preferences` napplet: storage.getItem / setItem round-trip survives page reload
+- [ ] `toaster` napplet: notify.create / notify.list cycle updates both napplet and host toast layer
+- [ ] E2E triage complete: obsolete specs deleted; surviving harness specs green
+- [ ] `demo-boot`, `napplet-auth`, `acl-grant-revoke`, `ifc-roundtrip`, `relay-publish`, `storage-persist`, `notify-lifecycle` Playwright specs green
+- [ ] Debugger displays envelope `type` strings (not raw NIP-01 verbs)
 
-Defer:
-- **ifc channel mode**: No existing napplets use it. Implement after core NUBs are working.
-- **theme NUB**: No @kehto/shell adapter support yet. Document as gap.
-- **shell.supports() wiring**: Document the stub, flag as incomplete. Not blocking.
-- **ServiceHandler envelope-native interface**: Keep as deprecation note, not a blocker.
+### Add After Core Is Green
+
+- [ ] `feed` napplet: relay.subscribe with scrolling event list
+- [ ] `profile-viewer` napplet: identity.getPublicKey + identity.getProfile
+- [ ] `theme-switcher` napplet: theme.get + publishTheme toggle
+- [ ] `identity-flow`, `relay-subscribe`, `theme-broadcast` Playwright specs
+- [ ] Node inspector: extend runtime node to show registered NUBs
+
+### Defer to Future Milestone
+
+- [ ] `hotkey-chord` napplet: keys domain requires host hotkey forwarding infrastructure; no reference implementation in `@kehto/services` yet (stub only)
+- [ ] `media-controller` napplet: media domain service is a stub with no real audio backend; napplet would only show "not implemented" responses
+- [ ] CI/CD: deferred per PROJECT.md decision
+- [ ] `changeset publish`: blocked on `@napplet/core` npm publication
+
+---
+
+## Feature Prioritization Matrix
+
+| Feature | Developer Value | Implementation Cost | Priority |
+|---------|----------------|---------------------|----------|
+| Demo boot + signer modal | HIGH | LOW | P1 |
+| multiplayer-chat + bot SDK migration | HIGH | MEDIUM | P1 |
+| composer napplet (relay.publish) | HIGH | MEDIUM | P1 |
+| E2E triage (delete obsolete specs) | HIGH | LOW | P1 |
+| Playwright demo-boot + napplet-auth | HIGH | LOW | P1 |
+| preferences napplet (storage) | HIGH | SMALL | P1 |
+| toaster napplet (notify) | HIGH | SMALL | P1 |
+| Debugger envelope verb display | HIGH | MEDIUM | P1 |
+| feed napplet (relay.subscribe) | HIGH | MEDIUM | P2 |
+| profile-viewer napplet (identity) | MEDIUM | MEDIUM | P2 |
+| theme-switcher napplet (theme) | MEDIUM | MEDIUM | P2 |
+| relay-publish-encrypted spec | HIGH | MEDIUM | P2 |
+| All domain Playwright specs | HIGH | MEDIUM | P2 |
+| Node inspector NUB list | LOW | LOW | P2 |
+| hotkey-chord napplet (keys) | LOW | HIGH | P3 |
+| media-controller napplet (media) | LOW | HIGH | P3 |
+| Docs refresh (READMEs + docs/) | MEDIUM | LOW | P2 |
+| Release rehearsal (changeset dry-run) | MEDIUM | LOW | P2 |
+
+---
+
+## Comparable Systems Analysis
+
+This research draws from how similar sandboxed plugin demo hosts present their capabilities.
+
+**Figma plugins** — Each capability (network access, UI creation, file read) is declared in `manifest.json` and shown in a permission prompt. The Figma plugin runner shows the plugin iframe embedded in the host. A good Figma plugin demo shows permission grant → API call → host reaction. Kehto should show the equivalent: ACL grant → napplet API call → topology edge flash → service response.
+
+**VS Code extension host** — The extension host communicates over a JSON-RPC bridge. VS Code's own extension development workflow includes an "Extension Development Host" window that shows the extension running in isolation. Kehto's topology view is the equivalent: each napplet is a node, the shell/ACL/runtime/services are the host infrastructure layers.
+
+**Obsidian plugins** — Obsidian's plugin dev experience is notable for immediate visual feedback: a plugin calls `app.vault.create()` and the file appears in the file tree. The host state change is the proof. Kehto's equivalent: a napplet calls `notify.create()` and the toast appears in the host. This is already implemented for notify; the other 7 domains need equivalent host-visible feedback.
+
+**Bangle.io workers** — Uses web workers behind a message-passing API. Their demo isolates the worker but the main thread reflects state changes in the editor. The isolation boundary is the key teaching point, same as kehto's sandbox enforcement.
+
+**Common pattern across all four:** The showcase demo has three layers:
+1. **Protocol visualization** (topology + edges, message log) — answers "how does communication work?"
+2. **Capability enforcement** (ACL panel, grant/revoke) — answers "who controls what?"
+3. **Live functional proof** (napplet UI doing something observable) — answers "does it actually work?"
+
+Kehto's demo already has layers 1 and 2. v1.3 completes layer 3 for all 8 domains.
 
 ---
 
 ## Sources
 
-All findings are sourced directly from the live codebase. No external references needed.
+All findings sourced from live codebase. Confidence: HIGH.
 
-- `/home/sandwich/Develop/kehto/nubs/SPEC.md` — NIP-5D v0.1.0 specification
-- `/home/sandwich/Develop/napplet/packages/core/src/envelope.ts` — NubDomain, NappletMessage, ShellSupports
-- `/home/sandwich/Develop/napplet/packages/core/src/types.ts` — NappletGlobal, Capability, legacy types
-- `/home/sandwich/Develop/napplet/packages/core/src/legacy.ts` — Deprecated BusKind, VERB_REGISTER, etc.
-- `/home/sandwich/Develop/napplet/packages/shim/src/index.ts` — Current window.napplet installation
-- `/home/sandwich/Develop/napplet/packages/nubs/relay/src/types.ts` — relay NUB message types
-- `/home/sandwich/Develop/napplet/packages/nubs/signer/src/types.ts` — signer NUB message types
-- `/home/sandwich/Develop/napplet/packages/nubs/storage/src/types.ts` — storage NUB message types
-- `/home/sandwich/Develop/napplet/packages/nubs/ifc/src/types.ts` — ifc NUB message types (incl. channel mode)
-- `/home/sandwich/Develop/napplet/packages/nubs/theme/src/types.ts` — theme NUB message types
-- `/home/sandwich/Develop/kehto/packages/shell/src/shell-bridge.ts` — Current NIP-01 array guard
-- `/home/sandwich/Develop/kehto/packages/runtime/src/runtime.ts` — Current NIP-01 verb dispatch
-- `/home/sandwich/Develop/kehto/packages/runtime/src/service-dispatch.ts` — ServiceHandler NIP-01 coupling
-- `/home/sandwich/Develop/kehto/packages/acl/src/types.ts` — Capability bitfield constants
+- `/home/sandwich/Develop/kehto/specs/NIP-5D.md` — Canonical NIP-5D spec (synced at v1.2)
+- `/home/sandwich/Develop/kehto/apps/demo/src/main.ts` — Demo entry point
+- `/home/sandwich/Develop/kehto/apps/demo/src/shell-host.ts` — Shell boot, napplet definitions, service registration
+- `/home/sandwich/Develop/kehto/apps/demo/src/notification-demo.ts` — Reference for domain-specific demo controller pattern
+- `/home/sandwich/Develop/kehto/apps/demo/napplets/chat/src/main.ts` — Current chat napplet (legacy auth listener pattern)
+- `/home/sandwich/Develop/kehto/apps/demo/napplets/bot/src/main.ts` — Current bot napplet (legacy auth listener + ifc + storage)
+- `/home/sandwich/Develop/kehto/tests/e2e/*.spec.ts` — Current E2E suite (triage targets identified above)
+- `/home/sandwich/Develop/kehto/.planning/PROJECT.md` — v1.3 scope, decisions, constraints
+
+---
+*Feature research for: kehto v1.3 Demo-Functional & Playwright Parity*
+*Researched: 2026-04-18*

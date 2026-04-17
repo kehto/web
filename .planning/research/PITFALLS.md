@@ -1,261 +1,243 @@
 # Pitfalls Research
 
-**Domain:** Protocol runtime migration — NIP-01 wire format to NIP-5D JSON envelope
-**Researched:** 2026-04-07
-**Confidence:** HIGH (based on direct code analysis of both specs and all four kehto packages)
+**Domain:** Demo + Playwright iframe-sandboxed Nostr runtime (kehto v1.3)
+**Researched:** 2026-04-18
+**Confidence:** HIGH (derived from direct codebase analysis — harness.ts, shell-bridge.ts, origin-registry.ts, vite configs, existing specs, pnpm overrides, and vite-plugin source)
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: Treating the Wire Format Change as a Minor Rename
+### Pitfall 1: Playwright frameLocator Timing on Sandboxed Iframes Without `allow-same-origin`
 
 **What goes wrong:**
-The migration is framed as "relatively superficial," which is accurate for the napplet SDK side (@napplet already migrated). However, @kehto/runtime and @kehto/shell still speak full NIP-01 array wire format (`["REQ", subId, filter]`, `["EVENT", subId, event]`, `["AUTH", challenge]`, etc.) throughout their internals. The new NIP-5D spec replaces ALL of this with JSON envelope objects `{ type: "domain.action", ...payload }`. These are not the same shape, not the same type system, and not the same dispatch model.
+`page.frameLocator('#some-iframe')` returns a frame locator immediately, but the actual frame is not attached until the iframe's `load` event fires. When `allow-same-origin` is absent from `sandbox` (as in the harness — only `allow-scripts`), Playwright cannot introspect `contentDocument` at all via the CDP frame tree. Attempting `.locator()` calls inside the frame locator before it is fully loaded results in "Frame not found" or "Execution context was destroyed" errors that look like test flakiness but are deterministic timing failures.
 
-Treating it as a rename ("just change the constant names") misses that the entire framing changes: from verb-based array dispatch to domain-prefix object dispatch.
+The existing `demo-audit-correctness.spec.ts` uses `page.frameLocator('#chat-frame-container iframe')` and queries elements inside the iframe directly. This works in dev mode (`vite dev`) where the napplet is served on the same origin as the shell (`localhost:5174`), but breaks in `vite preview` mode when napplets are served as static files from the `dist/napplets/` path — the origin becomes `null` for sandboxed iframes loaded via `src=` pointing to a different path origin.
 
 **Why it happens:**
-`@kehto/runtime.handleMessage()` receives `unknown[]` (arrays). The new shell-side consumers (@napplet/shim, @napplet/sdk) now send JSON objects. The mismatch is invisible at the TypeScript boundary because both sides are typed loosely at the postMessage layer. Tests that mock the old array format will pass even when the runtime is not handling the new format.
+Two independent problems stack:
+1. `frameLocator` resolves the frame by matching a CSS selector in the parent page. If the iframe element exists in the DOM but the frame has not committed navigation yet, Playwright finds the element but the frame context is unready.
+2. Without `allow-same-origin`, the browser treats the iframe's origin as `null` (opaque origin). Playwright's CDP-based frame introspection relies on the frame's execution context being accessible in the same origin tree. With opaque origin, Playwright's `frameLocator` still works for locating elements IF the browser exposes the frame via CDP — Chromium does expose sandboxed frames — but only after navigation commits, not immediately after iframe insertion.
 
 **How to avoid:**
-Before writing migration code, document the wire format at the boundary for each package. Identify which packages are *sending* old format and which need to *receive* new format. The key boundary is `ShellBridge.handleMessage(event: MessageEvent)` — the `event.data` arriving there from @napplet/shim is now `{ type: string, ...payload }`, not `["VERB", ...]`.
+- Always `await page.waitForFunction(() => document.querySelector('#iframe-id')?.contentWindow !== null)` after napplet load before using `frameLocator`.
+- For the demo specs that use `frameLocator`, add an explicit iframe readiness guard: wait for a sentinel value the napplet writes to its own DOM (e.g., `#status` element text), not for the parent page's ACL state.
+- In the Playwright spec helpers, wrap `frameLocator` calls in a retry-aware pattern using `expect.poll` rather than a naked `await frame.locator().click()`.
+- Do not use `contentFrame()` (Playwright's `ElementHandle.contentFrame()`) as a substitute — it requires same-origin access and returns `null` for opaque-origin sandboxed iframes.
 
 **Warning signs:**
-- The `dispatchVerb()` function in runtime.ts switches on `msg[0]` (the first array element). If msg is a JSON envelope object, `msg[0]` is `undefined` and all messages silently fall through.
-- Tests pass because they still send the old array format directly to `handleMessage()`.
+- Tests pass reliably in `pnpm test:e2e` locally (fast machine, napplets load quickly) but fail ~20% of the time in a slower environment or when the napplet dist is large.
+- "Frame not found" Playwright errors with a selector that clearly exists in the DOM.
+- Any test that does `frameLocator(...)` immediately after `page.evaluate(() => __loadNapplet__(...))` without a wait.
 
 **Phase to address:**
-Gap analysis phase — before any migration code is written, establish the exact boundary contract for each package.
+Demo rewire phase (Phase 16 or equivalent). Before writing a single demo-functional Playwright spec, establish a shared `waitForNappletReady(page, frameSelector)` helper that polls for the napplet's sentinel element. Make this helper a success criterion of the spec scaffolding plan.
 
 ---
 
-### Pitfall 2: Keeping the NIP-42 AUTH Handshake When NIP-5D Eliminates It
+### Pitfall 2: postMessage Origin Mismatch for `allow-scripts`-only Sandboxed Iframes
 
 **What goes wrong:**
-The old RUNTIME-SPEC has an elaborate three-phase handshake: REGISTER → IDENTITY → AUTH challenge → AUTH response → OK. This includes Schnorr signature verification (kind 22242), delegated keypair derivation via HMAC-SHA256, shell secret persistence, challenge/response matching, and a pre-AUTH message queue.
+The shell-bridge sends `shell.init` and subsequent NIP-5D envelopes via `win.postMessage(msg, '*')` — the wildcard target origin is intentional. However, in the napplet (shim side), `event.origin` for messages received inside an `allow-scripts`-only sandboxed iframe is `"null"` (the string literal, not the JavaScript `null`). If the shim or any napplet code validates `event.origin !== parentOrigin`, it will always fail because the parent's real origin (e.g., `http://localhost:5174`) does not match the `"null"` string that the sandbox produces for the child's `event.origin`.
 
-NIP-5D v0.1.0 eliminates the handshake entirely. Identity is assigned by the shell at iframe creation time from the NIP-5A manifest. `MessageEvent.source` is the unforgeable identity — no negotiation required. The REGISTER, IDENTITY, AUTH verbs are all legacy and deprecated in `@napplet/core/legacy.ts`.
+The current shell-bridge correctly uses `event.source` (the `Window` reference) as the unforgeable identity check, not `event.origin`. But the napplet side (shim) may still reject messages if it checks `event.origin`. When adding new napplets to the demo showcase (feed, composer, profile-viewer), developers typically copy a reference shim integration and may add defensive origin checks that silently drop all shell messages.
 
-If the runtime still requires AUTH before accepting messages, napplets using the new @napplet/shim (which no longer sends REGISTER or AUTH) will have every message silently dropped by the pre-AUTH queue.
+Additionally: when the shell sends a message to the napplet iframe via `win.postMessage(envelope, '*')`, the napplet iframe receives `event.origin === "null"` (the string) if the iframe itself has an opaque origin (served from `blob:` URL or `srcdoc`). But when the iframe is loaded via `src=http://localhost:5174/napplets/feed/index.html`, the iframe's own `window.location.origin` is `http://localhost:5174` — the event.origin in the iframe's listener correctly shows the shell's origin. The confusion arises only when mixing `srcdoc` or `blob:` iframe loading patterns.
 
 **Why it happens:**
-The runtime's `dispatchVerb()` checks for `authInFlight` status and queues messages in `pendingAuthQueue`. Without AUTH completing, legitimate napplet messages are queued forever. @napplet/shim no longer triggers the AUTH flow — it sends JSON envelope objects immediately. The two systems are incompatible without explicit migration.
+Developers conflate two origins:
+- The origin of the **sender** as seen by the **receiver** (`event.origin` in the napplet's listener when the shell posts) — this is the shell's real origin.
+- The origin of the **iframe itself** as seen by the **parent** (`event.origin` in the shell's listener when the napplet posts) — this is `"null"` when sandbox excludes `allow-same-origin`.
+
+The shell currently receives napplet messages with `event.origin === "null"` and correctly ignores origin, relying only on `event.source`. The napplet receives shell messages with `event.origin === "http://localhost:5174"` (the real shell origin). This asymmetry confuses developers who think both sides see `"null"`.
 
 **How to avoid:**
-The migration path for @kehto/runtime is to remove the AUTH gating model and replace it with identity-at-creation binding. On the new model, identity is injected by `ShellBridge` at iframe creation via `originRegistry.register(window, windowId, { dTag, aggregateHash })` — before any messages arrive. There is no handshake to wait for.
-
-The `pendingChallenges`, `authInFlight`, `pendingAuthQueue`, and `pendingRegistrations` maps in runtime.ts become dead code after migration. Remove them rather than leaving them in place as they create confusion about whether AUTH is still expected.
+- In new napplet showcase implementations, never validate `event.origin` against a hardcoded value. Instead, verify `event.source === window.parent` (for direct parent communication). The `@napplet/shim` already does this correctly — do not add extra defensive origin checks in the napplet demo code.
+- If using `srcdoc` or `blob:` to load napplet content (as an alternative to serving from `dist/`), both sides will see `"null"` as origin. In this case, validate exclusively via `event.source` and the protocol envelope shape (`typeof event.data.type === 'string'`).
+- Document the asymmetry in the demo's napplet template so future showcase napplets do not re-introduce broken origin guards.
 
 **Warning signs:**
-- Any code path that checks `!isAuthenticated(windowId)` before handling a message is a sign AUTH gating is still active.
-- `sendChallenge()` still exists on the `Runtime` and `ShellBridge` interfaces post-migration.
-- `VERB_REGISTER`, `VERB_IDENTITY`, and `AUTH_KIND` are still imported from `@napplet/core` in non-legacy code.
+- Napplet appears in the DOM, `originRegistry.register()` is called, but no `shell.ready` message is ever received by the shell.
+- Shell sends `shell.init` (visible in DevTools Network/Messages), but napplet never sends a protocol request.
+- Console shows no errors in either frame — silent message drop due to origin guard.
 
 **Phase to address:**
-@kehto/runtime migration phase — this is the largest single change in the migration.
+Napplet showcase expansion phase. Add an explicit integration-test assertion that `shell.ready` is received within 2 seconds of napplet load for every new napplet added to the demo.
 
 ---
 
-### Pitfall 3: Window.napplet Interface Optionality Mismatch Between Shell and Napplet
+### Pitfall 3: Vite Dev-Mode vs Preview-Mode Drift — `napplet-aggregate-hash` Meta Tag
 
 **What goes wrong:**
-NIP-5D declares that almost all `window.napplet` sub-interfaces are optional from the shell's perspective. The shell implements only the NUBs it supports; napplets MUST `window.napplet.shell.supports('relay')` before using relay operations.
+The `@napplet/vite-plugin` (`nip5aManifest`) injects `<meta name="napplet-aggregate-hash" content="">` with an **empty content** in dev mode (`vite dev`). The `closeBundle` hook (which computes the real SHA-256 aggregate hash and rewrites the meta tag) only fires during `vite build`. As a result:
 
-@napplet/shim installs `window.napplet` globally with all sub-objects always present (relay, ipc, services, storage, shell). These sub-objects call the shell over postMessage. If the shell does not handle a NUB domain, the request is silently dropped (per spec: "Messages with an unrecognized type MUST be silently ignored").
+- In `pnpm dev`, the napplet's `aggregateHash` as seen by the shell runtime is `""` (empty string).
+- In `pnpm build` + `pnpm preview`, the napplet's `aggregateHash` is a real 64-character hex string.
 
-The pitfall is @kehto/runtime and @kehto/shell implementing their NUB handlers without advertising support. @napplet/shim's `window.napplet.shell.supports()` currently returns `false` for everything (see `// TODO: Shell populates supported capabilities at iframe creation` in shim/src/index.ts). If @kehto/shell does not inject capability declarations into each iframe at creation time, napplets cannot know what the shell supports.
+The runtime's `sessionRegistry` and `aclStore` both key their entries on `(pubkey, dTag, aggregateHash)`. Any ACL entry written during dev testing (with `aggregateHash = ""`) will NOT match in preview mode (with a real hash). This means:
+- ACL tests that pass in dev fail in preview because the grant/revoke persisted in localStorage uses `""` as the hash key.
+- The demo's ACL panel, which shows per-napplet capability state, shows a different napplet identity between dev and preview.
+- `sessionRegistry.getEntry(pubkey)` returns entries with different `aggregateHash` values depending on whether the napplet was loaded from dev server or from built dist.
 
 **Why it happens:**
-The `supports()` stub returns `false` unconditionally. The spec says "Shells MUST implement `window.napplet.shell.supports()`" but the mechanism for populating this at iframe creation is not yet defined in @kehto/shell. There is no message type for the shell to push its capability set to the napplet on load.
+`closeBundle` is the only hook where Vite provides the complete output file list with resolved paths. The plugin correctly skips hash computation in dev mode (the files do not exist yet in `dist/`). The empty-string sentinel is a deliberate design decision in the plugin — but downstream callers must not assume it remains stable across build modes.
 
 **How to avoid:**
-@kehto/shell must inject a list of supported NUBs/capabilities when it creates each iframe. One approach: before injecting @napplet/shim (or alongside it), post a capability handoff message `{ type: "shell.capabilities", supports: ["relay", "signer", "storage", "ifc"] }` to the iframe. @napplet/shim must handle this message and store it so `supports()` returns correct values.
-
-Verify this by checking `window.napplet.shell.supports('relay')` in a napplet after initialization and asserting it returns `true` when the shell has relay support registered.
+- Always build napplets (`pnpm build` from each napplet dir or `turbo run build`) before running `pnpm test:e2e` or the `pnpm preview` demo. The existing `test:e2e` script does `pnpm test:build` first — maintain this discipline for demo-functional specs too.
+- In Playwright demo specs, never rely on a hardcoded `aggregateHash` value in assertions. Instead read the hash from the runtime via the harness globals or from the napplet's DOM: `await page.frameLocator('...').locator('meta[name="napplet-aggregate-hash"]').getAttribute('content')`.
+- Add a build-phase smoke check: if a Playwright spec sees `aggregateHash === ""` in `__getNappEntry__()`, the test should fail with `throw new Error('napplet not built — run pnpm build first')` rather than proceeding with a poisoned identity.
 
 **Warning signs:**
-- `window.napplet.shell.supports()` returns `false` in tests for any capability that the shell implements.
-- Integration tests that skip the supports() check and call relay/signer/storage directly, masking the real runtime behavior.
+- Demo works locally in `pnpm dev` but ACL panel shows wrong state or no entries after `pnpm preview`.
+- `aclStore.getEntry(pubkey, dTag, '')` resolves but `aclStore.getEntry(pubkey, dTag, '<real-hash>')` returns undefined.
+- `changeset version` dry-run passes but the demo cannot authenticate napplets post-build.
 
 **Phase to address:**
-@kehto/shell migration phase — must be addressed before integration testing.
+Demo rewire phase. Add to the phase's success criteria: "Run `pnpm test:e2e` against `vite preview` (not `vite dev`) and verify all demo napplets have non-empty `aggregateHash`."
 
 ---
 
-### Pitfall 4: ACL Composite Key Includes Pubkey That No Longer Exists in NIP-5D
+### Pitfall 4: pnpm Workspace Symlink Deduplication Breaking `@napplet/*` Peer Deps
 
 **What goes wrong:**
-The old RUNTIME-SPEC ACL persistence format (Section 13.8, explicitly "LOCKED") keys entries on `"<pubkey>:<dTag>:<aggregateHash>"`. The `pubkey` is the napplet's delegated AUTH key from the IDENTITY message.
+The root `package.json` uses `pnpm.overrides` to link all `@napplet/*` packages to `/home/sandwich/Develop/napplet/packages/*`. When packages inside kehto (e.g., `packages/runtime`) declare `@napplet/core` as a peer dependency AND `apps/demo` also declares it as a dependency, pnpm may resolve two different instances of `@napplet/core`: one symlink for the package, one for the app.
 
-NIP-5D has no IDENTITY, no delegated keypair, and no AUTH. Identity is `(dTag, aggregateHash)` only. There is no napplet pubkey.
+This causes the most insidious failure: `instanceof` checks and `===` comparisons on types/constants from `@napplet/core` return `false` when comparing objects created by one instance against types imported from another instance. In the kehto runtime, this could surface as NUB domain type guards failing silently — an envelope that passes the napplet's shim type guard fails the shell's type guard because each side imported `isNappletMessage` from a different module instance.
 
-The `@kehto/acl` package uses `Identity { pubkey, dTag, hash }`. The composite key in `acl-store.ts` is `pubkey:dTag:aggregateHash`. If migration removes the AUTH handshake but does not update the ACL key scheme, the ACL module either breaks or requires a placeholder pubkey (empty string, zeros) that changes the persistence format.
+The specific pnpm failure mode: `link:` overrides apply workspace-wide, but if any transitive dep also declares `@napplet/core` as a non-peer dependency (e.g., `@napplet/shim` has it as a regular dep), pnpm may install a second copy in that package's own `node_modules`, bypassing the workspace override.
 
 **Why it happens:**
-The ACL module was designed around the pubkey-keyed identity model. The types.ts `Identity` interface requires all three fields. The old spec marked the persistence format as LOCKED, implying implementations depend on it. But the new spec's identity model makes pubkey irrelevant.
+`pnpm.overrides` applies to direct and transitive dependencies in packages within the workspace. However, `link:` protocol overrides are filesystem symlinks, not virtual packages. When a package is symlinked, pnpm may not deduplicate it against other resolved copies if the version ranges differ or if the symlinked package is not itself a workspace package (it is an external workspace at a different path). The napplet repo at `/home/sandwich/Develop/napplet/` is not listed in kehto's `pnpm-workspace.yaml` — it is referenced only via `link:` overrides.
 
 **How to avoid:**
-In the gap analysis, explicitly resolve: does @kehto/acl need to support the old `pubkey:dTag:hash` composite key for data migration, or does NIP-5D define a new `dTag:hash` composite key as canonical? If existing persisted ACL data must migrate, write a one-time migration that strips the pubkey prefix. If this is a fresh-start migration, update the composite key format to `dTag:aggregateHash` and update the @kehto/acl types to remove `pubkey` from `Identity`.
+- After any `pnpm install`, verify deduplication: `pnpm ls @napplet/core --depth 5` and confirm only one instance appears in the resolution tree. If two appear, add an explicit `pnpm dedupe` step.
+- In the demo app's `package.json`, do NOT add `@napplet/core` as a direct dependency. It should only arrive as a transitive dep from `@napplet/shim` and `@napplet/sdk` — the workspace override then handles all copies.
+- For new showcase napplets (`apps/demo/napplets/*`), keep dependencies minimal: only `@napplet/shim` and `@napplet/sdk`. Do not add individual nub packages as direct deps — they are bundled by the sdk.
+- Smoke test: if a napplet loads but `shell.ready` is never dispatched, check whether `@napplet/shim`'s internal `NIP_5D_PROTOCOL_VERSION` constant matches the one in `@kehto/runtime`. A version mismatch from dual instances will cause the shim to skip the handshake silently.
 
 **Warning signs:**
-- `aclStore.ts` composite key still includes pubkey after migration.
-- `Identity` interface in @kehto/acl still has `pubkey` field after AUTH handshake removal.
-- ACL entries silently reset on first load of migrated shell (pubkey is always different, so ACL never finds existing entries).
+- `pnpm ls @napplet/core` shows multiple entries at different depths.
+- Napplet sends `shell.ready` but shell-bridge's `msg.type === 'shell.ready'` check fails despite the object visually looking correct in DevTools.
+- TypeScript type errors complaining about "Type X is not assignable to type X" — identical type name but different declaration source.
 
 **Phase to address:**
-@kehto/acl migration phase — must be addressed first since @kehto/runtime and @kehto/shell depend on the ACL module.
+Demo rewire phase (first plan). Add `pnpm ls @napplet/core --depth 5` as a setup verification step and document the expected output (single instance).
 
 ---
 
-### Pitfall 5: ServiceHandler Interface Uses Old NIP-01 Array Format
+### Pitfall 5: ACL State Bleed Between Playwright Tests via `localStorage` Singleton
 
 **What goes wrong:**
-`ServiceHandler.handleMessage(windowId, message, send)` receives `unknown[]` (NIP-01 array format) and sends via `send(msg: unknown[])`. This was designed for the old protocol where service messages arrived as `["EVENT", event]` arrays and responses were `["OK", id, true, ""]` arrays.
+The `originRegistry` in `packages/shell/src/origin-registry.ts` is a module-level singleton (`const registry = new Map<Window, OriginEntry>()`). The `aclStore` similarly reads and writes `localStorage` under a fixed key (`'napplet:acl'` as seen in `acl-enforcement.spec.ts`). When Playwright runs specs with `fullyParallel: true` (the current config), multiple test workers share the same browser profile and therefore the same `localStorage` namespace if they hit the same origin.
 
-In NIP-5D, service messages arrive as JSON envelope objects `{ type: "audio.register", ... }` and responses should be JSON envelope objects. @kehto/services (audio, notifications) implement ServiceHandler with the old array interface. After migration, they will receive objects but be coded to destructure arrays, silently failing.
+Even in serial mode (`test.describe.configure({ mode: 'serial' })`), if a test fails mid-run and the `afterEach` cleanup (`__aclClear__()` and `__clearLocalStorage__()`) does not execute (Playwright skips `afterEach` on hard process exit), the next test starts with poisoned `localStorage` state. The existing `acl-enforcement.spec.ts` does call `__aclClear__()` and `__clearLocalStorage__()` in `beforeEach` — this is the correct pattern — but it only works because those calls happen on a fresh page load (`page.goto('/')`) which re-creates the singleton maps in memory. If a test reuses a page across tests without a full navigate, the in-memory singleton is not reset.
 
 **Why it happens:**
-@kehto/services was built against the old RUNTIME-SPEC. The ServiceHandler interface in runtime/types.ts has `message: unknown[]` and `send: (msg: unknown[]) => void`. No TypeScript error occurs at the call site because the incoming message is `unknown[]` — but after wire format migration, the actual data is a JSON envelope object, not an array.
+Module-level singletons (Map instances) in the harness bundle are not reset between Playwright tests within the same page. `page.goto('/')` creates a new JavaScript context, which re-executes the module and resets the Map. But `page.reload()` or continuing on the same page does NOT reset module-level state. The `originRegistry` and session registry in the shell's runtime instance persist for the lifetime of the page.
 
 **How to avoid:**
-When migrating @kehto/runtime's message dispatch, update the ServiceHandler interface to receive `NappletMessage` (JSON envelope object) rather than `unknown[]`. Update @kehto/services implementations accordingly. Update `routeServiceMessage()` in service-dispatch.ts to route by `msg.type` domain prefix instead of array topic string.
+- Always use `page.goto('/')` (not `page.reload()`) in `beforeEach` for specs that depend on clean ACL or session state. The harness re-initializes all singletons on navigation.
+- The `beforeEach` pattern already in `acl-enforcement.spec.ts` — `goto('/') → waitForFunction(__SHELL_READY__) → __aclClear__() → __clearLocalStorage__()` — is canonical. New demo-functional specs must follow the same pattern exactly.
+- For demo specs that start a Vite dev/preview server (`demo-audit-correctness.spec.ts` already does this), add explicit `localStorage.clear()` via `page.evaluate(() => localStorage.clear())` before each test, not just between describes.
+- Do NOT rely on `fullyParallel: true` for any spec that touches `localStorage`. Either run demo specs in `mode: 'serial'` or use separate browser contexts per spec file (`use: { storageState: ... }` in per-file project config).
 
 **Warning signs:**
-- `service-dispatch.ts` extracts a topic from `event.tags` (NIP-01 tag array) post-migration.
-- Audio manager in services package still uses `shell:audio-register` topic strings with IPC_PEER events.
-- Any service handler that does `const [verb, ...rest] = message` post-migration.
+- Tests pass individually (`--grep`) but fail when the full suite runs.
+- ACL-01 passes but ACL-03 (which follows) fails with an unexpected `denied:` response — suggesting a previous test's revoke persisted.
+- `__getLocalStorageItem__('napplet:acl')` returns non-null in `beforeEach` even after `__clearLocalStorage__()` was called in the previous test's `afterEach`.
 
 **Phase to address:**
-@kehto/services migration phase — address after @kehto/runtime migration establishes the new ServiceHandler interface.
+Playwright suite rewrite phase (triage + migration). Add a global `beforeEach` in the suite's `playwright.config.ts` or a shared test fixture that always calls `page.evaluate(() => localStorage.clear())` as the first step, before any test-specific setup.
 
 ---
 
-### Pitfall 6: StorageProxy Still Uses Kind-29003 IPC_PEER Events
+### Pitfall 6: Test-Only Escape Hatches Leaking Into Production Builds
 
 **What goes wrong:**
-The old storage proxy (RUNTIME-SPEC Section 5) uses kind 29003 IPC_PEER events with topic strings like `shell:state-get`, `shell:state-set`, `napplet:state-response`. These are NIP-01 array messages `["EVENT", event]` where the event has `kind: 29003`.
+The harness (`tests/e2e/harness/harness.ts`) exposes `window.__SHELL_READY__`, `window.__loadNapplet__`, `window.__aclGrant__`, `window.__injectShellEvent__`, and 20+ other test globals on `window`. These are only present in the harness build and are correctly isolated in `tests/e2e/harness/`. However, the pattern creates a risk: if a demo app developer copies the harness initialization code into `apps/demo/src/` (to "get ACL controls working quickly"), those `window.__*` globals will be included in the production demo build.
 
-@napplet/shim's `state-shim.ts` now sends `{ type: "storage.get", id, key }` JSON envelope messages and expects `{ type: "storage.get.result", id, value }` responses. The old @kehto/runtime `handleStateRequest()` in state-handler.ts still listens for the old kind-29003 format. After migration, storage requests are silently dropped.
+Similarly, the `@kehto/shell` package exposes `bridge.runtime` (the `get runtime()` accessor on `ShellBridge`). In production, this provides advanced access to internals. In tests, it is used to directly manipulate `aclState` and `sessionRegistry`. If the demo app uses `bridge.runtime.aclState.grant(...)` directly (bypassing the consent and audit hooks) to implement its ACL panel UI, this is a test-only pattern masquerading as production code.
 
 **Why it happens:**
-The storage handler in runtime.ts checks `if (event.kind === BusKind.IPC_PEER)` and then routes by topic tag. The shim no longer sends this format. The handler never fires.
+The harness API is convenient — it solves the "how do I control the shell from a test" problem cleanly. Developers building the demo ACL panel face the same problem: "how do I let the user grant/revoke capabilities." The temptation is to import from the harness or replicate its `window.__*` pattern in the demo.
 
 **How to avoid:**
-Replace `handleStateRequest()` in @kehto/runtime with a NUB handler that processes `storage.*` JSON envelope messages. Map the existing storage operations (get, set, remove, keys) to the new `{ type: "storage.get", id, key }` → `{ type: "storage.get.result", id, value }` envelope shape defined by @napplet/nub-storage.
+- The demo's ACL panel must use the shell's public `ShellBridge` API exclusively (`bridge.publishTheme`, `bridge.registerConsentHandler`, `bridge.injectEvent`). For grant/revoke controls, the demo should expose these through a defined `ShellAdapter.acl` hook surface, NOT by accessing `bridge.runtime.aclState` directly.
+- Add a build check: a simple `grep` in the build step asserting `window.__` does not appear in `apps/demo/dist/`.
+- Keep `tests/e2e/harness/` in `pnpm-workspace.yaml` but ensure no `apps/demo` package has it as a dependency. The current workspace config already separates them — maintain this separation when adding new packages.
+- When the demo needs "debug mode" UI (showing protocol message logs like `demo-node-inspector.spec.ts`), implement it as a first-class UI feature behind an env flag (`import.meta.env.DEV`), not by reading `window.__TEST_MESSAGES__`.
 
 **Warning signs:**
-- `state-handler.ts` imports `BusKind.IPC_PEER` after migration.
-- Storage integration test passes when sending old array format but fails with the new @napplet/shim.
-- `shell:state-get` topic string still appears in runtime code after migration.
+- `apps/demo/package.json` gains `@test/harness` or a relative path to `tests/e2e/harness` as a dependency.
+- `apps/demo/src/` files import from `../../tests/`.
+- `window.__SHELL_READY__` is defined in the browser console when visiting the demo in production.
 
 **Phase to address:**
-@kehto/runtime migration phase (storage sub-task) — part of the broader NIP-01 → envelope dispatch migration.
+Demo rewire phase (ACL panel implementation plan). Add a success criterion: "Demo build does not contain any `window.__` escape hatches; verify via `grep -r 'window\.__' apps/demo/dist/`."
 
 ---
 
-### Pitfall 7: SignerProxy Still Uses Kind-29001/29002 Events
+### Pitfall 7: `changeset version` Dry-Run Fails When `@napplet/core` Is Unpublished
 
 **What goes wrong:**
-The old signer proxy (RUNTIME-SPEC Section 4) uses kind 29001 SIGNER_REQUEST and kind 29002 SIGNER_RESPONSE events in NIP-01 array format. @napplet/shim now sends `{ type: "signer.signEvent", id, event }` JSON envelope messages and expects `{ type: "signer.signEvent.result", id, event }` responses from the shell.
+Running `changeset version` reads the workspace's changesets and attempts to update `package.json` versions and peer dependency ranges. When `@napplet/*` packages are linked via `pnpm.overrides` using the `link:` protocol, changesets does not know their npm version. If any kehto package has `@napplet/core` listed in `peerDependencies` with a range like `^0.1.0`, `changeset version` may attempt to bump this range to match a new version that does not exist on npm yet. The resulting `package.json` files contain version strings that cannot be resolved by downstream `npm install` or `pnpm install` without the same `link:` overrides — breaking any CI that runs without the local napplet repo.
 
-@kehto/runtime's signer handling routes on `event.kind === BusKind.SIGNER_REQUEST`. After migration, signer requests arrive as envelope objects, are not recognized as array messages, and signing is silently unavailable.
+The specific failure: changesets reads `peerDependencies["@napplet/core"]: "^0.1.0"` and emits it unchanged, but the `changelog` and bumped `package.json` reference a version that npm cannot resolve. This does not fail `changeset version` itself, but the resulting release artifacts are unpublishable until `@napplet/core` ships to npm with a compatible version.
 
 **Why it happens:**
-`@napplet/core` marks `BusKind.SIGNER_REQUEST`, `BusKind.SIGNER_RESPONSE` as deprecated in `legacy.ts`. But @kehto/runtime still imports from these constants in `runtime.ts`. The old format check `event.kind === BusKind.SIGNER_REQUEST` never matches the new envelope format.
+Changesets operates on the workspace packages it discovers, plus the version ranges in `package.json`. It does not validate that peer dep ranges are resolvable on npm — that is a publish-time concern. The `link:` override silently satisfies the dep locally, hiding the unresolvable range from the developer until `changeset publish` runs or a downstream consumer tries to install.
 
 **How to avoid:**
-Replace signer dispatch in @kehto/runtime with a NUB handler for `signer.*` messages. Use @napplet/nub-signer types for the message shapes. Map each `signer.getPublicKey`, `signer.signEvent`, `signer.nip04.encrypt` etc. to the existing signer adapter calls.
+- Before `changeset version`, run a deliberate check: `pnpm ls @napplet/core` and verify the linked version matches the peer dep range in every kehto package's `package.json`. If the linked version is `0.1.0-dev` and the peer dep range is `^0.1.0`, the publish would reference a non-existent npm package.
+- After `changeset version`, run `pnpm install --frozen-lockfile` to catch any resolution errors introduced by the bumped versions. This will fail if the bumped peer dep range cannot be satisfied locally.
+- Document in the release rehearsal plan: "`changeset publish` is intentionally deferred. The dry-run (`changeset version`) succeeds locally only because of `link:` overrides. Actual publish requires `@napplet/core` to be on npm first."
+- Do not push `changeset version`-modified `package.json` files to the main branch until the upstream publish is confirmed. Stage them only for the release rehearsal review.
 
 **Warning signs:**
-- `BusKind.SIGNER_REQUEST` imported in non-legacy runtime code after migration.
-- `window.nostr.getPublicKey()` hangs (no response from shell) in integration tests.
-- Signer result timeout fires in 30 seconds during tests.
+- `changeset version` completes without errors but `pnpm install` after it fails with "No matching version found for @napplet/core@^X.Y.Z".
+- Generated CHANGELOG.md references versions that do not match the linked napplet repo's current package.json version.
+- `pnpm publish --dry-run` warns about peer dependency resolution failures.
 
 **Phase to address:**
-@kehto/runtime migration phase (signer sub-task).
+Release rehearsal phase (final phase of v1.3). Add explicit success criterion: "After `changeset version` dry-run, run `pnpm install --frozen-lockfile`. Document any resolution warnings rather than silently ignoring them."
 
 ---
 
-### Pitfall 8: IFC/IPC Handler Mismatch — Old IPC_PEER vs New ifc.* Envelope
+### Pitfall 8: Build-Run-Fix Loop Anti-Patterns
 
-**What goes wrong:**
-Inter-napplet communication (old Section 8.5: IPC-PEER Events) uses kind 29003 with `["t", "topic"]` tags. `@napplet/shim` now sends `{ type: "ifc.emit", topic, payload }` and subscribes via `{ type: "ifc.subscribe", id, topic }`.
+**What goes wrong (three sub-patterns):**
 
-@kehto/runtime's IPC routing in `event-buffer.ts` checks `event.kind === BusKind.IPC_PEER` and routes by topic tag. After migration, IFC messages are not recognized as IPC_PEER events and napplet-to-napplet messaging silently breaks.
+**8a — Fixing the symptom, not the root cause.**
+The iteration loop is: `pnpm build` → `pnpm preview` → Playwright run → read failure → fix → repeat. The failure visible to Playwright (e.g., "Element not found: #chat-status") is almost always a symptom. The root cause is typically one of: (a) the napplet's dist was not rebuilt after a code change, (b) the `shell.ready` handshake timed out silently, or (c) the ACL state in localStorage from a previous session poisoned the current test. Developers fix the Playwright assertion (loosening the timeout, adding a `.waitForSelector`) without diagnosing which of these three caused the symptom.
 
-**Why it happens:**
-The IFC NUB (`@napplet/nub-ifc`) is a new addition alongside the wire format change. There is no direct equivalent in the old RUNTIME-SPEC — the old system used free-form topics on kind 29003. The new system is typed and has explicit subscribe/unsubscribe lifecycle.
+**8b — Ignoring console errors that precede the observable failure.**
+The shell-bridge drops messages silently when `event.source` is not in `originRegistry` (`if (!windowId) return`). The napplet shim similarly drops messages when `event.origin` does not match expected patterns. Both are intentional security behaviors. But in the debug loop, a developer sees "message not received" and adds longer waits rather than checking whether the message was silently dropped upstream. The first console error in the sequence (e.g., `[nip5a-manifest] VITE_DEV_PRIVKEY_HEX not set`) or the first dropped message in the network inspector precedes the observable Playwright failure by seconds.
 
-**How to avoid:**
-Add an IFC NUB handler to @kehto/runtime that:
-1. Handles `ifc.subscribe` — registers a per-window per-topic subscription.
-2. Handles `ifc.emit` — routes to all windows subscribed to that topic (excluding sender).
-3. Handles `ifc.unsubscribe` — deregisters the subscription.
-4. Delivers received events as `{ type: "ifc.event", topic, payload, sender }` back to subscribers.
-
-**Warning signs:**
-- `@napplet/nub-ifc` is not imported or referenced anywhere in @kehto/runtime or @kehto/shell after migration.
-- IPC tests that relied on kind 29003 still pass while ifc.emit/on tests fail.
-
-**Phase to address:**
-@kehto/runtime migration phase (IFC sub-task).
-
----
-
-### Pitfall 9: Missing Sandbox Token Change (allow-scripts Only)
-
-**What goes wrong:**
-The old RUNTIME-SPEC (Section 1.2) requires:
-
-    sandbox="allow-scripts allow-forms allow-popups allow-modals allow-downloads"
-
-NIP-5D v0.1.0 requires:
-
-    sandbox="allow-scripts"
-
-Only `allow-scripts` is required. Additional tokens (`allow-forms`, `allow-popups`, etc.) are at shell discretion based on shell policy.
-
-This is a behavioral change: a napplet expecting `allow-forms` or `allow-popups` will silently fail if the shell switches to the minimal `allow-scripts` sandbox. The migration doc for @kehto/shell should explicitly call this out so the shell host knows to audit which tokens existing napplets depend on before tightening the sandbox.
+**8c — Not pinning which build artifact the test is running against.**
+`pnpm test:e2e` calls `pnpm test:build` first (which runs `pnpm build` — turborepo, so it skips unchanged packages). If a napplet file changed but the napplet's package was not added to turbo's input set, turbo skips the rebuild. The test runs against stale dist. The symptom is "my code change had no effect."
 
 **Why it happens:**
-The old spec included extra tokens by default. The new spec takes a minimal approach. Shell hosts copying the old sandbox attribute will be more permissive than the spec requires, but napplets built against the more permissive sandbox may not degrade gracefully.
+All three are variants of the same root cause: the feedback loop is long (build + preview start + Playwright run = 30-90 seconds) and developers optimize for speed by skipping steps or accepting partial information.
 
 **How to avoid:**
-The @kehto/shell migration document should flag the sandbox change explicitly. Do not silently tighten the sandbox without testing each napplet type against the minimal token set. `window.napplet.shell.supports('popups')` and similar queries allow napplets to probe the sandbox at runtime — this only works if the shell also implements the popups check.
+
+For 8a: Before fixing any Playwright assertion, run the three-question diagnostic:
+1. Is the napplet's dist up to date? (`ls -la apps/demo/napplets/*/dist/` — check mtime vs source mtime)
+2. Is the shell-bridge receiving the `shell.ready` message? (Add `page.on('console', msg => console.log(msg.text()))` to the failing test to surface `[harness]` log lines)
+3. Is localStorage clean? (`await page.evaluate(() => localStorage.clear())` at test start)
+
+For 8b: Add `page.on('console', ...)` and `page.on('pageerror', ...)` listeners in the shared test setup fixture. Any console error in the iframe or the shell host during a failing test is logged before the Playwright assertion failure. Treat the first console error as the primary failure, not the Playwright timeout.
+
+For 8c: Add napplet source directories to turbo's input configuration explicitly. Until that is done, run `pnpm build --force` when any napplet source changes, not the default `pnpm build`.
 
 **Warning signs:**
-- Form-submitting napplets stop working after shell migration.
-- Popup-dependent napplets (share links, OAuth flows) break silently.
-- Integration tests do not test with the minimal `allow-scripts` sandbox.
+- Playwright retry count climbs (`retries: 2` catches an intermittent failure) — intermittency is almost always a timing issue masking a deterministic root cause.
+- The fix to a Playwright failure is a timeout increase or a `.waitForTimeout()` addition — this suppresses the symptom without identifying the cause.
+- The same test failure appears again two iterations later with a different error message — the root cause was not fixed, only a downstream symptom.
 
 **Phase to address:**
-@kehto/shell migration phase — audit sandbox policy change.
-
----
-
-### Pitfall 10: Legacy Constants Still Exported and Consumed by Migrated Code
-
-**What goes wrong:**
-`@napplet/core` puts deprecated constants in `legacy.ts`: `BusKind`, `AUTH_KIND`, `VERB_REGISTER`, `VERB_IDENTITY`, `DESTRUCTIVE_KINDS`. These are currently re-exported from `@kehto/shell/src/types.ts` via:
-
-    export { ALL_CAPABILITIES, BusKind, AUTH_KIND, SHELL_BRIDGE_URI, PROTOCOL_VERSION, REPLAY_WINDOW_SECONDS, DESTRUCTIVE_KINDS } from '@napplet/core';
-
-After migration, code that imports these from `@kehto/shell` instead of `@napplet/core/legacy` will compile fine (the exports still exist) but be using deprecated constants to drive logic that should no longer exist.
-
-**Why it happens:**
-TypeScript has no deprecation enforcement at import resolution. The `@deprecated` JSDoc tags are informational. Developers importing `BusKind` from `@kehto/shell` won't receive compile errors even after the constants are moved to legacy status.
-
-**How to avoid:**
-In each package's migration document, list which legacy constants are being removed from its public API. Add a build-time lint rule or comment to flag imports of legacy constants in non-legacy files. In @kehto/shell, stop re-exporting `BusKind`, `AUTH_KIND`, `VERB_REGISTER`, `VERB_IDENTITY` from the public API after the runtime migration is complete.
-
-**Warning signs:**
-- `BusKind` imported outside of legacy migration code.
-- `AUTH_KIND` appears in runtime.ts after AUTH removal.
-- `DESTRUCTIVE_KINDS` imported from `@kehto/shell` rather than `@napplet/nub-signer` where it now lives.
-
-**Phase to address:**
-Post-migration cleanup phase for each package.
+Every phase that includes a "build → run → Playwright → fix" loop. Add to each phase's iteration discipline section: "Before any fix, run the three-question diagnostic. Log the console output of failing tests before reading the Playwright assertion error."
 
 ---
 
@@ -263,101 +245,91 @@ Post-migration cleanup phase for each package.
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Keep `handleMessage(unknown[])` and detect both formats | No breaking change to ShellBridge callers | Dual-format dispatch adds complexity; tests must cover both paths; format detection is fragile | Only during a bridge period if incremental migration is necessary |
-| Use empty string as placeholder pubkey in ACL key | No ACL module changes needed | ACL entries are invisible — `"": dTag:hash` composite keys don't match `pubkey:dTag:hash` entries; persisted ACL data is abandoned | Never — choose either full migration or explicit format bump |
-| Delay NUBS sandbox annotation (`window.napplet.shell.supports` always returns false) | No shell-side capability injection work | Napplets that guard on supports() never activate capabilities; those that don't guard break on absent capabilities | Only in early integration; must be addressed before napplets ship |
-| Leave service handlers using NIP-01 array interface internally | Services continue to work on old format | New NUB-typed service messages are not routable; @kehto/services must eventually be rewritten | Never — accept the ServiceHandler interface change upfront |
-
----
+| Using `window.__KEHTO_RUNTIME__` in demo code | Easy debug access to runtime internals from browser console | Escape hatch in production; bypasses consent/audit hooks; signals to future maintainers that direct runtime access is acceptable | Never — use `ShellBridge` public API |
+| Using `page.waitForTimeout(N)` in Playwright specs | Stops flakiness quickly | Masks timing bugs; makes suite slow; N drifts upward over time | Only as temporary diagnostic tool — remove before merge |
+| Running `pnpm dev` (not `pnpm build + preview`) for demo testing | Faster iteration | Misses build-mode differences (aggregateHash empty, module resolution differs, HMR state differs) | Local development iteration only — never for spec writing |
+| Hardcoding `aggregateHash` values in test assertions | Test is simple to write | Breaks on any napplet file change; silently passes with stale hash | Never |
+| Adding `allow-same-origin` to iframe sandbox for easier Playwright frame access | Playwright `frameLocator` works without complex waits | Breaks the security model — napplet can access shell's localStorage/cookies | Never |
+| Using `srcdoc` to load napplets instead of `src=` URL | Avoids serving infrastructure | `event.origin` is `"null"` on both sides; breaks any origin-keyed logic; napplet cannot load ES module imports | Test fixtures only — not demo app |
 
 ## Integration Gotchas
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| @kehto/runtime ↔ @napplet/shim | Runtime expects `["REQ", subId, filter]` arrays; shim now sends `{ type: "relay.subscribe", id, filters }` objects | Update `handleMessage()` to route by `msg.type` domain prefix instead of `msg[0]` verb string |
-| @kehto/shell ↔ @napplet/shim | ShellBridge.handleMessage receives MessageEvent; dispatches `event.data` to runtime; runtime still expects arrays | ShellBridge must unwrap and dispatch JSON envelope objects, not arrays |
-| @kehto/acl ↔ @kehto/runtime post-migration | ACL lookup uses `pubkey:dTag:hash` composite key; post-migration identity has no pubkey | Update composite key to `dTag:aggregateHash`; provide migration utility for existing localStorage ACL data |
-| @kehto/services ↔ @kehto/runtime | ServiceHandler.handleMessage receives old NIP-01 arrays; after migration receives envelope objects | Update ServiceHandler interface signature; rewrite audio and notification handlers to process envelope messages |
-| @kehto/shell ↔ NIP-5D identity injection | Shell must map iframe Window → (dTag, aggregateHash) at creation; not after any message | Register identity in originRegistry before the iframe loads, using NIP-5A manifest data |
-
----
+| Playwright + sandboxed iframe | Using `page.frames()` to find the frame — returns empty for opaque-origin iframes not yet navigated | Use `page.frameLocator(selector)` and add a guard that waits for a sentinel element inside the frame |
+| Vite preview + napplet serve middleware | Forgetting `configurePreviewServer` — only `configureServer` is added | The `serveDemoNapplets()` plugin already handles both; verify new plugins do the same |
+| pnpm link: overrides + TypeScript | `tsconfig.json` `paths` not aligned with `pnpm.overrides` — type-check succeeds but runtime resolution fails | Verify `paths` in root `tsconfig.json` mirrors every entry in `pnpm.overrides` |
+| `@napplet/vite-plugin` + turborepo | Turbo caches napplet builds; changing vite-plugin source does not invalidate the cache | Add `@napplet/vite-plugin` source to turbo's `inputs` for napplet build tasks |
+| Changesets + unpublished peer dep | `changeset version` rewrites version ranges silently | Run `pnpm install --frozen-lockfile` after `changeset version` to surface resolution errors |
+| Playwright MCP + headed Chromium | MCP runs Playwright headless; DevTools timeline is unavailable | Use `page.on('console', ...)` for in-test debugging instead of DevTools |
 
 ## Performance Traps
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Pre-AUTH message queue never drains | Memory grows indefinitely; napplet messages piled up with no auth ever completing | Remove the auth queue entirely when migrating to the no-handshake model; messages are valid immediately after identity registration | Immediately post-migration if queue is not removed |
-| Dual-format dispatch in ShellBridge | Every message checked twice (old array path and new envelope path) | Do not run both paths in parallel; commit to one format at the ShellBridge boundary | Not a performance cliff, but adds latency and test surface area |
-| ServiceRegistry iterated for every message to find topic match | Scales with number of services × message volume | Use a map from domain prefix to handler instead of linear search by topic string | At 10+ services with high message volume |
-
----
+| `fullyParallel: true` with shared `localhost:4173` Vite server | Tests interfere via shared state (localStorage, in-memory singletons) | Run demo specs in `mode: 'serial'`; use `webServer.reuseExistingServer` carefully | Immediately when two workers run ACL tests concurrently |
+| Each Playwright spec starts its own Vite server (like `demo-audit-correctness.spec.ts`) | Suite startup time grows proportional to spec count | Hoist server lifecycle to `globalSetup` / `globalTeardown` using `playwright.config.ts` `globalSetup` option | Beyond 5-10 specs that each need a server |
+| Building all napplets on every `pnpm test:e2e` run | Slow CI feedback (all napplets rebuild even if unchanged) | Configure turbo inputs precisely; use turbo's remote cache | From the first run — already slow |
 
 ## Security Mistakes
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| Removing AUTH without replacing with identity-at-creation binding | Any iframe (not created by the shell) can send messages and have them routed | originRegistry.register() must be called before messages are accepted; messages from unregistered sources MUST be silently dropped — this is the only security boundary in NIP-5D |
-| Sending delegated privkeys after migration | Old IDENTITY message sends the napplet's private key over postMessage; NIP-5D eliminates this | Remove IDENTITY message sending from ShellBridge; do not introduce any new message type that sends key material |
-| Accepting messages from `event.origin === '*'` | NIP-5D explicitly says origin is meaningless for opaque-origin iframes; authenticate by MessageEvent.source only | Origin registry must use the Window reference (event.source), never the origin string |
-| Forgetting to drop messages from unknown sources after AUTH removal | Without handshake gating, a race exists where a crafted iframe can send messages before identity registration completes | Register identity synchronously at iframe creation (before the iframe URL loads) so there is no window where messages arrive from an unregistered source |
-
----
+| Adding `allow-same-origin` to napplet iframe sandbox | Napplet can access shell's localStorage, cookies, and DOM — full privilege escalation | Never add `allow-same-origin` to sandbox attribute for untrusted napplets; Playwright frame introspection works without it via CDP |
+| Posting `shell.init` with `targetOrigin: iframeOrigin` instead of `'*'` | `targetOrigin` check fails for opaque-origin iframes (origin = `"null"`), so message is dropped | Always use `'*'` as target origin when posting to sandboxed iframes — the shell-bridge already does this correctly; do not "fix" it |
+| Exposing `bridge.runtime.aclState` in demo UI for user manipulation | Demo users can grant arbitrary capabilities to themselves via browser console | ACL mutations must go through consent-gated hooks on `ShellAdapter`; expose a read-only `aclState` view at most |
+| Using `event.origin` to validate napplet identity | `event.origin === "null"` for all sandboxed iframes; trivially spoofable for same-origin iframes | Use `event.source` (Window reference) via `originRegistry.getWindowId()` — the existing shell-bridge does this correctly |
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Wire format migration:** Verify that @kehto/runtime.handleMessage receives `{ type: string }` objects and routes by domain prefix — not `["VERB", ...]` arrays routed by `msg[0]`
-- [ ] **Auth removal:** Verify that `pendingAuthQueue`, `pendingChallenges`, `authInFlight`, and `pendingRegistrations` are removed from runtime.ts — not just unused
-- [ ] **ACL composite key:** Verify that the ACL store uses `dTag:aggregateHash` as composite key — not `pubkey:dTag:aggregateHash`
-- [ ] **window.napplet.shell.supports():** Verify that `supports('relay')` returns `true` in a napplet iframe when the shell has relay support — not the `false` stub
-- [ ] **Storage proxy:** Verify that `window.napplet.storage.getItem()` completes successfully with the migrated shell — not a silent timeout
-- [ ] **Service discovery:** Verify that `window.napplet.services.list()` returns registered services from @kehto/services — with JSON envelope-based service discovery (not old kind-29010 REQ/EVENT flow if that changes)
-- [ ] **Sandbox tokens:** Verify that the demo and integration tests run with `allow-scripts` only sandbox before declaring the shell migration complete
-- [ ] **Legacy constant removal:** Verify no imports of `BusKind`, `AUTH_KIND`, `VERB_REGISTER`, `VERB_IDENTITY` outside of explicitly marked legacy/migration code
-
----
+- [ ] **Demo napplet handshake:** Napplet appears in iframe and loads HTML — but has `shell.ready` been sent AND `shell.init` received? Verify via `__TEST_MESSAGES__` or network inspector.
+- [ ] **ACL panel:** Revoke button updates ACL state in memory — but does it persist via `aclStore.persist()`? And does it reload correctly after page refresh? Verify via `__getLocalStorageItem__('napplet:acl')` before and after.
+- [ ] **Playwright spec isolation:** New spec calls `__aclClear__()` in `beforeEach` — but does it also call `__clearLocalStorage__()`? Both are required; the first clears in-memory state, the second clears the persistence layer.
+- [ ] **Napplet build:** `dist/` directory exists for every napplet loaded by demo or harness — but does it contain the correct `napplet-aggregate-hash` meta tag (non-empty)? Verify via `grep napplet-aggregate-hash apps/demo/napplets/*/dist/index.html`.
+- [ ] **Vite preview server middleware:** `configurePreviewServer` is defined in addition to `configureServer` for any custom plugin — otherwise napplets 404 in preview mode. The existing `serveDemoNapplets` plugin handles this; verify any new plugins follow the same pattern.
+- [ ] **frameLocator readiness:** Playwright spec uses `frameLocator(...)` and immediately queries an element — but has the spec added a wait for a sentinel element inside the frame to confirm it is ready?
+- [ ] **Changeset dry-run:** `changeset version` completed without errors — but was `pnpm install --frozen-lockfile` run afterward? And were the resulting version changes reviewed for unresolvable `@napplet/*` ranges?
 
 ## Recovery Strategies
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Wire format mismatch discovered in integration | MEDIUM | Add format detection at ShellBridge boundary; dispatch both formats; migrate incrementally by NUB domain |
-| ACL data abandoned after composite key change | LOW | Write a migration utility that reads old `pubkey:dTag:hash` keys from localStorage and re-writes as `dTag:hash`; run once on first shell load after migration |
-| AUTH queue deadlock (napplet messages never processed) | HIGH | Remove `authInFlight` gating; make identity registration synchronous at iframe creation via originRegistry |
-| supports() always false causes napplets to silently degrade | MEDIUM | Add capability injection message from shell to napplet during iframe initialization; shim stores the set and returns from it in supports() |
-| Services unreachable after ServiceHandler interface change | MEDIUM | Provide a compatibility shim in @kehto/services that wraps the old array-based handlers and translates to/from the new envelope interface |
-
----
+| Playwright frameLocator timing failures in CI | LOW | Add `waitForNappletReady()` helper; replace all naked `frameLocator().locator()` calls with helper-gated versions |
+| ACL state bleed between tests | LOW | Add `localStorage.clear()` to global Playwright `beforeEach` fixture; run `pnpm test:e2e --grep failing-spec` in isolation to confirm fix |
+| Dev/preview drift (empty aggregateHash) | LOW | Force rebuild: `pnpm --filter @kehto/demo-bot build && pnpm --filter @kehto/demo-chat build`; re-run `pnpm preview` |
+| pnpm symlink deduplication creating two `@napplet/core` instances | MEDIUM | `pnpm dedupe`; then `pnpm ls @napplet/core --depth 5` to confirm single instance; may require clearing `.pnpm` store |
+| Test-only escape hatches in demo build | MEDIUM | `grep -r 'window\.__' apps/demo/dist/`; trace the import; refactor to use `ShellBridge` public API |
+| `changeset version` producing bad peer dep ranges | LOW | Revert the `package.json` changes; document the expected final state; do not push until upstream is published |
+| Iteration loop cycles without fixing root cause | HIGH (time) | Stop the loop; instrument the test with `page.on('console', ...)` and read the first error; fix root cause before resuming |
 
 ## Pitfall-to-Phase Mapping
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| Wire format treated as minor rename | Gap analysis (before migration) | Document exact message shape at ShellBridge boundary for each NUB domain |
-| AUTH gating not removed | @kehto/runtime migration | Runtime unit tests pass with no REGISTER/AUTH messages sent; `sendChallenge()` removed from Runtime interface |
-| window.napplet.shell.supports() always false | @kehto/shell migration | Integration test asserts `supports('relay')` returns true in napplet iframe |
-| ACL composite key includes orphaned pubkey | @kehto/acl migration (first) | ACL unit tests use `dTag:hash` composite keys; no pubkey in Identity type |
-| ServiceHandler on old array interface | @kehto/services migration | Audio/notification handlers process `{ type: "audio.register" }` envelope objects |
-| Storage proxy on kind-29003 | @kehto/runtime migration | `window.napplet.storage.getItem()` round-trips in integration test without kind-29003 events |
-| Signer proxy on kind-29001/29002 | @kehto/runtime migration | `window.nostr.signEvent()` completes successfully in integration test |
-| IFC handler on kind-29003 IPC_PEER | @kehto/runtime migration | `window.napplet.ipc.emit()` and `on()` round-trip between two napplet iframes |
-| Sandbox token regression | @kehto/shell migration | Demo integration test runs with `allow-scripts` only; no form/popup-dependent napplets break |
-| Legacy constants still active post-migration | Post-migration cleanup | No imports of `BusKind`, `AUTH_KIND`, `VERB_REGISTER` outside of `legacy.ts` or explicit migration utilities |
-
----
+| frameLocator timing on sandboxed iframes | Demo spec scaffolding (first Playwright plan) | `waitForNappletReady()` helper exists and is used in all frame-touching specs |
+| postMessage origin mismatch in sandboxed iframes | Napplet showcase expansion (first new napplet plan) | Every new napplet's `shell.ready` confirmed within 2s via assertion |
+| Vite dev vs preview aggregateHash drift | Demo rewire (first plan, setup verification) | `pnpm test:e2e` runs against `vite preview`; all hashes non-empty |
+| pnpm symlink deduplication | Demo rewire (setup verification step) | `pnpm ls @napplet/core --depth 5` shows single instance |
+| ACL state bleed between tests | Playwright suite rewrite (triage plan) | Global `beforeEach` in place; suite runs clean in `--repeat-each 3` |
+| Test-only escape hatches in demo build | Demo ACL panel plan | `grep -r 'window\.__' apps/demo/dist/` returns no matches |
+| `changeset version` peer dep dry-run issues | Release rehearsal phase | `pnpm install --frozen-lockfile` passes after `changeset version`; discrepancies documented |
+| Iteration loop anti-patterns | Every phase with build-run-fix loop | Phase plan includes "three-question diagnostic" and `page.on('console')` requirement before any fix |
 
 ## Sources
 
-- Direct analysis: `/home/sandwich/Develop/kehto/napplet/specs/NIP-5D.md` (current spec, confirmed 2026-04-07)
-- Direct analysis: `/home/sandwich/Develop/kehto/RUNTIME-SPEC.md` (previous spec, Sections 1-15)
-- Direct analysis: `packages/runtime/src/runtime.ts` — current dispatch model (verb-based array)
-- Direct analysis: `packages/runtime/src/types.ts` — ServiceHandler, RuntimeAdapter interfaces
-- Direct analysis: `packages/shell/src/shell-bridge.ts`, `types.ts` — current ShellAdapter and ShellBridge
-- Direct analysis: `packages/acl/src/types.ts` — Identity composite key model
-- Direct analysis: `napplet/packages/core/src/legacy.ts` — deprecated BusKind, AUTH_KIND, VERB_REGISTER
-- Direct analysis: `napplet/packages/core/src/constants.ts` — PROTOCOL_VERSION now '4.0.0'
-- Direct analysis: `napplet/packages/shim/src/index.ts` — shim now sends JSON envelope objects, not NIP-01 arrays
-- Direct analysis: `napplet/packages/core/src/types.ts` — NappletGlobal shape; window.napplet interfaces
+- Direct codebase analysis: `tests/e2e/harness/harness.ts` — singleton pattern, `originRegistry` module-level map, test globals pattern, iframe sandbox attribute (`allow-scripts` only, no `allow-same-origin`)
+- Direct codebase analysis: `packages/shell/src/origin-registry.ts` — module-level singleton registry, `event.source`-based identity
+- Direct codebase analysis: `packages/shell/src/shell-bridge.ts` — `postMessage(msg, '*')` wildcard pattern, `shell.ready` handling, `bridge.runtime` accessor
+- Direct codebase analysis: `packages/runtime/src/session-registry.ts` — factory pattern (not singleton), `(pubkey, dTag, aggregateHash)` keying
+- Direct codebase analysis: `apps/demo/vite.config.ts` — `configurePreviewServer` present alongside `configureServer`; napplet serve middleware
+- Direct codebase analysis: `tests/e2e/harness/vite.config.ts` — CORS headers for sandboxed iframe script loading
+- Direct codebase analysis: `/home/sandwich/Develop/napplet/packages/vite-plugin/src/index.ts` — `closeBundle` only fires in build mode; `transformIndexHtml` emits empty `aggregateHash` in dev
+- Direct codebase analysis: root `package.json` `pnpm.overrides` — 8 `link:` entries pointing to `/home/sandwich/Develop/napplet/packages/*`
+- Direct codebase analysis: `playwright.config.ts` — `fullyParallel: true`, `baseURL: 'http://localhost:4173'`, `webServer` points to harness dev server
+- Direct codebase analysis: `tests/e2e/acl-enforcement.spec.ts` — `beforeEach` ACL reset pattern; localStorage isolation approach
+- Direct codebase analysis: `tests/e2e/demo-audit-correctness.spec.ts` — per-spec Vite server spawning via `beforeAll`; `frameLocator` usage without explicit frame-ready guards
+- Playwright documentation: frame locator behavior with sandboxed iframes and opaque origins (Chromium exposes sandboxed frames via CDP after navigation commits, not at insertion)
 
 ---
-*Pitfalls research for: NIP-5D migration, @kehto packages*
-*Researched: 2026-04-07*
+*Pitfalls research for: kehto v1.3 Demo + Playwright iframe-sandboxed Nostr runtime*
+*Researched: 2026-04-18*
