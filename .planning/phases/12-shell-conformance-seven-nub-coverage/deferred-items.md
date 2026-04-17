@@ -18,3 +18,10 @@ Items encountered during plan execution that are outside the current plan's scop
 ## 12-05 keys nub — runtime.ts concurrent edit
 
 The `handleKeysMessage` function was appended after `handleMediaMessage` (which the parallel 12-06 executor added). The dispatch switch `case 'keys':` was inserted between `case 'media':` and `case 'storage':` — no conflict with concurrent edits observed.
+
+## 12-03 identity nub — demo topology UI still references 'signer'
+
+- **Files:** `apps/demo/src/node-details.ts:423`, `apps/demo/src/topology.ts:472`, `apps/demo/src/flow-animator.ts:52-137`, `apps/demo/src/main.ts:274`
+- **Symptom:** Several demo-UI code paths look up the `'signer'` service node for flow-animation highlighting and topology rendering. After plan 12-03 the demo's `bootShell()` now registers the `'identity'` service instead (not `'signer'`), so the UI highlights a non-existent topology node when animating identity requests.
+- **Scope note:** `apps/demo/` is a demo app (not a `packages/*` source), so this is out-of-scope for the NUB-03 contract the plan satisfies. The demo already builds clean after the `createSignerService -> createIdentityService` swap in `shell-host.ts`.
+- **Action taken:** None beyond the minimal demo fix (shell-host.ts now registers `identity`). Renaming the UI node constants and flow-matcher strings is a demo-UX follow-up; a later plan can sweep these in one pass.

@@ -15,7 +15,7 @@ import {
   type NostrEvent,
   type ConsentRequest,
 } from '@kehto/shell';
-import { createSignerService, createNotificationService } from '@kehto/services';
+import { createIdentityService, createNotificationService } from '@kehto/services';
 import type { Notification } from '@kehto/services';
 import { getSigner, getSignerConnectionState } from './signer-connection.js';
 import { demoConfig } from './demo-config.js';
@@ -289,7 +289,7 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
     maxPerWindow: 50,
   });
   const services = {
-    signer: createSignerService({
+    identity: createIdentityService({
       getSigner,
     }),
     notifications: notificationService,
@@ -421,7 +421,7 @@ export interface NappletInfo {
 }
 
 const napplets = new Map<string, NappletInfo>();
-const demoServiceNames = new Set<string>(['signer', 'notifications']);
+const demoServiceNames = new Set<string>(['identity', 'notifications']);
 let nappletCounter = 0;
 
 /** Permanent store of all service handler references — never deleted, used for re-registration on toggle-on. */
