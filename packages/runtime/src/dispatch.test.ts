@@ -130,10 +130,13 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(result).toBeDefined();
     });
 
-    it('routes ifc.* to ifc handler — no response for subscribe', () => {
+    it('routes ifc.* to ifc handler — subscribe emits ifc.subscribe.result (Plan 12-04 / NUB-04)', () => {
       runtime.handleMessage(WINDOW_ID, { type: 'ifc.subscribe', id: 'req-1', topic: 'test-topic' } as NappletMessage);
-      // ifc.subscribe has no response
-      expect(ctx.sent).toHaveLength(0);
+      // Canonical @napplet/nub-ifc contract: ifc.subscribe emits ifc.subscribe.result.
+      const result = findEnvelopeResponse(ctx.sent, 'ifc.subscribe.result');
+      expect(result).toBeDefined();
+      expect((result as any).id).toBe('req-1');
+      expect((result as any).error).toBeUndefined();
     });
   });
 
@@ -345,7 +348,7 @@ describe('NIP-5D Envelope Dispatch', () => {
   // ─── Storage Handler ─────────────────────────────────────────────────────────
 
   describe('storage handler', () => {
-    it('storage.get returns found:false for missing key', () => {
+    it('storage.get returns value:null for missing key (canonical nub-storage)', () => {
       runtime.handleMessage(WINDOW_ID, {
         type: 'storage.get',
         id: 'req-get-1',
@@ -354,8 +357,9 @@ describe('NIP-5D Envelope Dispatch', () => {
 
       const result = findEnvelopeResponse(ctx.sent, 'storage.get.result');
       expect(result).toBeDefined();
-      expect((result as any).found).toBe(false);
-      expect((result as any).value).toBe('');
+      // Plan 12-09: canonical @napplet/nub-storage drops `found` — null ⇔ missing.
+      expect((result as any).value).toBeNull();
+      expect((result as any).found).toBeUndefined();
     });
 
     it('storage.set writes and returns ok:true', () => {
@@ -389,8 +393,9 @@ describe('NIP-5D Envelope Dispatch', () => {
 
       const result = findEnvelopeResponse(ctx.sent, 'storage.get.result');
       expect(result).toBeDefined();
-      expect((result as any).found).toBe(true);
+      // Plan 12-09: `value !== null` is the success signal; `found` was dropped.
       expect((result as any).value).toBe('roundtrip-value');
+      expect((result as any).found).toBeUndefined();
     });
 
     it('storage.keys returns stored keys', () => {
@@ -419,23 +424,31 @@ describe('NIP-5D Envelope Dispatch', () => {
       ctx.sent.length = 0;
       runtime.handleMessage(WINDOW_ID, { type: 'storage.get', id: 'req-get-rm', key: 'del-key' } as NappletMessage);
       const getResult = findEnvelopeResponse(ctx.sent, 'storage.get.result');
-      expect((getResult as any).found).toBe(false);
+      // Plan 12-09: missing key returns `value: null` (not `found: false`).
+      expect((getResult as any).value).toBeNull();
     });
 
-    it('storage.clear removes all napplet state', () => {
+    it('storage.clear is rejected — not in @napplet/nub-storage (Plan 12-09)', () => {
       runtime.handleMessage(WINDOW_ID, { type: 'storage.set', id: 's1', key: 'k1', value: 'v1' } as NappletMessage);
       runtime.handleMessage(WINDOW_ID, { type: 'storage.set', id: 's2', key: 'k2', value: 'v2' } as NappletMessage);
       ctx.sent.length = 0;
 
       runtime.handleMessage(WINDOW_ID, { type: 'storage.clear', id: 'req-clear' } as NappletMessage);
-      const clearResult = findEnvelopeResponse(ctx.sent, 'storage.clear.result');
-      expect(clearResult).toBeDefined();
-      expect((clearResult as any).ok).toBe(true);
+      // Canonical nub-storage has no `clear` action — handler emits .error envelope.
+      const clearError = findEnvelopeResponse(ctx.sent, 'storage.clear.error');
+      expect(clearError).toBeDefined();
+      expect((clearError as any).id).toBe('req-clear');
+      expect((clearError as any).error).toMatch(/not (in )?@napplet\/nub-storage|unknown storage action: clear/i);
+      // No storage.clear.result envelope is emitted.
+      expect(findEnvelopeResponse(ctx.sent, 'storage.clear.result')).toBeUndefined();
 
+      // Prior sets survive (storage.clear never ran).
       ctx.sent.length = 0;
       runtime.handleMessage(WINDOW_ID, { type: 'storage.keys', id: 'req-keys-after' } as NappletMessage);
       const keysResult = findEnvelopeResponse(ctx.sent, 'storage.keys.result');
-      expect((keysResult as any).keys).toHaveLength(0);
+      const keys = (keysResult as any).keys as string[];
+      expect(keys).toContain('k1');
+      expect(keys).toContain('k2');
     });
 
     it('storage.get returns error for unregistered window', () => {
@@ -454,14 +467,17 @@ describe('NIP-5D Envelope Dispatch', () => {
   // ─── IFC Handler ──────────────────────────────────────────────────────────────
 
   describe('IFC handler', () => {
-    it('ifc.subscribe registers subscription (no response)', () => {
+    it('ifc.subscribe registers subscription and emits ifc.subscribe.result (Plan 12-04 / NUB-04)', () => {
       runtime.handleMessage(WINDOW_ID, {
         type: 'ifc.subscribe',
         id: 'req-sub-ifc',
         topic: 'chat',
       } as NappletMessage);
-      // No response expected
-      expect(ctx.sent).toHaveLength(0);
+      // Canonical @napplet/nub-ifc contract: handler must emit ifc.subscribe.result.
+      const result = findEnvelopeResponse(ctx.sent, 'ifc.subscribe.result');
+      expect(result).toBeDefined();
+      expect((result as any).id).toBe('req-sub-ifc');
+      expect((result as any).error).toBeUndefined();
     });
 
     it('ifc.subscribe + ifc.emit delivers to subscriber', () => {

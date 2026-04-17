@@ -159,8 +159,22 @@ export function handleStateRequest(
 
 /**
  * Handle a NIP-5D NUB storage message from a napplet.
- * Routes to the appropriate operation (get, set, remove, clear, keys) based on msg.type action.
- * Uses NappletMessage envelope format for all responses.
+ * Routes to the canonical four `@napplet/nub-storage` actions:
+ *   - `storage.get`    → `storage.get.result`    `{ value: string | null }`
+ *   - `storage.set`    → `storage.set.result`    `{ ok: boolean }` (canonical only checks `error`)
+ *   - `storage.remove` → `storage.remove.result` `{ ok: boolean }`
+ *   - `storage.keys`   → `storage.keys.result`   `{ keys: string[] }`
+ *
+ * `storage.clear` is NOT in the canonical `@napplet/nub-storage` union (it was a
+ * kehto unilateral extension); it now produces a `storage.clear.error` envelope.
+ * Internal lifecycle cleanup still uses the `cleanupNappState()` helper below —
+ * it is not napplet-reachable.
+ *
+ * **Deviation note (Phase 15 to decide):** Set/remove results emit both `ok`
+ * (legacy compat) and an `error` field on failure. Canonical `@napplet/nub-storage`
+ * only specifies the optional `error`; napplets check `!result.error` for success.
+ * Emitting `ok` preserves backward compatibility with existing in-tree callers.
+ * Phase 15 (v1.2 release prep) decides whether to drop `ok` pre-release.
  *
  * @param windowId - The window identifier of the requesting napplet
  * @param msg - The NappletMessage containing the storage request
@@ -177,10 +191,7 @@ export function handleStorageNub(
   aclState: AclStateContainer,
   statePersistence: StatePersistence,
 ): void {
-  // DRIFT-ACL-08 — Phase 12: narrow after storage.clear removal (storage.clear is
-  // not in @napplet/nub-storage). Storage.clear branch below still needs access to
-  // the legacy request shape, so widen via `unknown as` with per-branch typing.
-  const m = msg as unknown as StorageMessage & {
+  const m = msg as StorageMessage & {
     id?: string;
     key?: string;
     value?: string;
@@ -216,7 +227,8 @@ export function handleStorageNub(
       if (result === null && pubkey) {
         result = statePersistence.get(`napp-state:${pubkey}:${dTag}:${aggregateHash}:${key}`);
       }
-      sendResult({ value: result ?? '', found: result !== null });
+      // Canonical @napplet/nub-storage: `value: string | null` — null ⇔ missing.
+      sendResult({ value: result });
       break;
     }
     case 'set': {
@@ -239,13 +251,19 @@ export function handleStorageNub(
       const key = m.key as string;
       if (!key) { sendErrorNub('missing key'); return; }
       statePersistence.remove(scopedKey(dTag, aggregateHash, key));
+      // legacyPrefix exists only while `pubkey` is non-empty (legacy AUTH sessions).
+      // Suppress "unused binding" warnings: we intentionally retain the computation
+      // so future migration lands at call sites, not here.
+      void legacyPrefix;
       sendResult({ ok: true });
       break;
     }
     case 'clear': {
-      statePersistence.clear(prefix);
-      if (legacyPrefix) statePersistence.clear(legacyPrefix);
-      sendResult({ ok: true });
+      // storage.clear was a kehto unilateral extension; it is NOT in the canonical
+      // @napplet/nub-storage union. Napplets hitting this branch receive an
+      // explicit `storage.clear.error` envelope. Internal lifecycle cleanup uses
+      // cleanupNappState() below (not napplet-reachable).
+      sendErrorNub('storage.clear is not in @napplet/nub-storage; action not supported');
       break;
     }
     case 'keys': {
