@@ -46,9 +46,25 @@ Kehto fully conforms to the canonical NIP-5D spec (`dskvr/nips` branch `nip/5d`)
 
 **Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage)
 
-## Active
+## Current Milestone: v1.3 Demo Functional & Playwright Parity
 
-No milestone currently active. Start the next cycle with `/gsd:new-milestone`.
+**Goal:** Adapt `apps/demo` and bundled napplets to the canonical v1.2 `@kehto/*` + `@napplet/*` NIP-5D interfaces, rewrite the Playwright suite, and ship a build-run-debug loop until every panel, napplet, and spec is green.
+
+**Target features:**
+- Demo app rewire — all surfaces (shell host/topology/animators, ACL panels/modal/history, signer demo + NIP-46, notifications + kinds + constants panels) migrated to canonical v1.2 APIs (no `window.nostr`, no signer-service, no legacy BusKind/AUTH).
+- Napplet showcase — migrate `bot`/`chat` to envelope-only `@napplet/sdk`; expand with purpose-built napplets (feed, composer, profile-viewer, …) so all 8 nub domains are exercised end-to-end.
+- Canonical signer UX — NIP-46 + signer-demo produce successful `identity.*` reads and `relay.publish` / `relay.publishEncrypted` flows (NIP-44 default, NIP-04 opt-in).
+- Playwright suite rewrite — triage `tests/e2e/*`, delete obsolete signer/AUTH/BusKind specs, migrate survivors to NIP-5D envelopes, add demo-functional golden-path specs; `pnpm test:e2e` green with zero skipped/legacy specs.
+- Iteration discipline — each phase ends with a build → run → Playwright (MCP) → fix loop.
+- Docs refresh — `docs/` + READMEs updated to match the canonical v1.2 contract being showcased.
+- Release rehearsal — stage changesets + changelog + dry-run `changeset version`; actual `publish` deferred until `@napplet/core` ships to npm.
+
+**Key context:**
+- Starts Phase 16 (continues numbering from v1.2 Phase 15).
+- No protocol-level changes in kehto packages — v1.3 *consumes* v1.2's surface.
+- `@napplet/*` resolves via pnpm workspace overrides to `/home/sandwich/Develop/napplet/*`; npm publish upstream blocks downstream `changeset publish`.
+- Carried tech debt: `packages/runtime/src/core-compat.ts` (DRIFT-CORE-06) stays intact.
+- No CI/CD in this milestone (deferred).
 
 ## Known Tech Debt (carried into next milestone)
 
@@ -85,4 +101,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-17 after v1.2 milestone*
+*Last updated: 2026-04-18 — v1.3 milestone opened*
