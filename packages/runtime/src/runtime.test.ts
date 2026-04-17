@@ -17,6 +17,10 @@ import { createMockRuntimeAdapter, createNip5dSessionEntry } from './test-utils.
 import type { MockRuntimeContext, SentMessage } from './test-utils.js';
 import type { NappletMessage } from '@napplet/core';
 
+// Timer globals (available in all JS runtimes) — declare here so test files
+// compile without the DOM lib, matching the runtime.ts convention.
+declare function setTimeout(callback: (...args: unknown[]) => void, ms: number): unknown;
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const WINDOW_A = 'win-A';
@@ -286,6 +290,23 @@ describe('relay.publishEncrypted (NUB-08 / DRIFT-RT-08 / SH-C03)', () => {
   let runtime: Runtime;
   let signer: import('./types.js').Signer;
 
+  /** Mock relay pool reporting isAvailable:true so publishEncrypted exercises
+   *  the happy path (publish via hooks.relayPool, emit ok:true). Publish is a
+   *  no-op — we only assert the envelope the shell emits. */
+  function createAvailableRelayPool(): import('./types.js').RelayPoolAdapter {
+    return {
+      subscribe: () => ({ unsubscribe() { /* no-op */ } }),
+      publish: () => { /* no-op */ },
+      selectRelayTier: () => [],
+      trackSubscription: () => { /* no-op */ },
+      untrackSubscription: () => { /* no-op */ },
+      openScopedRelay: () => { /* no-op */ },
+      closeScopedRelay: () => { /* no-op */ },
+      publishToScopedRelay: () => false,
+      isAvailable: () => true,
+    };
+  }
+
   beforeEach(() => {
     signer = createStubSigner();
     ctx = createMockRuntimeAdapter({
@@ -293,6 +314,7 @@ describe('relay.publishEncrypted (NUB-08 / DRIFT-RT-08 / SH-C03)', () => {
         getUserPubkey: () => 'user-pubkey',
         getSigner: () => signer,
       },
+      relayPool: createAvailableRelayPool(),
     });
     runtime = createRuntime(ctx.hooks);
     runtime.sessionRegistry.register(
@@ -379,12 +401,14 @@ describe('relay.publishEncrypted (NUB-08 / DRIFT-RT-08 / SH-C03)', () => {
   });
 
   it('produces ok:false + "no signer" error when signer is not configured', async () => {
-    // Rebuild runtime with null signer.
+    // Rebuild runtime with null signer (keep relay pool available so we
+    // know a false ok is the signer-gate talking, not the publish path).
     ctx = createMockRuntimeAdapter({
       auth: {
         getUserPubkey: () => 'user-pubkey',
         getSigner: () => null,
       },
+      relayPool: createAvailableRelayPool(),
     });
     runtime = createRuntime(ctx.hooks);
     runtime.sessionRegistry.register(

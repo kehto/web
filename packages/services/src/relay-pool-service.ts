@@ -4,6 +4,16 @@
  * Wraps an existing relay pool implementation (subscribe, publish,
  * selectRelayTier, isAvailable) as a ServiceHandler that receives
  * relay NUB envelope messages and manages subscription lifecycle.
+ *
+ * Handles: relay.subscribe, relay.close, relay.publish, relay.publishEncrypted.
+ *
+ * Note on `relay.publishEncrypted`: the canonical napplet→shell path routes
+ * through @kehto/runtime handleRelayMessage, which performs shell-internal
+ * NIP-44/NIP-04 encryption via the signer, then synthesizes a relay.publish
+ * envelope handed to this service. The publishEncrypted branch here is a
+ * fallback for alternate wirings; by the time the service sees the
+ * envelope, content MUST already be ciphertext (the service never encrypts
+ * or decrypts).
  */
 
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
@@ -167,6 +177,25 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
       }
 
       if (message.type === 'relay.publish') {
+        const event = (message as any).event as NostrEvent | undefined;
+        if (event && typeof event === 'object' && options.isAvailable()) {
+          options.publish(event);
+        }
+        return;
+      }
+
+      // NUB-08 / SH-C03: relay.publishEncrypted is SHELL-MEDIATED. The shell
+      // runtime (@kehto/runtime handleRelayMessage) encrypts the plaintext
+      // content via the shell signer, signs the event, and synthesizes a
+      // relay.publish envelope that it hands to this service. By the time a
+      // publishEncrypted envelope reaches this branch, the content MUST
+      // already be ciphertext — the service never decrypts nor re-encrypts.
+      //
+      // We still accept the envelope as a fallback so tests and alternate
+      // host wirings that bypass the runtime shim can delegate to the same
+      // publish path. The runtime's canonical path is to NOT hand us
+      // publishEncrypted directly — it translates to relay.publish first.
+      if (message.type === 'relay.publishEncrypted') {
         const event = (message as any).event as NostrEvent | undefined;
         if (event && typeof event === 'object' && options.isAvailable()) {
           options.publish(event);
