@@ -109,7 +109,7 @@ Explicit exclusions for v1.2:
 | NUB-06 | — |
 | NUB-07 | 12 (Plan 12-07) |
 | NUB-08 | — |
-| NUB-09 | — |
+| NUB-09 | 12 (Plan 12-09) |
 | NUB-10 | — |
 | TH-01 | — |
 | TH-02 | — |
