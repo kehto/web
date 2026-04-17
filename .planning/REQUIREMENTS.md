@@ -110,17 +110,47 @@ No `changeset publish` — that is deferred until `@napplet/core` publishes to n
 
 ## Traceability
 
-Requirements are mapped to phases in `.planning/ROADMAP.md` (filled by roadmapper).
-
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| DEMO-01..08 | TBD | Draft |
-| NAP-01..09 | TBD | Draft |
-| E2E-01..11 | TBD | Draft |
-| DOCS-01..03 | TBD | Draft |
-| REL-01..04 | TBD | Draft |
+| DEMO-01 | Phase 17 | Pending |
+| DEMO-02 | Phase 17 | Pending |
+| DEMO-03 | Phase 17 | Pending |
+| DEMO-04 | Phase 17 | Pending |
+| DEMO-05 | Phase 17 | Pending |
+| DEMO-06 | Phase 17 | Pending |
+| DEMO-07 | Phase 17 | Pending |
+| DEMO-08 | Phase 17 | Pending |
+| NAP-01 | Phase 18 | Pending |
+| NAP-02 | Phase 18 | Pending |
+| NAP-03 | Phase 19 | Pending |
+| NAP-04 | Phase 19 | Pending |
+| NAP-05 | Phase 19 | Pending |
+| NAP-06 | Phase 20 | Pending |
+| NAP-07 | Phase 20 | Pending |
+| NAP-08 | Phase 20 | Pending |
+| NAP-09 | Phase 20 | Pending |
+| E2E-01 | Phase 16 | Pending |
+| E2E-02 | Phase 16 | Pending |
+| E2E-03 | Phase 16 | Pending |
+| E2E-04 | Phase 16 | Pending |
+| E2E-05 | Phase 16 | Pending |
+| E2E-06 | Phase 17 | Pending |
+| E2E-07 (ifc-roundtrip, napplet-auth) | Phase 18 | Pending |
+| E2E-07 (relay-publish, relay-publish-encrypted, storage-persist, notify-lifecycle) | Phase 19 | Pending |
+| E2E-07 (relay-subscribe, identity-flow, theme-broadcast) | Phase 20 | Pending |
+| E2E-08 | Phase 19 | Pending |
+| E2E-09 | Phase 21 | Pending |
+| E2E-10 | Phase 22 | Pending |
+| E2E-11 | Phase 17–22 (cross-cutting gate; closed Phase 22) | Pending |
+| DOCS-01 | Phase 22 | Pending |
+| DOCS-02 | Phase 22 | Pending |
+| DOCS-03 | Phase 22 | Pending |
+| REL-01 | Phase 22 | Pending |
+| REL-02 | Phase 22 | Pending |
+| REL-03 | Phase 22 | Pending |
+| REL-04 | Phase 22 | Pending |
 
 ---
 
 *Requirements draft: 2026-04-18*
-*Ready for roadmap: pending user confirmation*
+*Traceability filled: 2026-04-18 (roadmapper)*
