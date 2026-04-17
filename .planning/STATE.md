@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — NIP-5D Conformance & Full NUB Coverage
 status: verifying
-stopped_at: Completed 14-01-PLAN.md — dispatch refactor (createDispatch + 8 registerNub adapters); 449 tests green; DISPATCH-01/02/03 satisfied
-last_updated: "2026-04-17T20:38:17.549Z"
+stopped_at: "Completed 15-01-PLAN.md — v1.2 milestone validated: 4 changesets staged, legacy signer/BusKind test deleted, build+type-check+test green, DEPS-02/03 closed"
+last_updated: "2026-04-17T21:41:06.986Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
-  completed_phases: 5
-  total_plans: 18
-  completed_plans: 18
+  completed_phases: 6
+  total_plans: 19
+  completed_plans: 19
   percent: 100
 ---
 
@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-17)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 14 — dispatch-refactor
+**Current focus:** Phase 15 — milestone-validation-release-prep
 
 ## Current Position
 
-Phase: 15
-Plan: Not started
+Phase: 15 (milestone-validation-release-prep) — EXECUTING
+Plan: 1 of 1
 Status: Phase complete — ready for verification
 Last activity: 2026-04-17
 
@@ -78,6 +78,7 @@ Progress: [██████████] 100% (Phase 10 plans complete — v1.
 | Phase 13 P01 | 4 min | 2 tasks | 5 files |
 | Phase 13 P02 | 5min | 2 tasks | 4 files |
 | Phase 14 P01 | 2 min | 2 tasks | 2 files |
+| Phase 15 P01 | 3 min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -140,6 +141,11 @@ Recent decisions affecting current work (full log in PROJECT.md):
 - [Phase 14]: Plan 14-01: Per-runtime createDispatch() instance (not module-level singleton) + runtime-scoped currentWindowId closure bridges NubHandler(msg) → handleXxxMessage(windowId, msg) without rewriting 8 handler signatures; 8-case switch deleted, delegates to nubDispatch.dispatch(envelope) after ACL gate unchanged
 - [Phase 14]: Plan 14-01: Named adapter functions (relayAdapter, identityAdapter, etc.) passed to registerNub() preserve stack traces on error paths — inline arrows in registerNub() calls would anonymize the stack frame
 - [Phase 14]: Plan 14-01: core-compat.ts (DRIFT-CORE-06) preserved and NOT modified — it covers Capability/BusKind/ALL_CAPABILITIES/etc. which are NOT dispatch-related; removal is an upstream concern when napplet/core restores those re-exports
+- [Phase 15]: 15-01: 4 minor-bump changesets (one per @kehto/* package) — 0.x semver signals breaking potential at minor level; major 1.0.0 deferred until post-npm-publish
+- [Phase 15]: 15-01: Each changeset body cites @napplet/core ^0.2.0 peer-dep bump + 8 @napplet/nub-* adds; release-notes readers get the dependency reality in one view
+- [Phase 15]: 15-01: Deleted tests/unit/shell-runtime-integration.test.ts rather than migrate — 19 it.skip'd tests with v1.1 signer.*/BusKind assertions; ≥80% rewrite would produce new tests not migrated ones; coverage already lives in Phases 12-03/04/08/09
+- [Phase 15]: 15-01: Do NOT run pnpm changeset version or publish in this phase — release steps deferred until @napplet/core ships to npm
+- [Phase 15]: 15-01: Preserve packages/runtime/src/core-compat.ts — DRIFT-CORE-06 shim stays until @napplet/core restores legacy exports; runtime changeset explicitly notes retention
 
 ### Blockers/Concerns
 
@@ -148,6 +154,6 @@ Recent decisions affecting current work (full log in PROJECT.md):
 
 ## Session Continuity
 
-Last session: 2026-04-17T20:34:51.971Z
-Stopped at: Completed 14-01-PLAN.md — dispatch refactor (createDispatch + 8 registerNub adapters); 449 tests green; DISPATCH-01/02/03 satisfied
+Last session: 2026-04-17T21:41:06.983Z
+Stopped at: Completed 15-01-PLAN.md — v1.2 milestone validated: 4 changesets staged, legacy signer/BusKind test deleted, build+type-check+test green, DEPS-02/03 closed
 Resume: Run `/gsd:plan-phase 10` to begin Spec Conformance Audit.

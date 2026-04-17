@@ -35,7 +35,7 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
 - [x] **Phase 12: Shell Conformance & Seven-Nub Coverage** — Remove `window.nostr` injection, rename to `perm:*` namespace, mediate signing/encryption through the shell, and close every drift item for the seven non-theme nubs (identity, ifc, keys, media, notify, relay, storage) — including ACL capability mapping for the full surface. (completed 2026-04-17)
 - [x] **Phase 13: Theme Nub Implementation** — Add the eighth nub end-to-end: runtime route, reference service, shell adapter, ACL gates. (completed 2026-04-17)
 - [x] **Phase 14: Dispatch Refactor** — Replace the hand-rolled switch with napplet/core's `createDispatch()` / `registerNub()` / `dispatch()` infrastructure; register all 8 nub handlers through it. (completed 2026-04-17)
-- [ ] **Phase 15: Milestone Validation & Release Prep** — Green tests against the new peer-dep set (with `signer.*` tests migrated or deleted) and changesets for every republished package.
+- [x] **Phase 15: Milestone Validation & Release Prep** — Green tests against the new peer-dep set (with `signer.*` tests migrated or deleted) and changesets for every republished package. (completed 2026-04-17)
 
 ## Phase Details
 
@@ -118,7 +118,7 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
   2. Every `@kehto/*` package that ships code changes in v1.2 has a changeset entry in `.changeset/` describing the change.
   3. `pnpm build` produces clean ESM output for all four packages with no type errors.
 **Plans**: 1 plan
-  - [ ] 15-01-PLAN.md — Create 4 changesets + delete legacy shell-runtime-integration test + run validation gate (DEPS-02, DEPS-03)
+  - [x] 15-01-PLAN.md — Create 4 changesets + delete legacy shell-runtime-integration test + run validation gate (DEPS-02, DEPS-03)
 
 ## Progress
 
@@ -131,4 +131,4 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
 | 12. Shell Conformance & Seven-Nub Coverage | 11/11 | Complete    | 2026-04-17 |
 | 13. Theme Nub Implementation | 2/2 | Complete    | 2026-04-17 |
 | 14. Dispatch Refactor | 1/1 | Complete    | 2026-04-17 |
-| 15. Milestone Validation & Release Prep |  0/1   | Not started | - |
+| 15. Milestone Validation & Release Prep | 1/1 | Complete   | 2026-04-17 |

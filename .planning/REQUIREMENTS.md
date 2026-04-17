@@ -63,8 +63,8 @@ All 8 napplet nub packages are consumed as peer deps and fully handled.
 ## Category 6: Peer Dep Upgrade (DEPS)
 
 - [x] **DEPS-01**: `@napplet/core` peer-dep range is bumped from `>=0.1.0` to `^0.2.0` across @kehto/acl, @kehto/runtime, @kehto/shell, and @kehto/services
-- [ ] **DEPS-02**: Changeset entries are added for each kehto package that is republished in this milestone
-- [ ] **DEPS-03**: All existing tests pass against `@napplet/core@0.2.0` and the eight `@napplet/nub-*` peer deps; tests tied to removed `signer.*` functionality are migrated to `identity.*` / `relay.publishEncrypted` semantics or deleted with rationale
+- [x] **DEPS-02**: Changeset entries are added for each kehto package that is republished in this milestone
+- [x] **DEPS-03**: All existing tests pass against `@napplet/core@0.2.0` and the eight `@napplet/nub-*` peer deps; tests tied to removed `signer.*` functionality are migrated to `identity.*` / `relay.publishEncrypted` semantics or deleted with rationale
 
 ---
 
