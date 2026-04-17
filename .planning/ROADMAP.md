@@ -60,7 +60,7 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
   2. All kehto source files that previously hand-copied NUB message types or constants now import them from the matching `@napplet/nub-*` package — no duplicate type aliases remain. Hand-copied `signer.*` types and locally declared signer interfaces are deleted.
   3. `pnpm build` and `pnpm type-check` succeed on a clean install against the new peer-dep set. Type errors at signer call sites are stubbed or widened intentionally with `// DRIFT-* — Phase 12` markers so Phase 12 plans can close them.
 **Plans**: 2 plans
-  - [ ] 11-01-PLAN.md — Bump @napplet/core to ^0.2.0, declare 8 @napplet/nub-* peer deps, add pnpm overrides, verify clean install (DEPS-01, NUB-01)
+  - [x] 11-01-PLAN.md — Bump @napplet/core to ^0.2.0, declare 8 @napplet/nub-* peer deps, add pnpm overrides, verify clean install (DEPS-01, NUB-01)
   - [ ] 11-02-PLAN.md — Replace hand-copied/msg-as-any NUB types with `import type` from @napplet/nub-* packages; annotate signer.* call sites with DRIFT-<ID> — Phase 12 markers; green build + type-check (NUB-02)
 
 ### Phase 12: Shell Conformance & Seven-Nub Coverage
@@ -113,7 +113,7 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 10. Spec Conformance Audit | 2/2 | Complete    | 2026-04-17 |
-| 11. Nub Peer Deps & Type Imports | 0/2 | Not started | - |
+| 11. Nub Peer Deps & Type Imports | 1/2 | In Progress|  |
 | 12. Shell Conformance & Seven-Nub Coverage | 0/TBD | Not started | - |
 | 13. Theme Nub Implementation | 0/TBD | Not started | - |
 | 14. Dispatch Refactor | 0/TBD | Not started | - |

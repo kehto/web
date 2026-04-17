@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — NIP-5D Conformance & Full NUB Coverage
-status: verifying
-stopped_at: Completed 10-02-PLAN.md (v1.2 NIP-5D cross-package drift audit, SPEC-02 satisfied) — Phase 10 complete, ready for verification
-last_updated: "2026-04-17T13:30:59.232Z"
+status: executing
+stopped_at: "Completed 11-01-PLAN.md (peer-dep declarations + 8 nub link: overrides)"
+last_updated: "2026-04-17T14:03:12.024Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 4
+  completed_plans: 3
   percent: 100
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-17)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 10 — spec-conformance-audit
+**Current focus:** Phase 11 — nub-peer-deps-type-imports
 
 ## Current Position
 
-Phase: 11
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 11 (nub-peer-deps-type-imports) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
 Last activity: 2026-04-17
 
 Progress: [██████████] 100% (Phase 10 plans complete — v1.2 overall 1/6 phases)
@@ -62,6 +62,7 @@ Progress: [██████████] 100% (Phase 10 plans complete — v1.
 | Phase 10 P02 | 6min | 2 tasks | 1 files |
 | Phase 10 P01 | 1min | 2 tasks | 0 files |
 | Phase 10 P02 | 18min | 2 tasks | 1 files |
+| Phase 11 P01 | 3min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,9 @@ Recent decisions affecting current work (full log in PROJECT.md):
 - [Phase 10]: Plan 10-01 executed as verify-only (zero file changes) — commit 604337a canonical sync still valid at v1.2 milestone; empty commits preserve per-task audit trail
 - [Phase 10]: 40 stable DRIFT-* IDs partition kehto v1.2 remediation work into Phase 11 (3 rows — peer-dep prereqs), Phase 12 (32 rows — shell conformance + 7 non-theme nubs + ACL), Phase 13 (3 rows — theme), Phase 14 (2 rows — dispatch refactor)
 - [Phase 10]: docs/v1.2-NIP-5D-AUDIT.md locked as authoritative input for Phase 11-14 planning — downstream planners filter by Target Phase column, no re-audit of source required
+- [Phase 11]: Uniform peer-dep rule: all 4 @kehto/* packages declare all 8 @napplet/nub-* packages, even if each only imports a subset (nubs are types-only, install footprint is zero)
+- [Phase 11]: @kehto/acl preserves zero-runtime-dep posture via empty "dependencies": {} — nub peer-deps are strictly import-type-only consumption
+- [Phase 11]: Per-workspace symlinks (packages/*/node_modules/@napplet/nub-*) are the correct pnpm layout for workspace consumers — lockfile is the authoritative resolution record, not root-level node_modules
 
 ### Blockers/Concerns
 
@@ -91,6 +95,6 @@ Recent decisions affecting current work (full log in PROJECT.md):
 
 ## Session Continuity
 
-Last session: 2026-04-17T13:25:45.156Z
-Stopped at: Completed 10-02-PLAN.md (v1.2 NIP-5D cross-package drift audit, SPEC-02 satisfied) — Phase 10 complete, ready for verification
+Last session: 2026-04-17T14:03:04.452Z
+Stopped at: Completed 11-01-PLAN.md (peer-dep declarations + 8 nub link: overrides)
 Resume: Run `/gsd:plan-phase 10` to begin Spec Conformance Audit.

@@ -36,7 +36,7 @@ Driven by spec deltas in the canonical NIP-5D.
 
 All 8 napplet nub packages are consumed as peer deps and fully handled.
 
-- [ ] **NUB-01**: `@napplet/nub-identity`, `@napplet/nub-ifc`, `@napplet/nub-keys`, `@napplet/nub-media`, `@napplet/nub-notify`, `@napplet/nub-relay`, `@napplet/nub-storage`, and `@napplet/nub-theme` are declared as peer dependencies on every `@kehto/*` package (uniform rule; types-only consumption)
+- [x] **NUB-01**: `@napplet/nub-identity`, `@napplet/nub-ifc`, `@napplet/nub-keys`, `@napplet/nub-media`, `@napplet/nub-notify`, `@napplet/nub-relay`, `@napplet/nub-storage`, and `@napplet/nub-theme` are declared as peer dependencies on every `@kehto/*` package (uniform rule; types-only consumption)
 - [ ] **NUB-02**: Hand-copied NUB message type and constant definitions in kehto are replaced with imports from the respective `@napplet/nub-*` package. Old `signer.*` local types are deleted; consumers migrate to `identity.*` (read-only nostr identity info) and `relay.publish` / `relay.publishEncrypted` (signing/encryption via shell mediation).
 - [ ] **NUB-03**: Every message type exported by `@napplet/nub-identity` (`getPublicKey`, `getRelays`, `getProfile`, `getFollows`, `getList`, `getZaps`, `getMutes`, `getBlocked`, `getBadges`, plus their `.result` envelopes) is dispatched by @kehto/runtime and answered by a reference service
 - [ ] **NUB-04**: Every message type exported by `@napplet/nub-ifc` (topic + channel sub-protocol: `emit`, `subscribe`, `subscribe.result`, `unsubscribe`, `event`, `channel.open`, `channel.open.result`, `channel.emit`, `channel.event`, `channel.broadcast`, `channel.list`, `channel.list.result`, `channel.close`, `channel.closed`) is dispatched and handled
@@ -62,7 +62,7 @@ All 8 napplet nub packages are consumed as peer deps and fully handled.
 
 ## Category 6: Peer Dep Upgrade (DEPS)
 
-- [ ] **DEPS-01**: `@napplet/core` peer-dep range is bumped from `>=0.1.0` to `^0.2.0` across @kehto/acl, @kehto/runtime, @kehto/shell, and @kehto/services
+- [x] **DEPS-01**: `@napplet/core` peer-dep range is bumped from `>=0.1.0` to `^0.2.0` across @kehto/acl, @kehto/runtime, @kehto/shell, and @kehto/services
 - [ ] **DEPS-02**: Changeset entries are added for each kehto package that is republished in this milestone
 - [ ] **DEPS-03**: All existing tests pass against `@napplet/core@0.2.0` and the eight `@napplet/nub-*` peer deps; tests tied to removed `signer.*` functionality are migrated to `identity.*` / `relay.publishEncrypted` semantics or deleted with rationale
 
