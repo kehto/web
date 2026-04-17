@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: — NIP-5D Conformance & Full NUB Coverage
 status: executing
 stopped_at: Completed 12-07-PLAN.md — NUB-07 + DRIFT-RT-04/SVC-05 closed; notify dispatch + stub service shipped
-last_updated: "2026-04-17T19:05:08.792Z"
+last_updated: "2026-04-17T19:05:17.329Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
@@ -106,6 +106,8 @@ Recent decisions affecting current work (full log in PROJECT.md):
 - [Phase 12]: Plan 12-06: runtime fallback emits media.session.create.result even when no media service registered — guarantees napplets receive a reply envelope for the one media.* request type that expects one
 - [Phase 12]: Plan 12-05: Runtime fallback-handler pattern established — case 'keys': delegates to serviceRegistry['keys'] with inline spec-correct fallback envelopes (keys.registerAction.result, hotkey forwarding) so napplets never hang even when no service is registered. Same pattern expected for identity/media/notify handlers.
 - [Phase 12]: Plan 12-05: Wire<->DOM field translation (ctrl/alt/shift/meta <-> ctrlKey/altKey/shiftKey/metaKey) happens symmetrically in keys-service.ts AND runtime fallback so the existing HotkeyAdapter contract stays stable; host shells don't need to change their HotkeyAdapter shape.
+- [Phase 12]: Plan 12-07: notify-service coexists with legacy notification-service.ts — two distinct service names ('notify' nub vs 'notifications' ifc-emit); explicit coexistence contract documented in notify-service.ts JSDoc
+- [Phase 12]: Plan 12-07: runtime fallback emits notify.send.result + notify.permission.result when no 'notify' service is registered — the two notify.* request types that expect a reply always produce one; dismiss/badge/channel.register stay fire-and-forget per @napplet/nub-notify
 
 ### Blockers/Concerns
 
