@@ -21,12 +21,17 @@ Explicit deliverables:
    - Reference services: split `signer-service.ts` into deletion + new `identity-service.ts`; create stub-level `keys-service.ts`, `media-service.ts`, `notify-service.ts` (dispatch + ACL + echo `.result`, no real backends)
    - Existing relay-service / storage equivalents retrofitted to @napplet/nub-* types
 
-3. **ACL coverage (NUB-10):**
+3. **Shell per-domain proxies + keys-forwarder + barrel-export cleanup (DRIFT-SHELL-06/07/08):**
+   - Create per-domain proxy modules in `packages/shell/src/` for the five missing domains: `identity-proxy.ts`, `theme-proxy.ts`, `keys-proxy.ts`, `media-proxy.ts`, `notify-proxy.ts` — establishing a canonical `storage-proxy.ts`-style shape for shell-side dispatch extensions.
+   - Add a keys-forwarder that hooks host keydown events and emits `keys.forward` / `keys.action` envelopes to registered napplets (DRIFT-SHELL-06 / NUB-05 shell-side half).
+   - Update `packages/shell/src/index.ts` barrel: remove `SignerProxy`/signer bindings and add the new proxy exports (DRIFT-SHELL-07 / SH-C03 final step).
+
+4. **ACL coverage (NUB-10):**
    - `resolveCapabilitiesNub` in @kehto/acl covers every `<domain>.<action>` for all 8 domains (theme included)
    - `ALL_CAPABILITIES` extended with new capability constants per new domain
    - Signer branch in resolve.ts is DELETED (with DRIFT-ACL-05..08 annotations removed)
 
-4. **Drift audit closure (SPEC-03):**
+5. **Drift audit closure (SPEC-03):**
    - Every DRIFT row in `docs/v1.2-NIP-5D-AUDIT.md` tagged Target Phase 12 is resolved. Phase 10 audit doc is updated with closure markers (status column or checkbox).
 
 No behavior changes to theme (Phase 13) or dispatch refactor (Phase 14). DRIFT-CORE-06 (core-compat.ts shim from Phase 11) is NOT closed here — it remains until napplet/core re-exports the symbols or Phase 14 removes the need.
@@ -49,7 +54,7 @@ No behavior changes to theme (Phase 13) or dispatch refactor (Phase 14). DRIFT-C
 - **Execution ordering (3 waves):**
   - Wave 1: Shell conformance (SH-C01/02/03) — small, independent, unblocks ACL cap renames
   - Wave 2: Per-nub dispatch + service implementation in parallel (NUB-03/04/05/06/07/08/09) — seven plans, one per nub
-  - Wave 3: ACL extension + drift audit closure (NUB-10, SPEC-03) — consolidated after all nubs land
+  - Wave 3: ACL extension + drift audit closure (NUB-10, SPEC-03) + shell per-domain proxies + keys-forwarder + barrel cleanup (DRIFT-SHELL-06/07/08) — consolidated after all nubs land
 
 ### ACL & Testing Scope
 
@@ -106,6 +111,8 @@ Every DRIFT-<ID> marker added in Phase 11 (Phase 12-targeted) is DELETED as part
 - Consolidate cap constants in one place (`packages/acl/src/capabilities.ts` — existing) rather than spreading across modules.
 - At phase end, `grep -rE "DRIFT-.*Phase 12" packages/*/src/` returns zero matches (every Phase 12 marker is deleted as part of its closure).
 - `docs/v1.2-NIP-5D-AUDIT.md` gets a "Resolved in Phase 12" annotation or checkbox per closed row.
+- Shell per-domain proxy modules live in `packages/shell/src/<domain>-proxy.ts`. Each exports `create<Domain>Proxy(bridge)` returning a small adapter that the shell-bridge composes into dispatch. Because the shell repo does not yet have a `storage-proxy.ts`, Plan 12-11 establishes the canonical shape — subsequent per-domain proxies (and any Phase 13 theme push path) follow it verbatim.
+- Keys-forwarder is a thin DOM-side listener: register a `window.addEventListener('keydown', ...)` in shell-init that, for registered napplets with the `keys:forward` cap, emits `keys.forward` envelopes into each napplet iframe.
 
 </specifics>
 
@@ -120,3 +127,5 @@ Every DRIFT-<ID> marker added in Phase 11 (Phase 12-targeted) is DELETED as part
 - Separate migration doc — a paragraph in `identity-service.ts` JSDoc + a note in REQUIREMENTS.md DEPS-03 suffice for v1.2 release. Phase 15 changelog rollup captures the full story.
 
 </deferred>
+</content>
+</invoke>
