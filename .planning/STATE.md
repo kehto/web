@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: — NIP-5D Conformance & Full NUB Coverage
 status: executing
 stopped_at: Completed 12-10-PLAN.md — ACL consolidation + audit closure; 26 Phase 12 rows resolved; zero DRIFT-*-Phase 12 markers remaining.
-last_updated: "2026-04-17T19:39:50.734Z"
+last_updated: "2026-04-17T19:46:51.006Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
@@ -25,8 +25,8 @@ See: .planning/PROJECT.md (updated 2026-04-17)
 
 ## Current Position
 
-Phase: 12 (shell-conformance-seven-nub-coverage) — EXECUTING
-Plan: 10 of 11
+Phase: 13
+Plan: Not started
 Status: Ready to execute
 Last activity: 2026-04-17
 
