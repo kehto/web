@@ -4,10 +4,10 @@
  * Per Plan 12-05, the runtime already dispatches `keys.*` (forward,
  * registerAction, unregisterAction) to the keys-service. This proxy is the
  * shell-side composition point for host apps that want to observe or
- * inject keys envelopes — it pairs with `keys-forwarder.ts` (DRIFT-SHELL-06)
+ * inject keys envelopes — it pairs with `keys-forwarder.ts` (Plan 12-11)
  * which covers the shell→napplet `keys.forward` push path.
  *
- * Shape mirrors identity-proxy (Plan 12-11 / DRIFT-SHELL-08):
+ * Shape mirrors identity-proxy (Plan 12-11):
  *
  *   - `dispatch(windowId, envelope)` routes napplet→shell keys requests
  *     into the runtime.

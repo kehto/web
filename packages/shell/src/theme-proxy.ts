@@ -6,7 +6,7 @@
  * API that emits `theme.changed` push envelopes to registered napplets;
  * this proxy is the canonical seam those pieces plug into.
  *
- * Shape mirrors identity-proxy (Plan 12-11 / DRIFT-SHELL-08):
+ * Shape mirrors identity-proxy (Plan 12-11):
  *
  *   - `dispatch(windowId, envelope)` routes napplet→shell `theme.get` into
  *     the runtime (where Phase 13's theme-service will answer).

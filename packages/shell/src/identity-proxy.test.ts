@@ -1,6 +1,6 @@
 /**
  * identity-proxy.test.ts — Canonical shape test for the shell-side per-domain
- * proxy pattern established by Plan 12-11 (DRIFT-SHELL-08).
+ * proxy pattern established by Plan 12-11.
  *
  * Every per-domain proxy (identity, theme, keys, media, notify) exposes the
  * same two-method surface:

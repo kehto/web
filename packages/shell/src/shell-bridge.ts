@@ -22,6 +22,8 @@ import { audioManager } from './audio-manager.js';
 import type { ShellAdapter, ShellCapabilities } from './types.js';
 import type { NappletMessage } from '@napplet/core';
 import { buildShellCapabilities } from './shell-init.js';
+import { createKeysForwarder } from './keys-forwarder.js';
+import type { KeysForwarder } from './keys-forwarder.js';
 
 // ─── Public interface ────────────────────────────────────────────────────────
 
@@ -149,6 +151,28 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
 
   const runtime: Runtime = createRuntime(runtimeHooks);
 
+  // Attach the host-keydown forwarder (Plan 12-11 / NUB-05 shell half).
+  // Skips construction in DOM-less environments (SSR / early Node tests);
+  // any failure is swallowed so a malformed DOM never blocks bridge creation.
+  let keysForwarder: KeysForwarder | null = null;
+  if (typeof window !== 'undefined') {
+    try {
+      keysForwarder = createKeysForwarder({
+        originRegistry,
+        sessionRegistry,
+        hasKeysForwardCap: (pubkey: string) => {
+          const entry = sessionRegistry.getEntry(pubkey);
+          if (!entry) return false;
+          const acl = aclStore.getEntry(entry.pubkey, entry.dTag, entry.aggregateHash);
+          return acl?.capabilities.includes('keys:forward') ?? false;
+        },
+      });
+    } catch {
+      // DOM present but addEventListener failed — proceed without the forwarder.
+      keysForwarder = null;
+    }
+  }
+
   return {
     handleMessage(event: MessageEvent): void {
       const sourceWindow = event.source as Window | null;
@@ -182,6 +206,7 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
     },
 
     destroy(): void {
+      keysForwarder?.destroy();
       runtime.destroy();
     },
 

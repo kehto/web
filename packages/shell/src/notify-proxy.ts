@@ -2,8 +2,7 @@
  * notify-proxy.ts — Shell-side per-domain proxy for notify.* envelopes.
  *
  * Establishes the shell-side composition seam for `@napplet/nub-notify`
- * notification envelopes. Shape mirrors identity-proxy (Plan 12-11 /
- * DRIFT-SHELL-08):
+ * notification envelopes. Shape mirrors identity-proxy (Plan 12-11):
  *
  *   - `dispatch(windowId, envelope)` routes napplet→shell notify requests
  *     (`notify.send`, `notify.dismiss`, `notify.badge`,

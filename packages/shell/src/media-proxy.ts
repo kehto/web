@@ -2,8 +2,7 @@
  * media-proxy.ts — Shell-side per-domain proxy for media.* envelopes.
  *
  * Establishes the shell-side composition seam for `@napplet/nub-media`
- * session-control envelopes. Shape mirrors identity-proxy (Plan 12-11 /
- * DRIFT-SHELL-08):
+ * session-control envelopes. Shape mirrors identity-proxy (Plan 12-11):
  *
  *   - `dispatch(windowId, envelope)` routes napplet→shell media requests
  *     (`media.session.create`, `media.session.update`, `media.session.destroy`,

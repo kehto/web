@@ -1,10 +1,10 @@
 /**
  * identity-proxy.ts — Shell-side per-domain proxy for identity.* envelopes.
  *
- * Establishes the canonical proxy shape for @kehto/shell (Plan 12-11 /
- * DRIFT-SHELL-08): each per-domain proxy exposes a `dispatch` method that
- * delegates napplet→shell requests to the runtime and an `emit` method that
- * posts shell→napplet push envelopes through the origin registry.
+ * Establishes the canonical proxy shape for @kehto/shell (Plan 12-11): each
+ * per-domain proxy exposes a `dispatch` method that delegates napplet→shell
+ * requests to the runtime and an `emit` method that posts shell→napplet
+ * push envelopes through the origin registry.
  *
  * By default, `createShellBridge()` does NOT compose this proxy into its
  * dispatch path — the runtime already owns identity.* dispatch per Plan
