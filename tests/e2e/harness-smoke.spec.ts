@@ -53,4 +53,25 @@ test.describe('TEST-06: Shell test harness', () => {
     );
     expect(hasClearMessages).toBe(true);
   });
+
+  test('harness exposes __getServiceNames__ returning a string[]', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForFunction(() => (window as any).__SHELL_READY__ === true, { timeout: 10000 });
+
+    const names = await page.evaluate(() => window.__getServiceNames__());
+    expect(Array.isArray(names)).toBe(true);
+    // Every entry is a primitive string — structured-clone-safe by construction.
+    for (const name of names) {
+      expect(typeof name).toBe('string');
+    }
+  });
+
+  test('harness exposes __nappletReady__ returning a boolean', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForFunction(() => (window as any).__SHELL_READY__ === true, { timeout: 10000 });
+
+    // No napplet loaded yet — __nappletReady__ for a nonexistent windowId must return false.
+    const ready = await page.evaluate(() => window.__nappletReady__('nonexistent-window'));
+    expect(ready).toBe(false);
+  });
 });
