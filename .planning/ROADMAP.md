@@ -31,7 +31,7 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
 ## Phases
 
 - [x] **Phase 10: Spec Conformance Audit** — Pin canonical NIP-5D at `specs/NIP-5D.md` and produce a cross-package drift audit covering spec text + 8-nub message surface. (completed 2026-04-17)
-- [ ] **Phase 11: Nub Peer Deps & Type Imports** — Bump `@napplet/core` to `^0.2.0`, add the eight `@napplet/nub-*` peer deps, replace hand-copied types (including the old `signer.*` set) with imports.
+- [x] **Phase 11: Nub Peer Deps & Type Imports** — Bump `@napplet/core` to `^0.2.0`, add the eight `@napplet/nub-*` peer deps, replace hand-copied types (including the old `signer.*` set) with imports. (completed 2026-04-17)
 - [ ] **Phase 12: Shell Conformance & Seven-Nub Coverage** — Remove `window.nostr` injection, rename to `perm:*` namespace, mediate signing/encryption through the shell, and close every drift item for the seven non-theme nubs (identity, ifc, keys, media, notify, relay, storage) — including ACL capability mapping for the full surface.
 - [ ] **Phase 13: Theme Nub Implementation** — Add the eighth nub end-to-end: runtime route, reference service, shell adapter, ACL gates.
 - [ ] **Phase 14: Dispatch Refactor** — Replace the hand-rolled switch with napplet/core's `createDispatch()` / `registerNub()` / `dispatch()` infrastructure; register all 8 nub handlers through it.
@@ -61,7 +61,7 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
   3. `pnpm build` and `pnpm type-check` succeed on a clean install against the new peer-dep set. Type errors at signer call sites are stubbed or widened intentionally with `// DRIFT-* — Phase 12` markers so Phase 12 plans can close them.
 **Plans**: 2 plans
   - [x] 11-01-PLAN.md — Bump @napplet/core to ^0.2.0, declare 8 @napplet/nub-* peer deps, add pnpm overrides, verify clean install (DEPS-01, NUB-01)
-  - [ ] 11-02-PLAN.md — Replace hand-copied/msg-as-any NUB types with `import type` from @napplet/nub-* packages; annotate signer.* call sites with DRIFT-<ID> — Phase 12 markers; green build + type-check (NUB-02)
+  - [x] 11-02-PLAN.md — Replace hand-copied/msg-as-any NUB types with `import type` from @napplet/nub-* packages; annotate signer.* call sites with DRIFT-<ID> — Phase 12 markers; green build + type-check (NUB-02)
 
 ### Phase 12: Shell Conformance & Seven-Nub Coverage
 **Goal**: Remove every canonical-NIP-5D violation in @kehto/shell, close every drift item for the seven non-theme nubs, and extend ACL capability mapping to the full 8-domain surface (theme-domain ACL also lands here since it's trivial to add alongside the others — theme's runtime/service/shell wiring is Phase 13).
@@ -113,7 +113,7 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 10. Spec Conformance Audit | 2/2 | Complete    | 2026-04-17 |
-| 11. Nub Peer Deps & Type Imports | 1/2 | In Progress|  |
+| 11. Nub Peer Deps & Type Imports | 2/2 | Complete   | 2026-04-17 |
 | 12. Shell Conformance & Seven-Nub Coverage | 0/TBD | Not started | - |
 | 13. Theme Nub Implementation | 0/TBD | Not started | - |
 | 14. Dispatch Refactor | 0/TBD | Not started | - |
