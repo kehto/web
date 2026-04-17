@@ -5,6 +5,14 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
+    "build:napplets": {
+      "dependsOn": ["^build"],
+      "outputs": ["apps/demo/napplets/*/dist/**"]
+    },
+    "@kehto/demo#build": {
+      "dependsOn": ["^build", "build:napplets"],
+      "outputs": ["dist/**"]
+    },
     "test": {
       "dependsOn": ["build"]
     },
