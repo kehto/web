@@ -6,41 +6,54 @@
  * `REPLAY_WINDOW_SECONDS`, `ServiceDescriptor`, plus `TOPICS.STATE_*` entries.
  * Phase 11-01 declared the 8-nub peer-dep set and linked napplet live, which
  * exposed this pre-existing drift against kehto v1.1 semantics. This module
- * mirrors the legacy exports verbatim so the runtime compiles against the
- * current napplet workspace without changing behavior.
+ * mirrors the legacy exports with Phase 12 content updates — the canonical
+ * 8-domain capability set replaces the v1.1 signer caps, but the shim itself
+ * remains until Phase 14 rewrites the dispatch switch.
  *
- * DRIFT-CORE-06 — Phase 11-deviation (tracked in 11-02-SUMMARY.md deviation log):
- *   All identifiers here are slated for removal. Phase 12 replaced the v1.1 NIP-01
- *   signer/ACL code paths that consumed them; the canonical NIP-5D surface has no
- *   BusKind / ALL_CAPABILITIES / DESTRUCTIVE_KINDS. Phase 14 will delete this file
- *   once the switch dispatch is rewritten against `@napplet/core` dispatch + nub
- *   unions (DRIFT-CORE-01, DRIFT-CORE-02).
+ * DRIFT-CORE-06 — tracked deviation (11-02-SUMMARY.md deviation log):
+ *   All identifiers here are slated for removal in Phase 14 once the switch
+ *   dispatch is rewritten against `@napplet/core` dispatch + nub unions
+ *   (DRIFT-CORE-01, DRIFT-CORE-02). The canonical capability source of truth
+ *   is now `@kehto/acl/capabilities` — Plan 12-10 aligned the shim's
+ *   `Capability` union and `ALL_CAPABILITIES` list with that module.
  *
- * DO NOT add new consumers. Phase 12+ handler code must import from the relevant
- * `@napplet/nub-*` package instead.
+ * DO NOT add new consumers. Handler code must import from the relevant
+ * `@napplet/nub-*` package or from `@kehto/acl/capabilities` instead.
  */
 
-// DRIFT-CORE-06 — Phase 11-deviation: Capability string union; replaced in Phase 12 by
-// per-domain capability mappings derived from @napplet/nub-* DOMAIN constants.
+// DRIFT-CORE-06 — Capability string union. Phase 12 content parity with
+// @kehto/acl/capabilities ALL_CAPABILITIES (signer caps removed, 7 v1.2
+// additions). Shim removal scheduled for Phase 14.
 export type Capability =
   | 'relay:read'
   | 'relay:write'
   | 'cache:read'
   | 'cache:write'
   | 'hotkey:forward'
-  | 'sign:event'
-  | 'sign:nip04'
-  | 'sign:nip44'
   | 'state:read'
-  | 'state:write';
+  | 'state:write'
+  | 'identity:read'
+  | 'keys:bind'
+  | 'keys:forward'
+  | 'media:control'
+  | 'notify:send'
+  | 'notify:channel'
+  | 'theme:read';
 
-// DRIFT-CORE-06 — Phase 11-deviation: full legacy capability list; v1.1 semantic only.
+// DRIFT-CORE-06 — Canonical 8-domain NIP-5D capability set (kept in content
+// sync with @kehto/acl/capabilities ALL_CAPABILITIES). The legacy signer
+// capability strings were dropped in Plan 12-10; no napplet-visible signing
+// surface remains under NIP-5D.
 export const ALL_CAPABILITIES: readonly Capability[] = [
   'relay:read', 'relay:write',
   'cache:read', 'cache:write',
   'hotkey:forward',
-  'sign:event', 'sign:nip04', 'sign:nip44',
   'state:read', 'state:write',
+  'identity:read',
+  'keys:bind', 'keys:forward',
+  'media:control',
+  'notify:send', 'notify:channel',
+  'theme:read',
 ] as const;
 
 // DRIFT-CORE-06 — Phase 11-deviation: kinds that required user consent before signing

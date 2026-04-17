@@ -1,13 +1,21 @@
 /**
- * @kehto/acl — NUB domain capability resolution.
+ * @kehto/acl — NUB domain capability resolution (8-domain canonical).
  *
- * Maps NUB message types (e.g., 'relay.subscribe') to the capability strings
- * required by both sender and recipient. This is the canonical source for
- * "which capability does this NUB operation require?" in the @kehto/acl package.
+ * Maps NUB message types (e.g., 'relay.subscribe', 'identity.getProfile') to
+ * the capability strings required by sender and recipient. This is the
+ * canonical source for "which capability does this NUB operation require?"
+ * in the @kehto/acl package.
+ *
+ * Canonical NIP-5D 8 domains: identity, keys, media, notify, relay,
+ * storage, ifc, theme. The v1.1 `signer` domain is REMOVED — getPublicKey/
+ * getRelays migrated to `identity`; signEvent/nip04/nip44 have no
+ * napplet-visible surface (shell handles encryption inside
+ * `relay.publishEncrypted`).
  *
  * Zero dependencies. No imports from @napplet/core or any external package.
  *
- * @see docs/ACL-MIGRATION.md section 2 — Capability Constant to NUB Domain Mapping
+ * @see packages/acl/src/capabilities.ts for cap string constants + ALL_CAPABILITIES.
+ * @see docs/ACL-MIGRATION.md section 2 — Capability Constant to NUB Domain Mapping.
  */
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -18,7 +26,7 @@
  * Compatible with NappletMessage from @napplet/core, but defined here
  * independently to maintain @kehto/acl's zero-dependency constraint.
  *
- * @param type - NUB message type, e.g. 'relay.subscribe', 'signer.signEvent'
+ * @param type - NUB message type, e.g. 'relay.subscribe', 'identity.getProfile'
  */
 export interface NubMessage {
   readonly type: string;
@@ -40,35 +48,159 @@ export interface CapabilityResolution {
   readonly recipientCap: string | null;
 }
 
+// ─── Per-domain resolvers ─────────────────────────────────────────────────────
+
+/**
+ * `relay.*` — split publish / publishEncrypted / read actions.
+ *
+ * - `publish`          → sender `relay:write`, recipient `relay:read`.
+ * - `publishEncrypted` → sender `relay:write`, recipient `null` (the shell
+ *   handles encryption internally; no napplet-visible recipient ACL check).
+ * - `subscribe` / `query` / `close` (and `.result` / `event` / `eose` /
+ *   `closed` / `publish.result` / `publishEncrypted.result`) → sender
+ *   `relay:read`, recipient `null`.
+ */
+function relayMap(action: string): CapabilityResolution {
+  if (action === 'publish') return { senderCap: 'relay:write', recipientCap: 'relay:read' };
+  if (action === 'publishEncrypted') return { senderCap: 'relay:write', recipientCap: null };
+  return { senderCap: 'relay:read', recipientCap: null };
+}
+
+/**
+ * `identity.*` — split shell-public reads from gated profile reads.
+ *
+ * - `getPublicKey` / `getRelays`            → `null`/`null` (shell-public info).
+ * - `getProfile` / `getFollows` / `getList` / `getZaps` / `getMutes` /
+ *   `getBlocked` / `getBadges` (and any other identity read) → sender
+ *   `identity:read`, recipient `null`.
+ */
+function identityMap(action: string): CapabilityResolution {
+  if (action === 'getPublicKey' || action === 'getRelays') {
+    return { senderCap: null, recipientCap: null };
+  }
+  return { senderCap: 'identity:read', recipientCap: null };
+}
+
+/**
+ * `keys.*` — split forwarding from binding lifecycle.
+ *
+ * - `forward` / `action`                                    → `keys:forward`.
+ * - `registerAction` / `unregisterAction` / `bindings`      → `keys:bind`.
+ */
+function keysMap(action: string): CapabilityResolution {
+  if (action === 'forward' || action === 'action') {
+    return { senderCap: 'keys:forward', recipientCap: null };
+  }
+  return { senderCap: 'keys:bind', recipientCap: null };
+}
+
+/**
+ * `notify.*` — split channel/permission registration from send/interaction.
+ *
+ * - `channel.register` / `permission.request` / `permission.result` → `notify:channel`.
+ * - `send` / `dismiss` / `badge` / `send.result` / `action` / `clicked` /
+ *   `dismissed` / `controls` (and any other notify action)          → `notify:send`.
+ */
+function notifyMap(action: string): CapabilityResolution {
+  if (
+    action === 'channel.register' ||
+    action === 'permission.request' ||
+    action === 'permission.result'
+  ) {
+    return { senderCap: 'notify:channel', recipientCap: null };
+  }
+  return { senderCap: 'notify:send', recipientCap: null };
+}
+
+/**
+ * `storage.*` — narrowed to the canonical 4 actions (get/keys/set/remove).
+ *
+ * - `get` / `keys`      → `state:read`.
+ * - `set` / `remove`    → `state:write`.
+ * - anything else (incl. the removed `clear`) → `null`/`null`. The runtime
+ *   storage handler rejects non-canonical actions before ACL resolution so
+ *   napplets see the explicit rejection rather than a misleading cap denial.
+ */
+function storageMap(action: string): CapabilityResolution {
+  if (action === 'get' || action === 'keys') return { senderCap: 'state:read', recipientCap: null };
+  if (action === 'set' || action === 'remove') return { senderCap: 'state:write', recipientCap: null };
+  return { senderCap: null, recipientCap: null };
+}
+
+/**
+ * `ifc.*` — topic + channel sub-protocol.
+ *
+ * - Write actions (`emit`, `channel.emit`, `channel.broadcast`) → sender
+ *   `relay:write`, recipient `relay:read`. Semantically equivalent to relay
+ *   publish: point-to-point or fan-out writes gate on relay-write at wire
+ *   level even though channel membership ACL is enforced at `channel.open`.
+ * - Read / control actions (`subscribe`, `unsubscribe`, `channel.open`,
+ *   `channel.list`, `channel.close`)                             → sender
+ *   `relay:read`, recipient `null`. Channel open-time ACL semantics: the
+ *   caller must already hold `relay:read`, and channel membership is
+ *   recorded by the ifc handler.
+ */
+function ifcMap(action: string): CapabilityResolution {
+  if (action === 'emit' || action === 'channel.emit' || action === 'channel.broadcast') {
+    return { senderCap: 'relay:write', recipientCap: 'relay:read' };
+  }
+  return { senderCap: 'relay:read', recipientCap: null };
+}
+
+/**
+ * `theme.*` — napplet read gate vs shell-initiated push.
+ *
+ * - `get` / `get.result` (and any other napplet-originated query) →
+ *   sender `theme:read`, recipient `null`.
+ * - `changed` (shell → napplet push)                              →
+ *   sender `null`, recipient `theme:read`. The push is gated against the
+ *   receiving napplet's cap so a napplet without `theme:read` never sees
+ *   the update.
+ *
+ * Note: theme's runtime/service wiring lands in Phase 13. The ACL gate is
+ * defined here in Phase 12 so the cap surface is canonical ahead of the
+ * runtime work.
+ */
+function themeMap(action: string): CapabilityResolution {
+  if (action === 'changed') return { senderCap: null, recipientCap: 'theme:read' };
+  return { senderCap: 'theme:read', recipientCap: null };
+}
+
 // ─── Resolution ───────────────────────────────────────────────────────────────
 
 /**
  * Resolve the capabilities required by a NUB message.
  *
- * Splits `msg.type` on '.' to obtain `[domain, action]`, then maps to
- * capability strings. Unknown domains return `null/null` (silently ignored).
+ * Splits `msg.type` on '.' to obtain `[domain, action]`, then dispatches to
+ * a per-domain mapper. Unknown domains return `null/null` (silently ignored).
  *
- * **NUB domain mapping table:**
+ * **NUB domain mapping table (8 canonical domains):**
  *
- * | Domain    | Action(s)                        | senderCap      | recipientCap   |
- * |-----------|----------------------------------|----------------|----------------|
- * | `relay`   | subscribe, query, close          | `relay:read`   | null           |
- * | `relay`   | publish                          | `relay:write`  | `relay:read`   |
- * | `signer`  | getPublicKey, getRelays          | null           | null           |
- * | `signer`  | signEvent                        | `sign:event`   | null           |
- * | `signer`  | nip04.*                          | `sign:nip04`   | null           |
- * | `signer`  | nip44.*                          | `sign:nip44`   | null           |
- * | `storage` | get, keys                        | `state:read`   | null           |
- * | `storage` | set, remove, clear               | `state:write`  | null           |
- * | `ifc`     | emit                             | `relay:write`  | `relay:read`   |
- * | `ifc`     | subscribe, listen                | `relay:read`   | null           |
- * | `theme`   | any                              | null           | null           |
- * | `signer`  | *all*                            | *(DEPRECATED — removed in Phase 12, DRIFT-ACL-05)* |                 |
- * | unknown   | any                              | null           | null           |
+ * | Domain     | Action(s)                                                    | senderCap       | recipientCap  |
+ * |------------|--------------------------------------------------------------|-----------------|---------------|
+ * | `relay`    | `subscribe`, `query`, `close`, results/pushes                | `relay:read`    | `null`        |
+ * | `relay`    | `publish`                                                    | `relay:write`   | `relay:read`  |
+ * | `relay`    | `publishEncrypted`                                           | `relay:write`   | `null`        |
+ * | `identity` | `getPublicKey`, `getRelays`                                 | `null`          | `null`        |
+ * | `identity` | `getProfile/getFollows/getList/getZaps/getMutes/...`        | `identity:read` | `null`        |
+ * | `keys`     | `forward`, `action`                                         | `keys:forward`  | `null`        |
+ * | `keys`     | `registerAction`, `unregisterAction`, `bindings`            | `keys:bind`     | `null`        |
+ * | `media`    | any                                                         | `media:control` | `null`        |
+ * | `notify`   | `channel.register`, `permission.request`, `permission.result` | `notify:channel`| `null`        |
+ * | `notify`   | `send`, `dismiss`, `badge`, `clicked`, `action`, ...        | `notify:send`   | `null`        |
+ * | `storage`  | `get`, `keys`                                               | `state:read`    | `null`        |
+ * | `storage`  | `set`, `remove`                                             | `state:write`   | `null`        |
+ * | `storage`  | any other (incl. removed `clear`)                           | `null`          | `null`        |
+ * | `ifc`      | `emit`, `channel.emit`, `channel.broadcast`                 | `relay:write`   | `relay:read`  |
+ * | `ifc`      | `subscribe`, `unsubscribe`, `channel.open/list/close`       | `relay:read`    | `null`        |
+ * | `theme`    | `get`, `get.result`                                         | `theme:read`    | `null`        |
+ * | `theme`    | `changed` (shell → napplet push)                            | `null`          | `theme:read`  |
+ * | unknown    | any                                                         | `null`          | `null`        |
  *
- * Note: `ifc` reuses `relay:read`/`relay:write` intentionally — inter-napplet
- * communication is semantically equivalent to relay publish/subscribe from an
- * ACL perspective. See docs/ACL-MIGRATION.md section 2 for rationale.
+ * The `signer` domain is REMOVED — signer messages fall through to the
+ * default null/null branch. `getPublicKey`/`getRelays` migrated to
+ * `identity`; napplet-visible signing does not exist in NIP-5D (shell
+ * signs internally for `relay.publishEncrypted`).
  *
  * @param msg - Message with a `type` field in NUB format (e.g., 'relay.subscribe')
  * @returns CapabilityResolution with senderCap and recipientCap (each may be null)
@@ -78,57 +210,40 @@ export interface CapabilityResolution {
  * resolveCapabilitiesNub({ type: 'relay.subscribe' })
  * // => { senderCap: 'relay:read', recipientCap: null }
  *
- * resolveCapabilitiesNub({ type: 'relay.publish' })
+ * resolveCapabilitiesNub({ type: 'relay.publishEncrypted' })
+ * // => { senderCap: 'relay:write', recipientCap: null }
+ *
+ * resolveCapabilitiesNub({ type: 'identity.getProfile' })
+ * // => { senderCap: 'identity:read', recipientCap: null }
+ *
+ * resolveCapabilitiesNub({ type: 'keys.forward' })
+ * // => { senderCap: 'keys:forward', recipientCap: null }
+ *
+ * resolveCapabilitiesNub({ type: 'ifc.channel.broadcast' })
  * // => { senderCap: 'relay:write', recipientCap: 'relay:read' }
+ *
+ * resolveCapabilitiesNub({ type: 'theme.changed' })
+ * // => { senderCap: null, recipientCap: 'theme:read' }
  *
  * resolveCapabilitiesNub({ type: 'signer.signEvent' })
- * // => { senderCap: 'sign:event', recipientCap: null }
- *
- * resolveCapabilitiesNub({ type: 'signer.getPublicKey' })
- * // => { senderCap: null, recipientCap: null }
- *
- * resolveCapabilitiesNub({ type: 'storage.get' })
- * // => { senderCap: 'state:read', recipientCap: null }
- *
- * resolveCapabilitiesNub({ type: 'storage.set' })
- * // => { senderCap: 'state:write', recipientCap: null }
- *
- * resolveCapabilitiesNub({ type: 'ifc.emit' })
- * // => { senderCap: 'relay:write', recipientCap: 'relay:read' }
- *
- * resolveCapabilitiesNub({ type: 'unknown.action' })
- * // => { senderCap: null, recipientCap: null }
+ * // => { senderCap: null, recipientCap: null }   // domain removed
  * ```
  */
 export function resolveCapabilitiesNub(msg: NubMessage): CapabilityResolution {
-  const [domain, action] = msg.type.split('.');
+  const dotIdx = msg.type.indexOf('.');
+  if (dotIdx === -1) return { senderCap: null, recipientCap: null };
+  const domain = msg.type.slice(0, dotIdx);
+  const action = msg.type.slice(dotIdx + 1);
+
   switch (domain) {
-    // DRIFT-ACL-06 — Phase 12: split publish vs publishEncrypted (publishEncrypted needs sign:nip44 composite gate)
-    case 'relay':
-      return action === 'publish'
-        ? { senderCap: 'relay:write', recipientCap: 'relay:read' }
-        : { senderCap: 'relay:read', recipientCap: null };
-    // DRIFT-ACL-05 — Phase 12: remove case 'signer' entirely; migrate getPublicKey/getRelays to identity; drop nip04/nip44/signEvent
-    case 'signer':
-      if (action === 'getPublicKey' || action === 'getRelays') {
-        return { senderCap: null, recipientCap: null };
-      }
-      if (action?.startsWith('nip04')) return { senderCap: 'sign:nip04', recipientCap: null };
-      if (action?.startsWith('nip44')) return { senderCap: 'sign:nip44', recipientCap: null };
-      return { senderCap: 'sign:event', recipientCap: null };
-    // DRIFT-ACL-08 — Phase 12: narrow to get/set/remove/keys only; drop storage.clear (not in @napplet/nub-storage)
-    case 'storage':
-      return (action === 'get' || action === 'keys')
-        ? { senderCap: 'state:read', recipientCap: null }
-        : { senderCap: 'state:write', recipientCap: null };
-    // DRIFT-ACL-07 — Phase 12: extend branch to cover channel.open/emit/broadcast/list/close (open-time ACL semantics)
-    case 'ifc':
-      return action === 'emit'
-        ? { senderCap: 'relay:write', recipientCap: 'relay:read' }
-        : { senderCap: 'relay:read', recipientCap: null };
-    case 'theme':
-      return { senderCap: null, recipientCap: null };
-    default:
-      return { senderCap: null, recipientCap: null };
+    case 'relay':    return relayMap(action);
+    case 'identity': return identityMap(action);
+    case 'keys':     return keysMap(action);
+    case 'media':    return { senderCap: 'media:control', recipientCap: null };
+    case 'notify':   return notifyMap(action);
+    case 'storage':  return storageMap(action);
+    case 'ifc':      return ifcMap(action);
+    case 'theme':    return themeMap(action);
+    default:         return { senderCap: null, recipientCap: null };
   }
 }

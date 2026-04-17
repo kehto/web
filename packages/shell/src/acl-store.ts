@@ -37,11 +37,19 @@ function aclKey(_pubkey: string, dTag: string, aggregateHash: string): string {
 
 const store = new Map<string, InternalAclEntry>();
 
-// Capability name to bit position mapping for bitfield conversion (matches @kehto/acl/types.ts)
+// Capability name to bit position mapping for bitfield conversion.
+// Plan 12-10: signer bit slots (32/64/128) reclaimed by the v1.2
+// identity:read / keys:bind / keys:forward caps. v1.1 persisted ACL
+// state with those bits is reinterpreted under the v1.2 surface —
+// acceptable because the v1.1 signer actions have no napplet-visible
+// surface in NIP-5D.
 const CAP_BITS: Record<string, number> = {
   'relay:read': 1, 'relay:write': 2, 'cache:read': 4, 'cache:write': 8,
-  'hotkey:forward': 16, 'sign:event': 32, 'sign:nip04': 64, 'sign:nip44': 128,
+  'hotkey:forward': 16,
+  'identity:read': 32, 'keys:bind': 64, 'keys:forward': 128,
   'state:read': 256, 'state:write': 512,
+  'media:control': 1024, 'notify:send': 2048, 'notify:channel': 4096,
+  'theme:read': 8192,
 };
 
 function capArrayToBitfield(caps: Capability[]): number {

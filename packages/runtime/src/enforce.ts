@@ -70,10 +70,10 @@ export function resolveCapabilities(msg: unknown[]): CapabilityResolution {
         return { senderCap: 'relay:write', recipientCap: null };
       }
 
-      // Signer request — needs sign:event capability
-      if (event.kind === BusKind.SIGNER_REQUEST) {
-        return { senderCap: 'sign:event', recipientCap: null };
-      }
+      // Plan 12-10: SIGNER_REQUEST branch deleted — canonical NIP-5D has no
+      // napplet-visible signing surface; the shell mediates encryption inside
+      // relay.publish / relay.publishEncrypted. BusKind.SIGNER_REQUEST events
+      // fall through to the generic "all other event kinds" branch below.
 
       // Hotkey forward — needs hotkey:forward capability
       if (event.kind === BusKind.HOTKEY_FORWARD) {
