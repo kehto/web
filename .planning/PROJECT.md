@@ -34,31 +34,26 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Shipped:** v1.1 — NIP-5D Migration Implementation (2026-04-07)
+**Shipped:** v1.2 — NIP-5D Conformance & Full NUB Coverage (2026-04-17)
 
-All 4 kehto packages updated to NIP-5D v0.1.0 envelope format. Clean break from NIP-01 arrays.
-- @kehto/acl: 2-segment identity keys, NUB domain resolution, migration utility (75 tests)
-- @kehto/runtime: NUB dispatch (envelope-only), AUTH removed, 4 domain handlers (61 tests)
-- @kehto/shell: Envelope-only guard, window.nostr injection, capability advertisement
-- @kehto/services: All 6 handlers migrated to NappletMessage format (34 tests)
+Kehto fully conforms to the canonical NIP-5D spec (`dskvr/nips` branch `nip/5d`) and covers all 8 napplet NUB domains end-to-end.
+- @kehto/acl: 8-domain `resolveCapabilitiesNub`, new `capabilities.ts` module with 14 capability constants; signer caps removed
+- @kehto/runtime: formal `createDispatch()` / `registerNub()` / `dispatch()` routing; 8 domains (identity, ifc, keys, media, notify, relay, storage, theme); shell-mediated `relay.publishEncrypted` via internal NIP-44 (default) / NIP-04 (opt-in)
+- @kehto/shell: `window.nostr` hard-removed (canonical MUST NOT), `perm:<permission>` namespace for sandbox permissions, `bridge.publishTheme(theme)` host-facing API, 5 per-domain proxies + keys-forwarder
+- @kehto/services: 4 new reference services (identity, keys, media, notify) + theme-service; signer-service deleted outright (sign/encrypt moved inside shell via relay.publishEncrypted)
 
-**Previous milestones:** v1.0 (migration docs), v1.1 (implementation)
+449 tests passing / 0 skipped; `pnpm build` + `type-check` green; 4 staged changesets at `.changeset/v1-2-*.md`.
 
-## Current Milestone: v1.2 NIP-5D Conformance & Full NUB Coverage
+**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage)
 
-**Goal:** Align @kehto packages with the current NIP-5D spec and consume every supported `@napplet/nub-*` package, closing the `theme` gap and adopting napplet/core's formal dispatch API.
+## Active
 
-**Target features:**
-- Audit kehto runtime/shell/acl/services against `napplet/specs/NIP-5D.md` and fix drift since the v0.1.0 snapshot
-- Add `@napplet/nub-{ifc,relay,signer,storage,theme}` as peer dependencies; replace hand-copied types with imported ones
-- Implement the missing `theme` NUB — runtime handler + reference service implementation
-- Adopt `createDispatch` / `registerNub` / `dispatch` from `@napplet/core` in place of the hand-rolled switch
-- Bump `"@napplet/core"` peer-dep range `>=0.1.0` → `^0.2.0` across all 4 packages; verify all 170 existing tests still pass
+No milestone currently active. Start the next cycle with `/gsd:new-milestone`.
 
-**Key context:**
-- napplet shipped v0.16.0 (Wire Format & NUB Architecture) and bumped all packages to 0.2.0
-- No authoritative NIP-5D copy lives in this repo — upstream is `napplet/specs/NIP-5D.md`
-- Peer-dep shape confirmed for all nub packages, matching the existing `@napplet/core` pattern
+## Known Tech Debt (carried into next milestone)
+
+- **DRIFT-CORE-06** — `packages/runtime/src/core-compat.ts` (98-line local shim) restores `@napplet/core` v0.1 legacy exports (`Capability`, `BusKind`, `ALL_CAPABILITIES`, `DESTRUCTIVE_KINDS`, `REPLAY_WINDOW_SECONDS`, `ServiceDescriptor`, `AUTH_KIND`, `SHELL_BRIDGE_URI`, `PROTOCOL_VERSION`, `TOPICS.STATE_*`). Deferred until `@napplet/core` restores the symbols upstream or a dedicated cleanup milestone addresses it.
+- **Release deferral** — `changeset version` / `changeset publish` blocked upstream by `@napplet/core` npm publication cadence.
 
 ## Key Decisions
 
@@ -67,6 +62,10 @@ All 4 kehto packages updated to NIP-5D v0.1.0 envelope format. Clean break from 
 | 1 | Separate repo (not monorepo subfolder) | Independent release cadence, different maintainers possible | 2026-04-06 |
 | 2 | @napplet/core as peer dep | Core types shared; @napplet publishes, @kehto consumes | 2026-04-06 |
 | 3 | Mirror @napplet tooling exactly | Consistency, easy contributor onboarding | 2026-04-06 |
+| 4 | Canonical NIP-5D source is `dskvr/nips` branch `nip/5d` | Single authoritative spec — napplet/specs is no longer the source of truth | 2026-04-17 |
+| 5 | Shell MUST NOT provide `window.nostr` | Canonical spec forbids napplet-visible signing; shell mediates all signing/encryption via `relay.publish`/`publishEncrypted` | 2026-04-17 |
+| 6 | `createDispatch()` + `registerNub()` from @napplet/core replaces hand-rolled switch | Spec dispatch contract rather than kehto reimplementation; per-runtime instance avoids cross-test pollution | 2026-04-17 |
+| 7 | Stub-level services for keys/media/notify (no real backends) | Host apps plug real backends via `runtime.registerService()`; kehto remains framework-agnostic reference | 2026-04-17 |
 
 ## Evolution
 
@@ -86,4 +85,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-17*
+*Last updated: 2026-04-17 after v1.2 milestone*

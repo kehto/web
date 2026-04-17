@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: — NIP-5D Conformance & Full NUB Coverage
 status: verifying
 stopped_at: "Completed 15-01-PLAN.md — v1.2 milestone validated: 4 changesets staged, legacy signer/BusKind test deleted, build+type-check+test green, DEPS-02/03 closed"
-last_updated: "2026-04-17T21:45:26.191Z"
+last_updated: "2026-04-17T21:50:31.933Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
