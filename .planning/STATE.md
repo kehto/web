@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — NIP-5D Conformance & Full NUB Coverage
 status: executing
-stopped_at: Completed 12-02-PLAN.md — SH-C02 satisfied, DRIFT-SHELL-02 closed
-last_updated: "2026-04-17T18:55:55.923Z"
+stopped_at: Completed 12-06-PLAN.md — NUB-06 satisfied, DRIFT-RT-03 + DRIFT-SVC-04 closed
+last_updated: "2026-04-17T19:02:32.655Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 15
-  completed_plans: 6
+  completed_plans: 7
   percent: 100
 ---
 
@@ -66,6 +66,7 @@ Progress: [██████████] 100% (Phase 10 plans complete — v1.
 | Phase 11 P02 | 11min | 3 tasks | 17 files |
 | Phase 12 P01 | 3 min | 2 tasks | 5 files |
 | Phase 12 P02 | 3min | 2 tasks | 3 files |
+| Phase 12 P06 | 3min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -98,6 +99,9 @@ Recent decisions affecting current work (full log in PROJECT.md):
 - [Phase 12]: vitest include pattern widened to packages/*/tests/** — establishes src/tests separation as a valid layout for future plans
 - [Phase 12]: Plan 12-02: ShellCapabilities JSDoc documents the canonical two-namespace supports() contract (bare names for nubs, perm:<permission> for sandbox); no shell-side supports() helper added (napplet shim computes locally)
 - [Phase 12]: Plan 12-02: Per-field JSDoc pattern — each ShellCapabilities array field documents its own prefix convention so violations are visible at the type-declaration site
+- [Phase 12]: Plan 12-06: media-service dispatches on full message.type literal (not action-suffix) to avoid dotIdx.slice pitfall with multi-segment types like 'media.session.create'
+- [Phase 12]: Plan 12-06: media-service coexists with legacy audio-service.ts — audio-service continues tracking audio:* ifc topics; media-service is the canonical nub-media NIP-5D envelope path
+- [Phase 12]: Plan 12-06: runtime fallback emits media.session.create.result even when no media service registered — guarantees napplets receive a reply envelope for the one media.* request type that expects one
 
 ### Blockers/Concerns
 
@@ -106,6 +110,6 @@ Recent decisions affecting current work (full log in PROJECT.md):
 
 ## Session Continuity
 
-Last session: 2026-04-17T18:55:55.920Z
-Stopped at: Completed 12-02-PLAN.md — SH-C02 satisfied, DRIFT-SHELL-02 closed
+Last session: 2026-04-17T19:02:32.652Z
+Stopped at: Completed 12-06-PLAN.md — NUB-06 satisfied, DRIFT-RT-03 + DRIFT-SVC-04 closed
 Resume: Run `/gsd:plan-phase 10` to begin Spec Conformance Audit.

@@ -79,7 +79,7 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
   - [ ] 12-03-PLAN.md — identity nub dispatch + identity-service (split/delete signer-service) (NUB-03, DRIFT-RT-01/06/07/10, DRIFT-SVC-01/02/07)
   - [ ] 12-04-PLAN.md — ifc channel sub-protocol routing + subscribe.result (NUB-04, DRIFT-RT-09)
   - [ ] 12-05-PLAN.md — keys nub dispatch + stub keys-service (NUB-05, DRIFT-RT-02, DRIFT-SVC-03)
-  - [ ] 12-06-PLAN.md — media nub dispatch + stub media-service (NUB-06, DRIFT-RT-03, DRIFT-SVC-04)
+  - [x] 12-06-PLAN.md — media nub dispatch + stub media-service (NUB-06, DRIFT-RT-03, DRIFT-SVC-04)
   - [ ] 12-07-PLAN.md — notify nub dispatch + stub notify-service (NUB-07, DRIFT-RT-04, DRIFT-SVC-05)
   - [ ] 12-08-PLAN.md — relay.publishEncrypted shell-mediated path (NUB-08, SH-C03, DRIFT-RT-08, DRIFT-SVC-08)
   - [ ] 12-09-PLAN.md — storage nub handler retrofit to canonical 4 actions (NUB-09, DRIFT-ACL-08 code-side)
@@ -124,7 +124,7 @@ Prior Phase 10 output (audit against 5-nub model + older napplet spec) was inval
 |-------|----------------|--------|-----------|
 | 10. Spec Conformance Audit | 2/2 | Complete    | 2026-04-17 |
 | 11. Nub Peer Deps & Type Imports | 2/2 | Complete    | 2026-04-17 |
-| 12. Shell Conformance & Seven-Nub Coverage | 2/11 | In Progress|  |
+| 12. Shell Conformance & Seven-Nub Coverage | 3/11 | In Progress|  |
 | 13. Theme Nub Implementation | 0/TBD | Not started | - |
 | 14. Dispatch Refactor | 0/TBD | Not started | - |
 | 15. Milestone Validation & Release Prep | 0/TBD | Not started | - |
