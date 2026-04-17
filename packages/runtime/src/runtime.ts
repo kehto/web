@@ -10,6 +10,8 @@
  */
 
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
+import { createDispatch } from '@napplet/core';
+import type { NubHandler } from '@napplet/core';
 // DRIFT-CORE-06 — Phase 11-deviation: Capability, BusKind, ALL_CAPABILITIES removed
 // from @napplet/core v0.2.0+ (napplet phase-87). Sourced from local core-compat shim.
 import type { Capability } from './core-compat.js';
@@ -1053,6 +1055,56 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     }
   }
 
+  // ─── NUB dispatch (Phase 14 / DISPATCH-01/02/03) ─────────────────────────
+  // Per-runtime createDispatch() instance — isolated from module-level singleton
+  // to match kehto's closed-over-state pattern (serviceRegistry, aclState, etc.).
+  // currentWindowId is set inside handleMessage() before nubDispatch.dispatch(),
+  // cleared via try/finally. Named adapters preserve stack traces on error paths.
+  let currentWindowId: string | null = null;
+  const nubDispatch = createDispatch();
+
+  const relayAdapter: NubHandler = (msg) => {
+    if (currentWindowId === null) return;
+    handleRelayMessage(currentWindowId, msg);
+  };
+  const identityAdapter: NubHandler = (msg) => {
+    if (currentWindowId === null) return;
+    handleIdentityMessage(currentWindowId, msg);
+  };
+  const keysAdapter: NubHandler = (msg) => {
+    if (currentWindowId === null) return;
+    handleKeysMessage(currentWindowId, msg);
+  };
+  const mediaAdapter: NubHandler = (msg) => {
+    if (currentWindowId === null) return;
+    handleMediaMessage(currentWindowId, msg);
+  };
+  const notifyAdapter: NubHandler = (msg) => {
+    if (currentWindowId === null) return;
+    handleNotifyMessage(currentWindowId, msg);
+  };
+  const storageAdapter: NubHandler = (msg) => {
+    if (currentWindowId === null) return;
+    handleStorageMessage(currentWindowId, msg);
+  };
+  const ifcAdapter: NubHandler = (msg) => {
+    if (currentWindowId === null) return;
+    handleIfcMessage(currentWindowId, msg);
+  };
+  const themeAdapter: NubHandler = (msg) => {
+    if (currentWindowId === null) return;
+    handleThemeMessage(currentWindowId, msg);
+  };
+
+  nubDispatch.registerNub('relay',    relayAdapter);
+  nubDispatch.registerNub('identity', identityAdapter);
+  nubDispatch.registerNub('keys',     keysAdapter);
+  nubDispatch.registerNub('media',    mediaAdapter);
+  nubDispatch.registerNub('notify',   notifyAdapter);
+  nubDispatch.registerNub('storage',  storageAdapter);
+  nubDispatch.registerNub('ifc',      ifcAdapter);
+  nubDispatch.registerNub('theme',    themeAdapter);
+
   // ─── Main message handler ────────────────────────────────────────────────
 
   function handleMessage(windowId: string, msg: unknown): void {
@@ -1061,8 +1113,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     const envelope = msg as NappletMessage;
     const dotIdx = envelope.type.indexOf('.');
     if (dotIdx === -1) return; // malformed type — no domain.action
-
-    const domain = envelope.type.slice(0, dotIdx);
 
     // ACL enforcement: resolve capability requirement, enforce if non-null
     const caps = resolveCapabilitiesNub(envelope);
@@ -1075,16 +1125,16 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
       }
     }
 
-    switch (domain) {
-      case 'relay':    return handleRelayMessage(windowId, envelope);
-      case 'identity': return handleIdentityMessage(windowId, envelope);
-      case 'keys':     return handleKeysMessage(windowId, envelope);
-      case 'media':    return handleMediaMessage(windowId, envelope);
-      case 'notify':   return handleNotifyMessage(windowId, envelope);
-      case 'storage':  return handleStorageMessage(windowId, envelope);
-      case 'ifc':      return handleIfcMessage(windowId, envelope);
-      case 'theme':    return handleThemeMessage(windowId, envelope);
-      default:         return; // unknown domain — silently drop per NIP-5D spec
+    // Phase 14 / DISPATCH-03: delegate to createDispatch() — no domain-specific
+    // branching. dispatch() returns false for unknown domains; matches the old
+    // switch default (silent drop per NIP-5D spec). currentWindowId is a runtime-
+    // scoped closure variable read by each adapter; try/finally ensures it is
+    // always cleared even if a handler throws.
+    currentWindowId = windowId;
+    try {
+      nubDispatch.dispatch(envelope);
+    } finally {
+      currentWindowId = null;
     }
   }
 
