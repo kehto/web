@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: NIP-5D Migration Implementation
-status: verifying
-stopped_at: Completed 09-02-PLAN.md
-last_updated: "2026-04-07T23:13:15.318Z"
-last_activity: 2026-04-07
+milestone: v1.2
+milestone_name: NIP-5D Conformance & Full NUB Coverage
+status: defining_requirements
+stopped_at: Milestone started — gathering requirements
+last_updated: "2026-04-17T00:00:00.000Z"
+last_activity: 2026-04-17
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 9
-  completed_plans: 9
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
   percent: 0
 ---
 
@@ -18,25 +18,25 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-07)
+See: .planning/PROJECT.md (updated 2026-04-17)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 09 — kehto-services-implementation
+**Current focus:** Milestone v1.2 — NIP-5D Conformance & Full NUB Coverage
 
 ## Current Position
 
-Phase: 09
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-04-07
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-17 — Milestone v1.2 started
 
-Progress: [----------] 0% (v1.1)
+Progress: [----------] 0% (v1.2)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0 (v1.1)
+- Total plans completed: 0 (v1.2)
 - Average duration: —
 - Total execution time: —
 
@@ -47,15 +47,6 @@ Progress: [----------] 0% (v1.1)
 | - | - | - | - |
 
 *Updated after each plan completion*
-| Phase 06-kehto-acl-implementation P02 | 2 | 2 tasks | 3 files |
-| Phase 06-kehto-acl-implementation P01 | 4 | 2 tasks | 8 files |
-| Phase 07-kehto-runtime-implementation P01 | 3 minutes | 2 tasks | 6 files |
-| Phase 07-kehto-runtime-implementation P02 | 5 minutes | 2 tasks | 4 files |
-| Phase 07-kehto-runtime-implementation P03 | 6 minutes | 2 tasks | 4 files |
-| Phase 08-kehto-shell-implementation P01 | 4 | 3 tasks | 6 files |
-| Phase 08-kehto-shell-implementation P02 | 2 | 3 tasks | 3 files |
-| Phase 09-kehto-services-implementation P01 | 8 | 2 tasks | 5 files |
-| Phase 09-kehto-services-implementation P02 | 3 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -98,6 +89,6 @@ Progress: [----------] 0% (v1.1)
 
 ## Session Continuity
 
-Last session: 2026-04-07T23:09:48.814Z
-Stopped at: Completed 09-02-PLAN.md
-Resume: Run `/gsd:plan-phase 6` to plan @kehto/acl Implementation
+Last session: 2026-04-17T00:00:00.000Z
+Stopped at: Milestone v1.2 started
+Resume: Run `/gsd:plan-phase 10` after roadmap is approved

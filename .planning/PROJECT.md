@@ -44,6 +44,22 @@ All 4 kehto packages updated to NIP-5D v0.1.0 envelope format. Clean break from 
 
 **Previous milestones:** v1.0 (migration docs), v1.1 (implementation)
 
+## Current Milestone: v1.2 NIP-5D Conformance & Full NUB Coverage
+
+**Goal:** Align @kehto packages with the current NIP-5D spec and consume every supported `@napplet/nub-*` package, closing the `theme` gap and adopting napplet/core's formal dispatch API.
+
+**Target features:**
+- Audit kehto runtime/shell/acl/services against `napplet/specs/NIP-5D.md` and fix drift since the v0.1.0 snapshot
+- Add `@napplet/nub-{ifc,relay,signer,storage,theme}` as peer dependencies; replace hand-copied types with imported ones
+- Implement the missing `theme` NUB — runtime handler + reference service implementation
+- Adopt `createDispatch` / `registerNub` / `dispatch` from `@napplet/core` in place of the hand-rolled switch
+- Bump `"@napplet/core"` peer-dep range `>=0.1.0` → `^0.2.0` across all 4 packages; verify all 170 existing tests still pass
+
+**Key context:**
+- napplet shipped v0.16.0 (Wire Format & NUB Architecture) and bumped all packages to 0.2.0
+- No authoritative NIP-5D copy lives in this repo — upstream is `napplet/specs/NIP-5D.md`
+- Peer-dep shape confirmed for all nub packages, matching the existing `@napplet/core` pattern
+
 ## Key Decisions
 
 | # | Decision | Rationale | Date |
@@ -70,4 +86,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-07*
+*Last updated: 2026-04-17*
