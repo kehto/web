@@ -9,7 +9,6 @@
  * Sequence diagram is added in Plan 05.
  */
 
-import { BusKind, TOPICS } from '@kehto/shell';
 import type { TappedMessage, MessageTap, DemoProtocolPath } from './shell-host.js';
 import { renderSequenceDiagram } from './sequence-diagram.js';
 
@@ -78,12 +77,15 @@ export function classifyTappedMessagePath(msg: TappedMessage): DemoProtocolPath 
     ? ((event?.tags as string[][] | undefined)?.find((tag) => tag[0] === 't')?.[1] ?? msg.parsed.topic)
     : msg.parsed.topic;
 
-  if (kind === BusKind.SIGNER_REQUEST) return 'signer-request';
-  if (kind === BusKind.SIGNER_RESPONSE) return 'signer-response';
-
-  if (kind === BusKind.IPC_PEER) {
-    if (topic === TOPICS.STATE_GET || topic === TOPICS.STATE_KEYS) return 'state-read';
-    if (topic === TOPICS.STATE_SET || topic === TOPICS.STATE_REMOVE || topic === TOPICS.STATE_CLEAR) return 'state-write';
+  // Signer-service was deleted in v1.2 — signer requests now flow through
+  // identity.*/relay.publish envelopes (17-03 rewires the path). For the
+  // interim tap (NIP-01 array shape), map kind 29003 (ipc) to ipc-send/ipc-receive
+  // by direction. All non-ipc kinds return `msg.direction === 'napplet->shell'
+  // ? 'relay-publish' : 'relay-subscribe'` (legacy fallback; 17-04 replaces
+  // this with envelope-based dispatch entirely).
+  if (kind === 29003) {
+    if (topic === 'shell:state-get' || topic === 'shell:state-keys') return 'state-read';
+    if (topic === 'shell:state-set' || topic === 'shell:state-remove' || topic === 'shell:state-clear') return 'state-write';
     return msg.direction === 'napplet->shell' ? 'ipc-send' : 'ipc-receive';
   }
 

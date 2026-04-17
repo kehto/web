@@ -10,7 +10,6 @@
  */
 
 import type { TappedMessage } from './shell-host.js';
-import { BusKind, TOPICS } from '@kehto/shell';
 import { demoConfig } from './demo-config.js';
 
 const VERB_COLORS: Record<string, string> = {
@@ -121,14 +120,8 @@ function formatLabel(msg: TappedMessage): string {
     case 'OK':
       return msg.parsed.success ? 'OK (accepted)' : 'OK (denied)';
     case 'EVENT':
-      if (event?.kind === BusKind.IPC_PEER) {
-        if (topic === TOPICS.STATE_GET || topic === TOPICS.STATE_KEYS) return `state read ${topic}`;
-        if (topic === TOPICS.STATE_SET || topic === TOPICS.STATE_REMOVE || topic === TOPICS.STATE_CLEAR) return `state write ${topic}`;
-        if (topic === 'chat:message' || topic === 'bot:response') return `ipc ${topic}`;
-        return `ipc ${topic ?? 'event'}`;
-      }
-      if (event?.kind === BusKind.SIGNER_REQUEST) return 'signer request';
-      if (event?.kind === BusKind.SIGNER_RESPONSE) return 'signer response';
+      // Legacy kind labels — 17-04 replaces with envelope `type` entirely.
+      if (event?.kind === 29003) return `ipc:${topic ?? 'unknown'}`;
       if (msg.parsed.topic) return `relay ${msg.parsed.topic}`;
       return `EVENT k:${msg.parsed.eventKind || '?'}`;
     case 'REQ':

@@ -5,7 +5,6 @@
  * architecture view.
  */
 
-import { BusKind } from '@kehto/shell';
 import type { MessageTap, TappedMessage } from './shell-host.js';
 import type { DemoTopology, EdgeFlasher } from './topology.js';
 import {
@@ -47,22 +46,8 @@ function getNappletName(topology: DemoTopology, windowId?: string): string | nul
 }
 
 function detectServiceTarget(topology: DemoTopology, msg: TappedMessage): string | null {
-  if (
-    (msg.parsed.eventKind === BusKind.SIGNER_REQUEST || msg.parsed.eventKind === BusKind.SIGNER_RESPONSE) &&
-    topology.services.includes('signer')
-  ) {
-    return 'signer';
-  }
-
-  // NEW: Detect signer errors via OK response with signer-related reason
-  if (
-    msg.verb === 'OK' &&
-    typeof msg.parsed.reason === 'string' &&
-    (msg.parsed.reason.includes('no signer') || msg.parsed.reason.includes('signer')) &&
-    topology.services.includes('signer')
-  ) {
-    return 'signer';
-  }
+  // Signer-service was deleted in v1.2; signer requests now flow through
+  // identity.*/relay.publish envelopes. No signer service node to target.
 
   // Notifications detection
   if (
