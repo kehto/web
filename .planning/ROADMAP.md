@@ -38,7 +38,9 @@
   1. A contributor can open kehto's repo and find the current NIP-5D spec at a single, documented location (local copy or versioned pointer to `napplet/specs/NIP-5D.md`).
   2. A written audit document lists every spec requirement that is not yet satisfied by @kehto/runtime, @kehto/shell, @kehto/acl, or @kehto/services, grouped by package.
   3. Every drift item in the audit has a concrete owning package and a one-line remediation note, so it can be fed directly into Phase 12 plans.
-**Plans**: TBD
+**Plans**: 2 plans
+  - [ ] 10-01-PLAN.md — Copy NIP-5D spec to `specs/NIP-5D.md` and document sync source in `README.md` (SPEC-01)
+  - [ ] 10-02-PLAN.md — Produce cross-package NIP-5D drift audit at `docs/v1.2-NIP-5D-AUDIT.md` (SPEC-02)
 
 ### Phase 11: Nub Peer Deps & Type Imports
 **Goal**: Kehto consumes napplet's new package graph — `@napplet/core@^0.2.0` plus all five `@napplet/nub-*` packages — and speaks their types directly instead of local duplicates.
@@ -98,7 +100,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 10. Spec Conformance Audit | 0/TBD | Not started | - |
+| 10. Spec Conformance Audit | 0/2 | Not started | - |
 | 11. Nub Peer Deps & Type Imports | 0/TBD | Not started | - |
 | 12. Four-Nub Full Coverage & Drift Fixes | 0/TBD | Not started | - |
 | 13. Theme Nub Implementation | 0/TBD | Not started | - |
