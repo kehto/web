@@ -41,10 +41,9 @@ export { createAudioService } from './audio-service.js';
 
 export { createNotificationService } from './notification-service.js';
 
-// ─── Signer Service ───────────────────────────────────────────────────────
-// DRIFT-SVC-01 — Phase 12: replace with createIdentityService re-export; drop createSignerService
-export { createSignerService } from './signer-service.js';
-export type { SignerServiceOptions } from './signer-service.js';
+// ─── Identity Service (NIP-5D identity NUB) ───────────────────────────────
+export { createIdentityService } from './identity-service.js';
+export type { IdentityServiceOptions } from './identity-service.js';
 
 // ─── Relay Pool Service ───────────────────────────────────────────────────
 export { createRelayPoolService } from './relay-pool-service.js';
