@@ -15,6 +15,7 @@ export default defineConfig({
     environment: 'node',
     include: [
       'packages/*/src/**/*.test.ts',
+      'packages/*/tests/**/*.test.ts',
       'tests/unit/**/*.test.ts',
     ],
     exclude: [
