@@ -9,7 +9,7 @@
 This phase produces two durable artifacts that feed the rest of milestone v1.2:
 
 1. An authoritative NIP-5D spec reference inside this repo.
-2. A cross-package audit document that inventories every way @kehto/acl, @kehto/runtime, @kehto/shell, and @kehto/services drift from that spec, plus from the message surface exposed by the five `@napplet/nub-*` packages (ifc, relay, signer, storage, theme).
+2. A cross-package audit document that inventories every way @kehto/acl, @kehto/runtime, @kehto/shell, and @kehto/services drift from that spec, plus from the message surface exposed by the eight `@napplet/nub-*` packages (identity, ifc, keys, media, notify, relay, storage, theme).
 
 No runtime code changes in this phase — drift fixes are deferred to Phase 12 (and theme work to Phase 13). This is a documentation/analysis phase whose output drives downstream phase plans.
 
@@ -47,7 +47,8 @@ No runtime code changes in this phase — drift fixes are deferred to Phase 12 (
 - `docs/GAP-ANALYSIS.md` (v1.0, 567 lines) — precedent for cross-package, spec-vs-code style audits.
 - `docs/{ACL,RUNTIME,SHELL,SERVICES}-MIGRATION.md` — precedent for per-package analysis with fix-level granularity.
 - `napplet/specs/NIP-5D.md` — authoritative spec (upstream).
-- `napplet/packages/nubs/{ifc,relay,signer,storage,theme}/src/types.ts` — source of truth for every NUB message surface.
+- `/home/sandwich/Develop/napplet/packages/nubs/{identity,ifc,keys,media,notify,relay,storage,theme}/src/types.ts` — source of truth for every NUB message surface (8 domains; pnpm workspace target for `@napplet/nub-*` peer deps).
+- `specs/NIP-5D.md` (synced from `https://github.com/dskvr/nips/tree/nip/5d`, the canonical source) — authoritative spec text. Major changes vs. the prior snapshot: `window.nostr` MUST NOT be provided by the shell; `shell.supports()` uses the `perm:<permission>` namespace for sandbox permissions; signing and encryption are fully mediated by the shell (no napplet-side `signer.*` messages — signing is implicit in `relay.publish` / `relay.publishEncrypted`).
 
 ### Established Patterns
 - Kehto docs live under `docs/` and use markdown tables for structured findings.

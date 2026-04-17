@@ -1,12 +1,18 @@
 # Requirements: v1.2 NIP-5D Conformance & Full NUB Coverage
 
 **Milestone:** v1.2
-**Defined:** 2026-04-17
-**Status:** Roadmapped (phases 10–15)
+**Defined:** 2026-04-17 (rescoped after canonical spec sync + 8-nub napplet reconciliation)
+**Status:** Draft (pending roadmap)
 
 ## Overview
 
-Align @kehto with the current NIP-5D spec (as maintained in `napplet/specs/NIP-5D.md`), consume every `@napplet/nub-*` package as a peer dependency, implement the missing `theme` domain, and adopt napplet/core's formal dispatch infrastructure.
+Align @kehto with the **canonical NIP-5D spec** (maintained at `https://github.com/dskvr/nips/tree/nip/5d`, synced to `specs/NIP-5D.md`), consume every `@napplet/nub-*` package as a peer dependency (8 domains total: identity, ifc, keys, media, notify, relay, storage, theme), implement the missing `theme` domain end-to-end, reverse the v1.1 `window.nostr` injection decision to match canonical spec, and adopt napplet/core's formal dispatch infrastructure.
+
+**Scope changes from pre-rescope draft:**
+- Canonical NIP-5D now forbids shell-provided `window.nostr` — v1.1 `SH-I02` is now spec-violating and must be removed (new `SH-C01` requirement)
+- Napplet protocol split the former `signer` domain: read-only identity info moved to `identity`, signing/encryption became implicit in `relay.publish` / `relay.publishEncrypted` (no napplet-side `signer.*` messages exist)
+- New domains `keys` (keyboard actions — NOT crypto), `media` (MediaSession API), `notify` (notifications) must be covered
+- `shell.supports()` sandbox permission names now use the `perm:<permission>` namespace
 
 **REQ-ID format:** `[CATEGORY]-[NUMBER]`
 
@@ -14,38 +20,51 @@ Align @kehto with the current NIP-5D spec (as maintained in `napplet/specs/NIP-5
 
 ## Category 1: NIP-5D Spec Conformance (SPEC)
 
-- [x] **SPEC-01**: kehto repo carries an authoritative reference to the current NIP-5D spec (local copy or versioned pointer to `napplet/specs/NIP-5D.md`)
-- [x] **SPEC-02**: Cross-package audit documents every NIP-5D requirement not yet satisfied by kehto (runtime, shell, acl, services)
-- [ ] **SPEC-03**: All drift items identified by SPEC-02 are resolved in code
+- [ ] **SPEC-01**: kehto repo carries an authoritative reference to the current NIP-5D spec (local copy at `specs/NIP-5D.md`, synced from the canonical source `https://github.com/dskvr/nips/tree/nip/5d`)
+- [ ] **SPEC-02**: Cross-package audit documents every NIP-5D requirement not yet satisfied by @kehto/runtime, @kehto/shell, @kehto/acl, or @kehto/services (grouped by package; includes nub-package message surface coverage)
+- [ ] **SPEC-03**: All drift items identified by SPEC-02 that are not covered by SHELL/NUB/DISPATCH-specific requirements are resolved in code
 
-## Category 2: NUB Package Adoption (NUB)
+## Category 2: Shell Conformance (SHELL)
 
-- [ ] **NUB-01**: `@napplet/nub-ifc`, `@napplet/nub-relay`, `@napplet/nub-signer`, `@napplet/nub-storage`, and `@napplet/nub-theme` are declared as peer dependencies on the relevant kehto packages
-- [ ] **NUB-02**: Hand-copied NUB message type and constant definitions in kehto are replaced with imports from the respective `@napplet/nub-*` package
-- [ ] **NUB-03**: Every message type exported by `@napplet/nub-ifc` (emit, subscribe, unsubscribe, event, and channel.* sub-protocol) is dispatched by @kehto/runtime and handled by the reference service
-- [ ] **NUB-04**: Every message type exported by `@napplet/nub-relay` is dispatched and produces the corresponding result/event envelope
-- [ ] **NUB-05**: Every message type exported by `@napplet/nub-signer` (getPublicKey, signEvent, getRelays, nip04/44 encrypt/decrypt + results) is dispatched and handled
-- [ ] **NUB-06**: Every message type exported by `@napplet/nub-storage` is dispatched and produces the corresponding result envelope
-- [ ] **NUB-07**: @kehto/acl capability mapping covers the full message surface exposed by each `@napplet/nub-*` package
+Driven by spec deltas in the canonical NIP-5D.
 
-## Category 3: Theme NUB Implementation (THEME)
+- [ ] **SH-C01**: @kehto/shell does **NOT** provide `window.nostr` to napplet iframes (reverses v1.1 `SH-I02`). Any `window.nostr` injection code in the shell-side bridge is removed; tests asserting injection are deleted or replaced.
+- [ ] **SH-C02**: `shell.supports()` uses the `perm:<permission>` namespace for sandbox permissions (e.g., `shell.supports('perm:popups')` replaces `shell.supports('popups')`). NUB-capability lookups retain the bare name.
+- [ ] **SH-C03**: @kehto/shell mediates signing and encryption via `relay.publish` / `relay.publishEncrypted` — napplets have no code path that exposes raw signing keys or plaintext of encrypted payloads.
 
-- [ ] **THEME-01**: @kehto/runtime registers a `theme` dispatch route that accepts `theme.get` and returns `theme.get.result`
-- [ ] **THEME-02**: @kehto/services provides a reference theme service that handles `theme.get` and broadcasts `theme.changed` on updates
-- [ ] **THEME-03**: @kehto/shell exposes an adapter API for the hosting application to publish theme changes to registered napplets
-- [ ] **THEME-04**: @kehto/acl enforces capability gates for the `theme` domain consistent with the other four nubs
+## Category 3: NUB Package Adoption (NUB)
 
-## Category 4: Dispatch Refactor (DISPATCH)
+All 8 napplet nub packages are consumed as peer deps and fully handled.
 
-- [ ] **DISPATCH-01**: @kehto/runtime creates its dispatcher via `createDispatch()` from @napplet/core instead of the hand-rolled switch
-- [ ] **DISPATCH-02**: All five nub domain handlers are registered via `registerNub()`
+- [ ] **NUB-01**: `@napplet/nub-identity`, `@napplet/nub-ifc`, `@napplet/nub-keys`, `@napplet/nub-media`, `@napplet/nub-notify`, `@napplet/nub-relay`, `@napplet/nub-storage`, and `@napplet/nub-theme` are declared as peer dependencies on every `@kehto/*` package (uniform rule; types-only consumption)
+- [ ] **NUB-02**: Hand-copied NUB message type and constant definitions in kehto are replaced with imports from the respective `@napplet/nub-*` package. Old `signer.*` local types are deleted; consumers migrate to `identity.*` (read-only nostr identity info) and `relay.publish` / `relay.publishEncrypted` (signing/encryption via shell mediation).
+- [ ] **NUB-03**: Every message type exported by `@napplet/nub-identity` (`getPublicKey`, `getRelays`, `getProfile`, `getFollows`, `getList`, `getZaps`, `getMutes`, `getBlocked`, `getBadges`, plus their `.result` envelopes) is dispatched by @kehto/runtime and answered by a reference service
+- [ ] **NUB-04**: Every message type exported by `@napplet/nub-ifc` (topic + channel sub-protocol: `emit`, `subscribe`, `subscribe.result`, `unsubscribe`, `event`, `channel.open`, `channel.open.result`, `channel.emit`, `channel.event`, `channel.broadcast`, `channel.list`, `channel.list.result`, `channel.close`, `channel.closed`) is dispatched and handled
+- [ ] **NUB-05**: Every message type exported by `@napplet/nub-keys` (`forward`, `register`, `unregister`, `register.result`, `bindings`, `action`) is dispatched and handled
+- [ ] **NUB-06**: Every message type exported by `@napplet/nub-media` (session `create`/`update`/`destroy`, `state`, `capabilities`, `command`, `controls`, `create.result`) is dispatched and handled
+- [ ] **NUB-07**: Every message type exported by `@napplet/nub-notify` (`send`, `dismiss`, `badge`, `channel.register`, `permission.request`, `send.result`, `permission.result`, `action`, `clicked`, `dismissed`, `controls`) is dispatched and handled
+- [ ] **NUB-08**: Every message type exported by `@napplet/nub-relay` (`subscribe`, `close`, `publish`, `publishEncrypted`, `query`, `event`, `eose`, `closed`, `publish.result`, `publishEncrypted.result`, `query.result`) is dispatched and produces the spec-correct envelope. Signing and NIP-44 encryption are handled internally by the shell before the event reaches the wire.
+- [ ] **NUB-09**: Every message type exported by `@napplet/nub-storage` (`get`, `set`, `remove`, `keys`, plus their `.result` envelopes) is dispatched and handled
+- [ ] **NUB-10**: @kehto/acl capability mapping covers the full message surface exposed by each `@napplet/nub-*` package across all 8 domains
+
+## Category 4: Theme NUB Implementation (THEME)
+
+- [ ] **TH-01**: @kehto/runtime registers a `theme` dispatch route that accepts `theme.get` and returns `theme.get.result`
+- [ ] **TH-02**: @kehto/services provides a reference theme service that handles `theme.get` and broadcasts `theme.changed` on updates
+- [ ] **TH-03**: @kehto/shell exposes an adapter API for the hosting application to publish theme changes to registered napplets
+- [ ] **TH-04**: @kehto/acl enforces capability gates for the `theme` domain consistent with the other seven nubs
+
+## Category 5: Dispatch Refactor (DISPATCH)
+
+- [ ] **DISPATCH-01**: @kehto/runtime creates its dispatcher via `createDispatch()` from @napplet/core instead of a hand-rolled switch
+- [ ] **DISPATCH-02**: All eight nub domain handlers are registered via `registerNub()` at runtime startup
 - [ ] **DISPATCH-03**: Inbound envelope routing in `runtime.ts` delegates to `dispatch()` with no domain-specific branching
 
-## Category 5: Peer Dep Upgrade (DEPS)
+## Category 6: Peer Dep Upgrade (DEPS)
 
 - [ ] **DEPS-01**: `@napplet/core` peer-dep range is bumped from `>=0.1.0` to `^0.2.0` across @kehto/acl, @kehto/runtime, @kehto/shell, and @kehto/services
 - [ ] **DEPS-02**: Changeset entries are added for each kehto package that is republished in this milestone
-- [ ] **DEPS-03**: All existing tests pass against `@napplet/core@0.2.0` and the new `@napplet/nub-*` peer deps
+- [ ] **DEPS-03**: All existing tests pass against `@napplet/core@0.2.0` and the eight `@napplet/nub-*` peer deps; tests tied to removed `signer.*` functionality are migrated to `identity.*` / `relay.publishEncrypted` semantics or deleted with rationale
 
 ---
 
@@ -54,46 +73,54 @@ Align @kehto with the current NIP-5D spec (as maintained in `napplet/specs/NIP-5
 Items intentionally deferred beyond v1.2:
 
 - Publishing `@napplet/core` (and thus a stable kehto) to npm — blocked by upstream napplet release cadence
-- CI/CD pipeline — listed as a standing blocker; not part of this milestone
-- Additional nub domains not yet defined in `@napplet/*` — will be picked up as those packages land
+- CI/CD pipeline — standing blocker; not part of this milestone
+- Additional nub domains beyond the current eight — picked up as those packages land upstream
 
 ## Out of Scope
 
 Explicit exclusions for v1.2:
 
-- New product features beyond the five existing NUB domains — **why:** this milestone is a conformance/catch-up pass, not a feature expansion
-- Backwards compatibility with the pre-envelope NIP-01 array format — **why:** clean break was completed in v1.1 and is not being re-litigated
+- New product features beyond the eight current NUB domains — **why:** this milestone is a conformance/catch-up pass, not a feature expansion
+- Backwards compatibility with the pre-envelope NIP-01 array format — **why:** clean break completed in v1.1; not being re-litigated
 - Migration from peer deps to bundled deps — **why:** user confirmed peer-dep shape to mirror the `@napplet/core` pattern
-- Reshuffling kehto package boundaries (e.g., splitting services into per-NUB packages) — **why:** current 4-package split is stable; re-architecture would exceed milestone scope
+- Reshuffling kehto package boundaries — **why:** current 4-package split is stable; re-architecture would exceed milestone scope
+- Reintroducing a kehto-side `signer` compatibility shim — **why:** canonical NIP-5D eliminates napplet-visible signing; shell-mediated publish is the only path
+- Keeping `window.nostr` injection for host-application convenience — **why:** canonical spec explicitly forbids it (MUST NOT), and any convenience path would violate the sandbox security model
 
 ---
 
 ## Traceability
 
+*(Populated by gsd-roadmapper after phase mapping)*
+
 | Requirement | Phase |
 |-------------|-------|
-| SPEC-01 | Phase 10 |
-| SPEC-02 | Phase 10 |
-| SPEC-03 | Phase 12 |
-| NUB-01 | Phase 11 |
-| NUB-02 | Phase 11 |
-| NUB-03 | Phase 12 |
-| NUB-04 | Phase 12 |
-| NUB-05 | Phase 12 |
-| NUB-06 | Phase 12 |
-| NUB-07 | Phase 12 |
-| THEME-01 | Phase 13 |
-| THEME-02 | Phase 13 |
-| THEME-03 | Phase 13 |
-| THEME-04 | Phase 13 |
-| DISPATCH-01 | Phase 14 |
-| DISPATCH-02 | Phase 14 |
-| DISPATCH-03 | Phase 14 |
-| DEPS-01 | Phase 11 |
-| DEPS-02 | Phase 15 |
-| DEPS-03 | Phase 15 |
-
-**Coverage:** 20/20 requirements mapped — no orphans, no duplicates.
+| SPEC-01 | — |
+| SPEC-02 | — |
+| SPEC-03 | — |
+| SH-C01 | — |
+| SH-C02 | — |
+| SH-C03 | — |
+| NUB-01 | — |
+| NUB-02 | — |
+| NUB-03 | — |
+| NUB-04 | — |
+| NUB-05 | — |
+| NUB-06 | — |
+| NUB-07 | — |
+| NUB-08 | — |
+| NUB-09 | — |
+| NUB-10 | — |
+| TH-01 | — |
+| TH-02 | — |
+| TH-03 | — |
+| TH-04 | — |
+| DISPATCH-01 | — |
+| DISPATCH-02 | — |
+| DISPATCH-03 | — |
+| DEPS-01 | — |
+| DEPS-02 | — |
+| DEPS-03 | — |
 
 ---
-*Last updated: 2026-04-17*
+*Last updated: 2026-04-17 (rescoped after canonical NIP-5D sync + 8-nub reconciliation)*

@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — NIP-5D Conformance & Full NUB Coverage
-status: verifying
-stopped_at: Completed 10-02-PLAN.md (cross-package NIP-5D audit)
-last_updated: "2026-04-17T10:04:30.330Z"
+status: roadmapped
+stopped_at: Rescope complete — ready to plan Phase 10 against canonical spec + 8-nub napplet
+last_updated: "2026-04-17T11:00:00.000Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
-  completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
   percent: 0
 ---
 
@@ -21,25 +21,25 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-17)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 10 — spec-conformance-audit
+**Current focus:** Phase 10 — spec-conformance-audit (rescoped against canonical NIP-5D + 8-nub napplet)
 
 ## Current Position
 
-Phase: 11
+Phase: 10
 Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-04-17
+Status: Rescoped and roadmapped, ready to re-run Phase 10
+Last activity: 2026-04-17 — milestone rescoped after canonical spec sync (`dskvr/nips` nip/5d) and 8-nub reconciliation
 
 Progress: [----------] 0% (v1.2)
 
-## Milestone v1.2 Phases
+## Milestone v1.2 Phases (rescoped)
 
 | # | Phase | Requirements |
 |---|-------|--------------|
 | 10 | Spec Conformance Audit | SPEC-01, SPEC-02 |
 | 11 | Nub Peer Deps & Type Imports | DEPS-01, NUB-01, NUB-02 |
-| 12 | Four-Nub Full Coverage & Drift Fixes | SPEC-03, NUB-03, NUB-04, NUB-05, NUB-06, NUB-07 |
-| 13 | Theme Nub Implementation | THEME-01, THEME-02, THEME-03, THEME-04 |
+| 12 | Shell Conformance & Seven-Nub Coverage | SPEC-03, SH-C01, SH-C02, SH-C03, NUB-03, NUB-04, NUB-05, NUB-06, NUB-07, NUB-08, NUB-09, NUB-10 |
+| 13 | Theme Nub Implementation | TH-01, TH-02, TH-03, TH-04 |
 | 14 | Dispatch Refactor | DISPATCH-01, DISPATCH-02, DISPATCH-03 |
 | 15 | Milestone Validation & Release Prep | DEPS-02, DEPS-03 |
 
