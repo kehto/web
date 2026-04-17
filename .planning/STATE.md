@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: — NIP-5D Conformance & Full NUB Coverage
 status: verifying
 stopped_at: Completed 11-02-PLAN.md — Phase 11 ready for verification
-last_updated: "2026-04-17T14:18:52.401Z"
+last_updated: "2026-04-17T14:27:05.703Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
@@ -25,8 +25,8 @@ See: .planning/PROJECT.md (updated 2026-04-17)
 
 ## Current Position
 
-Phase: 11 (nub-peer-deps-type-imports) — EXECUTING
-Plan: 2 of 2
+Phase: 12
+Plan: Not started
 Status: Phase complete — ready for verification
 Last activity: 2026-04-17
 
