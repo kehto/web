@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — NIP-5D Conformance & Full NUB Coverage
-status: executing
-stopped_at: Completed 10-01-PLAN.md (spec snapshot + README)
-last_updated: "2026-04-17T09:50:54.842Z"
+status: verifying
+stopped_at: Completed 10-02-PLAN.md (cross-package NIP-5D audit)
+last_updated: "2026-04-17T10:00:45.254Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-17)
 
 Phase: 10 (spec-conformance-audit) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-17
 
 Progress: [----------] 0% (v1.2)
@@ -59,6 +59,7 @@ Progress: [----------] 0% (v1.2)
 
 *Updated after each plan completion*
 | Phase 10 P01 | 4min | 2 tasks | 2 files |
+| Phase 10 P02 | 6min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,9 @@ Recent decisions affecting current work (full log in PROJECT.md):
 - [v1.2 roadmap] Theme (Phase 13) is sequenced after Phase 11 but independent of Phase 12 — can parallelize once nub-theme types are available.
 - [Phase 10]: Provenance header for synced specs is exactly 6 lines so 'tail -n +7 specs/NIP-5D.md' yields upstream byte-identical content — drift detection reduces to a single diff command.
 - [Phase 10]: Top-level README's ## Specification section is the canonical pointer to the pinned spec + upstream URL; keeps the repo root README minimal (30 lines) while satisfying SPEC-01.
+- [Phase 10]: 24 stable DRIFT-* IDs documented in docs/v1.2-NIP-5D-AUDIT.md — 15 Phase 12, 5 Phase 13, 4 Phase 14; every ID cites packages/<pkg>/src/<file>.ts:<line> or an absence site
+- [Phase 10]: Audit established six-column drift table shape as kehto v1.3+ spec-conformance precedent; IDs never renumber, new NUBs append new DRIFT-* rows
+- [Phase 10]: storage.clear is a kehto unilateral extension (not in @napplet/nub-storage) — DRIFT-SVC-06 removes it from NUB dispatch; internal cleanupNappState helper remains for lifecycle cleanup
 
 ### Blockers/Concerns
 
@@ -82,6 +86,6 @@ Recent decisions affecting current work (full log in PROJECT.md):
 
 ## Session Continuity
 
-Last session: 2026-04-17T09:50:54.839Z
-Stopped at: Completed 10-01-PLAN.md (spec snapshot + README)
+Last session: 2026-04-17T10:00:45.251Z
+Stopped at: Completed 10-02-PLAN.md (cross-package NIP-5D audit)
 Resume: Run `/gsd:plan-phase 10` to begin Spec Conformance Audit.
