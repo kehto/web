@@ -65,3 +65,9 @@ export type { KeysServiceOptions } from './keys-service.js';
 // ─── Media Service (NIP-5D media NUB — stub) ──────────────────────────────
 export { createMediaService } from './media-service.js';
 export type { MediaServiceOptions } from './media-service.js';
+
+// ─── Notify Service (NIP-5D notify NUB — stub) ────────────────────────────
+// Coexists with createNotificationService above (legacy ifc-emit path).
+// See notify-service.ts JSDoc for the coexistence contract.
+export { createNotifyService } from './notify-service.js';
+export type { NotifyServiceOptions } from './notify-service.js';
