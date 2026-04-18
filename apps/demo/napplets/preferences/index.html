@@ -74,6 +74,19 @@
       color: #555;
       font-size: 10px;
     }
+    #preferences-theme-applied {
+      color: #888;
+      font-size: 10px;
+      padding: 2px 4px;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 2px;
+    }
+    .theme-applied-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 0;
+    }
   </style>
 </head>
 <body>
@@ -91,6 +104,10 @@
     </div>
     <div class="preferences-row">
       <button id="preferences-save-btn">Save</button>
+    </div>
+    <div class="theme-applied-row">
+      <span style="color:#888;font-size:10px">theme:</span>
+      <span id="preferences-theme-applied"></span>
     </div>
     <div id="preferences-log"></div>
   </div>
