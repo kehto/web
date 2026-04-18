@@ -37,6 +37,6 @@ Three legacy fixtures were deleted in v1.3 Phase 21 (E2E-09):
 
 - `auth-napplet/` — used `window.addEventListener('message')` + NIP-01 `['OK', challenge, success]` arrays. Incompatible with v1.2 NIP-5D shell.
 - `publish-napplet/` — used NIP-01 array dispatch + raw `window.napplet.relay.publish`. Replaced by `nub-relay/` (Plan 21-02).
-- `pure-napplet/` — HTML stub with no JS, kept only for AUTH-timing tests in `tests/e2e/lifecycle.spec.ts` which now live under `test.describe.skip(...)` blocks pending v1.4 cleanup.
+- `pure-napplet/` — HTML stub with no JS, kept only for AUTH-timing tests in `tests/e2e/lifecycle.spec.ts` (spec file itself deleted in Phase 22-07).
 
-All seven specs that loaded these fixtures (`lifecycle`, `routing`, `replay`, `acl-matrix-state`, `acl-matrix-relay`, `acl-lifecycle`, `acl-enforcement`) wear `test.describe.skip(...)` markers explicitly citing "Phase 21 (E2E-09) — requires fixture napplet migration to NIP-5D protocol." Their coverage is replaced by the eight new `nub-*.spec.ts` Layer-A specs (Plans 21-03 + 21-04).
+All seven specs that loaded these fixtures (`lifecycle`, `routing`, `replay`, `acl-matrix-state`, `acl-matrix-relay`, `acl-lifecycle`, `acl-enforcement`) carried `test.describe.skip(...)` markers citing "Phase 21 (E2E-09) — requires fixture napplet migration to NIP-5D protocol." The spec files themselves were deleted in **Phase 22-07 (E2E-10)** per Phase 21-01's "cleanliness > backward compat" precedent — migrating them would duplicate the eight new `nub-*.spec.ts` Layer-A specs (Plans 21-03 + 21-04) which now own that coverage.

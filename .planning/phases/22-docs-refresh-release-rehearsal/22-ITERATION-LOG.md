@@ -640,3 +640,107 @@ Existing v1-2-*.md changesets untouched (the 4 v1.2 minor-bump changesets from R
 **CLOSED — 4 v1.3 changesets staged at `.changeset/v1-3-{acl,runtime,shell,services}.md`; each has valid YAML frontmatter declaring `@kehto/<pkg>: patch`; bodies cite ≥1 DEMO-/NAP-/E2E-/DOCS- requirement ID (3/5/6/4 citations respectively); anti-term grep returns 0 matches; `pnpm changeset status` parses all 4 alongside the 4 existing v1-2-*.md; `pnpm build` clean post-stage.**
 
 ---
+
+## E2E-10 — Zero Skipped Specs Gate
+
+**Command:** `pnpm test:e2e`
+**Executed:** 2026-04-18T13:25:19Z
+
+### Deleted legacy spec files (7)
+
+Per Phase 21-01 precedent (D-02 option (a): legacy fixtures deleted, not migrated), the 7 legacy spec files that loaded `auth-napplet` / `publish-napplet` / `pure-napplet` were removed rather than un-skipped or rewritten. Fixtures were deleted in Phase 21-01; the specs were unrunnable by design.
+
+| File | Prior test count | Prior state | Reason |
+|------|-----|----|----|
+| `tests/e2e/acl-enforcement.spec.ts` | 9 | `test.describe.skip` | Loaded nonexistent `auth-napplet` fixture |
+| `tests/e2e/acl-lifecycle.spec.ts` | 14 | `test.describe.skip` | Loaded nonexistent `auth-napplet` fixture |
+| `tests/e2e/acl-matrix-relay.spec.ts` | 9 | `test.describe.skip` | Loaded nonexistent `auth-napplet` fixture |
+| `tests/e2e/acl-matrix-state.spec.ts` | 14 | `test.describe.skip` | Loaded nonexistent `auth-napplet` fixture |
+| `tests/e2e/lifecycle.spec.ts` | 5 | `test.describe.skip` | Loaded nonexistent `pure-napplet`/`auth-napplet` fixture |
+| `tests/e2e/replay.spec.ts` | 5 | `test.describe.skip` | Loaded nonexistent `auth-napplet` fixture |
+| `tests/e2e/routing.spec.ts` | 9 | `test.describe.skip` | Loaded nonexistent `auth-napplet` fixture |
+
+Total: 65 legacy test cases removed (verification reported 68 — close discrepancy likely due to test.fixme or nested describe.skip counting).
+
+Deletion performed via `git rm` (atomic, reversible via git). Pre-delete confirmation for each file:
+- `grep 'auth-napplet\|publish-napplet\|pure-napplet' $f` → matches
+- `grep 'test\.describe\.skip' $f` → matches
+
+### Coverage preservation audit
+
+- **ACL enforcement / lifecycle / matrix** → Active coverage in `acl-revoke-relay-write.spec.ts`, `acl-revoke-storage-write.spec.ts` (E2E-08) + `demo-node-inspector.spec.ts` + `demo-audit-correctness.spec.ts` (E2E-06). Layer-A runtime ACL correctness also lives at unit-test level (`packages/acl`).
+- **Lifecycle (AUTH handshake)** → Active coverage in `napplet-auth.spec.ts` (E2E-07) + `nub-*.spec.ts` (E2E-09) — v1.2 AUTH handshake via NIP-5D envelopes.
+- **Replay** → Runtime's internal replay-detector unit tests + denial paths in `acl-revoke-*.spec.ts` (denial proves replay-window enforcement).
+- **Routing** → `ifc-roundtrip.spec.ts` (bot↔chat routing), `nub-ifc.spec.ts` (Layer-A ifc protocol), `demo-debugger.spec.ts` (envelope-type string routing evidence).
+
+No protocol-correctness gap is opened.
+
+### External-reference audit
+
+Grep across `tests/`, `playwright.config.ts`, `package.json`, `.planning/` (excluding phase 16/21-iteration-log/22 historical records) found one doc-truth reference updated inline:
+
+- `tests/fixtures/napplets/README.md` — updated lines 40+42 to reflect post-deletion reality (previously said specs "wear `test.describe.skip(...)` markers"; now documents Phase 22-07 spec-file deletion per Phase 21-01 precedent). Rule 2 auto-update (doc accuracy).
+
+`tests/e2e/harness/harness.ts` line 10 JSDoc example mentions `auth-napplet` illustratively inside a `@example`-style comment block (`__loadNapplet__('auth-napplet')`). Per plan's explicit directive this was left as-is — it's an API usage illustration inside a comment, not a runtime dependency, and the plan's "do NOT edit harness.ts" rule applies.
+
+Apparent match in `tests/e2e/notify-lifecycle.spec.ts` is a false positive: the spec's own header comment references its own filename `notify-lifecycle.spec.ts` (substring-match on `lifecycle.spec`). No action taken.
+
+### Spec-file inventory after deletion
+
+```
+$ ls tests/e2e/*.spec.ts | wc -l
+26
+```
+
+Was 33 (before deletion), now 26 (33 - 7 = 26). Matches expected count.
+
+### `test.describe.skip` marker audit
+
+```
+$ ! grep -rEq 'test\.describe\.skip' tests/e2e/*.spec.ts && echo "PASS"
+PASS
+```
+
+Zero `test.describe.skip` markers remain in `tests/e2e/*.spec.ts` (B4-negated-grep pattern per plan's `<verify>` block).
+
+### Post-deletion `pnpm test:e2e` output (verbatim tail)
+
+```
+  ✓  36 [chromium] › tests/e2e/relay-publish-encrypted.spec.ts:32:1 › composer with encrypted toggle dispatches relay.publishEncrypted envelope (2.3s)
+  ✓  38 [chromium] › tests/e2e/relay-publish.spec.ts:36:1 › composer dispatches relay.publish envelope visible in debugger (2.5s)
+  ✓  39 [chromium] › tests/e2e/relay-subscribe.spec.ts:31:1 › feed napplet subscribes and renders 5 fixture events from mock relay pool (2.6s)
+  ✓  37 [chromium] › tests/e2e/demo-notification-service.spec.ts:54:1 › notify.read decrements unread count (2.9s)
+  ✓  41 [chromium] › tests/e2e/theme-broadcast.spec.ts:33:1 › clicking theme-switcher dark button propagates theme.changed to preferences napplet (2.8s)
+  ✓  42 [chromium] › tests/e2e/demo-node-inspector.spec.ts:62:1 › service node (notifications) shows service-role content (2.5s)
+  ✓  40 [chromium] › tests/e2e/storage-persist.spec.ts:31:1 › preferences round-trips display-name and theme-preference across page.reload() (3.6s)
+  ✓  43 [chromium] › tests/e2e/relay-publish.spec.ts:78:1 › composer with encrypted toggle dispatches relay.publishEncrypted envelope (1.4s)
+  ✓  44 [chromium] › tests/e2e/demo-notification-service.spec.ts:64:1 › notify.dismiss removes item from inspector (1.4s)
+  ✓  45 [chromium] › tests/e2e/demo-node-inspector.spec.ts:69:1 › inspector open/close via node click and close button (1.2s)
+  ✓  46 [chromium] › tests/e2e/demo-notification-service.spec.ts:73:1 › no anti-term in captured console output (1.5s)
+  ✓  47 [chromium] › tests/e2e/demo-node-inspector.spec.ts:79:1 › no anti-term in console output during inspector interactions (1.6s)
+
+  47 passed (18.4s)
+```
+
+Exit code: 0.
+
+**Final: 47 passed / 0 failed / 0 skipped / 18.4s**
+
+Compared to Phase 21-05 baseline (`47 passed / 0 failed / 68 skipped`): same 47 active pass count — this plan eliminated the 68-skipped count by deleting the legacy specs, not by disabling any active test. No runtime/source changes required.
+
+### Build regression spot-check
+
+```
+$ pnpm build
+ Tasks:    20 successful, 20 total
+Cached:    20 cached, 20 total
+  Time:    43ms >>> FULL TURBO
+```
+
+Build clean post-delete (fully cached — source bundles untouched; deletions are test-only).
+
+### E2E-10 Status
+
+**CLOSED — zero skipped specs; full suite green (47 passed, 0 failed, 0 skipped, 18.4s); Phase 22 Success Criterion 1 satisfied; ROADMAP Phase 22 "zero skipped specs" verifiably met; REQUIREMENTS.md E2E-10 gate cleared.**
+
+---
