@@ -156,6 +156,31 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     aclId: 'toaster-acl',
     frameContainerId: 'toaster-frame-container',
   },
+  // Phase 20 (Plan 20-06): feed/profile-viewer/theme-switcher complete the 8-napplet showcase.
+  // statusId values match the INNER iframe sentinel from each napplet's index.html.
+  // The outer topology card shows 'loading...' until the inner iframe sets its own sentinel
+  // via the D-04 init pattern; Layer-B specs assert via frameLocator (not outer placeholder).
+  {
+    name: 'feed',
+    label: 'feed',
+    statusId: 'feed-status',
+    aclId: 'feed-acl',
+    frameContainerId: 'feed-frame-container',
+  },
+  {
+    name: 'profile-viewer',
+    label: 'profile-viewer',
+    statusId: 'profile-status',
+    aclId: 'profile-viewer-acl',
+    frameContainerId: 'profile-viewer-frame-container',
+  },
+  {
+    name: 'theme-switcher',
+    label: 'theme-switcher',
+    statusId: 'theme-status',
+    aclId: 'theme-switcher-acl',
+    frameContainerId: 'theme-switcher-frame-container',
+  },
 ];
 
 export const DEMO_PROTOCOL_PATHS: DemoPathAuditEntry[] = [
@@ -413,6 +438,27 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
     },
   });
   _themeServiceBundle = themeServiceBundle;
+
+  // ─── NAP-09 COVERAGE GATE (Phase 20) ──────────────────────────────────────
+  // After Phase 20, the demo exercises 6 non-stub NUB domains end-to-end:
+  //   identity (profile-viewer — Plan 20-03)
+  //   ifc      (chat + bot — Phase 18)
+  //   notify   (toaster — Phase 19)
+  //   relay    (composer publish — Phase 19, feed subscribe — Plan 20-02)
+  //   storage  (preferences — Phase 19)
+  //   theme    (theme-switcher + preferences observer — Plans 20-04/05)
+  //
+  // keys and media remain stub-only (STUB_ONLY_SERVICES above). Real backends
+  // are deferred to v1.4+ because:
+  //   - keys requires a real host-side hotkey forwarding system (no reference
+  //     implementation in @kehto/services; current createKeysService logs to
+  //     console for topology visibility only)
+  //   - media requires a real audio playback backend (no reference implementation;
+  //     current createMediaService accepts session create/update/destroy calls
+  //     for topology visibility only)
+  // Corresponding napplets (hotkey-chord, media-controller) are in the v1.4+
+  // backlog. Topology still renders keys + media nodes with a stub-only badge
+  // so the 8-domain map remains visible to the demo audience.
   const services = {
     identity: createIdentityService({
       getSigner,
