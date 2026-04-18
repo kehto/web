@@ -4,7 +4,7 @@ milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: verifying
 stopped_at: Completed 20-08-PLAN.md (Phase 20 closure — E2E-11 gate green)
-last_updated: "2026-04-18T10:08:55.520Z"
+last_updated: "2026-04-18T10:12:25.283Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
@@ -25,8 +25,8 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 ## Current Position
 
-Phase: 20 (Expanded-Domain Napplets) — EXECUTING
-Plan: 8 of 8
+Phase: 21
+Plan: Not started
 Status: Phase complete — ready for verification
 Last activity: 2026-04-18
 
