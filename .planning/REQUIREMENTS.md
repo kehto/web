@@ -26,7 +26,7 @@ v1.3 is a **consume-and-showcase** milestone. No `@kehto/*` protocol changes. Th
 
 Demo host (`apps/demo/src/*`) wired to canonical v1.2 APIs.
 
-- [ ] **DEMO-01**: Demo boots clean — no `window.nostr` references, no signer-service, no legacy BusKind in demo source; all 8 service nodes visible in topology on load.
+- [x] **DEMO-01**: Demo boots clean — no `window.nostr` references, no signer-service, no legacy BusKind in demo source; all 8 service nodes visible in topology on load.
 - [ ] **DEMO-02**: Signer modal + NIP-46 client (`signer-demo.ts`, `signer-modal.ts`, `signer-connection.ts`, `nip46-client.ts`) use canonical `identity.*` reads + `relay.publish` / `relay.publishEncrypted` paths only. No `window.nostr` fallback path exists.
 - [ ] **DEMO-03**: ACL panel (grant/revoke), ACL modal, ACL history ring buffer are functional against v1.2 `ShellAdapter.acl` hooks; user can grant/revoke any capability on any napplet and see the change reflected in napplet behavior.
 - [x] **DEMO-04**: Debugger tap (`debugger.ts`) displays NIP-5D envelope `type` strings (e.g., `relay.publish`, `storage.getItem.result`) — not NIP-01 verbs, not BusKind constants.
@@ -112,7 +112,7 @@ No `changeset publish` — that is deferred until `@napplet/core` publishes to n
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| DEMO-01 | Phase 17 | Pending |
+| DEMO-01 | Phase 17 | Complete |
 | DEMO-02 | Phase 17 | Pending |
 | DEMO-03 | Phase 17 | Pending |
 | DEMO-04 | Phase 17 | Complete |
