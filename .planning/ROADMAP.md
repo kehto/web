@@ -173,4 +173,4 @@
 | 19. Core-Domain Napplets | v1.3 | 7/7 | Complete    | 2026-04-18 |
 | 20. Expanded-Domain Napplets | v1.3 | 8/8 | Complete    | 2026-04-18 |
 | 21. Fixture Napplets & Layer-A Specs | v1.3 | 5/5 | Complete    | 2026-04-18 |
-| 22. Docs Refresh & Release Rehearsal | v1.3 | 3/3 | Complete   | 2026-04-18 |
+| 22. Docs Refresh & Release Rehearsal | v1.3 | 4/8 | In Progress|  |

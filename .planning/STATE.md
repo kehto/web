@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: verifying
-stopped_at: Completed 22-02-PLAN.md (package READMEs + @example coverage)
-last_updated: "2026-04-18T11:38:42.200Z"
+stopped_at: Completed 22-04-PLAN.md (REL-01 publint + REL-02 attw clean; 22-ITERATION-LOG.md created)
+last_updated: "2026-04-18T12:26:24.798Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
-  completed_phases: 7
-  total_plans: 38
-  completed_plans: 38
+  completed_phases: 6
+  total_plans: 43
+  completed_plans: 39
   percent: 0
 ---
 
@@ -97,6 +97,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 22-docs-refresh-release-rehearsal P01 | 2min | 2 tasks | 4 files |
 | Phase 22-docs-refresh-release-rehearsal P03 | 2min | 2 tasks | 8 files |
 | Phase 22-docs-refresh-release-rehearsal P22-02 | 7min | 2 tasks | 5 files |
+| Phase 22 P04 | 3min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -188,6 +189,9 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 22-docs-refresh-release-rehearsal]: 7-section canonical v1.2 README skeleton locked across all 4 @kehto/* packages — uniform Title/Install/Overview/Quick Start/Public API/API Reference/License structure
 - [Phase 22-docs-refresh-release-rehearsal]: 22-02 runtime Compat Re-exports section describes the DRIFT-CORE-06 bundle in prose rather than enumerating identifiers inline — keeps READMEs anti-term-clean while preserving the mandatory compat disclosure; typedoc reference carries the exact identifier list
 - [Phase 22-docs-refresh-release-rehearsal]: 22-02 PendingUpdate type now re-exported from @kehto/shell index — resolves 22-01 handoff typedoc warning; 0 typedoc warnings after 22-02
+- [Phase 22]: [22-04] REL-01 + REL-02 both closed on first pass with zero package.json fixes — canonical ESM-only shape (type:module, exports map with types before import, files:[dist], sideEffects:false) is already publint-clean and attw-clean across all 4 @kehto/* packages.
+- [Phase 22]: [22-04] attw --pack flag kept (Claude's-discretion per W1) — runs npm pack + inspects packed tarball, mirroring real-publish semantics; D-04 mandates only --profile esm-only, --pack is safer default for rehearsal.
+- [Phase 22]: [22-04] 22-ITERATION-LOG.md idempotency pattern: grep '^## REL-0X — tool' before appending each section — enables safe re-execution; REL-03/REL-04 plans reuse this pattern.
 
 ### Blockers/Concerns
 
@@ -196,6 +200,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T11:38:42.197Z
-Stopped at: Completed 22-02-PLAN.md (package READMEs + @example coverage)
+Last session: 2026-04-18T12:26:24.795Z
+Stopped at: Completed 22-04-PLAN.md (REL-01 publint + REL-02 attw clean; 22-ITERATION-LOG.md created)
 Resume: `/gsd:plan-phase 16`
