@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: executing
-stopped_at: Completed 20-expanded-domain-napplets/20-05-PLAN.md
-last_updated: "2026-04-18T09:18:42.391Z"
+stopped_at: Completed 20-expanded-domain-napplets/20-03-PLAN.md
+last_updated: "2026-04-18T09:18:52.310Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
@@ -141,6 +141,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 19-core-domain-napplets]: nub-relay publish() must handle relay.publish.error — ACL denial sends relay.publish.error (distinct type), not relay.publish.result with error field; Promise must guard both types
 - [Phase 19-core-domain-napplets]: Turbo cache must be busted when fixing packages in external workspace (napplet/); the turbo input hash excludes external paths and silently restores stale build artifacts
 - [Phase 20-expanded-domain-napplets]: Preferences napplet has exactly 1 window.addEventListener occurrence (D-USER-02 SDK gap exemption, paralleling toaster Plan 19-03 precedent); Plan 20-07 anti-term grep must exempt both toaster and preferences
+- [Phase 20-expanded-domain-napplets]: identity.getPublicKey + identity.getProfile called exactly once each (functional invocations); JSDoc comments and log strings also reference them but are not functional calls
+- [Phase 20-expanded-domain-napplets]: truncatePubkey('') === 'no-pubkey' is the spec-assertable sentinel for no-signer case in identity-flow.spec.ts (Plan 20-07)
 
 ### Blockers/Concerns
 
@@ -149,6 +151,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T09:18:38.845Z
-Stopped at: Completed 20-expanded-domain-napplets/20-05-PLAN.md
+Last session: 2026-04-18T09:18:52.307Z
+Stopped at: Completed 20-expanded-domain-napplets/20-03-PLAN.md
 Resume: `/gsd:plan-phase 16`
