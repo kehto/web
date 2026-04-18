@@ -46,10 +46,22 @@ function getNappletName(topology: DemoTopology, windowId?: string): string | nul
 }
 
 function detectServiceTarget(topology: DemoTopology, msg: TappedMessage): string | null {
-  // Signer-service was deleted in v1.2; signer requests now flow through
-  // identity.*/relay.publish envelopes. No signer service node to target.
+  // Envelope-shape: route by domain prefix.
+  if (msg.envelopeType) {
+    const domain = msg.parsed.domain ?? msg.envelopeType.split('.')[0];
+    // identity envelopes touch the identity service node.
+    // Signer node updates separately via signer-connection state.
+    if (domain === 'identity' && topology.services.includes('identity')) return 'identity';
+    if (domain === 'notify' && topology.services.includes('notifications')) return 'notifications';
+    if (domain === 'keys' && topology.services.includes('keys')) return 'keys';
+    if (domain === 'media' && topology.services.includes('media')) return 'media';
+    if (domain === 'theme' && topology.services.includes('theme')) return 'theme';
+    if (domain === 'storage' && topology.services.includes('storage')) return 'storage';
+    if (domain === 'relay' && topology.services.includes('relay')) return 'relay';
+    return null;
+  }
 
-  // Notifications detection
+  // Legacy NIP-01 fallback — notifications topic detection retained.
   if (
     typeof msg.parsed.topic === 'string' &&
     msg.parsed.topic.startsWith('notifications:') &&
@@ -61,6 +73,9 @@ function detectServiceTarget(topology: DemoTopology, msg: TappedMessage): string
 }
 
 function isNotificationTopic(msg: TappedMessage): boolean {
+  // Envelope-shape: domain === 'notify'
+  if (msg.envelopeType) return msg.parsed.domain === 'notify';
+  // Legacy NIP-01: topic string
   return typeof msg.parsed.topic === 'string' && msg.parsed.topic.startsWith('notifications:');
 }
 
@@ -226,15 +241,17 @@ export function initFlowAnimator(tap: MessageTap, topology: DemoTopology, edgeFl
     }
 
     totalMessages++;
-    if (!counters[msg.verb]) counters[msg.verb] = { in: 0, out: 0, blocked: 0 };
-    if (isBlocked) counters[msg.verb].blocked++;
-    else if (msg.direction === 'napplet->shell') counters[msg.verb].out++;
-    else counters[msg.verb].in++;
+    // Group by envelope type when available, otherwise by NIP-01 verb
+    const counterKey = msg.envelopeType ?? msg.verb;
+    if (!counters[counterKey]) counters[counterKey] = { in: 0, out: 0, blocked: 0 };
+    if (isBlocked) counters[counterKey].blocked++;
+    else if (msg.direction === 'napplet->shell') counters[counterKey].out++;
+    else counters[counterKey].in++;
     renderCounters();
 
-    // Log notification service activity with the exact topic string
+    // Log notification service activity with the envelope type or topic string
     if (isNotificationTopic(msg) && flowLog) {
-      const topicLabel = msg.parsed.topic ?? 'notifications:?';
+      const topicLabel = msg.envelopeType ?? msg.parsed.topic ?? 'notifications:?';
       const existing = flowLog.querySelector(`[data-notif-topic="${topicLabel}"]`);
       if (!existing) {
         const entry = document.createElement('div');

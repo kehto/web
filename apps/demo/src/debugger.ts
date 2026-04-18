@@ -24,6 +24,7 @@ const VERB_COLORS: Record<string, string> = {
   CLOSED: '#ff3b3b',   // red
   COUNT: '#00f0ff',    // blue
   SYSTEM: '#ff00ff',   // pink (for ACL changes)
+  ENVELOPE: '#00f0ff', // cyan — NIP-5D envelope-shape messages
   UNKNOWN: '#555555',  // dim gray
 };
 
@@ -62,6 +63,32 @@ function pathFromReason(reason?: string): DemoProtocolPath | null {
 }
 
 export function classifyTappedMessagePath(msg: TappedMessage): DemoProtocolPath | null {
+  // Envelope-shape messages: dispatch on envelope domain + action
+  if (msg.envelopeType) {
+    const [domain, action] = msg.envelopeType.split('.', 2);
+    if (domain === 'identity') return 'identity-request';
+    if (domain === 'relay') {
+      if (action === 'publish' || action === 'publishEncrypted') return 'relay-publish';
+      if (action === 'subscribe' || action === 'event' || action === 'eose') return 'relay-subscribe';
+      return msg.direction === 'napplet->shell' ? 'relay-publish' : 'relay-subscribe';
+    }
+    if (domain === 'storage') {
+      if (action === 'getItem' || action === 'keys' || action === 'getItem.result' || action === 'keys.result') return 'state-read';
+      if (action === 'setItem' || action === 'removeItem' || action === 'clear') return 'state-write';
+      return 'state-read';
+    }
+    if (domain === 'ifc') {
+      return msg.direction === 'napplet->shell' ? 'ipc-send' : 'ipc-receive';
+    }
+    if (domain === 'notify') return 'ipc-receive';
+    if (domain === 'theme' || domain === 'keys' || domain === 'media') {
+      return msg.direction === 'napplet->shell' ? 'ipc-send' : 'ipc-receive';
+    }
+    if (domain === 'shell') return 'auth';
+    return null;
+  }
+
+  // Legacy NIP-01 fallback (retained for any residual array traffic)
   if (msg.verb === 'AUTH') return 'auth';
   if (msg.verb === 'REQ' || msg.verb === 'EOSE' || msg.verb === 'CLOSE' || msg.verb === 'CLOSED') {
     return 'relay-subscribe';
@@ -77,12 +104,8 @@ export function classifyTappedMessagePath(msg: TappedMessage): DemoProtocolPath 
     ? ((event?.tags as string[][] | undefined)?.find((tag) => tag[0] === 't')?.[1] ?? msg.parsed.topic)
     : msg.parsed.topic;
 
-  // Signer-service was deleted in v1.2 — signer requests now flow through
-  // identity.*/relay.publish envelopes (17-03 rewires the path). For the
-  // interim tap (NIP-01 array shape), map kind 29003 (ipc) to ipc-send/ipc-receive
-  // by direction. All non-ipc kinds return `msg.direction === 'napplet->shell'
-  // ? 'relay-publish' : 'relay-subscribe'` (legacy fallback; 17-04 replaces
-  // this with envelope-based dispatch entirely).
+  // Signer-service was deleted in v1.2; legacy NIP-01 kind 29003 (ipc) dispatch retained
+  // for any residual array traffic from old shims.
   if (kind === 29003) {
     if (topic === 'shell:state-get' || topic === 'shell:state-keys') return 'state-read';
     if (topic === 'shell:state-set' || topic === 'shell:state-remove' || topic === 'shell:state-clear') return 'state-write';
@@ -351,6 +374,13 @@ export class NappletDebugger extends HTMLElement {
     });
   }
 
+  private getRowLabel(msg: TappedMessage): string {
+    // Envelope-shape messages: show literal envelope type string (e.g. "relay.publish")
+    if (msg.envelopeType) return msg.envelopeType;
+    // Legacy NIP-01 array: show verb
+    return msg.verb;
+  }
+
   private addMessage(msg: TappedMessage): void {
     // Always store for sequence diagram (regardless of filters)
     this.allMessages.push(msg);
@@ -375,12 +405,13 @@ export class NappletDebugger extends HTMLElement {
 
       const color = VERB_COLORS[msg.verb] || VERB_COLORS.UNKNOWN;
       const arrow = DIRECTION_ARROWS[msg.direction] || '???';
+      const label = this.getRowLabel(msg);
       const detail = this.formatDetail(msg);
 
       el.innerHTML = `
         <span class="log-time">${time}</span>
         <span class="log-dir" style="color:${color}">${arrow}</span>
-        <span class="log-verb" style="color:${color}">${msg.verb}</span>
+        <span class="log-verb" style="color:${color}">${label}</span>
         <span class="log-detail">${detail}</span>
       `;
 
@@ -461,11 +492,12 @@ export class NappletDebugger extends HTMLElement {
         } as Intl.DateTimeFormatOptions);
         const color = VERB_COLORS[msg.verb] || VERB_COLORS.UNKNOWN;
         const arrow = DIRECTION_ARROWS[msg.direction] || '???';
+        const label = this.getRowLabel(msg);
         const detail = this.formatDetail(msg);
         el.innerHTML = `
           <span class="log-time">${time}</span>
           <span class="log-dir" style="color:${color}">${arrow}</span>
-          <span class="log-verb" style="color:${color}">${msg.verb}</span>
+          <span class="log-verb" style="color:${color}">${label}</span>
           <span class="log-detail">${detail}</span>
         `;
         this.logContainer.appendChild(el);

@@ -23,6 +23,7 @@ const VERB_COLORS: Record<string, string> = {
   CLOSED: '#ff3b3b',
   COUNT: '#00f0ff',
   SYSTEM: '#ff00ff',
+  ENVELOPE: '#00f0ff',
 };
 
 const LANE_NAMES = ['Chat', 'Shell', 'Bot'];
@@ -31,6 +32,13 @@ const LANE_PCTS = [0.15, 0.50, 0.85]; // percentage of width
 const ARROW_HEAD_SIZE = 7;
 
 function getLanePct(msg: TappedMessage): { from: number; to: number } {
+  // Envelope messages — all currently shell↔napplet (no ifc in envelope form yet for demo scope).
+  if (msg.envelopeType) {
+    return msg.direction === 'napplet->shell'
+      ? { from: LANE_PCTS[0], to: LANE_PCTS[1] }
+      : { from: LANE_PCTS[1], to: LANE_PCTS[0] };
+  }
+  // Legacy NIP-01 branches (unchanged)
   if (msg.direction === 'napplet->shell') {
     if (msg.parsed.topic === 'bot:response') {
       return { from: LANE_PCTS[2], to: LANE_PCTS[1] };
