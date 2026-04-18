@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: executing
-stopped_at: Completed 20-expanded-domain-napplets/20-04-PLAN.md
-last_updated: "2026-04-18T09:19:41.701Z"
+stopped_at: Completed 20-expanded-domain-napplets/20-02-PLAN.md
+last_updated: "2026-04-18T09:23:47.298Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 30
-  completed_plans: 26
+  completed_plans: 27
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 20 (Expanded-Domain Napplets) — EXECUTING
-Plan: 5 of 8
+Plan: 6 of 8
 Status: Ready to execute
 Last activity: 2026-04-18
 
@@ -85,6 +85,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 20-expanded-domain-napplets P03 | 118 | 2 tasks | 5 files |
 | Phase 20-expanded-domain-napplets P01 | 2 | 2 tasks | 2 files |
 | Phase 20-expanded-domain-napplets P04 | 176 | 2 tasks | 5 files |
+| Phase 20-expanded-domain-napplets P02 | 190 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -148,6 +149,7 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 20-expanded-domain-napplets]: NostrEvent/NostrFilter imported from @kehto/shell re-export (not direct @napplet/core dep) in mock-relay-pool.ts — avoids dedupe risk (Pitfall 4)
 - [Phase 20-expanded-domain-napplets]: queueMicrotask dispatch for onevent/oneose in mock relay pool — events delivered after subscribe() returns, matching real relay async behavior
 - [Phase 20-expanded-domain-napplets]: theme-switcher is OUTBOUND-ONLY: no window message listener installed; dispatchTheme() is the single window.parent.postMessage call site; 0 window.addEventListener per Plan 20-07 anti-term rule
+- [Phase 20-expanded-domain-napplets]: feed napplet has 0 window.addEventListener — relay.subscribe is a native SDK call, no postMessage exemption needed (unlike toaster/preferences); Plan 20-07 anti-term grep must assert exactly 0 for feed
 
 ### Blockers/Concerns
 
@@ -156,6 +158,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T09:19:41.698Z
-Stopped at: Completed 20-expanded-domain-napplets/20-04-PLAN.md
+Last session: 2026-04-18T09:23:47.295Z
+Stopped at: Completed 20-expanded-domain-napplets/20-02-PLAN.md
 Resume: `/gsd:plan-phase 16`
