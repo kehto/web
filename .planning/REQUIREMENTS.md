@@ -43,7 +43,7 @@ Migrate legacy napplets to `@napplet/sdk`; expand with single-purpose napplets u
 
 - [x] **NAP-01**: `apps/demo/napplets/bot` migrated to `@napplet/sdk` envelope API; no raw `window.addEventListener('message')`; exercises `ifc` + `storage` domains.
 - [x] **NAP-02**: `apps/demo/napplets/chat` migrated to `@napplet/sdk` (kept under `chat/` or renamed to `multiplayer-chat/`); exercises `ifc` domain via `ipc.emit` / `ipc.on`.
-- [ ] **NAP-03**: `composer` napplet added under `apps/demo/napplets/composer`; exercises `relay.publish` and `relay.publishEncrypted` (NIP-44 default, NIP-04 opt-in); UI shows OK/denied status.
+- [x] **NAP-03**: `composer` napplet added under `apps/demo/napplets/composer`; exercises `relay.publish` and `relay.publishEncrypted` (NIP-44 default, NIP-04 opt-in); UI shows OK/denied status.
 - [x] **NAP-04**: `preferences` napplet added; exercises `storage.setItem` / `storage.getItem`; state survives page reload.
 - [ ] **NAP-05**: `toaster` napplet added; exercises `notify.create` / `notify.list` / `notify.read` / `notify.dismiss`; host toast layer and napplet UI both update.
 - [ ] **NAP-06**: `feed` napplet added; exercises `relay.subscribe` (kinds filter + limit); renders received events; EOSE sets "loaded" state. Delivery mechanism decided in Phase 20 planning (`/gsd:discuss-phase 20`).
@@ -122,7 +122,7 @@ No `changeset publish` — that is deferred until `@napplet/core` publishes to n
 | DEMO-08 | Phase 17 | Complete |
 | NAP-01 | Phase 18 | Complete |
 | NAP-02 | Phase 18 | Complete |
-| NAP-03 | Phase 19 | Pending |
+| NAP-03 | Phase 19 | Complete |
 | NAP-04 | Phase 19 | Complete |
 | NAP-05 | Phase 19 | Pending |
 | NAP-06 | Phase 20 | Pending |

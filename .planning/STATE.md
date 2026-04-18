@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: executing
-stopped_at: Completed 19-02-PLAN.md (preferences napplet — @kehto/demo-preferences)
-last_updated: "2026-04-18T01:24:09.919Z"
+stopped_at: Completed 19-01-PLAN.md (composer napplet — relay.publish + relay.publishEncrypted + D-02 DOM contract, build verified)
+last_updated: "2026-04-18T01:24:44.714Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 22
-  completed_plans: 16
+  completed_plans: 17
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 19 (Core-Domain Napplets) — EXECUTING
-Plan: 2 of 7
+Plan: 3 of 7
 Status: Ready to execute
 Last activity: 2026-04-18
 
@@ -75,6 +75,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 18-napplet-sdk-migration P03 | 2min | 2 tasks | 2 files |
 | Phase 18-napplet-sdk-migration P04 | 4 | 1 tasks | 1 files |
 | Phase 19-core-domain-napplets P02 | 2min | 2 tasks | 5 files |
+| Phase 19-core-domain-napplets P01 | 3min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -118,6 +119,9 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase Phase 18-04]: JSDoc anti-term comments in napplet src are clean per Phase 17 decision — grep pattern distinguishes live code from comment lines
 - [Phase 19-core-domain-napplets]: Sequential storage.getItem calls (not Promise.all) for denial localization — matches bot pattern
 - [Phase 19-core-domain-napplets]: Preferences status sentinel: 'connecting...' (HTML default) -> 'loaded' / 'saved' / 'denied: <reason>' from main.ts
+- [Phase 19-01]: JSDoc anti-feature comments must use neutral phrasing to avoid false-positive anti-term grep matches (extends Phase 18 decision)
+- [Phase 19-01]: Encrypted publish uses deterministic fallback pubkey (0000...0001) when recipient field is empty — allows spec-driven encrypted publish without real NIP-46 key exchange
+- [Phase 19-01]: D-04 probe uses storage.getItem so state:read denial does not block auth sentinel (denial still signals AUTH completed)
 
 ### Blockers/Concerns
 
@@ -126,6 +130,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T01:24:09.916Z
-Stopped at: Completed 19-02-PLAN.md (preferences napplet — @kehto/demo-preferences)
+Last session: 2026-04-18T01:24:44.712Z
+Stopped at: Completed 19-01-PLAN.md (composer napplet — relay.publish + relay.publishEncrypted + D-02 DOM contract, build verified)
 Resume: `/gsd:plan-phase 16`
