@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: executing
-stopped_at: "Completed 18-01-PLAN.md (NAP-01: bot napplet migrated to @napplet/sdk)"
-last_updated: "2026-04-18T00:43:47.514Z"
+stopped_at: "Completed 18-02-PLAN.md (NAP-02: chat napplet migrated to @napplet/sdk, #chat-status DOM hook established)"
+last_updated: "2026-04-18T00:43:50.741Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
@@ -116,6 +116,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T00:43:37.397Z
-Stopped at: Completed 18-01-PLAN.md (NAP-01: bot napplet migrated to @napplet/sdk)
+Last session: 2026-04-18T00:43:50.738Z
+Stopped at: Completed 18-02-PLAN.md (NAP-02: chat napplet migrated to @napplet/sdk, #chat-status DOM hook established)
 Resume: `/gsd:plan-phase 16`
