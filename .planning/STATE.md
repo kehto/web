@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: executing
-stopped_at: "Completed 18-02-PLAN.md (NAP-02: chat napplet migrated to @napplet/sdk, #chat-status DOM hook established)"
-last_updated: "2026-04-18T00:43:50.741Z"
+stopped_at: Completed 18-03-PLAN.md (E2E-07 napplet-auth + ifc-roundtrip Layer-B specs, 3 tests passing)
+last_updated: "2026-04-18T00:47:16.684Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 15
-  completed_plans: 13
+  completed_plans: 14
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 18 (Napplet SDK Migration) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-04-18
 
@@ -72,6 +72,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 17-demo-app-rewire P07 | 10min | 1 tasks | 4 files |
 | Phase 18-napplet-sdk-migration P01 | 2 | 1 tasks | 1 files |
 | Phase 18-napplet-sdk-migration P02 | 12min | 2 tasks | 2 files |
+| Phase 18-napplet-sdk-migration P03 | 2min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -108,6 +109,9 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 18-napplet-sdk-migration]: Anti-feature JSDoc comments must use neutral phrasing to avoid false-positive grep matches in acceptance criteria verification
 - [Phase 18-napplet-sdk-migration]: Explanatory JSDoc comments referencing banned terms (window.addEventListener, window.nostr) are permitted per Phase 17 decision — grep patterns checking functional code must exclude comment lines
 - [Phase 18-napplet-sdk-migration]: SDK-init-gates-auth pattern: async init() calls storage.getItem as first SDK call; shim AUTH completes before storage proxy resolves; status DOM set to 'authenticated' after await
+- [Phase 18-napplet-sdk-migration]: frameLocator toContainText built-in retry is sufficient for in-iframe DOM sentinels — no expect.poll needed for demo-targeted specs
+- [Phase 18-napplet-sdk-migration]: ifc-roundtrip gates on both napplets authenticated before triggering round trip to prevent race where bot hasn't subscribed via ipc.on yet
+- [Phase 18-napplet-sdk-migration]: Match '[bot]' prefix only in ifc-roundtrip spec (not exact reply text) — decouples spec from bot response content for future plans
 
 ### Blockers/Concerns
 
@@ -116,6 +120,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T00:43:50.738Z
-Stopped at: Completed 18-02-PLAN.md (NAP-02: chat napplet migrated to @napplet/sdk, #chat-status DOM hook established)
+Last session: 2026-04-18T00:47:16.681Z
+Stopped at: Completed 18-03-PLAN.md (E2E-07 napplet-auth + ifc-roundtrip Layer-B specs, 3 tests passing)
 Resume: `/gsd:plan-phase 16`
