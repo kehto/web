@@ -11,12 +11,15 @@ import {
   connectNip46,
   onStateChange,
   getSignerConnectionState,
+  recordSignerRequest,
 } from './signer-connection.js';
 import {
   parseBunkerUri,
   buildNostrConnectUri,
   createNip46Client,
 } from './nip46-client.js';
+import { getIdentityServiceHandler } from './shell-host.js';
+import type { NappletMessage } from '@kehto/shell';
 import { getPublicKey, generateSecretKey } from 'nostr-tools/pure';
 import QRCode from 'qrcode';
 
@@ -150,6 +153,7 @@ async function handleNip07Connect(): Promise<void> {
     if (btn) btn.disabled = false;
   } else if (state.method === 'nip07' && state.pubkey) {
     setStatus(statusEl, `Connected: ${state.pubkey.substring(0, 12)}...`, 'success');
+    await runIdentityProbe(state.pubkey);
     setTimeout(() => closeSignerModal(), 1500);
   }
 }
@@ -191,8 +195,62 @@ async function handleNip46Connect(): Promise<void> {
   } else if (state.method === 'nip46' && state.pubkey) {
     const relayNote = state.relay ? ` via ${state.relay}` : '';
     setStatus(statusEl, `Connected: ${state.pubkey.substring(0, 12)}...${relayNote}`, 'success');
+    await runIdentityProbe(state.pubkey);
     setTimeout(() => closeSignerModal(), 1500);
   }
+}
+
+// ─── Post-Connect Identity Probe ─────────────────────────────────────────────
+
+const DEMO_HOST_PROBE_WINDOW_ID = '__demo-host-probe__';
+
+/**
+ * Post-connect diagnostic probe.
+ * Dispatches `identity.getPublicKey` through the REAL identity service
+ * (ShellAdapter.services.identity) — the same codepath a napplet would take.
+ * Asserts the result matches the connected signer's pubkey.
+ * No `window.nostr` access; no signer-service; no kind 29001.
+ */
+async function runIdentityProbe(expectedPubkey: string): Promise<void> {
+  const handler = getIdentityServiceHandler();
+  if (!handler) {
+    console.warn('[signer-modal] identity service not registered — skipping probe');
+    return;
+  }
+  const probeId = `probe-${Date.now().toString(36)}`;
+  const request: NappletMessage = { type: 'identity.getPublicKey', id: probeId } as NappletMessage;
+  await new Promise<void>((resolve) => {
+    let responded = false;
+    const timeout = setTimeout(() => {
+      if (!responded) {
+        console.warn('[signer-modal] identity.getPublicKey probe timed out');
+        resolve();
+      }
+    }, 3000);
+    handler.handleMessage(DEMO_HOST_PROBE_WINDOW_ID, request, (reply: NappletMessage) => {
+      responded = true;
+      clearTimeout(timeout);
+      if (reply.type === 'identity.getPublicKey.result') {
+        const returned = (reply as NappletMessage & { pubkey?: string }).pubkey;
+        const matches = returned === expectedPubkey;
+        recordSignerRequest({
+          timestamp: Date.now(),
+          method: 'identity.getPublicKey',
+          success: matches,
+        });
+        if (!matches) {
+          console.warn('[signer-modal] identity.getPublicKey mismatch', { expected: expectedPubkey, returned });
+        }
+      } else if (reply.type === 'identity.getPublicKey.error') {
+        recordSignerRequest({
+          timestamp: Date.now(),
+          method: 'identity.getPublicKey',
+          success: false,
+        });
+      }
+      resolve();
+    });
+  });
 }
 
 // ─── Public Init ──────────────────────────────────────────────────────────────

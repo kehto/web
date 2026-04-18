@@ -14,6 +14,8 @@ import {
   type Capability,
   type NostrEvent,
   type ConsentRequest,
+  type NappletMessage,
+  type AclCheckEvent,
 } from '@kehto/shell';
 import {
   createIdentityService,
@@ -39,9 +41,11 @@ export interface TappedMessage {
   index: number;
   timestamp: number;
   direction: 'napplet->shell' | 'shell->napplet';
-  verb: string;
+  verb: string;                                          // 'EVENT'|'REQ'|...|'ENVELOPE'
   windowId?: string;
-  raw: unknown[];
+  raw: unknown[] | NappletMessage;
+  envelope?: NappletMessage;                             // present when raw is a plain-object envelope
+  envelopeType?: string;                                 // envelope.type for convenience
   parsed: {
     subId?: string;
     eventKind?: number;
@@ -50,15 +54,18 @@ export interface TappedMessage {
     success?: boolean;
     reason?: string;
     pubkey?: string;
+    domain?: string;                                     // envelope.type.split('.')[0]
   };
 }
 
 export interface MessageTap {
   messages: TappedMessage[];
   recordOutbound(msg: unknown[], windowId?: string): void;
+  recordOutboundEnvelope(envelope: NappletMessage, windowId?: string): void;    // NEW
+  recordInboundEnvelope(envelope: NappletMessage, windowId?: string): void;     // NEW
   install(shellWindow: Window): void;
   onMessage(callback: (msg: TappedMessage) => void): () => void;
-  filter(criteria: { verb?: string; direction?: string }): TappedMessage[];
+  filter(criteria: { verb?: string; direction?: string; envelopeType?: string }): TappedMessage[];
   clear(): void;
 }
 
@@ -250,13 +257,41 @@ function parseMessage(raw: unknown[]): TappedMessage['parsed'] {
   return parsed;
 }
 
+function parseEnvelope(envelope: NappletMessage): TappedMessage['parsed'] {
+  const type = envelope.type;
+  const domain = type.includes('.') ? type.split('.')[0] : type;
+  const parsed: TappedMessage['parsed'] = { domain };
+  // Lift common fields if present — tolerant of any payload shape.
+  const env = envelope as unknown as Record<string, unknown>;
+  if (typeof env.id === 'string') parsed.eventId = env.id;
+  if (typeof env.subscriptionId === 'string') parsed.subId = env.subscriptionId;
+  if (typeof env.error === 'string') parsed.reason = env.error;
+  return parsed;
+}
+
 function createMessageTap(): MessageTap {
   const messages: TappedMessage[] = [];
   const listeners: Array<(msg: TappedMessage) => void> = [];
   let idx = 0;
 
-  function record(direction: TappedMessage['direction'], raw: unknown[], windowId?: string): void {
-    const verb = (typeof raw[0] === 'string' && KNOWN_VERBS.has(raw[0])) ? raw[0] : 'UNKNOWN';
+  function record(
+    direction: TappedMessage['direction'],
+    raw: unknown[] | NappletMessage,
+    windowId?: string,
+  ): void {
+    const isEnvelope =
+      !Array.isArray(raw) &&
+      typeof raw === 'object' &&
+      raw !== null &&
+      typeof (raw as NappletMessage).type === 'string';
+    const envelope = isEnvelope ? (raw as NappletMessage) : undefined;
+    const envelopeType = envelope?.type;
+    const verb = envelope
+      ? 'ENVELOPE'
+      : Array.isArray(raw) && typeof raw[0] === 'string' && KNOWN_VERBS.has(raw[0] as string)
+        ? (raw[0] as string)
+        : 'UNKNOWN';
+    const parsed = envelope ? parseEnvelope(envelope) : parseMessage(raw as unknown[]);
     const msg: TappedMessage = {
       index: idx++,
       timestamp: Date.now(),
@@ -264,7 +299,9 @@ function createMessageTap(): MessageTap {
       verb,
       windowId,
       raw,
-      parsed: parseMessage(raw),
+      envelope,
+      envelopeType,
+      parsed,
     };
     messages.push(msg);
     for (const cb of listeners) { try { cb(msg); } catch { /* ignore */ } }
@@ -273,15 +310,28 @@ function createMessageTap(): MessageTap {
   return {
     messages,
     recordOutbound(msg: unknown[], windowId?: string) { if (Array.isArray(msg)) record('shell->napplet', msg, windowId); },
+    recordOutboundEnvelope(envelope: NappletMessage, windowId?: string) {
+      record('shell->napplet', envelope, windowId);
+    },
+    recordInboundEnvelope(envelope: NappletMessage, windowId?: string) {
+      record('napplet->shell', envelope, windowId);
+    },
     install(shellWindow: Window) {
       shellWindow.addEventListener('message', (event: MessageEvent) => {
-        if (!Array.isArray(event.data)) return;
         // Resolve windowId from event.source
         let wid: string | undefined;
         for (const [id, info] of napplets) {
           if (info.iframe?.contentWindow === event.source) { wid = id; break; }
         }
-        record('napplet->shell', event.data, wid);
+        if (Array.isArray(event.data)) {
+          record('napplet->shell', event.data, wid);
+        } else if (
+          typeof event.data === 'object' &&
+          event.data !== null &&
+          typeof (event.data as NappletMessage).type === 'string'
+        ) {
+          record('napplet->shell', event.data as NappletMessage, wid);
+        }
       }, true);
     },
     onMessage(callback) {
@@ -295,6 +345,7 @@ function createMessageTap(): MessageTap {
       return messages.filter(m => {
         if (criteria.verb && m.verb !== criteria.verb) return false;
         if (criteria.direction && m.direction !== criteria.direction) return false;
+        if (criteria.envelopeType && m.envelopeType !== criteria.envelopeType) return false;
         return true;
       });
     },
@@ -339,6 +390,8 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
   };
   // Expose the notification service handler so the controller can dispatch to it directly
   _notificationServiceHandler = notificationService;
+  // Expose the identity service handler for host-side diagnostic probe flows
+  _identityServiceHandler = services.identity;
   return {
     relayPool: {
       getRelayPool: () => ({
@@ -423,6 +476,7 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
       }
       if (windowId) {
         pushAclEvent(event, windowId, nappletName);
+        _notifyAclCheckListeners(event, windowId, nappletName);
       }
     },
   };
@@ -437,7 +491,15 @@ function createPostMessageProxy(realWin: Window, messageTap: MessageTap, windowI
     get(target, prop) {
       if (prop === 'postMessage') {
         return (msg: unknown, targetOrigin: string, transfer?: Transferable[]) => {
-          if (Array.isArray(msg)) messageTap.recordOutbound(msg, windowId);
+          if (Array.isArray(msg)) {
+            messageTap.recordOutbound(msg, windowId);
+          } else if (
+            typeof msg === 'object' &&
+            msg !== null &&
+            typeof (msg as NappletMessage).type === 'string'
+          ) {
+            messageTap.recordOutboundEnvelope(msg as NappletMessage, windowId);
+          }
           return target.postMessage(msg, targetOrigin, transfer);
         };
       }
@@ -475,6 +537,7 @@ const disabledServices = new Set<string>();
 
 let _notificationServiceHandler: ServiceHandler | null = null;
 let _themeServiceBundle: ThemeService | null = null;
+let _identityServiceHandler: ServiceHandler | null = null;
 
 /** Get the registered notification service handler for direct host dispatch. */
 export function getNotificationServiceHandler(): ServiceHandler | null {
@@ -484,6 +547,11 @@ export function getNotificationServiceHandler(): ServiceHandler | null {
 /** Get the registered theme service bundle (exposes .publishTheme for host theme toggles). */
 export function getThemeServiceBundle(): ThemeService | null {
   return _themeServiceBundle;
+}
+
+/** Get the registered identity service handler for host-side probe flows. */
+export function getIdentityServiceHandler(): ServiceHandler | null {
+  return _identityServiceHandler;
 }
 
 // --- Public API ---
@@ -578,10 +646,17 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
     setTimeout(() => request.resolve(true), 500);
   });
 
-  // Wrap handleMessage for outbound capture
+  // Wrap handleMessage for outbound capture (both array and envelope-shape messages)
   const _origHandle = relay.handleMessage;
   relay.handleMessage = (event: MessageEvent) => {
-    if (!event.source || !Array.isArray(event.data)) {
+    const isArray = Array.isArray(event.data);
+    const isEnvelope =
+      !isArray &&
+      typeof event.data === 'object' &&
+      event.data !== null &&
+      typeof (event.data as NappletMessage).type === 'string';
+
+    if (!event.source || (!isArray && !isEnvelope)) {
       _origHandle(event);
       return;
     }
@@ -618,6 +693,9 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
       }
     }
   });
+
+  // Make the tap accessible for host-originated envelope recording
+  setMessageTap(tap);
 
   return { tap, relay };
 }
@@ -728,5 +806,128 @@ export function toggleBlock(windowId: string, blocked: boolean): void {
   } else {
     relay.runtime.aclState.unblock(info.pubkey, info.dTag || '', info.aggregateHash || '');
   }
+}
+
+// ─── DemoAclAdapter (DEMO-03 seam) ──────────────────────────────────────────
+// All UI grant/revoke/block/unblock flows go through this adapter. Keeps
+// a single seam for future ShellAdapter.acl hook consolidation.
+
+export interface DemoAclAdapter {
+  /** Grant a capability on a napplet by windowId. */
+  grant(windowId: string, capability: Capability): void;
+  /** Revoke a capability on a napplet by windowId. */
+  revoke(windowId: string, capability: Capability): void;
+  /** Block a napplet by windowId. */
+  block(windowId: string): void;
+  /** Unblock a napplet by windowId. */
+  unblock(windowId: string): void;
+  /** Snapshot of all ACL entries for napplets currently authenticated. */
+  snapshot(): Array<{
+    windowId: string;
+    name: string;
+    pubkey: string;
+    dTag: string;
+    aggregateHash: string;
+    blocked: boolean;
+    capabilities: Record<Capability, boolean>;
+  }>;
+  /** Synchronous capability check (delegates to aclState.check). */
+  check(windowId: string, capability: Capability): boolean;
+  /** Subscribe to ACL audit events (pushed via onAclCheck). */
+  onCheck(listener: (event: AclCheckEvent, windowId: string, nappletName: string) => void): () => void;
+}
+
+const _aclCheckListeners: Array<(event: AclCheckEvent, wid: string, name: string) => void> = [];
+
+/** Internal hook called from createDemoHooks().onAclCheck — fans out to subscribers. */
+function _notifyAclCheckListeners(event: AclCheckEvent, windowId: string, name: string): void {
+  for (const cb of _aclCheckListeners) {
+    try { cb(event, windowId, name); } catch { /* ignore listener error */ }
+  }
+}
+
+const aclAdapter: DemoAclAdapter = {
+  grant(windowId, capability) { toggleCapability(windowId, capability, true); },
+  revoke(windowId, capability) { toggleCapability(windowId, capability, false); },
+  block(windowId) { toggleBlock(windowId, true); },
+  unblock(windowId) { toggleBlock(windowId, false); },
+  snapshot() {
+    const out: ReturnType<DemoAclAdapter['snapshot']> = [];
+    for (const [windowId, info] of napplets) {
+      if (!info.pubkey) continue;
+      const pk = info.pubkey;
+      const dTag = info.dTag ?? '';
+      const hash = info.aggregateHash ?? '';
+      const entry = relay.runtime.aclState.getEntry(pk, dTag, hash);
+      const caps: Record<Capability, boolean> = {
+        'relay:read': relay.runtime.aclState.check(pk, dTag, hash, 'relay:read'),
+        'relay:write': relay.runtime.aclState.check(pk, dTag, hash, 'relay:write'),
+        'cache:read': relay.runtime.aclState.check(pk, dTag, hash, 'cache:read'),
+        'cache:write': relay.runtime.aclState.check(pk, dTag, hash, 'cache:write'),
+        'sign:event': relay.runtime.aclState.check(pk, dTag, hash, 'sign:event'),
+        'sign:nip04': relay.runtime.aclState.check(pk, dTag, hash, 'sign:nip04'),
+        'sign:nip44': relay.runtime.aclState.check(pk, dTag, hash, 'sign:nip44'),
+        'state:read': relay.runtime.aclState.check(pk, dTag, hash, 'state:read'),
+        'state:write': relay.runtime.aclState.check(pk, dTag, hash, 'state:write'),
+        'hotkey:forward': relay.runtime.aclState.check(pk, dTag, hash, 'hotkey:forward'),
+      };
+      out.push({
+        windowId,
+        name: info.name,
+        pubkey: pk,
+        dTag,
+        aggregateHash: hash,
+        blocked: entry?.blocked ?? false,
+        capabilities: caps,
+      });
+    }
+    return out;
+  },
+  check(windowId, capability) {
+    const info = napplets.get(windowId);
+    if (!info?.pubkey) return false;
+    return relay.runtime.aclState.check(info.pubkey, info.dTag ?? '', info.aggregateHash ?? '', capability);
+  },
+  onCheck(listener) {
+    _aclCheckListeners.push(listener);
+    return () => {
+      const i = _aclCheckListeners.indexOf(listener);
+      if (i !== -1) _aclCheckListeners.splice(i, 1);
+    };
+  },
+};
+
+/**
+ * Get the demo ACL adapter — the single seam for all grant/revoke/block/unblock
+ * operations in the demo UI. Provides snapshot, check, and onCheck subscription.
+ *
+ * @returns DemoAclAdapter instance
+ */
+export function getAclAdapter(): DemoAclAdapter {
+  return aclAdapter;
+}
+
+// ─── Message Tap Accessor (for host-originated envelope recording) ────────────
+
+let _messageTapRef: MessageTap | null = null;
+
+/**
+ * Set the message tap reference. Called from the bootstrap site so
+ * host-originated dispatchers (e.g., notification-demo.ts) can record
+ * their envelopes through the same tap that iframe postMessage traffic uses.
+ *
+ * @param tap - The installed message tap
+ */
+export function setMessageTap(tapRef: MessageTap): void {
+  _messageTapRef = tapRef;
+}
+
+/**
+ * Get the demo message tap. Returns null before bootShell() has run.
+ *
+ * @returns MessageTap or null
+ */
+export function getMessageTap(): MessageTap | null {
+  return _messageTapRef;
 }
 
