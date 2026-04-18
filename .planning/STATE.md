@@ -4,7 +4,7 @@ milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: verifying
 stopped_at: Completed 18-04-PLAN.md (E2E-11 gate — 20/20 Layer-B tests green, Phase 18 ready to close)
-last_updated: "2026-04-18T00:51:53.754Z"
+last_updated: "2026-04-18T00:55:04.043Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
@@ -25,8 +25,8 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 ## Current Position
 
-Phase: 18 (Napplet SDK Migration) — EXECUTING
-Plan: 4 of 4
+Phase: 19
+Plan: Not started
 Status: Phase complete — ready for verification
 Last activity: 2026-04-18
 

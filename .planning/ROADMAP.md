@@ -153,7 +153,7 @@ The `relay-subscribe` Playwright spec cannot be marked green until this decision
 |-------|-----------|----------------|--------|-----------|
 | 16. Harness Triage & Playwright Infrastructure | v1.3 | 4/4 | Complete    | 2026-04-17 |
 | 17. Demo App Rewire | v1.3 | 7/7 | Complete    | 2026-04-18 |
-| 18. Napplet SDK Migration | v1.3 | 4/4 | Complete   | 2026-04-18 |
+| 18. Napplet SDK Migration | v1.3 | 4/4 | Complete    | 2026-04-18 |
 | 19. Core-Domain Napplets | v1.3 | 0/TBD | Not started | - |
 | 20. Expanded-Domain Napplets | v1.3 | 0/TBD | Not started | - |
 | 21. Fixture Napplets & Layer-A Specs | v1.3 | 0/TBD | Not started | - |
