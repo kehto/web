@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: executing
-stopped_at: Completed 17-01-PLAN.md (anti-term clearance — BusKind/AUTH_KIND/window.nostr purge from apps/demo/src)
-last_updated: "2026-04-18T00:00:08.611Z"
-last_activity: 2026-04-17
+stopped_at: Completed 17-03-PLAN.md (signer UX canonical path rewire — identity probe + test-sign button)
+last_updated: "2026-04-18T00:05:13.099Z"
+last_activity: 2026-04-18
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 11
-  completed_plans: 6
+  completed_plans: 7
   percent: 0
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 17 (Demo App Rewire) — EXECUTING
-Plan: 3 of 7
+Plan: 4 of 7
 Status: Ready to execute
-Last activity: 2026-04-17
+Last activity: 2026-04-18
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -65,6 +65,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 16-harness-triage-playwright-infrastructure P04 | 3min | 3 tasks | 4 files |
 | Phase 17-demo-app-rewire P02 | 12min | 2 tasks | 3 files |
 | Phase 17-demo-app-rewire P01 | 20min | 2 tasks | 9 files |
+| Phase 17-demo-app-rewire P03 | 15min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,7 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 17-demo-app-rewire]: Explanatory comments referencing removed anti-terms are permitted — grep pattern excludes them per DEMO-01 spec
 - [Phase 17-demo-app-rewire]: [Phase 17-01] 'sign:event' capability deleted in v1.2 ACL; identity-request uses 'identity:read', relay-publish-signed uses 'relay:write'
 - [Phase 17-demo-app-rewire]: [Phase 17-01] notification-demo.ts dispatches via ifc.emit NappletMessage envelopes (not NIP-01 BusKind arrays) to match notification-service.ts handler
+- [Phase 17-demo-app-rewire]: [Phase 17-03]: runIdentityProbe dispatches identity.getPublicKey through real ServiceHandler.handleMessage (DEMO_HOST_PROBE_WINDOW_ID sentinel) — same path napplets use; NappletMessage imported from @kehto/shell not @napplet/core to avoid adding direct dep to apps/demo
 
 ### Blockers/Concerns
 
@@ -95,6 +97,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T00:00:08.608Z
-Stopped at: Completed 17-01-PLAN.md (anti-term clearance — BusKind/AUTH_KIND/window.nostr purge from apps/demo/src)
+Last session: 2026-04-18T00:05:13.097Z
+Stopped at: Completed 17-03-PLAN.md (signer UX canonical path rewire — identity probe + test-sign button)
 Resume: `/gsd:plan-phase 16`
