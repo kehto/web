@@ -34,42 +34,35 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Shipped:** v1.2 — NIP-5D Conformance & Full NUB Coverage (2026-04-17)
+**Shipped:** v1.3 — Demo Functional & Playwright Parity (2026-04-18)
 
-Kehto fully conforms to the canonical NIP-5D spec (`dskvr/nips` branch `nip/5d`) and covers all 8 napplet NUB domains end-to-end.
-- @kehto/acl: 8-domain `resolveCapabilitiesNub`, new `capabilities.ts` module with 14 capability constants; signer caps removed
-- @kehto/runtime: formal `createDispatch()` / `registerNub()` / `dispatch()` routing; 8 domains (identity, ifc, keys, media, notify, relay, storage, theme); shell-mediated `relay.publishEncrypted` via internal NIP-44 (default) / NIP-04 (opt-in)
-- @kehto/shell: `window.nostr` hard-removed (canonical MUST NOT), `perm:<permission>` namespace for sandbox permissions, `bridge.publishTheme(theme)` host-facing API, 5 per-domain proxies + keys-forwarder
-- @kehto/services: 4 new reference services (identity, keys, media, notify) + theme-service; signer-service deleted outright (sign/encrypt moved inside shell via relay.publishEncrypted)
+v1.3 was a consume-and-showcase milestone: no `@kehto/*` protocol changes. `apps/demo` and its 8 napplets (bot, chat, composer, preferences, toaster, feed, profile-viewer, theme-switcher) now exercise all 6 non-stub NUB domains end-to-end against canonical v1.2 APIs. The Playwright suite (47 specs, 26 active files) runs fully green on a fresh-build artifact with zero skipped tests.
 
-449 tests passing / 0 skipped; `pnpm build` + `type-check` green; 4 staged changesets at `.changeset/v1-2-*.md`.
+- apps/demo: 8 napplets loaded; `createDemoHooks()` registers 5 reference services + 3 stub-only topology nodes; `getAclAdapter()` + `getMessageTap()` are the single seams for ACL/debugger wiring; node inspector renders per-role content; debugger taps NIP-5D envelope `type` strings live; zero `window.nostr` / `signer-service` / `BusKind` in demo source.
+- apps/demo/napplets: all 8 napplets import from `@napplet/sdk` (no raw `window.addEventListener('message')` except 2 documented SDK-gap exemptions in toaster/preferences); composer exercises `relay.publish` + `relay.publishEncrypted`; preferences exercises `storage.*`; toaster exercises `notify.*`; feed exercises `relay.subscribe`; profile-viewer exercises `identity.*`; theme-switcher exercises host `publishTheme()` → `theme.changed` fan-out.
+- tests/e2e: Layer-A (6 nub fixtures + 8 `nub-*.spec.ts` harness-driven specs) for runtime protocol correctness; Layer-B (18 domain/demo specs) for live demo behavior; 7 legacy fixtures + 7 legacy specs deleted per "cleanliness > backward compat"; full `pnpm clean && pnpm build && pnpm test:e2e` iteration loop recorded for E2E-11 closure.
+- Docs: typedoc configured at root (`entryPointStrategy: packages`); 4 @kehto/* READMEs locked to canonical 7-section skeleton; root README + migration archive integrate apps/demo as the reference consumer.
+- Release rehearsal: `publint` + `attw --profile esm-only` clean on all 4 @kehto/* packages; `pnpm changeset version` dry-run clean; 4 v1.3 `patch`-bump changesets staged at `.changeset/v1-3-{acl,runtime,shell,services}.md` with DEMO-/NAP-/E2E-/DOCS- citations. `changeset publish` deferred until `@napplet/core` publishes to npm.
 
-**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage)
+37/37 requirements met; 47/47 phase must-haves verified; 7/7 cross-phase wiring checks passed; 0 gaps.
 
-## Current Milestone: v1.3 Demo Functional & Playwright Parity
+**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity).
 
-**Goal:** Adapt `apps/demo` and bundled napplets to the canonical v1.2 `@kehto/*` + `@napplet/*` NIP-5D interfaces, rewrite the Playwright suite, and ship a build-run-debug loop until every panel, napplet, and spec is green.
+## Next Milestone Goals (v1.4 — planned, not yet scoped)
 
-**Target features:**
-- Demo app rewire — all surfaces (shell host/topology/animators, ACL panels/modal/history, signer demo + NIP-46, notifications + kinds + constants panels) migrated to canonical v1.2 APIs (no `window.nostr`, no signer-service, no legacy BusKind/AUTH).
-- Napplet showcase — migrate `bot`/`chat` to envelope-only `@napplet/sdk`; expand with purpose-built napplets (feed, composer, profile-viewer, …) so all 8 nub domains are exercised end-to-end.
-- Canonical signer UX — NIP-46 + signer-demo produce successful `identity.*` reads and `relay.publish` / `relay.publishEncrypted` flows (NIP-44 default, NIP-04 opt-in).
-- Playwright suite rewrite — triage `tests/e2e/*`, delete obsolete signer/AUTH/BusKind specs, migrate survivors to NIP-5D envelopes, add demo-functional golden-path specs; `pnpm test:e2e` green with zero skipped/legacy specs.
-- Iteration discipline — each phase ends with a build → run → Playwright (MCP) → fix loop.
-- Docs refresh — `docs/` + READMEs updated to match the canonical v1.2 contract being showcased.
-- Release rehearsal — stage changesets + changelog + dry-run `changeset version`; actual `publish` deferred until `@napplet/core` ships to npm.
-
-**Key context:**
-- Starts Phase 16 (continues numbering from v1.2 Phase 15).
-- No protocol-level changes in kehto packages — v1.3 *consumes* v1.2's surface.
-- `@napplet/*` resolves via pnpm workspace overrides to `/home/sandwich/Develop/napplet/*`; npm publish upstream blocks downstream `changeset publish`.
-- Carried tech debt: `packages/runtime/src/core-compat.ts` (DRIFT-CORE-06) stays intact.
-- No CI/CD in this milestone (deferred).
+Candidate themes (to be refined via `/gsd:new-milestone`):
+- CI/CD via GitHub Actions (build + type-check + unit + Playwright on push — deferred from v1.3).
+- `@napplet/core` npm publication unblock → run `pnpm changeset publish` for v1.3 changesets.
+- `DRIFT-CORE-06` cleanup — remove `packages/runtime/src/core-compat.ts` once `@napplet/core` restores legacy exports upstream.
+- Real `keys` / `media` backends → `hotkey-chord` + `media-controller` napplets (deferred from v1.3).
+- Doc polish: refresh 2 JSDoc `@example` blocks in `tests/e2e/harness/harness.ts:10` + `tests/e2e/helpers/wait-for-napplet-ready.ts:21` (still cite deleted `auth-napplet` fixture).
 
 ## Known Tech Debt (carried into next milestone)
 
 - **DRIFT-CORE-06** — `packages/runtime/src/core-compat.ts` (98-line local shim) restores `@napplet/core` v0.1 legacy exports (`Capability`, `BusKind`, `ALL_CAPABILITIES`, `DESTRUCTIVE_KINDS`, `REPLAY_WINDOW_SECONDS`, `ServiceDescriptor`, `AUTH_KIND`, `SHELL_BRIDGE_URI`, `PROTOCOL_VERSION`, `TOPICS.STATE_*`). Deferred until `@napplet/core` restores the symbols upstream or a dedicated cleanup milestone addresses it.
-- **Release deferral** — `changeset version` / `changeset publish` blocked upstream by `@napplet/core` npm publication cadence.
+- **Release deferral** — `changeset publish` blocked upstream by `@napplet/core` npm publication cadence. `changeset version` dry-run rehearsed clean in v1.3 (REL-03).
+- **CI/CD** — No GitHub Actions for build/type-check/unit/Playwright. Scoped out of v1.3; candidate for v1.4.
+- **Cosmetic doc refs** — `tests/e2e/harness/harness.ts:10` and `tests/e2e/helpers/wait-for-napplet-ready.ts:21` JSDoc `@example` blocks still cite the deleted `auth-napplet` fixture. Surfaced by v1.3 audit; candidate for v1.4 doc refresh.
 
 ## Key Decisions
 
@@ -82,6 +75,10 @@ Kehto fully conforms to the canonical NIP-5D spec (`dskvr/nips` branch `nip/5d`)
 | 5 | Shell MUST NOT provide `window.nostr` | Canonical spec forbids napplet-visible signing; shell mediates all signing/encryption via `relay.publish`/`publishEncrypted` | 2026-04-17 |
 | 6 | `createDispatch()` + `registerNub()` from @napplet/core replaces hand-rolled switch | Spec dispatch contract rather than kehto reimplementation; per-runtime instance avoids cross-test pollution | 2026-04-17 |
 | 7 | Stub-level services for keys/media/notify (no real backends) | Host apps plug real backends via `runtime.registerService()`; kehto remains framework-agnostic reference | 2026-04-17 |
+| 8 | v1.3 is consume-and-showcase (no protocol changes) | `@kehto/*` API surface frozen at v1.2; demo + napplets + Playwright prove the surface works for host-app consumers | 2026-04-18 |
+| 9 | Delete legacy fixtures + specs rather than migrate | `auth-napplet`/`publish-napplet`/`pure-napplet` were NIP-01-shaped; migration would duplicate Layer-A `nub-*.spec.ts` coverage. Cleanliness > backward compat. | 2026-04-18 |
+| 10 | E2E-11 iteration-loop discipline (build → run → Playwright → fix) | Phases don't close on `tsc`/`vitest` alone; forces real integrated evidence per phase. Closed capstone-style in Phase 22. | 2026-04-18 |
+| 11 | `@napplet/core` dedup via `pnpm.overrides` at workspace root | Single `link:` instance across all `@kehto/*` packages; prevents Pitfall 3 (two core instances breaking dispatch identity). | 2026-04-18 |
 
 ## Evolution
 
@@ -101,4 +98,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-18 — v1.3 milestone opened*
+*Last updated: 2026-04-18 — after v1.3 milestone*
