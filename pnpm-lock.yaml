@@ -135,7 +135,64 @@ importers:
         specifier: ^6.3.0
         version: 6.4.2(jiti@2.6.1)
 
+  apps/demo/napplets/feed:
+    dependencies:
+      '@napplet/sdk':
+        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
+        version: link:../../../../../napplet/packages/sdk
+      '@napplet/shim':
+        specifier: link:/home/sandwich/Develop/napplet/packages/shim
+        version: link:../../../../../napplet/packages/shim
+    devDependencies:
+      '@napplet/vite-plugin':
+        specifier: link:/home/sandwich/Develop/napplet/packages/vite-plugin
+        version: link:../../../../../napplet/packages/vite-plugin
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.3.0
+        version: 6.4.2(jiti@2.6.1)
+
   apps/demo/napplets/preferences:
+    dependencies:
+      '@napplet/sdk':
+        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
+        version: link:../../../../../napplet/packages/sdk
+      '@napplet/shim':
+        specifier: link:/home/sandwich/Develop/napplet/packages/shim
+        version: link:../../../../../napplet/packages/shim
+    devDependencies:
+      '@napplet/vite-plugin':
+        specifier: link:/home/sandwich/Develop/napplet/packages/vite-plugin
+        version: link:../../../../../napplet/packages/vite-plugin
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.3.0
+        version: 6.4.2(jiti@2.6.1)
+
+  apps/demo/napplets/profile-viewer:
+    dependencies:
+      '@napplet/sdk':
+        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
+        version: link:../../../../../napplet/packages/sdk
+      '@napplet/shim':
+        specifier: link:/home/sandwich/Develop/napplet/packages/shim
+        version: link:../../../../../napplet/packages/shim
+    devDependencies:
+      '@napplet/vite-plugin':
+        specifier: link:/home/sandwich/Develop/napplet/packages/vite-plugin
+        version: link:../../../../../napplet/packages/vite-plugin
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.3.0
+        version: 6.4.2(jiti@2.6.1)
+
+  apps/demo/napplets/theme-switcher:
     dependencies:
       '@napplet/sdk':
         specifier: link:/home/sandwich/Develop/napplet/packages/sdk
@@ -364,8 +421,11 @@ importers:
         specifier: ^6.3.0
         version: 6.4.2(jiti@2.6.1)
 
-  tests/fixtures/napplets/auth-napplet:
+  tests/fixtures/napplets/nub-identity:
     dependencies:
+      '@napplet/sdk':
+        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
+        version: link:../../../../../napplet/packages/sdk
       '@napplet/shim':
         specifier: link:/home/sandwich/Develop/napplet/packages/shim
         version: link:../../../../../napplet/packages/shim
@@ -380,8 +440,11 @@ importers:
         specifier: ^6.3.0
         version: 6.4.2(jiti@2.6.1)
 
-  tests/fixtures/napplets/publish-napplet:
+  tests/fixtures/napplets/nub-ifc:
     dependencies:
+      '@napplet/sdk':
+        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
+        version: link:../../../../../napplet/packages/sdk
       '@napplet/shim':
         specifier: link:/home/sandwich/Develop/napplet/packages/shim
         version: link:../../../../../napplet/packages/shim
@@ -396,11 +459,81 @@ importers:
         specifier: ^6.3.0
         version: 6.4.2(jiti@2.6.1)
 
-  tests/fixtures/napplets/pure-napplet:
+  tests/fixtures/napplets/nub-notify:
+    dependencies:
+      '@napplet/sdk':
+        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
+        version: link:../../../../../napplet/packages/sdk
+      '@napplet/shim':
+        specifier: link:/home/sandwich/Develop/napplet/packages/shim
+        version: link:../../../../../napplet/packages/shim
     devDependencies:
+      '@napplet/vite-plugin':
+        specifier: link:/home/sandwich/Develop/napplet/packages/vite-plugin
+        version: link:../../../../../napplet/packages/vite-plugin
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+      vite:
+        specifier: ^6.3.0
+        version: 6.4.2(jiti@2.6.1)
+
+  tests/fixtures/napplets/nub-relay:
+    dependencies:
+      '@napplet/sdk':
+        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
+        version: link:../../../../../napplet/packages/sdk
+      '@napplet/shim':
+        specifier: link:/home/sandwich/Develop/napplet/packages/shim
+        version: link:../../../../../napplet/packages/shim
+    devDependencies:
+      '@napplet/vite-plugin':
+        specifier: link:/home/sandwich/Develop/napplet/packages/vite-plugin
+        version: link:../../../../../napplet/packages/vite-plugin
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.3.0
+        version: 6.4.2(jiti@2.6.1)
+
+  tests/fixtures/napplets/nub-storage:
+    dependencies:
+      '@napplet/sdk':
+        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
+        version: link:../../../../../napplet/packages/sdk
+      '@napplet/shim':
+        specifier: link:/home/sandwich/Develop/napplet/packages/shim
+        version: link:../../../../../napplet/packages/shim
+    devDependencies:
+      '@napplet/vite-plugin':
+        specifier: link:/home/sandwich/Develop/napplet/packages/vite-plugin
+        version: link:../../../../../napplet/packages/vite-plugin
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.3.0
+        version: 6.4.2(jiti@2.6.1)
+
+  tests/fixtures/napplets/nub-theme:
+    dependencies:
+      '@napplet/sdk':
+        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
+        version: link:../../../../../napplet/packages/sdk
+      '@napplet/shim':
+        specifier: link:/home/sandwich/Develop/napplet/packages/shim
+        version: link:../../../../../napplet/packages/shim
+    devDependencies:
+      '@napplet/vite-plugin':
+        specifier: link:/home/sandwich/Develop/napplet/packages/vite-plugin
+        version: link:../../../../../napplet/packages/vite-plugin
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.3.0
+        version: 6.4.2(jiti@2.6.1)
 
 packages:
 

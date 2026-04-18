@@ -7,7 +7,10 @@
     },
     "build:napplets": {
       "dependsOn": ["^build"],
-      "outputs": ["apps/demo/napplets/*/dist/**"]
+      "outputs": [
+        "apps/demo/napplets/*/dist/**",
+        "tests/fixtures/napplets/*/dist/**"
+      ]
     },
     "@kehto/demo#build": {
       "dependsOn": ["^build", "build:napplets"],
