@@ -1,13 +1,15 @@
 /**
- * Bot demo napplet -- teachable auto-responder.
+ * Bot demo napplet — @napplet/sdk migration (NAP-01, Phase 18).
  *
- * Exercises: sign:event (for response signing), state:read, state:write, ipc on/emit.
+ * Exercises: ipc (subscribe + emit), storage (rules persistence).
  *
- * - Listens via on('chat:message') for messages from chat napplet
- * - Auto-responds based on learned rules or default personality
- * - Supports /teach command: "/teach hello Hi there!"
- * - Stores learned rules in storage
- * - Emits responses via ipc.emit('bot:response')
+ * - Subscribes via ipc.on('chat:message') (D-02)
+ * - Replies via ipc.emit('bot:response') (D-02)
+ * - Persists learned rules via storage.setItem/getItem under key 'bot-rules' (D-02)
+ * - Posts #status-text = 'authenticated' after first SDK call resolves (D-04)
+ *
+ * NO raw window.message listener — shim handles AUTH implicitly (D-01).
+ * NO NIP-01 arrays, NO legacy bus enums, NO global nostr (anti-features).
  */
 import '@napplet/shim';
 import { ipc, storage } from '@napplet/sdk';
@@ -31,7 +33,6 @@ const ruleCountEl = document.getElementById('rule-count')!;
 const logEl = document.getElementById('log')!;
 const rulesEl = document.getElementById('rules')!;
 
-let authenticated = false;
 const RULES_KEY = 'bot-rules';
 
 function formatError(error: unknown, fallback: string): string {
@@ -181,32 +182,23 @@ function handleChatMessage(payload: unknown): void {
   }
 }
 
-// --- AUTH Handling ---
+// --- SDK Init ---
 
-window.addEventListener('message', (event) => {
-  if (!Array.isArray(event.data)) return;
-  if (event.source !== window.parent) return;
+async function init(): Promise<void> {
+  // First SDK call gates on shim AUTH completion (storage proxy requires identity).
+  // If this resolves, AUTH succeeded — set the positive UI marker per D-04.
+  await loadRules();
+  statusEl.textContent = 'authenticated';
+  statusEl.style.color = '#39ff14';
+  log('AUTH complete -- listening for ipc chat:message input', 'info');
 
-  const [verb, , success] = event.data;
+  // Wire the IPC subscription per D-02.
+  ipc.on('chat:message', handleChatMessage);
+  log('subscribed to ipc chat:message topic', 'info');
+}
 
-  if (verb === 'OK' && success === true && !authenticated) {
-    authenticated = true;
-    statusEl.textContent = 'listening';
-    statusEl.style.color = '#39ff14';
-    log('AUTH complete -- listening for ipc chat:message input', 'info');
-
-    // Load rules from storage
-    loadRules();
-
-    // Listen for chat messages via ipc
-    ipc.on('chat:message', handleChatMessage);
-
-    log('subscribed to ipc chat:message topic', 'info');
-  }
-
-  if (verb === 'OK' && success === false) {
-    statusEl.textContent = 'auth failed';
-    statusEl.style.color = '#ff3b3b';
-    log('AUTH failed', 'error');
-  }
+init().catch((err) => {
+  statusEl.textContent = 'auth failed';
+  statusEl.style.color = '#ff3b3b';
+  log(`init failed -- ${formatError(err, 'auth/storage failure')}`, 'error');
 });
