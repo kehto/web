@@ -525,3 +525,118 @@ Deleted-branch reflog tombstone: `Deleted branch gsd/release-rehearsal-v1.3 (was
 **CLOSED — `pnpm changeset version` dry-run clean on throwaway branch `gsd/release-rehearsal-v1.3`; `pnpm install --frozen-lockfile` clean post-bump; all 4 @kehto/* packages bump minor 0.1.0 → 0.2.0 as expected; no peer-dep range mutations (all `@napplet/*` ranges remain `^0.2.0`); throwaway branch discarded (`git branch --list gsd/release-rehearsal-v1.3` empty); `main` HEAD unchanged (`ad5357c` both before and after); `pnpm changeset publish` explicitly NOT invoked.**
 
 ---
+
+## REL-04 — v1.3 Changesets Staged
+
+**Scope:** 4 changeset files authored for v1.3 milestone (one per @kehto/* package)
+**Executed:** 2026-04-18T13:20:19Z
+
+### File paths
+
+```
+.changeset/v1-3-acl.md
+.changeset/v1-3-runtime.md
+.changeset/v1-3-services.md
+.changeset/v1-3-shell.md
+```
+
+### ls -la output
+
+```
+-rw-r--r-- 1 sandwich sandwich  800 Apr 18 15:18 .changeset/v1-3-acl.md
+-rw-r--r-- 1 sandwich sandwich 1606 Apr 18 15:18 .changeset/v1-3-runtime.md
+-rw-r--r-- 1 sandwich sandwich 1729 Apr 18 15:19 .changeset/v1-3-services.md
+-rw-r--r-- 1 sandwich sandwich 1364 Apr 18 15:19 .changeset/v1-3-shell.md
+```
+
+### Line counts
+
+```
+  14 .changeset/v1-3-acl.md
+  20 .changeset/v1-3-runtime.md
+  19 .changeset/v1-3-services.md
+  17 .changeset/v1-3-shell.md
+  70 total
+```
+
+All 4 files exceed the `min_lines: 8` must_have threshold.
+
+### Frontmatter heads
+
+```
+--- .changeset/v1-3-acl.md ---
+---
+"@kehto/acl": patch
+---
+--- .changeset/v1-3-runtime.md ---
+---
+"@kehto/runtime": patch
+---
+--- .changeset/v1-3-services.md ---
+---
+"@kehto/services": patch
+---
+--- .changeset/v1-3-shell.md ---
+---
+"@kehto/shell": patch
+---
+```
+
+Each file declares the correct `@kehto/<pkg>` package and `patch` bump type (per D-06 default — no new public API in v1.3).
+
+### Requirement ID citations
+
+```
+.changeset/v1-3-acl.md: 3 citations
+.changeset/v1-3-runtime.md: 5 citations
+.changeset/v1-3-services.md: 6 citations
+.changeset/v1-3-shell.md: 4 citations
+```
+
+Each file cites ≥1 DEMO-/NAP-/E2E-/DOCS- requirement ID (must_have satisfied).
+
+### Anti-term hygiene
+
+```bash
+$ grep -E '`window\.nostr`|`signer-service`|`signer\.sign`|`BusKind`|kind 2900[12]' .changeset/v1-3-*.md
+# (no matches — clean)
+```
+
+Zero backticked anti-term live-API identifiers in any v1-3-*.md body (W5 quoting convention respected).
+
+### changeset CLI validation
+
+`pnpm changeset status` parses all 4 v1-3-*.md files alongside the 4 existing v1-2-*.md files without error. Aggregated bump-type report:
+
+```
+🦋  info Packages to be bumped at patch:
+🦋  - @kehto/demo
+🦋  - @test/harness
+🦋  info Packages to be bumped at minor:
+🦋  - @kehto/acl
+🦋  - @kehto/runtime
+🦋  - @kehto/services
+🦋  - @kehto/shell
+🦋  info NO packages to be bumped at major
+```
+
+The 4 @kehto/* packages show `minor` because v1-2-*.md changesets declare `minor` and changeset aggregates by the highest bump per package (minor beats patch). This is expected and correct — the v1-3-*.md entries contribute `patch` bumps which fold into the pending v1.2 `minor` version. When v1.2 eventually ships via `changeset version`, the v1-2 + v1-3 changeset bodies will be concatenated into the CHANGELOG entries under the single 0.1.0 → 0.2.0 `minor` transition.
+
+### v1-2 changesets still present (no regression)
+
+```
+$ ls .changeset/v1-2-*.md | wc -l
+4
+```
+
+Existing v1-2-*.md changesets untouched (the 4 v1.2 minor-bump changesets from REL-03's dry-run scope remain staged for the next real release).
+
+### Build hygiene
+
+`pnpm build` clean (20/20 turbo cached) after staging — changeset authoring does not touch source, no build regression.
+
+### REL-04 Status
+
+**CLOSED — 4 v1.3 changesets staged at `.changeset/v1-3-{acl,runtime,shell,services}.md`; each has valid YAML frontmatter declaring `@kehto/<pkg>: patch`; bodies cite ≥1 DEMO-/NAP-/E2E-/DOCS- requirement ID (3/5/6/4 citations respectively); anti-term grep returns 0 matches; `pnpm changeset status` parses all 4 alongside the 4 existing v1-2-*.md; `pnpm build` clean post-stage.**
+
+---
