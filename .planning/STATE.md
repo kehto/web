@@ -4,7 +4,7 @@ milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: verifying
 stopped_at: Completed 21-05-PLAN.md (E2E-11 iteration loop gate — full v1.3 suite GREEN)
-last_updated: "2026-04-18T11:11:32.763Z"
+last_updated: "2026-04-18T11:14:22.872Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
@@ -25,8 +25,8 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 ## Current Position
 
-Phase: 21 (Fixture Napplets & Layer-A Specs) — EXECUTING
-Plan: 5 of 5
+Phase: 22
+Plan: Not started
 Status: Phase complete — ready for verification
 Last activity: 2026-04-18
 
