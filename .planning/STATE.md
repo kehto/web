@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
-status: verifying
-stopped_at: Completed 18-04-PLAN.md (E2E-11 gate — 20/20 Layer-B tests green, Phase 18 ready to close)
-last_updated: "2026-04-18T00:55:04.043Z"
+status: executing
+stopped_at: Completed 19-02-PLAN.md (preferences napplet — @kehto/demo-preferences)
+last_updated: "2026-04-18T01:24:09.919Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
   completed_phases: 3
-  total_plans: 15
-  completed_plans: 15
+  total_plans: 22
+  completed_plans: 16
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 18 — Napplet SDK Migration
+**Current focus:** Phase 19 — Core-Domain Napplets
 
 ## Current Position
 
-Phase: 19
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 19 (Core-Domain Napplets) — EXECUTING
+Plan: 2 of 7
+Status: Ready to execute
 Last activity: 2026-04-18
 
 Progress: [░░░░░░░░░░] 0%
@@ -74,6 +74,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 18-napplet-sdk-migration P02 | 12min | 2 tasks | 2 files |
 | Phase 18-napplet-sdk-migration P03 | 2min | 2 tasks | 2 files |
 | Phase 18-napplet-sdk-migration P04 | 4 | 1 tasks | 1 files |
+| Phase 19-core-domain-napplets P02 | 2min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -115,6 +116,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 18-napplet-sdk-migration]: Match '[bot]' prefix only in ifc-roundtrip spec (not exact reply text) — decouples spec from bot response content for future plans
 - [Phase Phase 18-04]: Empty napplet-aggregate-hash (VITE_DEV_PRIVKEY_HEX not set) is acceptable: ACL keys on dTag:'' consistently; E2E suite green confirms functional correctness
 - [Phase Phase 18-04]: JSDoc anti-term comments in napplet src are clean per Phase 17 decision — grep pattern distinguishes live code from comment lines
+- [Phase 19-core-domain-napplets]: Sequential storage.getItem calls (not Promise.all) for denial localization — matches bot pattern
+- [Phase 19-core-domain-napplets]: Preferences status sentinel: 'connecting...' (HTML default) -> 'loaded' / 'saved' / 'denied: <reason>' from main.ts
 
 ### Blockers/Concerns
 
@@ -123,6 +126,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T00:51:53.751Z
-Stopped at: Completed 18-04-PLAN.md (E2E-11 gate — 20/20 Layer-B tests green, Phase 18 ready to close)
+Last session: 2026-04-18T01:24:09.916Z
+Stopped at: Completed 19-02-PLAN.md (preferences napplet — @kehto/demo-preferences)
 Resume: `/gsd:plan-phase 16`
