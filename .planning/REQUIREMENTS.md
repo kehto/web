@@ -86,7 +86,7 @@ No `changeset publish` — that is deferred until `@napplet/core` publishes to n
 - [x] **REL-01**: `pnpm dlx publint packages/*` clean for all 4 `@kehto/*` packages.
 - [x] **REL-02**: `pnpm dlx @arethetypeswrong/cli --profile esm-only packages/*` clean for all 4 `@kehto/*` packages.
 - [x] **REL-03**: `pnpm changeset version` dry-run executed in a throwaway branch; `pnpm install --frozen-lockfile` succeeds after the version bump; diffs inspected (no unexpected peer-dep range changes); branch discarded. `changeset publish` explicitly **NOT** run.
-- [ ] **REL-04**: v1.3 changesets staged at `.changeset/v1-3-*.md` for all 4 `@kehto/*` packages summarizing the demo/napplet/E2E/docs scope; each changeset body cites `DEMO-*`/`NAP-*`/`E2E-*` IDs it covers.
+- [x] **REL-04**: v1.3 changesets staged at `.changeset/v1-3-*.md` for all 4 `@kehto/*` packages summarizing the demo/napplet/E2E/docs scope; each changeset body cites `DEMO-*`/`NAP-*`/`E2E-*` IDs it covers.
 
 ---
 
@@ -148,7 +148,7 @@ No `changeset publish` — that is deferred until `@napplet/core` publishes to n
 | REL-01 | Phase 22 | Complete |
 | REL-02 | Phase 22 | Complete |
 | REL-03 | Phase 22 | Complete |
-| REL-04 | Phase 22 | Pending |
+| REL-04 | Phase 22 | Complete |
 
 ---
 

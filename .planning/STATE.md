@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: verifying
-stopped_at: Completed 22-05-PLAN.md (REL-03 changeset version dry-run closed; main HEAD unchanged at ad5357c → dfe09ca via iteration-log commit only)
-last_updated: "2026-04-18T13:17:10.280Z"
+stopped_at: Completed 22-06-PLAN.md (REL-04 v1.3 changesets staged; 4 files at .changeset/v1-3-*.md; iteration-log REL-04 section appended with full evidence)
+last_updated: "2026-04-18T13:22:36.839Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 43
-  completed_plans: 40
+  completed_plans: 41
   percent: 0
 ---
 
@@ -99,6 +99,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 22-docs-refresh-release-rehearsal P22-02 | 7min | 2 tasks | 5 files |
 | Phase 22 P04 | 3min | 2 tasks | 1 files |
 | Phase 22-docs-refresh-release-rehearsal P05 | 4min | 1 tasks | 1 files |
+| Phase 22-docs-refresh-release-rehearsal P06 | 3min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -196,6 +197,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 22-docs-refresh-release-rehearsal]: [22-05] REL-03 changeset version dry-run: pnpm changeset version clean on throwaway branch gsd/release-rehearsal-v1.3; all 4 @kehto/* bump minor 0.1.0→0.2.0; pnpm install --frozen-lockfile clean; peer-dep ranges (@napplet/core, all @napplet/nub-*) unchanged at ^0.2.0 — no unexpected mutations.
 - [Phase 22-docs-refresh-release-rehearsal]: [22-05] Throwaway-branch dry-run pattern requires explicit working-tree cleanup after rollback: 'git checkout main' carries uncommitted mutations across branches; fix is 'git checkout HEAD -- <mutated>' + rm -f <untracked CHANGELOGs> before the log-write commit, so main HEAD advances only by the iteration-log commit.
 - [Phase 22-docs-refresh-release-rehearsal]: [22-05] changeset publish NEVER invoked per D-05 hard rule — deferred until @napplet/core upstream npm unblock (v1.4+); this plan closes REL-03 as 'publish-ready, not yet published'.
+- [Phase 22-docs-refresh-release-rehearsal]: [22-06] REL-04 closed: 4 v1.3 changesets staged at .changeset/v1-3-{acl,runtime,shell,services}.md (all patch-bump); bodies cite DEMO-/NAP-/E2E-/DOCS- IDs (3/5/4/6 citations); anti-term grep clean; pnpm changeset status parses all 4 alongside existing v1-2-*.md
+- [Phase 22-docs-refresh-release-rehearsal]: [22-06] changeset CLI aggregation: pnpm changeset status reports 'minor' for all 4 @kehto/* packages because v1-2 minor + v1-3 patch → minor wins per-package; both bodies will concatenate under single 0.1.0→0.2.0 minor CHANGELOG entry when changeset version runs
 
 ### Blockers/Concerns
 
@@ -204,6 +207,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T13:17:10.277Z
-Stopped at: Completed 22-05-PLAN.md (REL-03 changeset version dry-run closed; main HEAD unchanged at ad5357c → dfe09ca via iteration-log commit only)
+Last session: 2026-04-18T13:22:36.836Z
+Stopped at: Completed 22-06-PLAN.md (REL-04 v1.3 changesets staged; 4 files at .changeset/v1-3-*.md; iteration-log REL-04 section appended with full evidence)
 Resume: `/gsd:plan-phase 16`
