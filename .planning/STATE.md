@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: executing
-stopped_at: Completed 20-expanded-domain-napplets/20-03-PLAN.md
-last_updated: "2026-04-18T09:18:52.310Z"
+stopped_at: Completed 20-expanded-domain-napplets/20-01-PLAN.md
+last_updated: "2026-04-18T09:19:34.030Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 30
-  completed_plans: 24
+  completed_plans: 26
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 20 (Expanded-Domain Napplets) — EXECUTING
-Plan: 3 of 8
+Plan: 5 of 8
 Status: Ready to execute
 Last activity: 2026-04-18
 
@@ -83,6 +83,8 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 19-core-domain-napplets P07 | 120 | 1 tasks | 8 files |
 | Phase 20-expanded-domain-napplets P05 | 114s | 2 tasks | 2 files |
 | Phase 20-expanded-domain-napplets P03 | 118 | 2 tasks | 5 files |
+| Phase 20-expanded-domain-napplets P01 | 2 | 2 tasks | 2 files |
+| Phase 20-expanded-domain-napplets P04 | 176 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -143,6 +145,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 20-expanded-domain-napplets]: Preferences napplet has exactly 1 window.addEventListener occurrence (D-USER-02 SDK gap exemption, paralleling toaster Plan 19-03 precedent); Plan 20-07 anti-term grep must exempt both toaster and preferences
 - [Phase 20-expanded-domain-napplets]: identity.getPublicKey + identity.getProfile called exactly once each (functional invocations); JSDoc comments and log strings also reference them but are not functional calls
 - [Phase 20-expanded-domain-napplets]: truncatePubkey('') === 'no-pubkey' is the spec-assertable sentinel for no-signer case in identity-flow.spec.ts (Plan 20-07)
+- [Phase 20-expanded-domain-napplets]: NostrEvent/NostrFilter imported from @kehto/shell re-export (not direct @napplet/core dep) in mock-relay-pool.ts — avoids dedupe risk (Pitfall 4)
+- [Phase 20-expanded-domain-napplets]: queueMicrotask dispatch for onevent/oneose in mock relay pool — events delivered after subscribe() returns, matching real relay async behavior
 
 ### Blockers/Concerns
 
@@ -151,6 +155,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T09:18:52.307Z
-Stopped at: Completed 20-expanded-domain-napplets/20-03-PLAN.md
+Last session: 2026-04-18T09:19:23.463Z
+Stopped at: Completed 20-expanded-domain-napplets/20-01-PLAN.md
 Resume: `/gsd:plan-phase 16`

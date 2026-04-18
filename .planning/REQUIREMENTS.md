@@ -46,7 +46,7 @@ Migrate legacy napplets to `@napplet/sdk`; expand with single-purpose napplets u
 - [x] **NAP-03**: `composer` napplet added under `apps/demo/napplets/composer`; exercises `relay.publish` and `relay.publishEncrypted` (NIP-44 default, NIP-04 opt-in); UI shows OK/denied status.
 - [x] **NAP-04**: `preferences` napplet added; exercises `storage.setItem` / `storage.getItem`; state survives page reload.
 - [x] **NAP-05**: `toaster` napplet added; exercises `notify.create` / `notify.list` / `notify.read` / `notify.dismiss`; host toast layer and napplet UI both update.
-- [ ] **NAP-06**: `feed` napplet added; exercises `relay.subscribe` (kinds filter + limit); renders received events; EOSE sets "loaded" state. Delivery mechanism decided in Phase 20 planning (`/gsd:discuss-phase 20`).
+- [x] **NAP-06**: `feed` napplet added; exercises `relay.subscribe` (kinds filter + limit); renders received events; EOSE sets "loaded" state. Delivery mechanism decided in Phase 20 planning (`/gsd:discuss-phase 20`).
 - [x] **NAP-07**: `profile-viewer` napplet added; exercises `identity.getPublicKey` + `identity.getProfile`; shows truncated pubkey + name/about/picture when present.
 - [x] **NAP-08**: `theme-switcher` napplet added; triggers host `publishTheme()` via a shell-exposed control path; at least one other napplet receives and visibly reacts to `theme.changed` push events.
 - [ ] **NAP-09**: All 6 non-stub NUB domains (`identity`, `ifc`, `notify`, `relay`, `storage`, `theme`) are exercised end-to-end by at least one demo napplet; `keys` and `media` remain stub-only and explicitly scoped out with a documented reason in the shell host's service-registration block.
@@ -125,7 +125,7 @@ No `changeset publish` — that is deferred until `@napplet/core` publishes to n
 | NAP-03 | Phase 19 | Complete |
 | NAP-04 | Phase 19 | Complete |
 | NAP-05 | Phase 19 | Complete |
-| NAP-06 | Phase 20 | Pending |
+| NAP-06 | Phase 20 | Complete |
 | NAP-07 | Phase 20 | Complete |
 | NAP-08 | Phase 20 | Complete |
 | NAP-09 | Phase 20 | Pending |
