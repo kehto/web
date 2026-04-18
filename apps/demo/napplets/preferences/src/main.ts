@@ -11,6 +11,19 @@
  *
  * Anti-features (per v1.3 milestone): no raw message listener, no NIP-01 arrays,
  *   no BusKind, no global nostr, no signer-service. Shim handles AUTH implicitly.
+ *
+ * Per CONTEXT D-USER-02 (Phase 20):
+ *   - Installs ONE narrowly-scoped window message listener for `theme.changed` envelopes broadcast
+ *     by the demo's shell-bridge.publishTheme() (triggered when theme-switcher (Plan 20-04) posts
+ *     a `demo.publishTheme` message that the demo host (Plan 20-06) forwards to relay.publishTheme).
+ *   - On receipt: sets document.body.style.backgroundColor to theme.colors.background AND
+ *     sets #preferences-theme-applied textContent to that color hex.
+ *
+ * SDK gap notice (D-USER-02): @napplet/sdk does NOT expose theme.on / theme.subscribe (verified
+ * against /home/sandwich/Develop/napplet/packages/sdk/src/index.ts — only type re-exports for
+ * theme NUB messages). The single message listener registered below is the explicit,
+ * narrowly-scoped deviation from the v1.3 anti-feature ban — paralleling Plan 19-03's toaster
+ * precedent. Plan 20-07's anti-term grep MUST exempt this one message listener for preferences.
  */
 import '@napplet/shim';
 import { storage } from '@napplet/sdk';
@@ -100,4 +113,31 @@ init().catch((err) => {
     setStatus('auth failed', 'red');
     log(`init failed — ${formatError(err, 'auth/storage failure')}`);
   }
+});
+
+/**
+ * THE ONLY raw window message listener in this napplet (D-USER-02, Plan 20 explicit deviation).
+ *
+ * Justified because @napplet/sdk does not expose theme.on / theme.subscribe (verified). This handler:
+ *   - Guards on event.source === window.parent (drop messages from other origins)
+ *   - Guards on event.data being a plain object with type === 'theme.changed'
+ *   - Reads theme.colors.background (string) and applies it to document.body.style.backgroundColor
+ *   - Sets #preferences-theme-applied textContent to the hex string
+ *   - Tolerates malformed payloads (missing fields → silent return)
+ *
+ * Does NOT intercept storage.*, ifc.*, or any other envelope types — those still flow through
+ * @napplet/sdk normally so the Phase 19 storage round-trip remains intact.
+ */
+const themeAppliedEl = document.getElementById('preferences-theme-applied');
+window.addEventListener('message', (event: MessageEvent) => {
+  if (event.source !== window.parent) return;
+  const data = event.data as Record<string, unknown> | null;
+  if (!data || typeof data !== 'object') return;
+  if (data.type !== 'theme.changed') return;
+  const theme = (data as { theme?: { colors?: { background?: unknown } } }).theme;
+  const bg = theme?.colors?.background;
+  if (typeof bg !== 'string' || bg.length === 0) return;
+  document.body.style.backgroundColor = bg;
+  if (themeAppliedEl) themeAppliedEl.textContent = bg;
+  log(`theme.changed received — bg: ${bg}`);
 });
