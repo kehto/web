@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="napplet-napp-type" content="demo-feed" />
+  <title>Feed Napplet</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #0a0a0f;
+      color: #e0e0e0;
+      font-size: 11px;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #app {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 8px;
+      gap: 6px;
+    }
+    .feed-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .feed-status {
+      color: #888;
+      font-size: 10px;
+      padding: 2px 0;
+    }
+    #feed-list {
+      list-style: none;
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px;
+      border: 1px solid #1e1e2e;
+      background: #0d0d14;
+      margin: 0;
+    }
+    .feed-item {
+      padding: 4px 0;
+      border-bottom: 1px solid #1a1a2a;
+      color: #b0b0c0;
+      line-height: 1.4;
+    }
+    .feed-item:last-child { border-bottom: none; }
+    .feed-item-pubkey { color: #5a7aff; font-size: 9px; margin-right: 6px; }
+    .feed-item-content { color: #b0b0c0; }
+    #feed-log {
+      flex: 1;
+      overflow-y: auto;
+      background: #0d0d14;
+      border: 1px solid #1e1e2e;
+      padding: 6px;
+      font-size: 10px;
+    }
+    .feed-log-entry {
+      padding: 1px 0;
+      line-height: 1.4;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="feed-row">
+      <span id="feed-status">connecting...</span>
+    </div>
+    <ul id="feed-list"></ul>
+    <div id="feed-log"></div>
+  </div>
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>
