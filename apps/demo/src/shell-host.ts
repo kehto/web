@@ -16,6 +16,7 @@ import {
   type ConsentRequest,
   type NappletMessage,
   type AclCheckEvent,
+  type SessionEntry,
 } from '@kehto/shell';
 import {
   createIdentityService,
@@ -748,10 +749,29 @@ export function loadNapplet(name: string, containerId: string): NappletInfo {
   const container = document.getElementById(containerId);
   if (container) container.appendChild(iframe);
 
+  // NIP-5D session entry — registered immediately so storage.* and notify.* NUB
+  // handlers can resolve the napplet's identity without a legacy AUTH handshake.
+  // dTag uses the napplet name; aggregateHash is empty (no manifest hash in demo).
+  function registerSessionEntry(): void {
+    const entry: SessionEntry = {
+      pubkey: '',
+      windowId,
+      origin: 'null',
+      type: 'napplet',
+      dTag: name,
+      aggregateHash: '',
+      registeredAt: Date.now(),
+      instanceId: crypto.randomUUID(),
+      identitySource: 'source',
+    };
+    relay.runtime.sessionRegistry.register(windowId, entry);
+  }
+
   // Register origin immediately — contentWindow is available after appendChild.
   // This must happen before the shim module runs (which sends REGISTER).
   if (iframe.contentWindow) {
     originRegistry.register(iframe.contentWindow, windowId);
+    registerSessionEntry();
   }
 
   const info: NappletInfo = {
@@ -764,15 +784,9 @@ export function loadNapplet(name: string, containerId: string): NappletInfo {
 
   iframe.addEventListener('load', () => {
     if (iframe.contentWindow) {
-      // Re-register in case contentWindow reference changed during load
+      // Re-register origin and session in case contentWindow reference changed during load.
       originRegistry.register(iframe.contentWindow, windowId);
-      // Fallback: if the napplet doesn't send REGISTER (legacy shim),
-      // send AUTH challenge directly after a short delay.
-      setTimeout(() => {
-        if (!info.authenticated && !relay.runtime.sessionRegistry.getPubkey(windowId)) {
-          relay.sendChallenge(windowId);
-        }
-      }, 500);
+      registerSessionEntry();
     }
   });
 
