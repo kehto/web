@@ -56,6 +56,7 @@ export { buildShellCapabilities } from './shell-init.js';
 
 // Session registry
 export { sessionRegistry, nappKeyRegistry } from './session-registry.js';
+export type { PendingUpdate } from './session-registry.js';
 
 // Standalone utilities (usable without full shell)
 export { originRegistry } from './origin-registry.js';
