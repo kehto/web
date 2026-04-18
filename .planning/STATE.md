@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: executing
-stopped_at: Completed 21-02-PLAN.md (scaffold 6 SDK fixture napplets + build)
-last_updated: "2026-04-18T10:36:58.755Z"
+stopped_at: "Completed 21-04-PLAN.md (stub-scope Layer-A specs: nub-keys, nub-media)"
+last_updated: "2026-04-18T10:50:30.779Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 35
-  completed_plans: 32
+  completed_plans: 33
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 21 (Fixture Napplets & Layer-A Specs) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
 Last activity: 2026-04-18
 
@@ -91,6 +91,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 20-expanded-domain-napplets P08 | 58min | 1 tasks | 14 files |
 | Phase 21-fixture-napplets-layer-a-specs P01 | 1min | 1 tasks | 13 files |
 | Phase 21-fixture-napplets-layer-a-specs P02 | 209s | 3 tasks | 31 files |
+| Phase 21-fixture-napplets-layer-a-specs P04 | 703s | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -167,6 +168,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 21-fixture-napplets-layer-a-specs]: JSDoc anti-feature comments in fixture src must use neutral phrasing to avoid false-positive anti-term grep matches — extends Phase 18 decision to fixture files
 - [Phase 21-fixture-napplets-layer-a-specs]: nub-theme fixture is OUTBOUND/AUTH-ONLY: @napplet/sdk has no theme namespace; storage.getItem probe for AUTH; Layer-A spec drives theme via __injectEnvelope__
 - [Phase 21-fixture-napplets-layer-a-specs]: nub-ifc ipc.on() is synchronous (not async) — SDK subscribe is a side-effect registration; status set to authenticated synchronously, not inside .then()
+- [Phase 21-fixture-napplets-layer-a-specs]: handler.descriptor required: runtime.registerService() accesses handler.descriptor.name at registration time (runtime.ts:1181) — handler objects passed to __registerService__ MUST include descriptor field
+- [Phase 21-fixture-napplets-layer-a-specs]: Stub-scope Layer-A specs (nub-keys, nub-media) use __registerService__ capture pattern — Possibility A applies for both: runtime emits fallback result envelopes even without registered services (runtime.ts:939 media, runtime.ts:982 keys)
 
 ### Blockers/Concerns
 
@@ -175,6 +178,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T10:36:58.752Z
-Stopped at: Completed 21-02-PLAN.md (scaffold 6 SDK fixture napplets + build)
+Last session: 2026-04-18T10:50:30.774Z
+Stopped at: Completed 21-04-PLAN.md (stub-scope Layer-A specs: nub-keys, nub-media)
 Resume: `/gsd:plan-phase 16`
