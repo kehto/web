@@ -121,13 +121,17 @@
   3. All 6 non-stub NUB domains (`identity`, `ifc`, `notify`, `relay`, `storage`, `theme`) are exercised end-to-end by at least one live demo napplet; `keys` and `media` appear in the topology as stub-only nodes with a documented service-registration comment explaining the deferral.
   4. The node inspector pane shows per-role content for every topology node: ACL node → grant/revoke table; runtime node → registered NUBs; napplet node → capability state + recent envelopes.
 
-**Open decision — feed napplet delivery mechanism (resolve during `/gsd:discuss-phase 20`):**
-The demo relay pool is stubbed (no-op) by design, so the `feed` napplet will receive no events from a real relay. Before executing Phase 20, pick exactly one delivery path:
-- (a) Harness `__injectMessage__` seed — extend the driver API to push synthetic relay events into the runtime from Playwright; keeps the relay pool stub intact.
-- (b) Mock relay pool in demo — replace the stub relay pool adapter with an in-memory implementation that replays a fixture event set when `relay.subscribe` is called; no harness changes needed.
-- (c) Scope `feed` spec to subscribe-envelope-only — the `relay-subscribe` spec validates the subscribe request/response handshake but does not assert on delivered events; the `feed` napplet renders a "waiting for events" state.
-The `relay-subscribe` Playwright spec cannot be marked green until this decision is made and implemented.
-**Plans**: TBD
+**Decision resolved (via `/gsd:discuss-phase 20`):** feed delivery uses option (b) — in-memory mock relay pool in demo (see `.planning/phases/20-expanded-domain-napplets/20-CONTEXT.md` D-USER-01). Plan 20-01 implements `apps/demo/src/mock-relay-pool.ts` holding 5 kind:1 fixture events. Plan 20-05 extends preferences as the theme-broadcast observer (D-USER-02).
+
+**Plans:** 8 plans
+- [ ] 20-01-PLAN.md — Mock relay pool in demo (NAP-06 delivery; D-USER-01)
+- [ ] 20-02-PLAN.md — feed napplet scaffold + relay.subscribe (NAP-06)
+- [ ] 20-03-PLAN.md — profile-viewer napplet scaffold + identity.getPublicKey/getProfile (NAP-07)
+- [ ] 20-04-PLAN.md — theme-switcher napplet scaffold + demo.publishTheme dispatch (NAP-08)
+- [ ] 20-05-PLAN.md — preferences napplet theme observer extension (D-USER-02; NAP-08)
+- [ ] 20-06-PLAN.md — Demo wiring: DEMO_NAPPLETS + ACL panels + demo.publishTheme listener (NAP-06/07/08/09)
+- [ ] 20-07-PLAN.md — 3 Layer-B E2E-07 specs: relay-subscribe, identity-flow, theme-broadcast
+- [ ] 20-08-PLAN.md — E2E-11 iteration loop gate + NAP-09 coverage verification
 **UI hint**: yes
 
 ### Phase 21: Fixture Napplets & Layer-A Specs
@@ -162,6 +166,6 @@ The `relay-subscribe` Playwright spec cannot be marked green until this decision
 | 17. Demo App Rewire | v1.3 | 7/7 | Complete    | 2026-04-18 |
 | 18. Napplet SDK Migration | v1.3 | 4/4 | Complete    | 2026-04-18 |
 | 19. Core-Domain Napplets | v1.3 | 7/7 | Complete    | 2026-04-18 |
-| 20. Expanded-Domain Napplets | v1.3 | 0/TBD | Not started | - |
+| 20. Expanded-Domain Napplets | v1.3 | 0/8 | Planned     | - |
 | 21. Fixture Napplets & Layer-A Specs | v1.3 | 0/TBD | Not started | - |
 | 22. Docs Refresh & Release Rehearsal | v1.3 | 0/TBD | Not started | - |
