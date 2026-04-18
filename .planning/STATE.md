@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
-status: executing
-stopped_at: Completed 18-03-PLAN.md (E2E-07 napplet-auth + ifc-roundtrip Layer-B specs, 3 tests passing)
-last_updated: "2026-04-18T00:47:16.684Z"
+status: verifying
+stopped_at: Completed 18-04-PLAN.md (E2E-11 gate — 20/20 Layer-B tests green, Phase 18 ready to close)
+last_updated: "2026-04-18T00:51:53.754Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 15
-  completed_plans: 14
+  completed_plans: 15
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 Phase: 18 (Napplet SDK Migration) — EXECUTING
 Plan: 4 of 4
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-18
 
 Progress: [░░░░░░░░░░] 0%
@@ -73,6 +73,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 18-napplet-sdk-migration P01 | 2 | 1 tasks | 1 files |
 | Phase 18-napplet-sdk-migration P02 | 12min | 2 tasks | 2 files |
 | Phase 18-napplet-sdk-migration P03 | 2min | 2 tasks | 2 files |
+| Phase 18-napplet-sdk-migration P04 | 4 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -112,6 +113,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 18-napplet-sdk-migration]: frameLocator toContainText built-in retry is sufficient for in-iframe DOM sentinels — no expect.poll needed for demo-targeted specs
 - [Phase 18-napplet-sdk-migration]: ifc-roundtrip gates on both napplets authenticated before triggering round trip to prevent race where bot hasn't subscribed via ipc.on yet
 - [Phase 18-napplet-sdk-migration]: Match '[bot]' prefix only in ifc-roundtrip spec (not exact reply text) — decouples spec from bot response content for future plans
+- [Phase Phase 18-04]: Empty napplet-aggregate-hash (VITE_DEV_PRIVKEY_HEX not set) is acceptable: ACL keys on dTag:'' consistently; E2E suite green confirms functional correctness
+- [Phase Phase 18-04]: JSDoc anti-term comments in napplet src are clean per Phase 17 decision — grep pattern distinguishes live code from comment lines
 
 ### Blockers/Concerns
 
@@ -120,6 +123,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T00:47:16.681Z
-Stopped at: Completed 18-03-PLAN.md (E2E-07 napplet-auth + ifc-roundtrip Layer-B specs, 3 tests passing)
+Last session: 2026-04-18T00:51:53.751Z
+Stopped at: Completed 18-04-PLAN.md (E2E-11 gate — 20/20 Layer-B tests green, Phase 18 ready to close)
 Resume: `/gsd:plan-phase 16`

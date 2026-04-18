@@ -31,7 +31,7 @@
 
 - [x] **Phase 16: Harness Triage & Playwright Infrastructure** — Delete obsolete specs, extend harness driver API, fix timing/isolation pitfalls (completed 2026-04-17)
 - [x] **Phase 17: Demo App Rewire** — Boot demo clean against v1.2 APIs; all 8 service nodes live; signer/ACL/debugger wired (completed 2026-04-18)
-- [ ] **Phase 18: Napplet SDK Migration** — Migrate `bot` + `chat` from raw `window.addEventListener` to `@napplet/sdk`
+- [x] **Phase 18: Napplet SDK Migration** — Migrate `bot` + `chat` from raw `window.addEventListener` to `@napplet/sdk` (completed 2026-04-18)
 - [ ] **Phase 19: Core-Domain Napplets** — Add `composer`, `preferences`, `toaster`; relay/storage/notify specs green
 - [ ] **Phase 20: Expanded-Domain Napplets** — Add `feed`, `profile-viewer`, `theme-switcher`; full 8-domain showcase complete
 - [ ] **Phase 21: Fixture Napplets & Layer-A Specs** — Per-nub fixture napplets + `nub-*.spec.ts` harness-driven correctness specs
@@ -85,11 +85,11 @@
   1. `apps/demo/napplets/bot` and `apps/demo/napplets/chat` contain zero `window.addEventListener('message')` calls; all protocol traffic goes through `@napplet/sdk` `ipc.*` / `storage.*` APIs.
   2. The `ifc-roundtrip` Playwright spec is green: a message sent from `bot` via `ipc.emit` is received by `chat` via `ipc.on` and the demo debugger shows both the outbound and inbound envelopes.
   3. The `napplet-auth` Playwright spec is green: both migrated napplets receive their capability grants and the topology node for each shows a non-empty capability state.
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 - [x] 18-01-PLAN.md — Migrate bot napplet to @napplet/sdk (NAP-01)
 - [x] 18-02-PLAN.md — Migrate chat napplet to @napplet/sdk (NAP-02)
 - [x] 18-03-PLAN.md — Layer-B E2E specs napplet-auth + ifc-roundtrip (E2E-07)
-- [ ] 18-04-PLAN.md — Build → preview → Playwright iteration loop gate (E2E-11)
+- [x] 18-04-PLAN.md — Build → preview → Playwright iteration loop gate (E2E-11)
 **UI hint**: yes
 
 ### Phase 19: Core-Domain Napplets
@@ -153,7 +153,7 @@ The `relay-subscribe` Playwright spec cannot be marked green until this decision
 |-------|-----------|----------------|--------|-----------|
 | 16. Harness Triage & Playwright Infrastructure | v1.3 | 4/4 | Complete    | 2026-04-17 |
 | 17. Demo App Rewire | v1.3 | 7/7 | Complete    | 2026-04-18 |
-| 18. Napplet SDK Migration | v1.3 | 3/4 | In Progress|  |
+| 18. Napplet SDK Migration | v1.3 | 4/4 | Complete   | 2026-04-18 |
 | 19. Core-Domain Napplets | v1.3 | 0/TBD | Not started | - |
 | 20. Expanded-Domain Napplets | v1.3 | 0/TBD | Not started | - |
 | 21. Fixture Napplets & Layer-A Specs | v1.3 | 0/TBD | Not started | - |
