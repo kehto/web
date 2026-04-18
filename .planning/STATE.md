@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
-status: executing
-stopped_at: "Completed 17-06-PLAN.md (Layer-B demo E2E specs: boot, node-inspector, debugger, service-toggle, notification-service)"
-last_updated: "2026-04-18T00:14:26.615Z"
+status: verifying
+stopped_at: "Completed 17-07-PLAN.md (E2E-11 iteration-loop gate: all 17 E2E-06 tests GREEN, Phase 17 ready for close)"
+last_updated: "2026-04-18T00:26:01.786Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 11
-  completed_plans: 10
+  completed_plans: 11
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 Phase: 17 (Demo App Rewire) — EXECUTING
 Plan: 7 of 7
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-18
 
 Progress: [░░░░░░░░░░] 0%
@@ -69,6 +69,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 17-demo-app-rewire P04 | 25 | 2 tasks | 4 files |
 | Phase 17-demo-app-rewire P05 | 25min | 2 tasks | 8 files |
 | Phase 17 P06 | 3min | 2 tasks | 6 files |
+| Phase 17-demo-app-rewire P07 | 10min | 1 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -98,6 +99,9 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 17-demo-app-rewire]: renderForRole() in node-inspector.ts dispatches to 5 per-role renderers (acl/runtime/napplet/service/shell); role content injected above existing sections block
 - [Phase 17]: demoBeforeEach waits for #topology-root (dynamically rendered) not static #topology-pane — topology DOM sentinel vs __SHELL_READY__ harness global
 - [Phase 17]: demo-targeted specs use demoBeforeEach, harness-targeted specs use aclBeforeEach — parallel setup helpers from helpers/index.ts pick the right surface
+- [Phase 17-demo-app-rewire]: notification-service.ts handles both notify.* NIP-5D envelopes (canonical v1.2 per D-07) and legacy ifc.emit format; legacy path removed after Phase 18 napplet migration
+- [Phase 17-demo-app-rewire]: E2E specs must not gate on napplet auth (#chat-status) until Phase 18; demo napplets use legacy NIP-01 arrays which the v1.2 shell bridge drops by design
+- [Phase 17-demo-app-rewire]: Playwright shadow DOM: toContainText() pierces shadow roots; textContent() returns empty string; all future shadow-element assertions must use toContainText()
 
 ### Blockers/Concerns
 
@@ -106,6 +110,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T00:14:26.612Z
-Stopped at: Completed 17-06-PLAN.md (Layer-B demo E2E specs: boot, node-inspector, debugger, service-toggle, notification-service)
+Last session: 2026-04-18T00:26:01.783Z
+Stopped at: Completed 17-07-PLAN.md (E2E-11 iteration-loop gate: all 17 E2E-06 tests GREEN, Phase 17 ready for close)
 Resume: `/gsd:plan-phase 16`
