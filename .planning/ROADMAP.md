@@ -142,10 +142,10 @@
   1. Six fixture napplets exist under `tests/fixtures/napplets/` — one each for `identity`, `ifc`, `notify`, `relay`, `storage`, `theme` — loadable via `window.__loadNapplet__('nub-<domain>')` from Playwright.
   2. Six `nub-<domain>.spec.ts` Layer-A specs run against the harness at `:4173` using only harness driver globals (`window.__*`); each spec asserts at least one request envelope is dispatched and at least one result envelope is received, without touching the demo server.
   3. `nub-keys.spec.ts` and `nub-media.spec.ts` exist and explicitly document stub scope — they assert the stub response shape (e.g., "not implemented" or empty result) without asserting real backend behavior.
-**Plans:** 3/5 plans executed
+**Plans:** 4/5 plans executed
 - [x] 21-01-PLAN.md — Delete legacy fixture napplets (auth/publish/pure) + document removal rationale
 - [x] 21-02-PLAN.md — Create 6 SDK-based fixture napplets (nub-identity/ifc/notify/relay/storage/theme) + extend turbo build:napplets outputs
-- [ ] 21-03-PLAN.md — 6 Layer-A active-domain specs (nub-identity/ifc/notify/relay/storage/theme.spec.ts) targeting :4173
+- [x] 21-03-PLAN.md — 6 Layer-A active-domain specs (nub-identity/ifc/notify/relay/storage/theme.spec.ts) targeting :4173
 - [x] 21-04-PLAN.md — 2 Layer-A stub-scope specs (nub-keys/nub-media.spec.ts) with explicit STUB SCOPE NOTICE headers
 - [ ] 21-05-PLAN.md — E2E-11 iteration loop gate (full v1.3 suite green) + 21-ITERATION-LOG.md
 
@@ -172,5 +172,5 @@
 | 18. Napplet SDK Migration | v1.3 | 4/4 | Complete    | 2026-04-18 |
 | 19. Core-Domain Napplets | v1.3 | 7/7 | Complete    | 2026-04-18 |
 | 20. Expanded-Domain Napplets | v1.3 | 8/8 | Complete    | 2026-04-18 |
-| 21. Fixture Napplets & Layer-A Specs | v1.3 | 3/5 | In Progress|  |
+| 21. Fixture Napplets & Layer-A Specs | v1.3 | 4/5 | In Progress|  |
 | 22. Docs Refresh & Release Rehearsal | v1.3 | 0/TBD | Not started | - |
