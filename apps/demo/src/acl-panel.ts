@@ -5,7 +5,7 @@
  * (UnoCSS can't detect dynamically-assigned classes).
  */
 
-import { getNapplets, toggleCapability, toggleBlock } from './shell-host.js';
+import { getNapplets, getAclAdapter } from './shell-host.js';
 import { refreshPolicyModal } from './acl-modal.js';
 import type { NappletDebugger } from './debugger.js';
 import type { Capability } from '@kehto/shell';
@@ -15,12 +15,16 @@ export const DEMO_CAPABILITY_LABELS: Record<Capability, string> = {
   'relay:write': 'Relay Publish / IPC Send',
   'cache:read': 'Cache Read',
   'cache:write': 'Cache Write',
-  'sign:event': 'Signer Requests',
-  'sign:nip04': 'NIP-04 Encrypt/Decrypt',
-  'sign:nip44': 'NIP-44 Encrypt/Decrypt',
+  'hotkey:forward': 'Hotkey Forward',
   'state:read': 'State Read',
   'state:write': 'State Write',
-  'hotkey:forward': 'Hotkey Forward',
+  'identity:read': 'Identity Read',
+  'keys:bind': 'Keys Bind',
+  'keys:forward': 'Keys Forward',
+  'media:control': 'Media Control',
+  'notify:send': 'Notify Send',
+  'notify:channel': 'Notify Channel',
+  'theme:read': 'Theme Read',
 };
 
 export const DEMO_CAPABILITY_HINTS: Record<Capability, string> = {
@@ -28,20 +32,24 @@ export const DEMO_CAPABILITY_HINTS: Record<Capability, string> = {
   'relay:write': 'relay publish / ipc send',
   'cache:read': 'cache read access',
   'cache:write': 'cache write access',
-  'sign:event': 'signer requests',
-  'sign:nip04': 'NIP-04 encryption/decryption',
-  'sign:nip44': 'NIP-44 encryption/decryption',
+  'hotkey:forward': 'hotkey forward',
   'state:read': 'state read',
   'state:write': 'state write',
-  'hotkey:forward': 'hotkey forward',
+  'identity:read': 'identity read (pubkey, profile)',
+  'keys:bind': 'bind keyboard shortcut',
+  'keys:forward': 'forward key events',
+  'media:control': 'media session control',
+  'notify:send': 'send notifications',
+  'notify:channel': 'subscribe to notification channel',
+  'theme:read': 'read active theme',
 };
 
 const DEMO_CAPABILITIES: { cap: Capability; label: string }[] = [
   { cap: 'relay:read', label: DEMO_CAPABILITY_LABELS['relay:read'] },
   { cap: 'relay:write', label: DEMO_CAPABILITY_LABELS['relay:write'] },
-  { cap: 'sign:event', label: DEMO_CAPABILITY_LABELS['sign:event'] },
   { cap: 'state:read', label: DEMO_CAPABILITY_LABELS['state:read'] },
   { cap: 'state:write', label: DEMO_CAPABILITY_LABELS['state:write'] },
+  { cap: 'identity:read', label: DEMO_CAPABILITY_LABELS['identity:read'] },
 ];
 
 let debugger_: NappletDebugger | null = null;
@@ -78,7 +86,9 @@ function renderNappletAcl(containerId: string, windowId: string, info: { name: s
       applyBtnStyle(toggle, newState);
       toggle.title = `${cap} (${DEMO_CAPABILITY_HINTS[cap]}) — click to ${newState ? 'revoke' : 'grant'}`;
 
-      toggleCapability(windowId, cap, newState);
+      const adapter = getAclAdapter();
+      if (newState) adapter.grant(windowId, cap);
+      else adapter.revoke(windowId, cap);
       debugger_?.addSystemMessage(
         `${newState ? 'GRANT' : 'REVOKE'} ${cap} (${DEMO_CAPABILITY_HINTS[cap]}) on ${info.name}`
       );
@@ -108,7 +118,9 @@ function renderNappletAcl(containerId: string, windowId: string, info: { name: s
       blockBtn.textContent = 'Block';
     }
 
-    toggleBlock(windowId, newState);
+    const adapter = getAclAdapter();
+    if (newState) adapter.block(windowId);
+    else adapter.unblock(windowId);
     debugger_?.addSystemMessage(`${newState ? 'BLOCK' : 'UNBLOCK'} ${info.name}`);
   });
 

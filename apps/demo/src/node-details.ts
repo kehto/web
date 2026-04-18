@@ -144,8 +144,9 @@ function buildNappletDetail(
         const hash = info.aggregateHash ?? '';
         const allCaps: Capability[] = [
           'relay:read', 'relay:write', 'cache:read', 'cache:write',
-          'sign:event', 'sign:nip04', 'sign:nip44',
-          'state:read', 'state:write', 'hotkey:forward',
+          'hotkey:forward', 'state:read', 'state:write',
+          'identity:read', 'keys:bind', 'keys:forward',
+          'media:control', 'notify:send', 'notify:channel', 'theme:read',
         ];
         const items: SummaryField[] = [];
         for (const cap of allCaps) {

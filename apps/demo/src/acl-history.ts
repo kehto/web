@@ -6,6 +6,7 @@
  */
 
 import type { AclCheckEvent } from '@kehto/shell';
+import { getAclAdapter } from './shell-host.js';
 
 // ─── Extended Event Type ────────────────────────────────────────────────────
 
@@ -109,3 +110,22 @@ export function clearAclHistory(): void {
   globalAclRing.length = 0;
   nextIndex = 0;
 }
+
+// ─── Adapter Subscription Helper ────────────────────────────────────────────
+
+/**
+ * Subscribe to ACL check events via the shell-host adapter seam.
+ *
+ * acl-history already records events internally via pushAclEvent (called from
+ * shell-host.ts createDemoHooks().onAclCheck). This helper lets UI components
+ * subscribe through the same adapter seam for reactive updates.
+ *
+ * @param listener - Callback receiving the event, windowId, and napplet name
+ * @returns Unsubscribe function
+ */
+export function subscribeAclCheck(
+  listener: (event: AclCheckEvent, windowId: string, nappletName: string) => void,
+): () => void {
+  return getAclAdapter().onCheck(listener);
+}
+

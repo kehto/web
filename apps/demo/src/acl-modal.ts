@@ -7,7 +7,7 @@
  */
 
 import { DEMO_CAPABILITY_LABELS } from './acl-panel.js';
-import { getNapplets, relay, toggleCapability, getDemoServiceNames, toggleService, isServiceEnabled } from './shell-host.js';
+import { getNapplets, getAclAdapter, getDemoServiceNames, toggleService, isServiceEnabled } from './shell-host.js';
 import { updateServiceNodeVisual } from './topology.js';
 import type { Capability } from '@kehto/shell';
 
@@ -18,12 +18,16 @@ const ALL_CAPABILITIES: Capability[] = [
   'relay:write',
   'cache:read',
   'cache:write',
-  'sign:event',
-  'sign:nip04',
-  'sign:nip44',
+  'hotkey:forward',
   'state:read',
   'state:write',
-  'hotkey:forward',
+  'identity:read',
+  'keys:bind',
+  'keys:forward',
+  'media:control',
+  'notify:send',
+  'notify:channel',
+  'theme:read',
 ];
 
 const MODAL_ID = 'acl-policy-modal';
@@ -39,9 +43,9 @@ export function openPolicyModal(): void {
   closePolicyModal();
 
   const napplets = getNapplets();
-  const aclState = relay.runtime.aclState;
+  const adapter = getAclAdapter();
 
-  // Build rows data
+  // Build rows data via adapter snapshot — no direct aclState access in UI layer
   const rows: Array<{
     name: string;
     windowId: string;
@@ -49,33 +53,16 @@ export function openPolicyModal(): void {
     caps: Map<Capability, 'granted' | 'revoked' | 'default'>;
   }> = [];
 
-  for (const [windowId, info] of napplets) {
-    if (!info.pubkey) continue; // skip unauthenticated
-    const entry = aclState.getEntry(info.pubkey, info.dTag || '', info.aggregateHash || '');
+  for (const snap of adapter.snapshot()) {
     const caps = new Map<Capability, 'granted' | 'revoked' | 'default'>();
-
     for (const cap of ALL_CAPABILITIES) {
-      const allowed = aclState.check(info.pubkey, info.dTag || '', info.aggregateHash || '', cap);
-      if (entry) {
-        // Has explicit entry — check if capability is in the granted list
-        const isExplicitlyGranted = entry.capabilities.includes(cap);
-        if (allowed && isExplicitlyGranted) {
-          caps.set(cap, 'granted');
-        } else if (allowed) {
-          caps.set(cap, 'default'); // allowed by default policy, not explicitly granted
-        } else {
-          caps.set(cap, 'revoked');
-        }
-      } else {
-        // No explicit entry — everything is default policy
-        caps.set(cap, allowed ? 'default' : 'revoked');
-      }
+      const allowed = snap.capabilities[cap];
+      caps.set(cap, allowed ? 'granted' : 'revoked');
     }
-
     rows.push({
-      name: info.name,
-      windowId,
-      blocked: entry?.blocked ?? false,
+      name: snap.name,
+      windowId: snap.windowId,
+      blocked: snap.blocked,
       caps,
     });
   }
@@ -229,11 +216,10 @@ export function openPolicyModal(): void {
 
       // Click to toggle: allowed (granted/default) -> revoked -> allowed
       td.addEventListener('click', () => {
-        const info = napplets.get(row.windowId);
-        if (!info?.pubkey) return;
-        const isCurrentlyAllowed = aclState.check(info.pubkey, info.dTag || '', info.aggregateHash || '', cap);
+        const isCurrentlyAllowed = row.caps.get(cap) !== 'revoked';
         const newEnabled = !isCurrentlyAllowed;
-        toggleCapability(row.windowId, cap, newEnabled);
+        if (newEnabled) adapter.grant(row.windowId, cap);
+        else adapter.revoke(row.windowId, cap);
         // Update cell visual immediately
         renderCellState(td, newEnabled ? 'granted' : 'revoked');
         // Update the row's caps map for consistency
