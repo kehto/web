@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="napplet-napp-type" content="demo-profile-viewer" />
+  <title>Profile Viewer Napplet</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #0a0a0f;
+      color: #e0e0e0;
+      font-size: 11px;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #app {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 8px;
+      gap: 6px;
+    }
+    .composer-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .composer-status {
+      color: #888;
+      font-size: 10px;
+      padding: 2px 0;
+    }
+    .composer-log {
+      flex: 1;
+      overflow-y: auto;
+      background: #0d0d14;
+      border: 1px solid #1e1e2e;
+      padding: 6px;
+      font-size: 10px;
+    }
+    input[type="text"] {
+      flex: 1;
+      background: #12121a;
+      border: 1px solid #2a2a3a;
+      color: #e0e0e0;
+      padding: 4px 6px;
+      font-family: inherit;
+      font-size: 11px;
+    }
+    input[type="text"]::placeholder {
+      color: #444;
+    }
+    input[type="checkbox"] {
+      accent-color: #39ff14;
+    }
+    label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: #aaa;
+      cursor: pointer;
+    }
+    button {
+      background: #1a1a2e;
+      border: 1px solid #3a3a5a;
+      color: #e0e0e0;
+      padding: 4px 12px;
+      font-family: inherit;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #2a2a4e;
+    }
+    .composer-log-entry {
+      padding: 1px 0;
+      line-height: 1.4;
+      color: #888;
+    }
+    #composer-log {
+      flex: 1;
+      overflow-y: auto;
+      background: #0d0d14;
+      border: 1px solid #1e1e2e;
+      padding: 6px;
+      font-size: 10px;
+    }
+    #profile-picture { width: 64px; height: 64px; border-radius: 4px; object-fit: cover; display: none; }
+    .profile-row { display: flex; align-items: flex-start; gap: 8px; padding: 2px 0; }
+    .profile-label { color: #888; min-width: 60px; font-size: 10px; }
+    .profile-value { color: #e0e0e0; font-size: 11px; word-break: break-all; }
+    #profile-about { color: #b0b0c0; font-size: 10px; line-height: 1.4; }
+    #profile-log { overflow-y: auto; max-height: 80px; border-top: 1px solid #2a2a3a; padding-top: 4px; font-size: 10px; color: #555; }
+    .profile-log-entry { padding: 1px 0; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="profile-row"><span id="profile-status">connecting...</span></div>
+    <div class="profile-row"><img id="profile-picture" alt="profile" /></div>
+    <div class="profile-row"><span class="profile-label">pubkey:</span><span id="profile-pubkey" class="profile-value"></span></div>
+    <div class="profile-row"><span class="profile-label">name:</span><span id="profile-name" class="profile-value"></span></div>
+    <div class="profile-row"><span class="profile-label">about:</span><span id="profile-about" class="profile-value"></span></div>
+    <div id="profile-log"></div>
+  </div>
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>
