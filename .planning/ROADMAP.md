@@ -123,13 +123,13 @@
 
 **Decision resolved (via `/gsd:discuss-phase 20`):** feed delivery uses option (b) — in-memory mock relay pool in demo (see `.planning/phases/20-expanded-domain-napplets/20-CONTEXT.md` D-USER-01). Plan 20-01 implements `apps/demo/src/mock-relay-pool.ts` holding 5 kind:1 fixture events. Plan 20-05 extends preferences as the theme-broadcast observer (D-USER-02).
 
-**Plans:** 5/8 plans executed
+**Plans:** 6/8 plans executed
 - [x] 20-01-PLAN.md — Mock relay pool in demo (NAP-06 delivery; D-USER-01)
 - [x] 20-02-PLAN.md — feed napplet scaffold + relay.subscribe (NAP-06)
 - [x] 20-03-PLAN.md — profile-viewer napplet scaffold + identity.getPublicKey/getProfile (NAP-07)
 - [x] 20-04-PLAN.md — theme-switcher napplet scaffold + demo.publishTheme dispatch (NAP-08)
 - [x] 20-05-PLAN.md — preferences napplet theme observer extension (D-USER-02; NAP-08)
-- [ ] 20-06-PLAN.md — Demo wiring: DEMO_NAPPLETS + ACL panels + demo.publishTheme listener (NAP-06/07/08/09)
+- [x] 20-06-PLAN.md — Demo wiring: DEMO_NAPPLETS + ACL panels + demo.publishTheme listener (NAP-06/07/08/09)
 - [ ] 20-07-PLAN.md — 3 Layer-B E2E-07 specs: relay-subscribe, identity-flow, theme-broadcast
 - [ ] 20-08-PLAN.md — E2E-11 iteration loop gate + NAP-09 coverage verification
 **UI hint**: yes
@@ -166,6 +166,6 @@
 | 17. Demo App Rewire | v1.3 | 7/7 | Complete    | 2026-04-18 |
 | 18. Napplet SDK Migration | v1.3 | 4/4 | Complete    | 2026-04-18 |
 | 19. Core-Domain Napplets | v1.3 | 7/7 | Complete    | 2026-04-18 |
-| 20. Expanded-Domain Napplets | v1.3 | 5/8 | In Progress|  |
+| 20. Expanded-Domain Napplets | v1.3 | 6/8 | In Progress|  |
 | 21. Fixture Napplets & Layer-A Specs | v1.3 | 0/TBD | Not started | - |
 | 22. Docs Refresh & Release Rehearsal | v1.3 | 0/TBD | Not started | - |

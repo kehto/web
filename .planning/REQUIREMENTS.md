@@ -49,7 +49,7 @@ Migrate legacy napplets to `@napplet/sdk`; expand with single-purpose napplets u
 - [x] **NAP-06**: `feed` napplet added; exercises `relay.subscribe` (kinds filter + limit); renders received events; EOSE sets "loaded" state. Delivery mechanism decided in Phase 20 planning (`/gsd:discuss-phase 20`).
 - [x] **NAP-07**: `profile-viewer` napplet added; exercises `identity.getPublicKey` + `identity.getProfile`; shows truncated pubkey + name/about/picture when present.
 - [x] **NAP-08**: `theme-switcher` napplet added; triggers host `publishTheme()` via a shell-exposed control path; at least one other napplet receives and visibly reacts to `theme.changed` push events.
-- [ ] **NAP-09**: All 6 non-stub NUB domains (`identity`, `ifc`, `notify`, `relay`, `storage`, `theme`) are exercised end-to-end by at least one demo napplet; `keys` and `media` remain stub-only and explicitly scoped out with a documented reason in the shell host's service-registration block.
+- [x] **NAP-09**: All 6 non-stub NUB domains (`identity`, `ifc`, `notify`, `relay`, `storage`, `theme`) are exercised end-to-end by at least one demo napplet; `keys` and `media` remain stub-only and explicitly scoped out with a documented reason in the shell host's service-registration block.
 
 ---
 
@@ -128,7 +128,7 @@ No `changeset publish` — that is deferred until `@napplet/core` publishes to n
 | NAP-06 | Phase 20 | Complete |
 | NAP-07 | Phase 20 | Complete |
 | NAP-08 | Phase 20 | Complete |
-| NAP-09 | Phase 20 | Pending |
+| NAP-09 | Phase 20 | Complete |
 | E2E-01 | Phase 16 | Complete |
 | E2E-02 | Phase 16 | Complete |
 | E2E-03 | Phase 16 | Complete |
