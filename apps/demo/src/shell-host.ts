@@ -29,6 +29,7 @@ import type { Notification, ThemeService } from '@kehto/services';
 import { getSigner, getSignerConnectionState } from './signer-connection.js';
 import { demoConfig } from './demo-config.js';
 import { pushAclEvent } from './acl-history.js';
+import { createMockRelayPool } from './mock-relay-pool.js';
 
 // Static ephemeral host identity for shell node display (separate from signer identity)
 import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
@@ -381,6 +382,13 @@ function createMessageTap(): MessageTap {
 
 // --- Mock ShellAdapter (simplified from tests/helpers/mock-hooks.ts) ---
 
+/**
+ * CONTEXT D-USER-01 (Phase 20): ShellAdapter.relayPool is backed by the in-memory
+ * mock pool (apps/demo/src/mock-relay-pool.ts) rather than the old no-op stub. This
+ * unblocks the feed napplet (NAP-06) — on relay.subscribe({kinds:[1]}) the pool
+ * emits 5 fixture events then EOSE. relay.publish events are stored in-memory
+ * only (no network traffic). Demo-only; not part of any @kehto/* package.
+ */
 function createDemoHooks(notificationOnChange?: (notifications: readonly Notification[]) => void): ShellAdapter {
   const notificationService = createNotificationService({
     onChange: notificationOnChange,
@@ -426,19 +434,11 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
   // Expose the identity service handler for host-side diagnostic probe flows
   _identityServiceHandler = services.identity;
   return {
-    relayPool: {
-      getRelayPool: () => ({
-        subscription: () => ({ subscribe: () => ({ unsubscribe: () => {} }) }),
-        publish: () => {},
-        request: () => ({ subscribe: () => ({ unsubscribe: () => {} }) }),
-      }),
-      trackSubscription: () => {},
-      untrackSubscription: () => {},
-      openScopedRelay: () => {},
-      closeScopedRelay: () => {},
-      publishToScopedRelay: () => false,
-      selectRelayTier: () => [],
-    },
+    // CONTEXT D-USER-01 (Phase 20): in-memory mock relay pool holding 5 kind:1 fixture
+    // events. On relay.subscribe({kinds:[1]}) emits matching events then EOSE; on
+    // relay.publish stores the event in an in-memory array. Demo-only seam; no real
+    // relay traffic. See apps/demo/src/mock-relay-pool.ts for the implementation.
+    relayPool: createMockRelayPool(),
     relayConfig: {
       addRelay: () => {},
       removeRelay: () => {},
