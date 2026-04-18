@@ -15,7 +15,7 @@
  */
 
 import { createShellBridge, originRegistry } from '@kehto/shell';
-import type { Capability } from '@kehto/shell';
+import type { Capability, SessionEntry } from '@kehto/shell';
 import type { NappletMessage } from '@napplet/core';
 import { createMockHooks } from '@test/helpers';
 import { createMessageTap } from '@test/helpers';
@@ -136,31 +136,60 @@ function loadNapplet(name: string, params?: Record<string, string>): string {
   }
 
   // Create sandboxed iframe (no allow-same-origin -- matches production security model)
+  // NIP-5D TIMING NOTE: Do NOT set iframe.src before registering origins. The napplet
+  // shim sends postMessages immediately on script execution — before the parent's 'load'
+  // event fires. We must have the origin + session registered BEFORE the napplet scripts run.
+  // Sequence: create iframe → append (gets contentWindow) → register → set src (triggers load).
   const iframe = document.createElement('iframe');
   iframe.id = windowId;
   iframe.className = 'napplet-frame';
   iframe.sandbox.add('allow-scripts');
-  iframe.src = url;
   iframe.width = '400';
   iframe.height = '200';
 
-  // Add to DOM
+  // Add to DOM first (contentWindow is available immediately after appendChild).
   const container = document.getElementById('frames');
   if (container) container.appendChild(iframe);
   nappletFrames.set(windowId, iframe);
 
-  // Register origin and send AUTH challenge after iframe loads
+  // NIP-5D session entry factory. Called immediately + on 'load' (in case
+  // contentWindow reference changes across navigations in Chromium).
+  // Pattern mirrors apps/demo/src/shell-host.ts registerSessionEntry().
+  function registerSessionEntry(): void {
+    const entry: SessionEntry = {
+      pubkey: '',
+      windowId,
+      origin: 'null',
+      type: 'napplet',
+      dTag: name,
+      aggregateHash: '',
+      registeredAt: Date.now(),
+      instanceId: crypto.randomUUID(),
+      identitySource: 'source',
+    };
+    relay.runtime.sessionRegistry.register(windowId, entry);
+  }
+
+  // Register origin + session BEFORE setting src so the napplet's first
+  // postMessages (storage.set, identity.getPublicKey, ifc.subscribe, etc.)
+  // are already routable via originRegistry.getWindowId(event.source).
+  if (iframe.contentWindow) {
+    originRegistry.register(iframe.contentWindow, windowId);
+    registerSessionEntry();
+  }
+
+  // Re-register on 'load' in case contentWindow reference changes after navigation.
   iframe.addEventListener('load', () => {
     if (iframe.contentWindow) {
-      // Register the iframe's window in origin registry
       originRegistry.register(iframe.contentWindow, windowId);
-
-      // Send AUTH challenge
-      relay.sendChallenge(windowId);
-
-      logStatus(`Loaded ${name} as ${windowId}, AUTH challenge sent`);
+      registerSessionEntry();
+      logStatus(`Loaded ${name} as ${windowId}, session re-registered`);
     }
   });
+
+  // Set src LAST — triggers navigation and script execution. By this point,
+  // origin + session are in registries, so first-message routing works.
+  iframe.src = url;
 
   return windowId;
 }
@@ -478,5 +507,8 @@ window.__setIdentityPubkey__ = (pubkey: string): void => {
  * @returns true if the napplet's session is acknowledged; false otherwise.
  */
 window.__nappletReady__ = (windowId: string): boolean => {
-  return Boolean(relay.runtime.sessionRegistry.getPubkey(windowId));
+  // NIP-5D: NIP-5D sessions register with pubkey='' so Boolean(getPubkey(wid))
+  // would be false for a valid session. Use isRegistered() which checks
+  // the byWindowId Map directly (truthy for any registered windowId, even pubkey='').
+  return relay.runtime.sessionRegistry.isRegistered(windowId);
 };

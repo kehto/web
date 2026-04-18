@@ -1,5 +1,6 @@
 /**
  * nub-identity fixture — exercises identity.getPublicKey + identity.getProfile (E2E-09).
+ * Rebuild: shim updated to route identity.*.error messages (Phase 21-03).
  *
  * Layer-A spec drives this fixture via window.__loadNapplet__('nub-identity') from
  * tests/e2e/nub-identity.spec.ts. Spec asserts:
