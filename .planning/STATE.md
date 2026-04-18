@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
-status: executing
-stopped_at: Completed 19-05-PLAN.md
-last_updated: "2026-04-18T02:42:24.906Z"
+status: verifying
+stopped_at: Completed 19-core-domain-napplets/19-07-PLAN.md
+last_updated: "2026-04-18T03:45:30.945Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 22
-  completed_plans: 21
+  completed_plans: 22
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 Phase: 19 (Core-Domain Napplets) — EXECUTING
 Plan: 7 of 7
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-18
 
 Progress: [░░░░░░░░░░] 0%
@@ -80,6 +80,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 19-core-domain-napplets P04 | 3 | 2 tasks | 2 files |
 | Phase 19 P06 | 95s | 2 tasks | 2 files |
 | Phase 19-core-domain-napplets P05 | 120 | 3 tasks | 6 files |
+| Phase 19-core-domain-napplets P07 | 120 | 1 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -135,6 +136,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 19-core-domain-napplets]: frame.evaluate(() => btn.click()) is canonical for sandboxed napplet iframe button interactions — CDP Input does not reach cross-origin sandboxed iframe handlers
 - [Phase 19-core-domain-napplets]: sessionRegistry.register() must be called in loadNapplet() for storage.*/notify.* NUB handlers to resolve napplet identity in demo shell-host
 - [Phase 19-core-domain-napplets]: storage-persist spec uses page.reload() (not demoBeforeEach) to preserve localStorage — demoBeforeEach calls localStorage.clear() which defeats persistence assertion
+- [Phase 19-core-domain-napplets]: nub-relay publish() must handle relay.publish.error — ACL denial sends relay.publish.error (distinct type), not relay.publish.result with error field; Promise must guard both types
+- [Phase 19-core-domain-napplets]: Turbo cache must be busted when fixing packages in external workspace (napplet/); the turbo input hash excludes external paths and silently restores stale build artifacts
 
 ### Blockers/Concerns
 
@@ -143,6 +146,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T02:42:24.903Z
-Stopped at: Completed 19-05-PLAN.md
+Last session: 2026-04-18T03:45:30.942Z
+Stopped at: Completed 19-core-domain-napplets/19-07-PLAN.md
 Resume: `/gsd:plan-phase 16`
