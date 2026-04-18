@@ -1,13 +1,16 @@
 /**
- * Chat demo napplet.
+ * Chat demo napplet — @napplet/sdk migration (NAP-02, Phase 18).
  *
- * Exercises: relay:write, relay:read, sign:event, state:read, state:write, ipc emit.
+ * Exercises: ifc (ipc.emit/on for chat↔bot round-trip) + storage (history persistence).
+ * Optional showcase: relay.publish for kind:1 events (D-03).
  *
- * - Sends messages via relay.publish() (relay:write + sign:event)
- * - Subscribes to incoming messages via relay.subscribe() (relay:read)
- * - Stores chat history via storage (state:read + state:write)
- * - Emits messages to bot via ipc.emit('chat:message')
- * - Listens for bot responses via ipc.on('bot:response')
+ * - Sends ipc.emit('chat:message', ...) on user input (D-03)
+ * - Receives ipc.on('bot:response', ...) for bot replies (D-03)
+ * - Persists chat history via storage.setItem/getItem under key 'chat-history'
+ * - Posts #chat-status = 'authenticated' after first SDK call resolves (D-04)
+ *
+ * NO window.addEventListener('message') — shim handles AUTH implicitly (D-01).
+ * NO NIP-01 arrays, NO BusKind, NO window.nostr (anti-features).
  */
 import '@napplet/shim';
 import { relay, ipc, storage, type EventTemplate } from '@napplet/sdk';
@@ -26,15 +29,13 @@ function notifyCreate(title: string, body: string): void {
   }
 }
 
-const statusEl = document.getElementById('status')!;
+const statusEl = document.getElementById('chat-status')!;
 const messagesEl = document.getElementById('messages')!;
 const inputEl = document.getElementById('msg-input') as HTMLInputElement;
 const sendBtn = document.getElementById('send-btn')!;
 
-let authenticated = false;
 const HISTORY_KEY = 'chat-history';
 const MAX_HISTORY = 50;
-const pendingAcks: string[] = [];
 
 function formatError(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message) return error.message;
@@ -98,18 +99,17 @@ async function sendMessage(): Promise<void> {
   await saveToHistory(text);
 
   try {
-    pendingAcks.push('ipc send');
     ipc.emit('chat:message', [], JSON.stringify({ text, timestamp: Date.now() }));
     addMessage('ipc send attempted -- chat:message', 'system');
     // Emit notification so the host can surface this message send as a toast
     notifyCreate('Chat message sent', text.length > 60 ? text.slice(0, 60) + '…' : text);
   } catch (error) {
-    addMessage(`ipc send failed -- ${formatError(error, 'denied: relay:write')}`, 'system');
+    addMessage(`ipc send failed -- ${formatError(error, 'denied: ifc')}`, 'system');
   }
 
-  // Publish to relay (exercises relay:write + sign:event)
+  // Publish to relay (optional showcase — exercises relay:write + signing path per D-03).
+  // Wrapped in its own try so relay denial does not break the ipc path.
   try {
-    pendingAcks.push('signer request');
     const template: EventTemplate = {
       kind: 1,
       content: text,
@@ -117,7 +117,6 @@ async function sendMessage(): Promise<void> {
       created_at: Math.floor(Date.now() / 1000),
     };
     await relay.publish(template);
-    pendingAcks.push('relay publish');
   } catch (error) {
     addMessage(`relay publish failed -- ${formatError(error, 'denied: relay:write')}`, 'system');
   }
@@ -130,66 +129,42 @@ inputEl.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') sendMessage();
 });
 
-// --- AUTH Handling ---
+// --- SDK Init (D-04 pattern) ---
+// First SDK call (loadHistory → storage.getItem) gates on shim AUTH completion.
+// After AUTH resolves, post the positive auth marker then wire up ipc subscriptions.
 
-window.addEventListener('message', (event) => {
-  if (!Array.isArray(event.data)) return;
-  if (event.source !== window.parent) return;
+async function init(): Promise<void> {
+  // First SDK call gates on shim AUTH completion (storage proxy requires identity).
+  // Per D-04: post the positive auth marker after AUTH is observed.
+  await loadHistory();
+  statusEl.textContent = 'authenticated';
+  statusEl.style.color = '#39ff14';
+  addMessage('AUTH complete -- ready to chat', 'system');
 
-  const [verb, , success] = event.data;
-
-  if (verb === 'OK' && success === true && !authenticated) {
-    authenticated = true;
-    statusEl.textContent = 'authenticated';
-    statusEl.style.color = '#39ff14';
-    addMessage('AUTH complete -- ready to chat', 'system');
-
-    // Load history after AUTH
-    loadHistory();
-
-    // Subscribe to relay events (exercises relay:read)
-    try {
-      relay.subscribe(
-        [{ kinds: [1], '#t': ['demo-chat'], limit: 10 }],
-        (event) => {
-          // Don't show our own messages again
-          addMessage(event.content, 'other');
-        },
-        () => {
-          addMessage('relay subscribe ready', 'system');
-        }
-      );
-    } catch (error) {
-      addMessage(`relay subscribe failed -- ${formatError(error, 'denied: relay:read')}`, 'system');
+  // Subscribe to bot replies via ipc (D-03).
+  ipc.on('bot:response', (payload: unknown) => {
+    const data = payload as { text?: string };
+    if (data.text) {
+      addMessage('ipc receive -- bot:response', 'system');
+      addMessage(`[bot] ${data.text}`, 'other');
     }
+  });
 
-    // Listen for bot responses via ipc
-    ipc.on('bot:response', (payload: unknown) => {
-      const data = payload as { text?: string };
-      if (data.text) {
-        addMessage('ipc receive -- bot:response', 'system');
-        addMessage(`[bot] ${data.text}`, 'other');
-      }
-    });
+  // Optional: subscribe to a tagged relay topic for the publish showcase (D-03).
+  // Wrapped in try so a relay:read denial does not break ipc functionality.
+  try {
+    relay.subscribe(
+      [{ kinds: [1], '#t': ['demo-chat'], limit: 10 }],
+      (event) => addMessage(event.content, 'other'),
+      () => addMessage('relay subscribe ready', 'system'),
+    );
+  } catch (error) {
+    addMessage(`relay subscribe failed -- ${formatError(error, 'denied: relay:read')}`, 'system');
   }
+}
 
-  if (verb === 'OK' && authenticated) {
-    const op = pendingAcks.shift();
-    if (success === false && op) {
-      addMessage(`${op} denied -- ${event.data[3] || 'unknown error'}`, 'system');
-    }
-  }
-
-  if (verb === 'OK' && success === false && !authenticated) {
-    statusEl.textContent = 'auth failed';
-    statusEl.style.color = '#ff3b3b';
-  }
-
-  if (verb === 'CLOSED') {
-    addMessage(`subscription closed: ${event.data[2] || 'unknown'}`, 'system');
-  }
-
-  if (verb === 'NOTICE') {
-    addMessage(`notice: ${event.data[1]}`, 'system');
-  }
+init().catch((err) => {
+  statusEl.textContent = 'auth failed';
+  statusEl.style.color = '#ff3b3b';
+  addMessage(`init failed -- ${formatError(err, 'auth/storage failure')}`, 'system');
 });
