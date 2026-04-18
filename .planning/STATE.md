@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: executing
-stopped_at: Completed 20-expanded-domain-napplets/20-01-PLAN.md
-last_updated: "2026-04-18T09:19:34.030Z"
+stopped_at: Completed 20-expanded-domain-napplets/20-04-PLAN.md
+last_updated: "2026-04-18T09:19:41.701Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
@@ -147,6 +147,7 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 20-expanded-domain-napplets]: truncatePubkey('') === 'no-pubkey' is the spec-assertable sentinel for no-signer case in identity-flow.spec.ts (Plan 20-07)
 - [Phase 20-expanded-domain-napplets]: NostrEvent/NostrFilter imported from @kehto/shell re-export (not direct @napplet/core dep) in mock-relay-pool.ts — avoids dedupe risk (Pitfall 4)
 - [Phase 20-expanded-domain-napplets]: queueMicrotask dispatch for onevent/oneose in mock relay pool — events delivered after subscribe() returns, matching real relay async behavior
+- [Phase 20-expanded-domain-napplets]: theme-switcher is OUTBOUND-ONLY: no window message listener installed; dispatchTheme() is the single window.parent.postMessage call site; 0 window.addEventListener per Plan 20-07 anti-term rule
 
 ### Blockers/Concerns
 
@@ -155,6 +156,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T09:19:23.463Z
-Stopped at: Completed 20-expanded-domain-napplets/20-01-PLAN.md
+Last session: 2026-04-18T09:19:41.698Z
+Stopped at: Completed 20-expanded-domain-napplets/20-04-PLAN.md
 Resume: `/gsd:plan-phase 16`
