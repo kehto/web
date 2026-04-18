@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
-status: verifying
-stopped_at: Completed 20-08-PLAN.md (Phase 20 closure — E2E-11 gate green)
-last_updated: "2026-04-18T10:12:25.283Z"
+status: executing
+stopped_at: Completed 21-01-PLAN.md (delete legacy fixture napplets)
+last_updated: "2026-04-18T10:30:59.967Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
   completed_phases: 5
-  total_plans: 30
-  completed_plans: 30
+  total_plans: 35
+  completed_plans: 31
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 20 — Expanded-Domain Napplets
+**Current focus:** Phase 21 — Fixture Napplets & Layer-A Specs
 
 ## Current Position
 
-Phase: 21
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 21 (Fixture Napplets & Layer-A Specs) — EXECUTING
+Plan: 2 of 5
+Status: Ready to execute
 Last activity: 2026-04-18
 
 Progress: [░░░░░░░░░░] 0%
@@ -89,6 +89,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 20-expanded-domain-napplets P06 | 251s | 3 tasks | 3 files |
 | Phase 20 P07 | 2min | 3 tasks | 3 files |
 | Phase 20-expanded-domain-napplets P08 | 58min | 1 tasks | 14 files |
+| Phase 21-fixture-napplets-layer-a-specs P01 | 1min | 1 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -161,6 +162,7 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 20-expanded-domain-napplets]: originRegistry.getAllWindowIds() for publishTheme fan-out (not sessionRegistry which maps by pubkey)
 - [Phase 20-expanded-domain-napplets]: identity-service getPublicKey always returns result with empty pubkey when no signer (spec says 'Always succeeds')
 - [Phase 20-expanded-domain-napplets]: Layer-A harness specs annotated test.describe.skip for Phase 21 (E2E-09 target; auth-napplet uses NIP-01)
+- [Phase 21-fixture-napplets-layer-a-specs]: D-02 option (a): legacy fixtures auth-napplet/publish-napplet/pure-napplet deleted (not kept alongside nub-* fixtures) — cleanliness > backward compat for v1.3; NIP-01 protocol incompatible with v1.2 NIP-5D shell
 
 ### Blockers/Concerns
 
@@ -169,6 +171,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T10:08:55.516Z
-Stopped at: Completed 20-08-PLAN.md (Phase 20 closure — E2E-11 gate green)
+Last session: 2026-04-18T10:30:59.964Z
+Stopped at: Completed 21-01-PLAN.md (delete legacy fixture napplets)
 Resume: `/gsd:plan-phase 16`
