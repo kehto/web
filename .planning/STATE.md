@@ -4,7 +4,7 @@ milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: verifying
 stopped_at: "Completed 17-07-PLAN.md (E2E-11 iteration-loop gate: all 17 E2E-06 tests GREEN, Phase 17 ready for close)"
-last_updated: "2026-04-18T00:26:01.786Z"
+last_updated: "2026-04-18T00:29:49.723Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
@@ -25,8 +25,8 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 ## Current Position
 
-Phase: 17 (Demo App Rewire) — EXECUTING
-Plan: 7 of 7
+Phase: 18
+Plan: Not started
 Status: Phase complete — ready for verification
 Last activity: 2026-04-18
 
