@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: executing
-stopped_at: Completed 19-06-PLAN.md (E2E-08 acl-revoke-relay-write + acl-revoke-storage-write specs)
-last_updated: "2026-04-18T01:34:11.873Z"
+stopped_at: Completed 19-05-PLAN.md
+last_updated: "2026-04-18T02:42:24.906Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 22
-  completed_plans: 20
+  completed_plans: 21
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 19 (Core-Domain Napplets) — EXECUTING
-Plan: 6 of 7
+Plan: 7 of 7
 Status: Ready to execute
 Last activity: 2026-04-18
 
@@ -79,6 +79,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 19-core-domain-napplets P03 | 4 | 2 tasks | 5 files |
 | Phase 19-core-domain-napplets P04 | 3 | 2 tasks | 2 files |
 | Phase 19 P06 | 95s | 2 tasks | 2 files |
+| Phase 19-core-domain-napplets P05 | 120 | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -131,6 +132,9 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 19-core-domain-napplets]: Outer topology statusId placeholder stays 'loading...' for D-04 napplets (composer/preferences/toaster) — inner iframe #*-status set by napplet; Layer-B specs assert via frameLocator
 - [Phase 19]: ACL panel button selector uses starts-with (title^=) not contains (title*=) to avoid matching superset cap names
 - [Phase 19]: Phase 1 control for relay-write is permissive (published:|denied:); Phase 1 for storage-write is strict ('saved') — local storage always works when granted
+- [Phase 19-core-domain-napplets]: frame.evaluate(() => btn.click()) is canonical for sandboxed napplet iframe button interactions — CDP Input does not reach cross-origin sandboxed iframe handlers
+- [Phase 19-core-domain-napplets]: sessionRegistry.register() must be called in loadNapplet() for storage.*/notify.* NUB handlers to resolve napplet identity in demo shell-host
+- [Phase 19-core-domain-napplets]: storage-persist spec uses page.reload() (not demoBeforeEach) to preserve localStorage — demoBeforeEach calls localStorage.clear() which defeats persistence assertion
 
 ### Blockers/Concerns
 
@@ -139,6 +143,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T01:34:11.871Z
-Stopped at: Completed 19-06-PLAN.md (E2E-08 acl-revoke-relay-write + acl-revoke-storage-write specs)
+Last session: 2026-04-18T02:42:24.903Z
+Stopped at: Completed 19-05-PLAN.md
 Resume: `/gsd:plan-phase 16`
