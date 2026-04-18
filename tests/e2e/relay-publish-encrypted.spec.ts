@@ -13,6 +13,12 @@
  * fullyParallel mode, the serial variant runs reliably. This file provides the canonical
  * one-test-per-file artifact required by the plan's must_haves.
  *
+ * Button clicks use frame.evaluate(() => btn.click()) rather than frameLocator().click()
+ * because the napplet iframes are sandboxed (allow-scripts only), making them cross-origin.
+ * Playwright's CDP Input dispatch for cross-origin sandboxed iframes does not deliver
+ * events to iframe button handlers — frame.evaluate() uses the CDP Runtime in the frame's
+ * execution context directly, which works reliably.
+ *
  * See 19-05-PLAN.md <demo_runtime_behaviors> for signer configuration semantics.
  */
 import { test, expect } from '@playwright/test';
@@ -37,11 +43,21 @@ test('composer with encrypted toggle dispatches relay.publishEncrypted envelope'
   const composerFrame = page.frameLocator('#composer-frame-container iframe');
   await expect(composerFrame.locator('#composer-status')).toContainText('authenticated', { timeout: 10_000 });
 
+  // Get a direct frame reference — CDP Runtime evaluate works in sandboxed cross-origin frames.
+  const composerFrameDirect = page.frames().find(f => f.url().includes('/composer/'));
+  if (!composerFrameDirect) throw new Error('composer frame not found in page.frames()');
+
   // Enable encrypted toggle and provide a deterministic recipient pubkey (32 bytes hex).
-  await composerFrame.locator('#composer-encrypted-toggle').check();
-  await composerFrame.locator('#composer-recipient').fill('0000000000000000000000000000000000000000000000000000000000000001');
+  await composerFrameDirect.evaluate(() => {
+    const toggle = document.getElementById('composer-encrypted-toggle') as HTMLInputElement | null;
+    if (toggle) toggle.checked = true;
+    const recipient = document.getElementById('composer-recipient') as HTMLInputElement | null;
+    if (recipient) recipient.value = '0000000000000000000000000000000000000000000000000000000000000001';
+  });
   await composerFrame.locator('#composer-input').fill('encrypted hello');
-  await composerFrame.locator('#composer-publish-btn').click();
+  await composerFrameDirect.evaluate(() => {
+    (document.getElementById('composer-publish-btn') as HTMLButtonElement | null)?.click();
+  });
 
   // Status transitions to published:* or denied:* within 12s. (On the default demo
   // with no signer, expect denied: no signer configured — but accept either.)
