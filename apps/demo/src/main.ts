@@ -259,11 +259,37 @@ if (debuggerEl) {
   debuggerEl.addSystemMessage('notification service registered -- host callbacks active');
 }
 
-// ─── Theme Broadcast Placeholder ──────────────────────────────────────────
-// The theme service is registered in shell-host createDemoHooks. Any host UI
-// that flips dark/light mode calls `relay.publishTheme(theme)` which fan-outs
-// `theme.changed` envelopes to every session via session-registry.
-// 17-05 wires the actual host toggle button; this block proves the seam exists.
+// ─── Theme Broadcast Bridge (Plan 20-06, D-USER-01) ──────────────────────
+// theme-switcher napplet (Plan 20-04) dispatches `demo.publishTheme` postMessage
+// (SDK gap exemption — @napplet/sdk does not expose theme.publish). The host
+// listens here and forwards to relay.publishTheme(theme) which fan-outs
+// `theme.changed` envelopes to every napplet via originRegistry.getIframeWindow.
+// The preferences napplet (Plan 20-05) observes those `theme.changed` envelopes
+// and mirrors the color to document.body + #preferences-theme-applied.
+//
+// This handler is narrowly-scoped:
+//   - Guards on event.data being a plain object with type === 'demo.publishTheme'
+//   - event.source may be any iframe (we don't pin to theme-switcher — any napplet
+//     that dispatches demo.publishTheme is honored, which is fine for v1.3 demo)
+//   - Calls relay.publishTheme(event.data.theme) synchronously
+// Does NOT intercept any other envelope type (storage.*, ifc.*, notify.*, etc.)
+
+window.addEventListener('message', (event: MessageEvent) => {
+  const data = event.data as Record<string, unknown> | null;
+  if (!data || typeof data !== 'object') return;
+  if (data.type !== 'demo.publishTheme') return;
+  const theme = (data as { theme?: unknown }).theme;
+  if (!theme || typeof theme !== 'object') return;
+  const themeTyped = theme as { colors?: { background?: string; text?: string; primary?: string } };
+  if (!themeTyped.colors || typeof themeTyped.colors.background !== 'string') return;
+  // relay is the ShellBridge — publishTheme fan-outs theme.changed to every registered napplet.
+  // Type cast via ShellBridge['publishTheme'] parameter to avoid direct @napplet/nub-theme import
+  // in the demo app (nub-theme is a dep of @kehto/shell, not apps/demo directly).
+  relay.publishTheme(themeTyped as Parameters<typeof relay.publishTheme>[0]);
+  debuggerEl?.addSystemMessage(`theme broadcast — bg: ${themeTyped.colors.background}`);
+});
+
+// Keep the existing "theme service registered" debugger message:
 const _themeBundle = getThemeServiceBundle();
 if (_themeBundle) {
   debuggerEl?.addSystemMessage('theme service registered -- publishTheme seam ready');
@@ -562,6 +588,11 @@ const botInfo = nappletInfos.find((napplet) => napplet.name === 'bot');
 const composerInfo = nappletInfos.find((napplet) => napplet.name === 'composer');
 const preferencesInfo = nappletInfos.find((napplet) => napplet.name === 'preferences');
 const toasterInfo = nappletInfos.find((napplet) => napplet.name === 'toaster');
+// Phase 20 (Plan 20-06): extract info refs for feed/profile-viewer/theme-switcher so their auth
+// state can feed refreshAclPanelsIfNeeded() (same Path B envelope-based detection).
+const feedInfo = nappletInfos.find((napplet) => napplet.name === 'feed');
+const profileViewerInfo = nappletInfos.find((napplet) => napplet.name === 'profile-viewer');
+const themeSwitcherInfo = nappletInfos.find((napplet) => napplet.name === 'theme-switcher');
 
 initFlowAnimator(tap, topology, edgeFlasher);
 
@@ -749,6 +780,17 @@ function refreshAclPanelsIfNeeded(): void {
   if (toasterInfo?.authenticated && !aclRendered.has('toaster')) {
     aclRendered.add('toaster');
   }
+  // Phase 20 (Plan 20-06): NIP-5D envelope-only napplets (feed/profile-viewer/theme-switcher)
+  // use the same Path B authentication detection as composer/preferences/toaster.
+  if (feedInfo?.authenticated && !aclRendered.has('feed')) {
+    aclRendered.add('feed');
+  }
+  if (profileViewerInfo?.authenticated && !aclRendered.has('profile-viewer')) {
+    aclRendered.add('profile-viewer');
+  }
+  if (themeSwitcherInfo?.authenticated && !aclRendered.has('theme-switcher')) {
+    aclRendered.add('theme-switcher');
+  }
 
   if (aclRendered.size > 0) {
     renderAclPanels(aclRendered);
@@ -769,8 +811,8 @@ tap.onMessage((msg) => {
   // The shell-host sets info.authenticated=true on the first ENVELOPE from a napplet.
   // We respond to that envelope here to trigger ACL panel rendering.
   if (msg.verb === 'ENVELOPE' && msg.direction === 'napplet->shell' && msg.windowId) {
-    // Quick bail if all panels already rendered
-    if (aclRendered.size < 5) {
+    // Quick bail if all panels already rendered (8 napplets total after Phase 20)
+    if (aclRendered.size < 8) {
       setTimeout(() => {
         refreshAclPanelsIfNeeded();
       }, 200);
