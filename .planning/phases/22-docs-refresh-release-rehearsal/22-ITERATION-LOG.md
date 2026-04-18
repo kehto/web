@@ -2,8 +2,25 @@
 
 **Phase:** 22-docs-refresh-release-rehearsal
 **Requirements covered:** DOCS-01..03, REL-01..04, E2E-10, E2E-11 (closed here)
-**Cross-cutting gate:** E2E-11 (build → run → Playwright → fix loop)
+**Cross-cutting gate:** E2E-11 (build → run → Playwright → fix loop) — FORMAL CLOSURE
 **Started:** 2026-04-18T12:21:58Z
+**Closed:** 2026-04-18T13:34:51Z
+
+## Summary Table
+
+| Requirement | Plan | Status |
+|-------------|------|--------|
+| DOCS-01 (typedoc + pnpm docs:api) | 22-01 | CLOSED (pre-gap) |
+| DOCS-02 (package READMEs + @example) | 22-02 | CLOSED (pre-gap) |
+| DOCS-03 (root README + migration archive) | 22-03 | CLOSED (pre-gap) |
+| REL-01 (publint clean) | 22-04 | CLOSED |
+| REL-02 (attw --profile esm-only clean) | 22-04 | CLOSED |
+| REL-03 (changeset version dry-run) | 22-05 | CLOSED |
+| REL-04 (v1.3 changesets staged) | 22-06 | CLOSED |
+| E2E-10 (zero skipped specs) | 22-07 | CLOSED |
+| E2E-11 (iteration loop gate) | 22-08 | CLOSED (this plan) |
+
+Phase 21 precedent: see `.planning/phases/21-fixture-napplets-layer-a-specs/21-ITERATION-LOG.md` for the Phase 21 E2E-09 iteration-loop record. Per D-08, this Phase 22 log is the formal capstone closure artifact for the cross-cutting E2E-11 gate — not a replacement of Phase 21's log, but the v1.3 milestone-exit iteration record.
 
 ---
 
@@ -742,5 +759,185 @@ Build clean post-delete (fully cached — source bundles untouched; deletions ar
 ### E2E-10 Status
 
 **CLOSED — zero skipped specs; full suite green (47 passed, 0 failed, 0 skipped, 18.4s); Phase 22 Success Criterion 1 satisfied; ROADMAP Phase 22 "zero skipped specs" verifiably met; REQUIREMENTS.md E2E-10 gate cleared.**
+
+---
+
+## E2E-11 — Iteration Loop Formal Closure (Phase 22)
+
+**Per D-08:** Phase 22 requires its own recorded iteration loop as the formal closure of the cross-cutting E2E-11 gate, even though Phase 21 ran one. Phase 21's log (`21-ITERATION-LOG.md`) captured E2E-09 (Layer-A) + all prior Phase 17–20 Layer-B coverage against a then-current (with 68 skipped) suite. Phase 22 re-runs the same discipline against the post-22-07 zero-skipped suite as the v1.3 milestone capstone.
+
+### Pre-flight Checks
+
+- [x] `pnpm install --prefer-offline` — exit code 0
+- [x] `pnpm list --filter '*' '@napplet/core'` — exit code 0, single deduplicated `link:../../../napplet/packages/core` instance across all 4 @kehto/* packages (Pitfall 3 clear)
+- [x] `pnpm build` — exit code 0, 20/20 tasks successful (cache-hot baseline: FULL TURBO)
+- [x] `pnpm type-check` — exit code 0, 8/8 tasks successful (4 cached, 4 fresh)
+
+```
+Scope: all 21 workspace projects
+Lockfile is up to date, resolution step is skipped
+Already up to date
+
+Done in 563ms using pnpm v10.8.0
+```
+
+```
+Legend: production dependency, optional only, dev only
+
+@kehto/acl@0.1.0 /home/sandwich/Develop/kehto/packages/acl
+
+dependencies:
+@napplet/core link:../../../napplet/packages/core
+
+@kehto/runtime@0.1.0 /home/sandwich/Develop/kehto/packages/runtime
+
+dependencies:
+@napplet/core link:../../../napplet/packages/core
+
+@kehto/services@0.1.0 /home/sandwich/Develop/kehto/packages/services
+
+dependencies:
+@napplet/core link:../../../napplet/packages/core
+
+@kehto/shell@0.1.0 /home/sandwich/Develop/kehto/packages/shell
+
+dependencies:
+@napplet/core link:../../../napplet/packages/core
+```
+
+```
+ Tasks:    20 successful, 20 total
+Cached:    20 cached, 20 total
+  Time:    47ms >>> FULL TURBO
+```
+
+```
+ Tasks:    8 successful, 8 total
+Cached:    4 cached, 8 total
+  Time:    1.214s
+```
+
+### Fresh-build Iteration 1
+
+**Commands:**
+- Manual clean (no `pnpm clean` script present in root package.json): `rm -rf packages/*/dist packages/*/.turbo tests/fixtures/napplets/*/dist apps/*/dist apps/*/.turbo` + recursive `.turbo` purge outside `node_modules`
+- `pnpm build` (cold — 0 cached)
+- `pnpm test:e2e` (root script: `pnpm test:build && npx playwright test`; builds fixture napplets via turbo `test:build` + runs Playwright webServer for :4173 harness + :4174 demo)
+
+**Started:** 2026-04-18T13:35:53Z
+**Ended:** 2026-04-18T13:36:11Z
+**Duration:** 18s wall-clock (Playwright internal counter: 16.7s)
+**Result:** 47 passed / 0 failed / 0 skipped
+
+```
+@test/harness:build: ✓ built in 279ms
+@kehto/demo:build: transforming...
+@kehto/demo:build: ✓ 102 modules transformed.
+...
+@kehto/demo:build: dist/index.html                 26.39 kB │ gzip:  6.12 kB
+@kehto/demo:build: dist/assets/main-_LIv1z9n.css    4.36 kB │ gzip:  1.15 kB
+@kehto/demo:build: dist/assets/main-_95T1riE.js   268.67 kB │ gzip: 86.55 kB
+@kehto/demo:build: ✓ built in 763ms
+
+ Tasks:    20 successful, 20 total
+Cached:    0 cached, 20 total
+  Time:    5.663s
+```
+
+```
+Running 47 tests using 8 workers
+
+  ✓   4 [chromium] › tests/e2e/demo-notification-service.spec.ts:23:1 › notification topology node is visible (2.3s)
+  ✓   5 [chromium] › tests/e2e/demo-boot.spec.ts:16:1 › demo renders 8 topology service nodes on boot (2.3s)
+  ✓   8 [chromium] › tests/e2e/demo-node-inspector.spec.ts:22:1 › ACL node opens inspector with grant/revoke table (2.5s)
+  ✓  10 [chromium] › tests/e2e/harness-smoke.spec.ts:13:3 › TEST-06: Shell test harness › shell boots and sets __SHELL_READY__ flag (244ms)
+  ✓   6 [chromium] › tests/e2e/demo-service-toggle.spec.ts:16:1 › notifications service toggle flips .service-disabled class (2.8s)
+  ✓   2 [chromium] › tests/e2e/acl-revoke-relay-write.spec.ts:32:1 › revoking relay:write on composer denies next publish (denial visible in status + debugger) (2.8s)
+  ✓  12 [chromium] › tests/e2e/harness-smoke.spec.ts:26:3 › TEST-06: Shell test harness › exposes __loadNapplet__ function (339ms)
+  ✓   7 [chromium] › tests/e2e/demo-debugger.spec.ts:23:1 › debugger displays canonical envelope type strings after auth (3.0s)
+  ✓  14 [chromium] › tests/e2e/harness-smoke.spec.ts:36:3 › TEST-06: Shell test harness › exposes __TEST_MESSAGES__ array (221ms)
+  ✓  15 [chromium] › tests/e2e/harness-smoke.spec.ts:47:3 › TEST-06: Shell test harness › exposes __clearMessages__ function (185ms)
+  ✓  17 [chromium] › tests/e2e/harness-smoke.spec.ts:57:3 › TEST-06: Shell test harness › harness exposes __getServiceNames__ returning a string[] (213ms)
+  ✓  18 [chromium] › tests/e2e/harness-smoke.spec.ts:69:3 › TEST-06: Shell test harness › harness exposes __nappletReady__ returning a boolean (207ms)
+  ✓   9 [chromium] › tests/e2e/demo-notification-service.spec.ts:28:1 › node-control: create toast via notify.create envelope (2.3s)
+  ✓   3 [chromium] › tests/e2e/demo-audit-correctness.spec.ts:82:1 › revoke chat relay:write and keep debugger paths legible (2.9s)
+  ✓  11 [chromium] › tests/e2e/demo-node-inspector.spec.ts:37:1 › runtime node shows Registered NUBs with 8 entries (2.4s)
+  ✓  16 [chromium] › tests/e2e/demo-debugger.spec.ts:40:1 › debugger text includes at least one canonical envelope type after auth (smoke) (2.1s)
+  ✓  13 [chromium] › tests/e2e/demo-service-toggle.spec.ts:31:1 › service toggle click does not cause anti-term page errors (2.4s)
+  ✓  19 [chromium] › tests/e2e/identity-flow.spec.ts:30:1 › profile-viewer reads identity.getPublicKey and renders truncated pubkey (2.0s)
+  ✓  26 [chromium] › tests/e2e/nub-identity.spec.ts:23:1 › nub-identity: getPublicKey envelope dispatched and fixture sentinel updates (467ms)
+  ✓  20 [chromium] › tests/e2e/ifc-roundtrip.spec.ts:26:1 › chat input triggers ipc envelope; bot reply appears in chat messages (2.6s)
+  ✓  27 [chromium] › tests/e2e/nub-ifc.spec.ts:21:1 › nub-ifc: ifc.subscribe envelope dispatched and fixture sentinel reaches authenticated (503ms)
+  ✓  28 [chromium] › tests/e2e/nub-keys.spec.ts:46:1 › nub-keys: keys.registerAction envelope dispatchable + runtime stub response captured (380ms)
+  ✓  21 [chromium] › tests/e2e/demo-notification-service.spec.ts:44:1 › notify.list opens inspector with items (2.2s)
+  ✓  29 [chromium] › tests/e2e/nub-media.spec.ts:48:1 › nub-media: media.session.create envelope dispatchable + runtime stub response captured (488ms)
+  ✓  30 [chromium] › tests/e2e/nub-notify.spec.ts:24:1 › nub-notify: notify.send envelope dispatched and fixture sentinel reflects shell id (515ms)
+  ✓  23 [chromium] › tests/e2e/demo-node-inspector.spec.ts:50:1 › napplet node (chat) shows capability state and recent envelopes (2.3s)
+  ✓  24 [chromium] › tests/e2e/napplet-auth.spec.ts:18:1 › chat napplet reaches authenticated state at :4174 (2.2s)
+  ✓  22 [chromium] › tests/e2e/demo-audit-correctness.spec.ts:92:1 › revoke chat state:write and preserve the exact denial string (2.9s)
+  ✓  33 [chromium] › tests/e2e/nub-storage.spec.ts:21:1 › nub-storage: setItem + getItem round-trip via fixture sentinels (424ms)
+  ✓  32 [chromium] › tests/e2e/nub-relay.spec.ts:23:1 › nub-relay: relay.publish envelope dispatched and fixture sentinel updates (466ms)
+  ✓  25 [chromium] › tests/e2e/notify-lifecycle.spec.ts:34:1 › toaster creates notification and Dismiss all empties the list (2.4s)
+  ✓  37 [chromium] › tests/e2e/nub-theme.spec.ts:25:1 › nub-theme: fixture authenticates via storage probe; theme.get envelope round-trips (411ms)
+  ✓   1 [chromium] › tests/e2e/acl-revoke-storage-write.spec.ts:31:1 › revoking state:write on preferences denies next save (denial visible in status + debugger) (8.0s)
+  ✓  31 [chromium] › tests/e2e/demo-notification-service.spec.ts:54:1 › notify.read decrements unread count (2.7s)
+  ✓  34 [chromium] › tests/e2e/demo-node-inspector.spec.ts:62:1 › service node (notifications) shows service-role content (2.5s)
+  ✓  35 [chromium] › tests/e2e/napplet-auth.spec.ts:37:1 › bot napplet reaches authenticated state at :4174 (2.6s)
+  ✓  38 [chromium] › tests/e2e/relay-publish-encrypted.spec.ts:32:1 › composer with encrypted toggle dispatches relay.publishEncrypted envelope (2.5s)
+  ✓  36 [chromium] › tests/e2e/demo-audit-correctness.spec.ts:100:1 › revoke chat sign:event and separate inter-pane success from signer denial (2.9s)
+  ✓  39 [chromium] › tests/e2e/relay-publish.spec.ts:36:1 › composer dispatches relay.publish envelope visible in debugger (2.8s)
+  ✓  40 [chromium] › tests/e2e/relay-subscribe.spec.ts:31:1 › feed napplet subscribes and renders 5 fixture events from mock relay pool (2.7s)
+  ✓  41 [chromium] › tests/e2e/storage-persist.spec.ts:31:1 › preferences round-trips display-name and theme-preference across page.reload() (3.5s)
+  ✓  42 [chromium] › tests/e2e/demo-notification-service.spec.ts:64:1 › notify.dismiss removes item from inspector (2.1s)
+  ✓  43 [chromium] › tests/e2e/demo-node-inspector.spec.ts:69:1 › inspector open/close via node click and close button (1.8s)
+  ✓  44 [chromium] › tests/e2e/theme-broadcast.spec.ts:33:1 › clicking theme-switcher dark button propagates theme.changed to preferences napplet (1.8s)
+  ✓  45 [chromium] › tests/e2e/relay-publish.spec.ts:78:1 › composer with encrypted toggle dispatches relay.publishEncrypted envelope (1.5s)
+  ✓  46 [chromium] › tests/e2e/demo-notification-service.spec.ts:73:1 › no anti-term in captured console output (1.9s)
+  ✓  47 [chromium] › tests/e2e/demo-node-inspector.spec.ts:79:1 › no anti-term in console output during inspector interactions (1.9s)
+
+  47 passed (16.7s)
+```
+
+Iteration 1 was green on first attempt — no fix + re-run required. This matches the Phase 21 precedent (single-iteration green), now against the zero-skip baseline established by Plan 22-07.
+
+### Final Suite State
+
+| Metric | Value |
+|--------|-------|
+| Passed | 47 |
+| Failed | 0 |
+| Skipped | 0 |
+| Duration | 16.7s (Playwright) / 18s (wall-clock incl. webServer spin-up) |
+| Active spec files | 26 |
+| Legacy specs deleted (via 22-07) | 7 |
+
+Compare to Phase 21 closing state (47 / 0 / 68): same pass count, 68 → 0 skipped (E2E-10 closed), 33 → 26 spec files (legacy deletions).
+
+### Anti-term Hygiene
+
+```bash
+$ grep -rEn '`window\.nostr`|`signer-service`|`signer\.sign`|`BusKind`|kind 2900[12]' tests/e2e/*.spec.ts
+(no matches — clean; grep exit 1)
+```
+
+Zero live-API anti-term occurrences across the 26 active spec files. The post-22-07 baseline retains its anti-term hygiene under a fresh `pnpm build` artifact.
+
+### E2E-11 Status
+
+**CLOSED — Phase 22 iteration loop recorded; full v1.3 suite green on fresh `pnpm build` artifact with both webServers (:4173 harness + :4174 demo) running; zero skipped specs; zero failures. E2E-11 is the v1.3 milestone capstone gate and is hereby formally closed.**
+
+### v1.3 Milestone Readiness
+
+- [x] DOCS-01 (Plan 22-01)
+- [x] DOCS-02 (Plan 22-02)
+- [x] DOCS-03 (Plan 22-03)
+- [x] REL-01 (Plan 22-04)
+- [x] REL-02 (Plan 22-04)
+- [x] REL-03 (Plan 22-05)
+- [x] REL-04 (Plan 22-06)
+- [x] E2E-10 (Plan 22-07)
+- [x] E2E-11 (Plan 22-08 — this plan)
+
+**v1.3 "Demo Functional & Playwright Parity" milestone READY TO CLOSE.**
 
 ---
