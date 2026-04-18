@@ -101,7 +101,14 @@
   2. The `preferences` napplet writes a value via `storage.setItem` that survives a full page reload and is retrieved via `storage.getItem` — the debugger shows the round-trip envelopes.
   3. The `toaster` napplet creates, lists, reads, and dismisses a notification; both the host toast layer and the napplet's own UI reflect the change.
   4. The `acl-revoke-relay-write` and `acl-revoke-storage-write` capability-matrix specs are green: revoking the relevant capability blocks the `composer`/`preferences` napplet actions and the ACL history ring shows the denial.
-**Plans**: TBD
+**Plans:** 7 plans
+- [ ] 19-01-PLAN.md — Composer napplet scaffold + relay.publish/publishEncrypted (NAP-03)
+- [ ] 19-02-PLAN.md — Preferences napplet scaffold + storage.setItem/getItem (NAP-04)
+- [ ] 19-03-PLAN.md — Toaster napplet scaffold + notify.create/list/dismiss envelope dispatch (NAP-05)
+- [ ] 19-04-PLAN.md — Demo wiring: DEMO_NAPPLETS + dual-register notification-service as notify + ACL panel extensions
+- [ ] 19-05-PLAN.md — 4 Layer-B E2E-07 specs: relay-publish, relay-publish-encrypted, storage-persist, notify-lifecycle
+- [ ] 19-06-PLAN.md — 2 Layer-B E2E-08 capability-matrix specs: acl-revoke-relay-write, acl-revoke-storage-write
+- [ ] 19-07-PLAN.md — E2E-11 iteration loop gate (full v1.3 Layer-B suite = 13 spec files, ~26 tests)
 **UI hint**: yes
 
 ### Phase 20: Expanded-Domain Napplets
@@ -154,7 +161,7 @@ The `relay-subscribe` Playwright spec cannot be marked green until this decision
 | 16. Harness Triage & Playwright Infrastructure | v1.3 | 4/4 | Complete    | 2026-04-17 |
 | 17. Demo App Rewire | v1.3 | 7/7 | Complete    | 2026-04-18 |
 | 18. Napplet SDK Migration | v1.3 | 4/4 | Complete    | 2026-04-18 |
-| 19. Core-Domain Napplets | v1.3 | 0/TBD | Not started | - |
+| 19. Core-Domain Napplets | v1.3 | 0/7 | Planned     | - |
 | 20. Expanded-Domain Napplets | v1.3 | 0/TBD | Not started | - |
 | 21. Fixture Napplets & Layer-A Specs | v1.3 | 0/TBD | Not started | - |
 | 22. Docs Refresh & Release Rehearsal | v1.3 | 0/TBD | Not started | - |
