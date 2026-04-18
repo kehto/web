@@ -135,9 +135,9 @@ No `changeset publish` — that is deferred until `@napplet/core` publishes to n
 | E2E-04 | Phase 16 | Complete |
 | E2E-05 | Phase 16 | Complete |
 | E2E-06 | Phase 17 | Complete |
-| E2E-07 (ifc-roundtrip, napplet-auth) | Phase 18 | Pending |
-| E2E-07 (relay-publish, relay-publish-encrypted, storage-persist, notify-lifecycle) | Phase 19 | Pending |
-| E2E-07 (relay-subscribe, identity-flow, theme-broadcast) | Phase 20 | Pending |
+| E2E-07 (ifc-roundtrip, napplet-auth) | Phase 18 | Complete |
+| E2E-07 (relay-publish, relay-publish-encrypted, storage-persist, notify-lifecycle) | Phase 19 | Complete |
+| E2E-07 (relay-subscribe, identity-flow, theme-broadcast) | Phase 20 | Complete |
 | E2E-08 | Phase 19 | Complete |
 | E2E-09 | Phase 21 | Complete |
 | E2E-10 | Phase 22 | Complete |
