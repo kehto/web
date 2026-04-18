@@ -442,7 +442,7 @@ export class NappletDebugger extends HTMLElement {
     const rawArr = Array.isArray(msg.raw) ? msg.raw : null;
     // Envelope-shape messages: display the envelope type and domain
     if (msg.envelopeType) {
-      return `${pathPrefix}type:${msg.envelopeType}${p.domain ? ` domain:${p.domain}` : ''}${p.eventId ? ` id:${p.eventId.substring(0, 8)}...` : ''}`;
+      return `${pathPrefix}type:${msg.envelopeType}${p.domain ? ` domain:${p.domain}` : ''}${p.eventId ? ` id:${p.eventId.substring(0, 8)}...` : ''}${p.reason ? ` ${p.reason}` : ''}`;
     }
     switch (msg.verb) {
       case 'AUTH':

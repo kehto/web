@@ -242,9 +242,14 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
 
     publishTheme(theme: Theme): void {
       const envelope: NappletMessage = { type: 'theme.changed', theme } as NappletMessage;
-      const entries = runtime.sessionRegistry.getAllEntries();
-      for (const entry of entries) {
-        const win = originRegistry.getIframeWindow(entry.windowId);
+      // Use originRegistry.getAllWindowIds() rather than sessionRegistry.getAllEntries()
+      // because demo napplets share pubkey:'' — the byPubkey map only retains one entry
+      // per pubkey key, so getAllEntries() would return only the last-registered napplet
+      // when multiple napplets have the same (empty) pubkey. originRegistry is keyed by
+      // Window reference so it has one entry per distinct iframe regardless of pubkey.
+      const windowIds = originRegistry.getAllWindowIds();
+      for (const windowId of windowIds) {
+        const win = originRegistry.getIframeWindow(windowId);
         if (!win) continue;
         win.postMessage(envelope, '*');
       }

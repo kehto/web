@@ -103,16 +103,22 @@ function buildSimplePool() {
     /**
      * Subscribe to events. Emits matching fixture events via microtask, then EOSE.
      *
+     * Returns an observable-shaped object with a `.subscribe(fn)` method that
+     * matches the interface hooks-adapter.ts expects from nostr-tools SimplePool:
+     *   pool.subscription(urls, filters).subscribe((item: NostrEvent | 'EOSE') => void)
+     *
+     * The callback receives NostrEvent objects for events, then the string 'EOSE'.
+     * Both events and EOSE are dispatched via queueMicrotask so they arrive AFTER
+     * subscribe() returns — matching real relay async behaviour (Pitfall 4).
+     *
      * @param _relays - Relay URLs (ignored — in-memory pool)
      * @param filters - Filter or filters to match against fixture events
-     * @param options - Callbacks for received events and EOSE
-     * @returns Subscription handle with a no-op close()
+     * @returns Observable-shaped object with subscribe(fn) returning { unsubscribe }
      */
     subscription(
       _relays: string[],
       filters: NostrFilter | NostrFilter[],
-      options?: { onevent?: (e: NostrEvent) => void; oneose?: () => void },
-    ): { close: () => void } {
+    ): { subscribe: (fn: (item: NostrEvent | 'EOSE') => void) => { unsubscribe: () => void } } {
       const filterArr: NostrFilter[] = Array.isArray(filters) ? filters : [filters];
 
       // Collect matching events respecting per-filter limit
@@ -129,17 +135,19 @@ function buildSimplePool() {
         }
       }
 
-      // Dispatch onevent callbacks via microtask so the runtime's subscription
-      // dispatcher sees them AFTER subscribe() returns (matching real relay behaviour).
-      for (const event of matchingEvents) {
-        const captured = event;
-        queueMicrotask(() => options?.onevent?.(captured));
-      }
-
-      // Emit EOSE after all onevent microtasks have been queued
-      queueMicrotask(() => options?.oneose?.());
-
-      return { close: () => { /* no-op — microtasks already queued */ } };
+      return {
+        subscribe(fn: (item: NostrEvent | 'EOSE') => void): { unsubscribe: () => void } {
+          // Dispatch event callbacks via microtask so they arrive AFTER subscribe() returns
+          // — matches real relay async behaviour (queueMicrotask per mock-relay-pool design).
+          for (const event of matchingEvents) {
+            const captured = event;
+            queueMicrotask(() => fn(captured));
+          }
+          // Emit EOSE after all event microtasks have been queued
+          queueMicrotask(() => fn('EOSE'));
+          return { unsubscribe: () => { /* no-op — microtasks already queued */ } };
+        },
+      };
     },
 
     /**

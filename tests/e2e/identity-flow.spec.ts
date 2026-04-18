@@ -39,7 +39,12 @@ test('profile-viewer reads identity.getPublicKey and renders truncated pubkey', 
   const profileFrame = page.frameLocator('#profile-viewer-frame-container iframe');
 
   // Step 1: wait for AUTH probe to complete (status transitions from 'connecting...' to 'authenticated').
-  await expect(profileFrame.locator('#profile-status')).toContainText('authenticated', { timeout: 10_000 });
+  // When no signer is configured, getPublicKey returns immediately with empty pubkey so the status
+  // can race from 'authenticated' to 'loaded' before Playwright polls — accept any valid post-auth state.
+  await expect(profileFrame.locator('#profile-status')).toContainText(
+    /^(authenticated|loaded|denied:)/,
+    { timeout: 10_000 },
+  );
 
   // Step 2: wait for getPublicKey + getProfile to resolve. Demo may have no NIP-46 signer connected,
   // in which case getPublicKey resolves with '' and Plan 20-03 renders the sentinel 'no-pubkey'.

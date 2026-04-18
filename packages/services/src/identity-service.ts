@@ -102,8 +102,17 @@ export function createIdentityService(options: IdentityServiceOptions): ServiceH
 
       switch (message.type) {
         case 'identity.getPublicKey': {
+          // Per NIP-5D spec comment "Always succeeds" — return empty pubkey when no signer is
+          // configured rather than sending an error. The nub-identity shim's getPublicKey()
+          // only handles 'identity.getPublicKey.result'; an error response hangs the Promise
+          // indefinitely. Empty pubkey is the correct sentinel for "no signer connected".
           if (!signer) {
-            sendError('identity.getPublicKey', 'no signer configured');
+            const result: IdentityGetPublicKeyResultMessage = {
+              type: 'identity.getPublicKey.result',
+              id,
+              pubkey: '',
+            };
+            send(result);
             return;
           }
           Promise.resolve(signer.getPublicKey?.())
