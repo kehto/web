@@ -45,7 +45,7 @@ export const DEBUGGER_PATH_LABELS: DemoProtocolPath[] = [
 ];
 
 function extractEvent(msg: TappedMessage): Record<string, unknown> | null {
-  if (msg.verb !== 'EVENT') return null;
+  if (msg.verb !== 'EVENT' || !Array.isArray(msg.raw)) return null;
   const candidate = msg.direction === 'shell->napplet' ? msg.raw[2] : msg.raw[1];
   if (candidate && typeof candidate === 'object') return candidate as Record<string, unknown>;
   return null;
@@ -408,14 +408,19 @@ export class NappletDebugger extends HTMLElement {
     const p = msg.parsed;
     const path = classifyTappedMessagePath(msg);
     const pathPrefix = path ? `path:${path} ` : '';
+    const rawArr = Array.isArray(msg.raw) ? msg.raw : null;
+    // Envelope-shape messages: display the envelope type and domain
+    if (msg.envelopeType) {
+      return `${pathPrefix}type:${msg.envelopeType}${p.domain ? ` domain:${p.domain}` : ''}${p.eventId ? ` id:${p.eventId.substring(0, 8)}...` : ''}`;
+    }
     switch (msg.verb) {
       case 'AUTH':
-        if (typeof msg.raw[1] === 'string') return `${pathPrefix}challenge: ${(msg.raw[1] as string).substring(0, 16)}...`;
+        if (rawArr && typeof rawArr[1] === 'string') return `${pathPrefix}challenge: ${(rawArr[1] as string).substring(0, 16)}...`;
         return `${pathPrefix}kind:${p.eventKind} pubkey:${(p.pubkey || '').substring(0, 8)}...`;
       case 'EVENT':
         return `${pathPrefix}${p.subId ? `sub:${p.subId} ` : ''}kind:${p.eventKind}${p.topic ? ` topic:${p.topic}` : ''} id:${(p.eventId || '').substring(0, 8)}...`;
       case 'REQ':
-        return `${pathPrefix}sub:${p.subId} filters:${JSON.stringify(msg.raw.slice(2)).substring(0, 60)}`;
+        return `${pathPrefix}sub:${p.subId} filters:${JSON.stringify(rawArr ? rawArr.slice(2) : []).substring(0, 60)}`;
       case 'OK':
         return `${pathPrefix}${p.success ? 'accepted' : 'rejected'}${p.reason ? ` -- ${p.reason}` : ''} id:${(p.eventId || '').substring(0, 8)}...`;
       case 'EOSE':

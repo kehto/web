@@ -70,7 +70,8 @@ function isNotificationTopic(msg: TappedMessage): boolean {
  * Falls back to the last node in the path if source is unclear.
  */
 function identifyFailureNode(nodes: string[], msg: TappedMessage): number {
-  const reasonString = typeof msg.raw?.[3] === 'string' ? msg.raw[3] : '';
+  const rawArr = Array.isArray(msg.raw) ? msg.raw : null;
+  const reasonString = rawArr && typeof rawArr[3] === 'string' ? rawArr[3] : '';
 
   // ACL denial: failure at the ACL node
   if (reasonString.startsWith('denied:')) {
@@ -168,9 +169,10 @@ export function initFlowAnimator(tap: MessageTap, topology: DemoTopology, edgeFl
   }
 
   tap.onMessage((msg) => {
-    const isOkFalse = msg.verb === 'OK' && msg.raw?.[2] === false;
-    const isClosedDenied = msg.verb === 'CLOSED' && typeof msg.raw?.[2] === 'string' &&
-      (msg.raw[2].includes('denied') || msg.raw[2].startsWith('blocked:'));
+    const rawArr = Array.isArray(msg.raw) ? msg.raw : null;
+    const isOkFalse = msg.verb === 'OK' && rawArr?.[2] === false;
+    const isClosedDenied = msg.verb === 'CLOSED' && typeof rawArr?.[2] === 'string' &&
+      (String(rawArr[2]).includes('denied') || String(rawArr[2]).startsWith('blocked:'));
     const isBlocked = isOkFalse || isClosedDenied;
 
     // Simple: red for any failure, green for success. No amber.

@@ -396,11 +396,12 @@ export function installActivityProjection(
 ): () => void {
   return tap.onMessage((msg) => {
     const path = classifyPath(msg) ?? msg.verb;
-    const isOkFalse = msg.verb === 'OK' && msg.raw?.[2] === false;
+    const rawArr = Array.isArray(msg.raw) ? msg.raw : null;
+    const isOkFalse = msg.verb === 'OK' && rawArr?.[2] === false;
     const isClosedDenied =
       msg.verb === 'CLOSED' &&
-      typeof msg.raw?.[2] === 'string' &&
-      (String(msg.raw[2]).includes('denied') || String(msg.raw[2]).startsWith('blocked:'));
+      typeof rawArr?.[2] === 'string' &&
+      (String(rawArr[2]).includes('denied') || String(rawArr[2]).startsWith('blocked:'));
     const blocked = isOkFalse || isClosedDenied;
 
     const entry: NodeActivityEntry = {

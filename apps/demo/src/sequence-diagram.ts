@@ -109,13 +109,16 @@ export function renderSequenceDiagram(messages: TappedMessage[]): string {
 }
 
 function formatLabel(msg: TappedMessage): string {
-  const event = msg.verb === 'EVENT'
-    ? ((msg.direction === 'shell->napplet' ? msg.raw[2] : msg.raw[1]) as { kind?: number; tags?: string[][] } | undefined)
+  // Envelope-shape messages: display the envelope type string directly
+  if (msg.envelopeType) return msg.envelopeType;
+  const rawArr = Array.isArray(msg.raw) ? msg.raw : null;
+  const event = msg.verb === 'EVENT' && rawArr
+    ? ((msg.direction === 'shell->napplet' ? rawArr[2] : rawArr[1]) as { kind?: number; tags?: string[][] } | undefined)
     : undefined;
   const topic = event?.tags?.find((tag) => tag[0] === 't')?.[1] ?? msg.parsed.topic;
   switch (msg.verb) {
     case 'AUTH':
-      if (typeof msg.raw[1] === 'string') return 'AUTH challenge';
+      if (rawArr && typeof rawArr[1] === 'string') return 'AUTH challenge';
       return 'AUTH response';
     case 'OK':
       return msg.parsed.success ? 'OK (accepted)' : 'OK (denied)';
