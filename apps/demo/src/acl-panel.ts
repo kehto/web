@@ -50,6 +50,10 @@ const DEMO_CAPABILITIES: { cap: Capability; label: string }[] = [
   { cap: 'state:read', label: DEMO_CAPABILITY_LABELS['state:read'] },
   { cap: 'state:write', label: DEMO_CAPABILITY_LABELS['state:write'] },
   { cap: 'identity:read', label: DEMO_CAPABILITY_LABELS['identity:read'] },
+  // Phase 19 (Plan 19-04): add notify:send so the toaster's ACL panel exposes the toggle.
+  // Existing napplets (chat/bot) also get this toggle; they use legacy ipc.emit gated on
+  // relay:write, not notify:send — the extra toggle is visible but no-op for them.
+  { cap: 'notify:send', label: DEMO_CAPABILITY_LABELS['notify:send'] },
 ];
 
 let debugger_: NappletDebugger | null = null;
@@ -145,6 +149,18 @@ export function renderAclPanels(onlyFor?: Set<string>): void {
     } else if (info.name === 'bot') {
       renderNappletAcl('bot-acl', windowId, info);
       rendered.add('bot');
+    } else if (info.name === 'composer') {
+      // Phase 19 (Plan 19-04): composer ACL panel exposes relay:write + notify:send toggles
+      renderNappletAcl('composer-acl', windowId, info);
+      rendered.add('composer');
+    } else if (info.name === 'preferences') {
+      // Phase 19 (Plan 19-04): preferences ACL panel exposes state:read + state:write toggles
+      renderNappletAcl('preferences-acl', windowId, info);
+      rendered.add('preferences');
+    } else if (info.name === 'toaster') {
+      // Phase 19 (Plan 19-04): toaster ACL panel exposes notify:send toggle (Plan 19-06 revoke spec)
+      renderNappletAcl('toaster-acl', windowId, info);
+      rendered.add('toaster');
     }
   }
 }
