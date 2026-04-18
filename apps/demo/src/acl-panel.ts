@@ -54,6 +54,11 @@ const DEMO_CAPABILITIES: { cap: Capability; label: string }[] = [
   // Existing napplets (chat/bot) also get this toggle; they use legacy ipc.emit gated on
   // relay:write, not notify:send — the extra toggle is visible but no-op for them.
   { cap: 'notify:send', label: DEMO_CAPABILITY_LABELS['notify:send'] },
+  // Phase 20 (Plan 20-06): add theme:read for theme-switcher/preferences observer visibility.
+  // In v1.3, theme.changed fan-out via shell-bridge.publishTheme bypasses ACL (shell-initiated
+  // push, not napplet-originated request). The toggle is exposed for capability surface
+  // documentation; disabling it has no functional effect in v1.3.
+  { cap: 'theme:read', label: DEMO_CAPABILITY_LABELS['theme:read'] },
 ];
 
 let debugger_: NappletDebugger | null = null;
@@ -161,6 +166,18 @@ export function renderAclPanels(onlyFor?: Set<string>): void {
       // Phase 19 (Plan 19-04): toaster ACL panel exposes notify:send toggle (Plan 19-06 revoke spec)
       renderNappletAcl('toaster-acl', windowId, info);
       rendered.add('toaster');
+    } else if (info.name === 'feed') {
+      // Phase 20 (Plan 20-06): feed napplet ACL panel (relay:read for relay.subscribe)
+      renderNappletAcl('feed-acl', windowId, info);
+      rendered.add('feed');
+    } else if (info.name === 'profile-viewer') {
+      // Phase 20 (Plan 20-06): profile-viewer napplet ACL panel (identity:read)
+      renderNappletAcl('profile-viewer-acl', windowId, info);
+      rendered.add('profile-viewer');
+    } else if (info.name === 'theme-switcher') {
+      // Phase 20 (Plan 20-06): theme-switcher napplet ACL panel (theme:read for visibility)
+      renderNappletAcl('theme-switcher-acl', windowId, info);
+      rendered.add('theme-switcher');
     }
   }
 }
