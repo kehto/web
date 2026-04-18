@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: executing
-stopped_at: Completed 19-03-PLAN.md (toaster napplet — @kehto/demo-toaster buildable with notify lifecycle)
-last_updated: "2026-04-18T01:27:17.725Z"
+stopped_at: "Completed 19-04-PLAN.md (demo wiring: DEMO_NAPPLETS x5 + notify dual-registration + ACL panel extensions)"
+last_updated: "2026-04-18T01:30:51.314Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 22
-  completed_plans: 18
+  completed_plans: 19
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 19 (Core-Domain Napplets) — EXECUTING
-Plan: 4 of 7
+Plan: 5 of 7
 Status: Ready to execute
 Last activity: 2026-04-18
 
@@ -77,6 +77,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 19-core-domain-napplets P02 | 2min | 2 tasks | 5 files |
 | Phase 19-core-domain-napplets P01 | 3min | 2 tasks | 6 files |
 | Phase 19-core-domain-napplets P03 | 4 | 2 tasks | 5 files |
+| Phase 19-core-domain-napplets P04 | 3 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -125,6 +126,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 19-01]: D-04 probe uses storage.getItem so state:read denial does not block auth sentinel (denial still signals AUTH completed)
 - [Phase 19-core-domain-napplets]: Toaster dispatches raw notify.create/list/dismiss envelopes via window.parent.postMessage because @napplet/sdk does not expose these methods; single narrowly-guarded message handler receives notify.created/notify.listed results (Plan 19-03 explicit SDK gap deviation)
 - [Phase 19-core-domain-napplets]: Plan 19-07 anti-term grep must assert exactly 1 window.addEventListener occurrence in apps/demo/napplets/toaster/src/main.ts (not 0, not >1) — toaster is exempt from the 0-listener rule
+- [Phase 19-core-domain-napplets]: Dual-register notification-service under 'notifications' (topology) AND 'notify' (runtime routing) — same handler instance, two registry keys, no topology card added for 'notify'
+- [Phase 19-core-domain-napplets]: Outer topology statusId placeholder stays 'loading...' for D-04 napplets (composer/preferences/toaster) — inner iframe #*-status set by napplet; Layer-B specs assert via frameLocator
 
 ### Blockers/Concerns
 
@@ -133,6 +136,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T01:27:17.723Z
-Stopped at: Completed 19-03-PLAN.md (toaster napplet — @kehto/demo-toaster buildable with notify lifecycle)
+Last session: 2026-04-18T01:30:51.311Z
+Stopped at: Completed 19-04-PLAN.md (demo wiring: DEMO_NAPPLETS x5 + notify dual-registration + ACL panel extensions)
 Resume: `/gsd:plan-phase 16`
