@@ -71,13 +71,13 @@ async function publish(): Promise<void> {
         '0000000000000000000000000000000000000000000000000000000000000001';
       log(`relay.publishEncrypted attempt — recipient: ${recipient.slice(0, 12)}...`);
       const result = await relay.publishEncrypted(template, recipient, 'nip44');
-      const eventId = (result as { id?: string }).id ?? 'unknown';
+      const eventId = (result as { id?: string } | undefined)?.id ?? 'unknown';
       setStatus(`published: ${eventId.slice(0, 16)}`, 'green');
       log(`relay.publishEncrypted OK — id: ${eventId.slice(0, 16)}`);
     } else {
       log('relay.publish attempt');
       const result = await relay.publish(template);
-      const eventId = (result as { id?: string }).id ?? 'unknown';
+      const eventId = (result as { id?: string } | undefined)?.id ?? 'unknown';
       setStatus(`published: ${eventId.slice(0, 16)}`, 'green');
       log(`relay.publish OK — id: ${eventId.slice(0, 16)}`);
     }
