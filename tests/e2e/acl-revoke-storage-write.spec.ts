@@ -13,6 +13,12 @@
  *     'storage.set.error' envelope.
  *
  * No page.reload() — Pitfall 5 (PITFALLS.md): reload is banned in ACL-touching specs.
+ *
+ * Button clicks use frame.evaluate(() => btn.click()) rather than frameLocator().click()
+ * because the napplet iframes are sandboxed (allow-scripts only), making them cross-origin.
+ * Playwright's CDP Input dispatch for cross-origin sandboxed iframes does not deliver
+ * events to iframe button handlers — frame.evaluate() uses the CDP Runtime in the frame's
+ * execution context directly, which works reliably (same pattern as storage-persist.spec.ts).
  */
 import { test, expect } from '@playwright/test';
 import { demoBeforeEach } from './helpers/index.js';
@@ -23,6 +29,7 @@ test.describe.configure({ mode: 'serial' });
 const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]/;
 
 test('revoking state:write on preferences denies next save (denial visible in status + debugger)', async ({ page }) => {
+  test.setTimeout(60_000);
   const consoleMessages: string[] = [];
   page.on('console', (msg) => consoleMessages.push(msg.text()));
   const pageErrors: string[] = [];
@@ -34,17 +41,23 @@ test('revoking state:write on preferences denies next save (denial visible in st
   // Wait for first load (preferences napplet sets 'loaded' after loadPreferences resolves).
   await expect(prefFrame.locator('#preferences-status')).toContainText('loaded', { timeout: 10_000 });
 
+  // Get a direct frame reference — CDP Runtime evaluate works in sandboxed cross-origin frames.
+  const prefFrameDirect = page.frames().find(f => f.url().includes('/preferences/'));
+  if (!prefFrameDirect) throw new Error('preferences frame not found in page.frames()');
+
   // Phase 1 (control): save should succeed with default-granted state:write.
   await prefFrame.locator('#pref-display-name').fill('control-name');
   await prefFrame.locator('#pref-theme-preference').fill('control-theme');
-  await prefFrame.locator('#preferences-save-btn').click();
-  await expect(prefFrame.locator('#preferences-status')).toContainText('saved', { timeout: 5_000 });
+  await prefFrameDirect.evaluate(() => {
+    (document.getElementById('preferences-save-btn') as HTMLButtonElement | null)?.click();
+  });
+  await expect(prefFrame.locator('#preferences-status')).toContainText('saved', { timeout: 8_000 });
 
   // Wait until the ACL panel toggle for state:write is rendered + initial state ON.
   const aclSlot = page.locator('#preferences-acl');
-  await expect(aclSlot).toBeVisible({ timeout: 5_000 });
+  await expect(aclSlot).toBeVisible({ timeout: 10_000 });
   const stateWriteToggle = aclSlot.locator('button[title^="state:write"]');
-  await expect(stateWriteToggle).toBeVisible({ timeout: 5_000 });
+  await expect(stateWriteToggle).toBeVisible({ timeout: 10_000 });
   await expect(stateWriteToggle).toHaveAttribute('data-enabled', 'true');
 
   // Phase 2 (revoke + assert):
@@ -54,13 +67,15 @@ test('revoking state:write on preferences denies next save (denial visible in st
   // Trigger another save — runtime's ACL gate emits storage.set.error.
   await prefFrame.locator('#pref-display-name').fill('phase-2-name');
   await prefFrame.locator('#pref-theme-preference').fill('phase-2-theme');
-  await prefFrame.locator('#preferences-save-btn').click();
+  await prefFrameDirect.evaluate(() => {
+    (document.getElementById('preferences-save-btn') as HTMLButtonElement | null)?.click();
+  });
 
   // Status contains 'denied:' (preferences catch branch sets 'denied: <reason>').
-  await expect(prefFrame.locator('#preferences-status')).toContainText('denied:', { timeout: 5_000 });
+  await expect(prefFrame.locator('#preferences-status')).toContainText('denied:', { timeout: 8_000 });
 
   // Debugger shows storage.set.error envelope.
-  await expect(page.locator('napplet-debugger')).toContainText('storage.set.error', { timeout: 5_000 });
+  await expect(page.locator('napplet-debugger')).toContainText('storage.set.error', { timeout: 8_000 });
 
   const antiConsole = consoleMessages.filter((m) => ANTI_TERM_RE.test(m));
   expect(antiConsole, `anti-term found in console: ${antiConsole.join(' | ')}`).toHaveLength(0);

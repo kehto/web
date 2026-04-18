@@ -706,7 +706,10 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
 
   window.addEventListener('message', relay.handleMessage);
 
-  // Track AUTH completions
+  // Track AUTH completions — two paths:
+  // Path A (legacy NIP-01 pubkey-based napplets): detect via NIP-01 OK success message.
+  // Path B (NIP-5D napplets — composer/preferences/toaster): detect via first envelope
+  //         from napplet→shell; session is pre-registered with pubkey='' and dTag=name.
   tap.onMessage((msg) => {
     if (msg.verb === 'OK' && msg.parsed.success === true && msg.direction === 'shell->napplet') {
       // Find which napplet this OK belongs to by checking sessionRegistry
@@ -722,6 +725,23 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
               info.aggregateHash = entry.aggregateHash;
             }
           }
+        }
+      }
+    }
+
+    // Path B: NIP-5D envelope-only napplets (pre-registered with pubkey='').
+    // When the first envelope arrives from a napplet, mark it authenticated and
+    // populate dTag from the session registry entry (set by loadNapplet's pre-register).
+    if (msg.verb === 'ENVELOPE' && msg.direction === 'napplet->shell' && msg.windowId) {
+      const info = napplets.get(msg.windowId);
+      if (info && !info.authenticated) {
+        const entry = relay.runtime.sessionRegistry.getEntryByWindowId(msg.windowId);
+        if (entry) {
+          info.authenticated = true;
+          // NIP-5D napplets: pubkey stays '' — ACL keyed on dTag:hash identity.
+          info.pubkey = entry.pubkey;  // '' for NIP-5D pre-registered napplets
+          info.dTag = entry.dTag;
+          info.aggregateHash = entry.aggregateHash;
         }
       }
     }
@@ -798,17 +818,26 @@ export function loadNapplet(name: string, containerId: string): NappletInfo {
  */
 export function toggleCapability(windowId: string, capability: Capability, enabled: boolean): void {
   const info = napplets.get(windowId);
-  if (!info?.pubkey) { console.warn('[acl] toggleCapability: no pubkey for', windowId); return; }
+  if (!info) { console.warn('[acl] toggleCapability: no info for', windowId); return; }
+  // NIP-5D napplets are pre-registered with pubkey=''; ACL is keyed on dTag:hash.
+  // Traditional pubkey-based napplets have a non-empty pubkey from AUTH.
+  // Both paths use the same aclState interface with pubkey ('' or real).
+  if (!info.authenticated) {
+    console.warn('[acl] toggleCapability: napplet not yet authenticated', windowId);
+    return;
+  }
+  const pubkey = info.pubkey;  // '' for NIP-5D, real pubkey for legacy
   const dTag = info.dTag || '';
   const hash = info.aggregateHash || '';
-  console.log(`[acl] ${enabled ? 'GRANT' : 'REVOKE'} ${capability} for ${info.name} (pubkey=${info.pubkey.substring(0, 8)}... dTag=${dTag} hash=${hash})`);
+  const pubkeyDisplay = pubkey ? pubkey.substring(0, 8) + '...' : '(nip5d-empty)';
+  console.log(`[acl] ${enabled ? 'GRANT' : 'REVOKE'} ${capability} for ${info.name} (pubkey=${pubkeyDisplay} dTag=${dTag} hash=${hash})`);
   if (enabled) {
-    relay.runtime.aclState.grant(info.pubkey, dTag, hash, capability);
+    relay.runtime.aclState.grant(pubkey, dTag, hash, capability);
   } else {
-    relay.runtime.aclState.revoke(info.pubkey, dTag, hash, capability);
+    relay.runtime.aclState.revoke(pubkey, dTag, hash, capability);
   }
   // Verify the change took effect
-  const check = relay.runtime.aclState.check(info.pubkey, dTag, hash, capability);
+  const check = relay.runtime.aclState.check(pubkey, dTag, hash, capability);
   console.log(`[acl] check ${capability} after ${enabled ? 'grant' : 'revoke'}: ${check}`);
 }
 
@@ -846,7 +875,8 @@ export function isServiceEnabled(name: string): boolean {
  */
 export function toggleBlock(windowId: string, blocked: boolean): void {
   const info = napplets.get(windowId);
-  if (!info?.pubkey) return;
+  if (!info?.authenticated) return;
+  // NIP-5D napplets have pubkey='' — ACL is keyed on dTag:hash; pass pubkey as-is.
   if (blocked) {
     relay.runtime.aclState.block(info.pubkey, info.dTag || '', info.aggregateHash || '');
   } else {

@@ -557,6 +557,11 @@ if (shellPubkey) shellPubkey.textContent = `pubkey: ${getDemoHostPubkey().substr
 const nappletInfos = DEMO_NAPPLETS.map((napplet) => loadNapplet(napplet.name, napplet.frameContainerId));
 const chatInfo = nappletInfos.find((napplet) => napplet.name === 'chat');
 const botInfo = nappletInfos.find((napplet) => napplet.name === 'bot');
+// Phase 19 (Plan 19-07 fix): extract info refs for the 3 new napplets so their auth
+// state can be tracked in the ACL-panel wiring below (same pattern as chat/bot).
+const composerInfo = nappletInfos.find((napplet) => napplet.name === 'composer');
+const preferencesInfo = nappletInfos.find((napplet) => napplet.name === 'preferences');
+const toasterInfo = nappletInfos.find((napplet) => napplet.name === 'toaster');
 
 initFlowAnimator(tap, topology, edgeFlasher);
 
@@ -716,31 +721,60 @@ wireNodeSelection();
 const aclRendered = new Set<string>();
 
 // Update status indicators when napplets AUTH (only once per napplet)
+// Shared helper: called after any auth-signal message to update ACL panels
+// for all napplets that have now reached authenticated state.
+function refreshAclPanelsIfNeeded(): void {
+  const chatStatus = document.getElementById('chat-status');
+  const botStatus = document.getElementById('bot-status');
+
+  if (chatInfo?.authenticated && chatStatus && !aclRendered.has('chat')) {
+    chatStatus.textContent = 'authenticated';
+    chatStatus.style.color = '#39ff14';
+    aclRendered.add('chat');
+  }
+  if (botInfo?.authenticated && botStatus && !aclRendered.has('bot')) {
+    botStatus.textContent = 'authenticated';
+    botStatus.style.color = '#39ff14';
+    aclRendered.add('bot');
+  }
+  // Phase 19 (Plan 19-07 fix): NIP-5D napplets (composer/preferences/toaster) are
+  // authenticated via shell-host's Path B (first ENVELOPE from napplet), not NIP-01 OK.
+  // Their info refs were extracted from nappletInfos above and checked here.
+  if (composerInfo?.authenticated && !aclRendered.has('composer')) {
+    aclRendered.add('composer');
+  }
+  if (preferencesInfo?.authenticated && !aclRendered.has('preferences')) {
+    aclRendered.add('preferences');
+  }
+  if (toasterInfo?.authenticated && !aclRendered.has('toaster')) {
+    aclRendered.add('toaster');
+  }
+
+  if (aclRendered.size > 0) {
+    renderAclPanels(aclRendered);
+  }
+
+  refreshNodeSummaries();
+}
+
 tap.onMessage((msg) => {
+  // Path A: NIP-01 OK success (legacy pubkey-based napplets like chat/bot)
   if (msg.verb === 'OK' && msg.parsed.success === true && msg.direction === 'shell->napplet') {
     setTimeout(() => {
-      const chatStatus = document.getElementById('chat-status');
-      const botStatus = document.getElementById('bot-status');
-
-      if (chatInfo?.authenticated && chatStatus && !aclRendered.has('chat')) {
-        chatStatus.textContent = 'authenticated';
-        chatStatus.style.color = '#39ff14';
-        aclRendered.add('chat');
-      }
-      if (botInfo?.authenticated && botStatus && !aclRendered.has('bot')) {
-        botStatus.textContent = 'authenticated';
-        botStatus.style.color = '#39ff14';
-        aclRendered.add('bot');
-      }
-
-      // Only render ACL panels for newly authenticated napplets
-      if (aclRendered.size > 0) {
-        renderAclPanels(aclRendered);
-      }
-
-      // Refresh summaries after auth state changes
-      refreshNodeSummaries();
+      refreshAclPanelsIfNeeded();
     }, 200);
+  }
+
+  // Path B: NIP-5D envelope-only napplets (composer/preferences/toaster).
+  // The shell-host sets info.authenticated=true on the first ENVELOPE from a napplet.
+  // We respond to that envelope here to trigger ACL panel rendering.
+  if (msg.verb === 'ENVELOPE' && msg.direction === 'napplet->shell' && msg.windowId) {
+    // Quick bail if all panels already rendered
+    if (aclRendered.size < 5) {
+      setTimeout(() => {
+        refreshAclPanelsIfNeeded();
+      }, 200);
+    }
   }
 
   // Log ipc events prominently

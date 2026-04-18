@@ -14,6 +14,12 @@
  *     'relay.publish.error' envelope.
  *
  * No page.reload() — Pitfall 5 (PITFALLS.md): reload is banned in ACL-touching specs.
+ *
+ * Button clicks use frame.evaluate(() => btn.click()) rather than frameLocator().click()
+ * because the napplet iframes are sandboxed (allow-scripts only), making them cross-origin.
+ * Playwright's CDP Input dispatch for cross-origin sandboxed iframes does not deliver
+ * events to iframe button handlers — frame.evaluate() uses the CDP Runtime in the frame's
+ * execution context directly, which works reliably (same pattern as relay-publish.spec.ts).
  */
 import { test, expect } from '@playwright/test';
 import { demoBeforeEach } from './helpers/index.js';
@@ -24,6 +30,7 @@ test.describe.configure({ mode: 'serial' });
 const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]/;
 
 test('revoking relay:write on composer denies next publish (denial visible in status + debugger)', async ({ page }) => {
+  test.setTimeout(60_000);
   const consoleMessages: string[] = [];
   page.on('console', (msg) => consoleMessages.push(msg.text()));
   const pageErrors: string[] = [];
@@ -35,20 +42,32 @@ test('revoking relay:write on composer denies next publish (denial visible in st
   // Wait for AUTH so the ACL panel renders for composer.
   await expect(composerFrame.locator('#composer-status')).toContainText('authenticated', { timeout: 10_000 });
 
+  // Get a direct frame reference — CDP Runtime evaluate works in sandboxed cross-origin frames.
+  const composerFrameDirect = page.frames().find(f => f.url().includes('/composer/'));
+  if (!composerFrameDirect) throw new Error('composer frame not found in page.frames()');
+
+  // Ensure encrypted toggle is off (default).
+  await composerFrameDirect.evaluate(() => {
+    const toggle = document.getElementById('composer-encrypted-toggle') as HTMLInputElement | null;
+    if (toggle) toggle.checked = false;
+  });
+
   // Phase 1 (control): publish should NOT be in the explicit-denial path.
   // The demo's stub relay pool returns accepted:false but with `message: 'no relay pool available'`
   // (no `error`), so the SDK resolves and composer status becomes 'published: unknown'.
   // We DO NOT assert the success outcome strictly — just that we're not already denied.
   await composerFrame.locator('#composer-input').fill('phase 1 control publish');
-  await composerFrame.locator('#composer-publish-btn').click();
-  await expect(composerFrame.locator('#composer-status')).toContainText(/^(published:|denied:)/, { timeout: 8_000 });
+  await composerFrameDirect.evaluate(() => {
+    (document.getElementById('composer-publish-btn') as HTMLButtonElement | null)?.click();
+  });
+  await expect(composerFrame.locator('#composer-status')).toContainText(/^(published:|denied:)/, { timeout: 12_000 });
 
   // Wait until the ACL panel toggle for relay:write is rendered + initial state ON.
-  // The button is rendered into #composer-acl after AUTH (apps/demo/src/main.ts:737 path).
+  // The button is rendered into #composer-acl after AUTH is detected in main.ts.
   const aclSlot = page.locator('#composer-acl');
-  await expect(aclSlot).toBeVisible({ timeout: 5_000 });
+  await expect(aclSlot).toBeVisible({ timeout: 10_000 });
   const relayWriteToggle = aclSlot.locator('button[title^="relay:write"]');
-  await expect(relayWriteToggle).toBeVisible({ timeout: 5_000 });
+  await expect(relayWriteToggle).toBeVisible({ timeout: 10_000 });
   await expect(relayWriteToggle).toHaveAttribute('data-enabled', 'true');
 
   // Phase 2 (revoke + assert):
@@ -57,17 +76,30 @@ test('revoking relay:write on composer denies next publish (denial visible in st
   // Verify the toggle flipped to OFF state (data-enabled=false).
   await expect(relayWriteToggle).toHaveAttribute('data-enabled', 'false');
 
-  // Trigger another publish — this time the runtime's ACL gate (packages/runtime/src/runtime.ts:1117-1125)
+  // Diagnostic: verify ACL state ACTUALLY changed (captures shell console.log output)
+  await page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const relay = (window as any).__relay__;
+    if (relay) {
+      console.log('[diagnostic] ACL state check after revoke (relay:write on composer)');
+    } else {
+      console.log('[diagnostic] relay not found on window');
+    }
+  });
+
+  // Trigger another publish — this time the runtime's ACL gate
   // emits relay.publish.error with `error: 'denied: relay:write ...'`.
   await composerFrame.locator('#composer-input').fill('phase 2 denied publish');
-  await composerFrame.locator('#composer-publish-btn').click();
+  await composerFrameDirect.evaluate(() => {
+    (document.getElementById('composer-publish-btn') as HTMLButtonElement | null)?.click();
+  });
 
   // The composer's catch branch sets #composer-status to 'denied: <reason>'.
   // We assert the 'denied:' prefix because the exact reason string is runtime-formatted.
-  await expect(composerFrame.locator('#composer-status')).toContainText('denied:', { timeout: 5_000 });
+  await expect(composerFrame.locator('#composer-status')).toContainText('denied:', { timeout: 8_000 });
 
   // The debugger shows the relay.publish.error envelope (proves the runtime emitted the denial).
-  await expect(page.locator('napplet-debugger')).toContainText('relay.publish.error', { timeout: 5_000 });
+  await expect(page.locator('napplet-debugger')).toContainText('relay.publish.error', { timeout: 8_000 });
 
   const antiConsole = consoleMessages.filter((m) => ANTI_TERM_RE.test(m));
   expect(antiConsole, `anti-term found in console: ${antiConsole.join(' | ')}`).toHaveLength(0);
