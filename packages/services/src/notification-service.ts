@@ -121,12 +121,90 @@ export function createNotificationService(options?: NotificationServiceOptions):
     descriptor,
 
     handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
+      const msg = message as unknown as Record<string, unknown>;
+
+      // ── NIP-5D canonical notify.* envelope format (Phase 17+) ───────────────
+      // Host-originated and napplet-originated notify.* envelopes from Phase 18+.
+      if (message.type.startsWith('notify.')) {
+        const action = message.type.slice(7); // 'notify.'.length === 7
+
+        switch (action) {
+          case 'create': {
+            const title = typeof msg.title === 'string' ? msg.title : '';
+            const body = typeof msg.body === 'string' ? msg.body : '';
+
+            const id = generateId();
+            const notification: Notification = {
+              id,
+              windowId,
+              title,
+              body,
+              read: false,
+              createdAt: Math.floor(Date.now() / 1000),
+            };
+
+            const list = getWindowNotifications(windowId);
+            list.push(notification);
+            enforceLimit(list);
+            notify();
+
+            send({ type: 'notify.created', id } as unknown as NappletMessage);
+            break;
+          }
+
+          case 'dismiss': {
+            const notifId = typeof msg.notificationId === 'string' ? msg.notificationId : '';
+            if (!notifId) return;
+
+            const found = findById(notifId);
+            if (found) {
+              const [foundWindowId, , index] = found;
+              const list = notifications.get(foundWindowId);
+              if (list) {
+                list.splice(index, 1);
+                if (list.length === 0) notifications.delete(foundWindowId);
+                notify();
+              }
+            }
+            break;
+          }
+
+          case 'read': {
+            const notifId = typeof msg.notificationId === 'string' ? msg.notificationId : '';
+            if (!notifId) return;
+
+            const found = findById(notifId);
+            if (found) {
+              const [, notification] = found;
+              if (!notification.read) {
+                notification.read = true;
+                notify();
+              }
+            }
+            break;
+          }
+
+          case 'list': {
+            const windowNotifs = notifications.get(windowId) ?? [];
+            send({ type: 'notify.listed', notifications: windowNotifs } as unknown as NappletMessage);
+            break;
+          }
+
+          default:
+            // Unknown notify.* action — ignore
+            break;
+        }
+        return;
+      }
+
+      // ── Legacy ifc.emit format (Phase <17 napplets — still used by chat/bot) ─
+      // Kept for backward compat until napplets migrate to NIP-5D in Phase 18.
       if (message.type !== 'ifc.emit') return;
-      const topic = (message as any).topic as string | undefined;
+      const topic = msg.topic as string | undefined;
       if (!topic?.startsWith('notifications:')) return;
 
       const action = topic.slice(14); // 'notifications:'.length === 14
-      const payload = ((message as any).payload ?? {}) as Record<string, unknown>;
+      const payload = ((msg.payload ?? {}) as Record<string, unknown>);
 
       switch (action) {
         case 'create': {

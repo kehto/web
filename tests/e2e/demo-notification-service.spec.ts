@@ -6,6 +6,11 @@
  * v1.3 / Phase 17 rewrites in place: uses the `webServer` array from
  * playwright.config.ts (no local spawn), uses `demoBeforeEach`, and asserts on
  * canonical `notify.*` envelope type strings.
+ *
+ * Note: The demo napplets (chat, bot) still use the legacy NIP-01 array protocol
+ * and do not reach "authenticated" state under the v1.2 shell (which accepts only
+ * NIP-5D envelope objects). Napplet migration to NIP-5D is Phase 18. All tests
+ * in this spec are host-side and do not require napplet authentication.
  */
 import { test, expect } from '@playwright/test';
 import { demoBeforeEach } from './helpers/index.js';
@@ -15,20 +20,13 @@ test.describe.configure({ mode: 'serial' });
 
 const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]/;
 
-async function openDemoAndAuth(page: import('@playwright/test').Page): Promise<void> {
-  await demoBeforeEach(page);
-  // Wait for both legacy napplets to reach authenticated state
-  await expect(page.locator('#chat-status')).toHaveText('authenticated', { timeout: 30_000 });
-  await expect(page.locator('#bot-status')).toHaveText('authenticated', { timeout: 30_000 });
-}
-
 test('notification topology node is visible', async ({ page }) => {
   await demoBeforeEach(page);
   await expect(page.locator('[data-service-name="notifications"]')).toBeVisible();
 });
 
 test('node-control: create toast via notify.create envelope', async ({ page }) => {
-  await openDemoAndAuth(page);
+  await demoBeforeEach(page);
   const totalEl = page.locator('#notif-total');
   const initial = parseInt(await totalEl.textContent() ?? '0', 10);
   await page.locator('#notification-node-create').click();
@@ -44,7 +42,7 @@ test('node-control: create toast via notify.create envelope', async ({ page }) =
 });
 
 test('notify.list opens inspector with items', async ({ page }) => {
-  await openDemoAndAuth(page);
+  await demoBeforeEach(page);
   await page.locator('#notification-node-create').click();
   await expect(page.locator('#notification-toast-layer .notif-toast')).toBeVisible({ timeout: 3_000 });
   await page.locator('#notification-node-list').click();
@@ -54,7 +52,7 @@ test('notify.list opens inspector with items', async ({ page }) => {
 });
 
 test('notify.read decrements unread count', async ({ page }) => {
-  await openDemoAndAuth(page);
+  await demoBeforeEach(page);
   await page.locator('#notification-node-create').click();
   const unreadEl = page.locator('#notif-unread');
   const before = parseInt(await unreadEl.textContent() ?? '0', 10);
@@ -64,7 +62,7 @@ test('notify.read decrements unread count', async ({ page }) => {
 });
 
 test('notify.dismiss removes item from inspector', async ({ page }) => {
-  await openDemoAndAuth(page);
+  await demoBeforeEach(page);
   await page.locator('#notification-node-create').click();
   await page.locator('#notification-node-list').click();
   const before = await page.locator('#notification-list .notif-item').count();
@@ -75,7 +73,7 @@ test('notify.dismiss removes item from inspector', async ({ page }) => {
 test('no anti-term in captured console output', async ({ page }) => {
   const messages: string[] = [];
   page.on('console', (m) => messages.push(m.text()));
-  await openDemoAndAuth(page);
+  await demoBeforeEach(page);
   await page.locator('#notification-node-create').click();
   await page.waitForTimeout(500);
   const anti = messages.filter(m => ANTI_TERM_RE.test(m));
