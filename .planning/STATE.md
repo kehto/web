@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: executing
-stopped_at: Completed 17-05-PLAN.md (ACL adapter seam + notify.* migration + per-role inspector)
-last_updated: "2026-04-18T00:09:06.783Z"
+stopped_at: "Completed 17-06-PLAN.md (Layer-B demo E2E specs: boot, node-inspector, debugger, service-toggle, notification-service)"
+last_updated: "2026-04-18T00:14:26.615Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 11
-  completed_plans: 9
+  completed_plans: 10
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 17 (Demo App Rewire) — EXECUTING
-Plan: 6 of 7
+Plan: 7 of 7
 Status: Ready to execute
 Last activity: 2026-04-18
 
@@ -68,6 +68,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 17-demo-app-rewire P03 | 15min | 2 tasks | 4 files |
 | Phase 17-demo-app-rewire P04 | 25 | 2 tasks | 4 files |
 | Phase 17-demo-app-rewire P05 | 25min | 2 tasks | 8 files |
+| Phase 17 P06 | 3min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 17-demo-app-rewire]: DemoAclAdapter wraps toggleCapability/toggleBlock internally — single seam for UI grant/revoke/block/unblock; onCheck fan-out via _notifyAclCheckListeners
 - [Phase 17-demo-app-rewire]: notification-demo.ts dispatches notify.create/list/read/dismiss envelopes; host-originated calls recorded via recordInboundEnvelope/recordOutboundEnvelope for debugger parity (source: 'demo-host')
 - [Phase 17-demo-app-rewire]: renderForRole() in node-inspector.ts dispatches to 5 per-role renderers (acl/runtime/napplet/service/shell); role content injected above existing sections block
+- [Phase 17]: demoBeforeEach waits for #topology-root (dynamically rendered) not static #topology-pane — topology DOM sentinel vs __SHELL_READY__ harness global
+- [Phase 17]: demo-targeted specs use demoBeforeEach, harness-targeted specs use aclBeforeEach — parallel setup helpers from helpers/index.ts pick the right surface
 
 ### Blockers/Concerns
 
@@ -103,6 +106,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T00:09:06.781Z
-Stopped at: Completed 17-05-PLAN.md (ACL adapter seam + notify.* migration + per-role inspector)
+Last session: 2026-04-18T00:14:26.612Z
+Stopped at: Completed 17-06-PLAN.md (Layer-B demo E2E specs: boot, node-inspector, debugger, service-toggle, notification-service)
 Resume: `/gsd:plan-phase 16`
