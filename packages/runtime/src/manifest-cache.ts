@@ -54,6 +54,16 @@ export interface ManifestCache {
  *
  * @param persistence - Storage backend for manifest data
  * @returns A ManifestCache instance
+ *
+ * @example
+ * ```ts
+ * import { createManifestCache } from '@kehto/runtime';
+ *
+ * const cache = createManifestCache(manifestPersistence);
+ * cache.load();
+ * cache.set({ pubkey: 'abc...', dTag: 'chat', aggregateHash: 'dead', verifiedAt: Date.now() });
+ * cache.has('abc...', 'chat', 'dead'); // true
+ * ```
  */
 export function createManifestCache(persistence: ManifestPersistence): ManifestCache {
   const cache = new Map<string, ManifestCacheEntry>();

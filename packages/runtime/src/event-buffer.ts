@@ -28,6 +28,14 @@ export interface SubscriptionEntry {
  * @param event - The event to check
  * @param filter - The filter to match against
  * @returns True if the event matches the filter
+ *
+ * @example
+ * ```ts
+ * import { matchesFilter } from '@kehto/runtime';
+ *
+ * matchesFilter(event, { kinds: [1], authors: ['abc'] });
+ * // true if event.kind === 1 and event.pubkey starts with 'abc'
+ * ```
  */
 export function matchesFilter(event: NostrEvent, filter: NostrFilter): boolean {
   if (filter.ids !== undefined && !filter.ids.some((id) => event.id.startsWith(id))) return false;
@@ -52,6 +60,14 @@ export function matchesFilter(event: NostrEvent, filter: NostrFilter): boolean {
  * @param event - The event to check
  * @param filters - The filters to match against
  * @returns True if the event matches any filter (or if filters is empty)
+ *
+ * @example
+ * ```ts
+ * import { matchesAnyFilter } from '@kehto/runtime';
+ *
+ * matchesAnyFilter(event, [{ kinds: [1] }, { kinds: [7] }]);
+ * // true if event is kind 1 or kind 7
+ * ```
  */
 export function matchesAnyFilter(event: NostrEvent, filters: NostrFilter[]): boolean {
   if (filters.length === 0) return true;
@@ -87,6 +103,14 @@ export interface EventBuffer {
  *   When provided, its return value is used instead of RING_BUFFER_SIZE.
  *   Called on every bufferAndDeliver, so changes take effect immediately.
  * @returns An EventBuffer instance
+ *
+ * @example
+ * ```ts
+ * import { createEventBuffer } from '@kehto/runtime';
+ *
+ * const buffer = createEventBuffer(sendToNapplet, sessionRegistry, enforce, subscriptions);
+ * buffer.bufferAndDeliver(event, senderWindowId);
+ * ```
  */
 export function createEventBuffer(
   sendToNapplet: SendToNapplet,

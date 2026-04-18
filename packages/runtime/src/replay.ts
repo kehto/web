@@ -38,6 +38,17 @@ export interface ReplayDetector {
  *   When provided, its return value is used instead of the module-level constant.
  *   Called on every check, so changes take effect immediately.
  * @returns A ReplayDetector instance
+ *
+ * @example
+ * ```ts
+ * import { createReplayDetector } from '@kehto/runtime';
+ *
+ * const detector = createReplayDetector();
+ * const reason = detector.check(event);
+ * if (reason !== null) {
+ *   // Reject — duplicate, stale, or future-dated
+ * }
+ * ```
  */
 export function createReplayDetector(getReplayWindow?: () => number | undefined): ReplayDetector {
   const seenEventIds = new Map<string, number>();

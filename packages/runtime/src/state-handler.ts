@@ -73,6 +73,13 @@ function sendError(
  * @param sessionRegistry - Identity registry for looking up napplet session identity
  * @param aclState - ACL state for quota checks
  * @param statePersistence - State storage backend
+ *
+ * @example
+ * ```ts
+ * import { handleStateRequest } from '@kehto/runtime';
+ *
+ * handleStateRequest(windowId, event, sendToNapplet, sessionRegistry, aclState, statePersistence);
+ * ```
  */
 export function handleStateRequest(
   windowId: string,
@@ -182,6 +189,14 @@ export function handleStateRequest(
  * @param sessionRegistry - Identity registry for looking up napplet session identity
  * @param aclState - ACL state for quota checks
  * @param statePersistence - State storage backend
+ *
+ * @example
+ * ```ts
+ * import { handleStorageNub } from '@kehto/runtime';
+ *
+ * handleStorageNub(windowId, { type: 'storage.get', id: 'q1', key: 'draft' },
+ *   sendToNapplet, sessionRegistry, aclState, statePersistence);
+ * ```
  */
 export function handleStorageNub(
   windowId: string,
@@ -290,6 +305,13 @@ export function handleStorageNub(
  * @param dTag - The napplet's dTag
  * @param aggregateHash - The napplet's build hash
  * @param statePersistence - State storage backend
+ *
+ * @example
+ * ```ts
+ * import { cleanupNappState } from '@kehto/runtime';
+ *
+ * cleanupNappState(pubkey, dTag, aggregateHash, statePersistence);
+ * ```
  */
 export function cleanupNappState(
   pubkey: string,
