@@ -28,11 +28,11 @@ Demo host (`apps/demo/src/*`) wired to canonical v1.2 APIs.
 
 - [x] **DEMO-01**: Demo boots clean — no `window.nostr` references, no signer-service, no legacy BusKind in demo source; all 8 service nodes visible in topology on load.
 - [x] **DEMO-02**: Signer modal + NIP-46 client (`signer-demo.ts`, `signer-modal.ts`, `signer-connection.ts`, `nip46-client.ts`) use canonical `identity.*` reads + `relay.publish` / `relay.publishEncrypted` paths only. No `window.nostr` fallback path exists.
-- [ ] **DEMO-03**: ACL panel (grant/revoke), ACL modal, ACL history ring buffer are functional against v1.2 `ShellAdapter.acl` hooks; user can grant/revoke any capability on any napplet and see the change reflected in napplet behavior.
+- [x] **DEMO-03**: ACL panel (grant/revoke), ACL modal, ACL history ring buffer are functional against v1.2 `ShellAdapter.acl` hooks; user can grant/revoke any capability on any napplet and see the change reflected in napplet behavior.
 - [x] **DEMO-04**: Debugger tap (`debugger.ts`) displays NIP-5D envelope `type` strings (e.g., `relay.publish`, `storage.getItem.result`) — not NIP-01 verbs, not BusKind constants.
 - [x] **DEMO-05**: `createDemoHooks()` registers reference services for `keys`, `media`, `theme` from `@kehto/services` alongside existing `identity`/`notify`; relay pool stays stubbed (by design — IFC routes through runtime's `ifcSubscriptions` map).
-- [ ] **DEMO-06**: Node inspector pane opens on topology-node click and shows per-role content: ACL node → grant/revoke table; runtime node → registered NUBs; napplet node → capability state + recent envelopes.
-- [ ] **DEMO-07**: Notification demo + kinds panel + constants panel all render clean and reflect v1.2 data (canonical kind list, protocol constants from `@napplet/core`).
+- [x] **DEMO-06**: Node inspector pane opens on topology-node click and shows per-role content: ACL node → grant/revoke table; runtime node → registered NUBs; napplet node → capability state + recent envelopes.
+- [x] **DEMO-07**: Notification demo + kinds panel + constants panel all render clean and reflect v1.2 data (canonical kind list, protocol constants from `@napplet/core`).
 - [x] **DEMO-08**: Flow/sequence/trace edge animators render live napplet traffic without stale NIP-01 or BusKind references; color-mode cycling works (flash/rolling/decay/last/trace).
 
 ---
@@ -114,11 +114,11 @@ No `changeset publish` — that is deferred until `@napplet/core` publishes to n
 |--------|-------|--------|
 | DEMO-01 | Phase 17 | Complete |
 | DEMO-02 | Phase 17 | Complete |
-| DEMO-03 | Phase 17 | Pending |
+| DEMO-03 | Phase 17 | Complete |
 | DEMO-04 | Phase 17 | Complete |
 | DEMO-05 | Phase 17 | Complete |
-| DEMO-06 | Phase 17 | Pending |
-| DEMO-07 | Phase 17 | Pending |
+| DEMO-06 | Phase 17 | Complete |
+| DEMO-07 | Phase 17 | Complete |
 | DEMO-08 | Phase 17 | Complete |
 | NAP-01 | Phase 18 | Pending |
 | NAP-02 | Phase 18 | Pending |

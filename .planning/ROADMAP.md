@@ -67,12 +67,12 @@
   3. The ACL panel lets a user grant and revoke any capability on any loaded napplet, and the change is visible in napplet behavior within the same session.
   4. The debugger pane shows NIP-5D `type` strings (e.g., `relay.publish`, `storage.getItem.result`) — not NIP-01 verbs or BusKind constants.
   5. Layer-B demo-surface specs `demo-boot`, `demo-node-inspector`, `demo-debugger`, `demo-service-toggle`, `demo-notification-service` are all green against the built demo artifact.
-**Plans:** 4/7 plans executed
+**Plans:** 5/7 plans executed
 - [x] 17-01-PLAN.md — Purge legacy anti-terms from apps/demo/src/ (DEMO-01 baseline hygiene)
 - [x] 17-02-PLAN.md — Register keys+media+theme services; render 8 topology nodes with stub-only markers (DEMO-04, DEMO-05)
 - [x] 17-03-PLAN.md — Rewire signer UX to canonical identity.getPublicKey + relay.publish path (DEMO-02)
 - [x] 17-04-PLAN.md — Envelope-aware debugger + flow animator + sequence diagram + trace animator (DEMO-04, DEMO-08)
-- [ ] 17-05-PLAN.md — ACL adapter seam + per-role node inspector + canonical notify envelopes (DEMO-03, DEMO-06, DEMO-07)
+- [x] 17-05-PLAN.md — ACL adapter seam + per-role node inspector + canonical notify envelopes (DEMO-03, DEMO-06, DEMO-07)
 - [ ] 17-06-PLAN.md — 5 Layer-B demo-surface Playwright specs (E2E-06)
 - [ ] 17-07-PLAN.md — Build→preview→Playwright MCP→fix iteration loop gate (E2E-11)
 **UI hint**: yes
@@ -148,7 +148,7 @@ The `relay-subscribe` Playwright spec cannot be marked green until this decision
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 16. Harness Triage & Playwright Infrastructure | v1.3 | 4/4 | Complete    | 2026-04-17 |
-| 17. Demo App Rewire | v1.3 | 4/7 | In Progress|  |
+| 17. Demo App Rewire | v1.3 | 5/7 | In Progress|  |
 | 18. Napplet SDK Migration | v1.3 | 0/TBD | Not started | - |
 | 19. Core-Domain Napplets | v1.3 | 0/TBD | Not started | - |
 | 20. Expanded-Domain Napplets | v1.3 | 0/TBD | Not started | - |
