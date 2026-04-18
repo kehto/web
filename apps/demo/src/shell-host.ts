@@ -129,6 +129,31 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     aclId: 'bot-acl',
     frameContainerId: 'bot-frame-container',
   },
+  // Composer/preferences/toaster (Phase 19) — each napplet sets its own #*-status sentinel
+  // INSIDE its iframe via D-04 init pattern; the outer topology placeholder shows 'loading...'
+  // and is not updated by the host (no per-napplet AUTH projection in main.ts for the new 3).
+  // Layer-B specs assert the INNER iframe status via frameLocator, not the outer placeholder.
+  {
+    name: 'composer',
+    label: 'composer',
+    statusId: 'composer-status',
+    aclId: 'composer-acl',
+    frameContainerId: 'composer-frame-container',
+  },
+  {
+    name: 'preferences',
+    label: 'preferences',
+    statusId: 'preferences-status',
+    aclId: 'preferences-acl',
+    frameContainerId: 'preferences-frame-container',
+  },
+  {
+    name: 'toaster',
+    label: 'toaster',
+    statusId: 'toaster-status',
+    aclId: 'toaster-acl',
+    frameContainerId: 'toaster-frame-container',
+  },
 ];
 
 export const DEMO_PROTOCOL_PATHS: DemoPathAuditEntry[] = [
@@ -384,6 +409,13 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
       getSigner,
     }),
     notifications: notificationService,
+    // Phase 19 (Plan 19-04): dual-register notification-service under 'notify' so the
+    // runtime's serviceRegistry['notify'] lookup (packages/runtime/src/runtime.ts:1000)
+    // routes notify.create / notify.list / notify.dismiss envelopes from the toaster
+    // (Plan 19-03) to the same handler. The 'notifications' key stays for topology
+    // display + host-originated wiring via notification-demo.ts. Both keys reference
+    // the SAME handler instance — see <dual_registration_rationale> in 19-04-PLAN.md.
+    notify: notificationService,
     keys: keysService,
     media: mediaService,
     theme: themeServiceBundle.handler,
