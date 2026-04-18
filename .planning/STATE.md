@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: executing
-stopped_at: Completed 21-01-PLAN.md (delete legacy fixture napplets)
-last_updated: "2026-04-18T10:30:59.967Z"
+stopped_at: Completed 21-02-PLAN.md (scaffold 6 SDK fixture napplets + build)
+last_updated: "2026-04-18T10:36:58.755Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 35
-  completed_plans: 31
+  completed_plans: 32
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 21 (Fixture Napplets & Layer-A Specs) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-04-18
 
@@ -90,6 +90,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 20 P07 | 2min | 3 tasks | 3 files |
 | Phase 20-expanded-domain-napplets P08 | 58min | 1 tasks | 14 files |
 | Phase 21-fixture-napplets-layer-a-specs P01 | 1min | 1 tasks | 13 files |
+| Phase 21-fixture-napplets-layer-a-specs P02 | 209s | 3 tasks | 31 files |
 
 ## Accumulated Context
 
@@ -163,6 +164,9 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 20-expanded-domain-napplets]: identity-service getPublicKey always returns result with empty pubkey when no signer (spec says 'Always succeeds')
 - [Phase 20-expanded-domain-napplets]: Layer-A harness specs annotated test.describe.skip for Phase 21 (E2E-09 target; auth-napplet uses NIP-01)
 - [Phase 21-fixture-napplets-layer-a-specs]: D-02 option (a): legacy fixtures auth-napplet/publish-napplet/pure-napplet deleted (not kept alongside nub-* fixtures) — cleanliness > backward compat for v1.3; NIP-01 protocol incompatible with v1.2 NIP-5D shell
+- [Phase 21-fixture-napplets-layer-a-specs]: JSDoc anti-feature comments in fixture src must use neutral phrasing to avoid false-positive anti-term grep matches — extends Phase 18 decision to fixture files
+- [Phase 21-fixture-napplets-layer-a-specs]: nub-theme fixture is OUTBOUND/AUTH-ONLY: @napplet/sdk has no theme namespace; storage.getItem probe for AUTH; Layer-A spec drives theme via __injectEnvelope__
+- [Phase 21-fixture-napplets-layer-a-specs]: nub-ifc ipc.on() is synchronous (not async) — SDK subscribe is a side-effect registration; status set to authenticated synchronously, not inside .then()
 
 ### Blockers/Concerns
 
@@ -171,6 +175,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T10:30:59.964Z
-Stopped at: Completed 21-01-PLAN.md (delete legacy fixture napplets)
+Last session: 2026-04-18T10:36:58.752Z
+Stopped at: Completed 21-02-PLAN.md (scaffold 6 SDK fixture napplets + build)
 Resume: `/gsd:plan-phase 16`
