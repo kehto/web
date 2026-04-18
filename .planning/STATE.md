@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: executing
-stopped_at: "Completed 22-01-PLAN.md (typedoc + docs:api infrastructure live)"
-last_updated: "2026-04-18T11:28:14.213Z"
+stopped_at: Completed 22-03-PLAN.md (root README + docs/migrations/ archive)
+last_updated: "2026-04-18T11:33:19.585Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 38
-  completed_plans: 36
+  completed_plans: 37
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 22 (docs-refresh-release-rehearsal) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-18
 
@@ -95,6 +95,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 21 P03 | 90 | 2 tasks | 9 files |
 | Phase 21-fixture-napplets-layer-a-specs P05 | 216s | 1 tasks | 1 files |
 | Phase 22-docs-refresh-release-rehearsal P01 | 2min | 2 tasks | 4 files |
+| Phase 22-docs-refresh-release-rehearsal P03 | 2min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -180,6 +181,9 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 22-docs-refresh-release-rehearsal]: typedoc installed at workspace root only (not per-package) with entryPointStrategy: packages covering all 4 @kehto/* packages; docs/api/ gitignored as build artifact
 - [Phase 22-docs-refresh-release-rehearsal]: docs:api not added to turbo.json — manual dev-time tool per STACK.md §4c, not a pipeline step; readme: none in typedoc config so package READMEs handle human narrative via Plan 22-02 cross-links
 - [Phase 22-docs-refresh-release-rehearsal]: Single typedoc warning flagged for Plan 22-02 follow-up: @kehto/shell/src/session-registry.ts PendingUpdate type referenced but not exported from package index (documentation-surface only, no runtime impact)
+- [Phase 22-docs-refresh-release-rehearsal]: Adopted D-03 option (a) — legacy docs archived under docs/migrations/ with terminal-state headers rather than rewritten for v1.3; those docs describe historical transitions already shipped
+- [Phase 22-docs-refresh-release-rehearsal]: Root README references apps/demo/src/shell-host.ts (contains createDemoHooks function) — plan's reference to apps/demo/src/createDemoHooks.ts adjusted to avoid broken link
+- [Phase 22-docs-refresh-release-rehearsal]: All 6 legacy docs moved via git mv (not rm+add) so git log --follow preserves pre-plan authoring history — verified post-commit with similarity scores 98-99%
 
 ### Blockers/Concerns
 
@@ -188,6 +192,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T11:28:14.211Z
-Stopped at: Completed 22-01-PLAN.md (typedoc + docs:api infrastructure live)
+Last session: 2026-04-18T11:33:19.582Z
+Stopped at: Completed 22-03-PLAN.md (root README + docs/migrations/ archive)
 Resume: `/gsd:plan-phase 16`
