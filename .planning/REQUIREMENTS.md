@@ -33,7 +33,7 @@ Demo host (`apps/demo/src/*`) wired to canonical v1.2 APIs.
 - [x] **DEMO-05**: `createDemoHooks()` registers reference services for `keys`, `media`, `theme` from `@kehto/services` alongside existing `identity`/`notify`; relay pool stays stubbed (by design — IFC routes through runtime's `ifcSubscriptions` map).
 - [ ] **DEMO-06**: Node inspector pane opens on topology-node click and shows per-role content: ACL node → grant/revoke table; runtime node → registered NUBs; napplet node → capability state + recent envelopes.
 - [ ] **DEMO-07**: Notification demo + kinds panel + constants panel all render clean and reflect v1.2 data (canonical kind list, protocol constants from `@napplet/core`).
-- [ ] **DEMO-08**: Flow/sequence/trace edge animators render live napplet traffic without stale NIP-01 or BusKind references; color-mode cycling works (flash/rolling/decay/last/trace).
+- [x] **DEMO-08**: Flow/sequence/trace edge animators render live napplet traffic without stale NIP-01 or BusKind references; color-mode cycling works (flash/rolling/decay/last/trace).
 
 ---
 
@@ -119,7 +119,7 @@ No `changeset publish` — that is deferred until `@napplet/core` publishes to n
 | DEMO-05 | Phase 17 | Complete |
 | DEMO-06 | Phase 17 | Pending |
 | DEMO-07 | Phase 17 | Pending |
-| DEMO-08 | Phase 17 | Pending |
+| DEMO-08 | Phase 17 | Complete |
 | NAP-01 | Phase 18 | Pending |
 | NAP-02 | Phase 18 | Pending |
 | NAP-03 | Phase 19 | Pending |
