@@ -54,6 +54,7 @@ import {
   disconnectSigner,
   recordSignerRequest,
   getSignerConnectionState,
+  getSigner as getSignerFromConnection,
 } from './signer-connection.js';
 import { initSignerModal, openSignerModal } from './signer-modal.js';
 import { demoConfig } from './demo-config.js';
@@ -358,7 +359,10 @@ function updateSignerNodeDisplay(state: SignerConnectionStateView): void {
         <div class="signer-recent-label">recent</div>
         ${requestRowsHtml}
       </div>
-      <button class="signer-disconnect-btn" data-action="disconnect-signer">disconnect</button>
+      <div class="signer-action-row">
+        <button class="signer-test-sign-btn" data-action="signer-test-sign">test sign</button>
+        <button class="signer-disconnect-btn" data-action="disconnect-signer">disconnect</button>
+      </div>
     `;
   }
 
@@ -403,6 +407,46 @@ document.addEventListener('click', (e) => {
     e.stopPropagation();
     disconnectSigner();
     debuggerEl?.addSystemMessage('signer disconnected');
+  }
+
+  // Test-sign button: signs a demo kind:1 event via the connected signer (host-internal path)
+  if (target.closest('[data-action="signer-test-sign"]')) {
+    e.stopPropagation();
+    void (async () => {
+      const signer = getSignerFromConnection();
+      if (!signer) {
+        debuggerEl?.addSystemMessage('test-sign: no signer connected');
+        return;
+      }
+      try {
+        const t = Math.floor(Date.now() / 1000);
+        const pubkey = await signer.getPublicKey();
+        const template = {
+          kind: 1,
+          pubkey,
+          created_at: t,
+          tags: [],
+          content: 'demo test-sign from kehto shell',
+        };
+        const signed = await signer.signEvent(template as unknown as Record<string, unknown>);
+        const eventId = (signed as { id?: string }).id ?? 'unknown';
+        debuggerEl?.addSystemMessage(`test-sign: OK, event id ${eventId.substring(0, 16)}...`);
+        recordSignerRequest({
+          timestamp: Date.now(),
+          method: 'signEvent',
+          kind: 1,
+          success: true,
+        });
+      } catch (err) {
+        debuggerEl?.addSystemMessage(`test-sign: error ${(err as Error).message}`);
+        recordSignerRequest({
+          timestamp: Date.now(),
+          method: 'signEvent',
+          kind: 1,
+          success: false,
+        });
+      }
+    })();
   }
 
   // Notification node controls
@@ -522,11 +566,12 @@ let totalBlocked = 0;
 
 tap.onMessage((msg) => {
   totalMessages++;
-  const isOkFalse = msg.verb === 'OK' && msg.raw?.[2] === false;
+  const rawArr = Array.isArray(msg.raw) ? msg.raw : null;
+  const isOkFalse = msg.verb === 'OK' && rawArr?.[2] === false;
   const isClosedDenied =
     msg.verb === 'CLOSED' &&
-    typeof msg.raw?.[2] === 'string' &&
-    (String(msg.raw[2]).includes('denied') || String(msg.raw[2]).startsWith('blocked:'));
+    typeof rawArr?.[2] === 'string' &&
+    (String(rawArr[2]).includes('denied') || String(rawArr[2]).startsWith('blocked:'));
   if (isOkFalse || isClosedDenied) totalBlocked++;
 });
 

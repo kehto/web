@@ -427,7 +427,10 @@ function renderSignerNodeContent(signerState?: SignerConnectionStateView): strin
       ${relayHtml}
     </div>
     <div class="signer-recent-requests" id="signer-recent-requests"><!-- populated by signer activity --></div>
-    <button class="signer-disconnect-btn" data-action="disconnect-signer">disconnect</button>
+    <div class="signer-action-row">
+      <button class="signer-test-sign-btn" data-action="signer-test-sign">test sign</button>
+      <button class="signer-disconnect-btn" data-action="disconnect-signer">disconnect</button>
+    </div>
   `;
 }
 
