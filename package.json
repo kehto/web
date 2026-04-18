@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "turbo run build",
+    "docs:api": "typedoc",
     "type-check": "turbo run type-check",
     "test": "turbo run test",
     "test:unit": "vitest run",

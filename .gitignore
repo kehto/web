@@ -5,3 +5,4 @@ dist/
 test-results/
 playwright-report/
 .claude/
+docs/api/
