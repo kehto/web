@@ -34,7 +34,7 @@
 - [x] **Phase 18: Napplet SDK Migration** — Migrate `bot` + `chat` from raw `window.addEventListener` to `@napplet/sdk` (completed 2026-04-18)
 - [x] **Phase 19: Core-Domain Napplets** — Add `composer`, `preferences`, `toaster`; relay/storage/notify specs green (completed 2026-04-18)
 - [x] **Phase 20: Expanded-Domain Napplets** — Add `feed`, `profile-viewer`, `theme-switcher`; full 8-domain showcase complete (completed 2026-04-18)
-- [ ] **Phase 21: Fixture Napplets & Layer-A Specs** — Per-nub fixture napplets + `nub-*.spec.ts` harness-driven correctness specs
+- [x] **Phase 21: Fixture Napplets & Layer-A Specs** — Per-nub fixture napplets + `nub-*.spec.ts` harness-driven correctness specs (completed 2026-04-18)
 - [ ] **Phase 22: Docs Refresh & Release Rehearsal** — typedoc API ref, README updates, publint/attw clean, changeset dry-run, full E2E green gate
 
 ---
@@ -142,12 +142,12 @@
   1. Six fixture napplets exist under `tests/fixtures/napplets/` — one each for `identity`, `ifc`, `notify`, `relay`, `storage`, `theme` — loadable via `window.__loadNapplet__('nub-<domain>')` from Playwright.
   2. Six `nub-<domain>.spec.ts` Layer-A specs run against the harness at `:4173` using only harness driver globals (`window.__*`); each spec asserts at least one request envelope is dispatched and at least one result envelope is received, without touching the demo server.
   3. `nub-keys.spec.ts` and `nub-media.spec.ts` exist and explicitly document stub scope — they assert the stub response shape (e.g., "not implemented" or empty result) without asserting real backend behavior.
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 - [x] 21-01-PLAN.md — Delete legacy fixture napplets (auth/publish/pure) + document removal rationale
 - [x] 21-02-PLAN.md — Create 6 SDK-based fixture napplets (nub-identity/ifc/notify/relay/storage/theme) + extend turbo build:napplets outputs
 - [x] 21-03-PLAN.md — 6 Layer-A active-domain specs (nub-identity/ifc/notify/relay/storage/theme.spec.ts) targeting :4173
 - [x] 21-04-PLAN.md — 2 Layer-A stub-scope specs (nub-keys/nub-media.spec.ts) with explicit STUB SCOPE NOTICE headers
-- [ ] 21-05-PLAN.md — E2E-11 iteration loop gate (full v1.3 suite green) + 21-ITERATION-LOG.md
+- [x] 21-05-PLAN.md — E2E-11 iteration loop gate (full v1.3 suite green) + 21-ITERATION-LOG.md
 
 ### Phase 22: Docs Refresh & Release Rehearsal
 **Goal**: All documentation reflects the canonical v1.2 API surface; `pnpm test:e2e` is fully green against the built artifact with zero skipped specs; release-rehearsal tooling confirms the packages are publish-ready (pending upstream npm unblock).
@@ -172,5 +172,5 @@
 | 18. Napplet SDK Migration | v1.3 | 4/4 | Complete    | 2026-04-18 |
 | 19. Core-Domain Napplets | v1.3 | 7/7 | Complete    | 2026-04-18 |
 | 20. Expanded-Domain Napplets | v1.3 | 8/8 | Complete    | 2026-04-18 |
-| 21. Fixture Napplets & Layer-A Specs | v1.3 | 4/5 | In Progress|  |
+| 21. Fixture Napplets & Layer-A Specs | v1.3 | 5/5 | Complete   | 2026-04-18 |
 | 22. Docs Refresh & Release Rehearsal | v1.3 | 0/TBD | Not started | - |

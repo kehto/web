@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
-status: executing
-stopped_at: Completed 21-03-PLAN.md (6 Layer-A NUB specs)
-last_updated: "2026-04-18T11:06:40.994Z"
+status: verifying
+stopped_at: Completed 21-05-PLAN.md (E2E-11 iteration loop gate — full v1.3 suite GREEN)
+last_updated: "2026-04-18T11:11:32.763Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 35
-  completed_plans: 34
+  completed_plans: 35
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 Phase: 21 (Fixture Napplets & Layer-A Specs) — EXECUTING
 Plan: 5 of 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-18
 
 Progress: [░░░░░░░░░░] 0%
@@ -93,6 +93,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 21-fixture-napplets-layer-a-specs P02 | 209s | 3 tasks | 31 files |
 | Phase 21-fixture-napplets-layer-a-specs P04 | 703s | 1 tasks | 2 files |
 | Phase 21 P03 | 90 | 2 tasks | 9 files |
+| Phase 21-fixture-napplets-layer-a-specs P05 | 216s | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -173,6 +174,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 21-fixture-napplets-layer-a-specs]: Stub-scope Layer-A specs (nub-keys, nub-media) use __registerService__ capture pattern — Possibility A applies for both: runtime emits fallback result envelopes even without registered services (runtime.ts:939 media, runtime.ts:982 keys)
 - [Phase 21]: NIP-5D harness registration: create->append->register->src order prevents first-message race
 - [Phase 21]: identity.*.error routing added to napplet shim central handler for denial path propagation
+- [Phase 21-fixture-napplets-layer-a-specs]: Full v1.3 suite green on first iteration — no code changes required during plan 21-05; all fixes were applied in plans 21-02/21-03/21-04
+- [Phase 21-fixture-napplets-layer-a-specs]: 68 skipped tests are all legacy describe.skip blocks from 7 spec files — by design, v1.4 cleanup scope; no new skips introduced in Phase 21
 
 ### Blockers/Concerns
 
@@ -181,6 +184,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T11:06:40.991Z
-Stopped at: Completed 21-03-PLAN.md (6 Layer-A NUB specs)
+Last session: 2026-04-18T11:11:32.759Z
+Stopped at: Completed 21-05-PLAN.md (E2E-11 iteration loop gate — full v1.3 suite GREEN)
 Resume: `/gsd:plan-phase 16`
