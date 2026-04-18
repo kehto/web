@@ -64,7 +64,7 @@ Triage legacy E2E specs; add NIP-5D-canonical golden-path specs; both test layer
 - [x] **E2E-05**: `waitForNappletReady(page, frameSelector)` helper exists and is used by every frame-touching spec; canonical `beforeEach` fixture (`goto('/') → __aclClear__() → __clearLocalStorage__()`) is shared across all ACL-touching specs; `page.reload()` forbidden in specs that touch ACL state.
 - [x] **E2E-06**: Layer-B demo-surface specs green: `demo-boot`, `demo-node-inspector`, `demo-debugger`, `demo-service-toggle`, `demo-notification-service` (migrated).
 - [x] **E2E-07**: Layer-B domain specs green against real demo build: `napplet-auth`, `ifc-roundtrip`, `relay-publish`, `relay-publish-encrypted`, `relay-subscribe`, `identity-flow`, `storage-persist`, `notify-lifecycle`, `theme-broadcast`.
-- [ ] **E2E-08**: Layer-B capability-matrix specs green: `acl-grant-revoke`, `acl-block-unblock`, `acl-revoke-relay-write`, `acl-revoke-storage-write`.
+- [x] **E2E-08**: Layer-B capability-matrix specs green: `acl-grant-revoke`, `acl-block-unblock`, `acl-revoke-relay-write`, `acl-revoke-storage-write`.
 - [ ] **E2E-09**: Layer-A fixture napplets under `tests/fixtures/napplets/` — one per non-stub nub (identity, ifc, notify, relay, storage, theme). Matching `nub-<domain>.spec.ts` protocol-correctness specs drive the runtime via harness driver globals only.
 - [ ] **E2E-10**: `pnpm test:e2e` completes green end-to-end against a real `pnpm build` artifact; zero skipped specs, zero legacy specs blocking the merge; full suite runs in under 5 minutes locally.
 - [x] **E2E-11**: Each phase from Phase 17 onward closes with a recorded build→run→Playwright→fix iteration loop — phases do not close on `tsc` / `vitest` green alone. Phase plan includes at least one Playwright MCP invocation as a gate.
@@ -138,7 +138,7 @@ No `changeset publish` — that is deferred until `@napplet/core` publishes to n
 | E2E-07 (ifc-roundtrip, napplet-auth) | Phase 18 | Pending |
 | E2E-07 (relay-publish, relay-publish-encrypted, storage-persist, notify-lifecycle) | Phase 19 | Pending |
 | E2E-07 (relay-subscribe, identity-flow, theme-broadcast) | Phase 20 | Pending |
-| E2E-08 | Phase 19 | Pending |
+| E2E-08 | Phase 19 | Complete |
 | E2E-09 | Phase 21 | Pending |
 | E2E-10 | Phase 22 | Pending |
 | E2E-11 | Phase 17–22 (cross-cutting gate; closed Phase 22) | Complete |

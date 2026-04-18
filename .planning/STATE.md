@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
 status: executing
-stopped_at: "Completed 19-04-PLAN.md (demo wiring: DEMO_NAPPLETS x5 + notify dual-registration + ACL panel extensions)"
-last_updated: "2026-04-18T01:30:51.314Z"
+stopped_at: Completed 19-06-PLAN.md (E2E-08 acl-revoke-relay-write + acl-revoke-storage-write specs)
+last_updated: "2026-04-18T01:34:11.873Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 22
-  completed_plans: 19
+  completed_plans: 20
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 19 (Core-Domain Napplets) — EXECUTING
-Plan: 5 of 7
+Plan: 6 of 7
 Status: Ready to execute
 Last activity: 2026-04-18
 
@@ -78,6 +78,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 19-core-domain-napplets P01 | 3min | 2 tasks | 6 files |
 | Phase 19-core-domain-napplets P03 | 4 | 2 tasks | 5 files |
 | Phase 19-core-domain-napplets P04 | 3 | 2 tasks | 2 files |
+| Phase 19 P06 | 95s | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -128,6 +129,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 19-core-domain-napplets]: Plan 19-07 anti-term grep must assert exactly 1 window.addEventListener occurrence in apps/demo/napplets/toaster/src/main.ts (not 0, not >1) — toaster is exempt from the 0-listener rule
 - [Phase 19-core-domain-napplets]: Dual-register notification-service under 'notifications' (topology) AND 'notify' (runtime routing) — same handler instance, two registry keys, no topology card added for 'notify'
 - [Phase 19-core-domain-napplets]: Outer topology statusId placeholder stays 'loading...' for D-04 napplets (composer/preferences/toaster) — inner iframe #*-status set by napplet; Layer-B specs assert via frameLocator
+- [Phase 19]: ACL panel button selector uses starts-with (title^=) not contains (title*=) to avoid matching superset cap names
+- [Phase 19]: Phase 1 control for relay-write is permissive (published:|denied:); Phase 1 for storage-write is strict ('saved') — local storage always works when granted
 
 ### Blockers/Concerns
 
@@ -136,6 +139,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T01:30:51.311Z
-Stopped at: Completed 19-04-PLAN.md (demo wiring: DEMO_NAPPLETS x5 + notify dual-registration + ACL panel extensions)
+Last session: 2026-04-18T01:34:11.871Z
+Stopped at: Completed 19-06-PLAN.md (E2E-08 acl-revoke-relay-write + acl-revoke-storage-write specs)
 Resume: `/gsd:plan-phase 16`
