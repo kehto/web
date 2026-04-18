@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="napplet-napp-type" content="demo-toaster" />
+  <title>Toaster Napplet</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #0a0a0f;
+      color: #e0e0e0;
+      font-size: 11px;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #app {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 8px;
+      gap: 6px;
+    }
+    .toaster-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .toaster-row label {
+      color: #888;
+      min-width: 36px;
+    }
+    .toaster-row input[type="text"] {
+      flex: 1;
+      background: #12121a;
+      border: 1px solid #2a2a3a;
+      color: #e0e0e0;
+      padding: 3px 6px;
+      font-family: inherit;
+      font-size: 11px;
+    }
+    .toaster-row button {
+      background: #1a1a2a;
+      border: 1px solid #3a3a5a;
+      color: #e0e0e0;
+      padding: 3px 10px;
+      font-family: inherit;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .toaster-row button:hover {
+      background: #2a2a3a;
+    }
+    #toaster-status {
+      color: #888;
+      font-size: 10px;
+    }
+    #toaster-list {
+      list-style: none;
+      flex: 1;
+      overflow-y: auto;
+      border: 1px solid #2a2a3a;
+      padding: 4px;
+      min-height: 40px;
+    }
+    .toaster-list-item {
+      padding: 2px 4px;
+      border-bottom: 1px solid #1a1a2a;
+      color: #b0b0c0;
+      line-height: 1.4;
+    }
+    .toaster-list-item:last-child {
+      border-bottom: none;
+    }
+    #toaster-log {
+      overflow-y: auto;
+      max-height: 80px;
+      border-top: 1px solid #2a2a3a;
+      padding: 4px 0;
+      font-size: 10px;
+      color: #555;
+    }
+    .toaster-log-entry {
+      padding: 1px 0;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="toaster-row">
+      <span id="toaster-status">connecting...</span>
+    </div>
+    <div class="toaster-row">
+      <label for="toaster-title">Title</label>
+      <input id="toaster-title" type="text" placeholder="Hello" />
+    </div>
+    <div class="toaster-row">
+      <label for="toaster-body">Body</label>
+      <input id="toaster-body" type="text" placeholder="World" />
+    </div>
+    <div class="toaster-row">
+      <button id="toaster-notify-btn">Notify</button>
+      <button id="toaster-dismiss-all-btn">Dismiss all</button>
+    </div>
+    <ul id="toaster-list"></ul>
+    <div id="toaster-log"></div>
+  </div>
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>
