@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
-status: executing
-stopped_at: Completed 20-expanded-domain-napplets/20-07-PLAN.md
-last_updated: "2026-04-18T09:34:17.955Z"
+status: verifying
+stopped_at: Completed 20-08-PLAN.md (Phase 20 closure — E2E-11 gate green)
+last_updated: "2026-04-18T10:08:55.520Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 30
-  completed_plans: 29
+  completed_plans: 30
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 Phase: 20 (Expanded-Domain Napplets) — EXECUTING
 Plan: 8 of 8
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-18
 
 Progress: [░░░░░░░░░░] 0%
@@ -88,6 +88,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 20-expanded-domain-napplets P02 | 190 | 2 tasks | 5 files |
 | Phase 20-expanded-domain-napplets P06 | 251s | 3 tasks | 3 files |
 | Phase 20 P07 | 2min | 3 tasks | 3 files |
+| Phase 20-expanded-domain-napplets P08 | 58min | 1 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -157,6 +158,9 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase Phase 20]: relay-subscribe spec asserts #feed-list .feed-item count exactly 5 — deterministic because mock pool always emits all FIXTURE_EVENTS
 - [Phase Phase 20]: identity-flow spec tolerates both 'loaded' and 'denied:' paths — no default signer in demo; both prove envelope dispatched to shell
 - [Phase Phase 20]: theme-broadcast spec uses frame.evaluate for #theme-dark-btn click (sandboxed cross-origin iframe pattern, Phase 19-05 decision applied to Phase 20)
+- [Phase 20-expanded-domain-napplets]: originRegistry.getAllWindowIds() for publishTheme fan-out (not sessionRegistry which maps by pubkey)
+- [Phase 20-expanded-domain-napplets]: identity-service getPublicKey always returns result with empty pubkey when no signer (spec says 'Always succeeds')
+- [Phase 20-expanded-domain-napplets]: Layer-A harness specs annotated test.describe.skip for Phase 21 (E2E-09 target; auth-napplet uses NIP-01)
 
 ### Blockers/Concerns
 
@@ -165,6 +169,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T09:34:17.952Z
-Stopped at: Completed 20-expanded-domain-napplets/20-07-PLAN.md
+Last session: 2026-04-18T10:08:55.516Z
+Stopped at: Completed 20-08-PLAN.md (Phase 20 closure — E2E-11 gate green)
 Resume: `/gsd:plan-phase 16`
