@@ -35,7 +35,7 @@
 - [x] **Phase 19: Core-Domain Napplets** — Add `composer`, `preferences`, `toaster`; relay/storage/notify specs green (completed 2026-04-18)
 - [x] **Phase 20: Expanded-Domain Napplets** — Add `feed`, `profile-viewer`, `theme-switcher`; full 8-domain showcase complete (completed 2026-04-18)
 - [x] **Phase 21: Fixture Napplets & Layer-A Specs** — Per-nub fixture napplets + `nub-*.spec.ts` harness-driven correctness specs (completed 2026-04-18)
-- [ ] **Phase 22: Docs Refresh & Release Rehearsal** — typedoc API ref, README updates, publint/attw clean, changeset dry-run, full E2E green gate
+- [x] **Phase 22: Docs Refresh & Release Rehearsal** — typedoc API ref, README updates, publint/attw clean, changeset dry-run, full E2E green gate (completed 2026-04-18)
 
 ---
 
@@ -173,4 +173,4 @@
 | 19. Core-Domain Napplets | v1.3 | 7/7 | Complete    | 2026-04-18 |
 | 20. Expanded-Domain Napplets | v1.3 | 8/8 | Complete    | 2026-04-18 |
 | 21. Fixture Napplets & Layer-A Specs | v1.3 | 5/5 | Complete    | 2026-04-18 |
-| 22. Docs Refresh & Release Rehearsal | v1.3 | 2/3 | In Progress|  |
+| 22. Docs Refresh & Release Rehearsal | v1.3 | 3/3 | Complete   | 2026-04-18 |
