@@ -1,3 +1,10 @@
+> **Archived — terminal-state snapshot.**
+> This document captures a historical migration or audit and is not active guidance.
+> Current canonical documentation lives in the repo root [`README.md`](../../README.md), the per-package READMEs under [`packages/`](../../packages/), and the typedoc-generated reference at [`docs/api/`](../api/).
+> Retained for historical reference only.
+
+---
+
 # Services Migration: @kehto/services — RUNTIME-SPEC v2.0.0 to NIP-5D v0.1.0
 
 **Date:** 2026-04-07
