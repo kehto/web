@@ -21,6 +21,7 @@ import { DEMO_CAPABILITY_LABELS } from './acl-panel.js';
 import { openPolicyModal } from './acl-modal.js';
 import { renderConstantsPanel, wireConstantsPanelEvents, resetShowAll } from './constants-panel.js';
 import { renderKindsPanel } from './kinds-panel.js';
+import { getDemoServiceNames, getNapplets, getAclAdapter, STUB_ONLY_SERVICES } from './shell-host.js';
 
 // ─── Module State ─────────────────────────────────────────────────────────────
 
@@ -131,6 +132,115 @@ function renderRejectionHistory(denials: AclHistoryEntry[]): string {
     .join('');
 }
 
+
+// ─── Per-Role Content Renderers (DEMO-07) ────────────────────────────────────
+
+function renderForRole(detail: NodeDetail): string {
+  switch (detail.role) {
+    case 'acl': return renderAclRoleContent(detail);
+    case 'runtime': return renderRuntimeRoleContent(detail);
+    case 'napplet': return renderNappletRoleContent(detail);
+    case 'service': return renderServiceRoleContent(detail);
+    case 'shell': return renderShellRoleContent(detail);
+    default: return '';
+  }
+}
+
+function renderAclRoleContent(_detail: NodeDetail): string {
+  const rows = getAclAdapter().snapshot();
+  if (rows.length === 0) {
+    return '<div style="color:#7981a0;font-size:11px;padding:8px 0">no authenticated napplets</div>';
+  }
+  return `
+    <table style="width:100%;font-size:10px;border-collapse:collapse">
+      <thead><tr>
+        <th style="text-align:left;padding:4px;color:#7981a0">napplet</th>
+        <th style="text-align:left;padding:4px;color:#7981a0">blocked</th>
+        <th style="text-align:left;padding:4px;color:#7981a0">granted caps</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(row => `
+          <tr style="border-top:1px solid #1f2235">
+            <td style="padding:4px;color:#d0d4e8">${row.name}</td>
+            <td style="padding:4px;color:${row.blocked ? '#ff3b3b' : '#39ff14'}">${row.blocked ? 'yes' : 'no'}</td>
+            <td style="padding:4px;color:#b388ff">${Object.entries(row.capabilities).filter(([, v]) => v).map(([k]) => k).join(', ') || '(none)'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderRuntimeRoleContent(_detail: NodeDetail): string {
+  const services = getDemoServiceNames();
+  return `
+    <div style="font-size:11px;color:#7981a0;margin-bottom:6px">Registered NUBs</div>
+    <ul style="list-style:none;padding:0;margin:0">
+      ${services.map(s => {
+        const isStub = STUB_ONLY_SERVICES.includes(s);
+        return `<li style="padding:3px 0;color:#d0d4e8;font-size:11px">
+          ${s}${isStub ? ' <span style="color:#b388ff;font-size:9px">(stub-only)</span>' : ''}
+        </li>`;
+      }).join('')}
+    </ul>
+  `;
+}
+
+function renderNappletRoleContent(detail: NodeDetail): string {
+  const nappletMap = getNapplets();
+  const nappletName = detail.title;
+  let info: import('./shell-host.js').NappletInfo | undefined;
+  let wid = '';
+  for (const [id, ni] of nappletMap) {
+    if (ni.name === nappletName) { info = ni; wid = id; break; }
+  }
+  if (!info) {
+    return '<div style="color:#7981a0;font-size:11px">napplet not found</div>';
+  }
+  const adapter = getAclAdapter();
+  const capList = info.pubkey
+    ? (['relay:read', 'relay:write', 'identity:read', 'state:read', 'state:write'] as const)
+        .map(c => {
+          const allowed = adapter.check(wid, c);
+          return `<span style="color:${allowed ? '#39ff14' : '#ff3b3b'};margin-right:8px;font-size:10px">${c} ${allowed ? '✓' : '✗'}</span>`;
+        })
+        .join('')
+    : '<span style="color:#7981a0;font-size:10px">(unauthenticated)</span>';
+
+  const recent = detail.recentEnvelopes ?? [];
+  return `
+    <div style="font-size:10px;color:#7981a0;margin-bottom:4px">Capability state</div>
+    <div style="padding:4px 0;line-height:1.8">${capList}</div>
+    <div style="font-size:10px;color:#7981a0;margin:10px 0 4px">Recent envelopes (last ${recent.length})</div>
+    <div style="font-size:10px;padding:4px 0">
+      ${recent.length === 0
+        ? '<span style="color:#444">no recent envelopes</span>'
+        : recent.map(env => `<div style="color:#d0d4e8;padding:1px 0">${env.envelopeType ?? env.verb} <span style="color:#666">${env.direction}</span></div>`).join('')
+      }
+    </div>
+  `;
+}
+
+function renderServiceRoleContent(detail: NodeDetail): string {
+  const name = detail.title ?? '';
+  const isStub = STUB_ONLY_SERVICES.includes(name);
+  return `
+    <div style="font-size:11px;color:#7981a0">service: ${name}${isStub ? ' (stub-only)' : ''}</div>
+    <div style="font-size:10px;color:#d0d4e8;padding:6px 0">Use the debugger below to see live envelope traffic for ${name}.*</div>
+  `;
+}
+
+function renderShellRoleContent(detail: NodeDetail): string {
+  // hostPubkey is in inspectorSections — extract from Current State section
+  const state = detail.inspectorSections.find(s => s.heading === 'Current State');
+  const pubkeyItem = state?.items.find(i => i.label === 'host pubkey');
+  const pubkey = pubkeyItem?.value ?? 'unknown';
+  return `
+    <div style="font-size:11px;color:#7981a0">host pubkey</div>
+    <div style="font-size:10px;color:#d0d4e8;padding:4px 0;font-family:monospace;word-break:break-all">${pubkey}</div>
+  `;
+}
+
 // Renders inspector sections including "Current State" and "Recent Activity" blocks
 function renderInspectorContent(detail: NodeDetail): string {
   const sectionItems = (items: Array<{ label: string; value: string }>) =>
@@ -189,9 +299,16 @@ function renderInspectorContent(detail: NodeDetail): string {
     `
     : '';
 
+  // Per-role content block (DEMO-07)
+  const roleContent = renderForRole(detail);
+  const roleContentHtml = roleContent
+    ? `<div class="inspector-section" style="margin-bottom:16px">${roleContent}</div>`
+    : '';
+
   return `
     <div style="padding:0 16px 16px">
       ${policyBtn}
+      ${roleContentHtml}
       ${sections}
       ${denialsHtml}
       <div class="inspector-section" style="margin-bottom:16px">

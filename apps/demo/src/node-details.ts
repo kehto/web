@@ -70,6 +70,8 @@ export interface NodeDetail {
   aclDenials: AclHistoryEntry[];
   /** Whether drill-down / inspector is supported for this node */
   drillDownSupported: boolean;
+  /** Recent tapped envelopes for this napplet (napplet role only). */
+  recentEnvelopes?: TappedMessage[];
 }
 
 export interface InspectorSection {
@@ -160,6 +162,13 @@ function buildNappletDetail(
     },
   ];
 
+  // Populate recent envelopes from tap (last 10 envelope-type messages for this windowId)
+  const recentEnvelopes = options?.tap
+    ? options.tap.messages
+        .filter(m => m.windowId === nappletWindowId && !!m.envelopeType)
+        .slice(-10)
+    : [];
+
   return {
     id: node.id,
     role: 'napplet',
@@ -169,6 +178,7 @@ function buildNappletDetail(
     recentActivity: activity,
     aclDenials: denials,
     drillDownSupported: true,
+    recentEnvelopes,
   };
 }
 
@@ -333,6 +343,8 @@ export interface NodeDetailOptions {
   totalBlocked: number;
   /** Check a capability for a napplet. Returns true if allowed. */
   checkCapability?: (pubkey: string, dTag: string, hash: string, cap: string) => boolean;
+  /** Message tap for recent envelope queries (napplet role). */
+  tap?: MessageTap;
 }
 
 /**

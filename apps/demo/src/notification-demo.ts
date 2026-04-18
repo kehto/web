@@ -3,18 +3,22 @@
  *
  * Owns all host-side notification UX state. The notification service calls
  * handleServiceChange() when its state changes; the controller derives
- * snapshot fields and notifies subscribers. All lifecycle actions send real
- * notifications:* topic events through the service handler path rather than
- * mutating UI-only local state.
+ * snapshot fields and notifies subscribers. All lifecycle actions dispatch
+ * canonical notify.* NappletMessage envelopes through the service handler.
  *
  * Architecture principle: service is browser-agnostic and host-owned;
  * this controller is the bridge between the service callback and the DOM
  * rendering code in main.ts.
+ *
+ * Per DEMO-07: notify.* envelopes (not ifc.emit topic wrappers) are the
+ * canonical v1.2 dispatch shape. Host-originated envelopes are also recorded
+ * through the demo message tap so debugger.ts sees them alongside iframe traffic.
  */
 
 import type { Notification } from '@kehto/services';
 import type { ServiceHandler } from '@kehto/shell';
 import type { NappletMessage } from '@kehto/shell';
+import { getMessageTap } from './shell-host.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,13 +37,13 @@ export interface DemoNotificationController {
   handleServiceChange(notifications: readonly Notification[]): void;
   /** Connect the service handler so actions flow through the real service path. */
   connectService(handler: ServiceHandler): void;
-  /** Send a notifications:create event through the real service path. */
+  /** Send a notify.create envelope through the real service path. */
   createDemoNotification(input: { title: string; body: string; sourceLabel: string }): void;
-  /** Send a notifications:list request through the real service path. */
+  /** Send a notify.list request through the real service path. */
   requestList(windowId?: string): void;
-  /** Send a notifications:read event for the given notification id. */
+  /** Send a notify.read envelope for the given notification id. */
   markRead(id: string): void;
-  /** Send a notifications:dismiss event for the given notification id. */
+  /** Send a notify.dismiss envelope for the given notification id. */
   dismiss(id: string): void;
 }
 
@@ -48,6 +52,10 @@ export interface DemoNotificationController {
 export const DEMO_HOST_WINDOW_ID = '__demo-host__';
 
 // ─── Factory ──────────────────────────────────────────────────────────────────
+
+function makeId(): string {
+  return `notif-host-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 /**
  * Create the host-owned notification controller.
@@ -84,30 +92,30 @@ export function createDemoNotificationController(): DemoNotificationController {
   }
 
   /**
-   * Build a canonical ifc.emit envelope for a notifications:* topic and dispatch it
-   * directly to the service handler, bypassing the auth check that the
-   * runtime applies to napplet-originated messages. The host shell is
-   * trusted and doesn't go through AUTH.
+   * Dispatch a canonical notify.* NappletMessage envelope to the service handler
+   * AND record it in the demo message tap so debugger.ts sees host-originated
+   * traffic the same way it sees iframe postMessage traffic.
    *
-   * Uses canonical NappletMessage envelope shape (type: 'ifc.emit', topic, payload)
-   * per D-01 — no BusKind.IPC_PEER, no kind 29003 NIP-01 arrays.
+   * Without tap recording, host-originated service calls are invisible to the
+   * debugger because the tap only watches iframe postMessage (17-04 tap surface).
+   * The source label 'demo-host' distinguishes host-originated rows in the log.
+   *
+   * Per DEMO-07: no BusKind, no IPC_PEER, no ifc-emit topic tags.
    */
-  function dispatchNotificationAction(topic: string, payload: Record<string, unknown>): void {
-    if (!_serviceHandler) {
-      console.warn('[notification-demo] service not connected — cannot dispatch', topic);
+  function dispatchEnvelope(
+    handler: ServiceHandler | null,
+    envelope: NappletMessage,
+    windowId = DEMO_HOST_WINDOW_ID,
+  ): void {
+    if (!handler) {
+      console.warn('[notification-demo] service not connected — cannot dispatch', envelope.type);
       return;
     }
-    const envelope: NappletMessage = {
-      type: 'ifc.emit',
-      id: `notif-host-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      topic,
-      payload,
-    } as NappletMessage & { topic: string; payload: Record<string, unknown> };
-    // Send directly to the service handler — the onChange callback will
-    // propagate state changes back to handleServiceChange.
-    _serviceHandler.handleMessage(DEMO_HOST_WINDOW_ID, envelope, (_msg) => {
-      // Responses from the service (e.g., notifications:created) are
-      // informational in the host context — no napplet to route them to.
+    // Record the inbound request on the tap so debugger shows it.
+    getMessageTap()?.recordInboundEnvelope(envelope, 'demo-host');
+    handler.handleMessage(windowId, envelope, (reply) => {
+      // Record the reply as well — gives debugger the full request/reply pair.
+      if (reply) getMessageTap()?.recordOutboundEnvelope(reply as NappletMessage, 'demo-host');
     });
   }
 
@@ -128,7 +136,7 @@ export function createDemoNotificationController(): DemoNotificationController {
       _notifications = notifications;
       _lastUpdatedAt = Date.now();
       // sourceLabel reflects the real service path for educational cues
-      _sourceLabel = notifications.length > 0 ? 'notifications:create via service' : null;
+      _sourceLabel = notifications.length > 0 ? 'notify.create via service' : null;
       notifyListeners();
     },
 
@@ -138,37 +146,39 @@ export function createDemoNotificationController(): DemoNotificationController {
 
     createDemoNotification(input: { title: string; body: string; sourceLabel: string }) {
       _sourceLabel = input.sourceLabel;
-      // Send notifications:create through the real service path
-      dispatchNotificationAction('notifications:create', {
+      const envelope: NappletMessage = {
+        type: 'notify.create',
+        id: makeId(),
         title: input.title,
         body: input.body,
-      });
+      } as NappletMessage;
+      dispatchEnvelope(_serviceHandler, envelope);
     },
 
     requestList(windowId?: string) {
-      if (!_serviceHandler) {
-        console.warn('[notification-demo] service not connected — cannot dispatch notifications:list');
-        return;
-      }
-      const wid = windowId ?? DEMO_HOST_WINDOW_ID;
-      // Use canonical ifc.emit envelope — no BusKind.IPC_PEER, no NIP-01 arrays.
       const envelope: NappletMessage = {
-        type: 'ifc.emit',
-        id: `notif-host-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        topic: 'notifications:list',
-        payload: {},
-      } as NappletMessage & { topic: string; payload: Record<string, unknown> };
-      _serviceHandler.handleMessage(wid, envelope, (_msg) => {
-        // notifications:listed response — host doesn't need to forward it
-      });
+        type: 'notify.list',
+        id: makeId(),
+      } as NappletMessage;
+      dispatchEnvelope(_serviceHandler, envelope, windowId ?? DEMO_HOST_WINDOW_ID);
     },
 
     markRead(id: string) {
-      dispatchNotificationAction('notifications:read', { id });
+      const envelope: NappletMessage = {
+        type: 'notify.read',
+        id: makeId(),
+        notificationId: id,
+      } as NappletMessage;
+      dispatchEnvelope(_serviceHandler, envelope);
     },
 
     dismiss(id: string) {
-      dispatchNotificationAction('notifications:dismiss', { id });
+      const envelope: NappletMessage = {
+        type: 'notify.dismiss',
+        id: makeId(),
+        notificationId: id,
+      } as NappletMessage;
+      dispatchEnvelope(_serviceHandler, envelope);
     },
   };
 }

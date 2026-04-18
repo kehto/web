@@ -675,6 +675,7 @@ initNodeInspector(() => {
     totalBlocked,
     checkCapability: (pubkey: string, dTag: string, hash: string, cap: string) =>
       relay.runtime.aclState.check(pubkey, dTag, hash, cap as Capability),
+    tap,
   };
 }, topology);
 
