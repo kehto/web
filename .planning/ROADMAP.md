@@ -85,9 +85,9 @@
   1. `apps/demo/napplets/bot` and `apps/demo/napplets/chat` contain zero `window.addEventListener('message')` calls; all protocol traffic goes through `@napplet/sdk` `ipc.*` / `storage.*` APIs.
   2. The `ifc-roundtrip` Playwright spec is green: a message sent from `bot` via `ipc.emit` is received by `chat` via `ipc.on` and the demo debugger shows both the outbound and inbound envelopes.
   3. The `napplet-auth` Playwright spec is green: both migrated napplets receive their capability grants and the topology node for each shows a non-empty capability state.
-**Plans:** 4 plans
-- [ ] 18-01-PLAN.md — Migrate bot napplet to @napplet/sdk (NAP-01)
-- [ ] 18-02-PLAN.md — Migrate chat napplet to @napplet/sdk (NAP-02)
+**Plans:** 2/4 plans executed
+- [x] 18-01-PLAN.md — Migrate bot napplet to @napplet/sdk (NAP-01)
+- [x] 18-02-PLAN.md — Migrate chat napplet to @napplet/sdk (NAP-02)
 - [ ] 18-03-PLAN.md — Layer-B E2E specs napplet-auth + ifc-roundtrip (E2E-07)
 - [ ] 18-04-PLAN.md — Build → preview → Playwright iteration loop gate (E2E-11)
 **UI hint**: yes
@@ -153,7 +153,7 @@ The `relay-subscribe` Playwright spec cannot be marked green until this decision
 |-------|-----------|----------------|--------|-----------|
 | 16. Harness Triage & Playwright Infrastructure | v1.3 | 4/4 | Complete    | 2026-04-17 |
 | 17. Demo App Rewire | v1.3 | 7/7 | Complete    | 2026-04-18 |
-| 18. Napplet SDK Migration | v1.3 | 0/4 | Not started | - |
+| 18. Napplet SDK Migration | v1.3 | 2/4 | In Progress|  |
 | 19. Core-Domain Napplets | v1.3 | 0/TBD | Not started | - |
 | 20. Expanded-Domain Napplets | v1.3 | 0/TBD | Not started | - |
 | 21. Fixture Napplets & Layer-A Specs | v1.3 | 0/TBD | Not started | - |

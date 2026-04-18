@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
-status: verifying
-stopped_at: "Completed 17-07-PLAN.md (E2E-11 iteration-loop gate: all 17 E2E-06 tests GREEN, Phase 17 ready for close)"
-last_updated: "2026-04-18T00:29:49.723Z"
+status: executing
+stopped_at: "Completed 18-01-PLAN.md (NAP-01: bot napplet migrated to @napplet/sdk)"
+last_updated: "2026-04-18T00:43:47.514Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
   completed_phases: 2
-  total_plans: 11
-  completed_plans: 11
+  total_plans: 15
+  completed_plans: 13
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 17 — Demo App Rewire
+**Current focus:** Phase 18 — Napplet SDK Migration
 
 ## Current Position
 
-Phase: 18
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 18 (Napplet SDK Migration) — EXECUTING
+Plan: 3 of 4
+Status: Ready to execute
 Last activity: 2026-04-18
 
 Progress: [░░░░░░░░░░] 0%
@@ -70,6 +70,8 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 17-demo-app-rewire P05 | 25min | 2 tasks | 8 files |
 | Phase 17 P06 | 3min | 2 tasks | 6 files |
 | Phase 17-demo-app-rewire P07 | 10min | 1 tasks | 4 files |
+| Phase 18-napplet-sdk-migration P01 | 2 | 1 tasks | 1 files |
+| Phase 18-napplet-sdk-migration P02 | 12min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -102,6 +104,10 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 17-demo-app-rewire]: notification-service.ts handles both notify.* NIP-5D envelopes (canonical v1.2 per D-07) and legacy ifc.emit format; legacy path removed after Phase 18 napplet migration
 - [Phase 17-demo-app-rewire]: E2E specs must not gate on napplet auth (#chat-status) until Phase 18; demo napplets use legacy NIP-01 arrays which the v1.2 shell bridge drops by design
 - [Phase 17-demo-app-rewire]: Playwright shadow DOM: toContainText() pierces shadow roots; textContent() returns empty string; all future shadow-element assertions must use toContainText()
+- [Phase 18-napplet-sdk-migration]: async init() gating on first storage.getItem() call is the canonical SDK AUTH detection pattern for Phase 18+ napplets (no manual handshake)
+- [Phase 18-napplet-sdk-migration]: Anti-feature JSDoc comments must use neutral phrasing to avoid false-positive grep matches in acceptance criteria verification
+- [Phase 18-napplet-sdk-migration]: Explanatory JSDoc comments referencing banned terms (window.addEventListener, window.nostr) are permitted per Phase 17 decision — grep patterns checking functional code must exclude comment lines
+- [Phase 18-napplet-sdk-migration]: SDK-init-gates-auth pattern: async init() calls storage.getItem as first SDK call; shim AUTH completes before storage proxy resolves; status DOM set to 'authenticated' after await
 
 ### Blockers/Concerns
 
@@ -110,6 +116,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T00:26:01.783Z
-Stopped at: Completed 17-07-PLAN.md (E2E-11 iteration-loop gate: all 17 E2E-06 tests GREEN, Phase 17 ready for close)
+Last session: 2026-04-18T00:43:37.397Z
+Stopped at: Completed 18-01-PLAN.md (NAP-01: bot napplet migrated to @napplet/sdk)
 Resume: `/gsd:plan-phase 16`
