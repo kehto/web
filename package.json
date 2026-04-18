@@ -21,6 +21,7 @@
     "@vitest/coverage-v8": "^4.1.2",
     "nostr-tools": "^2.23.3",
     "turbo": "^2.5.0",
+    "typedoc": "^0.28",
     "typescript": "^5.9.3",
     "vitest": "^4.1.2"
   },

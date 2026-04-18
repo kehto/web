@@ -1,0 +1,16 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPointStrategy": "packages",
+  "entryPoints": [
+    "packages/acl",
+    "packages/runtime",
+    "packages/shell",
+    "packages/services"
+  ],
+  "out": "docs/api",
+  "exclude": ["**/*.test.ts", "**/dist/**", "**/node_modules/**"],
+  "readme": "none",
+  "includeVersion": true,
+  "hideGenerator": true,
+  "skipErrorChecking": true
+}
