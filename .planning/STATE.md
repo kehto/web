@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
-status: verifying
-stopped_at: Completed 21-05-PLAN.md (E2E-11 iteration loop gate — full v1.3 suite GREEN)
-last_updated: "2026-04-18T11:14:22.872Z"
+status: executing
+stopped_at: "Completed 22-01-PLAN.md (typedoc + docs:api infrastructure live)"
+last_updated: "2026-04-18T11:28:14.213Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
   completed_phases: 6
-  total_plans: 35
-  completed_plans: 35
+  total_plans: 38
+  completed_plans: 36
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 21 — Fixture Napplets & Layer-A Specs
+**Current focus:** Phase 22 — docs-refresh-release-rehearsal
 
 ## Current Position
 
-Phase: 22
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 22 (docs-refresh-release-rehearsal) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
 Last activity: 2026-04-18
 
 Progress: [░░░░░░░░░░] 0%
@@ -94,6 +94,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 21-fixture-napplets-layer-a-specs P04 | 703s | 1 tasks | 2 files |
 | Phase 21 P03 | 90 | 2 tasks | 9 files |
 | Phase 21-fixture-napplets-layer-a-specs P05 | 216s | 1 tasks | 1 files |
+| Phase 22-docs-refresh-release-rehearsal P01 | 2min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -176,6 +177,9 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 21]: identity.*.error routing added to napplet shim central handler for denial path propagation
 - [Phase 21-fixture-napplets-layer-a-specs]: Full v1.3 suite green on first iteration — no code changes required during plan 21-05; all fixes were applied in plans 21-02/21-03/21-04
 - [Phase 21-fixture-napplets-layer-a-specs]: 68 skipped tests are all legacy describe.skip blocks from 7 spec files — by design, v1.4 cleanup scope; no new skips introduced in Phase 21
+- [Phase 22-docs-refresh-release-rehearsal]: typedoc installed at workspace root only (not per-package) with entryPointStrategy: packages covering all 4 @kehto/* packages; docs/api/ gitignored as build artifact
+- [Phase 22-docs-refresh-release-rehearsal]: docs:api not added to turbo.json — manual dev-time tool per STACK.md §4c, not a pipeline step; readme: none in typedoc config so package READMEs handle human narrative via Plan 22-02 cross-links
+- [Phase 22-docs-refresh-release-rehearsal]: Single typedoc warning flagged for Plan 22-02 follow-up: @kehto/shell/src/session-registry.ts PendingUpdate type referenced but not exported from package index (documentation-surface only, no runtime impact)
 
 ### Blockers/Concerns
 
@@ -184,6 +188,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T11:11:32.759Z
-Stopped at: Completed 21-05-PLAN.md (E2E-11 iteration loop gate — full v1.3 suite GREEN)
+Last session: 2026-04-18T11:28:14.211Z
+Stopped at: Completed 22-01-PLAN.md (typedoc + docs:api infrastructure live)
 Resume: `/gsd:plan-phase 16`

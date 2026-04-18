@@ -73,7 +73,7 @@ Triage legacy E2E specs; add NIP-5D-canonical golden-path specs; both test layer
 
 ## Category 4: Documentation Refresh (DOCS)
 
-- [ ] **DOCS-01**: `typedoc@^0.28` configured at repo root with `entryPointStrategy: "packages"`; `pnpm docs:api` generates `docs/api/` for all 4 `@kehto/*` packages.
+- [x] **DOCS-01**: `typedoc@^0.28` configured at repo root with `entryPointStrategy: "packages"`; `pnpm docs:api` generates `docs/api/` for all 4 `@kehto/*` packages.
 - [ ] **DOCS-02**: Package READMEs (`packages/acl/README.md`, `packages/runtime/README.md`, `packages/shell/README.md`, `packages/services/README.md`) updated to reference canonical v1.2 APIs only (no `window.nostr`, no signer-service); every public export has JSDoc with `@example`.
 - [ ] **DOCS-03**: Root README + `docs/*.md` showcase v1.3 demo as the reference integration; obsolete migration docs (`docs/SHELL-MIGRATION.md`, `docs/RUNTIME-MIGRATION.md`, `docs/SERVICES-MIGRATION.md`) either archived under `docs/migrations/` or updated to terminal-state snapshots.
 
@@ -142,7 +142,7 @@ No `changeset publish` — that is deferred until `@napplet/core` publishes to n
 | E2E-09 | Phase 21 | Complete |
 | E2E-10 | Phase 22 | Pending |
 | E2E-11 | Phase 17–22 (cross-cutting gate; closed Phase 22) | Complete |
-| DOCS-01 | Phase 22 | Pending |
+| DOCS-01 | Phase 22 | Complete |
 | DOCS-02 | Phase 22 | Pending |
 | DOCS-03 | Phase 22 | Pending |
 | REL-01 | Phase 22 | Pending |
