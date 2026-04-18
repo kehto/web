@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Demo Functional & Playwright Parity
-status: verifying
-stopped_at: Completed 19-core-domain-napplets/19-07-PLAN.md
-last_updated: "2026-04-18T03:48:58.313Z"
+status: executing
+stopped_at: Completed 20-expanded-domain-napplets/20-05-PLAN.md
+last_updated: "2026-04-18T09:18:42.391Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 7
   completed_phases: 4
-  total_plans: 22
-  completed_plans: 22
+  total_plans: 30
+  completed_plans: 24
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 19 — Core-Domain Napplets
+**Current focus:** Phase 20 — Expanded-Domain Napplets
 
 ## Current Position
 
-Phase: 20
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 20 (Expanded-Domain Napplets) — EXECUTING
+Plan: 3 of 8
+Status: Ready to execute
 Last activity: 2026-04-18
 
 Progress: [░░░░░░░░░░] 0%
@@ -81,6 +81,8 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 19 P06 | 95s | 2 tasks | 2 files |
 | Phase 19-core-domain-napplets P05 | 120 | 3 tasks | 6 files |
 | Phase 19-core-domain-napplets P07 | 120 | 1 tasks | 8 files |
+| Phase 20-expanded-domain-napplets P05 | 114s | 2 tasks | 2 files |
+| Phase 20-expanded-domain-napplets P03 | 118 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -138,6 +140,7 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 19-core-domain-napplets]: storage-persist spec uses page.reload() (not demoBeforeEach) to preserve localStorage — demoBeforeEach calls localStorage.clear() which defeats persistence assertion
 - [Phase 19-core-domain-napplets]: nub-relay publish() must handle relay.publish.error — ACL denial sends relay.publish.error (distinct type), not relay.publish.result with error field; Promise must guard both types
 - [Phase 19-core-domain-napplets]: Turbo cache must be busted when fixing packages in external workspace (napplet/); the turbo input hash excludes external paths and silently restores stale build artifacts
+- [Phase 20-expanded-domain-napplets]: Preferences napplet has exactly 1 window.addEventListener occurrence (D-USER-02 SDK gap exemption, paralleling toaster Plan 19-03 precedent); Plan 20-07 anti-term grep must exempt both toaster and preferences
 
 ### Blockers/Concerns
 
@@ -146,6 +149,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-18T03:45:30.942Z
-Stopped at: Completed 19-core-domain-napplets/19-07-PLAN.md
+Last session: 2026-04-18T09:18:38.845Z
+Stopped at: Completed 20-expanded-domain-napplets/20-05-PLAN.md
 Resume: `/gsd:plan-phase 16`
