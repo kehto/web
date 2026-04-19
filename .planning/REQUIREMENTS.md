@@ -32,7 +32,7 @@ v1.5 fixes the bugs AND closes the coverage gap so regressions of this shape can
 Fixes for the `:4174` demo when all 10 napplets are mounted concurrently from `topology.ts`.
 
 - [x] **DEMO-01**: When `pnpm --filter @kehto/demo dev` (or `pnpm preview`) boots the demo, all 10 napplets in `DEMO_NAPPLETS` reach the `AUTHENTICATED` state within a reasonable timeout (default: 10s). Current state (post-v1.4): `bot` + `chat` reach AUTHENTICATED; `composer`, `feed`, `hotkey-chord`, `media-controller`, `preferences`, `profile-viewer`, `theme-switcher` stall on `LOADING`.
-- [ ] **DEMO-02**: With all 10 napplets AUTHENTICATED (DEMO-01 satisfied), Play and Pause buttons in `media-controller` trigger the expected `navigator.mediaSession.playbackState` transitions ('playing' / 'paused') and update the `#media-controller-status` DOM sentinel. Current state: buttons noop because napplet never reaches AUTHENTICATED.
+- [x] **DEMO-02**: With all 10 napplets AUTHENTICATED (DEMO-01 satisfied), Play and Pause buttons in `media-controller` trigger the expected `navigator.mediaSession.playbackState` transitions ('playing' / 'paused') and update the `#media-controller-status` DOM sentinel. Current state: buttons noop because napplet never reaches AUTHENTICATED.
 
 ---
 
@@ -78,7 +78,7 @@ Continues numbering from v1.4 E2E-14.
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
 | DEMO-01 | Phase 29 | Complete |
-| DEMO-02 | Phase 29 | Pending |
+| DEMO-02 | Phase 29 | Complete |
 | UI-01 | Phase 30 | Pending |
 | UI-02 | Phase 30 | Pending |
 | UI-03 | Phase 30 | Pending |

@@ -37,7 +37,7 @@
 
 ### Phases
 
-- [ ] **Phase 29: Concurrent-boot AUTH Fix + Demo Stability** — Root-cause the concurrency regression; fix it; verify all 10 napplets reach AUTHENTICATED on the full `:4174` demo boot.
+- [x] **Phase 29: Concurrent-boot AUTH Fix + Demo Stability** — Root-cause the concurrency regression; fix it; verify all 10 napplets reach AUTHENTICATED on the full `:4174` demo boot.
 - [ ] **Phase 30: Shell UI State Wiring** — Wire service activity counters, ACL Capability Matrix authenticated-napplet lookup, and sequence-diagram lane generation to live NUB envelope traffic.
 - [ ] **Phase 31: E2E Coverage + Milestone Iteration Loop** — Ship two new Layer-B specs guarding DEMO-01 and UI-01/02/03; close with the canonical iteration loop targeting 49 → 51 specs.
 
@@ -57,7 +57,7 @@
 
 Plans:
 - [x] 29-01-PLAN.md — DEMO-01: rewrite refreshAclPanelsIfNeeded() as data-driven loop over DEMO_NAPPLETS; remove stale aclRendered.size < 8 guard
-- [ ] 29-02-PLAN.md — DEMO-02: investigation-first manual UAT of media-controller Play/Pause; apply fix (ACL pre-grant / napplet-internal / bridge) or escalate
+- [x] 29-02-PLAN.md — DEMO-02: cascade-fixed by 29-01 (bucket:cascade-fixed); automated Playwright MCP UAT confirmed Play/Pause working; no code change; 49/0/0
 
 ### Phase 30: Shell UI State Wiring
 **Goal**: Shell UI state surfaces (service activity counters, ACL Capability Matrix, sequence-diagram lanes) reflect live NUB envelope traffic for all authenticated napplets
@@ -90,7 +90,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 29. Concurrent-boot AUTH Fix + Demo Stability | 1/2 | In Progress|  |
+| 29. Concurrent-boot AUTH Fix + Demo Stability | 2/2 | Complete | 2026-04-19 |
 | 30. Shell UI State Wiring | 0/0 | Not started | - |
 | 31. E2E Coverage + Milestone Iteration Loop | 0/0 | Not started | - |
 
