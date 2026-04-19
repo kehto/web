@@ -51,7 +51,11 @@
   3. `.github/workflows/e2e.yml` runs `pnpm test:e2e` on push and PR with the `~/.cache/ms-playwright` browser cache restored from a versioned key; the full v1.3 baseline (47 specs / 0 skipped) reports green on the workflow UI.
   4. `tests/e2e/harness/harness.ts:10` and `tests/e2e/helpers/wait-for-napplet-ready.ts:21` JSDoc `@example` blocks cite extant `nub-*` fixtures; zero references to `auth-napplet` remain in any `tests/e2e/**/*.ts` JSDoc comment.
   5. A green run of all three workflows (`build.yml`, `unit.yml`, `e2e.yml`) is recorded against the merge commit that closes Phase 23 (URLs captured in the phase iteration log).
-**Plans**: TBD
+**Plans:** 4 plans
+- [ ] 23-01-PLAN.md — Create `.github/workflows/build.yml` (CI-01)
+- [ ] 23-02-PLAN.md — Create `.github/workflows/unit.yml` (CI-02)
+- [ ] 23-03-PLAN.md — Create `.github/workflows/e2e.yml` with Playwright browser cache (CI-03)
+- [ ] 23-04-PLAN.md — Refresh stale `auth-napplet` JSDoc references to `nub-identity` (DOCS-04)
 
 ### Phase 24: DRIFT-CORE-06 Cleanup
 **Goal**: `packages/runtime/src/core-compat.ts` is deleted and every live type it shimmed is re-imported from its rightful home — so the v1.4 npm publication ships clean code with no compatibility scaffolding and no dead NIP-01 paths.
@@ -131,7 +135,7 @@ Phases execute in numeric order: 23 → 24 → 25 → 26 → 27 → 28
 | 20. Expanded-Domain Napplets | v1.3 | 8/8 | Complete | 2026-04-18 |
 | 21. Fixture Napplets & Layer-A Specs | v1.3 | 5/5 | Complete | 2026-04-18 |
 | 22. Docs Refresh & Release Rehearsal | v1.3 | 8/8 | Complete | 2026-04-18 |
-| 23. CI/CD Baseline & Doc Trivia | v1.4 | 0/TBD | Not started | - |
+| 23. CI/CD Baseline & Doc Trivia | v1.4 | 0/4 | Not started | - |
 | 24. DRIFT-CORE-06 Cleanup | v1.4 | 0/TBD | Not started | - |
 | 25. Release Publication | v1.4 | 0/TBD | Not started | - |
 | 26. Real Keys Backend | v1.4 | 0/TBD | Not started | - |
