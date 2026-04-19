@@ -27,6 +27,19 @@ export interface NodeActivityEntry {
 
 const ACTIVITY_RING_SIZE = 12;
 
+/**
+ * Envelope-domain → topology-service-id aliases.
+ *
+ * NUB envelope `type` is domain-dot-action (e.g. `notify.sent`). The topology
+ * service name is usually identical to the domain, except `notify` envelopes
+ * route to the `notifications` service node (the topology service is named
+ * `notifications` for legacy-UI consistency; the NUB domain is `notify`).
+ * Add more aliases here if future domain-vs-topology-id drift appears.
+ */
+const SERVICE_DOMAIN_ALIAS: Record<string, string> = {
+  notify: 'notifications',
+};
+
 // Per-node bounded ring buffer of recent activity
 const nodeActivityRings = new Map<string, NodeActivityEntry[]>();
 
@@ -437,6 +450,20 @@ export function installActivityProjection(
       topology.services.includes('signer')
     ) {
       pushActivity('topology-node-service-signer', entry);
+    }
+
+    // Service node: route every envelope-shape message to its domain-matching
+    // service node ring (identity / keys / media / notifications / relay /
+    // storage / theme). The signer node above is kept on path-classification
+    // rather than domain because its traffic predates NUB envelope shape.
+    if (msg.envelopeType) {
+      const rawDomain = msg.parsed.domain ?? msg.envelopeType.split('.')[0];
+      if (rawDomain) {
+        const serviceKey = SERVICE_DOMAIN_ALIAS[rawDomain] ?? rawDomain;
+        if (topology.services.includes(serviceKey)) {
+          pushActivity(`topology-node-service-${serviceKey}`, entry);
+        }
+      }
     }
 
     // Napplet node: messages belonging to a specific window
