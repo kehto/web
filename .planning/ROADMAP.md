@@ -10,7 +10,7 @@
 
 ---
 
-## Milestone Constraints (v1.4)
+## Milestone Constraints
 
 - `@napplet/core@0.2.0` is **now on npm** (published 2026-04-19; verified via `npm view @napplet/core version`). The workspace `pnpm.overrides` `link:` entries to `/home/sandwich/Develop/napplet/*` MUST be removed before REL-05 publishes — published `@kehto/*` packages must resolve `@napplet/core` from the npm registry, not the local workspace.
 - `DRIFT-CORE-06` (`packages/runtime/src/core-compat.ts`) is **deleted** in Phase 24 via pure internal refactor — live types re-homed (`Capability` from `@kehto/acl/capabilities`, `ServiceDescriptor` to `@kehto/runtime/types`, `REPLAY_WINDOW_SECONDS` inlined or moved to `@kehto/runtime/constants`); dead NIP-01 code paths (`BusKind`, `AUTH_KIND`, `DESTRUCTIVE_KINDS`, `STATE_TOPICS`) deleted from `enforce.ts`, `state-handler.ts`, `service-discovery.ts`, and `@kehto/services` files. No new consumers of `core-compat.ts` permitted in any v1.4 phase.
