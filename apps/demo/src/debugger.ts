@@ -10,6 +10,7 @@
  */
 
 import type { TappedMessage, MessageTap, DemoProtocolPath } from './shell-host.js';
+import { getNapplets } from './shell-host.js';
 import { renderSequenceDiagram } from './sequence-diagram.js';
 
 /** Verb-to-color mapping for the dark terminal theme */
@@ -431,7 +432,7 @@ export class NappletDebugger extends HTMLElement {
     if (this.activeTab !== 'sequence') return;
     const container = this.shadow.getElementById('sequence-container');
     if (!container) return;
-    container.innerHTML = renderSequenceDiagram(this.allMessages);
+    container.innerHTML = renderSequenceDiagram(this.allMessages, getNapplets());
     container.scrollTop = container.scrollHeight;
   }
 
