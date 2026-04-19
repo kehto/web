@@ -105,6 +105,13 @@ test('media-controller napplet drives navigator.mediaSession via real media back
   // Step 4: DOM-path assertion — click Play, wait for #media-controller-status
   // to transition to 'playing'. This proves the napplet's onclick handler
   // fired (mediaReportState + local setStatus).
+  //
+  // bringToFront() ensures this browser tab is active before the click so
+  // Chromium does not throttle the sandboxed iframe's JS execution in a
+  // background tab (background-tab JS throttling would prevent the onclick
+  // from running within the assertion timeout when the full suite runs 8
+  // parallel worker contexts).
+  await page.bringToFront();
   await mediaFrame.locator('#media-controller-play').click();
   await expect(mediaFrame.locator('#media-controller-status')).toContainText('playing', { timeout: 5_000 });
 
@@ -128,6 +135,7 @@ test('media-controller napplet drives navigator.mediaSession via real media back
   expect(metadataTitle).toBe('Kehto Demo Track');
 
   // Step 7: click Pause → status 'paused' → navigator.mediaSession.playbackState 'paused'.
+  await page.bringToFront();
   await mediaFrame.locator('#media-controller-pause').click();
   await expect(mediaFrame.locator('#media-controller-status')).toContainText('paused', { timeout: 5_000 });
   await expect.poll(async () => {
