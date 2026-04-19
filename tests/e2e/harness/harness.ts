@@ -26,6 +26,18 @@ import { createMessageTap } from '@test/helpers';
 const mockResult = createMockHooks();
 const tap = createMessageTap();
 
+// ─── NIP-5D envelope log (hoisted) ─────────────────────────────────────────
+//
+// Declared early so the outbound postMessage proxy (below) and the inbound
+// message listener (further down) can both record envelopes into the same
+// Map. The proxy's postMessage function runs at call-time (not init-time),
+// so forward-reference to this const is safe.
+//
+// Phase 28 E2E-14: both INBOUND (napplet -> shell) and OUTBOUND (shell ->
+// napplet via the service send callback) NIP-5D envelopes are recorded here.
+// Keyed by windowId.
+const envelopeLog = new Map<string, NappletMessage[]>();
+
 // --- Outbound message interception ---
 //
 // The ShellBridge sends messages to napplets via:
@@ -66,12 +78,49 @@ function createPostMessageProxy(realWin: Window): Window {
   return proxy as unknown as Window;
 }
 
-// Wrap originRegistry.getIframeWindow to return proxied windows
+// Wrap originRegistry.getIframeWindow to return proxied windows.
+// Phase 28 E2E-14: the wrapper also captures outbound NIP-5D object envelopes
+// (shell -> napplet via service send callback) into envelopeLog, keyed by
+// windowId. Array-format messages (NIP-01) continue to be captured by tap only.
 const _origGetIframeWindow = originRegistry.getIframeWindow.bind(originRegistry);
 originRegistry.getIframeWindow = (windowId: string): Window | null => {
   const win = _origGetIframeWindow(windowId);
   if (!win) return null;
-  return createPostMessageProxy(win);
+  // Create a postMessage-intercepting proxy that additionally records outbound
+  // NIP-5D object envelopes (non-array with type: string) into envelopeLog.
+  const proxy = new Proxy(win, {
+    get(target, prop) {
+      if (prop === 'postMessage') {
+        return (msg: unknown, targetOrigin: string, transfer?: Transferable[]) => {
+          if (Array.isArray(msg)) {
+            tap.recordOutbound(msg);
+          } else if (
+            msg !== null && typeof msg === 'object' &&
+            typeof (msg as Record<string, unknown>).type === 'string'
+          ) {
+            // Outbound NIP-5D envelope (service send callback result).
+            // Record into envelopeLog keyed by windowId so __getNubMessage__ can
+            // retrieve both inbound requests AND outbound response envelopes.
+            const clone = JSON.parse(JSON.stringify(msg)) as NappletMessage;
+            const arr = envelopeLog.get(windowId) ?? [];
+            arr.push(clone);
+            envelopeLog.set(windowId, arr);
+          }
+          return target.postMessage(msg, targetOrigin, transfer);
+        };
+      }
+      // For everything else, return the real property
+      try {
+        const val = (target as any)[prop];
+        return typeof val === 'function' ? val.bind(target) : val;
+      } catch {
+        // Cross-origin property access can throw -- return undefined
+        return undefined;
+      }
+    },
+  });
+  proxyToReal.set(proxy, win);
+  return proxy as unknown as Window;
 };
 
 // Wrap originRegistry.getWindowId to handle both real and proxied windows
@@ -351,12 +400,9 @@ logStatus('Shell ready -- waiting for napplet load commands');
 // All globals below must return structured-clone-safe values.
 // Source of truth: .planning/research/PITFALLS.md (Anti-Pattern 2).
 
-/**
- * Shadow log of NIP-5D envelopes observed from each napplet.
- * Populated by intercepting non-array postMessage traffic in the message listener.
- * Keyed by windowId.
- */
-const envelopeLog = new Map<string, NappletMessage[]>();
+// envelopeLog is declared early in this file (before the proxy setup) so both
+// the outbound postMessage proxy and the inbound message listener below can
+// record into the same Map. See the hoisted declaration at the top of this file.
 
 /**
  * Shadow registry of service names — tracks initial services from createMockHooks

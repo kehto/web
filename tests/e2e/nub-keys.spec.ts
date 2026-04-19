@@ -1,40 +1,33 @@
 /**
- * nub-keys Layer-A spec — E2E-09 Phase 21 STUB-SCOPE coverage.
+ * nub-keys Layer-A spec — E2E-14 Phase 28 real-backend coverage.
  *
- * STUB SCOPE NOTICE:
- *   The keys NUB is intentionally stub-only in v1.3 (per CONTEXT D-05 + ROADMAP
- *   "Future Requirements deferred past v1.3" -> hotkey-chord napplet). The
- *   @kehto/services keys-service factory is a stub that does not interact with any
- *   real host hotkey backend. This spec asserts the runtime's stub response SHAPE
- *   only — not real hotkey behavior. DO NOT graduate this spec to a fixture-backed
- *   Layer-A spec without first implementing a real keys backend.
+ * Graduated from stub-scope (v1.3 Phase 21 E2E-09) to real-backend coverage
+ * now that Phase 26 shipped the document-level chord listener (KEYS-01),
+ * HostKeysBridge interface (KEYS-02), and hotkey-chord demo napplet (KEYS-03).
+ * Harness extension: Phase 28 Plan 28-01 Task 1 added a 'real' factory-key
+ * branch to __registerService__; passing the literal string 'real' as the
+ * second arg swaps in the @kehto/services reference createKeysService().
  *
- *   Replacement work (deferred to v1.4): hotkey-chord napplet when a host hotkey
- *   backend ships.
- *
- * Coverage scope (this spec only):
- *   1. keys.registerAction envelope is dispatchable via __injectEnvelope__.
- *   2. The runtime routes to a stub 'keys' service installed via __registerService__;
- *      the service captures the message and emits a keys.registerAction.result
- *      envelope with canonical fields { type, id, actionId, binding }.
- *   3. The request envelope is recorded in envelopeLog (verifiable via __getNubMessage__).
+ * Coverage scope (this spec):
+ *   1. keys.registerAction envelope dispatchable via __injectEnvelope__.
+ *   2. The real @kehto/services createKeysService() handler replies with a
+ *      canonical keys.registerAction.result envelope carrying { type, id,
+ *      actionId, binding } — captured via __getNubMessage__.
+ *   3. A synthetic document keydown matching the registered chord produces a
+ *      keys.action push envelope back to the owning napplet — captured via
+ *      __getNubMessage__ (proves the real document listener + per-window send
+ *      handle captured at registerAction time).
  *   4. No anti-term violations in console or page errors.
  *
- * Runtime behavior verified (Phase 21-04 execution):
- *   POSSIBILITY A applies for keys.registerAction — runtime.ts:982 emits a fallback
- *   keys.registerAction.result envelope even when NO 'keys' service is registered.
- *   This spec installs a stub service via __registerService__ to guarantee service-path
- *   coverage AND capture the result into a window-scoped global for assertion.
- *   The stub service takes precedence over the runtime's own fallback (runtime.ts:950-954
- *   routes to the registered service first).
- *
  * Implementation notes:
- *   - Loads nub-storage as a generic fixture purely to obtain a valid windowId
- *     (every napplet that completes AUTH gets a windowId — fixture choice is irrelevant).
+ *   - Loads nub-storage as a generic fixture purely to obtain a valid windowId.
+ *   - Installs the real keys service via __registerService__('keys', 'real').
  *   - Drives keys.registerAction via __injectEnvelope__(windowId, ...).
- *   - Installs a stub 'keys' service that records the inbound message into
- *     window.__lastKeysReq and emits a stub-correct result envelope.
- *   - Asserts request envelope via __getNubMessage__ + captured message via global.
+ *   - Dispatches the synthetic keydown via page.evaluate with
+ *     document.dispatchEvent(new KeyboardEvent(...)) — the real service's
+ *     document-level addEventListener('keydown', ...) receives the event and
+ *     emits the keys.action envelope via the per-window send callback.
+ *   - Asserts request + .result + .action envelopes via __getNubMessage__.
  */
 import { test, expect } from '@playwright/test';
 import { aclBeforeEach, waitForNappletReady } from './helpers/index.js';
@@ -43,7 +36,7 @@ test.describe.configure({ mode: 'serial' });
 
 const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]/;
 
-test('nub-keys: keys.registerAction envelope dispatchable + runtime stub response captured', async ({ page }) => {
+test('nub-keys: keys.registerAction + synthetic keydown drives real keys-service keys.action push', async ({ page }) => {
   test.setTimeout(30_000);
   const consoleMessages: string[] = [];
   const pageErrors: string[] = [];
@@ -52,36 +45,18 @@ test('nub-keys: keys.registerAction envelope dispatchable + runtime stub respons
 
   await aclBeforeEach(page);
 
-  // Load any fixture to obtain a valid windowId — nub-storage is small and reaches
-  // __nappletReady__ quickly. The fixture itself is unrelated to keys; we only need
-  // a windowId registered in the harness's originRegistry.
+  // Load any fixture to obtain a valid windowId — nub-storage reaches
+  // __nappletReady__ quickly; fixture choice is unrelated to keys.
   const windowId = await page.evaluate(() => window.__loadNapplet__('nub-storage'));
   await waitForNappletReady(page, windowId);
 
-  // Install a stub 'keys' service that records inbound messages on a window-scoped global.
-  // This guarantees Possibility A semantics: our service intercepts before the runtime's
-  // own fallback (runtime.ts:950 routes to registered service first). The stub emits a
-  // canonical keys.registerAction.result envelope matching the @kehto/services spec shape.
-  //
-  // NOTE: The handler object must include `descriptor` because runtime.registerService()
-  // accesses handler.descriptor.name at registration time (runtime.ts:1181).
-  const installed = await page.evaluate(() =>
-    window.__registerService__('keys', `({
-      descriptor: { name: 'keys', version: '1.0-stub', description: 'stub keys service for E2E-09' },
-      handleMessage: function(windowId, msg, send) {
-        window.__lastKeysReq = msg;
-        if (msg.type === 'keys.registerAction') {
-          var actionId = (msg.action && msg.action.id) ? msg.action.id : (msg.actionId || '');
-          var binding = (msg.action && msg.action.defaultKey) ? msg.action.defaultKey : undefined;
-          send({ type: 'keys.registerAction.result', id: msg.id, actionId: actionId, binding: binding });
-        }
-      },
-      onWindowDestroyed: function() {}
-    })`),
-  );
+  // Install the REAL @kehto/services keys service via the 'real' factory-key
+  // branch (Plan 28-01 Task 1). Zero-arg construction yields the reference
+  // document-level listener implementation (Phase 26 Plan 26-01).
+  const installed = await page.evaluate(() => window.__registerService__('keys', 'real'));
   expect(installed).toBe(true);
 
-  // Inject the request envelope as if the napplet had posted it to the shell.
+  // Inject the keys.registerAction request envelope.
   await page.evaluate(
     (wid) => window.__injectEnvelope__(wid, {
       type: 'keys.registerAction',
@@ -91,7 +66,7 @@ test('nub-keys: keys.registerAction envelope dispatchable + runtime stub respons
     windowId,
   );
 
-  // Request envelope recorded in harness envelopeLog (proves dispatch succeeded).
+  // Request envelope recorded in envelopeLog (dispatch succeeded).
   await page.waitForFunction(
     (wid) => window.__getNubMessage__(wid, 'keys.registerAction') !== null,
     windowId,
@@ -104,20 +79,52 @@ test('nub-keys: keys.registerAction envelope dispatchable + runtime stub respons
   expect((reqEnvelope as { type: string }).type).toBe('keys.registerAction');
   expect((reqEnvelope as { id?: string }).id).toBe('nub-keys-spec-1');
 
-  // Stub service captured the message via window.__lastKeysReq.
+  // Real backend replies with keys.registerAction.result — captured via envelopeLog.
   await page.waitForFunction(
-    () => Boolean((window as Window & { __lastKeysReq?: unknown }).__lastKeysReq),
-    null,
-    { timeout: 3_000 },
+    (wid) => window.__getNubMessage__(wid, 'keys.registerAction.result') !== null,
+    windowId,
+    { timeout: 5_000 },
   );
-  const captured = await page.evaluate(
-    () => (window as Window & { __lastKeysReq?: { type: string; action?: { id: string; defaultKey?: string } } }).__lastKeysReq,
+  const resultEnvelope = await page.evaluate(
+    (wid) => window.__getNubMessage__(wid, 'keys.registerAction.result'),
+    windowId,
   );
-  expect(captured?.type).toBe('keys.registerAction');
-  expect(captured?.action?.id).toBe('editor.save');
-  expect(captured?.action?.defaultKey).toBe('Ctrl+S');
+  expect((resultEnvelope as { type: string }).type).toBe('keys.registerAction.result');
+  expect((resultEnvelope as { id?: string }).id).toBe('nub-keys-spec-1');
+  expect((resultEnvelope as { actionId?: string }).actionId).toBe('editor.save');
+  expect((resultEnvelope as { binding?: string }).binding).toBe('Ctrl+S');
 
-  // Cleanup: unregister the stub service to avoid cross-test pollution.
+  // Dispatch a synthetic document keydown matching the registered chord.
+  // The real service's document.addEventListener('keydown', ...) fires, matches
+  // against the actionRegistry entry for 'editor.save', and emits a keys.action
+  // push envelope via the per-window send handle captured at registerAction time.
+  await page.evaluate(() => {
+    document.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 's',
+      code: 'KeyS',
+      ctrlKey: true,
+      altKey: false,
+      shiftKey: false,
+      metaKey: false,
+      bubbles: true,
+    }));
+  });
+
+  // keys.action push envelope recorded in envelopeLog (proves real backend fired).
+  await page.waitForFunction(
+    (wid) => window.__getNubMessage__(wid, 'keys.action') !== null,
+    windowId,
+    { timeout: 5_000 },
+  );
+  const actionEnvelope = await page.evaluate(
+    (wid) => window.__getNubMessage__(wid, 'keys.action'),
+    windowId,
+  );
+  expect((actionEnvelope as { type: string }).type).toBe('keys.action');
+  expect((actionEnvelope as { actionId?: string }).actionId).toBe('editor.save');
+
+  // Cleanup: unregister the real service (runtime drops the listener via destroy()
+  // on next unregisterService -> runtime calls handler.destroy?.() if present).
   await page.evaluate(() => window.__unregisterService__('keys'));
 
   // Anti-term hygiene: no forbidden patterns in console or page errors.
