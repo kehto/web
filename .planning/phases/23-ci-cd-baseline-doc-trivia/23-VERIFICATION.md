@@ -1,8 +1,9 @@
 ---
 phase: 23-ci-cd-baseline-doc-trivia
 verified: 2026-04-19T10:38:02Z
-status: human_needed
-score: 4/5 must-haves verified (criterion 5 requires push to origin — human checkpoint)
+re_verified: 2026-04-19T11:47:00Z
+status: passed
+score: 5/5 must-haves verified
 requirements_covered:
   - CI-01
   - CI-02
@@ -10,10 +11,26 @@ requirements_covered:
   - DOCS-04
 requirements_out_of_scope:
   - CI-04  # Phase 25, not Phase 23
-human_verification:
-  - test: "Push main to origin and capture green-run URLs for all three workflows (build.yml, unit.yml, e2e.yml)"
-    expected: "All three workflows complete successfully against the merge commit; URLs recorded in the phase iteration log; the Playwright run reports the full v1.3 baseline (47 specs / 0 skipped) green"
-    why_human: "GitHub Actions only execute after `git push origin main`. Phase 23 committed workflow files locally (commits c03cd70 / bf708dc / 0989ac9 / 1be0e25) but has NOT pushed. No automated verifier inside this repo can trigger or observe a remote CI run; the green-bar evidence must be captured by a human after push."
+scope_extension:
+  - what: "Removed pnpm.overrides + bumped all @napplet/* deps from link: to ^0.2.1 + added missing peer-dep mirrors as devDeps + pruned 7 stale unit tests."
+    why: "First CI push (commit 1a34c8e) failed build/unit/e2e across the board — pnpm.overrides rewrote @napplet/* to local sibling-repo paths that don't exist on GitHub runners. Published @napplet/*@0.2.0 had workspace:* contamination; user re-published at 0.2.1 clean. Removing overrides is formally a Phase 25 success criterion (1) but had to land in Phase 23 for the green-bar floor goal to be achievable at all. Stale unit tests were pre-existing tech debt from v1.1/v1.2 symbol removals."
+    commit: fc567b6
+    impact: "Phase 25's remaining scope is now just pnpm changeset publish for @kehto/* + release.yml (CI-04). Update ROADMAP to reflect this reduction."
+ci_evidence:
+  merge_commit: fc567b6
+  runs:
+    - name: Build
+      status: success
+      duration: 54s
+      url: https://github.com/kehto/monorepo/actions/runs/24628224659
+    - name: Unit Tests
+      status: success
+      duration: 43s
+      url: https://github.com/kehto/monorepo/actions/runs/24628224646
+    - name: E2E
+      status: success
+      duration: 3m17s
+      url: https://github.com/kehto/monorepo/actions/runs/24628224640
 ---
 
 # Phase 23: CI/CD Baseline & Doc Trivia — Verification Report

@@ -70,15 +70,15 @@
 **Plans**: TBD
 
 ### Phase 25: Release Publication
-**Goal**: All four `@kehto/*` packages are published to `registry.npmjs.org` at `0.2.0` with peer-deps resolving to the npm-published `@napplet/core@0.2.0`; a fresh-install smoke test against the npm registry succeeds; a tag-triggered release workflow exists for future bumps.
-**Depends on**: Phase 24 (no `core-compat.ts` shim ships) AND Phase 23 (CI workflows exist for the release.yml gate)
+**Goal**: All four `@kehto/*` packages are published to `registry.npmjs.org` at `0.2.1` (or newer — v1.3 changesets stage patch-bumps); a fresh-install smoke test against the npm registry succeeds; a tag-triggered release workflow exists for future bumps.
+**Depends on**: Phase 24 (no `core-compat.ts` shim ships) AND Phase 23 (CI workflows exist for the release.yml gate; `pnpm.overrides` already removed in 23-05)
 **Requirements**: REL-05, REL-06, CI-04
 **Success Criteria** (what must be TRUE):
-  1. `pnpm.overrides` `link:` entries for `@napplet/*` removed from the workspace root `package.json`; `pnpm install --frozen-lockfile` resolves `@napplet/core@0.2.0` from npm; no `link:` paths appear in `pnpm-lock.yaml` for `@napplet/*` packages.
-  2. `pnpm changeset publish` (executed for the 4 staged `.changeset/v1-3-*.md` files) lands `@kehto/acl@0.2.0`, `@kehto/runtime@0.2.0`, `@kehto/shell@0.2.0`, `@kehto/services@0.2.0` on the npm registry — verifiable via `npm view @kehto/<pkg> version` returning `0.2.0` for each.
-  3. Fresh-install smoke test in a throwaway directory: `npm install @kehto/shell @kehto/runtime @kehto/acl @kehto/services` resolves all peer deps from npm (not workspace `link:`), TypeScript types resolve in a minimal consumer script, and a `createRuntime()` invocation runs without module-resolution errors.
+  1. ~~`pnpm.overrides` removal~~ — PRE-SATISFIED in Phase 23-05 extension (commit fc567b6). The workspace root `package.json` no longer contains a `pnpm.overrides` block; all `@napplet/*` deps resolve from npm at `^0.2.1`.
+  2. `pnpm changeset publish` (executed for the 4 staged `.changeset/v1-3-*.md` files) lands `@kehto/acl`, `@kehto/runtime`, `@kehto/shell`, `@kehto/services` on the npm registry at the version computed by `changeset version` — verifiable via `npm view @kehto/<pkg> version` returning a live value for each.
+  3. Fresh-install smoke test in a throwaway directory: `npm install @kehto/shell @kehto/runtime @kehto/acl @kehto/services` resolves all peer deps from npm (including `@napplet/*@^0.2.1`), TypeScript types resolve in a minimal consumer script, and a `createRuntime()` invocation runs without module-resolution errors.
   4. `.github/workflows/release.yml` triggered on a `v*` git tag push runs `pnpm changeset publish` with an `NPM_TOKEN` secret; the workflow gates on prior green runs of `build.yml` + `unit.yml` + `e2e.yml` on the tagged SHA (either via `workflow_run` dependency or in-job re-execution).
-  5. The release tag (`v0.2.0` or equivalent) successfully exercises `release.yml` end-to-end at least once — either as the publication run for criterion 2 or as a follow-up patch — with the workflow run URL captured in the phase iteration log.
+  5. The release tag (`v0.2.1` or equivalent) successfully exercises `release.yml` end-to-end at least once — either as the publication run for criterion 2 or as a follow-up patch — with the workflow run URL captured in the phase iteration log.
 **Plans**: TBD
 
 ### Phase 26: Real Keys Backend
