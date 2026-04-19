@@ -87,7 +87,11 @@ Plans:
   3. The canonical milestone iteration loop (`pnpm clean && pnpm build && pnpm test:e2e`) runs against the built `:4174` demo and exits with exactly 51 passed / 0 failed / 0 skipped (delta: 49 → 51, +2 new specs).
   4. Both new spec files contain no single-napplet `__loadNapplet__` helper calls — they rely exclusively on the native `DEMO_NAPPLETS` topology boot.
   5. The iteration loop result and both new spec file paths are recorded in a phase ITERATION-LOG.md entry, closing the E2E-11 iteration-loop discipline for v1.5.
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [x] 31-01-PLAN.md — E2E-15: new Layer-B spec demo-concurrent-boot.spec.ts polling 10 DEMO_NAPPLETS status sentinels until each reads authenticated
+- [ ] 31-02-PLAN.md — E2E-16 + milestone iteration loop + anti-term sweep: shell-ui-state-surfaces.spec.ts (3 tests UI-01/02/03) + 31-ITERATION-LOG.md closing v1.5
 
 ---
 
@@ -97,7 +101,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 29. Concurrent-boot AUTH Fix + Demo Stability | 2/2 | Complete    | 2026-04-19 |
 | 30. Shell UI State Wiring | 3/3 | Complete    | 2026-04-19 |
-| 31. E2E Coverage + Milestone Iteration Loop | 0/0 | Not started | - |
+| 31. E2E Coverage + Milestone Iteration Loop | 1/2 | In Progress|  |
 
 ---
 

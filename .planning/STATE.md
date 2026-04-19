@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: — Demo Stability & UAT Coverage
-status: verifying
-stopped_at: Completed 30-02-PLAN.md (UI-02 ACL snapshot gate fix)
-last_updated: "2026-04-19T23:36:41.099Z"
+status: executing
+stopped_at: Completed 31-01-PLAN.md (E2E-15 demo-concurrent-boot.spec.ts)
+last_updated: "2026-04-19T23:53:14.802Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 3
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 7
+  completed_plans: 6
   percent: 33
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-19, v1.5 milestone opened)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 30 — Shell UI State Wiring
+**Current focus:** Phase 31 — E2E Coverage + Milestone Iteration Loop
 
 ## Current Position
 
-Phase: 31
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 31 (E2E Coverage + Milestone Iteration Loop) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
 Last activity: 2026-04-19
 
 Progress: 1/3 phases complete [---       ] 33%
@@ -44,6 +44,7 @@ Progress: 1/3 phases complete [---       ] 33%
 | Phase 30-shell-ui-state-wiring P03 | 12 | 1 tasks | 2 files |
 | Phase 30-shell-ui-state-wiring P01 | 8min | 1 tasks | 1 files |
 | Phase 30-shell-ui-state-wiring P02 | 8 | 1 tasks | 1 files |
+| Phase 31-e2e-coverage-milestone-iteration-loop P01 | 2 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,6 @@ Key mapping:
 
 ## Session Continuity
 
-Last session: 2026-04-19T23:31:34.172Z
-Stopped at: Completed 30-02-PLAN.md (UI-02 ACL snapshot gate fix)
+Last session: 2026-04-19T23:53:14.799Z
+Stopped at: Completed 31-01-PLAN.md (E2E-15 demo-concurrent-boot.spec.ts)
 Resume: Phase 29 complete (DEMO-01 + DEMO-02 both satisfied). Next: `/gsd:plan-phase 30` (Shell UI State Wiring).
