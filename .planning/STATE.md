@@ -2,8 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: — Demo Stability & UAT Coverage
-status: executing
-last_updated: "2026-04-19T23:10:00.000Z"
+status: planning
+stopped_at: Completed 29-02-PLAN.md (cascade-fixed — DEMO-02 resolved by 29-01)
+last_updated: "2026-04-19T23:06:15.725Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 3
@@ -24,8 +25,8 @@ See: .planning/PROJECT.md (updated 2026-04-19, v1.5 milestone opened)
 
 ## Current Position
 
-Phase: 30 (Shell UI State Wiring) — PENDING
-Plan: 1 of TBD
+Phase: 30
+Plan: Not started
 Status: Phase 29 complete — ready for Phase 30 planning
 Last activity: 2026-04-19
 
