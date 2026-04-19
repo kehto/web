@@ -4,13 +4,13 @@ milestone: v1.5
 milestone_name: — Demo Stability & UAT Coverage
 status: executing
 stopped_at: "Completed 30-03-PLAN.md (UI-03: dynamic sequence-diagram lanes)"
-last_updated: "2026-04-19T23:30:28.485Z"
+last_updated: "2026-04-19T23:30:45.452Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
   percent: 33
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-19, v1.5 milestone opened)
 ## Current Position
 
 Phase: 30 (Shell UI State Wiring) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-19
 
@@ -42,6 +42,7 @@ Progress: 1/3 phases complete [---       ] 33%
 | Phase 29-concurrent-boot-auth-fix-demo-stability P01 | 15 | 1 tasks | 1 files |
 | Phase 29-concurrent-boot-auth-fix-demo-stability P02 | 10 | 2 tasks | 0 files (cascade-fixed) |
 | Phase 30-shell-ui-state-wiring P03 | 12 | 1 tasks | 2 files |
+| Phase 30-shell-ui-state-wiring P01 | 8min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
