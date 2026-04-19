@@ -12,10 +12,8 @@
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 import { createDispatch } from '@napplet/core';
 import type { NubHandler } from '@napplet/core';
-// DRIFT-CORE-06 — Phase 11-deviation: Capability, BusKind, ALL_CAPABILITIES removed
-// from @napplet/core v0.2.0+ (napplet phase-87). Sourced from local core-compat shim.
-import type { Capability } from './core-compat.js';
-import { BusKind, ALL_CAPABILITIES } from './core-compat.js';
+import type { Capability } from '@kehto/acl/capabilities';
+import { ALL_CAPABILITIES } from '@kehto/acl/capabilities';
 
 // NUB message types — types-only imports from @napplet/nub-* peer deps (v1.2).
 // Phase 11-02 / DRIFT-CORE-05: replaces hand-copied widening casts with real
@@ -37,7 +35,6 @@ import type {
   ServiceHandler, ServiceRegistry, CompatibilityReport, ServiceInfo,
 } from './types.js';
 import { routeServiceMessage, notifyServiceWindowDestroyed } from './service-dispatch.js';
-import { createServiceDiscoveryEvent } from './service-discovery.js';
 import { createSessionRegistry } from './session-registry.js';
 import type { SessionRegistry } from './session-registry.js';
 import { createAclState } from './acl-state.js';
@@ -47,7 +44,7 @@ import type { ManifestCache } from './manifest-cache.js';
 import { createReplayDetector } from './replay.js';
 import { createEventBuffer, matchesAnyFilter, RING_BUFFER_SIZE } from './event-buffer.js';
 import type { SubscriptionEntry } from './event-buffer.js';
-import { createEnforceGate, createNubEnforceGate, resolveCapabilities, resolveCapabilitiesNub, formatDenialReason } from './enforce.js';
+import { createEnforceGate, createNubEnforceGate, resolveCapabilitiesNub, formatDenialReason } from './enforce.js';
 import type { NubEnforceConfig } from './enforce.js';
 import { handleStorageNub } from './state-handler.js';
 
@@ -335,7 +332,8 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
 
     function sendInterPaneReply(replyTopic: string, content: string): void {
       const responseEvent: Partial<NostrEvent> = {
-        kind: BusKind.IPC_PEER, pubkey: '',
+        kind: 29000, // IPC_PEER — inlined numeric after Phase 24 shim deletion
+        pubkey: '',
         created_at: Math.floor(Date.now() / 1000),
         tags: [['t', replyTopic]], content, id: '', sig: '',
       };
@@ -443,7 +441,8 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
               ? { success: true, ...(result.eventId ? { eventId: result.eventId } : {}) }
               : { success: false, error: result.error ?? 'unknown error' };
             const response: Partial<NostrEvent> = {
-              kind: BusKind.IPC_PEER, pubkey: '',
+              kind: 29000, // IPC_PEER — inlined numeric after Phase 24 shim deletion
+              pubkey: '',
               created_at: Math.floor(Date.now() / 1000),
               tags: [['t', 'shell:send-dm-result'], ['id', corrId]],
               content: JSON.stringify(payload), id: '', sig: '',
@@ -500,10 +499,10 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
           if (matchesAnyFilter(bufferedEvent, filters)) deliver(bufferedEvent);
         }
 
-        const isBusKind = filters.length > 0 && filters.every((f) => f.kinds?.every((k) => k >= 29000 && k < 30000));
+        const isShellKind = filters.length > 0 && filters.every((f) => f.kinds?.every((k) => k >= 29000 && k < 30000));
 
         // Service dispatch path
-        if (!isBusKind) {
+        if (!isShellKind) {
           const relayService = serviceRegistry['relay'] ?? serviceRegistry['relay-pool'];
           const cacheService = !serviceRegistry['relay'] ? serviceRegistry['cache'] : undefined;
 
@@ -522,14 +521,14 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
 
         // Fallback: internal relay pool + cache hooks
         const cache = hooks.cache;
-        if (cache?.isAvailable() && !isBusKind) {
+        if (cache?.isAvailable() && !isShellKind) {
           cache.query(filters)
             .then((cachedEvents) => { for (const event of cachedEvents) deliver(event); })
             .catch(() => {});
         }
 
         const pool = hooks.relayPool;
-        if (pool?.isAvailable() && !isBusKind) {
+        if (pool?.isAvailable() && !isShellKind) {
           const relayUrls = pool.selectRelayTier(filters);
           let eoseSent = false;
           const eoseFallbackTimer = setTimeout(() => {
@@ -543,7 +542,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
               return;
             }
             deliver(item as NostrEvent);
-            if (cache?.isAvailable() && !isBusKind) {
+            if (cache?.isAvailable() && !isShellKind) {
               try { cache.store(item as NostrEvent); } catch { /* best-effort */ }
             }
           }, relayUrls);
@@ -552,7 +551,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
             clearTimeout(eoseFallbackTimer);
             subscription.unsubscribe();
           });
-        } else if (!isBusKind) {
+        } else if (!isShellKind) {
           hooks.sendToNapplet(windowId, { type: 'relay.eose', subId } as NappletMessage);
         }
         break;
@@ -1149,7 +1148,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
         id: uuid,
         pubkey: '0'.repeat(64),
         created_at: Math.floor(Date.now() / 1000),
-        kind: BusKind.IPC_PEER,
+        kind: 29000, // IPC_PEER — inlined numeric after Phase 24 shim deletion
         tags: [['t', topic]],
         content: JSON.stringify(payload),
         sig: '0'.repeat(128),

@@ -1,116 +1,21 @@
 /**
- * enforce.ts — Single ACL enforcement gate for the runtime.
+ * enforce.ts — Single ACL enforcement gate for the NIP-5D runtime.
  *
- * All message paths pass through enforce() before any handler acts.
- * resolveCapabilities() maps each message type to the required capability (legacy NIP-01).
- * resolveCapabilitiesNub() maps NIP-5D NUB message types to capabilities (re-exported from @kehto/acl).
- * Both functions are designed to be the sole ACL chokepoint — no handler
- * should call @kehto/acl directly.
+ * All NIP-5D NappletMessage envelopes pass through createNubEnforceGate()
+ * before any handler acts. resolveCapabilitiesNub() (re-exported from
+ * @kehto/acl) maps NUB message types to required capabilities. No NIP-01
+ * dispatch path remains — v1.4 Phase 24 DRIFT-02 deleted the legacy
+ * capability-resolution function along with its dead kind + topic
+ * dispatch table.
  */
 
-import type { NostrEvent } from '@napplet/core';
-// DRIFT-CORE-06 — Phase 11-deviation: Capability, BusKind, and state TOPICS
-// removed from @napplet/core v0.2.0+ (napplet phase-87). Sourced from local shim.
-import type { Capability } from './core-compat.js';
-import { BusKind, STATE_TOPICS } from './core-compat.js';
+import type { Capability } from '@kehto/acl/capabilities';
 import type { NubMessage } from '@kehto/acl';
 import type { AclCheckEvent } from './types.js';
 
 // Re-export NUB capability resolution for consumers who import through enforce.ts
 export { resolveCapabilitiesNub } from '@kehto/acl';
 export type { NubMessage } from '@kehto/acl';
-
-// ─── Capability Resolution ────────────────────────────────────────────────────
-
-/**
- * Result of resolving what capabilities a message requires.
- *
- * @param senderCap - Capability the sender must have, or null if no check needed (CLOSE, AUTH)
- * @param recipientCap - Capability the recipient must have at delivery time, or null if no recipient check
- */
-export interface CapabilityResolution {
-  senderCap: Capability | null;
-  recipientCap: Capability | null;
-}
-
-/**
- * Map a raw NIP-01 message to the capability(ies) it requires.
- *
- * Pure function — no side effects, no state access.
- * Examines verb, event kind, and topic tag to determine required capabilities.
- *
- * @param msg - Raw NIP-01 message array (e.g., ['EVENT', {...}], ['REQ', 'sub1', {...}])
- * @returns The sender and recipient capabilities required, or null for each if no check needed
- *
- * @example
- * ```ts
- * resolveCapabilities(['REQ', 'sub1', { kinds: [1] }])
- * // => { senderCap: 'relay:read', recipientCap: null }
- * ```
- */
-export function resolveCapabilities(msg: unknown[]): CapabilityResolution {
-  const verb = msg[0];
-
-  switch (verb) {
-    case 'AUTH':
-      return { senderCap: null, recipientCap: null };
-
-    case 'CLOSE':
-      return { senderCap: null, recipientCap: null };
-
-    case 'REQ':
-      return { senderCap: 'relay:read', recipientCap: null };
-
-    case 'COUNT':
-      return { senderCap: 'relay:read', recipientCap: null };
-
-    case 'EVENT': {
-      const event = msg[1] as NostrEvent | undefined;
-      if (!event || typeof event !== 'object') {
-        return { senderCap: 'relay:write', recipientCap: null };
-      }
-
-      // Plan 12-10: SIGNER_REQUEST branch deleted — canonical NIP-5D has no
-      // napplet-visible signing surface; the shell mediates encryption inside
-      // relay.publish / relay.publishEncrypted. BusKind.SIGNER_REQUEST events
-      // fall through to the generic "all other event kinds" branch below.
-
-      // Hotkey forward — needs hotkey:forward capability
-      if (event.kind === BusKind.HOTKEY_FORWARD) {
-        return { senderCap: 'hotkey:forward', recipientCap: null };
-      }
-
-      // IPC-PEER events — check topic for state operations
-      if (event.kind === BusKind.IPC_PEER) {
-        const topic = event.tags?.find((t: string[]) => t[0] === 't')?.[1];
-
-        // DRIFT-CORE-06 — Phase 11-deviation: STATE_* topics now sourced from local shim.
-        if (topic === STATE_TOPICS.STATE_GET || topic === STATE_TOPICS.STATE_KEYS) {
-          return { senderCap: 'state:read', recipientCap: null };
-        }
-
-        if (
-          topic === STATE_TOPICS.STATE_SET ||
-          topic === STATE_TOPICS.STATE_REMOVE ||
-          topic === STATE_TOPICS.STATE_CLEAR
-        ) {
-          return { senderCap: 'state:write', recipientCap: null };
-        }
-
-        // Non-state IPC-PEER messages (including audio, shell commands)
-        // require relay:write to send, relay:read to receive
-        return { senderCap: 'relay:write', recipientCap: 'relay:read' };
-      }
-
-      // All other event kinds — standard relay publish
-      return { senderCap: 'relay:write', recipientCap: 'relay:read' };
-    }
-
-    default:
-      // Unknown verb — require relay:write as a safe default
-      return { senderCap: 'relay:write', recipientCap: null };
-  }
-}
 
 // ─── Enforcement ──────────────────────────────────────────────────────────────
 

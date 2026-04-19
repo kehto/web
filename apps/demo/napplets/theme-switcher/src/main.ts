@@ -20,7 +20,7 @@
  *   - No raw NIP-01 arrays
  *   - No bus-kind enums or kind 29001/29002 references
  *   - No global nostr accessor
- *   - No legacy signing-service or core-compat consumers
+ *   - No legacy signing-service or legacy @napplet/core compat-shim consumers
  *   - No global message-event listener (OUTBOUND-ONLY napplet)
  */
 import '@napplet/shim';

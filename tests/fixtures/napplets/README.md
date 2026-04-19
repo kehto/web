@@ -28,7 +28,7 @@ Stub-domain coverage (no fixture napplet — spec uses `__injectEnvelope__` dire
 
 - NO raw `window.addEventListener('message')` — fixtures use `@napplet/sdk` only.
 - NO `window.nostr`, NO `signer-service`, NO `BusKind`, NO kind 29001/29002.
-- NO new consumers of `packages/runtime/src/core-compat.ts`.
+- NO new consumers of the former `@napplet/core` compatibility shim (removed in Phase 24).
 - NO `allow-same-origin` in any iframe sandbox.
 
 ## Removed in Phase 21

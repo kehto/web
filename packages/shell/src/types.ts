@@ -1,33 +1,25 @@
 // @kehto/shell — Shell-specific types and hook interfaces.
 // Protocol types (NostrEvent, NostrFilter, Capability, constants) are imported from @napplet/core.
 
-// Protocol types and constants re-exported from @napplet/core and the runtime shim.
-// DRIFT-CORE-06 — Phase 11-deviation: Capability, BusKind, ALL_CAPABILITIES,
-// DESTRUCTIVE_KINDS, REPLAY_WINDOW_SECONDS, SHELL_BRIDGE_URI, PROTOCOL_VERSION,
-// AUTH_KIND, BusKindValue, ServiceDescriptor were dropped from @napplet/core v0.2.0+
-// (napplet phases 81 + 87). Now re-exported through @kehto/runtime's core-compat shim.
+// Protocol types and constants re-exported from @napplet/core and @kehto/runtime.
+// Phase 24 DRIFT-01: the former @napplet/core compatibility shim has been
+// deleted; legacy NIP-01 constants (BusKind, AUTH_KIND, DESTRUCTIVE_KINDS,
+// SHELL_BRIDGE_URI, PROTOCOL_VERSION, REPLAY_WINDOW_SECONDS, legacy
+// BusKind-value union) are no longer re-exported. Shell internals that need
+// IPC_PEER=29000 inline the numeric locally.
 export type { NostrEvent, NostrFilter } from '@napplet/core';
-export type { Capability, BusKindValue, ServiceDescriptor } from '@kehto/runtime';
-export {
-  ALL_CAPABILITIES,
-  BusKind,
-  AUTH_KIND,
-  SHELL_BRIDGE_URI,
-  PROTOCOL_VERSION,
-  REPLAY_WINDOW_SECONDS,
-  DESTRUCTIVE_KINDS,
-} from '@kehto/runtime';
+export type { Capability, ServiceDescriptor } from '@kehto/runtime';
+export { ALL_CAPABILITIES } from '@kehto/runtime';
 export type { NappletMessage } from '@napplet/core';
 
 // Import Capability type locally for use in this file's shell-specific types
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
-// DRIFT-CORE-06 — Phase 11-deviation: see above.
 import type { Capability, ServiceDescriptor } from '@kehto/runtime';
 import type { RuntimeConfigOverrides } from '@kehto/runtime';
 import type { ServiceHandler, ServiceRegistry } from '@kehto/runtime';
 
 // Re-export service types so shell consumers can still import from @kehto/shell
-// (ServiceDescriptor already re-exported above from @kehto/runtime — DRIFT-CORE-06).
+// (ServiceDescriptor already re-exported above from @kehto/runtime).
 export type { ServiceHandler, ServiceRegistry };
 
 // ─── Registry Types ─────────────────────────────────────────────────────────

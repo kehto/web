@@ -8,10 +8,8 @@
  * Default policy is PERMISSIVE: unknown identities have all capabilities granted.
  */
 
-// DRIFT-CORE-06 — Phase 11-deviation: Capability, ALL_CAPABILITIES, DESTRUCTIVE_KINDS
-// dropped from @napplet/core v0.2.0+ (napplet phase-87). Sourced from runtime shim.
 import type { Capability } from '@kehto/runtime';
-import { ALL_CAPABILITIES, DESTRUCTIVE_KINDS } from '@kehto/runtime';
+import { ALL_CAPABILITIES } from '@kehto/runtime';
 import { migrateAclState } from '@kehto/acl';
 import type { AclState } from '@kehto/acl';
 import type { AclEntry } from './types.js';
@@ -170,16 +168,6 @@ export const aclStore = {
   isBlocked(pubkey: string, dTag: string, aggregateHash: string): boolean {
     const key = aclKey(pubkey, dTag, aggregateHash);
     return store.get(key)?.blocked ?? false;
-  },
-
-  /**
-   * Check if a signing kind requires user consent prompt.
-   *
-   * @param kind - The event kind to check
-   * @returns True if the kind is destructive and requires consent
-   */
-  requiresPrompt(kind: number): boolean {
-    return DESTRUCTIVE_KINDS.has(kind);
   },
 
   /**

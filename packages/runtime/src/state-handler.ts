@@ -1,13 +1,12 @@
 /**
- * state-handler.ts — State request handler using persistence hooks.
+ * state-handler.ts — Storage NUB request handler using persistence hooks.
  *
- * Handles napplet state operations (get, set, remove, clear, keys)
- * by delegating storage to StatePersistence. No localStorage.
+ * Handles napplet storage operations (get, set, remove, keys) via the
+ * canonical `@napplet/nub-storage` NIP-5D envelope surface. Delegates
+ * storage to StatePersistence. No localStorage, no legacy NIP-01 dispatch.
  */
 
-import type { NostrEvent, NappletMessage } from '@napplet/core';
-// DRIFT-CORE-06 — Phase 11-deviation: BusKind removed from @napplet/core v0.2.0+.
-import { BusKind } from './core-compat.js';
+import type { NappletMessage } from '@napplet/core';
 // Phase 11-02 / DRIFT-CORE-05: narrow storage dispatch to canonical nub-storage union.
 import type { StorageMessage } from '@napplet/nub-storage';
 import type { SendToNapplet, StatePersistence } from './types.js';
@@ -34,134 +33,6 @@ function byteLength(str: string): number {
     else { i++; bytes += 4; } // surrogate pair
   }
   return bytes;
-}
-
-function sendResponse(
-  sendToNapplet: SendToNapplet,
-  windowId: string,
-  correlationId: string,
-  tags: string[][],
-): void {
-  const responseEvent: Partial<NostrEvent> = {
-    kind: BusKind.IPC_PEER,
-    pubkey: '',
-    created_at: Math.floor(Date.now() / 1000),
-    tags: [['t', 'napplet:state-response'], ['id', correlationId], ...tags],
-    content: '',
-    id: '',
-    sig: '',
-  };
-  sendToNapplet(windowId, ['EVENT', '__shell__', responseEvent]);
-}
-
-function sendError(
-  sendToNapplet: SendToNapplet,
-  windowId: string,
-  correlationId: string,
-  reason: string,
-): void {
-  sendResponse(sendToNapplet, windowId, correlationId, [['error', reason]]);
-}
-
-/**
- * Handle a state request from a napplet.
- * Routes to the appropriate operation (get, set, remove, clear, keys) based on topic.
- *
- * @param windowId - The window identifier of the requesting napplet
- * @param event - The NostrEvent containing the state request
- * @param sendToNapplet - Transport function to send responses
- * @param sessionRegistry - Identity registry for looking up napplet session identity
- * @param aclState - ACL state for quota checks
- * @param statePersistence - State storage backend
- *
- * @example
- * ```ts
- * import { handleStateRequest } from '@kehto/runtime';
- *
- * handleStateRequest(windowId, event, sendToNapplet, sessionRegistry, aclState, statePersistence);
- * ```
- */
-export function handleStateRequest(
-  windowId: string,
-  event: NostrEvent,
-  sendToNapplet: SendToNapplet,
-  sessionRegistry: SessionRegistry,
-  aclState: AclStateContainer,
-  statePersistence: StatePersistence,
-): void {
-  const topic = event.tags?.find((t) => t[0] === 't')?.[1];
-  const key = event.tags?.find((t) => t[0] === 'key')?.[1];
-  const correlationId = event.tags?.find((t) => t[0] === 'id')?.[1] ?? '';
-
-  const pubkey = sessionRegistry.getPubkey(windowId);
-  if (!pubkey) { sendError(sendToNapplet, windowId, correlationId, 'auth-required: not registered'); return; }
-  const entry = sessionRegistry.getEntry(pubkey);
-  if (!entry) { sendError(sendToNapplet, windowId, correlationId, 'auth-required: no entry'); return; }
-
-  const { dTag, aggregateHash } = entry;
-  const prefix = `napplet-state:${dTag}:${aggregateHash}:`;
-  const legacyPrefix = `napplet-state:${pubkey}:${dTag}:${aggregateHash}:`;
-
-  switch (topic) {
-    case 'shell:state-get': {
-      if (!key) { sendError(sendToNapplet, windowId, correlationId, 'missing key tag'); return; }
-      const newKey = scopedKey(dTag, aggregateHash, key);
-      const legacyKeyWithPubkey = legacyScopedKey(pubkey, dTag, aggregateHash, key);
-      const oldPrefixKey = `napp-state:${pubkey}:${dTag}:${aggregateHash}:${key}`;
-      // Triple-read: try new format first, then legacy with pubkey, then old prefix for migration
-      const result = statePersistence.get(newKey) ?? statePersistence.get(legacyKeyWithPubkey) ?? statePersistence.get(oldPrefixKey) ?? null;
-      sendResponse(sendToNapplet, windowId, correlationId, [
-        ['value', result ?? ''], ['found', result !== null ? 'true' : 'false'],
-      ]);
-      break;
-    }
-    case 'shell:state-set': {
-      if (!key) { sendError(sendToNapplet, windowId, correlationId, 'missing key tag'); return; }
-      const value = event.tags?.find((t) => t[0] === 'value')?.[1] ?? '';
-      const quota = aclState.getStateQuota(pubkey, dTag, aggregateHash);
-      const sk = scopedKey(dTag, aggregateHash, key);
-      const newWriteBytes = byteLength(sk + value);
-      const existingBytes = statePersistence.calculateBytes(prefix, key);
-      if (existingBytes + newWriteBytes > quota) {
-        sendError(sendToNapplet, windowId, correlationId, `quota exceeded: napplet state limit is ${quota} bytes`);
-        return;
-      }
-      const success = statePersistence.set(sk, value);
-      if (success) {
-        sendResponse(sendToNapplet, windowId, correlationId, [['ok', 'true']]);
-      } else {
-        sendError(sendToNapplet, windowId, correlationId, 'state write failed');
-      }
-      break;
-    }
-    case 'shell:state-remove': {
-      if (!key) { sendError(sendToNapplet, windowId, correlationId, 'missing key tag'); return; }
-      const sk = scopedKey(dTag, aggregateHash, key);
-      statePersistence.remove(sk);
-      sendResponse(sendToNapplet, windowId, correlationId, [['ok', 'true']]);
-      break;
-    }
-    case 'shell:state-clear': {
-      statePersistence.clear(prefix);
-      statePersistence.clear(legacyPrefix);
-      sendResponse(sendToNapplet, windowId, correlationId, [['ok', 'true']]);
-      break;
-    }
-    case 'shell:state-keys': {
-      const newKeys = statePersistence.keys(prefix);
-      const legacyKeys = statePersistence.keys(legacyPrefix);
-      // Merge: strip prefixes to get user-facing names, deduplicate
-      const userKeySet = new Set<string>();
-      for (const k of newKeys) userKeySet.add(k.startsWith(prefix) ? k.slice(prefix.length) : k);
-      for (const k of legacyKeys) userKeySet.add(k.startsWith(legacyPrefix) ? k.slice(legacyPrefix.length) : k);
-      const userKeys = Array.from(userKeySet);
-      sendResponse(sendToNapplet, windowId, correlationId, userKeys.map(k => ['key', k]));
-      break;
-    }
-    default:
-      sendError(sendToNapplet, windowId, correlationId, `unknown state topic: ${topic}`);
-      break;
-  }
 }
 
 /**

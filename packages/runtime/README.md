@@ -56,7 +56,6 @@ runtime.handleMessage('window-1', {
 ### Enforcement gate
 - [`createEnforceGate`](../../docs/api/functions/_kehto_runtime.createEnforceGate.html) — legacy pubkey-keyed ACL gate
 - [`createNubEnforceGate`](../../docs/api/functions/_kehto_runtime.createNubEnforceGate.html) — NIP-5D windowId-keyed ACL gate
-- [`resolveCapabilities`](../../docs/api/functions/_kehto_runtime.resolveCapabilities.html) — map a NIP-01 message to required capabilities
 - [`resolveCapabilitiesNub`](../../docs/api/functions/_kehto_runtime.resolveCapabilitiesNub.html) — map a NIP-5D envelope to required capabilities (re-exported from `@kehto/acl`)
 - [`formatDenialReason`](../../docs/api/functions/_kehto_runtime.formatDenialReason.html) — `denied: <capability>` canonical string
 
@@ -79,17 +78,12 @@ runtime.handleMessage('window-1', {
 - `RING_BUFFER_SIZE` — default ring buffer capacity constant
 
 ### State handler
-- [`handleStateRequest`](../../docs/api/functions/_kehto_runtime.handleStateRequest.html) — legacy NIP-01 state operations
 - [`handleStorageNub`](../../docs/api/functions/_kehto_runtime.handleStorageNub.html) — canonical `storage.*` NIP-5D handler
 - [`cleanupNappState`](../../docs/api/functions/_kehto_runtime.cleanupNappState.html) — remove persisted state when a napplet window closes
 
 ### Service dispatch
 - [`routeServiceMessage`](../../docs/api/functions/_kehto_runtime.routeServiceMessage.html) — domain-prefix router into the service registry
 - [`notifyServiceWindowDestroyed`](../../docs/api/functions/_kehto_runtime.notifyServiceWindowDestroyed.html) — lifecycle fan-out to every service handler
-
-### Service discovery (kind 29010)
-- [`createServiceDiscoveryEvent`](../../docs/api/functions/_kehto_runtime.createServiceDiscoveryEvent.html) — synthesize a discovery event from a handler descriptor
-- [`handleDiscoveryReq`](../../docs/api/functions/_kehto_runtime.handleDiscoveryReq.html), [`isDiscoveryReq`](../../docs/api/functions/_kehto_runtime.isDiscoveryReq.html) — discovery REQ lifecycle helpers
 
 ### Types
 40+ interfaces — including `Runtime`, `RuntimeAdapter`, `SendToNapplet`, `RelayPoolAdapter`, `ServiceHandler`, `ServiceRegistry`, `NappletMessage`, `SessionEntry`, `AclEntryExternal`, `AclCheckEvent`, and the per-adapter hook types — are exported from `./types.js` for host-app integration.

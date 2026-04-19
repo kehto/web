@@ -4,6 +4,7 @@ import { resolve } from 'path';
 export default defineConfig({
   resolve: {
     alias: {
+      '@kehto/acl/capabilities': resolve(__dirname, 'packages/acl/src/capabilities.ts'),
       '@kehto/acl': resolve(__dirname, 'packages/acl/src/index.ts'),
       '@kehto/runtime': resolve(__dirname, 'packages/runtime/src/index.ts'),
       '@kehto/services': resolve(__dirname, 'packages/services/src/index.ts'),

@@ -12,20 +12,13 @@ export type { ShellBridge } from './shell-bridge.js';
 export { adaptHooks } from './hooks-adapter.js';
 export type { BrowserDeps } from './hooks-adapter.js';
 
-// Protocol types (re-exported from @napplet/core for backwards compatibility)
+// Protocol types (re-exported from @napplet/core + @kehto/runtime).
+// Phase 24 DRIFT-01: former @napplet/core compatibility shim deleted; legacy
+// NIP-01 constants no longer re-exported. Shell consumers import Capability +
+// ALL_CAPABILITIES from @kehto/runtime (sourced from @kehto/acl/capabilities).
 export type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
-// DRIFT-CORE-06 — Phase 11-deviation: Capability, BusKind, etc. now come from
-// @kehto/runtime's core-compat shim (napplet/core dropped these in v0.2.0+).
-export type { Capability, BusKindValue } from '@kehto/runtime';
-export {
-  BusKind,
-  AUTH_KIND,
-  SHELL_BRIDGE_URI,
-  PROTOCOL_VERSION,
-  ALL_CAPABILITIES,
-  DESTRUCTIVE_KINDS,
-  REPLAY_WINDOW_SECONDS,
-} from '@kehto/runtime';
+export type { Capability } from '@kehto/runtime';
+export { ALL_CAPABILITIES } from '@kehto/runtime';
 
 // Types for host app integration (shell-specific)
 export type {
@@ -66,8 +59,8 @@ export { manifestCache } from './manifest-cache.js';
 export type { ManifestCacheEntry } from './manifest-cache.js';
 
 // Enforcement gate (re-exported from @kehto/runtime for backwards compatibility)
-export { createEnforceGate, resolveCapabilities, formatDenialReason } from '@kehto/runtime';
-export type { CapabilityResolution, EnforceResult, EnforceConfig, IdentityResolver, AclChecker } from '@kehto/runtime';
+export { createEnforceGate, createNubEnforceGate, formatDenialReason } from '@kehto/runtime';
+export type { EnforceResult, EnforceConfig, NubEnforceConfig, IdentityResolver, AclChecker, NubMessage } from '@kehto/runtime';
 // ConsentRequest canonical definition re-exported from @kehto/runtime
 export type { ConsentRequest } from '@kehto/runtime';
 

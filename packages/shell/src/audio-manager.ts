@@ -6,7 +6,6 @@
  */
 
 import { originRegistry } from './origin-registry.js';
-import { BusKind } from './types.js';
 
 /**
  * An active audio source registered by a napplet.
@@ -99,7 +98,7 @@ export const audioManager = {
     const iframeWindow = originRegistry.getIframeWindow(windowId);
     if (iframeWindow) {
       const muteEvent = {
-        kind: BusKind.IPC_PEER,
+        kind: 29000, // IPC_PEER — inlined numeric after Phase 24 DRIFT-01 shim removal
         created_at: Math.floor(Date.now() / 1000),
         tags: [['t', 'napplet:audio-muted']],
         content: JSON.stringify({ muted }),

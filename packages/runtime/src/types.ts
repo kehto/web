@@ -6,9 +6,7 @@
  */
 
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
-// DRIFT-CORE-06 — Phase 11-deviation: Capability (napplet phase-87) and
-// ServiceDescriptor (napplet phase-81) removed from @napplet/core v0.2.0+.
-import type { Capability, ServiceDescriptor } from './core-compat.js';
+import type { Capability } from '@kehto/acl/capabilities';
 
 // ─── ACL Check Event ──────────────────────────────────────────────────────
 
@@ -339,6 +337,34 @@ export interface ConsentRequest {
 
 /** Consent handler callback type. */
 export type ConsentHandler = (request: ConsentRequest) => void;
+
+// ─── Service Descriptor ────────────────────────────────────────────────────
+
+/**
+ * Metadata describing a service handler. Referenced by ServiceHandler.descriptor
+ * and the runtime's internal service registry.
+ *
+ * Relocated from the former @napplet/core compatibility shim (DRIFT-CORE-06
+ * deleted in Phase 24). Content unchanged from the v1.1-era definition; this
+ * is the canonical location going forward.
+ *
+ * @example
+ * ```ts
+ * const descriptor: ServiceDescriptor = {
+ *   name: 'audio',
+ *   version: '1.0.0',
+ *   description: 'Audio playback and mute control',
+ * };
+ * ```
+ */
+export interface ServiceDescriptor {
+  /** Service identifier (e.g., 'audio', 'notifications'). */
+  name: string;
+  /** Semver version of the service. */
+  version: string;
+  /** Optional human-readable description. */
+  description?: string;
+}
 
 // ─── Service Info ─────────────────────────────────────────────────────────
 

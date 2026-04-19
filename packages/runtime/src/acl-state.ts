@@ -5,10 +5,7 @@
  * AclPersistence. No localStorage or DOM references.
  */
 
-// DRIFT-CORE-06 — Phase 11-deviation: Capability + DESTRUCTIVE_KINDS removed from
-// @napplet/core v0.2.0+ (napplet phase-87). Sourced from local core-compat shim.
-import type { Capability } from './core-compat.js';
-import { DESTRUCTIVE_KINDS } from './core-compat.js';
+import type { Capability } from '@kehto/acl/capabilities';
 import type { AclState, Identity } from '@kehto/acl';
 import {
   createState, check, grant, revoke, block, unblock,
@@ -95,7 +92,6 @@ export interface AclStateContainer {
   block(pubkey: string, dTag: string, aggregateHash: string): void;
   unblock(pubkey: string, dTag: string, aggregateHash: string): void;
   isBlocked(pubkey: string, dTag: string, aggregateHash: string): boolean;
-  requiresPrompt(kind: number): boolean;
   getEntry(pubkey: string, dTag: string, aggregateHash: string): AclEntryExternal | undefined;
   getAllEntries(): AclEntryExternal[];
   getStateQuota(pubkey: string, dTag: string, aggregateHash: string): number;
@@ -155,10 +151,6 @@ export function createAclState(
       // A blocked identity fails all checks — check with CAP_ALL
       // If blocked, check returns false even for all caps
       return !check(state, id, CAP_ALL) && this.getEntry(pubkey, dTag, aggregateHash)?.blocked === true;
-    },
-
-    requiresPrompt(kind: number): boolean {
-      return DESTRUCTIVE_KINDS.has(kind);
     },
 
     getEntry(pubkey: string, dTag: string, aggregateHash: string): AclEntryExternal | undefined {

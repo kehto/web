@@ -162,7 +162,7 @@ describe('NIP-5D Envelope Dispatch', () => {
         filters: [],
       } as NappletMessage);
 
-      // Empty filters: isBusKind is false (no filters.every succeeds with empty), sends eose
+      // Empty filters: the shell-kind fast path is false (no filters.every succeeds with empty), sends eose
       const eose = findEnvelopeResponse(ctx.sent, 'relay.eose');
       expect(eose).toBeDefined();
     });

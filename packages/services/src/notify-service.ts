@@ -28,7 +28,7 @@
 
 import type { NappletMessage } from '@napplet/core';
 // DRIFT-CORE-06 — Phase 11-deviation: ServiceDescriptor dropped from @napplet/core
-// v0.2.0+ (napplet phase-81). Re-exported from @kehto/runtime's core-compat shim.
+// v0.2.0+ (napplet phase-81). Re-exported from @kehto/runtime (canonical home after Phase 24 DRIFT-01).
 import type { ServiceDescriptor, ServiceHandler } from '@kehto/runtime';
 import type {
   NotifySendMessage,

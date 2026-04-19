@@ -40,8 +40,8 @@ export type {
 } from './types.js';
 
 // ─── Enforcement Gate ──────────────────────────────────────────────────────
-export { createEnforceGate, createNubEnforceGate, resolveCapabilities, resolveCapabilitiesNub, formatDenialReason } from './enforce.js';
-export type { CapabilityResolution, EnforceResult, EnforceConfig, NubEnforceConfig, IdentityResolver, AclChecker, NubMessage } from './enforce.js';
+export { createEnforceGate, createNubEnforceGate, resolveCapabilitiesNub, formatDenialReason } from './enforce.js';
+export type { EnforceResult, EnforceConfig, NubEnforceConfig, IdentityResolver, AclChecker, NubMessage } from './enforce.js';
 
 // ─── SessionRegistry ──────────────────────────────────────────────────────
 export { createSessionRegistry, createNappKeyRegistry } from './session-registry.js';
@@ -68,27 +68,20 @@ export { createRuntime } from './runtime.js';
 export type { Runtime } from './runtime.js';
 
 // ─── State Handler ─────────────────────────────────────────────────────────
-export { handleStateRequest, handleStorageNub, cleanupNappState } from './state-handler.js';
+export { handleStorageNub, cleanupNappState } from './state-handler.js';
 
 // ─── Service Dispatch ─────────────────────────────────────────────────────
 export { routeServiceMessage, notifyServiceWindowDestroyed } from './service-dispatch.js';
 
-// ─── Service Discovery ────────────────────────────────────────────────────────
-export { createServiceDiscoveryEvent, handleDiscoveryReq, isDiscoveryReq } from './service-discovery.js';
-export type { DiscoverySubscription } from './service-discovery.js';
-
-// ─── @napplet/core v1.1 compatibility shims ────────────────────────────────
-// DRIFT-CORE-06 — Phase 11-deviation: re-export legacy types/constants that were
-// dropped from @napplet/core v0.2.0+ (napplet phases 81 + 87). Consumers still
-// import these symbols through @kehto/runtime; Phase 12/14 will delete both
-// the shim and its consumers.
-export type { Capability, BusKindValue, ServiceDescriptor } from './core-compat.js';
-export {
-  ALL_CAPABILITIES,
-  DESTRUCTIVE_KINDS,
-  REPLAY_WINDOW_SECONDS,
-  BusKind,
-  AUTH_KIND,
-  SHELL_BRIDGE_URI,
-  PROTOCOL_VERSION,
-} from './core-compat.js';
+// ─── Re-exports from canonical homes (Phase 24 DRIFT-01) ───────────────────
+// The former @napplet/core compatibility shim was deleted in Phase 24 after
+// @napplet/core @0.2.0 stabilized on npm. Live types are now re-exported from
+// their rightful homes:
+//   - Capability       → @kehto/acl/capabilities  (canonical string union + ALL_CAPABILITIES)
+//   - ServiceDescriptor → ./types.js              (runtime-internal service metadata)
+// The legacy bus-kind value-union type and the NIP-01 kind + topic + auth +
+// destructive-kind constants are no longer exported — all dead after the
+// v1.2 NIP-5D migration (Phase 24 DRIFT-02 deleted the remaining callers).
+export type { Capability } from '@kehto/acl/capabilities';
+export { ALL_CAPABILITIES } from '@kehto/acl/capabilities';
+export type { ServiceDescriptor } from './types.js';
