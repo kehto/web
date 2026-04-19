@@ -189,3 +189,19 @@ Phase 27 picks up the same pattern for media: real Web Audio + MediaSession back
 **STUB_ONLY_SERVICES status:** `['media']` (was `['keys', 'media']` at Phase 25 close).
 
 **v1.4 e2e baseline:** 48 passed (was 47 at Phase 25 close). Phase 27 will target 49 (adding media-controller.spec.ts); Phase 28 will close v1.4 with the full Layer-A/Layer-B coverage.
+
+---
+
+## CI Verification (post-push)
+
+Atomic commit pushed: `15209f5cef942fa6a0a6bdaadc3d0090dc2e814c` (origin/main).
+
+All 3 CI workflows completed **success** against this SHA:
+
+| Workflow   | Status    | Conclusion | URL                                                                 |
+|------------|-----------|------------|---------------------------------------------------------------------|
+| Build      | completed | success    | https://github.com/kehto/monorepo/actions/runs/24631096713          |
+| Unit Tests | completed | success    | https://github.com/kehto/monorepo/actions/runs/24631096724          |
+| E2E        | completed | success    | https://github.com/kehto/monorepo/actions/runs/24631096714          |
+
+Phase 26 is **fully green in CI** — local and remote reproduction both confirm the real keys backend loop ships without regression.

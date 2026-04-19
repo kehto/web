@@ -176,7 +176,11 @@ Automated verification of SUMMARY claims:
 - Anti-term hygiene (source scope only):
   - `grep -rnE "window\.nostr|signer-service|signer\.sign|BusKind|kind 29001|kind 29002" packages/services/src/keys-service.ts apps/demo/napplets/hotkey-chord/src/ apps/demo/napplets/hotkey-chord/index.html` → 0 matches ✓
   - `grep -rnE "window\.addEventListener\('message'|Math\.random|onNappletMessage|sendNappletMessage" apps/demo/napplets/hotkey-chord/src/` → 0 matches ✓
-- Commits: atomic commit hashes captured in Return Report (below)
+- Commits: atomic Phase 26 commit `15209f5cef942fa6a0a6bdaadc3d0090dc2e814c` (local HEAD + origin/main)
+- CI (post-push, commit 15209f5):
+  - Build: success — https://github.com/kehto/monorepo/actions/runs/24631096713
+  - Unit Tests: success — https://github.com/kehto/monorepo/actions/runs/24631096724
+  - E2E: success — https://github.com/kehto/monorepo/actions/runs/24631096714
 
 ## Self-Check: PASSED
 
