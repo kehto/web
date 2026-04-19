@@ -127,7 +127,10 @@
   3. `apps/demo/README.md` lists `hotkey-chord` and `media-controller` in the demo napplet inventory; the integration narrative updated from "8-napplet showcase" (v1.3) to "10-napplet end-to-end showcase" with the two new napplets cited as the keys/media backend exemplars.
   4. Build → run → Playwright iteration loop recorded: `pnpm clean && pnpm build && pnpm test:e2e` reports the full v1.4 suite green (v1.3 47-spec baseline + `hotkey-chord.spec.ts` + `media-controller.spec.ts` + upgraded `nub-keys.spec.ts` + upgraded `nub-media.spec.ts`); zero skipped specs across the entire suite.
   5. Anti-term hygiene grep across all v1.4-touched paths returns zero matches for `window.nostr` / `signer-service` / `signer.sign` / `BusKind` / `kind 29001` / `kind 29002` / `core-compat`; `apps/demo/napplets/{hotkey-chord,media-controller}/src/**` contain zero raw `window.addEventListener('message')` calls.
-**Plans**: TBD
+**Plans:** 1/3 plans executed
+- [x] 28-01-PLAN.md — Upgrade nub-keys.spec.ts + nub-media.spec.ts to real-backend + extend harness __registerService__ with 'real' factory-key (E2E-14)
+- [ ] 28-02-PLAN.md — Append ## Keys Service + ## Media Service H2 sections to packages/services/README.md (DOCS-05)
+- [ ] 28-03-PLAN.md — Create apps/demo/README.md + iteration loop + milestone-gate anti-term sweep (DOCS-06)
 
 ---
 
@@ -150,4 +153,4 @@ Phases execute in numeric order: 23 → 24 → 25 → 26 → 27 → 28
 | 25. Release Publication | v1.4 | 0/TBD | Not started | - |
 | 26. Real Keys Backend | v1.4 | 4/4 | Complete   | 2026-04-19 |
 | 27. Real Media Backend | v1.4 | 4/4 | Complete    | 2026-04-19 |
-| 28. Layer-A Upgrade & Docs Polish | v1.4 | 0/TBD | Not started | - |
+| 28. Layer-A Upgrade & Docs Polish | v1.4 | 1/3 | In Progress|  |

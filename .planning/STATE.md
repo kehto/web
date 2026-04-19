@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: — Productionization & Upstream Unblock
-status: completed
-last_updated: "2026-04-19T17:56:58.426Z"
+status: executing
+last_updated: "2026-04-19T18:28:27.177Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 14
-  completed_plans: 15
+  total_plans: 17
+  completed_plans: 16
   percent: 100
 ---
 
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-19, v1.4 milestone opened)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 28 — Layer-A Upgrade & Docs Polish (next)
+**Current focus:** Phase 28 — Layer-A Upgrade & Docs Polish
 
 ## Current Position
 
-Phase: 28
-Plan: Not started
-Status: Phase complete — ready for Phase 28
+Phase: 28 (Layer-A Upgrade & Docs Polish) — EXECUTING
+Plan: 2 of 3
+Status: Executing Phase 28
 Last activity: 2026-04-19
 
-Progress: [██████████] 100% (15/14 plans complete, 4/6 v1.4 phases complete) — phase 27: [██████████] 4/4 plans
+Progress: [█████████░] 94% (16/17 plans complete, 4/6 v1.4 phases complete) — phase 28: [█░░] 1/3 plans
 
 **v1.4 phase list (23–28):**
 
@@ -77,6 +77,9 @@ Progress: [██████████] 100% (15/14 plans complete, 4/6 v1.4 
 - [v1.4-27-04] `page.bringToFront()` required before iframe button clicks in parallel Playwright workers — Chromium background-tab JS throttling suppresses sandboxed iframe onclick handlers when tests run in parallel (8 workers). bringToFront() ensures the tab is active. This does not affect keyboard events dispatched to the top-level page (hotkey-chord.spec.ts is unaffected).
 - [v1.4-27-04] DUAL-PATH E2E assertion (DOM sentinel + navigator.mediaSession read via page.evaluate from top-level shell page) is the E2E-13 structural pattern; navigator.mediaSession reads target the shell window (not the iframe) because createBrowserMediaBridge writes to the shell's singleton navigator.mediaSession.
 - [v1.4-27-04] E2E-13 closes Phase 27 with 49-test baseline (was 48 at Phase 26 close, +1 delta from media-controller.spec.ts). demo-boot.spec.ts cascaded stub-badge fix committed before the fresh-build run — no iteration-1 regression (unlike Phase 26 which had a regression on iteration 1).
+- [v1.4-28-01] envelopeLog hoisted before proxy setup + getIframeWindow wrapper extended to capture outbound NIP-5D service-send envelopes — enables __getNubMessage__ to retrieve both inbound requests AND outbound response/.action push envelopes; old stubs worked around this with window.__lastKeysReq / window.__lastMediaReq globals inside the stub handler body; real backends have no such globals; fix committed in Task 2.
+- [v1.4-28-01] @kehto/services added to tests/e2e/harness/package.json dependencies — Vite requires explicit workspace dep for ESM import resolution; plan said "no package.json edit required" but rollup resolution fails without it.
+- [v1.4-28-01] 'real' factory-key in __registerService__ is the single new harness API surface for Phase 28; existing stringBody eval path preserved; only keys + media supported via 'real' (other names return false).
 
 Full decision log archived in `.planning/PROJECT.md` (Key Decisions table) and per-milestone roadmap archives.
 
@@ -86,5 +89,5 @@ Full decision log archived in `.planning/PROJECT.md` (Key Decisions table) and p
 
 ## Session Continuity
 
-Last session: 2026-04-19T17:48:47.971Z
-Resume: Phase 27 Plan 04 complete (E2E-13 — media-controller.spec.ts + demo-boot.spec.ts cascade + 27-ITERATION-LOG.md; 4 commits: 13276ea test Task 1, a652ec5 fix bringToFront Rule 1, 9203999 fix demo-boot cascade, 4efdc9e chore iteration log; 49 passed / 0 failed / 0 skipped; Phase 27 complete). Next: Phase 28 — Layer-A Upgrade & Docs Polish (E2E-14, DOCS-05, DOCS-06). Completed: 27-04-PLAN.md — E2E-13 Layer-B spec + iteration loop + Phase 27 close.
+Last session: 2026-04-19T18:27:12Z
+Resume: Phase 28 Plan 01 complete (E2E-14 — harness 'real' factory-key + nub-keys.spec.ts + nub-media.spec.ts; 3 task commits: 2eb80ec feat harness extension, 58480f3 feat nub-keys rewrite, dcf33c6 feat nub-media rewrite; 2 auto-fixes: Rule 3 @kehto/services dep, Rule 1 envelopeLog outbound capture; both upgraded specs pass; skip-marker audit zero; E2E-14 closed). Next: 28-02-PLAN.md — DOCS-05 README append (Keys + Media sections). Completed: 28-01-PLAN.md — E2E-14 Layer-A spec upgrade + harness real factory-key.
