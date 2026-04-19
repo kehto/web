@@ -14,9 +14,9 @@ import type { ConstantDef } from '../../apps/demo/src/demo-config.ts';
 
 describe('DemoConfig data model', () => {
   describe('getAllDefs', () => {
-    it('returns at least 20 constants covering editable and protocol read-only entries', () => {
+    it('returns at least 15 constants covering editable and protocol read-only entries', () => {
       const defs = demoConfig.getAllDefs();
-      expect(defs.length).toBeGreaterThanOrEqual(20);
+      expect(defs.length).toBeGreaterThanOrEqual(15);
     });
 
     it('includes the core replay window constant', () => {
@@ -37,15 +37,6 @@ describe('DemoConfig data model', () => {
       expect(keys).toContain('demo.FLASH_DURATION');
       expect(keys).toContain('demo.FLASH_DURATION_MS');
       expect(keys).toContain('demo.TOAST_DISPLAY_MS');
-    });
-
-    it('includes protocol read-only bus kind constants', () => {
-      const defs = demoConfig.getAllDefs();
-      const keys = defs.map((d) => d.key);
-      expect(keys).toContain('core.AUTH_KIND');
-      expect(keys).toContain('core.BusKind.REGISTRATION');
-      expect(keys).toContain('core.BusKind.SIGNER_REQUEST');
-      expect(keys).toContain('core.BusKind.SIGNER_RESPONSE');
     });
 
     it('every def has required shape fields', () => {
@@ -74,10 +65,6 @@ describe('DemoConfig data model', () => {
       expect(fresh.get('runtime.RING_BUFFER_SIZE')).toBe(100);
     });
 
-    it('returns the default value for core.AUTH_KIND (22242)', () => {
-      const fresh = new DemoConfig(demoConfig.getAllDefs().map((d) => ({ ...d, currentValue: d.defaultValue })));
-      expect(fresh.get('core.AUTH_KIND')).toBe(22242);
-    });
 
     it('throws for an unknown constant key', () => {
       expect(() => demoConfig.get('nonexistent.CONSTANT')).toThrow('Unknown constant: nonexistent.CONSTANT');

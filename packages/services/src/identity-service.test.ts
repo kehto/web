@@ -72,7 +72,10 @@ describe('createIdentityService', () => {
       expect((sent[0] as any).pubkey).toMatch(/test-pubkey/);
     });
 
-    it('emits identity.getPublicKey.error when no signer is configured', async () => {
+    it('emits identity.getPublicKey.result with empty pubkey when no signer is configured', async () => {
+      // Per NIP-5D spec "Always succeeds" — no-signer returns empty pubkey as sentinel,
+      // not an error. The nub-identity shim only handles .result; .error would hang the
+      // Promise indefinitely (identity-service.ts:105-113).
       const service = createIdentityService({ getSigner: () => null });
       const sent: NappletMessage[] = [];
       const send = (msg: NappletMessage): void => { sent.push(msg); };
@@ -85,8 +88,8 @@ describe('createIdentityService', () => {
       await nextTick();
 
       expect(sent).toHaveLength(1);
-      expect(sent[0].type).toBe('identity.getPublicKey.error');
-      expect((sent[0] as any).error).toContain('no signer');
+      expect(sent[0].type).toBe('identity.getPublicKey.result');
+      expect((sent[0] as any).pubkey).toBe('');
     });
   });
 

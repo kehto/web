@@ -4,20 +4,6 @@ settings:
   autoInstallPeers: false
   excludeLinksFromLockfile: false
 
-overrides:
-  '@napplet/core': link:/home/sandwich/Develop/napplet/packages/core
-  '@napplet/shim': link:/home/sandwich/Develop/napplet/packages/shim
-  '@napplet/sdk': link:/home/sandwich/Develop/napplet/packages/sdk
-  '@napplet/vite-plugin': link:/home/sandwich/Develop/napplet/packages/vite-plugin
-  '@napplet/nub-identity': link:/home/sandwich/Develop/napplet/packages/nubs/identity
-  '@napplet/nub-ifc': link:/home/sandwich/Develop/napplet/packages/nubs/ifc
-  '@napplet/nub-keys': link:/home/sandwich/Develop/napplet/packages/nubs/keys
-  '@napplet/nub-media': link:/home/sandwich/Develop/napplet/packages/nubs/media
-  '@napplet/nub-notify': link:/home/sandwich/Develop/napplet/packages/nubs/notify
-  '@napplet/nub-relay': link:/home/sandwich/Develop/napplet/packages/nubs/relay
-  '@napplet/nub-storage': link:/home/sandwich/Develop/napplet/packages/nubs/storage
-  '@napplet/nub-theme': link:/home/sandwich/Develop/napplet/packages/nubs/theme
-
 importers:
 
   .:
@@ -84,15 +70,15 @@ importers:
   apps/demo/napplets/bot:
     dependencies:
       '@napplet/sdk':
-        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
-        version: link:../../../../../napplet/packages/sdk
+        specifier: ^0.2.1
+        version: 0.2.1
       '@napplet/shim':
-        specifier: link:/home/sandwich/Develop/napplet/packages/shim
-        version: link:../../../../../napplet/packages/shim
+        specifier: ^0.2.1
+        version: 0.2.1
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: link:/home/sandwich/Develop/napplet/packages/vite-plugin
-        version: link:../../../../../napplet/packages/vite-plugin
+        specifier: ^0.2.1
+        version: 0.2.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -103,15 +89,15 @@ importers:
   apps/demo/napplets/chat:
     dependencies:
       '@napplet/sdk':
-        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
-        version: link:../../../../../napplet/packages/sdk
+        specifier: ^0.2.1
+        version: 0.2.1
       '@napplet/shim':
-        specifier: link:/home/sandwich/Develop/napplet/packages/shim
-        version: link:../../../../../napplet/packages/shim
+        specifier: ^0.2.1
+        version: 0.2.1
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: link:/home/sandwich/Develop/napplet/packages/vite-plugin
-        version: link:../../../../../napplet/packages/vite-plugin
+        specifier: ^0.2.1
+        version: 0.2.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -122,15 +108,15 @@ importers:
   apps/demo/napplets/composer:
     dependencies:
       '@napplet/sdk':
-        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
-        version: link:../../../../../napplet/packages/sdk
+        specifier: ^0.2.1
+        version: 0.2.1
       '@napplet/shim':
-        specifier: link:/home/sandwich/Develop/napplet/packages/shim
-        version: link:../../../../../napplet/packages/shim
+        specifier: ^0.2.1
+        version: 0.2.1
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: link:/home/sandwich/Develop/napplet/packages/vite-plugin
-        version: link:../../../../../napplet/packages/vite-plugin
+        specifier: ^0.2.1
+        version: 0.2.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -141,15 +127,15 @@ importers:
   apps/demo/napplets/feed:
     dependencies:
       '@napplet/sdk':
-        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
-        version: link:../../../../../napplet/packages/sdk
+        specifier: ^0.2.1
+        version: 0.2.1
       '@napplet/shim':
-        specifier: link:/home/sandwich/Develop/napplet/packages/shim
-        version: link:../../../../../napplet/packages/shim
+        specifier: ^0.2.1
+        version: 0.2.1
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: link:/home/sandwich/Develop/napplet/packages/vite-plugin
-        version: link:../../../../../napplet/packages/vite-plugin
+        specifier: ^0.2.1
+        version: 0.2.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -160,15 +146,15 @@ importers:
   apps/demo/napplets/preferences:
     dependencies:
       '@napplet/sdk':
-        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
-        version: link:../../../../../napplet/packages/sdk
+        specifier: ^0.2.1
+        version: 0.2.1
       '@napplet/shim':
-        specifier: link:/home/sandwich/Develop/napplet/packages/shim
-        version: link:../../../../../napplet/packages/shim
+        specifier: ^0.2.1
+        version: 0.2.1
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: link:/home/sandwich/Develop/napplet/packages/vite-plugin
-        version: link:../../../../../napplet/packages/vite-plugin
+        specifier: ^0.2.1
+        version: 0.2.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -179,15 +165,15 @@ importers:
   apps/demo/napplets/profile-viewer:
     dependencies:
       '@napplet/sdk':
-        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
-        version: link:../../../../../napplet/packages/sdk
+        specifier: ^0.2.1
+        version: 0.2.1
       '@napplet/shim':
-        specifier: link:/home/sandwich/Develop/napplet/packages/shim
-        version: link:../../../../../napplet/packages/shim
+        specifier: ^0.2.1
+        version: 0.2.1
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: link:/home/sandwich/Develop/napplet/packages/vite-plugin
-        version: link:../../../../../napplet/packages/vite-plugin
+        specifier: ^0.2.1
+        version: 0.2.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -198,15 +184,15 @@ importers:
   apps/demo/napplets/theme-switcher:
     dependencies:
       '@napplet/sdk':
-        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
-        version: link:../../../../../napplet/packages/sdk
+        specifier: ^0.2.1
+        version: 0.2.1
       '@napplet/shim':
-        specifier: link:/home/sandwich/Develop/napplet/packages/shim
-        version: link:../../../../../napplet/packages/shim
+        specifier: ^0.2.1
+        version: 0.2.1
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: link:/home/sandwich/Develop/napplet/packages/vite-plugin
-        version: link:../../../../../napplet/packages/vite-plugin
+        specifier: ^0.2.1
+        version: 0.2.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -217,15 +203,15 @@ importers:
   apps/demo/napplets/toaster:
     dependencies:
       '@napplet/sdk':
-        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
-        version: link:../../../../../napplet/packages/sdk
+        specifier: ^0.2.1
+        version: 0.2.1
       '@napplet/shim':
-        specifier: link:/home/sandwich/Develop/napplet/packages/shim
-        version: link:../../../../../napplet/packages/shim
+        specifier: ^0.2.1
+        version: 0.2.1
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: link:/home/sandwich/Develop/napplet/packages/vite-plugin
-        version: link:../../../../../napplet/packages/vite-plugin
+        specifier: ^0.2.1
+        version: 0.2.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -234,35 +220,34 @@ importers:
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
   packages/acl:
-    dependencies:
-      '@napplet/core':
-        specifier: link:/home/sandwich/Develop/napplet/packages/core
-        version: link:../../../napplet/packages/core
-      '@napplet/nub-identity':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/identity
-        version: link:../../../napplet/packages/nubs/identity
-      '@napplet/nub-ifc':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/ifc
-        version: link:../../../napplet/packages/nubs/ifc
-      '@napplet/nub-keys':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/keys
-        version: link:../../../napplet/packages/nubs/keys
-      '@napplet/nub-media':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/media
-        version: link:../../../napplet/packages/nubs/media
-      '@napplet/nub-notify':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/notify
-        version: link:../../../napplet/packages/nubs/notify
-      '@napplet/nub-relay':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/relay
-        version: link:../../../napplet/packages/nubs/relay
-      '@napplet/nub-storage':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/storage
-        version: link:../../../napplet/packages/nubs/storage
-      '@napplet/nub-theme':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/theme
-        version: link:../../../napplet/packages/nubs/theme
     devDependencies:
+      '@napplet/core':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-identity':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-ifc':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-keys':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-media':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-notify':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-relay':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-storage':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-theme':
+        specifier: ^0.2.1
+        version: 0.2.1
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.3)
@@ -275,33 +260,6 @@ importers:
       '@kehto/acl':
         specifier: workspace:*
         version: link:../acl
-      '@napplet/core':
-        specifier: link:/home/sandwich/Develop/napplet/packages/core
-        version: link:../../../napplet/packages/core
-      '@napplet/nub-identity':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/identity
-        version: link:../../../napplet/packages/nubs/identity
-      '@napplet/nub-ifc':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/ifc
-        version: link:../../../napplet/packages/nubs/ifc
-      '@napplet/nub-keys':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/keys
-        version: link:../../../napplet/packages/nubs/keys
-      '@napplet/nub-media':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/media
-        version: link:../../../napplet/packages/nubs/media
-      '@napplet/nub-notify':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/notify
-        version: link:../../../napplet/packages/nubs/notify
-      '@napplet/nub-relay':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/relay
-        version: link:../../../napplet/packages/nubs/relay
-      '@napplet/nub-storage':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/storage
-        version: link:../../../napplet/packages/nubs/storage
-      '@napplet/nub-theme':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/theme
-        version: link:../../../napplet/packages/nubs/theme
       '@noble/curves':
         specifier: ^2.0.0
         version: 2.0.1
@@ -309,6 +267,33 @@ importers:
         specifier: ^2.0.0
         version: 2.0.1
     devDependencies:
+      '@napplet/core':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-identity':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-ifc':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-keys':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-media':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-notify':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-relay':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-storage':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-theme':
+        specifier: ^0.2.1
+        version: 0.2.1
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.3)
@@ -324,34 +309,34 @@ importers:
       '@kehto/runtime':
         specifier: workspace:*
         version: link:../runtime
-      '@napplet/core':
-        specifier: link:/home/sandwich/Develop/napplet/packages/core
-        version: link:../../../napplet/packages/core
-      '@napplet/nub-identity':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/identity
-        version: link:../../../napplet/packages/nubs/identity
-      '@napplet/nub-ifc':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/ifc
-        version: link:../../../napplet/packages/nubs/ifc
-      '@napplet/nub-keys':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/keys
-        version: link:../../../napplet/packages/nubs/keys
-      '@napplet/nub-media':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/media
-        version: link:../../../napplet/packages/nubs/media
-      '@napplet/nub-notify':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/notify
-        version: link:../../../napplet/packages/nubs/notify
-      '@napplet/nub-relay':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/relay
-        version: link:../../../napplet/packages/nubs/relay
-      '@napplet/nub-storage':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/storage
-        version: link:../../../napplet/packages/nubs/storage
-      '@napplet/nub-theme':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/theme
-        version: link:../../../napplet/packages/nubs/theme
     devDependencies:
+      '@napplet/core':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-identity':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-ifc':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-keys':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-media':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-notify':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-relay':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-storage':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-theme':
+        specifier: ^0.2.1
+        version: 0.2.1
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.3)
@@ -370,34 +355,34 @@ importers:
       '@kehto/runtime':
         specifier: workspace:*
         version: link:../runtime
-      '@napplet/core':
-        specifier: link:/home/sandwich/Develop/napplet/packages/core
-        version: link:../../../napplet/packages/core
-      '@napplet/nub-identity':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/identity
-        version: link:../../../napplet/packages/nubs/identity
-      '@napplet/nub-ifc':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/ifc
-        version: link:../../../napplet/packages/nubs/ifc
-      '@napplet/nub-keys':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/keys
-        version: link:../../../napplet/packages/nubs/keys
-      '@napplet/nub-media':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/media
-        version: link:../../../napplet/packages/nubs/media
-      '@napplet/nub-notify':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/notify
-        version: link:../../../napplet/packages/nubs/notify
-      '@napplet/nub-relay':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/relay
-        version: link:../../../napplet/packages/nubs/relay
-      '@napplet/nub-storage':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/storage
-        version: link:../../../napplet/packages/nubs/storage
-      '@napplet/nub-theme':
-        specifier: link:/home/sandwich/Develop/napplet/packages/nubs/theme
-        version: link:../../../napplet/packages/nubs/theme
     devDependencies:
+      '@napplet/core':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-identity':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-ifc':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-keys':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-media':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-notify':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-relay':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-storage':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/nub-theme':
+        specifier: ^0.2.1
+        version: 0.2.1
       nostr-tools:
         specifier: ^2.23.3
         version: 2.23.3(typescript@5.9.3)
@@ -427,15 +412,15 @@ importers:
   tests/fixtures/napplets/nub-identity:
     dependencies:
       '@napplet/sdk':
-        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
-        version: link:../../../../../napplet/packages/sdk
+        specifier: ^0.2.1
+        version: 0.2.1
       '@napplet/shim':
-        specifier: link:/home/sandwich/Develop/napplet/packages/shim
-        version: link:../../../../../napplet/packages/shim
+        specifier: ^0.2.1
+        version: 0.2.1
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: link:/home/sandwich/Develop/napplet/packages/vite-plugin
-        version: link:../../../../../napplet/packages/vite-plugin
+        specifier: ^0.2.1
+        version: 0.2.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -446,15 +431,15 @@ importers:
   tests/fixtures/napplets/nub-ifc:
     dependencies:
       '@napplet/sdk':
-        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
-        version: link:../../../../../napplet/packages/sdk
+        specifier: ^0.2.1
+        version: 0.2.1
       '@napplet/shim':
-        specifier: link:/home/sandwich/Develop/napplet/packages/shim
-        version: link:../../../../../napplet/packages/shim
+        specifier: ^0.2.1
+        version: 0.2.1
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: link:/home/sandwich/Develop/napplet/packages/vite-plugin
-        version: link:../../../../../napplet/packages/vite-plugin
+        specifier: ^0.2.1
+        version: 0.2.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -465,15 +450,15 @@ importers:
   tests/fixtures/napplets/nub-notify:
     dependencies:
       '@napplet/sdk':
-        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
-        version: link:../../../../../napplet/packages/sdk
+        specifier: ^0.2.1
+        version: 0.2.1
       '@napplet/shim':
-        specifier: link:/home/sandwich/Develop/napplet/packages/shim
-        version: link:../../../../../napplet/packages/shim
+        specifier: ^0.2.1
+        version: 0.2.1
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: link:/home/sandwich/Develop/napplet/packages/vite-plugin
-        version: link:../../../../../napplet/packages/vite-plugin
+        specifier: ^0.2.1
+        version: 0.2.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -484,15 +469,15 @@ importers:
   tests/fixtures/napplets/nub-relay:
     dependencies:
       '@napplet/sdk':
-        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
-        version: link:../../../../../napplet/packages/sdk
+        specifier: ^0.2.1
+        version: 0.2.1
       '@napplet/shim':
-        specifier: link:/home/sandwich/Develop/napplet/packages/shim
-        version: link:../../../../../napplet/packages/shim
+        specifier: ^0.2.1
+        version: 0.2.1
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: link:/home/sandwich/Develop/napplet/packages/vite-plugin
-        version: link:../../../../../napplet/packages/vite-plugin
+        specifier: ^0.2.1
+        version: 0.2.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -503,15 +488,15 @@ importers:
   tests/fixtures/napplets/nub-storage:
     dependencies:
       '@napplet/sdk':
-        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
-        version: link:../../../../../napplet/packages/sdk
+        specifier: ^0.2.1
+        version: 0.2.1
       '@napplet/shim':
-        specifier: link:/home/sandwich/Develop/napplet/packages/shim
-        version: link:../../../../../napplet/packages/shim
+        specifier: ^0.2.1
+        version: 0.2.1
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: link:/home/sandwich/Develop/napplet/packages/vite-plugin
-        version: link:../../../../../napplet/packages/vite-plugin
+        specifier: ^0.2.1
+        version: 0.2.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -522,15 +507,15 @@ importers:
   tests/fixtures/napplets/nub-theme:
     dependencies:
       '@napplet/sdk':
-        specifier: link:/home/sandwich/Develop/napplet/packages/sdk
-        version: link:../../../../../napplet/packages/sdk
+        specifier: ^0.2.1
+        version: 0.2.1
       '@napplet/shim':
-        specifier: link:/home/sandwich/Develop/napplet/packages/shim
-        version: link:../../../../../napplet/packages/shim
+        specifier: ^0.2.1
+        version: 0.2.1
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: link:/home/sandwich/Develop/napplet/packages/vite-plugin
-        version: link:../../../../../napplet/packages/vite-plugin
+        specifier: ^0.2.1
+        version: 0.2.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -980,6 +965,52 @@ packages:
     peerDependencies:
       '@emnapi/core': ^1.7.1
       '@emnapi/runtime': ^1.7.1
+
+  '@napplet/core@0.2.1':
+    resolution: {integrity: sha512-eR83e/5uhIdH9idqiq0Lw3amYAar00t1RR8q0+6UrFTJYXY4NEI4aeiByr99c8iECAaYSNRcgYmvAS98Hw6Y+Q==}
+
+  '@napplet/nub-config@0.2.1':
+    resolution: {integrity: sha512-zQU997v9UsNN0A8s7u1jBPjS82nMEC8lc3LTB+LhxMQP8K58PVOJZwTG4qV1uDF3Neyx8EV4s9YfKKjhpdeG1g==}
+    peerDependencies:
+      json-schema-to-ts: ^3.1.1
+    peerDependenciesMeta:
+      json-schema-to-ts:
+        optional: true
+
+  '@napplet/nub-identity@0.2.1':
+    resolution: {integrity: sha512-2VzEdcnyBR6ZJXhk40to14lK78Ut/490ILYYUkDmID50j/QBmgL2YO+V6emsL1x7dI+VWqwOD/SNyQtd6Uh0lQ==}
+
+  '@napplet/nub-ifc@0.2.1':
+    resolution: {integrity: sha512-LoF6E7IWFJJtWe5uDvYmz+98AXWDHa5nLdXog8n8jXxGz9LAlqUskJTqbvKYO0sghbW/93yLH4enBebDSZPCxQ==}
+
+  '@napplet/nub-keys@0.2.1':
+    resolution: {integrity: sha512-2sueL9WBM5vKeKaAgDvlqAcv8QNBlT+aQd2IJ7Nq+Hc6N54U90b5ados2xmcvUp3Edth8C80mpszZ3Bk2P1y+w==}
+
+  '@napplet/nub-media@0.2.1':
+    resolution: {integrity: sha512-3b09zoY5EX6HStTpT/yMOyBoOEAo4rTzP/mcJ4HuXFGuyJmulLWcYNE6HQtIX+n6ib6rifmrxJPBPtsTFld1CQ==}
+
+  '@napplet/nub-notify@0.2.1':
+    resolution: {integrity: sha512-9MtENLLndUQScwJz1BgHM4R8lTzF8dkrKSymsoMPZxjQGVEazmCxRSP484PIoEoWmikiO0fRokUzmR+p08ULvA==}
+
+  '@napplet/nub-relay@0.2.1':
+    resolution: {integrity: sha512-Cxocu2msJM3p5Ka35WsxdgNZJO0KLNYcDa+oUYfec7MLfaeQqamNWntUGlHxbCXwL3Czxt2/7mMx1YZ0bfnEYA==}
+
+  '@napplet/nub-storage@0.2.1':
+    resolution: {integrity: sha512-C9zI95ANI3ug2uZPOIW8fC1ybPRXmQ+h/4/bKbv04Lv1ihDJyuCcYoKQDuKVv0nD0rvPxYMn2ytCR0ANeQVS/A==}
+
+  '@napplet/nub-theme@0.2.1':
+    resolution: {integrity: sha512-/JZwaEYluQW6G7OaKsZK91icRzLHnKKby5KXSfWe6seERs+pCrJFJeD2/+vnYDdh9G7pXKrBt0g5Aji/9FmdUA==}
+
+  '@napplet/sdk@0.2.1':
+    resolution: {integrity: sha512-DVyGdYCe7JhG63rxi3/hdGkrEQvluLmExIsZA7SafmU9/9iI4GLwDCDXB2w5Xu51u0OHwEM9sNd/LNTWhiAUdg==}
+
+  '@napplet/shim@0.2.1':
+    resolution: {integrity: sha512-eE14asbnQC2+Kka1QHXhwK5fodX7cDIB5w9qrouhpcY1VPIHGaQAAgmjT9TPRKXUf64e1rLUvQAJe3df/LJf/Q==}
+
+  '@napplet/vite-plugin@0.2.1':
+    resolution: {integrity: sha512-1Bf2X+s+cjDVfoRQveItCwq+Lv1PiM1Ojzvv5bgd8GMpU9n0aat47Fpq7QLDAHCuURP274quAz4AI8xJ8zYtVA==}
+    peerDependencies:
+      vite: '>=5.0.0'
 
   '@noble/ciphers@2.1.1':
     resolution: {integrity: sha512-bysYuiVfhxNJuldNXlFEitTVdNnYUc+XNJZd7Qm2a5j1vZHgY+fazadNFWFaMK/2vye0JVlxV3gHmC0WDfAOQw==}
@@ -2760,6 +2791,80 @@ snapshots:
     dependencies:
       '@tybys/wasm-util': 0.10.1
     optional: true
+
+  '@napplet/core@0.2.1': {}
+
+  '@napplet/nub-config@0.2.1':
+    dependencies:
+      '@napplet/core': 0.2.1
+
+  '@napplet/nub-identity@0.2.1':
+    dependencies:
+      '@napplet/core': 0.2.1
+
+  '@napplet/nub-ifc@0.2.1':
+    dependencies:
+      '@napplet/core': 0.2.1
+
+  '@napplet/nub-keys@0.2.1':
+    dependencies:
+      '@napplet/core': 0.2.1
+
+  '@napplet/nub-media@0.2.1':
+    dependencies:
+      '@napplet/core': 0.2.1
+
+  '@napplet/nub-notify@0.2.1':
+    dependencies:
+      '@napplet/core': 0.2.1
+
+  '@napplet/nub-relay@0.2.1':
+    dependencies:
+      '@napplet/core': 0.2.1
+
+  '@napplet/nub-storage@0.2.1':
+    dependencies:
+      '@napplet/core': 0.2.1
+
+  '@napplet/nub-theme@0.2.1':
+    dependencies:
+      '@napplet/core': 0.2.1
+
+  '@napplet/sdk@0.2.1':
+    dependencies:
+      '@napplet/core': 0.2.1
+      '@napplet/nub-config': 0.2.1
+      '@napplet/nub-identity': 0.2.1
+      '@napplet/nub-ifc': 0.2.1
+      '@napplet/nub-keys': 0.2.1
+      '@napplet/nub-media': 0.2.1
+      '@napplet/nub-notify': 0.2.1
+      '@napplet/nub-relay': 0.2.1
+      '@napplet/nub-storage': 0.2.1
+      '@napplet/nub-theme': 0.2.1
+    transitivePeerDependencies:
+      - json-schema-to-ts
+
+  '@napplet/shim@0.2.1':
+    dependencies:
+      '@napplet/core': 0.2.1
+      '@napplet/nub-config': 0.2.1
+      '@napplet/nub-identity': 0.2.1
+      '@napplet/nub-ifc': 0.2.1
+      '@napplet/nub-keys': 0.2.1
+      '@napplet/nub-media': 0.2.1
+      '@napplet/nub-notify': 0.2.1
+      '@napplet/nub-relay': 0.2.1
+      '@napplet/nub-storage': 0.2.1
+    transitivePeerDependencies:
+      - json-schema-to-ts
+
+  '@napplet/vite-plugin@0.2.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))':
+    dependencies:
+      nostr-tools: 2.23.3(typescript@5.9.3)
+      vite: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+    transitivePeerDependencies:
+      - typescript
 
   '@noble/ciphers@2.1.1': {}
 

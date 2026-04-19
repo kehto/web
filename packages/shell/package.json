@@ -1,7 +1,7 @@
 {
   "name": "@kehto/shell",
   "version": "0.1.0",
-  "description": "Shell runtime — relay bridge, ACL enforcement, signer proxy, storage proxy for hosting napplet iframe applications",
+  "description": "Shell runtime \u2014 relay bridge, ACL enforcement, signer proxy, storage proxy for hosting napplet iframe applications",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -12,7 +12,9 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "sideEffects": false,
   "publishConfig": {
     "access": "public"
@@ -22,18 +24,27 @@
     "@kehto/runtime": "workspace:*"
   },
   "peerDependencies": {
-    "@napplet/core": "^0.2.0",
-    "@napplet/nub-identity": "^0.2.0",
-    "@napplet/nub-ifc": "^0.2.0",
-    "@napplet/nub-keys": "^0.2.0",
-    "@napplet/nub-media": "^0.2.0",
-    "@napplet/nub-notify": "^0.2.0",
-    "@napplet/nub-relay": "^0.2.0",
-    "@napplet/nub-storage": "^0.2.0",
-    "@napplet/nub-theme": "^0.2.0",
+    "@napplet/core": "^0.2.1",
+    "@napplet/nub-identity": "^0.2.1",
+    "@napplet/nub-ifc": "^0.2.1",
+    "@napplet/nub-keys": "^0.2.1",
+    "@napplet/nub-media": "^0.2.1",
+    "@napplet/nub-notify": "^0.2.1",
+    "@napplet/nub-relay": "^0.2.1",
+    "@napplet/nub-storage": "^0.2.1",
+    "@napplet/nub-theme": "^0.2.1",
     "nostr-tools": ">=2.23.3 <3.0.0"
   },
   "devDependencies": {
+    "@napplet/core": "^0.2.1",
+    "@napplet/nub-identity": "^0.2.1",
+    "@napplet/nub-ifc": "^0.2.1",
+    "@napplet/nub-keys": "^0.2.1",
+    "@napplet/nub-media": "^0.2.1",
+    "@napplet/nub-notify": "^0.2.1",
+    "@napplet/nub-relay": "^0.2.1",
+    "@napplet/nub-storage": "^0.2.1",
+    "@napplet/nub-theme": "^0.2.1",
     "nostr-tools": "^2.23.3",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3"
@@ -49,5 +60,11 @@
     "url": "git+https://github.com/kehto/runtime.git",
     "directory": "packages/shell"
   },
-  "keywords": ["nostr", "napplet", "kehto", "shell", "relay-bridge"]
+  "keywords": [
+    "nostr",
+    "napplet",
+    "kehto",
+    "shell",
+    "relay-bridge"
+  ]
 }

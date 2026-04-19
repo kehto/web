@@ -1,7 +1,7 @@
 {
   "name": "@kehto/runtime",
   "version": "0.1.0",
-  "description": "Browser-agnostic protocol engine for the napplet protocol — message dispatch, ACL enforcement, AUTH handshake",
+  "description": "Browser-agnostic protocol engine for the napplet protocol \u2014 message dispatch, ACL enforcement, AUTH handshake",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -12,7 +12,9 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "sideEffects": false,
   "publishConfig": {
     "access": "public"
@@ -23,18 +25,26 @@
     "@noble/curves": "^2.0.0"
   },
   "peerDependencies": {
-    "@napplet/core": "^0.2.0",
-    "@napplet/nub-identity": "^0.2.0",
-    "@napplet/nub-ifc": "^0.2.0",
-    "@napplet/nub-keys": "^0.2.0",
-    "@napplet/nub-media": "^0.2.0",
-    "@napplet/nub-notify": "^0.2.0",
-    "@napplet/nub-relay": "^0.2.0",
-    "@napplet/nub-storage": "^0.2.0",
-    "@napplet/nub-theme": "^0.2.0"
+    "@napplet/core": "^0.2.1",
+    "@napplet/nub-identity": "^0.2.1",
+    "@napplet/nub-ifc": "^0.2.1",
+    "@napplet/nub-keys": "^0.2.1",
+    "@napplet/nub-media": "^0.2.1",
+    "@napplet/nub-notify": "^0.2.1",
+    "@napplet/nub-relay": "^0.2.1",
+    "@napplet/nub-storage": "^0.2.1",
+    "@napplet/nub-theme": "^0.2.1"
   },
   "devDependencies": {
-    "@napplet/core": "link:/home/sandwich/Develop/napplet/packages/core",
+    "@napplet/core": "^0.2.1",
+    "@napplet/nub-identity": "^0.2.1",
+    "@napplet/nub-ifc": "^0.2.1",
+    "@napplet/nub-keys": "^0.2.1",
+    "@napplet/nub-media": "^0.2.1",
+    "@napplet/nub-notify": "^0.2.1",
+    "@napplet/nub-relay": "^0.2.1",
+    "@napplet/nub-storage": "^0.2.1",
+    "@napplet/nub-theme": "^0.2.1",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.2"
@@ -50,5 +60,11 @@
     "url": "git+https://github.com/kehto/runtime.git",
     "directory": "packages/runtime"
   },
-  "keywords": ["nostr", "napplet", "kehto", "runtime", "protocol-engine"]
+  "keywords": [
+    "nostr",
+    "napplet",
+    "kehto",
+    "runtime",
+    "protocol-engine"
+  ]
 }

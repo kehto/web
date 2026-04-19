@@ -9,11 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@napplet/shim": "link:/home/sandwich/Develop/napplet/packages/shim",
-    "@napplet/sdk": "link:/home/sandwich/Develop/napplet/packages/sdk"
+    "@napplet/shim": "^0.2.1",
+    "@napplet/sdk": "^0.2.1"
   },
   "devDependencies": {
-    "@napplet/vite-plugin": "link:/home/sandwich/Develop/napplet/packages/vite-plugin",
+    "@napplet/vite-plugin": "^0.2.1",
     "vite": "^6.3.0",
     "typescript": "^5.9.3"
   }
