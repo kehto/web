@@ -4,7 +4,7 @@ milestone: v1.5
 milestone_name: — Demo Stability & UAT Coverage
 status: verifying
 stopped_at: Completed 30-02-PLAN.md (UI-02 ACL snapshot gate fix)
-last_updated: "2026-04-19T23:31:34.175Z"
+last_updated: "2026-04-19T23:36:41.099Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 3
@@ -25,8 +25,8 @@ See: .planning/PROJECT.md (updated 2026-04-19, v1.5 milestone opened)
 
 ## Current Position
 
-Phase: 30 (Shell UI State Wiring) — EXECUTING
-Plan: 3 of 3
+Phase: 31
+Plan: Not started
 Status: Phase complete — ready for verification
 Last activity: 2026-04-19
 

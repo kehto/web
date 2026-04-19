@@ -96,7 +96,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 29. Concurrent-boot AUTH Fix + Demo Stability | 2/2 | Complete    | 2026-04-19 |
-| 30. Shell UI State Wiring | 3/3 | Complete   | 2026-04-19 |
+| 30. Shell UI State Wiring | 3/3 | Complete    | 2026-04-19 |
 | 31. E2E Coverage + Milestone Iteration Loop | 0/0 | Not started | - |
 
 ---
