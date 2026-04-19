@@ -1,5 +1,31 @@
 # Milestones: Kehto Runtime
 
+## v1.4 Productionization & Upstream Unblock (Shipped: 2026-04-19)
+
+**Phases completed:** 6 phases, 17 plans, 33 tasks
+
+**Key accomplishments:**
+
+- GitHub Actions Build workflow on push and pull_request — pnpm 10 + Node 20, frozen-lockfile install, turbo build + type-check, concurrency cancel-in-progress, ubuntu-latest runner.
+- GitHub Actions Playwright E2E workflow on push and pull_request — pnpm 10 + Node 20, frozen-lockfile install, browser cache keyed on OS + installed Playwright version + pnpm-lock.yaml hash with 2-tier restore-keys ladder, cache-hit/miss branching for system deps vs full install, then `pnpm test:e2e`.
+- Refreshed 2 stale JSDoc `@example` blocks citing the deleted `auth-napplet` fixture to use the extant `nub-identity` fixture; zero behavioral change, pure comment edits.
+- Deleted packages/runtime/src/core-compat.ts (113-line @napplet/core v1.1 shim) and re-homed every live symbol — Capability to @kehto/acl/capabilities (new subpath export), ServiceDescriptor to packages/runtime/src/types.ts, REPLAY_WINDOW_SECONDS inlined in replay.ts. Narrowed runtime + shell barrels to drop BusKindValue and all NIP-01 constants. Inlined placeholder consts at 7 downstream files so the intermediate state type-checks with all 442 unit tests passing — Plan 24-02 deletes placeholders + dead call sites atomically.
+- Deleted all dead NIP-01 dispatch code from @kehto/runtime and @kehto/shell — `resolveCapabilities()` + runtime-flavored `CapabilityResolution`, `handleStateRequest()`, `service-discovery.ts` (file), `requiresPrompt(kind)` (both runtime AclStateContainer + shell acl-store), all `BusKind` / `AUTH_KIND` / `DESTRUCTIVE_KINDS` / `STATE_TOPICS` symbols, and all placeholder const blocks Plan 24-01 inlined as intermediate scaffolding. Narrowed `@kehto/runtime` barrel + rewrote `@kehto/shell` enforcement re-export block to the live NUB-flavored surface (`createNubEnforceGate` + `NubEnforceConfig` + `NubMessage`). Scrubbed runtime + shell READMEs. Recorded E2E-11 iteration loop: 442 unit / 47 e2e green on cold rebuild — Phase 23 baseline preserved exactly. Single atomic commit covers Plan 24-01 + Plan 24-02 work — DRIFT-01 + DRIFT-02 closed together.
+- Aggregated changeset version bump
+- Replaced stub @kehto/services/keys-service with a real document-level keydown listener, a string-chord parser, three subscription registries, and canonical keys.action envelope emission to the owning napplet on chord match — SDK's keys.onAction(...) now has a working shell-side counterpart.
+- Defined and exported the `HostKeysBridge` interface + `HostKeyEvent` type from @kehto/services and extended `createKeysService` with an optional `hostBridge` option that — when provided — delegates chord subscription lifecycle to the bridge (Branch A) and leaves the default document-listener body from Plan 26-01 untouched (Branch B).
+- Shipped the apps/demo/napplets/hotkey-chord demo napplet (5 files) built on @napplet/sdk's `keys` namespace (keys.registerAction + keys.onAction), wired it into the demo shell as the 9th DEMO_NAPPLETS entry, demoted keys from stub-only, and installed the window.__grantKeysForward__ host hook that pre-locks Plan 26-04's capability-gate mechanism.
+- Shipped `tests/e2e/hotkey-chord.spec.ts` (Layer-B contract covering the full keys.registerAction → page.keyboard.press → SDK onAction → DOM sentinel loop), ran the fresh-build iteration loop (47 → 48 passed, delta +1 exactly), recorded all evidence in `26-ITERATION-LOG.md`, and closed Phase 26 with all four requirement IDs (KEYS-01, KEYS-02, KEYS-03, E2E-12) satisfied.
+- navigator.mediaSession mirror with 5-action setActionHandler matrix, media.command push via per-window send capture, silent-audio prime, and last-active-wins multi-session registry
+- HostMediaBridge 5-field interface + createBrowserMediaBridge navigator.mediaSession reference impl + hostBridge? option branch in createMediaService; barrel re-exports; 9 new bridge-path tests
+- SDK-driven media-controller napplet (5 files) + DEMO_NAPPLETS 10th entry + STUB_ONLY_SERVICES = [] + __grantMediaControl__ host hook; all 8 non-stub NUB domains now exercised end-to-end
+- Layer-B media-controller.spec.ts with DUAL-PATH assertion (DOM sentinel + navigator.mediaSession.playbackState + metadata.title via page.evaluate), plus cascaded demo-boot.spec.ts fix and 49-test fresh-build iteration loop closing Phase 27
+- Upgraded nub-keys.spec.ts + nub-media.spec.ts from stub-scope to real-backend Layer-A coverage via __registerService__('name', 'real') factory-key branch; extended envelopeLog to capture outbound NIP-5D service-send envelopes so result assertions work without window globals.
+- 1. [Rule 1 - Bug] Factory signatures written single-line in README code fences
+- apps/demo/README.md created from scratch with 10-napplet inventory table (v1.3→v1.4 history line, STUB_ONLY_SERVICES=[], host-hook catalog) + Phase 28 iteration loop 49/0/0 no-delta confirmed + full v1.4-surface anti-term sweep: 0 real violations documented
+
+---
+
 ## v1.3 Demo Functional & Playwright Parity (Shipped: 2026-04-18)
 
 **Phases completed:** 7 phases, 43 plans, 68 tasks

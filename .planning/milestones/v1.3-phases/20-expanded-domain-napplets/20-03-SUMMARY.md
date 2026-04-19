@@ -151,6 +151,10 @@ None — identity.getPublicKey and identity.getProfile are real SDK calls; null 
 - Plan 20-07 (`identity-flow.spec.ts`) can now assert against the DOM sentinel contract documented above
 - NAP-09 8-domain coverage gate: profile-viewer (identity) + feed (relay-subscribe, Plan 20-01) + theme-switcher (Plan 20-05) will complete the domain set
 
+## Self-Check: PASSED
+
+All 5 created files confirmed on disk. Both task commits (39c1ba0, fde7390) confirmed in git log.
+
 ---
 *Phase: 20-expanded-domain-napplets*
 *Completed: 2026-04-18*
