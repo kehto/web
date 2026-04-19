@@ -7,9 +7,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createMediaService } from './media-service.js';
+import { createMediaService, createBrowserMediaBridge } from './media-service.js';
+import type { HostMediaBridge } from './media-service.js';
 import type { NappletMessage } from '@napplet/core';
-import type { MediaAction } from '@napplet/nub-media';
+import type { MediaAction, MediaMetadata } from '@napplet/nub-media';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -543,5 +544,169 @@ describe('destroy() detaches all action handlers + silent-audio element', () => 
     expect(mockDoc.appended[0].removed).toBe(true);
     // navigator.mediaSession cleared.
     expect(mock.target.metadata).toBeNull();
+  });
+});
+
+describe('HostMediaBridge integration', () => {
+  // Fake bridge helper that records every method call and lets tests invoke the onAction callback directly.
+  function createFakeBridge() {
+    const metadataCalls: Array<{ sessionId: string; metadata: MediaMetadata }> = [];
+    const stateCalls: Array<{ sessionId: string; state: string }> = [];
+    const activeSessionCalls: Array<string | null> = [];
+    const destroySessionCalls: string[] = [];
+    const actionCallbacks: Array<(sessionId: string, action: MediaAction, value?: number) => void> = [];
+    const bridge: HostMediaBridge = {
+      setMetadata(sessionId, metadata) { metadataCalls.push({ sessionId, metadata }); },
+      setPlaybackState(sessionId, state) { stateCalls.push({ sessionId, state }); },
+      onAction(callback) {
+        actionCallbacks.push(callback);
+        return () => { const i = actionCallbacks.indexOf(callback); if (i >= 0) actionCallbacks.splice(i, 1); };
+      },
+      setActiveSession(sessionId) { activeSessionCalls.push(sessionId ?? null); },
+      destroySession(sessionId) { destroySessionCalls.push(sessionId); },
+    };
+    function fireAction(sessionId: string, action: MediaAction, value?: number): void {
+      for (const cb of actionCallbacks) cb(sessionId, action, value);
+    }
+    return { bridge, metadataCalls, stateCalls, activeSessionCalls, destroySessionCalls, fireAction };
+  }
+
+  it('bridge.setMetadata is called with the initial metadata on media.session.create', () => {
+    const { bridge, metadataCalls } = createFakeBridge();
+    const sent: NappletMessage[] = [];
+    const service = createMediaService({ hostBridge: bridge });
+
+    service.handleMessage(WINDOW_ID, {
+      type: 'media.session.create', id: 'b-1', sessionId: 'sess-b', metadata: { title: 'Bridge Track', artist: 'Bridge' },
+    } as NappletMessage, (m) => sent.push(m));
+
+    expect(metadataCalls).toHaveLength(1);
+    expect(metadataCalls[0].sessionId).toBe('sess-b');
+    expect(metadataCalls[0].metadata.title).toBe('Bridge Track');
+    expect(sent).toHaveLength(1);
+    expect((sent[0] as NappletMessage & { type: string }).type).toBe('media.session.create.result');
+  });
+
+  it('bridge.setPlaybackState is called on media.state for the active session', () => {
+    const { bridge, stateCalls } = createFakeBridge();
+    const service = createMediaService({ hostBridge: bridge });
+    service.handleMessage(WINDOW_ID, {
+      type: 'media.session.create', id: 'b', sessionId: 'sess',
+    } as NappletMessage, () => {});
+    service.handleMessage(WINDOW_ID, {
+      type: 'media.state', sessionId: 'sess', status: 'playing',
+    } as NappletMessage, () => {});
+    expect(stateCalls).toContainEqual({ sessionId: 'sess', state: 'playing' });
+  });
+
+  it('bridge.onAction callback fans into media.command envelope emission to the owning napplet', () => {
+    const { bridge, fireAction } = createFakeBridge();
+    const sent: NappletMessage[] = [];
+    const service = createMediaService({ hostBridge: bridge });
+    service.handleMessage(WINDOW_ID, {
+      type: 'media.session.create', id: 'b', sessionId: 'sess-x',
+    } as NappletMessage, (m) => sent.push(m));
+
+    sent.length = 0;  // drop the .result envelope
+    fireAction('sess-x', 'play');
+    expect(sent).toHaveLength(1);
+    const cmd = sent[0] as NappletMessage & { type: string; sessionId?: string; action?: string };
+    expect(cmd.type).toBe('media.command');
+    expect(cmd.sessionId).toBe('sess-x');
+    expect(cmd.action).toBe('play');
+  });
+
+  it('bridge.onAction with seek + value carries the value through to media.command.value', () => {
+    const { bridge, fireAction } = createFakeBridge();
+    const sent: NappletMessage[] = [];
+    const service = createMediaService({ hostBridge: bridge });
+    service.handleMessage(WINDOW_ID, {
+      type: 'media.session.create', id: 'b', sessionId: 'sess-y',
+    } as NappletMessage, (m) => sent.push(m));
+
+    sent.length = 0;
+    fireAction('sess-y', 'seek', 123.5);
+    expect(sent).toHaveLength(1);
+    const cmd = sent[0] as NappletMessage & { action?: string; value?: number };
+    expect(cmd.action).toBe('seek');
+    expect(cmd.value).toBe(123.5);
+  });
+
+  it('hostBridge path bypasses the default navigator.mediaSession wiring', () => {
+    // Mock mediaSessionTarget that would receive setActionHandler calls from the
+    // default browser bridge. When hostBridge is supplied, createMediaService should
+    // NOT instantiate the default browser bridge, so this mock receives zero calls.
+    const msMock = createMockMediaSession();
+    const docMock = createMockDocument();
+    const { bridge } = createFakeBridge();
+
+    createMediaService({
+      hostBridge: bridge,
+      mediaSessionTarget: msMock.target,
+      documentTarget: docMock.doc,
+    });
+
+    // Zero setActionHandler calls — hostBridge owns action routing.
+    expect(msMock.setActionHandlerCalls).toHaveLength(0);
+    // Zero audio elements appended to the doc — hostBridge owns silent-audio decisions.
+    expect(docMock.appended).toHaveLength(0);
+  });
+
+  it('bridge.destroySession is called on media.session.destroy', () => {
+    const { bridge, destroySessionCalls } = createFakeBridge();
+    const service = createMediaService({ hostBridge: bridge });
+    service.handleMessage(WINDOW_ID, {
+      type: 'media.session.create', id: 'b', sessionId: 'kill-me',
+    } as NappletMessage, () => {});
+    service.handleMessage(WINDOW_ID, {
+      type: 'media.session.destroy', sessionId: 'kill-me',
+    } as NappletMessage, () => {});
+    expect(destroySessionCalls).toContain('kill-me');
+  });
+
+  it('bridge.setActiveSession is called on session.create (last-active-wins)', () => {
+    const { bridge, activeSessionCalls } = createFakeBridge();
+    const service = createMediaService({ hostBridge: bridge });
+    service.handleMessage(WINDOW_ID, {
+      type: 'media.session.create', id: 'b1', sessionId: 'A',
+    } as NappletMessage, () => {});
+    service.handleMessage(WINDOW_ID, {
+      type: 'media.session.create', id: 'b2', sessionId: 'B',
+    } as NappletMessage, () => {});
+    expect(activeSessionCalls).toEqual(['A', 'B']);
+  });
+
+  it('onWindowDestroyed calls bridge.destroySession for every session owned by that window', () => {
+    const { bridge, destroySessionCalls } = createFakeBridge();
+    const service = createMediaService({ hostBridge: bridge });
+    service.handleMessage('win-A', {
+      type: 'media.session.create', id: 'bA', sessionId: 'sA',
+    } as NappletMessage, () => {});
+    service.handleMessage('win-A', {
+      type: 'media.session.create', id: 'bA2', sessionId: 'sA2',
+    } as NappletMessage, () => {});
+    service.handleMessage('win-B', {
+      type: 'media.session.create', id: 'bB', sessionId: 'sB',
+    } as NappletMessage, () => {});
+
+    service.onWindowDestroyed?.('win-A');
+
+    expect(destroySessionCalls).toContain('sA');
+    expect(destroySessionCalls).toContain('sA2');
+    expect(destroySessionCalls).not.toContain('sB');
+  });
+
+  it('createBrowserMediaBridge() returns a HostMediaBridge with all 5 methods', () => {
+    const msMock = createMockMediaSession();
+    const docMock = createMockDocument();
+    const browserBridge = createBrowserMediaBridge({
+      mediaSessionTarget: msMock.target,
+      documentTarget: docMock.doc,
+    });
+    expect(typeof browserBridge.setMetadata).toBe('function');
+    expect(typeof browserBridge.setPlaybackState).toBe('function');
+    expect(typeof browserBridge.onAction).toBe('function');
+    expect(typeof browserBridge.setActiveSession).toBe('function');
+    expect(typeof browserBridge.destroySession).toBe('function');
   });
 });

@@ -68,9 +68,20 @@ export type {
   HostKeyEvent,
 } from './keys-service.js';
 
-// ─── Media Service (NIP-5D media NUB — stub) ──────────────────────────────
-export { createMediaService } from './media-service.js';
-export type { MediaServiceOptions } from './media-service.js';
+// ─── Media Service (NIP-5D media NUB — navigator.mediaSession mirror) ─────
+// Public surface: factory + options + host-bridge contract + browser bridge
+// factory. Host apps wire OS-level native media backends by implementing
+// HostMediaBridge and passing it through createMediaService({ hostBridge }).
+export { createMediaService, createBrowserMediaBridge } from './media-service.js';
+export type {
+  MediaServiceOptions,
+  HostMediaBridge,
+} from './media-service.js';
+// Convenience re-export: host apps implementing HostMediaBridge need the
+// MediaAction literal for their onAction callback typing. Re-exported here
+// so host-app code can depend only on @kehto/services, mirroring the Phase 26
+// HostKeyEvent pattern.
+export type { MediaAction } from '@napplet/nub-media';
 
 // ─── Notify Service (NIP-5D notify NUB — stub) ────────────────────────────
 // Coexists with createNotificationService above (legacy ifc-emit path).
