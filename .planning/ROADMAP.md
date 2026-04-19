@@ -149,5 +149,5 @@ Phases execute in numeric order: 23 → 24 → 25 → 26 → 27 → 28
 | 24. DRIFT-CORE-06 Cleanup | v1.4 | 2/2 | Complete   | 2026-04-19 |
 | 25. Release Publication | v1.4 | 0/TBD | Not started | - |
 | 26. Real Keys Backend | v1.4 | 4/4 | Complete   | 2026-04-19 |
-| 27. Real Media Backend | v1.4 | 4/4 | Complete   | 2026-04-19 |
+| 27. Real Media Backend | v1.4 | 4/4 | Complete    | 2026-04-19 |
 | 28. Layer-A Upgrade & Docs Polish | v1.4 | 0/TBD | Not started | - |
