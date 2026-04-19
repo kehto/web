@@ -1,6 +1,6 @@
 # @kehto/services
 
-Reference service handlers for the napplet protocol — audio, notifications, identity, relay pool, cache, keys (stub), media (stub), notify, theme.
+Reference service handlers for the napplet protocol — audio, notifications, identity, relay pool, cache, keys, media, notify, theme.
 
 ## Install
 
@@ -17,7 +17,7 @@ Host apps wire services into the runtime via `runtime.registerService(name, hand
 Canonical v1.2 posture:
 
 - The v1.1 signer service is deleted outright. Its responsibilities split into two: read-only identity lookups go through `createIdentityService` (`getPublicKey`, `getRelays`, `getProfile`, `getFollows`, `getList`, `getZaps`, `getMutes`, `getBlocked`, `getBadges`); signing happens inside the shell as part of `relay.publish` / `relay.publishEncrypted` and is never exposed to napplets.
-- `createKeysService` and `createMediaService` are stub-only in v1.3 — they accept the canonical envelopes and return well-formed responses, but real host backends (OS keybinding registration, audio/video playback control) must be plugged in by the host app in future milestones.
+- `createKeysService` and `createMediaService` ship real reference backends as of v1.4 (see the dedicated sections below). `createKeysService` attaches a document-level `keydown` listener by default and delivers `keys.action` push envelopes to registered napplets; `createMediaService` mirrors session metadata and playback state to `navigator.mediaSession` and emits `media.command` push envelopes on OS transport events. Both accept a host-bridge option (`HostKeysBridge` / `HostMediaBridge`) so Electron / Tauri / native shells can swap in OS-level backends without re-implementing the wire-protocol bookkeeping.
 - `createNotifyService` (NIP-5D `notify.*` NUB) coexists with the legacy `createNotificationService` (ifc-emit `notifications:*` channel). Both may be registered simultaneously until the legacy handler is retired.
 
 ## Quick Start
@@ -45,6 +45,246 @@ runtime.registerService(
 );
 ```
 
+## Keys Service
+
+Reference keyboard / chord backend for the `keys.*` NIP-5D NUB. By default attaches a single `document`-level `keydown` listener that matches incoming events against registered chord subscriptions and delivers a canonical `keys.action` push envelope back to the owning napplet. Implement the [`HostKeysBridge`](#hostkeysbridge-interface) interface to swap in OS-level backends (Electron `globalShortcut`, Tauri `GlobalShortcut`).
+
+### Factory
+
+```ts
+import { createKeysService } from '@kehto/services';
+
+export function createKeysService(options?: KeysServiceOptions): ServiceHandler & { destroy(): void };
+```
+
+`destroy()` detaches the document listener (or the bridge's unsubscribe handles) and clears all subscription registries. Call on shell teardown.
+
+### KeysServiceOptions
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `onForward` | `(event: { key, code, ctrlKey, altKey, shiftKey, metaKey }) => void` | Called on `keys.forward` envelopes AND on matching document keydowns. DOM-shape payload (the service translates from the wire-format `{ ctrl, alt, shift, meta }` before invoking this callback). |
+| `listenerTarget` | `EventTarget` | Defaults to `document`. Pass a fresh `new EventTarget()` in unit tests to isolate the listener. Ignored when `hostBridge` is provided. |
+| `hostBridge` | `HostKeysBridge` | Pluggable OS-bridge. When provided, the service delegates `keys.registerAction` to `bridge.subscribe(chord, cb)` and the default document listener is NOT attached. |
+
+### HostKeysBridge interface
+
+Copy the contract verbatim for host-app implementers. OS-level bridges implement `subscribe` at minimum; the two optional fields enable global-hotkey registration (works even when the host window is unfocused).
+
+```ts
+export interface HostKeysBridge {
+  /**
+   * Subscribe a callback to a chord. Returns an unsubscribe handle.
+   *
+   * Implementations MUST:
+   *   - invoke `callback` exactly once per matching chord event (implementations
+   *     are responsible for any OS-autorepeat filtering)
+   *   - invoke `callback` synchronously during the event delivery
+   *   - accept the string chord format documented by @napplet/nub-keys
+   *     (e.g. `'Ctrl+Shift+K'`, `'Cmd+P'`)
+   */
+  subscribe(chord: string, callback: (event: KeyboardEvent | HostKeyEvent) => void): () => void;
+
+  /**
+   * Optional: register an OS-level global hotkey (works even when the host
+   * window is not focused). Returns true on success, false if the chord
+   * cannot be registered (e.g. already claimed by another app).
+   *
+   * Omitted by the browser reference implementation — browsers cannot
+   * register OS-level global hotkeys without privileged APIs. Electron
+   * (`globalShortcut`) and Tauri (`GlobalShortcut`) provide this.
+   */
+  registerGlobalHotkey?(chord: string): boolean;
+
+  /**
+   * Optional: subscribe to OS-level global hotkey events (regardless of
+   * focus). Returns an unsubscribe handle.
+   *
+   * Omitted by the browser reference implementation. See
+   * {@link HostKeysBridge.registerGlobalHotkey}.
+   */
+  onGlobalHotkey?(callback: (chord: string) => void): () => void;
+}
+```
+
+### Usage
+
+Default browser path — the reference document-level chord listener:
+
+```ts
+import { createKeysService } from '@kehto/services';
+
+const keys = createKeysService({
+  onForward: (event) => {
+    // DOM-shape payload: { key, code, ctrlKey, altKey, shiftKey, metaKey }
+    hotkeyDispatcher.dispatch(event);
+  },
+});
+
+runtime.registerService('keys', keys);
+// On shell teardown:
+keys.destroy();
+```
+
+Custom bridge path — swap in Electron's `globalShortcut`:
+
+```ts
+import { createKeysService, type HostKeysBridge } from '@kehto/services';
+import { globalShortcut } from 'electron';
+
+const electronBridge: HostKeysBridge = {
+  subscribe(chord, cb) {
+    globalShortcut.register(chord, () => cb({
+      key: '', code: '',
+      ctrlKey: false, altKey: false, shiftKey: false, metaKey: false,
+    } as KeyboardEvent));
+    return () => globalShortcut.unregister(chord);
+  },
+};
+
+runtime.registerService('keys', createKeysService({ hostBridge: electronBridge }));
+```
+
+### When to plug a custom bridge
+
+Plug a `HostKeysBridge` when the default document listener is insufficient: Electron or Tauri apps that need to register OS-level global hotkeys (chords delivered even when the host window is not focused), native shells that route chords through a platform-specific hotkey manager (macOS Carbon, Linux X11 grab, Windows RegisterHotKey), or test harnesses that inject synthetic events through a controlled `EventTarget`. The bridge owns subscription lifecycle; the service retains per-window bookkeeping (so `onWindowDestroyed` cleanup stays identical across paths).
+
+See the demo: [`apps/demo/napplets/hotkey-chord/src/main.ts`](../../apps/demo/napplets/hotkey-chord/src/main.ts) (the Phase 26 end-to-end exemplar — uses `@napplet/sdk` `keys.registerAction` + `keys.onAction` against the real backend).
+
+## Media Service
+
+Reference media backend for the `media.*` NIP-5D NUB. By default mirrors session metadata + playback state to `navigator.mediaSession` via the DOM `MediaSession` API and installs `setActionHandler` callbacks that emit `media.command` push envelopes on OS transport events (play / pause / next / previous / seek). Implement the [`HostMediaBridge`](#hostmediabridge-interface) interface to swap in native backends (Electron IPC, MPRIS on Linux, MediaRemote on macOS).
+
+### Factory
+
+```ts
+import { createMediaService } from '@kehto/services';
+
+export function createMediaService(options?: MediaServiceOptions): ServiceHandler & { destroy(): void };
+```
+
+`destroy()` tears down the active bridge (removes `setActionHandler` listeners, removes the silent-audio prime element in the browser reference implementation) and clears the session registry.
+
+### MediaServiceOptions
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `onSessionCreate` | `(windowId, sessionId, metadata?) => void` | Called when a napplet creates a session. |
+| `onState` | `(windowId, sessionId, state) => void` | Called on `media.state` updates — high-frequency; keep handler work minimal. |
+| `onSessionDestroy` | `(windowId, sessionId) => void` | Called when a napplet destroys a session. |
+| `onSessionUpdate` | `(windowId, sessionId, metadata) => void` | Called when a napplet updates session metadata. |
+| `onCapabilities` | `(windowId, sessionId, actions) => void` | Called when a napplet declares capabilities for a session. |
+| `mediaSessionTarget` | `MediaSessionTarget` | Overrides `navigator.mediaSession` (used by the default bridge only). Pass a `MockMediaSession` in unit tests. Ignored when `hostBridge` is provided. |
+| `documentTarget` | `Document \| null` | Overrides `document` (used by the default bridge only). Set to `null` to disable the silent-audio prime in unit tests. Ignored when `hostBridge` is provided. |
+| `hostBridge` | `HostMediaBridge` | Pluggable backend. When provided, the service delegates setMetadata / setPlaybackState / onAction to the bridge and skips `navigator.mediaSession` entirely. |
+
+### HostMediaBridge interface
+
+Copy the contract verbatim for host-app implementers. Native bridges implement `setMetadata` + `setPlaybackState` + `onAction` at minimum; the two optional fields cover active-session switching and per-session teardown.
+
+```ts
+export interface HostMediaBridge {
+  /**
+   * Set the metadata displayed on the OS transport surface for a session.
+   * Called on session.create (with initial metadata) and on session.update
+   * (with merged metadata) whenever the session is the active session.
+   * Implementations MUST be idempotent.
+   */
+  setMetadata(sessionId: string, metadata: MediaMetadata): void;
+
+  /**
+   * Set the playback state for a session. Called on media.state reports
+   * whenever the session is the active session. State strings match
+   * nub-media MediaState.status exactly. Implementations MUST be idempotent.
+   */
+  setPlaybackState(sessionId: string, state: 'playing' | 'paused' | 'stopped' | 'buffering'): void;
+
+  /**
+   * Subscribe to OS-level action events (user clicks play/pause/seek/next/prev
+   * on the transport surface). Returns an unsubscribe handle.
+   *
+   * The callback receives `(sessionId, action, value?)`. `sessionId` is the
+   * bridge's currently-active session (the browser impl tracks this internally
+   * via setActionHandler-at-fire-time; native impls track via setActiveSession).
+   * `value` is populated for `action === 'seek'` (seek target in seconds) and
+   * for `action === 'volume'` (0.0-1.0). The service dispatches the resulting
+   * `media.command` envelope to the owning napplet of that session.
+   */
+  onAction(callback: (sessionId: string, action: MediaAction, value?: number) => void): () => void;
+
+  /**
+   * Optional: notify the bridge that the active session has changed. The
+   * browser reference impl uses this to switch which session's metadata/state
+   * is mirrored to the singleton navigator.mediaSession and to install (or
+   * clear) action handlers for the session's declared capabilities.
+   *
+   * The optional `actions` parameter carries the session's declared capability
+   * set so the bridge can narrow which OS transport buttons are active. When
+   * omitted, the bridge applies its default set. Native OS bridges that track
+   * active-session state internally may omit this field entirely.
+   */
+  setActiveSession?(sessionId: string | null, actions?: readonly MediaAction[]): void;
+
+  /**
+   * Optional: tear down per-session resources. The browser reference impl
+   * uses this to remove the silent-audio prime element when the last session
+   * is destroyed. Bridges that need no per-session teardown may omit this field.
+   */
+  destroySession?(sessionId: string): void;
+}
+```
+
+### Usage
+
+Default browser path — the reference `navigator.mediaSession` mirror:
+
+```ts
+import { createMediaService } from '@kehto/services';
+
+const media = createMediaService({
+  onSessionCreate: (windowId, sessionId, metadata) => {
+    console.log(`[${windowId}] created session ${sessionId}`, metadata);
+  },
+  onState: (windowId, sessionId, state) => {
+    nowPlaying.update(windowId, state);
+  },
+});
+
+runtime.registerService('media', media);
+// On shell teardown:
+media.destroy();
+```
+
+Custom bridge path — swap in an Electron IPC bridge:
+
+```ts
+import { createMediaService, type HostMediaBridge, type MediaAction } from '@kehto/services';
+import { ipcRenderer } from 'electron';
+
+const electronBridge: HostMediaBridge = {
+  setMetadata(sessionId, md) {
+    ipcRenderer.send('media:metadata', { sessionId, md });
+  },
+  setPlaybackState(sessionId, state) {
+    ipcRenderer.send('media:state', { sessionId, state });
+  },
+  onAction(cb) {
+    const handler = (_: unknown, msg: { sessionId: string; action: MediaAction; value?: number }) =>
+      cb(msg.sessionId, msg.action, msg.value);
+    ipcRenderer.on('media:action', handler);
+    return () => ipcRenderer.removeListener('media:action', handler);
+  },
+};
+
+runtime.registerService('media', createMediaService({ hostBridge: electronBridge }));
+```
+
+### When to plug a custom bridge
+
+Plug a `HostMediaBridge` when `navigator.mediaSession` is insufficient: Electron apps that need to route transport events through the main process (lock-screen integration on Windows, Now Playing integration on macOS), Linux shells that speak MPRIS over D-Bus, native mobile wrappers that forward to AVPlayer / ExoPlayer, or test harnesses that record action events without touching the DOM. The bridge owns metadata/state mirroring and OS action routing; the service retains per-session bookkeeping (sessionRegistry + per-window send handles) so `media.command` dispatch semantics stay identical across paths.
+
+See the demo: [`apps/demo/napplets/media-controller/src/main.ts`](../../apps/demo/napplets/media-controller/src/main.ts) (the Phase 27 end-to-end exemplar — uses `@napplet/nub-media` `mediaCreateSession` + `mediaReportState` + `mediaOnCommand` against the real backend).
+
 ## Public API
 
 Each factory returns a `ServiceHandler` registrable via `runtime.registerService()`. The bullets below note the canonical NIP-5D domain the handler owns and the ACL capability napplets need in order to reach it.
@@ -61,11 +301,11 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 - [`createCacheService`](../../docs/api/functions/_kehto_services.createCacheService.html) — offline event cache (`cache:read` / `cache:write`).
 - [`createCoordinatedRelay`](../../docs/api/functions/_kehto_services.createCoordinatedRelay.html) — composite service that bundles relay-pool + cache with read-through behavior.
 
-### Keys NUB (stub in v1.3)
-- [`createKeysService`](../../docs/api/functions/_kehto_services.createKeysService.html) — `keys.bind/unbind/bindings` stub (`keys:bind` / `keys:forward`). Plug a real backend via the `onBind`/`onForward` hooks when the host supports OS key registration.
+### Keys NUB
+- [`createKeysService`](../../docs/api/functions/_kehto_services.createKeysService.html) — `keys.registerAction` / `keys.unregisterAction` / `keys.forward` + `keys.action` push envelopes (`keys:forward`). Document-level chord listener by default; implement the `HostKeysBridge` interface to swap in Electron / Tauri / OS-level backends. See [Keys Service](#keys-service) for the full contract.
 
-### Media NUB (stub in v1.3)
-- [`createMediaService`](../../docs/api/functions/_kehto_services.createMediaService.html) — `media.*` playback/transport stub (`media:control`). Plug a real media backend via the service options.
+### Media NUB
+- [`createMediaService`](../../docs/api/functions/_kehto_services.createMediaService.html) — `media.session.create` / `update` / `destroy` / `media.state` / `media.capabilities` + `media.command` push envelopes (`media:control`). Mirrors to `navigator.mediaSession` by default; implement the `HostMediaBridge` interface to swap in native backends. See [Media Service](#media-service) for the full contract.
 
 ### Theme NUB
 - [`createThemeService`](../../docs/api/functions/_kehto_services.createThemeService.html) — `theme.get` + `theme.changed` fan-out (`theme:read`). Returns a `ThemeService` with `publishTheme()` / `setTheme()` utilities for host-side updates.
