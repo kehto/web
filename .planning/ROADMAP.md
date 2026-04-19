@@ -110,7 +110,11 @@
   3. `apps/demo/napplets/media-controller` napplet (built under `@napplet/sdk`, zero raw `window.addEventListener('message')` in source) calls `media.setMetadata` on boot and toggles `media.play` / `media.pause` on user action; `#media-controller-status` transitions `connecting... → authenticated → playing | paused` reflecting MediaSession state.
   4. `tests/e2e/media-controller.spec.ts` (Layer-B, uses canonical `demoBeforeEach` + `waitForNappletReady`) drives play/pause/setMetadata via the napplet; asserts both the `#media-controller-status` text transitions and (via `page.evaluate`) the `navigator.mediaSession.playbackState` + `metadata.title` values; the spec passes against the built demo artifact.
   5. Build → run → Playwright iteration loop recorded: `pnpm clean && pnpm build && pnpm test:e2e` reports the full v1.4-to-date suite (Phase 23 + 26 baseline + `media-controller.spec.ts`) green; demo source remains anti-term clean.
-**Plans**: TBD
+**Plans:** 1/4 plans executed
+- [x] 27-01-PLAN.md — Real media-service (navigator.mediaSession mirror + media.command push + silent-audio prime) (MEDIA-01)
+- [ ] 27-02-PLAN.md — HostMediaBridge interface + createBrowserMediaBridge factory + barrel export (MEDIA-02)
+- [ ] 27-03-PLAN.md — apps/demo/napplets/media-controller + shell-host.ts wiring + __grantMediaControl__ hook (MEDIA-03)
+- [ ] 27-04-PLAN.md — Layer-B media-controller.spec.ts + cascaded demo-boot fix + 27-ITERATION-LOG.md (E2E-13)
 **UI hint**: yes
 
 ### Phase 28: Layer-A Upgrade & Docs Polish
@@ -145,5 +149,5 @@ Phases execute in numeric order: 23 → 24 → 25 → 26 → 27 → 28
 | 24. DRIFT-CORE-06 Cleanup | v1.4 | 2/2 | Complete   | 2026-04-19 |
 | 25. Release Publication | v1.4 | 0/TBD | Not started | - |
 | 26. Real Keys Backend | v1.4 | 4/4 | Complete   | 2026-04-19 |
-| 27. Real Media Backend | v1.4 | 0/TBD | Not started | - |
+| 27. Real Media Backend | v1.4 | 1/4 | In Progress|  |
 | 28. Layer-A Upgrade & Docs Polish | v1.4 | 0/TBD | Not started | - |

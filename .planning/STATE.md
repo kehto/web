@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: — Productionization & Upstream Unblock
-status: verifying
-last_updated: "2026-04-19T14:11:39.208Z"
+status: executing
+last_updated: "2026-04-19T17:16:22.615Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 10
-  completed_plans: 11
-  percent: 33
+  total_plans: 14
+  completed_plans: 12
+  percent: 86
 ---
 
 # Project State
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-19, v1.4 milestone opened)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** v1.4 Phase 26 complete — Real Keys Backend shipped (all 4 plans closed via Plan 26-04's atomic commit); ready for Phase 27 (Real Media Backend).
+**Current focus:** Phase 27 — Real Media Backend
 
 ## Current Position
 
-Phase: 26 of 28 (Real Keys Backend) — COMPLETE
-Plan: 4 of 4 complete (26-01 real keys-service + keys.action emission ✓, 26-02 HostKeysBridge interface + hostBridge option ✓, 26-03 hotkey-chord napplet + shell wiring + __grantKeysForward__ host hook ✓, 26-04 E2E-12 Layer-B spec + iteration loop 47→48 delta +1 ✓)
-Status: Phase 26 verifying — ready for Phase 27 after verifier pass
+Phase: 27 (Real Media Backend) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
 Last activity: 2026-04-19
 
-Progress: [█████░░░░░] 50% (3/6 v1.4 phases complete) — phase 26: [██████████] 100% (4/4 plans)
+Progress: [█████████░] 86% (12/14 plans complete, 3/6 v1.4 phases complete) — phase 27: [██████░░░░] 1/4 plans
 
 **v1.4 phase list (23–28):**
 
@@ -65,6 +65,8 @@ Progress: [█████░░░░░] 50% (3/6 v1.4 phases complete) — ph
 - [v1.4-26-04] E2E-12 Layer-B spec (hotkey-chord.spec.ts) locks the Phase 26 real-keys contract: baseline 47 → 48 (delta +1) green against fresh-build; anti-term hygiene clean across Phase 26 sources; __grantKeysForward__ hook is the canonical capability-gate mechanism (no spec-side ACL routing).
 - [v1.4-26-04] demo-boot.spec.ts stub-assertion fix is an IN-SCOPE cascaded Rule 1 deviation — the assertion encoded the pre-Phase-26 topology (keys stub); Plan 26-03 intentionally graduated keys from STUB_ONLY_SERVICES, so the fix belongs in Phase 26's atomic commit to keep main green. Pattern: cascaded topology-change test updates are in-scope for the phase that changed the topology.
 - [v1.4-26-04] Status-sentinel wait (`toContainText('subscribed')`) is the canonical substitute for the napplet-ready helper on the :4174 demo — which doesn't install `window.__nappletReady__` (only the :4173 harness does). Waiting on the status sentinel provides equivalent coverage: blocks until SDK AUTH + keys.registerAction round-trip both complete. ROADMAP §4 deviation, documented in the spec docblock + 26-ITERATION-LOG.md.
+- [v1.4-27-01] MediaSessionTarget uses optional `details?` parameter to satisfy TypeScript structural compatibility between the real DOM MediaSession (always passes object) and test mocks (may omit). Zero behavior change — handler body uses optional chaining `details?.seekTime` throughout.
+- [v1.4-27-01] `pnpm --filter @kehto/services test` silently exits 0 because services package has no `test` script in package.json (only `test:unit: "echo 'no unit tests yet'"`). Real tests run via `pnpm test:unit` (root vitest config). Matches the v1.4-23-02 canonical invocation decision. Plan verification adapted accordingly.
 
 Full decision log archived in `.planning/PROJECT.md` (Key Decisions table) and per-milestone roadmap archives.
 
@@ -74,5 +76,5 @@ Full decision log archived in `.planning/PROJECT.md` (Key Decisions table) and p
 
 ## Session Continuity
 
-Last session: 2026-04-19T14:11:39.205Z
-Resume: Phase 26 verifier pass (all 4 plans complete; atomic commit landed; 48/0/0 green; iteration log recorded). Next: Phase 27 — Real Media Backend (MEDIA-01, MEDIA-02, MEDIA-03, E2E-13) following the same structural pattern (real service + HostBridge interface + demo napplet + Layer-B spec + iteration loop). Completed: 26-04-PLAN.md — E2E-12 hotkey-chord.spec.ts + fresh-build iteration loop + atomic commit.
+Last session: 2026-04-19T17:15:04Z
+Resume: Phase 27 Plan 01 complete (MEDIA-01 — real navigator.mediaSession mirror in media-service.ts; 471 tests green; 2 commits: 50c2589 feat, fb267cd test). Next: Phase 27 Plan 02 — HostMediaBridge interface + createBrowserMediaBridge() factory. Completed: 27-01-PLAN.md — real media-service with setActionHandler matrix, media.command push, silent-audio prime, last-active-wins registry.
