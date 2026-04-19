@@ -112,27 +112,29 @@ Continues numbering from v1.3 DOCS-03.
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| CI-01 | TBD | Pending |
-| CI-02 | TBD | Pending |
-| CI-03 | TBD | Pending |
-| CI-04 | TBD | Pending |
-| REL-05 | TBD | Pending |
-| REL-06 | TBD | Pending |
-| DRIFT-01 | TBD | Pending |
-| DRIFT-02 | TBD | Pending |
-| KEYS-01 | TBD | Pending |
-| KEYS-02 | TBD | Pending |
-| KEYS-03 | TBD | Pending |
-| MEDIA-01 | TBD | Pending |
-| MEDIA-02 | TBD | Pending |
-| MEDIA-03 | TBD | Pending |
-| E2E-12 | TBD | Pending |
-| E2E-13 | TBD | Pending |
-| E2E-14 | TBD | Pending |
-| DOCS-04 | TBD | Pending |
-| DOCS-05 | TBD | Pending |
-| DOCS-06 | TBD | Pending |
+| CI-01 | Phase 23 | Pending |
+| CI-02 | Phase 23 | Pending |
+| CI-03 | Phase 23 | Pending |
+| CI-04 | Phase 25 | Pending |
+| REL-05 | Phase 25 | Pending |
+| REL-06 | Phase 25 | Pending |
+| DRIFT-01 | Phase 24 | Pending |
+| DRIFT-02 | Phase 24 | Pending |
+| KEYS-01 | Phase 26 | Pending |
+| KEYS-02 | Phase 26 | Pending |
+| KEYS-03 | Phase 26 | Pending |
+| MEDIA-01 | Phase 27 | Pending |
+| MEDIA-02 | Phase 27 | Pending |
+| MEDIA-03 | Phase 27 | Pending |
+| E2E-12 | Phase 26 | Pending |
+| E2E-13 | Phase 27 | Pending |
+| E2E-14 | Phase 28 | Pending |
+| DOCS-04 | Phase 23 | Pending |
+| DOCS-05 | Phase 28 | Pending |
+| DOCS-06 | Phase 28 | Pending |
+
+**Coverage:** 20/20 v1.4 requirements mapped — no orphans, no duplicates.
 
 ---
 
-*Traceability table populated by gsd-roadmapper when roadmap is created.*
+*Traceability table populated by gsd-roadmapper 2026-04-19.*

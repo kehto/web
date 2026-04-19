@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Productionization & Upstream Unblock
-status: defining_requirements
-stopped_at: v1.4 milestone opened 2026-04-19 — scoping requirements
+status: roadmap_complete
+stopped_at: v1.4 ROADMAP.md drafted 2026-04-19 — 6 phases (23–28), 20/20 REQ-IDs mapped, awaiting user approval before /gsd:plan-phase 23
 last_updated: "2026-04-19T00:00:00.000Z"
 last_activity: 2026-04-19
 progress:
-  total_phases: 0
+  total_phases: 6
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -18,19 +18,27 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-18, after v1.3)
+See: .planning/PROJECT.md (updated 2026-04-19, v1.4 milestone opened)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Planning next milestone (`/gsd:new-milestone`).
+**Current focus:** v1.4 Phase 23 — CI/CD Baseline & Doc Trivia (ready to plan).
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-04-19 — Milestone v1.4 started
+Phase: 23 of 28 (CI/CD Baseline & Doc Trivia) — first v1.4 phase
+Plan: — (not yet planned)
+Status: Ready to plan
+Last activity: 2026-04-19 — v1.4 roadmap drafted, 20/20 REQ-IDs mapped across 6 phases
 
-**v1.3 shipped 2026-04-18.** Audit passed 37/37 requirements, 7/7 phases, 11/11 flows. See `.planning/milestones/v1.3-MILESTONE-AUDIT.md`.
+Progress: [░░░░░░░░░░] 0% (0/6 v1.4 phases complete)
+
+**v1.4 phase list (23–28):**
+- Phase 23: CI/CD Baseline & Doc Trivia (CI-01, CI-02, CI-03, DOCS-04)
+- Phase 24: DRIFT-CORE-06 Cleanup (DRIFT-01, DRIFT-02)
+- Phase 25: Release Publication (REL-05, REL-06, CI-04)
+- Phase 26: Real Keys Backend (KEYS-01, KEYS-02, KEYS-03, E2E-12)
+- Phase 27: Real Media Backend (MEDIA-01, MEDIA-02, MEDIA-03, E2E-13)
+- Phase 28: Layer-A Upgrade & Docs Polish (E2E-14, DOCS-05, DOCS-06)
 
 ## Accumulated Context
 
@@ -38,21 +46,18 @@ Last activity: 2026-04-19 — Milestone v1.4 started
 
 - [v1.2] Shell MUST NOT provide `window.nostr` — napplets consume signing via `relay.publish`/`publishEncrypted`; identity reads via `identity.*`.
 - [v1.2] `createDispatch()` + `registerNub()` is canonical dispatch; per-runtime instance required.
-- [v1.2] `DRIFT-CORE-06` (`packages/runtime/src/core-compat.ts`) stays intact; no new consumers.
-- [v1.3] E2E-11 iteration-loop discipline: every phase from Phase 17 onward closes with a recorded build→run→Playwright→fix loop (formally closed Phase 22).
-- [v1.3] `@napplet/core` dedup via `pnpm.overrides` at workspace root — single `link:` instance across all `@kehto/*` packages (Pitfall 3).
+- [v1.3] E2E iteration-loop discipline is canon: every phase that touches a Playwright spec closes with a recorded build→run→Playwright→fix loop. Baked into v1.4 success criteria — no longer a tracked REQ-ID.
 - [v1.3] Legacy NIP-01 fixtures + specs deleted (not migrated) — cleanliness > backward compat.
+- [v1.4] `DRIFT-CORE-06` is no longer upstream-blocked — `@napplet/core@0.2.0` is on npm. Phase 24 deletes `core-compat.ts` via pure internal refactor.
+- [v1.4] `pnpm.overrides` `link:` entries for `@napplet/*` MUST be removed before REL-05 publishes (Phase 25).
 
-Full decision log archived in `.planning/milestones/v1.3-ROADMAP.md`.
+Full decision log archived in `.planning/PROJECT.md` (Key Decisions table) and per-milestone roadmap archives.
 
 ### Blockers/Concerns (carried forward)
 
-- `@napplet/core` not on npm — workspace `link:` overrides active; blocks `changeset publish` until upstream publication.
-- `DRIFT-CORE-06` cleanup waits for `@napplet/core` to restore legacy exports upstream.
-- CI/CD deferred from v1.3; candidate for v1.4.
-- Cosmetic: 2 JSDoc `@example` blocks in tests/e2e/harness/harness.ts + helpers still cite deleted `auth-napplet` fixture.
+- None blocking — `@napplet/core@0.2.0` on npm clears the v1.3 publication-blocker. v1.4 is fully unblocked from upstream.
 
 ## Session Continuity
 
-Last session: 2026-04-18 — v1.3 milestone shipped.
-Resume: `/gsd:new-milestone` to plan v1.4.
+Last session: 2026-04-19 — v1.4 roadmap drafted by gsd-roadmapper; 20/20 REQ-IDs mapped across 6 phases (23–28).
+Resume: `/gsd:plan-phase 23` to plan CI/CD Baseline & Doc Trivia.
