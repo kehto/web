@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: — Productionization & Upstream Unblock
-status: executing
-last_updated: "2026-04-19T10:34:57.921Z"
+status: verifying
+last_updated: "2026-04-19T12:36:58.056Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 6
-  completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
-  percent: 100
+  completed_phases: 2
+  total_plans: 6
+  completed_plans: 6
+  percent: 33
 ---
 
 # Project State
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-19, v1.4 milestone opened)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** v1.4 Phase 23 — CI/CD Baseline & Doc Trivia (all 4 plans complete; ready for phase-completion review).
+**Current focus:** v1.4 Phase 24 — DRIFT-CORE-06 Cleanup complete (atomic commit 4c12cd2); ready for phase-completion verification.
 
 ## Current Position
 
-Phase: 23 of 28 (CI/CD Baseline & Doc Trivia) — first v1.4 phase
-Plan: 4 of 4 complete (23-01 build CI ✓, 23-02 unit-test CI ✓, 23-03 e2e CI ✓, 23-04 DOCS-04 JSDoc refresh ✓)
-Status: Phase 23 complete — ready for verify/next phase
+Phase: 24 of 28 (DRIFT-CORE-06 Cleanup) — v1.4 second phase complete
+Plan: 2 of 2 complete (24-01 shim deletion + re-homing ✓, 24-02 dead NIP-01 code path deletion + atomic commit ✓)
+Status: Phase complete — ready for verification
 Last activity: 2026-04-19
 
-Progress: [░░░░░░░░░░] 0% (0/6 v1.4 phases complete) — phase 23: [██████████] 100% (4/4 plans)
+Progress: [███░░░░░░░] 33% (2/6 v1.4 phases complete) — phase 24: [██████████] 100% (2/2 plans)
 
 **v1.4 phase list (23–28):**
 
@@ -52,6 +52,11 @@ Progress: [░░░░░░░░░░] 0% (0/6 v1.4 phases complete) — pha
 - [v1.4] `pnpm.overrides` `link:` entries for `@napplet/*` MUST be removed before REL-05 publishes (Phase 25).
 - [v1.4-23-02] Unit-test CI invokes `pnpm test` (turbo run test), not `pnpm test:unit` — root `test` script delegates to per-package Vitest configs via turbo; `test:unit` is a developer-local shortcut (`vitest run` from root) that bypasses turbo and per-package test configurations. CI must match the canonical entry point.
 - [v1.4-23-04] DOCS-04 JSDoc refresh: replace `'auth-napplet'` with `'nub-identity'` in harness.ts + wait-for-napplet-ready.ts — rationale: auth-napplet fixture deleted in v1.3; nub-identity is the closest semantic match (both AUTH-flow fixtures) and is currently shipped per CONTEXT.md decision D.
+- [v1.4-24-01] REPLAY_WINDOW_SECONDS preserved at 30 (matches pre-refactor core-compat.ts:67 value, not the 60 that ROADMAP Phase 24 §2 suggested). Rationale: behavioral parity with the Phase 23 test baseline (442 unit tests passing unchanged).
+- [v1.4-24-01] Staged-deletion placeholder-const pattern: when a phase plan deletes a source file but a follow-on plan in the same phase scrubs call sites, the first plan inlines constants locally so the intermediate commit remains type-check green. The second plan then deletes both the placeholder and the call site atomically.
+- [v1.4-24-02] Preserved @kehto/acl's LIVE CapabilityResolution interface untouched; only the runtime-flavored duplicate in enforce.ts was deleted. Scope for grep assertions scoped to packages/runtime/src + packages/shell/src only — @kehto/acl defines its own distinct CapabilityResolution consumed by resolveCapabilitiesNub.
+- [v1.4-24-02] Renamed local boolean isBusKind → isShellKind in runtime.ts (filter-predicate variable, scope: handleRelayMessage) for grep-scope acceptance-criterion compliance. Zero behavior change.
+- [v1.4-24-02] Manual clean substituted for pnpm clean (no root script defined); Phase 22-08 precedent exactly. Behavior equivalent: cold rebuild, 0 cache hits.
 
 Full decision log archived in `.planning/PROJECT.md` (Key Decisions table) and per-milestone roadmap archives.
 
@@ -61,5 +66,5 @@ Full decision log archived in `.planning/PROJECT.md` (Key Decisions table) and p
 
 ## Session Continuity
 
-Last session: 2026-04-19T10:34:57.919Z
-Resume: `/gsd:verify-work 23` to validate Phase 23, then `/gsd:plan-phase 24` for DRIFT-CORE-06 cleanup.
+Last session: 2026-04-19T12:36:58.053Z
+Resume: `/gsd:verify-work 24` to validate Phase 24 (DRIFT-CORE-06 cleanup complete; atomic commit 4c12cd2 pushed; CI green), then `/gsd:plan-phase 25` for Release Publication.

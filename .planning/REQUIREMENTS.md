@@ -49,8 +49,8 @@ Continues numbering from v1.3 REL-04. Now unblocked by `@napplet/core@0.2.0` on 
 
 Pure internal refactor. No upstream dependency.
 
-- [ ] **DRIFT-01**: `packages/runtime/src/core-compat.ts` **deleted**. Live type imports moved to rightful homes: `Capability` re-imported from `@kehto/acl/capabilities` (already the canonical source); `ServiceDescriptor` relocated to `@kehto/runtime/types`; `REPLAY_WINDOW_SECONDS` inlined in `replay.ts` or moved to a `@kehto/runtime/constants` file.
-- [ ] **DRIFT-02**: Dead NIP-01 code paths deleted — all `BusKind`, `AUTH_KIND`, `DESTRUCTIVE_KINDS`, `STATE_TOPICS` references removed from `enforce.ts`, `state-handler.ts`, `service-discovery.ts`, and `@kehto/services` files. No behavior change (v1.2 made NIP-5D canonical; these code paths haven't executed since). `pnpm test` + `pnpm test:e2e` green post-refactor.
+- [x] **DRIFT-01**: `packages/runtime/src/core-compat.ts` **deleted**. Live type imports moved to rightful homes: `Capability` re-imported from `@kehto/acl/capabilities` (already the canonical source); `ServiceDescriptor` relocated to `@kehto/runtime/types`; `REPLAY_WINDOW_SECONDS` inlined in `replay.ts` or moved to a `@kehto/runtime/constants` file.
+- [x] **DRIFT-02**: Dead NIP-01 code paths deleted — all `BusKind`, `AUTH_KIND`, `DESTRUCTIVE_KINDS`, `STATE_TOPICS` references removed from `enforce.ts`, `state-handler.ts`, `service-discovery.ts`, and `@kehto/services` files. No behavior change (v1.2 made NIP-5D canonical; these code paths haven't executed since). `pnpm test` + `pnpm test:e2e` green post-refactor.
 
 ---
 
@@ -118,8 +118,8 @@ Continues numbering from v1.3 DOCS-03.
 | CI-04 | Phase 25 | Pending |
 | REL-05 | Phase 25 | Pending |
 | REL-06 | Phase 25 | Pending |
-| DRIFT-01 | Phase 24 | Pending |
-| DRIFT-02 | Phase 24 | Pending |
+| DRIFT-01 | Phase 24 | Complete |
+| DRIFT-02 | Phase 24 | Complete |
 | KEYS-01 | Phase 26 | Pending |
 | KEYS-02 | Phase 26 | Pending |
 | KEYS-03 | Phase 26 | Pending |

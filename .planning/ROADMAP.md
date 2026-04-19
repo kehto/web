@@ -31,7 +31,7 @@
 ## Phases
 
 - [x] **Phase 23: CI/CD Baseline & Doc Trivia** — GitHub Actions for build/type-check/unit/Playwright on every PR; refresh stale JSDoc `@example` blocks (completed 2026-04-19)
-- [ ] **Phase 24: DRIFT-CORE-06 Cleanup** — Delete `core-compat.ts`; re-home live types; purge dead NIP-01 code paths
+- [x] **Phase 24: DRIFT-CORE-06 Cleanup** — Delete `core-compat.ts`; re-home live types; purge dead NIP-01 code paths (completed 2026-04-19; atomic commit 4c12cd2; CI green)
 - [ ] **Phase 25: Release Publication** — `pnpm changeset publish` for the staged v1.3 changesets; smoke-test fresh install from npm; release.yml workflow
 - [ ] **Phase 26: Real Keys Backend** — Document-level chord listener + `HostKeysBridge` interface + `hotkey-chord` napplet + Layer-B spec
 - [ ] **Phase 27: Real Media Backend** — Web Audio + MediaSession + `HostMediaBridge` interface + `media-controller` napplet + Layer-B spec
@@ -67,7 +67,9 @@
   3. Zero references to `BusKind`, `AUTH_KIND`, `DESTRUCTIVE_KINDS`, or `STATE_TOPICS` remain in `packages/runtime/src/**` or `packages/services/src/**` (verified by `git grep` on each token).
   4. `pnpm test` passes for all 4 `@kehto/*` packages with no behavioral diffs vs. the Phase 23 baseline (test counts unchanged, no skips added, no expectations relaxed).
   5. Build → run → Playwright iteration loop recorded against the post-refactor commit: `pnpm clean && pnpm build && pnpm test:e2e` reports the full v1.3 baseline (47 / 0 / 0) green; result captured in the phase iteration log.
-**Plans**: TBD
+**Plans:** 2/2 plans complete
+- [x] 24-01-PLAN.md — Re-home live types + delete core-compat.ts (DRIFT-01)
+- [x] 24-02-PLAN.md — Delete dead NIP-01 code paths + iteration loop (DRIFT-02)
 
 ### Phase 25: Release Publication
 **Goal**: All four `@kehto/*` packages are published to `registry.npmjs.org` at `0.2.1` (or newer — v1.3 changesets stage patch-bumps); a fresh-install smoke test against the npm registry succeeds; a tag-triggered release workflow exists for future bumps.
@@ -136,7 +138,7 @@ Phases execute in numeric order: 23 → 24 → 25 → 26 → 27 → 28
 | 21. Fixture Napplets & Layer-A Specs | v1.3 | 5/5 | Complete | 2026-04-18 |
 | 22. Docs Refresh & Release Rehearsal | v1.3 | 8/8 | Complete | 2026-04-18 |
 | 23. CI/CD Baseline & Doc Trivia | v1.4 | 4/4 | Complete   | 2026-04-19 |
-| 24. DRIFT-CORE-06 Cleanup | v1.4 | 0/TBD | Not started | - |
+| 24. DRIFT-CORE-06 Cleanup | v1.4 | 2/2 | Complete   | 2026-04-19 |
 | 25. Release Publication | v1.4 | 0/TBD | Not started | - |
 | 26. Real Keys Backend | v1.4 | 0/TBD | Not started | - |
 | 27. Real Media Backend | v1.4 | 0/TBD | Not started | - |
