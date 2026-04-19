@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: — Productionization & Upstream Unblock
-status: executing
-last_updated: "2026-04-19T17:34:04.522Z"
+status: verifying
+last_updated: "2026-04-19T17:48:47.974Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 14
-  completed_plans: 14
+  completed_plans: 15
   percent: 100
 ---
 
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-19, v1.4 milestone opened)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 27 — Real Media Backend
+**Current focus:** Phase 28 — Layer-A Upgrade & Docs Polish (next)
 
 ## Current Position
 
-Phase: 27 (Real Media Backend) — EXECUTING
-Plan: 4 of 4
-Status: Ready to execute
+Phase: 27 (Real Media Backend) — COMPLETE
+Plan: 4 of 4 (all plans complete)
+Status: Phase complete — ready for Phase 28
 Last activity: 2026-04-19
 
-Progress: [██████████] 100% (14/14 plans complete, 3/6 v1.4 phases complete) — phase 27: [██████████] 3/4 plans
+Progress: [██████████] 100% (15/14 plans complete, 4/6 v1.4 phases complete) — phase 27: [██████████] 4/4 plans
 
 **v1.4 phase list (23–28):**
 
@@ -74,6 +74,9 @@ Progress: [██████████] 100% (14/14 plans complete, 3/6 v1.4 
 - [v1.4-27-03] STUB_ONLY_SERVICES demoted from `['media']` to `[]` in Plan 27-03 (not 27-04) — stub-only era ends when the real backend napplet is wired, not at the E2E spec.
 - [v1.4-27-03] apps/demo/index.html NOT edited when adding media-controller napplet — topology.ts dynamically renders `#media-controller-frame-container` from DEMO_NAPPLETS (Plan 26-03 precedent confirmed and holds for all future DEMO_NAPPLETS additions).
 - [v1.4-27-03] `window.__grantMediaControl__` host hook installed in bootShell() — scoped to media-controller napplet, grants `media:control` cap, returns true/false. Mirrors `__grantKeysForward__` verbatim. Plan 27-04's E2E-13 spec invokes this before asserting play/pause state transitions.
+- [v1.4-27-04] `page.bringToFront()` required before iframe button clicks in parallel Playwright workers — Chromium background-tab JS throttling suppresses sandboxed iframe onclick handlers when tests run in parallel (8 workers). bringToFront() ensures the tab is active. This does not affect keyboard events dispatched to the top-level page (hotkey-chord.spec.ts is unaffected).
+- [v1.4-27-04] DUAL-PATH E2E assertion (DOM sentinel + navigator.mediaSession read via page.evaluate from top-level shell page) is the E2E-13 structural pattern; navigator.mediaSession reads target the shell window (not the iframe) because createBrowserMediaBridge writes to the shell's singleton navigator.mediaSession.
+- [v1.4-27-04] E2E-13 closes Phase 27 with 49-test baseline (was 48 at Phase 26 close, +1 delta from media-controller.spec.ts). demo-boot.spec.ts cascaded stub-badge fix committed before the fresh-build run — no iteration-1 regression (unlike Phase 26 which had a regression on iteration 1).
 
 Full decision log archived in `.planning/PROJECT.md` (Key Decisions table) and per-milestone roadmap archives.
 
@@ -83,5 +86,5 @@ Full decision log archived in `.planning/PROJECT.md` (Key Decisions table) and p
 
 ## Session Continuity
 
-Last session: 2026-04-19T17:34:04.519Z
-Resume: Phase 27 Plan 03 complete (MEDIA-03 — media-controller demo napplet + shell wiring; 2 commits: 76e6c08 feat Task 1, 19ae118 feat Task 2; STUB_ONLY_SERVICES now []; 10 napplet artifacts; __grantMediaControl__ hook installed). Next: Phase 27 Plan 04 — E2E-13 Playwright spec. Completed: 27-03-PLAN.md — media-controller napplet (5 files) + DEMO_NAPPLETS 10th entry + __grantMediaControl__ hook + coverage-gate update.
+Last session: 2026-04-19T17:48:47.971Z
+Resume: Phase 27 Plan 04 complete (E2E-13 — media-controller.spec.ts + demo-boot.spec.ts cascade + 27-ITERATION-LOG.md; 4 commits: 13276ea test Task 1, a652ec5 fix bringToFront Rule 1, 9203999 fix demo-boot cascade, 4efdc9e chore iteration log; 49 passed / 0 failed / 0 skipped; Phase 27 complete). Next: Phase 28 — Layer-A Upgrade & Docs Polish (E2E-14, DOCS-05, DOCS-06). Completed: 27-04-PLAN.md — E2E-13 Layer-B spec + iteration loop + Phase 27 close.

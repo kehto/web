@@ -79,7 +79,7 @@ Replaces the stub `@kehto/services` media-service with a working implementation 
 Continues numbering from v1.3 E2E-11.
 
 - [x] **E2E-12**: Layer-B spec `tests/e2e/hotkey-chord.spec.ts` verifies chord registration via the host, chord delivery to the napplet, and counter increment. Uses the canonical `demoBeforeEach` + `waitForNappletReady` helpers.
-- [ ] **E2E-13**: Layer-B spec `tests/e2e/media-controller.spec.ts` verifies `media.play` / `media.pause` / `media.setMetadata` via the napplet; asserts `#media-controller-status` transitions and (via browser_evaluate) MediaSession state.
+- [x] **E2E-13**: Layer-B spec `tests/e2e/media-controller.spec.ts` verifies `media.play` / `media.pause` / `media.setMetadata` via the napplet; asserts `#media-controller-status` transitions and (via browser_evaluate) MediaSession state.
 - [ ] **E2E-14**: Existing Layer-A stub-scope specs `nub-keys.spec.ts` + `nub-media.spec.ts` upgraded from stub-scope to full protocol-correctness coverage now that real backends exist; any `test.describe.skip` markers removed.
 
 ---
@@ -127,7 +127,7 @@ Continues numbering from v1.3 DOCS-03.
 | MEDIA-02 | Phase 27 | Complete |
 | MEDIA-03 | Phase 27 | Complete |
 | E2E-12 | Phase 26 | Complete |
-| E2E-13 | Phase 27 | Pending |
+| E2E-13 | Phase 27 | Complete |
 | E2E-14 | Phase 28 | Pending |
 | DOCS-04 | Phase 23 | Complete |
 | DOCS-05 | Phase 28 | Pending |
