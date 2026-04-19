@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: — Demo Stability & UAT Coverage
-status: executing
-stopped_at: Completed 30-01-PLAN.md
-last_updated: "2026-04-19T23:30:51.742Z"
+status: verifying
+stopped_at: Completed 30-02-PLAN.md (UI-02 ACL snapshot gate fix)
+last_updated: "2026-04-19T23:31:34.175Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 3
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
   percent: 33
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-19, v1.5 milestone opened)
 
 Phase: 30 (Shell UI State Wiring) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-19
 
 Progress: 1/3 phases complete [---       ] 33%
@@ -43,6 +43,7 @@ Progress: 1/3 phases complete [---       ] 33%
 | Phase 29-concurrent-boot-auth-fix-demo-stability P02 | 10 | 2 tasks | 0 files (cascade-fixed) |
 | Phase 30-shell-ui-state-wiring P03 | 12 | 1 tasks | 2 files |
 | Phase 30-shell-ui-state-wiring P01 | 8min | 1 tasks | 1 files |
+| Phase 30-shell-ui-state-wiring P02 | 8 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,6 @@ Key mapping:
 
 ## Session Continuity
 
-Last session: 2026-04-19T23:30:51.740Z
-Stopped at: Completed 30-01-PLAN.md
+Last session: 2026-04-19T23:31:34.172Z
+Stopped at: Completed 30-02-PLAN.md (UI-02 ACL snapshot gate fix)
 Resume: Phase 29 complete (DEMO-01 + DEMO-02 both satisfied). Next: `/gsd:plan-phase 30` (Shell UI State Wiring).
