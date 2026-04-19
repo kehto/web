@@ -581,18 +581,6 @@ if (shellPubkey) shellPubkey.textContent = `pubkey: ${getDemoHostPubkey().substr
 
 // Load demo napplets into the rendered topology
 const nappletInfos = DEMO_NAPPLETS.map((napplet) => loadNapplet(napplet.name, napplet.frameContainerId));
-const chatInfo = nappletInfos.find((napplet) => napplet.name === 'chat');
-const botInfo = nappletInfos.find((napplet) => napplet.name === 'bot');
-// Phase 19 (Plan 19-07 fix): extract info refs for the 3 new napplets so their auth
-// state can be tracked in the ACL-panel wiring below (same pattern as chat/bot).
-const composerInfo = nappletInfos.find((napplet) => napplet.name === 'composer');
-const preferencesInfo = nappletInfos.find((napplet) => napplet.name === 'preferences');
-const toasterInfo = nappletInfos.find((napplet) => napplet.name === 'toaster');
-// Phase 20 (Plan 20-06): extract info refs for feed/profile-viewer/theme-switcher so their auth
-// state can feed refreshAclPanelsIfNeeded() (same Path B envelope-based detection).
-const feedInfo = nappletInfos.find((napplet) => napplet.name === 'feed');
-const profileViewerInfo = nappletInfos.find((napplet) => napplet.name === 'profile-viewer');
-const themeSwitcherInfo = nappletInfos.find((napplet) => napplet.name === 'theme-switcher');
 
 initFlowAnimator(tap, topology, edgeFlasher);
 
@@ -751,45 +739,31 @@ wireNodeSelection();
 // Track which napplets have had their ACL panel rendered (render only once)
 const aclRendered = new Set<string>();
 
-// Update status indicators when napplets AUTH (only once per napplet)
-// Shared helper: called after any auth-signal message to update ACL panels
-// for all napplets that have now reached authenticated state.
+// Phase 29 (Plan 29-01, DEMO-01): Data-driven status refresh.
+//
+// Post-v1.4 UAT revealed that the previous hardcoded if-chain only updated the
+// outer topology status DOM for chat + bot. The other 8 napplets
+// (composer, preferences, toaster, feed, profile-viewer, theme-switcher,
+// hotkey-chord, media-controller) were added to `aclRendered` but their
+// `#<name>-status` span stayed at 'loading...' forever — the cause of the
+// "7/10 stuck on LOADING" user-visible bug. hotkey-chord + media-controller
+// were missing from the function entirely.
+//
+// shell-host.ts already detects AUTH for all 10 napplets via Path A
+// (NIP-01 OK at shell-host.ts:810-827) and Path B (first ENVELOPE at
+// shell-host.ts:832-844). This function is pure display: for each
+// authenticated napplet, update its outer topology status sentinel once.
 function refreshAclPanelsIfNeeded(): void {
-  const chatStatus = document.getElementById('chat-status');
-  const botStatus = document.getElementById('bot-status');
-
-  if (chatInfo?.authenticated && chatStatus && !aclRendered.has('chat')) {
-    chatStatus.textContent = 'authenticated';
-    chatStatus.style.color = '#39ff14';
-    aclRendered.add('chat');
-  }
-  if (botInfo?.authenticated && botStatus && !aclRendered.has('bot')) {
-    botStatus.textContent = 'authenticated';
-    botStatus.style.color = '#39ff14';
-    aclRendered.add('bot');
-  }
-  // Phase 19 (Plan 19-07 fix): NIP-5D napplets (composer/preferences/toaster) are
-  // authenticated via shell-host's Path B (first ENVELOPE from napplet), not NIP-01 OK.
-  // Their info refs were extracted from nappletInfos above and checked here.
-  if (composerInfo?.authenticated && !aclRendered.has('composer')) {
-    aclRendered.add('composer');
-  }
-  if (preferencesInfo?.authenticated && !aclRendered.has('preferences')) {
-    aclRendered.add('preferences');
-  }
-  if (toasterInfo?.authenticated && !aclRendered.has('toaster')) {
-    aclRendered.add('toaster');
-  }
-  // Phase 20 (Plan 20-06): NIP-5D envelope-only napplets (feed/profile-viewer/theme-switcher)
-  // use the same Path B authentication detection as composer/preferences/toaster.
-  if (feedInfo?.authenticated && !aclRendered.has('feed')) {
-    aclRendered.add('feed');
-  }
-  if (profileViewerInfo?.authenticated && !aclRendered.has('profile-viewer')) {
-    aclRendered.add('profile-viewer');
-  }
-  if (themeSwitcherInfo?.authenticated && !aclRendered.has('theme-switcher')) {
-    aclRendered.add('theme-switcher');
+  for (const napplet of DEMO_NAPPLETS) {
+    if (aclRendered.has(napplet.name)) continue;
+    const info = nappletInfos.find((entry) => entry.name === napplet.name);
+    if (!info?.authenticated) continue;
+    const statusEl = document.getElementById(napplet.statusId);
+    if (statusEl) {
+      statusEl.textContent = 'authenticated';
+      statusEl.style.color = '#39ff14';
+    }
+    aclRendered.add(napplet.name);
   }
 
   if (aclRendered.size > 0) {
@@ -807,16 +781,21 @@ tap.onMessage((msg) => {
     }, 200);
   }
 
-  // Path B: NIP-5D envelope-only napplets (composer/preferences/toaster).
+  // Path B: NIP-5D envelope-only napplets (composer/preferences/toaster, feed,
+  // profile-viewer, theme-switcher, hotkey-chord, media-controller).
   // The shell-host sets info.authenticated=true on the first ENVELOPE from a napplet.
   // We respond to that envelope here to trigger ACL panel rendering.
+  //
+  // Phase 29 (Plan 29-01): removed the stale `aclRendered.size < 8` bail — that
+  // count was set in Phase 20 (pre-hotkey-chord, pre-media-controller) and kept
+  // the refresh from running once the v1.3 napplet set was done, blocking the
+  // v1.4 additions. Idempotence now comes from `aclRendered.has(napplet.name)`
+  // inside the loop in refreshAclPanelsIfNeeded() — a size-based guard is
+  // redundant.
   if (msg.verb === 'ENVELOPE' && msg.direction === 'napplet->shell' && msg.windowId) {
-    // Quick bail if all panels already rendered (8 napplets total after Phase 20)
-    if (aclRendered.size < 8) {
-      setTimeout(() => {
-        refreshAclPanelsIfNeeded();
-      }, 200);
-    }
+    setTimeout(() => {
+      refreshAclPanelsIfNeeded();
+    }, 200);
   }
 
   // Log ipc events prominently
