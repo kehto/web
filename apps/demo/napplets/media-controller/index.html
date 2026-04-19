@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="napplet-napp-type" content="demo-media-controller" />
+  <title>Media-Controller Napplet</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #0a0a0f;
+      color: #e0e0e0;
+      font-size: 11px;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #app {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 8px;
+      gap: 6px;
+    }
+    .media-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .media-status {
+      color: #888;
+      font-size: 10px;
+      padding: 2px 0;
+    }
+    .media-hint {
+      color: #5a7aff;
+      font-size: 10px;
+      padding: 4px 6px;
+      border: 1px dashed #1e1e2e;
+      background: #0d0d14;
+    }
+    .media-metric {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 6px;
+      border: 1px solid #1e1e2e;
+      background: #0d0d14;
+    }
+    .media-metric-label { color: #888; }
+    .media-metric-value { color: #39ff14; font-weight: bold; }
+    .media-controls {
+      display: flex;
+      gap: 6px;
+    }
+    .media-btn {
+      flex: 1;
+      padding: 6px 8px;
+      background: #0d0d14;
+      color: #e0e0e0;
+      border: 1px solid #1e1e2e;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      cursor: pointer;
+    }
+    .media-btn:hover { border-color: #39ff14; color: #39ff14; }
+    #media-controller-log {
+      flex: 1;
+      overflow-y: auto;
+      background: #0d0d14;
+      border: 1px solid #1e1e2e;
+      padding: 6px;
+      font-size: 10px;
+    }
+    .media-log-entry {
+      padding: 1px 0;
+      line-height: 1.4;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="media-row">
+      <span id="media-controller-status" class="media-status">connecting...</span>
+    </div>
+    <div class="media-hint">Click Play / Pause to toggle state; OS media controls fire back as media.command pushes.</div>
+    <div class="media-controls">
+      <button id="media-controller-play" class="media-btn">Play</button>
+      <button id="media-controller-pause" class="media-btn">Pause</button>
+    </div>
+    <div class="media-metric">
+      <span class="media-metric-label">Commands:</span>
+      <span id="media-controller-command-count" class="media-metric-value">0</span>
+    </div>
+    <div class="media-metric">
+      <span class="media-metric-label">Last command:</span>
+      <span id="media-controller-last-command" class="media-metric-value">—</span>
+    </div>
+    <div id="media-controller-log"></div>
+  </div>
+  <audio
+    id="media-controller-audio"
+    src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA="
+    loop
+    style="display:none"
+  ></audio>
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>
