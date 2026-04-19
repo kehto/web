@@ -89,7 +89,7 @@ Continues numbering from v1.3 E2E-11.
 Continues numbering from v1.3 DOCS-03.
 
 - [x] **DOCS-04**: JSDoc `@example` blocks in `tests/e2e/harness/harness.ts:10` + `tests/e2e/helpers/wait-for-napplet-ready.ts:21` refreshed to cite extant `nub-*` fixtures (stop referencing deleted `auth-napplet`).
-- [ ] **DOCS-05**: `packages/services/README.md` extended with `keys` + `media` sections documenting the new public APIs, host-bridge interfaces, and usage examples referencing `hotkey-chord` / `media-controller` napplets.
+- [x] **DOCS-05**: `packages/services/README.md` extended with `keys` + `media` sections documenting the new public APIs, host-bridge interfaces, and usage examples referencing `hotkey-chord` / `media-controller` napplets.
 - [ ] **DOCS-06**: `apps/demo/README.md` updated to list `hotkey-chord` + `media-controller` in the demo napplet inventory; integration narrative updated to reflect the 10-napplet end-to-end showcase (was 8 in v1.3).
 
 ---
@@ -130,7 +130,7 @@ Continues numbering from v1.3 DOCS-03.
 | E2E-13 | Phase 27 | Complete |
 | E2E-14 | Phase 28 | Complete |
 | DOCS-04 | Phase 23 | Complete |
-| DOCS-05 | Phase 28 | Pending |
+| DOCS-05 | Phase 28 | Complete |
 | DOCS-06 | Phase 28 | Pending |
 
 **Coverage:** 20/20 v1.4 requirements mapped — no orphans, no duplicates.

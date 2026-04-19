@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: — Productionization & Upstream Unblock
 status: executing
-last_updated: "2026-04-19T18:28:27.177Z"
+last_updated: "2026-04-19T18:33:50.666Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 17
-  completed_plans: 16
-  percent: 100
+  completed_plans: 17
+  percent: 94
 ---
 
 # Project State
@@ -25,8 +25,8 @@ See: .planning/PROJECT.md (updated 2026-04-19, v1.4 milestone opened)
 ## Current Position
 
 Phase: 28 (Layer-A Upgrade & Docs Polish) — EXECUTING
-Plan: 2 of 3
-Status: Executing Phase 28
+Plan: 3 of 3
+Status: Ready to execute
 Last activity: 2026-04-19
 
 Progress: [█████████░] 94% (16/17 plans complete, 4/6 v1.4 phases complete) — phase 28: [█░░] 1/3 plans
@@ -89,5 +89,5 @@ Full decision log archived in `.planning/PROJECT.md` (Key Decisions table) and p
 
 ## Session Continuity
 
-Last session: 2026-04-19T18:27:12Z
+Last session: 2026-04-19T18:33:50.663Z
 Resume: Phase 28 Plan 01 complete (E2E-14 — harness 'real' factory-key + nub-keys.spec.ts + nub-media.spec.ts; 3 task commits: 2eb80ec feat harness extension, 58480f3 feat nub-keys rewrite, dcf33c6 feat nub-media rewrite; 2 auto-fixes: Rule 3 @kehto/services dep, Rule 1 envelopeLog outbound capture; both upgraded specs pass; skip-marker audit zero; E2E-14 closed). Next: 28-02-PLAN.md — DOCS-05 README append (Keys + Media sections). Completed: 28-01-PLAN.md — E2E-14 Layer-A spec upgrade + harness real factory-key.
