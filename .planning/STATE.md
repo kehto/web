@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: — Productionization & Upstream Unblock
 status: executing
-last_updated: "2026-04-19T17:16:22.615Z"
+last_updated: "2026-04-19T17:26:47.581Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 14
-  completed_plans: 12
+  completed_plans: 13
   percent: 86
 ---
 
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-04-19, v1.4 milestone opened)
 ## Current Position
 
 Phase: 27 (Real Media Backend) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-04-19
 
-Progress: [█████████░] 86% (12/14 plans complete, 3/6 v1.4 phases complete) — phase 27: [██████░░░░] 1/4 plans
+Progress: [█████████░] 93% (13/14 plans complete, 3/6 v1.4 phases complete) — phase 27: [████████░░] 2/4 plans
 
 **v1.4 phase list (23–28):**
 
@@ -67,6 +67,9 @@ Progress: [█████████░] 86% (12/14 plans complete, 3/6 v1.4 p
 - [v1.4-26-04] Status-sentinel wait (`toContainText('subscribed')`) is the canonical substitute for the napplet-ready helper on the :4174 demo — which doesn't install `window.__nappletReady__` (only the :4173 harness does). Waiting on the status sentinel provides equivalent coverage: blocks until SDK AUTH + keys.registerAction round-trip both complete. ROADMAP §4 deviation, documented in the spec docblock + 26-ITERATION-LOG.md.
 - [v1.4-27-01] MediaSessionTarget uses optional `details?` parameter to satisfy TypeScript structural compatibility between the real DOM MediaSession (always passes object) and test mocks (may omit). Zero behavior change — handler body uses optional chaining `details?.seekTime` throughout.
 - [v1.4-27-01] `pnpm --filter @kehto/services test` silently exits 0 because services package has no `test` script in package.json (only `test:unit: "echo 'no unit tests yet'"`). Real tests run via `pnpm test:unit` (root vitest config). Matches the v1.4-23-02 canonical invocation decision. Plan verification adapted accordingly.
+- [v1.4-27-02] `setActiveSession?` signature extended with optional `actions?: readonly MediaAction[]` — enables capabilities narrowing via bridge without adding a separate setCapabilities field to HostMediaBridge. Backward-compatible (optional param), satisfies zero-regression requirement for Plan 27-01's capabilities narrowing test.
+- [v1.4-27-02] Silent-audio priming moved to `setActiveSession` (first non-null call) in createBrowserMediaBridge — sessions without initial metadata still prime the audio element on first activation.
+- [v1.4-27-02] `setMetadata` called only through `setActive()` in session.create to prevent double-call; setActive mirrors metadata + state after setActiveSession registers the sessionId.
 
 Full decision log archived in `.planning/PROJECT.md` (Key Decisions table) and per-milestone roadmap archives.
 
@@ -76,5 +79,5 @@ Full decision log archived in `.planning/PROJECT.md` (Key Decisions table) and p
 
 ## Session Continuity
 
-Last session: 2026-04-19T17:15:04Z
-Resume: Phase 27 Plan 01 complete (MEDIA-01 — real navigator.mediaSession mirror in media-service.ts; 471 tests green; 2 commits: 50c2589 feat, fb267cd test). Next: Phase 27 Plan 02 — HostMediaBridge interface + createBrowserMediaBridge() factory. Completed: 27-01-PLAN.md — real media-service with setActionHandler matrix, media.command push, silent-audio prime, last-active-wins registry.
+Last session: 2026-04-19T17:26:47Z
+Resume: Phase 27 Plan 02 complete (MEDIA-02 — HostMediaBridge interface + createBrowserMediaBridge factory + hostBridge? option; 480 tests green; 2 commits: d3c8cb4 feat, 3ea371c test). Next: Phase 27 Plan 03 — media-controller demo napplet. Completed: 27-02-PLAN.md — HostMediaBridge interface, createBrowserMediaBridge factory, hostBridge? branch, barrel re-exports, 9 bridge-path tests.
