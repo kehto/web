@@ -1,42 +1,38 @@
 /**
- * nub-media Layer-A spec — E2E-09 Phase 21 STUB-SCOPE coverage.
+ * nub-media Layer-A spec — E2E-14 Phase 28 real-backend coverage.
  *
- * STUB SCOPE NOTICE:
- *   The media NUB is intentionally stub-only in v1.3 (per CONTEXT D-05 + ROADMAP
- *   "Future Requirements deferred past v1.3" -> media-controller napplet). The
- *   @kehto/services media-service factory is a stub that does not interact with any
- *   real host media backend. This spec asserts the runtime's stub response SHAPE
- *   only — not real media session behavior. DO NOT graduate this spec to a
- *   fixture-backed Layer-A spec without first implementing a real media backend.
+ * Graduated from stub-scope (v1.3 Phase 21 E2E-09) to real-backend coverage
+ * now that Phase 27 shipped the navigator.mediaSession mirror (MEDIA-01),
+ * HostMediaBridge interface (MEDIA-02), and media-controller demo napplet
+ * (MEDIA-03). Harness extension: Phase 28 Plan 28-01 Task 1 added a 'real'
+ * factory-key branch to __registerService__; passing the literal string
+ * 'real' as the second arg swaps in the @kehto/services reference
+ * createMediaService() which defaults to createBrowserMediaBridge (mirrors
+ * metadata + playbackState to navigator.mediaSession on the shell window).
  *
- *   Replacement work (deferred to v1.4): media-controller napplet when a host media
- *   backend ships.
- *
- * Coverage scope (this spec only):
- *   1. media.session.create envelope is dispatchable via __injectEnvelope__.
- *   2. The runtime routes to a stub 'media' service installed via __registerService__;
- *      the service captures the message and emits a media.session.create.result
- *      envelope with canonical fields { type, id, sessionId }.
- *   3. The request envelope is recorded in envelopeLog (verifiable via __getNubMessage__).
- *   4. No anti-term violations in console or page errors.
- *
- * Runtime behavior verified (Phase 21-04 execution):
- *   POSSIBILITY A applies for media.session.create — runtime.ts:939 emits a fallback
- *   media.session.create.result envelope even when NO 'media' service is registered.
- *   Fallback shape: { type: 'media.session.create.result', id, sessionId: m.sessionId ?? '' }.
- *   Since our request does not include a sessionId field, the fallback returns sessionId: ''.
- *   This spec installs a stub service via __registerService__ that generates a
- *   predictable stub-session ID, giving a stronger assertion target than the fallback's
- *   empty-string sessionId. The stub service takes precedence over the runtime fallback
- *   (runtime.ts:930-934 routes to the registered service first).
+ * Coverage scope (this spec):
+ *   1. media.session.create envelope dispatchable via __injectEnvelope__.
+ *   2. The real @kehto/services createMediaService() handler replies with a
+ *      canonical media.session.create.result envelope carrying { type, id,
+ *      sessionId } — captured via __getNubMessage__.
+ *   3. After session.create, navigator.mediaSession.metadata.title on the
+ *      harness page reflects the supplied metadata — proves the real bridge
+ *      mirrored via bridge.setMetadata (Plan 27-01 createBrowserMediaBridge).
+ *   4. After a subsequent media.session.update with new metadata,
+ *      navigator.mediaSession.metadata.title reflects the updated value.
+ *   5. No anti-term violations in console or page errors.
  *
  * Implementation notes:
- *   - Loads nub-storage as a generic fixture purely to obtain a valid windowId
- *     (every napplet that completes AUTH gets a windowId — fixture choice is irrelevant).
- *   - Drives media.session.create via __injectEnvelope__(windowId, ...).
- *   - Installs a stub 'media' service that records the inbound message into
- *     window.__lastMediaReq and emits a stub-correct result envelope.
- *   - Asserts request envelope via __getNubMessage__ + captured message via global.
+ *   - Loads nub-storage as a generic fixture purely to obtain a valid windowId.
+ *   - Installs the real media service via __registerService__('media', 'real').
+ *   - Drives media.session.create + media.session.update via __injectEnvelope__.
+ *   - Reads navigator.mediaSession from the top-level harness page via
+ *     page.evaluate (createBrowserMediaBridge writes to the shell window's
+ *     singleton navigator.mediaSession, not the iframe's — same pattern as
+ *     media-controller.spec.ts Plan 27-04).
+ *   - Uses expect.poll for the navigator.mediaSession.metadata.title read to
+ *     absorb sub-second mirror timing jitter between __injectEnvelope__ and
+ *     bridge.setMetadata completion.
  */
 import { test, expect } from '@playwright/test';
 import { aclBeforeEach, waitForNappletReady } from './helpers/index.js';
@@ -45,7 +41,7 @@ test.describe.configure({ mode: 'serial' });
 
 const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]/;
 
-test('nub-media: media.session.create envelope dispatchable + runtime stub response captured', async ({ page }) => {
+test('nub-media: media.session.create/update drives real media-service navigator.mediaSession mirror', async ({ page }) => {
   test.setTimeout(30_000);
   const consoleMessages: string[] = [];
   const pageErrors: string[] = [];
@@ -54,44 +50,29 @@ test('nub-media: media.session.create envelope dispatchable + runtime stub respo
 
   await aclBeforeEach(page);
 
-  // Load any fixture to obtain a valid windowId — nub-storage is small and reaches
-  // __nappletReady__ quickly. The fixture itself is unrelated to media; we only need
-  // a windowId registered in the harness's originRegistry.
+  // Load any fixture to obtain a valid windowId — nub-storage reaches
+  // __nappletReady__ quickly; fixture choice is unrelated to media.
   const windowId = await page.evaluate(() => window.__loadNapplet__('nub-storage'));
   await waitForNappletReady(page, windowId);
 
-  // Install a stub 'media' service that records inbound messages on a window-scoped global.
-  // This guarantees Possibility A semantics: our service intercepts before the runtime's
-  // own fallback (runtime.ts:930 routes to registered service first). The stub emits a
-  // canonical media.session.create.result envelope with a predictable stub sessionId.
-  //
-  // NOTE: The handler object must include `descriptor` because runtime.registerService()
-  // accesses handler.descriptor.name at registration time (runtime.ts:1181).
-  const installed = await page.evaluate(() =>
-    window.__registerService__('media', `({
-      descriptor: { name: 'media', version: '1.0-stub', description: 'stub media service for E2E-09' },
-      handleMessage: function(windowId, msg, send) {
-        window.__lastMediaReq = msg;
-        if (msg.type === 'media.session.create') {
-          send({ type: 'media.session.create.result', id: msg.id, sessionId: 'stub-session-spec' });
-        }
-      },
-      onWindowDestroyed: function() {}
-    })`),
-  );
+  // Install the REAL @kehto/services media service via the 'real' factory-key
+  // branch (Plan 28-01 Task 1). Zero-arg construction yields the reference
+  // navigator.mediaSession mirror implementation (Phase 27 Plan 27-01).
+  const installed = await page.evaluate(() => window.__registerService__('media', 'real'));
   expect(installed).toBe(true);
 
-  // Inject the request envelope as if the napplet had posted it to the shell.
+  // Inject the media.session.create request envelope.
   await page.evaluate(
     (wid) => window.__injectEnvelope__(wid, {
       type: 'media.session.create',
       id: 'nub-media-spec-1',
-      metadata: { title: 'Stub Track', artist: 'Test Suite' },
+      sessionId: 'nub-media-spec-session',
+      metadata: { title: 'Layer-A Real Track', artist: 'kehto' },
     } as Parameters<typeof window.__injectEnvelope__>[1]),
     windowId,
   );
 
-  // Request envelope recorded in harness envelopeLog (proves dispatch succeeded).
+  // Request envelope recorded in envelopeLog (dispatch succeeded).
   await page.waitForFunction(
     (wid) => window.__getNubMessage__(wid, 'media.session.create') !== null,
     windowId,
@@ -104,20 +85,43 @@ test('nub-media: media.session.create envelope dispatchable + runtime stub respo
   expect((reqEnvelope as { type: string }).type).toBe('media.session.create');
   expect((reqEnvelope as { id?: string }).id).toBe('nub-media-spec-1');
 
-  // Stub service captured the message via window.__lastMediaReq.
+  // Real backend replies with media.session.create.result — captured via envelopeLog.
   await page.waitForFunction(
-    () => Boolean((window as Window & { __lastMediaReq?: unknown }).__lastMediaReq),
-    null,
-    { timeout: 3_000 },
+    (wid) => window.__getNubMessage__(wid, 'media.session.create.result') !== null,
+    windowId,
+    { timeout: 5_000 },
   );
-  const captured = await page.evaluate(
-    () => (window as Window & { __lastMediaReq?: { type: string; metadata?: { title: string; artist: string } } }).__lastMediaReq,
+  const resultEnvelope = await page.evaluate(
+    (wid) => window.__getNubMessage__(wid, 'media.session.create.result'),
+    windowId,
   );
-  expect(captured?.type).toBe('media.session.create');
-  expect(captured?.metadata?.title).toBe('Stub Track');
-  expect(captured?.metadata?.artist).toBe('Test Suite');
+  expect((resultEnvelope as { type: string }).type).toBe('media.session.create.result');
+  expect((resultEnvelope as { id?: string }).id).toBe('nub-media-spec-1');
+  expect((resultEnvelope as { sessionId?: string }).sessionId).toBe('nub-media-spec-session');
 
-  // Cleanup: unregister the stub service to avoid cross-test pollution.
+  // Real bridge mirrored metadata to navigator.mediaSession.metadata via
+  // createBrowserMediaBridge.setMetadata (Plan 27-01). Poll to absorb timing.
+  await expect.poll(async () => {
+    return page.evaluate(() => navigator.mediaSession?.metadata?.title ?? null);
+  }, { timeout: 5_000, message: 'navigator.mediaSession.metadata.title should mirror session.create metadata' }).toBe('Layer-A Real Track');
+
+  // Inject media.session.update with new title; the real bridge re-mirrors.
+  await page.evaluate(
+    (wid) => window.__injectEnvelope__(wid, {
+      type: 'media.session.update',
+      id: 'nub-media-spec-2',
+      sessionId: 'nub-media-spec-session',
+      metadata: { title: 'Updated Layer-A Track' },
+    } as Parameters<typeof window.__injectEnvelope__>[1]),
+    windowId,
+  );
+
+  // navigator.mediaSession.metadata.title reflects the updated value.
+  await expect.poll(async () => {
+    return page.evaluate(() => navigator.mediaSession?.metadata?.title ?? null);
+  }, { timeout: 5_000, message: 'navigator.mediaSession.metadata.title should reflect session.update metadata' }).toBe('Updated Layer-A Track');
+
+  // Cleanup: unregister the real service (runtime.unregisterService -> destroy()).
   await page.evaluate(() => window.__unregisterService__('media'));
 
   // Anti-term hygiene: no forbidden patterns in console or page errors.
