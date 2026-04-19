@@ -73,7 +73,7 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 30-01-PLAN.md — UI-01: add service-level routing pass to installActivityProjection() in node-details.ts with notify→notifications alias and topology.services.includes guard
+- [x] 30-01-PLAN.md — UI-01: add service-level routing pass to installActivityProjection() in node-details.ts with notify→notifications alias and topology.services.includes guard
 - [ ] 30-02-PLAN.md — UI-02: swap snapshot() gate in shell-host.ts aclAdapter from info.pubkey to info.authenticated (accepts Path B NIP-5D napplets)
 - [x] 30-03-PLAN.md — UI-03: replace LANE_NAMES hardcode in sequence-diagram.ts with deriveLanes(messages, nappletInfos) helper; propagate new signature through debugger.ts
 
@@ -96,7 +96,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 29. Concurrent-boot AUTH Fix + Demo Stability | 2/2 | Complete    | 2026-04-19 |
-| 30. Shell UI State Wiring | 1/3 | In Progress|  |
+| 30. Shell UI State Wiring | 2/3 | In Progress|  |
 | 31. E2E Coverage + Milestone Iteration Loop | 0/0 | Not started | - |
 
 ---

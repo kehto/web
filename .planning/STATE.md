@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: — Demo Stability & UAT Coverage
 status: executing
-stopped_at: "Completed 30-03-PLAN.md (UI-03: dynamic sequence-diagram lanes)"
-last_updated: "2026-04-19T23:30:45.452Z"
+stopped_at: Completed 30-01-PLAN.md
+last_updated: "2026-04-19T23:30:51.742Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 3
@@ -85,6 +85,6 @@ Key mapping:
 
 ## Session Continuity
 
-Last session: 2026-04-19T23:30:28.482Z
-Stopped at: Completed 30-03-PLAN.md (UI-03: dynamic sequence-diagram lanes)
+Last session: 2026-04-19T23:30:51.740Z
+Stopped at: Completed 30-01-PLAN.md
 Resume: Phase 29 complete (DEMO-01 + DEMO-02 both satisfied). Next: `/gsd:plan-phase 30` (Shell UI State Wiring).
