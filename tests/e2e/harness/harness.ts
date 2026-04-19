@@ -16,6 +16,7 @@
 
 import { createShellBridge, originRegistry } from '@kehto/shell';
 import type { Capability, SessionEntry } from '@kehto/shell';
+import { createKeysService, createMediaService } from '@kehto/services';
 import type { NappletMessage } from '@napplet/core';
 import { createMockHooks } from '@test/helpers';
 import { createMessageTap } from '@test/helpers';
@@ -448,6 +449,24 @@ window.__getServiceNames__ = (): string[] => [...serviceShadow];
  */
 window.__registerService__ = (name: string, handlerScript: string): boolean => {
   try {
+    // Phase 28 E2E-14: 'real' factory-key branch swaps in the @kehto/services
+    // reference implementation for 'keys' or 'media'. Zero-arg construction
+    // yields the canonical document-level / navigator.mediaSession reference
+    // backends. Extends __registerService__ with a single new code path; the
+    // eval path below is preserved for ad-hoc stub needs (any non-'real' value).
+    if (handlerScript === 'real') {
+      let handler;
+      if (name === 'keys') {
+        handler = createKeysService();
+      } else if (name === 'media') {
+        handler = createMediaService();
+      } else {
+        return false;
+      }
+      relay.runtime.registerService(name, handler);
+      serviceShadow.add(name);
+      return true;
+    }
     // eslint-disable-next-line no-new-func -- test-only eval path
     const handler = new Function(`return (${handlerScript});`)();
     if (!handler || typeof handler.handleMessage !== 'function') return false;
