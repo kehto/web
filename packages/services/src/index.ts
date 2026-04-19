@@ -57,9 +57,16 @@ export type { CacheServiceOptions } from './cache-service.js';
 export { createCoordinatedRelay } from './coordinated-relay.js';
 export type { CoordinatedRelayOptions } from './coordinated-relay.js';
 
-// ─── Keys Service (NIP-5D keys NUB — stub) ────────────────────────────────
+// ─── Keys Service (NIP-5D keys NUB — document-level chord listener) ──────
+// Public surface: factory + options + host-bridge contract. Host apps wire
+// OS-level hotkey backends by implementing HostKeysBridge and passing it
+// through createKeysService({ hostBridge }).
 export { createKeysService } from './keys-service.js';
-export type { KeysServiceOptions } from './keys-service.js';
+export type {
+  KeysServiceOptions,
+  HostKeysBridge,
+  HostKeyEvent,
+} from './keys-service.js';
 
 // ─── Media Service (NIP-5D media NUB — stub) ──────────────────────────────
 export { createMediaService } from './media-service.js';

@@ -101,8 +101,14 @@ export type DemoSignerMode = 'service' | 'fallback';
 
 export const DEMO_SIGNER_MODE: DemoSignerMode = 'service';
 
-/** Services that expose NIP-5D envelopes but have no real host backend in v1.3. */
-export const STUB_ONLY_SERVICES: readonly string[] = ['keys', 'media'] as const;
+/**
+ * Services that still expose NIP-5D envelopes with stub-only backends.
+ *
+ * Phase 26 (KEYS-01) promotes `keys` to a real document-level chord listener;
+ * Phase 27 will promote `media` similarly. Until then, `media` remains the
+ * sole stub-only service in the v1.4 demo.
+ */
+export const STUB_ONLY_SERVICES: readonly string[] = ['media'] as const;
 
 /** All 8 NIP-5D-adjacent topology node names the demo renders on boot. */
 export const DEMO_TOPOLOGY_SERVICE_NAMES: readonly string[] = [
@@ -180,6 +186,20 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     statusId: 'theme-status',
     aclId: 'theme-switcher-acl',
     frameContainerId: 'theme-switcher-frame-container',
+  },
+  // Phase 26 (Plan 26-03): hotkey-chord napplet exercises the real keys backend
+  // (KEYS-01 document-level chord listener + keys.action push + KEYS-02
+  // HostKeysBridge interface). topology.ts:466 dynamically renders
+  // #hotkey-chord-frame-container from this entry — no apps/demo/index.html
+  // edit required. statusId matches the INNER iframe sentinel from
+  // napplets/hotkey-chord/index.html; Layer-B spec (26-04) asserts via
+  // frameLocator, not the outer placeholder.
+  {
+    name: 'hotkey-chord',
+    label: 'hotkey-chord',
+    statusId: 'hotkey-chord-status',
+    aclId: 'hotkey-chord-acl',
+    frameContainerId: 'hotkey-chord-frame-container',
   },
 ];
 
@@ -419,10 +439,19 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
     onChange: notificationOnChange,
     maxPerWindow: 50,
   });
+  // Plan 26-03 (KEYS-03): real keys backend wired. The onForward callback now
+  // records each chord delivery via the demo's console + diagnostic log (host-side
+  // evidence of real delivery). The service itself attaches a document-level keydown
+  // listener AND emits keys.action pushes to the owning napplet (Plan 26-01); the
+  // keys-forwarder.ts path (ACL-gated iframe broadcast of keys.forward) is unchanged
+  // and remains authoritative for shell → napplet fan-out.
   const keysService = createKeysService({
     onForward: (event) => {
-      // Stub: log to console for demo visibility; real hotkey wiring deferred to v1.4+
-      console.debug('[demo] keys.forward (stub-only):', event.key, { ctrl: event.ctrlKey, alt: event.altKey, shift: event.shiftKey, meta: event.metaKey });
+      console.info(
+        '[demo] keys real backend — chord delivered:',
+        event.key,
+        { ctrl: event.ctrlKey, alt: event.altKey, shift: event.shiftKey, meta: event.metaKey },
+      );
     },
   });
   const mediaService = createMediaService({
@@ -439,26 +468,23 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
   });
   _themeServiceBundle = themeServiceBundle;
 
-  // ─── NAP-09 COVERAGE GATE (Phase 20) ──────────────────────────────────────
-  // After Phase 20, the demo exercises 6 non-stub NUB domains end-to-end:
+  // ─── COVERAGE GATE (Phase 20 → Phase 26) ─────────────────────────────────
+  // Post-Phase-26, the demo exercises 7 non-stub NUB domains end-to-end:
   //   identity (profile-viewer — Plan 20-03)
   //   ifc      (chat + bot — Phase 18)
   //   notify   (toaster — Phase 19)
   //   relay    (composer publish — Phase 19, feed subscribe — Plan 20-02)
   //   storage  (preferences — Phase 19)
   //   theme    (theme-switcher + preferences observer — Plans 20-04/05)
+  //   keys     (hotkey-chord — Plan 26-03; document-level chord listener +
+  //             keys.action push via SDK keys.onAction, per Plan 26-01 +
+  //             HostKeysBridge contract from Plan 26-02)
   //
-  // keys and media remain stub-only (STUB_ONLY_SERVICES above). Real backends
-  // are deferred to v1.4+ because:
-  //   - keys requires a real host-side hotkey forwarding system (no reference
-  //     implementation in @kehto/services; current createKeysService logs to
-  //     console for topology visibility only)
-  //   - media requires a real audio playback backend (no reference implementation;
-  //     current createMediaService accepts session create/update/destroy calls
-  //     for topology visibility only)
-  // Corresponding napplets (hotkey-chord, media-controller) are in the v1.4+
-  // backlog. Topology still renders keys + media nodes with a stub-only badge
-  // so the 8-domain map remains visible to the demo audience.
+  // Only `media` remains stub-only (STUB_ONLY_SERVICES above). Phase 27 will
+  // ship the real media backend + media-controller napplet; until then, media
+  // service exposes envelopes for topology visibility only (console.debug
+  // tracing, no real playback). After Phase 27 the STUB_ONLY_SERVICES array
+  // will be emptied.
   const services = {
     identity: createIdentityService({
       getSigner,
@@ -795,6 +821,44 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
 
   // Make the tap accessible for host-originated envelope recording
   setMessageTap(tap);
+
+  // ─── Plan 26-03 (KEYS-03): __grantKeysForward__ host hook ────────────────
+  // Plan 26-04's Playwright spec (E2E-12) must grant the `keys:forward`
+  // capability to the hotkey-chord napplet before dispatching Ctrl+Shift+K —
+  // otherwise keys-forwarder.ts gates the outbound envelope per ACL. Rather
+  // than auto-granting on boot (which would leak demo-scoped policy into a
+  // test-only mechanism), we expose a single, hotkey-chord-scoped grant hook.
+  //
+  // Usage (from tests/e2e/hotkey-chord.spec.ts):
+  //   await page.evaluate(() => window.__grantKeysForward__?.());
+  //
+  // Returns true on success, false if the hotkey-chord napplet is not yet
+  // loaded or not yet authenticated (callers may retry if needed; the spec
+  // gates on the #hotkey-chord-status = 'subscribed' sentinel before calling,
+  // which implies the napplet is authenticated and ready to receive grants).
+  (window as Window & { __grantKeysForward__?: () => boolean }).__grantKeysForward__ = (): boolean => {
+    let hotkeyEntry: { windowId: string; info: NappletInfo } | null = null;
+    for (const [windowId, info] of napplets.entries()) {
+      if (info.name === 'hotkey-chord') {
+        hotkeyEntry = { windowId, info };
+        break;
+      }
+    }
+    if (!hotkeyEntry) {
+      console.warn('[demo] __grantKeysForward__: hotkey-chord napplet not loaded yet');
+      return false;
+    }
+    if (!hotkeyEntry.info.authenticated) {
+      console.warn('[demo] __grantKeysForward__: hotkey-chord not yet authenticated');
+      return false;
+    }
+    const pubkey = hotkeyEntry.info.pubkey ?? '';        // '' for NIP-5D napplets, same as toggleCapability
+    const dTag = hotkeyEntry.info.dTag ?? '';
+    const hash = hotkeyEntry.info.aggregateHash ?? '';
+    relay.runtime.aclState.grant(pubkey, dTag, hash, 'keys:forward');
+    console.info('[demo] __grantKeysForward__: granted keys:forward to hotkey-chord');
+    return true;
+  };
 
   return { tap, relay };
 }

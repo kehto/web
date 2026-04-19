@@ -58,9 +58,9 @@ Pure internal refactor. No upstream dependency.
 
 Replaces the stub `@kehto/services` keys-service with a working implementation plus a host-bridge contract for native integrations.
 
-- [ ] **KEYS-01**: `@kehto/services` keys-service implements a document-level chord listener via `document.addEventListener('keydown', ...)`; exposes `subscribe(chord, callback)` / `unsubscribe(chord)` API returning an unsubscribe handle; debounces held-keys per browser default behavior.
-- [ ] **KEYS-02**: `@kehto/services` exports a `HostKeysBridge` interface + TypeScript types that host apps (Electron, Tauri) can implement for OS-level global hotkey registration; reference browser impl from KEYS-01 satisfies the interface; host-bridge implementation lives in host-app code, not in kehto (framework-agnostic).
-- [ ] **KEYS-03**: `apps/demo/napplets/hotkey-chord` demo napplet (under `@napplet/sdk`) subscribes to a test chord (e.g. `Ctrl+Shift+K`) via the `keys.*` namespace; DOM sentinel `#hotkey-chord-status` transitions `connecting... → authenticated → subscribed` and increments a counter on each chord delivery.
+- [x] **KEYS-01**: `@kehto/services` keys-service implements a document-level chord listener via `document.addEventListener('keydown', ...)`; exposes `subscribe(chord, callback)` / `unsubscribe(chord)` API returning an unsubscribe handle; debounces held-keys per browser default behavior.
+- [x] **KEYS-02**: `@kehto/services` exports a `HostKeysBridge` interface + TypeScript types that host apps (Electron, Tauri) can implement for OS-level global hotkey registration; reference browser impl from KEYS-01 satisfies the interface; host-bridge implementation lives in host-app code, not in kehto (framework-agnostic).
+- [x] **KEYS-03**: `apps/demo/napplets/hotkey-chord` demo napplet (under `@napplet/sdk`) subscribes to a test chord (e.g. `Ctrl+Shift+K`) via the `keys.*` namespace; DOM sentinel `#hotkey-chord-status` transitions `connecting... → authenticated → subscribed` and increments a counter on each chord delivery.
 
 ---
 
@@ -78,7 +78,7 @@ Replaces the stub `@kehto/services` media-service with a working implementation 
 
 Continues numbering from v1.3 E2E-11.
 
-- [ ] **E2E-12**: Layer-B spec `tests/e2e/hotkey-chord.spec.ts` verifies chord registration via the host, chord delivery to the napplet, and counter increment. Uses the canonical `demoBeforeEach` + `waitForNappletReady` helpers.
+- [x] **E2E-12**: Layer-B spec `tests/e2e/hotkey-chord.spec.ts` verifies chord registration via the host, chord delivery to the napplet, and counter increment. Uses the canonical `demoBeforeEach` + `waitForNappletReady` helpers.
 - [ ] **E2E-13**: Layer-B spec `tests/e2e/media-controller.spec.ts` verifies `media.play` / `media.pause` / `media.setMetadata` via the napplet; asserts `#media-controller-status` transitions and (via browser_evaluate) MediaSession state.
 - [ ] **E2E-14**: Existing Layer-A stub-scope specs `nub-keys.spec.ts` + `nub-media.spec.ts` upgraded from stub-scope to full protocol-correctness coverage now that real backends exist; any `test.describe.skip` markers removed.
 
@@ -120,13 +120,13 @@ Continues numbering from v1.3 DOCS-03.
 | REL-06 | Phase 25 | Pending |
 | DRIFT-01 | Phase 24 | Complete |
 | DRIFT-02 | Phase 24 | Complete |
-| KEYS-01 | Phase 26 | Pending |
-| KEYS-02 | Phase 26 | Pending |
-| KEYS-03 | Phase 26 | Pending |
+| KEYS-01 | Phase 26 | Complete |
+| KEYS-02 | Phase 26 | Complete |
+| KEYS-03 | Phase 26 | Complete |
 | MEDIA-01 | Phase 27 | Pending |
 | MEDIA-02 | Phase 27 | Pending |
 | MEDIA-03 | Phase 27 | Pending |
-| E2E-12 | Phase 26 | Pending |
+| E2E-12 | Phase 26 | Complete |
 | E2E-13 | Phase 27 | Pending |
 | E2E-14 | Phase 28 | Pending |
 | DOCS-04 | Phase 23 | Complete |

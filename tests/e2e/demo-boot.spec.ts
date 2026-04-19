@@ -1,9 +1,10 @@
 /**
  * demo-boot.spec.ts — E2E-06: demo boots clean at :4174 with all 8 service nodes.
  *
- * Asserts: topology renders 8 service nodes, keys+media have stub-only marker,
- * no anti-term (window.nostr / signer-service / BusKind / AUTH_KIND / kind === 29001/29002)
- * appears in console output.
+ * Asserts: topology renders 8 service nodes, media has the stub-only marker
+ * (keys graduated to real-backend in Phase 26 — see STUB_ONLY_SERVICES in
+ * apps/demo/src/shell-host.ts), no anti-term (window.nostr / signer-service /
+ * BusKind / AUTH_KIND / kind === 29001/29002) appears in console output.
  */
 import { test, expect } from '@playwright/test';
 import { demoBeforeEach } from './helpers/index.js';
@@ -25,10 +26,10 @@ test('demo renders 8 topology service nodes on boot', async ({ page }) => {
   const serviceNodes = page.locator('[data-service-name]');
   await expect(serviceNodes).toHaveCount(8, { timeout: 10_000 });
 
-  // keys + media have stub-only marker
-  await expect(page.locator('[data-service-name="keys"][data-service-stub="true"]')).toHaveCount(1);
+  // media has the stub-only marker; keys graduated to real-backend in Phase 26.
+  await expect(page.locator('[data-service-name="keys"][data-service-stub="true"]')).toHaveCount(0);
   await expect(page.locator('[data-service-name="media"][data-service-stub="true"]')).toHaveCount(1);
-  await expect(page.locator('.stub-badge')).toHaveCount(2);
+  await expect(page.locator('.stub-badge')).toHaveCount(1);
 
   // Shell pubkey rendered (injected dynamically into topology)
   await expect(page.locator('#shell-pubkey')).toContainText('pubkey:');

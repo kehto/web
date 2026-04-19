@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: — Productionization & Upstream Unblock
 status: verifying
-last_updated: "2026-04-19T12:36:58.056Z"
+last_updated: "2026-04-19T14:11:39.208Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 6
-  completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
+  completed_phases: 3
+  total_plans: 10
+  completed_plans: 11
   percent: 33
 ---
 
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-19, v1.4 milestone opened)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** v1.4 Phase 24 — DRIFT-CORE-06 Cleanup complete (atomic commit 4c12cd2); ready for phase-completion verification.
+**Current focus:** v1.4 Phase 26 complete — Real Keys Backend shipped (all 4 plans closed via Plan 26-04's atomic commit); ready for Phase 27 (Real Media Backend).
 
 ## Current Position
 
-Phase: 24 of 28 (DRIFT-CORE-06 Cleanup) — v1.4 second phase complete
-Plan: 2 of 2 complete (24-01 shim deletion + re-homing ✓, 24-02 dead NIP-01 code path deletion + atomic commit ✓)
-Status: Phase complete — ready for verification
+Phase: 26 of 28 (Real Keys Backend) — COMPLETE
+Plan: 4 of 4 complete (26-01 real keys-service + keys.action emission ✓, 26-02 HostKeysBridge interface + hostBridge option ✓, 26-03 hotkey-chord napplet + shell wiring + __grantKeysForward__ host hook ✓, 26-04 E2E-12 Layer-B spec + iteration loop 47→48 delta +1 ✓)
+Status: Phase 26 verifying — ready for Phase 27 after verifier pass
 Last activity: 2026-04-19
 
-Progress: [███░░░░░░░] 33% (2/6 v1.4 phases complete) — phase 24: [██████████] 100% (2/2 plans)
+Progress: [█████░░░░░] 50% (3/6 v1.4 phases complete) — phase 26: [██████████] 100% (4/4 plans)
 
 **v1.4 phase list (23–28):**
 
@@ -57,6 +57,14 @@ Progress: [███░░░░░░░] 33% (2/6 v1.4 phases complete) — ph
 - [v1.4-24-02] Preserved @kehto/acl's LIVE CapabilityResolution interface untouched; only the runtime-flavored duplicate in enforce.ts was deleted. Scope for grep assertions scoped to packages/runtime/src + packages/shell/src only — @kehto/acl defines its own distinct CapabilityResolution consumed by resolveCapabilitiesNub.
 - [v1.4-24-02] Renamed local boolean isBusKind → isShellKind in runtime.ts (filter-predicate variable, scope: handleRelayMessage) for grep-scope acceptance-criterion compliance. Zero behavior change.
 - [v1.4-24-02] Manual clean substituted for pnpm clean (no root script defined); Phase 22-08 precedent exactly. Behavior equivalent: cold rebuild, 0 cache hits.
+- [v1.4-26-03] hotkey-chord napplet consumes @napplet/sdk `keys` namespace exclusively (keys.registerAction + keys.onAction) — zero raw envelope construction, zero Math.random correlation IDs, zero `onNappletMessage`/`sendNappletMessage` imports (those exports DO NOT exist in @napplet/sdk@0.2.1). The SDK owns correlation IDs + Promise resolution on keys.registerAction.result internally.
+- [v1.4-26-03] keys.onAction callback is argumentless in SDK 0.2.1 (`() => void`) — napplet formats the displayed chord from its OWN registered DEFAULT_KEY constant, not from an event object. Plan 26-01's keys.action envelope carries a `chord` extension field but SDK 0.2.1 cannot surface it via onAction. A future SDK bump that does surface it would be additive, non-breaking.
+- [v1.4-26-03] apps/demo/index.html NOT edited when adding hotkey-chord napplet — topology.ts:466 dynamically renders `#hotkey-chord-frame-container` from DEMO_NAPPLETS at render time. Adding a static div would duplicate the ID and break the topology layout. Pattern holds for any future DEMO_NAPPLETS additions: single-file edit to shell-host.ts.
+- [v1.4-26-03] `window.__grantKeysForward__` host hook installed in bootShell() — scoped to the hotkey-chord napplet only (not a generic grant API). Returns true on successful grant, false when napplet not-yet-loaded or not-yet-authenticated so Plan 26-04's Playwright spec can retry gated on the `#hotkey-chord-status = 'subscribed'` sentinel. Pattern: per-napplet grant-hook preinstallation lets E2E specs avoid UI click-through for capability setup.
+- [v1.4-26-03] Anti-feature grep collision fix: main.ts initial docblock quoted literal forbidden tokens ('window.addEventListener', 'Math.random') to document anti-features; acceptance greps for those literals caused false positives. Docblocks for anti-feature contracts MUST be phrased descriptively ('no raw postMessage listener') rather than by literal quotation. Single Rule 1 auto-fix, zero logic change.
+- [v1.4-26-04] E2E-12 Layer-B spec (hotkey-chord.spec.ts) locks the Phase 26 real-keys contract: baseline 47 → 48 (delta +1) green against fresh-build; anti-term hygiene clean across Phase 26 sources; __grantKeysForward__ hook is the canonical capability-gate mechanism (no spec-side ACL routing).
+- [v1.4-26-04] demo-boot.spec.ts stub-assertion fix is an IN-SCOPE cascaded Rule 1 deviation — the assertion encoded the pre-Phase-26 topology (keys stub); Plan 26-03 intentionally graduated keys from STUB_ONLY_SERVICES, so the fix belongs in Phase 26's atomic commit to keep main green. Pattern: cascaded topology-change test updates are in-scope for the phase that changed the topology.
+- [v1.4-26-04] Status-sentinel wait (`toContainText('subscribed')`) is the canonical substitute for the napplet-ready helper on the :4174 demo — which doesn't install `window.__nappletReady__` (only the :4173 harness does). Waiting on the status sentinel provides equivalent coverage: blocks until SDK AUTH + keys.registerAction round-trip both complete. ROADMAP §4 deviation, documented in the spec docblock + 26-ITERATION-LOG.md.
 
 Full decision log archived in `.planning/PROJECT.md` (Key Decisions table) and per-milestone roadmap archives.
 
@@ -66,5 +74,5 @@ Full decision log archived in `.planning/PROJECT.md` (Key Decisions table) and p
 
 ## Session Continuity
 
-Last session: 2026-04-19T12:36:58.053Z
-Resume: `/gsd:verify-work 24` to validate Phase 24 (DRIFT-CORE-06 cleanup complete; atomic commit 4c12cd2 pushed; CI green), then `/gsd:plan-phase 25` for Release Publication.
+Last session: 2026-04-19T14:11:39.205Z
+Resume: Phase 26 verifier pass (all 4 plans complete; atomic commit landed; 48/0/0 green; iteration log recorded). Next: Phase 27 — Real Media Backend (MEDIA-01, MEDIA-02, MEDIA-03, E2E-13) following the same structural pattern (real service + HostBridge interface + demo napplet + Layer-B spec + iteration loop). Completed: 26-04-PLAN.md — E2E-12 hotkey-chord.spec.ts + fresh-build iteration loop + atomic commit.
