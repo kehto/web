@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: — Productionization & Upstream Unblock
 status: executing
-last_updated: "2026-04-19T17:26:47.581Z"
+last_updated: "2026-04-19T17:34:04.522Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 14
-  completed_plans: 13
-  percent: 86
+  completed_plans: 14
+  percent: 100
 ---
 
 # Project State
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-04-19, v1.4 milestone opened)
 ## Current Position
 
 Phase: 27 (Real Media Backend) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-04-19
 
-Progress: [█████████░] 93% (13/14 plans complete, 3/6 v1.4 phases complete) — phase 27: [████████░░] 2/4 plans
+Progress: [██████████] 100% (14/14 plans complete, 3/6 v1.4 phases complete) — phase 27: [██████████] 3/4 plans
 
 **v1.4 phase list (23–28):**
 
@@ -70,6 +70,10 @@ Progress: [█████████░] 93% (13/14 plans complete, 3/6 v1.4 p
 - [v1.4-27-02] `setActiveSession?` signature extended with optional `actions?: readonly MediaAction[]` — enables capabilities narrowing via bridge without adding a separate setCapabilities field to HostMediaBridge. Backward-compatible (optional param), satisfies zero-regression requirement for Plan 27-01's capabilities narrowing test.
 - [v1.4-27-02] Silent-audio priming moved to `setActiveSession` (first non-null call) in createBrowserMediaBridge — sessions without initial metadata still prime the audio element on first activation.
 - [v1.4-27-02] `setMetadata` called only through `setActive()` in session.create to prevent double-call; setActive mirrors metadata + state after setActiveSession registers the sessionId.
+- [v1.4-27-03] media-controller napplet consumes `@napplet/nub-media` helpers (mediaCreateSession, mediaReportState, mediaOnCommand) directly — zero raw postMessage, zero Math.random correlation IDs; SDK owns correlation + Promise resolution. Parallel to hotkey-chord's keys.registerAction + keys.onAction pattern.
+- [v1.4-27-03] STUB_ONLY_SERVICES demoted from `['media']` to `[]` in Plan 27-03 (not 27-04) — stub-only era ends when the real backend napplet is wired, not at the E2E spec.
+- [v1.4-27-03] apps/demo/index.html NOT edited when adding media-controller napplet — topology.ts dynamically renders `#media-controller-frame-container` from DEMO_NAPPLETS (Plan 26-03 precedent confirmed and holds for all future DEMO_NAPPLETS additions).
+- [v1.4-27-03] `window.__grantMediaControl__` host hook installed in bootShell() — scoped to media-controller napplet, grants `media:control` cap, returns true/false. Mirrors `__grantKeysForward__` verbatim. Plan 27-04's E2E-13 spec invokes this before asserting play/pause state transitions.
 
 Full decision log archived in `.planning/PROJECT.md` (Key Decisions table) and per-milestone roadmap archives.
 
@@ -79,5 +83,5 @@ Full decision log archived in `.planning/PROJECT.md` (Key Decisions table) and p
 
 ## Session Continuity
 
-Last session: 2026-04-19T17:26:47Z
-Resume: Phase 27 Plan 02 complete (MEDIA-02 — HostMediaBridge interface + createBrowserMediaBridge factory + hostBridge? option; 480 tests green; 2 commits: d3c8cb4 feat, 3ea371c test). Next: Phase 27 Plan 03 — media-controller demo napplet. Completed: 27-02-PLAN.md — HostMediaBridge interface, createBrowserMediaBridge factory, hostBridge? branch, barrel re-exports, 9 bridge-path tests.
+Last session: 2026-04-19T17:34:04.519Z
+Resume: Phase 27 Plan 03 complete (MEDIA-03 — media-controller demo napplet + shell wiring; 2 commits: 76e6c08 feat Task 1, 19ae118 feat Task 2; STUB_ONLY_SERVICES now []; 10 napplet artifacts; __grantMediaControl__ hook installed). Next: Phase 27 Plan 04 — E2E-13 Playwright spec. Completed: 27-03-PLAN.md — media-controller napplet (5 files) + DEMO_NAPPLETS 10th entry + __grantMediaControl__ hook + coverage-gate update.

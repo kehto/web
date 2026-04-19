@@ -523,10 +523,9 @@ export function createMediaService(options: MediaServiceOptions = {}): ServiceHa
           if (!windowSessions.has(windowId)) windowSessions.set(windowId, new Set());
           windowSessions.get(windowId)!.add(m.sessionId);
 
-          // Last-active-wins: activate new session with its default capabilities.
+          // Last-active-wins: activate new session. setActive mirrors metadata + state via
+          // bridge.setMetadata / bridge.setPlaybackState when entry data is present.
           setActive(m.sessionId, entry.actions);
-          // Mirror initial metadata if provided (after setActive so bridge has sessionId).
-          if (m.metadata) bridge.setMetadata(m.sessionId, m.metadata);
 
           options.onSessionCreate?.(windowId, m.sessionId, m.metadata);
 

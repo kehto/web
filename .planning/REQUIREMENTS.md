@@ -70,7 +70,7 @@ Replaces the stub `@kehto/services` media-service with a working implementation 
 
 - [x] **MEDIA-01**: `@kehto/services` media-service implements playback control via the Web Audio API for per-napplet audio elements + OS-level metadata/transport controls via the `MediaSession` API; exposes `play()` / `pause()` / `next()` / `previous()` / `setMetadata({title, artist, artwork})` via the `media.*` namespace.
 - [x] **MEDIA-02**: `@kehto/services` exports a `HostMediaBridge` interface + TypeScript types that host apps can implement for native media backends; reference Web Audio + MediaSession impl from MEDIA-01 satisfies the interface.
-- [ ] **MEDIA-03**: `apps/demo/napplets/media-controller` demo napplet (under `@napplet/sdk`) calls `media.setMetadata` + `media.play` / `media.pause`; DOM sentinel `#media-controller-status` transitions `connecting... → authenticated → playing | paused` reflecting MediaSession state.
+- [x] **MEDIA-03**: `apps/demo/napplets/media-controller` demo napplet (under `@napplet/sdk`) calls `media.setMetadata` + `media.play` / `media.pause`; DOM sentinel `#media-controller-status` transitions `connecting... → authenticated → playing | paused` reflecting MediaSession state.
 
 ---
 
@@ -125,7 +125,7 @@ Continues numbering from v1.3 DOCS-03.
 | KEYS-03 | Phase 26 | Complete |
 | MEDIA-01 | Phase 27 | Complete |
 | MEDIA-02 | Phase 27 | Complete |
-| MEDIA-03 | Phase 27 | Pending |
+| MEDIA-03 | Phase 27 | Complete |
 | E2E-12 | Phase 26 | Complete |
 | E2E-13 | Phase 27 | Pending |
 | E2E-14 | Phase 28 | Pending |
