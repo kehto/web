@@ -6,7 +6,14 @@
  *   media.session.create (result), media.session.update, media.session.destroy,
  *   media.state, media.capabilities.
  *
- * navigator.mediaSession mirroring: on session.create the service mirrors the
+ * HostMediaBridge contract: {@link HostMediaBridge} defines the pluggable backend
+ * contract for metadata/state mirroring + action routing. The browser reference
+ * implementation is {@link createBrowserMediaBridge} (mirrors to navigator.mediaSession
+ * with setActionHandler matrix). When no hostBridge option is passed, createMediaService
+ * internally uses createBrowserMediaBridge as the default — behavior is identical
+ * to the Plan 27-01 single-path implementation.
+ *
+ * navigator.mediaSession mirroring: on session.create the browser bridge mirrors the
  * napplet-supplied metadata to navigator.mediaSession.metadata via new MediaMetadata()
  * and installs setActionHandler callbacks for the 5 OS transport actions
  * (play / pause / nexttrack / previoustrack / seekto). Each callback emits a canonical
@@ -14,23 +21,24 @@
  * MediaCommandMessage shape consumed by the SDK's mediaOnCommand() helper.
  *
  * media.command push: when the OS user clicks a media control (hardware key, lock-screen
- * transport, OS media overlay), the installed setActionHandler callback fires. The
- * service looks up the active session's owning napplet, invokes the per-window send
- * callback captured at session.create time, and delivers:
+ * transport, OS media overlay), the bridge's onAction callback fires. The service looks
+ * up the active session's owning napplet, invokes the per-window send callback captured
+ * at session.create time, and delivers:
  *   { type: 'media.command', sessionId, action, value? }
  * where action is the nub-media MediaAction literal (play|pause|next|prev|seek) and
  * value is the seekTime (seconds) for seek.
  *
- * Silent-audio prime: on first session.create the service creates a hidden <audio>
- * element with a 4 kHz silent WAV data URL and plays it. Without a playing audio
- * element in the host page, most browsers refuse to render OS media controls.
- * The element is cleaned up when the last session is destroyed.
+ * Silent-audio prime: the browser bridge creates a hidden <audio> element with a
+ * 4 kHz silent WAV data URL and plays it when the first session becomes active
+ * (setActiveSession with a non-null sessionId). Without a playing audio element in
+ * the host page, most browsers refuse to render OS media controls. The element is
+ * cleaned up when the last session is destroyed (via bridge.destroySession).
  *
  * Multi-session registry with last-active-wins semantics: every session.create is
  * tracked in a Map<sessionId, SessionEntry>; any media.state report promotes that
  * session to active. The active session's metadata and playback state are reflected
- * on navigator.mediaSession. When the active session is destroyed, the next-most-
- * recently-touched session is promoted automatically.
+ * via bridge.setMetadata / bridge.setPlaybackState. When the active session is
+ * destroyed, the next-most-recently-touched session is promoted automatically.
  *
  * Note: this is SEPARATE from packages/services/src/audio-service.ts, which
  * is the legacy ifc-topic-based audio source registry (audio:* topic events
@@ -39,7 +47,7 @@
  * shell UI, while media-service handles the NUB protocol envelope surface.
  *
  * Shell -> Napplet push types (media.command) are emitted here when
- * setActionHandler callbacks fire — this is the canonical Phase 27 real backend.
+ * bridge.onAction callbacks fire — this is the canonical Phase 27 real backend.
  */
 
 import type { NappletMessage } from '@napplet/core';
@@ -48,7 +56,6 @@ import type { NappletMessage } from '@napplet/core';
 import type { ServiceDescriptor, ServiceHandler } from '@kehto/runtime';
 import type {
   MediaAction,
-  MediaArtwork,
   MediaCapabilitiesMessage,
   MediaCommandMessage,
   MediaMetadata,
@@ -77,7 +84,7 @@ interface SessionEntry {
   lastTouched: number;
 }
 
-/** Minimal subset of navigator.mediaSession the service depends on. Makes the service
+/** Minimal subset of navigator.mediaSession the browser bridge depends on. Makes the bridge
  *  Node/test-safe: unit tests pass a MockMediaSession via mediaSessionTarget.
  *  The handler parameter uses `details?` (optional) so both the real DOM impl
  *  (which always passes an object) and test mocks that omit details both satisfy
@@ -95,6 +102,99 @@ type MediaMetadataLike = { title?: string; artist?: string; album?: string; artw
 
 /** Media service version — follows semver. */
 const MEDIA_SERVICE_VERSION = '1.1.0';
+
+// ─── HostMediaBridge ─────────────────────────────────────────────────────────
+
+/**
+ * Host-bridge contract for pluggable media backends.
+ *
+ * The browser reference implementation ({@link createBrowserMediaBridge}) mirrors
+ * napplet-reported metadata/state to `navigator.mediaSession` and installs
+ * `setActionHandler` callbacks that fan into the bridge's onAction subscribers.
+ * It satisfies this interface with all 5 fields implemented (setActiveSession
+ * switches the active session and optionally re-applies action-handler narrowing;
+ * destroySession tears down the silent-audio prime on last-session teardown).
+ *
+ * Host apps (Electron, Tauri) implement this interface in their own code and
+ * pass it via `createMediaService({ hostBridge: myBridge })` — the service
+ * then delegates metadata/state mirroring + action routing to the bridge and
+ * remains browser-free. Session-ownership bookkeeping (which windowId owns
+ * which sessionId, which send callback routes media.command back to which
+ * napplet) stays in the service layer — that's wire-protocol concern, not a
+ * bridge concern.
+ *
+ * Reference implementations for Electron / Tauri are explicitly out of v1.4
+ * scope and live in host-app examples / follow-up milestones (see
+ * REQUIREMENTS.md "Future Requirements").
+ *
+ * @example
+ * ```ts
+ * // Host-app pseudocode (Electron main-process relay):
+ * const electronBridge: HostMediaBridge = {
+ *   setMetadata(sessionId, md) { ipcRenderer.send('media:metadata', { sessionId, md }); },
+ *   setPlaybackState(sessionId, state) { ipcRenderer.send('media:state', { sessionId, state }); },
+ *   onAction(cb) {
+ *     const handler = (_: unknown, msg: { sessionId: string; action: MediaAction; value?: number }) =>
+ *       cb(msg.sessionId, msg.action, msg.value);
+ *     ipcRenderer.on('media:action', handler);
+ *     return () => ipcRenderer.removeListener('media:action', handler);
+ *   },
+ * };
+ * const media = createMediaService({ hostBridge: electronBridge });
+ * runtime.registerService('media', media);
+ * ```
+ */
+export interface HostMediaBridge {
+  /**
+   * Set the metadata displayed on the OS transport surface for a session.
+   * Called on session.create (with initial metadata) and on session.update
+   * (with merged metadata) whenever the session is the active session.
+   * Implementations MUST be idempotent.
+   */
+  setMetadata(sessionId: string, metadata: MediaMetadata): void;
+
+  /**
+   * Set the playback state for a session. Called on media.state reports
+   * whenever the session is the active session. State strings match
+   * nub-media MediaState.status exactly. Implementations MUST be idempotent.
+   */
+  setPlaybackState(sessionId: string, state: 'playing' | 'paused' | 'stopped' | 'buffering'): void;
+
+  /**
+   * Subscribe to OS-level action events (user clicks play/pause/seek/next/prev
+   * on the transport surface). Returns an unsubscribe handle.
+   *
+   * The callback receives `(sessionId, action, value?)`. `sessionId` is the
+   * bridge's currently-active session (the browser impl tracks this internally
+   * via setActionHandler-at-fire-time; native impls track via setActiveSession).
+   * `value` is populated for `action === 'seek'` (seek target in seconds) and
+   * for `action === 'volume'` (0.0-1.0). The service dispatches the resulting
+   * `media.command` envelope to the owning napplet of that session.
+   */
+  onAction(callback: (sessionId: string, action: MediaAction, value?: number) => void): () => void;
+
+  /**
+   * Optional: notify the bridge that the active session has changed. The
+   * browser reference impl uses this to switch which session's metadata/state
+   * is mirrored to the singleton navigator.mediaSession and to install (or
+   * clear) action handlers for the session's declared capabilities.
+   *
+   * The optional `actions` parameter carries the session's declared capability
+   * set so the bridge can narrow which OS transport buttons are active. When
+   * omitted, the bridge applies its default set. Native OS bridges that track
+   * active-session state internally may omit this field entirely.
+   */
+  setActiveSession?(sessionId: string | null, actions?: readonly MediaAction[]): void;
+
+  /**
+   * Optional: tear down per-session resources. The browser reference impl
+   * uses this to remove the silent-audio prime element when the last session
+   * is destroyed. Bridges that need no per-session teardown may omit this field.
+   */
+  destroySession?(sessionId: string): void;
+}
+
+// ─── MediaServiceOptions ──────────────────────────────────────────────────────
 
 /**
  * Optional host callbacks for the media service.
@@ -130,19 +230,184 @@ export interface MediaServiceOptions {
   onCapabilities?: (windowId: string, sessionId: string, actions: unknown) => void;
 
   /**
-   * MediaSession target to install action handlers on. Defaults to
-   * `navigator.mediaSession` when running in a browser. Pass a MockMediaSession
-   * in unit tests. Mirrors the listenerTarget pattern from keys-service.ts.
+   * MediaSession target override (used by default browser bridge only).
+   * Defaults to `navigator.mediaSession` when running in a browser. Pass a
+   * MockMediaSession in unit tests. Ignored when `hostBridge` is provided.
    */
   mediaSessionTarget?: MediaSessionTarget;
 
   /**
-   * DOM document to append the silent-audio prime element to. Defaults to
-   * `document` when available. Set to null (or a mock object) to disable the silent-audio
-   * prime entirely — useful in unit tests.
+   * DOM document override (used by default browser bridge only).
+   * Defaults to `document` when available. Set to null to disable the silent-audio
+   * prime entirely — useful in unit tests. Ignored when `hostBridge` is provided.
    */
   documentTarget?: Document | null;
+
+  /**
+   * Optional pluggable backend for metadata/state mirroring + OS action handling.
+   * When provided, the service delegates setMetadata / setPlaybackState / onAction
+   * to the bridge and skips navigator.mediaSession entirely. When omitted, the
+   * service internally uses {@link createBrowserMediaBridge} as the default.
+   * See {@link HostMediaBridge}.
+   */
+  hostBridge?: HostMediaBridge;
 }
+
+// ─── createBrowserMediaBridge ─────────────────────────────────────────────────
+
+/** Default action set — all 5 nub-media transport actions. */
+const DEFAULT_ACTIONS: readonly MediaAction[] = ['play', 'pause', 'next', 'prev', 'seek'];
+
+/** Mapping from DOM MediaSession action names to nub-media MediaAction literals. */
+const ACTION_MATRIX: ReadonlyArray<[string, MediaAction]> = [
+  ['play', 'play'],
+  ['pause', 'pause'],
+  ['nexttrack', 'next'],
+  ['previoustrack', 'prev'],
+  ['seekto', 'seek'],
+];
+
+/**
+ * Reference browser implementation of {@link HostMediaBridge}.
+ *
+ * Mirrors metadata to `navigator.mediaSession.metadata` (via the DOM
+ * `MediaMetadata` constructor when available; plain-object fallback in test
+ * envs). Mirrors playback state to `navigator.mediaSession.playbackState`
+ * with the canonical mapping: 'playing' maps to 'playing', 'paused' maps to
+ * 'paused', 'buffering' maps to 'paused', 'stopped' maps to 'none'. Installs
+ * `setActionHandler` callbacks for play/pause/nexttrack/previoustrack/seekto
+ * that fan into the onAction subscriber with the mapped `MediaAction` literal
+ * (and `value` from `details.seekTime` for seekto). When `setActiveSession` is
+ * called with a non-null `actions` parameter, only the declared actions get
+ * active handlers — the remaining are cleared (matching the capabilities
+ * narrowing behavior of Plan 27-01's inline implementation).
+ *
+ * Installs a silent-audio prime (4 kHz silent WAV data URL) when the first
+ * session becomes active (setActiveSession called with a non-null sessionId) —
+ * browsers refuse to render OS media controls without a playing audio element.
+ * Removes the element when destroySession brings the active session count to
+ * zero.
+ *
+ * @param opts.mediaSessionTarget - Override navigator.mediaSession (tests).
+ * @param opts.documentTarget - Override document (tests; pass null to disable silent-audio prime).
+ */
+export function createBrowserMediaBridge(opts: {
+  mediaSessionTarget?: MediaSessionTarget;
+  documentTarget?: Document | null;
+} = {}): HostMediaBridge {
+  const ms: MediaSessionTarget | null =
+    opts.mediaSessionTarget
+      ?? (typeof navigator !== 'undefined' && 'mediaSession' in navigator
+          ? (navigator.mediaSession as unknown as MediaSessionTarget)
+          : null);
+  const doc: Document | null =
+    opts.documentTarget !== undefined
+      ? opts.documentTarget
+      : (typeof document !== 'undefined' ? document : null);
+
+  let silentAudioEl: HTMLAudioElement | null = null;
+  let activeSessionId: string | null = null;
+  let sessionsActive = 0;
+  const actionCallbacks = new Set<(sessionId: string, action: MediaAction, value?: number) => void>();
+
+  function primeSilentAudio(): void {
+    if (silentAudioEl || !doc) return;
+    const el = doc.createElement('audio') as HTMLAudioElement;
+    el.src = SILENT_AUDIO_DATA_URL;
+    el.loop = true;
+    el.style.display = 'none';
+    (el as HTMLAudioElement).setAttribute('data-kehto-silent-audio-prime', 'true');
+    doc.body.appendChild(el);
+    void el.play().catch(() => { /* autoplay refused — metadata mirror still works */ });
+    silentAudioEl = el;
+  }
+
+  function teardownSilentAudio(): void {
+    if (!silentAudioEl) return;
+    try { silentAudioEl.pause(); } catch { /* best-effort */ }
+    try { silentAudioEl.remove(); } catch { /* best-effort */ }
+    silentAudioEl = null;
+  }
+
+  /**
+   * Install action handlers for the given set of nub-media actions. Actions not
+   * in the set get their handler cleared. Matches Plan 27-01's installActionHandlersFor
+   * behavior exactly so capabilities-narrowing tests continue to pass.
+   */
+  function applyActionHandlers(actions: readonly MediaAction[] = DEFAULT_ACTIONS): void {
+    if (!ms) return;
+    for (const [domAction, nubAction] of ACTION_MATRIX) {
+      if (!actions.includes(nubAction)) {
+        try { ms.setActionHandler(domAction, null); } catch { /* best-effort */ }
+        continue;
+      }
+      ms.setActionHandler(domAction, (details) => {
+        if (!activeSessionId) return;
+        const value = nubAction === 'seek' && typeof details?.seekTime === 'number' ? details.seekTime : undefined;
+        for (const cb of actionCallbacks) {
+          cb(activeSessionId, nubAction, value);
+        }
+      });
+    }
+  }
+
+  function writeMetadata(metadata: MediaMetadata | undefined): void {
+    if (!ms) return;
+    if (!metadata) { ms.metadata = null; return; }
+    const artwork = metadata.artwork?.url ? [{ src: metadata.artwork.url }] : undefined;
+    const init: MediaMetadataLike & { artwork?: unknown } = {
+      title: metadata.title ?? '',
+      artist: metadata.artist ?? '',
+      album: metadata.album ?? '',
+      ...(artwork ? { artwork } : {}),
+    };
+    try {
+      const ctor = (globalThis as unknown as { MediaMetadata?: new (init: MediaMetadataLike) => MediaMetadataLike }).MediaMetadata;
+      ms.metadata = ctor ? new ctor(init) : (init as MediaMetadataLike);
+    } catch {
+      ms.metadata = init as MediaMetadataLike;
+    }
+  }
+
+  return {
+    setMetadata(sessionId, metadata) {
+      if (sessionId === activeSessionId) writeMetadata(metadata);
+    },
+    setPlaybackState(sessionId, state) {
+      if (!ms || sessionId !== activeSessionId) return;
+      ms.playbackState =
+        state === 'playing' ? 'playing'
+        : state === 'paused' || state === 'buffering' ? 'paused'
+        : 'none';
+    },
+    onAction(callback) {
+      actionCallbacks.add(callback);
+      return () => { actionCallbacks.delete(callback); };
+    },
+    setActiveSession(sessionId, actions) {
+      activeSessionId = sessionId;
+      if (!sessionId) {
+        if (ms) {
+          ms.metadata = null;
+          ms.playbackState = 'none';
+          for (const [domAction] of ACTION_MATRIX) {
+            try { ms.setActionHandler(domAction, null); } catch { /* best-effort */ }
+          }
+        }
+        return;
+      }
+      // Prime silent-audio on first session becoming active.
+      if (sessionsActive === 0) { primeSilentAudio(); sessionsActive = 1; }
+      applyActionHandlers(actions ?? DEFAULT_ACTIONS);
+    },
+    destroySession(_sessionId) {
+      sessionsActive = Math.max(0, sessionsActive - 1);
+      if (sessionsActive === 0) teardownSilentAudio();
+    },
+  };
+}
+
+// ─── createMediaService ───────────────────────────────────────────────────────
 
 /**
  * Create a media NUB service handler with navigator.mediaSession integration.
@@ -157,7 +422,8 @@ export interface MediaServiceOptions {
  * napplets are never left hanging on a malformed request.
  *
  * @param options - Optional host callbacks for session lifecycle + state, plus
- *   mediaSessionTarget and documentTarget for test injection
+ *   mediaSessionTarget and documentTarget for test injection, and an optional
+ *   hostBridge for native-OS media backend delegation.
  * @returns A ServiceHandler (with `destroy()`) to register with the runtime
  *
  * @example
@@ -171,170 +437,67 @@ export interface MediaServiceOptions {
  * ```
  */
 export function createMediaService(options: MediaServiceOptions = {}): ServiceHandler & { destroy(): void } {
+  // MEDIA-02 per CONTEXT.md Area 2 — host-bridge override path. Bridge owns
+  // metadata/state mirroring + action routing; service owns wire-protocol
+  // bookkeeping (sessionRegistry + windowSessions + sendHandles) so
+  // onWindowDestroyed cleanup + media.command dispatch semantics stay
+  // identical across default and override paths.
   const descriptor: ServiceDescriptor = {
     name: 'media',
     version: MEDIA_SERVICE_VERSION,
-    description: 'NIP-5D media NUB reference handler (navigator.mediaSession mirror)',
+    description: options.hostBridge
+      ? 'NIP-5D media NUB reference handler (host-bridge delegated)'
+      : 'NIP-5D media NUB reference handler (navigator.mediaSession mirror)',
   };
 
-  // ─── Session registries ──────────────────────────────────────────────
+  // Bridge resolution: use the caller-provided bridge, else instantiate the
+  // default browser bridge from the same options (mediaSessionTarget / documentTarget
+  // are bridge-config knobs, preserved backward-compat for Plan 27-01 tests).
+  const bridge: HostMediaBridge = options.hostBridge
+    ?? createBrowserMediaBridge({
+      mediaSessionTarget: options.mediaSessionTarget,
+      documentTarget: options.documentTarget,
+    });
+
+  // ─── Session-ownership bookkeeping (wire-protocol concern — stays in the service) ─
   const sessionRegistry = new Map<string, SessionEntry>();             // sessionId → entry
-  const windowSessions = new Map<string, Set<string>>();                // windowId → Set<sessionId>
-  // Per-window `send` callback captured at session.create time. Used to
-  // push media.command envelopes back to the owning napplet when the OS
-  // user clicks a media control — this is the canonical @napplet/nub-media
-  // surface the SDK's mediaOnCommand(...) helper consumes.
+  const windowSessions = new Map<string, Set<string>>();               // windowId → Set<sessionId>
   const sendHandles = new Map<string, (msg: NappletMessage) => void>(); // windowId → send
   let activeSessionId: string | null = null;
   let touchCounter = 0;  // monotonic; increments on every touch for last-active-wins
-  let silentAudioEl: HTMLAudioElement | null = null;
 
-  // ─── MediaSession target fallback (SSR / test-safe, mirrors keys-service.ts) ─
-  const ms: MediaSessionTarget | null =
-    options.mediaSessionTarget
-      ?? (typeof navigator !== 'undefined' && 'mediaSession' in navigator
-          ? (navigator.mediaSession as unknown as MediaSessionTarget)
-          : null);
-
-  const doc: Document | null =
-    options.documentTarget !== undefined
-      ? options.documentTarget
-      : (typeof document !== 'undefined' ? document : null);
-
-  // ─── Silent-audio prime ──────────────────────────────────────────────
-  function primeSilentAudio(): void {
-    if (silentAudioEl || !doc) return;
-    const el = doc.createElement('audio') as HTMLAudioElement;
-    el.src = SILENT_AUDIO_DATA_URL;
-    el.loop = true;
-    el.style.display = 'none';
-    el.setAttribute('data-kehto-silent-audio-prime', 'true');
-    doc.body.appendChild(el);
-    // Playback may be refused by autoplay policy; log + swallow — a failed prime
-    // is not fatal (the service still mirrors state; OS controls just might not appear).
-    void el.play().catch(() => { /* autoplay refused — metadata mirror still works */ });
-    silentAudioEl = el;
-  }
-
-  function teardownSilentAudio(): void {
-    if (!silentAudioEl) return;
-    try { silentAudioEl.pause(); } catch { /* best-effort */ }
-    try { silentAudioEl.remove(); } catch { /* best-effort */ }
-    silentAudioEl = null;
-  }
-
-  // ─── Metadata / state mirroring ──────────────────────────────────────
-  function toMediaImageArray(artwork: MediaArtwork | undefined): Array<{ src: string }> {
-    if (!artwork?.url) return [];
-    return [{ src: artwork.url }];
-  }
-
-  function mirrorMetadata(entry: SessionEntry): void {
-    if (!ms) return;
-    const md = entry.metadata;
-    if (!md) { ms.metadata = null; return; }
-    // Prefer the DOM MediaMetadata ctor when available (browser); fall back to
-    // a plain object in test envs. Both satisfy MediaMetadataLike.
-    const artwork = toMediaImageArray(md.artwork);
-    const init: MediaMetadataLike & { artwork?: unknown } = {
-      title: md.title ?? '',
-      artist: md.artist ?? '',
-      album: md.album ?? '',
-      ...(artwork.length > 0 ? { artwork } : {}),
-    };
-    try {
-      // Browser path — real MediaMetadata class available globally.
-      const ctor = (globalThis as unknown as { MediaMetadata?: new (init: MediaMetadataLike) => MediaMetadataLike }).MediaMetadata;
-      ms.metadata = ctor ? new ctor(init) : (init as MediaMetadataLike);
-    } catch {
-      ms.metadata = init as MediaMetadataLike;
-    }
-  }
-
-  function mirrorPlaybackState(entry: SessionEntry): void {
-    if (!ms || !entry.state) return;
-    // MediaSession API only knows 'none' | 'playing' | 'paused'. Map buffering → paused,
-    // stopped → none per W3C Media Session spec (buffering is not a distinct state).
-    ms.playbackState =
-      entry.state.status === 'playing' ? 'playing'
-      : entry.state.status === 'paused' || entry.state.status === 'buffering' ? 'paused'
-      : 'none';
-  }
-
-  function clearMediaSession(): void {
-    if (!ms) return;
-    ms.metadata = null;
-    ms.playbackState = 'none';
-  }
-
-  // ─── Action-handler installation + media.command emission ────────────
-  const ACTION_MATRIX: ReadonlyArray<[string, MediaAction]> = [
-    ['play', 'play'],
-    ['pause', 'pause'],
-    ['nexttrack', 'next'],
-    ['previoustrack', 'prev'],
-    ['seekto', 'seek'],
-  ];
-
-  function installActionHandlersFor(entry: SessionEntry): void {
-    if (!ms) return;
-    for (const [domAction, nubAction] of ACTION_MATRIX) {
-      // Only install handlers for actions declared in the session's capabilities.
-      // Default capabilities (when no media.capabilities has been received yet)
-      // include all 5 mapped actions — see sessionRegistry entry initialization.
-      if (!entry.actions.includes(nubAction)) {
-        try { ms.setActionHandler(domAction, null); } catch { /* best-effort */ }
-        continue;
-      }
-      ms.setActionHandler(domAction, (details) => {
-        // Only dispatch if the session at firing-time is still the active session.
-        // Active-session identity may have shifted between handler install and fire.
-        const active = activeSessionId ? sessionRegistry.get(activeSessionId) : null;
-        if (!active) return;
-        const send = sendHandles.get(active.windowId);
-        if (!send) return;
-        const payload: MediaCommandMessage = {
-          type: 'media.command',
-          sessionId: active.sessionId,
-          action: nubAction,
-          ...(nubAction === 'seek' && typeof details?.seekTime === 'number'
-              ? { value: details.seekTime }
-              : {}),
-        };
-        send(payload as NappletMessage);
-      });
-    }
-  }
-
-  function clearAllActionHandlers(): void {
-    if (!ms) return;
-    for (const [domAction] of ACTION_MATRIX) {
-      try { ms.setActionHandler(domAction, null); } catch { /* best-effort */ }
-    }
-  }
-
-  function setActiveSession(sessionId: string | null): void {
-    activeSessionId = sessionId;
-    if (!sessionId) { clearMediaSession(); clearAllActionHandlers(); return; }
+  // Subscribe to bridge action events — fan into the owning napplet's send callback.
+  const unsubscribeAction = bridge.onAction((sessionId, action, value) => {
     const entry = sessionRegistry.get(sessionId);
     if (!entry) return;
-    mirrorMetadata(entry);
-    if (entry.state) mirrorPlaybackState(entry);
-    installActionHandlersFor(entry);
+    const send = sendHandles.get(entry.windowId);
+    if (!send) return;
+    const payload: MediaCommandMessage = {
+      type: 'media.command',
+      sessionId,
+      action,
+      ...(typeof value === 'number' ? { value } : {}),
+    };
+    send(payload as NappletMessage);
+  });
+
+  function setActive(sessionId: string | null, actions?: readonly MediaAction[]): void {
+    activeSessionId = sessionId;
+    bridge.setActiveSession?.(sessionId, actions);
+    if (!sessionId) return;
+    const entry = sessionRegistry.get(sessionId);
+    if (!entry) return;
+    if (entry.metadata) bridge.setMetadata(sessionId, entry.metadata);
+    if (entry.state) bridge.setPlaybackState(sessionId, entry.state.status);
   }
 
   function promoteNextActiveOrClear(): void {
-    if (sessionRegistry.size === 0) {
-      setActiveSession(null);
-      teardownSilentAudio();
-      return;
-    }
-    // Most-recently-touched wins.
+    if (sessionRegistry.size === 0) { setActive(null); return; }
     let latest: SessionEntry | null = null;
     for (const entry of sessionRegistry.values()) {
       if (!latest || entry.lastTouched > latest.lastTouched) latest = entry;
     }
-    setActiveSession(latest ? latest.sessionId : null);
+    setActive(latest ? latest.sessionId : null, latest?.actions);
   }
 
   // ─── ServiceHandler ──────────────────────────────────────────────────
@@ -348,8 +511,6 @@ export function createMediaService(options: MediaServiceOptions = {}): ServiceHa
           // Capture (or refresh) the per-window send callback.
           sendHandles.set(windowId, send);
 
-          primeSilentAudio();
-
           const entry: SessionEntry = {
             sessionId: m.sessionId,
             windowId,
@@ -362,8 +523,10 @@ export function createMediaService(options: MediaServiceOptions = {}): ServiceHa
           if (!windowSessions.has(windowId)) windowSessions.set(windowId, new Set());
           windowSessions.get(windowId)!.add(m.sessionId);
 
-          // Last-active-wins: newest session becomes the active one.
-          setActiveSession(m.sessionId);
+          // Last-active-wins: activate new session with its default capabilities.
+          setActive(m.sessionId, entry.actions);
+          // Mirror initial metadata if provided (after setActive so bridge has sessionId).
+          if (m.metadata) bridge.setMetadata(m.sessionId, m.metadata);
 
           options.onSessionCreate?.(windowId, m.sessionId, m.metadata);
 
@@ -382,7 +545,9 @@ export function createMediaService(options: MediaServiceOptions = {}): ServiceHa
           if (entry) {
             entry.metadata = { ...(entry.metadata ?? {}), ...m.metadata };
             entry.lastTouched = ++touchCounter;
-            if (m.sessionId === activeSessionId) mirrorMetadata(entry);
+            if (m.sessionId === activeSessionId && entry.metadata) {
+              bridge.setMetadata(m.sessionId, entry.metadata);
+            }
           }
           options.onSessionUpdate?.(windowId, m.sessionId, m.metadata);
           return; // fire-and-forget
@@ -398,6 +563,7 @@ export function createMediaService(options: MediaServiceOptions = {}): ServiceHa
               set.delete(m.sessionId);
               if (set.size === 0) windowSessions.delete(entry.windowId);
             }
+            bridge.destroySession?.(m.sessionId);
             if (m.sessionId === activeSessionId) promoteNextActiveOrClear();
           }
           options.onSessionDestroy?.(windowId, m.sessionId);
@@ -411,8 +577,8 @@ export function createMediaService(options: MediaServiceOptions = {}): ServiceHa
             entry.state = { status: m.status, position: m.position, duration: m.duration, volume: m.volume };
             entry.lastTouched = ++touchCounter;
             // Last-active-wins: any state report promotes to active.
-            if (activeSessionId !== m.sessionId) setActiveSession(m.sessionId);
-            else mirrorPlaybackState(entry);
+            if (activeSessionId !== m.sessionId) setActive(m.sessionId, entry.actions);
+            else bridge.setPlaybackState(m.sessionId, m.status);
           }
           options.onState?.(windowId, m.sessionId, m);
           return; // fire-and-forget
@@ -424,7 +590,11 @@ export function createMediaService(options: MediaServiceOptions = {}): ServiceHa
           if (entry) {
             entry.actions = m.actions;
             entry.lastTouched = ++touchCounter;
-            if (m.sessionId === activeSessionId) installActionHandlersFor(entry);
+            // Capabilities narrowing: re-activate the active session with the updated
+            // action set so the bridge can narrow which OS transport buttons are active.
+            if (m.sessionId === activeSessionId) {
+              bridge.setActiveSession?.(m.sessionId, entry.actions);
+            }
           }
           options.onCapabilities?.(windowId, m.sessionId, m.actions);
           return; // fire-and-forget
@@ -446,7 +616,10 @@ export function createMediaService(options: MediaServiceOptions = {}): ServiceHa
       const sessions = windowSessions.get(windowId);
       if (sessions) {
         const ownedActive = activeSessionId !== null && sessions.has(activeSessionId);
-        for (const sessionId of sessions) sessionRegistry.delete(sessionId);
+        for (const sessionId of sessions) {
+          sessionRegistry.delete(sessionId);
+          bridge.destroySession?.(sessionId);
+        }
         windowSessions.delete(windowId);
         if (ownedActive) promoteNextActiveOrClear();
       }
@@ -454,14 +627,14 @@ export function createMediaService(options: MediaServiceOptions = {}): ServiceHa
     },
 
     destroy(): void {
-      clearAllActionHandlers();
-      teardownSilentAudio();
+      unsubscribeAction();
+      for (const sessionId of sessionRegistry.keys()) bridge.destroySession?.(sessionId);
+      bridge.setActiveSession?.(null);
       sessionRegistry.clear();
       windowSessions.clear();
       sendHandles.clear();
       activeSessionId = null;
       touchCounter = 0;
-      if (ms) clearMediaSession();
     },
   };
 }
