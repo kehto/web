@@ -69,8 +69,13 @@ Plans:
   3. The Debugger Sequence Diagram renders a dedicated lane for every authenticated napplet; messages originated by any AUTHENTICATED napplet appear in that napplet's lane (not only Chat/Shell/Bot).
   4. The wiring changes touch only existing DOM surfaces — no new shell UI components are introduced (visual polish deferred per Out of Scope).
   5. The 49 existing Playwright specs remain fully green after the shell wiring changes.
-**Plans**: TBD
+**Plans**: 3 plans
 **UI hint**: yes
+
+Plans:
+- [ ] 30-01-PLAN.md — UI-01: add service-level routing pass to installActivityProjection() in node-details.ts with notify→notifications alias and topology.services.includes guard
+- [ ] 30-02-PLAN.md — UI-02: swap snapshot() gate in shell-host.ts aclAdapter from info.pubkey to info.authenticated (accepts Path B NIP-5D napplets)
+- [x] 30-03-PLAN.md — UI-03: replace LANE_NAMES hardcode in sequence-diagram.ts with deriveLanes(messages, nappletInfos) helper; propagate new signature through debugger.ts
 
 ### Phase 31: E2E Coverage + Milestone Iteration Loop
 **Goal**: Two new Layer-B Playwright specs lock the concurrent-boot and shell-UI-state contracts in CI, and the milestone closes with a verified fresh-build iteration loop
@@ -91,7 +96,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 29. Concurrent-boot AUTH Fix + Demo Stability | 2/2 | Complete    | 2026-04-19 |
-| 30. Shell UI State Wiring | 0/0 | Not started | - |
+| 30. Shell UI State Wiring | 1/3 | In Progress|  |
 | 31. E2E Coverage + Milestone Iteration Loop | 0/0 | Not started | - |
 
 ---

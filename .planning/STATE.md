@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: — Demo Stability & UAT Coverage
-status: planning
-stopped_at: Completed 29-02-PLAN.md (cascade-fixed — DEMO-02 resolved by 29-01)
-last_updated: "2026-04-19T23:06:15.725Z"
+status: executing
+stopped_at: "Completed 30-03-PLAN.md (UI-03: dynamic sequence-diagram lanes)"
+last_updated: "2026-04-19T23:30:28.485Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 5
+  completed_plans: 3
   percent: 33
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-19, v1.5 milestone opened)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 30 — Shell UI State Wiring (Phase 29 complete)
+**Current focus:** Phase 30 — Shell UI State Wiring
 
 ## Current Position
 
-Phase: 30
-Plan: Not started
-Status: Phase 29 complete — ready for Phase 30 planning
+Phase: 30 (Shell UI State Wiring) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
 Last activity: 2026-04-19
 
 Progress: 1/3 phases complete [---       ] 33%
@@ -41,6 +41,7 @@ Progress: 1/3 phases complete [---       ] 33%
 | Shell UI state surfaces wired | 0/3 (counters, ACL matrix, seq diagram) | 3/3 |
 | Phase 29-concurrent-boot-auth-fix-demo-stability P01 | 15 | 1 tasks | 1 files |
 | Phase 29-concurrent-boot-auth-fix-demo-stability P02 | 10 | 2 tasks | 0 files (cascade-fixed) |
+| Phase 30-shell-ui-state-wiring P03 | 12 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,6 @@ Key mapping:
 
 ## Session Continuity
 
-Last session: 2026-04-19T23:10:00.000Z
-Stopped at: Completed 29-02-PLAN.md (cascade-fixed — DEMO-02 resolved by 29-01)
+Last session: 2026-04-19T23:30:28.482Z
+Stopped at: Completed 30-03-PLAN.md (UI-03: dynamic sequence-diagram lanes)
 Resume: Phase 29 complete (DEMO-01 + DEMO-02 both satisfied). Next: `/gsd:plan-phase 30` (Shell UI State Wiring).

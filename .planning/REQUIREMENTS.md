@@ -42,7 +42,7 @@ Pre-existing shell-UI state surfaces that never populated under NUB traffic. The
 
 - [ ] **UI-01**: Service node activity counters (`ACTIVITY: N recent` on each service node in the topology panel) increment on NUB envelope traffic. Every `theme.changed` / `storage.get` / `relay.publish` / `media.session.create` / `keys.action` / etc. bumps the corresponding service's counter. `LAST ACTION: —` populates with the most-recent envelope `type` string.
 - [ ] **UI-02**: ACL Capability Matrix modal (System Policy → ACL Capability Matrix) lists every authenticated napplet as a row and renders the per-capability grant/revoke state for each. Current state: the matrix shows "No authenticated napplets" even when bot + chat are AUTHENTICATED.
-- [ ] **UI-03**: Debugger Sequence Diagram renders a lane for every authenticated napplet (not only the first 2-3). Messages originated by any AUTHENTICATED napplet appear in that napplet's lane. Current state: only `Chat`, `Shell`, `Bot` lanes render; other authenticated napplets are missing.
+- [x] **UI-03**: Debugger Sequence Diagram renders a lane for every authenticated napplet (not only the first 2-3). Messages originated by any AUTHENTICATED napplet appear in that napplet's lane. Current state: only `Chat`, `Shell`, `Bot` lanes render; other authenticated napplets are missing.
 
 ---
 
@@ -81,7 +81,7 @@ Continues numbering from v1.4 E2E-14.
 | DEMO-02 | Phase 29 | Complete |
 | UI-01 | Phase 30 | Pending |
 | UI-02 | Phase 30 | Pending |
-| UI-03 | Phase 30 | Pending |
+| UI-03 | Phase 30 | Complete |
 | E2E-15 | Phase 31 | Pending |
 | E2E-16 | Phase 31 | Pending |
 

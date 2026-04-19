@@ -1104,8 +1104,12 @@ const aclAdapter: DemoAclAdapter = {
   snapshot() {
     const out: ReturnType<DemoAclAdapter['snapshot']> = [];
     for (const [windowId, info] of napplets) {
-      if (!info.pubkey) continue;
-      const pk = info.pubkey;
+      // Accept both Path A (NIP-01, pubkey populated) and Path B (NIP-5D,
+      // authenticated via dTag with empty pubkey). aclState.check() handles
+      // the empty-pubkey + dTag-keyed lookup path correctly (v1.2 canonical),
+      // so no changes are required to the check calls below.
+      if (!info.authenticated) continue;
+      const pk = info.pubkey ?? '';
       const dTag = info.dTag ?? '';
       const hash = info.aggregateHash ?? '';
       const entry = relay.runtime.aclState.getEntry(pk, dTag, hash);
