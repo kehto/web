@@ -2,7 +2,7 @@
 
 **Milestone:** v1.5
 **Defined:** 2026-04-19
-**Status:** Draft (pending roadmap)
+**Status:** Active (roadmap defined)
 
 ## Overview
 
@@ -77,16 +77,16 @@ Continues numbering from v1.4 E2E-14.
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| DEMO-01 | TBD | Pending |
-| DEMO-02 | TBD | Pending |
-| UI-01 | TBD | Pending |
-| UI-02 | TBD | Pending |
-| UI-03 | TBD | Pending |
-| E2E-15 | TBD | Pending |
-| E2E-16 | TBD | Pending |
+| DEMO-01 | Phase 29 | Pending |
+| DEMO-02 | Phase 29 | Pending |
+| UI-01 | Phase 30 | Pending |
+| UI-02 | Phase 30 | Pending |
+| UI-03 | Phase 30 | Pending |
+| E2E-15 | Phase 31 | Pending |
+| E2E-16 | Phase 31 | Pending |
 
-**Coverage:** 7/7 v1.5 requirements mapped. Roadmapper assigns phase numbers (continuing from Phase 28 → starts at Phase 29).
+**Coverage:** 7/7 v1.5 requirements mapped. No orphans.
 
 ---
 
-*Traceability table to be populated by roadmapper 2026-04-19.*
+*Traceability table populated by roadmapper 2026-04-19.*

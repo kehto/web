@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Demo Stability & UAT Coverage
-status: defining_requirements
-last_updated: "2026-04-19T19:45:00.000Z"
+status: planning
+last_updated: "2026-04-19T20:00:00.000Z"
 last_activity: 2026-04-19
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -24,10 +24,20 @@ See: .planning/PROJECT.md (updated 2026-04-19, v1.5 milestone opened)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: Phase 29 — Concurrent-boot AUTH Fix + Demo Stability (not started)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-04-19 — Milestone v1.5 started
+Status: Roadmap defined. Ready to plan Phase 29.
+Last activity: 2026-04-19 — v1.5 roadmap created (3 phases, 7 requirements mapped)
+
+Progress: 0/3 phases complete [----------] 0%
+
+## Performance Metrics
+
+| Metric | v1.4 baseline | v1.5 target |
+|--------|--------------|-------------|
+| Playwright specs | 49 passed / 0 failed / 0 skipped | 51 passed / 0 failed / 0 skipped |
+| Demo napplets reaching AUTHENTICATED | 2/10 (post-v1.4 UAT) | 10/10 |
+| Shell UI state surfaces wired | 0/3 (counters, ACL matrix, seq diagram) | 3/3 |
 
 ## Accumulated Context
 
@@ -38,6 +48,8 @@ Full log in `.planning/PROJECT.md` Key Decisions table (15 entries through v1.4)
 - Harness `__registerService__('name', 'real')` factory-key for Layer-A real-backend specs (decision 13).
 - Status-sentinel wait substitutes `__nappletReady__` on `:4174` demo port (v1.4-26-04).
 - Anti-feature documentation must be descriptive, not literal-token quotation (v1.4-26-03 Rule-1 lesson).
+- `frame.evaluate(() => btn.click())` canonical for sandboxed napplet iframe button interactions (v1.3 pattern).
+- `page.bringToFront()` before iframe interactions in parallel Playwright workers (v1.4-27-04 pattern).
 
 ### Blockers/Concerns (carried forward)
 
@@ -49,7 +61,21 @@ Full log in `.planning/PROJECT.md` Key Decisions table (15 entries through v1.4)
 
 See `.planning/v1.5-UAT-FINDINGS.md` for the 6 post-v1.4 UAT issues classified by severity and likely area.
 
+Key mapping:
+- Issue 1 (7/10 napplets LOADING) → DEMO-01 → Phase 29
+- Issue 2 (media play/pause noop) → DEMO-02 → Phase 29 (downstream of issue 1)
+- Issue 3 (activity counters stuck) → UI-01 → Phase 30
+- Issue 4 (ACL Matrix empty) → UI-02 → Phase 30
+- Issue 5 (sequence diagram missing lanes) → UI-03 → Phase 30
+- Issue 6 (chat serial storage.get) → PERF-01 → deferred to v1.6 (not a correctness bug)
+
+### Todos
+
+- [ ] Plan Phase 29 (`/gsd:plan-phase 29`)
+- [ ] Plan Phase 30 (`/gsd:plan-phase 30`)
+- [ ] Plan Phase 31 (`/gsd:plan-phase 31`)
+
 ## Session Continuity
 
-Last session: 2026-04-19T19:45:00.000Z
-Resume: v1.5 milestone just opened. Next: define REQUIREMENTS.md then roadmap.
+Last session: 2026-04-19T20:00:00.000Z
+Resume: v1.5 roadmap created. 3 phases (29–31), 7 requirements mapped. Next: `/gsd:plan-phase 29`.
