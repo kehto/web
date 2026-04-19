@@ -50,6 +50,22 @@ v1.4 moved kehto from "demo-validated" to "shippable": CI/CD enforcement on ever
 
 **Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization).
 
+## Current Milestone: v1.5 Demo Stability & UAT Coverage
+
+**Goal:** Fix the 6 demo bugs surfaced by post-v1.4 UAT and close the CI coverage gap that let them ship — so the full `:4174` demo is continuously validated, not just isolated Layer-B spec frames.
+
+**Target features:**
+- **Concurrent-boot AUTH fix** — root-cause and fix the regression where 7/10 napplets stall on `LOADING` when mounted together from `topology.ts` (v1.3 had 8 napplets working; v1.4 added 2 → 10 concurrent → failure).
+- **Shell UI state wiring** — service activity counters, ACL capability matrix authenticated-napplet lookup, sequence-diagram lane generation. Pre-existing v1.3 gaps; v1.4 didn't surface them.
+- **Multi-napplet concurrent-boot E2E spec** — new Playwright spec loads the full `:4174` demo and asserts every napplet in `DEMO_NAPPLETS` reaches AUTHENTICATED within a timeout. Locks the concurrent-boot contract.
+- **Shell-UI state-surface E2E coverage** — asserts ACL matrix populates, service activity counters tick on NUB traffic, sequence-diagram renders lanes per authenticated napplet.
+- **(Optional)** Storage batching for chat boot path — 18+ serial `storage.get` calls replaced by parallel `Promise.all` or a batched read.
+
+**Key context:**
+- Source-of-truth for issue inventory: `.planning/v1.5-UAT-FINDINGS.md` (6 issues classified by severity and likely area).
+- No new-feature research needed — bugs are in the shipped v1.4 codebase. Investigation path is `/gsd:debug` per issue.
+- Phase numbering continues from Phase 28 → starts at **Phase 29**.
+
 ## Known Tech Debt (carried into next milestone)
 
 - **Phase 27 CI evidence** — Phase 27 commits on local main; push + CI workflow URL record deferred (pattern established in Phase 26). Local iteration loop 49/0/0 green; tracked in `milestones/v1.4-phases/27-real-media-backend/27-HUMAN-UAT.md`.
@@ -95,4 +111,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-19 — v1.4 milestone shipped*
+*Last updated: 2026-04-19 — v1.5 milestone opened*

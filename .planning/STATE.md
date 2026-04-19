@@ -1,9 +1,9 @@
 ---
 gsd_state_version: 1.0
-milestone: null
-milestone_name: null
-status: milestone_complete
-last_updated: "2026-04-19T19:15:00.000Z"
+milestone: v1.5
+milestone_name: Demo Stability & UAT Coverage
+status: defining_requirements
+last_updated: "2026-04-19T19:45:00.000Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 0
@@ -17,43 +17,39 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-19, v1.4 milestone shipped)
+See: .planning/PROJECT.md (updated 2026-04-19, v1.5 milestone opened)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Awaiting next milestone. Run `/gsd:new-milestone` to kick off.
+**Current focus:** v1.5 — Demo Stability & UAT Coverage (fix 6 bugs from post-v1.4 UAT; close CI gap)
 
 ## Current Position
 
-**Milestone:** None active (v1.4 shipped 2026-04-19)
-**Phase:** —
-**Plan:** —
-**Status:** Awaiting next milestone
-**Last activity:** 2026-04-19
-
-Progress: [██████████] 100% (v1.0 → v1.4 shipped; 4 milestones total)
-
-**v1.4 delivered (shipped 2026-04-19):**
-
-- Phase 23: CI/CD Baseline & Doc Trivia — build.yml, unit.yml, e2e.yml workflows + JSDoc refresh
-- Phase 24: DRIFT-CORE-06 Cleanup — core-compat.ts deleted, dead NIP-01 paths purged
-- Phase 25: Release Publication — @kehto/*@0.2.0 published to npm; release.yml workflow staged
-- Phase 26: Real Keys Backend — real keys-service + HostKeysBridge + hotkey-chord napplet + E2E-12
-- Phase 27: Real Media Backend — real media-service + HostMediaBridge + media-controller napplet + E2E-13
-- Phase 28: Layer-A Upgrade & Docs Polish — Layer-A specs upgraded + services/demo READMEs + E2E-14
-
-**Totals:** 6 phases, 17 plans, 33 tasks, 49 E2E specs green (48→49 delta), 20/20 requirements satisfied.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-19 — Milestone v1.5 started
 
 ## Accumulated Context
 
-Full decision log (v1.0 → v1.4) archived in `.planning/PROJECT.md` Key Decisions table and per-milestone archives at `.planning/milestones/v{1.0,1.1,1.2,1.3,1.4}-ROADMAP.md`.
+### Decisions (carried forward from v1.4)
 
-### Blockers/Concerns (carried forward into next milestone)
+Full log in `.planning/PROJECT.md` Key Decisions table (15 entries through v1.4). Key v1.4 patterns that inform v1.5 scope:
+- Per-napplet `window.__grant*__` host hooks for E2E capability gates (decision 15).
+- Harness `__registerService__('name', 'real')` factory-key for Layer-A real-backend specs (decision 13).
+- Status-sentinel wait substitutes `__nappletReady__` on `:4174` demo port (v1.4-26-04).
+- Anti-feature documentation must be descriptive, not literal-token quotation (v1.4-26-03 Rule-1 lesson).
 
-- Two tracked deferrals from v1.4 (both non-blocking):
-  - Phase 27 push + CI workflow URL evidence (commits local-only as of milestone close; appended post-push per Phase 26 precedent).
-  - Phase 25 release.yml first-fire — workflow exists, first real execution waits for next v* tag.
+### Blockers/Concerns (carried forward)
+
+- v1.4 deferred items (both non-blocking):
+  - Phase 27 push + CI workflow URL evidence (local iteration 49/0/0 verified).
+  - `release.yml` first-fire on next `v*` tag (workflow file exists post-v0.2.0).
+
+### UAT findings feeding this milestone
+
+See `.planning/v1.5-UAT-FINDINGS.md` for the 6 post-v1.4 UAT issues classified by severity and likely area.
 
 ## Session Continuity
 
-Last session: 2026-04-19T19:15:00.000Z
-Resume: v1.4 shipped; no active milestone. Start next milestone with `/gsd:new-milestone`.
+Last session: 2026-04-19T19:45:00.000Z
+Resume: v1.5 milestone just opened. Next: define REQUIREMENTS.md then roadmap.
