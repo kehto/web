@@ -53,7 +53,11 @@
   3. With all 10 napplets AUTHENTICATED, clicking Play in `media-controller` transitions `navigator.mediaSession.playbackState` to `'playing'` and the `#media-controller-status` DOM sentinel updates accordingly; clicking Pause transitions to `'paused'`.
   4. The fix introduces no regression in the 49 existing Playwright specs — `pnpm test:e2e` still exits with 49 passed / 0 failed / 0 skipped after the change.
   5. The anti-feature inventory (no `window.nostr`, no `signer-service`, no `allow-same-origin`, no `BusKind`) remains clean — zero new violations introduced by the fix.
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [x] 29-01-PLAN.md — DEMO-01: rewrite refreshAclPanelsIfNeeded() as data-driven loop over DEMO_NAPPLETS; remove stale aclRendered.size < 8 guard
+- [ ] 29-02-PLAN.md — DEMO-02: investigation-first manual UAT of media-controller Play/Pause; apply fix (ACL pre-grant / napplet-internal / bridge) or escalate
 
 ### Phase 30: Shell UI State Wiring
 **Goal**: Shell UI state surfaces (service activity counters, ACL Capability Matrix, sequence-diagram lanes) reflect live NUB envelope traffic for all authenticated napplets
@@ -86,7 +90,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 29. Concurrent-boot AUTH Fix + Demo Stability | 0/0 | Not started | - |
+| 29. Concurrent-boot AUTH Fix + Demo Stability | 1/2 | In Progress|  |
 | 30. Shell UI State Wiring | 0/0 | Not started | - |
 | 31. E2E Coverage + Milestone Iteration Loop | 0/0 | Not started | - |
 
