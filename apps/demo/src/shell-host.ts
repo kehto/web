@@ -104,11 +104,12 @@ export const DEMO_SIGNER_MODE: DemoSignerMode = 'service';
 /**
  * Services that still expose NIP-5D envelopes with stub-only backends.
  *
- * Phase 26 (KEYS-01) promotes `keys` to a real document-level chord listener;
- * Phase 27 will promote `media` similarly. Until then, `media` remains the
- * sole stub-only service in the v1.4 demo.
+ * Phase 26 (KEYS-01) promoted `keys` to a real document-level chord listener.
+ * Phase 27 (MEDIA-01) promoted `media` to a real navigator.mediaSession mirror.
+ * The stub-only era ends here — all 8 non-stub NUB domains are now exercised
+ * end-to-end in the v1.4 demo.
  */
-export const STUB_ONLY_SERVICES: readonly string[] = ['media'] as const;
+export const STUB_ONLY_SERVICES: readonly string[] = [] as const;
 
 /** All 8 NIP-5D-adjacent topology node names the demo renders on boot. */
 export const DEMO_TOPOLOGY_SERVICE_NAMES: readonly string[] = [
@@ -200,6 +201,19 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     statusId: 'hotkey-chord-status',
     aclId: 'hotkey-chord-acl',
     frameContainerId: 'hotkey-chord-frame-container',
+  },
+  // Phase 27 (Plan 27-03): media-controller napplet exercises the real media
+  // backend (MEDIA-01 navigator.mediaSession mirror + MEDIA-02 HostMediaBridge
+  // interface). topology.ts dynamically renders #media-controller-frame-container
+  // from this entry — no apps/demo/index.html edit required (Plan 26-03 precedent).
+  // statusId matches the INNER iframe sentinel from napplets/media-controller/index.html;
+  // Layer-B spec (27-04) asserts via frameLocator, not the outer placeholder.
+  {
+    name: 'media-controller',
+    label: 'media-controller',
+    statusId: 'media-controller-status',
+    aclId: 'media-controller-acl',
+    frameContainerId: 'media-controller-frame-container',
   },
 ];
 
@@ -454,9 +468,19 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
       );
     },
   });
+  // Plan 27-03 (MEDIA-03): real media backend wired. The onSessionCreate callback
+  // indicates real-backend status; the service itself installs navigator.mediaSession
+  // action handlers and mirrors metadata/playbackState (Plan 27-01) via the default
+  // createBrowserMediaBridge (Plan 27-02). Host apps that want native OS-level
+  // transport surfaces can pass a custom hostBridge: HostMediaBridge override.
   const mediaService = createMediaService({
     onSessionCreate: (windowId, sessionId, metadata) => {
-      console.debug('[demo] media.session.create (stub-only):', windowId, sessionId, metadata);
+      console.info(
+        '[demo] media real backend — session created:',
+        windowId,
+        sessionId,
+        metadata,
+      );
     },
   });
   const themeServiceBundle = createThemeService({
@@ -468,8 +492,8 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
   });
   _themeServiceBundle = themeServiceBundle;
 
-  // ─── COVERAGE GATE (Phase 20 → Phase 26) ─────────────────────────────────
-  // Post-Phase-26, the demo exercises 7 non-stub NUB domains end-to-end:
+  // ─── COVERAGE GATE (Phase 20 → Phase 26 → Phase 27) ──────────────────────
+  // Post-Phase-27, the demo exercises ALL 8 non-stub NUB domains end-to-end:
   //   identity (profile-viewer — Plan 20-03)
   //   ifc      (chat + bot — Phase 18)
   //   notify   (toaster — Phase 19)
@@ -479,12 +503,13 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
   //   keys     (hotkey-chord — Plan 26-03; document-level chord listener +
   //             keys.action push via SDK keys.onAction, per Plan 26-01 +
   //             HostKeysBridge contract from Plan 26-02)
+  //   media    (media-controller — Plan 27-03; navigator.mediaSession mirror +
+  //             media.command push via nub-media mediaOnCommand, per Plan 27-01 +
+  //             HostMediaBridge contract from Plan 27-02)
   //
-  // Only `media` remains stub-only (STUB_ONLY_SERVICES above). Phase 27 will
-  // ship the real media backend + media-controller napplet; until then, media
-  // service exposes envelopes for topology visibility only (console.debug
-  // tracing, no real playback). After Phase 27 the STUB_ONLY_SERVICES array
-  // will be emptied.
+  // STUB_ONLY_SERVICES is now `[]` — the stub-only era ends here. The v1.4 demo
+  // is a 10-napplet showcase (8 from v1.3 + hotkey-chord from Phase 26 +
+  // media-controller from Phase 27).
   const services = {
     identity: createIdentityService({
       getSigner,
@@ -857,6 +882,45 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
     const hash = hotkeyEntry.info.aggregateHash ?? '';
     relay.runtime.aclState.grant(pubkey, dTag, hash, 'keys:forward');
     console.info('[demo] __grantKeysForward__: granted keys:forward to hotkey-chord');
+    return true;
+  };
+
+  // ─── Plan 27-03 (MEDIA-03): __grantMediaControl__ host hook ──────────────
+  // Plan 27-04's Playwright spec (E2E-13) must grant the `media:control`
+  // capability to the media-controller napplet before asserting play/pause
+  // state transitions. Mirrors the __grantKeysForward__ pattern from
+  // Plan 26-03 exactly: single-napplet-scoped grant hook that returns true
+  // on success, false when napplet not yet loaded / not yet authenticated.
+  //
+  // Usage (from tests/e2e/media-controller.spec.ts):
+  //   await page.evaluate(() => window.__grantMediaControl__?.());
+  //
+  // Returns true on success, false if the media-controller napplet is not yet
+  // loaded or not yet authenticated (callers may retry if needed; the spec
+  // gates on the #media-controller-status = 'session-ready' sentinel before
+  // calling, which implies the napplet is authenticated and ready to receive
+  // grants).
+  (window as Window & { __grantMediaControl__?: () => boolean }).__grantMediaControl__ = (): boolean => {
+    let mediaEntry: { windowId: string; info: NappletInfo } | null = null;
+    for (const [windowId, info] of napplets.entries()) {
+      if (info.name === 'media-controller') {
+        mediaEntry = { windowId, info };
+        break;
+      }
+    }
+    if (!mediaEntry) {
+      console.warn('[demo] __grantMediaControl__: media-controller napplet not loaded yet');
+      return false;
+    }
+    if (!mediaEntry.info.authenticated) {
+      console.warn('[demo] __grantMediaControl__: media-controller not yet authenticated');
+      return false;
+    }
+    const pubkey = mediaEntry.info.pubkey ?? '';        // '' for NIP-5D napplets, same as toggleCapability
+    const dTag = mediaEntry.info.dTag ?? '';
+    const hash = mediaEntry.info.aggregateHash ?? '';
+    relay.runtime.aclState.grant(pubkey, dTag, hash, 'media:control');
+    console.info('[demo] __grantMediaControl__: granted media:control to media-controller');
     return true;
   };
 
