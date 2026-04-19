@@ -93,7 +93,11 @@
   3. `apps/demo/napplets/hotkey-chord` napplet (built under `@napplet/sdk`, zero raw `window.addEventListener('message')` in source) subscribes to a test chord (e.g. `Ctrl+Shift+K`); `#hotkey-chord-status` transitions `connecting... → authenticated → subscribed` on boot and a chord-delivery counter increments on each chord match.
   4. `tests/e2e/hotkey-chord.spec.ts` (Layer-B, uses canonical `demoBeforeEach` + `waitForNappletReady`) drives a synthetic chord via `page.keyboard` and asserts both the status transition and the counter increment; the spec passes against the built demo artifact.
   5. Build → run → Playwright iteration loop recorded: `pnpm clean && pnpm build && pnpm test:e2e` reports the full v1.4-to-date suite (Phase 23 baseline + `hotkey-chord.spec.ts`) green; demo source contains zero `window.nostr` / `signer-service` / `BusKind` references.
-**Plans**: TBD
+**Plans:** 4/4 plans pending
+- [ ] 26-01-PLAN.md — Real keys-service (document-level chord listener + chord parser + subscription registries) (KEYS-01)
+- [ ] 26-02-PLAN.md — HostKeysBridge interface + barrel export + hostBridge option branch (KEYS-02)
+- [ ] 26-03-PLAN.md — apps/demo/napplets/hotkey-chord + shell-host.ts wiring (KEYS-03)
+- [ ] 26-04-PLAN.md — Layer-B hotkey-chord.spec.ts + 26-ITERATION-LOG.md (E2E-12)
 **UI hint**: yes
 
 ### Phase 27: Real Media Backend
@@ -140,6 +144,6 @@ Phases execute in numeric order: 23 → 24 → 25 → 26 → 27 → 28
 | 23. CI/CD Baseline & Doc Trivia | v1.4 | 4/4 | Complete   | 2026-04-19 |
 | 24. DRIFT-CORE-06 Cleanup | v1.4 | 2/2 | Complete   | 2026-04-19 |
 | 25. Release Publication | v1.4 | 0/TBD | Not started | - |
-| 26. Real Keys Backend | v1.4 | 0/TBD | Not started | - |
+| 26. Real Keys Backend | v1.4 | 0/4 | Not started | - |
 | 27. Real Media Backend | v1.4 | 0/TBD | Not started | - |
 | 28. Layer-A Upgrade & Docs Polish | v1.4 | 0/TBD | Not started | - |
