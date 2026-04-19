@@ -48,14 +48,22 @@ v1.3 was a consume-and-showcase milestone: no `@kehto/*` protocol changes. `apps
 
 **Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity).
 
-## Next Milestone Goals (v1.4 — planned, not yet scoped)
+## Current Milestone: v1.4 Productionization & Upstream Unblock
 
-Candidate themes (to be refined via `/gsd:new-milestone`):
-- CI/CD via GitHub Actions (build + type-check + unit + Playwright on push — deferred from v1.3).
-- `@napplet/core` npm publication unblock → run `pnpm changeset publish` for v1.3 changesets.
-- `DRIFT-CORE-06` cleanup — remove `packages/runtime/src/core-compat.ts` once `@napplet/core` restores legacy exports upstream.
-- Real `keys` / `media` backends → `hotkey-chord` + `media-controller` napplets (deferred from v1.3).
-- Doc polish: refresh 2 JSDoc `@example` blocks in `tests/e2e/harness/harness.ts:10` + `tests/e2e/helpers/wait-for-napplet-ready.ts:21` (still cite deleted `auth-napplet` fixture).
+**Goal:** Move kehto from "demo-validated" to "shippable" — add CI/CD enforcement, publish to npm once `@napplet/core` lands upstream, remove the `DRIFT-CORE-06` compatibility shim, and replace stub `keys` / `media` services with real backends.
+
+**Target features:**
+- **CI/CD** — GitHub Actions for build + type-check + unit tests + Playwright on push and PR; release workflow gated on changeset version bumps.
+- **Release publication** — execute `pnpm changeset publish` for staged v1.2 + v1.3 changesets once `@napplet/core` is on npm; verify published artifacts install clean from npm registry.
+- **`DRIFT-CORE-06` removal** — delete `packages/runtime/src/core-compat.ts` and update all consumers to import directly from `@napplet/core` once upstream restores legacy exports.
+- **Real `keys` backend** — replace stub `keys-service` with a real implementation; ship `hotkey-chord` napplet exercising it end-to-end.
+- **Real `media` backend** — replace stub `media-service` with a real implementation; ship `media-controller` napplet exercising it end-to-end.
+- **Doc polish** — refresh 2 JSDoc `@example` blocks in `tests/e2e/harness/harness.ts:10` + `tests/e2e/helpers/wait-for-napplet-ready.ts:21` (still cite deleted `auth-napplet`).
+
+**Key context:**
+- Themes 2 + 3 (`changeset publish` + `DRIFT-CORE-06`) depend on **upstream `@napplet/core` npm publication**; if upstream slips, those phases block until unblocked.
+- Theme 4 + 5 (`keys` / `media` backends) need design discussion — kehto stays framework-agnostic, so "real backend" means defining what host-app integration looks like (hotkey daemon? OS APIs? Web Audio? MediaSession?). Design questions resolved at phase-discuss time.
+- v1.4 phase numbering continues from Phase 22 → starts at **Phase 23**.
 
 ## Known Tech Debt (carried into next milestone)
 
@@ -98,4 +106,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-18 — after v1.3 milestone*
+*Last updated: 2026-04-19 — v1.4 milestone opened*

@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: none
-milestone_name: (awaiting next milestone)
-status: milestone_shipped
-stopped_at: v1.3 shipped 2026-04-18 — awaiting /gsd:new-milestone
-last_updated: "2026-04-18T14:00:00.000Z"
-last_activity: 2026-04-18
+milestone: v1.4
+milestone_name: Productionization & Upstream Unblock
+status: defining_requirements
+stopped_at: v1.4 milestone opened 2026-04-19 — scoping requirements
+last_updated: "2026-04-19T00:00:00.000Z"
+last_activity: 2026-04-19
 progress:
   total_phases: 0
   completed_phases: 0
@@ -25,9 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-18, after v1.3)
 
 ## Current Position
 
-**v1.3 Demo Functional & Playwright Parity** — shipped 2026-04-18. Audit passed 37/37 requirements, 7/7 phases, 11/11 flows. See `.planning/milestones/v1.3-MILESTONE-AUDIT.md`.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-19 — Milestone v1.4 started
 
-Ready for `/gsd:new-milestone` to scope v1.4.
+**v1.3 shipped 2026-04-18.** Audit passed 37/37 requirements, 7/7 phases, 11/11 flows. See `.planning/milestones/v1.3-MILESTONE-AUDIT.md`.
 
 ## Accumulated Context
 
