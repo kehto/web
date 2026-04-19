@@ -1,16 +1,15 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.4
-milestone_name: Productionization & Upstream Unblock
-status: roadmap_complete
-stopped_at: v1.4 ROADMAP.md drafted 2026-04-19 — 6 phases (23–28), 20/20 REQ-IDs mapped, awaiting user approval before /gsd:plan-phase 23
-last_updated: "2026-04-19T00:00:00.000Z"
-last_activity: 2026-04-19
+milestone_name: — Productionization & Upstream Unblock
+status: planning
+last_updated: "2026-04-19T10:27:41.375Z"
+last_activity: 2026-04-19 — v1.4 roadmap drafted, 20/20 REQ-IDs mapped across 6 phases
 progress:
   total_phases: 6
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 4
+  completed_plans: 2
   percent: 0
 ---
 
@@ -21,18 +20,19 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-19, v1.4 milestone opened)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** v1.4 Phase 23 — CI/CD Baseline & Doc Trivia (ready to plan).
+**Current focus:** v1.4 Phase 23 — CI/CD Baseline & Doc Trivia (in progress, 2/4 plans complete).
 
 ## Current Position
 
 Phase: 23 of 28 (CI/CD Baseline & Doc Trivia) — first v1.4 phase
-Plan: — (not yet planned)
-Status: Ready to plan
-Last activity: 2026-04-19 — v1.4 roadmap drafted, 20/20 REQ-IDs mapped across 6 phases
+Plan: 2 of 4 complete (23-01 build CI ✓, 23-02 unit-test CI ✓)
+Status: In Progress — next: 23-03 (CI-03 Playwright e2e workflow)
+Last activity: 2026-04-19 — completed 23-02 (CI-02: Vitest workflow on push + PR)
 
-Progress: [░░░░░░░░░░] 0% (0/6 v1.4 phases complete)
+Progress: [░░░░░░░░░░] 0% (0/6 v1.4 phases complete) — phase 23: [█████░░░░░] 50% (2/4 plans)
 
 **v1.4 phase list (23–28):**
+
 - Phase 23: CI/CD Baseline & Doc Trivia (CI-01, CI-02, CI-03, DOCS-04)
 - Phase 24: DRIFT-CORE-06 Cleanup (DRIFT-01, DRIFT-02)
 - Phase 25: Release Publication (REL-05, REL-06, CI-04)
@@ -50,6 +50,7 @@ Progress: [░░░░░░░░░░] 0% (0/6 v1.4 phases complete)
 - [v1.3] Legacy NIP-01 fixtures + specs deleted (not migrated) — cleanliness > backward compat.
 - [v1.4] `DRIFT-CORE-06` is no longer upstream-blocked — `@napplet/core@0.2.0` is on npm. Phase 24 deletes `core-compat.ts` via pure internal refactor.
 - [v1.4] `pnpm.overrides` `link:` entries for `@napplet/*` MUST be removed before REL-05 publishes (Phase 25).
+- [v1.4-23-02] Unit-test CI invokes `pnpm test` (turbo run test), not `pnpm test:unit` — root `test` script delegates to per-package Vitest configs via turbo; `test:unit` is a developer-local shortcut (`vitest run` from root) that bypasses turbo and per-package test configurations. CI must match the canonical entry point.
 
 Full decision log archived in `.planning/PROJECT.md` (Key Decisions table) and per-milestone roadmap archives.
 
@@ -59,5 +60,5 @@ Full decision log archived in `.planning/PROJECT.md` (Key Decisions table) and p
 
 ## Session Continuity
 
-Last session: 2026-04-19 — v1.4 roadmap drafted by gsd-roadmapper; 20/20 REQ-IDs mapped across 6 phases (23–28).
-Resume: `/gsd:plan-phase 23` to plan CI/CD Baseline & Doc Trivia.
+Last session: 2026-04-19 — Completed 23-02-PLAN.md (CI-02: unit-test workflow)
+Resume: `/gsd:execute-phase 23` to run plan 23-03 (CI-03 e2e workflow).

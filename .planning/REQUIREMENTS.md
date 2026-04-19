@@ -30,7 +30,7 @@ v1.4 is a **productionization** milestone. v1.3 proved the v1.2 protocol surface
 GitHub Actions enforcement for build + tests + release.
 
 - [ ] **CI-01**: `.github/workflows/build.yml` runs `pnpm install --frozen-lockfile && pnpm build && pnpm type-check` on every push and PR; a failure blocks merge.
-- [ ] **CI-02**: `.github/workflows/unit.yml` runs `pnpm test` (Vitest) on every push and PR; a failure blocks merge.
+- [x] **CI-02**: `.github/workflows/unit.yml` runs `pnpm test` (Vitest) on every push and PR; a failure blocks merge.
 - [ ] **CI-03**: `.github/workflows/e2e.yml` runs `pnpm test:e2e` (Playwright) on every push and PR with browser cache restored from `~/.cache/ms-playwright`; a failure blocks merge. Covers the full 47-spec suite plus v1.4 additions.
 - [ ] **CI-04**: `.github/workflows/release.yml` triggered on `v*` git tag push runs `pnpm changeset publish` with `NPM_TOKEN` secret; guarded by a prior green `build.yml` + `unit.yml` + `e2e.yml` run on the tagged SHA.
 
@@ -113,7 +113,7 @@ Continues numbering from v1.3 DOCS-03.
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
 | CI-01 | Phase 23 | Pending |
-| CI-02 | Phase 23 | Pending |
+| CI-02 | Phase 23 | Complete |
 | CI-03 | Phase 23 | Pending |
 | CI-04 | Phase 25 | Pending |
 | REL-05 | Phase 25 | Pending |
