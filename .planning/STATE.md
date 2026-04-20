@@ -1,93 +1,55 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.5
-milestone_name: — Demo Stability & UAT Coverage
-status: verifying
-stopped_at: Completed 31-02-PLAN.md (E2E-16 + iteration loop + anti-term sweep)
-last_updated: "2026-04-20T00:04:39.421Z"
+milestone: null
+milestone_name: null
+status: milestone_complete
+last_updated: "2026-04-20T00:45:00.000Z"
 last_activity: 2026-04-20
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
-  percent: 33
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-19, v1.5 milestone opened)
+See: .planning/PROJECT.md (updated 2026-04-20, v1.5 shipped)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 31 — E2E Coverage + Milestone Iteration Loop
+**Current focus:** Awaiting next milestone. Run `/gsd:new-milestone` to kick off.
 
 ## Current Position
 
-Phase: 31
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-04-20
+**Milestone:** None active (v1.5 shipped 2026-04-20)
+**Phase:** —
+**Plan:** —
+**Status:** Awaiting next milestone
+**Last activity:** 2026-04-20
 
-Progress: 1/3 phases complete [---       ] 33%
+Progress: [██████████] 100% (v1.0 → v1.5 shipped; 6 milestones total)
 
-## Performance Metrics
+**v1.5 delivered (shipped 2026-04-20):**
 
-| Metric | v1.4 baseline | v1.5 target |
-|--------|--------------|-------------|
-| Playwright specs | 49 passed / 0 failed / 0 skipped | 51 passed / 0 failed / 0 skipped |
-| Demo napplets reaching AUTHENTICATED | 2/10 (post-v1.4 UAT) | 10/10 |
-| Shell UI state surfaces wired | 0/3 (counters, ACL matrix, seq diagram) | 3/3 |
-| Phase 29-concurrent-boot-auth-fix-demo-stability P01 | 15 | 1 tasks | 1 files |
-| Phase 29-concurrent-boot-auth-fix-demo-stability P02 | 10 | 2 tasks | 0 files (cascade-fixed) |
-| Phase 30-shell-ui-state-wiring P03 | 12 | 1 tasks | 2 files |
-| Phase 30-shell-ui-state-wiring P01 | 8min | 1 tasks | 1 files |
-| Phase 30-shell-ui-state-wiring P02 | 8 | 1 tasks | 1 files |
-| Phase 31-e2e-coverage-milestone-iteration-loop P01 | 2 | 1 tasks | 1 files |
-| Phase 31-e2e-coverage-milestone-iteration-loop P02 | 5 | 2 tasks | 2 files |
+- Phase 29: Concurrent-boot AUTH Fix + Demo Stability — data-driven refreshAclPanelsIfNeeded loop; 10/10 napplets show AUTHENTICATED
+- Phase 30: Shell UI State Wiring — service activity counters + ACL Matrix + sequence-diagram lanes all wired to live NUB traffic
+- Phase 31: E2E Coverage + Milestone Iteration Loop — demo-concurrent-boot.spec.ts + shell-ui-state-surfaces.spec.ts lock the fixes in CI
+
+**Totals:** 3 phases, 7 plans, 9 tasks, 53 E2E specs green (up from v1.4's 49; +4 tests / +2 spec files), 7/7 requirements satisfied.
 
 ## Accumulated Context
 
-### Decisions (carried forward from v1.4)
+Full decision log (v1.0 → v1.5) archived in `.planning/PROJECT.md` Key Decisions table (17 entries) and per-milestone archives at `.planning/milestones/v{1.0,1.1,1.2,1.3,1.4,1.5}-ROADMAP.md`.
 
-Full log in `.planning/PROJECT.md` Key Decisions table (15 entries through v1.4). Key v1.4 patterns that inform v1.5 scope:
+### Blockers/Concerns
 
-- Per-napplet `window.__grant*__` host hooks for E2E capability gates (decision 15).
-- cascade-fixed bucket (v1.5-29-02): when upstream fix eliminates a downstream symptom, no Task 2 code change is required — document as cascade-fixed and confirm baseline unchanged.
-- Harness `__registerService__('name', 'real')` factory-key for Layer-A real-backend specs (decision 13).
-- Status-sentinel wait substitutes `__nappletReady__` on `:4174` demo port (v1.4-26-04).
-- Anti-feature documentation must be descriptive, not literal-token quotation (v1.4-26-03 Rule-1 lesson).
-- `frame.evaluate(() => btn.click())` canonical for sandboxed napplet iframe button interactions (v1.3 pattern).
-- `page.bringToFront()` before iframe interactions in parallel Playwright workers (v1.4-27-04 pattern).
-
-### Blockers/Concerns (carried forward)
-
-- v1.4 deferred items (both non-blocking):
-  - Phase 27 push + CI workflow URL evidence (local iteration 49/0/0 verified).
-  - `release.yml` first-fire on next `v*` tag (workflow file exists post-v0.2.0).
-
-### UAT findings feeding this milestone
-
-See `.planning/v1.5-UAT-FINDINGS.md` for the 6 post-v1.4 UAT issues classified by severity and likely area.
-
-Key mapping:
-
-- Issue 1 (7/10 napplets LOADING) → DEMO-01 → Phase 29
-- Issue 2 (media play/pause noop) → DEMO-02 → Phase 29 (downstream of issue 1)
-- Issue 3 (activity counters stuck) → UI-01 → Phase 30
-- Issue 4 (ACL Matrix empty) → UI-02 → Phase 30
-- Issue 5 (sequence diagram missing lanes) → UI-03 → Phase 30
-- Issue 6 (chat serial storage.get) → PERF-01 → deferred to v1.6 (not a correctness bug)
-
-### Todos
-
-- [ ] Plan Phase 29 (`/gsd:plan-phase 29`)
-- [ ] Plan Phase 30 (`/gsd:plan-phase 30`)
-- [ ] Plan Phase 31 (`/gsd:plan-phase 31`)
+- Info-level v1.5 tech debt (non-blocking): UI-01 poll guard uses `expect.any(Number)` which includes -1; the subsequent `toBeGreaterThanOrEqual(1)` is the real guard. Candidate for v1.6 robustness refinement.
+- PERF-01 deferred to v1.6: chat boot storage.get storm (18+ serial round-trips). Perf debt, not correctness.
 
 ## Session Continuity
 
-Last session: 2026-04-20T00:00:42.045Z
-Stopped at: Completed 31-02-PLAN.md (E2E-16 + iteration loop + anti-term sweep)
-Resume: Phase 29 complete (DEMO-01 + DEMO-02 both satisfied). Next: `/gsd:plan-phase 30` (Shell UI State Wiring).
+Last session: 2026-04-20T00:45:00.000Z
+Resume: v1.5 shipped. No active milestone. Start next with `/gsd:new-milestone`.

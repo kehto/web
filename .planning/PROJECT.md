@@ -48,23 +48,9 @@ v1.4 moved kehto from "demo-validated" to "shippable": CI/CD enforcement on ever
 
 20/20 requirements satisfied; 6/6 phase VERIFICATION.md passed; 18/18 cross-phase integration chains wired; 0 critical gaps.
 
-**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization).
+**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability).
 
-## Current Milestone: v1.5 Demo Stability & UAT Coverage
-
-**Goal:** Fix the 6 demo bugs surfaced by post-v1.4 UAT and close the CI coverage gap that let them ship — so the full `:4174` demo is continuously validated, not just isolated Layer-B spec frames.
-
-**Target features:**
-- **Concurrent-boot AUTH fix** — root-cause and fix the regression where 7/10 napplets stall on `LOADING` when mounted together from `topology.ts` (v1.3 had 8 napplets working; v1.4 added 2 → 10 concurrent → failure).
-- **Shell UI state wiring** — service activity counters, ACL capability matrix authenticated-napplet lookup, sequence-diagram lane generation. Pre-existing v1.3 gaps; v1.4 didn't surface them.
-- **Multi-napplet concurrent-boot E2E spec** — new Playwright spec loads the full `:4174` demo and asserts every napplet in `DEMO_NAPPLETS` reaches AUTHENTICATED within a timeout. Locks the concurrent-boot contract.
-- **Shell-UI state-surface E2E coverage** — asserts ACL matrix populates, service activity counters tick on NUB traffic, sequence-diagram renders lanes per authenticated napplet.
-- **(Optional)** Storage batching for chat boot path — 18+ serial `storage.get` calls replaced by parallel `Promise.all` or a batched read.
-
-**Key context:**
-- Source-of-truth for issue inventory: `.planning/v1.5-UAT-FINDINGS.md` (6 issues classified by severity and likely area).
-- No new-feature research needed — bugs are in the shipped v1.4 codebase. Investigation path is `/gsd:debug` per issue.
-- Phase numbering continues from Phase 28 → starts at **Phase 29**.
+**v1.5 (shipped 2026-04-20):** Demo Stability & UAT Coverage — all 5 correctness issues from post-v1.4 UAT closed with CI coverage; PERF-01 deferred to v1.6. 53/0/0 Playwright baseline (up from 49). Key fixes: data-driven refreshAclPanelsIfNeeded loop (10/10 napplets show AUTHENTICATED), service-level activity routing (6/8 services tick), aclAdapter.snapshot authenticated-gate (10 napplets in ACL Matrix), dynamic sequence-diagram lanes (11 lanes). Two new Layer-B specs lock the contracts.
 
 ## Known Tech Debt (carried into next milestone)
 
@@ -92,6 +78,8 @@ v1.4 moved kehto from "demo-validated" to "shippable": CI/CD enforcement on ever
 | 13 | Harness `__registerService__('name', 'real')` factory-key for Layer-A specs | Real backends are not stubs — capturing outbound envelopes requires proxy hook, not `window.__last*` globals. Single new surface covers both `keys` + `media` domains. | 2026-04-19 |
 | 14 | Silent-audio prime for `navigator.mediaSession` visibility | Browsers refuse to render OS media controls without an active audio element. A minimal silent-loop `<audio>` (data URL) keeps the MediaSession API surface visible. Shell does NOT own an AudioContext — napplets own their own `<audio>` elements. | 2026-04-19 |
 | 15 | Per-napplet `window.__grant*__` host hooks for E2E capability gates | Playwright specs need deterministic capability grants without UI click-through. Scoped per-napplet (not generic). Pattern: `__grantKeysForward__`, `__grantMediaControl__`. | 2026-04-19 |
+| 16 | Data-driven shell UI (all napplet rendering loops over DEMO_NAPPLETS, not hardcoded per-napplet blocks) | v1.5 UAT surfaced the "add 10th napplet" failure mode — hardcoded lists silently drift. Pattern: single source-of-truth (shell-host.ts:DEMO_NAPPLETS) + UI loops iterate it. Applies to status-text, activity counters, ACL rows, sequence-diagram lanes. | 2026-04-20 |
+| 17 | Playwright MCP automated UAT replaces manual UAT within autonomous GSD flow | Phase 29 established the pattern — instead of pausing for human browser testing, Claude drives the demo via MCP Playwright tools, captures DOM evidence, classifies into decision buckets. Reduces autonomous-flow interruptions; works whenever the demo is browser-testable. | 2026-04-20 |
 
 ## Evolution
 
@@ -111,4 +99,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-19 — v1.5 milestone opened*
+*Last updated: 2026-04-20 — v1.5 milestone shipped*

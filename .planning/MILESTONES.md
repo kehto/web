@@ -1,5 +1,21 @@
 # Milestones: Kehto Runtime
 
+## v1.5 Demo Stability & UAT Coverage (Shipped: 2026-04-20)
+
+**Phases completed:** 3 phases, 7 plans, 9 tasks
+
+**Key accomplishments:**
+
+- Single DEMO_NAPPLETS for-of loop replaces the hardcoded chat+bot-only if-chain in refreshAclPanelsIfNeeded() — all 10 napplets now get their outer topology status sentinel updated to 'authenticated' when their NappletInfo.authenticated flag flips true
+- DEMO-02 cascade-fixed by 29-01 refreshAclPanelsIfNeeded refactor; no code change needed; 49/0/0 confirmed
+- Service node activity counters wired via NUB envelope-domain routing in installActivityProjection(), with notify→notifications alias and topology.services.includes() guard
+- Single-line gate swap in aclAdapter.snapshot() from info.pubkey to info.authenticated — unblocks all 10 NIP-5D napplets from the ACL Capability Matrix modal
+- Replaced hardcoded `LANE_NAMES=['Chat','Shell','Bot']` with `deriveLanes()` helper that resolves observed `msg.windowId` → napplet name via the `nappletInfos` map, producing alphabetically-ordered lanes with Shell always centred
+- Layer-B Playwright spec polling all 10 DEMO_NAPPLETS status sentinels via expect.poll().toMatchObject() to lock the Phase-29 concurrent-boot AUTH fix in CI
+- E2E-16 spec (3 tests: UI-01 service counters, UI-02 ACL matrix, UI-03 sequence lanes) + canonical fresh-build iteration loop green at 53/0/0 + v1.5 anti-term milestone-gate sweep with 0 real violations
+
+---
+
 ## v1.4 Productionization & Upstream Unblock (Shipped: 2026-04-19)
 
 **Phases completed:** 6 phases, 17 plans, 33 tasks
