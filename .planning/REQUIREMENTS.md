@@ -51,7 +51,7 @@ Pre-existing shell-UI state surfaces that never populated under NUB traffic. The
 Continues numbering from v1.4 E2E-14.
 
 - [x] **E2E-15**: New Layer-B spec `tests/e2e/demo-concurrent-boot.spec.ts` loads the full `:4174` demo (no `__loadNapplet__` single-frame helper — uses the native `DEMO_NAPPLETS` topology load), waits up to 10s, and asserts every napplet in `DEMO_NAPPLETS` reaches `AUTHENTICATED` (asserted via each napplet's per-frame status sentinel). Spec passes on the built demo artifact. Guards DEMO-01 from regressing.
-- [ ] **E2E-16**: New Layer-B spec `tests/e2e/shell-ui-state-surfaces.spec.ts` loads the full demo (same as E2E-15), then asserts: (a) ACL Capability Matrix opens and lists at least N authenticated napplets as rows (where N ≥ bot + chat + any napplet that AUTHs); (b) at least one service node's `ACTIVITY` counter increments after a triggered NUB envelope (e.g., clicking theme-switcher's button bumps the `theme` service counter); (c) the Sequence Diagram renders a lane for each authenticated napplet after a short delay. Spec passes on the built demo artifact. Guards UI-01/02/03 from regressing.
+- [x] **E2E-16**: New Layer-B spec `tests/e2e/shell-ui-state-surfaces.spec.ts` loads the full demo (same as E2E-15), then asserts: (a) ACL Capability Matrix opens and lists at least N authenticated napplets as rows (where N ≥ bot + chat + any napplet that AUTHs); (b) at least one service node's `ACTIVITY` counter increments after a triggered NUB envelope (e.g., clicking theme-switcher's button bumps the `theme` service counter); (c) the Sequence Diagram renders a lane for each authenticated napplet after a short delay. Spec passes on the built demo artifact. Guards UI-01/02/03 from regressing.
 
 ---
 
@@ -83,7 +83,7 @@ Continues numbering from v1.4 E2E-14.
 | UI-02 | Phase 30 | Complete |
 | UI-03 | Phase 30 | Complete |
 | E2E-15 | Phase 31 | Complete |
-| E2E-16 | Phase 31 | Pending |
+| E2E-16 | Phase 31 | Complete |
 
 **Coverage:** 7/7 v1.5 requirements mapped. No orphans.
 

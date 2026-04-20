@@ -39,7 +39,7 @@
 
 - [x] **Phase 29: Concurrent-boot AUTH Fix + Demo Stability** — Root-cause the concurrency regression; fix it; verify all 10 napplets reach AUTHENTICATED on the full `:4174` demo boot.
 - [x] **Phase 30: Shell UI State Wiring** — Wire service activity counters, ACL Capability Matrix authenticated-napplet lookup, and sequence-diagram lane generation to live NUB envelope traffic. (completed 2026-04-19)
-- [ ] **Phase 31: E2E Coverage + Milestone Iteration Loop** — Ship two new Layer-B specs guarding DEMO-01 and UI-01/02/03; close with the canonical iteration loop targeting 49 → 51 specs.
+- [x] **Phase 31: E2E Coverage + Milestone Iteration Loop** — Ship two new Layer-B specs guarding DEMO-01 and UI-01/02/03; close with the canonical iteration loop targeting 49 → 51 specs. (completed 2026-04-20)
 
 ### Phase Details
 
@@ -91,7 +91,7 @@ Plans:
 
 Plans:
 - [x] 31-01-PLAN.md — E2E-15: new Layer-B spec demo-concurrent-boot.spec.ts polling 10 DEMO_NAPPLETS status sentinels until each reads authenticated
-- [ ] 31-02-PLAN.md — E2E-16 + milestone iteration loop + anti-term sweep: shell-ui-state-surfaces.spec.ts (3 tests UI-01/02/03) + 31-ITERATION-LOG.md closing v1.5
+- [x] 31-02-PLAN.md — E2E-16 + milestone iteration loop + anti-term sweep: shell-ui-state-surfaces.spec.ts (3 tests UI-01/02/03) + 31-ITERATION-LOG.md closing v1.5
 
 ---
 
@@ -101,7 +101,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 29. Concurrent-boot AUTH Fix + Demo Stability | 2/2 | Complete    | 2026-04-19 |
 | 30. Shell UI State Wiring | 3/3 | Complete    | 2026-04-19 |
-| 31. E2E Coverage + Milestone Iteration Loop | 1/2 | In Progress|  |
+| 31. E2E Coverage + Milestone Iteration Loop | 2/2 | Complete   | 2026-04-20 |
 
 ---
 

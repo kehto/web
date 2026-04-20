@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: — Demo Stability & UAT Coverage
-status: executing
-stopped_at: Completed 31-01-PLAN.md (E2E-15 demo-concurrent-boot.spec.ts)
-last_updated: "2026-04-19T23:53:14.802Z"
-last_activity: 2026-04-19
+status: verifying
+stopped_at: Completed 31-02-PLAN.md (E2E-16 + iteration loop + anti-term sweep)
+last_updated: "2026-04-20T00:00:42.047Z"
+last_activity: 2026-04-20
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
   percent: 33
 ---
 
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-04-19, v1.5 milestone opened)
 
 Phase: 31 (E2E Coverage + Milestone Iteration Loop) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
-Last activity: 2026-04-19
+Status: Phase complete — ready for verification
+Last activity: 2026-04-20
 
 Progress: 1/3 phases complete [---       ] 33%
 
@@ -45,6 +45,7 @@ Progress: 1/3 phases complete [---       ] 33%
 | Phase 30-shell-ui-state-wiring P01 | 8min | 1 tasks | 1 files |
 | Phase 30-shell-ui-state-wiring P02 | 8 | 1 tasks | 1 files |
 | Phase 31-e2e-coverage-milestone-iteration-loop P01 | 2 | 1 tasks | 1 files |
+| Phase 31-e2e-coverage-milestone-iteration-loop P02 | 5 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,6 @@ Key mapping:
 
 ## Session Continuity
 
-Last session: 2026-04-19T23:53:14.799Z
-Stopped at: Completed 31-01-PLAN.md (E2E-15 demo-concurrent-boot.spec.ts)
+Last session: 2026-04-20T00:00:42.045Z
+Stopped at: Completed 31-02-PLAN.md (E2E-16 + iteration loop + anti-term sweep)
 Resume: Phase 29 complete (DEMO-01 + DEMO-02 both satisfied). Next: `/gsd:plan-phase 30` (Shell UI State Wiring).
