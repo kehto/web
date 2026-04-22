@@ -10,7 +10,7 @@
  *   3. Wiring WmService methods to their internal state/action layer.
  *
  * Hyprgate's local implementation lives at apps/shell/src/lib/services/wm.ts
- * (not in this package — shell-specific delegation to the Svelte wmState store).
+ * (not in this package — shell-specific delegation to the shell's internal state store).
  */
 
 // ─── Generic types ──────────────────────────────────────────────────────────
@@ -27,9 +27,9 @@ export type Layout = 'dwindle' | 'master-stack' | 'floating' | (string & {});
  * lifecycle events. Shells implement these; the package calls into them.
  *
  * IMPORTANT: these hooks do NOT re-trigger animations. Shells that fire
- * animations imperatively inside their own action code (hyprgate does,
- * via startAnimation() inside actions.ts) continue to do so. These hooks
- * exist for external observers (instrumentation, layout-selection UI, etc.).
+ * animations imperatively inside their own action code continue to do so.
+ * These hooks exist for external observers (instrumentation, layout-selection
+ * UI, etc.).
  */
 export interface WmHostHooks {
   /** Host selects a layout strategy (by name). No-op is acceptable. */
