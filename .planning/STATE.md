@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: — Downstream Unblock & Shell Service Surface
 status: executing
-last_updated: "2026-04-23T09:07:44.477Z"
+last_updated: "2026-04-23T09:17:27.023Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
-  percent: 60
+  completed_plans: 5
+  percent: 80
 ---
 
 # Project State
@@ -20,27 +20,28 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-23, v1.6 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 33 — Reserved Chord Surface + E2E-17
+**Current focus:** Phase 34 — `@kehto/nip66` Extract & Publish (Phase 33 closed 2026-04-23 at 54/0/0)
 
 ## Current Position
 
-Phase: 33 (Reserved Chord Surface + E2E-17) — EXECUTING
-Plan: 3 of 3 (33-01 and 33-02 complete; next: 33-03 E2E-17 Playwright spec)
+Phase: 33 (Reserved Chord Surface + E2E-17) — COMPLETE
+Plan: 3 of 3 complete (all plans landed; Phase 33 closed)
 **Milestone:** v1.6 Downstream Unblock & Shell Service Surface
 **Phase numbering:** 32 → 36 (continues from v1.5 close at Phase 31; original Phase 33 "Cache Service" dropped 2026-04-23 — see Roadmap Summary note)
-**Phase:** 33 (Reserved Chord Surface)
-**Plan:** 33-01 complete (KEYS-04, KEYS-05); 33-02 complete (KEYS-06 README + demo shell wiring); 33-03 pending (E2E-17)
-**Status:** Executing Phase 33
+**Phase:** 33 (Reserved Chord Surface) — **Complete**
+**Plan:** 33-01 complete (KEYS-04, KEYS-05); 33-02 complete (KEYS-06); 33-03 complete (E2E-17)
+**Next Phase:** 34 (`@kehto/nip66` Extract & Publish — NIP66-01..05)
+**Status:** Phase 33 closed; Phase 34 ready to plan
 **Last activity:** 2026-04-23
 
-Progress: [████████░░] 80% (1/5 phases complete; 4/5 plans complete)
+Progress: [████░░░░░░] 40% (2/5 phases complete; 5/5 plans in Phases 32+33 complete — 10 total plans still pending across Phases 34–36)
 
 ## Roadmap Summary
 
 | Phase | Name | REQ-IDs | Criteria |
 |-------|------|---------|----------|
 | 32 | NUB Dep Consolidation | DEP-01..05 | 5 ✓ Complete |
-| 33 | Reserved Chord Surface + E2E-17 | KEYS-04..06, E2E-17 | 5 |
+| 33 | Reserved Chord Surface + E2E-17 | KEYS-04..06, E2E-17 | 4 ✓ Complete |
 | 34 | `@kehto/nip66` Extract & Publish | NIP66-01..05 | 5 |
 | 35 | WM Skeleton + README Cleanup | WM-01..03, DOCS-04..05 | 5 |
 | 36 | PERF-01 + Milestone Close E2E-18 | PERF-01, E2E-18 | 5 |
@@ -79,8 +80,8 @@ Full decision log (v1.0 → v1.5) archived in `.planning/PROJECT.md` Key Decisio
 
 ## Session Continuity
 
-Last session: 2026-04-23T09:07:44.474Z
-Resume: Phase 33 Plan 2 COMPLETE. KEYS-06 satisfied. Commits: 8d1f95c (33-02 README Reserved Chords sub-section), f144953 (33-02 demo shell reservedChords + DOM sentinel wiring). Full workspace turborepo build: 22/22 successful; @kehto/services type-check exits 0; @kehto/demo build exits 0. README Keys H2 now has `### Reserved Chords` sub-section with WM-launcher @example, precedence prose (reserved > registered), normalization note, dynamic-reservation deferred note (HostKeysBridge.reserveAbsolute v1.7+), OS-level hotkey orthogonality note. Demo shell reserves `Ctrl+Shift+R` (non-colliding with hotkey-chord's `Ctrl+Shift+K`) and exposes parent-frame `#reserved-chord-last-fired` DOM sentinel. Next: Plan 33-03 (E2E-17 Playwright spec) — demo observation surface is ready; spec can press `Control+Shift+KeyR` and assert `page.locator('#reserved-chord-last-fired').toHaveText('Ctrl+Shift+R')` for shell-fire evidence plus napplet-side sentinel non-increment for precedence contract.
+Last session: 2026-04-23T09:17:09.100Z
+Resume: **Phase 33 COMPLETE at 54/0/0.** All 4 REQ-IDs addressed (KEYS-04, KEYS-05, KEYS-06, E2E-17). Plan 33-03 commits: 6915078 (test: reserved-chord Playwright spec, 106 lines, passes isolated at 971ms + full-suite as spec #45 at 2.9s), 20c76c7 (docs: 33-ITERATION-LOG.md recording canonical v1.6 fresh-install iteration loop). Canonical fresh-install loop: `rm -rf` chain + pnpm install (686ms) + pnpm build (22/22 turbo tasks fresh, 0 cached, 5.117s) + pnpm test:e2e (**54 passed / 0 failed / 0 skipped (18.5s)**). Baseline delta 53 → 54 (+1 for reserved-chord.spec.ts) locked in CI. Anti-term sweeps clean across napplet source (0 actual occurrences, 5 JSDoc enforcement-prose matches documented), @kehto/* source for @napplet/nub- (0 matches outside CHANGELOG.md per Phase 32 convention), core-compat (0 live consumers). tests/e2e/reserved-chord.spec.ts locks the reserved > registered precedence contract end-to-end with 8-step assertion sequence (shell onForward fires → napplet suppressed for reserved chord → non-reserved regression gate passes → sentinel overwrites on match). Next: Plan Phase 34 (`@kehto/nip66` Extract & Publish — NIP66-01..05) — new publishable workspace for kind-30166 relay discovery; no Playwright delta expected (publish-only, demo wiring deferred to v1.7+).
 
 ## Decisions
 
@@ -96,3 +97,6 @@ Resume: Phase 33 Plan 2 COMPLETE. KEYS-06 satisfied. Commits: 8d1f95c (33-02 REA
 - [Phase 33]: README sub-section placement inside Keys H2 scope (Plan 33-02). `### Reserved Chords` inserted BEFORE `## Media Service` H2 so reserved-chord docs live adjacent to the rest of the keys surface (Factory, KeysServiceOptions, HostKeysBridge, Usage, When to plug a custom bridge). Rejected placement after Media Service (would orphan keys-scope content) and new top-level H2 (would break the established `## X Service` rhythm per NUB domain). Reusable pattern for future option additions within existing H2 scopes.
 - [Phase 33]: Shell-side DOM sentinel pattern for E2E observation (Plan 33-02). Parent-frame element (document.body, not iframe) with id + data-testid attributes, `pointer-events: none`, updated inside service callback. Playwright reads via `page.locator()` without `frameLocator()` round-trip. Canonical chord-string format (Ctrl/Alt/Shift/Meta + uppercased single-char key, plus-delimited) matches exactly what parseChord → chordSpecKey reconstructs — load-bearing for spec's toHaveText assertion. Reusable for future service surfaces needing shell-side observation (reserved-intent on media/theme, e.g.).
 - [Phase 33]: Ctrl+Shift+R chosen as demo-reserved chord (Plan 33-02). Non-colliding with hotkey-chord's Ctrl+Shift+K registration (preserves E2E-12), disjoint from every existing demo-source occurrence (grep -rn returns only the new declaration). Noted browser-default-hotkey consideration: Ctrl+Shift+R is "hard refresh" in most browsers, but Playwright's page.keyboard.press dispatches to document listener before browser chrome consumes it, and the reservation gate short-circuits before any napplet or browser default action. 33-03 spec writer should be aware but no action needed.
+- [Phase 33]: Spec isolation run BEFORE full-suite iteration (Plan 33-03) — 971ms per-test confidence check proves 8-step spec executes cleanly without retry pressure before committing to the 6-phase fresh-install loop. Mirror of Plan 26-04's spec-isolation discipline. Gives early signal on structural issues.
+- [Phase 33]: 8-step precedence+regression spec shape (Plan 33-03) — Steps 4+5 (shell sentinel fires AND napplet sentinels unchanged) prove the precedence gate; Steps 6+7 (non-reserved press increments napplet counter AND shell sentinel overwrites) prove the regression gate. Single spec asserts both positive and negative outcomes of the reserved > registered contract without scope-creep. Reusable pattern for future reserved-intent surfaces on media/theme/notify.
+- [Phase 33]: Anti-term enforcement-prose distinction (Plan 33-03) — napplet source grep returns 5 apparent matches, all in JSDoc prose asserting ABSENCE of anti-terms ('no BusKind, no window.nostr'). Stricter sweep with '*'-leading comment-line exclusion returns 0. Iteration log documents both counts explicitly. Matches Phase 32 baseline behavior where the same comments were treated as clean. Not a regression.

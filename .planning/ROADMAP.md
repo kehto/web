@@ -48,7 +48,7 @@
 ## Phases
 
 - [x] **Phase 32: NUB Dep Consolidation** — Migrate all 4 `@kehto/*` packages from split `@napplet/nub-*` peer deps to the consolidated `@napplet/nub@^0.2.1` package with subpath imports; changesets + 53/0/0 baseline preserved. (completed 2026-04-23)
-- [ ] **Phase 33: Reserved Chord Surface + E2E-17** — Extend `createKeysService` with reserved-chord precedence (reserved > registered); Keys README section; Layer-B Playwright spec locks the contract; baseline rises to 54.
+- [x] **Phase 33: Reserved Chord Surface + E2E-17** — Extend `createKeysService` with reserved-chord precedence (reserved > registered); Keys README section; Layer-B Playwright spec locks the contract; baseline rises to 54. (completed 2026-04-23)
 - [ ] **Phase 34: `@kehto/nip66` Extract & Publish** — Stand up the new `packages/nip66` workspace; `createNip66Aggregator` factory; README + changeset for `@kehto/nip66@0.1.0` initial publish; NO demo wiring.
 - [ ] **Phase 35: WM Skeleton + README Cleanup** — Merge PR #7's `@kehto/wm` library skeleton (types/factory stub); remove root README stale `pnpm.overrides link:` + "core not on npm" claims; verify quick-integration example against the consolidated dep surface.
 - [ ] **Phase 36: PERF-01 + Milestone Close E2E-18** — Batch/parallelize chat boot `storage.get` storm (≥50% cumulative-count reduction); record final milestone iteration loop at ≥54/0/0; v1.6 anti-term sweep.
@@ -82,11 +82,11 @@ Plans:
   3. `packages/services/README.md` `## Keys Service` H2 section is extended with the reserved-chord surface, a WM-launcher integration example, and an explicit cross-NUB precedence note (`reserved > registered`).
   4. `tests/e2e/reserved-chord.spec.ts` (Layer-B, uses canonical `demoBeforeEach` + `waitForNappletReady`) drives a synthetic reserved chord via `page.keyboard`, asserts the shell bridge handler fires, and asserts a second napplet that registered the same chord via `keys.registerAction` never receives a `keys.action` envelope — spec passes against the built `:4174` demo.
   5. Build → run → Playwright iteration loop recorded: `pnpm clean && pnpm build && pnpm test:e2e` reports **54 passed / 0 failed / 0 skipped** (delta: 53 → 54, +1 for `reserved-chord.spec.ts`); demo source remains anti-term clean.
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 - [x] 33-01-PLAN.md — Add `reservedChords?: ReadonlyArray<string>` option + reservation gates (both branches) + unit-test RED/GREEN; KEYS_SERVICE_VERSION bumped to 1.2.0 (KEYS-04, KEYS-05)
 - [x] 33-02-PLAN.md — Extend `packages/services/README.md` Keys H2 with `### Reserved Chords` sub-section + wire demo shell (reserve `Ctrl+Shift+R`, expose `#reserved-chord-last-fired` sentinel) (KEYS-06)
-- [ ] 33-03-PLAN.md — Write `tests/e2e/reserved-chord.spec.ts` (Layer-B) + record canonical fresh-install iteration loop @ 54/0/0 in `33-ITERATION-LOG.md` (E2E-17)
+- [x] 33-03-PLAN.md — Write `tests/e2e/reserved-chord.spec.ts` (Layer-B) + record canonical fresh-install iteration loop @ 54/0/0 in `33-ITERATION-LOG.md` (E2E-17)
 **UI hint**: yes
 
 ### Phase 34: `@kehto/nip66` Extract & Publish
@@ -132,7 +132,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 32. NUB Dep Consolidation | 2/2 | Complete    | 2026-04-23 |
-| 33. Reserved Chord Surface + E2E-17 | 2/3 | In Progress|  |
+| 33. Reserved Chord Surface + E2E-17 | 3/3 | Complete   | 2026-04-23 |
 | 34. `@kehto/nip66` Extract & Publish | 0/TBD | Not started | - |
 | 35. WM Skeleton + README Cleanup | 0/TBD | Not started | - |
 | 36. PERF-01 + Milestone Close E2E-18 | 0/TBD | Not started | - |
