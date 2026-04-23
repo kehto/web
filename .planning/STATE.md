@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: — Downstream Unblock & Shell Service Surface
 status: executing
-last_updated: "2026-04-23T09:01:46.807Z"
+last_updated: "2026-04-23T09:07:44.477Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
   percent: 60
 ---
 
@@ -25,15 +25,15 @@ See: .planning/PROJECT.md (updated 2026-04-23, v1.6 started)
 ## Current Position
 
 Phase: 33 (Reserved Chord Surface + E2E-17) — EXECUTING
-Plan: 2 of 3 (33-01 complete; next: 33-02 README docs KEYS-06)
+Plan: 3 of 3 (33-01 and 33-02 complete; next: 33-03 E2E-17 Playwright spec)
 **Milestone:** v1.6 Downstream Unblock & Shell Service Surface
 **Phase numbering:** 32 → 36 (continues from v1.5 close at Phase 31; original Phase 33 "Cache Service" dropped 2026-04-23 — see Roadmap Summary note)
 **Phase:** 33 (Reserved Chord Surface)
-**Plan:** 33-01 complete (KEYS-04, KEYS-05); 33-02 pending (KEYS-06 README); 33-03 pending (E2E-17)
+**Plan:** 33-01 complete (KEYS-04, KEYS-05); 33-02 complete (KEYS-06 README + demo shell wiring); 33-03 pending (E2E-17)
 **Status:** Executing Phase 33
 **Last activity:** 2026-04-23
 
-Progress: [██████░░░░] 60% (1/5 phases complete; 3/5 plans complete)
+Progress: [████████░░] 80% (1/5 phases complete; 4/5 plans complete)
 
 ## Roadmap Summary
 
@@ -79,8 +79,8 @@ Full decision log (v1.0 → v1.5) archived in `.planning/PROJECT.md` Key Decisio
 
 ## Session Continuity
 
-Last session: 2026-04-23T09:01:46.805Z
-Resume: Phase 32 COMPLETE. All 5 DEP REQ-IDs satisfied. Commits: bb1061e (32-01 atomic migration), 5adeb52 (32-02 changesets), a4d0652 (32-02 iteration loop + Rule 1 subpath-variant fix). Canonical fresh-install iteration loop reports 53/0/0 (18.3s, baseline preserved from v1.5 close); zero dual-instance warnings in build+E2E logs; 4 @kehto/* changesets staged with minor bump and inline pnpm.overrides advisory. Original Phase 33 (Cache Service + HostCacheBridge) dropped mid-milestone — scoping found existing `createCacheService` already supports the hostBridge-style injection; commented on kehto#1 with integration example. Phases 34-37 renumbered → 33-36. Next: plan Phase 33 (Reserved Chord Surface + E2E-17, KEYS-04..06 + E2E-17).
+Last session: 2026-04-23T09:07:44.474Z
+Resume: Phase 33 Plan 2 COMPLETE. KEYS-06 satisfied. Commits: 8d1f95c (33-02 README Reserved Chords sub-section), f144953 (33-02 demo shell reservedChords + DOM sentinel wiring). Full workspace turborepo build: 22/22 successful; @kehto/services type-check exits 0; @kehto/demo build exits 0. README Keys H2 now has `### Reserved Chords` sub-section with WM-launcher @example, precedence prose (reserved > registered), normalization note, dynamic-reservation deferred note (HostKeysBridge.reserveAbsolute v1.7+), OS-level hotkey orthogonality note. Demo shell reserves `Ctrl+Shift+R` (non-colliding with hotkey-chord's `Ctrl+Shift+K`) and exposes parent-frame `#reserved-chord-last-fired` DOM sentinel. Next: Plan 33-03 (E2E-17 Playwright spec) — demo observation surface is ready; spec can press `Control+Shift+KeyR` and assert `page.locator('#reserved-chord-last-fired').toHaveText('Ctrl+Shift+R')` for shell-fire evidence plus napplet-side sentinel non-increment for precedence contract.
 
 ## Decisions
 
@@ -93,3 +93,6 @@ Resume: Phase 32 COMPLETE. All 5 DEP REQ-IDs satisfied. Commits: bb1061e (32-01 
 - [Phase 33]: Canonical reserved-chord key format: pipe-delimited <ctrl>|<alt>|<shift>|<meta>|<KEY>. Three helpers (chordSpecKey/forwardKey/eventKey) emit the same shape so wire/DOM/ChordSpec comparisons fold into one Set lookup. Chosen over JSON.stringify for deterministic cross-engine ordering (Plan 33-01).
 - [Phase 33]: Two-pass keydown listener shape (Plan 33-01 Edit 5). Fires onForward ONCE per keydown when isReserved || anyMatch — correctly handles the WM-launcher case where a reserved chord has zero napplet registrations (onForward must still fire for WM dispatch). Zero regression on pre-existing 'fires onForward AND pushes keys.action envelope' test because a single registered action fires onForward exactly once under both shapes.
 - [Phase 33]: Version-pin RED assertion (Plan 33-01 TDD). Each of the 6 new reserved-chord tests asserts service.descriptor.version === '1.2.0'. Gives 6 clean failing tests in RED (all fail on '1.1.0' !== '1.2.0') and couples version bump to feature landing. Reusable pattern for future service-level minor bumps.
+- [Phase 33]: README sub-section placement inside Keys H2 scope (Plan 33-02). `### Reserved Chords` inserted BEFORE `## Media Service` H2 so reserved-chord docs live adjacent to the rest of the keys surface (Factory, KeysServiceOptions, HostKeysBridge, Usage, When to plug a custom bridge). Rejected placement after Media Service (would orphan keys-scope content) and new top-level H2 (would break the established `## X Service` rhythm per NUB domain). Reusable pattern for future option additions within existing H2 scopes.
+- [Phase 33]: Shell-side DOM sentinel pattern for E2E observation (Plan 33-02). Parent-frame element (document.body, not iframe) with id + data-testid attributes, `pointer-events: none`, updated inside service callback. Playwright reads via `page.locator()` without `frameLocator()` round-trip. Canonical chord-string format (Ctrl/Alt/Shift/Meta + uppercased single-char key, plus-delimited) matches exactly what parseChord → chordSpecKey reconstructs — load-bearing for spec's toHaveText assertion. Reusable for future service surfaces needing shell-side observation (reserved-intent on media/theme, e.g.).
+- [Phase 33]: Ctrl+Shift+R chosen as demo-reserved chord (Plan 33-02). Non-colliding with hotkey-chord's Ctrl+Shift+K registration (preserves E2E-12), disjoint from every existing demo-source occurrence (grep -rn returns only the new declaration). Noted browser-default-hotkey consideration: Ctrl+Shift+R is "hard refresh" in most browsers, but Playwright's page.keyboard.press dispatches to document listener before browser chrome consumes it, and the reservation gate short-circuits before any napplet or browser default action. 33-03 spec writer should be aware but no action needed.
