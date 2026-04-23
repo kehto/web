@@ -42,9 +42,9 @@ Scope-in (hyprgate issues closing this milestone):
 
 Extract a standalone publishable package so the community doesn't re-invent kind-30166 relay discovery per-shell. Reference implementation patterns available in hyprgate's `nip66-monitor.ts` and nadar.
 
-- [ ] **NIP66-01**: New `packages/nip66` workspace exists, declared as `@kehto/nip66`, ESM-only, buildable via tsup with `turbo run build`.
+- [x] **NIP66-01**: New `packages/nip66` workspace exists, declared as `@kehto/nip66`, ESM-only, buildable via tsup with `turbo run build`.
 - [ ] **NIP66-02**: `@kehto/nip66` exports a `createNip66Aggregator(options)` factory that subscribes to kind-30166 events via an injected relay pool and surfaces the aggregated relay suggestion set through an observable / callback.
-- [ ] **NIP66-03**: Package consumes `nostr-tools` as a peer dep (matches `@kehto/shell` range); `@napplet/core` is NOT required (this is a framework-agnostic util, not a NUB).
+- [x] **NIP66-03**: Package consumes `nostr-tools` as a peer dep (matches `@kehto/shell` range); `@napplet/core` is NOT required (this is a framework-agnostic util, not a NUB).
 - [ ] **NIP66-04**: Package README documents the public API + an integration example against a `ShellAdapter` consumer surface (e.g., `relayConfig.getNip66Suggestions`).
 - [ ] **NIP66-05**: Changeset authored for `@kehto/nip66@0.1.0` initial publish; package is buildable but is NOT yet wired into the demo shell (demo wiring deferred to v1.7+).
 
@@ -143,9 +143,9 @@ Which phases cover which requirements. Populated by gsd-roadmapper during roadma
 | KEYS-05 | Phase 33 | Complete |
 | KEYS-06 | Phase 33 | Complete |
 | E2E-17 | Phase 33 | Complete |
-| NIP66-01 | Phase 34 | Pending |
+| NIP66-01 | Phase 34 | Complete |
 | NIP66-02 | Phase 34 | Pending |
-| NIP66-03 | Phase 34 | Pending |
+| NIP66-03 | Phase 34 | Complete |
 | NIP66-04 | Phase 34 | Pending |
 | NIP66-05 | Phase 34 | Pending |
 | WM-01 | Phase 35 | Pending |
