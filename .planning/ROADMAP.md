@@ -132,9 +132,9 @@ Plans:
   3. `tests/e2e/demo-concurrent-boot.spec.ts` (E2E-15, v1.5 Phase 31 canonical) continues to pass AUTHENTICATED-within-10s assertion for all 10 napplets — primary regression anchor for PERF-01. Demo-wide `storage.getItem` count on boot drops from 28 → ~21 (delta -7).
   4. `pnpm clean && pnpm build && pnpm test:e2e` against the built `:4174` demo reports **≥ 54 passed / 0 failed / 0 skipped** (E2E-18: milestone-close iteration loop; baseline 54 from Phase 35 close; no new spec required for PERF-01 — measurement captured via iteration-log instrumentation, not a new Playwright spec per CONTEXT.md Claude's Discretion).
   5. v1.6 milestone-gate anti-term sweep runs clean across all v1.6-touched paths (Phases 32-36 cumulative): zero live-code violations for `window.nostr` / `signer-service` / `signer.*` / raw `window.addEventListener('message')` (except toaster + preferences existing documented deviations) / `BusKind` / kind 29001 / kind 29002 (regex patterns in specs are enforcement guards, not violations) / `core-compat` / `allow-same-origin` (enforcement-prose only per Phase 33/35 Decision) / `@napplet/nub-` split-package import form.
-**Plans:** 2/2 plans complete
+**Plans:** 1/2 plans executed
 Plans:
-- [ ] 36-01-PLAN.md — Delete 7 vestigial `storage.getItem('<slug>-auth-probe')` calls from 7 napplet main.ts files + collapse surrounding try/catch + scrub D-04 / shim-AUTH comment prose across 10 napplets + 6 E2E specs (PERF-01)
+- [x] 36-01-PLAN.md — Delete 7 vestigial `storage.getItem('<slug>-auth-probe')` calls from 7 napplet main.ts files + collapse surrounding try/catch + scrub D-04 / shim-AUTH comment prose across 10 napplets + 6 E2E specs (PERF-01)
 - [ ] 36-02-PLAN.md — Run canonical v1.6 fresh-install iteration loop + v1.6 milestone-wide anti-term sweep; record 36-ITERATION-LOG.md at 54/0/0 with pre/post storage.getItem count delta evidence (E2E-18)
 
 ---
@@ -147,7 +147,7 @@ Plans:
 | 33. Reserved Chord Surface + E2E-17 | 3/3 | Complete    | 2026-04-23 |
 | 34. `@kehto/nip66` Extract & Publish | 3/3 | Complete    | 2026-04-23 |
 | 35. WM Skeleton + README Cleanup | 2/2 | Complete    | 2026-04-23 |
-| 36. PERF-01 + Milestone Close E2E-18 | 0/2 | Planned | - |
+| 36. PERF-01 + Milestone Close E2E-18 | 1/2 | In Progress|  |
 
 ---
 

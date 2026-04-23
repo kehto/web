@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: — Downstream Unblock & Shell Service Surface
-status: planning
-last_updated: "2026-04-23T11:38:29.986Z"
+status: executing
+last_updated: "2026-04-23T13:24:00.694Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
-  percent: 95
+  total_plans: 12
+  completed_plans: 11
+  percent: 92
 ---
 
 # Project State
@@ -20,21 +20,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-23, v1.6 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 35 — WM Skeleton + README Cleanup
+**Current focus:** Phase 36 — PERF-01 + Milestone Close E2E-18
 
 ## Current Position
 
-Phase: 35 (WM Skeleton + README Cleanup) — COMPLETE
-Plan: 2 of 2 (35-01 ✓ + 35-02 ✓ complete; all 5 REQ-IDs closed)
+Phase: 36 (PERF-01 + Milestone Close E2E-18) — EXECUTING
+Plan: 2 of 2
 **Milestone:** v1.6 Downstream Unblock & Shell Service Surface
 **Phase numbering:** 32 → 36 (continues from v1.5 close at Phase 31; original Phase 33 "Cache Service" dropped 2026-04-23 — see Roadmap Summary note)
 **Phase:** 36
-**Plan:** Not started
-**Next Phase:** 36 (`PERF-01 + Milestone Close E2E-18`) — READY
-**Status:** Ready to plan
+**Plan:** 36-01 complete (PERF-01 closed); next is 36-02 (E2E-18 milestone-close iteration loop)
+**Next Phase:** 36 (`PERF-01 + Milestone Close E2E-18`) — IN PROGRESS
+**Status:** Executing Phase 36
 **Last activity:** 2026-04-23
 
-Progress: [████████████████████░] 95% (4/5 phases complete; 10/10 plans complete — 35-02 closed DOCS-04/05 at 54/0/0 with turbo 24 build / 10 type-check preserved)
+Progress: [███████████████████░░] 92% (4/5 phases complete; 11/12 plans complete — 36-01 deleted 7 vestigial auth-probes + scrubbed D-04 prose across 10 napplets + 6 E2E specs; build 24/24 + type-check 10/10 preserved; E2E regression validation in Plan 36-02)
 
 ## Roadmap Summary
 
@@ -80,8 +80,8 @@ Full decision log (v1.0 → v1.5) archived in `.planning/PROJECT.md` Key Decisio
 
 ## Session Continuity
 
-Last session: 2026-04-23T11:30:51Z
-Resume: **Phase 35 COMPLETE — DOCS-04/05 closed by Plan 35-02 at 54/0/0; all 5 Phase 35 REQ-IDs satisfied (WM-01/02/03 + DOCS-04/05).** Plan 35-02 Task 1 commit 063abd7 (docs): README.md line 93 bullet rewritten removing the stale `@napplet/core is not yet on npm` + `pnpm.overrides link:` claim (false since Phase 25 / v1.4 first registry publish); replacement prose references the actual override key `@napplet/nub>@napplet/core: ^0.2.1` and cites Phase 32 Decision. Packages table extended with @kehto/nip66 (v0.1.0) + @kehto/wm (v0.0.0) rows. 6 DOCS-04 grep deltas verified clean. Task 2 commit 9dd6589 (docs): 35-ITERATION-LOG.md records full fresh-install loop (rm -rf → pnpm install → build → type-check → test:e2e): **24 build / 10 type-check / 54 E2E passed (18.1s) — delta 0 from Phase 34 close**. Anti-term sweep: 2 enforcement-prose matches on README line 94 NIP-5D anti-features bullet (window.nostr + allow-same-origin both documenting ABSENCE — Phase 33 Decision precedent); 8 clean. DOCS-05 verified via root `pnpm type-check` (CONTEXT.md Claude's Discretion chose this over throwaway-dir smoke); all 5 Quick-Integration Example imports resolve against current barrels (3 exports each for createShellBridge/createRuntime/createIdentityService/createNotificationService/createRelayPoolService). Zero deviations. v1.6 progress: 13/21 → **18/21 reqs closed**; next is Phase 36 (PERF-01 + Milestone Close E2E-18).
+Last session: 2026-04-23T13:23:34.506Z
+Resume: **Phase 36 Plan 01 COMPLETE — PERF-01 closed; all 7 vestigial auth-probes deleted + D-04 / AUTH-probe comment prose scrubbed across 10 napplets + 6 E2E specs.** Plan 36-01 Task 1 commit c45e4e1 (feat): deleted `storage.getItem('<slug>-auth-probe')` calls from composer/feed/hotkey-chord/media-controller/profile-viewer/theme-switcher/toaster; collapsed surrounding try/catch (probe was sole wrapped statement in every file); `setStatus('authenticated', 'green')` now fires as first statement of init body; 7 unused `storage` imports dropped (probe was last consumer). Task 2 commit ce1c005 (docs): scrubbed D-04 / `shim AUTH completion` / `gates on AUTH` / `AUTH probe` prose from all 10 demo napplet main.ts files + 6 E2E spec files (identity-flow, napplet-auth, media-controller, hotkey-chord, relay-subscribe, nub-theme); comment-only — zero behavior change. Residual sweep surfaced 5 file-header JSDoc mentions Task 1 targeted-Edit patterns didn't cover (composer lines 7 + 102, profile-viewer line 12, chat line 10, theme-switcher line 4, toaster line 4) — all handled in Task 2 (Rule 2 deviation). Final greps: `auth-probe` / `D-04` / `AUTH probe` in napplets + E2E = 0. Build + type-check preserved at Phase 35 close baselines: 24/24 + 10/10 FULL TURBO. Regression anchor (demo-concurrent-boot.spec.ts) UNCHANGED; AUTHENTICATED-for-all-10-napplets assertion validates in Plan 36-02's iteration loop. v1.6 progress: 18/21 → **19/21 reqs closed**; remaining is E2E-18 (Plan 36-02).
 
 ## Decisions
 
@@ -114,3 +114,4 @@ Resume: **Phase 35 COMPLETE — DOCS-04/05 closed by Plan 35-02 at 54/0/0; all 5
 - [Phase 35-wm-skeleton-readme-cleanup]: DOCS-05 lower-cost verification via root `pnpm type-check` (Plan 35-02). When a README Quick-Integration Example imports from already-published workspace packages, root type-check at 10/10 successful equivalences a throwaway-dir `pnpm add` smoke — both prove the example's imports resolve transitively through the current dep graph. CONTEXT.md Claude's Discretion authorized choosing the lower-cost method; iteration log records method + 5-import export-presence table (3 each) as evidence. Reusable pattern for any future README-example type-check verification.
 - [Phase 35-wm-skeleton-readme-cleanup]: Enforcement-prose grep-positives carried forward from Phase 33 Decision (Plan 35-02). Anti-term sweeps on `packages/wm/**` + `README.md` returned 2 grep-positives, both on README line 94 NIP-5D anti-features bullet (the bullet says `window.nostr is not injected... sandbox uses allow-scripts without allow-same-origin` — ABSENCE documentation, not USE). Iteration log table column 'Status' explicitly reads 'enforcement-prose — asserts ABSENCE' for these. Phase 33 established this precedent for napplet-source JSDoc; Phase 35-02 extends it to README enforcement prose. Future docs/README changes should annotate the same way.
 - [Phase 35-wm-skeleton-readme-cleanup]: Docs/types-only phase closure at flat E2E count + explicit delta-0 note (Plan 35-02 iteration log). Mirrors Phase 34's publish-only phase pattern (log records 'delta 0 from Phase 34 close' tied to phase-scope contract per CONTEXT.md <domain>). Distinguishes 'no regression detected' from 'no work done' — phase ships docs edits + iteration log, but E2E dimension is deliberately unchanged. Reusable pattern for future docs-only or types-only milestone-close phases.
+- [Phase 36]: Two-commit vestigial-cleanup discipline (Plan 36-01). feat() commit for behavior delete (7 storage.getItem probes + try/catch collapse + import drops), docs() commit for prose scrub (D-04 / AUTH probe / shim AUTH completion across 10 napplets + 6 E2E specs). Bisect-clean separation: git log --oneline distinguishes 'removed dead code' from 'documentation sweep' on the same milestone-close cleanup. Reusable pattern for any future audit-then-delete work where the prose-scrub surface is wider than the code surface.

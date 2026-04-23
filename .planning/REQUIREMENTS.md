@@ -78,7 +78,7 @@ Extend `createKeysService` so shells can declare WM-absolute chords once and hav
 
 v1.5 audit flagged chat napplet boot issuing 18+ serial `storage.get` round-trips (Shell → Napplet acks). Not a correctness bug — a throughput bottleneck that makes the demo feel slow under the `:4174` iteration loop.
 
-- [ ] **PERF-01**: Chat napplet boot reduces cumulative `storage.get` request count on the AUTHENTICATED → READY transition by at least 50% (either via a single `storage.getMany` batch message, parallelized `Promise.all`, or a boot-time preload map). Baseline count recorded in phase plan before fix; post-fix count + wall-clock recorded in ITERATION-LOG.md.
+- [x] **PERF-01**: Chat napplet boot reduces cumulative `storage.get` request count on the AUTHENTICATED → READY transition by at least 50% (either via a single `storage.getMany` batch message, parallelized `Promise.all`, or a boot-time preload map). Baseline count recorded in phase plan before fix; post-fix count + wall-clock recorded in ITERATION-LOG.md.
 
 ### Category 6: Documentation (DOCS — continued from v1.3) — kehto#5
 
@@ -153,7 +153,7 @@ Which phases cover which requirements. Populated by gsd-roadmapper during roadma
 | WM-03 | Phase 35 | Complete |
 | DOCS-04 | Phase 35 | Complete |
 | DOCS-05 | Phase 35 | Complete |
-| PERF-01 | Phase 36 | Pending |
+| PERF-01 | Phase 36 | Complete |
 | E2E-18 | Phase 36 | Pending |
 
 **Coverage:**
