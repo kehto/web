@@ -4,7 +4,7 @@
  * Per CONTEXT D-02:
  *   - On click of #composer-publish-btn, publish kind:1 event with content from #composer-input
  *   - If #composer-encrypted-toggle is checked, route through relay.publishEncrypted (NIP-44 default)
- *   - #composer-status reflects: 'connecting...' -> 'authenticated' (D-04) -> 'published: <id>' or 'denied: <reason>'
+ *   - #composer-status reflects: 'connecting...' -> 'authenticated' -> 'published: <id>' or 'denied: <reason>'
  *   - #composer-log shows a per-attempt log line for debugger visibility
  *
  * Anti-features (per v1.3 milestone): no raw window message protocol listener, no NIP-01 arrays,
@@ -99,8 +99,8 @@ inputEl.addEventListener('keydown', (e) => {
 });
 
 // Initialize the napplet — flip the status sentinel to 'authenticated' once
-// handlers are wired. No AUTH probe needed: the shim fires AUTHENTICATED
-// from bootstrap signal directly (v1.4 Phase 24+ runtime).
+// handlers are wired. The shim fires AUTHENTICATED from bootstrap signal
+// directly (v1.4 Phase 24+ runtime).
 async function init(): Promise<void> {
   setStatus('authenticated', 'green');
   log('ready to publish');

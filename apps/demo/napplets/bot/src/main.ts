@@ -6,7 +6,7 @@
  * - Subscribes via ipc.on('chat:message') (D-02)
  * - Replies via ipc.emit('bot:response') (D-02)
  * - Persists learned rules via storage.setItem/getItem under key 'bot-rules' (D-02)
- * - Posts #status-text = 'authenticated' after first SDK call resolves (D-04)
+ * - Posts #status-text = 'authenticated' after init completes (loadRules resolves)
  *
  * NO raw window.message listener — shim handles AUTH implicitly (D-01).
  * NO NIP-01 arrays, NO legacy bus enums, NO global nostr (anti-features).
@@ -185,12 +185,11 @@ function handleChatMessage(payload: unknown): void {
 // --- SDK Init ---
 
 async function init(): Promise<void> {
-  // First SDK call gates on shim AUTH completion (storage proxy requires identity).
-  // If this resolves, AUTH succeeded — set the positive UI marker per D-04.
+  // Load persisted rules, then set the positive UI marker.
   await loadRules();
   statusEl.textContent = 'authenticated';
   statusEl.style.color = '#39ff14';
-  log('AUTH complete -- listening for ipc chat:message input', 'info');
+  log('listening for ipc chat:message input', 'info');
 
   // Wire the IPC subscription per D-02.
   ipc.on('chat:message', handleChatMessage);

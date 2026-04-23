@@ -1,7 +1,7 @@
 /**
  * Toaster demo napplet — exercises notify lifecycle via NIP-5D envelopes (NAP-05, Phase 19).
  *
- * Per CONTEXT D-04:
+ * Behavior:
  *   - On click of #toaster-notify-btn: dispatch notify.create envelope; on notify.created
  *     reply, append <li data-notif-id="<id>"> to #toaster-list and (host) toast appears
  *   - On click of #toaster-dismiss-all-btn: dispatch notify.list to enumerate, then

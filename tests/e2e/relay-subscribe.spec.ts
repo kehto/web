@@ -39,7 +39,7 @@ test('feed napplet subscribes and renders 5 fixture events from mock relay pool'
 
   const feedFrame = page.frameLocator('#feed-frame-container iframe');
 
-  // Step 1: wait for feed napplet AUTH probe to complete. The feed napplet sets
+  // Step 1: wait for feed napplet init to complete. The feed napplet sets
   // 'authenticated' then immediately calls relay.subscribe() which sets 'subscribed' in
   // the same synchronous tick — Playwright may see 'subscribed' or 'loaded' instead of
   // 'authenticated'. Accept any valid post-auth state as evidence that AUTH completed.

@@ -7,7 +7,7 @@
  * - Sends ipc.emit('chat:message', ...) on user input (D-03)
  * - Receives ipc.on('bot:response', ...) for bot replies (D-03)
  * - Persists chat history via storage.setItem/getItem under key 'chat-history'
- * - Posts #chat-status = 'authenticated' after first SDK call resolves (D-04)
+ * - Posts #chat-status = 'authenticated' after init completes (loadHistory resolves)
  *
  * NO window.addEventListener('message') — shim handles AUTH implicitly (D-01).
  * NO NIP-01 arrays, NO BusKind, NO window.nostr (anti-features).
@@ -129,17 +129,15 @@ inputEl.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') sendMessage();
 });
 
-// --- SDK Init (D-04 pattern) ---
-// First SDK call (loadHistory → storage.getItem) gates on shim AUTH completion.
-// After AUTH resolves, post the positive auth marker then wire up ipc subscriptions.
+// --- SDK Init ---
+// Load chat history, set the positive status marker, wire up ipc subscriptions.
 
 async function init(): Promise<void> {
-  // First SDK call gates on shim AUTH completion (storage proxy requires identity).
-  // Per D-04: post the positive auth marker after AUTH is observed.
+  // Load history then set the positive status marker.
   await loadHistory();
   statusEl.textContent = 'authenticated';
   statusEl.style.color = '#39ff14';
-  addMessage('AUTH complete -- ready to chat', 'system');
+  addMessage('ready to chat', 'system');
 
   // Subscribe to bot replies via ipc (D-03).
   ipc.on('bot:response', (payload: unknown) => {

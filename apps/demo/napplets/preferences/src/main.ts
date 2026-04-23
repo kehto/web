@@ -10,7 +10,7 @@
  *     packages/shell/src/hooks-adapter.ts:256, scoped per napplet identity)
  *
  * Anti-features (per v1.3 milestone): no raw message listener, no NIP-01 arrays,
- *   no BusKind, no global nostr, no signer-service. Shim handles AUTH implicitly.
+ *   no BusKind, no global nostr, no signer-service.
  *
  * Per CONTEXT D-USER-02 (Phase 20):
  *   - Installs ONE narrowly-scoped window message listener for `theme.changed` envelopes broadcast
@@ -64,7 +64,6 @@ function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void
 }
 
 async function loadPreferences(): Promise<void> {
-  // First SDK call gates on shim AUTH completion (D-04 init pattern).
   // Two sequential storage.getItem calls — sequential awaits localize denial.
   // If state:read is denied, the rejected Promise surfaces here and we bail.
   try {
@@ -101,14 +100,14 @@ saveBtn.addEventListener('click', () => {
   void savePreferences();
 });
 
-// D-04 init pattern: first SDK call (loadPreferences → storage.getItem) gates on AUTH.
+// Load persisted preferences on mount; status flips to 'loaded' on success.
 async function init(): Promise<void> {
   await loadPreferences();
 }
 
 init().catch((err) => {
   // Status already set by loadPreferences if it reached the catch branch.
-  // If init failed before loadPreferences ran (e.g. shim AUTH failure), set auth-failed.
+  // If init failed before loadPreferences ran (e.g. unexpected init error), set auth-failed.
   if (statusEl.textContent === 'connecting...') {
     setStatus('auth failed', 'red');
     log(`init failed — ${formatError(err, 'auth/storage failure')}`);

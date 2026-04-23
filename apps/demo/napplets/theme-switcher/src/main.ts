@@ -1,7 +1,7 @@
 /**
  * Theme-switcher demo napplet — exercises theme broadcast (NAP-08, Phase 20).
  *
- * Per CONTEXT D-04: clicking a button dispatches an outbound postMessage to the parent
+ * Behavior: clicking a button dispatches an outbound postMessage to the parent
  * frame with { type: 'demo.publishTheme', theme }. The demo host (Plan 20-06) listens
  * for this and calls relay.publishTheme(theme) which fan-outs theme.changed envelopes
  * to every napplet via session-registry.

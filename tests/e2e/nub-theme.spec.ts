@@ -4,7 +4,7 @@
  * Drives fixture-nub-theme via harness driver globals at :4173.
  * Asserts:
  *   1. Fixture loads and reaches __nappletReady__ (session registered).
- *   2. The fixture's storage.get envelope was dispatched (AUTH probe on init).
+ *   2. The fixture's storage.get envelope was dispatched on init.
  *   3. The fixture's #nub-status sentinel reflects 'authenticated'
  *      (storage round-trip completed — proves the napplet is live and messaging works).
  *   4. Injecting a theme.get envelope FROM the napplet via __injectEnvelope__ is routed
@@ -13,7 +13,7 @@
  *      but the round-trip proves the theme NUB path is wired.
  *
  * No demo server dependency. No frameLocator interactions beyond reading sentinels.
- * @napplet/sdk does NOT expose a theme namespace — fixture uses storage as AUTH probe.
+ * @napplet/sdk does NOT expose a theme namespace — fixture uses storage.get as init signal.
  */
 import { test, expect } from '@playwright/test';
 import { aclBeforeEach, waitForNappletReady } from './helpers/index.js';
@@ -34,7 +34,7 @@ test('nub-theme: fixture authenticates via storage probe; theme.get envelope rou
   const windowId = await page.evaluate(() => window.__loadNapplet__('nub-theme'));
   await waitForNappletReady(page, windowId);
 
-  // Wait for the storage.get AUTH probe envelope (dispatched on init).
+  // Wait for the storage.get envelope (dispatched on init).
   await page.waitForFunction(
     (wid) => window.__getNubMessage__(wid, 'storage.get') !== null,
     windowId,

@@ -38,7 +38,7 @@ test('profile-viewer reads identity.getPublicKey and renders truncated pubkey', 
 
   const profileFrame = page.frameLocator('#profile-viewer-frame-container iframe');
 
-  // Step 1: wait for AUTH probe to complete (status transitions from 'connecting...' to 'authenticated').
+  // Step 1: wait for status transition from 'connecting...' to 'authenticated' (init resolves).
   // When no signer is configured, getPublicKey returns immediately with empty pubkey so the status
   // can race from 'authenticated' to 'loaded' before Playwright polls — accept any valid post-auth state.
   await expect(profileFrame.locator('#profile-status')).toContainText(

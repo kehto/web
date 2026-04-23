@@ -47,7 +47,7 @@
  * install `window.__nappletReady__` (only the :4173 harness does — helpers
  * diverge here by design). This spec uses the status-sentinel wait
  * `toContainText('subscribed')` which provides equivalent coverage because it
- * blocks until both the napplet's SDK AUTH probe (storage.getItem) and the
+ * blocks until both the napplet's init and the
  * keys.registerAction round-trip have completed — observable via the
  * #hotkey-chord-status DOM transition. relay-subscribe.spec.ts follows the
  * same pattern for the same reason.
@@ -75,7 +75,7 @@ test('hotkey-chord napplet receives Ctrl+Shift+K via real keys backend and incre
   const hotkeyFrame = page.frameLocator('#hotkey-chord-frame-container iframe');
 
   // Step 1: wait for napplet AUTH handshake + keys.registerAction round-trip.
-  // The D-04 init pattern + SDK's `await keys.registerAction(...)` means status
+  // The init pattern + SDK's `await keys.registerAction(...)` means status
   // transitions 'connecting...' → 'authenticated' → 'subscribed'. We accept
   // 'subscribed' as evidence that the SDK resolved the registerAction Promise
   // (the real backend registered the chord AND captured the per-window send handle).

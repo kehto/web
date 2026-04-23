@@ -9,7 +9,7 @@
  *
  * Anti-features (per v1.3 milestone): no raw message protocol listener, no NIP-01 arrays,
  *   no legacy bus enums, no global nostr accessor, no signer-service, no BusKind.
- *   Anti-feature surface unchanged — no AUTH probe; AUTHENTICATED fires from shim bootstrap.
+ *   Anti-feature surface unchanged — AUTHENTICATED fires from shim bootstrap.
  */
 import '@napplet/shim';
 import { identity } from '@napplet/sdk';

@@ -43,7 +43,7 @@
  * install `window.__nappletReady__` (only the :4173 harness does — helpers
  * diverge here by design). This spec uses the status-sentinel wait
  * `toContainText('session-ready')` which provides equivalent coverage because
- * it blocks until both the napplet's SDK AUTH probe (storage.getItem) and the
+ * it blocks until both the napplet's init and the
  * mediaCreateSession round-trip have completed — observable via the
  * #media-controller-status DOM transition. hotkey-chord.spec.ts +
  * relay-subscribe.spec.ts follow the same pattern for the same reason.
@@ -81,7 +81,7 @@ test('media-controller napplet drives navigator.mediaSession via real media back
   const mediaFrame = page.frameLocator('#media-controller-frame-container iframe');
 
   // Step 1: wait for napplet AUTH handshake + mediaCreateSession round-trip.
-  // The D-04 init pattern + SDK's `await mediaCreateSession(...)` means status
+  // The init pattern + SDK's `await mediaCreateSession(...)` means status
   // transitions 'connecting...' → 'authenticated' → 'session-ready'. We accept
   // 'session-ready' as evidence that the SDK resolved the mediaCreateSession
   // Promise (the real backend registered the session AND mirrored metadata to

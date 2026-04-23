@@ -5,7 +5,7 @@
  * status marker established by the @napplet/sdk migration. Before Phase 18,
  * napplets used legacy NIP-01 arrays; the v1.2 shell bridge silently dropped
  * them and #chat-status stayed at 'connecting...' indefinitely. This spec is
- * the regression net for the SDK migration contract (D-04).
+ * the regression net for the SDK migration contract (shim AUTHENTICATED bootstrap).
  */
 import { test, expect } from '@playwright/test';
 import { demoBeforeEach } from './helpers/index.js';
