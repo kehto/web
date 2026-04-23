@@ -2,7 +2,7 @@
 
 **Milestone:** v1.6
 **Defined:** 2026-04-23
-**Status:** Active (roadmap pending)
+**Status:** Roadmap defined (Phases 32–37)
 
 ## Overview
 
@@ -142,39 +142,48 @@ Which phases cover which requirements. Populated by gsd-roadmapper during roadma
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CACHE-01 | — | Pending |
-| CACHE-02 | — | Pending |
-| CACHE-03 | — | Pending |
-| CACHE-04 | — | Pending |
-| CACHE-05 | — | Pending |
-| NIP66-01 | — | Pending |
-| NIP66-02 | — | Pending |
-| NIP66-03 | — | Pending |
-| NIP66-04 | — | Pending |
-| NIP66-05 | — | Pending |
-| WM-01 | — | Pending |
-| WM-02 | — | Pending |
-| WM-03 | — | Pending |
-| DEP-01 | — | Pending |
-| DEP-02 | — | Pending |
-| DEP-03 | — | Pending |
-| DEP-04 | — | Pending |
-| DEP-05 | — | Pending |
-| KEYS-04 | — | Pending |
-| KEYS-05 | — | Pending |
-| KEYS-06 | — | Pending |
-| PERF-01 | — | Pending |
-| DOCS-04 | — | Pending |
-| DOCS-05 | — | Pending |
-| E2E-17 | — | Pending |
-| E2E-18 | — | Pending |
+| CACHE-01 | Phase 33 | Pending |
+| CACHE-02 | Phase 33 | Pending |
+| CACHE-03 | Phase 33 | Pending |
+| CACHE-04 | Phase 33 | Pending |
+| CACHE-05 | Phase 33 | Pending |
+| NIP66-01 | Phase 35 | Pending |
+| NIP66-02 | Phase 35 | Pending |
+| NIP66-03 | Phase 35 | Pending |
+| NIP66-04 | Phase 35 | Pending |
+| NIP66-05 | Phase 35 | Pending |
+| WM-01 | Phase 36 | Pending |
+| WM-02 | Phase 36 | Pending |
+| WM-03 | Phase 36 | Pending |
+| DEP-01 | Phase 32 | Pending |
+| DEP-02 | Phase 32 | Pending |
+| DEP-03 | Phase 32 | Pending |
+| DEP-04 | Phase 32 | Pending |
+| DEP-05 | Phase 32 | Pending |
+| KEYS-04 | Phase 34 | Pending |
+| KEYS-05 | Phase 34 | Pending |
+| KEYS-06 | Phase 34 | Pending |
+| PERF-01 | Phase 37 | Pending |
+| DOCS-04 | Phase 36 | Pending |
+| DOCS-05 | Phase 36 | Pending |
+| E2E-17 | Phase 34 | Pending |
+| E2E-18 | Phase 37 | Pending |
 
 **Coverage:**
 - v1 requirements: 26 total
-- Mapped to phases: 0
-- Unmapped: 26 ⚠️ (roadmap pending)
+- Mapped to phases: 26 ✓
+- Unmapped: 0
+
+**Phase distribution:**
+- Phase 32 (NUB Dep Consolidation): 5 reqs (DEP-01..05)
+- Phase 33 (Cache Service + HostCacheBridge): 5 reqs (CACHE-01..05)
+- Phase 34 (Reserved Chord Surface + E2E-17): 4 reqs (KEYS-04..06, E2E-17)
+- Phase 35 (@kehto/nip66 Extract & Publish): 5 reqs (NIP66-01..05)
+- Phase 36 (WM Skeleton + README Cleanup): 5 reqs (WM-01..03, DOCS-04..05)
+- Phase 37 (PERF-01 + Milestone Close E2E-18): 2 reqs (PERF-01, E2E-18)
 
 ---
 
 *Requirements defined: 2026-04-23*
-*Last updated: 2026-04-23 after initial definition*
+*Roadmap mapped: 2026-04-23 (Phases 32–37)*
+*Last updated: 2026-04-23 after roadmap creation*
