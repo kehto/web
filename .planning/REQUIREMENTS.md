@@ -52,9 +52,9 @@ Extract a standalone publishable package so the community doesn't re-invent kind
 
 Merge the `@kehto/wm` library-skeleton PR so downstream shells (hyprgate first) can depend on the canonical types/factory signature. Implementation is deliberately stubbed — that's the point of the skeleton.
 
-- [ ] **WM-01**: PR #7's `@kehto/wm` skeleton lands on `main`: `packages/wm/package.json` (v0.0.0, ESM-only, zero runtime deps), `tsconfig.json`, `src/index.ts`, `README.md`.
-- [ ] **WM-02**: `@kehto/wm/src/index.ts` exports the generic type vocabulary (`WindowId`, `WorkspaceId`, `Rect`, `Layout`), the `WmHostHooks` contract, the `WmService` interface, and a throwing `createWmService` factory stub.
-- [ ] **WM-03**: `turbo run build` + `turbo run type-check` pass for the new package on `main` with no regressions to the 53-spec E2E baseline.
+- [x] **WM-01**: PR #7's `@kehto/wm` skeleton lands on `main`: `packages/wm/package.json` (v0.0.0, ESM-only, zero runtime deps), `tsconfig.json`, `src/index.ts`, `README.md`.
+- [x] **WM-02**: `@kehto/wm/src/index.ts` exports the generic type vocabulary (`WindowId`, `WorkspaceId`, `Rect`, `Layout`), the `WmHostHooks` contract, the `WmService` interface, and a throwing `createWmService` factory stub.
+- [x] **WM-03**: `turbo run build` + `turbo run type-check` pass for the new package on `main` with no regressions to the 53-spec E2E baseline.
 
 ### Category 3: NUB Dep Consolidation (DEP) — kehto#4
 
@@ -148,9 +148,9 @@ Which phases cover which requirements. Populated by gsd-roadmapper during roadma
 | NIP66-03 | Phase 34 | Complete |
 | NIP66-04 | Phase 34 | Complete |
 | NIP66-05 | Phase 34 | Complete |
-| WM-01 | Phase 35 | Pending |
-| WM-02 | Phase 35 | Pending |
-| WM-03 | Phase 35 | Pending |
+| WM-01 | Phase 35 | Complete |
+| WM-02 | Phase 35 | Complete |
+| WM-03 | Phase 35 | Complete |
 | DOCS-04 | Phase 35 | Pending |
 | DOCS-05 | Phase 35 | Pending |
 | PERF-01 | Phase 36 | Pending |

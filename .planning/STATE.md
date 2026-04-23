@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: — Downstream Unblock & Shell Service Surface
-status: planning
-last_updated: "2026-04-23T10:13:05.984Z"
+status: executing
+last_updated: "2026-04-23T11:25:04.990Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
-  percent: 60
+  total_plans: 10
+  completed_plans: 9
+  percent: 90
 ---
 
 # Project State
@@ -20,21 +20,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-23, v1.6 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 35 — WM Skeleton + README Cleanup (next, post Phase 34 close)
+**Current focus:** Phase 35 — WM Skeleton + README Cleanup
 
 ## Current Position
 
-Phase: 34 (@kehto/nip66 Extract & Publish) — **COMPLETE** (3/3 plans, all NIP66-01..05 closed, artifact-complete at 54/0/0 E2E preserved)
-Plan: 3 of 3 complete (34-01 ✓, 34-02 ✓, 34-03 ✓)
+Phase: 35 (WM Skeleton + README Cleanup) — EXECUTING
+Plan: 2 of 2 (35-01 ✓ complete; 35-02 next — root README cleanup for DOCS-04/05)
 **Milestone:** v1.6 Downstream Unblock & Shell Service Surface
 **Phase numbering:** 32 → 36 (continues from v1.5 close at Phase 31; original Phase 33 "Cache Service" dropped 2026-04-23 — see Roadmap Summary note)
 **Phase:** 35
-**Plan:** Not started
-**Next Phase:** 35 (`WM Skeleton + README Cleanup` — WM-01..03, DOCS-04..05)
-**Status:** Ready to plan
+**Plan:** 35-01 complete (WM-01/02/03 closed); 35-02 pending (DOCS-04/05)
+**Next Phase:** 36 (`PERF-01 + Milestone Close E2E-18`)
+**Status:** Executing Phase 35 (1/2 plans complete)
 **Last activity:** 2026-04-23
 
-Progress: [██████░░░░] 60% (3/5 phases complete; 8/8 plans-through-Phase-34 complete — Phases 35+36 add plan count as those phases are drafted)
+Progress: [█████████░] 90% (3/5 phases complete; 9/10 plans complete — 35-01 closed WM-01/02/03 via PR #7 squash-merge + turbo auto-pickup at 24/10)
 
 ## Roadmap Summary
 
@@ -80,8 +80,8 @@ Full decision log (v1.0 → v1.5) archived in `.planning/PROJECT.md` Key Decisio
 
 ## Session Continuity
 
-Last session: 2026-04-23T10:07:10.056Z
-Resume: **Phase 34 COMPLETE — @kehto/nip66@0.1.0 shipped publish-shape at 54/0/0.** Plan 34-03 landed two docs commits: b97a3cf (README + changeset — 194-line consumer doc with H1 + 7 H2 sections; .changeset/v1-6-nip66.md frontmatter 'minor' cites NIP66-01..05 + kehto#2) + f2b68c7 (248-line iteration log recording fresh-install loop: 24 workspace projects, 23/23 turbo tasks, 495/495 unit tests, 54 passed Playwright at 17.8s — delta 0 from Phase 33 close, exactly per NIP66-05 publish-only contract). NIP66-04 + NIP66-05 closed; Phase 34 artifact-complete at 5/5 REQ-IDs. Framework-agnostic discipline enforced via periphrasis — README + changeset describe the property without literal '@napplet/core' or '@napplet/nub' strings; first-draft verify caught 3 occurrences and reworded pre-commit to 'napplet protocol packages' / 'protocol-package peer deps'. Iteration log explicitly captures the pnpm --filter @kehto/nip66 test quirk (exit-non-zero due to vitest include-glob cwd semantics) as a footnote not a failure; records equivalent root-cwd invocation at 9/9 green. Anti-term sweep 6/6 clean on packages/nip66/. Demo-wiring guard 0/0 clean (NIP66-05 explicitly defers demo wiring to v1.7+). Publish to npm is deferred to Phase 36 (milestone close) alongside the other v1.6 @kehto/* minor bumps via `changeset version` + `changeset publish`. v1.6 progress: 13/21 reqs (3/5 phases) complete; next is Phase 35 (WM-01..03 + DOCS-04..05).
+Last session: 2026-04-23T11:24:29.970Z
+Resume: **Plan 35-01 COMPLETE — WM-01/02/03 closed via PR #7 squash-merge + turbo auto-pickup.** Squashed d7df669 on main (dskvr authorship preserved); packages/wm/ skeleton landed with exact 4 files (package.json 43 lines, tsconfig.json 9 lines, src/index.ts 88 lines, README.md 35 lines = 175 additions). Task 1 committed dd3a2d4 (chore: pnpm-lock.yaml +6 lines — new importers block, zero external deps). Tasks 2+3 verification-only. Turbo pipeline: build 23 → **24/24** (+1 for @kehto/wm#build via tsc --noEmit alias), type-check 9 → **10/10** (+1 delta). Plan text predicted 24 for both pipelines but Phase 34 baseline was 23 build + 9 type-check (plan conflated; tracked as Rule 1 deviation — real +1 delta holds). Anti-term sweep clean on packages/wm/ (0 occurrences of window.nostr/@napplet/nub-/signer./BusKind/core-compat/allow-same-origin). PR was in draft state (Rule 3 blocking: `gh pr ready 7` before `gh pr merge 7 --squash`). Local main diverged (3 unpushed docs commits — Rule 3 blocking: `git pull --rebase origin main` cleanly rebased 39 commits). Zero source edits authored; only pnpm-lock.yaml + planning docs written. v1.6 progress: 16/21 reqs (3/5 phases + Plan 35-01); next is Plan 35-02 (root README cleanup for DOCS-04/05).
 
 ## Decisions
 
@@ -108,3 +108,6 @@ Resume: **Phase 34 COMPLETE — @kehto/nip66@0.1.0 shipped publish-shape at 54/0
 - [Phase 34]: TDD RED → GREEN commit discipline for Plan 34-02: two separate commits (56b5d47 test RED, e52ab5a feat GREEN) instead of one consolidated. Bisect-clean history + reviewable RED→GREEN transition via git log --oneline. Applicable to any future TDD plan with tdd=true tasks.
 - [Phase 34-kehto-nip66-extract-publish]: Framework-agnostic discipline enforced on docs via periphrasis (Plan 34-03). README + changeset describe @kehto/nip66's framework-agnostic property without using literal '@napplet/core' or '@napplet/nub' strings — phrased as 'napplet protocol packages' / 'protocol-package peer deps'. Satisfies plan's grep-guard acceptance criterion while preserving semantic content. Reusable pattern for future kehto docs asserting absence of napplet deps.
 - [Phase 34-kehto-nip66-extract-publish]: Publish-only phase closure discipline (Plan 34-03 iteration log). Log explicitly records 'delta 0 from Phase 33 close' and ties it to NIP66-05's publish-only contract. Distinguishes 'no regression' from 'no work done' — phase ships workspace + impl + docs + changeset, but E2E dimension is deliberately unchanged. Reusable pattern for future publish-only phases (changeset-only milestone-close work).
+- [Phase 35-wm-skeleton-readme-cleanup]: In-repo skeleton PR squash-merge pattern (Plan 35-01): gh pr ready N (if draft) → gh pr merge N --squash → rebase-over-merge when local has unpushed commits. Preserves author attribution, triggers turbo+pnpm auto-pickup via packages/* glob without manual registration. Reusable for future skeleton-only in-repo PRs.
+- [Phase 35-wm-skeleton-readme-cleanup]: Turbo type-check baseline correction (Plan 35-01). Phase 34 close baseline: 23 build tasks + 9 type-check tasks (not 23 each — only 6 packages declare type-check scripts vs 13+ with build). Plan 35-01 action text predicted 24/24 for both pipelines; actual result 24/24 build + 10/10 type-check confirms +1 delta in both. Future plans should cite correct baselines separately per pipeline.
+- [Phase 35-wm-skeleton-readme-cleanup]: Zero-executor-edit plan discipline (Plan 35-01). Merge-and-verify-only plans land source via PR content — executor authors zero source files, only lockfile updates from pnpm install side-effects. Pattern clearly delineates 'upstream contribution lands as one squash commit' vs 'local plan commit registers the delta'. Reusable for future PR-consumption plans.
