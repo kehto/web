@@ -69,9 +69,9 @@ Merge the `@kehto/wm` library-skeleton PR so downstream shells (hyprgate first) 
 
 Migrate every `@kehto/*` package from 8 split `@napplet/nub-{domain}@0.2.1` peer/dev deps to the consolidated `@napplet/nub@0.2.1` package with subpath imports. Closes the dual-instance pitfall that lands two copies of every NUB module on disk in downstream shells that need both shapes.
 
-- [ ] **DEP-01**: `@kehto/acl`, `@kehto/runtime`, `@kehto/shell`, `@kehto/services` each declare `@napplet/nub@^0.2.1` as their sole NUB peer/dev dep. All 8 `@napplet/nub-{identity,ifc,keys,media,notify,relay,storage,theme}` entries removed from every `packages/*/package.json`.
-- [ ] **DEP-02**: Every in-repo TS import reading from `@napplet/nub-{domain}` is rewritten to the `@napplet/nub/{domain}` subpath form (`/types`, `/shim`, `/sdk` subpaths where applicable). Verified via `grep -r '@napplet/nub-' packages/ apps/ tests/` returning 0 matches.
-- [ ] **DEP-03**: `pnpm-lock.yaml` contains zero `@napplet/nub-*` resolved entries post-install; exactly one `@napplet/nub@0.2.1` resolution.
+- [x] **DEP-01**: `@kehto/acl`, `@kehto/runtime`, `@kehto/shell`, `@kehto/services` each declare `@napplet/nub@^0.2.1` as their sole NUB peer/dev dep. All 8 `@napplet/nub-{identity,ifc,keys,media,notify,relay,storage,theme}` entries removed from every `packages/*/package.json`.
+- [x] **DEP-02**: Every in-repo TS import reading from `@napplet/nub-{domain}` is rewritten to the `@napplet/nub/{domain}` subpath form (`/types`, `/shim`, `/sdk` subpaths where applicable). Verified via `grep -r '@napplet/nub-' packages/ apps/ tests/` returning 0 matches.
+- [x] **DEP-03**: `pnpm-lock.yaml` contains zero `@napplet/nub-*` resolved entries post-install; exactly one `@napplet/nub@0.2.1` resolution.
 - [ ] **DEP-04**: Changesets authored for each `@kehto/*` package documenting the peer-dep migration (minor bump — public peer surface changed).
 - [ ] **DEP-05**: Downstream smoke: fresh clone + `pnpm install` + `pnpm build` + `pnpm test:e2e` green at 53/0/0; no dual-instance warnings in any build log.
 
@@ -155,9 +155,9 @@ Which phases cover which requirements. Populated by gsd-roadmapper during roadma
 | WM-01 | Phase 36 | Pending |
 | WM-02 | Phase 36 | Pending |
 | WM-03 | Phase 36 | Pending |
-| DEP-01 | Phase 32 | Pending |
-| DEP-02 | Phase 32 | Pending |
-| DEP-03 | Phase 32 | Pending |
+| DEP-01 | Phase 32 | Complete |
+| DEP-02 | Phase 32 | Complete |
+| DEP-03 | Phase 32 | Complete |
 | DEP-04 | Phase 32 | Pending |
 | DEP-05 | Phase 32 | Pending |
 | KEYS-04 | Phase 34 | Pending |

@@ -1,19 +1,16 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.6
-milestone_name: "Downstream Unblock & Shell Service Surface"
-status: roadmap_defined
-last_updated: "2026-04-23T00:00:00.000Z"
+milestone_name: — Downstream Unblock & Shell Service Surface
+status: executing
+last_updated: "2026-04-23T07:50:23.107Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 6
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
-  first_phase: 32
-  last_phase: 37
-  baseline_e2e_passing: 53
+  total_plans: 2
+  completed_plans: 1
+  percent: 50
 ---
 
 # Project State
@@ -23,18 +20,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-23, v1.6 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** v1.6 Downstream Unblock — close hyprgate v2.0 gap-analysis issues + consolidate onto `@napplet/nub` subpath imports.
+**Current focus:** Phase 32 — NUB Dep Consolidation
 
 ## Current Position
 
+Phase: 32 (NUB Dep Consolidation) — EXECUTING
+Plan: 2 of 2 (Plan 32-01 COMPLETE, 32-02 pending)
 **Milestone:** v1.6 Downstream Unblock & Shell Service Surface
 **Phase numbering:** 32 → 37 (continues from v1.5 close at Phase 31)
-**Phase:** Not started (roadmap defined; next step is `/gsd:plan-phase 32`)
-**Plan:** —
-**Status:** Roadmap defined, plans pending
-**Last activity:** 2026-04-23 — ROADMAP.md written; 26/26 requirements mapped across Phases 32–37
+**Phase:** In progress — Plan 32-01 complete (atomic DEP-01..03 migration), Plan 32-02 pending (E2E iteration loop + DEP-04 changesets + DEP-05 fresh-install smoke)
+**Plan:** 32-02 next
+**Status:** Executing Phase 32
+**Last activity:** 2026-04-23
 
-Progress: [··········] 0% (0/6 phases complete)
+Progress: [█████░░░░░] 50% of phase 32 (1/2 plans complete); 0/6 phases complete overall
 
 ## Roadmap Summary
 
@@ -76,5 +75,11 @@ Full decision log (v1.0 → v1.5) archived in `.planning/PROJECT.md` Key Decisio
 
 ## Session Continuity
 
-Last session: 2026-04-23T00:00:00.000Z
-Resume: v1.6 roadmap complete. REQUIREMENTS.md traceability populated (26/26 mapped). ROADMAP.md written with Phases 32–37. Next: `/gsd:plan-phase 32` to decompose the DEP migration into concrete plans.
+Last session: 2026-04-23T07:50:23.104Z
+Resume: Plan 32-01 complete (atomic DEP-01..03 migration committed bb1061e: 35 files, turbo build + type-check + 480 unit tests all green; lockfile importer blocks clean; pnpm.overrides added for upstream @napplet/nub@0.2.1 publish-specifier bug). Next: execute Plan 32-02 for E2E iteration loop (baseline 53/0/0) + DEP-04 changesets + DEP-05 fresh-install smoke. CHANGELOG.md `@napplet/nub-*` residue intentionally preserved as historical records (5 occurrences across 4 files).
+
+## Decisions
+
+- **2026-04-23:** Added pnpm.overrides `@napplet/nub>@napplet/core: ^0.2.1` at workspace root. @napplet/nub@0.2.1 tarball shipped with unresolved `workspace:*` specifier — publish-time rewrite did not fire. Override pins transitive to published core ^0.2.1. Extends Decision #11 (pnpm.overrides for @napplet/core dedup, v1.3) one hop deeper. Remove when upstream re-publishes.
+- **2026-04-23:** CHANGELOG.md scope exclusion for anti-term sweep. 4 CHANGELOG.md files carry 5 `@napplet/nub-*` substring occurrences in historical release-note entries. Preserved unchanged — rewriting would falsify package history. Mirrors plan's @napplet/sdk transitive-residue exclusion. Plan 32-02 anti-term verification sweeps use `| grep -v CHANGELOG.md` filter.
+- **2026-04-23:** Comment-prose scope extension for Plan 32-01. Plan Parts C+D enumerated 4 files; pre-flight surfaced 13 more source/test/doc files carrying `@napplet/nub-<domain>` substrings in JSDoc, comments, inline prose, and 2 regex test patterns. All rewritten in the same atomic commit (bb1061e) per plan's own pre-flight instruction ("append to file list and Part D rewrite list before proceeding"). Scope-aligned, not scope-expanded.
