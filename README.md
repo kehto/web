@@ -26,6 +26,8 @@ The [`apps/demo`](./apps/demo) application is the reference integration. It:
 | [`@kehto/runtime`](./packages/runtime/README.md) | Protocol engine — message dispatch via `createDispatch()` + `registerNub()` across all 8 NIP-5D nub domains, AUTH, subscription lifecycle. |
 | [`@kehto/shell`](./packages/shell/README.md) | Browser adapter — ShellBridge factory, per-domain proxies, keys-forwarder. |
 | [`@kehto/services`](./packages/services/README.md) | Reference service handlers: identity, relay-pool, cache, notify, theme, audio (legacy), keys (stub), media (stub). |
+| [`@kehto/nip66`](./packages/nip66/README.md) | Framework-agnostic NIP-66 kind-30166 relay-discovery aggregator (publish-ready at v0.1.0; zero napplet-protocol peer deps). |
+| [`@kehto/wm`](./packages/wm/README.md) | Generic window manager service contract for NIP-5D shells (draft skeleton at v0.0.0 — see package README). |
 
 ## Quick Integration
 
@@ -90,7 +92,7 @@ pnpm test:e2e       # Full Layer A + Layer B Playwright suite (~3-5 min)
 - **ESM-only.** No CJS output. All packages are `"type": "module"`.
 - **Zero framework deps.** No Svelte, React, Vue — kehto is framework-agnostic.
 - **NIP-5D anti-features:** window.nostr is not injected into napplet iframes; signing is shell-mediated via `relay.publish` / `relay.publishEncrypted`; sandbox uses `allow-scripts` without `allow-same-origin`.
-- **`@napplet/core` is not yet on npm.** Workspace uses `pnpm.overrides` `link:` entries to `/home/sandwich/Develop/napplet/*`. See `package.json` for the override map.
+- **Registry install.** `@napplet/*` ships to npm; consume `@kehto/*` directly from the registry. Workspace pins one transitive `pnpm.overrides` for `@napplet/nub>@napplet/core: ^0.2.1` (upstream publish-time workspace-specifier bug; Phase 32 Decision — see `package.json`).
 
 ## History
 
