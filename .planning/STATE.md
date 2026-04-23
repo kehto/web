@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: — Downstream Unblock & Shell Service Surface
-status: executing
-last_updated: "2026-04-23T09:53:00Z"
+status: planning
+last_updated: "2026-04-23T10:08:17.879Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 8
-  completed_plans: 7
-  percent: 88
+  completed_plans: 8
+  percent: 60
 ---
 
 # Project State
@@ -20,21 +20,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-23, v1.6 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 34 — @kehto/nip66 Extract & Publish
+**Current focus:** Phase 35 — WM Skeleton + README Cleanup (next, post Phase 34 close)
 
 ## Current Position
 
-Phase: 34 (@kehto/nip66 Extract & Publish) — EXECUTING
-Plan: 3 of 3 (34-01 + 34-02 complete, 34-03 next — README + changeset + NIP66-04/05 close)
+Phase: 34 (@kehto/nip66 Extract & Publish) — **COMPLETE** (3/3 plans, all NIP66-01..05 closed, artifact-complete at 54/0/0 E2E preserved)
+Plan: 3 of 3 complete (34-01 ✓, 34-02 ✓, 34-03 ✓)
 **Milestone:** v1.6 Downstream Unblock & Shell Service Surface
 **Phase numbering:** 32 → 36 (continues from v1.5 close at Phase 31; original Phase 33 "Cache Service" dropped 2026-04-23 — see Roadmap Summary note)
-**Phase:** 34
-**Plan:** 34-03 (next — consumer-facing README + changeset for @kehto/nip66@0.1.0)
-**Next Phase:** 35 (`WM Skeleton + README Cleanup` — WM-01..03, DOCS-04..05) after 34-03 closes
-**Status:** Executing Phase 34 (2/3 plans complete)
+**Phase:** 34 (complete); Phase 35 next
+**Plan:** — (Phase 34 complete; Phase 35 plans not yet drafted)
+**Next Phase:** 35 (`WM Skeleton + README Cleanup` — WM-01..03, DOCS-04..05)
+**Status:** Phase 34 complete; ready for Phase 35 planning
 **Last activity:** 2026-04-23
 
-Progress: [█████████░] 88% (2/5 phases complete; 7/8 plans complete — 1 still pending in Phase 34 + 5 pending across Phases 35-36)
+Progress: [██████░░░░] 60% (3/5 phases complete; 8/8 plans-through-Phase-34 complete — Phases 35+36 add plan count as those phases are drafted)
 
 ## Roadmap Summary
 
@@ -42,7 +42,7 @@ Progress: [█████████░] 88% (2/5 phases complete; 7/8 plans c
 |-------|------|---------|----------|
 | 32 | NUB Dep Consolidation | DEP-01..05 | 5 ✓ Complete |
 | 33 | Reserved Chord Surface + E2E-17 | KEYS-04..06, E2E-17 | 4 ✓ Complete |
-| 34 | `@kehto/nip66` Extract & Publish | NIP66-01..05 | 5 |
+| 34 | `@kehto/nip66` Extract & Publish | NIP66-01..05 | 5 ✓ Complete |
 | 35 | WM Skeleton + README Cleanup | WM-01..03, DOCS-04..05 | 5 |
 | 36 | PERF-01 + Milestone Close E2E-18 | PERF-01, E2E-18 | 5 |
 
@@ -80,8 +80,8 @@ Full decision log (v1.0 → v1.5) archived in `.planning/PROJECT.md` Key Decisio
 
 ## Session Continuity
 
-Last session: 2026-04-23T09:53:00Z
-Resume: **Plan 34-02 COMPLETE — @kehto/nip66 aggregator implemented (GREEN).** Two commits: 56b5d47 (test RED — 291-line vitest suite, 9 tests all failing against 34-01 stub throw) + e52ab5a (feat GREEN — 206-line impl with closure-scoped relaySet + relaySupportedNips + unsubscribe handle; 9 tests pass, full-repo 30 files / 495 tests / 23 turbo tasks / 9 type-check tasks all green). NIP66-02 closed. Key structural changes vs. hyprgate reference impl (/home/sandwich/Develop/hyprgate/apps/shell/src/lib/relay/nip66-monitor.ts, 188 lines): (1) closure-scoped state NOT module globals — Test 9 (multi-instance isolation) proves two aggregators share nothing; (2) parseNipSupport inlined into processEvent (single combined helper clearer in closure form); (3) synchronous idempotent start() — no setTimeout(3000); (4) pluggable pool.subscribe replaces syncDataset (no OPFS, no getWorkerRelay, no NIP66_MONITOR_RELAYS, no getEnabledNetworks — all consumer concerns). Zero hyprgate-specific symbols (grep -c 'setTimeout|syncDataset|getWorkerRelay|NIP66_MONITOR_RELAYS|getEnabledNetworks' == 0). Public API unchanged from 34-01 — only factory body + JSDoc changed. dist/index.js grew 213B → 1.70KB; dist/index.d.ts unchanged at 5.44KB. No deviations, no auto-fixes, single-pass RED → GREEN. Next: Plan 34-03 — README + changeset for @kehto/nip66@0.1.0 initial publish; closes NIP66-04 + NIP66-05 + Phase 34.
+Last session: 2026-04-23T10:07:10.056Z
+Resume: **Phase 34 COMPLETE — @kehto/nip66@0.1.0 shipped publish-shape at 54/0/0.** Plan 34-03 landed two docs commits: b97a3cf (README + changeset — 194-line consumer doc with H1 + 7 H2 sections; .changeset/v1-6-nip66.md frontmatter 'minor' cites NIP66-01..05 + kehto#2) + f2b68c7 (248-line iteration log recording fresh-install loop: 24 workspace projects, 23/23 turbo tasks, 495/495 unit tests, 54 passed Playwright at 17.8s — delta 0 from Phase 33 close, exactly per NIP66-05 publish-only contract). NIP66-04 + NIP66-05 closed; Phase 34 artifact-complete at 5/5 REQ-IDs. Framework-agnostic discipline enforced via periphrasis — README + changeset describe the property without literal '@napplet/core' or '@napplet/nub' strings; first-draft verify caught 3 occurrences and reworded pre-commit to 'napplet protocol packages' / 'protocol-package peer deps'. Iteration log explicitly captures the pnpm --filter @kehto/nip66 test quirk (exit-non-zero due to vitest include-glob cwd semantics) as a footnote not a failure; records equivalent root-cwd invocation at 9/9 green. Anti-term sweep 6/6 clean on packages/nip66/. Demo-wiring guard 0/0 clean (NIP66-05 explicitly defers demo wiring to v1.7+). Publish to npm is deferred to Phase 36 (milestone close) alongside the other v1.6 @kehto/* minor bumps via `changeset version` + `changeset publish`. v1.6 progress: 13/21 reqs (3/5 phases) complete; next is Phase 35 (WM-01..03 + DOCS-04..05).
 
 ## Decisions
 
@@ -106,3 +106,5 @@ Resume: **Plan 34-02 COMPLETE — @kehto/nip66 aggregator implemented (GREEN).**
 - [Phase 34]: parseNipSupport inlined into processEvent in closure-scoped port (Plan 34-02). Hyprgate split them because each helper mutates a separate module-scope Map; in the closure form both Sets/Maps share the factory scope, so a single combined helper is clearer + marginally faster (one tag.find for d-tag instead of two). CONTEXT.md Claude's Discretion authorizes inline. Public API unchanged.
 - [Phase 34]: Closure-scoped factory state pattern locked (Plan 34-02). Multi-instance isolation test (Test 9) proves relaySet + relaySupportedNips + unsubscribe handle all live inside factory scope. Zero module-level state (grep -c ^const nip66RelaySet == 0). Reusable pattern for future framework-agnostic kehto factory utils.
 - [Phase 34]: TDD RED → GREEN commit discipline for Plan 34-02: two separate commits (56b5d47 test RED, e52ab5a feat GREEN) instead of one consolidated. Bisect-clean history + reviewable RED→GREEN transition via git log --oneline. Applicable to any future TDD plan with tdd=true tasks.
+- [Phase 34-kehto-nip66-extract-publish]: Framework-agnostic discipline enforced on docs via periphrasis (Plan 34-03). README + changeset describe @kehto/nip66's framework-agnostic property without using literal '@napplet/core' or '@napplet/nub' strings — phrased as 'napplet protocol packages' / 'protocol-package peer deps'. Satisfies plan's grep-guard acceptance criterion while preserving semantic content. Reusable pattern for future kehto docs asserting absence of napplet deps.
+- [Phase 34-kehto-nip66-extract-publish]: Publish-only phase closure discipline (Plan 34-03 iteration log). Log explicitly records 'delta 0 from Phase 33 close' and ties it to NIP66-05's publish-only contract. Distinguishes 'no regression' from 'no work done' — phase ships workspace + impl + docs + changeset, but E2E dimension is deliberately unchanged. Reusable pattern for future publish-only phases (changeset-only milestone-close work).
