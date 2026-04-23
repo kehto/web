@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: — Downstream Unblock & Shell Service Surface
-status: planning
-last_updated: "2026-04-23T08:11:15.184Z"
+status: executing
+last_updated: "2026-04-23T09:01:46.807Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
-  percent: 20
+  total_plans: 5
+  completed_plans: 3
+  percent: 60
 ---
 
 # Project State
@@ -20,20 +20,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-23, v1.6 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 33 — Reserved Chord Surface + E2E-17 (next)
+**Current focus:** Phase 33 — Reserved Chord Surface + E2E-17
 
 ## Current Position
 
-Phase: 32 (NUB Dep Consolidation) — COMPLETE
-Plan: 2 of 2 (Plan 32-01 COMPLETE bb1061e, Plan 32-02 COMPLETE a4d0652 + 5adeb52)
+Phase: 33 (Reserved Chord Surface + E2E-17) — EXECUTING
+Plan: 2 of 3 (33-01 complete; next: 33-02 README docs KEYS-06)
 **Milestone:** v1.6 Downstream Unblock & Shell Service Surface
 **Phase numbering:** 32 → 36 (continues from v1.5 close at Phase 31; original Phase 33 "Cache Service" dropped 2026-04-23 — see Roadmap Summary note)
 **Phase:** 33 (Reserved Chord Surface)
-**Plan:** Not started
-**Status:** Ready to plan
+**Plan:** 33-01 complete (KEYS-04, KEYS-05); 33-02 pending (KEYS-06 README); 33-03 pending (E2E-17)
+**Status:** Executing Phase 33
 **Last activity:** 2026-04-23
 
-Progress: [██░░░░░░░░] 20% (1/5 phases complete)
+Progress: [██████░░░░] 60% (1/5 phases complete; 3/5 plans complete)
 
 ## Roadmap Summary
 
@@ -79,7 +79,7 @@ Full decision log (v1.0 → v1.5) archived in `.planning/PROJECT.md` Key Decisio
 
 ## Session Continuity
 
-Last session: 2026-04-23T08:06:08.996Z
+Last session: 2026-04-23T09:01:46.805Z
 Resume: Phase 32 COMPLETE. All 5 DEP REQ-IDs satisfied. Commits: bb1061e (32-01 atomic migration), 5adeb52 (32-02 changesets), a4d0652 (32-02 iteration loop + Rule 1 subpath-variant fix). Canonical fresh-install iteration loop reports 53/0/0 (18.3s, baseline preserved from v1.5 close); zero dual-instance warnings in build+E2E logs; 4 @kehto/* changesets staged with minor bump and inline pnpm.overrides advisory. Original Phase 33 (Cache Service + HostCacheBridge) dropped mid-milestone — scoping found existing `createCacheService` already supports the hostBridge-style injection; commented on kehto#1 with integration example. Phases 34-37 renumbered → 33-36. Next: plan Phase 33 (Reserved Chord Surface + E2E-17, KEYS-04..06 + E2E-17).
 
 ## Decisions
@@ -90,3 +90,6 @@ Resume: Phase 32 COMPLETE. All 5 DEP REQ-IDs satisfied. Commits: bb1061e (32-01 
 - **2026-04-23:** Changeset prose for Phase 32 (4 files) includes the `pnpm.overrides @napplet/nub>@napplet/core: ^0.2.1` workaround inline as a downstream consumer advisory, not just as a TODO. Shells pulling the next @kehto/*@0.3.0 releases will hit the same upstream @napplet/nub@0.2.1 workspace:* publish bug Plan 32-01 hit; documenting the workaround inline avoids forcing downstream to rediscover it. Remove when upstream re-publishes.
 - **2026-04-23:** Subpath-variant selection rule (Plan 32-02 Rule 1 auto-fix). For non-type imports from `@napplet/nub/<domain>` when `@napplet/shim` is loaded: use the `/<domain>/sdk` subpath (no side effects — pure re-exports). The root `/<domain>` subpath calls `registerNub(DOMAIN, ...)` at module-init time, which collides with `@napplet/shim`'s own `registerNub` and throws "NUB domain X is already registered". Standalone SDK consumers (no shim) can use the root subpath. `/types` is type-only and never a concern. This rule applied to `apps/demo/napplets/media-controller/src/main.ts`; captured in 32-02 SUMMARY `patterns-established` for future migrations.
 - **2026-04-23:** Turbo-cache purge before evidenced builds (Plan 32-02 pattern). Fresh-install iteration loops now explicitly `rm -rf .turbo packages/*/.turbo apps/demo/.turbo apps/demo/napplets/*/.turbo tests/e2e/harness/.turbo` before `pnpm build` to force every task uncached. Guards against the failure mode where turbo replays a cached task and hides a new regression. Plan 32-02 showed `Cached: 0 cached, 22 total` — every task executed cold.
+- [Phase 33]: Canonical reserved-chord key format: pipe-delimited <ctrl>|<alt>|<shift>|<meta>|<KEY>. Three helpers (chordSpecKey/forwardKey/eventKey) emit the same shape so wire/DOM/ChordSpec comparisons fold into one Set lookup. Chosen over JSON.stringify for deterministic cross-engine ordering (Plan 33-01).
+- [Phase 33]: Two-pass keydown listener shape (Plan 33-01 Edit 5). Fires onForward ONCE per keydown when isReserved || anyMatch — correctly handles the WM-launcher case where a reserved chord has zero napplet registrations (onForward must still fire for WM dispatch). Zero regression on pre-existing 'fires onForward AND pushes keys.action envelope' test because a single registered action fires onForward exactly once under both shapes.
+- [Phase 33]: Version-pin RED assertion (Plan 33-01 TDD). Each of the 6 new reserved-chord tests asserts service.descriptor.version === '1.2.0'. Gives 6 clean failing tests in RED (all fail on '1.1.0' !== '1.2.0') and couples version bump to feature landing. Reusable pattern for future service-level minor bumps.

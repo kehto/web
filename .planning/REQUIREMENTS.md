@@ -70,8 +70,8 @@ Migrate every `@kehto/*` package from 8 split `@napplet/nub-{domain}@0.2.1` peer
 
 Extend `createKeysService` so shells can declare WM-absolute chords once and have the keys service short-circuit routing to napplet-registered actions that claim the same chord.
 
-- [ ] **KEYS-04**: `createKeysService` accepts a `reservedChords?: ReadonlyArray<string>` option (or equivalent `HostKeysBridge.reserveAbsolute(chords)` extension — decision deferred to plan phase) for shell-absolute chords.
-- [ ] **KEYS-05**: When a napplet calls `keys.forward` with a reserved chord, the keys service invokes the shell's `onForward` / bridge handler and does NOT dispatch `keys.action` to any napplet that registered the same chord via `keys.registerAction`.
+- [x] **KEYS-04**: `createKeysService` accepts a `reservedChords?: ReadonlyArray<string>` option (or equivalent `HostKeysBridge.reserveAbsolute(chords)` extension — decision deferred to plan phase) for shell-absolute chords.
+- [x] **KEYS-05**: When a napplet calls `keys.forward` with a reserved chord, the keys service invokes the shell's `onForward` / bridge handler and does NOT dispatch `keys.action` to any napplet that registered the same chord via `keys.registerAction`.
 - [ ] **KEYS-06**: `packages/services/README.md` Keys H2 section extended with the reserved-chord surface, a WM-launcher integration example, and the cross-NUB precedence note (reserved > registered).
 
 ### Category 5: Performance (PERF) — v1.5 carryover
@@ -139,8 +139,8 @@ Which phases cover which requirements. Populated by gsd-roadmapper during roadma
 | DEP-03 | Phase 32 | Complete |
 | DEP-04 | Phase 32 | Complete |
 | DEP-05 | Phase 32 | Complete |
-| KEYS-04 | Phase 33 | Pending |
-| KEYS-05 | Phase 33 | Pending |
+| KEYS-04 | Phase 33 | Complete |
+| KEYS-05 | Phase 33 | Complete |
 | KEYS-06 | Phase 33 | Pending |
 | E2E-17 | Phase 33 | Pending |
 | NIP66-01 | Phase 34 | Pending |
