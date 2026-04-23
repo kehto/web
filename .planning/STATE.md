@@ -1,10 +1,10 @@
 ---
 gsd_state_version: 1.0
-milestone: null
-milestone_name: null
-status: milestone_complete
-last_updated: "2026-04-20T00:45:00.000Z"
-last_activity: 2026-04-20
+milestone: v1.6
+milestone_name: "Downstream Unblock & Shell Service Surface"
+status: defining_requirements
+last_updated: "2026-04-23T00:00:00.000Z"
+last_activity: 2026-04-23
 progress:
   total_phases: 0
   completed_phases: 0
@@ -17,39 +17,37 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-20, v1.5 shipped)
+See: .planning/PROJECT.md (updated 2026-04-23, v1.6 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Awaiting next milestone. Run `/gsd:new-milestone` to kick off.
+**Current focus:** v1.6 Downstream Unblock — close hyprgate v2.0 gap-analysis issues + consolidate onto `@napplet/nub` subpath imports.
 
 ## Current Position
 
-**Milestone:** None active (v1.5 shipped 2026-04-20)
-**Phase:** —
+**Milestone:** v1.6 Downstream Unblock & Shell Service Surface
+**Phase:** Not started (defining requirements)
 **Plan:** —
-**Status:** Awaiting next milestone
-**Last activity:** 2026-04-20
+**Status:** Defining requirements
+**Last activity:** 2026-04-23 — Milestone v1.6 started
 
-Progress: [██████████] 100% (v1.0 → v1.5 shipped; 6 milestones total)
-
-**v1.5 delivered (shipped 2026-04-20):**
-
-- Phase 29: Concurrent-boot AUTH Fix + Demo Stability — data-driven refreshAclPanelsIfNeeded loop; 10/10 napplets show AUTHENTICATED
-- Phase 30: Shell UI State Wiring — service activity counters + ACL Matrix + sequence-diagram lanes all wired to live NUB traffic
-- Phase 31: E2E Coverage + Milestone Iteration Loop — demo-concurrent-boot.spec.ts + shell-ui-state-surfaces.spec.ts lock the fixes in CI
-
-**Totals:** 3 phases, 7 plans, 9 tasks, 53 E2E specs green (up from v1.4's 49; +4 tests / +2 spec files), 7/7 requirements satisfied.
+Progress: [··········] 0% (requirements definition)
 
 ## Accumulated Context
 
 Full decision log (v1.0 → v1.5) archived in `.planning/PROJECT.md` Key Decisions table (17 entries) and per-milestone archives at `.planning/milestones/v{1.0,1.1,1.2,1.3,1.4,1.5}-ROADMAP.md`.
 
+### v1.6 scope origin
+
+- **Downstream:** 8 open GitHub issues filed by dskvr during hyprgate v2.0 Kehto Migration gap analysis (kehto#1, #2, #3, #4, #5, #6, #8, #9). 6 of 8 pulled into v1.6 scope; #6 tracking-only; #9 upstream-first (cross-linked to napplet/napplet#3).
+- **Carryover:** PERF-01 from v1.5 (chat boot storage.get storm).
+- **Explicitly deferred to v1.7:** NIP-5D spec resync, NUB-CLASS, NUB-CONNECT, NUB-CONFIG, NUB-RESOURCE. v1.7 is the spec-alignment milestone for @napplet v0.29.0.
+
 ### Blockers/Concerns
 
-- Info-level v1.5 tech debt (non-blocking): UI-01 poll guard uses `expect.any(Number)` which includes -1; the subsequent `toBeGreaterThanOrEqual(1)` is the real guard. Candidate for v1.6 robustness refinement.
-- PERF-01 deferred to v1.6: chat boot storage.get storm (18+ serial round-trips). Perf debt, not correctness.
+- **DEP-01 migration risk:** consolidating 4 `@kehto/*` packages' peer deps from split `@napplet/nub-*` → `@napplet/nub` subpath is lockfile-wide; needs changesets, verification that dual-instance pitfall is actually gone (not just renamed).
+- **PERF-01 measurement:** no baseline number yet; v1.5 audit described "18+ serial round-trips" but did not record wall-clock. Phase plan will need to define pass/fail threshold.
 
 ## Session Continuity
 
-Last session: 2026-04-20T00:45:00.000Z
-Resume: v1.5 shipped. No active milestone. Start next with `/gsd:new-milestone`.
+Last session: 2026-04-23T00:00:00.000Z
+Resume: v1.6 started. PROJECT.md + STATE.md written. Next: define REQUIREMENTS.md, then spawn gsd-roadmapper.

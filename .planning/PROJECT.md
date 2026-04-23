@@ -32,6 +32,33 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 @napplet/core is the shared foundation. It lives in @napplet and is consumed by @kehto as a peer dependency.
 
+## Current Milestone: v1.6 Downstream Unblock & Shell Service Surface
+
+**Goal:** Unblock hyprgate v2.0 by landing the kehto-side capability gaps it hit during its Kehto Migration gap analysis — extending the shell service surface (cache multi-tab, keys reserved chords, wm library skeleton), publishing `@kehto/nip66`, consolidating onto `@napplet/nub` subpath imports, and fixing stale README claims.
+
+**Target features:**
+
+- `createCacheService` + `HostCacheBridge` for multi-tab OPFS coordination (kehto#1)
+- `@kehto/nip66` — new publishable package for kind-30166 relay discovery (kehto#2)
+- `@kehto/wm` skeleton merged from PR #7 (kehto#3)
+- Consolidate `@kehto/*` peer deps from split `@napplet/nub-*` → `@napplet/nub` subpath imports (kehto#4)
+- Reserved chord-set surface on `createKeysService` for shell-absolute chords (kehto#8)
+- README cleanup — drop stale `pnpm.overrides link:` pattern + "core not on npm" claim (kehto#5)
+- PERF-01 (v1.5 carryover) — chat boot storage.get storm batch/parallelize
+
+**Explicitly deferred to v1.7 (spec-alignment milestone):**
+
+- NIP-5D re-sync (class-posture delegation paragraph from dskvr/nips nip/5d)
+- NUB-CLASS adoption — shell emits `class.assigned` envelope
+- NUB-CONNECT adoption — per-napplet CSP, consent flow, SHELL-*-POLICY audits
+- NUB-CONFIG reference service (domain #9)
+- NUB-RESOURCE reference service (domain #10)
+
+**Tracking only / upstream-first:**
+
+- kehto#6 (Vite 8 × @napplet/vite-plugin): tracking only; reopens if hyprgate regresses
+- kehto#9 (receive-side NIP-44 decrypt): upstream-first; cross-linked to napplet/napplet#3; shell impl awaits NUB surface decision
+
 ## Current State
 
 **Shipped:** v1.4 — Productionization & Upstream Unblock (2026-04-19)
@@ -99,4 +126,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-20 — v1.5 milestone shipped*
+*Last updated: 2026-04-23 — v1.6 milestone started*
