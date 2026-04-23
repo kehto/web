@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: — Downstream Unblock & Shell Service Surface
 status: executing
-last_updated: "2026-04-23T09:47:09.868Z"
+last_updated: "2026-04-23T09:53:00Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 8
-  completed_plans: 6
-  percent: 75
+  completed_plans: 7
+  percent: 88
 ---
 
 # Project State
@@ -25,16 +25,16 @@ See: .planning/PROJECT.md (updated 2026-04-23, v1.6 started)
 ## Current Position
 
 Phase: 34 (@kehto/nip66 Extract & Publish) — EXECUTING
-Plan: 2 of 3 (34-01 complete, 34-02 next — port hyprgate processEvent/parseNipSupport)
+Plan: 3 of 3 (34-01 + 34-02 complete, 34-03 next — README + changeset + NIP66-04/05 close)
 **Milestone:** v1.6 Downstream Unblock & Shell Service Surface
 **Phase numbering:** 32 → 36 (continues from v1.5 close at Phase 31; original Phase 33 "Cache Service" dropped 2026-04-23 — see Roadmap Summary note)
 **Phase:** 34
-**Plan:** 34-02 (next — impl port against locked factory surface)
-**Next Phase:** 35 (`WM Skeleton + README Cleanup` — WM-01..03, DOCS-04..05) after 34-02 + 34-03 close
-**Status:** Executing Phase 34 (1/3 plans complete)
+**Plan:** 34-03 (next — consumer-facing README + changeset for @kehto/nip66@0.1.0)
+**Next Phase:** 35 (`WM Skeleton + README Cleanup` — WM-01..03, DOCS-04..05) after 34-03 closes
+**Status:** Executing Phase 34 (2/3 plans complete)
 **Last activity:** 2026-04-23
 
-Progress: [████████░░] 75% (2/5 phases complete; 6/8 plans complete — 2 still pending in Phase 34 + 5 pending across Phases 35-36)
+Progress: [█████████░] 88% (2/5 phases complete; 7/8 plans complete — 1 still pending in Phase 34 + 5 pending across Phases 35-36)
 
 ## Roadmap Summary
 
@@ -80,8 +80,8 @@ Full decision log (v1.0 → v1.5) archived in `.planning/PROJECT.md` Key Decisio
 
 ## Session Continuity
 
-Last session: 2026-04-23T09:47:09.865Z
-Resume: **Plan 34-01 COMPLETE — @kehto/nip66 workspace scaffolded.** Commit 27cbf3a (feat: scaffold @kehto/nip66 workspace, 4 files + pnpm-lock.yaml). Locked public API per CONTEXT.md <specifics>: Nip66RelayPool (subscribe callback-shape), Nip66Filter ({kinds:[30166]; '#n'?}), Nip66AggregatorOptions ({pool, bootstrap, networks?}), Nip66Aggregator (start/resync/getRelaySet/getRelaysSupportingNip/relaySupportsNip), createNip66Aggregator factory stub throwing 'not implemented — see Plan 34-02'. Verifications: pnpm --filter @kehto/nip66 build → dist/index.js (213B) + dist/index.d.ts (4.95KB); pnpm --filter @kehto/nip66 type-check exit 0; full-repo `pnpm build` exit 0 with exactly +1 turbo task (22 → **23** tasks, @kehto/nip66#build joins graph); full-repo `pnpm type-check` 9/9 successful. Zero @napplet/core or @napplet/nub footprint (grep -c == 0 both). nostr-tools peer dep range >=2.23.3 <3.0.0 matches @kehto/shell verbatim. Both `test` and `test:unit` script aliases shipped. NIP66-01 + NIP66-03 closed; NIP66-02/04/05 land in 34-02 + 34-03. No deviations, no auto-fixes, single-pass scaffold. Next: Plan 34-02 — port hyprgate nip66-monitor.ts (188 lines) processEvent/parseNipSupport into closure-scoped state behind the locked factory signature; add vitest tests under packages/nip66/src/*.test.ts.
+Last session: 2026-04-23T09:53:00Z
+Resume: **Plan 34-02 COMPLETE — @kehto/nip66 aggregator implemented (GREEN).** Two commits: 56b5d47 (test RED — 291-line vitest suite, 9 tests all failing against 34-01 stub throw) + e52ab5a (feat GREEN — 206-line impl with closure-scoped relaySet + relaySupportedNips + unsubscribe handle; 9 tests pass, full-repo 30 files / 495 tests / 23 turbo tasks / 9 type-check tasks all green). NIP66-02 closed. Key structural changes vs. hyprgate reference impl (/home/sandwich/Develop/hyprgate/apps/shell/src/lib/relay/nip66-monitor.ts, 188 lines): (1) closure-scoped state NOT module globals — Test 9 (multi-instance isolation) proves two aggregators share nothing; (2) parseNipSupport inlined into processEvent (single combined helper clearer in closure form); (3) synchronous idempotent start() — no setTimeout(3000); (4) pluggable pool.subscribe replaces syncDataset (no OPFS, no getWorkerRelay, no NIP66_MONITOR_RELAYS, no getEnabledNetworks — all consumer concerns). Zero hyprgate-specific symbols (grep -c 'setTimeout|syncDataset|getWorkerRelay|NIP66_MONITOR_RELAYS|getEnabledNetworks' == 0). Public API unchanged from 34-01 — only factory body + JSDoc changed. dist/index.js grew 213B → 1.70KB; dist/index.d.ts unchanged at 5.44KB. No deviations, no auto-fixes, single-pass RED → GREEN. Next: Plan 34-03 — README + changeset for @kehto/nip66@0.1.0 initial publish; closes NIP66-04 + NIP66-05 + Phase 34.
 
 ## Decisions
 
@@ -103,3 +103,6 @@ Resume: **Plan 34-01 COMPLETE — @kehto/nip66 workspace scaffolded.** Commit 27
 - [Phase 34]: [Phase 34]: Stub-first scaffolding discipline (Plan 34-01) — new @kehto/nip66 package ships locked 5-symbol public API (Nip66RelayPool, Nip66Filter, Nip66AggregatorOptions, Nip66Aggregator, createNip66Aggregator) with factory throwing 'not implemented — see Plan 34-02'. Decouples workspace scaffolding risk (tsconfig, tsup, turbo pickup) from code-port risk (processEvent/parseNipSupport/closure state). Build floor stays green through Plan 34-02 impl. Reusable pattern for future new-workspace extractions.
 - [Phase 34]: [Phase 34]: Framework-agnostic util manifest (Plan 34-01) — @kehto/nip66 is the first kehto package with nostr-tools as sole peer dep and zero @napplet/* footprint. Encodes CONTEXT.md Decision §NIP66-03 ('not a NUB, framework-agnostic util') in package.json. Both 'test' and 'test:unit' script aliases route to root vitest.config.ts so quality-gate invocation 'pnpm --filter @kehto/nip66 test' resolves without a second install. Precedent for future kehto framework-agnostic utils.
 - [Phase 34]: [Phase 34]: Type-only NostrEvent import under verbatimModuleSyntax (Plan 34-01) — 'import type { NostrEvent } from nostr-tools' is load-bearing: without 'type' keyword tsup emits runtime import that breaks when consumers don't ship nostr-tools at runtime. Type-only imports are fully erased, keeping dist/index.js at 213B (stub body only). Reusable pattern for any kehto package with type-only peer-dep imports.
+- [Phase 34]: parseNipSupport inlined into processEvent in closure-scoped port (Plan 34-02). Hyprgate split them because each helper mutates a separate module-scope Map; in the closure form both Sets/Maps share the factory scope, so a single combined helper is clearer + marginally faster (one tag.find for d-tag instead of two). CONTEXT.md Claude's Discretion authorizes inline. Public API unchanged.
+- [Phase 34]: Closure-scoped factory state pattern locked (Plan 34-02). Multi-instance isolation test (Test 9) proves relaySet + relaySupportedNips + unsubscribe handle all live inside factory scope. Zero module-level state (grep -c ^const nip66RelaySet == 0). Reusable pattern for future framework-agnostic kehto factory utils.
+- [Phase 34]: TDD RED → GREEN commit discipline for Plan 34-02: two separate commits (56b5d47 test RED, e52ab5a feat GREEN) instead of one consolidated. Bisect-clean history + reviewable RED→GREEN transition via git log --oneline. Applicable to any future TDD plan with tdd=true tasks.

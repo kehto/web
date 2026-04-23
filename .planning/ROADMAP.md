@@ -99,10 +99,10 @@ Plans:
   3. `packages/nip66/package.json` declares `nostr-tools` as a peer dep with a range matching `@kehto/shell`'s (`>=2.23.3 <3.0.0`); **no** `@napplet/core` dep is declared (framework-agnostic util, not a NUB).
   4. `packages/nip66/README.md` documents the public API + a runnable integration example against a `ShellAdapter` consumer surface (e.g., `relayConfig.getNip66Suggestions`) — the example type-checks against the published package barrel.
   5. `.changeset/v1-6-nip66.md` exists authoring `@kehto/nip66@0.1.0` as an initial-publish entry; the package is buildable and ready to publish but is **NOT** yet wired into the demo shell (demo wiring deferred to v1.7+); iteration loop recorded at 54/0/0 (no new E2E specs in this phase — package is publish-only).
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 Plans:
 - [x] 34-01-PLAN.md — Scaffold `packages/nip66/` workspace: `package.json` @ `@kehto/nip66@0.1.0` (ESM, tsup, nostr-tools peer dep, NO @napplet/*), `tsconfig.json`, `tsup.config.ts`, stub `src/index.ts` barrel declaring the 5 public exports with factory throwing `not implemented` until 34-02 (NIP66-01, NIP66-03)
-- [ ] 34-02-PLAN.md — Port hyprgate `nip66-monitor.ts` logic into closure-scoped factory body + vitest suite ≥ 8 tests covering d-tag extraction, N-tag parsing, resync, idempotent start, multi-instance isolation (RED→GREEN) (NIP66-02)
+- [x] 34-02-PLAN.md — Port hyprgate `nip66-monitor.ts` logic into closure-scoped factory body + vitest suite ≥ 8 tests covering d-tag extraction, N-tag parsing, resync, idempotent start, multi-instance isolation (RED→GREEN) (NIP66-02)
 - [ ] 34-03-PLAN.md — Author `packages/nip66/README.md` (public API + ShellAdapter integration) + `.changeset/v1-6-nip66.md` initial-publish entry + record canonical fresh-install iteration loop at 54/0/0 in `34-ITERATION-LOG.md` (NIP66-04, NIP66-05)
 
 ### Phase 35: WM Skeleton + README Cleanup
@@ -137,7 +137,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 32. NUB Dep Consolidation | 2/2 | Complete    | 2026-04-23 |
 | 33. Reserved Chord Surface + E2E-17 | 3/3 | Complete    | 2026-04-23 |
-| 34. `@kehto/nip66` Extract & Publish | 1/3 | In Progress|  |
+| 34. `@kehto/nip66` Extract & Publish | 2/3 | In Progress|  |
 | 35. WM Skeleton + README Cleanup | 0/TBD | Not started | - |
 | 36. PERF-01 + Milestone Close E2E-18 | 0/TBD | Not started | - |
 
