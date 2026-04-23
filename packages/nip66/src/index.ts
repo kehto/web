@@ -103,15 +103,21 @@ export interface Nip66Aggregator {
 }
 
 /**
- * Create a fresh {@link Nip66Aggregator} with closure-scoped state.
+ * Create a NIP-66 kind-30166 relay-discovery aggregator with closure-scoped state.
  *
- * NOTE: The implementation is deferred to Plan 34-02. This stub throws
- * immediately so downstream type-checks against the package resolve against
- * the locked public surface without the real logic port blocking scaffolding.
+ * Subscribes to kind-30166 events via the injected {@link Nip66RelayPool},
+ * extracts relay URLs from `d`-tags, and parses `N`-tags to track which NIP
+ * numbers each relay supports. Multi-instance safe — each factory call owns
+ * its own `Set` + `Map`; multiple aggregators share nothing at module scope.
  *
- * @param _options - See {@link Nip66AggregatorOptions}
- * @returns A {@link Nip66Aggregator} handle (once implemented)
- * @throws Error — always, until Plan 34-02 lands the implementation
+ * The aggregator is framework-agnostic: it knows nothing about negentropy
+ * (NIP-77), OPFS caching, worker relays, or network-type config stores.
+ * Consumers inject those concerns through their {@link Nip66RelayPool}
+ * implementation. `start()` is synchronous and idempotent — consumers
+ * schedule their own cadence (delayed start, retry, etc.).
+ *
+ * @param options - Pool adapter + bootstrap monitor relays (+ optional network filter)
+ * @returns A fresh {@link Nip66Aggregator} handle
  *
  * @example
  * ```ts
@@ -129,8 +135,72 @@ export interface Nip66Aggregator {
  *   bootstrap: ['wss://monitor1.example.com'],
  * });
  * aggregator.start();
+ * // Later — inside a ShellAdapter hook:
+ * const suggestions = Array.from(aggregator.getRelaySet());
  * ```
  */
-export function createNip66Aggregator(_options: Nip66AggregatorOptions): Nip66Aggregator {
-  throw new Error('createNip66Aggregator: not implemented — see Plan 34-02');
+export function createNip66Aggregator(options: Nip66AggregatorOptions): Nip66Aggregator {
+  // ─── Closure-scoped state — each factory call owns its own instance. ───────
+  const relaySet = new Set<string>();
+  const relaySupportedNips = new Map<string, Set<number>>();
+  let unsubscribe: (() => void) | null = null;
+
+  // ─── Internal helpers ─────────────────────────────────────────────────────
+  function buildFilter(): Nip66Filter {
+    const filter: Nip66Filter = { kinds: [30166] };
+    if (options.networks && options.networks.length > 0) {
+      filter['#n'] = options.networks;
+    }
+    return filter;
+  }
+
+  function processEvent(event: NostrEvent): void {
+    const dTag = event.tags.find((t) => t[0] === 'd');
+    const relayUrl = dTag?.[1];
+    if (!relayUrl) return;
+    relaySet.add(relayUrl);
+
+    const nips = new Set<number>();
+    for (const tag of event.tags) {
+      if (tag[0] === 'N' && tag[1]) {
+        const nipNum = parseInt(tag[1], 10);
+        if (!Number.isNaN(nipNum)) nips.add(nipNum);
+      }
+    }
+    if (nips.size > 0) relaySupportedNips.set(relayUrl, nips);
+  }
+
+  // ─── Public methods ───────────────────────────────────────────────────────
+  function start(): void {
+    if (unsubscribe) return; // idempotent — already subscribed
+    unsubscribe = options.pool.subscribe(options.bootstrap, buildFilter(), processEvent);
+  }
+
+  function resync(): void {
+    if (unsubscribe) {
+      unsubscribe();
+      unsubscribe = null;
+    }
+    relaySet.clear();
+    relaySupportedNips.clear();
+    unsubscribe = options.pool.subscribe(options.bootstrap, buildFilter(), processEvent);
+  }
+
+  function getRelaySet(): ReadonlySet<string> {
+    return relaySet;
+  }
+
+  function getRelaysSupportingNip(nip: number): string[] {
+    const result: string[] = [];
+    for (const [url, nips] of relaySupportedNips) {
+      if (nips.has(nip)) result.push(url);
+    }
+    return result;
+  }
+
+  function relaySupportsNip(url: string, nip: number): boolean {
+    return relaySupportedNips.get(url)?.has(nip) ?? false;
+  }
+
+  return { start, resync, getRelaySet, getRelaysSupportingNip, relaySupportsNip };
 }
