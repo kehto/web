@@ -138,7 +138,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 32. NUB Dep Consolidation | 2/2 | Complete   | 2026-04-23 |
+| 32. NUB Dep Consolidation | 2/2 | Complete    | 2026-04-23 |
 | 33. Cache Service + HostCacheBridge | 0/TBD | Not started | - |
 | 34. Reserved Chord Surface + E2E-17 | 0/TBD | Not started | - |
 | 35. `@kehto/nip66` Extract & Publish | 0/TBD | Not started | - |
