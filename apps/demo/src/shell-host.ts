@@ -453,19 +453,45 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
     onChange: notificationOnChange,
     maxPerWindow: 50,
   });
-  // Plan 26-03 (KEYS-03): real keys backend wired. The onForward callback now
+  // Plan 26-03 (KEYS-03): real keys backend wired. The onForward callback
   // records each chord delivery via the demo's console + diagnostic log (host-side
   // evidence of real delivery). The service itself attaches a document-level keydown
   // listener AND emits keys.action pushes to the owning napplet (Plan 26-01); the
   // keys-forwarder.ts path (ACL-gated iframe broadcast of keys.forward) is unchanged
   // and remains authoritative for shell → napplet fan-out.
+  //
+  // Phase 33 / KEYS-04..06 (E2E-17): the demo reserves `Ctrl+Shift+R` so the
+  // Layer-B Playwright spec (`tests/e2e/reserved-chord.spec.ts`) can assert the
+  // reserved > registered precedence contract end-to-end. The hotkey-chord napplet
+  // registers `Ctrl+Shift+K` via `keys.registerAction`
+  // (apps/demo/napplets/hotkey-chord/src/main.ts:25) — disjoint from the reserved
+  // set, so the existing hotkey-chord E2E (E2E-12) is unaffected. The shell-side
+  // sentinel `#reserved-chord-last-fired` is updated on every onForward fire so
+  // the E2E can observe forward delivery without needing a frameLocator round-trip.
   const keysService = createKeysService({
+    reservedChords: ['Ctrl+Shift+R'],
     onForward: (event) => {
       console.info(
         '[demo] keys real backend — chord delivered:',
         event.key,
         { ctrl: event.ctrlKey, alt: event.altKey, shift: event.shiftKey, meta: event.metaKey },
       );
+      // Phase 33: shell-side DOM sentinel for E2E-17 observation. Writes the
+      // canonical chord string (modifiers + key) so the spec can assert on
+      // exact match. Updated on every onForward fire (reserved AND non-reserved
+      // keydowns that match a registered chord both pass through here — the
+      // spec asserts the reserved chord specifically so the value MUST be
+      // 'Ctrl+Shift+R' after page.keyboard.press('Control+Shift+KeyR')).
+      const sentinel = document.getElementById('reserved-chord-last-fired');
+      if (sentinel) {
+        const parts: string[] = [];
+        if (event.ctrlKey) parts.push('Ctrl');
+        if (event.altKey) parts.push('Alt');
+        if (event.shiftKey) parts.push('Shift');
+        if (event.metaKey) parts.push('Meta');
+        parts.push(event.key.length === 1 ? event.key.toUpperCase() : event.key);
+        sentinel.textContent = parts.join('+');
+      }
     },
   });
   // Plan 27-03 (MEDIA-03): real media backend wired. The onSessionCreate callback
@@ -923,6 +949,31 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
     console.info('[demo] __grantMediaControl__: granted media:control to media-controller');
     return true;
   };
+
+  // ─── Phase 33 (E2E-17): shell-side sentinel for reserved-chord observation ──
+  // Creates a small diagnostic element the Playwright spec asserts against
+  // after pressing the reserved chord (Ctrl+Shift+R). Rendered once per demo
+  // boot; attached to document.body so the spec can read it without frameLocator
+  // traversal. Initial text is the empty string — the onForward callback
+  // (declared above in createKeysService) overwrites it on the first chord
+  // delivery, writing the canonical chord string (e.g. 'Ctrl+Shift+R').
+  const reservedChordSentinel = document.createElement('div');
+  reservedChordSentinel.id = 'reserved-chord-last-fired';
+  reservedChordSentinel.setAttribute('data-testid', 'reserved-chord-last-fired');
+  reservedChordSentinel.style.cssText = [
+    'position: fixed',
+    'bottom: 4px',
+    'right: 4px',
+    'padding: 2px 8px',
+    'font: 11px/1.4 monospace',
+    'color: #888',
+    'background: rgba(0,0,0,0.4)',
+    'border-radius: 3px',
+    'z-index: 9999',
+    'pointer-events: none',
+  ].join('; ');
+  reservedChordSentinel.textContent = '';
+  document.body.appendChild(reservedChordSentinel);
 
   return { tap, relay };
 }
