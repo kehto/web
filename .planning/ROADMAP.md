@@ -115,7 +115,10 @@ Plans:
   3. Root `README.md` no longer contains the `pnpm.overrides` `link:` consumer-recommendation block OR the "`@napplet/core` not yet on npm" claim; the Quick-Integration Example block shows a clean `pnpm add @kehto/runtime @napplet/shim @napplet/nub` (single consolidated `@napplet/nub`) from the registry, matching hyprgate v2.0's actual pins — verified against a clean-install smoke (throwaway dir, `pnpm add` succeeds, example code type-checks).
   4. `turbo run build` and `turbo run type-check` succeed across the full workspace (including the new `@kehto/wm` package) with no regressions.
   5. Iteration loop recorded at **54 passed / 0 failed / 0 skipped** (same as Phase 33 close; no new E2E specs this phase — skeleton is docs/types only); anti-term sweep clean.
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 35-01-PLAN.md — Squash-merge PR #7 (@kehto/wm skeleton) + verify pnpm/turbo auto-pickup at 24/24 successful (WM-01, WM-02, WM-03)
+- [ ] 35-02-PLAN.md — Rewrite README.md line 93 stale claim (registry install + @napplet/nub>@napplet/core pin) + record 35-ITERATION-LOG.md at 54/0/0 (DOCS-04, DOCS-05)
 
 ### Phase 36: PERF-01 + Milestone Close E2E-18
 **Goal**: The chat napplet's AUTHENTICATED→READY transition stops issuing 18+ serial `storage.get` round-trips (v1.5 audit finding) — either via a batched `storage.getMany` envelope, parallelized `Promise.all`, or a boot-time preload map. Cumulative request count drops ≥50%. The canonical v1.6 milestone iteration loop closes green, locking in everything v1.6 shipped.
@@ -138,7 +141,7 @@ Plans:
 | 32. NUB Dep Consolidation | 2/2 | Complete    | 2026-04-23 |
 | 33. Reserved Chord Surface + E2E-17 | 3/3 | Complete    | 2026-04-23 |
 | 34. `@kehto/nip66` Extract & Publish | 3/3 | Complete    | 2026-04-23 |
-| 35. WM Skeleton + README Cleanup | 0/TBD | Not started | - |
+| 35. WM Skeleton + README Cleanup | 0/2 | Not started | - |
 | 36. PERF-01 + Milestone Close E2E-18 | 0/TBD | Not started | - |
 
 ---
