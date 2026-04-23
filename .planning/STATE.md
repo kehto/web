@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: — Downstream Unblock & Shell Service Surface
-status: executing
-last_updated: "2026-04-23T09:17:27.023Z"
+status: planning
+last_updated: "2026-04-23T09:22:35.323Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 5
   completed_plans: 5
-  percent: 80
+  percent: 40
 ---
 
 # Project State
@@ -28,10 +28,10 @@ Phase: 33 (Reserved Chord Surface + E2E-17) — COMPLETE
 Plan: 3 of 3 complete (all plans landed; Phase 33 closed)
 **Milestone:** v1.6 Downstream Unblock & Shell Service Surface
 **Phase numbering:** 32 → 36 (continues from v1.5 close at Phase 31; original Phase 33 "Cache Service" dropped 2026-04-23 — see Roadmap Summary note)
-**Phase:** 33 (Reserved Chord Surface) — **Complete**
-**Plan:** 33-01 complete (KEYS-04, KEYS-05); 33-02 complete (KEYS-06); 33-03 complete (E2E-17)
+**Phase:** 34
+**Plan:** Not started
 **Next Phase:** 34 (`@kehto/nip66` Extract & Publish — NIP66-01..05)
-**Status:** Phase 33 closed; Phase 34 ready to plan
+**Status:** Ready to plan
 **Last activity:** 2026-04-23
 
 Progress: [████░░░░░░] 40% (2/5 phases complete; 5/5 plans in Phases 32+33 complete — 10 total plans still pending across Phases 34–36)
