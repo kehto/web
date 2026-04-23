@@ -24,6 +24,7 @@
  *   - No global message-event listener (OUTBOUND-ONLY napplet)
  */
 import '@napplet/shim';
+import { identity } from '@napplet/sdk';
 
 const statusEl = document.getElementById('theme-status')!;
 const lightBtn = document.getElementById('theme-light-btn') as HTMLButtonElement;
@@ -120,9 +121,11 @@ customBtn.addEventListener('click', () => {
 // ── Init ────────────────────────────────────────────────────────────────────
 
 /**
- * Flip status sentinel to 'authenticated'. The shim bootstraps AUTH implicitly;
- * this napplet has no async setup beyond the status flip (theme broadcast fires
- * from button handlers, not init).
+ * Flip status sentinel to 'authenticated'. A single identity.getPublicKey()
+ * call on boot triggers the shell's Path B AUTH detection (first
+ * napplet->shell envelope flips the outer topology card sentinel) without
+ * the vestigial storage probe deleted in Phase 36-01. Theme broadcast still
+ * fires from button handlers, not init.
  *
  * Status sentinel contract (Plan 20-07 greps for these strings):
  *   'connecting...' — HTML default (before init runs)
@@ -130,11 +133,12 @@ customBtn.addEventListener('click', () => {
  *   'auth failed'   — set if init throws unexpectedly
  */
 async function init(): Promise<void> {
+  await identity.getPublicKey();
   setStatus('authenticated', 'green');
   log('ready to broadcast theme');
 }
 
 init().catch((err) => {
   setStatus('auth failed', 'red');
-  log(`init failed — ${formatError(err, 'auth/storage failure')}`);
+  log(`init failed — ${formatError(err, 'init failure')}`);
 });

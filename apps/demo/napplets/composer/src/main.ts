@@ -11,7 +11,7 @@
  *   no legacy bus enums, no global nostr accessor. Shim handles AUTH implicitly.
  */
 import '@napplet/shim';
-import { relay, type EventTemplate } from '@napplet/sdk';
+import { identity, relay, type EventTemplate } from '@napplet/sdk';
 
 const statusEl = document.getElementById('composer-status')!;
 const inputEl = document.getElementById('composer-input') as HTMLInputElement;
@@ -98,15 +98,18 @@ inputEl.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') void publish();
 });
 
-// Initialize the napplet — flip the status sentinel to 'authenticated' once
-// handlers are wired. The shim fires AUTHENTICATED from bootstrap signal
-// directly (v1.4 Phase 24+ runtime).
+// Initialize the napplet. A single identity.getPublicKey() call triggers
+// the shell's Path B AUTH detection (first napplet->shell envelope flips
+// #composer-status on the outer topology card to 'authenticated') without
+// incurring the vestigial storage probe deleted in Phase 36-01. Result is
+// discarded — the call is a lightweight AUTH-trigger, not a data dependency.
 async function init(): Promise<void> {
+  await identity.getPublicKey();
   setStatus('authenticated', 'green');
   log('ready to publish');
 }
 
 init().catch((err) => {
   setStatus('auth failed', 'red');
-  log(`init failed — ${formatError(err, 'auth/storage failure')}`);
+  log(`init failed — ${formatError(err, 'init failure')}`);
 });

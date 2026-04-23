@@ -30,6 +30,7 @@
  * — shim fires AUTHENTICATED from bootstrap; no probe needed.
  */
 import '@napplet/shim';
+import { identity } from '@napplet/sdk';
 
 const statusEl = document.getElementById('toaster-status')!;
 const titleEl = document.getElementById('toaster-title') as HTMLInputElement;
@@ -187,9 +188,12 @@ window.addEventListener('message', (event: MessageEvent) => {
   }
 });
 
-// Initialize: flip status to 'authenticated'. No async setup beyond the flip —
-// notify.* flows run from button handlers + the one documented message listener.
+// Initialize: a single identity.getPublicKey() call triggers the shell's Path B
+// AUTH detection (first napplet->shell envelope flips the outer topology card
+// sentinel) without the vestigial storage probe deleted in Phase 36-01.
+// notify.* flows still run from button handlers + the one documented message listener.
 async function init(): Promise<void> {
+  await identity.getPublicKey();
   setStatus('authenticated', 'green');
   log('ready to notify');
 }
