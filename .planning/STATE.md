@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: — Downstream Unblock & Shell Service Surface
-status: executing
-last_updated: "2026-04-23T11:30:51Z"
+status: planning
+last_updated: "2026-04-23T11:38:29.986Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 5
@@ -28,10 +28,10 @@ Phase: 35 (WM Skeleton + README Cleanup) — COMPLETE
 Plan: 2 of 2 (35-01 ✓ + 35-02 ✓ complete; all 5 REQ-IDs closed)
 **Milestone:** v1.6 Downstream Unblock & Shell Service Surface
 **Phase numbering:** 32 → 36 (continues from v1.5 close at Phase 31; original Phase 33 "Cache Service" dropped 2026-04-23 — see Roadmap Summary note)
-**Phase:** 35
-**Plan:** 35-01 complete (WM-01/02/03 closed); 35-02 complete (DOCS-04/05 closed at 54/0/0)
+**Phase:** 36
+**Plan:** Not started
 **Next Phase:** 36 (`PERF-01 + Milestone Close E2E-18`) — READY
-**Status:** Phase 35 complete (2/2 plans; 5/5 REQ-IDs)
+**Status:** Ready to plan
 **Last activity:** 2026-04-23
 
 Progress: [████████████████████░] 95% (4/5 phases complete; 10/10 plans complete — 35-02 closed DOCS-04/05 at 54/0/0 with turbo 24 build / 10 type-check preserved)
