@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: — Downstream Unblock & Shell Service Surface
-status: executing
-last_updated: "2026-04-23T13:24:00.694Z"
+status: milestone-ready
+last_updated: "2026-04-23T13:37:43.081Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 12
-  completed_plans: 11
+  completed_plans: 12
   percent: 92
 ---
 
@@ -20,21 +20,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-23, v1.6 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 36 — PERF-01 + Milestone Close E2E-18
+**Current focus:** v1.6 milestone COMPLETE (21/21 reqs) — ready for /gsd:complete-milestone
 
 ## Current Position
 
-Phase: 36 (PERF-01 + Milestone Close E2E-18) — EXECUTING
-Plan: 2 of 2
-**Milestone:** v1.6 Downstream Unblock & Shell Service Surface
+Phase: 36 (PERF-01 + Milestone Close E2E-18) — **COMPLETE**
+Plan: 2 of 2 — **COMPLETE**
+**Milestone:** v1.6 Downstream Unblock & Shell Service Surface — **COMPLETE (21/21 reqs)**
 **Phase numbering:** 32 → 36 (continues from v1.5 close at Phase 31; original Phase 33 "Cache Service" dropped 2026-04-23 — see Roadmap Summary note)
 **Phase:** 36
-**Plan:** 36-01 complete (PERF-01 closed); next is 36-02 (E2E-18 milestone-close iteration loop)
-**Next Phase:** 36 (`PERF-01 + Milestone Close E2E-18`) — IN PROGRESS
-**Status:** Executing Phase 36
+**Plan:** 36-02 complete (E2E-18 + milestone close iteration loop at 54/0/0)
+**Next Phase:** None — milestone lifecycle next (/gsd:complete-milestone — changeset publish + audit + archive)
+**Status:** Milestone ready (v1.6 Downstream Unblock & Shell Service Surface — 21/21 reqs, 54/0/0 E2E baseline, 10-pattern anti-term sweep clean)
 **Last activity:** 2026-04-23
 
-Progress: [███████████████████░░] 92% (4/5 phases complete; 11/12 plans complete — 36-01 deleted 7 vestigial auth-probes + scrubbed D-04 prose across 10 napplets + 6 E2E specs; build 24/24 + type-check 10/10 preserved; E2E regression validation in Plan 36-02)
+Progress: [██████████] 100% (5/5 phases complete; 12/12 plans complete — 36-02 ran canonical v1.6 fresh-install loop at 54/0/0; caught + fixed a 3-napplet AUTHENTICATED regression via identity.getPublicKey replacement for composer/theme-switcher/toaster; v1.6 milestone-wide anti-term sweep clean across Phases 32-36 cumulative delta — 10 patterns, 158 grep-positives, zero napplet-code violations)
 
 ## Roadmap Summary
 
@@ -44,7 +44,7 @@ Progress: [███████████████████░░] 92% 
 | 33 | Reserved Chord Surface + E2E-17 | KEYS-04..06, E2E-17 | 4 ✓ Complete |
 | 34 | `@kehto/nip66` Extract & Publish | NIP66-01..05 | 5 ✓ Complete |
 | 35 | WM Skeleton + README Cleanup | WM-01..03, DOCS-04..05 | 5 ✓ Complete |
-| 36 | PERF-01 + Milestone Close E2E-18 | PERF-01, E2E-18 | 5 |
+| 36 | PERF-01 + Milestone Close E2E-18 | PERF-01, E2E-18 | 2 ✓ Complete |
 
 **Scope change (2026-04-23):** Original Phase 33 (Cache Service + HostCacheBridge) dropped. Existing `createCacheService` in `packages/services/src/cache-service.ts` already provides the `hostBridge`-style injection hyprgate#1 asked for — the `CacheServiceOptions` object IS the bridge. Commented on kehto#1 with integration example; issue open for optional future polish (rename → `HostCacheBridge`, v1.7+). CACHE-01..05 moved to Future Requirements. Phases 34-37 renumbered → 33-36.
 
@@ -80,8 +80,8 @@ Full decision log (v1.0 → v1.5) archived in `.planning/PROJECT.md` Key Decisio
 
 ## Session Continuity
 
-Last session: 2026-04-23T13:23:34.506Z
-Resume: **Phase 36 Plan 01 COMPLETE — PERF-01 closed; all 7 vestigial auth-probes deleted + D-04 / AUTH-probe comment prose scrubbed across 10 napplets + 6 E2E specs.** Plan 36-01 Task 1 commit c45e4e1 (feat): deleted `storage.getItem('<slug>-auth-probe')` calls from composer/feed/hotkey-chord/media-controller/profile-viewer/theme-switcher/toaster; collapsed surrounding try/catch (probe was sole wrapped statement in every file); `setStatus('authenticated', 'green')` now fires as first statement of init body; 7 unused `storage` imports dropped (probe was last consumer). Task 2 commit ce1c005 (docs): scrubbed D-04 / `shim AUTH completion` / `gates on AUTH` / `AUTH probe` prose from all 10 demo napplet main.ts files + 6 E2E spec files (identity-flow, napplet-auth, media-controller, hotkey-chord, relay-subscribe, nub-theme); comment-only — zero behavior change. Residual sweep surfaced 5 file-header JSDoc mentions Task 1 targeted-Edit patterns didn't cover (composer lines 7 + 102, profile-viewer line 12, chat line 10, theme-switcher line 4, toaster line 4) — all handled in Task 2 (Rule 2 deviation). Final greps: `auth-probe` / `D-04` / `AUTH probe` in napplets + E2E = 0. Build + type-check preserved at Phase 35 close baselines: 24/24 + 10/10 FULL TURBO. Regression anchor (demo-concurrent-boot.spec.ts) UNCHANGED; AUTHENTICATED-for-all-10-napplets assertion validates in Plan 36-02's iteration loop. v1.6 progress: 18/21 → **19/21 reqs closed**; remaining is E2E-18 (Plan 36-02).
+Last session: 2026-04-23T13:37:43.078Z
+Resume: **Phase 36 Plan 02 COMPLETE — E2E-18 closed + v1.6 milestone 21/21 reqs COMPLETE. Ready for /gsd:complete-milestone.** Plan 36-02 ran canonical v1.6 fresh-install iteration loop (rm -rf + install + build + type-check + test:e2e). First e2e attempt caught a 3-napplet AUTHENTICATED regression from Plan 36-01: the deleted storage probes for composer/theme-switcher/toaster were load-bearing — these OUTBOUND-ONLY napplets had no other boot-time SDK call, so Path B AUTH detection (first napplet→shell envelope) never fired, leaving them stuck at `loading...` on the outer topology card. Fix commit dd9b5af (fix): added `await identity.getPublicKey()` to each init — a single honest AUTH-trigger call (same pattern profile-viewer uses); result discarded; zero anti-term residue. Re-ran e2e green at **54 passed / 0 failed / 0 skipped (18.4s)**. Iteration log commit 24a0887 (docs): 299 lines canonical v1.6 milestone-close evidence + 10-pattern anti-term sweep (158 grep-positives, all classified, zero napplet-code violations) + PERF-01 per-napplet storage.getItem inventory (post-fix 8 total: bot=1, chat=2, preferences=5, all others=0; delta -20 from pre-fix 28) + full SHA lineage. Turbo task counts preserved: 24 build + 10 type-check (Phase 35 close baseline intact). v1.6 milestone: **21/21 reqs closed** (PERF-01 + E2E-18 added to the 19 through Phase 35). Ready for /gsd:complete-milestone lifecycle (changeset publish → milestone audit → archive to .planning/milestones/v1.6-ROADMAP.md).
 
 ## Decisions
 
@@ -115,3 +115,6 @@ Resume: **Phase 36 Plan 01 COMPLETE — PERF-01 closed; all 7 vestigial auth-pro
 - [Phase 35-wm-skeleton-readme-cleanup]: Enforcement-prose grep-positives carried forward from Phase 33 Decision (Plan 35-02). Anti-term sweeps on `packages/wm/**` + `README.md` returned 2 grep-positives, both on README line 94 NIP-5D anti-features bullet (the bullet says `window.nostr is not injected... sandbox uses allow-scripts without allow-same-origin` — ABSENCE documentation, not USE). Iteration log table column 'Status' explicitly reads 'enforcement-prose — asserts ABSENCE' for these. Phase 33 established this precedent for napplet-source JSDoc; Phase 35-02 extends it to README enforcement prose. Future docs/README changes should annotate the same way.
 - [Phase 35-wm-skeleton-readme-cleanup]: Docs/types-only phase closure at flat E2E count + explicit delta-0 note (Plan 35-02 iteration log). Mirrors Phase 34's publish-only phase pattern (log records 'delta 0 from Phase 34 close' tied to phase-scope contract per CONTEXT.md <domain>). Distinguishes 'no regression detected' from 'no work done' — phase ships docs edits + iteration log, but E2E dimension is deliberately unchanged. Reusable pattern for future docs-only or types-only milestone-close phases.
 - [Phase 36]: Two-commit vestigial-cleanup discipline (Plan 36-01). feat() commit for behavior delete (7 storage.getItem probes + try/catch collapse + import drops), docs() commit for prose scrub (D-04 / AUTH probe / shim AUTH completion across 10 napplets + 6 E2E specs). Bisect-clean separation: git log --oneline distinguishes 'removed dead code' from 'documentation sweep' on the same milestone-close cleanup. Reusable pattern for any future audit-then-delete work where the prose-scrub surface is wider than the code surface.
+- [Phase 36]: [Phase 36]: AUTH-trigger lightweight-replacement pattern (Plan 36-02 regression fix). When deleting a vestigial envelope-generating call (e.g., storage probe) on boot, check whether the napplet has any OTHER boot-time SDK call; if not, replace with an honest lightweight call (identity.getPublicKey() is the canonical choice, already used by profile-viewer) rather than leaving the napplet with no boot envelope. Preserves shell Path B AUTH-detection semantics without re-introducing the probe's anti-term residue. Reusable for any future vestigial-delete phase touching OUTBOUND-ONLY napplets.
+- [Phase 36]: [Phase 36]: Regression-fix-during-iteration-loop discipline (Plan 36-02). When the iteration loop catches a regression from the preceding plan's work, apply the fix as a fix(XX-NN) commit PRIOR to writing the iteration log, then re-run the loop, then write the log recording both the first-attempt failure + the fix + the successful re-run. Preserves evidence of what the loop caught while allowing the log to report a green final state. Formalized in Plan 36-02 FAILURE HANDLING; reusable for any future milestone-close iteration that uncovers a regression.
+- [Phase 36]: [Phase 36]: Milestone-close cumulative-delta anti-term sweep (Plan 36-02). First v1.6 sweep covering every Phase 32-36 touch path in one pass (prior phase sweeps scoped only to that phase's delta). 10 patterns + 158 grep-positives classified into 6 categories (enforcement-prose / regex patterns / documented deviations / shell-internal Signer adapter / resolve-to-null test assertions / pre-existing shell observers). Classification baselines follow Phase 33/35 Decision precedents. Template for future milestone-close phases: each new milestone's anti-term list adds rows; cumulative-delta scope remains the milestone-close convention.

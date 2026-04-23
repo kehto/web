@@ -88,7 +88,7 @@ v1.5 audit flagged chat napplet boot issuing 18+ serial `storage.get` round-trip
 ### Category 7: E2E Coverage (E2E — continued from v1.5) — new specs
 
 - [x] **E2E-17**: New Layer-B Playwright spec locking the KEYS-04 / KEYS-05 reserved-chord contract — a reserved chord forwarded via `keys.forward` fires the shell handler and does NOT reach a napplet that claimed the same chord.
-- [ ] **E2E-18**: Layer-B Playwright fresh-build iteration loop records `pnpm clean && pnpm build && pnpm test:e2e` green at ≥ 54 passed / 0 failed / 0 skipped (baseline 53 + E2E-17) with the v1.6 milestone close commit.
+- [x] **E2E-18**: Layer-B Playwright fresh-build iteration loop records `pnpm clean && pnpm build && pnpm test:e2e` green at ≥ 54 passed / 0 failed / 0 skipped (baseline 53 + E2E-17) with the v1.6 milestone close commit.
 
 ---
 
@@ -154,7 +154,7 @@ Which phases cover which requirements. Populated by gsd-roadmapper during roadma
 | DOCS-04 | Phase 35 | Complete |
 | DOCS-05 | Phase 35 | Complete |
 | PERF-01 | Phase 36 | Complete |
-| E2E-18 | Phase 36 | Pending |
+| E2E-18 | Phase 36 | Complete |
 
 **Coverage:**
 - v1 requirements: 21 total (CACHE-01..05 dropped 2026-04-23 — existing code already provides the functionality; see Scope-in table above)
