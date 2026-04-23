@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: — Downstream Unblock & Shell Service Surface
 status: executing
-last_updated: "2026-04-23T07:50:23.107Z"
+last_updated: "2026-04-23T08:06:08.999Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
-  percent: 50
+  completed_plans: 2
+  percent: 17
 ---
 
 # Project State
@@ -20,20 +20,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-23, v1.6 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 32 — NUB Dep Consolidation
+**Current focus:** Phase 33 — Cache Service + HostCacheBridge (next)
 
 ## Current Position
 
-Phase: 32 (NUB Dep Consolidation) — EXECUTING
-Plan: 2 of 2 (Plan 32-01 COMPLETE, 32-02 pending)
+Phase: 32 (NUB Dep Consolidation) — COMPLETE
+Plan: 2 of 2 (Plan 32-01 COMPLETE bb1061e, Plan 32-02 COMPLETE a4d0652 + 5adeb52)
 **Milestone:** v1.6 Downstream Unblock & Shell Service Surface
 **Phase numbering:** 32 → 37 (continues from v1.5 close at Phase 31)
-**Phase:** In progress — Plan 32-01 complete (atomic DEP-01..03 migration), Plan 32-02 pending (E2E iteration loop + DEP-04 changesets + DEP-05 fresh-install smoke)
-**Plan:** 32-02 next
-**Status:** Executing Phase 32
+**Phase:** Complete — DEP-01..05 all satisfied. Plan 32-01 atomic DEP-01..03 migration (35 files); Plan 32-02 DEP-04 (4 @kehto/* minor-bump changesets with pnpm.overrides downstream advisory) + DEP-05 (fresh-install iteration loop 53/0/0 at 18.3s, zero dual-instance warnings).
+**Plan:** Phase 33 Plan 01 next (Cache Service + HostCacheBridge, CACHE-01..05)
+**Status:** Phase 32 closed; Phase 33 ready to plan
 **Last activity:** 2026-04-23
 
-Progress: [█████░░░░░] 50% of phase 32 (1/2 plans complete); 0/6 phases complete overall
+Progress: [██████████] 100% of phase 32 (2/2 plans complete); 1/6 phases complete overall
 
 ## Roadmap Summary
 
@@ -75,11 +75,14 @@ Full decision log (v1.0 → v1.5) archived in `.planning/PROJECT.md` Key Decisio
 
 ## Session Continuity
 
-Last session: 2026-04-23T07:50:23.104Z
-Resume: Plan 32-01 complete (atomic DEP-01..03 migration committed bb1061e: 35 files, turbo build + type-check + 480 unit tests all green; lockfile importer blocks clean; pnpm.overrides added for upstream @napplet/nub@0.2.1 publish-specifier bug). Next: execute Plan 32-02 for E2E iteration loop (baseline 53/0/0) + DEP-04 changesets + DEP-05 fresh-install smoke. CHANGELOG.md `@napplet/nub-*` residue intentionally preserved as historical records (5 occurrences across 4 files).
+Last session: 2026-04-23T08:06:08.996Z
+Resume: Phase 32 COMPLETE. All 5 DEP REQ-IDs satisfied. Commits: bb1061e (32-01 atomic migration), 5adeb52 (32-02 changesets), a4d0652 (32-02 iteration loop + Rule 1 subpath-variant fix). Canonical fresh-install iteration loop reports 53/0/0 (18.3s, baseline preserved from v1.5 close); zero dual-instance warnings in build+E2E logs; 4 @kehto/* changesets staged with minor bump and inline pnpm.overrides advisory. Next: plan Phase 33 (Cache Service + HostCacheBridge, CACHE-01..05).
 
 ## Decisions
 
 - **2026-04-23:** Added pnpm.overrides `@napplet/nub>@napplet/core: ^0.2.1` at workspace root. @napplet/nub@0.2.1 tarball shipped with unresolved `workspace:*` specifier — publish-time rewrite did not fire. Override pins transitive to published core ^0.2.1. Extends Decision #11 (pnpm.overrides for @napplet/core dedup, v1.3) one hop deeper. Remove when upstream re-publishes.
 - **2026-04-23:** CHANGELOG.md scope exclusion for anti-term sweep. 4 CHANGELOG.md files carry 5 `@napplet/nub-*` substring occurrences in historical release-note entries. Preserved unchanged — rewriting would falsify package history. Mirrors plan's @napplet/sdk transitive-residue exclusion. Plan 32-02 anti-term verification sweeps use `| grep -v CHANGELOG.md` filter.
 - **2026-04-23:** Comment-prose scope extension for Plan 32-01. Plan Parts C+D enumerated 4 files; pre-flight surfaced 13 more source/test/doc files carrying `@napplet/nub-<domain>` substrings in JSDoc, comments, inline prose, and 2 regex test patterns. All rewritten in the same atomic commit (bb1061e) per plan's own pre-flight instruction ("append to file list and Part D rewrite list before proceeding"). Scope-aligned, not scope-expanded.
+- **2026-04-23:** Changeset prose for Phase 32 (4 files) includes the `pnpm.overrides @napplet/nub>@napplet/core: ^0.2.1` workaround inline as a downstream consumer advisory, not just as a TODO. Shells pulling the next @kehto/*@0.3.0 releases will hit the same upstream @napplet/nub@0.2.1 workspace:* publish bug Plan 32-01 hit; documenting the workaround inline avoids forcing downstream to rediscover it. Remove when upstream re-publishes.
+- **2026-04-23:** Subpath-variant selection rule (Plan 32-02 Rule 1 auto-fix). For non-type imports from `@napplet/nub/<domain>` when `@napplet/shim` is loaded: use the `/<domain>/sdk` subpath (no side effects — pure re-exports). The root `/<domain>` subpath calls `registerNub(DOMAIN, ...)` at module-init time, which collides with `@napplet/shim`'s own `registerNub` and throws "NUB domain X is already registered". Standalone SDK consumers (no shim) can use the root subpath. `/types` is type-only and never a concern. This rule applied to `apps/demo/napplets/media-controller/src/main.ts`; captured in 32-02 SUMMARY `patterns-established` for future migrations.
+- **2026-04-23:** Turbo-cache purge before evidenced builds (Plan 32-02 pattern). Fresh-install iteration loops now explicitly `rm -rf .turbo packages/*/.turbo apps/demo/.turbo apps/demo/napplets/*/.turbo tests/e2e/harness/.turbo` before `pnpm build` to force every task uncached. Guards against the failure mode where turbo replays a cached task and hides a new regression. Plan 32-02 showed `Cached: 0 cached, 22 total` — every task executed cold.

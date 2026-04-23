@@ -72,8 +72,8 @@ Migrate every `@kehto/*` package from 8 split `@napplet/nub-{domain}@0.2.1` peer
 - [x] **DEP-01**: `@kehto/acl`, `@kehto/runtime`, `@kehto/shell`, `@kehto/services` each declare `@napplet/nub@^0.2.1` as their sole NUB peer/dev dep. All 8 `@napplet/nub-{identity,ifc,keys,media,notify,relay,storage,theme}` entries removed from every `packages/*/package.json`.
 - [x] **DEP-02**: Every in-repo TS import reading from `@napplet/nub-{domain}` is rewritten to the `@napplet/nub/{domain}` subpath form (`/types`, `/shim`, `/sdk` subpaths where applicable). Verified via `grep -r '@napplet/nub-' packages/ apps/ tests/` returning 0 matches.
 - [x] **DEP-03**: `pnpm-lock.yaml` contains zero `@napplet/nub-*` resolved entries post-install; exactly one `@napplet/nub@0.2.1` resolution.
-- [ ] **DEP-04**: Changesets authored for each `@kehto/*` package documenting the peer-dep migration (minor bump — public peer surface changed).
-- [ ] **DEP-05**: Downstream smoke: fresh clone + `pnpm install` + `pnpm build` + `pnpm test:e2e` green at 53/0/0; no dual-instance warnings in any build log.
+- [x] **DEP-04**: Changesets authored for each `@kehto/*` package documenting the peer-dep migration (minor bump — public peer surface changed).
+- [x] **DEP-05**: Downstream smoke: fresh clone + `pnpm install` + `pnpm build` + `pnpm test:e2e` green at 53/0/0; no dual-instance warnings in any build log.
 
 ### Category 5: Reserved Chord Surface (KEYS — continued from v1.4) — kehto#8
 
@@ -158,8 +158,8 @@ Which phases cover which requirements. Populated by gsd-roadmapper during roadma
 | DEP-01 | Phase 32 | Complete |
 | DEP-02 | Phase 32 | Complete |
 | DEP-03 | Phase 32 | Complete |
-| DEP-04 | Phase 32 | Pending |
-| DEP-05 | Phase 32 | Pending |
+| DEP-04 | Phase 32 | Complete |
+| DEP-05 | Phase 32 | Complete |
 | KEYS-04 | Phase 34 | Pending |
 | KEYS-05 | Phase 34 | Pending |
 | KEYS-06 | Phase 34 | Pending |

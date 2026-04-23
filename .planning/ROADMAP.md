@@ -45,7 +45,7 @@
 
 ## Phases
 
-- [ ] **Phase 32: NUB Dep Consolidation** — Migrate all 4 `@kehto/*` packages from split `@napplet/nub-*` peer deps to the consolidated `@napplet/nub@^0.2.1` package with subpath imports; changesets + 53/0/0 baseline preserved.
+- [x] **Phase 32: NUB Dep Consolidation** — Migrate all 4 `@kehto/*` packages from split `@napplet/nub-*` peer deps to the consolidated `@napplet/nub@^0.2.1` package with subpath imports; changesets + 53/0/0 baseline preserved. (completed 2026-04-23)
 - [ ] **Phase 33: Cache Service + HostCacheBridge** — Ship `createCacheService` with default in-memory body + optional `HostCacheBridge` delegation (pattern-mirror Keys/Media), exported from `@kehto/services` with README.
 - [ ] **Phase 34: Reserved Chord Surface + E2E-17** — Extend `createKeysService` with reserved-chord precedence (reserved > registered); Keys README section; Layer-B Playwright spec locks the contract; baseline rises to 54.
 - [ ] **Phase 35: `@kehto/nip66` Extract & Publish** — Stand up the new `packages/nip66` workspace; `createNip66Aggregator` factory; README + changeset for `@kehto/nip66@0.1.0` initial publish; NO demo wiring.
@@ -66,10 +66,10 @@
   3. Four `.changeset/v1-6-dep-<pkg>.md` files exist — one per `@kehto/*` package — documenting the peer-dep migration and a minor version bump (public peer surface changed).
   4. Downstream smoke: `pnpm clean && pnpm install && pnpm build && pnpm test:e2e` against the migrated workspace exits at **53 passed / 0 failed / 0 skipped** (exactly the v1.5 close baseline, no delta); no dual-instance warnings surface in any build log.
   5. The iteration loop result, grep proofs, and lockfile delta are captured in the phase ITERATION-LOG.md.
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [x] 32-01-PLAN.md — Atomic single-pass migration: 5 package manifests swap 8 split `@napplet/nub-*` deps for consolidated `@napplet/nub@^0.2.1`, 15 TS imports rewritten to subpath form, lockfile regenerated (DEP-01, DEP-02, DEP-03)
-- [ ] 32-02-PLAN.md — Author 4 changesets (minor bump each) + run canonical fresh-install iteration loop, capture evidence in `32-ITERATION-LOG.md` (DEP-04, DEP-05)
+- [x] 32-02-PLAN.md — Author 4 changesets (minor bump each) + run canonical fresh-install iteration loop, capture evidence in `32-ITERATION-LOG.md` (DEP-04, DEP-05)
 
 ### Phase 33: Cache Service + HostCacheBridge
 **Goal**: Downstream shells (hyprgate first) can supply their own OPFS-aware multi-tab cache backend by handing a `HostCacheBridge` to `createCacheService` — without monkey-patching the kehto reference — and get a working in-memory default when no bridge is supplied.
@@ -138,7 +138,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 32. NUB Dep Consolidation | 1/2 | In Progress|  |
+| 32. NUB Dep Consolidation | 2/2 | Complete   | 2026-04-23 |
 | 33. Cache Service + HostCacheBridge | 0/TBD | Not started | - |
 | 34. Reserved Chord Surface + E2E-17 | 0/TBD | Not started | - |
 | 35. `@kehto/nip66` Extract & Publish | 0/TBD | Not started | - |
