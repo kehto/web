@@ -1,5 +1,26 @@
 # Milestones: Kehto Runtime
 
+## v1.6 Downstream Unblock & Shell Service Surface (Shipped: 2026-04-23)
+
+**Phases completed:** 5 phases, 12 plans, 22 tasks
+
+**Key accomplishments:**
+
+- Found during:
+- 1. [Rule 1 - Bug] media-controller napplet stalled at `connecting...` on first E2E run
+- Shell-reserved chord surface on `createKeysService` — `reservedChords?: ReadonlyArray<string>` option + three reservation gates (Branch A/B keys.forward + Branch B document keydown) + KEYS_SERVICE_VERSION 1.2.0 bump, with 6 new unit tests locking the precedence contract.
+- README Keys H2 gains a `### Reserved Chords` sub-section (table row + WM-launcher @example + precedence + normalization prose); demo shell reserves `Ctrl+Shift+R` and exposes a parent-frame `#reserved-chord-last-fired` DOM sentinel so 33-03's Playwright spec can observe shell handler fires without frameLocator traversal.
+- Layer-B Playwright spec `tests/e2e/reserved-chord.spec.ts` (106 lines, 8-step) locks the KEYS-04/05 reserved > registered precedence contract against the built `:4174` demo; canonical v1.6 fresh-install iteration loop recorded in `33-ITERATION-LOG.md` at 54 / 0 / 0 (18.5s) — Phase 33 closes with 4/4 REQ-IDs addressed.
+- New publishable `@kehto/nip66@0.1.0` workspace — ESM-only tsup build, nostr-tools peer dep, 5-symbol locked public API with stub factory throwing `not implemented — see Plan 34-02`.
+- Port hyprgate's `nip66-monitor.ts` (188 lines, module-globals) into `@kehto/nip66`'s `createNip66Aggregator` (closure-scoped factory) via TDD RED → GREEN. 9 vitest tests; all passing; zero module-level state; zero hyprgate-specific symbols; full-repo build + type-check + unit tests green.
+- Shipped `@kehto/nip66@0.1.0` publish-shape evidence: 194-line consumer README with canonical SimplePool + ShellAdapter wiring, 21-line initial-publish changeset, 248-line fresh-install iteration log recording 54/0/0 E2E preserved — Phase 34 artifact-complete, closes NIP66-04 + NIP66-05.
+- Squash-merged PR #7 (`@kehto/wm@0.0.0` skeleton — canonical WM type vocabulary + throwing factory stub) from dskvr, rebased local main onto the squash commit preserving 3 local docs commits, and verified turbo auto-pickup at 24/24 build + 10/10 type-check with zero source edits authored by the executor.
+- Rewrote root README.md line 93 to drop the stale `@napplet/core is not yet on npm` + `pnpm.overrides link:` claim (false since v1.4 first publish), added @kehto/nip66 + @kehto/wm rows to the Packages table, and recorded the canonical full-workspace iteration loop at 54/0/0 with anti-term sweep + DOCS-05 export-presence verification — closing Phase 35 at 5/5 REQ-IDs.
+- Deleted 7 vestigial `storage.getItem('<slug>-auth-probe')` calls across 7 demo napplets (composer/feed/hotkey-chord/media-controller/profile-viewer/theme-switcher/toaster) and scrubbed all D-04 / AUTH-probe / shim AUTH completion comment prose from 10 napplet main.ts files and 6 E2E spec files — zero new anti-feature strings introduced, build + type-check still at Phase-35-close baselines of 24/24 and 10/10.
+- Ran canonical v1.6 fresh-install iteration loop against post-Plan-36-01 tree; caught a 3-napplet AUTHENTICATED regression introduced by the probe deletions in OUTBOUND-ONLY napplets (composer / theme-switcher / toaster); applied a semantically honest identity.getPublicKey() AUTH-trigger replacement; re-ran to 54/0/0; captured the full v1.6 milestone-wide anti-term sweep (10 patterns, 158 grep-positives, zero napplet-code violations) in 36-ITERATION-LOG.md — closes E2E-18 and v1.6 milestone at 21/21 reqs.
+
+---
+
 ## v1.5 Demo Stability & UAT Coverage (Shipped: 2026-04-20)
 
 **Phases completed:** 3 phases, 7 plans, 9 tasks

@@ -32,59 +32,39 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 @napplet/core is the shared foundation. It lives in @napplet and is consumed by @kehto as a peer dependency.
 
-## Current Milestone: v1.6 Downstream Unblock & Shell Service Surface
-
-**Goal:** Unblock hyprgate v2.0 by landing the kehto-side capability gaps it hit during its Kehto Migration gap analysis — extending the shell service surface (cache multi-tab, keys reserved chords, wm library skeleton), publishing `@kehto/nip66`, consolidating onto `@napplet/nub` subpath imports, and fixing stale README claims.
-
-**Target features:**
-
-- `createCacheService` + `HostCacheBridge` for multi-tab OPFS coordination (kehto#1)
-- `@kehto/nip66` — new publishable package for kind-30166 relay discovery (kehto#2)
-- `@kehto/wm` skeleton merged from PR #7 (kehto#3)
-- Consolidate `@kehto/*` peer deps from split `@napplet/nub-*` → `@napplet/nub` subpath imports (kehto#4)
-- Reserved chord-set surface on `createKeysService` for shell-absolute chords (kehto#8)
-- README cleanup — drop stale `pnpm.overrides link:` pattern + "core not on npm" claim (kehto#5)
-- PERF-01 (v1.5 carryover) — chat boot storage.get storm batch/parallelize
-
-**Explicitly deferred to v1.7 (spec-alignment milestone):**
-
-- NIP-5D re-sync (class-posture delegation paragraph from dskvr/nips nip/5d)
-- NUB-CLASS adoption — shell emits `class.assigned` envelope
-- NUB-CONNECT adoption — per-napplet CSP, consent flow, SHELL-*-POLICY audits
-- NUB-CONFIG reference service (domain #9)
-- NUB-RESOURCE reference service (domain #10)
-
-**Tracking only / upstream-first:**
-
-- kehto#6 (Vite 8 × @napplet/vite-plugin): tracking only; reopens if hyprgate regresses
-- kehto#9 (receive-side NIP-44 decrypt): upstream-first; cross-linked to napplet/napplet#3; shell impl awaits NUB surface decision
-
 ## Current State
 
-**Shipped:** v1.4 — Productionization & Upstream Unblock (2026-04-19)
+**Shipped:** v1.6 — Downstream Unblock & Shell Service Surface (2026-04-23)
 
-v1.4 moved kehto from "demo-validated" to "shippable": CI/CD enforcement on every PR, `@kehto/*@0.2.0` published to npm, `DRIFT-CORE-06` compatibility shim deleted, and the last two stub services (`keys`, `media`) replaced with real backends. The demo now exercises 8 non-stub NUB domains end-to-end across 10 napplets; Playwright runs 49 specs fully green.
+v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issues (kehto#2, #3, #4, #5, #8 + v1.5-carryover PERF-01) and shipping two new publishable packages. Baseline rose from 53 → 54 E2E specs; turbo grew 22 → 24 build tasks (+@kehto/nip66, +@kehto/wm).
 
-- **CI/CD**: 3 GitHub Actions workflows (build.yml, unit.yml, e2e.yml) gate every push/PR. release.yml staged for tag-triggered publishing.
-- **Publication**: `@kehto/{acl,runtime,shell,services}@0.2.0` live on registry.npmjs.org. Smoke-tested via fresh `npm install`.
-- **DRIFT-CORE-06 cleanup**: `packages/runtime/src/core-compat.ts` deleted. Live types re-homed (`Capability` → `@kehto/acl/capabilities`; `ServiceDescriptor` → `@kehto/runtime/types`; `REPLAY_WINDOW_SECONDS` inlined). Dead NIP-01 paths (`BusKind`, `AUTH_KIND`, `DESTRUCTIVE_KINDS`, `STATE_TOPICS`) purged from runtime + shell.
-- **Real keys backend**: `createKeysService` ships a document-level chord listener + subscription registries + `keys.action` push. `HostKeysBridge` interface + hotkey-chord demo napplet + Layer-B E2E-12 spec.
-- **Real media backend**: `createMediaService` mirrors metadata/playbackState to `navigator.mediaSession` + emits `media.command` pushes via action handlers. `HostMediaBridge` interface + `createBrowserMediaBridge()` factory + media-controller demo napplet + Layer-B E2E-13 (DUAL-PATH assertion: DOM sentinel + browser API read).
-- **Layer-A upgrade**: `nub-keys.spec.ts` + `nub-media.spec.ts` rewritten in place to exercise real backends via `__registerService__('name', 'real')` harness factory-key.
-- **Docs**: `packages/services/README.md` extended with Keys + Media H2 sections. `apps/demo/README.md` created with 10-napplet inventory + host-hook catalog.
+- **Dependency consolidation (DEP-01..05)**: all 4 `@kehto/*` packages migrated from 8 split `@napplet/nub-*` peer deps → consolidated `@napplet/nub@^0.2.1` subpath imports. Dual-instance pitfall structurally eliminated in kehto importer blocks. 4 minor-bump changesets staged. Added `pnpm.overrides @napplet/nub>@napplet/core: ^0.2.1` as workaround for upstream publish-time workspace-specifier bug (SEED-001; self-retires on fix).
+- **Reserved chord surface (KEYS-04..06 + E2E-17)**: `createKeysService` accepts a `reservedChords?: ReadonlyArray<string>` option; reservation gates at 3 dispatch sites (Branch A/B `keys.forward` + Branch B document keydown); precedence contract `reserved > registered` locked by `tests/e2e/reserved-chord.spec.ts`. Keys README H2 extended with WM-launcher `@example`. `KEYS_SERVICE_VERSION` bumped 1.1.0 → 1.2.0.
+- **`@kehto/nip66@0.1.0` (NIP66-01..05)**: new publishable package. Framework-agnostic `createNip66Aggregator` factory + pluggable `Nip66RelayPool` interface + closure-scoped state (multi-instance safe). `nostr-tools` as sole peer dep; zero `@napplet/*` footprint. 194-line README with SimplePool + ShellAdapter wiring example. Publish-only (no demo wiring; deferred to v1.7+).
+- **`@kehto/wm@0.0.0` skeleton (WM-01..03)**: PR #7 squash-merged with dskvr authorship preserved. Generic WM type vocabulary + throwing `createWmService` factory stub. Implementation deferred to v1.7+.
+- **README cleanup (DOCS-04..05)**: Dropped stale `@napplet/core not yet on npm` + `pnpm.overrides link:` claim (false since v1.4). Packages table extended with nip66 + wm rows. Quick-Integration Example verified against current dep surface via root `pnpm type-check`.
+- **PERF-01 rescoped (AUTH deprecation cleanup)**: Audit revealed the v1.5 "18+ serial storage.get round-trips" claim inaccurate for current code. Real pattern: 7 vestigial `storage.getItem('<slug>-auth-probe')` calls across 7 napplets, surviving as dead code after v1.2+ removed AUTH protocol. Deleted all 7 probes + scrubbed D-04 / "shim AUTH completion" comment prose across 10 napplets + 6 E2E specs. Outbound-only napplets (composer/theme-switcher/toaster) replaced probe with semantically honest `await identity.getPublicKey()` AUTH-trigger call.
+- **E2E baseline 54/0/0 preserved** through all of v1.6: Phase 33 added `reserved-chord.spec.ts` (53 → 54); Phases 34/35/36 all closed with identical 54/0/0 iteration loops.
 
-20/20 requirements satisfied; 6/6 phase VERIFICATION.md passed; 18/18 cross-phase integration chains wired; 0 critical gaps.
+21/21 requirements satisfied; 5/5 phase VERIFICATION.md passed; 12/12 cross-phase integration paths wired; 0 critical gaps.
 
-**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability).
+**Mid-milestone scope changes (documented in v1.6-MILESTONE-AUDIT.md):**
+- **CACHE-01..05 dropped**: Phase 33 scoping revealed `createCacheService`'s existing `CacheServiceOptions` object IS the hostBridge injection hyprgate#1 asked for. Commented on kehto#1 with integration example; issue remains open as kehto-side tracker for optional v1.7+ cosmetic polish. Phases renumbered 34-37 → 33-36.
+- **PERF-01 rescoped**: see above.
 
-**v1.5 (shipped 2026-04-20):** Demo Stability & UAT Coverage — all 5 correctness issues from post-v1.4 UAT closed with CI coverage; PERF-01 deferred to v1.6. 53/0/0 Playwright baseline (up from 49). Key fixes: data-driven refreshAclPanelsIfNeeded loop (10/10 napplets show AUTHENTICATED), service-level activity routing (6/8 services tick), aclAdapter.snapshot authenticated-gate (10 napplets in ACL Matrix), dynamic sequence-diagram lanes (11 lanes). Two new Layer-B specs lock the contracts.
+**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability), v1.6 (downstream unblock).
 
 ## Known Tech Debt (carried into next milestone)
 
-- **Phase 27 CI evidence** — Phase 27 commits on local main; push + CI workflow URL record deferred (pattern established in Phase 26). Local iteration loop 49/0/0 green; tracked in `milestones/v1.4-phases/27-real-media-backend/27-HUMAN-UAT.md`.
-- **release.yml first-fire** — Workflow file committed after v0.2.0 tag. First real execution awaits next `v*` tag. Non-blocking.
-- **Electron / Tauri host-bridge reference impls** — HostKeysBridge + HostMediaBridge interfaces defined; reference impls for native OS backends deferred past v1.4 per REQUIREMENTS.md Future Requirements.
-- **Multi-OS CI matrix** — v1.4 runs on `ubuntu-latest` only. Cross-OS coverage deferred.
+- **pnpm.overrides transitive pin** — `@napplet/nub>@napplet/core: ^0.2.1` workaround for upstream `@napplet/nub@0.2.1` publish-time workspace-specifier bug. Self-retires on upstream fix. SEED-001 tracks follow-up.
+- **`@kehto/nip66` demo wiring** — NIP66-05 explicitly scoped v1.6 to publish-only. ShellAdapter `getNip66Suggestions()` hook exists; demo wires to `() => null`. Full wiring + NIP-77 negentropy support deferred to v1.7+.
+- **`@kehto/wm` implementation** — v1.6 merged skeleton only. BSP / master-stack / floating layout primitives deferred; hyprgate runs its local impl meanwhile. Awaits a real consumer use case in kehto-land.
+- **`identitySource: 'auth' \| 'source'` type discriminant** — live type in SessionEntry; rename out of PERF-01 scope. v1.7+.
+- **`bridge.injectEvent('auth:identity-changed', ...)` shell hook** — live surface with external consumers. v1.7+ rename.
+- **CACHE naming parity (kehto#1)** — `HostCacheBridge` type alias + optional default for `createCacheService`. Existing options already provide injection point functionally; cosmetic polish only. v1.7+.
+- **Upstream NUB for receive-side NIP-44 decrypt (kehto#9)** — tracked at napplet/napplet#3. Shell impl lands once upstream picks between `relay.subscribeEncrypted` vs `identity.decrypt`.
+- **Electron / Tauri host-bridge reference impls** — HostKeysBridge + HostMediaBridge interfaces defined (v1.4); HostCacheBridge conceptually scoped (v1.6 dropped). Reference impls deferred.
+- **Multi-OS CI matrix** — still ubuntu-latest only. Carryover from v1.4.
 
 ## Key Decisions
 
@@ -107,6 +87,11 @@ v1.4 moved kehto from "demo-validated" to "shippable": CI/CD enforcement on ever
 | 15 | Per-napplet `window.__grant*__` host hooks for E2E capability gates | Playwright specs need deterministic capability grants without UI click-through. Scoped per-napplet (not generic). Pattern: `__grantKeysForward__`, `__grantMediaControl__`. | 2026-04-19 |
 | 16 | Data-driven shell UI (all napplet rendering loops over DEMO_NAPPLETS, not hardcoded per-napplet blocks) | v1.5 UAT surfaced the "add 10th napplet" failure mode — hardcoded lists silently drift. Pattern: single source-of-truth (shell-host.ts:DEMO_NAPPLETS) + UI loops iterate it. Applies to status-text, activity counters, ACL rows, sequence-diagram lanes. | 2026-04-20 |
 | 17 | Playwright MCP automated UAT replaces manual UAT within autonomous GSD flow | Phase 29 established the pattern — instead of pausing for human browser testing, Claude drives the demo via MCP Playwright tools, captures DOM evidence, classifies into decision buckets. Reduces autonomous-flow interruptions; works whenever the demo is browser-testable. | 2026-04-20 |
+| 18 | Pluggable `HostXxxBridge` interface pattern extends to any shell-backend injection (Keys + Media v1.4, Cache-options-as-bridge realized v1.6) | Any kehto reference service that wraps a host-capability should expose its options object AS the bridge — downstream shells provide implementations without monkey-patching. Cache proved this retroactively; new services (v1.7+) follow the same shape by default. | 2026-04-23 |
+| 19 | Mid-milestone audit-first rescopes for stale v1.5 tech-debt claims | v1.6 dropped CACHE-01..05 and rescoped PERF-01 after Phase 33/36 scoping revealed the v1.5 audit observations didn't match current code. Pattern: when a carryover item surfaces in planning, audit BEFORE executing to catch inherited inaccuracies. Documented in v1.6-MILESTONE-AUDIT.md. | 2026-04-23 |
+| 20 | `@napplet/nub` subpath consolidation as canonical consumer pattern — `@napplet/nub-*` split form retired | Phase 32 migrated kehto entirely onto `@napplet/nub/<domain>` subpaths. Anti-term enforcement added for split form in @kehto/* source. Transitive residue from @napplet/sdk/shim in the lockfile packages section is accepted as out-of-scope upstream footprint. | 2026-04-23 |
+| 21 | `/<domain>/sdk` subpath variant when `@napplet/shim` is loaded (not root `/<domain>`) | Root `/<domain>` subpath calls `registerNub(DOMAIN, ...)` at module-init — collides with shim's own registerNub. SDK consumers running WITHOUT shim can use root; consumers WITH shim must use `/sdk` subpath variant (pure re-exports, no side effects). Plan 32-02 Rule 1 discovery. | 2026-04-23 |
+| 22 | Seeds mechanism for upstream-dependent follow-ups | SEED-001 planted for `@napplet/nub>@napplet/core` workspace-specifier publish bug. Seeds defer filing upstream issues until next relevant milestone verifies the bug persists. Prevents duplicate issues if upstream fixes in the meantime. | 2026-04-23 |
 
 ## Evolution
 
@@ -126,4 +111,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-23 — v1.6 milestone started*
+*Last updated: 2026-04-23 — v1.6 milestone shipped*

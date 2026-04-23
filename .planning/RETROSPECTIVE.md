@@ -2,6 +2,55 @@
 
 *A living document updated after each milestone. Lessons feed forward into future planning.*
 
+## Milestone: v1.6 — Downstream Unblock & Shell Service Surface
+
+**Shipped:** 2026-04-23
+**Phases:** 5 (32–36) | **Plans:** 12 | **Tasks:** 22
+
+### What Was Built
+
+- **Phase 32 — NUB Dep Consolidation.** All 4 `@kehto/*` packages migrated from 8 split `@napplet/nub-*` peer deps → consolidated `@napplet/nub@^0.2.1` with subpath imports. 35-file atomic commit; 4 minor-bump changesets; dual-instance pitfall structurally eliminated in kehto importer blocks. Hit + documented an upstream packaging bug (SEED-001): `@napplet/nub@0.2.1` shipped with unresolved `workspace:*` — added `pnpm.overrides @napplet/nub>@napplet/core: ^0.2.1` as transient workaround.
+- **Phase 33 — Reserved Chord Surface + E2E-17.** `createKeysService` accepts `reservedChords?: ReadonlyArray<string>`; reservation gates at 3 dispatch sites (Branch A/B `keys.forward` + Branch B document keydown). Precedence contract `reserved > registered` locked by a Layer-B Playwright spec against the built `:4174` demo. TDD RED→GREEN cycle; 6 new unit tests; `KEYS_SERVICE_VERSION` bumped 1.1.0 → 1.2.0. E2E baseline rose 53 → 54.
+- **Phase 34 — `@kehto/nip66@0.1.0` Extract & Publish.** New framework-agnostic publishable package. `createNip66Aggregator` factory + pluggable `Nip66RelayPool` interface (consumers implement; decouples from any specific pool lib). Closure-scoped state — multi-instance safe, unit-testable. 9 vitest tests, `nostr-tools` as sole peer dep, zero `@napplet/*` footprint. 194-line README with SimplePool + `ShellAdapter.getNip66Suggestions` wiring example.
+- **Phase 35 — WM Skeleton + README Cleanup.** Squash-merged PR #7 (`@kehto/wm@0.0.0` skeleton) from dskvr with authorship preserved. Generic WM type vocabulary + throwing `createWmService` factory stub. Root README line 93 rewritten: dropped stale `@napplet/core not on npm` + `pnpm.overrides link:` claim; Packages table extended with `@kehto/nip66` + `@kehto/wm` rows.
+- **Phase 36 — PERF-01 Rescoped + Milestone Close E2E-18.** Audit-first rescope revealed v1.5's "chat boot 18+ serial storage.get round-trips" claim inaccurate. Real target: 7 vestigial `storage.getItem('<slug>-auth-probe')` calls surviving from v1.2-deprecated D-04 pattern. Deleted all 7 + scrubbed comment prose across 10 napplets + 6 E2E specs. Outbound-only napplets (composer/theme-switcher/toaster) replaced probe with `identity.getPublicKey()` AUTH-trigger call — a Rule 1 auto-fix caught by the iteration loop. v1.6 milestone-wide anti-term sweep clean; 54/0/0 preserved end-to-end.
+
+### What Worked
+
+- **Audit-first mid-milestone rescopes.** Both CACHE-01..05 (dropped from Phase 33) and PERF-01 (rescoped Phase 36) turned out to be based on inaccurate v1.5 audit observations. Instead of barrelling through, pausing to audit the current code BEFORE planning caught both cases and turned them into either "no work needed" (CACHE) or "different, smaller, honest work" (PERF). Pattern: when a carryover item surfaces during `/gsd:discuss-phase`, audit before executing. Committed as Decision 19 in PROJECT.md.
+- **User pushback as grey-area input.** The CACHE-02 "blocker" framing I initially presented was pushed back on by the user ("if our code already supports the functionality, then just leave a comment on the issue") — that reframe was correct. Similarly for PERF-01: user's single-line "AUTH is deprecated entirely" rescoped a stuck phase into a cleanup task. User input at grey-area moments is high-signal; the autonomous flow's pause-only-for-decisions rule paid off.
+- **SEED-001 pattern for upstream-dependent follow-ups.** Rather than file an upstream issue for the `@napplet/nub@0.2.1` packaging bug immediately (risk: upstream fixes before anyone reads), captured as a seed that surfaces at the next `@napplet/nub` bump. Lets the follow-up be re-verified at trigger time — file only if still broken. Documented as Decision 22 in PROJECT.md.
+- **Squash-merge via `gh pr merge` for external-contributor skeleton PRs.** Phase 35 merged dskvr's PR #7 preserving authorship via GitHub's default squash behavior. Cleaner than local replication (which would lose attribution) and cleaner than merge commits (history noise for a 4-file skeleton).
+- **Strict atomic commits for cross-file migrations.** Phase 32's 35-file migration committed atomically — `package.json` + imports + lockfile all land together. Intermediate states wouldn't type-check; splitting would have produced broken bisect points. Atomic commit discipline established in v1.4 (DRIFT cleanup) continued to pay off.
+
+### What Was Inefficient
+
+- **Authoring CACHE/PERF requirements without code audit.** Both CACHE-01..05 and PERF-01 were drafted during milestone-start from v1.5 audit claims, without verifying the claims against current code. Result: 2 of the milestone's 5 planned categories needed rescoping mid-flight. Lesson: at requirements-definition time, open the target file and verify the claim lines up with code. Costs ~5 min per requirement category; saves 30+ min of rescope work later.
+- **Plan 36-01 broke AUTHENTICATED in 3 outbound-only napplets.** Probe deletion in composer/theme-switcher/toaster broke AUTHENTICATED detection. Caught by the iteration loop's `demo-concurrent-boot.spec.ts` regression anchor (good), but the root cause — "the probe was load-bearing despite being named 'probe'" — was predictable from the code pre-edit. A pre-flight grep for non-probe boot-time SDK calls per napplet would have caught all 3 before execution.
+- **Plan 36-02 YAML parser gotcha.** Embedded `---` horizontal rules inside an iteration-log template tripped the `gsd-tools frontmatter validate` parser (uses LAST `---...---` block). Fixed by switching embedded rules to `***`. Worth propagating to other GSD templates if the pattern becomes common.
+
+### Patterns Established
+
+- **Pluggable `HostXxxBridge` interface as canonical injection pattern** (Decision 18). Extends Keys + Media v1.4 pattern to any kehto reference service that wraps a host-capability. CACHE retroactively confirmed this is the right shape — expose options object AS the bridge; downstream shells implement without monkey-patching.
+- **`@napplet/nub` subpath consolidation as canonical consumer pattern** (Decision 20). Split `@napplet/nub-*` form retired with anti-term enforcement. Transitive residue from @napplet/sdk/shim in packages: section accepted as out-of-scope upstream footprint; importer-block scope is the correct verification surface.
+- **`/<domain>/sdk` subpath variant when `@napplet/shim` is loaded** (Decision 21). Root `/<domain>` subpath calls `registerNub` at module-init — collides with shim. Pattern surfaced as a Rule 1 auto-fix in Plan 32-02 and captured for future migrations.
+- **Seeds mechanism for upstream-dependent follow-ups** (Decision 22). SEED-001 format: store the why + when-to-surface in `.planning/seeds/SEED-NNN-slug.md`; trigger re-verification at next-relevant milestone.
+
+### Key Lessons
+
+- **Stale audit claims compound.** v1.5's CACHE + PERF observations survived into v1.6 requirements-definition. Next milestone's REQUIREMENTS-drafting step should include a "verify current code matches audit claims" gate for carryover items.
+- **Outbound-only napplets need explicit AUTH triggers.** The D-04 AUTH-probe pattern was dead weight for napplets that loaded real data (chat/preferences/bot kept working after probe removal via their loadHistory/loadPreferences/loadRules calls) but load-bearing for napplets with no boot-time SDK call. Future "delete dead code" sweeps should grep per-napplet for non-deleted SDK calls.
+- **User decisions at grey-area moments are the autonomous flow's highest-value signal.** Both CACHE (user: "comment on the issue") and PERF (user: "AUTH is deprecated entirely") reshaped phases via single-line input. The autonomous workflow's pause-only-for-grey-areas rule surfaces exactly these moments.
+- **Integration checker's "intentionally disconnected" distinction matters.** 8 of 21 REQ-IDs (NIP66 + WM + DOCS) were intentionally self-contained per explicit publish-only/skeleton-only/docs-only contracts. The integration checker surfaced them with the right framing ("intentional") rather than as gaps.
+
+### Cost Observations
+
+- Model mix: opus (planner) + sonnet (executor, checker, verifier) — unchanged from v1.5.
+- Sessions: ~5 (one per phase + milestone-close session).
+- Notable: mid-milestone rescopes (CACHE, PERF) happened inside the autonomous flow without breaking it — the pause-for-grey-area gate surfaced each at the right moment.
+
+---
+
 ## Milestone: v1.5 — Demo Stability & UAT Coverage
 
 **Shipped:** 2026-04-20
