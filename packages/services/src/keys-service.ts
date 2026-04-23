@@ -133,7 +133,7 @@ export interface HostKeysBridge {
 }
 
 /** Keys service version — follows semver. */
-const KEYS_SERVICE_VERSION = '1.1.0';
+const KEYS_SERVICE_VERSION = '1.2.0';
 
 /**
  * Parsed chord struct — internal, never on the wire. The napplet-facing API
@@ -206,6 +206,30 @@ export interface KeysServiceOptions {
    * provided — the bridge is authoritative. See {@link HostKeysBridge}.
    */
   hostBridge?: HostKeysBridge;
+  /**
+   * Optional set of shell-reserved chords. Strings in the `@napplet/nub/keys`
+   * wire format (e.g. `'Ctrl+Shift+K'`, `'Cmd+P'`). When a napplet sends
+   * `keys.forward` with a chord matching this set — or when a document
+   * keydown matches a reserved chord — the service invokes `onForward`
+   * (or the `hostBridge`-registered handler) but suppresses the
+   * `keys.action` push to any napplet that registered the same chord via
+   * `keys.registerAction`. Precedence: reserved > registered. The shell
+   * WANTS the forward — that is why it reserved the chord.
+   *
+   * Normalized once at service construction via the same chord parser used
+   * for `action.defaultKey` — `'Ctrl+K'` / `'Control+k'` / `'ctrl+K'` all
+   * match. Static; no runtime mutation. For dynamic reservation see the
+   * deferred `HostKeysBridge.reserveAbsolute(chords)` extension.
+   *
+   * @example
+   * ```ts
+   * const keys = createKeysService({
+   *   reservedChords: ['Ctrl+Alt+T', 'Super+Space'],
+   *   onForward: (event) => wm.dispatch(event),
+   * });
+   * ```
+   */
+  reservedChords?: ReadonlyArray<string>;
 }
 
 /** Modifier-token aliases accepted by `parseChord` (case-insensitive). */
@@ -298,6 +322,48 @@ export function createKeysService(
       : 'NIP-5D keys NUB reference handler (document-level chord listener)',
   };
 
+  // ─── Reserved-chord set (KEYS-04/05, Phase 33) ────────────────────────────
+  // Shell-reserved chords take precedence over napplet-registered actions.
+  // Strings are parsed once via parseChord() then canonicalized to a stable
+  // string key so runtime lookups are O(1) hash-set tests.
+  //
+  // `chordSpecKey` canonical form: `'<ctrl>|<alt>|<shift>|<meta>|<KEY>'`
+  // (e.g. 'true|false|true|false|R' for 'Ctrl+Shift+R'). Chosen over
+  // JSON.stringify for deterministic ordering across engines.
+  function chordSpecKey(spec: {
+    ctrl: boolean;
+    alt: boolean;
+    shift: boolean;
+    meta: boolean;
+    key: string;
+  }): string {
+    return `${spec.ctrl}|${spec.alt}|${spec.shift}|${spec.meta}|${spec.key}`;
+  }
+  const reservedChordKeys: Set<string> = new Set();
+  if (options.reservedChords) {
+    for (const chordStr of options.reservedChords) {
+      // parseChord throws on malformed input — let it bubble up at construction
+      // so misconfigured shells fail loudly at boot, not silently at runtime.
+      reservedChordKeys.add(chordSpecKey(parseChord(chordStr)));
+    }
+  }
+  // Canonicalize a wire-shape keys.forward payload into the same key.
+  function forwardKey(m: {
+    key: string;
+    ctrl: boolean;
+    alt: boolean;
+    shift: boolean;
+    meta: boolean;
+  }): string {
+    const k = m.key.length === 1 ? m.key.toUpperCase() : m.key;
+    return `${m.ctrl}|${m.alt}|${m.shift}|${m.meta}|${k}`;
+  }
+  // Canonicalize a DOM KeyboardEvent into the same key (for Branch B keydown listener).
+  function eventKey(ev: KeyboardEvent): string {
+    const k = ev.key.length === 1 ? ev.key.toUpperCase() : ev.key;
+    return `${ev.ctrlKey}|${ev.altKey}|${ev.shiftKey}|${ev.metaKey}|${k}`;
+  }
+
   // ─── Branch A: host-bridge delegation ────────────────────────────────────
   // KEYS-02 per CONTEXT.md Area 2 — host-bridge override path. Bridge owns
   // chord subscription; service owns per-window bookkeeping so
@@ -320,7 +386,14 @@ export function createKeysService(
         switch (message.type) {
           case 'keys.forward': {
             // Legacy napplet-forwarded path still works identically — preserves wire contract.
+            // Phase 33 / KEYS-04-05: reserved chords take precedence. The Branch-A
+            // handler never dispatches keys.action to napplets on forward (bridge
+            // owns chord → napplet routing via its own subscribe callback), so
+            // reservation here is observationally identical to the base case —
+            // but we compute and check the reservation explicitly to document
+            // the contract for future edits and keep both branches uniform.
             const m = message as KeysForwardMessage;
+            const reserved = reservedChordKeys.has(forwardKey(m));
             options.onForward?.({
               key: m.key,
               code: m.code,
@@ -329,6 +402,12 @@ export function createKeysService(
               shiftKey: m.shift,
               metaKey: m.meta,
             });
+            if (reserved) {
+              // Intent: the shell owns this chord; no napplet fan-out. Branch A
+              // achieves that by construction (no keys.action push from forward),
+              // but the explicit guard documents the contract for future edits.
+              return;
+            }
             return;
           }
 
@@ -474,23 +553,47 @@ export function createKeysService(
   const listener = (rawEv: Event): void => {
     const ev = rawEv as KeyboardEvent;
     if (ev.repeat) return; // ignore OS autorepeat — matches "I pressed it once" intent (CONTEXT Area 1)
+
+    // Phase 33 / KEYS-04-05: reserved chords fire onForward but suppress
+    // keys.action fan-out to napplets. Check ONCE up front.
+    const isReserved = reservedChordKeys.has(eventKey(ev));
+
+    // Determine if any registered action would match — needed to decide
+    // whether to fire onForward on a non-reserved keydown (legacy parity).
+    // A reserved chord fires onForward regardless of napplet registration
+    // (WM-launcher case: shell declares chord, no napplet registers it).
+    let anyMatch = false;
+    for (const entry of actionRegistry.values()) {
+      if (chordMatches(entry.chord, ev)) {
+        anyMatch = true;
+        break;
+      }
+    }
+
+    if (isReserved || anyMatch) {
+      // (1) Host-side onForward hook — preserved from stub era. The demo
+      //     uses it for console evidence + any host hotkey dispatcher.
+      //     Fires on reserved chords even when no napplet registered the
+      //     chord (WM-absolute case).
+      options.onForward?.({
+        key: ev.key,
+        code: ev.code,
+        ctrlKey: ev.ctrlKey,
+        altKey: ev.altKey,
+        shiftKey: ev.shiftKey,
+        metaKey: ev.metaKey,
+      });
+    }
+
+    if (isReserved) return; // reserved → no napplet fan-out
+
+    // (2) Canonical shell→napplet push: emit keys.action to the owning
+    //     napplet via its captured send callback. The SDK's keys.onAction
+    //     helper subscribes to this envelope. We attach a `chord` extension
+    //     field so the demo napplet can display the fired chord without
+    //     reconstructing it from the original registration.
     for (const [actionId, entry] of actionRegistry.entries()) {
       if (chordMatches(entry.chord, ev)) {
-        // (1) Host-side onForward hook — preserved from stub era. The demo
-        //     uses it for console evidence + any host hotkey dispatcher.
-        options.onForward?.({
-          key: ev.key,
-          code: ev.code,
-          ctrlKey: ev.ctrlKey,
-          altKey: ev.altKey,
-          shiftKey: ev.shiftKey,
-          metaKey: ev.metaKey,
-        });
-        // (2) Canonical shell→napplet push: emit keys.action to the owning
-        //     napplet via its captured send callback. The SDK's keys.onAction
-        //     helper subscribes to this envelope. We attach a `chord` extension
-        //     field so the demo napplet can display the fired chord without
-        //     reconstructing it from the original registration.
         const send = sendHandles.get(entry.windowId);
         if (send) {
           const payload: KeysActionMessage & { chord: ChordSpec } = {
@@ -522,7 +625,13 @@ export function createKeysService(
           // Legacy passthrough: napplet-forwarded keydown translation.
           // Preserved bit-for-bit from the stub — existing tests + the
           // keys-forwarder.ts -> service.handleMessage path depend on this shape.
+          //
+          // Phase 33 / KEYS-04-05: Branch B's keys.forward handler does NOT
+          // emit keys.action (fan-out happens in the document keydown listener),
+          // so reservation is observationally identical to the base case.
+          // The explicit guard below pins the contract for future edits.
           const m = message as KeysForwardMessage;
+          const reserved = reservedChordKeys.has(forwardKey(m));
           options.onForward?.({
             key: m.key,
             code: m.code,
@@ -531,6 +640,7 @@ export function createKeysService(
             shiftKey: m.shift,
             metaKey: m.meta,
           });
+          if (reserved) return;
           return;
         }
 
