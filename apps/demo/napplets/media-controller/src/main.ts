@@ -3,7 +3,7 @@
  *
  * Per 27-CONTEXT.md Area 3:
  *   - On init: runs the D-04 AUTH probe (storage.getItem), then calls
- *     mediaCreateSession via @napplet/nub/media. The SDK owns the
+ *     mediaCreateSession via @napplet/nub/media/sdk. The SDK owns the
  *     correlation ID and Promise resolution on the shell's
  *     media.session.create.result envelope.
  *   - After session create, the napplet subscribes to mediaOnCommand(sessionId, ...)
@@ -16,9 +16,16 @@
  *   - #media-controller-status transitions: 'connecting...' → 'authenticated' → 'session-ready' → 'playing' | 'paused'
  *
  * Anti-features (enforced per v1.4 milestone — see Phase 27 acceptance greps):
- *   - no raw postMessage listener — uses @napplet/sdk + @napplet/nub/media helpers exclusively
+ *   - no raw postMessage listener — uses @napplet/sdk + @napplet/nub/media/sdk helpers exclusively
  *   - no direct nostr/signer/legacy-bus imports
  *   - no hand-rolled correlation IDs (SDK owns them)
+ *
+ * Subpath selection rationale (v1.6 Phase 32 fix): imports the pure SDK helpers
+ * from `@napplet/nub/media/sdk`, NOT the root `@napplet/nub/media` subpath. The
+ * root subpath has a `registerNub(DOMAIN, ...)` side effect at module-init time
+ * that collides with `@napplet/shim`'s own registration of the "media" domain,
+ * throwing `NUB domain "media" is already registered` and stalling init().
+ * The `/sdk` subpath re-exports the same helpers with zero side effects.
  */
 import '@napplet/shim';
 import { storage } from '@napplet/sdk';
@@ -26,7 +33,7 @@ import {
   mediaCreateSession,
   mediaReportState,
   mediaOnCommand,
-} from '@napplet/nub/media';
+} from '@napplet/nub/media/sdk';
 
 const DEMO_METADATA = {
   title: 'Kehto Demo Track',
