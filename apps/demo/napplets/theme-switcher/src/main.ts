@@ -8,7 +8,7 @@
  *
  * SDK gap notice: @napplet/sdk does NOT expose a theme.publish or theme namespace API
  * (verified against /home/sandwich/Develop/napplet/packages/sdk/src/index.ts —
- * only type re-exports for ThemeMessage/ThemeChangedMessage from @napplet/nub-theme,
+ * only type re-exports for ThemeMessage/ThemeChangedMessage from @napplet/nub/theme,
  * no callable theme namespace). Outbound parent-frame postMessage is the documented
  * exemption pattern (Plan 19-03 precedent for toaster).
  *

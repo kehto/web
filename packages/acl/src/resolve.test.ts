@@ -165,7 +165,7 @@ describe('resolveCapabilitiesNub', () => {
     });
 
     it('storage.clear (removed from canonical surface) -> null/null (runtime rejects before ACL)', () => {
-      // storage.clear is not in the canonical @napplet/nub-storage union; the
+      // storage.clear is not in the canonical @napplet/nub/storage union; the
       // runtime rejects the action before ACL resolution anyway. The ACL
       // layer returns null/null so the runtime's rejection surfaces cleanly.
       const result: CapabilityResolution = resolveCapabilitiesNub({ type: 'storage.clear' });

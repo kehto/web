@@ -232,7 +232,7 @@ export interface AclCheckEvent {
  */
 export interface ShellCapabilities {
   /**
-   * NUB domain prefixes the shell handles. Canonical 8-domain set from @napplet/nub-*:
+   * NUB domain prefixes the shell handles. Canonical 8-domain set from @napplet/nub subpaths:
    * relay, identity, storage, ifc, theme, keys, media, notify. `relay` is conditional
    * on the RelayPoolHooks being provided.
    *

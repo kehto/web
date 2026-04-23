@@ -3,7 +3,7 @@
  *
  * Per 27-CONTEXT.md Area 3:
  *   - On init: runs the D-04 AUTH probe (storage.getItem), then calls
- *     mediaCreateSession via @napplet/nub-media. The SDK owns the
+ *     mediaCreateSession via @napplet/nub/media. The SDK owns the
  *     correlation ID and Promise resolution on the shell's
  *     media.session.create.result envelope.
  *   - After session create, the napplet subscribes to mediaOnCommand(sessionId, ...)
@@ -16,7 +16,7 @@
  *   - #media-controller-status transitions: 'connecting...' → 'authenticated' → 'session-ready' → 'playing' | 'paused'
  *
  * Anti-features (enforced per v1.4 milestone — see Phase 27 acceptance greps):
- *   - no raw postMessage listener — uses @napplet/sdk + @napplet/nub-media helpers exclusively
+ *   - no raw postMessage listener — uses @napplet/sdk + @napplet/nub/media helpers exclusively
  *   - no direct nostr/signer/legacy-bus imports
  *   - no hand-rolled correlation IDs (SDK owns them)
  */
@@ -26,7 +26,7 @@ import {
   mediaCreateSession,
   mediaReportState,
   mediaOnCommand,
-} from '@napplet/nub-media';
+} from '@napplet/nub/media';
 
 const DEMO_METADATA = {
   title: 'Kehto Demo Track',

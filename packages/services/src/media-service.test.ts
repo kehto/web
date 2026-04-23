@@ -1,7 +1,7 @@
 /**
  * media-service.test.ts — Unit tests for the media NUB service.
  *
- * Covers the 5 napplet->shell request types from @napplet/nub-media plus
+ * Covers the 5 napplet->shell request types from @napplet/nub/media plus
  * unknown-action + ACL-denial envelope shapes (stub-scope, preserved verbatim),
  * plus real navigator.mediaSession integration tests added in Phase 27 Plan 01.
  */
@@ -10,7 +10,7 @@ import { describe, it, expect } from 'vitest';
 import { createMediaService, createBrowserMediaBridge } from './media-service.js';
 import type { HostMediaBridge } from './media-service.js';
 import type { NappletMessage } from '@napplet/core';
-import type { MediaAction, MediaMetadata } from '@napplet/nub-media';
+import type { MediaAction, MediaMetadata } from '@napplet/nub/media/types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

@@ -15,13 +15,14 @@ import type { NubHandler } from '@napplet/core';
 import type { Capability } from '@kehto/acl/capabilities';
 import { ALL_CAPABILITIES } from '@kehto/acl/capabilities';
 
-// NUB message types — types-only imports from @napplet/nub-* peer deps (v1.2).
+// NUB message types — types-only imports from @napplet/nub subpaths (v1.6, Phase 32).
 // Phase 11-02 / DRIFT-CORE-05: replaces hand-copied widening casts with real
 // upstream unions. Phase 12 handler rewrites narrow per-branch against the
-// canonical discriminated unions.
-import type { StorageMessage } from '@napplet/nub-storage';
-import type { IfcMessage } from '@napplet/nub-ifc';
-import type { RelayNubMessage } from '@napplet/nub-relay';
+// canonical discriminated unions. Phase 32 (DEP-01..03) consolidated the 8
+// split nub-<domain> peer deps onto the single @napplet/nub subpath surface.
+import type { StorageMessage } from '@napplet/nub/storage/types';
+import type { IfcMessage } from '@napplet/nub/ifc/types';
+import type { RelayNubMessage } from '@napplet/nub/relay/types';
 /** Alias to match the canonical nub-relay union name used by callers (`RelayMessage` is
  *  the base interface; `RelayNubMessage` is the full discriminated union). */
 type RelayMessage = RelayNubMessage;
@@ -772,7 +773,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
 
   // ─── IFC Channel Registry Helpers ────────────────────────────────────────
   // Per-runtime point-to-point channel bookkeeping used by handleIfcMessage
-  // for the channel.* sub-protocol (@napplet/nub-ifc).
+  // for the channel.* sub-protocol (@napplet/nub/ifc).
 
   function ifcAddChannel(channelId: string, peerA: string, peerB: string): void {
     ifcChannels.set(channelId, { channelId, peerA, peerB });
@@ -934,7 +935,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     }
     // Fallback: emit spec-correct result for media.session.create so napplets
     // get an envelope even without a registered media service. Other media.*
-    // actions are fire-and-forget per @napplet/nub-media and silently dropped.
+    // actions are fire-and-forget per @napplet/nub/media and silently dropped.
     if (msg.type === 'media.session.create') {
       const m = msg as NappletMessage & { id?: string; sessionId?: string };
       hooks.sendToNapplet(windowId, {
@@ -991,7 +992,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
       return;
     }
 
-    // keys.unregisterAction: fire-and-forget per @napplet/nub-keys — nothing to emit.
+    // keys.unregisterAction: fire-and-forget per @napplet/nub/keys — nothing to emit.
     // Unknown keys.* sub-actions: silently drop (spec-consistent with default branch).
   }
 
@@ -1006,7 +1007,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     // Fallback: emit spec-correct result envelopes for notify.send and
     // notify.permission.request so napplets see a reply even without a
     // registered 'notify' service. Other actions (dismiss/badge/channel.register)
-    // are fire-and-forget per @napplet/nub-notify and produce no envelope.
+    // are fire-and-forget per @napplet/nub/notify and produce no envelope.
     if (msg.type === 'notify.send') {
       const m = msg as NappletMessage & { id?: string };
       hooks.sendToNapplet(windowId, {

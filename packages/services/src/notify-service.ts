@@ -1,7 +1,7 @@
 /**
  * notify-service.ts — NIP-5D notify NUB reference service (stub-level).
  *
- * Handles the 5 napplet -> shell request types from `@napplet/nub-notify`:
+ * Handles the 5 napplet -> shell request types from `@napplet/nub/notify`:
  *   - `notify.send`                -> `notify.send.result` (shell-assigned id)
  *   - `notify.dismiss`             -> fire-and-forget
  *   - `notify.badge`               -> fire-and-forget
@@ -16,9 +16,9 @@
  * `packages/services/src/notification-service.ts`, which is the legacy
  * ifc-topic-based notification registry (operates on `ifc.emit` topics
  * under `notifications:*`). `notify-service.ts` is the canonical
- * `@napplet/nub-notify` NIP-5D path and lives alongside the legacy module.
+ * `@napplet/nub/notify` NIP-5D path and lives alongside the legacy module.
  * If the host app registers this service via
- * `runtime.registerService('notify', ...)`, @napplet/nub-notify messages
+ * `runtime.registerService('notify', ...)`, @napplet/nub/notify messages
  * land here; the legacy ifc-emit topic path remains untouched.
  *
  * Shell -> napplet push messages (`notify.action`, `notify.clicked`,
@@ -35,7 +35,7 @@ import type {
   NotifySendResultMessage,
   NotifyPermissionRequestMessage,
   NotifyPermissionResultMessage,
-} from '@napplet/nub-notify';
+} from '@napplet/nub/notify/types';
 
 /** Notify service version — follows semver. */
 const NOTIFY_SERVICE_VERSION = '1.0.0';
@@ -77,7 +77,7 @@ export interface NotifyServiceOptions {
 /**
  * Create a stub-level notify service handler.
  *
- * Answers the 5 napplet->shell request types from `@napplet/nub-notify`.
+ * Answers the 5 napplet->shell request types from `@napplet/nub/notify`.
  * Does NOT implement a real backend (no DOM Notification API, no channel
  * registry, no permission prompt). Host apps replace this via
  * `runtime.registerService('notify', realHandler)` when a real backend is
@@ -128,7 +128,7 @@ export function createNotifyService(options: NotifyServiceOptions = {}): Service
         case 'notify.dismiss':
         case 'notify.badge':
         case 'notify.channel.register':
-          // Fire-and-forget per @napplet/nub-notify. Stub has no backend
+          // Fire-and-forget per @napplet/nub/notify. Stub has no backend
           // state to mutate; host apps with real backends override.
           return;
 

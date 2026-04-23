@@ -12,7 +12,7 @@
  *
  * See REQUIREMENTS.md DEPS-03 (Phase 15 changelog).
  *
- * Handles 9 identity.* request types from @napplet/nub-identity. getPublicKey
+ * Handles 9 identity.* request types from @napplet/nub/identity. getPublicKey
  * and getRelays return real values sourced from hooks.auth.getSigner(); the
  * remaining 7 (getProfile/getFollows/getList/getZaps/getMutes/getBlocked/
  * getBadges) are stub-level — each returns an empty default payload with the
@@ -33,7 +33,7 @@ import type {
   IdentityGetBlockedResultMessage,
   IdentityGetBadgesResultMessage,
   RelayPermission,
-} from '@napplet/nub-identity';
+} from '@napplet/nub/identity/types';
 
 /** Identity service version — follows semver. */
 const IDENTITY_SERVICE_VERSION = '1.0.0';
@@ -61,7 +61,7 @@ export interface IdentityServiceOptions {
 /**
  * Create an identity service that handles NIP-5D identity.* envelope messages.
  *
- * Supports all 9 identity.* request types from @napplet/nub-identity. The two
+ * Supports all 9 identity.* request types from @napplet/nub/identity. The two
  * read-only nostr-info queries (getPublicKey, getRelays) resolve through the
  * caller-supplied signer; the remaining 7 return default/empty payloads with
  * spec-correct envelope shapes so napplets always receive a result envelope.

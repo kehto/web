@@ -9,9 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@napplet/shim": "^0.2.1",
+    "@napplet/nub": "^0.2.1",
     "@napplet/sdk": "^0.2.1",
-    "@napplet/nub-media": "^0.2.1"
+    "@napplet/shim": "^0.2.1"
   },
   "devDependencies": {
     "@napplet/vite-plugin": "^0.2.1",

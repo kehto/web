@@ -28,7 +28,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createShellBridge } from './shell-bridge.js';
 import { originRegistry } from './origin-registry.js';
 import type { ShellAdapter, SessionEntry } from './types.js';
-import type { Theme } from '@napplet/nub-theme';
+import type { Theme } from '@napplet/nub/theme/types';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

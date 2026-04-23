@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: false
   excludeLinksFromLockfile: false
 
+overrides:
+  '@napplet/nub>@napplet/core': ^0.2.1
+
 importers:
 
   .:
@@ -164,7 +167,7 @@ importers:
 
   apps/demo/napplets/media-controller:
     dependencies:
-      '@napplet/nub-media':
+      '@napplet/nub':
         specifier: ^0.2.1
         version: 0.2.1
       '@napplet/sdk':
@@ -265,28 +268,7 @@ importers:
       '@napplet/core':
         specifier: ^0.2.1
         version: 0.2.1
-      '@napplet/nub-identity':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-ifc':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-keys':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-media':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-notify':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-relay':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-storage':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-theme':
+      '@napplet/nub':
         specifier: ^0.2.1
         version: 0.2.1
       tsup:
@@ -311,28 +293,7 @@ importers:
       '@napplet/core':
         specifier: ^0.2.1
         version: 0.2.1
-      '@napplet/nub-identity':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-ifc':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-keys':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-media':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-notify':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-relay':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-storage':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-theme':
+      '@napplet/nub':
         specifier: ^0.2.1
         version: 0.2.1
       tsup:
@@ -354,28 +315,7 @@ importers:
       '@napplet/core':
         specifier: ^0.2.1
         version: 0.2.1
-      '@napplet/nub-identity':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-ifc':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-keys':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-media':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-notify':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-relay':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-storage':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-theme':
+      '@napplet/nub':
         specifier: ^0.2.1
         version: 0.2.1
       tsup:
@@ -400,28 +340,7 @@ importers:
       '@napplet/core':
         specifier: ^0.2.1
         version: 0.2.1
-      '@napplet/nub-identity':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-ifc':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-keys':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-media':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-notify':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-relay':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-storage':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@napplet/nub-theme':
+      '@napplet/nub':
         specifier: ^0.2.1
         version: 0.2.1
       nostr-tools:
@@ -1044,6 +963,14 @@ packages:
 
   '@napplet/nub-theme@0.2.1':
     resolution: {integrity: sha512-/JZwaEYluQW6G7OaKsZK91icRzLHnKKby5KXSfWe6seERs+pCrJFJeD2/+vnYDdh9G7pXKrBt0g5Aji/9FmdUA==}
+
+  '@napplet/nub@0.2.1':
+    resolution: {integrity: sha512-CgUC7YgIzDWK8AMnD5Upv/4QgvHYMGXs3kvxHGWDrGV2ZorjdGbet8p0IeYC6QHjKLuPdBknnagmSZejjaXfww==}
+    peerDependencies:
+      json-schema-to-ts: ^3.1.1
+    peerDependenciesMeta:
+      json-schema-to-ts:
+        optional: true
 
   '@napplet/sdk@0.2.1':
     resolution: {integrity: sha512-DVyGdYCe7JhG63rxi3/hdGkrEQvluLmExIsZA7SafmU9/9iI4GLwDCDXB2w5Xu51u0OHwEM9sNd/LNTWhiAUdg==}
@@ -2871,6 +2798,10 @@ snapshots:
       '@napplet/core': 0.2.1
 
   '@napplet/nub-theme@0.2.1':
+    dependencies:
+      '@napplet/core': 0.2.1
+
+  '@napplet/nub@0.2.1':
     dependencies:
       '@napplet/core': 0.2.1
 

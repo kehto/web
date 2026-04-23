@@ -3,7 +3,7 @@
  * to registered napplets as `keys.forward` envelopes (Plan 12-11, NUB-05
  * shell-side half).
  *
- * Per `@napplet/nub-keys`, `keys.forward` is fire-and-forget (no result
+ * Per `@napplet/nub/keys`, `keys.forward` is fire-and-forget (no result
  * envelope, no correlation id). Field names follow the nub convention:
  * `{ ctrl, alt, shift, meta }` — NOT the DOM-style `ctrlKey`/etc.
  *
@@ -80,7 +80,7 @@ export interface KeysForwarder {
 
 /**
  * The `keys.forward` envelope shape emitted by this forwarder. Matches
- * `@napplet/nub-keys` `KeysForwardMessage`.
+ * `@napplet/nub/keys` `KeysForwardMessage`.
  */
 interface KeysForwardEnvelope extends NappletMessage {
   type: 'keys.forward';

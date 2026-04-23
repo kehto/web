@@ -14,7 +14,7 @@
 
 import type { ShellAdapter, ShellCapabilities } from './types.js';
 
-/** Canonical NIP-5D 8-domain list (every domain a @napplet/nub-* package publishes). */
+/** Canonical NIP-5D 8-domain list (every domain @napplet/nub exports as a subpath). */
 const CANONICAL_NUB_DOMAINS = [
   'identity', 'storage', 'ifc', 'theme', 'keys', 'media', 'notify',
 ] as const;
@@ -22,7 +22,7 @@ const CANONICAL_NUB_DOMAINS = [
 /**
  * Build the shell's static capability set from adapter configuration.
  *
- * NUB capabilities = canonical 8-domain list from @napplet/nub-*:
+ * NUB capabilities = canonical 8-domain list from @napplet/nub subpaths:
  *   relay (gated on hooks.relayPool), identity, storage, ifc, theme, keys, media, notify.
  *
  * Sandbox permissions are left empty by default — host apps may extend after

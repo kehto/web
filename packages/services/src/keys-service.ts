@@ -1,7 +1,7 @@
 /**
  * keys-service.ts — NIP-5D keys NUB reference document-level listener implementation.
  *
- * Handles the 3 napplet -> shell request types from @napplet/nub-keys:
+ * Handles the 3 napplet -> shell request types from @napplet/nub/keys:
  *   - keys.forward          -> invokes options.onForward (hotkey passthrough, fire-and-forget)
  *   - keys.registerAction   -> parses action.defaultKey into a chord spec, stores the
  *                              subscription in an in-memory registry keyed by actionId,
@@ -20,14 +20,14 @@
  *
  * On each document keydown matching a registered action, the service
  * additionally emits a `keys.action` envelope to the action's owning napplet
- * via the per-window `send` callback — this is the canonical @napplet/nub-keys
+ * via the per-window `send` callback — this is the canonical @napplet/nub/keys
  * surface the SDK's `keys.onAction(...)` helper consumes. The shape is a
  * superset of `KeysActionMessage`: `{ type, actionId, chord }` where `chord`
  * is the parsed `{ ctrl, alt, shift, meta, key }` struct (extension field;
  * base shape unchanged, downstream SDKs that only read `{ type, actionId }`
  * ignore `chord` silently).
  *
- * Field-name translation: @napplet/nub-keys uses the compact
+ * Field-name translation: @napplet/nub/keys uses the compact
  * { ctrl, alt, shift, meta } form on the wire; the shell's HotkeyHooks
  * (packages/shell/src/types.ts) expects the DOM-compatible
  * { ctrlKey, altKey, shiftKey, metaKey } form. This service performs the
@@ -45,7 +45,7 @@ import type {
   KeysRegisterActionMessage,
   KeysRegisterActionResultMessage,
   KeysActionMessage,
-} from '@napplet/nub-keys';
+} from '@napplet/nub/keys/types';
 
 /**
  * Minimal structural subset of the DOM `KeyboardEvent` exposed to
@@ -106,7 +106,7 @@ export interface HostKeysBridge {
    *   - invoke `callback` exactly once per matching chord event (implementations
    *     are responsible for any OS-autorepeat filtering)
    *   - invoke `callback` synchronously during the event delivery
-   *   - accept the string chord format documented by @napplet/nub-keys
+   *   - accept the string chord format documented by @napplet/nub/keys
    *     (e.g. `'Ctrl+Shift+K'`, `'Cmd+P'`)
    */
   subscribe(chord: string, callback: (event: KeyboardEvent | HostKeyEvent) => void): () => void;
@@ -451,7 +451,7 @@ export function createKeysService(
   const windowActions = new Map<string, Set<string>>(); // windowId → Set<actionId>
   // Per-window `send` callback captured at registerAction time. Used to push
   // keys.action envelopes back to the owning napplet on chord match — this is
-  // the canonical @napplet/nub-keys surface the SDK's `keys.onAction(...)`
+  // the canonical @napplet/nub/keys surface the SDK's `keys.onAction(...)`
   // helper consumes.
   const sendHandles = new Map<string, (msg: NappletMessage) => void>(); // windowId → send
 
@@ -579,7 +579,7 @@ export function createKeysService(
         }
 
         case 'keys.unregisterAction': {
-          // Fire-and-forget per @napplet/nub-keys spec. Remove subscription if present.
+          // Fire-and-forget per @napplet/nub/keys spec. Remove subscription if present.
           const m = message as NappletMessage & { actionId?: string };
           if (m.actionId && actionRegistry.has(m.actionId)) {
             const entry = actionRegistry.get(m.actionId)!;

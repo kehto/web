@@ -81,7 +81,7 @@ export type {
 // MediaAction literal for their onAction callback typing. Re-exported here
 // so host-app code can depend only on @kehto/services, mirroring the Phase 26
 // HostKeyEvent pattern.
-export type { MediaAction } from '@napplet/nub-media';
+export type { MediaAction } from '@napplet/nub/media/types';
 
 // ─── Notify Service (NIP-5D notify NUB — stub) ────────────────────────────
 // Coexists with createNotificationService above (legacy ifc-emit path).

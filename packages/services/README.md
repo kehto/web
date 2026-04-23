@@ -80,7 +80,7 @@ export interface HostKeysBridge {
    *   - invoke `callback` exactly once per matching chord event (implementations
    *     are responsible for any OS-autorepeat filtering)
    *   - invoke `callback` synchronously during the event delivery
-   *   - accept the string chord format documented by @napplet/nub-keys
+   *   - accept the string chord format documented by @napplet/nub/keys
    *     (e.g. `'Ctrl+Shift+K'`, `'Cmd+P'`)
    */
   subscribe(chord: string, callback: (event: KeyboardEvent | HostKeyEvent) => void): () => void;
@@ -283,7 +283,7 @@ runtime.registerService('media', createMediaService({ hostBridge: electronBridge
 
 Plug a `HostMediaBridge` when `navigator.mediaSession` is insufficient: Electron apps that need to route transport events through the main process (lock-screen integration on Windows, Now Playing integration on macOS), Linux shells that speak MPRIS over D-Bus, native mobile wrappers that forward to AVPlayer / ExoPlayer, or test harnesses that record action events without touching the DOM. The bridge owns metadata/state mirroring and OS action routing; the service retains per-session bookkeeping (sessionRegistry + per-window send handles) so `media.command` dispatch semantics stay identical across paths.
 
-See the demo: [`apps/demo/napplets/media-controller/src/main.ts`](../../apps/demo/napplets/media-controller/src/main.ts) (the Phase 27 end-to-end exemplar — uses `@napplet/nub-media` `mediaCreateSession` + `mediaReportState` + `mediaOnCommand` against the real backend).
+See the demo: [`apps/demo/napplets/media-controller/src/main.ts`](../../apps/demo/napplets/media-controller/src/main.ts) (the Phase 27 end-to-end exemplar — uses `@napplet/nub/media` `mediaCreateSession` + `mediaReportState` + `mediaOnCommand` against the real backend).
 
 ## Public API
 

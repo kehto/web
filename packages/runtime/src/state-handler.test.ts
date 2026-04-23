@@ -1,7 +1,7 @@
 /**
  * state-handler.test.ts — Unit tests for handleStorageNub (Plan 12-09).
  *
- * Asserts canonical @napplet/nub-storage envelope shapes for the 4 canonical
+ * Asserts canonical @napplet/nub/storage envelope shapes for the 4 canonical
  * actions (get, set, remove, keys) and explicit rejection of storage.clear
  * (not in the canonical union — kehto extension removed per DRIFT-ACL-08).
  *
@@ -122,7 +122,7 @@ function lastOfType(h: DirectHarness, type: string): NappletMessage | undefined 
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
-describe('handleStorageNub — canonical @napplet/nub-storage envelope shapes', () => {
+describe('handleStorageNub — canonical @napplet/nub/storage envelope shapes', () => {
   let h: DirectHarness;
 
   beforeEach(() => {
@@ -219,15 +219,15 @@ describe('handleStorageNub — canonical @napplet/nub-storage envelope shapes', 
   });
 
   // Test 6 — storage.clear rejected explicitly with .error envelope.
-  it('storage.clear produces .error envelope — action not supported by @napplet/nub-storage', () => {
+  it('storage.clear produces .error envelope — action not supported by @napplet/nub/storage', () => {
     dispatch(h, { type: 'storage.clear', id: 'c1' } as NappletMessage);
 
     const err = lastOfType(h, 'storage.clear.error');
     expect(err).toBeDefined();
     expect((err as any).id).toBe('c1');
-    // Accept either the explicit "not in @napplet/nub-storage" message or the
+    // Accept either the explicit "not in @napplet/nub/storage" message or the
     // generic "unknown storage action: clear" fallback.
-    expect((err as any).error).toMatch(/not (in )?@napplet\/nub-storage|unknown storage action: clear/i);
+    expect((err as any).error).toMatch(/not (in )?@napplet\/nub\/storage|unknown storage action: clear/i);
     // Critical: no storage.clear.result envelope was emitted.
     expect(lastOfType(h, 'storage.clear.result')).toBeUndefined();
   });
