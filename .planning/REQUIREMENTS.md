@@ -2,7 +2,7 @@
 
 **Milestone:** v1.6
 **Defined:** 2026-04-23
-**Status:** Roadmap defined (Phases 32–37)
+**Status:** Roadmap defined (Phases 32–36)
 
 ## Overview
 
@@ -12,7 +12,6 @@ Scope-in (hyprgate issues closing this milestone):
 
 | Source | Capability | Category |
 |--------|-----------|----------|
-| kehto#1 | `createCacheService` + `HostCacheBridge` (multi-tab OPFS) | CACHE |
 | kehto#2 | Extract `@kehto/nip66` as publishable package | NIP66 |
 | kehto#3 + PR#7 | Merge `@kehto/wm` skeleton | WM |
 | kehto#4 | Consolidate peer deps → `@napplet/nub` subpath | DEP |
@@ -20,7 +19,9 @@ Scope-in (hyprgate issues closing this milestone):
 | kehto#8 | Reserved chord-set surface on `createKeysService` | KEYS |
 | v1.5 carryover | Chat boot `storage.get` storm (18+ serial round-trips) | PERF |
 
-**REQ-ID format:** `[CATEGORY]-[NUMBER]`. KEYS, DOCS, E2E continue numbering from prior milestones; CACHE, NIP66, WM, DEP, PERF are new categories starting at `-01`.
+**Dropped mid-milestone** (2026-04-23): **kehto#1** — Phase 33 scoping revealed the existing `createCacheService` in `packages/services/src/cache-service.ts` (v1.2+) already provides the `hostBridge`-style injection point hyprgate asked for (the options object `{query, store, isAvailable}` IS the bridge). Only cosmetic gap vs. Keys/Media pattern is surface naming. Commented on kehto#1 with integration example; issue stays open as a kehto-side tracker for optional future polish (`HostCacheBridge` type alias + optional default). CACHE-01..05 removed from v1.6 scope.
+
+**REQ-ID format:** `[CATEGORY]-[NUMBER]`. KEYS, DOCS, E2E continue numbering from prior milestones; NIP66, WM, DEP, PERF are new categories starting at `-01`.
 
 **Anti-features carried forward from v1.5 (enforced every phase):**
 - No `window.nostr` on any napplet-visible surface
@@ -37,17 +38,7 @@ Scope-in (hyprgate issues closing this milestone):
 
 ## v1 Requirements
 
-### Category 1: Cache Service (CACHE) — kehto#1
-
-New reference service + host-bridge hook so downstream shells (hyprgate, other NIP-5D implementers) can supply OPFS-aware multi-tab backends without monkey-patching the upstream reference. Pattern mirrors v1.4's `HostKeysBridge` / `HostMediaBridge`.
-
-- [ ] **CACHE-01**: `@kehto/services` exports `createCacheService(options)` that returns a `ServiceHandler { name: 'cache' }` conforming to the existing reference-service contract (descriptor + message router).
-- [ ] **CACHE-02**: Default `createCacheService` (no `hostBridge`) provides an in-memory cache with `cache.get` / `cache.set` / `cache.delete` / `cache.clear` dispatched by `(scope, key)` where `scope` is the napplet's canonical identity key.
-- [ ] **CACHE-03**: `createCacheService` accepts an optional `hostBridge?: HostCacheBridge` that — when provided — delegates all cache operations to the bridge (Branch A) and leaves the default in-memory body untouched when absent (Branch B). Exact pattern: Plan 26-01 `createKeysService`.
-- [ ] **CACHE-04**: `HostCacheBridge` interface + `HostCacheEvent` type are exported from `@kehto/services` with JSDoc, matching the shape of `HostKeysBridge` / `HostMediaBridge`.
-- [ ] **CACHE-05**: `packages/services/README.md` gains a Cache H2 section (analog to Keys + Media) covering the default in-memory behavior, the `HostCacheBridge` contract, and a multi-tab OPFS reference sketch.
-
-### Category 2: NIP-66 Package (NIP66) — kehto#2
+### Category 1: NIP-66 Package (NIP66) — kehto#2
 
 Extract a standalone publishable package so the community doesn't re-invent kind-30166 relay discovery per-shell. Reference implementation patterns available in hyprgate's `nip66-monitor.ts` and nadar.
 
@@ -57,7 +48,7 @@ Extract a standalone publishable package so the community doesn't re-invent kind
 - [ ] **NIP66-04**: Package README documents the public API + an integration example against a `ShellAdapter` consumer surface (e.g., `relayConfig.getNip66Suggestions`).
 - [ ] **NIP66-05**: Changeset authored for `@kehto/nip66@0.1.0` initial publish; package is buildable but is NOT yet wired into the demo shell (demo wiring deferred to v1.7+).
 
-### Category 3: WM Skeleton (WM) — kehto#3 / PR #7
+### Category 2: WM Skeleton (WM) — kehto#3 / PR #7
 
 Merge the `@kehto/wm` library-skeleton PR so downstream shells (hyprgate first) can depend on the canonical types/factory signature. Implementation is deliberately stubbed — that's the point of the skeleton.
 
@@ -65,7 +56,7 @@ Merge the `@kehto/wm` library-skeleton PR so downstream shells (hyprgate first) 
 - [ ] **WM-02**: `@kehto/wm/src/index.ts` exports the generic type vocabulary (`WindowId`, `WorkspaceId`, `Rect`, `Layout`), the `WmHostHooks` contract, the `WmService` interface, and a throwing `createWmService` factory stub.
 - [ ] **WM-03**: `turbo run build` + `turbo run type-check` pass for the new package on `main` with no regressions to the 53-spec E2E baseline.
 
-### Category 4: NUB Dep Consolidation (DEP) — kehto#4
+### Category 3: NUB Dep Consolidation (DEP) — kehto#4
 
 Migrate every `@kehto/*` package from 8 split `@napplet/nub-{domain}@0.2.1` peer/dev deps to the consolidated `@napplet/nub@0.2.1` package with subpath imports. Closes the dual-instance pitfall that lands two copies of every NUB module on disk in downstream shells that need both shapes.
 
@@ -75,7 +66,7 @@ Migrate every `@kehto/*` package from 8 split `@napplet/nub-{domain}@0.2.1` peer
 - [x] **DEP-04**: Changesets authored for each `@kehto/*` package documenting the peer-dep migration (minor bump — public peer surface changed).
 - [x] **DEP-05**: Downstream smoke: fresh clone + `pnpm install` + `pnpm build` + `pnpm test:e2e` green at 53/0/0; no dual-instance warnings in any build log.
 
-### Category 5: Reserved Chord Surface (KEYS — continued from v1.4) — kehto#8
+### Category 4: Reserved Chord Surface (KEYS — continued from v1.4) — kehto#8
 
 Extend `createKeysService` so shells can declare WM-absolute chords once and have the keys service short-circuit routing to napplet-registered actions that claim the same chord.
 
@@ -83,18 +74,18 @@ Extend `createKeysService` so shells can declare WM-absolute chords once and hav
 - [ ] **KEYS-05**: When a napplet calls `keys.forward` with a reserved chord, the keys service invokes the shell's `onForward` / bridge handler and does NOT dispatch `keys.action` to any napplet that registered the same chord via `keys.registerAction`.
 - [ ] **KEYS-06**: `packages/services/README.md` Keys H2 section extended with the reserved-chord surface, a WM-launcher integration example, and the cross-NUB precedence note (reserved > registered).
 
-### Category 6: Performance (PERF) — v1.5 carryover
+### Category 5: Performance (PERF) — v1.5 carryover
 
 v1.5 audit flagged chat napplet boot issuing 18+ serial `storage.get` round-trips (Shell → Napplet acks). Not a correctness bug — a throughput bottleneck that makes the demo feel slow under the `:4174` iteration loop.
 
 - [ ] **PERF-01**: Chat napplet boot reduces cumulative `storage.get` request count on the AUTHENTICATED → READY transition by at least 50% (either via a single `storage.getMany` batch message, parallelized `Promise.all`, or a boot-time preload map). Baseline count recorded in phase plan before fix; post-fix count + wall-clock recorded in ITERATION-LOG.md.
 
-### Category 7: Documentation (DOCS — continued from v1.3) — kehto#5
+### Category 6: Documentation (DOCS — continued from v1.3) — kehto#5
 
 - [ ] **DOCS-04**: Root `README.md` removes the "`@napplet/core` not yet on npm" claim + `pnpm.overrides link:` consumer recommendation. New consumer story: `pnpm add @kehto/runtime @napplet/shim @napplet/nub` from registry.
 - [ ] **DOCS-05**: Root `README.md` Quick-Integration Example block verified against a fresh `pnpm dlx create-*` or equivalent clean-install smoke, matching what hyprgate actually pins in v2.0.
 
-### Category 8: E2E Coverage (E2E — continued from v1.5) — new specs
+### Category 7: E2E Coverage (E2E — continued from v1.5) — new specs
 
 - [ ] **E2E-17**: New Layer-B Playwright spec locking the KEYS-04 / KEYS-05 reserved-chord contract — a reserved chord forwarded via `keys.forward` fires the shell handler and does NOT reach a napplet that claimed the same chord.
 - [ ] **E2E-18**: Layer-B Playwright fresh-build iteration loop records `pnpm clean && pnpm build && pnpm test:e2e` green at ≥ 54 passed / 0 failed / 0 skipped (baseline 53 + E2E-17) with the v1.6 milestone close commit.
@@ -114,6 +105,7 @@ v1.5 audit flagged chat napplet boot issuing 18+ serial `storage.get` round-trip
 
 ### v1.7+ Platform
 
+- **CACHE-01..05 (dropped from v1.6)**: Cosmetic `HostCacheBridge` type alias + optional default for `createCacheService`. Existing `CacheServiceOptions` already provides the injection point hyprgate asked for; only naming parity with Keys/Media remains. Tracked at kehto#1; not scheduled — pull in if a downstream requests the rename explicitly.
 - **WM-04..0N**: Full `@kehto/wm` implementation (BSP / master-stack / floating layout primitives) — waits on a real consumer use case inside kehto-land.
 - **BRIDGE-01..02**: Electron + Tauri reference impls of `HostKeysBridge`, `HostMediaBridge`, `HostCacheBridge` (carryover from v1.4 tech debt).
 - **CI-01**: Multi-OS CI matrix (ubuntu-latest + macos-latest + windows-latest) — carryover from v1.4.
@@ -142,48 +134,42 @@ Which phases cover which requirements. Populated by gsd-roadmapper during roadma
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CACHE-01 | Phase 33 | Pending |
-| CACHE-02 | Phase 33 | Pending |
-| CACHE-03 | Phase 33 | Pending |
-| CACHE-04 | Phase 33 | Pending |
-| CACHE-05 | Phase 33 | Pending |
-| NIP66-01 | Phase 35 | Pending |
-| NIP66-02 | Phase 35 | Pending |
-| NIP66-03 | Phase 35 | Pending |
-| NIP66-04 | Phase 35 | Pending |
-| NIP66-05 | Phase 35 | Pending |
-| WM-01 | Phase 36 | Pending |
-| WM-02 | Phase 36 | Pending |
-| WM-03 | Phase 36 | Pending |
 | DEP-01 | Phase 32 | Complete |
 | DEP-02 | Phase 32 | Complete |
 | DEP-03 | Phase 32 | Complete |
 | DEP-04 | Phase 32 | Complete |
 | DEP-05 | Phase 32 | Complete |
-| KEYS-04 | Phase 34 | Pending |
-| KEYS-05 | Phase 34 | Pending |
-| KEYS-06 | Phase 34 | Pending |
-| PERF-01 | Phase 37 | Pending |
-| DOCS-04 | Phase 36 | Pending |
-| DOCS-05 | Phase 36 | Pending |
-| E2E-17 | Phase 34 | Pending |
-| E2E-18 | Phase 37 | Pending |
+| KEYS-04 | Phase 33 | Pending |
+| KEYS-05 | Phase 33 | Pending |
+| KEYS-06 | Phase 33 | Pending |
+| E2E-17 | Phase 33 | Pending |
+| NIP66-01 | Phase 34 | Pending |
+| NIP66-02 | Phase 34 | Pending |
+| NIP66-03 | Phase 34 | Pending |
+| NIP66-04 | Phase 34 | Pending |
+| NIP66-05 | Phase 34 | Pending |
+| WM-01 | Phase 35 | Pending |
+| WM-02 | Phase 35 | Pending |
+| WM-03 | Phase 35 | Pending |
+| DOCS-04 | Phase 35 | Pending |
+| DOCS-05 | Phase 35 | Pending |
+| PERF-01 | Phase 36 | Pending |
+| E2E-18 | Phase 36 | Pending |
 
 **Coverage:**
-- v1 requirements: 26 total
-- Mapped to phases: 26 ✓
+- v1 requirements: 21 total (CACHE-01..05 dropped 2026-04-23 — existing code already provides the functionality; see Scope-in table above)
+- Mapped to phases: 21 ✓
 - Unmapped: 0
 
 **Phase distribution:**
-- Phase 32 (NUB Dep Consolidation): 5 reqs (DEP-01..05)
-- Phase 33 (Cache Service + HostCacheBridge): 5 reqs (CACHE-01..05)
-- Phase 34 (Reserved Chord Surface + E2E-17): 4 reqs (KEYS-04..06, E2E-17)
-- Phase 35 (@kehto/nip66 Extract & Publish): 5 reqs (NIP66-01..05)
-- Phase 36 (WM Skeleton + README Cleanup): 5 reqs (WM-01..03, DOCS-04..05)
-- Phase 37 (PERF-01 + Milestone Close E2E-18): 2 reqs (PERF-01, E2E-18)
+- Phase 32 (NUB Dep Consolidation): 5 reqs (DEP-01..05) — **Complete**
+- Phase 33 (Reserved Chord Surface + E2E-17): 4 reqs (KEYS-04..06, E2E-17)
+- Phase 34 (@kehto/nip66 Extract & Publish): 5 reqs (NIP66-01..05)
+- Phase 35 (WM Skeleton + README Cleanup): 5 reqs (WM-01..03, DOCS-04..05)
+- Phase 36 (PERF-01 + Milestone Close E2E-18): 2 reqs (PERF-01, E2E-18)
 
 ---
 
 *Requirements defined: 2026-04-23*
-*Roadmap mapped: 2026-04-23 (Phases 32–37)*
-*Last updated: 2026-04-23 after roadmap creation*
+*Roadmap mapped: 2026-04-23 (Phases 32–36; CACHE phase dropped after Phase 32)*
+*Last updated: 2026-04-23 after CACHE descope*

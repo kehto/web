@@ -6,11 +6,11 @@ status: planning
 last_updated: "2026-04-23T08:11:15.184Z"
 last_activity: 2026-04-23
 progress:
-  total_phases: 6
+  total_phases: 5
   completed_phases: 1
   total_plans: 2
   completed_plans: 2
-  percent: 100
+  percent: 20
 ---
 
 # Project State
@@ -20,35 +20,36 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-23, v1.6 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 33 — Cache Service + HostCacheBridge (next)
+**Current focus:** Phase 33 — Reserved Chord Surface + E2E-17 (next)
 
 ## Current Position
 
 Phase: 32 (NUB Dep Consolidation) — COMPLETE
 Plan: 2 of 2 (Plan 32-01 COMPLETE bb1061e, Plan 32-02 COMPLETE a4d0652 + 5adeb52)
 **Milestone:** v1.6 Downstream Unblock & Shell Service Surface
-**Phase numbering:** 32 → 37 (continues from v1.5 close at Phase 31)
-**Phase:** 33
+**Phase numbering:** 32 → 36 (continues from v1.5 close at Phase 31; original Phase 33 "Cache Service" dropped 2026-04-23 — see Roadmap Summary note)
+**Phase:** 33 (Reserved Chord Surface)
 **Plan:** Not started
 **Status:** Ready to plan
 **Last activity:** 2026-04-23
 
-Progress: [██████████] 100% of phase 32 (2/2 plans complete); 1/6 phases complete overall
+Progress: [██░░░░░░░░] 20% (1/5 phases complete)
 
 ## Roadmap Summary
 
 | Phase | Name | REQ-IDs | Criteria |
 |-------|------|---------|----------|
-| 32 | NUB Dep Consolidation | DEP-01..05 | 5 |
-| 33 | Cache Service + HostCacheBridge | CACHE-01..05 | 5 |
-| 34 | Reserved Chord Surface + E2E-17 | KEYS-04..06, E2E-17 | 5 |
-| 35 | `@kehto/nip66` Extract & Publish | NIP66-01..05 | 5 |
-| 36 | WM Skeleton + README Cleanup | WM-01..03, DOCS-04..05 | 5 |
-| 37 | PERF-01 + Milestone Close E2E-18 | PERF-01, E2E-18 | 5 |
+| 32 | NUB Dep Consolidation | DEP-01..05 | 5 ✓ Complete |
+| 33 | Reserved Chord Surface + E2E-17 | KEYS-04..06, E2E-17 | 5 |
+| 34 | `@kehto/nip66` Extract & Publish | NIP66-01..05 | 5 |
+| 35 | WM Skeleton + README Cleanup | WM-01..03, DOCS-04..05 | 5 |
+| 36 | PERF-01 + Milestone Close E2E-18 | PERF-01, E2E-18 | 5 |
 
-**Coverage:** 26/26 v1 requirements mapped, zero orphans.
-**Execution order:** 32 → 33 → 34 → 35 → 36 → 37 (strict numeric; 33-36 are mutually independent once 32 lands).
-**E2E target at close:** ≥ 54 passed / 0 failed / 0 skipped (53 baseline + E2E-17 new spec in Phase 34).
+**Scope change (2026-04-23):** Original Phase 33 (Cache Service + HostCacheBridge) dropped. Existing `createCacheService` in `packages/services/src/cache-service.ts` already provides the `hostBridge`-style injection hyprgate#1 asked for — the `CacheServiceOptions` object IS the bridge. Commented on kehto#1 with integration example; issue open for optional future polish (rename → `HostCacheBridge`, v1.7+). CACHE-01..05 moved to Future Requirements. Phases 34-37 renumbered → 33-36.
+
+**Coverage:** 21/21 v1 requirements mapped, zero orphans.
+**Execution order:** 32 → 33 → 34 → 35 → 36 (strict numeric; 33-35 are mutually independent once 32 lands).
+**E2E target at close:** ≥ 54 passed / 0 failed / 0 skipped (53 baseline + E2E-17 new spec in Phase 33).
 
 ## Accumulated Context
 
@@ -56,27 +57,30 @@ Full decision log (v1.0 → v1.5) archived in `.planning/PROJECT.md` Key Decisio
 
 ### v1.6 scope origin
 
-- **Downstream:** 8 open GitHub issues filed by dskvr during hyprgate v2.0 Kehto Migration gap analysis (kehto#1, #2, #3, #4, #5, #6, #8, #9). 6 of 8 pulled into v1.6 scope; #6 tracking-only; #9 upstream-first (cross-linked to napplet/napplet#3).
+- **Downstream:** 8 open GitHub issues filed by dskvr during hyprgate v2.0 Kehto Migration gap analysis (kehto#1, #2, #3, #4, #5, #6, #8, #9).
+  - v1.6 closes: #2 (Phase 34), #3 (Phase 35), #4 (Phase 32 ✓), #5 (Phase 35), #8 (Phase 33)
+  - #1 (Cache hostBridge): **Dropped from v1.6** — existing code already meets the ask; commented on kehto#1 with integration example; kehto-side tracker for optional v1.7+ polish
+  - #6: tracking-only
+  - #9: upstream-first (cross-linked to napplet/napplet#3)
 - **Carryover:** PERF-01 from v1.5 (chat boot storage.get storm).
-- **Explicitly deferred to v1.7:** NIP-5D spec resync, NUB-CLASS, NUB-CONNECT, NUB-CONFIG, NUB-RESOURCE. v1.7 is the spec-alignment milestone for @napplet v0.29.0.
+- **Explicitly deferred to v1.7:** NIP-5D spec resync, NUB-CLASS, NUB-CONNECT, NUB-CONFIG, NUB-RESOURCE, CACHE polish (naming parity). v1.7 is the spec-alignment milestone for @napplet v0.29.0.
 
 ### Phase dependency structure
 
-- **Phase 32 is the keystone** — DEP migration is lockfile-wide and every subsequent phase lands on the consolidated `@napplet/nub` subpath surface. Phases 33-36 can be planned concurrently post-32 (all four carry the `Depends on: Phase 32` constraint and nothing else beyond it).
-- **Phase 37 is the milestone close** — depends on 32, 33, 34, 35, 36. PERF-01 lands here alongside E2E-18 (milestone iteration loop) so the anti-term sweep runs against the full v1.6 delta in one pass.
-- **Only new Playwright spec in v1.6 is E2E-17** (Phase 34, reserved-chord contract). Expected baseline delta: 53 → 54.
+- **Phase 32 is the keystone** — DEP migration is lockfile-wide and every subsequent phase lands on the consolidated `@napplet/nub` subpath surface. Phases 33-35 can be planned concurrently post-32 (all three carry the `Depends on: Phase 32` constraint and nothing else beyond it).
+- **Phase 36 is the milestone close** — depends on 32, 33, 34, 35. PERF-01 lands here alongside E2E-18 (milestone iteration loop) so the anti-term sweep runs against the full v1.6 delta in one pass.
+- **Only new Playwright spec in v1.6 is E2E-17** (Phase 33, reserved-chord contract). Expected baseline delta: 53 → 54.
 
 ### Blockers/Concerns
 
-- **DEP-01 migration risk (Phase 32):** consolidating 4 `@kehto/*` packages' peer deps from split `@napplet/nub-*` → `@napplet/nub` subpath is lockfile-wide; needs changesets, verification that dual-instance pitfall is actually gone (not just renamed). Must hold exactly 53/0/0 — no regression cover.
-- **PERF-01 measurement (Phase 37):** no baseline number yet; v1.5 audit described "18+ serial round-trips" but did not record wall-clock. Phase plan will need to define pass/fail threshold via pre-fix instrumentation recorded in `37-ITERATION-LOG.md`.
-- **KEYS-04 design decision (Phase 34):** `reservedChords` service option vs `HostKeysBridge.reserveAbsolute()` extension is deferred to the plan phase — both shapes are acceptable contracts per the requirement; pick one and document the reasoning in the plan.
-- **@kehto/nip66 relay-pool shape (Phase 35):** the injected relay-pool handle contract is not fully specified; reference patterns exist in hyprgate's `nip66-monitor.ts` and nadar — plan phase will pin the interface.
+- **PERF-01 measurement (Phase 36):** no baseline number yet; v1.5 audit described "18+ serial round-trips" but did not record wall-clock. Phase plan will need to define pass/fail threshold via pre-fix instrumentation recorded in `36-ITERATION-LOG.md`.
+- **KEYS-04 design decision (Phase 33):** `reservedChords` service option vs `HostKeysBridge.reserveAbsolute()` extension is deferred to the plan phase — both shapes are acceptable contracts per the requirement; pick one and document the reasoning in the plan.
+- **@kehto/nip66 relay-pool shape (Phase 34):** the injected relay-pool handle contract is not fully specified; reference patterns exist in hyprgate's `nip66-monitor.ts` and nadar — plan phase will pin the interface.
 
 ## Session Continuity
 
 Last session: 2026-04-23T08:06:08.996Z
-Resume: Phase 32 COMPLETE. All 5 DEP REQ-IDs satisfied. Commits: bb1061e (32-01 atomic migration), 5adeb52 (32-02 changesets), a4d0652 (32-02 iteration loop + Rule 1 subpath-variant fix). Canonical fresh-install iteration loop reports 53/0/0 (18.3s, baseline preserved from v1.5 close); zero dual-instance warnings in build+E2E logs; 4 @kehto/* changesets staged with minor bump and inline pnpm.overrides advisory. Next: plan Phase 33 (Cache Service + HostCacheBridge, CACHE-01..05).
+Resume: Phase 32 COMPLETE. All 5 DEP REQ-IDs satisfied. Commits: bb1061e (32-01 atomic migration), 5adeb52 (32-02 changesets), a4d0652 (32-02 iteration loop + Rule 1 subpath-variant fix). Canonical fresh-install iteration loop reports 53/0/0 (18.3s, baseline preserved from v1.5 close); zero dual-instance warnings in build+E2E logs; 4 @kehto/* changesets staged with minor bump and inline pnpm.overrides advisory. Original Phase 33 (Cache Service + HostCacheBridge) dropped mid-milestone — scoping found existing `createCacheService` already supports the hostBridge-style injection; commented on kehto#1 with integration example. Phases 34-37 renumbered → 33-36. Next: plan Phase 33 (Reserved Chord Surface + E2E-17, KEYS-04..06 + E2E-17).
 
 ## Decisions
 
