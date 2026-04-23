@@ -712,3 +712,305 @@ describe('HostKeysBridge integration', () => {
     expect(subscriptions[1].unsubscribed).toBe(false); // win-B's subscription still live
   });
 });
+
+// ─── Plan 33-01 additions: reserved-chord surface (KEYS-04, KEYS-05) ────────
+
+describe('reserved chords', () => {
+  // Local helper: filter the captured send() sink to only keys.action envelopes.
+  // Reservation must suppress these for reserved chords; non-reserved chords
+  // must still get them (zero-regression on legacy behavior).
+  function keysActionEnvelopes(sent: NappletMessage[]): NappletMessage[] {
+    return sent.filter((m) => (m as NappletMessage & { type: string }).type === 'keys.action');
+  }
+
+  // Local helper: re-create the createFakeBridge pattern from the
+  // HostKeysBridge integration block above (line 568). Kept inline to avoid
+  // cross-block helper plumbing — mirrors the existing style where each
+  // describe block localizes its fixtures.
+  function createFakeBridge() {
+    const subscriptions: Array<{
+      chord: string;
+      callback: (ev: HostKeyEvent) => void;
+      unsubscribed: boolean;
+    }> = [];
+    const bridge: HostKeysBridge = {
+      subscribe(chord, callback) {
+        const entry = {
+          chord,
+          callback: callback as (ev: HostKeyEvent) => void,
+          unsubscribed: false,
+        };
+        subscriptions.push(entry);
+        return () => {
+          entry.unsubscribed = true;
+        };
+      },
+    };
+    return { bridge, subscriptions };
+  }
+
+  it('Test 1 (Branch B, reserved path on keys.forward): onForward fires; zero keys.action envelopes even when a napplet registered the same chord', () => {
+    const target = createMockTarget();
+    const sent: NappletMessage[] = [];
+    const received: Array<Record<string, unknown>> = [];
+    const service = createKeysService({
+      listenerTarget: target,
+      reservedChords: ['Ctrl+Shift+R'],
+      onForward: (e) => received.push(e as unknown as Record<string, unknown>),
+    } as Parameters<typeof createKeysService>[0]);
+
+    // Reservation landed with a minor version bump — pin the contract at the test layer.
+    expect(service.descriptor.version).toBe('1.2.0');
+
+    // Napplet claims the same chord — reservation should NOT block registration.
+    service.handleMessage(
+      WINDOW_ID,
+      {
+        type: 'keys.registerAction',
+        id: 'r-1',
+        action: { id: 'conflict', label: 'C', defaultKey: 'Ctrl+Shift+R' },
+      } as NappletMessage,
+      (m) => sent.push(m),
+    );
+    // Sanity: registerAction.result still fires (reservation doesn't reject registration).
+    expect(sent).toHaveLength(1);
+    expect((sent[0] as NappletMessage & { type: string }).type).toBe('keys.registerAction.result');
+
+    // Napplet forwards the reserved chord via keys.forward.
+    service.handleMessage(
+      WINDOW_ID,
+      {
+        type: 'keys.forward',
+        key: 'R',
+        code: 'KeyR',
+        ctrl: true,
+        alt: false,
+        shift: true,
+        meta: false,
+      } as NappletMessage,
+      (m) => sent.push(m),
+    );
+
+    // onForward fires once with DOM-shape payload.
+    expect(received).toHaveLength(1);
+    expect(received[0]).toMatchObject({
+      key: 'R',
+      code: 'KeyR',
+      ctrlKey: true,
+      altKey: false,
+      shiftKey: true,
+      metaKey: false,
+    });
+    // Zero keys.action envelopes (reservation suppresses napplet fan-out).
+    expect(keysActionEnvelopes(sent)).toHaveLength(0);
+
+    service.destroy();
+  });
+
+  it('Test 2 (Branch B, non-reserved forward): legacy behavior unchanged — onForward fires, zero keys.action', () => {
+    const target = createMockTarget();
+    const sent: NappletMessage[] = [];
+    const received: Array<Record<string, unknown>> = [];
+    const service = createKeysService({
+      listenerTarget: target,
+      reservedChords: ['Ctrl+Shift+R'],
+      onForward: (e) => received.push(e as unknown as Record<string, unknown>),
+    } as Parameters<typeof createKeysService>[0]);
+    expect(service.descriptor.version).toBe('1.2.0');
+
+    // Forward a non-reserved chord (Ctrl+K, not in reservedChords).
+    service.handleMessage(
+      WINDOW_ID,
+      {
+        type: 'keys.forward',
+        key: 'K',
+        code: 'KeyK',
+        ctrl: true,
+        alt: false,
+        shift: false,
+        meta: false,
+      } as NappletMessage,
+      (m) => sent.push(m),
+    );
+
+    expect(received).toHaveLength(1);
+    expect(received[0]).toMatchObject({ key: 'K', ctrlKey: true, shiftKey: false });
+    expect(keysActionEnvelopes(sent)).toHaveLength(0);
+
+    service.destroy();
+  });
+
+  it('Test 3 (Branch B, document keydown on reserved chord suppresses keys.action to napplet)', () => {
+    const target = createMockTarget();
+    const sent: NappletMessage[] = [];
+    const received: Array<Record<string, unknown>> = [];
+    const service = createKeysService({
+      listenerTarget: target,
+      reservedChords: ['Ctrl+Shift+R'],
+      onForward: (e) => received.push(e as unknown as Record<string, unknown>),
+    } as Parameters<typeof createKeysService>[0]);
+    expect(service.descriptor.version).toBe('1.2.0');
+
+    // Napplet registers the same chord via keys.registerAction.
+    service.handleMessage(
+      WINDOW_ID,
+      {
+        type: 'keys.registerAction',
+        id: 'r-3',
+        action: { id: 'conflict', label: 'C', defaultKey: 'Ctrl+Shift+R' },
+      } as NappletMessage,
+      (m) => sent.push(m),
+    );
+
+    // Dispatch synthetic keydown matching Ctrl+Shift+R via the document listener.
+    dispatchChord(target, { key: 'R', code: 'KeyR', ctrlKey: true, shiftKey: true });
+
+    // onForward fires once (shell WANTS the forward — that's why it reserved).
+    expect(received).toHaveLength(1);
+    // Zero keys.action envelopes — reservation gate short-circuited napplet dispatch.
+    expect(keysActionEnvelopes(sent)).toHaveLength(0);
+
+    service.destroy();
+  });
+
+  it('Test 4 (Branch A / hostBridge, reserved chord on keys.forward): onForward fires, zero keys.action; bridge.subscribe still invoked on registration', () => {
+    const { bridge, subscriptions } = createFakeBridge();
+    const sent: NappletMessage[] = [];
+    const received: Array<Record<string, unknown>> = [];
+    const service = createKeysService({
+      hostBridge: bridge,
+      reservedChords: ['Ctrl+Shift+R'],
+      onForward: (e) => received.push(e as unknown as Record<string, unknown>),
+    } as Parameters<typeof createKeysService>[0]);
+    expect(service.descriptor.version).toBe('1.2.0');
+
+    // Napplet registers the reserved chord — reservation should not block registration.
+    service.handleMessage(
+      WINDOW_ID,
+      {
+        type: 'keys.registerAction',
+        id: 'r-4',
+        action: { id: 'conflict', label: 'C', defaultKey: 'Ctrl+Shift+R' },
+      } as NappletMessage,
+      (m) => sent.push(m),
+    );
+    // bridge.subscribe was called for this chord.
+    expect(subscriptions).toHaveLength(1);
+    expect(subscriptions[0].chord).toBe('Ctrl+Shift+R');
+
+    // Napplet forwards the reserved chord via keys.forward.
+    service.handleMessage(
+      WINDOW_ID,
+      {
+        type: 'keys.forward',
+        key: 'R',
+        code: 'KeyR',
+        ctrl: true,
+        alt: false,
+        shift: true,
+        meta: false,
+      } as NappletMessage,
+      (m) => sent.push(m),
+    );
+
+    // onForward fires once with DOM-shape payload.
+    expect(received).toHaveLength(1);
+    expect(received[0]).toMatchObject({
+      key: 'R',
+      code: 'KeyR',
+      ctrlKey: true,
+      shiftKey: true,
+    });
+    // Zero keys.action envelopes — Branch A reservation gate documented + enforced.
+    expect(keysActionEnvelopes(sent)).toHaveLength(0);
+  });
+
+  it('Test 5 (normalization parity): case-insensitive + Cmd alias match reserved set', () => {
+    // Sub-case A: lowercase reservation matches uppercase forward.
+    {
+      const target = createMockTarget();
+      const received: Array<Record<string, unknown>> = [];
+      const service = createKeysService({
+        listenerTarget: target,
+        reservedChords: ['ctrl+k'],
+        onForward: (e) => received.push(e as unknown as Record<string, unknown>),
+      } as Parameters<typeof createKeysService>[0]);
+      expect(service.descriptor.version).toBe('1.2.0');
+
+      service.handleMessage(
+        WINDOW_ID,
+        {
+          type: 'keys.forward',
+          key: 'K',
+          code: 'KeyK',
+          ctrl: true,
+          alt: false,
+          shift: false,
+          meta: false,
+        } as NappletMessage,
+        () => {},
+      );
+      expect(received).toHaveLength(1);
+      service.destroy();
+    }
+
+    // Sub-case B: Cmd alias maps to meta on forward payload.
+    {
+      const target = createMockTarget();
+      const received: Array<Record<string, unknown>> = [];
+      const service = createKeysService({
+        listenerTarget: target,
+        reservedChords: ['Cmd+K'],
+        onForward: (e) => received.push(e as unknown as Record<string, unknown>),
+      } as Parameters<typeof createKeysService>[0]);
+
+      service.handleMessage(
+        WINDOW_ID,
+        {
+          type: 'keys.forward',
+          key: 'K',
+          code: 'KeyK',
+          ctrl: false,
+          alt: false,
+          shift: false,
+          meta: true,
+        } as NappletMessage,
+        () => {},
+      );
+      expect(received).toHaveLength(1);
+      service.destroy();
+    }
+  });
+
+  it('Test 6 (empty reservedChords): legacy behavior preserved — registered napplet still receives keys.action on document keydown', () => {
+    const target = createMockTarget();
+    const sent: NappletMessage[] = [];
+    const received: Array<Record<string, unknown>> = [];
+    const service = createKeysService({
+      listenerTarget: target,
+      reservedChords: [],
+      onForward: (e) => received.push(e as unknown as Record<string, unknown>),
+    } as Parameters<typeof createKeysService>[0]);
+    expect(service.descriptor.version).toBe('1.2.0');
+
+    service.handleMessage(
+      WINDOW_ID,
+      {
+        type: 'keys.registerAction',
+        id: 'r-6',
+        action: { id: 'legacy', label: 'L', defaultKey: 'Ctrl+Shift+R' },
+      } as NappletMessage,
+      (m) => sent.push(m),
+    );
+
+    dispatchChord(target, { key: 'R', code: 'KeyR', ctrlKey: true, shiftKey: true });
+
+    // Legacy behavior: onForward fires AND napplet receives keys.action.
+    expect(received).toHaveLength(1);
+    expect(keysActionEnvelopes(sent)).toHaveLength(1);
+    const action = keysActionEnvelopes(sent)[0] as NappletMessage & { actionId: string };
+    expect(action.actionId).toBe('legacy');
+
+    service.destroy();
+  });
+});
