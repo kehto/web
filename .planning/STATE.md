@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: — Downstream Unblock & Shell Service Surface
-status: milestone-ready
-last_updated: "2026-04-23T13:37:43.081Z"
+status: completed
+last_updated: "2026-04-23T13:42:12.494Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 5
   completed_phases: 5
   total_plans: 12
   completed_plans: 12
-  percent: 92
+  percent: 100
 ---
 
 # Project State
@@ -29,9 +29,9 @@ Plan: 2 of 2 — **COMPLETE**
 **Milestone:** v1.6 Downstream Unblock & Shell Service Surface — **COMPLETE (21/21 reqs)**
 **Phase numbering:** 32 → 36 (continues from v1.5 close at Phase 31; original Phase 33 "Cache Service" dropped 2026-04-23 — see Roadmap Summary note)
 **Phase:** 36
-**Plan:** 36-02 complete (E2E-18 + milestone close iteration loop at 54/0/0)
+**Plan:** Not started
 **Next Phase:** None — milestone lifecycle next (/gsd:complete-milestone — changeset publish + audit + archive)
-**Status:** Milestone ready (v1.6 Downstream Unblock & Shell Service Surface — 21/21 reqs, 54/0/0 E2E baseline, 10-pattern anti-term sweep clean)
+**Status:** Milestone complete
 **Last activity:** 2026-04-23
 
 Progress: [██████████] 100% (5/5 phases complete; 12/12 plans complete — 36-02 ran canonical v1.6 fresh-install loop at 54/0/0; caught + fixed a 3-napplet AUTHENTICATED regression via identity.getPublicKey replacement for composer/theme-switcher/toaster; v1.6 milestone-wide anti-term sweep clean across Phases 32-36 cumulative delta — 10 patterns, 158 grep-positives, zero napplet-code violations)
