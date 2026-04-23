@@ -137,7 +137,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 32. NUB Dep Consolidation | 2/2 | Complete    | 2026-04-23 |
 | 33. Reserved Chord Surface + E2E-17 | 3/3 | Complete    | 2026-04-23 |
-| 34. `@kehto/nip66` Extract & Publish | 3/3 | Complete   | 2026-04-23 |
+| 34. `@kehto/nip66` Extract & Publish | 3/3 | Complete    | 2026-04-23 |
 | 35. WM Skeleton + README Cleanup | 0/TBD | Not started | - |
 | 36. PERF-01 + Milestone Close E2E-18 | 0/TBD | Not started | - |
 

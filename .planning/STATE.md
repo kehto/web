@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: — Downstream Unblock & Shell Service Surface
 status: planning
-last_updated: "2026-04-23T10:08:17.879Z"
+last_updated: "2026-04-23T10:13:05.984Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 5
@@ -28,10 +28,10 @@ Phase: 34 (@kehto/nip66 Extract & Publish) — **COMPLETE** (3/3 plans, all NIP6
 Plan: 3 of 3 complete (34-01 ✓, 34-02 ✓, 34-03 ✓)
 **Milestone:** v1.6 Downstream Unblock & Shell Service Surface
 **Phase numbering:** 32 → 36 (continues from v1.5 close at Phase 31; original Phase 33 "Cache Service" dropped 2026-04-23 — see Roadmap Summary note)
-**Phase:** 34 (complete); Phase 35 next
-**Plan:** — (Phase 34 complete; Phase 35 plans not yet drafted)
+**Phase:** 35
+**Plan:** Not started
 **Next Phase:** 35 (`WM Skeleton + README Cleanup` — WM-01..03, DOCS-04..05)
-**Status:** Phase 34 complete; ready for Phase 35 planning
+**Status:** Ready to plan
 **Last activity:** 2026-04-23
 
 Progress: [██████░░░░] 60% (3/5 phases complete; 8/8 plans-through-Phase-34 complete — Phases 35+36 add plan count as those phases are drafted)
