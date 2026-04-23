@@ -2,9 +2,8 @@
  * Media-controller demo napplet — exercises real media backend (MEDIA-03, Phase 27).
  *
  * Per 27-CONTEXT.md Area 3:
- *   - On init: runs the D-04 AUTH probe (storage.getItem), then calls
- *     mediaCreateSession via @napplet/nub/media/sdk. The SDK owns the
- *     correlation ID and Promise resolution on the shell's
+ *   - On init: calls mediaCreateSession via @napplet/nub/media/sdk. The SDK owns
+ *     the correlation ID and Promise resolution on the shell's
  *     media.session.create.result envelope.
  *   - After session create, the napplet subscribes to mediaOnCommand(sessionId, ...)
  *     — on each media.command push from the shell (emitted by Plan 27-01 when a
@@ -28,7 +27,6 @@
  * The `/sdk` subpath re-exports the same helpers with zero side effects.
  */
 import '@napplet/shim';
-import { storage } from '@napplet/sdk';
 import {
   mediaCreateSession,
   mediaReportState,
@@ -72,13 +70,9 @@ function log(text: string): void {
 let commandCount = 0;
 
 async function init(): Promise<void> {
-  // D-04 init pattern: storage.getItem probe gates on AUTH completion without
-  // needing a state:read grant (identical to feed + hotkey-chord napplets).
-  try {
-    await storage.getItem('media-controller-auth-probe');
-  } catch { /* state:read denial is expected — AUTH still completed */ }
+  // Initialize: flip status to 'authenticated' then create the media session.
   setStatus('authenticated', 'green');
-  log('AUTH complete — creating media session');
+  log('creating media session');
 
   // Create the session via the nub-media helper. The SDK owns correlation +
   // Promise resolution on the shell's media.session.create.result envelope.

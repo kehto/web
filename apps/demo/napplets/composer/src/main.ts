@@ -11,7 +11,7 @@
  *   no legacy bus enums, no global nostr accessor. Shim handles AUTH implicitly.
  */
 import '@napplet/shim';
-import { relay, storage, type EventTemplate } from '@napplet/sdk';
+import { relay, type EventTemplate } from '@napplet/sdk';
 
 const statusEl = document.getElementById('composer-status')!;
 const inputEl = document.getElementById('composer-input') as HTMLInputElement;
@@ -98,19 +98,12 @@ inputEl.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') void publish();
 });
 
-// D-04 init pattern: first SDK call gates on shim AUTH completion.
-// We use storage.getItem (cheap, idempotent) so a denied 'state:read' does not
-// affect the status sentinel — even on denial the await resolves with an error
-// we can swallow, which is enough to confirm AUTH happened.
+// Initialize the napplet — flip the status sentinel to 'authenticated' once
+// handlers are wired. No AUTH probe needed: the shim fires AUTHENTICATED
+// from bootstrap signal directly (v1.4 Phase 24+ runtime).
 async function init(): Promise<void> {
-  try {
-    await storage.getItem('composer-auth-probe');
-  } catch {
-    // state:read may be denied — irrelevant; AUTH still completed for the storage proxy
-    // to have resolved/rejected at all. Continue to mark authenticated.
-  }
   setStatus('authenticated', 'green');
-  log('AUTH complete — ready to publish');
+  log('ready to publish');
 }
 
 init().catch((err) => {

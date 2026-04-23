@@ -2,9 +2,8 @@
  * Hotkey-chord demo napplet — exercises real keys backend (KEYS-03, Phase 26).
  *
  * Per CONTEXT.md Area 3 + Area 1 + 26-CONTEXT.md checker blocker 1 fix:
- *   - On init: runs the D-04 AUTH probe (storage.getItem), then calls
- *     `await keys.registerAction({...})` via @napplet/sdk. The SDK owns the
- *     correlation ID and Promise resolution on the shell's
+ *   - On init: calls `await keys.registerAction({...})` via @napplet/sdk.
+ *     The SDK owns the correlation ID and Promise resolution on the shell's
  *     keys.registerAction.result envelope.
  *   - On each keys.action push from the shell (emitted by Plan 26-01 on chord
  *     match), `keys.onAction('hotkey-chord.demo', () => ...)` fires — the SDK
@@ -20,7 +19,7 @@
  *   - no hand-rolled correlation IDs (SDK owns them)
  */
 import '@napplet/shim';
-import { storage, keys } from '@napplet/sdk';
+import { keys } from '@napplet/sdk';
 
 const DEFAULT_KEY = 'Ctrl+Shift+K';
 const ACTION_ID = 'hotkey-chord.demo';
@@ -49,13 +48,9 @@ function log(text: string): void {
 let deliveryCount = 0;
 
 async function init(): Promise<void> {
-  // D-04 init pattern: storage.getItem probe gates on AUTH completion without
-  // needing a state:read grant (identical to feed napplet).
-  try {
-    await storage.getItem('hotkey-chord-auth-probe');
-  } catch { /* state:read denial is expected — AUTH still completed */ }
+  // Initialize: flip status to 'authenticated' then register the chord action.
   setStatus('authenticated', 'green');
-  log(`AUTH complete — registering action (${DEFAULT_KEY})`);
+  log(`registering action (${DEFAULT_KEY})`);
 
   // Register the action via the SDK. The SDK owns correlation + Promise
   // resolution on the shell's keys.registerAction.result envelope.

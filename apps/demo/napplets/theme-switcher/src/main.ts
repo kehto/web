@@ -24,7 +24,6 @@
  *   - No global message-event listener (OUTBOUND-ONLY napplet)
  */
 import '@napplet/shim';
-import { storage } from '@napplet/sdk';
 
 const statusEl = document.getElementById('theme-status')!;
 const lightBtn = document.getElementById('theme-light-btn') as HTMLButtonElement;
@@ -118,26 +117,21 @@ customBtn.addEventListener('click', () => {
   dispatchTheme('custom', customTheme);
 });
 
-// ── Init (D-04 AUTH probe — same pattern as composer/preferences/toaster) ─────
+// ── Init ────────────────────────────────────────────────────────────────────
 
 /**
- * Gate authentication on the first SDK call (storage.getItem).
- * Shim AUTH completes before the storage proxy resolves/rejects.
- * Even if state:read is denied, the await completing signals AUTH is done.
+ * Flip status sentinel to 'authenticated'. The shim bootstraps AUTH implicitly;
+ * this napplet has no async setup beyond the status flip (theme broadcast fires
+ * from button handlers, not init).
  *
  * Status sentinel contract (Plan 20-07 greps for these strings):
  *   'connecting...' — HTML default (before init runs)
- *   'authenticated' — set after storage probe resolves
+ *   'authenticated' — set when init resolves
  *   'auth failed'   — set if init throws unexpectedly
  */
 async function init(): Promise<void> {
-  try {
-    await storage.getItem('theme-switcher-auth-probe');
-  } catch {
-    // state:read may be denied — irrelevant; AUTH still completed.
-  }
   setStatus('authenticated', 'green');
-  log('AUTH complete — ready to broadcast theme');
+  log('ready to broadcast theme');
 }
 
 init().catch((err) => {

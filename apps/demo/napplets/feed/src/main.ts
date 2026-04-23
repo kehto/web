@@ -12,7 +12,7 @@
  *   no legacy bus enums, no global nostr accessor. Shim handles AUTH implicitly.
  */
 import '@napplet/shim';
-import { relay, storage, type NostrEvent, type Subscription } from '@napplet/sdk';
+import { relay, type NostrEvent, type Subscription } from '@napplet/sdk';
 
 const statusEl = document.getElementById('feed-status')!;
 const listEl = document.getElementById('feed-list')!;
@@ -61,15 +61,9 @@ function renderEvent(event: NostrEvent): void {
 let sub: Subscription | null = null;
 
 async function init(): Promise<void> {
-  // D-04 init pattern: first SDK call gates on shim AUTH completion. Use storage.getItem
-  // (same as composer/toaster) so state:read denial does not block the status sentinel.
-  try {
-    await storage.getItem('feed-auth-probe');
-  } catch {
-    // state:read may be denied — irrelevant; AUTH still completed.
-  }
+  // Initialize: flip status to 'authenticated' then dispatch relay.subscribe.
   setStatus('authenticated', 'green');
-  log('AUTH complete — subscribing to kind:1 feed');
+  log('subscribing to kind:1 feed');
 
   try {
     sub = relay.subscribe(

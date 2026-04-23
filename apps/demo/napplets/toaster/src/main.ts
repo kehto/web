@@ -26,11 +26,10 @@
  * this one occurrence for the toaster napplet only.
  *
  * Anti-features (still enforced): no NIP-01 arrays, no BusKind, no window.nostr,
- * no signer-service, no kind === 29001/29002. Shim handles AUTH implicitly (D-04 init
- * via storage.getItem AUTH probe).
+ * no signer-service, no kind === 29001/29002. Shim handles AUTH implicitly
+ * — shim fires AUTHENTICATED from bootstrap; no probe needed.
  */
 import '@napplet/shim';
-import { storage } from '@napplet/sdk';
 
 const statusEl = document.getElementById('toaster-status')!;
 const titleEl = document.getElementById('toaster-title') as HTMLInputElement;
@@ -188,21 +187,14 @@ window.addEventListener('message', (event: MessageEvent) => {
   }
 });
 
-// D-04 init pattern: first SDK call (storage.getItem) gates on shim AUTH completion.
-// We use storage.getItem as the AUTH probe so the toaster's status sentinel is set
-// deterministically; even if state:read is denied, the await resolves (with rejection)
-// which is enough to confirm AUTH happened.
+// Initialize: flip status to 'authenticated'. No async setup beyond the flip —
+// notify.* flows run from button handlers + the one documented message listener.
 async function init(): Promise<void> {
-  try {
-    await storage.getItem('toaster-auth-probe');
-  } catch {
-    // state:read may be denied — irrelevant; AUTH still completed.
-  }
   setStatus('authenticated', 'green');
-  log('AUTH complete — ready to notify');
+  log('ready to notify');
 }
 
 init().catch((err) => {
   setStatus('auth failed', 'red');
-  log(`init failed — ${formatError(err, 'auth/storage failure')}`);
+  log(`init failed — ${formatError(err, 'init failure')}`);
 });

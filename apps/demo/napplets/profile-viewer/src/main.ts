@@ -9,10 +9,10 @@
  *
  * Anti-features (per v1.3 milestone): no raw message protocol listener, no NIP-01 arrays,
  *   no legacy bus enums, no global nostr accessor, no signer-service, no BusKind.
- *   Shim handles AUTH implicitly via first SDK call.
+ *   Anti-feature surface unchanged — no AUTH probe; AUTHENTICATED fires from shim bootstrap.
  */
 import '@napplet/shim';
-import { identity, storage } from '@napplet/sdk';
+import { identity } from '@napplet/sdk';
 
 const statusEl = document.getElementById('profile-status')!;
 const pubkeyEl = document.getElementById('profile-pubkey')!;
@@ -53,12 +53,9 @@ function truncatePubkey(pubkey: string): string {
 }
 
 async function loadIdentity(): Promise<void> {
-  // Step A (D-04 AUTH probe): first SDK call gates on shim AUTH completion.
-  // storage.getItem is used so a denied 'state:read' does not block the auth sentinel —
-  // even on denial the await resolves (with an error we discard), confirming AUTH happened.
-  try { await storage.getItem('profile-viewer-auth-probe'); } catch { /* ignored */ }
+  // Load identity: flip status to 'authenticated' then fetch pubkey + profile.
   setStatus('authenticated', 'green');
-  log('AUTH complete — reading identity');
+  log('reading identity');
 
   // Step B (getPublicKey): read caller's public key
   let pubkey = '';
