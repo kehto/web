@@ -45,13 +45,15 @@
 
 **Scope change (2026-04-23):** Original Phase 33 (Cache Service + HostCacheBridge) dropped after Phase 32 close. Scoping revealed the existing `createCacheService` in `packages/services/src/cache-service.ts` (v1.2+) already provides the `hostBridge`-style injection point hyprgate#1 asked for — the `CacheServiceOptions` object `{query, store, isAvailable}` IS the bridge. Only cosmetic parity vs. Keys/Media naming remains. Commented on kehto#1 with integration example; issue stays open as a kehto-side tracker for optional future polish. CACHE-01..05 moved to Future Requirements (v1.7+). Subsequent phases renumbered: former Phase 34 → 33, 35 → 34, 36 → 35, 37 → 36.
 
+**PERF-01 rescope (2026-04-23, audit-first):** v1.5 audit claim "chat boot performs 18+ serial storage.get round-trips" inaccurate for current code. Chat boot = 1 real storage call. Demo-wide boot ≈ 11 storage calls across 10 napplets (7 vestigial AUTH probes + 3 real data loads + 1 paired preference load). Real target: delete the 7 vestigial `storage.getItem('<slug>-auth-probe')` calls + scrub D-04 / `shim AUTH completion` comment prose. AUTH is deprecated entirely in v1.2+ runtime (v1.4 Phase 24 removed BusKind/AUTH_KIND consumers); shim fires AUTHENTICATED from bootstrap signal, not from probe resolution. Probes survived as dead code. See `.planning/phases/36-perf-01-milestone-close/36-CONTEXT.md` for full audit + rescope rationale.
+
 ## Phases
 
 - [x] **Phase 32: NUB Dep Consolidation** — Migrate all 4 `@kehto/*` packages from split `@napplet/nub-*` peer deps to the consolidated `@napplet/nub@^0.2.1` package with subpath imports; changesets + 53/0/0 baseline preserved. (completed 2026-04-23)
 - [x] **Phase 33: Reserved Chord Surface + E2E-17** — Extend `createKeysService` with reserved-chord precedence (reserved > registered); Keys README section; Layer-B Playwright spec locks the contract; baseline rises to 54. (completed 2026-04-23)
 - [x] **Phase 34: `@kehto/nip66` Extract & Publish** — Stand up the new `packages/nip66` workspace; `createNip66Aggregator` factory; README + changeset for `@kehto/nip66@0.1.0` initial publish; NO demo wiring. (completed 2026-04-23)
 - [x] **Phase 35: WM Skeleton + README Cleanup** — Merge PR #7's `@kehto/wm` library skeleton (types/factory stub); remove root README stale `pnpm.overrides link:` + "core not on npm" claims; verify quick-integration example against the consolidated dep surface. (completed 2026-04-23)
-- [ ] **Phase 36: PERF-01 + Milestone Close E2E-18** — Batch/parallelize chat boot `storage.get` storm (≥50% cumulative-count reduction); record final milestone iteration loop at ≥54/0/0; v1.6 anti-term sweep.
+- [ ] **Phase 36: PERF-01 + Milestone Close E2E-18** — Delete 7 vestigial `storage.getItem('<slug>-auth-probe')` calls across 7 napplets + scrub D-04 comment prose across all 10 napplets + 6 E2E specs (per rescope); record final milestone iteration loop at ≥ 54/0/0; v1.6 milestone-wide anti-term sweep.
 
 ---
 
@@ -121,16 +123,19 @@ Plans:
 - [x] 35-02-PLAN.md — Rewrite README.md line 93 stale claim (registry install + @napplet/nub>@napplet/core pin) + record 35-ITERATION-LOG.md at 54/0/0 (DOCS-04, DOCS-05)
 
 ### Phase 36: PERF-01 + Milestone Close E2E-18
-**Goal**: The chat napplet's AUTHENTICATED→READY transition stops issuing 18+ serial `storage.get` round-trips (v1.5 audit finding) — either via a batched `storage.getMany` envelope, parallelized `Promise.all`, or a boot-time preload map. Cumulative request count drops ≥50%. The canonical v1.6 milestone iteration loop closes green, locking in everything v1.6 shipped.
+**Goal** (rescoped 2026-04-23 per CONTEXT.md audit-first approach): Delete 7 vestigial `storage.getItem('<slug>-auth-probe')` calls from 7 napplets (composer, feed, hotkey-chord, media-controller, profile-viewer, theme-switcher, toaster) + scrub D-04 / `shim AUTH completion` / `first SDK call gates on AUTH` comment prose across all 10 demo napplets + 6 E2E spec files carrying the same prose. AUTH is deprecated entirely in v1.2+ runtime; shim fires AUTHENTICATED from bootstrap signal directly — the probes survived as dead code. Canonical v1.6 milestone iteration loop closes at 54/0/0; v1.6 milestone-wide anti-term sweep covers the full Phase 32-36 delta in one pass.
 **Depends on**: Phase 32 (consolidated deps) AND Phase 33 (54-spec baseline from reserved-chord E2E-17) AND Phase 34 (@kehto/nip66 shipped) AND Phase 35 (WM skeleton + README clean).
 **Requirements**: PERF-01, E2E-18
 **Success Criteria** (what must be TRUE):
-  1. Baseline chat-napplet `storage.get` request count on the AUTHENTICATED → READY transition is recorded BEFORE the fix (v1.5 audit described "18+ serial round-trips" but did not pin a number) — recorded via instrumentation in the phase plan, captured in `36-ITERATION-LOG.md` as the pre-fix number.
-  2. Post-fix chat-napplet `storage.get` cumulative request count on the same AUTHENTICATED → READY transition is at least **50% lower** than the pre-fix baseline — achieved via a single `storage.getMany` batch envelope, parallelized `Promise.all`, or a boot-time preload map (design decision captured in the phase plan); post-fix count + wall-clock delta recorded in the iteration log.
-  3. Chat napplet boot correctness is preserved — every `#chat-status` transition, every ACL grant path, and every existing spec behavior that depends on chat boot still works (no observable user regression on the `:4174` demo).
-  4. `pnpm clean && pnpm build && pnpm test:e2e` against the built `:4174` demo reports **≥ 54 passed / 0 failed / 0 skipped** (E2E-18: milestone-close iteration loop; baseline 53 + E2E-17 = 54; no new spec required for PERF-01 measurement, which is captured via iteration-log instrumentation, not a new Playwright spec).
-  5. v1.6 milestone-gate anti-term sweep runs clean across all v1.6-touched paths: zero matches for `window.nostr` / `signer-service` / `signer.*` / raw `window.addEventListener('message')` in napplet source / `BusKind` / kind 29001 / kind 29002 / `core-compat` / `allow-same-origin` on napplet iframes / `@napplet/nub-` (split-package import form) in `@kehto/*` source — the new v1.6 anti-term joins the carried-forward list.
-**Plans**: TBD
+  1. `grep -rn 'auth-probe' apps/demo/napplets/ 2>/dev/null | grep -v dist | wc -l` returns `0` — all 7 vestigial probes deleted from composer/feed/hotkey-chord/media-controller/profile-viewer/theme-switcher/toaster main.ts files. Surrounding try/catch scaffolding collapsed (probe was sole wrapped statement). Unused `storage` imports dropped where applicable.
+  2. `grep -rn 'D-04\|AUTH probe\|shim AUTH completion' apps/demo/napplets/ tests/e2e/ 2>/dev/null | wc -l` returns `0` — D-04 comment prose scrubbed across all 10 napplets (including bot/chat/preferences real-data-load napplets where only the AUTH-gate framing is rewritten, real loads retained) + 6 E2E specs.
+  3. `tests/e2e/demo-concurrent-boot.spec.ts` (E2E-15, v1.5 Phase 31 canonical) continues to pass AUTHENTICATED-within-10s assertion for all 10 napplets — primary regression anchor for PERF-01. Demo-wide `storage.getItem` count on boot drops from 28 → ~21 (delta -7).
+  4. `pnpm clean && pnpm build && pnpm test:e2e` against the built `:4174` demo reports **≥ 54 passed / 0 failed / 0 skipped** (E2E-18: milestone-close iteration loop; baseline 54 from Phase 35 close; no new spec required for PERF-01 — measurement captured via iteration-log instrumentation, not a new Playwright spec per CONTEXT.md Claude's Discretion).
+  5. v1.6 milestone-gate anti-term sweep runs clean across all v1.6-touched paths (Phases 32-36 cumulative): zero live-code violations for `window.nostr` / `signer-service` / `signer.*` / raw `window.addEventListener('message')` (except toaster + preferences existing documented deviations) / `BusKind` / kind 29001 / kind 29002 (regex patterns in specs are enforcement guards, not violations) / `core-compat` / `allow-same-origin` (enforcement-prose only per Phase 33/35 Decision) / `@napplet/nub-` split-package import form.
+**Plans:** 2/2 plans complete
+Plans:
+- [ ] 36-01-PLAN.md — Delete 7 vestigial `storage.getItem('<slug>-auth-probe')` calls from 7 napplet main.ts files + collapse surrounding try/catch + scrub D-04 / shim-AUTH comment prose across 10 napplets + 6 E2E specs (PERF-01)
+- [ ] 36-02-PLAN.md — Run canonical v1.6 fresh-install iteration loop + v1.6 milestone-wide anti-term sweep; record 36-ITERATION-LOG.md at 54/0/0 with pre/post storage.getItem count delta evidence (E2E-18)
 
 ---
 
@@ -142,7 +147,7 @@ Plans:
 | 33. Reserved Chord Surface + E2E-17 | 3/3 | Complete    | 2026-04-23 |
 | 34. `@kehto/nip66` Extract & Publish | 3/3 | Complete    | 2026-04-23 |
 | 35. WM Skeleton + README Cleanup | 2/2 | Complete    | 2026-04-23 |
-| 36. PERF-01 + Milestone Close E2E-18 | 0/TBD | Not started | - |
+| 36. PERF-01 + Milestone Close E2E-18 | 0/2 | Planned | - |
 
 ---
 
