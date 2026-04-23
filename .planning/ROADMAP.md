@@ -50,7 +50,7 @@
 - [x] **Phase 32: NUB Dep Consolidation** — Migrate all 4 `@kehto/*` packages from split `@napplet/nub-*` peer deps to the consolidated `@napplet/nub@^0.2.1` package with subpath imports; changesets + 53/0/0 baseline preserved. (completed 2026-04-23)
 - [x] **Phase 33: Reserved Chord Surface + E2E-17** — Extend `createKeysService` with reserved-chord precedence (reserved > registered); Keys README section; Layer-B Playwright spec locks the contract; baseline rises to 54. (completed 2026-04-23)
 - [x] **Phase 34: `@kehto/nip66` Extract & Publish** — Stand up the new `packages/nip66` workspace; `createNip66Aggregator` factory; README + changeset for `@kehto/nip66@0.1.0` initial publish; NO demo wiring. (completed 2026-04-23)
-- [ ] **Phase 35: WM Skeleton + README Cleanup** — Merge PR #7's `@kehto/wm` library skeleton (types/factory stub); remove root README stale `pnpm.overrides link:` + "core not on npm" claims; verify quick-integration example against the consolidated dep surface.
+- [x] **Phase 35: WM Skeleton + README Cleanup** — Merge PR #7's `@kehto/wm` library skeleton (types/factory stub); remove root README stale `pnpm.overrides link:` + "core not on npm" claims; verify quick-integration example against the consolidated dep surface. (completed 2026-04-23)
 - [ ] **Phase 36: PERF-01 + Milestone Close E2E-18** — Batch/parallelize chat boot `storage.get` storm (≥50% cumulative-count reduction); record final milestone iteration loop at ≥54/0/0; v1.6 anti-term sweep.
 
 ---
@@ -115,10 +115,10 @@ Plans:
   3. Root `README.md` no longer contains the `pnpm.overrides` `link:` consumer-recommendation block OR the "`@napplet/core` not yet on npm" claim; the Quick-Integration Example block shows a clean `pnpm add @kehto/runtime @napplet/shim @napplet/nub` (single consolidated `@napplet/nub`) from the registry, matching hyprgate v2.0's actual pins — verified against a clean-install smoke (throwaway dir, `pnpm add` succeeds, example code type-checks).
   4. `turbo run build` and `turbo run type-check` succeed across the full workspace (including the new `@kehto/wm` package) with no regressions.
   5. Iteration loop recorded at **54 passed / 0 failed / 0 skipped** (same as Phase 33 close; no new E2E specs this phase — skeleton is docs/types only); anti-term sweep clean.
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [x] 35-01-PLAN.md — Squash-merge PR #7 (@kehto/wm skeleton) + verify pnpm/turbo auto-pickup at 24/24 successful (WM-01, WM-02, WM-03)
-- [ ] 35-02-PLAN.md — Rewrite README.md line 93 stale claim (registry install + @napplet/nub>@napplet/core pin) + record 35-ITERATION-LOG.md at 54/0/0 (DOCS-04, DOCS-05)
+- [x] 35-02-PLAN.md — Rewrite README.md line 93 stale claim (registry install + @napplet/nub>@napplet/core pin) + record 35-ITERATION-LOG.md at 54/0/0 (DOCS-04, DOCS-05)
 
 ### Phase 36: PERF-01 + Milestone Close E2E-18
 **Goal**: The chat napplet's AUTHENTICATED→READY transition stops issuing 18+ serial `storage.get` round-trips (v1.5 audit finding) — either via a batched `storage.getMany` envelope, parallelized `Promise.all`, or a boot-time preload map. Cumulative request count drops ≥50%. The canonical v1.6 milestone iteration loop closes green, locking in everything v1.6 shipped.
@@ -141,7 +141,7 @@ Plans:
 | 32. NUB Dep Consolidation | 2/2 | Complete    | 2026-04-23 |
 | 33. Reserved Chord Surface + E2E-17 | 3/3 | Complete    | 2026-04-23 |
 | 34. `@kehto/nip66` Extract & Publish | 3/3 | Complete    | 2026-04-23 |
-| 35. WM Skeleton + README Cleanup | 1/2 | In Progress|  |
+| 35. WM Skeleton + README Cleanup | 2/2 | Complete    | 2026-04-23 |
 | 36. PERF-01 + Milestone Close E2E-18 | 0/TBD | Not started | - |
 
 ---

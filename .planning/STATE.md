@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: — Downstream Unblock & Shell Service Surface
 status: executing
-last_updated: "2026-04-23T11:25:04.990Z"
+last_updated: "2026-04-23T11:30:51Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 5
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 10
-  completed_plans: 9
-  percent: 90
+  completed_plans: 10
+  percent: 95
 ---
 
 # Project State
@@ -24,17 +24,17 @@ See: .planning/PROJECT.md (updated 2026-04-23, v1.6 started)
 
 ## Current Position
 
-Phase: 35 (WM Skeleton + README Cleanup) — EXECUTING
-Plan: 2 of 2 (35-01 ✓ complete; 35-02 next — root README cleanup for DOCS-04/05)
+Phase: 35 (WM Skeleton + README Cleanup) — COMPLETE
+Plan: 2 of 2 (35-01 ✓ + 35-02 ✓ complete; all 5 REQ-IDs closed)
 **Milestone:** v1.6 Downstream Unblock & Shell Service Surface
 **Phase numbering:** 32 → 36 (continues from v1.5 close at Phase 31; original Phase 33 "Cache Service" dropped 2026-04-23 — see Roadmap Summary note)
 **Phase:** 35
-**Plan:** 35-01 complete (WM-01/02/03 closed); 35-02 pending (DOCS-04/05)
-**Next Phase:** 36 (`PERF-01 + Milestone Close E2E-18`)
-**Status:** Executing Phase 35 (1/2 plans complete)
+**Plan:** 35-01 complete (WM-01/02/03 closed); 35-02 complete (DOCS-04/05 closed at 54/0/0)
+**Next Phase:** 36 (`PERF-01 + Milestone Close E2E-18`) — READY
+**Status:** Phase 35 complete (2/2 plans; 5/5 REQ-IDs)
 **Last activity:** 2026-04-23
 
-Progress: [█████████░] 90% (3/5 phases complete; 9/10 plans complete — 35-01 closed WM-01/02/03 via PR #7 squash-merge + turbo auto-pickup at 24/10)
+Progress: [████████████████████░] 95% (4/5 phases complete; 10/10 plans complete — 35-02 closed DOCS-04/05 at 54/0/0 with turbo 24 build / 10 type-check preserved)
 
 ## Roadmap Summary
 
@@ -43,7 +43,7 @@ Progress: [█████████░] 90% (3/5 phases complete; 9/10 plans 
 | 32 | NUB Dep Consolidation | DEP-01..05 | 5 ✓ Complete |
 | 33 | Reserved Chord Surface + E2E-17 | KEYS-04..06, E2E-17 | 4 ✓ Complete |
 | 34 | `@kehto/nip66` Extract & Publish | NIP66-01..05 | 5 ✓ Complete |
-| 35 | WM Skeleton + README Cleanup | WM-01..03, DOCS-04..05 | 5 |
+| 35 | WM Skeleton + README Cleanup | WM-01..03, DOCS-04..05 | 5 ✓ Complete |
 | 36 | PERF-01 + Milestone Close E2E-18 | PERF-01, E2E-18 | 5 |
 
 **Scope change (2026-04-23):** Original Phase 33 (Cache Service + HostCacheBridge) dropped. Existing `createCacheService` in `packages/services/src/cache-service.ts` already provides the `hostBridge`-style injection hyprgate#1 asked for — the `CacheServiceOptions` object IS the bridge. Commented on kehto#1 with integration example; issue open for optional future polish (rename → `HostCacheBridge`, v1.7+). CACHE-01..05 moved to Future Requirements. Phases 34-37 renumbered → 33-36.
@@ -80,8 +80,8 @@ Full decision log (v1.0 → v1.5) archived in `.planning/PROJECT.md` Key Decisio
 
 ## Session Continuity
 
-Last session: 2026-04-23T11:24:29.970Z
-Resume: **Plan 35-01 COMPLETE — WM-01/02/03 closed via PR #7 squash-merge + turbo auto-pickup.** Squashed d7df669 on main (dskvr authorship preserved); packages/wm/ skeleton landed with exact 4 files (package.json 43 lines, tsconfig.json 9 lines, src/index.ts 88 lines, README.md 35 lines = 175 additions). Task 1 committed dd3a2d4 (chore: pnpm-lock.yaml +6 lines — new importers block, zero external deps). Tasks 2+3 verification-only. Turbo pipeline: build 23 → **24/24** (+1 for @kehto/wm#build via tsc --noEmit alias), type-check 9 → **10/10** (+1 delta). Plan text predicted 24 for both pipelines but Phase 34 baseline was 23 build + 9 type-check (plan conflated; tracked as Rule 1 deviation — real +1 delta holds). Anti-term sweep clean on packages/wm/ (0 occurrences of window.nostr/@napplet/nub-/signer./BusKind/core-compat/allow-same-origin). PR was in draft state (Rule 3 blocking: `gh pr ready 7` before `gh pr merge 7 --squash`). Local main diverged (3 unpushed docs commits — Rule 3 blocking: `git pull --rebase origin main` cleanly rebased 39 commits). Zero source edits authored; only pnpm-lock.yaml + planning docs written. v1.6 progress: 16/21 reqs (3/5 phases + Plan 35-01); next is Plan 35-02 (root README cleanup for DOCS-04/05).
+Last session: 2026-04-23T11:30:51Z
+Resume: **Phase 35 COMPLETE — DOCS-04/05 closed by Plan 35-02 at 54/0/0; all 5 Phase 35 REQ-IDs satisfied (WM-01/02/03 + DOCS-04/05).** Plan 35-02 Task 1 commit 063abd7 (docs): README.md line 93 bullet rewritten removing the stale `@napplet/core is not yet on npm` + `pnpm.overrides link:` claim (false since Phase 25 / v1.4 first registry publish); replacement prose references the actual override key `@napplet/nub>@napplet/core: ^0.2.1` and cites Phase 32 Decision. Packages table extended with @kehto/nip66 (v0.1.0) + @kehto/wm (v0.0.0) rows. 6 DOCS-04 grep deltas verified clean. Task 2 commit 9dd6589 (docs): 35-ITERATION-LOG.md records full fresh-install loop (rm -rf → pnpm install → build → type-check → test:e2e): **24 build / 10 type-check / 54 E2E passed (18.1s) — delta 0 from Phase 34 close**. Anti-term sweep: 2 enforcement-prose matches on README line 94 NIP-5D anti-features bullet (window.nostr + allow-same-origin both documenting ABSENCE — Phase 33 Decision precedent); 8 clean. DOCS-05 verified via root `pnpm type-check` (CONTEXT.md Claude's Discretion chose this over throwaway-dir smoke); all 5 Quick-Integration Example imports resolve against current barrels (3 exports each for createShellBridge/createRuntime/createIdentityService/createNotificationService/createRelayPoolService). Zero deviations. v1.6 progress: 13/21 → **18/21 reqs closed**; next is Phase 36 (PERF-01 + Milestone Close E2E-18).
 
 ## Decisions
 
@@ -111,3 +111,6 @@ Resume: **Plan 35-01 COMPLETE — WM-01/02/03 closed via PR #7 squash-merge + tu
 - [Phase 35-wm-skeleton-readme-cleanup]: In-repo skeleton PR squash-merge pattern (Plan 35-01): gh pr ready N (if draft) → gh pr merge N --squash → rebase-over-merge when local has unpushed commits. Preserves author attribution, triggers turbo+pnpm auto-pickup via packages/* glob without manual registration. Reusable for future skeleton-only in-repo PRs.
 - [Phase 35-wm-skeleton-readme-cleanup]: Turbo type-check baseline correction (Plan 35-01). Phase 34 close baseline: 23 build tasks + 9 type-check tasks (not 23 each — only 6 packages declare type-check scripts vs 13+ with build). Plan 35-01 action text predicted 24/24 for both pipelines; actual result 24/24 build + 10/10 type-check confirms +1 delta in both. Future plans should cite correct baselines separately per pipeline.
 - [Phase 35-wm-skeleton-readme-cleanup]: Zero-executor-edit plan discipline (Plan 35-01). Merge-and-verify-only plans land source via PR content — executor authors zero source files, only lockfile updates from pnpm install side-effects. Pattern clearly delineates 'upstream contribution lands as one squash commit' vs 'local plan commit registers the delta'. Reusable for future PR-consumption plans.
+- [Phase 35-wm-skeleton-readme-cleanup]: DOCS-05 lower-cost verification via root `pnpm type-check` (Plan 35-02). When a README Quick-Integration Example imports from already-published workspace packages, root type-check at 10/10 successful equivalences a throwaway-dir `pnpm add` smoke — both prove the example's imports resolve transitively through the current dep graph. CONTEXT.md Claude's Discretion authorized choosing the lower-cost method; iteration log records method + 5-import export-presence table (3 each) as evidence. Reusable pattern for any future README-example type-check verification.
+- [Phase 35-wm-skeleton-readme-cleanup]: Enforcement-prose grep-positives carried forward from Phase 33 Decision (Plan 35-02). Anti-term sweeps on `packages/wm/**` + `README.md` returned 2 grep-positives, both on README line 94 NIP-5D anti-features bullet (the bullet says `window.nostr is not injected... sandbox uses allow-scripts without allow-same-origin` — ABSENCE documentation, not USE). Iteration log table column 'Status' explicitly reads 'enforcement-prose — asserts ABSENCE' for these. Phase 33 established this precedent for napplet-source JSDoc; Phase 35-02 extends it to README enforcement prose. Future docs/README changes should annotate the same way.
+- [Phase 35-wm-skeleton-readme-cleanup]: Docs/types-only phase closure at flat E2E count + explicit delta-0 note (Plan 35-02 iteration log). Mirrors Phase 34's publish-only phase pattern (log records 'delta 0 from Phase 34 close' tied to phase-scope contract per CONTEXT.md <domain>). Distinguishes 'no regression detected' from 'no work done' — phase ships docs edits + iteration log, but E2E dimension is deliberately unchanged. Reusable pattern for future docs-only or types-only milestone-close phases.

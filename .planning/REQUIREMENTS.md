@@ -82,8 +82,8 @@ v1.5 audit flagged chat napplet boot issuing 18+ serial `storage.get` round-trip
 
 ### Category 6: Documentation (DOCS — continued from v1.3) — kehto#5
 
-- [ ] **DOCS-04**: Root `README.md` removes the "`@napplet/core` not yet on npm" claim + `pnpm.overrides link:` consumer recommendation. New consumer story: `pnpm add @kehto/runtime @napplet/shim @napplet/nub` from registry.
-- [ ] **DOCS-05**: Root `README.md` Quick-Integration Example block verified against a fresh `pnpm dlx create-*` or equivalent clean-install smoke, matching what hyprgate actually pins in v2.0.
+- [x] **DOCS-04**: Root `README.md` removes the "`@napplet/core` not yet on npm" claim + `pnpm.overrides link:` consumer recommendation. New consumer story: `pnpm add @kehto/runtime @napplet/shim @napplet/nub` from registry.
+- [x] **DOCS-05**: Root `README.md` Quick-Integration Example block verified against a fresh `pnpm dlx create-*` or equivalent clean-install smoke, matching what hyprgate actually pins in v2.0.
 
 ### Category 7: E2E Coverage (E2E — continued from v1.5) — new specs
 
@@ -151,8 +151,8 @@ Which phases cover which requirements. Populated by gsd-roadmapper during roadma
 | WM-01 | Phase 35 | Complete |
 | WM-02 | Phase 35 | Complete |
 | WM-03 | Phase 35 | Complete |
-| DOCS-04 | Phase 35 | Pending |
-| DOCS-05 | Phase 35 | Pending |
+| DOCS-04 | Phase 35 | Complete |
+| DOCS-05 | Phase 35 | Complete |
 | PERF-01 | Phase 36 | Pending |
 | E2E-18 | Phase 36 | Pending |
 
