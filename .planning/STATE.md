@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: NIP-5D Spec Adoption & New NUB Domains
 status: executing
-last_updated: "2026-04-24T17:54:10.155Z"
+last_updated: "2026-04-24T17:58:32.508Z"
 last_activity: 2026-04-24
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 17
-  completed_plans: 17
+  completed_plans: 18
   percent: 100
 ---
 
@@ -84,5 +84,5 @@ Full decision log (v1.0 → v1.6) archived in `.planning/PROJECT.md` Key Decisio
 
 ## Session Continuity
 
-Last session: 2026-04-24T17:54:10.153Z
+Last session: 2026-04-24T17:58:32.505Z
 Resume: Completed 40-03-PLAN.md. Phase 40 CLOSED at 71/0/0 E2E. Phase 41 (Polish Wave) is next.

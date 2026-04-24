@@ -26,7 +26,7 @@
 - [x] **Phase 38: NUB-CLASS Adoption** — Shell assigns class posture synchronously at iframe creation; enforce.ts pre-filter; cross-NUB class invariant spec; downstream coordination note. (completed 2026-04-24)
 - [x] **Phase 39: NUB-CONNECT Adoption + NUB-CONFIG Reference Service** — Per-napplet CSP header authority (Vite middleware); consent flow; grants store; meta-CSP CI audit; config service (9th domain) ships in parallel. (completed 2026-04-24)
 - [x] **Phase 40: NUB-RESOURCE Reference Service + Demo Napplets + Policy Docs** — Resource service factory with required connect-grant dependency; config-demo and resource-demo napplets (11th, 12th); all three policy docs complete. (completed 2026-04-24)
-- [ ] **Phase 41: Polish Wave** — nip66 demo wiring live; wm structural primitives; CACHE naming parity. All independent; ship together.
+- [x] **Phase 41: Polish Wave** — nip66 demo wiring live; wm structural primitives; CACHE naming parity. All independent; ship together. (completed 2026-04-24)
 - [ ] **Phase 42: NIP-44 Decrypt Surface (soft-gated)** — Ship if napplet/napplet#3 resolves during milestone; defer to v1.8 if not.
 
 ---
@@ -114,7 +114,7 @@
   - [x] 41-01-PLAN.md — `@kehto/nip66` `stop()` + Vitest + mock kind-30166 fixtures + live demo wiring + `#nip66-suggestions-list` shell-chrome panel + `beforeunload` cleanup (NIP66-06, NIP66-07)
   - [x] 41-02-PLAN.md — `@kehto/wm` structural primitives: `LayoutStrategy`/`WindowState`/`WindowPlacement` exports + no-op default strategy + README "what this is / is not" + consumer-integration example; file stays <200 lines (WM-04, WM-05, WM-06, WM-07)
   - [x] 41-03-PLAN.md — `@kehto/services` additive `HostCacheBridge = CacheServiceOptions` type alias + barrel re-export + patch changeset; `CacheServiceOptions` preserved (CACHE-01)
-  - [ ] 41-04-PLAN.md — `tests/e2e/nip66-suggestions.spec.ts` + canonical `pnpm clean && pnpm build && pnpm test:e2e` iteration loop recording 72/0/0 + human-verify nip66 panel (E2E-26)
+  - [x] 41-04-PLAN.md — `tests/e2e/nip66-suggestions.spec.ts` + canonical `pnpm clean && pnpm build && pnpm test:e2e` iteration loop recording 72/0/0 + human-verify nip66 panel (E2E-26)
 
 ### Phase 42: NIP-44 Decrypt Surface (soft-gated)
 **Goal**: Shell exposes a NIP-44 decrypt surface that routes decrypted plaintext exclusively to the requesting iframe — so a napplet can decrypt DMs without the shell broadcasting plaintext to all running napplets.
@@ -139,7 +139,7 @@
 | 38. NUB-CLASS Adoption | 3/3 | Complete    | 2026-04-24 |
 | 39. NUB-CONNECT + NUB-CONFIG | 5/5 | Complete    | 2026-04-24 |
 | 40. NUB-RESOURCE + Demo Napplets + Policy Docs | 4/3 | Complete    | 2026-04-24 |
-| 41. Polish Wave | 3/4 | In Progress|  |
+| 41. Polish Wave | 4/4 | Complete   | 2026-04-24 |
 | 42. NIP-44 Decrypt (soft-gated) | 0/? | Not started | - |
 
 ---

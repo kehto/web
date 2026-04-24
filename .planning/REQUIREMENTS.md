@@ -143,7 +143,7 @@ Tests that lock the v1.7 contracts at Layer-B (`tests/e2e/*.spec.ts`) against th
 - [x] **E2E-23**: `tests/e2e/connect-csp-preview.spec.ts` added — CSP header is present on napplet HTML response when the demo is served by `pnpm preview` (not just `pnpm dev`), confirming `configurePreviewServer` wiring.
 - [x] **E2E-24**: `tests/e2e/nub-config.spec.ts` added — config-demo napplet exercises `config.get` + `config.watch` round-trip against the shell-side reference service; config values propagate correctly.
 - [x] **E2E-25**: `tests/e2e/nub-resource.spec.ts` added — resource-demo napplet: (a) successful `resource.bytes` fetch against a granted origin; (b) `denied` response for an ungranted origin (H-03 coupling test). Two tests.
-- [ ] **E2E-26**: `tests/e2e/nip66-suggestions.spec.ts` added — demo shell surfaces relay suggestions from `createNip66Aggregator` fed by mock kind-30166 fixtures; at least one suggestion from each fixture event appears in the UI.
+- [x] **E2E-26**: `tests/e2e/nip66-suggestions.spec.ts` added — demo shell surfaces relay suggestions from `createNip66Aggregator` fed by mock kind-30166 fixtures; at least one suggestion from each fixture event appears in the UI.
 - [ ] **E2E-27** (soft-gated, DECRYPT): `tests/e2e/decrypt-single-target.spec.ts` added — two iframes present; one requests NIP-44 decrypt; only the requesting iframe receives the plaintext (the second iframe observes no decrypt-response envelope in its MessageTap).
 
 ### Category 11: Documentation (DOCS — continued from v1.6 DOCS-05)
