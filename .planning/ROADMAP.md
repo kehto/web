@@ -110,7 +110,11 @@
   3. `@kehto/wm` exports `LayoutStrategy`, `WindowState`, and `WindowPlacement` with no concrete algorithm types in the public surface; `wc -l packages/wm/src/index.ts` < 200.
   4. `createWmService` accepts `{ hooks, strategy? }` where `strategy` defaults to a no-op (returning windows unchanged) — no longer throws unconditionally.
   5. `packages/services/src/cache-service.ts` exports `type HostCacheBridge = CacheServiceOptions` as an additive alias; `CacheServiceOptions` export is preserved unchanged; changeset is `patch`.
-**Plans**: TBD
+**Plans**: 4 plans
+  - [ ] 41-01-PLAN.md — `@kehto/nip66` `stop()` + Vitest + mock kind-30166 fixtures + live demo wiring + `#nip66-suggestions-list` shell-chrome panel + `beforeunload` cleanup (NIP66-06, NIP66-07)
+  - [ ] 41-02-PLAN.md — `@kehto/wm` structural primitives: `LayoutStrategy`/`WindowState`/`WindowPlacement` exports + no-op default strategy + README "what this is / is not" + consumer-integration example; file stays <200 lines (WM-04, WM-05, WM-06, WM-07)
+  - [ ] 41-03-PLAN.md — `@kehto/services` additive `HostCacheBridge = CacheServiceOptions` type alias + barrel re-export + patch changeset; `CacheServiceOptions` preserved (CACHE-01)
+  - [ ] 41-04-PLAN.md — `tests/e2e/nip66-suggestions.spec.ts` + canonical `pnpm clean && pnpm build && pnpm test:e2e` iteration loop recording 72/0/0 + human-verify nip66 panel (E2E-26)
 
 ### Phase 42: NIP-44 Decrypt Surface (soft-gated)
 **Goal**: Shell exposes a NIP-44 decrypt surface that routes decrypted plaintext exclusively to the requesting iframe — so a napplet can decrypt DMs without the shell broadcasting plaintext to all running napplets.
@@ -135,7 +139,7 @@
 | 38. NUB-CLASS Adoption | 3/3 | Complete    | 2026-04-24 |
 | 39. NUB-CONNECT + NUB-CONFIG | 5/5 | Complete    | 2026-04-24 |
 | 40. NUB-RESOURCE + Demo Napplets + Policy Docs | 4/3 | Complete    | 2026-04-24 |
-| 41. Polish Wave | 0/? | Not started | - |
+| 41. Polish Wave | 0/4 | Not started | - |
 | 42. NIP-44 Decrypt (soft-gated) | 0/? | Not started | - |
 
 ---
