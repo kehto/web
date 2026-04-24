@@ -104,3 +104,16 @@ export type {
   ConfigService,
   ConfigSchemaValidation,
 } from './config-service.js';
+
+// ─── Resource Service (NIP-5D resource NUB — 10th domain, v1.7 Phase 40) ─
+// Shell-proxied authenticated fetch. Scope boundary: read-only, atomic fetch
+// proxy; NOT streaming; NOT caching; NOT upload/POST body; NOT redirect/MIME/
+// SVG/private-IP filtering — those are host-provided-fetch responsibilities
+// per SHELL-RESOURCE-POLICY.md (Phase 40 Plan 40-03) / D7.
+// H-03 prevention: ALL FOUR options (fetch, isOriginGranted, getConnectGrants,
+// resolveIdentity) required at construction; factory throws if any is missing.
+export { createResourceService } from './resource-service.js';
+export type {
+  ResourceServiceOptions,
+  ResourceService,
+} from './resource-service.js';
