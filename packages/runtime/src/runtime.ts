@@ -1060,6 +1060,19 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     }
   }
 
+  // ─── Phase 39 (CONFIG-03): NUB-CONFIG dispatch ───────────────────────────
+  // Routes config.* messages from napplets to the registered 'config' service
+  // (createConfigService factory). Without this handler, config.subscribe
+  // envelopes from napplets are silently dropped — the service exists in
+  // serviceRegistry but nubDispatch has no route to it.
+  function handleConfigMessage(windowId: string, msg: NappletMessage): void {
+    const configService = serviceRegistry['config'];
+    if (!configService) return; // silently drop when no config service registered
+    configService.handleMessage(windowId, msg, (resp: NappletMessage) => {
+      hooks.sendToNapplet(windowId, resp);
+    });
+  }
+
   // ─── NUB dispatch (Phase 14 / DISPATCH-01/02/03) ─────────────────────────
   // Per-runtime createDispatch() instance — isolated from module-level singleton
   // to match kehto's closed-over-state pattern (serviceRegistry, aclState, etc.).
@@ -1100,6 +1113,10 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     if (currentWindowId === null) return;
     handleThemeMessage(currentWindowId, msg);
   };
+  const configAdapter: NubHandler = (msg) => {
+    if (currentWindowId === null) return;
+    handleConfigMessage(currentWindowId, msg);
+  };
 
   nubDispatch.registerNub('relay',    relayAdapter);
   nubDispatch.registerNub('identity', identityAdapter);
@@ -1109,6 +1126,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   nubDispatch.registerNub('storage',  storageAdapter);
   nubDispatch.registerNub('ifc',      ifcAdapter);
   nubDispatch.registerNub('theme',    themeAdapter);
+  nubDispatch.registerNub('config',   configAdapter);  // Phase 39 (CONFIG-03)
 
   // ─── Main message handler ────────────────────────────────────────────────
 
