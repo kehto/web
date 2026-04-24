@@ -100,3 +100,17 @@ export type {
   KeysForwarderOriginRegistry,
   KeysForwarderSessionRegistry,
 } from './keys-forwarder.js';
+
+// ─── v1.7 Phase 39 NUB-CONNECT: connect-store singleton + wire types ─────────
+// connect-store singleton with grant/revoke/check/getOrigins/getAllGrants/persist/load/clear.
+// connectGrantKey: compose the canonical '<dTag>:<aggregateHash>' composite key.
+// Wire types: ConnectGrant, ConnectGrantKey, ConnectConsentRequest, ConsentResult
+// (provisional — swap to @napplet/nub/connect when upstream publishes at ^0.3.0).
+export { connectStore, connectGrantKey } from './connect-store.js';
+export type { ConnectStore } from './connect-store.js';
+export type {
+  ConnectGrant,
+  ConnectGrantKey,
+  ConnectConsentRequest,
+  ConsentResult,
+} from './types/provisional-connect.js';
