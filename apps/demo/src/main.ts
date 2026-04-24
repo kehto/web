@@ -593,6 +593,110 @@ document.addEventListener('click', (e) => {
 const shellPubkey = document.getElementById('shell-pubkey');
 if (shellPubkey) shellPubkey.textContent = `pubkey: ${getDemoHostPubkey().substring(0, 20)}...`;
 
+// ─── Phase 39 Plan 39-04: NUB-CONNECT + NUB-CONFIG test hooks ───────────────
+//
+// Hoisted to BEFORE nappletInfos (Phase 40 Plan 40-02) so the auto-grant for
+// resource-demo can call __grantConnectOrigin__ before loadNapplet fires.
+// Previously these were defined after the nappletInfos loop (E2E-only usage),
+// but Phase 40 D3 requires the grant to land before the iframe's first HTTP
+// request so the Vite serveNappletCsp plugin emits connect-src localhost:5174.
+//
+// Plan 39-05's E2E specs (connect-consent.spec.ts, connect-revocation.spec.ts,
+// nub-config.spec.ts) need to grant/revoke connect origins and publish config
+// updates without driving the UI. Mirrors __grantKeysForward__ / __grantMediaControl__
+// from Phases 26/27 -- direct shell-state mutation + HTTP sync to the Vite
+// middleware's in-memory Map (Plan 39-03 /__connect-grants endpoint).
+//
+// __grantConnectOrigin__ and __revokeConnect__ also dispatch / listen for
+// 'shell:connect-revoked' CustomEvent to wire the C-04 iframe destroy+recreate path.
+
+async function syncGrantsToVite(dTag: string, aggregateHash: string, origins: readonly string[]): Promise<void> {
+  try {
+    await fetch('/__connect-grants', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dTag, aggregateHash, origins: [...origins] }),
+    });
+  } catch {
+    // Best-effort -- failure here doesn't invalidate the in-memory grant;
+    // the CSP header will be stale until the next sync succeeds.
+  }
+}
+
+(window as Window & {
+  __grantConnectOrigin__?: (dTag: string, aggregateHash: string, origin: string) => boolean;
+}).__grantConnectOrigin__ = (dTag: string, aggregateHash: string, origin: string): boolean => {
+  const existing = connectStore.getOrigins(dTag, aggregateHash);
+  const next = [...new Set([...existing, origin])];
+  connectStore.grant(dTag, aggregateHash, next);
+  void syncGrantsToVite(dTag, aggregateHash, next);
+  console.info(`[demo] __grantConnectOrigin__: granted ${origin} to ${dTag}:${aggregateHash}`);
+  return true;
+};
+
+(window as Window & {
+  __revokeConnect__?: (dTag: string, aggregateHash: string) => boolean;
+}).__revokeConnect__ = (dTag: string, aggregateHash: string): boolean => {
+  connectStore.revoke(dTag, aggregateHash);
+  void syncGrantsToVite(dTag, aggregateHash, []);
+  // C-04 / CONNECT-04: iframe destroy+recreate so the newly-served HTML
+  // picks up the updated CSP header (now without the revoked origin).
+  window.dispatchEvent(new CustomEvent('shell:connect-revoked', { detail: { dTag, aggregateHash } }));
+  console.info(`[demo] __revokeConnect__: revoked all origins from ${dTag}:${aggregateHash}`);
+  return true;
+};
+
+// C-04 / CONNECT-04: listen for revocation events and destroy+recreate the napplet iframe.
+// Snapshot entries BEFORE the loop — loadNapplet adds a new entry to the same Map,
+// and a live Map iterator would visit it, causing an infinite destroy+recreate loop.
+window.addEventListener('shell:connect-revoked', (event) => {
+  const detail = (event as CustomEvent<{ dTag: string; aggregateHash: string }>).detail;
+  const napps = getNapplets();
+  // Snapshot: collect matching entries before mutating the Map.
+  const toRevoke = [...napps.entries()].filter(([, info]) => info.name === detail.dTag);
+  for (const [windowId, info] of toRevoke) {
+    const def = DEMO_NAPPLETS.find((d) => d.name === detail.dTag);
+    if (!def) continue;
+    const containerId = def.frameContainerId;
+    // Remove the iframe -- loadNapplet will re-append a fresh one.
+    info.iframe.remove();
+    napps.delete(windowId);
+    // Re-load. loadNapplet assigns a fresh windowId and re-appends iframe.
+    loadNapplet(detail.dTag, containerId);
+    console.info(`[demo] shell:connect-revoked: destroy+recreate iframe for ${detail.dTag}`);
+  }
+});
+
+// ─── Phase 40 Plan 40-02 (RESOURCE-04 / D3): resource-demo auto-grant ────────
+// Grants http://localhost:5174 to resource-demo at demo boot so the Vite
+// serveNappletCsp plugin (Phase 39 Plan 39-03) emits connect-src localhost:5174
+// on the iframe HTML response. No user click-through — deterministic for E2E.
+// The ('resource-demo', '') composite key matches the session-entry aggregateHash
+// which is '' for demo napplets (shell-host.ts loadNapplet() hard-codes '').
+//
+// Uses __grantConnectOrigin__ (defined above — hoisted from Phase 39's original
+// post-nappletInfos location so this call runs BEFORE iframe first load).
+// Defensive null-check guards against future file reorders.
+//
+// Phase 39 Dev 2 safety: does NOT touch the shell:connect-revoked path at all;
+// the revocation handler's snapshot-before-mutate pattern is preserved unchanged.
+{
+  // auto-grant: resource-demo
+  const grantFn = (window as Window & {
+    __grantConnectOrigin__?: (dTag: string, aggregateHash: string, origin: string) => boolean;
+  }).__grantConnectOrigin__;
+  if (grantFn) {
+    const ok = grantFn('resource-demo', '', 'http://localhost:5174');
+    if (!ok) {
+      console.warn('[demo] resource-demo auto-grant failed; E2E may fail on granted-fetch assertion');
+    } else {
+      console.info('[demo] resource-demo: pre-granted http://localhost:5174 (RESOURCE-04 / D3)');
+    }
+  } else {
+    console.warn('[demo] __grantConnectOrigin__ not available at auto-grant site — file ordering regression');
+  }
+}
+
 // Load demo napplets into the rendered topology
 const nappletInfos = DEMO_NAPPLETS.map((napplet) => loadNapplet(napplet.name, napplet.frameContainerId));
 
@@ -923,74 +1027,6 @@ export function setSelectedNode(id: string | null): void {
   console.info(`[demo] __injectNubEnvelopeAsNapplet__: injected ${String(envelope['type'])} for ${dTag}`);
   return true;
 };
-
-// ─── Phase 39 Plan 39-04: NUB-CONNECT + NUB-CONFIG test hooks ───────────────
-//
-// Plan 39-05's E2E specs (connect-consent.spec.ts, connect-revocation.spec.ts,
-// nub-config.spec.ts) need to grant/revoke connect origins and publish config
-// updates without driving the UI. Mirrors __grantKeysForward__ / __grantMediaControl__
-// from Phases 26/27 -- direct shell-state mutation + HTTP sync to the Vite
-// middleware's in-memory Map (Plan 39-03 /__connect-grants endpoint).
-//
-// __grantConnectOrigin__ and __revokeConnect__ also dispatch / listen for
-// 'shell:connect-revoked' CustomEvent to wire the C-04 iframe destroy+recreate path.
-
-async function syncGrantsToVite(dTag: string, aggregateHash: string, origins: readonly string[]): Promise<void> {
-  try {
-    await fetch('/__connect-grants', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dTag, aggregateHash, origins: [...origins] }),
-    });
-  } catch {
-    // Best-effort -- failure here doesn't invalidate the in-memory grant;
-    // the CSP header will be stale until the next sync succeeds.
-  }
-}
-
-(window as Window & {
-  __grantConnectOrigin__?: (dTag: string, aggregateHash: string, origin: string) => boolean;
-}).__grantConnectOrigin__ = (dTag: string, aggregateHash: string, origin: string): boolean => {
-  const existing = connectStore.getOrigins(dTag, aggregateHash);
-  const next = [...new Set([...existing, origin])];
-  connectStore.grant(dTag, aggregateHash, next);
-  void syncGrantsToVite(dTag, aggregateHash, next);
-  console.info(`[demo] __grantConnectOrigin__: granted ${origin} to ${dTag}:${aggregateHash}`);
-  return true;
-};
-
-(window as Window & {
-  __revokeConnect__?: (dTag: string, aggregateHash: string) => boolean;
-}).__revokeConnect__ = (dTag: string, aggregateHash: string): boolean => {
-  connectStore.revoke(dTag, aggregateHash);
-  void syncGrantsToVite(dTag, aggregateHash, []);
-  // C-04 / CONNECT-04: iframe destroy+recreate so the newly-served HTML
-  // picks up the updated CSP header (now without the revoked origin).
-  window.dispatchEvent(new CustomEvent('shell:connect-revoked', { detail: { dTag, aggregateHash } }));
-  console.info(`[demo] __revokeConnect__: revoked all origins from ${dTag}:${aggregateHash}`);
-  return true;
-};
-
-// C-04 / CONNECT-04: listen for revocation events and destroy+recreate the napplet iframe.
-// Snapshot entries BEFORE the loop — loadNapplet adds a new entry to the same Map,
-// and a live Map iterator would visit it, causing an infinite destroy+recreate loop.
-window.addEventListener('shell:connect-revoked', (event) => {
-  const detail = (event as CustomEvent<{ dTag: string; aggregateHash: string }>).detail;
-  const napps = getNapplets();
-  // Snapshot: collect matching entries before mutating the Map.
-  const toRevoke = [...napps.entries()].filter(([, info]) => info.name === detail.dTag);
-  for (const [windowId, info] of toRevoke) {
-    const def = DEMO_NAPPLETS.find((d) => d.name === detail.dTag);
-    if (!def) continue;
-    const containerId = def.frameContainerId;
-    // Remove the iframe -- loadNapplet will re-append a fresh one.
-    info.iframe.remove();
-    napps.delete(windowId);
-    // Re-load. loadNapplet assigns a fresh windowId and re-appends iframe.
-    loadNapplet(detail.dTag, containerId);
-    console.info(`[demo] shell:connect-revoked: destroy+recreate iframe for ${detail.dTag}`);
-  }
-});
 
 // ─── Phase 39 Plan 39-04 (D11): config-demo update button wiring ─────────────
 // The shell UI button flips demoConfigFixtures.theme between dark/light via
