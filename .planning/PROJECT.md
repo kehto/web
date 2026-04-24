@@ -145,4 +145,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-24 — Phase 40 complete (NUB-RESOURCE: 10th NUB domain ships with createResourceService H-03-guarded factory + in-flight cancel correlation; resource-demo as 12th napplet with granted+denied fetch panels; all 3 policy docs collected under docs/policies/; class-invariant spec extended 8→10 domains completing E2E-20; 71/0/0 E2E)*
+*Last updated: 2026-04-24 — Phase 41 complete (Polish Wave: @kehto/nip66 demo wiring live with 3 kind-30166 fixtures + stop() method; @kehto/wm ships LayoutStrategy primitives + no-op default replacing throwing stub; HostCacheBridge additive alias closes kehto#1; 72/0/0 E2E)*
