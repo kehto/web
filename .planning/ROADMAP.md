@@ -120,7 +120,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 37. SPEC Resync + Foundation Gates | 2/2 | Complete   | 2026-04-24 |
+| 37. SPEC Resync + Foundation Gates | 2/2 | Complete    | 2026-04-24 |
 | 38. NUB-CLASS Adoption | 0/? | Not started | - |
 | 39. NUB-CONNECT + NUB-CONFIG | 0/? | Not started | - |
 | 40. NUB-RESOURCE + Demo Napplets + Policy Docs | 0/? | Not started | - |

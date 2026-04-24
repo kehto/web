@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: NIP-5D Spec Adoption & New NUB Domains
-status: executing
-last_updated: "2026-04-24T11:55:34.113Z"
+status: planning
+last_updated: "2026-04-24T11:59:08.608Z"
 last_activity: 2026-04-24
 progress:
   total_phases: 6
@@ -27,9 +27,9 @@ See: .planning/PROJECT.md (updated 2026-04-24, v1.7 kicked off)
 Phase: 37 (SPEC Resync + Foundation Gates) — EXECUTING
 Plan: 1 of 2
 **Milestone:** v1.7 NIP-5D Spec Adoption & New NUB Domains
-**Phase:** Phase 37 (not yet started — roadmap complete, awaiting plan-phase)
-**Plan:** —
-**Status:** Executing Phase 37
+**Phase:** 38
+**Plan:** Not started
+**Status:** Ready to plan
 **Last activity:** 2026-04-24
 
 Progress: [          ] 0%
