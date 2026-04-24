@@ -47,6 +47,32 @@ export interface CacheServiceOptions {
 }
 
 /**
+ * @kehto/services cross-package naming-parity alias for {@link CacheServiceOptions}.
+ *
+ * `HostCacheBridge` matches the v1.4 `HostKeysBridge` / `HostMediaBridge`
+ * convention — it is a pure type alias for `CacheServiceOptions`, NOT a new
+ * type. Existing consumers of `CacheServiceOptions` continue to work
+ * unchanged; new consumers may prefer `HostCacheBridge` for consistency
+ * with the other Host*Bridge names in `@kehto/services`.
+ *
+ * Anti-feature note (PITFALLS.md M-02): `CacheServiceOptions` MUST remain
+ * the primary export. This alias is additive; do not rename or delete
+ * `CacheServiceOptions` when other Host*Bridge names eventually
+ * stabilize.
+ *
+ * @example
+ * ```ts
+ * import type { HostCacheBridge } from '@kehto/services';
+ * const cache: HostCacheBridge = {
+ *   query: (filters) => myIndexedDB.query(filters),
+ *   store: (event) => myIndexedDB.store(event),
+ *   isAvailable: () => true,
+ * };
+ * ```
+ */
+export type HostCacheBridge = CacheServiceOptions;
+
+/**
  * Create a cache service that wraps an existing cache implementation
  * as a ServiceHandler.
  *

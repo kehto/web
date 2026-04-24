@@ -50,8 +50,12 @@ export { createRelayPoolService } from './relay-pool-service.js';
 export type { RelayPoolServiceOptions } from './relay-pool-service.js';
 
 // ─── Cache Service ────────────────────────────────────────────────────────
+// v1.7 Phase 41 (CACHE-01): `HostCacheBridge` added as a pure type alias
+// for `CacheServiceOptions` to match the v1.4 HostKeysBridge / HostMediaBridge
+// naming convention. Alias is additive; `CacheServiceOptions` remains the
+// primary export (M-02 — do NOT rename or delete).
 export { createCacheService } from './cache-service.js';
-export type { CacheServiceOptions } from './cache-service.js';
+export type { CacheServiceOptions, HostCacheBridge } from './cache-service.js';
 
 // ─── Coordinated Relay (composite service) ────────────────────────────────
 export { createCoordinatedRelay } from './coordinated-relay.js';
