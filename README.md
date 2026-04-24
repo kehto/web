@@ -58,6 +58,14 @@ const shell = createShellBridge({
 See [`apps/demo/src/shell-host.ts`](./apps/demo/src/shell-host.ts) for the full canonical example
 (including the `createDemoHooks()` adapter factory and per-domain service registration).
 
+## Policies
+
+Shell-authority policy documents synced from the upstream napplet repo at milestone boundaries.
+
+- [`docs/policies/SHELL-CLASS-POLICY.md`](./docs/policies/SHELL-CLASS-POLICY.md) — NUB-CLASS shell obligations (v1.7 Phase 38, CLASS-05)
+
+Future phases add CONNECT and RESOURCE policy rows as those NUBs ship.
+
 ## Specification
 
 The authoritative protocol kehto implements is **NIP-5D**.
