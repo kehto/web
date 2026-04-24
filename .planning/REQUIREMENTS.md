@@ -124,13 +124,13 @@ Cosmetic-only. v1.6 dropped CACHE-01..05 mid-milestone when Phase 33 realized `C
 
 - [x] **CACHE-01**: `packages/services/src/cache-service.ts` exports `type HostCacheBridge = CacheServiceOptions` as an additive alias. The existing `CacheServiceOptions` export remains in the public API unchanged. Changeset is `patch` (no breaking change, no new capability). Barrel re-exports updated.
 
-### Category 9: NIP-44 Decrypt Surface (DECRYPT — soft-gated)
+### Category 9: NIP-44 Decrypt Surface (DECRYPT — soft-gated — DEFERRED to v1.8)
 
-Ship if `napplet/napplet#3` resolves during the milestone; defer to v1.8 if not. `nostr-tools/nip44` is already available (no dependency change). When shipped, the surface is shell-side only — napplets never hold keys or see plaintext via a broadcast.
+**Status:** DEFERRED. Soft-gate evaluation at 2026-04-24 (Phase 41 close): `napplet/napplet#3` remains OPEN with zero comments and no PR. Upstream NUB-surface decision between `relay.subscribeEncrypted` vs `identity.decrypt` has not resolved. Phase 42 deferred to v1.8.
 
-- [ ] **DECRYPT-01**: Shell `@kehto/shell` exposes an internal `decryptNip44(ciphertext, senderPubkey, recipientWindowId)` method wired via `nostr-tools/nip44.decrypt` + `getConversationKey`. The decrypted plaintext is delivered to the `recipientWindowId` iframe **exclusively** (single-target, never broadcast via `getAllWindowIds()` loops) (C-06 prevention).
-- [ ] **DECRYPT-02**: Class-posture enforcement — class-forbidden NUB requests (e.g., Class-2 napplet requesting `identity.decrypt` in a shell surface where NUB-CLASS reserves decrypt for Class-1) receive the canonical `class-forbidden` typed-error. Enforced in `enforce.ts` alongside CLASS-03.
-- [ ] **DECRYPT-03**: NIP-44 spec test-vector (canonical cross-implementation vector) passes as a Vitest unit test in `packages/shell/tests/nip44.test.ts`.
+- [~] **DECRYPT-01**: [DEFERRED — v1.8] Shell-side NIP-44 decrypt surface via `nostr-tools/nip44.decrypt` + `getConversationKey`, single-target routing to requesting windowId (C-06 prevention). Moved to Future Requirements.
+- [~] **DECRYPT-02**: [DEFERRED — v1.8] Class-posture enforcement for class-forbidden decrypt. Moved to Future Requirements.
+- [~] **DECRYPT-03**: [DEFERRED — v1.8] NIP-44 spec test-vector Vitest unit test. Moved to Future Requirements.
 
 ### Category 10: E2E Coverage (E2E — continued from v1.6 E2E-18)
 
@@ -144,7 +144,7 @@ Tests that lock the v1.7 contracts at Layer-B (`tests/e2e/*.spec.ts`) against th
 - [x] **E2E-24**: `tests/e2e/nub-config.spec.ts` added — config-demo napplet exercises `config.get` + `config.watch` round-trip against the shell-side reference service; config values propagate correctly.
 - [x] **E2E-25**: `tests/e2e/nub-resource.spec.ts` added — resource-demo napplet: (a) successful `resource.bytes` fetch against a granted origin; (b) `denied` response for an ungranted origin (H-03 coupling test). Two tests.
 - [x] **E2E-26**: `tests/e2e/nip66-suggestions.spec.ts` added — demo shell surfaces relay suggestions from `createNip66Aggregator` fed by mock kind-30166 fixtures; at least one suggestion from each fixture event appears in the UI.
-- [ ] **E2E-27** (soft-gated, DECRYPT): `tests/e2e/decrypt-single-target.spec.ts` added — two iframes present; one requests NIP-44 decrypt; only the requesting iframe receives the plaintext (the second iframe observes no decrypt-response envelope in its MessageTap).
+- [~] **E2E-27** (soft-gated, DECRYPT) [DEFERRED — v1.8]: `tests/e2e/decrypt-single-target.spec.ts` — deferred along with DECRYPT-01..03. Moved to Future Requirements.
 
 ### Category 11: Documentation (DOCS — continued from v1.6 DOCS-05)
 
@@ -155,7 +155,7 @@ Tests that lock the v1.7 contracts at Layer-B (`tests/e2e/*.spec.ts`) against th
 
 ## Future Requirements
 
-- **DECRYPT-01 (if upstream slips)** — receive-side NIP-44 decrypt surface, awaits napplet/napplet#3 → v1.8
+- **DECRYPT-01..03 + E2E-27** — [DEFERRED FROM v1.7] receive-side NIP-44 decrypt surface, single-target routing, class-forbidden gate, spec test-vector, Layer-B isolation spec. Awaits napplet/napplet#3 NUB-surface decision between `relay.subscribeEncrypted` vs `identity.decrypt`. Verified at 2026-04-24 Phase 41 close: upstream issue remains OPEN with zero comments. Slipped to v1.8.
 - **Upstream NUB dep bump** — when `@napplet/nub@^0.2.2` and `@napplet/nub@^0.3.0` publish CLASS/CONNECT/RESOURCE subpaths, swap provisional local types for canonical imports + delete `packages/shell/src/types/provisional-*.ts`. Single-atomic-bump (lockfile churn strategy) post-milestone or at milestone-close.
 - **`identitySource: 'auth' | 'source'` rename** — live type in SessionEntry (v1.7+ tech debt)
 - **`bridge.injectEvent('auth:identity-changed', ...)` rename** — live surface with external consumers (v1.7+ tech debt)
@@ -214,9 +214,9 @@ Tests that lock the v1.7 contracts at Layer-B (`tests/e2e/*.spec.ts`) against th
 | WM-06 | Phase 41 | Polish wave; file-size guard |
 | WM-07 | Phase 41 | Polish wave; README "what this is / is not" |
 | CACHE-01 | Phase 41 | Polish wave; additive HostCacheBridge alias |
-| DECRYPT-01 | Phase 42 | Soft-gated on napplet/napplet#3 |
-| DECRYPT-02 | Phase 42 | Soft-gated; class-forbidden gate |
-| DECRYPT-03 | Phase 42 | Soft-gated; NIP-44 test vector |
+| DECRYPT-01 | [DEFERRED → v1.8] | Upstream napplet/napplet#3 OPEN at 2026-04-24; slipped |
+| DECRYPT-02 | [DEFERRED → v1.8] | Upstream napplet/napplet#3 OPEN at 2026-04-24; slipped |
+| DECRYPT-03 | [DEFERRED → v1.8] | Upstream napplet/napplet#3 OPEN at 2026-04-24; slipped |
 | E2E-19 | Phase 37 | Baseline 54/0/0 confirmation |
 | E2E-20 | Phase 38 (8/10 domains) + Phase 40 (+config+resource = 10/10) | class-invariant.spec.ts — Phase 38 ships the 8-domain subset (identity, ifc, keys, media, notify, relay, storage, theme); Phase 40 extends with config+resource. Checkbox stays unchecked until Phase 40 close. |
 | E2E-21 | Phase 39 | connect-consent.spec.ts |
@@ -225,7 +225,7 @@ Tests that lock the v1.7 contracts at Layer-B (`tests/e2e/*.spec.ts`) against th
 | E2E-24 | Phase 39 | nub-config.spec.ts |
 | E2E-25 | Phase 40 | nub-resource.spec.ts |
 | E2E-26 | Phase 41 | nip66-suggestions.spec.ts |
-| E2E-27 | Phase 42 | Soft-gated; decrypt-single-target.spec.ts |
+| E2E-27 | [DEFERRED → v1.8] | Upstream napplet/napplet#3 OPEN at 2026-04-24; slipped |
 | DOCS-06 | Phase 37 | NIP-5D header comment + README cross-reference |
 | DOCS-07 | Phase 40 | docs/policies/ directory (all three policy files present) |
 

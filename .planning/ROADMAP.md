@@ -27,7 +27,7 @@
 - [x] **Phase 39: NUB-CONNECT Adoption + NUB-CONFIG Reference Service** — Per-napplet CSP header authority (Vite middleware); consent flow; grants store; meta-CSP CI audit; config service (9th domain) ships in parallel. (completed 2026-04-24)
 - [x] **Phase 40: NUB-RESOURCE Reference Service + Demo Napplets + Policy Docs** — Resource service factory with required connect-grant dependency; config-demo and resource-demo napplets (11th, 12th); all three policy docs complete. (completed 2026-04-24)
 - [x] **Phase 41: Polish Wave** — nip66 demo wiring live; wm structural primitives; CACHE naming parity. All independent; ship together. (completed 2026-04-24)
-- [ ] **Phase 42: NIP-44 Decrypt Surface (soft-gated)** — Ship if napplet/napplet#3 resolves during milestone; defer to v1.8 if not.
+- [~] **Phase 42: NIP-44 Decrypt Surface (soft-gated)** — **DEFERRED to v1.8.** napplet/napplet#3 still OPEN at 2026-04-24 (zero comments, no PR); upstream NUB-surface decision between `relay.subscribeEncrypted` vs `identity.decrypt` has not resolved. DECRYPT-01..03 + E2E-27 move to Future Requirements.
 
 ---
 
@@ -140,7 +140,7 @@
 | 39. NUB-CONNECT + NUB-CONFIG | 5/5 | Complete    | 2026-04-24 |
 | 40. NUB-RESOURCE + Demo Napplets + Policy Docs | 4/3 | Complete    | 2026-04-24 |
 | 41. Polish Wave | 4/4 | Complete    | 2026-04-24 |
-| 42. NIP-44 Decrypt (soft-gated) | 0/? | Not started | - |
+| 42. NIP-44 Decrypt (soft-gated) | 0/0 | Deferred to v1.8 | 2026-04-24 (gate unresolved) |
 
 ---
 
