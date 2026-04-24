@@ -127,6 +127,25 @@ importers:
         specifier: ^6.3.0
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
+  apps/demo/napplets/config-demo:
+    dependencies:
+      '@napplet/sdk':
+        specifier: ^0.2.1
+        version: 0.2.1
+      '@napplet/shim':
+        specifier: ^0.2.1
+        version: 0.2.1
+    devDependencies:
+      '@napplet/vite-plugin':
+        specifier: ^0.2.1
+        version: 0.2.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.3.0
+        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+
   apps/demo/napplets/feed:
     dependencies:
       '@napplet/sdk':
