@@ -8,6 +8,7 @@
 import {
   createShellBridge,
   originRegistry,
+  connectStore,
   type ShellBridge,
   type ShellAdapter,
   type ServiceHandler,
@@ -26,6 +27,7 @@ import {
   createMediaService,
   createThemeService,
   createConfigService,  // Phase 39 Plan 39-04 / CONFIG-03
+  createResourceService, // Phase 40 Plan 40-02 / RESOURCE-04
 } from '@kehto/services';
 import type { Notification, ThemeService, ConfigService } from '@kehto/services';
 import { getSigner, getSignerConnectionState } from './signer-connection.js';
@@ -229,6 +231,20 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     aclId: 'config-demo-acl',
     frameContainerId: 'config-demo-frame-container',
   },
+  // Phase 40 (Plan 40-02 / RESOURCE-04): resource-demo napplet exercises the
+  // NUB-RESOURCE reference service (10th NUB domain). Two resource.bytes
+  // dispatches on init: one to http://localhost:5174/demo-data.json
+  // (granted at boot via __grantConnectOrigin__ — D3) and one to
+  // https://untrusted.example (denied, D4). Plan 40-03's nub-resource.spec.ts
+  // asserts the granted panel (decoded JSON) + denied panel (canonical
+  // error code) via frameLocator on the iframe sentinels.
+  {
+    name: 'resource-demo',
+    label: 'resource-demo',
+    statusId: 'resource-demo-status',
+    aclId: 'resource-demo-acl',
+    frameContainerId: 'resource-demo-frame-container',
+  },
 ];
 
 /**
@@ -239,7 +255,7 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
  * prevention) enforces this: adding a napplet to DEMO_NAPPLETS without
  * updating CLASS_BY_DTAG throws at import time, breaking `pnpm build`.
  *
- * All 10 v1.6-era demo napplets default to `null` (permissive) so no existing
+ * All 11 v1.7-era demo napplets default to `null` (permissive) so no existing
  * E2E spec regresses (D2). The cross-NUB invariant spec
  * (tests/e2e/class-invariant.spec.ts) uses `window.__setNappletClass__` to
  * temporarily assign 'class-2' to theme-switcher for the test window — no
@@ -258,6 +274,8 @@ export const CLASS_BY_DTAG: ReadonlyMap<string, NappletClass> = new Map<string, 
   ['media-controller', null],
   // Phase 39 (CONFIG-03): config-demo permissive by default (no class restriction).
   ['config-demo', null],
+  // Phase 40 (RESOURCE-04): resource-demo permissive by default (no class restriction).
+  ['resource-demo', null],
 ]);
 
 // ─── D4 / H-05 module-load assertion ─────────────────────────────────────────
@@ -603,6 +621,49 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
   });
   _configServiceBundle = configServiceBundle;
 
+  // ─── Phase 40 Plan 40-02 (RESOURCE-04): NUB-RESOURCE reference service ───
+  // Shell acts as authenticated fetch proxy for the 10th NUB domain.
+  //
+  // Host `fetch` = native browser fetch + AbortController + 10s timeout (D5).
+  // Composites two abort signals: the request-scoped signal and a 10s timeout,
+  // whichever fires first aborts the fetch and returns a canonical error code.
+  //
+  // resolveIdentity uses the module-level _sessionRegistryRef which is
+  // populated in bootShell() immediately after createShellBridge(). The first
+  // resource.bytes dispatch cannot arrive until AFTER bootShell() returns and
+  // the napplet iframe fully loads and authenticates — so the ref is always
+  // assigned before any real lookup occurs.
+  //
+  // H-03 guard (Wave 1): all 4 options are required; factory throws at
+  // construction if any is missing.
+  async function hostFetch(
+    url: string,
+    init: { method?: string; headers?: Record<string, string>; signal: AbortSignal },
+  ): Promise<Response> {
+    const timeoutController = new AbortController();
+    const timeoutId = setTimeout(() => timeoutController.abort(), 10_000);
+    // Compose: forward both abort signals into fetch.
+    const composite = new AbortController();
+    for (const src of [init.signal, timeoutController.signal]) {
+      src.addEventListener('abort', () => composite.abort(), { once: true });
+    }
+    try {
+      return await fetch(url, { method: init.method, headers: init.headers, signal: composite.signal });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  const resourceHandler = createResourceService({
+    fetch: hostFetch,
+    isOriginGranted: (origin, grants) => grants.includes(origin),
+    getConnectGrants: (dTag, aggregateHash) => connectStore.getOrigins(dTag, aggregateHash),
+    resolveIdentity: (windowId) => {
+      const entry = _sessionRegistryRef?.getEntryByWindowId(windowId);
+      return entry ? { dTag: entry.dTag, aggregateHash: entry.aggregateHash } : null;
+    },
+  });
+
   const services = {
     identity: createIdentityService({
       getSigner,
@@ -619,6 +680,7 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
     media: mediaService,
     theme: themeServiceBundle.handler,
     config: configServiceBundle.handler,  // Phase 39 (CONFIG-03): NUB-CONFIG reference service
+    resource: resourceHandler,            // Phase 40 (RESOURCE-04): NUB-RESOURCE reference service
   };
   // Expose the notification service handler so the controller can dispatch to it directly
   _notificationServiceHandler = notificationService;
@@ -787,6 +849,23 @@ const demoConfigFixtures: Record<string, unknown> = {
 
 let _configServiceBundle: ConfigService | null = null;
 
+/**
+ * Phase 40 Plan 40-02 (RESOURCE-04): deferred session registry ref.
+ *
+ * createResourceService() is constructed inside createDemoHooks() (before
+ * bootShell() creates relay). The resolveIdentity option must look up
+ * sessionRegistry.getEntryByWindowId, which is only available after
+ * relay = createShellBridge(hooks). This ref is populated in bootShell()
+ * immediately after createShellBridge — before any napplet iframe loads.
+ *
+ * Timing safety: the first resource.bytes dispatch cannot arrive until the
+ * napplet iframe loads AND authenticates AND dispatches, which is strictly
+ * after bootShell() returns. The assignment window is safe.
+ */
+let _sessionRegistryRef: {
+  getEntryByWindowId(windowId: string): SessionEntry | undefined;
+} | null = null;
+
 /** Phase 39 Plan 39-04 — access the registered config service bundle for publishValues. */
 export function getConfigServiceBundle(): ConfigService | null {
   return _configServiceBundle;
@@ -899,6 +978,13 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
   };
 
   relay = createShellBridge(hooks);
+
+  // Phase 40 Plan 40-02 (RESOURCE-04): populate the deferred session registry ref
+  // so createResourceService's resolveIdentity closure can look up windowId → dTag.
+  // Assigned here (after createShellBridge) because sessionRegistry lives inside the
+  // runtime closure created by createShellBridge. The napplet iframes do not load
+  // until after bootShell returns, so the ref is always assigned before first use.
+  _sessionRegistryRef = relay.runtime.sessionRegistry;
 
   // Pre-populate serviceHandlerStore with adapter-provided services
   // (these bypass the registerService wrapper since they're passed via ShellAdapter.services)
