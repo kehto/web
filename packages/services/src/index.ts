@@ -92,3 +92,15 @@ export type { NotifyServiceOptions } from './notify-service.js';
 // ─── Theme Service (NIP-5D theme NUB) ─────────────────────────────────────
 export { createThemeService } from './theme-service.js';
 export type { ThemeServiceOptions, ThemeService } from './theme-service.js';
+
+// ─── Config Service (NIP-5D config NUB — 9th domain, v1.7 Phase 39) ──────
+// Shell-writes / napplet-reads configuration service. Scope boundary:
+// NOT a general key-value store — use createCoordinatedRelay / NUB-STORAGE
+// (state:read/state:write) for that. See config-service.ts top-of-file for
+// the full anti-overlap documentation (CONFIG-04).
+export { createConfigService } from './config-service.js';
+export type {
+  ConfigServiceOptions,
+  ConfigService,
+  ConfigSchemaValidation,
+} from './config-service.js';
