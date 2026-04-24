@@ -64,7 +64,7 @@ The authoritative protocol kehto implements is **NIP-5D**.
 
 - Local pinned copy: [`specs/NIP-5D.md`](./specs/NIP-5D.md)
 - Canonical source: [`dskvr/nips` branch `nip/5d`](https://github.com/dskvr/nips/blob/nip/5d/5D.md) — authoritative; always.
-- Sync policy: re-synced at each kehto milestone boundary. Last synced at **v1.2** (2026-04-17).
+- Sync policy: re-synced at each kehto milestone boundary. Last synced at **v1.7** (2026-04-24).
 
 Do not edit `specs/NIP-5D.md` in-place — edit the canonical source and re-sync.
 
