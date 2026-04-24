@@ -136,7 +136,7 @@ Ship if `napplet/napplet#3` resolves during the milestone; defer to v1.8 if not.
 
 Tests that lock the v1.7 contracts at Layer-B (`tests/e2e/*.spec.ts`) against the built `:4174` demo. Each listed spec file contributes at least one test.
 
-- [ ] **E2E-19**: Entering v1.7 Phase 1: canonical `pnpm clean && pnpm build && pnpm test:e2e` loop records `54/0/0` baseline preserved (no regression introduced by SPEC resync).
+- [x] **E2E-19**: Entering v1.7 Phase 1: canonical `pnpm clean && pnpm build && pnpm test:e2e` loop records `54/0/0` baseline preserved (no regression introduced by SPEC resync).
 - [ ] **E2E-20**: `tests/e2e/class-invariant.spec.ts` added — cross-NUB Layer-B invariant: a class-restricted demo napplet attempting a NUB request outside its class posture gets rejected at the `enforce.ts` gate regardless of which NUB domain (identity, ifc, keys, media, notify, relay, storage, theme, config, resource) issued the request. Contains at least one test per NUB domain covered.
 - [ ] **E2E-21**: `tests/e2e/connect-consent.spec.ts` added — consent dialog approve flow (user grants; subsequent fetch succeeds) and dismiss=deny flow (user dismisses; fetch gets canonical refusal). Two tests.
 - [ ] **E2E-22**: `tests/e2e/connect-revocation.spec.ts` added — grant revocation triggers iframe destroy + recreate; the newly-mounted iframe receives the updated CSP header excluding the revoked origin. One test.
