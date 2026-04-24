@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: NIP-5D Spec Adoption & New NUB Domains
-status: executing
-last_updated: "2026-04-24T17:58:32.508Z"
+status: planning
+last_updated: "2026-04-24T18:01:58.314Z"
 last_activity: 2026-04-24
 progress:
   total_phases: 6
@@ -27,9 +27,9 @@ See: .planning/PROJECT.md (updated 2026-04-24, v1.7 kicked off)
 Phase: 41 (Polish Wave) — EXECUTING
 Plan: 1 of 4
 **Milestone:** v1.7 NIP-5D Spec Adoption & New NUB Domains
-**Phase:** 41
+**Phase:** 42
 **Plan:** Not started
-**Status:** Executing Phase 41
+**Status:** Ready to plan
 **Last activity:** 2026-04-24
 
 Progress: [██████████] 100%
