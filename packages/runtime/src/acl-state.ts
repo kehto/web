@@ -35,6 +35,7 @@ const CAP_MEDIA_CONTROL  = 1 << 10;   // 1024
 const CAP_NOTIFY_SEND    = 1 << 11;   // 2048
 const CAP_NOTIFY_CHANNEL = 1 << 12;   // 4096
 const CAP_THEME_READ     = 1 << 13;   // 8192
+const CAP_CONFIG_READ    = 1 << 14;   // 16384 (v1.7 Phase 39 NUB-CONFIG)
 
 const CAP_MAP: Record<Capability, number> = {
   'relay:read': CAP_RELAY_READ,
@@ -51,6 +52,7 @@ const CAP_MAP: Record<Capability, number> = {
   'notify:send': CAP_NOTIFY_SEND,
   'notify:channel': CAP_NOTIFY_CHANNEL,
   'theme:read': CAP_THEME_READ,
+  'config:read': CAP_CONFIG_READ,
 };
 
 function capToBit(cap: Capability): number {

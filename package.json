@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "audit:csp": "node scripts/audit-csp.mjs",
     "build": "turbo run build",
     "docs:api": "typedoc",
     "type-check": "turbo run type-check",
