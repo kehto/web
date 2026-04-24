@@ -130,7 +130,7 @@
 |-------|----------------|--------|-----------|
 | 37. SPEC Resync + Foundation Gates | 2/2 | Complete    | 2026-04-24 |
 | 38. NUB-CLASS Adoption | 3/3 | Complete    | 2026-04-24 |
-| 39. NUB-CONNECT + NUB-CONFIG | 5/5 | Complete   | 2026-04-24 |
+| 39. NUB-CONNECT + NUB-CONFIG | 5/5 | Complete    | 2026-04-24 |
 | 40. NUB-RESOURCE + Demo Napplets + Policy Docs | 0/? | Not started | - |
 | 41. Polish Wave | 0/? | Not started | - |
 | 42. NIP-44 Decrypt (soft-gated) | 0/? | Not started | - |
