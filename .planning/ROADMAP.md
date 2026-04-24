@@ -58,7 +58,10 @@
   3. `CLASS_BY_DTAG` data-driven map exists alongside `DEMO_NAPPLETS`; a CI assertion fails if a napplet is added to `DEMO_NAPPLETS` without a corresponding `CLASS_BY_DTAG` entry.
   4. `docs/policies/SHELL-CLASS-POLICY.md` is present with kehto file:line cross-references into `enforce.ts`, `shell-bridge.ts`, and `shell-host.ts`.
   5. The class enforcement grep (`grep -rn 'class' packages/runtime/src/enforce.ts`) shows the gate is centralized in `enforce.ts` — not scattered across individual NUB handler files.
-**Plans**: TBD
+**Plans**: 3 plans
+  - [ ] 38-01-PLAN.md — Establish types + session-entry class + shell.init inline class + breaking changeset (CLASS-01, CLASS-02, CLASS-06)
+  - [ ] 38-02-PLAN.md — Centralize class pre-filter in enforce.ts + runtime.ts wiring + EnforceResult.reason (CLASS-03)
+  - [ ] 38-03-PLAN.md — Demo CLASS_BY_DTAG + module-load assertion + test hook + SHELL-CLASS-POLICY.md + class-invariant.spec.ts + canonical 62/0/0 close (CLASS-04, CLASS-05, E2E-20)
 **UI hint**: yes
 
 ### Phase 39: NUB-CONNECT Adoption + NUB-CONFIG Reference Service
@@ -121,7 +124,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 37. SPEC Resync + Foundation Gates | 2/2 | Complete    | 2026-04-24 |
-| 38. NUB-CLASS Adoption | 0/? | Not started | - |
+| 38. NUB-CLASS Adoption | 0/3 | Not started | - |
 | 39. NUB-CONNECT + NUB-CONFIG | 0/? | Not started | - |
 | 40. NUB-RESOURCE + Demo Napplets + Policy Docs | 0/? | Not started | - |
 | 41. Polish Wave | 0/? | Not started | - |
