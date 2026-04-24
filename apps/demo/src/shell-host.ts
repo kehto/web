@@ -25,8 +25,9 @@ import {
   createKeysService,
   createMediaService,
   createThemeService,
+  createConfigService,  // Phase 39 Plan 39-04 / CONFIG-03
 } from '@kehto/services';
-import type { Notification, ThemeService } from '@kehto/services';
+import type { Notification, ThemeService, ConfigService } from '@kehto/services';
 import { getSigner, getSignerConnectionState } from './signer-connection.js';
 import { demoConfig } from './demo-config.js';
 import { pushAclEvent } from './acl-history.js';
@@ -216,6 +217,18 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     aclId: 'media-controller-acl',
     frameContainerId: 'media-controller-frame-container',
   },
+  // Phase 39 (Plan 39-04 / CONFIG-03): config-demo napplet exercises the
+  // NUB-CONFIG reference service (9th NUB domain). sdk.config.get + sdk.config.subscribe
+  // against createConfigService registered in createDemoHooks. statusId matches the INNER
+  // iframe sentinel from napplets/config-demo/index.html; Plan 39-05's nub-config.spec.ts
+  // asserts via frameLocator on #config-demo-values, not the outer placeholder.
+  {
+    name: 'config-demo',
+    label: 'config-demo',
+    statusId: 'config-demo-status',
+    aclId: 'config-demo-acl',
+    frameContainerId: 'config-demo-frame-container',
+  },
 ];
 
 /**
@@ -243,6 +256,8 @@ export const CLASS_BY_DTAG: ReadonlyMap<string, NappletClass> = new Map<string, 
   ['theme-switcher', null],
   ['hotkey-chord', null],
   ['media-controller', null],
+  // Phase 39 (CONFIG-03): config-demo permissive by default (no class restriction).
+  ['config-demo', null],
 ]);
 
 // ─── D4 / H-05 module-load assertion ─────────────────────────────────────────
@@ -580,6 +595,14 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
   // STUB_ONLY_SERVICES is now `[]` — the stub-only era ends here. The v1.4 demo
   // is a 10-napplet showcase (8 from v1.3 + hotkey-chord from Phase 26 +
   // media-controller from Phase 27).
+  // Phase 39 (CONFIG-03): NUB-CONFIG reference service. Reads values from the
+  // mutable demoConfigFixtures module-level object (D11); publishValues is
+  // called from setDemoConfigValue when the shell UI button fires.
+  const configServiceBundle = createConfigService({
+    getValues: () => ({ ...demoConfigFixtures }),
+  });
+  _configServiceBundle = configServiceBundle;
+
   const services = {
     identity: createIdentityService({
       getSigner,
@@ -595,6 +618,7 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
     keys: keysService,
     media: mediaService,
     theme: themeServiceBundle.handler,
+    config: configServiceBundle.handler,  // Phase 39 (CONFIG-03): NUB-CONFIG reference service
   };
   // Expose the notification service handler so the controller can dispatch to it directly
   _notificationServiceHandler = notificationService;
@@ -752,6 +776,31 @@ const disabledServices = new Set<string>();
 let _notificationServiceHandler: ServiceHandler | null = null;
 let _themeServiceBundle: ThemeService | null = null;
 let _identityServiceHandler: ServiceHandler | null = null;
+
+/** Phase 39 Plan 39-04 — shell-side config fixture (D11). Mutable; setDemoConfigValue publishes changes. */
+const demoConfigFixtures: Record<string, unknown> = {
+  theme: 'dark',
+  density: 'compact',
+  'notifications-enabled': true,
+  recentSearches: [],
+};
+
+let _configServiceBundle: ConfigService | null = null;
+
+/** Phase 39 Plan 39-04 — access the registered config service bundle for publishValues. */
+export function getConfigServiceBundle(): ConfigService | null {
+  return _configServiceBundle;
+}
+
+/**
+ * Phase 39 Plan 39-04 (D11) — mutator used by the shell UI "toggle config"
+ * button. Updates the fixture object IN PLACE and pushes a new config.values
+ * envelope to every subscribed napplet via configServiceBundle.publishValues.
+ */
+export function setDemoConfigValue(key: string, value: unknown): void {
+  demoConfigFixtures[key] = value;
+  _configServiceBundle?.publishValues({ ...demoConfigFixtures });
+}
 
 /** Get the registered notification service handler for direct host dispatch. */
 export function getNotificationServiceHandler(): ServiceHandler | null {
