@@ -20,6 +20,11 @@ export type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 export type { Capability } from '@kehto/runtime';
 export { ALL_CAPABILITIES } from '@kehto/runtime';
 
+// v1.7 Phase 38: NUB-CLASS provisional type — consumed by apps/demo and by
+// downstream host apps implementing onNip5dIframeCreate. Only NappletClass is
+// re-exported (ClassAssignmentPayload stays staging-only for now).
+export type { NappletClass } from './types/provisional-class.js';
+
 // Types for host app integration (shell-specific)
 export type {
   ShellAdapter,

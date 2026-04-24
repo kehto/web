@@ -12,6 +12,7 @@ import {
   type ShellAdapter,
   type ServiceHandler,
   type Capability,
+  type NappletClass,
   type NostrEvent,
   type ConsentRequest,
   type NappletMessage,
@@ -216,6 +217,49 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     frameContainerId: 'media-controller-frame-container',
   },
 ];
+
+/**
+ * Per-napplet class posture assignment (CLASS-04, v1.7 Phase 38, D3).
+ *
+ * Adjacent to DEMO_NAPPLETS — every entry in DEMO_NAPPLETS MUST have a
+ * corresponding entry here. The module-load assertion below (D4, H-05
+ * prevention) enforces this: adding a napplet to DEMO_NAPPLETS without
+ * updating CLASS_BY_DTAG throws at import time, breaking `pnpm build`.
+ *
+ * All 10 v1.6-era demo napplets default to `null` (permissive) so no existing
+ * E2E spec regresses (D2). The cross-NUB invariant spec
+ * (tests/e2e/class-invariant.spec.ts) uses `window.__setNappletClass__` to
+ * temporarily assign 'class-2' to theme-switcher for the test window — no
+ * real restrictive policy lives in this map.
+ */
+export const CLASS_BY_DTAG: ReadonlyMap<string, NappletClass> = new Map<string, NappletClass>([
+  ['chat', null],
+  ['bot', null],
+  ['composer', null],
+  ['preferences', null],
+  ['toaster', null],
+  ['feed', null],
+  ['profile-viewer', null],
+  ['theme-switcher', null],
+  ['hotkey-chord', null],
+  ['media-controller', null],
+]);
+
+// ─── D4 / H-05 module-load assertion ─────────────────────────────────────────
+// Every DEMO_NAPPLETS entry must have a corresponding CLASS_BY_DTAG entry.
+// Adding a napplet to DEMO_NAPPLETS without updating CLASS_BY_DTAG throws
+// at import time — breaks `pnpm build` before any runtime observes drift.
+{
+  const _missingClassEntries = DEMO_NAPPLETS
+    .map((d) => d.name)
+    .filter((name) => !CLASS_BY_DTAG.has(name));
+  if (_missingClassEntries.length > 0) {
+    throw new Error(
+      `[CLASS-04 / H-05] CLASS_BY_DTAG is missing entries for DEMO_NAPPLETS: ${_missingClassEntries.join(', ')}. ` +
+      `Add each missing entry with an explicit class assignment (use null for the permissive default).`
+    );
+  }
+}
 
 export const DEMO_PROTOCOL_PATHS: DemoPathAuditEntry[] = [
   {
@@ -620,11 +664,25 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
       };
     },
     onAclCheck: (event) => {
-      // Resolve windowId and name from pubkey
+      // Plan 38-03 (E2E-20): push ACL events to window.__aclEvents__ for
+      // the class-invariant spec to observe class-forbidden denials.
+      if (typeof window !== 'undefined') {
+        const w = window as Window & { __aclEvents__?: Array<unknown> };
+        w.__aclEvents__ ??= [];
+        w.__aclEvents__.push({ ...event });  // shallow-copy to avoid mutation
+      }
+      // Resolve windowId and name from pubkey (or dTag for NIP-5D napplets)
       let windowId = '';
       let nappletName = 'unknown';
       for (const [wid, info] of napplets) {
-        if (info.pubkey === event.identity.pubkey) {
+        // Path A: legacy pubkey-based napplets
+        if (info.pubkey && info.pubkey === event.identity.pubkey) {
+          windowId = wid;
+          nappletName = info.name;
+          break;
+        }
+        // Path B: NIP-5D napplets with empty pubkey — match by dTag
+        if (!event.identity.pubkey && info.dTag === event.identity.dTag) {
           windowId = wid;
           nappletName = info.name;
           break;
@@ -717,6 +775,22 @@ export let relay: ShellBridge;
 
 export function getNapplets(): Map<string, NappletInfo> { return napplets; }
 export function getNapplet(windowId: string): NappletInfo | undefined { return napplets.get(windowId); }
+
+/**
+ * Look up the windowId for a napplet by its dTag (DEMO_NAPPLETS entry `name`).
+ * Returns null if the napplet is not yet loaded or not yet authenticated.
+ *
+ * Exposed for apps/demo/src/main.ts __setNappletClass__ test hook (D9).
+ * Callers MUST NOT mutate napplet state through this helper — read-only lookup only.
+ */
+export function findAuthenticatedNappletWindowIdByDTag(dTag: string): string | null {
+  for (const [windowId, info] of napplets.entries()) {
+    if (info.name === dTag && info.authenticated) {
+      return windowId;
+    }
+  }
+  return null;
+}
 export function getDemoNappletDefinitions(): DemoNappletDefinition[] {
   return DEMO_NAPPLETS.map((napplet) => ({ ...napplet }));
 }
@@ -1008,11 +1082,11 @@ export function loadNapplet(name: string, containerId: string): NappletInfo {
       registeredAt: Date.now(),
       instanceId: crypto.randomUUID(),
       identitySource: 'source',
-      // CLASS-02 (Plan 38-01): stamp permissive default per D2. All 10 existing
-      // DEMO_NAPPLETS keep class: null so no existing E2E regresses. Plan 38-03
-      // replaces this literal with `CLASS_BY_DTAG.get(name) ?? null` once the
-      // data-driven map lands.
-      class: null,
+      // CLASS-04 (Plan 38-03): data-driven class from CLASS_BY_DTAG map (D3).
+      // Defaults to null (permissive, D2) if the dTag has no explicit entry —
+      // defensive fallback; the module-load assertion above guarantees every
+      // DEMO_NAPPLETS name has an entry, so the ?? null is defensive only.
+      class: CLASS_BY_DTAG.get(name) ?? null,
     };
     relay.runtime.sessionRegistry.register(windowId, entry);
   }

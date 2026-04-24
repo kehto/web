@@ -16,9 +16,11 @@ import {
   loadNapplet,
   getNotificationServiceHandler,
   getThemeServiceBundle,
+  findAuthenticatedNappletWindowIdByDTag,
   relay,
   toggleService,
 } from './shell-host.js';
+import type { NappletClass } from '@kehto/shell';
 import type { Capability } from '@kehto/shell';
 import {
   createDemoNotificationController,
@@ -813,5 +815,59 @@ export function setSelectedNode(id: string | null): void {
   selectedNodeId = id;
   setSelectedNodeId(id);
 }
+
+// ─── Plan 38-03 (CLASS-04 / D9): __setNappletClass__ test hook (main.ts) ──────
+// Plan 38-03's Playwright spec (E2E-20 class-invariant) must assign a
+// restrictive class to one napplet on-the-fly to exercise the cross-NUB
+// invariant. Hook placement is locked by D9 to demo main.ts (not shell-host).
+// Shape mirrors __grantKeysForward__/__grantMediaControl__ patterns (Plans
+// 26-03/27-03): dTag-scoped mutation hook returning true on success, false
+// when the target napplet is not yet loaded or not yet authenticated.
+//
+// CLASS-01/02 semantics: class is normally resolved synchronously at iframe
+// creation. This test hook mutates the already-registered session entry's
+// class in place. The next NUB request through enforce.ts reads the mutated
+// value via resolveIdentityByWindowId. No class.assigned envelope is
+// emitted — C-01 prevention holds because mutation is test-only and
+// completes before the next NUB request arrives.
+//
+// Usage (from tests/e2e/class-invariant.spec.ts):
+//   await page.evaluate(
+//     ([dTag, cls]) => window.__setNappletClass__?.(dTag, cls),
+//     ['theme-switcher', 'class-2'],
+//   );
+(window as Window & {
+  __setNappletClass__?: (dTag: string, newClass: NappletClass) => boolean;
+}).__setNappletClass__ = (dTag: string, newClass: NappletClass): boolean => {
+  const windowId = findAuthenticatedNappletWindowIdByDTag(dTag);
+  if (!windowId) {
+    console.warn(`[demo] __setNappletClass__: ${dTag} not loaded or not authenticated`);
+    return false;
+  }
+  const entry = relay.runtime.sessionRegistry.getEntryByWindowId(windowId);
+  if (!entry) {
+    console.warn(`[demo] __setNappletClass__: session entry missing for ${dTag}`);
+    return false;
+  }
+  // Mutate .class in place. SessionRegistry retains a reference to the entry
+  // object, so the mutation is observed by the next resolveIdentityByWindowId
+  // call inside enforce.ts.
+  (entry as { class: NappletClass }).class = newClass;
+  console.info(
+    `[demo] __setNappletClass__: ${dTag} -> ${newClass === null ? 'null (permissive)' : `'${newClass}'`}`,
+  );
+  return true;
+};
+
+// ─── Plan 38-03 (E2E-20): __clearAclEvents__ + __aclEvents__ reader ────────
+// The class-invariant spec uses __aclEvents__ to assert the enforce.ts gate
+// fired with reason='class-forbidden'. test.beforeEach calls
+// __clearAclEvents__ to prevent cross-test contamination. Lives in main.ts
+// with __setNappletClass__ (D9 test-hook locus); __aclEvents__ itself is
+// populated by the onAclCheck callback wired in shell-host.ts.
+(window as Window & { __clearAclEvents__?: () => void }).__clearAclEvents__ = (): void => {
+  const w = window as Window & { __aclEvents__?: Array<unknown> };
+  w.__aclEvents__ = [];
+};
 
 console.log('[napplet playground] initialized');
