@@ -57,7 +57,7 @@ v1.7 is a **spec-adoption** milestone. It resyncs `specs/NIP-5D.md` to the canon
 
 Re-sync `specs/NIP-5D.md` from canonical upstream `dskvr/nips` branch `nip/5d`. The new class-posture delegation paragraph is prerequisite for NUB-CLASS adoption; the remaining diff is commentary.
 
-- [ ] **SPEC-04**: `specs/NIP-5D.md` updated byte-identical to `https://raw.githubusercontent.com/dskvr/nips/nip/5d/5D.md` at a recorded commit SHA; header-comment sync date + commit SHA refreshed. Diff documented in phase ITERATION-LOG.
+- [x] **SPEC-04**: `specs/NIP-5D.md` updated byte-identical to `https://raw.githubusercontent.com/dskvr/nips/nip/5d/5D.md` at a recorded commit SHA; header-comment sync date + commit SHA refreshed. Diff documented in phase ITERATION-LOG.
 
 ### Category 2: NUB-CLASS Adoption (CLASS)
 
@@ -148,7 +148,7 @@ Tests that lock the v1.7 contracts at Layer-B (`tests/e2e/*.spec.ts`) against th
 
 ### Category 11: Documentation (DOCS — continued from v1.6 DOCS-05)
 
-- [ ] **DOCS-06**: `specs/NIP-5D.md` header comment updated to reference v1.7 sync date and upstream commit SHA (per SPEC-04). `README.md` Specification section cross-reference verified as still valid.
+- [x] **DOCS-06**: `specs/NIP-5D.md` header comment updated to reference v1.7 sync date and upstream commit SHA (per SPEC-04). `README.md` Specification section cross-reference verified as still valid.
 - [ ] **DOCS-07**: New `docs/policies/` directory added containing SHELL-CLASS-POLICY.md, SHELL-CONNECT-POLICY.md, SHELL-RESOURCE-POLICY.md. Each file's header records its canonical source (napplet repo path + commit SHA) and its copy date. Root README Packages table updated to reference the policies directory.
 
 ---

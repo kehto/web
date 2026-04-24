@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: "v1.7"
-milestone_name: "NIP-5D Spec Adoption & New NUB Domains"
-status: roadmap_ready
-last_updated: "2026-04-24T00:00:00.000Z"
+milestone: v1.7
+milestone_name: NIP-5D Spec Adoption & New NUB Domains
+status: executing
+last_updated: "2026-04-24T11:50:24.024Z"
 last_activity: 2026-04-24
 progress:
   total_phases: 6
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
   percent: 0
 ---
 
@@ -20,15 +20,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-24, v1.7 kicked off)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** v1.7 — NIP-5D spec resync + NUB-CLASS/CONNECT adoption + NUB-CONFIG/RESOURCE reference services + carryover polish.
+**Current focus:** Phase 37 — SPEC Resync + Foundation Gates
 
 ## Current Position
 
+Phase: 37 (SPEC Resync + Foundation Gates) — EXECUTING
+Plan: 1 of 2
 **Milestone:** v1.7 NIP-5D Spec Adoption & New NUB Domains
 **Phase:** Phase 37 (not yet started — roadmap complete, awaiting plan-phase)
 **Plan:** —
-**Status:** Roadmap ready
-**Last activity:** 2026-04-24 — v1.7 roadmap created (6 phases, 45 requirements mapped)
+**Status:** Executing Phase 37
+**Last activity:** 2026-04-24
 
 Progress: [          ] 0%
 
@@ -82,5 +84,5 @@ Full decision log (v1.0 → v1.6) archived in `.planning/PROJECT.md` Key Decisio
 
 ## Session Continuity
 
-Last session: 2026-04-24T00:00:00.000Z
+Last session: 2026-04-24T11:50:24.021Z
 Resume: v1.7 roadmap complete. 6 phases (37–42), 45/45 requirements mapped. Next step: `/gsd:plan-phase 37` to begin SPEC Resync + Foundation Gates.

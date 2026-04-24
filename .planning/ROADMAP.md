@@ -43,7 +43,7 @@
   3. `pnpm clean && pnpm build && pnpm test:e2e` records 54/0/0 — no regression from the spec file update.
   4. `README.md` Specification section cross-reference to the spec file is still valid after the update.
 **Plans**: 2 plans
-  - [ ] 37-01-PLAN.md — Resync specs/NIP-5D.md from upstream + update README sync date + create provisional class/connect/resource type files (SPEC-04, DOCS-06)
+  - [x] 37-01-PLAN.md — Resync specs/NIP-5D.md from upstream + update README sync date + create provisional class/connect/resource type files (SPEC-04, DOCS-06)
   - [ ] 37-02-PLAN.md — Run canonical `pnpm clean && pnpm build && pnpm test:e2e` loop; record 54/0/0 baseline in 37-ITERATION-LOG.md (E2E-19)
 
 ### Phase 38: NUB-CLASS Adoption
@@ -120,7 +120,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 37. SPEC Resync + Foundation Gates | 0/2 | Not started | - |
+| 37. SPEC Resync + Foundation Gates | 1/2 | In Progress|  |
 | 38. NUB-CLASS Adoption | 0/? | Not started | - |
 | 39. NUB-CONNECT + NUB-CONFIG | 0/? | Not started | - |
 | 40. NUB-RESOURCE + Demo Napplets + Policy Docs | 0/? | Not started | - |
