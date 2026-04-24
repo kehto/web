@@ -60,7 +60,7 @@
   5. The class enforcement grep (`grep -rn 'class' packages/runtime/src/enforce.ts`) shows the gate is centralized in `enforce.ts` — not scattered across individual NUB handler files.
 **Plans**: 3 plans
   - [x] 38-01-PLAN.md — Establish types + session-entry class + shell.init inline class + breaking changeset (CLASS-01, CLASS-02, CLASS-06)
-  - [ ] 38-02-PLAN.md — Centralize class pre-filter in enforce.ts + runtime.ts wiring + EnforceResult.reason (CLASS-03)
+  - [x] 38-02-PLAN.md — Centralize class pre-filter in enforce.ts + runtime.ts wiring + EnforceResult.reason (CLASS-03)
   - [ ] 38-03-PLAN.md — Demo CLASS_BY_DTAG + module-load assertion + test hook + SHELL-CLASS-POLICY.md + class-invariant.spec.ts + canonical 62/0/0 close (CLASS-04, CLASS-05, E2E-20)
 **UI hint**: yes
 
@@ -124,7 +124,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 37. SPEC Resync + Foundation Gates | 2/2 | Complete    | 2026-04-24 |
-| 38. NUB-CLASS Adoption | 1/3 | In Progress|  |
+| 38. NUB-CLASS Adoption | 2/3 | In Progress|  |
 | 39. NUB-CONNECT + NUB-CONFIG | 0/? | Not started | - |
 | 40. NUB-RESOURCE + Demo Napplets + Policy Docs | 0/? | Not started | - |
 | 41. Polish Wave | 0/? | Not started | - |
