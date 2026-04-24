@@ -1,44 +1,88 @@
 /**
- * @kehto/wm — Generic window manager service contract.
+ * @kehto/wm — Structural primitives for consumer-implemented layout strategies.
  *
- * DRAFT SKELETON — Phase 11 of hyprgate v2.0. Establishes the public API
- * surface for upstream review. Implementation is stubbed (throws).
+ * Provides LayoutStrategy / WindowState / WindowPlacement type contracts and a
+ * working factory (createWmService) with a no-op default strategy. Consumers
+ * implement their own LayoutStrategy in their shell repo.
  *
- * Shells (e.g. hyprgate) consume this package by:
- *   1. Providing a WmHostHooks implementation.
- *   2. Calling createWmService({ hooks }) to get a WmService.
- *   3. Wiring WmService methods to their internal state/action layer.
+ * Anti-feature stance (H-04): no algorithm-prescriptive string-literal types
+ * ship here. Consumers choose their own algorithm names and implementations.
  *
- * Hyprgate's local implementation lives at apps/shell/src/lib/services/wm.ts
- * (not in this package — shell-specific delegation to the shell's internal state store).
+ * Requirements: WM-04, WM-05, WM-06, WM-07
+ * Decisions: D1 (pure arrange fn), D2 (WindowState), D3 (WindowPlacement),
+ *            D4 (no-op default strategy)
  */
 
-// ─── Generic types ──────────────────────────────────────────────────────────
+// ─── Base types ──────────────────────────────────────────────────────────────
 
 export type WindowId = string;
 export type WorkspaceId = string | number;
 export type Rect = { x: number; y: number; w: number; h: number };
-export type Layout = 'dwindle' | 'master-stack' | 'floating' | (string & {});
+
+// ─── Structural primitives (D1–D3) ──────────────────────────────────────────
+
+/**
+ * Minimal universal window descriptor passed to layout strategies. (D2)
+ *
+ * @example
+ * const ws: WindowState = { id: 'win-1', focused: true, minimized: false,
+ *   rect: { x: 0, y: 0, w: 800, h: 600 } };
+ */
+export interface WindowState {
+  id: WindowId;
+  focused: boolean;
+  minimized: boolean;
+  rect: Rect;
+}
+
+/**
+ * id + rect only — the output of a layout strategy pass.
+ * Consumers track focus / stacking externally. (D3)
+ */
+export interface WindowPlacement {
+  id: WindowId;
+  rect: Rect;
+}
+
+/**
+ * Pure function contract for consumer layout strategies. (D1)
+ * No side effects. Implement this in your shell repo —
+ * @kehto/wm ships only the contract.
+ *
+ * @example
+ * // In your shell repo (not in @kehto/wm):
+ * import type { LayoutStrategy, WindowState, Rect } from '@kehto/wm';
+ *
+ * export const myBspStrategy: LayoutStrategy = {
+ *   arrange(windows, containerRect) {
+ *     const visible = windows.filter(w => !w.minimized);
+ *     if (visible.length === 0) return [];
+ *     const w = Math.floor(containerRect.w / visible.length);
+ *     return visible.map((win, i) => ({
+ *       id: win.id,
+ *       rect: { x: containerRect.x + i * w, y: containerRect.y, w, h: containerRect.h },
+ *     }));
+ *   },
+ * };
+ */
+export interface LayoutStrategy {
+  arrange(
+    windows: ReadonlyArray<WindowState>,
+    containerRect: Rect,
+  ): ReadonlyArray<WindowPlacement>;
+}
 
 // ─── Host-hooks contract ────────────────────────────────────────────────────
 
 /**
- * Notification-only hooks invoked by the WM service on window/workspace
- * lifecycle events. Shells implement these; the package calls into them.
- *
- * IMPORTANT: these hooks do NOT re-trigger animations. Shells that fire
- * animations imperatively inside their own action code continue to do so.
- * These hooks exist for external observers (instrumentation, layout-selection
- * UI, etc.).
+ * Notification-only hooks invoked by WmService on window/workspace lifecycle.
+ * Shells implement these; no-op implementations are acceptable.
  */
 export interface WmHostHooks {
-  /** Host selects a layout strategy (by name). No-op is acceptable. */
-  selectLayout(strategy: Layout): void;
-  /** Fired after a window is created. */
+  /** Notified when a layout strategy is selected (consumer-defined name). */
+  selectLayout(strategyName: string): void;
   onWindowCreated(id: WindowId, rect: Rect): void;
-  /** Fired after a window is destroyed. */
   onWindowDestroyed(id: WindowId): void;
-  /** Fired after a window moves workspaces or is repositioned. */
   onWindowMoved(id: WindowId, from: Rect, to: Rect): void;
 }
 
@@ -46,43 +90,90 @@ export interface WmHostHooks {
 
 export interface WmService {
   window: {
-    /** Create a new window. Returns its WindowId, or null if creation is blocked. */
     create(opts: { title: string; class: string; iframeSrc?: string }): WindowId | null;
-    /** Close the window. */
     close(id: WindowId): void;
-    /** Focus the window. */
     focus(id: WindowId): void;
-    /** Move the window to a given workspace. */
     move(id: WindowId, toWorkspace: WorkspaceId): void;
   };
   workspace: {
-    /** Switch the active workspace. */
     switch(id: WorkspaceId): void;
-    /** List all workspaces with their window counts. */
     list(): Array<{ id: WorkspaceId; windowCount: number }>;
   };
   state: {
-    /** Snapshot of current focus + active workspace. */
     get(): { focusedWindowId: WindowId | null; activeWorkspace: WorkspaceId };
   };
-  /** Clean up listeners / subscriptions. */
   destroy(): void;
 }
 
-// ─── Factory (signature stub) ───────────────────────────────────────────────
+// ─── Internal default strategy (D4 — no-op identity) ────────────────────────
+
+const noOpStrategy: LayoutStrategy = {
+  arrange: (windows) => windows.map(({ id, rect }) => ({ id, rect })),
+};
+
+// ─── Factory (D4) ───────────────────────────────────────────────────────────
 
 /**
- * Create a WM service. DRAFT SKELETON — implementation pending upstream merge.
+ * Create a WM service. If `strategy` is omitted, a no-op identity strategy
+ * is used (returns windows unchanged) — consumers can ship a working shell
+ * before implementing a concrete layout.
  *
- * Shells that want to use this today should copy the signature into their own
- * shell-internal service (as hyprgate does at apps/shell/src/lib/services/wm.ts)
- * until the skeleton is fleshed out upstream.
+ * The strategy is closure-scoped. Consumers invoke
+ * `strategy.arrange(windows, containerRect)` from their own event handlers
+ * using state snapshots. This factory does NOT call arrange() internally;
+ * only consumers know when a re-layout is appropriate.
+ *
+ * @example
+ * import { createWmService } from '@kehto/wm';
+ * import { masterStackStrategy } from './strategies/master-stack';
+ *
+ * const wm = createWmService({
+ *   hooks: { selectLayout(){}, onWindowCreated(){}, onWindowDestroyed(){}, onWindowMoved(){} },
+ *   strategy: masterStackStrategy, // omit to use no-op default
+ * });
  */
-export function createWmService(_opts: { hooks: WmHostHooks }): WmService {
-  throw new Error(
-    '[@kehto/wm] createWmService is a signature-only skeleton (version 0.0.0). ' +
-    'See https://github.com/hyprgate/gui/blob/master/specs/wm-package-design.md ' +
-    'for the design note and hyprgate\'s reference implementation. Implementation ' +
-    'in this package lands after upstream PR merges.'
-  );
+export function createWmService(opts: {
+  hooks: WmHostHooks;
+  strategy?: LayoutStrategy;
+}): WmService {
+  const layoutStrategy = opts.strategy ?? noOpStrategy;
+  void layoutStrategy; // consumer calls layoutStrategy.arrange() from their own handlers
+
+  const windows = new Map<WindowId, WindowState>();
+  let focusedWindowId: WindowId | null = null;
+  let activeWorkspace: WorkspaceId = 0;
+  let nextWindowId = 1;
+
+  return {
+    window: {
+      create(winOpts) {
+        const id: WindowId = String(nextWindowId++);
+        const rect: Rect = { x: 0, y: 0, w: 0, h: 0 };
+        windows.set(id, { id, focused: false, minimized: false, rect });
+        opts.hooks.onWindowCreated(id, rect);
+        void winOpts;
+        return id;
+      },
+      close(id) {
+        windows.delete(id);
+        if (focusedWindowId === id) focusedWindowId = null;
+        opts.hooks.onWindowDestroyed(id);
+      },
+      focus(id) { focusedWindowId = id; },
+      move(id, toWorkspace) {
+        const win = windows.get(id);
+        if (!win) return;
+        opts.hooks.onWindowMoved(id, win.rect, { ...win.rect });
+        void toWorkspace;
+      },
+    },
+    workspace: {
+      switch(id) { activeWorkspace = id; },
+      list() { return [{ id: activeWorkspace, windowCount: windows.size }]; },
+    },
+    state: {
+      get() { return { focusedWindowId, activeWorkspace }; },
+    },
+    destroy() { windows.clear(); },
+  };
 }
