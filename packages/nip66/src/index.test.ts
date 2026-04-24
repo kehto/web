@@ -288,4 +288,64 @@ describe('createNip66Aggregator', () => {
     expect(aggB.relaySupportsNip('wss://only-in-a.com', 77)).toBe(false);
     expect(aggB.getRelaysSupportingNip(77)).toHaveLength(0);
   });
+
+  it('Test 10: stop() after start() invokes unsubscribe exactly once and leaves accumulated state intact', () => {
+    const stub = makePoolStub();
+    const agg = createNip66Aggregator({
+      pool: stub.pool,
+      bootstrap: ['wss://monitor.example.com'],
+    });
+
+    agg.start();
+    stub.fire(makeKind30166('wss://stop-test.relay', [44]));
+
+    // Verify state was populated before stop()
+    expect(agg.getRelaySet().size).toBe(1);
+    expect(agg.getRelaySet().has('wss://stop-test.relay')).toBe(true);
+    expect(agg.relaySupportsNip('wss://stop-test.relay', 44)).toBe(true);
+
+    agg.stop();
+
+    // unsubscribe called exactly once
+    expect(stub.unsubscribeCalls).toBe(1);
+    expect(stub.subscribeCalls).toBe(1);
+
+    // stop() is teardown, NOT reset — accumulated state must be preserved
+    expect(agg.getRelaySet().size).toBe(1);
+    expect(agg.getRelaySet().has('wss://stop-test.relay')).toBe(true);
+    expect(agg.relaySupportsNip('wss://stop-test.relay', 44)).toBe(true);
+  });
+
+  it('Test 11: stop() without a prior start() is a safe no-op', () => {
+    const stub = makePoolStub();
+    const agg = createNip66Aggregator({
+      pool: stub.pool,
+      bootstrap: ['wss://monitor.example.com'],
+    });
+
+    // Should not throw
+    expect(() => agg.stop()).not.toThrow();
+    expect(stub.subscribeCalls).toBe(0);
+    expect(stub.unsubscribeCalls).toBe(0);
+  });
+
+  it('Test 12: start() after stop() re-subscribes (idempotency guard does not block re-start)', () => {
+    const stub = makePoolStub();
+    const agg = createNip66Aggregator({
+      pool: stub.pool,
+      bootstrap: ['wss://monitor.example.com'],
+    });
+
+    // First start → stop cycle
+    agg.start();
+    agg.stop();
+
+    // Second start — must re-subscribe (idempotency guard cleared by stop())
+    agg.start();
+    stub.fire(makeKind30166('wss://restarted.relay', [9]));
+
+    expect(stub.subscribeCalls).toBe(2);
+    expect(stub.unsubscribeCalls).toBe(1);
+    expect(agg.getRelaySet().has('wss://restarted.relay')).toBe(true);
+  });
 });

@@ -83,6 +83,19 @@ export interface Nip66Aggregator {
   start(): void;
   /** Tear down the current subscription, clear accumulated state, and re-subscribe. Call when `networks` semantics change upstream. */
   resync(): void;
+  /**
+   * Tear down the current subscription. Idempotent — calling without a prior
+   * `start()` is a safe no-op. Preserves accumulated state (`getRelaySet`,
+   * `relaySupportsNip`) — use `resync()` if you need to clear state AND
+   * re-subscribe in one step. A subsequent `start()` re-subscribes against
+   * the bootstrap relays (identical contract to the first start).
+   *
+   * Wire this to your consumer's teardown path (browser: `beforeunload`;
+   * React: effect cleanup; Electron: `app.before-quit`) — the aggregator
+   * holds a pool subscription that otherwise lives for the tab lifetime
+   * (PITFALLS.md M-03).
+   */
+  stop(): void;
   /** The current set of relay URLs discovered from kind-30166 `d`-tags. Empty until `start()` fires at least one event. */
   getRelaySet(): ReadonlySet<string>;
   /**
@@ -186,6 +199,13 @@ export function createNip66Aggregator(options: Nip66AggregatorOptions): Nip66Agg
     unsubscribe = options.pool.subscribe(options.bootstrap, buildFilter(), processEvent);
   }
 
+  function stop(): void {
+    if (unsubscribe) {
+      unsubscribe();
+      unsubscribe = null;
+    }
+  }
+
   function getRelaySet(): ReadonlySet<string> {
     return relaySet;
   }
@@ -202,5 +222,5 @@ export function createNip66Aggregator(options: Nip66AggregatorOptions): Nip66Agg
     return relaySupportedNips.get(url)?.has(nip) ?? false;
   }
 
-  return { start, resync, getRelaySet, getRelaysSupportingNip, relaySupportsNip };
+  return { start, resync, stop, getRelaySet, getRelaysSupportingNip, relaySupportsNip };
 }
