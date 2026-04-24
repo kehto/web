@@ -93,6 +93,7 @@ function makeSessionEntry(overrides: Partial<SessionEntry>): SessionEntry {
     registeredAt: 0,
     instanceId: `inst-${overrides.windowId ?? 'x'}`,
     identitySource: 'source',
+    class: null, // CLASS-02: permissive default for test fixtures
     ...overrides,
   };
 }

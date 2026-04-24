@@ -17,6 +17,7 @@ import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 import type { Capability, ServiceDescriptor } from '@kehto/runtime';
 import type { RuntimeConfigOverrides } from '@kehto/runtime';
 import type { ServiceHandler, ServiceRegistry } from '@kehto/runtime';
+import type { NappletClass } from './types/provisional-class.js';
 
 // Re-export service types so shell consumers can still import from @kehto/shell
 // (ServiceDescriptor already re-exported above from @kehto/runtime).
@@ -57,6 +58,12 @@ export interface SessionEntry {
    * 'auth' = legacy AUTH handshake (pubkey is the derived keypair pubkey).
    */
   identitySource: 'auth' | 'source';
+  /**
+   * Class posture resolved synchronously at iframe creation (CLASS-02).
+   * `null` is the permissive default (D2). Class tokens like 'class-1' /
+   * 'class-2' are NUB-defined. See packages/shell/src/types/provisional-class.ts.
+   */
+  class: NappletClass;
 }
 
 /** @deprecated Use SessionEntry. Will be removed in v0.9.0. */
@@ -291,10 +298,15 @@ export interface ShellAdapter {
   onHashMismatch?: (dTag: string, claimed: string, computed: string) => void;
   /**
    * Called at iframe creation for NIP-5D napplets.
-   * Returns identity metadata for originRegistry.register().
-   * Return null for non-NIP-5D (legacy) iframes.
+   * Returns identity metadata for originRegistry.register(), INCLUDING the
+   * class posture (CLASS-01, breaking v1.7). Returning `class: null` selects
+   * the permissive default (D2). Returning null overall means "not NIP-5D /
+   * skip registration" (unchanged semantics from v1.6).
+   *
+   * BREAKING v1.7: previously `{ dTag, aggregateHash } | null`; now requires
+   * `class` in the non-null branch. See .changeset/class-01-breaking-hook.md.
    */
-  onNip5dIframeCreate?: (windowId: string) => { dTag: string; aggregateHash: string } | null;
+  onNip5dIframeCreate?: (windowId: string) => { dTag: string; aggregateHash: string; class: NappletClass } | null;
   /**
    * Optional service extensions. Each key is a service name (e.g., 'audio',
    * 'notifications'). Napplets discover available services via kind 29010

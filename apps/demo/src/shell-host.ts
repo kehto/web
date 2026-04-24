@@ -1008,6 +1008,11 @@ export function loadNapplet(name: string, containerId: string): NappletInfo {
       registeredAt: Date.now(),
       instanceId: crypto.randomUUID(),
       identitySource: 'source',
+      // CLASS-02 (Plan 38-01): stamp permissive default per D2. All 10 existing
+      // DEMO_NAPPLETS keep class: null so no existing E2E regresses. Plan 38-03
+      // replaces this literal with `CLASS_BY_DTAG.get(name) ?? null` once the
+      // data-driven map lands.
+      class: null,
     };
     relay.runtime.sessionRegistry.register(windowId, entry);
   }

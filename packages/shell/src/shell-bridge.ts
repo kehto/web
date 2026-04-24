@@ -22,6 +22,7 @@ import { audioManager } from './audio-manager.js';
 import type { ShellAdapter, ShellCapabilities } from './types.js';
 import type { NappletMessage } from '@napplet/core';
 import type { Theme } from '@napplet/nub/theme/types';
+import type { NappletClass } from './types/provisional-class.js';
 import { buildShellCapabilities } from './shell-init.js';
 import { createKeysForwarder } from './keys-forwarder.js';
 import type { KeysForwarder } from './keys-forwarder.js';
@@ -213,10 +214,23 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
       // Handle shell.ready handshake locally (not forwarded to runtime)
       if (msg.type === 'shell.ready') {
         const capabilities = buildShellCapabilities(hooks);
-        const initMsg: NappletMessage & { capabilities: ShellCapabilities; services: string[] } = {
+        // CLASS-02: read resolved class from session entry (populated synchronously
+        // at iframe creation by onNip5dIframeCreate's extended return type).
+        // Fallback to null (permissive default, D2) for defensive safety — under
+        // correct operation the session entry is always present by the time
+        // shell.ready arrives (registration happens at iframe creation time).
+        // No async class.assigned envelope is ever emitted (C-01 prevention).
+        const sessionEntry = runtime.sessionRegistry.getEntryByWindowId(windowId);
+        const resolvedClass: NappletClass = sessionEntry?.class ?? null;
+        const initMsg: NappletMessage & {
+          capabilities: ShellCapabilities;
+          services: string[];
+          class: NappletClass;
+        } = {
           type: 'shell.init',
           capabilities,
           services: Object.keys(hooks.services ?? {}),
+          class: resolvedClass,
         };
         const win = originRegistry.getIframeWindow(windowId);
         if (win) win.postMessage(initMsg, '*');

@@ -8,6 +8,15 @@
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 import type { Capability } from '@kehto/acl/capabilities';
 
+// ─── Class posture (NUB-CLASS, v1.7 Phase 38) ────────────────────────────────
+/**
+ * A napplet class identifier. `null` is the permissive default (no class).
+ * provisional — mirrors packages/shell/src/types/provisional-class.ts::NappletClass;
+ * converges on @napplet/nub/class@^0.3.0 publish. Runtime MUST NOT import
+ * from shell (module-boundary), so this duplicate lives here.
+ */
+export type NappletClass = string | null;
+
 // ─── ACL Check Event ──────────────────────────────────────────────────────
 
 /**
@@ -444,6 +453,12 @@ export interface SessionEntry {
    * 'auth' = legacy AUTH handshake (pubkey is the derived keypair pubkey).
    */
   identitySource: 'auth' | 'source';
+  /**
+   * Class posture resolved synchronously at iframe creation (CLASS-02).
+   * `null` is the permissive default (D2). Class tokens like 'class-1' /
+   * 'class-2' are NUB-defined. See packages/shell/src/types/provisional-class.ts.
+   */
+  class: NappletClass;
 }
 
 /** @deprecated Use SessionEntry. Will be removed in v0.9.0. */
