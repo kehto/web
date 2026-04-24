@@ -42,6 +42,14 @@ export interface AclCheckEvent {
   decision: 'allow' | 'deny';
   /** The triggering message, if available. Accepts NIP-01 arrays or NIP-5D NappletMessage envelopes. */
   message?: unknown[] | NappletMessage;
+  /**
+   * Why the decision was reached (v1.7 CLASS-03 / D7). Optional for
+   * backwards compatibility with pre-v1.7 audit consumers.
+   *   'allowed'             -> decision === 'allow'
+   *   'capability-missing'  -> decision === 'deny' (capability lookup failed)
+   *   'class-forbidden'     -> decision === 'deny' (class pre-filter refused)
+   */
+  reason?: 'allowed' | 'capability-missing' | 'class-forbidden';
 }
 
 // ─── Message Transport ─────────────────────────────────────────────────────

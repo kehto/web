@@ -196,7 +196,12 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
       aclState.check(pubkey, dTag, aggregateHash, capability),
     resolveIdentityByWindowId: (windowId) => {
       const entry = sessionRegistry.getEntryByWindowId(windowId);
-      return entry ? { dTag: entry.dTag, aggregateHash: entry.aggregateHash } : undefined;
+      // CLASS-03: thread SessionEntry.class into the NUB gate (populated at
+      // iframe creation by Plan 38-01). enforce.ts consults class before
+      // capability (D6). null class = permissive default (D2).
+      return entry
+        ? { dTag: entry.dTag, aggregateHash: entry.aggregateHash, class: entry.class }
+        : undefined;
     },
     onAclCheck: hooks.onAclCheck,
   });
