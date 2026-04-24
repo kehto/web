@@ -113,10 +113,10 @@ NIP66-05 left the `ShellAdapter.getNip66Suggestions()` hook wired to `() => null
 
 Ship the structural abstractions consumers implement to build concrete layouts. No BSP / master-stack / floating algorithms are included in `@kehto/wm` — those remain in consumer repos (e.g., hyprgate). WM stays shell-internal (NOT a new NUB domain).
 
-- [ ] **WM-04**: `packages/wm/src/index.ts` exports a `LayoutStrategy` interface with an `arrange(windows, containerRect)` method, a `WindowState` interface (position, size, focus, minimized), and a `WindowPlacement` result type. No `'dwindle'` or `'master-stack'` string-literal types remain in the exports.
-- [ ] **WM-05**: `createWmService` factory signature extended to `createWmService({ hooks, strategy? }): WmService`; `strategy` defaults to a no-op that returns the incoming `windows` unchanged so consumers can ship a working shell before implementing concrete layouts. The v1.6 throwing stub body is replaced with the no-op default.
-- [ ] **WM-06**: Library file size stays under ~200 lines (`wc -l packages/wm/src/index.ts` < 200 at phase close). Zero algorithm-specific types shipped in the public surface.
-- [ ] **WM-07**: `@kehto/wm` README extended: "What this package is / is not" section with a consumer-integration example showing a hyprgate-style `LayoutStrategy` implementation living in the consumer repo; `@example` comment on the factory signature.
+- [x] **WM-04**: `packages/wm/src/index.ts` exports a `LayoutStrategy` interface with an `arrange(windows, containerRect)` method, a `WindowState` interface (position, size, focus, minimized), and a `WindowPlacement` result type. No `'dwindle'` or `'master-stack'` string-literal types remain in the exports.
+- [x] **WM-05**: `createWmService` factory signature extended to `createWmService({ hooks, strategy? }): WmService`; `strategy` defaults to a no-op that returns the incoming `windows` unchanged so consumers can ship a working shell before implementing concrete layouts. The v1.6 throwing stub body is replaced with the no-op default.
+- [x] **WM-06**: Library file size stays under ~200 lines (`wc -l packages/wm/src/index.ts` < 200 at phase close). Zero algorithm-specific types shipped in the public surface.
+- [x] **WM-07**: `@kehto/wm` README extended: "What this package is / is not" section with a consumer-integration example showing a hyprgate-style `LayoutStrategy` implementation living in the consumer repo; `@example` comment on the factory signature.
 
 ### Category 8: CacheService Naming Parity (CACHE)
 
