@@ -63,8 +63,9 @@ See [`apps/demo/src/shell-host.ts`](./apps/demo/src/shell-host.ts) for the full 
 Shell-authority policy documents synced from the upstream napplet repo at milestone boundaries.
 
 - [`docs/policies/SHELL-CLASS-POLICY.md`](./docs/policies/SHELL-CLASS-POLICY.md) — NUB-CLASS shell obligations (v1.7 Phase 38, CLASS-05)
+- [`docs/policies/SHELL-CONNECT-POLICY.md`](./docs/policies/SHELL-CONNECT-POLICY.md) — shell HTTP-header authority for napplet Content-Security-Policy (v1.7 Phase 39, CONNECT-07)
 
-Future phases add CONNECT and RESOURCE policy rows as those NUBs ship.
+Future phases add RESOURCE policy row as that NUB ships.
 
 ## Specification
 
