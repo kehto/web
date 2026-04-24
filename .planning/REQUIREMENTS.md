@@ -86,10 +86,10 @@ Per-napplet Content-Security-Policy `connect-src` enforcement via shell HTTP-hea
 
 9th NUB domain. Reference service in `@kehto/services`, reading types from `@napplet/nub/config` (published at `^0.2.1`, no upstream blocker). Asymmetric protocol — napplet reads, shell writes; NOT a general key-value store.
 
-- [ ] **CONFIG-01**: `packages/services/src/config-service.ts` exports `createConfigService(options): ServiceHandler` following the established `createXxxService` factory pattern. Options shape mirrors v1.6 Decision 18 (options-as-bridge). Imports wire types from `@napplet/nub/config`.
+- [x] **CONFIG-01**: `packages/services/src/config-service.ts` exports `createConfigService(options): ServiceHandler` following the established `createXxxService` factory pattern. Options shape mirrors v1.6 Decision 18 (options-as-bridge). Imports wire types from `@napplet/nub/config`.
 - [ ] **CONFIG-02**: `packages/acl/src/capabilities.ts` adds `'config:read'` capability; `packages/runtime/src/resolve.ts` switch extended; `runtime.registerService()` wiring extended for the `config` domain in both `@kehto/services` barrel and demo shell registration.
 - [ ] **CONFIG-03**: `apps/demo/napplets/config-demo/` scaffolded as the 11th demo napplet (DEMO_NAPPLETS 10 → 11). Napplet exercises `config.get`, `config.watch` (the primary `@napplet/nub/config` read/subscribe pattern). Schema fixture comes from the napplet's own `config-schema.json`.
-- [ ] **CONFIG-04**: NUB-CONFIG scope boundary documented in `packages/services/src/config-service.ts` README prose: napplet reads, shell writes; persistence is shell-owned; NUB-STORAGE remains the general key-value surface. Anti-overlap with NUB-STORAGE explicit.
+- [x] **CONFIG-04**: NUB-CONFIG scope boundary documented in `packages/services/src/config-service.ts` README prose: napplet reads, shell writes; persistence is shell-owned; NUB-STORAGE remains the general key-value surface. Anti-overlap with NUB-STORAGE explicit.
 
 ### Category 5: NUB-RESOURCE Reference Service (RESOURCE)
 

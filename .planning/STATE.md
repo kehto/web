@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: NIP-5D Spec Adoption & New NUB Domains
-status: planning
-last_updated: "2026-04-24T13:17:13.336Z"
+status: executing
+last_updated: "2026-04-24T14:30:41.054Z"
 last_activity: 2026-04-24
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 10
+  completed_plans: 6
   percent: 100
 ---
 
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-24, v1.7 kicked off)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 38 — NUB-CLASS Adoption
+**Current focus:** Phase 39 — NUB-CONNECT + NUB-CONFIG
 
 ## Current Position
 
-Phase: 38 (NUB-CLASS Adoption) — COMPLETE
-Plan: 3 of 3 (all plans complete)
+Phase: 39 (NUB-CONNECT + NUB-CONFIG) — EXECUTING
+Plan: 1 of 5
 **Milestone:** v1.7 NIP-5D Spec Adoption & New NUB Domains
 **Phase:** 39
 **Plan:** Not started
-**Status:** Ready to plan
+**Status:** Executing Phase 39
 **Last activity:** 2026-04-24
 
 Progress: [██████████] 100%
@@ -84,5 +84,5 @@ Full decision log (v1.0 → v1.6) archived in `.planning/PROJECT.md` Key Decisio
 
 ## Session Continuity
 
-Last session: 2026-04-24T13:12:33.853Z
+Last session: 2026-04-24T14:30:41.051Z
 Resume: Completed 38-02-PLAN.md. Phase 38 Plan 38-03 (class-invariant.spec.ts) is next.
