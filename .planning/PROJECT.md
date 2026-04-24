@@ -54,6 +54,40 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 
 **Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability), v1.6 (downstream unblock).
 
+## Current Milestone: v1.7 NIP-5D Spec Adoption & New NUB Domains
+
+**Goal:** Resync canonical NIP-5D, adopt envelope-level NUB-CLASS + NUB-CONNECT with their shell-authority policy gates, and ship reference services for the two new NUB domains (CONFIG / RESOURCE) — bringing kehto's NUB surface from 8 → 10 domains.
+
+**Target features — spine (spec-driven):**
+
+- **SPEC resync** — re-copy `specs/NIP-5D.md` from `dskvr/nips` branch `nip/5d` (class-posture delegation ¶ is prerequisite for NUB-CLASS)
+- **NUB-CLASS adoption** — shell emits `class.assigned` envelope after shim bootstrap; ACL + dispatch honor class posture; Layer-B cross-NUB invariant spec
+- **NUB-CONNECT adoption** — per-napplet CSP `connect-src` emission, consent flow, residual meta-CSP refuse-to-serve scan, grants keyed on `(dTag, aggregateHash)`, SHELL-CONNECT-POLICY.md audit checklist. Requires shell to become HTTP-header authority (new infrastructure).
+- **NUB-CONFIG reference service** — new 9th NUB domain; handler in `@kehto/services`; demo napplet; Layer-A + Layer-B coverage
+- **NUB-RESOURCE reference service** — new 10th NUB domain; handler in `@kehto/services`; demo napplet; Layer-A + Layer-B coverage
+
+**Target features — carryover / opportunistic:**
+
+- **`@kehto/nip66` demo wiring** — NIP66-05 follow-up; ShellAdapter `getNip66Suggestions()` goes live against `createNip66Aggregator` + SimplePool in demo
+- **`@kehto/wm` abstractions** — structural primitives / base classes / abstract interfaces consumers implement to wire up their own layouts. No concrete layout algorithms shipped.
+- **CACHE polish (kehto#1)** — `HostCacheBridge` type alias + optional default for `createCacheService`; naming parity with HostKeysBridge / HostMediaBridge pattern
+- **Shell NIP-44 decrypt (kehto#9)** — **soft-gated**: ship if napplet/napplet#3 unblocks during milestone; slip to v1.8 if not
+
+**Key context:**
+
+- NUB-CLASS + NUB-CONNECT require **new shell HTTP-header authority** (not just postMessage). Real infrastructure work, not paper adoption.
+- All 4 new NUB domains (CLASS, CONNECT, CONFIG, RESOURCE) depend on canonical NUB spec availability in `@napplet/nub`. Upstream NUB publish state must be verified before locking phase plans.
+- Phase numbering continues from 36 → **Phase 37 onwards**.
+- E2E baseline to preserve: **54/0/0** (v1.6 close). Baseline expected to grow with 2 new demo napplets (config, resource) + NUB-CLASS invariant spec + NUB-CONNECT consent/CSP spec.
+
+**Explicitly out of scope (deferred to v1.8+):**
+
+- Electron / Tauri HostXxxBridge reference impls (v1.4 carryover)
+- Multi-OS CI matrix (v1.4 carryover)
+- `identitySource: 'auth' | 'source'` type-discriminant rename (v1.6 carryover)
+- `bridge.injectEvent('auth:identity-changed', ...)` rename (v1.6 carryover)
+- `pnpm.overrides @napplet/nub>@napplet/core` workaround (SEED-001 — retires on upstream publish-fix, not milestone-driven)
+
 ## Known Tech Debt (carried into next milestone)
 
 - **pnpm.overrides transitive pin** — `@napplet/nub>@napplet/core: ^0.2.1` workaround for upstream `@napplet/nub@0.2.1` publish-time workspace-specifier bug. Self-retires on upstream fix. SEED-001 tracks follow-up.
@@ -111,4 +145,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-23 — v1.6 milestone shipped*
+*Last updated: 2026-04-24 — v1.7 milestone kicked off*
