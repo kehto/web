@@ -79,7 +79,7 @@
   - [x] 39-01-PLAN.md — connect-store singleton + ShellBridge.connectStore + config:read capability + resolve.ts + scripts/audit-csp.mjs (CONNECT-01, CONNECT-05, CONNECT-06, CONFIG-02)
   - [x] 39-02-PLAN.md — createConfigService factory + scope boundary documentation (CONFIG-01, CONFIG-04)
   - [x] 39-03-PLAN.md — Vite serveNappletCsp plugin (dev + preview) + POST /__connect-grants endpoint + GitHub Actions audit:csp step (CONNECT-02)
-  - [ ] 39-04-PLAN.md — consent modal DOM + iframe destroy+recreate on revoke + config-demo napplet (11th) + __grantConnectOrigin__/__revokeConnect__ test hooks + setDemoConfigValue (CONNECT-03, CONNECT-04, CONFIG-03)
+  - [x] 39-04-PLAN.md — consent modal DOM + iframe destroy+recreate on revoke + config-demo napplet (11th) + __grantConnectOrigin__/__revokeConnect__ test hooks + setDemoConfigValue (CONNECT-03, CONNECT-04, CONFIG-03)
   - [ ] 39-05-PLAN.md — SHELL-CONNECT-POLICY.md + 4 E2E specs (connect-consent, connect-revocation, connect-csp-preview, nub-config) + canonical phase-close iteration loop recording 67/0/0 (CONNECT-07, E2E-21, E2E-22, E2E-23, E2E-24)
 **UI hint**: yes
 
@@ -130,7 +130,7 @@
 |-------|----------------|--------|-----------|
 | 37. SPEC Resync + Foundation Gates | 2/2 | Complete    | 2026-04-24 |
 | 38. NUB-CLASS Adoption | 3/3 | Complete    | 2026-04-24 |
-| 39. NUB-CONNECT + NUB-CONFIG | 3/5 | In Progress|  |
+| 39. NUB-CONNECT + NUB-CONFIG | 4/5 | In Progress|  |
 | 40. NUB-RESOURCE + Demo Napplets + Policy Docs | 0/? | Not started | - |
 | 41. Polish Wave | 0/? | Not started | - |
 | 42. NIP-44 Decrypt (soft-gated) | 0/? | Not started | - |
