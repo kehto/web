@@ -2,7 +2,7 @@
 
 **Milestone:** v1.7
 **Defined:** 2026-04-24
-**Status:** Definition phase (roadmap next)
+**Status:** Roadmap complete
 **Core Value:** Modular, framework-agnostic runtime for hosting napplet applications.
 
 ## Overview
@@ -181,22 +181,57 @@ Tests that lock the v1.7 contracts at Layer-B (`tests/e2e/*.spec.ts`) against th
 
 ## Traceability
 
-Roadmapper fills this section during Step 10. Format:
-
 | REQ-ID | Phase | Notes |
 |--------|-------|-------|
-| SPEC-04 | Phase N | |
-| CLASS-01..06 | Phase N+1 | |
-| CONFIG-01..04 | Phase N+2 | Parallel with CONNECT |
-| CONNECT-01..07 | Phase N+2 | Parallel with CONFIG |
-| RESOURCE-01..06 | Phase N+3 | Depends on CONNECT grants store |
-| NIP66-06..07 | Phase N+4 | Polish wave |
-| WM-04..07 | Phase N+4 | Polish wave |
-| CACHE-01 | Phase N+4 | Polish wave |
-| DECRYPT-01..03 | Phase N+5 | Soft-gated — ship if unblocked |
-| E2E-19..27 | Multiple phases | Each spec lands in its owning phase |
-| DOCS-06..07 | Phase N, N+1 | |
+| SPEC-04 | Phase 37 | Gates all downstream phases |
+| CLASS-01 | Phase 38 | Breaking API: `onNip5dIframeCreate` return type |
+| CLASS-02 | Phase 38 | Synchronous class posture; no async class.assigned |
+| CLASS-03 | Phase 38 | Centralized enforce.ts pre-filter |
+| CLASS-04 | Phase 38 | CLASS_BY_DTAG data-driven map |
+| CLASS-05 | Phase 38 | SHELL-CLASS-POLICY.md |
+| CLASS-06 | Phase 38 | Provisional class types |
+| CONNECT-01 | Phase 39 | connect-store.ts; prerequisite for RESOURCE-01 |
+| CONNECT-02 | Phase 39 | Vite CSP plugin (configureServer + configurePreviewServer) |
+| CONNECT-03 | Phase 39 | Consent flow UI; dismiss=deny |
+| CONNECT-04 | Phase 39 | Revocation triggers iframe destroy+recreate |
+| CONNECT-05 | Phase 39 | pnpm audit:csp CI gate |
+| CONNECT-06 | Phase 39 | Hash-upgrade grant invalidation |
+| CONNECT-07 | Phase 39 | SHELL-CONNECT-POLICY.md |
+| CONFIG-01 | Phase 39 | Parallel with CONNECT; no connect dependency |
+| CONFIG-02 | Phase 39 | Capabilities + dispatch wiring |
+| CONFIG-03 | Phase 39 | config-demo napplet (11th) |
+| CONFIG-04 | Phase 39 | Scope boundary documentation |
+| RESOURCE-01 | Phase 40 | Requires CONNECT-01 grants store |
+| RESOURCE-02 | Phase 40 | Capabilities + dispatch wiring |
+| RESOURCE-03 | Phase 40 | resource.cancel correlation |
+| RESOURCE-04 | Phase 40 | resource-demo napplet (12th) |
+| RESOURCE-05 | Phase 40 | SHELL-RESOURCE-POLICY.md |
+| RESOURCE-06 | Phase 40 | Provisional resource types |
+| NIP66-06 | Phase 41 | Polish wave; stop() method + Vitest |
+| NIP66-07 | Phase 41 | Polish wave; mock fixtures + live wiring |
+| WM-04 | Phase 41 | Polish wave; LayoutStrategy + WindowState + WindowPlacement |
+| WM-05 | Phase 41 | Polish wave; no-op default strategy |
+| WM-06 | Phase 41 | Polish wave; file-size guard |
+| WM-07 | Phase 41 | Polish wave; README "what this is / is not" |
+| CACHE-01 | Phase 41 | Polish wave; additive HostCacheBridge alias |
+| DECRYPT-01 | Phase 42 | Soft-gated on napplet/napplet#3 |
+| DECRYPT-02 | Phase 42 | Soft-gated; class-forbidden gate |
+| DECRYPT-03 | Phase 42 | Soft-gated; NIP-44 test vector |
+| E2E-19 | Phase 37 | Baseline 54/0/0 confirmation |
+| E2E-20 | Phase 38 | class-invariant.spec.ts |
+| E2E-21 | Phase 39 | connect-consent.spec.ts |
+| E2E-22 | Phase 39 | connect-revocation.spec.ts |
+| E2E-23 | Phase 39 | connect-csp-preview.spec.ts |
+| E2E-24 | Phase 39 | nub-config.spec.ts |
+| E2E-25 | Phase 40 | nub-resource.spec.ts |
+| E2E-26 | Phase 41 | nip66-suggestions.spec.ts |
+| E2E-27 | Phase 42 | Soft-gated; decrypt-single-target.spec.ts |
+| DOCS-06 | Phase 37 | NIP-5D header comment + README cross-reference |
+| DOCS-07 | Phase 40 | docs/policies/ directory (all three policy files present) |
+
+**Coverage:** 45/45 v1 requirements mapped. No orphans.
 
 ---
 
 *Requirements defined: 2026-04-24. Research consumed: STACK.md, FEATURES.md, ARCHITECTURE.md, PITFALLS.md, SUMMARY.md.*
+*Traceability filled: 2026-04-24 by roadmapper.*
