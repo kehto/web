@@ -110,16 +110,17 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
   test('ACL Capability Matrix lists all authenticated napplets (UI-02)', async ({ page }) => {
     await demoBeforeEach(page);
 
-    // Give the 10 napplets time to finish AUTH before opening the matrix.
+    // Give the 11 napplets time to finish AUTH before opening the matrix.
     // Without this, the snapshot() sees a partial AUTH set and the row
-    // count may be < 10 even with the Phase 30 fix applied.
+    // count may be < 11 even with the Phase 30 fix applied.
+    // Phase 39 Plan 39-04 added config-demo as the 11th napplet (CONFIG-03).
     await expect
       .poll(
         async () => {
           return await page.evaluate(() => {
             const ids = [
-              'bot-status', 'chat-status', 'composer-status', 'feed-status',
-              'hotkey-chord-status', 'media-controller-status',
+              'bot-status', 'chat-status', 'composer-status', 'config-demo-status',
+              'feed-status', 'hotkey-chord-status', 'media-controller-status',
               'preferences-status', 'profile-status',
               'theme-status', 'toaster-status',
             ];
@@ -133,7 +134,7 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
         },
         { timeout: 10_000, intervals: [250, 500, 1000] },
       )
-      .toBeGreaterThanOrEqual(10);
+      .toBeGreaterThanOrEqual(11);
 
     // Open the ACL node inspector, then click the Open Policy Matrix button.
     await page.locator('#topology-node-acl').click();
@@ -142,9 +143,9 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
     // Modal must render.
     await expect(page.locator('#acl-policy-modal')).toBeVisible({ timeout: 5_000 });
 
-    // Row count ≥ 10 (one row per AUTHENTICATED napplet).
+    // Row count = 11 (one row per AUTHENTICATED napplet; config-demo is the 11th).
     const rows = page.locator('#acl-policy-modal tbody tr');
-    await expect(rows).toHaveCount(10, { timeout: 5_000 });
+    await expect(rows).toHaveCount(11, { timeout: 5_000 });
 
     // No "No authenticated napplets" placeholder cell.
     const emptyCells = page.locator('#acl-policy-modal tbody td[colspan]', {

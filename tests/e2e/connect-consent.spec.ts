@@ -23,11 +23,27 @@ import { test, expect } from '@playwright/test';
 test.use({ baseURL: 'http://localhost:4174' });
 
 test.describe('NUB-CONNECT consent flow (E2E-21)', () => {
+  test.describe.configure({ mode: 'serial' });
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     // Reset: clear connect-store localStorage so tests start clean.
     await page.evaluate(() => {
       try { localStorage.removeItem('napplet:connect'); } catch { /* best-effort */ }
+    });
+    // Reset Vite in-memory grants for chat so CSP starts at D4 default ('none').
+    // This guards against grant bleed from the approve test running before dismiss=deny.
+    // AbortSignal.timeout(3000) bounds the reset to 3s (best-effort; state bleed is
+    // caught by the outer localStorage assertion anyway).
+    await page.evaluate(async () => {
+      try {
+        await fetch('/__connect-grants', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dTag: 'chat', aggregateHash: '', origins: [] }),
+          signal: AbortSignal.timeout(3000),
+        });
+      } catch { /* best-effort — timeout or network error is acceptable */ }
     });
     // Wait for demo to boot (config-demo is 11th — gate on its frame container being present).
     await page.waitForSelector('#config-demo-frame-container iframe', { timeout: 10_000 });

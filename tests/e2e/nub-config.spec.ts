@@ -35,8 +35,14 @@ test.describe('NUB-CONFIG round-trip (E2E-24 / CONFIG-03)', () => {
     await expect(valuesEl).toContainText('"theme"', { timeout: 10_000 });
     await expect(valuesEl).toContainText('"dark"', { timeout: 5_000 });
 
-    // Trigger the shell-side update — click toggles theme to 'light' + publishValues fan-out.
-    await page.locator('#config-demo-update-btn').click();
+    // Trigger a shell-side update via the test hook (D11).
+    // Note: #config-demo-update-btn is intentionally display:none (a shell-internal button);
+    // E2E uses __publishConfigValues__ for deterministic control per Plan 39-04's design.
+    const published = await page.evaluate(() => {
+      // @ts-expect-error runtime hook
+      return window.__publishConfigValues__({ theme: 'light' });
+    });
+    expect(published).toBe(true);
 
     // Assert push propagated to the napplet's sentinel.
     await expect(valuesEl).toContainText('"light"', { timeout: 5_000 });
