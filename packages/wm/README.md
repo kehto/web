@@ -1,35 +1,73 @@
 # @kehto/wm
 
-**Status:** DRAFT skeleton (version 0.0.0 — pre-publish).
-
-Generic window manager service contract for NIP-5D shells.
+Structural primitives for consumer-implemented layout strategies (v0.1.x, Phase 41+).
 
 ## What this package is
 
-A reusable library that provides:
+`@kehto/wm` provides the type contracts that shell consumers implement against:
 
-- Generic type vocabulary (`WindowId`, `WorkspaceId`, `Rect`, `Layout`).
-- Host-hooks contract (`WmHostHooks`).
-- Factory signature (`createWmService`) for wiring shell state + hooks.
+- **`LayoutStrategy` (D1)** — a pure `arrange()` function interface. No side effects.
+  Consumers implement their own layout algorithm (BSP, master-stack, floating, etc.)
+  in their shell repo using this contract.
+- **`WindowState` (D2)** — minimal universal window descriptor: `id`, `focused`,
+  `minimized`, `rect`. Passed to `arrange()` on every layout pass.
+- **`WindowPlacement` (D3)** — `id + rect` only. Output of an `arrange()` pass.
+  Consumers track focus and stacking externally.
+- **`createWmService({ hooks, strategy? })` (D4)** — factory with a no-op default
+  strategy. Consumers can ship a working shell before implementing a real layout.
 
-## What this package is NOT
+`@kehto/wm` is shell-internal state — it is not a NUB domain and there is no
+`@napplet/nub/wm` subpath.
 
-- Not a NIP specification. Window management is shell-internal implementation.
-- Not a rendering system, layout algorithm, or animation primitive.
-- Not coupled to any UI framework (Svelte, React, Vue, etc.).
+## What this package is not
 
-## Design note
+- **Not a layout engine** — no BSP, master-stack, floating, or other concrete algorithms
+  ship here. Consumers build those in their own repos.
+- **Not a strategy registry** — `createWmService` accepts exactly one strategy.
+  Switching algorithms at runtime is a consumer-side concern.
+- **Not a NUB domain** — window management is shell-internal state. There is no
+  `@napplet/nub/wm` subpath. Do not expose WM state to napplets via the napplet protocol.
+- **Not algorithm-prescriptive** — `@kehto/wm` deliberately exports no string-literal
+  union of algorithm names (H-04 anti-feature). Consumers choose their own names.
 
-See the hyprgate design document for the full proposal, the relationship to
-`@kehto/services keys-service`, and the supersession of the earlier
-`kehto/monorepo#3` "service NUB" framing:
+## Consumer-integration example
 
-<https://github.com/hyprgate/gui/blob/master/specs/wm-package-design.md>
+The `LayoutStrategy` implementation lives in your shell repo — `@kehto/wm` ships
+only the contract.
 
-## Status
+```typescript
+// This LayoutStrategy implementation lives in your shell repo — @kehto/wm ships only the contract.
+import type { LayoutStrategy, WindowState, WindowPlacement, Rect } from '@kehto/wm';
+import { createWmService } from '@kehto/wm';
 
-This is a draft skeleton. No implementation is provided — `createWmService`
-is a signature stub that throws. The skeleton exists to establish the
-public API contract and open upstream discussion via draft PR.
+// Define your own layout algorithm in your shell repo:
+const masterStackStrategy: LayoutStrategy = {
+  arrange(windows: ReadonlyArray<WindowState>, containerRect: Rect): ReadonlyArray<WindowPlacement> {
+    const visible = windows.filter(w => !w.minimized);
+    if (visible.length === 0) return [];
+    const [main, ...rest] = visible;
+    const mainW = rest.length > 0 ? Math.floor(containerRect.w * 0.6) : containerRect.w;
+    const sideW = containerRect.w - mainW;
+    const sideH = rest.length > 0 ? Math.floor(containerRect.h / rest.length) : 0;
+    return [
+      { id: main.id, rect: { x: containerRect.x, y: containerRect.y, w: mainW, h: containerRect.h } },
+      ...rest.map((win, i) => ({
+        id: win.id,
+        rect: { x: containerRect.x + mainW, y: containerRect.y + i * sideH, w: sideW, h: sideH },
+      })),
+    ];
+  },
+};
 
-Merge negotiation and implementation land post-hyprgate v2.0 ship.
+// Wire it into the service:
+const wm = createWmService({ hooks: myHooks, strategy: masterStackStrategy });
+```
+
+## Default no-op strategy
+
+Omitting `strategy` from `createWmService` yields a no-op identity strategy: it
+returns windows unchanged (each `WindowPlacement` mirrors the `WindowState` rect).
+This is useful for bootstrapping a shell — the factory no longer throws, so consumers
+can get end-to-end wiring in place and add a real layout algorithm incrementally.
+The strategy is closure-scoped; consumers call `strategy.arrange(windows, containerRect)`
+from their own event handlers using state snapshots from `wm.state.get()`.
