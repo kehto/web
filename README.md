@@ -60,12 +60,11 @@ See [`apps/demo/src/shell-host.ts`](./apps/demo/src/shell-host.ts) for the full 
 
 ## Policies
 
-Shell-authority policy documents synced from the upstream napplet repo at milestone boundaries.
+Canonical NUB policy docs mirrored from [napplet/napplet](https://github.com/napplet/napplet/tree/main/specs):
 
-- [`docs/policies/SHELL-CLASS-POLICY.md`](./docs/policies/SHELL-CLASS-POLICY.md) — NUB-CLASS shell obligations (v1.7 Phase 38, CLASS-05)
-- [`docs/policies/SHELL-CONNECT-POLICY.md`](./docs/policies/SHELL-CONNECT-POLICY.md) — shell HTTP-header authority for napplet Content-Security-Policy (v1.7 Phase 39, CONNECT-07)
-
-Future phases add RESOURCE policy row as that NUB ships.
+- [`docs/policies/SHELL-CLASS-POLICY.md`](./docs/policies/SHELL-CLASS-POLICY.md) — class posture enforcement (v1.7 Phase 38, CLASS-05)
+- [`docs/policies/SHELL-CONNECT-POLICY.md`](./docs/policies/SHELL-CONNECT-POLICY.md) — per-napplet CSP + consent flow (v1.7 Phase 39, CONNECT-07)
+- [`docs/policies/SHELL-RESOURCE-POLICY.md`](./docs/policies/SHELL-RESOURCE-POLICY.md) — shell-proxied authenticated fetch (v1.7 Phase 40, RESOURCE-05)
 
 ## Specification
 
