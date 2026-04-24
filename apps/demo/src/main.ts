@@ -972,21 +972,23 @@ async function syncGrantsToVite(dTag: string, aggregateHash: string, origins: re
 };
 
 // C-04 / CONNECT-04: listen for revocation events and destroy+recreate the napplet iframe.
+// Snapshot entries BEFORE the loop — loadNapplet adds a new entry to the same Map,
+// and a live Map iterator would visit it, causing an infinite destroy+recreate loop.
 window.addEventListener('shell:connect-revoked', (event) => {
   const detail = (event as CustomEvent<{ dTag: string; aggregateHash: string }>).detail;
   const napps = getNapplets();
-  for (const [windowId, info] of napps.entries()) {
-    if (info.name === detail.dTag) {
-      const def = DEMO_NAPPLETS.find((d) => d.name === detail.dTag);
-      if (!def) continue;
-      const containerId = def.frameContainerId;
-      // Remove the iframe -- loadNapplet will re-append a fresh one.
-      info.iframe.remove();
-      napps.delete(windowId);
-      // Re-load. loadNapplet assigns a fresh windowId and re-appends iframe.
-      loadNapplet(detail.dTag, containerId);
-      console.info(`[demo] shell:connect-revoked: destroy+recreate iframe for ${detail.dTag}`);
-    }
+  // Snapshot: collect matching entries before mutating the Map.
+  const toRevoke = [...napps.entries()].filter(([, info]) => info.name === detail.dTag);
+  for (const [windowId, info] of toRevoke) {
+    const def = DEMO_NAPPLETS.find((d) => d.name === detail.dTag);
+    if (!def) continue;
+    const containerId = def.frameContainerId;
+    // Remove the iframe -- loadNapplet will re-append a fresh one.
+    info.iframe.remove();
+    napps.delete(windowId);
+    // Re-load. loadNapplet assigns a fresh windowId and re-appends iframe.
+    loadNapplet(detail.dTag, containerId);
+    console.info(`[demo] shell:connect-revoked: destroy+recreate iframe for ${detail.dTag}`);
   }
 });
 
