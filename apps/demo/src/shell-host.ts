@@ -919,11 +919,12 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
     originalUnregisterService(name);
   };
 
-  // Set consent handler for destructive kinds
-  // In the demo, auto-approve after 500ms to show the flow
-  relay.registerConsentHandler((request: ConsentRequest) => {
-    setTimeout(() => request.resolve(true), 500);
-  });
+  // Phase 39 Plan 39-04: consent handler is registered in apps/demo/src/main.ts
+  // via createConsentModal().registerWith(relay, fallthroughHandler). The prior
+  // setTimeout(500) auto-approve for destructive-signing is preserved as the
+  // fallthrough parameter. Centralizing the registration avoids the runtime.ts
+  // overwrite behavior (a single _consentHandler is stored, last-write-wins).
+  // DO NOT register a consent handler here.
 
   // Wrap handleMessage for outbound capture (both array and envelope-shape messages)
   const _origHandle = relay.handleMessage;

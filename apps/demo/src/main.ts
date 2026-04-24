@@ -19,9 +19,12 @@ import {
   findAuthenticatedNappletWindowIdByDTag,
   relay,
   toggleService,
+  setDemoConfigValue,
 } from './shell-host.js';
 import type { NappletClass } from '@kehto/shell';
 import type { Capability } from '@kehto/shell';
+import { connectStore } from '@kehto/shell';
+import { createConsentModal } from './consent-modal.js';
 import {
   createDemoNotificationController,
 } from './notification-demo.js';
@@ -79,6 +82,15 @@ const notificationHandler = getNotificationServiceHandler();
 if (notificationHandler) {
   notificationController.connectService(notificationHandler);
 }
+
+// ─── Phase 39 Plan 39-04: NUB-CONNECT consent modal registration ────────────
+// Registers the consent modal as the sole consent handler on the bridge.
+// Non-connect consent types (destructive-signing) fall through to the 500ms
+// auto-approve callback (demo ergonomics, preserved from shell-host.ts prior handler).
+createConsentModal().registerWith(relay, (request) => {
+  // Fallthrough for non-connect consent types (existing destructive-signing path).
+  setTimeout(() => request.resolve(true), 500);
+});
 
 // ─── Notification Toast Rendering ────────────────────────────────────────────
 
@@ -909,6 +921,103 @@ export function setSelectedNode(id: string | null): void {
   });
   window.dispatchEvent(event);
   console.info(`[demo] __injectNubEnvelopeAsNapplet__: injected ${String(envelope['type'])} for ${dTag}`);
+  return true;
+};
+
+// ─── Phase 39 Plan 39-04: NUB-CONNECT + NUB-CONFIG test hooks ───────────────
+//
+// Plan 39-05's E2E specs (connect-consent.spec.ts, connect-revocation.spec.ts,
+// nub-config.spec.ts) need to grant/revoke connect origins and publish config
+// updates without driving the UI. Mirrors __grantKeysForward__ / __grantMediaControl__
+// from Phases 26/27 -- direct shell-state mutation + HTTP sync to the Vite
+// middleware's in-memory Map (Plan 39-03 /__connect-grants endpoint).
+//
+// __grantConnectOrigin__ and __revokeConnect__ also dispatch / listen for
+// 'shell:connect-revoked' CustomEvent to wire the C-04 iframe destroy+recreate path.
+
+async function syncGrantsToVite(dTag: string, aggregateHash: string, origins: readonly string[]): Promise<void> {
+  try {
+    await fetch('/__connect-grants', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dTag, aggregateHash, origins: [...origins] }),
+    });
+  } catch {
+    // Best-effort -- failure here doesn't invalidate the in-memory grant;
+    // the CSP header will be stale until the next sync succeeds.
+  }
+}
+
+(window as Window & {
+  __grantConnectOrigin__?: (dTag: string, aggregateHash: string, origin: string) => boolean;
+}).__grantConnectOrigin__ = (dTag: string, aggregateHash: string, origin: string): boolean => {
+  const existing = connectStore.getOrigins(dTag, aggregateHash);
+  const next = [...new Set([...existing, origin])];
+  connectStore.grant(dTag, aggregateHash, next);
+  void syncGrantsToVite(dTag, aggregateHash, next);
+  console.info(`[demo] __grantConnectOrigin__: granted ${origin} to ${dTag}:${aggregateHash}`);
+  return true;
+};
+
+(window as Window & {
+  __revokeConnect__?: (dTag: string, aggregateHash: string) => boolean;
+}).__revokeConnect__ = (dTag: string, aggregateHash: string): boolean => {
+  connectStore.revoke(dTag, aggregateHash);
+  void syncGrantsToVite(dTag, aggregateHash, []);
+  // C-04 / CONNECT-04: iframe destroy+recreate so the newly-served HTML
+  // picks up the updated CSP header (now without the revoked origin).
+  window.dispatchEvent(new CustomEvent('shell:connect-revoked', { detail: { dTag, aggregateHash } }));
+  console.info(`[demo] __revokeConnect__: revoked all origins from ${dTag}:${aggregateHash}`);
+  return true;
+};
+
+// C-04 / CONNECT-04: listen for revocation events and destroy+recreate the napplet iframe.
+window.addEventListener('shell:connect-revoked', (event) => {
+  const detail = (event as CustomEvent<{ dTag: string; aggregateHash: string }>).detail;
+  const napps = getNapplets();
+  for (const [windowId, info] of napps.entries()) {
+    if (info.name === detail.dTag) {
+      const def = DEMO_NAPPLETS.find((d) => d.name === detail.dTag);
+      if (!def) continue;
+      const containerId = def.frameContainerId;
+      // Remove the iframe -- loadNapplet will re-append a fresh one.
+      info.iframe.remove();
+      napps.delete(windowId);
+      // Re-load. loadNapplet assigns a fresh windowId and re-appends iframe.
+      loadNapplet(detail.dTag, containerId);
+      console.info(`[demo] shell:connect-revoked: destroy+recreate iframe for ${detail.dTag}`);
+    }
+  }
+});
+
+// ─── Phase 39 Plan 39-04 (D11): config-demo update button wiring ─────────────
+// The shell UI button flips demoConfigFixtures.theme between dark/light via
+// setDemoConfigValue, which calls configServiceBundle.publishValues.
+// The E2E spec uses __publishConfigValues__ test hook for deterministic updates.
+{
+  const updateBtn = document.getElementById('config-demo-update-btn');
+  if (updateBtn) {
+    let _currentTheme = 'dark';
+    updateBtn.addEventListener('click', () => {
+      _currentTheme = _currentTheme === 'dark' ? 'light' : 'dark';
+      setDemoConfigValue('theme', _currentTheme);
+      console.info(`[demo] config-demo-update-btn: theme toggled to ${_currentTheme}`);
+    });
+  }
+}
+
+// ─── Phase 39 Plan 39-04: __publishConfigValues__ test hook ──────────────────
+// E2E deterministic config value override. Bypasses the shell UI button
+// and directly calls setDemoConfigValue for each key in the provided values
+// object, then triggers a full publishValues via configServiceBundle (via
+// setDemoConfigValue iterating keys).
+(window as Window & {
+  __publishConfigValues__?: (values: Record<string, unknown>) => boolean;
+}).__publishConfigValues__ = (values: Record<string, unknown>): boolean => {
+  for (const [key, value] of Object.entries(values)) {
+    setDemoConfigValue(key, value);
+  }
+  console.info(`[demo] __publishConfigValues__: published keys: ${Object.keys(values).join(',')}`);
   return true;
 };
 
