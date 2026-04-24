@@ -145,4 +145,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-24 — Phase 39 complete (NUB-CONNECT + NUB-CONFIG: shell is CSP HTTP-header authority with consent flow + revocation destroy/recreate + meta-CSP CI audit; createConfigService ships as 9th NUB domain with config-demo as 11th napplet; 67/0/0 E2E)*
+*Last updated: 2026-04-24 — Phase 40 complete (NUB-RESOURCE: 10th NUB domain ships with createResourceService H-03-guarded factory + in-flight cancel correlation; resource-demo as 12th napplet with granted+denied fetch panels; all 3 policy docs collected under docs/policies/; class-invariant spec extended 8→10 domains completing E2E-20; 71/0/0 E2E)*
