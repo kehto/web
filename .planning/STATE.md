@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: NIP-5D Spec Adoption & New NUB Domains
-status: planning
-last_updated: "2026-04-24T16:40:08.064Z"
+status: executing
+last_updated: "2026-04-24T17:50:49.086Z"
 last_activity: 2026-04-24
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 13
-  completed_plans: 14
+  total_plans: 17
+  completed_plans: 15
   percent: 100
 ---
 
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-24, v1.7 kicked off)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 41 — Polish Wave (nip66 live; wm primitives; CACHE alias)
+**Current focus:** Phase 41 — Polish Wave
 
 ## Current Position
 
-Phase: 40 (NUB-RESOURCE + Demo Napplets + Policy Docs) — COMPLETE
-Plan: 3 of 3 COMPLETE
+Phase: 41 (Polish Wave) — EXECUTING
+Plan: 1 of 4
 **Milestone:** v1.7 NIP-5D Spec Adoption & New NUB Domains
 **Phase:** 41
 **Plan:** Not started
-**Status:** Ready to plan
+**Status:** Executing Phase 41
 **Last activity:** 2026-04-24
 
 Progress: [██████████] 100%
@@ -84,5 +84,5 @@ Full decision log (v1.0 → v1.6) archived in `.planning/PROJECT.md` Key Decisio
 
 ## Session Continuity
 
-Last session: 2026-04-24T16:35:00.063Z
+Last session: 2026-04-24T17:50:49.083Z
 Resume: Completed 40-03-PLAN.md. Phase 40 CLOSED at 71/0/0 E2E. Phase 41 (Polish Wave) is next.

@@ -122,7 +122,7 @@ Ship the structural abstractions consumers implement to build concrete layouts. 
 
 Cosmetic-only. v1.6 dropped CACHE-01..05 mid-milestone when Phase 33 realized `CacheServiceOptions` already IS the bridge. This v1.7 item adds the missing type alias for naming parity with `HostKeysBridge` / `HostMediaBridge`. Additive — no breaking changes.
 
-- [ ] **CACHE-01**: `packages/services/src/cache-service.ts` exports `type HostCacheBridge = CacheServiceOptions` as an additive alias. The existing `CacheServiceOptions` export remains in the public API unchanged. Changeset is `patch` (no breaking change, no new capability). Barrel re-exports updated.
+- [x] **CACHE-01**: `packages/services/src/cache-service.ts` exports `type HostCacheBridge = CacheServiceOptions` as an additive alias. The existing `CacheServiceOptions` export remains in the public API unchanged. Changeset is `patch` (no breaking change, no new capability). Barrel re-exports updated.
 
 ### Category 9: NIP-44 Decrypt Surface (DECRYPT — soft-gated)
 
