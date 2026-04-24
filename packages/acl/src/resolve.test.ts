@@ -260,6 +260,46 @@ describe('resolveCapabilitiesNub', () => {
     });
   });
 
+  describe('config domain', () => {
+    it('config.get -> config:read (napplet-originated query)', () => {
+      expect(resolveCapabilitiesNub({ type: 'config.get' })).toEqual({ senderCap: 'config:read', recipientCap: null });
+    });
+
+    it('config.subscribe -> config:read (napplet sender gate)', () => {
+      expect(resolveCapabilitiesNub({ type: 'config.subscribe' })).toEqual({ senderCap: 'config:read', recipientCap: null });
+    });
+
+    it('config.values -> recipient config:read (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNub({ type: 'config.values' })).toEqual({ senderCap: null, recipientCap: 'config:read' });
+    });
+
+    it('config.registerSchema.result -> recipient config:read (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNub({ type: 'config.registerSchema.result' })).toEqual({ senderCap: null, recipientCap: 'config:read' });
+    });
+  });
+
+  describe('resource domain (v1.7 Phase 40 / NUB-RESOURCE 10th domain)', () => {
+    it('resource.bytes -> sender resource:fetch (napplet-originated request)', () => {
+      expect(resolveCapabilitiesNub({ type: 'resource.bytes' })).toEqual({ senderCap: 'resource:fetch', recipientCap: null });
+    });
+
+    it('resource.cancel -> sender resource:fetch (napplet-originated cancel)', () => {
+      expect(resolveCapabilitiesNub({ type: 'resource.cancel' })).toEqual({ senderCap: 'resource:fetch', recipientCap: null });
+    });
+
+    it('resource.bytes.result -> recipient resource:fetch (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNub({ type: 'resource.bytes.result' })).toEqual({ senderCap: null, recipientCap: 'resource:fetch' });
+    });
+
+    it('resource.bytes.error -> recipient resource:fetch (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNub({ type: 'resource.bytes.error' })).toEqual({ senderCap: null, recipientCap: 'resource:fetch' });
+    });
+
+    it('resource.unknown -> sender resource:fetch (default sender gate fallthrough)', () => {
+      expect(resolveCapabilitiesNub({ type: 'resource.unknown' })).toEqual({ senderCap: 'resource:fetch', recipientCap: null });
+    });
+  });
+
   describe('ALL_CAPABILITIES content', () => {
     it('contains the 7 v1.2 capability strings', () => {
       expect(ALL_CAPABILITIES).toContain('identity:read');
@@ -269,6 +309,14 @@ describe('resolveCapabilitiesNub', () => {
       expect(ALL_CAPABILITIES).toContain('notify:send');
       expect(ALL_CAPABILITIES).toContain('notify:channel');
       expect(ALL_CAPABILITIES).toContain('theme:read');
+    });
+
+    it('contains config:read (v1.7 Phase 39 9th domain)', () => {
+      expect(ALL_CAPABILITIES).toContain('config:read');
+    });
+
+    it('contains resource:fetch (v1.7 Phase 40 10th domain)', () => {
+      expect(ALL_CAPABILITIES).toContain('resource:fetch');
     });
 
     it('does NOT contain the removed signer capability strings', () => {

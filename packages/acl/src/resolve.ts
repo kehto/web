@@ -1,5 +1,5 @@
 /**
- * @kehto/acl — NUB domain capability resolution (8-domain canonical).
+ * @kehto/acl — NUB domain capability resolution (10-domain: 8 canonical + config + resource).
  *
  * Maps NUB message types (e.g., 'relay.subscribe', 'identity.getProfile') to
  * the capability strings required by sender and recipient. This is the
@@ -7,9 +7,10 @@
  * in the @kehto/acl package.
  *
  * Canonical NIP-5D 8 domains: identity, keys, media, notify, relay,
- * storage, ifc, theme. The v1.1 `signer` domain is REMOVED — getPublicKey/
- * getRelays migrated to `identity`; signEvent/nip04/nip44 have no
- * napplet-visible surface (shell handles encryption inside
+ * storage, ifc, theme. Extended in v1.7 with: config (Phase 39, 9th domain),
+ * resource (Phase 40, 10th domain). The v1.1 `signer` domain is REMOVED —
+ * getPublicKey/getRelays migrated to `identity`; signEvent/nip04/nip44 have
+ * no napplet-visible surface (shell handles encryption inside
  * `relay.publishEncrypted`).
  *
  * Zero dependencies. No imports from @napplet/core or any external package.
@@ -169,6 +170,30 @@ function configMap(action: string): CapabilityResolution {
 }
 
 /**
+ * `resource.*` — NUB-RESOURCE authenticated fetch proxy (v1.7 Phase 40 / 10th NUB domain).
+ *
+ * Asymmetric protocol: napplet initiates fetch requests, shell proxies and responds.
+ *
+ * - `bytes` / `cancel` (napplet → shell requests)                        →
+ *   sender `resource:fetch`, recipient `null`. The napplet must hold
+ *   `resource:fetch` to issue a bytes request or cancel one.
+ * - `bytes.result` / `bytes.error` (shell → napplet pushes)              →
+ *   sender `null`, recipient `resource:fetch`. The napplet must hold
+ *   `resource:fetch` to receive the result/error push.
+ * - Unknown resource.* actions → sender `resource:fetch`, recipient `null`
+ *   (default sender gate: napplet must hold resource:fetch to send anything
+ *   in the resource domain).
+ */
+function resourceMap(action: string): CapabilityResolution {
+  // Shell-originated pushes: recipient gate (napplet must hold resource:fetch to see them).
+  if (action === 'bytes.result' || action === 'bytes.error') {
+    return { senderCap: null, recipientCap: 'resource:fetch' };
+  }
+  // Napplet-originated requests: sender gate (bytes, cancel, and any unknown).
+  return { senderCap: 'resource:fetch', recipientCap: null };
+}
+
+/**
  * `theme.*` — napplet read gate vs shell-initiated push.
  *
  * - `get` / `get.result` (and any other napplet-originated query) →
@@ -218,6 +243,8 @@ function themeMap(action: string): CapabilityResolution {
  * | `theme`    | `changed` (shell → napplet push)                            | `null`          | `theme:read`  |
  * | `config`   | `get`, `subscribe`, `unsubscribe`, `registerSchema`, `openSettings` | `config:read` | `null`     |
  * | `config`   | `values`, `registerSchema.result`, `schemaError` (shell → napplet pushes) | `null` | `config:read` |
+ * | `resource` | `bytes`, `cancel` (napplet → shell requests)               | `resource:fetch`| `null`        |
+ * | `resource` | `bytes.result`, `bytes.error` (shell → napplet pushes)     | `null`          | `resource:fetch` |
  * | unknown    | any                                                         | `null`          | `null`        |
  *
  * The `signer` domain is REMOVED — signer messages fall through to the
@@ -268,6 +295,7 @@ export function resolveCapabilitiesNub(msg: NubMessage): CapabilityResolution {
     case 'ifc':      return ifcMap(action);
     case 'theme':    return themeMap(action);
     case 'config':   return configMap(action);
+    case 'resource': return resourceMap(action);   // Phase 40 (RESOURCE-02)
     default:         return { senderCap: null, recipientCap: null };
   }
 }

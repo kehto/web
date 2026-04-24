@@ -34,6 +34,8 @@ export const ALL_CAPABILITIES = [
   'theme:read',
   // v1.7 Phase 39 — NUB-CONFIG reference service (9th domain):
   'config:read',
+  // v1.7 Phase 40 — NUB-RESOURCE reference service (10th domain):
+  'resource:fetch',
 ] as const;
 
 /** Union of every capability string in ALL_CAPABILITIES. */
@@ -64,3 +66,5 @@ export const CAP_NOTIFY_CHANNEL  = 'notify:channel' as const;
 export const CAP_THEME_READ      = 'theme:read' as const;
 /** config.get / config.subscribe / config.unsubscribe / config.registerSchema / config.openSettings */
 export const CAP_CONFIG_READ     = 'config:read' as const;
+/** resource.bytes / resource.cancel (inbound) + resource.bytes.result / resource.bytes.error (outbound) */
+export const CAP_RESOURCE_FETCH  = 'resource:fetch' as const;
