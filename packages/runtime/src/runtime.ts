@@ -1073,6 +1073,19 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     });
   }
 
+  // ─── Phase 40 (RESOURCE-02): NUB-RESOURCE dispatch ───────────────────────
+  // Routes resource.* messages from napplets to the registered 'resource' service
+  // (createResourceService factory). Without this handler AND the registerNub
+  // call below, resource.bytes envelopes are silently dropped even when the service
+  // is registered — Phase 39 Dev 1 lesson propagated (RESOURCE-02 acceptance criterion).
+  function handleResourceMessage(windowId: string, msg: NappletMessage): void {
+    const resourceService = serviceRegistry['resource'];
+    if (!resourceService) return; // silently drop when no resource service registered
+    resourceService.handleMessage(windowId, msg, (resp: NappletMessage) => {
+      hooks.sendToNapplet(windowId, resp);
+    });
+  }
+
   // ─── NUB dispatch (Phase 14 / DISPATCH-01/02/03) ─────────────────────────
   // Per-runtime createDispatch() instance — isolated from module-level singleton
   // to match kehto's closed-over-state pattern (serviceRegistry, aclState, etc.).
@@ -1117,6 +1130,10 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     if (currentWindowId === null) return;
     handleConfigMessage(currentWindowId, msg);
   };
+  const resourceAdapter: NubHandler = (msg) => {
+    if (currentWindowId === null) return;
+    handleResourceMessage(currentWindowId, msg);
+  };
 
   nubDispatch.registerNub('relay',    relayAdapter);
   nubDispatch.registerNub('identity', identityAdapter);
@@ -1127,6 +1144,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   nubDispatch.registerNub('ifc',      ifcAdapter);
   nubDispatch.registerNub('theme',    themeAdapter);
   nubDispatch.registerNub('config',   configAdapter);  // Phase 39 (CONFIG-03)
+  nubDispatch.registerNub('resource', resourceAdapter);  // Phase 40 (RESOURCE-02)
 
   // ─── Main message handler ────────────────────────────────────────────────
 

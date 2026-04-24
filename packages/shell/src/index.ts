@@ -114,3 +114,20 @@ export type {
   ConnectConsentRequest,
   ConsentResult,
 } from './types/provisional-connect.js';
+
+// ─── v1.7 Phase 40: NUB-RESOURCE provisional wire types ─────────────���────────
+// Consumed by demo napplets and external host apps that implement the `fetch`
+// option for createResourceService. Exported here so consumers can import from
+// @kehto/shell without reaching into the provisional/ subpath directly.
+// Swap to `@napplet/nub/resource/types` when upstream publishes at ^0.2.2
+// (single-atomic bump per v1.7 milestone close policy).
+export type {
+  ResourceBytesRequest,
+  ResourceCancelRequest,
+  ResourceBytesResult,
+  ResourceBytesError,
+  ResourceErrorCode,
+  ResourceRequestId,
+  ResourceInbound,
+  ResourceOutbound,
+} from './types/provisional-resource.js';

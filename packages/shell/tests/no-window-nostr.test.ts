@@ -140,10 +140,11 @@ describe('SH-C01 / SH-C03: window.nostr injection is removed', () => {
     expect(caps.nubs).not.toContain('signer');
   });
 
-  it('buildShellCapabilities emits the canonical 8-domain list when relay hook is wired', () => {
+  it('buildShellCapabilities emits the canonical 10-domain list when relay hook is wired', () => {
+    // v1.7 Phase 40: CANONICAL_NUB_DOMAINS expanded to 10 domains (8 v1.2 + config + resource).
     const caps = buildShellCapabilities(stubHooks());
     expect(new Set(caps.nubs)).toEqual(
-      new Set(['relay', 'identity', 'storage', 'ifc', 'theme', 'keys', 'media', 'notify']),
+      new Set(['relay', 'identity', 'storage', 'ifc', 'theme', 'keys', 'media', 'notify', 'config', 'resource']),
     );
   });
 });

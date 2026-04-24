@@ -917,6 +917,61 @@ describe('createDispatch integration (Phase 14 DISPATCH-01/02/03)', () => {
     }
   });
 
+  // ─── Resource Handler (NUB-RESOURCE / Phase 40 / RESOURCE-02) ────────���──────
+  //
+  // Phase 39 Dev 1 lesson: adding the service to serviceRegistry is NOT enough —
+  // nubDispatch.registerNub('resource', ...) must also be called or resource.*
+  // envelopes are silently dropped. These two tests enforce that lesson:
+  //   1. With registerService + pre-granted cap, handleMessage is called.
+  //   2. Without registerService, the envelope doesn't throw and doesn't reach any handler.
+
+  it('resource.bytes routes to registered resource service when resource:fetch is granted (registerNub lesson)', async () => {
+    const ctx2 = createMockRuntimeAdapter();
+    const runtime2 = createRuntime(ctx2.hooks);
+    runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+    // Pre-grant resource:fetch so the ACL gate passes
+    runtime2.aclState.grant('', TEST_DTAG, TEST_HASH, 'resource:fetch');
+
+    const received: NappletMessage[] = [];
+
+    runtime2.registerService('resource', {
+      descriptor: { name: 'resource', version: '1.0.0' },
+      handleMessage(_wid: string, msg: NappletMessage, _send: (m: NappletMessage) => void) {
+        received.push(msg);
+      },
+    });
+
+    runtime2.handleMessage(WINDOW_ID, {
+      type: 'resource.bytes',
+      requestId: 'r1',
+      url: 'http://localhost:5174/data',
+    } as NappletMessage);
+
+    // The handler is synchronous dispatch; async handleBytes fires inside but
+    // handleMessage itself is sync — received is populated synchronously.
+    expect(received).toHaveLength(1);
+    expect(received[0].type).toBe('resource.bytes');
+  });
+
+  it('resource.bytes without registered service: no throw, no envelope emitted (silent drop)', () => {
+    const ctx2 = createMockRuntimeAdapter();
+    const runtime2 = createRuntime(ctx2.hooks);
+    runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+    // Pre-grant resource:fetch so the ACL gate passes — isolates the registerNub check
+    runtime2.aclState.grant('', TEST_DTAG, TEST_HASH, 'resource:fetch');
+
+    // No registerService('resource', ...) call — tests the silent-drop path
+    expect(() => {
+      runtime2.handleMessage(WINDOW_ID, {
+        type: 'resource.bytes',
+        requestId: 'r2',
+        url: 'http://localhost:5174/data',
+      } as NappletMessage);
+    }).not.toThrow();
+
+    expect(ctx2.sent).toHaveLength(0);
+  });
+
   it('unknown NUB domain: dispatch returns false, no envelope emitted (NIP-5D silent drop)', () => {
     const ctx2 = createMockRuntimeAdapter();
     const runtime2 = createRuntime(ctx2.hooks);

@@ -14,16 +14,25 @@
 
 import type { ShellAdapter, ShellCapabilities } from './types.js';
 
-/** Canonical NIP-5D 8-domain list (every domain @napplet/nub exports as a subpath). */
+/**
+ * Canonical 10-domain list (8 v1.2 original domains + config (Phase 39) +
+ * resource (Phase 40)). Every domain @napplet/nub exports as a subpath.
+ *
+ * Note: `relay` is NOT in this list — it is gated on `hooks.relayPool` and
+ * prepended conditionally in buildShellCapabilities below.
+ */
 const CANONICAL_NUB_DOMAINS = [
   'identity', 'storage', 'ifc', 'theme', 'keys', 'media', 'notify',
+  'config', 'resource',
 ] as const;
 
 /**
  * Build the shell's static capability set from adapter configuration.
  *
- * NUB capabilities = canonical 8-domain list from @napplet/nub subpaths:
- *   relay (gated on hooks.relayPool), identity, storage, ifc, theme, keys, media, notify.
+ * NUB capabilities = 10-domain list (8 v1.2 + config + resource) from
+ * @napplet/nub subpaths, plus relay (gated on hooks.relayPool):
+ *   relay (gated on hooks.relayPool), identity, storage, ifc, theme,
+ *   keys, media, notify, config, resource.
  *
  * Sandbox permissions are left empty by default — host apps may extend after
  * construction. Sandbox entries returned here (and any host-app extensions)
@@ -37,7 +46,7 @@ const CANONICAL_NUB_DOMAINS = [
  * @example
  * ```ts
  * const caps = buildShellCapabilities(hooks);
- * // caps.nubs => ['relay','identity','storage','ifc','theme','keys','media','notify']
+ * // caps.nubs => ['relay','identity','storage','ifc','theme','keys','media','notify','config','resource']
  * //              (relay present when hooks.relayPool is provided; bare names only)
  * // caps.sandbox => []   // host app may extend with 'perm:popups', etc.
  * ```
