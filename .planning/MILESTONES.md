@@ -1,5 +1,30 @@
 # Milestones: Kehto Runtime
 
+## v1.7 NIP-5D Spec Adoption & New NUB Domains (Shipped: 2026-04-24)
+
+**Phases completed:** 5 phases (37-41), 17 plans, 24 tasks. Phase 42 (NIP-44 Decrypt) deferred to v1.8 — soft-gate unresolved on napplet/napplet#3.
+
+**Delivered:** Shell resolves class posture synchronously; enforce.ts centralizes cross-NUB enforcement; shell is HTTP-header authority for per-napplet CSP with consent + revocation flows; two new NUB domains (CONFIG 9th + RESOURCE 10th) ship with reference services and demo napplets; carryover polish (nip66 demo wiring, @kehto/wm primitives, HostCacheBridge alias).
+
+**E2E progression:** 54 → 72 passed / 0 failed / 0 skipped (+18 tests across 5 new spec files + 2 domain extensions).
+
+**Key accomplishments:**
+
+- **NIP-5D spec resync (SPEC-04):** `specs/NIP-5D.md` byte-identical to `dskvr/nips` nip/5d at commit `d80d7b25`, pulling in the class-posture delegation paragraph. README Specification section + sync header refreshed.
+- **NUB-CLASS adoption (CLASS-01..06, 8-domain invariant spec):** `NappletClass` type + `SessionEntry.class` field + breaking `onNip5dIframeCreate` hook expansion; class resolved synchronously before `shell.init` (C-01 prevention); `CLASS_CAPABILITY_ALLOWLIST` in `enforce.ts` with `class-1`/`class-2` entries + `EnforceResult.reason` field; class check before capability check (D6); `CLASS_BY_DTAG` data-driven map with module-load assertion; `__setNappletClass__` test hook in `main.ts`; SHELL-CLASS-POLICY.md synced from upstream; 8-test parameterized `class-invariant.spec.ts`.
+- **NUB-CONNECT adoption (CONNECT-01..07):** `connectStore` singleton keyed `<dTag>:<aggregateHash>` + `ShellBridge.connectStore` surface; Vite `serveNappletCsp` plugin with HTTP-header authority for per-napplet `connect-src` in BOTH dev + preview modes (C-05 prevention); `POST /__connect-grants` sync endpoint with origin allowlist (403 on mismatch); consent modal with 60-second timer, dismiss=deny, timeout=deny, cleartext-origin warning; iframe destroy+recreate on revocation with snapshot-before-mutate Map pattern (infinite-loop bug caught + fixed mid-phase); `pnpm audit:csp` Node script + GitHub Actions Build workflow step (zero meta-CSP whitelist); SHELL-CONNECT-POLICY.md synced from upstream.
+- **NUB-CONFIG 9th domain (CONFIG-01..04):** `createConfigService({ getValues, registerSchema?, openSettings?, validator? })` factory with `publishValues` host handle mirroring v1.6 Decision 18 options-as-bridge pattern; config-demo napplet (11th) exercising `config.get` + `config.watch` live round-trip via `__publishConfigValues__` test hook; scope boundary documented — napplet reads, shell writes, NO `config.set`.
+- **NUB-RESOURCE 10th domain (RESOURCE-01..06):** `createResourceService({ fetch, isOriginGranted, getConnectGrants })` factory throws at construction if `getConnectGrants` missing (H-03 prevention); in-flight `Map<requestId, AbortController>` for cancel correlation (canonical `canceled` typed-error); resource-demo napplet (12th) with granted + denied fetch panels; `http://localhost:4174/demo-data.json` static fixture auto-granted on demo boot; SHELL-RESOURCE-POLICY.md synced from upstream. `class-invariant.spec.ts` extended 8→10 domains completing E2E-20.
+- **Carryover polish (NIP66-06..07, WM-04..07, CACHE-01):** `Nip66Aggregator.stop()` method added with Vitest coverage (idempotent, preserves accumulated relaySet); mock relay pool extended with 3 kind-30166 fixtures; `#nip66-suggestions-list` shell-chrome panel live (replaced `() => null` stub); `beforeunload → aggregator.stop()` cleanup. `@kehto/wm` structural primitives (`LayoutStrategy`, `WindowState`, `WindowPlacement`) ship in 179 lines (< 200 budget) with no-op default strategy replacing the Phase 35 throwing stub; zero algorithm-specific types. `HostCacheBridge = CacheServiceOptions` additive alias closes kehto#1 naming-parity gap.
+- **Policy documentation (DOCS-06..07):** All three `SHELL-{CLASS,CONNECT,RESOURCE}-POLICY.md` files present under `docs/policies/` with canonical source headers (napplet/napplet@27e1624) and kehto file:line cross-references; README Policies section references all three.
+- **Two critical in-execution bugs caught + fixed:** (1) Phase 39-05 Dev 1 — `runtime.ts` was missing `nubDispatch.registerNub('config', ...)`, silently dropping all config envelopes; fix propagated as explicit Phase 40 acceptance criterion. (2) Phase 39-05 Dev 2 — `shell:connect-revoked` listener iterated live Map while `loadNapplet()` inserted entries, causing infinite destroy+recreate loop; fix: snapshot `[...napps.entries()]` before mutation.
+
+**Known tech debt (carried to v1.8):** Phase 42 (NIP-44 decrypt) deferred — soft-gate on napplet/napplet#3 unresolved at close (issue OPEN, 0 comments). Provisional local type files (`provisional-{class,connect,resource}.ts`) retire atomically when upstream publishes `@napplet/nub@^0.3.0` (class+connect) and `^0.2.2` (resource). Nyquist validation optional retroactive pass. Cosmetic h2 label in resource-demo references stale port `:5174` (GRANTED_URL correctly uses `:4174`).
+
+**Archive:** [v1.7-ROADMAP.md](milestones/v1.7-ROADMAP.md) | [v1.7-REQUIREMENTS.md](milestones/v1.7-REQUIREMENTS.md) | [v1.7-MILESTONE-AUDIT.md](milestones/v1.7-MILESTONE-AUDIT.md)
+
+---
+
 ## v1.6 Downstream Unblock & Shell Service Surface (Shipped: 2026-04-23)
 
 **Phases completed:** 5 phases, 12 plans, 22 tasks

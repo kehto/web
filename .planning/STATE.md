@@ -1,88 +1,59 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: NIP-5D Spec Adoption & New NUB Domains
-status: planning
-last_updated: "2026-04-24T18:01:58.314Z"
+milestone: null
+milestone_name: null
+status: milestone_complete
+last_updated: "2026-04-24T12:00:00.000Z"
 last_activity: 2026-04-24
 progress:
-  total_phases: 6
-  completed_phases: 5
-  total_plans: 17
-  completed_plans: 18
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-24, v1.7 kicked off)
+See: .planning/PROJECT.md (updated 2026-04-24, v1.7 shipped)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 41 — Polish Wave
+**Current focus:** Awaiting next milestone. Run `/gsd:new-milestone` to kick off v1.8.
 
 ## Current Position
 
-Phase: 41 (Polish Wave) — EXECUTING
-Plan: 1 of 4
-**Milestone:** v1.7 NIP-5D Spec Adoption & New NUB Domains
-**Phase:** 42
-**Plan:** Not started
-**Status:** Ready to plan
+**Milestone:** None active (v1.7 shipped 2026-04-24)
+**Phase:** —
+**Plan:** —
+**Status:** Awaiting next milestone
 **Last activity:** 2026-04-24
 
-Progress: [██████████] 100%
+Progress: [██████████] 100% (v1.0 → v1.7 shipped; 8 milestones total)
 
-**Phase sequence (37–42):**
+**v1.7 delivered (shipped 2026-04-24):**
 
-| Phase | Name | Key deliverable |
-|-------|------|-----------------|
-| 37 | SPEC Resync + Foundation Gates | NIP-5D updated; provisional types; 54/0/0 baseline |
-| 38 | NUB-CLASS Adoption | Synchronous class posture; enforce.ts pre-filter; cross-NUB invariant spec |
-| 39 | NUB-CONNECT + NUB-CONFIG | CSP header authority; consent flow; grants store; config service (9th domain) |
-| 40 | NUB-RESOURCE + Demo Napplets + Policy Docs | Resource service (10th domain); 12 napplets; policy dir complete |
-| 41 | Polish Wave | nip66 live; wm primitives; CACHE alias |
-| 42 | NIP-44 Decrypt (soft-gated) | Single-target decrypt; class-forbidden gate; NIP-44 test vector |
+- Phase 37: SPEC Resync + Foundation Gates — NIP-5D byte-identical to upstream `d80d7b25`; 3 provisional local type files
+- Phase 38: NUB-CLASS Adoption — synchronous class posture via `shell.init`; centralized enforce.ts gate; 8-domain invariant spec
+- Phase 39: NUB-CONNECT + NUB-CONFIG — shell as HTTP-header CSP authority; consent flow + revocation destroy/recreate; 9th NUB domain live
+- Phase 40: NUB-RESOURCE + Demo Napplets + Policy Docs — 10th NUB domain with H-03 factory guard; DEMO_NAPPLETS 11→12; all 3 policy docs collected
+- Phase 41: Polish Wave — nip66 demo wiring live; @kehto/wm LayoutStrategy primitives; HostCacheBridge alias
+- Phase 42: DEFERRED to v1.8 — soft-gate on napplet/napplet#3 unresolved; DECRYPT-01..03 + E2E-27 moved to Future Requirements
 
-**v1.7 spine (spec-driven):**
-
-- SPEC resync from `dskvr/nips` branch `nip/5d` (class-posture delegation ¶)
-- NUB-CLASS adoption — class posture resolved synchronously in `onNip5dIframeCreate`; `enforce.ts` pre-filter; no async `class.assigned` envelope
-- NUB-CONNECT adoption — per-napplet CSP `connect-src`; consent flow (dismiss=deny, timeout=deny); `(dTag, aggregateHash)` grant keys; iframe destroy+recreate on revocation; `pnpm audit:csp` CI gate
-- NUB-CONFIG reference service (9th domain) — parallel with CONNECT in Phase 39
-- NUB-RESOURCE reference service (10th domain) — depends on Phase 39 grants store
-
-**v1.7 carryover / opportunistic:**
-
-- `@kehto/nip66` demo wiring (NIP66-05 follow-up) — Phase 41
-- `@kehto/wm` structural primitives (consumers implement concrete layouts) — Phase 41
-- CACHE polish (kehto#1 — `HostCacheBridge` naming parity) — Phase 41
-- Shell NIP-44 decrypt (kehto#9) — **soft-gated** on napplet/napplet#3 unblock — Phase 42
-
-**Phase numbering:** Phase 37 continues from v1.6's Phase 36.
+**Totals:** 5 phases shipped (37–41) + 1 deferred (42); 17 plans; 24 tasks; 72 E2E specs green (up from v1.6's 54; +18 tests / 5 new spec files + 2 domain extensions); 41/41 in-scope requirements + 4 soft-gate deferred.
 
 ## Accumulated Context
 
-Full decision log (v1.0 → v1.6) archived in `.planning/PROJECT.md` Key Decisions table (22 entries) and per-milestone archives at `.planning/milestones/v{1.0,1.1,1.2,1.3,1.4,1.5,1.6}-ROADMAP.md`.
-
-**v1.6 shipped (2026-04-23):** 5 phases (32–36), 12 plans, 21/21 requirements, 54/0/0 E2E. NUB dep consolidation onto `@napplet/nub@^0.2.1` subpaths; reserved-chord surface; `@kehto/nip66@0.1.0` publishable package; `@kehto/wm@0.0.0` skeleton; AUTH-probe cleanup.
-
-**v1.7 key decisions carried in:**
-
-- **Breaking API**: `onNip5dIframeCreate` return type expands with `class: string | null` — hyprgate (primary consumer) coordinates in parallel during Phase 38; no dedicated coordination phase.
-- **Grants-to-middleware mechanism**: deferred to Phase 39 plan — roadmap does not pre-commit file-based sidecar vs in-memory vs other. Phase 39 plan researches and decides.
-- **Provisional type strategy**: one file per unpublished domain (`provisional-class.ts`, `provisional-connect.ts`, `provisional-resource.ts`) in `packages/shell/src/types/`; single atomic bump when all domains publish.
-- **NUB-CONNECT production gap**: Vite middleware covers dev + preview; production reverse-proxy is host-app responsibility; documented in SHELL-CONNECT-POLICY.md.
-- **Ship-breaking, coord in parallel** (user choice): Phase 38 ships the breaking `onNip5dIframeCreate` change; hyprgate coordinates simultaneously, not sequentially.
+Full decision log (v1.0 → v1.7) archived in `.planning/PROJECT.md` Key Decisions table (30 entries) and per-milestone archives at `.planning/milestones/v{1.0,1.1,1.2,1.3,1.4,1.5,1.6,1.7}-ROADMAP.md`.
 
 ### Blockers/Concerns
 
-- **kehto#9 (receive-side NIP-44 decrypt)** — blocks `DECRYPT-01..03` only; soft-gated. Phase 42 executes if napplet/napplet#3 resolves during milestone; slips to v1.8 if not.
-- **Upstream NUB publish state** — class and connect subpaths do not exist in `@napplet/nub@0.2.1`; resource exists in napplet/napplet main but unpublished. Provisional local types are the mitigation (Phase 37 establishes them). Single atomic peer-dep bump post-milestone when all three domains publish.
-- Info-level v1.6 carryover tech debt (non-blocking): pnpm.overrides workaround (SEED-001), type-rename tasks, Electron/Tauri reference impls, multi-OS CI matrix — all deferred to v1.8+.
+- **napplet/napplet#3 (upstream NIP-44 decrypt NUB-surface decision)** — blocks v1.8 Phase 42 (DECRYPT-01..03 + E2E-27). OPEN, 0 comments at v1.7 close. Re-evaluate at v1.8 kickoff.
+- Info-level v1.7 carryover tech debt (non-blocking): provisional-types retirement on `@napplet/nub@^0.3.0`/^0.2.2 publish, Nyquist validation optional retroactive pass, cosmetic h2 port label in resource-demo, Electron/Tauri host-bridge reference impls, multi-OS CI matrix, SEED-001 pnpm.overrides retirement, type-rename tasks.
+- No critical blockers. No open audit gaps.
 
 ## Session Continuity
 
-Last session: 2026-04-24T17:58:32.505Z
-Resume: Completed 40-03-PLAN.md. Phase 40 CLOSED at 71/0/0 E2E. Phase 41 (Polish Wave) is next.
+Last session: 2026-04-24T12:00:00.000Z
+Resume: v1.7 shipped. No active milestone. Start next with `/gsd:new-milestone`.
