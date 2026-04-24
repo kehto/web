@@ -32,6 +32,8 @@ export const ALL_CAPABILITIES = [
   'media:control',
   'notify:send', 'notify:channel',
   'theme:read',
+  // v1.7 Phase 39 — NUB-CONFIG reference service (9th domain):
+  'config:read',
 ] as const;
 
 /** Union of every capability string in ALL_CAPABILITIES. */
@@ -60,3 +62,5 @@ export const CAP_NOTIFY_SEND     = 'notify:send' as const;
 export const CAP_NOTIFY_CHANNEL  = 'notify:channel' as const;
 /** theme.get / theme.changed */
 export const CAP_THEME_READ      = 'theme:read' as const;
+/** config.get / config.subscribe / config.unsubscribe / config.registerSchema / config.openSettings */
+export const CAP_CONFIG_READ     = 'config:read' as const;

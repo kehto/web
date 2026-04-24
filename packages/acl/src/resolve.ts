@@ -148,6 +148,27 @@ function ifcMap(action: string): CapabilityResolution {
 }
 
 /**
+ * `config.*` — NUB-CONFIG reference service (v1.7 Phase 39 / 9th NUB domain).
+ *
+ * Asymmetric protocol: napplet reads, shell writes. ALL napplet-originated
+ * config messages require `config:read`. Shell→napplet pushes
+ * (`config.values`, `config.registerSchema.result`, `config.schemaError`)
+ * are gated by the recipient's `config:read` cap.
+ *
+ * Anti-overlap: NUB-STORAGE remains the general key-value surface
+ * (`state:read`/`state:write`). NUB-CONFIG is shell-managed per-napplet
+ * configuration only — see CONFIG-04 scope boundary docs.
+ */
+function configMap(action: string): CapabilityResolution {
+  // Shell-originated pushes: recipient gate (napplet must hold config:read to see them).
+  if (action === 'values' || action === 'registerSchema.result' || action === 'schemaError') {
+    return { senderCap: null, recipientCap: 'config:read' };
+  }
+  // Napplet-originated requests: sender gate.
+  return { senderCap: 'config:read', recipientCap: null };
+}
+
+/**
  * `theme.*` — napplet read gate vs shell-initiated push.
  *
  * - `get` / `get.result` (and any other napplet-originated query) →
@@ -195,6 +216,8 @@ function themeMap(action: string): CapabilityResolution {
  * | `ifc`      | `subscribe`, `unsubscribe`, `channel.open/list/close`       | `relay:read`    | `null`        |
  * | `theme`    | `get`, `get.result`                                         | `theme:read`    | `null`        |
  * | `theme`    | `changed` (shell → napplet push)                            | `null`          | `theme:read`  |
+ * | `config`   | `get`, `subscribe`, `unsubscribe`, `registerSchema`, `openSettings` | `config:read` | `null`     |
+ * | `config`   | `values`, `registerSchema.result`, `schemaError` (shell → napplet pushes) | `null` | `config:read` |
  * | unknown    | any                                                         | `null`          | `null`        |
  *
  * The `signer` domain is REMOVED — signer messages fall through to the
@@ -244,6 +267,7 @@ export function resolveCapabilitiesNub(msg: NubMessage): CapabilityResolution {
     case 'storage':  return storageMap(action);
     case 'ifc':      return ifcMap(action);
     case 'theme':    return themeMap(action);
+    case 'config':   return configMap(action);
     default:         return { senderCap: null, recipientCap: null };
   }
 }
