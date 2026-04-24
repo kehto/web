@@ -63,12 +63,12 @@ Re-sync `specs/NIP-5D.md` from canonical upstream `dskvr/nips` branch `nip/5d`. 
 
 Shell assigns class posture synchronously at iframe creation and enforces it cross-NUB via the existing ACL-before-dispatch gate. Types are provisional (`packages/shell/src/types/provisional-class.ts`) pending `@napplet/nub/class` upstream publish.
 
-- [ ] **CLASS-01**: `onNip5dIframeCreate` host-app hook return type expanded with `class: string | null` (breaking API expansion). Existing return shape preserved for all other fields; a null class defaults to the permissive class posture. Documented in Phase 2 changeset (minor bump — public hook-contract changed).
-- [ ] **CLASS-02**: Shell resolves class posture synchronously inside `onNip5dIframeCreate` and stores it on the session entry BEFORE the `shell.init` payload is sent; `shell.init` carries the resolved class inline so the shim receives it atomically. No post-init `class.assigned` envelope is emitted.
+- [x] **CLASS-01**: `onNip5dIframeCreate` host-app hook return type expanded with `class: string | null` (breaking API expansion). Existing return shape preserved for all other fields; a null class defaults to the permissive class posture. Documented in Phase 2 changeset (minor bump — public hook-contract changed).
+- [x] **CLASS-02**: Shell resolves class posture synchronously inside `onNip5dIframeCreate` and stores it on the session entry BEFORE the `shell.init` payload is sent; `shell.init` carries the resolved class inline so the shim receives it atomically. No post-init `class.assigned` envelope is emitted.
 - [ ] **CLASS-03**: `packages/runtime/src/enforce.ts` gate adds a class pre-filter: class-restricted NUB requests are rejected at this chokepoint (not in individual NUB handlers). No existing NUB handler receives a new class parameter; enforcement is centralized.
 - [ ] **CLASS-04**: `apps/demo/shell-host.ts` introduces a `CLASS_BY_DTAG` data-driven map (adjacent to `DEMO_NAPPLETS`) resolving every demo-napplet `dTag` → class posture. Adding a future napplet to `DEMO_NAPPLETS` without a `CLASS_BY_DTAG` entry fails a CI assertion (H-05 prevention).
 - [ ] **CLASS-05**: `docs/policies/SHELL-CLASS-POLICY.md` added (copied from canonical napplet repo `napplet/specs/SHELL-CLASS-POLICY.md`); sections applicable to kehto cross-referenced with file:line pointers into `packages/shell/`, `packages/runtime/enforce.ts`, and `apps/demo/shell-host.ts`.
-- [ ] **CLASS-06**: Provisional local type file `packages/shell/src/types/provisional-class.ts` defines the NUB-CLASS wire types (`ClassAssignmentPayload`, etc.) marked `// provisional — pending @napplet/nub/class publish`; a `TODO: swap import to @napplet/nub/class when published at ^0.3.0` annotation is present.
+- [x] **CLASS-06**: Provisional local type file `packages/shell/src/types/provisional-class.ts` defines the NUB-CLASS wire types (`ClassAssignmentPayload`, etc.) marked `// provisional — pending @napplet/nub/class publish`; a `TODO: swap import to @napplet/nub/class when published at ^0.3.0` annotation is present.
 
 ### Category 3: NUB-CONNECT Adoption (CONNECT)
 

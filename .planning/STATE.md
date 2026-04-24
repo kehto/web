@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: NIP-5D Spec Adoption & New NUB Domains
-status: planning
-last_updated: "2026-04-24T11:59:08.608Z"
+status: executing
+last_updated: "2026-04-24T12:49:49.622Z"
 last_activity: 2026-04-24
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 5
+  completed_plans: 3
   percent: 0
 ---
 
@@ -20,19 +20,19 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-24, v1.7 kicked off)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 37 — SPEC Resync + Foundation Gates
+**Current focus:** Phase 38 — NUB-CLASS Adoption
 
 ## Current Position
 
-Phase: 37 (SPEC Resync + Foundation Gates) — EXECUTING
-Plan: 1 of 2
+Phase: 38 (NUB-CLASS Adoption) — EXECUTING
+Plan: 2 of 3
 **Milestone:** v1.7 NIP-5D Spec Adoption & New NUB Domains
 **Phase:** 38
-**Plan:** Not started
-**Status:** Ready to plan
+**Plan:** 38-01 complete; 38-02 next
+**Status:** Executing Phase 38
 **Last activity:** 2026-04-24
 
-Progress: [          ] 0%
+Progress: [██████░░░░] 60%
 
 **Phase sequence (37–42):**
 
@@ -84,5 +84,5 @@ Full decision log (v1.0 → v1.6) archived in `.planning/PROJECT.md` Key Decisio
 
 ## Session Continuity
 
-Last session: 2026-04-24T11:55:34.110Z
-Resume: v1.7 roadmap complete. 6 phases (37–42), 45/45 requirements mapped. Next step: `/gsd:plan-phase 37` to begin SPEC Resync + Foundation Gates.
+Last session: 2026-04-24T13:10:00.000Z
+Resume: Completed 38-01-PLAN.md. Phase 38 Plan 38-02 (enforce.ts class pre-filter) is next.
