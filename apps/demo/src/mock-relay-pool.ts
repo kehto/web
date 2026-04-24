@@ -225,3 +225,79 @@ export function createMockRelayPool(): MockRelayPool {
     getPublishedEvents: () => [...publishedEvents],
   };
 }
+
+// ─── NIP-66 kind:30166 fixture events (Phase 41 NIP66-07) ────────────────────
+// Three deterministic kind:30166 relay-discovery events consumed by
+// createNip66Aggregator via createMockNip66Pool(). Fixture-only — signatures
+// are dummies; aggregator parses d-tags (URLs) and N-tags (supported NIPs).
+const NIP66_FIXTURES: NostrEvent[] = [
+  {
+    id: 'a'.repeat(64),
+    pubkey: 'monitor00000000000000000000000000000000000000000000000000000000',
+    kind: 30166,
+    content: '',
+    created_at: _now - 2,
+    tags: [['d', 'wss://relay.fixture-one.test'], ['N', '1'], ['N', '11'], ['n', 'clearnet']],
+    sig: '0'.repeat(128),
+  },
+  {
+    id: 'b'.repeat(64),
+    pubkey: 'monitor00000000000000000000000000000000000000000000000000000000',
+    kind: 30166,
+    content: '',
+    created_at: _now - 1,
+    tags: [['d', 'wss://relay.fixture-two.test'], ['N', '44'], ['n', 'clearnet']],
+    sig: '0'.repeat(128),
+  },
+  {
+    id: 'c'.repeat(64),
+    pubkey: 'monitor00000000000000000000000000000000000000000000000000000000',
+    kind: 30166,
+    content: '',
+    created_at: _now,
+    tags: [['d', 'wss://relay.fixture-three.test'], ['N', '9'], ['N', '50'], ['n', 'clearnet']],
+    sig: '0'.repeat(128),
+  },
+];
+
+/**
+ * Build a `Nip66RelayPool`-shaped adapter that dispatches the 3 fixture
+ * kind:30166 events via queueMicrotask after subscribe() returns.
+ * Multi-instance safe — each call returns a fresh closure.
+ *
+ * @returns Object conforming to the Nip66RelayPool contract
+ *   from `@kehto/nip66` (one `subscribe(relays, filter, onEvent)` method
+ *   returning an unsubscribe handle).
+ *
+ * @example
+ * ```ts
+ * import { createNip66Aggregator } from '@kehto/nip66';
+ * const aggregator = createNip66Aggregator({
+ *   pool: createMockNip66Pool(),
+ *   bootstrap: ['wss://demo-monitor.local'],
+ * });
+ * aggregator.start();
+ * ```
+ */
+export function createMockNip66Pool(): {
+  subscribe: (
+    relays: ReadonlyArray<string>,
+    filter: { kinds: [30166]; '#n'?: ReadonlyArray<string> },
+    onEvent: (event: NostrEvent) => void,
+  ) => () => void;
+} {
+  let active = true;
+  return {
+    subscribe(_relays, _filter, onEvent) {
+      // Dispatch each fixture via microtask so onEvent arrives AFTER subscribe() returns
+      // — matches real relay async behavior (same pattern as the kind:1 fixture fan-out).
+      for (const event of NIP66_FIXTURES) {
+        const captured = event;
+        queueMicrotask(() => {
+          if (active) onEvent(captured);
+        });
+      }
+      return () => { active = false; };
+    },
+  };
+}

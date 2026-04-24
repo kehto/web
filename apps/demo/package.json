@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@kehto/nip66": "workspace:*",
     "@kehto/runtime": "workspace:*",
     "@kehto/services": "workspace:*",
     "@kehto/shell": "workspace:*",

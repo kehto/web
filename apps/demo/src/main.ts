@@ -20,6 +20,7 @@ import {
   relay,
   toggleService,
   setDemoConfigValue,
+  getNip66Aggregator,
 } from './shell-host.js';
 import type { NappletClass } from '@kehto/shell';
 import type { Capability } from '@kehto/shell';
@@ -91,6 +92,51 @@ createConsentModal().registerWith(relay, (request) => {
   // Fallthrough for non-connect consent types (existing destructive-signing path).
   setTimeout(() => request.resolve(true), 500);
 });
+
+// ─── Phase 41 Plan 41-01 (NIP66-07 / D5, D6, D8): nip66 aggregator lifecycle ─
+// Kicks off the mock kind:30166 subscription, populates the suggestions panel
+// from the aggregator's relay set (polled on a microtask loop until the panel
+// has ≥1 <li>), and registers a beforeunload cleanup handler (D8 — prevents
+// SimplePool leaks on SPA navigation per PITFALLS.md M-03).
+const _nip66Aggregator = getNip66Aggregator();
+if (_nip66Aggregator) {
+  _nip66Aggregator.start();
+
+  const renderNip66Suggestions = (): void => {
+    const list = document.getElementById('nip66-suggestions-list');
+    if (!list) return;
+    const relays = Array.from(_nip66Aggregator.getRelaySet());
+    if (relays.length === 0) return;  // leave "no suggestions yet" placeholder in place
+    list.innerHTML = '';
+    for (const url of relays) {
+      const li = document.createElement('li');
+      li.style.padding = '2px 0';
+      li.style.color = '#62d0ff';
+      li.style.fontFamily = 'monospace';
+      li.textContent = url;
+      list.appendChild(li);
+    }
+  };
+
+  // Initial render is best-effort — fixtures land on microtask from aggregator.start().
+  // Poll a handful of times to catch the first fan-out without requiring a framework.
+  // Bounded: stops after 10 attempts or as soon as ≥1 suggestion renders.
+  let attempts = 0;
+  const nip66PollId = window.setInterval(() => {
+    attempts++;
+    renderNip66Suggestions();
+    const after = document.querySelectorAll('#nip66-suggestions-list li[style*="62d0ff"]').length;
+    if (after >= 1 || attempts >= 10) {
+      window.clearInterval(nip66PollId);
+    }
+  }, 100);
+
+  // D8: beforeunload cleanup — dispose pool subscription + clear interval.
+  window.addEventListener('beforeunload', () => {
+    window.clearInterval(nip66PollId);
+    _nip66Aggregator.stop();
+  });
+}
 
 // ─── Notification Toast Rendering ────────────────────────────────────────────
 

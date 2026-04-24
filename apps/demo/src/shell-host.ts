@@ -33,7 +33,8 @@ import type { Notification, ThemeService, ConfigService } from '@kehto/services'
 import { getSigner, getSignerConnectionState } from './signer-connection.js';
 import { demoConfig } from './demo-config.js';
 import { pushAclEvent } from './acl-history.js';
-import { createMockRelayPool } from './mock-relay-pool.js';
+import { createMockRelayPool, createMockNip66Pool } from './mock-relay-pool.js';
+import { createNip66Aggregator, type Nip66Aggregator } from '@kehto/nip66';
 
 // Static ephemeral host identity for shell node display (separate from signer identity)
 import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
@@ -686,6 +687,17 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
   _notificationServiceHandler = notificationService;
   // Expose the identity service handler for host-side diagnostic probe flows
   _identityServiceHandler = services.identity;
+  // Phase 41 Plan 41-01 (NIP66-07 / D5–D7): live nip66 demo wiring.
+  // Fixture mock pool emits 3 kind:30166 events via queueMicrotask; aggregator
+  // parses d-tags (URLs) and N-tags (NIP numbers). Suggestions surface via the
+  // relayConfig.getNip66Suggestions hook and in the #nip66-suggestions-list
+  // shell-chrome panel (main.ts populates it on start()).
+  const nip66Aggregator = createNip66Aggregator({
+    pool: createMockNip66Pool(),
+    bootstrap: ['wss://demo-monitor.local'],
+  });
+  _nip66Aggregator = nip66Aggregator;
+
   return {
     // CONTEXT D-USER-01 (Phase 20): in-memory mock relay pool holding 5 kind:1 fixture
     // events. On relay.subscribe({kinds:[1]}) emits matching events then EOSE; on
@@ -696,7 +708,10 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
       addRelay: () => {},
       removeRelay: () => {},
       getRelayConfig: () => ({ discovery: [], super: [], outbox: [] }),
-      getNip66Suggestions: () => null,
+      // Phase 41 Plan 41-01 (NIP66-07): live aggregator — returns the current
+      // relay set as a plain string[] snapshot. Empty array before start()
+      // fires the first event (Promise-microtask timing; not null).
+      getNip66Suggestions: () => Array.from(nip66Aggregator.getRelaySet()),
     },
     windowManager: { createWindow: () => null },
     auth: {
@@ -848,6 +863,17 @@ const demoConfigFixtures: Record<string, unknown> = {
 };
 
 let _configServiceBundle: ConfigService | null = null;
+
+/** Phase 41 Plan 41-01 (NIP66-07): live nip66 aggregator instance for the demo. */
+let _nip66Aggregator: Nip66Aggregator | null = null;
+
+/**
+ * Get the demo nip66 aggregator. Populated inside createDemoHooks; accessible
+ * for main.ts to call start() + stop() and to render the suggestions panel.
+ */
+export function getNip66Aggregator(): Nip66Aggregator | null {
+  return _nip66Aggregator;
+}
 
 /**
  * Phase 40 Plan 40-02 (RESOURCE-04): deferred session registry ref.
