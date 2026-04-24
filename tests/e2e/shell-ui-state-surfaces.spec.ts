@@ -143,9 +143,9 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
     // Modal must render.
     await expect(page.locator('#acl-policy-modal')).toBeVisible({ timeout: 5_000 });
 
-    // Row count = 11 (one row per AUTHENTICATED napplet; config-demo is the 11th).
+    // Row count = 12 (one row per AUTHENTICATED napplet; resource-demo is the 12th — Phase 40).
     const rows = page.locator('#acl-policy-modal tbody tr');
-    await expect(rows).toHaveCount(11, { timeout: 5_000 });
+    await expect(rows).toHaveCount(12, { timeout: 5_000 });
 
     // No "No authenticated napplets" placeholder cell.
     const emptyCells = page.locator('#acl-policy-modal tbody td[colspan]', {
