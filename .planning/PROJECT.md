@@ -145,4 +145,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-24 — Phase 38 complete (NUB-CLASS Adoption: synchronous class posture via shell.init, centralized enforce.ts gate, 62/0/0 E2E with class-invariant spec across 8 NUB domains)*
+*Last updated: 2026-04-24 — Phase 39 complete (NUB-CONNECT + NUB-CONFIG: shell is CSP HTTP-header authority with consent flow + revocation destroy/recreate + meta-CSP CI audit; createConfigService ships as 9th NUB domain with config-demo as 11th napplet; 67/0/0 E2E)*
