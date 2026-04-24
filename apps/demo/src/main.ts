@@ -668,8 +668,8 @@ window.addEventListener('shell:connect-revoked', (event) => {
 });
 
 // ─── Phase 40 Plan 40-02 (RESOURCE-04 / D3): resource-demo auto-grant ────────
-// Grants http://localhost:5174 to resource-demo at demo boot so the Vite
-// serveNappletCsp plugin (Phase 39 Plan 39-03) emits connect-src localhost:5174
+// Grants http://localhost:4174 to resource-demo at demo boot so the Vite
+// serveNappletCsp plugin (Phase 39 Plan 39-03) emits connect-src localhost:4174
 // on the iframe HTML response. No user click-through — deterministic for E2E.
 // The ('resource-demo', '') composite key matches the session-entry aggregateHash
 // which is '' for demo napplets (shell-host.ts loadNapplet() hard-codes '').
@@ -677,6 +677,11 @@ window.addEventListener('shell:connect-revoked', (event) => {
 // Uses __grantConnectOrigin__ (defined above — hoisted from Phase 39's original
 // post-nappletInfos location so this call runs BEFORE iframe first load).
 // Defensive null-check guards against future file reorders.
+//
+// Phase 40 Plan 40-03 fix: uses 4174 (demo server) not 5174 (napplet dev server)
+// because demo-data.json is served from apps/demo/public/ at the demo origin.
+// In preview mode (E2E), no server runs at 5174; the fixture is at /demo-data.json
+// on the same 4174 origin that serves the built demo.
 //
 // Phase 39 Dev 2 safety: does NOT touch the shell:connect-revoked path at all;
 // the revocation handler's snapshot-before-mutate pattern is preserved unchanged.
@@ -686,11 +691,11 @@ window.addEventListener('shell:connect-revoked', (event) => {
     __grantConnectOrigin__?: (dTag: string, aggregateHash: string, origin: string) => boolean;
   }).__grantConnectOrigin__;
   if (grantFn) {
-    const ok = grantFn('resource-demo', '', 'http://localhost:5174');
+    const ok = grantFn('resource-demo', '', 'http://localhost:4174');
     if (!ok) {
       console.warn('[demo] resource-demo auto-grant failed; E2E may fail on granted-fetch assertion');
     } else {
-      console.info('[demo] resource-demo: pre-granted http://localhost:5174 (RESOURCE-04 / D3)');
+      console.info('[demo] resource-demo: pre-granted http://localhost:4174 (RESOURCE-04 / D3)');
     }
   } else {
     console.warn('[demo] __grantConnectOrigin__ not available at auto-grant site — file ordering regression');

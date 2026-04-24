@@ -18,21 +18,23 @@
  * __injectNubEnvelopeAsNapplet__ hook dispatches a real MessageEvent from
  * the napplet's contentWindow, routing through the full NUB gate path.
  *
- * Parameterized across 8 active NUB domains (D11): identity, ifc, keys,
- * media, notify, relay, storage, theme. Each test exercises the same gate
- * (the SAME relay:write capability denial) -- which IS the invariant we
- * care about (cross-NUB uniformity). Class assignment resets between tests
- * (D12) via __setNappletClass__('theme-switcher', null) in beforeEach.
+ * Parameterized across 10 active NUB domains (8 + config + resource —
+ * Phase 40 Plan 40-03 extension, E2E-20 completion): identity, ifc, keys,
+ * media, notify, relay, storage, theme, config, resource. Each test
+ * exercises the same gate (the SAME relay:write capability denial) -- which
+ * IS the invariant we care about (cross-NUB uniformity). Class assignment
+ * resets between tests (D12) via __setNappletClass__('theme-switcher', null)
+ * in beforeEach.
  */
 import { test, expect, type Page } from '@playwright/test';
 import { demoBeforeEach } from './helpers/index.js';
 
 test.use({ baseURL: 'http://localhost:4174' });
 
-type NubDomain = 'identity' | 'ifc' | 'keys' | 'media' | 'notify' | 'relay' | 'storage' | 'theme';
+type NubDomain = 'identity' | 'ifc' | 'keys' | 'media' | 'notify' | 'relay' | 'storage' | 'theme' | 'config' | 'resource';
 
 const ACTIVE_NUB_DOMAINS: readonly NubDomain[] = [
-  'identity', 'ifc', 'keys', 'media', 'notify', 'relay', 'storage', 'theme',
+  'identity', 'ifc', 'keys', 'media', 'notify', 'relay', 'storage', 'theme', 'config', 'resource',
 ];
 
 interface AclEventShape {
