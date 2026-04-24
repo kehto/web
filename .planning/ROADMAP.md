@@ -23,7 +23,7 @@
 ### Phases
 
 - [x] **Phase 37: SPEC Resync + Foundation Gates** — Update NIP-5D from upstream; establish provisional type strategy; record baseline; gates all downstream phases. (completed 2026-04-24)
-- [ ] **Phase 38: NUB-CLASS Adoption** — Shell assigns class posture synchronously at iframe creation; enforce.ts pre-filter; cross-NUB class invariant spec; downstream coordination note.
+- [x] **Phase 38: NUB-CLASS Adoption** — Shell assigns class posture synchronously at iframe creation; enforce.ts pre-filter; cross-NUB class invariant spec; downstream coordination note. (completed 2026-04-24)
 - [ ] **Phase 39: NUB-CONNECT Adoption + NUB-CONFIG Reference Service** — Per-napplet CSP header authority (Vite middleware); consent flow; grants store; meta-CSP CI audit; config service (9th domain) ships in parallel.
 - [ ] **Phase 40: NUB-RESOURCE Reference Service + Demo Napplets + Policy Docs** — Resource service factory with required connect-grant dependency; config-demo and resource-demo napplets (11th, 12th); all three policy docs complete.
 - [ ] **Phase 41: Polish Wave** — nip66 demo wiring live; wm structural primitives; CACHE naming parity. All independent; ship together.
@@ -61,7 +61,7 @@
 **Plans**: 3 plans
   - [x] 38-01-PLAN.md — Establish types + session-entry class + shell.init inline class + breaking changeset (CLASS-01, CLASS-02, CLASS-06)
   - [x] 38-02-PLAN.md — Centralize class pre-filter in enforce.ts + runtime.ts wiring + EnforceResult.reason (CLASS-03)
-  - [ ] 38-03-PLAN.md — Demo CLASS_BY_DTAG + module-load assertion + test hook + SHELL-CLASS-POLICY.md + class-invariant.spec.ts + canonical 62/0/0 close (CLASS-04, CLASS-05, E2E-20)
+  - [x] 38-03-PLAN.md — Demo CLASS_BY_DTAG + module-load assertion + test hook + SHELL-CLASS-POLICY.md + class-invariant.spec.ts + canonical 62/0/0 close (CLASS-04, CLASS-05, E2E-20)
 **UI hint**: yes
 
 ### Phase 39: NUB-CONNECT Adoption + NUB-CONFIG Reference Service
@@ -124,7 +124,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 37. SPEC Resync + Foundation Gates | 2/2 | Complete    | 2026-04-24 |
-| 38. NUB-CLASS Adoption | 2/3 | In Progress|  |
+| 38. NUB-CLASS Adoption | 3/3 | Complete   | 2026-04-24 |
 | 39. NUB-CONNECT + NUB-CONFIG | 0/? | Not started | - |
 | 40. NUB-RESOURCE + Demo Napplets + Policy Docs | 0/? | Not started | - |
 | 41. Polish Wave | 0/? | Not started | - |
