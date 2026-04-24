@@ -34,5 +34,12 @@ jobs:
       - name: Build all packages
         run: pnpm build
 
+      - name: Audit CSP (residual meta-CSP scan)
+        # v1.7 Phase 39 CONNECT-05 / D16: fail the build if any napplet
+        # dist/index.html contains a residual <meta http-equiv="Content-Security-Policy">
+        # tag. Shell is the sole CSP authority -- napplets must not ship meta-CSP.
+        # See scripts/audit-csp.mjs and SHELL-CONNECT-POLICY.md.
+        run: pnpm audit:csp
+
       - name: Type-check all packages
         run: pnpm type-check
