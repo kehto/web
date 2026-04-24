@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: NIP-5D Spec Adoption & New NUB Domains
-status: executing
-last_updated: "2026-04-24T16:35:00.066Z"
+status: planning
+last_updated: "2026-04-24T16:40:08.064Z"
 last_activity: 2026-04-24
 progress:
   total_phases: 6
@@ -27,9 +27,9 @@ See: .planning/PROJECT.md (updated 2026-04-24, v1.7 kicked off)
 Phase: 40 (NUB-RESOURCE + Demo Napplets + Policy Docs) — COMPLETE
 Plan: 3 of 3 COMPLETE
 **Milestone:** v1.7 NIP-5D Spec Adoption & New NUB Domains
-**Phase:** 40 COMPLETE → next: Phase 41
-**Plan:** 40-01 COMPLETE, 40-02 COMPLETE, 40-03 COMPLETE
-**Status:** Phase 40 complete (71/0/0 E2E). Phase 41 next.
+**Phase:** 41
+**Plan:** Not started
+**Status:** Ready to plan
 **Last activity:** 2026-04-24
 
 Progress: [██████████] 100%
