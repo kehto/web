@@ -42,7 +42,9 @@
   2. Provisional local type files exist for all three unpublished NUB domains (`provisional-class.ts`, `provisional-connect.ts`, `provisional-resource.ts`) each marked with `// provisional` annotations and `TODO: swap import` comments.
   3. `pnpm clean && pnpm build && pnpm test:e2e` records 54/0/0 — no regression from the spec file update.
   4. `README.md` Specification section cross-reference to the spec file is still valid after the update.
-**Plans**: TBD
+**Plans**: 2 plans
+  - [ ] 37-01-PLAN.md — Resync specs/NIP-5D.md from upstream + update README sync date + create provisional class/connect/resource type files (SPEC-04, DOCS-06)
+  - [ ] 37-02-PLAN.md — Run canonical `pnpm clean && pnpm build && pnpm test:e2e` loop; record 54/0/0 baseline in 37-ITERATION-LOG.md (E2E-19)
 
 ### Phase 38: NUB-CLASS Adoption
 **Goal**: Shell resolves class posture synchronously at iframe creation and enforces it uniformly across all NUB domains via a centralized `enforce.ts` gate — so a class-restricted napplet cannot invoke capabilities outside its posture regardless of which NUB domain it uses.
@@ -118,7 +120,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 37. SPEC Resync + Foundation Gates | 0/? | Not started | - |
+| 37. SPEC Resync + Foundation Gates | 0/2 | Not started | - |
 | 38. NUB-CLASS Adoption | 0/? | Not started | - |
 | 39. NUB-CONNECT + NUB-CONFIG | 0/? | Not started | - |
 | 40. NUB-RESOURCE + Demo Napplets + Policy Docs | 0/? | Not started | - |
