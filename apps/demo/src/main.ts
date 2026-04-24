@@ -870,4 +870,46 @@ export function setSelectedNode(id: string | null): void {
   w.__aclEvents__ = [];
 };
 
+// ─── Plan 38-03 (E2E-20): __injectNubEnvelopeAsNapplet__ test hook ───────────
+// Injects a NIP-5D NUB envelope into the runtime as if sent by the named
+// napplet's iframe. This causes the envelope to pass through relay.handleMessage
+// -> enforceNub, making class-forbidden denials observable via __aclEvents__.
+//
+// The theme-switcher napplet sends theme via window.parent.postMessage (host-side
+// bypass, not through the runtime); this hook simulates the runtime path so
+// the class-invariant spec can exercise the enforce.ts gate directly.
+//
+// Usage (from tests/e2e/class-invariant.spec.ts):
+//   await page.evaluate(([dTag, envelope]) =>
+//     window.__injectNubEnvelopeAsNapplet__?.(dTag, envelope),
+//     ['theme-switcher', { type: 'relay.publish', id: 'test-123' }]
+//   );
+(window as Window & {
+  __injectNubEnvelopeAsNapplet__?: (dTag: string, envelope: Record<string, unknown>) => boolean;
+}).__injectNubEnvelopeAsNapplet__ = (dTag: string, envelope: Record<string, unknown>): boolean => {
+  const windowId = findAuthenticatedNappletWindowIdByDTag(dTag);
+  if (!windowId) {
+    console.warn(`[demo] __injectNubEnvelopeAsNapplet__: ${dTag} not loaded or not authenticated`);
+    return false;
+  }
+  // Find the iframe for this napplet by its windowId (the id attribute set in loadNapplet).
+  const targetFrame = document.getElementById(windowId) as HTMLIFrameElement | null;
+  if (!targetFrame?.contentWindow) {
+    console.warn(`[demo] __injectNubEnvelopeAsNapplet__: iframe not found for ${dTag} (windowId=${windowId})`);
+    return false;
+  }
+  // Dispatch a MessageEvent as if from the napplet iframe.
+  // relay.handleMessage is installed on window and checks event.source to
+  // resolve the windowId -- matching the iframe's contentWindow routes it
+  // through enforceNub with the correct session entry.
+  const event = new MessageEvent('message', {
+    data: envelope,
+    source: targetFrame.contentWindow,
+    origin: 'null',
+  });
+  window.dispatchEvent(event);
+  console.info(`[demo] __injectNubEnvelopeAsNapplet__: injected ${String(envelope['type'])} for ${dTag}`);
+  return true;
+};
+
 console.log('[napplet playground] initialized');

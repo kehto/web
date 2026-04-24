@@ -99,3 +99,101 @@ The class check lives in exactly ONE site: the `enforceNub` function body in `pa
 - createEnforceGate (pubkey-based, legacy AUTH) was minimally updated only to return the new required `reason` field on EnforceResult — no class pre-filter (not in scope for NIP-5D).
 - Plan 38-03 targets 8 active NUB domains at E2E time: identity, ifc, keys, media, notify, relay, storage, theme. config lands Phase 39; resource lands Phase 40 — both out of scope for Phase 38's invariant spec.
 - No test fixture updates were needed — no test files directly construct EnforceResult literals (they use the gate functions, which now transparently return reason).
+
+---
+
+## Plan 38-03 -- Phase 38 CLOSE: Canonical Iteration Loop
+
+**Date:** 2026-04-24
+**Scope:** CLASS-04 (CLASS_BY_DTAG), CLASS-05 (SHELL-CLASS-POLICY.md), E2E-20 (class-invariant.spec.ts), Phase 38 close
+**Baseline entering plan (v1.7 Phase 37 close):** 54 passed / 0 failed / 0 skipped
+**Target at phase close:** 62 passed / 0 failed / 0 skipped (54 prior + 8 new class-invariant cases)
+**Result:** 62 passed / 0 failed / 0 skipped
+
+### Canonical iteration loop
+
+```
+cd /home/sandwich/Develop/kehto
+rm -rf node_modules packages/*/dist packages/*/node_modules \
+       apps/demo/dist apps/demo/node_modules \
+       apps/demo/napplets/*/dist apps/demo/napplets/*/node_modules \
+       tests/harness/dist tests/harness/node_modules \
+       .turbo packages/*/.turbo apps/demo/.turbo apps/demo/napplets/*/.turbo
+pnpm install
+pnpm build
+pnpm test:e2e
+```
+
+### pnpm install
+
+```
+Done in 727ms using pnpm v10.8.0
+```
+
+### pnpm build
+
+```
+ Tasks:    24 successful, 24 total
+Cached:    0 cached, 24 total
+  Time:    5.813s
+```
+
+### pnpm test:e2e
+
+Final Playwright summary: **62 passed (20.6s)**
+
+All 8 new class-invariant tests PASSED:
+- class-invariant: identity -- class-2 theme-switcher relay:write denied at enforce.ts
+- class-invariant: ifc -- class-2 theme-switcher relay:write denied at enforce.ts
+- class-invariant: keys -- class-2 theme-switcher relay:write denied at enforce.ts
+- class-invariant: media -- class-2 theme-switcher relay:write denied at enforce.ts
+- class-invariant: notify -- class-2 theme-switcher relay:write denied at enforce.ts
+- class-invariant: relay -- class-2 theme-switcher relay:write denied at enforce.ts
+- class-invariant: storage -- class-2 theme-switcher relay:write denied at enforce.ts
+- class-invariant: theme -- class-2 theme-switcher relay:write denied at enforce.ts
+
+All 54 prior tests still PASSED. Zero regressions.
+
+### Grep self-check
+
+| Check | Expected | Actual |
+|-------|----------|--------|
+| `grep -c "CLASS_BY_DTAG" apps/demo/src/shell-host.ts` | >= 4 | 8 |
+| `grep -c "__setNappletClass__" apps/demo/src/main.ts` | >= 2 (D9: hook in main.ts) | 8 |
+| `grep -cE "__setNappletClass__[[:space:]]*=" apps/demo/src/shell-host.ts` | 0 (D9 guard) | 0 |
+| `test -f docs/policies/SHELL-CLASS-POLICY.md` | exit 0 | EXISTS |
+| `test -f tests/e2e/class-invariant.spec.ts` | exit 0 | EXISTS |
+| `grep -c "class-forbidden" tests/e2e/class-invariant.spec.ts` | >= 1 | 8 |
+| `grep -c "class-invariant:" tests/e2e/class-invariant.spec.ts` | 1 (parameterized describe) | 1 |
+| Final Playwright summary | `62 passed / 0 failed / 0 skipped` | **62 passed (20.6s)** |
+
+### Anti-term sweep
+
+```
+grep -rE "window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]" apps/demo/napplets/ \
+    | grep -v "node_modules|dist" | grep -v "^\s*\*" | grep -v "^[^:]*:\s*\*"
+```
+Result: CLEAN (zero hits outside comments)
+
+```
+grep -rE "class\.assigned" packages/ apps/ tests/ | grep -v "node_modules|dist|CHANGELOG"
+```
+Result: 3 hits, all doc-comments only (C-01 prevention intact):
+- packages/shell/src/shell-bridge.ts (C-01 prevention note)
+- packages/shell/src/types/provisional-class.ts (Phase 37 context note)
+- apps/demo/src/main.ts (D9 hook comment: "No class.assigned envelope is")
+
+### Diff from v1.7 Phase 37 close
+
+- 1 new E2E spec file added (`tests/e2e/class-invariant.spec.ts`)
+- 8 new tests (one per active NUB domain), all passing
+- 1 new policy doc (`docs/policies/SHELL-CLASS-POLICY.md`) — synced from napplet/napplet@27e16248
+- NappletClass exported from shell barrel (`packages/shell/src/index.ts`)
+- CLASS_BY_DTAG + module-load assertion in demo (`apps/demo/src/shell-host.ts`)
+- Test hooks in demo main.ts: `__setNappletClass__`, `__clearAclEvents__`, `__injectNubEnvelopeAsNapplet__`
+- Expected E2E count: 62 (54 prior + 8 new)
+- Actual E2E count: 62
+
+### Result
+
+**PHASE 38 CLOSE CONFIRMED** -- 62 passed / 0 failed / 0 skipped. Phase 39 (NUB-CONNECT + NUB-CONFIG) is unblocked.
