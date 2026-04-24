@@ -25,7 +25,7 @@
 - [x] **Phase 37: SPEC Resync + Foundation Gates** — Update NIP-5D from upstream; establish provisional type strategy; record baseline; gates all downstream phases. (completed 2026-04-24)
 - [x] **Phase 38: NUB-CLASS Adoption** — Shell assigns class posture synchronously at iframe creation; enforce.ts pre-filter; cross-NUB class invariant spec; downstream coordination note. (completed 2026-04-24)
 - [x] **Phase 39: NUB-CONNECT Adoption + NUB-CONFIG Reference Service** — Per-napplet CSP header authority (Vite middleware); consent flow; grants store; meta-CSP CI audit; config service (9th domain) ships in parallel. (completed 2026-04-24)
-- [ ] **Phase 40: NUB-RESOURCE Reference Service + Demo Napplets + Policy Docs** — Resource service factory with required connect-grant dependency; config-demo and resource-demo napplets (11th, 12th); all three policy docs complete.
+- [x] **Phase 40: NUB-RESOURCE Reference Service + Demo Napplets + Policy Docs** — Resource service factory with required connect-grant dependency; config-demo and resource-demo napplets (11th, 12th); all three policy docs complete. (completed 2026-04-24)
 - [ ] **Phase 41: Polish Wave** — nip66 demo wiring live; wm structural primitives; CACHE naming parity. All independent; ship together.
 - [ ] **Phase 42: NIP-44 Decrypt Surface (soft-gated)** — Ship if napplet/napplet#3 resolves during milestone; defer to v1.8 if not.
 
@@ -97,7 +97,7 @@
 **Plans**: 3 plans
   - [x] 40-01-PLAN.md — createResourceService factory (H-03 guard) + resource:fetch capability + resolve.ts + runtime.ts nubDispatch.registerNub('resource', ...) + shell-init CANONICAL_NUB_DOMAINS extension + shell barrel re-export of provisional-resource wire types + changeset (RESOURCE-01, RESOURCE-02, RESOURCE-03, RESOURCE-06)
   - [x] 40-02-PLAN.md — resource-demo napplet scaffolding + demo-data.json fixture + shell-host.ts wiring (services.resource + DEMO_NAPPLETS[12] + CLASS_BY_DTAG[12]) + main.ts auto-grant fixture (D3) (RESOURCE-04)
-  - [ ] 40-03-PLAN.md — SHELL-RESOURCE-POLICY.md + README Policies section + nub-resource.spec.ts (2 tests) + class-invariant.spec.ts extension (8→10 domains) + canonical phase-close iteration loop recording 71/0/0 (RESOURCE-05, E2E-25, DOCS-07, E2E-20)
+  - [x] 40-03-PLAN.md — SHELL-RESOURCE-POLICY.md + README Policies section + nub-resource.spec.ts (2 tests) + class-invariant.spec.ts extension (8→10 domains) + canonical phase-close iteration loop recording 71/0/0 (RESOURCE-05, E2E-25, DOCS-07, E2E-20)
 
 ### Phase 41: Polish Wave
 **Goal**: Three independent carryover items ship: nip66 demo wiring goes live against real relay fixtures, `@kehto/wm` gains structural primitives consumers can implement against, and `HostCacheBridge` naming parity closes the kehto#1 cosmetic gap — so the carryover slate from v1.6 is clean.
@@ -134,7 +134,7 @@
 | 37. SPEC Resync + Foundation Gates | 2/2 | Complete    | 2026-04-24 |
 | 38. NUB-CLASS Adoption | 3/3 | Complete    | 2026-04-24 |
 | 39. NUB-CONNECT + NUB-CONFIG | 5/5 | Complete    | 2026-04-24 |
-| 40. NUB-RESOURCE + Demo Napplets + Policy Docs | 2/3 | In Progress|  |
+| 40. NUB-RESOURCE + Demo Napplets + Policy Docs | 4/3 | Complete   | 2026-04-24 |
 | 41. Polish Wave | 0/? | Not started | - |
 | 42. NIP-44 Decrypt (soft-gated) | 0/? | Not started | - |
 

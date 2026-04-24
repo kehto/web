@@ -99,7 +99,7 @@ Per-napplet Content-Security-Policy `connect-src` enforcement via shell HTTP-hea
 - [x] **RESOURCE-02**: `packages/acl/src/capabilities.ts` adds `'resource:fetch'`; `packages/runtime/src/resolve.ts` + runtime dispatch extended for the `resource` domain.
 - [x] **RESOURCE-03**: Service handler tracks in-flight requests and correlates `resource.cancel` to the corresponding `resource.bytes` request; canceled requests emit `resource.bytes.error` with canonical `canceled` typed-error code. Per canonical 4-message protocol (`resource.bytes`, `resource.cancel` inbound; `resource.bytes.result`, `resource.bytes.error` outbound).
 - [x] **RESOURCE-04**: `apps/demo/napplets/resource-demo/` scaffolded as the 12th demo napplet (DEMO_NAPPLETS 11 → 12). Napplet exercises `resource.bytes` request + response lifecycle including grant-gated refusal (demo hooks grant a single allowlisted origin; the napplet attempts one allowed + one denied fetch). `CLASS_BY_DTAG` + `CANONICAL_NUB_DOMAINS` updated.
-- [ ] **RESOURCE-05**: `docs/policies/SHELL-RESOURCE-POLICY.md` added (copied from canonical napplet repo); SVG rasterization, MIME sniffing, private-IP blocking, and redirect-limit policy documented as responsibilities of the host-provided `fetch` option — not the service handler itself.
+- [x] **RESOURCE-05**: `docs/policies/SHELL-RESOURCE-POLICY.md` added (copied from canonical napplet repo); SVG rasterization, MIME sniffing, private-IP blocking, and redirect-limit policy documented as responsibilities of the host-provided `fetch` option — not the service handler itself.
 - [x] **RESOURCE-06**: Provisional local type file `packages/shell/src/types/provisional-resource.ts` (or `packages/services/src/types/provisional-resource.ts`) defines NUB-RESOURCE wire types marked `// provisional — pending @napplet/nub/resource publish`; `TODO: swap import to @napplet/nub/resource when published at ^0.2.2` annotation present.
 
 ### Category 6: @kehto/nip66 Demo Wiring (NIP66 — continued from v1.6 NIP66-05)
@@ -142,14 +142,14 @@ Tests that lock the v1.7 contracts at Layer-B (`tests/e2e/*.spec.ts`) against th
 - [x] **E2E-22**: `tests/e2e/connect-revocation.spec.ts` added — grant revocation triggers iframe destroy + recreate; the newly-mounted iframe receives the updated CSP header excluding the revoked origin. One test.
 - [x] **E2E-23**: `tests/e2e/connect-csp-preview.spec.ts` added — CSP header is present on napplet HTML response when the demo is served by `pnpm preview` (not just `pnpm dev`), confirming `configurePreviewServer` wiring.
 - [x] **E2E-24**: `tests/e2e/nub-config.spec.ts` added — config-demo napplet exercises `config.get` + `config.watch` round-trip against the shell-side reference service; config values propagate correctly.
-- [ ] **E2E-25**: `tests/e2e/nub-resource.spec.ts` added — resource-demo napplet: (a) successful `resource.bytes` fetch against a granted origin; (b) `denied` response for an ungranted origin (H-03 coupling test). Two tests.
+- [x] **E2E-25**: `tests/e2e/nub-resource.spec.ts` added — resource-demo napplet: (a) successful `resource.bytes` fetch against a granted origin; (b) `denied` response for an ungranted origin (H-03 coupling test). Two tests.
 - [ ] **E2E-26**: `tests/e2e/nip66-suggestions.spec.ts` added — demo shell surfaces relay suggestions from `createNip66Aggregator` fed by mock kind-30166 fixtures; at least one suggestion from each fixture event appears in the UI.
 - [ ] **E2E-27** (soft-gated, DECRYPT): `tests/e2e/decrypt-single-target.spec.ts` added — two iframes present; one requests NIP-44 decrypt; only the requesting iframe receives the plaintext (the second iframe observes no decrypt-response envelope in its MessageTap).
 
 ### Category 11: Documentation (DOCS — continued from v1.6 DOCS-05)
 
 - [x] **DOCS-06**: `specs/NIP-5D.md` header comment updated to reference v1.7 sync date and upstream commit SHA (per SPEC-04). `README.md` Specification section cross-reference verified as still valid.
-- [ ] **DOCS-07**: New `docs/policies/` directory added containing SHELL-CLASS-POLICY.md, SHELL-CONNECT-POLICY.md, SHELL-RESOURCE-POLICY.md. Each file's header records its canonical source (napplet repo path + commit SHA) and its copy date. Root README Packages table updated to reference the policies directory.
+- [x] **DOCS-07**: New `docs/policies/` directory added containing SHELL-CLASS-POLICY.md, SHELL-CONNECT-POLICY.md, SHELL-RESOURCE-POLICY.md. Each file's header records its canonical source (napplet repo path + commit SHA) and its copy date. Root README Packages table updated to reference the policies directory.
 
 ---
 
