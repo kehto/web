@@ -76,7 +76,7 @@
   4. `pnpm audit:csp` runs post-build, recursively scans built napplet `dist/index.html` files, and exits non-zero if any `<meta http-equiv="Content-Security-Policy">` tag is found.
   5. config-demo napplet exercises `config.get` + `config.watch` round-trip against the shell-side reference service; values propagate correctly (asserted by `nub-config.spec.ts`).
 **Plans**: 5 plans
-  - [ ] 39-01-PLAN.md — connect-store singleton + ShellBridge.connectStore + config:read capability + resolve.ts + scripts/audit-csp.mjs (CONNECT-01, CONNECT-05, CONNECT-06, CONFIG-02)
+  - [x] 39-01-PLAN.md — connect-store singleton + ShellBridge.connectStore + config:read capability + resolve.ts + scripts/audit-csp.mjs (CONNECT-01, CONNECT-05, CONNECT-06, CONFIG-02)
   - [x] 39-02-PLAN.md — createConfigService factory + scope boundary documentation (CONFIG-01, CONFIG-04)
   - [ ] 39-03-PLAN.md — Vite serveNappletCsp plugin (dev + preview) + POST /__connect-grants endpoint + GitHub Actions audit:csp step (CONNECT-02)
   - [ ] 39-04-PLAN.md — consent modal DOM + iframe destroy+recreate on revoke + config-demo napplet (11th) + __grantConnectOrigin__/__revokeConnect__ test hooks + setDemoConfigValue (CONNECT-03, CONNECT-04, CONFIG-03)
@@ -130,7 +130,7 @@
 |-------|----------------|--------|-----------|
 | 37. SPEC Resync + Foundation Gates | 2/2 | Complete    | 2026-04-24 |
 | 38. NUB-CLASS Adoption | 3/3 | Complete    | 2026-04-24 |
-| 39. NUB-CONNECT + NUB-CONFIG | 1/5 | In Progress|  |
+| 39. NUB-CONNECT + NUB-CONFIG | 2/5 | In Progress|  |
 | 40. NUB-RESOURCE + Demo Napplets + Policy Docs | 0/? | Not started | - |
 | 41. Polish Wave | 0/? | Not started | - |
 | 42. NIP-44 Decrypt (soft-gated) | 0/? | Not started | - |
