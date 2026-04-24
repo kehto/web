@@ -95,7 +95,7 @@
   4. `DEMO_NAPPLETS` is 12 entries; `CLASS_BY_DTAG` has a corresponding entry for every napplet; `CANONICAL_NUB_DOMAINS` is extended to include `config` and `resource`.
   5. `docs/policies/` directory exists with SHELL-CLASS-POLICY.md, SHELL-CONNECT-POLICY.md, and SHELL-RESOURCE-POLICY.md — each with a canonical source header (napplet repo path + commit SHA + copy date).
 **Plans**: 3 plans
-  - [ ] 40-01-PLAN.md — createResourceService factory (H-03 guard) + resource:fetch capability + resolve.ts + runtime.ts nubDispatch.registerNub('resource', ...) + shell-init CANONICAL_NUB_DOMAINS extension + shell barrel re-export of provisional-resource wire types + changeset (RESOURCE-01, RESOURCE-02, RESOURCE-03, RESOURCE-06)
+  - [x] 40-01-PLAN.md — createResourceService factory (H-03 guard) + resource:fetch capability + resolve.ts + runtime.ts nubDispatch.registerNub('resource', ...) + shell-init CANONICAL_NUB_DOMAINS extension + shell barrel re-export of provisional-resource wire types + changeset (RESOURCE-01, RESOURCE-02, RESOURCE-03, RESOURCE-06)
   - [ ] 40-02-PLAN.md — resource-demo napplet scaffolding + demo-data.json fixture + shell-host.ts wiring (services.resource + DEMO_NAPPLETS[12] + CLASS_BY_DTAG[12]) + main.ts auto-grant fixture (D3) (RESOURCE-04)
   - [ ] 40-03-PLAN.md — SHELL-RESOURCE-POLICY.md + README Policies section + nub-resource.spec.ts (2 tests) + class-invariant.spec.ts extension (8→10 domains) + canonical phase-close iteration loop recording 71/0/0 (RESOURCE-05, E2E-25, DOCS-07, E2E-20)
 
@@ -134,7 +134,7 @@
 | 37. SPEC Resync + Foundation Gates | 2/2 | Complete    | 2026-04-24 |
 | 38. NUB-CLASS Adoption | 3/3 | Complete    | 2026-04-24 |
 | 39. NUB-CONNECT + NUB-CONFIG | 5/5 | Complete    | 2026-04-24 |
-| 40. NUB-RESOURCE + Demo Napplets + Policy Docs | 0/3 | Not started | - |
+| 40. NUB-RESOURCE + Demo Napplets + Policy Docs | 1/3 | In Progress|  |
 | 41. Polish Wave | 0/? | Not started | - |
 | 42. NIP-44 Decrypt (soft-gated) | 0/? | Not started | - |
 

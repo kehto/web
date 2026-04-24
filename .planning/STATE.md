@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: NIP-5D Spec Adoption & New NUB Domains
-status: planning
-last_updated: "2026-04-24T15:39:03.648Z"
+status: executing
+last_updated: "2026-04-24T16:08:44.493Z"
 last_activity: 2026-04-24
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 10
-  completed_plans: 10
+  total_plans: 13
+  completed_plans: 11
   percent: 100
 ---
 
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-24, v1.7 kicked off)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 39 — NUB-CONNECT + NUB-CONFIG
+**Current focus:** Phase 40 — NUB-RESOURCE + Demo Napplets + Policy Docs
 
 ## Current Position
 
-Phase: 39 (NUB-CONNECT + NUB-CONFIG) — EXECUTING
-Plan: 1 of 5
+Phase: 40 (NUB-RESOURCE + Demo Napplets + Policy Docs) — EXECUTING
+Plan: 2 of 3
 **Milestone:** v1.7 NIP-5D Spec Adoption & New NUB Domains
 **Phase:** 40
-**Plan:** Not started
-**Status:** Ready to plan
+**Plan:** 40-01 COMPLETE, 40-02 next
+**Status:** Executing Phase 40
 **Last activity:** 2026-04-24
 
 Progress: [██████████] 100%
@@ -84,5 +84,5 @@ Full decision log (v1.0 → v1.6) archived in `.planning/PROJECT.md` Key Decisio
 
 ## Session Continuity
 
-Last session: 2026-04-24T15:33:32.657Z
-Resume: Completed 38-02-PLAN.md. Phase 38 Plan 38-03 (class-invariant.spec.ts) is next.
+Last session: 2026-04-24T16:08:44.490Z
+Resume: Completed 40-01-PLAN.md. Phase 40 Plan 40-02 (resource-demo napplet) is next.
