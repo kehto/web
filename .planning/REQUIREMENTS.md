@@ -106,8 +106,8 @@ Per-napplet Content-Security-Policy `connect-src` enforcement via shell HTTP-hea
 
 NIP66-05 left the `ShellAdapter.getNip66Suggestions()` hook wired to `() => null`. v1.7 makes it live against `createNip66Aggregator` + a mock kind-30166 fixture in the demo relay pool.
 
-- [ ] **NIP66-06**: `Nip66Aggregator` interface exported from `@kehto/nip66` gains a `stop(): void` method; implementation disposes of its pool subscription + timers. Added to the 5-symbol locked public API + tested via Vitest (M-03 prevention — resource leak).
-- [ ] **NIP66-07**: `apps/demo/src/mock-relay-pool.ts` extended to emit 2–3 fixture `kind:30166` relay discovery events; `apps/demo/shell-host.ts` wires `getNip66Suggestions` to an instance of `createNip66Aggregator` with the demo mock pool. Live suggestions flow into the feed or relay-config surface visible to the user.
+- [x] **NIP66-06**: `Nip66Aggregator` interface exported from `@kehto/nip66` gains a `stop(): void` method; implementation disposes of its pool subscription + timers. Added to the 5-symbol locked public API + tested via Vitest (M-03 prevention — resource leak).
+- [x] **NIP66-07**: `apps/demo/src/mock-relay-pool.ts` extended to emit 2–3 fixture `kind:30166` relay discovery events; `apps/demo/shell-host.ts` wires `getNip66Suggestions` to an instance of `createNip66Aggregator` with the demo mock pool. Live suggestions flow into the feed or relay-config surface visible to the user.
 
 ### Category 7: @kehto/wm Structural Primitives (WM — continued from v1.6 WM-03)
 
