@@ -12,16 +12,16 @@
 ### Bug fixes
 
 - [x] **BUG-01**: `apps/playground/index.html` references vendored `/vendor/leader-line.min.js` (not `/node_modules/`) so topology connector lines render in both `pnpm dev` and `pnpm preview` — **completed in commit `4f02c1e` (2026-05-20) prior to milestone kickoff**
-- [ ] **BUG-02**: Playwright regression spec asserts ≥1 `LeaderLine` instance is created against the built preview playground (`tests/e2e/topology-lines.spec.ts`)
+- [x] **BUG-02**: Playwright regression spec asserts ≥1 `LeaderLine` instance is created against the built preview playground (`tests/e2e/topology-lines.spec.ts`)
 
 ### Polish
 
-- [ ] **POLISH-01**: `apps/playground/napplets/resource-demo/index.html:61` h2 label reads `:4174` (matches actual GRANTED_URL)
+- [x] **POLISH-01**: `apps/playground/napplets/resource-demo/index.html:61` h2 label reads `:4174` (matches actual GRANTED_URL)
 
 ### Renames
 
-- [ ] **RENAME-01**: `SessionEntry.identitySource: 'auth' | 'source'` discriminant renamed to a domain-meaningful name; migration note in changeset
-- [ ] **RENAME-02**: `bridge.injectEvent('auth:identity-changed', ...)` shell hook renamed; migration note in changeset
+- [x] **RENAME-01**: `SessionEntry.identitySource: 'auth' | 'source'` discriminant renamed to a domain-meaningful name; migration note in changeset
+- [x] **RENAME-02**: `bridge.injectEvent('auth:identity-changed', ...)` shell hook renamed; migration note in changeset
 
 ### Validation
 
@@ -105,11 +105,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BUG-01 | Phase 42 | Pending |
-| BUG-02 | Phase 42 | Pending |
-| POLISH-01 | Phase 42 | Pending |
-| RENAME-01 | Phase 42 | Pending |
-| RENAME-02 | Phase 42 | Pending |
+| BUG-01 | Phase 42 | Complete (shipped pre-kickoff in `4f02c1e`) |
+| BUG-02 | Phase 42 | Complete |
+| POLISH-01 | Phase 42 | Complete |
+| RENAME-01 | Phase 42 | Complete |
+| RENAME-02 | Phase 42 | Complete |
 | VALIDATE-01 | Phase 43 | Pending |
 | DEP-01 | Phase 44 | Pending |
 | DEP-02 | Phase 44 | Pending |
@@ -140,4 +140,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-05-20*
-*Last updated: 2026-05-20 — BUG-01 marked complete (shipped pre-kickoff in commit `4f02c1e`); `apps/demo` → `apps/playground` rename reflected (commit `4208d91`)*
+*Last updated: 2026-05-20 — Phase 42 complete (BUG-01 pre-kickoff via `4f02c1e`; BUG-02 + POLISH-01 + RENAME-01 + RENAME-02 via Phase 42 plans). 5/27 requirements complete.*
