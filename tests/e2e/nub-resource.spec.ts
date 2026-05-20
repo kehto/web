@@ -10,7 +10,7 @@
  *
  * Runs against the built :4174 demo (pnpm test:serve:demo) so CSP headers
  * and Vite middleware (Phase 39 Plan 39-03) are active — the auto-grant
- * in apps/demo/src/main.ts (RESOURCE-04 / D3) syncs http://localhost:5174
+ * in apps/playground/src/main.ts (RESOURCE-04 / D3) syncs http://localhost:5174
  * to connectStore + POSTs to /__connect-grants before the resource-demo
  * iframe loads, so the CSP header on its HTML response includes localhost:5174.
  *
@@ -35,7 +35,7 @@ test.describe('NUB-RESOURCE round-trip (E2E-25 / RESOURCE-05)', () => {
     const resourceFrame = page.frameLocator('#resource-demo-frame-container iframe');
     const grantedEl = resourceFrame.locator('#resource-demo-granted');
 
-    // The fixture payload (apps/demo/public/demo-data.json) includes "kehto demo".
+    // The fixture payload (apps/playground/public/demo-data.json) includes "kehto demo".
     // This asserts the full shell-proxied round trip: napplet dispatch -> runtime
     // enforce gate (allow, resource:fetch granted by demo-boot grant via ACL) ->
     // createResourceService.handleMessage -> getConnectGrants(resource-demo, '')

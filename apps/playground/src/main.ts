@@ -344,7 +344,7 @@ window.addEventListener('message', (event: MessageEvent) => {
   if (!themeTyped.colors || typeof themeTyped.colors.background !== 'string') return;
   // relay is the ShellBridge — publishTheme fan-outs theme.changed to every registered napplet.
   // Type cast via ShellBridge['publishTheme'] parameter to avoid direct @napplet/nub/theme import
-  // in the demo app (the nub subpath is covered by @kehto/shell's peer dep, not apps/demo directly).
+  // in the demo app (the nub subpath is covered by @kehto/shell's peer dep, not apps/playground directly).
   relay.publishTheme(themeTyped as Parameters<typeof relay.publishTheme>[0]);
   debuggerEl?.addSystemMessage(`theme broadcast — bg: ${themeTyped.colors.background}`);
 });
@@ -725,7 +725,7 @@ window.addEventListener('shell:connect-revoked', (event) => {
 // Defensive null-check guards against future file reorders.
 //
 // Phase 40 Plan 40-03 fix: uses 4174 (demo server) not 5174 (napplet dev server)
-// because demo-data.json is served from apps/demo/public/ at the demo origin.
+// because demo-data.json is served from apps/playground/public/ at the demo origin.
 // In preview mode (E2E), no server runs at 5174; the fixture is at /demo-data.json
 // on the same 4174 origin that serves the built demo.
 //

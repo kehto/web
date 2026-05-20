@@ -7,8 +7,8 @@
  */
 
 import { describe, expect, it, beforeEach } from 'vitest';
-import { DemoConfig, demoConfig } from '../../apps/demo/src/demo-config.ts';
-import type { ConstantDef } from '../../apps/demo/src/demo-config.ts';
+import { DemoConfig, demoConfig } from '../../apps/playground/src/demo-config.ts';
+import type { ConstantDef } from '../../apps/playground/src/demo-config.ts';
 
 // ─── DemoConfig data model ────────────────────────────────────────────────────
 
@@ -161,7 +161,7 @@ describe('DemoConfig data model', () => {
 
 // Import renderConstantsPanel — the function returns a pure HTML string;
 // no DOM access happens during rendering, so node environment is fine.
-import { renderConstantsPanel } from '../../apps/demo/src/constants-panel.ts';
+import { renderConstantsPanel } from '../../apps/playground/src/constants-panel.ts';
 
 describe('renderConstantsPanel()', () => {
   let html: string;

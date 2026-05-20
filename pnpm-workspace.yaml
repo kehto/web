@@ -1,6 +1,6 @@
 packages:
   - packages/*
   - apps/*
-  - apps/demo/napplets/*
+  - apps/playground/napplets/*
   - tests/fixtures/napplets/*
   - tests/e2e/harness

@@ -9,8 +9,8 @@
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { DemoConfig } from '../../apps/demo/src/demo-config.ts';
-import type { ConstantDef } from '../../apps/demo/src/demo-config.ts';
+import { DemoConfig } from '../../apps/playground/src/demo-config.ts';
+import type { ConstantDef } from '../../apps/playground/src/demo-config.ts';
 import { createEventBuffer, RING_BUFFER_SIZE } from '../../packages/runtime/src/event-buffer.ts';
 import { createReplayDetector } from '../../packages/runtime/src/replay.ts';
 import type { RuntimeConfigOverrides } from '../../packages/runtime/src/types.ts';

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { buildDemoTopology, renderDemoTopology } from '../../apps/demo/src/topology.ts';
-import type { SignerConnectionStateView } from '../../apps/demo/src/topology.ts';
+import { buildDemoTopology, renderDemoTopology } from '../../apps/playground/src/topology.ts';
+import type { SignerConnectionStateView } from '../../apps/playground/src/topology.ts';
 
 describe('demo topology render output', () => {
   const topology = buildDemoTopology({
@@ -48,7 +48,7 @@ describe('demo topology render output', () => {
   });
 
   it('replaces the old merged label and preserves the bottom debugger shell in index.html', () => {
-    const html = readFileSync(resolve(process.cwd(), 'apps/demo/index.html'), 'utf8');
+    const html = readFileSync(resolve(process.cwd(), 'apps/playground/index.html'), 'utf8');
 
     expect(html).not.toContain('shell / acl');
     expect(html).not.toContain('rotate(90deg)');
@@ -154,7 +154,7 @@ describe('signer node rendering states', () => {
   });
 
   it('renders the signer connect modal in index.html', () => {
-    const html = readFileSync(resolve(process.cwd(), 'apps/demo/index.html'), 'utf8');
+    const html = readFileSync(resolve(process.cwd(), 'apps/playground/index.html'), 'utf8');
 
     expect(html).toContain('id="signer-connect-modal"');
     expect(html).toContain('data-action="close-signer-modal"');

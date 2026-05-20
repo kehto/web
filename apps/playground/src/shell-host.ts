@@ -196,7 +196,7 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
   // Phase 26 (Plan 26-03): hotkey-chord napplet exercises the real keys backend
   // (KEYS-01 document-level chord listener + keys.action push + KEYS-02
   // HostKeysBridge interface). topology.ts:466 dynamically renders
-  // #hotkey-chord-frame-container from this entry — no apps/demo/index.html
+  // #hotkey-chord-frame-container from this entry — no apps/playground/index.html
   // edit required. statusId matches the INNER iframe sentinel from
   // napplets/hotkey-chord/index.html; Layer-B spec (26-04) asserts via
   // frameLocator, not the outer placeholder.
@@ -210,7 +210,7 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
   // Phase 27 (Plan 27-03): media-controller napplet exercises the real media
   // backend (MEDIA-01 navigator.mediaSession mirror + MEDIA-02 HostMediaBridge
   // interface). topology.ts dynamically renders #media-controller-frame-container
-  // from this entry — no apps/demo/index.html edit required (Plan 26-03 precedent).
+  // from this entry — no apps/playground/index.html edit required (Plan 26-03 precedent).
   // statusId matches the INNER iframe sentinel from napplets/media-controller/index.html;
   // Layer-B spec (27-04) asserts via frameLocator, not the outer placeholder.
   {
@@ -521,7 +521,7 @@ function createMessageTap(): MessageTap {
 
 /**
  * CONTEXT D-USER-01 (Phase 20): ShellAdapter.relayPool is backed by the in-memory
- * mock pool (apps/demo/src/mock-relay-pool.ts) rather than the old no-op stub. This
+ * mock pool (apps/playground/src/mock-relay-pool.ts) rather than the old no-op stub. This
  * unblocks the feed napplet (NAP-06) — on relay.subscribe({kinds:[1]}) the pool
  * emits 5 fixture events then EOSE. relay.publish events are stored in-memory
  * only (no network traffic). Demo-only; not part of any @kehto/* package.
@@ -542,7 +542,7 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
   // Layer-B Playwright spec (`tests/e2e/reserved-chord.spec.ts`) can assert the
   // reserved > registered precedence contract end-to-end. The hotkey-chord napplet
   // registers `Ctrl+Shift+K` via `keys.registerAction`
-  // (apps/demo/napplets/hotkey-chord/src/main.ts:25) — disjoint from the reserved
+  // (apps/playground/napplets/hotkey-chord/src/main.ts:25) — disjoint from the reserved
   // set, so the existing hotkey-chord E2E (E2E-12) is unaffected. The shell-side
   // sentinel `#reserved-chord-last-fired` is updated on every onForward fire so
   // the E2E can observe forward delivery without needing a frameLocator round-trip.
@@ -702,7 +702,7 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
     // CONTEXT D-USER-01 (Phase 20): in-memory mock relay pool holding 5 kind:1 fixture
     // events. On relay.subscribe({kinds:[1]}) emits matching events then EOSE; on
     // relay.publish stores the event in an in-memory array. Demo-only seam; no real
-    // relay traffic. See apps/demo/src/mock-relay-pool.ts for the implementation.
+    // relay traffic. See apps/playground/src/mock-relay-pool.ts for the implementation.
     relayPool: createMockRelayPool(),
     relayConfig: {
       addRelay: () => {},
@@ -934,7 +934,7 @@ export function getNapplet(windowId: string): NappletInfo | undefined { return n
  * Look up the windowId for a napplet by its dTag (DEMO_NAPPLETS entry `name`).
  * Returns null if the napplet is not yet loaded or not yet authenticated.
  *
- * Exposed for apps/demo/src/main.ts __setNappletClass__ test hook (D9).
+ * Exposed for apps/playground/src/main.ts __setNappletClass__ test hook (D9).
  * Callers MUST NOT mutate napplet state through this helper — read-only lookup only.
  */
 export function findAuthenticatedNappletWindowIdByDTag(dTag: string): string | null {
@@ -1031,7 +1031,7 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
     originalUnregisterService(name);
   };
 
-  // Phase 39 Plan 39-04: consent handler is registered in apps/demo/src/main.ts
+  // Phase 39 Plan 39-04: consent handler is registered in apps/playground/src/main.ts
   // via createConsentModal().registerWith(relay, fallthroughHandler). The prior
   // setTimeout(500) auto-approve for destructive-signing is preserved as the
   // fallthrough parameter. Centralizing the registration avoids the runtime.ts

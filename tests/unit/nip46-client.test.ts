@@ -3,7 +3,7 @@ import {
   parseBunkerUri,
   buildNostrConnectUri,
   createNip46Client,
-} from '../../apps/demo/src/nip46-client.ts';
+} from '../../apps/playground/src/nip46-client.ts';
 
 // ─── parseBunkerUri ───────────────────────────────────────────────────────────
 
@@ -187,7 +187,7 @@ describe('connectNip46() state transitions', () => {
 
   it('connectNip46() sets error when WebSocket connection fails', async () => {
     const { connectNip46, getSignerConnectionState, disconnectSigner } = await import(
-      '../../apps/demo/src/signer-connection.ts'
+      '../../apps/playground/src/signer-connection.ts'
     );
     // Ensure clean state
     disconnectSigner();

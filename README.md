@@ -10,10 +10,10 @@ SDK (core/shim/sdk/vite-plugin) lives in the @napplet repo; kehto is the runtime
 
 ## Current milestone: v1.3 — Demo Functional & Playwright Parity
 
-The [`apps/demo`](./apps/demo) application is the reference integration. It:
+The [`apps/playground`](./apps/playground) application is the reference integration. It:
 
 - Boots a full NIP-5D shell at `http://localhost:4174` with all 8 service topology nodes live.
-- Hosts 8 domain napplets under `apps/demo/napplets/`: `bot`, `chat`, `composer`, `preferences`,
+- Hosts 8 domain napplets under `apps/playground/napplets/`: `bot`, `chat`, `composer`, `preferences`,
   `toaster`, `feed`, `profile-viewer`, `theme-switcher` — each exercising a single NUB domain end-to-end.
 - Is covered by a two-tier Playwright suite: Layer A (harness at `:4173`, per-nub fixture specs) +
   Layer B (demo at `:4174`, UX integration specs). Full suite green under 5 minutes.
@@ -55,7 +55,7 @@ const shell = createShellBridge({
 });
 ```
 
-See [`apps/demo/src/shell-host.ts`](./apps/demo/src/shell-host.ts) for the full canonical example
+See [`apps/playground/src/shell-host.ts`](./apps/playground/src/shell-host.ts) for the full canonical example
 (including the `createDemoHooks()` adapter factory and per-domain service registration).
 
 ## Policies

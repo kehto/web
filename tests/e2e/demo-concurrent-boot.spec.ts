@@ -8,7 +8,7 @@
  *
  * Pre-Phase-29 regression shape (for future debugging): chat + bot hit
  * authenticated in ~2s; the other 8 napplets stalled on 'loading…'
- * because apps/demo/src/main.ts:refreshAclPanelsIfNeeded() had a stale
+ * because apps/playground/src/main.ts:refreshAclPanelsIfNeeded() had a stale
  * `aclRendered.size < 8` guard that blocked per-napplet AUTH label
  * updates once the set grew past 8. Plan 29-01 rewrote it as a data-
  * driven loop over DEMO_NAPPLETS; this spec prevents the shape from
@@ -27,7 +27,7 @@ test.describe.configure({ mode: 'serial' });
 
 const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]/;
 
-// Mirrors apps/demo/src/shell-host.ts:DEMO_NAPPLETS statusId fields.
+// Mirrors apps/playground/src/shell-host.ts:DEMO_NAPPLETS statusId fields.
 // Keep this list in sync if a new napplet is added (v1.5 locks the 10-napplet roster).
 const NAPPLETS = [
   { name: 'bot',              statusId: 'bot-status' },

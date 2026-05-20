@@ -204,7 +204,7 @@ function loadNapplet(name: string, params?: Record<string, string>): string {
 
   // NIP-5D session entry factory. Called immediately + on 'load' (in case
   // contentWindow reference changes across navigations in Chromium).
-  // Pattern mirrors apps/demo/src/shell-host.ts registerSessionEntry().
+  // Pattern mirrors apps/playground/src/shell-host.ts registerSessionEntry().
   function registerSessionEntry(): void {
     const entry: SessionEntry = {
       pubkey: '',

@@ -36,8 +36,11 @@ importers:
         specifier: ^4.1.2
         version: 4.1.2(jiti@2.6.1)(yaml@2.8.3)
 
-  apps/demo:
+  apps/playground:
     dependencies:
+      '@kehto/nip66':
+        specifier: workspace:*
+        version: link:../../packages/nip66
       '@kehto/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -70,7 +73,7 @@ importers:
         specifier: ^6.3.0
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
-  apps/demo/napplets/bot:
+  apps/playground/napplets/bot:
     dependencies:
       '@napplet/sdk':
         specifier: ^0.2.1
@@ -89,7 +92,7 @@ importers:
         specifier: ^6.3.0
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
-  apps/demo/napplets/chat:
+  apps/playground/napplets/chat:
     dependencies:
       '@napplet/sdk':
         specifier: ^0.2.1
@@ -108,7 +111,7 @@ importers:
         specifier: ^6.3.0
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
-  apps/demo/napplets/composer:
+  apps/playground/napplets/composer:
     dependencies:
       '@napplet/sdk':
         specifier: ^0.2.1
@@ -127,7 +130,7 @@ importers:
         specifier: ^6.3.0
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
-  apps/demo/napplets/config-demo:
+  apps/playground/napplets/config-demo:
     dependencies:
       '@napplet/sdk':
         specifier: ^0.2.1
@@ -146,7 +149,7 @@ importers:
         specifier: ^6.3.0
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
-  apps/demo/napplets/feed:
+  apps/playground/napplets/feed:
     dependencies:
       '@napplet/sdk':
         specifier: ^0.2.1
@@ -165,7 +168,7 @@ importers:
         specifier: ^6.3.0
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
-  apps/demo/napplets/hotkey-chord:
+  apps/playground/napplets/hotkey-chord:
     dependencies:
       '@napplet/sdk':
         specifier: ^0.2.1
@@ -184,7 +187,7 @@ importers:
         specifier: ^6.3.0
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
-  apps/demo/napplets/media-controller:
+  apps/playground/napplets/media-controller:
     dependencies:
       '@napplet/nub':
         specifier: ^0.2.1
@@ -206,7 +209,7 @@ importers:
         specifier: ^6.3.0
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
-  apps/demo/napplets/preferences:
+  apps/playground/napplets/preferences:
     dependencies:
       '@napplet/sdk':
         specifier: ^0.2.1
@@ -225,7 +228,7 @@ importers:
         specifier: ^6.3.0
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
-  apps/demo/napplets/profile-viewer:
+  apps/playground/napplets/profile-viewer:
     dependencies:
       '@napplet/sdk':
         specifier: ^0.2.1
@@ -244,7 +247,7 @@ importers:
         specifier: ^6.3.0
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
-  apps/demo/napplets/resource-demo:
+  apps/playground/napplets/resource-demo:
     dependencies:
       '@napplet/sdk':
         specifier: ^0.2.1
@@ -263,7 +266,7 @@ importers:
         specifier: ^6.3.0
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
-  apps/demo/napplets/theme-switcher:
+  apps/playground/napplets/theme-switcher:
     dependencies:
       '@napplet/sdk':
         specifier: ^0.2.1
@@ -282,7 +285,7 @@ importers:
         specifier: ^6.3.0
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
-  apps/demo/napplets/toaster:
+  apps/playground/napplets/toaster:
     dependencies:
       '@napplet/sdk':
         specifier: ^0.2.1

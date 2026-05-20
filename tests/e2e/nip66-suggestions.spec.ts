@@ -5,7 +5,7 @@
  * Runs against the built :4174 demo (pnpm test:serve:demo). Locks the
  * NIP66-06/07 contract: the shell chrome panel `#nip66-suggestions-list`
  * surfaces relay URLs from `createNip66Aggregator` fed by 3 kind-30166
- * fixtures in `apps/demo/src/mock-relay-pool.ts`.
+ * fixtures in `apps/playground/src/mock-relay-pool.ts`.
  *
  * Anti-features verified:
  *   - M-03 (SimplePool resource leak): the aggregator is instantiated inside

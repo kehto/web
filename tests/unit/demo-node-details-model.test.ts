@@ -6,13 +6,13 @@
  */
 
 import { describe, expect, it, beforeEach } from 'vitest';
-import { buildDemoTopology } from '../../apps/demo/src/topology.ts';
+import { buildDemoTopology } from '../../apps/playground/src/topology.ts';
 import {
   buildNodeDetails,
   buildAllNodeDetails,
   getNodeActivity,
-} from '../../apps/demo/src/node-details.ts';
-import type { NodeDetailOptions } from '../../apps/demo/src/node-details.ts';
+} from '../../apps/playground/src/node-details.ts';
+import type { NodeDetailOptions } from '../../apps/playground/src/node-details.ts';
 
 const TEST_TOPOLOGY = buildDemoTopology({
   hostPubkey: 'test-host-pubkey-0123456789abcdef',
@@ -260,7 +260,7 @@ describe('recentActivity', () => {
   });
 
   it('installActivityProjection is exported from node-details', async () => {
-    const mod = await import('../../apps/demo/src/node-details.ts');
+    const mod = await import('../../apps/playground/src/node-details.ts');
     expect(typeof mod.installActivityProjection).toBe('function');
   });
 

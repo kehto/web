@@ -8,11 +8,11 @@
     "build:napplets": {
       "dependsOn": ["^build"],
       "outputs": [
-        "apps/demo/napplets/*/dist/**",
+        "apps/playground/napplets/*/dist/**",
         "tests/fixtures/napplets/*/dist/**"
       ]
     },
-    "@kehto/demo#build": {
+    "@kehto/playground#build": {
       "dependsOn": ["^build", "build:napplets"],
       "outputs": ["dist/**"]
     },

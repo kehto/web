@@ -30,7 +30,7 @@ export default defineConfig({
       timeout: 60000,
     },
     {
-      command: 'pnpm --filter @kehto/demo preview --port 4174',
+      command: 'pnpm --filter @kehto/playground preview --port 4174',
       url: 'http://localhost:4174',
       reuseExistingServer: !process.env.CI,
       timeout: 60000,

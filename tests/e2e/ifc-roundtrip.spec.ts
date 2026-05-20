@@ -39,7 +39,7 @@ test('chat input triggers ipc envelope; bot reply appears in chat messages', asy
 
   // Trigger the round trip: type "hello" in chat, click send.
   // Bot's findResponse returns "hey there!" for any text containing "hello"/"hi"
-  // (per apps/demo/napplets/bot/src/main.ts findResponse logic, preserved by Plan 18-01).
+  // (per apps/playground/napplets/bot/src/main.ts findResponse logic, preserved by Plan 18-01).
   await chatFrame.locator('#msg-input').fill('hello');
   await chatFrame.locator('#send-btn').click();
 

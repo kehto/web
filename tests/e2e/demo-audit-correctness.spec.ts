@@ -59,7 +59,7 @@ test.describe.configure({ mode: 'serial' });
 test.beforeAll(async () => {
   demoServer = spawn(
     'pnpm',
-    ['--filter', '@kehto/demo', 'exec', 'vite', '--host', '127.0.0.1', '--port', '4174', '--strictPort'],
+    ['--filter', '@kehto/playground', 'exec', 'vite', '--host', '127.0.0.1', '--port', '4174', '--strictPort'],
     { cwd: PROJECT_ROOT, stdio: 'pipe' },
   );
 

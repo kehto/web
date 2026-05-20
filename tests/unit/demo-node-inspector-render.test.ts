@@ -14,9 +14,9 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { buildDemoTopology, renderDemoTopology } from '../../apps/demo/src/topology.ts';
+import { buildDemoTopology, renderDemoTopology } from '../../apps/playground/src/topology.ts';
 
-const HTML_PATH = resolve(process.cwd(), 'apps/demo/index.html');
+const HTML_PATH = resolve(process.cwd(), 'apps/playground/index.html');
 
 function loadHtml(): string {
   return readFileSync(HTML_PATH, 'utf8');
@@ -127,10 +127,10 @@ describe('inspector sections — current state and recent activity', () => {
     // Verify the module source references both required section headings
     const { readFileSync: rfs } = require('node:fs');
     const { resolve: r } = require('node:path');
-    const src = rfs(r(process.cwd(), 'apps/demo/src/node-inspector.ts'), 'utf8');
+    const src = rfs(r(process.cwd(), 'apps/playground/src/node-inspector.ts'), 'utf8');
     expect(src).toContain('Recent Activity');
     // "Current State" comes from node-details inspectorSections — referenced in the same render pipeline
-    const detailSrc = rfs(r(process.cwd(), 'apps/demo/src/node-details.ts'), 'utf8');
+    const detailSrc = rfs(r(process.cwd(), 'apps/playground/src/node-details.ts'), 'utf8');
     expect(detailSrc).toContain('Current State');
   });
 });

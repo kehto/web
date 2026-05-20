@@ -12,7 +12,7 @@
     "test:e2e": "pnpm test:build && npx playwright test",
     "test:build": "pnpm build",
     "test:serve": "pnpm --filter @test/harness dev",
-    "test:serve:demo": "pnpm --filter @kehto/demo preview --port 4174",
+    "test:serve:demo": "pnpm --filter @kehto/playground preview --port 4174",
     "lint": "turbo run lint",
     "version-packages": "changeset version",
     "publish-packages": "turbo run build && changeset publish"

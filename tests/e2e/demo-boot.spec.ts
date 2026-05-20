@@ -4,7 +4,7 @@
  * Asserts: topology renders 8 service nodes, STUB_ONLY_SERVICES is now empty
  * — both keys (graduated to real-backend in Phase 26) and media (graduated in
  * Phase 27) are now backed by real implementations; see STUB_ONLY_SERVICES in
- * apps/demo/src/shell-host.ts. No anti-term (window.nostr / signer-service /
+ * apps/playground/src/shell-host.ts. No anti-term (window.nostr / signer-service /
  * BusKind / AUTH_KIND / kind === 29001/29002) appears in console output.
  */
 import { test, expect } from '@playwright/test';

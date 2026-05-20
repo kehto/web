@@ -5,7 +5,7 @@ import {
   getRuntimeNodeId,
   getServiceNodeId,
   getShellNodeId,
-} from '../../apps/demo/src/topology.ts';
+} from '../../apps/playground/src/topology.ts';
 
 describe('demo topology model', () => {
   const topology = buildDemoTopology({

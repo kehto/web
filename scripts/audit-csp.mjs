@@ -7,7 +7,7 @@
  * HTML file is a build-breaker -- napplet developers must not set CSP via
  * meta tags (canonical NUB-CONNECT forbids it; shell emits HTTP headers).
  *
- * Scope (D14): apps/demo/napplets/{name}/dist/index.html for each napplet
+ * Scope (D14): apps/playground/napplets/{name}/dist/index.html for each napplet
  * directory -- napplet build outputs only, not the demo-app's own dist.
  *
  * Whitelist (D15): none. ANY matching tag fails the build.
@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const repoRoot = resolve(__dirname, '..');
-const nappletsDir = join(repoRoot, 'apps', 'demo', 'napplets');
+const nappletsDir = join(repoRoot, 'apps', 'playground', 'napplets');
 
 // Case-insensitive meta-CSP tag matcher. Matches:
 //   <meta http-equiv="Content-Security-Policy" ...>

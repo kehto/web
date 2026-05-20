@@ -4,7 +4,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 describe('signer-connection.ts — basic state model', () => {
   it('exports getSignerConnectionState with initial disconnected state', async () => {
-    const { getSignerConnectionState } = await import('../../apps/demo/src/signer-connection.ts');
+    const { getSignerConnectionState } = await import('../../apps/playground/src/signer-connection.ts');
     const state = getSignerConnectionState();
     // Initial method may be 'none' unless previous tests left it in a different state
     // Just assert the shape is correct
@@ -15,13 +15,13 @@ describe('signer-connection.ts — basic state model', () => {
   });
 
   it('getSigner() returns null when no signer is connected', async () => {
-    const { getSigner, disconnectSigner } = await import('../../apps/demo/src/signer-connection.ts');
+    const { getSigner, disconnectSigner } = await import('../../apps/playground/src/signer-connection.ts');
     disconnectSigner(); // ensure clean state
     expect(getSigner()).toBeNull();
   });
 
   it('onStateChange() returns an unsubscribe function', async () => {
-    const { onStateChange } = await import('../../apps/demo/src/signer-connection.ts');
+    const { onStateChange } = await import('../../apps/playground/src/signer-connection.ts');
     const cb = vi.fn();
     const unsub = onStateChange(cb);
     expect(typeof unsub).toBe('function');
@@ -30,7 +30,7 @@ describe('signer-connection.ts — basic state model', () => {
 
   it('onStateChange() callback fires when state changes via recordSignerRequest()', async () => {
     const { onStateChange, recordSignerRequest, disconnectSigner } = await import(
-      '../../apps/demo/src/signer-connection.ts'
+      '../../apps/playground/src/signer-connection.ts'
     );
     disconnectSigner();
     const cb = vi.fn();
@@ -52,7 +52,7 @@ describe('signer-connection.ts — basic state model', () => {
 describe('recordSignerRequest() — ring buffer behavior', () => {
   it('caps recentRequests at 20 records', async () => {
     const { recordSignerRequest, getSignerConnectionState, disconnectSigner } = await import(
-      '../../apps/demo/src/signer-connection.ts'
+      '../../apps/playground/src/signer-connection.ts'
     );
     disconnectSigner(); // clear existing records
 
@@ -67,7 +67,7 @@ describe('recordSignerRequest() — ring buffer behavior', () => {
 
   it('retains the most recent records when at capacity', async () => {
     const { recordSignerRequest, getSignerConnectionState, disconnectSigner } = await import(
-      '../../apps/demo/src/signer-connection.ts'
+      '../../apps/playground/src/signer-connection.ts'
     );
     disconnectSigner();
 
@@ -98,7 +98,7 @@ describe('connectNip07() state transitions', () => {
   it('sets error when window.nostr is not available', async () => {
     vi.stubGlobal('window', {});
     const { connectNip07, getSignerConnectionState, disconnectSigner } = await import(
-      '../../apps/demo/src/signer-connection.ts'
+      '../../apps/playground/src/signer-connection.ts'
     );
     disconnectSigner();
     await connectNip07();
@@ -125,7 +125,7 @@ describe('connectNip07() state transitions', () => {
     });
 
     const { connectNip07, disconnectSigner, getSignerConnectionState, getSigner } = await import(
-      '../../apps/demo/src/signer-connection.ts'
+      '../../apps/playground/src/signer-connection.ts'
     );
     await connectNip07();
     disconnectSigner();
@@ -140,7 +140,7 @@ describe('connectNip07() state transitions', () => {
 describe('getSignerInspectorDetail()', () => {
   it('returns the same shape as getSignerConnectionState', async () => {
     const { getSignerInspectorDetail, getSignerConnectionState } = await import(
-      '../../apps/demo/src/signer-connection.ts'
+      '../../apps/playground/src/signer-connection.ts'
     );
     const state = getSignerConnectionState();
     const detail = getSignerInspectorDetail();

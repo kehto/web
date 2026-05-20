@@ -44,7 +44,7 @@ test('reserved chord Ctrl+Shift+R fires shell onForward and suppresses napplet k
   const hotkeyFrame = page.frameLocator('#hotkey-chord-frame-container iframe');
 
   // Step 1: wait for the hotkey-chord napplet to be fully subscribed. Its
-  // DEFAULT_KEY is 'Ctrl+Shift+K' (apps/demo/napplets/hotkey-chord/src/main.ts:25)
+  // DEFAULT_KEY is 'Ctrl+Shift+K' (apps/playground/napplets/hotkey-chord/src/main.ts:25)
   // which is NOT in the shell's reservedChords set (33-02 declares
   // ['Ctrl+Shift+R'] only). The 'subscribed' sentinel proves the SDK's
   // registerAction round-trip completed against the real backend.
@@ -72,7 +72,7 @@ test('reserved chord Ctrl+Shift+R fires shell onForward and suppresses napplet k
 
   // Step 5: assert the napplet DID NOT receive a keys.action envelope for
   // the reserved chord. Its counter MUST remain '0' and its last-chord
-  // MUST remain '—' (the initial value from apps/demo/napplets/hotkey-chord/index.html).
+  // MUST remain '—' (the initial value from apps/playground/napplets/hotkey-chord/index.html).
   // Note: hotkey-chord registers Ctrl+Shift+K, not Ctrl+Shift+R, so even
   // without the reservation gate the napplet would not receive keys.action
   // for Ctrl+Shift+R. This step primarily confirms that registration scope
