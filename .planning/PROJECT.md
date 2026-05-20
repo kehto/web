@@ -94,6 +94,7 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 
 ## Known Tech Debt (carried into next milestone)
 
+- **RENAME-02 soft-rename window (v1.8 → v1.9)** — `bridge.injectEvent('auth:identity-changed', …)` dual-emits both `'auth:identity-changed'` and `'identity:changed'` for one release (Plan 42-04). Hard-remove in v1.9; the deletion sweep can locate the branch by grepping for `remove this branch in v1.9` in `packages/shell/src/shell-bridge.ts`. Subscribers should migrate to `'identity:changed'` before v1.9.
 - **Phase 42 (NIP-44 decrypt) deferred from v1.7** — DECRYPT-01..03 + E2E-27 soft-gated on napplet/napplet#3 upstream NUB-surface decision between `relay.subscribeEncrypted` vs `identity.decrypt`. Issue remained OPEN with zero comments at v1.7 close. Ship at v1.8 if upstream resolves.
 - **Provisional-types retirement (single atomic swap)** — delete `packages/shell/src/types/provisional-{class,connect,resource}.ts` when upstream publishes `@napplet/nub@^0.3.0` (class+connect subpaths) and `^0.2.2` (resource subpath); swap imports to canonical paths.
 - **pnpm.overrides transitive pin** — `@napplet/nub>@napplet/core: ^0.2.1` workaround for upstream `@napplet/nub@0.2.1` publish-time workspace-specifier bug. Self-retires on upstream fix. SEED-001 tracks follow-up.

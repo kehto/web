@@ -196,3 +196,52 @@ describe('ShellBridge.publishTheme (TH-03, Plan 13-02)', () => {
     bridge.destroy();
   });
 });
+
+// ─── ShellBridge.injectEvent dual-emit (RENAME-02, Plan 42-04) ───────────────
+
+describe('ShellBridge.injectEvent dual-emit (RENAME-02)', () => {
+  it("dual-emits when called with the deprecated 'auth:identity-changed' topic", () => {
+    const bridge = createShellBridge(makeTestHooks());
+    const spy = vi.spyOn(bridge.runtime, 'injectEvent');
+
+    const payload = { pubkey: 'abc' };
+    bridge.injectEvent('auth:identity-changed', payload);
+
+    expect(spy.mock.calls).toEqual([
+      ['auth:identity-changed', payload],
+      ['identity:changed', payload],
+    ]);
+
+    spy.mockRestore();
+    bridge.destroy();
+  });
+
+  it("dual-emits when called with the canonical 'identity:changed' topic", () => {
+    const bridge = createShellBridge(makeTestHooks());
+    const spy = vi.spyOn(bridge.runtime, 'injectEvent');
+
+    const payload = { pubkey: 'def' };
+    bridge.injectEvent('identity:changed', payload);
+
+    expect(spy.mock.calls).toEqual([
+      ['auth:identity-changed', payload],
+      ['identity:changed', payload],
+    ]);
+
+    spy.mockRestore();
+    bridge.destroy();
+  });
+
+  it('forwards unrelated topics unchanged with no dual-emit', () => {
+    const bridge = createShellBridge(makeTestHooks());
+    const spy = vi.spyOn(bridge.runtime, 'injectEvent');
+
+    const payload = { data: 'hello' };
+    bridge.injectEvent('test:topic', payload);
+
+    expect(spy.mock.calls).toEqual([['test:topic', payload]]);
+
+    spy.mockRestore();
+    bridge.destroy();
+  });
+});
