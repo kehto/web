@@ -11,12 +11,12 @@
 
 ### Bug fixes
 
-- [ ] **BUG-01**: `apps/demo/index.html` references vendored `/vendor/leader-line.min.js` (not `/node_modules/`) so topology connector lines render in both `pnpm dev` and `pnpm preview`
-- [ ] **BUG-02**: Playwright regression spec asserts ≥1 `LeaderLine` instance is created against the built preview demo (`tests/e2e/topology-lines.spec.ts`)
+- [x] **BUG-01**: `apps/playground/index.html` references vendored `/vendor/leader-line.min.js` (not `/node_modules/`) so topology connector lines render in both `pnpm dev` and `pnpm preview` — **completed in commit `4f02c1e` (2026-05-20) prior to milestone kickoff**
+- [ ] **BUG-02**: Playwright regression spec asserts ≥1 `LeaderLine` instance is created against the built preview playground (`tests/e2e/topology-lines.spec.ts`)
 
 ### Polish
 
-- [ ] **POLISH-01**: `apps/demo/napplets/resource-demo/index.html:61` h2 label reads `:4174` (matches actual GRANTED_URL)
+- [ ] **POLISH-01**: `apps/playground/napplets/resource-demo/index.html:61` h2 label reads `:4174` (matches actual GRANTED_URL)
 
 ### Renames
 
@@ -52,7 +52,7 @@
 - [ ] **DECRYPT-06**: `enforce.ts` class-gate rejects `identity.decrypt` for class-2 napplets with `class-forbidden` BEFORE invoking signer (4 of 4 shell MUSTs — extends Decisions #23/24)
 - [ ] **DECRYPT-07**: Auto-detect router classifies event as NIP-04 / NIP-44-direct / NIP-17 gift-wrap and dispatches to matching decrypt path; unknown encryption returns `unsupported-encryption`
 - [ ] **DECRYPT-08**: `@kehto/services` ships an `identity.decrypt` reference service handler taking `{ getDecryptor }` host bridge (extends Decision #18 options-as-bridge pattern)
-- [ ] **DECRYPT-09**: 13th demo napplet `decrypt-demo` (class-1 posture) exercises NIP-04 + NIP-44 + NIP-17 decrypt round-trips with `__publishDecryptFixtures__` test hook
+- [ ] **DECRYPT-09**: 13th playground napplet `decrypt-demo` (class-1 posture; keeps `@kehto/demo-*` package family name) exercises NIP-04 + NIP-44 + NIP-17 decrypt round-trips with `__publishDecryptFixtures__` test hook
 - [ ] **DECRYPT-10**: Class-2 variant in `decrypt-demo` proves class-2 rejection produces `class-forbidden` (negative test path)
 
 ### E2E coverage
@@ -76,7 +76,7 @@ Deferred to v1.9 or beyond. Tracked but not in current roadmap.
 ### Capability deprecation sweep (DEPRECAP-*)
 
 - **DEPRECAP-01**: Grep kehto for `perm:strict-csp` references (deprecated on `NamespacedCapability` in upstream v0.29.0); migrate to `nub:connect` / `nub:class`
-- **DEPRECAP-02**: Inline-script audit across `apps/demo/napplets/*/index.html` for any `<script>` without `src` (upstream `@napplet/vite-plugin@0.29.0` breaks build on these; kehto uses its own plugin but contributors' napplets may not)
+- **DEPRECAP-02**: Inline-script audit across `apps/playground/napplets/*/index.html` for any `<script>` without `src` (upstream `@napplet/vite-plugin@0.29.0` breaks build on these; kehto uses its own plugin but contributors' napplets may not)
 
 ### Host bridge reference impls (BRIDGE-*)
 
@@ -134,10 +134,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | E2E-28 | Phase 46 | Pending |
 
 **Coverage:**
-- v1 requirements: 27 total
+- v1 requirements: 27 total (1 completed pre-kickoff: BUG-01)
 - Mapped to phases: 27
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-05-20*
-*Last updated: 2026-05-20 — traceability table filled by roadmapper (27/27 mapped across 5 phases)*
+*Last updated: 2026-05-20 — BUG-01 marked complete (shipped pre-kickoff in commit `4f02c1e`); `apps/demo` → `apps/playground` rename reflected (commit `4208d91`)*

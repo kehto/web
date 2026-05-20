@@ -37,8 +37,8 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 **Goal:** Consume `@napplet/nub@^0.3.0`, retire all provisional types, ship the canonical `identity.decrypt` surface, and clear v1.7 tech-debt carryovers.
 
 **Target features:**
-- Topology connector lines — commit working-tree leader-line vendoring fix + Playwright regression spec
-- Cosmetic: `resource-demo` h2 stale port label `:5174` → `:4174`
+- Topology connector lines — leader-line vendoring fix already shipped in commit `4f02c1e` pre-kickoff; remaining work is the Playwright regression spec
+- Cosmetic: `apps/playground/napplets/resource-demo/` h2 stale port label `:5174` → `:4174`
 - `identitySource: 'auth' | 'source'` discriminant rename (v1.6 carryover)
 - `bridge.injectEvent('auth:identity-changed', ...)` rename (v1.6 carryover)
 - Nyquist validation retroactive pass for v1.7 phases (37–41)

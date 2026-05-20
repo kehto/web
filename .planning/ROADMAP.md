@@ -41,8 +41,8 @@
 **Requirements**: BUG-01, BUG-02, POLISH-01, RENAME-01, RENAME-02
 **Rationale**: All five items are ungated (no `@napplet/nub@0.3.0` dependency), independent of each other, and small enough to ship together without serializing iteration loops. The leader-line bug already has a vendoring fix in the working tree; this phase commits it and adds the regression Playwright spec to prevent recurrence. The two renames are live API surfaces with external consumers (RENAME-01 affects `SessionEntry`, RENAME-02 affects `bridge.injectEvent`) — both require migration notes in their changesets.
 **Success Criteria** (what must be TRUE):
-  1. `apps/demo/index.html` references the vendored `/vendor/leader-line.min.js` path; topology connector lines render visibly in both `pnpm dev` AND `pnpm preview` (asserted by `tests/e2e/topology-lines.spec.ts` against the built `:4174` preview).
-  2. `apps/demo/napplets/resource-demo/index.html:61` h2 label reads `:4174` matching the actual `GRANTED_URL`; the stale `:5174` reference is gone.
+  1. `apps/playground/index.html` references the vendored `/vendor/leader-line.min.js` path (already shipped in commit `4f02c1e` pre-kickoff — BUG-01 verified-complete); topology connector lines render visibly in both `pnpm dev` AND `pnpm preview` (asserted by `tests/e2e/topology-lines.spec.ts` against the built `:4174` preview — BUG-02 is the remaining work).
+  2. `apps/playground/napplets/resource-demo/index.html:61` h2 label reads `:4174` matching the actual `GRANTED_URL`; the stale `:5174` reference is gone.
   3. `SessionEntry.identitySource: 'auth' | 'source'` is renamed to a domain-meaningful discriminant; consumer-facing changeset documents the rename with a migration note.
   4. `bridge.injectEvent('auth:identity-changed', ...)` is renamed; consumer-facing changeset documents the rename with a migration note.
   5. Canonical `pnpm clean && pnpm build && pnpm test:e2e` iteration loop closes at 73/0/0 (72 baseline + 1 new topology-lines spec).
