@@ -26,7 +26,7 @@
 ### Phases
 
 - [x] **Phase 42: Bug Fix + Polish + Rename Sweep** — Topology connector lines fix + Playwright regression, resource-demo port label cosmetic, two v1.6-carryover renames. Ungated; fast v1.8 opener. (completed 2026-05-20)
-- [ ] **Phase 43: Nyquist Retroactive Validation** — Generate VALIDATION.md artifacts under each v1.7 phase directory (37–41). Ungated; independent of all other v1.8 work.
+- [x] **Phase 43: Nyquist Retroactive Validation** — Generate VALIDATION.md artifacts under each v1.7 phase directory (37–41). Ungated; independent of all other v1.8 work. (completed 2026-05-20)
 - [ ] **Phase 44: Upstream Consumption + Validator Parity** — Atomic swap to `@napplet/nub@^0.3.0` + `@napplet/core@^0.3.0`: delete 3 provisional type files, retire pnpm.overrides workaround, audit normalizeConnectOrigin against shared upstream validator, stage 4 minor-bump changesets. Gated on upstream publish.
 - [ ] **Phase 45: NIP-44 Decrypt Runtime + Shell MUSTs** — IDENTITY domain dispatcher handles `identity.decrypt`; 4 shell MUSTs (outer-sig-verify, impersonation-check, outer-`created_at`-hide, class-2-rejection); auto-detect router for NIP-04 / NIP-44-direct / NIP-17 gift-wrap; 8-code error union mapped to `identity.decrypt.error`. Gated on Phase 44.
 - [ ] **Phase 46: Decrypt Service + Demo Napplet + E2E Coverage** — `@kehto/services` reference handler with `getDecryptor` host bridge; 13th demo napplet (`decrypt-demo`, class-1) + class-2 variant exercising all 3 modes + class-forbidden rejection; Layer-A parameterized error-code spec + Layer-B Playwright happy/forbidden walk. Gated on Phase 45.
@@ -114,7 +114,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 42. Bug Fix + Polish + Rename Sweep | 5/5 | Complete   | 2026-05-20 |
-| 43. Nyquist Retroactive Validation | 0/0 | Not started | - |
+| 43. Nyquist Retroactive Validation | 1/1 | Complete   | 2026-05-20 |
 | 44. Upstream Consumption + Validator Parity | 0/0 | Not started (gated on @napplet/nub@0.3.0 publish) | - |
 | 45. NIP-44 Decrypt Runtime + Shell MUSTs | 0/0 | Not started | - |
 | 46. Decrypt Service + Demo Napplet + E2E Coverage | 0/0 | Not started | - |
