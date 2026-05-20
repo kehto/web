@@ -105,39 +105,39 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BUG-01 | TBD | Pending |
-| BUG-02 | TBD | Pending |
-| POLISH-01 | TBD | Pending |
-| RENAME-01 | TBD | Pending |
-| RENAME-02 | TBD | Pending |
-| VALIDATE-01 | TBD | Pending |
-| DEP-01 | TBD | Pending |
-| DEP-02 | TBD | Pending |
-| DEP-03 | TBD | Pending |
-| DEP-04 | TBD | Pending |
-| DEP-05 | TBD | Pending |
-| DEP-06 | TBD | Pending |
-| DEP-07 | TBD | Pending |
-| VALIDATOR-01 | TBD | Pending |
-| VALIDATOR-02 | TBD | Pending |
-| DECRYPT-01 | TBD | Pending |
-| DECRYPT-02 | TBD | Pending |
-| DECRYPT-03 | TBD | Pending |
-| DECRYPT-04 | TBD | Pending |
-| DECRYPT-05 | TBD | Pending |
-| DECRYPT-06 | TBD | Pending |
-| DECRYPT-07 | TBD | Pending |
-| DECRYPT-08 | TBD | Pending |
-| DECRYPT-09 | TBD | Pending |
-| DECRYPT-10 | TBD | Pending |
-| E2E-27 | TBD | Pending |
-| E2E-28 | TBD | Pending |
+| BUG-01 | Phase 42 | Pending |
+| BUG-02 | Phase 42 | Pending |
+| POLISH-01 | Phase 42 | Pending |
+| RENAME-01 | Phase 42 | Pending |
+| RENAME-02 | Phase 42 | Pending |
+| VALIDATE-01 | Phase 43 | Pending |
+| DEP-01 | Phase 44 | Pending |
+| DEP-02 | Phase 44 | Pending |
+| DEP-03 | Phase 44 | Pending |
+| DEP-04 | Phase 44 | Pending |
+| DEP-05 | Phase 44 | Pending |
+| DEP-06 | Phase 44 | Pending |
+| DEP-07 | Phase 44 | Pending |
+| VALIDATOR-01 | Phase 44 | Pending |
+| VALIDATOR-02 | Phase 44 | Pending |
+| DECRYPT-01 | Phase 45 | Pending |
+| DECRYPT-02 | Phase 45 | Pending |
+| DECRYPT-03 | Phase 45 | Pending |
+| DECRYPT-04 | Phase 45 | Pending |
+| DECRYPT-05 | Phase 45 | Pending |
+| DECRYPT-06 | Phase 45 | Pending |
+| DECRYPT-07 | Phase 45 | Pending |
+| DECRYPT-08 | Phase 46 | Pending |
+| DECRYPT-09 | Phase 46 | Pending |
+| DECRYPT-10 | Phase 46 | Pending |
+| E2E-27 | Phase 46 | Pending |
+| E2E-28 | Phase 46 | Pending |
 
 **Coverage:**
 - v1 requirements: 27 total
-- Mapped to phases: 0 (filled by roadmapper)
-- Unmapped: 27 ⚠️ (expected before roadmapper runs)
+- Mapped to phases: 27
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-05-20*
-*Last updated: 2026-05-20 after milestone v1.8 kickoff*
+*Last updated: 2026-05-20 — traceability table filled by roadmapper (27/27 mapped across 5 phases)*

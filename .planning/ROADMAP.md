@@ -13,26 +13,108 @@
 
 ---
 
-## Awaiting Next Milestone
+## v1.8: Upstream Alignment & NIP-44 Decrypt
 
-v1.7 shipped 2026-04-24. No active milestone.
+**Goal:** Land tech-debt cleanup (bug/polish/rename + Nyquist retroactive validation), consume `@napplet/nub@^0.3.0` to retire all provisional types, audit the `normalizeConnectOrigin` validator parity, and ship the canonical `identity.decrypt` surface (NUB-IDENTITY amendment) across runtime + shell + reference service + demo napplet + E2E.
 
-Run `/gsd:new-milestone` to start v1.8.
+**E2E baseline entering v1.8:** 72/0/0. Projected close: 74–76/0/0 (+ topology-lines spec from BUG-02, + E2E-27 Layer-A, + E2E-28 Layer-B).
 
-**v1.8 candidate scope (carried over from v1.7):**
+**Coverage:** 27/27 requirements mapped.
 
-- **Phase 42: NIP-44 decrypt surface (DECRYPT-01..03 + E2E-27)** — deferred from v1.7; soft-gated on napplet/napplet#3 NUB-surface decision between `relay.subscribeEncrypted` vs `identity.decrypt`. Re-evaluate at v1.8 kickoff; ship if upstream has resolved.
-- **Provisional-types retirement (single atomic swap)** — delete `packages/shell/src/types/provisional-{class,connect,resource}.ts` when upstream publishes `@napplet/nub@^0.3.0` (class+connect subpaths) and `^0.2.2` (resource subpath); swap imports to canonical paths.
-- **Nyquist validation retroactive pass (optional)** — run `/gsd:validate-phase 37..41` to generate VALIDATION.md artifacts for v1.7 phases if desired.
-- **Cosmetic polish** — `apps/demo/napplets/resource-demo/index.html` h2 label still references stale port `:5174` (GRANTED_URL correctly uses `:4174`).
-- **Electron / Tauri HostXxxBridge reference impls** (v1.4 carryover tech debt).
-- **Multi-OS CI matrix** (v1.4 carryover — ubuntu-latest only currently).
-- **`identitySource: 'auth' | 'source'` type-discriminant rename** (v1.6 carryover tech debt).
-- **`bridge.injectEvent('auth:identity-changed', ...)` rename** (v1.6 carryover tech debt).
-- **`pnpm.overrides @napplet/nub>@napplet/core` workaround retirement (SEED-001)** — gated on upstream publish-time workspace-specifier fix.
+**Upstream gate:** Phases 44–46 require `@napplet/nub@0.3.0` to publish on npm (currently 0.2.1, blocked by Actions PR-permission on `napplet/napplet`). Phases 42–43 are ungated and execute first independent of upstream landing.
 
-**Archived phases:** Phase directories 37–41 remain in `.planning/phases/` pending cleanup or next-milestone archival.
+### Phases
+
+- [ ] **Phase 42: Bug Fix + Polish + Rename Sweep** — Topology connector lines fix + Playwright regression, resource-demo port label cosmetic, two v1.6-carryover renames. Ungated; fast v1.8 opener.
+- [ ] **Phase 43: Nyquist Retroactive Validation** — Generate VALIDATION.md artifacts under each v1.7 phase directory (37–41). Ungated; independent of all other v1.8 work.
+- [ ] **Phase 44: Upstream Consumption + Validator Parity** — Atomic swap to `@napplet/nub@^0.3.0` + `@napplet/core@^0.3.0`: delete 3 provisional type files, retire pnpm.overrides workaround, audit normalizeConnectOrigin against shared upstream validator, stage 4 minor-bump changesets. Gated on upstream publish.
+- [ ] **Phase 45: NIP-44 Decrypt Runtime + Shell MUSTs** — IDENTITY domain dispatcher handles `identity.decrypt`; 4 shell MUSTs (outer-sig-verify, impersonation-check, outer-`created_at`-hide, class-2-rejection); auto-detect router for NIP-04 / NIP-44-direct / NIP-17 gift-wrap; 8-code error union mapped to `identity.decrypt.error`. Gated on Phase 44.
+- [ ] **Phase 46: Decrypt Service + Demo Napplet + E2E Coverage** — `@kehto/services` reference handler with `getDecryptor` host bridge; 13th demo napplet (`decrypt-demo`, class-1) + class-2 variant exercising all 3 modes + class-forbidden rejection; Layer-A parameterized error-code spec + Layer-B Playwright happy/forbidden walk. Gated on Phase 45.
 
 ---
 
-*ROADMAP.md last restructured: 2026-04-24 after v1.7 milestone close.*
+## Phase Details
+
+### Phase 42: Bug Fix + Polish + Rename Sweep
+**Goal**: Clear five small, mutually-independent items off the v1.7 carryover slate before the upstream-gated work begins — so v1.8 opens on a clean tree and the topology connector lines render correctly in `pnpm preview` from the first commit.
+**Depends on**: Nothing (first v1.8 phase; continues from v1.7 Phase 41)
+**Requirements**: BUG-01, BUG-02, POLISH-01, RENAME-01, RENAME-02
+**Rationale**: All five items are ungated (no `@napplet/nub@0.3.0` dependency), independent of each other, and small enough to ship together without serializing iteration loops. The leader-line bug already has a vendoring fix in the working tree; this phase commits it and adds the regression Playwright spec to prevent recurrence. The two renames are live API surfaces with external consumers (RENAME-01 affects `SessionEntry`, RENAME-02 affects `bridge.injectEvent`) — both require migration notes in their changesets.
+**Success Criteria** (what must be TRUE):
+  1. `apps/demo/index.html` references the vendored `/vendor/leader-line.min.js` path; topology connector lines render visibly in both `pnpm dev` AND `pnpm preview` (asserted by `tests/e2e/topology-lines.spec.ts` against the built `:4174` preview).
+  2. `apps/demo/napplets/resource-demo/index.html:61` h2 label reads `:4174` matching the actual `GRANTED_URL`; the stale `:5174` reference is gone.
+  3. `SessionEntry.identitySource: 'auth' | 'source'` is renamed to a domain-meaningful discriminant; consumer-facing changeset documents the rename with a migration note.
+  4. `bridge.injectEvent('auth:identity-changed', ...)` is renamed; consumer-facing changeset documents the rename with a migration note.
+  5. Canonical `pnpm clean && pnpm build && pnpm test:e2e` iteration loop closes at 73/0/0 (72 baseline + 1 new topology-lines spec).
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 43: Nyquist Retroactive Validation
+**Goal**: Generate `VALIDATION.md` artifacts under each v1.7 phase directory (37–41) — so the v1.7 milestone's Nyquist validation pass is on disk for downstream consumers and milestone-audit traceability.
+**Depends on**: Nothing (independent of all other v1.8 work; can run in parallel with Phase 42)
+**Requirements**: VALIDATE-01
+**Rationale**: v1.7 skipped per-phase Nyquist validation as an explicit milestone decision. The retroactive pass produces evidence-on-disk without altering any shipped behavior or artifacts — it reads the closed phases and writes a single VALIDATION.md per directory. Isolated as its own phase because it is the only `VALIDATE` category requirement and has zero coupling to bug/polish/rename or upstream-gated work.
+**Success Criteria** (what must be TRUE):
+  1. `VALIDATION.md` exists under `.planning/milestones/v1.7-phases/37/`, `.../38/`, `.../39/`, `.../40/`, `.../41/` (one per closed v1.7 phase).
+  2. Each VALIDATION.md records the phase's success criteria evaluated against shipped evidence with PASS/FAIL/N/A verdicts.
+  3. No code or runtime behavior changes; `pnpm build` + `pnpm type-check` + `pnpm test:e2e` remain at Phase 42's closing baseline.
+**Plans**: TBD
+
+### Phase 44: Upstream Consumption + Validator Parity
+**Goal**: Consume `@napplet/nub@^0.3.0` + `@napplet/core@^0.3.0` across all 4 `@kehto/*` packages, atomically retire all three provisional type files and the SEED-001 pnpm.overrides workaround, and resolve the local `normalizeConnectOrigin` vs upstream shared validator question — so kehto is fully aligned with upstream's published canonical surface and no longer ships staging-ground types.
+**Depends on**: Phase 42 (baseline iteration loop must be green before the dep swap); SOFT-GATED on `@napplet/nub@0.3.0` publish on npm
+**Requirements**: DEP-01, DEP-02, DEP-03, DEP-04, DEP-05, DEP-06, DEP-07, VALIDATOR-01, VALIDATOR-02
+**Rationale**: The dep bump (DEP-01/-02), provisional retirement (DEP-04/-05/-06), and pnpm.overrides retirement (DEP-03) are a single atomic swap — partial application leaves the tree in an inconsistent state (some imports resolved to `@napplet/nub/<domain>`, others still at provisional paths). All four `@kehto/*` packages get minor-bump changesets together (DEP-07). VALIDATOR-01/-02 ride along in this phase because `normalizeConnectOrigin`'s upstream counterpart becomes importable only after the `@napplet/nub/connect` subpath lands — the audit cannot start until then. **Soft-gate behavior:** at Phase 43 close, evaluate whether `@napplet/nub@0.3.0` has published. If yes: execute Phase 44. If no: pause Phase 44, optionally continue with any unblocked work, escalate upstream blocker to user. Phases 45–46 depend on this phase.
+**Success Criteria** (what must be TRUE):
+  1. `pnpm why @napplet/nub` reports `^0.3.0` (not `^0.2.1`) for all 4 `@kehto/*` packages; `pnpm why @napplet/core` reports `^0.3.0` similarly.
+  2. `packages/shell/src/types/provisional-{class,connect,resource}.ts` no longer exist; all consuming imports resolve to `@napplet/nub/class`, `/connect`, `/resource` respectively (verified by `grep -rn 'provisional-' packages/shell/src/` returning no source matches).
+  3. Root `package.json` `pnpm.overrides` no longer contains the `@napplet/nub>@napplet/core` workaround; `pnpm install` succeeds without it (verifies upstream packaging-bug fix is live).
+  4. `.changeset/` contains 4 minor-bump changesets (one per `@kehto/{acl,runtime,shell,services}` package) documenting the dep bump.
+  5. `VALIDATOR-RESEARCH.md` (or equivalent) records the parity audit verdict: kehto either swaps to the upstream import (and the local `normalizeConnectOrigin` impl is deleted) OR records intentional divergence in PROJECT.md Key Decisions with explicit reasoning.
+  6. Canonical `pnpm clean && pnpm build && pnpm test:e2e` iteration loop closes at the Phase 42 baseline + 0 (no behavioral regressions from the dep swap).
+**Plans**: TBD
+
+### Phase 45: NIP-44 Decrypt Runtime + Shell MUSTs
+**Goal**: `@kehto/runtime` dispatches `identity.decrypt` and `@kehto/shell` enforces all 4 canonical MUSTs (outer-sig-verify, impersonation-check, outer-`created_at`-hide, class-2-rejection); the auto-detect router classifies events as NIP-04 / NIP-44-direct / NIP-17 gift-wrap and routes to matching paths — so a class-1 napplet can decrypt DMs across all three modes and a class-2 napplet receives `class-forbidden` BEFORE the signer is invoked.
+**Depends on**: Phase 44 (canonical `@napplet/nub/identity` decrypt envelope types must be available; provisional types retired); extends Decisions #23/24 (synchronous class posture + centralized `enforce.ts` gate)
+**Requirements**: DECRYPT-01, DECRYPT-02, DECRYPT-03, DECRYPT-04, DECRYPT-05, DECRYPT-06, DECRYPT-07
+**Rationale**: The runtime dispatcher (DECRYPT-01) and the 4 shell MUSTs (DECRYPT-02/-03/-04/-06) are tightly coupled to the auto-detect router (DECRYPT-07) and the 8-code error union (DECRYPT-05) — splitting them across phases creates partial wire surfaces that can't be E2E-validated. DECRYPT-06 (class-2 rejection in `enforce.ts`) is the 4th shell MUST and naturally lives with the other three; it extends the v1.7 NUB-CLASS work (Decisions #23/24) by adding `identity.decrypt` to the class-1-only allowlist with a BEFORE-signer-invocation check. **Single-target routing** (decrypted plaintext delivered exclusively to the requesting `windowId`, never via `getAllWindowIds()` — C-06 prevention from v1.7 Phase 42 draft) is a hard requirement that the phase plan cannot soften.
+**Success Criteria** (what must be TRUE):
+  1. A class-1 napplet posting an `identity.decrypt` envelope for an NIP-04 event receives `identity.decrypt.result` with the cleartext payload; the response is correlated by `id` and delivered exclusively to the requesting `windowId` (a second iframe in the same session observes nothing in its MessageTap).
+  2. The same flow works for NIP-44-direct and NIP-17 gift-wrap inputs — the auto-detect router classifies each correctly without requiring the caller to specify the mode.
+  3. A class-2 napplet attempting `identity.decrypt` receives `identity.decrypt.error` with `code: 'class-forbidden'` BEFORE the signer is invoked (verified by spying that `getDecryptor` is never called on the class-2 path).
+  4. Outer event signature is verified before any decrypt attempt; impersonation check `seal.pubkey === rumor.pubkey` is performed on the NIP-17 gift-wrap path; rumor result has `created_at` from the rumor (not the outer wrap), preserving NIP-59 ±2-day privacy randomization.
+  5. All 8 error codes (`class-forbidden`, `signer-denied`, `signer-unavailable`, `decrypt-failed`, `malformed-wrap`, `impersonation`, `unsupported-encryption`, `policy-denied`) map cleanly to the `identity.decrypt.error` envelope `code` field; an unknown encryption format returns `unsupported-encryption`.
+  6. `grep -n 'getAllWindowIds' packages/shell/src/` returns no match in the decrypt response handler (single-target routing locked).
+**Plans**: TBD
+
+### Phase 46: Decrypt Service + Demo Napplet + E2E Coverage
+**Goal**: `@kehto/services` ships the `identity.decrypt` reference handler with a `getDecryptor` host bridge; a 13th demo napplet (`decrypt-demo` at class-1 + a class-2 variant) exercises all three encryption modes end-to-end against the built preview; Layer-A and Layer-B Playwright specs lock the contract — so v1.8 closes with a verifiable decrypt surface that downstream shells can wire to NIP-44/NIP-04/NIP-17 backends.
+**Depends on**: Phase 45 (runtime dispatcher + shell MUSTs must be live before the service handler can be plugged in and before any demo exercise can succeed)
+**Requirements**: DECRYPT-08, DECRYPT-09, DECRYPT-10, E2E-27, E2E-28
+**Rationale**: The reference service (DECRYPT-08) follows the v1.4 keys/media pattern (Decision #12) and v1.6 cache pattern (Decision #18) — the options object IS the bridge (`{ getDecryptor }`). The demo napplet's two postures land together: DECRYPT-09 is the class-1 happy-path exerciser, DECRYPT-10 is the class-2 negative-test variant — splitting them across phases would mean two boots of `DEMO_NAPPLETS` (which would grow 12 → 13 → 14 within v1.8). The two E2E specs (E2E-27 Layer-A parameterized across modes + error codes; E2E-28 Layer-B Playwright happy + forbidden) close the coverage gates the v1.7 deferred phase originally scoped.
+**Success Criteria** (what must be TRUE):
+  1. `createDecryptService({ getDecryptor })` factory exists in `@kehto/services`, exports the `HostDecryptBridge` interface (or equivalent options-as-bridge type), and is registered in `runtime.ts` via `nubDispatch.registerNub('identity', ...)` extension or a dedicated handler.
+  2. `decrypt-demo` napplet is the 13th `DEMO_NAPPLETS` entry (class-1 posture in `CLASS_BY_DTAG`) and exercises NIP-04 + NIP-44-direct + NIP-17 gift-wrap decrypt round-trips against fixtures published via `__publishDecryptFixtures__` test hook; DOM sentinels mark per-mode success.
+  3. A class-2 posture variant of `decrypt-demo` (either a second napplet entry or an inline test-hook posture flip) proves a class-2 attempt produces `code: 'class-forbidden'` and surfaces that to a DOM sentinel.
+  4. Layer-A `tests/e2e/identity-decrypt.spec.ts` (or equivalent) is parameterized across all 3 encryption modes × all 8 error codes against the runtime dispatcher (Layer-A — no full browser, harness-level).
+  5. Layer-B `tests/e2e/decrypt-demo.spec.ts` walks the class-1 happy path through the demo at `:4174` AND walks the class-2 forbidden path; both assert against DOM sentinels.
+  6. Canonical `pnpm clean && pnpm build && pnpm test:e2e` iteration loop closes at 74–76/0/0 (Phase 42 baseline 73 + E2E-27 Layer-A + E2E-28 Layer-B; exact count depends on Layer-A parameterization fan-out).
+**Plans**: TBD
+**UI hint**: yes
+
+---
+
+## Progress
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 42. Bug Fix + Polish + Rename Sweep | 0/0 | Not started | - |
+| 43. Nyquist Retroactive Validation | 0/0 | Not started | - |
+| 44. Upstream Consumption + Validator Parity | 0/0 | Not started (gated on @napplet/nub@0.3.0 publish) | - |
+| 45. NIP-44 Decrypt Runtime + Shell MUSTs | 0/0 | Not started | - |
+| 46. Decrypt Service + Demo Napplet + E2E Coverage | 0/0 | Not started | - |
+
+---
+
+*ROADMAP.md last restructured: 2026-05-20 — v1.8 milestone roadmap created.*
