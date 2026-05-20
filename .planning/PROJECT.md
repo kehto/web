@@ -32,6 +32,24 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 @napplet/core is the shared foundation. It lives in @napplet and is consumed by @kehto as a peer dependency.
 
+## Current Milestone: v1.8 Upstream Alignment & NIP-44 Decrypt
+
+**Goal:** Consume `@napplet/nub@^0.3.0`, retire all provisional types, ship the canonical `identity.decrypt` surface, and clear v1.7 tech-debt carryovers.
+
+**Target features:**
+- Topology connector lines — commit working-tree leader-line vendoring fix + Playwright regression spec
+- Cosmetic: `resource-demo` h2 stale port label `:5174` → `:4174`
+- `identitySource: 'auth' | 'source'` discriminant rename (v1.6 carryover)
+- `bridge.injectEvent('auth:identity-changed', ...)` rename (v1.6 carryover)
+- Nyquist validation retroactive pass for v1.7 phases (37–41)
+- Provisional-types retirement — delete `provisional-{class,connect,resource}.ts`, swap to `@napplet/nub/<domain>` imports, bump peer deps to `@napplet/nub@^0.3.0` + `@napplet/core@^0.3.0` across all 4 `@kehto/*` packages
+- `normalizeConnectOrigin` parity audit — replace kehto's local impl with shared upstream validator OR document divergence
+- Phase 42: NIP-44 Decrypt — `identity.decrypt(event)` envelope triad, 8 error codes, 4 shell MUSTs (class-gate / outer-sig-verify / impersonation-check / outer-`created_at`-hide), NIP-04 + NIP-44-direct + NIP-17 gift-wrap auto-detect, class-2 rejection, E2E-27 spec, demo napplet
+
+**Upstream gate:** Items 6/7/8 require `@napplet/nub@0.3.0` to be published on npm. As of v1.8 kickoff, latest is 0.2.1 — publish blocked by Actions PR-permission setting on `napplet/napplet`. Items 1–5 execute first; 6–8 phase order waits on publish.
+
+**SEED-001 status:** Filed upstream as napplet/napplet#4 (2026-05-20). Fix landed in changeset `066443f` of the v0.3.0 release; the `pnpm.overrides @napplet/nub>@napplet/core` workaround retires once v0.3.0 publishes.
+
 ## Current State
 
 **Shipped:** v1.7 — NIP-5D Spec Adoption & New NUB Domains (2026-04-24)
@@ -139,4 +157,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-24 — v1.7 milestone shipped (NIP-5D Spec Adoption & New NUB Domains: 41/41 REQs + 4 soft-gated deferred to v1.8; 72/0/0 E2E; 10 NUB domains; 12 demo napplets)*
+*Last updated: 2026-05-20 — v1.8 milestone started (Upstream Alignment & NIP-44 Decrypt: 8 target features; awaiting `@napplet/nub@0.3.0` publish for items 6–8)*

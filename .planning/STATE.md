@@ -1,10 +1,10 @@
 ---
 gsd_state_version: 1.0
-milestone: null
-milestone_name: null
-status: milestone_complete
-last_updated: "2026-04-24T12:00:00.000Z"
-last_activity: 2026-04-24
+milestone: v1.8
+milestone_name: Upstream Alignment & NIP-44 Decrypt
+status: planning
+last_updated: "2026-05-20T15:35:58.218Z"
+last_activity: 2026-05-20
 progress:
   total_phases: 0
   completed_phases: 0
@@ -24,24 +24,10 @@ See: .planning/PROJECT.md (updated 2026-04-24, v1.7 shipped)
 
 ## Current Position
 
-**Milestone:** None active (v1.7 shipped 2026-04-24)
-**Phase:** —
-**Plan:** —
-**Status:** Awaiting next milestone
-**Last activity:** 2026-04-24
-
-Progress: [██████████] 100% (v1.0 → v1.7 shipped; 8 milestones total)
-
-**v1.7 delivered (shipped 2026-04-24):**
-
-- Phase 37: SPEC Resync + Foundation Gates — NIP-5D byte-identical to upstream `d80d7b25`; 3 provisional local type files
-- Phase 38: NUB-CLASS Adoption — synchronous class posture via `shell.init`; centralized enforce.ts gate; 8-domain invariant spec
-- Phase 39: NUB-CONNECT + NUB-CONFIG — shell as HTTP-header CSP authority; consent flow + revocation destroy/recreate; 9th NUB domain live
-- Phase 40: NUB-RESOURCE + Demo Napplets + Policy Docs — 10th NUB domain with H-03 factory guard; DEMO_NAPPLETS 11→12; all 3 policy docs collected
-- Phase 41: Polish Wave — nip66 demo wiring live; @kehto/wm LayoutStrategy primitives; HostCacheBridge alias
-- Phase 42: DEFERRED to v1.8 — soft-gate on napplet/napplet#3 unresolved; DECRYPT-01..03 + E2E-27 moved to Future Requirements
-
-**Totals:** 5 phases shipped (37–41) + 1 deferred (42); 17 plans; 24 tasks; 72 E2E specs green (up from v1.6's 54; +18 tests / 5 new spec files + 2 domain extensions); 41/41 in-scope requirements + 4 soft-gate deferred.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-20 — Milestone v1.8 started
 
 ## Accumulated Context
 
