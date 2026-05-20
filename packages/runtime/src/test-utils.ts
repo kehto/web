@@ -253,7 +253,7 @@ export function createNip5dSessionEntry(windowId: string, dTag: string, aggregat
     aggregateHash,
     registeredAt: Date.now(),
     instanceId: `guid-${windowId}`,
-    identitySource: 'source',
+    provenance: 'nip-5d',
     class: null, // CLASS-02: permissive default
   };
 }

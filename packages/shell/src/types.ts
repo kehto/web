@@ -34,7 +34,7 @@ export type { ServiceHandler, ServiceRegistry };
  *   pubkey: 'abc123...', windowId: 'win-1', origin: '*',
  *   type: 'chat', dTag: '3chat', aggregateHash: 'deadbeef',
  *   registeredAt: Date.now(), instanceId: 'guid-123',
- *   identitySource: 'auth',
+ *   provenance: 'legacy-auth',
  * };
  * ```
  */
@@ -53,11 +53,12 @@ export interface SessionEntry {
   /** Persistent GUID for this iframe instance, assigned by the runtime. Survives page reloads. */
   instanceId: string;
   /**
-   * How session identity was established.
-   * 'source' = NIP-5D (identity registered at iframe creation via originRegistry).
-   * 'auth' = legacy AUTH handshake (pubkey is the derived keypair pubkey).
+   * How session identity was established (RENAME-01, v1.8 Phase 42).
+   * 'nip-5d' = identity registered at iframe creation via originRegistry (canonical NIP-5D path).
+   * 'legacy-auth' = legacy AUTH handshake (pubkey is the derived keypair pubkey).
+   * Renamed from `identitySource: 'auth' | 'source'` in v1.8; see .changeset/v1-8-rename-01-session-provenance.md.
    */
-  identitySource: 'auth' | 'source';
+  provenance: 'nip-5d' | 'legacy-auth';
   /**
    * Class posture resolved synchronously at iframe creation (CLASS-02).
    * `null` is the permissive default (D2). Class tokens like 'class-1' /

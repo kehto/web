@@ -215,7 +215,7 @@ function loadNapplet(name: string, params?: Record<string, string>): string {
       aggregateHash: '',
       registeredAt: Date.now(),
       instanceId: crypto.randomUUID(),
-      identitySource: 'source',
+      provenance: 'nip-5d',
     };
     relay.runtime.sessionRegistry.register(windowId, entry);
   }

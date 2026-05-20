@@ -92,7 +92,7 @@ function makeSessionEntry(overrides: Partial<SessionEntry>): SessionEntry {
     aggregateHash: 'h-test',
     registeredAt: 0,
     instanceId: `inst-${overrides.windowId ?? 'x'}`,
-    identitySource: 'source',
+    provenance: 'nip-5d',
     class: null, // CLASS-02: permissive default for test fixtures
     ...overrides,
   };

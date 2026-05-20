@@ -1243,7 +1243,7 @@ export function loadNapplet(name: string, containerId: string): NappletInfo {
       aggregateHash: '',
       registeredAt: Date.now(),
       instanceId: crypto.randomUUID(),
-      identitySource: 'source',
+      provenance: 'nip-5d',
       // CLASS-04 (Plan 38-03): data-driven class from CLASS_BY_DTAG map (D3).
       // Defaults to null (permissive, D2) if the dTag has no explicit entry —
       // defensive fallback; the module-load assertion above guarantees every
