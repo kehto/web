@@ -25,7 +25,7 @@
 
 ### Phases
 
-- [ ] **Phase 42: Bug Fix + Polish + Rename Sweep** — Topology connector lines fix + Playwright regression, resource-demo port label cosmetic, two v1.6-carryover renames. Ungated; fast v1.8 opener.
+- [x] **Phase 42: Bug Fix + Polish + Rename Sweep** — Topology connector lines fix + Playwright regression, resource-demo port label cosmetic, two v1.6-carryover renames. Ungated; fast v1.8 opener. (completed 2026-05-20)
 - [ ] **Phase 43: Nyquist Retroactive Validation** — Generate VALIDATION.md artifacts under each v1.7 phase directory (37–41). Ungated; independent of all other v1.8 work.
 - [ ] **Phase 44: Upstream Consumption + Validator Parity** — Atomic swap to `@napplet/nub@^0.3.0` + `@napplet/core@^0.3.0`: delete 3 provisional type files, retire pnpm.overrides workaround, audit normalizeConnectOrigin against shared upstream validator, stage 4 minor-bump changesets. Gated on upstream publish.
 - [ ] **Phase 45: NIP-44 Decrypt Runtime + Shell MUSTs** — IDENTITY domain dispatcher handles `identity.decrypt`; 4 shell MUSTs (outer-sig-verify, impersonation-check, outer-`created_at`-hide, class-2-rejection); auto-detect router for NIP-04 / NIP-44-direct / NIP-17 gift-wrap; 8-code error union mapped to `identity.decrypt.error`. Gated on Phase 44.
@@ -47,10 +47,10 @@
   4. `bridge.injectEvent('auth:identity-changed', ...)` is renamed; consumer-facing changeset documents the rename with a migration note.
   5. Canonical `pnpm clean && pnpm build && pnpm test:e2e` iteration loop closes at 73/0/0 (72 baseline + 1 new topology-lines spec).
 **Plans**: 4 plans
-  - [ ] 42-01-PLAN.md — BUG-01 verification + BUG-02 topology-lines Playwright regression spec
-  - [ ] 42-02-PLAN.md — POLISH-01 cosmetic h2 port label fix (:5174 → :4174)
-  - [ ] 42-03-PLAN.md — RENAME-01 hard-rename SessionEntry.identitySource → provenance ("nip-5d" / "legacy-auth")
-  - [ ] 42-04-PLAN.md — RENAME-02 soft-rename bridge.injectEvent identity-changed topic with dual-emit through v1.9
+  - [x] 42-01-PLAN.md — BUG-01 verification + BUG-02 topology-lines Playwright regression spec
+  - [x] 42-02-PLAN.md — POLISH-01 cosmetic h2 port label fix (:5174 → :4174)
+  - [x] 42-03-PLAN.md — RENAME-01 hard-rename SessionEntry.identitySource → provenance ("nip-5d" / "legacy-auth")
+  - [x] 42-04-PLAN.md — RENAME-02 soft-rename bridge.injectEvent identity-changed topic with dual-emit through v1.9
 **UI hint**: yes
 
 ### Phase 43: Nyquist Retroactive Validation
@@ -113,7 +113,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 42. Bug Fix + Polish + Rename Sweep | 0/4 | Planned | - |
+| 42. Bug Fix + Polish + Rename Sweep | 5/5 | Complete   | 2026-05-20 |
 | 43. Nyquist Retroactive Validation | 0/0 | Not started | - |
 | 44. Upstream Consumption + Validator Parity | 0/0 | Not started (gated on @napplet/nub@0.3.0 publish) | - |
 | 45. NIP-44 Decrypt Runtime + Shell MUSTs | 0/0 | Not started | - |
