@@ -46,7 +46,11 @@
   3. `SessionEntry.identitySource: 'auth' | 'source'` is renamed to a domain-meaningful discriminant; consumer-facing changeset documents the rename with a migration note.
   4. `bridge.injectEvent('auth:identity-changed', ...)` is renamed; consumer-facing changeset documents the rename with a migration note.
   5. Canonical `pnpm clean && pnpm build && pnpm test:e2e` iteration loop closes at 73/0/0 (72 baseline + 1 new topology-lines spec).
-**Plans**: TBD
+**Plans**: 4 plans
+  - [ ] 42-01-PLAN.md — BUG-01 verification + BUG-02 topology-lines Playwright regression spec
+  - [ ] 42-02-PLAN.md — POLISH-01 cosmetic h2 port label fix (:5174 → :4174)
+  - [ ] 42-03-PLAN.md — RENAME-01 hard-rename SessionEntry.identitySource → provenance ("nip-5d" / "legacy-auth")
+  - [ ] 42-04-PLAN.md — RENAME-02 soft-rename bridge.injectEvent identity-changed topic with dual-emit through v1.9
 **UI hint**: yes
 
 ### Phase 43: Nyquist Retroactive Validation
@@ -109,7 +113,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 42. Bug Fix + Polish + Rename Sweep | 0/0 | Not started | - |
+| 42. Bug Fix + Polish + Rename Sweep | 0/4 | Planned | - |
 | 43. Nyquist Retroactive Validation | 0/0 | Not started | - |
 | 44. Upstream Consumption + Validator Parity | 0/0 | Not started (gated on @napplet/nub@0.3.0 publish) | - |
 | 45. NIP-44 Decrypt Runtime + Shell MUSTs | 0/0 | Not started | - |
