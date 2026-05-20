@@ -25,7 +25,7 @@
 
 ### Validation
 
-- [ ] **VALIDATE-01**: Nyquist retroactive validation pass for v1.7 phases 37–41 produces VALIDATION.md artifacts under each phase directory
+- [x] **VALIDATE-01**: Nyquist retroactive validation pass for v1.7 phases 37–41 produces VALIDATION.md artifacts under each phase directory
 
 ### Dependency consumption
 
@@ -110,7 +110,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | POLISH-01 | Phase 42 | Complete |
 | RENAME-01 | Phase 42 | Complete |
 | RENAME-02 | Phase 42 | Complete |
-| VALIDATE-01 | Phase 43 | Pending |
+| VALIDATE-01 | Phase 43 | Complete (24/24 criteria PASS across v1.7 phases 37–41) |
 | DEP-01 | Phase 44 | Pending |
 | DEP-02 | Phase 44 | Pending |
 | DEP-03 | Phase 44 | Pending |
@@ -134,7 +134,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | E2E-28 | Phase 46 | Pending |
 
 **Coverage:**
-- v1 requirements: 27 total (1 completed pre-kickoff: BUG-01)
+- v1 requirements: 27 total — 6 complete (BUG-01 pre-kickoff, BUG-02, POLISH-01, RENAME-01, RENAME-02, VALIDATE-01)
 - Mapped to phases: 27
 - Unmapped: 0 ✓
 
