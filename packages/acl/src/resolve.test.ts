@@ -71,6 +71,10 @@ describe('resolveCapabilitiesNub', () => {
     it('identity.getBadges -> identity:read', () => {
       expect(resolveCapabilitiesNub({ type: 'identity.getBadges' })).toEqual({ senderCap: 'identity:read', recipientCap: null });
     });
+
+    it('identity.decrypt -> identity:decrypt', () => {
+      expect(resolveCapabilitiesNub({ type: 'identity.decrypt' })).toEqual({ senderCap: 'identity:decrypt', recipientCap: null });
+    });
   });
 
   describe('keys domain', () => {
@@ -303,6 +307,7 @@ describe('resolveCapabilitiesNub', () => {
   describe('ALL_CAPABILITIES content', () => {
     it('contains the 7 v1.2 capability strings', () => {
       expect(ALL_CAPABILITIES).toContain('identity:read');
+      expect(ALL_CAPABILITIES).toContain('identity:decrypt');
       expect(ALL_CAPABILITIES).toContain('keys:bind');
       expect(ALL_CAPABILITIES).toContain('keys:forward');
       expect(ALL_CAPABILITIES).toContain('media:control');

@@ -37,6 +37,7 @@ const CAP_NOTIFY_CHANNEL = 1 << 12;   // 4096
 const CAP_THEME_READ     = 1 << 13;   // 8192
 const CAP_CONFIG_READ    = 1 << 14;   // 16384 (v1.7 Phase 39 NUB-CONFIG)
 const CAP_RESOURCE_FETCH = 1 << 15;   // 32768 (v1.7 Phase 40 NUB-RESOURCE)
+const CAP_IDENTITY_DECRYPT = 1 << 16; // 65536 (v1.8 Phase 45 NUB-IDENTITY decrypt)
 
 const CAP_MAP: Record<Capability, number> = {
   'relay:read': CAP_RELAY_READ,
@@ -55,6 +56,7 @@ const CAP_MAP: Record<Capability, number> = {
   'theme:read': CAP_THEME_READ,
   'config:read': CAP_CONFIG_READ,
   'resource:fetch': CAP_RESOURCE_FETCH,
+  'identity:decrypt': CAP_IDENTITY_DECRYPT,
 };
 
 function capToBit(cap: Capability): number {

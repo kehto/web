@@ -2,6 +2,53 @@
 
 *A living document updated after each milestone. Lessons feed forward into future planning.*
 
+## Milestone: v1.8 — Upstream Alignment & NIP-44 Decrypt
+
+**Shipped:** 2026-05-21
+**Phases:** 5 (42–46) | **Plans:** 9 | **Tasks:** 0 | **E2E:** 86/0/0 (+14)
+
+### What Was Built
+
+- **Phase 42 — Bug Fix + Polish + Rename Sweep.** Locked topology connector rendering with a built-preview Playwright regression, fixed the resource-demo port label, hard-renamed `SessionEntry.identitySource` to `provenance`, and added the one-release `bridge.injectEvent` identity-topic dual emit.
+- **Phase 43 — Nyquist Retroactive Validation.** Generated archived VALIDATION.md artifacts for v1.7 phases 37–41, closing the known v1.7 Nyquist evidence gap with 24/24 criteria PASS.
+- **Phase 44 — Upstream Consumption + Validator Parity.** Consumed `@napplet/nub@^0.3.0` / `@napplet/core@^0.3.0`, removed the root override, resolved SEED-001, and corrected the class/connect/resource "provisional" framing to kehto-internal shell-side models after upstream divergence was verified.
+- **Phase 45 — NIP-44 Decrypt Runtime + Shell MUSTs.** Added `identity.decrypt` ACL/runtime/service handling, class-2 pre-decrypt denial, outer signature verification, NIP-17 impersonation checking, rumor timestamp privacy, and all 8 typed errors.
+- **Phase 46 — Decrypt Demo + E2E Coverage.** Added the 13th demo napplet (`decrypt-demo`), deterministic fixture hooks, Layer-A harness coverage for 3 modes + 8 errors + single-target isolation, and Layer-B built-preview happy/forbidden coverage.
+
+### What Worked
+
+- **Grey-area acceptance was enough for high-throughput scope closure.** The user accepted all three Phase 46 smart-discuss recommendations, and the implementation stayed inside those boundaries.
+- **Integration review caught cleanable audit debt before archive.** The checker surfaced stale "provisional swap" language and missing fanout-negative E2E coverage; fixing both before audit made the milestone genuinely cleaner.
+- **Reference-service bridge pattern held.** `createIdentityService({ getDecryptor })` fit the existing options-as-bridge pattern without adding a second factory or dependency.
+- **Harness + preview split paid off again.** Layer-A proved runtime/service semantics cheaply; Layer-B proved user-visible playground wiring.
+
+### What Was Inefficient
+
+- **The GSD archive helper produced weak accomplishments.** `milestone.complete` generated nine `Phase:` bullets, so the MILESTONES.md entry needed manual repair.
+- **SUMMARY frontmatter drift returned.** v1.8 summaries initially lacked `requirements-completed`; the audit would have had to infer from verification alone. Fixed before close by adding minimal frontmatter to all v1.8 summaries.
+- **Single-target routing needed a late explicit test.** Phase 45 had source proof and grep proof, but the negative observer-napplet assertion only landed after integration review.
+
+### Patterns Established
+
+- **Reclassify instead of delete when upstream diverges.** Phase 44 showed that "provisional" does not always mean "replace when upstream publishes"; upstream can publish a different concept. Rename/reheader and document divergence when that happens.
+- **Deterministic decrypt fixture hooks.** Host-published encrypted fixtures with stable JSON payload IDs made NIP-04/NIP-44/NIP-17 demo assertions compact and reliable.
+- **Single-target response isolation as an E2E invariant.** For privacy-sensitive APIs, add a second observer napplet and assert it receives no result/error.
+
+### Key Lessons
+
+1. **Milestone audit should run before archiving, but still allow cleanup.** Treat `tech_debt` from integration checking as a fix list when the fixes are narrow.
+2. **Every plan SUMMARY that claims a REQ-ID needs frontmatter.** The audit workflow depends on three independent sources; missing frontmatter creates avoidable ambiguity.
+3. **Do not add wrapper factories just to match roadmap wording.** If an existing service extension satisfies the bridge contract, preserve it and document the equivalence.
+4. **Resolve seeds when their trigger is fulfilled.** SEED-001 was dormant after Phase 44 until closeout; marking it resolved made the open-artifact audit clean.
+
+### Cost Observations
+
+- **Model mix:** Frontier leader + standard GSD checker/verifier lanes; one integration-checker subagent for milestone audit.
+- **Sessions:** Single autonomous run from Phase 45 through lifecycle closeout.
+- **Notable:** Late cleanup added one focused Playwright run and one full E2E run; the final suite closed at 86/0/0.
+
+---
+
 ## Milestone: v1.7 — NIP-5D Spec Adoption & New NUB Domains
 
 **Shipped:** 2026-04-24
@@ -270,6 +317,7 @@
 | v1.1 | ~12 | 4 | NIP-5D 5-nub implementation; introduced phase VERIFICATION.md |
 | v1.2 | ~18 | 6 | Canonical conformance + 8-nub coverage; 449 tests |
 | v1.3 | ~25 | 7 | Consume-and-showcase; Layer-A + Layer-B Playwright split; E2E-11 iteration-loop gate |
+| v1.8 | 1 autonomous run | 5 | Upstream alignment, decrypt surface, audit-clean closeout |
 
 ### Cumulative Quality
 
@@ -277,6 +325,7 @@
 |-----------|-------------:|--------:|-------------------:|
 | v1.2 | 449 | 0 | (baseline) |
 | v1.3 | 47 (E2E) | 0 (was 68 pre-22-07) | @kehto/acl already zero-dep (confirmed via publint) |
+| v1.8 | 86 (E2E) + 543 unit | 0 | No new dependencies |
 
 Note: v1.3 test count reflects E2E Playwright specs only; unit tests carried forward from v1.2 unchanged. The drop from 449 → 47 is a change of instrument (v1.2 counted all Vitest specs; v1.3 E2E-10 gates specifically on Playwright suite green).
 

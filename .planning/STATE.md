@@ -2,32 +2,32 @@
 gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Upstream Alignment & NIP-44 Decrypt
-status: planning
-last_updated: "2026-05-20T16:00:00.000Z"
-last_activity: 2026-05-20
+status: Awaiting next milestone
+last_updated: "2026-05-21T21:08:55.596Z"
+last_activity: 2026-05-21 — Milestone v1.8 completed and archived
 progress:
   total_phases: 5
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 5
+  total_plans: 9
+  completed_plans: 9
+  percent: 100
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-20, v1.8 started)
+See: .planning/PROJECT.md (updated 2026-05-21, v1.8 complete)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 42 — Bug Fix + Polish + Rename Sweep (ungated, fast v1.8 opener).
+**Current focus:** Awaiting next milestone.
 
 ## Current Position
 
-Phase: 42 — Bug Fix + Polish + Rename Sweep
-Plan: — (awaiting `/gsd:plan-phase 42`)
-Status: Roadmap complete; planning Phase 42 next
-Last activity: 2026-05-20 — v1.8 roadmap created (5 phases, 27 requirements mapped)
+Phase: Milestone v1.8 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-05-21 — Milestone v1.8 completed and archived
 
 ## Accumulated Context
 
@@ -37,17 +37,20 @@ Full decision log (v1.0 → v1.7) archived in `.planning/PROJECT.md` Key Decisio
 
 - **Phase 42** (ungated): BUG-01/02 + POLISH-01 + RENAME-01/02 — 5 reqs
 - **Phase 43** (ungated): VALIDATE-01 — 1 req
-- **Phase 44** (gated on `@napplet/nub@0.3.0` publish): DEP-01..07 + VALIDATOR-01/02 — 9 reqs
-- **Phase 45** (gated on Phase 44): DECRYPT-01..07 — 7 reqs
-- **Phase 46** (gated on Phase 45): DECRYPT-08..10 + E2E-27/28 — 5 reqs
+- **Phase 44** (completed 2026-05-21): DEP-01..07 + VALIDATOR-01/02 — 9 reqs
+- **Phase 45** (completed 2026-05-21): DECRYPT-01..07 — 7 reqs
+- **Phase 46** (completed 2026-05-21): DECRYPT-08..10 + E2E-27/28 — 5 reqs
 
 ### Blockers/Concerns
 
-- **`@napplet/nub@0.3.0` upstream publish** — blocks Phases 44–46. As of v1.8 kickoff, latest is 0.2.1; publish is blocked by Actions PR-permission setting on `napplet/napplet`. Phases 42–43 execute independently. Soft-gate evaluation at Phase 43 close.
-- **SEED-001 (`pnpm.overrides @napplet/nub>@napplet/core`)** — auto-retires in Phase 44 when upstream packaging-bug fix lands with `@napplet/nub@0.3.0`.
-- No critical blockers for Phases 42–43.
+- No active blockers. v1.8 requirements are complete, audited, and archived.
+- v1.9 follow-up: migrate 18 napplet packages from `@napplet/sdk@^0.2.1` namespace exports to the `@napplet/sdk@0.3.0` function-export surface.
 
 ## Session Continuity
 
-Last session: 2026-05-20T16:00:00.000Z
-Resume: v1.8 roadmap created. Next: `/gsd:plan-phase 42` to scope the Bug Fix + Polish + Rename Sweep phase.
+Last session: 2026-05-21T22:53:34+02:00
+Resume: v1.8 is complete and archived. Next: start a fresh milestone with `/gsd-new-milestone`.
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone

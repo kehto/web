@@ -19,6 +19,7 @@ export const DEMO_CAPABILITY_LABELS: Record<Capability, string> = {
   'state:read': 'State Read',
   'state:write': 'State Write',
   'identity:read': 'Identity Read',
+  'identity:decrypt': 'Identity Decrypt',
   'keys:bind': 'Keys Bind',
   'keys:forward': 'Keys Forward',
   'media:control': 'Media Control',
@@ -36,6 +37,7 @@ export const DEMO_CAPABILITY_HINTS: Record<Capability, string> = {
   'state:read': 'state read',
   'state:write': 'state write',
   'identity:read': 'identity read (pubkey, profile)',
+  'identity:decrypt': 'identity decrypt (class-1 only)',
   'keys:bind': 'bind keyboard shortcut',
   'keys:forward': 'forward key events',
   'media:control': 'media session control',
@@ -50,6 +52,7 @@ const DEMO_CAPABILITIES: { cap: Capability; label: string }[] = [
   { cap: 'state:read', label: DEMO_CAPABILITY_LABELS['state:read'] },
   { cap: 'state:write', label: DEMO_CAPABILITY_LABELS['state:write'] },
   { cap: 'identity:read', label: DEMO_CAPABILITY_LABELS['identity:read'] },
+  { cap: 'identity:decrypt', label: DEMO_CAPABILITY_LABELS['identity:decrypt'] },
   // Phase 19 (Plan 19-04): add notify:send so the toaster's ACL panel exposes the toggle.
   // Existing napplets (chat/bot) also get this toggle; they use legacy ipc.emit gated on
   // relay:write, not notify:send — the extra toggle is visible but no-op for them.

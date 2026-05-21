@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="napplet-napp-type" content="demo-decrypt" />
+  <title>Decrypt Demo Napplet</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #0a0a0f;
+      color: #e0e0e0;
+      font-size: 11px;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #app {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 8px;
+      gap: 6px;
+    }
+    #decrypt-demo-status { color: #888; font-size: 10px; }
+    .grid {
+      display: grid;
+      grid-template-columns: 74px 1fr;
+      gap: 4px 6px;
+      align-items: center;
+      font-size: 10px;
+    }
+    .label { color: #7981a0; }
+    .status {
+      min-height: 18px;
+      padding: 4px 5px;
+      border: 1px solid #1e1e2e;
+      background: #0d0d14;
+      color: #b0b0c0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    button {
+      background: #151827;
+      color: #d8e4ff;
+      border: 1px solid #30364f;
+      border-radius: 4px;
+      padding: 4px 7px;
+      font: inherit;
+      cursor: pointer;
+      width: fit-content;
+    }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    #decrypt-demo-log {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      background: #0d0d14;
+      border: 1px solid #1e1e2e;
+      padding: 6px;
+      font-size: 10px;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="decrypt-demo-status">waiting for fixtures</div>
+    <div class="grid">
+      <div class="label">NIP-04</div>
+      <div id="decrypt-nip04-status" class="status">(pending)</div>
+      <div class="label">NIP-44</div>
+      <div id="decrypt-nip44-status" class="status">(pending)</div>
+      <div class="label">NIP-17</div>
+      <div id="decrypt-nip17-status" class="status">(pending)</div>
+      <div class="label">Class-2</div>
+      <div id="decrypt-class2-status" class="status">(pending)</div>
+    </div>
+    <button id="decrypt-class2-run" disabled>class-2 probe</button>
+    <div id="decrypt-demo-log"></div>
+  </div>
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>

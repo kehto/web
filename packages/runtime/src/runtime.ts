@@ -1161,7 +1161,11 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
       const result = enforceNub(windowId, caps.senderCap as Capability, envelope);
       if (!result.allowed) {
         const id = (envelope as NappletMessage & { id?: string }).id ?? '';
-        hooks.sendToNapplet(windowId, { type: `${envelope.type}.error`, id, error: formatDenialReason(result.capability) } as NappletMessage);
+        const isIdentityDecrypt = envelope.type === 'identity.decrypt';
+        const error = isIdentityDecrypt
+          ? result.reason === 'class-forbidden' ? 'class-forbidden' : 'policy-denied'
+          : formatDenialReason(result.capability);
+        hooks.sendToNapplet(windowId, { type: `${envelope.type}.error`, id, error } as NappletMessage);
         return;
       }
     }

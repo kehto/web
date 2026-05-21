@@ -1,5 +1,28 @@
 # Milestones: Kehto Runtime
 
+## v1.8 Upstream Alignment & NIP-44 Decrypt (Shipped: 2026-05-21)
+
+**Phases completed:** 5 phases (42-46), 9 plans, 27 requirements.
+
+**Delivered:** v1.8 cleared the v1.7 carryover slate, consumed `@napplet/nub@^0.3.0` / `@napplet/core@^0.3.0`, retired the SEED-001 override, shipped canonical `identity.decrypt`, and closed at 86 passed / 0 failed / 0 skipped Playwright tests.
+
+**Audit:** passed — 27/27 requirements, 5/5 phases, 9/9 plans, 12/12 integration paths, 6/6 decrypt flows.
+
+**Key accomplishments:**
+
+- **Carryover cleanup:** topology connector lines locked by a built-preview regression spec; resource-demo port label fixed; `SessionEntry.identitySource` hard-renamed to `provenance`; `bridge.injectEvent` identity topic soft-renamed with a v1.9 removal beacon.
+- **Nyquist evidence restored:** v1.7 phases 37-41 now have archived VALIDATION.md artifacts with 24/24 criteria PASS.
+- **Upstream alignment:** `@kehto/{acl,runtime,shell,services}` now consume `@napplet/nub@^0.3.0` and `@napplet/core@^0.3.0`; the root `pnpm.overrides` workaround is gone; SEED-001 is resolved.
+- **Type model correction:** class/connect/resource files were renamed from `provisional-*` to `internal-*` after the Phase 44 audit proved upstream domain surfaces are not drop-in replacements for kehto's shell-side models.
+- **Decrypt runtime:** `identity.decrypt` now resolves to `identity:decrypt`, class-2 rejects with `class-forbidden` before signer/decryptor invocation, and all 8 typed decrypt errors map to `identity.decrypt.error`.
+- **Reference service:** `createIdentityService({ getDecryptor })` handles NIP-04, NIP-44 direct, and NIP-17 gift-wrap, including outer signature verification, impersonation check, and rumor timestamp privacy.
+- **Demo coverage:** `decrypt-demo` is the 13th playground napplet, with deterministic fixture publishing, per-mode DOM sentinels, and a class-2 forbidden path.
+- **E2E coverage:** Layer-A harness tests cover all 3 decrypt modes, all 8 typed errors, and single-target response isolation; Layer-B preview tests cover the demo happy path and forbidden path.
+
+**Archive:** [v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md) | [v1.8-REQUIREMENTS.md](milestones/v1.8-REQUIREMENTS.md) | [v1.8-MILESTONE-AUDIT.md](milestones/v1.8-MILESTONE-AUDIT.md)
+
+---
+
 ## v1.7 NIP-5D Spec Adoption & New NUB Domains (Shipped: 2026-04-24)
 
 **Phases completed:** 5 phases (37-41), 17 plans, 24 tasks. Phase 42 (NIP-44 Decrypt) deferred to v1.8 — soft-gate unresolved on napplet/napplet#3.

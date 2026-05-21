@@ -1,3 +1,9 @@
+---
+phase: 42-bug-fix-polish-rename-sweep
+plan: 05
+requirements-completed: []
+---
+
 # Plan 42-05 Summary (Finalizer)
 
 **Phase:** 42 — Bug Fix + Polish + Rename Sweep

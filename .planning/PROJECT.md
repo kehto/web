@@ -32,44 +32,25 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 @napplet/core is the shared foundation. It lives in @napplet and is consumed by @kehto as a peer dependency.
 
-## Current Milestone: v1.8 Upstream Alignment & NIP-44 Decrypt
-
-**Goal:** Consume `@napplet/nub@^0.3.0`, retire all provisional types, ship the canonical `identity.decrypt` surface, and clear v1.7 tech-debt carryovers.
-
-**Target features:**
-- Topology connector lines — leader-line vendoring fix already shipped in commit `4f02c1e` pre-kickoff; remaining work is the Playwright regression spec
-- Cosmetic: `apps/playground/napplets/resource-demo/` h2 stale port label `:5174` → `:4174`
-- `identitySource: 'auth' | 'source'` discriminant rename (v1.6 carryover)
-- `bridge.injectEvent('auth:identity-changed', ...)` rename (v1.6 carryover)
-- Nyquist validation retroactive pass for v1.7 phases (37–41)
-- Provisional-types retirement — delete `provisional-{class,connect,resource}.ts`, swap to `@napplet/nub/<domain>` imports, bump peer deps to `@napplet/nub@^0.3.0` + `@napplet/core@^0.3.0` across all 4 `@kehto/*` packages
-- `normalizeConnectOrigin` parity audit — replace kehto's local impl with shared upstream validator OR document divergence
-- Phase 42: NIP-44 Decrypt — `identity.decrypt(event)` envelope triad, 8 error codes, 4 shell MUSTs (class-gate / outer-sig-verify / impersonation-check / outer-`created_at`-hide), NIP-04 + NIP-44-direct + NIP-17 gift-wrap auto-detect, class-2 rejection, E2E-27 spec, demo napplet
-
-**Upstream gate:** Items 6/7/8 require `@napplet/nub@0.3.0` to be published on npm. As of v1.8 kickoff, latest is 0.2.1 — publish blocked by Actions PR-permission setting on `napplet/napplet`. Items 1–5 execute first; 6–8 phase order waits on publish.
-
-**SEED-001 status:** Filed upstream as napplet/napplet#4 (2026-05-20). Fix landed in changeset `066443f` of the v0.3.0 release; the `pnpm.overrides @napplet/nub>@napplet/core` workaround retires once v0.3.0 publishes.
-
 ## Current State
 
-**Shipped:** v1.7 — NIP-5D Spec Adoption & New NUB Domains (2026-04-24)
+**Shipped:** v1.8 — Upstream Alignment & NIP-44 Decrypt (2026-05-21)
 
-v1.7 closes the NIP-5D spec-alignment gap and grows kehto's NUB surface from 8 → 10 domains. Shell becomes the HTTP-header authority for napplet CSP with consent/revocation flows; class posture resolves synchronously at iframe creation; two new reference services (CONFIG 9th, RESOURCE 10th) ship with demo napplets. E2E baseline grew 54 → 72 specs (+18). DEMO_NAPPLETS grew 10 → 12.
+v1.8 completes the upstream-alignment and decrypt milestone. Kehto now consumes `@napplet/nub@^0.3.0` / `@napplet/core@^0.3.0`, no longer carries the SEED-001 pnpm override, and ships canonical `identity.decrypt` across ACL, runtime, services, shell playground wiring, demo napplet, and E2E coverage.
 
-- **NIP-5D spec resync (SPEC-04):** `specs/NIP-5D.md` byte-identical to `dskvr/nips` nip/5d at commit `d80d7b25`; class-posture delegation paragraph present.
-- **NUB-CLASS adoption (CLASS-01..06, E2E-20 partial):** breaking `onNip5dIframeCreate` expansion with `class: NappletClass`; synchronous resolution before `shell.init` (C-01 prevention — no async `class.assigned` envelope); `SessionEntry.class` field on both shell + runtime registries; `CLASS_CAPABILITY_ALLOWLIST` in `enforce.ts` with class-1/class-2 entries; `EnforceResult.reason` field; class check BEFORE capability check (D6); `CLASS_BY_DTAG` data-driven map with module-load assertion; `__setNappletClass__` test hook; 8-test parameterized `class-invariant.spec.ts` (extended to 10 domains in Phase 40).
-- **NUB-CONNECT adoption (CONNECT-01..07):** `connectStore` singleton; Vite `serveNappletCsp` plugin with HTTP-header authority in BOTH dev + preview (C-05 prevention); `POST /__connect-grants` shell→Vite sync endpoint with origin allowlist (403 on mismatch); custom DOM consent modal (60s timer, dismiss=deny, timeout=deny, cleartext warning); iframe destroy+recreate on revocation with snapshot-before-mutate Map pattern (caught + fixed infinite-loop bug mid-phase); `pnpm audit:csp` CI gate (zero meta-CSP whitelist) wired in GitHub Actions Build workflow.
-- **NUB-CONFIG 9th domain (CONFIG-01..04):** `createConfigService({ getValues, registerSchema?, openSettings?, validator? })` factory with `publishValues` host handle; config-demo napplet (11th) live `config.get` + `config.watch` round-trip via `__publishConfigValues__` test hook; scope boundary documented — napplet reads, shell writes, NO `config.set`.
-- **NUB-RESOURCE 10th domain (RESOURCE-01..06):** `createResourceService({ fetch, isOriginGranted, getConnectGrants })` factory throws at construction if `getConnectGrants` missing (H-03 prevention); in-flight `Map<requestId, AbortController>` for cancel correlation; resource-demo napplet (12th) exercises granted + denied fetch panels; `http://localhost:4174/demo-data.json` static fixture auto-granted on demo boot.
-- **Carryover polish (NIP66-06..07, WM-04..07, CACHE-01):** `Nip66Aggregator.stop()` method added (idempotent, preserves accumulated relaySet); 3 kind-30166 mock fixtures; shell-chrome `#nip66-suggestions-list` panel replaces `() => null` stub. `@kehto/wm` ships `LayoutStrategy`, `WindowState`, `WindowPlacement` primitives in 179 lines; no-op default strategy replaces Phase 35 throwing stub; zero algorithm-specific types (consumer-implemented layouts). `HostCacheBridge = CacheServiceOptions` additive alias closes kehto#1 naming-parity gap.
-- **Policy documentation (DOCS-06..07):** All three `SHELL-{CLASS,CONNECT,RESOURCE}-POLICY.md` files present under `docs/policies/` with canonical source headers (napplet/napplet@27e1624) and kehto file:line cross-references; README Policies section references all three.
-- **E2E baseline 72/0/0** — +18 tests across 5 new spec files (class-invariant, connect-consent, connect-revocation, connect-csp-preview, nub-config, nub-resource, nip66-suggestions) + class-invariant extension (8→10 domains).
+The final verification baseline is 543 unit tests and 86 Playwright E2E tests passing.
 
-41/41 in-scope requirements satisfied; 5/5 phase VERIFICATION.md passed; 10/10 cross-phase integration paths wired; 0 critical gaps.
+### Latest Milestone Accomplishments
 
-**Mid-milestone scope changes:**
-- **Phase 42 (DECRYPT-01..03 + E2E-27) deferred to v1.8** — soft-gate triggered at Phase 41 close: `napplet/napplet#3` upstream NUB-surface decision (between `relay.subscribeEncrypted` vs `identity.decrypt`) remained OPEN with zero comments. Roadmap's explicit soft-gate policy triggered.
-- **2 critical in-execution bugs fixed:** (1) `runtime.ts` missing `nubDispatch.registerNub('config', ...)` — silently dropped config envelopes; (2) `shell:connect-revoked` Map-iteration race causing infinite destroy+recreate loop.
+- **Carryover cleanup:** topology connector lines, resource-demo label, SessionEntry provenance rename, and identity-topic soft rename all shipped.
+- **Upstream alignment:** dependency bump to `@napplet/nub@^0.3.0` / `@napplet/core@^0.3.0`; override retired; SEED-001 resolved.
+- **Internal type correction:** class/connect/resource shell-side models renamed to `internal-*` after upstream concept divergence was verified.
+- **Decrypt surface:** `identity.decrypt` works for NIP-04, NIP-44 direct, and NIP-17 gift-wrap with 8 typed errors and class-2 pre-decrypt rejection.
+- **Demo and coverage:** `decrypt-demo` is the 13th playground napplet; Layer-A and Layer-B specs lock happy paths, error paths, class-2 denial, and single-target response isolation.
+
+27/27 v1.8 requirements satisfied; 5/5 phase VERIFICATION.md files passed; 12/12 integration paths wired; 0 critical gaps.
+
+**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability), v1.6 (downstream unblock), v1.7 (spec adoption + 2 new domains), v1.8 (upstream alignment + decrypt).
 
 ### Previously Shipped
 
@@ -96,15 +77,9 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 
 - **RENAME-02 soft-rename window (v1.8 → v1.9)** — `bridge.injectEvent('auth:identity-changed', …)` dual-emits both `'auth:identity-changed'` and `'identity:changed'` for one release (Plan 42-04). Hard-remove in v1.9; the deletion sweep can locate the branch by grepping for `remove this branch in v1.9` in `packages/shell/src/shell-bridge.ts`. Subscribers should migrate to `'identity:changed'` before v1.9.
 - **`@napplet/sdk` migration deferred (v1.9)** — 18 napplet `main.ts` files (12 demo + 6 fixtures) import namespace objects (`ipc`, `storage`, `relay`, `identity`, `keys`, `config`, `notify`) from `@napplet/sdk`. Upstream `@napplet/sdk@0.3.0` removed those namespace exports in favor of individual function exports (`ifcEmit`, `storageGetItem`, `relaySubscribe`, etc.). Phase 44 deliberately pinned the 18 packages at `@napplet/sdk@^0.2.1` to avoid scope creep — migrating all 18 napplets to the new function-based API is its own v1.9 phase. Note: `@napplet/sdk@0.2.1` depends on the legacy split-form `@napplet/nub-*` packages, which still resolve on npm (verified at the time of Phase 44).
-- **Phase 42 (NIP-44 decrypt) deferred from v1.7** — DECRYPT-01..03 + E2E-27 soft-gated on napplet/napplet#3 upstream NUB-surface decision between `relay.subscribeEncrypted` vs `identity.decrypt`. Issue remained OPEN with zero comments at v1.7 close. Ship at v1.8 if upstream resolves.
-- **Provisional-types retirement (single atomic swap)** — delete `packages/shell/src/types/provisional-{class,connect,resource}.ts` when upstream publishes `@napplet/nub@^0.3.0` (class+connect subpaths) and `^0.2.2` (resource subpath); swap imports to canonical paths.
-- **pnpm.overrides transitive pin** — `@napplet/nub>@napplet/core: ^0.2.1` workaround for upstream `@napplet/nub@0.2.1` publish-time workspace-specifier bug. Self-retires on upstream fix. SEED-001 tracks follow-up.
-- **`identitySource: 'auth' \| 'source'` type discriminant** — live type in SessionEntry; rename deferred.
-- **`bridge.injectEvent('auth:identity-changed', ...)` shell hook** — live surface with external consumers; rename deferred.
+- **Shell internal type adoption follow-up (v1.9+)** — Phase 44 reclassified `internal-{class,connect,resource}.ts` as kehto shell-side models after upstream `@napplet/nub@0.3.0` proved concept/shape divergence. Any future adoption of upstream resource/connect/class surfaces is a distinct migration, not a mechanical import swap.
 - **Electron / Tauri host-bridge reference impls** — HostKeysBridge + HostMediaBridge + HostCacheBridge interfaces defined (v1.4 + v1.7); reference impls deferred.
 - **Multi-OS CI matrix** — still ubuntu-latest only. Carryover from v1.4.
-- **Nyquist validation retroactive pass (optional)** — v1.7 skipped research per phase; optional `/gsd:validate-phase 37..41` if desired.
-- **Cosmetic: resource-demo h2 stale port label** — `apps/demo/napplets/resource-demo/index.html:61` references `:5174` while GRANTED_URL correctly uses `:4174`. Trivial v1.8 polish.
 
 ## Key Decisions
 

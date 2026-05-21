@@ -29,17 +29,142 @@ import {
   createConfigService,  // Phase 39 Plan 39-04 / CONFIG-03
   createResourceService, // Phase 40 Plan 40-02 / RESOURCE-04
 } from '@kehto/services';
-import type { Notification, ThemeService, ConfigService } from '@kehto/services';
+import type { Notification, ThemeService, ConfigService, HostDecryptBridge } from '@kehto/services';
 import { getSigner, getSignerConnectionState } from './signer-connection.js';
 import { demoConfig } from './demo-config.js';
 import { pushAclEvent } from './acl-history.js';
 import { createMockRelayPool, createMockNip66Pool } from './mock-relay-pool.js';
 import { createNip66Aggregator, type Nip66Aggregator } from '@kehto/nip66';
+import { nip04, nip44, nip17 } from 'nostr-tools';
 
 // Static ephemeral host identity for shell node display (separate from signer identity)
-import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
+import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 const _hostSecretKey = generateSecretKey();
 const _hostPubkey = getPublicKey(_hostSecretKey);
+
+function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
+}
+
+// Demo-only deterministic decrypt identity. This is intentionally a public
+// fixture key for playground decrypt flows; downstream shells must inject
+// their own private key / signer / backend bridge.
+const DEMO_DECRYPT_SECRET_KEY = hexToBytes('11'.repeat(32));
+export const DEMO_DECRYPT_PUBKEY = getPublicKey(DEMO_DECRYPT_SECRET_KEY);
+const DEMO_DECRYPT_SENDER_SECRET_KEY = hexToBytes('22'.repeat(32));
+const DEMO_DECRYPT_SENDER_PUBKEY = getPublicKey(DEMO_DECRYPT_SENDER_SECRET_KEY);
+
+export interface DemoDecryptModeFixture {
+  event: NostrEvent;
+  expected: { mode: 'nip04' | 'nip44' | 'nip17'; id: string };
+}
+
+export interface DemoDecryptFixtures {
+  nip04: DemoDecryptModeFixture;
+  nip44: DemoDecryptModeFixture;
+  nip17: DemoDecryptModeFixture;
+}
+
+let demoDecryptBridgeCallCount = 0;
+
+function recordDemoDecryptBridgeCall(): void {
+  demoDecryptBridgeCallCount++;
+}
+
+export function getDemoDecryptBridgeCallCount(): number {
+  return demoDecryptBridgeCallCount;
+}
+
+export function resetDemoDecryptBridgeCallCount(): void {
+  demoDecryptBridgeCallCount = 0;
+}
+
+function finalizeDemoDecryptEvent(kind: number, content: string, createdAt: number): NostrEvent {
+  return finalizeEvent({
+    kind,
+    content,
+    tags: [['p', DEMO_DECRYPT_PUBKEY]],
+    created_at: createdAt,
+  }, DEMO_DECRYPT_SENDER_SECRET_KEY) as NostrEvent;
+}
+
+async function createDemoDecryptFixtures(): Promise<DemoDecryptFixtures> {
+  const payloads = {
+    nip04: { mode: 'nip04' as const, id: 'fixture-nip04' },
+    nip44: { mode: 'nip44' as const, id: 'fixture-nip44' },
+    nip17: { mode: 'nip17' as const, id: 'fixture-nip17' },
+  };
+  const nip04Content = await nip04.encrypt(
+    DEMO_DECRYPT_SENDER_SECRET_KEY,
+    DEMO_DECRYPT_PUBKEY,
+    JSON.stringify(payloads.nip04),
+  );
+  const conversationKey = nip44.v2.utils.getConversationKey(
+    DEMO_DECRYPT_SENDER_SECRET_KEY,
+    DEMO_DECRYPT_PUBKEY,
+  );
+  const nip44Content = nip44.v2.encrypt(JSON.stringify(payloads.nip44), conversationKey);
+  const nip17Event = nip17.wrapEvent(
+    DEMO_DECRYPT_SENDER_SECRET_KEY,
+    { publicKey: DEMO_DECRYPT_PUBKEY },
+    JSON.stringify(payloads.nip17),
+  ) as NostrEvent;
+
+  return {
+    nip04: {
+      event: finalizeDemoDecryptEvent(4, nip04Content, 1_700_000_004),
+      expected: payloads.nip04,
+    },
+    nip44: {
+      event: finalizeDemoDecryptEvent(14, nip44Content, 1_700_000_014),
+      expected: payloads.nip44,
+    },
+    nip17: {
+      event: nip17Event,
+      expected: payloads.nip17,
+    },
+  };
+}
+
+function createDemoDecryptBridge(): HostDecryptBridge {
+  return {
+    async nip04Decrypt(senderPubkey: string, ciphertext: string): Promise<string> {
+      recordDemoDecryptBridgeCall();
+      return nip04.decrypt(DEMO_DECRYPT_SECRET_KEY, senderPubkey, ciphertext);
+    },
+    async nip44Decrypt(senderPubkey: string, ciphertext: string): Promise<string> {
+      recordDemoDecryptBridgeCall();
+      const conversationKey = nip44.v2.utils.getConversationKey(DEMO_DECRYPT_SECRET_KEY, senderPubkey);
+      return nip44.v2.decrypt(ciphertext, conversationKey);
+    },
+    async unwrapGiftWrap(wrap: NostrEvent) {
+      recordDemoDecryptBridgeCall();
+      const rumor = nip17.unwrapEvent(
+        wrap as Parameters<typeof nip17.unwrapEvent>[0],
+        DEMO_DECRYPT_SECRET_KEY,
+      );
+      // nostr-tools returns the rumor only; the service contract expects the
+      // authenticated seal pubkey so it can enforce the impersonation check.
+      // The playground fixture bridge derives that sender from the returned
+      // rumor for demo use. Real host bridges should return the actual seal.
+      const seal: NostrEvent = {
+        ...wrap,
+        id: `${wrap.id}:seal`,
+        kind: 13,
+        pubkey: rumor.pubkey,
+        content: '',
+        tags: [],
+        created_at: rumor.created_at,
+        sig: '',
+      };
+      return { seal, rumor };
+    },
+  };
+}
 
 // Inline a simplified message tap since we can't import from tests/helpers in apps/
 // (they are not a published package)
@@ -246,6 +371,18 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     aclId: 'resource-demo-acl',
     frameContainerId: 'resource-demo-frame-container',
   },
+  // Phase 46 (DECRYPT-09/10 + E2E-28): decrypt-demo exercises the
+  // identity.decrypt reference handler across NIP-04, NIP-44-direct, and
+  // NIP-17 fixtures. Its class-2 posture is toggled test-only via
+  // __setNappletClass__('decrypt-demo', 'class-2') rather than adding a
+  // second always-on napplet.
+  {
+    name: 'decrypt-demo',
+    label: 'decrypt-demo',
+    statusId: 'decrypt-demo-status',
+    aclId: 'decrypt-demo-acl',
+    frameContainerId: 'decrypt-demo-frame-container',
+  },
 ];
 
 /**
@@ -277,6 +414,8 @@ export const CLASS_BY_DTAG: ReadonlyMap<string, NappletClass> = new Map<string, 
   ['config-demo', null],
   // Phase 40 (RESOURCE-04): resource-demo permissive by default (no class restriction).
   ['resource-demo', null],
+  // Phase 46 (DECRYPT-09): decrypt-demo defaults to permissive/class-1 posture.
+  ['decrypt-demo', null],
 ]);
 
 // ─── D4 / H-05 module-load assertion ─────────────────────────────────────────
@@ -665,9 +804,17 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
     },
   });
 
+  const demoDecryptBridge = createDemoDecryptBridge();
+  const verifyDemoEvent = async (event: NostrEvent): Promise<boolean> => {
+    const { verifyEvent } = await import('nostr-tools/pure');
+    return verifyEvent(event as Parameters<typeof verifyEvent>[0]);
+  };
+
   const services = {
     identity: createIdentityService({
       getSigner,
+      getDecryptor: () => demoDecryptBridge,
+      verifyEvent: verifyDemoEvent,
     }),
     notifications: notificationService,
     // Phase 19 (Plan 19-04): dual-register notification-service under 'notify' so the
@@ -973,6 +1120,21 @@ export function getDemoHostPubkey(): string {
  */
 export function getDemoSignerState() {
   return getSignerConnectionState();
+}
+
+export async function publishDecryptFixturesToNapplet(dTag = 'decrypt-demo'): Promise<boolean> {
+  const info = [...napplets.values()].find((entry) => entry.name === dTag) ?? null;
+  if (!info?.iframe.contentWindow) {
+    console.warn(`[demo] publishDecryptFixturesToNapplet: iframe missing for ${dTag}`);
+    return false;
+  }
+  const fixtures = await createDemoDecryptFixtures();
+  info.iframe.contentWindow.postMessage(
+    { type: 'demo.decrypt.fixtures', fixtures },
+    '*',
+  );
+  console.info(`[demo] publishDecryptFixturesToNapplet: published fixtures to ${dTag}`);
+  return true;
 }
 
 /**
@@ -1414,6 +1576,7 @@ const aclAdapter: DemoAclAdapter = {
         'state:read': relay.runtime.aclState.check(pk, dTag, hash, 'state:read'),
         'state:write': relay.runtime.aclState.check(pk, dTag, hash, 'state:write'),
         'identity:read': relay.runtime.aclState.check(pk, dTag, hash, 'identity:read'),
+        'identity:decrypt': relay.runtime.aclState.check(pk, dTag, hash, 'identity:decrypt'),
         'keys:bind': relay.runtime.aclState.check(pk, dTag, hash, 'keys:bind'),
         'keys:forward': relay.runtime.aclState.check(pk, dTag, hash, 'keys:forward'),
         'media:control': relay.runtime.aclState.check(pk, dTag, hash, 'media:control'),
@@ -1480,4 +1643,3 @@ export function setMessageTap(tapRef: MessageTap): void {
 export function getMessageTap(): MessageTap | null {
   return _messageTapRef;
 }
-

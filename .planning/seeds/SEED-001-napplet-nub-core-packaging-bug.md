@@ -1,13 +1,26 @@
 ---
 id: SEED-001
-status: dormant
+status: resolved
 planted: 2026-04-23
 planted_during: v1.6 Phase 32 (NUB Dep Consolidation)
 trigger_when: Next @napplet/nub version bump on kehto (0.2.1 → 0.2.x or 0.3.x)
 scope: small
+resolved: 2026-05-21
+resolved_during: v1.8 Phase 44 (Upstream Consumption + Validator Parity)
 ---
 
 # SEED-001: File upstream issue — `@napplet/nub@0.2.1` ships unresolved `workspace:*` for `@napplet/core`
+
+## Resolution
+
+Resolved during v1.8 Phase 44. Upstream `@napplet/nub@0.3.0` publishes with `@napplet/core@^0.3.0` instead of the unresolved `workspace:*` edge, so kehto removed the root `pnpm.overrides @napplet/nub>@napplet/core` workaround and re-resolved the lockfile successfully.
+
+Evidence:
+
+- `.planning/phases/44-upstream-consumption-validator-parity/44-01-SUMMARY.md`
+- `.planning/phases/44-upstream-consumption-validator-parity/44-VERIFICATION.md`
+- Root `package.json` no longer contains the override.
+- `pnpm install`, `pnpm build`, `pnpm test:unit`, and `pnpm test:e2e` passed after the dependency swap.
 
 ## Why This Matters
 

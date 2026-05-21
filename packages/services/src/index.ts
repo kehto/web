@@ -43,7 +43,12 @@ export { createNotificationService } from './notification-service.js';
 
 // ─── Identity Service (NIP-5D identity NUB) ───────────────────────────────
 export { createIdentityService } from './identity-service.js';
-export type { IdentityServiceOptions } from './identity-service.js';
+export type {
+  GiftWrapDecryptResult,
+  HostDecryptBridge,
+  IdentityServiceOptions,
+  VerifyEvent,
+} from './identity-service.js';
 
 // ─── Relay Pool Service ───────────────────────────────────────────────────
 export { createRelayPoolService } from './relay-pool-service.js';

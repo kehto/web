@@ -26,15 +26,18 @@ export type { NubMessage } from '@kehto/acl';
  * classes are added when NUB specs publish new class tokens.
  *
  * - 'class-1': all 15 v1.2-era capabilities (permissive full surface).
- * - 'class-2': all capabilities EXCEPT relay:write - the sample restrictive
- *   class Plan 38-03's class-invariant.spec.ts exercises.
+ * - 'class-2': all capabilities EXCEPT relay:write and identity:decrypt -
+ *   relay:write is the sample restrictive class Plan 38-03 exercises, and
+ *   identity:decrypt is the NUB-IDENTITY class-1-only decrypt surface.
  *
  * Unknown class tokens fall through enforceNub's "treat as maximally
  * restrictive" branch (deny all) - defensive failsafe, not policy.
  */
 const CLASS_CAPABILITY_ALLOWLIST: Readonly<Record<string, ReadonlySet<Capability>>> = Object.freeze({
   'class-1': new Set<Capability>(ALL_CAPABILITIES),
-  'class-2': new Set<Capability>(ALL_CAPABILITIES.filter((c) => c !== 'relay:write')),
+  'class-2': new Set<Capability>(ALL_CAPABILITIES.filter(
+    (c) => c !== 'relay:write' && c !== 'identity:decrypt',
+  )),
 });
 
 // ─── Enforcement ──────────────────────────────────────────────────────────────

@@ -36,6 +36,8 @@ export const ALL_CAPABILITIES = [
   'config:read',
   // v1.7 Phase 40 — NUB-RESOURCE reference service (10th domain):
   'resource:fetch',
+  // v1.8 Phase 45 — NUB-IDENTITY decrypt gate:
+  'identity:decrypt',
 ] as const;
 
 /** Union of every capability string in ALL_CAPABILITIES. */
@@ -52,6 +54,8 @@ export type Capability = typeof ALL_CAPABILITIES[number];
 
 /** identity.getProfile/getFollows/getList/getZaps/getMutes/getBlocked/getBadges */
 export const CAP_IDENTITY_READ   = 'identity:read' as const;
+/** identity.decrypt (class-1 only; shell-mediated decrypt) */
+export const CAP_IDENTITY_DECRYPT = 'identity:decrypt' as const;
 /** keys.registerAction / keys.unregisterAction / keys.bindings */
 export const CAP_KEYS_BIND       = 'keys:bind' as const;
 /** keys.forward / keys.action */

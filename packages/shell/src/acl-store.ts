@@ -48,6 +48,7 @@ const CAP_BITS: Record<string, number> = {
   'state:read': 256, 'state:write': 512,
   'media:control': 1024, 'notify:send': 2048, 'notify:channel': 4096,
   'theme:read': 8192,
+  'identity:decrypt': 65536,
 };
 
 function capArrayToBitfield(caps: Capability[]): number {

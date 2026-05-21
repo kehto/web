@@ -22,6 +22,7 @@ const ALL_CAPABILITIES: Capability[] = [
   'state:read',
   'state:write',
   'identity:read',
+  'identity:decrypt',
   'keys:bind',
   'keys:forward',
   'media:control',

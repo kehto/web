@@ -21,6 +21,9 @@ import {
   toggleService,
   setDemoConfigValue,
   getNip66Aggregator,
+  publishDecryptFixturesToNapplet,
+  getDemoDecryptBridgeCallCount,
+  resetDemoDecryptBridgeCallCount,
 } from './shell-host.js';
 import type { NappletClass } from '@kehto/shell';
 import type { Capability } from '@kehto/shell';
@@ -1108,6 +1111,26 @@ export function setSelectedNode(id: string | null): void {
   }
   console.info(`[demo] __publishConfigValues__: published keys: ${Object.keys(values).join(',')}`);
   return true;
+};
+
+// ─── Phase 46 Plan 46-01: __publishDecryptFixtures__ test hook ─────────────
+// Publishes deterministic encrypted fixtures into decrypt-demo's iframe. The
+// napplet performs the actual identity.decrypt requests so the full
+// napplet->runtime->service->napplet path is exercised.
+(window as Window & {
+  __publishDecryptFixtures__?: (dTag?: string) => Promise<boolean>;
+}).__publishDecryptFixtures__ = async (dTag = 'decrypt-demo'): Promise<boolean> => {
+  return publishDecryptFixturesToNapplet(dTag);
+};
+
+(window as Window & {
+  __getDecryptBridgeCallCount__?: () => number;
+}).__getDecryptBridgeCallCount__ = (): number => getDemoDecryptBridgeCallCount();
+
+(window as Window & {
+  __resetDecryptBridgeCallCount__?: () => void;
+}).__resetDecryptBridgeCallCount__ = (): void => {
+  resetDemoDecryptBridgeCallCount();
 };
 
 console.log('[napplet playground] initialized');

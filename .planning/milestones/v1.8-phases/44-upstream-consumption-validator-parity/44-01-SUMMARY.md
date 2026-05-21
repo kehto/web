@@ -1,3 +1,9 @@
+---
+phase: 44-upstream-consumption-validator-parity
+plan: 01
+requirements-completed: [DEP-01, DEP-02, DEP-03, DEP-04, DEP-05, DEP-06, DEP-07, VALIDATOR-01, VALIDATOR-02]
+---
+
 # Plan 44-01 Summary
 
 **Phase:** 44 — Upstream Consumption + Validator Parity

@@ -20,9 +20,8 @@ export type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 export type { Capability } from '@kehto/runtime';
 export { ALL_CAPABILITIES } from '@kehto/runtime';
 
-// v1.7 Phase 38: NUB-CLASS provisional type — consumed by apps/playground and by
-// downstream host apps implementing onNip5dIframeCreate. Only NappletClass is
-// re-exported (ClassAssignmentPayload stays staging-only for now).
+// v1.7 Phase 38: NUB-CLASS internal type — consumed by apps/playground and by
+// downstream host apps implementing shell-side class posture.
 export type { NappletClass } from './types/internal-class.js';
 
 // Types for host app integration (shell-specific)
@@ -101,11 +100,12 @@ export type {
   KeysForwarderSessionRegistry,
 } from './keys-forwarder.js';
 
-// ─── v1.7 Phase 39 NUB-CONNECT: connect-store singleton + wire types ─────────
+// ─── v1.7 Phase 39 NUB-CONNECT: connect-store singleton + internal wire types ─
 // connect-store singleton with grant/revoke/check/getOrigins/getAllGrants/persist/load/clear.
 // connectGrantKey: compose the canonical '<dTag>:<aggregateHash>' composite key.
 // Wire types: ConnectGrant, ConnectGrantKey, ConnectConsentRequest, ConsentResult
-// (provisional — swap to @napplet/nub/connect when upstream publishes at ^0.3.0).
+// These are shell-side store records; upstream @napplet/nub/connect models the
+// napplet-side accessor surface and is intentionally not a drop-in replacement.
 export { connectStore, connectGrantKey } from './connect-store.js';
 export type { ConnectStore } from './connect-store.js';
 export type {
@@ -115,12 +115,12 @@ export type {
   ConsentResult,
 } from './types/internal-connect.js';
 
-// ─── v1.7 Phase 40: NUB-RESOURCE provisional wire types ─────────────���────────
+// ─── v1.7 Phase 40: NUB-RESOURCE internal wire types ─────────────────────────
 // Consumed by demo napplets and external host apps that implement the `fetch`
 // option for createResourceService. Exported here so consumers can import from
-// @kehto/shell without reaching into the provisional/ subpath directly.
-// Swap to `@napplet/nub/resource/types` when upstream publishes at ^0.2.2
-// (single-atomic bump per v1.7 milestone close policy).
+// @kehto/shell without reaching into internal type paths directly. Upstream
+// @napplet/nub/resource uses a different message and error vocabulary; future
+// adoption is a distinct migration, not a mechanical import swap.
 export type {
   ResourceBytesRequest,
   ResourceCancelRequest,
