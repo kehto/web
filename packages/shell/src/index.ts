@@ -23,7 +23,7 @@ export { ALL_CAPABILITIES } from '@kehto/runtime';
 // v1.7 Phase 38: NUB-CLASS provisional type — consumed by apps/playground and by
 // downstream host apps implementing onNip5dIframeCreate. Only NappletClass is
 // re-exported (ClassAssignmentPayload stays staging-only for now).
-export type { NappletClass } from './types/provisional-class.js';
+export type { NappletClass } from './types/internal-class.js';
 
 // Types for host app integration (shell-specific)
 export type {
@@ -113,7 +113,7 @@ export type {
   ConnectGrantKey,
   ConnectConsentRequest,
   ConsentResult,
-} from './types/provisional-connect.js';
+} from './types/internal-connect.js';
 
 // ─── v1.7 Phase 40: NUB-RESOURCE provisional wire types ─────────────���────────
 // Consumed by demo napplets and external host apps that implement the `fetch`
@@ -130,4 +130,4 @@ export type {
   ResourceRequestId,
   ResourceInbound,
   ResourceOutbound,
-} from './types/provisional-resource.js';
+} from './types/internal-resource.js';

@@ -10,7 +10,7 @@
  * combinations return `false` from check() — napplets must be explicitly granted
  * origins via grant(). This is the NUB-CONNECT security invariant.
  *
- * @see packages/shell/src/types/provisional-connect.ts for the wire types.
+ * @see packages/shell/src/types/internal-connect.ts for the wire types.
  * @see docs/policies/SHELL-CONNECT-POLICY.md (Plan 39-05) for the full policy.
  */
 

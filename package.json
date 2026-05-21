@@ -27,10 +27,5 @@
     "typescript": "^5.9.3",
     "vitest": "^4.1.2"
   },
-  "pnpm": {
-    "overrides": {
-      "@napplet/nub>@napplet/core": "^0.2.1"
-    }
-  },
   "packageManager": "pnpm@10.8.0"
 }

@@ -1,15 +1,20 @@
-// provisional — pending @napplet/nub/resource publish
 /**
- * @file provisional-resource.ts
+ * @file internal-resource.ts
  *
- * TODO: swap import to @napplet/nub/resource when published at ^0.2.2
+ * Kehto-internal shell-side resource wire types. Per PROJECT.md Decision #31,
+ * this is NOT a staging-ground duplicate of upstream `@napplet/nub/resource`:
+ * Phase 44 audit confirmed the two surfaces diverge substantively — different
+ * field names (kehto's `requestId` vs upstream `id`; kehto's `bodyBase64` vs
+ * upstream `blob` + `mime`), different message-type names
+ * (`ResourceBytesRequest` vs `ResourceBytesMessage`), and disjoint error
+ * vocabularies (kehto: 5 codes `{denied, canceled, network-error, invalid-url,
+ * class-forbidden}`; upstream: 8 codes `{not-found, blocked-by-policy,
+ * timeout, too-large, unsupported-scheme, decode-failed, network-error,
+ * quota-exceeded}`).
  *
- * NUB-RESOURCE wire types. Canonical source EXISTS in napplet/napplet main
- * branch (packages/nub/src/resource/, commit 45661375e9df, 2026-04-20) but is
- * not yet published to npm. These shapes mirror that unpublished source. When
- * `@napplet/nub@^0.2.2` ships with the resource subpath, this file is deleted
- * and imports swap to `@napplet/nub/resource` (single atomic bump per v1.7
- * milestone close policy).
+ * Future migration to upstream's surface is its own phase. For now this file
+ * owns the wire shapes kehto's `resource-service.ts` and resource-demo napplet
+ * already implement.
  *
  * Canonical 4-message protocol (RESOURCE-03):
  *   Inbound:  resource.bytes, resource.cancel

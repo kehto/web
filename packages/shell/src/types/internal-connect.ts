@@ -1,21 +1,23 @@
-// provisional — pending @napplet/nub/connect publish
 /**
- * @file provisional-connect.ts
+ * @file internal-connect.ts
  *
- * TODO: swap import to @napplet/nub/connect when published at ^0.3.0
+ * Kehto-internal shell-side connect-store + consent-flow types. Per
+ * PROJECT.md Decision #31, this is NOT a staging-ground duplicate of upstream
+ * `@napplet/nub/connect`: upstream exports a napplet-side accessor interface
+ * (`NappletConnect = { granted, origins }`) plus the shared
+ * `normalizeConnectOrigin` pure validator. Kehto's types here describe the
+ * shell's grant-store records (`ConnectGrant`, `ConnectGrantKey`,
+ * `ConsentResult`), used by the connect-store singleton and the Vite CSP
+ * plugin's consent flow.
  *
- * NUB-CONNECT wire types. Canonical source does not yet exist in any published
- * form (neither npm @napplet/nub@0.2.1 nor napplet/napplet main branch contain
- * a connect subpath as of 2026-04-24). These shapes are derived from:
- *   - NIP-5D class-posture delegation paragraph (authorizes shell-controlled
- *     HTTP response headers)
- *   - kehto v1.7 Phase 39 requirements (CONNECT-01..CONNECT-07)
- *   - .planning/research/STACK.md Section 3 (CSP `connect-src` string join)
+ * The two surfaces are complementary: upstream's accessor type ships at the
+ * napplet boundary; kehto's grant-store types live shell-side. No retirement
+ * planned. For canonical origin validation (kehto has no local impl;
+ * Decision #32), consume `@napplet/nub/connect`'s `normalizeConnectOrigin`
+ * directly.
  *
  * Downstream consumers (Phase 39 `connect-store.ts`, Vite CSP middleware,
- * consent flow UI) import from this module. When upstream publishes
- * `@napplet/nub/connect` at ^0.3.0, this file is deleted and imports swap to
- * the canonical subpath (single atomic bump per v1.7 milestone close policy).
+ * consent flow UI) import from this module.
  */
 
 /**

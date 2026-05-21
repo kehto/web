@@ -4,9 +4,6 @@ settings:
   autoInstallPeers: false
   excludeLinksFromLockfile: false
 
-overrides:
-  '@napplet/nub>@napplet/core': ^0.2.1
-
 importers:
 
   .:
@@ -190,8 +187,8 @@ importers:
   apps/playground/napplets/media-controller:
     dependencies:
       '@napplet/nub':
-        specifier: ^0.2.1
-        version: 0.2.1
+        specifier: ^0.3.0
+        version: 0.3.0
       '@napplet/sdk':
         specifier: ^0.2.1
         version: 0.2.1
@@ -307,11 +304,11 @@ importers:
   packages/acl:
     devDependencies:
       '@napplet/core':
-        specifier: ^0.2.1
-        version: 0.2.1
+        specifier: ^0.3.0
+        version: 0.3.0
       '@napplet/nub':
-        specifier: ^0.2.1
-        version: 0.2.1
+        specifier: ^0.3.0
+        version: 0.3.0
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.3)
@@ -347,11 +344,11 @@ importers:
         version: 2.0.1
     devDependencies:
       '@napplet/core':
-        specifier: ^0.2.1
-        version: 0.2.1
+        specifier: ^0.3.0
+        version: 0.3.0
       '@napplet/nub':
-        specifier: ^0.2.1
-        version: 0.2.1
+        specifier: ^0.3.0
+        version: 0.3.0
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.3)
@@ -369,11 +366,11 @@ importers:
         version: link:../runtime
     devDependencies:
       '@napplet/core':
-        specifier: ^0.2.1
-        version: 0.2.1
+        specifier: ^0.3.0
+        version: 0.3.0
       '@napplet/nub':
-        specifier: ^0.2.1
-        version: 0.2.1
+        specifier: ^0.3.0
+        version: 0.3.0
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.3)
@@ -394,11 +391,11 @@ importers:
         version: link:../runtime
     devDependencies:
       '@napplet/core':
-        specifier: ^0.2.1
-        version: 0.2.1
+        specifier: ^0.3.0
+        version: 0.3.0
       '@napplet/nub':
-        specifier: ^0.2.1
-        version: 0.2.1
+        specifier: ^0.3.0
+        version: 0.3.0
       nostr-tools:
         specifier: ^2.23.3
         version: 2.23.3(typescript@5.9.3)
@@ -994,6 +991,9 @@ packages:
   '@napplet/core@0.2.1':
     resolution: {integrity: sha512-eR83e/5uhIdH9idqiq0Lw3amYAar00t1RR8q0+6UrFTJYXY4NEI4aeiByr99c8iECAaYSNRcgYmvAS98Hw6Y+Q==}
 
+  '@napplet/core@0.3.0':
+    resolution: {integrity: sha512-3KfvV1OUit1qd7wi3eW/qK2ChhuGCS2zzvXpuYHMksjDkLJP+SPbLoocqr21v1EpJ0LDFAFdqRNdVo+XGsBA/g==}
+
   '@napplet/nub-config@0.2.1':
     resolution: {integrity: sha512-zQU997v9UsNN0A8s7u1jBPjS82nMEC8lc3LTB+LhxMQP8K58PVOJZwTG4qV1uDF3Neyx8EV4s9YfKKjhpdeG1g==}
     peerDependencies:
@@ -1026,8 +1026,8 @@ packages:
   '@napplet/nub-theme@0.2.1':
     resolution: {integrity: sha512-/JZwaEYluQW6G7OaKsZK91icRzLHnKKby5KXSfWe6seERs+pCrJFJeD2/+vnYDdh9G7pXKrBt0g5Aji/9FmdUA==}
 
-  '@napplet/nub@0.2.1':
-    resolution: {integrity: sha512-CgUC7YgIzDWK8AMnD5Upv/4QgvHYMGXs3kvxHGWDrGV2ZorjdGbet8p0IeYC6QHjKLuPdBknnagmSZejjaXfww==}
+  '@napplet/nub@0.3.0':
+    resolution: {integrity: sha512-4Hr2LbcpJ5BC9bPhvCdTL8nMcCSMY4UgYKCSWiT1o5Ah6HYSL0E+MJUPyA4P5R+6gbX6hCYPZD9GI8bj8qKpaQ==}
     peerDependencies:
       json-schema-to-ts: ^3.1.1
     peerDependenciesMeta:
@@ -2827,6 +2827,8 @@ snapshots:
 
   '@napplet/core@0.2.1': {}
 
+  '@napplet/core@0.3.0': {}
+
   '@napplet/nub-config@0.2.1':
     dependencies:
       '@napplet/core': 0.2.1
@@ -2863,9 +2865,9 @@ snapshots:
     dependencies:
       '@napplet/core': 0.2.1
 
-  '@napplet/nub@0.2.1':
+  '@napplet/nub@0.3.0':
     dependencies:
-      '@napplet/core': 0.2.1
+      '@napplet/core': 0.3.0
 
   '@napplet/sdk@0.2.1':
     dependencies:

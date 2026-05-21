@@ -11,7 +11,7 @@ import type { Capability } from '@kehto/acl/capabilities';
 // ─── Class posture (NUB-CLASS, v1.7 Phase 38) ────────────────────────────────
 /**
  * A napplet class identifier. `null` is the permissive default (no class).
- * provisional — mirrors packages/shell/src/types/provisional-class.ts::NappletClass;
+ * provisional — mirrors packages/shell/src/types/internal-class.ts::NappletClass;
  * converges on @napplet/nub/class@^0.3.0 publish. Runtime MUST NOT import
  * from shell (module-boundary), so this duplicate lives here.
  */
@@ -465,7 +465,7 @@ export interface SessionEntry {
   /**
    * Class posture resolved synchronously at iframe creation (CLASS-02).
    * `null` is the permissive default (D2). Class tokens like 'class-1' /
-   * 'class-2' are NUB-defined. See packages/shell/src/types/provisional-class.ts.
+   * 'class-2' are NUB-defined. See packages/shell/src/types/internal-class.ts.
    */
   class: NappletClass;
 }

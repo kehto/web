@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@napplet/nub": "^0.2.1",
+    "@napplet/nub": "^0.3.0",
     "@napplet/sdk": "^0.2.1",
     "@napplet/shim": "^0.2.1"
   },

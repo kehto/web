@@ -25,12 +25,12 @@
   },
   "dependencies": {},
   "peerDependencies": {
-    "@napplet/core": "^0.2.1",
-    "@napplet/nub": "^0.2.1"
+    "@napplet/core": "^0.3.0",
+    "@napplet/nub": "^0.3.0"
   },
   "devDependencies": {
-    "@napplet/core": "^0.2.1",
-    "@napplet/nub": "^0.2.1",
+    "@napplet/core": "^0.3.0",
+    "@napplet/nub": "^0.3.0",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3"
   },

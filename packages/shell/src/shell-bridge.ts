@@ -22,7 +22,7 @@ import { audioManager } from './audio-manager.js';
 import type { ShellAdapter, ShellCapabilities } from './types.js';
 import type { NappletMessage } from '@napplet/core';
 import type { Theme } from '@napplet/nub/theme/types';
-import type { NappletClass } from './types/provisional-class.js';
+import type { NappletClass } from './types/internal-class.js';
 import { buildShellCapabilities } from './shell-init.js';
 import { createKeysForwarder } from './keys-forwarder.js';
 import type { KeysForwarder } from './keys-forwarder.js';

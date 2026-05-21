@@ -17,7 +17,7 @@ import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 import type { Capability, ServiceDescriptor } from '@kehto/runtime';
 import type { RuntimeConfigOverrides } from '@kehto/runtime';
 import type { ServiceHandler, ServiceRegistry } from '@kehto/runtime';
-import type { NappletClass } from './types/provisional-class.js';
+import type { NappletClass } from './types/internal-class.js';
 
 // Re-export service types so shell consumers can still import from @kehto/shell
 // (ServiceDescriptor already re-exported above from @kehto/runtime).
@@ -62,7 +62,7 @@ export interface SessionEntry {
   /**
    * Class posture resolved synchronously at iframe creation (CLASS-02).
    * `null` is the permissive default (D2). Class tokens like 'class-1' /
-   * 'class-2' are NUB-defined. See packages/shell/src/types/provisional-class.ts.
+   * 'class-2' are NUB-defined. See packages/shell/src/types/internal-class.ts.
    */
   class: NappletClass;
 }

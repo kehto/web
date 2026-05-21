@@ -29,18 +29,18 @@
 
 ### Dependency consumption
 
-- [ ] **DEP-01**: `@napplet/nub` peer dep bumped `^0.2.1` → `^0.3.0` across `@kehto/acl`, `@kehto/runtime`, `@kehto/shell`, `@kehto/services`
-- [ ] **DEP-02**: `@napplet/core` peer dep bumped `^0.2.0` → `^0.3.0` across all 4 packages
-- [ ] **DEP-03**: `pnpm.overrides @napplet/nub>@napplet/core` workaround removed from root `package.json` (verifies upstream packaging-bug fix is live)
-- [ ] **DEP-04**: `packages/shell/src/types/provisional-class.ts` **reclassified** as kehto-internal shell-side session label (rename/relabel; do NOT delete). Phase 44 audit: upstream `@napplet/nub/class` exports a different concept — napplet-side accessor `interface NappletClass { readonly class: number \| undefined }`, NOT the string-token model kehto's enforce.ts depends on. No concept overlap; kehto's type stays.
-- [ ] **DEP-05**: `packages/shell/src/types/provisional-connect.ts` **reclassified** as kehto-internal shell-side connect-store types (`ConnectGrant`, `ConsentResult`, etc.). Phase 44 audit: upstream `@napplet/nub/connect` exports a different concept — napplet-side accessor `interface NappletConnect { granted, origins }` plus the shared `normalizeConnectOrigin` validator. Rename/relabel; do NOT delete.
-- [ ] **DEP-06**: `packages/shell/src/types/provisional-resource.ts` **reclassified** as kehto-internal wire types (Phase 44 audit revealed upstream `@napplet/nub/resource` diverges substantially: kehto uses `requestId`+`bodyBase64`+5-code errors `{denied,canceled,network-error,invalid-url,class-forbidden}`; upstream uses `id`+`blob`+`mime`+8-code errors `{not-found,blocked-by-policy,timeout,too-large,unsupported-scheme,decode-failed,network-error,quota-exceeded}` — different field names, different message-type names, disjoint error vocabularies). Rename/relabel; do NOT delete. Any future migration to upstream's surface is its own phase.
-- [ ] **DEP-07**: 4 minor-bump changesets staged (`@kehto/{acl,runtime,shell,services}`)
+- [x] **DEP-01**: `@napplet/nub` peer dep bumped `^0.2.1` → `^0.3.0` across `@kehto/acl`, `@kehto/runtime`, `@kehto/shell`, `@kehto/services`
+- [x] **DEP-02**: `@napplet/core` peer dep bumped `^0.2.0` → `^0.3.0` across all 4 packages
+- [x] **DEP-03**: `pnpm.overrides @napplet/nub>@napplet/core` workaround removed from root `package.json` (verifies upstream packaging-bug fix is live)
+- [x] **DEP-04**: `packages/shell/src/types/provisional-class.ts` **reclassified** as kehto-internal shell-side session label (rename/relabel; do NOT delete). Phase 44 audit: upstream `@napplet/nub/class` exports a different concept — napplet-side accessor `interface NappletClass { readonly class: number \| undefined }`, NOT the string-token model kehto's enforce.ts depends on. No concept overlap; kehto's type stays.
+- [x] **DEP-05**: `packages/shell/src/types/provisional-connect.ts` **reclassified** as kehto-internal shell-side connect-store types (`ConnectGrant`, `ConsentResult`, etc.). Phase 44 audit: upstream `@napplet/nub/connect` exports a different concept — napplet-side accessor `interface NappletConnect { granted, origins }` plus the shared `normalizeConnectOrigin` validator. Rename/relabel; do NOT delete.
+- [x] **DEP-06**: `packages/shell/src/types/provisional-resource.ts` **reclassified** as kehto-internal wire types (Phase 44 audit revealed upstream `@napplet/nub/resource` diverges substantially: kehto uses `requestId`+`bodyBase64`+5-code errors `{denied,canceled,network-error,invalid-url,class-forbidden}`; upstream uses `id`+`blob`+`mime`+8-code errors `{not-found,blocked-by-policy,timeout,too-large,unsupported-scheme,decode-failed,network-error,quota-exceeded}` — different field names, different message-type names, disjoint error vocabularies). Rename/relabel; do NOT delete. Any future migration to upstream's surface is its own phase.
+- [x] **DEP-07**: 4 minor-bump changesets staged (`@kehto/{acl,runtime,shell,services}`)
 
 ### Validator parity
 
-- [ ] **VALIDATOR-01**: Audit complete — zero local `normalizeConnectOrigin` implementation exists in kehto (verified by grep across `packages/` and `apps/`). Upstream `@napplet/nub/connect` ships the canonical validator (21 rules, 28 smoke tests).
-- [ ] **VALIDATOR-02**: Record in PROJECT.md Key Decisions that upstream `normalizeConnectOrigin` is the canonical origin-validator for future kehto origin work; no local implementation to migrate.
+- [x] **VALIDATOR-01**: Audit complete — zero local `normalizeConnectOrigin` implementation exists in kehto (verified by grep across `packages/` and `apps/`). Upstream `@napplet/nub/connect` ships the canonical validator (21 rules, 28 smoke tests).
+- [x] **VALIDATOR-02**: Record in PROJECT.md Key Decisions that upstream `normalizeConnectOrigin` is the canonical origin-validator for future kehto origin work; no local implementation to migrate.
 
 ### NUB-IDENTITY decrypt
 
@@ -87,6 +87,10 @@ Deferred to v1.9 or beyond. Tracked but not in current roadmap.
 
 - **CI-MATRIX-01**: GitHub Actions Build + Playwright workflows expanded `ubuntu-latest` → matrix of `ubuntu-latest`, `macos-latest`, `windows-latest`
 
+### SDK migration (SDK-*)
+
+- **SDK-MIGRATE-01**: Migrate 18 napplet `main.ts` files (12 demo in `apps/playground/napplets/*` + 6 fixtures in `tests/fixtures/napplets/*`) from `@napplet/sdk@^0.2.1` namespace imports (`ipc`, `storage`, `relay`, `identity`, `keys`, `config`, `notify`) to upstream `@napplet/sdk@^0.3.0` function imports (`ifcEmit`, `storageGetItem`, `relaySubscribe`, etc.). Deferred from Phase 44 (scope expansion). Includes equivalent updates for `@napplet/shim` and `@napplet/vite-plugin` if their APIs diverge similarly.
+
 ## Out of Scope
 
 Explicitly excluded for v1.8. Documented to prevent scope creep.
@@ -111,15 +115,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RENAME-01 | Phase 42 | Complete |
 | RENAME-02 | Phase 42 | Complete |
 | VALIDATE-01 | Phase 43 | Complete (24/24 criteria PASS across v1.7 phases 37–41) |
-| DEP-01 | Phase 44 | Pending |
-| DEP-02 | Phase 44 | Pending |
-| DEP-03 | Phase 44 | Pending |
-| DEP-04 | Phase 44 | Pending |
-| DEP-05 | Phase 44 | Pending |
-| DEP-06 | Phase 44 | Pending |
-| DEP-07 | Phase 44 | Pending |
-| VALIDATOR-01 | Phase 44 | Pending |
-| VALIDATOR-02 | Phase 44 | Pending |
+| DEP-01 | Phase 44 | Complete |
+| DEP-02 | Phase 44 | Complete |
+| DEP-03 | Phase 44 | Complete |
+| DEP-04 | Phase 44 | Complete |
+| DEP-05 | Phase 44 | Complete |
+| DEP-06 | Phase 44 | Complete |
+| DEP-07 | Phase 44 | Complete |
+| VALIDATOR-01 | Phase 44 | Complete |
+| VALIDATOR-02 | Phase 44 | Complete |
 | DECRYPT-01 | Phase 45 | Pending |
 | DECRYPT-02 | Phase 45 | Pending |
 | DECRYPT-03 | Phase 45 | Pending |
@@ -134,10 +138,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | E2E-28 | Phase 46 | Pending |
 
 **Coverage:**
-- v1 requirements: 27 total — 6 complete (BUG-01 pre-kickoff, BUG-02, POLISH-01, RENAME-01, RENAME-02, VALIDATE-01)
+- v1 requirements: 27 total — 15 complete (BUG-01 pre-kickoff, BUG-02, POLISH-01, RENAME-01, RENAME-02, VALIDATE-01)
 - Mapped to phases: 27
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-05-20*
-*Last updated: 2026-05-20 — Phase 42 complete (BUG-01 pre-kickoff via `4f02c1e`; BUG-02 + POLISH-01 + RENAME-01 + RENAME-02 via Phase 42 plans). 5/27 requirements complete.*
+*Last updated: 2026-05-21 — Phase 44 complete (DEP-01..07 + VALIDATOR-01..02). 15/27 requirements complete. Pre-baseline: BUG-01 (4f02c1e), then Phase 42/43 closed 6 reqs; Phase 44 closes 9.*

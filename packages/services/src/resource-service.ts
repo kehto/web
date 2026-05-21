@@ -2,8 +2,9 @@
  * resource-service.ts — NUB-RESOURCE reference service (10th NUB domain, v1.7 Phase 40).
  *
  * Shell-side reference implementation for the canonical NUB-RESOURCE wire
- * protocol (`provisional-resource.ts` in @kehto/shell/src/types; will swap to
- * `@napplet/nub/resource` when published at ^0.2.2). Handles the canonical
+ * protocol (`internal-resource.ts` in @kehto/shell/src/types; kehto-internal
+ * model per PROJECT.md Decision #31 — diverges from upstream `@napplet/nub/
+ * resource` in field names + error vocabulary). Handles the canonical
  * 4-message protocol:
  *   Inbound:  resource.bytes, resource.cancel
  *   Outbound: resource.bytes.result, resource.bytes.error
