@@ -32,15 +32,15 @@
 - [ ] **DEP-01**: `@napplet/nub` peer dep bumped `^0.2.1` → `^0.3.0` across `@kehto/acl`, `@kehto/runtime`, `@kehto/shell`, `@kehto/services`
 - [ ] **DEP-02**: `@napplet/core` peer dep bumped `^0.2.0` → `^0.3.0` across all 4 packages
 - [ ] **DEP-03**: `pnpm.overrides @napplet/nub>@napplet/core` workaround removed from root `package.json` (verifies upstream packaging-bug fix is live)
-- [ ] **DEP-04**: `packages/shell/src/types/provisional-class.ts` deleted; imports swapped to `@napplet/nub/class`
-- [ ] **DEP-05**: `packages/shell/src/types/provisional-connect.ts` deleted; imports swapped to `@napplet/nub/connect`
-- [ ] **DEP-06**: `packages/shell/src/types/provisional-resource.ts` deleted; imports swapped to `@napplet/nub/resource`
+- [ ] **DEP-04**: `packages/shell/src/types/provisional-class.ts` **reclassified** as kehto-internal shell-side session label (rename/relabel; do NOT delete). Phase 44 audit: upstream `@napplet/nub/class` exports a different concept — napplet-side accessor `interface NappletClass { readonly class: number \| undefined }`, NOT the string-token model kehto's enforce.ts depends on. No concept overlap; kehto's type stays.
+- [ ] **DEP-05**: `packages/shell/src/types/provisional-connect.ts` **reclassified** as kehto-internal shell-side connect-store types (`ConnectGrant`, `ConsentResult`, etc.). Phase 44 audit: upstream `@napplet/nub/connect` exports a different concept — napplet-side accessor `interface NappletConnect { granted, origins }` plus the shared `normalizeConnectOrigin` validator. Rename/relabel; do NOT delete.
+- [ ] **DEP-06**: `packages/shell/src/types/provisional-resource.ts` **deleted**; imports swapped to `@napplet/nub/resource`. Wire envelope types overlap concept-for-concept with upstream — Phase 44 confirms compatibility via field-by-field check before swap.
 - [ ] **DEP-07**: 4 minor-bump changesets staged (`@kehto/{acl,runtime,shell,services}`)
 
 ### Validator parity
 
-- [ ] **VALIDATOR-01**: Behavioral parity audit between kehto's local `normalizeConnectOrigin` and upstream `@napplet/nub/connect`'s shared validator (21 rules, 28 smoke tests)
-- [ ] **VALIDATOR-02**: Kehto replaces local impl with upstream import OR records intentional divergence in PROJECT.md Key Decisions with reasoning
+- [ ] **VALIDATOR-01**: Audit complete — zero local `normalizeConnectOrigin` implementation exists in kehto (verified by grep across `packages/` and `apps/`). Upstream `@napplet/nub/connect` ships the canonical validator (21 rules, 28 smoke tests).
+- [ ] **VALIDATOR-02**: Record in PROJECT.md Key Decisions that upstream `normalizeConnectOrigin` is the canonical origin-validator for future kehto origin work; no local implementation to migrate.
 
 ### NUB-IDENTITY decrypt
 
