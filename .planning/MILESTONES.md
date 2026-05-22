@@ -1,5 +1,26 @@
 # Milestones: Kehto Runtime
 
+## v1.9 Napplet SDK Migration (Shipped: 2026-05-22)
+
+**Phases completed:** 3 phases (47-49), 3 plans, 12 requirements.
+
+**Delivered:** v1.9 moved the 18 scoped demo/fixture napplet packages from the old `@napplet/sdk@^0.2.1` namespace-import shape to exact `@napplet/sdk@0.3.0` plus direct helper functions through the published `@napplet/nub@0.3.0` surfaces. The milestone closed with the v1.8 86-test Playwright baseline preserved.
+
+**Audit:** passed — 12/12 requirements, 3/3 phases, 3/3 plans, 6/6 integration paths, 4/4 user flows.
+
+**Key accomplishments:**
+
+- **Package graph:** all 18 scoped package manifests now declare exact `@napplet/sdk`, `@napplet/shim`, `@napplet/nub`, and `@napplet/vite-plugin` at `0.3.0`.
+- **Function-export migration:** IFC/storage/relay/identity/keys/notify/config/media call sites use direct helpers such as `ifcEmit`, `storageGetItem`, `relaySubscribe`, `identityGetPublicKey`, `keysRegisterAction`, and `notifySend`.
+- **Documented raw exceptions:** toaster create/list and resource-demo raw envelopes remain only behind `NOTIFY-SDK-GAP` and `RESOURCE-SDK-GAP`, matching current upstream helper gaps.
+- **Regression guard:** `tests/unit/sdk-migration-guard.test.ts` locks exact package graph versions and rejects migrated source imports from `@napplet/sdk`.
+- **Identity fixture fix:** `nub-identity` now installs a deterministic mock signer in E2E so the 0.3 helper resolves the expected `identity.getPublicKey.result` path.
+- **Verification:** `pnpm test:e2e -- tests/e2e/nub-identity.spec.ts`, `pnpm test:e2e`, `pnpm type-check`, and `pnpm test:unit` all passed; final counts are 27/27 build tasks, 11/11 type-check tasks, 545 unit tests, and 86 Playwright tests.
+
+**Archive:** [v1.9-ROADMAP.md](milestones/v1.9-ROADMAP.md) | [v1.9-REQUIREMENTS.md](milestones/v1.9-REQUIREMENTS.md) | [v1.9-MILESTONE-AUDIT.md](milestones/v1.9-MILESTONE-AUDIT.md)
+
+---
+
 ## v1.8 Upstream Alignment & NIP-44 Decrypt (Shipped: 2026-05-21)
 
 **Phases completed:** 5 phases (42-46), 9 plans, 27 requirements.

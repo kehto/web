@@ -34,33 +34,27 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Shipped:** v1.8 — Upstream Alignment & NIP-44 Decrypt (2026-05-21)
+**Shipped:** v1.9 — Napplet SDK Migration (2026-05-22)
 
-v1.8 completes the upstream-alignment and decrypt milestone. Kehto now consumes `@napplet/nub@^0.3.0` / `@napplet/core@^0.3.0`, no longer carries the SEED-001 pnpm override, and ships canonical `identity.decrypt` across ACL, runtime, services, shell playground wiring, demo napplet, and E2E coverage.
+v1.9 completes the demo/fixture SDK migration. The 18 scoped SDK-bearing napplet packages now declare exact `@napplet/sdk`, `@napplet/shim`, `@napplet/nub`, and `@napplet/vite-plugin` `0.3.0` dependencies, active source no longer imports from `@napplet/sdk`, and call sites use the published direct helper-function surfaces.
 
-The final verification baseline is 543 unit tests and 86 Playwright E2E tests passing.
+The final verification baseline is 545 unit tests and 86 Playwright E2E tests passing.
 
-## Current Milestone: v1.9 Napplet SDK Migration
+## Current Milestone
 
-**Goal:** Move the 18 demo/fixture napplet packages that still depend on `@napplet/sdk@^0.2.1` to `@napplet/sdk@0.3.0` and replace old SDK namespace call sites with the published function-export surface.
-
-**Target features:**
-- Upgrade the 18 SDK-bearing demo/fixture package manifests and lockfile away from `@napplet/sdk@^0.2.1`.
-- Replace `ipc`, `storage`, `relay`, `identity`, `keys`, `config`, and `notify` namespace imports/call sites with direct helper functions such as `ifcEmit`, `ifcOn`, `storageGetItem`, `relaySubscribe`, `identityGetPublicKey`, `keysRegisterAction`, and `notifySend`.
-- Bring special surfaces (`media-controller`, `resource-demo`, and `config-demo`) onto the `0.3.0` helper surface without reintroducing raw envelope code when published helpers cover the behavior.
-- Preserve the v1.8 verification baseline: unit tests, napplet builds, and 86 Playwright E2E tests remain green after the SDK migration.
+No active milestone. v1.9 is archived and the next milestone has not been selected.
 
 ### Latest Milestone Accomplishments
 
-- **Carryover cleanup:** topology connector lines, resource-demo label, SessionEntry provenance rename, and identity-topic soft rename all shipped.
-- **Upstream alignment:** dependency bump to `@napplet/nub@^0.3.0` / `@napplet/core@^0.3.0`; override retired; SEED-001 resolved.
-- **Internal type correction:** class/connect/resource shell-side models renamed to `internal-*` after upstream concept divergence was verified.
-- **Decrypt surface:** `identity.decrypt` works for NIP-04, NIP-44 direct, and NIP-17 gift-wrap with 8 typed errors and class-2 pre-decrypt rejection.
-- **Demo and coverage:** `decrypt-demo` is the 13th playground napplet; Layer-A and Layer-B specs lock happy paths, error paths, class-2 denial, and single-target response isolation.
+- **Package graph:** all 18 scoped demo/fixture manifests are exact `0.3.0` for SDK, shim, nub, and vite-plugin.
+- **Function exports:** IFC, storage, relay, identity, keys, notify, config, and media call sites use direct helpers from the `@napplet/nub/<domain>/sdk` or verified equivalent surfaces.
+- **Documented exceptions:** toaster create/list and resource-demo raw envelopes remain only behind grepable `NOTIFY-SDK-GAP` / `RESOURCE-SDK-GAP` comments.
+- **Regression guard:** `tests/unit/sdk-migration-guard.test.ts` fails on package graph drift or migrated source imports from `@napplet/sdk`.
+- **Full verification:** lockfile active importer scan is clean; build/type-check/unit/E2E are green at 27/27 build tasks, 11/11 type-check tasks, 545 unit tests, and 86 Playwright tests.
 
-27/27 v1.8 requirements satisfied; 5/5 phase VERIFICATION.md files passed; 12/12 integration paths wired; 0 critical gaps.
+12/12 v1.9 requirements satisfied; 3/3 phase VERIFICATION.md files passed; 6/6 integration paths wired; 0 critical gaps.
 
-**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability), v1.6 (downstream unblock), v1.7 (spec adoption + 2 new domains), v1.8 (upstream alignment + decrypt).
+**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability), v1.6 (downstream unblock), v1.7 (spec adoption + 2 new domains), v1.8 (upstream alignment + decrypt), v1.9 (SDK migration).
 
 ### Previously Shipped
 
@@ -85,8 +79,9 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 
 ## Known Tech Debt (carried forward)
 
-- **RENAME-02 soft-rename window (v1.8 → v1.9)** — `bridge.injectEvent('auth:identity-changed', …)` dual-emits both `'auth:identity-changed'` and `'identity:changed'` for one release (Plan 42-04). Hard-remove in a v1.9 follow-up once prioritized; the deletion sweep can locate the branch by grepping for `remove this branch in v1.9` in `packages/shell/src/shell-bridge.ts`. Subscribers should migrate to `'identity:changed'` before the removal.
-- **Shell internal type adoption follow-up (v1.9+)** — Phase 44 reclassified `internal-{class,connect,resource}.ts` as kehto shell-side models after upstream `@napplet/nub@0.3.0` proved concept/shape divergence. Any future adoption of upstream resource/connect/class surfaces is a distinct migration, not a mechanical import swap.
+- **RENAME-02 soft-rename removal** — `bridge.injectEvent('auth:identity-changed', …)` dual-emits both `'auth:identity-changed'` and `'identity:changed'` for one release (Plan 42-04). Hard-remove in a future follow-up once prioritized; the deletion sweep can locate the branch by grepping for `remove this branch in v1.9` in `packages/shell/src/shell-bridge.ts`. Subscribers should migrate to `'identity:changed'` before the removal.
+- **decrypt-demo SDK helper migration** — v1.9 intentionally excluded `decrypt-demo` because it was not one of the 18 SDK-bearing packages. A future phase can migrate it to `identityDecrypt` and retire its old shim/vite-plugin lockfile graph.
+- **Shell internal type adoption follow-up** — Phase 44 reclassified `internal-{class,connect,resource}.ts` as kehto shell-side models after upstream `@napplet/nub@0.3.0` proved concept/shape divergence. Any future adoption of upstream resource/connect/class surfaces is a distinct migration, not a mechanical import swap.
 - **Electron / Tauri host-bridge reference impls** — HostKeysBridge + HostMediaBridge + HostCacheBridge interfaces defined (v1.4 + v1.7); reference impls deferred.
 - **Multi-OS CI matrix** — still ubuntu-latest only. Carryover from v1.4.
 
@@ -145,4 +140,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-22 — v1.9 milestone started (Napplet SDK Migration: 18 demo/fixture packages moving to `@napplet/sdk@0.3.0`)*
+*Last updated: 2026-05-22 — v1.9 milestone shipped and archived (Napplet SDK Migration)*

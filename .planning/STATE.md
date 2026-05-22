@@ -2,7 +2,7 @@
 gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Napplet SDK Migration
-status: completed
+status: archived
 last_updated: "2026-05-22T12:03:14+02:00"
 last_activity: 2026-05-22
 progress:
@@ -17,21 +17,21 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-22, v1.9 started)
+See: .planning/PROJECT.md (updated 2026-05-22, v1.9 shipped)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** v1.9 complete — ready for milestone audit and archive.
+**Current focus:** v1.9 archived — ready for next milestone selection.
 
 ## Current Position
 
 Phase: v1.9 complete
 Plan: 49-01 complete
-Status: Verified; ready for milestone closeout
-Last activity: 2026-05-22 — Phase 49 guard/full verification passed
+Status: Archived
+Last activity: 2026-05-22 — v1.9 milestone audit passed and artifacts archived
 
 ## Accumulated Context
 
-Full decision log (v1.0 → v1.8) archived in `.planning/PROJECT.md` Key Decisions table (32 entries) and per-milestone archives at `.planning/milestones/v{1.0,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8}-ROADMAP.md`.
+Full decision log (v1.0 → v1.9) archived in `.planning/PROJECT.md` Key Decisions table and per-milestone archives at `.planning/milestones/v{1.0,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9}-ROADMAP.md`.
 
 ### v1.8 Phase Sequence
 
@@ -50,12 +50,13 @@ Full decision log (v1.0 → v1.8) archived in `.planning/PROJECT.md` Key Decisio
 - Phase 47 completed 2026-05-22: all 18 target manifests now declare exact `@napplet/sdk`, `@napplet/shim`, `@napplet/vite-plugin`, and explicit `@napplet/nub` at `0.3.0`; IFC/storage call sites use direct helper imports; six affected napplet builds pass.
 - Phase 48 completed 2026-05-22: active demo/fixture source has no `@napplet/sdk` imports; relay, identity, keys, notify, config, and media use direct helpers; toaster/resource retained raw exceptions documented as `NOTIFY-SDK-GAP` and `RESOURCE-SDK-GAP`.
 - Phase 49 completed 2026-05-22: migration guard added to `pnpm test:unit`; active lockfile graph has 18 clean importers and zero old SDK graph offenders; `pnpm type-check`, `pnpm test:unit`, and `pnpm test:e2e` pass with Playwright at 86/86.
+- v1.9 archived 2026-05-22: roadmap, requirements, phase artifacts, and milestone audit are stored under `.planning/milestones/v1.9-*`.
 
 ## Session Continuity
 
 Last session: 2026-05-22T12:03:14+02:00
-Resume: v1.9 requirements are complete and verified. Next: milestone audit/archive.
+Resume: v1.9 is complete and archived. Next: choose or start the next milestone.
 
 ## Operator Next Steps
 
-- Run v1.9 milestone audit and archive.
+- Select the next milestone when ready.
