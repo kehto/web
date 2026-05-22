@@ -16,9 +16,9 @@
 
 ### Decrypt demo helper parity
 
-- [ ] **DECRYPT-DEMO-01**: `decrypt-demo` declares exact `@napplet/shim`, `@napplet/nub`, and `@napplet/vite-plugin` `0.3.0` dependencies, with no remaining `0.2.1` demo package edge
-- [ ] **DECRYPT-DEMO-02**: `decrypt-demo` imports and calls `identityDecrypt` from the `@napplet/nub@0.3.0` identity helper surface instead of constructing raw `identity.decrypt` request IDs, pending maps, and `window.parent.postMessage()` request/reply plumbing
-- [ ] **DECRYPT-DEMO-03**: The existing decrypt-demo happy path and class-2 forbidden path keep their DOM sentinel contracts and user-visible success/error behavior after the helper migration
+- [x] **DECRYPT-DEMO-01**: `decrypt-demo` declares exact `@napplet/shim`, `@napplet/nub`, and `@napplet/vite-plugin` `0.3.0` dependencies, with no remaining `0.2.1` demo package edge
+- [x] **DECRYPT-DEMO-02**: `decrypt-demo` imports and calls `identityDecrypt` from the `@napplet/nub@0.3.0` identity helper surface instead of constructing raw `identity.decrypt` request IDs, pending maps, and `window.parent.postMessage()` request/reply plumbing
+- [x] **DECRYPT-DEMO-03**: The existing decrypt-demo happy path and class-2 forbidden path keep their DOM sentinel contracts and user-visible success/error behavior after the helper migration
 
 ### Package graph and regression guard
 
@@ -70,9 +70,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | RENAME-HARD-01 | Phase 50 | Complete |
 | RENAME-HARD-02 | Phase 50 | Complete |
-| DECRYPT-DEMO-01 | Phase 51 | Pending |
-| DECRYPT-DEMO-02 | Phase 51 | Pending |
-| DECRYPT-DEMO-03 | Phase 51 | Pending |
+| DECRYPT-DEMO-01 | Phase 51 | Complete |
+| DECRYPT-DEMO-02 | Phase 51 | Complete |
+| DECRYPT-DEMO-03 | Phase 51 | Complete |
 | GRAPH-01 | Phase 52 | Pending |
 | GUARD-02 | Phase 52 | Pending |
 | E2E-31 | Phase 52 | Pending |

@@ -166,13 +166,16 @@ importers:
 
   apps/playground/napplets/decrypt-demo:
     dependencies:
+      '@napplet/nub':
+        specifier: 0.3.0
+        version: 0.3.0
       '@napplet/shim':
-        specifier: ^0.2.1
-        version: 0.2.1
+        specifier: 0.3.0
+        version: 0.3.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: ^0.2.1
-        version: 0.2.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.3.0
+        version: 0.3.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -1067,40 +1070,8 @@ packages:
       '@emnapi/core': ^1.7.1
       '@emnapi/runtime': ^1.7.1
 
-  '@napplet/core@0.2.1':
-    resolution: {integrity: sha512-eR83e/5uhIdH9idqiq0Lw3amYAar00t1RR8q0+6UrFTJYXY4NEI4aeiByr99c8iECAaYSNRcgYmvAS98Hw6Y+Q==}
-
   '@napplet/core@0.3.0':
     resolution: {integrity: sha512-3KfvV1OUit1qd7wi3eW/qK2ChhuGCS2zzvXpuYHMksjDkLJP+SPbLoocqr21v1EpJ0LDFAFdqRNdVo+XGsBA/g==}
-
-  '@napplet/nub-config@0.2.1':
-    resolution: {integrity: sha512-zQU997v9UsNN0A8s7u1jBPjS82nMEC8lc3LTB+LhxMQP8K58PVOJZwTG4qV1uDF3Neyx8EV4s9YfKKjhpdeG1g==}
-    peerDependencies:
-      json-schema-to-ts: ^3.1.1
-    peerDependenciesMeta:
-      json-schema-to-ts:
-        optional: true
-
-  '@napplet/nub-identity@0.2.1':
-    resolution: {integrity: sha512-2VzEdcnyBR6ZJXhk40to14lK78Ut/490ILYYUkDmID50j/QBmgL2YO+V6emsL1x7dI+VWqwOD/SNyQtd6Uh0lQ==}
-
-  '@napplet/nub-ifc@0.2.1':
-    resolution: {integrity: sha512-LoF6E7IWFJJtWe5uDvYmz+98AXWDHa5nLdXog8n8jXxGz9LAlqUskJTqbvKYO0sghbW/93yLH4enBebDSZPCxQ==}
-
-  '@napplet/nub-keys@0.2.1':
-    resolution: {integrity: sha512-2sueL9WBM5vKeKaAgDvlqAcv8QNBlT+aQd2IJ7Nq+Hc6N54U90b5ados2xmcvUp3Edth8C80mpszZ3Bk2P1y+w==}
-
-  '@napplet/nub-media@0.2.1':
-    resolution: {integrity: sha512-3b09zoY5EX6HStTpT/yMOyBoOEAo4rTzP/mcJ4HuXFGuyJmulLWcYNE6HQtIX+n6ib6rifmrxJPBPtsTFld1CQ==}
-
-  '@napplet/nub-notify@0.2.1':
-    resolution: {integrity: sha512-9MtENLLndUQScwJz1BgHM4R8lTzF8dkrKSymsoMPZxjQGVEazmCxRSP484PIoEoWmikiO0fRokUzmR+p08ULvA==}
-
-  '@napplet/nub-relay@0.2.1':
-    resolution: {integrity: sha512-Cxocu2msJM3p5Ka35WsxdgNZJO0KLNYcDa+oUYfec7MLfaeQqamNWntUGlHxbCXwL3Czxt2/7mMx1YZ0bfnEYA==}
-
-  '@napplet/nub-storage@0.2.1':
-    resolution: {integrity: sha512-C9zI95ANI3ug2uZPOIW8fC1ybPRXmQ+h/4/bKbv04Lv1ihDJyuCcYoKQDuKVv0nD0rvPxYMn2ytCR0ANeQVS/A==}
 
   '@napplet/nub@0.3.0':
     resolution: {integrity: sha512-4Hr2LbcpJ5BC9bPhvCdTL8nMcCSMY4UgYKCSWiT1o5Ah6HYSL0E+MJUPyA4P5R+6gbX6hCYPZD9GI8bj8qKpaQ==}
@@ -1113,16 +1084,8 @@ packages:
   '@napplet/sdk@0.3.0':
     resolution: {integrity: sha512-Wj1634Hc/itqYpKl7mR74aQCtTl8JJiE/NoA9xrVrdO/pVlAQ0MQaopuVqH9AznJGxLzBD8g8i6QXJ6b5gqAhA==}
 
-  '@napplet/shim@0.2.1':
-    resolution: {integrity: sha512-eE14asbnQC2+Kka1QHXhwK5fodX7cDIB5w9qrouhpcY1VPIHGaQAAgmjT9TPRKXUf64e1rLUvQAJe3df/LJf/Q==}
-
   '@napplet/shim@0.3.0':
     resolution: {integrity: sha512-yr+FlBgEKHBa4eTCyLSLaXxuR3Es7nKTIRxtpsNVCDTcGQIT9kRSjMb3IiGbtN3Txh2PYKQ39D03sjkBkOkshw==}
-
-  '@napplet/vite-plugin@0.2.1':
-    resolution: {integrity: sha512-1Bf2X+s+cjDVfoRQveItCwq+Lv1PiM1Ojzvv5bgd8GMpU9n0aat47Fpq7QLDAHCuURP274quAz4AI8xJ8zYtVA==}
-    peerDependencies:
-      vite: '>=5.0.0'
 
   '@napplet/vite-plugin@0.3.0':
     resolution: {integrity: sha512-rpxIKEWSLuMMwCQ7BPZItNg0NLZZ2ggT8Cbl6UlR6rtFj7zCShEqRG/lzD8B/DS78mKCRldYHaD6azn8yzd1mA==}
@@ -2909,41 +2872,7 @@ snapshots:
       '@tybys/wasm-util': 0.10.1
     optional: true
 
-  '@napplet/core@0.2.1': {}
-
   '@napplet/core@0.3.0': {}
-
-  '@napplet/nub-config@0.2.1':
-    dependencies:
-      '@napplet/core': 0.2.1
-
-  '@napplet/nub-identity@0.2.1':
-    dependencies:
-      '@napplet/core': 0.2.1
-
-  '@napplet/nub-ifc@0.2.1':
-    dependencies:
-      '@napplet/core': 0.2.1
-
-  '@napplet/nub-keys@0.2.1':
-    dependencies:
-      '@napplet/core': 0.2.1
-
-  '@napplet/nub-media@0.2.1':
-    dependencies:
-      '@napplet/core': 0.2.1
-
-  '@napplet/nub-notify@0.2.1':
-    dependencies:
-      '@napplet/core': 0.2.1
-
-  '@napplet/nub-relay@0.2.1':
-    dependencies:
-      '@napplet/core': 0.2.1
-
-  '@napplet/nub-storage@0.2.1':
-    dependencies:
-      '@napplet/core': 0.2.1
 
   '@napplet/nub@0.3.0':
     dependencies:
@@ -2956,33 +2885,12 @@ snapshots:
     transitivePeerDependencies:
       - json-schema-to-ts
 
-  '@napplet/shim@0.2.1':
-    dependencies:
-      '@napplet/core': 0.2.1
-      '@napplet/nub-config': 0.2.1
-      '@napplet/nub-identity': 0.2.1
-      '@napplet/nub-ifc': 0.2.1
-      '@napplet/nub-keys': 0.2.1
-      '@napplet/nub-media': 0.2.1
-      '@napplet/nub-notify': 0.2.1
-      '@napplet/nub-relay': 0.2.1
-      '@napplet/nub-storage': 0.2.1
-    transitivePeerDependencies:
-      - json-schema-to-ts
-
   '@napplet/shim@0.3.0':
     dependencies:
       '@napplet/core': 0.3.0
       '@napplet/nub': 0.3.0
     transitivePeerDependencies:
       - json-schema-to-ts
-
-  '@napplet/vite-plugin@0.2.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))':
-    dependencies:
-      nostr-tools: 2.23.3(typescript@5.9.3)
-      vite: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
-    transitivePeerDependencies:
-      - typescript
 
   '@napplet/vite-plugin@0.3.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))':
     dependencies:

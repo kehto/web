@@ -1,11 +1,8 @@
 /**
  * decrypt-demo napplet -- exercises identity.decrypt (v1.8 Phase 46).
- *
- * The pinned @napplet/sdk@^0.2.1 namespace surface does not expose
- * identity.decrypt yet, so this demo sends the canonical envelope directly
- * while still using @napplet/shim for shell.ready / shell.init.
  */
 import '@napplet/shim';
+import { identityDecrypt } from '@napplet/nub/identity/sdk';
 
 interface NostrEvent {
   id: string;
@@ -30,9 +27,9 @@ interface DecryptFixtures {
   nip17: ModeFixture;
 }
 
-type DecryptResponse =
-  | { type: 'identity.decrypt.result'; id: string; rumor: { content: string } }
-  | { type: 'identity.decrypt.error'; id: string; error: string };
+type DecryptResult =
+  | { ok: true; rumor: { content: string } }
+  | { ok: false; error: string };
 
 const statusEl = document.getElementById('decrypt-demo-status')!;
 const nip04El = document.getElementById('decrypt-nip04-status')!;
@@ -43,8 +40,6 @@ const class2Btn = document.getElementById('decrypt-class2-run') as HTMLButtonEle
 const logEl = document.getElementById('decrypt-demo-log')!;
 
 let fixtures: DecryptFixtures | null = null;
-let requestCounter = 0;
-const pending = new Map<string, (response: DecryptResponse) => void>();
 
 function setText(el: Element, text: string, ok = false): void {
   el.textContent = text;
@@ -69,19 +64,19 @@ function parsePayload(content: string): { mode?: string; id?: string } {
   }
 }
 
-function decrypt(event: NostrEvent, prefix: string): Promise<DecryptResponse> {
-  const id = `${prefix}-${Date.now()}-${++requestCounter}`;
-  const promise = new Promise<DecryptResponse>((resolve) => {
-    pending.set(id, resolve);
-  });
-  window.parent.postMessage({ type: 'identity.decrypt', id, event }, '*');
-  return promise;
+async function decrypt(event: NostrEvent): Promise<DecryptResult> {
+  try {
+    const { rumor } = await identityDecrypt(event);
+    return { ok: true, rumor };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 async function runMode(name: ModeName, fixture: ModeFixture, el: Element): Promise<void> {
   setText(el, 'requesting');
-  const response = await decrypt(fixture.event, `decrypt-${name}`);
-  if (response.type === 'identity.decrypt.error') {
+  const response = await decrypt(fixture.event);
+  if (!response.ok) {
     setText(el, `error:${response.error}`);
     log(`${name} error ${response.error}`);
     return;
@@ -113,8 +108,8 @@ async function runClass2Probe(): Promise<void> {
     return;
   }
   setText(class2El, 'requesting');
-  const response = await decrypt(fixtures.nip04.event, 'decrypt-class2');
-  if (response.type === 'identity.decrypt.error') {
+  const response = await decrypt(fixtures.nip04.event);
+  if (!response.ok) {
     setText(class2El, `error:${response.error}`, response.error === 'class-forbidden');
     log(`class2 ${response.error}`);
     return;
@@ -125,22 +120,11 @@ async function runClass2Probe(): Promise<void> {
 
 window.addEventListener('message', (event: MessageEvent) => {
   if (event.source !== window.parent) return;
-  const msg = event.data as { type?: string; id?: string; fixtures?: DecryptFixtures };
+  const msg = event.data as { type?: string; fixtures?: DecryptFixtures };
   if (!msg || typeof msg !== 'object') return;
 
   if (msg.type === 'demo.decrypt.fixtures' && msg.fixtures) {
     void runHappyPath(msg.fixtures);
-    return;
-  }
-
-  if (
-    (msg.type === 'identity.decrypt.result' || msg.type === 'identity.decrypt.error') &&
-    typeof msg.id === 'string'
-  ) {
-    const resolve = pending.get(msg.id);
-    if (!resolve) return;
-    pending.delete(msg.id);
-    resolve(msg as DecryptResponse);
   }
 });
 
