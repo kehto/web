@@ -40,6 +40,16 @@ v1.8 completes the upstream-alignment and decrypt milestone. Kehto now consumes 
 
 The final verification baseline is 543 unit tests and 86 Playwright E2E tests passing.
 
+## Current Milestone: v1.9 Napplet SDK Migration
+
+**Goal:** Move the 18 demo/fixture napplet packages that still depend on `@napplet/sdk@^0.2.1` to `@napplet/sdk@0.3.0` and replace old SDK namespace call sites with the published function-export surface.
+
+**Target features:**
+- Upgrade the 18 SDK-bearing demo/fixture package manifests and lockfile away from `@napplet/sdk@^0.2.1`.
+- Replace `ipc`, `storage`, `relay`, `identity`, `keys`, `config`, and `notify` namespace imports/call sites with direct helper functions such as `ifcEmit`, `ifcOn`, `storageGetItem`, `relaySubscribe`, `identityGetPublicKey`, `keysRegisterAction`, and `notifySend`.
+- Bring special surfaces (`media-controller`, `resource-demo`, and `config-demo`) onto the `0.3.0` helper surface without reintroducing raw envelope code when published helpers cover the behavior.
+- Preserve the v1.8 verification baseline: unit tests, napplet builds, and 86 Playwright E2E tests remain green after the SDK migration.
+
 ### Latest Milestone Accomplishments
 
 - **Carryover cleanup:** topology connector lines, resource-demo label, SessionEntry provenance rename, and identity-topic soft rename all shipped.
@@ -73,10 +83,9 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 
 **Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability), v1.6 (downstream unblock), v1.7 (spec adoption + 2 new domains).
 
-## Known Tech Debt (carried into next milestone)
+## Known Tech Debt (carried forward)
 
-- **RENAME-02 soft-rename window (v1.8 → v1.9)** — `bridge.injectEvent('auth:identity-changed', …)` dual-emits both `'auth:identity-changed'` and `'identity:changed'` for one release (Plan 42-04). Hard-remove in v1.9; the deletion sweep can locate the branch by grepping for `remove this branch in v1.9` in `packages/shell/src/shell-bridge.ts`. Subscribers should migrate to `'identity:changed'` before v1.9.
-- **`@napplet/sdk` migration deferred (v1.9)** — 18 napplet `main.ts` files (12 demo + 6 fixtures) import namespace objects (`ipc`, `storage`, `relay`, `identity`, `keys`, `config`, `notify`) from `@napplet/sdk`. Upstream `@napplet/sdk@0.3.0` removed those namespace exports in favor of individual function exports (`ifcEmit`, `storageGetItem`, `relaySubscribe`, etc.). Phase 44 deliberately pinned the 18 packages at `@napplet/sdk@^0.2.1` to avoid scope creep — migrating all 18 napplets to the new function-based API is its own v1.9 phase. Note: `@napplet/sdk@0.2.1` depends on the legacy split-form `@napplet/nub-*` packages, which still resolve on npm (verified at the time of Phase 44).
+- **RENAME-02 soft-rename window (v1.8 → v1.9)** — `bridge.injectEvent('auth:identity-changed', …)` dual-emits both `'auth:identity-changed'` and `'identity:changed'` for one release (Plan 42-04). Hard-remove in a v1.9 follow-up once prioritized; the deletion sweep can locate the branch by grepping for `remove this branch in v1.9` in `packages/shell/src/shell-bridge.ts`. Subscribers should migrate to `'identity:changed'` before the removal.
 - **Shell internal type adoption follow-up (v1.9+)** — Phase 44 reclassified `internal-{class,connect,resource}.ts` as kehto shell-side models after upstream `@napplet/nub@0.3.0` proved concept/shape divergence. Any future adoption of upstream resource/connect/class surfaces is a distinct migration, not a mechanical import swap.
 - **Electron / Tauri host-bridge reference impls** — HostKeysBridge + HostMediaBridge + HostCacheBridge interfaces defined (v1.4 + v1.7); reference impls deferred.
 - **Multi-OS CI matrix** — still ubuntu-latest only. Carryover from v1.4.
@@ -136,4 +145,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-20 — v1.8 milestone started (Upstream Alignment & NIP-44 Decrypt: 8 target features; awaiting `@napplet/nub@0.3.0` publish for items 6–8)*
+*Last updated: 2026-05-22 — v1.9 milestone started (Napplet SDK Migration: 18 demo/fixture packages moving to `@napplet/sdk@0.3.0`)*
