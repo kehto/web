@@ -38,6 +38,21 @@ test.use({ baseURL: 'http://localhost:4174' });
 test.describe.configure({ mode: 'serial' });
 
 const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]/;
+const IDENTITY_BOUND_STATUS_IDS = [
+  'bot-status',
+  'chat-status',
+  'composer-status',
+  'config-demo-status',
+  'decrypt-demo-status',
+  'feed-status',
+  'hotkey-chord-status',
+  'media-controller-status',
+  'preferences-status',
+  'profile-status',
+  'resource-demo-status',
+  'theme-status',
+  'toaster-status',
+] as const;
 
 test.describe('shell UI state surfaces (E2E-16)', () => {
   test.afterEach(async ({ page }) => {
@@ -110,31 +125,24 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
   test('ACL Capability Matrix lists all identity-bound napplets (UI-02)', async ({ page }) => {
     await demoBeforeEach(page);
 
-    // Give the 11 napplets time to become identity-bound before opening the matrix.
+    // Give the full playground roster time to become identity-bound before opening the matrix.
     // Without this, the snapshot() sees a partial identity-bound set and the row
-    // count may be < 11 even with the Phase 30 fix applied.
-    // Phase 39 Plan 39-04 added config-demo as the 11th napplet (CONFIG-03).
+    // count may be incomplete even with the Phase 30 fix applied.
     await expect
       .poll(
         async () => {
-          return await page.evaluate(() => {
-            const ids = [
-              'bot-status', 'chat-status', 'composer-status', 'config-demo-status',
-              'feed-status', 'hotkey-chord-status', 'media-controller-status',
-              'preferences-status', 'profile-status',
-              'theme-status', 'toaster-status',
-            ];
+          return await page.evaluate((ids) => {
             let bound = 0;
             for (const id of ids) {
               const el = document.getElementById(id);
               if (el && (el.textContent ?? '').trim() === 'identity-bound') bound += 1;
             }
             return bound;
-          });
+          }, IDENTITY_BOUND_STATUS_IDS as unknown as string[]);
         },
         { timeout: 10_000, intervals: [250, 500, 1000] },
       )
-      .toBeGreaterThanOrEqual(11);
+      .toBe(IDENTITY_BOUND_STATUS_IDS.length);
 
     // Open the ACL node inspector, then click the Open Policy Matrix button.
     await page.locator('#topology-node-acl').click();
@@ -143,9 +151,9 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
     // Modal must render.
     await expect(page.locator('#acl-policy-modal')).toBeVisible({ timeout: 5_000 });
 
-    // Row count = 12 (one row per identity-bound napplet; resource-demo is the 12th — Phase 40).
+    // Row count = one row per identity-bound playground napplet.
     const rows = page.locator('#acl-policy-modal tbody tr');
-    await expect(rows).toHaveCount(12, { timeout: 5_000 });
+    await expect(rows).toHaveCount(IDENTITY_BOUND_STATUS_IDS.length, { timeout: 5_000 });
 
     // No "No identity-bound napplets" placeholder cell.
     const emptyCells = page.locator('#acl-policy-modal tbody td[colspan]', {
@@ -161,24 +169,18 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
     await expect
       .poll(
         async () => {
-          return await page.evaluate(() => {
-            const ids = [
-              'bot-status', 'chat-status', 'composer-status', 'feed-status',
-              'hotkey-chord-status', 'media-controller-status',
-              'preferences-status', 'profile-status',
-              'theme-status', 'toaster-status',
-            ];
+          return await page.evaluate((ids) => {
             let bound = 0;
             for (const id of ids) {
               const el = document.getElementById(id);
               if (el && (el.textContent ?? '').trim() === 'identity-bound') bound += 1;
             }
             return bound;
-          });
+          }, IDENTITY_BOUND_STATUS_IDS as unknown as string[]);
         },
         { timeout: 10_000, intervals: [250, 500, 1000] },
       )
-      .toBeGreaterThanOrEqual(10);
+      .toBe(IDENTITY_BOUND_STATUS_IDS.length);
 
     // Click the Sequence tab inside the debugger shadow root.
     // querySelector inside page.evaluate does NOT auto-pierce shadow DOM —

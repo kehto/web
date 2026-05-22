@@ -2,6 +2,51 @@
 
 *A living document updated after each milestone. Lessons feed forward into future planning.*
 
+## Milestone: v1.12 — NIP-5D Contract Conformance
+
+**Shipped:** 2026-05-22
+**Phases:** 4 (56–59) | **Plans:** 4 | **Tasks:** 0 | **E2E:** 89/0/0 (+2)
+
+### What Was Built
+
+- **Phase 56 — Contract Authority and Package Source Baseline.** Pinned `specs/NIP-5D.md` to the authoritative raw NIP-5D commit, repaired stale `RUNTIME-SPEC.md` and `napplet/specs/NIP-5D.md` authority, classified extension surfaces, and made protocol package resolution repo-local.
+- **Phase 57 — Shell Capability Negotiation and Requires Enforcement.** Made shell-provided capability inventory authoritative for hosted `window.napplet.shell.supports()`, exposed gateway manifest `requires`, and rejected unsupported requirements before iframe navigation.
+- **Phase 58 — Playground Napplet Contract Conformance.** Added explicit short-name NUB `requires` declarations and hosted supports preflights across all 13 playground napplets; renamed stale protocol-auth wording; documented raw demo-envelope exceptions.
+- **Phase 59 — Regression Guards and Full Verification.** Added static/unit/E2E guards for sandbox, source validation, no `window.nostr`, forbidden primitives, requires coverage, hosted supports behavior, raw-envelope allowlist, unsupported-requires rejection, and full verification.
+
+### What Worked
+
+- **The delta inventory kept scope tight.** Treating `.planning/NIP-5D-DELTA-AUDIT.md` as the current-state inventory avoided rediscovering drift and kept each phase anchored to a known gap.
+- **Authority-first sequencing paid off.** Contract/package-source repair before shell behavior and napplet edits prevented stale docs or stale published package resolution from shaping implementation.
+- **Final browser proof caught stale test assumptions.** Full E2E exposed old 10/11/12-napplet roster expectations after the contract moved all 13 napplets into the active conformance set.
+
+### What Was Inefficient
+
+- **Closeout tooling had quick-task schema drift.** `audit-open` expected `SUMMARY.md` while quick tasks had `{quick_id}-SUMMARY.md`; adding compatibility summaries was needed before archive.
+- **The gateway artifact audit had a stale config-shape assertion.** It enforced `definePlaygroundNappletConfig(name)` exactly and needed a narrow update for `definePlaygroundNappletConfig(name, { requires })`.
+- **Focused E2E initially read stale built assets.** Gateway/contract E2E should rebuild first whenever it asserts hosted bundle behavior.
+
+### Patterns Established
+
+- **Pinned external contract plus local drift-source classification.** A contract milestone should explicitly name the only authority and demote/rewrite nearby docs that look authoritative but are not.
+- **Shell capability inventory is the hosted contract.** Shim static knowledge is acceptable only for shell-less preview/test contexts.
+- **Raw envelope exceptions need a static allowlist.** Policy-only exception lists are not enough once demo envelopes exist in active source.
+- **Roster-sensitive E2E must track the full active roster.** Phase-era counts become drift; checks should derive or explicitly mirror all 13 playground napplets.
+
+### Key Lessons
+
+1. **Contract conformance needs source scans and browser proof.** Static checks catch drift; E2E catches load-time integration and stale assumptions.
+2. **Run build before gateway-path E2E.** Preview servers serve built artifacts, so stale `dist` invalidates contract proof.
+3. **Repair false-positive closeout artifacts at the source.** When audit-open reports stale metadata, fixing the artifact is better than deferring known false positives.
+
+### Cost Observations
+
+- **Model mix:** Frontier leader with focused inline execution; no broad team mode needed after the phase plan was clear.
+- **Sessions:** Single resumed autonomous run from Phase 59 through milestone archive.
+- **Notable:** Full verification closed cleanly after one stale-E2E-expectation repair; final counts are 560 unit tests and 89 Playwright tests.
+
+---
+
 ## Milestone: v1.8 — Upstream Alignment & NIP-44 Decrypt
 
 **Shipped:** 2026-05-21

@@ -197,6 +197,37 @@ describe('ShellBridge.publishTheme (TH-03, Plan 13-02)', () => {
   });
 });
 
+// ─── NIP-5D source validation ───────────────────────────────────────────────
+
+describe('ShellBridge.handleMessage source validation', () => {
+  beforeEach(() => {
+    originRegistry.clear();
+  });
+
+  afterEach(() => {
+    originRegistry.clear();
+  });
+
+  it('silently drops envelopes from unknown MessageEvent.source windows', () => {
+    const bridge = createShellBridge(makeTestHooks());
+    const runtimeSpy = vi.spyOn(bridge.runtime, 'handleMessage');
+    const unknownWindow = makeFakeIframe() as unknown as Window;
+    const envelope = { type: 'relay.subscribe', subId: 'sub-unknown', filters: [] };
+
+    expect(() =>
+      bridge.handleMessage({
+        source: unknownWindow,
+        data: envelope,
+      } as MessageEvent),
+    ).not.toThrow();
+
+    expect(runtimeSpy).not.toHaveBeenCalled();
+
+    runtimeSpy.mockRestore();
+    bridge.destroy();
+  });
+});
+
 // ─── ShellBridge.injectEvent single-topic forwarding (RENAME-HARD-01/02) ─────
 
 describe('ShellBridge.injectEvent single-topic forwarding', () => {

@@ -9,7 +9,7 @@ export default defineConfig({
       '@kehto/runtime': resolve(__dirname, 'packages/runtime/src/index.ts'),
       '@kehto/services': resolve(__dirname, 'packages/services/src/index.ts'),
       '@kehto/shell': resolve(__dirname, 'packages/shell/src/index.ts'),
-      '@napplet/core': resolve('/home/sandwich/Develop/napplet/packages/core/src/index.ts'),
+      '@napplet/core': resolve(__dirname, 'napplet/packages/core/src/index.ts'),
     },
   },
   test: {

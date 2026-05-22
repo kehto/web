@@ -2,32 +2,32 @@
 gsd_state_version: 1.0
 milestone: v1.12
 milestone_name: NIP-5D Contract Conformance
-status: executing
-last_updated: "2026-05-22T17:36:49.139Z"
-last_activity: 2026-05-22 -- Phase 58 completed; Phase 59 ready
+status: Awaiting next milestone
+last_updated: "2026-05-22T17:56:19.255Z"
+last_activity: 2026-05-22 — Milestone v1.12 completed and archived
 progress:
   total_phases: 4
-  completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
-  percent: 75
+  completed_phases: 4
+  total_plans: 4
+  completed_plans: 4
+  percent: 100
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-22, v1.12 started)
+See: .planning/PROJECT.md (updated 2026-05-22, v1.12 completed)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 59 — Regression Guards and Full Verification
+**Current focus:** Awaiting next milestone
 
 ## Current Position
 
-Phase: 59 (Regression Guards and Full Verification) — READY
-Plan: not started
-Status: Ready to plan Phase 59
-Last activity: 2026-05-22 -- Phase 58 completed; Phase 59 ready
+Phase: Milestone v1.12 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-05-22 — Milestone v1.12 completed and archived
 
 ## Accumulated Context
 
@@ -43,7 +43,7 @@ Full decision log (v1.0 → v1.12) lives in `.planning/PROJECT.md` Key Decisions
 
 ### Blockers/Concerns
 
-- No active blockers. v1.11 requirements are complete, audited, and archived.
+- No active blockers. v1.12 requirements are complete, audited, and archived.
 - v1.10 shipped: removed the stale `auth:identity-changed` compatibility branch, migrated `decrypt-demo` to `identityDecrypt`, and retired the remaining old demo package graph.
 - Published package check: `@napplet/sdk@0.3.0`, `@napplet/shim@0.3.0`, and `@napplet/vite-plugin@0.3.0` are all available on npm as of 2026-05-22.
 - Scope boundary: keep v1.10 as a v1 cleanup/continuity milestone; do not promote the compatibility removal to a v2 boundary.
@@ -57,6 +57,7 @@ Full decision log (v1.0 → v1.12) lives in `.planning/PROJECT.md` Key Decisions
 - v1.12 started 2026-05-22: authoritative NIP-5D source is the pinned raw `dskvr/nips` commit `d80d7b25f9c4331acbeb40dbeb3b077caa80e885`; `.planning/NIP-5D-DELTA-AUDIT.md` is the delta inventory; `RUNTIME-SPEC.md` and `napplet/specs/NIP-5D.md` are drift sources to repair or replace.
 - v1.12 roadmap phases are 56-59: contract/package source baseline, shell capability/requires enforcement, 13-napplet conformance, then guards/full verification.
 - Phase 58 completed 2026-05-22: all 13 playground napplets now declare manifest `requires`, preflight required NUBs with shell-derived `supports()`, stale protocol auth wording is renamed, and raw demo envelopes are documented in the Phase 58 allowlist.
+- Phase 59 completed 2026-05-22: static/unit/E2E guards now cover sandbox policy, source validation, no napplet `window.nostr`, requires coverage, hosted `supports()` behavior, raw-envelope exceptions, unsupported-requires rejection, and all 13 gateway-hosted napplet contracts. Final verification passed: `pnpm build`, `pnpm type-check`, `pnpm test:unit` (560 tests), `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and `pnpm test:e2e` (89/89).
 
 ### Quick Tasks Completed
 
@@ -68,9 +69,9 @@ Full decision log (v1.0 → v1.12) lives in `.planning/PROJECT.md` Key Decisions
 ## Session Continuity
 
 Last session: 2026-05-22T16:41:58Z
-Resume: v1.12 requirements are defined in `.planning/REQUIREMENTS.md`; roadmap phases are 56-59 in `.planning/ROADMAP.md`.
-Current milestone: v1.12 NIP-5D Contract Conformance.
+Resume: v1.12 is archived under `.planning/milestones/v1.12-*`; active `.planning/REQUIREMENTS.md` has been removed for the next milestone.
+Current milestone: none.
 
 ## Operator Next Steps
 
-- Plan and execute Phase 59 guards/full verification.
+- Start the next milestone with /gsd-new-milestone

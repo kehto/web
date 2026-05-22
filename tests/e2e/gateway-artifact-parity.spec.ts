@@ -19,6 +19,22 @@ const expectedNapplets = [
   'toaster',
 ] as const;
 
+const expectedRequires: Record<(typeof expectedNapplets)[number], readonly string[]> = {
+  bot: ['ifc', 'storage'],
+  chat: ['ifc', 'storage', 'relay'],
+  composer: ['relay'],
+  'config-demo': ['config'],
+  'decrypt-demo': ['identity'],
+  feed: ['relay'],
+  'hotkey-chord': ['keys'],
+  'media-controller': ['media'],
+  preferences: ['storage', 'theme'],
+  'profile-viewer': ['identity'],
+  'resource-demo': ['resource', 'connect'],
+  'theme-switcher': ['theme'],
+  toaster: ['notify'],
+};
+
 test('playground loads all napplets through opaque-origin gateway artifacts', async ({ page }) => {
   const gatewayResponses = new Map<string, { url: string; status: number; csp: string }>();
   const legacyNappletResponses: string[] = [];
@@ -84,3 +100,44 @@ test('playground loads all napplets through opaque-origin gateway artifacts', as
   expect(gatewayResponses.get('resource-demo')?.csp).toContain('http://localhost:4174');
 });
 
+test('playground gateway manifests and hosted supports match napplet contracts', async ({ page }) => {
+  await demoBeforeEach(page);
+
+  const manifests = await page.evaluate(async (names) => {
+    const entries = await Promise.all(names.map(async (name) => {
+      const response = await fetch(`/napplet-gateway/${encodeURIComponent(name)}/manifest.json`, {
+        cache: 'no-store',
+      });
+      const metadata = await response.json() as { requires?: string[] };
+      return [name, metadata.requires ?? []] as const;
+    }));
+    return Object.fromEntries(entries);
+  }, expectedNapplets);
+
+  for (const name of expectedNapplets) {
+    expect(manifests[name], `${name} manifest requires`).toEqual(expectedRequires[name]);
+  }
+
+  for (const name of expectedNapplets) {
+    const frame = page.frames().find((candidate) =>
+      new URL(candidate.url()).pathname.includes(`/napplet-gateway/${name}/`),
+    );
+    expect(frame, `${name} frame`).toBeDefined();
+
+    await expect.poll(async () => frame!.evaluate((requires) => {
+      const maybeWindow = window as Window & {
+        napplet?: {
+          shell?: { supports?: (capability: string) => boolean };
+        };
+        nostr?: unknown;
+      };
+      const supports = maybeWindow.napplet?.shell?.supports;
+      if (typeof supports !== 'function') return false;
+      return requires.every((capability) => supports(capability)) &&
+        requires.every((capability) => supports(`nub:${capability}`)) &&
+        !supports('nostrdb') &&
+        !supports('nub:nostrdb') &&
+        typeof maybeWindow.nostr === 'undefined';
+    }, expectedRequires[name]), { timeout: 10_000 }).toBe(true);
+  }
+});

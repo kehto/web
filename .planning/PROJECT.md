@@ -34,37 +34,31 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Active:** v1.12 — NIP-5D Contract Conformance (started 2026-05-22)
+**Active:** Awaiting next milestone. v1.12 — NIP-5D Contract Conformance shipped 2026-05-22.
 
-v1.12 establishes the pinned NIP-5D contract as the repo-local authority, then brings the playground shell, shared napplet runtime/shim surface, and all 13 playground napplets into conformance. The milestone uses `.planning/NIP-5D-DELTA-AUDIT.md` as the current-state inventory and treats `RUNTIME-SPEC.md` plus `napplet/specs/NIP-5D.md` as drift sources to repair or replace.
+v1.12 established the pinned NIP-5D contract as the repo-local authority, then brought the playground shell, shared napplet runtime/shim surface, and all 13 playground napplets into conformance. The milestone used `.planning/NIP-5D-DELTA-AUDIT.md` as the current-state inventory and repaired `RUNTIME-SPEC.md` plus `napplet/specs/NIP-5D.md` as drift sources.
 
-The baseline entering v1.12 is v1.11's final verification state: production-equivalent gateway artifact loading, 551 unit tests, `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and 87/87 Playwright E2E tests passing.
+The baseline after v1.12 is pinned-spec NIP-5D conformance across shell, shim/runtime, gateway load checks, and all 13 playground napplets, with 560 unit tests, `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and 89/89 Playwright E2E tests passing.
 
-## Current Milestone: v1.12 NIP-5D Contract Conformance
+## Current Milestone: none
 
-**Goal:** Establish a precise repo-local NIP-5D contract from the pinned spec, then bring the playground shell, shared napplet runtime/shim surface, and every playground napplet into conformance with that contract.
+Start the next milestone with `$gsd-new-milestone`.
 
-**Target features:**
-- Repo-local NIP-5D contract sourced only from `https://raw.githubusercontent.com/dskvr/nips/d80d7b25f9c4331acbeb40dbeb3b077caa80e885/5D.md`.
-- Stale `RUNTIME-SPEC.md` and `napplet/specs/NIP-5D.md` authority repaired or replaced.
-- Shell-derived hosted `window.napplet.shell.supports()` and manifest `requires` checks in the playground gateway load path.
-- Explicit `requires`/NUB capability contracts for all 13 playground napplets.
-- Documented decisions for `connect`, `class`, `nostrdb`, `identity.decrypt`, `relay.publishEncrypted`, and raw demo-envelope exceptions.
-- Regression guards for sandbox policy, source validation, no napplet `window.nostr`, requires coverage, supports behavior, package-source resolution, and raw-envelope exceptions.
-
-Deferred candidates remain host bridge reference implementations, multi-OS CI matrix expansion, a public gateway product, and package publication.
+Deferred candidates remain host bridge reference implementations, multi-OS CI matrix expansion, a public gateway product, CI/release packaging, and package publication.
 
 ### Latest Milestone Accomplishments
 
-- **Gateway artifact parity:** local playground napplets now load through `/napplet-gateway/<dTag>/<aggregateHash>/index.html` with real NIP-5A manifest identity.
-- **Single-file artifacts:** `@napplet/vite-plugin` supports explicit `artifactMode: 'single-file'`; final emitted bytes drive aggregate hash computation.
-- **Opaque-origin guardrails:** static and Playwright coverage prove the verified path omits `allow-same-origin` and uses gateway-portable artifacts.
-- **Artifact audits:** `pnpm audit:csp` and `pnpm audit:gateway-artifacts` are part of the verified v1.11 closeout loop.
-- **Full verification:** build/type-check/unit/CSP/artifact/E2E are green at 27/27 build tasks, 11/11 type-check tasks, 551 unit tests, and 87 Playwright tests.
+- **Pinned NIP-5D authority:** `specs/NIP-5D.md` is sourced only from the pinned `dskvr/nips` commit; stale AUTH/REGISTER/NIP-01 protocol-identity drift was removed from active docs.
+- **Shell-derived capabilities:** hosted `window.napplet.shell.supports()` now reflects shell-provided capability inventory, not static shim knowledge.
+- **Manifest `requires` load checks:** gateway metadata exposes parsed `requires` tags and the shell rejects unsupported required NUBs before iframe navigation.
+- **13-napplet contract coverage:** every playground napplet declares explicit NUB requirements and preflights them with hosted `supports()`.
+- **Raw-envelope policy:** remaining raw demo/test envelopes are documented and statically allowlisted.
+- **Regression guards:** unit/static/E2E coverage now guards sandbox policy, source validation, no napplet `window.nostr`, forbidden browser/protocol primitives, requires coverage, hosted supports behavior, and unsupported-requires rejection.
+- **Full verification:** build/type-check/unit/CSP/artifact/E2E are green at 32/32 build tasks, 18/18 type-check tasks, 560 unit tests, and 89 Playwright tests.
 
-16/16 v1.11 requirements satisfied; 3/3 phase VERIFICATION.md files passed; 5/5 integration paths wired; 0 critical gaps.
+34/34 v1.12 requirements satisfied; 4/4 phase VERIFICATION.md files passed; 6/6 integration paths wired; 0 critical gaps.
 
-**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability), v1.6 (downstream unblock), v1.7 (spec adoption + 2 new domains), v1.8 (upstream alignment + decrypt), v1.9 (SDK migration), v1.10 (compatibility cleanup + decrypt-demo parity), v1.11 (gateway artifact parity).
+**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability), v1.6 (downstream unblock), v1.7 (spec adoption + 2 new domains), v1.8 (upstream alignment + decrypt), v1.9 (SDK migration), v1.10 (compatibility cleanup + decrypt-demo parity), v1.11 (gateway artifact parity), v1.12 (NIP-5D contract conformance).
 
 ### Previously Shipped
 
@@ -152,4 +146,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-22 — v1.12 milestone started (NIP-5D Contract Conformance)*
+*Last updated: 2026-05-22 — v1.12 milestone completed (NIP-5D Contract Conformance)*

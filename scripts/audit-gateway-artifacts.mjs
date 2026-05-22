@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * scripts/audit-gateway-artifacts.mjs -- v1.11 gateway artifact drift guard.
+ * scripts/audit-gateway-artifacts.mjs -- gateway artifact drift guard.
  *
  * Enforces the playground's production-equivalent NIP-5A gateway invariant:
  * each built demo napplet must expose exactly one served HTML artifact plus
@@ -73,7 +73,10 @@ function assertBuildConfig(name) {
   if (!config.includes("import { definePlaygroundNappletConfig } from '../shared-vite-config';")) {
     fail(`${rel(configPath)} does not import shared-vite-config`);
   }
-  if (!config.includes(`export default definePlaygroundNappletConfig('${name}');`)) {
+  const dTagPattern = new RegExp(
+    `export\\s+default\\s+definePlaygroundNappletConfig\\(\\s*['"]${name}['"]\\s*(?:,|\\))`,
+  );
+  if (!dTagPattern.test(config)) {
     fail(`${rel(configPath)} does not use route-aligned dTag '${name}'`);
   }
 }
@@ -139,4 +142,3 @@ if (violations.length > 0) {
 
 console.log(`[audit:gateway-artifacts] OK — checked ${names.length} napplet gateway artifact(s)`);
 process.exit(0);
-
