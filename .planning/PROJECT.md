@@ -40,9 +40,15 @@ v1.9 completes the demo/fixture SDK migration. The 18 scoped SDK-bearing napplet
 
 The final verification baseline is 545 unit tests and 86 Playwright E2E tests passing.
 
-## Current Milestone
+## Current Milestone: v1.10 Compatibility Window Cleanup & Decrypt Demo Parity
 
-No active milestone. v1.9 is archived and the next milestone has not been selected.
+**Goal:** Close the v1.8/v1.9 cleanup window without crossing a v2 boundary: remove the stale identity-topic compatibility branch, migrate `decrypt-demo` to the `@napplet/nub@0.3.0` `identityDecrypt` helper, and retire the remaining old demo package graph.
+
+**Target features:**
+- Remove `ShellBridge.injectEvent()` special handling for deprecated `auth:identity-changed` dual emission so identity change pushes use the canonical `identity:changed` topic only.
+- Move `apps/playground/napplets/decrypt-demo` from manual `identity.decrypt` postMessage request/reply plumbing to the published `identityDecrypt` helper surface.
+- Align `decrypt-demo`'s `@napplet/shim`, `@napplet/nub`, and `@napplet/vite-plugin` graph on exact `0.3.0` packages and ensure no active demo graph depends on the old `0.2.1` packages.
+- Preserve the shell unit tests, package graph guardrails, and 86-test Playwright E2E baseline.
 
 ### Latest Milestone Accomplishments
 
@@ -79,8 +85,6 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 
 ## Known Tech Debt (carried forward)
 
-- **RENAME-02 soft-rename removal** — `bridge.injectEvent('auth:identity-changed', …)` dual-emits both `'auth:identity-changed'` and `'identity:changed'` for one release (Plan 42-04). Hard-remove in a future follow-up once prioritized; the deletion sweep can locate the branch by grepping for `remove this branch in v1.9` in `packages/shell/src/shell-bridge.ts`. Subscribers should migrate to `'identity:changed'` before the removal.
-- **decrypt-demo SDK helper migration** — v1.9 intentionally excluded `decrypt-demo` because it was not one of the 18 SDK-bearing packages. A future phase can migrate it to `identityDecrypt` and retire its old shim/vite-plugin lockfile graph.
 - **Shell internal type adoption follow-up** — Phase 44 reclassified `internal-{class,connect,resource}.ts` as kehto shell-side models after upstream `@napplet/nub@0.3.0` proved concept/shape divergence. Any future adoption of upstream resource/connect/class surfaces is a distinct migration, not a mechanical import swap.
 - **Electron / Tauri host-bridge reference impls** — HostKeysBridge + HostMediaBridge + HostCacheBridge interfaces defined (v1.4 + v1.7); reference impls deferred.
 - **Multi-OS CI matrix** — still ubuntu-latest only. Carryover from v1.4.
@@ -140,4 +144,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-22 — v1.9 milestone shipped and archived (Napplet SDK Migration)*
+*Last updated: 2026-05-22 — v1.10 milestone started (Compatibility Window Cleanup & Decrypt Demo Parity)*

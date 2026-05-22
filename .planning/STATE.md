@@ -1,33 +1,33 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.9
-milestone_name: Napplet SDK Migration
-status: archived
-last_updated: "2026-05-22T12:03:14+02:00"
+milestone: v1.10
+milestone_name: Compatibility Window Cleanup & Decrypt Demo Parity
+status: planning
+last_updated: "2026-05-22T10:20:15.004Z"
 last_activity: 2026-05-22
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-22, v1.9 shipped)
+See: .planning/PROJECT.md (updated 2026-05-22, v1.10 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** v1.9 archived — ready for next milestone selection.
+**Current focus:** v1.10 Compatibility Window Cleanup & Decrypt Demo Parity.
 
 ## Current Position
 
-Phase: v1.9 complete
-Plan: 49-01 complete
-Status: Archived
-Last activity: 2026-05-22 — v1.9 milestone audit passed and artifacts archived
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-22 — Milestone v1.10 started
 
 ## Accumulated Context
 
@@ -43,10 +43,10 @@ Full decision log (v1.0 → v1.9) archived in `.planning/PROJECT.md` Key Decisio
 
 ### Blockers/Concerns
 
-- No active blockers. v1.8 requirements are complete, audited, and archived.
-- v1.9 focus: migrate the 18 SDK-bearing demo/fixture packages from `@napplet/sdk@^0.2.1` namespace exports to the `@napplet/sdk@0.3.0` function-export surface.
+- No active blockers. v1.9 requirements are complete, audited, and archived.
+- v1.10 focus: remove the stale `auth:identity-changed` compatibility branch, migrate `decrypt-demo` to `identityDecrypt`, and retire the remaining old demo package graph.
 - Published package check: `@napplet/sdk@0.3.0`, `@napplet/shim@0.3.0`, and `@napplet/vite-plugin@0.3.0` are all available on npm as of 2026-05-22.
-- Scope boundary: `decrypt-demo` is excluded from the 18-package SDK migration because it does not depend on `@napplet/sdk`; RENAME-02 hard removal is deferred as a future requirement unless explicitly added.
+- Scope boundary: keep v1.10 as a v1 cleanup/continuity milestone; do not promote the compatibility removal to a v2 boundary.
 - Phase 47 completed 2026-05-22: all 18 target manifests now declare exact `@napplet/sdk`, `@napplet/shim`, `@napplet/vite-plugin`, and explicit `@napplet/nub` at `0.3.0`; IFC/storage call sites use direct helper imports; six affected napplet builds pass.
 - Phase 48 completed 2026-05-22: active demo/fixture source has no `@napplet/sdk` imports; relay, identity, keys, notify, config, and media use direct helpers; toaster/resource retained raw exceptions documented as `NOTIFY-SDK-GAP` and `RESOURCE-SDK-GAP`.
 - Phase 49 completed 2026-05-22: migration guard added to `pnpm test:unit`; active lockfile graph has 18 clean importers and zero old SDK graph offenders; `pnpm type-check`, `pnpm test:unit`, and `pnpm test:e2e` pass with Playwright at 86/86.
@@ -54,9 +54,9 @@ Full decision log (v1.0 → v1.9) archived in `.planning/PROJECT.md` Key Decisio
 
 ## Session Continuity
 
-Last session: 2026-05-22T12:03:14+02:00
-Resume: v1.9 is complete and archived. Next: choose or start the next milestone.
+Last session: 2026-05-22T10:20:15.004Z
+Resume: v1.10 is active and defining requirements/roadmap for compatibility cleanup plus decrypt-demo parity.
 
 ## Operator Next Steps
 
-- Select the next milestone when ready.
+- Define requirements and roadmap for v1.10.
