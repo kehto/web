@@ -1,5 +1,25 @@
 # Milestones: Kehto Runtime
 
+## v1.10 Compatibility Window Cleanup & Decrypt Demo Parity (Shipped: 2026-05-22)
+
+**Phases completed:** 3 phases (50-52), 3 plans, 10 requirements.
+
+**Delivered:** v1.10 closed the v1.8/v1.9 cleanup window without crossing a v2 boundary. `ShellBridge.injectEvent()` now forwards the supplied identity topic exactly once, `decrypt-demo` uses `@napplet/nub@0.3.0` `identityDecrypt`, and the active demo/fixture helper graph is locked away from the retired `0.2.1` packages.
+
+**Audit:** passed — 10/10 requirements, 3/3 phases, 3/3 plans, 5/5 integration paths, 4/4 user flows.
+
+**Key accomplishments:**
+
+- **Identity topic hard removal:** canonical `identity:changed` injection emits once; deprecated `auth:identity-changed` is forwarded literally with no compatibility fan-out.
+- **Decrypt demo parity:** `decrypt-demo` pins exact `@napplet/shim`, `@napplet/nub`, and `@napplet/vite-plugin` `0.3.0` and calls `identityDecrypt` instead of local request IDs, pending maps, and raw `identity.decrypt` postMessage requests.
+- **Regression guard:** `tests/unit/sdk-migration-guard.test.ts` now covers decrypt-demo's helper-only graph, rejects old napplet helper lockfile package keys, and fails on reintroduced manual decrypt plumbing.
+- **Current docs and release notes:** README/service comments and v1.10 changesets point consumers to `identity:changed` and `identityDecrypt`.
+- **Verification:** `pnpm build`, `pnpm type-check`, `pnpm test:unit`, `pnpm test:e2e`, `pnpm docs:api`, focused shell/decrypt tests, static lockfile/source scans, and `pnpm lint` all passed; final counts are 27/27 build tasks, 11/11 type-check tasks, 548 unit tests, and 86 Playwright tests.
+
+**Archive:** [v1.10-ROADMAP.md](milestones/v1.10-ROADMAP.md) | [v1.10-REQUIREMENTS.md](milestones/v1.10-REQUIREMENTS.md) | [v1.10-MILESTONE-AUDIT.md](milestones/v1.10-MILESTONE-AUDIT.md)
+
+---
+
 ## v1.9 Napplet SDK Migration (Shipped: 2026-05-22)
 
 **Phases completed:** 3 phases (47-49), 3 plans, 12 requirements.

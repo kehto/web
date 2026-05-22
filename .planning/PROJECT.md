@@ -34,33 +34,29 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Shipped:** v1.9 — Napplet SDK Migration (2026-05-22)
+**Shipped:** v1.10 — Compatibility Window Cleanup & Decrypt Demo Parity (2026-05-22)
 
-v1.9 completes the demo/fixture SDK migration. The 18 scoped SDK-bearing napplet packages now declare exact `@napplet/sdk`, `@napplet/shim`, `@napplet/nub`, and `@napplet/vite-plugin` `0.3.0` dependencies, active source no longer imports from `@napplet/sdk`, and call sites use the published direct helper-function surfaces.
+v1.10 closes the v1.8/v1.9 compatibility window without crossing a v2 boundary. `ShellBridge.injectEvent()` now forwards identity topics exactly once, `decrypt-demo` uses `@napplet/nub@0.3.0` `identityDecrypt`, and the active demo/fixture package graph no longer resolves the old `0.2.1` helper packages.
 
-The final verification baseline is 545 unit tests and 86 Playwright E2E tests passing.
+The final verification baseline is 548 unit tests and 86 Playwright E2E tests passing.
 
-## Current Milestone: v1.10 Compatibility Window Cleanup & Decrypt Demo Parity
+## Current Milestone
 
-**Goal:** Close the v1.8/v1.9 cleanup window without crossing a v2 boundary: remove the stale identity-topic compatibility branch, migrate `decrypt-demo` to the `@napplet/nub@0.3.0` `identityDecrypt` helper, and retire the remaining old demo package graph.
+No active milestone. Start the next milestone with `$gsd-new-milestone`.
 
-**Target features:**
-- Remove `ShellBridge.injectEvent()` special handling for deprecated `auth:identity-changed` dual emission so identity change pushes use the canonical `identity:changed` topic only.
-- Move `apps/playground/napplets/decrypt-demo` from manual `identity.decrypt` postMessage request/reply plumbing to the published `identityDecrypt` helper surface.
-- Align `decrypt-demo`'s `@napplet/shim`, `@napplet/nub`, and `@napplet/vite-plugin` graph on exact `0.3.0` packages and ensure no active demo graph depends on the old `0.2.1` packages.
-- Preserve the shell unit tests, package graph guardrails, and 86-test Playwright E2E baseline.
+Deferred next-milestone candidates remain host bridge reference implementations, multi-OS CI matrix expansion, and upstream-helper-gap follow-up for toaster/resource-demo when the upstream package surface supports it.
 
 ### Latest Milestone Accomplishments
 
-- **Package graph:** all 18 scoped demo/fixture manifests are exact `0.3.0` for SDK, shim, nub, and vite-plugin.
-- **Function exports:** IFC, storage, relay, identity, keys, notify, config, and media call sites use direct helpers from the `@napplet/nub/<domain>/sdk` or verified equivalent surfaces.
-- **Documented exceptions:** toaster create/list and resource-demo raw envelopes remain only behind grepable `NOTIFY-SDK-GAP` / `RESOURCE-SDK-GAP` comments.
-- **Regression guard:** `tests/unit/sdk-migration-guard.test.ts` fails on package graph drift or migrated source imports from `@napplet/sdk`.
-- **Full verification:** lockfile active importer scan is clean; build/type-check/unit/E2E are green at 27/27 build tasks, 11/11 type-check tasks, 545 unit tests, and 86 Playwright tests.
+- **Identity topic cleanup:** canonical `identity:changed` injection emits once; deprecated `auth:identity-changed` no longer fans out to the canonical topic.
+- **Decrypt demo parity:** `decrypt-demo` now pins exact `@napplet/shim`, `@napplet/nub`, and `@napplet/vite-plugin` `0.3.0` and calls `identityDecrypt` from `@napplet/nub/identity/sdk`.
+- **Regression guard:** `tests/unit/sdk-migration-guard.test.ts` fails on package graph drift, old napplet helper lockfile package keys, migrated source imports from `@napplet/sdk`, or reintroduced decrypt-demo raw plumbing.
+- **Current docs:** README, source comments, runtime spec, and v1.10 changesets now teach `identity:changed` and `identityDecrypt` as the current surfaces.
+- **Full verification:** build/type-check/unit/E2E are green at 27/27 build tasks, 11/11 type-check tasks, 548 unit tests, and 86 Playwright tests.
 
-12/12 v1.9 requirements satisfied; 3/3 phase VERIFICATION.md files passed; 6/6 integration paths wired; 0 critical gaps.
+10/10 v1.10 requirements satisfied; 3/3 phase VERIFICATION.md files passed; 5/5 integration paths wired; 0 critical gaps.
 
-**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability), v1.6 (downstream unblock), v1.7 (spec adoption + 2 new domains), v1.8 (upstream alignment + decrypt), v1.9 (SDK migration).
+**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability), v1.6 (downstream unblock), v1.7 (spec adoption + 2 new domains), v1.8 (upstream alignment + decrypt), v1.9 (SDK migration), v1.10 (compatibility cleanup + decrypt-demo parity).
 
 ### Previously Shipped
 
@@ -81,13 +77,13 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 
 </details>
 
-**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability), v1.6 (downstream unblock), v1.7 (spec adoption + 2 new domains).
-
 ## Known Tech Debt (carried forward)
 
 - **Shell internal type adoption follow-up** — Phase 44 reclassified `internal-{class,connect,resource}.ts` as kehto shell-side models after upstream `@napplet/nub@0.3.0` proved concept/shape divergence. Any future adoption of upstream resource/connect/class surfaces is a distinct migration, not a mechanical import swap.
 - **Electron / Tauri host-bridge reference impls** — HostKeysBridge + HostMediaBridge + HostCacheBridge interfaces defined (v1.4 + v1.7); reference impls deferred.
 - **Multi-OS CI matrix** — still ubuntu-latest only. Carryover from v1.4.
+- **Documentation warning cleanup** — `pnpm docs:api` succeeds but still emits 15 pre-existing TypeDoc warnings about unresolved README links and omitted referenced types.
+- **Lint task surface** — `pnpm lint` succeeds but turbo currently reports no configured package lint tasks; type-check, unit tests, E2E, and static guards carry verification.
 
 ## Key Decisions
 
@@ -125,6 +121,8 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 | 30 | Soft-gate policy for upstream-dependent requirements | v1.7 Phase 42 (DECRYPT) explicitly soft-gated on napplet/napplet#3. At Phase 41 close, evaluated upstream status (OPEN, 0 comments) → deferred to v1.8 with zero impact on shipped phases. Pattern codifies how kehto handles upstream-blocking work without stalling the whole milestone. | 2026-04-24 |
 | 31 | Kehto's class/connect/resource "provisional" types are intentional shell-internal models, not staging-ground duplicates of upstream | Phase 44 audit (against published `@napplet/nub@0.3.0`): all three upstream domains diverge from kehto's provisional shapes. `NappletClass` upstream is a napplet-side accessor `{ class: number\|undefined }`; kehto's is a shell-side token type `string\|null` with `'class-1'`/`'class-2'`. `NappletConnect` upstream is the napplet accessor `{ granted, origins }`; kehto's provisional captures shell-side grant-store types (`ConnectGrant`, `ConsentResult`). Resource diverges in field names (`requestId`→`id`, `bodyBase64`→`blob`+`mime`), message-type names (`ResourceBytesRequest`→`ResourceBytesMessage`), AND error vocabularies (kehto: 5 codes; upstream: 8 disjoint codes). The v1.7 "provisional pending upstream publish" framing was a misnomer — these are kehto-internal types. Pattern: rename/relabel all three away from `provisional-`; future upstream-surface adoption is its own phase. | 2026-05-21 |
 | 32 | Upstream `normalizeConnectOrigin` is canonical origin-validator; no local kehto implementation to migrate | Phase 44 VALIDATOR-01 audit: zero matches for `normalizeConnectOrigin` across `packages/` and `apps/`. Upstream `@napplet/nub/connect` ships the canonical implementation (21 rules, 28 smoke tests, pure function). Any future kehto origin-validation work consumes the upstream validator directly — no local divergence. | 2026-05-21 |
+| 33 | Identity-topic compatibility removal stays in v1, not v2 | User explicitly scoped v1.10 as a v1 cleanup/continuity release. The deprecated `auth:identity-changed` compatibility branch was removed after its v1.8/v1.9 window, while the literal deprecated topic remains a generic injected event if host code still emits it. | 2026-05-22 |
+| 34 | Helper-only demo guards are separate from SDK migration guards | `decrypt-demo` intentionally has no `@napplet/sdk` dependency, so v1.10 split guard coverage into SDK-bearing targets and helper-graph targets. This keeps exact `0.3.0` helper enforcement without inventing a fake SDK dependency. | 2026-05-22 |
 
 ## Evolution
 
@@ -144,4 +142,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-22 — v1.10 milestone started (Compatibility Window Cleanup & Decrypt Demo Parity)*
+*Last updated: 2026-05-22 — v1.10 milestone archived (Compatibility Window Cleanup & Decrypt Demo Parity)*
