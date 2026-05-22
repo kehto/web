@@ -13,14 +13,14 @@
 
 ### SDK package graph
 
-- [ ] **SDK-01**: All 18 SDK-bearing demo/fixture package manifests replace `@napplet/sdk: ^0.2.1` with exact `@napplet/sdk: 0.3.0`
-- [ ] **SDK-02**: The same 18 package manifests align companion `@napplet/shim` and `@napplet/vite-plugin` entries to `0.3.0` where those companions are declared, unless a verified incompatibility is documented in the phase summary
+- [x] **SDK-01**: All 18 SDK-bearing demo/fixture package manifests replace `@napplet/sdk: ^0.2.1` with exact `@napplet/sdk: 0.3.0`
+- [x] **SDK-02**: The same 18 package manifests align companion `@napplet/shim` and `@napplet/vite-plugin` entries to `0.3.0` where those companions are declared, unless a verified incompatibility is documented in the phase summary
 - [ ] **SDK-03**: The root lockfile resolves the active demo/fixture graph without `@napplet/sdk@0.2.1` or legacy split-form `@napplet/nub-*` packages pulled only by the old SDK
 
 ### Function exports
 
-- [ ] **FUNC-01**: IFC call sites migrate from the old `ipc` SDK namespace to direct `ifcEmit` / `ifcOn` helper functions, including bot, chat, and `nub-ifc`
-- [ ] **FUNC-02**: Storage call sites migrate from `storage.*` namespace usage to direct `storageGetItem`, `storageSetItem`, `storageRemoveItem`, or `storageKeys` helpers, including bot, chat, preferences, `nub-storage`, and `nub-theme`
+- [x] **FUNC-01**: IFC call sites migrate from the old `ipc` SDK namespace to direct `ifcEmit` / `ifcOn` helper functions, including bot, chat, and `nub-ifc`
+- [x] **FUNC-02**: Storage call sites migrate from `storage.*` namespace usage to direct `storageGetItem`, `storageSetItem`, `storageRemoveItem`, or `storageKeys` helpers, including bot, chat, preferences, `nub-storage`, and `nub-theme`
 - [ ] **FUNC-03**: Relay and identity call sites migrate from `relay.*` / `identity.*` namespaces to direct helpers such as `relayPublish`, `relayPublishEncrypted`, `relaySubscribe`, `identityGetPublicKey`, and `identityGetProfile`
 - [ ] **FUNC-04**: Keys and notify call sites migrate to direct helpers (`keysRegisterAction`, `keysOnAction`, `notifySend`, `notifyDismiss`, etc.) wherever `@napplet/sdk@0.3.0` or its `@napplet/nub@0.3.0` helper surface covers the existing behavior
 - [ ] **FUNC-05**: Config, media, and resource demo surfaces use the `0.3.0` helper surface instead of old SDK pins or raw-envelope workarounds where published helpers cover the behavior; any unavoidable raw-envelope exception is documented with a grepable reason and a follow-up boundary
@@ -66,10 +66,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SDK-01 | Phase 47 | Pending |
-| SDK-02 | Phase 47 | Pending |
-| FUNC-01 | Phase 47 | Pending |
-| FUNC-02 | Phase 47 | Pending |
+| SDK-01 | Phase 47 | Complete |
+| SDK-02 | Phase 47 | Complete |
+| FUNC-01 | Phase 47 | Complete |
+| FUNC-02 | Phase 47 | Complete |
 | FUNC-03 | Phase 48 | Pending |
 | FUNC-04 | Phase 48 | Pending |
 | FUNC-05 | Phase 48 | Pending |
@@ -86,4 +86,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-05-22*
-*Last updated: 2026-05-22 after v1.9 milestone initialization*
+*Last updated: 2026-05-22 after Phase 47 verification*

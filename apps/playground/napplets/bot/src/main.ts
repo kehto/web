@@ -1,18 +1,19 @@
 /**
  * Bot demo napplet — @napplet/sdk migration (NAP-01, Phase 18).
  *
- * Exercises: ipc (subscribe + emit), storage (rules persistence).
+ * Exercises: ifc (subscribe + emit), storage (rules persistence).
  *
- * - Subscribes via ipc.on('chat:message') (D-02)
- * - Replies via ipc.emit('bot:response') (D-02)
- * - Persists learned rules via storage.setItem/getItem under key 'bot-rules' (D-02)
+ * - Subscribes via ifcOn('chat:message') (D-02)
+ * - Replies via ifcEmit('bot:response') (D-02)
+ * - Persists learned rules via storageSetItem/storageGetItem under key 'bot-rules' (D-02)
  * - Posts #status-text = 'authenticated' after init completes (loadRules resolves)
  *
  * NO raw window.message listener — shim handles AUTH implicitly (D-01).
  * NO NIP-01 arrays, NO legacy bus enums, NO global nostr (anti-features).
  */
 import '@napplet/shim';
-import { ipc, storage } from '@napplet/sdk';
+import { ifcEmit, ifcOn } from '@napplet/nub/ifc/sdk';
+import { storageGetItem, storageSetItem } from '@napplet/nub/storage/sdk';
 
 // ─── Notification Helpers ─────────────────────────────────────────────────────
 
@@ -22,7 +23,7 @@ import { ipc, storage } from '@napplet/sdk';
  */
 function notifyCreate(title: string, body: string): void {
   try {
-    ipc.emit('notifications:create', [], JSON.stringify({ title, body }));
+    ifcEmit('notifications:create', [], JSON.stringify({ title, body }));
   } catch {
     /* best-effort — don't break the main flow if notifications are denied */
   }
@@ -78,7 +79,7 @@ function log(text: string, type: 'heard' | 'replied' | 'learned' | 'error' | 'in
 
 async function loadRules(): Promise<void> {
   try {
-    const raw = await storage.getItem(RULES_KEY);
+    const raw = await storageGetItem(RULES_KEY);
     if (raw) {
       rules = JSON.parse(raw);
       log(`loaded ${Object.keys(rules).length} rules from storage`, 'info');
@@ -91,7 +92,7 @@ async function loadRules(): Promise<void> {
 
 async function saveRules(): Promise<void> {
   try {
-    await storage.setItem(RULES_KEY, JSON.stringify(rules));
+    await storageSetItem(RULES_KEY, JSON.stringify(rules));
   } catch (error) {
     log(`state write failed -- ${formatError(error, 'denied: state:write')}`, 'error');
   }
@@ -126,7 +127,7 @@ function handleTeachCommand(text: string): boolean {
   notifyCreate('Bot activity', `learned: "${trigger}" → "${response}"`);
 
   // Acknowledge the teach command
-  ipc.emit('bot:response', [], JSON.stringify({
+  ifcEmit('bot:response', [], JSON.stringify({
     text: `learned! I'll respond "${response}" when I hear "${trigger}"`,
     timestamp: Date.now(),
   }));
@@ -159,7 +160,7 @@ function handleChatMessage(payload: unknown): void {
   const text = data.text || '';
   if (!text) return;
 
-  log(`ipc chat:message received -- ${text}`, 'heard');
+  log(`ifc chat:message received -- ${text}`, 'heard');
 
   // Check for teach command first
   if (handleTeachCommand(text)) return;
@@ -168,17 +169,17 @@ function handleChatMessage(payload: unknown): void {
   const response = findResponse(text);
   log(response, 'replied');
 
-  // Emit response to chat via ipc (exercises sign:event for the emit)
+  // Emit response to chat via IFC (exercises sign:event for the emit)
   try {
-    ipc.emit('bot:response', [], JSON.stringify({
+    ifcEmit('bot:response', [], JSON.stringify({
       text: response,
       timestamp: Date.now(),
     }));
-    log('ipc bot:response sent', 'info');
+    log('ifc bot:response sent', 'info');
     // Emit a notification so the host can surface this bot reply
     notifyCreate('Bot activity', response.length > 60 ? response.slice(0, 60) + '…' : response);
   } catch (error) {
-    log(`ipc response failed -- ${formatError(error, 'denied: relay:write')}`, 'error');
+    log(`ifc response failed -- ${formatError(error, 'denied: relay:write')}`, 'error');
   }
 }
 
@@ -189,11 +190,11 @@ async function init(): Promise<void> {
   await loadRules();
   statusEl.textContent = 'authenticated';
   statusEl.style.color = '#39ff14';
-  log('listening for ipc chat:message input', 'info');
+  log('listening for ifc chat:message input', 'info');
 
-  // Wire the IPC subscription per D-02.
-  ipc.on('chat:message', handleChatMessage);
-  log('subscribed to ipc chat:message topic', 'info');
+  // Wire the IFC subscription per D-02.
+  ifcOn('chat:message', handleChatMessage);
+  log('subscribed to ifc chat:message topic', 'info');
 }
 
 init().catch((err) => {

@@ -1,19 +1,21 @@
 /**
  * Chat demo napplet — @napplet/sdk migration (NAP-02, Phase 18).
  *
- * Exercises: ifc (ipc.emit/on for chat↔bot round-trip) + storage (history persistence).
+ * Exercises: ifc (ifcEmit/ifcOn for chat↔bot round-trip) + storage (history persistence).
  * Optional showcase: relay.publish for kind:1 events (D-03).
  *
- * - Sends ipc.emit('chat:message', ...) on user input (D-03)
- * - Receives ipc.on('bot:response', ...) for bot replies (D-03)
- * - Persists chat history via storage.setItem/getItem under key 'chat-history'
+ * - Sends ifcEmit('chat:message', ...) on user input (D-03)
+ * - Receives ifcOn('bot:response', ...) for bot replies (D-03)
+ * - Persists chat history via storageSetItem/storageGetItem under key 'chat-history'
  * - Posts #chat-status = 'authenticated' after init completes (loadHistory resolves)
  *
  * NO window.addEventListener('message') — shim handles AUTH implicitly (D-01).
  * NO NIP-01 arrays, NO BusKind, NO window.nostr (anti-features).
  */
 import '@napplet/shim';
-import { relay, ipc, storage, type EventTemplate } from '@napplet/sdk';
+import { ifcEmit, ifcOn } from '@napplet/nub/ifc/sdk';
+import { storageGetItem, storageSetItem } from '@napplet/nub/storage/sdk';
+import { relay, type EventTemplate } from '@napplet/sdk';
 
 // ─── Notification Helpers ─────────────────────────────────────────────────────
 
@@ -23,7 +25,7 @@ import { relay, ipc, storage, type EventTemplate } from '@napplet/sdk';
  */
 function notifyCreate(title: string, body: string): void {
   try {
-    ipc.emit('notifications:create', [], JSON.stringify({ title, body }));
+    ifcEmit('notifications:create', [], JSON.stringify({ title, body }));
   } catch {
     /* best-effort — don't break the main flow if notifications are denied */
   }
@@ -63,7 +65,7 @@ function escapeHtml(s: string): string {
 
 async function loadHistory(): Promise<void> {
   try {
-    const raw = await storage.getItem(HISTORY_KEY);
+    const raw = await storageGetItem(HISTORY_KEY);
     if (raw) {
       const entries: string[] = JSON.parse(raw);
       for (const entry of entries.slice(-10)) {
@@ -78,11 +80,11 @@ async function loadHistory(): Promise<void> {
 
 async function saveToHistory(text: string): Promise<void> {
   try {
-    const raw = await storage.getItem(HISTORY_KEY);
+    const raw = await storageGetItem(HISTORY_KEY);
     const entries: string[] = raw ? JSON.parse(raw) : [];
     entries.push(text);
     if (entries.length > MAX_HISTORY) entries.splice(0, entries.length - MAX_HISTORY);
-    await storage.setItem(HISTORY_KEY, JSON.stringify(entries));
+    await storageSetItem(HISTORY_KEY, JSON.stringify(entries));
   } catch (error) {
     addMessage(`state history save failed -- ${formatError(error, 'denied: state:write')}`, 'system');
   }
@@ -99,16 +101,16 @@ async function sendMessage(): Promise<void> {
   await saveToHistory(text);
 
   try {
-    ipc.emit('chat:message', [], JSON.stringify({ text, timestamp: Date.now() }));
-    addMessage('ipc send attempted -- chat:message', 'system');
+    ifcEmit('chat:message', [], JSON.stringify({ text, timestamp: Date.now() }));
+    addMessage('ifc send attempted -- chat:message', 'system');
     // Emit notification so the host can surface this message send as a toast
     notifyCreate('Chat message sent', text.length > 60 ? text.slice(0, 60) + '…' : text);
   } catch (error) {
-    addMessage(`ipc send failed -- ${formatError(error, 'denied: ifc')}`, 'system');
+    addMessage(`ifc send failed -- ${formatError(error, 'denied: ifc')}`, 'system');
   }
 
   // Publish to relay (optional showcase — exercises relay:write + signing path per D-03).
-  // Wrapped in its own try so relay denial does not break the ipc path.
+  // Wrapped in its own try so relay denial does not break the IFC path.
   try {
     const template: EventTemplate = {
       kind: 1,
@@ -130,7 +132,7 @@ inputEl.addEventListener('keydown', (e) => {
 });
 
 // --- SDK Init ---
-// Load chat history, set the positive status marker, wire up ipc subscriptions.
+// Load chat history, set the positive status marker, wire up IFC subscriptions.
 
 async function init(): Promise<void> {
   // Load history then set the positive status marker.
@@ -139,17 +141,17 @@ async function init(): Promise<void> {
   statusEl.style.color = '#39ff14';
   addMessage('ready to chat', 'system');
 
-  // Subscribe to bot replies via ipc (D-03).
-  ipc.on('bot:response', (payload: unknown) => {
+  // Subscribe to bot replies via IFC (D-03).
+  ifcOn('bot:response', (payload: unknown) => {
     const data = payload as { text?: string };
     if (data.text) {
-      addMessage('ipc receive -- bot:response', 'system');
+      addMessage('ifc receive -- bot:response', 'system');
       addMessage(`[bot] ${data.text}`, 'other');
     }
   });
 
   // Optional: subscribe to a tagged relay topic for the publish showcase (D-03).
-  // Wrapped in try so a relay:read denial does not break ipc functionality.
+    // Wrapped in try so a relay:read denial does not break IFC functionality.
   try {
     relay.subscribe(
       [{ kinds: [1], '#t': ['demo-chat'], limit: 10 }],

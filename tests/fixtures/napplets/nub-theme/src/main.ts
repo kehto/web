@@ -1,8 +1,7 @@
 /**
  * nub-theme fixture — minimal AUTH probe; theme.changed delivery driven by Layer-A spec (E2E-09).
  *
- * @napplet/sdk does NOT expose a theme namespace (only type re-exports — verified against
- * /home/sandwich/Develop/napplet/packages/sdk/src/index.ts). The fixture therefore performs
+ * The helper surface does not expose a theme AUTH probe. The fixture therefore performs
  * a storage AUTH probe to satisfy session registration; the Layer-A nub-theme.spec.ts
  * (Plan 21-03) drives theme behaviour via __injectEnvelope__ + __getNubMessage__ on the
  * fixture's windowId.
@@ -17,7 +16,7 @@
  * Anti-features: NO raw window.addEventListener — fixture is OUTBOUND/AUTH-ONLY.
  */
 import '@napplet/shim';
-import { storage } from '@napplet/sdk';
+import { storageGetItem } from '@napplet/nub/storage/sdk';
 
 const statusEl = document.getElementById('nub-status')!;
 
@@ -27,8 +26,8 @@ function fmt(err: unknown, fb: string): string {
 
 async function init(): Promise<void> {
   try {
-    // First SDK call gates AUTH. storage.getItem is the cheapest probe.
-    await storage.getItem('nub-theme-auth-probe');
+    // First SDK call gates AUTH. storageGetItem is the cheapest probe.
+    await storageGetItem('nub-theme-auth-probe');
   } catch {
     // state:read may be denied in some ACL configurations — that still proves AUTH completed
     // because the SDK proxy could resolve/reject, which only happens after shim handshake.

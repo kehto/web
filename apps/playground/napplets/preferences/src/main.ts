@@ -1,11 +1,11 @@
 /**
- * Preferences demo napplet — exercises storage.setItem + storage.getItem (NAP-04, Phase 19).
+ * Preferences demo napplet — exercises storageSetItem + storageGetItem (NAP-04, Phase 19).
  *
  * Per CONTEXT D-03:
- *   - On mount: storage.getItem('display-name') and storage.getItem('theme-preference')
+ *   - On mount: storageGetItem('display-name') and storageGetItem('theme-preference')
  *     populate the corresponding inputs; #preferences-status flips to 'loaded'
- *   - On click of #preferences-save-btn: storage.setItem('display-name', value) +
- *     storage.setItem('theme-preference', value); #preferences-status flips to 'saved'
+ *   - On click of #preferences-save-btn: storageSetItem('display-name', value) +
+ *     storageSetItem('theme-preference', value); #preferences-status flips to 'saved'
  *   - After page reload: same values appear (storage is localStorage-backed per
  *     packages/shell/src/hooks-adapter.ts:256, scoped per napplet identity)
  *
@@ -26,7 +26,7 @@
  * precedent. Plan 20-07's anti-term grep MUST exempt this one message listener for preferences.
  */
 import '@napplet/shim';
-import { storage } from '@napplet/sdk';
+import { storageGetItem, storageSetItem } from '@napplet/nub/storage/sdk';
 
 const statusEl = document.getElementById('preferences-status')!;
 const displayNameEl = document.getElementById('pref-display-name') as HTMLInputElement;
@@ -64,11 +64,11 @@ function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void
 }
 
 async function loadPreferences(): Promise<void> {
-  // Two sequential storage.getItem calls — sequential awaits localize denial.
+  // Two sequential storageGetItem calls localize denial.
   // If state:read is denied, the rejected Promise surfaces here and we bail.
   try {
-    const name = await storage.getItem(KEY_DISPLAY_NAME);
-    const theme = await storage.getItem(KEY_THEME);
+    const name = await storageGetItem(KEY_DISPLAY_NAME);
+    const theme = await storageGetItem(KEY_THEME);
     if (name !== null) displayNameEl.value = name;
     if (theme !== null) themePreferenceEl.value = theme;
     setStatus('loaded', 'green');
@@ -85,8 +85,8 @@ async function savePreferences(): Promise<void> {
   const nameValue = displayNameEl.value;
   const themeValue = themePreferenceEl.value;
   try {
-    await storage.setItem(KEY_DISPLAY_NAME, nameValue);
-    await storage.setItem(KEY_THEME, themeValue);
+    await storageSetItem(KEY_DISPLAY_NAME, nameValue);
+    await storageSetItem(KEY_THEME, themeValue);
     setStatus('saved', 'green');
     log(`saved — display-name: '${nameValue}', theme: '${themeValue}'`);
   } catch (error) {
@@ -125,7 +125,7 @@ init().catch((err) => {
  *   - Tolerates malformed payloads (missing fields → silent return)
  *
  * Does NOT intercept storage.*, ifc.*, or any other envelope types — those still flow through
- * @napplet/sdk normally so the Phase 19 storage round-trip remains intact.
+ * the shim-mounted NUB helper surface so the Phase 19 storage round-trip remains intact.
  */
 const themeAppliedEl = document.getElementById('preferences-theme-applied');
 window.addEventListener('message', (event: MessageEvent) => {
