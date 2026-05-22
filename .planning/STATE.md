@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.10
 milestone_name: Compatibility Window Cleanup & Decrypt Demo Parity
 status: Awaiting next milestone
-last_updated: "2026-05-22T11:08:50.839Z"
-last_activity: 2026-05-22 — Milestone v1.10 completed and archived
+last_updated: "2026-05-22T15:08:30+02:00"
+last_activity: 2026-05-22 — Completed quick task 260522-kvd: remove old inter-frame terminology
 progress:
   total_phases: 3
   completed_phases: 3
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-05-22, v1.10 archived)
 Phase: Milestone v1.10 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-05-22 — Milestone v1.10 completed and archived
+Last activity: 2026-05-22 — Completed quick task 260522-kvd: remove old inter-frame terminology
 
 ## Accumulated Context
 
@@ -52,6 +52,12 @@ Full decision log (v1.0 → v1.10) archived in `.planning/PROJECT.md` Key Decisi
 - Phase 49 completed 2026-05-22: migration guard added to `pnpm test:unit`; active lockfile graph has 18 clean importers and zero old SDK graph offenders; `pnpm type-check`, `pnpm test:unit`, and `pnpm test:e2e` pass with Playwright at 86/86.
 - v1.9 archived 2026-05-22: roadmap, requirements, phase artifacts, and milestone audit are stored under `.planning/milestones/v1.9-*`.
 - v1.10 archived 2026-05-22: identity topic compatibility removed, decrypt-demo uses `identityDecrypt`, guard coverage closes the old helper graph, and verification closes at 548 unit tests plus 86/86 Playwright.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260522-kvd | Remove old inter-frame terminology | 2026-05-22 | b844b25 | [260522-kvd-replace-old-interframe-terminology](./quick/260522-kvd-replace-old-interframe-terminology/) |
 
 ## Session Continuity
 
