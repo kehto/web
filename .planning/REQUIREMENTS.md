@@ -1,44 +1,39 @@
-# Requirements: Kehto Runtime — v1.9 Napplet SDK Migration
+# Requirements: Kehto Runtime — v1.10 Compatibility Window Cleanup & Decrypt Demo Parity
 
 **Defined:** 2026-05-22
 **Core Value:** Modular, framework-agnostic runtime for hosting napplet applications.
 
-**Milestone goal:** Move the 18 demo/fixture napplet packages from `@napplet/sdk@^0.2.1` namespace-style usage to the `@napplet/sdk@0.3.0` function-export surface while preserving the v1.8 build, unit, and Playwright baselines.
+**Milestone goal:** Close the v1.8/v1.9 cleanup window without crossing a v2 boundary: remove the stale identity-topic compatibility branch, migrate `decrypt-demo` to the `@napplet/nub@0.3.0` `identityDecrypt` helper, and retire the remaining old demo package graph while preserving the shell unit tests, package graph guardrails, and Playwright baseline.
 
-**Baseline:** 18 package manifests under `apps/playground/napplets/*` and `tests/fixtures/napplets/*` still declare `@napplet/sdk: ^0.2.1`. Sixteen `main.ts` files import old SDK namespaces directly; `media-controller` and `resource-demo` carry the old SDK dependency but currently use domain helpers/raw resource wiring instead of direct SDK imports. `decrypt-demo` is intentionally excluded because it does not depend on `@napplet/sdk`.
-
-**Published surface checked:** `@napplet/sdk@0.3.0` is published as latest and depends on `@napplet/core@0.3.0` plus `@napplet/nub@0.3.0`. The root SDK re-exports direct helpers for relay, identity, storage, ifc, keys, media, notify, and resource (`relaySubscribe`, `identityGetPublicKey`, `storageGetItem`, `ifcEmit`, `keysRegisterAction`, `mediaCreateSession`, `notifySend`, `resourceBytes`, etc.). Config helper names are collision-prone at the SDK root; use the verified `@napplet/nub/config/sdk` helper surface if root SDK does not provide collision-free direct config exports.
+**Baseline:** v1.9 is archived with 545 unit tests and 86 Playwright E2E tests passing. The remaining local cleanup surface is explicit: `packages/shell/src/shell-bridge.ts` still dual-emits deprecated `auth:identity-changed`, and `apps/playground/napplets/decrypt-demo` still declares `@napplet/shim` / `@napplet/vite-plugin` `^0.2.1` while manually posting `identity.decrypt` envelopes instead of using the published helper.
 
 ## v1 Requirements
 
-### SDK package graph
+### Identity topic cleanup
 
-- [x] **SDK-01**: All 18 SDK-bearing demo/fixture package manifests replace `@napplet/sdk: ^0.2.1` with exact `@napplet/sdk: 0.3.0`
-- [x] **SDK-02**: The same 18 package manifests align companion `@napplet/shim` and `@napplet/vite-plugin` entries to `0.3.0` where those companions are declared, unless a verified incompatibility is documented in the phase summary
-- [x] **SDK-03**: The root lockfile resolves the active demo/fixture graph without `@napplet/sdk@0.2.1` or legacy split-form `@napplet/nub-*` packages pulled only by the old SDK
+- [ ] **RENAME-HARD-01**: Napplets receive exactly one `identity:changed` push when host code injects the canonical identity-change topic
+- [ ] **RENAME-HARD-02**: The deprecated `auth:identity-changed` topic has no special compatibility branch in `ShellBridge.injectEvent()`; if passed through the generic injection API, it emits only the supplied topic once and no longer fans out to `identity:changed`
 
-### Function exports
+### Decrypt demo helper parity
 
-- [x] **FUNC-01**: IFC call sites migrate from the old `ipc` SDK namespace to direct `ifcEmit` / `ifcOn` helper functions, including bot, chat, and `nub-ifc`
-- [x] **FUNC-02**: Storage call sites migrate from `storage.*` namespace usage to direct `storageGetItem`, `storageSetItem`, `storageRemoveItem`, or `storageKeys` helpers, including bot, chat, preferences, `nub-storage`, and `nub-theme`
-- [x] **FUNC-03**: Relay and identity call sites migrate from `relay.*` / `identity.*` namespaces to direct helpers such as `relayPublish`, `relayPublishEncrypted`, `relaySubscribe`, `identityGetPublicKey`, and `identityGetProfile`
-- [x] **FUNC-04**: Keys and notify call sites migrate to direct helpers (`keysRegisterAction`, `keysOnAction`, `notifySend`, `notifyDismiss`, etc.) wherever `@napplet/sdk@0.3.0` or its `@napplet/nub@0.3.0` helper surface covers the existing behavior
-- [x] **FUNC-05**: Config, media, and resource demo surfaces use the `0.3.0` helper surface instead of old SDK pins or raw-envelope workarounds where published helpers cover the behavior; any unavoidable raw-envelope exception is documented with a grepable reason and a follow-up boundary
+- [ ] **DECRYPT-DEMO-01**: `decrypt-demo` declares exact `@napplet/shim`, `@napplet/nub`, and `@napplet/vite-plugin` `0.3.0` dependencies, with no remaining `0.2.1` demo package edge
+- [ ] **DECRYPT-DEMO-02**: `decrypt-demo` imports and calls `identityDecrypt` from the `@napplet/nub@0.3.0` identity helper surface instead of constructing raw `identity.decrypt` request IDs, pending maps, and `window.parent.postMessage()` request/reply plumbing
+- [ ] **DECRYPT-DEMO-03**: The existing decrypt-demo happy path and class-2 forbidden path keep their DOM sentinel contracts and user-visible success/error behavior after the helper migration
 
-### Verification
+### Package graph and regression guard
 
-- [x] **GUARD-01**: A static guard or test prevents reintroducing namespace imports from `@napplet/sdk` in the 18 migrated packages
-- [x] **E2E-29**: All migrated napplet packages build successfully through the existing workspace build pipeline
-- [x] **E2E-30**: The affected Layer-A/Layer-B specs and full Playwright suite preserve the v1.8 close baseline of 86 passed / 0 failed / 0 skipped, or explicitly document any intentional test count increase
-- [x] **DOCS-08**: Comments, fixture README prose, and E2E spec descriptions no longer teach the old `ipc`, `storage`, `relay`, `identity`, `keys`, `config`, or `notify` namespace style as the current SDK pattern
+- [ ] **GRAPH-01**: The active demo/fixture lockfile graph no longer resolves `@napplet/shim@0.2.1` or `@napplet/vite-plugin@0.2.1` for `decrypt-demo` or any other active demo package
+- [ ] **GUARD-02**: The SDK migration guardrail covers `decrypt-demo` and fails if old `0.2.1` napplet helper packages or manual `identity.decrypt` raw-envelope plumbing are reintroduced where `identityDecrypt` covers the behavior
+
+### Verification and release notes
+
+- [ ] **E2E-31**: Focused shell bridge unit tests and decrypt-demo Playwright tests pass after the compatibility removal and helper migration
+- [ ] **E2E-32**: Full `pnpm build`, `pnpm type-check`, `pnpm test:unit`, and `pnpm test:e2e` pass, preserving the v1.9 baseline unless an intentional test-count increase is documented
+- [ ] **DOCS-09**: Source comments, generated API docs, and changeset/release-note prose no longer teach the v1.8/v1.9 compatibility branch or manual decrypt-envelope workaround as current behavior
 
 ## Future Requirements
 
-Deferred to a later milestone or a separate v1.9 follow-up.
-
-### Identity topic cleanup
-
-- **RENAME-HARD-01**: Remove the v1.8 soft-rename dual-emit branch for `'auth:identity-changed'` in `packages/shell/src/shell-bridge.ts` after external consumers have had one release to migrate
+Deferred to a later milestone.
 
 ### Host bridge reference impls
 
@@ -47,18 +42,25 @@ Deferred to a later milestone or a separate v1.9 follow-up.
 
 ### CI surface
 
-- **CI-MATRIX-01**: GitHub Actions Build + Playwright workflows expanded `ubuntu-latest` → matrix of `ubuntu-latest`, `macos-latest`, `windows-latest`
+- **CI-MATRIX-01**: GitHub Actions Build + Playwright workflows expanded `ubuntu-latest` -> matrix of `ubuntu-latest`, `macos-latest`, `windows-latest`
+
+### Upstream helper gaps
+
+- **NOTIFY-HELPER-01**: Revisit toaster create/list raw-envelope usage if upstream publishes create/list helpers alongside `notifySend` / `notifyDismiss`
+- **RESOURCE-HELPER-01**: Revisit resource-demo helper adoption only after the Kehto service contract converges with upstream `id` / `Blob` resource semantics
 
 ## Out of Scope
 
-Explicitly excluded for v1.9. Documented to prevent scope creep.
+Explicitly excluded for v1.10. Documented to prevent scope creep.
 
 | Feature | Reason |
 |---------|--------|
-| Runtime protocol changes in `@kehto/{acl,runtime,shell,services}` | This milestone is a consumer migration for demo/fixture napplets, not a shell/runtime wire-protocol change. |
-| Migrating `decrypt-demo` to `identityDecrypt` | `decrypt-demo` does not depend on `@napplet/sdk` today and was not part of the user's 18-package scope. It can become a separate follow-up after the SDK-bearing packages are clean. |
-| Replacing kehto's internal class/connect/resource shell-side types with upstream napplet-side types | Phase 44 proved those concepts diverge; future adoption remains a distinct design migration, not part of SDK call-site cleanup. |
-| Publishing or versioning `@kehto/*` packages | The changed surfaces are demo/fixture packages and planning docs; package release prep only applies if implementation touches published `@kehto/*` APIs. |
+| v2 boundary or major-release compatibility redesign | User explicitly kept this as a v1 cleanup/continuity milestone. |
+| Electron / Tauri host bridge implementations | Valuable but broader than the compatibility cleanup and not needed to retire the current local debt. |
+| Multi-OS GitHub Actions matrix | Infrastructure expansion is deferred until after the active compatibility window is closed. |
+| Resource-demo or toaster raw-envelope rewrites beyond current helper coverage | v1.9 documented real upstream helper/contract gaps; this milestone only removes raw decrypt plumbing where `identityDecrypt` exists. |
+| Replacing kehto's internal class/connect/resource shell-side types with upstream napplet-side types | Phase 44 proved those concepts diverge; future adoption remains a distinct design migration. |
+| Publishing packages to npm | This milestone may stage changesets if package behavior changes, but actual publication remains a release process outside milestone initialization. |
 
 ## Traceability
 
@@ -66,24 +68,22 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SDK-01 | Phase 47 | Complete |
-| SDK-02 | Phase 47 | Complete |
-| FUNC-01 | Phase 47 | Complete |
-| FUNC-02 | Phase 47 | Complete |
-| FUNC-03 | Phase 48 | Complete |
-| FUNC-04 | Phase 48 | Complete |
-| FUNC-05 | Phase 48 | Complete |
-| SDK-03 | Phase 49 | Complete |
-| GUARD-01 | Phase 49 | Complete |
-| E2E-29 | Phase 49 | Complete |
-| E2E-30 | Phase 49 | Complete |
-| DOCS-08 | Phase 49 | Complete |
+| RENAME-HARD-01 | Phase 50 | Pending |
+| RENAME-HARD-02 | Phase 50 | Pending |
+| DECRYPT-DEMO-01 | Phase 51 | Pending |
+| DECRYPT-DEMO-02 | Phase 51 | Pending |
+| DECRYPT-DEMO-03 | Phase 51 | Pending |
+| GRAPH-01 | Phase 52 | Pending |
+| GUARD-02 | Phase 52 | Pending |
+| E2E-31 | Phase 52 | Pending |
+| E2E-32 | Phase 52 | Pending |
+| DOCS-09 | Phase 52 | Pending |
 
 **Coverage:**
-- v1 requirements: 12 total
-- Mapped to phases: 12
-- Unmapped: 0 ✓
+- v1 requirements: 10 total
+- Mapped to phases: 10
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-22*
-*Last updated: 2026-05-22 after Phase 49 verification*
+*Last updated: 2026-05-22 after v1.10 requirements definition*
