@@ -2,26 +2,107 @@
 
 ## Milestones
 
-- [x] **v1.0: NIP-5D Migration & Gap Analysis** — 5 phases, 7 plans, 17 requirements ([archive](milestones/v1.0-ROADMAP.md))
-- [x] **v1.1: NIP-5D Migration Implementation** — 4 phases, 8 plans, 16 requirements ([archive](milestones/v1.1-ROADMAP.md))
-- [x] **v1.2: NIP-5D Conformance & Full NUB Coverage** — 6 phases, 19 plans, 26 requirements, 449 tests ([archive](milestones/v1.2-ROADMAP.md) | [audit](milestones/v1.2-MILESTONE-AUDIT.md))
-- [x] **v1.3: Demo Functional & Playwright Parity** — 7 phases (16-22), 43 plans, 37 requirements, 47 E2E specs green ([archive](milestones/v1.3-ROADMAP.md) | [audit](milestones/v1.3-MILESTONE-AUDIT.md))
-- [x] **v1.4: Productionization & Upstream Unblock** — 6 phases (23-28), 17 plans, 20 requirements, 49 E2E specs green ([archive](milestones/v1.4-ROADMAP.md) | [audit](milestones/v1.4-MILESTONE-AUDIT.md))
-- [x] **v1.5: Demo Stability & UAT Coverage** — 3 phases (29-31), 7 plans, 7 requirements, 53 E2E specs green ([archive](milestones/v1.5-ROADMAP.md) | [audit](milestones/v1.5-MILESTONE-AUDIT.md))
-- [x] **v1.6: Downstream Unblock & Shell Service Surface** — 5 phases (32-36), 12 plans, 21 requirements, 54 E2E specs green ([archive](milestones/v1.6-ROADMAP.md) | [audit](milestones/v1.6-MILESTONE-AUDIT.md))
-- [x] **v1.7: NIP-5D Spec Adoption & New NUB Domains** — 5 phases (37-41), 17 plans, 41/41 requirements, 72 E2E specs green ([archive](milestones/v1.7-ROADMAP.md) | [audit](milestones/v1.7-MILESTONE-AUDIT.md))
-- [x] **v1.8: Upstream Alignment & NIP-44 Decrypt** — 5 phases (42-46), 9 plans, 27/27 requirements, 86 E2E specs green ([archive](milestones/v1.8-ROADMAP.md) | [audit](milestones/v1.8-MILESTONE-AUDIT.md))
-- [x] **v1.9: Napplet SDK Migration** — 3 phases (47-49), 3 plans, 12/12 requirements, 86 E2E specs green ([archive](milestones/v1.9-ROADMAP.md) | [audit](milestones/v1.9-MILESTONE-AUDIT.md))
-- [x] **v1.10: Compatibility Window Cleanup & Decrypt Demo Parity** — 3 phases (50-52), 3 plans, 10/10 requirements, 86 E2E specs green ([archive](milestones/v1.10-ROADMAP.md) | [audit](milestones/v1.10-MILESTONE-AUDIT.md))
+- [x] **v1.0: NIP-5D Migration & Gap Analysis** - 5 phases, 7 plans, 17 requirements ([archive](milestones/v1.0-ROADMAP.md))
+- [x] **v1.1: NIP-5D Migration Implementation** - 4 phases, 8 plans, 16 requirements ([archive](milestones/v1.1-ROADMAP.md))
+- [x] **v1.2: NIP-5D Conformance & Full NUB Coverage** - 6 phases, 19 plans, 26 requirements, 449 tests ([archive](milestones/v1.2-ROADMAP.md) | [audit](milestones/v1.2-MILESTONE-AUDIT.md))
+- [x] **v1.3: Demo Functional & Playwright Parity** - 7 phases (16-22), 43 plans, 37 requirements, 47 E2E specs green ([archive](milestones/v1.3-ROADMAP.md) | [audit](milestones/v1.3-MILESTONE-AUDIT.md))
+- [x] **v1.4: Productionization & Upstream Unblock** - 6 phases (23-28), 17 plans, 20 requirements, 49 E2E specs green ([archive](milestones/v1.4-ROADMAP.md) | [audit](milestones/v1.4-MILESTONE-AUDIT.md))
+- [x] **v1.5: Demo Stability & UAT Coverage** - 3 phases (29-31), 7 plans, 7 requirements, 53 E2E specs green ([archive](milestones/v1.5-ROADMAP.md) | [audit](milestones/v1.5-MILESTONE-AUDIT.md))
+- [x] **v1.6: Downstream Unblock & Shell Service Surface** - 5 phases (32-36), 12 plans, 21 requirements, 54 E2E specs green ([archive](milestones/v1.6-ROADMAP.md) | [audit](milestones/v1.6-MILESTONE-AUDIT.md))
+- [x] **v1.7: NIP-5D Spec Adoption & New NUB Domains** - 5 phases (37-41), 17 plans, 41/41 requirements, 72 E2E specs green ([archive](milestones/v1.7-ROADMAP.md) | [audit](milestones/v1.7-MILESTONE-AUDIT.md))
+- [x] **v1.8: Upstream Alignment & NIP-44 Decrypt** - 5 phases (42-46), 9 plans, 27/27 requirements, 86 E2E specs green ([archive](milestones/v1.8-ROADMAP.md) | [audit](milestones/v1.8-MILESTONE-AUDIT.md))
+- [x] **v1.9: Napplet SDK Migration** - 3 phases (47-49), 3 plans, 12/12 requirements, 86 E2E specs green ([archive](milestones/v1.9-ROADMAP.md) | [audit](milestones/v1.9-MILESTONE-AUDIT.md))
+- [x] **v1.10: Compatibility Window Cleanup & Decrypt Demo Parity** - 3 phases (50-52), 3 plans, 10/10 requirements, 86 E2E specs green ([archive](milestones/v1.10-ROADMAP.md) | [audit](milestones/v1.10-MILESTONE-AUDIT.md))
+- [ ] **v1.11: NIP-5A Gateway Artifact Parity** - 3 phases (53-55), 16 requirements, production-equivalent opaque-origin gateway artifact loading
 
 ---
 
-## Current Status
+## v1.11: NIP-5A Gateway Artifact Parity
 
-No active milestone. v1.10 is archived and verified.
+**Goal:** Make local playground and E2E loading match the production NIP-5D/NIP-5A gateway path: opaque-origin sandboxed iframes, gateway-portable artifacts, and no local-only external asset loading shortcut.
 
-Start the next milestone with `$gsd-new-milestone`.
+**Baseline entering v1.11:** 548 unit tests and 86 Playwright E2E tests passed at v1.10 close. Current playground napplet HTML references external `./assets/index-*.js` files, which works under local Vite middleware but is not the production-equivalent artifact assumption for opaque-origin NIP-5D gateway loading.
+
+**Coverage:** 16/16 requirements mapped.
+
+**Critical invariant:** Local playground loading must behave like the production NIP-5D/NIP-5A gateway path, not like a separate development convenience path. Without that continuity, local verification cannot prove production behavior.
+
+### Phases
+
+- [ ] **Phase 53: Single-File Artifact Contract** - Add an explicit single-file artifact mode to `@napplet/vite-plugin`, make inline-script validation mode-aware, and compute aggregate hash/manifest data from final artifact bytes.
+- [ ] **Phase 54: Playground Gateway Loader Parity** - Move all 13 playground napplets to the shared production-equivalent artifact path and load them through a local gateway-style route with real `(dTag, aggregateHash)` identity metadata.
+- [ ] **Phase 55: Guards, Policy Docs, and Full Verification** - Lock the opaque-origin/single-file invariant with static guards, Playwright gateway-path coverage, policy docs, and the full build/type/unit/E2E loop.
 
 ---
 
-*ROADMAP.md last updated: 2026-05-22 — v1.10 archived.*
+## Phase Details
+
+### Phase 53: Single-File Artifact Contract
+
+**Goal**: Make `@napplet/vite-plugin` capable of producing and validating a single-file NIP-5A artifact intentionally, instead of rejecting inline executable scripts unconditionally.
+
+**Depends on**: v1.11 requirements accepted; corrected quick decision 260522-lb0.
+
+**Requirements**: GATEWAY-01, GATEWAY-03, ARTIFACT-01, ARTIFACT-02, ARTIFACT-03, ARTIFACT-04
+
+**Rationale**: The current plugin guard was useful for the external-asset shape, but local testing must now follow the production gateway artifact model. The plugin owns the final build artifact and aggregate-hash injection, so the artifact contract belongs here first.
+
+**Success Criteria** (what must be TRUE):
+  1. `@napplet/vite-plugin` exposes an explicit single-file artifact mode.
+  2. Build-generated inline module scripts are accepted only in that explicit mode.
+  3. The aggregate hash is computed from the final emitted artifact bytes after inlining.
+  4. Config schema and connect-origin synthetic inputs still participate in aggregate-hash computation.
+  5. Existing non-single-file behavior either remains guarded or is removed intentionally during this phase, with tests documenting the chosen contract.
+
+**Plans**: pending
+
+### Phase 54: Playground Gateway Loader Parity
+
+**Goal**: Make the playground exercise the same artifact shape a NIP-5A gateway is expected to serve.
+
+**Depends on**: Phase 53
+
+**Requirements**: GATEWAY-02, PLAYGROUND-01, PLAYGROUND-02, PLAYGROUND-03
+
+**Rationale**: The playground is the operator-visible local proof surface. If it keeps loading a Vite-only external asset shape, it will keep masking production gateway issues.
+
+**Success Criteria** (what must be TRUE):
+  1. All 13 playground napplets use a shared production-equivalent build/config path.
+  2. The active playground loader uses gateway-resolved `(dTag, aggregateHash)` instead of the current empty-hash demo convention.
+  3. The active happy path does not require external executable JS bundle routes.
+  4. All existing playground demo surfaces still boot and show their current user-visible behavior.
+
+**Plans**: pending
+
+### Phase 55: Guards, Policy Docs, and Full Verification
+
+**Goal**: Prevent drift back to a local-only loading model and document the final contract.
+
+**Depends on**: Phase 54
+
+**Requirements**: GATEWAY-04, POLICY-01, GUARD-01, E2E-33, E2E-34, DOCS-10
+
+**Rationale**: This milestone changes a load-bearing artifact assumption. It is complete only when tests, guards, and docs all agree that local playground loading is production-equivalent.
+
+**Success Criteria** (what must be TRUE):
+  1. Static guard coverage fails if the active playground path reintroduces external executable script assets or `allow-same-origin`.
+  2. Static or E2E evidence proves the verified happy path is the production-equivalent gateway path, not a side dev convenience path.
+  3. Playwright proves opaque-origin sandboxing and successful gateway-style boot for all 13 napplets.
+  4. Policy/spec/docs describe the single-file gateway artifact path and do not teach local external asset serving as canonical.
+  5. `pnpm build`, `pnpm type-check`, `pnpm test:unit`, and `pnpm test:e2e` pass.
+
+**Plans**: pending
+
+---
+
+## Progress
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 53. Single-File Artifact Contract | 0/1 | Planned | - |
+| 54. Playground Gateway Loader Parity | 0/1 | Planned | - |
+| 55. Guards, Policy Docs, and Full Verification | 0/1 | Planned | - |
+
+---
+
+*ROADMAP.md last updated: 2026-05-22 - v1.11 started.*

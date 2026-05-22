@@ -34,17 +34,23 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Shipped:** v1.10 — Compatibility Window Cleanup & Decrypt Demo Parity (2026-05-22)
+**Active:** v1.11 — NIP-5A Gateway Artifact Parity (started 2026-05-22)
 
-v1.10 closes the v1.8/v1.9 compatibility window without crossing a v2 boundary. `ShellBridge.injectEvent()` now forwards identity topics exactly once, `decrypt-demo` uses `@napplet/nub@0.3.0` `identityDecrypt`, and the active demo/fixture package graph no longer resolves the old `0.2.1` helper packages.
+v1.11 aligns the local playground and E2E path with the production NIP-5D/NIP-5A gateway path. The critical invariant is that local playground loading must behave like production gateway loading, not like a separate development convenience path. Without that continuity, local verification cannot prove production behavior.
 
-The final verification baseline is 548 unit tests and 86 Playwright E2E tests passing.
+The baseline entering v1.11 is v1.10's final verification state: 548 unit tests and 86 Playwright E2E tests passing.
 
-## Current Milestone
+## Current Milestone: v1.11 NIP-5A Gateway Artifact Parity
 
-No active milestone. Start the next milestone with `$gsd-new-milestone`.
+**Goal:** Make local playground and E2E loading match the production NIP-5D/NIP-5A gateway path: opaque-origin sandboxed iframes, gateway-portable artifacts, and no local-only external asset loading shortcut.
 
-Deferred next-milestone candidates remain host bridge reference implementations, multi-OS CI matrix expansion, and upstream-helper-gap follow-up for toaster/resource-demo when the upstream package surface supports it.
+**Target features:**
+- Explicit single-file artifact mode in `@napplet/vite-plugin`, with aggregate hashes computed from final emitted artifact bytes.
+- Playground loader and E2E path that use the same artifact shape a NIP-5A gateway is expected to serve.
+- Static and Playwright guards proving no active verified path depends on `allow-same-origin` or local-only external executable bundle serving.
+- Policy/spec/docs updated so local development and production gateway behavior stay continuous.
+
+Deferred candidates remain host bridge reference implementations, multi-OS CI matrix expansion, and upstream-helper-gap follow-up for toaster/resource-demo when the upstream package surface supports it.
 
 ### Latest Milestone Accomplishments
 
@@ -123,6 +129,7 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 | 32 | Upstream `normalizeConnectOrigin` is canonical origin-validator; no local kehto implementation to migrate | Phase 44 VALIDATOR-01 audit: zero matches for `normalizeConnectOrigin` across `packages/` and `apps/`. Upstream `@napplet/nub/connect` ships the canonical implementation (21 rules, 28 smoke tests, pure function). Any future kehto origin-validation work consumes the upstream validator directly — no local divergence. | 2026-05-21 |
 | 33 | Identity-topic compatibility removal stays in v1, not v2 | User explicitly scoped v1.10 as a v1 cleanup/continuity release. The deprecated `auth:identity-changed` compatibility branch was removed after its v1.8/v1.9 window, while the literal deprecated topic remains a generic injected event if host code still emits it. | 2026-05-22 |
 | 34 | Helper-only demo guards are separate from SDK migration guards | `decrypt-demo` intentionally has no `@napplet/sdk` dependency, so v1.10 split guard coverage into SDK-bearing targets and helper-graph targets. This keeps exact `0.3.0` helper enforcement without inventing a fake SDK dependency. | 2026-05-22 |
+| 35 | Local playground loading must match the production NIP-5D/NIP-5A gateway path | NIP-5D requires opaque-origin sandboxed iframes, and local verification is only meaningful if it exercises the same artifact shape production gateways serve. A separate dev convenience path would break continuity between development and production. | 2026-05-22 |
 
 ## Evolution
 
@@ -142,4 +149,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-22 — v1.10 milestone archived (Compatibility Window Cleanup & Decrypt Demo Parity)*
+*Last updated: 2026-05-22 — v1.11 milestone started (NIP-5A Gateway Artifact Parity)*

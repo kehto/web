@@ -1,33 +1,33 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.10
-milestone_name: Compatibility Window Cleanup & Decrypt Demo Parity
-status: Awaiting next milestone
-last_updated: "2026-05-22T15:21:42+02:00"
-last_activity: 2026-05-22 — Completed quick task 260522-lb0: determine vite-single-file playground napplet validity
+milestone: v1.11
+milestone_name: NIP-5A Gateway Artifact Parity
+status: planning
+last_updated: "2026-05-22T16:59:42+02:00"
+last_activity: 2026-05-22 — Milestone v1.11 requirements and roadmap defined
 progress:
   total_phases: 3
-  completed_phases: 3
+  completed_phases: 0
   total_plans: 3
-  completed_plans: 3
-  percent: 100
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-22, v1.10 archived)
+See: .planning/PROJECT.md (updated 2026-05-22, v1.11 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Awaiting next milestone.
+**Current focus:** Production-equivalent NIP-5D/NIP-5A gateway artifact parity.
 
 ## Current Position
 
-Phase: Milestone v1.10 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-05-22 — Completed quick task 260522-lb0: determine vite-single-file playground napplet validity
+Status: Ready to plan Phase 53
+Last activity: 2026-05-22 — Milestone v1.11 requirements and roadmap defined; local playground must match production NIP-5D/NIP-5A gateway loading
 
 ## Accumulated Context
 
@@ -52,6 +52,7 @@ Full decision log (v1.0 → v1.10) archived in `.planning/PROJECT.md` Key Decisi
 - Phase 49 completed 2026-05-22: migration guard added to `pnpm test:unit`; active lockfile graph has 18 clean importers and zero old SDK graph offenders; `pnpm type-check`, `pnpm test:unit`, and `pnpm test:e2e` pass with Playwright at 86/86.
 - v1.9 archived 2026-05-22: roadmap, requirements, phase artifacts, and milestone audit are stored under `.planning/milestones/v1.9-*`.
 - v1.10 archived 2026-05-22: identity topic compatibility removed, decrypt-demo uses `identityDecrypt`, guard coverage closes the old helper graph, and verification closes at 548 unit tests plus 86/86 Playwright.
+- v1.11 started 2026-05-22: local playground and E2E loading must match the production NIP-5D/NIP-5A gateway path. The milestone aligns single-file artifact generation, aggregate-hash semantics, playground loading, static guards, and Playwright proof around that continuity invariant.
 
 ### Quick Tasks Completed
 
@@ -64,7 +65,8 @@ Full decision log (v1.0 → v1.10) archived in `.planning/PROJECT.md` Key Decisi
 
 Last session: 2026-05-22T13:04:00+02:00
 Resume: v1.10 phases 50-52 are complete, audited, archived, and phase directories are stored under `.planning/milestones/v1.10-phases/`.
+Current milestone: v1.11 requirements are defined in `.planning/REQUIREMENTS.md`; roadmap phases are 53-55.
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Plan Phase 53 with /gsd-plan-phase 53

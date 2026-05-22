@@ -1,0 +1,103 @@
+# Requirements: Kehto Runtime - v1.11 NIP-5A Gateway Artifact Parity
+
+**Defined:** 2026-05-22
+**Core Value:** Modular, framework-agnostic runtime for hosting napplet applications.
+
+**Milestone goal:** Align local playground and E2E loading with the production NIP-5D/NIP-5A gateway path: napplets run in opaque-origin sandboxed iframes, artifacts are gateway-portable, and local verification no longer relies on a dev-only external asset serving shape.
+
+**Baseline entering v1.11:** v1.10 is archived with 548 unit tests and 86 Playwright E2E tests passing. The playground currently loads prebuilt napplet `dist/index.html` files that reference external `./assets/index-*.js` module bundles served by Vite middleware. NIP-5D requires `allow-same-origin` to be absent, so the local test path must match the opaque-origin production path.
+
+**Critical invariant:** The local playground must behave like the production NIP-5D/NIP-5A gateway path, not like a separate development convenience path. Otherwise there is no reliable continuity between the development environment and the production environment.
+
+## v1 Requirements
+
+### Production-equivalent gateway posture
+
+- [ ] **GATEWAY-01**: The active local playground/E2E napplet loading path mirrors the production NIP-5A gateway model: sandboxed iframe, no `allow-same-origin`, opaque origin, and no reliance on a Vite-only external asset/CORS shortcut.
+- [ ] **GATEWAY-02**: The shell registers each napplet session from gateway-resolved identity metadata `(dTag, aggregateHash)` before or during iframe creation; the production-equivalent path must not rely on the current demo convention of `aggregateHash: ''`.
+- [ ] **GATEWAY-03**: Local gateway-style serving has an explicit artifact boundary: the shell loads the same final artifact shape that a NIP-5A gateway is expected to serve.
+- [ ] **GATEWAY-04**: The playground has a single active napplet loading model for milestone verification; any helper-only dev path must be outside the verified happy path and cannot be used to claim production readiness.
+
+### Single-file artifact mode
+
+- [ ] **ARTIFACT-01**: `@napplet/vite-plugin` supports an explicit single-file artifact mode for napplet builds, producing a final gateway-portable `index.html` with build JS/CSS inlined.
+- [ ] **ARTIFACT-02**: In single-file mode, aggregate hash and manifest data are computed from the final emitted artifact bytes, after inlining, so NIP-5A identity matches what the gateway serves.
+- [ ] **ARTIFACT-03**: Inline-script validation becomes mode-aware: accidental inline executable scripts still fail outside explicit single-file mode, while build-generated inline module scripts are accepted only in the explicit production artifact mode.
+- [ ] **ARTIFACT-04**: Single-file mode preserves config schema and connect-origin synthetic hash inputs so config or connect posture changes still produce a new aggregate hash.
+
+### Playground alignment
+
+- [ ] **PLAYGROUND-01**: All 13 playground napplets use a shared production-equivalent build/config path rather than 13 independently driftable Vite config edits.
+- [ ] **PLAYGROUND-02**: The active playground loader serves and loads the same artifact shape that the NIP-5A gateway path uses; external JS bundle routes are not part of the production-equivalent happy path.
+- [ ] **PLAYGROUND-03**: Existing demo behavior remains visible after the artifact change: all napplet status sentinels authenticate/boot, ACL/debugger surfaces still identify the correct napplet, and service demos keep their current user-visible behavior.
+
+### Policy, guards, and verification
+
+- [ ] **POLICY-01**: Shell/gateway CSP policy is updated for single-file NIP-5D artifacts without adding napplet-owned meta-CSP or weakening the opaque-origin sandbox invariant.
+- [ ] **GUARD-01**: Static guard coverage fails if active playground napplet HTML reintroduces external executable script assets in the production-equivalent path or if any active loader adds `allow-same-origin`.
+- [ ] **E2E-33**: Playwright coverage proves the production-equivalent path: sandbox opaque origin, no external module `src` in loaded napplet HTML, and successful boot of all 13 playground napplets from the gateway-style route.
+- [ ] **E2E-34**: Full `pnpm build`, `pnpm type-check`, `pnpm test:unit`, and `pnpm test:e2e` pass after the artifact/loader alignment.
+- [ ] **DOCS-10**: RUNTIME-SPEC, playground docs, and relevant policy docs describe the production-equivalent artifact path and remove any implication that local external asset serving is the canonical napplet loading model.
+
+## Future Requirements
+
+Deferred to a later milestone.
+
+### Host bridge reference impls
+
+- **BRIDGE-ELECTRON-01**: Electron HostKeysBridge / HostMediaBridge / HostCacheBridge reference impl
+- **BRIDGE-TAURI-01**: Tauri equivalents
+
+### CI surface
+
+- **CI-MATRIX-01**: GitHub Actions Build + Playwright workflows expanded `ubuntu-latest` -> matrix of `ubuntu-latest`, `macos-latest`, `windows-latest`
+
+### Upstream helper gaps
+
+- **NOTIFY-HELPER-01**: Revisit toaster create/list raw-envelope usage if upstream publishes create/list helpers alongside `notifySend` / `notifyDismiss`
+- **RESOURCE-HELPER-01**: Revisit resource-demo helper adoption only after the Kehto service contract converges with upstream `id` / `Blob` resource semantics
+
+## Out of Scope
+
+Explicitly excluded for v1.11. Documented to prevent scope creep.
+
+| Feature | Reason |
+|---------|--------|
+| Adding `allow-same-origin` | Forbidden by NIP-5D; opaque origin is the load-bearing security invariant. |
+| Maintaining a separate local-only playground loading model | User clarified local testing must replicate the production specification. |
+| A full public gateway product | This milestone aligns Kehto's artifact and local test path; production hosting infrastructure remains outside this repo. |
+| Electron / Tauri host bridge implementations | Valuable but unrelated to NIP-5A artifact parity. |
+| Multi-OS GitHub Actions matrix | Infrastructure expansion remains deferred. |
+| Publishing packages to npm | This milestone may stage changesets if package behavior changes, but publication remains a release process outside milestone execution. |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| GATEWAY-01 | Phase 53 | Planned |
+| GATEWAY-02 | Phase 54 | Planned |
+| GATEWAY-03 | Phase 53 | Planned |
+| GATEWAY-04 | Phase 55 | Planned |
+| ARTIFACT-01 | Phase 53 | Planned |
+| ARTIFACT-02 | Phase 53 | Planned |
+| ARTIFACT-03 | Phase 53 | Planned |
+| ARTIFACT-04 | Phase 53 | Planned |
+| PLAYGROUND-01 | Phase 54 | Planned |
+| PLAYGROUND-02 | Phase 54 | Planned |
+| PLAYGROUND-03 | Phase 54 | Planned |
+| POLICY-01 | Phase 55 | Planned |
+| GUARD-01 | Phase 55 | Planned |
+| E2E-33 | Phase 55 | Planned |
+| E2E-34 | Phase 55 | Planned |
+| DOCS-10 | Phase 55 | Planned |
+
+**Coverage:**
+- v1 requirements: 16 total
+- Mapped to phases: 16
+- Unmapped: 0
+
+---
+*Requirements defined: 2026-05-22*
+*Last updated: 2026-05-22 at milestone start*
