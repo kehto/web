@@ -1,5 +1,25 @@
 # Milestones: Kehto Runtime
 
+## v1.11 NIP-5A Gateway Artifact Parity (Shipped: 2026-05-22)
+
+**Phases completed:** 3 phases (53-55), 3 plans, 16 requirements.
+
+**Delivered:** v1.11 aligned Kehto's local playground and E2E proof path with the production NIP-5D/NIP-5A gateway model. The active loader now resolves manifest metadata, registers real `(dTag, aggregateHash)` session identity, and navigates opaque-origin iframes through `/napplet-gateway/<dTag>/<aggregateHash>/index.html`.
+
+**Audit:** passed — 16/16 requirements, 3/3 phases, 3/3 plans, 5/5 integration paths, 4/4 user flows.
+
+**Key accomplishments:**
+
+- **Gateway loader parity:** all 13 playground napplets load through the gateway-style route with manifest-derived `dTag` and non-empty aggregate hash identity.
+- **Single-file artifact contract:** `@napplet/vite-plugin` supports explicit `artifactMode: 'single-file'`, accepts build-generated inline module scripts only in that mode, and computes aggregate hashes from final emitted artifact bytes.
+- **Production-equivalent guardrails:** active playground loading keeps `allow-same-origin` out of iframe sandbox policy and avoids local-only external executable bundle serving in the verified path.
+- **Static audits:** `pnpm audit:csp` and `pnpm audit:gateway-artifacts` lock no meta-CSP and gateway-portable artifact shape across all 13 napplets.
+- **Verification:** `pnpm build`, `pnpm type-check`, `pnpm test:unit`, `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, focused gateway Playwright, and `pnpm test:e2e` all passed; final counts are 27/27 build tasks, 11/11 type-check tasks, 551 unit tests, and 87 Playwright tests.
+
+**Archive:** [v1.11-ROADMAP.md](milestones/v1.11-ROADMAP.md) | [v1.11-REQUIREMENTS.md](milestones/v1.11-REQUIREMENTS.md) | [v1.11-MILESTONE-AUDIT.md](milestones/v1.11-MILESTONE-AUDIT.md)
+
+---
+
 ## v1.10 Compatibility Window Cleanup & Decrypt Demo Parity (Shipped: 2026-05-22)
 
 **Phases completed:** 3 phases (50-52), 3 plans, 10 requirements.

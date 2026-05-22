@@ -13,91 +13,110 @@
 - [x] **v1.8: Upstream Alignment & NIP-44 Decrypt** - 5 phases (42-46), 9 plans, 27/27 requirements, 86 E2E specs green ([archive](milestones/v1.8-ROADMAP.md) | [audit](milestones/v1.8-MILESTONE-AUDIT.md))
 - [x] **v1.9: Napplet SDK Migration** - 3 phases (47-49), 3 plans, 12/12 requirements, 86 E2E specs green ([archive](milestones/v1.9-ROADMAP.md) | [audit](milestones/v1.9-MILESTONE-AUDIT.md))
 - [x] **v1.10: Compatibility Window Cleanup & Decrypt Demo Parity** - 3 phases (50-52), 3 plans, 10/10 requirements, 86 E2E specs green ([archive](milestones/v1.10-ROADMAP.md) | [audit](milestones/v1.10-MILESTONE-AUDIT.md))
-- [x] **v1.11: NIP-5A Gateway Artifact Parity** - 3 phases (53-55), 16/16 requirements, production-equivalent opaque-origin gateway artifact loading, 551 unit tests, 87 E2E specs green ([archive](milestones/v1.11-ROADMAP.md) | [audit](milestones/v1.11-MILESTONE-AUDIT.md))
+- [x] **v1.11: NIP-5A Gateway Artifact Parity** - 3 phases (53-55), 16/16 requirements, 551 unit tests, 87 E2E specs green ([archive](milestones/v1.11-ROADMAP.md) | [audit](milestones/v1.11-MILESTONE-AUDIT.md))
+- [ ] **v1.12: NIP-5D Contract Conformance** - 4 phases (56-59), 34 requirements, pinned-spec contract conformance across shell, shim/runtime, gateway load checks, and 13 playground napplets.
 
 ---
 
-## v1.11: NIP-5A Gateway Artifact Parity
+## v1.12: NIP-5D Contract Conformance
 
-**Goal:** Make local playground and E2E loading match the production NIP-5D/NIP-5A gateway path: opaque-origin sandboxed iframes, gateway-portable artifacts, and no local-only external asset loading shortcut.
+**Goal:** Establish a precise repo-local NIP-5D contract from the pinned NIP-5D source, then bring the playground shell, shared napplet runtime/shim surface, and all 13 playground napplets into conformance with that contract.
 
-**Baseline entering v1.11:** 548 unit tests and 86 Playwright E2E tests passed at v1.10 close. Current playground napplet HTML references external `./assets/index-*.js` files, which works under local Vite middleware but is not the production-equivalent artifact assumption for opaque-origin NIP-5D gateway loading.
+**Pinned source:** `https://raw.githubusercontent.com/dskvr/nips/d80d7b25f9c4331acbeb40dbeb3b077caa80e885/5D.md`
 
-**Coverage:** 16/16 requirements mapped.
+**Baseline entering v1.12:** v1.11 closed with production-equivalent gateway artifact loading, 551 unit tests, `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and 87/87 Playwright E2E tests passing. `.planning/NIP-5D-DELTA-AUDIT.md` is the current-state delta inventory for this milestone.
 
-**Critical invariant:** Local playground loading must behave like the production NIP-5D/NIP-5A gateway path, not like a separate development convenience path. Without that continuity, local verification cannot prove production behavior.
+**Coverage:** 34/34 requirements mapped.
+
+**Critical invariant:** NIP-5D identity is shell-assigned at iframe creation from the NIP-5A `(dTag, aggregateHash)` tuple. AUTH/REGISTER/IDENTITY/NIP-01 negotiation is stale drift for NIP-5D protocol identity.
 
 ### Phases
 
-- [x] **Phase 53: Single-File Artifact Contract** - Add an explicit single-file artifact mode to `@napplet/vite-plugin`, make inline-script validation mode-aware, and compute aggregate hash/manifest data from final artifact bytes.
-- [x] **Phase 54: Playground Gateway Loader Parity** - Move all 13 playground napplets to the shared production-equivalent artifact path and load them through a local gateway-style route with real `(dTag, aggregateHash)` identity metadata.
-- [x] **Phase 55: Guards, Policy Docs, and Full Verification** - Lock the opaque-origin/single-file invariant with static guards, Playwright gateway-path coverage, policy docs, and the full build/type/unit/E2E loop.
+- [ ] **Phase 56: Contract Authority and Package Source Baseline** - Write the pinned-spec repo-local contract, repair stale spec/docs authority, classify extension surfaces, and ensure the playground consumes local protocol package sources being changed.
+- [ ] **Phase 57: Shell Capability Negotiation and Requires Enforcement** - Make shell capabilities authoritative for hosted `supports()`, expose manifest `requires` in gateway metadata, and reject or warn on missing capabilities at load time.
+- [ ] **Phase 58: Playground Napplet Contract Conformance** - Add explicit NIP-5D/NUB contracts to all 13 playground napplets, gate optional behavior with `supports()`, classify or replace raw demo envelopes, and rename stale protocol-auth wording.
+- [ ] **Phase 59: Regression Guards and Full Verification** - Add the static/unit/E2E guards for sandboxing, source validation, no napplet `window.nostr`, requires coverage, supports behavior, raw-envelope exceptions, and run the full verification loop.
 
 ---
 
 ## Phase Details
 
-### Phase 53: Single-File Artifact Contract
+### Phase 56: Contract Authority and Package Source Baseline
 
-**Goal**: Make `@napplet/vite-plugin` capable of producing and validating a single-file NIP-5A artifact intentionally, instead of rejecting inline executable scripts unconditionally.
+**Goal**: Establish the precise contract and remove authority drift before changing behavior.
 
-**Depends on**: v1.11 requirements accepted; corrected quick decision 260522-lb0.
+**Depends on**: v1.12 requirements accepted; `.planning/NIP-5D-DELTA-AUDIT.md`; pinned NIP-5D source.
 
-**Requirements**: GATEWAY-01, GATEWAY-03, ARTIFACT-01, ARTIFACT-02, ARTIFACT-03, ARTIFACT-04
+**Requirements**: CONTRACT-01, CONTRACT-02, CONTRACT-03, CONTRACT-04, CONTRACT-05, SOURCE-01, SOURCE-02, EXT-01
 
-**Rationale**: The current plugin guard was useful for the external-asset shape, but local testing must now follow the production gateway artifact model. The plugin owns the final build artifact and aggregate-hash injection, so the artifact contract belongs here first.
-
-**Success Criteria** (what must be TRUE):
-  1. `@napplet/vite-plugin` exposes an explicit single-file artifact mode.
-  2. Build-generated inline module scripts are accepted only in that explicit mode.
-  3. The aggregate hash is computed from the final emitted artifact bytes after inlining.
-  4. Config schema and connect-origin synthetic inputs still participate in aggregate-hash computation.
-  5. Existing non-single-file behavior either remains guarded or is removed intentionally during this phase, with tests documenting the chosen contract.
-
-**Plans**: [53-01-PLAN.md](phases/53-single-file-artifact-contract/53-01-PLAN.md)
-
-**Completed**: 2026-05-22 ([summary](phases/53-single-file-artifact-contract/53-01-SUMMARY.md) | [verification](phases/53-single-file-artifact-contract/53-VERIFICATION.md))
-
-### Phase 54: Playground Gateway Loader Parity
-
-**Goal**: Make the playground exercise the same artifact shape a NIP-5A gateway is expected to serve.
-
-**Depends on**: Phase 53
-
-**Requirements**: GATEWAY-02, PLAYGROUND-01, PLAYGROUND-02, PLAYGROUND-03
-
-**Rationale**: The playground is the operator-visible local proof surface. If it keeps loading a Vite-only external asset shape, it will keep masking production gateway issues.
+**Rationale**: The milestone should not implement against stale docs. The pinned NIP-5D source is small and explicit, while `RUNTIME-SPEC.md` and `napplet/specs/NIP-5D.md` contain drift. Package-source wiring is also a prerequisite because shim/NUB changes will not affect the playground if it keeps consuming published packages.
 
 **Success Criteria** (what must be TRUE):
-  1. All 13 playground napplets use a shared production-equivalent build/config path.
-  2. The active playground loader uses gateway-resolved `(dTag, aggregateHash)` instead of the current empty-hash demo convention.
-  3. The active happy path does not require external executable JS bundle routes.
-  4. All existing playground demo surfaces still boot and show their current user-visible behavior.
+  1. The active repo-local NIP-5D contract cites only the pinned raw URL/commit as authoritative.
+  2. `RUNTIME-SPEC.md` and `napplet/specs/NIP-5D.md` are repaired, replaced, or marked non-authoritative.
+  3. The contract explicitly covers sandbox, transport, object envelopes, source identity, manifest `requires`, hosted `supports()`, and no napplet `window.nostr`.
+  4. Extension candidates (`connect`, `class`, `nostrdb`, `identity.decrypt`, `relay.publishEncrypted`) have recorded classification decisions to drive later implementation.
+  5. Playground protocol package resolution uses the repo-local package sources being changed, with a guard or documented check for drift.
 
-**Plans**: [54-01-PLAN.md](phases/54-playground-gateway-loader-parity/54-01-PLAN.md)
+**Plans**: Pending
 
-**Completed**: 2026-05-22 ([summary](phases/54-playground-gateway-loader-parity/54-01-SUMMARY.md) | [verification](phases/54-playground-gateway-loader-parity/54-VERIFICATION.md))
+### Phase 57: Shell Capability Negotiation and Requires Enforcement
 
-### Phase 55: Guards, Policy Docs, and Full Verification
+**Goal**: Make the shell, not static shim knowledge, the source of truth for capabilities.
 
-**Goal**: Prevent drift back to a local-only loading model and document the final contract.
+**Depends on**: Phase 56
 
-**Depends on**: Phase 54
+**Requirements**: SUPPORTS-01, SUPPORTS-02, SUPPORTS-03, SUPPORTS-04, REQUIRES-01, REQUIRES-04, REQUIRES-05, EXT-02, EXT-03
 
-**Requirements**: GATEWAY-04, POLICY-01, GUARD-01, E2E-33, E2E-34, DOCS-10
-
-**Rationale**: This milestone changes a load-bearing artifact assumption. It is complete only when tests, guards, and docs all agree that local playground loading is production-equivalent.
+**Rationale**: Pinned NIP-5D requires load-time checking of manifest `requires` tags and runtime `window.napplet.shell.supports()`. Both are currently incomplete: gateway metadata omits `requires`, and hosted napplets see a static shim fallback.
 
 **Success Criteria** (what must be TRUE):
-  1. Static guard coverage fails if the active playground path reintroduces external executable script assets or `allow-same-origin`.
-  2. Static or E2E evidence proves the verified happy path is the production-equivalent gateway path, not a side dev convenience path.
-  3. Playwright proves opaque-origin sandboxing and successful gateway-style boot for all 13 napplets.
-  4. Policy/spec/docs describe the single-file gateway artifact path and do not teach local external asset serving as canonical.
-  5. `pnpm build`, `pnpm type-check`, `pnpm test:unit`, and `pnpm test:e2e` pass.
+  1. The shell builds a capability inventory from real services, extension classifications, and permission policy.
+  2. Hosted `window.napplet.shell.supports()` reflects that shell inventory for bare, `nub:`, and `perm:` names.
+  3. Static shim capability fallback is excluded from the hosted playground contract.
+  4. Gateway metadata carries parsed `requires` tags.
+  5. The playground shell rejects or warns before marking a napplet usable when a required capability is missing.
+  6. Crypto-related mediated operations are either documented as NUB operations with clear boundaries or removed from the conformance path.
 
-**Plans**: [55-01-PLAN.md](phases/55-guards-policy-docs-full-verification/55-01-PLAN.md)
+**Plans**: Pending
 
-**Completed**: 2026-05-22 ([summary](phases/55-guards-policy-docs-full-verification/55-01-SUMMARY.md) | [verification](phases/55-guards-policy-docs-full-verification/55-VERIFICATION.md))
+### Phase 58: Playground Napplet Contract Conformance
+
+**Goal**: Bring every playground napplet into the contract through manifest declarations, capability checks, and explicit raw-surface boundaries.
+
+**Depends on**: Phase 57
+
+**Requirements**: REQUIRES-02, REQUIRES-03, RAW-01, RAW-02, NAPPLET-01, NAPPLET-02, NAPPLET-03, NAPPLET-04
+
+**Rationale**: The playground is the user-visible integration proof. All 13 napplets currently import the shim and use NUB surfaces, but their manifests omit `requires`, none exercises hosted `supports()`, and several carry raw demo envelopes or stale AUTH wording.
+
+**Success Criteria** (what must be TRUE):
+  1. All 13 playground napplets declare their required NUBs in source and built NIP-5A manifests.
+  2. Optional or degraded features are gated with hosted `supports()` calls.
+  3. Identity readiness probes used only to emulate old AUTH/authenticated state are replaced with a real NIP-5D ready/capability path.
+  4. `demo.publishTheme`, `demo.decrypt.fixtures`, raw `notify.create/list`, raw `resource.bytes`, and raw `theme.changed` listeners are removed, replaced, or explicitly classified in the allowlist.
+  5. Stale AUTH/authenticated wording is renamed wherever it describes protocol identity rather than user/signer authentication.
+
+**Plans**: Pending
+
+### Phase 59: Regression Guards and Full Verification
+
+**Goal**: Prevent drift and prove the full conformance milestone end to end.
+
+**Depends on**: Phase 58
+
+**Requirements**: GUARD-01, GUARD-02, GUARD-03, GUARD-04, GUARD-05, GUARD-06, E2E-35, E2E-36, VERIFY-01
+
+**Rationale**: This milestone changes cross-package protocol behavior and every playground napplet. Completion requires guards that fail on the exact drift classes from the delta audit plus full build/type/unit/CSP/artifact/E2E verification.
+
+**Success Criteria** (what must be TRUE):
+  1. Static/unit guards cover sandbox policy, no `allow-same-origin`, `MessageEvent.source` source validation, no napplet `window.nostr`, no direct forbidden browser APIs, manifest `requires` coverage, hosted `supports()` behavior, and allowed raw-envelope exceptions.
+  2. E2E proves missing required NUB capability rejection or compatibility warnings at load time.
+  3. E2E proves all 13 playground napplets boot through the gateway path with declared `requires` and shell-derived `supports()`.
+  4. `pnpm build`, `pnpm type-check`, `pnpm test:unit`, `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and `pnpm test:e2e` pass.
+  5. All remaining deviations are documented as deliberate NUB extensions or demo/test-only surfaces.
+
+**Plans**: Pending
 
 ---
 
@@ -105,10 +124,11 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 53. Single-File Artifact Contract | 1/1 | Completed | 2026-05-22 |
-| 54. Playground Gateway Loader Parity | 1/1 | Completed | 2026-05-22 |
-| 55. Guards, Policy Docs, and Full Verification | 1/1 | Completed | 2026-05-22 |
+| 56. Contract Authority and Package Source Baseline | 0/0 | Not started | - |
+| 57. Shell Capability Negotiation and Requires Enforcement | 0/0 | Not started | - |
+| 58. Playground Napplet Contract Conformance | 0/0 | Not started | - |
+| 59. Regression Guards and Full Verification | 0/0 | Not started | - |
 
 ---
 
-*ROADMAP.md last updated: 2026-05-22 - v1.11 completed.*
+*ROADMAP.md last updated: 2026-05-22 - v1.12 initialized.*
