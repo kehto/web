@@ -56,7 +56,7 @@ Full decision log (v1.0 → v1.10) archived in `.planning/PROJECT.md` Key Decisi
 ## Session Continuity
 
 Last session: 2026-05-22T13:04:00+02:00
-Resume: v1.10 phases 50-52 are complete, audited, archived, and ready for phase-directory cleanup.
+Resume: v1.10 phases 50-52 are complete, audited, archived, and phase directories are stored under `.planning/milestones/v1.10-phases/`.
 
 ## Operator Next Steps
 
