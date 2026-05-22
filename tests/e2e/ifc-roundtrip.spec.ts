@@ -31,11 +31,11 @@ test('chat input triggers ifc envelope; bot reply appears in chat messages', asy
 
   await demoBeforeEach(page);
 
-  // Wait for both napplets to reach authenticated state — gates the ifc round trip.
+  // Wait for both napplets to reach ready state — gates the ifc round trip.
   const chatFrame = page.frameLocator('#chat-frame-container iframe');
   const botFrame = page.frameLocator('#bot-frame-container iframe');
-  await expect(chatFrame.locator('#chat-status')).toContainText('authenticated', { timeout: 10_000 });
-  await expect(botFrame.locator('#status-text')).toContainText('authenticated', { timeout: 10_000 });
+  await expect(chatFrame.locator('#chat-status')).toContainText('ready', { timeout: 10_000 });
+  await expect(botFrame.locator('#status-text')).toContainText('ready', { timeout: 10_000 });
 
   // Trigger the round trip: type "hello" in chat, click send.
   // Bot's findResponse returns "hey there!" for any text containing "hello"/"hi"

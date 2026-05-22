@@ -32,15 +32,16 @@ they are either:
 - a documented NUB domain envelope whose SDK helper surface is incomplete; or
 - a demo/test-only envelope listed in the milestone raw-envelope allowlist.
 
-The phase 58/59 allowlist must classify these current raw surfaces before the
-milestone closes:
+### Phase 58 Raw-Envelope Allowlist
 
-- `demo.publishTheme`
-- `demo.decrypt.fixtures`
-- raw `notify.create`
-- raw `notify.list`
-- raw `resource.bytes`
-- raw `theme.changed`
+| Envelope | Location | Classification | Boundary |
+|----------|----------|----------------|----------|
+| `demo.publishTheme` | `apps/playground/napplets/theme-switcher/src/main.ts` | Demo-only host control | Not a NIP-5D or NUB contract. Allowed only in the playground theme broadcast demo until a `theme.publish`/`theme.set` helper exists. |
+| `demo.decrypt.fixtures` | `apps/playground/napplets/decrypt-demo/src/main.ts` | Test/demo fixture injection | Not a NIP-5D or NUB contract. Parent-source-bound fixture delivery for the decrypt demo only. |
+| `notify.create` | `apps/playground/napplets/toaster/src/main.ts` | NUB helper-surface gap | Notify service supports create/list, but `@napplet/nub/notify/sdk` lacks create/list helpers. Raw use must stay source-bound and confined to toaster. |
+| `notify.list` | `apps/playground/napplets/toaster/src/main.ts` | NUB helper-surface gap | Same toaster-only helper gap as `notify.create`; raw replies are accepted only from `window.parent`. |
+| `resource.bytes` | `apps/playground/napplets/resource-demo/src/main.ts` | Kehto resource wire-shape gap | Resource SDK expects upstream `id`/`blob`/`mime`; playground service currently uses `requestId`/`bodyBase64`/`status`/`headers`. Raw use is confined to resource-demo. |
+| `theme.changed` | `apps/playground/napplets/preferences/src/main.ts` | NUB helper-surface gap | Theme push exists as a shell-to-napplet NUB envelope, but no `theme.subscribe` helper exists. Raw listener must be parent-source-bound and type-narrowed. |
 
 New raw `window.parent.postMessage()` protocol envelopes in playground napplets
 must fail static checks unless they are added to that allowlist with a concrete

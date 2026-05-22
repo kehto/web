@@ -4,16 +4,17 @@
  * Per CONTEXT D-02:
  *   - On click of #composer-publish-btn, publish kind:1 event with content from #composer-input
  *   - If #composer-encrypted-toggle is checked, route through relayPublishEncrypted (NIP-44 default)
- *   - #composer-status reflects: 'connecting...' -> 'authenticated' -> 'published: <id>' or 'denied: <reason>'
+ *   - #composer-status reflects: 'connecting...' -> 'ready' -> 'published: <id>' or 'denied: <reason>'
  *   - #composer-log shows a per-attempt log line for debugger visibility
  *
  * Anti-features (per v1.3 milestone): no raw window message protocol listener, no NIP-01 arrays,
- *   no legacy bus enums, no global nostr accessor. Shim handles AUTH implicitly.
+ *   no legacy bus enums, no global nostr accessor. Shim handles NIP-5D envelopes.
  */
 import '@napplet/shim';
-import { identityGetPublicKey } from '@napplet/nub/identity/sdk';
 import { relayPublish, relayPublishEncrypted } from '@napplet/nub/relay/sdk';
 import type { EventTemplate } from '@napplet/core';
+
+const REQUIRED_NUBS = ['relay'] as const;
 
 const statusEl = document.getElementById('composer-status')!;
 const inputEl = document.getElementById('composer-input') as HTMLInputElement;
@@ -45,6 +46,13 @@ function log(text: string): void {
 function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void {
   statusEl.textContent = text;
   statusEl.style.color = color === 'green' ? '#39ff14' : color === 'red' ? '#ff3b3b' : '#888';
+}
+
+function getMissingRequiredNubs(): string[] {
+  const supports = (window as unknown as {
+    napplet: { shell: { supports(capability: string): boolean } };
+  }).napplet.shell.supports;
+  return REQUIRED_NUBS.filter((capability) => !supports(capability));
 }
 
 async function publish(): Promise<void> {
@@ -100,18 +108,19 @@ inputEl.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') void publish();
 });
 
-// Initialize the napplet. A single identityGetPublicKey() call triggers
-// the shell's Path B AUTH detection (first napplet->shell envelope flips
-// #composer-status on the outer topology card to 'authenticated') without
-// incurring the vestigial storage probe deleted in Phase 36-01. Result is
-// discarded — the call is a lightweight AUTH-trigger, not a data dependency.
+// Initialize the napplet without an identity probe. NIP-5D identity is assigned
+// by the shell at iframe creation; the relay NUB is the only required runtime
+// capability for this demo.
 async function init(): Promise<void> {
-  await identityGetPublicKey();
-  setStatus('authenticated', 'green');
+  const missing = getMissingRequiredNubs();
+  if (missing.length > 0) {
+    throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+  }
+  setStatus('ready', 'green');
   log('ready to publish');
 }
 
 init().catch((err) => {
-  setStatus('auth failed', 'red');
+  setStatus('unavailable', 'red');
   log(`init failed — ${formatError(err, 'init failure')}`);
 });

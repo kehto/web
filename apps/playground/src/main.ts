@@ -16,7 +16,7 @@ import {
   loadNapplet,
   getNotificationServiceHandler,
   getThemeServiceBundle,
-  findAuthenticatedNappletWindowIdByDTag,
+  findIdentityBoundNappletWindowIdByDTag,
   relay,
   toggleService,
   setDemoConfigValue,
@@ -929,18 +929,17 @@ const aclRendered = new Set<string>();
 // "7/10 stuck on LOADING" user-visible bug. hotkey-chord + media-controller
 // were missing from the function entirely.
 //
-// shell-host.ts already detects AUTH for all 10 napplets via Path A
-// (NIP-01 OK at shell-host.ts:810-827) and Path B (first ENVELOPE at
-// shell-host.ts:832-844). This function is pure display: for each
-// authenticated napplet, update its outer topology status sentinel once.
+// shell-host.ts marks each napplet identity-bound after the first source-bound
+// envelope from its pre-registered iframe. This function is pure display: for
+// each identity-bound napplet, update its outer topology status sentinel once.
 function refreshAclPanelsIfNeeded(): void {
   for (const napplet of DEMO_NAPPLETS) {
     if (aclRendered.has(napplet.name)) continue;
     const info = [...getNapplets().values()].find((entry) => entry.name === napplet.name);
-    if (!info?.authenticated) continue;
+    if (!info?.identityBound) continue;
     const statusEl = document.getElementById(napplet.statusId);
     if (statusEl) {
-      statusEl.textContent = 'authenticated';
+      statusEl.textContent = 'identity-bound';
       statusEl.style.color = '#39ff14';
     }
     aclRendered.add(napplet.name);
@@ -954,7 +953,7 @@ function refreshAclPanelsIfNeeded(): void {
 }
 
 tap.onMessage((msg) => {
-  // Path A: NIP-01 OK success (legacy pubkey-based napplets like chat/bot)
+  // Legacy OK success can still wake old fixture paths.
   if (msg.verb === 'OK' && msg.parsed.success === true && msg.direction === 'shell->napplet') {
     setTimeout(() => {
       refreshAclPanelsIfNeeded();
@@ -963,7 +962,7 @@ tap.onMessage((msg) => {
 
   // Path B: NIP-5D envelope-only napplets (composer/preferences/toaster, feed,
   // profile-viewer, theme-switcher, hotkey-chord, media-controller).
-  // The shell-host sets info.authenticated=true on the first ENVELOPE from a napplet.
+  // The shell-host sets info.identityBound=true on the first ENVELOPE from a napplet.
   // We respond to that envelope here to trigger ACL panel rendering.
   //
   // Phase 29 (Plan 29-01): removed the stale `aclRendered.size < 8` bail — that
@@ -1000,7 +999,7 @@ export function setSelectedNode(id: string | null): void {
 // invariant. Hook placement is locked by D9 to demo main.ts (not shell-host).
 // Shape mirrors __grantKeysForward__/__grantMediaControl__ patterns (Plans
 // 26-03/27-03): dTag-scoped mutation hook returning true on success, false
-// when the target napplet is not yet loaded or not yet authenticated.
+// when the target napplet is not yet loaded or not yet identity-bound.
 //
 // CLASS-01/02 semantics: class is normally resolved synchronously at iframe
 // creation. This test hook mutates the already-registered session entry's
@@ -1017,9 +1016,9 @@ export function setSelectedNode(id: string | null): void {
 (window as Window & {
   __setNappletClass__?: (dTag: string, newClass: NappletClass) => boolean;
 }).__setNappletClass__ = (dTag: string, newClass: NappletClass): boolean => {
-  const windowId = findAuthenticatedNappletWindowIdByDTag(dTag);
+  const windowId = findIdentityBoundNappletWindowIdByDTag(dTag);
   if (!windowId) {
-    console.warn(`[demo] __setNappletClass__: ${dTag} not loaded or not authenticated`);
+    console.warn(`[demo] __setNappletClass__: ${dTag} not loaded or not identity-bound`);
     return false;
   }
   const entry = relay.runtime.sessionRegistry.getEntryByWindowId(windowId);
@@ -1065,9 +1064,9 @@ export function setSelectedNode(id: string | null): void {
 (window as Window & {
   __injectNubEnvelopeAsNapplet__?: (dTag: string, envelope: Record<string, unknown>) => boolean;
 }).__injectNubEnvelopeAsNapplet__ = (dTag: string, envelope: Record<string, unknown>): boolean => {
-  const windowId = findAuthenticatedNappletWindowIdByDTag(dTag);
+  const windowId = findIdentityBoundNappletWindowIdByDTag(dTag);
   if (!windowId) {
-    console.warn(`[demo] __injectNubEnvelopeAsNapplet__: ${dTag} not loaded or not authenticated`);
+    console.warn(`[demo] __injectNubEnvelopeAsNapplet__: ${dTag} not loaded or not identity-bound`);
     return false;
   }
   // Find the iframe for this napplet by its windowId (the id attribute set in loadNapplet).

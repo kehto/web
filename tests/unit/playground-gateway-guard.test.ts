@@ -18,6 +18,22 @@ const playgroundNapplets = [
   'toaster',
 ] as const;
 
+const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly string[]> = {
+  bot: ['ifc', 'storage'],
+  chat: ['ifc', 'storage', 'relay'],
+  composer: ['relay'],
+  'config-demo': ['config'],
+  'decrypt-demo': ['identity'],
+  feed: ['relay'],
+  'hotkey-chord': ['keys'],
+  'media-controller': ['media'],
+  preferences: ['storage', 'theme'],
+  'profile-viewer': ['identity'],
+  'resource-demo': ['resource', 'connect'],
+  'theme-switcher': ['theme'],
+  toaster: ['notify'],
+};
+
 function readRepoFile(path: string): string {
   return readFileSync(join(process.cwd(), path), 'utf8');
 }
@@ -29,8 +45,11 @@ describe('playground gateway artifact guard', () => {
       expect(config, `${name} import`).toContain(
         "import { definePlaygroundNappletConfig } from '../shared-vite-config';",
       );
-      expect(config, `${name} d tag`).toContain(
-        `export default definePlaygroundNappletConfig('${name}');`,
+      const expectedRequiresLiteral = expectedRequires[name]
+        .map((capability) => `'${capability}'`)
+        .join(', ');
+      expect(config, `${name} d tag/requires`).toContain(
+        `export default definePlaygroundNappletConfig('${name}', { requires: [${expectedRequiresLiteral}] });`,
       );
     }
 

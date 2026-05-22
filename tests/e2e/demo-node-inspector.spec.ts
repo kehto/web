@@ -6,10 +6,10 @@
  * uses demoBeforeEach, and asserts on canonical per-role inspector content.
  *
  * Note: The demo napplets (chat, bot) still use the legacy NIP-01 array protocol
- * and do not reach "authenticated" state under the v1.2 shell (which accepts only
+ * and do not reach identity-bound state under the v1.2 shell (which accepts only
  * NIP-5D envelope objects). Napplet migration to NIP-5D is Phase 18.
- * Tests that previously waited for #chat-status = "authenticated" now use the
- * "no authenticated napplets" path or are removed from the auth-gated check.
+ * Tests that previously waited for #chat-status = "identity-bound" now use the
+ * "no identity-bound napplets" path or are removed from the identity-gated check.
  */
 import { test, expect } from '@playwright/test';
 import { demoBeforeEach } from './helpers/index.js';
@@ -21,7 +21,7 @@ const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 29
 
 test('ACL node opens inspector with grant/revoke table', async ({ page }) => {
   await demoBeforeEach(page);
-  // napplets use legacy NIP-01 arrays; ACL table will show "no authenticated napplets" path
+  // napplets use legacy NIP-01 arrays; ACL table will show "no identity-bound napplets" path
   await page.locator('#topology-node-acl').click();
   // Inspector-open class applied to flow-area-inner
   await expect(page.locator('#flow-area-inner')).toHaveClass(/inspector-open/, { timeout: 3_000 });
@@ -29,7 +29,7 @@ test('ACL node opens inspector with grant/revoke table', async ({ page }) => {
   await expect(page.locator('#inspector-pane')).toBeVisible({ timeout: 3_000 });
   // At least one capability label visible in the pane (relay:, identity:, state:, etc.)
   await expect(page.locator('#inspector-pane')).toContainText(
-    /relay:|identity:|state:|no authenticated napplets/,
+    /relay:|identity:|state:|no identity-bound napplets/,
     { timeout: 3_000 },
   );
 });
@@ -49,11 +49,11 @@ test('runtime node shows Registered NUBs with 8 entries', async ({ page }) => {
 
 test('napplet node (chat) shows capability state and recent envelopes', async ({ page }) => {
   await demoBeforeEach(page);
-  // napplets use legacy protocol — chat node will show pending/not-authenticated inspector state
+  // napplets use legacy protocol — chat node will show pending/not identity-bound inspector state
   await page.locator('[data-napplet-name="chat"]').click();
   await expect(page.locator('#inspector-pane')).toBeVisible({ timeout: 3_000 });
   await expect(page.locator('#inspector-pane')).toContainText(
-    /Capability state|relay:|identity:|not authenticated|pending/,
+    /Capability state|relay:|identity:|not identity-bound|pending/,
     { timeout: 3_000 },
   );
   await expect(page.locator('#inspector-pane')).toContainText(/Recent envelopes/, { timeout: 3_000 });

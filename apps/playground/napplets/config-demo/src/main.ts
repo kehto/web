@@ -21,6 +21,8 @@
 import '@napplet/shim';
 import { get as configGet, subscribe as configSubscribe } from '@napplet/nub/config/sdk';
 
+const REQUIRED_NUBS = ['config'] as const;
+
 const statusEl = document.getElementById('config-demo-status')!;
 const valuesEl = document.getElementById('config-demo-values')!;
 const logEl = document.getElementById('config-demo-log')!;
@@ -40,6 +42,13 @@ function log(text: string): void {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
+function getMissingRequiredNubs(): string[] {
+  const supports = (window as unknown as {
+    napplet: { shell: { supports(capability: string): boolean } };
+  }).napplet.shell.supports;
+  return REQUIRED_NUBS.filter((capability) => !supports(capability));
+}
+
 function updateUI(values: Record<string, unknown>): void {
   // Write the full JSON snapshot into the sentinel -- deterministic for E2E.
   valuesEl.textContent = JSON.stringify(values, null, 2);
@@ -49,6 +58,11 @@ let pushCount = 0;
 
 async function init(): Promise<void> {
   try {
+    const missing = getMissingRequiredNubs();
+    if (missing.length > 0) {
+      throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+    }
+
     setStatus('subscribing...', 'gray');
     // Live push stream -- receives initial snapshot + every subsequent change.
     configSubscribe((values: Record<string, unknown>) => {

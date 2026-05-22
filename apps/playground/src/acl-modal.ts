@@ -183,7 +183,7 @@ export function openPolicyModal(): void {
     const emptyRow = document.createElement('tr');
     const emptyTd = document.createElement('td');
     emptyTd.colSpan = ALL_CAPABILITIES.length + 2;
-    emptyTd.textContent = 'No authenticated napplets';
+    emptyTd.textContent = 'No identity-bound napplets';
     emptyTd.style.cssText = 'padding:16px;text-align:center;color:#444;font-style:italic';
     emptyRow.appendChild(emptyTd);
     tbody.appendChild(emptyRow);

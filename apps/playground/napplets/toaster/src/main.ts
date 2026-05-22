@@ -9,7 +9,7 @@
  *     mirrors the dismissal acks (notification-service does not push a notify.dismissed
  *     reply, so we trust the dispatch and drop locally — equivalent to optimistic UI)
  *
- * NOTIFY-SDK-GAP (Plan 19-03): @napplet/nub/notify/sdk exposes notifySend and
+ * NOTIFY-SDK-GAP (Phase 58 raw-envelope allowlist): @napplet/nub/notify/sdk exposes notifySend and
  * notifyDismiss, but not notify.create / notify.list / notify.read. The
  * demo's notification-service (packages/services/src/notification-service.ts) implements
  * the notify.create / notify.list / notify.read contract, not just notify.send.
@@ -22,12 +22,12 @@
  * this one occurrence for the toaster napplet only.
  *
  * Anti-features (still enforced): no NIP-01 arrays, no BusKind, no window.nostr,
- * no signer-service, no kind === 29001/29002. Shim handles AUTH implicitly
- * — shim fires AUTHENTICATED from bootstrap; no probe needed.
+ * no signer-service, no kind === 29001/29002. Shim handles NIP-5D envelopes.
  */
 import '@napplet/shim';
-import { identityGetPublicKey } from '@napplet/nub/identity/sdk';
 import { notifyDismiss as notifyDismissHelper } from '@napplet/nub/notify/sdk';
+
+const REQUIRED_NUBS = ['notify'] as const;
 
 const statusEl = document.getElementById('toaster-status')!;
 const titleEl = document.getElementById('toaster-title') as HTMLInputElement;
@@ -60,6 +60,13 @@ function log(text: string): void {
 function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void {
   statusEl.textContent = text;
   statusEl.style.color = color === 'green' ? '#39ff14' : color === 'red' ? '#ff3b3b' : '#888';
+}
+
+function getMissingRequiredNubs(): string[] {
+  const supports = (window as unknown as {
+    napplet: { shell: { supports(capability: string): boolean } };
+  }).napplet.shell.supports;
+  return REQUIRED_NUBS.filter((capability) => !supports(capability));
 }
 
 function makeCorrelationId(): string {
@@ -130,7 +137,7 @@ dismissAllBtn.addEventListener('click', () => {
 });
 
 /**
- * THE ONLY raw message listener in this napplet (Plan 19-03 explicit deviation).
+ * THE ONLY raw message listener in this napplet (Phase 58 allowlist).
  *
  * Justified because the 0.3 notify helper surface does not expose notify.create
  * or notify.list (see file-header NOTIFY-SDK-GAP). This handler:
@@ -184,17 +191,19 @@ window.addEventListener('message', (event: MessageEvent) => {
   }
 });
 
-// Initialize: a single identityGetPublicKey() call triggers the shell's Path B
-// AUTH detection (first napplet->shell envelope flips the outer topology card
-// sentinel) without the vestigial storage probe deleted in Phase 36-01.
-// notify.* flows still run from button handlers + the one documented message listener.
+// Initialize without an identity probe. NIP-5D identity is assigned by the
+// shell at iframe creation; notify.* flows run from button handlers plus the
+// one documented source-bound message listener.
 async function init(): Promise<void> {
-  await identityGetPublicKey();
-  setStatus('authenticated', 'green');
+  const missing = getMissingRequiredNubs();
+  if (missing.length > 0) {
+    throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+  }
+  setStatus('ready', 'green');
   log('ready to notify');
 }
 
 init().catch((err) => {
-  setStatus('auth failed', 'red');
+  setStatus('unavailable', 'red');
   log(`init failed — ${formatError(err, 'init failure')}`);
 });

@@ -8,3 +8,4 @@ playwright-report/
 docs/api/
 .playwright-mcp/
 *-snapshot.yml
+.omx

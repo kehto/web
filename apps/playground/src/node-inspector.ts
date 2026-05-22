@@ -149,7 +149,7 @@ function renderForRole(detail: NodeDetail): string {
 function renderAclRoleContent(_detail: NodeDetail): string {
   const rows = getAclAdapter().snapshot();
   if (rows.length === 0) {
-    return '<div style="color:#7981a0;font-size:11px;padding:8px 0">no authenticated napplets</div>';
+    return '<div style="color:#7981a0;font-size:11px;padding:8px 0">no identity-bound napplets</div>';
   }
   return `
     <table style="width:100%;font-size:10px;border-collapse:collapse">
@@ -205,7 +205,7 @@ function renderNappletRoleContent(detail: NodeDetail): string {
           return `<span style="color:${allowed ? '#39ff14' : '#ff3b3b'};margin-right:8px;font-size:10px">${c} ${allowed ? '✓' : '✗'}</span>`;
         })
         .join('')
-    : '<span style="color:#7981a0;font-size:10px">(unauthenticated)</span>';
+    : '<span style="color:#7981a0;font-size:10px">(not identity-bound)</span>';
 
   const recent = detail.recentEnvelopes ?? [];
   return `

@@ -91,11 +91,11 @@ Default ACL state on demo boot: all capabilities ungranted. The demo UI + Playwr
 
 The demo installs two `window`-scoped functions during `bootShell()` that let the Playwright E2E specs grant capabilities to the new v1.4 napplets without UI click-through. Both hooks are scoped (they only grant capability to one specific napplet) and both return a boolean to signal whether the grant succeeded.
 
-- `window.__grantKeysForward__(): boolean` — grants `keys:forward` to the `hotkey-chord` napplet. Returns `true` on success, `false` if the napplet isn't loaded or hasn't completed AUTH yet. Installed at `apps/playground/src/shell-host.ts:864`. Invoked by [`tests/e2e/hotkey-chord.spec.ts`](../../tests/e2e/hotkey-chord.spec.ts) after gating on `#hotkey-chord-status = 'subscribed'`.
+- `window.__grantKeysForward__(): boolean` — grants `keys:forward` to the `hotkey-chord` napplet. Returns `true` on success, `false` if the napplet isn't loaded or identity-bound yet. Installed at `apps/playground/src/shell-host.ts:864`. Invoked by [`tests/e2e/hotkey-chord.spec.ts`](../../tests/e2e/hotkey-chord.spec.ts) after gating on `#hotkey-chord-status = 'subscribed'`.
 
-- `window.__grantMediaControl__(): boolean` — grants `media:control` to the `media-controller` napplet. Returns `true` on success, `false` if the napplet isn't loaded or authenticated yet. Installed at `apps/playground/src/shell-host.ts:903`. Invoked by [`tests/e2e/media-controller.spec.ts`](../../tests/e2e/media-controller.spec.ts) after gating on `#media-controller-status = 'session-ready'`.
+- `window.__grantMediaControl__(): boolean` — grants `media:control` to the `media-controller` napplet. Returns `true` on success, `false` if the napplet isn't loaded or identity-bound yet. Installed at `apps/playground/src/shell-host.ts:903`. Invoked by [`tests/e2e/media-controller.spec.ts`](../../tests/e2e/media-controller.spec.ts) after gating on `#media-controller-status = 'session-ready'`.
 
-Both hooks follow the same pattern: look up the target napplet's windowId from the napplets Map, confirm the napplet is authenticated, then call `relay.runtime.aclState.grant(pubkey, dTag, hash, cap)`. Adding a new demo napplet that needs E2E capability setup follows the same pattern: install a scoped `__grant<Capability>__` hook in `bootShell()`, then invoke it from the Playwright spec.
+Both hooks follow the same pattern: look up the target napplet's windowId from the napplets Map, confirm the napplet is identity-bound, then call `relay.runtime.aclState.grant(pubkey, dTag, hash, cap)`. Adding a new demo napplet that needs E2E capability setup follows the same pattern: install a scoped `__grant<Capability>__` hook in `bootShell()`, then invoke it from the Playwright spec.
 
 ## License
 

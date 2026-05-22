@@ -20,7 +20,7 @@
  *     → service stores actionRegistry[actionId] = { chord, windowId } + captures send handle
  *     → service sends keys.registerAction.result back
  *     → helper resolves the registerAction Promise
- *     → napplet status transitions 'authenticated' → 'subscribed'
+ *     → napplet status transitions 'connecting...' → 'subscribed'
  *
  *   Playwright keyboard.press('Control+Shift+KeyK'):
  *     → document keydown dispatched in the host page
@@ -74,9 +74,9 @@ test('hotkey-chord napplet receives Ctrl+Shift+K via real keys backend and incre
 
   const hotkeyFrame = page.frameLocator('#hotkey-chord-frame-container iframe');
 
-  // Step 1: wait for napplet AUTH handshake + keys.registerAction round-trip.
+  // Step 1: wait for napplet keys.registerAction round-trip.
   // The init pattern + `await keysRegisterAction(...)` means status
-  // transitions 'connecting...' → 'authenticated' → 'subscribed'. We accept
+  // transitions 'connecting...' → 'subscribed'. We accept
   // 'subscribed' as evidence that the helper resolved the registerAction Promise
   // (the real backend registered the chord AND captured the per-window send handle).
   await expect(hotkeyFrame.locator('#hotkey-chord-status')).toContainText('subscribed', { timeout: 15_000 });
@@ -87,8 +87,8 @@ test('hotkey-chord napplet receives Ctrl+Shift+K via real keys backend and incre
   // Step 3: grant keys:forward capability via the pre-installed host hook
   // (Plan 26-03 bootShell installs window.__grantKeysForward__). The hook
   // returns true when the grant succeeded, false if the napplet isn't loaded
-  // or authenticated yet. Because Step 1 gated on 'subscribed' (which implies
-  // authenticated), the grant MUST succeed here.
+  // or identity-bound yet. Because Step 1 gated on 'subscribed' (which implies
+  // identity-bound), the grant MUST succeed here.
   const granted = await page.evaluate(() => {
     const fn = (window as Window & { __grantKeysForward__?: () => boolean }).__grantKeysForward__;
     return typeof fn === 'function' ? fn() : false;

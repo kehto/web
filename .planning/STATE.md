@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.12
 milestone_name: NIP-5D Contract Conformance
 status: executing
-last_updated: "2026-05-22T17:15:12Z"
-last_activity: 2026-05-22 -- Phase 57 completed; Phase 58 ready
+last_updated: "2026-05-22T17:36:49.139Z"
+last_activity: 2026-05-22 -- Phase 58 completed; Phase 59 ready
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 2
-  completed_plans: 2
-  percent: 50
+  completed_phases: 3
+  total_plans: 3
+  completed_plans: 3
+  percent: 75
 ---
 
 # Project State
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-22, v1.12 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 58 — Playground Napplet Contract Conformance
+**Current focus:** Phase 59 — Regression Guards and Full Verification
 
 ## Current Position
 
-Phase: 58 (Playground Napplet Contract Conformance) — READY
-Plan: —
-Status: Phase 57 complete; ready for Phase 58
-Last activity: 2026-05-22 -- Phase 57 completed with capability negotiation and gateway requires enforcement
+Phase: 59 (Regression Guards and Full Verification) — READY
+Plan: not started
+Status: Ready to plan Phase 59
+Last activity: 2026-05-22 -- Phase 58 completed; Phase 59 ready
 
 ## Accumulated Context
 
@@ -56,6 +56,7 @@ Full decision log (v1.0 → v1.12) lives in `.planning/PROJECT.md` Key Decisions
 - v1.11 completed 2026-05-22: `@napplet/vite-plugin` supports explicit single-file artifact mode, playground napplets load through `/napplet-gateway/<dTag>/<aggregateHash>/index.html`, and drift is guarded by unit, audit, and Playwright coverage. Final verification: `pnpm build`, `pnpm type-check`, `pnpm test:unit` (551 tests), `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and `pnpm test:e2e` (87/87).
 - v1.12 started 2026-05-22: authoritative NIP-5D source is the pinned raw `dskvr/nips` commit `d80d7b25f9c4331acbeb40dbeb3b077caa80e885`; `.planning/NIP-5D-DELTA-AUDIT.md` is the delta inventory; `RUNTIME-SPEC.md` and `napplet/specs/NIP-5D.md` are drift sources to repair or replace.
 - v1.12 roadmap phases are 56-59: contract/package source baseline, shell capability/requires enforcement, 13-napplet conformance, then guards/full verification.
+- Phase 58 completed 2026-05-22: all 13 playground napplets now declare manifest `requires`, preflight required NUBs with shell-derived `supports()`, stale protocol auth wording is renamed, and raw demo envelopes are documented in the Phase 58 allowlist.
 
 ### Quick Tasks Completed
 
@@ -72,4 +73,4 @@ Current milestone: v1.12 NIP-5D Contract Conformance.
 
 ## Operator Next Steps
 
-- Plan Phase 56 with /gsd-plan-phase 56
+- Plan and execute Phase 59 guards/full verification.

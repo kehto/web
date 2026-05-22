@@ -40,8 +40,8 @@
 ### Manifest requires and gateway load checks
 
 - [x] **REQUIRES-01**: Playground napplet build configuration accepts explicit `requires` declarations using short NUB names, never spec identifiers such as `NUB-IDENTITY`.
-- [ ] **REQUIRES-02**: All 13 playground napplet source manifests declare their required NUB capabilities.
-- [ ] **REQUIRES-03**: Built NIP-5A manifest artifacts include the expected `requires` tags for all 13 playground napplets.
+- [x] **REQUIRES-02**: All 13 playground napplet source manifests declare their required NUB capabilities.
+- [x] **REQUIRES-03**: Built NIP-5A manifest artifacts include the expected `requires` tags for all 13 playground napplets.
 - [x] **REQUIRES-04**: Playground gateway metadata exposes parsed `requires` tags to the shell load path.
 - [x] **REQUIRES-05**: The playground shell rejects the napplet or displays a clear compatibility warning when manifest `requires` contains a capability the shell does not support.
 
@@ -50,15 +50,15 @@
 - [x] **EXT-01**: `connect`, `class`, `nostrdb`, `identity.decrypt`, and `relay.publishEncrypted` are each documented as an official Kehto-supported NUB extension or as out-of-scope/non-conformant for the active NIP-5D playground contract.
 - [x] **EXT-02**: `connect` and `class` are advertised by `supports()` only if this milestone classifies them as active NUB capabilities and backs them with shell behavior.
 - [x] **EXT-03**: `identity.decrypt` and `relay.publishEncrypted` are documented as NUB-mediated shell operations with cleartext/key-material boundaries, or removed from the conformance path.
-- [ ] **RAW-01**: Raw demo envelopes (`demo.publishTheme`, `demo.decrypt.fixtures`, raw `notify.create`/`notify.list`, raw `resource.bytes`, and raw `theme.changed` listeners) are removed, replaced with SDK/NUB helpers, or explicitly classified as demo/test-only exceptions.
-- [ ] **RAW-02**: Any remaining raw-envelope exceptions are enumerated in one allowlist and guarded so new unclassified raw envelopes fail static checks.
+- [x] **RAW-01**: Raw demo envelopes (`demo.publishTheme`, `demo.decrypt.fixtures`, raw `notify.create`/`notify.list`, raw `resource.bytes`, and raw `theme.changed` listeners) are removed, replaced with SDK/NUB helpers, or explicitly classified as demo/test-only exceptions.
+- [x] **RAW-02**: Any remaining raw-envelope exceptions are enumerated in one allowlist and guarded so new unclassified raw envelopes fail static checks.
 
 ### Playground napplet conformance
 
-- [ ] **NAPPLET-01**: Every playground napplet has an explicit NIP-5D/NUB capability contract in source and docs.
-- [ ] **NAPPLET-02**: Every playground napplet gates optional capabilities with `window.napplet.shell.supports()` and gracefully degrades when a capability is absent.
-- [ ] **NAPPLET-03**: Readiness probes that currently use identity helpers only to trigger old AUTH/authenticated state are replaced by a real NIP-5D ready/capability path.
-- [ ] **NAPPLET-04**: Stale AUTH/authenticated wording is renamed where it describes NIP-5D protocol identity rather than user or signer authentication.
+- [x] **NAPPLET-01**: Every playground napplet has an explicit NIP-5D/NUB capability contract in source and docs.
+- [x] **NAPPLET-02**: Every playground napplet gates optional capabilities with `window.napplet.shell.supports()` and gracefully degrades when a capability is absent.
+- [x] **NAPPLET-03**: Readiness probes that currently use identity helpers only to trigger old AUTH/authenticated state are replaced by a real NIP-5D ready/capability path.
+- [x] **NAPPLET-04**: Stale AUTH/authenticated wording is renamed where it describes NIP-5D protocol identity rather than user or signer authentication.
 
 #### Initial playground capability matrix
 
@@ -66,19 +66,19 @@ The implementation phase may refine optional/required boundaries, but it must le
 
 | Napplet | Required NUBs / contract decisions |
 |---------|-------------------------------------|
-| `bot` | `ifc`, `storage`; decide whether notification-like IFC topic stays IFC-only or requires `notify`. |
-| `chat` | `ifc`, `storage`; `relay` and notification behavior must be declared required or gated optional. |
-| `composer` | `identity`, `relay`; `relay.publishEncrypted` classification required. |
+| `bot` | `ifc`, `storage`. |
+| `chat` | `ifc`, `storage`, `relay`. |
+| `composer` | `relay`; removed identity-only readiness probe. |
 | `config-demo` | `config`. |
 | `decrypt-demo` | `identity`; `demo.decrypt.fixtures` classification required. |
 | `feed` | `relay`. |
 | `hotkey-chord` | `keys`. |
 | `media-controller` | `media`. |
-| `preferences` | `storage`, `theme`; raw `theme.changed` listener classification/replacement required. |
+| `preferences` | `storage`, `theme`; raw `theme.changed` is classified as a demo/test-only allowlist item. |
 | `profile-viewer` | `identity`. |
-| `resource-demo` | `resource`; `connect` dependency and raw `resource.bytes` classification required. |
-| `theme-switcher` | `theme`; remove or justify identity readiness probe and `demo.publishTheme`. |
-| `toaster` | `notify`; remove or justify identity readiness probe plus raw create/list envelopes. |
+| `resource-demo` | `resource`, `connect`; raw `resource.bytes` is classified as a demo/test-only allowlist item. |
+| `theme-switcher` | `theme`; removed identity readiness probe; `demo.publishTheme` is classified as a demo/test-only allowlist item. |
+| `toaster` | `notify`; removed identity readiness probe; raw create/list envelopes are classified as demo/test-only allowlist items. |
 
 ### Regression guards and full verification
 
@@ -145,14 +145,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REQUIRES-05 | Phase 57 | Completed |
 | EXT-02 | Phase 57 | Completed |
 | EXT-03 | Phase 57 | Completed |
-| REQUIRES-02 | Phase 58 | Pending |
-| REQUIRES-03 | Phase 58 | Pending |
-| RAW-01 | Phase 58 | Pending |
-| RAW-02 | Phase 58 | Pending |
-| NAPPLET-01 | Phase 58 | Pending |
-| NAPPLET-02 | Phase 58 | Pending |
-| NAPPLET-03 | Phase 58 | Pending |
-| NAPPLET-04 | Phase 58 | Pending |
+| REQUIRES-02 | Phase 58 | Completed |
+| REQUIRES-03 | Phase 58 | Completed |
+| RAW-01 | Phase 58 | Completed |
+| RAW-02 | Phase 58 | Completed |
+| NAPPLET-01 | Phase 58 | Completed |
+| NAPPLET-02 | Phase 58 | Completed |
+| NAPPLET-03 | Phase 58 | Completed |
+| NAPPLET-04 | Phase 58 | Completed |
 | GUARD-01 | Phase 59 | Pending |
 | GUARD-02 | Phase 59 | Pending |
 | GUARD-03 | Phase 59 | Pending |
@@ -170,4 +170,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-05-22*
-*Last updated: 2026-05-22 after Phase 57 completion*
+*Last updated: 2026-05-22 after Phase 58 completion*

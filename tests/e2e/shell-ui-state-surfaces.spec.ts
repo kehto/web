@@ -6,11 +6,11 @@
  *
  *   UI-01  Service activity counters on topology service nodes tick
  *          as NUB envelopes of each service's domain are processed.
- *   UI-02  ACL Capability Matrix modal lists every authenticated
- *          napplet as a row (not the 'No authenticated napplets'
+ *   UI-02  ACL Capability Matrix modal lists every identity-bound
+ *          napplet as a row (not the 'No identity-bound napplets'
  *          placeholder).
  *   UI-03  Debugger Sequence Diagram renders a lane for every
- *          authenticated napplet (plus 'Shell'), not just a hardcoded
+ *          identity-bound napplet (plus 'Shell'), not just a hardcoded
  *          trio.
  *
  * Pre-Phase-30 shape (for future debugging):
@@ -19,9 +19,9 @@
  *          only routed to the `signer` node. Fix: service-level routing
  *          pass in installActivityProjection() + notify→notifications
  *          alias.
- *   UI-02: modal always showed 'No authenticated napplets' because the
+ *   UI-02: modal always showed 'No identity-bound napplets' because the
  *          aclAdapter.snapshot() was gated on `info.pubkey` instead of
- *          the NIP-5D `info.authenticated` flag. Fix: swap the gate.
+ *          the NIP-5D `info.identityBound` flag. Fix: swap the gate.
  *   UI-03: LANE_NAMES hardcoded to [Chat, Shell, Bot]. Fix: dynamic
  *          deriveLanes(messages, nappletInfos) helper replaces the
  *          constant.
@@ -57,7 +57,7 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
     // Boot traffic naturally drives:
     //   storage  → state-read x~12 (napplet boot reads)
     //   relay    → relay-subscribe x~12 (napplet subscriptions)
-    //   identity → identity-request x~4  (NIP-5D AUTH handshake)
+    //   identity → identity-request x~4  (identity/profile demos)
     // Each service's node innerText embeds 'ACTIVITY: N recent'. Poll until
     // every floor counter is ≥ 1.
     await expect.poll(
@@ -107,11 +107,11 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
     expect(antiConsole, `anti-term found in console: ${antiConsole.join(' | ')}`).toHaveLength(0);
   });
 
-  test('ACL Capability Matrix lists all authenticated napplets (UI-02)', async ({ page }) => {
+  test('ACL Capability Matrix lists all identity-bound napplets (UI-02)', async ({ page }) => {
     await demoBeforeEach(page);
 
-    // Give the 11 napplets time to finish AUTH before opening the matrix.
-    // Without this, the snapshot() sees a partial AUTH set and the row
+    // Give the 11 napplets time to become identity-bound before opening the matrix.
+    // Without this, the snapshot() sees a partial identity-bound set and the row
     // count may be < 11 even with the Phase 30 fix applied.
     // Phase 39 Plan 39-04 added config-demo as the 11th napplet (CONFIG-03).
     await expect
@@ -124,12 +124,12 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
               'preferences-status', 'profile-status',
               'theme-status', 'toaster-status',
             ];
-            let authed = 0;
+            let bound = 0;
             for (const id of ids) {
               const el = document.getElementById(id);
-              if (el && (el.textContent ?? '').trim() === 'authenticated') authed += 1;
+              if (el && (el.textContent ?? '').trim() === 'identity-bound') bound += 1;
             }
-            return authed;
+            return bound;
           });
         },
         { timeout: 10_000, intervals: [250, 500, 1000] },
@@ -143,18 +143,18 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
     // Modal must render.
     await expect(page.locator('#acl-policy-modal')).toBeVisible({ timeout: 5_000 });
 
-    // Row count = 12 (one row per AUTHENTICATED napplet; resource-demo is the 12th — Phase 40).
+    // Row count = 12 (one row per identity-bound napplet; resource-demo is the 12th — Phase 40).
     const rows = page.locator('#acl-policy-modal tbody tr');
     await expect(rows).toHaveCount(12, { timeout: 5_000 });
 
-    // No "No authenticated napplets" placeholder cell.
+    // No "No identity-bound napplets" placeholder cell.
     const emptyCells = page.locator('#acl-policy-modal tbody td[colspan]', {
-      hasText: /no authenticated napplets/i,
+      hasText: /no identity-bound napplets/i,
     });
     await expect(emptyCells).toHaveCount(0);
   });
 
-  test('Sequence Diagram renders a lane for each authenticated napplet (UI-03)', async ({ page }) => {
+  test('Sequence Diagram renders a lane for each identity-bound napplet (UI-03)', async ({ page }) => {
     await demoBeforeEach(page);
 
     // Ensure boot traffic has flowed before opening the debugger.
@@ -168,12 +168,12 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
               'preferences-status', 'profile-status',
               'theme-status', 'toaster-status',
             ];
-            let authed = 0;
+            let bound = 0;
             for (const id of ids) {
               const el = document.getElementById(id);
-              if (el && (el.textContent ?? '').trim() === 'authenticated') authed += 1;
+              if (el && (el.textContent ?? '').trim() === 'identity-bound') bound += 1;
             }
-            return authed;
+            return bound;
           });
         },
         { timeout: 10_000, intervals: [250, 500, 1000] },

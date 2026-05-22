@@ -15,7 +15,7 @@
  *   - #resource-demo-denied   -- canonical error code + message from denied fetch (E2E-25)
  *   - #resource-demo-log      -- timestamped event log for diagnostics
  *
- * RESOURCE-SDK-GAP:
+ * RESOURCE-SDK-GAP (Phase 58 raw-envelope allowlist):
  *   @napplet/nub/resource/sdk@0.3.0 is published, but its helper surface expects
  *   upstream wire fields (`id`, Blob `blob`, `mime`, error field `error`). Kehto's
  *   current resource service intentionally uses its internal shell-side wire shape
@@ -33,6 +33,8 @@
  * packages/shell/src/types/internal-resource.ts.
  */
 import '@napplet/shim';
+
+const REQUIRED_NUBS = ['resource', 'connect'] as const;
 
 // ─── DOM sentinel references ──────────────────────────────────────────────────
 
@@ -56,6 +58,13 @@ function log(text: string): void {
   div.textContent = `${time} ${text}`;
   logEl.appendChild(div);
   logEl.scrollTop = logEl.scrollHeight;
+}
+
+function getMissingRequiredNubs(): string[] {
+  const supports = (window as unknown as {
+    napplet: { shell: { supports(capability: string): boolean } };
+  }).napplet.shell.supports;
+  return REQUIRED_NUBS.filter((capability) => !supports(capability));
 }
 
 // ─── Request ID factory ────────────────────────────────────────────────────────
@@ -135,6 +144,11 @@ const DENIED_URL = 'https://untrusted.example/';  // D4: RFC-2606 reserved — n
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 async function init(): Promise<void> {
+  const missing = getMissingRequiredNubs();
+  if (missing.length > 0) {
+    throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+  }
+
   setStatus('requesting...', 'gray');
 
   const grantedId = newRequestId();

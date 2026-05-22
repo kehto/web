@@ -8,7 +8,7 @@
  *   - On each keys.action push from the shell (emitted by Plan 26-01 on chord
  *     match), `keysOnAction('hotkey-chord.demo', () => ...)` fires — the helper
  *     internally routes keys.action envelopes to the right callback.
- *   - #hotkey-chord-status transitions: 'connecting...' → 'authenticated' → 'subscribed'
+ *   - #hotkey-chord-status transitions: 'connecting...' → 'subscribed'
  *   - After the Playwright spec (Plan 26-04) dispatches Ctrl+Shift+K on the host page,
  *     the service's document keydown listener fires, pushes keys.action to this napplet,
  *     the helper routes it to the onAction callback, and this file updates the DOM.
@@ -21,6 +21,8 @@
 import '@napplet/shim';
 import { keysOnAction, keysRegisterAction } from '@napplet/nub/keys/sdk';
 
+const REQUIRED_NUBS = ['keys'] as const;
+
 const DEFAULT_KEY = 'Ctrl+Shift+K';
 const ACTION_ID = 'hotkey-chord.demo';
 
@@ -32,6 +34,13 @@ const logEl = document.getElementById('hotkey-chord-log')!;
 function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void {
   statusEl.textContent = text;
   statusEl.style.color = color === 'green' ? '#39ff14' : color === 'red' ? '#ff3b3b' : '#888';
+}
+
+function getMissingRequiredNubs(): string[] {
+  const supports = (window as unknown as {
+    napplet: { shell: { supports(capability: string): boolean } };
+  }).napplet.shell.supports;
+  return REQUIRED_NUBS.filter((capability) => !supports(capability));
 }
 
 function log(text: string): void {
@@ -48,8 +57,11 @@ function log(text: string): void {
 let deliveryCount = 0;
 
 async function init(): Promise<void> {
-  // Initialize: flip status to 'authenticated' then register the chord action.
-  setStatus('authenticated', 'green');
+  const missing = getMissingRequiredNubs();
+  if (missing.length > 0) {
+    throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+  }
+
   log(`registering action (${DEFAULT_KEY})`);
 
   // Register the action via the keys helper. The helper owns correlation + Promise
@@ -74,7 +86,7 @@ async function init(): Promise<void> {
 }
 
 init().catch((err) => {
-  if (statusEl.textContent === 'connecting...' || statusEl.textContent === 'authenticated') {
+  if (statusEl.textContent === 'connecting...') {
     setStatus('register failed', 'red');
     log(`init failed — ${err instanceof Error ? err.message : String(err)}`);
   }

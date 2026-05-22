@@ -6,7 +6,7 @@
  * #nub-encrypt-btn click (spec drives this in the relay encrypted assertion).
  *
  * Layer-A spec asserts:
- *   - #nub-status flips to 'authenticated' then 'event:<truncated-id>' or 'denied:*'
+ *   - #nub-status flips to 'event:<truncated-id>' or 'denied:*'
  *   - #nub-event-id populated with the returned event id (or empty on denial)
  *   - __getNubMessage__(windowId, 'relay.publish') returns the request envelope
  *   - On click: __getNubMessage__(windowId, 'relay.publishEncrypted') returns the encrypted envelope

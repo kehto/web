@@ -4,15 +4,17 @@
  * Per CONTEXT D-03:
  *   - On init: identityGetPublicKey() populates #profile-pubkey (truncated to 8...4 chars)
  *   - Then: identityGetProfile() populates #profile-name, #profile-about, #profile-picture (if returned)
- *   - #profile-status sentinel contract: 'connecting...' (HTML default) -> 'authenticated' ->
+ *   - #profile-status sentinel contract: 'connecting...' (HTML default) -> 'identity-bound' ->
  *     'loaded' on success, or 'denied: <reason>' on ACL denial
  *
  * Anti-features (per v1.3 milestone): no raw message protocol listener, no NIP-01 arrays,
  *   no legacy bus enums, no global nostr accessor, no signer-service, no BusKind.
- *   Anti-feature surface unchanged — AUTHENTICATED fires from shim bootstrap.
+ *   Anti-feature surface unchanged; NIP-5D identity is shell-assigned.
  */
 import '@napplet/shim';
 import { identityGetProfile, identityGetPublicKey } from '@napplet/nub/identity/sdk';
+
+const REQUIRED_NUBS = ['identity'] as const;
 
 const statusEl = document.getElementById('profile-status')!;
 const pubkeyEl = document.getElementById('profile-pubkey')!;
@@ -46,6 +48,13 @@ function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void
   statusEl.style.color = color === 'green' ? '#39ff14' : color === 'red' ? '#ff3b3b' : '#888';
 }
 
+function getMissingRequiredNubs(): string[] {
+  const supports = (window as unknown as {
+    napplet: { shell: { supports(capability: string): boolean } };
+  }).napplet.shell.supports;
+  return REQUIRED_NUBS.filter((capability) => !supports(capability));
+}
+
 function truncatePubkey(pubkey: string): string {
   if (pubkey === '') return 'no-pubkey';
   if (pubkey.length <= 16) return pubkey;
@@ -53,8 +62,13 @@ function truncatePubkey(pubkey: string): string {
 }
 
 async function loadIdentity(): Promise<void> {
-  // Load identity: flip status to 'authenticated' then fetch pubkey + profile.
-  setStatus('authenticated', 'green');
+  const missing = getMissingRequiredNubs();
+  if (missing.length > 0) {
+    throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+  }
+
+  // Load identity: mark identity-bound then fetch pubkey + profile.
+  setStatus('identity-bound', 'green');
   log('reading identity');
 
   // Step B (getPublicKey): read caller's public key
@@ -95,7 +109,7 @@ async function loadIdentity(): Promise<void> {
 
 loadIdentity().catch((err) => {
   if (statusEl.textContent === 'connecting...') {
-    setStatus('auth failed', 'red');
-    log(`init failed — ${formatError(err, 'auth/identity failure')}`);
+    setStatus('unavailable', 'red');
+    log(`init failed — ${formatError(err, 'NIP-5D identity failure')}`);
   }
 });

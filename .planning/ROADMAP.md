@@ -34,7 +34,7 @@
 
 - [x] **Phase 56: Contract Authority and Package Source Baseline** - Write the pinned-spec repo-local contract, repair stale spec/docs authority, classify extension surfaces, and ensure the playground consumes local protocol package sources being changed.
 - [x] **Phase 57: Shell Capability Negotiation and Requires Enforcement** - Make shell capabilities authoritative for hosted `supports()`, expose manifest `requires` in gateway metadata, and reject or warn on missing capabilities at load time.
-- [ ] **Phase 58: Playground Napplet Contract Conformance** - Add explicit NIP-5D/NUB contracts to all 13 playground napplets, gate optional behavior with `supports()`, classify or replace raw demo envelopes, and rename stale protocol-auth wording.
+- [x] **Phase 58: Playground Napplet Contract Conformance** - Add explicit NIP-5D/NUB contracts to all 13 playground napplets, gate optional behavior with `supports()`, classify or replace raw demo envelopes, and rename stale protocol-auth wording.
 - [ ] **Phase 59: Regression Guards and Full Verification** - Add the static/unit/E2E guards for sandboxing, source validation, no napplet `window.nostr`, requires coverage, supports behavior, raw-envelope exceptions, and run the full verification loop.
 
 ---
@@ -101,7 +101,9 @@
   4. `demo.publishTheme`, `demo.decrypt.fixtures`, raw `notify.create/list`, raw `resource.bytes`, and raw `theme.changed` listeners are removed, replaced, or explicitly classified in the allowlist.
   5. Stale AUTH/authenticated wording is renamed wherever it describes protocol identity rather than user/signer authentication.
 
-**Plans**: Pending
+**Plans**: [58-01-PLAN.md](phases/58-playground-napplet-contract-conformance/58-01-PLAN.md)
+
+**Completed**: 2026-05-22 ([summary](phases/58-playground-napplet-contract-conformance/58-01-SUMMARY.md) | [verification](phases/58-playground-napplet-contract-conformance/58-VERIFICATION.md))
 
 ### Phase 59: Regression Guards and Full Verification
 
@@ -130,9 +132,9 @@
 |-------|----------------|--------|-----------|
 | 56. Contract Authority and Package Source Baseline | 1/1 | Completed | 2026-05-22 |
 | 57. Shell Capability Negotiation and Requires Enforcement | 1/1 | Completed | 2026-05-22 |
-| 58. Playground Napplet Contract Conformance | 0/0 | Not started | - |
+| 58. Playground Napplet Contract Conformance | 1/1 | Completed | 2026-05-22 |
 | 59. Regression Guards and Full Verification | 0/0 | Not started | - |
 
 ---
 
-*ROADMAP.md last updated: 2026-05-22 - Phase 57 completed.*
+*ROADMAP.md last updated: 2026-05-22 - Phase 58 completed.*

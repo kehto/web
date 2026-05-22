@@ -41,7 +41,7 @@ test('toaster creates notification and Dismiss all empties the list', async ({ p
   await demoBeforeEach(page);
 
   const toasterFrame = page.frameLocator('#toaster-frame-container iframe');
-  await expect(toasterFrame.locator('#toaster-status')).toContainText('authenticated', { timeout: 10_000 });
+  await expect(toasterFrame.locator('#toaster-status')).toContainText('ready', { timeout: 10_000 });
 
   // Get a direct frame reference — CDP Runtime evaluate works in sandboxed cross-origin frames.
   const toasterFrameDirect = page.frames().find(f => f.url().includes('/toaster/'));

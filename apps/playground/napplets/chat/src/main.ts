@@ -7,9 +7,9 @@
  * - Sends ifcEmit('chat:message', ...) on user input (D-03)
  * - Receives ifcOn('bot:response', ...) for bot replies (D-03)
  * - Persists chat history via storageSetItem/storageGetItem under key 'chat-history'
- * - Posts #chat-status = 'authenticated' after init completes (loadHistory resolves)
+ * - Posts #chat-status = 'ready' after init completes (loadHistory resolves)
  *
- * NO window.addEventListener('message') — shim handles AUTH implicitly (D-01).
+ * NO window.addEventListener('message') — shim handles NIP-5D envelopes (D-01).
  * NO NIP-01 arrays, NO BusKind, NO window.nostr (anti-features).
  */
 import '@napplet/shim';
@@ -17,6 +17,8 @@ import { ifcEmit, ifcOn } from '@napplet/nub/ifc/sdk';
 import { storageGetItem, storageSetItem } from '@napplet/nub/storage/sdk';
 import { relayPublish, relaySubscribe } from '@napplet/nub/relay/sdk';
 import type { EventTemplate } from '@napplet/core';
+
+const REQUIRED_NUBS = ['ifc', 'storage', 'relay'] as const;
 
 // ─── Notification Helpers ─────────────────────────────────────────────────────
 
@@ -44,6 +46,13 @@ function formatError(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message) return error.message;
   if (typeof error === 'string' && error.length > 0) return error;
   return fallback;
+}
+
+function getMissingRequiredNubs(): string[] {
+  const supports = (window as unknown as {
+    napplet: { shell: { supports(capability: string): boolean } };
+  }).napplet.shell.supports;
+  return REQUIRED_NUBS.filter((capability) => !supports(capability));
 }
 
 // --- Message Display ---
@@ -136,9 +145,14 @@ inputEl.addEventListener('keydown', (e) => {
 // Load chat history, set the positive status marker, wire up IFC subscriptions.
 
 async function init(): Promise<void> {
+  const missing = getMissingRequiredNubs();
+  if (missing.length > 0) {
+    throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+  }
+
   // Load history then set the positive status marker.
   await loadHistory();
-  statusEl.textContent = 'authenticated';
+  statusEl.textContent = 'ready';
   statusEl.style.color = '#39ff14';
   addMessage('ready to chat', 'system');
 
@@ -165,7 +179,7 @@ async function init(): Promise<void> {
 }
 
 init().catch((err) => {
-  statusEl.textContent = 'auth failed';
+  statusEl.textContent = 'unavailable';
   statusEl.style.color = '#ff3b3b';
-  addMessage(`init failed -- ${formatError(err, 'auth/storage failure')}`, 'system');
+  addMessage(`init failed -- ${formatError(err, 'NIP-5D capability/storage failure')}`, 'system');
 });

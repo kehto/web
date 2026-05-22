@@ -2,7 +2,7 @@
  * nub-ifc fixture — exercises ifcOn + ifcEmit (E2E-09).
  *
  * Layer-A spec drives this via __loadNapplet__('nub-ifc') and asserts:
- *   - #nub-status flips to 'authenticated' (after ifcOn subscribe.result resolves)
+ *   - #nub-status flips to 'ready' (after ifcOn subscribe.result resolves)
  *   - When the spec injects an ifc.event envelope (via __injectEnvelope__), the
  *     fixture's listener appends a line to #nub-ifc-log
  *   - When the spec clicks #nub-ifc-emit-btn, the harness sees an ifc.emit envelope
@@ -33,7 +33,7 @@ function init(): void {
       div.textContent = typeof payload === 'string' ? payload : JSON.stringify(payload);
       logEl.appendChild(div);
     });
-    statusEl.textContent = 'authenticated';
+    statusEl.textContent = 'ready';
   } catch (err) {
     statusEl.textContent = `denied:${fmt(err, 'ifc:subscribe')}`;
   }

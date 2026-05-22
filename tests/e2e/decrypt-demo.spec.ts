@@ -46,7 +46,7 @@ test('decrypt-demo exercises all modes and class-2 forbidden without bridge invo
   await expect(frame.locator('#decrypt-nip04-status')).toContainText('ok:nip04:fixture-nip04', { timeout: 12_000 });
   await expect(frame.locator('#decrypt-nip44-status')).toContainText('ok:nip44:fixture-nip44', { timeout: 12_000 });
   await expect(frame.locator('#decrypt-nip17-status')).toContainText('ok:nip17:fixture-nip17', { timeout: 12_000 });
-  await expect(page.locator('#decrypt-demo-status')).toContainText('authenticated', { timeout: 15_000 });
+  await expect(page.locator('#decrypt-demo-status')).toContainText('identity-bound', { timeout: 15_000 });
 
   const beforeForbidden = await page.evaluate(() => {
     const w = window as Window & { __getDecryptBridgeCallCount__?: () => number };

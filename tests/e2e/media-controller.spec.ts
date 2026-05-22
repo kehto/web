@@ -25,7 +25,7 @@
  *     → service calls bridge.setActiveSession(sessionId) → primes silent-audio + installs setActionHandlers
  *     → service sends media.session.create.result back
  *     → helper resolves the mediaCreateSession Promise
- *     → napplet status transitions 'authenticated' → 'session-ready'
+ *     → napplet status transitions 'connecting...' → 'session-ready'
  *
  *   Play button click:
  *     → napplet onclick fires → mediaReportState(sessionId, { status: 'playing' })
@@ -50,7 +50,7 @@
  *
  * Capability gate: Plan 27-03's `window.__grantMediaControl__` host hook grants
  * `media:control` to the media-controller napplet. The spec invokes it after
- * gating on 'session-ready' (which implies authenticated). Exact mirror of
+ * gating on 'session-ready' (which implies identity-bound). Exact mirror of
  * Plan 26-04's __grantKeysForward__ mechanism.
  *
  * Browser-scope note: Chromium supports the full MediaSession API. Firefox +
@@ -80,9 +80,9 @@ test('media-controller napplet drives navigator.mediaSession via real media back
 
   const mediaFrame = page.frameLocator('#media-controller-frame-container iframe');
 
-  // Step 1: wait for napplet AUTH handshake + mediaCreateSession round-trip.
+  // Step 1: wait for napplet mediaCreateSession round-trip.
   // The init pattern + `await mediaCreateSession(...)` means status
-  // transitions 'connecting...' → 'authenticated' → 'session-ready'. We accept
+  // transitions 'connecting...' → 'session-ready'. We accept
   // 'session-ready' as evidence that the helper resolved the mediaCreateSession
   // Promise (the real backend registered the session AND mirrored metadata to
   // navigator.mediaSession).
@@ -94,8 +94,8 @@ test('media-controller napplet drives navigator.mediaSession via real media back
   // Step 3: grant media:control capability via the pre-installed host hook
   // (Plan 27-03 bootShell installs window.__grantMediaControl__). The hook
   // returns true when the grant succeeded, false if the napplet isn't loaded
-  // or authenticated yet. Because Step 1 gated on 'session-ready' (which
-  // implies authenticated), the grant MUST succeed here.
+  // or identity-bound yet. Because Step 1 gated on 'session-ready' (which
+  // implies identity-bound), the grant MUST succeed here.
   const granted = await page.evaluate(() => {
     const fn = (window as Window & { __grantMediaControl__?: () => boolean }).__grantMediaControl__;
     return typeof fn === 'function' ? fn() : false;

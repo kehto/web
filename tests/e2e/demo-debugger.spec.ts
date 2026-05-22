@@ -5,9 +5,8 @@
  * strings (e.g. notify.create, identity.getPublicKey, relay.publish) and NOT
  * legacy BusKind enums, NIP-01 kind numbers, or anti-term strings.
  *
- * Note: The demo napplets (chat, bot) still use the legacy NIP-01 array protocol
- * and do not reach "authenticated" state under the v1.2 shell (which accepts only
- * NIP-5D envelope objects). Napplet migration to NIP-5D is Phase 18.
+ * Note: Earlier demo napplets used legacy NIP-01 arrays and could not become
+ * identity-bound under the NIP-5D shell. Napplet migration to NIP-5D was Phase 18.
  * These tests verify the debugger using host-originated notify.create envelopes
  * (which are NIP-5D and flow correctly without napplet auth).
  */
@@ -20,10 +19,10 @@ test.describe.configure({ mode: 'serial' });
 const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]/;
 const ENVELOPE_TYPE_RE = /shell\.ready|shell\.init|identity\.|relay\.|notify\.|storage\.|ifc\.|theme\.|keys\.|media\./;
 
-test('debugger displays canonical envelope type strings after auth', async ({ page }) => {
+test('debugger displays canonical envelope type strings after host action', async ({ page }) => {
   await demoBeforeEach(page);
   // Trigger a host-originated notification to guarantee notify.create appears in the debugger
-  // (napplets use legacy NIP-01 arrays and auth in Phase 18; host envelopes work immediately)
+  // (host envelopes work immediately without a napplet-originated action)
   await page.locator('#notification-node-create').click();
 
   // Debugger web component renders in shadow DOM; textContent() includes shadow content in Chromium
@@ -37,7 +36,7 @@ test('debugger displays canonical envelope type strings after auth', async ({ pa
   expect(debuggerText, `anti-term in debugger text: ${debuggerText.slice(0, 200)}`).not.toMatch(ANTI_TERM_RE);
 });
 
-test('debugger text includes at least one canonical envelope type after auth (smoke)', async ({ page }) => {
+test('debugger text includes at least one canonical envelope type after host action (smoke)', async ({ page }) => {
   await demoBeforeEach(page);
   await page.locator('#notification-node-create').click();
   // Use containsText which pierces shadow DOM (textContent() returns empty for shadow roots in Chromium)

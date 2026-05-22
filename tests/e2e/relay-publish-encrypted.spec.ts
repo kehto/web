@@ -41,7 +41,7 @@ test('composer with encrypted toggle dispatches relay.publishEncrypted envelope'
   await demoBeforeEach(page);
 
   const composerFrame = page.frameLocator('#composer-frame-container iframe');
-  await expect(composerFrame.locator('#composer-status')).toContainText('authenticated', { timeout: 10_000 });
+  await expect(composerFrame.locator('#composer-status')).toContainText('ready', { timeout: 10_000 });
 
   // Get a direct frame reference — CDP Runtime evaluate works in sandboxed cross-origin frames.
   const composerFrameDirect = page.frames().find(f => f.url().includes('/composer/'));

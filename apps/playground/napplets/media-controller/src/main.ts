@@ -12,7 +12,7 @@
  *     and reflects play/pause actions locally via setStatus + audio element.
  *   - Play / Pause buttons call mediaReportState(sessionId, { status: 'playing'|'paused' })
  *     — the shell mirrors that status to navigator.mediaSession.playbackState.
- *   - #media-controller-status transitions: 'connecting...' → 'authenticated' → 'session-ready' → 'playing' | 'paused'
+ *   - #media-controller-status transitions: 'connecting...' → 'session-ready' → 'playing' | 'paused'
  *
  * Anti-features (enforced per v1.4 milestone — see Phase 27 acceptance greps):
  *   - no raw postMessage listener — uses @napplet/nub/media/sdk helpers exclusively
@@ -32,6 +32,8 @@ import {
   mediaReportState,
   mediaOnCommand,
 } from '@napplet/nub/media/sdk';
+
+const REQUIRED_NUBS = ['media'] as const;
 
 const DEMO_METADATA = {
   title: 'Kehto Demo Track',
@@ -56,6 +58,13 @@ function setStatus(text: string, color: 'gray' | 'green' | 'blue' | 'red' = 'gra
     : '#888';
 }
 
+function getMissingRequiredNubs(): string[] {
+  const supports = (window as unknown as {
+    napplet: { shell: { supports(capability: string): boolean } };
+  }).napplet.shell.supports;
+  return REQUIRED_NUBS.filter((capability) => !supports(capability));
+}
+
 function log(text: string): void {
   const div = document.createElement('div');
   div.className = 'media-log-entry';
@@ -70,8 +79,11 @@ function log(text: string): void {
 let commandCount = 0;
 
 async function init(): Promise<void> {
-  // Initialize: flip status to 'authenticated' then create the media session.
-  setStatus('authenticated', 'green');
+  const missing = getMissingRequiredNubs();
+  if (missing.length > 0) {
+    throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+  }
+
   log('creating media session');
 
   // Create the session via the media helper. The helper owns correlation +
@@ -122,8 +134,7 @@ async function init(): Promise<void> {
 
 init().catch((err) => {
   if (
-    statusEl.textContent === 'connecting...' ||
-    statusEl.textContent === 'authenticated'
+    statusEl.textContent === 'connecting...'
   ) {
     setStatus('register failed', 'red');
     log(`init failed — ${err instanceof Error ? err.message : String(err)}`);

@@ -35,7 +35,7 @@ const DIRECTION_ARROWS: Record<string, string> = {
 };
 
 export const DEBUGGER_PATH_LABELS: DemoProtocolPath[] = [
-  'auth',
+  'identity-bind',
   'relay-publish',
   'relay-subscribe',
   'ifc-send',
@@ -85,12 +85,12 @@ export function classifyTappedMessagePath(msg: TappedMessage): DemoProtocolPath 
     if (domain === 'theme' || domain === 'keys' || domain === 'media') {
       return msg.direction === 'napplet->shell' ? 'ifc-send' : 'ifc-receive';
     }
-    if (domain === 'shell') return 'auth';
+    if (domain === 'shell') return 'identity-bind';
     return null;
   }
 
   // Legacy NIP-01 fallback (retained for any residual array traffic)
-  if (msg.verb === 'AUTH') return 'auth';
+  if (msg.verb === 'AUTH') return 'identity-bind';
   if (msg.verb === 'REQ' || msg.verb === 'EOSE' || msg.verb === 'CLOSE' || msg.verb === 'CLOSED') {
     return 'relay-subscribe';
   }

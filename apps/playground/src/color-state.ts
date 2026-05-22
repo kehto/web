@@ -45,7 +45,7 @@ const _changeListeners: Array<() => void> = [];
 /**
  * Initialize color state for a topology. Call once after topology is built.
  * Clears any previous state. Recording starts after a short delay so initial
- * AUTH handshake messages don't populate the state.
+ * initial registration messages don't populate the state.
  */
 export function initColorState(topology: DemoTopology): void {
   _topology = topology;
@@ -56,7 +56,7 @@ export function initColorState(topology: DemoTopology): void {
       _state.set(`${edge.id}:${dir}`, { window: [], lastEntry: null });
     }
   }
-  // Start recording after initial AUTH handshake settles
+  // Start recording after initial iframe registration settles
   setTimeout(() => {
     _recording = true;
   }, 3000);
