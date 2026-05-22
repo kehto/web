@@ -22,7 +22,7 @@ import type { EventTemplate } from '@napplet/core';
 
 /**
  * Emit a notifications:create event through the real napplet→service path.
- * The shell routes this IPC_PEER event to the notification service handler.
+ * The shell routes this IFC event to the notification service handler.
  */
 function notifyCreate(title: string, body: string): void {
   try {

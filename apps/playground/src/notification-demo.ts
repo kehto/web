@@ -100,7 +100,7 @@ export function createDemoNotificationController(): DemoNotificationController {
    * debugger because the tap only watches iframe postMessage (17-04 tap surface).
    * The source label 'demo-host' distinguishes host-originated rows in the log.
    *
-   * Per DEMO-07: no BusKind, no IPC_PEER, no ifc-emit topic tags.
+   * Per DEMO-07: no BusKind, no kind-tag transport, no ifc-emit topic tags.
    */
   function dispatchEnvelope(
     handler: ServiceHandler | null,

@@ -198,8 +198,8 @@ function formatLabel(msg: TappedMessage): string {
     case 'OK':
       return msg.parsed.success ? 'OK (accepted)' : 'OK (denied)';
     case 'EVENT':
-      // Legacy kind labels — 17-04 replaces with envelope `type` entirely.
-      if (event?.kind === 29003) return `ipc:${topic ?? 'unknown'}`;
+      // Raw kind labels for any NIP-01 event traffic.
+      if (event?.kind === 29003) return `ifc:${topic ?? 'unknown'}`;
       if (msg.parsed.topic) return `relay ${msg.parsed.topic}`;
       return `EVENT k:${msg.parsed.eventKind || '?'}`;
     case 'REQ':

@@ -204,7 +204,7 @@ Messages are delivered asynchronously via the browser event loop. Napplets MUST 
 ["COUNT", "count-1", {"count": 42}]
 ```
 
-**IPC-PEER event (kind 29003):**
+**IFC-PEER event (kind 29003):**
 
 ```json
 ["EVENT", {"kind": 29003, "tags": [["t", "profile:open"]], "content": "{\"pubkey\":\"abc123...\"}", "created_at": 1711800000, "pubkey": "sender...", "id": "evt...", "sig": "sig..."}]
@@ -476,7 +476,7 @@ When a napplet sends `["COUNT", <count_id>, <filter>, ...]`:
 
 Events are delivered to subscriptions via `["EVENT", <sub_id>, <event>]`. Delivery rules:
 
-- **Sender exclusion (kind 29003 only):** For IPC-PEER topic events (kind 29003), the sender is NOT included in delivery. This prevents echo. For standard relay events (kind 1, etc.), events MAY be delivered back to the sender if they match a subscription filter. Sender exclusion applies ONLY to kind 29003.
+- **Sender exclusion (kind 29003 only):** For IFC-PEER topic events (kind 29003), the sender is NOT included in delivery. This prevents echo. For standard relay events (kind 1, etc.), events MAY be delivered back to the sender if they match a subscription filter. Sender exclusion applies ONLY to kind 29003.
 - **p-tag routing:** if an event has a `p` tag, it is delivered ONLY to the napplet whose pubkey matches
 - **Multiple subscriptions** on the same window receive independent delivery
 
@@ -507,7 +507,7 @@ Kinds 29000-29999 are reserved for shell-internal bus traffic. These kinds are e
 | 29000 | REGISTRATION | Reserved (internal shell use) |
 | 29001 | SIGNER_REQUEST | Napplet-to-shell signer proxy request |
 | 29002 | SIGNER_RESPONSE | Shell-to-napplet signer proxy response |
-| 29003 | IPC_PEER | Inter-napplet messaging and shell commands |
+| 29003 | IFC_PEER | Inter-napplet messaging and shell commands |
 | 29004 | HOTKEY_FORWARD | Keyboard event forwarding from napplet to shell |
 | 29005 | METADATA | Reserved (internal shell use) |
 | 29006 | NIPDB_REQUEST | Napplet-to-shell cache proxy request |
@@ -516,15 +516,15 @@ Kinds 29000-29999 are reserved for shell-internal bus traffic. These kinds are e
 
 Note: These kind numbers are implementation-specific. Other shell implementations MAY use different ephemeral kind ranges, provided they remain within the 20000-29999 ephemeral range defined by NIP-01.
 
-#### IPC-* Namespace
+#### IFC-* Namespace
 
-The `IPC-*` prefix is reserved for the inter-napplet communication bus. Current and reserved members:
+The `IFC-*` prefix is reserved for the inter-napplet communication bus. Current and reserved members:
 
 | Constant | Kind | Status | Description |
 |----------|------|--------|-------------|
-| `IPC_PEER` | 29003 | Current | Directed peer-to-peer IPC between napplets and the shell |
-| `IPC_BROADCAST` | TBD | Reserved | Future: broadcast to all napplets |
-| `IPC_CHANNEL` | TBD | Reserved | Future: named channel pubsub |
+| `IFC_PEER` | 29003 | Current | Directed peer-to-peer IFC between napplets and the shell |
+| `IFC_BROADCAST` | TBD | Reserved | Future: broadcast to all napplets |
+| `IFC_CHANNEL` | TBD | Reserved | Future: named channel pubsub |
 
 See `@napplet/core` `constants.ts` for the authoritative `BusKind` constant definition.
 
@@ -536,7 +536,7 @@ See `@napplet/core` `constants.ts` for the authoritative `BusKind` constant defi
 
 The shell acts as a NIP-07 signer proxy for sandboxed napplets. Since napplets run in iframes without `allow-same-origin`, they cannot access the host page's `window.nostr` object directly. Instead, napplets send signer requests as ephemeral kind 29001 events, and the shell responds with kind 29002 events.
 
-The napplet-side packages provide convenience layers over the raw wire protocol. `@napplet/shim` is a side-effect-only module that installs a `window.napplet` global with namespaced sub-objects (`relay`, `ipc`, `services`, `storage`) and a `window.nostr`-compatible NIP-07 interface. `@napplet/sdk` provides the same API surface as named TypeScript exports for bundler-consuming developers. Both delegate to the shell via postMessage.
+The napplet-side packages provide convenience layers over the raw wire protocol. `@napplet/shim` is a side-effect-only module that installs a `window.napplet` global with namespaced sub-objects (`relay`, `ifc`, `services`, `storage`) and a `window.nostr`-compatible NIP-07 interface. `@napplet/sdk` provides the same API surface as named TypeScript exports for bundler-consuming developers. Both delegate to the shell via postMessage.
 
 ### 4.2 Request-Response Protocol
 
@@ -623,7 +623,7 @@ The ephemeral pubkey was removed from the scoping key in v0.9.0 because ephemera
 
 ### 5.2 Request-Response Protocol
 
-All state operations use kind 29003 (IPC_PEER) events with topic-based routing.
+All state operations use kind 29003 (IFC_PEER) events with topic-based routing.
 
 **Request (napplet to shell):**
 
@@ -718,7 +718,7 @@ Because the pubkey is no longer part of the scope key, storage persists across p
 
 The shell maintains a registry of which napplets are actively producing audio. Napplets announce audio state via topics; the shell tracks sources and can mute/unmute individual windows. Since the shell cannot reach into sandboxed iframe AudioContexts (SecurityError from cross-origin iframe isolation), audio management is cooperative -- napplets MUST respond to mute commands.
 
-### 6.2 Napplet-to-Shell Messages (kind 29003 IPC_PEER)
+### 6.2 Napplet-to-Shell Messages (kind 29003 IFC_PEER)
 
 | Topic | Content | Description |
 |---|---|---|
@@ -726,7 +726,7 @@ The shell maintains a registry of which napplets are actively producing audio. N
 | `shell:audio-unregister` | `{}` | Napplet announces audio stopped |
 | `shell:audio-state-changed` | `{"title":"<new title>"}` | Napplet updates audio metadata |
 
-### 6.3 Shell-to-Napplet Messages (kind 29003 IPC_PEER)
+### 6.3 Shell-to-Napplet Messages (kind 29003 IFC_PEER)
 
 | Topic | Content | Description |
 |---|---|---|
@@ -752,7 +752,7 @@ Audio registration does not require specific ACL capabilities. Any authenticated
 
 ### 7.1 Overview
 
-Napplets can query and modify the shell's relay configuration and open scoped relay connections (e.g., for NIP-29 group chats). All relay operations use kind 29003 (IPC_PEER) with shell-targeted topics.
+Napplets can query and modify the shell's relay configuration and open scoped relay connections (e.g., for NIP-29 group chats). All relay operations use kind 29003 (IFC_PEER) with shell-targeted topics.
 
 ### 7.2 Configuration Operations
 
@@ -843,9 +843,9 @@ The shell constructs the NIP-17 gift-wrap envelope (seal + gift-wrap) using the 
 | `keybinds:capture-start` | `{}` | Begin key capture -- shell suppresses all hotkeys |
 | `keybinds:capture-end` | `{}` | End key capture -- shell restores hotkey handling |
 
-### 8.5 IPC-PEER Events
+### 8.5 IFC-PEER Events
 
-Napplets can communicate with each other via free-form topics on kind 29003 (IPC_PEER). Built-in topics include:
+Napplets can communicate with each other via free-form topics on kind 29003 (IFC_PEER). Built-in topics include:
 
 | Topic | Direction | Description |
 |---|---|---|
@@ -985,7 +985,7 @@ After sending all service descriptors, the shell sends EOSE:
 
 ### 11.3 Service Message Routing
 
-Services receive messages via IPC-PEER events (kind 29003) with topic strings prefixed by the service name. The topic format is:
+Services receive messages via IFC-PEER events (kind 29003) with topic strings prefixed by the service name. The topic format is:
 
 ```
 {service-name}:{action}
@@ -996,7 +996,7 @@ For example, the `audio` service uses topics like:
 - `audio:unregister` -- Unregister an audio source
 - `audio:state-changed` -- Update audio metadata
 
-The shell routes IPC-PEER events to service handlers based on the topic prefix. Events with topics that match a registered service's name prefix are dispatched to that service's handler.
+The shell routes IFC-PEER events to service handlers based on the topic prefix. Events with topics that match a registered service's name prefix are dispatched to that service's handler.
 
 ### 11.4 Service Lifecycle
 
@@ -1008,7 +1008,7 @@ The shell routes IPC-PEER events to service handlers based on the topic prefix. 
 
 3. **Live subscriptions:** After the initial REQ/EVENT/EOSE discovery flow, napplets MAY remain subscribed to the discovery subscription. If the shell registers a new service after EOSE, the shell MUST send an additional kind 29010 EVENT to all active discovery subscribers without a new EOSE. This allows napplets to discover services registered after initial load.
 
-4. **Interaction:** The napplet sends IPC-PEER events with service-prefixed topics. The shell dispatches these to the appropriate service handler.
+4. **Interaction:** The napplet sends IFC-PEER events with service-prefixed topics. The shell dispatches these to the appropriate service handler.
 
 5. **Cleanup:** When a napplet window is destroyed, the shell calls `onWindowDestroyed` on each service handler that implements it, allowing services to clean up per-window state.
 
@@ -1062,7 +1062,7 @@ Layer 3: Capabilities & Extensions
   - Relay management (configuration + scoped connections)
   - Audio management (cooperative mute/unmute)
   - Window creation (shell:create-window)
-  - IPC-PEER events (free-form topics on kind 29003)
+  - IFC-PEER events (free-form topics on kind 29003)
   - DM send (NIP-17 gift-wrap via shell:send-dm)
   - Cache proxy (NIPDB, kinds 29006/29007)
   - Hotkey forwarding (kind 29004)
@@ -1412,7 +1412,7 @@ function publishNote(content) {
 }
 ```
 
-> **Note:** The example above demonstrates the raw wire protocol. In practice, napplet developers use `@napplet/shim` (installs `window.napplet` global with `relay`, `ipc`, `services`, `storage` sub-objects) or `@napplet/sdk` (same API as named TypeScript imports). See the package READMEs for the convenience API.
+> **Note:** The example above demonstrates the raw wire protocol. In practice, napplet developers use `@napplet/shim` (installs `window.napplet` global with `relay`, `ifc`, `services`, `storage` sub-objects) or `@napplet/sdk` (same API as named TypeScript imports). See the package READMEs for the convenience API.
 
 ### 16.2 Minimal Shell
 

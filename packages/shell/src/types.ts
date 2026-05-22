@@ -6,7 +6,7 @@
 // deleted; legacy NIP-01 constants (BusKind, AUTH_KIND, DESTRUCTIVE_KINDS,
 // SHELL_BRIDGE_URI, PROTOCOL_VERSION, REPLAY_WINDOW_SECONDS, legacy
 // BusKind-value union) are no longer re-exported. Shell internals that need
-// IPC_PEER=29000 inline the numeric locally.
+// IFC_PEER=29000 inline the numeric locally.
 export type { NostrEvent, NostrFilter } from '@napplet/core';
 export type { Capability, ServiceDescriptor } from '@kehto/runtime';
 export { ALL_CAPABILITIES } from '@kehto/runtime';

@@ -12,7 +12,7 @@ import type { Capability } from '@kehto/shell';
 
 export const DEMO_CAPABILITY_LABELS: Record<Capability, string> = {
   'relay:read': 'Relay Subscribe',
-  'relay:write': 'Relay Publish / IPC Send',
+  'relay:write': 'Relay Publish / IFC Send',
   'cache:read': 'Cache Read',
   'cache:write': 'Cache Write',
   'hotkey:forward': 'Hotkey Forward',
@@ -29,8 +29,8 @@ export const DEMO_CAPABILITY_LABELS: Record<Capability, string> = {
 };
 
 export const DEMO_CAPABILITY_HINTS: Record<Capability, string> = {
-  'relay:read': 'relay subscribe / ipc receive',
-  'relay:write': 'relay publish / ipc send',
+  'relay:read': 'relay subscribe / ifc receive',
+  'relay:write': 'relay publish / ifc send',
   'cache:read': 'cache read access',
   'cache:write': 'cache write access',
   'hotkey:forward': 'hotkey forward',
@@ -54,7 +54,7 @@ const DEMO_CAPABILITIES: { cap: Capability; label: string }[] = [
   { cap: 'identity:read', label: DEMO_CAPABILITY_LABELS['identity:read'] },
   { cap: 'identity:decrypt', label: DEMO_CAPABILITY_LABELS['identity:decrypt'] },
   // Phase 19 (Plan 19-04): add notify:send so the toaster's ACL panel exposes the toggle.
-  // Existing napplets (chat/bot) also get this toggle; they use legacy ipc.emit gated on
+  // Existing napplets (chat/bot) also get this toggle; they use ifcEmit gated on
   // relay:write, not notify:send — the extra toggle is visible but no-op for them.
   { cap: 'notify:send', label: DEMO_CAPABILITY_LABELS['notify:send'] },
   // Phase 20 (Plan 20-06): add theme:read for theme-switcher/preferences observer visibility.

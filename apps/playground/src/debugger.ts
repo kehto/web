@@ -38,8 +38,8 @@ export const DEBUGGER_PATH_LABELS: DemoProtocolPath[] = [
   'auth',
   'relay-publish',
   'relay-subscribe',
-  'ipc-send',
-  'ipc-receive',
+  'ifc-send',
+  'ifc-receive',
   'state-read',
   'state-write',
   'identity-request',
@@ -79,11 +79,11 @@ export function classifyTappedMessagePath(msg: TappedMessage): DemoProtocolPath 
       return 'state-read';
     }
     if (domain === 'ifc') {
-      return msg.direction === 'napplet->shell' ? 'ipc-send' : 'ipc-receive';
+      return msg.direction === 'napplet->shell' ? 'ifc-send' : 'ifc-receive';
     }
-    if (domain === 'notify') return 'ipc-receive';
+    if (domain === 'notify') return 'ifc-receive';
     if (domain === 'theme' || domain === 'keys' || domain === 'media') {
-      return msg.direction === 'napplet->shell' ? 'ipc-send' : 'ipc-receive';
+      return msg.direction === 'napplet->shell' ? 'ifc-send' : 'ifc-receive';
     }
     if (domain === 'shell') return 'auth';
     return null;
@@ -105,12 +105,11 @@ export function classifyTappedMessagePath(msg: TappedMessage): DemoProtocolPath 
     ? ((event?.tags as string[][] | undefined)?.find((tag) => tag[0] === 't')?.[1] ?? msg.parsed.topic)
     : msg.parsed.topic;
 
-  // Signer-service was deleted in v1.2; legacy NIP-01 kind 29003 (ipc) dispatch retained
-  // for any residual array traffic from old shims.
+  // Raw NIP-01 kind 29003 traffic maps to IFC path labels.
   if (kind === 29003) {
     if (topic === 'shell:state-get' || topic === 'shell:state-keys') return 'state-read';
     if (topic === 'shell:state-set' || topic === 'shell:state-remove' || topic === 'shell:state-clear') return 'state-write';
-    return msg.direction === 'napplet->shell' ? 'ipc-send' : 'ipc-receive';
+    return msg.direction === 'napplet->shell' ? 'ifc-send' : 'ifc-receive';
   }
 
   return msg.direction === 'napplet->shell' ? 'relay-publish' : 'relay-subscribe';

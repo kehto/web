@@ -338,7 +338,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
 
     function sendInterPaneReply(replyTopic: string, content: string): void {
       const responseEvent: Partial<NostrEvent> = {
-        kind: 29000, // IPC_PEER — inlined numeric after Phase 24 shim deletion
+        kind: 29000, // IFC_PEER — inlined numeric after Phase 24 shim deletion
         pubkey: '',
         created_at: Math.floor(Date.now() / 1000),
         tags: [['t', replyTopic]], content, id: '', sig: '',
@@ -447,7 +447,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
               ? { success: true, ...(result.eventId ? { eventId: result.eventId } : {}) }
               : { success: false, error: result.error ?? 'unknown error' };
             const response: Partial<NostrEvent> = {
-              kind: 29000, // IPC_PEER — inlined numeric after Phase 24 shim deletion
+              kind: 29000, // IFC_PEER — inlined numeric after Phase 24 shim deletion
               pubkey: '',
               created_at: Math.floor(Date.now() / 1000),
               tags: [['t', 'shell:send-dm-result'], ['id', corrId]],
@@ -1194,7 +1194,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
         id: uuid,
         pubkey: '0'.repeat(64),
         created_at: Math.floor(Date.now() / 1000),
-        kind: 29000, // IPC_PEER — inlined numeric after Phase 24 shim deletion
+        kind: 29000, // IFC_PEER — inlined numeric after Phase 24 shim deletion
         tags: [['t', topic]],
         content: JSON.stringify(payload),
         sig: '0'.repeat(128),

@@ -29,8 +29,18 @@ const helperTargetDirs = [
 ] as const;
 
 const bannedSdkImportPattern = /from\s+['"]@napplet\/sdk['"]/;
-const namespaceImportPattern =
-  /import\s+\{[^}]*\b(ipc|storage|relay|identity|keys|config|notify)\b[^}]*\}\s+from\s+['"]@napplet\/sdk['"]/s;
+const oldIfcNamespace = ['i', 'p', 'c'].join('');
+const namespaceImportPattern = new RegExp(
+  String.raw`import\s+\{[^}]*\b(${oldIfcNamespace}|storage|relay|identity|keys|config|notify)\b[^}]*\}\s+from\s+['"]@napplet/sdk['"]`,
+  's',
+);
+const activeTerminologyRoots = [
+  'RUNTIME-SPEC.md',
+  'apps',
+  'packages',
+  'tests',
+] as const;
+const activeTerminologyFilePattern = /\.(?:[cm]?[jt]sx?|json|md|html|css)$/;
 const bannedDecryptPlumbingPatterns = [
   /\brequestCounter\b/,
   /new\s+Map\s*<\s*string\s*,\s*\([^)]*\)\s*=>\s*void\s*>\s*\(/,
@@ -49,6 +59,19 @@ function sourceFiles(root: string): string[] {
     } else if (/\.[cm]?tsx?$/.test(path)) {
       files.push(path);
     }
+  }
+  return files;
+}
+
+function activeTerminologyFiles(root: string): string[] {
+  if (!existsSync(root)) return [];
+  const stat = statSync(root);
+  if (!stat.isDirectory()) return activeTerminologyFilePattern.test(root) ? [root] : [];
+
+  const files: string[] = [];
+  for (const entry of readdirSync(root)) {
+    if (entry === 'dist' || entry === 'node_modules') continue;
+    files.push(...activeTerminologyFiles(join(root, entry)));
   }
   return files;
 }
@@ -94,6 +117,22 @@ describe('SDK 0.3 migration guard', () => {
       for (const file of sourceFiles(join(process.cwd(), dir, 'src'))) {
         const content = readFileSync(file, 'utf8');
         if (bannedSdkImportPattern.test(content) || namespaceImportPattern.test(content)) {
+          violations.push(relative(process.cwd(), file));
+        }
+      }
+    }
+
+    expect(violations).toEqual([]);
+  });
+
+  it('keeps active project terminology on IFC vocabulary', () => {
+    const violations: string[] = [];
+    const disallowedTerm = oldIfcNamespace.toLowerCase();
+
+    for (const root of activeTerminologyRoots) {
+      for (const file of activeTerminologyFiles(join(process.cwd(), root))) {
+        const content = readFileSync(file, 'utf8').toLowerCase();
+        if (content.includes(disallowedTerm)) {
           violations.push(relative(process.cwd(), file));
         }
       }

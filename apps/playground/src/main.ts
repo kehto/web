@@ -970,10 +970,10 @@ tap.onMessage((msg) => {
     }, 200);
   }
 
-  // Log ipc events prominently
+  // Log ifc events prominently
   if (msg.verb === 'EVENT' && msg.parsed.topic) {
     debuggerEl?.addSystemMessage(
-      `ipc: ${msg.parsed.topic} (kind:${msg.parsed.eventKind})`
+      `ifc: ${msg.parsed.topic} (kind:${msg.parsed.eventKind})`
     );
   }
 });

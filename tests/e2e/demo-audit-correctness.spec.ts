@@ -41,7 +41,7 @@ async function openDemo(page: Page): Promise<void> {
   await page.goto(DEMO_URL);
   await expect(page.locator('#chat-status')).toHaveText('authenticated');
   await expect(page.locator('#bot-status')).toHaveText('authenticated');
-  await expect(page.locator('#chat-acl button')).toContainText(['Relay Publish / IPC Send']);
+  await expect(page.locator('#chat-acl button')).toContainText(['Relay Publish / IFC Send']);
 }
 
 async function revokeChatCapability(page: Page, label: string): Promise<void> {
@@ -81,10 +81,10 @@ test.afterAll(async () => {
 
 test('revoke chat relay:write and keep debugger paths legible', async ({ page }) => {
   await openDemo(page);
-  await revokeChatCapability(page, 'Relay Publish / IPC Send');
+  await revokeChatCapability(page, 'Relay Publish / IFC Send');
   await sendChatMessage(page, 'relay write revoked');
 
-  await expect(page.locator('napplet-debugger')).toContainText('path:ipc-send');
+  await expect(page.locator('napplet-debugger')).toContainText('path:ifc-send');
   await expect(page.locator('napplet-debugger')).toContainText('path:relay-publish');
   await expect(page.locator('napplet-debugger')).toContainText('denied: relay:write');
 });
@@ -107,9 +107,9 @@ test('revoke chat sign:event and separate inter-pane success from signer denial'
 
   await expect(botFrame.locator('#log')).toContainText('signer revoked');
   await expect(chatFrame.locator('#messages')).toContainText('[bot]');
-  await expect(page.locator('napplet-debugger')).toContainText('path:ipc-send');
+  await expect(page.locator('napplet-debugger')).toContainText('path:ifc-send');
   // identity:read (formerly sign:event) revocation does not surface a denial in the
   // debugger for the chat napplet because chat does not call identity.getPublicKey.
-  // The IPC round-trip succeeding despite the revocation is the key signal.
+  // The IFC round-trip succeeding despite the revocation is the key signal.
   await expect(page.locator('napplet-debugger')).toContainText('path:relay-publish');
 });

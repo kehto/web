@@ -57,7 +57,7 @@ export interface AclCheckEvent {
 /**
  * Abstract message sender — the runtime calls this to send messages
  * back to a specific napplet. The transport layer (postMessage, WebSocket,
- * IPC channel, etc.) is the implementor's concern.
+ * host bridge channel, etc.) is the implementor's concern.
  *
  * Accepts both NIP-01 array format (legacy) and NIP-5D NappletMessage envelope format.
  *
@@ -617,7 +617,7 @@ export interface RuntimeConfigOverrides {
  *
  * This is the primary integration point. A browser shell implements these
  * by wrapping postMessage, localStorage, and relay pool libraries.
- * A CLI or server shell could implement them with IPC channels, file
+ * A CLI or server shell could implement them with host bridge channels, file
  * storage, and direct WebSocket connections.
  *
  * @example

@@ -210,7 +210,7 @@ runtime.registerService('keys', keys);
 
 ## Media Service
 
-Reference media backend for the `media.*` NIP-5D NUB. By default mirrors session metadata + playback state to `navigator.mediaSession` via the DOM `MediaSession` API and installs `setActionHandler` callbacks that emit `media.command` push envelopes on OS transport events (play / pause / next / previous / seek). Implement the [`HostMediaBridge`](#hostmediabridge-interface) interface to swap in native backends (Electron IPC, MPRIS on Linux, MediaRemote on macOS).
+Reference media backend for the `media.*` NIP-5D NUB. By default mirrors session metadata + playback state to `navigator.mediaSession` via the DOM `MediaSession` API and installs `setActionHandler` callbacks that emit `media.command` push envelopes on OS transport events (play / pause / next / previous / seek). Implement the [`HostMediaBridge`](#hostmediabridge-interface) interface to swap in native backends (Electron bridge, MPRIS on Linux, MediaRemote on macOS).
 
 ### Factory
 
@@ -312,24 +312,24 @@ runtime.registerService('media', media);
 media.destroy();
 ```
 
-Custom bridge path — swap in an Electron IPC bridge:
+Custom bridge path — swap in an Electron host bridge:
 
 ```ts
 import { createMediaService, type HostMediaBridge, type MediaAction } from '@kehto/services';
-import { ipcRenderer } from 'electron';
+import { mediaBridge } from './electron-media-bridge';
 
 const electronBridge: HostMediaBridge = {
   setMetadata(sessionId, md) {
-    ipcRenderer.send('media:metadata', { sessionId, md });
+    mediaBridge.sendMetadata({ sessionId, md });
   },
   setPlaybackState(sessionId, state) {
-    ipcRenderer.send('media:state', { sessionId, state });
+    mediaBridge.sendPlaybackState({ sessionId, state });
   },
   onAction(cb) {
     const handler = (_: unknown, msg: { sessionId: string; action: MediaAction; value?: number }) =>
       cb(msg.sessionId, msg.action, msg.value);
-    ipcRenderer.on('media:action', handler);
-    return () => ipcRenderer.removeListener('media:action', handler);
+    mediaBridge.onAction(handler);
+    return () => mediaBridge.offAction(handler);
   },
 };
 

@@ -131,13 +131,13 @@ const MEDIA_SERVICE_VERSION = '1.1.0';
  * ```ts
  * // Host-app pseudocode (Electron main-process relay):
  * const electronBridge: HostMediaBridge = {
- *   setMetadata(sessionId, md) { ipcRenderer.send('media:metadata', { sessionId, md }); },
- *   setPlaybackState(sessionId, state) { ipcRenderer.send('media:state', { sessionId, state }); },
+ *   setMetadata(sessionId, md) { mediaBridge.sendMetadata({ sessionId, md }); },
+ *   setPlaybackState(sessionId, state) { mediaBridge.sendPlaybackState({ sessionId, state }); },
  *   onAction(cb) {
  *     const handler = (_: unknown, msg: { sessionId: string; action: MediaAction; value?: number }) =>
  *       cb(msg.sessionId, msg.action, msg.value);
- *     ipcRenderer.on('media:action', handler);
- *     return () => ipcRenderer.removeListener('media:action', handler);
+ *     mediaBridge.onAction(handler);
+ *     return () => mediaBridge.offAction(handler);
  *   },
  * };
  * const media = createMediaService({ hostBridge: electronBridge });

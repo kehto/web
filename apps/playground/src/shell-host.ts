@@ -213,8 +213,8 @@ export type DemoProtocolPath =
   | 'auth'
   | 'relay-publish'
   | 'relay-subscribe'
-  | 'ipc-send'
-  | 'ipc-receive'
+  | 'ifc-send'
+  | 'ifc-receive'
   | 'state-read'
   | 'state-write'
   | 'identity-request'
@@ -454,16 +454,16 @@ export const DEMO_PROTOCOL_PATHS: DemoPathAuditEntry[] = [
     explanation: 'REQ and relay delivery both rely on relay read permission.',
   },
   {
-    path: 'ipc-send',
+    path: 'ifc-send',
     capability: 'relay:write',
     direction: 'napplet->runtime',
-    explanation: 'Non-state ipc events reuse the relay write sender gate before delivery.',
+    explanation: 'Non-state ifc events reuse the relay write sender gate before delivery.',
   },
   {
-    path: 'ipc-receive',
+    path: 'ifc-receive',
     capability: 'relay:read',
     direction: 'runtime->napplet',
-    explanation: 'Recipients need relay read permission to receive non-state ipc events.',
+    explanation: 'Recipients need relay read permission to receive non-state ifc events.',
   },
   {
     path: 'state-read',

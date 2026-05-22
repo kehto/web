@@ -91,7 +91,7 @@ export interface HostKeyEvent {
  *     return () => globalShortcut.unregister(chord);
  *   },
  *   registerGlobalHotkey: (chord) => globalShortcut.register(chord, () => {}),
- *   onGlobalHotkey: (cb) => { ipcMain.on('global-hotkey', (_, chord) => cb(chord)); return () => ipcMain.removeAllListeners('global-hotkey'); },
+ *   onGlobalHotkey: (cb) => globalHotkeyBridge.on('global-hotkey', (_, chord) => cb(chord)),
  * };
  *
  * const keys = createKeysService({ hostBridge: electronBridge });
