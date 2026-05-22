@@ -2,7 +2,7 @@
  * Feed demo napplet — exercises relay.subscribe (NAP-06, Phase 20).
  *
  * Per CONTEXT D-02:
- *   - On init: subscribes via sdk.relay.subscribe({ kinds: [1], limit: 5 }, onEvent, onEose).
+ *   - On init: subscribes via relaySubscribe({ kinds: [1], limit: 5 }, onEvent, onEose).
  *     Events arrive from the demo's in-memory mock relay pool (Plan 20-01, CONTEXT D-USER-01);
  *     5 fixture kind:1 events are delivered then EOSE fires.
  *   - #feed-status transitions: 'connecting...' → 'authenticated' → 'subscribed' → 'loaded (N)'
@@ -12,7 +12,8 @@
  *   no legacy bus enums, no global nostr accessor. Shim handles AUTH implicitly.
  */
 import '@napplet/shim';
-import { relay, type NostrEvent, type Subscription } from '@napplet/sdk';
+import { relaySubscribe } from '@napplet/nub/relay/sdk';
+import type { NostrEvent, Subscription } from '@napplet/core';
 
 const statusEl = document.getElementById('feed-status')!;
 const listEl = document.getElementById('feed-list')!;
@@ -66,7 +67,7 @@ async function init(): Promise<void> {
   log('subscribing to kind:1 feed');
 
   try {
-    sub = relay.subscribe(
+    sub = relaySubscribe(
       { kinds: [1], limit: 5 },
       (event: NostrEvent) => {
         try {

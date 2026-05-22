@@ -1,5 +1,5 @@
 /**
- * nub-relay fixture — exercises relay.publish + relay.publishEncrypted (E2E-09).
+ * nub-relay fixture — exercises relayPublish + relayPublishEncrypted (E2E-09).
  *
  * On init: dispatches a relay.publish for a kind:1 fixture event (auto-trigger so spec
  * can assert the envelope without DOM clicks). Encrypted publish only fires on
@@ -12,7 +12,8 @@
  *   - On click: __getNubMessage__(windowId, 'relay.publishEncrypted') returns the encrypted envelope
  */
 import '@napplet/shim';
-import { relay, type EventTemplate } from '@napplet/sdk';
+import { relayPublish, relayPublishEncrypted } from '@napplet/nub/relay/sdk';
+import type { EventTemplate } from '@napplet/core';
 
 const statusEl = document.getElementById('nub-status')!;
 const eventIdEl = document.getElementById('nub-event-id')!;
@@ -34,7 +35,7 @@ function template(content: string): EventTemplate {
 
 async function init(): Promise<void> {
   try {
-    const event = await relay.publish(template('nub-relay fixture probe'));
+    const event = await relayPublish(template('nub-relay fixture probe'));
     const id = (event as { id?: string } | undefined)?.id ?? '';
     statusEl.textContent = `event:${id.slice(0, 16)}`;
     eventIdEl.textContent = id;
@@ -48,7 +49,7 @@ encryptBtn.addEventListener('click', () => {
     '0000000000000000000000000000000000000000000000000000000000000001';
   void (async () => {
     try {
-      const event = await relay.publishEncrypted(template('encrypted probe'), recipient, 'nip44');
+      const event = await relayPublishEncrypted(template('encrypted probe'), recipient, 'nip44');
       const id = (event as { id?: string } | undefined)?.id ?? '';
       statusEl.textContent = `encrypted:${id.slice(0, 16)}`;
       eventIdEl.textContent = id;

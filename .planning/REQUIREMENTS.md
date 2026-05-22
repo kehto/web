@@ -21,9 +21,9 @@
 
 - [x] **FUNC-01**: IFC call sites migrate from the old `ipc` SDK namespace to direct `ifcEmit` / `ifcOn` helper functions, including bot, chat, and `nub-ifc`
 - [x] **FUNC-02**: Storage call sites migrate from `storage.*` namespace usage to direct `storageGetItem`, `storageSetItem`, `storageRemoveItem`, or `storageKeys` helpers, including bot, chat, preferences, `nub-storage`, and `nub-theme`
-- [ ] **FUNC-03**: Relay and identity call sites migrate from `relay.*` / `identity.*` namespaces to direct helpers such as `relayPublish`, `relayPublishEncrypted`, `relaySubscribe`, `identityGetPublicKey`, and `identityGetProfile`
-- [ ] **FUNC-04**: Keys and notify call sites migrate to direct helpers (`keysRegisterAction`, `keysOnAction`, `notifySend`, `notifyDismiss`, etc.) wherever `@napplet/sdk@0.3.0` or its `@napplet/nub@0.3.0` helper surface covers the existing behavior
-- [ ] **FUNC-05**: Config, media, and resource demo surfaces use the `0.3.0` helper surface instead of old SDK pins or raw-envelope workarounds where published helpers cover the behavior; any unavoidable raw-envelope exception is documented with a grepable reason and a follow-up boundary
+- [x] **FUNC-03**: Relay and identity call sites migrate from `relay.*` / `identity.*` namespaces to direct helpers such as `relayPublish`, `relayPublishEncrypted`, `relaySubscribe`, `identityGetPublicKey`, and `identityGetProfile`
+- [x] **FUNC-04**: Keys and notify call sites migrate to direct helpers (`keysRegisterAction`, `keysOnAction`, `notifySend`, `notifyDismiss`, etc.) wherever `@napplet/sdk@0.3.0` or its `@napplet/nub@0.3.0` helper surface covers the existing behavior
+- [x] **FUNC-05**: Config, media, and resource demo surfaces use the `0.3.0` helper surface instead of old SDK pins or raw-envelope workarounds where published helpers cover the behavior; any unavoidable raw-envelope exception is documented with a grepable reason and a follow-up boundary
 
 ### Verification
 
@@ -70,9 +70,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SDK-02 | Phase 47 | Complete |
 | FUNC-01 | Phase 47 | Complete |
 | FUNC-02 | Phase 47 | Complete |
-| FUNC-03 | Phase 48 | Pending |
-| FUNC-04 | Phase 48 | Pending |
-| FUNC-05 | Phase 48 | Pending |
+| FUNC-03 | Phase 48 | Complete |
+| FUNC-04 | Phase 48 | Complete |
+| FUNC-05 | Phase 48 | Complete |
 | SDK-03 | Phase 49 | Pending |
 | GUARD-01 | Phase 49 | Pending |
 | E2E-29 | Phase 49 | Pending |
@@ -86,4 +86,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-05-22*
-*Last updated: 2026-05-22 after Phase 47 verification*
+*Last updated: 2026-05-22 after Phase 48 verification*

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Napplet SDK Migration
 status: executing
-last_updated: "2026-05-22T09:46:04.452Z"
+last_updated: "2026-05-22T09:52:20.080Z"
 last_activity: 2026-05-22
 progress:
   total_phases: 3
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
-  percent: 33
+  completed_phases: 2
+  total_plans: 2
+  completed_plans: 2
+  percent: 67
 ---
 
 # Project State
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-22, v1.9 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 48 — Demo Function-Export Migration.
+**Current focus:** Phase 49 — Migration Guard + Full Verification.
 
 ## Current Position
 
-Phase: 48 — Demo Function-Export Migration
+Phase: 49 — Migration Guard + Full Verification
 Plan: —
 Status: Ready to plan
-Last activity: 2026-05-22 — Phase 47 package graph, IFC, and storage migration verified
+Last activity: 2026-05-22 — Phase 48 function-export migration verified
 
 ## Accumulated Context
 
@@ -48,12 +48,13 @@ Full decision log (v1.0 → v1.8) archived in `.planning/PROJECT.md` Key Decisio
 - Published package check: `@napplet/sdk@0.3.0`, `@napplet/shim@0.3.0`, and `@napplet/vite-plugin@0.3.0` are all available on npm as of 2026-05-22.
 - Scope boundary: `decrypt-demo` is excluded from the 18-package SDK migration because it does not depend on `@napplet/sdk`; RENAME-02 hard removal is deferred as a future requirement unless explicitly added.
 - Phase 47 completed 2026-05-22: all 18 target manifests now declare exact `@napplet/sdk`, `@napplet/shim`, `@napplet/vite-plugin`, and explicit `@napplet/nub` at `0.3.0`; IFC/storage call sites use direct helper imports; six affected napplet builds pass.
+- Phase 48 completed 2026-05-22: active demo/fixture source has no `@napplet/sdk` imports; relay, identity, keys, notify, config, and media use direct helpers; toaster/resource retained raw exceptions documented as `NOTIFY-SDK-GAP` and `RESOURCE-SDK-GAP`.
 
 ## Session Continuity
 
-Last session: 2026-05-22T11:46:04+02:00
-Resume: Phase 47 is complete and verified. Next: plan Phase 48.
+Last session: 2026-05-22T11:52:20+02:00
+Resume: Phase 48 is complete and verified. Next: plan Phase 49.
 
 ## Operator Next Steps
 
-- Start Phase 48 with `/gsd-plan-phase 48`
+- Start Phase 49 with `/gsd-plan-phase 49`

@@ -1,5 +1,5 @@
 /**
- * nub-identity fixture — exercises identity.getPublicKey + identity.getProfile (E2E-09).
+ * nub-identity fixture — exercises identityGetPublicKey + identityGetProfile (E2E-09).
  * Rebuild: shim updated to route identity.*.error messages (Phase 21-03).
  *
  * Layer-A spec drives this fixture via window.__loadNapplet__('nub-identity') from
@@ -13,7 +13,7 @@
  *   NO raw postMessage, NO NIP-01 envelopes, NO bus-kind references, NO signer service.
  */
 import '@napplet/shim';
-import { identity } from '@napplet/sdk';
+import { identityGetProfile, identityGetPublicKey } from '@napplet/nub/identity/sdk';
 
 const statusEl = document.getElementById('nub-status')!;
 const pubkeyEl = document.getElementById('nub-pubkey')!;
@@ -34,15 +34,15 @@ async function init(): Promise<void> {
     // { type: 'identity.getPublicKey.error', error: 'no signer configured' } when
     // no signer is wired in the harness — we treat that as a successful AUTH because
     // the await rejects with the error message, proving the envelope round-tripped.
-    const pubkey = await identity.getPublicKey();
+    const pubkey = await identityGetPublicKey();
     statusEl.textContent = 'authenticated';
     pubkeyEl.textContent = truncate(pubkey);
 
     try {
-      const profile = await identity.getProfile();
+      const profile = await identityGetProfile();
       profileNameEl.textContent = profile?.name ?? '';
     } catch {
-      // identity.getProfile is allowed to fail without poisoning the spec — its purpose
+      // identityGetProfile is allowed to fail without poisoning the spec — its purpose
       // is only to demonstrate a second envelope dispatch. Spec does not assert profile content.
     }
 

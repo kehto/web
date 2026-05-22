@@ -2,24 +2,24 @@
  * Hotkey-chord demo napplet — exercises real keys backend (KEYS-03, Phase 26).
  *
  * Per CONTEXT.md Area 3 + Area 1 + 26-CONTEXT.md checker blocker 1 fix:
- *   - On init: calls `await keys.registerAction({...})` via @napplet/sdk.
- *     The SDK owns the correlation ID and Promise resolution on the shell's
+ *   - On init: calls `await keysRegisterAction({...})` via the NUB keys helper.
+ *     The helper owns the correlation ID and Promise resolution on the shell's
  *     keys.registerAction.result envelope.
  *   - On each keys.action push from the shell (emitted by Plan 26-01 on chord
- *     match), `keys.onAction('hotkey-chord.demo', () => ...)` fires — the SDK
+ *     match), `keysOnAction('hotkey-chord.demo', () => ...)` fires — the helper
  *     internally routes keys.action envelopes to the right callback.
  *   - #hotkey-chord-status transitions: 'connecting...' → 'authenticated' → 'subscribed'
  *   - After the Playwright spec (Plan 26-04) dispatches Ctrl+Shift+K on the host page,
  *     the service's document keydown listener fires, pushes keys.action to this napplet,
- *     the SDK routes it to the onAction callback, and this file updates the DOM.
+ *     the helper routes it to the onAction callback, and this file updates the DOM.
  *
  * Anti-features (enforced per v1.4 milestone — see Phase 26 acceptance greps):
- *   - no raw postMessage listener — uses @napplet/sdk exclusively
+ *   - no raw postMessage listener — uses @napplet/nub/keys/sdk helpers exclusively
  *   - no direct nostr/signer/legacy-bus imports
- *   - no hand-rolled correlation IDs (SDK owns them)
+ *   - no hand-rolled correlation IDs (helper owns them)
  */
 import '@napplet/shim';
-import { keys } from '@napplet/sdk';
+import { keysOnAction, keysRegisterAction } from '@napplet/nub/keys/sdk';
 
 const DEFAULT_KEY = 'Ctrl+Shift+K';
 const ACTION_ID = 'hotkey-chord.demo';
@@ -52,9 +52,9 @@ async function init(): Promise<void> {
   setStatus('authenticated', 'green');
   log(`registering action (${DEFAULT_KEY})`);
 
-  // Register the action via the SDK. The SDK owns correlation + Promise
+  // Register the action via the keys helper. The helper owns correlation + Promise
   // resolution on the shell's keys.registerAction.result envelope.
-  const result = await keys.registerAction({
+  const result = await keysRegisterAction({
     id: ACTION_ID,
     label: 'Hotkey Chord Demo',
     defaultKey: DEFAULT_KEY,
@@ -62,11 +62,10 @@ async function init(): Promise<void> {
   setStatus('subscribed', 'green');
   log(`keys.registerAction.result — actionId=${result.actionId} binding=${result.binding ?? 'none'}`);
 
-  // Subscribe to keys.action pushes from the shell. The SDK's onAction callback
-  // signature in @napplet/sdk@0.2.1 is `() => void` (no event argument), so we
-  // format the displayed chord from our OWN registered DEFAULT_KEY — which is
-  // what the shell fired since we are the sole subscriber to ACTION_ID.
-  keys.onAction(ACTION_ID, () => {
+  // Subscribe to keys.action pushes from the shell. The helper's onAction callback
+  // signature is `() => void`, so we format the displayed chord from our own
+  // registered DEFAULT_KEY.
+  keysOnAction(ACTION_ID, () => {
     deliveryCount += 1;
     countEl.textContent = String(deliveryCount);
     lastEl.textContent = DEFAULT_KEY;

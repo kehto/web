@@ -3,7 +3,7 @@
  *
  * Per CONTEXT D-02:
  *   - On click of #composer-publish-btn, publish kind:1 event with content from #composer-input
- *   - If #composer-encrypted-toggle is checked, route through relay.publishEncrypted (NIP-44 default)
+ *   - If #composer-encrypted-toggle is checked, route through relayPublishEncrypted (NIP-44 default)
  *   - #composer-status reflects: 'connecting...' -> 'authenticated' -> 'published: <id>' or 'denied: <reason>'
  *   - #composer-log shows a per-attempt log line for debugger visibility
  *
@@ -11,7 +11,9 @@
  *   no legacy bus enums, no global nostr accessor. Shim handles AUTH implicitly.
  */
 import '@napplet/shim';
-import { identity, relay, type EventTemplate } from '@napplet/sdk';
+import { identityGetPublicKey } from '@napplet/nub/identity/sdk';
+import { relayPublish, relayPublishEncrypted } from '@napplet/nub/relay/sdk';
+import type { EventTemplate } from '@napplet/core';
 
 const statusEl = document.getElementById('composer-status')!;
 const inputEl = document.getElementById('composer-input') as HTMLInputElement;
@@ -70,13 +72,13 @@ async function publish(): Promise<void> {
         recipientEl.value.trim() ||
         '0000000000000000000000000000000000000000000000000000000000000001';
       log(`relay.publishEncrypted attempt — recipient: ${recipient.slice(0, 12)}...`);
-      const result = await relay.publishEncrypted(template, recipient, 'nip44');
+      const result = await relayPublishEncrypted(template, recipient, 'nip44');
       const eventId = (result as { id?: string } | undefined)?.id ?? 'unknown';
       setStatus(`published: ${eventId.slice(0, 16)}`, 'green');
       log(`relay.publishEncrypted OK — id: ${eventId.slice(0, 16)}`);
     } else {
       log('relay.publish attempt');
-      const result = await relay.publish(template);
+      const result = await relayPublish(template);
       const eventId = (result as { id?: string } | undefined)?.id ?? 'unknown';
       setStatus(`published: ${eventId.slice(0, 16)}`, 'green');
       log(`relay.publish OK — id: ${eventId.slice(0, 16)}`);
@@ -98,13 +100,13 @@ inputEl.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') void publish();
 });
 
-// Initialize the napplet. A single identity.getPublicKey() call triggers
+// Initialize the napplet. A single identityGetPublicKey() call triggers
 // the shell's Path B AUTH detection (first napplet->shell envelope flips
 // #composer-status on the outer topology card to 'authenticated') without
 // incurring the vestigial storage probe deleted in Phase 36-01. Result is
 // discarded — the call is a lightweight AUTH-trigger, not a data dependency.
 async function init(): Promise<void> {
-  await identity.getPublicKey();
+  await identityGetPublicKey();
   setStatus('authenticated', 'green');
   log('ready to publish');
 }

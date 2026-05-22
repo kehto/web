@@ -2,7 +2,7 @@
  * Media-controller demo napplet — exercises real media backend (MEDIA-03, Phase 27).
  *
  * Per 27-CONTEXT.md Area 3:
- *   - On init: calls mediaCreateSession via @napplet/nub/media/sdk. The SDK owns
+ *   - On init: calls mediaCreateSession via @napplet/nub/media/sdk. The helper owns
  *     the correlation ID and Promise resolution on the shell's
  *     media.session.create.result envelope.
  *   - After session create, the napplet subscribes to mediaOnCommand(sessionId, ...)
@@ -15,9 +15,9 @@
  *   - #media-controller-status transitions: 'connecting...' → 'authenticated' → 'session-ready' → 'playing' | 'paused'
  *
  * Anti-features (enforced per v1.4 milestone — see Phase 27 acceptance greps):
- *   - no raw postMessage listener — uses @napplet/sdk + @napplet/nub/media/sdk helpers exclusively
+ *   - no raw postMessage listener — uses @napplet/nub/media/sdk helpers exclusively
  *   - no direct nostr/signer/legacy-bus imports
- *   - no hand-rolled correlation IDs (SDK owns them)
+ *   - no hand-rolled correlation IDs (helper owns them)
  *
  * Subpath selection rationale (v1.6 Phase 32 fix): imports the pure SDK helpers
  * from `@napplet/nub/media/sdk`, NOT the root `@napplet/nub/media` subpath. The
@@ -74,7 +74,7 @@ async function init(): Promise<void> {
   setStatus('authenticated', 'green');
   log('creating media session');
 
-  // Create the session via the nub-media helper. The SDK owns correlation +
+  // Create the session via the media helper. The helper owns correlation +
   // Promise resolution on the shell's media.session.create.result envelope.
   const { sessionId } = await mediaCreateSession(DEMO_METADATA);
   setStatus('session-ready', 'green');

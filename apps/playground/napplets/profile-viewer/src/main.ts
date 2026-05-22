@@ -2,8 +2,8 @@
  * Profile Viewer demo napplet — exercises identity.getPublicKey + identity.getProfile (NAP-07, Phase 20).
  *
  * Per CONTEXT D-03:
- *   - On init: identity.getPublicKey() populates #profile-pubkey (truncated to 8...4 chars)
- *   - Then: identity.getProfile() populates #profile-name, #profile-about, #profile-picture (if returned)
+ *   - On init: identityGetPublicKey() populates #profile-pubkey (truncated to 8...4 chars)
+ *   - Then: identityGetProfile() populates #profile-name, #profile-about, #profile-picture (if returned)
  *   - #profile-status sentinel contract: 'connecting...' (HTML default) -> 'authenticated' ->
  *     'loaded' on success, or 'denied: <reason>' on ACL denial
  *
@@ -12,7 +12,7 @@
  *   Anti-feature surface unchanged — AUTHENTICATED fires from shim bootstrap.
  */
 import '@napplet/shim';
-import { identity } from '@napplet/sdk';
+import { identityGetProfile, identityGetPublicKey } from '@napplet/nub/identity/sdk';
 
 const statusEl = document.getElementById('profile-status')!;
 const pubkeyEl = document.getElementById('profile-pubkey')!;
@@ -60,7 +60,7 @@ async function loadIdentity(): Promise<void> {
   // Step B (getPublicKey): read caller's public key
   let pubkey = '';
   try {
-    pubkey = await identity.getPublicKey();
+    pubkey = await identityGetPublicKey();
     pubkeyEl.textContent = truncatePubkey(pubkey);
     log(`identity.getPublicKey — ${truncatePubkey(pubkey)}`);
   } catch (err) {
@@ -72,7 +72,7 @@ async function loadIdentity(): Promise<void> {
 
   // Step C (getProfile): fetch kind:0 metadata; may return null when no metadata is known
   try {
-    const profile = await identity.getProfile();
+    const profile = await identityGetProfile();
     if (profile) {
       if (profile.name) nameEl.textContent = profile.name;
       else if (profile.displayName) nameEl.textContent = profile.displayName;

@@ -24,7 +24,7 @@
  *   - No global message-event listener (OUTBOUND-ONLY napplet)
  */
 import '@napplet/shim';
-import { identity } from '@napplet/sdk';
+import { identityGetPublicKey } from '@napplet/nub/identity/sdk';
 
 const statusEl = document.getElementById('theme-status')!;
 const lightBtn = document.getElementById('theme-light-btn') as HTMLButtonElement;
@@ -121,7 +121,7 @@ customBtn.addEventListener('click', () => {
 // ── Init ────────────────────────────────────────────────────────────────────
 
 /**
- * Flip status sentinel to 'authenticated'. A single identity.getPublicKey()
+ * Flip status sentinel to 'authenticated'. A single identityGetPublicKey()
  * call on boot triggers the shell's Path B AUTH detection (first
  * napplet->shell envelope flips the outer topology card sentinel) without
  * the vestigial storage probe deleted in Phase 36-01. Theme broadcast still
@@ -133,7 +133,7 @@ customBtn.addEventListener('click', () => {
  *   'auth failed'   — set if init throws unexpectedly
  */
 async function init(): Promise<void> {
-  await identity.getPublicKey();
+  await identityGetPublicKey();
   setStatus('authenticated', 'green');
   log('ready to broadcast theme');
 }

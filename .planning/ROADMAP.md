@@ -27,7 +27,7 @@
 ### Phases
 
 - [x] **Phase 47: SDK 0.3 Package Graph + IFC/Storage Migration** — Bump the 18 SDK-bearing packages to the 0.3 package line, migrate the low-level IFC/storage namespaces, and establish the exact dependency policy before wider demo rewrites.
-- [ ] **Phase 48: Demo Function-Export Migration** — Rewrite relay, identity, keys, notify, config, media, and resource demo call sites to direct helper functions, including special-case documentation where root SDK function names are collision-prone.
+- [x] **Phase 48: Demo Function-Export Migration** — Rewrite relay, identity, keys, notify, config, media, and resource demo call sites to direct helper functions, including special-case documentation where root SDK function names are collision-prone.
 - [ ] **Phase 49: Migration Guard + Full Verification** — Remove stale namespace teaching, add a guard against regressions, verify the lockfile no longer resolves old SDK/split-nub paths for active demo/fixture packages, and close the full build/unit/E2E loop.
 
 ---
@@ -57,7 +57,7 @@
   3. `config-demo` uses the verified 0.3 config helper surface without a stale `config.*` namespace import. If the root SDK cannot expose collision-free function names, the implementation uses the documented `@napplet/nub/config/sdk` helper imports and records the exception.
   4. `media-controller` and `resource-demo` use the 0.3 helper surface instead of retaining `@napplet/sdk@0.2.1` compatibility assumptions; raw resource-envelope code remains only if a verified behavior gap blocks a helper replacement, with a grepable follow-up note.
   5. Existing DOM sentinel contracts remain stable for affected E2E specs.
-**Plans**: TBD
+**Plans**: 48-01 (complete)
 
 ### Phase 49: Migration Guard + Full Verification
 **Goal**: Lock the SDK migration so future demo/fixture work cannot silently reintroduce old namespace imports or old SDK dependency ranges, then run the full verification loop against the migrated tree.
@@ -79,9 +79,9 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 47. SDK 0.3 Package Graph + IFC/Storage Migration | 1/1 | Complete | 2026-05-22 |
-| 48. Demo Function-Export Migration | 0/0 | Not Started | — |
+| 48. Demo Function-Export Migration | 1/1 | Complete | 2026-05-22 |
 | 49. Migration Guard + Full Verification | 0/0 | Not Started | — |
 
 ---
 
-*ROADMAP.md last updated: 2026-05-22 — Phase 47 verified.*
+*ROADMAP.md last updated: 2026-05-22 — Phase 48 verified.*

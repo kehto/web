@@ -9,17 +9,13 @@
  *     mirrors the dismissal acks (notification-service does not push a notify.dismissed
  *     reply, so we trust the dispatch and drop locally — equivalent to optimistic UI)
  *
- * SDK gap notice (Plan 19-03): @napplet/sdk does NOT expose notify.create / notify.list
- * / notify.read (verified at /home/sandwich/Develop/napplet/packages/sdk/src/index.ts
- * lines 352-450 — only send/dismiss/badge/permission/registerChannel are exposed). The
+ * NOTIFY-SDK-GAP (Plan 19-03): @napplet/nub/notify/sdk exposes notifySend and
+ * notifyDismiss, but not notify.create / notify.list / notify.read. The
  * demo's notification-service (packages/services/src/notification-service.ts) implements
- * the notify.create / notify.list / notify.read / notify.dismiss contract, NOT the SDK's
- * notify.send contract. Therefore this napplet sends raw envelopes via
- * window.parent.postMessage and receives replies via a single narrowly-guarded message
- * handler registered once near the bottom of this file (Plan 19-03 deviation). Plan
- * 19-04 dual-registers notification-service under 'notify' so the runtime's
- * serviceRegistry['notify'] lookup (packages/runtime/src/runtime.ts:1000) routes the
- * toaster's envelopes correctly.
+ * the notify.create / notify.list / notify.read contract, not just notify.send.
+ * Therefore create/list stay on raw envelopes via window.parent.postMessage and receive
+ * replies via a single narrowly-guarded message handler registered once near the bottom
+ * of this file (Plan 19-03 deviation). Dismiss uses the 0.3 notifyDismiss helper.
  *
  * The single message handler below is an EXPLICIT, NARROWLY-SCOPED deviation from the
  * v1.3 anti-feature ban on raw message listeners. The 19-07 anti-term grep exempts
@@ -30,7 +26,8 @@
  * — shim fires AUTHENTICATED from bootstrap; no probe needed.
  */
 import '@napplet/shim';
-import { identity } from '@napplet/sdk';
+import { identityGetPublicKey } from '@napplet/nub/identity/sdk';
+import { notifyDismiss as notifyDismissHelper } from '@napplet/nub/notify/sdk';
 
 const statusEl = document.getElementById('toaster-status')!;
 const titleEl = document.getElementById('toaster-title') as HTMLInputElement;
@@ -114,10 +111,9 @@ function notifyList(): void {
  * notification-service.ts (no notify.dismissed reply emitted by the service).
  * We optimistically remove the local <li>.
  */
-function notifyDismiss(notifId: string): void {
-  const id = makeCorrelationId();
+function dismissNotification(notifId: string): void {
   log(`notify.dismiss dispatch — id: ${notifId}`);
-  window.parent.postMessage({ type: 'notify.dismiss', id, notificationId: notifId }, '*');
+  notifyDismissHelper(notifId);
   removeListItem(notifId);
 }
 
@@ -136,8 +132,8 @@ dismissAllBtn.addEventListener('click', () => {
 /**
  * THE ONLY raw message listener in this napplet (Plan 19-03 explicit deviation).
  *
- * Justified because @napplet/sdk does not expose notify.create / notify.list
- * (Plan 19-03 SDK gap — see file-header notice). This handler:
+ * Justified because the 0.3 notify helper surface does not expose notify.create
+ * or notify.list (see file-header NOTIFY-SDK-GAP). This handler:
  *   - Guards on event.source === window.parent (drop messages from other origins)
  *   - Guards on event.data being a plain object with a string `type` starting with 'notify.'
  *   - Handles notify.created (correlate via id, render <li>)
@@ -173,7 +169,7 @@ window.addEventListener('message', (event: MessageEvent) => {
     log(`notify.listed received — ${items.length} item(s)`);
     // Dispatch dismiss for each (fire-and-forget; service does not reply to dismiss).
     for (const item of items as { id: string }[]) {
-      if (item && typeof item.id === 'string') notifyDismiss(item.id);
+      if (item && typeof item.id === 'string') dismissNotification(item.id);
     }
     // After the loop, also clear the local list defensively (in case our local state
     // drifted from the service state — this guarantees Dismiss all empties the UL).
@@ -188,12 +184,12 @@ window.addEventListener('message', (event: MessageEvent) => {
   }
 });
 
-// Initialize: a single identity.getPublicKey() call triggers the shell's Path B
+// Initialize: a single identityGetPublicKey() call triggers the shell's Path B
 // AUTH detection (first napplet->shell envelope flips the outer topology card
 // sentinel) without the vestigial storage probe deleted in Phase 36-01.
 // notify.* flows still run from button handlers + the one documented message listener.
 async function init(): Promise<void> {
-  await identity.getPublicKey();
+  await identityGetPublicKey();
   setStatus('authenticated', 'green');
   log('ready to notify');
 }

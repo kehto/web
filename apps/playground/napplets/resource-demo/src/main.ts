@@ -15,14 +15,13 @@
  *   - #resource-demo-denied   -- canonical error code + message from denied fetch (E2E-25)
  *   - #resource-demo-log      -- timestamped event log for diagnostics
  *
- * Dispatch strategy:
- *   @napplet/sdk does not yet expose a resource namespace (pending @napplet/nub/resource
- *   publish at ^0.2.2). Provisional strategy: wire types from @kehto/shell barrel re-exports;
- *   outbound = window.parent.postMessage; inbound listener mirrors @napplet/shim's pattern
- *   (checks event.source === window.parent, type prefix 'resource.'). This is consistent
- *   with the provisional strategy for all three unpublished NUB domains (CLASS, CONNECT,
- *   RESOURCE). When @napplet/nub/resource ships, swap to sdk.resource.bytes() and remove
- *   the raw listener.
+ * RESOURCE-SDK-GAP:
+ *   @napplet/nub/resource/sdk@0.3.0 is published, but its helper surface expects
+ *   upstream wire fields (`id`, Blob `blob`, `mime`, error field `error`). Kehto's
+ *   current resource service intentionally uses its internal shell-side wire shape
+ *   (`requestId`, `bodyBase64`, `status`, `headers`, error field `code`). Until that
+ *   runtime/service protocol is deliberately migrated, this demo must keep the raw
+ *   resource.bytes envelope path so E2E can assert the current Kehto contract.
  *
  * Anti-features (v1.3 discipline):
  *   - NO <meta http-equiv="Content-Security-Policy"> in index.html (C-03)
@@ -30,8 +29,8 @@
  *   - NO window.nostr lookups (forbidden everywhere under NIP-5D)
  *   - NO resource.cancel wire message in this napplet (cancel path is Wave 3 scope)
  *
- * Wire types: ResourceBytesRequest, ResourceBytesResult, ResourceBytesError re-exported
- * from @kehto/shell barrel (packages/shell/src/index.ts — Phase 40 Plan 40-01 Task 3).
+ * Wire types mirror the Kehto-internal resource model documented in
+ * packages/shell/src/types/internal-resource.ts.
  */
 import '@napplet/shim';
 
@@ -65,10 +64,10 @@ function newRequestId(): string {
   return `res-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// ─── Provisional resource wire types (mirrors @kehto/shell re-exports) ───────
-// These are inlined here to avoid a cross-package import in a napplet context
-// where @kehto/shell is not a declared dependency. When @napplet/nub/resource
-// publishes, swap to `import type { ... } from '@napplet/nub-resource'`.
+// ─── Kehto-internal resource wire types ──────────────────────────────────────
+// These are inlined here to avoid a cross-package import in a napplet context.
+// RESOURCE-SDK-GAP: upstream @napplet/nub/resource uses id/blob/mime; this demo
+// exercises Kehto's current requestId/bodyBase64/status/headers contract.
 
 type ResourceErrorCode = 'denied' | 'canceled' | 'network-error' | 'invalid-url' | 'class-forbidden';
 
@@ -89,10 +88,9 @@ interface ResourceBytesError {
 
 type ResourceOutbound = ResourceBytesResult | ResourceBytesError;
 
-// ─── Inbound resource message listener (provisional) ─────────────────────────
+// ─── Inbound resource message listener ───────────────────────────────────────
 // Mirrors @napplet/shim's handleEnvelopeMessage pattern. Checks source is
-// window.parent and type prefix is 'resource.'. When @napplet/nub/resource
-// ships and installResourceShim is added to @napplet/shim, this block is removed.
+// window.parent and type prefix is 'resource.'.
 
 type ResourceEnvelopeCallback = (envelope: ResourceOutbound) => void;
 const _resourceCallbacks: ResourceEnvelopeCallback[] = [];

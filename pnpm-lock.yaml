@@ -94,6 +94,9 @@ importers:
 
   apps/playground/napplets/chat:
     dependencies:
+      '@napplet/core':
+        specifier: 0.3.0
+        version: 0.3.0
       '@napplet/nub':
         specifier: 0.3.0
         version: 0.3.0
@@ -116,6 +119,9 @@ importers:
 
   apps/playground/napplets/composer:
     dependencies:
+      '@napplet/core':
+        specifier: 0.3.0
+        version: 0.3.0
       '@napplet/nub':
         specifier: 0.3.0
         version: 0.3.0
@@ -176,6 +182,9 @@ importers:
 
   apps/playground/napplets/feed:
     dependencies:
+      '@napplet/core':
+        specifier: 0.3.0
+        version: 0.3.0
       '@napplet/nub':
         specifier: 0.3.0
         version: 0.3.0
@@ -548,6 +557,9 @@ importers:
 
   tests/fixtures/napplets/nub-relay:
     dependencies:
+      '@napplet/core':
+        specifier: 0.3.0
+        version: 0.3.0
       '@napplet/nub':
         specifier: 0.3.0
         version: 0.3.0

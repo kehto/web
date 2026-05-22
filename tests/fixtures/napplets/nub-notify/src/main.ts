@@ -1,5 +1,5 @@
 /**
- * nub-notify fixture — exercises notify.send (E2E-09).
+ * nub-notify fixture — exercises notifySend (E2E-09).
  *
  * Runtime fallback (packages/runtime/src/runtime.ts:1011) handles notify.send
  * even without a registered 'notify' service: returns
@@ -11,7 +11,7 @@
  *   - __getNubMessage__(windowId, 'notify.send') returns the request envelope
  */
 import '@napplet/shim';
-import { notify } from '@napplet/sdk';
+import { notifySend } from '@napplet/nub/notify/sdk';
 
 const statusEl = document.getElementById('nub-status')!;
 const notifIdEl = document.getElementById('nub-notif-id')!;
@@ -22,7 +22,7 @@ function fmt(err: unknown, fb: string): string {
 
 async function init(): Promise<void> {
   try {
-    const result = await notify.send({
+    const result = await notifySend({
       title: 'nub-notify fixture',
       body: 'Phase 21 E2E-09 probe',
       priority: 'normal',

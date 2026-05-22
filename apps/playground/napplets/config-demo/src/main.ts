@@ -2,9 +2,9 @@
  * config-demo napplet -- exercises NUB-CONFIG (CONFIG-03, v1.7 Phase 39 / D9).
  *
  * On init:
- *   1. sdk.config.subscribe(values => updateUI(values)) -- starts the live push stream.
+ *   1. configSubscribe(values => updateUI(values)) -- starts the live push stream.
  *      Shell emits an immediate initial config.values snapshot per NUB-CONFIG spec.
- *   2. sdk.config.get() -- separately requests a correlated snapshot (redundant with
+ *   2. configGet() -- separately requests a correlated snapshot (redundant with
  *      the subscribe initial push, but exercises the one-shot path for Plan 39-05's
  *      nub-config.spec.ts E2E assertion).
  *
@@ -19,7 +19,7 @@
  *   - NO config.set wire message (CONFIG-04 scope boundary)
  */
 import '@napplet/shim';
-import { config } from '@napplet/sdk';
+import { get as configGet, subscribe as configSubscribe } from '@napplet/nub/config/sdk';
 
 const statusEl = document.getElementById('config-demo-status')!;
 const valuesEl = document.getElementById('config-demo-values')!;
@@ -51,7 +51,7 @@ async function init(): Promise<void> {
   try {
     setStatus('subscribing...', 'gray');
     // Live push stream -- receives initial snapshot + every subsequent change.
-    config.subscribe((values: Record<string, unknown>) => {
+    configSubscribe((values: Record<string, unknown>) => {
       pushCount++;
       updateUI(values);
       setStatus(`received ${pushCount} push(es)`, 'green');
@@ -60,7 +60,7 @@ async function init(): Promise<void> {
     log('config.subscribe dispatched');
 
     // One-shot read -- separate code path per wire spec (correlated via id).
-    const snapshot = await config.get();
+    const snapshot = await configGet();
     log(`config.get completed -- keys: ${Object.keys(snapshot as Record<string, unknown>).join(',')}`);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

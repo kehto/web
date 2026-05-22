@@ -15,7 +15,8 @@
 import '@napplet/shim';
 import { ifcEmit, ifcOn } from '@napplet/nub/ifc/sdk';
 import { storageGetItem, storageSetItem } from '@napplet/nub/storage/sdk';
-import { relay, type EventTemplate } from '@napplet/sdk';
+import { relayPublish, relaySubscribe } from '@napplet/nub/relay/sdk';
+import type { EventTemplate } from '@napplet/core';
 
 // ─── Notification Helpers ─────────────────────────────────────────────────────
 
@@ -118,7 +119,7 @@ async function sendMessage(): Promise<void> {
       tags: [['t', 'demo-chat']],
       created_at: Math.floor(Date.now() / 1000),
     };
-    await relay.publish(template);
+    await relayPublish(template);
   } catch (error) {
     addMessage(`relay publish failed -- ${formatError(error, 'denied: relay:write')}`, 'system');
   }
@@ -151,9 +152,9 @@ async function init(): Promise<void> {
   });
 
   // Optional: subscribe to a tagged relay topic for the publish showcase (D-03).
-    // Wrapped in try so a relay:read denial does not break IFC functionality.
+  // Wrapped in try so a relay:read denial does not break IFC functionality.
   try {
-    relay.subscribe(
+    relaySubscribe(
       [{ kinds: [1], '#t': ['demo-chat'], limit: 10 }],
       (event) => addMessage(event.content, 'other'),
       () => addMessage('relay subscribe ready', 'system'),
