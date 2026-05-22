@@ -1,7 +1,7 @@
 /**
  * storage-persist.spec.ts — E2E-07 (storage-persist subset, Phase 19 NAP-04).
  *
- * Asserts the preferences napplet's storage.setItem writes survive a page.reload().
+ * Asserts the preferences napplet's storageSetItem writes survive a page.reload().
  * The runtime's storage is localStorage-backed (packages/shell/src/hooks-adapter.ts:256)
  * and scoped per napplet identity. page.reload() does NOT clear localStorage — that
  * behavior is what the spec exercises.
@@ -39,7 +39,7 @@ test('preferences round-trips display-name and theme-preference across page.relo
 
   const prefFrame = page.frameLocator('#preferences-frame-container iframe');
 
-  // Wait for the first load (loadPreferences → storage.getItem) to resolve.
+  // Wait for the first load (loadPreferences → storageGetItem) to resolve.
   await expect(prefFrame.locator('#preferences-status')).toContainText('loaded', { timeout: 10_000 });
 
   // Get a direct frame reference — CDP Runtime evaluate works in sandboxed cross-origin frames.
@@ -52,7 +52,7 @@ test('preferences round-trips display-name and theme-preference across page.relo
   await prefFrame.locator('#pref-display-name').fill(TEST_NAME);
   await prefFrame.locator('#pref-theme-preference').fill(TEST_THEME);
 
-  // Click Save via frame.evaluate — triggers storage.setItem for both keys.
+  // Click Save via frame.evaluate — triggers storageSetItem for both keys.
   await prefFrameDirect.evaluate(() => {
     (document.getElementById('preferences-save-btn') as HTMLButtonElement | null)?.click();
   });

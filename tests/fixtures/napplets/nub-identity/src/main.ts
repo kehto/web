@@ -4,8 +4,8 @@
  *
  * Layer-A spec drives this fixture via window.__loadNapplet__('nub-identity') from
  * tests/e2e/nub-identity.spec.ts. Spec asserts:
- *   - #nub-status flips to 'authenticated' then to 'pubkey:<truncated>' or 'denied:*'
- *   - #nub-pubkey contains a truncated hex pubkey OR 'no-pubkey' sentinel
+ *   - #nub-status flips to 'authenticated' then to 'pubkey:<truncated>'
+ *   - #nub-pubkey contains a truncated hex pubkey
  *   - The harness's __getNubMessage__(windowId, 'identity.getPublicKey') returns a
  *     non-null envelope after fixture init (proves the request was dispatched)
  *
@@ -30,10 +30,8 @@ function truncate(pk: string): string {
 
 async function init(): Promise<void> {
   try {
-    // First SDK call gates AUTH. Runtime fallback returns
-    // { type: 'identity.getPublicKey.error', error: 'no signer configured' } when
-    // no signer is wired in the harness — we treat that as a successful AUTH because
-    // the await rejects with the error message, proving the envelope round-tripped.
+    // First SDK call gates AUTH. The E2E harness wires a deterministic signer
+    // because @napplet/nub@0.3.0 resolves this helper through result envelopes.
     const pubkey = await identityGetPublicKey();
     statusEl.textContent = 'authenticated';
     pubkeyEl.textContent = truncate(pubkey);

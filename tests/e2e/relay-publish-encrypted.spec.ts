@@ -2,7 +2,7 @@
  * relay-publish-encrypted.spec.ts — E2E-07 (relay-publish-encrypted subset, Phase 19 NAP-03).
  *
  * Asserts the composer napplet with #composer-encrypted-toggle checked dispatches a
- * relay.publishEncrypted envelope (NIP-44 default) via @napplet/sdk. The demo has no
+ * relay.publishEncrypted envelope (NIP-44 default) via relayPublishEncrypted. The demo has no
  * default connected signer, so the runtime replies `{ ok: false, error: 'no signer
  * configured' }` and composer status becomes `'denied: no signer configured'`. If a
  * signer IS connected in the demo (e.g. future Phase 20 extension), the path resolves

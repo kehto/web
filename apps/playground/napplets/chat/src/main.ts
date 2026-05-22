@@ -1,5 +1,5 @@
 /**
- * Chat demo napplet — @napplet/sdk migration (NAP-02, Phase 18).
+ * Chat demo napplet — helper-based SDK migration (NAP-02, Phase 18).
  *
  * Exercises: ifc (ifcEmit/ifcOn for chat↔bot round-trip) + storage (history persistence).
  * Optional showcase: relay.publish for kind:1 events (D-03).

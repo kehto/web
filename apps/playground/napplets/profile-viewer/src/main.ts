@@ -1,5 +1,5 @@
 /**
- * Profile Viewer demo napplet — exercises identity.getPublicKey + identity.getProfile (NAP-07, Phase 20).
+ * Profile Viewer demo napplet — exercises identityGetPublicKey + identityGetProfile (NAP-07, Phase 20).
  *
  * Per CONTEXT D-03:
  *   - On init: identityGetPublicKey() populates #profile-pubkey (truncated to 8...4 chars)

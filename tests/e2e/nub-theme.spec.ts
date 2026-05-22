@@ -13,7 +13,7 @@
  *      but the round-trip proves the theme NUB path is wired.
  *
  * No demo server dependency. No frameLocator interactions beyond reading sentinels.
- * @napplet/sdk does NOT expose a theme namespace — fixture uses storage.get as init signal.
+ * The theme helper surface has no fixture-side AUTH probe — fixture uses storageGetItem as init signal.
  */
 import { test, expect } from '@playwright/test';
 import { aclBeforeEach, waitForNappletReady } from './helpers/index.js';

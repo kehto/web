@@ -4,7 +4,7 @@
  * Drives fixture-nub-ifc via harness driver globals at :4173.
  * Asserts:
  *   1. Fixture loads and reaches __nappletReady__ (session registered).
- *   2. The fixture's ifc.subscribe envelope was dispatched (ipc.on triggered on init).
+ *   2. The fixture's ifc.subscribe envelope was dispatched (ifcOn triggered on init).
  *   3. The fixture's #nub-status sentinel reflects 'authenticated'
  *      (ifc.subscribe.result received — proves the envelope round-tripped).
  *   4. Triggering #nub-ifc-emit-btn dispatches an ifc.emit envelope (visible via __getNubMessage__).
@@ -44,7 +44,7 @@ test('nub-ifc: ifc.subscribe envelope dispatched and fixture sentinel reaches au
   expect(envelope).not.toBeNull();
   expect((envelope as { type: string }).type).toBe('ifc.subscribe');
 
-  // Fixture sets #nub-status to 'authenticated' after ipc.on returns (ifc.subscribe.result received).
+  // Fixture sets #nub-status to 'authenticated' after ifcOn returns (ifc.subscribe.result received).
   const statusLocator = page.frameLocator(`#${windowId}`).locator('#nub-status');
   await expect(statusLocator).toContainText('authenticated', { timeout: 8_000 });
 

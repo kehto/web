@@ -3,7 +3,7 @@
  *
  * The media-controller napplet (Plan 27-03) creates a media session via the
  * @napplet/nub/media helpers: `mediaCreateSession(...)` + `mediaReportState(...)`
- * + `mediaOnCommand(...)`. The SDK internally routes the shell's
+ * + `mediaOnCommand(...)`. The helper internally routes the shell's
  * `media.session.create.result` envelope (Plan 27-01 preserves that wire shape)
  * and the `media.command` push (Plan 27-01 emits this on every matching
  * navigator.mediaSession setActionHandler fire) to the napplet callback.
@@ -18,18 +18,18 @@
  *
  *   Napplet boot:
  *     media-controller main.ts calls `await mediaCreateSession({ title, artist, mediaType })`
- *     → SDK sends media.session.create envelope
+ *     → helper sends media.session.create envelope
  *     → shell routes to media-service.handleMessage (Plan 27-01)
  *     → service stores sessionRegistry[sessionId] = { windowId, metadata, ... }
  *     → service calls bridge.setMetadata(sessionId, metadata) → mirrors to navigator.mediaSession.metadata
  *     → service calls bridge.setActiveSession(sessionId) → primes silent-audio + installs setActionHandlers
  *     → service sends media.session.create.result back
- *     → SDK resolves the mediaCreateSession Promise
+ *     → helper resolves the mediaCreateSession Promise
  *     → napplet status transitions 'authenticated' → 'session-ready'
  *
  *   Play button click:
  *     → napplet onclick fires → mediaReportState(sessionId, { status: 'playing' })
- *     → SDK sends media.state envelope
+ *     → helper sends media.state envelope
  *     → shell routes to media-service.handleMessage (Plan 27-01)
  *     → service calls bridge.setPlaybackState(sessionId, 'playing')
  *     → bridge writes navigator.mediaSession.playbackState = 'playing'
@@ -81,9 +81,9 @@ test('media-controller napplet drives navigator.mediaSession via real media back
   const mediaFrame = page.frameLocator('#media-controller-frame-container iframe');
 
   // Step 1: wait for napplet AUTH handshake + mediaCreateSession round-trip.
-  // The init pattern + SDK's `await mediaCreateSession(...)` means status
+  // The init pattern + `await mediaCreateSession(...)` means status
   // transitions 'connecting...' → 'authenticated' → 'session-ready'. We accept
-  // 'session-ready' as evidence that the SDK resolved the mediaCreateSession
+  // 'session-ready' as evidence that the helper resolved the mediaCreateSession
   // Promise (the real backend registered the session AND mirrored metadata to
   // navigator.mediaSession).
   await expect(mediaFrame.locator('#media-controller-status')).toContainText('session-ready', { timeout: 15_000 });

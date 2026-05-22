@@ -1,9 +1,9 @@
 /**
  * hotkey-chord.spec.ts — E2E-12 (Phase 26 real keys backend).
  *
- * The hotkey-chord napplet (Plan 26-03) subscribes to Ctrl+Shift+K via the
- * @napplet/sdk `keys` namespace: `keys.registerAction(...)` + `keys.onAction(...)`.
- * The SDK internally routes the shell's `keys.registerAction.result` envelope
+ * The hotkey-chord napplet (Plan 26-03) subscribes to Ctrl+Shift+K via
+ * `keysRegisterAction(...)` + `keysOnAction(...)`.
+ * The helper internally routes the shell's `keys.registerAction.result` envelope
  * (Plan 26-01 preserves that wire shape) and the `keys.action` push (Plan 26-01
  * emits this on every matching document keydown) to the napplet callback.
  *
@@ -14,12 +14,12 @@
  * The full loop under test:
  *
  *   Napplet boot:
- *     hotkey-chord main.ts calls `await keys.registerAction({ defaultKey: 'Ctrl+Shift+K' })`
- *     → SDK generates correlation ID + sends keys.registerAction envelope
+ *     hotkey-chord main.ts calls `await keysRegisterAction({ defaultKey: 'Ctrl+Shift+K' })`
+ *     → helper generates correlation ID + sends keys.registerAction envelope
  *     → shell routes to keys-service.handleMessage (Plan 26-01)
  *     → service stores actionRegistry[actionId] = { chord, windowId } + captures send handle
  *     → service sends keys.registerAction.result back
- *     → SDK resolves the registerAction Promise
+ *     → helper resolves the registerAction Promise
  *     → napplet status transitions 'authenticated' → 'subscribed'
  *
  *   Playwright keyboard.press('Control+Shift+KeyK'):
@@ -27,7 +27,7 @@
  *     → keys-service document listener fires (Plan 26-01)
  *     → options.onForward callback fires on the host side (demo logs real-backend evidence)
  *     → service emits `keys.action` envelope to the hotkey-chord napplet (Plan 26-01)
- *     → SDK's internal message listener routes keys.action → the onAction callback for
+ *     → helper listener routes keys.action → the onAction callback for
  *       'hotkey-chord.demo' → napplet updates #hotkey-chord-count + #hotkey-chord-last
  *
  * Serial mode prevents postMessage timing interference across worker lifetimes.
@@ -35,7 +35,7 @@
  * Capability gate: keys-forwarder.ts (Plan 12-11) ALSO broadcasts a keys.forward
  * envelope to every napplet granted keys:forward — that path is disjoint from
  * keys.action (which targets the specific owning napplet). The hotkey-chord
- * napplet only consumes keys.action via SDK onAction, so the keys:forward
+ * napplet only consumes keys.action via the helper callback, so the keys:forward
  * capability on the hotkey-chord napplet is not strictly required for THIS
  * spec's DOM assertions. However, other napplets might have keys:forward and
  * consume keys.forward independently — granting it here keeps the demo in a
@@ -75,9 +75,9 @@ test('hotkey-chord napplet receives Ctrl+Shift+K via real keys backend and incre
   const hotkeyFrame = page.frameLocator('#hotkey-chord-frame-container iframe');
 
   // Step 1: wait for napplet AUTH handshake + keys.registerAction round-trip.
-  // The init pattern + SDK's `await keys.registerAction(...)` means status
+  // The init pattern + `await keysRegisterAction(...)` means status
   // transitions 'connecting...' → 'authenticated' → 'subscribed'. We accept
-  // 'subscribed' as evidence that the SDK resolved the registerAction Promise
+  // 'subscribed' as evidence that the helper resolved the registerAction Promise
   // (the real backend registered the chord AND captured the per-window send handle).
   await expect(hotkeyFrame.locator('#hotkey-chord-status')).toContainText('subscribed', { timeout: 15_000 });
 
@@ -102,7 +102,7 @@ test('hotkey-chord napplet receives Ctrl+Shift+K via real keys backend and incre
   await page.keyboard.press('Control+Shift+KeyK');
 
   // Step 5: assert counter increments to '1' (proves keys.action envelope delivered
-  // via SDK's keys.onAction callback).
+  // via the keysOnAction callback).
   await expect(hotkeyFrame.locator('#hotkey-chord-count')).toHaveText('1', { timeout: 5_000 });
 
   // Step 6: assert #hotkey-chord-last text includes 'Ctrl+Shift+K' — proves the

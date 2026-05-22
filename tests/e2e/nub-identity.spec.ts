@@ -5,11 +5,10 @@
  * Asserts:
  *   1. Fixture loads and reaches __nappletReady__ (AUTH handshake completes).
  *   2. The fixture's identity.getPublicKey envelope was dispatched (visible via __getNubMessage__).
- *   3. The fixture's #nub-status sentinel reflects either the success path
- *      ('pubkey:<truncated>') OR the denial path ('denied:no signer configured').
- *      Both prove the envelope round-tripped — the harness's mockHooks.auth.getSigner()
- *      returns null by default so the runtime fallback (packages/runtime/src/runtime.ts:720)
- *      emits identity.getPublicKey.error.
+ *   3. The fixture's #nub-status sentinel reflects the success path
+ *      ('pubkey:<truncated>'). The test installs a deterministic mock signer first
+ *      because @napplet/nub@0.3.0's identityGetPublicKey() helper resolves
+ *      identity.getPublicKey.result, not the runtime fallback error envelope.
  *
  * No demo server dependency. No frameLocator interactions beyond reading the iframe sentinel.
  */
@@ -19,6 +18,7 @@ import { aclBeforeEach, waitForNappletReady } from './helpers/index.js';
 test.describe.configure({ mode: 'serial' });
 
 const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]/;
+const TEST_PUBKEY = '1'.repeat(64);
 
 test('nub-identity: getPublicKey envelope dispatched and fixture sentinel updates', async ({ page }) => {
   test.setTimeout(30_000);
@@ -28,6 +28,11 @@ test('nub-identity: getPublicKey envelope dispatched and fixture sentinel update
   page.on('pageerror', (e) => pageErrors.push(e.message));
 
   await aclBeforeEach(page);
+  await page.evaluate((pubkey) => {
+    window.__setSigner__({
+      getPublicKey: () => pubkey,
+    });
+  }, TEST_PUBKEY);
 
   const windowId = await page.evaluate(() => window.__loadNapplet__('nub-identity'));
   await waitForNappletReady(page, windowId);
@@ -50,7 +55,7 @@ test('nub-identity: getPublicKey envelope dispatched and fixture sentinel update
   // Use expect().toContainText() for built-in retry until the sentinel updates
   // (identity round-trip may take a few ms after envelope dispatch).
   const statusLocator = page.frameLocator(`#${windowId}`).locator('#nub-status');
-  await expect(statusLocator).toContainText(/^(pubkey:|denied:)/, { timeout: 8_000 });
+  await expect(statusLocator).toContainText('pubkey:11111111...1111', { timeout: 8_000 });
 
   expect(consoleMessages.filter((m) => ANTI_TERM_RE.test(m))).toHaveLength(0);
   expect(pageErrors.filter((m) => ANTI_TERM_RE.test(m))).toHaveLength(0);

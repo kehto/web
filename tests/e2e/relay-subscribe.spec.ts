@@ -1,7 +1,7 @@
 /**
  * relay-subscribe.spec.ts — E2E-07 (relay-subscribe subset, Phase 20 NAP-06).
  *
- * The feed napplet subscribes via sdk.relay.subscribe({ kinds:[1], limit:5 }); the
+ * The feed napplet subscribes via relaySubscribe({ kinds:[1], limit:5 }); the
  * demo's in-memory mock relay pool (Plan 20-01) emits 5 fixture kind:1 events then EOSE.
  * This spec asserts the full subscribe → receive → render pipeline end-to-end.
  *
@@ -14,7 +14,7 @@
  *
  * The first fixture content string "Welcome to the kehto demo!" (Plan 20-01 FIXTURE_EVENTS[0])
  * is used as a partial-match sentinel — its presence in #feed-list proves fixture delivery via
- * the SDK relay.subscribe path (not a placeholder or empty list).
+ * the relaySubscribe helper path (not a placeholder or empty list).
  *
  * Serial mode prevents postMessage timing interference when multiple napplet specs run in the
  * same Playwright worker. Button clicks, if any, use frame.evaluate() rather than
@@ -40,7 +40,7 @@ test('feed napplet subscribes and renders 5 fixture events from mock relay pool'
   const feedFrame = page.frameLocator('#feed-frame-container iframe');
 
   // Step 1: wait for feed napplet init to complete. The feed napplet sets
-  // 'authenticated' then immediately calls relay.subscribe() which sets 'subscribed' in
+  // 'authenticated' then immediately calls relaySubscribe() which sets 'subscribed' in
   // the same synchronous tick — Playwright may see 'subscribed' or 'loaded' instead of
   // 'authenticated'. Accept any valid post-auth state as evidence that AUTH completed.
   await expect(feedFrame.locator('#feed-status')).toContainText(

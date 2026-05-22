@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Napplet SDK Migration
-status: executing
-last_updated: "2026-05-22T09:52:20.080Z"
+status: completed
+last_updated: "2026-05-22T12:03:14+02:00"
 last_activity: 2026-05-22
 progress:
   total_phases: 3
-  completed_phases: 2
-  total_plans: 2
-  completed_plans: 2
-  percent: 67
+  completed_phases: 3
+  total_plans: 3
+  completed_plans: 3
+  percent: 100
 ---
 
 # Project State
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-22, v1.9 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 49 — Migration Guard + Full Verification.
+**Current focus:** v1.9 complete — ready for milestone audit and archive.
 
 ## Current Position
 
-Phase: 49 — Migration Guard + Full Verification
-Plan: —
-Status: Ready to plan
-Last activity: 2026-05-22 — Phase 48 function-export migration verified
+Phase: v1.9 complete
+Plan: 49-01 complete
+Status: Verified; ready for milestone closeout
+Last activity: 2026-05-22 — Phase 49 guard/full verification passed
 
 ## Accumulated Context
 
@@ -49,12 +49,13 @@ Full decision log (v1.0 → v1.8) archived in `.planning/PROJECT.md` Key Decisio
 - Scope boundary: `decrypt-demo` is excluded from the 18-package SDK migration because it does not depend on `@napplet/sdk`; RENAME-02 hard removal is deferred as a future requirement unless explicitly added.
 - Phase 47 completed 2026-05-22: all 18 target manifests now declare exact `@napplet/sdk`, `@napplet/shim`, `@napplet/vite-plugin`, and explicit `@napplet/nub` at `0.3.0`; IFC/storage call sites use direct helper imports; six affected napplet builds pass.
 - Phase 48 completed 2026-05-22: active demo/fixture source has no `@napplet/sdk` imports; relay, identity, keys, notify, config, and media use direct helpers; toaster/resource retained raw exceptions documented as `NOTIFY-SDK-GAP` and `RESOURCE-SDK-GAP`.
+- Phase 49 completed 2026-05-22: migration guard added to `pnpm test:unit`; active lockfile graph has 18 clean importers and zero old SDK graph offenders; `pnpm type-check`, `pnpm test:unit`, and `pnpm test:e2e` pass with Playwright at 86/86.
 
 ## Session Continuity
 
-Last session: 2026-05-22T11:52:20+02:00
-Resume: Phase 48 is complete and verified. Next: plan Phase 49.
+Last session: 2026-05-22T12:03:14+02:00
+Resume: v1.9 requirements are complete and verified. Next: milestone audit/archive.
 
 ## Operator Next Steps
 
-- Start Phase 49 with `/gsd-plan-phase 49`
+- Run v1.9 milestone audit and archive.

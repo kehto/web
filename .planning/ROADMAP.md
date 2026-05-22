@@ -11,6 +11,7 @@
 - [x] **v1.6: Downstream Unblock & Shell Service Surface** — 5 phases (32–36), 12 plans, 21 requirements, 54 E2E specs green ([archive](milestones/v1.6-ROADMAP.md) | [audit](milestones/v1.6-MILESTONE-AUDIT.md))
 - [x] **v1.7: NIP-5D Spec Adoption & New NUB Domains** — 5 phases (37–41), 17 plans, 41/41 requirements, 72 E2E specs green ([archive](milestones/v1.7-ROADMAP.md) | [audit](milestones/v1.7-MILESTONE-AUDIT.md))
 - [x] **v1.8: Upstream Alignment & NIP-44 Decrypt** — 5 phases (42–46), 9 plans, 27/27 requirements, 86 E2E specs green ([archive](milestones/v1.8-ROADMAP.md) | [audit](milestones/v1.8-MILESTONE-AUDIT.md))
+- [x] **v1.9: Napplet SDK Migration** — 3 phases (47–49), 3 plans, 12/12 requirements, 86 E2E specs green
 
 ---
 
@@ -28,7 +29,7 @@
 
 - [x] **Phase 47: SDK 0.3 Package Graph + IFC/Storage Migration** — Bump the 18 SDK-bearing packages to the 0.3 package line, migrate the low-level IFC/storage namespaces, and establish the exact dependency policy before wider demo rewrites.
 - [x] **Phase 48: Demo Function-Export Migration** — Rewrite relay, identity, keys, notify, config, media, and resource demo call sites to direct helper functions, including special-case documentation where root SDK function names are collision-prone.
-- [ ] **Phase 49: Migration Guard + Full Verification** — Remove stale namespace teaching, add a guard against regressions, verify the lockfile no longer resolves old SDK/split-nub paths for active demo/fixture packages, and close the full build/unit/E2E loop.
+- [x] **Phase 49: Migration Guard + Full Verification** — Remove stale namespace teaching, add a guard against regressions, verify the lockfile no longer resolves old SDK/split-nub paths for active demo/fixture packages, and close the full build/unit/E2E loop.
 
 ---
 
@@ -70,7 +71,7 @@
   3. `pnpm build`, `pnpm type-check`, `pnpm test:unit`, and `pnpm test:e2e` pass; Playwright remains at 86 passed / 0 failed / 0 skipped unless the phase summary documents intentional new coverage.
   4. Fixture README, package comments, and E2E spec descriptions teach the 0.3 helper-function pattern rather than the old namespace import pattern.
   5. `.planning/REQUIREMENTS.md` traceability remains 12/12 mapped with zero uncovered v1 requirements.
-**Plans**: TBD
+**Plans**: 49-01 (complete)
 
 ---
 
@@ -80,8 +81,8 @@
 |-------|----------------|--------|-----------|
 | 47. SDK 0.3 Package Graph + IFC/Storage Migration | 1/1 | Complete | 2026-05-22 |
 | 48. Demo Function-Export Migration | 1/1 | Complete | 2026-05-22 |
-| 49. Migration Guard + Full Verification | 0/0 | Not Started | — |
+| 49. Migration Guard + Full Verification | 1/1 | Complete | 2026-05-22 |
 
 ---
 
-*ROADMAP.md last updated: 2026-05-22 — Phase 48 verified.*
+*ROADMAP.md last updated: 2026-05-22 — Phase 49 verified; v1.9 requirements complete.*

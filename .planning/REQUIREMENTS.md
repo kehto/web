@@ -15,7 +15,7 @@
 
 - [x] **SDK-01**: All 18 SDK-bearing demo/fixture package manifests replace `@napplet/sdk: ^0.2.1` with exact `@napplet/sdk: 0.3.0`
 - [x] **SDK-02**: The same 18 package manifests align companion `@napplet/shim` and `@napplet/vite-plugin` entries to `0.3.0` where those companions are declared, unless a verified incompatibility is documented in the phase summary
-- [ ] **SDK-03**: The root lockfile resolves the active demo/fixture graph without `@napplet/sdk@0.2.1` or legacy split-form `@napplet/nub-*` packages pulled only by the old SDK
+- [x] **SDK-03**: The root lockfile resolves the active demo/fixture graph without `@napplet/sdk@0.2.1` or legacy split-form `@napplet/nub-*` packages pulled only by the old SDK
 
 ### Function exports
 
@@ -27,10 +27,10 @@
 
 ### Verification
 
-- [ ] **GUARD-01**: A static guard or test prevents reintroducing namespace imports from `@napplet/sdk` in the 18 migrated packages
-- [ ] **E2E-29**: All migrated napplet packages build successfully through the existing workspace build pipeline
-- [ ] **E2E-30**: The affected Layer-A/Layer-B specs and full Playwright suite preserve the v1.8 close baseline of 86 passed / 0 failed / 0 skipped, or explicitly document any intentional test count increase
-- [ ] **DOCS-08**: Comments, fixture README prose, and E2E spec descriptions no longer teach the old `ipc`, `storage`, `relay`, `identity`, `keys`, `config`, or `notify` namespace style as the current SDK pattern
+- [x] **GUARD-01**: A static guard or test prevents reintroducing namespace imports from `@napplet/sdk` in the 18 migrated packages
+- [x] **E2E-29**: All migrated napplet packages build successfully through the existing workspace build pipeline
+- [x] **E2E-30**: The affected Layer-A/Layer-B specs and full Playwright suite preserve the v1.8 close baseline of 86 passed / 0 failed / 0 skipped, or explicitly document any intentional test count increase
+- [x] **DOCS-08**: Comments, fixture README prose, and E2E spec descriptions no longer teach the old `ipc`, `storage`, `relay`, `identity`, `keys`, `config`, or `notify` namespace style as the current SDK pattern
 
 ## Future Requirements
 
@@ -73,11 +73,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FUNC-03 | Phase 48 | Complete |
 | FUNC-04 | Phase 48 | Complete |
 | FUNC-05 | Phase 48 | Complete |
-| SDK-03 | Phase 49 | Pending |
-| GUARD-01 | Phase 49 | Pending |
-| E2E-29 | Phase 49 | Pending |
-| E2E-30 | Phase 49 | Pending |
-| DOCS-08 | Phase 49 | Pending |
+| SDK-03 | Phase 49 | Complete |
+| GUARD-01 | Phase 49 | Complete |
+| E2E-29 | Phase 49 | Complete |
+| E2E-30 | Phase 49 | Complete |
+| DOCS-08 | Phase 49 | Complete |
 
 **Coverage:**
 - v1 requirements: 12 total
@@ -86,4 +86,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-05-22*
-*Last updated: 2026-05-22 after Phase 48 verification*
+*Last updated: 2026-05-22 after Phase 49 verification*

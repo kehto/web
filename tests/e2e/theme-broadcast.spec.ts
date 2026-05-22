@@ -44,7 +44,7 @@ test('clicking theme-switcher dark button propagates theme.changed to preference
 
   // Step 1: wait for BOTH napplets to reach 'authenticated' state.
   await expect(themeFrame.locator('#theme-status')).toContainText('authenticated', { timeout: 10_000 });
-  // preferences reaches 'loaded' after storage.getItem completes (Phase 19 behavior).
+  // preferences reaches 'loaded' after storageGetItem completes (Phase 19 behavior).
   await expect(prefFrame.locator('#preferences-status')).toContainText(/^(loaded|denied:)/, { timeout: 10_000 });
 
   // Step 2: get a direct frame reference to theme-switcher for button click.

@@ -46,7 +46,7 @@ test('reserved chord Ctrl+Shift+R fires shell onForward and suppresses napplet k
   // Step 1: wait for the hotkey-chord napplet to be fully subscribed. Its
   // DEFAULT_KEY is 'Ctrl+Shift+K' (apps/playground/napplets/hotkey-chord/src/main.ts:25)
   // which is NOT in the shell's reservedChords set (33-02 declares
-  // ['Ctrl+Shift+R'] only). The 'subscribed' sentinel proves the SDK's
+  // ['Ctrl+Shift+R'] only). The 'subscribed' sentinel proves the helper's
   // registerAction round-trip completed against the real backend.
   await expect(hotkeyFrame.locator('#hotkey-chord-status')).toContainText('subscribed', { timeout: 15_000 });
 

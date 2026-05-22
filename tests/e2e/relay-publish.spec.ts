@@ -6,13 +6,13 @@
  * to prevent postMessage timing interference that occurs when both composer-frame
  * interaction tests run in parallel across separate browser contexts.
  *
- * Test 1 (plain): the composer napplet dispatches a relay.publish envelope via @napplet/sdk.
+ * Test 1 (plain): the composer napplet dispatches a relay.publish envelope via relayPublish.
  * The demo's relay pool is stubbed (no real network publish) — the assertion is that the
  * envelope REACHES the shell (visible in napplet-debugger) and the composer's status
  * transitions away from 'authenticated' to either 'published:*' or 'denied:*'.
  *
  * Test 2 (encrypted): the composer napplet with #composer-encrypted-toggle checked dispatches
- * a relay.publishEncrypted envelope (NIP-44 default) via @napplet/sdk. The demo has no
+ * a relay.publishEncrypted envelope (NIP-44 default) via relayPublishEncrypted. The demo has no
  * default connected signer, so the runtime replies { ok: false, error: 'no signer configured' }
  * and composer status becomes 'denied: no signer configured'. Either outcome proves the
  * envelope reached the shell.

@@ -2,7 +2,7 @@
  * napplet-auth.spec.ts — E2E-07 (napplet-auth subset, Phase 18 NAP-01 + NAP-02).
  *
  * Asserts both demo napplets (chat + bot) reach the positive 'authenticated'
- * status marker established by the @napplet/sdk migration. Before Phase 18,
+ * status marker established by the helper-based SDK migration. Before Phase 18,
  * napplets used legacy NIP-01 arrays; the v1.2 shell bridge silently dropped
  * them and #chat-status stayed at 'connecting...' indefinitely. This spec is
  * the regression net for the SDK migration contract (shim AUTHENTICATED bootstrap).

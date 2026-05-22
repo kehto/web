@@ -19,9 +19,8 @@
  *   - On receipt: sets document.body.style.backgroundColor to theme.colors.background AND
  *     sets #preferences-theme-applied textContent to that color hex.
  *
- * SDK gap notice (D-USER-02): @napplet/sdk does NOT expose theme.on / theme.subscribe (verified
- * against /home/sandwich/Develop/napplet/packages/sdk/src/index.ts — only type re-exports for
- * theme NUB messages). The single message listener registered below is the explicit,
+ * THEME-SDK-GAP (D-USER-02): the published helper surface does not expose
+ * theme.on / theme.subscribe. The single message listener registered below is the explicit,
  * narrowly-scoped deviation from the v1.3 anti-feature ban — paralleling Plan 19-03's toaster
  * precedent. Plan 20-07's anti-term grep MUST exempt this one message listener for preferences.
  */
@@ -117,7 +116,7 @@ init().catch((err) => {
 /**
  * THE ONLY raw window message listener in this napplet (D-USER-02, Plan 20 explicit deviation).
  *
- * Justified because @napplet/sdk does not expose theme.on / theme.subscribe (verified). This handler:
+ * Justified because the helper surface does not expose theme.on / theme.subscribe. This handler:
  *   - Guards on event.source === window.parent (drop messages from other origins)
  *   - Guards on event.data being a plain object with type === 'theme.changed'
  *   - Reads theme.colors.background (string) and applies it to document.body.style.backgroundColor

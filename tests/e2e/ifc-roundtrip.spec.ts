@@ -1,17 +1,17 @@
 /**
  * ifc-roundtrip.spec.ts — E2E-07 (ifc-roundtrip subset, Phase 18 NAP-01 + NAP-02).
  *
- * Asserts the chat→bot→chat envelope round trip via the @napplet/sdk ipc API:
+ * Asserts the chat→bot→chat envelope round trip via direct IFC helpers:
  *   1. User types "hello" in chat and clicks send.
- *   2. Chat napplet calls ipc.emit('chat:message', [], JSON.stringify({text, timestamp})).
- *   3. Shell routes the IPC_PEER envelope to bot's ipc.on('chat:message', handler).
+ *   2. Chat napplet calls ifcEmit('chat:message', [], JSON.stringify({text, timestamp})).
+ *   3. Shell routes the IFC envelope to bot's ifcOn('chat:message', handler).
  *   4. Bot's findResponse("hello") returns "hey there!".
- *   5. Bot calls ipc.emit('bot:response', [], JSON.stringify({text: "hey there!", timestamp})).
- *   6. Shell routes the envelope back to chat's ipc.on('bot:response', handler).
+ *   5. Bot calls ifcEmit('bot:response', [], JSON.stringify({text: "hey there!", timestamp})).
+ *   6. Shell routes the envelope back to chat's ifcOn('bot:response', handler).
  *   7. Chat renders "[bot] hey there!" into #messages.
  *
  * Failure modes covered:
- * - SDK regression (ipc.emit/on not exported correctly) → step 2 or 6 fails.
+ * - Helper regression (ifcEmit/ifcOn not exported correctly) → step 2 or 6 fails.
  * - Shell IFC routing regression → step 3 or 6 fails (no envelope delivery).
  * - Chat or bot DOM contract drift → step 1 or 7 fails (wrong selectors).
  */
@@ -23,7 +23,7 @@ test.describe.configure({ mode: 'serial' });
 
 const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]/;
 
-test('chat input triggers ipc envelope; bot reply appears in chat messages', async ({ page }) => {
+test('chat input triggers ifc envelope; bot reply appears in chat messages', async ({ page }) => {
   const consoleMessages: string[] = [];
   page.on('console', (msg) => consoleMessages.push(msg.text()));
   const pageErrors: string[] = [];
@@ -43,7 +43,7 @@ test('chat input triggers ipc envelope; bot reply appears in chat messages', asy
   await chatFrame.locator('#msg-input').fill('hello');
   await chatFrame.locator('#send-btn').click();
 
-  // Bot reply arrives via ipc.on('bot:response') and is rendered as "[bot] <text>".
+  // Bot reply arrives via ifcOn('bot:response') and is rendered as "[bot] <text>".
   // Chat renders it inside #messages with class .msg-other.
   const messages = chatFrame.locator('#messages');
   await expect(messages).toContainText('[bot]', { timeout: 8_000 });

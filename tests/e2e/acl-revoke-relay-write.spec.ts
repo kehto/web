@@ -54,7 +54,7 @@ test('revoking relay:write on composer denies next publish (denial visible in st
 
   // Phase 1 (control): publish should NOT be in the explicit-denial path.
   // The demo's stub relay pool returns accepted:false but with `message: 'no relay pool available'`
-  // (no `error`), so the SDK resolves and composer status becomes 'published: unknown'.
+  // (no `error`), so relayPublish resolves and composer status becomes 'published: unknown'.
   // We DO NOT assert the success outcome strictly — just that we're not already denied.
   await composerFrame.locator('#composer-input').fill('phase 1 control publish');
   await composerFrameDirect.evaluate(() => {

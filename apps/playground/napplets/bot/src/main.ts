@@ -1,5 +1,5 @@
 /**
- * Bot demo napplet — @napplet/sdk migration (NAP-01, Phase 18).
+ * Bot demo napplet — helper-based SDK migration (NAP-01, Phase 18).
  *
  * Exercises: ifc (subscribe + emit), storage (rules persistence).
  *

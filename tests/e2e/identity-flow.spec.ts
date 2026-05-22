@@ -1,7 +1,7 @@
 /**
  * identity-flow.spec.ts — E2E-07 (identity-flow subset, Phase 20 NAP-07).
  *
- * Profile-viewer calls sdk.identity.getPublicKey + sdk.identity.getProfile on init;
+ * Profile-viewer calls identityGetPublicKey + identityGetProfile on init;
  * this spec asserts the envelope reached the shell (visible in debugger as 'identity.getPublicKey')
  * and the DOM contract was updated.
  *

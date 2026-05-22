@@ -3,7 +3,7 @@
  *
  * Drives fixture-nub-notify via harness globals.
  * Runtime fallback (packages/runtime/src/runtime.ts:1011) emits notify.send.result
- * even without a registered 'notify' service — fixture's await notify.send(...) resolves.
+ * even without a registered 'notify' service — fixture's await notifySend(...) resolves.
  *
  * Asserts:
  *   1. notify.send envelope dispatched (__getNubMessage__).
