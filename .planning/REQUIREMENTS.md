@@ -19,16 +19,16 @@
 
 ### Contract authority and stale-spec repair
 
-- [ ] **CONTRACT-01**: Repo-local NIP-5D contract content is written or updated from only the pinned NIP-5D source URL above, with the pinned commit/source recorded in the document.
-- [ ] **CONTRACT-02**: The repo-local contract captures the active NIP-5D primitives: opaque-origin `sandbox="allow-scripts"`, `postMessage(..., '*')`, JSON object envelopes with `type`, `MessageEvent.source` identity binding, NIP-5A `(dTag, aggregateHash)` identity, manifest `requires`, shell-derived `supports()`, and no napplet-visible `window.nostr`.
-- [ ] **CONTRACT-03**: `RUNTIME-SPEC.md` no longer describes AUTH/REGISTER/NIP-01 identity negotiation as the active NIP-5D model; it is either replaced by the current contract or clearly reframed as historical/internal drift.
-- [ ] **CONTRACT-04**: `napplet/specs/NIP-5D.md` is repaired, replaced, or marked non-authoritative so extra residual content is not presented as pinned NIP-5D.
-- [ ] **CONTRACT-05**: Unknown `type` behavior is documented: unrecognized NIP-5D envelope types are silently ignored, and any NUB-specific errors are allowed only where the relevant NUB contract defines them.
+- [x] **CONTRACT-01**: Repo-local NIP-5D contract content is written or updated from only the pinned NIP-5D source URL above, with the pinned commit/source recorded in the document.
+- [x] **CONTRACT-02**: The repo-local contract captures the active NIP-5D primitives: opaque-origin `sandbox="allow-scripts"`, `postMessage(..., '*')`, JSON object envelopes with `type`, `MessageEvent.source` identity binding, NIP-5A `(dTag, aggregateHash)` identity, manifest `requires`, shell-derived `supports()`, and no napplet-visible `window.nostr`.
+- [x] **CONTRACT-03**: `RUNTIME-SPEC.md` no longer describes AUTH/REGISTER/NIP-01 identity negotiation as the active NIP-5D model; it is either replaced by the current contract or clearly reframed as historical/internal drift.
+- [x] **CONTRACT-04**: `napplet/specs/NIP-5D.md` is repaired, replaced, or marked non-authoritative so extra residual content is not presented as pinned NIP-5D.
+- [x] **CONTRACT-05**: Unknown `type` behavior is documented: unrecognized NIP-5D envelope types are silently ignored, and any NUB-specific errors are allowed only where the relevant NUB contract defines them.
 
 ### Source-of-truth package wiring
 
-- [ ] **SOURCE-01**: The playground consumes the local package sources being changed for protocol behavior (`@napplet/core`, `@napplet/shim`, `@napplet/nub`, and `@napplet/vite-plugin` as applicable) rather than stale published `@napplet/*@0.3.0` packages.
-- [ ] **SOURCE-02**: Package graph checks fail if a playground napplet resolves a protocol package from the published store when the repo-local source is the intended milestone target.
+- [x] **SOURCE-01**: The playground consumes the local package sources being changed for protocol behavior (`@napplet/core`, `@napplet/shim`, `@napplet/nub`, and `@napplet/vite-plugin` as applicable) rather than stale published `@napplet/*@0.3.0` packages.
+- [x] **SOURCE-02**: Package graph checks fail if a playground napplet resolves a protocol package from the published store when the repo-local source is the intended milestone target.
 
 ### Shell capabilities and hosted supports()
 
@@ -47,7 +47,7 @@
 
 ### NUB extension and raw-envelope boundaries
 
-- [ ] **EXT-01**: `connect`, `class`, `nostrdb`, `identity.decrypt`, and `relay.publishEncrypted` are each documented as an official Kehto-supported NUB extension or as out-of-scope/non-conformant for the active NIP-5D playground contract.
+- [x] **EXT-01**: `connect`, `class`, `nostrdb`, `identity.decrypt`, and `relay.publishEncrypted` are each documented as an official Kehto-supported NUB extension or as out-of-scope/non-conformant for the active NIP-5D playground contract.
 - [ ] **EXT-02**: `connect` and `class` are advertised by `supports()` only if this milestone classifies them as active NUB capabilities and backs them with shell behavior.
 - [ ] **EXT-03**: `identity.decrypt` and `relay.publishEncrypted` are documented as NUB-mediated shell operations with cleartext/key-material boundaries, or removed from the conformance path.
 - [ ] **RAW-01**: Raw demo envelopes (`demo.publishTheme`, `demo.decrypt.fixtures`, raw `notify.create`/`notify.list`, raw `resource.bytes`, and raw `theme.changed` listeners) are removed, replaced with SDK/NUB helpers, or explicitly classified as demo/test-only exceptions.
@@ -128,14 +128,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CONTRACT-01 | Phase 56 | Pending |
-| CONTRACT-02 | Phase 56 | Pending |
-| CONTRACT-03 | Phase 56 | Pending |
-| CONTRACT-04 | Phase 56 | Pending |
-| CONTRACT-05 | Phase 56 | Pending |
-| SOURCE-01 | Phase 56 | Pending |
-| SOURCE-02 | Phase 56 | Pending |
-| EXT-01 | Phase 56 | Pending |
+| CONTRACT-01 | Phase 56 | Completed |
+| CONTRACT-02 | Phase 56 | Completed |
+| CONTRACT-03 | Phase 56 | Completed |
+| CONTRACT-04 | Phase 56 | Completed |
+| CONTRACT-05 | Phase 56 | Completed |
+| SOURCE-01 | Phase 56 | Completed |
+| SOURCE-02 | Phase 56 | Completed |
+| EXT-01 | Phase 56 | Completed |
 | SUPPORTS-01 | Phase 57 | Pending |
 | SUPPORTS-02 | Phase 57 | Pending |
 | SUPPORTS-03 | Phase 57 | Pending |
@@ -170,4 +170,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-05-22*
-*Last updated: 2026-05-22 after v1.12 milestone initialization*
+*Last updated: 2026-05-22 after Phase 56 completion*

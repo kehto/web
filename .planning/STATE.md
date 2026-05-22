@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.12
 milestone_name: NIP-5D Contract Conformance
-status: planning
-last_updated: "2026-05-22T16:41:58.466Z"
-last_activity: 2026-05-22 — v1.12 initialized with requirements and roadmap
+status: executing
+last_updated: "2026-05-22T17:03:59.327Z"
+last_activity: 2026-05-22 -- Phase 56 marked complete
 progress:
   total_phases: 4
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 25
 ---
 
 # Project State
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-22, v1.12 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Pinned NIP-5D contract conformance across shell, shared napplet runtime/shim surface, and all playground napplets.
+**Current focus:** Phase 57 — Shell Capability Negotiation and Requires Enforcement
 
 ## Current Position
 
-Phase: 56 (not started)
+Phase: 57 (not started)
 Plan: —
-Status: Requirements and roadmap defined; ready for phase planning
-Last activity: 2026-05-22 — Milestone v1.12 initialized
+Status: Phase 56 complete; ready for Phase 57
+Last activity: 2026-05-22 -- Phase 56 completed with contract/source baseline verification
 
 ## Accumulated Context
 

@@ -30,6 +30,10 @@
   },
   "pnpm": {
     "overrides": {
+      "@napplet/core": "link:napplet/packages/core",
+      "@napplet/nub": "link:napplet/packages/nub",
+      "@napplet/sdk": "link:napplet/packages/sdk",
+      "@napplet/shim": "link:napplet/packages/shim",
       "@napplet/vite-plugin": "link:napplet/packages/vite-plugin"
     }
   },

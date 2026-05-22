@@ -1,5 +1,6 @@
 packages:
   - packages/*
+  - napplet/packages/*
   - apps/*
   - apps/playground/napplets/*
   - tests/fixtures/napplets/*

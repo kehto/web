@@ -5,6 +5,10 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  '@napplet/core': link:napplet/packages/core
+  '@napplet/nub': link:napplet/packages/nub
+  '@napplet/sdk': link:napplet/packages/sdk
+  '@napplet/shim': link:napplet/packages/shim
   '@napplet/vite-plugin': link:napplet/packages/vite-plugin
 
 importers:
@@ -13,13 +17,13 @@ importers:
     devDependencies:
       '@changesets/cli':
         specifier: ^2.30.0
-        version: 2.30.0
+        version: 2.30.0(@types/node@22.19.19)
       '@playwright/test':
         specifier: ^1.54.0
         version: 1.59.1
       '@vitest/coverage-v8':
         specifier: ^4.1.2
-        version: 4.1.2(vitest@4.1.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 4.1.2(vitest@4.1.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3))
       nostr-tools:
         specifier: ^2.23.3
         version: 2.23.3(typescript@5.9.3)
@@ -34,7 +38,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.2
-        version: 4.1.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 4.1.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground:
     dependencies:
@@ -68,22 +72,22 @@ importers:
         version: 5.9.3
       unocss:
         specifier: ^66.2.0
-        version: 66.6.7(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 66.6.7(vite@6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3))
       vite:
         specifier: ^6.3.0
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/bot:
     dependencies:
       '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/nub
+        version: link:../../../../napplet/packages/nub
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/sdk
+        version: link:../../../../napplet/packages/sdk
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/shim
+        version: link:../../../../napplet/packages/shim
     devDependencies:
       '@napplet/vite-plugin':
         specifier: link:../../../../napplet/packages/vite-plugin
@@ -93,22 +97,22 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.3.0
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/chat:
     dependencies:
       '@napplet/core':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/core
+        version: link:../../../../napplet/packages/core
       '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/nub
+        version: link:../../../../napplet/packages/nub
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/sdk
+        version: link:../../../../napplet/packages/sdk
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/shim
+        version: link:../../../../napplet/packages/shim
     devDependencies:
       '@napplet/vite-plugin':
         specifier: link:../../../../napplet/packages/vite-plugin
@@ -118,22 +122,22 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.3.0
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/composer:
     dependencies:
       '@napplet/core':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/core
+        version: link:../../../../napplet/packages/core
       '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/nub
+        version: link:../../../../napplet/packages/nub
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/sdk
+        version: link:../../../../napplet/packages/sdk
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/shim
+        version: link:../../../../napplet/packages/shim
     devDependencies:
       '@napplet/vite-plugin':
         specifier: link:../../../../napplet/packages/vite-plugin
@@ -143,19 +147,19 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.3.0
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/config-demo:
     dependencies:
       '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/nub
+        version: link:../../../../napplet/packages/nub
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/sdk
+        version: link:../../../../napplet/packages/sdk
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/shim
+        version: link:../../../../napplet/packages/shim
     devDependencies:
       '@napplet/vite-plugin':
         specifier: link:../../../../napplet/packages/vite-plugin
@@ -165,16 +169,16 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.3.0
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/decrypt-demo:
     dependencies:
       '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/nub
+        version: link:../../../../napplet/packages/nub
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/shim
+        version: link:../../../../napplet/packages/shim
     devDependencies:
       '@napplet/vite-plugin':
         specifier: link:../../../../napplet/packages/vite-plugin
@@ -184,22 +188,22 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.3.0
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/feed:
     dependencies:
       '@napplet/core':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/core
+        version: link:../../../../napplet/packages/core
       '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/nub
+        version: link:../../../../napplet/packages/nub
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/sdk
+        version: link:../../../../napplet/packages/sdk
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/shim
+        version: link:../../../../napplet/packages/shim
     devDependencies:
       '@napplet/vite-plugin':
         specifier: link:../../../../napplet/packages/vite-plugin
@@ -209,19 +213,19 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.3.0
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/hotkey-chord:
     dependencies:
       '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/nub
+        version: link:../../../../napplet/packages/nub
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/sdk
+        version: link:../../../../napplet/packages/sdk
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/shim
+        version: link:../../../../napplet/packages/shim
     devDependencies:
       '@napplet/vite-plugin':
         specifier: link:../../../../napplet/packages/vite-plugin
@@ -231,19 +235,19 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.3.0
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/media-controller:
     dependencies:
       '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/nub
+        version: link:../../../../napplet/packages/nub
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/sdk
+        version: link:../../../../napplet/packages/sdk
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/shim
+        version: link:../../../../napplet/packages/shim
     devDependencies:
       '@napplet/vite-plugin':
         specifier: link:../../../../napplet/packages/vite-plugin
@@ -253,19 +257,19 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.3.0
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/preferences:
     dependencies:
       '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/nub
+        version: link:../../../../napplet/packages/nub
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/sdk
+        version: link:../../../../napplet/packages/sdk
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/shim
+        version: link:../../../../napplet/packages/shim
     devDependencies:
       '@napplet/vite-plugin':
         specifier: link:../../../../napplet/packages/vite-plugin
@@ -275,19 +279,19 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.3.0
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/profile-viewer:
     dependencies:
       '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/nub
+        version: link:../../../../napplet/packages/nub
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/sdk
+        version: link:../../../../napplet/packages/sdk
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/shim
+        version: link:../../../../napplet/packages/shim
     devDependencies:
       '@napplet/vite-plugin':
         specifier: link:../../../../napplet/packages/vite-plugin
@@ -297,19 +301,19 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.3.0
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/resource-demo:
     dependencies:
       '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/nub
+        version: link:../../../../napplet/packages/nub
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/sdk
+        version: link:../../../../napplet/packages/sdk
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/shim
+        version: link:../../../../napplet/packages/shim
     devDependencies:
       '@napplet/vite-plugin':
         specifier: link:../../../../napplet/packages/vite-plugin
@@ -319,19 +323,19 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.3.0
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/theme-switcher:
     dependencies:
       '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/nub
+        version: link:../../../../napplet/packages/nub
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/sdk
+        version: link:../../../../napplet/packages/sdk
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/shim
+        version: link:../../../../napplet/packages/shim
     devDependencies:
       '@napplet/vite-plugin':
         specifier: link:../../../../napplet/packages/vite-plugin
@@ -341,19 +345,19 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.3.0
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/toaster:
     dependencies:
       '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/nub
+        version: link:../../../../napplet/packages/nub
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/sdk
+        version: link:../../../../napplet/packages/sdk
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/shim
+        version: link:../../../../napplet/packages/shim
     devDependencies:
       '@napplet/vite-plugin':
         specifier: link:../../../../napplet/packages/vite-plugin
@@ -363,16 +367,96 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.3.0
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
+
+  napplet/packages/core:
+    devDependencies:
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  napplet/packages/nub:
+    dependencies:
+      '@napplet/core':
+        specifier: link:../core
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^22.15.0
+        version: 22.19.19
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  napplet/packages/sdk:
+    dependencies:
+      '@napplet/core':
+        specifier: link:../core
+        version: link:../core
+      '@napplet/nub':
+        specifier: link:../nub
+        version: link:../nub
+    devDependencies:
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  napplet/packages/shim:
+    dependencies:
+      '@napplet/core':
+        specifier: link:../core
+        version: link:../core
+      '@napplet/nub':
+        specifier: link:../nub
+        version: link:../nub
+    devDependencies:
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  napplet/packages/vite-plugin:
+    dependencies:
+      nostr-tools:
+        specifier: ^2.23.3
+        version: 2.23.3(typescript@5.9.3)
+    devDependencies:
+      '@napplet/nub':
+        specifier: link:../nub
+        version: link:../nub
+      '@types/node':
+        specifier: ^22.15.0
+        version: 22.19.19
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.3.0
+        version: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   packages/acl:
-    devDependencies:
+    dependencies:
       '@napplet/core':
-        specifier: ^0.3.0
-        version: 0.3.0
+        specifier: link:../../napplet/packages/core
+        version: link:../../napplet/packages/core
       '@napplet/nub':
-        specifier: ^0.3.0
-        version: 0.3.0
+        specifier: link:../../napplet/packages/nub
+        version: link:../../napplet/packages/nub
+    devDependencies:
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.3)
@@ -393,13 +477,19 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.2
-        version: 4.1.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 4.1.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   packages/runtime:
     dependencies:
       '@kehto/acl':
         specifier: workspace:*
         version: link:../acl
+      '@napplet/core':
+        specifier: link:../../napplet/packages/core
+        version: link:../../napplet/packages/core
+      '@napplet/nub':
+        specifier: link:../../napplet/packages/nub
+        version: link:../../napplet/packages/nub
       '@noble/curves':
         specifier: ^2.0.0
         version: 2.0.1
@@ -407,12 +497,6 @@ importers:
         specifier: ^2.0.0
         version: 2.0.1
     devDependencies:
-      '@napplet/core':
-        specifier: ^0.3.0
-        version: 0.3.0
-      '@napplet/nub':
-        specifier: ^0.3.0
-        version: 0.3.0
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.3)
@@ -421,20 +505,20 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.2
-        version: 4.1.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 4.1.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   packages/services:
     dependencies:
       '@kehto/runtime':
         specifier: workspace:*
         version: link:../runtime
-    devDependencies:
       '@napplet/core':
-        specifier: ^0.3.0
-        version: 0.3.0
+        specifier: link:../../napplet/packages/core
+        version: link:../../napplet/packages/core
       '@napplet/nub':
-        specifier: ^0.3.0
-        version: 0.3.0
+        specifier: link:../../napplet/packages/nub
+        version: link:../../napplet/packages/nub
+    devDependencies:
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.3)
@@ -443,7 +527,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.2
-        version: 4.1.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 4.1.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   packages/shell:
     dependencies:
@@ -453,13 +537,13 @@ importers:
       '@kehto/runtime':
         specifier: workspace:*
         version: link:../runtime
-    devDependencies:
       '@napplet/core':
-        specifier: ^0.3.0
-        version: 0.3.0
+        specifier: link:../../napplet/packages/core
+        version: link:../../napplet/packages/core
       '@napplet/nub':
-        specifier: ^0.3.0
-        version: 0.3.0
+        specifier: link:../../napplet/packages/nub
+        version: link:../../napplet/packages/nub
+    devDependencies:
       nostr-tools:
         specifier: ^2.23.3
         version: 2.23.3(typescript@5.9.3)
@@ -493,19 +577,19 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.3.0
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   tests/fixtures/napplets/nub-identity:
     dependencies:
       '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/nub
+        version: link:../../../../napplet/packages/nub
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/sdk
+        version: link:../../../../napplet/packages/sdk
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/shim
+        version: link:../../../../napplet/packages/shim
     devDependencies:
       '@napplet/vite-plugin':
         specifier: link:../../../../napplet/packages/vite-plugin
@@ -515,19 +599,19 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.3.0
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   tests/fixtures/napplets/nub-ifc:
     dependencies:
       '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/nub
+        version: link:../../../../napplet/packages/nub
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/sdk
+        version: link:../../../../napplet/packages/sdk
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/shim
+        version: link:../../../../napplet/packages/shim
     devDependencies:
       '@napplet/vite-plugin':
         specifier: link:../../../../napplet/packages/vite-plugin
@@ -537,19 +621,19 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.3.0
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   tests/fixtures/napplets/nub-notify:
     dependencies:
       '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/nub
+        version: link:../../../../napplet/packages/nub
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/sdk
+        version: link:../../../../napplet/packages/sdk
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/shim
+        version: link:../../../../napplet/packages/shim
     devDependencies:
       '@napplet/vite-plugin':
         specifier: link:../../../../napplet/packages/vite-plugin
@@ -559,22 +643,22 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.3.0
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   tests/fixtures/napplets/nub-relay:
     dependencies:
       '@napplet/core':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/core
+        version: link:../../../../napplet/packages/core
       '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/nub
+        version: link:../../../../napplet/packages/nub
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/sdk
+        version: link:../../../../napplet/packages/sdk
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/shim
+        version: link:../../../../napplet/packages/shim
     devDependencies:
       '@napplet/vite-plugin':
         specifier: link:../../../../napplet/packages/vite-plugin
@@ -584,19 +668,19 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.3.0
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   tests/fixtures/napplets/nub-storage:
     dependencies:
       '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/nub
+        version: link:../../../../napplet/packages/nub
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/sdk
+        version: link:../../../../napplet/packages/sdk
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/shim
+        version: link:../../../../napplet/packages/shim
     devDependencies:
       '@napplet/vite-plugin':
         specifier: link:../../../../napplet/packages/vite-plugin
@@ -606,19 +690,19 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.3.0
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   tests/fixtures/napplets/nub-theme:
     dependencies:
       '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/nub
+        version: link:../../../../napplet/packages/nub
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/sdk
+        version: link:../../../../napplet/packages/sdk
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: link:../../../../napplet/packages/shim
+        version: link:../../../../napplet/packages/shim
     devDependencies:
       '@napplet/vite-plugin':
         specifier: link:../../../../napplet/packages/vite-plugin
@@ -628,7 +712,7 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.3.0
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
 packages:
 
@@ -1073,23 +1157,6 @@ packages:
       '@emnapi/core': ^1.7.1
       '@emnapi/runtime': ^1.7.1
 
-  '@napplet/core@0.3.0':
-    resolution: {integrity: sha512-3KfvV1OUit1qd7wi3eW/qK2ChhuGCS2zzvXpuYHMksjDkLJP+SPbLoocqr21v1EpJ0LDFAFdqRNdVo+XGsBA/g==}
-
-  '@napplet/nub@0.3.0':
-    resolution: {integrity: sha512-4Hr2LbcpJ5BC9bPhvCdTL8nMcCSMY4UgYKCSWiT1o5Ah6HYSL0E+MJUPyA4P5R+6gbX6hCYPZD9GI8bj8qKpaQ==}
-    peerDependencies:
-      json-schema-to-ts: ^3.1.1
-    peerDependenciesMeta:
-      json-schema-to-ts:
-        optional: true
-
-  '@napplet/sdk@0.3.0':
-    resolution: {integrity: sha512-Wj1634Hc/itqYpKl7mR74aQCtTl8JJiE/NoA9xrVrdO/pVlAQ0MQaopuVqH9AznJGxLzBD8g8i6QXJ6b5gqAhA==}
-
-  '@napplet/shim@0.3.0':
-    resolution: {integrity: sha512-yr+FlBgEKHBa4eTCyLSLaXxuR3Es7nKTIRxtpsNVCDTcGQIT9kRSjMb3IiGbtN3Txh2PYKQ39D03sjkBkOkshw==}
-
   '@noble/ciphers@2.1.1':
     resolution: {integrity: sha512-bysYuiVfhxNJuldNXlFEitTVdNnYUc+XNJZd7Qm2a5j1vZHgY+fazadNFWFaMK/2vye0JVlxV3gHmC0WDfAOQw==}
     engines: {node: '>= 20.19.0'}
@@ -1446,6 +1513,9 @@ packages:
 
   '@types/node@12.20.55':
     resolution: {integrity: sha512-J8xLz7q2OFulZ2cyGTLE1TbbZcjpno7FaN6zdJNrgAdrJ+DZzh/uFR6YrTb4C+nXakvud8Q4+rbhoIWlYQbUFQ==}
+
+  '@types/node@22.19.19':
+    resolution: {integrity: sha512-dyh/xO2Fh5bYrfWaaqGrRQQGkNdmYw6AmaAUvYeUMNTWQtvb796ikLdmTchRmOlOiIJ1TDXfWgVx1QkUlQ6Hew==}
 
   '@types/qrcode@1.5.6':
     resolution: {integrity: sha512-te7NQcV2BOvdj2b1hCAHzAoMNuj65kNBMz0KBaxM6c3VGBOhU0dURQKOtH8CFNI/dsKkwlv32p26qYQTWoB5bw==}
@@ -2349,6 +2419,9 @@ packages:
   unconfig@7.5.0:
     resolution: {integrity: sha512-oi8Qy2JV4D3UQ0PsopR28CzdQ3S/5A1zwsUwp/rosSbfhJ5z7b90bIyTwi/F7hCLD4SGcZVjDzd4XoUQcEanvA==}
 
+  undici-types@6.21.0:
+    resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
+
   universalify@0.1.2:
     resolution: {integrity: sha512-rBJeI5CXAlmy1pV+617WB9J63U6XcazHHF2f2dbJix4XzpUF0RS3Zbj0FGIOCAva5P/d/GBOYaACQ1w+0azUkg==}
     engines: {node: '>= 4.0.0'}
@@ -2539,7 +2612,7 @@ snapshots:
     dependencies:
       '@changesets/types': 6.1.0
 
-  '@changesets/cli@2.30.0':
+  '@changesets/cli@2.30.0(@types/node@22.19.19)':
     dependencies:
       '@changesets/apply-release-plan': 7.1.0
       '@changesets/assemble-release-plan': 6.0.9
@@ -2555,7 +2628,7 @@ snapshots:
       '@changesets/should-skip-package': 0.1.2
       '@changesets/types': 6.1.0
       '@changesets/write': 0.4.0
-      '@inquirer/external-editor': 1.0.3
+      '@inquirer/external-editor': 1.0.3(@types/node@22.19.19)
       '@manypkg/get-packages': 1.1.3
       ansi-colors: 4.1.3
       enquirer: 2.4.1
@@ -2825,10 +2898,12 @@ snapshots:
       '@iconify/types': 2.0.0
       mlly: 1.8.2
 
-  '@inquirer/external-editor@1.0.3':
+  '@inquirer/external-editor@1.0.3(@types/node@22.19.19)':
     dependencies:
       chardet: 2.1.1
       iconv-lite: 0.7.2
+    optionalDependencies:
+      '@types/node': 22.19.19
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
@@ -2869,26 +2944,6 @@ snapshots:
     dependencies:
       '@tybys/wasm-util': 0.10.1
     optional: true
-
-  '@napplet/core@0.3.0': {}
-
-  '@napplet/nub@0.3.0':
-    dependencies:
-      '@napplet/core': 0.3.0
-
-  '@napplet/sdk@0.3.0':
-    dependencies:
-      '@napplet/core': 0.3.0
-      '@napplet/nub': 0.3.0
-    transitivePeerDependencies:
-      - json-schema-to-ts
-
-  '@napplet/shim@0.3.0':
-    dependencies:
-      '@napplet/core': 0.3.0
-      '@napplet/nub': 0.3.0
-    transitivePeerDependencies:
-      - json-schema-to-ts
 
   '@noble/ciphers@2.1.1': {}
 
@@ -3135,6 +3190,10 @@ snapshots:
 
   '@types/node@12.20.55': {}
 
+  '@types/node@22.19.19':
+    dependencies:
+      undici-types: 6.21.0
+
   '@types/qrcode@1.5.6':
     dependencies:
       '@types/node': 12.20.55
@@ -3260,7 +3319,7 @@ snapshots:
     dependencies:
       '@unocss/core': 66.6.7
 
-  '@unocss/vite@66.6.7(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))':
+  '@unocss/vite@66.6.7(vite@6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3))':
     dependencies:
       '@jridgewell/remapping': 2.3.5
       '@unocss/config': 66.6.7
@@ -3271,9 +3330,9 @@ snapshots:
       pathe: 2.0.3
       tinyglobby: 0.2.15
       unplugin-utils: 0.3.1
-      vite: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+      vite: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
-  '@vitest/coverage-v8@4.1.2(vitest@4.1.2(jiti@2.6.1)(yaml@2.8.3))':
+  '@vitest/coverage-v8@4.1.2(vitest@4.1.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3))':
     dependencies:
       '@bcoe/v8-coverage': 1.0.2
       '@vitest/utils': 4.1.2
@@ -3285,7 +3344,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.0.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.2(jiti@2.6.1)(yaml@2.8.3)
+      vitest: 4.1.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   '@vitest/expect@4.1.2':
     dependencies:
@@ -3296,13 +3355,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.2(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))':
+  '@vitest/mocker@4.1.2(vite@6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3))':
     dependencies:
       '@vitest/spy': 4.1.2
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+      vite: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
 
   '@vitest/pretty-format@4.1.2':
     dependencies:
@@ -4117,9 +4176,11 @@ snapshots:
       quansync: 1.0.0
       unconfig-core: 7.5.0
 
+  undici-types@6.21.0: {}
+
   universalify@0.1.2: {}
 
-  unocss@66.6.7(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3)):
+  unocss@66.6.7(vite@6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)):
     dependencies:
       '@unocss/cli': 66.6.7
       '@unocss/core': 66.6.7
@@ -4137,7 +4198,7 @@ snapshots:
       '@unocss/transformer-compile-class': 66.6.7
       '@unocss/transformer-directives': 66.6.7
       '@unocss/transformer-variant-group': 66.6.7
-      '@unocss/vite': 66.6.7(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+      '@unocss/vite': 66.6.7(vite@6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3))
     transitivePeerDependencies:
       - '@emnapi/core'
       - '@emnapi/runtime'
@@ -4155,7 +4216,7 @@ snapshots:
       picomatch: 4.0.4
       webpack-virtual-modules: 0.6.2
 
-  vite@6.4.2(jiti@2.6.1)(yaml@2.8.3):
+  vite@6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3):
     dependencies:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.4)
@@ -4164,14 +4225,15 @@ snapshots:
       rollup: 4.60.1
       tinyglobby: 0.2.15
     optionalDependencies:
+      '@types/node': 22.19.19
       fsevents: 2.3.3
       jiti: 2.6.1
       yaml: 2.8.3
 
-  vitest@4.1.2(jiti@2.6.1)(yaml@2.8.3):
+  vitest@4.1.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3):
     dependencies:
       '@vitest/expect': 4.1.2
-      '@vitest/mocker': 4.1.2(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+      '@vitest/mocker': 4.1.2(vite@6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3))
       '@vitest/pretty-format': 4.1.2
       '@vitest/runner': 4.1.2
       '@vitest/snapshot': 4.1.2
@@ -4188,8 +4250,10 @@ snapshots:
       tinyexec: 1.0.4
       tinyglobby: 0.2.15
       tinyrainbow: 3.1.0
-      vite: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+      vite: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.8.3)
       why-is-node-running: 2.3.0
+    optionalDependencies:
+      '@types/node': 22.19.19
     transitivePeerDependencies:
       - jiti
       - less

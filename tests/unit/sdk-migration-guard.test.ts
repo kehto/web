@@ -27,6 +27,13 @@ const helperTargetDirs = [
   ...sdkTargetDirs,
   'apps/playground/napplets/decrypt-demo',
 ] as const;
+const localProtocolPackageOverrides = {
+  '@napplet/core': 'link:napplet/packages/core',
+  '@napplet/nub': 'link:napplet/packages/nub',
+  '@napplet/sdk': 'link:napplet/packages/sdk',
+  '@napplet/shim': 'link:napplet/packages/shim',
+  '@napplet/vite-plugin': 'link:napplet/packages/vite-plugin',
+} as const;
 
 const bannedSdkImportPattern = /from\s+['"]@napplet\/sdk['"]/;
 const oldIfcNamespace = ['i', 'p', 'c'].join('');
@@ -77,6 +84,21 @@ function activeTerminologyFiles(root: string): string[] {
 }
 
 describe('SDK 0.3 migration guard', () => {
+  it('resolves active protocol packages from repo-local sources', () => {
+    const rootPackageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as {
+      pnpm?: { overrides?: Record<string, string> };
+    };
+    const workspace = readFileSync(join(process.cwd(), 'pnpm-workspace.yaml'), 'utf8');
+    const lockfile = readFileSync(join(process.cwd(), 'pnpm-lock.yaml'), 'utf8');
+
+    expect(workspace).toContain('napplet/packages/*');
+    expect(rootPackageJson.pnpm?.overrides).toMatchObject(localProtocolPackageOverrides);
+    for (const [pkg, linkTarget] of Object.entries(localProtocolPackageOverrides)) {
+      expect(lockfile).toContain(`'${pkg}': ${linkTarget}`);
+    }
+    expect(lockfile).not.toMatch(/^  '@napplet\/(?:core|nub|sdk|shim)@\d/m);
+  });
+
   it('keeps all SDK-migrated manifests on the exact 0.3 package graph', () => {
     for (const dir of sdkTargetDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');
