@@ -2,7 +2,7 @@
  * config-service.ts — NUB-CONFIG reference service (9th NUB domain, v1.7 Phase 39).
  *
  * Shell-side reference implementation for the canonical NUB-CONFIG wire
- * protocol (`@napplet/nub/config`, published at `^0.2.1`). Handles the full
+ * protocol (`@napplet/nub/config`, published at `^0.3.0`). Handles the full
  * 8-message discriminated union: 5 napplet→shell request types + 3
  * shell→napplet result/push types.
  *

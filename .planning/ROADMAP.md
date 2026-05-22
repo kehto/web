@@ -30,7 +30,7 @@
 
 - [x] **Phase 50: Identity Topic Hard Removal** — Remove the `auth:identity-changed` compatibility branch, update the shell bridge tests/docs, and make canonical `identity:changed` single-emission the only current behavior. (completed 2026-05-22)
 - [x] **Phase 51: Decrypt Demo Helper Parity** — Move `decrypt-demo` to exact `0.3.0` napplet helper packages and replace manual `identity.decrypt` postMessage plumbing with `identityDecrypt`. (completed 2026-05-22)
-- [ ] **Phase 52: Regression Guard + Full Verification** — Extend guardrails around the remaining old package graph/raw decrypt pattern, clean docs/release notes, and run the full build/type/unit/E2E loop.
+- [x] **Phase 52: Regression Guard + Full Verification** — Extend guardrails around the remaining old package graph/raw decrypt pattern, clean docs/release notes, and run the full build/type/unit/E2E loop. (completed 2026-05-22)
 
 ---
 
@@ -89,7 +89,7 @@
   4. `.planning/REQUIREMENTS.md` remains 10/10 mapped with zero uncovered v1 requirements.
   5. Source comments, generated API docs, and changeset/release-note prose point future consumers to `identity:changed` and `identityDecrypt`.
 
-**Plans**: Not planned yet
+**Plans**: 52-01 (complete)
 
 ---
 
@@ -99,8 +99,8 @@
 |-------|----------------|--------|-----------|
 | 50. Identity Topic Hard Removal | 1/1 | Complete    | 2026-05-22 |
 | 51. Decrypt Demo Helper Parity | 1/1 | Complete    | 2026-05-22 |
-| 52. Regression Guard + Full Verification | 0/0 | Pending | — |
+| 52. Regression Guard + Full Verification | 1/1 | Complete    | 2026-05-22 |
 
 ---
 
-*ROADMAP.md last updated: 2026-05-22 — Phase 51 complete; Phase 52 next.*
+*ROADMAP.md last updated: 2026-05-22 — Phase 52 complete; v1.10 ready for milestone audit.*

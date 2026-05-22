@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const targetDirs = [
+const sdkTargetDirs = [
   'apps/playground/napplets/bot',
   'apps/playground/napplets/chat',
   'apps/playground/napplets/composer',
@@ -23,9 +23,19 @@ const targetDirs = [
   'tests/fixtures/napplets/nub-theme',
 ] as const;
 
+const helperTargetDirs = [
+  ...sdkTargetDirs,
+  'apps/playground/napplets/decrypt-demo',
+] as const;
+
 const bannedSdkImportPattern = /from\s+['"]@napplet\/sdk['"]/;
 const namespaceImportPattern =
   /import\s+\{[^}]*\b(ipc|storage|relay|identity|keys|config|notify)\b[^}]*\}\s+from\s+['"]@napplet\/sdk['"]/s;
+const bannedDecryptPlumbingPatterns = [
+  /\brequestCounter\b/,
+  /new\s+Map\s*<\s*string\s*,\s*\([^)]*\)\s*=>\s*void\s*>\s*\(/,
+  /window\.parent\.postMessage\s*\(\s*\{\s*type:\s*['"]identity\.decrypt['"]/s,
+] as const;
 
 function sourceFiles(root: string): string[] {
   if (!existsSync(root)) return [];
@@ -44,8 +54,8 @@ function sourceFiles(root: string): string[] {
 }
 
 describe('SDK 0.3 migration guard', () => {
-  it('keeps all migrated manifests on the exact 0.3 package graph', () => {
-    for (const dir of targetDirs) {
+  it('keeps all SDK-migrated manifests on the exact 0.3 package graph', () => {
+    for (const dir of sdkTargetDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
         dependencies?: Record<string, string>;
@@ -58,9 +68,29 @@ describe('SDK 0.3 migration guard', () => {
     }
   });
 
+  it('keeps all helper-migrated manifests on the exact 0.3 helper graph', () => {
+    for (const dir of helperTargetDirs) {
+      const packageJsonPath = join(process.cwd(), dir, 'package.json');
+      const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
+        dependencies?: Record<string, string>;
+        devDependencies?: Record<string, string>;
+      };
+      expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe('0.3.0');
+      expect(pkg.dependencies?.['@napplet/nub'], `${dir} @napplet/nub`).toBe('0.3.0');
+      expect(pkg.devDependencies?.['@napplet/vite-plugin'], `${dir} @napplet/vite-plugin`).toBe('0.3.0');
+    }
+  });
+
+  it('rejects old napplet helper package resolutions from the active lockfile graph', () => {
+    const lockfile = readFileSync(join(process.cwd(), 'pnpm-lock.yaml'), 'utf8');
+
+    expect(lockfile).not.toMatch(/@napplet\/(?:core|shim|vite-plugin)@0\.2\.1/);
+    expect(lockfile).not.toMatch(/@napplet\/nub-(?:identity|ifc|keys|media|notify|relay|storage|theme)@0\.2\.1/);
+  });
+
   it('rejects legacy namespace imports from @napplet/sdk in migrated source', () => {
     const violations: string[] = [];
-    for (const dir of targetDirs) {
+    for (const dir of sdkTargetDirs) {
       for (const file of sourceFiles(join(process.cwd(), dir, 'src'))) {
         const content = readFileSync(file, 'utf8');
         if (bannedSdkImportPattern.test(content) || namespaceImportPattern.test(content)) {
@@ -70,5 +100,15 @@ describe('SDK 0.3 migration guard', () => {
     }
 
     expect(violations).toEqual([]);
+  });
+
+  it('keeps decrypt-demo on identityDecrypt instead of manual identity.decrypt plumbing', () => {
+    const file = join(process.cwd(), 'apps/playground/napplets/decrypt-demo/src/main.ts');
+    const content = readFileSync(file, 'utf8');
+
+    expect(content).toContain("import { identityDecrypt } from '@napplet/nub/identity/sdk';");
+    for (const pattern of bannedDecryptPlumbingPatterns) {
+      expect(content).not.toMatch(pattern);
+    }
   });
 });

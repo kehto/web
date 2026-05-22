@@ -5,7 +5,9 @@
 
 **Milestone goal:** Close the v1.8/v1.9 cleanup window without crossing a v2 boundary: remove the stale identity-topic compatibility branch, migrate `decrypt-demo` to the `@napplet/nub@0.3.0` `identityDecrypt` helper, and retire the remaining old demo package graph while preserving the shell unit tests, package graph guardrails, and Playwright baseline.
 
-**Baseline:** v1.9 is archived with 545 unit tests and 86 Playwright E2E tests passing. The remaining local cleanup surface is explicit: `packages/shell/src/shell-bridge.ts` still dual-emits deprecated `auth:identity-changed`, and `apps/playground/napplets/decrypt-demo` still declares `@napplet/shim` / `@napplet/vite-plugin` `^0.2.1` while manually posting `identity.decrypt` envelopes instead of using the published helper.
+**Baseline entering v1.10:** v1.9 was archived with 545 unit tests and 86 Playwright E2E tests passing. The local cleanup surface was explicit: `packages/shell/src/shell-bridge.ts` dual-emitted deprecated `auth:identity-changed`, and `apps/playground/napplets/decrypt-demo` declared `@napplet/shim` / `@napplet/vite-plugin` `^0.2.1` while manually posting `identity.decrypt` envelopes instead of using the published helper.
+
+**Completion state:** v1.10 closes that surface with 548 unit tests and 86 Playwright E2E tests passing. The unit count increased by three because Phase 52 added regression guard assertions.
 
 ## v1 Requirements
 
@@ -22,14 +24,14 @@
 
 ### Package graph and regression guard
 
-- [ ] **GRAPH-01**: The active demo/fixture lockfile graph no longer resolves `@napplet/shim@0.2.1` or `@napplet/vite-plugin@0.2.1` for `decrypt-demo` or any other active demo package
-- [ ] **GUARD-02**: The SDK migration guardrail covers `decrypt-demo` and fails if old `0.2.1` napplet helper packages or manual `identity.decrypt` raw-envelope plumbing are reintroduced where `identityDecrypt` covers the behavior
+- [x] **GRAPH-01**: The active demo/fixture lockfile graph no longer resolves `@napplet/shim@0.2.1` or `@napplet/vite-plugin@0.2.1` for `decrypt-demo` or any other active demo package
+- [x] **GUARD-02**: The SDK migration guardrail covers `decrypt-demo` and fails if old `0.2.1` napplet helper packages or manual `identity.decrypt` raw-envelope plumbing are reintroduced where `identityDecrypt` covers the behavior
 
 ### Verification and release notes
 
-- [ ] **E2E-31**: Focused shell bridge unit tests and decrypt-demo Playwright tests pass after the compatibility removal and helper migration
-- [ ] **E2E-32**: Full `pnpm build`, `pnpm type-check`, `pnpm test:unit`, and `pnpm test:e2e` pass, preserving the v1.9 baseline unless an intentional test-count increase is documented
-- [ ] **DOCS-09**: Source comments, generated API docs, and changeset/release-note prose no longer teach the v1.8/v1.9 compatibility branch or manual decrypt-envelope workaround as current behavior
+- [x] **E2E-31**: Focused shell bridge unit tests and decrypt-demo Playwright tests pass after the compatibility removal and helper migration
+- [x] **E2E-32**: Full `pnpm build`, `pnpm type-check`, `pnpm test:unit`, and `pnpm test:e2e` pass, preserving the v1.9 baseline unless an intentional test-count increase is documented
+- [x] **DOCS-09**: Source comments, generated API docs, and changeset/release-note prose no longer teach the v1.8/v1.9 compatibility branch or manual decrypt-envelope workaround as current behavior
 
 ## Future Requirements
 
@@ -73,11 +75,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DECRYPT-DEMO-01 | Phase 51 | Complete |
 | DECRYPT-DEMO-02 | Phase 51 | Complete |
 | DECRYPT-DEMO-03 | Phase 51 | Complete |
-| GRAPH-01 | Phase 52 | Pending |
-| GUARD-02 | Phase 52 | Pending |
-| E2E-31 | Phase 52 | Pending |
-| E2E-32 | Phase 52 | Pending |
-| DOCS-09 | Phase 52 | Pending |
+| GRAPH-01 | Phase 52 | Complete |
+| GUARD-02 | Phase 52 | Complete |
+| E2E-31 | Phase 52 | Complete |
+| E2E-32 | Phase 52 | Complete |
+| DOCS-09 | Phase 52 | Complete |
 
 **Coverage:**
 - v1 requirements: 10 total
@@ -86,4 +88,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-05-22*
-*Last updated: 2026-05-22 after v1.10 roadmap creation*
+*Last updated: 2026-05-22 after Phase 52 completion*

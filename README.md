@@ -100,7 +100,7 @@ pnpm test:e2e       # Full Layer A + Layer B Playwright suite (~3-5 min)
 - **ESM-only.** No CJS output. All packages are `"type": "module"`.
 - **Zero framework deps.** No Svelte, React, Vue — kehto is framework-agnostic.
 - **NIP-5D anti-features:** window.nostr is not injected into napplet iframes; signing is shell-mediated via `relay.publish` / `relay.publishEncrypted`; sandbox uses `allow-scripts` without `allow-same-origin`.
-- **Registry install.** `@napplet/*` ships to npm; consume `@kehto/*` directly from the registry. Workspace pins one transitive `pnpm.overrides` for `@napplet/nub>@napplet/core: ^0.2.1` (upstream publish-time workspace-specifier bug; Phase 32 Decision — see `package.json`).
+- **Registry install.** `@napplet/*` ships to npm; consume `@kehto/*` directly from the registry. Active demo and fixture packages resolve the `@napplet/{core,nub,shim,vite-plugin}` helper graph at `0.3.0`; no workspace override is required for the v1.10 graph.
 
 ## History
 

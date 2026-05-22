@@ -1115,8 +1115,8 @@ export function setSelectedNode(id: string | null): void {
 
 // ─── Phase 46 Plan 46-01: __publishDecryptFixtures__ test hook ─────────────
 // Publishes deterministic encrypted fixtures into decrypt-demo's iframe. The
-// napplet performs the actual identity.decrypt requests so the full
-// napplet->runtime->service->napplet path is exercised.
+// napplet calls identityDecrypt, which exercises the full
+// napplet->runtime->service->napplet identity.decrypt path.
 (window as Window & {
   __publishDecryptFixtures__?: (dTag?: string) => Promise<boolean>;
 }).__publishDecryptFixtures__ = async (dTag = 'decrypt-demo'): Promise<boolean> => {

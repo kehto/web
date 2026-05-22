@@ -1,8 +1,8 @@
 /**
  * decrypt-demo Layer-B spec -- E2E-28 Phase 46.
  *
- * Walks the built preview demo through class-1 decrypt success and class-2
- * forbidden short-circuit using the real playground iframe.
+ * Walks the built preview demo through identityDecrypt class-1 success and
+ * class-2 forbidden short-circuit using the real playground iframe.
  */
 import { test, expect } from '@playwright/test';
 import { demoBeforeEach } from './helpers/index.js';

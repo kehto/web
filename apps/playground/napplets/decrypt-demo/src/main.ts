@@ -1,5 +1,5 @@
 /**
- * decrypt-demo napplet -- exercises identity.decrypt (v1.8 Phase 46).
+ * decrypt-demo napplet -- exercises identityDecrypt over the identity.decrypt wire path.
  */
 import '@napplet/shim';
 import { identityDecrypt } from '@napplet/nub/identity/sdk';
