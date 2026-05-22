@@ -6,7 +6,7 @@
  * handshake so napplets can query shell.supports() synchronously.
  *
  * Canonical NIP-5D forbids the shell from injecting a NIP-07 proxy object on
- * the napplet iframe's global scope (specs/NIP-5D.md line 44 + Security §6).
+ * the napplet iframe's global scope.
  * This module therefore does NOT expose any signing proxy to napplet code.
  * Signing/encryption is mediated by the shell through relay.publish and
  * relay.publishEncrypted — never via a napplet-visible API surface.
@@ -15,24 +15,25 @@
 import type { ShellAdapter, ShellCapabilities } from './types.js';
 
 /**
- * Canonical 10-domain list (8 v1.2 original domains + config (Phase 39) +
- * resource (Phase 40)). Every domain @napplet/nub exports as a subpath.
+ * Canonical Kehto-hosted domain list: 8 v1.2 original domains, config,
+ * resource, and the Phase 56-classified connect/class NUB extensions.
+ * Every domain is implemented by the shell/runtime or explicit shell policy.
  *
  * Note: `relay` is NOT in this list — it is gated on `hooks.relayPool` and
  * prepended conditionally in buildShellCapabilities below.
  */
 const CANONICAL_NUB_DOMAINS = [
   'identity', 'storage', 'ifc', 'theme', 'keys', 'media', 'notify',
-  'config', 'resource',
+  'config', 'resource', 'connect', 'class',
 ] as const;
 
 /**
  * Build the shell's static capability set from adapter configuration.
  *
- * NUB capabilities = 10-domain list (8 v1.2 + config + resource) from
- * @napplet/nub subpaths, plus relay (gated on hooks.relayPool):
+ * NUB capabilities = Kehto-hosted domain list from @napplet/nub subpaths,
+ * plus relay (gated on hooks.relayPool):
  *   relay (gated on hooks.relayPool), identity, storage, ifc, theme,
- *   keys, media, notify, config, resource.
+ *   keys, media, notify, config, resource, connect, class.
  *
  * Sandbox permissions are left empty by default — host apps may extend after
  * construction. Sandbox entries returned here (and any host-app extensions)
@@ -46,7 +47,7 @@ const CANONICAL_NUB_DOMAINS = [
  * @example
  * ```ts
  * const caps = buildShellCapabilities(hooks);
- * // caps.nubs => ['relay','identity','storage','ifc','theme','keys','media','notify','config','resource']
+ * // caps.nubs => ['relay','identity','storage','ifc','theme','keys','media','notify','config','resource','connect','class']
  * //              (relay present when hooks.relayPool is provided; bare names only)
  * // caps.sandbox => []   // host app may extend with 'perm:popups', etc.
  * ```

@@ -7,10 +7,12 @@
 
 import {
   createShellBridge,
+  buildShellCapabilities,
   originRegistry,
   connectStore,
   type ShellBridge,
   type ShellAdapter,
+  type ShellCapabilities,
   type ServiceHandler,
   type Capability,
   type NappletClass,
@@ -991,6 +993,7 @@ export interface GatewayNappletMetadata {
   dTag: string;
   aggregateHash: string;
   htmlUrl: string;
+  requires: string[];
 }
 
 export interface LoadNappletOptions {
@@ -1020,6 +1023,7 @@ const demoConfigFixtures: Record<string, unknown> = {
 };
 
 let _configServiceBundle: ConfigService | null = null;
+let _shellCapabilities: ShellCapabilities | null = null;
 
 /** Phase 41 Plan 41-01 (NIP66-07): live nip66 aggregator instance for the demo. */
 let _nip66Aggregator: Nip66Aggregator | null = null;
@@ -1155,6 +1159,7 @@ export async function publishDecryptFixturesToNapplet(dTag = 'decrypt-demo'): Pr
  */
 export function bootShell(notificationOnChange?: (notifications: readonly Notification[]) => void): { tap: MessageTap; relay: ShellBridge } {
   const hooks = createDemoHooks(notificationOnChange);
+  _shellCapabilities = buildShellCapabilities(hooks);
   tap = createMessageTap();
   tap.install(window);
 
@@ -1394,8 +1399,15 @@ export async function loadNapplet(
   containerId: string,
   options: LoadNappletOptions = {},
 ): Promise<NappletInfo> {
-  const windowId = `demo-${name}-${++nappletCounter}`;
   const metadata = await fetchGatewayMetadata(name);
+  const missingRequiredNubs = getMissingRequiredNubs(metadata.requires);
+  if (missingRequiredNubs.length > 0) {
+    throw new Error(
+      `[demo] ${metadata.dTag} requires unsupported NUB capabilities: ${missingRequiredNubs.join(', ')}`,
+    );
+  }
+
+  const windowId = `demo-${name}-${++nappletCounter}`;
 
   const iframe = document.createElement('iframe');
   iframe.id = windowId;
@@ -1474,11 +1486,28 @@ async function fetchGatewayMetadata(name: string): Promise<GatewayNappletMetadat
     typeof metadata.aggregateHash !== 'string' ||
     metadata.aggregateHash.length === 0 ||
     typeof metadata.htmlUrl !== 'string' ||
-    metadata.htmlUrl.length === 0
+    metadata.htmlUrl.length === 0 ||
+    !Array.isArray(metadata.requires) ||
+    metadata.requires.some((capability) => typeof capability !== 'string' || capability.length === 0)
   ) {
     throw new Error(`[demo] malformed gateway metadata for ${name}`);
   }
   return metadata as GatewayNappletMetadata;
+}
+
+export function getShellCapabilities(): ShellCapabilities | null {
+  if (!_shellCapabilities) return null;
+  return {
+    nubs: [..._shellCapabilities.nubs],
+    sandbox: [..._shellCapabilities.sandbox],
+  };
+}
+
+export function getMissingRequiredNubs(requires: readonly string[]): string[] {
+  const capabilities = _shellCapabilities;
+  if (!capabilities) return [...requires];
+  const supported = new Set(capabilities.nubs);
+  return requires.filter((capability) => !supported.has(capability));
 }
 
 /**

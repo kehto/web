@@ -40,6 +40,7 @@ interface GatewayMetadata {
   dTag: string;
   aggregateHash: string;
   htmlUrl: string;
+  requires: string[];
 }
 
 interface NappletManifest {
@@ -92,9 +93,19 @@ function readGatewayMetadata(dTag: string): GatewayMetadata {
   }
 
   const aggregateHash = manifest.aggregateHash;
+  const requires = tags
+    .filter(
+      (tag): tag is string[] =>
+        Array.isArray(tag) &&
+        tag[0] === 'requires' &&
+        typeof tag[1] === 'string' &&
+        tag[1].length > 0,
+    )
+    .map((tag) => tag[1]);
   return {
     dTag,
     aggregateHash,
+    requires,
     htmlUrl: `/napplet-gateway/${encodeURIComponent(dTag)}/${aggregateHash}/index.html`,
   };
 }

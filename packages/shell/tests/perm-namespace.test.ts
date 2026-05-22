@@ -111,12 +111,13 @@ function stubHooks(): ShellAdapter {
 }
 
 // ─── Capability-lookup contract ──────────────────────────────────────────────
-// Mirrors the behaviour @napplet/sdk/shim's shell.supports() helper MUST
-// implement. Exact-string match; no prefix stripping, no fallback to bare
-// name when the `perm:`-prefixed lookup fails.
+// Mirrors the behaviour @napplet/shim's shell.supports() helper MUST
+// implement. Bare NUB names are shorthand for `nub:<domain>`; `perm:`
+// stays in its own namespace.
 
 function lookup(caps: ShellCapabilities, capability: string): boolean {
   if (capability.startsWith('perm:')) return caps.sandbox.includes(capability);
+  if (capability.startsWith('nub:')) return caps.nubs.includes(capability.slice(4));
   return caps.nubs.includes(capability);
 }
 
@@ -141,10 +142,13 @@ describe('SH-C02: shell.supports() uses perm: namespace for sandbox permissions'
       sandbox: [],
     };
     expect(lookup(caps, 'relay')).toBe(true);
+    expect(lookup(caps, 'nub:relay')).toBe(true);
     expect(lookup(caps, 'identity')).toBe(true);
+    expect(lookup(caps, 'nub:identity')).toBe(true);
     // A NUB capability is NEVER reachable through the perm: namespace.
     expect(lookup(caps, 'perm:relay')).toBe(false);
     expect(lookup(caps, 'perm:identity')).toBe(false);
+    expect(lookup(caps, 'nub:missing')).toBe(false);
   });
 
   it('namespaces do not cross — perm:<x> and <x> are distinct', () => {
@@ -156,6 +160,7 @@ describe('SH-C02: shell.supports() uses perm: namespace for sandbox permissions'
       sandbox: ['perm:relay'],
     };
     expect(lookup(caps, 'relay')).toBe(true);        // NUB reachable
+    expect(lookup(caps, 'nub:relay')).toBe(true);    // NUB reachable
     expect(lookup(caps, 'perm:relay')).toBe(true);   // sandbox reachable
     // Cross-namespace lookups fail:
     expect(lookup(caps, 'perm:relay') && caps.nubs.includes('perm:relay')).toBe(false);

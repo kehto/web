@@ -36,6 +36,9 @@ describe('playground gateway artifact guard', () => {
 
     const sharedConfig = readRepoFile('apps/playground/napplets/shared-vite-config.ts');
     expect(sharedConfig).toContain("artifactMode: 'single-file'");
+    expect(sharedConfig).toContain('requires?: readonly string[]');
+    expect(sharedConfig).toContain('manifest requires must use short NUB names');
+    expect(sharedConfig).toContain('requires,');
   });
 
   it('keeps the active loader on the gateway route with opaque-origin iframes', () => {
@@ -47,5 +50,20 @@ describe('playground gateway artifact guard', () => {
     expect(shellHost).not.toContain('allow-same-origin');
     expect(shellHost).not.toContain('`/napplets/${name}/index.html`');
   });
-});
 
+  it('exposes manifest requires through gateway metadata and checks it before navigation', () => {
+    const viteConfig = readRepoFile('apps/playground/vite.config.ts');
+    const shellHost = readRepoFile('apps/playground/src/shell-host.ts');
+
+    expect(viteConfig).toContain('requires: string[]');
+    expect(viteConfig).toContain("tag[0] === 'requires'");
+    expect(viteConfig).toContain('requires,');
+
+    expect(shellHost).toContain('requires: string[]');
+    expect(shellHost).toContain('getMissingRequiredNubs(metadata.requires)');
+    expect(shellHost).toContain('requires unsupported NUB capabilities');
+    expect(shellHost.indexOf('getMissingRequiredNubs(metadata.requires)')).toBeLessThan(
+      shellHost.indexOf('iframe.src = metadata.htmlUrl'),
+    );
+  });
+});

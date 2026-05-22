@@ -32,24 +32,24 @@
 
 ### Shell capabilities and hosted supports()
 
-- [ ] **SUPPORTS-01**: The shell derives a capability inventory from actual shell/runtime service registration, NUB extension decisions, and sandbox permission policy.
-- [ ] **SUPPORTS-02**: Hosted napplets' `window.napplet.shell.supports()` answers from shell-provided capability state, not from the shim's static package knowledge.
-- [ ] **SUPPORTS-03**: `supports()` accepts bare NUB names, `nub:` names, and `perm:` names; unknown capabilities return `false`.
-- [ ] **SUPPORTS-04**: The static shim fallback is limited to shell-less preview or test-only contexts and cannot be the hosted playground contract.
+- [x] **SUPPORTS-01**: The shell derives a capability inventory from actual shell/runtime service registration, NUB extension decisions, and sandbox permission policy.
+- [x] **SUPPORTS-02**: Hosted napplets' `window.napplet.shell.supports()` answers from shell-provided capability state, not from the shim's static package knowledge.
+- [x] **SUPPORTS-03**: `supports()` accepts bare NUB names, `nub:` names, and `perm:` names; unknown capabilities return `false`.
+- [x] **SUPPORTS-04**: The static shim fallback is limited to shell-less preview or test-only contexts and cannot be the hosted playground contract.
 
 ### Manifest requires and gateway load checks
 
-- [ ] **REQUIRES-01**: Playground napplet build configuration accepts explicit `requires` declarations using short NUB names, never spec identifiers such as `NUB-IDENTITY`.
+- [x] **REQUIRES-01**: Playground napplet build configuration accepts explicit `requires` declarations using short NUB names, never spec identifiers such as `NUB-IDENTITY`.
 - [ ] **REQUIRES-02**: All 13 playground napplet source manifests declare their required NUB capabilities.
 - [ ] **REQUIRES-03**: Built NIP-5A manifest artifacts include the expected `requires` tags for all 13 playground napplets.
-- [ ] **REQUIRES-04**: Playground gateway metadata exposes parsed `requires` tags to the shell load path.
-- [ ] **REQUIRES-05**: The playground shell rejects the napplet or displays a clear compatibility warning when manifest `requires` contains a capability the shell does not support.
+- [x] **REQUIRES-04**: Playground gateway metadata exposes parsed `requires` tags to the shell load path.
+- [x] **REQUIRES-05**: The playground shell rejects the napplet or displays a clear compatibility warning when manifest `requires` contains a capability the shell does not support.
 
 ### NUB extension and raw-envelope boundaries
 
 - [x] **EXT-01**: `connect`, `class`, `nostrdb`, `identity.decrypt`, and `relay.publishEncrypted` are each documented as an official Kehto-supported NUB extension or as out-of-scope/non-conformant for the active NIP-5D playground contract.
-- [ ] **EXT-02**: `connect` and `class` are advertised by `supports()` only if this milestone classifies them as active NUB capabilities and backs them with shell behavior.
-- [ ] **EXT-03**: `identity.decrypt` and `relay.publishEncrypted` are documented as NUB-mediated shell operations with cleartext/key-material boundaries, or removed from the conformance path.
+- [x] **EXT-02**: `connect` and `class` are advertised by `supports()` only if this milestone classifies them as active NUB capabilities and backs them with shell behavior.
+- [x] **EXT-03**: `identity.decrypt` and `relay.publishEncrypted` are documented as NUB-mediated shell operations with cleartext/key-material boundaries, or removed from the conformance path.
 - [ ] **RAW-01**: Raw demo envelopes (`demo.publishTheme`, `demo.decrypt.fixtures`, raw `notify.create`/`notify.list`, raw `resource.bytes`, and raw `theme.changed` listeners) are removed, replaced with SDK/NUB helpers, or explicitly classified as demo/test-only exceptions.
 - [ ] **RAW-02**: Any remaining raw-envelope exceptions are enumerated in one allowlist and guarded so new unclassified raw envelopes fail static checks.
 
@@ -136,15 +136,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SOURCE-01 | Phase 56 | Completed |
 | SOURCE-02 | Phase 56 | Completed |
 | EXT-01 | Phase 56 | Completed |
-| SUPPORTS-01 | Phase 57 | Pending |
-| SUPPORTS-02 | Phase 57 | Pending |
-| SUPPORTS-03 | Phase 57 | Pending |
-| SUPPORTS-04 | Phase 57 | Pending |
-| REQUIRES-01 | Phase 57 | Pending |
-| REQUIRES-04 | Phase 57 | Pending |
-| REQUIRES-05 | Phase 57 | Pending |
-| EXT-02 | Phase 57 | Pending |
-| EXT-03 | Phase 57 | Pending |
+| SUPPORTS-01 | Phase 57 | Completed |
+| SUPPORTS-02 | Phase 57 | Completed |
+| SUPPORTS-03 | Phase 57 | Completed |
+| SUPPORTS-04 | Phase 57 | Completed |
+| REQUIRES-01 | Phase 57 | Completed |
+| REQUIRES-04 | Phase 57 | Completed |
+| REQUIRES-05 | Phase 57 | Completed |
+| EXT-02 | Phase 57 | Completed |
+| EXT-03 | Phase 57 | Completed |
 | REQUIRES-02 | Phase 58 | Pending |
 | REQUIRES-03 | Phase 58 | Pending |
 | RAW-01 | Phase 58 | Pending |
@@ -170,4 +170,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-05-22*
-*Last updated: 2026-05-22 after Phase 56 completion*
+*Last updated: 2026-05-22 after Phase 57 completion*

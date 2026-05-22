@@ -12,8 +12,7 @@
  * 3. The @kehto/shell barrel does NOT export `generateNostrBootstrap`.
  * 4. `buildShellCapabilities(hooks)` never advertises the `'signer'` NUB.
  * 5. `buildShellCapabilities(hooks)` (with a relay hook) emits the
- *    canonical 8-domain list: relay, identity, storage, ifc, theme,
- *    keys, media, notify.
+ *    canonical hosted NUB list and excludes out-of-scope `nostrdb`.
  *
  * Closes DRIFT-SHELL-01 and DRIFT-SHELL-04; partial coverage of
  * DRIFT-SHELL-03 (full closure lands with Plan 12-08 relay.publishEncrypted).
@@ -140,11 +139,12 @@ describe('SH-C01 / SH-C03: window.nostr injection is removed', () => {
     expect(caps.nubs).not.toContain('signer');
   });
 
-  it('buildShellCapabilities emits the canonical 10-domain list when relay hook is wired', () => {
-    // v1.7 Phase 40: CANONICAL_NUB_DOMAINS expanded to 10 domains (8 v1.2 + config + resource).
+  it('buildShellCapabilities emits the canonical hosted domain list when relay hook is wired', () => {
+    // v1.12 Phase 57: connect/class are classified Kehto NUB extensions; nostrdb stays out of scope.
     const caps = buildShellCapabilities(stubHooks());
     expect(new Set(caps.nubs)).toEqual(
-      new Set(['relay', 'identity', 'storage', 'ifc', 'theme', 'keys', 'media', 'notify', 'config', 'resource']),
+      new Set(['relay', 'identity', 'storage', 'ifc', 'theme', 'keys', 'media', 'notify', 'config', 'resource', 'connect', 'class']),
     );
+    expect(caps.nubs).not.toContain('nostrdb');
   });
 });
