@@ -246,6 +246,27 @@ Use this as a deployment sign-off. Every item is a MUST unless explicitly marked
 This section is NOT part of the canonical policy — it is kehto-specific cross-references
 into the runtime code proving the policy is enforced at v1.7 (Phase 39).
 
+### v1.11 Playground Gateway Artifact Path
+
+Kehto's playground now exercises the production-equivalent gateway path rather
+than a Vite-only external asset shortcut:
+
+- Every playground napplet uses `apps/playground/napplets/shared-vite-config.ts`
+  with `artifactMode: 'single-file'`.
+- The only served napplet artifact is `dist/index.html`; manifest metadata lives
+  in `dist/.nip5a-manifest.json`.
+- The active loader fetches `/napplet-gateway/<dTag>/manifest.json`, registers
+  the shell session with the manifest-derived `(dTag, aggregateHash)`, and then
+  navigates the iframe to `/napplet-gateway/<dTag>/<aggregateHash>/index.html`.
+- Gateway HTML responses set CSP from grants keyed by the exact
+  `(dTag, aggregateHash)` tuple.
+- Demo napplet iframes remain opaque-origin: `sandbox="allow-scripts"` with no
+  `allow-same-origin`.
+
+The legacy `/napplets/<dTag>/...` file route is not canonical for local proof.
+Policy, tests, and manual QA should use `/napplet-gateway/...` when validating
+NIP-5A/NIP-5D gateway behavior.
+
 | Policy requirement | Kehto implementation |
 |--------------------|----------------------|
 | Shell owns connect grants keyed `(dTag, aggregateHash)` (POLICY-06) | `packages/shell/src/connect-store.ts:145` — `connectStore` singleton with grant/revoke/check/persist; localStorage key `napplet:connect`; composite-key Map makes hash-upgrade structural |

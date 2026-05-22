@@ -1,15 +1,3 @@
-import { defineConfig } from 'vite';
-import { nip5aManifest } from '@napplet/vite-plugin';
+import { definePlaygroundNappletConfig } from '../shared-vite-config';
 
-export default defineConfig({
-  base: './',
-  plugins: [
-    nip5aManifest({
-      nappletType: 'demo-resource',
-    }),
-  ],
-  build: {
-    outDir: 'dist',
-    emptyDirBeforeWrite: true,
-  },
-});
+export default definePlaygroundNappletConfig('resource-demo');

@@ -36,6 +36,120 @@ function serveNappletFile(req: IncomingMessage, res: ServerResponse, next: () =>
   }
 }
 
+interface GatewayMetadata {
+  dTag: string;
+  aggregateHash: string;
+  htmlUrl: string;
+}
+
+interface NappletManifest {
+  aggregateHash?: unknown;
+  tags?: unknown;
+}
+
+function sendText(res: ServerResponse, statusCode: number, body: string): void {
+  res.statusCode = statusCode;
+  res.setHeader('Content-Type', 'text/plain');
+  res.end(body);
+}
+
+function sendJson(res: ServerResponse, statusCode: number, body: unknown): void {
+  res.statusCode = statusCode;
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify(body));
+}
+
+function decodePathSegment(segment: string | undefined): string | null {
+  if (!segment) return null;
+  try {
+    const decoded = decodeURIComponent(segment);
+    return /^[a-z0-9-]+$/.test(decoded) ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
+function readGatewayMetadata(dTag: string): GatewayMetadata {
+  const manifestPath = path.join(nappletDirs, dTag, 'dist', '.nip5a-manifest.json');
+  if (!fs.existsSync(manifestPath)) {
+    throw new Error(`manifest not found for ${dTag}`);
+  }
+
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8')) as NappletManifest;
+  if (typeof manifest.aggregateHash !== 'string' || manifest.aggregateHash.length === 0) {
+    throw new Error(`manifest for ${dTag} does not include aggregateHash`);
+  }
+
+  const tags = Array.isArray(manifest.tags) ? manifest.tags : [];
+  const manifestDTag = tags.find(
+    (tag): tag is string[] =>
+      Array.isArray(tag) &&
+      tag[0] === 'd' &&
+      typeof tag[1] === 'string',
+  )?.[1];
+  if (manifestDTag !== dTag) {
+    throw new Error(`manifest d tag mismatch for ${dTag}: got ${manifestDTag ?? '(missing)'}`);
+  }
+
+  const aggregateHash = manifest.aggregateHash;
+  return {
+    dTag,
+    aggregateHash,
+    htmlUrl: `/napplet-gateway/${encodeURIComponent(dTag)}/${aggregateHash}/index.html`,
+  };
+}
+
+function serveGateway(req: IncomingMessage, res: ServerResponse, next: () => void): void {
+  const urlPath = (req.url?.split('?')[0] || '').replace(/^\//, '');
+  const parts = urlPath.split('/').filter(Boolean);
+  const dTag = decodePathSegment(parts[0]);
+  if (!dTag) {
+    next();
+    return;
+  }
+
+  if (parts.length === 2 && parts[1] === 'manifest.json') {
+    try {
+      sendJson(res, 200, readGatewayMetadata(dTag));
+    } catch (err) {
+      sendText(res, 404, err instanceof Error ? err.message : String(err));
+    }
+    return;
+  }
+
+  const requestedHash = parts[1];
+  const isIndex =
+    parts.length === 2 ||
+    (parts.length === 3 && parts[2] === 'index.html');
+  if (!requestedHash || !isIndex) {
+    next();
+    return;
+  }
+
+  try {
+    const metadata = readGatewayMetadata(dTag);
+    if (requestedHash !== metadata.aggregateHash) {
+      sendText(res, 404, `aggregateHash mismatch for ${dTag}`);
+      return;
+    }
+
+    const indexPath = path.join(nappletDirs, dTag, 'dist', 'index.html');
+    if (!fs.existsSync(indexPath)) {
+      sendText(res, 404, `index.html not found for ${dTag}`);
+      return;
+    }
+
+    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    res.setHeader('X-Napplet-DTag', metadata.dTag);
+    res.setHeader('X-Napplet-Aggregate-Hash', metadata.aggregateHash);
+    fs.createReadStream(indexPath).pipe(res);
+  } catch (err) {
+    sendText(res, 404, err instanceof Error ? err.message : String(err));
+  }
+}
+
 /**
  * Vite plugin to serve pre-built demo napplets at /napplets/{name}/
  * Same pattern as tests/e2e/harness/vite.config.ts serveNapplets plugin.
@@ -48,6 +162,18 @@ function serveDemoNapplets(): Plugin {
     },
     configurePreviewServer(server) {
       server.middlewares.use('/napplets', serveNappletFile);
+    },
+  };
+}
+
+function serveNappletGateway(): Plugin {
+  return {
+    name: 'serve-napplet-gateway',
+    configureServer(server) {
+      server.middlewares.use('/napplet-gateway', serveGateway);
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use('/napplet-gateway', serveGateway);
     },
   };
 }
@@ -153,42 +279,69 @@ function handleGrantSync(
 }
 
 /**
- * Middleware that sets the CSP header on /napplets/<dTag>/ and
- * /napplets/<dTag>/index.html responses, then calls next() so
- * serveDemoNapplets' file-streaming middleware can complete the response.
+ * Middleware that sets the CSP header on active
+ * /napplet-gateway/<dTag>/<aggregateHash>/index.html responses and legacy
+ * /napplets/<dTag>/index.html responses, then calls next() so the relevant
+ * file-streaming middleware can complete the response.
  */
-function makeCspMiddleware(grants: Map<string, readonly string[]>) {
+function getOriginsForGrant(
+  grants: Map<string, readonly string[]>,
+  dTag: string,
+  aggregateHash: string,
+): readonly string[] {
+  const directKey = grantKey(dTag, aggregateHash);
+  if (grants.has(directKey)) return grants.get(directKey)!;
+
+  const legacyKey = grantKey(dTag, '');
+  if (grants.has(legacyKey)) return grants.get(legacyKey)!;
+
+  for (const [key, origins] of grants) {
+    if (key.startsWith(`${dTag}:`)) return origins;
+  }
+  return [];
+}
+
+function makeCspMiddleware(
+  grants: Map<string, readonly string[]>,
+  mode: 'napplets' | 'gateway',
+) {
   return function cspMiddleware(req: IncomingMessage, res: ServerResponse, next: () => void): void {
     const urlPath = (req.url?.split('?')[0] || '').replace(/^\//, '');
     const parts = urlPath.split('/').filter(Boolean);
 
-    // Only set CSP on the HTML document response (path exactly '<dTag>' or
-    // '<dTag>/' or '<dTag>/index.html'). Subresources (.js/.css/.svg under
-    // the napplet dir) get the default Vite response -- CSP scopes the
-    // iframe's origin policy, not per-asset.
-    const isHtmlDoc =
-      parts.length === 1 ||
-      (parts.length === 2 && (parts[1] === '' || parts[1] === 'index.html'));
-    if (!isHtmlDoc || parts.length < 1) {
+    let dTag: string | null = null;
+    let aggregateHash = '';
+
+    if (mode === 'gateway') {
+      dTag = decodePathSegment(parts[0]);
+      aggregateHash = parts[1] ?? '';
+      const isGatewayHtml =
+        !!dTag &&
+        aggregateHash.length > 0 &&
+        (parts.length === 2 || (parts.length === 3 && parts[2] === 'index.html'));
+      if (!isGatewayHtml) {
+        next();
+        return;
+      }
+    } else {
+      // Only set CSP on the legacy HTML document response (path exactly
+      // '<dTag>' or '<dTag>/' or '<dTag>/index.html').
+      const isHtmlDoc =
+        parts.length === 1 ||
+        (parts.length === 2 && (parts[1] === '' || parts[1] === 'index.html'));
+      dTag = decodePathSegment(parts[0]);
+      if (!isHtmlDoc || !dTag) {
+        next();
+        return;
+      }
+    }
+
+    if (!dTag) {
       next();
       return;
     }
 
-    const dTag = parts[0];
-    // Demo convention: aggregateHash is '' -- so the key we look up is '<dTag>:'.
-    // Future-proof: also try any key starting with '<dTag>:' for multi-hash scenarios.
-    let origins: readonly string[] = [];
-    const directKey = grantKey(dTag, '');
-    if (grants.has(directKey)) {
-      origins = grants.get(directKey)!;
-    } else {
-      for (const [k, v] of grants) {
-        if (k.startsWith(`${dTag}:`)) {
-          origins = v;
-          break;
-        }
-      }
-    }
+    const origins = getOriginsForGrant(grants, dTag, aggregateHash);
 
     res.setHeader('Content-Security-Policy', buildCspHeader(origins));
     next();
@@ -202,7 +355,8 @@ function makeCspMiddleware(grants: Map<string, readonly string[]>) {
  */
 function serveNappletCsp(): Plugin {
   const grants = createGrantsMap();
-  const cspMiddleware = makeCspMiddleware(grants);
+  const nappletsCspMiddleware = makeCspMiddleware(grants, 'napplets');
+  const gatewayCspMiddleware = makeCspMiddleware(grants, 'gateway');
 
   return {
     name: 'serve-napplet-csp',
@@ -215,8 +369,9 @@ function serveNappletCsp(): Plugin {
         }
         next();
       });
-      // CSP header on /napplets/<dTag>/index.html -- runs BEFORE serveDemoNapplets.
-      server.middlewares.use('/napplets', cspMiddleware);
+      // CSP header on gateway and legacy HTML routes -- runs BEFORE file serving.
+      server.middlewares.use('/napplet-gateway', gatewayCspMiddleware);
+      server.middlewares.use('/napplets', nappletsCspMiddleware);
     },
     configurePreviewServer(server) {
       server.middlewares.use('/__connect-grants', (req, res, next) => {
@@ -226,7 +381,8 @@ function serveNappletCsp(): Plugin {
         }
         next();
       });
-      server.middlewares.use('/napplets', cspMiddleware);
+      server.middlewares.use('/napplet-gateway', gatewayCspMiddleware);
+      server.middlewares.use('/napplets', nappletsCspMiddleware);
     },
   };
 }
@@ -243,6 +399,7 @@ export default defineConfig({
   plugins: [
     UnoCSS(),
     serveNappletCsp(),   // NOTE: must register BEFORE serveDemoNapplets so CSP header sets first
+    serveNappletGateway(),
     serveDemoNapplets(),
   ],
   server: {

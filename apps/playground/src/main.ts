@@ -25,6 +25,7 @@ import {
   getDemoDecryptBridgeCallCount,
   resetDemoDecryptBridgeCallCount,
 } from './shell-host.js';
+import type { GatewayNappletMetadata } from './shell-host.js';
 import type { NappletClass } from '@kehto/shell';
 import type { Capability } from '@kehto/shell';
 import { connectStore } from '@kehto/shell';
@@ -644,11 +645,10 @@ if (shellPubkey) shellPubkey.textContent = `pubkey: ${getDemoHostPubkey().substr
 
 // ─── Phase 39 Plan 39-04: NUB-CONNECT + NUB-CONFIG test hooks ───────────────
 //
-// Hoisted to BEFORE nappletInfos (Phase 40 Plan 40-02) so the auto-grant for
-// resource-demo can call __grantConnectOrigin__ before loadNapplet fires.
-// Previously these were defined after the nappletInfos loop (E2E-only usage),
-// but Phase 40 D3 requires the grant to land before the iframe's first HTTP
-// request so the Vite serveNappletCsp plugin emits connect-src localhost:5174.
+// Hoisted before napplet loading (Phase 40 Plan 40-02) so resource-demo can
+// grant its manifest-derived aggregateHash before loadNapplet navigates the
+// iframe. Phase 40 D3 requires the grant to land before the iframe's first HTTP
+// request so the Vite serveNappletCsp plugin emits connect-src localhost:4174.
 //
 // Plan 39-05's E2E specs (connect-consent.spec.ts, connect-revocation.spec.ts,
 // nub-config.spec.ts) need to grant/revoke connect origins and publish config
@@ -672,14 +672,19 @@ async function syncGrantsToVite(dTag: string, aggregateHash: string, origins: re
   }
 }
 
-(window as Window & {
-  __grantConnectOrigin__?: (dTag: string, aggregateHash: string, origin: string) => boolean;
-}).__grantConnectOrigin__ = (dTag: string, aggregateHash: string, origin: string): boolean => {
+async function grantConnectOrigin(dTag: string, aggregateHash: string, origin: string): Promise<boolean> {
   const existing = connectStore.getOrigins(dTag, aggregateHash);
   const next = [...new Set([...existing, origin])];
   connectStore.grant(dTag, aggregateHash, next);
-  void syncGrantsToVite(dTag, aggregateHash, next);
+  await syncGrantsToVite(dTag, aggregateHash, next);
   console.info(`[demo] __grantConnectOrigin__: granted ${origin} to ${dTag}:${aggregateHash}`);
+  return true;
+}
+
+(window as Window & {
+  __grantConnectOrigin__?: (dTag: string, aggregateHash: string, origin: string) => boolean;
+}).__grantConnectOrigin__ = (dTag: string, aggregateHash: string, origin: string): boolean => {
+  void grantConnectOrigin(dTag, aggregateHash, origin);
   return true;
 };
 
@@ -711,7 +716,9 @@ window.addEventListener('shell:connect-revoked', (event) => {
     info.iframe.remove();
     napps.delete(windowId);
     // Re-load. loadNapplet assigns a fresh windowId and re-appends iframe.
-    loadNapplet(detail.dTag, containerId);
+    void loadNapplet(detail.dTag, containerId).catch((err) => {
+      console.error(`[demo] shell:connect-revoked: failed to reload ${detail.dTag}`, err);
+    });
     console.info(`[demo] shell:connect-revoked: destroy+recreate iframe for ${detail.dTag}`);
   }
 });
@@ -720,13 +727,6 @@ window.addEventListener('shell:connect-revoked', (event) => {
 // Grants http://localhost:4174 to resource-demo at demo boot so the Vite
 // serveNappletCsp plugin (Phase 39 Plan 39-03) emits connect-src localhost:4174
 // on the iframe HTML response. No user click-through — deterministic for E2E.
-// The ('resource-demo', '') composite key matches the session-entry aggregateHash
-// which is '' for demo napplets (shell-host.ts loadNapplet() hard-codes '').
-//
-// Uses __grantConnectOrigin__ (defined above — hoisted from Phase 39's original
-// post-nappletInfos location so this call runs BEFORE iframe first load).
-// Defensive null-check guards against future file reorders.
-//
 // Phase 40 Plan 40-03 fix: uses 4174 (demo server) not 5174 (napplet dev server)
 // because demo-data.json is served from apps/playground/public/ at the demo origin.
 // In preview mode (E2E), no server runs at 5174; the fixture is at /demo-data.json
@@ -734,25 +734,33 @@ window.addEventListener('shell:connect-revoked', (event) => {
 //
 // Phase 39 Dev 2 safety: does NOT touch the shell:connect-revoked path at all;
 // the revocation handler's snapshot-before-mutate pattern is preserved unchanged.
-{
-  // auto-grant: resource-demo
-  const grantFn = (window as Window & {
-    __grantConnectOrigin__?: (dTag: string, aggregateHash: string, origin: string) => boolean;
-  }).__grantConnectOrigin__;
-  if (grantFn) {
-    const ok = grantFn('resource-demo', '', 'http://localhost:4174');
-    if (!ok) {
-      console.warn('[demo] resource-demo auto-grant failed; E2E may fail on granted-fetch assertion');
-    } else {
-      console.info('[demo] resource-demo: pre-granted http://localhost:4174 (RESOURCE-04 / D3)');
-    }
+async function pregrantBeforeGatewayNavigation(metadata: GatewayNappletMetadata): Promise<void> {
+  if (metadata.dTag !== 'resource-demo') return;
+  const ok = await grantConnectOrigin(
+    metadata.dTag,
+    metadata.aggregateHash,
+    'http://localhost:4174',
+  );
+  if (!ok) {
+    console.warn('[demo] resource-demo auto-grant failed; E2E may fail on granted-fetch assertion');
   } else {
-    console.warn('[demo] __grantConnectOrigin__ not available at auto-grant site — file ordering regression');
+    console.info('[demo] resource-demo: pre-granted http://localhost:4174 (RESOURCE-04 / D3)');
   }
 }
 
 // Load demo napplets into the rendered topology
-const nappletInfos = DEMO_NAPPLETS.map((napplet) => loadNapplet(napplet.name, napplet.frameContainerId));
+for (const napplet of DEMO_NAPPLETS) {
+  void loadNapplet(napplet.name, napplet.frameContainerId, {
+    beforeNavigate: pregrantBeforeGatewayNavigation,
+  }).catch((err) => {
+    const statusEl = document.getElementById(napplet.statusId);
+    if (statusEl) {
+      statusEl.textContent = 'load failed';
+      statusEl.style.color = '#ff6b6b';
+    }
+    console.error(`[demo] failed to load napplet ${napplet.name}`, err);
+  });
+}
 
 initFlowAnimator(tap, topology, edgeFlasher);
 
@@ -928,7 +936,7 @@ const aclRendered = new Set<string>();
 function refreshAclPanelsIfNeeded(): void {
   for (const napplet of DEMO_NAPPLETS) {
     if (aclRendered.has(napplet.name)) continue;
-    const info = nappletInfos.find((entry) => entry.name === napplet.name);
+    const info = [...getNapplets().values()].find((entry) => entry.name === napplet.name);
     if (!info?.authenticated) continue;
     const statusEl = document.getElementById(napplet.statusId);
     if (statusEl) {

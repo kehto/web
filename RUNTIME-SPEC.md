@@ -1291,9 +1291,21 @@ The aggregate hash is stored in the NIP-5A event's `x` tag (see [nostr-protocol/
 **Shell verification model:**
 
 - The NIP-5A event on relays is the source of truth for production verification
-- The HTML meta tag is a local convenience for the shim during development
+- The HTML meta tag is a local convenience for the shim after the gateway artifact has been resolved
 - The shell uses the aggregate hash as part of the ACL composite key `(dTag, aggregateHash)`
 - Changes to any component of the composite key create a new identity
+
+**Gateway artifact loading model:**
+
+Local verification SHOULD match production gateway serving. A conformant local
+playground path resolves manifest metadata first, registers the session with the
+manifest-derived `(dTag, aggregateHash)`, and then navigates a sandboxed iframe
+without `allow-same-origin` to the final gateway artifact. Kehto's reference
+playground uses `/napplet-gateway/<dTag>/<aggregateHash>/index.html` for this
+path, and demo napplet builds use `@napplet/vite-plugin` single-file artifact
+mode so the served HTML is the same byte boundary that participates in the
+aggregate hash. A local helper route that serves `dist/assets/*.js` separately
+is not production-equivalent evidence for opaque-origin NIP-5D loading.
 
 **Note:** The `@napplet/vite-plugin` package is a **development convenience** for computing aggregate hashes locally during development. Production deployment of napplets to nsites uses community deploy tools (e.g., [nsyte](https://github.com/nicefarm/nsyte)) which handle NIP-5A event creation and relay publishing.
 

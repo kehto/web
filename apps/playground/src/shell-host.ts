@@ -987,6 +987,16 @@ export interface NappletInfo {
   authenticated: boolean;
 }
 
+export interface GatewayNappletMetadata {
+  dTag: string;
+  aggregateHash: string;
+  htmlUrl: string;
+}
+
+export interface LoadNappletOptions {
+  beforeNavigate?: (metadata: GatewayNappletMetadata) => void | Promise<void>;
+}
+
 const napplets = new Map<string, NappletInfo>();
 const demoServiceNames = new Set<string>(DEMO_TOPOLOGY_SERVICE_NAMES);
 let nappletCounter = 0;
@@ -1379,30 +1389,34 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
 /**
  * Load a demo napplet into a container element.
  */
-export function loadNapplet(name: string, containerId: string): NappletInfo {
+export async function loadNapplet(
+  name: string,
+  containerId: string,
+  options: LoadNappletOptions = {},
+): Promise<NappletInfo> {
   const windowId = `demo-${name}-${++nappletCounter}`;
-  const url = `/napplets/${name}/index.html`;
+  const metadata = await fetchGatewayMetadata(name);
 
   const iframe = document.createElement('iframe');
   iframe.id = windowId;
   iframe.className = 'w-full h-full border-0';
   iframe.sandbox.add('allow-scripts');
-  iframe.src = url;
 
   const container = document.getElementById(containerId);
   if (container) container.appendChild(iframe);
 
   // NIP-5D session entry — registered immediately so storage.* and notify.* NUB
   // handlers can resolve the napplet's identity without a legacy AUTH handshake.
-  // dTag uses the napplet name; aggregateHash is empty (no manifest hash in demo).
+  // dTag and aggregateHash come from the local gateway manifest metadata so the
+  // playground exercises the same identity tuple as production NIP-5A loading.
   function registerSessionEntry(): void {
     const entry: SessionEntry = {
       pubkey: '',
       windowId,
       origin: 'null',
       type: 'napplet',
-      dTag: name,
-      aggregateHash: '',
+      dTag: metadata.dTag,
+      aggregateHash: metadata.aggregateHash,
       registeredAt: Date.now(),
       instanceId: crypto.randomUUID(),
       provenance: 'nip-5d',
@@ -1410,7 +1424,7 @@ export function loadNapplet(name: string, containerId: string): NappletInfo {
       // Defaults to null (permissive, D2) if the dTag has no explicit entry —
       // defensive fallback; the module-load assertion above guarantees every
       // DEMO_NAPPLETS name has an entry, so the ?? null is defensive only.
-      class: CLASS_BY_DTAG.get(name) ?? null,
+      class: CLASS_BY_DTAG.get(metadata.dTag) ?? null,
     };
     relay.runtime.sessionRegistry.register(windowId, entry);
   }
@@ -1426,6 +1440,8 @@ export function loadNapplet(name: string, containerId: string): NappletInfo {
     windowId,
     name,
     iframe,
+    dTag: metadata.dTag,
+    aggregateHash: metadata.aggregateHash,
     authenticated: false,
   };
   napplets.set(windowId, info);
@@ -1438,7 +1454,31 @@ export function loadNapplet(name: string, containerId: string): NappletInfo {
     }
   });
 
+  await options.beforeNavigate?.(metadata);
+  iframe.src = metadata.htmlUrl;
+
   return info;
+}
+
+async function fetchGatewayMetadata(name: string): Promise<GatewayNappletMetadata> {
+  const response = await fetch(`/napplet-gateway/${encodeURIComponent(name)}/manifest.json`, {
+    cache: 'no-store',
+  });
+  if (!response.ok) {
+    throw new Error(`[demo] gateway metadata load failed for ${name}: ${response.status}`);
+  }
+
+  const metadata = await response.json() as Partial<GatewayNappletMetadata>;
+  if (
+    metadata.dTag !== name ||
+    typeof metadata.aggregateHash !== 'string' ||
+    metadata.aggregateHash.length === 0 ||
+    typeof metadata.htmlUrl !== 'string' ||
+    metadata.htmlUrl.length === 0
+  ) {
+    throw new Error(`[demo] malformed gateway metadata for ${name}`);
+  }
+  return metadata as GatewayNappletMetadata;
 }
 
 /**

@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.11
 milestone_name: NIP-5A Gateway Artifact Parity
-status: planning
-last_updated: "2026-05-22T16:59:42+02:00"
-last_activity: 2026-05-22 — Milestone v1.11 requirements and roadmap defined
+status: completed
+last_updated: "2026-05-22T17:52:36+02:00"
+last_activity: 2026-05-22 — v1.11 completed with gateway artifact guards and full verification
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 3
   total_plans: 3
-  completed_plans: 0
-  percent: 0
+  completed_plans: 3
+  percent: 100
 ---
 
 # Project State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-05-22, v1.11 started)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Ready to plan Phase 53
-Last activity: 2026-05-22 — Milestone v1.11 requirements and roadmap defined; local playground must match production NIP-5D/NIP-5A gateway loading
+Phase: v1.11 complete
+Plan: complete
+Status: v1.11 archived; ready for next milestone selection
+Last activity: 2026-05-22 — v1.11 archived to `.planning/milestones/v1.11-*` with passed milestone audit and phase packet
 
 ## Accumulated Context
 
@@ -53,6 +53,7 @@ Full decision log (v1.0 → v1.10) archived in `.planning/PROJECT.md` Key Decisi
 - v1.9 archived 2026-05-22: roadmap, requirements, phase artifacts, and milestone audit are stored under `.planning/milestones/v1.9-*`.
 - v1.10 archived 2026-05-22: identity topic compatibility removed, decrypt-demo uses `identityDecrypt`, guard coverage closes the old helper graph, and verification closes at 548 unit tests plus 86/86 Playwright.
 - v1.11 started 2026-05-22: local playground and E2E loading must match the production NIP-5D/NIP-5A gateway path. The milestone aligns single-file artifact generation, aggregate-hash semantics, playground loading, static guards, and Playwright proof around that continuity invariant.
+- v1.11 completed 2026-05-22: `@napplet/vite-plugin` supports explicit single-file artifact mode, playground napplets load through `/napplet-gateway/<dTag>/<aggregateHash>/index.html`, and drift is guarded by unit, audit, and Playwright coverage. Final verification: `pnpm build`, `pnpm type-check`, `pnpm test:unit` (551 tests), `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and `pnpm test:e2e` (87/87).
 
 ### Quick Tasks Completed
 
