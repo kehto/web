@@ -2,7 +2,7 @@
 quick_id: 260522-lb0
 status: complete
 date: 2026-05-22
-commit: pending
+commit: 8d763b5
 ---
 
 # Quick Task 260522-lb0: vite-single-file playground napplet validity - Summary
