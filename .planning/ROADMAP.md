@@ -28,7 +28,7 @@
 
 ### Phases
 
-- [ ] **Phase 50: Identity Topic Hard Removal** — Remove the `auth:identity-changed` compatibility branch, update the shell bridge tests/docs, and make canonical `identity:changed` single-emission the only current behavior.
+- [x] **Phase 50: Identity Topic Hard Removal** — Remove the `auth:identity-changed` compatibility branch, update the shell bridge tests/docs, and make canonical `identity:changed` single-emission the only current behavior. (completed 2026-05-22)
 - [ ] **Phase 51: Decrypt Demo Helper Parity** — Move `decrypt-demo` to exact `0.3.0` napplet helper packages and replace manual `identity.decrypt` postMessage plumbing with `identityDecrypt`.
 - [ ] **Phase 52: Regression Guard + Full Verification** — Extend guardrails around the remaining old package graph/raw decrypt pattern, clean docs/release notes, and run the full build/type/unit/E2E loop.
 
@@ -52,7 +52,7 @@
   3. Deprecated `auth:identity-changed` input is treated like any other generic topic and emits only that supplied topic once.
   4. Shell bridge tests, generated/source API docs, and changeset prose describe only the current canonical behavior.
 
-**Plans**: Not planned yet
+**Plans**: 50-01 (complete)
 
 ### Phase 51: Decrypt Demo Helper Parity
 
@@ -97,10 +97,10 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 50. Identity Topic Hard Removal | 0/0 | Pending | — |
+| 50. Identity Topic Hard Removal | 1/1 | Complete    | 2026-05-22 |
 | 51. Decrypt Demo Helper Parity | 0/0 | Pending | — |
 | 52. Regression Guard + Full Verification | 0/0 | Pending | — |
 
 ---
 
-*ROADMAP.md last updated: 2026-05-22 — v1.10 roadmap created.*
+*ROADMAP.md last updated: 2026-05-22 — Phase 50 complete; Phase 51 next.*

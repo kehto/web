@@ -11,8 +11,8 @@
 
 ### Identity topic cleanup
 
-- [ ] **RENAME-HARD-01**: Napplets receive exactly one `identity:changed` push when host code injects the canonical identity-change topic
-- [ ] **RENAME-HARD-02**: The deprecated `auth:identity-changed` topic has no special compatibility branch in `ShellBridge.injectEvent()`; if passed through the generic injection API, it emits only the supplied topic once and no longer fans out to `identity:changed`
+- [x] **RENAME-HARD-01**: Napplets receive exactly one `identity:changed` push when host code injects the canonical identity-change topic
+- [x] **RENAME-HARD-02**: The deprecated `auth:identity-changed` topic has no special compatibility branch in `ShellBridge.injectEvent()`; if passed through the generic injection API, it emits only the supplied topic once and no longer fans out to `identity:changed`
 
 ### Decrypt demo helper parity
 
@@ -68,8 +68,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RENAME-HARD-01 | Phase 50 | Pending |
-| RENAME-HARD-02 | Phase 50 | Pending |
+| RENAME-HARD-01 | Phase 50 | Complete |
+| RENAME-HARD-02 | Phase 50 | Complete |
 | DECRYPT-DEMO-01 | Phase 51 | Pending |
 | DECRYPT-DEMO-02 | Phase 51 | Pending |
 | DECRYPT-DEMO-03 | Phase 51 | Pending |

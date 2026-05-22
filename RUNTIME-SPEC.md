@@ -849,7 +849,7 @@ Napplets can communicate with each other via free-form topics on kind 29003 (IPC
 
 | Topic | Direction | Description |
 |---|---|---|
-| `auth:identity-changed` | Shell to napplets | User identity changed or logged out |
+| `identity:changed` | Shell to napplets | User identity changed or logged out |
 | `wm:focused-window-changed` | Shell to napplets | Window focus changed -- payload: `{windowId, nappClass, metadata}` |
 | `stream:channel-switch` | Napplet to napplet | Request live stream channel switch |
 | `profile:open` | Napplet to napplet | Request profile card display |

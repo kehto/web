@@ -73,22 +73,15 @@ export interface ShellBridge {
    * shell-originated events are forwarded to napplets as ifc.event envelope
    * messages. The runtime's injectEvent() handles the per-session routing.
    *
-   * RENAME-02 (v1.8 Phase 42): when topic is either `'auth:identity-changed'`
-   * (deprecated) or `'identity:changed'` (canonical), this method dual-emits
-   * BOTH topics to runtime.injectEvent so subscribers of either name receive
-   * the event during the soft-rename window. Migrate to `'identity:changed'`
-   * before v1.9 — the old topic will be hard-removed then.
+   * v1.10 hard-removed the v1.8 soft-rename compatibility branch for the
+   * old `auth:identity-changed` topic. Use the canonical `identity:changed`
+   * topic for identity-change pushes.
    *
-   * @param topic - The event topic tag value. Special-cased identity topics:
-   *   `'auth:identity-changed'` (@deprecated; use `'identity:changed'` instead)
-   *   and `'identity:changed'` (canonical, NIP-5D `identity` NUB domain) both
-   *   trigger dual-emit. All other topics are forwarded exactly once.
+   * @param topic - The event topic tag value. Forwarded exactly once.
    * @param payload - The event content
    * @example
    * ```ts
    * bridge.injectEvent('identity:changed', { pubkey: userPubkey });
-   * // also fires 'auth:identity-changed' for backward compatibility during
-   * // the v1.8 → v1.9 soft-rename window.
    * ```
    */
   injectEvent(topic: string, payload: unknown): void;
@@ -267,15 +260,6 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
     },
 
     injectEvent(topic: string, payload: unknown): void {
-      const OLD_IDENTITY_TOPIC = 'auth:identity-changed';
-      const NEW_IDENTITY_TOPIC = 'identity:changed';
-      // RENAME-02 (v1.8 Phase 42): dual-emit both topics for one release;
-      // remove this branch in v1.9 and forward `topic` unchanged.
-      if (topic === OLD_IDENTITY_TOPIC || topic === NEW_IDENTITY_TOPIC) {
-        runtime.injectEvent(OLD_IDENTITY_TOPIC, payload);
-        runtime.injectEvent(NEW_IDENTITY_TOPIC, payload);
-        return;
-      }
       runtime.injectEvent(topic, payload);
     },
 

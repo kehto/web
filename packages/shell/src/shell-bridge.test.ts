@@ -197,36 +197,30 @@ describe('ShellBridge.publishTheme (TH-03, Plan 13-02)', () => {
   });
 });
 
-// ─── ShellBridge.injectEvent dual-emit (RENAME-02, Plan 42-04) ───────────────
+// ─── ShellBridge.injectEvent single-topic forwarding (RENAME-HARD-01/02) ─────
 
-describe('ShellBridge.injectEvent dual-emit (RENAME-02)', () => {
-  it("dual-emits when called with the deprecated 'auth:identity-changed' topic", () => {
+describe('ShellBridge.injectEvent single-topic forwarding', () => {
+  it("forwards the canonical 'identity:changed' topic exactly once", () => {
     const bridge = createShellBridge(makeTestHooks());
     const spy = vi.spyOn(bridge.runtime, 'injectEvent');
 
     const payload = { pubkey: 'abc' };
-    bridge.injectEvent('auth:identity-changed', payload);
+    bridge.injectEvent('identity:changed', payload);
 
-    expect(spy.mock.calls).toEqual([
-      ['auth:identity-changed', payload],
-      ['identity:changed', payload],
-    ]);
+    expect(spy.mock.calls).toEqual([['identity:changed', payload]]);
 
     spy.mockRestore();
     bridge.destroy();
   });
 
-  it("dual-emits when called with the canonical 'identity:changed' topic", () => {
+  it("forwards the deprecated 'auth:identity-changed' topic literally with no fan-out", () => {
     const bridge = createShellBridge(makeTestHooks());
     const spy = vi.spyOn(bridge.runtime, 'injectEvent');
 
     const payload = { pubkey: 'def' };
-    bridge.injectEvent('identity:changed', payload);
+    bridge.injectEvent('auth:identity-changed', payload);
 
-    expect(spy.mock.calls).toEqual([
-      ['auth:identity-changed', payload],
-      ['identity:changed', payload],
-    ]);
+    expect(spy.mock.calls).toEqual([['auth:identity-changed', payload]]);
 
     spy.mockRestore();
     bridge.destroy();
