@@ -1,20 +1,14 @@
 # Kehto Runtime
 
-Kehto is the host-side runtime for sandboxed Nostr napplet applications.
+Kehto is a web-based runtime for NIP-5D nostr applets ("napplets"). 
 
-It provides the packages a client uses to load napplets in iframes, enforce
-capabilities, route NIP-5D messages, register host services, and serve
-production-equivalent gateway artifacts. The portable napplet-side packages
-(`@napplet/core`, `@napplet/shim`, `@napplet/nub`, and
-`@napplet/vite-plugin`) live in the
-[@napplet](https://github.com/sandwichfarm/napplet) repo; Kehto implements the
-runtime and shell side.
+It provides a series of packages that can be used to more easily build a napplet host-client, by handling enforcment capabilities, routing, registration of host services, and development tooling. There are applet-side packages that act as a reference implementation (`@napplet/core`, `@napplet/shim`, `@napplet/nub`, and `@napplet/vite-plugin`) and they live in the [@napplet](https://github.com/sandwichfarm/napplet) repo; Kehto implements an example runtime and NIP-5D shell. 
 
 ## Start Here
 
 - Public web portal: <https://kehto.github.io/web/>
 - Playground demo: <https://kehto.github.io/web/playground/>
-- VitePress docs: <https://kehto.github.io/web/docs/>
+- Dcs: <https://kehto.github.io/web/docs/>
 - Local docs entry: [docs/index.md](./docs/index.md)
 - Package reference index: [docs/packages/index.md](./docs/packages/index.md)
 - Generated API reference index: [docs/reference/api.md](./docs/reference/api.md)
