@@ -34,7 +34,7 @@
 ### Phases
 
 - [x] **Phase 65: Pages Portal Entry Point** - Add the static `/web/` entry page and artifact root contract that links users to playground and docs.
-- [ ] **Phase 66: Playground Pages Path Relocation** - Move playground Pages packaging and gateway metadata under `/web/playground/`.
+- [x] **Phase 66: Playground Pages Path Relocation** - Move playground Pages packaging and gateway metadata under `/web/playground/`.
 - [ ] **Phase 67: Docs Pages Publication and Deploy Gate** - Publish VitePress under `/web/docs/`, upload one unified Pages artifact, and add route-shape verification.
 
 ---
@@ -78,7 +78,9 @@
   4. All 13 built napplets are represented as static gateway routes in the artifact.
   5. The Pages workflow no longer depends on `github.event.repository.name` for the public playground base path.
 
-**Plans**: Pending
+**Plans**: [66-01-PLAN.md](phases/66-playground-pages-path-relocation/66-01-PLAN.md)
+
+**Completed**: 2026-05-23 ([summary](phases/66-playground-pages-path-relocation/66-01-SUMMARY.md) | [verification](phases/66-playground-pages-path-relocation/66-VERIFICATION.md))
 
 ### Phase 67: Docs Pages Publication and Deploy Gate
 
@@ -107,7 +109,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 65. Pages Portal Entry Point | 1/1 | Completed | 2026-05-23 |
-| 66. Playground Pages Path Relocation | 0/1 | Pending | — |
+| 66. Playground Pages Path Relocation | 1/1 | Completed | 2026-05-23 |
 | 67. Docs Pages Publication and Deploy Gate | 0/1 | Pending | — |
 
 ## Backlog

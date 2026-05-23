@@ -19,10 +19,10 @@
 
 ### Playground deployment
 
-- [ ] **PLAY-01**: Visitor can open `https://kehto.github.io/web/playground/` and load the playground shell assets with the correct Pages base path.
-- [ ] **PLAY-02**: The playground static NIP-5A gateway metadata points napplet iframe URLs under `/web/playground/napplet-gateway/`.
-- [ ] **PLAY-03**: All 13 built playground napplets are included in the Pages artifact with their `.nip5a-manifest.json` metadata represented as static gateway routes.
-- [ ] **PLAY-04**: The playground Pages build no longer depends on `github.event.repository.name` to derive the public base path.
+- [x] **PLAY-01**: Visitor can open `https://kehto.github.io/web/playground/` and load the playground shell assets with the correct Pages base path.
+- [x] **PLAY-02**: The playground static NIP-5A gateway metadata points napplet iframe URLs under `/web/playground/napplet-gateway/`.
+- [x] **PLAY-03**: All 13 built playground napplets are included in the Pages artifact with their `.nip5a-manifest.json` metadata represented as static gateway routes.
+- [x] **PLAY-04**: The playground Pages build no longer depends on `github.event.repository.name` to derive the public base path.
 
 ### Documentation deployment
 
@@ -73,10 +73,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PAGE-01 | Phase 65 | Complete |
 | PAGE-02 | Phase 65 | Complete |
 | PAGE-03 | Phase 65 | Complete |
-| PLAY-01 | Phase 66 | Pending |
-| PLAY-02 | Phase 66 | Pending |
-| PLAY-03 | Phase 66 | Pending |
-| PLAY-04 | Phase 66 | Pending |
+| PLAY-01 | Phase 66 | Complete |
+| PLAY-02 | Phase 66 | Complete |
+| PLAY-03 | Phase 66 | Complete |
+| PLAY-04 | Phase 66 | Complete |
 | DOCS-01 | Phase 67 | Pending |
 | DOCS-02 | Phase 67 | Pending |
 | DOCS-03 | Phase 67 | Pending |
