@@ -31,8 +31,8 @@
   "scripts": {
     "build": "tsup",
     "type-check": "tsc --noEmit",
-    "test:unit": "vitest run --config ../../vitest.config.ts",
-    "test": "vitest run --config ../../vitest.config.ts"
+    "test:unit": "cd ../.. && vitest run --config vitest.config.ts packages/nip66/src/index.test.ts",
+    "test": "pnpm test:unit"
   },
   "license": "MIT",
   "repository": {

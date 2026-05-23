@@ -8,7 +8,7 @@
     "build": "turbo run build",
     "docs:api": "typedoc",
     "type-check": "turbo run type-check",
-    "test": "turbo run test",
+    "test": "pnpm build && pnpm test:unit",
     "test:unit": "vitest run",
     "test:e2e": "pnpm test:build && npx playwright test",
     "test:build": "pnpm build",
