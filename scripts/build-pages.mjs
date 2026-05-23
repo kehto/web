@@ -2,12 +2,17 @@
 /**
  * Build the unified GitHub Pages artifact.
  *
- * GitHub Pages serves the uploaded artifact at the domain root. The public
- * Kehto site lives below /web/, so this script creates:
+ * GitHub Pages serves a project repository's uploaded artifact at the
+ * repository path. For kehto/web, the artifact root maps to:
  *
- *   .pages/web/index.html
- *   .pages/web/playground/
- *   .pages/web/docs/
+ *   https://kehto.github.io/web/
+ *
+ * The public URLs still include /web/, but the uploaded artifact itself must
+ * not contain a nested web/ directory:
+ *
+ *   .pages/index.html
+ *   .pages/playground/
+ *   .pages/docs/
  */
 import {
   copyFileSync,
@@ -25,14 +30,13 @@ import { fileURLToPath } from 'node:url';
 const scriptDir = fileURLToPath(new URL('.', import.meta.url));
 const repoRoot = resolve(scriptDir, '..');
 const outputRoot = resolve(repoRoot, process.env.PAGES_OUT_DIR || '.pages');
-const webRoot = join(outputRoot, 'web');
 const portalSource = join(repoRoot, 'web', 'index.html');
-const portalOutput = join(webRoot, 'index.html');
-const playgroundOutput = join(webRoot, 'playground');
+const portalOutput = join(outputRoot, 'index.html');
+const playgroundOutput = join(outputRoot, 'playground');
 const playgroundBasePath = process.env.PLAYGROUND_BASE_PATH || '/web/playground/';
 const docsDist = join(repoRoot, 'docs', '.vitepress', 'dist');
 const docsApi = join(repoRoot, 'docs', 'api');
-const docsOutput = join(webRoot, 'docs');
+const docsOutput = join(outputRoot, 'docs');
 
 function rel(path) {
   return relative(repoRoot, path);
@@ -67,4 +71,4 @@ ensureFile(join(docsApi, 'modules', '_kehto_shell.html'), 'TypeDoc API output');
 cpSync(docsDist, docsOutput, { recursive: true });
 cpSync(docsApi, join(docsOutput, 'api'), { recursive: true });
 
-console.log(`[build:pages] OK - wrote ${rel(webRoot)} portal, playground, and docs roots`);
+console.log(`[build:pages] OK - wrote ${rel(outputRoot)} portal, playground, and docs roots`);

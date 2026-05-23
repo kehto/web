@@ -122,17 +122,19 @@ describe('playground gateway artifact guard', () => {
     expect(script).toContain('/web/playground/napplet-gateway/<dTag>/manifest.json');
     expect(script).toContain('/web/playground/napplet-gateway/<dTag>/<aggregateHash>/index.html');
     expect(script).toContain('PLAYGROUND_BASE_PATH');
-    expect(script).toContain("'.pages/web/playground'");
+    expect(script).toContain("'.pages/playground'");
     expect(script).toContain("'/web/playground/'");
     expect(script).toContain('htmlUrl: withPagesBasePath(');
     expect(script).toContain('cpSync(sourceHtmlPath, htmlRoute)');
 
     expect(pagesScript).toContain("'docs', '.vitepress', 'dist'");
-    expect(pagesScript).toContain("join(webRoot, 'docs')");
+    expect(pagesScript).toContain("join(outputRoot, 'docs')");
     expect(pagesScript).toContain("join(docsOutput, 'api')");
     expect(pagesAudit).toContain("const PLAYGROUND_BASE = '/web/playground/';");
     expect(pagesAudit).toContain("const DOCS_BASE = '/web/docs/';");
-    expect(pagesAudit).toContain("join(webRoot, 'docs', 'api', 'modules', '_kehto_shell.html')");
+    expect(pagesAudit).toContain('artifactPathFromPublicPath(htmlUrl)');
+    expect(pagesAudit).toContain("join(outputRoot, 'index.html')");
+    expect(pagesAudit).toContain("join(outputRoot, 'docs', 'api', 'modules', '_kehto_shell.html')");
     expect(turbo).toContain('"VITEPRESS_BASE"');
 
     expect(resourceDemo).toContain('function getPlaygroundBaseUrl()');

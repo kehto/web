@@ -3,10 +3,13 @@
  * Build a static GitHub Pages artifact for the playground.
  *
  * The local playground gateway is Vite middleware. GitHub Pages is static, so
- * this script materializes the same active load paths under the publish root:
+ * this script materializes the artifact paths that back the public routes:
  *
  *   /web/playground/napplet-gateway/<dTag>/manifest.json
  *   /web/playground/napplet-gateway/<dTag>/<aggregateHash>/index.html
+ *
+ * For the kehto/web project site, GitHub Pages maps .pages/ to /web/, so the
+ * default artifact output directory is .pages/playground.
  */
 import {
   cpSync,
@@ -27,7 +30,7 @@ const playgroundDist = join(repoRoot, 'apps', 'playground', 'dist');
 const nappletsDir = join(repoRoot, 'apps', 'playground', 'napplets');
 const outputDir = resolve(
   repoRoot,
-  process.env.PLAYGROUND_PAGES_OUT_DIR || '.pages/web/playground',
+  process.env.PLAYGROUND_PAGES_OUT_DIR || '.pages/playground',
 );
 
 const SHORT_NUB_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;

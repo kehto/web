@@ -2,8 +2,9 @@
 /**
  * Verify the static GitHub Pages artifact route contract.
  *
- * The uploaded artifact root maps to https://kehto.github.io/. Kehto's public
- * site intentionally lives under /web/, with playground and docs below it.
+ * For the kehto/web project repository, GitHub Pages maps the uploaded
+ * artifact root to https://kehto.github.io/web/. The public URLs include
+ * /web/, but the artifact root must contain index.html directly.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
@@ -12,9 +13,9 @@ import { fileURLToPath } from 'node:url';
 const scriptDir = fileURLToPath(new URL('.', import.meta.url));
 const repoRoot = resolve(scriptDir, '..');
 const outputRoot = resolve(repoRoot, process.env.PAGES_OUT_DIR || '.pages');
-const webRoot = join(outputRoot, 'web');
 const nappletsDir = join(repoRoot, 'apps', 'playground', 'napplets');
 
+const PUBLIC_SITE_BASE = '/web/';
 const PLAYGROUND_BASE = '/web/playground/';
 const DOCS_BASE = '/web/docs/';
 
@@ -45,6 +46,17 @@ function assertFile(path, context) {
   return true;
 }
 
+function artifactPathFromPublicPath(publicPath) {
+  const path = String(publicPath || '');
+  if (!path.startsWith(PUBLIC_SITE_BASE)) {
+    fail(`public path ${path} does not start with ${PUBLIC_SITE_BASE}`);
+    return outputRoot;
+  }
+
+  const relativePath = path.slice(PUBLIC_SITE_BASE.length);
+  return join(outputRoot, relativePath);
+}
+
 function assertContains(path, content, needle, context) {
   if (!content.includes(needle)) {
     fail(`${context}: ${rel(path)} missing ${needle}`);
@@ -62,7 +74,12 @@ function nappletNames() {
 }
 
 function checkPortal() {
-  const portalPath = join(webRoot, 'index.html');
+  const nestedPortalPath = join(outputRoot, 'web', 'index.html');
+  if (existsSync(nestedPortalPath)) {
+    fail(`portal is nested under ${rel(nestedPortalPath)}; project Pages expects ${rel(join(outputRoot, 'index.html'))}`);
+  }
+
+  const portalPath = join(outputRoot, 'index.html');
   if (!assertFile(portalPath, 'portal route')) return;
   const portal = read(portalPath);
   assertContains(portalPath, portal, 'href="/web/playground/"', 'portal route');
@@ -70,14 +87,14 @@ function checkPortal() {
 }
 
 function checkPlayground() {
-  const indexPath = join(webRoot, 'playground', 'index.html');
+  const indexPath = join(outputRoot, 'playground', 'index.html');
   if (assertFile(indexPath, 'playground route')) {
     assertContains(indexPath, read(indexPath), `${PLAYGROUND_BASE}assets/`, 'playground route');
   }
 
   const names = nappletNames();
   for (const name of names) {
-    const manifestPath = join(webRoot, 'playground', 'napplet-gateway', name, 'manifest.json');
+    const manifestPath = join(outputRoot, 'playground', 'napplet-gateway', name, 'manifest.json');
     if (!assertFile(manifestPath, `${name} gateway manifest`)) continue;
     const manifest = readJson(manifestPath);
     const htmlUrl = manifest.htmlUrl;
@@ -85,23 +102,23 @@ function checkPlayground() {
       fail(`${rel(manifestPath)} htmlUrl does not use ${PLAYGROUND_BASE}napplet-gateway/${name}/`);
       continue;
     }
-    const routePath = join(outputRoot, htmlUrl.replace(/^\/+/, ''));
+    const routePath = artifactPathFromPublicPath(htmlUrl);
     assertFile(routePath, `${name} gateway html route`);
   }
 }
 
 function checkDocs() {
-  const docsIndex = join(webRoot, 'docs', 'index.html');
+  const docsIndex = join(outputRoot, 'docs', 'index.html');
   if (assertFile(docsIndex, 'docs route')) {
     assertContains(docsIndex, read(docsIndex), `${DOCS_BASE}assets/`, 'docs route');
   }
 
   const requiredDocsRoutes = [
-    ['package docs', join(webRoot, 'docs', 'packages', 'shell.html')],
-    ['policy docs', join(webRoot, 'docs', 'policies', 'NIP-5D-CONFORMANCE.html')],
-    ['migration docs', join(webRoot, 'docs', 'migrations', 'index.html')],
-    ['API reference page', join(webRoot, 'docs', 'reference', 'api.html')],
-    ['TypeDoc module', join(webRoot, 'docs', 'api', 'modules', '_kehto_shell.html')],
+    ['package docs', join(outputRoot, 'docs', 'packages', 'shell.html')],
+    ['policy docs', join(outputRoot, 'docs', 'policies', 'NIP-5D-CONFORMANCE.html')],
+    ['migration docs', join(outputRoot, 'docs', 'migrations', 'index.html')],
+    ['API reference page', join(outputRoot, 'docs', 'reference', 'api.html')],
+    ['TypeDoc module', join(outputRoot, 'docs', 'api', 'modules', '_kehto_shell.html')],
   ];
 
   for (const [label, path] of requiredDocsRoutes) {
