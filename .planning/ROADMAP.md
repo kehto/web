@@ -33,7 +33,7 @@
 
 ### Phases
 
-- [ ] **Phase 60: Content Strategy and Docs Information Architecture** - Define personas, documentation taxonomy, start paths, archive boundaries, source-of-truth rules, and site navigation shape.
+- [x] **Phase 60: Content Strategy and Docs Information Architecture** - Define personas, documentation taxonomy, start paths, archive boundaries, source-of-truth rules, and site navigation shape.
 - [ ] **Phase 61: Package Documentation Coverage** - Bring every public package and the playground to consistent purpose/install/API/scope documentation, with export coverage checks.
 - [ ] **Phase 62: Runtime Tutorials and How-to Guides** - Create implementer tutorials, runtime-host guide, napplet integration tutorial, common how-tos, and troubleshooting/tips content.
 - [ ] **Phase 63: VitePress Docs Site Implementation** - Add the docs-owned VitePress site, navigation, build task, package/content linking strategy, and TypeDoc integration.
@@ -60,6 +60,10 @@
   4. Migration archive pages are clearly marked as historical.
   5. Source-of-truth and maintenance rules explain when content is linked, mirrored, or generated.
   6. Proposed VitePress navigation exposes Start, Concepts, Tutorials, How-tos, Package Reference, API Reference, Policies, and Migration Archive.
+
+**Plans**: [60-01-PLAN.md](phases/60-content-strategy-and-docs-information-architecture/60-01-PLAN.md)
+
+**Completed**: 2026-05-23 ([summary](phases/60-content-strategy-and-docs-information-architecture/60-01-SUMMARY.md) | [verification](phases/60-content-strategy-and-docs-information-architecture/60-VERIFICATION.md))
 
 ### Phase 61: Package Documentation Coverage
 
@@ -136,7 +140,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 60. Content Strategy and Docs Information Architecture | 0/1 | Pending | — |
+| 60. Content Strategy and Docs Information Architecture | 1/1 | Completed | 2026-05-23 |
 | 61. Package Documentation Coverage | 0/1 | Pending | — |
 | 62. Runtime Tutorials and How-to Guides | 0/1 | Pending | — |
 | 63. VitePress Docs Site Implementation | 0/1 | Pending | — |

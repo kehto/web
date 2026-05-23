@@ -13,11 +13,11 @@
 
 ### Content strategy and information architecture
 
-- [ ] **STRAT-01**: Reader personas and core documentation jobs are defined for host-app implementers, package API consumers, napplet authors, and maintainers.
-- [ ] **STRAT-02**: Documentation taxonomy separates reference docs, tutorials, how-tos, conceptual guides, package READMEs, policies, migration history, and release/process material.
-- [ ] **STRAT-03**: The monorepo docs entry path explains what Kehto is, how it relates to `@napplet`, which packages exist, and where each reader should start.
-- [ ] **STRAT-04**: Historical migration docs are clearly marked as archive/reference material and cannot be mistaken for current integration guidance.
-- [ ] **STRAT-05**: A content maintenance plan defines ownership, source-of-truth rules, link expectations, and when package README content should be mirrored versus linked from the docs site.
+- [x] **STRAT-01**: Reader personas and core documentation jobs are defined for host-app implementers, package API consumers, napplet authors, and maintainers.
+- [x] **STRAT-02**: Documentation taxonomy separates reference docs, tutorials, how-tos, conceptual guides, package READMEs, policies, migration history, and release/process material.
+- [x] **STRAT-03**: The monorepo docs entry path explains what Kehto is, how it relates to `@napplet`, which packages exist, and where each reader should start.
+- [x] **STRAT-04**: Historical migration docs are clearly marked as archive/reference material and cannot be mistaken for current integration guidance.
+- [x] **STRAT-05**: A content maintenance plan defines ownership, source-of-truth rules, link expectations, and when package README content should be mirrored versus linked from the docs site.
 
 ### Package documentation
 
@@ -41,7 +41,7 @@
 ### VitePress site
 
 - [ ] **SITE-01**: A VitePress docs site is added under `docs/` or an equivalent docs-owned workspace without polluting root package metadata beyond necessary scripts.
-- [ ] **SITE-02**: Site navigation exposes Start, Concepts, Tutorials, How-tos, Package Reference, API Reference, Policies, and Migration Archive sections.
+- [x] **SITE-02**: Site navigation exposes Start, Concepts, Tutorials, How-tos, Package Reference, API Reference, Policies, and Migration Archive sections.
 - [ ] **SITE-03**: The docs site builds locally and in the monorepo task graph with stable output, relative/base-safe links, and no dependency on the playground dev server.
 - [ ] **SITE-04**: Package README and docs-site content stay aligned through a documented source-of-truth rule, generated include strategy, or explicit link strategy.
 - [ ] **SITE-05**: VitePress pages use the repo's existing generated TypeDoc output or docs build flow without breaking `pnpm docs:api`.
@@ -92,12 +92,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| STRAT-01 | Phase 60 | Pending |
-| STRAT-02 | Phase 60 | Pending |
-| STRAT-03 | Phase 60 | Pending |
-| STRAT-04 | Phase 60 | Pending |
-| STRAT-05 | Phase 60 | Pending |
-| SITE-02 | Phase 60 | Pending |
+| STRAT-01 | Phase 60 | Complete |
+| STRAT-02 | Phase 60 | Complete |
+| STRAT-03 | Phase 60 | Complete |
+| STRAT-04 | Phase 60 | Complete |
+| STRAT-05 | Phase 60 | Complete |
+| SITE-02 | Phase 60 | Complete |
 | PKG-01 | Phase 61 | Pending |
 | PKG-02 | Phase 61 | Pending |
 | PKG-03 | Phase 61 | Pending |
