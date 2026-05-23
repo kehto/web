@@ -139,6 +139,6 @@ Use this as a deployment sign-off. Every item is a MUST unless explicitly marked
 - **NUB-CLASS-1.md** — default strict posture (`connect-src 'none'`, no consent, residual meta-CSP harmless). Repo: `napplet/nubs`.
 - **NUB-CLASS-2.md** — user-approved explicit-origin posture (`connect-src <granted-origins>`, first-load prompt, residual meta-CSP refuse-to-serve, revocation timing). Repo: `napplet/nubs`.
 - **NUB-CONNECT** — class-contributing NUB whose grant state drives the cross-NUB invariant for shells implementing both. Repo: `napplet/nubs`.
-- [NIP-5D](./NIP-5D.md) — parent transport spec (JSON envelope wire format, iframe sandbox model, capability advertisement surface).
+- [NIP-5D Conformance](./NIP-5D-CONFORMANCE.md) — parent transport spec alignment (JSON envelope wire format, iframe sandbox model, capability advertisement surface).
 - [SHELL-CONNECT-POLICY.md](./SHELL-CONNECT-POLICY.md) — sibling deployer-policy doc for NUB-CONNECT; required reading for shells implementing both NUBs.
 - [SHELL-RESOURCE-POLICY.md](./SHELL-RESOURCE-POLICY.md) — sibling deployer-policy doc for the read-only NUB.

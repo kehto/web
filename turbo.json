@@ -27,6 +27,9 @@
       "dependsOn": ["build"],
       "cache": false
     },
+    "docs:build": {
+      "outputs": [".vitepress/dist/**"]
+    },
     "type-check": {
       "dependsOn": ["^build"]
     },

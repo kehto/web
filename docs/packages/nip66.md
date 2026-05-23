@@ -41,5 +41,4 @@ pnpm add @kehto/nip66 nostr-tools
 
 ## API Reference
 
-- Generated module target: `docs/api/modules/_kehto_nip66.html`
-- This target is wired during the TypeDoc integration phase.
+- Generated module: [`docs/api/modules/_kehto_nip66.html`](../api/modules/_kehto_nip66.html)

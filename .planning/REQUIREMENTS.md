@@ -40,15 +40,15 @@
 
 ### VitePress site
 
-- [ ] **SITE-01**: A VitePress docs site is added under `docs/` or an equivalent docs-owned workspace without polluting root package metadata beyond necessary scripts.
+- [x] **SITE-01**: A VitePress docs site is added under `docs/` or an equivalent docs-owned workspace without polluting root package metadata beyond necessary scripts.
 - [x] **SITE-02**: Site navigation exposes Start, Concepts, Tutorials, How-tos, Package Reference, API Reference, Policies, and Migration Archive sections.
-- [ ] **SITE-03**: The docs site builds locally and in the monorepo task graph with stable output, relative/base-safe links, and no dependency on the playground dev server.
-- [ ] **SITE-04**: Package README and docs-site content stay aligned through a documented source-of-truth rule, generated include strategy, or explicit link strategy.
-- [ ] **SITE-05**: VitePress pages use the repo's existing generated TypeDoc output or docs build flow without breaking `pnpm docs:api`.
+- [x] **SITE-03**: The docs site builds locally and in the monorepo task graph with stable output, relative/base-safe links, and no dependency on the playground dev server.
+- [x] **SITE-04**: Package README and docs-site content stay aligned through a documented source-of-truth rule, generated include strategy, or explicit link strategy.
+- [x] **SITE-05**: VitePress pages use the repo's existing generated TypeDoc output or docs build flow without breaking `pnpm docs:api`.
 
 ### Reference docs and verification
 
-- [ ] **REF-01**: Generated API reference links are reachable from package docs and the VitePress site for every public package.
+- [x] **REF-01**: Generated API reference links are reachable from package docs and the VitePress site for every public package.
 - [x] **REF-02**: Public package exports documented in package docs match current package barrels and package manifests.
 - [ ] **REF-03**: Docs commands verify build, link integrity or equivalent route coverage, TypeDoc generation, and markdown/source consistency.
 - [ ] **REF-04**: CI or local scripts fail on broken docs build, missing docs navigation entries for public packages, and stale package/API reference links.
@@ -112,11 +112,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TUT-03 | Phase 62 | Complete |
 | TUT-04 | Phase 62 | Complete |
 | TUT-05 | Phase 62 | Complete |
-| SITE-01 | Phase 63 | Pending |
-| SITE-03 | Phase 63 | Pending |
-| SITE-04 | Phase 63 | Pending |
-| SITE-05 | Phase 63 | Pending |
-| REF-01 | Phase 63 | Pending |
+| SITE-01 | Phase 63 | Complete |
+| SITE-03 | Phase 63 | Complete |
+| SITE-04 | Phase 63 | Complete |
+| SITE-05 | Phase 63 | Complete |
+| REF-01 | Phase 63 | Complete |
 | REF-03 | Phase 64 | Pending |
 | REF-04 | Phase 64 | Pending |
 | REF-05 | Phase 64 | Pending |

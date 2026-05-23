@@ -242,5 +242,5 @@ Use this as a deployment sign-off:
 ## References
 
 - [NUB-RESOURCE](https://github.com/napplet/nubs) — normative spec for the resource NUB (wire shape, MUST/SHOULD/MAY contract)
-- [NIP-5D](./NIP-5D.md) — napplet-shell protocol; Security Considerations subsection covers strict-CSP posture and `sandbox="allow-scripts"` reaffirmation
+- [NIP-5D Conformance](./NIP-5D-CONFORMANCE.md) — napplet-shell protocol alignment; Security Considerations subsection covers strict-CSP posture and `sandbox="allow-scripts"` reaffirmation
 - [WHATWG MIME Sniffing Standard](https://mimesniff.spec.whatwg.org/) — recommended byte-sniffing reference

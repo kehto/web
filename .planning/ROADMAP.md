@@ -36,7 +36,7 @@
 - [x] **Phase 60: Content Strategy and Docs Information Architecture** - Define personas, documentation taxonomy, start paths, archive boundaries, source-of-truth rules, and site navigation shape.
 - [x] **Phase 61: Package Documentation Coverage** - Bring every public package and the playground to consistent purpose/install/API/scope documentation, with export coverage checks.
 - [x] **Phase 62: Runtime Tutorials and How-to Guides** - Create implementer tutorials, runtime-host guide, napplet integration tutorial, common how-tos, and troubleshooting/tips content.
-- [ ] **Phase 63: VitePress Docs Site Implementation** - Add the docs-owned VitePress site, navigation, build task, package/content linking strategy, and TypeDoc integration.
+- [x] **Phase 63: VitePress Docs Site Implementation** - Add the docs-owned VitePress site, navigation, build task, package/content linking strategy, and TypeDoc integration.
 - [ ] **Phase 64: Reference Integration and Docs Quality Gates** - Add verification scripts/CI hooks for docs build, API refs, package coverage, navigation/link integrity, and final no-runtime-regression proof.
 
 ---
@@ -125,6 +125,10 @@
   5. API reference links for every public package are reachable from the site and package docs.
   6. `pnpm docs:api` still works.
 
+**Plans**: [63-01-PLAN.md](phases/63-vitepress-docs-site-implementation/63-01-PLAN.md)
+
+**Completed**: 2026-05-23 ([summary](phases/63-vitepress-docs-site-implementation/63-01-SUMMARY.md) | [verification](phases/63-vitepress-docs-site-implementation/63-VERIFICATION.md))
+
 ### Phase 64: Reference Integration and Docs Quality Gates
 
 **Goal**: Make the docs system maintainable and prove it does not regress runtime packages.
@@ -151,7 +155,7 @@
 | 60. Content Strategy and Docs Information Architecture | 1/1 | Completed | 2026-05-23 |
 | 61. Package Documentation Coverage | 1/1 | Completed | 2026-05-23 |
 | 62. Runtime Tutorials and How-to Guides | 1/1 | Completed | 2026-05-23 |
-| 63. VitePress Docs Site Implementation | 0/1 | Pending | — |
+| 63. VitePress Docs Site Implementation | 1/1 | Completed | 2026-05-23 |
 | 64. Reference Integration and Docs Quality Gates | 0/1 | Pending | — |
 
 ---

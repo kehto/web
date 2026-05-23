@@ -40,5 +40,4 @@ None.
 
 ## API Reference
 
-- Generated module target: `docs/api/modules/_kehto_wm.html`
-- This target is wired during the TypeDoc integration phase.
+- Generated module: [`docs/api/modules/_kehto_wm.html`](../api/modules/_kehto_wm.html)

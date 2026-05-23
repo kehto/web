@@ -21,4 +21,4 @@ Use these pages when you need to choose or integrate one part of Kehto. Each pag
 5. Use `@kehto/nip66` and `@kehto/wm` as optional utilities.
 6. Use the playground page to reproduce integrated behavior locally.
 
-Generated API reference lives under `docs/api/`. Package pages link to generated module pages where they exist and reserve stable targets for packages added to TypeDoc in later phases.
+Generated API reference lives under `docs/api/`. Package pages link to generated module pages for the public packages included in TypeDoc.
