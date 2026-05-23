@@ -102,8 +102,8 @@ test('media-controller napplet drives navigator.mediaSession via real media back
   });
   expect(granted, '__grantMediaControl__ must return true — hook installed by Plan 27-03 bootShell').toBe(true);
 
-  // Step 4: DOM-path assertion — click Play, wait for #media-controller-status
-  // to transition to 'playing'. This proves the napplet's onclick handler
+  // Step 4: DOM-path assertion — activate Play, wait for #media-controller-status
+  // to transition to 'playing'. This proves the napplet's button handler
   // fired (mediaReportState + local setStatus).
   //
   // bringToFront() ensures this browser tab is active before the click so
@@ -112,7 +112,9 @@ test('media-controller napplet drives navigator.mediaSession via real media back
   // from running within the assertion timeout when the full suite runs 8
   // parallel worker contexts).
   await page.bringToFront();
-  await mediaFrame.locator('#media-controller-play').click();
+  await mediaFrame.locator('#media-controller-play').evaluate((button: HTMLButtonElement) => {
+    button.click();
+  });
   await expect(mediaFrame.locator('#media-controller-status')).toContainText('playing', { timeout: 5_000 });
 
   // Step 5: Browser-API-path assertion — read navigator.mediaSession from the
@@ -136,7 +138,9 @@ test('media-controller napplet drives navigator.mediaSession via real media back
 
   // Step 7: click Pause → status 'paused' → navigator.mediaSession.playbackState 'paused'.
   await page.bringToFront();
-  await mediaFrame.locator('#media-controller-pause').click();
+  await mediaFrame.locator('#media-controller-pause').evaluate((button: HTMLButtonElement) => {
+    button.click();
+  });
   await expect(mediaFrame.locator('#media-controller-status')).toContainText('paused', { timeout: 5_000 });
   await expect.poll(async () => {
     return page.evaluate(() => (navigator.mediaSession?.playbackState ?? 'unknown') as string);

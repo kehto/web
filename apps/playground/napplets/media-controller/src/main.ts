@@ -89,8 +89,6 @@ async function init(): Promise<void> {
   // Create the session via the media helper. The helper owns correlation +
   // Promise resolution on the shell's media.session.create.result envelope.
   const { sessionId } = await mediaCreateSession(DEMO_METADATA);
-  setStatus('session-ready', 'green');
-  log(`media.session.create.result — sessionId=${sessionId}`);
 
   // Wire Play / Pause buttons to mediaReportState — the shell mirrors status
   // to navigator.mediaSession.playbackState when this session is active.
@@ -130,6 +128,9 @@ async function init(): Promise<void> {
       audioEl.pause();
     }
   });
+
+  setStatus('session-ready', 'green');
+  log(`media.session.create.result — sessionId=${sessionId}`);
 }
 
 init().catch((err) => {
