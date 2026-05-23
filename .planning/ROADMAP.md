@@ -146,11 +146,13 @@
 
 ## Backlog
 
-### Phase 999.1: Fix decrypt-demo fixture delivery pending state (BACKLOG)
+### Backlog 999.1: Fix decrypt-demo fixture delivery pending state
 
 **Goal:** Investigate and fix the playground `decrypt-demo` staying in `waiting for fixtures` / `[pending]` for NIP-04, NIP-44, NIP-17, and Class-2 probe rows.
 
 **Captured:** 2026-05-23 via `$gsd-capture --backlog`
+
+**Context:** `.planning/backlog/999.1-fix-decrypt-demo-fixture-pending/999.1-CONTEXT.md`
 
 **Observed symptom:** User screenshot shows the decrypt demo panel stuck with:
 - `waiting for fixtures`
