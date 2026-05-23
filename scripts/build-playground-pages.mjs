@@ -5,8 +5,8 @@
  * The local playground gateway is Vite middleware. GitHub Pages is static, so
  * this script materializes the same active load paths under the publish root:
  *
- *   /napplet-gateway/<dTag>/manifest.json
- *   /napplet-gateway/<dTag>/<aggregateHash>/index.html
+ *   /web/playground/napplet-gateway/<dTag>/manifest.json
+ *   /web/playground/napplet-gateway/<dTag>/<aggregateHash>/index.html
  */
 import {
   cpSync,
@@ -27,7 +27,7 @@ const playgroundDist = join(repoRoot, 'apps', 'playground', 'dist');
 const nappletsDir = join(repoRoot, 'apps', 'playground', 'napplets');
 const outputDir = resolve(
   repoRoot,
-  process.env.PLAYGROUND_PAGES_OUT_DIR || '.pages/playground',
+  process.env.PLAYGROUND_PAGES_OUT_DIR || '.pages/web/playground',
 );
 
 const SHORT_NUB_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
@@ -43,7 +43,7 @@ function normalizeBasePath(value) {
   return withLeadingSlash.endsWith('/') ? withLeadingSlash : `${withLeadingSlash}/`;
 }
 
-const pagesBasePath = normalizeBasePath(process.env.PLAYGROUND_BASE_PATH);
+const pagesBasePath = normalizeBasePath(process.env.PLAYGROUND_BASE_PATH || '/web/playground/');
 
 function withPagesBasePath(pathname) {
   const cleanPath = pathname.replace(/^\/+/, '');

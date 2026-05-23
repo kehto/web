@@ -1,3 +1,7 @@
+---
+status: complete
+---
+
 # Quick Task 260523-ikp Summary
 
 ## Goal

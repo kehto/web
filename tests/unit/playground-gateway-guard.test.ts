@@ -93,6 +93,9 @@ describe('playground gateway artifact guard', () => {
   it('keeps the GitHub Pages publisher aligned with the static gateway artifact contract', () => {
     const workflow = readRepoFile('.github/workflows/playground-pages.yml');
     const script = readRepoFile('scripts/build-playground-pages.mjs');
+    const pagesScript = readRepoFile('scripts/build-pages.mjs');
+    const pagesAudit = readRepoFile('scripts/audit-pages-artifact.mjs');
+    const turbo = readRepoFile('turbo.json');
     const packageJson = JSON.parse(readRepoFile('package.json')) as {
       scripts?: Record<string, string>;
     };
@@ -100,20 +103,37 @@ describe('playground gateway artifact guard', () => {
     const resourceDemo = readRepoFile('apps/playground/napplets/resource-demo/src/main.ts');
 
     expect(packageJson.scripts?.['build:playground-pages']).toBe('node scripts/build-playground-pages.mjs');
+    expect(packageJson.scripts?.['build:pages']).toBe('node scripts/build-pages.mjs');
+    expect(packageJson.scripts?.['audit:pages']).toBe('node scripts/audit-pages-artifact.mjs');
     expect(gitignore).toContain('.pages/');
 
     expect(workflow).toContain('actions/configure-pages@v5');
     expect(workflow).toContain('actions/upload-pages-artifact@v4');
     expect(workflow).toContain('actions/deploy-pages@v4');
-    expect(workflow).toContain('PLAYGROUND_BASE_PATH: /${{ github.event.repository.name }}/');
+    expect(workflow).toContain('PLAYGROUND_BASE_PATH: /web/playground/');
+    expect(workflow).toContain('VITEPRESS_BASE: /web/docs/');
     expect(workflow).toContain('pnpm --filter @kehto/playground build');
-    expect(workflow).toContain('path: .pages/playground');
+    expect(workflow).toContain('pnpm docs:check');
+    expect(workflow).toContain('pnpm build:pages');
+    expect(workflow).toContain('pnpm audit:pages');
+    expect(workflow).toContain('path: .pages');
+    expect(workflow).not.toContain('github.event.repository.name');
 
-    expect(script).toContain('/napplet-gateway/<dTag>/manifest.json');
-    expect(script).toContain('/napplet-gateway/<dTag>/<aggregateHash>/index.html');
+    expect(script).toContain('/web/playground/napplet-gateway/<dTag>/manifest.json');
+    expect(script).toContain('/web/playground/napplet-gateway/<dTag>/<aggregateHash>/index.html');
     expect(script).toContain('PLAYGROUND_BASE_PATH');
+    expect(script).toContain("'.pages/web/playground'");
+    expect(script).toContain("'/web/playground/'");
     expect(script).toContain('htmlUrl: withPagesBasePath(');
     expect(script).toContain('cpSync(sourceHtmlPath, htmlRoute)');
+
+    expect(pagesScript).toContain("'docs', '.vitepress', 'dist'");
+    expect(pagesScript).toContain("join(webRoot, 'docs')");
+    expect(pagesScript).toContain("join(docsOutput, 'api')");
+    expect(pagesAudit).toContain("const PLAYGROUND_BASE = '/web/playground/';");
+    expect(pagesAudit).toContain("const DOCS_BASE = '/web/docs/';");
+    expect(pagesAudit).toContain("join(webRoot, 'docs', 'api', 'modules', '_kehto_shell.html')");
+    expect(turbo).toContain('"VITEPRESS_BASE"');
 
     expect(resourceDemo).toContain('function getPlaygroundBaseUrl()');
     expect(resourceDemo).toContain("new URL('demo-data.json', getPlaygroundBaseUrl()).href");

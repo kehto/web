@@ -1,5 +1,47 @@
 # Milestones: Kehto Runtime
 
+## v1.14 GitHub Pages Web Portal (Shipped: 2026-05-23)
+
+**Phases completed:** 3 phases (65-67), 3 plans, 13 requirements.
+
+**Delivered:** v1.14 turns the GitHub Pages deployment into the requested public `/web/` site: a static Kehto portal, playground deployment under `/web/playground/`, VitePress docs under `/web/docs/`, one unified Pages artifact, and a route-shape deploy gate.
+
+**Audit:** passed — 13/13 requirements, 3/3 phases, 3/3 plans, 4/4 integration paths, 3/3 user flows.
+
+**Key accomplishments:**
+
+- **Static portal:** added `web/index.html` and `pnpm build:pages` output for `.pages/web/index.html`, linking visitors to `/web/playground/` and `/web/docs/`.
+- **Playground relocation:** `scripts/build-playground-pages.mjs` now defaults to `.pages/web/playground` with `/web/playground/` as the public base path, and all 13 gateway manifest `htmlUrl` values point under `/web/playground/napplet-gateway/`.
+- **Docs publication:** VitePress builds with `VITEPRESS_BASE=/web/docs/`, docs output is copied to `.pages/web/docs`, and generated TypeDoc output is published under `.pages/web/docs/api`.
+- **Unified Pages workflow:** `.github/workflows/playground-pages.yml` runs docs checks, builds the unified artifact, audits the route shape, uploads `.pages`, and no longer derives the public playground base from `github.event.repository.name`.
+- **Deploy gate:** `pnpm audit:pages` verifies `/web/`, `/web/playground/`, `/web/docs/`, 13 gateway routes, and representative docs/API routes before upload.
+- **Verification:** `VITEPRESS_BASE=/web/docs/ pnpm docs:check`, `PLAYGROUND_BASE_PATH=/web/playground/ pnpm --filter @kehto/playground build`, `pnpm build:pages`, `pnpm audit:pages`, focused unit guard, `pnpm build`, `pnpm type-check`, `pnpm audit:gateway-artifacts`, `pnpm test:unit` (562 tests), `git diff --check`, and `gsd-sdk query audit-open` all passed.
+
+**Archive:** [v1.14-ROADMAP.md](milestones/v1.14-ROADMAP.md) | [v1.14-REQUIREMENTS.md](milestones/v1.14-REQUIREMENTS.md) | [v1.14-MILESTONE-AUDIT.md](milestones/v1.14-MILESTONE-AUDIT.md)
+
+---
+
+## v1.13 Documentation Strategy & Monorepo Docs Site (Shipped: 2026-05-23)
+
+**Phases completed:** 5 phases (60-64), 5 plans, 28 requirements.
+
+**Delivered:** v1.13 turns Kehto's shipped runtime packages into a coherent documentation system: content strategy, package reference pages, implementer tutorials, how-tos, a docs-owned VitePress site, generated API integration, and strict docs quality gates.
+
+**Audit:** passed — 28/28 requirements, 5/5 phases, 5/5 plans, 5/5 integration paths, 4/4 user flows.
+
+**Key accomplishments:**
+
+- **Content strategy and IA:** defined reader personas, documentation jobs, taxonomy, archive boundaries, source-of-truth rules, and top-level site navigation.
+- **Package reference coverage:** added package docs for `@kehto/acl`, `@kehto/runtime`, `@kehto/shell`, `@kehto/services`, `@kehto/nip66`, `@kehto/wm`, and `@kehto/playground`, grounded in manifests and public barrels.
+- **Tutorials, guides, and how-tos:** added host-shell, runtime implementation, napplet integration, common task recipes, troubleshooting, and docs-site runbook content.
+- **VitePress docs site:** added the docs-owned `@kehto/docs` workspace, VitePress navigation/sidebar, concept/reference/policy/archive pages, monorepo scripts, and TypeDoc entrypoints for all public packages.
+- **Docs quality gates:** added strict TypeDoc, `scripts/audit-docs.mjs`, root `pnpm docs:check`, and Build workflow CI wiring for docs build, package docs, generated API links, and route coverage.
+- **Verification:** `pnpm docs:check`, `pnpm build`, `pnpm type-check`, `pnpm test:unit` (562 tests), `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and `git diff --check` all passed.
+
+**Archive:** [v1.13-ROADMAP.md](milestones/v1.13-ROADMAP.md) | [v1.13-REQUIREMENTS.md](milestones/v1.13-REQUIREMENTS.md) | [v1.13-MILESTONE-AUDIT.md](milestones/v1.13-MILESTONE-AUDIT.md)
+
+---
+
 ## v1.12 NIP-5D Contract Conformance (Shipped: 2026-05-22)
 
 **Phases completed:** 4 phases (56-59), 4 plans, 34 requirements.

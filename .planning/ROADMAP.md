@@ -15,22 +15,24 @@
 - [x] **v1.10: Compatibility Window Cleanup & Decrypt Demo Parity** - 3 phases (50-52), 3 plans, 10/10 requirements, 86 E2E specs green ([archive](milestones/v1.10-ROADMAP.md) | [audit](milestones/v1.10-MILESTONE-AUDIT.md))
 - [x] **v1.11: NIP-5A Gateway Artifact Parity** - 3 phases (53-55), 16/16 requirements, production-equivalent opaque-origin gateway artifact loading, 551 unit tests, 87 E2E specs green ([archive](milestones/v1.11-ROADMAP.md) | [audit](milestones/v1.11-MILESTONE-AUDIT.md))
 - [x] **v1.12: NIP-5D Contract Conformance** - 4 phases (56-59), 34/34 requirements, 560 unit tests, 89 E2E specs green, pinned-spec contract conformance across shell, shim/runtime, gateway load checks, and 13 playground napplets ([archive](milestones/v1.12-ROADMAP.md) | [requirements](milestones/v1.12-REQUIREMENTS.md) | [audit](milestones/v1.12-MILESTONE-AUDIT.md))
+- [x] **v1.13: Documentation Strategy & Monorepo Docs Site** - 5 phases (60-64), 28/28 requirements, content strategy, package docs, tutorials/how-tos, VitePress site, and docs verification ([archive](milestones/v1.13-ROADMAP.md) | [requirements](milestones/v1.13-REQUIREMENTS.md) | [audit](milestones/v1.13-MILESTONE-AUDIT.md))
+- [x] **v1.14: GitHub Pages Web Portal** - 3 phases (65-67), 13/13 requirements, public `/web/` portal, playground at `/web/playground/`, docs at `/web/docs/`, and unified Pages deploy gate ([archive](milestones/v1.14-ROADMAP.md) | [requirements](milestones/v1.14-REQUIREMENTS.md) | [audit](milestones/v1.14-MILESTONE-AUDIT.md))
 
 ---
 
 ## Active Milestone
 
-None. v1.12 is archived; start the next milestone with `$gsd-new-milestone`.
-
----
+No active milestone. Start the next milestone with `$gsd-new-milestone`.
 
 ## Backlog
 
-### Phase 999.1: Fix decrypt-demo fixture delivery pending state (BACKLOG)
+### Backlog 999.1: Fix decrypt-demo fixture delivery pending state
 
 **Goal:** Investigate and fix the playground `decrypt-demo` staying in `waiting for fixtures` / `[pending]` for NIP-04, NIP-44, NIP-17, and Class-2 probe rows.
 
 **Captured:** 2026-05-23 via `$gsd-capture --backlog`
+
+**Context:** `.planning/backlog/999.1-fix-decrypt-demo-fixture-pending/999.1-CONTEXT.md`
 
 **Observed symptom:** User screenshot shows the decrypt demo panel stuck with:
 - `waiting for fixtures`
@@ -46,4 +48,4 @@ None. v1.12 is archived; start the next milestone with `$gsd-new-milestone`.
 
 ---
 
-*ROADMAP.md last updated: 2026-05-23 - backlog capture 999.1 added.*
+*ROADMAP.md last updated: 2026-05-23 - v1.14 archived; awaiting next milestone.*

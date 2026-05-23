@@ -14,6 +14,9 @@ Provide a modular, framework-agnostic runtime for hosting napplet applications �
 | @kehto/runtime | `packages/runtime` | Protocol engine — message dispatch, AUTH, subscriptions, ACL gates |
 | @kehto/shell | `packages/shell` | Browser adapter — ShellBridge, signer proxy, storage proxy, audio |
 | @kehto/services | `packages/services` | Reference service handlers — audio, notifications, extensible |
+| @kehto/nip66 | `packages/nip66` | Relay-discovery aggregation utility |
+| @kehto/wm | `packages/wm` | Structural window-management contracts |
+| @kehto/playground | `apps/playground` | Public 13-napplet integration demo and verification surface |
 
 ## Constraints
 
@@ -34,31 +37,59 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Active:** Awaiting next milestone. v1.12 — NIP-5D Contract Conformance shipped 2026-05-22.
+**Status:** Awaiting next milestone after v1.14 shipped on 2026-05-23.
 
-v1.12 established the pinned NIP-5D contract as the repo-local authority, then brought the playground shell, shared napplet runtime/shim surface, and all 13 playground napplets into conformance. The milestone used `.planning/NIP-5D-DELTA-AUDIT.md` as the current-state inventory and repaired `RUNTIME-SPEC.md` plus `napplet/specs/NIP-5D.md` as drift sources.
+v1.14 turned the GitHub Pages deployment into a public `/web/` site: a static Kehto portal, playground at `/web/playground/`, VitePress docs at `/web/docs/`, and one unified artifact guarded by route-shape verification.
 
-The baseline after v1.12 is pinned-spec NIP-5D conformance across shell, shim/runtime, gateway load checks, and all 13 playground napplets, with 560 unit tests, `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and 89/89 Playwright E2E tests passing.
+The baseline after v1.14 is pinned-spec NIP-5D conformance, a buildable docs site, and a pre-deploy GitHub Pages artifact contract for `https://kehto.github.io/web/`. Verification stands at `VITEPRESS_BASE=/web/docs/ pnpm docs:check`, `PLAYGROUND_BASE_PATH=/web/playground/ pnpm --filter @kehto/playground build`, `pnpm build:pages`, `pnpm audit:pages`, `pnpm build`, `pnpm type-check`, `pnpm test:unit` (562 tests), `pnpm audit:gateway-artifacts`, `git diff --check`, and `gsd-sdk query audit-open`.
 
-## Current Milestone: none
+## Latest Milestone: v1.14 GitHub Pages Web Portal
 
-Start the next milestone with `$gsd-new-milestone`.
+**Goal:** Turn the GitHub Pages deployment into a public `/web/` portal that links to the playground and docs, with the playground deployed at `/web/playground/` and VitePress docs deployed at `/web/docs/`.
 
-Deferred candidates remain host bridge reference implementations, multi-OS CI matrix expansion, a public gateway product, CI/release packaging, and package publication.
+**Shipped features:**
+- A static Kehto slash page at `kehto.github.io/web/` with clear links to playground and docs.
+- Playground build and static gateway artifact deployment moved under `kehto.github.io/web/playground/`.
+- Docs build deployed under `kehto.github.io/web/docs/`.
+- GitHub Pages workflow packs one unified artifact and verifies the expected portal, playground, and docs routes.
 
 ### Latest Milestone Accomplishments
 
-- **Pinned NIP-5D authority:** `specs/NIP-5D.md` is sourced only from the pinned `dskvr/nips` commit; stale AUTH/REGISTER/NIP-01 protocol-identity drift was removed from active docs.
-- **Shell-derived capabilities:** hosted `window.napplet.shell.supports()` now reflects shell-provided capability inventory, not static shim knowledge.
-- **Manifest `requires` load checks:** gateway metadata exposes parsed `requires` tags and the shell rejects unsupported required NUBs before iframe navigation.
-- **13-napplet contract coverage:** every playground napplet declares explicit NUB requirements and preflights them with hosted `supports()`.
-- **Raw-envelope policy:** remaining raw demo/test envelopes are documented and statically allowlisted.
-- **Regression guards:** unit/static/E2E coverage now guards sandbox policy, source validation, no napplet `window.nostr`, forbidden browser/protocol primitives, requires coverage, hosted supports behavior, and unsupported-requires rejection.
-- **Full verification:** build/type-check/unit/CSP/artifact/E2E are green at 32/32 build tasks, 18/18 type-check tasks, 560 unit tests, and 89 Playwright tests.
+- **Static portal:** `web/index.html` builds to `.pages/web/index.html` and links users to `/web/playground/` and `/web/docs/`.
+- **Playground route relocation:** playground assets and static gateway metadata now use `/web/playground/`, including all 13 napplet gateway `htmlUrl` values under `/web/playground/napplet-gateway/`.
+- **Docs publication:** VitePress builds with `VITEPRESS_BASE=/web/docs/`, docs output is copied into `.pages/web/docs`, and generated API reference files publish under `.pages/web/docs/api`.
+- **Unified Pages deploy gate:** the GitHub Actions Pages workflow runs docs checks, builds one `.pages` artifact, audits portal/playground/docs/gateway routes, and uploads that artifact to Pages.
+- **Cache correctness:** `turbo.json` includes `VITEPRESS_BASE` for `docs:build`, preventing stale cached docs assets with the wrong public base path.
+- **Verification:** route-shape, docs, build, type, unit, gateway, diff, and open-artifact gates are green.
 
-34/34 v1.12 requirements satisfied; 4/4 phase VERIFICATION.md files passed; 6/6 integration paths wired; 0 critical gaps.
+13/13 v1.14 requirements satisfied; 3/3 phase VERIFICATION.md files passed; 4/4 integration paths wired; 0 critical gaps.
 
-**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability), v1.6 (downstream unblock), v1.7 (spec adoption + 2 new domains), v1.8 (upstream alignment + decrypt), v1.9 (SDK migration), v1.10 (compatibility cleanup + decrypt-demo parity), v1.11 (gateway artifact parity), v1.12 (NIP-5D contract conformance).
+## Previous Milestone: v1.13 Documentation Strategy & Monorepo Docs Site
+
+**Goal:** Turn Kehto's shipped runtime packages into a coherent public documentation system: content strategy, package docs, implementation tutorials, runtime/site guides, reference docs, and how-tos.
+
+**Shipped features:**
+- Content strategy and docs information architecture for the whole monorepo.
+- Package-by-package documentation for `@kehto/acl`, `@kehto/runtime`, `@kehto/shell`, `@kehto/services`, `@kehto/nip66`, `@kehto/wm`, and `@kehto/playground`.
+- VitePress documentation site covering reference docs, tutorials, guides, how-tos, and tips.
+- Implementer tutorials for building with Kehto packages and creating a runtime host.
+- Monorepo docs workflows that keep TypeDoc/API reference, package README content, and site navigation aligned.
+
+Deferred candidates remain host bridge reference implementations, multi-OS CI matrix expansion, a public gateway product, CI/release packaging, and package publication.
+
+### v1.13 Accomplishments
+
+- **Docs IA:** reader personas, documentation jobs, taxonomy, archive boundaries, source-of-truth rules, and site navigation are documented.
+- **Package docs:** every public package plus playground has consistent purpose/install/API/scope documentation grounded in manifests and public barrels.
+- **Tutorials and how-tos:** host-shell, runtime implementation, napplet integration, common host tasks, troubleshooting, and docs-site maintenance paths are documented.
+- **VitePress site:** `@kehto/docs` owns local dev/build/preview scripts, navigation/sidebar, concepts, reference pages, policy index, and migration archive entry points.
+- **Generated API integration:** TypeDoc covers all six public packages and package docs link to generated module pages.
+- **Docs gates:** `pnpm docs:check` runs strict TypeDoc, VitePress build, package/API route audit, and CI wiring checks.
+- **Full verification:** docs/build/type/unit/static gates are green at 27/27 build tasks, 11/11 type-check tasks, 562 unit tests, 13 CSP-scanned napplets, and 13 gateway artifacts.
+
+28/28 v1.13 requirements satisfied; 5/5 phase VERIFICATION.md files passed; 5/5 integration paths wired; 0 critical gaps.
+
+**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability), v1.6 (downstream unblock), v1.7 (spec adoption + 2 new domains), v1.8 (upstream alignment + decrypt), v1.9 (SDK migration), v1.10 (compatibility cleanup + decrypt-demo parity), v1.11 (gateway artifact parity), v1.12 (NIP-5D contract conformance), v1.13 (docs site and docs gates), v1.14 (GitHub Pages web portal).
 
 ### Previously Shipped
 
@@ -84,7 +115,8 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 - **Shell internal type adoption follow-up** — Phase 44 reclassified `internal-{class,connect,resource}.ts` as kehto shell-side models after upstream `@napplet/nub@0.3.0` proved concept/shape divergence. Any future adoption of upstream resource/connect/class surfaces is a distinct migration, not a mechanical import swap.
 - **Electron / Tauri host-bridge reference impls** — HostKeysBridge + HostMediaBridge + HostCacheBridge interfaces defined (v1.4 + v1.7); reference impls deferred.
 - **Multi-OS CI matrix** — still ubuntu-latest only. Carryover from v1.4.
-- **Documentation warning cleanup** — `pnpm docs:api` succeeds but still emits 15 pre-existing TypeDoc warnings about unresolved README links and omitted referenced types.
+- **Live Pages smoke** — v1.14 verifies the local and CI Pages artifact shape before upload; browser smoke against `https://kehto.github.io/web/` remains a post-push/deployment follow-up.
+- **Decrypt-demo fixture pending repair** — Backlog 999.1 remains valid and intentionally separate from the static publication route milestone.
 - **Lint task surface** — `pnpm lint` succeeds but turbo currently reports no configured package lint tasks; type-check, unit tests, E2E, and static guards carry verification.
 
 ## Key Decisions
@@ -127,6 +159,8 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 | 34 | Helper-only demo guards are separate from SDK migration guards | `decrypt-demo` intentionally has no `@napplet/sdk` dependency, so v1.10 split guard coverage into SDK-bearing targets and helper-graph targets. This keeps exact `0.3.0` helper enforcement without inventing a fake SDK dependency. | 2026-05-22 |
 | 35 | Local playground loading must match the production NIP-5D/NIP-5A gateway path | NIP-5D requires opaque-origin sandboxed iframes, and local verification is only meaningful if it exercises the same artifact shape production gateways serve. A separate dev convenience path would break continuity between development and production. | 2026-05-22 |
 | 36 | `.planning/NIP-5D-DELTA-AUDIT.md` is the v1.12 delta inventory | The audit already compares the pinned NIP-5D contract to current shell/runtime/napplet behavior; milestone planning should use it instead of rediscovering drift. | 2026-05-22 |
+| 37 | Public GitHub Pages contract is `/web/`, not repository-name-derived | v1.14 publishes the portal, playground, docs, assets, and gateway metadata under the explicit requested path contract. `github.event.repository.name` must not drive the public playground base path for this deployment. | 2026-05-23 |
+| 38 | VitePress public base is a build cache input | `VITEPRESS_BASE=/web/docs/` changes generated asset URLs, so `turbo.json` includes it in `docs:build` env to prevent cached docs output from reusing an old base path. | 2026-05-23 |
 
 ## Evolution
 
@@ -146,4 +180,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-22 — v1.12 milestone completed (NIP-5D Contract Conformance)*
+*Last updated: 2026-05-23 — v1.14 milestone archived (GitHub Pages Web Portal)*

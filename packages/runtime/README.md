@@ -51,39 +51,39 @@ runtime.handleMessage('window-1', {
 ## Public API
 
 ### Runtime factory
-- [`createRuntime`](../../docs/api/functions/_kehto_runtime.createRuntime.html) — primary entry point; `Runtime` interface type
+- `createRuntime` — primary entry point; `Runtime` interface type
 
 ### Enforcement gate
-- [`createEnforceGate`](../../docs/api/functions/_kehto_runtime.createEnforceGate.html) — legacy pubkey-keyed ACL gate
-- [`createNubEnforceGate`](../../docs/api/functions/_kehto_runtime.createNubEnforceGate.html) — NIP-5D windowId-keyed ACL gate
-- [`resolveCapabilitiesNub`](../../docs/api/functions/_kehto_runtime.resolveCapabilitiesNub.html) — map a NIP-5D envelope to required capabilities (re-exported from `@kehto/acl`)
-- [`formatDenialReason`](../../docs/api/functions/_kehto_runtime.formatDenialReason.html) — `denied: <capability>` canonical string
+- `createEnforceGate` — legacy pubkey-keyed ACL gate
+- `createNubEnforceGate` — NIP-5D windowId-keyed ACL gate
+- `resolveCapabilitiesNub` — map a NIP-5D envelope to required capabilities (re-exported from `@kehto/acl`)
+- `formatDenialReason` — `denied: <capability>` canonical string
 
 ### Session registry
-- [`createSessionRegistry`](../../docs/api/functions/_kehto_runtime.createSessionRegistry.html) — bidirectional windowId ↔ `SessionEntry` store
+- `createSessionRegistry` — bidirectional windowId ↔ `SessionEntry` store
 - `createNappKeyRegistry` — deprecated alias retained for v1.1 migration consumers
 
 ### ACL state container
-- [`createAclState`](../../docs/api/functions/_kehto_runtime.createAclState.html) — persistence-backed wrapper around `@kehto/acl` state
+- `createAclState` — persistence-backed wrapper around `@kehto/acl` state
 
 ### Manifest cache
-- [`createManifestCache`](../../docs/api/functions/_kehto_runtime.createManifestCache.html) — NIP-5A aggregate-hash cache with persistence hooks
+- `createManifestCache` — NIP-5A aggregate-hash cache with persistence hooks
 
 ### Replay detection
-- [`createReplayDetector`](../../docs/api/functions/_kehto_runtime.createReplayDetector.html) — duplicate-event + timestamp-window guard
+- `createReplayDetector` — duplicate-event + timestamp-window guard
 
 ### Event buffer
-- [`createEventBuffer`](../../docs/api/functions/_kehto_runtime.createEventBuffer.html) — ring buffer with subscription delivery
-- [`matchesFilter`](../../docs/api/functions/_kehto_runtime.matchesFilter.html), [`matchesAnyFilter`](../../docs/api/functions/_kehto_runtime.matchesAnyFilter.html) — pure NIP-01 filter helpers
+- `createEventBuffer` — ring buffer with subscription delivery
+- `matchesFilter`, `matchesAnyFilter` — pure NIP-01 filter helpers
 - `RING_BUFFER_SIZE` — default ring buffer capacity constant
 
 ### State handler
-- [`handleStorageNub`](../../docs/api/functions/_kehto_runtime.handleStorageNub.html) — canonical `storage.*` NIP-5D handler
-- [`cleanupNappState`](../../docs/api/functions/_kehto_runtime.cleanupNappState.html) — remove persisted state when a napplet window closes
+- `handleStorageNub` — canonical `storage.*` NIP-5D handler
+- `cleanupNappState` — remove persisted state when a napplet window closes
 
 ### Service dispatch
-- [`routeServiceMessage`](../../docs/api/functions/_kehto_runtime.routeServiceMessage.html) — domain-prefix router into the service registry
-- [`notifyServiceWindowDestroyed`](../../docs/api/functions/_kehto_runtime.notifyServiceWindowDestroyed.html) — lifecycle fan-out to every service handler
+- `routeServiceMessage` — domain-prefix router into the service registry
+- `notifyServiceWindowDestroyed` — lifecycle fan-out to every service handler
 
 ### Types
 40+ interfaces — including `Runtime`, `RuntimeAdapter`, `SendToNapplet`, `RelayPoolAdapter`, `ServiceHandler`, `ServiceRegistry`, `NappletMessage`, `SessionEntry`, `AclEntryExternal`, `AclCheckEvent`, and the per-adapter hook types — are exported from `./types.js` for host-app integration.
@@ -96,7 +96,8 @@ Re-exported constants cover the v1.1 bus-kind enum, auth event kind, shell bridg
 
 ## API Reference
 
-Full API reference: [docs/api/@kehto/runtime/](../../docs/api/modules/_kehto_runtime.html) (generated via `pnpm docs:api`).
+Full package docs: [`docs/packages/runtime.md`](../../docs/packages/runtime.md).
+Generated API module: `docs/api/modules/_kehto_runtime.html` (run `pnpm docs:api`).
 
 ## License
 

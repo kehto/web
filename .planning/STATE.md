@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.12
-milestone_name: NIP-5D Contract Conformance
-status: Awaiting next milestone
-last_updated: "2026-05-23T12:10:05.000Z"
-last_activity: 2026-05-23 — Quick task 260523-jev completed for GitHub Pages playground publishing
+milestone: v1.14
+milestone_name: GitHub Pages Web Portal
+status: awaiting_next_milestone
+last_updated: "2026-05-23T16:10:00.000Z"
+last_activity: 2026-05-23
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 4
-  completed_plans: 4
+  total_phases: 3
+  completed_phases: 3
+  total_plans: 3
+  completed_plans: 3
   percent: 100
 ---
 
@@ -17,21 +17,21 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-22, v1.12 completed)
+See: .planning/PROJECT.md (updated 2026-05-23, v1.14 archived)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Awaiting next milestone
+**Current focus:** Awaiting next milestone after v1.14 GitHub Pages Web Portal
 
 ## Current Position
 
-Phase: Milestone v1.12 complete
+Phase: No active milestone
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-05-22 — Milestone v1.12 completed and archived
+Last activity: 2026-05-23 — v1.14 completed, audited, and archived
 
 ## Accumulated Context
 
-Full decision log (v1.0 → v1.12) lives in `.planning/PROJECT.md` Key Decisions table and per-milestone archives under `.planning/milestones/`.
+Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions table and per-milestone archives under `.planning/milestones/`.
 
 ### v1.8 Phase Sequence
 
@@ -43,7 +43,13 @@ Full decision log (v1.0 → v1.12) lives in `.planning/PROJECT.md` Key Decisions
 
 ### Blockers/Concerns
 
-- No active blockers. v1.12 requirements are complete, audited, and archived.
+- No active blockers. v1.13 requirements are complete, audited, and archived.
+- v1.14 started 2026-05-23: public GitHub Pages deployment target is `kehto.github.io/web/`, with a portal slash page at `/web/`, playground at `/web/playground/`, and docs at `/web/docs/`. Current workflow only packs `.pages/playground`, so v1.14 must replace playground-only upload with a unified Pages artifact.
+- v1.14 roadmap phases are 65-67: Pages portal entry point, playground Pages path relocation, then docs Pages publication and deploy gate.
+- Phase 65 completed 2026-05-23: `web/index.html` is the static portal source, `pnpm build:pages` writes `.pages/web/index.html`, and the generated portal links to `/web/playground/` and `/web/docs/`.
+- Phase 66 completed 2026-05-23: `scripts/build-playground-pages.mjs` writes `.pages/web/playground`, defaults to `/web/playground/`, and generated gateway manifest `htmlUrl` values now point under `/web/playground/napplet-gateway/`.
+- Phase 67 completed 2026-05-23: docs publish under `.pages/web/docs`, generated TypeDoc output is copied to `.pages/web/docs/api`, the Pages workflow uploads `.pages`, and `pnpm audit:pages` verifies the `/web/` route contract before deploy.
+- v1.14 archived 2026-05-23: public `/web/` portal, playground `/web/playground/`, docs `/web/docs/`, unified Pages artifact, and `pnpm audit:pages` deploy gate are shipped. Final verification passed: docs check, playground build, Pages artifact build/audit, focused route guard, full build/type/unit, gateway artifact audit, diff check, and open-artifact audit.
 - v1.10 shipped: removed the stale `auth:identity-changed` compatibility branch, migrated `decrypt-demo` to `identityDecrypt`, and retired the remaining old demo package graph.
 - Published package check: `@napplet/sdk@0.3.0`, `@napplet/shim@0.3.0`, and `@napplet/vite-plugin@0.3.0` are all available on npm as of 2026-05-22.
 - Scope boundary: keep v1.10 as a v1 cleanup/continuity milestone; do not promote the compatibility removal to a v2 boundary.
@@ -58,6 +64,7 @@ Full decision log (v1.0 → v1.12) lives in `.planning/PROJECT.md` Key Decisions
 - v1.12 roadmap phases are 56-59: contract/package source baseline, shell capability/requires enforcement, 13-napplet conformance, then guards/full verification.
 - Phase 58 completed 2026-05-22: all 13 playground napplets now declare manifest `requires`, preflight required NUBs with shell-derived `supports()`, stale protocol auth wording is renamed, and raw demo envelopes are documented in the Phase 58 allowlist.
 - Phase 59 completed 2026-05-22: static/unit/E2E guards now cover sandbox policy, source validation, no napplet `window.nostr`, requires coverage, hosted `supports()` behavior, raw-envelope exceptions, unsupported-requires rejection, and all 13 gateway-hosted napplet contracts. Final verification passed: `pnpm build`, `pnpm type-check`, `pnpm test:unit` (560 tests), `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and `pnpm test:e2e` (89/89).
+- v1.13 completed 2026-05-23: docs strategy, package docs, tutorials/how-tos, VitePress site, generated API integration, and strict docs quality gates are shipped. Final verification passed: `pnpm docs:check`, `pnpm build`, `pnpm type-check`, `pnpm test:unit` (562 tests), `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and `git diff --check`.
 
 ### Quick Tasks Completed
 
@@ -71,10 +78,10 @@ Full decision log (v1.0 → v1.12) lives in `.planning/PROJECT.md` Key Decisions
 
 ## Session Continuity
 
-Last session: 2026-05-22T16:41:58Z
-Resume: v1.12 is archived under `.planning/milestones/v1.12-*`; active `.planning/REQUIREMENTS.md` has been removed for the next milestone.
+Last session: 2026-05-23T16:10:00Z
+Resume: No active milestone. v1.14 is audited and archived; select or create the next milestone.
 Current milestone: none.
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Start the next milestone with `$gsd-new-milestone` or review the backlog for candidate scope.

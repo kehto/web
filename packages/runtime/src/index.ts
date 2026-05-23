@@ -37,6 +37,7 @@ export type {
   VerificationCacheEntry,
   RuntimeConfigOverrides,
   NappletMessage,
+  NappletClass,
 } from './types.js';
 
 // ─── Enforcement Gate ──────────────────────────────────────────────────────

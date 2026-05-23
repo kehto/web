@@ -236,7 +236,7 @@ Use this as a deployment sign-off. Every item is a MUST unless explicitly marked
 - **NUB-CLASS-1.md** — normative spec for the default strict-baseline posture (`connect-src 'none'`); relevant for the residual-meta-CSP Class-1-harmless-vs-Class-2-refuse-to-serve distinction. Repo: `napplet/nubs`.
 - **NUB-CLASS.md** — parent class-track spec; defines the `class.assigned` wire envelope and the `window.napplet.class` runtime surface. Repo: `napplet/nubs`.
 - **NUB-RESOURCE** — sibling read-only NUB. Authors SHOULD default to NUB-RESOURCE for anything it can express and reach for NUB-CONNECT only when direct `POST` / WebSocket / SSE / streaming is required. Repo: `napplet/nubs`.
-- [NIP-5D](./NIP-5D.md) — parent transport spec (JSON envelope wire format, iframe sandbox model, capability advertisement surface).
+- [NIP-5D Conformance](./NIP-5D-CONFORMANCE.md) — parent transport spec alignment (JSON envelope wire format, iframe sandbox model, capability advertisement surface).
 - [SHELL-RESOURCE-POLICY.md](./SHELL-RESOURCE-POLICY.md) — sibling deployer-policy doc for NUB-RESOURCE (private-IP block list, MIME byte-sniffing, SVG rasterization caps, redirect chain limits — all the items explicitly N/A to NUB-CONNECT above).
 - [WHATWG Mixed Content](https://w3c.github.io/webappsec-mixed-content/) — browser-level mixed-content enforcement reference; authoritative source for the `localhost` / `127.0.0.1` / `[::1]` secure-context exceptions.
 - [WHATWG HTML Parser](https://html.spec.whatwg.org/multipage/parsing.html) — parsing reference for the residual-meta-CSP scanner (comments, CDATA, attribute-name case normalization, quoted-value handling).

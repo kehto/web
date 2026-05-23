@@ -1,0 +1,48 @@
+# @kehto/services
+
+Reference service handlers for the Kehto runtime.
+
+## Install
+
+```bash
+pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nub
+```
+
+## Manifest Facts
+
+| Field | Value |
+|-------|-------|
+| Source | `packages/services/package.json`, `packages/services/src/index.ts` |
+| Version | `0.2.0` |
+| Runtime entry | `./dist/index.js` |
+| Types entry | `./dist/index.d.ts` |
+| Dependencies | `@kehto/runtime` |
+| Side effects | `false` |
+
+## Peer Dependencies
+
+| Package | Range |
+|---------|-------|
+| `@napplet/core` | `^0.3.0` |
+| `@napplet/nub` | `^0.3.0` |
+
+## Primary APIs
+
+| Area | Exports |
+|------|---------|
+| Legacy/reference basics | `createAudioService`, `createNotificationService`, `AudioSource`, `AudioServiceOptions`, `Notification`, `NotificationServiceOptions` |
+| Identity | `createIdentityService`, `GiftWrapDecryptResult`, `HostDecryptBridge`, `IdentityServiceOptions`, `VerifyEvent` |
+| Relay/cache | `createRelayPoolService`, `RelayPoolServiceOptions`, `createCacheService`, `CacheServiceOptions`, `HostCacheBridge`, `createCoordinatedRelay`, `CoordinatedRelayOptions` |
+| Keys | `createKeysService`, `KeysServiceOptions`, `HostKeysBridge`, `HostKeyEvent` |
+| Media | `createMediaService`, `createBrowserMediaBridge`, `MediaServiceOptions`, `HostMediaBridge`, `MediaAction` |
+| Notify/theme/config/resource | `createNotifyService`, `NotifyServiceOptions`, `createThemeService`, `ThemeServiceOptions`, `ThemeService`, `createConfigService`, `ConfigServiceOptions`, `ConfigService`, `ConfigSchemaValidation`, `createResourceService`, `ResourceServiceOptions`, `ResourceService` |
+
+## Scope Boundaries
+
+- Provides reference service handlers that host apps register with `runtime.registerService()`.
+- Host apps provide backing bridges/callbacks for browser, native, signer, relay, fetch, notification, and media behavior.
+- Does not create a runtime or shell bridge by itself.
+
+## API Reference
+
+- Generated module: [`docs/api/modules/_kehto_services.html`](../api/modules/_kehto_services.html)

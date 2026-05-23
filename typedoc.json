@@ -3,9 +3,11 @@
   "entryPointStrategy": "packages",
   "entryPoints": [
     "packages/acl",
+    "packages/nip66",
     "packages/runtime",
     "packages/shell",
-    "packages/services"
+    "packages/services",
+    "packages/wm"
   ],
   "out": "docs/api",
   "exclude": ["**/*.test.ts", "**/dist/**", "**/node_modules/**"],
