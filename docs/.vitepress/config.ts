@@ -83,6 +83,7 @@ export default defineConfig({
         items: [
           { text: 'API Reference', link: '/reference/api' },
           { text: 'Troubleshooting', link: '/guides/troubleshooting' },
+          { text: 'Docs Site Runbook', link: '/guides/docs-site-runbook' },
         ],
       },
       {

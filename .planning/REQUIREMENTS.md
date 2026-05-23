@@ -50,9 +50,9 @@
 
 - [x] **REF-01**: Generated API reference links are reachable from package docs and the VitePress site for every public package.
 - [x] **REF-02**: Public package exports documented in package docs match current package barrels and package manifests.
-- [ ] **REF-03**: Docs commands verify build, link integrity or equivalent route coverage, TypeDoc generation, and markdown/source consistency.
-- [ ] **REF-04**: CI or local scripts fail on broken docs build, missing docs navigation entries for public packages, and stale package/API reference links.
-- [ ] **REF-05**: Final verification records the docs build, API docs generation, package-doc coverage check, link/navigation checks, and existing repo build/type/test smoke needed to prove docs work did not break runtime packages.
+- [x] **REF-03**: Docs commands verify build, link integrity or equivalent route coverage, TypeDoc generation, and markdown/source consistency.
+- [x] **REF-04**: CI or local scripts fail on broken docs build, missing docs navigation entries for public packages, and stale package/API reference links.
+- [x] **REF-05**: Final verification records the docs build, API docs generation, package-doc coverage check, link/navigation checks, and existing repo build/type/test smoke needed to prove docs work did not break runtime packages.
 
 ## Future Requirements
 
@@ -117,9 +117,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SITE-04 | Phase 63 | Complete |
 | SITE-05 | Phase 63 | Complete |
 | REF-01 | Phase 63 | Complete |
-| REF-03 | Phase 64 | Pending |
-| REF-04 | Phase 64 | Pending |
-| REF-05 | Phase 64 | Pending |
+| REF-03 | Phase 64 | Complete |
+| REF-04 | Phase 64 | Complete |
+| REF-05 | Phase 64 | Complete |
 
 **Coverage:**
 - v1 requirements: 28 total

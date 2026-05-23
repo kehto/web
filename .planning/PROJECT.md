@@ -91,7 +91,7 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 - **Shell internal type adoption follow-up** — Phase 44 reclassified `internal-{class,connect,resource}.ts` as kehto shell-side models after upstream `@napplet/nub@0.3.0` proved concept/shape divergence. Any future adoption of upstream resource/connect/class surfaces is a distinct migration, not a mechanical import swap.
 - **Electron / Tauri host-bridge reference impls** — HostKeysBridge + HostMediaBridge + HostCacheBridge interfaces defined (v1.4 + v1.7); reference impls deferred.
 - **Multi-OS CI matrix** — still ubuntu-latest only. Carryover from v1.4.
-- **Documentation warning cleanup** — `pnpm docs:api` succeeds but still emits 15 pre-existing TypeDoc warnings about unresolved README links and omitted referenced types.
+- **Documentation gate cleanup** — v1.13 now runs strict TypeDoc with zero warnings through `pnpm docs:check`; stale generated API links should fail the docs gate.
 - **Lint task surface** — `pnpm lint` succeeds but turbo currently reports no configured package lint tasks; type-check, unit tests, E2E, and static guards carry verification.
 
 ## Key Decisions
@@ -153,4 +153,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-23 — v1.13 milestone started (Documentation Strategy & Monorepo Docs Site)*
+*Last updated: 2026-05-23 — v1.13 phases complete (Documentation Strategy & Monorepo Docs Site)*

@@ -45,3 +45,6 @@ jobs:
 
       - name: Type-check all packages
         run: pnpm type-check
+
+      - name: Docs quality gate
+        run: pnpm docs:check

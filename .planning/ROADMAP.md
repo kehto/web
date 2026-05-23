@@ -15,7 +15,7 @@
 - [x] **v1.10: Compatibility Window Cleanup & Decrypt Demo Parity** - 3 phases (50-52), 3 plans, 10/10 requirements, 86 E2E specs green ([archive](milestones/v1.10-ROADMAP.md) | [audit](milestones/v1.10-MILESTONE-AUDIT.md))
 - [x] **v1.11: NIP-5A Gateway Artifact Parity** - 3 phases (53-55), 16/16 requirements, production-equivalent opaque-origin gateway artifact loading, 551 unit tests, 87 E2E specs green ([archive](milestones/v1.11-ROADMAP.md) | [audit](milestones/v1.11-MILESTONE-AUDIT.md))
 - [x] **v1.12: NIP-5D Contract Conformance** - 4 phases (56-59), 34/34 requirements, 560 unit tests, 89 E2E specs green, pinned-spec contract conformance across shell, shim/runtime, gateway load checks, and 13 playground napplets ([archive](milestones/v1.12-ROADMAP.md) | [requirements](milestones/v1.12-REQUIREMENTS.md) | [audit](milestones/v1.12-MILESTONE-AUDIT.md))
-- [ ] **v1.13: Documentation Strategy & Monorepo Docs Site** - 5 phases (60-64), 28 requirements, content strategy, package docs, tutorials/how-tos, VitePress site, and docs verification.
+- [x] **v1.13: Documentation Strategy & Monorepo Docs Site** - 5 phases (60-64), 28/28 requirements, content strategy, package docs, tutorials/how-tos, VitePress site, and docs verification.
 
 ---
 
@@ -37,7 +37,7 @@
 - [x] **Phase 61: Package Documentation Coverage** - Bring every public package and the playground to consistent purpose/install/API/scope documentation, with export coverage checks.
 - [x] **Phase 62: Runtime Tutorials and How-to Guides** - Create implementer tutorials, runtime-host guide, napplet integration tutorial, common how-tos, and troubleshooting/tips content.
 - [x] **Phase 63: VitePress Docs Site Implementation** - Add the docs-owned VitePress site, navigation, build task, package/content linking strategy, and TypeDoc integration.
-- [ ] **Phase 64: Reference Integration and Docs Quality Gates** - Add verification scripts/CI hooks for docs build, API refs, package coverage, navigation/link integrity, and final no-runtime-regression proof.
+- [x] **Phase 64: Reference Integration and Docs Quality Gates** - Add verification scripts/CI hooks for docs build, API refs, package coverage, navigation/link integrity, and final no-runtime-regression proof.
 
 ---
 
@@ -146,6 +146,10 @@
   4. Existing `pnpm build`, `pnpm type-check`, and relevant unit/static checks pass or documented docs-only exceptions are justified.
   5. Roadmap and requirements traceability show 28/28 requirements mapped.
 
+**Plans**: [64-01-PLAN.md](phases/64-reference-integration-and-docs-quality-gates/64-01-PLAN.md)
+
+**Completed**: 2026-05-23 ([summary](phases/64-reference-integration-and-docs-quality-gates/64-01-SUMMARY.md) | [verification](phases/64-reference-integration-and-docs-quality-gates/64-VERIFICATION.md))
+
 ---
 
 ## Progress
@@ -156,7 +160,7 @@
 | 61. Package Documentation Coverage | 1/1 | Completed | 2026-05-23 |
 | 62. Runtime Tutorials and How-to Guides | 1/1 | Completed | 2026-05-23 |
 | 63. VitePress Docs Site Implementation | 1/1 | Completed | 2026-05-23 |
-| 64. Reference Integration and Docs Quality Gates | 0/1 | Pending | — |
+| 64. Reference Integration and Docs Quality Gates | 1/1 | Completed | 2026-05-23 |
 
 ---
 
@@ -184,4 +188,4 @@
 
 ---
 
-*ROADMAP.md last updated: 2026-05-23 - v1.13 roadmap created.*
+*ROADMAP.md last updated: 2026-05-23 - v1.13 completed.*

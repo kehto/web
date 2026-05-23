@@ -32,6 +32,14 @@ The finished docs system should support these checks:
 - Package pages link to generated API reference targets.
 - Migration archive pages include historical warnings.
 
+Run the complete local gate with:
+
+```bash
+pnpm docs:check
+```
+
+That command runs strict TypeDoc generation, the VitePress build, and the docs audit that checks package pages, generated API targets, navigation routes, and CI wiring.
+
 ## Non-Goals
 
 - Do not hand-edit `docs/api/`.

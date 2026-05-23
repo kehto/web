@@ -89,7 +89,7 @@ interface SessionEntry {
  *  The handler parameter uses `details?` (optional) so both the real DOM impl
  *  (which always passes an object) and test mocks that omit details both satisfy
  *  this type structurally. */
-type MediaSessionTarget = {
+export type MediaSessionTarget = {
   metadata: MediaMetadataLike | null;
   playbackState: 'none' | 'playing' | 'paused';
   setActionHandler(action: string, handler: ((details?: { action?: string; seekTime?: number }) => void) | null): void;
@@ -98,7 +98,7 @@ type MediaSessionTarget = {
 /** Structural subset of the DOM MediaMetadata class — assignable from a plain object
  *  with title/artist/album/artwork fields. The browser impl uses `new MediaMetadata({...})`;
  *  tests can pass a plain object. */
-type MediaMetadataLike = { title?: string; artist?: string; album?: string; artwork?: unknown };
+export type MediaMetadataLike = { title?: string; artist?: string; album?: string; artwork?: unknown };
 
 /** Media service version — follows semver. */
 const MEDIA_SERVICE_VERSION = '1.1.0';

@@ -85,6 +85,8 @@ export { createMediaService, createBrowserMediaBridge } from './media-service.js
 export type {
   MediaServiceOptions,
   HostMediaBridge,
+  MediaSessionTarget,
+  MediaMetadataLike,
 } from './media-service.js';
 // Convenience re-export: host apps implementing HostMediaBridge need the
 // MediaAction literal for their onAction callback typing. Re-exported here

@@ -74,19 +74,19 @@ check(state, id, CAP_RELAY_WRITE); // true (restored)
 - `CAP_MEDIA_CONTROL`, `CAP_NOTIFY_SEND`, `CAP_NOTIFY_CHANNEL`, `CAP_THEME_READ`
 
 ### State mutations
-- [`createState`](../../docs/api/functions/_kehto_acl.createState.html) — create an empty AclState
-- [`grant`](../../docs/api/functions/_kehto_acl.grant.html), [`revoke`](../../docs/api/functions/_kehto_acl.revoke.html) — add/remove capability bits
-- [`block`](../../docs/api/functions/_kehto_acl.block.html), [`unblock`](../../docs/api/functions/_kehto_acl.unblock.html) — toggle the block flag
-- [`setQuota`](../../docs/api/functions/_kehto_acl.setQuota.html), [`getQuota`](../../docs/api/functions/_kehto_acl.getQuota.html) — per-identity state storage quota
-- [`serialize`](../../docs/api/functions/_kehto_acl.serialize.html), [`deserialize`](../../docs/api/functions/_kehto_acl.deserialize.html) — JSON round-trip for persistence
+- [`createState`](../../docs/api/functions/_kehto_acl..createState.html) — create an empty AclState
+- [`grant`](../../docs/api/functions/_kehto_acl..grant.html), [`revoke`](../../docs/api/functions/_kehto_acl..revoke.html) — add/remove capability bits
+- [`block`](../../docs/api/functions/_kehto_acl..block.html), [`unblock`](../../docs/api/functions/_kehto_acl..unblock.html) — toggle the block flag
+- [`setQuota`](../../docs/api/functions/_kehto_acl..setQuota.html), [`getQuota`](../../docs/api/functions/_kehto_acl..getQuota.html) — per-identity state storage quota
+- [`serialize`](../../docs/api/functions/_kehto_acl..serialize.html), [`deserialize`](../../docs/api/functions/_kehto_acl..deserialize.html) — JSON round-trip for persistence
 
 ### Capability resolution
-- [`check`](../../docs/api/functions/_kehto_acl.check.html) — evaluate identity + capability against state
-- [`toKey`](../../docs/api/functions/_kehto_acl.toKey.html) — compute the `dTag:hash` composite key
-- [`resolveCapabilitiesNub`](../../docs/api/functions/_kehto_acl.resolveCapabilitiesNub.html) — map a NIP-5D NUB envelope type to the required sender/recipient capabilities across the 8 canonical domains
+- [`check`](../../docs/api/functions/_kehto_acl..check.html) — evaluate identity + capability against state
+- [`toKey`](../../docs/api/functions/_kehto_acl..toKey.html) — compute the `dTag:hash` composite key
+- [`resolveCapabilitiesNub`](../../docs/api/functions/_kehto_acl..resolveCapabilitiesNub.html) — map a NIP-5D NUB envelope type to the required sender/recipient capabilities across the 8 canonical domains
 
 ### Migration
-- [`migrateAclState`](../../docs/api/functions/_kehto_acl.migrateAclState.html) — one-shot migration from the legacy 3-segment `pubkey:dTag:hash` keys to the v1.2 2-segment `dTag:hash` keys; idempotent (returns the same reference when nothing to migrate)
+- [`migrateAclState`](../../docs/api/functions/_kehto_acl..migrateAclState.html) — one-shot migration from the legacy 3-segment `pubkey:dTag:hash` keys to the v1.2 2-segment `dTag:hash` keys; idempotent (returns the same reference when nothing to migrate)
 
 ## API Reference
 
