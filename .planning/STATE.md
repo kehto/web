@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.13
 milestone_name: Documentation Strategy & Monorepo Docs Site
-status: complete
-last_updated: "2026-05-23T13:20:59.000Z"
-last_activity: 2026-05-23 — Phase 64 completed
+status: Awaiting next milestone
+last_updated: "2026-05-23T13:28:44.643Z"
+last_activity: 2026-05-23 — Milestone v1.13 completed and archived
 progress:
   total_phases: 5
   completed_phases: 5
@@ -17,21 +17,21 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-23, v1.13 started)
+See: .planning/PROJECT.md (updated 2026-05-23, v1.13 completed)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Documentation Strategy & Monorepo Docs Site
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: Complete — Documentation Strategy & Monorepo Docs Site
+Phase: Milestone v1.13 complete
 Plan: —
-Status: All v1.13 phases complete; ready for milestone audit/archive
-Last activity: 2026-05-23 — Phase 64 completed
+Status: Awaiting next milestone
+Last activity: 2026-05-23 — Milestone v1.13 completed and archived
 
 ## Accumulated Context
 
-Full decision log (v1.0 → v1.12) lives in `.planning/PROJECT.md` Key Decisions table and per-milestone archives under `.planning/milestones/`.
+Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions table and per-milestone archives under `.planning/milestones/`.
 
 ### v1.8 Phase Sequence
 
@@ -43,7 +43,7 @@ Full decision log (v1.0 → v1.12) lives in `.planning/PROJECT.md` Key Decisions
 
 ### Blockers/Concerns
 
-- No active blockers. v1.12 requirements are complete, audited, and archived.
+- No active blockers. v1.13 requirements are complete, audited, and archived.
 - v1.10 shipped: removed the stale `auth:identity-changed` compatibility branch, migrated `decrypt-demo` to `identityDecrypt`, and retired the remaining old demo package graph.
 - Published package check: `@napplet/sdk@0.3.0`, `@napplet/shim@0.3.0`, and `@napplet/vite-plugin@0.3.0` are all available on npm as of 2026-05-22.
 - Scope boundary: keep v1.10 as a v1 cleanup/continuity milestone; do not promote the compatibility removal to a v2 boundary.
@@ -58,6 +58,7 @@ Full decision log (v1.0 → v1.12) lives in `.planning/PROJECT.md` Key Decisions
 - v1.12 roadmap phases are 56-59: contract/package source baseline, shell capability/requires enforcement, 13-napplet conformance, then guards/full verification.
 - Phase 58 completed 2026-05-22: all 13 playground napplets now declare manifest `requires`, preflight required NUBs with shell-derived `supports()`, stale protocol auth wording is renamed, and raw demo envelopes are documented in the Phase 58 allowlist.
 - Phase 59 completed 2026-05-22: static/unit/E2E guards now cover sandbox policy, source validation, no napplet `window.nostr`, requires coverage, hosted `supports()` behavior, raw-envelope exceptions, unsupported-requires rejection, and all 13 gateway-hosted napplet contracts. Final verification passed: `pnpm build`, `pnpm type-check`, `pnpm test:unit` (560 tests), `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and `pnpm test:e2e` (89/89).
+- v1.13 completed 2026-05-23: docs strategy, package docs, tutorials/how-tos, VitePress site, generated API integration, and strict docs quality gates are shipped. Final verification passed: `pnpm docs:check`, `pnpm build`, `pnpm type-check`, `pnpm test:unit` (562 tests), `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and `git diff --check`.
 
 ### Quick Tasks Completed
 
@@ -72,9 +73,9 @@ Full decision log (v1.0 → v1.12) lives in `.planning/PROJECT.md` Key Decisions
 ## Session Continuity
 
 Last session: 2026-05-23T13:20:59Z
-Resume: v1.13 phases 60-64 are complete. Run milestone audit/archive next.
-Current milestone: v1.13 Documentation Strategy & Monorepo Docs Site.
+Resume: v1.13 is archived. Start the next milestone from current repo state and backlog.
+Current milestone: none.
 
 ## Operator Next Steps
 
-- Run milestone audit/archive for v1.13.
+- Start the next milestone with /gsd-new-milestone

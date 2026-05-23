@@ -2,6 +2,52 @@
 
 *A living document updated after each milestone. Lessons feed forward into future planning.*
 
+## Milestone: v1.13 — Documentation Strategy & Monorepo Docs Site
+
+**Shipped:** 2026-05-23
+**Phases:** 5 (60–64) | **Plans:** 5 | **Requirements:** 28/28 | **Unit:** 562
+
+### What Was Built
+
+- **Phase 60 — Content Strategy and Docs Information Architecture.** Defined reader personas, documentation jobs, taxonomy, source-of-truth rules, archive boundaries, and the site structure for Start, Concepts, Tutorials, How-tos, Package Reference, API Reference, Policies, and Migration Archive.
+- **Phase 61 — Package Documentation Coverage.** Added current package reference pages for `@kehto/acl`, `@kehto/runtime`, `@kehto/shell`, `@kehto/services`, `@kehto/nip66`, `@kehto/wm`, and `@kehto/playground`, grounded in package manifests and public exports.
+- **Phase 62 — Runtime Tutorials and How-to Guides.** Added implementer tutorials for minimal host shell, runtime integration, and napplet integration, plus how-tos for unsupported requirements, package updates, docs maintenance, and troubleshooting.
+- **Phase 63 — VitePress Docs Site Implementation.** Added the docs-owned `@kehto/docs` workspace, VitePress config/navigation/sidebar, concept/reference/policy/archive pages, root docs scripts, and generated API entrypoints.
+- **Phase 64 — Reference Integration and Docs Quality Gates.** Added strict TypeDoc, `pnpm docs:check`, `scripts/audit-docs.mjs`, Build workflow docs checks, docs site runbook, and final full verification.
+
+### What Worked
+
+- **Docs-owned tooling kept runtime packages clean.** VitePress, TypeDoc site wiring, and docs dependencies live under `docs/`, while root scripts expose only the stable monorepo commands.
+- **Strategy first prevented page sprawl.** Phase 60's IA gave later phases a fixed destination for every tutorial, how-to, package page, API reference link, and migration archive page.
+- **A single `docs:check` gate made closeout crisp.** Strict TypeDoc, VitePress build, route/link audits, CI wiring checks, package-doc coverage, and generated API checks run as one repeatable command.
+- **Package docs used code-derived anchors.** Grounding reference pages in manifests and public barrels prevented the milestone from becoming generic prose disconnected from the actual publishable surfaces.
+
+### What Was Inefficient
+
+- **Generated API integration needed late export cleanup.** Strict TypeDoc exposed public surface warnings in `@kehto/nip66` and `@kehto/wm`; the fix was small, but it landed late because docs generation was not part of earlier package phases.
+- **Historical migration docs needed explicit demotion.** Old migration pages looked like active guidance until the strategy and archive pages made their status clear.
+- **Closeout inherited quick-task metadata drift.** Old quick tasks had prefixed summary names but no canonical `SUMMARY.md`; `audit-open` needed compatibility summaries before the milestone could archive cleanly.
+
+### Patterns Established
+
+- **Docs site dependency boundary.** Site-only dependencies belong to the docs workspace; package dependencies stay runtime-shaped unless a package actually needs the dependency.
+- **Docs quality gate as first-class CI surface.** `pnpm docs:check` is now the minimum proof for documentation changes that touch route structure, package reference, generated API docs, or CI wiring.
+- **Current-vs-archive split for protocol history.** Migration material stays discoverable, but current implementation guidance must live in tutorials, how-tos, package pages, or policy docs.
+
+### Key Lessons
+
+1. **Documentation architecture should precede documentation volume.** The content strategy made later writing faster and gave every page an obvious maintenance owner.
+2. **Generated docs need strict mode early.** TypeDoc warnings are public API drift signals; running them only at the end delays small export repairs.
+3. **Docs milestones still need full repo verification.** The docs site can compile while package builds or type surfaces drift; final closeout needs docs, build, type, unit, and static artifact gates.
+
+### Cost Observations
+
+- **Model mix:** Frontier leader with inline execution; no child agents needed after scope was clear.
+- **Sessions:** Single autonomous run from Phase 60 through archive.
+- **Notable:** Final verification passed `pnpm docs:check`, `pnpm build`, `pnpm type-check`, `pnpm test:unit` (562 tests), `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and `git diff --check`.
+
+---
+
 ## Milestone: v1.12 — NIP-5D Contract Conformance
 
 **Shipped:** 2026-05-22
@@ -363,6 +409,7 @@
 | v1.2 | ~18 | 6 | Canonical conformance + 8-nub coverage; 449 tests |
 | v1.3 | ~25 | 7 | Consume-and-showcase; Layer-A + Layer-B Playwright split; E2E-11 iteration-loop gate |
 | v1.8 | 1 autonomous run | 5 | Upstream alignment, decrypt surface, audit-clean closeout |
+| v1.13 | 1 autonomous run | 5 | Documentation strategy, VitePress site, generated API docs, and docs quality gate |
 
 ### Cumulative Quality
 
@@ -371,6 +418,7 @@
 | v1.2 | 449 | 0 | (baseline) |
 | v1.3 | 47 (E2E) | 0 (was 68 pre-22-07) | @kehto/acl already zero-dep (confirmed via publint) |
 | v1.8 | 86 (E2E) + 543 unit | 0 | No new dependencies |
+| v1.13 | 89 (E2E baseline) + 562 unit | 0 | Site-only VitePress/TypeDoc dependencies isolated to `docs/` |
 
 Note: v1.3 test count reflects E2E Playwright specs only; unit tests carried forward from v1.2 unchanged. The drop from 449 → 47 is a change of instrument (v1.2 counted all Vitest specs; v1.3 E2E-10 gates specifically on Playwright suite green).
 
