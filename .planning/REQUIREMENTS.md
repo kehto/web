@@ -32,11 +32,11 @@
 
 ### Tutorials and how-tos
 
-- [ ] **TUT-01**: A beginner tutorial guides a reader from install to a minimal Kehto host shell that creates a runtime, registers services, and hosts one sandboxed napplet.
-- [ ] **TUT-02**: A runtime implementation guide walks through adapter hooks, ACL policy, service registration, shell bridge setup, gateway artifact loading, and teardown.
-- [ ] **TUT-03**: A napplet integration tutorial shows how a napplet declares `requires`, checks hosted `supports()`, and uses NUB helper APIs without forbidden browser/protocol primitives.
-- [ ] **TUT-04**: How-to guides cover common host tasks: grant a capability, register a service, handle unsupported `requires`, add a reference service, debug postMessage traffic, and verify a gateway artifact.
-- [ ] **TUT-05**: Tips/troubleshooting content captures common failure modes from prior milestones, including stale package resolution, missing built napplet artifacts, sandbox policy drift, and raw-envelope exceptions.
+- [x] **TUT-01**: A beginner tutorial guides a reader from install to a minimal Kehto host shell that creates a runtime, registers services, and hosts one sandboxed napplet.
+- [x] **TUT-02**: A runtime implementation guide walks through adapter hooks, ACL policy, service registration, shell bridge setup, gateway artifact loading, and teardown.
+- [x] **TUT-03**: A napplet integration tutorial shows how a napplet declares `requires`, checks hosted `supports()`, and uses NUB helper APIs without forbidden browser/protocol primitives.
+- [x] **TUT-04**: How-to guides cover common host tasks: grant a capability, register a service, handle unsupported `requires`, add a reference service, debug postMessage traffic, and verify a gateway artifact.
+- [x] **TUT-05**: Tips/troubleshooting content captures common failure modes from prior milestones, including stale package resolution, missing built napplet artifacts, sandbox policy drift, and raw-envelope exceptions.
 
 ### VitePress site
 
@@ -107,11 +107,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PKG-07 | Phase 61 | Complete |
 | PKG-08 | Phase 61 | Complete |
 | REF-02 | Phase 61 | Complete |
-| TUT-01 | Phase 62 | Pending |
-| TUT-02 | Phase 62 | Pending |
-| TUT-03 | Phase 62 | Pending |
-| TUT-04 | Phase 62 | Pending |
-| TUT-05 | Phase 62 | Pending |
+| TUT-01 | Phase 62 | Complete |
+| TUT-02 | Phase 62 | Complete |
+| TUT-03 | Phase 62 | Complete |
+| TUT-04 | Phase 62 | Complete |
+| TUT-05 | Phase 62 | Complete |
 | SITE-01 | Phase 63 | Pending |
 | SITE-03 | Phase 63 | Pending |
 | SITE-04 | Phase 63 | Pending |

@@ -35,7 +35,7 @@
 
 - [x] **Phase 60: Content Strategy and Docs Information Architecture** - Define personas, documentation taxonomy, start paths, archive boundaries, source-of-truth rules, and site navigation shape.
 - [x] **Phase 61: Package Documentation Coverage** - Bring every public package and the playground to consistent purpose/install/API/scope documentation, with export coverage checks.
-- [ ] **Phase 62: Runtime Tutorials and How-to Guides** - Create implementer tutorials, runtime-host guide, napplet integration tutorial, common how-tos, and troubleshooting/tips content.
+- [x] **Phase 62: Runtime Tutorials and How-to Guides** - Create implementer tutorials, runtime-host guide, napplet integration tutorial, common how-tos, and troubleshooting/tips content.
 - [ ] **Phase 63: VitePress Docs Site Implementation** - Add the docs-owned VitePress site, navigation, build task, package/content linking strategy, and TypeDoc integration.
 - [ ] **Phase 64: Reference Integration and Docs Quality Gates** - Add verification scripts/CI hooks for docs build, API refs, package coverage, navigation/link integrity, and final no-runtime-regression proof.
 
@@ -103,6 +103,10 @@
   4. How-tos cover common host tasks: grant capability, register service, handle unsupported `requires`, add reference service, debug postMessage, and verify gateway artifacts.
   5. Troubleshooting/tips document known failures from prior milestones without widening runtime scope.
 
+**Plans**: [62-01-PLAN.md](phases/62-runtime-tutorials-and-how-to-guides/62-01-PLAN.md)
+
+**Completed**: 2026-05-23 ([summary](phases/62-runtime-tutorials-and-how-to-guides/62-01-SUMMARY.md) | [verification](phases/62-runtime-tutorials-and-how-to-guides/62-VERIFICATION.md))
+
 ### Phase 63: VitePress Docs Site Implementation
 
 **Goal**: Build the navigable documentation site without breaking package or TypeDoc workflows.
@@ -146,7 +150,7 @@
 |-------|----------------|--------|-----------|
 | 60. Content Strategy and Docs Information Architecture | 1/1 | Completed | 2026-05-23 |
 | 61. Package Documentation Coverage | 1/1 | Completed | 2026-05-23 |
-| 62. Runtime Tutorials and How-to Guides | 0/1 | Pending | — |
+| 62. Runtime Tutorials and How-to Guides | 1/1 | Completed | 2026-05-23 |
 | 63. VitePress Docs Site Implementation | 0/1 | Pending | — |
 | 64. Reference Integration and Docs Quality Gates | 0/1 | Pending | — |
 
