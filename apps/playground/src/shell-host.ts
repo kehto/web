@@ -380,8 +380,6 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     statusId: 'resource-demo-status',
     aclId: 'resource-demo-acl',
     frameContainerId: 'resource-demo-frame-container',
-    surface: 'runtime-demo',
-    hasAclControls: false,
   },
   // Phase 46 (DECRYPT-09/10 + E2E-28): decrypt-demo exercises the
   // identity.decrypt reference handler across NIP-04, NIP-44-direct, and

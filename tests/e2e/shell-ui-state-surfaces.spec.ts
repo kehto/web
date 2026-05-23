@@ -167,14 +167,16 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
 
     const runtimeRegion = page.locator('#topology-runtime-demos');
     await expect(runtimeRegion).toBeVisible({ timeout: 5_000 });
-    await expect(page.locator('#topology-napplets [data-topology-surface="napplet"]')).toHaveCount(8);
+    await expect(page.locator('#topology-napplets [data-topology-surface="napplet"]')).toHaveCount(9);
     await expect(page.locator('#topology-napplets [data-topology-surface="runtime-demo"]')).toHaveCount(0);
-    await expect(runtimeRegion.locator('[data-topology-surface="runtime-demo"]')).toHaveCount(5);
+    await expect(runtimeRegion.locator('[data-topology-surface="runtime-demo"]')).toHaveCount(4);
 
     await expect(page.locator('[data-napplet-name="config-demo"] .topology-node-kicker')).toHaveText('runtime demo');
     await expect(page.locator('[data-napplet-name="decrypt-demo"] .topology-node-kicker')).toHaveText('runtime demo');
+    await expect(page.locator('[data-napplet-name="resource-demo"] .topology-node-kicker')).toHaveText('napplet');
     await expect(page.locator('#config-demo-acl')).toHaveCount(0);
     await expect(page.locator('#decrypt-demo-acl')).toHaveCount(0);
+    await expect(page.locator('#resource-demo-acl')).toBeVisible();
     await expect(page.locator('#chat-acl')).toBeVisible();
   });
 
