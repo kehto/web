@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.14
 milestone_name: GitHub Pages Web Portal
-status: planning
-last_updated: "2026-05-23T16:00:43.905Z"
+status: awaiting_next_milestone
+last_updated: "2026-05-23T16:10:00.000Z"
 last_activity: 2026-05-23
 progress:
   total_phases: 3
@@ -17,17 +17,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-23, v1.14 started)
+See: .planning/PROJECT.md (updated 2026-05-23, v1.14 archived)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** v1.14 GitHub Pages Web Portal
+**Current focus:** Awaiting next milestone after v1.14 GitHub Pages Web Portal
 
 ## Current Position
 
-Phase: Milestone v1.14 phases complete
+Phase: No active milestone
 Plan: —
-Status: Roadmap ready
-Last activity: 2026-05-23 — Phase 67 completed; ready for milestone audit
+Status: Awaiting next milestone
+Last activity: 2026-05-23 — v1.14 completed, audited, and archived
 
 ## Accumulated Context
 
@@ -49,6 +49,7 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 - Phase 65 completed 2026-05-23: `web/index.html` is the static portal source, `pnpm build:pages` writes `.pages/web/index.html`, and the generated portal links to `/web/playground/` and `/web/docs/`.
 - Phase 66 completed 2026-05-23: `scripts/build-playground-pages.mjs` writes `.pages/web/playground`, defaults to `/web/playground/`, and generated gateway manifest `htmlUrl` values now point under `/web/playground/napplet-gateway/`.
 - Phase 67 completed 2026-05-23: docs publish under `.pages/web/docs`, generated TypeDoc output is copied to `.pages/web/docs/api`, the Pages workflow uploads `.pages`, and `pnpm audit:pages` verifies the `/web/` route contract before deploy.
+- v1.14 archived 2026-05-23: public `/web/` portal, playground `/web/playground/`, docs `/web/docs/`, unified Pages artifact, and `pnpm audit:pages` deploy gate are shipped. Final verification passed: docs check, playground build, Pages artifact build/audit, focused route guard, full build/type/unit, gateway artifact audit, diff check, and open-artifact audit.
 - v1.10 shipped: removed the stale `auth:identity-changed` compatibility branch, migrated `decrypt-demo` to `identityDecrypt`, and retired the remaining old demo package graph.
 - Published package check: `@napplet/sdk@0.3.0`, `@napplet/shim@0.3.0`, and `@napplet/vite-plugin@0.3.0` are all available on npm as of 2026-05-22.
 - Scope boundary: keep v1.10 as a v1 cleanup/continuity milestone; do not promote the compatibility removal to a v2 boundary.
@@ -77,10 +78,10 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 
 ## Session Continuity
 
-Last session: 2026-05-23T13:20:59Z
-Resume: v1.14 phases are complete. Run milestone audit, completion archive, and cleanup.
-Current milestone: v1.14 GitHub Pages Web Portal.
+Last session: 2026-05-23T16:10:00Z
+Resume: No active milestone. v1.14 is audited and archived; select or create the next milestone.
+Current milestone: none.
 
 ## Operator Next Steps
 
-- Continue lifecycle with `$gsd-audit-milestone`
+- Start the next milestone with `$gsd-new-milestone` or review the backlog for candidate scope.

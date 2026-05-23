@@ -1,5 +1,26 @@
 # Milestones: Kehto Runtime
 
+## v1.14 GitHub Pages Web Portal (Shipped: 2026-05-23)
+
+**Phases completed:** 3 phases (65-67), 3 plans, 13 requirements.
+
+**Delivered:** v1.14 turns the GitHub Pages deployment into the requested public `/web/` site: a static Kehto portal, playground deployment under `/web/playground/`, VitePress docs under `/web/docs/`, one unified Pages artifact, and a route-shape deploy gate.
+
+**Audit:** passed — 13/13 requirements, 3/3 phases, 3/3 plans, 4/4 integration paths, 3/3 user flows.
+
+**Key accomplishments:**
+
+- **Static portal:** added `web/index.html` and `pnpm build:pages` output for `.pages/web/index.html`, linking visitors to `/web/playground/` and `/web/docs/`.
+- **Playground relocation:** `scripts/build-playground-pages.mjs` now defaults to `.pages/web/playground` with `/web/playground/` as the public base path, and all 13 gateway manifest `htmlUrl` values point under `/web/playground/napplet-gateway/`.
+- **Docs publication:** VitePress builds with `VITEPRESS_BASE=/web/docs/`, docs output is copied to `.pages/web/docs`, and generated TypeDoc output is published under `.pages/web/docs/api`.
+- **Unified Pages workflow:** `.github/workflows/playground-pages.yml` runs docs checks, builds the unified artifact, audits the route shape, uploads `.pages`, and no longer derives the public playground base from `github.event.repository.name`.
+- **Deploy gate:** `pnpm audit:pages` verifies `/web/`, `/web/playground/`, `/web/docs/`, 13 gateway routes, and representative docs/API routes before upload.
+- **Verification:** `VITEPRESS_BASE=/web/docs/ pnpm docs:check`, `PLAYGROUND_BASE_PATH=/web/playground/ pnpm --filter @kehto/playground build`, `pnpm build:pages`, `pnpm audit:pages`, focused unit guard, `pnpm build`, `pnpm type-check`, `pnpm audit:gateway-artifacts`, `pnpm test:unit` (562 tests), `git diff --check`, and `gsd-sdk query audit-open` all passed.
+
+**Archive:** [v1.14-ROADMAP.md](milestones/v1.14-ROADMAP.md) | [v1.14-REQUIREMENTS.md](milestones/v1.14-REQUIREMENTS.md) | [v1.14-MILESTONE-AUDIT.md](milestones/v1.14-MILESTONE-AUDIT.md)
+
+---
+
 ## v1.13 Documentation Strategy & Monorepo Docs Site (Shipped: 2026-05-23)
 
 **Phases completed:** 5 phases (60-64), 5 plans, 28 requirements.

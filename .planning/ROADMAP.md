@@ -16,103 +16,13 @@
 - [x] **v1.11: NIP-5A Gateway Artifact Parity** - 3 phases (53-55), 16/16 requirements, production-equivalent opaque-origin gateway artifact loading, 551 unit tests, 87 E2E specs green ([archive](milestones/v1.11-ROADMAP.md) | [audit](milestones/v1.11-MILESTONE-AUDIT.md))
 - [x] **v1.12: NIP-5D Contract Conformance** - 4 phases (56-59), 34/34 requirements, 560 unit tests, 89 E2E specs green, pinned-spec contract conformance across shell, shim/runtime, gateway load checks, and 13 playground napplets ([archive](milestones/v1.12-ROADMAP.md) | [requirements](milestones/v1.12-REQUIREMENTS.md) | [audit](milestones/v1.12-MILESTONE-AUDIT.md))
 - [x] **v1.13: Documentation Strategy & Monorepo Docs Site** - 5 phases (60-64), 28/28 requirements, content strategy, package docs, tutorials/how-tos, VitePress site, and docs verification ([archive](milestones/v1.13-ROADMAP.md) | [requirements](milestones/v1.13-REQUIREMENTS.md) | [audit](milestones/v1.13-MILESTONE-AUDIT.md))
+- [x] **v1.14: GitHub Pages Web Portal** - 3 phases (65-67), 13/13 requirements, public `/web/` portal, playground at `/web/playground/`, docs at `/web/docs/`, and unified Pages deploy gate ([archive](milestones/v1.14-ROADMAP.md) | [requirements](milestones/v1.14-REQUIREMENTS.md) | [audit](milestones/v1.14-MILESTONE-AUDIT.md))
 
 ---
 
 ## Active Milestone
 
-### v1.14: GitHub Pages Web Portal
-
-**Goal:** Turn the GitHub Pages deployment into a public `/web/` portal that links to the playground and docs, with the playground deployed at `/web/playground/` and VitePress docs deployed at `/web/docs/`.
-
-**Baseline entering v1.14:** v1.13 is archived with a buildable VitePress docs site, generated API integration, docs quality gates, and an existing playground-only GitHub Pages workflow. Current Pages packaging uploads `.pages/playground`, uses `PLAYGROUND_BASE_PATH=/${{ github.event.repository.name }}/`, and does not publish the docs site or a portal slash page.
-
-**Coverage:** 13/13 requirements mapped.
-
-**Critical invariant:** The deployed public URL contract is `https://kehto.github.io/web/`, not a repository-name-derived base path. Playground gateway routes and docs assets must be nested under their requested path segments.
-
-### Phases
-
-- [x] **Phase 65: Pages Portal Entry Point** - Add the static `/web/` entry page and artifact root contract that links users to playground and docs.
-- [x] **Phase 66: Playground Pages Path Relocation** - Move playground Pages packaging and gateway metadata under `/web/playground/`.
-- [x] **Phase 67: Docs Pages Publication and Deploy Gate** - Publish VitePress under `/web/docs/`, upload one unified Pages artifact, and add route-shape verification.
-
----
-
-## Phase Details
-
-### Phase 65: Pages Portal Entry Point
-
-**Goal**: Create the public Kehto slash page and unify the static artifact root around `/web/`.
-
-**Depends on**: v1.14 requirements accepted; existing `scripts/build-playground-pages.mjs`; current GitHub Pages workflow.
-
-**Requirements**: PAGE-01, PAGE-02, PAGE-03
-
-**Rationale**: The current Pages artifact opens directly into the playground. The requested public shape needs a stable portal root that can send readers to either playground or docs without coupling that page to either application's runtime.
-
-**Success Criteria** (what must be TRUE):
-  1. Generated Pages artifact contains an `index.html` for `/web/`.
-  2. The entry page clearly links to `/web/playground/` and `/web/docs/`.
-  3. The entry page is static and does not depend on playground JavaScript, docs VitePress runtime, or external services.
-  4. Artifact output location and public base path are explicit enough for downstream phases to place playground and docs under the same root.
-
-**Plans**: [65-01-PLAN.md](phases/65-pages-portal-entry-point/65-01-PLAN.md)
-
-**Completed**: 2026-05-23 ([summary](phases/65-pages-portal-entry-point/65-01-SUMMARY.md) | [verification](phases/65-pages-portal-entry-point/65-VERIFICATION.md))
-
-### Phase 66: Playground Pages Path Relocation
-
-**Goal**: Move the playground deployment and static NIP-5A gateway routes under `/web/playground/`.
-
-**Depends on**: Phase 65
-
-**Requirements**: PLAY-01, PLAY-02, PLAY-03, PLAY-04
-
-**Rationale**: The existing workflow derives `PLAYGROUND_BASE_PATH` from `github.event.repository.name`, but the public target is explicitly `/web/playground/`. The playground shell and generated gateway metadata must use the same base path or iframe URLs and static assets will drift.
-
-**Success Criteria** (what must be TRUE):
-  1. The playground shell builds with asset URLs rooted at `/web/playground/`.
-  2. `build:playground-pages` or its replacement writes playground output under the unified artifact's `playground/` segment.
-  3. Static gateway manifests and generated `htmlUrl` values point under `/web/playground/napplet-gateway/`.
-  4. All 13 built napplets are represented as static gateway routes in the artifact.
-  5. The Pages workflow no longer depends on `github.event.repository.name` for the public playground base path.
-
-**Plans**: [66-01-PLAN.md](phases/66-playground-pages-path-relocation/66-01-PLAN.md)
-
-**Completed**: 2026-05-23 ([summary](phases/66-playground-pages-path-relocation/66-01-SUMMARY.md) | [verification](phases/66-playground-pages-path-relocation/66-VERIFICATION.md))
-
-### Phase 67: Docs Pages Publication and Deploy Gate
-
-**Goal**: Publish docs under `/web/docs/` and prove the unified Pages artifact before deployment.
-
-**Depends on**: Phase 66
-
-**Requirements**: DOCS-01, DOCS-02, DOCS-03, VERIFY-01, VERIFY-02, VERIFY-03
-
-**Rationale**: v1.13 made the docs site buildable; v1.14 needs to put it beside the playground in the public Pages artifact. The deployment should fail before upload if the portal, playground, docs, or gateway route shape is missing.
-
-**Success Criteria** (what must be TRUE):
-  1. VitePress builds with `VITEPRESS_BASE=/web/docs/` or an equivalent explicit base-path configuration.
-  2. Docs output is copied into the unified Pages artifact under `docs/`.
-  3. Docs navigation, package pages, policy pages, migration archive, and generated API reference paths resolve under `/web/docs/`.
-  4. GitHub Pages workflow builds and uploads one artifact containing `index.html`, `playground/`, and `docs/`.
-  5. Local or CI route-shape verification fails when `/web/`, `/web/playground/`, `/web/docs/`, or a representative gateway manifest is missing.
-  6. Final evidence records Pages artifact build, `pnpm docs:check`, `pnpm audit:gateway-artifacts`, build/type/unit smoke, and route-shape proof.
-
-**Plans**: [67-01-PLAN.md](phases/67-docs-pages-publication-and-deploy-gate/67-01-PLAN.md)
-
-**Completed**: 2026-05-23 ([summary](phases/67-docs-pages-publication-and-deploy-gate/67-01-SUMMARY.md) | [verification](phases/67-docs-pages-publication-and-deploy-gate/67-VERIFICATION.md))
-
----
-
-## Progress
-
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 65. Pages Portal Entry Point | 1/1 | Completed | 2026-05-23 |
-| 66. Playground Pages Path Relocation | 1/1 | Completed | 2026-05-23 |
-| 67. Docs Pages Publication and Deploy Gate | 1/1 | Completed | 2026-05-23 |
+No active milestone. Start the next milestone with `$gsd-new-milestone`.
 
 ## Backlog
 
@@ -138,4 +48,4 @@
 
 ---
 
-*ROADMAP.md last updated: 2026-05-23 - v1.14 roadmap created.*
+*ROADMAP.md last updated: 2026-05-23 - v1.14 archived; awaiting next milestone.*
