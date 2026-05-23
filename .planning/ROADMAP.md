@@ -24,4 +24,26 @@ None. v1.12 is archived; start the next milestone with `$gsd-new-milestone`.
 
 ---
 
-*ROADMAP.md last updated: 2026-05-22 - v1.12 archived.*
+## Backlog
+
+### Phase 999.1: Fix decrypt-demo fixture delivery pending state (BACKLOG)
+
+**Goal:** Investigate and fix the playground `decrypt-demo` staying in `waiting for fixtures` / `[pending]` for NIP-04, NIP-44, NIP-17, and Class-2 probe rows.
+
+**Captured:** 2026-05-23 via `$gsd-capture --backlog`
+
+**Observed symptom:** User screenshot shows the decrypt demo panel stuck with:
+- `waiting for fixtures`
+- `NIP-04 [pending]`
+- `NIP-44 [pending]`
+- `NIP-17 [pending]`
+- `Class-2 [pending]`
+
+**Acceptance direction:**
+- The playground decrypt demo receives fixtures reliably after boot.
+- NIP-04, NIP-44, NIP-17, and Class-2 rows leave `[pending]` and settle to the expected terminal state.
+- Regression coverage catches fixture-delivery stalls in the real playground path.
+
+---
+
+*ROADMAP.md last updated: 2026-05-23 - backlog capture 999.1 added.*
