@@ -70,12 +70,25 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| PAGE-01 | Phase 65 | Pending |
+| PAGE-02 | Phase 65 | Pending |
+| PAGE-03 | Phase 65 | Pending |
+| PLAY-01 | Phase 66 | Pending |
+| PLAY-02 | Phase 66 | Pending |
+| PLAY-03 | Phase 66 | Pending |
+| PLAY-04 | Phase 66 | Pending |
+| DOCS-01 | Phase 67 | Pending |
+| DOCS-02 | Phase 67 | Pending |
+| DOCS-03 | Phase 67 | Pending |
+| VERIFY-01 | Phase 67 | Pending |
+| VERIFY-02 | Phase 67 | Pending |
+| VERIFY-03 | Phase 67 | Pending |
 
 **Coverage:**
 - v1 requirements: 13 total
-- Mapped to phases: 0
-- Unmapped: 13
+- Mapped to phases: 13
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-23*
-*Last updated: 2026-05-23 after initial definition*
+*Last updated: 2026-05-23 after roadmap creation*
