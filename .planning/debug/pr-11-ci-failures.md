@@ -3,7 +3,7 @@ slug: pr-11-ci-failures
 status: resolved
 trigger: "all tests are failing in https://github.com/kehto/web/pull/11"
 created: 2026-05-23
-updated: 2026-05-23T09:59:29Z
+updated: 2026-05-23T10:02:56Z
 ---
 
 # Debug: PR 11 CI Failures
@@ -22,10 +22,10 @@ updated: 2026-05-23T09:59:29Z
 
 ## Current Focus
 
-hypothesis: CONFIRMED. All initial failures shared a checkout/repository-shape fault: local `@napplet/*` sources are submodules, but CI did not check out submodules.
-test: Compare failed GitHub Actions logs against local submodule/workspace state, then rerun CI-equivalent commands locally after workflow/script repair.
+hypothesis: CONFIRMED. All initial failures shared a checkout/repository-shape fault: local `@napplet/*` sources are submodules, but CI did not check out submodules. The first rerun also proved the referenced `napplet` submodule commit had not been published to the public submodule remote.
+test: Compare failed GitHub Actions logs against local submodule/workspace state, publish the required submodule commit, then rerun CI-equivalent commands locally and on GitHub.
 expecting: Build, unit, audit, type-check, and Playwright commands complete with local submodule package sources in scope.
-next_action: Push the repair commit and let PR #11 checks rerun.
+next_action: Push the follow-up repair commit and let PR #11 checks rerun again.
 
 ## Evidence
 
@@ -47,6 +47,12 @@ next_action: Push the repair commit and let PR #11 checks rerun.
 - timestamp: 2026-05-23T09:59:29Z
   finding: Final local verification passed: `pnpm test`, `pnpm type-check`, `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and `pnpm test:e2e`.
   confirms: The branch is locally clean across the failing CI surfaces and the NIP-5D static/E2E guard set.
+- timestamp: 2026-05-23T10:01:30Z
+  finding: First GitHub rerun after recursive checkout failed in `actions/checkout`: `fatal: remote error: upload-pack: not our ref 306d616e422e6fe7489c5e1e99321cc52dd97040`.
+  confirms: The superproject referenced a `napplet` submodule commit that was present locally but not fetchable from GitHub.
+- timestamp: 2026-05-23T10:02:30Z
+  finding: `git -C napplet push origin HEAD:main` fast-forwarded `napplet/napplet` from `344be72` to `306d616`; `git ls-remote https://github.com/napplet/napplet.git refs/heads/main` now returns `306d616e422e6fe7489c5e1e99321cc52dd97040`.
+  confirms: The submodule commit required by the superproject is now public/fetchable.
 
 ## Eliminated
 
@@ -57,6 +63,6 @@ next_action: Push the repair commit and let PR #11 checks rerun.
 ## Resolution
 
 root_cause: PR #11 moved active package resolution to repo-local `@napplet/*` submodule sources, but GitHub Actions checkout steps fetched only the superproject. Unit testing also delegated through a package-local Vitest process whose `process.cwd()` broke repo-root static guards and missed the `packages/nip66` test file.
-fix: Enable `actions/checkout` recursive submodule checkout in build, unit, e2e, and release workflows. Change root `pnpm test` to run the repo-root build plus repo-root Vitest suite. Narrow `@kehto/nip66`'s package-local test script to its concrete root-relative test file.
-verification: `pnpm --filter @kehto/demo-config-demo build`; `pnpm --filter @kehto/fixture-nub-identity build`; `pnpm --filter @kehto/nip66 test`; `pnpm build`; `pnpm test`; `pnpm type-check`; `pnpm audit:csp`; `pnpm audit:gateway-artifacts`; `pnpm test:e2e`.
-files_changed: `.github/workflows/build.yml`; `.github/workflows/unit.yml`; `.github/workflows/e2e.yml`; `.github/workflows/release.yml`; `package.json`; `packages/nip66/package.json`; `.planning/debug/pr-11-ci-failures.md`.
+fix: Enable `actions/checkout` recursive submodule checkout in build, unit, e2e, and release workflows. Publish the referenced `napplet` submodule commit. Switch `.gitmodules` to HTTPS public submodule URLs. Change root `pnpm test` to run the repo-root build plus repo-root Vitest suite. Narrow `@kehto/nip66`'s package-local test script to its concrete root-relative test file.
+verification: `pnpm --filter @kehto/demo-config-demo build`; `pnpm --filter @kehto/fixture-nub-identity build`; `pnpm --filter @kehto/nip66 test`; `pnpm build`; `pnpm test`; `pnpm type-check`; `pnpm audit:csp`; `pnpm audit:gateway-artifacts`; `pnpm test:e2e`; `git ls-remote https://github.com/napplet/napplet.git refs/heads/main`.
+files_changed: `.gitmodules`; `.github/workflows/build.yml`; `.github/workflows/unit.yml`; `.github/workflows/e2e.yml`; `.github/workflows/release.yml`; `package.json`; `packages/nip66/package.json`; `.planning/debug/pr-11-ci-failures.md`.
