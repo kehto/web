@@ -37,11 +37,21 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Status:** Awaiting next milestone after v1.13 shipped on 2026-05-23.
+**Status:** Planning v1.14 GitHub Pages Web Portal after v1.13 shipped on 2026-05-23.
 
 v1.13 established a coherent documentation system for Kehto: content strategy, package reference docs, implementation tutorials, task how-tos, a docs-owned VitePress site, generated API integration, and strict docs quality gates.
 
-The baseline after v1.13 is pinned-spec NIP-5D conformance plus a buildable docs site. Verification stands at `pnpm docs:check`, `pnpm build`, `pnpm type-check`, `pnpm test:unit` (562 tests), `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and `git diff --check`.
+The baseline after v1.13 is pinned-spec NIP-5D conformance plus a buildable docs site and an existing playground-only GitHub Pages workflow. Verification stands at `pnpm docs:check`, `pnpm build`, `pnpm type-check`, `pnpm test:unit` (562 tests), `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and `git diff --check`.
+
+## Current Milestone: v1.14 GitHub Pages Web Portal
+
+**Goal:** Turn the GitHub Pages deployment into a public `/web/` portal that links to the playground and docs, with the playground deployed at `/web/playground/` and VitePress docs deployed at `/web/docs/`.
+
+**Target features:**
+- A static Kehto slash page at `kehto.github.io/web/` with clear links to playground and docs.
+- Playground build and static gateway artifact deployment moved under `kehto.github.io/web/playground/`.
+- Docs build deployed under `kehto.github.io/web/docs/`.
+- GitHub Pages workflow packs one unified artifact and verifies the expected portal, playground, and docs routes.
 
 ## Latest Milestone: v1.13 Documentation Strategy & Monorepo Docs Site
 
@@ -155,4 +165,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-23 — v1.13 phases complete (Documentation Strategy & Monorepo Docs Site)*
+*Last updated: 2026-05-23 — v1.14 milestone started (GitHub Pages Web Portal)*

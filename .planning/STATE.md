@@ -1,33 +1,33 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.13
-milestone_name: Documentation Strategy & Monorepo Docs Site
-status: Awaiting next milestone
-last_updated: "2026-05-23T13:28:44.643Z"
-last_activity: 2026-05-23 — Milestone v1.13 completed and archived
+milestone: v1.14
+milestone_name: GitHub Pages Web Portal
+status: planning
+last_updated: "2026-05-23T15:29:51.858Z"
+last_activity: 2026-05-23
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 5
-  completed_plans: 5
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-23, v1.13 completed)
+See: .planning/PROJECT.md (updated 2026-05-23, v1.14 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Planning next milestone
+**Current focus:** v1.14 GitHub Pages Web Portal
 
 ## Current Position
 
-Phase: Milestone v1.13 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-05-23 — Milestone v1.13 completed and archived
+Status: Defining requirements
+Last activity: 2026-05-23 — Milestone v1.14 started
 
 ## Accumulated Context
 
@@ -44,6 +44,7 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 ### Blockers/Concerns
 
 - No active blockers. v1.13 requirements are complete, audited, and archived.
+- v1.14 started 2026-05-23: public GitHub Pages deployment target is `kehto.github.io/web/`, with a portal slash page at `/web/`, playground at `/web/playground/`, and docs at `/web/docs/`. Current workflow only packs `.pages/playground`, so v1.14 must replace playground-only upload with a unified Pages artifact.
 - v1.10 shipped: removed the stale `auth:identity-changed` compatibility branch, migrated `decrypt-demo` to `identityDecrypt`, and retired the remaining old demo package graph.
 - Published package check: `@napplet/sdk@0.3.0`, `@napplet/shim@0.3.0`, and `@napplet/vite-plugin@0.3.0` are all available on npm as of 2026-05-22.
 - Scope boundary: keep v1.10 as a v1 cleanup/continuity milestone; do not promote the compatibility removal to a v2 boundary.
