@@ -63,7 +63,8 @@ describe('playground gateway artifact guard', () => {
   it('keeps the active loader on the gateway route with opaque-origin iframes', () => {
     const shellHost = readRepoFile('apps/playground/src/shell-host.ts');
 
-    expect(shellHost).toContain('/napplet-gateway/${encodeURIComponent(name)}/manifest.json');
+    expect(shellHost).toContain('function playgroundPath(');
+    expect(shellHost).toContain('playgroundPath(`/napplet-gateway/${encodeURIComponent(name)}/manifest.json`)');
     expect(shellHost).toContain('iframe.src = metadata.htmlUrl');
     expect(shellHost).toContain("iframe.sandbox.add('allow-scripts')");
     expect(shellHost).not.toContain('allow-same-origin');
@@ -77,6 +78,9 @@ describe('playground gateway artifact guard', () => {
     expect(viteConfig).toContain('requires: string[]');
     expect(viteConfig).toContain("tag[0] === 'requires'");
     expect(viteConfig).toContain('requires,');
+    expect(viteConfig).toContain('PLAYGROUND_BASE_PATH');
+    expect(viteConfig).toContain('base: playgroundBasePath');
+    expect(viteConfig).toContain('withPlaygroundBasePath(');
 
     expect(shellHost).toContain('requires: string[]');
     expect(shellHost).toContain('getMissingRequiredNubs(metadata.requires)');
@@ -84,5 +88,35 @@ describe('playground gateway artifact guard', () => {
     expect(shellHost.indexOf('getMissingRequiredNubs(metadata.requires)')).toBeLessThan(
       shellHost.indexOf('iframe.src = metadata.htmlUrl'),
     );
+  });
+
+  it('keeps the GitHub Pages publisher aligned with the static gateway artifact contract', () => {
+    const workflow = readRepoFile('.github/workflows/playground-pages.yml');
+    const script = readRepoFile('scripts/build-playground-pages.mjs');
+    const packageJson = JSON.parse(readRepoFile('package.json')) as {
+      scripts?: Record<string, string>;
+    };
+    const gitignore = readRepoFile('.gitignore');
+    const resourceDemo = readRepoFile('apps/playground/napplets/resource-demo/src/main.ts');
+
+    expect(packageJson.scripts?.['build:playground-pages']).toBe('node scripts/build-playground-pages.mjs');
+    expect(gitignore).toContain('.pages/');
+
+    expect(workflow).toContain('actions/configure-pages@v5');
+    expect(workflow).toContain('actions/upload-pages-artifact@v4');
+    expect(workflow).toContain('actions/deploy-pages@v4');
+    expect(workflow).toContain('PLAYGROUND_BASE_PATH: /${{ github.event.repository.name }}/');
+    expect(workflow).toContain('pnpm --filter @kehto/playground build');
+    expect(workflow).toContain('path: .pages/playground');
+
+    expect(script).toContain('/napplet-gateway/<dTag>/manifest.json');
+    expect(script).toContain('/napplet-gateway/<dTag>/<aggregateHash>/index.html');
+    expect(script).toContain('PLAYGROUND_BASE_PATH');
+    expect(script).toContain('htmlUrl: withPagesBasePath(');
+    expect(script).toContain('cpSync(sourceHtmlPath, htmlRoute)');
+
+    expect(resourceDemo).toContain('function getPlaygroundBaseUrl()');
+    expect(resourceDemo).toContain("new URL('demo-data.json', getPlaygroundBaseUrl()).href");
+    expect(resourceDemo).not.toContain("const GRANTED_URL = 'http://localhost:4174/demo-data.json'");
   });
 });

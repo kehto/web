@@ -648,7 +648,8 @@ if (shellPubkey) shellPubkey.textContent = `pubkey: ${getDemoHostPubkey().substr
 // Hoisted before napplet loading (Phase 40 Plan 40-02) so resource-demo can
 // grant its manifest-derived aggregateHash before loadNapplet navigates the
 // iframe. Phase 40 D3 requires the grant to land before the iframe's first HTTP
-// request so the Vite serveNappletCsp plugin emits connect-src localhost:4174.
+// request so the Vite serveNappletCsp plugin emits connect-src for the active
+// playground origin.
 //
 // Plan 39-05's E2E specs (connect-consent.spec.ts, connect-revocation.spec.ts,
 // nub-config.spec.ts) need to grant/revoke connect origins and publish config
@@ -724,27 +725,29 @@ window.addEventListener('shell:connect-revoked', (event) => {
 });
 
 // ─── Phase 40 Plan 40-02 (RESOURCE-04 / D3): resource-demo auto-grant ────────
-// Grants http://localhost:4174 to resource-demo at demo boot so the Vite
-// serveNappletCsp plugin (Phase 39 Plan 39-03) emits connect-src localhost:4174
+// Grants the active playground origin to resource-demo at demo boot so the Vite
+// serveNappletCsp plugin (Phase 39 Plan 39-03) emits the matching connect-src
 // on the iframe HTML response. No user click-through — deterministic for E2E.
 // Phase 40 Plan 40-03 fix: uses 4174 (demo server) not 5174 (napplet dev server)
-// because demo-data.json is served from apps/playground/public/ at the demo origin.
-// In preview mode (E2E), no server runs at 5174; the fixture is at /demo-data.json
-// on the same 4174 origin that serves the built demo.
+// because demo-data.json is served from apps/playground/public/ at the active
+// demo origin. In preview mode (E2E), the fixture is at /demo-data.json on the
+// same 4174 origin that serves the built demo; on GitHub Pages it is under the
+// repository Pages base path.
 //
 // Phase 39 Dev 2 safety: does NOT touch the shell:connect-revoked path at all;
 // the revocation handler's snapshot-before-mutate pattern is preserved unchanged.
 async function pregrantBeforeGatewayNavigation(metadata: GatewayNappletMetadata): Promise<void> {
   if (metadata.dTag !== 'resource-demo') return;
+  const grantedOrigin = window.location.origin;
   const ok = await grantConnectOrigin(
     metadata.dTag,
     metadata.aggregateHash,
-    'http://localhost:4174',
+    grantedOrigin,
   );
   if (!ok) {
     console.warn('[demo] resource-demo auto-grant failed; E2E may fail on granted-fetch assertion');
   } else {
-    console.info('[demo] resource-demo: pre-granted http://localhost:4174 (RESOURCE-04 / D3)');
+    console.info(`[demo] resource-demo: pre-granted ${grantedOrigin} (RESOURCE-04 / D3)`);
   }
 }
 

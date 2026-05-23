@@ -36,8 +36,11 @@ function read(path) {
 
 function assertSourceInvariants() {
   const shellHost = read(join(repoRoot, 'apps', 'playground', 'src', 'shell-host.ts'));
-  if (!shellHost.includes('/napplet-gateway/${encodeURIComponent(name)}/manifest.json')) {
-    fail('shell-host.ts does not fetch gateway manifest metadata');
+  if (
+    !shellHost.includes('function playgroundPath(') ||
+    !shellHost.includes('playgroundPath(`/napplet-gateway/${encodeURIComponent(name)}/manifest.json`)')
+  ) {
+    fail('shell-host.ts does not fetch gateway manifest metadata through the base-aware path helper');
   }
   if (!shellHost.includes('iframe.src = metadata.htmlUrl')) {
     fail('shell-host.ts does not navigate iframes with gateway metadata htmlUrl');

@@ -48,6 +48,21 @@ interface NappletManifest {
   tags?: unknown;
 }
 
+function normalizePlaygroundBasePath(value: string | undefined): string {
+  const raw = value?.trim() || '/';
+  if (raw === './') return raw;
+  const withLeadingSlash = raw.startsWith('/') ? raw : `/${raw}`;
+  return withLeadingSlash.endsWith('/') ? withLeadingSlash : `${withLeadingSlash}/`;
+}
+
+const playgroundBasePath = normalizePlaygroundBasePath(process.env.PLAYGROUND_BASE_PATH);
+
+function withPlaygroundBasePath(pathname: string): string {
+  const cleanPath = pathname.replace(/^\/+/, '');
+  if (playgroundBasePath === './') return cleanPath;
+  return `${playgroundBasePath}${cleanPath}`;
+}
+
 function sendText(res: ServerResponse, statusCode: number, body: string): void {
   res.statusCode = statusCode;
   res.setHeader('Content-Type', 'text/plain');
@@ -106,7 +121,9 @@ function readGatewayMetadata(dTag: string): GatewayMetadata {
     dTag,
     aggregateHash,
     requires,
-    htmlUrl: `/napplet-gateway/${encodeURIComponent(dTag)}/${aggregateHash}/index.html`,
+    htmlUrl: withPlaygroundBasePath(
+      `/napplet-gateway/${encodeURIComponent(dTag)}/${aggregateHash}/index.html`,
+    ),
   };
 }
 
@@ -400,6 +417,7 @@ function serveNappletCsp(): Plugin {
 
 export default defineConfig({
   root: __dirname,
+  base: playgroundBasePath,
   optimizeDeps: {
     esbuildOptions: {
       define: {

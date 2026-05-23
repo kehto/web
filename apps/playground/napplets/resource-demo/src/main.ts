@@ -2,9 +2,9 @@
  * resource-demo napplet -- exercises NUB-RESOURCE (RESOURCE-04, v1.7 Phase 40 / D1..D6).
  *
  * On init:
- *   1. Dispatches resource.bytes to http://localhost:4174/demo-data.json (granted at
- *      demo boot via __grantConnectOrigin__ — D3). Shell proxies the fetch and returns
- *      resource.bytes.result with base64-encoded body.
+ *   1. Dispatches resource.bytes to demo-data.json on the active playground origin
+ *      (granted at demo boot via __grantConnectOrigin__ — D3). Shell proxies the
+ *      fetch and returns resource.bytes.result with base64-encoded body.
  *   2. Dispatches resource.bytes to https://untrusted.example/ (D4: RFC-2606 reserved
  *      domain). Shell rejects without fetching and returns resource.bytes.error
  *      with code='denied'.
@@ -138,7 +138,24 @@ function dispatchResourceBytes(requestId: string, url: string): void {
 
 // ─── URL constants (D1, D4) ───────────────────────────────────────────────────
 
-const GRANTED_URL = 'http://localhost:4174/demo-data.json';
+function getPlaygroundBaseUrl(): URL {
+  if (document.referrer.length > 0) {
+    return new URL('./', document.referrer);
+  }
+
+  const current = new URL(window.location.href);
+  const gatewayIndex = current.pathname.indexOf('/napplet-gateway/');
+  if (gatewayIndex >= 0) {
+    current.pathname = current.pathname.slice(0, gatewayIndex + 1);
+    current.search = '';
+    current.hash = '';
+    return current;
+  }
+
+  return new URL('/', current);
+}
+
+const GRANTED_URL = new URL('demo-data.json', getPlaygroundBaseUrl()).href;
 const DENIED_URL = 'https://untrusted.example/';  // D4: RFC-2606 reserved — never resolves
 
 // ─── Init ─────────────────────────────────────────────────────────────────────

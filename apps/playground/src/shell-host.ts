@@ -369,11 +369,11 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
   },
   // Phase 40 (Plan 40-02 / RESOURCE-04): resource-demo napplet exercises the
   // NUB-RESOURCE reference service (10th NUB domain). Two resource.bytes
-  // dispatches on init: one to http://localhost:5174/demo-data.json
+  // dispatches on init: one to demo-data.json on the active playground origin
   // (granted at boot via __grantConnectOrigin__ — D3) and one to
   // https://untrusted.example (denied, D4). Plan 40-03's nub-resource.spec.ts
-  // asserts the granted panel (decoded JSON) + denied panel (canonical
-  // error code) via frameLocator on the iframe sentinels.
+  // asserts the granted panel (decoded JSON) + denied panel (canonical error
+  // code) via frameLocator on the iframe sentinels.
   {
     name: 'resource-demo',
     label: 'resource-demo',
@@ -1499,10 +1499,21 @@ export async function loadNapplet(
   return info;
 }
 
+function playgroundPath(pathname: string): string {
+  const cleanPath = pathname.replace(/^\/+/, '');
+  const basePath =
+    ((import.meta as unknown as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? '/').trim() ||
+    '/';
+  if (basePath === './') return cleanPath;
+  const normalizedBase = basePath.endsWith('/') ? basePath : `${basePath}/`;
+  return `${normalizedBase}${cleanPath}`;
+}
+
 async function fetchGatewayMetadata(name: string): Promise<GatewayNappletMetadata> {
-  const response = await fetch(`/napplet-gateway/${encodeURIComponent(name)}/manifest.json`, {
-    cache: 'no-store',
-  });
+  const response = await fetch(
+    playgroundPath(`/napplet-gateway/${encodeURIComponent(name)}/manifest.json`),
+    { cache: 'no-store' },
+  );
   if (!response.ok) {
     throw new Error(`[demo] gateway metadata load failed for ${name}: ${response.status}`);
   }
