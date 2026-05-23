@@ -1,110 +1,121 @@
-# kehto
+# Kehto Runtime
 
-> Runtime half of the napplet protocol — sandboxed-iframe app hosting for Nostr clients.
+Kehto is the host-side runtime for sandboxed Nostr napplet applications.
 
-kehto provides the shell-side packages a host application integrates to embed sandboxed mini-apps
-(napplets) that communicate over the [NIP-5D](./specs/NIP-5D.md) protocol. It delivers the
-protocol engine, ACL enforcement, reference service handlers, and a browser adapter —
-extracted from [@napplet](https://github.com/sandwichfarm/napplet) at v0.13.0. The portable
-SDK (core/shim/sdk/vite-plugin) lives in the @napplet repo; kehto is the runtime.
+It provides the packages a client uses to load napplets in iframes, enforce
+capabilities, route NIP-5D messages, register host services, and serve
+production-equivalent gateway artifacts. The portable napplet-side packages
+(`@napplet/core`, `@napplet/shim`, `@napplet/nub`, and
+`@napplet/vite-plugin`) live in the
+[@napplet](https://github.com/sandwichfarm/napplet) repo; Kehto implements the
+runtime and shell side.
 
-## Current milestone: v1.3 — Demo Functional & Playwright Parity
+## Start Here
 
-The [`apps/playground`](./apps/playground) application is the reference integration. It:
+- Public web portal: <https://kehto.github.io/web/>
+- Playground demo: <https://kehto.github.io/web/playground/>
+- VitePress docs: <https://kehto.github.io/web/docs/>
+- Local docs entry: [docs/index.md](./docs/index.md)
+- Package reference index: [docs/packages/index.md](./docs/packages/index.md)
+- Generated API reference index: [docs/reference/api.md](./docs/reference/api.md)
 
-- Boots a full NIP-5D shell at `http://localhost:4174` with all 8 service topology nodes live.
-- Hosts 8 domain napplets under `apps/playground/napplets/`: `bot`, `chat`, `composer`, `preferences`,
-  `toaster`, `feed`, `profile-viewer`, `theme-switcher` — each exercising a single NUB domain end-to-end.
-- Is covered by a two-tier Playwright suite: Layer A (harness at `:4173`, per-nub fixture specs) +
-  Layer B (demo at `:4174`, UX integration specs). Full suite green under 5 minutes.
+If you are building a host app, start with the
+[minimal host shell tutorial](./docs/tutorials/minimal-host-shell.md), then use
+the package table below to jump into the implementation surface you need.
 
 ## Packages
 
-| Package | Description |
-|---------|-------------|
-| [`@kehto/acl`](./packages/acl/README.md) | Pure ACL module (zero deps, WASM-ready). Capability grants, blocks, domain resolution. |
-| [`@kehto/runtime`](./packages/runtime/README.md) | Protocol engine — message dispatch via `createDispatch()` + `registerNub()` across all 8 NIP-5D nub domains, AUTH, subscription lifecycle. |
-| [`@kehto/shell`](./packages/shell/README.md) | Browser adapter — ShellBridge factory, per-domain proxies, keys-forwarder. |
-| [`@kehto/services`](./packages/services/README.md) | Reference service handlers: identity, relay-pool, cache, notify, theme, audio (legacy), keys (stub), media (stub). |
-| [`@kehto/nip66`](./packages/nip66/README.md) | Framework-agnostic NIP-66 kind-30166 relay-discovery aggregator (publish-ready at v0.1.0; zero napplet-protocol peer deps). |
-| [`@kehto/wm`](./packages/wm/README.md) | Generic window manager service contract for NIP-5D shells (draft skeleton at v0.0.0 — see package README). |
+| Package | Use it for | Package root | Markdown docs | VitePress docs |
+|---------|------------|--------------|---------------|----------------|
+| `@kehto/acl` | Pure capability state, grants, blocks, quotas, and policy checks. | [packages/acl](./packages/acl/) | [docs/packages/acl.md](./docs/packages/acl.md) | [ACL docs](https://kehto.github.io/web/docs/packages/acl) |
+| `@kehto/runtime` | Browser-agnostic NIP-5D dispatch, ACL gates, service registry, sessions, manifests, replay checks, and event buffering. | [packages/runtime](./packages/runtime/) | [docs/packages/runtime.md](./docs/packages/runtime.md) | [Runtime docs](https://kehto.github.io/web/docs/packages/runtime) |
+| `@kehto/shell` | Browser iframe/session adapter over the runtime, gateway loading, postMessage transport, hosted `supports()`, and shell policy. | [packages/shell](./packages/shell/) | [docs/packages/shell.md](./docs/packages/shell.md) | [Shell docs](https://kehto.github.io/web/docs/packages/shell) |
+| `@kehto/services` | Reference handlers for identity, relay, keys, media, notify, config, resource, cache, theme, and audio surfaces. | [packages/services](./packages/services/) | [docs/packages/services.md](./docs/packages/services.md) | [Services docs](https://kehto.github.io/web/docs/packages/services) |
+| `@kehto/nip66` | Framework-agnostic NIP-66 kind-30166 relay discovery aggregation. | [packages/nip66](./packages/nip66/) | [docs/packages/nip66.md](./docs/packages/nip66.md) | [NIP-66 docs](https://kehto.github.io/web/docs/packages/nip66) |
+| `@kehto/wm` | Structural window-management contracts for shell-owned layout strategies. | [packages/wm](./packages/wm/) | [docs/packages/wm.md](./docs/packages/wm.md) | [WM docs](https://kehto.github.io/web/docs/packages/wm) |
+| `@kehto/playground` | 13-napplet browser demo and integration verification target. | [apps/playground](./apps/playground/) | [docs/packages/playground.md](./docs/packages/playground.md) | [Playground docs](https://kehto.github.io/web/docs/packages/playground) |
 
-## Quick Integration
+Package roots link to package-local READMEs and source. Markdown docs are the
+same pages used by the VitePress site.
 
-Host app integration is a single `createShellBridge` call plus service registration:
+## Documentation Map
 
-```ts
-import { createShellBridge } from '@kehto/shell';
-import { createRuntime } from '@kehto/runtime';
-import {
-  createIdentityService,
-  createNotificationService,
-  createRelayPoolService,
-} from '@kehto/services';
+| Need | Local markdown | Published docs |
+|------|----------------|----------------|
+| Understand the architecture | [docs/concepts/architecture.md](./docs/concepts/architecture.md) | [Architecture](https://kehto.github.io/web/docs/concepts/architecture) |
+| Understand runtime vs shell boundaries | [docs/concepts/runtime-shell-boundaries.md](./docs/concepts/runtime-shell-boundaries.md) | [Runtime and shell boundaries](https://kehto.github.io/web/docs/concepts/runtime-shell-boundaries) |
+| Build a minimal host shell | [docs/tutorials/minimal-host-shell.md](./docs/tutorials/minimal-host-shell.md) | [Minimal host shell](https://kehto.github.io/web/docs/tutorials/minimal-host-shell) |
+| Integrate a napplet with Kehto | [docs/tutorials/napplet-integration.md](./docs/tutorials/napplet-integration.md) | [Napplet integration](https://kehto.github.io/web/docs/tutorials/napplet-integration) |
+| Register runtime services | [docs/how-tos/register-service.md](./docs/how-tos/register-service.md) | [Register a service](https://kehto.github.io/web/docs/how-tos/register-service) |
+| Grant capabilities | [docs/how-tos/grant-capability.md](./docs/how-tos/grant-capability.md) | [Grant a capability](https://kehto.github.io/web/docs/how-tos/grant-capability) |
+| Verify gateway artifacts | [docs/how-tos/verify-gateway-artifact.md](./docs/how-tos/verify-gateway-artifact.md) | [Verify gateway artifacts](https://kehto.github.io/web/docs/how-tos/verify-gateway-artifact) |
+| Read shell policy documents | [docs/policies/index.md](./docs/policies/index.md) | [Policies](https://kehto.github.io/web/docs/policies/) |
+| Browse generated API docs | [docs/reference/api.md](./docs/reference/api.md) | [API reference](https://kehto.github.io/web/docs/reference/api) |
 
-const runtime = createRuntime({ /* adapters */ });
+## Playground Demo
 
-runtime.registerService('identity', createIdentityService({ getPublicKey: () => pk }));
-runtime.registerService('notifications', createNotificationService({ onChange: updateBadge }));
-runtime.registerService('relay', createRelayPoolService({ /* ... */ }));
+The playground is the reference host application. It loads 13 sandboxed napplets
+through the same gateway artifact shape used by the static Pages build.
 
-const shell = createShellBridge({
-  runtime,
-  target: window,
-  /* hooks + adapter */
-});
+- Public demo: <https://kehto.github.io/web/playground/>
+- Local app root: [apps/playground](./apps/playground/)
+- Playground README: [apps/playground/README.md](./apps/playground/README.md)
+- Playground docs: [docs/packages/playground.md](./docs/packages/playground.md)
+
+Run it locally from the repository root:
+
+```bash
+pnpm install
+pnpm --filter "./apps/playground/napplets/*" build
+pnpm --filter @kehto/playground dev
 ```
 
-See [`apps/playground/src/shell-host.ts`](./apps/playground/src/shell-host.ts) for the full canonical example
-(including the `createDemoHooks()` adapter factory and per-domain service registration).
+Use the preview command when reproducing the production build used by the
+Playwright suite:
 
-## Policies
+```bash
+pnpm --filter @kehto/playground preview
+```
 
-Canonical NUB policy docs mirrored from [napplet/napplet](https://github.com/napplet/napplet/tree/main/specs):
+## Repository Layout
 
-- [`docs/policies/SHELL-CLASS-POLICY.md`](./docs/policies/SHELL-CLASS-POLICY.md) — class posture enforcement (v1.7 Phase 38, CLASS-05)
-- [`docs/policies/SHELL-CONNECT-POLICY.md`](./docs/policies/SHELL-CONNECT-POLICY.md) — per-napplet CSP + consent flow (v1.7 Phase 39, CONNECT-07)
-- [`docs/policies/SHELL-RESOURCE-POLICY.md`](./docs/policies/SHELL-RESOURCE-POLICY.md) — shell-proxied authenticated fetch (v1.7 Phase 40, RESOURCE-05)
+| Path | Contents |
+|------|----------|
+| [packages/acl](./packages/acl/) | Capability and ACL primitives. |
+| [packages/runtime](./packages/runtime/) | Protocol runtime and service routing. |
+| [packages/shell](./packages/shell/) | Browser shell adapter and gateway/session integration. |
+| [packages/services](./packages/services/) | Reference service implementations. |
+| [packages/nip66](./packages/nip66/) | Relay discovery aggregator. |
+| [packages/wm](./packages/wm/) | Window-management type contracts. |
+| [apps/playground](./apps/playground/) | Demo host and demo napplets. |
+| [docs](./docs/) | VitePress documentation source. |
+| [specs](./specs/) | Pinned protocol specifications consumed by this repo. |
+| [scripts](./scripts/) | Build and audit helpers. |
 
-## Specification
+## Local Commands
 
-The authoritative protocol kehto implements is **NIP-5D**.
+```bash
+pnpm install
+pnpm build
+pnpm type-check
+pnpm test:unit
+pnpm test:e2e
+```
 
-- Local pinned copy: [`specs/NIP-5D.md`](./specs/NIP-5D.md)
-- Canonical source: [`dskvr/nips` branch `nip/5d`](https://github.com/dskvr/nips/blob/nip/5d/5D.md) — authoritative; always.
-- Sync policy: re-synced at each kehto milestone boundary. Last synced at **v1.7** (2026-04-24).
+Docs and Pages artifact commands:
 
-Do not edit `specs/NIP-5D.md` in-place — edit the canonical source and re-sync.
+```bash
+pnpm docs:site:dev
+pnpm docs:check
+pnpm build:pages
+pnpm audit:pages
+```
 
-## API Reference
-
-Full typedoc-generated API reference:
+Generated API docs are produced by:
 
 ```bash
 pnpm docs:api
 ```
-
-Output written to [`docs/api/`](./docs/api) (gitignored; generated on demand). Covers all 4 @kehto/* packages.
-
-## Build & Test
-
-```bash
-pnpm install
-pnpm build          # Build all via turborepo
-pnpm type-check     # TypeScript validation
-pnpm test:e2e       # Full Layer A + Layer B Playwright suite (~3-5 min)
-```
-
-## Architecture Notes
-
-- **ESM-only.** No CJS output. All packages are `"type": "module"`.
-- **Zero framework deps.** No Svelte, React, Vue — kehto is framework-agnostic.
-- **NIP-5D anti-features:** window.nostr is not injected into napplet iframes; signing is shell-mediated via `relay.publish` / `relay.publishEncrypted`; sandbox uses `allow-scripts` without `allow-same-origin`.
-- **Registry install.** `@napplet/*` ships to npm; consume `@kehto/*` directly from the registry. Active demo and fixture packages resolve the `@napplet/{core,nub,shim,vite-plugin}` helper graph at `0.3.0`; no workspace override is required for the v1.10 graph.
-
-## History
-
-Archived migration docs and milestone audits live under [`docs/migrations/`](./docs/migrations/). Those are point-in-time snapshots (RUNTIME-SPEC v2.0.0 → NIP-5D, v1.1 → v1.2 conformance audit) and are retained for historical reference only.
 
 ## License
 
