@@ -125,6 +125,7 @@ export class NappletDebugger extends HTMLElement {
   private messageBuffer: TappedMessage[] = [];
   private allMessages: TappedMessage[] = [];
   private unsubscribe?: () => void;
+  private sequenceResizeObserver?: ResizeObserver;
   private activeTab: 'log' | 'sequence' = 'log';
 
   constructor() {
@@ -138,6 +139,8 @@ export class NappletDebugger extends HTMLElement {
 
   disconnectedCallback() {
     if (this.unsubscribe) this.unsubscribe();
+    this.sequenceResizeObserver?.disconnect();
+    this.sequenceResizeObserver = undefined;
   }
 
   /**
@@ -323,6 +326,7 @@ export class NappletDebugger extends HTMLElement {
     `;
 
     this.logContainer = this.shadow.getElementById('log-container')!;
+    this.observeSequenceContainer();
 
     // Tab switching
     this.shadow.querySelectorAll('.tab').forEach(tab => {
@@ -431,8 +435,19 @@ export class NappletDebugger extends HTMLElement {
     if (this.activeTab !== 'sequence') return;
     const container = this.shadow.getElementById('sequence-container');
     if (!container) return;
-    container.innerHTML = renderSequenceDiagram(this.allMessages, getNapplets());
+    const width = Math.max(1000, Math.floor(container.clientWidth || container.getBoundingClientRect().width || 0));
+    container.innerHTML = renderSequenceDiagram(this.allMessages, getNapplets(), { width });
     container.scrollTop = container.scrollHeight;
+  }
+
+  private observeSequenceContainer(): void {
+    this.sequenceResizeObserver?.disconnect();
+    const container = this.shadow.getElementById('sequence-container');
+    if (!container || typeof ResizeObserver === 'undefined') return;
+    this.sequenceResizeObserver = new ResizeObserver(() => {
+      if (this.activeTab === 'sequence') this.updateSequenceDiagram();
+    });
+    this.sequenceResizeObserver.observe(container);
   }
 
   private formatDetail(msg: TappedMessage): string {

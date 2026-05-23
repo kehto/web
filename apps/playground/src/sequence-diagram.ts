@@ -6,10 +6,10 @@
  * The shell is always the centred lane; napplet lanes are split roughly
  * evenly left and right of shell, alphabetical within each half.
  *
- * Uses full container width. Lane X-coordinates are computed as
+ * Uses the caller-provided container width. Lane X-coordinates are computed as
  * (laneIndex + 1) / (laneCount + 1) * vbWidth for even spacing without
- * edge-crowding. SVG width stays at vbWidth=1000 (virtual viewBox — scales
- * to 100% container width).
+ * edge-crowding. A 1000px minimum preserves horizontal scrolling on narrow
+ * screens, while wide screens get a wider viewBox so labels spread out.
  */
 
 import type { TappedMessage, NappletInfo } from './shell-host.js';
@@ -30,6 +30,11 @@ const VERB_COLORS: Record<string, string> = {
 };
 
 const ARROW_HEAD_SIZE = 7;
+const MIN_VIEWBOX_WIDTH = 1000;
+
+export interface SequenceDiagramOptions {
+  width?: number;
+}
 
 /**
  * Derive the lane list for a set of tapped messages.
@@ -132,12 +137,13 @@ function createArrow(fromX: number, toX: number, y: number, color: string): stri
 export function renderSequenceDiagram(
   messages: TappedMessage[],
   nappletInfos: Map<string, NappletInfo>,
+  options: SequenceDiagramOptions = {},
 ): string {
   const protocolMessages = messages.filter((m) => m.verb !== 'SYSTEM');
   const HEADER_HEIGHT = demoConfig.get('demo.HEADER_HEIGHT');
   const ROW_HEIGHT = demoConfig.get('demo.ROW_HEIGHT');
   const height = HEADER_HEIGHT + (protocolMessages.length * ROW_HEIGHT) + 20;
-  const vbWidth = 1000;
+  const vbWidth = Math.max(MIN_VIEWBOX_WIDTH, Math.floor(options.width ?? MIN_VIEWBOX_WIDTH));
 
   const lanes = deriveLanes(protocolMessages, nappletInfos);
   // Defensive fallback: if no napplets observed yet, draw a single Shell lane.

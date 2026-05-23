@@ -163,6 +163,7 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
   });
 
   test('Sequence Diagram renders a lane for each identity-bound napplet (UI-03)', async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
     await demoBeforeEach(page);
 
     // Ensure boot traffic has flowed before opening the debugger.
@@ -250,6 +251,21 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
 
     expect(finalLanes.length, `lanes observed: ${finalLanes.join(', ')}`).toBeGreaterThanOrEqual(4);
     expect(finalLanes, `'Shell' not in lanes: ${finalLanes.join(', ')}`).toContain('Shell');
+
+    const diagramWidth = await page.evaluate(() => {
+      const dbg = document.getElementById('debugger') as (HTMLElement & { shadowRoot: ShadowRoot }) | null;
+      const container = dbg?.shadowRoot?.querySelector('#sequence-container') as HTMLElement | null;
+      const svg = container?.querySelector('svg') as SVGSVGElement | null;
+      return {
+        containerWidth: container?.clientWidth ?? 0,
+        viewBoxWidth: svg?.viewBox.baseVal.width ?? 0,
+      };
+    });
+
+    expect(
+      diagramWidth.viewBoxWidth,
+      `sequence viewBox ${diagramWidth.viewBoxWidth} should use container width ${diagramWidth.containerWidth}`,
+    ).toBeGreaterThanOrEqual(diagramWidth.containerWidth);
 
     // Silence unused-var warning for the poll-wrapped lane read.
     void lanes;
