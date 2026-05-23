@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.12
 milestone_name: NIP-5D Contract Conformance
 status: Awaiting next milestone
-last_updated: "2026-05-23T10:45:39.052Z"
-last_activity: 2026-05-23 — Quick task 260523-h64 completed for published @napplet package resolution
+last_updated: "2026-05-23T11:29:49.000Z"
+last_activity: 2026-05-23 — Quick task 260523-ikp completed for runtime demo topology grouping
 progress:
   total_phases: 4
   completed_phases: 4
@@ -66,6 +66,7 @@ Full decision log (v1.0 → v1.12) lives in `.planning/PROJECT.md` Key Decisions
 | 260522-kvd | Remove old inter-frame terminology | 2026-05-22 | b844b25 | [260522-kvd-replace-old-interframe-terminology](./quick/260522-kvd-replace-old-interframe-terminology/) |
 | 260522-lb0 | Determine vite-single-file playground napplet validity | 2026-05-22 | 8d763b5 | [260522-lb0-determine-validity-of-building-napplets-](./quick/260522-lb0-determine-validity-of-building-napplets-/) |
 | 260523-h64 | Use published @napplet packages and remove submodules | 2026-05-23 | 32cc987, 791a2f9 | [260523-h64-use-published-napplet-packages-and-remov](./quick/260523-h64-use-published-napplet-packages-and-remov/) |
+| 260523-ikp | Separate runtime demo surfaces from napplet cards | 2026-05-23 | 24af3d4 | [260523-ikp-runtime-helper-panes-should-not-be-label](./quick/260523-ikp-runtime-helper-panes-should-not-be-label/) |
 
 ## Session Continuity
 
