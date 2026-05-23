@@ -1,33 +1,33 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.12
-milestone_name: NIP-5D Contract Conformance
-status: Awaiting next milestone
-last_updated: "2026-05-23T12:10:05.000Z"
-last_activity: 2026-05-23 — Quick task 260523-jev completed for GitHub Pages playground publishing
+milestone: v1.13
+milestone_name: Documentation Strategy & Monorepo Docs Site
+status: planning
+last_updated: "2026-05-23T12:41:05.653Z"
+last_activity: 2026-05-23
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 4
-  completed_plans: 4
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-22, v1.12 completed)
+See: .planning/PROJECT.md (updated 2026-05-23, v1.13 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Awaiting next milestone
+**Current focus:** Documentation Strategy & Monorepo Docs Site
 
 ## Current Position
 
-Phase: Milestone v1.12 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-05-22 — Milestone v1.12 completed and archived
+Status: Defining requirements
+Last activity: 2026-05-23 — Milestone v1.13 started
 
 ## Accumulated Context
 

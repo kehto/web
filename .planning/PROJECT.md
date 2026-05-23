@@ -34,15 +34,22 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Active:** Awaiting next milestone. v1.12 — NIP-5D Contract Conformance shipped 2026-05-22.
+**Active:** v1.13 — Documentation Strategy & Monorepo Docs Site started 2026-05-23.
 
 v1.12 established the pinned NIP-5D contract as the repo-local authority, then brought the playground shell, shared napplet runtime/shim surface, and all 13 playground napplets into conformance. The milestone used `.planning/NIP-5D-DELTA-AUDIT.md` as the current-state inventory and repaired `RUNTIME-SPEC.md` plus `napplet/specs/NIP-5D.md` as drift sources.
 
 The baseline after v1.12 is pinned-spec NIP-5D conformance across shell, shim/runtime, gateway load checks, and all 13 playground napplets, with 560 unit tests, `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and 89/89 Playwright E2E tests passing.
 
-## Current Milestone: none
+## Current Milestone: v1.13 Documentation Strategy & Monorepo Docs Site
 
-Start the next milestone with `$gsd-new-milestone`.
+**Goal:** Turn Kehto's shipped runtime packages into a coherent public documentation system: content strategy, package docs, implementation tutorials, runtime/site guides, reference docs, and how-tos.
+
+**Target features:**
+- Content strategy and docs information architecture for the whole monorepo.
+- Package-by-package documentation for `@kehto/acl`, `@kehto/runtime`, `@kehto/shell`, `@kehto/services`, `@kehto/nip66`, `@kehto/wm`, and `@kehto/playground`.
+- VitePress documentation site covering reference docs, tutorials, guides, how-tos, and tips.
+- Implementer tutorials for building with Kehto packages and creating a runtime host.
+- Monorepo docs workflows that keep TypeDoc/API reference, package README content, and site navigation aligned.
 
 Deferred candidates remain host bridge reference implementations, multi-OS CI matrix expansion, a public gateway product, CI/release packaging, and package publication.
 
@@ -146,4 +153,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-22 — v1.12 milestone completed (NIP-5D Contract Conformance)*
+*Last updated: 2026-05-23 — v1.13 milestone started (Documentation Strategy & Monorepo Docs Site)*
