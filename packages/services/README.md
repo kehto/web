@@ -347,35 +347,36 @@ See the demo: [`apps/playground/napplets/media-controller/src/main.ts`](../../ap
 Each factory returns a `ServiceHandler` registrable via `runtime.registerService()`. The bullets below note the canonical NIP-5D domain the handler owns and the ACL capability napplets need in order to reach it.
 
 ### Identity NUB
-- [`createIdentityService`](../../docs/api/functions/_kehto_services.createIdentityService.html) — `identity.*` reads (`identity:read`). No signing surface; shell mediates signing internally.
+- `createIdentityService` — `identity.*` reads (`identity:read`). No signing surface; shell mediates signing internally.
 
 ### Notify NUB
-- [`createNotifyService`](../../docs/api/functions/_kehto_services.createNotifyService.html) — canonical `notify.*` envelopes (`notify:send` / `notify:channel`).
-- [`createNotificationService`](../../docs/api/functions/_kehto_services.createNotificationService.html) — legacy ifc-emit `notifications:*` channel; coexists with `createNotifyService` until retired.
+- `createNotifyService` — canonical `notify.*` envelopes (`notify:send` / `notify:channel`).
+- `createNotificationService` — legacy ifc-emit `notifications:*` channel; coexists with `createNotifyService` until retired.
 
 ### Relay NUB
-- [`createRelayPoolService`](../../docs/api/functions/_kehto_services.createRelayPoolService.html) — `relay.publish`, `relay.publishEncrypted`, `relay.subscribe` fan-out (`relay:read` / `relay:write`).
-- [`createCacheService`](../../docs/api/functions/_kehto_services.createCacheService.html) — offline event cache (`cache:read` / `cache:write`).
-- [`createCoordinatedRelay`](../../docs/api/functions/_kehto_services.createCoordinatedRelay.html) — composite service that bundles relay-pool + cache with read-through behavior.
+- `createRelayPoolService` — `relay.publish`, `relay.publishEncrypted`, `relay.subscribe` fan-out (`relay:read` / `relay:write`).
+- `createCacheService` — offline event cache (`cache:read` / `cache:write`).
+- `createCoordinatedRelay` — composite service that bundles relay-pool + cache with read-through behavior.
 
 ### Keys NUB
-- [`createKeysService`](../../docs/api/functions/_kehto_services.createKeysService.html) — `keys.registerAction` / `keys.unregisterAction` / `keys.forward` + `keys.action` push envelopes (`keys:forward`). Document-level chord listener by default; implement the `HostKeysBridge` interface to swap in Electron / Tauri / OS-level backends. See [Keys Service](#keys-service) for the full contract.
+- `createKeysService` — `keys.registerAction` / `keys.unregisterAction` / `keys.forward` + `keys.action` push envelopes (`keys:forward`). Document-level chord listener by default; implement the `HostKeysBridge` interface to swap in Electron / Tauri / OS-level backends. See [Keys Service](#keys-service) for the full contract.
 
 ### Media NUB
-- [`createMediaService`](../../docs/api/functions/_kehto_services.createMediaService.html) — `media.session.create` / `update` / `destroy` / `media.state` / `media.capabilities` + `media.command` push envelopes (`media:control`). Mirrors to `navigator.mediaSession` by default; implement the `HostMediaBridge` interface to swap in native backends. See [Media Service](#media-service) for the full contract.
+- `createMediaService` — `media.session.create` / `update` / `destroy` / `media.state` / `media.capabilities` + `media.command` push envelopes (`media:control`). Mirrors to `navigator.mediaSession` by default; implement the `HostMediaBridge` interface to swap in native backends. See [Media Service](#media-service) for the full contract.
 
 ### Theme NUB
-- [`createThemeService`](../../docs/api/functions/_kehto_services.createThemeService.html) — `theme.get` + `theme.changed` fan-out (`theme:read`). Returns a `ThemeService` with `publishTheme()` / `setTheme()` utilities for host-side updates.
+- `createThemeService` — `theme.get` + `theme.changed` fan-out (`theme:read`). Returns a `ThemeService` with `publishTheme()` / `setTheme()` utilities for host-side updates.
 
 ### Audio (legacy ifc-emit)
-- [`createAudioService`](../../docs/api/functions/_kehto_services.createAudioService.html) — `audio:*` ifc-emit topic handler. Browser-agnostic registry of per-window audio sources; host wires `onChange` to update transport UI.
+- `createAudioService` — `audio:*` ifc-emit topic handler. Browser-agnostic registry of per-window audio sources; host wires `onChange` to update transport UI.
 
 ### Types
 `AudioSource`, `AudioServiceOptions`, `Notification`, `NotificationServiceOptions`, `IdentityServiceOptions`, `RelayPoolServiceOptions`, `CacheServiceOptions`, `CoordinatedRelayOptions`, `KeysServiceOptions`, `MediaServiceOptions`, `NotifyServiceOptions`, `ThemeServiceOptions`, `ThemeService`.
 
 ## API Reference
 
-Full API reference: [docs/api/@kehto/services/](../../docs/api/modules/_kehto_services.html) (generated via `pnpm docs:api`).
+Full package docs: [`docs/packages/services.md`](../../docs/packages/services.md).
+Generated API module: `docs/api/modules/_kehto_services.html` (run `pnpm docs:api`).
 
 ## License
 

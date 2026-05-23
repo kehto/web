@@ -43,24 +43,24 @@ bridge.runtime.registerService(
 ## Public API
 
 ### Bridge factory
-- [`createShellBridge`](../../docs/api/functions/_kehto_shell.createShellBridge.html) — primary entry point; returns a `ShellBridge` (exposed `runtime`, `shell.ready`, lifecycle hooks)
+- `createShellBridge` — primary entry point; returns a `ShellBridge` (exposed `runtime`, `shell.ready`, lifecycle hooks)
 - `ShellBridge` — interface type for the returned bridge
 
 ### Hooks adapter
-- [`adaptHooks`](../../docs/api/functions/_kehto_shell.adaptHooks.html) — convert a `ShellAdapter` + `BrowserDeps` into the canonical `RuntimeAdapter` hook bag consumed by `@kehto/runtime`
+- `adaptHooks` — convert a `ShellAdapter` + `BrowserDeps` into the canonical `RuntimeAdapter` hook bag consumed by `@kehto/runtime`
 
 ### Shell init
-- [`buildShellCapabilities`](../../docs/api/functions/_kehto_shell.buildShellCapabilities.html) — construct the `ShellCapabilities` payload emitted during the `shell.ready` / `shell.init` handshake
+- `buildShellCapabilities` — construct the `ShellCapabilities` payload emitted during the `shell.ready` / `shell.init` handshake
 
 ### Domain proxies (NIP-5D composition seams)
-- [`createIdentityProxy`](../../docs/api/functions/_kehto_shell.createIdentityProxy.html) — intercept `identity.getProfile/getFollows/...` traffic
-- [`createThemeProxy`](../../docs/api/functions/_kehto_shell.createThemeProxy.html) — intercept `theme.get/theme.changed`
-- [`createKeysProxy`](../../docs/api/functions/_kehto_shell.createKeysProxy.html) — intercept `keys.bind/unbind/bindings`
-- [`createMediaProxy`](../../docs/api/functions/_kehto_shell.createMediaProxy.html) — intercept `media.*` playback control
-- [`createNotifyProxy`](../../docs/api/functions/_kehto_shell.createNotifyProxy.html) — intercept `notify.send/list/read/dismiss`
+- `createIdentityProxy` — intercept `identity.getProfile/getFollows/...` traffic
+- `createThemeProxy` — intercept `theme.get/theme.changed`
+- `createKeysProxy` — intercept `keys.bind/unbind/bindings`
+- `createMediaProxy` — intercept `media.*` playback control
+- `createNotifyProxy` — intercept `notify.send/list/read/dismiss`
 
 ### Keys forwarder
-- [`createKeysForwarder`](../../docs/api/functions/_kehto_shell.createKeysForwarder.html) — host-keydown pump into `keys.forward` envelopes; auto-attached by `createShellBridge`, also exported for hosts that manage their own forwarder instance
+- `createKeysForwarder` — host-keydown pump into `keys.forward` envelopes; auto-attached by `createShellBridge`, also exported for hosts that manage their own forwarder instance
 
 ### Session / origin registry
 - `sessionRegistry` — canonical windowId ↔ verified-napplet registry singleton
@@ -94,7 +94,8 @@ Re-exported from `@kehto/runtime`: the v1.1 bus-kind enum, auth event kind, shel
 
 ## API Reference
 
-Full API reference: [docs/api/@kehto/shell/](../../docs/api/modules/_kehto_shell.html) (generated via `pnpm docs:api`).
+Full package docs: [`docs/packages/shell.md`](../../docs/packages/shell.md).
+Generated API module: `docs/api/modules/_kehto_shell.html` (run `pnpm docs:api`).
 
 ## License
 
