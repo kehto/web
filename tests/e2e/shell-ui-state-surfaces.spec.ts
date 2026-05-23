@@ -162,6 +162,22 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
     await expect(emptyCells).toHaveCount(0);
   });
 
+  test('runtime demo surfaces are grouped separately without empty ACL slots', async ({ page }) => {
+    await demoBeforeEach(page);
+
+    const runtimeRegion = page.locator('#topology-runtime-demos');
+    await expect(runtimeRegion).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('#topology-napplets [data-topology-surface="napplet"]')).toHaveCount(8);
+    await expect(page.locator('#topology-napplets [data-topology-surface="runtime-demo"]')).toHaveCount(0);
+    await expect(runtimeRegion.locator('[data-topology-surface="runtime-demo"]')).toHaveCount(5);
+
+    await expect(page.locator('[data-napplet-name="config-demo"] .topology-node-kicker')).toHaveText('runtime demo');
+    await expect(page.locator('[data-napplet-name="decrypt-demo"] .topology-node-kicker')).toHaveText('runtime demo');
+    await expect(page.locator('#config-demo-acl')).toHaveCount(0);
+    await expect(page.locator('#decrypt-demo-acl')).toHaveCount(0);
+    await expect(page.locator('#chat-acl')).toBeVisible();
+  });
+
   test('Sequence Diagram renders a lane for each identity-bound napplet (UI-03)', async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
     await demoBeforeEach(page);

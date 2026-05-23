@@ -22,6 +22,15 @@ describe('demo topology render output', () => {
         aclId: 'bot-acl',
         frameContainerId: 'bot-frame-container',
       },
+      {
+        name: 'config-demo',
+        label: 'config-demo',
+        statusId: 'config-demo-status',
+        aclId: 'config-demo-acl',
+        frameContainerId: 'config-demo-frame-container',
+        surface: 'runtime-demo',
+        hasAclControls: false,
+      },
     ],
     services: ['signer'],
   });
@@ -30,6 +39,7 @@ describe('demo topology render output', () => {
     const markup = renderDemoTopology(topology);
 
     expect(markup).toContain('topology-napplets');
+    expect(markup).toContain('topology-runtime-demos');
     expect(markup).toContain('topology-node-shell');
     expect(markup).toContain('topology-node-acl');
     expect(markup).toContain('topology-node-runtime');
@@ -45,6 +55,16 @@ describe('demo topology render output', () => {
     expect(markup).toContain('>acl<');
     expect(markup).toContain('>runtime<');
     expect(markup).not.toContain('rotate(90deg)');
+  });
+
+  it('renders runtime demo cards separately without a napplet label or empty ACL slot', () => {
+    const markup = renderDemoTopology(topology);
+
+    expect(markup).toContain('data-topology-surface="runtime-demo"');
+    expect(markup).toContain('>runtime demos<');
+    expect(markup).toContain('>runtime demo<');
+    expect(markup).toContain('id="chat-acl"');
+    expect(markup).not.toContain('id="config-demo-acl"');
   });
 
   it('replaces the old merged label and preserves the bottom debugger shell in index.html', () => {

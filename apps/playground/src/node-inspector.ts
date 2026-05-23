@@ -140,6 +140,7 @@ function renderForRole(detail: NodeDetail): string {
     case 'acl': return renderAclRoleContent(detail);
     case 'runtime': return renderRuntimeRoleContent(detail);
     case 'napplet': return renderNappletRoleContent(detail);
+    case 'runtime-demo': return renderRuntimeDemoRoleContent(detail);
     case 'service': return renderServiceRoleContent(detail);
     case 'shell': return renderShellRoleContent(detail);
     default: return '';
@@ -211,6 +212,21 @@ function renderNappletRoleContent(detail: NodeDetail): string {
   return `
     <div style="font-size:10px;color:#7981a0;margin-bottom:4px">Capability state</div>
     <div style="padding:4px 0;line-height:1.8">${capList}</div>
+    <div style="font-size:10px;color:#7981a0;margin:10px 0 4px">Recent envelopes (last ${recent.length})</div>
+    <div style="font-size:10px;padding:4px 0">
+      ${recent.length === 0
+        ? '<span style="color:#444">no recent envelopes</span>'
+        : recent.map(env => `<div style="color:#d0d4e8;padding:1px 0">${env.envelopeType ?? env.verb} <span style="color:#666">${env.direction}</span></div>`).join('')
+      }
+    </div>
+  `;
+}
+
+function renderRuntimeDemoRoleContent(detail: NodeDetail): string {
+  const recent = detail.recentEnvelopes ?? [];
+  return `
+    <div style="font-size:10px;color:#7981a0;margin-bottom:4px">Surface</div>
+    <div style="font-size:10px;color:#d0d4e8;padding:4px 0">runtime demo</div>
     <div style="font-size:10px;color:#7981a0;margin:10px 0 4px">Recent envelopes (last ${recent.length})</div>
     <div style="font-size:10px;padding:4px 0">
       ${recent.length === 0
@@ -322,10 +338,11 @@ function renderInspectorContent(detail: NodeDetail): string {
 }
 
 function renderInspectorHeader(detail: NodeDetail): string {
+  const roleLabel = detail.role === 'runtime-demo' ? 'runtime demo' : detail.role;
   return `
     <div style="padding:12px 16px 10px;border-bottom:1px solid #1f2235;display:flex;align-items:center;justify-content:space-between">
       <div>
-        <div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:#7981a0;margin-bottom:2px">${detail.role}</div>
+        <div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:#7981a0;margin-bottom:2px">${roleLabel}</div>
         <div style="font-size:16px;color:#f0f6ff;text-transform:lowercase">${detail.title}</div>
       </div>
       <button

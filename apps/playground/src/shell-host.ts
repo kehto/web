@@ -209,6 +209,8 @@ export interface DemoNappletDefinition {
   statusId: string;
   aclId: string;
   frameContainerId: string;
+  surface?: 'napplet' | 'runtime-demo';
+  hasAclControls?: boolean;
 }
 
 export type DemoProtocolPath =
@@ -333,6 +335,8 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     statusId: 'hotkey-chord-status',
     aclId: 'hotkey-chord-acl',
     frameContainerId: 'hotkey-chord-frame-container',
+    surface: 'runtime-demo',
+    hasAclControls: false,
   },
   // Phase 27 (Plan 27-03): media-controller napplet exercises the real media
   // backend (MEDIA-01 navigator.mediaSession mirror + MEDIA-02 HostMediaBridge
@@ -346,6 +350,8 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     statusId: 'media-controller-status',
     aclId: 'media-controller-acl',
     frameContainerId: 'media-controller-frame-container',
+    surface: 'runtime-demo',
+    hasAclControls: false,
   },
   // Phase 39 (Plan 39-04 / CONFIG-03): config-demo napplet exercises the
   // NUB-CONFIG reference service (9th NUB domain). sdk.config.get + sdk.config.subscribe
@@ -358,6 +364,8 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     statusId: 'config-demo-status',
     aclId: 'config-demo-acl',
     frameContainerId: 'config-demo-frame-container',
+    surface: 'runtime-demo',
+    hasAclControls: false,
   },
   // Phase 40 (Plan 40-02 / RESOURCE-04): resource-demo napplet exercises the
   // NUB-RESOURCE reference service (10th NUB domain). Two resource.bytes
@@ -372,6 +380,8 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     statusId: 'resource-demo-status',
     aclId: 'resource-demo-acl',
     frameContainerId: 'resource-demo-frame-container',
+    surface: 'runtime-demo',
+    hasAclControls: false,
   },
   // Phase 46 (DECRYPT-09/10 + E2E-28): decrypt-demo exercises the
   // identity.decrypt reference handler across NIP-04, NIP-44-direct, and
@@ -384,6 +394,8 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     statusId: 'decrypt-demo-status',
     aclId: 'decrypt-demo-acl',
     frameContainerId: 'decrypt-demo-frame-container',
+    surface: 'runtime-demo',
+    hasAclControls: false,
   },
 ];
 

@@ -120,6 +120,23 @@ function buildNappletDetail(
   sources: NodeDetailSources,
   options?: NodeDetailOptions,
 ): NodeDetail {
+  return buildHostedSurfaceDetail(node, sources, options, 'napplet');
+}
+
+function buildRuntimeDemoDetail(
+  node: DemoTopologyNode,
+  sources: NodeDetailSources,
+  options?: NodeDetailOptions,
+): NodeDetail {
+  return buildHostedSurfaceDetail(node, sources, options, 'runtime-demo');
+}
+
+function buildHostedSurfaceDetail(
+  node: DemoTopologyNode,
+  sources: NodeDetailSources,
+  options: NodeDetailOptions | undefined,
+  role: 'napplet' | 'runtime-demo',
+): NodeDetail {
   const name = node.name ?? node.label;
   // Find the matching NappletInfo for this topology node
   let info: NappletInfo | undefined;
@@ -149,7 +166,10 @@ function buildNappletDetail(
         { label: 'aggregateHash', value: info?.aggregateHash ? truncate(info.aggregateHash, 16) : '—' },
       ],
     },
-    {
+  ];
+
+  if (role === 'napplet') {
+    inspectorSections.push({
       heading: 'ACL Capabilities',
       items: (() => {
         if (!info?.pubkey || !options?.checkCapability) {
@@ -172,8 +192,8 @@ function buildNappletDetail(
         items.push({ label: 'recorded denials', value: `${denials.length}` });
         return items;
       })(),
-    },
-  ];
+    });
+  }
 
   // Populate recent envelopes from tap (last 10 envelope-type messages for this windowId)
   const recentEnvelopes = options?.tap
@@ -184,12 +204,12 @@ function buildNappletDetail(
 
   return {
     id: node.id,
-    role: 'napplet',
+    role,
     title: node.label,
     summaryFields,
     inspectorSections,
     recentActivity: activity,
-    aclDenials: denials,
+    aclDenials: role === 'napplet' ? denials : [],
     drillDownSupported: true,
     recentEnvelopes,
   };
@@ -382,6 +402,7 @@ export function buildNodeDetails(
 
   switch (node.role) {
     case 'napplet': return buildNappletDetail(node, sources, options);
+    case 'runtime-demo': return buildRuntimeDemoDetail(node, sources, options);
     case 'shell': return buildShellDetail(node, sources);
     case 'acl': return buildAclDetail(node, sources);
     case 'runtime': return buildRuntimeDetail(node, sources);
