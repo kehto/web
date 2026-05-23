@@ -25,6 +25,68 @@ import { hexToBytes } from 'nostr-tools/utils';
 const PLAYGROUND_MANIFEST_PRIVKEY_HEX = '11'.repeat(32);
 const SHORT_NUB_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
 const SYNTHETIC_XTAG_PATHS = new Set(['config:schema', 'connect:origins']);
+const HOSTED_SHELL_BOOTSTRAP = String.raw`
+;(() => {
+  const state = {
+    capabilities: null,
+    fallbackSupports: null,
+  };
+
+  const supports = (capability) => {
+    if (typeof capability !== 'string') return false;
+    const capabilities = state.capabilities;
+    if (capabilities) {
+      if (capability.startsWith('perm:')) {
+        return Array.isArray(capabilities.sandbox) && capabilities.sandbox.includes(capability);
+      }
+      const nub = capability.startsWith('nub:') ? capability.slice(4) : capability;
+      return Array.isArray(capabilities.nubs) && capabilities.nubs.includes(nub);
+    }
+    return typeof state.fallbackSupports === 'function'
+      ? state.fallbackSupports(capability)
+      : false;
+  };
+
+  const patchNapplet = (value) => {
+    if (!value || typeof value !== 'object') return value;
+    const napplet = value;
+    const shell = napplet.shell && typeof napplet.shell === 'object'
+      ? napplet.shell
+      : {};
+    if (typeof shell.supports === 'function' && shell.supports !== supports) {
+      state.fallbackSupports = shell.supports.bind(shell);
+    }
+    shell.supports = supports;
+    napplet.shell = shell;
+    return napplet;
+  };
+
+  let currentNapplet = window.napplet;
+  Object.defineProperty(window, 'napplet', {
+    configurable: true,
+    enumerable: true,
+    get() {
+      return currentNapplet;
+    },
+    set(value) {
+      currentNapplet = patchNapplet(value);
+    },
+  });
+  if (currentNapplet) currentNapplet = patchNapplet(currentNapplet);
+
+  window.addEventListener('message', (event) => {
+    if (event.source !== window.parent) return;
+    const message = event.data;
+    if (!message || typeof message !== 'object' || message.type !== 'shell.init') return;
+    if (message.capabilities && typeof message.capabilities === 'object') {
+      state.capabilities = message.capabilities;
+      if (currentNapplet) currentNapplet = patchNapplet(currentNapplet);
+    }
+  });
+
+  window.__kehtoHostedShellBootstrap = true;
+  window.parent.postMessage({ type: 'shell.ready' }, '*');
+})();`;
 
 export interface PlaygroundNappletConfigOptions {
   requires?: readonly string[];
@@ -140,6 +202,7 @@ function removeEmptyParentDirs(filePath: string, stopDir: string): void {
 
 function inlineSingleFileBuildAssets(html: string, distPath: string, base: string): string {
   const inlinedFiles = new Set<string>();
+  let shellBootstrapInjected = html.includes('__kehtoHostedShellBootstrap');
 
   const withStyles = html.replace(/<link\b([^>]*?)>/gi, (tag, attrs: string) => {
     if (!hasRel(attrs, 'stylesheet')) return tag;
@@ -174,7 +237,12 @@ function inlineSingleFileBuildAssets(html: string, distPath: string, base: strin
         'defer',
       ]);
       const attrText = attrs.length > 0 ? ` ${attrs}` : '';
-      const script = escapeInlineScriptContent(readFileSync(assetPath, 'utf8'));
+      let script = readFileSync(assetPath, 'utf8');
+      if (!shellBootstrapInjected) {
+        script = `${HOSTED_SHELL_BOOTSTRAP}\n${script}`;
+        shellBootstrapInjected = true;
+      }
+      script = escapeInlineScriptContent(script);
       return `<script${attrText}>${script}</script>`;
     },
   );

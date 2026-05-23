@@ -1242,10 +1242,9 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
 
   window.addEventListener('message', relay.handleMessage);
 
-  // Track identity binding. NIP-5D napplets are pre-registered at iframe
-  // creation; the first source-bound object envelope marks them ready for ACL
-  // UI/actions. The legacy OK branch remains only for old fixture surfaces
-  // that still populate a pubkey through the relay bridge.
+  // Track late identity confirmation from wire traffic. NIP-5D napplets are
+  // source-bound at iframe registration; envelope traffic is now only a
+  // defensive wake-up path for older fixture surfaces and diagnostics.
   tap.onMessage((msg) => {
     if (msg.verb === 'OK' && msg.parsed.success === true && msg.direction === 'shell->napplet') {
       // Find which napplet this OK belongs to by checking sessionRegistry
@@ -1265,9 +1264,9 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
       }
     }
 
-    // Path B: NIP-5D envelope-only napplets (pre-registered with pubkey='').
-    // When the first envelope arrives from a napplet, mark it identity-bound and
-    // populate dTag from the session registry entry (set by loadNapplet's pre-register).
+    // Defensive path: if a pre-registered NIP-5D napplet has not already been
+    // marked source-bound, the first source-mapped envelope can still complete
+    // UI identity state from the session registry entry.
     if (msg.verb === 'ENVELOPE' && msg.direction === 'napplet->shell' && msg.windowId) {
       const info = napplets.get(msg.windowId);
       if (info && !info.identityBound) {
@@ -1417,11 +1416,38 @@ export async function loadNapplet(
   const container = document.getElementById(containerId);
   if (container) container.appendChild(iframe);
 
+  const info: NappletInfo = {
+    windowId,
+    name,
+    iframe,
+    dTag: metadata.dTag,
+    aggregateHash: metadata.aggregateHash,
+    identityBound: false,
+  };
+  napplets.set(windowId, info);
+
+  function markSourceDerivedIdentity(entry: SessionEntry): void {
+    const wasBound = info.identityBound;
+    info.identityBound = true;
+    info.pubkey = entry.pubkey;
+    info.dTag = entry.dTag;
+    info.aggregateHash = entry.aggregateHash;
+    if (!wasBound) {
+      window.dispatchEvent(new CustomEvent('napplet:identity-bound', {
+        detail: {
+          windowId,
+          dTag: entry.dTag,
+          aggregateHash: entry.aggregateHash,
+        },
+      }));
+    }
+  }
+
   // NIP-5D session entry — registered immediately so storage.* and notify.* NUB
   // handlers can resolve the napplet's identity without any runtime negotiation.
   // dTag and aggregateHash come from the local gateway manifest metadata so the
   // playground exercises the same identity tuple as production NIP-5A loading.
-  function registerSessionEntry(): void {
+  function registerSessionEntry(): SessionEntry {
     const entry: SessionEntry = {
       pubkey: '',
       windowId,
@@ -1439,30 +1465,21 @@ export async function loadNapplet(
       class: CLASS_BY_DTAG.get(metadata.dTag) ?? null,
     };
     relay.runtime.sessionRegistry.register(windowId, entry);
+    return entry;
   }
 
   // Register origin immediately — contentWindow is available after appendChild.
-  // This must happen before the shim module runs (which sends REGISTER).
+  // This must happen before the hosted artifact bootstrap can send shell.ready.
   if (iframe.contentWindow) {
     originRegistry.register(iframe.contentWindow, windowId);
-    registerSessionEntry();
+    markSourceDerivedIdentity(registerSessionEntry());
   }
-
-  const info: NappletInfo = {
-    windowId,
-    name,
-    iframe,
-    dTag: metadata.dTag,
-    aggregateHash: metadata.aggregateHash,
-    identityBound: false,
-  };
-  napplets.set(windowId, info);
 
   iframe.addEventListener('load', () => {
     if (iframe.contentWindow) {
       // Re-register origin and session in case contentWindow reference changed during load.
       originRegistry.register(iframe.contentWindow, windowId);
-      registerSessionEntry();
+      markSourceDerivedIdentity(registerSessionEntry());
     }
   });
 

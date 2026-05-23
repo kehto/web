@@ -752,6 +752,10 @@ async function pregrantBeforeGatewayNavigation(metadata: GatewayNappletMetadata)
 for (const napplet of DEMO_NAPPLETS) {
   void loadNapplet(napplet.name, napplet.frameContainerId, {
     beforeNavigate: pregrantBeforeGatewayNavigation,
+  }).then(() => {
+    setTimeout(() => {
+      refreshAclPanelsIfNeeded();
+    }, 0);
   }).catch((err) => {
     const statusEl = document.getElementById(napplet.statusId);
     if (statusEl) {
@@ -929,8 +933,8 @@ const aclRendered = new Set<string>();
 // "7/10 stuck on LOADING" user-visible bug. hotkey-chord + media-controller
 // were missing from the function entirely.
 //
-// shell-host.ts marks each napplet identity-bound after the first source-bound
-// envelope from its pre-registered iframe. This function is pure display: for
+// shell-host.ts marks each napplet identity-bound from the gateway-derived
+// source tuple registered for its iframe. This function is pure display: for
 // each identity-bound napplet, update its outer topology status sentinel once.
 function refreshAclPanelsIfNeeded(): void {
   for (const napplet of DEMO_NAPPLETS) {
@@ -952,6 +956,12 @@ function refreshAclPanelsIfNeeded(): void {
   refreshNodeSummaries();
 }
 
+window.addEventListener('napplet:identity-bound', () => {
+  setTimeout(() => {
+    refreshAclPanelsIfNeeded();
+  }, 0);
+});
+
 tap.onMessage((msg) => {
   // Legacy OK success can still wake old fixture paths.
   if (msg.verb === 'OK' && msg.parsed.success === true && msg.direction === 'shell->napplet') {
@@ -960,10 +970,9 @@ tap.onMessage((msg) => {
     }, 200);
   }
 
-  // Path B: NIP-5D envelope-only napplets (composer/preferences/toaster, feed,
-  // profile-viewer, theme-switcher, hotkey-chord, media-controller).
-  // The shell-host sets info.identityBound=true on the first ENVELOPE from a napplet.
-  // We respond to that envelope here to trigger ACL panel rendering.
+  // Envelope traffic can still wake ACL panel rendering for reloads and
+  // diagnostics, but source-derived NIP-5D identity no longer depends on a
+  // startup protocol message.
   //
   // Phase 29 (Plan 29-01): removed the stale `aclRendered.size < 8` bail — that
   // count was set in Phase 20 (pre-hotkey-chord, pre-media-controller) and kept

@@ -101,6 +101,12 @@ function assertDist(name) {
   }
 
   const html = read(indexPath);
+  if (!html.includes('__kehtoHostedShellBootstrap')) {
+    fail(`${rel(indexPath)} missing hosted shell bootstrap`);
+  }
+  if (!html.includes("type: 'shell.ready'") || !html.includes("message.type !== 'shell.init'")) {
+    fail(`${rel(indexPath)} missing shell.ready/shell.init supports bridge`);
+  }
   if (LOCAL_SCRIPT_SRC_RE.test(html)) {
     fail(`${rel(indexPath)} contains external script src`);
   }
