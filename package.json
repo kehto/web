@@ -5,6 +5,7 @@
   "scripts": {
     "audit:csp": "node scripts/audit-csp.mjs",
     "audit:gateway-artifacts": "node scripts/audit-gateway-artifacts.mjs",
+    "build:pages": "node scripts/build-pages.mjs",
     "build": "turbo run build",
     "build:playground-pages": "node scripts/build-playground-pages.mjs",
     "docs:api": "typedoc",

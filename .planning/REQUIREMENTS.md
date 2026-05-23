@@ -13,9 +13,9 @@
 
 ### Portal entry point
 
-- [ ] **PAGE-01**: Visitor can open `https://kehto.github.io/web/` and see a Kehto entry page rather than the playground shell directly.
-- [ ] **PAGE-02**: Visitor can navigate from the `/web/` entry page to `/web/playground/` and `/web/docs/` through explicit links.
-- [ ] **PAGE-03**: The entry page is static and build-owned, with no dependency on the playground runtime, docs dev server, or external services.
+- [x] **PAGE-01**: Visitor can open `https://kehto.github.io/web/` and see a Kehto entry page rather than the playground shell directly.
+- [x] **PAGE-02**: Visitor can navigate from the `/web/` entry page to `/web/playground/` and `/web/docs/` through explicit links.
+- [x] **PAGE-03**: The entry page is static and build-owned, with no dependency on the playground runtime, docs dev server, or external services.
 
 ### Playground deployment
 
@@ -70,9 +70,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PAGE-01 | Phase 65 | Pending |
-| PAGE-02 | Phase 65 | Pending |
-| PAGE-03 | Phase 65 | Pending |
+| PAGE-01 | Phase 65 | Complete |
+| PAGE-02 | Phase 65 | Complete |
+| PAGE-03 | Phase 65 | Complete |
 | PLAY-01 | Phase 66 | Pending |
 | PLAY-02 | Phase 66 | Pending |
 | PLAY-03 | Phase 66 | Pending |
