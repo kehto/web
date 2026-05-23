@@ -35,7 +35,7 @@
 
 - [x] **Phase 65: Pages Portal Entry Point** - Add the static `/web/` entry page and artifact root contract that links users to playground and docs.
 - [x] **Phase 66: Playground Pages Path Relocation** - Move playground Pages packaging and gateway metadata under `/web/playground/`.
-- [ ] **Phase 67: Docs Pages Publication and Deploy Gate** - Publish VitePress under `/web/docs/`, upload one unified Pages artifact, and add route-shape verification.
+- [x] **Phase 67: Docs Pages Publication and Deploy Gate** - Publish VitePress under `/web/docs/`, upload one unified Pages artifact, and add route-shape verification.
 
 ---
 
@@ -100,7 +100,9 @@
   5. Local or CI route-shape verification fails when `/web/`, `/web/playground/`, `/web/docs/`, or a representative gateway manifest is missing.
   6. Final evidence records Pages artifact build, `pnpm docs:check`, `pnpm audit:gateway-artifacts`, build/type/unit smoke, and route-shape proof.
 
-**Plans**: Pending
+**Plans**: [67-01-PLAN.md](phases/67-docs-pages-publication-and-deploy-gate/67-01-PLAN.md)
+
+**Completed**: 2026-05-23 ([summary](phases/67-docs-pages-publication-and-deploy-gate/67-01-SUMMARY.md) | [verification](phases/67-docs-pages-publication-and-deploy-gate/67-VERIFICATION.md))
 
 ---
 
@@ -110,7 +112,7 @@
 |-------|----------------|--------|-----------|
 | 65. Pages Portal Entry Point | 1/1 | Completed | 2026-05-23 |
 | 66. Playground Pages Path Relocation | 1/1 | Completed | 2026-05-23 |
-| 67. Docs Pages Publication and Deploy Gate | 0/1 | Pending | — |
+| 67. Docs Pages Publication and Deploy Gate | 1/1 | Completed | 2026-05-23 |
 
 ## Backlog
 

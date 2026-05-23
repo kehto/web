@@ -26,15 +26,15 @@
 
 ### Documentation deployment
 
-- [ ] **DOCS-01**: Visitor can open `https://kehto.github.io/web/docs/` and load the VitePress docs site with the correct Pages base path.
-- [ ] **DOCS-02**: Docs assets, navigation, package pages, policies, migration archive pages, and generated API reference links resolve under `/web/docs/`.
-- [ ] **DOCS-03**: The docs Pages build reuses the existing docs quality gates instead of creating a second unchecked docs build path.
+- [x] **DOCS-01**: Visitor can open `https://kehto.github.io/web/docs/` and load the VitePress docs site with the correct Pages base path.
+- [x] **DOCS-02**: Docs assets, navigation, package pages, policies, migration archive pages, and generated API reference links resolve under `/web/docs/`.
+- [x] **DOCS-03**: The docs Pages build reuses the existing docs quality gates instead of creating a second unchecked docs build path.
 
 ### Pages workflow and verification
 
-- [ ] **VERIFY-01**: The GitHub Pages workflow builds and uploads one unified artifact rooted at `/web/` that contains the entry page, playground, and docs.
-- [ ] **VERIFY-02**: Local or CI verification fails if `/web/`, `/web/playground/`, `/web/docs/`, or a representative playground gateway manifest is missing from the generated artifact.
-- [ ] **VERIFY-03**: Final verification records the Pages artifact build, docs check, playground gateway artifact audit, build/type/unit smoke, and route-shape proof needed before deployment.
+- [x] **VERIFY-01**: The GitHub Pages workflow builds and uploads one unified artifact rooted at `/web/` that contains the entry page, playground, and docs.
+- [x] **VERIFY-02**: Local or CI verification fails if `/web/`, `/web/playground/`, `/web/docs/`, or a representative playground gateway manifest is missing from the generated artifact.
+- [x] **VERIFY-03**: Final verification records the Pages artifact build, docs check, playground gateway artifact audit, build/type/unit smoke, and route-shape proof needed before deployment.
 
 ## Future Requirements
 
@@ -77,12 +77,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PLAY-02 | Phase 66 | Complete |
 | PLAY-03 | Phase 66 | Complete |
 | PLAY-04 | Phase 66 | Complete |
-| DOCS-01 | Phase 67 | Pending |
-| DOCS-02 | Phase 67 | Pending |
-| DOCS-03 | Phase 67 | Pending |
-| VERIFY-01 | Phase 67 | Pending |
-| VERIFY-02 | Phase 67 | Pending |
-| VERIFY-03 | Phase 67 | Pending |
+| DOCS-01 | Phase 67 | Complete |
+| DOCS-02 | Phase 67 | Complete |
+| DOCS-03 | Phase 67 | Complete |
+| VERIFY-01 | Phase 67 | Complete |
+| VERIFY-02 | Phase 67 | Complete |
+| VERIFY-03 | Phase 67 | Complete |
 
 **Coverage:**
 - v1 requirements: 13 total

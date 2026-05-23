@@ -28,6 +28,7 @@
       "cache": false
     },
     "docs:build": {
+      "env": ["VITEPRESS_BASE"],
       "outputs": [".vitepress/dist/**"]
     },
     "type-check": {

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.14
 milestone_name: GitHub Pages Web Portal
 status: planning
-last_updated: "2026-05-23T15:54:58.887Z"
+last_updated: "2026-05-23T16:00:43.905Z"
 last_activity: 2026-05-23
 progress:
   total_phases: 3
-  completed_phases: 2
-  total_plans: 2
-  completed_plans: 2
-  percent: 67
+  completed_phases: 3
+  total_plans: 3
+  completed_plans: 3
+  percent: 100
 ---
 
 # Project State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-05-23, v1.14 started)
 
 ## Current Position
 
-Phase: Phase 67 - Docs Pages Publication and Deploy Gate
+Phase: Milestone v1.14 phases complete
 Plan: —
 Status: Roadmap ready
-Last activity: 2026-05-23 — Phase 66 completed
+Last activity: 2026-05-23 — Phase 67 completed; ready for milestone audit
 
 ## Accumulated Context
 
@@ -48,6 +48,7 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 - v1.14 roadmap phases are 65-67: Pages portal entry point, playground Pages path relocation, then docs Pages publication and deploy gate.
 - Phase 65 completed 2026-05-23: `web/index.html` is the static portal source, `pnpm build:pages` writes `.pages/web/index.html`, and the generated portal links to `/web/playground/` and `/web/docs/`.
 - Phase 66 completed 2026-05-23: `scripts/build-playground-pages.mjs` writes `.pages/web/playground`, defaults to `/web/playground/`, and generated gateway manifest `htmlUrl` values now point under `/web/playground/napplet-gateway/`.
+- Phase 67 completed 2026-05-23: docs publish under `.pages/web/docs`, generated TypeDoc output is copied to `.pages/web/docs/api`, the Pages workflow uploads `.pages`, and `pnpm audit:pages` verifies the `/web/` route contract before deploy.
 - v1.10 shipped: removed the stale `auth:identity-changed` compatibility branch, migrated `decrypt-demo` to `identityDecrypt`, and retired the remaining old demo package graph.
 - Published package check: `@napplet/sdk@0.3.0`, `@napplet/shim@0.3.0`, and `@napplet/vite-plugin@0.3.0` are all available on npm as of 2026-05-22.
 - Scope boundary: keep v1.10 as a v1 cleanup/continuity milestone; do not promote the compatibility removal to a v2 boundary.
@@ -77,9 +78,9 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 ## Session Continuity
 
 Last session: 2026-05-23T13:20:59Z
-Resume: v1.14 Phases 65-66 are complete. Continue with Phase 67 to publish docs under `/web/docs/` and add the unified deploy gate.
+Resume: v1.14 phases are complete. Run milestone audit, completion archive, and cleanup.
 Current milestone: v1.14 GitHub Pages Web Portal.
 
 ## Operator Next Steps
 
-- Continue Phase 67 with `$gsd-plan-phase 67`
+- Continue lifecycle with `$gsd-audit-milestone`
