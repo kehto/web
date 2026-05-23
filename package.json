@@ -5,7 +5,7 @@
   "scripts": {
     "audit:csp": "node scripts/audit-csp.mjs",
     "audit:gateway-artifacts": "node scripts/audit-gateway-artifacts.mjs",
-    "build": "turbo run build",
+    "build": "turbo run build --filter=@napplet/core --filter=@napplet/nub --filter=@napplet/sdk --filter=@napplet/shim --filter=@napplet/vite-plugin && turbo run build",
     "docs:api": "typedoc",
     "type-check": "turbo run type-check",
     "test": "pnpm build && pnpm test:unit",

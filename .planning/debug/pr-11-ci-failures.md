@@ -3,7 +3,7 @@ slug: pr-11-ci-failures
 status: resolved
 trigger: "all tests are failing in https://github.com/kehto/web/pull/11"
 created: 2026-05-23
-updated: 2026-05-23T10:02:56Z
+updated: 2026-05-23T10:12:10Z
 ---
 
 # Debug: PR 11 CI Failures
@@ -22,10 +22,10 @@ updated: 2026-05-23T10:02:56Z
 
 ## Current Focus
 
-hypothesis: CONFIRMED. All initial failures shared a checkout/repository-shape fault: local `@napplet/*` sources are submodules, but CI did not check out submodules. The first rerun also proved the referenced `napplet` submodule commit had not been published to the public submodule remote.
-test: Compare failed GitHub Actions logs against local submodule/workspace state, publish the required submodule commit, then rerun CI-equivalent commands locally and on GitHub.
-expecting: Build, unit, audit, type-check, and Playwright commands complete with local submodule package sources in scope.
-next_action: Push the follow-up repair commit and let PR #11 checks rerun again.
+hypothesis: CONFIRMED. The initial failures shared a checkout/repository-shape fault: local `@napplet/*` sources are submodules, but CI did not check out submodules. Follow-up reruns exposed two more fresh-runner requirements: the referenced `napplet` submodule commit must be published, and all locally linked `@napplet/*` package outputs must be built before napplet app builds import them.
+test: Compare failed GitHub Actions logs against local submodule/workspace state, publish the required submodule commit, add an explicit local `@napplet/*` prebuild, then rerun CI-equivalent commands locally and on GitHub.
+expecting: Build, unit, audit, type-check, and Playwright commands complete with local submodule package sources and generated `@napplet/*` package outputs in scope.
+next_action: Push the final build-order repair commit and watch PR #11 checks rerun.
 
 ## Evidence
 
@@ -53,6 +53,21 @@ next_action: Push the follow-up repair commit and let PR #11 checks rerun again.
 - timestamp: 2026-05-23T10:02:30Z
   finding: `git -C napplet push origin HEAD:main` fast-forwarded `napplet/napplet` from `344be72` to `306d616`; `git ls-remote https://github.com/napplet/napplet.git refs/heads/main` now returns `306d616e422e6fe7489c5e1e99321cc52dd97040`.
   confirms: The submodule commit required by the superproject is now public/fetchable.
+- timestamp: 2026-05-23T10:04:30Z
+  finding: The next GitHub rerun got past checkout/install but failed in `pnpm build` because napplet and fixture Vite configs imported `@napplet/vite-plugin/dist/index.js` before the local package output existed.
+  confirms: Fresh runners need a deterministic build step for generated local `@napplet/*` package outputs, not just materialized submodule source files.
+- timestamp: 2026-05-23T10:05:30Z
+  finding: `pnpm turbo run build --dry=json` showed napplet demo build tasks without inferred dependencies on `@napplet/vite-plugin#build`, while `pnpm turbo run build --filter=@napplet/vite-plugin... --dry=json` selected `@napplet/core#build`, `@napplet/nub#build`, and `@napplet/vite-plugin#build`.
+  confirms: Turbo does not infer the needed prebuild edge from the override-linked local package graph, so the root build script must make that edge explicit.
+- timestamp: 2026-05-23T10:07:00Z
+  finding: After removing `napplet/packages/core/dist`, `napplet/packages/nub/dist`, and `napplet/packages/vite-plugin/dist`, `pnpm build` passed with the explicit `@napplet/vite-plugin...` prebuild and `pnpm --filter @kehto/demo-bot build` passed.
+  confirms: The root build script now works from the missing-dist state that reproduced the fresh-runner CI failure.
+- timestamp: 2026-05-23T10:10:30Z
+  finding: The next GitHub rerun got past `@napplet/vite-plugin` resolution but failed while napplet app builds resolved `@napplet/shim`, again because fresh runners lacked generated package output.
+  confirms: The prebuild scope must include every locally linked `@napplet/*` package consumed by napplet apps, not only the Vite plugin chain.
+- timestamp: 2026-05-23T10:11:30Z
+  finding: After removing all active local napplet package outputs (`core`, `nub`, `sdk`, `shim`, and `vite-plugin`), `pnpm build` passed with an explicit five-package `@napplet/*` prebuild before the full Turbo build.
+  confirms: The root build now covers the fresh-runner missing-output state for both Vite config imports and app-source imports.
 
 ## Eliminated
 
@@ -62,7 +77,7 @@ next_action: Push the follow-up repair commit and let PR #11 checks rerun again.
 
 ## Resolution
 
-root_cause: PR #11 moved active package resolution to repo-local `@napplet/*` submodule sources, but GitHub Actions checkout steps fetched only the superproject. Unit testing also delegated through a package-local Vitest process whose `process.cwd()` broke repo-root static guards and missed the `packages/nip66` test file.
-fix: Enable `actions/checkout` recursive submodule checkout in build, unit, e2e, and release workflows. Publish the referenced `napplet` submodule commit. Switch `.gitmodules` to HTTPS public submodule URLs. Change root `pnpm test` to run the repo-root build plus repo-root Vitest suite. Narrow `@kehto/nip66`'s package-local test script to its concrete root-relative test file.
-verification: `pnpm --filter @kehto/demo-config-demo build`; `pnpm --filter @kehto/fixture-nub-identity build`; `pnpm --filter @kehto/nip66 test`; `pnpm build`; `pnpm test`; `pnpm type-check`; `pnpm audit:csp`; `pnpm audit:gateway-artifacts`; `pnpm test:e2e`; `git ls-remote https://github.com/napplet/napplet.git refs/heads/main`.
+root_cause: PR #11 moved active package resolution to repo-local `@napplet/*` submodule sources, but GitHub Actions checkout steps fetched only the superproject. The referenced `napplet` gitlink also pointed at a local-only commit. After those were repaired, fresh runners still lacked generated `@napplet/*/dist` outputs, and Turbo did not infer the needed package-build edges before napplet Vite configs and app sources imported those packages. Unit testing also delegated through a package-local Vitest process whose `process.cwd()` broke repo-root static guards and missed the `packages/nip66` test file.
+fix: Enable `actions/checkout` recursive submodule checkout in build, unit, e2e, and release workflows. Publish the referenced `napplet` submodule commit. Switch `.gitmodules` to HTTPS public submodule URLs. Prebuild `@napplet/core`, `@napplet/nub`, `@napplet/sdk`, `@napplet/shim`, and `@napplet/vite-plugin` before the full root `turbo run build`. Change root `pnpm test` to run the repo-root build plus repo-root Vitest suite. Narrow `@kehto/nip66`'s package-local test script to its concrete root-relative test file.
+verification: `pnpm --filter @kehto/demo-config-demo build`; `pnpm --filter @kehto/fixture-nub-identity build`; `pnpm --filter @kehto/nip66 test`; `rm -rf napplet/packages/core/dist napplet/packages/nub/dist napplet/packages/sdk/dist napplet/packages/shim/dist napplet/packages/vite-plugin/dist && pnpm build`; `pnpm --filter @kehto/demo-bot build`; `pnpm test`; `pnpm type-check`; `pnpm audit:csp`; `pnpm audit:gateway-artifacts`; `pnpm test:e2e`; `git ls-remote https://github.com/napplet/napplet.git refs/heads/main`.
 files_changed: `.gitmodules`; `.github/workflows/build.yml`; `.github/workflows/unit.yml`; `.github/workflows/e2e.yml`; `.github/workflows/release.yml`; `package.json`; `packages/nip66/package.json`; `.planning/debug/pr-11-ci-failures.md`.
