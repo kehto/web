@@ -6,7 +6,7 @@
  * { type: 'notify.send.result', notificationId: 'shell-<timestamp>' }.
  *
  * Layer-A spec asserts:
- *   - #nub-status flips to 'authenticated' then 'notification:<id>' or 'denied:*'
+ *   - #nub-status flips to 'notification:<id>' or 'denied:*'
  *   - #nub-notif-id contains the returned notificationId (matches /^shell-\d+$/)
  *   - __getNubMessage__(windowId, 'notify.send') returns the request envelope
  */

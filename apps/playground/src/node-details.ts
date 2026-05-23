@@ -120,6 +120,23 @@ function buildNappletDetail(
   sources: NodeDetailSources,
   options?: NodeDetailOptions,
 ): NodeDetail {
+  return buildHostedSurfaceDetail(node, sources, options, 'napplet');
+}
+
+function buildRuntimeDemoDetail(
+  node: DemoTopologyNode,
+  sources: NodeDetailSources,
+  options?: NodeDetailOptions,
+): NodeDetail {
+  return buildHostedSurfaceDetail(node, sources, options, 'runtime-demo');
+}
+
+function buildHostedSurfaceDetail(
+  node: DemoTopologyNode,
+  sources: NodeDetailSources,
+  options: NodeDetailOptions | undefined,
+  role: 'napplet' | 'runtime-demo',
+): NodeDetail {
   const name = node.name ?? node.label;
   // Find the matching NappletInfo for this topology node
   let info: NappletInfo | undefined;
@@ -128,13 +145,13 @@ function buildNappletDetail(
     if (ni.name === name) { info = ni; nappletWindowId = wid; break; }
   }
 
-  const authStatus = info?.authenticated ? 'authenticated' : 'pending';
+  const identityStatus = info?.identityBound ? 'identity-bound' : 'pending';
   const pubkeyDisplay = info?.pubkey ? truncate(info.pubkey, 12) : '—';
   const denials = nappletWindowId ? getAclDenials(nappletWindowId) : [];
   const activity = getNodeActivity(node.id);
 
   const summaryFields: SummaryField[] = [
-    { label: 'auth', value: authStatus },
+    { label: 'identity', value: identityStatus },
     { label: 'pubkey', value: pubkeyDisplay },
     { label: 'activity', value: `${activity.length} recent` },
   ];
@@ -143,17 +160,20 @@ function buildNappletDetail(
     {
       heading: 'Current State',
       items: [
-        { label: 'auth', value: authStatus },
+        { label: 'identity', value: identityStatus },
         { label: 'pubkey', value: info?.pubkey ? truncate(info.pubkey, 24) : '—' },
         { label: 'dTag', value: info?.dTag ?? '—' },
         { label: 'aggregateHash', value: info?.aggregateHash ? truncate(info.aggregateHash, 16) : '—' },
       ],
     },
-    {
+  ];
+
+  if (role === 'napplet') {
+    inspectorSections.push({
       heading: 'ACL Capabilities',
       items: (() => {
         if (!info?.pubkey || !options?.checkCapability) {
-          return [{ label: 'status', value: info?.pubkey ? 'checking...' : 'not authenticated' }];
+          return [{ label: 'status', value: info?.pubkey ? 'checking...' : 'not identity-bound' }];
         }
         const dTag = info.dTag ?? '';
         const hash = info.aggregateHash ?? '';
@@ -172,8 +192,8 @@ function buildNappletDetail(
         items.push({ label: 'recorded denials', value: `${denials.length}` });
         return items;
       })(),
-    },
-  ];
+    });
+  }
 
   // Populate recent envelopes from tap (last 10 envelope-type messages for this windowId)
   const recentEnvelopes = options?.tap
@@ -184,12 +204,12 @@ function buildNappletDetail(
 
   return {
     id: node.id,
-    role: 'napplet',
+    role,
     title: node.label,
     summaryFields,
     inspectorSections,
     recentActivity: activity,
-    aclDenials: denials,
+    aclDenials: role === 'napplet' ? denials : [],
     drillDownSupported: true,
     recentEnvelopes,
   };
@@ -276,11 +296,11 @@ function buildRuntimeDetail(
   sources: NodeDetailSources,
 ): NodeDetail {
   const activity = getNodeActivity(node.id);
-  const authedCount = [...sources.napplets.values()].filter((n) => n.authenticated).length;
+  const identityBoundCount = [...sources.napplets.values()].filter((n) => n.identityBound).length;
 
   const summaryFields: SummaryField[] = [
     { label: 'services', value: `${sources.serviceCount}` },
-    { label: 'authed napplets', value: `${authedCount}` },
+    { label: 'identity-bound napplets', value: `${identityBoundCount}` },
     { label: 'messages routed', value: `${sources.totalMessages}` },
   ];
 
@@ -289,7 +309,7 @@ function buildRuntimeDetail(
       heading: 'Current State',
       items: [
         { label: 'registered services', value: sources.serviceNames.join(', ') || 'none' },
-        { label: 'authenticated napplets', value: `${authedCount}` },
+        { label: 'identity-bound napplets', value: `${identityBoundCount}` },
         { label: 'total messages routed', value: `${sources.totalMessages}` },
       ],
     },
@@ -382,6 +402,7 @@ export function buildNodeDetails(
 
   switch (node.role) {
     case 'napplet': return buildNappletDetail(node, sources, options);
+    case 'runtime-demo': return buildRuntimeDemoDetail(node, sources, options);
     case 'shell': return buildShellDetail(node, sources);
     case 'acl': return buildAclDetail(node, sources);
     case 'runtime': return buildRuntimeDetail(node, sources);

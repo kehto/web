@@ -39,8 +39,8 @@ test('revoking relay:write on composer denies next publish (denial visible in st
   await demoBeforeEach(page);
 
   const composerFrame = page.frameLocator('#composer-frame-container iframe');
-  // Wait for AUTH so the ACL panel renders for composer.
-  await expect(composerFrame.locator('#composer-status')).toContainText('authenticated', { timeout: 10_000 });
+  // Wait for ready state so the ACL panel renders for composer.
+  await expect(composerFrame.locator('#composer-status')).toContainText('ready', { timeout: 10_000 });
 
   // Get a direct frame reference — CDP Runtime evaluate works in sandboxed cross-origin frames.
   const composerFrameDirect = page.frames().find(f => f.url().includes('/composer/'));
@@ -63,7 +63,7 @@ test('revoking relay:write on composer denies next publish (denial visible in st
   await expect(composerFrame.locator('#composer-status')).toContainText(/^(published:|denied:)/, { timeout: 12_000 });
 
   // Wait until the ACL panel toggle for relay:write is rendered + initial state ON.
-  // The button is rendered into #composer-acl after AUTH is detected in main.ts.
+  // The button is rendered into #composer-acl after identity binding is detected in main.ts.
   const aclSlot = page.locator('#composer-acl');
   await expect(aclSlot).toBeVisible({ timeout: 10_000 });
   const relayWriteToggle = aclSlot.locator('button[title^="relay:write"]');

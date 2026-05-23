@@ -23,6 +23,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # full history so changeset can read version state
+          submodules: recursive
 
       - uses: pnpm/action-setup@v3
         with:

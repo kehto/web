@@ -1,3 +1,3 @@
 import { definePlaygroundNappletConfig } from '../shared-vite-config';
 
-export default definePlaygroundNappletConfig('hotkey-chord');
+export default definePlaygroundNappletConfig('hotkey-chord', { requires: ['keys'] });

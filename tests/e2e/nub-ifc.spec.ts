@@ -5,7 +5,7 @@
  * Asserts:
  *   1. Fixture loads and reaches __nappletReady__ (session registered).
  *   2. The fixture's ifc.subscribe envelope was dispatched (ifcOn triggered on init).
- *   3. The fixture's #nub-status sentinel reflects 'authenticated'
+ *   3. The fixture's #nub-status sentinel reflects 'ready'
  *      (ifc.subscribe.result received — proves the envelope round-tripped).
  *   4. Triggering #nub-ifc-emit-btn dispatches an ifc.emit envelope (visible via __getNubMessage__).
  *
@@ -18,7 +18,7 @@ test.describe.configure({ mode: 'serial' });
 
 const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]/;
 
-test('nub-ifc: ifc.subscribe envelope dispatched and fixture sentinel reaches authenticated', async ({ page }) => {
+test('nub-ifc: ifc.subscribe envelope dispatched and fixture sentinel reaches ready', async ({ page }) => {
   test.setTimeout(30_000);
   const consoleMessages: string[] = [];
   const pageErrors: string[] = [];
@@ -44,9 +44,9 @@ test('nub-ifc: ifc.subscribe envelope dispatched and fixture sentinel reaches au
   expect(envelope).not.toBeNull();
   expect((envelope as { type: string }).type).toBe('ifc.subscribe');
 
-  // Fixture sets #nub-status to 'authenticated' after ifcOn returns (ifc.subscribe.result received).
+  // Fixture sets #nub-status to 'ready' after ifcOn returns (ifc.subscribe.result received).
   const statusLocator = page.frameLocator(`#${windowId}`).locator('#nub-status');
-  await expect(statusLocator).toContainText('authenticated', { timeout: 8_000 });
+  await expect(statusLocator).toContainText('ready', { timeout: 8_000 });
 
   // Trigger the emit button — dispatches ifc.emit envelope to the harness.
   // Button clicks via frame.evaluate because sandboxed iframes are cross-origin.

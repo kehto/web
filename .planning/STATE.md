@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.11
-milestone_name: NIP-5A Gateway Artifact Parity
-status: completed
-last_updated: "2026-05-22T17:52:36+02:00"
-last_activity: 2026-05-22 — v1.11 completed with gateway artifact guards and full verification
+milestone: v1.12
+milestone_name: NIP-5D Contract Conformance
+status: Awaiting next milestone
+last_updated: "2026-05-23T12:10:05.000Z"
+last_activity: 2026-05-23 — Quick task 260523-jev completed for GitHub Pages playground publishing
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
+  total_phases: 4
+  completed_phases: 4
+  total_plans: 4
+  completed_plans: 4
   percent: 100
 ---
 
@@ -17,21 +17,21 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-22, v1.11 started)
+See: .planning/PROJECT.md (updated 2026-05-22, v1.12 completed)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Production-equivalent NIP-5D/NIP-5A gateway artifact parity.
+**Current focus:** Awaiting next milestone
 
 ## Current Position
 
-Phase: v1.11 complete
-Plan: complete
-Status: v1.11 archived; ready for next milestone selection
-Last activity: 2026-05-22 — v1.11 archived to `.planning/milestones/v1.11-*` with passed milestone audit and phase packet
+Phase: Milestone v1.12 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-05-22 — Milestone v1.12 completed and archived
 
 ## Accumulated Context
 
-Full decision log (v1.0 → v1.10) archived in `.planning/PROJECT.md` Key Decisions table and per-milestone archives at `.planning/milestones/v{1.0,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,v1.10}-ROADMAP.md`.
+Full decision log (v1.0 → v1.12) lives in `.planning/PROJECT.md` Key Decisions table and per-milestone archives under `.planning/milestones/`.
 
 ### v1.8 Phase Sequence
 
@@ -43,7 +43,7 @@ Full decision log (v1.0 → v1.10) archived in `.planning/PROJECT.md` Key Decisi
 
 ### Blockers/Concerns
 
-- No active blockers. v1.10 requirements are complete, audited, and archived.
+- No active blockers. v1.12 requirements are complete, audited, and archived.
 - v1.10 shipped: removed the stale `auth:identity-changed` compatibility branch, migrated `decrypt-demo` to `identityDecrypt`, and retired the remaining old demo package graph.
 - Published package check: `@napplet/sdk@0.3.0`, `@napplet/shim@0.3.0`, and `@napplet/vite-plugin@0.3.0` are all available on npm as of 2026-05-22.
 - Scope boundary: keep v1.10 as a v1 cleanup/continuity milestone; do not promote the compatibility removal to a v2 boundary.
@@ -54,6 +54,10 @@ Full decision log (v1.0 → v1.10) archived in `.planning/PROJECT.md` Key Decisi
 - v1.10 archived 2026-05-22: identity topic compatibility removed, decrypt-demo uses `identityDecrypt`, guard coverage closes the old helper graph, and verification closes at 548 unit tests plus 86/86 Playwright.
 - v1.11 started 2026-05-22: local playground and E2E loading must match the production NIP-5D/NIP-5A gateway path. The milestone aligns single-file artifact generation, aggregate-hash semantics, playground loading, static guards, and Playwright proof around that continuity invariant.
 - v1.11 completed 2026-05-22: `@napplet/vite-plugin` supports explicit single-file artifact mode, playground napplets load through `/napplet-gateway/<dTag>/<aggregateHash>/index.html`, and drift is guarded by unit, audit, and Playwright coverage. Final verification: `pnpm build`, `pnpm type-check`, `pnpm test:unit` (551 tests), `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and `pnpm test:e2e` (87/87).
+- v1.12 started 2026-05-22: authoritative NIP-5D source is the pinned raw `dskvr/nips` commit `d80d7b25f9c4331acbeb40dbeb3b077caa80e885`; `.planning/NIP-5D-DELTA-AUDIT.md` is the delta inventory; `RUNTIME-SPEC.md` and `napplet/specs/NIP-5D.md` are drift sources to repair or replace.
+- v1.12 roadmap phases are 56-59: contract/package source baseline, shell capability/requires enforcement, 13-napplet conformance, then guards/full verification.
+- Phase 58 completed 2026-05-22: all 13 playground napplets now declare manifest `requires`, preflight required NUBs with shell-derived `supports()`, stale protocol auth wording is renamed, and raw demo envelopes are documented in the Phase 58 allowlist.
+- Phase 59 completed 2026-05-22: static/unit/E2E guards now cover sandbox policy, source validation, no napplet `window.nostr`, requires coverage, hosted `supports()` behavior, raw-envelope exceptions, unsupported-requires rejection, and all 13 gateway-hosted napplet contracts. Final verification passed: `pnpm build`, `pnpm type-check`, `pnpm test:unit` (560 tests), `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and `pnpm test:e2e` (89/89).
 
 ### Quick Tasks Completed
 
@@ -61,13 +65,16 @@ Full decision log (v1.0 → v1.10) archived in `.planning/PROJECT.md` Key Decisi
 |---|-------------|------|--------|-----------|
 | 260522-kvd | Remove old inter-frame terminology | 2026-05-22 | b844b25 | [260522-kvd-replace-old-interframe-terminology](./quick/260522-kvd-replace-old-interframe-terminology/) |
 | 260522-lb0 | Determine vite-single-file playground napplet validity | 2026-05-22 | 8d763b5 | [260522-lb0-determine-validity-of-building-napplets-](./quick/260522-lb0-determine-validity-of-building-napplets-/) |
+| 260523-h64 | Use published @napplet packages and remove submodules | 2026-05-23 | 32cc987, 791a2f9 | [260523-h64-use-published-napplet-packages-and-remov](./quick/260523-h64-use-published-napplet-packages-and-remov/) |
+| 260523-ikp | Separate runtime demo surfaces from napplet cards | 2026-05-23 | 24af3d4, 91f8fb3 | [260523-ikp-runtime-helper-panes-should-not-be-label](./quick/260523-ikp-runtime-helper-panes-should-not-be-label/) |
+| 260523-jev | Publish playground to GitHub Pages | 2026-05-23 | c89e746 | [260523-jev-create-a-workflow-that-publishes-the-pla](./quick/260523-jev-create-a-workflow-that-publishes-the-pla/) |
 
 ## Session Continuity
 
-Last session: 2026-05-22T13:04:00+02:00
-Resume: v1.10 phases 50-52 are complete, audited, archived, and phase directories are stored under `.planning/milestones/v1.10-phases/`.
-Current milestone: v1.11 requirements are defined in `.planning/REQUIREMENTS.md`; roadmap phases are 53-55.
+Last session: 2026-05-22T16:41:58Z
+Resume: v1.12 is archived under `.planning/milestones/v1.12-*`; active `.planning/REQUIREMENTS.md` has been removed for the next milestone.
+Current milestone: none.
 
 ## Operator Next Steps
 
-- Plan Phase 53 with /gsd-plan-phase 53
+- Start the next milestone with /gsd-new-milestone

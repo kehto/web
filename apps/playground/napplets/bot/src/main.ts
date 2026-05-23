@@ -6,14 +6,16 @@
  * - Subscribes via ifcOn('chat:message') (D-02)
  * - Replies via ifcEmit('bot:response') (D-02)
  * - Persists learned rules via storageSetItem/storageGetItem under key 'bot-rules' (D-02)
- * - Posts #status-text = 'authenticated' after init completes (loadRules resolves)
+ * - Posts #status-text = 'ready' after init completes (loadRules resolves)
  *
- * NO raw window.message listener — shim handles AUTH implicitly (D-01).
+ * NO raw window.message listener — shim handles NIP-5D envelopes (D-01).
  * NO NIP-01 arrays, NO legacy bus enums, NO global nostr (anti-features).
  */
 import '@napplet/shim';
 import { ifcEmit, ifcOn } from '@napplet/nub/ifc/sdk';
 import { storageGetItem, storageSetItem } from '@napplet/nub/storage/sdk';
+
+const REQUIRED_NUBS = ['ifc', 'storage'] as const;
 
 // ─── Notification Helpers ─────────────────────────────────────────────────────
 
@@ -40,6 +42,13 @@ function formatError(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message) return error.message;
   if (typeof error === 'string' && error.length > 0) return error;
   return fallback;
+}
+
+function getMissingRequiredNubs(): string[] {
+  const supports = (window as unknown as {
+    napplet: { shell: { supports(capability: string): boolean } };
+  }).napplet.shell.supports;
+  return REQUIRED_NUBS.filter((capability) => !supports(capability));
 }
 
 // Rule storage: trigger -> response
@@ -186,9 +195,14 @@ function handleChatMessage(payload: unknown): void {
 // --- SDK Init ---
 
 async function init(): Promise<void> {
+  const missing = getMissingRequiredNubs();
+  if (missing.length > 0) {
+    throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+  }
+
   // Load persisted rules, then set the positive UI marker.
   await loadRules();
-  statusEl.textContent = 'authenticated';
+  statusEl.textContent = 'ready';
   statusEl.style.color = '#39ff14';
   log('listening for ifc chat:message input', 'info');
 
@@ -198,7 +212,7 @@ async function init(): Promise<void> {
 }
 
 init().catch((err) => {
-  statusEl.textContent = 'auth failed';
+  statusEl.textContent = 'unavailable';
   statusEl.style.color = '#ff3b3b';
-  log(`init failed -- ${formatError(err, 'auth/storage failure')}`, 'error');
+  log(`init failed -- ${formatError(err, 'NIP-5D capability/storage failure')}`, 'error');
 });

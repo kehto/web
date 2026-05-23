@@ -9,7 +9,7 @@
  * Test 1 (plain): the composer napplet dispatches a relay.publish envelope via relayPublish.
  * The demo's relay pool is stubbed (no real network publish) — the assertion is that the
  * envelope REACHES the shell (visible in napplet-debugger) and the composer's status
- * transitions away from 'authenticated' to either 'published:*' or 'denied:*'.
+ * transitions away from 'ready' to either 'published:*' or 'denied:*'.
  *
  * Test 2 (encrypted): the composer napplet with #composer-encrypted-toggle checked dispatches
  * a relay.publishEncrypted envelope (NIP-44 default) via relayPublishEncrypted. The demo has no
@@ -44,7 +44,7 @@ test('composer dispatches relay.publish envelope visible in debugger', async ({ 
   await demoBeforeEach(page);
 
   const composerFrame = page.frameLocator('#composer-frame-container iframe');
-  await expect(composerFrame.locator('#composer-status')).toContainText('authenticated', { timeout: 10_000 });
+  await expect(composerFrame.locator('#composer-status')).toContainText('ready', { timeout: 10_000 });
 
   // Get a direct frame reference — CDP Runtime evaluate works in sandboxed cross-origin frames.
   const composerFrameDirect = page.frames().find(f => f.url().includes('/composer/'));
@@ -62,7 +62,7 @@ test('composer dispatches relay.publish envelope visible in debugger', async ({ 
     (document.getElementById('composer-publish-btn') as HTMLButtonElement | null)?.click();
   });
 
-  // Status should transition away from 'authenticated' — either 'published:*' or 'denied:*'.
+  // Status should transition away from 'ready' — either 'published:*' or 'denied:*'.
   // Both outcomes prove the envelope was dispatched and a reply was received.
   await expect(composerFrame.locator('#composer-status')).toContainText(/^(published:|denied:)/, { timeout: 12_000 });
 
@@ -86,7 +86,7 @@ test('composer with encrypted toggle dispatches relay.publishEncrypted envelope'
   await demoBeforeEach(page);
 
   const composerFrame = page.frameLocator('#composer-frame-container iframe');
-  await expect(composerFrame.locator('#composer-status')).toContainText('authenticated', { timeout: 10_000 });
+  await expect(composerFrame.locator('#composer-status')).toContainText('ready', { timeout: 10_000 });
 
   // Get a direct frame reference — CDP Runtime evaluate works in sandboxed cross-origin frames.
   const composerFrameDirect = page.frames().find(f => f.url().includes('/composer/'));

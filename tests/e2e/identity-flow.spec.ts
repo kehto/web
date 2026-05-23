@@ -38,11 +38,11 @@ test('profile-viewer reads identity.getPublicKey and renders truncated pubkey', 
 
   const profileFrame = page.frameLocator('#profile-viewer-frame-container iframe');
 
-  // Step 1: wait for status transition from 'connecting...' to 'authenticated' (init resolves).
+  // Step 1: wait for status transition from 'connecting...' to identity-bound or loaded.
   // When no signer is configured, getPublicKey returns immediately with empty pubkey so the status
-  // can race from 'authenticated' to 'loaded' before Playwright polls — accept any valid post-auth state.
+  // can race from 'identity-bound' to 'loaded' before Playwright polls.
   await expect(profileFrame.locator('#profile-status')).toContainText(
-    /^(authenticated|loaded|denied:)/,
+    /^(identity-bound|loaded|denied:)/,
     { timeout: 10_000 },
   );
 

@@ -5,7 +5,7 @@
  * Asserts:
  *   1. Fixture loads and reaches __nappletReady__ (session registered).
  *   2. The fixture's storage.get envelope was dispatched on init.
- *   3. The fixture's #nub-status sentinel reflects 'authenticated'
+ *   3. The fixture's #nub-status sentinel reflects 'ready'
  *      (storage round-trip completed — proves the napplet is live and messaging works).
  *   4. Injecting a theme.get envelope FROM the napplet via __injectEnvelope__ is routed
  *      by the harness (envelope recorded in envelopeLog). The runtime replies with
@@ -13,7 +13,7 @@
  *      but the round-trip proves the theme NUB path is wired.
  *
  * No demo server dependency. No frameLocator interactions beyond reading sentinels.
- * The theme helper surface has no fixture-side AUTH probe — fixture uses storageGetItem as init signal.
+ * The theme helper surface has no fixture-side readiness probe -- fixture uses storageGetItem as init signal.
  */
 import { test, expect } from '@playwright/test';
 import { aclBeforeEach, waitForNappletReady } from './helpers/index.js';
@@ -22,7 +22,7 @@ test.describe.configure({ mode: 'serial' });
 
 const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]/;
 
-test('nub-theme: fixture authenticates via storage probe; theme.get envelope round-trips', async ({ page }) => {
+test('nub-theme: fixture reaches ready via storage probe; theme.get envelope round-trips', async ({ page }) => {
   test.setTimeout(30_000);
   const consoleMessages: string[] = [];
   const pageErrors: string[] = [];
@@ -48,9 +48,9 @@ test('nub-theme: fixture authenticates via storage probe; theme.get envelope rou
   expect(storageEnvelope).not.toBeNull();
   expect((storageEnvelope as { type: string }).type).toBe('storage.get');
 
-  // Fixture sets #nub-status to 'authenticated' after the storage probe completes.
+  // Fixture sets #nub-status to 'ready' after the storage probe completes.
   const statusLocator = page.frameLocator(`#${windowId}`).locator('#nub-status');
-  await expect(statusLocator).toContainText('authenticated', { timeout: 8_000 });
+  await expect(statusLocator).toContainText('ready', { timeout: 8_000 });
 
   // Inject a theme.get envelope FROM the napplet to the runtime via __injectEnvelope__.
   // The harness routes it through relay.handleMessage; the runtime's theme handler replies

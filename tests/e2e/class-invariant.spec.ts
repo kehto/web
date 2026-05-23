@@ -53,11 +53,11 @@ test.describe('class-invariant (E2E-20): class-2 theme-switcher relay:write deni
   test.beforeEach(async ({ page }) => {
     await demoBeforeEach(page);
 
-    // Wait for theme-switcher to reach authenticated -- the __setNappletClass__
-    // hook refuses pre-auth napplets, and __injectNubEnvelopeAsNapplet__ needs
+    // Wait for theme-switcher to reach ready -- the __setNappletClass__
+    // hook refuses pre-bound napplets, and __injectNubEnvelopeAsNapplet__ needs
     // the session entry to be registered and the iframe to be loaded.
     const themeFrame = page.frameLocator('#theme-switcher-frame-container iframe');
-    await expect(themeFrame.locator('#theme-status')).toContainText('authenticated', { timeout: 15_000 });
+    await expect(themeFrame.locator('#theme-status')).toContainText('ready', { timeout: 15_000 });
 
     // D12: reset theme-switcher class to null (permissive) before each test.
     const reset = await page.evaluate(() => {

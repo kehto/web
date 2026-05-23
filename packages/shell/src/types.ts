@@ -26,8 +26,8 @@ export type { ServiceHandler, ServiceRegistry };
 // ─── Registry Types ─────────────────────────────────────────────────────────
 
 /**
- * Registry entry mapping a napplet's pubkey to its runtime metadata.
- * Created after a successful NIP-42 AUTH handshake or NIP-5D origin registration.
+ * Registry entry mapping a napplet's session identity to runtime metadata.
+ * Created after NIP-5D iframe-origin registration.
  * @example
  * ```ts
  * const entry: SessionEntry = {
@@ -222,8 +222,9 @@ export interface AclCheckEvent {
 }
 
 /**
- * Static capability set injected into napplet iframes at creation time.
- * Used by `window.napplet.shell.supports()` for synchronous capability queries.
+ * Static capability set sent to napplet iframes through the shell.ready /
+ * shell.init handshake. Used by hosted `window.napplet.shell.supports()` for
+ * synchronous capability queries after the shim consumes shell.init.
  *
  * Per canonical NIP-5D (specs/NIP-5D.md lines 81-94), supports() distinguishes
  * two namespaces:
@@ -240,9 +241,9 @@ export interface AclCheckEvent {
  */
 export interface ShellCapabilities {
   /**
-   * NUB domain prefixes the shell handles. Canonical 8-domain set from @napplet/nub subpaths:
-   * relay, identity, storage, ifc, theme, keys, media, notify. `relay` is conditional
-   * on the RelayPoolHooks being provided.
+   * NUB domain prefixes the shell handles. Kehto's hosted playground set is:
+   * relay, identity, storage, ifc, theme, keys, media, notify, config,
+   * resource, connect, class. `relay` is conditional on RelayPoolHooks.
    *
    * Entries are bare domain names — `'relay'`, `'identity'`, etc. They MUST NOT
    * carry the `perm:` prefix; that prefix is reserved for the `sandbox` array.

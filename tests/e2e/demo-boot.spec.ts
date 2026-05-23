@@ -6,6 +6,8 @@
  * Phase 27) are now backed by real implementations; see STUB_ONLY_SERVICES in
  * apps/playground/src/shell-host.ts. No anti-term (window.nostr / signer-service /
  * BusKind / AUTH_KIND / kind === 29001/29002) appears in console output.
+ * Also guards the opaque-origin iframe postMessage regression where hosted
+ * napplets time out because a sender targets localhost instead of '*'.
  */
 import { test, expect } from '@playwright/test';
 import { demoBeforeEach } from './helpers/index.js';
@@ -14,6 +16,8 @@ test.use({ baseURL: 'http://localhost:4174' });
 test.describe.configure({ mode: 'serial' });
 
 const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]/;
+const POSTMESSAGE_TRANSPORT_RE =
+  /target origin provided|recipient window's origin \('null'\)|Transport request timed out|Error restoring session/i;
 
 test('demo renders 8 topology service nodes on boot', async ({ page }) => {
   const consoleMessages: string[] = [];
@@ -44,4 +48,16 @@ test('demo renders 8 topology service nodes on boot', async ({ page }) => {
   // No page errors matching anti-term
   const antiErrors = pageErrors.filter(m => ANTI_TERM_RE.test(m));
   expect(antiErrors, `anti-term found in page errors: ${antiErrors.join(' | ')}`).toHaveLength(0);
+
+  const transportConsole = consoleMessages.filter(m => POSTMESSAGE_TRANSPORT_RE.test(m));
+  expect(
+    transportConsole,
+    `postMessage transport regression in console: ${transportConsole.join(' | ')}`,
+  ).toHaveLength(0);
+
+  const transportErrors = pageErrors.filter(m => POSTMESSAGE_TRANSPORT_RE.test(m));
+  expect(
+    transportErrors,
+    `postMessage transport regression in page errors: ${transportErrors.join(' | ')}`,
+  ).toHaveLength(0);
 });

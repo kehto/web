@@ -6,11 +6,11 @@
  *
  *   UI-01  Service activity counters on topology service nodes tick
  *          as NUB envelopes of each service's domain are processed.
- *   UI-02  ACL Capability Matrix modal lists every authenticated
- *          napplet as a row (not the 'No authenticated napplets'
+ *   UI-02  ACL Capability Matrix modal lists every identity-bound
+ *          napplet as a row (not the 'No identity-bound napplets'
  *          placeholder).
  *   UI-03  Debugger Sequence Diagram renders a lane for every
- *          authenticated napplet (plus 'Shell'), not just a hardcoded
+ *          identity-bound napplet (plus 'Shell'), not just a hardcoded
  *          trio.
  *
  * Pre-Phase-30 shape (for future debugging):
@@ -19,9 +19,9 @@
  *          only routed to the `signer` node. Fix: service-level routing
  *          pass in installActivityProjection() + notify→notifications
  *          alias.
- *   UI-02: modal always showed 'No authenticated napplets' because the
+ *   UI-02: modal always showed 'No identity-bound napplets' because the
  *          aclAdapter.snapshot() was gated on `info.pubkey` instead of
- *          the NIP-5D `info.authenticated` flag. Fix: swap the gate.
+ *          the NIP-5D `info.identityBound` flag. Fix: swap the gate.
  *   UI-03: LANE_NAMES hardcoded to [Chat, Shell, Bot]. Fix: dynamic
  *          deriveLanes(messages, nappletInfos) helper replaces the
  *          constant.
@@ -38,6 +38,21 @@ test.use({ baseURL: 'http://localhost:4174' });
 test.describe.configure({ mode: 'serial' });
 
 const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]/;
+const IDENTITY_BOUND_STATUS_IDS = [
+  'bot-status',
+  'chat-status',
+  'composer-status',
+  'config-demo-status',
+  'decrypt-demo-status',
+  'feed-status',
+  'hotkey-chord-status',
+  'media-controller-status',
+  'preferences-status',
+  'profile-status',
+  'resource-demo-status',
+  'theme-status',
+  'toaster-status',
+] as const;
 
 test.describe('shell UI state surfaces (E2E-16)', () => {
   test.afterEach(async ({ page }) => {
@@ -57,7 +72,7 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
     // Boot traffic naturally drives:
     //   storage  → state-read x~12 (napplet boot reads)
     //   relay    → relay-subscribe x~12 (napplet subscriptions)
-    //   identity → identity-request x~4  (NIP-5D AUTH handshake)
+    //   identity → identity-request x~4  (identity/profile demos)
     // Each service's node innerText embeds 'ACTIVITY: N recent'. Poll until
     // every floor counter is ≥ 1.
     await expect.poll(
@@ -107,34 +122,27 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
     expect(antiConsole, `anti-term found in console: ${antiConsole.join(' | ')}`).toHaveLength(0);
   });
 
-  test('ACL Capability Matrix lists all authenticated napplets (UI-02)', async ({ page }) => {
+  test('ACL Capability Matrix lists all identity-bound napplets (UI-02)', async ({ page }) => {
     await demoBeforeEach(page);
 
-    // Give the 11 napplets time to finish AUTH before opening the matrix.
-    // Without this, the snapshot() sees a partial AUTH set and the row
-    // count may be < 11 even with the Phase 30 fix applied.
-    // Phase 39 Plan 39-04 added config-demo as the 11th napplet (CONFIG-03).
+    // Give the full playground roster time to become identity-bound before opening the matrix.
+    // Without this, the snapshot() sees a partial identity-bound set and the row
+    // count may be incomplete even with the Phase 30 fix applied.
     await expect
       .poll(
         async () => {
-          return await page.evaluate(() => {
-            const ids = [
-              'bot-status', 'chat-status', 'composer-status', 'config-demo-status',
-              'feed-status', 'hotkey-chord-status', 'media-controller-status',
-              'preferences-status', 'profile-status',
-              'theme-status', 'toaster-status',
-            ];
-            let authed = 0;
+          return await page.evaluate((ids) => {
+            let bound = 0;
             for (const id of ids) {
               const el = document.getElementById(id);
-              if (el && (el.textContent ?? '').trim() === 'authenticated') authed += 1;
+              if (el && (el.textContent ?? '').trim() === 'identity-bound') bound += 1;
             }
-            return authed;
-          });
+            return bound;
+          }, IDENTITY_BOUND_STATUS_IDS as unknown as string[]);
         },
         { timeout: 10_000, intervals: [250, 500, 1000] },
       )
-      .toBeGreaterThanOrEqual(11);
+      .toBe(IDENTITY_BOUND_STATUS_IDS.length);
 
     // Open the ACL node inspector, then click the Open Policy Matrix button.
     await page.locator('#topology-node-acl').click();
@@ -143,42 +151,55 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
     // Modal must render.
     await expect(page.locator('#acl-policy-modal')).toBeVisible({ timeout: 5_000 });
 
-    // Row count = 12 (one row per AUTHENTICATED napplet; resource-demo is the 12th — Phase 40).
+    // Row count = one row per identity-bound playground napplet.
     const rows = page.locator('#acl-policy-modal tbody tr');
-    await expect(rows).toHaveCount(12, { timeout: 5_000 });
+    await expect(rows).toHaveCount(IDENTITY_BOUND_STATUS_IDS.length, { timeout: 5_000 });
 
-    // No "No authenticated napplets" placeholder cell.
+    // No "No identity-bound napplets" placeholder cell.
     const emptyCells = page.locator('#acl-policy-modal tbody td[colspan]', {
-      hasText: /no authenticated napplets/i,
+      hasText: /no identity-bound napplets/i,
     });
     await expect(emptyCells).toHaveCount(0);
   });
 
-  test('Sequence Diagram renders a lane for each authenticated napplet (UI-03)', async ({ page }) => {
+  test('runtime demo surfaces are grouped separately without empty ACL slots', async ({ page }) => {
+    await demoBeforeEach(page);
+
+    const runtimeRegion = page.locator('#topology-runtime-demos');
+    await expect(runtimeRegion).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('#topology-napplets [data-topology-surface="napplet"]')).toHaveCount(9);
+    await expect(page.locator('#topology-napplets [data-topology-surface="runtime-demo"]')).toHaveCount(0);
+    await expect(runtimeRegion.locator('[data-topology-surface="runtime-demo"]')).toHaveCount(4);
+
+    await expect(page.locator('[data-napplet-name="config-demo"] .topology-node-kicker')).toHaveText('runtime demo');
+    await expect(page.locator('[data-napplet-name="decrypt-demo"] .topology-node-kicker')).toHaveText('runtime demo');
+    await expect(page.locator('[data-napplet-name="resource-demo"] .topology-node-kicker')).toHaveText('napplet');
+    await expect(page.locator('#config-demo-acl')).toHaveCount(0);
+    await expect(page.locator('#decrypt-demo-acl')).toHaveCount(0);
+    await expect(page.locator('#resource-demo-acl')).toBeVisible();
+    await expect(page.locator('#chat-acl')).toBeVisible();
+  });
+
+  test('Sequence Diagram renders a lane for each identity-bound napplet (UI-03)', async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
     await demoBeforeEach(page);
 
     // Ensure boot traffic has flowed before opening the debugger.
     await expect
       .poll(
         async () => {
-          return await page.evaluate(() => {
-            const ids = [
-              'bot-status', 'chat-status', 'composer-status', 'feed-status',
-              'hotkey-chord-status', 'media-controller-status',
-              'preferences-status', 'profile-status',
-              'theme-status', 'toaster-status',
-            ];
-            let authed = 0;
+          return await page.evaluate((ids) => {
+            let bound = 0;
             for (const id of ids) {
               const el = document.getElementById(id);
-              if (el && (el.textContent ?? '').trim() === 'authenticated') authed += 1;
+              if (el && (el.textContent ?? '').trim() === 'identity-bound') bound += 1;
             }
-            return authed;
-          });
+            return bound;
+          }, IDENTITY_BOUND_STATUS_IDS as unknown as string[]);
         },
         { timeout: 10_000, intervals: [250, 500, 1000] },
       )
-      .toBeGreaterThanOrEqual(10);
+      .toBe(IDENTITY_BOUND_STATUS_IDS.length);
 
     // Click the Sequence tab inside the debugger shadow root.
     // querySelector inside page.evaluate does NOT auto-pierce shadow DOM —
@@ -248,6 +269,21 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
 
     expect(finalLanes.length, `lanes observed: ${finalLanes.join(', ')}`).toBeGreaterThanOrEqual(4);
     expect(finalLanes, `'Shell' not in lanes: ${finalLanes.join(', ')}`).toContain('Shell');
+
+    const diagramWidth = await page.evaluate(() => {
+      const dbg = document.getElementById('debugger') as (HTMLElement & { shadowRoot: ShadowRoot }) | null;
+      const container = dbg?.shadowRoot?.querySelector('#sequence-container') as HTMLElement | null;
+      const svg = container?.querySelector('svg') as SVGSVGElement | null;
+      return {
+        containerWidth: container?.clientWidth ?? 0,
+        viewBoxWidth: svg?.viewBox.baseVal.width ?? 0,
+      };
+    });
+
+    expect(
+      diagramWidth.viewBoxWidth,
+      `sequence viewBox ${diagramWidth.viewBoxWidth} should use container width ${diagramWidth.containerWidth}`,
+    ).toBeGreaterThanOrEqual(diagramWidth.containerWidth);
 
     // Silence unused-var warning for the poll-wrapped lane read.
     void lanes;

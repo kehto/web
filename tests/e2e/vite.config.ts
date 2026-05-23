@@ -6,7 +6,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@kehto/shell': path.resolve(__dirname, '../../packages/shell/src/index.ts'),
-      '@napplet/shim': '/home/sandwich/Develop/napplet/packages/shim/src/index.ts',
     },
   },
   server: {

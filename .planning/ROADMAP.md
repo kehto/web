@@ -14,101 +14,36 @@
 - [x] **v1.9: Napplet SDK Migration** - 3 phases (47-49), 3 plans, 12/12 requirements, 86 E2E specs green ([archive](milestones/v1.9-ROADMAP.md) | [audit](milestones/v1.9-MILESTONE-AUDIT.md))
 - [x] **v1.10: Compatibility Window Cleanup & Decrypt Demo Parity** - 3 phases (50-52), 3 plans, 10/10 requirements, 86 E2E specs green ([archive](milestones/v1.10-ROADMAP.md) | [audit](milestones/v1.10-MILESTONE-AUDIT.md))
 - [x] **v1.11: NIP-5A Gateway Artifact Parity** - 3 phases (53-55), 16/16 requirements, production-equivalent opaque-origin gateway artifact loading, 551 unit tests, 87 E2E specs green ([archive](milestones/v1.11-ROADMAP.md) | [audit](milestones/v1.11-MILESTONE-AUDIT.md))
+- [x] **v1.12: NIP-5D Contract Conformance** - 4 phases (56-59), 34/34 requirements, 560 unit tests, 89 E2E specs green, pinned-spec contract conformance across shell, shim/runtime, gateway load checks, and 13 playground napplets ([archive](milestones/v1.12-ROADMAP.md) | [requirements](milestones/v1.12-REQUIREMENTS.md) | [audit](milestones/v1.12-MILESTONE-AUDIT.md))
 
 ---
 
-## v1.11: NIP-5A Gateway Artifact Parity
+## Active Milestone
 
-**Goal:** Make local playground and E2E loading match the production NIP-5D/NIP-5A gateway path: opaque-origin sandboxed iframes, gateway-portable artifacts, and no local-only external asset loading shortcut.
-
-**Baseline entering v1.11:** 548 unit tests and 86 Playwright E2E tests passed at v1.10 close. Current playground napplet HTML references external `./assets/index-*.js` files, which works under local Vite middleware but is not the production-equivalent artifact assumption for opaque-origin NIP-5D gateway loading.
-
-**Coverage:** 16/16 requirements mapped.
-
-**Critical invariant:** Local playground loading must behave like the production NIP-5D/NIP-5A gateway path, not like a separate development convenience path. Without that continuity, local verification cannot prove production behavior.
-
-### Phases
-
-- [x] **Phase 53: Single-File Artifact Contract** - Add an explicit single-file artifact mode to `@napplet/vite-plugin`, make inline-script validation mode-aware, and compute aggregate hash/manifest data from final artifact bytes.
-- [x] **Phase 54: Playground Gateway Loader Parity** - Move all 13 playground napplets to the shared production-equivalent artifact path and load them through a local gateway-style route with real `(dTag, aggregateHash)` identity metadata.
-- [x] **Phase 55: Guards, Policy Docs, and Full Verification** - Lock the opaque-origin/single-file invariant with static guards, Playwright gateway-path coverage, policy docs, and the full build/type/unit/E2E loop.
+None. v1.12 is archived; start the next milestone with `$gsd-new-milestone`.
 
 ---
 
-## Phase Details
+## Backlog
 
-### Phase 53: Single-File Artifact Contract
+### Phase 999.1: Fix decrypt-demo fixture delivery pending state (BACKLOG)
 
-**Goal**: Make `@napplet/vite-plugin` capable of producing and validating a single-file NIP-5A artifact intentionally, instead of rejecting inline executable scripts unconditionally.
+**Goal:** Investigate and fix the playground `decrypt-demo` staying in `waiting for fixtures` / `[pending]` for NIP-04, NIP-44, NIP-17, and Class-2 probe rows.
 
-**Depends on**: v1.11 requirements accepted; corrected quick decision 260522-lb0.
+**Captured:** 2026-05-23 via `$gsd-capture --backlog`
 
-**Requirements**: GATEWAY-01, GATEWAY-03, ARTIFACT-01, ARTIFACT-02, ARTIFACT-03, ARTIFACT-04
+**Observed symptom:** User screenshot shows the decrypt demo panel stuck with:
+- `waiting for fixtures`
+- `NIP-04 [pending]`
+- `NIP-44 [pending]`
+- `NIP-17 [pending]`
+- `Class-2 [pending]`
 
-**Rationale**: The current plugin guard was useful for the external-asset shape, but local testing must now follow the production gateway artifact model. The plugin owns the final build artifact and aggregate-hash injection, so the artifact contract belongs here first.
-
-**Success Criteria** (what must be TRUE):
-  1. `@napplet/vite-plugin` exposes an explicit single-file artifact mode.
-  2. Build-generated inline module scripts are accepted only in that explicit mode.
-  3. The aggregate hash is computed from the final emitted artifact bytes after inlining.
-  4. Config schema and connect-origin synthetic inputs still participate in aggregate-hash computation.
-  5. Existing non-single-file behavior either remains guarded or is removed intentionally during this phase, with tests documenting the chosen contract.
-
-**Plans**: [53-01-PLAN.md](phases/53-single-file-artifact-contract/53-01-PLAN.md)
-
-**Completed**: 2026-05-22 ([summary](phases/53-single-file-artifact-contract/53-01-SUMMARY.md) | [verification](phases/53-single-file-artifact-contract/53-VERIFICATION.md))
-
-### Phase 54: Playground Gateway Loader Parity
-
-**Goal**: Make the playground exercise the same artifact shape a NIP-5A gateway is expected to serve.
-
-**Depends on**: Phase 53
-
-**Requirements**: GATEWAY-02, PLAYGROUND-01, PLAYGROUND-02, PLAYGROUND-03
-
-**Rationale**: The playground is the operator-visible local proof surface. If it keeps loading a Vite-only external asset shape, it will keep masking production gateway issues.
-
-**Success Criteria** (what must be TRUE):
-  1. All 13 playground napplets use a shared production-equivalent build/config path.
-  2. The active playground loader uses gateway-resolved `(dTag, aggregateHash)` instead of the current empty-hash demo convention.
-  3. The active happy path does not require external executable JS bundle routes.
-  4. All existing playground demo surfaces still boot and show their current user-visible behavior.
-
-**Plans**: [54-01-PLAN.md](phases/54-playground-gateway-loader-parity/54-01-PLAN.md)
-
-**Completed**: 2026-05-22 ([summary](phases/54-playground-gateway-loader-parity/54-01-SUMMARY.md) | [verification](phases/54-playground-gateway-loader-parity/54-VERIFICATION.md))
-
-### Phase 55: Guards, Policy Docs, and Full Verification
-
-**Goal**: Prevent drift back to a local-only loading model and document the final contract.
-
-**Depends on**: Phase 54
-
-**Requirements**: GATEWAY-04, POLICY-01, GUARD-01, E2E-33, E2E-34, DOCS-10
-
-**Rationale**: This milestone changes a load-bearing artifact assumption. It is complete only when tests, guards, and docs all agree that local playground loading is production-equivalent.
-
-**Success Criteria** (what must be TRUE):
-  1. Static guard coverage fails if the active playground path reintroduces external executable script assets or `allow-same-origin`.
-  2. Static or E2E evidence proves the verified happy path is the production-equivalent gateway path, not a side dev convenience path.
-  3. Playwright proves opaque-origin sandboxing and successful gateway-style boot for all 13 napplets.
-  4. Policy/spec/docs describe the single-file gateway artifact path and do not teach local external asset serving as canonical.
-  5. `pnpm build`, `pnpm type-check`, `pnpm test:unit`, and `pnpm test:e2e` pass.
-
-**Plans**: [55-01-PLAN.md](phases/55-guards-policy-docs-full-verification/55-01-PLAN.md)
-
-**Completed**: 2026-05-22 ([summary](phases/55-guards-policy-docs-full-verification/55-01-SUMMARY.md) | [verification](phases/55-guards-policy-docs-full-verification/55-VERIFICATION.md))
+**Acceptance direction:**
+- The playground decrypt demo receives fixtures reliably after boot.
+- NIP-04, NIP-44, NIP-17, and Class-2 rows leave `[pending]` and settle to the expected terminal state.
+- Regression coverage catches fixture-delivery stalls in the real playground path.
 
 ---
 
-## Progress
-
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 53. Single-File Artifact Contract | 1/1 | Completed | 2026-05-22 |
-| 54. Playground Gateway Loader Parity | 1/1 | Completed | 2026-05-22 |
-| 55. Guards, Policy Docs, and Full Verification | 1/1 | Completed | 2026-05-22 |
-
----
-
-*ROADMAP.md last updated: 2026-05-22 - v1.11 completed.*
+*ROADMAP.md last updated: 2026-05-23 - backlog capture 999.1 added.*

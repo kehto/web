@@ -5,15 +5,17 @@
  *   - On init: subscribes via relaySubscribe({ kinds: [1], limit: 5 }, onEvent, onEose).
  *     Events arrive from the demo's in-memory mock relay pool (Plan 20-01, CONTEXT D-USER-01);
  *     5 fixture kind:1 events are delivered then EOSE fires.
- *   - #feed-status transitions: 'connecting...' → 'authenticated' → 'subscribed' → 'loaded (N)'
+ *   - #feed-status transitions: 'connecting...' → 'subscribed' → 'loaded (N)'
  *   - #feed-list renders one <li class="feed-item"> per received event with pubkey + content
  *
  * Anti-features (per v1.3 milestone): no raw window message protocol listener, no NIP-01 arrays,
- *   no legacy bus enums, no global nostr accessor. Shim handles AUTH implicitly.
+ *   no legacy bus enums, no global nostr accessor. Shim handles NIP-5D envelopes.
  */
 import '@napplet/shim';
 import { relaySubscribe } from '@napplet/nub/relay/sdk';
 import type { NostrEvent, Subscription } from '@napplet/core';
+
+const REQUIRED_NUBS = ['relay'] as const;
 
 const statusEl = document.getElementById('feed-status')!;
 const listEl = document.getElementById('feed-list')!;
@@ -44,6 +46,13 @@ function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void
   statusEl.style.color = color === 'green' ? '#39ff14' : color === 'red' ? '#ff3b3b' : '#888';
 }
 
+function getMissingRequiredNubs(): string[] {
+  const supports = (window as unknown as {
+    napplet: { shell: { supports(capability: string): boolean } };
+  }).napplet.shell.supports;
+  return REQUIRED_NUBS.filter((capability) => !supports(capability));
+}
+
 let eventCount = 0;
 
 function renderEvent(event: NostrEvent): void {
@@ -62,8 +71,11 @@ function renderEvent(event: NostrEvent): void {
 let sub: Subscription | null = null;
 
 async function init(): Promise<void> {
-  // Initialize: flip status to 'authenticated' then dispatch relay.subscribe.
-  setStatus('authenticated', 'green');
+  const missing = getMissingRequiredNubs();
+  if (missing.length > 0) {
+    throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+  }
+
   log('subscribing to kind:1 feed');
 
   try {
@@ -95,9 +107,9 @@ async function init(): Promise<void> {
 }
 
 init().catch((err) => {
-  // If status hasn't been set by the inner catch, set auth-failed.
+  // If status hasn't been set by the inner catch, set unavailable.
   if (statusEl.textContent === 'connecting...') {
-    setStatus('auth failed', 'red');
-    log(`init failed — ${formatError(err, 'auth/subscribe failure')}`);
+    setStatus('unavailable', 'red');
+    log(`init failed — ${formatError(err, 'NIP-5D capability/subscribe failure')}`);
   }
 });

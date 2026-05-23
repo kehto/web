@@ -16,7 +16,7 @@ import {
   loadNapplet,
   getNotificationServiceHandler,
   getThemeServiceBundle,
-  findAuthenticatedNappletWindowIdByDTag,
+  findIdentityBoundNappletWindowIdByDTag,
   relay,
   toggleService,
   setDemoConfigValue,
@@ -648,7 +648,8 @@ if (shellPubkey) shellPubkey.textContent = `pubkey: ${getDemoHostPubkey().substr
 // Hoisted before napplet loading (Phase 40 Plan 40-02) so resource-demo can
 // grant its manifest-derived aggregateHash before loadNapplet navigates the
 // iframe. Phase 40 D3 requires the grant to land before the iframe's first HTTP
-// request so the Vite serveNappletCsp plugin emits connect-src localhost:4174.
+// request so the Vite serveNappletCsp plugin emits connect-src for the active
+// playground origin.
 //
 // Plan 39-05's E2E specs (connect-consent.spec.ts, connect-revocation.spec.ts,
 // nub-config.spec.ts) need to grant/revoke connect origins and publish config
@@ -724,27 +725,29 @@ window.addEventListener('shell:connect-revoked', (event) => {
 });
 
 // ─── Phase 40 Plan 40-02 (RESOURCE-04 / D3): resource-demo auto-grant ────────
-// Grants http://localhost:4174 to resource-demo at demo boot so the Vite
-// serveNappletCsp plugin (Phase 39 Plan 39-03) emits connect-src localhost:4174
+// Grants the active playground origin to resource-demo at demo boot so the Vite
+// serveNappletCsp plugin (Phase 39 Plan 39-03) emits the matching connect-src
 // on the iframe HTML response. No user click-through — deterministic for E2E.
 // Phase 40 Plan 40-03 fix: uses 4174 (demo server) not 5174 (napplet dev server)
-// because demo-data.json is served from apps/playground/public/ at the demo origin.
-// In preview mode (E2E), no server runs at 5174; the fixture is at /demo-data.json
-// on the same 4174 origin that serves the built demo.
+// because demo-data.json is served from apps/playground/public/ at the active
+// demo origin. In preview mode (E2E), the fixture is at /demo-data.json on the
+// same 4174 origin that serves the built demo; on GitHub Pages it is under the
+// repository Pages base path.
 //
 // Phase 39 Dev 2 safety: does NOT touch the shell:connect-revoked path at all;
 // the revocation handler's snapshot-before-mutate pattern is preserved unchanged.
 async function pregrantBeforeGatewayNavigation(metadata: GatewayNappletMetadata): Promise<void> {
   if (metadata.dTag !== 'resource-demo') return;
+  const grantedOrigin = window.location.origin;
   const ok = await grantConnectOrigin(
     metadata.dTag,
     metadata.aggregateHash,
-    'http://localhost:4174',
+    grantedOrigin,
   );
   if (!ok) {
     console.warn('[demo] resource-demo auto-grant failed; E2E may fail on granted-fetch assertion');
   } else {
-    console.info('[demo] resource-demo: pre-granted http://localhost:4174 (RESOURCE-04 / D3)');
+    console.info(`[demo] resource-demo: pre-granted ${grantedOrigin} (RESOURCE-04 / D3)`);
   }
 }
 
@@ -752,6 +755,10 @@ async function pregrantBeforeGatewayNavigation(metadata: GatewayNappletMetadata)
 for (const napplet of DEMO_NAPPLETS) {
   void loadNapplet(napplet.name, napplet.frameContainerId, {
     beforeNavigate: pregrantBeforeGatewayNavigation,
+  }).then(() => {
+    setTimeout(() => {
+      refreshAclPanelsIfNeeded();
+    }, 0);
   }).catch((err) => {
     const statusEl = document.getElementById(napplet.statusId);
     if (statusEl) {
@@ -929,18 +936,17 @@ const aclRendered = new Set<string>();
 // "7/10 stuck on LOADING" user-visible bug. hotkey-chord + media-controller
 // were missing from the function entirely.
 //
-// shell-host.ts already detects AUTH for all 10 napplets via Path A
-// (NIP-01 OK at shell-host.ts:810-827) and Path B (first ENVELOPE at
-// shell-host.ts:832-844). This function is pure display: for each
-// authenticated napplet, update its outer topology status sentinel once.
+// shell-host.ts marks each napplet identity-bound from the gateway-derived
+// source tuple registered for its iframe. This function is pure display: for
+// each identity-bound napplet, update its outer topology status sentinel once.
 function refreshAclPanelsIfNeeded(): void {
   for (const napplet of DEMO_NAPPLETS) {
     if (aclRendered.has(napplet.name)) continue;
     const info = [...getNapplets().values()].find((entry) => entry.name === napplet.name);
-    if (!info?.authenticated) continue;
+    if (!info?.identityBound) continue;
     const statusEl = document.getElementById(napplet.statusId);
     if (statusEl) {
-      statusEl.textContent = 'authenticated';
+      statusEl.textContent = 'identity-bound';
       statusEl.style.color = '#39ff14';
     }
     aclRendered.add(napplet.name);
@@ -953,18 +959,23 @@ function refreshAclPanelsIfNeeded(): void {
   refreshNodeSummaries();
 }
 
+window.addEventListener('napplet:identity-bound', () => {
+  setTimeout(() => {
+    refreshAclPanelsIfNeeded();
+  }, 0);
+});
+
 tap.onMessage((msg) => {
-  // Path A: NIP-01 OK success (legacy pubkey-based napplets like chat/bot)
+  // Legacy OK success can still wake old fixture paths.
   if (msg.verb === 'OK' && msg.parsed.success === true && msg.direction === 'shell->napplet') {
     setTimeout(() => {
       refreshAclPanelsIfNeeded();
     }, 200);
   }
 
-  // Path B: NIP-5D envelope-only napplets (composer/preferences/toaster, feed,
-  // profile-viewer, theme-switcher, hotkey-chord, media-controller).
-  // The shell-host sets info.authenticated=true on the first ENVELOPE from a napplet.
-  // We respond to that envelope here to trigger ACL panel rendering.
+  // Envelope traffic can still wake ACL panel rendering for reloads and
+  // diagnostics, but source-derived NIP-5D identity no longer depends on a
+  // startup protocol message.
   //
   // Phase 29 (Plan 29-01): removed the stale `aclRendered.size < 8` bail — that
   // count was set in Phase 20 (pre-hotkey-chord, pre-media-controller) and kept
@@ -1000,7 +1011,7 @@ export function setSelectedNode(id: string | null): void {
 // invariant. Hook placement is locked by D9 to demo main.ts (not shell-host).
 // Shape mirrors __grantKeysForward__/__grantMediaControl__ patterns (Plans
 // 26-03/27-03): dTag-scoped mutation hook returning true on success, false
-// when the target napplet is not yet loaded or not yet authenticated.
+// when the target napplet is not yet loaded or not yet identity-bound.
 //
 // CLASS-01/02 semantics: class is normally resolved synchronously at iframe
 // creation. This test hook mutates the already-registered session entry's
@@ -1017,9 +1028,9 @@ export function setSelectedNode(id: string | null): void {
 (window as Window & {
   __setNappletClass__?: (dTag: string, newClass: NappletClass) => boolean;
 }).__setNappletClass__ = (dTag: string, newClass: NappletClass): boolean => {
-  const windowId = findAuthenticatedNappletWindowIdByDTag(dTag);
+  const windowId = findIdentityBoundNappletWindowIdByDTag(dTag);
   if (!windowId) {
-    console.warn(`[demo] __setNappletClass__: ${dTag} not loaded or not authenticated`);
+    console.warn(`[demo] __setNappletClass__: ${dTag} not loaded or not identity-bound`);
     return false;
   }
   const entry = relay.runtime.sessionRegistry.getEntryByWindowId(windowId);
@@ -1065,9 +1076,9 @@ export function setSelectedNode(id: string | null): void {
 (window as Window & {
   __injectNubEnvelopeAsNapplet__?: (dTag: string, envelope: Record<string, unknown>) => boolean;
 }).__injectNubEnvelopeAsNapplet__ = (dTag: string, envelope: Record<string, unknown>): boolean => {
-  const windowId = findAuthenticatedNappletWindowIdByDTag(dTag);
+  const windowId = findIdentityBoundNappletWindowIdByDTag(dTag);
   if (!windowId) {
-    console.warn(`[demo] __injectNubEnvelopeAsNapplet__: ${dTag} not loaded or not authenticated`);
+    console.warn(`[demo] __injectNubEnvelopeAsNapplet__: ${dTag} not loaded or not identity-bound`);
     return false;
   }
   // Find the iframe for this napplet by its windowId (the id attribute set in loadNapplet).

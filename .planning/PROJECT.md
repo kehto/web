@@ -34,35 +34,31 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Active:** v1.11 — NIP-5A Gateway Artifact Parity (started 2026-05-22)
+**Active:** Awaiting next milestone. v1.12 — NIP-5D Contract Conformance shipped 2026-05-22.
 
-v1.11 aligns the local playground and E2E path with the production NIP-5D/NIP-5A gateway path. The critical invariant is that local playground loading must behave like production gateway loading, not like a separate development convenience path. Without that continuity, local verification cannot prove production behavior.
+v1.12 established the pinned NIP-5D contract as the repo-local authority, then brought the playground shell, shared napplet runtime/shim surface, and all 13 playground napplets into conformance. The milestone used `.planning/NIP-5D-DELTA-AUDIT.md` as the current-state inventory and repaired `RUNTIME-SPEC.md` plus `napplet/specs/NIP-5D.md` as drift sources.
 
-The baseline entering v1.11 is v1.10's final verification state: 548 unit tests and 86 Playwright E2E tests passing.
+The baseline after v1.12 is pinned-spec NIP-5D conformance across shell, shim/runtime, gateway load checks, and all 13 playground napplets, with 560 unit tests, `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and 89/89 Playwright E2E tests passing.
 
-## Current Milestone: v1.11 NIP-5A Gateway Artifact Parity
+## Current Milestone: none
 
-**Goal:** Make local playground and E2E loading match the production NIP-5D/NIP-5A gateway path: opaque-origin sandboxed iframes, gateway-portable artifacts, and no local-only external asset loading shortcut.
+Start the next milestone with `$gsd-new-milestone`.
 
-**Target features:**
-- Explicit single-file artifact mode in `@napplet/vite-plugin`, with aggregate hashes computed from final emitted artifact bytes.
-- Playground loader and E2E path that use the same artifact shape a NIP-5A gateway is expected to serve.
-- Static and Playwright guards proving no active verified path depends on `allow-same-origin` or local-only external executable bundle serving.
-- Policy/spec/docs updated so local development and production gateway behavior stay continuous.
-
-Deferred candidates remain host bridge reference implementations, multi-OS CI matrix expansion, and upstream-helper-gap follow-up for toaster/resource-demo when the upstream package surface supports it.
+Deferred candidates remain host bridge reference implementations, multi-OS CI matrix expansion, a public gateway product, CI/release packaging, and package publication.
 
 ### Latest Milestone Accomplishments
 
-- **Identity topic cleanup:** canonical `identity:changed` injection emits once; deprecated `auth:identity-changed` no longer fans out to the canonical topic.
-- **Decrypt demo parity:** `decrypt-demo` now pins exact `@napplet/shim`, `@napplet/nub`, and `@napplet/vite-plugin` `0.3.0` and calls `identityDecrypt` from `@napplet/nub/identity/sdk`.
-- **Regression guard:** `tests/unit/sdk-migration-guard.test.ts` fails on package graph drift, old napplet helper lockfile package keys, migrated source imports from `@napplet/sdk`, or reintroduced decrypt-demo raw plumbing.
-- **Current docs:** README, source comments, runtime spec, and v1.10 changesets now teach `identity:changed` and `identityDecrypt` as the current surfaces.
-- **Full verification:** build/type-check/unit/E2E are green at 27/27 build tasks, 11/11 type-check tasks, 548 unit tests, and 86 Playwright tests.
+- **Pinned NIP-5D authority:** `specs/NIP-5D.md` is sourced only from the pinned `dskvr/nips` commit; stale AUTH/REGISTER/NIP-01 protocol-identity drift was removed from active docs.
+- **Shell-derived capabilities:** hosted `window.napplet.shell.supports()` now reflects shell-provided capability inventory, not static shim knowledge.
+- **Manifest `requires` load checks:** gateway metadata exposes parsed `requires` tags and the shell rejects unsupported required NUBs before iframe navigation.
+- **13-napplet contract coverage:** every playground napplet declares explicit NUB requirements and preflights them with hosted `supports()`.
+- **Raw-envelope policy:** remaining raw demo/test envelopes are documented and statically allowlisted.
+- **Regression guards:** unit/static/E2E coverage now guards sandbox policy, source validation, no napplet `window.nostr`, forbidden browser/protocol primitives, requires coverage, hosted supports behavior, and unsupported-requires rejection.
+- **Full verification:** build/type-check/unit/CSP/artifact/E2E are green at 32/32 build tasks, 18/18 type-check tasks, 560 unit tests, and 89 Playwright tests.
 
-10/10 v1.10 requirements satisfied; 3/3 phase VERIFICATION.md files passed; 5/5 integration paths wired; 0 critical gaps.
+34/34 v1.12 requirements satisfied; 4/4 phase VERIFICATION.md files passed; 6/6 integration paths wired; 0 critical gaps.
 
-**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability), v1.6 (downstream unblock), v1.7 (spec adoption + 2 new domains), v1.8 (upstream alignment + decrypt), v1.9 (SDK migration), v1.10 (compatibility cleanup + decrypt-demo parity).
+**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability), v1.6 (downstream unblock), v1.7 (spec adoption + 2 new domains), v1.8 (upstream alignment + decrypt), v1.9 (SDK migration), v1.10 (compatibility cleanup + decrypt-demo parity), v1.11 (gateway artifact parity), v1.12 (NIP-5D contract conformance).
 
 ### Previously Shipped
 
@@ -98,7 +94,7 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 | 1 | Separate repo (not monorepo subfolder) | Independent release cadence, different maintainers possible | 2026-04-06 |
 | 2 | @napplet/core as peer dep | Core types shared; @napplet publishes, @kehto consumes | 2026-04-06 |
 | 3 | Mirror @napplet tooling exactly | Consistency, easy contributor onboarding | 2026-04-06 |
-| 4 | Canonical NIP-5D source is `dskvr/nips` branch `nip/5d` | Single authoritative spec — napplet/specs is no longer the source of truth | 2026-04-17 |
+| 4 | Canonical NIP-5D source is pinned raw `dskvr/nips` commit `d80d7b25f9c4331acbeb40dbeb3b077caa80e885` | Single authoritative spec for v1.12; moving branch heads, `RUNTIME-SPEC.md`, and `napplet/specs/NIP-5D.md` are not authority for this milestone | 2026-05-22 |
 | 5 | Shell MUST NOT provide `window.nostr` | Canonical spec forbids napplet-visible signing; shell mediates all signing/encryption via `relay.publish`/`publishEncrypted` | 2026-04-17 |
 | 6 | `createDispatch()` + `registerNub()` from @napplet/core replaces hand-rolled switch | Spec dispatch contract rather than kehto reimplementation; per-runtime instance avoids cross-test pollution | 2026-04-17 |
 | 7 | Stub-level services for keys/media/notify (no real backends) | Host apps plug real backends via `runtime.registerService()`; kehto remains framework-agnostic reference | 2026-04-17 |
@@ -130,6 +126,7 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 | 33 | Identity-topic compatibility removal stays in v1, not v2 | User explicitly scoped v1.10 as a v1 cleanup/continuity release. The deprecated `auth:identity-changed` compatibility branch was removed after its v1.8/v1.9 window, while the literal deprecated topic remains a generic injected event if host code still emits it. | 2026-05-22 |
 | 34 | Helper-only demo guards are separate from SDK migration guards | `decrypt-demo` intentionally has no `@napplet/sdk` dependency, so v1.10 split guard coverage into SDK-bearing targets and helper-graph targets. This keeps exact `0.3.0` helper enforcement without inventing a fake SDK dependency. | 2026-05-22 |
 | 35 | Local playground loading must match the production NIP-5D/NIP-5A gateway path | NIP-5D requires opaque-origin sandboxed iframes, and local verification is only meaningful if it exercises the same artifact shape production gateways serve. A separate dev convenience path would break continuity between development and production. | 2026-05-22 |
+| 36 | `.planning/NIP-5D-DELTA-AUDIT.md` is the v1.12 delta inventory | The audit already compares the pinned NIP-5D contract to current shell/runtime/napplet behavior; milestone planning should use it instead of rediscovering drift. | 2026-05-22 |
 
 ## Evolution
 
@@ -149,4 +146,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-22 — v1.11 milestone started (NIP-5A Gateway Artifact Parity)*
+*Last updated: 2026-05-22 — v1.12 milestone completed (NIP-5D Contract Conformance)*

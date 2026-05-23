@@ -2,9 +2,9 @@
  * resource-demo napplet -- exercises NUB-RESOURCE (RESOURCE-04, v1.7 Phase 40 / D1..D6).
  *
  * On init:
- *   1. Dispatches resource.bytes to http://localhost:4174/demo-data.json (granted at
- *      demo boot via __grantConnectOrigin__ — D3). Shell proxies the fetch and returns
- *      resource.bytes.result with base64-encoded body.
+ *   1. Dispatches resource.bytes to demo-data.json on the active playground origin
+ *      (granted at demo boot via __grantConnectOrigin__ — D3). Shell proxies the
+ *      fetch and returns resource.bytes.result with base64-encoded body.
  *   2. Dispatches resource.bytes to https://untrusted.example/ (D4: RFC-2606 reserved
  *      domain). Shell rejects without fetching and returns resource.bytes.error
  *      with code='denied'.
@@ -15,7 +15,7 @@
  *   - #resource-demo-denied   -- canonical error code + message from denied fetch (E2E-25)
  *   - #resource-demo-log      -- timestamped event log for diagnostics
  *
- * RESOURCE-SDK-GAP:
+ * RESOURCE-SDK-GAP (Phase 58 raw-envelope allowlist):
  *   @napplet/nub/resource/sdk@0.3.0 is published, but its helper surface expects
  *   upstream wire fields (`id`, Blob `blob`, `mime`, error field `error`). Kehto's
  *   current resource service intentionally uses its internal shell-side wire shape
@@ -33,6 +33,8 @@
  * packages/shell/src/types/internal-resource.ts.
  */
 import '@napplet/shim';
+
+const REQUIRED_NUBS = ['resource', 'connect'] as const;
 
 // ─── DOM sentinel references ──────────────────────────────────────────────────
 
@@ -56,6 +58,13 @@ function log(text: string): void {
   div.textContent = `${time} ${text}`;
   logEl.appendChild(div);
   logEl.scrollTop = logEl.scrollHeight;
+}
+
+function getMissingRequiredNubs(): string[] {
+  const supports = (window as unknown as {
+    napplet: { shell: { supports(capability: string): boolean } };
+  }).napplet.shell.supports;
+  return REQUIRED_NUBS.filter((capability) => !supports(capability));
 }
 
 // ─── Request ID factory ────────────────────────────────────────────────────────
@@ -129,12 +138,34 @@ function dispatchResourceBytes(requestId: string, url: string): void {
 
 // ─── URL constants (D1, D4) ───────────────────────────────────────────────────
 
-const GRANTED_URL = 'http://localhost:4174/demo-data.json';
+function getPlaygroundBaseUrl(): URL {
+  if (document.referrer.length > 0) {
+    return new URL('./', document.referrer);
+  }
+
+  const current = new URL(window.location.href);
+  const gatewayIndex = current.pathname.indexOf('/napplet-gateway/');
+  if (gatewayIndex >= 0) {
+    current.pathname = current.pathname.slice(0, gatewayIndex + 1);
+    current.search = '';
+    current.hash = '';
+    return current;
+  }
+
+  return new URL('/', current);
+}
+
+const GRANTED_URL = new URL('demo-data.json', getPlaygroundBaseUrl()).href;
 const DENIED_URL = 'https://untrusted.example/';  // D4: RFC-2606 reserved — never resolves
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 async function init(): Promise<void> {
+  const missing = getMissingRequiredNubs();
+  if (missing.length > 0) {
+    throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+  }
+
   setStatus('requesting...', 'gray');
 
   const grantedId = newRequestId();

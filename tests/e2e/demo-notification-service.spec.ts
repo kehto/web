@@ -7,10 +7,9 @@
  * playwright.config.ts (no local spawn), uses `demoBeforeEach`, and asserts on
  * canonical `notify.*` envelope type strings.
  *
- * Note: The demo napplets (chat, bot) still use the legacy NIP-01 array protocol
- * and do not reach "authenticated" state under the v1.2 shell (which accepts only
- * NIP-5D envelope objects). Napplet migration to NIP-5D is Phase 18. All tests
- * in this spec are host-side and do not require napplet authentication.
+ * Note: Earlier demo napplets used legacy NIP-01 arrays and could not become
+ * identity-bound under the NIP-5D shell. Napplet migration to NIP-5D was Phase 18.
+ * All tests in this spec are host-side and do not require napplet identity binding.
  */
 import { test, expect } from '@playwright/test';
 import { demoBeforeEach } from './helpers/index.js';

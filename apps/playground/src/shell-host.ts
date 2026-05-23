@@ -7,10 +7,12 @@
 
 import {
   createShellBridge,
+  buildShellCapabilities,
   originRegistry,
   connectStore,
   type ShellBridge,
   type ShellAdapter,
+  type ShellCapabilities,
   type ServiceHandler,
   type Capability,
   type NappletClass,
@@ -148,7 +150,7 @@ function createDemoDecryptBridge(): HostDecryptBridge {
         DEMO_DECRYPT_SECRET_KEY,
       );
       // nostr-tools returns the rumor only; the service contract expects the
-      // authenticated seal pubkey so it can enforce the impersonation check.
+      // validated seal pubkey so it can enforce the impersonation check.
       // The playground fixture bridge derives that sender from the returned
       // rumor for demo use. Real host bridges should return the actual seal.
       const seal: NostrEvent = {
@@ -207,10 +209,12 @@ export interface DemoNappletDefinition {
   statusId: string;
   aclId: string;
   frameContainerId: string;
+  surface?: 'napplet' | 'runtime-demo';
+  hasAclControls?: boolean;
 }
 
 export type DemoProtocolPath =
-  | 'auth'
+  | 'identity-bind'
   | 'relay-publish'
   | 'relay-subscribe'
   | 'ifc-send'
@@ -270,7 +274,7 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
   },
   // Composer/preferences/toaster (Phase 19) — each napplet sets its own #*-status sentinel
   // INSIDE its iframe via D-04 init pattern; the outer topology placeholder shows 'loading...'
-  // and is not updated by the host (no per-napplet AUTH projection in main.ts for the new 3).
+  // and is not updated by the host (no per-napplet protocol-status projection in main.ts for the new 3).
   // Layer-B specs assert the INNER iframe status via frameLocator, not the outer placeholder.
   {
     name: 'composer',
@@ -331,6 +335,8 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     statusId: 'hotkey-chord-status',
     aclId: 'hotkey-chord-acl',
     frameContainerId: 'hotkey-chord-frame-container',
+    surface: 'runtime-demo',
+    hasAclControls: false,
   },
   // Phase 27 (Plan 27-03): media-controller napplet exercises the real media
   // backend (MEDIA-01 navigator.mediaSession mirror + MEDIA-02 HostMediaBridge
@@ -344,6 +350,8 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     statusId: 'media-controller-status',
     aclId: 'media-controller-acl',
     frameContainerId: 'media-controller-frame-container',
+    surface: 'runtime-demo',
+    hasAclControls: false,
   },
   // Phase 39 (Plan 39-04 / CONFIG-03): config-demo napplet exercises the
   // NUB-CONFIG reference service (9th NUB domain). sdk.config.get + sdk.config.subscribe
@@ -356,14 +364,16 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     statusId: 'config-demo-status',
     aclId: 'config-demo-acl',
     frameContainerId: 'config-demo-frame-container',
+    surface: 'runtime-demo',
+    hasAclControls: false,
   },
   // Phase 40 (Plan 40-02 / RESOURCE-04): resource-demo napplet exercises the
   // NUB-RESOURCE reference service (10th NUB domain). Two resource.bytes
-  // dispatches on init: one to http://localhost:5174/demo-data.json
+  // dispatches on init: one to demo-data.json on the active playground origin
   // (granted at boot via __grantConnectOrigin__ — D3) and one to
   // https://untrusted.example (denied, D4). Plan 40-03's nub-resource.spec.ts
-  // asserts the granted panel (decoded JSON) + denied panel (canonical
-  // error code) via frameLocator on the iframe sentinels.
+  // asserts the granted panel (decoded JSON) + denied panel (canonical error
+  // code) via frameLocator on the iframe sentinels.
   {
     name: 'resource-demo',
     label: 'resource-demo',
@@ -382,6 +392,8 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     statusId: 'decrypt-demo-status',
     aclId: 'decrypt-demo-acl',
     frameContainerId: 'decrypt-demo-frame-container',
+    surface: 'runtime-demo',
+    hasAclControls: false,
   },
 ];
 
@@ -436,10 +448,10 @@ export const CLASS_BY_DTAG: ReadonlyMap<string, NappletClass> = new Map<string, 
 
 export const DEMO_PROTOCOL_PATHS: DemoPathAuditEntry[] = [
   {
-    path: 'auth',
+    path: 'identity-bind',
     capability: null,
     direction: 'napplet->runtime',
-    explanation: 'AUTH handshakes establish napplet identity before capability checks begin.',
+    explanation: 'NIP-5D iframe registration establishes napplet identity before capability checks begin.',
   },
   {
     path: 'relay-publish',
@@ -762,7 +774,7 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
   _configServiceBundle = configServiceBundle;
 
   // ─── Phase 40 Plan 40-02 (RESOURCE-04): NUB-RESOURCE reference service ───
-  // Shell acts as authenticated fetch proxy for the 10th NUB domain.
+  // Shell acts as the identity-bound fetch proxy for the 10th NUB domain.
   //
   // Host `fetch` = native browser fetch + AbortController + 10s timeout (D5).
   // Composites two abort signals: the request-scoped signal and a 10s timeout,
@@ -771,7 +783,7 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
   // resolveIdentity uses the module-level _sessionRegistryRef which is
   // populated in bootShell() immediately after createShellBridge(). The first
   // resource.bytes dispatch cannot arrive until AFTER bootShell() returns and
-  // the napplet iframe fully loads and authenticates — so the ref is always
+  // the napplet iframe fully loads and becomes identity-bound — so the ref is always
   // assigned before any real lookup occurs.
   //
   // H-03 guard (Wave 1): all 4 options are required; factory throws at
@@ -984,13 +996,14 @@ export interface NappletInfo {
   pubkey?: string;
   dTag?: string;
   aggregateHash?: string;
-  authenticated: boolean;
+  identityBound: boolean;
 }
 
 export interface GatewayNappletMetadata {
   dTag: string;
   aggregateHash: string;
   htmlUrl: string;
+  requires: string[];
 }
 
 export interface LoadNappletOptions {
@@ -1020,6 +1033,7 @@ const demoConfigFixtures: Record<string, unknown> = {
 };
 
 let _configServiceBundle: ConfigService | null = null;
+let _shellCapabilities: ShellCapabilities | null = null;
 
 /** Phase 41 Plan 41-01 (NIP66-07): live nip66 aggregator instance for the demo. */
 let _nip66Aggregator: Nip66Aggregator | null = null;
@@ -1042,7 +1056,7 @@ export function getNip66Aggregator(): Nip66Aggregator | null {
  * immediately after createShellBridge — before any napplet iframe loads.
  *
  * Timing safety: the first resource.bytes dispatch cannot arrive until the
- * napplet iframe loads AND authenticates AND dispatches, which is strictly
+ * napplet iframe loads, becomes identity-bound, and dispatches, which is strictly
  * after bootShell() returns. The assignment window is safe.
  */
 let _sessionRegistryRef: {
@@ -1089,14 +1103,14 @@ export function getNapplet(windowId: string): NappletInfo | undefined { return n
 
 /**
  * Look up the windowId for a napplet by its dTag (DEMO_NAPPLETS entry `name`).
- * Returns null if the napplet is not yet loaded or not yet authenticated.
+ * Returns null if the napplet is not yet loaded or not yet identity-bound.
  *
  * Exposed for apps/playground/src/main.ts __setNappletClass__ test hook (D9).
  * Callers MUST NOT mutate napplet state through this helper — read-only lookup only.
  */
-export function findAuthenticatedNappletWindowIdByDTag(dTag: string): string | null {
+export function findIdentityBoundNappletWindowIdByDTag(dTag: string): string | null {
   for (const [windowId, info] of napplets.entries()) {
-    if (info.name === dTag && info.authenticated) {
+    if (info.name === dTag && info.identityBound) {
       return windowId;
     }
   }
@@ -1155,6 +1169,7 @@ export async function publishDecryptFixturesToNapplet(dTag = 'decrypt-demo'): Pr
  */
 export function bootShell(notificationOnChange?: (notifications: readonly Notification[]) => void): { tap: MessageTap; relay: ShellBridge } {
   const hooks = createDemoHooks(notificationOnChange);
+  _shellCapabilities = buildShellCapabilities(hooks);
   tap = createMessageTap();
   tap.install(window);
 
@@ -1237,20 +1252,19 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
 
   window.addEventListener('message', relay.handleMessage);
 
-  // Track AUTH completions — two paths:
-  // Path A (legacy NIP-01 pubkey-based napplets): detect via NIP-01 OK success message.
-  // Path B (NIP-5D napplets — composer/preferences/toaster): detect via first envelope
-  //         from napplet→shell; session is pre-registered with pubkey='' and dTag=name.
+  // Track late identity confirmation from wire traffic. NIP-5D napplets are
+  // source-bound at iframe registration; envelope traffic is now only a
+  // defensive wake-up path for older fixture surfaces and diagnostics.
   tap.onMessage((msg) => {
     if (msg.verb === 'OK' && msg.parsed.success === true && msg.direction === 'shell->napplet') {
       // Find which napplet this OK belongs to by checking sessionRegistry
       for (const [wid, info] of napplets) {
-        if (!info.authenticated) {
+        if (!info.identityBound) {
           const pubkey = relay.runtime.sessionRegistry.getPubkey(wid);
           if (pubkey) {
             const entry = relay.runtime.sessionRegistry.getEntry(pubkey);
             if (entry) {
-              info.authenticated = true;
+              info.identityBound = true;
               info.pubkey = entry.pubkey;
               info.dTag = entry.dTag;
               info.aggregateHash = entry.aggregateHash;
@@ -1260,15 +1274,15 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
       }
     }
 
-    // Path B: NIP-5D envelope-only napplets (pre-registered with pubkey='').
-    // When the first envelope arrives from a napplet, mark it authenticated and
-    // populate dTag from the session registry entry (set by loadNapplet's pre-register).
+    // Defensive path: if a pre-registered NIP-5D napplet has not already been
+    // marked source-bound, the first source-mapped envelope can still complete
+    // UI identity state from the session registry entry.
     if (msg.verb === 'ENVELOPE' && msg.direction === 'napplet->shell' && msg.windowId) {
       const info = napplets.get(msg.windowId);
-      if (info && !info.authenticated) {
+      if (info && !info.identityBound) {
         const entry = relay.runtime.sessionRegistry.getEntryByWindowId(msg.windowId);
         if (entry) {
-          info.authenticated = true;
+          info.identityBound = true;
           // NIP-5D napplets: pubkey stays '' — ACL keyed on dTag:hash identity.
           info.pubkey = entry.pubkey;  // '' for NIP-5D pre-registered napplets
           info.dTag = entry.dTag;
@@ -1292,9 +1306,9 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
   //   await page.evaluate(() => window.__grantKeysForward__?.());
   //
   // Returns true on success, false if the hotkey-chord napplet is not yet
-  // loaded or not yet authenticated (callers may retry if needed; the spec
+  // loaded or not yet identity-bound (callers may retry if needed; the spec
   // gates on the #hotkey-chord-status = 'subscribed' sentinel before calling,
-  // which implies the napplet is authenticated and ready to receive grants).
+  // which implies the napplet is identity-bound and ready to receive grants).
   (window as Window & { __grantKeysForward__?: () => boolean }).__grantKeysForward__ = (): boolean => {
     let hotkeyEntry: { windowId: string; info: NappletInfo } | null = null;
     for (const [windowId, info] of napplets.entries()) {
@@ -1307,8 +1321,8 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
       console.warn('[demo] __grantKeysForward__: hotkey-chord napplet not loaded yet');
       return false;
     }
-    if (!hotkeyEntry.info.authenticated) {
-      console.warn('[demo] __grantKeysForward__: hotkey-chord not yet authenticated');
+    if (!hotkeyEntry.info.identityBound) {
+      console.warn('[demo] __grantKeysForward__: hotkey-chord not yet identity-bound');
       return false;
     }
     const pubkey = hotkeyEntry.info.pubkey ?? '';        // '' for NIP-5D napplets, same as toggleCapability
@@ -1324,15 +1338,15 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
   // capability to the media-controller napplet before asserting play/pause
   // state transitions. Mirrors the __grantKeysForward__ pattern from
   // Plan 26-03 exactly: single-napplet-scoped grant hook that returns true
-  // on success, false when napplet not yet loaded / not yet authenticated.
+  // on success, false when napplet not yet loaded / not yet identity-bound.
   //
   // Usage (from tests/e2e/media-controller.spec.ts):
   //   await page.evaluate(() => window.__grantMediaControl__?.());
   //
   // Returns true on success, false if the media-controller napplet is not yet
-  // loaded or not yet authenticated (callers may retry if needed; the spec
+  // loaded or not yet identity-bound (callers may retry if needed; the spec
   // gates on the #media-controller-status = 'session-ready' sentinel before
-  // calling, which implies the napplet is authenticated and ready to receive
+  // calling, which implies the napplet is identity-bound and ready to receive
   // grants).
   (window as Window & { __grantMediaControl__?: () => boolean }).__grantMediaControl__ = (): boolean => {
     let mediaEntry: { windowId: string; info: NappletInfo } | null = null;
@@ -1346,8 +1360,8 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
       console.warn('[demo] __grantMediaControl__: media-controller napplet not loaded yet');
       return false;
     }
-    if (!mediaEntry.info.authenticated) {
-      console.warn('[demo] __grantMediaControl__: media-controller not yet authenticated');
+    if (!mediaEntry.info.identityBound) {
+      console.warn('[demo] __grantMediaControl__: media-controller not yet identity-bound');
       return false;
     }
     const pubkey = mediaEntry.info.pubkey ?? '';        // '' for NIP-5D napplets, same as toggleCapability
@@ -1394,8 +1408,15 @@ export async function loadNapplet(
   containerId: string,
   options: LoadNappletOptions = {},
 ): Promise<NappletInfo> {
-  const windowId = `demo-${name}-${++nappletCounter}`;
   const metadata = await fetchGatewayMetadata(name);
+  const missingRequiredNubs = getMissingRequiredNubs(metadata.requires);
+  if (missingRequiredNubs.length > 0) {
+    throw new Error(
+      `[demo] ${metadata.dTag} requires unsupported NUB capabilities: ${missingRequiredNubs.join(', ')}`,
+    );
+  }
+
+  const windowId = `demo-${name}-${++nappletCounter}`;
 
   const iframe = document.createElement('iframe');
   iframe.id = windowId;
@@ -1405,11 +1426,38 @@ export async function loadNapplet(
   const container = document.getElementById(containerId);
   if (container) container.appendChild(iframe);
 
+  const info: NappletInfo = {
+    windowId,
+    name,
+    iframe,
+    dTag: metadata.dTag,
+    aggregateHash: metadata.aggregateHash,
+    identityBound: false,
+  };
+  napplets.set(windowId, info);
+
+  function markSourceDerivedIdentity(entry: SessionEntry): void {
+    const wasBound = info.identityBound;
+    info.identityBound = true;
+    info.pubkey = entry.pubkey;
+    info.dTag = entry.dTag;
+    info.aggregateHash = entry.aggregateHash;
+    if (!wasBound) {
+      window.dispatchEvent(new CustomEvent('napplet:identity-bound', {
+        detail: {
+          windowId,
+          dTag: entry.dTag,
+          aggregateHash: entry.aggregateHash,
+        },
+      }));
+    }
+  }
+
   // NIP-5D session entry — registered immediately so storage.* and notify.* NUB
-  // handlers can resolve the napplet's identity without a legacy AUTH handshake.
+  // handlers can resolve the napplet's identity without any runtime negotiation.
   // dTag and aggregateHash come from the local gateway manifest metadata so the
   // playground exercises the same identity tuple as production NIP-5A loading.
-  function registerSessionEntry(): void {
+  function registerSessionEntry(): SessionEntry {
     const entry: SessionEntry = {
       pubkey: '',
       windowId,
@@ -1427,30 +1475,21 @@ export async function loadNapplet(
       class: CLASS_BY_DTAG.get(metadata.dTag) ?? null,
     };
     relay.runtime.sessionRegistry.register(windowId, entry);
+    return entry;
   }
 
   // Register origin immediately — contentWindow is available after appendChild.
-  // This must happen before the shim module runs (which sends REGISTER).
+  // This must happen before the hosted artifact bootstrap can send shell.ready.
   if (iframe.contentWindow) {
     originRegistry.register(iframe.contentWindow, windowId);
-    registerSessionEntry();
+    markSourceDerivedIdentity(registerSessionEntry());
   }
-
-  const info: NappletInfo = {
-    windowId,
-    name,
-    iframe,
-    dTag: metadata.dTag,
-    aggregateHash: metadata.aggregateHash,
-    authenticated: false,
-  };
-  napplets.set(windowId, info);
 
   iframe.addEventListener('load', () => {
     if (iframe.contentWindow) {
       // Re-register origin and session in case contentWindow reference changed during load.
       originRegistry.register(iframe.contentWindow, windowId);
-      registerSessionEntry();
+      markSourceDerivedIdentity(registerSessionEntry());
     }
   });
 
@@ -1460,10 +1499,21 @@ export async function loadNapplet(
   return info;
 }
 
+function playgroundPath(pathname: string): string {
+  const cleanPath = pathname.replace(/^\/+/, '');
+  const basePath =
+    ((import.meta as unknown as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? '/').trim() ||
+    '/';
+  if (basePath === './') return cleanPath;
+  const normalizedBase = basePath.endsWith('/') ? basePath : `${basePath}/`;
+  return `${normalizedBase}${cleanPath}`;
+}
+
 async function fetchGatewayMetadata(name: string): Promise<GatewayNappletMetadata> {
-  const response = await fetch(`/napplet-gateway/${encodeURIComponent(name)}/manifest.json`, {
-    cache: 'no-store',
-  });
+  const response = await fetch(
+    playgroundPath(`/napplet-gateway/${encodeURIComponent(name)}/manifest.json`),
+    { cache: 'no-store' },
+  );
   if (!response.ok) {
     throw new Error(`[demo] gateway metadata load failed for ${name}: ${response.status}`);
   }
@@ -1474,11 +1524,28 @@ async function fetchGatewayMetadata(name: string): Promise<GatewayNappletMetadat
     typeof metadata.aggregateHash !== 'string' ||
     metadata.aggregateHash.length === 0 ||
     typeof metadata.htmlUrl !== 'string' ||
-    metadata.htmlUrl.length === 0
+    metadata.htmlUrl.length === 0 ||
+    !Array.isArray(metadata.requires) ||
+    metadata.requires.some((capability) => typeof capability !== 'string' || capability.length === 0)
   ) {
     throw new Error(`[demo] malformed gateway metadata for ${name}`);
   }
   return metadata as GatewayNappletMetadata;
+}
+
+export function getShellCapabilities(): ShellCapabilities | null {
+  if (!_shellCapabilities) return null;
+  return {
+    nubs: [..._shellCapabilities.nubs],
+    sandbox: [..._shellCapabilities.sandbox],
+  };
+}
+
+export function getMissingRequiredNubs(requires: readonly string[]): string[] {
+  const capabilities = _shellCapabilities;
+  if (!capabilities) return [...requires];
+  const supported = new Set(capabilities.nubs);
+  return requires.filter((capability) => !supported.has(capability));
 }
 
 /**
@@ -1488,10 +1555,10 @@ export function toggleCapability(windowId: string, capability: Capability, enabl
   const info = napplets.get(windowId);
   if (!info) { console.warn('[acl] toggleCapability: no info for', windowId); return; }
   // NIP-5D napplets are pre-registered with pubkey=''; ACL is keyed on dTag:hash.
-  // Traditional pubkey-based napplets have a non-empty pubkey from AUTH.
+  // Traditional pubkey-based fixture napplets may have a non-empty pubkey.
   // Both paths use the same aclState interface with pubkey ('' or real).
-  if (!info.authenticated) {
-    console.warn('[acl] toggleCapability: napplet not yet authenticated', windowId);
+  if (!info.identityBound) {
+    console.warn('[acl] toggleCapability: napplet not yet identity-bound', windowId);
     return;
   }
   const pubkey = info.pubkey;  // '' for NIP-5D, real pubkey for legacy
@@ -1543,7 +1610,7 @@ export function isServiceEnabled(name: string): boolean {
  */
 export function toggleBlock(windowId: string, blocked: boolean): void {
   const info = napplets.get(windowId);
-  if (!info?.authenticated) return;
+  if (!info?.identityBound) return;
   // NIP-5D napplets have pubkey='' — ACL is keyed on dTag:hash; pass pubkey as-is.
   if (blocked) {
     relay.runtime.aclState.block(info.pubkey, info.dTag || '', info.aggregateHash || '');
@@ -1565,7 +1632,7 @@ export interface DemoAclAdapter {
   block(windowId: string): void;
   /** Unblock a napplet by windowId. */
   unblock(windowId: string): void;
-  /** Snapshot of all ACL entries for napplets currently authenticated. */
+  /** Snapshot of all ACL entries for napplets currently identity-bound. */
   snapshot(): Array<{
     windowId: string;
     name: string;
@@ -1599,10 +1666,10 @@ const aclAdapter: DemoAclAdapter = {
     const out: ReturnType<DemoAclAdapter['snapshot']> = [];
     for (const [windowId, info] of napplets) {
       // Accept both Path A (NIP-01, pubkey populated) and Path B (NIP-5D,
-      // authenticated via dTag with empty pubkey). aclState.check() handles
+      // identity-bound via dTag with empty pubkey). aclState.check() handles
       // the empty-pubkey + dTag-keyed lookup path correctly (v1.2 canonical),
       // so no changes are required to the check calls below.
-      if (!info.authenticated) continue;
+      if (!info.identityBound) continue;
       const pk = info.pubkey ?? '';
       const dTag = info.dTag ?? '';
       const hash = info.aggregateHash ?? '';

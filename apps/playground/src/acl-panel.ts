@@ -75,9 +75,9 @@ function applyBtnStyle(btn: HTMLButtonElement, on: boolean): void {
     (on ? 'acl-btn-on' : 'acl-btn-off');
 }
 
-function renderNappletAcl(containerId: string, windowId: string, info: { name: string; authenticated: boolean }): void {
+function renderNappletAcl(containerId: string, windowId: string, info: { name: string; identityBound: boolean }): void {
   const container = document.getElementById(containerId);
-  if (!container || !info.authenticated) return;
+  if (!container || !info.identityBound) return;
 
   container.innerHTML = '';
 

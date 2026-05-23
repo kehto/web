@@ -5,7 +5,7 @@ declare const LeaderLine: any;
 
 import { STUB_ONLY_SERVICES } from './shell-host.js';
 
-export type TopologyNodeRole = 'napplet' | 'shell' | 'acl' | 'runtime' | 'service';
+export type TopologyNodeRole = 'napplet' | 'runtime-demo' | 'shell' | 'acl' | 'runtime' | 'service';
 
 // Inline the signer state types here to avoid a circular import with signer-connection.ts
 export type SignerConnectionMethod = 'nip07' | 'nip46' | 'none';
@@ -32,6 +32,8 @@ export interface DemoTopologyNappletInput {
   statusId: string;
   aclId: string;
   frameContainerId: string;
+  surface?: 'napplet' | 'runtime-demo';
+  hasAclControls?: boolean;
 }
 
 export interface DemoTopologyInput {
@@ -70,6 +72,14 @@ const RUNTIME_NODE_ID = 'topology-node-runtime';
 
 function slugifyTopologyName(name: string): string {
   return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+function getSurface(napplet: DemoTopologyNappletInput): 'napplet' | 'runtime-demo' {
+  return napplet.surface ?? 'napplet';
+}
+
+function hasInlineAclControls(napplet: DemoTopologyNappletInput): boolean {
+  return napplet.hasAclControls ?? getSurface(napplet) === 'napplet';
 }
 
 export function getShellNodeId(): string {
@@ -115,7 +125,7 @@ export function buildDemoTopology(input: DemoTopologyInput): DemoTopology {
     ...napplets.map((napplet) => ({
       id: getNappletNodeId(napplet.name),
       parentId: null,
-      role: 'napplet' as const,
+      role: getSurface(napplet),
       label: napplet.label,
       name: napplet.name,
     })),
@@ -443,32 +453,48 @@ function renderColorOverlays(nodeId: string): string {
 }
 
 export function renderDemoTopology(topology: DemoTopology): string {
-  const nappletCards = topology.napplets
-    .map(
-      (napplet) => `
+  const renderHostedCard = (napplet: DemoTopologyNappletInput): string => {
+    const surface = getSurface(napplet);
+    const nodeId = getNappletNodeId(napplet.name);
+    const cardClass = surface === 'runtime-demo' ? 'topology-runtime-demo-card' : 'topology-napplet-card';
+    const aclSlot = hasInlineAclControls(napplet)
+      ? `<div id="${napplet.aclId}" class="topology-acl-slot"></div>`
+      : '';
+
+    return `
         <div class="topology-napplet-branch">
           <article
-            id="${getNappletNodeId(napplet.name)}"
-            class="node-box topology-node topology-napplet-card"
-            data-topology-node="napplet"
-            data-node-id="${getNappletNodeId(napplet.name)}"
+            id="${nodeId}"
+            class="node-box topology-node ${cardClass}"
+            data-topology-node="${surface}"
+            data-topology-surface="${surface}"
+            data-node-id="${nodeId}"
             data-napplet-name="${napplet.name}"
           >
-            ${renderColorOverlays(getNappletNodeId(napplet.name))}
+            ${renderColorOverlays(nodeId)}
             <div class="topology-node-content">
               <div class="topology-node-header">
-                <span class="topology-node-kicker">napplet</span>
+                <span class="topology-node-kicker">${surface === 'runtime-demo' ? 'runtime demo' : 'napplet'}</span>
                 <span class="topology-node-status" id="${napplet.statusId}">loading...</span>
               </div>
               <div class="topology-node-title">${napplet.label}</div>
-              <div class="node-summary" id="node-summary-${getNappletNodeId(napplet.name)}"></div>
-              <div id="${napplet.aclId}" class="topology-acl-slot"></div>
+              <div class="node-summary" id="node-summary-${nodeId}"></div>
+              ${aclSlot}
               <div id="${napplet.frameContainerId}" class="topology-frame-slot"></div>
             </div>
           </article>
         </div>
-      `
-    )
+      `;
+  };
+
+  const nappletCards = topology.napplets
+    .filter((napplet) => getSurface(napplet) === 'napplet')
+    .map(renderHostedCard)
+    .join('');
+
+  const runtimeDemoCards = topology.napplets
+    .filter((napplet) => getSurface(napplet) === 'runtime-demo')
+    .map(renderHostedCard)
     .join('');
 
   const serviceCards = topology.services
@@ -528,6 +554,13 @@ export function renderDemoTopology(topology: DemoTopology): string {
         <div class="topology-region-label">napplets</div>
         <div class="topology-napplet-grid">${nappletCards}</div>
       </section>
+
+      ${runtimeDemoCards
+        ? `<section id="topology-runtime-demos" class="topology-region topology-runtime-demo-region" data-topology-region="runtime-demos">
+            <div class="topology-region-label">runtime demos</div>
+            <div class="topology-runtime-demo-grid">${runtimeDemoCards}</div>
+          </section>`
+        : ''}
 
       <section class="topology-layer">
         <article id="${SHELL_NODE_ID}" class="node-box topology-node topology-core-card" data-topology-node="shell" data-node-id="${SHELL_NODE_ID}">

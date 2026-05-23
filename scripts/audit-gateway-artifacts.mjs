@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * scripts/audit-gateway-artifacts.mjs -- v1.11 gateway artifact drift guard.
+ * scripts/audit-gateway-artifacts.mjs -- gateway artifact drift guard.
  *
  * Enforces the playground's production-equivalent NIP-5A gateway invariant:
  * each built demo napplet must expose exactly one served HTML artifact plus
@@ -36,8 +36,11 @@ function read(path) {
 
 function assertSourceInvariants() {
   const shellHost = read(join(repoRoot, 'apps', 'playground', 'src', 'shell-host.ts'));
-  if (!shellHost.includes('/napplet-gateway/${encodeURIComponent(name)}/manifest.json')) {
-    fail('shell-host.ts does not fetch gateway manifest metadata');
+  if (
+    !shellHost.includes('function playgroundPath(') ||
+    !shellHost.includes('playgroundPath(`/napplet-gateway/${encodeURIComponent(name)}/manifest.json`)')
+  ) {
+    fail('shell-host.ts does not fetch gateway manifest metadata through the base-aware path helper');
   }
   if (!shellHost.includes('iframe.src = metadata.htmlUrl')) {
     fail('shell-host.ts does not navigate iframes with gateway metadata htmlUrl');
@@ -73,7 +76,10 @@ function assertBuildConfig(name) {
   if (!config.includes("import { definePlaygroundNappletConfig } from '../shared-vite-config';")) {
     fail(`${rel(configPath)} does not import shared-vite-config`);
   }
-  if (!config.includes(`export default definePlaygroundNappletConfig('${name}');`)) {
+  const dTagPattern = new RegExp(
+    `export\\s+default\\s+definePlaygroundNappletConfig\\(\\s*['"]${name}['"]\\s*(?:,|\\))`,
+  );
+  if (!dTagPattern.test(config)) {
     fail(`${rel(configPath)} does not use route-aligned dTag '${name}'`);
   }
 }
@@ -98,6 +104,12 @@ function assertDist(name) {
   }
 
   const html = read(indexPath);
+  if (!html.includes('__kehtoHostedShellBootstrap')) {
+    fail(`${rel(indexPath)} missing hosted shell bootstrap`);
+  }
+  if (!html.includes("type: 'shell.ready'") || !html.includes("message.type !== 'shell.init'")) {
+    fail(`${rel(indexPath)} missing shell.ready/shell.init supports bridge`);
+  }
   if (LOCAL_SCRIPT_SRC_RE.test(html)) {
     fail(`${rel(indexPath)} contains external script src`);
   }
@@ -139,4 +151,3 @@ if (violations.length > 0) {
 
 console.log(`[audit:gateway-artifacts] OK — checked ${names.length} napplet gateway artifact(s)`);
 process.exit(0);
-

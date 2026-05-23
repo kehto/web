@@ -6,9 +6,9 @@
  * for this and calls relay.publishTheme(theme) which fan-outs theme.changed envelopes
  * to every napplet via session-registry.
  *
- * THEME-SDK-GAP: the published helper surface does not expose a theme.publish API.
- * Outbound parent-frame postMessage is the documented
- * exemption pattern (Plan 19-03 precedent for toaster).
+ * THEME-SDK-GAP (Phase 58 raw-envelope allowlist): the helper surface does not
+ * expose a theme.publish API. Outbound parent-frame postMessage is the
+ * documented demo-only host-control exception.
  *
  * NOTE: theme-switcher is OUTBOUND-ONLY and does NOT install any global message
  * listener. Only element-scoped click handlers are registered on the three buttons.
@@ -22,7 +22,8 @@
  *   - No global message-event listener (OUTBOUND-ONLY napplet)
  */
 import '@napplet/shim';
-import { identityGetPublicKey } from '@napplet/nub/identity/sdk';
+
+const REQUIRED_NUBS = ['theme'] as const;
 
 const statusEl = document.getElementById('theme-status')!;
 const lightBtn = document.getElementById('theme-light-btn') as HTMLButtonElement;
@@ -57,6 +58,13 @@ function log(text: string): void {
 function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void {
   statusEl.textContent = text;
   statusEl.style.color = color === 'green' ? '#39ff14' : color === 'red' ? '#ff3b3b' : '#888';
+}
+
+function getMissingRequiredNubs(): string[] {
+  const supports = (window as unknown as {
+    napplet: { shell: { supports(capability: string): boolean } };
+  }).napplet.shell.supports;
+  return REQUIRED_NUBS.filter((capability) => !supports(capability));
 }
 
 // ── Theme presets ─────────────────────────────────────────────────────────────
@@ -119,24 +127,24 @@ customBtn.addEventListener('click', () => {
 // ── Init ────────────────────────────────────────────────────────────────────
 
 /**
- * Flip status sentinel to 'authenticated'. A single identityGetPublicKey()
- * call on boot triggers the shell's Path B AUTH detection (first
- * napplet->shell envelope flips the outer topology card sentinel) without
- * the vestigial storage probe deleted in Phase 36-01. Theme broadcast still
- * fires from button handlers, not init.
+ * Flip status sentinel to 'ready'. NIP-5D identity is assigned by the shell at
+ * iframe creation; theme broadcast still fires from button handlers, not init.
  *
  * Status sentinel contract (Plan 20-07 greps for these strings):
  *   'connecting...' — HTML default (before init runs)
- *   'authenticated' — set when init resolves
- *   'auth failed'   — set if init throws unexpectedly
+ *   'ready'         — set when init resolves
+ *   'unavailable'   — set if init throws unexpectedly
  */
 async function init(): Promise<void> {
-  await identityGetPublicKey();
-  setStatus('authenticated', 'green');
+  const missing = getMissingRequiredNubs();
+  if (missing.length > 0) {
+    throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+  }
+  setStatus('ready', 'green');
   log('ready to broadcast theme');
 }
 
 init().catch((err) => {
-  setStatus('auth failed', 'red');
+  setStatus('unavailable', 'red');
   log(`init failed — ${formatError(err, 'init failure')}`);
 });

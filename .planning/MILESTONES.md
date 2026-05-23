@@ -1,5 +1,48 @@
 # Milestones: Kehto Runtime
 
+## v1.12 NIP-5D Contract Conformance (Shipped: 2026-05-22)
+
+**Phases completed:** 4 phases (56-59), 4 plans, 34 requirements.
+
+**Delivered:** v1.12 established the pinned NIP-5D spec as the repo-local authority, repaired stale protocol-identity drift, made the playground shell authoritative for hosted `supports()` and manifest `requires`, and brought all 13 playground napplets into explicit NIP-5D/NUB contract conformance.
+
+**Audit:** passed — 34/34 requirements, 4/4 phases, 4/4 plans, 6/6 integration paths, 5/5 user flows.
+
+**Key accomplishments:**
+
+- **Pinned contract authority:** `specs/NIP-5D.md` now records the pinned raw source/commit, while `RUNTIME-SPEC.md` and `napplet/specs/NIP-5D.md` no longer present stale AUTH/REGISTER/NIP-01 identity negotiation as the active model.
+- **Local package-source baseline:** the playground and tests resolve changed `@napplet/*` protocol packages from repo-local sources instead of stale published package snapshots.
+- **Shell-derived capability contract:** hosted `window.napplet.shell.supports()` answers from shell-provided capability inventory, including Kehto `connect` and `class` extension decisions, while `nostrdb` remains out of the active playground contract.
+- **Manifest `requires` enforcement:** gateway metadata exposes parsed `requires` tags and the shell rejects unsupported required NUBs before iframe navigation.
+- **13-napplet conformance:** every playground napplet declares explicit short-name NUB requirements, preflights required capabilities with hosted `supports()`, and uses renamed protocol readiness wording.
+- **Raw-envelope boundaries:** remaining `demo.publishTheme`, `demo.decrypt.fixtures`, `notify.create/list`, `resource.bytes`, and `theme.changed` raw surfaces are documented as demo/test-only exceptions and guarded by a static allowlist.
+- **Regression guards and verification:** new unit/static/E2E coverage guards sandbox policy, source validation, no napplet `window.nostr`, forbidden browser/protocol primitives, requires coverage, hosted supports behavior, raw-envelope exceptions, and unsupported-requires rejection.
+- **Verification:** `pnpm build`, `pnpm type-check`, `pnpm test:unit`, `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, focused contract Playwright, `pnpm test:e2e`, and `git diff --check` all passed; final counts are 32/32 build tasks, 18/18 type-check tasks, 560 unit tests, and 89 Playwright tests.
+
+**Archive:** [v1.12-ROADMAP.md](milestones/v1.12-ROADMAP.md) | [v1.12-REQUIREMENTS.md](milestones/v1.12-REQUIREMENTS.md) | [v1.12-MILESTONE-AUDIT.md](milestones/v1.12-MILESTONE-AUDIT.md)
+
+---
+
+## v1.11 NIP-5A Gateway Artifact Parity (Shipped: 2026-05-22)
+
+**Phases completed:** 3 phases (53-55), 3 plans, 16 requirements.
+
+**Delivered:** v1.11 aligned Kehto's local playground and E2E proof path with the production NIP-5D/NIP-5A gateway model. The active loader now resolves manifest metadata, registers real `(dTag, aggregateHash)` session identity, and navigates opaque-origin iframes through `/napplet-gateway/<dTag>/<aggregateHash>/index.html`.
+
+**Audit:** passed — 16/16 requirements, 3/3 phases, 3/3 plans, 5/5 integration paths, 4/4 user flows.
+
+**Key accomplishments:**
+
+- **Gateway loader parity:** all 13 playground napplets load through the gateway-style route with manifest-derived `dTag` and non-empty aggregate hash identity.
+- **Single-file artifact contract:** `@napplet/vite-plugin` supports explicit `artifactMode: 'single-file'`, accepts build-generated inline module scripts only in that mode, and computes aggregate hashes from final emitted artifact bytes.
+- **Production-equivalent guardrails:** active playground loading keeps `allow-same-origin` out of iframe sandbox policy and avoids local-only external executable bundle serving in the verified path.
+- **Static audits:** `pnpm audit:csp` and `pnpm audit:gateway-artifacts` lock no meta-CSP and gateway-portable artifact shape across all 13 napplets.
+- **Verification:** `pnpm build`, `pnpm type-check`, `pnpm test:unit`, `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, focused gateway Playwright, and `pnpm test:e2e` all passed; final counts are 27/27 build tasks, 11/11 type-check tasks, 551 unit tests, and 87 Playwright tests.
+
+**Archive:** [v1.11-ROADMAP.md](milestones/v1.11-ROADMAP.md) | [v1.11-REQUIREMENTS.md](milestones/v1.11-REQUIREMENTS.md) | [v1.11-MILESTONE-AUDIT.md](milestones/v1.11-MILESTONE-AUDIT.md)
+
+---
+
 ## v1.10 Compatibility Window Cleanup & Decrypt Demo Parity (Shipped: 2026-05-22)
 
 **Phases completed:** 3 phases (50-52), 3 plans, 10 requirements.

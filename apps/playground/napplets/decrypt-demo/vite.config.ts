@@ -1,3 +1,3 @@
 import { definePlaygroundNappletConfig } from '../shared-vite-config';
 
-export default definePlaygroundNappletConfig('decrypt-demo');
+export default definePlaygroundNappletConfig('decrypt-demo', { requires: ['identity'] });

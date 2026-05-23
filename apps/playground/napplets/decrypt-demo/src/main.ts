@@ -4,6 +4,8 @@
 import '@napplet/shim';
 import { identityDecrypt } from '@napplet/nub/identity/sdk';
 
+const REQUIRED_NUBS = ['identity'] as const;
+
 interface NostrEvent {
   id: string;
   pubkey: string;
@@ -56,6 +58,13 @@ function log(text: string): void {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
+function getMissingRequiredNubs(): string[] {
+  const supports = (window as unknown as {
+    napplet: { shell: { supports(capability: string): boolean } };
+  }).napplet.shell.supports;
+  return REQUIRED_NUBS.filter((capability) => !supports(capability));
+}
+
 function parsePayload(content: string): { mode?: string; id?: string } {
   try {
     return JSON.parse(content) as { mode?: string; id?: string };
@@ -65,6 +74,11 @@ function parsePayload(content: string): { mode?: string; id?: string } {
 }
 
 async function decrypt(event: NostrEvent): Promise<DecryptResult> {
+  const missing = getMissingRequiredNubs();
+  if (missing.length > 0) {
+    return { ok: false, error: `unsupported NUB capability: ${missing.join(', ')}` };
+  }
+
   try {
     const { rumor } = await identityDecrypt(event);
     return { ok: true, rumor };
@@ -118,6 +132,8 @@ async function runClass2Probe(): Promise<void> {
   log('class2 unexpected result');
 }
 
+// Phase 58 raw-envelope allowlist: demo/test-only fixture injection. The
+// handler is source-bound to the parent shell and never dispatches a NUB action.
 window.addEventListener('message', (event: MessageEvent) => {
   if (event.source !== window.parent) return;
   const msg = event.data as { type?: string; fixtures?: DecryptFixtures };

@@ -7,7 +7,7 @@
  *   - On click of #preferences-save-btn: storageSetItem('display-name', value) +
  *     storageSetItem('theme-preference', value); #preferences-status flips to 'saved'
  *   - After page reload: same values appear (storage is localStorage-backed per
- *     packages/shell/src/hooks-adapter.ts:256, scoped per napplet identity)
+ *     packages/shell/src/hooks-adapter.ts:256, scoped per shell-assigned napplet identity)
  *
  * Anti-features (per v1.3 milestone): no raw message listener, no NIP-01 arrays,
  *   no BusKind, no global nostr, no signer-service.
@@ -19,13 +19,14 @@
  *   - On receipt: sets document.body.style.backgroundColor to theme.colors.background AND
  *     sets #preferences-theme-applied textContent to that color hex.
  *
- * THEME-SDK-GAP (D-USER-02): the published helper surface does not expose
- * theme.on / theme.subscribe. The single message listener registered below is the explicit,
- * narrowly-scoped deviation from the v1.3 anti-feature ban — paralleling Plan 19-03's toaster
- * precedent. Plan 20-07's anti-term grep MUST exempt this one message listener for preferences.
+ * THEME-SDK-GAP (Phase 58 raw-envelope allowlist): the helper surface does not
+ * expose theme.on / theme.subscribe. The single source-bound message listener
+ * registered below is the explicit, narrowly scoped deviation for theme.changed.
  */
 import '@napplet/shim';
 import { storageGetItem, storageSetItem } from '@napplet/nub/storage/sdk';
+
+const REQUIRED_NUBS = ['storage', 'theme'] as const;
 
 const statusEl = document.getElementById('preferences-status')!;
 const displayNameEl = document.getElementById('pref-display-name') as HTMLInputElement;
@@ -60,6 +61,13 @@ function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void
   statusEl.textContent = text;
   statusEl.style.color =
     color === 'green' ? '#39ff14' : color === 'red' ? '#ff3b3b' : '#888';
+}
+
+function getMissingRequiredNubs(): string[] {
+  const supports = (window as unknown as {
+    napplet: { shell: { supports(capability: string): boolean } };
+  }).napplet.shell.supports;
+  return REQUIRED_NUBS.filter((capability) => !supports(capability));
 }
 
 async function loadPreferences(): Promise<void> {
@@ -101,20 +109,24 @@ saveBtn.addEventListener('click', () => {
 
 // Load persisted preferences on mount; status flips to 'loaded' on success.
 async function init(): Promise<void> {
+  const missing = getMissingRequiredNubs();
+  if (missing.length > 0) {
+    throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+  }
   await loadPreferences();
 }
 
 init().catch((err) => {
   // Status already set by loadPreferences if it reached the catch branch.
-  // If init failed before loadPreferences ran (e.g. unexpected init error), set auth-failed.
+  // If init failed before loadPreferences ran (e.g. unexpected init error), set unavailable.
   if (statusEl.textContent === 'connecting...') {
-    setStatus('auth failed', 'red');
-    log(`init failed — ${formatError(err, 'auth/storage failure')}`);
+    setStatus('unavailable', 'red');
+    log(`init failed — ${formatError(err, 'NIP-5D capability/storage failure')}`);
   }
 });
 
 /**
- * THE ONLY raw window message listener in this napplet (D-USER-02, Plan 20 explicit deviation).
+ * THE ONLY raw window message listener in this napplet (Phase 58 allowlist).
  *
  * Justified because the helper surface does not expose theme.on / theme.subscribe. This handler:
  *   - Guards on event.source === window.parent (drop messages from other origins)

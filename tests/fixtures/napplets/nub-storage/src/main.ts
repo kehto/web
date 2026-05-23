@@ -6,7 +6,7 @@
  * (packages/shell/src/hooks-adapter.ts:256), scoped per napplet identity.
  *
  * Layer-A spec asserts:
- *   - #nub-status flips to 'authenticated' then 'value:<value>' or 'denied:*'
+ *   - #nub-status flips to 'value:<value>' or 'denied:*'
  *   - #nub-storage-value === 'fixture-v1' on success
  *   - __getNubMessage__(windowId, 'storage.setItem') and 'storage.getItem' both return non-null
  */

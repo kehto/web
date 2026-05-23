@@ -2,9 +2,11 @@ node_modules/
 dist/
 *.tsbuildinfo
 .turbo/
+.pages/
 test-results/
 playwright-report/
 .claude/
 docs/api/
 .playwright-mcp/
 *-snapshot.yml
+.omx

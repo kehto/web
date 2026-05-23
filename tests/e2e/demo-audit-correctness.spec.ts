@@ -39,8 +39,8 @@ function waitForServer(url: string, timeoutMs: number): Promise<void> {
 
 async function openDemo(page: Page): Promise<void> {
   await page.goto(DEMO_URL);
-  await expect(page.locator('#chat-status')).toHaveText('authenticated');
-  await expect(page.locator('#bot-status')).toHaveText('authenticated');
+  await expect(page.locator('#chat-status')).toHaveText('identity-bound');
+  await expect(page.locator('#bot-status')).toHaveText('identity-bound');
   await expect(page.locator('#chat-acl button')).toContainText(['Relay Publish / IFC Send']);
 }
 

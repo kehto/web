@@ -111,26 +111,26 @@ describe('buildNodeDetails — napplet nodes', () => {
     expect(detail.drillDownSupported).toBe(true);
   });
 
-  it('shows auth=pending for unauthenticated napplet', () => {
+  it('shows identity=pending for an unbound napplet', () => {
     const node = TEST_TOPOLOGY.nodes.find((n) => n.id === 'topology-node-napplet-chat');
     const detail = buildNodeDetails(node!, makeOptions());
-    const authField = detail.summaryFields.find((f) => f.label === 'auth');
+    const authField = detail.summaryFields.find((f) => f.label === 'identity');
     expect(authField?.value).toBe('pending');
   });
 
-  it('shows auth=authenticated when napplet info is authenticated', () => {
+  it('shows identity-bound when napplet info is identity-bound', () => {
     const napplets = new Map();
     napplets.set('demo-chat-1', {
       windowId: 'demo-chat-1',
       name: 'chat',
       iframe: {} as HTMLIFrameElement,
-      authenticated: true,
+      identityBound: true,
       pubkey: 'abcdef1234567890abcdef1234567890',
     });
     const node = TEST_TOPOLOGY.nodes.find((n) => n.id === 'topology-node-napplet-chat');
     const detail = buildNodeDetails(node!, makeOptions({ napplets }));
-    const authField = detail.summaryFields.find((f) => f.label === 'auth');
-    expect(authField?.value).toBe('authenticated');
+    const authField = detail.summaryFields.find((f) => f.label === 'identity');
+    expect(authField?.value).toBe('identity-bound');
   });
 });
 

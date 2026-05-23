@@ -40,11 +40,27 @@ interface GatewayMetadata {
   dTag: string;
   aggregateHash: string;
   htmlUrl: string;
+  requires: string[];
 }
 
 interface NappletManifest {
   aggregateHash?: unknown;
   tags?: unknown;
+}
+
+function normalizePlaygroundBasePath(value: string | undefined): string {
+  const raw = value?.trim() || '/';
+  if (raw === './') return raw;
+  const withLeadingSlash = raw.startsWith('/') ? raw : `/${raw}`;
+  return withLeadingSlash.endsWith('/') ? withLeadingSlash : `${withLeadingSlash}/`;
+}
+
+const playgroundBasePath = normalizePlaygroundBasePath(process.env.PLAYGROUND_BASE_PATH);
+
+function withPlaygroundBasePath(pathname: string): string {
+  const cleanPath = pathname.replace(/^\/+/, '');
+  if (playgroundBasePath === './') return cleanPath;
+  return `${playgroundBasePath}${cleanPath}`;
 }
 
 function sendText(res: ServerResponse, statusCode: number, body: string): void {
@@ -92,10 +108,22 @@ function readGatewayMetadata(dTag: string): GatewayMetadata {
   }
 
   const aggregateHash = manifest.aggregateHash;
+  const requires = tags
+    .filter(
+      (tag): tag is string[] =>
+        Array.isArray(tag) &&
+        tag[0] === 'requires' &&
+        typeof tag[1] === 'string' &&
+        tag[1].length > 0,
+    )
+    .map((tag) => tag[1]);
   return {
     dTag,
     aggregateHash,
-    htmlUrl: `/napplet-gateway/${encodeURIComponent(dTag)}/${aggregateHash}/index.html`,
+    requires,
+    htmlUrl: withPlaygroundBasePath(
+      `/napplet-gateway/${encodeURIComponent(dTag)}/${aggregateHash}/index.html`,
+    ),
   };
 }
 
@@ -389,6 +417,7 @@ function serveNappletCsp(): Plugin {
 
 export default defineConfig({
   root: __dirname,
+  base: playgroundBasePath,
   optimizeDeps: {
     esbuildOptions: {
       define: {
