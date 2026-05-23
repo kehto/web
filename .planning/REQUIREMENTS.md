@@ -21,14 +21,14 @@
 
 ### Package documentation
 
-- [ ] **PKG-01**: Each public package page documents purpose, install command, peer dependencies, exported entry points, primary APIs, and package-specific scope boundaries.
-- [ ] **PKG-02**: `@kehto/acl` docs explain capability state, identity keys, grants/revokes, migration helpers, and enforcement role with runnable examples.
-- [ ] **PKG-03**: `@kehto/runtime` docs explain runtime creation, adapter hooks, message dispatch, service registration, enforcement, storage, relay, and lifecycle flow.
-- [ ] **PKG-04**: `@kehto/shell` docs explain browser integration, iframe/session lifecycle, gateway loading, hosted `supports()`, manifest `requires`, and shell-side security boundaries.
-- [ ] **PKG-05**: `@kehto/services` docs explain reference service factories, host bridge patterns, identity/decrypt, keys, media, notify, relay, cache, and theme integration.
-- [ ] **PKG-06**: `@kehto/nip66` docs explain relay-discovery aggregation, pool adapters, state accessors, scope exclusions, and consumer integration.
-- [ ] **PKG-07**: `@kehto/wm` docs explain structural window-management contracts, no-op strategy behavior, and consumer-owned layout algorithm boundaries.
-- [ ] **PKG-08**: `@kehto/playground` docs explain the gateway-hosted 13-napplet demo, local development commands, verification role, and how to add or debug a playground napplet.
+- [x] **PKG-01**: Each public package page documents purpose, install command, peer dependencies, exported entry points, primary APIs, and package-specific scope boundaries.
+- [x] **PKG-02**: `@kehto/acl` docs explain capability state, identity keys, grants/revokes, migration helpers, and enforcement role with runnable examples.
+- [x] **PKG-03**: `@kehto/runtime` docs explain runtime creation, adapter hooks, message dispatch, service registration, enforcement, storage, relay, and lifecycle flow.
+- [x] **PKG-04**: `@kehto/shell` docs explain browser integration, iframe/session lifecycle, gateway loading, hosted `supports()`, manifest `requires`, and shell-side security boundaries.
+- [x] **PKG-05**: `@kehto/services` docs explain reference service factories, host bridge patterns, identity/decrypt, keys, media, notify, relay, cache, and theme integration.
+- [x] **PKG-06**: `@kehto/nip66` docs explain relay-discovery aggregation, pool adapters, state accessors, scope exclusions, and consumer integration.
+- [x] **PKG-07**: `@kehto/wm` docs explain structural window-management contracts, no-op strategy behavior, and consumer-owned layout algorithm boundaries.
+- [x] **PKG-08**: `@kehto/playground` docs explain the gateway-hosted 13-napplet demo, local development commands, verification role, and how to add or debug a playground napplet.
 
 ### Tutorials and how-tos
 
@@ -49,7 +49,7 @@
 ### Reference docs and verification
 
 - [ ] **REF-01**: Generated API reference links are reachable from package docs and the VitePress site for every public package.
-- [ ] **REF-02**: Public package exports documented in package docs match current package barrels and package manifests.
+- [x] **REF-02**: Public package exports documented in package docs match current package barrels and package manifests.
 - [ ] **REF-03**: Docs commands verify build, link integrity or equivalent route coverage, TypeDoc generation, and markdown/source consistency.
 - [ ] **REF-04**: CI or local scripts fail on broken docs build, missing docs navigation entries for public packages, and stale package/API reference links.
 - [ ] **REF-05**: Final verification records the docs build, API docs generation, package-doc coverage check, link/navigation checks, and existing repo build/type/test smoke needed to prove docs work did not break runtime packages.
@@ -98,15 +98,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STRAT-04 | Phase 60 | Complete |
 | STRAT-05 | Phase 60 | Complete |
 | SITE-02 | Phase 60 | Complete |
-| PKG-01 | Phase 61 | Pending |
-| PKG-02 | Phase 61 | Pending |
-| PKG-03 | Phase 61 | Pending |
-| PKG-04 | Phase 61 | Pending |
-| PKG-05 | Phase 61 | Pending |
-| PKG-06 | Phase 61 | Pending |
-| PKG-07 | Phase 61 | Pending |
-| PKG-08 | Phase 61 | Pending |
-| REF-02 | Phase 61 | Pending |
+| PKG-01 | Phase 61 | Complete |
+| PKG-02 | Phase 61 | Complete |
+| PKG-03 | Phase 61 | Complete |
+| PKG-04 | Phase 61 | Complete |
+| PKG-05 | Phase 61 | Complete |
+| PKG-06 | Phase 61 | Complete |
+| PKG-07 | Phase 61 | Complete |
+| PKG-08 | Phase 61 | Complete |
+| REF-02 | Phase 61 | Complete |
 | TUT-01 | Phase 62 | Pending |
 | TUT-02 | Phase 62 | Pending |
 | TUT-03 | Phase 62 | Pending |
