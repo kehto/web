@@ -92,40 +92,40 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| STRAT-01 | Pending roadmap | Pending |
-| STRAT-02 | Pending roadmap | Pending |
-| STRAT-03 | Pending roadmap | Pending |
-| STRAT-04 | Pending roadmap | Pending |
-| STRAT-05 | Pending roadmap | Pending |
-| PKG-01 | Pending roadmap | Pending |
-| PKG-02 | Pending roadmap | Pending |
-| PKG-03 | Pending roadmap | Pending |
-| PKG-04 | Pending roadmap | Pending |
-| PKG-05 | Pending roadmap | Pending |
-| PKG-06 | Pending roadmap | Pending |
-| PKG-07 | Pending roadmap | Pending |
-| PKG-08 | Pending roadmap | Pending |
-| TUT-01 | Pending roadmap | Pending |
-| TUT-02 | Pending roadmap | Pending |
-| TUT-03 | Pending roadmap | Pending |
-| TUT-04 | Pending roadmap | Pending |
-| TUT-05 | Pending roadmap | Pending |
-| SITE-01 | Pending roadmap | Pending |
-| SITE-02 | Pending roadmap | Pending |
-| SITE-03 | Pending roadmap | Pending |
-| SITE-04 | Pending roadmap | Pending |
-| SITE-05 | Pending roadmap | Pending |
-| REF-01 | Pending roadmap | Pending |
-| REF-02 | Pending roadmap | Pending |
-| REF-03 | Pending roadmap | Pending |
-| REF-04 | Pending roadmap | Pending |
-| REF-05 | Pending roadmap | Pending |
+| STRAT-01 | Phase 60 | Pending |
+| STRAT-02 | Phase 60 | Pending |
+| STRAT-03 | Phase 60 | Pending |
+| STRAT-04 | Phase 60 | Pending |
+| STRAT-05 | Phase 60 | Pending |
+| SITE-02 | Phase 60 | Pending |
+| PKG-01 | Phase 61 | Pending |
+| PKG-02 | Phase 61 | Pending |
+| PKG-03 | Phase 61 | Pending |
+| PKG-04 | Phase 61 | Pending |
+| PKG-05 | Phase 61 | Pending |
+| PKG-06 | Phase 61 | Pending |
+| PKG-07 | Phase 61 | Pending |
+| PKG-08 | Phase 61 | Pending |
+| REF-02 | Phase 61 | Pending |
+| TUT-01 | Phase 62 | Pending |
+| TUT-02 | Phase 62 | Pending |
+| TUT-03 | Phase 62 | Pending |
+| TUT-04 | Phase 62 | Pending |
+| TUT-05 | Phase 62 | Pending |
+| SITE-01 | Phase 63 | Pending |
+| SITE-03 | Phase 63 | Pending |
+| SITE-04 | Phase 63 | Pending |
+| SITE-05 | Phase 63 | Pending |
+| REF-01 | Phase 63 | Pending |
+| REF-03 | Phase 64 | Pending |
+| REF-04 | Phase 64 | Pending |
+| REF-05 | Phase 64 | Pending |
 
 **Coverage:**
 - v1 requirements: 28 total
-- Mapped to phases: 0
-- Unmapped: 28
+- Mapped to phases: 28
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-23*
-*Last updated: 2026-05-23 after initial definition*
+*Last updated: 2026-05-23 after roadmap creation*
