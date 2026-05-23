@@ -118,11 +118,23 @@ function stringLiteralList(values: readonly string[]): string {
 }
 
 describe('NIP-5D conformance static guards', () => {
-  it('keeps test resolution pinned to repo-local napplet package sources', () => {
+  it('keeps test resolution on published napplet packages', () => {
+    const rootPackageJson = JSON.parse(readRepoFile('package.json')) as {
+      pnpm?: { overrides?: Record<string, string> };
+    };
+    const workspace = readRepoFile('pnpm-workspace.yaml');
+    const lockfile = readRepoFile('pnpm-lock.yaml');
     const vitestConfig = readRepoFile('vitest.config.ts');
+    const e2eViteConfig = readRepoFile('tests/e2e/vite.config.ts');
 
-    expect(vitestConfig).toContain("resolve(__dirname, 'napplet/packages/core/src/index.ts')");
+    expect(rootPackageJson.pnpm?.overrides ?? {}).not.toHaveProperty('@napplet/core');
+    expect(workspace).not.toContain('napplet/packages/*');
+    expect(lockfile).not.toMatch(/link:.*napplet/);
+    expect(lockfile).not.toContain('napplet/packages');
+    expect(vitestConfig).not.toContain('napplet/packages');
     expect(vitestConfig).not.toContain('/home/sandwich/Develop/napplet');
+    expect(e2eViteConfig).not.toContain('napplet/packages');
+    expect(e2eViteConfig).not.toContain('/home/sandwich/Develop/napplet');
   });
 
   it('keeps forbidden browser and protocol primitives out of playground napplet source', () => {

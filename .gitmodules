@@ -1,6 +1,0 @@
-[submodule "napplet"]
-	path = napplet
-	url = https://github.com/napplet/napplet.git
-[submodule "nubs"]
-	path = nubs
-	url = https://github.com/napplet/nubs.git

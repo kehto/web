@@ -5,7 +5,7 @@
   "scripts": {
     "audit:csp": "node scripts/audit-csp.mjs",
     "audit:gateway-artifacts": "node scripts/audit-gateway-artifacts.mjs",
-    "build": "turbo run build --filter=@napplet/core --filter=@napplet/nub --filter=@napplet/sdk --filter=@napplet/shim --filter=@napplet/vite-plugin && turbo run build",
+    "build": "turbo run build",
     "docs:api": "typedoc",
     "type-check": "turbo run type-check",
     "test": "pnpm build && pnpm test:unit",
@@ -27,15 +27,6 @@
     "typedoc": "^0.28",
     "typescript": "^5.9.3",
     "vitest": "^4.1.2"
-  },
-  "pnpm": {
-    "overrides": {
-      "@napplet/core": "link:napplet/packages/core",
-      "@napplet/nub": "link:napplet/packages/nub",
-      "@napplet/sdk": "link:napplet/packages/sdk",
-      "@napplet/shim": "link:napplet/packages/shim",
-      "@napplet/vite-plugin": "link:napplet/packages/vite-plugin"
-    }
   },
   "packageManager": "pnpm@10.8.0"
 }
