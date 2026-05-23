@@ -1,6 +1,10 @@
 # @kehto/nip66
 
-Framework-agnostic NIP-66 kind-30166 relay-discovery aggregator for the napplet runtime ecosystem.
+Framework-agnostic NIP-66 kind-30166 relay-discovery aggregator for napplet runtimes.
+
+> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> protocol. This utility is independent of NIP-5D NUBs, but its integration
+> points may change as Kehto and other runtimes evolve.
 
 ## Install
 

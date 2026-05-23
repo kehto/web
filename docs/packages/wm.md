@@ -2,6 +2,9 @@
 
 Structural window-management contracts for consumer-owned layout strategies.
 
+> **Alpha status:** These shell-owned contracts are experimental. They are not a
+> NUB and may change as Kehto and other runtime implementations evolve.
+
 ## Install
 
 ```bash

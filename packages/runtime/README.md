@@ -2,6 +2,10 @@
 
 Browser-agnostic protocol engine for the napplet protocol.
 
+> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> protocol. NUB contracts and runtime APIs are not final; treat this package as
+> current implementation guidance, not as a stable protocol guarantee.
+
 ## Install
 
 ```bash
@@ -10,9 +14,9 @@ pnpm add @kehto/runtime
 
 ## Overview
 
-`@kehto/runtime` is the canonical v1.2 NIP-5D protocol engine. It owns every incoming napplet message, gates it through the ACL enforcement layer, routes it to the correct NUB handler, and emits the corresponding reply envelope.
+`@kehto/runtime` is Kehto's NIP-5D protocol engine. It owns every incoming napplet message, gates it through the ACL enforcement layer, routes it to the correct NUB handler, and emits the corresponding reply envelope.
 
-The runtime is built around the canonical dispatch contract from `@napplet/core` — `createDispatch()` + `registerNub()` — so routing is declarative, not a hand-rolled switch. Covers all eight canonical NIP-5D domains end-to-end:
+The runtime is built around the current draft dispatch contract from `@napplet/core` — `createDispatch()` + `registerNub()` — so routing is declarative, not a hand-rolled switch. It covers the NIP-5D domains currently supported by Kehto:
 
 - **identity** — `identity.getProfile`, `identity.getFollows`, `identity.getPublicKey`, …
 - **ifc** — `ifc.channel.*`, `ifc.emit`, cross-napplet pub/sub
@@ -40,7 +44,7 @@ const runtime = createRuntime({
   // ... further adapter hooks
 });
 
-// Incoming canonical v1.2 envelope from a napplet:
+// Incoming NIP-5D draft envelope from a napplet:
 runtime.handleMessage('window-1', {
   type: 'relay.publish',
   id: 'evt-42',
@@ -90,7 +94,7 @@ runtime.handleMessage('window-1', {
 
 ### Compat re-exports (DRIFT-CORE-06)
 
-Retained for v1.1 migration consumers; new integrations should use canonical NIP-5D envelope types from `@napplet/core`. Slated for removal once upstream restores those exports.
+Retained for migration consumers; new integrations should use current NIP-5D envelope types from `@napplet/core`. Slated for removal once upstream restores those exports.
 
 Re-exported constants cover the v1.1 bus-kind enum, auth event kind, shell bridge URI, protocol version string, the full capability list, destructive-kind set, and the replay window seconds. Re-exported types cover the v1.1 capability union, bus-kind numeric union, and service descriptor shape. See the typedoc API reference below for the exact identifier list and current numeric values.
 

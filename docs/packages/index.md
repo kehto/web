@@ -2,6 +2,10 @@
 
 Use these pages when you need to choose or integrate one part of Kehto. Each page is grounded in the package manifest and source barrel for the current repository state.
 
+> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> protocol. NUB contracts and package APIs are not final; use these package
+> pages as current implementation guidance, not as a stability guarantee.
+
 | Package | Page | Role |
 |---------|------|------|
 | `@kehto/acl` | [ACL](./acl.md) | Pure capability state and enforcement primitives. |

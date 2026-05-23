@@ -20,6 +20,7 @@ export default defineConfig({
     },
     nav: [
       { text: 'Start', link: '/' },
+      { text: 'Alpha', link: '/alpha-status' },
       { text: 'Tutorials', link: '/tutorials/' },
       { text: 'How-tos', link: '/how-tos/' },
       { text: 'Packages', link: '/packages/' },
@@ -30,6 +31,7 @@ export default defineConfig({
         text: 'Start',
         items: [
           { text: 'Overview', link: '/' },
+          { text: 'Alpha Status', link: '/alpha-status' },
           { text: 'Content Strategy', link: '/strategy/content-strategy' },
           { text: 'Information Architecture', link: '/strategy/information-architecture' },
           { text: 'Maintenance', link: '/strategy/maintenance' },

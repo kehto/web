@@ -13,6 +13,7 @@
         color-scheme: dark;
         --bg: #101216;
         --panel: #171b22;
+        --notice: #242015;
         --text: #f4f7fb;
         --muted: #aeb8c7;
         --line: #2f3744;
@@ -57,10 +58,25 @@
 
       .summary {
         max-width: 720px;
-        margin: 24px 0 40px;
+        margin: 24px 0 24px;
         color: var(--muted);
         font-size: 1.08rem;
         line-height: 1.65;
+      }
+
+      .notice {
+        max-width: 760px;
+        margin: 0 0 40px;
+        padding: 16px 18px;
+        border: 1px solid color-mix(in srgb, var(--accent-2) 55%, var(--line));
+        border-radius: 8px;
+        background: var(--notice);
+        color: var(--text);
+        line-height: 1.55;
+      }
+
+      .notice strong {
+        color: var(--accent-2);
       }
 
       .links {
@@ -126,12 +142,18 @@
   </head>
   <body>
     <main>
-      <p class="eyebrow">Runtime for sandboxed Nostr napplets</p>
+      <p class="eyebrow">An early runtime for sandboxed Nostr napplets</p>
       <h1>Kehto Runtime</h1>
       <p class="summary">
-        Kehto provides the shell-side packages that host sandboxed iframe napplets:
-        protocol runtime, ACL enforcement, service handlers, gateway loading, and
-        browser integration.
+        Kehto is a runtime implementation for NIP-5D napplets, not the runtime for
+        the ecosystem. It provides shell-side packages for protocol routing, ACL
+        enforcement, service handlers, gateway loading, and browser integration.
+      </p>
+
+      <p class="notice">
+        <strong>Alpha notice:</strong> NIP-5D is still under development and NUB
+        contracts are not final. APIs, capability names, <code>requires</code>
+        declarations, and <code>supports()</code> behavior may change.
       </p>
 
       <nav class="links" aria-label="Kehto web destinations">
@@ -149,7 +171,7 @@
       </nav>
 
       <footer>
-        <span>Kehto is the runtime half of the napplet protocol ecosystem.</span>
+        <span>Kehto is an early runtime and potential reference implementation for NIP-5D napplets.</span>
       </footer>
     </main>
   </body>

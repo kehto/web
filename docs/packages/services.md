@@ -1,6 +1,9 @@
 # @kehto/services
 
-Reference service handlers for the Kehto runtime.
+Reference service handlers for Kehto runtime implementations.
+
+> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> protocol. Service envelopes and NUB contracts are not final.
 
 ## Install
 

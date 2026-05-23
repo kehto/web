@@ -1,6 +1,10 @@
 # @kehto/wm
 
-Structural primitives for consumer-implemented layout strategies (v0.1.x, Phase 41+).
+Structural primitives for consumer-implemented layout strategies.
+
+> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> protocol. Window-management contracts are shell-owned and experimental; they
+> are not a NUB and may change as runtime implementations evolve.
 
 ## What this package is
 

@@ -1,6 +1,11 @@
 # Architecture
 
-Kehto separates napplet hosting into small packages with clear ownership boundaries.
+Kehto is an early runtime implementation for NIP-5D napplets. It separates
+napplet hosting into small packages with clear ownership boundaries.
+
+> **Alpha status:** NIP-5D is still under development, and NUB contracts are not
+> final. This architecture describes Kehto's current implementation, not a
+> requirement that all napplet runtimes follow the same shape.
 
 | Layer | Package | Responsibility |
 |-------|---------|----------------|
@@ -10,4 +15,5 @@ Kehto separates napplet hosting into small packages with clear ownership boundar
 | Services | `@kehto/services` | Reference service handlers registered with the runtime. |
 | Optional utilities | `@kehto/nip66`, `@kehto/wm` | Relay discovery and shell-owned window-management contracts. |
 
-`@napplet` packages define portable napplet-side contracts and helpers. Kehto implements the host-side runtime and shell behavior.
+`@napplet` packages define portable napplet-side contracts and helpers. Kehto
+implements one host-side runtime and shell behavior.

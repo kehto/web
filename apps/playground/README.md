@@ -1,6 +1,10 @@
 # @kehto/demo
 
-Reference consumer of the napplet protocol — a 13-napplet browser demo that hosts `@kehto/runtime` + `@kehto/shell` and exercises every public NIP-5D NUB surface end-to-end. Acts as both the Playwright test harness target (`:4174` preview build) and the showcase for external integrators evaluating the protocol.
+Reference consumer of the current napplet protocol draft — a 13-napplet browser demo that hosts `@kehto/runtime` + `@kehto/shell` and exercises Kehto's supported NIP-5D NUB surfaces end-to-end. Acts as both the Playwright test harness target (`:4174` preview build) and the showcase for external integrators evaluating Kehto as an early runtime implementation.
+
+> **Alpha status:** NIP-5D is still under development, and NUB contracts are not
+> final. The playground demonstrates Kehto's current behavior; it is not proof
+> that the protocol or helper APIs are stable.
 
 ## Run
 

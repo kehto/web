@@ -2,6 +2,9 @@
 
 Browser adapter over `@kehto/runtime` for iframe/session hosting.
 
+> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> protocol. Shell capabilities, `supports()` behavior, and NUB contracts are not final.
+
 ## Install
 
 ```bash

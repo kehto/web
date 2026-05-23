@@ -2,6 +2,10 @@
 
 Browser adapter over @kehto/runtime — ShellBridge, domain proxies, keys-forwarder.
 
+> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> protocol. NUB contracts, `supports()` behavior, and shell capabilities are not
+> final; treat this package as current implementation guidance.
+
 ## Install
 
 ```bash
@@ -14,11 +18,11 @@ pnpm add @kehto/shell
 
 The primary entry point is `createShellBridge()` — it owns the postMessage listener, AUTH handshake, manifest verification, and every dispatch back into the runtime engine.
 
-Canonical v1.2 behaviors this package enforces:
+Current draft behaviors this package enforces:
 
 - The shell does not inject a host-provided nostr object into napplets — NIP-5D explicitly forbids napplet-visible signing. Napplets call `relay.publish` / `relay.publishEncrypted` and the shell mediates the signing flow internally (NIP-44 default, NIP-04 opt-in for encrypted envelopes).
 - `shell.supports(capability)` uses the `perm:<permission>` namespace for sandbox permissions, not the v1.1 bare capability list.
-- Five optional per-domain proxies — `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` — can be composed between napplet and runtime to intercept or augment traffic per NUB. They are NOT wired by default (the runtime already owns 8-domain dispatch); they exist as host-app composition seams.
+- Five optional per-domain proxies — `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` — can be composed between napplet and runtime to intercept or augment traffic per NUB. They are NOT wired by default (Kehto's runtime already owns dispatch for the currently supported domains); they exist as host-app composition seams.
 - The keys-forwarder pumps host keydown events into `keys.forward` envelopes for napplets that hold the `keys:forward` capability.
 
 ## Quick Start
@@ -50,7 +54,7 @@ bridge.runtime.registerService(
 - `adaptHooks` — convert a `ShellAdapter` + `BrowserDeps` into the canonical `RuntimeAdapter` hook bag consumed by `@kehto/runtime`
 
 ### Shell init
-- `buildShellCapabilities` — construct the `ShellCapabilities` payload emitted during the `shell.ready` / `shell.init` handshake
+- `buildShellCapabilities` — construct the current draft `ShellCapabilities` payload emitted during the `shell.ready` / `shell.init` handshake
 
 ### Domain proxies (NIP-5D composition seams)
 - `createIdentityProxy` — intercept `identity.getProfile/getFollows/...` traffic
@@ -88,7 +92,7 @@ Exported for host-app integration: `ShellAdapter`, `ShellCapabilities`, `RelayPo
 
 ### Compat re-exports (DRIFT-CORE-06)
 
-Retained for v1.1 migration consumers; new integrations should use canonical NIP-5D envelope types from `@napplet/core`. Slated for removal once upstream restores those exports.
+Retained for migration consumers; new integrations should use current NIP-5D envelope types from `@napplet/core`. Slated for removal once upstream restores those exports.
 
 Re-exported from `@kehto/runtime`: the v1.1 bus-kind enum, auth event kind, shell bridge URI constant, protocol version string, the full capability list, destructive-kind set, and the replay window seconds constant. Re-exported types cover the v1.1 capability union and bus-kind numeric union. See the typedoc API reference below for the exact identifier list.
 

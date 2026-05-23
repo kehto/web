@@ -2,6 +2,10 @@
 
 Reference service handlers for the napplet protocol — audio, notifications, identity, relay pool, cache, keys, media, notify, theme.
 
+> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> protocol. NUB contracts and service envelopes are not final; treat these
+> handlers as reference implementations for the current draft.
+
 ## Install
 
 ```bash
@@ -14,11 +18,11 @@ pnpm add @kehto/services
 
 Host apps wire services into the runtime via `runtime.registerService(name, handler)`. The services are browser-agnostic — they have no DOM dependency. Browser-specific behaviors (audio element pool, OS notifications) are delivered through host-supplied callbacks.
 
-Canonical v1.2 posture:
+Current draft posture:
 
 - The v1.1 signer service is deleted outright. Its responsibilities split into two: read-only identity lookups go through `createIdentityService` (`getPublicKey`, `getRelays`, `getProfile`, `getFollows`, `getList`, `getZaps`, `getMutes`, `getBlocked`, `getBadges`); signing happens inside the shell as part of `relay.publish` / `relay.publishEncrypted` and is never exposed to napplets.
 - `createKeysService` and `createMediaService` ship real reference backends as of v1.4 (see the dedicated sections below). `createKeysService` attaches a document-level `keydown` listener by default and delivers `keys.action` push envelopes to registered napplets; `createMediaService` mirrors session metadata and playback state to `navigator.mediaSession` and emits `media.command` push envelopes on OS transport events. Both accept a host-bridge option (`HostKeysBridge` / `HostMediaBridge`) so Electron / Tauri / native shells can swap in OS-level backends without re-implementing the wire-protocol bookkeeping.
-- `createNotifyService` (NIP-5D `notify.*` NUB) coexists with the legacy `createNotificationService` (ifc-emit `notifications:*` channel). Both may be registered simultaneously until the legacy handler is retired.
+- `createNotifyService` (NIP-5D `notify.*` NUB) coexists with the legacy `createNotificationService` (ifc-emit `notifications:*` channel). Both may be registered simultaneously while hosts migrate.
 
 ## Quick Start
 
@@ -47,7 +51,7 @@ runtime.registerService(
 
 ## Keys Service
 
-Reference keyboard / chord backend for the `keys.*` NIP-5D NUB. By default attaches a single `document`-level `keydown` listener that matches incoming events against registered chord subscriptions and delivers a canonical `keys.action` push envelope back to the owning napplet. Implement the [`HostKeysBridge`](#hostkeysbridge-interface) interface to swap in OS-level backends (Electron `globalShortcut`, Tauri `GlobalShortcut`).
+Reference keyboard / chord backend for the `keys.*` NIP-5D NUB. By default attaches a single `document`-level `keydown` listener that matches incoming events against registered chord subscriptions and delivers a `keys.action` push envelope back to the owning napplet. Implement the [`HostKeysBridge`](#hostkeysbridge-interface) interface to swap in OS-level backends (Electron `globalShortcut`, Tauri `GlobalShortcut`).
 
 ### Factory
 
@@ -344,7 +348,7 @@ See the demo: [`apps/playground/napplets/media-controller/src/main.ts`](../../ap
 
 ## Public API
 
-Each factory returns a `ServiceHandler` registrable via `runtime.registerService()`. The bullets below note the canonical NIP-5D domain the handler owns and the ACL capability napplets need in order to reach it.
+Each factory returns a `ServiceHandler` registrable via `runtime.registerService()`. The bullets below note the current NIP-5D domain the handler owns and the ACL capability napplets need in order to reach it.
 
 ### Identity NUB
 - `createIdentityService` — `identity.*` reads (`identity:read`). No signing surface; shell mediates signing internally.

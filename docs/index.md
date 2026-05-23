@@ -1,6 +1,15 @@
 # Kehto Runtime Documentation
 
-Kehto is the runtime half of the napplet protocol ecosystem. It provides the host-side packages that let a Nostr client embed sandboxed napplet iframe applications: access control, protocol dispatch, browser shell integration, reference services, relay discovery, and shell-owned window-management contracts.
+Kehto is an early runtime implementation for NIP-5D napplets. It is one runtime,
+not the runtime for the napplet ecosystem. It is likely the first implementation
+and may become a useful reference implementation as other runtimes are built.
+
+> **Alpha status:** NIP-5D is still under development, and NUB contracts are not
+> final. Package APIs, capability names, `requires` declarations, and
+> `supports()` behavior may change as the spec evolves. See
+> [Alpha Status](./alpha-status.md).
+
+Kehto provides host-side packages that let a Nostr client embed sandboxed napplet iframe applications: access control, protocol dispatch, browser shell integration, reference services, relay discovery, and shell-owned window-management contracts.
 
 Kehto works with the `@napplet` packages. `@napplet/core`, `@napplet/shim`, `@napplet/nub`, and `@napplet/vite-plugin` define the portable napplet-side protocol and build surface. Kehto consumes those contracts and implements the shell/runtime side.
 
@@ -9,6 +18,7 @@ Kehto works with the `@napplet` packages. `@napplet/core`, `@napplet/shim`, `@na
 | Reader | Start path | What you are trying to do |
 |--------|------------|----------------------------|
 | Host-app implementer | Runtime implementation guide | Build a shell that hosts sandboxed napplets. |
+| Protocol evaluator | Alpha status | Understand what is still draft-stage before treating Kehto as a reference implementation. |
 | Package API consumer | Package reference | Understand one `@kehto/*` package and its exports. |
 | Napplet author | Napplet integration tutorial | Declare `requires`, check `supports()`, and use NUB helpers safely. |
 | Maintainer | Docs maintenance guide | Keep README, site, API reference, and milestone history aligned. |

@@ -2,6 +2,9 @@
 
 Framework-agnostic NIP-66 kind-30166 relay-discovery aggregator.
 
+> **Alpha status:** This utility can support Kehto and other napplet runtimes.
+> Its integration points may change while NIP-5D runtime implementations evolve.
+
 ## Install
 
 ```bash

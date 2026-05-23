@@ -2,6 +2,9 @@
 
 Pure capability state and enforcement primitives for the napplet protocol.
 
+> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> protocol. Capability names and NUB contracts are not final.
+
 ## Install
 
 ```bash

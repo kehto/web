@@ -1,14 +1,27 @@
 # Kehto Runtime
 
-Kehto is a web-based runtime for NIP-5D nostr applets ("napplets"). 
+Kehto is an early web-based runtime implementation for NIP-5D Nostr applets
+("napplets"). It is one runtime, not the runtime for the ecosystem. It is likely
+the first implementation and may become a useful reference implementation as
+other napplet runtimes emerge.
 
-It provides a series of packages that can be used to more easily build a napplet host-client, by handling enforcment capabilities, routing, registration of host services, and development tooling. There are applet-side packages that act as a reference implementation (`@napplet/core`, `@napplet/shim`, `@napplet/nub`, and `@napplet/vite-plugin`) and they live in the [@napplet](https://github.com/sandwichfarm/napplet) repo; Kehto implements an example runtime and NIP-5D shell. 
+> **Alpha status:** NIP-5D is still under development, and NUB contracts are not
+> final. Package APIs, capability names, `requires` declarations, and
+> `supports()` behavior may change as the spec evolves.
+
+It provides packages for building a napplet host client by handling capability
+enforcement, message routing, host service registration, gateway artifacts, and
+development tooling. The applet-side packages (`@napplet/core`, `@napplet/shim`,
+`@napplet/nub`, and `@napplet/vite-plugin`) live in the
+[@napplet](https://github.com/sandwichfarm/napplet) repo; Kehto implements an
+example runtime and NIP-5D shell.
 
 ## Start Here
 
 - Public web portal: <https://kehto.github.io/web/>
 - Playground demo: <https://kehto.github.io/web/playground/>
-- Dcs: <https://kehto.github.io/web/docs/>
+- Docs: <https://kehto.github.io/web/docs/>
+- Alpha status: [docs/alpha-status.md](./docs/alpha-status.md)
 - Local docs entry: [docs/index.md](./docs/index.md)
 - Package reference index: [docs/packages/index.md](./docs/packages/index.md)
 - Generated API reference index: [docs/reference/api.md](./docs/reference/api.md)
@@ -23,7 +36,7 @@ the package table below to jump into the implementation surface you need.
 |---------|------------|--------------|---------------|----------------|
 | `@kehto/acl` | Pure capability state, grants, blocks, quotas, and policy checks. | [packages/acl](./packages/acl/) | [docs/packages/acl.md](./docs/packages/acl.md) | [ACL docs](https://kehto.github.io/web/docs/packages/acl) |
 | `@kehto/runtime` | Browser-agnostic NIP-5D dispatch, ACL gates, service registry, sessions, manifests, replay checks, and event buffering. | [packages/runtime](./packages/runtime/) | [docs/packages/runtime.md](./docs/packages/runtime.md) | [Runtime docs](https://kehto.github.io/web/docs/packages/runtime) |
-| `@kehto/shell` | Browser iframe/session adapter over the runtime, gateway loading, postMessage transport, hosted `supports()`, and shell policy. | [packages/shell](./packages/shell/) | [docs/packages/shell.md](./docs/packages/shell.md) | [Shell docs](https://kehto.github.io/web/docs/packages/shell) |
+| `@kehto/shell` | Browser iframe/session adapter over a Kehto runtime, gateway loading, postMessage transport, hosted `supports()`, and shell policy. | [packages/shell](./packages/shell/) | [docs/packages/shell.md](./docs/packages/shell.md) | [Shell docs](https://kehto.github.io/web/docs/packages/shell) |
 | `@kehto/services` | Reference handlers for identity, relay, keys, media, notify, config, resource, cache, theme, and audio surfaces. | [packages/services](./packages/services/) | [docs/packages/services.md](./docs/packages/services.md) | [Services docs](https://kehto.github.io/web/docs/packages/services) |
 | `@kehto/nip66` | Framework-agnostic NIP-66 kind-30166 relay discovery aggregation. | [packages/nip66](./packages/nip66/) | [docs/packages/nip66.md](./docs/packages/nip66.md) | [NIP-66 docs](https://kehto.github.io/web/docs/packages/nip66) |
 | `@kehto/wm` | Structural window-management contracts for shell-owned layout strategies. | [packages/wm](./packages/wm/) | [docs/packages/wm.md](./docs/packages/wm.md) | [WM docs](https://kehto.github.io/web/docs/packages/wm) |
