@@ -52,4 +52,4 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nub nostr
 
 ## API Reference
 
-- Generated module: [`docs/api/modules/_kehto_shell.html`](../api/modules/_kehto_shell.html)
+- Generated module: <a href="../api/modules/_kehto_shell.html" target="_self"><code>docs/api/modules/_kehto_shell.html</code></a>

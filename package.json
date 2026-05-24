@@ -12,7 +12,7 @@
     "docs:api": "typedoc",
     "docs:api:strict": "typedoc --treatWarningsAsErrors",
     "docs:site:dev": "pnpm --dir docs docs:dev",
-    "docs:site:build": "pnpm docs:api:strict && turbo run docs:build --filter @kehto/docs",
+    "docs:site:build": "pnpm docs:api:strict && turbo run docs:build --filter @kehto/docs && node scripts/copy-docs-api.mjs",
     "docs:site:preview": "pnpm --dir docs docs:preview",
     "docs:check": "pnpm docs:site:build && node scripts/audit-docs.mjs",
     "type-check": "turbo run type-check",

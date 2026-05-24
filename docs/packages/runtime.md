@@ -49,4 +49,4 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nub
 
 ## API Reference
 
-- Generated module: [`docs/api/modules/_kehto_runtime.html`](../api/modules/_kehto_runtime.html)
+- Generated module: <a href="../api/modules/_kehto_runtime.html" target="_self"><code>docs/api/modules/_kehto_runtime.html</code></a>
