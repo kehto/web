@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.16
 milestone_name: Structural Code Quality Refactor
 status: Awaiting next milestone
-last_updated: "2026-05-24T13:42:05.961Z"
-last_activity: 2026-05-24 — Milestone v1.16 completed and archived
+last_updated: "2026-05-24T14:02:55.746Z"
+last_activity: 2026-05-24 — Completed quick task 260524-maf: add the aislop-badge GitHub Action
 progress:
   total_phases: 4
   completed_phases: 4
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-05-24, v1.16 started)
 Phase: Milestone v1.16 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-05-24 — Milestone v1.16 completed and archived
+Last activity: 2026-05-24 — Completed quick task 260524-maf: add the aislop-badge GitHub Action
 
 ## Accumulated Context
 
@@ -87,6 +87,7 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 | 260523-ikp | Separate runtime demo surfaces from napplet cards | 2026-05-23 | 24af3d4, 91f8fb3 | [260523-ikp-runtime-helper-panes-should-not-be-label](./quick/260523-ikp-runtime-helper-panes-should-not-be-label/) |
 | 260523-jev | Publish playground to GitHub Pages | 2026-05-23 | c89e746 | [260523-jev-create-a-workflow-that-publishes-the-pla](./quick/260523-jev-create-a-workflow-that-publishes-the-pla/) |
 | 260523-alpha | Clarify alpha runtime positioning | 2026-05-23 | b0de00d | README/docs/splash |
+| 260524-maf | Add the aislop-badge GitHub Action | 2026-05-24 | b5c39f7 | [260524-maf-add-the-aislop-badge-github-action-to-a-](./quick/260524-maf-add-the-aislop-badge-github-action-to-a-/) |
 
 ## Session Continuity
 
