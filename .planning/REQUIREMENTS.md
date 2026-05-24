@@ -14,8 +14,8 @@
 ### Scanner Baseline
 
 - [x] **SCAN-01**: Maintainer can reproduce the v1.16 starting baseline with `npx --no-install aislop scan -d` and see the same 16 structural warnings documented in the milestone artifacts.
-- [ ] **SCAN-02**: Maintainer can run `npx --no-install aislop scan -d` after the milestone and see 0 errors, 0 warnings, and 0 fixable findings.
-- [ ] **SCAN-03**: The existing `.aislop/config.yml` complexity thresholds remain unchanged during the milestone unless a phase explicitly documents and approves a policy change.
+- [x] **SCAN-02**: Maintainer can run `npx --no-install aislop scan -d` after the milestone and see 0 errors, 0 warnings, and 0 fixable findings.
+- [x] **SCAN-03**: The existing `.aislop/config.yml` complexity thresholds remain unchanged during the milestone unless a phase explicitly documents and approves a policy change.
 
 ### Runtime Core
 
@@ -41,8 +41,8 @@
 
 ### Verification
 
-- [ ] **VERIFY-01**: `pnpm type-check`, `pnpm build`, `pnpm test:unit`, and `pnpm --dir docs docs:build` pass after the structural refactors.
-- [ ] **VERIFY-02**: Each extracted boundary is covered by existing or new focused tests when behavior is not already protected by current unit/static coverage.
+- [x] **VERIFY-01**: `pnpm type-check`, `pnpm build`, `pnpm test:unit`, and `pnpm --dir docs docs:build` pass after the structural refactors.
+- [x] **VERIFY-02**: Each extracted boundary is covered by existing or new focused tests when behavior is not already protected by current unit/static coverage.
 
 ## Future Requirements
 
@@ -79,8 +79,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | SCAN-01 | Phase 73 | Complete |
-| SCAN-02 | Phase 76 | Pending |
-| SCAN-03 | Phase 76 | Pending |
+| SCAN-02 | Phase 76 | Complete |
+| SCAN-03 | Phase 76 | Complete |
 | CORE-01 | Phase 73 | Complete |
 | CORE-02 | Phase 73 | Complete |
 | CORE-03 | Phase 73 | Complete |
@@ -94,8 +94,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SVC-02 | Phase 75 | Complete |
 | SVC-03 | Phase 75 | Complete |
 | ADAPT-01 | Phase 75 | Complete |
-| VERIFY-01 | Phase 76 | Pending |
-| VERIFY-02 | Phase 76 | Pending |
+| VERIFY-01 | Phase 76 | Complete |
+| VERIFY-02 | Phase 76 | Complete |
 
 **Coverage:**
 - v1.16 requirements: 18 total
@@ -104,4 +104,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-05-24*
-*Last updated: 2026-05-24 after Phase 75 service and adapter decomposition*
+*Last updated: 2026-05-24 after Phase 76 structural gate verification*

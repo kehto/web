@@ -18,7 +18,7 @@
 - [x] **v1.13: Documentation Strategy & Monorepo Docs Site** - 5 phases (60-64), 28/28 requirements, content strategy, package docs, tutorials/how-tos, VitePress site, and docs verification ([archive](milestones/v1.13-ROADMAP.md) | [requirements](milestones/v1.13-REQUIREMENTS.md) | [audit](milestones/v1.13-MILESTONE-AUDIT.md))
 - [x] **v1.14: GitHub Pages Web Portal** - 3 phases (65-67), 13/13 requirements, public `/web/` portal, playground at `/web/playground/`, docs at `/web/docs/`, and unified Pages deploy gate ([archive](milestones/v1.14-ROADMAP.md) | [requirements](milestones/v1.14-REQUIREMENTS.md) | [audit](milestones/v1.14-MILESTONE-AUDIT.md))
 - [x] **v1.15: Address AI Slop** - 5 phases (68-72), 20/20 original requirements complete, local `aislop` scan no longer Critical, 563 unit tests green ([archive](milestones/v1.15-ROADMAP.md) | [requirements](milestones/v1.15-REQUIREMENTS.md) | [audit](milestones/v1.15-MILESTONE-AUDIT.md))
-- [ ] **v1.16: Structural Code Quality Refactor** - 4 phases (73-76), 18 requirements, target 0 local `aislop` code-quality warnings
+- [ ] **v1.16: Structural Code Quality Refactor** - 4 phases (73-76), 18/18 requirements complete, local `aislop` scan clean, 563 unit tests green
 
 ---
 
@@ -30,7 +30,7 @@
 
 **Baseline entering v1.16:** `npx --no-install aislop scan -d` reports `64 / 100 Needs Work`, 0 errors, 16 warnings, 0 fixable. Formatting, Linting, AI Slop, and Security all report 0 issues. The remaining warnings are 10 long functions, 3 large files, and 3 deep-nesting findings under the current `.aislop/config.yml` thresholds.
 
-**Coverage:** 18/18 requirements mapped to phases.
+**Coverage:** 18/18 requirements complete.
 
 **Critical invariant:** This milestone is behavior-preserving structural refactor work. Do not change NIP-5D protocol behavior, public package contracts, playground user flows, scanner thresholds, published package versions, or the public Pages route contract.
 
@@ -39,7 +39,7 @@
 - [x] **Phase 73: Runtime Core Decomposition** - Split `packages/runtime/src/runtime.ts` and extract `createRuntime` / `handleRelayMessage` helpers until runtime core warnings clear.
 - [x] **Phase 74: Playground Shell Decomposition** - Split `apps/playground/src/main.ts` and `apps/playground/src/shell-host.ts`, reducing `createDemoHooks` and `bootShell` without changing visible demo behavior.
 - [x] **Phase 75: Service and Adapter Decomposition** - Reduce remaining long functions in ACL modal, NIP-46 client, service factories, and shell hook adapter.
-- [ ] **Phase 76: Structural Gate Verification** - Prove final scanner and repo gates are clean, record evidence, and close the milestone.
+- [x] **Phase 76: Structural Gate Verification** - Prove final scanner and repo gates are clean, record evidence, and close the milestone.
 
 ---
 
@@ -125,7 +125,9 @@
   4. Phase verification evidence names the tests or guards covering each extracted boundary.
   5. `git diff --check` passes and closeout artifacts state any remaining non-scanner risks.
 
-**Plans**: To be created by `$gsd-plan-phase 76`
+**Status**: Complete (2026-05-24)
+
+**Plans**: 1/1 complete
 
 ---
 
@@ -136,7 +138,7 @@
 | 73. Runtime Core Decomposition | 1/1 | Complete | 2026-05-24 |
 | 74. Playground Shell Decomposition | 1/1 | Complete | 2026-05-24 |
 | 75. Service and Adapter Decomposition | 1/1 | Complete | 2026-05-24 |
-| 76. Structural Gate Verification | 0/1 | Pending | — |
+| 76. Structural Gate Verification | 1/1 | Complete | 2026-05-24 |
 
 ## Backlog
 
@@ -162,4 +164,4 @@
 
 ---
 
-*ROADMAP.md last updated: 2026-05-24 - Phase 75 complete.*
+*ROADMAP.md last updated: 2026-05-24 - Phase 76 complete.*

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.16
 milestone_name: Structural Code Quality Refactor
 status: in_progress
-last_updated: "2026-05-24T13:32:35Z"
+last_updated: "2026-05-24T13:38:22Z"
 last_activity: 2026-05-24
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 4
-  completed_plans: 3
-  percent: 75
+  completed_plans: 4
+  percent: 100
 ---
 
 # Project State
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-24, v1.16 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 76 Structural Gate Verification
+**Current focus:** v1.16 milestone lifecycle
 
 ## Current Position
 
 Phase: 76
-Plan: —
-Status: Ready for phase planning
-Last activity: 2026-05-24 — Phase 75 service and adapter decomposition complete
+Plan: 76-01
+Status: Phase verification complete; ready for milestone audit, completion, and cleanup
+Last activity: 2026-05-24 — Phase 76 structural gate verification complete
 
 ## Accumulated Context
 
@@ -54,6 +54,7 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 - Phase 73 completed 2026-05-24: runtime relay, identity, IFC, and fallback domain handlers were extracted from `runtime.ts`; local scanner no longer reports runtime file-size, `createRuntime`, `handleRelayMessage`, or runtime deep-nesting warnings; focused runtime type/build/unit gates passed.
 - Phase 74 completed 2026-05-24: playground shell host definitions, decrypt fixtures, message tap, demo hooks, notification UI, and signer UI were extracted into focused modules; local scanner no longer reports `main.ts`, `shell-host.ts`, `createDemoHooks`, or `bootShell` warnings; type-check, playground build, scanner, and diff check passed.
 - Phase 75 completed 2026-05-24: ACL modal, NIP-46 client, media/notification/resource service factories, and shell hooks adapter were split into private helpers; local `aislop` now reports a clean `100 / 100 Healthy` run; focused unit tests, ACL modal E2E, build, type-check, scanner, and diff check passed.
+- Phase 76 completed 2026-05-24: final `npx --no-install aislop scan -d` reports `100 / 100 Healthy` with 0 errors, 0 warnings, and 0 fixable; `.aislop/config.yml` has no diff against the v1.16 start commit; `pnpm type-check`, `pnpm build`, `pnpm test:unit` (563 tests), `pnpm --dir docs docs:build`, and `git diff --check` passed.
 - v1.14 started 2026-05-23: public GitHub Pages deployment target is `kehto.github.io/web/`, with a portal slash page at `/web/`, playground at `/web/playground/`, and docs at `/web/docs/`. Current workflow only packs `.pages/playground`, so v1.14 must replace playground-only upload with a unified Pages artifact.
 - v1.14 roadmap phases are 65-67: Pages portal entry point, playground Pages path relocation, then docs Pages publication and deploy gate.
 - Phase 65 completed 2026-05-23: `web/index.html` is the static portal source, `pnpm build:pages` writes `.pages/web/index.html`, and the generated portal links to `/web/playground/` and `/web/docs/`.
@@ -90,9 +91,9 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 ## Session Continuity
 
 Last session: 2026-05-23T16:10:00Z
-Resume: v1.16 Structural Code Quality Refactor is ready for Phase 76 final structural gate verification.
+Resume: v1.16 Structural Code Quality Refactor has completed all phases and is ready for lifecycle audit, completion, and cleanup.
 Current milestone: v1.16 Structural Code Quality Refactor.
 
 ## Operator Next Steps
 
-- Continue Phase 76 with `$gsd-plan-phase 76`.
+- Continue lifecycle with `$gsd-audit-milestone`, `$gsd-complete-milestone v1.16`, then `$gsd-cleanup`.
