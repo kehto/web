@@ -9,24 +9,12 @@ import type { Capability } from '@kehto/acl/capabilities';
 import type { AclState, Identity } from '@kehto/acl';
 import {
   createState, check, grant, revoke, block, unblock,
-  serialize, deserialize, setQuota, getQuota,
+  serialize, deserialize, getQuota,
   CAP_RELAY_READ, CAP_RELAY_WRITE, CAP_CACHE_READ, CAP_CACHE_WRITE,
   CAP_HOTKEY_FORWARD,
   CAP_STATE_READ, CAP_STATE_WRITE, CAP_ALL,
 } from '@kehto/acl';
 import type { AclPersistence, AclEntryExternal } from './types.js';
-
-// ─── Capability String-to-Bit Mapping ──────────────────────────────────────
-//
-// Plan 12-10: signer caps (sign:event, sign:nip04, sign:nip44) removed from
-// the canonical 8-domain Capability union. The seven v1.2 additions
-// (identity:read, keys:bind, keys:forward, media:control, notify:send,
-// notify:channel, theme:read) reuse the signer bit slots (bits 5-7) plus
-// three new slots (bits 10-12). Bits must stay unique; entries deserialized
-// from v1.1 storage will have bits 5-7 meaning signer caps under the old
-// interpretation and identity:read / keys:bind / keys:forward under the
-// new interpretation. v1.2 migration tolerates this aliasing because the
-// v1.1 signer surface is no longer reachable by napplets.
 
 const CAP_IDENTITY_READ  = 1 << 5;    // 32  (reclaimed from CAP_SIGN_EVENT)
 const CAP_KEYS_BIND      = 1 << 6;    // 64  (reclaimed from CAP_SIGN_NIP04)
@@ -72,13 +60,9 @@ function bitsToCapabilities(bits: number): Capability[] {
   return result;
 }
 
-// ─── Identity Helper ───────────────────────────────────────────────────────
-
 function toIdentity(pubkey: string, dTag: string, hash: string): Identity {
   return { pubkey, dTag, hash };
 }
-
-// ─── AclStateContainer Interface ───────────────────────────────────────────
 
 /**
  * ACL state container — wraps @kehto/acl's pure functions with
@@ -173,8 +157,7 @@ export function createAclState(
     },
 
     getAllEntries(): AclEntryExternal[] {
-      return Object.entries(state.entries).map(([key, entry]) => {
-        const parts = key.split(':');
+      return Object.entries(state.entries).map(([, entry]) => {
         return {
           pubkey: '',
           capabilities: bitsToCapabilities(entry.caps),

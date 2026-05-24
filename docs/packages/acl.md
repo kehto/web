@@ -49,5 +49,5 @@ pnpm add @kehto/acl @napplet/core @napplet/nub
 
 ## API Reference
 
-- Generated module: [`docs/api/modules/_kehto_acl.html`](../api/modules/_kehto_acl.html)
-- Capabilities subpath: [`docs/api/modules/_kehto_acl.capabilities.html`](../api/modules/_kehto_acl.capabilities.html)
+- Generated module: <a href="../api/modules/_kehto_acl.html" target="_self"><code>docs/api/modules/_kehto_acl.html</code></a>
+- Capabilities subpath: <a href="../api/modules/_kehto_acl.capabilities.html" target="_self"><code>docs/api/modules/_kehto_acl.capabilities.html</code></a>

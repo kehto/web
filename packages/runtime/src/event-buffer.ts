@@ -127,7 +127,6 @@ export function createEventBuffer(
     for (const [subKey, sub] of subscriptions) {
       if (senderId !== null && sub.windowId === senderId) continue;
 
-      // Check relay:read ACL on the recipient at delivery time
       const recipientPubkey = sessionRegistry.getPubkey(sub.windowId);
       if (recipientPubkey) {
         const recipientResult = enforce(recipientPubkey, 'relay:read', ['EVENT', event]);

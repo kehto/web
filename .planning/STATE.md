@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.14
-milestone_name: GitHub Pages Web Portal
-status: awaiting_next_milestone
-last_updated: "2026-05-23T16:10:00.000Z"
-last_activity: 2026-05-23
+milestone: v1.16
+milestone_name: Structural Code Quality Refactor
+status: Awaiting next milestone
+last_updated: "2026-05-24T14:02:55.746Z"
+last_activity: 2026-05-24 — Completed quick task 260524-maf: add the aislop-badge GitHub Action
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
+  total_phases: 4
+  completed_phases: 4
+  total_plans: 4
+  completed_plans: 4
   percent: 100
 ---
 
@@ -17,17 +17,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-23, v1.14 archived)
+See: .planning/PROJECT.md (updated 2026-05-24, v1.16 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Awaiting next milestone after v1.14 GitHub Pages Web Portal
+**Current focus:** v1.16 milestone lifecycle
 
 ## Current Position
 
-Phase: No active milestone
+Phase: Milestone v1.16 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-05-23 — v1.14 completed, audited, and archived
+Last activity: 2026-05-24 — Completed quick task 260524-maf: add the aislop-badge GitHub Action
 
 ## Accumulated Context
 
@@ -43,7 +43,18 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 
 ### Blockers/Concerns
 
-- No active blockers. v1.13 requirements are complete, audited, and archived.
+- No active blockers. v1.15 starts from the `aislop 0.9.3` report: 38 errors, 607 warnings, 461 fixable findings across 123 scanned TypeScript files.
+- v1.15 roadmap phases are 68-71: gate baseline/mechanical cleanup, safe DOM rendering/security scanner cleanup, type/dependency/maintainability triage, then quality-gate verification and closeout.
+- Phase 68 completed 2026-05-24: supplied `aislop 0.9.3` baseline recorded, local `aislop` binary absence documented, the fatal undeclared `@napplet/services` reference corrected, report-flagged duplicate imports and mechanical lint/slop findings cleaned in touched files, and verification passed with `pnpm build`, `pnpm type-check`, and `git diff --check`.
+- Phase 69 completed 2026-05-24: direct `.innerHTML =` assignment sinks were removed from playground source and napplet source, a DOM safety guard was added, the NIP-46 hardcoded-token-looking example was reworded, and verification passed with focused render tests, `pnpm type-check`, `pnpm build`, `pnpm test:unit` (563 tests), and `git diff --check`.
+- Phase 70 completed 2026-05-24: runtime/services message-boundary casts were narrowed, runtime double assertions were reduced, private thin wrappers were inlined, napplet `supports()` double casts were removed, safe dependency audit paths were upgraded, and remaining VitePress Vite/esbuild advisories were explicitly deferred with rationale.
+- Phase 71 completed 2026-05-24: final fatal-category source guards passed, build/type/unit/static/docs/Pages gates passed, `gsd-sdk query audit-open` reported zero open items, and v1.15 milestone audit passed at 20/20 requirements across 4/4 phases.
+- Phase 72 completed 2026-05-24 after the local scanner invocation was corrected: `npx --no-install aislop scan -d` now reports `64 / 100 Needs Work` with 0 errors, 16 warnings, 0 fixable, and AI Slop/Linting/Security all clean. Verification passed with `pnpm type-check`, `pnpm build`, `pnpm test:unit`, `pnpm --dir docs docs:build`, final scanner, and diff check.
+- v1.16 started 2026-05-24: the milestone targets the remaining 16 structural `aislop` code-quality warnings with four phases: runtime core decomposition (73), playground shell decomposition (74), service and adapter decomposition (75), and final structural gate verification (76). Requirements are mapped 18/18 and phase numbering continues from v1.15.
+- Phase 73 completed 2026-05-24: runtime relay, identity, IFC, and fallback domain handlers were extracted from `runtime.ts`; local scanner no longer reports runtime file-size, `createRuntime`, `handleRelayMessage`, or runtime deep-nesting warnings; focused runtime type/build/unit gates passed.
+- Phase 74 completed 2026-05-24: playground shell host definitions, decrypt fixtures, message tap, demo hooks, notification UI, and signer UI were extracted into focused modules; local scanner no longer reports `main.ts`, `shell-host.ts`, `createDemoHooks`, or `bootShell` warnings; type-check, playground build, scanner, and diff check passed.
+- Phase 75 completed 2026-05-24: ACL modal, NIP-46 client, media/notification/resource service factories, and shell hooks adapter were split into private helpers; local `aislop` now reports a clean `100 / 100 Healthy` run; focused unit tests, ACL modal E2E, build, type-check, scanner, and diff check passed.
+- Phase 76 completed 2026-05-24: final `npx --no-install aislop scan -d` reports `100 / 100 Healthy` with 0 errors, 0 warnings, and 0 fixable; `.aislop/config.yml` has no diff against the v1.16 start commit; `pnpm type-check`, `pnpm build`, `pnpm test:unit` (563 tests), `pnpm --dir docs docs:build`, and `git diff --check` passed.
 - v1.14 started 2026-05-23: public GitHub Pages deployment target is `kehto.github.io/web/`, with a portal slash page at `/web/`, playground at `/web/playground/`, and docs at `/web/docs/`. Current workflow only packs `.pages/playground`, so v1.14 must replace playground-only upload with a unified Pages artifact.
 - v1.14 roadmap phases are 65-67: Pages portal entry point, playground Pages path relocation, then docs Pages publication and deploy gate.
 - Phase 65 completed 2026-05-23: `web/index.html` is the static portal source, `pnpm build:pages` writes `.pages/web/index.html`, and the generated portal links to `/web/playground/` and `/web/docs/`.
@@ -76,13 +87,14 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 | 260523-ikp | Separate runtime demo surfaces from napplet cards | 2026-05-23 | 24af3d4, 91f8fb3 | [260523-ikp-runtime-helper-panes-should-not-be-label](./quick/260523-ikp-runtime-helper-panes-should-not-be-label/) |
 | 260523-jev | Publish playground to GitHub Pages | 2026-05-23 | c89e746 | [260523-jev-create-a-workflow-that-publishes-the-pla](./quick/260523-jev-create-a-workflow-that-publishes-the-pla/) |
 | 260523-alpha | Clarify alpha runtime positioning | 2026-05-23 | b0de00d | README/docs/splash |
+| 260524-maf | Add the aislop-badge GitHub Action | 2026-05-24 | b5c39f7 | [260524-maf-add-the-aislop-badge-github-action-to-a-](./quick/260524-maf-add-the-aislop-badge-github-action-to-a-/) |
 
 ## Session Continuity
 
 Last session: 2026-05-23T16:10:00Z
-Resume: No active milestone. v1.14 is audited and archived; select or create the next milestone.
-Current milestone: none.
+Resume: v1.16 Structural Code Quality Refactor has completed all phases and is ready for lifecycle audit, completion, and cleanup.
+Current milestone: v1.16 Structural Code Quality Refactor.
 
 ## Operator Next Steps
 
-- Start the next milestone with `$gsd-new-milestone` or review the backlog for candidate scope.
+- Start the next milestone with /gsd-new-milestone

@@ -32,7 +32,6 @@ const byPubkey = new Map<string, SessionEntry>();
 const pendingUpdates = new Map<string, PendingUpdate>();
 
 let _pendingVersion = 0;
-function getPendingUpdateVersion(): number { return _pendingVersion; }
 
 /**
  * Bidirectional registry mapping windowIds to verified napplet pubkeys.

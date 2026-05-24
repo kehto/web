@@ -128,7 +128,6 @@ export function createNotifyService(options: NotifyServiceOptions = {}): Service
         case 'notify.dismiss':
         case 'notify.badge':
         case 'notify.channel.register':
-          // Fire-and-forget per @napplet/nub/notify. Stub has no backend
           // state to mutate; host apps with real backends override.
           return;
 

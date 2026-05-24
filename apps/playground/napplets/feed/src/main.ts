@@ -47,9 +47,7 @@ function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void
 }
 
 function getMissingRequiredNubs(): string[] {
-  const supports = (window as unknown as {
-    napplet: { shell: { supports(capability: string): boolean } };
-  }).napplet.shell.supports;
+  const supports = window.napplet.shell.supports;
   return REQUIRED_NUBS.filter((capability) => !supports(capability));
 }
 
@@ -60,15 +58,18 @@ function renderEvent(event: NostrEvent): void {
   li.className = 'feed-item';
   li.dataset.eventId = event.id;
   const pubkeyShort = event.pubkey.slice(0, 8);
-  li.innerHTML = `<span class="feed-item-pubkey">${pubkeyShort}</span><span class="feed-item-content"></span>`;
-  // Set textContent, not innerHTML, on the content span to avoid any XSS risk from fixture content.
-  const contentEl = li.querySelector('.feed-item-content');
-  if (contentEl) contentEl.textContent = event.content;
+  const pubkeyEl = document.createElement('span');
+  pubkeyEl.className = 'feed-item-pubkey';
+  pubkeyEl.textContent = pubkeyShort;
+  const contentEl = document.createElement('span');
+  contentEl.className = 'feed-item-content';
+  contentEl.textContent = event.content;
+  li.append(pubkeyEl, contentEl);
   listEl.appendChild(li);
   eventCount++;
 }
 
-let sub: Subscription | null = null;
+let _sub: Subscription | null = null;
 
 async function init(): Promise<void> {
   const missing = getMissingRequiredNubs();
@@ -79,7 +80,7 @@ async function init(): Promise<void> {
   log('subscribing to kind:1 feed');
 
   try {
-    sub = relaySubscribe(
+    _sub = relaySubscribe(
       { kinds: [1], limit: 5 },
       (event: NostrEvent) => {
         try {

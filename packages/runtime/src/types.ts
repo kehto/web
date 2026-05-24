@@ -8,7 +8,6 @@
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 import type { Capability } from '@kehto/acl/capabilities';
 
-// ─── Class posture (NUB-CLASS, v1.7 Phase 38) ────────────────────────────────
 /**
  * A napplet class identifier. `null` is the permissive default (no class).
  * provisional — mirrors packages/shell/src/types/internal-class.ts::NappletClass;
@@ -16,8 +15,6 @@ import type { Capability } from '@kehto/acl/capabilities';
  * from shell (module-boundary), so this duplicate lives here.
  */
 export type NappletClass = string | null;
-
-// ─── ACL Check Event ──────────────────────────────────────────────────────
 
 /**
  * Event emitted on every ACL enforcement check.
@@ -52,8 +49,6 @@ export interface AclCheckEvent {
   reason?: 'allowed' | 'capability-missing' | 'class-forbidden';
 }
 
-// ─── Message Transport ─────────────────────────────────────────────────────
-
 /**
  * Abstract message sender — the runtime calls this to send messages
  * back to a specific napplet. The transport layer (postMessage, WebSocket,
@@ -66,23 +61,10 @@ export interface AclCheckEvent {
  */
 export type SendToNapplet = (windowId: string, msg: unknown[] | NappletMessage) => void;
 
-// ─── Subscription Handle ───────────────────────────────────────────────────
-
 /** Handle returned by relay pool subscriptions. */
 export interface RelaySubscriptionHandle {
   unsubscribe(): void;
 }
-
-// ─── Runtime Sub-interfaces ────────────────────────────────────────────────
-//
-// These describe what the protocol engine requires from the host environment
-// (environment abstraction contracts). Suffix: *Adapter.
-//
-// Shell sub-interfaces (in @kehto/shell) describe injection points the
-// host app provides. Those keep the *Hooks suffix. The distinction is
-// intentional: RelayPoolAdapter (runtime) ≠ RelayPoolHooks (shell).
-
-// ─── Relay Pool Adapter ────────────────────────────────────────────────────
 
 /**
  * Abstract relay pool — runtime uses this to subscribe to and publish
@@ -125,8 +107,6 @@ export interface RelayPoolAdapter {
   isAvailable(): boolean;
 }
 
-// ─── Cache Adapter ─────────────────────────────────────────────────────────
-
 /** Abstract local cache — query and store events. */
 export interface CacheAdapter {
   /** Query cached events. Returns matching events. */
@@ -138,8 +118,6 @@ export interface CacheAdapter {
   /** Whether cache is available. */
   isAvailable(): boolean;
 }
-
-// ─── Signer / Auth Adapters ────────────────────────────────────────────────
 
 /** NIP-07 compatible signer interface — minimal methods the runtime needs. */
 export interface Signer {
@@ -165,15 +143,11 @@ export interface AuthAdapter {
   getSigner(): Signer | null;
 }
 
-// ─── Config Adapter ────────────────────────────────────────────────────────
-
 /** Config adapter — runtime behavior settings. */
 export interface ConfigAdapter {
   /** Get the napp update behavior policy. */
   getNappUpdateBehavior(): 'auto-grant' | 'banner' | 'silent-reprompt';
 }
-
-// ─── Hotkey Adapter ────────────────────────────────────────────────────────
 
 /** Hotkey adapter — keyboard shortcut forwarding. */
 export interface HotkeyAdapter {
@@ -187,8 +161,6 @@ export interface HotkeyAdapter {
     metaKey: boolean;
   }): void;
 }
-
-// ─── Persistence Adapters ──────────────────────────────────────────────────
 
 /**
  * ACL persistence — runtime calls these to save/load ACL state.
@@ -248,8 +220,6 @@ export interface StatePersistence {
   calculateBytes(prefix: string, excludeKey?: string): number;
 }
 
-// ─── Crypto Adapter ────────────────────────────────────────────────────────
-
 /** Crypto adapter — event verification. */
 export interface CryptoAdapter {
   /** Verify a nostr event's Schnorr signature. */
@@ -282,14 +252,10 @@ export interface HashVerifierAdapter {
   ): Promise<string | null>;
 }
 
-// ─── Window Manager Adapter ────────────────────────────────────────────────
-
 /** Window management — create new napplet windows. */
 export interface WindowManagerAdapter {
   createWindow(options: { title: string; class: string; iframeSrc?: string }): string | null;
 }
-
-// ─── Relay Config Adapter ──────────────────────────────────────────────────
 
 /** Relay configuration — manage relay tiers. */
 export interface RelayConfigAdapter {
@@ -299,8 +265,6 @@ export interface RelayConfigAdapter {
   getNip66Suggestions(): unknown;
 }
 
-// ─── DM Adapter ────────────────────────────────────────────────────────────
-
 /** DM adapter — send direct messages (NIP-17 gift-wrap). */
 export interface DmAdapter {
   sendDm(recipientPubkey: string, message: string): Promise<{
@@ -309,8 +273,6 @@ export interface DmAdapter {
     error?: string;
   }>;
 }
-
-// ─── Consent Request ───────────────────────────────────────────────────────
 
 /**
  * A pending consent request — either for a destructive signing kind
@@ -355,8 +317,6 @@ export interface ConsentRequest {
 /** Consent handler callback type. */
 export type ConsentHandler = (request: ConsentRequest) => void;
 
-// ─── Service Descriptor ────────────────────────────────────────────────────
-
 /**
  * Metadata describing a service handler. Referenced by ServiceHandler.descriptor
  * and the runtime's internal service registry.
@@ -383,8 +343,6 @@ export interface ServiceDescriptor {
   description?: string;
 }
 
-// ─── Service Info ─────────────────────────────────────────────────────────
-
 /**
  * Information about an available service, as reported in discovery responses.
  * Mirrors the ServiceDescriptor shape from @napplet/core.
@@ -406,8 +364,6 @@ export interface ServiceInfo {
   /** Optional human-readable description. */
   description?: string;
 }
-
-// ─── Compatibility Report ─────────────────────────────────────────────────
 
 /**
  * Result of checking a napplet's declared service requirements against
@@ -434,8 +390,6 @@ export interface CompatibilityReport {
   /** True if all required services are available (missing.length === 0). */
   compatible: boolean;
 }
-
-// ─── SessionEntry ─────────────────────────────────────────────────────────
 
 /**
  * Registry entry mapping a napplet's windowId to its runtime metadata.
@@ -488,8 +442,6 @@ export interface PendingUpdate {
 /** Callback invoked when a pending update is set or cleared. */
 export type PendingUpdateNotifier = (windowId: string) => void;
 
-// ─── Manifest Cache Entry ──────────────────────────────────────────────────
-
 /**
  * A cached manifest entry for a verified napplet build.
  * Optionally stores the napplet's declared service requirements from its manifest.
@@ -516,8 +468,6 @@ export interface VerificationCacheEntry {
   verifiedAt: number;
 }
 
-// ─── ACL Entry (external representation) ───────────────────────────────────
-
 /** External ACL entry — used in shell commands (shell:acl-get etc.). */
 export interface AclEntryExternal {
   pubkey: string;
@@ -525,8 +475,6 @@ export interface AclEntryExternal {
   blocked: boolean;
   stateQuota?: number;
 }
-
-// ─── Service Types ──────────────────────────────────────────────────────────
 
 /**
  * Handler for service-specific messages from napplets.
@@ -585,8 +533,6 @@ export interface ServiceHandler {
  */
 export type ServiceRegistry = Record<string, ServiceHandler>;
 
-// ─── Runtime Config Overrides ──────────────────────────────────────────────
-
 /**
  * Optional runtime configuration overrides. When provided via
  * RuntimeAdapter.getConfigOverrides(), the runtime reads these
@@ -609,8 +555,6 @@ export interface RuntimeConfigOverrides {
   /** Override RING_BUFFER_SIZE (default: 100). */
   ringBufferSize?: number;
 }
-
-// ─── RuntimeAdapter ────────────────────────────────────────────────────────
 
 /**
  * All adapters that the runtime requires from the host environment.
@@ -759,8 +703,6 @@ export interface RuntimeAdapter {
    */
   getConfigOverrides?(): RuntimeConfigOverrides;
 }
-
-// ─── Re-exports ───────────────────────────────────────────────────────────────
 
 /** Re-export NappletMessage from @napplet/core for consumer convenience. */
 export type { NappletMessage };

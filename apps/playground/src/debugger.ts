@@ -1,17 +1,7 @@
-/**
- * debugger.ts -- <napplet-debugger> web component.
- *
- * Displays protocol messages in a live log with color coding by verb type.
- * Designed for extraction as @napplet/devtools in a future milestone.
- *
- * Per CONTEXT.md D-09: self-contained web component with Shadow DOM.
- * Per CONTEXT.md D-08: tabbed view (live log + sequence diagram).
- * Sequence diagram is added in Plan 05.
- */
 
-import type { TappedMessage, MessageTap, DemoProtocolPath } from './shell-host.js';
-import { getNapplets } from './shell-host.js';
+import { getNapplets, type DemoProtocolPath, type MessageTap, type TappedMessage } from './shell-host.js';
 import { renderSequenceDiagram } from './sequence-diagram.js';
+import { replaceChildrenFromTrustedHtml } from './dom-utils.js';
 
 /** Verb-to-color mapping for the dark terminal theme */
 const VERB_COLORS: Record<string, string> = {
@@ -147,7 +137,6 @@ export class NappletDebugger extends HTMLElement {
    * Connect to a message tap for real-time updates.
    */
   connectTap(tap: MessageTap): void {
-    // Render existing messages
     for (const msg of tap.messages) {
       this.addMessage(msg);
     }
@@ -177,7 +166,7 @@ export class NappletDebugger extends HTMLElement {
   }
 
   private render(): void {
-    this.shadow.innerHTML = `
+    replaceChildrenFromTrustedHtml(this.shadow, `
       <style>
         :host {
           display: flex;
@@ -323,12 +312,11 @@ export class NappletDebugger extends HTMLElement {
       <div class="tab-content" id="tab-sequence">
         <div class="sequence-container" id="sequence-container" style="flex:1;overflow:auto;padding:8px;"></div>
       </div>
-    `;
+    `);
 
     this.logContainer = this.shadow.getElementById('log-container')!;
     this.observeSequenceContainer();
 
-    // Tab switching
     this.shadow.querySelectorAll('.tab').forEach(tab => {
       tab.addEventListener('click', () => {
         const tabName = (tab as HTMLElement).dataset.tab as 'log' | 'sequence';
@@ -357,9 +345,9 @@ export class NappletDebugger extends HTMLElement {
     this.shadow.getElementById('btn-clear')?.addEventListener('click', () => {
       this.messageBuffer = [];
       this.allMessages = [];
-      this.logContainer.innerHTML = '';
+      this.logContainer.replaceChildren();
       const seqContainer = this.shadow.getElementById('sequence-container');
-      if (seqContainer) seqContainer.innerHTML = '';
+      if (seqContainer) seqContainer.replaceChildren();
       this.updateCount(0);
     });
 
@@ -385,49 +373,55 @@ export class NappletDebugger extends HTMLElement {
     return msg.verb;
   }
 
+  private createLogElement(msg: TappedMessage): HTMLDivElement {
+    if (msg.verb === 'SYSTEM') {
+      const el = document.createElement('div');
+      el.className = 'log-system';
+      el.textContent = `[system] ${msg.parsed.reason || ''}`;
+      return el;
+    }
+
+    const el = document.createElement('div');
+    el.className = 'log-entry';
+    const time = new Date(msg.timestamp).toLocaleTimeString('en', {
+      hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3
+    } as Intl.DateTimeFormatOptions);
+    const color = VERB_COLORS[msg.verb] || VERB_COLORS.UNKNOWN;
+    const arrow = DIRECTION_ARROWS[msg.direction] || '???';
+
+    const timeEl = document.createElement('span');
+    timeEl.className = 'log-time';
+    timeEl.textContent = time;
+    const dirEl = document.createElement('span');
+    dirEl.className = 'log-dir';
+    dirEl.style.color = color;
+    dirEl.textContent = arrow;
+    const verbEl = document.createElement('span');
+    verbEl.className = 'log-verb';
+    verbEl.style.color = color;
+    verbEl.textContent = this.getRowLabel(msg);
+    const detailEl = document.createElement('span');
+    detailEl.className = 'log-detail';
+    detailEl.textContent = this.formatDetail(msg);
+    el.append(timeEl, dirEl, verbEl, detailEl);
+    return el;
+  }
+
   private addMessage(msg: TappedMessage): void {
     // Always store for sequence diagram (regardless of filters)
     this.allMessages.push(msg);
     this.updateSequenceDiagram();
 
-    // Check filters for log display
     if (this.filterVerb && msg.verb !== this.filterVerb) return;
     if (this.filterDirection && msg.direction !== this.filterDirection) return;
 
-    if (msg.verb === 'SYSTEM') {
-      const el = document.createElement('div');
-      el.className = 'log-system';
-      el.textContent = `[system] ${msg.parsed.reason || ''}`;
-      this.logContainer.appendChild(el);
-    } else {
-      const el = document.createElement('div');
-      el.className = 'log-entry';
-
-      const time = new Date(msg.timestamp).toLocaleTimeString('en', {
-        hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3
-      } as Intl.DateTimeFormatOptions);
-
-      const color = VERB_COLORS[msg.verb] || VERB_COLORS.UNKNOWN;
-      const arrow = DIRECTION_ARROWS[msg.direction] || '???';
-      const label = this.getRowLabel(msg);
-      const detail = this.formatDetail(msg);
-
-      el.innerHTML = `
-        <span class="log-time">${time}</span>
-        <span class="log-dir" style="color:${color}">${arrow}</span>
-        <span class="log-verb" style="color:${color}">${label}</span>
-        <span class="log-detail">${detail}</span>
-      `;
-
-      this.logContainer.appendChild(el);
-    }
+    this.logContainer.appendChild(this.createLogElement(msg));
 
     // Auto-scroll
     if (this.autoScroll) {
       this.logContainer.scrollTop = this.logContainer.scrollHeight;
     }
 
-    // Update count
     this.updateCount(this.logContainer.children.length);
   }
 
@@ -436,7 +430,7 @@ export class NappletDebugger extends HTMLElement {
     const container = this.shadow.getElementById('sequence-container');
     if (!container) return;
     const width = Math.max(1000, Math.floor(container.clientWidth || container.getBoundingClientRect().width || 0));
-    container.innerHTML = renderSequenceDiagram(this.allMessages, getNapplets(), { width });
+    replaceChildrenFromTrustedHtml(container, renderSequenceDiagram(this.allMessages, getNapplets(), { width }));
     container.scrollTop = container.scrollHeight;
   }
 
@@ -488,36 +482,13 @@ export class NappletDebugger extends HTMLElement {
   }
 
   private rerender(): void {
-    // Clear and re-add all messages with current filters
-    this.logContainer.innerHTML = '';
+    const visible: HTMLElement[] = [];
     for (const msg of this.allMessages) {
       if (this.filterVerb && msg.verb !== this.filterVerb) continue;
       if (this.filterDirection && msg.direction !== this.filterDirection) continue;
-
-      if (msg.verb === 'SYSTEM') {
-        const el = document.createElement('div');
-        el.className = 'log-system';
-        el.textContent = `[system] ${msg.parsed.reason || ''}`;
-        this.logContainer.appendChild(el);
-      } else {
-        const el = document.createElement('div');
-        el.className = 'log-entry';
-        const time = new Date(msg.timestamp).toLocaleTimeString('en', {
-          hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3
-        } as Intl.DateTimeFormatOptions);
-        const color = VERB_COLORS[msg.verb] || VERB_COLORS.UNKNOWN;
-        const arrow = DIRECTION_ARROWS[msg.direction] || '???';
-        const label = this.getRowLabel(msg);
-        const detail = this.formatDetail(msg);
-        el.innerHTML = `
-          <span class="log-time">${time}</span>
-          <span class="log-dir" style="color:${color}">${arrow}</span>
-          <span class="log-verb" style="color:${color}">${label}</span>
-          <span class="log-detail">${detail}</span>
-        `;
-        this.logContainer.appendChild(el);
-      }
+      visible.push(this.createLogElement(msg));
     }
+    this.logContainer.replaceChildren(...visible);
     this.updateCount(this.logContainer.children.length);
   }
 }

@@ -1,12 +1,3 @@
-/**
- * SessionRegistry — windowId to verified napplet pubkey bidirectional mapping.
- *
- * After a successful AUTH handshake, the runtime registers the napplet's
- * verified pubkey here. Both mappings are kept in sync.
- *
- * Unlike the shell singleton version, this is a factory that accepts
- * an optional notifier callback instead of using window.dispatchEvent.
- */
 
 import type { SessionEntry, PendingUpdate, PendingUpdateNotifier } from './types.js';
 

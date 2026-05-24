@@ -38,9 +38,7 @@ const docsDist = join(repoRoot, 'docs', '.vitepress', 'dist');
 const docsApi = join(repoRoot, 'docs', 'api');
 const docsOutput = join(outputRoot, 'docs');
 
-function rel(path) {
-  return relative(repoRoot, path);
-}
+const rel = relative.bind(null, repoRoot);
 
 function ensureFile(path, label) {
   if (!existsSync(path) || !statSync(path).isFile()) {

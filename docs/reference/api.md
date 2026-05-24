@@ -12,11 +12,11 @@ The docs site build runs API generation first through the root `docs:site:build`
 
 | Package | Generated API target |
 |---------|----------------------|
-| `@kehto/acl` | [`docs/api/modules/_kehto_acl.html`](../api/modules/_kehto_acl.html) |
-| `@kehto/runtime` | [`docs/api/modules/_kehto_runtime.html`](../api/modules/_kehto_runtime.html) |
-| `@kehto/shell` | [`docs/api/modules/_kehto_shell.html`](../api/modules/_kehto_shell.html) |
-| `@kehto/services` | [`docs/api/modules/_kehto_services.html`](../api/modules/_kehto_services.html) |
-| `@kehto/nip66` | [`docs/api/modules/_kehto_nip66.html`](../api/modules/_kehto_nip66.html) |
-| `@kehto/wm` | [`docs/api/modules/_kehto_wm.html`](../api/modules/_kehto_wm.html) |
+| `@kehto/acl` | <a href="../api/modules/_kehto_acl.html" target="_self"><code>docs/api/modules/_kehto_acl.html</code></a> |
+| `@kehto/runtime` | <a href="../api/modules/_kehto_runtime.html" target="_self"><code>docs/api/modules/_kehto_runtime.html</code></a> |
+| `@kehto/shell` | <a href="../api/modules/_kehto_shell.html" target="_self"><code>docs/api/modules/_kehto_shell.html</code></a> |
+| `@kehto/services` | <a href="../api/modules/_kehto_services.html" target="_self"><code>docs/api/modules/_kehto_services.html</code></a> |
+| `@kehto/nip66` | <a href="../api/modules/_kehto_nip66.html" target="_self"><code>docs/api/modules/_kehto_nip66.html</code></a> |
+| `@kehto/wm` | <a href="../api/modules/_kehto_wm.html" target="_self"><code>docs/api/modules/_kehto_wm.html</code></a> |
 
 Do not hand-edit generated API files. Update source JSDoc and rerun `pnpm docs:api`.

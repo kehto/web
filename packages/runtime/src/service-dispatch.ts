@@ -1,11 +1,3 @@
-/**
- * service-dispatch.ts — NIP-5D envelope routing for registered services.
- *
- * Routes NappletMessage envelopes to the correct ServiceHandler based on the
- * message type domain prefix. NUB-domain services (signer.*, relay.*, storage.*)
- * are routed by the domain part of message.type. IFC-routed services (audio,
- * notifications) receive ifc.emit messages and are routed by topic prefix.
- */
 
 import type { NappletMessage } from '@napplet/core';
 import type { ServiceRegistry, SendToNapplet } from './types.js';
@@ -39,22 +31,21 @@ export function routeServiceMessage(
   services: ServiceRegistry,
   sendToNapplet: SendToNapplet,
 ): boolean {
-  const send = (msg: NappletMessage): void => sendToNapplet(windowId, msg);
-
   // NUB-domain services: signer.*, relay.*, storage.* route by type prefix
   const domain = message.type.split('.')[0];
   const handler = services[domain];
   if (handler) {
-    handler.handleMessage(windowId, message, send);
+    handler.handleMessage(windowId, message, (msg) => sendToNapplet(windowId, msg));
     return true;
   }
 
   // IFC-routed services: audio and notifications receive ifc.emit with topic prefix
-  if (message.type === 'ifc.emit' && typeof (message as any).topic === 'string') {
-    const prefix = ((message as any).topic as string).split(':')[0];
+  const ifcMessage = message as NappletMessage & { topic?: unknown };
+  if (message.type === 'ifc.emit' && typeof ifcMessage.topic === 'string') {
+    const prefix = ifcMessage.topic.split(':')[0];
     const ifcHandler = services[prefix];
     if (ifcHandler) {
-      ifcHandler.handleMessage(windowId, message, send);
+      ifcHandler.handleMessage(windowId, message, (msg) => sendToNapplet(windowId, msg));
       return true;
     }
   }

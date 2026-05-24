@@ -1,10 +1,3 @@
-/**
- * Origin Registry — Window reference to windowId mapping.
- *
- * Used by the ShellBridge to validate that postMessage senders are known
- * napplet iframes. event.source (a Window reference) is the only unforgeable
- * origin — never trust event.origin from the message payload.
- */
 
 interface OriginEntry {
   windowId: string;

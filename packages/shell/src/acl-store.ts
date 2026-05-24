@@ -1,17 +1,6 @@
-/**
- * ACL Store — composite-keyed capability registry for napplet identity.
- *
- * ACL entries are keyed by dTag:aggregateHash — a 2-segment composite key
- * that ties permissions to a specific napplet build (NIP-5D format).
- * Old 3-segment keys (pubkey:dTag:hash) are automatically migrated via migrateAclState().
- *
- * Default policy is PERMISSIVE: unknown identities have all capabilities granted.
- */
 
-import type { Capability } from '@kehto/runtime';
-import { ALL_CAPABILITIES } from '@kehto/runtime';
-import { migrateAclState } from '@kehto/acl';
-import type { AclState } from '@kehto/acl';
+import { ALL_CAPABILITIES, type Capability } from '@kehto/runtime';
+import { migrateAclState, type AclState } from '@kehto/acl';
 import type { AclEntry } from './types.js';
 
 const STORAGE_KEY = 'napplet:acl';
@@ -241,10 +230,8 @@ export const aclStore = {
         }]
       >;
 
-      // Check for old 3-segment keys and migrate if needed
       const hasOldKeys = entries.some(([key]) => key.split(':').length === 3);
       if (hasOldKeys) {
-        // Build temporary AclState for migration
         const tempState: AclState = {
           defaultPolicy: 'permissive',
           entries: Object.fromEntries(

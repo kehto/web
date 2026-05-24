@@ -1,18 +1,5 @@
-/**
- * shell-bridge.ts — Browser adapter over @kehto/runtime.
- *
- * Thin shell that converts browser MessageEvents into windowId-based
- * NIP-5D envelope messages for the runtime engine. All protocol logic
- * (NUB dispatch, ACL enforcement, subscription lifecycle, signer proxying)
- * lives in @kehto/runtime.
- *
- * The only browser-specific concern here is extracting the source Window
- * from a MessageEvent, mapping it to a windowId via originRegistry, and
- * routing shell.ready/shell.init handshake locally.
- */
 
-import { createRuntime } from '@kehto/runtime';
-import type { Runtime, ConsentHandler, ConsentRequest } from '@kehto/runtime';
+import { createRuntime, type ConsentRequest, type Runtime } from '@kehto/runtime';
 import { adaptHooks } from './hooks-adapter.js';
 import { originRegistry } from './origin-registry.js';
 import { sessionRegistry, nappKeyRegistry } from './session-registry.js';
@@ -24,12 +11,8 @@ import type { NappletMessage } from '@napplet/core';
 import type { Theme } from '@napplet/nub/theme/types';
 import type { NappletClass } from './types/internal-class.js';
 import { buildShellCapabilities } from './shell-init.js';
-import { createKeysForwarder } from './keys-forwarder.js';
-import type { KeysForwarder } from './keys-forwarder.js';
-import { connectStore } from './connect-store.js';
-import type { ConnectStore } from './connect-store.js';
-
-// ─── Public interface ────────────────────────────────────────────────────────
+import { createKeysForwarder, type KeysForwarder } from './keys-forwarder.js';
+import { connectStore, type ConnectStore } from './connect-store.js';
 
 /**
  * Shell-side message bridge that handles NIP-5D communication with napplet iframes.

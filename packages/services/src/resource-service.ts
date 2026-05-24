@@ -118,8 +118,6 @@ export interface ResourceServiceOptions {
  */
 export type ResourceService = ServiceHandler;
 
-// ─── Base64 encode helper (browser-safe, chunked to avoid stack overflow) ─────
-
 /**
  * Convert an ArrayBuffer to base64 string, safe for both browser and Node.
  * Chunked in 0x8000-byte slices to avoid `String.fromCharCode(...largeArray)`
@@ -135,7 +133,153 @@ function arrayBufferToBase64(buf: ArrayBuffer): string {
   return btoa(binary);
 }
 
-// ─── Factory ───────────────────────────────────────────────────────────────────
+interface ResourceRequestState {
+  inFlight: Map<string, { controller: AbortController; windowId: string }>;
+  perWindow: Map<string, Set<string>>;
+}
+
+function assertResourceOptions(options: ResourceServiceOptions): void {
+  if (
+    typeof options?.fetch !== 'function' ||
+    typeof options?.isOriginGranted !== 'function' ||
+    typeof options?.getConnectGrants !== 'function' ||
+    typeof options?.resolveIdentity !== 'function'
+  ) {
+    throw new Error(
+      '[RESOURCE-01 / H-03] createResourceService requires {fetch, isOriginGranted, getConnectGrants, resolveIdentity} ' +
+      '— all four options are required from day one. ' +
+      'The grants source (getConnectGrants) MUST be wired at construction time to prevent unguarded fetch proxying.',
+    );
+  }
+}
+
+function trackRequest(
+  state: ResourceRequestState,
+  requestId: string,
+  windowId: string,
+  controller: AbortController,
+): void {
+  state.inFlight.set(requestId, { controller, windowId });
+  if (!state.perWindow.has(windowId)) {
+    state.perWindow.set(windowId, new Set());
+  }
+  state.perWindow.get(windowId)!.add(requestId);
+}
+
+function untrackRequest(state: ResourceRequestState, requestId: string): void {
+  const entry = state.inFlight.get(requestId);
+  if (entry) {
+    state.inFlight.delete(requestId);
+    state.perWindow.get(entry.windowId)?.delete(requestId);
+  }
+}
+
+function sendResourceError(
+  send: (m: NappletMessage) => void,
+  requestId: string,
+  code: 'denied' | 'invalid-url' | 'canceled' | 'network-error',
+  message: string,
+): void {
+  send({
+    type: 'resource.bytes.error',
+    requestId,
+    code,
+    message,
+  } as NappletMessage);
+}
+
+function parseResourceUrl(send: (m: NappletMessage) => void, requestId: string, url: string): URL | null {
+  try {
+    return new URL(url);
+  } catch {
+    sendResourceError(send, requestId, 'invalid-url', `invalid URL: ${url}`);
+    return null;
+  }
+}
+
+function collectResponseHeaders(response: Response): Record<string, string> {
+  const headers: Record<string, string> = {};
+  response.headers.forEach((value, key) => {
+    headers[key] = value;
+  });
+  return headers;
+}
+
+async function handleBytes(
+  options: ResourceServiceOptions,
+  state: ResourceRequestState,
+  windowId: string,
+  msg: { requestId: string; url: string; init?: { method?: string; headers?: Readonly<Record<string, string>> } },
+  send: (m: NappletMessage) => void,
+): Promise<void> {
+  const { requestId, url, init } = msg;
+  const identity = options.resolveIdentity(windowId);
+  if (!identity) {
+    sendResourceError(send, requestId, 'denied', 'napplet identity not resolvable');
+    return;
+  }
+
+  const parsedUrl = parseResourceUrl(send, requestId, url);
+  if (!parsedUrl) return;
+
+  const origin = parsedUrl.origin;
+  const grants = options.getConnectGrants(identity.dTag, identity.aggregateHash);
+  if (!options.isOriginGranted(origin, grants)) {
+    sendResourceError(send, requestId, 'denied', `origin ${origin} not granted`);
+    return;
+  }
+
+  const controller = new AbortController();
+  trackRequest(state, requestId, windowId, controller);
+
+  try {
+    const response = await options.fetch(url, {
+      method: init?.method,
+      headers: init?.headers ? { ...init.headers } : undefined,
+      signal: controller.signal,
+    });
+    const buffer = await response.arrayBuffer();
+    send({
+      type: 'resource.bytes.result',
+      requestId,
+      status: response.status,
+      headers: collectResponseHeaders(response),
+      bodyBase64: arrayBufferToBase64(buffer),
+    } as NappletMessage);
+  } catch (err: unknown) {
+    const isAbort =
+      controller.signal.aborted ||
+      (err instanceof Error && (err.name === 'AbortError' || err.name === 'DOMException'));
+    sendResourceError(
+      send,
+      requestId,
+      isAbort ? 'canceled' : 'network-error',
+      err instanceof Error ? err.message : String(err),
+    );
+  } finally {
+    untrackRequest(state, requestId);
+  }
+}
+
+function handleCancel(state: ResourceRequestState, requestId: string): void {
+  const entry = state.inFlight.get(requestId);
+  if (entry) {
+    entry.controller.abort();
+  }
+}
+
+function destroyWindowRequests(state: ResourceRequestState, windowId: string): void {
+  const requestIds = state.perWindow.get(windowId);
+  if (!requestIds) return;
+  for (const requestId of requestIds) {
+    const entry = state.inFlight.get(requestId);
+    if (entry) {
+      entry.controller.abort();
+      state.inFlight.delete(requestId);
+    }
+  }
+  state.perWindow.delete(windowId);
+}
 
 /**
  * Create a NUB-RESOURCE reference service.
@@ -170,136 +314,11 @@ function arrayBufferToBase64(buf: ArrayBuffer): string {
  * ```
  */
 export function createResourceService(options: ResourceServiceOptions): ResourceService {
-  // ─── H-03 prevention: getConnectGrants REQUIRED from day one (see PITFALLS.md:228) ───
-  // All four options are required. Validate each individually for clear error messaging.
-  if (
-    typeof options?.fetch !== 'function' ||
-    typeof options?.isOriginGranted !== 'function' ||
-    typeof options?.getConnectGrants !== 'function' ||
-    typeof options?.resolveIdentity !== 'function'
-  ) {
-    throw new Error(
-      '[RESOURCE-01 / H-03] createResourceService requires {fetch, isOriginGranted, getConnectGrants, resolveIdentity} ' +
-      '— all four options are required from day one. ' +
-      'The grants source (getConnectGrants) MUST be wired at construction time to prevent unguarded fetch proxying.',
-    );
-  }
-
-  // ─── In-flight tracking ────────────────────────────────────────────────────
-  // Primary map: requestId → { controller, windowId }
-  const inFlight = new Map<string, { controller: AbortController; windowId: string }>();
-  // Secondary map: windowId → Set<requestId> for onWindowDestroyed cleanup
-  const perWindow = new Map<string, Set<string>>();
-
-  function trackRequest(requestId: string, windowId: string, controller: AbortController): void {
-    inFlight.set(requestId, { controller, windowId });
-    if (!perWindow.has(windowId)) {
-      perWindow.set(windowId, new Set());
-    }
-    perWindow.get(windowId)!.add(requestId);
-  }
-
-  function untrackRequest(requestId: string): void {
-    const entry = inFlight.get(requestId);
-    if (entry) {
-      inFlight.delete(requestId);
-      perWindow.get(entry.windowId)?.delete(requestId);
-    }
-  }
-
-  // ─── Async bytes handler ──────────────────────────────────────────────────
-  async function handleBytes(
-    windowId: string,
-    msg: { requestId: string; url: string; init?: { method?: string; headers?: Readonly<Record<string, string>> } },
-    send: (m: NappletMessage) => void,
-  ): Promise<void> {
-    const { requestId, url, init } = msg;
-
-    // (1) Resolve napplet identity
-    const identity = options.resolveIdentity(windowId);
-    if (!identity) {
-      send({
-        type: 'resource.bytes.error',
-        requestId,
-        code: 'denied',
-        message: 'napplet identity not resolvable',
-      } as NappletMessage);
-      return;
-    }
-
-    // (2) Parse URL and extract origin
-    let parsedUrl: URL;
-    try {
-      parsedUrl = new URL(url);
-    } catch {
-      send({
-        type: 'resource.bytes.error',
-        requestId,
-        code: 'invalid-url',
-        message: `invalid URL: ${url}`,
-      } as NappletMessage);
-      return;
-    }
-    const origin = parsedUrl.origin;
-
-    // (3) Fetch grants + check origin
-    const grants = options.getConnectGrants(identity.dTag, identity.aggregateHash);
-    if (!options.isOriginGranted(origin, grants)) {
-      send({
-        type: 'resource.bytes.error',
-        requestId,
-        code: 'denied',
-        message: `origin ${origin} not granted`,
-      } as NappletMessage);
-      return;
-    }
-
-    // (4) Create AbortController, track in-flight
-    const controller = new AbortController();
-    trackRequest(requestId, windowId, controller);
-
-    try {
-      const response = await options.fetch(url, {
-        method: init?.method,
-        headers: init?.headers ? { ...init.headers } : undefined,
-        signal: controller.signal,
-      });
-
-      // Encode body
-      const buffer = await response.arrayBuffer();
-      const bodyBase64 = arrayBufferToBase64(buffer);
-
-      // Collect response headers
-      const headers: Record<string, string> = {};
-      response.headers.forEach((value, key) => {
-        headers[key] = value;
-      });
-
-      send({
-        type: 'resource.bytes.result',
-        requestId,
-        status: response.status,
-        headers,
-        bodyBase64,
-      } as NappletMessage);
-    } catch (err: unknown) {
-      // Determine if this was an abort triggered by resource.cancel
-      const isAbort =
-        controller.signal.aborted ||
-        (err instanceof Error && (err.name === 'AbortError' || err.name === 'DOMException'));
-
-      send({
-        type: 'resource.bytes.error',
-        requestId,
-        code: isAbort ? 'canceled' : 'network-error',
-        message: err instanceof Error ? err.message : String(err),
-      } as NappletMessage);
-    } finally {
-      untrackRequest(requestId);
-    }
-  }
-
-  // ─── Descriptor ────────────────────────────────────────────────────────────
+  assertResourceOptions(options);
+  const state: ResourceRequestState = {
+    inFlight: new Map<string, { controller: AbortController; windowId: string }>(),
+    perWindow: new Map<string, Set<string>>(),
+  };
 
   const descriptor: ServiceDescriptor = {
     name: 'resource',
@@ -307,8 +326,6 @@ export function createResourceService(options: ResourceServiceOptions): Resource
     description:
       'NUB-RESOURCE reference service — shell-proxied authenticated fetch (RESOURCE-01..06)',
   };
-
-  // ─── ServiceHandler ────────────────────────────────────────────────────────
 
   const handler: ServiceHandler = {
     descriptor,
@@ -325,22 +342,13 @@ export function createResourceService(options: ResourceServiceOptions): Resource
             url: string;
             init?: { method?: string; headers?: Readonly<Record<string, string>> };
           };
-          // Fire-and-forget async — catch so unhandled rejections don't propagate
-          handleBytes(windowId, m, send).catch(() => { /* errors surface via send() */ });
+          handleBytes(options, state, windowId, m, send).catch(() => { /* errors surface via send() */ });
           return;
         }
 
         case 'resource.cancel': {
           const m = message as NappletMessage & { requestId: string };
-          const entry = inFlight.get(m.requestId);
-          if (entry) {
-            entry.controller.abort();
-            // Note: do NOT delete from inFlight here — the bytes reject path in
-            // handleBytes will call untrackRequest() in its finally block.
-            // Deleting here would cause untrackRequest to find no entry and leave
-            // perWindow in an inconsistent state.
-          }
-          // Silent no-op if requestId not in flight (spec-consistent)
+          handleCancel(state, m.requestId);
           return;
         }
 
@@ -351,17 +359,7 @@ export function createResourceService(options: ResourceServiceOptions): Resource
     },
 
     onWindowDestroyed(windowId: string): void {
-      const requestIds = perWindow.get(windowId);
-      if (!requestIds) return;
-      // Abort all in-flight requests for this window
-      for (const requestId of [...requestIds]) {
-        const entry = inFlight.get(requestId);
-        if (entry) {
-          entry.controller.abort();
-          inFlight.delete(requestId);
-        }
-      }
-      perWindow.delete(windowId);
+      destroyWindowRequests(state, windowId);
     },
   };
 

@@ -16,8 +16,7 @@
  */
 
 import type { Notification } from '@kehto/services';
-import type { ServiceHandler } from '@kehto/shell';
-import type { NappletMessage } from '@kehto/shell';
+import type { NappletMessage, ServiceHandler } from '@kehto/shell';
 import { getMessageTap } from './shell-host.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────

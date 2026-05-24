@@ -166,11 +166,6 @@ export function createThemeService(options: ThemeServiceOptions = {}): ThemeServ
         return;
       }
 
-      // Unknown theme.* action — emit a canonical .error envelope so napplets
-      // see an explicit rejection rather than a silent drop. theme.changed is
-      // shell-initiated (not napplet-sendable) and must not arrive here; if
-      // it does, we still emit a spec-correct error so the sender gets a
-      // reply envelope.
       send({
         type: `${message.type}.error`,
         id,

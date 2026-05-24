@@ -13,68 +13,65 @@
 
 import type { NostrEvent, NostrFilter } from '@kehto/shell';
 
-// ─── Fixture events ───────────────────────────────────────────────────────────
-
 /**
  * 5 deterministic kind:1 fixture events for the feed napplet and Playwright specs.
  * Timestamps are time-ordered (oldest → newest) relative to module load time.
  * Signatures are fixture-only — the demo does not verify signatures on received events.
  */
 const _now = Math.floor(Date.now() / 1000);
-const FIXTURE_EVENTS: NostrEvent[] = [
-  {
-    id: '1'.repeat(64),
-    pubkey: 'aaaa0000000000000000000000000000000000000000000000000000000000aa',
-    kind: 1,
-    content: 'Welcome to the kehto demo!',
-    created_at: _now - 4,
-    tags: [['t', 'demo-feed']],
-    sig: '0'.repeat(128),
-  },
-  {
-    id: '2'.repeat(64),
-    pubkey: 'bbbb0000000000000000000000000000000000000000000000000000000000bb',
-    kind: 1,
-    content: 'NIP-5D ships in v1.3 — 8 nub domains end-to-end',
-    created_at: _now - 3,
-    tags: [['t', 'demo-feed']],
-    sig: '0'.repeat(128),
-  },
-  {
-    id: '3'.repeat(64),
-    pubkey: 'cccc0000000000000000000000000000000000000000000000000000000000cc',
-    kind: 1,
-    content: 'feed napplet subscribes; EOSE marks loaded',
-    created_at: _now - 2,
-    tags: [['t', 'demo-feed']],
-    sig: '0'.repeat(128),
-  },
-  {
-    id: '4'.repeat(64),
-    pubkey: 'dddd0000000000000000000000000000000000000000000000000000000000dd',
-    kind: 1,
-    content: 'composer + preferences + toaster cover core domains',
-    created_at: _now - 1,
-    tags: [['t', 'demo-feed']],
-    sig: '0'.repeat(128),
-  },
-  {
-    id: '5'.repeat(64),
-    pubkey: 'eeee0000000000000000000000000000000000000000000000000000000000ee',
-    kind: 1,
-    content: 'theme-switcher broadcasts; preferences observes',
-    created_at: _now,
-    tags: [['t', 'demo-feed']],
-    sig: '0'.repeat(128),
-  },
-];
 
-// ─── Published event store ────────────────────────────────────────────────────
+function fixtureEvent(
+  index: string,
+  pubkey: string,
+  content: string,
+  createdAtOffset: number,
+): NostrEvent {
+  return {
+    id: index.repeat(64),
+    pubkey,
+    kind: 1,
+    content,
+    created_at: _now + createdAtOffset,
+    tags: [['t', 'demo-feed']],
+    sig: '0'.repeat(128),
+  };
+}
+
+const FIXTURE_EVENTS: NostrEvent[] = [
+  fixtureEvent(
+    '1',
+    'aaaa0000000000000000000000000000000000000000000000000000000000aa',
+    'Welcome to the kehto demo!',
+    -4,
+  ),
+  fixtureEvent(
+    '2',
+    'bbbb0000000000000000000000000000000000000000000000000000000000bb',
+    'NIP-5D ships in v1.3 — 8 nub domains end-to-end',
+    -3,
+  ),
+  fixtureEvent(
+    '3',
+    'cccc0000000000000000000000000000000000000000000000000000000000cc',
+    'feed napplet subscribes; EOSE marks loaded',
+    -2,
+  ),
+  fixtureEvent(
+    '4',
+    'dddd0000000000000000000000000000000000000000000000000000000000dd',
+    'composer + preferences + toaster cover core domains',
+    -1,
+  ),
+  fixtureEvent(
+    '5',
+    'eeee0000000000000000000000000000000000000000000000000000000000ee',
+    'theme-switcher broadcasts; preferences observes',
+    0,
+  ),
+];
 
 /** In-memory store for relay.publish calls — for debug visibility and future test inspection. */
 const publishedEvents: NostrEvent[] = [];
-
-// ─── Filter matching ──────────────────────────────────────────────────────────
 
 /**
  * Minimal filter matcher — only checks `kinds` and `limit`.
@@ -90,8 +87,6 @@ function matchesFilter(event: NostrEvent, filter: NostrFilter): boolean {
   }
   return true;
 }
-
-// ─── SimplePool-shaped mock ───────────────────────────────────────────────────
 
 /**
  * Builds a SimplePool-shaped object that emits fixture events on subscription.
@@ -143,7 +138,6 @@ function buildSimplePool() {
             const captured = event;
             queueMicrotask(() => fn(captured));
           }
-          // Emit EOSE after all event microtasks have been queued
           queueMicrotask(() => fn('EOSE'));
           return { unsubscribe: () => { /* no-op — microtasks already queued */ } };
         },
@@ -175,8 +169,6 @@ function buildSimplePool() {
     },
   };
 }
-
-// ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
  * ShellAdapter.relayPool interface — shape expected by @kehto/shell adapter.
@@ -226,10 +218,6 @@ export function createMockRelayPool(): MockRelayPool {
   };
 }
 
-// ─── NIP-66 kind:30166 fixture events (Phase 41 NIP66-07) ────────────────────
-// Three deterministic kind:30166 relay-discovery events consumed by
-// createNip66Aggregator via createMockNip66Pool(). Fixture-only — signatures
-// are dummies; aggregator parses d-tags (URLs) and N-tags (supported NIPs).
 const NIP66_FIXTURES: NostrEvent[] = [
   {
     id: 'a'.repeat(64),

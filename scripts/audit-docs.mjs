@@ -18,9 +18,7 @@ const packagesDir = join(repoRoot, 'packages');
 /** @type {string[]} */
 const violations = [];
 
-function rel(path) {
-  return relative(repoRoot, path);
-}
+const rel = relative.bind(null, repoRoot);
 
 function fail(message) {
   violations.push(message);
@@ -48,6 +46,10 @@ function assertContains(path, content, needle, context) {
   }
 }
 
+function assertTypeDocAnchor(path, content, href, context) {
+  assertContains(path, content, `href="${href}" target="_self"`, context);
+}
+
 function publicPackages() {
   return readdirSync(packagesDir)
     .filter((name) => {
@@ -64,6 +66,14 @@ function publicPackages() {
         packageJsonPath,
         pagePath: join(docsDir, 'packages', `${slug}.md`),
         moduleFile: join(docsDir, 'api', 'modules', `_kehto_${slug.replaceAll('-', '_')}.html`),
+        distModuleFile: join(
+          docsDir,
+          '.vitepress',
+          'dist',
+          'api',
+          'modules',
+          `_kehto_${slug.replaceAll('-', '_')}.html`,
+        ),
       };
     })
     .filter((pkg) => pkg.name?.startsWith('@kehto/'))
@@ -122,12 +132,18 @@ function checkPackageDocs(packages) {
     assertContains(pkg.pagePath, page, `| Version | \`${pkg.version}\` |`, `${pkg.name} package page`);
     assertContains(pkg.pagePath, page, '## Scope Boundaries', `${pkg.name} package page`);
     assertContains(pkg.pagePath, page, '## API Reference', `${pkg.name} package page`);
-    assertContains(pkg.pagePath, page, `../api/modules/_kehto_${pkg.slug.replaceAll('-', '_')}.html`, `${pkg.name} package API link`);
+    assertTypeDocAnchor(
+      pkg.pagePath,
+      page,
+      `../api/modules/_kehto_${pkg.slug.replaceAll('-', '_')}.html`,
+      `${pkg.name} package API link`,
+    );
 
     if (!typedocEntryPoints.has(`packages/${pkg.slug}`)) {
       fail(`typedoc.json missing entryPoint packages/${pkg.slug}`);
     }
     assertFile(pkg.moduleFile, `${pkg.name} generated API module`);
+    assertFile(pkg.distModuleFile, `${pkg.name} VitePress API artifact`);
   }
 
   const playgroundPage = join(docsDir, 'packages', 'playground.md');
@@ -143,8 +159,15 @@ function checkReferencePage(packages) {
   for (const pkg of packages) {
     const moduleHref = `../api/modules/_kehto_${pkg.slug.replaceAll('-', '_')}.html`;
     assertContains(referencePath, reference, pkg.name, 'API reference page');
-    assertContains(referencePath, reference, moduleHref, 'API reference page');
+    assertTypeDocAnchor(referencePath, reference, moduleHref, 'API reference page');
     assertFile(resolve(dirname(referencePath), moduleHref), `${pkg.name} API reference target`);
+  }
+}
+
+function checkApiLinkTarget(path, href) {
+  const target = resolve(dirname(path), href);
+  if (!existsSync(target)) {
+    fail(`stale API link in ${rel(path)}: ${href} -> ${rel(target)}`);
   }
 }
 
@@ -153,11 +176,13 @@ function checkApiLinksInMarkdown(path) {
   const apiLinkPattern = /\]\(((?:\.\.\/)+docs\/api\/[^)#\s]+|(?:\.\.\/)+api\/[^)#\s]+)\)/g;
   let match;
   while ((match = apiLinkPattern.exec(content)) !== null) {
-    const href = match[1];
-    const target = resolve(dirname(path), href);
-    if (!existsSync(target)) {
-      fail(`stale API link in ${rel(path)}: ${href} -> ${rel(target)}`);
-    }
+    checkApiLinkTarget(path, match[1]);
+  }
+
+  const apiAnchorPattern =
+    /<a\s+[^>]*href=["']((?:\.\.\/)+docs\/api\/[^"'#\s]+|(?:\.\.\/)+api\/[^"'#\s]+)["'][^>]*>/g;
+  while ((match = apiAnchorPattern.exec(content)) !== null) {
+    checkApiLinkTarget(path, match[1]);
   }
 }
 
@@ -178,6 +203,15 @@ function checkDocsCommands() {
   }
   if (!scripts['docs:check']?.includes('scripts/audit-docs.mjs')) {
     fail('package.json scripts.docs:check must run scripts/audit-docs.mjs');
+  }
+  if (!scripts['docs:site:build']?.includes('copy-docs-api.mjs')) {
+    fail('package.json scripts.docs:site:build must copy TypeDoc output after the VitePress build');
+  }
+
+  const docsPackageJsonPath = join(docsDir, 'package.json');
+  const docsPackageJson = readJson(docsPackageJsonPath);
+  if (!docsPackageJson.scripts?.['docs:build']?.includes('copy-docs-api.mjs')) {
+    fail('docs/package.json scripts.docs:build must copy TypeDoc output into the VitePress artifact');
   }
 
   const workflowPath = join(repoRoot, '.github', 'workflows', 'build.yml');

@@ -329,6 +329,10 @@ export function createIdentityService(options: IdentityServiceOptions): ServiceH
         send({ type: `${typeBase}.error`, id, error } as NappletMessage);
       }
 
+      function sendSignerError(typeBase: string, fallback: string, err: unknown): void {
+        sendError(typeBase, (err as Error)?.message ?? fallback);
+      }
+
       const signer = options.getSigner();
 
       switch (message.type) {
@@ -355,12 +359,7 @@ export function createIdentityService(options: IdentityServiceOptions): ServiceH
               };
               send(result);
             })
-            .catch((err: unknown) => {
-              sendError(
-                'identity.getPublicKey',
-                (err as Error)?.message ?? 'getPublicKey failed',
-              );
-            });
+            .catch((err: unknown) => sendSignerError('identity.getPublicKey', 'getPublicKey failed', err));
           return;
         }
 
@@ -378,12 +377,7 @@ export function createIdentityService(options: IdentityServiceOptions): ServiceH
               };
               send(result);
             })
-            .catch((err: unknown) => {
-              sendError(
-                'identity.getRelays',
-                (err as Error)?.message ?? 'getRelays failed',
-              );
-            });
+            .catch((err: unknown) => sendSignerError('identity.getRelays', 'getRelays failed', err));
           return;
         }
 

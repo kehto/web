@@ -37,7 +37,6 @@
 // Types
 export type { AclState, AclEntry, Identity } from './types.js';
 
-// Constants
 export {
   CAP_RELAY_READ,
   CAP_RELAY_WRITE,
@@ -54,10 +53,8 @@ export {
   DEFAULT_QUOTA,
 } from './types.js';
 
-// Core check
 export { check, toKey } from './check.js';
 
-// State mutations
 export {
   createState,
   grant,
@@ -70,7 +67,6 @@ export {
   deserialize,
 } from './mutations.js';
 
-// Migration utility
 export { migrateAclState } from './migrate.js';
 
 // NUB domain resolution

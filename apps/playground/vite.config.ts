@@ -206,21 +206,6 @@ function serveNappletGateway(): Plugin {
   };
 }
 
-// ─── v1.7 Phase 39 (CONNECT-02) ─────────────────────────────────────────────
-// serveNappletCsp: per-napplet Content-Security-Policy connect-src header
-// authority. Dev + preview modes both install middleware that:
-//
-//   1. Accepts POST /__connect-grants { dTag, aggregateHash, origins } to
-//      sync grant state from the shell-side connectStore. In-memory only
-//      (D2 volatile). Origin-allowlisted (D3 -- Vite's own base URL only).
-//
-//   2. Emits Content-Security-Policy: connect-src <origins> on
-//      /napplets/<dTag>/index.html responses. Strict default
-//      'none' when no grants exist (D4).
-//
-// See .planning/phases/39-nub-connect-nub-config/39-03-PLAN.md for the
-// full rationale and SHELL-CONNECT-POLICY.md (Plan 39-05) for the policy.
-
 /** In-memory grants Map keyed '<dTag>:<aggregateHash>'. Volatile per D2. */
 function createGrantsMap(): Map<string, readonly string[]> {
   return new Map<string, readonly string[]>();

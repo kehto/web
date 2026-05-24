@@ -1,9 +1,3 @@
-/**
- * test-utils.ts — Mock RuntimeAdapter for unit testing.
- *
- * Not exported from the package — only used by tests.
- * No browser globals (window, document, localStorage).
- */
 
 import type {
   RuntimeAdapter,
@@ -22,8 +16,6 @@ import type {
   SessionEntry,
 } from './types.js';
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
-
-// ─── Recorded message types ─────────────────────────────────────────────────
 
 export interface SentMessage {
   windowId: string;
@@ -46,8 +38,6 @@ export interface MockRuntimeContext {
   reset(): void;
 }
 
-// ─── Mock Relay Pool ──────────────────────────────────────────────────────────
-
 function createMockRelayPool(): RelayPoolAdapter {
   const tracked = new Map<string, () => void>();
 
@@ -66,8 +56,6 @@ function createMockRelayPool(): RelayPoolAdapter {
   };
 }
 
-// ─── Mock Cache ───────────────────────────────────────────────────────────────
-
 function createMockCache(): CacheAdapter {
   return {
     query(_filters: NostrFilter[]) { return Promise.resolve([]); },
@@ -76,8 +64,6 @@ function createMockCache(): CacheAdapter {
   };
 }
 
-// ─── Mock Auth ────────────────────────────────────────────────────────────────
-
 function createMockAuth(): AuthAdapter {
   return {
     getUserPubkey() { return 'user_' + '0'.repeat(60); },
@@ -85,23 +71,17 @@ function createMockAuth(): AuthAdapter {
   };
 }
 
-// ─── Mock Config ──────────────────────────────────────────────────────────────
-
 function createMockConfig(): ConfigAdapter {
   return {
     getNappUpdateBehavior() { return 'auto-grant'; },
   };
 }
 
-// ─── Mock Hotkeys ─────────────────────────────────────────────────────────────
-
 function createMockHotkeys(): HotkeyAdapter {
   return {
     executeHotkeyFromForward() { /* no-op */ },
   };
 }
-
-// ─── Mock Crypto ──────────────────────────────────────────────────────────────
 
 let uuidCounter = 0;
 
@@ -112,8 +92,6 @@ function createMockCrypto(): CryptoAdapter {
     randomBytes(length: number) { return new Uint8Array(length); },
   };
 }
-
-// ─── Mock Persistence ─────────────────────────────────────────────────────────
 
 function createMockAclPersistence(store: { data: string | null }): AclPersistence {
   return {
@@ -135,7 +113,7 @@ function createMockStatePersistence(stateStore: Map<string, string>): StatePersi
     set(key: string, value: string) { stateStore.set(key, value); return true; },
     remove(key: string) { stateStore.delete(key); },
     clear(prefix: string) {
-      for (const k of [...stateStore.keys()]) {
+      for (const k of stateStore.keys()) {
         if (k.startsWith(prefix)) stateStore.delete(k);
       }
     },
@@ -152,15 +130,11 @@ function createMockStatePersistence(stateStore: Map<string, string>): StatePersi
   };
 }
 
-// ─── Mock Window Manager ──────────────────────────────────────────────────────
-
 function createMockWindowManager(): WindowManagerAdapter {
   return {
     createWindow(_options: { title: string; class: string; iframeSrc?: string }) { return 'mock-window-1'; },
   };
 }
-
-// ─── Mock Relay Config ────────────────────────────────────────────────────────
 
 function createMockRelayConfig(): RelayConfigAdapter {
   return {
@@ -170,8 +144,6 @@ function createMockRelayConfig(): RelayConfigAdapter {
     getNip66Suggestions() { return []; },
   };
 }
-
-// ─── Factory ──────────────────────────────────────────────────────────────────
 
 /**
  * Create a complete set of mock RuntimeAdapter for testing.
@@ -225,8 +197,6 @@ export function createMockRuntimeAdapter(overrides?: Partial<RuntimeAdapter>): M
     },
   };
 }
-
-// ─── NIP-5D Test Helpers ──────────────────────────────────────────────────────
 
 /**
  * Create a NIP-5D session entry for use in tests.

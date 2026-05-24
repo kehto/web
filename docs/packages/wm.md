@@ -43,4 +43,4 @@ None.
 
 ## API Reference
 
-- Generated module: [`docs/api/modules/_kehto_wm.html`](../api/modules/_kehto_wm.html)
+- Generated module: <a href="../api/modules/_kehto_wm.html" target="_self"><code>docs/api/modules/_kehto_wm.html</code></a>

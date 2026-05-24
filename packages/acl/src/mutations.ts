@@ -5,8 +5,7 @@
  * The original state is never modified. No side effects, no I/O.
  */
 
-import type { AclState, AclEntry, Identity } from './types.js';
-import { CAP_ALL, DEFAULT_QUOTA } from './types.js';
+import { CAP_ALL, DEFAULT_QUOTA, type AclEntry, type AclState, type Identity } from './types.js';
 import { toKey } from './check.js';
 
 /**
@@ -247,7 +246,6 @@ export function deserialize(json: string): AclState {
       typeof parsed.entries === 'object' &&
       parsed.entries !== null
     ) {
-      // Validate each entry
       const entries: Record<string, AclEntry> = {};
       for (const [key, value] of Object.entries(parsed.entries)) {
         const entry = value as Record<string, unknown>;

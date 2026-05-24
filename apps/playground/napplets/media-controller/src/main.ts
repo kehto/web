@@ -59,9 +59,7 @@ function setStatus(text: string, color: 'gray' | 'green' | 'blue' | 'red' = 'gra
 }
 
 function getMissingRequiredNubs(): string[] {
-  const supports = (window as unknown as {
-    napplet: { shell: { supports(capability: string): boolean } };
-  }).napplet.shell.supports;
+  const supports = window.napplet.shell.supports;
   return REQUIRED_NUBS.filter((capability) => !supports(capability));
 }
 
@@ -95,10 +93,6 @@ async function init(): Promise<void> {
   playBtn.onclick = () => {
     mediaReportState(sessionId, { status: 'playing' });
     setStatus('playing', 'green');
-    // Exercise the local audio pipeline end-to-end; play() may be refused by
-    // autoplay policy pre-user-gesture, but the Play button IS a user gesture
-    // so we call .play() without a .catch that would mask bugs (autoplay
-    // policy accepts button-triggered play).
     void audioEl.play().catch(() => { /* best-effort if a policy still refuses */ });
     log('-> mediaReportState(playing)');
   };
@@ -109,10 +103,6 @@ async function init(): Promise<void> {
     log('-> mediaReportState(paused)');
   };
 
-  // Subscribe to media.command pushes from the shell. Triggered when the OS
-  // user clicks play/pause/seek/next/prev on the transport surface — the
-  // shell's navigator.mediaSession setActionHandler fires and Plan 27-01's
-  // media-service emits media.command to this napplet.
   mediaOnCommand(sessionId, (action, value) => {
     commandCount += 1;
     countEl.textContent = String(commandCount);

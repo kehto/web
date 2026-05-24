@@ -1,24 +1,11 @@
-/**
- * enforce.ts — Single ACL enforcement gate for the NIP-5D runtime.
- *
- * All NIP-5D NappletMessage envelopes pass through createNubEnforceGate()
- * before any handler acts. resolveCapabilitiesNub() (re-exported from
- * @kehto/acl) maps NUB message types to required capabilities. No NIP-01
- * dispatch path remains — v1.4 Phase 24 DRIFT-02 deleted the legacy
- * capability-resolution function along with its dead kind + topic
- * dispatch table.
- */
 
-import type { Capability } from '@kehto/acl/capabilities';
-import { ALL_CAPABILITIES } from '@kehto/acl/capabilities';
+import { ALL_CAPABILITIES, type Capability } from '@kehto/acl/capabilities';
 import type { NubMessage } from '@kehto/acl';
 import type { AclCheckEvent, NappletClass } from './types.js';
 
 // Re-export NUB capability resolution for consumers who import through enforce.ts
 export { resolveCapabilitiesNub } from '@kehto/acl';
 export type { NubMessage } from '@kehto/acl';
-
-// ─── Class posture policy (NUB-CLASS, v1.7 Phase 38, D8) ──────────────────────
 
 /**
  * Hardcoded per-class capability allowlist. The permissive default
@@ -39,8 +26,6 @@ const CLASS_CAPABILITY_ALLOWLIST: Readonly<Record<string, ReadonlySet<Capability
     (c) => c !== 'relay:write' && c !== 'identity:decrypt',
   )),
 });
-
-// ─── Enforcement ──────────────────────────────────────────────────────────────
 
 /**
  * Result of an enforcement check.
@@ -129,8 +114,6 @@ export function createEnforceGate(config: EnforceConfig): (pubkey: string, capab
   };
 }
 
-// ─── NUB Enforcement Gate (NIP-5D) ───────────────────────────────────────────
-
 /**
  * Enforcement gate configuration for NIP-5D NUB handlers.
  * Uses windowId for identity resolution instead of pubkey (which is '' in NIP-5D sessions).
@@ -176,9 +159,6 @@ export function createNubEnforceGate(config: NubEnforceConfig): (windowId: strin
     const aggregateHash = entry?.aggregateHash ?? '';
     const nappletClass: NappletClass = entry?.class ?? null;
 
-    // CLASS-03 / D6: class check BEFORE capability check. Class-forbidden
-    // short-circuits the gate - capability is not consulted. null is the
-    // permissive default (D2): no class restriction applies.
     if (nappletClass !== null) {
       const allowlist = CLASS_CAPABILITY_ALLOWLIST[nappletClass];
       // Unknown class token -> treat as maximally restrictive (deny all).
@@ -212,8 +192,6 @@ export function createNubEnforceGate(config: NubEnforceConfig): (windowId: strin
     return { allowed, capability, reason };
   };
 }
-
-// ─── Denial Response Helpers ──────────────────────────────────────────────────
 
 /**
  * Format a denial reason string with the standard 'denied:' prefix.

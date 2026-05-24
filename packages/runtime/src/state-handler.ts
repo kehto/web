@@ -7,7 +7,6 @@
  */
 
 import type { NappletMessage } from '@napplet/core';
-// Phase 11-02 / DRIFT-CORE-05: narrow storage dispatch to canonical nub-storage union.
 import type { StorageMessage } from '@napplet/nub/storage/types';
 import type { SendToNapplet, StatePersistence } from './types.js';
 import type { SessionRegistry } from './session-registry.js';

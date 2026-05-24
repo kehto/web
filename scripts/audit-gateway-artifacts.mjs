@@ -22,9 +22,7 @@ const LOCAL_MODULEPRELOAD_RE = /<link\b[^>]*\brel\s*=\s*["'][^"']*\bmodulepreloa
 /** @type {string[]} */
 const violations = [];
 
-function rel(path) {
-  return relative(repoRoot, path);
-}
+const rel = relative.bind(null, repoRoot);
 
 function fail(message) {
   violations.push(message);

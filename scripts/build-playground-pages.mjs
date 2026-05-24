@@ -35,9 +35,7 @@ const outputDir = resolve(
 
 const SHORT_NUB_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
 
-function rel(path) {
-  return relative(repoRoot, path);
-}
+const rel = relative.bind(null, repoRoot);
 
 function normalizeBasePath(value) {
   const raw = String(value || '/').trim() || '/';

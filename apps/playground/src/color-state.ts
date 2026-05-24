@@ -9,8 +9,6 @@
 import { demoConfig } from './demo-config.js';
 import type { DemoTopology } from './topology.js';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
 export type ColorClass = 'active' | 'blocked';
 export type PersistenceMode = 'flash' | 'rolling' | 'decay' | 'last-message' | 'trace';
 
@@ -22,11 +20,8 @@ interface EdgeDirectionEntry {
 interface EdgeDirectionState {
   /** Rolling window of recent results. */
   window: EdgeDirectionEntry[];
-  /** Last result (used by decay and last-message modes). */
   lastEntry: EdgeDirectionEntry | null;
 }
-
-// ─── Module State ────────────────────────────────────────────────────────────
 
 let _mode: PersistenceMode = 'flash';
 let _topology: DemoTopology | null = null;
@@ -39,8 +34,6 @@ let _decayTimer: ReturnType<typeof setInterval> | null = null;
 const _state = new Map<string, EdgeDirectionState>();
 
 const _changeListeners: Array<() => void> = [];
-
-// ─── Initialization ─────────────────────────────────────────────────────────
 
 /**
  * Initialize color state for a topology. Call once after topology is built.
@@ -56,7 +49,6 @@ export function initColorState(topology: DemoTopology): void {
       _state.set(`${edge.id}:${dir}`, { window: [], lastEntry: null });
     }
   }
-  // Start recording after initial iframe registration settles
   setTimeout(() => {
     _recording = true;
   }, 3000);
@@ -69,8 +61,6 @@ export function initColorState(topology: DemoTopology): void {
 export function enableRecording(): void {
   _recording = true;
 }
-
-// ─── Persistence Mode ───────────────────────────────────────────────────────
 
 export function getPersistenceMode(): PersistenceMode {
   return _mode;
@@ -88,8 +78,6 @@ export function setPersistenceMode(mode: PersistenceMode): void {
   _notifyChange();
 }
 
-// ─── Decay Timer ──────────────────────────────────────────────────────────
-
 function _startDecayTimerIfNeeded(): void {
   // Clear existing timer
   if (_decayTimer !== null) {
@@ -103,8 +91,6 @@ function _startDecayTimerIfNeeded(): void {
     }, 200);
   }
 }
-
-// ─── Recording ──────────────────────────────────────────────────────────────
 
 /**
  * Record a color result for a specific edge direction.
@@ -133,8 +119,6 @@ export function recordEdgeColor(edgeId: string, direction: 'out' | 'in', color: 
 
   _notifyChange();
 }
-
-// ─── Edge Color Queries ─────────────────────────────────────────────────────
 
 /**
  * Get the current resolved color for an edge direction based on active persistence mode.
@@ -184,8 +168,6 @@ function _resolveLastMessage(state: EdgeDirectionState): ColorClass | null {
   return state.lastEntry?.color ?? null;
 }
 
-// ─── Node Color Queries ─────────────────────────────────────────────────────
-
 /**
  * Derive composite color for a node's inbound direction.
  * Aggregates all connected edge 'in' states.
@@ -226,13 +208,6 @@ function _deriveNodeColor(nodeId: string, direction: 'out' | 'in'): ColorClass |
   return 'active';
 }
 
-// ─── Trace Mode: Direct Node Overlay Updates ────────────────────────────────
-
-/**
- * Directly set a node overlay color during trace mode.
- * Bypasses the persistent state system — used by trace-animator
- * to update node borders in sync with edge sweeps.
- */
 export function setNodeOverlayColor(
   nodeId: string,
   direction: 'inbound' | 'outbound',
@@ -256,8 +231,6 @@ export function clearAllNodeOverlays(): void {
     el.classList.remove('node-color-active', 'node-color-blocked');
   }
 }
-
-// ─── Change Notification ────────────────────────────────────────────────────
 
 export function onColorStateChange(callback: () => void): () => void {
   _changeListeners.push(callback);

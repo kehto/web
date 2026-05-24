@@ -7,8 +7,6 @@
  */
 
 import type { NostrEvent, NostrFilter } from '@napplet/core';
-// DRIFT-CORE-06 — Phase 11-deviation: Capability dropped from @napplet/core v0.2.0+.
-import type { Capability } from '@kehto/runtime';
 import type {
   RuntimeAdapter,
   RelayPoolAdapter,
@@ -30,8 +28,6 @@ import type {
   GuidPersistence,
 } from '@kehto/runtime';
 
-// ─── Hex utilities (inline to avoid @noble/hashes dependency) ────────────
-
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
@@ -50,8 +46,6 @@ import type { aclStore as AclStoreType } from './acl-store.js';
 import type { audioManager as AudioManagerType } from './audio-manager.js';
 import type { sessionRegistry as SessionRegistryType } from './session-registry.js';
 
-// ─── Browser Dependencies ─────────────────────────────────────────────────
-
 /**
  * Browser-specific singletons that the adapter bridges to the runtime.
  * These use browser APIs (Window, localStorage, postMessage, CustomEvent)
@@ -65,42 +59,18 @@ export interface BrowserDeps {
   nappKeyRegistry: typeof SessionRegistryType;
 }
 
-// ─── Adapter Factory ──────────────────────────────────────────────────────
-
-/**
- * Convert ShellAdapter (browser-facing) into RuntimeAdapter (environment-agnostic).
- *
- * The adapter is the single translation layer between browser APIs and the
- * runtime's abstract interfaces. It:
- * - Converts Window references to windowId strings via originRegistry
- * - Wraps localStorage-backed singletons into persistence interfaces
- * - Translates relay pool API shapes (Observable → callback)
- *
- * @param shellHooks - The browser-oriented ShellAdapter provided by the host app
- * @param deps - Browser-specific singletons (originRegistry, aclStore, etc.)
- * @returns RuntimeAdapter suitable for createRuntime()
- *
- * @example
- * ```ts
- * const runtimeHooks = adaptHooks(shellHooks, {
- *   originRegistry, manifestCache, aclStore, audioManager, nappKeyRegistry,
- * });
- * const runtime = createRuntime(runtimeHooks);
- * ```
- */
-export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): RuntimeAdapter {
-  const { originRegistry } = deps;
-
-  // ─── sendToNapplet: windowId → Window lookup → postMessage ────────────
-
-  const sendToNapplet: SendToNapplet = (windowId, msg) => {
+function createSendToNapplet(originRegistry: BrowserDeps['originRegistry']): SendToNapplet {
+  return (windowId, msg) => {
     const win = originRegistry.getIframeWindow(windowId);
     if (win) win.postMessage(msg, '*');
   };
+}
 
-  // ─── Relay Pool Adapter ─────────────────────────────────────────────────
-
-  const relayPool: RelayPoolAdapter = {
+function createRelayPoolAdapter(
+  shellHooks: ShellAdapter,
+  originRegistry: BrowserDeps['originRegistry'],
+): RelayPoolAdapter {
+  return {
     subscribe(
       filters: NostrFilter[],
       callback: (item: NostrEvent | 'EOSE') => void,
@@ -111,11 +81,8 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
 
       const urls = relayUrls ?? shellHooks.relayPool.selectRelayTier(filters);
       const sub = pool.subscription(urls, filters).subscribe((item) => {
-        if (item === 'EOSE') {
-          callback('EOSE');
-        } else {
-          callback(item as NostrEvent);
-        }
+        if (item === 'EOSE') callback('EOSE');
+        else callback(item as NostrEvent);
       });
       return { unsubscribe: () => sub.unsubscribe() };
     },
@@ -144,7 +111,7 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
       relayUrl: string,
       subId: string,
       filters: NostrFilter[],
-      sendFn: SendToNapplet,
+      _sendFn: SendToNapplet,
     ): void {
       const win = originRegistry.getIframeWindow(windowId);
       if (win) shellHooks.relayPool.openScopedRelay(windowId, relayUrl, subId, filters, win);
@@ -162,17 +129,15 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
       return shellHooks.relayPool.getRelayPool() !== null;
     },
   };
+}
 
-  // ─── Cache Adapter (Worker Relay) ───────────────────────────────────────
-
-  const cache: CacheAdapter = {
+function createCacheAdapter(shellHooks: ShellAdapter): CacheAdapter {
+  return {
     async query(filters: NostrFilter[]): Promise<NostrEvent[]> {
       const workerRelay = shellHooks.workerRelay.getWorkerRelay();
       if (!workerRelay) return [];
-      // Worker relay expects REQ-style array: ['REQ', subId, ...filters]
       const subId = crypto.randomUUID();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return workerRelay.query(['REQ', subId, ...(filters as any[])]);
+      return workerRelay.query(['REQ', subId, ...filters]);
     },
 
     store(event: NostrEvent): void {
@@ -185,10 +150,10 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
       return shellHooks.workerRelay.getWorkerRelay() !== null;
     },
   };
+}
 
-  // ─── Auth Adapter ───────────────────────────────────────────────────────
-
-  const auth: AuthAdapter = {
+function createAuthAdapter(shellHooks: ShellAdapter): AuthAdapter {
+  return {
     getUserPubkey(): string | null {
       return shellHooks.auth.getUserPubkey();
     },
@@ -196,26 +161,26 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
       return shellHooks.auth.getSigner();
     },
   };
+}
 
-  // ─── Config Adapter ─────────────────────────────────────────────────────
-
-  const config: ConfigAdapter = {
+function createConfigAdapter(shellHooks: ShellAdapter): ConfigAdapter {
+  return {
     getNappUpdateBehavior(): 'auto-grant' | 'banner' | 'silent-reprompt' {
       return shellHooks.config.getNappUpdateBehavior();
     },
   };
+}
 
-  // ─── Hotkey Adapter ─────────────────────────────────────────────────────
-
-  const hotkeys: HotkeyAdapter = {
+function createHotkeyAdapter(shellHooks: ShellAdapter): HotkeyAdapter {
+  return {
     executeHotkeyFromForward(event): void {
       shellHooks.hotkeys.executeHotkeyFromForward(event);
     },
   };
+}
 
-  // ─── Crypto Adapter ─────────────────────────────────────────────────────
-
-  const cryptoHooks: CryptoAdapter = {
+function createCryptoAdapter(shellHooks: ShellAdapter): CryptoAdapter {
+  return {
     async verifyEvent(event: NostrEvent): Promise<boolean> {
       return shellHooks.crypto.verifyEvent(event);
     },
@@ -228,10 +193,10 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
       return bytes;
     },
   };
+}
 
-  // ─── ACL Persistence (localStorage-backed) ──────────────────────────────
-
-  const aclPersistence: AclPersistence = {
+function createAclPersistence(): AclPersistence {
+  return {
     persist(data: string): void {
       try { localStorage.setItem('napplet:acl', data); } catch { /* best-effort */ }
     },
@@ -239,10 +204,10 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
       try { return localStorage.getItem('napplet:acl'); } catch { return null; }
     },
   };
+}
 
-  // ─── Manifest Persistence (localStorage-backed) ─────────────────────────
-
-  const manifestPersistence: ManifestPersistence = {
+function createManifestPersistence(): ManifestPersistence {
+  return {
     persist(data: string): void {
       try { localStorage.setItem('napplet:manifest-cache', data); } catch { /* best-effort */ }
     },
@@ -250,10 +215,10 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
       try { return localStorage.getItem('napplet:manifest-cache'); } catch { return null; }
     },
   };
+}
 
-  // ─── State Persistence (localStorage-backed, scoped) ────────────────────
-
-  const statePersistence: StatePersistence = {
+function createStatePersistence(): StatePersistence {
+  return {
     get(scopedKey: string): string | null {
       try { return localStorage.getItem(scopedKey); } catch { return null; }
     },
@@ -297,18 +262,18 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
       } catch { return 0; }
     },
   };
+}
 
-  // ─── Window Manager Adapter ─────────────────────────────────────────────
-
-  const windowManager: WindowManagerAdapter = {
+function createWindowManagerAdapter(shellHooks: ShellAdapter): WindowManagerAdapter {
+  return {
     createWindow(options): string | null {
       return shellHooks.windowManager.createWindow(options);
     },
   };
+}
 
-  // ─── Relay Config Adapter ───────────────────────────────────────────────
-
-  const relayConfig: RelayConfigAdapter = {
+function createRelayConfigAdapter(shellHooks: ShellAdapter): RelayConfigAdapter {
+  return {
     addRelay(tier: string, url: string): void {
       shellHooks.relayConfig.addRelay(tier, url);
     },
@@ -322,11 +287,10 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
       return shellHooks.relayConfig.getNip66Suggestions();
     },
   };
+}
 
-  // ─── Shell Secret Persistence (localStorage-backed) ─────────────────────
-
-  /** @deprecated NIP-5D: Shell secrets are no longer needed for source-based identity. Retained for legacy AUTH sessions. */
-  const shellSecretPersistence: ShellSecretPersistence = {
+function createShellSecretPersistence(): ShellSecretPersistence {
+  return {
     get(): Uint8Array | null {
       try {
         const hex = localStorage.getItem('napplet-shell-secret');
@@ -340,11 +304,10 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
       } catch { /* localStorage unavailable */ }
     },
   };
+}
 
-  // ─── GUID Persistence (localStorage-backed) ────────────────────────────
-
-  /** @deprecated NIP-5D: Per-window GUIDs are no longer needed. Retained for legacy session persistence. */
-  const guidPersistence: GuidPersistence = {
+function createGuidPersistence(): GuidPersistence {
+  return {
     get(windowId: string): string | null {
       try {
         return localStorage.getItem(`napplet-guid:${windowId}`);
@@ -361,35 +324,58 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
       } catch { /* localStorage unavailable */ }
     },
   };
+}
 
-  // ─── DM Adapter (optional) ──────────────────────────────────────────────
-
-  const dm: DmAdapter | undefined = shellHooks.dm
+function createDmAdapter(shellHooks: ShellAdapter): DmAdapter | undefined {
+  return shellHooks.dm
     ? {
         sendDm(recipientPubkey: string, message: string) {
           return shellHooks.dm!.sendDm(recipientPubkey, message);
         },
       }
     : undefined;
+}
 
-  // ─── Assemble RuntimeAdapter ────────────────────────────────────────────
+/**
+ * Convert ShellAdapter (browser-facing) into RuntimeAdapter (environment-agnostic).
+ *
+ * The adapter is the single translation layer between browser APIs and the
+ * runtime's abstract interfaces. It:
+ * - Converts Window references to windowId strings via originRegistry
+ * - Wraps localStorage-backed singletons into persistence interfaces
+ * - Translates relay pool API shapes (Observable → callback)
+ *
+ * @param shellHooks - The browser-oriented ShellAdapter provided by the host app
+ * @param deps - Browser-specific singletons (originRegistry, aclStore, etc.)
+ * @returns RuntimeAdapter suitable for createRuntime()
+ *
+ * @example
+ * ```ts
+ * const runtimeHooks = adaptHooks(shellHooks, {
+ *   originRegistry, manifestCache, aclStore, audioManager, nappKeyRegistry,
+ * });
+ * const runtime = createRuntime(runtimeHooks);
+ * ```
+ */
+export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): RuntimeAdapter {
+  const { originRegistry } = deps;
 
   return {
-    sendToNapplet,
-    relayPool,
-    cache,
-    auth,
-    config,
-    hotkeys,
-    crypto: cryptoHooks,
-    aclPersistence,
-    manifestPersistence,
-    statePersistence,
-    windowManager,
-    relayConfig,
-    dm,
-    shellSecretPersistence,
-    guidPersistence,
+    sendToNapplet: createSendToNapplet(originRegistry),
+    relayPool: createRelayPoolAdapter(shellHooks, originRegistry),
+    cache: createCacheAdapter(shellHooks),
+    auth: createAuthAdapter(shellHooks),
+    config: createConfigAdapter(shellHooks),
+    hotkeys: createHotkeyAdapter(shellHooks),
+    crypto: createCryptoAdapter(shellHooks),
+    aclPersistence: createAclPersistence(),
+    manifestPersistence: createManifestPersistence(),
+    statePersistence: createStatePersistence(),
+    windowManager: createWindowManagerAdapter(shellHooks),
+    relayConfig: createRelayConfigAdapter(shellHooks),
+    dm: createDmAdapter(shellHooks),
+    shellSecretPersistence: createShellSecretPersistence(),
+    guidPersistence: createGuidPersistence(),
     onAclCheck: shellHooks.onAclCheck,
     onHashMismatch: shellHooks.onHashMismatch,
     services: shellHooks.services,

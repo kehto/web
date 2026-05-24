@@ -1,25 +1,7 @@
-/**
- * @kehto/wm — Structural primitives for consumer-implemented layout strategies.
- *
- * Provides LayoutStrategy / WindowState / WindowPlacement type contracts and a
- * working factory (createWmService) with a no-op default strategy. Consumers
- * implement their own LayoutStrategy in their shell repo.
- *
- * Anti-feature stance (H-04): no algorithm-prescriptive string-literal types
- * ship here. Consumers choose their own algorithm names and implementations.
- *
- * Requirements: WM-04, WM-05, WM-06, WM-07
- * Decisions: D1 (pure arrange fn), D2 (WindowState), D3 (WindowPlacement),
- *            D4 (no-op default strategy)
- */
-
-// ─── Base types ──────────────────────────────────────────────────────────────
 
 export type WindowId = string;
 export type WorkspaceId = string | number;
 export type Rect = { x: number; y: number; w: number; h: number };
-
-// ─── Structural primitives (D1–D3) ──────────────────────────────────────────
 
 /**
  * Minimal universal window descriptor passed to layout strategies. (D2)
@@ -72,8 +54,6 @@ export interface LayoutStrategy {
   ): ReadonlyArray<WindowPlacement>;
 }
 
-// ─── Host-hooks contract ────────────────────────────────────────────────────
-
 /**
  * Notification-only hooks invoked by WmService on window/workspace lifecycle.
  * Shells implement these; no-op implementations are acceptable.
@@ -85,8 +65,6 @@ export interface WmHostHooks {
   onWindowDestroyed(id: WindowId): void;
   onWindowMoved(id: WindowId, from: Rect, to: Rect): void;
 }
-
-// ─── Service API ────────────────────────────────────────────────────────────
 
 export interface WmService {
   window: {
@@ -105,13 +83,9 @@ export interface WmService {
   destroy(): void;
 }
 
-// ─── Internal default strategy (D4 — no-op identity) ────────────────────────
-
 const noOpStrategy: LayoutStrategy = {
   arrange: (windows) => windows.map(({ id, rect }) => ({ id, rect })),
 };
-
-// ─── Factory (D4) ───────────────────────────────────────────────────────────
 
 /**
  * Create a WM service. If `strategy` is omitted, a no-op identity strategy

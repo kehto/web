@@ -36,14 +36,10 @@ import '@napplet/shim';
 
 const REQUIRED_NUBS = ['resource', 'connect'] as const;
 
-// ─── DOM sentinel references ──────────────────────────────────────────────────
-
 const statusEl = document.getElementById('resource-demo-status')!;
 const grantedEl = document.getElementById('resource-demo-granted')!;
 const deniedEl = document.getElementById('resource-demo-denied')!;
 const logEl = document.getElementById('resource-demo-log')!;
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void {
   statusEl.textContent = text;
@@ -61,22 +57,13 @@ function log(text: string): void {
 }
 
 function getMissingRequiredNubs(): string[] {
-  const supports = (window as unknown as {
-    napplet: { shell: { supports(capability: string): boolean } };
-  }).napplet.shell.supports;
+  const supports = window.napplet.shell.supports;
   return REQUIRED_NUBS.filter((capability) => !supports(capability));
 }
-
-// ─── Request ID factory ────────────────────────────────────────────────────────
 
 function newRequestId(): string {
   return `res-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
-
-// ─── Kehto-internal resource wire types ──────────────────────────────────────
-// These are inlined here to avoid a cross-package import in a napplet context.
-// RESOURCE-SDK-GAP: upstream @napplet/nub/resource uses id/blob/mime; this demo
-// exercises Kehto's current requestId/bodyBase64/status/headers contract.
 
 type ResourceErrorCode = 'denied' | 'canceled' | 'network-error' | 'invalid-url' | 'class-forbidden';
 
@@ -97,10 +84,6 @@ interface ResourceBytesError {
 
 type ResourceOutbound = ResourceBytesResult | ResourceBytesError;
 
-// ─── Inbound resource message listener ───────────────────────────────────────
-// Mirrors @napplet/shim's handleEnvelopeMessage pattern. Checks source is
-// window.parent and type prefix is 'resource.'.
-
 type ResourceEnvelopeCallback = (envelope: ResourceOutbound) => void;
 const _resourceCallbacks: ResourceEnvelopeCallback[] = [];
 
@@ -117,17 +100,11 @@ window.addEventListener('message', (event: MessageEvent) => {
   const msg = event.data as { type?: string };
   if (typeof msg !== 'object' || msg === null || typeof msg.type !== 'string') return;
   if (!msg.type.startsWith('resource.')) return;
-  const envelope = msg as unknown as ResourceOutbound;
+  const envelope = msg as ResourceOutbound;
   for (const cb of _resourceCallbacks) {
     try { cb(envelope); } catch { /* isolate per-callback errors */ }
   }
 });
-
-// ─── Outbound dispatch (provisional) ─────────────────────────────────────────
-// Uses window.parent.postMessage to send resource.bytes envelopes to the shell.
-// Mirror of how @napplet/shim NUB packages work (e.g., storageSetItem calls
-// window.parent.postMessage with the wire envelope). Origin '*' is consistent
-// with the shim's send pattern for napplet-to-shell messages.
 
 function dispatchResourceBytes(requestId: string, url: string): void {
   window.parent.postMessage(
@@ -135,8 +112,6 @@ function dispatchResourceBytes(requestId: string, url: string): void {
     '*',
   );
 }
-
-// ─── URL constants (D1, D4) ───────────────────────────────────────────────────
 
 function getPlaygroundBaseUrl(): URL {
   if (document.referrer.length > 0) {
@@ -157,8 +132,6 @@ function getPlaygroundBaseUrl(): URL {
 
 const GRANTED_URL = new URL('demo-data.json', getPlaygroundBaseUrl()).href;
 const DENIED_URL = 'https://untrusted.example/';  // D4: RFC-2606 reserved — never resolves
-
-// ─── Init ─────────────────────────────────────────────────────────────────────
 
 async function init(): Promise<void> {
   const missing = getMissingRequiredNubs();
@@ -221,7 +194,6 @@ async function init(): Promise<void> {
       maybeAllDone();
     }
 
-    // Clean up listener once both responses arrive.
     if (grantedDone && deniedDone) {
       unsub();
     }

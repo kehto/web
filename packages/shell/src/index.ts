@@ -1,8 +1,3 @@
-// @kehto/shell — Browser adapter over @kehto/runtime.
-// Delegates all protocol logic to the runtime engine. Provides browser-specific
-// concerns: Window/postMessage bridging, localStorage persistence, audio manager.
-
-// ─── Public API ─────────────────────────────────────────────────────────────
 
 // Factory function — main entry point
 export { createShellBridge } from './shell-bridge.js';
@@ -51,7 +46,6 @@ export type {
 // Shell initialization — capability construction for shell.ready / shell.init handshake
 export { buildShellCapabilities } from './shell-init.js';
 
-// Session registry
 export { sessionRegistry, nappKeyRegistry } from './session-registry.js';
 export type { PendingUpdate } from './session-registry.js';
 
@@ -72,11 +66,6 @@ export type { ConsentRequest } from '@kehto/runtime';
 export { TOPICS } from './topics.js';
 export type { TopicKey, TopicValue } from './topics.js';
 
-// ─── Per-domain proxies (Plan 12-11) ────────────────────────────────────────
-// Canonical shell-side composition seams for the five non-storage NUB
-// domains. createShellBridge() does NOT wire these by default — the runtime
-// already owns 8-domain dispatch. Host apps may compose these proxies to
-// intercept or augment napplet↔shell traffic per domain.
 export { createIdentityProxy } from './identity-proxy.js';
 export type { IdentityProxy, IdentityProxyDeps, ProxyOriginRegistry } from './identity-proxy.js';
 export { createThemeProxy } from './theme-proxy.js';
@@ -88,10 +77,6 @@ export type { MediaProxy, MediaProxyDeps } from './media-proxy.js';
 export { createNotifyProxy } from './notify-proxy.js';
 export type { NotifyProxy, NotifyProxyDeps } from './notify-proxy.js';
 
-// ─── Keys-forwarder (Plan 12-11, NUB-05 shell-side) ─────────────────────────
-// Host-keydown → keys.forward envelope pump. Auto-attached by
-// createShellBridge(); also exported for host apps that want to manage
-// their own forwarder instance.
 export { createKeysForwarder } from './keys-forwarder.js';
 export type {
   KeysForwarder,
@@ -100,12 +85,6 @@ export type {
   KeysForwarderSessionRegistry,
 } from './keys-forwarder.js';
 
-// ─── v1.7 Phase 39 NUB-CONNECT: connect-store singleton + internal wire types ─
-// connect-store singleton with grant/revoke/check/getOrigins/getAllGrants/persist/load/clear.
-// connectGrantKey: compose the canonical '<dTag>:<aggregateHash>' composite key.
-// Wire types: ConnectGrant, ConnectGrantKey, ConnectConsentRequest, ConsentResult
-// These are shell-side store records; upstream @napplet/nub/connect models the
-// napplet-side accessor surface and is intentionally not a drop-in replacement.
 export { connectStore, connectGrantKey } from './connect-store.js';
 export type { ConnectStore } from './connect-store.js';
 export type {
@@ -115,12 +94,6 @@ export type {
   ConsentResult,
 } from './types/internal-connect.js';
 
-// ─── v1.7 Phase 40: NUB-RESOURCE internal wire types ─────────────────────────
-// Consumed by demo napplets and external host apps that implement the `fetch`
-// option for createResourceService. Exported here so consumers can import from
-// @kehto/shell without reaching into internal type paths directly. Upstream
-// @napplet/nub/resource uses a different message and error vocabulary; future
-// adoption is a distinct migration, not a mechanical import swap.
 export type {
   ResourceBytesRequest,
   ResourceCancelRequest,

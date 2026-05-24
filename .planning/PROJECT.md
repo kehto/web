@@ -37,13 +37,57 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Status:** Awaiting next milestone after v1.14 shipped on 2026-05-23.
+**Status:** Awaiting the next milestone after v1.16 Structural Code Quality Refactor shipped.
 
-v1.14 turned the GitHub Pages deployment into a public `/web/` site: a static Kehto portal, playground at `/web/playground/`, VitePress docs at `/web/docs/`, and one unified artifact guarded by route-shape verification.
+v1.16 removed the remaining structural `aislop` warning baseline from the local scanner. The current baseline is pinned-spec NIP-5D conformance, a buildable docs site, a pre-deploy GitHub Pages artifact contract for `https://kehto.github.io/web/`, and `npx --no-install aislop scan -d` reporting `100 / 100 Healthy` with 0 errors, 0 warnings, and 0 fixable findings.
 
-The baseline after v1.14 is pinned-spec NIP-5D conformance, a buildable docs site, and a pre-deploy GitHub Pages artifact contract for `https://kehto.github.io/web/`. Verification stands at `VITEPRESS_BASE=/web/docs/ pnpm docs:check`, `PLAYGROUND_BASE_PATH=/web/playground/ pnpm --filter @kehto/playground build`, `pnpm build:pages`, `pnpm audit:pages`, `pnpm build`, `pnpm type-check`, `pnpm test:unit` (562 tests), `pnpm audit:gateway-artifacts`, `git diff --check`, and `gsd-sdk query audit-open`.
+Verification stands at `npx --no-install aislop scan -d`, `.aislop/config.yml` diff against the v1.16 start commit, `pnpm build`, `pnpm type-check`, `pnpm test:unit` (563 tests), `pnpm --dir docs docs:build`, and `git diff --check`.
 
-## Latest Milestone: v1.14 GitHub Pages Web Portal
+## Latest Milestone: v1.16 Structural Code Quality Refactor
+
+**Goal:** Eliminate the remaining 16 `aislop` structural code-quality warnings without changing Kehto runtime behavior.
+
+**Shipped features:**
+- Runtime core decomposition for relay, identity, IFC, and fallback domain handlers.
+- Playground shell decomposition for main boot wiring, shell host helpers, demo hooks, notification UI, and signer UI.
+- Service and adapter decomposition for ACL modal, NIP-46 client, media service, notification service, resource service, and shell hook adapter.
+- Final scanner closeout with `npx --no-install aislop scan -d` clean at `100 / 100 Healthy`.
+- Proof that `.aislop/config.yml` thresholds were not loosened during the milestone.
+
+### v1.15 Accomplishments
+
+- **Runtime warning cleanup:** `packages/runtime/src/runtime.ts`, `createRuntime`, and `handleRelayMessage` no longer trigger file-size, function-length, or deep-nesting findings.
+- **Playground shell cleanup:** `apps/playground/src/main.ts`, `apps/playground/src/shell-host.ts`, `createDemoHooks`, and `bootShell` no longer trigger structural findings.
+- **Service and adapter cleanup:** `openPolicyModal`, `createNip46Client`, `createMediaService`, `createNotificationService`, `createResourceService`, and `adaptHooks` no longer trigger function-length findings.
+- **Policy integrity:** the clean scanner result is source-driven; `.aislop/config.yml` has no diff against the milestone start commit.
+- **Verification:** final scanner, policy diff, type-check, build, full unit suite, docs build, and diff checks passed.
+
+18/18 v1.16 requirements satisfied; 4/4 phase VERIFICATION.md files passed; local `aislop` is clean.
+
+## Previous Milestone: v1.15 Address AI Slop
+
+**Goal:** Restore a credible quality-gate baseline by fixing AI-slop/security findings and reducing the corrected local scanner from Critical to Needs Work without changing Kehto runtime behavior.
+
+**Shipped features:**
+- Corrected the stale `@napplet/services` import path and removed direct playground DOM assignment sinks.
+- Removed auto-fixable slop: decorative comments, duplicate imports, leftover console debugging, unused code, and unnecessary spread fallbacks.
+- Narrowed safe type and wrapper findings without changing public contracts.
+- Resolved dependency scanner advisories through existing `pnpm.overrides`.
+- Added repo-local `.aislop/config.yml` so the local scanner policy is explicit.
+- Reduced `npx --no-install aislop scan -d` to `64 / 100 Needs Work`, with Formatting, Linting, AI Slop, and Security all clean.
+
+### Latest Milestone Accomplishments
+
+- **Fatal scanner repair:** AI Slop and Security error categories are closed; the corrected local scanner path is `npx --no-install aislop`.
+- **Safe DOM cleanup:** report-flagged direct `innerHTML` assignments were replaced with DOM construction, `textContent`, `replaceChildren`, or named trusted internal insertion.
+- **Mechanical source cleanup:** normal `aislop fix` removed hundreds of narrative/trivial comment and import/code hygiene findings.
+- **Type and duplication cleanup:** low-risk duplicate blocks, thin wrappers, and narrowable assertions were cleaned without broad module rewrites.
+- **Dependency scanner cleanup:** existing dependency overrides resolve the Vite/esbuild/PostCSS/brace-expansion security scanner paths.
+- **Verification:** local scanner, build, type-check, unit tests, docs build, and diff checks are green enough to make the remaining risk structural only.
+
+20/20 v1.15 requirements satisfied; 5/5 phase VERIFICATION.md files passed; local `aislop` no longer reports Critical status.
+
+## Previous Milestone: v1.14 GitHub Pages Web Portal
 
 **Goal:** Turn the GitHub Pages deployment into a public `/web/` portal that links to the playground and docs, with the playground deployed at `/web/playground/` and VitePress docs deployed at `/web/docs/`.
 
@@ -53,7 +97,7 @@ The baseline after v1.14 is pinned-spec NIP-5D conformance, a buildable docs sit
 - Docs build deployed under `kehto.github.io/web/docs/`.
 - GitHub Pages workflow packs one unified artifact and verifies the expected portal, playground, and docs routes.
 
-### Latest Milestone Accomplishments
+### v1.14 Accomplishments
 
 - **Static portal:** `web/index.html` builds to `.pages/web/index.html` and links users to `/web/playground/` and `/web/docs/`.
 - **Playground route relocation:** playground assets and static gateway metadata now use `/web/playground/`, including all 13 napplet gateway `htmlUrl` values under `/web/playground/napplet-gateway/`.
@@ -89,7 +133,7 @@ Deferred candidates remain host bridge reference implementations, multi-OS CI ma
 
 28/28 v1.13 requirements satisfied; 5/5 phase VERIFICATION.md files passed; 5/5 integration paths wired; 0 critical gaps.
 
-**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability), v1.6 (downstream unblock), v1.7 (spec adoption + 2 new domains), v1.8 (upstream alignment + decrypt), v1.9 (SDK migration), v1.10 (compatibility cleanup + decrypt-demo parity), v1.11 (gateway artifact parity), v1.12 (NIP-5D contract conformance), v1.13 (docs site and docs gates), v1.14 (GitHub Pages web portal).
+**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability), v1.6 (downstream unblock), v1.7 (spec adoption + 2 new domains), v1.8 (upstream alignment + decrypt), v1.9 (SDK migration), v1.10 (compatibility cleanup + decrypt-demo parity), v1.11 (gateway artifact parity), v1.12 (NIP-5D contract conformance), v1.13 (docs site and docs gates), v1.14 (GitHub Pages web portal), v1.15 (quality-gate cleanup), v1.16 (structural scanner cleanup).
 
 ### Previously Shipped
 
@@ -118,6 +162,7 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 - **Live Pages smoke** — v1.14 verifies the local and CI Pages artifact shape before upload; browser smoke against `https://kehto.github.io/web/` remains a post-push/deployment follow-up.
 - **Decrypt-demo fixture pending repair** — Backlog 999.1 remains valid and intentionally separate from the static publication route milestone.
 - **Lint task surface** — `pnpm lint` succeeds but turbo currently reports no configured package lint tasks; type-check, unit tests, E2E, and static guards carry verification.
+- **Stricter structural scanner policy** — v1.16 removed the current-threshold warnings. Lowering `maxFunctionLoc` toward 80 and `maxFileLoc` toward 400 remains future policy work.
 
 ## Key Decisions
 
@@ -161,6 +206,7 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 | 36 | `.planning/NIP-5D-DELTA-AUDIT.md` is the v1.12 delta inventory | The audit already compares the pinned NIP-5D contract to current shell/runtime/napplet behavior; milestone planning should use it instead of rediscovering drift. | 2026-05-22 |
 | 37 | Public GitHub Pages contract is `/web/`, not repository-name-derived | v1.14 publishes the portal, playground, docs, assets, and gateway metadata under the explicit requested path contract. `github.event.repository.name` must not drive the public playground base path for this deployment. | 2026-05-23 |
 | 38 | VitePress public base is a build cache input | `VITEPRESS_BASE=/web/docs/` changes generated asset URLs, so `turbo.json` includes it in `docs:build` env to prevent cached docs output from reusing an old base path. | 2026-05-23 |
+| 39 | Structural scanner closure must come from source decomposition, not threshold loosening | v1.16 proved the final clean `aislop` result with `.aislop/config.yml` unchanged from the milestone start commit. Future complexity-policy work should be explicit and separately justified. | 2026-05-24 |
 
 ## Evolution
 
@@ -180,4 +226,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-23 — v1.14 milestone archived (GitHub Pages Web Portal)*
+*Last updated: 2026-05-24 — v1.16 milestone shipped (Structural Code Quality Refactor)*

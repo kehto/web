@@ -53,14 +53,7 @@ const DEMO_CAPABILITIES: { cap: Capability; label: string }[] = [
   { cap: 'state:write', label: DEMO_CAPABILITY_LABELS['state:write'] },
   { cap: 'identity:read', label: DEMO_CAPABILITY_LABELS['identity:read'] },
   { cap: 'identity:decrypt', label: DEMO_CAPABILITY_LABELS['identity:decrypt'] },
-  // Phase 19 (Plan 19-04): add notify:send so the toaster's ACL panel exposes the toggle.
-  // Existing napplets (chat/bot) also get this toggle; they use ifcEmit gated on
-  // relay:write, not notify:send — the extra toggle is visible but no-op for them.
   { cap: 'notify:send', label: DEMO_CAPABILITY_LABELS['notify:send'] },
-  // Phase 20 (Plan 20-06): add theme:read for theme-switcher/preferences observer visibility.
-  // In v1.3, theme.changed fan-out via shell-bridge.publishTheme bypasses ACL (shell-initiated
-  // push, not napplet-originated request). The toggle is exposed for capability surface
-  // documentation; disabling it has no functional effect in v1.3.
   { cap: 'theme:read', label: DEMO_CAPABILITY_LABELS['theme:read'] },
 ];
 
@@ -79,7 +72,7 @@ function renderNappletAcl(containerId: string, windowId: string, info: { name: s
   const container = document.getElementById(containerId);
   if (!container || !info.identityBound) return;
 
-  container.innerHTML = '';
+  container.replaceChildren();
 
   const row = document.createElement('div');
   row.className = 'flex flex-wrap gap-1.5';

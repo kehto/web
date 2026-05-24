@@ -1,0 +1,60 @@
+name: AI Slop Badge
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.aislop/**'
+      - '.github/workflows/aislop-badge.yml'
+      - 'apps/**'
+      - 'packages/**'
+      - 'scripts/**'
+      - 'specs/**'
+      - 'tests/**'
+      - 'web/**'
+      - 'docs/.vitepress/**'
+      - 'docs/package.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'tsconfig*.json'
+      - 'turbo.json'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  aislop-badge:
+    name: Calculate AI slop badge
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Calculate badge
+        id: badge
+        uses: sandwichfarm/aislop-badge@v1
+        with:
+          package-runner: pnpm
+          badge-file: .github/badges/aislop-score.json
+          fail-on-error: false
+          commit-badge: ${{ github.ref == 'refs/heads/main' }}
+          commit-message: 'chore: update AI slop score badge [skip ci]'

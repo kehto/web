@@ -63,9 +63,7 @@ function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void
 }
 
 function getMissingRequiredNubs(): string[] {
-  const supports = (window as unknown as {
-    napplet: { shell: { supports(capability: string): boolean } };
-  }).napplet.shell.supports;
+  const supports = window.napplet.shell.supports;
   return REQUIRED_NUBS.filter((capability) => !supports(capability));
 }
 
@@ -87,7 +85,7 @@ function removeListItem(notifId: string): void {
 }
 
 function clearList(): void {
-  listEl.innerHTML = '';
+  listEl.replaceChildren();
 }
 
 /**
