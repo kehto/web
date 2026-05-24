@@ -17,7 +17,7 @@
 - [x] **v1.12: NIP-5D Contract Conformance** - 4 phases (56-59), 34/34 requirements, 560 unit tests, 89 E2E specs green, pinned-spec contract conformance across shell, shim/runtime, gateway load checks, and 13 playground napplets ([archive](milestones/v1.12-ROADMAP.md) | [requirements](milestones/v1.12-REQUIREMENTS.md) | [audit](milestones/v1.12-MILESTONE-AUDIT.md))
 - [x] **v1.13: Documentation Strategy & Monorepo Docs Site** - 5 phases (60-64), 28/28 requirements, content strategy, package docs, tutorials/how-tos, VitePress site, and docs verification ([archive](milestones/v1.13-ROADMAP.md) | [requirements](milestones/v1.13-REQUIREMENTS.md) | [audit](milestones/v1.13-MILESTONE-AUDIT.md))
 - [x] **v1.14: GitHub Pages Web Portal** - 3 phases (65-67), 13/13 requirements, public `/web/` portal, playground at `/web/playground/`, docs at `/web/docs/`, and unified Pages deploy gate ([archive](milestones/v1.14-ROADMAP.md) | [requirements](milestones/v1.14-REQUIREMENTS.md) | [audit](milestones/v1.14-MILESTONE-AUDIT.md))
-- [x] **v1.15: Address AI Slop** - 4 phases (68-71), 20/20 requirements, fatal AI-slop/security categories closed, 563 unit tests green ([archive](milestones/v1.15-ROADMAP.md) | [requirements](milestones/v1.15-REQUIREMENTS.md) | [audit](milestones/v1.15-MILESTONE-AUDIT.md))
+- [ ] **v1.15: Address AI Slop** - 5 phases (68-72), 20/20 original requirements complete, corrective local `aislop` warning cleanup in progress
 
 ---
 
@@ -29,7 +29,7 @@
 
 **Baseline entering v1.15:** v1.14 is archived with the public `/web/` portal, playground, docs, and route-shape deploy gate. The new input is an `aislop 0.9.3` report over 123 scanned TypeScript files: formatting clean, 38 lint warnings, 46 code-quality warnings, 1 AI Slop error plus warnings, 37 Security errors, and 461 fixable findings.
 
-**Coverage:** 20/20 requirements complete.
+**Coverage:** 20/20 original requirements complete. Corrective Phase 72 is open because the local `npx --no-install aislop scan -d` still reports Critical status from warnings.
 
 **Critical invariant:** Cleanup must preserve the v1.14 runtime and static publication behavior. Direct DOM rendering fixes and type cleanup should remove quality-gate risk without changing NIP-5D protocol behavior, public package contracts, or the playground route contract.
 
@@ -39,6 +39,7 @@
 - [x] **Phase 69: Safe DOM Rendering and Scanner Cleanup** - Replace direct `innerHTML` writes and resolve the hardcoded-secret scanner hit without weakening demo behavior.
 - [x] **Phase 70: Type Safety, Maintainability, and Dependency Triage** - Narrow unsafe casts, triage thin wrappers/duplicate blocks/complexity warnings, and resolve or document existing dependency audit warnings.
 - [x] **Phase 71: Quality Gate Verification and Closeout** - Re-run the quality gate and repo verification suite, record before/after evidence, and close the milestone with zero fatal AI Slop/Security errors.
+- [ ] **Phase 72: Aislop Critical Warning Cleanup** - Correct the scanner invocation gap and reduce the local `aislop` warning status without aggressive dependency alignment.
 
 ---
 
@@ -127,6 +128,24 @@
 
 **Completed**: 2026-05-24 ([summary](phases/71-quality-gate-verification-and-closeout/71-01-SUMMARY.md) | [verification](phases/71-quality-gate-verification-and-closeout/71-VERIFICATION.md))
 
+### Phase 72: Aislop Critical Warning Cleanup
+
+**Goal**: Reduce the local `aislop` scan from Critical status after the corrected scanner invocation.
+
+**Depends on**: Phase 71 and corrected local scanner evidence
+
+**Requirements**: Corrective closeout evidence for v1.15
+
+**Rationale**: Phase 71 incorrectly treated `aislop` as unavailable because only `command -v aislop` was checked. The scanner is available through `npx --no-install aislop` and still reports Critical status from warnings, so the milestone needs a corrective cleanup pass.
+
+**Success Criteria** (what must be TRUE):
+  1. The corrected local scanner command is recorded.
+  2. Normal `npx --no-install aislop fix` output is applied and reviewed.
+  3. Remaining warnings are either reduced below Critical status or explicitly classified as structural/dependency deferrals with policy rationale.
+  4. Build, type-check, unit tests, final scanner, and diff checks are recorded.
+
+**Plans**: [72-01-PLAN.md](phases/72-aislop-critical-warning-cleanup/72-01-PLAN.md)
+
 ---
 
 ## Progress
@@ -137,6 +156,7 @@
 | 69. Safe DOM Rendering and Scanner Cleanup | 1/1 | Completed | 2026-05-24 |
 | 70. Type Safety, Maintainability, and Dependency Triage | 1/1 | Completed | 2026-05-24 |
 | 71. Quality Gate Verification and Closeout | 1/1 | Completed | 2026-05-24 |
+| 72. Aislop Critical Warning Cleanup | 1/1 | In Progress | — |
 
 ## Backlog
 
@@ -162,4 +182,4 @@
 
 ---
 
-*ROADMAP.md last updated: 2026-05-24 - v1.15 completed.*
+*ROADMAP.md last updated: 2026-05-24 - Phase 72 corrective cleanup planned.*
