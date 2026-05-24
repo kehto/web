@@ -36,7 +36,7 @@
 
 ### Phases
 
-- [ ] **Phase 73: Runtime Core Decomposition** - Split `packages/runtime/src/runtime.ts` and extract `createRuntime` / `handleRelayMessage` helpers until runtime core warnings clear.
+- [x] **Phase 73: Runtime Core Decomposition** - Split `packages/runtime/src/runtime.ts` and extract `createRuntime` / `handleRelayMessage` helpers until runtime core warnings clear.
 - [ ] **Phase 74: Playground Shell Decomposition** - Split `apps/playground/src/main.ts` and `apps/playground/src/shell-host.ts`, reducing `createDemoHooks` and `bootShell` without changing visible demo behavior.
 - [ ] **Phase 75: Service and Adapter Decomposition** - Reduce remaining long functions in ACL modal, NIP-46 client, service factories, and shell hook adapter.
 - [ ] **Phase 76: Structural Gate Verification** - Prove final scanner and repo gates are clean, record evidence, and close the milestone.
@@ -62,7 +62,9 @@
   4. `handleRelayMessage` is below the 150-line function threshold and no longer triggers deep nesting.
   5. Runtime package build/type/unit coverage passes after extraction.
 
-**Plans**: To be created by `$gsd-plan-phase 73`
+**Status**: Complete (2026-05-24)
+
+**Plans**: 1/1 complete
 
 ### Phase 74: Playground Shell Decomposition
 
@@ -127,7 +129,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 73. Runtime Core Decomposition | 0/1 | Pending | — |
+| 73. Runtime Core Decomposition | 1/1 | Complete | 2026-05-24 |
 | 74. Playground Shell Decomposition | 0/1 | Pending | — |
 | 75. Service and Adapter Decomposition | 0/1 | Pending | — |
 | 76. Structural Gate Verification | 0/1 | Pending | — |
@@ -156,4 +158,4 @@
 
 ---
 
-*ROADMAP.md last updated: 2026-05-24 - v1.16 roadmap created.*
+*ROADMAP.md last updated: 2026-05-24 - Phase 73 complete.*

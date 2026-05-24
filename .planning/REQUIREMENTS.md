@@ -13,15 +13,15 @@
 
 ### Scanner Baseline
 
-- [ ] **SCAN-01**: Maintainer can reproduce the v1.16 starting baseline with `npx --no-install aislop scan -d` and see the same 16 structural warnings documented in the milestone artifacts.
+- [x] **SCAN-01**: Maintainer can reproduce the v1.16 starting baseline with `npx --no-install aislop scan -d` and see the same 16 structural warnings documented in the milestone artifacts.
 - [ ] **SCAN-02**: Maintainer can run `npx --no-install aislop scan -d` after the milestone and see 0 errors, 0 warnings, and 0 fixable findings.
 - [ ] **SCAN-03**: The existing `.aislop/config.yml` complexity thresholds remain unchanged during the milestone unless a phase explicitly documents and approves a policy change.
 
 ### Runtime Core
 
-- [ ] **CORE-01**: `packages/runtime/src/runtime.ts` no longer triggers the `complexity/file-too-large` warning under the current 700-line threshold.
-- [ ] **CORE-02**: `createRuntime` no longer triggers `complexity/function-too-long` or `complexity/deep-nesting`.
-- [ ] **CORE-03**: `handleRelayMessage` no longer triggers `complexity/function-too-long` or `complexity/deep-nesting`.
+- [x] **CORE-01**: `packages/runtime/src/runtime.ts` no longer triggers the `complexity/file-too-large` warning under the current 700-line threshold.
+- [x] **CORE-02**: `createRuntime` no longer triggers `complexity/function-too-long` or `complexity/deep-nesting`.
+- [x] **CORE-03**: `handleRelayMessage` no longer triggers `complexity/function-too-long` or `complexity/deep-nesting`.
 
 ### Playground Shell
 
@@ -78,12 +78,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCAN-01 | Phase 73 | Pending |
+| SCAN-01 | Phase 73 | Complete |
 | SCAN-02 | Phase 76 | Pending |
 | SCAN-03 | Phase 76 | Pending |
-| CORE-01 | Phase 73 | Pending |
-| CORE-02 | Phase 73 | Pending |
-| CORE-03 | Phase 73 | Pending |
+| CORE-01 | Phase 73 | Complete |
+| CORE-02 | Phase 73 | Complete |
+| CORE-03 | Phase 73 | Complete |
 | PLAY-01 | Phase 74 | Pending |
 | PLAY-02 | Phase 74 | Pending |
 | PLAY-03 | Phase 74 | Pending |
