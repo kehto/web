@@ -102,7 +102,7 @@
   4. Existing dependency audit warnings are resolved through safe upgrades or documented as explicit deferrals with rationale.
   5. Build, type-check, and unit tests pass after type/dependency changes.
 
-**Plans**: Pending
+**Plans**: [70-01-PLAN.md](phases/70-type-safety-maintainability-and-dependency-triage/70-01-PLAN.md)
 
 ### Phase 71: Quality Gate Verification and Closeout
 
