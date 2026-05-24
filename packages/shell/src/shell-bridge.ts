@@ -11,8 +11,7 @@
  * routing shell.ready/shell.init handshake locally.
  */
 
-import { createRuntime } from '@kehto/runtime';
-import type { Runtime, ConsentHandler, ConsentRequest } from '@kehto/runtime';
+import { createRuntime, type ConsentRequest, type Runtime } from '@kehto/runtime';
 import { adaptHooks } from './hooks-adapter.js';
 import { originRegistry } from './origin-registry.js';
 import { sessionRegistry, nappKeyRegistry } from './session-registry.js';
@@ -24,10 +23,8 @@ import type { NappletMessage } from '@napplet/core';
 import type { Theme } from '@napplet/nub/theme/types';
 import type { NappletClass } from './types/internal-class.js';
 import { buildShellCapabilities } from './shell-init.js';
-import { createKeysForwarder } from './keys-forwarder.js';
-import type { KeysForwarder } from './keys-forwarder.js';
-import { connectStore } from './connect-store.js';
-import type { ConnectStore } from './connect-store.js';
+import { createKeysForwarder, type KeysForwarder } from './keys-forwarder.js';
+import { connectStore, type ConnectStore } from './connect-store.js';
 
 // ─── Public interface ────────────────────────────────────────────────────────
 

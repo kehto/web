@@ -1,7 +1,6 @@
 /** kinds-panel.ts -- Read-only protocol kind reference cards for the inspector Kinds tab. */
 
-import { demoConfig } from './demo-config.js';
-import type { ConstantDef } from './demo-config.js';
+import { demoConfig, type ConstantDef } from './demo-config.js';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 

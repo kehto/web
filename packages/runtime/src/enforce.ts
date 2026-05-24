@@ -9,8 +9,7 @@
  * dispatch table.
  */
 
-import type { Capability } from '@kehto/acl/capabilities';
-import { ALL_CAPABILITIES } from '@kehto/acl/capabilities';
+import { ALL_CAPABILITIES, type Capability } from '@kehto/acl/capabilities';
 import type { NubMessage } from '@kehto/acl';
 import type { AclCheckEvent, NappletClass } from './types.js';
 

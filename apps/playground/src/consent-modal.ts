@@ -22,8 +22,7 @@
  * window.__revokeConnect__ test hooks, bypassing the modal for automation.
  */
 
-import type { ShellBridge } from '@kehto/shell';
-import type { ConsentRequest } from '@kehto/shell';
+import type { ConsentRequest, ShellBridge } from '@kehto/shell';
 
 /** Extended ConsentRequest shape for connect-type requests (D5). */
 interface ConnectConsentRequest extends ConsentRequest {

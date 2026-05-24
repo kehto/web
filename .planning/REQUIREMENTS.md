@@ -13,16 +13,16 @@
 
 ### Gate baseline
 
-- [ ] **GATE-01**: Maintainer can identify and rerun the quality-gate command or documented equivalent used to verify v1.15 cleanup.
+- [x] **GATE-01**: Maintainer can identify and rerun the quality-gate command or documented equivalent used to verify v1.15 cleanup.
 - [ ] **GATE-02**: The v1.15 closeout records before/after counts for AI Slop and Security errors, plus any warning classes intentionally deferred.
 - [ ] **GATE-03**: The milestone closes with zero AI Slop errors and zero Security errors for the reported fatal categories.
 
 ### Import and lint cleanup
 
-- [ ] **LINT-01**: Source imports only declared workspace packages, published dependencies, or local relative modules; the undeclared `@napplet/services` import is corrected or backed by a manifest change.
-- [ ] **LINT-02**: Duplicate imports reported by the quality gate are merged without changing public exports or runtime behavior.
-- [ ] **LINT-03**: Unused imports, unused locals, and unnecessary spread fallbacks reported in touched files are removed or renamed with intentional `_` prefixes when values are deliberately ignored.
-- [ ] **LINT-04**: Leftover `console.log`/debug/info calls are removed from production source or routed through an existing intentional debug surface.
+- [x] **LINT-01**: Source imports only declared workspace packages, published dependencies, or local relative modules; the undeclared `@napplet/services` import is corrected or backed by a manifest change.
+- [x] **LINT-02**: Duplicate imports reported by the quality gate are merged without changing public exports or runtime behavior.
+- [x] **LINT-03**: Unused imports, unused locals, and unnecessary spread fallbacks reported in touched files are removed or renamed with intentional `_` prefixes when values are deliberately ignored.
+- [x] **LINT-04**: Leftover `console.log`/debug/info calls are removed from production source or routed through an existing intentional debug surface.
 
 ### DOM security
 
@@ -32,8 +32,8 @@
 
 ### AI-slop cleanup
 
-- [ ] **SLOP-01**: Auto-fixable decorative section comments, narrative preambles, and trivial restating comments are removed from source where they do not carry API documentation value.
-- [ ] **SLOP-02**: Any retained comments explain non-obvious constraints, invariants, or external protocol behavior rather than restating the following code.
+- [x] **SLOP-01**: Auto-fixable decorative section comments, narrative preambles, and trivial restating comments are removed from source where they do not carry API documentation value.
+- [x] **SLOP-02**: Any retained comments explain non-obvious constraints, invariants, or external protocol behavior rather than restating the following code.
 - [ ] **SLOP-03**: Thin wrapper functions flagged by the scan are inlined or kept only when they preserve a meaningful local abstraction boundary.
 
 ### Type safety and maintainability
@@ -90,18 +90,18 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| GATE-01 | Phase 68 | Pending |
+| GATE-01 | Phase 68 | Complete |
 | GATE-02 | Phase 71 | Pending |
 | GATE-03 | Phase 71 | Pending |
-| LINT-01 | Phase 68 | Pending |
-| LINT-02 | Phase 68 | Pending |
-| LINT-03 | Phase 68 | Pending |
-| LINT-04 | Phase 68 | Pending |
+| LINT-01 | Phase 68 | Complete |
+| LINT-02 | Phase 68 | Complete |
+| LINT-03 | Phase 68 | Complete |
+| LINT-04 | Phase 68 | Complete |
 | SEC-01 | Phase 69 | Pending |
 | SEC-02 | Phase 69 | Pending |
 | SEC-03 | Phase 69 | Pending |
-| SLOP-01 | Phase 68 | Pending |
-| SLOP-02 | Phase 68 | Pending |
+| SLOP-01 | Phase 68 | Complete |
+| SLOP-02 | Phase 68 | Complete |
 | SLOP-03 | Phase 70 | Pending |
 | TYPE-01 | Phase 70 | Pending |
 | TYPE-02 | Phase 70 | Pending |
@@ -118,4 +118,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-05-24*
-*Last updated: 2026-05-24 after roadmap creation*
+*Last updated: 2026-05-24 after Phase 68 completion*

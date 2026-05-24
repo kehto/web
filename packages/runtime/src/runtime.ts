@@ -9,18 +9,14 @@
  * All I/O is delegated to RuntimeAdapter.
  */
 
-import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
-import { createDispatch } from '@napplet/core';
-import type { NubHandler } from '@napplet/core';
+import { createDispatch, type NappletMessage, type NostrEvent, type NostrFilter, type NubHandler } from '@napplet/core';
 import type { Capability } from '@kehto/acl/capabilities';
-import { ALL_CAPABILITIES } from '@kehto/acl/capabilities';
 
 // NUB message types — types-only imports from @napplet/nub subpaths (v1.6, Phase 32).
 // Phase 11-02 / DRIFT-CORE-05: replaces hand-copied widening casts with real
 // upstream unions. Phase 12 handler rewrites narrow per-branch against the
 // canonical discriminated unions. Phase 32 (DEP-01..03) consolidated the 8
 // split nub-<domain> peer deps onto the single @napplet/nub subpath surface.
-import type { StorageMessage } from '@napplet/nub/storage/types';
 import type { IfcMessage } from '@napplet/nub/ifc/types';
 import type { RelayNubMessage } from '@napplet/nub/relay/types';
 /** Alias to match the canonical nub-relay union name used by callers (`RelayMessage` is
@@ -33,20 +29,15 @@ declare function setTimeout(callback: () => void, ms: number): unknown;
 declare function clearTimeout(id: unknown): void;
 import type {
   RuntimeAdapter, ConsentRequest, ConsentHandler,
-  ServiceHandler, ServiceRegistry, CompatibilityReport, ServiceInfo,
+  ServiceHandler, ServiceRegistry, ServiceInfo,
 } from './types.js';
-import { routeServiceMessage, notifyServiceWindowDestroyed } from './service-dispatch.js';
-import { createSessionRegistry } from './session-registry.js';
-import type { SessionRegistry } from './session-registry.js';
-import { createAclState } from './acl-state.js';
-import type { AclStateContainer } from './acl-state.js';
-import { createManifestCache } from './manifest-cache.js';
-import type { ManifestCache } from './manifest-cache.js';
+import { notifyServiceWindowDestroyed } from './service-dispatch.js';
+import { createSessionRegistry, type SessionRegistry } from './session-registry.js';
+import { createAclState, type AclStateContainer } from './acl-state.js';
+import { createManifestCache, type ManifestCache } from './manifest-cache.js';
 import { createReplayDetector } from './replay.js';
-import { createEventBuffer, matchesAnyFilter, RING_BUFFER_SIZE } from './event-buffer.js';
-import type { SubscriptionEntry } from './event-buffer.js';
+import { createEventBuffer, matchesAnyFilter, RING_BUFFER_SIZE, type SubscriptionEntry } from './event-buffer.js';
 import { createEnforceGate, createNubEnforceGate, resolveCapabilitiesNub, formatDenialReason } from './enforce.js';
-import type { NubEnforceConfig } from './enforce.js';
 import { handleStorageNub } from './state-handler.js';
 
 // ─── Runtime Interface ─────────────────────────────────────────────────────
@@ -150,8 +141,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   const ifcChannelsByWindow = new Map<string, Set<string>>();
   let _consentHandler: ConsentHandler | null = null;
 
-  // ─── Service Registry (static from hooks + dynamic from registerService) ──
-  const serviceRegistry: ServiceRegistry = { ...(hooks.services ?? {}) };
+  const serviceRegistry: ServiceRegistry = { ...hooks.services };
 
   // ─── Registered Services (for compatibility checks) ───────────────────────
   // Tracks service name → ServiceInfo for compatibility checks (Phase 22).
@@ -219,253 +209,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   // Load persisted state
   aclState.load();
   manifestCache.load();
-
-  // ─── Compatibility Check (Phase 22) ─────────────────────────────────────
-
-  /**
-   * Check if a napplet's declared service requirements are satisfied.
-   * Called after session establishment but before message dispatch.
-   *
-   * Returns true if compatible (or permissive mode allows loading).
-   * Returns false only in strict mode when required services are missing.
-   */
-  function checkCompatibility(
-    requires: string[],
-    windowId: string,
-    eventId: string,
-  ): boolean {
-    if (requires.length === 0) return true;
-
-    const available: ServiceInfo[] = Array.from(registeredServices.values());
-    const registeredNames = new Set(registeredServices.keys());
-    const missing = requires.filter((name) => !registeredNames.has(name));
-    const compatible = missing.length === 0;
-
-    if (!compatible) {
-      const report: CompatibilityReport = { available, missing, compatible };
-      hooks.onCompatibilityIssue?.(report);
-
-      if (hooks.strictMode) {
-        hooks.sendToNapplet(windowId, [
-          'OK', eventId, false,
-          `blocked: missing required services: ${missing.join(', ')}`,
-        ]);
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  // ─── Undeclared Service Check (Phase 22) ──────────────────────────────────
-
-  /**
-   * Check if a napplet is using a service it did not declare in its manifest.
-   * If undeclared, raises a consent request via the consent handler.
-   *
-   * Returns true if the service is declared or consent was previously granted.
-   * Returns false if consent is needed (async — caller must wait for resolve).
-   * Calls onApproved when consent is granted, allowing the caller to proceed.
-   */
-  function checkUndeclaredService(
-    windowId: string,
-    pubkey: string,
-    serviceName: string,
-    event: NostrEvent,
-    onApproved: () => void,
-  ): boolean {
-    // If the service is not registered, this is not our concern — let normal dispatch handle it
-    if (!registeredServices.has(serviceName)) return true;
-
-    // Look up the napplet's declared requires via two-step registry lookup
-    const nappletPubkey = sessionRegistry.getPubkey(windowId);
-    if (!nappletPubkey) return true; // No identity yet — skip check
-    const nappletEntry = sessionRegistry.getEntry(nappletPubkey);
-    if (!nappletEntry) return true;
-
-    const requires = manifestCache.getRequires(nappletEntry.pubkey, nappletEntry.dTag);
-
-    // If the service IS declared in requires, no consent needed
-    if (requires.includes(serviceName)) return true;
-
-    // Check consent cache — already approved this session
-    const consentKey = `${windowId}:${serviceName}`;
-    if (undeclaredServiceConsents.has(consentKey)) return true;
-
-    // Raise consent request
-    if (_consentHandler) {
-      _consentHandler({
-        type: 'undeclared-service',
-        windowId,
-        pubkey,
-        event,
-        serviceName,
-        resolve: (allowed: boolean) => {
-          if (allowed) {
-            undeclaredServiceConsents.add(consentKey);
-            onApproved();
-          }
-          // If denied, event is silently dropped
-        },
-      });
-      return false; // Async — caller should not proceed synchronously
-    }
-
-    // No consent handler registered — silently drop undeclared service usage
-    return false;
-  }
-
-  // ─── Hotkey Forward Handler ──────────────────────────────────────────────
-
-  function handleHotkeyForward(event: NostrEvent): void {
-    const keyData = {
-      key: event.tags?.find((t) => t[0] === 'key')?.[1] ?? '',
-      code: event.tags?.find((t) => t[0] === 'code')?.[1] ?? '',
-      ctrlKey: event.tags?.find((t) => t[0] === 'ctrl')?.[1] === '1',
-      altKey: event.tags?.find((t) => t[0] === 'alt')?.[1] === '1',
-      shiftKey: event.tags?.find((t) => t[0] === 'shift')?.[1] === '1',
-      metaKey: event.tags?.find((t) => t[0] === 'meta')?.[1] === '1',
-    };
-    hooks.hotkeys.executeHotkeyFromForward(keyData);
-  }
-
-  // ─── Shell Command Handler ───────────────────────────────────────────────
-
-  function handleShellCommand(event: NostrEvent, windowId: string, topic: string): void {
-    function sendOk(success: boolean, reason: string): void {
-      hooks.sendToNapplet(windowId, ['OK', event.id, success, reason]);
-    }
-
-    function sendInterPaneReply(replyTopic: string, content: string): void {
-      const responseEvent: Partial<NostrEvent> = {
-        kind: 29000, // IFC_PEER — inlined numeric after Phase 24 shim deletion
-        pubkey: '',
-        created_at: Math.floor(Date.now() / 1000),
-        tags: [['t', replyTopic]], content, id: '', sig: '',
-      };
-      hooks.sendToNapplet(windowId, ['EVENT', '__shell__', responseEvent]);
-      sendOk(true, '');
-    }
-
-    switch (topic) {
-      case 'shell:acl-get': {
-        const aclEntries = aclState.getAllEntries();
-        const nappletEntries = sessionRegistry.getAllEntries();
-        const nappletInfoMap: Record<string, { type: string; registeredAt: number }> = {};
-        for (const e of nappletEntries) nappletInfoMap[e.pubkey] = { type: e.type, registeredAt: e.registeredAt };
-        const merged = [...aclEntries];
-        for (const e of nappletEntries) {
-          if (!merged.find((a) => a.pubkey === e.pubkey)) {
-            merged.push({ pubkey: e.pubkey, capabilities: [...ALL_CAPABILITIES], blocked: false });
-          }
-        }
-        const display = merged.map((e) => ({
-          ...e, type: nappletInfoMap[e.pubkey]?.type ?? 'unknown',
-          registeredAt: nappletInfoMap[e.pubkey]?.registeredAt ?? 0,
-        }));
-        sendInterPaneReply('shell:acl-current', JSON.stringify({ entries: display }));
-        break;
-      }
-      case 'shell:acl-revoke': case 'shell:acl-grant': case 'shell:acl-block': case 'shell:acl-unblock': {
-        const pk = event.tags?.find((t) => t[0] === 'pubkey')?.[1];
-        const cap = event.tags?.find((t) => t[0] === 'cap')?.[1];
-        if (!pk) { sendOk(false, 'error: missing pubkey tag'); break; }
-        const ne = sessionRegistry.getEntry(pk);
-        if (topic === 'shell:acl-revoke' && cap) aclState.revoke(pk, ne?.dTag ?? '', ne?.aggregateHash ?? '', cap as Capability);
-        else if (topic === 'shell:acl-grant' && cap) aclState.grant(pk, ne?.dTag ?? '', ne?.aggregateHash ?? '', cap as Capability);
-        else if (topic === 'shell:acl-block') aclState.block(pk, ne?.dTag ?? '', ne?.aggregateHash ?? '');
-        else if (topic === 'shell:acl-unblock') aclState.unblock(pk, ne?.dTag ?? '', ne?.aggregateHash ?? '');
-        aclState.persist();
-        const ae = aclState.getEntry(pk, ne?.dTag ?? '', ne?.aggregateHash ?? '');
-        sendInterPaneReply('shell:acl-current', JSON.stringify({ entries: ae ? [ae] : [] }));
-        break;
-      }
-      case 'shell:relay-get':
-        sendInterPaneReply('shell:relay-current', JSON.stringify(hooks.relayConfig.getRelayConfig()));
-        break;
-      case 'shell:relay-add': {
-        const tier = event.tags?.find((t) => t[0] === 'tier')?.[1];
-        const url = event.tags?.find((t) => t[0] === 'url')?.[1];
-        if (tier && url) { hooks.relayConfig.addRelay(tier, url); sendInterPaneReply('shell:relay-current', JSON.stringify(hooks.relayConfig.getRelayConfig())); }
-        else sendOk(false, 'error: missing tier/url');
-        break;
-      }
-      case 'shell:relay-remove': {
-        const tier = event.tags?.find((t) => t[0] === 'tier')?.[1];
-        const url = event.tags?.find((t) => t[0] === 'url')?.[1];
-        if (tier && url) { hooks.relayConfig.removeRelay(tier, url); sendInterPaneReply('shell:relay-current', JSON.stringify(hooks.relayConfig.getRelayConfig())); }
-        else sendOk(false, 'error: missing tier/url');
-        break;
-      }
-      case 'shell:relay-nip66':
-        sendInterPaneReply('shell:relay-nip66-data', JSON.stringify(hooks.relayConfig.getNip66Suggestions()));
-        break;
-      case 'shell:relay-scoped-connect': {
-        const url = event.tags?.find((t) => t[0] === 'url')?.[1];
-        const subId = event.tags?.find((t) => t[0] === 'sub-id')?.[1];
-        const filtersTag = event.tags?.find((t) => t[0] === 'filters')?.[1];
-        if (!url || !subId || !filtersTag) { sendOk(false, 'error: missing tags'); break; }
-        try {
-          const filters = JSON.parse(filtersTag) as NostrFilter[];
-          hooks.relayPool?.openScopedRelay(windowId, url, subId, filters, hooks.sendToNapplet);
-          sendOk(true, '');
-        } catch { sendOk(false, 'error: invalid filters'); }
-        break;
-      }
-      case 'shell:relay-scoped-close':
-        hooks.relayPool?.closeScopedRelay(windowId);
-        sendOk(true, '');
-        break;
-      case 'shell:relay-scoped-publish': {
-        const et = event.tags?.find((t) => t[0] === 'event')?.[1];
-        if (!et) { sendOk(false, 'error: missing event tag'); break; }
-        try {
-          const signed = JSON.parse(et) as NostrEvent;
-          const ok = hooks.relayPool?.publishToScopedRelay(windowId, signed) ?? false;
-          sendOk(ok, ok ? '' : 'error: no active scoped relay');
-        } catch { sendOk(false, 'error: invalid event JSON'); }
-        break;
-      }
-      case 'shell:create-window': {
-        try {
-          const payload = JSON.parse(event.content) as { title?: string; class?: string; iframeSrc?: string };
-          if (!payload.title || !payload.class) { sendOk(false, 'error: requires title and class'); break; }
-          const id = hooks.windowManager.createWindow({ title: payload.title, class: payload.class, iframeSrc: payload.iframeSrc });
-          sendOk(!!id, id ? '' : 'error: window creation failed');
-        } catch { sendOk(false, 'error: invalid JSON'); }
-        break;
-      }
-      case 'shell:send-dm': {
-        if (hooks.dm) {
-          const corrId = event.tags?.find((t) => t[0] === 'id')?.[1] ?? '';
-          const recipient = event.tags?.find((t) => t[0] === 'p')?.[1];
-          let message: string | undefined;
-          try { message = JSON.parse(event.content).message; } catch { /* Malformed DM content */ }
-          if (!recipient || !message) { sendOk(false, 'error: missing recipient or message'); break; }
-          hooks.dm.sendDm(recipient, message).then((result) => {
-            const payload = result.success
-              ? { success: true, ...(result.eventId ? { eventId: result.eventId } : {}) }
-              : { success: false, error: result.error ?? 'unknown error' };
-            const response: Partial<NostrEvent> = {
-              kind: 29000, // IFC_PEER — inlined numeric after Phase 24 shim deletion
-              pubkey: '',
-              created_at: Math.floor(Date.now() / 1000),
-              tags: [['t', 'shell:send-dm-result'], ['id', corrId]],
-              content: JSON.stringify(payload), id: '', sig: '',
-            };
-            hooks.sendToNapplet(windowId, ['EVENT', '__shell__', response]);
-            sendOk(result.success, result.success ? '' : `error: ${result.error}`);
-          }).catch(() => { sendOk(false, 'error: DM send failed'); });
-        } else sendOk(false, 'error: DM hooks not configured');
-        break;
-      }
-      default:
-        sendOk(true, '');
-        break;
-    }
-  }
-
-  // ─── NUB Domain Handlers (NIP-5D envelope dispatch) ──────────────────────
 
   function handleRelayMessage(windowId: string, msg: NappletMessage): void {
     // Handler dispatches by sub-action string rather than by msg.type
@@ -672,11 +415,12 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
                 if (typeof r.type === 'string' && r.type.startsWith('relay.publish')) {
                   const okVal = r.ok ?? r.accepted ?? false;
                   replied = true;
-                  replyPe(okVal, {
+                  const publishResult = {
                     event: signed,
                     eventId: signed.id,
-                    ...(okVal ? {} : { error: r.error ?? r.message ?? 'publish failed' }),
-                  });
+                  } as { event: NostrEvent; eventId: string; error?: string };
+                  if (!okVal) publishResult.error = r.error ?? r.message ?? 'publish failed';
+                  replyPe(okVal, publishResult);
                 }
               });
               // If the service never called back synchronously, assume the

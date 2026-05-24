@@ -9,7 +9,7 @@ import type { Capability } from '@kehto/acl/capabilities';
 import type { AclState, Identity } from '@kehto/acl';
 import {
   createState, check, grant, revoke, block, unblock,
-  serialize, deserialize, setQuota, getQuota,
+  serialize, deserialize, getQuota,
   CAP_RELAY_READ, CAP_RELAY_WRITE, CAP_CACHE_READ, CAP_CACHE_WRITE,
   CAP_HOTKEY_FORWARD,
   CAP_STATE_READ, CAP_STATE_WRITE, CAP_ALL,
@@ -173,8 +173,7 @@ export function createAclState(
     },
 
     getAllEntries(): AclEntryExternal[] {
-      return Object.entries(state.entries).map(([key, entry]) => {
-        const parts = key.split(':');
+      return Object.entries(state.entries).map(([, entry]) => {
         return {
           pubkey: '',
           capabilities: bitsToCapabilities(entry.caps),

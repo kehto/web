@@ -14,9 +14,7 @@ export type { NappletMessage } from '@napplet/core';
 
 // Import Capability type locally for use in this file's shell-specific types
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
-import type { Capability, ServiceDescriptor } from '@kehto/runtime';
-import type { RuntimeConfigOverrides } from '@kehto/runtime';
-import type { ServiceHandler, ServiceRegistry } from '@kehto/runtime';
+import type { Capability, RuntimeConfigOverrides, ServiceHandler, ServiceRegistry } from '@kehto/runtime';
 import type { NappletClass } from './types/internal-class.js';
 
 // Re-export service types so shell consumers can still import from @kehto/shell

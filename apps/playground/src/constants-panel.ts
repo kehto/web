@@ -6,8 +6,7 @@
  * global Reset All, flash animation on edit, and modified-value indicator.
  */
 
-import { demoConfig } from './demo-config.js';
-import type { ConstantDef } from './demo-config.js';
+import { demoConfig, type ConstantDef } from './demo-config.js';
 import type { TopologyNodeRole } from './topology.js';
 
 // ─── Module State ────────────────────────────────────────────────────────────

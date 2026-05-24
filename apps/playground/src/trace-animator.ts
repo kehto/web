@@ -7,11 +7,9 @@
  * in sync with the sweep. Multiple animations overlap independently.
  */
 
-import type { EdgeFlasher } from './topology.js';
-import type { ColorClass } from './color-state.js';
-import { setNodeOverlayColor } from './color-state.js';
+import { setNodeOverlayColor, type ColorClass } from './color-state.js';
 import { demoConfig } from './demo-config.js';
-import type { DemoTopology } from './topology.js';
+import type { DemoTopology, EdgeFlasher } from './topology.js';
 
 // ─── Active Animation Tracking ──────────────────────────────────────────────
 

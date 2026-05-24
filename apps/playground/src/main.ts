@@ -1,9 +1,3 @@
-/**
- * main.ts -- Demo playground entry point.
- *
- * Boots shell, renders the topology view, loads napplets, wires debugger,
- * ACL panels, flow animator, and node-detail summaries.
- */
 import 'virtual:uno.css';
 import {
   bootShell,
@@ -24,19 +18,16 @@ import {
   publishDecryptFixturesToNapplet,
   getDemoDecryptBridgeCallCount,
   resetDemoDecryptBridgeCallCount,
+  type GatewayNappletMetadata,
 } from './shell-host.js';
-import type { GatewayNappletMetadata } from './shell-host.js';
-import type { NappletClass } from '@kehto/shell';
-import type { Capability } from '@kehto/shell';
-import { connectStore } from '@kehto/shell';
+import { connectStore, type Capability, type NappletClass } from '@kehto/shell';
 import { createConsentModal } from './consent-modal.js';
 import {
   createDemoNotificationController,
+  type DemoNotificationSnapshot,
 } from './notification-demo.js';
-import type { DemoNotificationSnapshot } from './notification-demo.js';
 import './debugger.js';
-import type { NappletDebugger } from './debugger.js';
-import { classifyTappedMessagePath } from './debugger.js';
+import { classifyTappedMessagePath, type NappletDebugger } from './debugger.js';
 import { renderAclPanels, setDebugger } from './acl-panel.js';
 import { initFlowAnimator } from './flow-animator.js';
 import { cancelAllTraceAnimations } from './trace-animator.js';
@@ -48,17 +39,23 @@ import {
   setPersistenceMode,
   getPersistenceMode,
   clearAllNodeOverlays,
+  type PersistenceMode,
 } from './color-state.js';
-import type { PersistenceMode } from './color-state.js';
-import { buildDemoTopology, renderDemoTopology, getServiceNodeId, initTopologyEdges, wireServiceToggles } from './topology.js';
-import type { SignerConnectionStateView } from './topology.js';
+import {
+  buildDemoTopology,
+  renderDemoTopology,
+  getServiceNodeId,
+  initTopologyEdges,
+  wireServiceToggles,
+  type SignerConnectionStateView,
+} from './topology.js';
 import {
   buildAllNodeDetails,
   buildNodeDetails,
   installActivityProjection,
+  type NodeDetail,
 } from './node-details.js';
-import type { NodeDetail } from './node-details.js';
-import { initNodeInspector, setSelectedNodeId } from './node-inspector.js';
+import { initNodeInspector, openConstantsTab, setSelectedNodeId } from './node-inspector.js';
 import {
   onStateChange,
   disconnectSigner,
@@ -68,40 +65,23 @@ import {
 } from './signer-connection.js';
 import { initSignerModal, openSignerModal } from './signer-modal.js';
 import { demoConfig } from './demo-config.js';
-import { openConstantsTab } from './node-inspector.js';
 import { setAclRingSize } from './acl-history.js';
+import type { Notification } from '@kehto/services';
 
-// ─── Notification Controller ─────────────────────────────────────────────────
-
-// Create the controller before boot so we can pass its onChange into the shell.
-// The controller accumulates service state and notifies subscribers on change.
 const notificationController = createDemoNotificationController();
 
-// Boot the shell (now includes signer and notifications)
 const { tap } = bootShell((notifications) => {
   notificationController.handleServiceChange(notifications);
 });
 
-// Connect the service handler so the controller can dispatch actions
 const notificationHandler = getNotificationServiceHandler();
 if (notificationHandler) {
   notificationController.connectService(notificationHandler);
 }
 
-// ─── Phase 39 Plan 39-04: NUB-CONNECT consent modal registration ────────────
-// Registers the consent modal as the sole consent handler on the bridge.
-// Non-connect consent types (destructive-signing) fall through to the 500ms
-// auto-approve callback (demo ergonomics, preserved from shell-host.ts prior handler).
 createConsentModal().registerWith(relay, (request) => {
-  // Fallthrough for non-connect consent types (existing destructive-signing path).
   setTimeout(() => request.resolve(true), 500);
 });
-
-// ─── Phase 41 Plan 41-01 (NIP66-07 / D5, D6, D8): nip66 aggregator lifecycle ─
-// Kicks off the mock kind:30166 subscription, populates the suggestions panel
-// from the aggregator's relay set (polled on a microtask loop until the panel
-// has ≥1 <li>), and registers a beforeunload cleanup handler (D8 — prevents
-// SimplePool leaks on SPA navigation per PITFALLS.md M-03).
 const _nip66Aggregator = getNip66Aggregator();
 if (_nip66Aggregator) {
   _nip66Aggregator.start();
@@ -122,9 +102,6 @@ if (_nip66Aggregator) {
     }
   };
 
-  // Initial render is best-effort — fixtures land on microtask from aggregator.start().
-  // Poll a handful of times to catch the first fan-out without requiring a framework.
-  // Bounded: stops after 10 attempts or as soon as ≥1 suggestion renders.
   let attempts = 0;
   const nip66PollId = window.setInterval(() => {
     attempts++;
@@ -135,19 +112,15 @@ if (_nip66Aggregator) {
     }
   }, 100);
 
-  // D8: beforeunload cleanup — dispose pool subscription + clear interval.
   window.addEventListener('beforeunload', () => {
     window.clearInterval(nip66PollId);
     _nip66Aggregator.stop();
   });
 }
 
-// ─── Notification Toast Rendering ────────────────────────────────────────────
-
-// Track shown toast IDs so we don't re-show the same notification
 const _shownToastIds = new Set<string>();
 
-function renderToast(notification: import('@napplet/services').Notification): void {
+function renderToast(notification: Notification): void {
   const layer = document.getElementById('notification-toast-layer');
   if (!layer) return;
   const toast = document.createElement('div');
@@ -243,9 +216,8 @@ notificationController.subscribe((snapshot) => {
     renderNotificationInspector(snapshot);
   }
 
-  // Reflect dismissed notifications (remove from shown set)
   const currentIds = new Set(snapshot.notifications.map((n) => n.id));
-  for (const id of [..._shownToastIds]) {
+  for (const id of _shownToastIds) {
     if (!currentIds.has(id)) {
       _shownToastIds.delete(id);
     }
@@ -678,7 +650,6 @@ async function grantConnectOrigin(dTag: string, aggregateHash: string, origin: s
   const next = [...new Set([...existing, origin])];
   connectStore.grant(dTag, aggregateHash, next);
   await syncGrantsToVite(dTag, aggregateHash, next);
-  console.info(`[demo] __grantConnectOrigin__: granted ${origin} to ${dTag}:${aggregateHash}`);
   return true;
 }
 
@@ -697,7 +668,6 @@ async function grantConnectOrigin(dTag: string, aggregateHash: string, origin: s
   // C-04 / CONNECT-04: iframe destroy+recreate so the newly-served HTML
   // picks up the updated CSP header (now without the revoked origin).
   window.dispatchEvent(new CustomEvent('shell:connect-revoked', { detail: { dTag, aggregateHash } }));
-  console.info(`[demo] __revokeConnect__: revoked all origins from ${dTag}:${aggregateHash}`);
   return true;
 };
 
@@ -720,7 +690,6 @@ window.addEventListener('shell:connect-revoked', (event) => {
     void loadNapplet(detail.dTag, containerId).catch((err) => {
       console.error(`[demo] shell:connect-revoked: failed to reload ${detail.dTag}`, err);
     });
-    console.info(`[demo] shell:connect-revoked: destroy+recreate iframe for ${detail.dTag}`);
   }
 });
 
@@ -746,8 +715,6 @@ async function pregrantBeforeGatewayNavigation(metadata: GatewayNappletMetadata)
   );
   if (!ok) {
     console.warn('[demo] resource-demo auto-grant failed; E2E may fail on granted-fetch assertion');
-  } else {
-    console.info(`[demo] resource-demo: pre-granted ${grantedOrigin} (RESOURCE-04 / D3)`);
   }
 }
 
@@ -1042,9 +1009,6 @@ export function setSelectedNode(id: string | null): void {
   // object, so the mutation is observed by the next resolveIdentityByWindowId
   // call inside enforce.ts.
   (entry as { class: NappletClass }).class = newClass;
-  console.info(
-    `[demo] __setNappletClass__: ${dTag} -> ${newClass === null ? 'null (permissive)' : `'${newClass}'`}`,
-  );
   return true;
 };
 
@@ -1097,7 +1061,6 @@ export function setSelectedNode(id: string | null): void {
     origin: 'null',
   });
   window.dispatchEvent(event);
-  console.info(`[demo] __injectNubEnvelopeAsNapplet__: injected ${String(envelope['type'])} for ${dTag}`);
   return true;
 };
 
@@ -1112,7 +1075,6 @@ export function setSelectedNode(id: string | null): void {
     updateBtn.addEventListener('click', () => {
       _currentTheme = _currentTheme === 'dark' ? 'light' : 'dark';
       setDemoConfigValue('theme', _currentTheme);
-      console.info(`[demo] config-demo-update-btn: theme toggled to ${_currentTheme}`);
     });
   }
 }
@@ -1128,7 +1090,6 @@ export function setSelectedNode(id: string | null): void {
   for (const [key, value] of Object.entries(values)) {
     setDemoConfigValue(key, value);
   }
-  console.info(`[demo] __publishConfigValues__: published keys: ${Object.keys(values).join(',')}`);
   return true;
 };
 
@@ -1151,5 +1112,3 @@ export function setSelectedNode(id: string | null): void {
 }).__resetDecryptBridgeCallCount__ = (): void => {
   resetDemoDecryptBridgeCallCount();
 };
-
-console.log('[napplet playground] initialized');

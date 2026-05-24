@@ -542,7 +542,7 @@ export function createMediaService(options: MediaServiceOptions = {}): ServiceHa
           const m = message as MediaSessionUpdateMessage;
           const entry = sessionRegistry.get(m.sessionId);
           if (entry) {
-            entry.metadata = { ...(entry.metadata ?? {}), ...m.metadata };
+            entry.metadata = { ...entry.metadata, ...m.metadata };
             entry.lastTouched = ++touchCounter;
             if (m.sessionId === activeSessionId && entry.metadata) {
               bridge.setMetadata(m.sessionId, entry.metadata);

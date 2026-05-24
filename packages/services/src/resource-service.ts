@@ -354,7 +354,7 @@ export function createResourceService(options: ResourceServiceOptions): Resource
       const requestIds = perWindow.get(windowId);
       if (!requestIds) return;
       // Abort all in-flight requests for this window
-      for (const requestId of [...requestIds]) {
+      for (const requestId of requestIds) {
         const entry = inFlight.get(requestId);
         if (entry) {
           entry.controller.abort();

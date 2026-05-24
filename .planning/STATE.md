@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.15
 milestone_name: Address AI Slop
-status: planning
+status: in_progress
 last_updated: "2026-05-24T10:26:27.436Z"
 last_activity: 2026-05-24
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 25
 ---
 
 # Project State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-05-24, v1.15 started)
 
 ## Current Position
 
-Phase: 68 (next)
+Phase: 69 (next)
 Plan: —
 Status: Ready for phase planning
-Last activity: 2026-05-24 — Milestone v1.15 roadmap created
+Last activity: 2026-05-24 — Phase 68 completed
 
 ## Accumulated Context
 
@@ -45,6 +45,7 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 
 - No active blockers. v1.15 starts from the `aislop 0.9.3` report: 38 errors, 607 warnings, 461 fixable findings across 123 scanned TypeScript files.
 - v1.15 roadmap phases are 68-71: gate baseline/mechanical cleanup, safe DOM rendering/security scanner cleanup, type/dependency/maintainability triage, then quality-gate verification and closeout.
+- Phase 68 completed 2026-05-24: supplied `aislop 0.9.3` baseline recorded, local `aislop` binary absence documented, the fatal undeclared `@napplet/services` reference corrected, report-flagged duplicate imports and mechanical lint/slop findings cleaned in touched files, and verification passed with `pnpm build`, `pnpm type-check`, and `git diff --check`.
 - v1.14 started 2026-05-23: public GitHub Pages deployment target is `kehto.github.io/web/`, with a portal slash page at `/web/`, playground at `/web/playground/`, and docs at `/web/docs/`. Current workflow only packs `.pages/playground`, so v1.14 must replace playground-only upload with a unified Pages artifact.
 - v1.14 roadmap phases are 65-67: Pages portal entry point, playground Pages path relocation, then docs Pages publication and deploy gate.
 - Phase 65 completed 2026-05-23: `web/index.html` is the static portal source, `pnpm build:pages` writes `.pages/web/index.html`, and the generated portal links to `/web/playground/` and `/web/docs/`.
@@ -81,9 +82,9 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 ## Session Continuity
 
 Last session: 2026-05-23T16:10:00Z
-Resume: v1.15 Address AI Slop is roadmapped and ready for phase planning.
+Resume: v1.15 Address AI Slop has completed Phase 68 and is ready for Phase 69 planning.
 Current milestone: v1.15 Address AI Slop.
 
 ## Operator Next Steps
 
-- Start Phase 68 with `$gsd-plan-phase 68`.
+- Start Phase 69 with `$gsd-plan-phase 69`.

@@ -455,7 +455,6 @@ function playgroundSingleFileArtifact(): Plugin {
       const inlinedHtml = inlineSingleFileBuildAssets(html, distPath, base);
       assertSingleFileArtifact(inlinedHtml, distPath);
       recomputeManifest(distPath, inlinedHtml);
-      console.log('[playground-single-file] inlined gateway artifact');
     },
   };
 }

@@ -8,10 +8,8 @@
  * Default policy is PERMISSIVE: unknown identities have all capabilities granted.
  */
 
-import type { Capability } from '@kehto/runtime';
-import { ALL_CAPABILITIES } from '@kehto/runtime';
-import { migrateAclState } from '@kehto/acl';
-import type { AclState } from '@kehto/acl';
+import { ALL_CAPABILITIES, type Capability } from '@kehto/runtime';
+import { migrateAclState, type AclState } from '@kehto/acl';
 import type { AclEntry } from './types.js';
 
 const STORAGE_KEY = 'napplet:acl';

@@ -135,7 +135,7 @@ function createMockStatePersistence(stateStore: Map<string, string>): StatePersi
     set(key: string, value: string) { stateStore.set(key, value); return true; },
     remove(key: string) { stateStore.delete(key); },
     clear(prefix: string) {
-      for (const k of [...stateStore.keys()]) {
+      for (const k of stateStore.keys()) {
         if (k.startsWith(prefix)) stateStore.delete(k);
       }
     },

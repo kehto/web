@@ -9,10 +9,8 @@
  */
 
 import type { DemoTopology, DemoTopologyNode, TopologyNodeRole } from './topology.js';
-import type { NappletInfo, MessageTap, TappedMessage } from './shell-host.js';
-import type { DemoProtocolPath } from './shell-host.js';
-import { getAclDenials, getGlobalAclDenials } from './acl-history.js';
-import type { AclHistoryEntry } from './acl-history.js';
+import type { DemoProtocolPath, MessageTap, NappletInfo, TappedMessage } from './shell-host.js';
+import { getAclDenials, getGlobalAclDenials, type AclHistoryEntry } from './acl-history.js';
 import { DEMO_CAPABILITY_LABELS } from './acl-panel.js';
 import type { Capability } from '@kehto/shell';
 

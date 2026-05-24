@@ -7,8 +7,6 @@
  */
 
 import type { NostrEvent, NostrFilter } from '@napplet/core';
-// DRIFT-CORE-06 — Phase 11-deviation: Capability dropped from @napplet/core v0.2.0+.
-import type { Capability } from '@kehto/runtime';
 import type {
   RuntimeAdapter,
   RelayPoolAdapter,
@@ -144,7 +142,7 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
       relayUrl: string,
       subId: string,
       filters: NostrFilter[],
-      sendFn: SendToNapplet,
+      _sendFn: SendToNapplet,
     ): void {
       const win = originRegistry.getIframeWindow(windowId);
       if (win) shellHooks.relayPool.openScopedRelay(windowId, relayUrl, subId, filters, win);

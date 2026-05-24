@@ -30,8 +30,11 @@ import {
   createThemeService,
   createConfigService,  // Phase 39 Plan 39-04 / CONFIG-03
   createResourceService, // Phase 40 Plan 40-02 / RESOURCE-04
+  type ConfigService,
+  type HostDecryptBridge,
+  type Notification,
+  type ThemeService,
 } from '@kehto/services';
-import type { Notification, ThemeService, ConfigService, HostDecryptBridge } from '@kehto/services';
 import { getSigner, getSignerConnectionState } from './signer-connection.js';
 import { demoConfig } from './demo-config.js';
 import { pushAclEvent } from './acl-history.js';
@@ -700,11 +703,6 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
   const keysService = createKeysService({
     reservedChords: ['Ctrl+Shift+R'],
     onForward: (event) => {
-      console.info(
-        '[demo] keys real backend — chord delivered:',
-        event.key,
-        { ctrl: event.ctrlKey, alt: event.altKey, shift: event.shiftKey, meta: event.metaKey },
-      );
       // Phase 33: shell-side DOM sentinel for E2E-17 observation. Writes the
       // canonical chord string (modifiers + key) so the spec can assert on
       // exact match. Updated on every onForward fire (reserved AND non-reserved
@@ -730,20 +728,13 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
   // transport surfaces can pass a custom hostBridge: HostMediaBridge override.
   const mediaService = createMediaService({
     onSessionCreate: (windowId, sessionId, metadata) => {
-      console.info(
-        '[demo] media real backend — session created:',
-        windowId,
-        sessionId,
-        metadata,
-      );
+      void windowId;
+      void sessionId;
+      void metadata;
     },
   });
   const themeServiceBundle = createThemeService({
-    onBroadcast: (envelope) => {
-      // Fan-out handled by shell-bridge.publishTheme() at the session-registry level.
-      // This hook is diagnostic only.
-      console.debug('[demo] theme.changed broadcast envelope:', envelope.type);
-    },
+    onBroadcast: () => {},
   });
   _themeServiceBundle = themeServiceBundle;
 
@@ -1157,7 +1148,6 @@ export async function publishDecryptFixturesToNapplet(dTag = 'decrypt-demo'): Pr
     { type: 'demo.decrypt.fixtures', fixtures },
     '*',
   );
-  console.info(`[demo] publishDecryptFixturesToNapplet: published fixtures to ${dTag}`);
   return true;
 }
 
@@ -1329,7 +1319,6 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
     const dTag = hotkeyEntry.info.dTag ?? '';
     const hash = hotkeyEntry.info.aggregateHash ?? '';
     relay.runtime.aclState.grant(pubkey, dTag, hash, 'keys:forward');
-    console.info('[demo] __grantKeysForward__: granted keys:forward to hotkey-chord');
     return true;
   };
 
@@ -1368,7 +1357,6 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
     const dTag = mediaEntry.info.dTag ?? '';
     const hash = mediaEntry.info.aggregateHash ?? '';
     relay.runtime.aclState.grant(pubkey, dTag, hash, 'media:control');
-    console.info('[demo] __grantMediaControl__: granted media:control to media-controller');
     return true;
   };
 
@@ -1564,16 +1552,11 @@ export function toggleCapability(windowId: string, capability: Capability, enabl
   const pubkey = info.pubkey;  // '' for NIP-5D, real pubkey for legacy
   const dTag = info.dTag || '';
   const hash = info.aggregateHash || '';
-  const pubkeyDisplay = pubkey ? pubkey.substring(0, 8) + '...' : '(nip5d-empty)';
-  console.log(`[acl] ${enabled ? 'GRANT' : 'REVOKE'} ${capability} for ${info.name} (pubkey=${pubkeyDisplay} dTag=${dTag} hash=${hash})`);
   if (enabled) {
     relay.runtime.aclState.grant(pubkey, dTag, hash, capability);
   } else {
     relay.runtime.aclState.revoke(pubkey, dTag, hash, capability);
   }
-  // Verify the change took effect
-  const check = relay.runtime.aclState.check(pubkey, dTag, hash, capability);
-  console.log(`[acl] check ${capability} after ${enabled ? 'grant' : 'revoke'}: ${check}`);
 }
 
 /**
@@ -1590,11 +1573,9 @@ export function toggleService(name: string, enabled: boolean): void {
     }
     disabledServices.delete(name);
     relay.runtime.registerService(name, handler);
-    console.log(`[service] ENABLED ${name}`);
   } else {
     disabledServices.add(name);
     relay.runtime.unregisterService(name);
-    console.log(`[service] DISABLED ${name}`);
   }
 }
 

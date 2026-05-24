@@ -9,8 +9,7 @@
  * Sequence diagram is added in Plan 05.
  */
 
-import type { TappedMessage, MessageTap, DemoProtocolPath } from './shell-host.js';
-import { getNapplets } from './shell-host.js';
+import { getNapplets, type DemoProtocolPath, type MessageTap, type TappedMessage } from './shell-host.js';
 import { renderSequenceDiagram } from './sequence-diagram.js';
 
 /** Verb-to-color mapping for the dark terminal theme */
