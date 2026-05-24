@@ -1,5 +1,7 @@
 # Kehto Runtime
 
+[![AI Slop Score](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkehto%2Fweb%2Fmain%2F.github%2Fbadges%2Faislop-score.json)](https://github.com/kehto/web/actions/workflows/aislop-badge.yml)
+
 Kehto is an early web-based runtime implementation for NIP-5D Nostr applets
 ("napplets"). It is one runtime, not the runtime for the ecosystem. It is likely
 the first implementation and may become a useful reference implementation as
