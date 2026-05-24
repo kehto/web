@@ -1,5 +1,26 @@
 # Milestones: Kehto Runtime
 
+## v1.16 Structural Code Quality Refactor (Shipped: 2026-05-24)
+
+**Phases completed:** 4 phases (73-76), 4 plans, 18 requirements.
+
+**Delivered:** v1.16 removed the remaining structural `aislop` warning baseline. Runtime, playground shell, service, and adapter modules were split into behavior-preserving helpers, and the local scanner now reports `100 / 100 Healthy` with 0 errors, 0 warnings, and 0 fixable findings.
+
+**Audit:** passed - 18/18 requirements, 4/4 phases, 4/4 plans, 4/4 integration paths, 3/3 user flows.
+
+**Key accomplishments:**
+
+- **Runtime core decomposition:** extracted relay, identity, IFC, and fallback domain handlers from `packages/runtime/src/runtime.ts`, clearing runtime file-size, function-length, and deep-nesting findings.
+- **Playground shell decomposition:** split shell definitions, decrypt fixture helpers, message tap wiring, demo hooks, notification UI, and signer UI from the large playground boot surfaces.
+- **Service and adapter decomposition:** split ACL modal layout, NIP-46 client flow, media/notification/resource service factories, and shell hook adapter construction into focused helpers.
+- **Clean scanner closeout:** `npx --no-install aislop scan -d` now reports `100 / 100 Healthy`, 0 errors, 0 warnings, and 0 fixable findings.
+- **Policy integrity:** `.aislop/config.yml` has no diff against the v1.16 start commit; warnings were removed by refactor rather than by threshold changes.
+- **Verification:** `pnpm type-check`, `pnpm build`, `pnpm test:unit` (563 tests), `pnpm --dir docs docs:build`, final scanner, scanner-policy diff, and `git diff --check` all passed.
+
+**Archive:** [v1.16-ROADMAP.md](milestones/v1.16-ROADMAP.md) | [v1.16-REQUIREMENTS.md](milestones/v1.16-REQUIREMENTS.md) | [v1.16-MILESTONE-AUDIT.md](milestones/v1.16-MILESTONE-AUDIT.md)
+
+---
+
 ## v1.15 Address AI Slop (Shipped: 2026-05-24)
 
 **Phases completed:** 5 phases (68-72), 5 plans, 20 requirements.

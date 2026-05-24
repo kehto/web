@@ -2,6 +2,48 @@
 
 *A living document updated after each milestone. Lessons feed forward into future planning.*
 
+## Milestone: v1.16 — Structural Code Quality Refactor
+
+**Shipped:** 2026-05-24
+**Phases:** 4 (73-76) | **Plans:** 4 | **Requirements:** 18/18 | **Unit:** 563
+
+### What Was Built
+
+- **Phase 73 — Runtime Core Decomposition.** Extracted runtime relay, identity, IFC, and fallback domain handling from `runtime.ts`, clearing runtime file-size, function-length, and deep-nesting scanner findings.
+- **Phase 74 — Playground Shell Decomposition.** Split playground boot, shell host definitions, decrypt fixtures, message tap, demo hooks, notification UI, and signer UI into focused modules.
+- **Phase 75 — Service and Adapter Decomposition.** Split ACL modal, NIP-46 client, media/notification/resource service factories, and shell hook adapter helpers, clearing the remaining long-function warnings.
+- **Phase 76 — Structural Gate Verification.** Proved the local scanner is clean, `.aislop/config.yml` thresholds are unchanged, and repo type/build/unit/docs gates still pass.
+
+### What Worked
+
+- **Scanner-first phase boundaries kept the milestone mechanical.** Each phase targeted a named warning group and stopped when the scanner evidence cleared.
+- **Behavior locks scaled with risk.** Runtime package tests, focused service/client tests, a focused ACL modal E2E, and final full repo gates gave enough proof without rewriting unrelated test suites.
+- **Policy-diff verification prevented false closure.** Checking `.aislop/config.yml` against the v1.16 start commit made the final clean result credible.
+
+### What Was Inefficient
+
+- **The archive helper generated weak accomplishments.** The v1.16 MILESTONES.md entry needed manual repair after `milestone.complete` produced generic `Completed:` bullets.
+- **Full Playwright was intentionally deferred.** Focused E2E plus full unit/build/static gates matched this refactor scope, but a broad release gate should rerun the full browser suite.
+
+### Patterns Established
+
+- **Structural cleanup should close with both scanner and policy evidence.** A clean scanner is not enough unless the threshold file is proven unchanged.
+- **Large integration files can be split through private helper modules while preserving public exports.** Runtime and playground surfaces stayed import-compatible during the cleanup.
+
+### Key Lessons
+
+1. **Use the scanner output as the work queue for cleanup milestones.** It keeps scope tight and avoids broad architecture rewrites.
+2. **Keep threshold changes as separate policy work.** Removing warnings by refactor and lowering thresholds are different decisions.
+3. **Manual archive review is still needed.** Generated milestone summaries need a quick human-quality pass before final commit.
+
+### Cost Observations
+
+- **Model mix:** Frontier leader with inline execution; no native subagents because the active Codex adapter did not permit automatic spawning.
+- **Sessions:** Single autonomous run from Phase 73 through milestone archive.
+- **Notable:** Final verification passed `npx --no-install aislop scan -d`, `pnpm type-check`, `pnpm build`, `pnpm test:unit` (563 tests), `pnpm --dir docs docs:build`, and `git diff --check`.
+
+---
+
 ## Milestone: v1.13 — Documentation Strategy & Monorepo Docs Site
 
 **Shipped:** 2026-05-23

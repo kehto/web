@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.16
 milestone_name: Structural Code Quality Refactor
-status: in_progress
-last_updated: "2026-05-24T13:38:22Z"
-last_activity: 2026-05-24
+status: Awaiting next milestone
+last_updated: "2026-05-24T13:42:05.961Z"
+last_activity: 2026-05-24 — Milestone v1.16 completed and archived
 progress:
   total_phases: 4
   completed_phases: 4
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-05-24, v1.16 started)
 
 ## Current Position
 
-Phase: 76
-Plan: 76-01
-Status: Phase verification complete; ready for milestone audit, completion, and cleanup
-Last activity: 2026-05-24 — Phase 76 structural gate verification complete
+Phase: Milestone v1.16 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-05-24 — Milestone v1.16 completed and archived
 
 ## Accumulated Context
 
@@ -96,4 +96,4 @@ Current milestone: v1.16 Structural Code Quality Refactor.
 
 ## Operator Next Steps
 
-- Continue lifecycle with `$gsd-audit-milestone`, `$gsd-complete-milestone v1.16`, then `$gsd-cleanup`.
+- Start the next milestone with /gsd-new-milestone
