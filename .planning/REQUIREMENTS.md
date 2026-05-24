@@ -78,30 +78,30 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCAN-01 | TBD | Pending |
-| SCAN-02 | TBD | Pending |
-| SCAN-03 | TBD | Pending |
-| CORE-01 | TBD | Pending |
-| CORE-02 | TBD | Pending |
-| CORE-03 | TBD | Pending |
-| PLAY-01 | TBD | Pending |
-| PLAY-02 | TBD | Pending |
-| PLAY-03 | TBD | Pending |
-| PLAY-04 | TBD | Pending |
-| PLAY-05 | TBD | Pending |
-| PLAY-06 | TBD | Pending |
-| SVC-01 | TBD | Pending |
-| SVC-02 | TBD | Pending |
-| SVC-03 | TBD | Pending |
-| ADAPT-01 | TBD | Pending |
-| VERIFY-01 | TBD | Pending |
-| VERIFY-02 | TBD | Pending |
+| SCAN-01 | Phase 73 | Pending |
+| SCAN-02 | Phase 76 | Pending |
+| SCAN-03 | Phase 76 | Pending |
+| CORE-01 | Phase 73 | Pending |
+| CORE-02 | Phase 73 | Pending |
+| CORE-03 | Phase 73 | Pending |
+| PLAY-01 | Phase 74 | Pending |
+| PLAY-02 | Phase 74 | Pending |
+| PLAY-03 | Phase 74 | Pending |
+| PLAY-04 | Phase 74 | Pending |
+| PLAY-05 | Phase 75 | Pending |
+| PLAY-06 | Phase 75 | Pending |
+| SVC-01 | Phase 75 | Pending |
+| SVC-02 | Phase 75 | Pending |
+| SVC-03 | Phase 75 | Pending |
+| ADAPT-01 | Phase 75 | Pending |
+| VERIFY-01 | Phase 76 | Pending |
+| VERIFY-02 | Phase 76 | Pending |
 
 **Coverage:**
 - v1.16 requirements: 18 total
-- Mapped to phases: 0
-- Unmapped: 18
+- Mapped to phases: 18
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-24*
-*Last updated: 2026-05-24 after v1.16 requirements definition*
+*Last updated: 2026-05-24 after v1.16 roadmap creation*

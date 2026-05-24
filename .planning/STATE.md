@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.16
 milestone_name: Structural Code Quality Refactor
-status: planning
-last_updated: "2026-05-24T12:01:43.891Z"
+status: planned
+last_updated: "2026-05-24T12:06:02Z"
 last_activity: 2026-05-24
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
-  total_plans: 0
+  total_plans: 4
   completed_plans: 0
   percent: 0
 ---
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-24, v1.16 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** v1.16 Structural Code Quality Refactor requirements definition
+**Current focus:** v1.16 Structural Code Quality Refactor roadmap ready
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 73
 Plan: —
-Status: Defining requirements
-Last activity: 2026-05-24 — Milestone v1.16 started
+Status: Ready for phase planning
+Last activity: 2026-05-24 — Milestone v1.16 roadmap created
 
 ## Accumulated Context
 
@@ -50,6 +50,7 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 - Phase 70 completed 2026-05-24: runtime/services message-boundary casts were narrowed, runtime double assertions were reduced, private thin wrappers were inlined, napplet `supports()` double casts were removed, safe dependency audit paths were upgraded, and remaining VitePress Vite/esbuild advisories were explicitly deferred with rationale.
 - Phase 71 completed 2026-05-24: final fatal-category source guards passed, build/type/unit/static/docs/Pages gates passed, `gsd-sdk query audit-open` reported zero open items, and v1.15 milestone audit passed at 20/20 requirements across 4/4 phases.
 - Phase 72 completed 2026-05-24 after the local scanner invocation was corrected: `npx --no-install aislop scan -d` now reports `64 / 100 Needs Work` with 0 errors, 16 warnings, 0 fixable, and AI Slop/Linting/Security all clean. Verification passed with `pnpm type-check`, `pnpm build`, `pnpm test:unit`, `pnpm --dir docs docs:build`, final scanner, and diff check.
+- v1.16 started 2026-05-24: the milestone targets the remaining 16 structural `aislop` code-quality warnings with four phases: runtime core decomposition (73), playground shell decomposition (74), service and adapter decomposition (75), and final structural gate verification (76). Requirements are mapped 18/18 and phase numbering continues from v1.15.
 - v1.14 started 2026-05-23: public GitHub Pages deployment target is `kehto.github.io/web/`, with a portal slash page at `/web/`, playground at `/web/playground/`, and docs at `/web/docs/`. Current workflow only packs `.pages/playground`, so v1.14 must replace playground-only upload with a unified Pages artifact.
 - v1.14 roadmap phases are 65-67: Pages portal entry point, playground Pages path relocation, then docs Pages publication and deploy gate.
 - Phase 65 completed 2026-05-23: `web/index.html` is the static portal source, `pnpm build:pages` writes `.pages/web/index.html`, and the generated portal links to `/web/playground/` and `/web/docs/`.
@@ -86,9 +87,9 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 ## Session Continuity
 
 Last session: 2026-05-23T16:10:00Z
-Resume: v1.15 Address AI Slop is complete after Phase 72 corrective `aislop` warning cleanup.
-Current milestone: v1.15 Address AI Slop.
+Resume: v1.16 Structural Code Quality Refactor is roadmapped and ready for Phase 73 planning.
+Current milestone: v1.16 Structural Code Quality Refactor.
 
 ## Operator Next Steps
 
-- Next milestone selection can proceed from backlog/current project state.
+- Start Phase 73 with `$gsd-plan-phase 73`.

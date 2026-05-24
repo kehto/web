@@ -17,136 +17,109 @@
 - [x] **v1.12: NIP-5D Contract Conformance** - 4 phases (56-59), 34/34 requirements, 560 unit tests, 89 E2E specs green, pinned-spec contract conformance across shell, shim/runtime, gateway load checks, and 13 playground napplets ([archive](milestones/v1.12-ROADMAP.md) | [requirements](milestones/v1.12-REQUIREMENTS.md) | [audit](milestones/v1.12-MILESTONE-AUDIT.md))
 - [x] **v1.13: Documentation Strategy & Monorepo Docs Site** - 5 phases (60-64), 28/28 requirements, content strategy, package docs, tutorials/how-tos, VitePress site, and docs verification ([archive](milestones/v1.13-ROADMAP.md) | [requirements](milestones/v1.13-REQUIREMENTS.md) | [audit](milestones/v1.13-MILESTONE-AUDIT.md))
 - [x] **v1.14: GitHub Pages Web Portal** - 3 phases (65-67), 13/13 requirements, public `/web/` portal, playground at `/web/playground/`, docs at `/web/docs/`, and unified Pages deploy gate ([archive](milestones/v1.14-ROADMAP.md) | [requirements](milestones/v1.14-REQUIREMENTS.md) | [audit](milestones/v1.14-MILESTONE-AUDIT.md))
-- [x] **v1.15: Address AI Slop** - 5 phases (68-72), 20/20 original requirements complete, local `aislop` scan no longer Critical, 563 unit tests green
+- [x] **v1.15: Address AI Slop** - 5 phases (68-72), 20/20 original requirements complete, local `aislop` scan no longer Critical, 563 unit tests green ([archive](milestones/v1.15-ROADMAP.md) | [requirements](milestones/v1.15-REQUIREMENTS.md) | [audit](milestones/v1.15-MILESTONE-AUDIT.md))
+- [ ] **v1.16: Structural Code Quality Refactor** - 4 phases (73-76), 18 requirements, target 0 local `aislop` code-quality warnings
 
 ---
 
 ## Active Milestone
 
-### v1.15: Address AI Slop
+### v1.16: Structural Code Quality Refactor
 
-**Goal:** Restore a credible quality-gate baseline by fixing the failing AI-slop/security findings without changing Kehto runtime behavior.
+**Goal:** Eliminate the remaining 16 `aislop` structural code-quality warnings without changing Kehto runtime, service, playground, or docs behavior.
 
-**Baseline entering v1.15:** v1.14 is archived with the public `/web/` portal, playground, docs, and route-shape deploy gate. The new input is an `aislop 0.9.3` report over 123 scanned TypeScript files: formatting clean, 38 lint warnings, 46 code-quality warnings, 1 AI Slop error plus warnings, 37 Security errors, and 461 fixable findings.
+**Baseline entering v1.16:** `npx --no-install aislop scan -d` reports `64 / 100 Needs Work`, 0 errors, 16 warnings, 0 fixable. Formatting, Linting, AI Slop, and Security all report 0 issues. The remaining warnings are 10 long functions, 3 large files, and 3 deep-nesting findings under the current `.aislop/config.yml` thresholds.
 
-**Coverage:** 20/20 original requirements complete. Corrective Phase 72 closed the local scanner invocation gap and reduced `npx --no-install aislop scan -d` from Critical to Needs Work.
+**Coverage:** 18/18 requirements mapped to phases.
 
-**Critical invariant:** Cleanup must preserve the v1.14 runtime and static publication behavior. Direct DOM rendering fixes and type cleanup should remove quality-gate risk without changing NIP-5D protocol behavior, public package contracts, or the playground route contract.
+**Critical invariant:** This milestone is behavior-preserving structural refactor work. Do not change NIP-5D protocol behavior, public package contracts, playground user flows, scanner thresholds, published package versions, or the public Pages route contract.
 
 ### Phases
 
-- [x] **Phase 68: Gate Baseline and Mechanical Cleanup** - Establish reproducible quality-gate evidence and clear import, duplicate-import, unused-code, console, spread, and comment findings that are low-risk and mostly mechanical.
-- [x] **Phase 69: Safe DOM Rendering and Scanner Cleanup** - Replace direct `innerHTML` writes and resolve the hardcoded-secret scanner hit without weakening demo behavior.
-- [x] **Phase 70: Type Safety, Maintainability, and Dependency Triage** - Narrow unsafe casts, triage thin wrappers/duplicate blocks/complexity warnings, and resolve or document existing dependency audit warnings.
-- [x] **Phase 71: Quality Gate Verification and Closeout** - Re-run the quality gate and repo verification suite, record before/after evidence, and close the milestone with zero fatal AI Slop/Security errors.
-- [x] **Phase 72: Aislop Critical Warning Cleanup** - Correct the scanner invocation gap and reduce the local `aislop` warning status below Critical.
+- [ ] **Phase 73: Runtime Core Decomposition** - Split `packages/runtime/src/runtime.ts` and extract `createRuntime` / `handleRelayMessage` helpers until runtime core warnings clear.
+- [ ] **Phase 74: Playground Shell Decomposition** - Split `apps/playground/src/main.ts` and `apps/playground/src/shell-host.ts`, reducing `createDemoHooks` and `bootShell` without changing visible demo behavior.
+- [ ] **Phase 75: Service and Adapter Decomposition** - Reduce remaining long functions in ACL modal, NIP-46 client, service factories, and shell hook adapter.
+- [ ] **Phase 76: Structural Gate Verification** - Prove final scanner and repo gates are clean, record evidence, and close the milestone.
 
 ---
 
 ## Phase Details
 
-### Phase 68: Gate Baseline and Mechanical Cleanup
+### Phase 73: Runtime Core Decomposition
 
-**Goal**: Make the reported quality gate reproducible and remove low-risk slop/lint findings before deeper edits.
+**Goal**: Remove all runtime-core structural scanner warnings from `packages/runtime/src/runtime.ts`.
 
-**Depends on**: v1.15 requirements accepted; supplied `aislop 0.9.3` report.
+**Depends on**: v1.16 requirements accepted; v1.15 scanner baseline.
 
-**Requirements**: GATE-01, LINT-01, LINT-02, LINT-03, LINT-04, SLOP-01, SLOP-02
+**Requirements**: SCAN-01, CORE-01, CORE-02, CORE-03
 
-**Rationale**: Mechanical cleanup should happen before security and type work so later diffs are easier to review and the one fatal undeclared import does not mask other findings.
-
-**Success Criteria** (what must be TRUE):
-  1. The quality-gate invocation or documented equivalent is captured in the phase artifacts.
-  2. The undeclared `@napplet/services` import is corrected or backed by a manifest change.
-  3. Duplicate imports, unused imports/locals, unnecessary spread fallbacks, and leftover console calls reported in touched files are removed or made intentionally explicit.
-  4. Decorative and trivial comments are removed where they do not preserve API or protocol context.
-  5. Build and type-check still pass after the mechanical cleanup.
-
-**Plans**: [68-01-PLAN.md](phases/68-gate-baseline-and-mechanical-cleanup/68-01-PLAN.md)
-
-**Completed**: 2026-05-24 ([summary](phases/68-gate-baseline-and-mechanical-cleanup/68-01-SUMMARY.md) | [verification](phases/68-gate-baseline-and-mechanical-cleanup/68-VERIFICATION.md))
-
-### Phase 69: Safe DOM Rendering and Scanner Cleanup
-
-**Goal**: Remove the fatal DOM/security findings while keeping playground rendering behavior intact.
-
-**Depends on**: Phase 68
-
-**Requirements**: SEC-01, SEC-02, SEC-03
-
-**Rationale**: Direct `innerHTML` assignment is the largest fatal class in the report. It should be repaired with native DOM/text APIs or existing helpers, not by adding sanitization dependencies.
+**Rationale**: `runtime.ts` carries the highest-risk structural debt: the only runtime package file-size warning plus the largest function and nested relay handler. It should be isolated before lower-risk playground/service extractions.
 
 **Success Criteria** (what must be TRUE):
-  1. Report-flagged direct `innerHTML` assignments are gone from playground napplets and shell UI source.
-  2. Dynamic user, relay, event, fixture, and demo status values render via `textContent`, DOM construction, or an existing safe helper.
-  3. The `nip46-client.ts` hardcoded-secret scanner hit is removed or made clearly non-secret demo fixture data.
-  4. Existing playground smoke/unit coverage still passes for the changed rendering paths.
+  1. Phase context records the current 16-warning `aislop` baseline before edits.
+  2. `packages/runtime/src/runtime.ts` is below the 700-line warning threshold or its remaining line count is not flagged by `aislop`.
+  3. `createRuntime` is below the 150-line function threshold and no longer triggers deep nesting.
+  4. `handleRelayMessage` is below the 150-line function threshold and no longer triggers deep nesting.
+  5. Runtime package build/type/unit coverage passes after extraction.
 
-**Plans**: [69-01-PLAN.md](phases/69-safe-dom-rendering-and-scanner-cleanup/69-01-PLAN.md)
+**Plans**: To be created by `$gsd-plan-phase 73`
 
-**Completed**: 2026-05-24 ([summary](phases/69-safe-dom-rendering-and-scanner-cleanup/69-01-SUMMARY.md) | [verification](phases/69-safe-dom-rendering-and-scanner-cleanup/69-VERIFICATION.md))
+### Phase 74: Playground Shell Decomposition
 
-### Phase 70: Type Safety, Maintainability, and Dependency Triage
+**Goal**: Remove structural scanner warnings from the playground app shell and boot path.
 
-**Goal**: Reduce unsafe type and maintainability findings without broad, unprotected rewrites.
+**Depends on**: Phase 73
 
-**Depends on**: Phase 69
+**Requirements**: PLAY-01, PLAY-02, PLAY-03, PLAY-04
 
-**Requirements**: SLOP-03, TYPE-01, TYPE-02, QUAL-01, DEPS-01
-
-**Rationale**: The report contains many warning-only findings that range from safe local cleanup to large UI decomposition. This phase separates feasible type/helper repairs from deferrals that need their own behavior locks.
-
-**Success Criteria** (what must be TRUE):
-  1. Double assertions and `as any` uses in runtime/services code are replaced or narrowed where local types can express the boundary.
-  2. Thin wrappers are inlined unless they preserve a named boundary used by callers or tests.
-  3. Duplicate blocks and complexity findings are triaged, with only low-risk helper extractions applied.
-  4. Existing dependency audit warnings are resolved through safe upgrades or documented as explicit deferrals with rationale.
-  5. Build, type-check, and unit tests pass after type/dependency changes.
-
-**Plans**: [70-01-PLAN.md](phases/70-type-safety-maintainability-and-dependency-triage/70-01-PLAN.md)
-
-**Completed**: 2026-05-24 ([summary](phases/70-type-safety-maintainability-and-dependency-triage/70-01-SUMMARY.md) | [verification](phases/70-type-safety-maintainability-and-dependency-triage/70-VERIFICATION.md))
-
-### Phase 71: Quality Gate Verification and Closeout
-
-**Goal**: Prove v1.15 restored the quality-gate baseline and preserve closeout evidence.
-
-**Depends on**: Phase 70
-
-**Requirements**: GATE-02, GATE-03, VERIFY-01, VERIFY-02, VERIFY-03
-
-**Rationale**: The milestone only succeeds if the fatal AI Slop/Security findings are actually gone and the existing v1.14 behavior gates remain green.
+**Rationale**: `main.ts` and `shell-host.ts` are large integration surfaces. Keeping them in one phase lets the plan choose coherent module seams around app wiring, demo hooks, and boot behavior without mixing in runtime package refactors.
 
 **Success Criteria** (what must be TRUE):
-  1. Final quality-gate evidence records zero AI Slop errors and zero Security errors for the reported fatal categories.
-  2. Before/after counts are recorded, including warning classes intentionally deferred.
-  3. `pnpm build`, `pnpm type-check`, and `pnpm test:unit` pass.
-  4. Applicable static guards pass, including `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and route/docs checks affected by changed files.
-  5. `git diff --check` passes and closeout artifacts state remaining risks.
+  1. `apps/playground/src/main.ts` no longer triggers the 700-line file-size warning.
+  2. `apps/playground/src/shell-host.ts` no longer triggers the 700-line file-size warning.
+  3. `createDemoHooks` no longer triggers the 150-line function warning.
+  4. `bootShell` no longer triggers the 150-line function warning or deep-nesting warning.
+  5. Playground build/unit/static checks covering demo boot still pass.
 
-**Plans**: [71-01-PLAN.md](phases/71-quality-gate-verification-and-closeout/71-01-PLAN.md)
+**Plans**: To be created by `$gsd-plan-phase 74`
 
-**Completed**: 2026-05-24 ([summary](phases/71-quality-gate-verification-and-closeout/71-01-SUMMARY.md) | [verification](phases/71-quality-gate-verification-and-closeout/71-VERIFICATION.md))
+### Phase 75: Service and Adapter Decomposition
 
-### Phase 72: Aislop Critical Warning Cleanup
+**Goal**: Remove the remaining long-function warnings outside runtime core and playground shell boot.
 
-**Goal**: Reduce the local `aislop` scan from Critical status after the corrected scanner invocation.
+**Depends on**: Phase 74
 
-**Depends on**: Phase 71 and corrected local scanner evidence
+**Requirements**: PLAY-05, PLAY-06, SVC-01, SVC-02, SVC-03, ADAPT-01
 
-**Requirements**: Corrective closeout evidence for v1.15
-
-**Rationale**: Phase 71 incorrectly treated `aislop` as unavailable because only `command -v aislop` was checked. The scanner is available through `npx --no-install aislop` and still reports Critical status from warnings, so the milestone needs a corrective cleanup pass.
+**Rationale**: These warnings are smaller and more localized than the runtime/shell files. They can be handled as bounded helper extractions with focused tests around each surface.
 
 **Success Criteria** (what must be TRUE):
-  1. The corrected local scanner command is recorded.
-  2. Normal `npx --no-install aislop fix` output is applied and reviewed.
-  3. Remaining warnings are reduced below Critical status and classified as structural refactor deferrals.
-  4. Build, type-check, unit tests, docs build, final scanner, and diff checks are recorded.
+  1. `openPolicyModal` no longer triggers the 150-line function warning.
+  2. `createNip46Client` no longer triggers the 150-line function warning.
+  3. `createMediaService`, `createNotificationService`, and `createResourceService` no longer trigger 150-line function warnings.
+  4. `adaptHooks` no longer triggers the 150-line function warning.
+  5. Focused unit or static guards protect any extracted behavior that was not already covered.
 
-**Plans**: [72-01-PLAN.md](phases/72-aislop-critical-warning-cleanup/72-01-PLAN.md)
+**Plans**: To be created by `$gsd-plan-phase 75`
 
-**Completed**: 2026-05-24 ([summary](phases/72-aislop-critical-warning-cleanup/72-01-SUMMARY.md) | [verification](phases/72-aislop-critical-warning-cleanup/72-VERIFICATION.md))
+### Phase 76: Structural Gate Verification
+
+**Goal**: Prove v1.16 eliminated the structural warning baseline and preserved the v1.15 clean engines.
+
+**Depends on**: Phase 75
+
+**Requirements**: SCAN-02, SCAN-03, VERIFY-01, VERIFY-02
+
+**Rationale**: Structural cleanup succeeds only if the local scanner reaches zero warnings without weakening policy or breaking the repo gates that prove behavior is intact.
+
+**Success Criteria** (what must be TRUE):
+  1. Final `npx --no-install aislop scan -d` reports 0 errors, 0 warnings, and 0 fixable findings.
+  2. `.aislop/config.yml` thresholds remain unchanged from the v1.15 closeout baseline unless an approved phase artifact records a policy decision.
+  3. `pnpm type-check`, `pnpm build`, `pnpm test:unit`, and `pnpm --dir docs docs:build` pass.
+  4. Phase verification evidence names the tests or guards covering each extracted boundary.
+  5. `git diff --check` passes and closeout artifacts state any remaining non-scanner risks.
+
+**Plans**: To be created by `$gsd-plan-phase 76`
 
 ---
 
@@ -154,11 +127,10 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 68. Gate Baseline and Mechanical Cleanup | 1/1 | Completed | 2026-05-24 |
-| 69. Safe DOM Rendering and Scanner Cleanup | 1/1 | Completed | 2026-05-24 |
-| 70. Type Safety, Maintainability, and Dependency Triage | 1/1 | Completed | 2026-05-24 |
-| 71. Quality Gate Verification and Closeout | 1/1 | Completed | 2026-05-24 |
-| 72. Aislop Critical Warning Cleanup | 1/1 | Completed | 2026-05-24 |
+| 73. Runtime Core Decomposition | 0/1 | Pending | — |
+| 74. Playground Shell Decomposition | 0/1 | Pending | — |
+| 75. Service and Adapter Decomposition | 0/1 | Pending | — |
+| 76. Structural Gate Verification | 0/1 | Pending | — |
 
 ## Backlog
 
@@ -184,4 +156,4 @@
 
 ---
 
-*ROADMAP.md last updated: 2026-05-24 - v1.15 corrective cleanup completed.*
+*ROADMAP.md last updated: 2026-05-24 - v1.16 roadmap created.*
