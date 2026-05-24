@@ -22,10 +22,6 @@ import {
 } from './shell-host.js';
 import { connectStore, type Capability, type NappletClass } from '@kehto/shell';
 import { createConsentModal } from './consent-modal.js';
-import {
-  createDemoNotificationController,
-  type DemoNotificationSnapshot,
-} from './notification-demo.js';
 import { classifyTappedMessagePath, type NappletDebugger } from './debugger.js';
 import { renderAclPanels, setDebugger } from './acl-panel.js';
 import { initFlowAnimator } from './flow-animator.js';
@@ -43,10 +39,8 @@ import {
 import {
   buildDemoTopology,
   renderDemoTopology,
-  getServiceNodeId,
   initTopologyEdges,
   wireServiceToggles,
-  type SignerConnectionStateView,
 } from './topology.js';
 import {
   buildAllNodeDetails,
@@ -55,206 +49,27 @@ import {
 } from './node-details.js';
 import { initNodeInspector, openConstantsTab, setSelectedNodeId } from './node-inspector.js';
 import { replaceChildrenFromTrustedHtml } from './dom-utils.js';
-import {
-  onStateChange,
-  disconnectSigner,
-  recordSignerRequest,
-  getSignerConnectionState,
-  getSigner as getSignerFromConnection,
-} from './signer-connection.js';
-import { initSignerModal, openSignerModal } from './signer-modal.js';
+import { recordSignerRequest, getSignerConnectionState } from './signer-connection.js';
+import { createNotificationUi, initNip66Suggestions } from './main-notifications.js';
+import { initSignerNodeUi } from './main-signer.js';
 import { demoConfig } from './demo-config.js';
 import { setAclRingSize } from './acl-history.js';
-import type { Notification } from '@kehto/services';
 
-const notificationController = createDemoNotificationController();
+const notificationUi = createNotificationUi();
 
 const { tap } = bootShell((notifications) => {
-  notificationController.handleServiceChange(notifications);
+  notificationUi.controller.handleServiceChange(notifications);
 });
 
 const notificationHandler = getNotificationServiceHandler();
 if (notificationHandler) {
-  notificationController.connectService(notificationHandler);
+  notificationUi.controller.connectService(notificationHandler);
 }
 
 createConsentModal().registerWith(relay, (request) => {
   setTimeout(() => request.resolve(true), 500);
 });
-const _nip66Aggregator = getNip66Aggregator();
-if (_nip66Aggregator) {
-  _nip66Aggregator.start();
-
-  const renderNip66Suggestions = (): void => {
-    const list = document.getElementById('nip66-suggestions-list');
-    if (!list) return;
-    const relays = Array.from(_nip66Aggregator.getRelaySet());
-    if (relays.length === 0) return;  // leave "no suggestions yet" placeholder in place
-    list.replaceChildren();
-    for (const url of relays) {
-      const li = document.createElement('li');
-      li.style.padding = '2px 0';
-      li.style.color = '#62d0ff';
-      li.style.fontFamily = 'monospace';
-      li.textContent = url;
-      list.appendChild(li);
-    }
-  };
-
-  let attempts = 0;
-  const nip66PollId = window.setInterval(() => {
-    attempts++;
-    renderNip66Suggestions();
-    const after = document.querySelectorAll('#nip66-suggestions-list li[style*="62d0ff"]').length;
-    if (after >= 1 || attempts >= 10) {
-      window.clearInterval(nip66PollId);
-    }
-  }, 100);
-
-  window.addEventListener('beforeunload', () => {
-    window.clearInterval(nip66PollId);
-    _nip66Aggregator.stop();
-  });
-}
-
-const _shownToastIds = new Set<string>();
-
-function renderToast(notification: Notification): void {
-  const layer = document.getElementById('notification-toast-layer');
-  if (!layer) return;
-  const toast = document.createElement('div');
-  toast.className = 'notif-toast';
-  toast.dataset.notifId = notification.id;
-  const title = document.createElement('div');
-  title.className = 'notif-toast-title';
-  title.textContent = notification.title;
-  toast.appendChild(title);
-  if (notification.body) {
-    const body = document.createElement('div');
-    body.className = 'notif-toast-body';
-    body.textContent = notification.body;
-    toast.appendChild(body);
-  }
-  const cue = document.createElement('div');
-  cue.className = 'notif-toast-cue';
-  cue.textContent = 'notifications:create via service';
-  toast.appendChild(cue);
-  layer.appendChild(toast);
-  setTimeout(() => {
-    toast.remove();
-  }, demoConfig.get('demo.TOAST_DISPLAY_MS'));
-}
-
-function renderNotificationNodeSummary(snapshot: DemoNotificationSnapshot): void {
-  const totalEl = document.getElementById('notif-total');
-  const unreadEl = document.getElementById('notif-unread');
-  const sourceCueEl = document.getElementById('notif-source-cue');
-  const cueTextEl = sourceCueEl?.querySelector('.notif-cue-text');
-
-  if (totalEl) totalEl.textContent = String(snapshot.notifications.length);
-  if (unreadEl) unreadEl.textContent = String(snapshot.unreadCount);
-  if (sourceCueEl && cueTextEl && snapshot.sourceLabel) {
-    (cueTextEl as HTMLElement).textContent = snapshot.sourceLabel;
-    (sourceCueEl as HTMLElement).style.display = '';
-  }
-}
-
-function renderNotificationInspector(snapshot: DemoNotificationSnapshot): void {
-  const listEl = document.getElementById('notification-list');
-  if (!listEl) return;
-
-  if (snapshot.notifications.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'notif-list-empty';
-    empty.textContent = 'no notifications yet';
-    listEl.replaceChildren(empty);
-    return;
-  }
-
-  const sorted = [...snapshot.notifications].reverse();
-  const items = sorted.map((n) => {
-    const item = document.createElement('div');
-    item.className = `notif-item${n.read ? ' read' : ''}`;
-    item.dataset.notifId = n.id;
-
-    const title = document.createElement('div');
-    title.className = 'notif-item-title';
-    title.textContent = n.title;
-    item.appendChild(title);
-
-    if (n.body) {
-      const body = document.createElement('div');
-      body.className = 'notif-item-body';
-      body.textContent = n.body;
-      item.appendChild(body);
-    }
-
-    const meta = document.createElement('div');
-    meta.className = 'notif-item-meta';
-    const tag = document.createElement('span');
-    tag.className = 'notif-item-tag';
-    tag.textContent = 'notifications:create';
-    const state = document.createElement('span');
-    state.textContent = n.read ? 'read' : 'unread';
-    meta.append(tag, state);
-    item.appendChild(meta);
-
-    const actions = document.createElement('div');
-    actions.className = 'notif-item-actions';
-    if (!n.read) {
-      const readBtn = document.createElement('button');
-      readBtn.className = 'notif-item-btn read-btn';
-      readBtn.dataset.action = 'notif-read';
-      readBtn.dataset.notifId = n.id;
-      readBtn.textContent = 'mark read';
-      actions.appendChild(readBtn);
-    }
-    const dismissBtn = document.createElement('button');
-    dismissBtn.className = 'notif-item-btn dismiss-btn';
-    dismissBtn.dataset.action = 'notif-dismiss';
-    dismissBtn.dataset.notifId = n.id;
-    dismissBtn.textContent = 'dismiss';
-    actions.appendChild(dismissBtn);
-    item.appendChild(actions);
-
-    return item;
-  });
-  listEl.replaceChildren(...items);
-}
-
-// Track the latest notification snapshot for rendering
-let _notificationSnapshot: DemoNotificationSnapshot = notificationController.getSnapshot();
-notificationController.subscribe((snapshot) => {
-  const prev = _notificationSnapshot;
-  _notificationSnapshot = snapshot;
-
-  // Show toasts for new notifications
-  for (const n of snapshot.notifications) {
-    if (!_shownToastIds.has(n.id)) {
-      _shownToastIds.add(n.id);
-      renderToast(n);
-      debuggerEl?.addSystemMessage(`notifications:create via service — id:${n.id.slice(0, 16)}`);
-    }
-  }
-
-  renderNotificationNodeSummary(snapshot);
-
-  // If inspector is open, update it
-  const inspector = document.getElementById('notification-inspector');
-  if (inspector?.classList.contains('open')) {
-    renderNotificationInspector(snapshot);
-  }
-
-  const currentIds = new Set(snapshot.notifications.map((n) => n.id));
-  for (const id of _shownToastIds) {
-    if (!currentIds.has(id)) {
-      _shownToastIds.delete(id);
-    }
-  }
-
-  // Suppress TS unused-variable warning from old code
-  void prev;
-});
+initNip66Suggestions(getNip66Aggregator());
 
 const topology = buildDemoTopology(getDemoTopologyInputs());
 
@@ -297,16 +112,7 @@ onColorStateChange(() => {
   }
 });
 
-(function injectNotificationControls(): void {
-  const notifNodeId = getServiceNodeId('notifications');
-  const notifServiceNode = document.getElementById(notifNodeId);
-  const template = document.getElementById('notification-node-controls-template') as HTMLTemplateElement | null;
-  if (!notifServiceNode || !template) return;
-  const clone = document.importNode(template.content, true);
-  // Append inside the content wrapper so controls render within the opaque area
-  const contentWrapper = notifServiceNode.querySelector('.topology-node-content') ?? notifServiceNode;
-  contentWrapper.appendChild(clone);
-})();
+notificationUi.injectControls();
 
 // Connect debugger to tap
 const debuggerEl = document.getElementById('debugger') as NappletDebugger;
@@ -349,269 +155,13 @@ demoConfig.subscribe((key, value) => {
 // Suppress unused import warning — openConstantsTab is available for keyboard shortcuts
 void openConstantsTab;
 
-const signerNodeId = getServiceNodeId('signer');
-
-/**
- * Update the signer service node in the topology to reflect current connection state.
- * Operates surgically on the node element without re-rendering the whole topology.
- */
-function updateSignerNodeDisplay(state: SignerConnectionStateView): void {
-  const signerNode = document.getElementById(signerNodeId);
-  if (!signerNode) return;
-
-  // Target the content wrapper (overlays and toggle live outside it)
-  const contentWrapper = signerNode.querySelector('.topology-node-content') ?? signerNode;
-
-  // Remove existing dynamic content (everything before node-summary)
-  const nodeSummary = contentWrapper.querySelector('.node-summary');
-  // Clear children except the node-summary
-  const toRemove: Element[] = [];
-  for (const child of contentWrapper.children) {
-    if (!child.classList.contains('node-summary')) {
-      toRemove.push(child);
-    }
-  }
-  for (const el of toRemove) el.remove();
-
-  function meta(className: string, text: string): HTMLDivElement {
-    const el = document.createElement('div');
-    el.className = `topology-node-meta ${className}`;
-    el.textContent = text;
-    return el;
-  }
-
-  function baseNodes(): [HTMLDivElement, HTMLDivElement] {
-    const kicker = document.createElement('div');
-    kicker.className = 'topology-node-kicker';
-    kicker.textContent = 'service';
-    const title = document.createElement('div');
-    title.className = 'topology-node-title';
-    title.textContent = 'signer';
-    return [kicker, title];
-  }
-
-  const dynamicNodes: HTMLElement[] = [];
-  dynamicNodes.push(...baseNodes());
-
-  if (state.isConnecting) {
-    dynamicNodes.push(meta('signer-status-connecting', 'connecting...'));
-  } else if (state.method === 'none') {
-    if (state.error) dynamicNodes.push(meta('signer-status-error', state.error));
-    dynamicNodes.push(meta('signer-status-disconnected', 'not connected'));
-    const button = document.createElement('button');
-    button.className = 'signer-connect-btn';
-    button.dataset.action = 'open-signer-connect';
-    button.textContent = 'Connect Signer';
-    dynamicNodes.push(button);
-  } else {
-    const truncatedPubkey = state.pubkey
-      ? `${state.pubkey.substring(0, 8)}...${state.pubkey.substring(state.pubkey.length - 4)}`
-      : '';
-
-    const connected = document.createElement('div');
-    connected.className = 'topology-node-meta signer-status-connected';
-    const method = document.createElement('span');
-    method.className = 'signer-method-badge';
-    method.textContent = state.method === 'nip07' ? 'nip-07' : 'nip-46';
-    const pubkey = document.createElement('span');
-    pubkey.className = 'signer-pubkey';
-    pubkey.textContent = truncatedPubkey;
-    connected.append(method, pubkey);
-    if (state.relay) {
-      const relay = document.createElement('span');
-      relay.className = 'signer-relay';
-      relay.textContent = state.relay;
-      connected.appendChild(relay);
-    }
-    dynamicNodes.push(connected);
-
-    const recent = document.createElement('div');
-    recent.className = 'signer-recent-requests';
-    const recentLabel = document.createElement('div');
-    recentLabel.className = 'signer-recent-label';
-    recentLabel.textContent = 'recent';
-    recent.appendChild(recentLabel);
-    const recentSlice = [...state.recentRequests].reverse().slice(0, 5);
-    if (recentSlice.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'signer-no-requests';
-      empty.textContent = 'no requests yet';
-      recent.appendChild(empty);
-    } else {
-      for (const request of recentSlice) {
-        const row = document.createElement('div');
-        row.className = `signer-request-row ${request.success ? 'ok' : 'err'}`;
-        const methodEl = document.createElement('span');
-        methodEl.className = 'signer-req-method';
-        methodEl.textContent = request.method;
-        row.appendChild(methodEl);
-        if (request.kind !== undefined) {
-          const kind = document.createElement('span');
-          kind.className = 'signer-req-kind';
-          kind.textContent = `k${request.kind}`;
-          row.appendChild(kind);
-        }
-        const status = document.createElement('span');
-        status.className = 'signer-req-status';
-        status.textContent = request.success ? '✓' : '✗';
-        row.appendChild(status);
-        recent.appendChild(row);
-      }
-    }
-    dynamicNodes.push(recent);
-
-    const actions = document.createElement('div');
-    actions.className = 'signer-action-row';
-    const testBtn = document.createElement('button');
-    testBtn.className = 'signer-test-sign-btn';
-    testBtn.dataset.action = 'signer-test-sign';
-    testBtn.textContent = 'test sign';
-    const disconnectBtn = document.createElement('button');
-    disconnectBtn.className = 'signer-disconnect-btn';
-    disconnectBtn.dataset.action = 'disconnect-signer';
-    disconnectBtn.textContent = 'disconnect';
-    actions.append(testBtn, disconnectBtn);
-    dynamicNodes.push(actions);
-  }
-
-  if (nodeSummary) {
-    for (const child of dynamicNodes) contentWrapper.insertBefore(child, nodeSummary);
-  } else {
-    contentWrapper.replaceChildren(...dynamicNodes);
-  }
-}
-
-// Subscribe to signer connection state changes
-onStateChange((state) => {
-  updateSignerNodeDisplay(state);
-
-  if (state.method !== 'none' && !state.isConnecting && !state.error) {
-    debuggerEl?.addSystemMessage(
-      `signer connected via ${state.method}: ${state.pubkey?.substring(0, 16)}...`
-    );
-  }
-  if (state.error) {
-    debuggerEl?.addSystemMessage(`signer connection error: ${state.error}`);
-  }
-});
-
-initSignerModal();
+notificationUi.attachDebugger(debuggerEl ?? null);
+const signerUi = initSignerNodeUi(debuggerEl ?? null);
 
 document.addEventListener('click', (e) => {
   const target = e.target as HTMLElement;
-  if (target.closest('[data-action="open-signer-connect"]')) {
-    e.stopPropagation();
-    openSignerModal();
-  }
-  if (target.closest('[data-action="disconnect-signer"]')) {
-    e.stopPropagation();
-    disconnectSigner();
-    debuggerEl?.addSystemMessage('signer disconnected');
-  }
-
-  // Test-sign button: signs a demo kind:1 event via the connected signer (host-internal path)
-  if (target.closest('[data-action="signer-test-sign"]')) {
-    e.stopPropagation();
-    void (async () => {
-      const signer = getSignerFromConnection();
-      if (!signer) {
-        debuggerEl?.addSystemMessage('test-sign: no signer connected');
-        return;
-      }
-      try {
-        const t = Math.floor(Date.now() / 1000);
-        const pubkey = await signer.getPublicKey();
-        const template = {
-          kind: 1,
-          pubkey,
-          created_at: t,
-          tags: [],
-          content: 'demo test-sign from kehto shell',
-        };
-        const signed = await signer.signEvent(template as Parameters<NonNullable<typeof signer.signEvent>>[0]);
-        const eventId = (signed as { id?: string }).id ?? 'unknown';
-        debuggerEl?.addSystemMessage(`test-sign: OK, event id ${eventId.substring(0, 16)}...`);
-        recordSignerRequest({
-          timestamp: Date.now(),
-          method: 'signEvent',
-          kind: 1,
-          success: true,
-        });
-      } catch (err) {
-        debuggerEl?.addSystemMessage(`test-sign: error ${(err as Error).message}`);
-        recordSignerRequest({
-          timestamp: Date.now(),
-          method: 'signEvent',
-          kind: 1,
-          success: false,
-        });
-      }
-    })();
-  }
-
-  if (target.id === 'notification-node-create' || target.closest('#notification-node-create')) {
-    e.stopPropagation();
-    notificationController.createDemoNotification({
-      title: 'Demo notification',
-      body: 'Triggered from the notification service node',
-      sourceLabel: 'notifications:create via service',
-    });
-    debuggerEl?.addSystemMessage('notifications:create dispatched from host node control');
-  }
-  if (target.id === 'notification-node-list' || target.closest('#notification-node-list')) {
-    e.stopPropagation();
-    notificationController.requestList();
-    debuggerEl?.addSystemMessage('notifications:list requested');
-    // Open inspector to show the list
-    const inspector = document.getElementById('notification-inspector');
-    inspector?.classList.add('open');
-    renderNotificationInspector(_notificationSnapshot);
-  }
-  if (target.id === 'notification-node-mark-read' || target.closest('#notification-node-mark-read')) {
-    e.stopPropagation();
-    const newest = [..._notificationSnapshot.notifications].filter((n) => !n.read).pop();
-    if (newest) {
-      notificationController.markRead(newest.id);
-      debuggerEl?.addSystemMessage(`notifications:read dispatched — id:${newest.id.slice(0, 16)}`);
-    } else {
-      debuggerEl?.addSystemMessage('notifications:read — no unread notifications');
-    }
-  }
-  if (target.id === 'notification-node-dismiss' || target.closest('#notification-node-dismiss')) {
-    e.stopPropagation();
-    const newest = [..._notificationSnapshot.notifications].pop();
-    if (newest) {
-      notificationController.dismiss(newest.id);
-      debuggerEl?.addSystemMessage(`notifications:dismiss dispatched — id:${newest.id.slice(0, 16)}`);
-    } else {
-      debuggerEl?.addSystemMessage('notifications:dismiss — no notifications to dismiss');
-    }
-  }
-
-  // Inspector per-item controls
-  if ((target as HTMLElement).dataset.action === 'notif-read') {
-    e.stopPropagation();
-    const id = (target as HTMLElement).dataset.notifId;
-    if (id) {
-      notificationController.markRead(id);
-      debuggerEl?.addSystemMessage(`notifications:read from inspector — id:${id.slice(0, 16)}`);
-    }
-  }
-  if ((target as HTMLElement).dataset.action === 'notif-dismiss') {
-    e.stopPropagation();
-    const id = (target as HTMLElement).dataset.notifId;
-    if (id) {
-      notificationController.dismiss(id);
-      debuggerEl?.addSystemMessage(`notifications:dismiss from inspector — id:${id.slice(0, 16)}`);
-    }
-  }
-
-  // Close notification inspector
-  if (target.id === 'notification-inspector-close' || target.closest('#notification-inspector-close')) {
-    e.stopPropagation();
-    const inspector = document.getElementById('notification-inspector');
-    inspector?.classList.remove('open');
-  }
+  if (signerUi.handleDocumentClick(e)) return;
+  if (notificationUi.handleDocumentClick(e)) return;
 
   const colorModeBtn = target.closest<HTMLElement>('[data-color-mode]');
   if (colorModeBtn) {

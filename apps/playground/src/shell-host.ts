@@ -7,866 +7,69 @@
 
 import {
   createShellBridge,
-  buildShellCapabilities,
   originRegistry,
-  connectStore,
   type ShellBridge,
-  type ShellAdapter,
-  type ShellCapabilities,
   type ServiceHandler,
   type Capability,
-  type NappletClass,
-  type NostrEvent,
   type NappletMessage,
   type AclCheckEvent,
   type SessionEntry,
 } from '@kehto/shell';
-import {
-  createIdentityService,
-  createNotificationService,
-  createKeysService,
-  createMediaService,
-  createThemeService,
-  createConfigService,  // Phase 39 Plan 39-04 / CONFIG-03
-  createResourceService, // Phase 40 Plan 40-02 / RESOURCE-04
-  type ConfigService,
-  type HostDecryptBridge,
-  type Notification,
-  type ThemeService,
-} from '@kehto/services';
-import { getSigner, getSignerConnectionState } from './signer-connection.js';
-import { demoConfig } from './demo-config.js';
+import type { Notification } from '@kehto/services';
+import { getSignerConnectionState } from './signer-connection.js';
 import { pushAclEvent } from './acl-history.js';
-import { createMockRelayPool, createMockNip66Pool } from './mock-relay-pool.js';
-import { createNip66Aggregator, type Nip66Aggregator } from '@kehto/nip66';
-import { nip04, nip44, nip17 } from 'nostr-tools';
+import { createDemoDecryptFixtures } from './demo-decrypt.js';
+import {
+  CLASS_BY_DTAG,
+  DEMO_NAPPLETS,
+  DEMO_TOPOLOGY_SERVICE_NAMES,
+  type DemoNappletDefinition,
+} from './demo-definitions.js';
+import {
+  createDemoHooks,
+  getMissingRequiredNubs,
+  setDemoSessionRegistryRef,
+} from './demo-hooks.js';
+import { createMessageTap, type MessageTap } from './message-tap.js';
 
 // Static ephemeral host identity for shell node display (separate from signer identity)
-import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools/pure';
+import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 const _hostSecretKey = generateSecretKey();
 const _hostPubkey = getPublicKey(_hostSecretKey);
 
-function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-  }
-  return bytes;
-}
-
-// Demo-only deterministic decrypt identity. This is intentionally a public
-// fixture key for playground decrypt flows; downstream shells must inject
-// their own private key / signer / backend bridge.
-const DEMO_DECRYPT_SECRET_KEY = hexToBytes('11'.repeat(32));
-export const DEMO_DECRYPT_PUBKEY = getPublicKey(DEMO_DECRYPT_SECRET_KEY);
-const DEMO_DECRYPT_SENDER_SECRET_KEY = hexToBytes('22'.repeat(32));
-
-export interface DemoDecryptModeFixture {
-  event: NostrEvent;
-  expected: { mode: 'nip04' | 'nip44' | 'nip17'; id: string };
-}
-
-export interface DemoDecryptFixtures {
-  nip04: DemoDecryptModeFixture;
-  nip44: DemoDecryptModeFixture;
-  nip17: DemoDecryptModeFixture;
-}
-
-let demoDecryptBridgeCallCount = 0;
-
-function recordDemoDecryptBridgeCall(): void {
-  demoDecryptBridgeCallCount++;
-}
-
-export function getDemoDecryptBridgeCallCount(): number {
-  return demoDecryptBridgeCallCount;
-}
-
-export function resetDemoDecryptBridgeCallCount(): void {
-  demoDecryptBridgeCallCount = 0;
-}
-
-function finalizeDemoDecryptEvent(kind: number, content: string, createdAt: number): NostrEvent {
-  return finalizeEvent({
-    kind,
-    content,
-    tags: [['p', DEMO_DECRYPT_PUBKEY]],
-    created_at: createdAt,
-  }, DEMO_DECRYPT_SENDER_SECRET_KEY) as NostrEvent;
-}
-
-async function createDemoDecryptFixtures(): Promise<DemoDecryptFixtures> {
-  const payloads = {
-    nip04: { mode: 'nip04' as const, id: 'fixture-nip04' },
-    nip44: { mode: 'nip44' as const, id: 'fixture-nip44' },
-    nip17: { mode: 'nip17' as const, id: 'fixture-nip17' },
-  };
-  const nip04Content = await nip04.encrypt(
-    DEMO_DECRYPT_SENDER_SECRET_KEY,
-    DEMO_DECRYPT_PUBKEY,
-    JSON.stringify(payloads.nip04),
-  );
-  const conversationKey = nip44.v2.utils.getConversationKey(
-    DEMO_DECRYPT_SENDER_SECRET_KEY,
-    DEMO_DECRYPT_PUBKEY,
-  );
-  const nip44Content = nip44.v2.encrypt(JSON.stringify(payloads.nip44), conversationKey);
-  const nip17Event = nip17.wrapEvent(
-    DEMO_DECRYPT_SENDER_SECRET_KEY,
-    { publicKey: DEMO_DECRYPT_PUBKEY },
-    JSON.stringify(payloads.nip17),
-  ) as NostrEvent;
-
-  return {
-    nip04: {
-      event: finalizeDemoDecryptEvent(4, nip04Content, 1_700_000_004),
-      expected: payloads.nip04,
-    },
-    nip44: {
-      event: finalizeDemoDecryptEvent(14, nip44Content, 1_700_000_014),
-      expected: payloads.nip44,
-    },
-    nip17: {
-      event: nip17Event,
-      expected: payloads.nip17,
-    },
-  };
-}
-
-function createDemoDecryptBridge(): HostDecryptBridge {
-  return {
-    async nip04Decrypt(senderPubkey: string, ciphertext: string): Promise<string> {
-      recordDemoDecryptBridgeCall();
-      return nip04.decrypt(DEMO_DECRYPT_SECRET_KEY, senderPubkey, ciphertext);
-    },
-    async nip44Decrypt(senderPubkey: string, ciphertext: string): Promise<string> {
-      recordDemoDecryptBridgeCall();
-      const conversationKey = nip44.v2.utils.getConversationKey(DEMO_DECRYPT_SECRET_KEY, senderPubkey);
-      return nip44.v2.decrypt(ciphertext, conversationKey);
-    },
-    async unwrapGiftWrap(wrap: NostrEvent) {
-      recordDemoDecryptBridgeCall();
-      const rumor = nip17.unwrapEvent(
-        wrap as Parameters<typeof nip17.unwrapEvent>[0],
-        DEMO_DECRYPT_SECRET_KEY,
-      );
-      // nostr-tools returns the rumor only; the service contract expects the
-      // validated seal pubkey so it can enforce the impersonation check.
-      // The playground fixture bridge derives that sender from the returned
-      // rumor for demo use. Real host bridges should return the actual seal.
-      const seal: NostrEvent = {
-        ...wrap,
-        id: `${wrap.id}:seal`,
-        kind: 13,
-        pubkey: rumor.pubkey,
-        content: '',
-        tags: [],
-        created_at: rumor.created_at,
-        sig: '',
-      };
-      return { seal, rumor };
-    },
-  };
-}
+export {
+  DEMO_DECRYPT_PUBKEY,
+  getDemoDecryptBridgeCallCount,
+  resetDemoDecryptBridgeCallCount,
+  type DemoDecryptFixtures,
+} from './demo-decrypt.js';
+export {
+  DEMO_NAPPLETS,
+  DEMO_PROTOCOL_PATH_INDEX,
+  DEMO_PROTOCOL_PATHS,
+  DEMO_SIGNER_MODE,
+  DEMO_TOPOLOGY_SERVICE_NAMES,
+  STUB_ONLY_SERVICES,
+  getDemoHostAuditSummary,
+  type DemoNappletDefinition,
+  type DemoPathAuditEntry,
+  type DemoProtocolPath,
+  type DemoSignerMode,
+} from './demo-definitions.js';
+export type { MessageTap, TappedMessage } from './message-tap.js';
+export {
+  getConfigServiceBundle,
+  getIdentityServiceHandler,
+  getMissingRequiredNubs,
+  getNip66Aggregator,
+  getNotificationServiceHandler,
+  getShellCapabilities,
+  getThemeServiceBundle,
+  setDemoConfigValue,
+} from './demo-hooks.js';
 
 // Inline a simplified message tap since we can't import from tests/helpers in apps/
 // (they are not a published package)
-
-export interface TappedMessage {
-  index: number;
-  timestamp: number;
-  direction: 'napplet->shell' | 'shell->napplet';
-  verb: string;                                          // 'EVENT'|'REQ'|...|'ENVELOPE'
-  windowId?: string;
-  raw: unknown[] | NappletMessage;
-  envelope?: NappletMessage;                             // present when raw is a plain-object envelope
-  envelopeType?: string;                                 // envelope.type for convenience
-  parsed: {
-    subId?: string;
-    eventKind?: number;
-    eventId?: string;
-    topic?: string;
-    success?: boolean;
-    reason?: string;
-    pubkey?: string;
-    domain?: string;                                     // envelope.type.split('.')[0]
-  };
-}
-
-export interface MessageTap {
-  messages: TappedMessage[];
-  recordOutbound(msg: unknown[], windowId?: string): void;
-  recordOutboundEnvelope(envelope: NappletMessage, windowId?: string): void;    // NEW
-  recordInboundEnvelope(envelope: NappletMessage, windowId?: string): void;     // NEW
-  install(shellWindow: Window): void;
-  onMessage(callback: (msg: TappedMessage) => void): () => void;
-  filter(criteria: { verb?: string; direction?: string; envelopeType?: string }): TappedMessage[];
-  clear(): void;
-}
-
-export interface DemoNappletDefinition {
-  name: string;
-  label: string;
-  statusId: string;
-  aclId: string;
-  frameContainerId: string;
-  surface?: 'napplet' | 'runtime-demo';
-  hasAclControls?: boolean;
-}
-
-export type DemoProtocolPath =
-  | 'identity-bind'
-  | 'relay-publish'
-  | 'relay-subscribe'
-  | 'ifc-send'
-  | 'ifc-receive'
-  | 'state-read'
-  | 'state-write'
-  | 'identity-request'
-  | 'relay-publish-signed';
-
-export interface DemoPathAuditEntry {
-  path: DemoProtocolPath;
-  capability: Capability | null;
-  direction: 'host->runtime' | 'runtime->napplet' | 'napplet->runtime';
-  explanation: string;
-}
-
-export type DemoSignerMode = 'service' | 'fallback';
-
-export const DEMO_SIGNER_MODE: DemoSignerMode = 'service';
-
-/**
- * Services that still expose NIP-5D envelopes with stub-only backends.
- *
- * Phase 26 (KEYS-01) promoted `keys` to a real document-level chord listener.
- * Phase 27 (MEDIA-01) promoted `media` to a real navigator.mediaSession mirror.
- * The stub-only era ends here — all 8 non-stub NUB domains are now exercised
- * end-to-end in the v1.4 demo.
- */
-export const STUB_ONLY_SERVICES: readonly string[] = [] as const;
-
-/** All 8 NIP-5D-adjacent topology node names the demo renders on boot. */
-export const DEMO_TOPOLOGY_SERVICE_NAMES: readonly string[] = [
-  'identity',
-  'keys',
-  'media',
-  'notifications',
-  'relay',
-  'signer',
-  'storage',
-  'theme',
-] as const;
-
-export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
-  {
-    name: 'chat',
-    label: 'chat',
-    statusId: 'chat-status',
-    aclId: 'chat-acl',
-    frameContainerId: 'chat-frame-container',
-  },
-  {
-    name: 'bot',
-    label: 'bot',
-    statusId: 'bot-status',
-    aclId: 'bot-acl',
-    frameContainerId: 'bot-frame-container',
-  },
-  {
-    name: 'composer',
-    label: 'composer',
-    statusId: 'composer-status',
-    aclId: 'composer-acl',
-    frameContainerId: 'composer-frame-container',
-  },
-  {
-    name: 'preferences',
-    label: 'preferences',
-    statusId: 'preferences-status',
-    aclId: 'preferences-acl',
-    frameContainerId: 'preferences-frame-container',
-  },
-  {
-    name: 'toaster',
-    label: 'toaster',
-    statusId: 'toaster-status',
-    aclId: 'toaster-acl',
-    frameContainerId: 'toaster-frame-container',
-  },
-  {
-    name: 'feed',
-    label: 'feed',
-    statusId: 'feed-status',
-    aclId: 'feed-acl',
-    frameContainerId: 'feed-frame-container',
-  },
-  {
-    name: 'profile-viewer',
-    label: 'profile-viewer',
-    statusId: 'profile-status',
-    aclId: 'profile-viewer-acl',
-    frameContainerId: 'profile-viewer-frame-container',
-  },
-  {
-    name: 'theme-switcher',
-    label: 'theme-switcher',
-    statusId: 'theme-status',
-    aclId: 'theme-switcher-acl',
-    frameContainerId: 'theme-switcher-frame-container',
-  },
-  {
-    name: 'hotkey-chord',
-    label: 'hotkey-chord',
-    statusId: 'hotkey-chord-status',
-    aclId: 'hotkey-chord-acl',
-    frameContainerId: 'hotkey-chord-frame-container',
-    surface: 'runtime-demo',
-    hasAclControls: false,
-  },
-  {
-    name: 'media-controller',
-    label: 'media-controller',
-    statusId: 'media-controller-status',
-    aclId: 'media-controller-acl',
-    frameContainerId: 'media-controller-frame-container',
-    surface: 'runtime-demo',
-    hasAclControls: false,
-  },
-  // Phase 39 (Plan 39-04 / CONFIG-03): config-demo napplet exercises the
-  // NUB-CONFIG reference service (9th NUB domain). sdk.config.get + sdk.config.subscribe
-  // against createConfigService registered in createDemoHooks. statusId matches the INNER
-  // iframe sentinel from napplets/config-demo/index.html; Plan 39-05's nub-config.spec.ts
-  // asserts via frameLocator on #config-demo-values, not the outer placeholder.
-  {
-    name: 'config-demo',
-    label: 'config-demo',
-    statusId: 'config-demo-status',
-    aclId: 'config-demo-acl',
-    frameContainerId: 'config-demo-frame-container',
-    surface: 'runtime-demo',
-    hasAclControls: false,
-  },
-  // Phase 40 (Plan 40-02 / RESOURCE-04): resource-demo napplet exercises the
-  // NUB-RESOURCE reference service (10th NUB domain). Two resource.bytes
-  // dispatches on init: one to demo-data.json on the active playground origin
-  // (granted at boot via __grantConnectOrigin__ — D3) and one to
-  // https://untrusted.example (denied, D4). Plan 40-03's nub-resource.spec.ts
-  // asserts the granted panel (decoded JSON) + denied panel (canonical error
-  // code) via frameLocator on the iframe sentinels.
-  {
-    name: 'resource-demo',
-    label: 'resource-demo',
-    statusId: 'resource-demo-status',
-    aclId: 'resource-demo-acl',
-    frameContainerId: 'resource-demo-frame-container',
-  },
-  {
-    name: 'decrypt-demo',
-    label: 'decrypt-demo',
-    statusId: 'decrypt-demo-status',
-    aclId: 'decrypt-demo-acl',
-    frameContainerId: 'decrypt-demo-frame-container',
-    surface: 'runtime-demo',
-    hasAclControls: false,
-  },
-];
-
-/**
- * Per-napplet class posture assignment (CLASS-04, v1.7 Phase 38, D3).
- *
- * Adjacent to DEMO_NAPPLETS — every entry in DEMO_NAPPLETS MUST have a
- * corresponding entry here. The module-load assertion below (D4, H-05
- * prevention) enforces this: adding a napplet to DEMO_NAPPLETS without
- * updating CLASS_BY_DTAG throws at import time, breaking `pnpm build`.
- *
- * All 11 v1.7-era demo napplets default to `null` (permissive) so no existing
- * E2E spec regresses (D2). The cross-NUB invariant spec
- * (tests/e2e/class-invariant.spec.ts) uses `window.__setNappletClass__` to
- * temporarily assign 'class-2' to theme-switcher for the test window — no
- * real restrictive policy lives in this map.
- */
-export const CLASS_BY_DTAG: ReadonlyMap<string, NappletClass> = new Map<string, NappletClass>([
-  ['chat', null],
-  ['bot', null],
-  ['composer', null],
-  ['preferences', null],
-  ['toaster', null],
-  ['feed', null],
-  ['profile-viewer', null],
-  ['theme-switcher', null],
-  ['hotkey-chord', null],
-  ['media-controller', null],
-  // Phase 39 (CONFIG-03): config-demo permissive by default (no class restriction).
-  ['config-demo', null],
-  // Phase 40 (RESOURCE-04): resource-demo permissive by default (no class restriction).
-  ['resource-demo', null],
-  // Phase 46 (DECRYPT-09): decrypt-demo defaults to permissive/class-1 posture.
-  ['decrypt-demo', null],
-]);
-
-{
-  const _missingClassEntries = DEMO_NAPPLETS
-    .map((d) => d.name)
-    .filter((name) => !CLASS_BY_DTAG.has(name));
-  if (_missingClassEntries.length > 0) {
-    throw new Error(
-      `[CLASS-04 / H-05] CLASS_BY_DTAG is missing entries for DEMO_NAPPLETS: ${_missingClassEntries.join(', ')}. ` +
-      `Add each missing entry with an explicit class assignment (use null for the permissive default).`
-    );
-  }
-}
-
-export const DEMO_PROTOCOL_PATHS: DemoPathAuditEntry[] = [
-  {
-    path: 'identity-bind',
-    capability: null,
-    direction: 'napplet->runtime',
-    explanation: 'NIP-5D iframe registration establishes napplet identity before capability checks begin.',
-  },
-  {
-    path: 'relay-publish',
-    capability: 'relay:write',
-    direction: 'napplet->runtime',
-    explanation: 'Regular EVENT publishes go through relay write enforcement before they fan out.',
-  },
-  {
-    path: 'relay-subscribe',
-    capability: 'relay:read',
-    direction: 'napplet->runtime',
-    explanation: 'REQ and relay delivery both rely on relay read permission.',
-  },
-  {
-    path: 'ifc-send',
-    capability: 'relay:write',
-    direction: 'napplet->runtime',
-    explanation: 'Non-state ifc events reuse the relay write sender gate before delivery.',
-  },
-  {
-    path: 'ifc-receive',
-    capability: 'relay:read',
-    direction: 'runtime->napplet',
-    explanation: 'Recipients need relay read permission to receive non-state ifc events.',
-  },
-  {
-    path: 'state-read',
-    capability: 'state:read',
-    direction: 'napplet->runtime',
-    explanation: 'shell:state-get and shell:state-keys topics are routed as state reads.',
-  },
-  {
-    path: 'state-write',
-    capability: 'state:write',
-    direction: 'napplet->runtime',
-    explanation: 'shell:state-set, remove, and clear topics require state write permission.',
-  },
-  {
-    path: 'identity-request',
-    capability: 'identity:read',
-    direction: 'napplet->runtime',
-    explanation: 'identity.getPublicKey reads flow through ShellAdapter.auth.getSigner; the shell signs relay.publish envelopes internally, not via a separate signer service.',
-  },
-  {
-    path: 'relay-publish-signed',
-    capability: 'relay:write',
-    direction: 'runtime->napplet',
-    explanation: 'relay.publish envelopes are signed by the shell-internal signer before being handed to the relay pool; napplets never see the signing step.',
-  },
-];
-
-export const DEMO_PROTOCOL_PATH_INDEX: Record<DemoProtocolPath, DemoPathAuditEntry> =
-  Object.fromEntries(DEMO_PROTOCOL_PATHS.map((entry) => [entry.path, entry])) as Record<DemoProtocolPath, DemoPathAuditEntry>;
-
-export function getDemoHostAuditSummary(): string {
-  const auditedPaths = DEMO_PROTOCOL_PATHS
-    .map((entry) => `${entry.path}:${entry.capability ?? 'none'}`)
-    .join(', ');
-  return `host ready -- signer mode: ${DEMO_SIGNER_MODE}; audited paths: ${auditedPaths}`;
-}
-
-const KNOWN_VERBS = new Set([
-  'EVENT', 'REQ', 'CLOSE', 'AUTH', 'OK', 'EOSE', 'NOTICE', 'CLOSED', 'COUNT',
-]);
-
-function parseMessage(raw: unknown[]): TappedMessage['parsed'] {
-  const verb = raw[0] as string;
-  const parsed: TappedMessage['parsed'] = {};
-  switch (verb) {
-    case 'EVENT': {
-      if (raw.length === 2 && typeof raw[1] === 'object' && raw[1] !== null) {
-        const ev = raw[1] as Record<string, unknown>;
-        parsed.eventId = ev.id as string;
-        parsed.eventKind = ev.kind as number;
-        parsed.pubkey = ev.pubkey as string;
-        const tags = (ev.tags as string[][] | undefined) ?? [];
-        const t = tags.find(t => t[0] === 't');
-        if (t) parsed.topic = t[1];
-      } else if (raw.length === 3) {
-        parsed.subId = raw[1] as string;
-        const ev = raw[2] as Record<string, unknown>;
-        parsed.eventId = ev.id as string;
-        parsed.eventKind = ev.kind as number;
-        parsed.pubkey = ev.pubkey as string;
-        const tags = (ev.tags as string[][] | undefined) ?? [];
-        const t = tags.find(t => t[0] === 't');
-        if (t) parsed.topic = t[1];
-      }
-      break;
-    }
-    case 'REQ': parsed.subId = raw[1] as string; break;
-    case 'CLOSE': parsed.subId = raw[1] as string; break;
-    case 'AUTH': {
-      if (typeof raw[1] === 'object' && raw[1] !== null) {
-        const ev = raw[1] as Record<string, unknown>;
-        parsed.eventId = ev.id as string;
-        parsed.eventKind = ev.kind as number;
-        parsed.pubkey = ev.pubkey as string;
-      }
-      break;
-    }
-    case 'OK': {
-      parsed.eventId = raw[1] as string;
-      parsed.success = raw[2] as boolean;
-      parsed.reason = raw[3] as string;
-      break;
-    }
-    case 'EOSE': parsed.subId = raw[1] as string; break;
-    case 'NOTICE': parsed.reason = raw[1] as string; break;
-    case 'CLOSED': {
-      parsed.subId = raw[1] as string;
-      parsed.reason = raw[2] as string;
-      break;
-    }
-  }
-  return parsed;
-}
-
-function parseEnvelope(envelope: NappletMessage): TappedMessage['parsed'] {
-  const type = envelope.type;
-  const domain = type.includes('.') ? type.split('.')[0] : type;
-  const parsed: TappedMessage['parsed'] = { domain };
-  const env = envelope as NappletMessage & Record<string, unknown>;
-  if (typeof env.id === 'string') parsed.eventId = env.id;
-  if (typeof env.subscriptionId === 'string') parsed.subId = env.subscriptionId;
-  if (typeof env.error === 'string') parsed.reason = env.error;
-  return parsed;
-}
-
-function createMessageTap(): MessageTap {
-  const messages: TappedMessage[] = [];
-  const listeners: Array<(msg: TappedMessage) => void> = [];
-  let idx = 0;
-
-  function record(
-    direction: TappedMessage['direction'],
-    raw: unknown[] | NappletMessage,
-    windowId?: string,
-  ): void {
-    const isEnvelope =
-      !Array.isArray(raw) &&
-      typeof raw === 'object' &&
-      raw !== null &&
-      typeof (raw as NappletMessage).type === 'string';
-    const envelope = isEnvelope ? (raw as NappletMessage) : undefined;
-    const envelopeType = envelope?.type;
-    const verb = envelope
-      ? 'ENVELOPE'
-      : Array.isArray(raw) && typeof raw[0] === 'string' && KNOWN_VERBS.has(raw[0] as string)
-        ? (raw[0] as string)
-        : 'UNKNOWN';
-    const parsed = envelope ? parseEnvelope(envelope) : parseMessage(raw as unknown[]);
-    const msg: TappedMessage = {
-      index: idx++,
-      timestamp: Date.now(),
-      direction,
-      verb,
-      windowId,
-      raw,
-      envelope,
-      envelopeType,
-      parsed,
-    };
-    messages.push(msg);
-    for (const cb of listeners) { try { cb(msg); } catch { /* ignore */ } }
-  }
-
-  return {
-    messages,
-    recordOutbound(msg: unknown[], windowId?: string) { if (Array.isArray(msg)) record('shell->napplet', msg, windowId); },
-    recordOutboundEnvelope(envelope: NappletMessage, windowId?: string) {
-      record('shell->napplet', envelope, windowId);
-    },
-    recordInboundEnvelope(envelope: NappletMessage, windowId?: string) {
-      record('napplet->shell', envelope, windowId);
-    },
-    install(shellWindow: Window) {
-      shellWindow.addEventListener('message', (event: MessageEvent) => {
-        // Resolve windowId from event.source
-        let wid: string | undefined;
-        for (const [id, info] of napplets) {
-          if (info.iframe?.contentWindow === event.source) { wid = id; break; }
-        }
-        if (Array.isArray(event.data)) {
-          record('napplet->shell', event.data, wid);
-        } else if (
-          typeof event.data === 'object' &&
-          event.data !== null &&
-          typeof (event.data as NappletMessage).type === 'string'
-        ) {
-          record('napplet->shell', event.data as NappletMessage, wid);
-        }
-      }, true);
-    },
-    onMessage(callback) {
-      listeners.push(callback);
-      return () => {
-        const i = listeners.indexOf(callback);
-        if (i !== -1) listeners.splice(i, 1);
-      };
-    },
-    filter(criteria) {
-      return messages.filter(m => {
-        if (criteria.verb && m.verb !== criteria.verb) return false;
-        if (criteria.direction && m.direction !== criteria.direction) return false;
-        if (criteria.envelopeType && m.envelopeType !== criteria.envelopeType) return false;
-        return true;
-      });
-    },
-    clear() { messages.length = 0; idx = 0; },
-  };
-}
-
-/**
- * CONTEXT D-USER-01 (Phase 20): ShellAdapter.relayPool is backed by the in-memory
- * mock pool (apps/playground/src/mock-relay-pool.ts) rather than the old no-op stub. This
- * unblocks the feed napplet (NAP-06) — on relay.subscribe({kinds:[1]}) the pool
- * emits 5 fixture events then EOSE. relay.publish events are stored in-memory
- * only (no network traffic). Demo-only; not part of any @kehto/* package.
- */
-function createDemoHooks(notificationOnChange?: (notifications: readonly Notification[]) => void): ShellAdapter {
-  const notificationService = createNotificationService({
-    onChange: notificationOnChange,
-    maxPerWindow: 50,
-  });
-  // Plan 26-03 (KEYS-03): real keys backend wired. The onForward callback
-  // records each chord delivery via the demo's console + diagnostic log (host-side
-  // evidence of real delivery). The service itself attaches a document-level keydown
-  // listener AND emits keys.action pushes to the owning napplet (Plan 26-01); the
-  // keys-forwarder.ts path (ACL-gated iframe broadcast of keys.forward) is unchanged
-  // and remains authoritative for shell → napplet fan-out.
-  //
-  // Phase 33 / KEYS-04..06 (E2E-17): the demo reserves `Ctrl+Shift+R` so the
-  // Layer-B Playwright spec (`tests/e2e/reserved-chord.spec.ts`) can assert the
-  // reserved > registered precedence contract end-to-end. The hotkey-chord napplet
-  // registers `Ctrl+Shift+K` via `keys.registerAction`
-  // (apps/playground/napplets/hotkey-chord/src/main.ts:25) — disjoint from the reserved
-  // set, so the existing hotkey-chord E2E (E2E-12) is unaffected. The shell-side
-  // sentinel `#reserved-chord-last-fired` is updated on every onForward fire so
-  // the E2E can observe forward delivery without needing a frameLocator round-trip.
-  const keysService = createKeysService({
-    reservedChords: ['Ctrl+Shift+R'],
-    onForward: (event) => {
-      const sentinel = document.getElementById('reserved-chord-last-fired');
-      if (sentinel) {
-        const parts: string[] = [];
-        if (event.ctrlKey) parts.push('Ctrl');
-        if (event.altKey) parts.push('Alt');
-        if (event.shiftKey) parts.push('Shift');
-        if (event.metaKey) parts.push('Meta');
-        parts.push(event.key.length === 1 ? event.key.toUpperCase() : event.key);
-        sentinel.textContent = parts.join('+');
-      }
-    },
-  });
-  // Plan 27-03 (MEDIA-03): real media backend wired. The onSessionCreate callback
-  // indicates real-backend status; the service itself installs navigator.mediaSession
-  // action handlers and mirrors metadata/playbackState (Plan 27-01) via the default
-  // createBrowserMediaBridge (Plan 27-02). Host apps that want native OS-level
-  // transport surfaces can pass a custom hostBridge: HostMediaBridge override.
-  const mediaService = createMediaService({
-    onSessionCreate: (windowId, sessionId, metadata) => {
-      void windowId;
-      void sessionId;
-      void metadata;
-    },
-  });
-  const themeServiceBundle = createThemeService({
-    onBroadcast: () => {},
-  });
-  _themeServiceBundle = themeServiceBundle;
-
-  const configServiceBundle = createConfigService({
-    getValues: () => ({ ...demoConfigFixtures }),
-  });
-  _configServiceBundle = configServiceBundle;
-
-  async function hostFetch(
-    url: string,
-    init: { method?: string; headers?: Record<string, string>; signal: AbortSignal },
-  ): Promise<Response> {
-    const timeoutController = new AbortController();
-    const timeoutId = setTimeout(() => timeoutController.abort(), 10_000);
-    // Compose: forward both abort signals into fetch.
-    const composite = new AbortController();
-    for (const src of [init.signal, timeoutController.signal]) {
-      src.addEventListener('abort', () => composite.abort(), { once: true });
-    }
-    try {
-      return await fetch(url, { method: init.method, headers: init.headers, signal: composite.signal });
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  }
-
-  const resourceHandler = createResourceService({
-    fetch: hostFetch,
-    isOriginGranted: (origin, grants) => grants.includes(origin),
-    getConnectGrants: (dTag, aggregateHash) => connectStore.getOrigins(dTag, aggregateHash),
-    resolveIdentity: (windowId) => {
-      const entry = _sessionRegistryRef?.getEntryByWindowId(windowId);
-      return entry ? { dTag: entry.dTag, aggregateHash: entry.aggregateHash } : null;
-    },
-  });
-
-  const demoDecryptBridge = createDemoDecryptBridge();
-  const verifyDemoEvent = async (event: NostrEvent): Promise<boolean> => {
-    const { verifyEvent } = await import('nostr-tools/pure');
-    return verifyEvent(event as Parameters<typeof verifyEvent>[0]);
-  };
-
-  const services = {
-    identity: createIdentityService({
-      getSigner,
-      getDecryptor: () => demoDecryptBridge,
-      verifyEvent: verifyDemoEvent,
-    }),
-    notifications: notificationService,
-    // Phase 19 (Plan 19-04): dual-register notification-service under 'notify' so the
-    // runtime's serviceRegistry['notify'] lookup (packages/runtime/src/runtime.ts:1000)
-    // routes notify.create / notify.list / notify.dismiss envelopes from the toaster
-    // (Plan 19-03) to the same handler. The 'notifications' key stays for topology
-    // display + host-originated wiring via notification-demo.ts. Both keys reference
-    // the SAME handler instance — see <dual_registration_rationale> in 19-04-PLAN.md.
-    notify: notificationService,
-    keys: keysService,
-    media: mediaService,
-    theme: themeServiceBundle.handler,
-    config: configServiceBundle.handler,  // Phase 39 (CONFIG-03): NUB-CONFIG reference service
-    resource: resourceHandler,            // Phase 40 (RESOURCE-04): NUB-RESOURCE reference service
-  };
-  // Expose the notification service handler so the controller can dispatch to it directly
-  _notificationServiceHandler = notificationService;
-  // Expose the identity service handler for host-side diagnostic probe flows
-  _identityServiceHandler = services.identity;
-  // Phase 41 Plan 41-01 (NIP66-07 / D5–D7): live nip66 demo wiring.
-  // Fixture mock pool emits 3 kind:30166 events via queueMicrotask; aggregator
-  // parses d-tags (URLs) and N-tags (NIP numbers). Suggestions surface via the
-  // relayConfig.getNip66Suggestions hook and in the #nip66-suggestions-list
-  // shell-chrome panel (main.ts populates it on start()).
-  const nip66Aggregator = createNip66Aggregator({
-    pool: createMockNip66Pool(),
-    bootstrap: ['wss://demo-monitor.local'],
-  });
-  _nip66Aggregator = nip66Aggregator;
-
-  return {
-    // CONTEXT D-USER-01 (Phase 20): in-memory mock relay pool holding 5 kind:1 fixture
-    // events. On relay.subscribe({kinds:[1]}) emits matching events then EOSE; on
-    // relay.publish stores the event in an in-memory array. Demo-only seam; no real
-    // relay traffic. See apps/playground/src/mock-relay-pool.ts for the implementation.
-    relayPool: createMockRelayPool(),
-    relayConfig: {
-      addRelay: () => {},
-      removeRelay: () => {},
-      getRelayConfig: () => ({ discovery: [], super: [], outbox: [] }),
-      // Phase 41 Plan 41-01 (NIP66-07): live aggregator — returns the current
-      // relay set as a plain string[] snapshot. Empty array before start()
-      // fires the first event (Promise-microtask timing; not null).
-      getNip66Suggestions: () => Array.from(nip66Aggregator.getRelaySet()),
-    },
-    windowManager: { createWindow: () => null },
-    auth: {
-      getUserPubkey: () => getSignerConnectionState().pubkey ?? '',
-      getSigner,
-    },
-    services,
-    config: { getNappUpdateBehavior: () => 'auto-grant' },
-    hotkeys: { executeHotkeyFromForward: () => {} },
-    workerRelay: { getWorkerRelay: () => null },
-    crypto: {
-      verifyEvent: async (event: NostrEvent): Promise<boolean> => {
-        const { verifyEvent } = await import('nostr-tools/pure');
-        return verifyEvent(event as Parameters<typeof verifyEvent>[0]);
-      },
-      randomBytes: (length: number): Uint8Array => crypto.getRandomValues(new Uint8Array(length)),
-      randomUUID: () => crypto.randomUUID(),
-    },
-    shellSecretPersistence: {
-      get(): Uint8Array | null {
-        try {
-          const hex = localStorage.getItem('napplet-shell-secret');
-          if (!hex) return null;
-          const bytes = new Uint8Array(hex.length / 2);
-          for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-          return bytes;
-        } catch { return null; }
-      },
-      set(secret: Uint8Array): void {
-        try {
-          const hex = Array.from(secret).map(b => b.toString(16).padStart(2, '0')).join('');
-          localStorage.setItem('napplet-shell-secret', hex);
-        } catch { /* localStorage unavailable */ }
-      },
-    },
-    guidPersistence: {
-      get(windowId: string): string | null {
-        try { return localStorage.getItem(`napplet-guid:${windowId}`); } catch { return null; }
-      },
-      set(windowId: string, guid: string): void {
-        try { localStorage.setItem(`napplet-guid:${windowId}`, guid); } catch { /* best-effort */ }
-      },
-      remove(windowId: string): void {
-        try { localStorage.removeItem(`napplet-guid:${windowId}`); } catch { /* best-effort */ }
-      },
-    },
-    getConfigOverrides() {
-      return {
-        replayWindowSeconds: demoConfig.get('core.REPLAY_WINDOW_SECONDS'),
-        ringBufferSize: demoConfig.get('runtime.RING_BUFFER_SIZE'),
-      };
-    },
-    onAclCheck: (event) => {
-      // Plan 38-03 (E2E-20): push ACL events to window.__aclEvents__ for
-      // the class-invariant spec to observe class-forbidden denials.
-      if (typeof window !== 'undefined') {
-        const w = window as Window & { __aclEvents__?: Array<unknown> };
-        w.__aclEvents__ ??= [];
-        w.__aclEvents__.push({ ...event });  // shallow-copy to avoid mutation
-      }
-      // Resolve windowId and name from pubkey (or dTag for NIP-5D napplets)
-      let windowId = '';
-      let nappletName = 'unknown';
-      for (const [wid, info] of napplets) {
-        // Path A: legacy pubkey-based napplets
-        if (info.pubkey && info.pubkey === event.identity.pubkey) {
-          windowId = wid;
-          nappletName = info.name;
-          break;
-        }
-        // Path B: NIP-5D napplets with empty pubkey — match by dTag
-        if (!event.identity.pubkey && info.dTag === event.identity.dTag) {
-          windowId = wid;
-          nappletName = info.name;
-          break;
-        }
-      }
-      if (windowId) {
-        pushAclEvent(event, windowId, nappletName);
-        _notifyAclCheckListeners(event, windowId, nappletName);
-      }
-    },
-  };
-}
 
 const proxyToReal = new WeakMap<object, Window>();
 
@@ -922,79 +125,8 @@ const napplets = new Map<string, NappletInfo>();
 const demoServiceNames = new Set<string>(DEMO_TOPOLOGY_SERVICE_NAMES);
 let nappletCounter = 0;
 
-/** Permanent store of all service handler references — never deleted, used for re-registration on toggle-on. */
 const serviceHandlerStore = new Map<string, ServiceHandler>();
-
-/** Set of service names that are currently disabled (unregistered from runtime). */
 const disabledServices = new Set<string>();
-
-let _notificationServiceHandler: ServiceHandler | null = null;
-let _themeServiceBundle: ThemeService | null = null;
-let _identityServiceHandler: ServiceHandler | null = null;
-
-/** Phase 39 Plan 39-04 — shell-side config fixture (D11). Mutable; setDemoConfigValue publishes changes. */
-const demoConfigFixtures: Record<string, unknown> = {
-  theme: 'dark',
-  density: 'compact',
-  'notifications-enabled': true,
-  recentSearches: [],
-};
-
-let _configServiceBundle: ConfigService | null = null;
-let _shellCapabilities: ShellCapabilities | null = null;
-
-/** Phase 41 Plan 41-01 (NIP66-07): live nip66 aggregator instance for the demo. */
-let _nip66Aggregator: Nip66Aggregator | null = null;
-
-/**
- * Get the demo nip66 aggregator. Populated inside createDemoHooks; accessible
- * for main.ts to call start() + stop() and to render the suggestions panel.
- */
-export function getNip66Aggregator(): Nip66Aggregator | null {
-  return _nip66Aggregator;
-}
-
-/**
- * Phase 40 Plan 40-02 (RESOURCE-04): deferred session registry ref.
- *
- * createResourceService() is constructed inside createDemoHooks() (before
- * bootShell() creates relay). The resolveIdentity option must look up
- * sessionRegistry.getEntryByWindowId, which is only available after
- * relay = createShellBridge(hooks). This ref is populated in bootShell()
- * immediately after createShellBridge — before any napplet iframe loads.
- *
- * Timing safety: the first resource.bytes dispatch cannot arrive until the
- * napplet iframe loads, becomes identity-bound, and dispatches, which is strictly
- * after bootShell() returns. The assignment window is safe.
- */
-let _sessionRegistryRef: {
-  getEntryByWindowId(windowId: string): SessionEntry | undefined;
-} | null = null;
-
-/** Phase 39 Plan 39-04 — access the registered config service bundle for publishValues. */
-export function getConfigServiceBundle(): ConfigService | null {
-  return _configServiceBundle;
-}
-
-export function setDemoConfigValue(key: string, value: unknown): void {
-  demoConfigFixtures[key] = value;
-  _configServiceBundle?.publishValues({ ...demoConfigFixtures });
-}
-
-/** Get the registered notification service handler for direct host dispatch. */
-export function getNotificationServiceHandler(): ServiceHandler | null {
-  return _notificationServiceHandler;
-}
-
-/** Get the registered theme service bundle (exposes .publishTheme for host theme toggles). */
-export function getThemeServiceBundle(): ThemeService | null {
-  return _themeServiceBundle;
-}
-
-/** Get the registered identity service handler for host-side probe flows. */
-export function getIdentityServiceHandler(): ServiceHandler | null {
-  return _identityServiceHandler;
-}
 
 export let tap: MessageTap;
 export let relay: ShellBridge;
@@ -1054,52 +186,43 @@ export async function publishDecryptFixturesToNapplet(dTag = 'decrypt-demo'): Pr
   return true;
 }
 
-/**
- * Boot the shell: create ShellBridge, install tap, wire up proxy.
- *
- * @param notificationOnChange - Called when the notification service state changes.
- *   Used by the demo notification controller to update host-side toast/summary UX.
- */
-export function bootShell(notificationOnChange?: (notifications: readonly Notification[]) => void): { tap: MessageTap; relay: ShellBridge } {
-  const hooks = createDemoHooks(notificationOnChange);
-  _shellCapabilities = buildShellCapabilities(hooks);
-  tap = createMessageTap();
-  tap.install(window);
+function createInstalledMessageTap(): MessageTap {
+  const messageTap = createMessageTap((source) => {
+    for (const [windowId, info] of napplets) {
+      if (info.iframe?.contentWindow === source) return windowId;
+    }
+    return undefined;
+  });
+  messageTap.install(window);
+  return messageTap;
+}
 
-  // Wrap originRegistry for outbound capture (same pattern as harness.ts)
-  const _origGetIframeWindow = originRegistry.getIframeWindow.bind(originRegistry);
+function installOriginRegistryProxy(messageTap: MessageTap): void {
+  const originalGetIframeWindow = originRegistry.getIframeWindow.bind(originRegistry);
   originRegistry.getIframeWindow = (windowId: string) => {
-    const win = _origGetIframeWindow(windowId);
+    const win = originalGetIframeWindow(windowId);
     if (!win) return null;
-    return createPostMessageProxy(win, tap, windowId);
+    return createPostMessageProxy(win, messageTap, windowId);
   };
 
-  const _origGetWindowId = originRegistry.getWindowId.bind(originRegistry);
+  const originalGetWindowId = originRegistry.getWindowId.bind(originRegistry);
   originRegistry.getWindowId = (win: Window) => {
-    const result = _origGetWindowId(win);
+    const result = originalGetWindowId(win);
     if (result) return result;
     const real = proxyToReal.get(win);
-    if (real) return _origGetWindowId(real);
+    if (real) return originalGetWindowId(real);
     return undefined;
   };
+}
 
-  relay = createShellBridge(hooks);
-
-  // Phase 40 Plan 40-02 (RESOURCE-04): populate the deferred session registry ref
-  // so createResourceService's resolveIdentity closure can look up windowId → dTag.
-  // Assigned here (after createShellBridge) because sessionRegistry lives inside the
-  // runtime closure created by createShellBridge. The napplet iframes do not load
-  // until after bootShell returns, so the ref is always assigned before first use.
-  _sessionRegistryRef = relay.runtime.sessionRegistry;
-
-  // Pre-populate serviceHandlerStore with adapter-provided services
-  // (these bypass the registerService wrapper since they're passed via ShellAdapter.services)
-  if (hooks.services) {
-    for (const [name, handler] of Object.entries(hooks.services)) {
-      serviceHandlerStore.set(name, handler);
-    }
+function populateServiceHandlerStore(services: Record<string, ServiceHandler> | undefined): void {
+  if (!services) return;
+  for (const [name, handler] of Object.entries(services)) {
+    serviceHandlerStore.set(name, handler);
   }
+}
 
+function wrapRuntimeServiceRegistration(): void {
   const originalRegisterService = relay.runtime.registerService.bind(relay.runtime);
   relay.runtime.registerService = (name, handler) => {
     demoServiceNames.add(name);
@@ -1110,9 +233,10 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
   relay.runtime.unregisterService = (name) => {
     originalUnregisterService(name);
   };
+}
 
-  // Wrap handleMessage for outbound capture (both array and envelope-shape messages)
-  const _origHandle = relay.handleMessage;
+function wrapRelayHandleMessage(messageTap: MessageTap): void {
+  const originalHandle = relay.handleMessage;
   relay.handleMessage = (event: MessageEvent) => {
     const isArray = Array.isArray(event.data);
     const isEnvelope =
@@ -1122,10 +246,10 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
       typeof (event.data as NappletMessage).type === 'string';
 
     if (!event.source || (!isArray && !isEnvelope)) {
-      _origHandle(event);
+      originalHandle(event);
       return;
     }
-    const proxiedSource = createPostMessageProxy(event.source as Window, tap);
+    const proxiedSource = createPostMessageProxy(event.source as Window, messageTap);
     const syntheticEvent = new Proxy(event, {
       get(target, prop) {
         if (prop === 'source') return proxiedSource;
@@ -1133,101 +257,78 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
         return typeof val === 'function' ? (val as Function).bind(target) : val;
       },
     });
-    _origHandle(syntheticEvent);
+    originalHandle(syntheticEvent);
   };
+}
 
-  window.addEventListener('message', relay.handleMessage);
-
-  tap.onMessage((msg) => {
+function bindTapIdentityUpdates(messageTap: MessageTap): void {
+  messageTap.onMessage((msg) => {
     if (msg.verb === 'OK' && msg.parsed.success === true && msg.direction === 'shell->napplet') {
-      // Find which napplet this OK belongs to by checking sessionRegistry
-      for (const [wid, info] of napplets) {
-        if (!info.identityBound) {
-          const pubkey = relay.runtime.sessionRegistry.getPubkey(wid);
-          if (pubkey) {
-            const entry = relay.runtime.sessionRegistry.getEntry(pubkey);
-            if (entry) {
-              info.identityBound = true;
-              info.pubkey = entry.pubkey;
-              info.dTag = entry.dTag;
-              info.aggregateHash = entry.aggregateHash;
-            }
-          }
-        }
-      }
+      markLegacyIdentityBindings();
     }
-
     if (msg.verb === 'ENVELOPE' && msg.direction === 'napplet->shell' && msg.windowId) {
-      const info = napplets.get(msg.windowId);
-      if (info && !info.identityBound) {
-        const entry = relay.runtime.sessionRegistry.getEntryByWindowId(msg.windowId);
-        if (entry) {
-          info.identityBound = true;
-          // NIP-5D napplets: pubkey stays '' — ACL keyed on dTag:hash identity.
-          info.pubkey = entry.pubkey;  // '' for NIP-5D pre-registered napplets
-          info.dTag = entry.dTag;
-          info.aggregateHash = entry.aggregateHash;
-        }
-      }
+      markEnvelopeIdentityBinding(msg.windowId);
     }
   });
+}
 
-  // Make the tap accessible for host-originated envelope recording
-  setMessageTap(tap);
+function markLegacyIdentityBindings(): void {
+  for (const [windowId, info] of napplets) {
+    if (info.identityBound) continue;
+    const pubkey = relay.runtime.sessionRegistry.getPubkey(windowId);
+    const entry = pubkey ? relay.runtime.sessionRegistry.getEntry(pubkey) : undefined;
+    if (entry) markNappletIdentityBound(info, entry);
+  }
+}
 
-  (window as Window & { __grantKeysForward__?: () => boolean }).__grantKeysForward__ = (): boolean => {
-    let hotkeyEntry: { windowId: string; info: NappletInfo } | null = null;
-    for (const [windowId, info] of napplets.entries()) {
-      if (info.name === 'hotkey-chord') {
-        hotkeyEntry = { windowId, info };
-        break;
-      }
-    }
-    if (!hotkeyEntry) {
-      console.warn('[demo] __grantKeysForward__: hotkey-chord napplet not loaded yet');
-      return false;
-    }
-    if (!hotkeyEntry.info.identityBound) {
-      console.warn('[demo] __grantKeysForward__: hotkey-chord not yet identity-bound');
-      return false;
-    }
-    const pubkey = hotkeyEntry.info.pubkey ?? '';        // '' for NIP-5D napplets, same as toggleCapability
-    const dTag = hotkeyEntry.info.dTag ?? '';
-    const hash = hotkeyEntry.info.aggregateHash ?? '';
-    relay.runtime.aclState.grant(pubkey, dTag, hash, 'keys:forward');
-    return true;
-  };
+function markEnvelopeIdentityBinding(windowId: string): void {
+  const info = napplets.get(windowId);
+  if (!info || info.identityBound) return;
+  const entry = relay.runtime.sessionRegistry.getEntryByWindowId(windowId);
+  if (entry) markNappletIdentityBound(info, entry);
+}
 
-  (window as Window & { __grantMediaControl__?: () => boolean }).__grantMediaControl__ = (): boolean => {
-    let mediaEntry: { windowId: string; info: NappletInfo } | null = null;
-    for (const [windowId, info] of napplets.entries()) {
-      if (info.name === 'media-controller') {
-        mediaEntry = { windowId, info };
-        break;
-      }
-    }
-    if (!mediaEntry) {
-      console.warn('[demo] __grantMediaControl__: media-controller napplet not loaded yet');
-      return false;
-    }
-    if (!mediaEntry.info.identityBound) {
-      console.warn('[demo] __grantMediaControl__: media-controller not yet identity-bound');
-      return false;
-    }
-    const pubkey = mediaEntry.info.pubkey ?? '';        // '' for NIP-5D napplets, same as toggleCapability
-    const dTag = mediaEntry.info.dTag ?? '';
-    const hash = mediaEntry.info.aggregateHash ?? '';
-    relay.runtime.aclState.grant(pubkey, dTag, hash, 'media:control');
-    return true;
-  };
+function markNappletIdentityBound(info: NappletInfo, entry: SessionEntry): void {
+  info.identityBound = true;
+  info.pubkey = entry.pubkey;
+  info.dTag = entry.dTag;
+  info.aggregateHash = entry.aggregateHash;
+}
 
-  // ─── Phase 33 (E2E-17): shell-side sentinel for reserved-chord observation ──
-  // Creates a small diagnostic element the Playwright spec asserts against
-  // after pressing the reserved chord (Ctrl+Shift+R). Rendered once per demo
-  // boot; attached to document.body so the spec can read it without frameLocator
-  // traversal. Initial text is the empty string — the onForward callback
-  // (declared above in createKeysService) overwrites it on the first chord
-  // delivery, writing the canonical chord string (e.g. 'Ctrl+Shift+R').
+function findNappletByName(name: string): { windowId: string; info: NappletInfo } | null {
+  for (const [windowId, info] of napplets.entries()) {
+    if (info.name === name) return { windowId, info };
+  }
+  return null;
+}
+
+function grantLoadedNappletCapability(name: string, capability: Capability): boolean {
+  const entry = findNappletByName(name);
+  if (!entry) {
+    console.warn(`[demo] grant helper: ${name} napplet not loaded yet`);
+    return false;
+  }
+  if (!entry.info.identityBound) {
+    console.warn(`[demo] grant helper: ${name} not yet identity-bound`);
+    return false;
+  }
+  relay.runtime.aclState.grant(
+    entry.info.pubkey ?? '',
+    entry.info.dTag ?? '',
+    entry.info.aggregateHash ?? '',
+    capability,
+  );
+  return true;
+}
+
+function installGrantHooks(): void {
+  (window as Window & { __grantKeysForward__?: () => boolean }).__grantKeysForward__ = (): boolean =>
+    grantLoadedNappletCapability('hotkey-chord', 'keys:forward');
+  (window as Window & { __grantMediaControl__?: () => boolean }).__grantMediaControl__ = (): boolean =>
+    grantLoadedNappletCapability('media-controller', 'media:control');
+}
+
+function installReservedChordSentinel(): void {
   const reservedChordSentinel = document.createElement('div');
   reservedChordSentinel.id = 'reserved-chord-last-fired';
   reservedChordSentinel.setAttribute('data-testid', 'reserved-chord-last-fired');
@@ -1245,6 +346,36 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
   ].join('; ');
   reservedChordSentinel.textContent = '';
   document.body.appendChild(reservedChordSentinel);
+}
+
+/**
+ * Boot the shell: create ShellBridge, install tap, wire up proxy.
+ *
+ * @param notificationOnChange - Called when the notification service state changes.
+ *   Used by the demo notification controller to update host-side toast/summary UX.
+ */
+export function bootShell(notificationOnChange?: (notifications: readonly Notification[]) => void): { tap: MessageTap; relay: ShellBridge } {
+  const hooks = createDemoHooks(notificationOnChange, {
+    getNappletEntries: () => napplets.entries(),
+    onResolvedAclCheck: (event, windowId, nappletName) => {
+      pushAclEvent(event, windowId, nappletName);
+      _notifyAclCheckListeners(event, windowId, nappletName);
+    },
+  });
+  tap = createInstalledMessageTap();
+  installOriginRegistryProxy(tap);
+
+  relay = createShellBridge(hooks);
+  setDemoSessionRegistryRef(relay.runtime.sessionRegistry);
+  populateServiceHandlerStore(hooks.services);
+  wrapRuntimeServiceRegistration();
+  wrapRelayHandleMessage(tap);
+
+  window.addEventListener("message", relay.handleMessage);
+  bindTapIdentityUpdates(tap);
+  setMessageTap(tap);
+  installGrantHooks();
+  installReservedChordSentinel();
 
   return { tap, relay };
 }
@@ -1381,21 +512,6 @@ async function fetchGatewayMetadata(name: string): Promise<GatewayNappletMetadat
     throw new Error(`[demo] malformed gateway metadata for ${name}`);
   }
   return metadata as GatewayNappletMetadata;
-}
-
-export function getShellCapabilities(): ShellCapabilities | null {
-  if (!_shellCapabilities) return null;
-  return {
-    nubs: [..._shellCapabilities.nubs],
-    sandbox: [..._shellCapabilities.sandbox],
-  };
-}
-
-export function getMissingRequiredNubs(requires: readonly string[]): string[] {
-  const capabilities = _shellCapabilities;
-  if (!capabilities) return [...requires];
-  const supported = new Set(capabilities.nubs);
-  return requires.filter((capability) => !supported.has(capability));
 }
 
 /**

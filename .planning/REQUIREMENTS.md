@@ -25,10 +25,10 @@
 
 ### Playground Shell
 
-- [ ] **PLAY-01**: `apps/playground/src/main.ts` no longer triggers the `complexity/file-too-large` warning under the current 700-line threshold.
-- [ ] **PLAY-02**: `apps/playground/src/shell-host.ts` no longer triggers the `complexity/file-too-large` warning under the current 700-line threshold.
-- [ ] **PLAY-03**: `createDemoHooks` no longer triggers `complexity/function-too-long`.
-- [ ] **PLAY-04**: `bootShell` no longer triggers `complexity/function-too-long` or `complexity/deep-nesting`.
+- [x] **PLAY-01**: `apps/playground/src/main.ts` no longer triggers the `complexity/file-too-large` warning under the current 700-line threshold.
+- [x] **PLAY-02**: `apps/playground/src/shell-host.ts` no longer triggers the `complexity/file-too-large` warning under the current 700-line threshold.
+- [x] **PLAY-03**: `createDemoHooks` no longer triggers `complexity/function-too-long`.
+- [x] **PLAY-04**: `bootShell` no longer triggers `complexity/function-too-long` or `complexity/deep-nesting`.
 - [ ] **PLAY-05**: `openPolicyModal` no longer triggers `complexity/function-too-long`.
 - [ ] **PLAY-06**: `createNip46Client` no longer triggers `complexity/function-too-long`.
 
@@ -84,10 +84,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CORE-01 | Phase 73 | Complete |
 | CORE-02 | Phase 73 | Complete |
 | CORE-03 | Phase 73 | Complete |
-| PLAY-01 | Phase 74 | Pending |
-| PLAY-02 | Phase 74 | Pending |
-| PLAY-03 | Phase 74 | Pending |
-| PLAY-04 | Phase 74 | Pending |
+| PLAY-01 | Phase 74 | Complete |
+| PLAY-02 | Phase 74 | Complete |
+| PLAY-03 | Phase 74 | Complete |
+| PLAY-04 | Phase 74 | Complete |
 | PLAY-05 | Phase 75 | Pending |
 | PLAY-06 | Phase 75 | Pending |
 | SVC-01 | Phase 75 | Pending |
@@ -104,4 +104,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-05-24*
-*Last updated: 2026-05-24 after v1.16 roadmap creation*
+*Last updated: 2026-05-24 after Phase 74 playground shell decomposition*

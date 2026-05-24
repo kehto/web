@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.16
 milestone_name: Structural Code Quality Refactor
 status: in_progress
-last_updated: "2026-05-24T12:54:13Z"
+last_updated: "2026-05-24T13:14:48Z"
 last_activity: 2026-05-24
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 1
-  percent: 25
+  completed_plans: 2
+  percent: 50
 ---
 
 # Project State
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-24, v1.16 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 74 Playground Shell Decomposition
+**Current focus:** Phase 75 Service and Adapter Decomposition
 
 ## Current Position
 
-Phase: 74
+Phase: 75
 Plan: —
 Status: Ready for phase planning
-Last activity: 2026-05-24 — Phase 73 runtime core decomposition complete
+Last activity: 2026-05-24 — Phase 74 playground shell decomposition complete
 
 ## Accumulated Context
 
@@ -52,6 +52,7 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 - Phase 72 completed 2026-05-24 after the local scanner invocation was corrected: `npx --no-install aislop scan -d` now reports `64 / 100 Needs Work` with 0 errors, 16 warnings, 0 fixable, and AI Slop/Linting/Security all clean. Verification passed with `pnpm type-check`, `pnpm build`, `pnpm test:unit`, `pnpm --dir docs docs:build`, final scanner, and diff check.
 - v1.16 started 2026-05-24: the milestone targets the remaining 16 structural `aislop` code-quality warnings with four phases: runtime core decomposition (73), playground shell decomposition (74), service and adapter decomposition (75), and final structural gate verification (76). Requirements are mapped 18/18 and phase numbering continues from v1.15.
 - Phase 73 completed 2026-05-24: runtime relay, identity, IFC, and fallback domain handlers were extracted from `runtime.ts`; local scanner no longer reports runtime file-size, `createRuntime`, `handleRelayMessage`, or runtime deep-nesting warnings; focused runtime type/build/unit gates passed.
+- Phase 74 completed 2026-05-24: playground shell host definitions, decrypt fixtures, message tap, demo hooks, notification UI, and signer UI were extracted into focused modules; local scanner no longer reports `main.ts`, `shell-host.ts`, `createDemoHooks`, or `bootShell` warnings; type-check, playground build, scanner, and diff check passed.
 - v1.14 started 2026-05-23: public GitHub Pages deployment target is `kehto.github.io/web/`, with a portal slash page at `/web/`, playground at `/web/playground/`, and docs at `/web/docs/`. Current workflow only packs `.pages/playground`, so v1.14 must replace playground-only upload with a unified Pages artifact.
 - v1.14 roadmap phases are 65-67: Pages portal entry point, playground Pages path relocation, then docs Pages publication and deploy gate.
 - Phase 65 completed 2026-05-23: `web/index.html` is the static portal source, `pnpm build:pages` writes `.pages/web/index.html`, and the generated portal links to `/web/playground/` and `/web/docs/`.
@@ -88,9 +89,9 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 ## Session Continuity
 
 Last session: 2026-05-23T16:10:00Z
-Resume: v1.16 Structural Code Quality Refactor is ready for Phase 74 planning.
+Resume: v1.16 Structural Code Quality Refactor is ready for Phase 75 planning.
 Current milestone: v1.16 Structural Code Quality Refactor.
 
 ## Operator Next Steps
 
-- Continue Phase 74 with `$gsd-plan-phase 74`.
+- Continue Phase 75 with `$gsd-plan-phase 75`.
