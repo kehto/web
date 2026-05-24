@@ -38,7 +38,7 @@
 
 - [x] **Phase 73: Runtime Core Decomposition** - Split `packages/runtime/src/runtime.ts` and extract `createRuntime` / `handleRelayMessage` helpers until runtime core warnings clear.
 - [x] **Phase 74: Playground Shell Decomposition** - Split `apps/playground/src/main.ts` and `apps/playground/src/shell-host.ts`, reducing `createDemoHooks` and `bootShell` without changing visible demo behavior.
-- [ ] **Phase 75: Service and Adapter Decomposition** - Reduce remaining long functions in ACL modal, NIP-46 client, service factories, and shell hook adapter.
+- [x] **Phase 75: Service and Adapter Decomposition** - Reduce remaining long functions in ACL modal, NIP-46 client, service factories, and shell hook adapter.
 - [ ] **Phase 76: Structural Gate Verification** - Prove final scanner and repo gates are clean, record evidence, and close the milestone.
 
 ---
@@ -104,7 +104,9 @@
   4. `adaptHooks` no longer triggers the 150-line function warning.
   5. Focused unit or static guards protect any extracted behavior that was not already covered.
 
-**Plans**: To be created by `$gsd-plan-phase 75`
+**Status**: Complete (2026-05-24)
+
+**Plans**: 1/1 complete
 
 ### Phase 76: Structural Gate Verification
 
@@ -133,7 +135,7 @@
 |-------|----------------|--------|-----------|
 | 73. Runtime Core Decomposition | 1/1 | Complete | 2026-05-24 |
 | 74. Playground Shell Decomposition | 1/1 | Complete | 2026-05-24 |
-| 75. Service and Adapter Decomposition | 0/1 | Pending | — |
+| 75. Service and Adapter Decomposition | 1/1 | Complete | 2026-05-24 |
 | 76. Structural Gate Verification | 0/1 | Pending | — |
 
 ## Backlog
@@ -160,4 +162,4 @@
 
 ---
 
-*ROADMAP.md last updated: 2026-05-24 - Phase 74 complete.*
+*ROADMAP.md last updated: 2026-05-24 - Phase 75 complete.*

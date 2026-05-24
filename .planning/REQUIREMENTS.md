@@ -29,15 +29,15 @@
 - [x] **PLAY-02**: `apps/playground/src/shell-host.ts` no longer triggers the `complexity/file-too-large` warning under the current 700-line threshold.
 - [x] **PLAY-03**: `createDemoHooks` no longer triggers `complexity/function-too-long`.
 - [x] **PLAY-04**: `bootShell` no longer triggers `complexity/function-too-long` or `complexity/deep-nesting`.
-- [ ] **PLAY-05**: `openPolicyModal` no longer triggers `complexity/function-too-long`.
-- [ ] **PLAY-06**: `createNip46Client` no longer triggers `complexity/function-too-long`.
+- [x] **PLAY-05**: `openPolicyModal` no longer triggers `complexity/function-too-long`.
+- [x] **PLAY-06**: `createNip46Client` no longer triggers `complexity/function-too-long`.
 
 ### Services and Adapters
 
-- [ ] **SVC-01**: `createMediaService` no longer triggers `complexity/function-too-long`.
-- [ ] **SVC-02**: `createNotificationService` no longer triggers `complexity/function-too-long`.
-- [ ] **SVC-03**: `createResourceService` no longer triggers `complexity/function-too-long`.
-- [ ] **ADAPT-01**: `adaptHooks` no longer triggers `complexity/function-too-long`.
+- [x] **SVC-01**: `createMediaService` no longer triggers `complexity/function-too-long`.
+- [x] **SVC-02**: `createNotificationService` no longer triggers `complexity/function-too-long`.
+- [x] **SVC-03**: `createResourceService` no longer triggers `complexity/function-too-long`.
+- [x] **ADAPT-01**: `adaptHooks` no longer triggers `complexity/function-too-long`.
 
 ### Verification
 
@@ -88,12 +88,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PLAY-02 | Phase 74 | Complete |
 | PLAY-03 | Phase 74 | Complete |
 | PLAY-04 | Phase 74 | Complete |
-| PLAY-05 | Phase 75 | Pending |
-| PLAY-06 | Phase 75 | Pending |
-| SVC-01 | Phase 75 | Pending |
-| SVC-02 | Phase 75 | Pending |
-| SVC-03 | Phase 75 | Pending |
-| ADAPT-01 | Phase 75 | Pending |
+| PLAY-05 | Phase 75 | Complete |
+| PLAY-06 | Phase 75 | Complete |
+| SVC-01 | Phase 75 | Complete |
+| SVC-02 | Phase 75 | Complete |
+| SVC-03 | Phase 75 | Complete |
+| ADAPT-01 | Phase 75 | Complete |
 | VERIFY-01 | Phase 76 | Pending |
 | VERIFY-02 | Phase 76 | Pending |
 
@@ -104,4 +104,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-05-24*
-*Last updated: 2026-05-24 after Phase 74 playground shell decomposition*
+*Last updated: 2026-05-24 after Phase 75 service and adapter decomposition*
