@@ -1,88 +1,76 @@
-# Requirements: Kehto Runtime - v1.15 Address AI Slop
+# Requirements: Kehto Runtime - v1.16 Structural Code Quality Refactor
 
 **Defined:** 2026-05-24
 **Core Value:** Modular, framework-agnostic runtime for hosting napplet applications.
 
-**Milestone goal:** Restore a credible quality-gate baseline by fixing the failing AI-slop/security findings without changing Kehto runtime behavior.
+**Milestone goal:** Eliminate the remaining 16 `aislop` structural code-quality warnings without changing Kehto runtime, service, playground, or docs behavior.
 
-**Baseline entering v1.15:** v1.14 is archived with the public `/web/` portal, playground, docs, and route-shape deploy gate. The new input is an `aislop 0.9.3` scan over 123 TypeScript files: formatting is clean, lint reports 38 warnings, code quality reports 46 warnings, AI Slop reports 1 error plus warnings, and Security reports 37 errors. Top findings include one undeclared `@napplet/services` import, 36 direct `innerHTML` assignments, one hardcoded-secret scanner hit, 356 narrative comment blocks, 51 trivial comments, 31 double casts, 31 duplicate imports, 21 unused variables, 20 leftover console statements, and dependency audit warnings for existing tooling packages.
+**Baseline entering v1.16:** v1.15 closed the corrected local quality-gate invocation at `64 / 100 Needs Work`, 0 errors, 16 warnings, and 0 fixable findings. Formatting, Linting, AI Slop, and Security all report 0 issues. The remaining warnings are structural only: 10 long functions over 150 LOC, 3 files over 700 LOC, and 3 deep-nesting findings.
 
-**Scope boundary:** This milestone is quality-gate repair and behavior-preserving cleanup. It may change source rendering patterns, imports, comments, local helper boundaries, tests, package versions for existing dependencies, and verification scripts. It does not add runtime features, change NIP-5D protocol behavior, publish npm packages, add new dependencies, or rewrite large UI modules solely to satisfy warning-only complexity thresholds.
+**Scope boundary:** This milestone is behavior-preserving refactor work. It may split modules, extract helpers, add focused regression tests, and update imports/exports around existing boundaries. It must not change NIP-5D protocol behavior, public package contracts, playground user flows, `.aislop` thresholds, published package versions, or the public Pages route contract.
 
-## v1 Requirements
+## v1.16 Requirements
 
-### Gate baseline
+### Scanner Baseline
 
-- [x] **GATE-01**: Maintainer can identify and rerun the quality-gate command or documented equivalent used to verify v1.15 cleanup.
-- [x] **GATE-02**: The v1.15 closeout records before/after counts for AI Slop and Security errors, plus any warning classes intentionally deferred.
-- [x] **GATE-03**: The milestone closes with zero AI Slop errors and zero Security errors for the reported fatal categories.
+- [ ] **SCAN-01**: Maintainer can reproduce the v1.16 starting baseline with `npx --no-install aislop scan -d` and see the same 16 structural warnings documented in the milestone artifacts.
+- [ ] **SCAN-02**: Maintainer can run `npx --no-install aislop scan -d` after the milestone and see 0 errors, 0 warnings, and 0 fixable findings.
+- [ ] **SCAN-03**: The existing `.aislop/config.yml` complexity thresholds remain unchanged during the milestone unless a phase explicitly documents and approves a policy change.
 
-### Import and lint cleanup
+### Runtime Core
 
-- [x] **LINT-01**: Source imports only declared workspace packages, published dependencies, or local relative modules; the undeclared `@napplet/services` import is corrected or backed by a manifest change.
-- [x] **LINT-02**: Duplicate imports reported by the quality gate are merged without changing public exports or runtime behavior.
-- [x] **LINT-03**: Unused imports, unused locals, and unnecessary spread fallbacks reported in touched files are removed or renamed with intentional `_` prefixes when values are deliberately ignored.
-- [x] **LINT-04**: Leftover `console.log`/debug/info calls are removed from production source or routed through an existing intentional debug surface.
+- [ ] **CORE-01**: `packages/runtime/src/runtime.ts` no longer triggers the `complexity/file-too-large` warning under the current 700-line threshold.
+- [ ] **CORE-02**: `createRuntime` no longer triggers `complexity/function-too-long` or `complexity/deep-nesting`.
+- [ ] **CORE-03**: `handleRelayMessage` no longer triggers `complexity/function-too-long` or `complexity/deep-nesting`.
 
-### DOM security
+### Playground Shell
 
-- [x] **SEC-01**: Playground napplets and shell UI source no longer use direct `innerHTML` assignment for dynamic or report-flagged content.
-- [x] **SEC-02**: User, relay, event, and fixture-derived UI content is rendered through `textContent`, DOM node construction, or existing safe helpers.
-- [x] **SEC-03**: The hardcoded-secret scanner hit in `apps/playground/src/nip46-client.ts` is removed, renamed as a non-secret demo fixture, or otherwise made unambiguous to static analysis without weakening the demo.
+- [ ] **PLAY-01**: `apps/playground/src/main.ts` no longer triggers the `complexity/file-too-large` warning under the current 700-line threshold.
+- [ ] **PLAY-02**: `apps/playground/src/shell-host.ts` no longer triggers the `complexity/file-too-large` warning under the current 700-line threshold.
+- [ ] **PLAY-03**: `createDemoHooks` no longer triggers `complexity/function-too-long`.
+- [ ] **PLAY-04**: `bootShell` no longer triggers `complexity/function-too-long` or `complexity/deep-nesting`.
+- [ ] **PLAY-05**: `openPolicyModal` no longer triggers `complexity/function-too-long`.
+- [ ] **PLAY-06**: `createNip46Client` no longer triggers `complexity/function-too-long`.
 
-### AI-slop cleanup
+### Services and Adapters
 
-- [x] **SLOP-01**: Auto-fixable decorative section comments, narrative preambles, and trivial restating comments are removed from source where they do not carry API documentation value.
-- [x] **SLOP-02**: Any retained comments explain non-obvious constraints, invariants, or external protocol behavior rather than restating the following code.
-- [x] **SLOP-03**: Thin wrapper functions flagged by the scan are inlined or kept only when they preserve a meaningful local abstraction boundary.
-
-### Type safety and maintainability
-
-- [x] **TYPE-01**: Double assertions (`as unknown as X`) are replaced with local types, typed wrappers, or narrow assertions at trustworthy boundaries where feasible.
-- [x] **TYPE-02**: `as any` uses in runtime/services code are removed or narrowed unless the call boundary genuinely requires an untyped bridge.
-- [x] **QUAL-01**: Duplicate code blocks and complexity warnings are triaged; low-risk shared helpers are extracted, and broad UI-function/file splits are deferred unless protected by existing tests.
-
-### Dependency audit
-
-- [x] **DEPS-01**: Existing dependency audit warnings for `esbuild`, `vite`, `postcss`, `brace-expansion`, and `turbo` are upgraded when safe under the current workspace toolchain or documented as explicit deferrals with rationale.
+- [ ] **SVC-01**: `createMediaService` no longer triggers `complexity/function-too-long`.
+- [ ] **SVC-02**: `createNotificationService` no longer triggers `complexity/function-too-long`.
+- [ ] **SVC-03**: `createResourceService` no longer triggers `complexity/function-too-long`.
+- [ ] **ADAPT-01**: `adaptHooks` no longer triggers `complexity/function-too-long`.
 
 ### Verification
 
-- [x] **VERIFY-01**: `pnpm build`, `pnpm type-check`, and `pnpm test:unit` pass after the cleanup.
-- [x] **VERIFY-02**: Relevant static guards (`pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and route/docs checks affected by changed files) pass or are documented as not applicable.
-- [x] **VERIFY-03**: `git diff --check` passes and final verification evidence names the quality-gate result used to close v1.15.
+- [ ] **VERIFY-01**: `pnpm type-check`, `pnpm build`, `pnpm test:unit`, and `pnpm --dir docs docs:build` pass after the structural refactors.
+- [ ] **VERIFY-02**: Each extracted boundary is covered by existing or new focused tests when behavior is not already protected by current unit/static coverage.
 
 ## Future Requirements
 
 Deferred to later milestones.
 
-### Structural refactors
+### Stricter Complexity Policy
 
-- **REF-01**: Split oversized playground modules into smaller feature modules after dedicated behavior locks exist.
-- **REF-02**: Reduce all function-length and file-size warnings to zero across the playground.
-- **REF-03**: Introduce a shared rendering helper library for every repeated napplet UI pattern.
+- **STRICT-01**: Lower `maxFunctionLoc` from 150 toward the scanner default of 80 after the current 16-warning baseline is eliminated.
+- **STRICT-02**: Lower `maxFileLoc` from 700 toward the scanner default of 400 after current large-file warnings are eliminated.
 
-### Tooling policy
+### Broader Architecture Cleanup
 
-- **TOOL-01**: Add `aislop` as a first-class repo script or CI gate after the command, version pin, and warning policy are agreed.
-- **TOOL-02**: Expand CI to fail on selected warning categories after the v1.15 cleanup baseline is proven stable.
-
-### Dependency churn
-
-- **DEP-01**: Major-version toolchain upgrades or dependency replacements that are not required to clear the current security errors.
+- **ARCH-01**: Revisit package-level runtime module boundaries after `runtime.ts` is split and stable.
+- **ARCH-02**: Revisit playground app architecture after `main.ts` and `shell-host.ts` are split and stable.
 
 ## Out of Scope
 
-Explicitly excluded for v1.15. Documented to prevent scope creep.
+Explicitly excluded. Documented to prevent scope creep.
 
 | Feature | Reason |
 |---------|--------|
-| Runtime protocol changes | The quality gate must not change NIP-5D behavior or public package contracts. |
-| New runtime dependencies | Existing repo guidance forbids new dependencies without explicit request; safe DOM rendering should use native APIs or existing helpers. |
-| Full playground UI rewrite | Large UI-function/file warnings need behavior locks before broad refactors. |
-| NPM package publication | This milestone prepares code quality, not release publishing. |
-| Custom CI policy for every warning | Warning thresholds should be decided after the cleaned baseline is known. |
-| Fixing decrypt-demo pending fixture behavior | Backlog 999.1 remains valid but is unrelated to the reported AI-slop/security gate. |
+| Runtime protocol changes | The milestone is structural cleanup and must preserve NIP-5D behavior. |
+| Public package API changes | Existing consumers should not need migration work for refactor-only cleanup. |
+| `.aislop` threshold loosening | The milestone target is removing warnings, not hiding them. |
+| Full UI redesign | Playground files may be split, but visible UI behavior should remain stable. |
+| New dependencies | Existing repo guidance forbids new dependencies without explicit request. |
+| Decrypt-demo fixture repair | Backlog 999.1 remains valid but is unrelated to structural scanner warnings. |
+| Package publication | This milestone prepares code quality, not release publishing. |
 
 ## Traceability
 
@@ -90,32 +78,30 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| GATE-01 | Phase 68 | Complete |
-| GATE-02 | Phase 71 | Complete |
-| GATE-03 | Phase 71 | Complete |
-| LINT-01 | Phase 68 | Complete |
-| LINT-02 | Phase 68 | Complete |
-| LINT-03 | Phase 68 | Complete |
-| LINT-04 | Phase 68 | Complete |
-| SEC-01 | Phase 69 | Complete |
-| SEC-02 | Phase 69 | Complete |
-| SEC-03 | Phase 69 | Complete |
-| SLOP-01 | Phase 68 | Complete |
-| SLOP-02 | Phase 68 | Complete |
-| SLOP-03 | Phase 70 | Complete |
-| TYPE-01 | Phase 70 | Complete |
-| TYPE-02 | Phase 70 | Complete |
-| QUAL-01 | Phase 70 | Complete |
-| DEPS-01 | Phase 70 | Complete |
-| VERIFY-01 | Phase 71 | Complete |
-| VERIFY-02 | Phase 71 | Complete |
-| VERIFY-03 | Phase 71 | Complete |
+| SCAN-01 | TBD | Pending |
+| SCAN-02 | TBD | Pending |
+| SCAN-03 | TBD | Pending |
+| CORE-01 | TBD | Pending |
+| CORE-02 | TBD | Pending |
+| CORE-03 | TBD | Pending |
+| PLAY-01 | TBD | Pending |
+| PLAY-02 | TBD | Pending |
+| PLAY-03 | TBD | Pending |
+| PLAY-04 | TBD | Pending |
+| PLAY-05 | TBD | Pending |
+| PLAY-06 | TBD | Pending |
+| SVC-01 | TBD | Pending |
+| SVC-02 | TBD | Pending |
+| SVC-03 | TBD | Pending |
+| ADAPT-01 | TBD | Pending |
+| VERIFY-01 | TBD | Pending |
+| VERIFY-02 | TBD | Pending |
 
 **Coverage:**
-- v1 requirements: 20 total
-- Mapped to phases: 20
-- Unmapped: 0
+- v1.16 requirements: 18 total
+- Mapped to phases: 0
+- Unmapped: 18
 
 ---
 *Requirements defined: 2026-05-24*
-*Last updated: 2026-05-24 after Phase 71 completion*
+*Last updated: 2026-05-24 after v1.16 requirements definition*
