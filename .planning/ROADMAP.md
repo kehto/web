@@ -17,12 +17,118 @@
 - [x] **v1.12: NIP-5D Contract Conformance** - 4 phases (56-59), 34/34 requirements, 560 unit tests, 89 E2E specs green, pinned-spec contract conformance across shell, shim/runtime, gateway load checks, and 13 playground napplets ([archive](milestones/v1.12-ROADMAP.md) | [requirements](milestones/v1.12-REQUIREMENTS.md) | [audit](milestones/v1.12-MILESTONE-AUDIT.md))
 - [x] **v1.13: Documentation Strategy & Monorepo Docs Site** - 5 phases (60-64), 28/28 requirements, content strategy, package docs, tutorials/how-tos, VitePress site, and docs verification ([archive](milestones/v1.13-ROADMAP.md) | [requirements](milestones/v1.13-REQUIREMENTS.md) | [audit](milestones/v1.13-MILESTONE-AUDIT.md))
 - [x] **v1.14: GitHub Pages Web Portal** - 3 phases (65-67), 13/13 requirements, public `/web/` portal, playground at `/web/playground/`, docs at `/web/docs/`, and unified Pages deploy gate ([archive](milestones/v1.14-ROADMAP.md) | [requirements](milestones/v1.14-REQUIREMENTS.md) | [audit](milestones/v1.14-MILESTONE-AUDIT.md))
+- [ ] **v1.15: Address AI Slop** - 4 phases (68-71), 20 requirements, AI-slop/security quality-gate repair
 
 ---
 
 ## Active Milestone
 
-No active milestone. Start the next milestone with `$gsd-new-milestone`.
+### v1.15: Address AI Slop
+
+**Goal:** Restore a credible quality-gate baseline by fixing the failing AI-slop/security findings without changing Kehto runtime behavior.
+
+**Baseline entering v1.15:** v1.14 is archived with the public `/web/` portal, playground, docs, and route-shape deploy gate. The new input is an `aislop 0.9.3` report over 123 scanned TypeScript files: formatting clean, 38 lint warnings, 46 code-quality warnings, 1 AI Slop error plus warnings, 37 Security errors, and 461 fixable findings.
+
+**Coverage:** 20/20 requirements mapped.
+
+**Critical invariant:** Cleanup must preserve the v1.14 runtime and static publication behavior. Direct DOM rendering fixes and type cleanup should remove quality-gate risk without changing NIP-5D protocol behavior, public package contracts, or the playground route contract.
+
+### Phases
+
+- [ ] **Phase 68: Gate Baseline and Mechanical Cleanup** - Establish reproducible quality-gate evidence and clear import, duplicate-import, unused-code, console, spread, and comment findings that are low-risk and mostly mechanical.
+- [ ] **Phase 69: Safe DOM Rendering and Scanner Cleanup** - Replace direct `innerHTML` writes and resolve the hardcoded-secret scanner hit without weakening demo behavior.
+- [ ] **Phase 70: Type Safety, Maintainability, and Dependency Triage** - Narrow unsafe casts, triage thin wrappers/duplicate blocks/complexity warnings, and resolve or document existing dependency audit warnings.
+- [ ] **Phase 71: Quality Gate Verification and Closeout** - Re-run the quality gate and repo verification suite, record before/after evidence, and close the milestone with zero fatal AI Slop/Security errors.
+
+---
+
+## Phase Details
+
+### Phase 68: Gate Baseline and Mechanical Cleanup
+
+**Goal**: Make the reported quality gate reproducible and remove low-risk slop/lint findings before deeper edits.
+
+**Depends on**: v1.15 requirements accepted; supplied `aislop 0.9.3` report.
+
+**Requirements**: GATE-01, LINT-01, LINT-02, LINT-03, LINT-04, SLOP-01, SLOP-02
+
+**Rationale**: Mechanical cleanup should happen before security and type work so later diffs are easier to review and the one fatal undeclared import does not mask other findings.
+
+**Success Criteria** (what must be TRUE):
+  1. The quality-gate invocation or documented equivalent is captured in the phase artifacts.
+  2. The undeclared `@napplet/services` import is corrected or backed by a manifest change.
+  3. Duplicate imports, unused imports/locals, unnecessary spread fallbacks, and leftover console calls reported in touched files are removed or made intentionally explicit.
+  4. Decorative and trivial comments are removed where they do not preserve API or protocol context.
+  5. Build and type-check still pass after the mechanical cleanup.
+
+**Plans**: Pending
+
+### Phase 69: Safe DOM Rendering and Scanner Cleanup
+
+**Goal**: Remove the fatal DOM/security findings while keeping playground rendering behavior intact.
+
+**Depends on**: Phase 68
+
+**Requirements**: SEC-01, SEC-02, SEC-03
+
+**Rationale**: Direct `innerHTML` assignment is the largest fatal class in the report. It should be repaired with native DOM/text APIs or existing helpers, not by adding sanitization dependencies.
+
+**Success Criteria** (what must be TRUE):
+  1. Report-flagged direct `innerHTML` assignments are gone from playground napplets and shell UI source.
+  2. Dynamic user, relay, event, fixture, and demo status values render via `textContent`, DOM construction, or an existing safe helper.
+  3. The `nip46-client.ts` hardcoded-secret scanner hit is removed or made clearly non-secret demo fixture data.
+  4. Existing playground smoke/unit coverage still passes for the changed rendering paths.
+
+**Plans**: Pending
+
+### Phase 70: Type Safety, Maintainability, and Dependency Triage
+
+**Goal**: Reduce unsafe type and maintainability findings without broad, unprotected rewrites.
+
+**Depends on**: Phase 69
+
+**Requirements**: SLOP-03, TYPE-01, TYPE-02, QUAL-01, DEPS-01
+
+**Rationale**: The report contains many warning-only findings that range from safe local cleanup to large UI decomposition. This phase separates feasible type/helper repairs from deferrals that need their own behavior locks.
+
+**Success Criteria** (what must be TRUE):
+  1. Double assertions and `as any` uses in runtime/services code are replaced or narrowed where local types can express the boundary.
+  2. Thin wrappers are inlined unless they preserve a named boundary used by callers or tests.
+  3. Duplicate blocks and complexity findings are triaged, with only low-risk helper extractions applied.
+  4. Existing dependency audit warnings are resolved through safe upgrades or documented as explicit deferrals with rationale.
+  5. Build, type-check, and unit tests pass after type/dependency changes.
+
+**Plans**: Pending
+
+### Phase 71: Quality Gate Verification and Closeout
+
+**Goal**: Prove v1.15 restored the quality-gate baseline and preserve closeout evidence.
+
+**Depends on**: Phase 70
+
+**Requirements**: GATE-02, GATE-03, VERIFY-01, VERIFY-02, VERIFY-03
+
+**Rationale**: The milestone only succeeds if the fatal AI Slop/Security findings are actually gone and the existing v1.14 behavior gates remain green.
+
+**Success Criteria** (what must be TRUE):
+  1. Final quality-gate evidence records zero AI Slop errors and zero Security errors for the reported fatal categories.
+  2. Before/after counts are recorded, including warning classes intentionally deferred.
+  3. `pnpm build`, `pnpm type-check`, and `pnpm test:unit` pass.
+  4. Applicable static guards pass, including `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and route/docs checks affected by changed files.
+  5. `git diff --check` passes and closeout artifacts state remaining risks.
+
+**Plans**: Pending
+
+---
+
+## Progress
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 68. Gate Baseline and Mechanical Cleanup | 0/1 | Not Started | — |
+| 69. Safe DOM Rendering and Scanner Cleanup | 0/1 | Not Started | — |
+| 70. Type Safety, Maintainability, and Dependency Triage | 0/1 | Not Started | — |
+| 71. Quality Gate Verification and Closeout | 0/1 | Not Started | — |
 
 ## Backlog
 
@@ -48,4 +154,4 @@ No active milestone. Start the next milestone with `$gsd-new-milestone`.
 
 ---
 
-*ROADMAP.md last updated: 2026-05-23 - v1.14 archived; awaiting next milestone.*
+*ROADMAP.md last updated: 2026-05-24 - v1.15 roadmap created.*

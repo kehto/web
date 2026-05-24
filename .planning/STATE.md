@@ -6,9 +6,9 @@ status: planning
 last_updated: "2026-05-24T10:26:27.436Z"
 last_activity: 2026-05-24
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
-  total_plans: 0
+  total_plans: 4
   completed_plans: 0
   percent: 0
 ---
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-05-24, v1.15 started)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 68 (next)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-05-24 — Milestone v1.15 started
+Status: Ready for phase planning
+Last activity: 2026-05-24 — Milestone v1.15 roadmap created
 
 ## Accumulated Context
 
@@ -44,6 +44,7 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 ### Blockers/Concerns
 
 - No active blockers. v1.15 starts from the `aislop 0.9.3` report: 38 errors, 607 warnings, 461 fixable findings across 123 scanned TypeScript files.
+- v1.15 roadmap phases are 68-71: gate baseline/mechanical cleanup, safe DOM rendering/security scanner cleanup, type/dependency/maintainability triage, then quality-gate verification and closeout.
 - v1.14 started 2026-05-23: public GitHub Pages deployment target is `kehto.github.io/web/`, with a portal slash page at `/web/`, playground at `/web/playground/`, and docs at `/web/docs/`. Current workflow only packs `.pages/playground`, so v1.14 must replace playground-only upload with a unified Pages artifact.
 - v1.14 roadmap phases are 65-67: Pages portal entry point, playground Pages path relocation, then docs Pages publication and deploy gate.
 - Phase 65 completed 2026-05-23: `web/index.html` is the static portal source, `pnpm build:pages` writes `.pages/web/index.html`, and the generated portal links to `/web/playground/` and `/web/docs/`.
@@ -80,9 +81,9 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 ## Session Continuity
 
 Last session: 2026-05-23T16:10:00Z
-Resume: No active milestone. v1.14 is audited and archived; select or create the next milestone.
-Current milestone: none.
+Resume: v1.15 Address AI Slop is roadmapped and ready for phase planning.
+Current milestone: v1.15 Address AI Slop.
 
 ## Operator Next Steps
 
-- Start the next milestone with `$gsd-new-milestone` or review the backlog for candidate scope.
+- Start Phase 68 with `$gsd-plan-phase 68`.
