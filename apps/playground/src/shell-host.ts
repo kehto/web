@@ -481,10 +481,7 @@ export async function loadNapplet(
 
 function playgroundPath(pathname: string): string {
   const cleanPath = pathname.replace(/^\/+/, '');
-  const meta = import.meta as ImportMeta & { env?: { BASE_URL?: string } };
-  const basePath =
-    (meta.env?.BASE_URL ?? '/').trim() ||
-    '/';
+  const basePath = (import.meta.env.BASE_URL ?? '/').trim() || '/';
   if (basePath === './') return cleanPath;
   const normalizedBase = basePath.endsWith('/') ? basePath : `${basePath}/`;
   return `${normalizedBase}${cleanPath}`;

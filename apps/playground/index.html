@@ -13,6 +13,17 @@
     #flow-area { flex: 1; min-height: 0; overflow: hidden; }
     #debugger-section { flex-shrink: 0; position: relative; z-index: 1; }
     #resize-handle { position: relative; z-index: 1; }
+    #static-demo-banner {
+      padding: 8px 14px;
+      border-bottom: 1px solid rgba(98,208,255,0.25);
+      background: #10202a;
+      color: #d0d4e8;
+      font-size: 11px;
+      line-height: 1.45;
+      flex-shrink: 0;
+    }
+    #static-demo-banner[hidden] { display: none; }
+    #static-demo-banner strong { color: #62d0ff; }
     .node-box { border: none; }
     /* .topology-edge CSS bar rules removed — edges now rendered by Leader Line (SVG) */
     .acl-btn { transition: all 0.15s; }
@@ -312,6 +323,9 @@
   <header class="px-4 py-2 bg-surface-mid border-b border-surface-border flex items-center shrink-0">
     <h1 class="text-neon-blue text-sm font-bold tracking-wider uppercase">napplet playground</h1>
   </header>
+  <div id="static-demo-banner" role="status" hidden>
+    <strong>Static demo:</strong> GitHub Pages serves packaged gateway artifacts here. Live gateway-only controls are disabled.
+  </div>
 
   <section
     id="flow-area"

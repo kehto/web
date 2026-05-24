@@ -62,13 +62,22 @@ describe('playground gateway artifact guard', () => {
 
   it('keeps the active loader on the gateway route with opaque-origin iframes', () => {
     const shellHost = readRepoFile('apps/playground/src/shell-host.ts');
+    const indexHtml = readRepoFile('apps/playground/index.html');
+    const main = readRepoFile('apps/playground/src/main.ts');
 
     expect(shellHost).toContain('function playgroundPath(');
+    expect(shellHost).toContain('import.meta.env.BASE_URL');
+    expect(shellHost).not.toContain('meta.env?.BASE_URL');
     expect(shellHost).toContain('playgroundPath(`/napplet-gateway/${encodeURIComponent(name)}/manifest.json`)');
     expect(shellHost).toContain('iframe.src = metadata.htmlUrl');
     expect(shellHost).toContain("iframe.sandbox.add('allow-scripts')");
     expect(shellHost).not.toContain('allow-same-origin');
     expect(shellHost).not.toContain('`/napplets/${name}/index.html`');
+
+    expect(indexHtml).toContain('id="static-demo-banner"');
+    expect(main).toContain("const STATIC_PAGES_BASE_PATH = '/web/playground/';");
+    expect(main).toContain("document.getElementById('static-demo-banner')?.removeAttribute('hidden')");
+    expect(main).toContain('if (isStaticPagesDemo) return;');
   });
 
   it('exposes manifest requires through gateway metadata and checks it before navigation', () => {

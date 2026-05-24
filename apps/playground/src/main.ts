@@ -55,6 +55,13 @@ import { initSignerNodeUi } from './main-signer.js';
 import { demoConfig } from './demo-config.js';
 import { setAclRingSize } from './acl-history.js';
 
+const STATIC_PAGES_BASE_PATH = '/web/playground/';
+const isStaticPagesDemo = import.meta.env.BASE_URL === STATIC_PAGES_BASE_PATH;
+
+if (isStaticPagesDemo) {
+  document.getElementById('static-demo-banner')?.removeAttribute('hidden');
+}
+
 const notificationUi = createNotificationUi();
 
 const { tap } = bootShell((notifications) => {
@@ -201,6 +208,8 @@ const shellPubkey = document.getElementById('shell-pubkey');
 if (shellPubkey) shellPubkey.textContent = `pubkey: ${getDemoHostPubkey().substring(0, 20)}...`;
 
 async function syncGrantsToVite(dTag: string, aggregateHash: string, origins: readonly string[]): Promise<void> {
+  if (isStaticPagesDemo) return;
+
   try {
     await fetch('/__connect-grants', {
       method: 'POST',
