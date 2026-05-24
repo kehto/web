@@ -37,11 +37,23 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Status:** Awaiting next milestone after v1.14 shipped on 2026-05-23.
+**Status:** Planning v1.15 Address AI Slop.
 
 v1.14 turned the GitHub Pages deployment into a public `/web/` site: a static Kehto portal, playground at `/web/playground/`, VitePress docs at `/web/docs/`, and one unified artifact guarded by route-shape verification.
 
-The baseline after v1.14 is pinned-spec NIP-5D conformance, a buildable docs site, and a pre-deploy GitHub Pages artifact contract for `https://kehto.github.io/web/`. Verification stands at `VITEPRESS_BASE=/web/docs/ pnpm docs:check`, `PLAYGROUND_BASE_PATH=/web/playground/ pnpm --filter @kehto/playground build`, `pnpm build:pages`, `pnpm audit:pages`, `pnpm build`, `pnpm type-check`, `pnpm test:unit` (562 tests), `pnpm audit:gateway-artifacts`, `git diff --check`, and `gsd-sdk query audit-open`.
+The baseline after v1.14 is pinned-spec NIP-5D conformance, a buildable docs site, and a pre-deploy GitHub Pages artifact contract for `https://kehto.github.io/web/`. Verification stands at `VITEPRESS_BASE=/web/docs/ pnpm docs:check`, `PLAYGROUND_BASE_PATH=/web/playground/ pnpm --filter @kehto/playground build`, `pnpm build:pages`, `pnpm audit:pages`, `pnpm build`, `pnpm type-check`, `pnpm test:unit` (562 tests), `pnpm audit:gateway-artifacts`, `git diff --check`, and `gsd-sdk query audit-open`. The new v1.15 focus is quality-gate repair from the `aislop 0.9.3` report: one failing undeclared import, direct `innerHTML` security errors, fixable AI-slop patterns, unsafe casts, dead code, and dependency audit warnings.
+
+## Current Milestone: v1.15 Address AI Slop
+
+**Goal:** Restore a credible quality-gate baseline by fixing the failing AI-slop/security findings without changing Kehto runtime behavior.
+
+**Target features:**
+- Correct the hallucinated or stale `@napplet/services` import path so package manifests and source imports agree.
+- Replace direct `innerHTML` writes in playground napplets with safe DOM/text rendering patterns.
+- Remove auto-fixable slop: decorative comments, duplicate imports, leftover console debugging, unused code, and unnecessary spread fallbacks.
+- Reduce unsafe `as any` and double-cast patterns where local types can express the real contract.
+- Triage dependency audit warnings and either upgrade safe workspace tooling dependencies or document deferrals.
+- Preserve the v1.14 behavior baseline through build, type-check, unit, static audit, and quality-gate verification.
 
 ## Latest Milestone: v1.14 GitHub Pages Web Portal
 
@@ -180,4 +192,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-23 — v1.14 milestone archived (GitHub Pages Web Portal)*
+*Last updated: 2026-05-24 — v1.15 milestone started (Address AI Slop)*

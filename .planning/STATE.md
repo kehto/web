@@ -1,33 +1,33 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.14
-milestone_name: GitHub Pages Web Portal
-status: awaiting_next_milestone
-last_updated: "2026-05-23T16:10:00.000Z"
-last_activity: 2026-05-23
+milestone: v1.15
+milestone_name: Address AI Slop
+status: planning
+last_updated: "2026-05-24T10:26:27.436Z"
+last_activity: 2026-05-24
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-23, v1.14 archived)
+See: .planning/PROJECT.md (updated 2026-05-24, v1.15 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Awaiting next milestone after v1.14 GitHub Pages Web Portal
+**Current focus:** v1.15 Address AI Slop quality-gate repair
 
 ## Current Position
 
-Phase: No active milestone
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-05-23 — v1.14 completed, audited, and archived
+Status: Defining requirements
+Last activity: 2026-05-24 — Milestone v1.15 started
 
 ## Accumulated Context
 
@@ -43,7 +43,7 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 
 ### Blockers/Concerns
 
-- No active blockers. v1.13 requirements are complete, audited, and archived.
+- No active blockers. v1.15 starts from the `aislop 0.9.3` report: 38 errors, 607 warnings, 461 fixable findings across 123 scanned TypeScript files.
 - v1.14 started 2026-05-23: public GitHub Pages deployment target is `kehto.github.io/web/`, with a portal slash page at `/web/`, playground at `/web/playground/`, and docs at `/web/docs/`. Current workflow only packs `.pages/playground`, so v1.14 must replace playground-only upload with a unified Pages artifact.
 - v1.14 roadmap phases are 65-67: Pages portal entry point, playground Pages path relocation, then docs Pages publication and deploy gate.
 - Phase 65 completed 2026-05-23: `web/index.html` is the static portal source, `pnpm build:pages` writes `.pages/web/index.html`, and the generated portal links to `/web/playground/` and `/web/docs/`.
