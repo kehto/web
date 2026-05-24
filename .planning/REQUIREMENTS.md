@@ -1,0 +1,121 @@
+# Requirements: Kehto Runtime - v1.15 Address AI Slop
+
+**Defined:** 2026-05-24
+**Core Value:** Modular, framework-agnostic runtime for hosting napplet applications.
+
+**Milestone goal:** Restore a credible quality-gate baseline by fixing the failing AI-slop/security findings without changing Kehto runtime behavior.
+
+**Baseline entering v1.15:** v1.14 is archived with the public `/web/` portal, playground, docs, and route-shape deploy gate. The new input is an `aislop 0.9.3` scan over 123 TypeScript files: formatting is clean, lint reports 38 warnings, code quality reports 46 warnings, AI Slop reports 1 error plus warnings, and Security reports 37 errors. Top findings include one undeclared `@napplet/services` import, 36 direct `innerHTML` assignments, one hardcoded-secret scanner hit, 356 narrative comment blocks, 51 trivial comments, 31 double casts, 31 duplicate imports, 21 unused variables, 20 leftover console statements, and dependency audit warnings for existing tooling packages.
+
+**Scope boundary:** This milestone is quality-gate repair and behavior-preserving cleanup. It may change source rendering patterns, imports, comments, local helper boundaries, tests, package versions for existing dependencies, and verification scripts. It does not add runtime features, change NIP-5D protocol behavior, publish npm packages, add new dependencies, or rewrite large UI modules solely to satisfy warning-only complexity thresholds.
+
+## v1 Requirements
+
+### Gate baseline
+
+- [ ] **GATE-01**: Maintainer can identify and rerun the quality-gate command or documented equivalent used to verify v1.15 cleanup.
+- [ ] **GATE-02**: The v1.15 closeout records before/after counts for AI Slop and Security errors, plus any warning classes intentionally deferred.
+- [ ] **GATE-03**: The milestone closes with zero AI Slop errors and zero Security errors for the reported fatal categories.
+
+### Import and lint cleanup
+
+- [ ] **LINT-01**: Source imports only declared workspace packages, published dependencies, or local relative modules; the undeclared `@napplet/services` import is corrected or backed by a manifest change.
+- [ ] **LINT-02**: Duplicate imports reported by the quality gate are merged without changing public exports or runtime behavior.
+- [ ] **LINT-03**: Unused imports, unused locals, and unnecessary spread fallbacks reported in touched files are removed or renamed with intentional `_` prefixes when values are deliberately ignored.
+- [ ] **LINT-04**: Leftover `console.log`/debug/info calls are removed from production source or routed through an existing intentional debug surface.
+
+### DOM security
+
+- [ ] **SEC-01**: Playground napplets and shell UI source no longer use direct `innerHTML` assignment for dynamic or report-flagged content.
+- [ ] **SEC-02**: User, relay, event, and fixture-derived UI content is rendered through `textContent`, DOM node construction, or existing safe helpers.
+- [ ] **SEC-03**: The hardcoded-secret scanner hit in `apps/playground/src/nip46-client.ts` is removed, renamed as a non-secret demo fixture, or otherwise made unambiguous to static analysis without weakening the demo.
+
+### AI-slop cleanup
+
+- [ ] **SLOP-01**: Auto-fixable decorative section comments, narrative preambles, and trivial restating comments are removed from source where they do not carry API documentation value.
+- [ ] **SLOP-02**: Any retained comments explain non-obvious constraints, invariants, or external protocol behavior rather than restating the following code.
+- [ ] **SLOP-03**: Thin wrapper functions flagged by the scan are inlined or kept only when they preserve a meaningful local abstraction boundary.
+
+### Type safety and maintainability
+
+- [ ] **TYPE-01**: Double assertions (`as unknown as X`) are replaced with local types, typed wrappers, or narrow assertions at trustworthy boundaries where feasible.
+- [ ] **TYPE-02**: `as any` uses in runtime/services code are removed or narrowed unless the call boundary genuinely requires an untyped bridge.
+- [ ] **QUAL-01**: Duplicate code blocks and complexity warnings are triaged; low-risk shared helpers are extracted, and broad UI-function/file splits are deferred unless protected by existing tests.
+
+### Dependency audit
+
+- [ ] **DEPS-01**: Existing dependency audit warnings for `esbuild`, `vite`, `postcss`, `brace-expansion`, and `turbo` are upgraded when safe under the current workspace toolchain or documented as explicit deferrals with rationale.
+
+### Verification
+
+- [ ] **VERIFY-01**: `pnpm build`, `pnpm type-check`, and `pnpm test:unit` pass after the cleanup.
+- [ ] **VERIFY-02**: Relevant static guards (`pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and route/docs checks affected by changed files) pass or are documented as not applicable.
+- [ ] **VERIFY-03**: `git diff --check` passes and final verification evidence names the quality-gate result used to close v1.15.
+
+## Future Requirements
+
+Deferred to later milestones.
+
+### Structural refactors
+
+- **REF-01**: Split oversized playground modules into smaller feature modules after dedicated behavior locks exist.
+- **REF-02**: Reduce all function-length and file-size warnings to zero across the playground.
+- **REF-03**: Introduce a shared rendering helper library for every repeated napplet UI pattern.
+
+### Tooling policy
+
+- **TOOL-01**: Add `aislop` as a first-class repo script or CI gate after the command, version pin, and warning policy are agreed.
+- **TOOL-02**: Expand CI to fail on selected warning categories after the v1.15 cleanup baseline is proven stable.
+
+### Dependency churn
+
+- **DEP-01**: Major-version toolchain upgrades or dependency replacements that are not required to clear the current security errors.
+
+## Out of Scope
+
+Explicitly excluded for v1.15. Documented to prevent scope creep.
+
+| Feature | Reason |
+|---------|--------|
+| Runtime protocol changes | The quality gate must not change NIP-5D behavior or public package contracts. |
+| New runtime dependencies | Existing repo guidance forbids new dependencies without explicit request; safe DOM rendering should use native APIs or existing helpers. |
+| Full playground UI rewrite | Large UI-function/file warnings need behavior locks before broad refactors. |
+| NPM package publication | This milestone prepares code quality, not release publishing. |
+| Custom CI policy for every warning | Warning thresholds should be decided after the cleaned baseline is known. |
+| Fixing decrypt-demo pending fixture behavior | Backlog 999.1 remains valid but is unrelated to the reported AI-slop/security gate. |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| GATE-01 | Phase 68 | Pending |
+| GATE-02 | Phase 71 | Pending |
+| GATE-03 | Phase 71 | Pending |
+| LINT-01 | Phase 68 | Pending |
+| LINT-02 | Phase 68 | Pending |
+| LINT-03 | Phase 68 | Pending |
+| LINT-04 | Phase 68 | Pending |
+| SEC-01 | Phase 69 | Pending |
+| SEC-02 | Phase 69 | Pending |
+| SEC-03 | Phase 69 | Pending |
+| SLOP-01 | Phase 68 | Pending |
+| SLOP-02 | Phase 68 | Pending |
+| SLOP-03 | Phase 70 | Pending |
+| TYPE-01 | Phase 70 | Pending |
+| TYPE-02 | Phase 70 | Pending |
+| QUAL-01 | Phase 70 | Pending |
+| DEPS-01 | Phase 70 | Pending |
+| VERIFY-01 | Phase 71 | Pending |
+| VERIFY-02 | Phase 71 | Pending |
+| VERIFY-03 | Phase 71 | Pending |
+
+**Coverage:**
+- v1 requirements: 20 total
+- Mapped to phases: 20
+- Unmapped: 0
+
+---
+*Requirements defined: 2026-05-24*
+*Last updated: 2026-05-24 after roadmap creation*
