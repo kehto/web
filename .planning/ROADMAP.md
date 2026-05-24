@@ -123,7 +123,7 @@
   4. Applicable static guards pass, including `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and route/docs checks affected by changed files.
   5. `git diff --check` passes and closeout artifacts state remaining risks.
 
-**Plans**: Pending
+**Plans**: [71-01-PLAN.md](phases/71-quality-gate-verification-and-closeout/71-01-PLAN.md)
 
 ---
 
@@ -134,7 +134,7 @@
 | 68. Gate Baseline and Mechanical Cleanup | 1/1 | Completed | 2026-05-24 |
 | 69. Safe DOM Rendering and Scanner Cleanup | 1/1 | Completed | 2026-05-24 |
 | 70. Type Safety, Maintainability, and Dependency Triage | 1/1 | Completed | 2026-05-24 |
-| 71. Quality Gate Verification and Closeout | 0/1 | Not Started | — |
+| 71. Quality Gate Verification and Closeout | 1/1 | In Progress | — |
 
 ## Backlog
 
@@ -160,4 +160,4 @@
 
 ---
 
-*ROADMAP.md last updated: 2026-05-24 - Phase 70 completed.*
+*ROADMAP.md last updated: 2026-05-24 - Phase 71 planned.*
