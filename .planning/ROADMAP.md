@@ -81,7 +81,7 @@
   3. The `nip46-client.ts` hardcoded-secret scanner hit is removed or made clearly non-secret demo fixture data.
   4. Existing playground smoke/unit coverage still passes for the changed rendering paths.
 
-**Plans**: Pending
+**Plans**: [69-01-PLAN.md](phases/69-safe-dom-rendering-and-scanner-cleanup/69-01-PLAN.md)
 
 ### Phase 70: Type Safety, Maintainability, and Dependency Triage
 
