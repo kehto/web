@@ -39,22 +39,21 @@ export function routeServiceMessage(
   services: ServiceRegistry,
   sendToNapplet: SendToNapplet,
 ): boolean {
-  const send = (msg: NappletMessage): void => sendToNapplet(windowId, msg);
-
   // NUB-domain services: signer.*, relay.*, storage.* route by type prefix
   const domain = message.type.split('.')[0];
   const handler = services[domain];
   if (handler) {
-    handler.handleMessage(windowId, message, send);
+    handler.handleMessage(windowId, message, (msg) => sendToNapplet(windowId, msg));
     return true;
   }
 
   // IFC-routed services: audio and notifications receive ifc.emit with topic prefix
-  if (message.type === 'ifc.emit' && typeof (message as any).topic === 'string') {
-    const prefix = ((message as any).topic as string).split(':')[0];
+  const ifcMessage = message as NappletMessage & { topic?: unknown };
+  if (message.type === 'ifc.emit' && typeof ifcMessage.topic === 'string') {
+    const prefix = ifcMessage.topic.split(':')[0];
     const ifcHandler = services[prefix];
     if (ifcHandler) {
-      ifcHandler.handleMessage(windowId, message, send);
+      ifcHandler.handleMessage(windowId, message, (msg) => sendToNapplet(windowId, msg));
       return true;
     }
   }

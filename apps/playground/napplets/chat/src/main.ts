@@ -49,9 +49,7 @@ function formatError(error: unknown, fallback: string): string {
 }
 
 function getMissingRequiredNubs(): string[] {
-  const supports = (window as unknown as {
-    napplet: { shell: { supports(capability: string): boolean } };
-  }).napplet.shell.supports;
+  const supports = window.napplet.shell.supports;
   return REQUIRED_NUBS.filter((capability) => !supports(capability));
 }
 

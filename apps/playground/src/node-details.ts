@@ -121,14 +121,6 @@ function buildNappletDetail(
   return buildHostedSurfaceDetail(node, sources, options, 'napplet');
 }
 
-function buildRuntimeDemoDetail(
-  node: DemoTopologyNode,
-  sources: NodeDetailSources,
-  options?: NodeDetailOptions,
-): NodeDetail {
-  return buildHostedSurfaceDetail(node, sources, options, 'runtime-demo');
-}
-
 function buildHostedSurfaceDetail(
   node: DemoTopologyNode,
   sources: NodeDetailSources,
@@ -400,7 +392,7 @@ export function buildNodeDetails(
 
   switch (node.role) {
     case 'napplet': return buildNappletDetail(node, sources, options);
-    case 'runtime-demo': return buildRuntimeDemoDetail(node, sources, options);
+    case 'runtime-demo': return buildHostedSurfaceDetail(node, sources, options, 'runtime-demo');
     case 'shell': return buildShellDetail(node, sources);
     case 'acl': return buildAclDetail(node, sources);
     case 'runtime': return buildRuntimeDetail(node, sources);

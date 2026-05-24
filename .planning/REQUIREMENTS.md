@@ -34,17 +34,17 @@
 
 - [x] **SLOP-01**: Auto-fixable decorative section comments, narrative preambles, and trivial restating comments are removed from source where they do not carry API documentation value.
 - [x] **SLOP-02**: Any retained comments explain non-obvious constraints, invariants, or external protocol behavior rather than restating the following code.
-- [ ] **SLOP-03**: Thin wrapper functions flagged by the scan are inlined or kept only when they preserve a meaningful local abstraction boundary.
+- [x] **SLOP-03**: Thin wrapper functions flagged by the scan are inlined or kept only when they preserve a meaningful local abstraction boundary.
 
 ### Type safety and maintainability
 
-- [ ] **TYPE-01**: Double assertions (`as unknown as X`) are replaced with local types, typed wrappers, or narrow assertions at trustworthy boundaries where feasible.
-- [ ] **TYPE-02**: `as any` uses in runtime/services code are removed or narrowed unless the call boundary genuinely requires an untyped bridge.
-- [ ] **QUAL-01**: Duplicate code blocks and complexity warnings are triaged; low-risk shared helpers are extracted, and broad UI-function/file splits are deferred unless protected by existing tests.
+- [x] **TYPE-01**: Double assertions (`as unknown as X`) are replaced with local types, typed wrappers, or narrow assertions at trustworthy boundaries where feasible.
+- [x] **TYPE-02**: `as any` uses in runtime/services code are removed or narrowed unless the call boundary genuinely requires an untyped bridge.
+- [x] **QUAL-01**: Duplicate code blocks and complexity warnings are triaged; low-risk shared helpers are extracted, and broad UI-function/file splits are deferred unless protected by existing tests.
 
 ### Dependency audit
 
-- [ ] **DEPS-01**: Existing dependency audit warnings for `esbuild`, `vite`, `postcss`, `brace-expansion`, and `turbo` are upgraded when safe under the current workspace toolchain or documented as explicit deferrals with rationale.
+- [x] **DEPS-01**: Existing dependency audit warnings for `esbuild`, `vite`, `postcss`, `brace-expansion`, and `turbo` are upgraded when safe under the current workspace toolchain or documented as explicit deferrals with rationale.
 
 ### Verification
 
@@ -102,11 +102,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SEC-03 | Phase 69 | Complete |
 | SLOP-01 | Phase 68 | Complete |
 | SLOP-02 | Phase 68 | Complete |
-| SLOP-03 | Phase 70 | Pending |
-| TYPE-01 | Phase 70 | Pending |
-| TYPE-02 | Phase 70 | Pending |
-| QUAL-01 | Phase 70 | Pending |
-| DEPS-01 | Phase 70 | Pending |
+| SLOP-03 | Phase 70 | Complete |
+| TYPE-01 | Phase 70 | Complete |
+| TYPE-02 | Phase 70 | Complete |
+| QUAL-01 | Phase 70 | Complete |
+| DEPS-01 | Phase 70 | Complete |
 | VERIFY-01 | Phase 71 | Pending |
 | VERIFY-02 | Phase 71 | Pending |
 | VERIFY-03 | Phase 71 | Pending |
@@ -118,4 +118,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-05-24*
-*Last updated: 2026-05-24 after Phase 69 completion*
+*Last updated: 2026-05-24 after Phase 70 completion*

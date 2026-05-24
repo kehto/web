@@ -73,6 +73,12 @@ interface TrackedSub {
   relayHandle: { unsubscribe(): void } | null;
 }
 
+type RelayServiceMessage = NappletMessage & {
+  subId?: unknown;
+  filters?: unknown;
+  event?: unknown;
+};
+
 /**
  * Create a coordinated relay service that combines relay pool and cache
  * into a single ServiceHandler with dedup and unified EOSE.
@@ -115,10 +121,13 @@ export function createCoordinatedRelay(options: CoordinatedRelayOptions): Servic
     },
 
     handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
+      const relayMessage = message as RelayServiceMessage;
       if (message.type === 'relay.subscribe') {
-        const subId = (message as any).subId as string;
+        const subId = relayMessage.subId;
         if (typeof subId !== 'string') return;
-        const filters = (message as any).filters as NostrFilter[];
+        const filters = Array.isArray(relayMessage.filters)
+          ? relayMessage.filters as NostrFilter[]
+          : [];
         const subKey = `${windowId}:${subId}`;
 
         // Cancel existing subscription for this key
@@ -198,7 +207,7 @@ export function createCoordinatedRelay(options: CoordinatedRelayOptions): Servic
       }
 
       if (message.type === 'relay.close') {
-        const subId = (message as any).subId as string;
+        const subId = relayMessage.subId;
         if (typeof subId !== 'string') return;
         const subKey = `${windowId}:${subId}`;
         const entry = subs.get(subKey);
@@ -211,7 +220,7 @@ export function createCoordinatedRelay(options: CoordinatedRelayOptions): Servic
       }
 
       if (message.type === 'relay.publish') {
-        const event = (message as any).event as NostrEvent | undefined;
+        const event = relayMessage.event as NostrEvent | undefined;
         if (!event || typeof event !== 'object') return;
         // Publish to relay pool
         if (options.relayPool.isAvailable()) {

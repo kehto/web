@@ -60,11 +60,14 @@ export function createAudioService(options?: AudioServiceOptions): ServiceHandle
 
     handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
       if (message.type !== 'ifc.emit') return;
-      const topic = (message as any).topic as string | undefined;
+      const ifcMessage = message as NappletMessage & { topic?: unknown; payload?: unknown };
+      const topic = typeof ifcMessage.topic === 'string' ? ifcMessage.topic : undefined;
       if (!topic?.startsWith('audio:')) return;
 
       const action = topic.slice(6); // 'audio:'.length === 6
-      const payload = ((message as any).payload ?? {}) as Record<string, unknown>;
+      const payload = ifcMessage.payload && typeof ifcMessage.payload === 'object'
+        ? ifcMessage.payload as Record<string, unknown>
+        : {};
 
       switch (action) {
         case 'register': {

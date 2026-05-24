@@ -83,6 +83,12 @@ interface TrackedSubscription {
   eoseTimer: unknown;
 }
 
+type RelayServiceMessage = NappletMessage & {
+  subId?: unknown;
+  filters?: unknown;
+  event?: unknown;
+};
+
 /**
  * Create a relay pool service that wraps an existing relay pool
  * implementation as a ServiceHandler.
@@ -118,10 +124,13 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
     },
 
     handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
+      const relayMessage = message as RelayServiceMessage;
       if (message.type === 'relay.subscribe') {
-        const subId = (message as any).subId as string;
+        const subId = relayMessage.subId;
         if (typeof subId !== 'string') return;
-        const filters = (message as any).filters as NostrFilter[];
+        const filters = Array.isArray(relayMessage.filters)
+          ? relayMessage.filters as NostrFilter[]
+          : [];
         const subKey = `${windowId}:${subId}`;
 
         // Cancel existing subscription for this key if any
@@ -164,7 +173,7 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
       }
 
       if (message.type === 'relay.close') {
-        const subId = (message as any).subId as string;
+        const subId = relayMessage.subId;
         if (typeof subId !== 'string') return;
         const subKey = `${windowId}:${subId}`;
         const entry = tracked.get(subKey);
@@ -177,7 +186,7 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
       }
 
       if (message.type === 'relay.publish') {
-        const event = (message as any).event as NostrEvent | undefined;
+        const event = relayMessage.event as NostrEvent | undefined;
         if (event && typeof event === 'object' && options.isAvailable()) {
           options.publish(event);
         }
@@ -196,7 +205,7 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
       // publish path. The runtime's canonical path is to NOT hand us
       // publishEncrypted directly — it translates to relay.publish first.
       if (message.type === 'relay.publishEncrypted') {
-        const event = (message as any).event as NostrEvent | undefined;
+        const event = relayMessage.event as NostrEvent | undefined;
         if (event && typeof event === 'object' && options.isAvailable()) {
           options.publish(event);
         }

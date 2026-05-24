@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.15
 milestone_name: Address AI Slop
 status: in_progress
-last_updated: "2026-05-24T10:26:27.436Z"
+last_updated: "2026-05-24T11:13:27.889Z"
 last_activity: 2026-05-24
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 4
-  completed_plans: 2
-  percent: 50
+  completed_plans: 3
+  percent: 75
 ---
 
 # Project State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-05-24, v1.15 started)
 
 ## Current Position
 
-Phase: 70 (next)
+Phase: 71 (next)
 Plan: —
-Status: Ready for phase planning
-Last activity: 2026-05-24 — Phase 69 completed
+Status: Ready for closeout planning
+Last activity: 2026-05-24 — Phase 70 completed
 
 ## Accumulated Context
 
@@ -47,6 +47,7 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 - v1.15 roadmap phases are 68-71: gate baseline/mechanical cleanup, safe DOM rendering/security scanner cleanup, type/dependency/maintainability triage, then quality-gate verification and closeout.
 - Phase 68 completed 2026-05-24: supplied `aislop 0.9.3` baseline recorded, local `aislop` binary absence documented, the fatal undeclared `@napplet/services` reference corrected, report-flagged duplicate imports and mechanical lint/slop findings cleaned in touched files, and verification passed with `pnpm build`, `pnpm type-check`, and `git diff --check`.
 - Phase 69 completed 2026-05-24: direct `.innerHTML =` assignment sinks were removed from playground source and napplet source, a DOM safety guard was added, the NIP-46 hardcoded-token-looking example was reworded, and verification passed with focused render tests, `pnpm type-check`, `pnpm build`, `pnpm test:unit` (563 tests), and `git diff --check`.
+- Phase 70 completed 2026-05-24: runtime/services message-boundary casts were narrowed, runtime double assertions were reduced, private thin wrappers were inlined, napplet `supports()` double casts were removed, safe dependency audit paths were upgraded, and remaining VitePress Vite/esbuild advisories were explicitly deferred with rationale.
 - v1.14 started 2026-05-23: public GitHub Pages deployment target is `kehto.github.io/web/`, with a portal slash page at `/web/`, playground at `/web/playground/`, and docs at `/web/docs/`. Current workflow only packs `.pages/playground`, so v1.14 must replace playground-only upload with a unified Pages artifact.
 - v1.14 roadmap phases are 65-67: Pages portal entry point, playground Pages path relocation, then docs Pages publication and deploy gate.
 - Phase 65 completed 2026-05-23: `web/index.html` is the static portal source, `pnpm build:pages` writes `.pages/web/index.html`, and the generated portal links to `/web/playground/` and `/web/docs/`.
@@ -83,9 +84,9 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 ## Session Continuity
 
 Last session: 2026-05-23T16:10:00Z
-Resume: v1.15 Address AI Slop has completed Phases 68-69 and is ready for Phase 70 planning.
+Resume: v1.15 Address AI Slop has completed Phases 68-70 and is ready for Phase 71 closeout.
 Current milestone: v1.15 Address AI Slop.
 
 ## Operator Next Steps
 
-- Start Phase 70 with `$gsd-plan-phase 70`.
+- Start Phase 71 with `$gsd-plan-phase 71`.

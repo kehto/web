@@ -10,6 +10,12 @@
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 import type { ServiceHandler } from '@kehto/runtime';
 
+type RelayServiceMessage = NappletMessage & {
+  subId?: unknown;
+  filters?: unknown;
+  event?: unknown;
+};
+
 /**
  * Options for creating a cache service.
  *
@@ -104,10 +110,13 @@ export function createCacheService(options: CacheServiceOptions): ServiceHandler
     },
 
     handleMessage(_windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
+      const relayMessage = message as RelayServiceMessage;
       if (message.type === 'relay.subscribe') {
-        const subId = (message as any).subId as string;
+        const subId = relayMessage.subId;
         if (typeof subId !== 'string') return;
-        const filters = (message as any).filters as NostrFilter[];
+        const filters = Array.isArray(relayMessage.filters)
+          ? relayMessage.filters as NostrFilter[]
+          : [];
 
         if (!options.isAvailable()) {
           send({ type: 'relay.eose', subId } as NappletMessage);
@@ -130,7 +139,7 @@ export function createCacheService(options: CacheServiceOptions): ServiceHandler
       }
 
       if (message.type === 'relay.publish') {
-        const event = (message as any).event as NostrEvent | undefined;
+        const event = relayMessage.event as NostrEvent | undefined;
         if (event && typeof event === 'object' && options.isAvailable()) {
           try {
             options.store(event);

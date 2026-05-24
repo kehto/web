@@ -31,10 +31,16 @@
     "@playwright/test": "^1.54.0",
     "@vitest/coverage-v8": "^4.1.2",
     "nostr-tools": "^2.23.3",
-    "turbo": "^2.5.0",
+    "turbo": "^2.9.14",
     "typedoc": "^0.28",
     "typescript": "^5.9.3",
     "vitest": "^4.1.2"
+  },
+  "pnpm": {
+    "overrides": {
+      "brace-expansion": "5.0.6",
+      "postcss": "8.5.15"
+    }
   },
   "packageManager": "pnpm@10.8.0"
 }

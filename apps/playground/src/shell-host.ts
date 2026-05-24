@@ -1130,13 +1130,6 @@ export function getDemoHostPubkey(): string {
   return _hostPubkey;
 }
 
-/**
- * Get the current signer connection state for topology rendering and UI.
- */
-export function getDemoSignerState() {
-  return getSignerConnectionState();
-}
-
 export async function publishDecryptFixturesToNapplet(dTag = 'decrypt-demo'): Promise<boolean> {
   const info = [...napplets.values()].find((entry) => entry.name === dTag) ?? null;
   if (!info?.iframe.contentWindow) {

@@ -212,16 +212,15 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
 
   function handleRelayMessage(windowId: string, msg: NappletMessage): void {
     // Handler dispatches by sub-action string rather than by msg.type
-    // discriminant, so we widen to `unknown` through RelayMessage and access
-    // fields per-branch. Each case narrows against the canonical
-    // RelayNubMessage discriminant union (subscribe, close, publish,
-    // publishEncrypted, query).
-    const m = msg as unknown as RelayMessage & {
+    // discriminant, so each case narrows fields against the canonical relay
+    // message union (subscribe, close, publish, publishEncrypted, query).
+    type RuntimeRelayMessage = RelayMessage & {
       subId?: string;
       filters?: NostrFilter[];
       event?: NostrEvent;
       id?: string;
     };
+    const m = msg as RuntimeRelayMessage;
     const dotIdx = msg.type.indexOf('.');
     const action = msg.type.slice(dotIdx + 1);
 
@@ -568,13 +567,14 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   }
 
   function handleIfcMessage(windowId: string, msg: NappletMessage): void {
-    const m = msg as unknown as IfcMessage & {
+    type RuntimeIfcMessage = IfcMessage & {
       id?: string;
       topic?: string;
       payload?: unknown;
       target?: string;
       channelId?: string;
     };
+    const m = msg as RuntimeIfcMessage;
     const dotIdx = msg.type.indexOf('.');
     const action = msg.type.slice(dotIdx + 1);
 
