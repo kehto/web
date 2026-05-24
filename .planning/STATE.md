@@ -1,33 +1,33 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.15
-milestone_name: Address AI Slop
-status: completed
-last_updated: "2026-05-24T11:44:45Z"
+milestone: v1.16
+milestone_name: Structural Code Quality Refactor
+status: planning
+last_updated: "2026-05-24T12:01:43.891Z"
 last_activity: 2026-05-24
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 5
-  completed_plans: 5
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-24, v1.15 started)
+See: .planning/PROJECT.md (updated 2026-05-24, v1.16 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** v1.15 Address AI Slop completed
+**Current focus:** v1.16 Structural Code Quality Refactor requirements definition
 
 ## Current Position
 
-Phase: 72
-Plan: 72-01
-Status: Completed
-Last activity: 2026-05-24 — Local `aislop` scan reduced from Critical to Needs Work with AI Slop/Linting/Security all clean
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-24 — Milestone v1.16 started
 
 ## Accumulated Context
 

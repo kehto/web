@@ -2,21 +2,22 @@
 
 ## v1.15 Address AI Slop (Shipped: 2026-05-24)
 
-**Phases completed:** 4 phases (68-71), 4 plans, 20 requirements.
+**Phases completed:** 5 phases (68-72), 5 plans, 20 requirements.
 
-**Delivered:** v1.15 restored a credible quality-gate baseline from the supplied `aislop 0.9.3` report. It fixed the fatal undeclared package import, removed direct playground DOM assignment sinks, reworded the NIP-46 scanner hit, narrowed safe type/wrapper warnings, upgraded safe audit paths, and closed with final repo verification.
+**Delivered:** v1.15 restored a credible quality-gate baseline from the supplied `aislop 0.9.3` report and corrected the local scanner invocation gap. It fixed the fatal undeclared package import, removed direct playground DOM assignment sinks, reworded the NIP-46 scanner hit, narrowed safe type/wrapper warnings, upgraded safe audit paths, added a repo-local `aislop` policy, and closed with local scanner status reduced from Critical to Needs Work.
 
-**Audit:** passed - 20/20 requirements, 4/4 phases, 4/4 plans, 4/4 integration paths, 3/3 user flows.
+**Audit:** passed - 20/20 requirements, 5/5 phases, 5/5 plans, 4/4 integration paths, 3/3 user flows.
 
 **Key accomplishments:**
 
-- **Gate baseline:** captured the supplied `aislop 0.9.3` report as the before-count source because no local `aislop` binary is installed.
+- **Gate baseline:** captured the supplied `aislop 0.9.3` report as the before-count source, then corrected the local invocation to `npx --no-install aislop`.
 - **Mechanical cleanup:** corrected the undeclared `@napplet/services` import, merged duplicate imports, removed unused locals/imports, simplified spread fallbacks, removed leftover production console calls, and cleaned decorative comments in touched files.
 - **DOM security:** replaced direct playground `innerHTML` assignment sinks with DOM construction, `textContent`, `replaceChildren`, or named trusted internal fragment insertion, with a unit guard blocking regressions.
 - **Scanner cleanup:** reworded the NIP-46 token-looking example so static secret terms no longer appear in the client file.
 - **Type and wrapper triage:** narrowed runtime/services message-boundary casts, reduced runtime double assertions, removed private thin wrappers, and documented broad complexity/refactor deferrals.
-- **Dependency audit triage:** upgraded `turbo`, overrode transitive PostCSS and brace-expansion to patched versions, and deferred the remaining VitePress Vite/esbuild path because fixing it safely requires upstream or a major-range override decision.
-- **Verification:** fatal-category greps, `pnpm build`, `pnpm type-check`, `pnpm test:unit` (563 tests), `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, `VITEPRESS_BASE=/web/docs/ pnpm docs:check`, Pages build/audit, `gsd-sdk query audit-open`, and `git diff --check` all passed.
+- **Dependency audit triage:** upgraded `turbo`, overrode transitive PostCSS/brace-expansion, and resolved the corrected local Vite/esbuild scanner advisories through existing dependency overrides.
+- **Corrected scanner closeout:** `npx --no-install aislop scan -d` now reports `64 / 100 Needs Work`, 0 errors, 16 warnings, 0 fixable, with Formatting/Linting/AI Slop/Security all clean.
+- **Verification:** fatal-category greps, `npx --no-install aislop scan -d`, `pnpm build`, `pnpm type-check`, `pnpm test:unit` (563 tests), `pnpm --dir docs docs:build`, `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, `VITEPRESS_BASE=/web/docs/ pnpm docs:check`, Pages build/audit, `gsd-sdk query audit-open`, and `git diff --check` all passed.
 
 **Archive:** [v1.15-ROADMAP.md](milestones/v1.15-ROADMAP.md) | [v1.15-REQUIREMENTS.md](milestones/v1.15-REQUIREMENTS.md) | [v1.15-MILESTONE-AUDIT.md](milestones/v1.15-MILESTONE-AUDIT.md)
 

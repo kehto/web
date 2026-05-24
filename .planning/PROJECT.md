@@ -37,25 +37,47 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Status:** Planning v1.15 Address AI Slop.
+**Status:** Planning v1.16 Structural Code Quality Refactor.
 
-v1.14 turned the GitHub Pages deployment into a public `/web/` site: a static Kehto portal, playground at `/web/playground/`, VitePress docs at `/web/docs/`, and one unified artifact guarded by route-shape verification.
+v1.15 restored the local quality gate from the `aislop 0.9.3` report: formatting, linting, AI Slop, and security now report 0 issues. The remaining scanner output is structural code-quality debt only: 10 long functions, 3 large files, and 3 deep-nesting findings.
 
-The baseline after v1.14 is pinned-spec NIP-5D conformance, a buildable docs site, and a pre-deploy GitHub Pages artifact contract for `https://kehto.github.io/web/`. Verification stands at `VITEPRESS_BASE=/web/docs/ pnpm docs:check`, `PLAYGROUND_BASE_PATH=/web/playground/ pnpm --filter @kehto/playground build`, `pnpm build:pages`, `pnpm audit:pages`, `pnpm build`, `pnpm type-check`, `pnpm test:unit` (562 tests), `pnpm audit:gateway-artifacts`, `git diff --check`, and `gsd-sdk query audit-open`. The new v1.15 focus is quality-gate repair from the `aislop 0.9.3` report: one failing undeclared import, direct `innerHTML` security errors, fixable AI-slop patterns, unsafe casts, dead code, and dependency audit warnings.
+The baseline after v1.15 is pinned-spec NIP-5D conformance, a buildable docs site, a pre-deploy GitHub Pages artifact contract for `https://kehto.github.io/web/`, and a local scanner result of `64 / 100 Needs Work` with 0 errors, 16 warnings, and 0 fixable findings. Verification stands at `npx --no-install aislop scan -d`, `pnpm build`, `pnpm type-check`, `pnpm test:unit` (563 tests), `pnpm --dir docs docs:build`, and `git diff --check`. The new v1.16 focus is behavior-preserving structural refactor work to remove those 16 remaining warnings.
 
-## Current Milestone: v1.15 Address AI Slop
+## Current Milestone: v1.16 Structural Code Quality Refactor
 
-**Goal:** Restore a credible quality-gate baseline by fixing the failing AI-slop/security findings without changing Kehto runtime behavior.
+**Goal:** Eliminate the remaining 16 `aislop` structural code-quality warnings without changing Kehto runtime behavior.
 
 **Target features:**
-- Correct the hallucinated or stale `@napplet/services` import path so package manifests and source imports agree.
-- Replace direct `innerHTML` writes in playground napplets with safe DOM/text rendering patterns.
-- Remove auto-fixable slop: decorative comments, duplicate imports, leftover console debugging, unused code, and unnecessary spread fallbacks.
-- Reduce unsafe `as any` and double-cast patterns where local types can express the real contract.
-- Triage dependency audit warnings and either upgrade safe workspace tooling dependencies or document deferrals.
-- Preserve the v1.14 behavior baseline through build, type-check, unit, static audit, and quality-gate verification.
+- Split or extract the 10 functions currently over the configured 150-line threshold.
+- Split the 3 files currently over the configured 700-line threshold: `apps/playground/src/main.ts`, `apps/playground/src/shell-host.ts`, and `packages/runtime/src/runtime.ts`.
+- Reduce the 3 deep-nesting findings in `bootShell`, `createRuntime`, and `handleRelayMessage`.
+- Keep Formatting, Linting, AI Slop, and Security at 0 issues throughout the refactor.
+- Preserve runtime, service, playground, and docs behavior through focused tests plus full build/type/unit verification.
 
-## Latest Milestone: v1.14 GitHub Pages Web Portal
+## Latest Milestone: v1.15 Address AI Slop
+
+**Goal:** Restore a credible quality-gate baseline by fixing AI-slop/security findings and reducing the corrected local scanner from Critical to Needs Work without changing Kehto runtime behavior.
+
+**Shipped features:**
+- Corrected the stale `@napplet/services` import path and removed direct playground DOM assignment sinks.
+- Removed auto-fixable slop: decorative comments, duplicate imports, leftover console debugging, unused code, and unnecessary spread fallbacks.
+- Narrowed safe type and wrapper findings without changing public contracts.
+- Resolved dependency scanner advisories through existing `pnpm.overrides`.
+- Added repo-local `.aislop/config.yml` so the local scanner policy is explicit.
+- Reduced `npx --no-install aislop scan -d` to `64 / 100 Needs Work`, with Formatting, Linting, AI Slop, and Security all clean.
+
+### Latest Milestone Accomplishments
+
+- **Fatal scanner repair:** AI Slop and Security error categories are closed; the corrected local scanner path is `npx --no-install aislop`.
+- **Safe DOM cleanup:** report-flagged direct `innerHTML` assignments were replaced with DOM construction, `textContent`, `replaceChildren`, or named trusted internal insertion.
+- **Mechanical source cleanup:** normal `aislop fix` removed hundreds of narrative/trivial comment and import/code hygiene findings.
+- **Type and duplication cleanup:** low-risk duplicate blocks, thin wrappers, and narrowable assertions were cleaned without broad module rewrites.
+- **Dependency scanner cleanup:** existing dependency overrides resolve the Vite/esbuild/PostCSS/brace-expansion security scanner paths.
+- **Verification:** local scanner, build, type-check, unit tests, docs build, and diff checks are green enough to make the remaining risk structural only.
+
+20/20 v1.15 requirements satisfied; 5/5 phase VERIFICATION.md files passed; local `aislop` no longer reports Critical status.
+
+## Previous Milestone: v1.14 GitHub Pages Web Portal
 
 **Goal:** Turn the GitHub Pages deployment into a public `/web/` portal that links to the playground and docs, with the playground deployed at `/web/playground/` and VitePress docs deployed at `/web/docs/`.
 
@@ -65,7 +87,7 @@ The baseline after v1.14 is pinned-spec NIP-5D conformance, a buildable docs sit
 - Docs build deployed under `kehto.github.io/web/docs/`.
 - GitHub Pages workflow packs one unified artifact and verifies the expected portal, playground, and docs routes.
 
-### Latest Milestone Accomplishments
+### v1.14 Accomplishments
 
 - **Static portal:** `web/index.html` builds to `.pages/web/index.html` and links users to `/web/playground/` and `/web/docs/`.
 - **Playground route relocation:** playground assets and static gateway metadata now use `/web/playground/`, including all 13 napplet gateway `htmlUrl` values under `/web/playground/napplet-gateway/`.
@@ -101,7 +123,7 @@ Deferred candidates remain host bridge reference implementations, multi-OS CI ma
 
 28/28 v1.13 requirements satisfied; 5/5 phase VERIFICATION.md files passed; 5/5 integration paths wired; 0 critical gaps.
 
-**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability), v1.6 (downstream unblock), v1.7 (spec adoption + 2 new domains), v1.8 (upstream alignment + decrypt), v1.9 (SDK migration), v1.10 (compatibility cleanup + decrypt-demo parity), v1.11 (gateway artifact parity), v1.12 (NIP-5D contract conformance), v1.13 (docs site and docs gates), v1.14 (GitHub Pages web portal).
+**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability), v1.6 (downstream unblock), v1.7 (spec adoption + 2 new domains), v1.8 (upstream alignment + decrypt), v1.9 (SDK migration), v1.10 (compatibility cleanup + decrypt-demo parity), v1.11 (gateway artifact parity), v1.12 (NIP-5D contract conformance), v1.13 (docs site and docs gates), v1.14 (GitHub Pages web portal), v1.15 (quality-gate cleanup).
 
 ### Previously Shipped
 
@@ -130,6 +152,7 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 - **Live Pages smoke** — v1.14 verifies the local and CI Pages artifact shape before upload; browser smoke against `https://kehto.github.io/web/` remains a post-push/deployment follow-up.
 - **Decrypt-demo fixture pending repair** — Backlog 999.1 remains valid and intentionally separate from the static publication route milestone.
 - **Lint task surface** — `pnpm lint` succeeds but turbo currently reports no configured package lint tasks; type-check, unit tests, E2E, and static guards carry verification.
+- **Structural scanner warnings** — v1.16 targets the remaining 16 `aislop` code-quality warnings: 10 long functions, 3 large files, and 3 deep-nesting findings.
 
 ## Key Decisions
 
@@ -192,4 +215,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-24 — v1.15 milestone started (Address AI Slop)*
+*Last updated: 2026-05-24 — v1.16 milestone started (Structural Code Quality Refactor)*
