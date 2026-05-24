@@ -62,13 +62,12 @@ function addMessage(text: string, type: 'self' | 'other' | 'system' = 'system'):
   div.className = `msg msg-${type}`;
   const time = new Date().toLocaleTimeString('en', { hour12: false, hour: '2-digit', minute: '2-digit' });
   const prefix = type === 'self' ? '> ' : type === 'other' ? '< ' : '* ';
-  div.innerHTML = `<span class="msg-time">${time}</span>${prefix}${escapeHtml(text)}`;
+  const timeEl = document.createElement('span');
+  timeEl.className = 'msg-time';
+  timeEl.textContent = time;
+  div.append(timeEl, document.createTextNode(`${prefix}${text}`));
   messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // --- Chat History (storage) ---

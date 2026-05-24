@@ -111,7 +111,7 @@ function updateRulesDisplay(): void {
   const count = Object.keys(rules).length;
   ruleCountEl.textContent = `${count} rule${count === 1 ? '' : 's'}`;
 
-  rulesEl.innerHTML = '';
+  rulesEl.replaceChildren();
   for (const [trigger, response] of Object.entries(rules)) {
     const div = document.createElement('div');
     div.textContent = `"${trigger}" -> "${response}"`;

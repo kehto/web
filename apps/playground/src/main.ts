@@ -56,6 +56,7 @@ import {
   type NodeDetail,
 } from './node-details.js';
 import { initNodeInspector, openConstantsTab, setSelectedNodeId } from './node-inspector.js';
+import { replaceChildrenFromTrustedHtml } from './dom-utils.js';
 import {
   onStateChange,
   disconnectSigner,
@@ -91,7 +92,7 @@ if (_nip66Aggregator) {
     if (!list) return;
     const relays = Array.from(_nip66Aggregator.getRelaySet());
     if (relays.length === 0) return;  // leave "no suggestions yet" placeholder in place
-    list.innerHTML = '';
+    list.replaceChildren();
     for (const url of relays) {
       const li = document.createElement('li');
       li.style.padding = '2px 0';
@@ -126,19 +127,24 @@ function renderToast(notification: Notification): void {
   const toast = document.createElement('div');
   toast.className = 'notif-toast';
   toast.dataset.notifId = notification.id;
-  toast.innerHTML = `
-    <div class="notif-toast-title">${escapeHtml(notification.title)}</div>
-    ${notification.body ? `<div class="notif-toast-body">${escapeHtml(notification.body)}</div>` : ''}
-    <div class="notif-toast-cue">notifications:create via service</div>
-  `;
+  const title = document.createElement('div');
+  title.className = 'notif-toast-title';
+  title.textContent = notification.title;
+  toast.appendChild(title);
+  if (notification.body) {
+    const body = document.createElement('div');
+    body.className = 'notif-toast-body';
+    body.textContent = notification.body;
+    toast.appendChild(body);
+  }
+  const cue = document.createElement('div');
+  cue.className = 'notif-toast-cue';
+  cue.textContent = 'notifications:create via service';
+  toast.appendChild(cue);
   layer.appendChild(toast);
   setTimeout(() => {
     toast.remove();
   }, demoConfig.get('demo.TOAST_DISPLAY_MS'));
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // ─── Notification Node Summary Rendering ────────────────────────────────────
@@ -164,30 +170,62 @@ function renderNotificationInspector(snapshot: DemoNotificationSnapshot): void {
   if (!listEl) return;
 
   if (snapshot.notifications.length === 0) {
-    listEl.innerHTML = '<div class="notif-list-empty">no notifications yet</div>';
+    const empty = document.createElement('div');
+    empty.className = 'notif-list-empty';
+    empty.textContent = 'no notifications yet';
+    listEl.replaceChildren(empty);
     return;
   }
 
-  // Newest first
   const sorted = [...snapshot.notifications].reverse();
-  listEl.innerHTML = sorted
-    .map(
-      (n) => `
-      <div class="notif-item${n.read ? ' read' : ''}" data-notif-id="${n.id}">
-        <div class="notif-item-title">${escapeHtml(n.title)}</div>
-        ${n.body ? `<div class="notif-item-body">${escapeHtml(n.body)}</div>` : ''}
-        <div class="notif-item-meta">
-          <span class="notif-item-tag">notifications:create</span>
-          <span>${n.read ? 'read' : 'unread'}</span>
-        </div>
-        <div class="notif-item-actions">
-          ${!n.read ? `<button class="notif-item-btn read-btn" data-action="notif-read" data-notif-id="${n.id}">mark read</button>` : ''}
-          <button class="notif-item-btn dismiss-btn" data-action="notif-dismiss" data-notif-id="${n.id}">dismiss</button>
-        </div>
-      </div>
-    `
-    )
-    .join('');
+  const items = sorted.map((n) => {
+    const item = document.createElement('div');
+    item.className = `notif-item${n.read ? ' read' : ''}`;
+    item.dataset.notifId = n.id;
+
+    const title = document.createElement('div');
+    title.className = 'notif-item-title';
+    title.textContent = n.title;
+    item.appendChild(title);
+
+    if (n.body) {
+      const body = document.createElement('div');
+      body.className = 'notif-item-body';
+      body.textContent = n.body;
+      item.appendChild(body);
+    }
+
+    const meta = document.createElement('div');
+    meta.className = 'notif-item-meta';
+    const tag = document.createElement('span');
+    tag.className = 'notif-item-tag';
+    tag.textContent = 'notifications:create';
+    const state = document.createElement('span');
+    state.textContent = n.read ? 'read' : 'unread';
+    meta.append(tag, state);
+    item.appendChild(meta);
+
+    const actions = document.createElement('div');
+    actions.className = 'notif-item-actions';
+    if (!n.read) {
+      const readBtn = document.createElement('button');
+      readBtn.className = 'notif-item-btn read-btn';
+      readBtn.dataset.action = 'notif-read';
+      readBtn.dataset.notifId = n.id;
+      readBtn.textContent = 'mark read';
+      actions.appendChild(readBtn);
+    }
+    const dismissBtn = document.createElement('button');
+    dismissBtn.className = 'notif-item-btn dismiss-btn';
+    dismissBtn.dataset.action = 'notif-dismiss';
+    dismissBtn.dataset.notifId = n.id;
+    dismissBtn.textContent = 'dismiss';
+    actions.appendChild(dismissBtn);
+    item.appendChild(actions);
+
+    return item;
+  });
+  listEl.replaceChildren(...items);
 }
 
 // ─── Notification Snapshot Subscriber ────────────────────────────────────────
@@ -232,7 +270,7 @@ const topology = buildDemoTopology(getDemoTopologyInputs());
 // Render topology into the left topology pane
 const topologyPane = document.getElementById('topology-pane');
 if (topologyPane) {
-  topologyPane.innerHTML = renderDemoTopology(topology);
+  replaceChildrenFromTrustedHtml(topologyPane, renderDemoTopology(topology));
 }
 
 // Initialize Leader Line edges after topology HTML is in the DOM
@@ -369,74 +407,111 @@ function updateSignerNodeDisplay(state: SignerConnectionStateView): void {
   }
   for (const el of toRemove) el.remove();
 
-  let innerHtml = '';
+  function meta(className: string, text: string): HTMLDivElement {
+    const el = document.createElement('div');
+    el.className = `topology-node-meta ${className}`;
+    el.textContent = text;
+    return el;
+  }
+
+  function baseNodes(): [HTMLDivElement, HTMLDivElement] {
+    const kicker = document.createElement('div');
+    kicker.className = 'topology-node-kicker';
+    kicker.textContent = 'service';
+    const title = document.createElement('div');
+    title.className = 'topology-node-title';
+    title.textContent = 'signer';
+    return [kicker, title];
+  }
+
+  const dynamicNodes: HTMLElement[] = [];
+  dynamicNodes.push(...baseNodes());
 
   if (state.isConnecting) {
-    innerHtml = `
-      <div class="topology-node-kicker">service</div>
-      <div class="topology-node-title">signer</div>
-      <div class="topology-node-meta signer-status-connecting">connecting...</div>
-    `;
+    dynamicNodes.push(meta('signer-status-connecting', 'connecting...'));
   } else if (state.method === 'none') {
-    const errorHtml = state.error
-      ? `<div class="topology-node-meta signer-status-error">${state.error}</div>`
-      : '';
-    innerHtml = `
-      <div class="topology-node-kicker">service</div>
-      <div class="topology-node-title">signer</div>
-      ${errorHtml}
-      <div class="topology-node-meta signer-status-disconnected">not connected</div>
-      <button class="signer-connect-btn" data-action="open-signer-connect">Connect Signer</button>
-    `;
+    if (state.error) dynamicNodes.push(meta('signer-status-error', state.error));
+    dynamicNodes.push(meta('signer-status-disconnected', 'not connected'));
+    const button = document.createElement('button');
+    button.className = 'signer-connect-btn';
+    button.dataset.action = 'open-signer-connect';
+    button.textContent = 'Connect Signer';
+    dynamicNodes.push(button);
   } else {
-    // Connected
     const truncatedPubkey = state.pubkey
       ? `${state.pubkey.substring(0, 8)}...${state.pubkey.substring(state.pubkey.length - 4)}`
       : '';
-    const relayHtml = state.relay
-      ? `<span class="signer-relay">${state.relay}</span>`
-      : '';
 
-    // Recent requests (last 5, most recent first)
+    const connected = document.createElement('div');
+    connected.className = 'topology-node-meta signer-status-connected';
+    const method = document.createElement('span');
+    method.className = 'signer-method-badge';
+    method.textContent = state.method === 'nip07' ? 'nip-07' : 'nip-46';
+    const pubkey = document.createElement('span');
+    pubkey.className = 'signer-pubkey';
+    pubkey.textContent = truncatedPubkey;
+    connected.append(method, pubkey);
+    if (state.relay) {
+      const relay = document.createElement('span');
+      relay.className = 'signer-relay';
+      relay.textContent = state.relay;
+      connected.appendChild(relay);
+    }
+    dynamicNodes.push(connected);
+
+    const recent = document.createElement('div');
+    recent.className = 'signer-recent-requests';
+    const recentLabel = document.createElement('div');
+    recentLabel.className = 'signer-recent-label';
+    recentLabel.textContent = 'recent';
+    recent.appendChild(recentLabel);
     const recentSlice = [...state.recentRequests].reverse().slice(0, 5);
-    const requestRowsHtml = recentSlice.length > 0
-      ? recentSlice.map((r) => `
-          <div class="signer-request-row ${r.success ? 'ok' : 'err'}">
-            <span class="signer-req-method">${r.method}</span>
-            ${r.kind !== undefined ? `<span class="signer-req-kind">k${r.kind}</span>` : ''}
-            <span class="signer-req-status">${r.success ? '✓' : '✗'}</span>
-          </div>
-        `).join('')
-      : '<div class="signer-no-requests">no requests yet</div>';
+    if (recentSlice.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'signer-no-requests';
+      empty.textContent = 'no requests yet';
+      recent.appendChild(empty);
+    } else {
+      for (const request of recentSlice) {
+        const row = document.createElement('div');
+        row.className = `signer-request-row ${request.success ? 'ok' : 'err'}`;
+        const methodEl = document.createElement('span');
+        methodEl.className = 'signer-req-method';
+        methodEl.textContent = request.method;
+        row.appendChild(methodEl);
+        if (request.kind !== undefined) {
+          const kind = document.createElement('span');
+          kind.className = 'signer-req-kind';
+          kind.textContent = `k${request.kind}`;
+          row.appendChild(kind);
+        }
+        const status = document.createElement('span');
+        status.className = 'signer-req-status';
+        status.textContent = request.success ? '✓' : '✗';
+        row.appendChild(status);
+        recent.appendChild(row);
+      }
+    }
+    dynamicNodes.push(recent);
 
-    innerHtml = `
-      <div class="topology-node-kicker">service</div>
-      <div class="topology-node-title">signer</div>
-      <div class="topology-node-meta signer-status-connected">
-        <span class="signer-method-badge">${state.method === 'nip07' ? 'nip-07' : 'nip-46'}</span>
-        <span class="signer-pubkey">${truncatedPubkey}</span>
-        ${relayHtml}
-      </div>
-      <div class="signer-recent-requests">
-        <div class="signer-recent-label">recent</div>
-        ${requestRowsHtml}
-      </div>
-      <div class="signer-action-row">
-        <button class="signer-test-sign-btn" data-action="signer-test-sign">test sign</button>
-        <button class="signer-disconnect-btn" data-action="disconnect-signer">disconnect</button>
-      </div>
-    `;
+    const actions = document.createElement('div');
+    actions.className = 'signer-action-row';
+    const testBtn = document.createElement('button');
+    testBtn.className = 'signer-test-sign-btn';
+    testBtn.dataset.action = 'signer-test-sign';
+    testBtn.textContent = 'test sign';
+    const disconnectBtn = document.createElement('button');
+    disconnectBtn.className = 'signer-disconnect-btn';
+    disconnectBtn.dataset.action = 'disconnect-signer';
+    disconnectBtn.textContent = 'disconnect';
+    actions.append(testBtn, disconnectBtn);
+    dynamicNodes.push(actions);
   }
 
-  // Insert the dynamic content before node-summary
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = innerHtml;
   if (nodeSummary) {
-    for (const child of [...tempDiv.children]) {
-      contentWrapper.insertBefore(child, nodeSummary);
-    }
+    for (const child of dynamicNodes) contentWrapper.insertBefore(child, nodeSummary);
   } else {
-    contentWrapper.innerHTML = innerHtml;
+    contentWrapper.replaceChildren(...dynamicNodes);
   }
 }
 
@@ -802,17 +877,6 @@ tap.onMessage((msg) => {
 // Install per-node activity projection
 installActivityProjection(tap, topology, classifyTappedMessagePath);
 
-// ─── Compact Node Summary Rendering ─────────────────────────────────────────
-
-function renderSummaryFields(detail: NodeDetail): string {
-  return detail.summaryFields
-    .map(
-      (field) =>
-        `<span class="node-summary-field"><span class="node-summary-label">${field.label}:</span> <span class="node-summary-value">${field.value}</span></span>`
-    )
-    .join('');
-}
-
 function refreshNodeSummaries(): void {
   const napplets = getNapplets();
   const options = {
@@ -826,7 +890,19 @@ function refreshNodeSummaries(): void {
   for (const [nodeId, detail] of details) {
     const el = document.getElementById(`node-summary-${nodeId}`);
     if (el) {
-      el.innerHTML = renderSummaryFields(detail);
+      const fields = detail.summaryFields.map((field) => {
+        const wrapper = document.createElement('span');
+        wrapper.className = 'node-summary-field';
+        const label = document.createElement('span');
+        label.className = 'node-summary-label';
+        label.textContent = `${field.label}:`;
+        const value = document.createElement('span');
+        value.className = 'node-summary-value';
+        value.textContent = field.value;
+        wrapper.append(label, document.createTextNode(' '), value);
+        return wrapper;
+      });
+      el.replaceChildren(...fields);
     }
   }
 }

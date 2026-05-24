@@ -93,11 +93,12 @@ async function renderQrCode(relayUrl: string): Promise<void> {
       margin: 1,
       color: { dark: '#000000', light: '#ffffff' },
     });
-    container.innerHTML = '';
-    container.appendChild(canvas);
+    container.replaceChildren(canvas);
   } catch {
-    // Fallback: display URI as text
-    container.innerHTML = `<div class="signer-qr-fallback">${uri}</div>`;
+    const fallback = document.createElement('div');
+    fallback.className = 'signer-qr-fallback';
+    fallback.textContent = uri;
+    container.replaceChildren(fallback);
   }
 }
 

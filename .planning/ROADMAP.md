@@ -17,7 +17,7 @@
 - [x] **v1.12: NIP-5D Contract Conformance** - 4 phases (56-59), 34/34 requirements, 560 unit tests, 89 E2E specs green, pinned-spec contract conformance across shell, shim/runtime, gateway load checks, and 13 playground napplets ([archive](milestones/v1.12-ROADMAP.md) | [requirements](milestones/v1.12-REQUIREMENTS.md) | [audit](milestones/v1.12-MILESTONE-AUDIT.md))
 - [x] **v1.13: Documentation Strategy & Monorepo Docs Site** - 5 phases (60-64), 28/28 requirements, content strategy, package docs, tutorials/how-tos, VitePress site, and docs verification ([archive](milestones/v1.13-ROADMAP.md) | [requirements](milestones/v1.13-REQUIREMENTS.md) | [audit](milestones/v1.13-MILESTONE-AUDIT.md))
 - [x] **v1.14: GitHub Pages Web Portal** - 3 phases (65-67), 13/13 requirements, public `/web/` portal, playground at `/web/playground/`, docs at `/web/docs/`, and unified Pages deploy gate ([archive](milestones/v1.14-ROADMAP.md) | [requirements](milestones/v1.14-REQUIREMENTS.md) | [audit](milestones/v1.14-MILESTONE-AUDIT.md))
-- [ ] **v1.15: Address AI Slop** - 4 phases (68-71), 20 requirements, AI-slop/security quality-gate repair; 1/4 phases complete
+- [ ] **v1.15: Address AI Slop** - 4 phases (68-71), 20 requirements, AI-slop/security quality-gate repair; 2/4 phases complete
 
 ---
 
@@ -36,7 +36,7 @@
 ### Phases
 
 - [x] **Phase 68: Gate Baseline and Mechanical Cleanup** - Establish reproducible quality-gate evidence and clear import, duplicate-import, unused-code, console, spread, and comment findings that are low-risk and mostly mechanical.
-- [ ] **Phase 69: Safe DOM Rendering and Scanner Cleanup** - Replace direct `innerHTML` writes and resolve the hardcoded-secret scanner hit without weakening demo behavior.
+- [x] **Phase 69: Safe DOM Rendering and Scanner Cleanup** - Replace direct `innerHTML` writes and resolve the hardcoded-secret scanner hit without weakening demo behavior.
 - [ ] **Phase 70: Type Safety, Maintainability, and Dependency Triage** - Narrow unsafe casts, triage thin wrappers/duplicate blocks/complexity warnings, and resolve or document existing dependency audit warnings.
 - [ ] **Phase 71: Quality Gate Verification and Closeout** - Re-run the quality gate and repo verification suite, record before/after evidence, and close the milestone with zero fatal AI Slop/Security errors.
 
@@ -83,6 +83,8 @@
 
 **Plans**: [69-01-PLAN.md](phases/69-safe-dom-rendering-and-scanner-cleanup/69-01-PLAN.md)
 
+**Completed**: 2026-05-24 ([summary](phases/69-safe-dom-rendering-and-scanner-cleanup/69-01-SUMMARY.md) | [verification](phases/69-safe-dom-rendering-and-scanner-cleanup/69-VERIFICATION.md))
+
 ### Phase 70: Type Safety, Maintainability, and Dependency Triage
 
 **Goal**: Reduce unsafe type and maintainability findings without broad, unprotected rewrites.
@@ -128,7 +130,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 68. Gate Baseline and Mechanical Cleanup | 1/1 | Completed | 2026-05-24 |
-| 69. Safe DOM Rendering and Scanner Cleanup | 0/1 | Not Started | — |
+| 69. Safe DOM Rendering and Scanner Cleanup | 1/1 | Completed | 2026-05-24 |
 | 70. Type Safety, Maintainability, and Dependency Triage | 0/1 | Not Started | — |
 | 71. Quality Gate Verification and Closeout | 0/1 | Not Started | — |
 

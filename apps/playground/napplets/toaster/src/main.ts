@@ -87,7 +87,7 @@ function removeListItem(notifId: string): void {
 }
 
 function clearList(): void {
-  listEl.innerHTML = '';
+  listEl.replaceChildren();
 }
 
 /**

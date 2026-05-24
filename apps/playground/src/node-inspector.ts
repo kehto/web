@@ -22,6 +22,7 @@ import { openPolicyModal } from './acl-modal.js';
 import { renderConstantsPanel, wireConstantsPanelEvents, resetShowAll } from './constants-panel.js';
 import { renderKindsPanel } from './kinds-panel.js';
 import { getDemoServiceNames, getNapplets, getAclAdapter, STUB_ONLY_SERVICES } from './shell-host.js';
+import { replaceChildrenFromTrustedHtml } from './dom-utils.js';
 
 // ─── Module State ─────────────────────────────────────────────────────────────
 
@@ -419,14 +420,14 @@ function updateInspectorPane(): void {
     const inner = getFlowAreaInner();
     if (inner) inner.classList.add('inspector-open');
 
-    pane.innerHTML = `
+    replaceChildrenFromTrustedHtml(pane, `
       <div style="height:100%;display:flex;flex-direction:column;overflow:hidden">
         ${renderTabBar()}
         <div style="flex:1;overflow-y:auto;padding-top:4px">
           ${renderConstantsPanel(getSelectedNodeRole())}
         </div>
       </div>
-    `;
+    `);
     wireTabHandlers();
     wireConstantsPanelEvents(() => updateInspectorPane());
     return;
@@ -437,21 +438,21 @@ function updateInspectorPane(): void {
     const inner = getFlowAreaInner();
     if (inner) inner.classList.add('inspector-open');
 
-    pane.innerHTML = `
+    replaceChildrenFromTrustedHtml(pane, `
       <div style="height:100%;display:flex;flex-direction:column;overflow:hidden">
         ${renderTabBar()}
         <div style="flex:1;overflow-y:auto;padding-top:4px">
           ${renderKindsPanel()}
         </div>
       </div>
-    `;
+    `);
     wireTabHandlers();
     return;
   }
 
   // Node tab: need a selected node
   if (!_selectedNodeId || !_topology || !_getOptions) {
-    pane.innerHTML = renderEmptyInspector();
+    replaceChildrenFromTrustedHtml(pane, renderEmptyInspector());
     wireTabHandlers();
     return;
   }
@@ -460,7 +461,7 @@ function updateInspectorPane(): void {
     (n) => n.id === _selectedNodeId,
   );
   if (!node) {
-    pane.innerHTML = renderEmptyInspector();
+    replaceChildrenFromTrustedHtml(pane, renderEmptyInspector());
     wireTabHandlers();
     return;
   }
@@ -471,7 +472,7 @@ function updateInspectorPane(): void {
   // Merge in live activity from ring buffer
   detail.recentActivity = getNodeActivity(_selectedNodeId);
 
-  pane.innerHTML = `
+  replaceChildrenFromTrustedHtml(pane, `
     <div style="height:100%;display:flex;flex-direction:column;overflow:hidden">
       ${renderTabBar()}
       ${renderInspectorHeader(detail)}
@@ -479,7 +480,7 @@ function updateInspectorPane(): void {
         ${renderInspectorContent(detail)}
       </div>
     </div>
-  `;
+  `);
 
   // Wire close button
   const closeBtn = document.getElementById('inspector-close');
@@ -515,7 +516,7 @@ function hideInspector(): void {
   _selectedNodeId = null;
   resetShowAll();
   const pane = getInspectorPane();
-  if (pane) pane.innerHTML = renderEmptyInspector();
+  if (pane) replaceChildrenFromTrustedHtml(pane, renderEmptyInspector());
 
   document.querySelectorAll('[data-node-id]').forEach((el) => {
     el.classList.remove('inspector-selected');

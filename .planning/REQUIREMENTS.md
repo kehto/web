@@ -26,9 +26,9 @@
 
 ### DOM security
 
-- [ ] **SEC-01**: Playground napplets and shell UI source no longer use direct `innerHTML` assignment for dynamic or report-flagged content.
-- [ ] **SEC-02**: User, relay, event, and fixture-derived UI content is rendered through `textContent`, DOM node construction, or existing safe helpers.
-- [ ] **SEC-03**: The hardcoded-secret scanner hit in `apps/playground/src/nip46-client.ts` is removed, renamed as a non-secret demo fixture, or otherwise made unambiguous to static analysis without weakening the demo.
+- [x] **SEC-01**: Playground napplets and shell UI source no longer use direct `innerHTML` assignment for dynamic or report-flagged content.
+- [x] **SEC-02**: User, relay, event, and fixture-derived UI content is rendered through `textContent`, DOM node construction, or existing safe helpers.
+- [x] **SEC-03**: The hardcoded-secret scanner hit in `apps/playground/src/nip46-client.ts` is removed, renamed as a non-secret demo fixture, or otherwise made unambiguous to static analysis without weakening the demo.
 
 ### AI-slop cleanup
 
@@ -97,9 +97,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LINT-02 | Phase 68 | Complete |
 | LINT-03 | Phase 68 | Complete |
 | LINT-04 | Phase 68 | Complete |
-| SEC-01 | Phase 69 | Pending |
-| SEC-02 | Phase 69 | Pending |
-| SEC-03 | Phase 69 | Pending |
+| SEC-01 | Phase 69 | Complete |
+| SEC-02 | Phase 69 | Complete |
+| SEC-03 | Phase 69 | Complete |
 | SLOP-01 | Phase 68 | Complete |
 | SLOP-02 | Phase 68 | Complete |
 | SLOP-03 | Phase 70 | Pending |
@@ -118,4 +118,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-05-24*
-*Last updated: 2026-05-24 after Phase 68 completion*
+*Last updated: 2026-05-24 after Phase 69 completion*

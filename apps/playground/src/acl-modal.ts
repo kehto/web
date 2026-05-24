@@ -79,12 +79,15 @@ export function openPolicyModal(): void {
   // Header
   const header = document.createElement('div');
   header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #1f2235';
-  header.innerHTML = `
-    <div>
-      <div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:#7981a0;margin-bottom:2px">system policy</div>
-      <div style="font-size:18px;color:#f0f6ff">ACL Capability Matrix</div>
-    </div>
-  `;
+  const heading = document.createElement('div');
+  const kicker = document.createElement('div');
+  kicker.style.cssText = 'font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:#7981a0;margin-bottom:2px';
+  kicker.textContent = 'system policy';
+  const title = document.createElement('div');
+  title.style.cssText = 'font-size:18px;color:#f0f6ff';
+  title.textContent = 'ACL Capability Matrix';
+  heading.append(kicker, title);
+  header.appendChild(heading);
 
   const closeBtn = document.createElement('button');
   closeBtn.textContent = 'close';
@@ -204,13 +207,21 @@ export function openPolicyModal(): void {
       const state = row.caps.get(cap) ?? 'default';
 
       function renderCellState(cell: HTMLElement, cellState: 'granted' | 'revoked' | 'default'): void {
+        const icon = document.createElement('span');
         if (cellState === 'granted') {
-          cell.innerHTML = '<span style="color:#39ff14" title="granted — click to revoke">&#10003;</span>';
+          icon.style.color = '#39ff14';
+          icon.title = 'granted — click to revoke';
+          icon.textContent = '✓';
         } else if (cellState === 'revoked') {
-          cell.innerHTML = '<span style="color:#ff3b3b" title="revoked — click to grant">&#10007;</span>';
+          icon.style.color = '#ff3b3b';
+          icon.title = 'revoked — click to grant';
+          icon.textContent = '✗';
         } else {
-          cell.innerHTML = '<span style="color:#555" title="default (permissive) — click to revoke">&#8212;</span>';
+          icon.style.color = '#555';
+          icon.title = 'default (permissive) — click to revoke';
+          icon.textContent = '—';
         }
+        cell.replaceChildren(icon);
       }
 
       renderCellState(td, state);
@@ -232,11 +243,17 @@ export function openPolicyModal(): void {
 
     const blockedTd = document.createElement('td');
     blockedTd.style.cssText = 'text-align:center;padding:8px 4px;font-size:14px';
+    const blockedIcon = document.createElement('span');
     if (row.blocked) {
-      blockedTd.innerHTML = '<span style="color:#ff3b3b;font-weight:bold" title="blocked">&#9679;</span>';
+      blockedIcon.style.cssText = 'color:#ff3b3b;font-weight:bold';
+      blockedIcon.title = 'blocked';
+      blockedIcon.textContent = '●';
     } else {
-      blockedTd.innerHTML = '<span style="color:#555" title="not blocked">&#8212;</span>';
+      blockedIcon.style.color = '#555';
+      blockedIcon.title = 'not blocked';
+      blockedIcon.textContent = '—';
     }
+    blockedTd.appendChild(blockedIcon);
     tr.appendChild(blockedTd);
 
     tbody.appendChild(tr);
@@ -248,12 +265,20 @@ export function openPolicyModal(): void {
   // Legend
   const legend = document.createElement('div');
   legend.style.cssText = 'margin-top:16px;padding-top:12px;border-top:1px solid #1f2235;display:flex;gap:16px;font-size:10px;color:#7981a0';
-  legend.innerHTML = `
-    <span><span style="color:#39ff14">&#10003;</span> granted</span>
-    <span><span style="color:#ff3b3b">&#10007;</span> revoked</span>
-    <span><span style="color:#555">&#8212;</span> default (permissive)</span>
-    <span><span style="color:#ff3b3b;font-weight:bold">&#9679;</span> blocked</span>
-  `;
+  const legendItems: Array<[string, string, string, string?]> = [
+    ['✓', '#39ff14', 'granted'],
+    ['✗', '#ff3b3b', 'revoked'],
+    ['—', '#555', 'default (permissive)'],
+    ['●', '#ff3b3b', 'blocked', 'font-weight:bold'],
+  ];
+  for (const [symbol, color, text, extraStyle] of legendItems) {
+    const item = document.createElement('span');
+    const icon = document.createElement('span');
+    icon.style.cssText = `color:${color};${extraStyle ?? ''}`;
+    icon.textContent = symbol;
+    item.append(icon, document.createTextNode(` ${text}`));
+    legend.appendChild(item);
+  }
   container.appendChild(legend);
 
   overlay.appendChild(container);

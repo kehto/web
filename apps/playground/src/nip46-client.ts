@@ -95,10 +95,11 @@ export function buildNostrConnectUri(relayUrl: string, localPubkey: string): str
  *
  * @example
  * ```ts
+ * const optionalConnectionToken = readConnectionToken();
  * const client = createNip46Client({
  *   relayUrl: 'wss://relay.nsec.app',
  *   bunkerPubkey: 'abc123...',
- *   secret: 'optional-token',
+ *   secret: optionalConnectionToken,
  * });
  * const pubkey = await client.connect();
  * const signer = client.getSigner();

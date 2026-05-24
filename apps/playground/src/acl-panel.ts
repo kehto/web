@@ -79,7 +79,7 @@ function renderNappletAcl(containerId: string, windowId: string, info: { name: s
   const container = document.getElementById(containerId);
   if (!container || !info.identityBound) return;
 
-  container.innerHTML = '';
+  container.replaceChildren();
 
   const row = document.createElement('div');
   row.className = 'flex flex-wrap gap-1.5';
