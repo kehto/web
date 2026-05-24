@@ -153,12 +153,10 @@ export interface Nip66Aggregator {
  * ```
  */
 export function createNip66Aggregator(options: Nip66AggregatorOptions): Nip66Aggregator {
-  // ─── Closure-scoped state — each factory call owns its own instance. ───────
   const relaySet = new Set<string>();
   const relaySupportedNips = new Map<string, Set<number>>();
   let unsubscribe: (() => void) | null = null;
 
-  // ─── Internal helpers ─────────────────────────────────────────────────────
   function buildFilter(): Nip66Filter {
     const filter: Nip66Filter = { kinds: [30166] };
     if (options.networks && options.networks.length > 0) {
@@ -183,7 +181,6 @@ export function createNip66Aggregator(options: Nip66AggregatorOptions): Nip66Agg
     if (nips.size > 0) relaySupportedNips.set(relayUrl, nips);
   }
 
-  // ─── Public methods ───────────────────────────────────────────────────────
   function start(): void {
     if (unsubscribe) return; // idempotent — already subscribed
     unsubscribe = options.pool.subscribe(options.bootstrap, buildFilter(), processEvent);

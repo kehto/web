@@ -1,22 +1,7 @@
-/**
- * runtime.ts — The napplet protocol engine factory.
- *
- * createRuntime(hooks) creates the complete protocol engine that handles
- * NIP-5D NUB domain dispatch, ACL enforcement, subscription lifecycle,
- * signer proxying, and shell command routing.
- *
- * No browser APIs. No DOM. No localStorage. No postMessage.
- * All I/O is delegated to RuntimeAdapter.
- */
 
 import { createDispatch, type NappletMessage, type NostrEvent, type NostrFilter, type NubHandler } from '@napplet/core';
 import type { Capability } from '@kehto/acl/capabilities';
 
-// NUB message types — types-only imports from @napplet/nub subpaths (v1.6, Phase 32).
-// Phase 11-02 / DRIFT-CORE-05: replaces hand-copied widening casts with real
-// upstream unions. Phase 12 handler rewrites narrow per-branch against the
-// canonical discriminated unions. Phase 32 (DEP-01..03) consolidated the 8
-// split nub-<domain> peer deps onto the single @napplet/nub subpath surface.
 import type { IfcMessage } from '@napplet/nub/ifc/types';
 import type { RelayNubMessage } from '@napplet/nub/relay/types';
 /** Alias to match the canonical nub-relay union name used by callers (`RelayMessage` is
@@ -28,7 +13,7 @@ type RelayMessage = RelayNubMessage;
 declare function setTimeout(callback: () => void, ms: number): unknown;
 declare function clearTimeout(id: unknown): void;
 import type {
-  RuntimeAdapter, ConsentRequest, ConsentHandler,
+  RuntimeAdapter, ConsentHandler,
   ServiceHandler, ServiceRegistry, ServiceInfo,
 } from './types.js';
 import { notifyServiceWindowDestroyed } from './service-dispatch.js';
@@ -39,8 +24,6 @@ import { createReplayDetector } from './replay.js';
 import { createEventBuffer, matchesAnyFilter, RING_BUFFER_SIZE, type SubscriptionEntry } from './event-buffer.js';
 import { createEnforceGate, createNubEnforceGate, resolveCapabilitiesNub, formatDenialReason } from './enforce.js';
 import { handleStorageNub } from './state-handler.js';
-
-// ─── Runtime Interface ─────────────────────────────────────────────────────
 
 /**
  * The napplet protocol engine — handles NIP-5D NUB domain dispatch,
@@ -113,8 +96,6 @@ export interface Runtime {
   readonly manifestCache: ManifestCache;
 }
 
-// ─── Factory ───────────────────────────────────────────────────────────────
-
 /**
  * Create a runtime instance with dependency injection via hooks.
  *
@@ -129,7 +110,6 @@ export interface Runtime {
  * ```
  */
 export function createRuntime(hooks: RuntimeAdapter): Runtime {
-  // ─── Module-level state ──────────────────────────────────────────────────
 
   const subscriptions = new Map<string, SubscriptionEntry>();
   /** IFC topic subscriptions: Map<topic, Set<windowId>> */
@@ -143,9 +123,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
 
   const serviceRegistry: ServiceRegistry = { ...hooks.services };
 
-  // ─── Registered Services (for compatibility checks) ───────────────────────
-  // Tracks service name → ServiceInfo for compatibility checks (Phase 22).
-  // Populated by registerService / unregisterService.
   const registeredServices = new Map<string, ServiceInfo>();
   // Pre-populate from static hooks.services
   for (const [name, handler] of Object.entries(serviceRegistry)) {
@@ -156,11 +133,8 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     });
   }
 
-  // ─── Undeclared Service Consent Cache (Phase 22) ──────────────────────────
   /** Tracks consented undeclared service usage per session: "windowId:serviceName" */
   const undeclaredServiceConsents = new Set<string>();
-
-  // ─── Sub-module instances ────────────────────────────────────────────────
 
   const sessionRegistry = createSessionRegistry(hooks.onPendingUpdate);
   const aclState = createAclState(hooks.aclPersistence);
@@ -186,9 +160,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
       aclState.check(pubkey, dTag, aggregateHash, capability),
     resolveIdentityByWindowId: (windowId) => {
       const entry = sessionRegistry.getEntryByWindowId(windowId);
-      // CLASS-03: thread SessionEntry.class into the NUB gate (populated at
-      // iframe creation by Plan 38-01). enforce.ts consults class before
-      // capability (D6). null class = permissive default (D2).
       return entry
         ? { dTag: entry.dTag, aggregateHash: entry.aggregateHash, class: entry.class }
         : undefined;
@@ -206,7 +177,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
       : undefined,
   );
 
-  // Load persisted state
   aclState.load();
   manifestCache.load();
 
@@ -242,14 +212,12 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
           }
         }
 
-        // Replay buffered events
         for (const bufferedEvent of eventBuffer.getBufferedEvents()) {
           if (matchesAnyFilter(bufferedEvent, filters)) deliver(bufferedEvent);
         }
 
         const isShellKind = filters.length > 0 && filters.every((f) => f.kinds?.every((k) => k >= 29000 && k < 30000));
 
-        // Service dispatch path
         if (!isShellKind) {
           const relayService = serviceRegistry['relay'] ?? serviceRegistry['relay-pool'];
           const cacheService = !serviceRegistry['relay'] ? serviceRegistry['cache'] : undefined;
@@ -382,9 +350,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
           break;
         }
 
-        // Async encrypt → sign → publish → reply. We drive this off the
-        // message tick so the handler remains synchronous from the dispatch
-        // switch's perspective (the tests await a microtask to observe reply).
         (async (): Promise<void> => {
           try {
             const plaintext = String((eventTemplate as { content?: unknown }).content ?? '');
@@ -436,9 +401,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
               replyPe(false, { error: 'no relay pool available' });
             }
 
-            // Also buffer + deliver to local subscribers. The delivered
-            // event carries ciphertext only — plaintext never leaves the
-            // handler. Swallow buffer errors so they do not mask the reply.
             try { eventBuffer.bufferAndDeliver(signed, windowId); } catch { /* best-effort */ }
           } catch (err) {
             replyPe(false, { error: (err as Error)?.message ?? 'encryption failed' });
@@ -518,10 +480,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   function handleStorageMessage(windowId: string, msg: NappletMessage): void {
     handleStorageNub(windowId, msg, hooks.sendToNapplet, sessionRegistry, aclState, hooks.statePersistence);
   }
-
-  // ─── IFC Channel Registry Helpers ────────────────────────────────────────
-  // Per-runtime point-to-point channel bookkeeping used by handleIfcMessage
-  // for the channel.* sub-protocol (@napplet/nub/ifc).
 
   function ifcAddChannel(channelId: string, peerA: string, peerB: string): void {
     ifcChannels.set(channelId, { channelId, peerA, peerB });
@@ -804,11 +762,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     }
   }
 
-  // ─── Phase 39 (CONFIG-03): NUB-CONFIG dispatch ───────────────────────────
-  // Routes config.* messages from napplets to the registered 'config' service
-  // (createConfigService factory). Without this handler, config.subscribe
-  // envelopes from napplets are silently dropped — the service exists in
-  // serviceRegistry but nubDispatch has no route to it.
   function handleConfigMessage(windowId: string, msg: NappletMessage): void {
     const configService = serviceRegistry['config'];
     if (!configService) return; // silently drop when no config service registered
@@ -817,11 +770,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     });
   }
 
-  // ─── Phase 40 (RESOURCE-02): NUB-RESOURCE dispatch ───────────────────────
-  // Routes resource.* messages from napplets to the registered 'resource' service
-  // (createResourceService factory). Without this handler AND the registerNub
-  // call below, resource.bytes envelopes are silently dropped even when the service
-  // is registered — Phase 39 Dev 1 lesson propagated (RESOURCE-02 acceptance criterion).
   function handleResourceMessage(windowId: string, msg: NappletMessage): void {
     const resourceService = serviceRegistry['resource'];
     if (!resourceService) return; // silently drop when no resource service registered
@@ -830,11 +778,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     });
   }
 
-  // ─── NUB dispatch (Phase 14 / DISPATCH-01/02/03) ─────────────────────────
-  // Per-runtime createDispatch() instance — isolated from module-level singleton
-  // to match kehto's closed-over-state pattern (serviceRegistry, aclState, etc.).
-  // currentWindowId is set inside handleMessage() before nubDispatch.dispatch(),
-  // cleared via try/finally. Named adapters preserve stack traces on error paths.
   let currentWindowId: string | null = null;
   const nubDispatch = createDispatch();
 
@@ -890,8 +833,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   nubDispatch.registerNub('config',   configAdapter);  // Phase 39 (CONFIG-03)
   nubDispatch.registerNub('resource', resourceAdapter);  // Phase 40 (RESOURCE-02)
 
-  // ─── Main message handler ────────────────────────────────────────────────
-
   function handleMessage(windowId: string, msg: unknown): void {
     // NIP-5D envelope-only dispatch — no legacy array support (clean break)
     if (typeof msg !== 'object' || msg === null || !('type' in msg)) return;
@@ -914,11 +855,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
       }
     }
 
-    // Phase 14 / DISPATCH-03: delegate to createDispatch() — no domain-specific
-    // branching. dispatch() returns false for unknown domains; matches the old
-    // switch default (silent drop per NIP-5D spec). currentWindowId is a runtime-
-    // scoped closure variable read by each adapter; try/finally ensures it is
-    // always cleared even if a handler throws.
     currentWindowId = windowId;
     try {
       nubDispatch.dispatch(envelope);
@@ -926,8 +862,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
       currentWindowId = null;
     }
   }
-
-  // ─── Public interface ────────────────────────────────────────────────────
 
   const runtimeInstance: Runtime = {
     handleMessage,
@@ -980,14 +914,12 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     },
 
     destroyWindow(windowId: string): void {
-      // Clean up subscriptions for this window
       for (const [key] of subscriptions) {
         if (key.startsWith(`${windowId}:`)) {
           subscriptions.delete(key);
           hooks.relayPool?.untrackSubscription(key);
         }
       }
-      // Clean up IFC subscriptions for this window
       for (const [topic, subs] of ifcSubscriptions) {
         subs.delete(windowId);
         if (subs.size === 0) ifcSubscriptions.delete(topic);
@@ -997,7 +929,8 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
       const channelIds = ifcChannelsByWindow.get(windowId);
       if (channelIds) {
         // Snapshot because ifcRemoveChannel mutates the set during iteration.
-        for (const channelId of [...channelIds]) {
+        const channelIdsSnapshot = Array.from(channelIds);
+        for (const channelId of channelIdsSnapshot) {
           const peer = ifcPeerOf(channelId, windowId);
           if (peer) {
             hooks.sendToNapplet(peer, { type: 'ifc.channel.closed', channelId } as NappletMessage);
@@ -1005,7 +938,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
           ifcRemoveChannel(channelId);
         }
       }
-      // Notify service handlers
       notifyServiceWindowDestroyed(windowId, serviceRegistry);
     },
 

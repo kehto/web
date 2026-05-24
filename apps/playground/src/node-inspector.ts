@@ -24,8 +24,6 @@ import { renderKindsPanel } from './kinds-panel.js';
 import { getDemoServiceNames, getNapplets, getAclAdapter, STUB_ONLY_SERVICES } from './shell-host.js';
 import { replaceChildrenFromTrustedHtml } from './dom-utils.js';
 
-// ─── Module State ─────────────────────────────────────────────────────────────
-
 type InspectorTab = 'node' | 'constants' | 'kinds';
 let _activeTab: InspectorTab = 'node';
 let _selectedNodeId: string | null = null;
@@ -33,15 +31,11 @@ let _getOptions: (() => NodeDetailOptions) | null = null;
 let _topology: DemoTopology | null = null;
 let _updateTimer: ReturnType<typeof setInterval> | null = null;
 
-// ─── Role Derivation ─────────────────────────────────────────────────────────
-
 function getSelectedNodeRole(): TopologyNodeRole | undefined {
   if (!_selectedNodeId || !_topology) return undefined;
   const node = _topology.nodes.find(n => n.id === _selectedNodeId);
   return node?.role;
 }
-
-// ─── DOM Helpers ──────────────────────────────────────────────────────────────
 
 function getInspectorPane(): HTMLElement | null {
   return document.getElementById('inspector-pane');
@@ -50,8 +44,6 @@ function getInspectorPane(): HTMLElement | null {
 function getFlowAreaInner(): HTMLElement | null {
   return document.getElementById('flow-area-inner');
 }
-
-// ─── Inspector Rendering ──────────────────────────────────────────────────────
 
 function formatTimestamp(ts: number): string {
   const now = Date.now();
@@ -76,8 +68,6 @@ function renderActivityEntry(entry: NodeActivityEntry): string {
     </div>
   `;
 }
-
-// ─── Rejection History Rendering ──────────────────────────────────────────────
 
 function renderRejectionEntry(entry: AclHistoryEntry, idx: number): string {
   const capLabel = DEMO_CAPABILITY_LABELS[entry.capability as keyof typeof DEMO_CAPABILITY_LABELS] ?? entry.capability;
@@ -132,9 +122,6 @@ function renderRejectionHistory(denials: AclHistoryEntry[]): string {
     .map((entry, idx) => renderRejectionEntry(entry, idx))
     .join('');
 }
-
-
-// ─── Per-Role Content Renderers (DEMO-07) ────────────────────────────────────
 
 function renderForRole(detail: NodeDetail): string {
   switch (detail.role) {
@@ -523,8 +510,6 @@ function hideInspector(): void {
   });
 }
 
-// ─── Public API ──────────────────────────────────────────────────────────────
-
 /**
  * Set the selected node id. Pass null to clear.
  *
@@ -575,7 +560,6 @@ export function initNodeInspector(
   _getOptions = getOptions;
   _topology = topology;
 
-  // Start polling for live updates while inspector is open
   if (_updateTimer) clearInterval(_updateTimer);
   _updateTimer = setInterval(() => {
     if (_selectedNodeId && _activeTab === 'node') updateInspectorPane();

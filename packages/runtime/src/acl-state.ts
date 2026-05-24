@@ -16,18 +16,6 @@ import {
 } from '@kehto/acl';
 import type { AclPersistence, AclEntryExternal } from './types.js';
 
-// ─── Capability String-to-Bit Mapping ──────────────────────────────────────
-//
-// Plan 12-10: signer caps (sign:event, sign:nip04, sign:nip44) removed from
-// the canonical 8-domain Capability union. The seven v1.2 additions
-// (identity:read, keys:bind, keys:forward, media:control, notify:send,
-// notify:channel, theme:read) reuse the signer bit slots (bits 5-7) plus
-// three new slots (bits 10-12). Bits must stay unique; entries deserialized
-// from v1.1 storage will have bits 5-7 meaning signer caps under the old
-// interpretation and identity:read / keys:bind / keys:forward under the
-// new interpretation. v1.2 migration tolerates this aliasing because the
-// v1.1 signer surface is no longer reachable by napplets.
-
 const CAP_IDENTITY_READ  = 1 << 5;    // 32  (reclaimed from CAP_SIGN_EVENT)
 const CAP_KEYS_BIND      = 1 << 6;    // 64  (reclaimed from CAP_SIGN_NIP04)
 const CAP_KEYS_FORWARD   = 1 << 7;    // 128 (reclaimed from CAP_SIGN_NIP44)
@@ -72,13 +60,9 @@ function bitsToCapabilities(bits: number): Capability[] {
   return result;
 }
 
-// ─── Identity Helper ───────────────────────────────────────────────────────
-
 function toIdentity(pubkey: string, dTag: string, hash: string): Identity {
   return { pubkey, dTag, hash };
 }
-
-// ─── AclStateContainer Interface ───────────────────────────────────────────
 
 /**
  * ACL state container — wraps @kehto/acl's pure functions with

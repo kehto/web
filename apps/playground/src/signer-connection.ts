@@ -1,15 +1,5 @@
-/**
- * signer-connection.ts — Demo signer connection state model.
- *
- * Owns the live signer connection state for the demo shell.
- * Supports NIP-07 (browser extension) and NIP-46 (bunker) connection flows.
- * The active signer ref is read by shell-host.ts via getSigner() on every
- * signer service request — no restart required when the signer changes.
- */
 
 import type { Signer } from '@kehto/runtime';
-
-// ─── Public Types ────────────────────────────────────────────────────────────
 
 export type SignerConnectionMethod = 'nip07' | 'nip46' | 'none';
 
@@ -46,8 +36,6 @@ export interface Nip07Signer {
 
 import { demoConfig } from './demo-config.js';
 
-// ─── Module State ─────────────────────────────────────────────────────────────
-
 const _initialState: SignerConnectionState = {
   method: 'none',
   pubkey: null,
@@ -60,8 +48,6 @@ const _initialState: SignerConnectionState = {
 let _state: SignerConnectionState = { ..._initialState };
 let _activeSigner: Signer | null = null;
 const _listeners: Array<(state: SignerConnectionState) => void> = [];
-
-// ─── Internal Helpers ─────────────────────────────────────────────────────────
 
 function _setState(next: SignerConnectionState): void {
   _state = next;
@@ -78,8 +64,8 @@ function buildNip07Adapter(nostr: Nip07Signer): Signer {
   const adapter: Signer = {
     getPublicKey: () => nostr.getPublicKey(),
     signEvent: async (event) => {
-      const result = await nostr.signEvent(event as unknown as Record<string, unknown>);
-      return result as unknown as Awaited<ReturnType<NonNullable<Signer['signEvent']>>>;
+      const result = await nostr.signEvent(event as Record<string, unknown>);
+      return result as Awaited<ReturnType<NonNullable<Signer['signEvent']>>>;
     },
   };
 
@@ -104,8 +90,6 @@ function buildNip07Adapter(nostr: Nip07Signer): Signer {
   return adapter;
 }
 
-// ─── Public API ───────────────────────────────────────────────────────────────
-
 /**
  * Get a shallow copy of the current signer connection state.
  */
@@ -121,10 +105,6 @@ export function getSigner(): Signer | null {
   return _activeSigner;
 }
 
-/**
- * Record a signer request event (called from message tap).
- * Maintains a rolling window of MAX_RECENT_REQUESTS records.
- */
 export function recordSignerRequest(record: SignerRequestRecord): void {
   const maxRecent = demoConfig.get('demo.MAX_RECENT_REQUESTS');
   const requests = [..._state.recentRequests, record];
@@ -145,7 +125,7 @@ export async function connectNip07(): Promise<void> {
   // and the shell host reads it here to build an internal Signer adapter.
   // Per D-01/D-02: napplets never see `window.nostr`; signing flows through
   // identity.getPublicKey + relay.publish envelopes (17-03 rewires).
-  const extensionSigner = (globalThis as unknown as Record<string, unknown>).nostr as Nip07Signer | undefined;
+  const extensionSigner = (globalThis as typeof globalThis & { nostr?: unknown }).nostr as Nip07Signer | undefined;
   if (!extensionSigner || typeof extensionSigner.getPublicKey !== 'function') {
     _setState({ ..._state, error: 'No NIP-07 extension detected', isConnecting: false });
     return;
@@ -195,8 +175,6 @@ export function onStateChange(cb: (state: SignerConnectionState) => void): () =>
     if (i !== -1) _listeners.splice(i, 1);
   };
 }
-
-// ─── NIP-46 Extension (added in Plan 31-02) ──────────────────────────────────
 
 export interface Nip46ConnectOptions {
   relayUrl: string;
@@ -254,8 +232,6 @@ export async function connectNip46(options: Nip46ConnectOptions): Promise<void> 
     });
   }
 }
-
-// ─── Inspector Detail (Phase 29 surface) ─────────────────────────────────────
 
 export interface SignerInspectorDetail {
   method: SignerConnectionMethod;

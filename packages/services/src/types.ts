@@ -5,8 +5,6 @@
  * to the shell host via callbacks. They are NOT NIP-01 wire types.
  */
 
-// ─── Audio Service Types ──────────────────────────────────────────────────
-
 /**
  * An active audio source registered by a napplet.
  *
@@ -48,8 +46,6 @@ export interface AudioServiceOptions {
    */
   onChange?: (sources: ReadonlyMap<string, AudioSource>) => void;
 }
-
-// ─── Notification Service Types ───────────────────────────────────────────
 
 /**
  * A notification created by a napplet.

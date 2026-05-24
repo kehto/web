@@ -1,16 +1,3 @@
-/**
- * sequence-diagram.ts -- SVG swimlane renderer for protocol message flow.
- *
- * Lanes are derived dynamically from the set of napplet names observed in
- * the captured messages (resolved via msg.windowId → NappletInfo.name).
- * The shell is always the centred lane; napplet lanes are split roughly
- * evenly left and right of shell, alphabetical within each half.
- *
- * Uses the caller-provided container width. Lane X-coordinates are computed as
- * (laneIndex + 1) / (laneCount + 1) * vbWidth for even spacing without
- * edge-crowding. A 1000px minimum preserves horizontal scrolling on narrow
- * screens, while wide screens get a wider viewBox so labels spread out.
- */
 
 import type { TappedMessage, NappletInfo } from './shell-host.js';
 import { demoConfig } from './demo-config.js';
@@ -152,13 +139,11 @@ export function renderSequenceDiagram(
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="${height}" viewBox="0 0 ${vbWidth} ${height}" preserveAspectRatio="xMidYMin meet">`;
   svg += `<rect width="${vbWidth}" height="${height}" fill="#0a0a0f" />`;
 
-  // Lane headers
   for (let i = 0; i < effectiveLanes.length; i++) {
     const x = laneX(i, effectiveLanes.length, vbWidth);
     svg += `<text x="${x}" y="16" text-anchor="middle" fill="#00f0ff" font-family="monospace" font-size="13" font-weight="bold">${escapeXml(effectiveLanes[i])}</text>`;
   }
 
-  // Lane lifelines
   for (let i = 0; i < effectiveLanes.length; i++) {
     const x = laneX(i, effectiveLanes.length, vbWidth);
     svg += `<line x1="${x}" y1="${HEADER_HEIGHT - 10}" x2="${x}" y2="${height}" stroke="#2a2a3a" stroke-width="1" stroke-dasharray="4,4" />`;
@@ -166,7 +151,6 @@ export function renderSequenceDiagram(
 
   svg += `<line x1="0" y1="${HEADER_HEIGHT - 5}" x2="${vbWidth}" y2="${HEADER_HEIGHT - 5}" stroke="#2a2a3a" stroke-width="1" />`;
 
-  // Messages
   for (let i = 0; i < protocolMessages.length; i++) {
     const msg = protocolMessages[i];
     const y = HEADER_HEIGHT + (i * ROW_HEIGHT) + ROW_HEIGHT / 2;

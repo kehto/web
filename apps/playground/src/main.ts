@@ -26,7 +26,6 @@ import {
   createDemoNotificationController,
   type DemoNotificationSnapshot,
 } from './notification-demo.js';
-import './debugger.js';
 import { classifyTappedMessagePath, type NappletDebugger } from './debugger.js';
 import { renderAclPanels, setDebugger } from './acl-panel.js';
 import { initFlowAnimator } from './flow-animator.js';
@@ -53,7 +52,6 @@ import {
   buildAllNodeDetails,
   buildNodeDetails,
   installActivityProjection,
-  type NodeDetail,
 } from './node-details.js';
 import { initNodeInspector, openConstantsTab, setSelectedNodeId } from './node-inspector.js';
 import { replaceChildrenFromTrustedHtml } from './dom-utils.js';
@@ -147,8 +145,6 @@ function renderToast(notification: Notification): void {
   }, demoConfig.get('demo.TOAST_DISPLAY_MS'));
 }
 
-// ─── Notification Node Summary Rendering ────────────────────────────────────
-
 function renderNotificationNodeSummary(snapshot: DemoNotificationSnapshot): void {
   const totalEl = document.getElementById('notif-total');
   const unreadEl = document.getElementById('notif-unread');
@@ -162,8 +158,6 @@ function renderNotificationNodeSummary(snapshot: DemoNotificationSnapshot): void
     (sourceCueEl as HTMLElement).style.display = '';
   }
 }
-
-// ─── Notification Inspector Rendering ────────────────────────────────────────
 
 function renderNotificationInspector(snapshot: DemoNotificationSnapshot): void {
   const listEl = document.getElementById('notification-list');
@@ -228,8 +222,6 @@ function renderNotificationInspector(snapshot: DemoNotificationSnapshot): void {
   listEl.replaceChildren(...items);
 }
 
-// ─── Notification Snapshot Subscriber ────────────────────────────────────────
-
 // Track the latest notification snapshot for rendering
 let _notificationSnapshot: DemoNotificationSnapshot = notificationController.getSnapshot();
 notificationController.subscribe((snapshot) => {
@@ -245,7 +237,6 @@ notificationController.subscribe((snapshot) => {
     }
   }
 
-  // Update summary fields in the node
   renderNotificationNodeSummary(snapshot);
 
   // If inspector is open, update it
@@ -267,7 +258,6 @@ notificationController.subscribe((snapshot) => {
 
 const topology = buildDemoTopology(getDemoTopologyInputs());
 
-// Render topology into the left topology pane
 const topologyPane = document.getElementById('topology-pane');
 if (topologyPane) {
   replaceChildrenFromTrustedHtml(topologyPane, renderDemoTopology(topology));
@@ -284,13 +274,11 @@ wireServiceToggles((name, enabled) => {
 // Initialize persistent color state tracking for topology edges
 initColorState(topology);
 
-// ─── Persistent Node Color Rendering ────────────────────────────────────
 onColorStateChange(() => {
   for (const node of topology.nodes) {
     const inboundColor = getNodeInboundColor(node.id);
     const outboundColor = getNodeOutboundColor(node.id);
 
-    // Update inbound overlay
     const inEl = document.querySelector<HTMLElement>(
       `[data-color-overlay="${node.id}"][data-color-direction="inbound"]`,
     );
@@ -299,7 +287,6 @@ onColorStateChange(() => {
       if (inboundColor) inEl.classList.add(`node-color-${inboundColor}`);
     }
 
-    // Update outbound overlay
     const outEl = document.querySelector<HTMLElement>(
       `[data-color-overlay="${node.id}"][data-color-direction="outbound"]`,
     );
@@ -309,8 +296,6 @@ onColorStateChange(() => {
     }
   }
 });
-
-// ─── Inject Notification Controls into the Notifications Node ────────────────
 
 (function injectNotificationControls(): void {
   const notifNodeId = getServiceNodeId('notifications');
@@ -333,21 +318,6 @@ if (debuggerEl) {
   debuggerEl.addSystemMessage('notification service registered -- host callbacks active');
 }
 
-// ─── Theme Broadcast Bridge (Plan 20-06, D-USER-01) ──────────────────────
-// theme-switcher napplet (Plan 20-04) dispatches `demo.publishTheme` postMessage
-// (SDK gap exemption — @napplet/sdk does not expose theme.publish). The host
-// listens here and forwards to relay.publishTheme(theme) which fan-outs
-// `theme.changed` envelopes to every napplet via originRegistry.getIframeWindow.
-// The preferences napplet (Plan 20-05) observes those `theme.changed` envelopes
-// and mirrors the color to document.body + #preferences-theme-applied.
-//
-// This handler is narrowly-scoped:
-//   - Guards on event.data being a plain object with type === 'demo.publishTheme'
-//   - event.source may be any iframe (we don't pin to theme-switcher — any napplet
-//     that dispatches demo.publishTheme is honored, which is fine for v1.3 demo)
-//   - Calls relay.publishTheme(event.data.theme) synchronously
-// Does NOT intercept any other envelope type (storage.*, ifc.*, notify.*, etc.)
-
 window.addEventListener('message', (event: MessageEvent) => {
   const data = event.data as Record<string, unknown> | null;
   if (!data || typeof data !== 'object') return;
@@ -369,8 +339,6 @@ if (_themeBundle) {
   debuggerEl?.addSystemMessage('theme service registered -- publishTheme seam ready');
 }
 
-// ─── Config Change Logging ──────────────────────────────────────────────────
-
 demoConfig.subscribe((key, value) => {
   debuggerEl?.addSystemMessage(`config changed: ${key} = ${value}`);
   if (key === 'demo.ACL_RING_BUFFER_SIZE') {
@@ -380,8 +348,6 @@ demoConfig.subscribe((key, value) => {
 
 // Suppress unused import warning — openConstantsTab is available for keyboard shortcuts
 void openConstantsTab;
-
-// ─── Signer Node Display ─────────────────────────────────────────────────────
 
 const signerNodeId = getServiceNodeId('signer');
 
@@ -519,7 +485,6 @@ function updateSignerNodeDisplay(state: SignerConnectionStateView): void {
 onStateChange((state) => {
   updateSignerNodeDisplay(state);
 
-  // Log to debugger
   if (state.method !== 'none' && !state.isConnecting && !state.error) {
     debuggerEl?.addSystemMessage(
       `signer connected via ${state.method}: ${state.pubkey?.substring(0, 16)}...`
@@ -530,10 +495,8 @@ onStateChange((state) => {
   }
 });
 
-// Initialize signer connect modal
 initSignerModal();
 
-// Handle signer connect/disconnect button clicks
 document.addEventListener('click', (e) => {
   const target = e.target as HTMLElement;
   if (target.closest('[data-action="open-signer-connect"]')) {
@@ -565,7 +528,7 @@ document.addEventListener('click', (e) => {
           tags: [],
           content: 'demo test-sign from kehto shell',
         };
-        const signed = await signer.signEvent(template as unknown as Record<string, unknown>);
+        const signed = await signer.signEvent(template as Parameters<NonNullable<typeof signer.signEvent>>[0]);
         const eventId = (signed as { id?: string }).id ?? 'unknown';
         debuggerEl?.addSystemMessage(`test-sign: OK, event id ${eventId.substring(0, 16)}...`);
         recordSignerRequest({
@@ -586,7 +549,6 @@ document.addEventListener('click', (e) => {
     })();
   }
 
-  // Notification node controls
   if (target.id === 'notification-node-create' || target.closest('#notification-node-create')) {
     e.stopPropagation();
     notificationController.createDemoNotification({
@@ -651,7 +613,6 @@ document.addEventListener('click', (e) => {
     inspector?.classList.remove('open');
   }
 
-  // ─── Color Mode Toggle ──────────────────────────────────────────────────
   const colorModeBtn = target.closest<HTMLElement>('[data-color-mode]');
   if (colorModeBtn) {
     const mode = colorModeBtn.dataset.colorMode as PersistenceMode;
@@ -665,7 +626,6 @@ document.addEventListener('click', (e) => {
 
       setPersistenceMode(mode);
 
-      // Update active class on toggle buttons
       document.querySelectorAll('.color-mode-btn').forEach((b) => {
         b.classList.toggle('color-mode-active', (b as HTMLElement).dataset.colorMode === mode);
       });
@@ -689,23 +649,6 @@ document.addEventListener('click', (e) => {
 // Show pubkey in shell node
 const shellPubkey = document.getElementById('shell-pubkey');
 if (shellPubkey) shellPubkey.textContent = `pubkey: ${getDemoHostPubkey().substring(0, 20)}...`;
-
-// ─── Phase 39 Plan 39-04: NUB-CONNECT + NUB-CONFIG test hooks ───────────────
-//
-// Hoisted before napplet loading (Phase 40 Plan 40-02) so resource-demo can
-// grant its manifest-derived aggregateHash before loadNapplet navigates the
-// iframe. Phase 40 D3 requires the grant to land before the iframe's first HTTP
-// request so the Vite serveNappletCsp plugin emits connect-src for the active
-// playground origin.
-//
-// Plan 39-05's E2E specs (connect-consent.spec.ts, connect-revocation.spec.ts,
-// nub-config.spec.ts) need to grant/revoke connect origins and publish config
-// updates without driving the UI. Mirrors __grantKeysForward__ / __grantMediaControl__
-// from Phases 26/27 -- direct shell-state mutation + HTTP sync to the Vite
-// middleware's in-memory Map (Plan 39-03 /__connect-grants endpoint).
-//
-// __grantConnectOrigin__ and __revokeConnect__ also dispatch / listen for
-// 'shell:connect-revoked' CustomEvent to wire the C-04 iframe destroy+recreate path.
 
 async function syncGrantsToVite(dTag: string, aggregateHash: string, origins: readonly string[]): Promise<void> {
   try {
@@ -746,9 +689,6 @@ async function grantConnectOrigin(dTag: string, aggregateHash: string, origin: s
   return true;
 };
 
-// C-04 / CONNECT-04: listen for revocation events and destroy+recreate the napplet iframe.
-// Snapshot entries BEFORE the loop — loadNapplet adds a new entry to the same Map,
-// and a live Map iterator would visit it, causing an infinite destroy+recreate loop.
 window.addEventListener('shell:connect-revoked', (event) => {
   const detail = (event as CustomEvent<{ dTag: string; aggregateHash: string }>).detail;
   const napps = getNapplets();
@@ -758,7 +698,6 @@ window.addEventListener('shell:connect-revoked', (event) => {
     const def = DEMO_NAPPLETS.find((d) => d.name === detail.dTag);
     if (!def) continue;
     const containerId = def.frameContainerId;
-    // Remove the iframe -- loadNapplet will re-append a fresh one.
     info.iframe.remove();
     napps.delete(windowId);
     // Re-load. loadNapplet assigns a fresh windowId and re-appends iframe.
@@ -768,18 +707,6 @@ window.addEventListener('shell:connect-revoked', (event) => {
   }
 });
 
-// ─── Phase 40 Plan 40-02 (RESOURCE-04 / D3): resource-demo auto-grant ────────
-// Grants the active playground origin to resource-demo at demo boot so the Vite
-// serveNappletCsp plugin (Phase 39 Plan 39-03) emits the matching connect-src
-// on the iframe HTML response. No user click-through — deterministic for E2E.
-// Phase 40 Plan 40-03 fix: uses 4174 (demo server) not 5174 (napplet dev server)
-// because demo-data.json is served from apps/playground/public/ at the active
-// demo origin. In preview mode (E2E), the fixture is at /demo-data.json on the
-// same 4174 origin that serves the built demo; on GitHub Pages it is under the
-// repository Pages base path.
-//
-// Phase 39 Dev 2 safety: does NOT touch the shell:connect-revoked path at all;
-// the revocation handler's snapshot-before-mutate pattern is preserved unchanged.
 async function pregrantBeforeGatewayNavigation(metadata: GatewayNappletMetadata): Promise<void> {
   if (metadata.dTag !== 'resource-demo') return;
   const grantedOrigin = window.location.origin;
@@ -793,7 +720,6 @@ async function pregrantBeforeGatewayNavigation(metadata: GatewayNappletMetadata)
   }
 }
 
-// Load demo napplets into the rendered topology
 for (const napplet of DEMO_NAPPLETS) {
   void loadNapplet(napplet.name, napplet.frameContainerId, {
     beforeNavigate: pregrantBeforeGatewayNavigation,
@@ -813,7 +739,6 @@ for (const napplet of DEMO_NAPPLETS) {
 
 initFlowAnimator(tap, topology, edgeFlasher);
 
-// ─── Node Detail Counters ────────────────────────────────────────────────────
 let totalMessages = 0;
 let totalBlocked = 0;
 
@@ -827,8 +752,6 @@ tap.onMessage((msg) => {
     (String(rawArr[2]).includes('denied') || String(rawArr[2]).startsWith('blocked:'));
   if (isOkFalse || isClosedDenied) totalBlocked++;
 });
-
-// ─── Signer Request Tap Wiring ───────────────────────────────────────────────
 
 tap.onMessage((msg) => {
   // Detect signer request (kind 29001 from napplet to shell, no topic = direct signer request)
@@ -912,12 +835,8 @@ tap.onMessage(() => {
   refreshNodeSummaries();
 });
 
-// Initial render
 refreshNodeSummaries();
 
-// ─── Inspector Wiring ─────────────────────────────────────────────────────────
-
-// Initialize the inspector panel
 initNodeInspector(() => {
   // Called when inspector needs fresh data for the selected node
   const napplets = getNapplets();
@@ -963,8 +882,6 @@ function wireNodeSelection(): void {
 
 // Wire after topology is rendered
 wireNodeSelection();
-
-// ─── ACL Panel Wiring ────────────────────────────────────────────────────────
 
 // Track which napplets have had their ACL panel rendered (render only once)
 const aclRendered = new Set<string>();
@@ -1032,7 +949,6 @@ tap.onMessage((msg) => {
     }, 200);
   }
 
-  // Log ifc events prominently
   if (msg.verb === 'EVENT' && msg.parsed.topic) {
     debuggerEl?.addSystemMessage(
       `ifc: ${msg.parsed.topic} (kind:${msg.parsed.eventKind})`
@@ -1048,26 +964,6 @@ export function setSelectedNode(id: string | null): void {
   setSelectedNodeId(id);
 }
 
-// ─── Plan 38-03 (CLASS-04 / D9): __setNappletClass__ test hook (main.ts) ──────
-// Plan 38-03's Playwright spec (E2E-20 class-invariant) must assign a
-// restrictive class to one napplet on-the-fly to exercise the cross-NUB
-// invariant. Hook placement is locked by D9 to demo main.ts (not shell-host).
-// Shape mirrors __grantKeysForward__/__grantMediaControl__ patterns (Plans
-// 26-03/27-03): dTag-scoped mutation hook returning true on success, false
-// when the target napplet is not yet loaded or not yet identity-bound.
-//
-// CLASS-01/02 semantics: class is normally resolved synchronously at iframe
-// creation. This test hook mutates the already-registered session entry's
-// class in place. The next NUB request through enforce.ts reads the mutated
-// value via resolveIdentityByWindowId. No class.assigned envelope is
-// emitted — C-01 prevention holds because mutation is test-only and
-// completes before the next NUB request arrives.
-//
-// Usage (from tests/e2e/class-invariant.spec.ts):
-//   await page.evaluate(
-//     ([dTag, cls]) => window.__setNappletClass__?.(dTag, cls),
-//     ['theme-switcher', 'class-2'],
-//   );
 (window as Window & {
   __setNappletClass__?: (dTag: string, newClass: NappletClass) => boolean;
 }).__setNappletClass__ = (dTag: string, newClass: NappletClass): boolean => {
@@ -1081,38 +977,15 @@ export function setSelectedNode(id: string | null): void {
     console.warn(`[demo] __setNappletClass__: session entry missing for ${dTag}`);
     return false;
   }
-  // Mutate .class in place. SessionRegistry retains a reference to the entry
-  // object, so the mutation is observed by the next resolveIdentityByWindowId
-  // call inside enforce.ts.
   (entry as { class: NappletClass }).class = newClass;
   return true;
 };
 
-// ─── Plan 38-03 (E2E-20): __clearAclEvents__ + __aclEvents__ reader ────────
-// The class-invariant spec uses __aclEvents__ to assert the enforce.ts gate
-// fired with reason='class-forbidden'. test.beforeEach calls
-// __clearAclEvents__ to prevent cross-test contamination. Lives in main.ts
-// with __setNappletClass__ (D9 test-hook locus); __aclEvents__ itself is
-// populated by the onAclCheck callback wired in shell-host.ts.
 (window as Window & { __clearAclEvents__?: () => void }).__clearAclEvents__ = (): void => {
   const w = window as Window & { __aclEvents__?: Array<unknown> };
   w.__aclEvents__ = [];
 };
 
-// ─── Plan 38-03 (E2E-20): __injectNubEnvelopeAsNapplet__ test hook ───────────
-// Injects a NIP-5D NUB envelope into the runtime as if sent by the named
-// napplet's iframe. This causes the envelope to pass through relay.handleMessage
-// -> enforceNub, making class-forbidden denials observable via __aclEvents__.
-//
-// The theme-switcher napplet sends theme via window.parent.postMessage (host-side
-// bypass, not through the runtime); this hook simulates the runtime path so
-// the class-invariant spec can exercise the enforce.ts gate directly.
-//
-// Usage (from tests/e2e/class-invariant.spec.ts):
-//   await page.evaluate(([dTag, envelope]) =>
-//     window.__injectNubEnvelopeAsNapplet__?.(dTag, envelope),
-//     ['theme-switcher', { type: 'relay.publish', id: 'test-123' }]
-//   );
 (window as Window & {
   __injectNubEnvelopeAsNapplet__?: (dTag: string, envelope: Record<string, unknown>) => boolean;
 }).__injectNubEnvelopeAsNapplet__ = (dTag: string, envelope: Record<string, unknown>): boolean => {
@@ -1127,7 +1000,6 @@ export function setSelectedNode(id: string | null): void {
     console.warn(`[demo] __injectNubEnvelopeAsNapplet__: iframe not found for ${dTag} (windowId=${windowId})`);
     return false;
   }
-  // Dispatch a MessageEvent as if from the napplet iframe.
   // relay.handleMessage is installed on window and checks event.source to
   // resolve the windowId -- matching the iframe's contentWindow routes it
   // through enforceNub with the correct session entry.
@@ -1140,10 +1012,6 @@ export function setSelectedNode(id: string | null): void {
   return true;
 };
 
-// ─── Phase 39 Plan 39-04 (D11): config-demo update button wiring ─────────────
-// The shell UI button flips demoConfigFixtures.theme between dark/light via
-// setDemoConfigValue, which calls configServiceBundle.publishValues.
-// The E2E spec uses __publishConfigValues__ test hook for deterministic updates.
 {
   const updateBtn = document.getElementById('config-demo-update-btn');
   if (updateBtn) {
@@ -1155,11 +1023,6 @@ export function setSelectedNode(id: string | null): void {
   }
 }
 
-// ─── Phase 39 Plan 39-04: __publishConfigValues__ test hook ──────────────────
-// E2E deterministic config value override. Bypasses the shell UI button
-// and directly calls setDemoConfigValue for each key in the provided values
-// object, then triggers a full publishValues via configServiceBundle (via
-// setDemoConfigValue iterating keys).
 (window as Window & {
   __publishConfigValues__?: (values: Record<string, unknown>) => boolean;
 }).__publishConfigValues__ = (values: Record<string, unknown>): boolean => {
@@ -1169,10 +1032,6 @@ export function setSelectedNode(id: string | null): void {
   return true;
 };
 
-// ─── Phase 46 Plan 46-01: __publishDecryptFixtures__ test hook ─────────────
-// Publishes deterministic encrypted fixtures into decrypt-demo's iframe. The
-// napplet calls identityDecrypt, which exercises the full
-// napplet->runtime->service->napplet identity.decrypt path.
 (window as Window & {
   __publishDecryptFixtures__?: (dTag?: string) => Promise<boolean>;
 }).__publishDecryptFixtures__ = async (dTag = 'decrypt-demo'): Promise<boolean> => {

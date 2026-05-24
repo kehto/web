@@ -20,8 +20,6 @@ import type { EventTemplate } from '@napplet/core';
 
 const REQUIRED_NUBS = ['ifc', 'storage', 'relay'] as const;
 
-// ─── Notification Helpers ─────────────────────────────────────────────────────
-
 /**
  * Emit a notifications:create event through the real napplet→service path.
  * The shell routes this IFC event to the notification service handler.
@@ -53,8 +51,6 @@ function getMissingRequiredNubs(): string[] {
   return REQUIRED_NUBS.filter((capability) => !supports(capability));
 }
 
-// --- Message Display ---
-
 function addMessage(text: string, type: 'self' | 'other' | 'system' = 'system'): void {
   const div = document.createElement('div');
   div.className = `msg msg-${type}`;
@@ -67,8 +63,6 @@ function addMessage(text: string, type: 'self' | 'other' | 'system' = 'system'):
   messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
-
-// --- Chat History (storage) ---
 
 async function loadHistory(): Promise<void> {
   try {
@@ -96,8 +90,6 @@ async function saveToHistory(text: string): Promise<void> {
     addMessage(`state history save failed -- ${formatError(error, 'denied: state:write')}`, 'system');
   }
 }
-
-// --- Send Message ---
 
 async function sendMessage(): Promise<void> {
   const text = inputEl.value.trim();
@@ -131,15 +123,10 @@ async function sendMessage(): Promise<void> {
   }
 }
 
-// --- Event Handlers ---
-
 sendBtn.addEventListener('click', sendMessage);
 inputEl.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') sendMessage();
 });
-
-// --- SDK Init ---
-// Load chat history, set the positive status marker, wire up IFC subscriptions.
 
 async function init(): Promise<void> {
   const missing = getMissingRequiredNubs();
@@ -147,7 +134,6 @@ async function init(): Promise<void> {
     throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
   }
 
-  // Load history then set the positive status marker.
   await loadHistory();
   statusEl.textContent = 'ready';
   statusEl.style.color = '#39ff14';

@@ -193,17 +193,6 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
         return;
       }
 
-      // NUB-08 / SH-C03: relay.publishEncrypted is SHELL-MEDIATED. The shell
-      // runtime (@kehto/runtime handleRelayMessage) encrypts the plaintext
-      // content via the shell signer, signs the event, and synthesizes a
-      // relay.publish envelope that it hands to this service. By the time a
-      // publishEncrypted envelope reaches this branch, the content MUST
-      // already be ciphertext — the service never decrypts nor re-encrypts.
-      //
-      // We still accept the envelope as a fallback so tests and alternate
-      // host wirings that bypass the runtime shim can delegate to the same
-      // publish path. The runtime's canonical path is to NOT hand us
-      // publishEncrypted directly — it translates to relay.publish first.
       if (message.type === 'relay.publishEncrypted') {
         const event = relayMessage.event as NostrEvent | undefined;
         if (event && typeof event === 'object' && options.isAvailable()) {

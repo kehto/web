@@ -28,8 +28,6 @@ import type {
   GuidPersistence,
 } from '@kehto/runtime';
 
-// ─── Hex utilities (inline to avoid @noble/hashes dependency) ────────────
-
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
@@ -48,8 +46,6 @@ import type { aclStore as AclStoreType } from './acl-store.js';
 import type { audioManager as AudioManagerType } from './audio-manager.js';
 import type { sessionRegistry as SessionRegistryType } from './session-registry.js';
 
-// ─── Browser Dependencies ─────────────────────────────────────────────────
-
 /**
  * Browser-specific singletons that the adapter bridges to the runtime.
  * These use browser APIs (Window, localStorage, postMessage, CustomEvent)
@@ -62,8 +58,6 @@ export interface BrowserDeps {
   audioManager: typeof AudioManagerType;
   nappKeyRegistry: typeof SessionRegistryType;
 }
-
-// ─── Adapter Factory ──────────────────────────────────────────────────────
 
 /**
  * Convert ShellAdapter (browser-facing) into RuntimeAdapter (environment-agnostic).
@@ -89,14 +83,10 @@ export interface BrowserDeps {
 export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): RuntimeAdapter {
   const { originRegistry } = deps;
 
-  // ─── sendToNapplet: windowId → Window lookup → postMessage ────────────
-
   const sendToNapplet: SendToNapplet = (windowId, msg) => {
     const win = originRegistry.getIframeWindow(windowId);
     if (win) win.postMessage(msg, '*');
   };
-
-  // ─── Relay Pool Adapter ─────────────────────────────────────────────────
 
   const relayPool: RelayPoolAdapter = {
     subscribe(
@@ -161,16 +151,12 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
     },
   };
 
-  // ─── Cache Adapter (Worker Relay) ───────────────────────────────────────
-
   const cache: CacheAdapter = {
     async query(filters: NostrFilter[]): Promise<NostrEvent[]> {
       const workerRelay = shellHooks.workerRelay.getWorkerRelay();
       if (!workerRelay) return [];
-      // Worker relay expects REQ-style array: ['REQ', subId, ...filters]
       const subId = crypto.randomUUID();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return workerRelay.query(['REQ', subId, ...(filters as any[])]);
+      return workerRelay.query(['REQ', subId, ...filters]);
     },
 
     store(event: NostrEvent): void {
@@ -184,8 +170,6 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
     },
   };
 
-  // ─── Auth Adapter ───────────────────────────────────────────────────────
-
   const auth: AuthAdapter = {
     getUserPubkey(): string | null {
       return shellHooks.auth.getUserPubkey();
@@ -195,23 +179,17 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
     },
   };
 
-  // ─── Config Adapter ─────────────────────────────────────────────────────
-
   const config: ConfigAdapter = {
     getNappUpdateBehavior(): 'auto-grant' | 'banner' | 'silent-reprompt' {
       return shellHooks.config.getNappUpdateBehavior();
     },
   };
 
-  // ─── Hotkey Adapter ─────────────────────────────────────────────────────
-
   const hotkeys: HotkeyAdapter = {
     executeHotkeyFromForward(event): void {
       shellHooks.hotkeys.executeHotkeyFromForward(event);
     },
   };
-
-  // ─── Crypto Adapter ─────────────────────────────────────────────────────
 
   const cryptoHooks: CryptoAdapter = {
     async verifyEvent(event: NostrEvent): Promise<boolean> {
@@ -227,8 +205,6 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
     },
   };
 
-  // ─── ACL Persistence (localStorage-backed) ──────────────────────────────
-
   const aclPersistence: AclPersistence = {
     persist(data: string): void {
       try { localStorage.setItem('napplet:acl', data); } catch { /* best-effort */ }
@@ -238,8 +214,6 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
     },
   };
 
-  // ─── Manifest Persistence (localStorage-backed) ─────────────────────────
-
   const manifestPersistence: ManifestPersistence = {
     persist(data: string): void {
       try { localStorage.setItem('napplet:manifest-cache', data); } catch { /* best-effort */ }
@@ -248,8 +222,6 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
       try { return localStorage.getItem('napplet:manifest-cache'); } catch { return null; }
     },
   };
-
-  // ─── State Persistence (localStorage-backed, scoped) ────────────────────
 
   const statePersistence: StatePersistence = {
     get(scopedKey: string): string | null {
@@ -296,15 +268,11 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
     },
   };
 
-  // ─── Window Manager Adapter ─────────────────────────────────────────────
-
   const windowManager: WindowManagerAdapter = {
     createWindow(options): string | null {
       return shellHooks.windowManager.createWindow(options);
     },
   };
-
-  // ─── Relay Config Adapter ───────────────────────────────────────────────
 
   const relayConfig: RelayConfigAdapter = {
     addRelay(tier: string, url: string): void {
@@ -321,8 +289,6 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
     },
   };
 
-  // ─── Shell Secret Persistence (localStorage-backed) ─────────────────────
-
   /** @deprecated NIP-5D: Shell secrets are no longer needed for source-based identity. Retained for legacy AUTH sessions. */
   const shellSecretPersistence: ShellSecretPersistence = {
     get(): Uint8Array | null {
@@ -338,8 +304,6 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
       } catch { /* localStorage unavailable */ }
     },
   };
-
-  // ─── GUID Persistence (localStorage-backed) ────────────────────────────
 
   /** @deprecated NIP-5D: Per-window GUIDs are no longer needed. Retained for legacy session persistence. */
   const guidPersistence: GuidPersistence = {
@@ -360,8 +324,6 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
     },
   };
 
-  // ─── DM Adapter (optional) ──────────────────────────────────────────────
-
   const dm: DmAdapter | undefined = shellHooks.dm
     ? {
         sendDm(recipientPubkey: string, message: string) {
@@ -369,8 +331,6 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
         },
       }
     : undefined;
-
-  // ─── Assemble RuntimeAdapter ────────────────────────────────────────────
 
   return {
     sendToNapplet,

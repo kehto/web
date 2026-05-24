@@ -246,7 +246,6 @@ export function deserialize(json: string): AclState {
       typeof parsed.entries === 'object' &&
       parsed.entries !== null
     ) {
-      // Validate each entry
       const entries: Record<string, AclEntry> = {};
       for (const [key, value] of Object.entries(parsed.entries)) {
         const entry = value as Record<string, unknown>;

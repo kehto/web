@@ -23,13 +23,9 @@ import type { NappletMessage } from '@kehto/shell';
 import { getPublicKey, generateSecretKey } from 'nostr-tools/pure';
 import QRCode from 'qrcode';
 
-// ─── Module State ─────────────────────────────────────────────────────────────
-
 /** Ephemeral requester keypair for displaying the nostrconnect:// QR. */
 const _qrSecretKey = generateSecretKey();
 const _qrLocalPubkey = getPublicKey(_qrSecretKey);
-
-// ─── DOM Helpers ──────────────────────────────────────────────────────────────
 
 function getModal(): HTMLElement | null {
   return document.getElementById('signer-connect-modal');
@@ -73,8 +69,6 @@ function setStatus(el: HTMLElement | null, text: string, type: 'error' | 'succes
   el.className = 'signer-option-status' + (type ? ` ${type}` : '');
 }
 
-// ─── QR Code Generation ───────────────────────────────────────────────────────
-
 async function renderQrCode(relayUrl: string): Promise<void> {
   const container = getQrContainer();
   const relayNote = getQrRelayNote();
@@ -102,8 +96,6 @@ async function renderQrCode(relayUrl: string): Promise<void> {
   }
 }
 
-// ─── Modal Open / Close ───────────────────────────────────────────────────────
-
 /**
  * Open the signer connect modal.
  */
@@ -122,7 +114,6 @@ export function openSignerModal(): void {
   const nip46Btn = getNip46ConnectBtn();
   if (nip46Btn) nip46Btn.disabled = false;
 
-  // Render QR on open
   const relayInput = getRelayInput();
   const relayUrl = relayInput?.value.trim() || 'wss://relay.nsec.app';
   renderQrCode(relayUrl).catch(() => { /* best-effort */ });
@@ -136,8 +127,6 @@ export function closeSignerModal(): void {
   if (!modal) return;
   modal.setAttribute('aria-hidden', 'true');
 }
-
-// ─── NIP-07 Connect ───────────────────────────────────────────────────────────
 
 async function handleNip07Connect(): Promise<void> {
   const btn = getNip07ConnectBtn();
@@ -159,8 +148,6 @@ async function handleNip07Connect(): Promise<void> {
   }
 }
 
-// ─── NIP-46 Connect ───────────────────────────────────────────────────────────
-
 async function handleNip46Connect(): Promise<void> {
   const btn = getNip46ConnectBtn();
   const statusEl = getNip46StatusEl();
@@ -170,7 +157,6 @@ async function handleNip46Connect(): Promise<void> {
   const bunkerUriRaw = bunkerUriInput?.value.trim() ?? '';
   const relayOverride = relayInput?.value.trim() ?? '';
 
-  // Validate bunker URI
   const parsed = parseBunkerUri(bunkerUriRaw);
   if (!parsed) {
     setStatus(statusEl, 'Invalid bunker URI — expected bunker://<pubkey>?relay=...', 'error');
@@ -200,8 +186,6 @@ async function handleNip46Connect(): Promise<void> {
     setTimeout(() => closeSignerModal(), 1500);
   }
 }
-
-// ─── Post-Connect Identity Probe ─────────────────────────────────────────────
 
 const DEMO_HOST_PROBE_WINDOW_ID = '__demo-host-probe__';
 
@@ -254,8 +238,6 @@ async function runIdentityProbe(expectedPubkey: string): Promise<void> {
   });
 }
 
-// ─── Public Init ──────────────────────────────────────────────────────────────
-
 /**
  * Initialize the signer connect modal.
  * Attaches event handlers for open, close, NIP-07 connect, and NIP-46 connect.
@@ -295,7 +277,6 @@ export function initSignerModal(): void {
     }
   });
 
-  // Update QR when relay field changes
   const relayInput = getRelayInput();
   if (relayInput) {
     relayInput.addEventListener('input', () => {

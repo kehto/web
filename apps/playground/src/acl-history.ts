@@ -8,8 +8,6 @@
 import type { AclCheckEvent } from '@kehto/shell';
 import { getAclAdapter } from './shell-host.js';
 
-// ─── Extended Event Type ────────────────────────────────────────────────────
-
 export interface AclHistoryEntry extends AclCheckEvent {
   /** Monotonic index for ordering. */
   index: number;
@@ -21,14 +19,11 @@ export interface AclHistoryEntry extends AclCheckEvent {
   nappletName: string;
 }
 
-// ─── Ring Buffer Store ──────────────────────────────────────────────────────
-
 /** Default ring buffer size per napplet. */
 const DEFAULT_ACL_RING_SIZE = 50;
 
 let aclRingSize = DEFAULT_ACL_RING_SIZE;
 
-/** Set the ACL ring buffer size (called from demo-config integration). */
 export function setAclRingSize(size: number): void {
   aclRingSize = Math.max(1, Math.floor(size));
 }
@@ -45,8 +40,6 @@ const aclRings = new Map<string, AclHistoryEntry[]>();
 
 // Global ring (all napplets combined, for ACL node view)
 const globalAclRing: AclHistoryEntry[] = [];
-
-// ─── Push Function ──────────────────────────────────────────────────────────
 
 /**
  * Push an ACL check event into both per-napplet and global ring buffers.
@@ -77,12 +70,9 @@ export function pushAclEvent(
   ring.push(entry);
   if (ring.length > aclRingSize) ring.shift();
 
-  // Global ring
   globalAclRing.push(entry);
   if (globalAclRing.length > aclRingSize * 4) globalAclRing.shift();
 }
-
-// ─── Query Functions ────────────────────────────────────────────────────────
 
 /** Get ACL history for a specific napplet. */
 export function getAclHistory(windowId: string): AclHistoryEntry[] {
@@ -110,8 +100,6 @@ export function clearAclHistory(): void {
   globalAclRing.length = 0;
   nextIndex = 0;
 }
-
-// ─── Adapter Subscription Helper ────────────────────────────────────────────
 
 /**
  * Subscribe to ACL check events via the shell-host adapter seam.

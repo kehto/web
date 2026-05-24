@@ -1,15 +1,3 @@
-/**
- * @kehto/acl — String capability constants.
- *
- * Canonical capability strings for NIP-5D ACL gating (v1.2 milestone).
- * Complements the bit constants in types.ts (CAP_RELAY_READ etc.) — these
- * string literals are what the runtime + shell read/write in grant/revoke
- * paths and what resolveCapabilitiesNub returns.
- *
- * Zero runtime dependencies. The eight canonical NIP-5D domains are
- * identity, keys, media, notify, relay, storage, ifc, theme; capabilities
- * here cover each domain's gated actions.
- */
 
 /**
  * All capability strings recognized by @kehto/acl.
@@ -42,15 +30,6 @@ export const ALL_CAPABILITIES = [
 
 /** Union of every capability string in ALL_CAPABILITIES. */
 export type Capability = typeof ALL_CAPABILITIES[number];
-
-// ─── Per-cap string constants (grep-friendly call sites) ────────────────────
-//
-// The v1.1 capability strings (relay:read, relay:write, cache:read,
-// cache:write, hotkey:forward, state:read, state:write) are used
-// throughout the codebase as bare literals; constants for them are
-// deliberately omitted here to keep the surface minimal.
-// The v1.2 additions below each get a named constant because they are
-// the newly-introduced surface and benefit from greppable call sites.
 
 /** identity.getProfile/getFollows/getList/getZaps/getMutes/getBlocked/getBadges */
 export const CAP_IDENTITY_READ   = 'identity:read' as const;

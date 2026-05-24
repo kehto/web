@@ -118,8 +118,6 @@ export interface ResourceServiceOptions {
  */
 export type ResourceService = ServiceHandler;
 
-// ─── Base64 encode helper (browser-safe, chunked to avoid stack overflow) ─────
-
 /**
  * Convert an ArrayBuffer to base64 string, safe for both browser and Node.
  * Chunked in 0x8000-byte slices to avoid `String.fromCharCode(...largeArray)`
@@ -134,8 +132,6 @@ function arrayBufferToBase64(buf: ArrayBuffer): string {
   }
   return btoa(binary);
 }
-
-// ─── Factory ───────────────────────────────────────────────────────────────────
 
 /**
  * Create a NUB-RESOURCE reference service.
@@ -170,8 +166,6 @@ function arrayBufferToBase64(buf: ArrayBuffer): string {
  * ```
  */
 export function createResourceService(options: ResourceServiceOptions): ResourceService {
-  // ─── H-03 prevention: getConnectGrants REQUIRED from day one (see PITFALLS.md:228) ───
-  // All four options are required. Validate each individually for clear error messaging.
   if (
     typeof options?.fetch !== 'function' ||
     typeof options?.isOriginGranted !== 'function' ||
@@ -185,8 +179,6 @@ export function createResourceService(options: ResourceServiceOptions): Resource
     );
   }
 
-  // ─── In-flight tracking ────────────────────────────────────────────────────
-  // Primary map: requestId → { controller, windowId }
   const inFlight = new Map<string, { controller: AbortController; windowId: string }>();
   // Secondary map: windowId → Set<requestId> for onWindowDestroyed cleanup
   const perWindow = new Map<string, Set<string>>();
@@ -207,7 +199,6 @@ export function createResourceService(options: ResourceServiceOptions): Resource
     }
   }
 
-  // ─── Async bytes handler ──────────────────────────────────────────────────
   async function handleBytes(
     windowId: string,
     msg: { requestId: string; url: string; init?: { method?: string; headers?: Readonly<Record<string, string>> } },
@@ -299,16 +290,12 @@ export function createResourceService(options: ResourceServiceOptions): Resource
     }
   }
 
-  // ─── Descriptor ────────────────────────────────────────────────────────────
-
   const descriptor: ServiceDescriptor = {
     name: 'resource',
     version: RESOURCE_SERVICE_VERSION,
     description:
       'NUB-RESOURCE reference service — shell-proxied authenticated fetch (RESOURCE-01..06)',
   };
-
-  // ─── ServiceHandler ────────────────────────────────────────────────────────
 
   const handler: ServiceHandler = {
     descriptor,

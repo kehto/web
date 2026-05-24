@@ -1,11 +1,3 @@
-/**
- * service-dispatch.ts — NIP-5D envelope routing for registered services.
- *
- * Routes NappletMessage envelopes to the correct ServiceHandler based on the
- * message type domain prefix. NUB-domain services (signer.*, relay.*, storage.*)
- * are routed by the domain part of message.type. IFC-routed services (audio,
- * notifications) receive ifc.emit messages and are routed by topic prefix.
- */
 
 import type { NappletMessage } from '@napplet/core';
 import type { ServiceRegistry, SendToNapplet } from './types.js';

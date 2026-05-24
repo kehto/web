@@ -17,7 +17,6 @@ import {
   type Capability,
   type NappletClass,
   type NostrEvent,
-  type ConsentRequest,
   type NappletMessage,
   type AclCheckEvent,
   type SessionEntry,
@@ -61,7 +60,6 @@ function hexToBytes(hex: string): Uint8Array {
 const DEMO_DECRYPT_SECRET_KEY = hexToBytes('11'.repeat(32));
 export const DEMO_DECRYPT_PUBKEY = getPublicKey(DEMO_DECRYPT_SECRET_KEY);
 const DEMO_DECRYPT_SENDER_SECRET_KEY = hexToBytes('22'.repeat(32));
-const DEMO_DECRYPT_SENDER_PUBKEY = getPublicKey(DEMO_DECRYPT_SENDER_SECRET_KEY);
 
 export interface DemoDecryptModeFixture {
   event: NostrEvent;
@@ -275,10 +273,6 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     aclId: 'bot-acl',
     frameContainerId: 'bot-frame-container',
   },
-  // Composer/preferences/toaster (Phase 19) — each napplet sets its own #*-status sentinel
-  // INSIDE its iframe via D-04 init pattern; the outer topology placeholder shows 'loading...'
-  // and is not updated by the host (no per-napplet protocol-status projection in main.ts for the new 3).
-  // Layer-B specs assert the INNER iframe status via frameLocator, not the outer placeholder.
   {
     name: 'composer',
     label: 'composer',
@@ -300,10 +294,6 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     aclId: 'toaster-acl',
     frameContainerId: 'toaster-frame-container',
   },
-  // Phase 20 (Plan 20-06): feed/profile-viewer/theme-switcher complete the 8-napplet showcase.
-  // statusId values match the INNER iframe sentinel from each napplet's index.html.
-  // The outer topology card shows 'loading...' until the inner iframe sets its own sentinel
-  // via the D-04 init pattern; Layer-B specs assert via frameLocator (not outer placeholder).
   {
     name: 'feed',
     label: 'feed',
@@ -325,13 +315,6 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     aclId: 'theme-switcher-acl',
     frameContainerId: 'theme-switcher-frame-container',
   },
-  // Phase 26 (Plan 26-03): hotkey-chord napplet exercises the real keys backend
-  // (KEYS-01 document-level chord listener + keys.action push + KEYS-02
-  // HostKeysBridge interface). topology.ts:466 dynamically renders
-  // #hotkey-chord-frame-container from this entry — no apps/playground/index.html
-  // edit required. statusId matches the INNER iframe sentinel from
-  // napplets/hotkey-chord/index.html; Layer-B spec (26-04) asserts via
-  // frameLocator, not the outer placeholder.
   {
     name: 'hotkey-chord',
     label: 'hotkey-chord',
@@ -341,12 +324,6 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     surface: 'runtime-demo',
     hasAclControls: false,
   },
-  // Phase 27 (Plan 27-03): media-controller napplet exercises the real media
-  // backend (MEDIA-01 navigator.mediaSession mirror + MEDIA-02 HostMediaBridge
-  // interface). topology.ts dynamically renders #media-controller-frame-container
-  // from this entry — no apps/playground/index.html edit required (Plan 26-03 precedent).
-  // statusId matches the INNER iframe sentinel from napplets/media-controller/index.html;
-  // Layer-B spec (27-04) asserts via frameLocator, not the outer placeholder.
   {
     name: 'media-controller',
     label: 'media-controller',
@@ -384,11 +361,6 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     aclId: 'resource-demo-acl',
     frameContainerId: 'resource-demo-frame-container',
   },
-  // Phase 46 (DECRYPT-09/10 + E2E-28): decrypt-demo exercises the
-  // identity.decrypt reference handler across NIP-04, NIP-44-direct, and
-  // NIP-17 fixtures. Its class-2 posture is toggled test-only via
-  // __setNappletClass__('decrypt-demo', 'class-2') rather than adding a
-  // second always-on napplet.
   {
     name: 'decrypt-demo',
     label: 'decrypt-demo',
@@ -433,10 +405,6 @@ export const CLASS_BY_DTAG: ReadonlyMap<string, NappletClass> = new Map<string, 
   ['decrypt-demo', null],
 ]);
 
-// ─── D4 / H-05 module-load assertion ─────────────────────────────────────────
-// Every DEMO_NAPPLETS entry must have a corresponding CLASS_BY_DTAG entry.
-// Adding a napplet to DEMO_NAPPLETS without updating CLASS_BY_DTAG throws
-// at import time — breaks `pnpm build` before any runtime observes drift.
 {
   const _missingClassEntries = DEMO_NAPPLETS
     .map((d) => d.name)
@@ -516,8 +484,6 @@ export function getDemoHostAuditSummary(): string {
   return `host ready -- signer mode: ${DEMO_SIGNER_MODE}; audited paths: ${auditedPaths}`;
 }
 
-// --- Message Tap (simplified from tests/helpers/message-tap.ts) ---
-
 const KNOWN_VERBS = new Set([
   'EVENT', 'REQ', 'CLOSE', 'AUTH', 'OK', 'EOSE', 'NOTICE', 'CLOSED', 'COUNT',
 ]);
@@ -579,8 +545,7 @@ function parseEnvelope(envelope: NappletMessage): TappedMessage['parsed'] {
   const type = envelope.type;
   const domain = type.includes('.') ? type.split('.')[0] : type;
   const parsed: TappedMessage['parsed'] = { domain };
-  // Lift common fields if present — tolerant of any payload shape.
-  const env = envelope as unknown as Record<string, unknown>;
+  const env = envelope as NappletMessage & Record<string, unknown>;
   if (typeof env.id === 'string') parsed.eventId = env.id;
   if (typeof env.subscriptionId === 'string') parsed.subId = env.subscriptionId;
   if (typeof env.error === 'string') parsed.reason = env.error;
@@ -671,8 +636,6 @@ function createMessageTap(): MessageTap {
   };
 }
 
-// --- Mock ShellAdapter (simplified from tests/helpers/mock-hooks.ts) ---
-
 /**
  * CONTEXT D-USER-01 (Phase 20): ShellAdapter.relayPool is backed by the in-memory
  * mock pool (apps/playground/src/mock-relay-pool.ts) rather than the old no-op stub. This
@@ -703,12 +666,6 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
   const keysService = createKeysService({
     reservedChords: ['Ctrl+Shift+R'],
     onForward: (event) => {
-      // Phase 33: shell-side DOM sentinel for E2E-17 observation. Writes the
-      // canonical chord string (modifiers + key) so the spec can assert on
-      // exact match. Updated on every onForward fire (reserved AND non-reserved
-      // keydowns that match a registered chord both pass through here — the
-      // spec asserts the reserved chord specifically so the value MUST be
-      // 'Ctrl+Shift+R' after page.keyboard.press('Control+Shift+KeyR')).
       const sentinel = document.getElementById('reserved-chord-last-fired');
       if (sentinel) {
         const parts: string[] = [];
@@ -738,47 +695,11 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
   });
   _themeServiceBundle = themeServiceBundle;
 
-  // ─── COVERAGE GATE (Phase 20 → Phase 26 → Phase 27) ──────────────────────
-  // Post-Phase-27, the demo exercises ALL 8 non-stub NUB domains end-to-end:
-  //   identity (profile-viewer — Plan 20-03)
-  //   ifc      (chat + bot — Phase 18)
-  //   notify   (toaster — Phase 19)
-  //   relay    (composer publish — Phase 19, feed subscribe — Plan 20-02)
-  //   storage  (preferences — Phase 19)
-  //   theme    (theme-switcher + preferences observer — Plans 20-04/05)
-  //   keys     (hotkey-chord — Plan 26-03; document-level chord listener +
-  //             keys.action push via SDK keys.onAction, per Plan 26-01 +
-  //             HostKeysBridge contract from Plan 26-02)
-  //   media    (media-controller — Plan 27-03; navigator.mediaSession mirror +
-  //             media.command push via nub-media mediaOnCommand, per Plan 27-01 +
-  //             HostMediaBridge contract from Plan 27-02)
-  //
-  // STUB_ONLY_SERVICES is now `[]` — the stub-only era ends here. The v1.4 demo
-  // is a 10-napplet showcase (8 from v1.3 + hotkey-chord from Phase 26 +
-  // media-controller from Phase 27).
-  // Phase 39 (CONFIG-03): NUB-CONFIG reference service. Reads values from the
-  // mutable demoConfigFixtures module-level object (D11); publishValues is
-  // called from setDemoConfigValue when the shell UI button fires.
   const configServiceBundle = createConfigService({
     getValues: () => ({ ...demoConfigFixtures }),
   });
   _configServiceBundle = configServiceBundle;
 
-  // ─── Phase 40 Plan 40-02 (RESOURCE-04): NUB-RESOURCE reference service ───
-  // Shell acts as the identity-bound fetch proxy for the 10th NUB domain.
-  //
-  // Host `fetch` = native browser fetch + AbortController + 10s timeout (D5).
-  // Composites two abort signals: the request-scoped signal and a 10s timeout,
-  // whichever fires first aborts the fetch and returns a canonical error code.
-  //
-  // resolveIdentity uses the module-level _sessionRegistryRef which is
-  // populated in bootShell() immediately after createShellBridge(). The first
-  // resource.bytes dispatch cannot arrive until AFTER bootShell() returns and
-  // the napplet iframe fully loads and becomes identity-bound — so the ref is always
-  // assigned before any real lookup occurs.
-  //
-  // H-03 guard (Wave 1): all 4 options are required; factory throws at
-  // construction if any is missing.
   async function hostFetch(
     url: string,
     init: { method?: string; headers?: Record<string, string>; signal: AbortSignal },
@@ -947,8 +868,6 @@ function createDemoHooks(notificationOnChange?: (notifications: readonly Notific
   };
 }
 
-// --- Proxy pattern (from harness.ts) ---
-
 const proxyToReal = new WeakMap<object, Window>();
 
 function createPostMessageProxy(realWin: Window, messageTap: MessageTap, windowId?: string): Window {
@@ -969,16 +888,14 @@ function createPostMessageProxy(realWin: Window, messageTap: MessageTap, windowI
         };
       }
       try {
-        const val = (target as unknown as Record<string | symbol, unknown>)[prop];
+        const val = Reflect.get(target, prop, target) as unknown;
         return typeof val === 'function' ? (val as Function).bind(target) : val;
       } catch { return undefined; }
     },
   });
   proxyToReal.set(proxy, realWin);
-  return proxy as unknown as Window;
+  return proxy;
 }
-
-// --- Napplet Frame Management ---
 
 export interface NappletInfo {
   windowId: string;
@@ -1059,11 +976,6 @@ export function getConfigServiceBundle(): ConfigService | null {
   return _configServiceBundle;
 }
 
-/**
- * Phase 39 Plan 39-04 (D11) — mutator used by the shell UI "toggle config"
- * button. Updates the fixture object IN PLACE and pushes a new config.values
- * envelope to every subscribed napplet via configServiceBundle.publishValues.
- */
 export function setDemoConfigValue(key: string, value: unknown): void {
   demoConfigFixtures[key] = value;
   _configServiceBundle?.publishValues({ ...demoConfigFixtures });
@@ -1083,8 +995,6 @@ export function getThemeServiceBundle(): ThemeService | null {
 export function getIdentityServiceHandler(): ServiceHandler | null {
   return _identityServiceHandler;
 }
-
-// --- Public API ---
 
 export let tap: MessageTap;
 export let relay: ShellBridge;
@@ -1201,13 +1111,6 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
     originalUnregisterService(name);
   };
 
-  // Phase 39 Plan 39-04: consent handler is registered in apps/playground/src/main.ts
-  // via createConsentModal().registerWith(relay, fallthroughHandler). The prior
-  // setTimeout(500) auto-approve for destructive-signing is preserved as the
-  // fallthrough parameter. Centralizing the registration avoids the runtime.ts
-  // overwrite behavior (a single _consentHandler is stored, last-write-wins).
-  // DO NOT register a consent handler here.
-
   // Wrap handleMessage for outbound capture (both array and envelope-shape messages)
   const _origHandle = relay.handleMessage;
   relay.handleMessage = (event: MessageEvent) => {
@@ -1226,7 +1129,7 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
     const syntheticEvent = new Proxy(event, {
       get(target, prop) {
         if (prop === 'source') return proxiedSource;
-        const val = (target as unknown as Record<string | symbol, unknown>)[prop];
+        const val = Reflect.get(target, prop, target) as unknown;
         return typeof val === 'function' ? (val as Function).bind(target) : val;
       },
     });
@@ -1235,9 +1138,6 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
 
   window.addEventListener('message', relay.handleMessage);
 
-  // Track late identity confirmation from wire traffic. NIP-5D napplets are
-  // source-bound at iframe registration; envelope traffic is now only a
-  // defensive wake-up path for older fixture surfaces and diagnostics.
   tap.onMessage((msg) => {
     if (msg.verb === 'OK' && msg.parsed.success === true && msg.direction === 'shell->napplet') {
       // Find which napplet this OK belongs to by checking sessionRegistry
@@ -1257,9 +1157,6 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
       }
     }
 
-    // Defensive path: if a pre-registered NIP-5D napplet has not already been
-    // marked source-bound, the first source-mapped envelope can still complete
-    // UI identity state from the session registry entry.
     if (msg.verb === 'ENVELOPE' && msg.direction === 'napplet->shell' && msg.windowId) {
       const info = napplets.get(msg.windowId);
       if (info && !info.identityBound) {
@@ -1278,20 +1175,6 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
   // Make the tap accessible for host-originated envelope recording
   setMessageTap(tap);
 
-  // ─── Plan 26-03 (KEYS-03): __grantKeysForward__ host hook ────────────────
-  // Plan 26-04's Playwright spec (E2E-12) must grant the `keys:forward`
-  // capability to the hotkey-chord napplet before dispatching Ctrl+Shift+K —
-  // otherwise keys-forwarder.ts gates the outbound envelope per ACL. Rather
-  // than auto-granting on boot (which would leak demo-scoped policy into a
-  // test-only mechanism), we expose a single, hotkey-chord-scoped grant hook.
-  //
-  // Usage (from tests/e2e/hotkey-chord.spec.ts):
-  //   await page.evaluate(() => window.__grantKeysForward__?.());
-  //
-  // Returns true on success, false if the hotkey-chord napplet is not yet
-  // loaded or not yet identity-bound (callers may retry if needed; the spec
-  // gates on the #hotkey-chord-status = 'subscribed' sentinel before calling,
-  // which implies the napplet is identity-bound and ready to receive grants).
   (window as Window & { __grantKeysForward__?: () => boolean }).__grantKeysForward__ = (): boolean => {
     let hotkeyEntry: { windowId: string; info: NappletInfo } | null = null;
     for (const [windowId, info] of napplets.entries()) {
@@ -1315,21 +1198,6 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
     return true;
   };
 
-  // ─── Plan 27-03 (MEDIA-03): __grantMediaControl__ host hook ──────────────
-  // Plan 27-04's Playwright spec (E2E-13) must grant the `media:control`
-  // capability to the media-controller napplet before asserting play/pause
-  // state transitions. Mirrors the __grantKeysForward__ pattern from
-  // Plan 26-03 exactly: single-napplet-scoped grant hook that returns true
-  // on success, false when napplet not yet loaded / not yet identity-bound.
-  //
-  // Usage (from tests/e2e/media-controller.spec.ts):
-  //   await page.evaluate(() => window.__grantMediaControl__?.());
-  //
-  // Returns true on success, false if the media-controller napplet is not yet
-  // loaded or not yet identity-bound (callers may retry if needed; the spec
-  // gates on the #media-controller-status = 'session-ready' sentinel before
-  // calling, which implies the napplet is identity-bound and ready to receive
-  // grants).
   (window as Window & { __grantMediaControl__?: () => boolean }).__grantMediaControl__ = (): boolean => {
     let mediaEntry: { windowId: string; info: NappletInfo } | null = null;
     for (const [windowId, info] of napplets.entries()) {
@@ -1482,8 +1350,9 @@ export async function loadNapplet(
 
 function playgroundPath(pathname: string): string {
   const cleanPath = pathname.replace(/^\/+/, '');
+  const meta = import.meta as ImportMeta & { env?: { BASE_URL?: string } };
   const basePath =
-    ((import.meta as unknown as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? '/').trim() ||
+    (meta.env?.BASE_URL ?? '/').trim() ||
     '/';
   if (basePath === './') return cleanPath;
   const normalizedBase = basePath.endsWith('/') ? basePath : `${basePath}/`;
@@ -1535,9 +1404,6 @@ export function getMissingRequiredNubs(requires: readonly string[]): string[] {
 export function toggleCapability(windowId: string, capability: Capability, enabled: boolean): void {
   const info = napplets.get(windowId);
   if (!info) { console.warn('[acl] toggleCapability: no info for', windowId); return; }
-  // NIP-5D napplets are pre-registered with pubkey=''; ACL is keyed on dTag:hash.
-  // Traditional pubkey-based fixture napplets may have a non-empty pubkey.
-  // Both paths use the same aclState interface with pubkey ('' or real).
   if (!info.identityBound) {
     console.warn('[acl] toggleCapability: napplet not yet identity-bound', windowId);
     return;
@@ -1593,10 +1459,6 @@ export function toggleBlock(windowId: string, blocked: boolean): void {
   }
 }
 
-// ─── DemoAclAdapter (DEMO-03 seam) ──────────────────────────────────────────
-// All UI grant/revoke/block/unblock flows go through this adapter. Keeps
-// a single seam for future ShellAdapter.acl hook consolidation.
-
 export interface DemoAclAdapter {
   /** Grant a capability on a napplet by windowId. */
   grant(windowId: string, capability: Capability): void;
@@ -1624,7 +1486,6 @@ export interface DemoAclAdapter {
 
 const _aclCheckListeners: Array<(event: AclCheckEvent, wid: string, name: string) => void> = [];
 
-/** Internal hook called from createDemoHooks().onAclCheck — fans out to subscribers. */
 function _notifyAclCheckListeners(event: AclCheckEvent, windowId: string, name: string): void {
   for (const cb of _aclCheckListeners) {
     try { cb(event, windowId, name); } catch { /* ignore listener error */ }
@@ -1700,8 +1561,6 @@ const aclAdapter: DemoAclAdapter = {
 export function getAclAdapter(): DemoAclAdapter {
   return aclAdapter;
 }
-
-// ─── Message Tap Accessor (for host-originated envelope recording) ────────────
 
 let _messageTapRef: MessageTap | null = null;
 

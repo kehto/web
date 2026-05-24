@@ -1,11 +1,3 @@
-/**
- * notification-service.ts — Notification state registry as a ServiceHandler.
- *
- * Tracks notifications created by napplet windows. Shell hosts wire this
- * into the runtime via registerService('notifications', createNotificationService(opts)).
- * The shell host decides presentation (toast, badge, OS notification, etc.)
- * through the onChange callback. Browser-agnostic — no DOM, no window.
- */
 
 import type { NappletMessage } from '@napplet/core';
 // DRIFT-CORE-06 — Phase 11-deviation: ServiceDescriptor dropped from @napplet/core
@@ -121,7 +113,7 @@ export function createNotificationService(options?: NotificationServiceOptions):
     descriptor,
 
     handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
-      const msg = message as unknown as Record<string, unknown>;
+      const msg = message as NappletMessage & Record<string, unknown>;
 
       // ── NIP-5D canonical notify.* envelope format (Phase 17+) ───────────────
       // Host-originated and napplet-originated notify.* envelopes from Phase 18+.
@@ -148,7 +140,7 @@ export function createNotificationService(options?: NotificationServiceOptions):
             enforceLimit(list);
             notify();
 
-            send({ type: 'notify.created', id } as unknown as NappletMessage);
+            send({ type: 'notify.created', id } as NappletMessage);
             break;
           }
 
@@ -186,7 +178,7 @@ export function createNotificationService(options?: NotificationServiceOptions):
 
           case 'list': {
             const windowNotifs = notifications.get(windowId) ?? [];
-            send({ type: 'notify.listed', notifications: windowNotifs } as unknown as NappletMessage);
+            send({ type: 'notify.listed', notifications: windowNotifs } as NappletMessage);
             break;
           }
 
@@ -197,8 +189,6 @@ export function createNotificationService(options?: NotificationServiceOptions):
         return;
       }
 
-      // ── Legacy ifc.emit format (Phase <17 napplets — still used by chat/bot) ─
-      // Kept for backward compat until napplets migrate to NIP-5D in Phase 18.
       if (message.type !== 'ifc.emit') return;
       const topic = msg.topic as string | undefined;
       if (!topic?.startsWith('notifications:')) return;
@@ -240,7 +230,6 @@ export function createNotificationService(options?: NotificationServiceOptions):
             const list = notifications.get(foundWindowId);
             if (list) {
               list.splice(index, 1);
-              // Clean up empty lists
               if (list.length === 0) {
                 notifications.delete(foundWindowId);
               }

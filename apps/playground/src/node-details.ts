@@ -1,20 +1,9 @@
-/**
- * node-details.ts -- Node detail adapter for the demo topology.
- *
- * Enriches each topology node with live, role-specific summary data and
- * provides the shared detail shape used by both collapsed node summaries
- * and the right-side inspector panel.
- *
- * Data-first: this module produces plain objects — no HTML strings.
- */
 
 import type { DemoTopology, DemoTopologyNode, TopologyNodeRole } from './topology.js';
 import type { DemoProtocolPath, MessageTap, NappletInfo, TappedMessage } from './shell-host.js';
 import { getAclDenials, getGlobalAclDenials, type AclHistoryEntry } from './acl-history.js';
 import { DEMO_CAPABILITY_LABELS } from './acl-panel.js';
 import type { Capability } from '@kehto/shell';
-
-// ─── Activity History ────────────────────────────────────────────────────────
 
 export interface NodeActivityEntry {
   path: DemoProtocolPath | string;
@@ -55,14 +44,10 @@ export function getNodeActivity(nodeId: string): NodeActivityEntry[] {
   return nodeActivityRings.get(nodeId) ?? [];
 }
 
-// ─── Summary Fields ──────────────────────────────────────────────────────────
-
 export interface SummaryField {
   label: string;
   value: string;
 }
-
-// ─── Node Detail Record ──────────────────────────────────────────────────────
 
 export interface NodeDetail {
   /** Stable topology node id, e.g. "topology-node-shell" */
@@ -90,8 +75,6 @@ export interface InspectorSection {
   items: SummaryField[];
 }
 
-// ─── Live State Sources ──────────────────────────────────────────────────────
-
 interface NodeDetailSources {
   /** All current napplets mapped by windowId */
   napplets: Map<string, NappletInfo>;
@@ -111,7 +94,25 @@ function truncate(s: string, max = 20): string {
   return s.length > max ? `${s.substring(0, max)}…` : s;
 }
 
-// ─── Role-Specific Detail Builders ───────────────────────────────────────────
+function nodeDetailBase(
+  node: DemoTopologyNode,
+  role: TopologyNodeRole,
+  summaryFields: SummaryField[],
+  inspectorSections: InspectorSection[],
+  activity: NodeActivityEntry[],
+  aclDenials: AclHistoryEntry[] = [],
+): NodeDetail {
+  return {
+    id: node.id,
+    role,
+    title: node.label,
+    summaryFields,
+    inspectorSections,
+    recentActivity: activity,
+    aclDenials,
+    drillDownSupported: true,
+  };
+}
 
 function buildNappletDetail(
   node: DemoTopologyNode,
@@ -231,16 +232,7 @@ function buildShellDetail(
     },
   ];
 
-  return {
-    id: node.id,
-    role: 'shell',
-    title: node.label,
-    summaryFields,
-    inspectorSections,
-    recentActivity: activity,
-    aclDenials: [],
-    drillDownSupported: true,
-  };
+  return nodeDetailBase(node, 'shell', summaryFields, inspectorSections, activity);
 }
 
 function buildAclDetail(
@@ -269,16 +261,7 @@ function buildAclDetail(
     },
   ];
 
-  return {
-    id: node.id,
-    role: 'acl',
-    title: node.label,
-    summaryFields,
-    inspectorSections,
-    recentActivity: activity,
-    aclDenials: globalDenials,
-    drillDownSupported: true,
-  };
+  return nodeDetailBase(node, 'acl', summaryFields, inspectorSections, activity, globalDenials);
 }
 
 function buildRuntimeDetail(
@@ -305,16 +288,7 @@ function buildRuntimeDetail(
     },
   ];
 
-  return {
-    id: node.id,
-    role: 'runtime',
-    title: node.label,
-    summaryFields,
-    inspectorSections,
-    recentActivity: activity,
-    aclDenials: [],
-    drillDownSupported: true,
-  };
+  return nodeDetailBase(node, 'runtime', summaryFields, inspectorSections, activity);
 }
 
 function buildServiceDetail(
@@ -344,19 +318,8 @@ function buildServiceDetail(
     },
   ];
 
-  return {
-    id: node.id,
-    role: 'service',
-    title: node.label,
-    summaryFields,
-    inspectorSections,
-    recentActivity: activity,
-    aclDenials: [],
-    drillDownSupported: true,
-  };
+  return nodeDetailBase(node, 'service', summaryFields, inspectorSections, activity);
 }
-
-// ─── Public API ──────────────────────────────────────────────────────────────
 
 export interface NodeDetailOptions {
   napplets: Map<string, NappletInfo>;

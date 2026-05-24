@@ -230,5 +230,5 @@ export const connectStore: ConnectStore = {
  * ```
  */
 export function connectGrantKey(dTag: string, aggregateHash: string): string {
-  return connectKey(dTag, aggregateHash);
+  return `${dTag}:${aggregateHash}`;
 }

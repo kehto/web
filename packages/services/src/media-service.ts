@@ -103,8 +103,6 @@ export type MediaMetadataLike = { title?: string; artist?: string; album?: strin
 /** Media service version — follows semver. */
 const MEDIA_SERVICE_VERSION = '1.1.0';
 
-// ─── HostMediaBridge ─────────────────────────────────────────────────────────
-
 /**
  * Host-bridge contract for pluggable media backends.
  *
@@ -194,8 +192,6 @@ export interface HostMediaBridge {
   destroySession?(sessionId: string): void;
 }
 
-// ─── MediaServiceOptions ──────────────────────────────────────────────────────
-
 /**
  * Optional host callbacks for the media service.
  *
@@ -253,8 +249,6 @@ export interface MediaServiceOptions {
   hostBridge?: HostMediaBridge;
 }
 
-// ─── createBrowserMediaBridge ─────────────────────────────────────────────────
-
 /** Default action set — all 5 nub-media transport actions. */
 const DEFAULT_ACTIONS: readonly MediaAction[] = ['play', 'pause', 'next', 'prev', 'seek'];
 
@@ -298,7 +292,7 @@ export function createBrowserMediaBridge(opts: {
   const ms: MediaSessionTarget | null =
     opts.mediaSessionTarget
       ?? (typeof navigator !== 'undefined' && 'mediaSession' in navigator
-          ? (navigator.mediaSession as unknown as MediaSessionTarget)
+          ? (navigator.mediaSession as MediaSessionTarget)
           : null);
   const doc: Document | null =
     opts.documentTarget !== undefined
@@ -362,7 +356,7 @@ export function createBrowserMediaBridge(opts: {
       ...(artwork ? { artwork } : {}),
     };
     try {
-      const ctor = (globalThis as unknown as { MediaMetadata?: new (init: MediaMetadataLike) => MediaMetadataLike }).MediaMetadata;
+      const ctor = (globalThis as typeof globalThis & { MediaMetadata?: new (init: MediaMetadataLike) => MediaMetadataLike }).MediaMetadata;
       ms.metadata = ctor ? new ctor(init) : (init as MediaMetadataLike);
     } catch {
       ms.metadata = init as MediaMetadataLike;
@@ -406,8 +400,6 @@ export function createBrowserMediaBridge(opts: {
     },
   };
 }
-
-// ─── createMediaService ───────────────────────────────────────────────────────
 
 /**
  * Create a media NUB service handler with navigator.mediaSession integration.
@@ -500,7 +492,6 @@ export function createMediaService(options: MediaServiceOptions = {}): ServiceHa
     setActive(latest ? latest.sessionId : null, latest?.actions);
   }
 
-  // ─── ServiceHandler ──────────────────────────────────────────────────
   return {
     descriptor,
 

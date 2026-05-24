@@ -9,14 +9,10 @@
 import { demoConfig, type ConstantDef } from './demo-config.js';
 import type { TopologyNodeRole } from './topology.js';
 
-// ─── Module State ────────────────────────────────────────────────────────────
-
 let _groupingMode: 'package' | 'domain' | 'flat' = 'package';
 let _searchQuery = '';
 let _showAll = false;
 let _currentRole: TopologyNodeRole | null = null;
-
-// ─── Formatting Helpers ──────────────────────────────────────────────────────
 
 function formatValue(def: ConstantDef): string {
   if (def.unit === 'bytes' && def.currentValue >= 1024) {
@@ -31,16 +27,12 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// ─── Flash Animation ─────────────────────────────────────────────────────────
-
 function flashConstantRow(key: string): void {
   const row = document.querySelector(`[data-const-key="${key}"]`) as HTMLElement | null;
   if (!row) return;
   row.style.background = 'rgba(57,255,20,0.08)';
   setTimeout(() => { row.style.background = 'transparent'; }, 400);
 }
-
-// ─── Render Helpers ──────────────────────────────────────────────────────────
 
 function matchesSearch(def: ConstantDef): boolean {
   if (!_searchQuery) return true;
@@ -149,8 +141,6 @@ function getGroupedDefs(role?: TopologyNodeRole): Array<{ groupLabel: string; de
   return groups;
 }
 
-// ─── Public API ──────────────────────────────────────────────────────────────
-
 /**
  * Reset the show-all toggle. Called by node-inspector when the selected node
  * changes so that contextual filtering re-engages (per D-07).
@@ -234,7 +224,6 @@ export function renderConstantsPanel(role?: TopologyNodeRole): string {
  * @param rerender - Callback to re-render the panel (typically updateInspectorPane)
  */
 export function wireConstantsPanelEvents(rerender: () => void): void {
-  // Number input changes
   document.querySelectorAll<HTMLInputElement>('[data-const-input]').forEach((input) => {
     input.addEventListener('input', () => {
       const key = input.dataset.constInput!;
@@ -244,15 +233,12 @@ export function wireConstantsPanelEvents(rerender: () => void): void {
       // Sync slider
       const slider = document.querySelector<HTMLInputElement>(`[data-const-slider="${key}"]`);
       if (slider) slider.value = String(demoConfig.get(key));
-      // Update input to show clamped value
       input.value = String(demoConfig.get(key));
       flashConstantRow(key);
-      // Update modified indicator and reset button
       updateRowState(key);
     });
   });
 
-  // Slider changes
   document.querySelectorAll<HTMLInputElement>('[data-const-slider]').forEach((slider) => {
     slider.addEventListener('input', () => {
       const key = slider.dataset.constSlider!;
@@ -272,7 +258,6 @@ export function wireConstantsPanelEvents(rerender: () => void): void {
     btn.addEventListener('click', () => {
       const key = btn.dataset.constReset!;
       demoConfig.reset(key);
-      // Update controls
       const input = document.querySelector<HTMLInputElement>(`[data-const-input="${key}"]`);
       const slider = document.querySelector<HTMLInputElement>(`[data-const-slider="${key}"]`);
       if (input) input.value = String(demoConfig.get(key));
@@ -306,7 +291,6 @@ export function wireConstantsPanelEvents(rerender: () => void): void {
     });
   }
 
-  // Grouping toggles
   document.querySelectorAll<HTMLButtonElement>('[data-grouping-mode]').forEach((btn) => {
     btn.addEventListener('click', () => {
       _groupingMode = btn.dataset.groupingMode as 'package' | 'domain' | 'flat';
@@ -332,8 +316,6 @@ export function wireConstantsPanelEvents(rerender: () => void): void {
     });
   }
 }
-
-// ─── Internal Helpers ────────────────────────────────────────────────────────
 
 function updateRowState(key: string): void {
   const isModified = demoConfig.isModified(key);

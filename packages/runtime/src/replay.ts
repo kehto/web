@@ -67,7 +67,6 @@ export function createReplayDetector(getReplayWindow?: () => number | undefined)
       if (event.created_at - now > 10) return 'invalid: event created_at in the future';
       if (seenEventIds.has(event.id)) return 'duplicate: already processed';
       seenEventIds.set(event.id, now);
-      // Purge stale entries
       for (const [id, timestamp] of seenEventIds) {
         if (now - timestamp > replayWindow) seenEventIds.delete(id);
       }

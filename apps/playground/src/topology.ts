@@ -351,7 +351,6 @@ export function wireServiceToggles(onToggle?: (name: string, enabled: boolean) =
         onToggle(serviceName, newEnabled);
       }
 
-      // Update visual state
       updateServiceNodeVisual(serviceName, newEnabled);
     });
   }
@@ -379,7 +378,6 @@ export function updateServiceNodeVisual(name: string, enabled: boolean): void {
     nodeEl.style.filter = 'grayscale(0.8)';
   }
 
-  // Update toggle icon color
   const toggleIcon = nodeEl.querySelector<HTMLButtonElement>('.service-toggle-icon');
   if (toggleIcon) {
     toggleIcon.style.color = enabled ? '#39ff14' : '#ff3b3b';
@@ -387,9 +385,6 @@ export function updateServiceNodeVisual(name: string, enabled: boolean): void {
   }
 }
 
-function renderNodeEdge(edgeId: string): string {
-  return `<div id="${edgeId}" class="topology-edge" data-topology-edge="${edgeId}" aria-hidden="true"></div>`;
-}
 
 function truncatePubkey(pubkey: string): string {
   return pubkey.length > 20 ? `${pubkey.substring(0, 20)}...` : pubkey;

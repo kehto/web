@@ -5,8 +5,6 @@
  * Capability constants are bitfield values for fast check/grant/revoke.
  */
 
-// ─── Capability Bit Constants ─────────────────────────────────────────────────
-
 /** relay:read — subscribe to relay events */
 export const CAP_RELAY_READ    = 1 << 0;   // 1
 /** relay:write — publish events to relays */
@@ -34,8 +32,6 @@ export const CAP_ALL = (1 << 10) - 1;      // 1023
 /** No capabilities granted */
 export const CAP_NONE = 0;
 
-// ─── Identity ─────────────────────────────────────────────────────────────────
-
 /**
  * Napplet identity — composite key for ACL lookups.
  *
@@ -54,8 +50,6 @@ export interface Identity {
   readonly hash: string;
 }
 
-// ─── ACL Entry ────────────────────────────────────────────────────────────────
-
 /**
  * A single ACL entry for one napplet identity.
  *
@@ -68,8 +62,6 @@ export interface AclEntry {
   readonly blocked: boolean;
   readonly quota: number;
 }
-
-// ─── ACL State ────────────────────────────────────────────────────────────────
 
 /**
  * Complete ACL state — immutable data structure.

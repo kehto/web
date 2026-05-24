@@ -7,11 +7,9 @@
  */
 
 import { DEMO_CAPABILITY_LABELS } from './acl-panel.js';
-import { getNapplets, getAclAdapter, getDemoServiceNames, toggleService, isServiceEnabled } from './shell-host.js';
+import { getAclAdapter, getDemoServiceNames, toggleService, isServiceEnabled } from './shell-host.js';
 import { updateServiceNodeVisual } from './topology.js';
 import type { Capability } from '@kehto/shell';
-
-// ─── Constants ──────────────────────────────────────────────────────────────
 
 const ALL_CAPABILITIES: Capability[] = [
   'relay:read',
@@ -33,17 +31,13 @@ const ALL_CAPABILITIES: Capability[] = [
 
 const MODAL_ID = 'acl-policy-modal';
 
-// ─── Public API ─────────────────────────────────────────────────────────────
-
 /**
  * Open the ACL policy matrix modal.
  * Removes any existing modal first, builds the grid from live ACL state.
  */
 export function openPolicyModal(): void {
-  // Remove existing modal if any
   closePolicyModal();
 
-  const napplets = getNapplets();
   const adapter = getAclAdapter();
 
   // Build rows data via adapter snapshot — no direct aclState access in UI layer
@@ -68,7 +62,6 @@ export function openPolicyModal(): void {
     });
   }
 
-  // Render modal
   const overlay = document.createElement('div');
   overlay.id = MODAL_ID;
   overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px)';
@@ -133,10 +126,8 @@ export function openPolicyModal(): void {
       toggleService(name, newState);
       // Sync topology node visual
       updateServiceNodeVisual(name, newState);
-      // Update toggle visual
       toggle.style.background = newState ? '#39ff14' : '#3a3a4a';
       knob.style.left = newState ? '18px' : '2px';
-      // Update service name opacity
       serviceNameSpan.style.color = newState ? '#d0d4e8' : '#555';
     });
 
@@ -232,9 +223,7 @@ export function openPolicyModal(): void {
         const newEnabled = !isCurrentlyAllowed;
         if (newEnabled) adapter.grant(row.windowId, cap);
         else adapter.revoke(row.windowId, cap);
-        // Update cell visual immediately
         renderCellState(td, newEnabled ? 'granted' : 'revoked');
-        // Update the row's caps map for consistency
         row.caps.set(cap, newEnabled ? 'granted' : 'revoked');
       });
 

@@ -69,7 +69,7 @@ function renderEvent(event: NostrEvent): void {
   eventCount++;
 }
 
-let sub: Subscription | null = null;
+let _sub: Subscription | null = null;
 
 async function init(): Promise<void> {
   const missing = getMissingRequiredNubs();
@@ -80,7 +80,7 @@ async function init(): Promise<void> {
   log('subscribing to kind:1 feed');
 
   try {
-    sub = relaySubscribe(
+    _sub = relaySubscribe(
       { kinds: [1], limit: 5 },
       (event: NostrEvent) => {
         try {

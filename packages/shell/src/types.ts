@@ -21,8 +21,6 @@ import type { NappletClass } from './types/internal-class.js';
 // (ServiceDescriptor already re-exported above from @kehto/runtime).
 export type { ServiceHandler, ServiceRegistry };
 
-// ─── Registry Types ─────────────────────────────────────────────────────────
-
 /**
  * Registry entry mapping a napplet's session identity to runtime metadata.
  * Created after NIP-5D iframe-origin registration.
@@ -84,8 +82,6 @@ export interface AclEntry {
   blocked: boolean;
   stateQuota?: number;
 }
-
-// ─── Hook Interfaces ────────────────────────────────────────────────────────
 
 /**
  * Hook for relay pool operations. Host app provides relay connectivity.
@@ -263,8 +259,6 @@ export interface ShellCapabilities {
    */
   sandbox: string[];
 }
-
-// ─── ShellAdapter ────────────────────────────────────────────────────────────
 
 /**
  * All adapters that the shell requires from the host application.

@@ -148,8 +148,6 @@ export interface ConfigService {
   publishValues(values: ConfigValues): void;
 }
 
-// ─── Core Subset hand-coded validator (D12 fallback) ──────────────────────────
-
 /**
  * Minimal JSON Schema validator covering the NUB-CONFIG Core Subset:
  * type: object / string / number / boolean / array, required[], default, properties.
@@ -335,7 +333,6 @@ export function createConfigService(options: ConfigServiceOptions): ConfigServic
 
         case 'config.openSettings': {
           const m = message as ConfigOpenSettingsMessage;
-          // Fire-and-forget — no response envelope per the wire spec.
           // Silently dropped if openSettings hook not provided (D10).
           options.openSettings?.(windowId, m.section);
           return;

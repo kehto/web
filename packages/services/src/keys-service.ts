@@ -322,14 +322,6 @@ export function createKeysService(
       : 'NIP-5D keys NUB reference handler (document-level chord listener)',
   };
 
-  // ─── Reserved-chord set (KEYS-04/05, Phase 33) ────────────────────────────
-  // Shell-reserved chords take precedence over napplet-registered actions.
-  // Strings are parsed once via parseChord() then canonicalized to a stable
-  // string key so runtime lookups are O(1) hash-set tests.
-  //
-  // `chordSpecKey` canonical form: `'<ctrl>|<alt>|<shift>|<meta>|<KEY>'`
-  // (e.g. 'true|false|true|false|R' for 'Ctrl+Shift+R'). Chosen over
-  // JSON.stringify for deterministic ordering across engines.
   function chordSpecKey(spec: {
     ctrl: boolean;
     alt: boolean;
@@ -358,16 +350,22 @@ export function createKeysService(
     const k = m.key.length === 1 ? m.key.toUpperCase() : m.key;
     return `${m.ctrl}|${m.alt}|${m.shift}|${m.meta}|${k}`;
   }
+  function forwardPayload(m: KeysForwardMessage): Omit<HostKeyEvent, 'repeat'> {
+    return {
+      key: m.key,
+      code: m.code,
+      ctrlKey: m.ctrl,
+      altKey: m.alt,
+      shiftKey: m.shift,
+      metaKey: m.meta,
+    };
+  }
   // Canonicalize a DOM KeyboardEvent into the same key (for Branch B keydown listener).
   function eventKey(ev: KeyboardEvent): string {
     const k = ev.key.length === 1 ? ev.key.toUpperCase() : ev.key;
     return `${ev.ctrlKey}|${ev.altKey}|${ev.shiftKey}|${ev.metaKey}|${k}`;
   }
 
-  // ─── Branch A: host-bridge delegation ────────────────────────────────────
-  // KEYS-02 per CONTEXT.md Area 2 — host-bridge override path. Bridge owns
-  // chord subscription; service owns per-window bookkeeping so
-  // onWindowDestroyed cleanup semantics stay identical to Branch B.
   if (options.hostBridge) {
     const bridge = options.hostBridge;
     // windowId → Set<actionId> — parallels Branch B for scoped cleanup.
@@ -394,18 +392,8 @@ export function createKeysService(
             // the contract for future edits and keep both branches uniform.
             const m = message as KeysForwardMessage;
             const reserved = reservedChordKeys.has(forwardKey(m));
-            options.onForward?.({
-              key: m.key,
-              code: m.code,
-              ctrlKey: m.ctrl,
-              altKey: m.alt,
-              shiftKey: m.shift,
-              metaKey: m.meta,
-            });
+            options.onForward?.(forwardPayload(m));
             if (reserved) {
-              // Intent: the shell owns this chord; no napplet fan-out. Branch A
-              // achieves that by construction (no keys.action push from forward),
-              // but the explicit guard documents the contract for future edits.
               return;
             }
             return;
@@ -524,8 +512,6 @@ export function createKeysService(
     };
   }
 
-  // ─── Branch B: default document-listener (Plan 26-01 implementation) ─────
-  // Subscription registries
   const actionRegistry = new Map<string, ActionEntry>(); // actionId → {chord, chordString, windowId}
   const windowActions = new Map<string, Set<string>>(); // windowId → Set<actionId>
   // Per-window `send` callback captured at registerAction time. Used to push
@@ -537,9 +523,8 @@ export function createKeysService(
   // ─── Listener target (SSR / test-safe fallback, mirrors keys-forwarder.ts) ─
   const target: EventTarget =
     options.listenerTarget ??
-    (typeof document !== 'undefined' ? (document as unknown as EventTarget) : new EventTarget());
+    (typeof document !== 'undefined' ? document : new EventTarget());
 
-  // ─── Chord match helper ──────────────────────────────────────────────────
   function chordMatches(spec: ChordSpec, ev: KeyboardEvent): boolean {
     if (spec.ctrl !== ev.ctrlKey) return false;
     if (spec.alt !== ev.altKey) return false;
@@ -549,7 +534,6 @@ export function createKeysService(
     return spec.key === evKey;
   }
 
-  // ─── Document keydown listener ───────────────────────────────────────────
   const listener = (rawEv: Event): void => {
     const ev = rawEv as KeyboardEvent;
     if (ev.repeat) return; // ignore OS autorepeat — matches "I pressed it once" intent (CONTEXT Area 1)
@@ -571,10 +555,6 @@ export function createKeysService(
     }
 
     if (isReserved || anyMatch) {
-      // (1) Host-side onForward hook — preserved from stub era. The demo
-      //     uses it for console evidence + any host hotkey dispatcher.
-      //     Fires on reserved chords even when no napplet registered the
-      //     chord (WM-absolute case).
       options.onForward?.({
         key: ev.key,
         code: ev.code,
@@ -632,14 +612,7 @@ export function createKeysService(
           // The explicit guard below pins the contract for future edits.
           const m = message as KeysForwardMessage;
           const reserved = reservedChordKeys.has(forwardKey(m));
-          options.onForward?.({
-            key: m.key,
-            code: m.code,
-            ctrlKey: m.ctrl,
-            altKey: m.alt,
-            shiftKey: m.shift,
-            metaKey: m.meta,
-          });
+          options.onForward?.(forwardPayload(m));
           if (reserved) return;
           return;
         }
@@ -653,10 +626,6 @@ export function createKeysService(
           // keys.action envelopes back to the owning napplet.
           sendHandles.set(windowId, send);
 
-          // Register the subscription if a defaultKey is provided. Actions
-          // without a defaultKey are registered with no chord (no-op in the
-          // keydown listener); this matches stub behaviour where binding is
-          // optional.
           if (m.action.defaultKey) {
             try {
               const chord = parseChord(m.action.defaultKey);
@@ -698,7 +667,6 @@ export function createKeysService(
             if (set) {
               set.delete(m.actionId);
               // If the window has no remaining actions, drop its cached send
-              // handle too — prevents the listener from emitting to a window
               // that no longer subscribes to anything.
               if (set.size === 0) {
                 windowActions.delete(entry.windowId);

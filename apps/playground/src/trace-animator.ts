@@ -1,17 +1,7 @@
-/**
- * trace-animator.ts — Hop-by-hop edge color sweep animation for trace mode.
- *
- * When trace mode is active, each protocol message triggers a sequential
- * sweep animation through its routing path. Edges light up one at a time
- * with color reflecting pass/fail state at each hop. Node overlays update
- * in sync with the sweep. Multiple animations overlap independently.
- */
 
 import { setNodeOverlayColor, type ColorClass } from './color-state.js';
 import { demoConfig } from './demo-config.js';
 import type { DemoTopology, EdgeFlasher } from './topology.js';
-
-// ─── Active Animation Tracking ──────────────────────────────────────────────
 
 /**
  * Per-edge-direction count of active animations.
@@ -43,8 +33,6 @@ function _decrement(map: Map<string, number>, id: string, direction: string): nu
   map.set(k, Math.max(0, count));
   return Math.max(0, count);
 }
-
-// ─── Public API ─────────────────────────────────────────────────────────────
 
 /**
  * Animate a single message trace through the topology edges hop-by-hop.
@@ -84,7 +72,6 @@ export function animateTrace(
 
     const startTimeout = setTimeout(() => {
       _pendingTimeouts.delete(startTimeout);
-      // Flash edge
       _increment(_activeAnimations, edgeId, direction);
       edgeFlasher.setColor(edgeId, direction, edgeColor);
       // Flash source node overlay
@@ -110,14 +97,12 @@ export function animateTrace(
       if (remainingEdge === 0) {
         edgeFlasher.setColor(edgeId, direction, null);
       }
-      // Revert source node
       if (nodeId) {
         const remainingNode = _decrement(_activeNodeAnimations, nodeId, nodeDirection);
         if (remainingNode === 0) {
           setNodeOverlayColor(nodeId, nodeDirection, null);
         }
       }
-      // Revert receiving node
       if (nextNodeId) {
         const recvDirection = direction === 'out' ? 'inbound' : 'outbound';
         const remainingRecv = _decrement(_activeNodeAnimations, nextNodeId, recvDirection);

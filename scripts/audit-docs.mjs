@@ -18,9 +18,7 @@ const packagesDir = join(repoRoot, 'packages');
 /** @type {string[]} */
 const violations = [];
 
-function rel(path) {
-  return relative(repoRoot, path);
-}
+const rel = relative.bind(null, repoRoot);
 
 function fail(message) {
   violations.push(message);

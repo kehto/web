@@ -2,8 +2,6 @@
 
 import { demoConfig, type ConstantDef } from './demo-config.js';
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -24,8 +22,6 @@ function renderKindRow(def: ConstantDef): string {
   `;
 }
 
-// ─── Public API ─────────────────────────────────────────────────────────────
-
 /**
  * Render the Kinds panel HTML. Called from node-inspector when the
  * kinds tab is active. Shows read-only protocol kind constants as
@@ -40,7 +36,6 @@ export function renderKindsPanel(): string {
 
   let html = '<div style="padding:12px 16px 16px;display:flex;flex-direction:column;gap:10px">';
 
-  // Protocol kinds section
   html += '<div class="kinds-section-header">protocol kinds</div>';
   for (const def of protocolKinds) {
     html += renderKindRow(def);

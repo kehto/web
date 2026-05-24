@@ -19,8 +19,6 @@
  * @see docs/ACL-MIGRATION.md section 2 — Capability Constant to NUB Domain Mapping.
  */
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 /**
  * Minimal message shape used for capability resolution.
  *
@@ -48,8 +46,6 @@ export interface CapabilityResolution {
   readonly senderCap: string | null;
   readonly recipientCap: string | null;
 }
-
-// ─── Per-domain resolvers ─────────────────────────────────────────────────────
 
 /**
  * `relay.*` — split publish / publishEncrypted / read actions.
@@ -215,8 +211,6 @@ function themeMap(action: string): CapabilityResolution {
   if (action === 'changed') return { senderCap: null, recipientCap: 'theme:read' };
   return { senderCap: 'theme:read', recipientCap: null };
 }
-
-// ─── Resolution ───────────────────────────────────────────────────────────────
 
 /**
  * Resolve the capabilities required by a NUB message.

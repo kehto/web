@@ -1,13 +1,3 @@
-/**
- * nip46-client.ts — Minimal NIP-46 (Nostr Connect) requester client.
- *
- * Implements the client/requester side of the NIP-46 bunker protocol.
- * Opens a WebSocket to the user-specified relay, completes the connect
- * handshake with the bunker, and exposes a Signer-compatible
- * adapter for signing requests.
- *
- * Reference: https://github.com/nostr-protocol/nips/blob/master/46.md
- */
 
 import {
   generateSecretKey,
@@ -16,8 +6,6 @@ import {
 } from 'nostr-tools/pure';
 import { nip04 } from 'nostr-tools';
 import type { Signer } from '@kehto/runtime';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface Nip46ClientOptions {
   relayUrl: string;
@@ -34,8 +22,6 @@ export interface Nip46Client {
   /** Close the WebSocket and clean up. */
   close(): void;
 }
-
-// ─── URI Parsing ──────────────────────────────────────────────────────────────
 
 /**
  * Parse a bunker:// URI into its components.
@@ -88,8 +74,6 @@ export function buildNostrConnectUri(relayUrl: string, localPubkey: string): str
   return `nostrconnect://${localPubkey}?${params.toString()}`;
 }
 
-// ─── Factory ──────────────────────────────────────────────────────────────────
-
 /**
  * Create a NIP-46 requester client.
  *
@@ -140,11 +124,6 @@ export function createNip46Client(options: Nip46ClientOptions): Nip46Client {
   async function encryptPayload(method: string, params: unknown[]): Promise<string> {
     const payload = JSON.stringify({ id: crypto.randomUUID(), method, params });
     return nip04.encrypt(localSecretKey, bunkerPubkey, payload);
-  }
-
-  async function decryptPayload(encryptedContent: string): Promise<{ id: string; result?: unknown; error?: string }> {
-    const decrypted = await nip04.decrypt(localSecretKey, bunkerPubkey, encryptedContent);
-    return JSON.parse(decrypted) as { id: string; result?: unknown; error?: string };
   }
 
   async function sendRequest(method: string, params: unknown[]): Promise<unknown> {
@@ -319,6 +298,21 @@ export function createNip46Client(options: Nip46ClientOptions): Nip46Client {
     });
   }
 
+  function createNipEncryptionMethods(prefix: 'nip04' | 'nip44'): NonNullable<Signer['nip04']> {
+    return {
+      encrypt: async (pubkey: string, plaintext: string): Promise<string> => {
+        const corrId = crypto.randomUUID();
+        const result = await sendRequestWithId(corrId, `${prefix}_encrypt`, [pubkey, plaintext]);
+        return result as string;
+      },
+      decrypt: async (pubkey: string, ciphertext: string): Promise<string> => {
+        const corrId = crypto.randomUUID();
+        const result = await sendRequestWithId(corrId, `${prefix}_decrypt`, [pubkey, ciphertext]);
+        return result as string;
+      },
+    };
+  }
+
   return {
     async connect(): Promise<string> {
       await openWebSocket();
@@ -363,31 +357,9 @@ export function createNip46Client(options: Nip46ClientOptions): Nip46Client {
           return result as Awaited<ReturnType<NonNullable<Signer['signEvent']>>>;
         },
 
-        nip04: {
-          encrypt: async (pubkey: string, plaintext: string): Promise<string> => {
-            const corrId = crypto.randomUUID();
-            const result = await sendRequestWithId(corrId, 'nip04_encrypt', [pubkey, plaintext]);
-            return result as string;
-          },
-          decrypt: async (pubkey: string, ciphertext: string): Promise<string> => {
-            const corrId = crypto.randomUUID();
-            const result = await sendRequestWithId(corrId, 'nip04_decrypt', [pubkey, ciphertext]);
-            return result as string;
-          },
-        },
+        nip04: createNipEncryptionMethods('nip04'),
 
-        nip44: {
-          encrypt: async (pubkey: string, plaintext: string): Promise<string> => {
-            const corrId = crypto.randomUUID();
-            const result = await sendRequestWithId(corrId, 'nip44_encrypt', [pubkey, plaintext]);
-            return result as string;
-          },
-          decrypt: async (pubkey: string, ciphertext: string): Promise<string> => {
-            const corrId = crypto.randomUUID();
-            const result = await sendRequestWithId(corrId, 'nip44_decrypt', [pubkey, ciphertext]);
-            return result as string;
-          },
-        },
+        nip44: createNipEncryptionMethods('nip44'),
       };
     },
 

@@ -1,13 +1,3 @@
-/**
- * coordinated-relay.ts — Composite relay + cache ServiceHandler.
- *
- * Combines relay pool and cache into a single service that handles
- * relay.subscribe by querying both sources, deduplicating events by ID,
- * and sending a unified EOSE after both sources complete.
- *
- * This is a convenience helper for shell implementors. Those who need
- * custom coordination can write their own composite service.
- */
 
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 import type { ServiceHandler } from '@kehto/runtime';
@@ -226,7 +216,6 @@ export function createCoordinatedRelay(options: CoordinatedRelayOptions): Servic
         if (options.relayPool.isAvailable()) {
           options.relayPool.publish(event);
         }
-        // Store in cache
         if (options.cache.isAvailable()) {
           try { options.cache.store(event); } catch { /* best-effort */ }
         }

@@ -217,7 +217,6 @@ export function initFlowAnimator(tap: MessageTap, topology: DemoTopology, edgeFl
 
     const highlightPath = buildHighlightPath(topology, msg);
 
-    // ─── Directional Color Dispatch ──────────────────────────────────────────
     if (highlightPath && edgeFlasher) {
       const { nodes, edges } = highlightPath;
       const isFailure = cls === 'blocked';
@@ -285,7 +284,6 @@ export function initFlowAnimator(tap: MessageTap, topology: DemoTopology, edgeFl
     }
   });
 
-  // ─── Persistent Edge Color Rendering ────────────────────────────────────
   if (edgeFlasher) {
     onColorStateChange(() => {
       for (const edge of topology.edges) {

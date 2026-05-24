@@ -1,13 +1,3 @@
-/**
- * debugger.ts -- <napplet-debugger> web component.
- *
- * Displays protocol messages in a live log with color coding by verb type.
- * Designed for extraction as @napplet/devtools in a future milestone.
- *
- * Per CONTEXT.md D-09: self-contained web component with Shadow DOM.
- * Per CONTEXT.md D-08: tabbed view (live log + sequence diagram).
- * Sequence diagram is added in Plan 05.
- */
 
 import { getNapplets, type DemoProtocolPath, type MessageTap, type TappedMessage } from './shell-host.js';
 import { renderSequenceDiagram } from './sequence-diagram.js';
@@ -147,7 +137,6 @@ export class NappletDebugger extends HTMLElement {
    * Connect to a message tap for real-time updates.
    */
   connectTap(tap: MessageTap): void {
-    // Render existing messages
     for (const msg of tap.messages) {
       this.addMessage(msg);
     }
@@ -328,7 +317,6 @@ export class NappletDebugger extends HTMLElement {
     this.logContainer = this.shadow.getElementById('log-container')!;
     this.observeSequenceContainer();
 
-    // Tab switching
     this.shadow.querySelectorAll('.tab').forEach(tab => {
       tab.addEventListener('click', () => {
         const tabName = (tab as HTMLElement).dataset.tab as 'log' | 'sequence';
@@ -424,7 +412,6 @@ export class NappletDebugger extends HTMLElement {
     this.allMessages.push(msg);
     this.updateSequenceDiagram();
 
-    // Check filters for log display
     if (this.filterVerb && msg.verb !== this.filterVerb) return;
     if (this.filterDirection && msg.direction !== this.filterDirection) return;
 
@@ -435,7 +422,6 @@ export class NappletDebugger extends HTMLElement {
       this.logContainer.scrollTop = this.logContainer.scrollHeight;
     }
 
-    // Update count
     this.updateCount(this.logContainer.children.length);
   }
 

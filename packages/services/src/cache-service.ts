@@ -1,11 +1,3 @@
-/**
- * cache-service.ts — Local event cache as a ServiceHandler.
- *
- * Wraps an existing cache implementation (query, store, isAvailable)
- * as a ServiceHandler that receives relay NUB envelope messages. Cache
- * subscriptions are one-shot queries — relay.subscribe triggers a query
- * and immediate EOSE, unlike relay pool subscriptions which stay open.
- */
 
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 import type { ServiceHandler } from '@kehto/runtime';

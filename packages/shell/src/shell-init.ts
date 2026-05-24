@@ -1,16 +1,3 @@
-/**
- * shell-init.ts — Shell initialization utilities.
- *
- * Provides buildShellCapabilities() — derives the shell's static NUB capability
- * set from the ShellAdapter configuration, used in the shell.ready / shell.init
- * handshake so napplets can query shell.supports() synchronously.
- *
- * Canonical NIP-5D forbids the shell from injecting a NIP-07 proxy object on
- * the napplet iframe's global scope.
- * This module therefore does NOT expose any signing proxy to napplet code.
- * Signing/encryption is mediated by the shell through relay.publish and
- * relay.publishEncrypted — never via a napplet-visible API surface.
- */
 
 import type { ShellAdapter, ShellCapabilities } from './types.js';
 

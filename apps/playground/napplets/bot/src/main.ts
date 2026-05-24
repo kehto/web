@@ -17,8 +17,6 @@ import { storageGetItem, storageSetItem } from '@napplet/nub/storage/sdk';
 
 const REQUIRED_NUBS = ['ifc', 'storage'] as const;
 
-// ─── Notification Helpers ─────────────────────────────────────────────────────
-
 /**
  * Emit a notifications:create event through the real napplet→service path.
  * The shell routes this IFC event to the notification service handler.
@@ -64,8 +62,6 @@ const DEFAULT_RESPONSES = [
   'fascinating',
 ];
 
-// --- Logging ---
-
 function log(text: string, type: 'heard' | 'replied' | 'learned' | 'error' | 'info' = 'info'): void {
   const div = document.createElement('div');
   div.className = `log-entry log-${type}`;
@@ -81,8 +77,6 @@ function log(text: string, type: 'heard' | 'replied' | 'learned' | 'error' | 'in
   logEl.appendChild(div);
   logEl.scrollTop = logEl.scrollHeight;
 }
-
-// --- Rules Management ---
 
 async function loadRules(): Promise<void> {
   try {
@@ -116,8 +110,6 @@ function updateRulesDisplay(): void {
     rulesEl.appendChild(div);
   }
 }
-
-// --- Message Handling ---
 
 function handleTeachCommand(text: string): boolean {
   // Format: /teach <trigger> <response>
@@ -158,7 +150,6 @@ function findResponse(text: string): string {
   if (lower.includes('ping')) return 'pong!';
   if (lower.includes('name')) return "I'm napplet-bot, a demo auto-responder";
 
-  // Random default
   return DEFAULT_RESPONSES[Math.floor(Math.random() * DEFAULT_RESPONSES.length)];
 }
 
@@ -169,7 +160,6 @@ function handleChatMessage(payload: unknown): void {
 
   log(`ifc chat:message received -- ${text}`, 'heard');
 
-  // Check for teach command first
   if (handleTeachCommand(text)) return;
 
   // Find and send response
@@ -183,14 +173,11 @@ function handleChatMessage(payload: unknown): void {
       timestamp: Date.now(),
     }));
     log('ifc bot:response sent', 'info');
-    // Emit a notification so the host can surface this bot reply
     notifyCreate('Bot activity', response.length > 60 ? response.slice(0, 60) + '…' : response);
   } catch (error) {
     log(`ifc response failed -- ${formatError(error, 'denied: relay:write')}`, 'error');
   }
 }
-
-// --- SDK Init ---
 
 async function init(): Promise<void> {
   const missing = getMissingRequiredNubs();
@@ -198,7 +185,6 @@ async function init(): Promise<void> {
     throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
   }
 
-  // Load persisted rules, then set the positive UI marker.
   await loadRules();
   statusEl.textContent = 'ready';
   statusEl.style.color = '#39ff14';
