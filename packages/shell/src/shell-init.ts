@@ -14,6 +14,12 @@ const CANONICAL_NUB_DOMAINS = [
   'config', 'resource', 'connect', 'class',
 ] as const;
 
+const SUPPORTED_IFC_PROTOCOLS = [
+  'ifc:NUB-01',
+  'ifc:NUB-02',
+  'ifc:NUB-03',
+] as const;
+
 /**
  * Build the shell's static capability set from adapter configuration.
  *
@@ -41,7 +47,7 @@ const CANONICAL_NUB_DOMAINS = [
  */
 export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
   const nubs: string[] = hooks.relayPool
-    ? ['relay', ...CANONICAL_NUB_DOMAINS]
-    : [...CANONICAL_NUB_DOMAINS];
+    ? ['relay', ...CANONICAL_NUB_DOMAINS, ...SUPPORTED_IFC_PROTOCOLS]
+    : [...CANONICAL_NUB_DOMAINS, ...SUPPORTED_IFC_PROTOCOLS];
   return { nubs, sandbox: [] };
 }
