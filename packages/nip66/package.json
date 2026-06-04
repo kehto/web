@@ -1,6 +1,6 @@
 {
   "name": "@kehto/nip66",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "NIP-66 kind-30166 relay-discovery aggregator — framework-agnostic utility for napplet runtimes",
   "type": "module",
   "main": "./dist/index.js",

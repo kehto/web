@@ -1,5 +1,76 @@
 # @kehto/services
 
+## 0.3.0
+
+### Minor Changes
+
+- 0fa11f1: NUB-CONFIG reference service (v1.7 Phase 39 / 9th NUB domain).
+
+  New public surface: `createConfigService(options)`, `ConfigServiceOptions`, `ConfigService`, `ConfigSchemaValidation`.
+
+  Shell-side reference implementation of the canonical `@napplet/nub/config` wire protocol (published at `^0.2.1`). Handles `config.get`, `config.subscribe` / `config.unsubscribe`, `config.registerSchema`, `config.openSettings`. Exposes `publishValues(values)` for live fan-out to subscribed napplets.
+
+  Options-as-bridge pattern (v1.6 Decision 18): host apps provide `getValues` (required) and optional `registerSchema`, `openSettings`, `onSubscribe`, `onUnsubscribe` hooks.
+
+  **Scope boundary (CONFIG-04):** NUB-CONFIG is shell-managed per-napplet configuration. Shell writes, napplet reads. There is NO `config.set` wire message — that is intentional. Do NOT use this service as a general key-value store; NUB-STORAGE (`state:read` / `state:write`) remains the general KV surface. See `packages/services/src/config-service.ts` top-of-file for the full anti-overlap documentation.
+
+  Pairs with `@kehto/acl` `config:read` capability and `resolveCapabilitiesNub` `config.*` dispatch wiring (shipped in the same Phase 39 plan batch).
+
+  Additive — no breaking changes. Minor bump because the public service surface expanded.
+
+- 239fa70: Add NUB-RESOURCE reference service (10th NUB domain, v1.7 Phase 40).
+
+  - `@kehto/services`: `createResourceService({ fetch, isOriginGranted, getConnectGrants, resolveIdentity })` factory. All four options required from day one — factory throws on construction if any is missing (H-03 prevention). Implements canonical 4-message protocol: `resource.bytes`, `resource.cancel` inbound; `resource.bytes.result`, `resource.bytes.error` outbound. Cancel correlates to in-flight requests via requestId.
+  - `@kehto/acl`: new `'resource:fetch'` capability; `resolveCapabilitiesNub` extended with `resource.*` mapping (asymmetric: napplet requests get sender gate; shell pushes get recipient gate). `acl-state.ts` CAP_MAP extended with bit 15 for `resource:fetch`.
+  - `@kehto/runtime`: `handleResourceMessage` dispatch + `nubDispatch.registerNub('resource', ...)` wiring (Phase 39 Dev 1 lesson: missing registerNub silently drops all envelopes).
+  - `@kehto/shell`: `CANONICAL_NUB_DOMAINS` extended with `config` and `resource`; provisional-resource wire types re-exported via barrel.
+
+  No breaking changes. See docs/policies/SHELL-RESOURCE-POLICY.md (Phase 40 Plan 40-03) for host-fetch policy surface (redirects, MIME sniffing, private-IP blocking — host-app concerns).
+
+- 93224cd: Consolidate NUB peer dependencies from 8 split `@napplet/nub-{identity,ifc,keys,media,notify,relay,storage,theme}@^0.2.1` packages onto the single `@napplet/nub@^0.2.1` package. All in-repo imports now read from the `@napplet/nub/<domain>/types` subpath (type-only consumers) or the root `@napplet/nub/<domain>` subpath.
+
+  Addresses kehto#4 (hyprgate v2.0 Kehto Migration gap analysis). Eliminates the dual-instance pitfall where downstream shells consuming both the split-package and consolidated NUB shapes ended up with two copies of every NUB module on disk.
+
+  Downstream consumers note: `@napplet/nub@0.2.1` was published with an unresolved `workspace:*` specifier for its `@napplet/core` dependency. Until upstream re-publishes, workspace consumers should add the following `pnpm.overrides` entry at their workspace root to pin the transitive resolution:
+
+  ```json
+  "pnpm": {
+    "overrides": {
+      "@napplet/nub>@napplet/core": "^0.2.1"
+    }
+  }
+  ```
+
+  Public peer-dep surface changed — minor bump (not patch).
+
+  REQ-IDs: DEP-01, DEP-02, DEP-03, DEP-04, DEP-05.
+
+- 8890904: Phase 45 (DECRYPT-02..05/07 / v1.8): extend `createIdentityService` with a host decrypt bridge and `verifyEvent` option, then handle `identity.decrypt` for NIP-04, NIP-44 direct, and NIP-17 gift-wrap events with the canonical 8-code error union.
+- b7032ab: Phase 44 (DEP-01..02 / v1.8): bump `@napplet/core` and `@napplet/nub` peer deps `^0.2.1` → `^0.3.0`. Inline JSDoc reference updated to point at `internal-resource.ts` (was `provisional-resource.ts`). No behavioral change.
+
+### Patch Changes
+
+- 03c293c: Add `HostCacheBridge` as an additive type alias for `CacheServiceOptions` (kehto#1 naming parity with `HostKeysBridge` / `HostMediaBridge`). Pure alias — no runtime change, no breaking change. The existing `CacheServiceOptions` export remains the primary name; new consumers may prefer `HostCacheBridge` for cross-package consistency (M-02 prevention: do not rename or delete `CacheServiceOptions`).
+- d885328: v1.16 structural cleanup and anti-slop pass.
+
+  This release removes the remaining local `aislop` structural warnings through behavior-preserving refactors and comment/import cleanup. The affected public packages keep their existing runtime contracts; the bump is patch-level because the changes are internal decomposition, code-quality cleanup, and packaging hygiene rather than new public API.
+
+  Highlights:
+
+  - Runtime relay, identity, IFC, and fallback domain handling were split into focused helpers.
+  - Shell and playground-facing helpers were decomposed without changing public package exports.
+  - Service factories and adapter builders were split into smaller private helpers.
+  - Public package source now passes the local `aislop` gate with the existing scanner thresholds.
+
+- Updated dependencies
+- Updated dependencies [239fa70]
+- Updated dependencies [d885328]
+- Updated dependencies [93224cd]
+- Updated dependencies [8890904]
+- Updated dependencies [b7032ab]
+- Updated dependencies [597dbdb]
+  - @kehto/runtime@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes
