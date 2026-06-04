@@ -18,6 +18,9 @@ const SUPPORTED_IFC_PROTOCOLS = [
   'ifc:NUB-01',
   'ifc:NUB-02',
   'ifc:NUB-03',
+  'ifc:NUB-04',
+  'ifc:NUB-05',
+  'ifc:NUB-06',
 ] as const;
 
 /**
