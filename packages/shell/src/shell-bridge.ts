@@ -1,5 +1,5 @@
 
-import { createRuntime, type ConsentRequest, type Runtime } from '@kehto/runtime';
+import { createRuntime, type ConsentRequest, type Runtime, type SessionEntry } from '@kehto/runtime';
 import { adaptHooks } from './hooks-adapter.js';
 import { originRegistry } from './origin-registry.js';
 import { sessionRegistry, nappKeyRegistry } from './session-registry.js';
@@ -215,11 +215,64 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
       // Handle shell.ready handshake locally (not forwarded to runtime)
       if (msg.type === 'shell.ready') {
         const capabilities = buildShellCapabilities(hooks);
-        // CLASS-02: read resolved class from session entry (populated synchronously
-        // at iframe creation by onNip5dIframeCreate's extended return type).
-        // Fallback to null (permissive default, D2) for defensive safety — under
-        // correct operation the session entry is always present by the time
-        // shell.ready arrives (registration happens at iframe creation time).
+
+        // NIP-5D: register a source-identity session entry in runtime.sessionRegistry
+        // if one does not already exist for this windowId. This wires the originRegistry
+        // identity into the runtime so domain handlers (storage/state, ifc, etc.) can
+        // resolve the napplet via getEntryByWindowId(windowId).
+        //
+        // Identity resolution order:
+        //   1. hooks.onNip5dIframeCreate?.(windowId) — preferred; returns { dTag, aggregateHash, class }
+        //   2. originRegistry.getIdentity(win) — fallback for hosts that register identity
+        //      directly via originRegistry.register(win, windowId, { dTag, aggregateHash })
+        //
+        // If neither source yields an identity, skip registration: the napplet is not
+        // NIP-5D or the host did not supply identity — leave behavior unchanged.
+        if (!runtime.sessionRegistry.getEntryByWindowId(windowId)) {
+          // Attempt hook-based identity first
+          let dTag: string | undefined;
+          let aggregateHash: string | undefined;
+          let resolvedClassFromIdentity: NappletClass = null;
+
+          const hookIdentity = hooks.onNip5dIframeCreate?.(windowId);
+          if (hookIdentity !== null && hookIdentity !== undefined) {
+            dTag = hookIdentity.dTag;
+            aggregateHash = hookIdentity.aggregateHash;
+            resolvedClassFromIdentity = hookIdentity.class;
+          } else {
+            // Fallback: read identity directly from originRegistry
+            const win = originRegistry.getIframeWindow(windowId);
+            if (win) {
+              const originIdentity = originRegistry.getIdentity(win);
+              if (originIdentity) {
+                dTag = originIdentity.dTag;
+                aggregateHash = originIdentity.aggregateHash;
+                resolvedClassFromIdentity = null;
+              }
+            }
+          }
+
+          if (dTag !== undefined && aggregateHash !== undefined) {
+            const entry: SessionEntry = {
+              pubkey: '',
+              windowId,
+              origin: event.origin,
+              type: 'nip5d',
+              dTag,
+              aggregateHash,
+              registeredAt: Date.now(),
+              instanceId: crypto.randomUUID(),
+              provenance: 'nip-5d',
+              class: resolvedClassFromIdentity,
+            };
+            runtime.sessionRegistry.register(windowId, entry);
+          }
+        }
+
+        // CLASS-02: read resolved class from session entry (populated above, or
+        // previously by the host at iframe creation time for legacy flows).
+        // Fallback to null (permissive default, D2) when no entry is resolvable
+        // (genuinely non-NIP-5D napplets, or hosts that do not supply identity).
         // No async class.assigned envelope is ever emitted (C-01 prevention).
         const sessionEntry = runtime.sessionRegistry.getEntryByWindowId(windowId);
         const resolvedClass: NappletClass = sessionEntry?.class ?? null;
