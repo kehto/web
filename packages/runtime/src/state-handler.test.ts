@@ -167,8 +167,10 @@ describe('handleStorageNub — canonical @napplet/nub/storage envelope shapes', 
     expect((reply as any).error).toBeUndefined();
   });
 
-  // Test 3b — storage.set with quota exceeded → .error envelope with quota message.
-  it('storage.set emits .error envelope when quota exceeded', () => {
+  // Test 3b — storage.set with quota exceeded → .result envelope carrying error field.
+  // Canonical @napplet/nub/storage has no *.error type; errors are delivered as
+  // storage.<action>.result with the optional `error` field populated.
+  it('storage.set emits .result envelope with error field when quota exceeded', () => {
     // Tiny 8-byte quota ensures a 100-byte value blows through it.
     const tiny = createDirectHarness({ quota: 8 });
     const bigValue = 'x'.repeat(100);
@@ -180,12 +182,14 @@ describe('handleStorageNub — canonical @napplet/nub/storage envelope shapes', 
       value: bigValue,
     } as NappletMessage);
 
-    const err = lastOfType(tiny, 'storage.set.error');
-    expect(err).toBeDefined();
-    expect((err as any).id).toBe('s-quota');
-    expect((err as any).error).toMatch(/quota/i);
-    // No storage.set.result for quota-exceeded case.
-    expect(lastOfType(tiny, 'storage.set.result')).toBeUndefined();
+    const result = lastOfType(tiny, 'storage.set.result');
+    expect(result).toBeDefined();
+    expect((result as any).id).toBe('s-quota');
+    expect((result as any).error).toMatch(/quota/i);
+    // Quota-exceeded result must NOT carry ok:true or a value payload.
+    expect((result as any).ok).toBeUndefined();
+    // No non-canonical storage.set.error envelope was emitted.
+    expect(lastOfType(tiny, 'storage.set.error')).toBeUndefined();
   });
 
   // Test 4 — storage.remove → { ok: true }.
@@ -218,28 +222,32 @@ describe('handleStorageNub — canonical @napplet/nub/storage envelope shapes', 
     expect(keys).toEqual(['key-a', 'key-b']);
   });
 
-  // Test 6 — storage.clear rejected explicitly with .error envelope.
-  it('storage.clear produces .error envelope — action not supported by @napplet/nub/storage', () => {
+  // Test 6 — storage.clear rejected with .result envelope carrying error field.
+  // storage.clear is NOT in @napplet/nub/storage; per spec only *.result envelopes
+  // exist, errors are signalled via the optional `error` field.
+  it('storage.clear produces .result envelope with error field — action not supported by @napplet/nub/storage', () => {
     dispatch(h, { type: 'storage.clear', id: 'c1' } as NappletMessage);
 
-    const err = lastOfType(h, 'storage.clear.error');
-    expect(err).toBeDefined();
-    expect((err as any).id).toBe('c1');
+    const result = lastOfType(h, 'storage.clear.result');
+    expect(result).toBeDefined();
+    expect((result as any).id).toBe('c1');
     // Accept either the explicit "not in @napplet/nub/storage" message or the
     // generic "unknown storage action: clear" fallback.
-    expect((err as any).error).toMatch(/not (in )?@napplet\/nub\/storage|unknown storage action: clear/i);
-    // Critical: no storage.clear.result envelope was emitted.
-    expect(lastOfType(h, 'storage.clear.result')).toBeUndefined();
+    expect((result as any).error).toMatch(/not (in )?@napplet\/nub\/storage|unknown storage action: clear/i);
+    // No non-canonical storage.clear.error envelope was emitted.
+    expect(lastOfType(h, 'storage.clear.error')).toBeUndefined();
   });
 
-  // Test 7 — unknown storage sub-action also produces .error envelope.
-  it('unknown storage.bogus produces .error envelope', () => {
+  // Test 7 — unknown storage sub-action also produces .result envelope with error field.
+  it('unknown storage.bogus produces .result envelope with error field', () => {
     dispatch(h, { type: 'storage.bogus', id: 'b1' } as NappletMessage);
 
-    const err = lastOfType(h, 'storage.bogus.error');
-    expect(err).toBeDefined();
-    expect((err as any).id).toBe('b1');
-    expect((err as any).error).toMatch(/unknown storage action/i);
+    const result = lastOfType(h, 'storage.bogus.result');
+    expect(result).toBeDefined();
+    expect((result as any).id).toBe('b1');
+    expect((result as any).error).toMatch(/unknown storage action/i);
+    // No non-canonical storage.bogus.error envelope was emitted.
+    expect(lastOfType(h, 'storage.bogus.error')).toBeUndefined();
   });
 });
 

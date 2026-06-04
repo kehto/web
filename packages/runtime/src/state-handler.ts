@@ -43,9 +43,9 @@ function byteLength(str: string): number {
  *   - `storage.keys`   → `storage.keys.result`   `{ keys: string[] }`
  *
  * `storage.clear` is NOT in the canonical `@napplet/nub/storage` union (it was a
- * kehto unilateral extension); it now produces a `storage.clear.error` envelope.
- * Internal lifecycle cleanup still uses the `cleanupNappState()` helper below —
- * it is not napplet-reachable.
+ * kehto unilateral extension); attempts produce a `storage.clear.result` envelope
+ * with an `error` field set. Internal lifecycle cleanup still uses the
+ * `cleanupNappState()` helper below — it is not napplet-reachable.
  *
  * **Deviation note (Phase 15 to decide):** Set/remove results emit both `ok`
  * (legacy compat) and an `error` field on failure. Canonical `@napplet/nub/storage`
@@ -88,7 +88,7 @@ export function handleStorageNub(
     sendToNapplet(windowId, { type: `${msg.type}.result`, id, ...payload } as NappletMessage);
   }
   function sendErrorNub(error: string): void {
-    sendToNapplet(windowId, { type: `${msg.type}.error`, id, error } as NappletMessage);
+    sendToNapplet(windowId, { type: `${msg.type}.result`, id, error } as NappletMessage);
   }
 
   // Identity lookup via windowId (NIP-5D path)
@@ -145,9 +145,9 @@ export function handleStorageNub(
     }
     case 'clear': {
       // storage.clear was a kehto unilateral extension; it is NOT in the canonical
-      // @napplet/nub/storage union. Napplets hitting this branch receive an
-      // explicit `storage.clear.error` envelope. Internal lifecycle cleanup uses
-      // cleanupNappState() below (not napplet-reachable).
+      // @napplet/nub/storage union. Napplets hitting this branch receive a
+      // storage.clear.result envelope with the error field set. Internal lifecycle
+      // cleanup uses cleanupNappState() below (not napplet-reachable).
       sendErrorNub('storage.clear is not in @napplet/nub/storage; action not supported');
       break;
     }
