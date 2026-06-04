@@ -508,13 +508,14 @@ describe('NIP-5D Envelope Dispatch', () => {
       ctx.sent.length = 0;
 
       runtime.handleMessage(WINDOW_ID, { type: 'storage.clear', id: 'req-clear' } as NappletMessage);
-      // Canonical nub-storage has no `clear` action — handler emits .error envelope.
-      const clearError = findEnvelopeResponse(ctx.sent, 'storage.clear.error');
-      expect(clearError).toBeDefined();
-      expect((clearError as any).id).toBe('req-clear');
-      expect((clearError as any).error).toMatch(/not (in )?@napplet\/nub\/storage|unknown storage action: clear/i);
-      // No storage.clear.result envelope is emitted.
-      expect(findEnvelopeResponse(ctx.sent, 'storage.clear.result')).toBeUndefined();
+      // Canonical @napplet/nub/storage has no *.error type — errors are delivered as
+      // storage.<action>.result with the optional `error` field populated.
+      const clearResult = findEnvelopeResponse(ctx.sent, 'storage.clear.result');
+      expect(clearResult).toBeDefined();
+      expect((clearResult as any).id).toBe('req-clear');
+      expect((clearResult as any).error).toMatch(/not (in )?@napplet\/nub\/storage|unknown storage action: clear/i);
+      // No non-canonical storage.clear.error envelope was emitted.
+      expect(findEnvelopeResponse(ctx.sent, 'storage.clear.error')).toBeUndefined();
 
       // Prior sets survive (storage.clear never ran).
       ctx.sent.length = 0;
@@ -525,16 +526,20 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(keys).toContain('k2');
     });
 
-    it('storage.get returns error for unregistered window', () => {
+    it('storage.get returns .result envelope with error field for unregistered window', () => {
       // Don't register the window session
       const ctx2 = createMockRuntimeAdapter();
       const runtime2 = createRuntime(ctx2.hooks);
       // No session registered
 
       runtime2.handleMessage(WINDOW_ID, { type: 'storage.get', id: 'req-nr', key: 'k' } as NappletMessage);
-      const err = findEnvelopeResponse(ctx2.sent, 'storage.get.error');
-      expect(err).toBeDefined();
-      expect((err as any).error).toContain('not registered');
+      // Canonical @napplet/nub/storage has no *.error type — errors arrive as
+      // storage.get.result with the `error` field set.
+      const result = findEnvelopeResponse(ctx2.sent, 'storage.get.result');
+      expect(result).toBeDefined();
+      expect((result as any).error).toContain('not registered');
+      // No non-canonical storage.get.error envelope was emitted.
+      expect(findEnvelopeResponse(ctx2.sent, 'storage.get.error')).toBeUndefined();
     });
   });
 
@@ -991,7 +996,7 @@ describe('createDispatch integration (Phase 14 DISPATCH-01/02/03)', () => {
     }
   });
 
-  // ─── Resource Handler (NUB-RESOURCE / Phase 40 / RESOURCE-02) ────────���──────
+  // ─── Resource Handler (NUB-RESOURCE / Phase 40 / RESOURCE-02) ─────────────────
   //
   // Phase 39 Dev 1 lesson: adding the service to serviceRegistry is NOT enough —
   // nubDispatch.registerNub('resource', ...) must also be called or resource.*
