@@ -16,7 +16,7 @@ pnpm add @kehto/nip66 nostr-tools
 | Field | Value |
 |-------|-------|
 | Source | `packages/nip66/package.json`, `packages/nip66/src/index.ts` |
-| Version | `0.1.0` |
+| Version | `0.2.0` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Side effects | `false` |
