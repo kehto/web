@@ -1,5 +1,6 @@
 # Phase 25 (v1.4): CI-04 requirement
-# Tag-triggered release workflow — runs `pnpm changeset publish` with NPM_TOKEN
+# Tag-triggered (and manually dispatchable) release workflow — runs
+# `pnpm changeset publish` via npm OIDC Trusted Publishing (no NPM_TOKEN)
 # after in-job re-validation of build + type-check + unit + e2e.
 name: Release
 
@@ -7,6 +8,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch: {}  # allow manual runs from the Actions tab / `gh workflow run`
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -14,7 +16,7 @@ concurrency:
 
 permissions:
   contents: write  # needed to push tags/release commits if changeset creates them
-  id-token: write  # reserved for future npm provenance attestation
+  id-token: write  # REQUIRED: mints the OIDC token npm exchanges for Trusted Publishing
 
 jobs:
   release:
@@ -31,7 +33,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'  # OIDC Trusted Publishing requires Node >= 22.14.0
           cache: 'pnpm'
           registry-url: 'https://registry.npmjs.org'
 
@@ -74,8 +76,13 @@ jobs:
       - name: Run E2E tests
         run: pnpm test:e2e
 
-      - name: Publish to npm
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Trusted Publishing is implemented in the npm CLI (>= 11.5.1); Node 22.14
+      # still ships npm 10.x, so upgrade the npm that `changeset publish` shells out to.
+      - name: Upgrade npm to an OIDC-capable version
+        run: npm install -g npm@latest
+
+      # No NPM_TOKEN: with `id-token: write` and a configured trusted publisher,
+      # npm exchanges the OIDC token for a short-lived publish credential and
+      # attaches provenance automatically (public repo + public package).
+      - name: Publish to npm (OIDC Trusted Publishing)
         run: pnpm changeset publish
