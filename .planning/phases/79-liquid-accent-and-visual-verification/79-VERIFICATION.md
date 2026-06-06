@@ -18,8 +18,9 @@ Passed.
 | Static/unit guard | Passed | `pnpm test:unit -- tests/unit/playground-gateway-guard.test.ts` ran 35 files and 570 tests successfully. |
 | Pages artifact build | Passed | `pnpm build:pages` completed successfully. |
 | Pages artifact audit | Passed | `pnpm audit:pages` completed successfully. |
+| Static quality scan | Passed | `npx --yes aislop scan -d` reported 100 / 100 healthy. |
 | Desktop visual check | Passed | `visual/desktop.png`; key content and route links visible, canvas nonblank. |
-| Mobile visual check | Passed | `visual/mobile.png`; text fits and route cards stack without overlap, canvas nonblank. |
+| Mobile visual check | Passed | `visual/mobile.png`; text fits, destination links are visible in the first viewport, and route cards stack without overlap. |
 | Reduced-motion visual check | Passed | `visual/reduced-motion.png`; final static state visible, canvas nonblank. |
 | Whitespace | Passed | `git diff --check` returned no findings. |
 
@@ -37,8 +38,8 @@ The local visual runner served `.pages` under `/web/` so asset paths matched Git
 
 | View | Canvas Size | Nontransparent Sampled Pixels | Key Content Visible |
 |------|-------------|-------------------------------|---------------------|
-| Desktop | 1440 x 1000 | 14,830 / 20,000 | yes |
-| Mobile | 390 x 844 | 10,521 / 20,256 | yes |
-| Reduced motion | 1440 x 1000 | 14,838 / 20,000 | yes |
+| Desktop | 1440 x 1000 | 14,930 / 28,800 | yes |
+| Mobile | 390 x 844 | 4,574 / 28,800 | yes |
+| Reduced motion | 1440 x 1000 | 15,196 / 28,800 | yes |
 
 The runner reported no failures.

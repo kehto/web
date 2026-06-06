@@ -1,118 +1,170 @@
 {
-  "url": "http://127.0.0.1:45195/web/",
-  "checks": {
-    "desktop": {
-      "motion": "ready",
-      "canvasSize": {
+  "generatedAt": "2026-06-06T15:12:00.548Z",
+  "route": "http://127.0.0.1:43967/web/",
+  "checks": [
+    {
+      "name": "desktop",
+      "viewport": {
         "width": 1440,
         "height": 1000
       },
-      "nonTransparentPixels": 14830,
-      "sampledPixels": 20000,
-      "playgroundVisible": true,
-      "docsVisible": true,
-      "titleVisible": true,
-      "noticeVisible": true,
-      "title": {
-        "x": 160,
-        "y": 125,
-        "width": 900,
-        "height": 195.234375
+      "reducedMotion": "no-preference",
+      "screenshot": ".planning/phases/79-liquid-accent-and-visual-verification/visual/desktop.png",
+      "metrics": {
+        "url": "http://127.0.0.1:43967/web/",
+        "motion": "ready",
+        "canvas": {
+          "width": 1440,
+          "height": 1000,
+          "cssWidth": 1440,
+          "cssHeight": 1000,
+          "sampleWidth": 240,
+          "sampleHeight": 120,
+          "nonTransparent": 14930,
+          "litPixels": 14236
+        },
+        "routes": [
+          {
+            "href": "/web/playground/",
+            "label": "/web/playground/ Open Playground Watch gateway-hosted demo napplets run through the shell.",
+            "visible": true,
+            "width": 553,
+            "height": 220
+          },
+          {
+            "href": "/web/docs/",
+            "label": "/web/docs/ Read Docs Integrate packages, runtime services, policies, and host flows.",
+            "visible": true,
+            "width": 553,
+            "height": 220
+          }
+        ],
+        "textFlags": {
+          "kehto": true,
+          "playground": true,
+          "docs": true,
+          "alphaNotice": true
+        },
+        "layout": {
+          "scrollWidth": 1440,
+          "viewportWidth": 1440,
+          "titleVisible": true,
+          "destinationsVisible": true
+        }
       },
-      "notice": {
-        "x": 160,
-        "y": 721.828125,
-        "width": 820,
-        "height": 85.28125
-      },
-      "playground": {
-        "x": 160,
-        "y": 841.109375,
-        "width": 553,
-        "height": 219.875
-      },
-      "docs": {
-        "x": 727,
-        "y": 841.109375,
-        "width": 553,
-        "height": 219.875
-      }
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failures": []
     },
-    "mobile": {
-      "motion": "ready",
-      "canvasSize": {
+    {
+      "name": "mobile",
+      "viewport": {
         "width": 390,
         "height": 844
       },
-      "nonTransparentPixels": 10521,
-      "sampledPixels": 20256,
-      "playgroundVisible": true,
-      "docsVisible": true,
-      "titleVisible": true,
-      "noticeVisible": true,
-      "title": {
-        "x": 14,
-        "y": 93,
-        "width": 362,
-        "height": 89.890625
+      "reducedMotion": "no-preference",
+      "screenshot": ".planning/phases/79-liquid-accent-and-visual-verification/visual/mobile.png",
+      "metrics": {
+        "url": "http://127.0.0.1:43967/web/",
+        "motion": "ready",
+        "canvas": {
+          "width": 390,
+          "height": 844,
+          "cssWidth": 390,
+          "cssHeight": 844,
+          "sampleWidth": 240,
+          "sampleHeight": 120,
+          "nonTransparent": 4574,
+          "litPixels": 4363
+        },
+        "routes": [
+          {
+            "href": "/web/playground/",
+            "label": "/web/playground/ Open Playground Watch gateway-hosted demo napplets run through the shell.",
+            "visible": true,
+            "width": 362,
+            "height": 205
+          },
+          {
+            "href": "/web/docs/",
+            "label": "/web/docs/ Read Docs Integrate packages, runtime services, policies, and host flows.",
+            "visible": true,
+            "width": 362,
+            "height": 205
+          }
+        ],
+        "textFlags": {
+          "kehto": true,
+          "playground": true,
+          "docs": true,
+          "alphaNotice": true
+        },
+        "layout": {
+          "scrollWidth": 390,
+          "viewportWidth": 390,
+          "titleVisible": true,
+          "destinationsVisible": true
+        }
       },
-      "notice": {
-        "x": 14,
-        "y": 987.734375,
-        "width": 362,
-        "height": 161.828125
-      },
-      "playground": {
-        "x": 14,
-        "y": 1183.5625,
-        "width": 362,
-        "height": 205.421875
-      },
-      "docs": {
-        "x": 14,
-        "y": 1402.984375,
-        "width": 362,
-        "height": 205.421875
-      }
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failures": []
     },
-    "reduced-motion": {
-      "motion": "ready",
-      "canvasSize": {
+    {
+      "name": "reduced-motion",
+      "viewport": {
         "width": 1440,
         "height": 1000
       },
-      "nonTransparentPixels": 14838,
-      "sampledPixels": 20000,
-      "playgroundVisible": true,
-      "docsVisible": true,
-      "titleVisible": true,
-      "noticeVisible": true,
-      "title": {
-        "x": 160,
-        "y": 125,
-        "width": 900,
-        "height": 195.234375
+      "reducedMotion": "reduce",
+      "screenshot": ".planning/phases/79-liquid-accent-and-visual-verification/visual/reduced-motion.png",
+      "metrics": {
+        "url": "http://127.0.0.1:43967/web/",
+        "motion": "ready",
+        "canvas": {
+          "width": 1440,
+          "height": 1000,
+          "cssWidth": 1440,
+          "cssHeight": 1000,
+          "sampleWidth": 240,
+          "sampleHeight": 120,
+          "nonTransparent": 15196,
+          "litPixels": 14498
+        },
+        "routes": [
+          {
+            "href": "/web/playground/",
+            "label": "/web/playground/ Open Playground Watch gateway-hosted demo napplets run through the shell.",
+            "visible": true,
+            "width": 553,
+            "height": 220
+          },
+          {
+            "href": "/web/docs/",
+            "label": "/web/docs/ Read Docs Integrate packages, runtime services, policies, and host flows.",
+            "visible": true,
+            "width": 553,
+            "height": 220
+          }
+        ],
+        "textFlags": {
+          "kehto": true,
+          "playground": true,
+          "docs": true,
+          "alphaNotice": true
+        },
+        "layout": {
+          "scrollWidth": 1440,
+          "viewportWidth": 1440,
+          "titleVisible": true,
+          "destinationsVisible": true
+        }
       },
-      "notice": {
-        "x": 160,
-        "y": 721.828125,
-        "width": 820,
-        "height": 85.28125
-      },
-      "playground": {
-        "x": 160,
-        "y": 841.109375,
-        "width": 553,
-        "height": 219.875
-      },
-      "docs": {
-        "x": 727,
-        "y": 841.109375,
-        "width": 553,
-        "height": 219.875
-      }
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failures": []
     }
-  },
+  ],
   "screenshots": {
     "desktop": ".planning/phases/79-liquid-accent-and-visual-verification/visual/desktop.png",
     "mobile": ".planning/phases/79-liquid-accent-and-visual-verification/visual/mobile.png",

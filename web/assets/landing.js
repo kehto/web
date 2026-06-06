@@ -91,12 +91,11 @@ function setupLiquidAccent(gsapApi, reducedMotionQuery) {
     return () => window.removeEventListener('resize', onResize);
   }
 
-  const tick = (time) => draw(time);
-  gsapApi.ticker.add(tick);
+  gsapApi.ticker.add(draw);
 
   return () => {
     window.removeEventListener('resize', onResize);
-    gsapApi.ticker.remove(tick);
+    gsapApi.ticker.remove(draw);
   };
 }
 

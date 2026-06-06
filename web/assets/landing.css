@@ -339,12 +339,29 @@ code {
 @media (max-width: 780px) {
   .landing {
     width: min(100% - 28px, var(--max-width));
+    display: flex;
+    flex-direction: column;
     padding-top: 48px;
   }
 
   .proof-grid,
   .destinations {
     grid-template-columns: 1fr;
+  }
+
+  .destinations {
+    order: 2;
+    margin-top: 34px;
+  }
+
+  .proof-grid {
+    order: 3;
+    margin: 28px 0 22px;
+  }
+
+  .notice {
+    order: 4;
+    margin-bottom: 28px;
   }
 
   .proof-item,
