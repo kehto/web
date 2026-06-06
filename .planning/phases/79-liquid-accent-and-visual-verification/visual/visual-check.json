@@ -1,0 +1,122 @@
+{
+  "url": "http://127.0.0.1:45195/web/",
+  "checks": {
+    "desktop": {
+      "motion": "ready",
+      "canvasSize": {
+        "width": 1440,
+        "height": 1000
+      },
+      "nonTransparentPixels": 14830,
+      "sampledPixels": 20000,
+      "playgroundVisible": true,
+      "docsVisible": true,
+      "titleVisible": true,
+      "noticeVisible": true,
+      "title": {
+        "x": 160,
+        "y": 125,
+        "width": 900,
+        "height": 195.234375
+      },
+      "notice": {
+        "x": 160,
+        "y": 721.828125,
+        "width": 820,
+        "height": 85.28125
+      },
+      "playground": {
+        "x": 160,
+        "y": 841.109375,
+        "width": 553,
+        "height": 219.875
+      },
+      "docs": {
+        "x": 727,
+        "y": 841.109375,
+        "width": 553,
+        "height": 219.875
+      }
+    },
+    "mobile": {
+      "motion": "ready",
+      "canvasSize": {
+        "width": 390,
+        "height": 844
+      },
+      "nonTransparentPixels": 10521,
+      "sampledPixels": 20256,
+      "playgroundVisible": true,
+      "docsVisible": true,
+      "titleVisible": true,
+      "noticeVisible": true,
+      "title": {
+        "x": 14,
+        "y": 93,
+        "width": 362,
+        "height": 89.890625
+      },
+      "notice": {
+        "x": 14,
+        "y": 987.734375,
+        "width": 362,
+        "height": 161.828125
+      },
+      "playground": {
+        "x": 14,
+        "y": 1183.5625,
+        "width": 362,
+        "height": 205.421875
+      },
+      "docs": {
+        "x": 14,
+        "y": 1402.984375,
+        "width": 362,
+        "height": 205.421875
+      }
+    },
+    "reduced-motion": {
+      "motion": "ready",
+      "canvasSize": {
+        "width": 1440,
+        "height": 1000
+      },
+      "nonTransparentPixels": 14838,
+      "sampledPixels": 20000,
+      "playgroundVisible": true,
+      "docsVisible": true,
+      "titleVisible": true,
+      "noticeVisible": true,
+      "title": {
+        "x": 160,
+        "y": 125,
+        "width": 900,
+        "height": 195.234375
+      },
+      "notice": {
+        "x": 160,
+        "y": 721.828125,
+        "width": 820,
+        "height": 85.28125
+      },
+      "playground": {
+        "x": 160,
+        "y": 841.109375,
+        "width": 553,
+        "height": 219.875
+      },
+      "docs": {
+        "x": 727,
+        "y": 841.109375,
+        "width": 553,
+        "height": 219.875
+      }
+    }
+  },
+  "screenshots": {
+    "desktop": ".planning/phases/79-liquid-accent-and-visual-verification/visual/desktop.png",
+    "mobile": ".planning/phases/79-liquid-accent-and-visual-verification/visual/mobile.png",
+    "reduced-motion": ".planning/phases/79-liquid-accent-and-visual-verification/visual/reduced-motion.png"
+  },
+  "failures": []
+}

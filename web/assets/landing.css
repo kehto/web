@@ -81,6 +81,14 @@ code {
   transform: rotate(-6deg);
 }
 
+.liquid-accent {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.82;
+}
+
 .cradle-arc {
   position: absolute;
   border: 1px solid var(--line);
@@ -357,5 +365,9 @@ code {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+
+  .liquid-accent {
+    opacity: 0.58;
   }
 }

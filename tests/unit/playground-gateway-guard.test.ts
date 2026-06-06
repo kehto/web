@@ -171,6 +171,7 @@ describe('playground gateway artifact guard', () => {
     expect(portal).toContain('href="/web/assets/landing.css"');
     expect(portal).toContain('src="/web/assets/vendor/gsap.min.js"');
     expect(portal).toContain('src="/web/assets/landing.js"');
+    expect(portal).toContain('id="liquid-accent"');
     expect(portal).toContain('href="/web/playground/"');
     expect(portal).toContain('href="/web/docs/"');
     expect(portal).toContain('data-route-link');
@@ -180,10 +181,14 @@ describe('playground gateway artifact guard', () => {
 
     expect(stylesheet).toContain('--bg: #080805');
     expect(stylesheet).toContain('--accent: #d6ba5b');
+    expect(stylesheet).toContain('.liquid-accent');
     expect(stylesheet).toContain('.wordmark-name::after');
     expect(stylesheet).toContain('@media (max-width: 780px)');
     expect(stylesheet).toContain('@media (prefers-reduced-motion: reduce)');
     expect(script).toContain('window.gsap');
+    expect(script).toContain('setupLiquidAccent');
+    expect(script).toContain("canvas.getContext('2d'");
+    expect(script).toContain('gsapApi.ticker.add');
     expect(script).toContain('gsapInstance.matchMedia()');
     expect(script).toContain("'(prefers-reduced-motion: reduce)'");
     expect(script).toContain("'(prefers-reduced-motion: no-preference)'");

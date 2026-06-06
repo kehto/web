@@ -22,7 +22,86 @@ function setFinalState() {
   root.dataset.motion = 'ready';
 }
 
+function setupLiquidAccent(gsapApi, reducedMotionQuery) {
+  const canvas = document.getElementById('liquid-accent');
+  if (!(canvas instanceof HTMLCanvasElement)) return null;
+
+  const context = canvas.getContext('2d', { alpha: true });
+  if (!context) return null;
+
+  const points = [
+    { x: 0.22, y: 0.24, radius: 0.32, phase: 0.1, drift: 0.013 },
+    { x: 0.7, y: 0.2, radius: 0.38, phase: 1.7, drift: 0.018 },
+    { x: 0.82, y: 0.64, radius: 0.34, phase: 2.8, drift: 0.015 },
+    { x: 0.34, y: 0.78, radius: 0.3, phase: 4.2, drift: 0.011 },
+  ];
+
+  let width = 0;
+  let height = 0;
+  let pixelRatio = 1;
+
+  function resize() {
+    const nextWidth = window.innerWidth;
+    const nextHeight = window.innerHeight;
+    const nextRatio = Math.min(window.devicePixelRatio || 1, 1.6);
+
+    if (nextWidth === width && nextHeight === height && nextRatio === pixelRatio) return;
+
+    width = nextWidth;
+    height = nextHeight;
+    pixelRatio = nextRatio;
+    canvas.width = Math.max(1, Math.floor(width * pixelRatio));
+    canvas.height = Math.max(1, Math.floor(height * pixelRatio));
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  }
+
+  function draw(time = 0) {
+    resize();
+    context.clearRect(0, 0, width, height);
+    context.globalCompositeOperation = 'lighter';
+
+    for (const point of points) {
+      const still = reducedMotionQuery.matches;
+      const wave = still ? point.phase : time * point.drift + point.phase;
+      const x = width * (point.x + Math.sin(wave) * 0.035);
+      const y = height * (point.y + Math.cos(wave * 0.8) * 0.045);
+      const radius = Math.min(width, height) * point.radius;
+      const gradient = context.createRadialGradient(x, y, 0, x, y, radius);
+
+      gradient.addColorStop(0, 'rgba(214, 186, 91, 0.095)');
+      gradient.addColorStop(0.38, 'rgba(214, 186, 91, 0.045)');
+      gradient.addColorStop(1, 'rgba(214, 186, 91, 0)');
+
+      context.fillStyle = gradient;
+      context.beginPath();
+      context.arc(x, y, radius, 0, Math.PI * 2);
+      context.fill();
+    }
+
+    context.globalCompositeOperation = 'source-over';
+  }
+
+  const onResize = () => draw(0);
+  window.addEventListener('resize', onResize, { passive: true });
+  draw(0);
+
+  if (reducedMotionQuery.matches || !gsapApi) {
+    return () => window.removeEventListener('resize', onResize);
+  }
+
+  const tick = (time) => draw(time);
+  gsapApi.ticker.add(tick);
+
+  return () => {
+    window.removeEventListener('resize', onResize);
+    gsapApi.ticker.remove(tick);
+  };
+}
+
 if (!gsapInstance) {
+  setupLiquidAccent(null, window.matchMedia('(prefers-reduced-motion: reduce)'));
   setFinalState();
 } else {
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -45,10 +124,12 @@ if (!gsapInstance) {
   media.add('(prefers-reduced-motion: reduce)', () => {
     setFinalState();
     gsapInstance.set(motionItems, { clearProps: 'all' });
+    return setupLiquidAccent(null, reduceMotion);
   });
 
   media.add('(prefers-reduced-motion: no-preference)', () => {
     root.dataset.motion = 'preparing';
+    const cleanupLiquidAccent = setupLiquidAccent(gsapInstance, reduceMotion);
 
     gsapInstance.set('.ambient-field', { autoAlpha: 0 });
     gsapInstance.set(['.eyebrow', '.wordmark-role', '.summary', '.notice', '.site-footer'], {
@@ -81,7 +162,10 @@ if (!gsapInstance) {
       .to('.destination', { autoAlpha: 1, y: 0, stagger: 0.08 }, 1.02)
       .to('.site-footer', { autoAlpha: 1, y: 0, duration: 0.52 }, 1.18);
 
-    return () => entrance.kill();
+    return () => {
+      entrance.kill();
+      cleanupLiquidAccent?.();
+    };
   });
 
   for (const anchor of document.querySelectorAll('[data-route-link]')) {
