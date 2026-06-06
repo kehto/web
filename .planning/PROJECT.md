@@ -37,26 +37,36 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Status:** Planning v1.17 Beautify the SPA Landing Page.
+**Status:** v1.17 Beautify the SPA Landing Page shipped and archived. Awaiting next milestone definition.
 
-v1.17 focuses on turning the public `/web/` SPA landing page into a branded Kehto experience. The existing portal structure and destination links remain the foundation, while the visual system, motion language, and first-impression hierarchy should communicate Kehto's modular sandboxed-runtime value with a dark almost-black background, muted yellow primary accent, Scandinavian/Finnish cradle-inspired typography, subtle liquid motion, and polished GSAP-powered transitions.
+v1.17 turned the public `/web/` SPA landing page into a branded Kehto first impression while preserving the existing `/web/playground/` and `/web/docs/` destination links. The page now communicates Kehto's modular sandboxed-runtime value with an almost-black background, muted yellow accent, custom wordmark treatment, restrained cradle-inspired geometry, GSAP entrance/exit motion, and a subtle liquid canvas accent with reduced-motion support.
 
-The previous shipped baseline remains pinned-spec NIP-5D conformance, a buildable docs site, a pre-deploy GitHub Pages artifact contract for `https://kehto.github.io/web/`, and `npx --no-install aislop scan -d` reporting `100 / 100 Healthy` with 0 errors, 0 warnings, and 0 fixable findings.
+The shipped baseline remains pinned-spec NIP-5D conformance, a buildable docs site, a pre-deploy GitHub Pages artifact contract for `https://kehto.github.io/web/`, local structural scanner health, and a branded static portal that can route visitors to the playground and docs without JavaScript.
 
-Verification stands at `npx --no-install aislop scan -d`, `.aislop/config.yml` diff against the v1.16 start commit, `pnpm build`, `pnpm type-check`, `pnpm test:unit` (563 tests), `pnpm --dir docs docs:build`, and `git diff --check`.
+Verification stands at `pnpm build`, `pnpm type-check`, `pnpm test:unit` (570 tests), `VITEPRESS_BASE=/web/docs/ pnpm docs:check`, `pnpm build:pages`, `pnpm audit:pages`, `pnpm audit:gateway-artifacts`, `pnpm audit:csp`, `npx --yes aislop scan -d`, browser visual checks for desktop/mobile/reduced motion, and `git diff --check`.
 
-## Current Milestone: v1.17 Beautify the SPA Landing Page
+## Latest Milestone: v1.17 Beautify the SPA Landing Page
 
 **Goal:** Rework the public SPA landing page into a branded Kehto experience that preserves the current destination links while adding a dark, muted-yellow, Scandinavian-inspired visual identity with subtle liquid motion and GSAP-powered transitions.
 
-**Target features:**
-- Preserve existing `/web/playground/` and `/web/docs/` destination links and the landing page's product-routing purpose.
-- Establish Kehto branding around an almost-black background, muted yellow primary accent, non-standard Kehto wordmark/text treatment, and a smooth modern mood rooted in the Finnish "cradle" origin.
-- Add a low-contrast but perceptible liquid-simulation background accent that feels sophisticated rather than decorative noise.
-- Use GSAP for entrance, exit, and interaction transitions, including route-like transitions in and out of the landing page where feasible for the static Pages portal.
-- Derive UX hierarchy and copy emphasis from Kehto's actual functionality: modular sandboxed napplets, shell hosting, runtime packages, docs, playground, and protocol innovation.
+**Shipped features:**
+- Static `/web/` portal rebuilt as a branded Kehto landing page with an almost-black/muted-yellow visual system.
+- Custom readable wordmark treatment and subtle cradle-origin shape language without literal or cliche Nordic imagery.
+- Product-led hierarchy explaining Kehto as a shell-side runtime for sandboxed napplets before routing visitors onward.
+- Explicit GSAP dependency, vendored Pages artifact script, restrained entrance/exit transitions, and reduced-motion fallbacks.
+- Low-contrast liquid canvas accent behind content, with desktop/mobile/reduced-motion screenshots and canvas nonblank checks.
 
-## Latest Milestone: v1.16 Structural Code Quality Refactor
+### v1.17 Accomplishments
+
+- **Branded portal:** `web/index.html` now presents a semantic Kehto first impression while preserving `/web/playground/` and `/web/docs/` links.
+- **Pages-safe assets:** `web/assets/landing.css`, `web/assets/landing.js`, and vendored GSAP are copied into `.pages/assets` and audited before deploy.
+- **Motion with restraint:** GSAP entrance/exit timelines enhance stable content and avoid delayed navigation for reduced-motion users.
+- **Liquid accent proof:** `#liquid-accent` renders a subtle canvas field behind content, with browser-captured desktop, mobile, and reduced-motion evidence.
+- **Verification:** full build/type/unit/docs/Pages/static/browser gates passed, including `npx --yes aislop scan -d` at `100 / 100 Healthy`.
+
+15/15 v1.17 requirements satisfied; 3/3 phase VERIFICATION.md files passed; 5/5 integration checks wired; 4/4 user flows complete.
+
+## Previous Milestone: v1.16 Structural Code Quality Refactor
 
 **Goal:** Eliminate the remaining 16 `aislop` structural code-quality warnings without changing Kehto runtime behavior.
 
@@ -67,7 +77,7 @@ Verification stands at `npx --no-install aislop scan -d`, `.aislop/config.yml` d
 - Final scanner closeout with `npx --no-install aislop scan -d` clean at `100 / 100 Healthy`.
 - Proof that `.aislop/config.yml` thresholds were not loosened during the milestone.
 
-### v1.15 Accomplishments
+### v1.16 Accomplishments
 
 - **Runtime warning cleanup:** `packages/runtime/src/runtime.ts`, `createRuntime`, and `handleRelayMessage` no longer trigger file-size, function-length, or deep-nesting findings.
 - **Playground shell cleanup:** `apps/playground/src/main.ts`, `apps/playground/src/shell-host.ts`, `createDemoHooks`, and `bootShell` no longer trigger structural findings.
@@ -146,7 +156,7 @@ Deferred candidates remain host bridge reference implementations, multi-OS CI ma
 
 28/28 v1.13 requirements satisfied; 5/5 phase VERIFICATION.md files passed; 5/5 integration paths wired; 0 critical gaps.
 
-**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability), v1.6 (downstream unblock), v1.7 (spec adoption + 2 new domains), v1.8 (upstream alignment + decrypt), v1.9 (SDK migration), v1.10 (compatibility cleanup + decrypt-demo parity), v1.11 (gateway artifact parity), v1.12 (NIP-5D contract conformance), v1.13 (docs site and docs gates), v1.14 (GitHub Pages web portal), v1.15 (quality-gate cleanup), v1.16 (structural scanner cleanup).
+**Previous milestones:** v1.0 (migration docs), v1.1 (5-nub implementation), v1.2 (canonical conformance + 8-nub coverage), v1.3 (demo + Playwright parity), v1.4 (productionization), v1.5 (demo stability), v1.6 (downstream unblock), v1.7 (spec adoption + 2 new domains), v1.8 (upstream alignment + decrypt), v1.9 (SDK migration), v1.10 (compatibility cleanup + decrypt-demo parity), v1.11 (gateway artifact parity), v1.12 (NIP-5D contract conformance), v1.13 (docs site and docs gates), v1.14 (GitHub Pages web portal), v1.15 (quality-gate cleanup), v1.16 (structural scanner cleanup), v1.17 (branded SPA landing page).
 
 ### Previously Shipped
 
@@ -173,6 +183,7 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 - **Electron / Tauri host-bridge reference impls** — HostKeysBridge + HostMediaBridge + HostCacheBridge interfaces defined (v1.4 + v1.7); reference impls deferred.
 - **Multi-OS CI matrix** — still ubuntu-latest only. Carryover from v1.4.
 - **Live Pages smoke** — v1.14 verifies the local and CI Pages artifact shape before upload; browser smoke against `https://kehto.github.io/web/` remains a post-push/deployment follow-up.
+- **Docs/playground brand extension** — v1.17 proved the landing-page identity only; applying the brand system to VitePress docs or the playground shell remains future work.
 - **Decrypt-demo fixture pending repair** — Backlog 999.1 remains valid and intentionally separate from the static publication route milestone.
 - **Lint task surface** — `pnpm lint` succeeds but turbo currently reports no configured package lint tasks; type-check, unit tests, E2E, and static guards carry verification.
 - **Stricter structural scanner policy** — v1.16 removed the current-threshold warnings. Lowering `maxFunctionLoc` toward 80 and `maxFileLoc` toward 400 remains future policy work.
@@ -218,6 +229,7 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 | 35 | Local playground loading must match the production NIP-5D/NIP-5A gateway path | NIP-5D requires opaque-origin sandboxed iframes, and local verification is only meaningful if it exercises the same artifact shape production gateways serve. A separate dev convenience path would break continuity between development and production. | 2026-05-22 |
 | 36 | `.planning/NIP-5D-DELTA-AUDIT.md` is the v1.12 delta inventory | The audit already compares the pinned NIP-5D contract to current shell/runtime/napplet behavior; milestone planning should use it instead of rediscovering drift. | 2026-05-22 |
 | 37 | Public GitHub Pages contract is `/web/`, not repository-name-derived | v1.14 publishes the portal, playground, docs, assets, and gateway metadata under the explicit requested path contract. `github.event.repository.name` must not drive the public playground base path for this deployment. | 2026-05-23 |
+| 38 | Static portal branding is progressive enhancement, not navigation infrastructure | v1.17 keeps real `/web/playground/` and `/web/docs/` anchors as the contract, then layers GSAP entrance/exit motion and liquid accent rendering on top. Reduced-motion and no-JS behavior must preserve direct navigation. | 2026-06-06 |
 | 38 | VitePress public base is a build cache input | `VITEPRESS_BASE=/web/docs/` changes generated asset URLs, so `turbo.json` includes it in `docs:build` env to prevent cached docs output from reusing an old base path. | 2026-05-23 |
 | 39 | Structural scanner closure must come from source decomposition, not threshold loosening | v1.16 proved the final clean `aislop` result with `.aislop/config.yml` unchanged from the milestone start commit. Future complexity-policy work should be explicit and separately justified. | 2026-05-24 |
 
@@ -239,4 +251,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-06 — v1.17 milestone started (Beautify the SPA Landing Page)*
+*Last updated: 2026-06-06 — v1.17 milestone shipped and archived*

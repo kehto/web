@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.17
 milestone_name: Beautify the SPA Landing Page
-status: ready_for_audit
-last_updated: "2026-06-06T17:10:00.000Z"
-last_activity: 2026-06-06 — Phase 79 complete
+status: Awaiting next milestone
+last_updated: "2026-06-06T15:21:19.956Z"
+last_activity: 2026-06-06 — Milestone v1.17 completed and archived
 progress:
   total_phases: 3
   completed_phases: 3
@@ -17,17 +17,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-06, v1.17 started)
+See: .planning/PROJECT.md (updated 2026-06-06, v1.17 shipped)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** v1.17 landing-page branding and motion milestone lifecycle
+**Current focus:** Awaiting next milestone definition
 
 ## Current Position
 
-Phase: Milestone v1.17 phases complete
+Phase: Milestone v1.17 complete
 Plan: —
-Status: Ready for milestone audit
-Last activity: 2026-06-06 — Phase 79 completed liquid accent and visual verification
+Status: Awaiting next milestone
+Last activity: 2026-06-06 — Milestone v1.17 completed and archived
 
 ## Accumulated Context
 
@@ -60,6 +60,7 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 - Phase 77 completed 2026-06-06: `web/index.html` now has a semantic Kehto landing-page foundation, `web/assets/landing.css` provides the almost-black/muted-yellow brand system, `web/assets/landing.js` exists as the enhancement entrypoint, and build/audit/tests verify portal asset copying under `.pages/assets`.
 - Phase 78 completed 2026-06-06: `gsap` is an explicit dependency, `build:pages` vendors `gsap.min.js` under `.pages/assets/vendor/`, `landing.js` runs restrained entrance/exit timelines, and reduced-motion users get immediate final state plus normal navigation.
 - Phase 79 completed 2026-06-06: `#liquid-accent` canvas renders a subtle low-contrast ambient field with GSAP ticker animation and static reduced-motion rendering; desktop, mobile, and reduced-motion screenshots plus canvas nonblank checks passed.
+- v1.17 archived 2026-06-06: the public `/web/` portal now has the branded Kehto identity, GSAP motion, Pages-safe assets, and liquid accent visual proof. Final verification passed with build/type/unit/docs/Pages/static/browser gates.
 - v1.14 started 2026-05-23: public GitHub Pages deployment target is `kehto.github.io/web/`, with a portal slash page at `/web/`, playground at `/web/playground/`, and docs at `/web/docs/`. Current workflow only packs `.pages/playground`, so v1.14 must replace playground-only upload with a unified Pages artifact.
 - v1.14 roadmap phases are 65-67: Pages portal entry point, playground Pages path relocation, then docs Pages publication and deploy gate.
 - Phase 65 completed 2026-05-23: `web/index.html` is the static portal source, `pnpm build:pages` writes `.pages/web/index.html`, and the generated portal links to `/web/playground/` and `/web/docs/`.

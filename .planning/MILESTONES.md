@@ -1,5 +1,26 @@
 # Milestones: Kehto Runtime
 
+## v1.17 Beautify the SPA Landing Page (Shipped: 2026-06-06)
+
+**Phases completed:** 3 phases (77-79), 3 plans, 15 requirements.
+
+**Delivered:** v1.17 turns the public `/web/` SPA landing page into a branded Kehto first impression while preserving the deployed route contract. The portal now has an almost-black/muted-yellow brand system, custom Kehto wordmark treatment, product-focused runtime copy, GSAP entrance/exit transitions, a subtle liquid canvas accent, and desktop/mobile/reduced-motion visual proof.
+
+**Audit:** passed - 15/15 requirements, 3/3 phases, 3/3 plans, 5/5 integration checks, 4/4 user flows.
+
+**Key accomplishments:**
+
+- **Brand foundation:** rebuilt `web/index.html` into a semantic Kehto landing page with a custom wordmark, proof-point hierarchy, visible alpha notice, and preserved `/web/playground/` plus `/web/docs/` routes.
+- **Static Pages contract:** added portal CSS/JS assets, copied them into `.pages/assets`, and expanded `audit:pages` plus unit guards to verify landing assets and destination links.
+- **GSAP motion system:** added explicit `gsap` dependency handling, vendored `gsap.min.js` into the Pages artifact, and implemented restrained entrance/exit timelines with reduced-motion fallbacks.
+- **Liquid accent:** added `#liquid-accent` canvas rendering a low-contrast animated field behind content, with static reduced-motion rendering.
+- **Mobile route visibility:** adjusted narrow-screen ordering so primary destination links remain visible in the first viewport.
+- **Verification:** `pnpm build`, `pnpm type-check`, `pnpm test:unit` (570 tests), docs checks, Pages build/audit, CSP/gateway audits, `npx --yes aislop scan -d`, browser visual checks, and `git diff --check` passed.
+
+**Archive:** [v1.17-ROADMAP.md](milestones/v1.17-ROADMAP.md) | [v1.17-REQUIREMENTS.md](milestones/v1.17-REQUIREMENTS.md) | [v1.17-MILESTONE-AUDIT.md](milestones/v1.17-MILESTONE-AUDIT.md)
+
+---
+
 ## v1.16 Structural Code Quality Refactor (Shipped: 2026-05-24)
 
 **Phases completed:** 4 phases (73-76), 4 plans, 18 requirements.

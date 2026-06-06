@@ -440,6 +440,50 @@
 
 ---
 
+## Milestone: v1.17 — Beautify the SPA Landing Page
+
+**Shipped:** 2026-06-06
+**Phases:** 3 | **Plans:** 3 | **Tasks:** 0
+
+### What Was Built
+
+- Rebuilt the static `/web/` portal into a branded Kehto landing page with an almost-black/muted-yellow visual system, custom wordmark treatment, product proof points, and preserved playground/docs routes.
+- Added Pages-safe portal asset handling for CSS, landing JS, and vendored GSAP, with `audit:pages` and unit guards proving the artifact contract.
+- Implemented restrained GSAP entrance and route-exit transitions with reduced-motion final states and no delayed navigation for motion-sensitive users.
+- Added a low-contrast canvas liquid accent behind content and captured desktop, mobile, and reduced-motion screenshots plus canvas pixel checks.
+
+### What Worked
+
+- Keeping the static page meaningful first made the GSAP layer low-risk. Real anchors stayed as the navigation contract, so animation could remain progressive enhancement.
+- Visual proof caught a real mobile UX problem: destination cards were below the first viewport. The fix was a narrow CSS order change, not a weakened visual gate.
+- Vendoring GSAP into `.pages/assets/vendor/` kept the public first impression independent of CDN availability and easy to audit.
+
+### What Was Inefficient
+
+- The milestone archive helper generated placeholder `Completed:` accomplishments because v1.17 summaries originally lacked one-line metadata.
+- Requirement checkboxes drifted from traceability status until closeout. The shipped work was verified, but the archive would have looked incomplete without manual normalization.
+- Playwright browser binaries were not installed before visual verification, causing an avoidable first-run failure.
+
+### Patterns Established
+
+- **Static-first portal motion:** Build semantic routeable content first, then layer GSAP entrance/exit and canvas accents as progressive enhancement.
+- **Visual gate as UX guard:** Browser screenshots plus DOM/canvas sampling should check route visibility, not only nonblank rendering.
+- **Pages asset contract expansion:** Public portal polish needs the same artifact audit discipline as playground/docs deployment.
+
+### Key Lessons
+
+- First-viewport route visibility matters more than preserving desktop section order on mobile.
+- Subtle motion still needs hard evidence: reduced-motion screenshots and canvas nonblank checks made the liquid accent reviewable.
+- GSD phase summaries should include `requirements-completed` metadata before milestone closeout to avoid audit repair work.
+
+### Cost Observations
+
+- Model mix: one autonomous leader with a read-only integration checker sidecar for milestone audit.
+- Sessions: 1 autonomous run from `$gsd-autonomous --from 77` through implementation, verification, audit, and archive.
+- Notable: visual verification produced the only functional follow-up after implementation; static/build gates otherwise stayed green.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -452,6 +496,7 @@
 | v1.3 | ~25 | 7 | Consume-and-showcase; Layer-A + Layer-B Playwright split; E2E-11 iteration-loop gate |
 | v1.8 | 1 autonomous run | 5 | Upstream alignment, decrypt surface, audit-clean closeout |
 | v1.13 | 1 autonomous run | 5 | Documentation strategy, VitePress site, generated API docs, and docs quality gate |
+| v1.17 | 1 autonomous run | 3 | Static-first public brand polish, GSAP progressive enhancement, and visual route checks |
 
 ### Cumulative Quality
 
@@ -461,6 +506,7 @@
 | v1.3 | 47 (E2E) | 0 (was 68 pre-22-07) | @kehto/acl already zero-dep (confirmed via publint) |
 | v1.8 | 86 (E2E) + 543 unit | 0 | No new dependencies |
 | v1.13 | 89 (E2E baseline) + 562 unit | 0 | Site-only VitePress/TypeDoc dependencies isolated to `docs/` |
+| v1.17 | 570 unit + browser visual checks | 0 | GSAP vendored into Pages artifact |
 
 Note: v1.3 test count reflects E2E Playwright specs only; unit tests carried forward from v1.2 unchanged. The drop from 449 → 47 is a change of instrument (v1.2 counted all Vitest specs; v1.3 E2E-10 gates specifically on Playwright suite green).
 
