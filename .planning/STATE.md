@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.16
 milestone_name: Structural Code Quality Refactor
 status: Awaiting next milestone
-last_updated: "2026-05-24T14:02:55.746Z"
-last_activity: 2026-05-24 — Completed quick task 260524-maf: add the aislop-badge GitHub Action
+last_updated: "2026-06-06T09:47:00.000Z"
+last_activity: 2026-06-06 — Completed quick task 260606-g9z: deslopify aislop duplicate exported type declarations
 progress:
   total_phases: 4
   completed_phases: 4
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-05-24, v1.16 started)
 Phase: Milestone v1.16 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-05-24 — Completed quick task 260524-maf: add the aislop-badge GitHub Action
+Last activity: 2026-06-06 — Completed quick task 260606-g9z: deslopify aislop duplicate exported type declarations
 
 ## Accumulated Context
 
@@ -88,6 +88,7 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 | 260523-jev | Publish playground to GitHub Pages | 2026-05-23 | c89e746 | [260523-jev-create-a-workflow-that-publishes-the-pla](./quick/260523-jev-create-a-workflow-that-publishes-the-pla/) |
 | 260523-alpha | Clarify alpha runtime positioning | 2026-05-23 | b0de00d | README/docs/splash |
 | 260524-maf | Add the aislop-badge GitHub Action | 2026-05-24 | b5c39f7 | [260524-maf-add-the-aislop-badge-github-action-to-a-](./quick/260524-maf-add-the-aislop-badge-github-action-to-a-/) |
+| 260606-g9z | Deslopify aislop duplicate exported type declarations | 2026-06-06 | 191a187 | [260606-g9z-deslopify-aislop-duplicate-exported-type](./quick/260606-g9z-deslopify-aislop-duplicate-exported-type/) |
 
 ## Session Continuity
 
