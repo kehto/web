@@ -1,33 +1,33 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.16
-milestone_name: Structural Code Quality Refactor
-status: Awaiting next milestone
-last_updated: "2026-06-06T09:47:00.000Z"
-last_activity: 2026-06-06 — Completed quick task 260606-g9z: deslopify aislop duplicate exported type declarations
+milestone: v1.17
+milestone_name: Beautify the SPA Landing Page
+status: planning
+last_updated: "2026-06-06T11:41:31.072Z"
+last_activity: 2026-06-06
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 4
-  completed_plans: 4
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-24, v1.16 started)
+See: .planning/PROJECT.md (updated 2026-06-06, v1.17 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** v1.16 milestone lifecycle
+**Current focus:** v1.17 landing-page branding and motion milestone lifecycle
 
 ## Current Position
 
-Phase: Milestone v1.16 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-06-06 — Completed quick task 260606-g9z: deslopify aislop duplicate exported type declarations
+Status: Defining requirements
+Last activity: 2026-06-06 — Milestone v1.17 started
 
 ## Accumulated Context
 

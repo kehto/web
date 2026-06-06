@@ -37,11 +37,24 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Status:** Awaiting the next milestone after v1.16 Structural Code Quality Refactor shipped.
+**Status:** Planning v1.17 Beautify the SPA Landing Page.
 
-v1.16 removed the remaining structural `aislop` warning baseline from the local scanner. The current baseline is pinned-spec NIP-5D conformance, a buildable docs site, a pre-deploy GitHub Pages artifact contract for `https://kehto.github.io/web/`, and `npx --no-install aislop scan -d` reporting `100 / 100 Healthy` with 0 errors, 0 warnings, and 0 fixable findings.
+v1.17 focuses on turning the public `/web/` SPA landing page into a branded Kehto experience. The existing portal structure and destination links remain the foundation, while the visual system, motion language, and first-impression hierarchy should communicate Kehto's modular sandboxed-runtime value with a dark almost-black background, muted yellow primary accent, Scandinavian/Finnish cradle-inspired typography, subtle liquid motion, and polished GSAP-powered transitions.
+
+The previous shipped baseline remains pinned-spec NIP-5D conformance, a buildable docs site, a pre-deploy GitHub Pages artifact contract for `https://kehto.github.io/web/`, and `npx --no-install aislop scan -d` reporting `100 / 100 Healthy` with 0 errors, 0 warnings, and 0 fixable findings.
 
 Verification stands at `npx --no-install aislop scan -d`, `.aislop/config.yml` diff against the v1.16 start commit, `pnpm build`, `pnpm type-check`, `pnpm test:unit` (563 tests), `pnpm --dir docs docs:build`, and `git diff --check`.
+
+## Current Milestone: v1.17 Beautify the SPA Landing Page
+
+**Goal:** Rework the public SPA landing page into a branded Kehto experience that preserves the current destination links while adding a dark, muted-yellow, Scandinavian-inspired visual identity with subtle liquid motion and GSAP-powered transitions.
+
+**Target features:**
+- Preserve existing `/web/playground/` and `/web/docs/` destination links and the landing page's product-routing purpose.
+- Establish Kehto branding around an almost-black background, muted yellow primary accent, non-standard Kehto wordmark/text treatment, and a smooth modern mood rooted in the Finnish "cradle" origin.
+- Add a low-contrast but perceptible liquid-simulation background accent that feels sophisticated rather than decorative noise.
+- Use GSAP for entrance, exit, and interaction transitions, including route-like transitions in and out of the landing page where feasible for the static Pages portal.
+- Derive UX hierarchy and copy emphasis from Kehto's actual functionality: modular sandboxed napplets, shell hosting, runtime packages, docs, playground, and protocol innovation.
 
 ## Latest Milestone: v1.16 Structural Code Quality Refactor
 
@@ -226,4 +239,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-24 — v1.16 milestone shipped (Structural Code Quality Refactor)*
+*Last updated: 2026-06-06 — v1.17 milestone started (Beautify the SPA Landing Page)*
