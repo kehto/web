@@ -8,171 +8,80 @@
       name="description"
       content="Kehto runtime packages, playground, and documentation for sandboxed Nostr napplets."
     >
-    <style>
-      :root {
-        color-scheme: dark;
-        --bg: #101216;
-        --panel: #171b22;
-        --notice: #242015;
-        --text: #f4f7fb;
-        --muted: #aeb8c7;
-        --line: #2f3744;
-        --accent: #8fe4c1;
-        --accent-2: #f4cf7a;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        min-height: 100vh;
-        font-family:
-          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: var(--bg);
-        color: var(--text);
-      }
-
-      main {
-        width: min(920px, calc(100% - 32px));
-        margin: 0 auto;
-        padding: 72px 0 48px;
-      }
-
-      .eyebrow {
-        margin: 0 0 12px;
-        color: var(--accent);
-        font-size: 0.82rem;
-        font-weight: 700;
-        letter-spacing: 0;
-        text-transform: uppercase;
-      }
-
-      h1 {
-        margin: 0;
-        font-size: clamp(2.5rem, 7vw, 5rem);
-        line-height: 0.95;
-        letter-spacing: 0;
-      }
-
-      .summary {
-        max-width: 720px;
-        margin: 24px 0 24px;
-        color: var(--muted);
-        font-size: 1.08rem;
-        line-height: 1.65;
-      }
-
-      .notice {
-        max-width: 760px;
-        margin: 0 0 40px;
-        padding: 16px 18px;
-        border: 1px solid color-mix(in srgb, var(--accent-2) 55%, var(--line));
-        border-radius: 8px;
-        background: var(--notice);
-        color: var(--text);
-        line-height: 1.55;
-      }
-
-      .notice strong {
-        color: var(--accent-2);
-      }
-
-      .links {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 16px;
-      }
-
-      .link-card {
-        display: block;
-        min-height: 180px;
-        padding: 24px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: var(--panel);
-        color: inherit;
-        text-decoration: none;
-      }
-
-      .link-card:focus,
-      .link-card:hover {
-        border-color: var(--accent);
-        outline: none;
-      }
-
-      .link-card span {
-        color: var(--accent-2);
-        font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
-        font-size: 0.9rem;
-      }
-
-      .link-card h2 {
-        margin: 18px 0 10px;
-        font-size: 1.45rem;
-        letter-spacing: 0;
-      }
-
-      .link-card p {
-        margin: 0;
-        color: var(--muted);
-        line-height: 1.55;
-      }
-
-      footer {
-        margin-top: 48px;
-        padding-top: 20px;
-        border-top: 1px solid var(--line);
-        color: var(--muted);
-        font-size: 0.9rem;
-      }
-
-      @media (max-width: 680px) {
-        main {
-          width: min(100% - 24px, 920px);
-          padding-top: 40px;
-        }
-
-        .links {
-          grid-template-columns: 1fr;
-        }
-      }
-    </style>
+    <link rel="stylesheet" href="/web/assets/landing.css">
+    <script src="/web/assets/landing.js" defer></script>
   </head>
   <body>
-    <main>
-      <p class="eyebrow">An early runtime for sandboxed Nostr napplets</p>
-      <h1>Kehto Runtime</h1>
-      <p class="summary">
-        Kehto is a runtime implementation for NIP-5D napplets, not the runtime for
-        the ecosystem. It provides shell-side packages for protocol routing, ACL
-        enforcement, service handlers, gateway loading, and browser integration.
-      </p>
+    <div class="page-shell">
+      <div class="ambient-field" aria-hidden="true">
+        <div class="cradle-arc cradle-arc-primary"></div>
+        <div class="cradle-arc cradle-arc-secondary"></div>
+        <div class="field-line field-line-one"></div>
+        <div class="field-line field-line-two"></div>
+      </div>
 
-      <p class="notice">
-        <strong>Alpha notice:</strong> NIP-5D is still under development and NUB
-        contracts are not final. APIs, capability names, <code>requires</code>
-        declarations, and <code>supports()</code> behavior may change.
-      </p>
+      <main class="landing" aria-labelledby="kehto-title">
+        <section class="hero" aria-describedby="kehto-summary">
+          <p class="eyebrow">Shell-side runtime for sandboxed napplets</p>
 
-      <nav class="links" aria-label="Kehto web destinations">
-        <a class="link-card" href="/web/playground/">
-          <span>/web/playground/</span>
-          <h2>Playground</h2>
-          <p>Open the gateway-hosted integration surface for the demo napplets.</p>
-        </a>
+          <h1 id="kehto-title" class="wordmark" aria-label="Kehto Runtime">
+            <span class="wordmark-name">Kehto</span>
+            <span class="wordmark-role">Runtime</span>
+          </h1>
 
-        <a class="link-card" href="/web/docs/">
-          <span>/web/docs/</span>
-          <h2>Docs</h2>
-          <p>Read package references, tutorials, policies, and implementation guides.</p>
-        </a>
-      </nav>
+          <p id="kehto-summary" class="summary">
+            Kehto is a modular runtime implementation for NIP-5D napplets. It gives
+            host applications the shell-side pieces for protocol routing, ACL
+            enforcement, service handlers, gateway loading, and browser integration.
+          </p>
+        </section>
 
-      <footer>
+        <section class="proof-grid" aria-label="Kehto proof points">
+          <div class="proof-item">
+            <span class="proof-kicker">01</span>
+            <strong>Cradle the app</strong>
+            <p>Sandboxed iframes stay contained while the shell owns capabilities.</p>
+          </div>
+          <div class="proof-item">
+            <span class="proof-kicker">02</span>
+            <strong>Route the protocol</strong>
+            <p>Runtime packages handle NIP-5D messages, services, and enforcement.</p>
+          </div>
+          <div class="proof-item">
+            <span class="proof-kicker">03</span>
+            <strong>Prove the surface</strong>
+            <p>Gateway-hosted napplets and docs show the integration contract.</p>
+          </div>
+        </section>
+
+        <p class="notice">
+          <strong>Alpha notice:</strong> NIP-5D is still under development and NUB
+          contracts are not final. APIs, capability names, <code>requires</code>
+          declarations, and <code>supports()</code> behavior may change.
+        </p>
+
+        <nav class="destinations" aria-label="Kehto web destinations">
+          <a class="destination destination-primary" href="/web/playground/">
+            <span class="destination-path">/web/playground/</span>
+            <span class="destination-label">Open Playground</span>
+            <span class="destination-copy">
+              Watch gateway-hosted demo napplets run through the shell.
+            </span>
+          </a>
+
+          <a class="destination" href="/web/docs/">
+            <span class="destination-path">/web/docs/</span>
+            <span class="destination-label">Read Docs</span>
+            <span class="destination-copy">
+              Integrate packages, runtime services, policies, and host flows.
+            </span>
+          </a>
+        </nav>
+      </main>
+
+      <footer class="site-footer">
         <span>Kehto is an early runtime and potential reference implementation for NIP-5D napplets.</span>
       </footer>
-    </main>
+    </div>
   </body>
 </html>

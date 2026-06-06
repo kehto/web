@@ -137,8 +137,14 @@ describe('playground gateway artifact guard', () => {
     expect(script).toContain('cpSync(sourceHtmlPath, htmlRoute)');
 
     expect(pagesScript).toContain("'docs', '.vitepress', 'dist'");
+    expect(pagesScript).toContain("join(repoRoot, 'web', 'assets')");
+    expect(pagesScript).toContain("join(outputRoot, 'assets')");
     expect(pagesScript).toContain("join(outputRoot, 'docs')");
     expect(pagesScript).toContain("join(docsOutput, 'api')");
+    expect(pagesAudit).toContain("const LANDING_CSS = `${PUBLIC_SITE_BASE}assets/landing.css`;");
+    expect(pagesAudit).toContain("const LANDING_JS = `${PUBLIC_SITE_BASE}assets/landing.js`;");
+    expect(pagesAudit).toContain("join(outputRoot, 'assets', 'landing.css')");
+    expect(pagesAudit).toContain("join(outputRoot, 'assets', 'landing.js')");
     expect(pagesAudit).toContain("const PLAYGROUND_BASE = '/web/playground/';");
     expect(pagesAudit).toContain("const DOCS_BASE = '/web/docs/';");
     expect(pagesAudit).toContain('artifactPathFromPublicPath(htmlUrl)');
@@ -149,5 +155,25 @@ describe('playground gateway artifact guard', () => {
     expect(resourceDemo).toContain('function getPlaygroundBaseUrl()');
     expect(resourceDemo).toContain("new URL('demo-data.json', getPlaygroundBaseUrl()).href");
     expect(resourceDemo).not.toContain("const GRANTED_URL = 'http://localhost:4174/demo-data.json'");
+  });
+
+  it('keeps the public portal on the branded static asset contract', () => {
+    const portal = readRepoFile('web/index.html');
+    const stylesheet = readRepoFile('web/assets/landing.css');
+    const script = readRepoFile('web/assets/landing.js');
+
+    expect(portal).toContain('href="/web/assets/landing.css"');
+    expect(portal).toContain('src="/web/assets/landing.js"');
+    expect(portal).toContain('href="/web/playground/"');
+    expect(portal).toContain('href="/web/docs/"');
+    expect(portal).toContain('class="wordmark"');
+    expect(portal).toContain('Alpha notice:');
+    expect(portal).toContain('Shell-side runtime for sandboxed napplets');
+
+    expect(stylesheet).toContain('--bg: #080805');
+    expect(stylesheet).toContain('--accent: #d6ba5b');
+    expect(stylesheet).toContain('.wordmark-name::after');
+    expect(stylesheet).toContain('@media (max-width: 780px)');
+    expect(script).toContain("document.documentElement.dataset.kehtoLanding = 'ready'");
   });
 });

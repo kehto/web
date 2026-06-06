@@ -31,7 +31,9 @@ const scriptDir = fileURLToPath(new URL('.', import.meta.url));
 const repoRoot = resolve(scriptDir, '..');
 const outputRoot = resolve(repoRoot, process.env.PAGES_OUT_DIR || '.pages');
 const portalSource = join(repoRoot, 'web', 'index.html');
+const portalAssets = join(repoRoot, 'web', 'assets');
 const portalOutput = join(outputRoot, 'index.html');
+const portalAssetsOutput = join(outputRoot, 'assets');
 const playgroundOutput = join(outputRoot, 'playground');
 const playgroundBasePath = process.env.PLAYGROUND_BASE_PATH || '/web/playground/';
 const docsDist = join(repoRoot, 'docs', '.vitepress', 'dist');
@@ -53,6 +55,7 @@ writeFileSync(join(outputRoot, '.nojekyll'), '');
 ensureFile(portalSource, 'portal source');
 mkdirSync(dirname(portalOutput), { recursive: true });
 copyFileSync(portalSource, portalOutput);
+cpSync(portalAssets, portalAssetsOutput, { recursive: true });
 
 execFileSync(process.execPath, [join(scriptDir, 'build-playground-pages.mjs')], {
   cwd: repoRoot,
