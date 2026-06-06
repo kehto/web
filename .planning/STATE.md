@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.17
 milestone_name: Beautify the SPA Landing Page
 status: planning
-last_updated: "2026-06-06T11:41:31.072Z"
-last_activity: 2026-06-06
+last_updated: "2026-06-06T12:08:00.000Z"
+last_activity: 2026-06-06 — v1.17 roadmap created
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
-  total_plans: 0
+  total_plans: 3
   completed_plans: 0
   percent: 0
 ---
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-06-06, v1.17 started)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 77 - Brand Foundation and Static Portal Contract
 Plan: —
-Status: Defining requirements
-Last activity: 2026-06-06 — Milestone v1.17 started
+Status: Roadmap ready; next step is phase discussion or planning
+Last activity: 2026-06-06 — v1.17 roadmap created with phases 77-79
 
 ## Accumulated Context
 
@@ -55,6 +55,8 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 - Phase 74 completed 2026-05-24: playground shell host definitions, decrypt fixtures, message tap, demo hooks, notification UI, and signer UI were extracted into focused modules; local scanner no longer reports `main.ts`, `shell-host.ts`, `createDemoHooks`, or `bootShell` warnings; type-check, playground build, scanner, and diff check passed.
 - Phase 75 completed 2026-05-24: ACL modal, NIP-46 client, media/notification/resource service factories, and shell hooks adapter were split into private helpers; local `aislop` now reports a clean `100 / 100 Healthy` run; focused unit tests, ACL modal E2E, build, type-check, scanner, and diff check passed.
 - Phase 76 completed 2026-05-24: final `npx --no-install aislop scan -d` reports `100 / 100 Healthy` with 0 errors, 0 warnings, and 0 fixable; `.aislop/config.yml` has no diff against the v1.16 start commit; `pnpm type-check`, `pnpm build`, `pnpm test:unit` (563 tests), `pnpm --dir docs docs:build`, and `git diff --check` passed.
+- v1.17 started 2026-06-06: the milestone targets the public `/web/` landing page's brand, UX, GSAP motion, and subtle liquid accent while preserving the current playground/docs links and Pages route contract.
+- v1.17 roadmap phases are 77-79: brand foundation and static portal contract, GSAP transition system, then liquid accent and visual verification. Requirements are mapped 15/15.
 - v1.14 started 2026-05-23: public GitHub Pages deployment target is `kehto.github.io/web/`, with a portal slash page at `/web/`, playground at `/web/playground/`, and docs at `/web/docs/`. Current workflow only packs `.pages/playground`, so v1.14 must replace playground-only upload with a unified Pages artifact.
 - v1.14 roadmap phases are 65-67: Pages portal entry point, playground Pages path relocation, then docs Pages publication and deploy gate.
 - Phase 65 completed 2026-05-23: `web/index.html` is the static portal source, `pnpm build:pages` writes `.pages/web/index.html`, and the generated portal links to `/web/playground/` and `/web/docs/`.

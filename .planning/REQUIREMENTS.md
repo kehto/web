@@ -79,27 +79,27 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BRAND-01 | — | Planned |
-| BRAND-02 | — | Planned |
-| BRAND-03 | — | Planned |
-| UX-01 | — | Planned |
-| UX-02 | — | Planned |
-| UX-03 | — | Planned |
-| MOTION-01 | — | Planned |
-| MOTION-02 | — | Planned |
-| MOTION-03 | — | Planned |
-| MOTION-04 | — | Planned |
-| PAGES-01 | — | Planned |
-| PAGES-02 | — | Planned |
-| PAGES-03 | — | Planned |
-| VERIFY-01 | — | Planned |
-| VERIFY-02 | — | Planned |
+| BRAND-01 | Phase 77 | Planned |
+| BRAND-02 | Phase 77 | Planned |
+| BRAND-03 | Phase 77 | Planned |
+| UX-01 | Phase 77 | Planned |
+| UX-02 | Phase 77 | Planned |
+| UX-03 | Phase 77 | Planned |
+| MOTION-01 | Phase 78 | Planned |
+| MOTION-02 | Phase 78 | Planned |
+| MOTION-03 | Phase 79 | Planned |
+| MOTION-04 | Phase 78 | Planned |
+| PAGES-01 | Phase 78 | Planned |
+| PAGES-02 | Phase 77 | Planned |
+| PAGES-03 | Phase 77 | Planned |
+| VERIFY-01 | Phase 79 | Planned |
+| VERIFY-02 | Phase 79 | Planned |
 
 **Coverage:**
 - v1.17 requirements: 15 total
-- Mapped to phases: 0
-- Unmapped: 15
+- Mapped to phases: 15
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-06*
-*Last updated: 2026-06-06 after initial requirements definition*
+*Last updated: 2026-06-06 after roadmap traceability mapping*
