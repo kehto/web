@@ -22,6 +22,19 @@ html {
   background: var(--bg);
 }
 
+html:not([data-motion="ready"]) .ambient-field,
+html:not([data-motion="ready"]) .eyebrow,
+html:not([data-motion="ready"]) .wordmark-name,
+html:not([data-motion="ready"]) .wordmark-role,
+html:not([data-motion="ready"]) .summary,
+html:not([data-motion="ready"]) .proof-item,
+html:not([data-motion="ready"]) .notice,
+html:not([data-motion="ready"]) .destination,
+html:not([data-motion="ready"]) .site-footer {
+  opacity: 1;
+  transform: none;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -311,6 +324,10 @@ code {
   font-size: 0.88rem;
 }
 
+.is-leaving .page-shell {
+  pointer-events: none;
+}
+
 @media (max-width: 780px) {
   .landing {
     width: min(100% - 28px, var(--max-width));
@@ -329,5 +346,16 @@ code {
 
   .wordmark-role {
     letter-spacing: 0.22em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

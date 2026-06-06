@@ -19,7 +19,7 @@
 - [x] **v1.14: GitHub Pages Web Portal** - 3 phases (65-67), 13/13 requirements, public `/web/` portal, playground at `/web/playground/`, docs at `/web/docs/`, and unified Pages deploy gate ([archive](milestones/v1.14-ROADMAP.md) | [requirements](milestones/v1.14-REQUIREMENTS.md) | [audit](milestones/v1.14-MILESTONE-AUDIT.md))
 - [x] **v1.15: Address AI Slop** - 5 phases (68-72), 20/20 original requirements complete, local `aislop` scan no longer Critical, 563 unit tests green ([archive](milestones/v1.15-ROADMAP.md) | [requirements](milestones/v1.15-REQUIREMENTS.md) | [audit](milestones/v1.15-MILESTONE-AUDIT.md))
 - [x] **v1.16: Structural Code Quality Refactor** - 4 phases (73-76), 18/18 requirements, local `aislop` scan clean, 563 unit tests green ([archive](milestones/v1.16-ROADMAP.md) | [requirements](milestones/v1.16-REQUIREMENTS.md) | [audit](milestones/v1.16-MILESTONE-AUDIT.md))
-- [ ] **v1.17: Beautify the SPA Landing Page** - 3 phases (77-79), 8/15 requirements complete, static `/web/` brand system, GSAP motion, and liquid accent
+- [ ] **v1.17: Beautify the SPA Landing Page** - 3 phases (77-79), 12/15 requirements complete, static `/web/` brand system, GSAP motion, and liquid accent
 
 ---
 
@@ -31,14 +31,14 @@
 
 **Baseline entering v1.17:** `web/index.html` is a static portal copied to `.pages/index.html` by `scripts/build-pages.mjs`. It has a plain dark style, an alpha notice, and links to `/web/playground/` and `/web/docs/`. The current Pages audit verifies those routes but not portal CSS/JS or animation assets.
 
-**Coverage:** 8/15 requirements complete; 15/15 requirements mapped.
+**Coverage:** 12/15 requirements complete; 15/15 requirements mapped.
 
 **Critical invariant:** Preserve the public `/web/`, `/web/playground/`, and `/web/docs/` route contract; keep the landing page useful without JavaScript; do not change runtime protocol behavior, package APIs, playground internals, or docs architecture.
 
 ### Phases
 
 - [x] **Phase 77: Brand Foundation and Static Portal Contract** - Rebuild the static landing page structure, brand system, copy hierarchy, and asset-copy/audit contract while preserving destination links.
-- [ ] **Phase 78: GSAP Transition System** - Add GSAP as an explicit dependency, vendor it into the Pages artifact, and implement restrained entrance/exit/focus motion with reduced-motion behavior.
+- [x] **Phase 78: GSAP Transition System** - Add GSAP as an explicit dependency, vendor it into the Pages artifact, and implement restrained entrance/exit/focus motion with reduced-motion behavior.
 - [ ] **Phase 79: Liquid Accent and Visual Verification** - Add the subtle liquid background accent, complete visual polish, and prove desktop/mobile/reduced-motion/Pages checks.
 
 ---
@@ -83,9 +83,9 @@
   4. `prefers-reduced-motion: reduce` renders final states immediately, avoids delayed navigation, and avoids nonessential motion.
   5. Focus and hover states remain visible and usable with keyboard and pointer input.
 
-**Status**: Not started
+**Status**: Complete (2026-06-06)
 
-**Plans**: 0/1 complete
+**Plans**: 1/1 complete
 
 ### Phase 79: Liquid Accent and Visual Verification
 
@@ -115,7 +115,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 77. Brand Foundation and Static Portal Contract | 1/1 | Complete | 2026-06-06 |
-| 78. GSAP Transition System | 0/1 | Not started | — |
+| 78. GSAP Transition System | 1/1 | Complete | 2026-06-06 |
 | 79. Liquid Accent and Visual Verification | 0/1 | Not started | — |
 
 ## Backlog
@@ -142,4 +142,4 @@
 
 ---
 
-*ROADMAP.md last updated: 2026-06-06 - Phase 77 complete.*
+*ROADMAP.md last updated: 2026-06-06 - Phase 78 complete.*

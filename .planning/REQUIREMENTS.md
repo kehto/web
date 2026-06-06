@@ -85,11 +85,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UX-01 | Phase 77 | Complete |
 | UX-02 | Phase 77 | Complete |
 | UX-03 | Phase 77 | Complete |
-| MOTION-01 | Phase 78 | Planned |
-| MOTION-02 | Phase 78 | Planned |
+| MOTION-01 | Phase 78 | Complete |
+| MOTION-02 | Phase 78 | Complete |
 | MOTION-03 | Phase 79 | Planned |
-| MOTION-04 | Phase 78 | Planned |
-| PAGES-01 | Phase 78 | Planned |
+| MOTION-04 | Phase 78 | Complete |
+| PAGES-01 | Phase 78 | Complete |
 | PAGES-02 | Phase 77 | Complete |
 | PAGES-03 | Phase 77 | Complete |
 | VERIFY-01 | Phase 79 | Planned |
@@ -102,4 +102,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-06-06*
-*Last updated: 2026-06-06 after Phase 77 completion*
+*Last updated: 2026-06-06 after Phase 78 completion*

@@ -9,6 +9,7 @@
       content="Kehto runtime packages, playground, and documentation for sandboxed Nostr napplets."
     >
     <link rel="stylesheet" href="/web/assets/landing.css">
+    <script src="/web/assets/vendor/gsap.min.js" defer></script>
     <script src="/web/assets/landing.js" defer></script>
   </head>
   <body>
@@ -61,7 +62,7 @@
         </p>
 
         <nav class="destinations" aria-label="Kehto web destinations">
-          <a class="destination destination-primary" href="/web/playground/">
+          <a class="destination destination-primary" href="/web/playground/" data-route-link>
             <span class="destination-path">/web/playground/</span>
             <span class="destination-label">Open Playground</span>
             <span class="destination-copy">
@@ -69,7 +70,7 @@
             </span>
           </a>
 
-          <a class="destination" href="/web/docs/">
+          <a class="destination" href="/web/docs/" data-route-link>
             <span class="destination-path">/web/docs/</span>
             <span class="destination-label">Read Docs</span>
             <span class="destination-copy">

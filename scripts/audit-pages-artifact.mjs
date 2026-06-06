@@ -16,6 +16,7 @@ const outputRoot = resolve(repoRoot, process.env.PAGES_OUT_DIR || '.pages');
 const nappletsDir = join(repoRoot, 'apps', 'playground', 'napplets');
 
 const PUBLIC_SITE_BASE = '/web/';
+const GSAP_VENDOR = `${PUBLIC_SITE_BASE}assets/vendor/gsap.min.js`;
 const LANDING_CSS = `${PUBLIC_SITE_BASE}assets/landing.css`;
 const LANDING_JS = `${PUBLIC_SITE_BASE}assets/landing.js`;
 const PLAYGROUND_BASE = '/web/playground/';
@@ -85,12 +86,14 @@ function checkPortal() {
   assertContains(portalPath, portal, 'href="/web/playground/"', 'portal route');
   assertContains(portalPath, portal, 'href="/web/docs/"', 'portal route');
   assertContains(portalPath, portal, `href="${LANDING_CSS}"`, 'portal route');
+  assertContains(portalPath, portal, `src="${GSAP_VENDOR}"`, 'portal route');
   assertContains(portalPath, portal, `src="${LANDING_JS}"`, 'portal route');
   assertContains(portalPath, portal, 'class="wordmark"', 'portal brand');
   assertContains(portalPath, portal, 'class="notice"', 'portal alpha notice');
 
   assertFile(join(outputRoot, 'assets', 'landing.css'), 'portal stylesheet asset');
   assertFile(join(outputRoot, 'assets', 'landing.js'), 'portal script asset');
+  assertFile(join(outputRoot, 'assets', 'vendor', 'gsap.min.js'), 'portal GSAP vendor asset');
 }
 
 function checkPlayground() {

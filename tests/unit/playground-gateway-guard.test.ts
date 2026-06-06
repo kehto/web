@@ -106,6 +106,7 @@ describe('playground gateway artifact guard', () => {
     const pagesAudit = readRepoFile('scripts/audit-pages-artifact.mjs');
     const turbo = readRepoFile('turbo.json');
     const packageJson = JSON.parse(readRepoFile('package.json')) as {
+      dependencies?: Record<string, string>;
       scripts?: Record<string, string>;
     };
     const gitignore = readRepoFile('.gitignore');
@@ -114,6 +115,7 @@ describe('playground gateway artifact guard', () => {
     expect(packageJson.scripts?.['build:playground-pages']).toBe('node scripts/build-playground-pages.mjs');
     expect(packageJson.scripts?.['build:pages']).toBe('node scripts/build-pages.mjs');
     expect(packageJson.scripts?.['audit:pages']).toBe('node scripts/audit-pages-artifact.mjs');
+    expect(packageJson.dependencies?.gsap).toMatch(/^\^3\./);
     expect(gitignore).toContain('.pages/');
 
     expect(workflow).toContain('actions/configure-pages@v5');
@@ -138,13 +140,17 @@ describe('playground gateway artifact guard', () => {
 
     expect(pagesScript).toContain("'docs', '.vitepress', 'dist'");
     expect(pagesScript).toContain("join(repoRoot, 'web', 'assets')");
+    expect(pagesScript).toContain("join(repoRoot, 'node_modules', 'gsap', 'dist', 'gsap.min.js')");
     expect(pagesScript).toContain("join(outputRoot, 'assets')");
+    expect(pagesScript).toContain("join(portalAssetsOutput, 'vendor')");
     expect(pagesScript).toContain("join(outputRoot, 'docs')");
     expect(pagesScript).toContain("join(docsOutput, 'api')");
+    expect(pagesAudit).toContain("const GSAP_VENDOR = `${PUBLIC_SITE_BASE}assets/vendor/gsap.min.js`;");
     expect(pagesAudit).toContain("const LANDING_CSS = `${PUBLIC_SITE_BASE}assets/landing.css`;");
     expect(pagesAudit).toContain("const LANDING_JS = `${PUBLIC_SITE_BASE}assets/landing.js`;");
     expect(pagesAudit).toContain("join(outputRoot, 'assets', 'landing.css')");
     expect(pagesAudit).toContain("join(outputRoot, 'assets', 'landing.js')");
+    expect(pagesAudit).toContain("join(outputRoot, 'assets', 'vendor', 'gsap.min.js')");
     expect(pagesAudit).toContain("const PLAYGROUND_BASE = '/web/playground/';");
     expect(pagesAudit).toContain("const DOCS_BASE = '/web/docs/';");
     expect(pagesAudit).toContain('artifactPathFromPublicPath(htmlUrl)');
@@ -163,9 +169,11 @@ describe('playground gateway artifact guard', () => {
     const script = readRepoFile('web/assets/landing.js');
 
     expect(portal).toContain('href="/web/assets/landing.css"');
+    expect(portal).toContain('src="/web/assets/vendor/gsap.min.js"');
     expect(portal).toContain('src="/web/assets/landing.js"');
     expect(portal).toContain('href="/web/playground/"');
     expect(portal).toContain('href="/web/docs/"');
+    expect(portal).toContain('data-route-link');
     expect(portal).toContain('class="wordmark"');
     expect(portal).toContain('Alpha notice:');
     expect(portal).toContain('Shell-side runtime for sandboxed napplets');
@@ -174,6 +182,12 @@ describe('playground gateway artifact guard', () => {
     expect(stylesheet).toContain('--accent: #d6ba5b');
     expect(stylesheet).toContain('.wordmark-name::after');
     expect(stylesheet).toContain('@media (max-width: 780px)');
-    expect(script).toContain("document.documentElement.dataset.kehtoLanding = 'ready'");
+    expect(stylesheet).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(script).toContain('window.gsap');
+    expect(script).toContain('gsapInstance.matchMedia()');
+    expect(script).toContain("'(prefers-reduced-motion: reduce)'");
+    expect(script).toContain("'(prefers-reduced-motion: no-preference)'");
+    expect(script).toContain('data-route-link');
+    expect(script).toContain('window.location.href = anchor.href');
   });
 });
