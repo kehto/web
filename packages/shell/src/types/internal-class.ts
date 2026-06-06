@@ -1,29 +1,23 @@
 /**
  * @file internal-class.ts
  *
- * Kehto-internal shell-side class-posture model. Per PROJECT.md Decision #31,
+ * Kehto-internal shell-side class-posture export. Per PROJECT.md Decision #31,
  * this is NOT a staging-ground duplicate of upstream `@napplet/nub/class`:
- * upstream's `NappletClass` is a napplet-side accessor interface
- * (`{ class: number | undefined }`), whereas kehto's `NappletClass` here is
- * a shell-side session-label string union (`'class-1' | 'class-2' | null`)
- * used by `enforce.ts` for the capability allowlist and by `shell-host.ts`
- * for the per-dTag class map.
+ * upstream's `NappletClass` is a napplet-side accessor interface, whereas
+ * kehto's runtime `NappletClass` is the shell-side session-label string type
+ * used by enforcement and host demo code.
  *
- * The two models serve different roles and intentionally diverge. Upstream's
- * accessor type is consumed via `@napplet/nub/class` when kehto's SDK wires
- * the napplet-side mount point. This file owns the shell-side enforcement
- * label and is not slated for retirement.
+ * The upstream and kehto models serve different roles and intentionally
+ * diverge. This module preserves the shell import path while re-exporting the
+ * canonical runtime-owned type.
  *
  * Downstream consumers (Phase 38 `shell-bridge.ts`, `enforce.ts`, demo
  * `shell-host.ts`) import from this module.
  */
 
-/**
- * A napplet class identifier. `null` represents the permissive default (no
- * class assigned). Class strings are NUB-defined tokens such as `'class-1'`,
- * `'class-2'`, etc. — NIP-5D delegates taxonomy to NUB specs.
- */
-export type NappletClass = string | null;
+import type { NappletClass } from '@kehto/runtime';
+
+export type { NappletClass };
 
 /**
  * Payload attached to `shell.init` (inline, not a separate envelope) carrying

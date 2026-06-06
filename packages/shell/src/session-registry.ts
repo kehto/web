@@ -5,7 +5,7 @@
  * verified pubkey here. Both mappings are kept in sync.
  */
 
-import type { SessionEntry } from './types.js';
+import type { PendingUpdate, SessionEntry } from '@kehto/runtime';
 
 /**
  * A pending napplet update — raised when a napplet reconnects with a different aggregateHash.
@@ -18,14 +18,7 @@ import type { SessionEntry } from './types.js';
  * };
  * ```
  */
-export interface PendingUpdate {
-  windowId: string;
-  pubkey: string;
-  dTag: string;
-  oldHash: string;
-  newHash: string;
-  resolve: (action: 'accept' | 'block') => void;
-}
+export type { PendingUpdate } from '@kehto/runtime';
 
 const byWindowId = new Map<string, string>();
 const byPubkey = new Map<string, SessionEntry>();

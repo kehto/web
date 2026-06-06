@@ -4,27 +4,14 @@
 declare const LeaderLine: any;
 
 import { STUB_ONLY_SERVICES } from './shell-host.js';
+import type { SignerConnectionState } from './signer-connection.js';
 
 export type TopologyNodeRole = 'napplet' | 'runtime-demo' | 'shell' | 'acl' | 'runtime' | 'service';
 
-// Inline the signer state types here to avoid a circular import with signer-connection.ts
-export type SignerConnectionMethod = 'nip07' | 'nip46' | 'none';
-
-export interface SignerRequestRecord {
-  timestamp: number;
-  method: string;
-  kind?: number;
-  success: boolean;
-}
-
-export interface SignerConnectionStateView {
-  method: SignerConnectionMethod;
-  pubkey: string | null;
-  relay: string | null;
-  recentRequests: SignerRequestRecord[];
-  isConnecting: boolean;
-  error: string | null;
-}
+export type SignerConnectionStateView = Pick<
+  SignerConnectionState,
+  'method' | 'pubkey' | 'relay' | 'recentRequests' | 'isConnecting' | 'error'
+>;
 
 export interface DemoTopologyNappletInput {
   name: string;

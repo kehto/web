@@ -11,6 +11,7 @@ export type { NostrEvent, NostrFilter } from '@napplet/core';
 export type { Capability, ServiceDescriptor } from '@kehto/runtime';
 export { ALL_CAPABILITIES } from '@kehto/runtime';
 export type { NappletMessage } from '@napplet/core';
+export type { SessionEntry, NappKeyEntry } from '@kehto/runtime';
 
 // Import Capability type locally for use in this file's shell-specific types
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
@@ -20,51 +21,6 @@ import type { NappletClass } from './types/internal-class.js';
 // Re-export service types so shell consumers can still import from @kehto/shell
 // (ServiceDescriptor already re-exported above from @kehto/runtime).
 export type { ServiceHandler, ServiceRegistry };
-
-/**
- * Registry entry mapping a napplet's session identity to runtime metadata.
- * Created after NIP-5D iframe-origin registration.
- * @example
- * ```ts
- * const entry: SessionEntry = {
- *   pubkey: 'abc123...', windowId: 'win-1', origin: '*',
- *   type: 'chat', dTag: '3chat', aggregateHash: 'deadbeef',
- *   registeredAt: Date.now(), instanceId: 'guid-123',
- *   provenance: 'legacy-auth',
- * };
- * ```
- */
-export interface SessionEntry {
-  /**
-   * @deprecated NIP-5D: AUTH keypair no longer exists. Empty string for NIP-5D sessions.
-   * Kept for backward compatibility during legacy support period.
-   */
-  pubkey: string;
-  windowId: string;
-  origin: string;
-  type: string;
-  dTag: string;
-  aggregateHash: string;
-  registeredAt: number;
-  /** Persistent GUID for this iframe instance, assigned by the runtime. Survives page reloads. */
-  instanceId: string;
-  /**
-   * How session identity was established (RENAME-01, v1.8 Phase 42).
-   * 'nip-5d' = identity registered at iframe creation via originRegistry (canonical NIP-5D path).
-   * 'legacy-auth' = legacy AUTH handshake (pubkey is the derived keypair pubkey).
-   * Renamed from `identitySource: 'auth' | 'source'` in v1.8; see .changeset/v1-8-rename-01-session-provenance.md.
-   */
-  provenance: 'nip-5d' | 'legacy-auth';
-  /**
-   * Class posture resolved synchronously at iframe creation (CLASS-02).
-   * `null` is the permissive default (D2). Class tokens like 'class-1' /
-   * 'class-2' are NUB-defined. See packages/shell/src/types/internal-class.ts.
-   */
-  class: NappletClass;
-}
-
-/** @deprecated Use SessionEntry. Will be removed in v0.9.0. */
-export type NappKeyEntry = SessionEntry;
 
 /**
  * ACL entry controlling what a napplet pubkey is permitted to do.
