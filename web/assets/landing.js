@@ -22,6 +22,13 @@ function setFinalState() {
   root.dataset.motion = 'ready';
 }
 
+function isHistoryRestore(event) {
+  if (event.persisted) return true;
+
+  const entries = typeof performance.getEntriesByType === 'function' ? performance.getEntriesByType('navigation') : [];
+  return entries.some((entry) => entry.type === 'back_forward');
+}
+
 function setupLiquidAccent(gsapApi, reducedMotionQuery) {
   const canvas = document.getElementById('liquid-accent');
   if (!(canvas instanceof HTMLCanvasElement)) return null;
@@ -115,20 +122,23 @@ if (!gsapInstance) {
     '.destination',
     '.site-footer',
   ];
+  const resetItems = [...motionItems, '.landing'];
 
   gsapInstance.set(motionItems, { clearProps: 'all' });
 
-  const media = gsapInstance.matchMedia();
+  function clearLeavingState() {
+    document.body.classList.remove('is-leaving');
 
-  media.add('(prefers-reduced-motion: reduce)', () => {
-    setFinalState();
-    gsapInstance.set(motionItems, { clearProps: 'all' });
-    return setupLiquidAccent(null, reduceMotion);
-  });
+    for (const item of resetItems) {
+      gsapInstance.killTweensOf(item);
+    }
 
-  media.add('(prefers-reduced-motion: no-preference)', () => {
+    gsapInstance.set(resetItems, { clearProps: 'all' });
+  }
+
+  function playEntrance() {
     root.dataset.motion = 'preparing';
-    const cleanupLiquidAccent = setupLiquidAccent(gsapInstance, reduceMotion);
+    clearLeavingState();
 
     gsapInstance.set('.ambient-field', { autoAlpha: 0 });
     gsapInstance.set(['.eyebrow', '.wordmark-role', '.summary', '.notice', '.site-footer'], {
@@ -145,12 +155,11 @@ if (!gsapInstance) {
       y: 18,
     });
 
-    const entrance = gsapInstance.timeline({
-      defaults: { duration: 0.78, ease: 'power3.out' },
-      onComplete: setFinalState,
-    });
-
-    entrance
+    return gsapInstance
+      .timeline({
+        defaults: { duration: 0.78, ease: 'power3.out' },
+        onComplete: setFinalState,
+      })
       .to('.ambient-field', { autoAlpha: 0.9, duration: 1.1, ease: 'power2.out' })
       .to('.eyebrow', { autoAlpha: 1, y: 0 }, 0.1)
       .to('.wordmark-name', { autoAlpha: 1, clipPath: 'inset(0 0 0% 0)', y: 0 }, 0.24)
@@ -160,8 +169,41 @@ if (!gsapInstance) {
       .to('.notice', { autoAlpha: 1, y: 0 }, 0.9)
       .to('.destination', { autoAlpha: 1, y: 0, stagger: 0.08 }, 1.02)
       .to('.site-footer', { autoAlpha: 1, y: 0, duration: 0.52 }, 1.18);
+  }
+
+  const media = gsapInstance.matchMedia();
+
+  media.add('(prefers-reduced-motion: reduce)', () => {
+    setFinalState();
+    gsapInstance.set(motionItems, { clearProps: 'all' });
+    const cleanupLiquidAccent = setupLiquidAccent(null, reduceMotion);
+    const onPageShow = (event) => {
+      if (!isHistoryRestore(event)) return;
+      clearLeavingState();
+      setFinalState();
+    };
+
+    window.addEventListener('pageshow', onPageShow);
 
     return () => {
+      window.removeEventListener('pageshow', onPageShow);
+      cleanupLiquidAccent?.();
+    };
+  });
+
+  media.add('(prefers-reduced-motion: no-preference)', () => {
+    const cleanupLiquidAccent = setupLiquidAccent(gsapInstance, reduceMotion);
+    let entrance = playEntrance();
+    const onPageShow = (event) => {
+      if (!isHistoryRestore(event)) return;
+      entrance.kill();
+      entrance = playEntrance();
+    };
+
+    window.addEventListener('pageshow', onPageShow);
+
+    return () => {
+      window.removeEventListener('pageshow', onPageShow);
       entrance.kill();
       cleanupLiquidAccent?.();
     };

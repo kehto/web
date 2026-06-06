@@ -189,6 +189,10 @@ describe('playground gateway artifact guard', () => {
     expect(script).toContain('setupLiquidAccent');
     expect(script).toContain("canvas.getContext('2d'");
     expect(script).toContain('gsapApi.ticker.add');
+    expect(script).toContain('function isHistoryRestore');
+    expect(script).toContain("entry.type === 'back_forward'");
+    expect(script).toContain("document.body.classList.remove('is-leaving')");
+    expect(script).toContain("window.addEventListener('pageshow', onPageShow)");
     expect(script).toContain('gsapInstance.matchMedia()');
     expect(script).toContain("'(prefers-reduced-motion: reduce)'");
     expect(script).toContain("'(prefers-reduced-motion: no-preference)'");
