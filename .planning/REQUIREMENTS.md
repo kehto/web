@@ -13,33 +13,33 @@
 
 ### Brand Identity
 
-- [ ] **BRAND-01**: Visitor can immediately recognize the page as Kehto through a custom readable wordmark/text treatment, not a plain system-font heading.
-- [ ] **BRAND-02**: Visitor sees an almost-black visual system with muted yellow as the primary accent.
-- [ ] **BRAND-03**: The design evokes Kehto's Finnish "cradle" origin through subtle shape/motion language without literal cradle, baby, rune, aurora, or folk motifs.
+- [x] **BRAND-01**: Visitor can immediately recognize the page as Kehto through a custom readable wordmark/text treatment, not a plain system-font heading.
+- [x] **BRAND-02**: Visitor sees an almost-black visual system with muted yellow as the primary accent.
+- [x] **BRAND-03**: The design evokes Kehto's Finnish "cradle" origin through subtle shape/motion language without literal cradle, baby, rune, aurora, or folk motifs.
 
 ### Landing UX
 
-- [ ] **UX-01**: Visitor can still navigate to `/web/playground/` and `/web/docs/` from the landing page.
-- [ ] **UX-02**: Visitor understands Kehto as a shell-side runtime for sandboxed napplets before choosing a destination.
-- [ ] **UX-03**: The alpha/reference-implementation caveat remains visible and accurate.
+- [x] **UX-01**: Visitor can still navigate to `/web/playground/` and `/web/docs/` from the landing page.
+- [x] **UX-02**: Visitor understands Kehto as a shell-side runtime for sandboxed napplets before choosing a destination.
+- [x] **UX-03**: The alpha/reference-implementation caveat remains visible and accurate.
 
 ### Motion
 
-- [ ] **MOTION-01**: Page entrance uses GSAP for restrained staged reveal of background, wordmark, copy, notice, links, and footer.
-- [ ] **MOTION-02**: Ordinary clicks to Playground or Docs use a short GSAP exit transition before navigation, while preserving normal link behavior.
-- [ ] **MOTION-03**: Background includes a subtle low-contrast liquid accent that never obscures content.
-- [ ] **MOTION-04**: Reduced-motion users get immediate final states, no delayed navigation, and static or minimal background motion.
+- [x] **MOTION-01**: Page entrance uses GSAP for restrained staged reveal of background, wordmark, copy, notice, links, and footer.
+- [x] **MOTION-02**: Ordinary clicks to Playground or Docs use a short GSAP exit transition before navigation, while preserving normal link behavior.
+- [x] **MOTION-03**: Background includes a subtle low-contrast liquid accent that never obscures content.
+- [x] **MOTION-04**: Reduced-motion users get immediate final states, no delayed navigation, and static or minimal background motion.
 
 ### Static Pages Contract
 
-- [ ] **PAGES-01**: GSAP is added explicitly and vendored into the Pages artifact instead of loaded only from a CDN.
-- [ ] **PAGES-02**: Portal CSS/JS assets are copied into `.pages/assets` and referenced with `/web/`-safe paths.
-- [ ] **PAGES-03**: `audit:pages` verifies portal links and required landing assets.
+- [x] **PAGES-01**: GSAP is added explicitly and vendored into the Pages artifact instead of loaded only from a CDN.
+- [x] **PAGES-02**: Portal CSS/JS assets are copied into `.pages/assets` and referenced with `/web/`-safe paths.
+- [x] **PAGES-03**: `audit:pages` verifies portal links and required landing assets.
 
 ### Verification
 
-- [ ] **VERIFY-01**: `pnpm build:pages`, `pnpm audit:pages`, focused portal tests/static guards, and `git diff --check` pass.
-- [ ] **VERIFY-02**: Desktop, mobile, reduced-motion, and liquid-accent visual checks are captured before the milestone is considered done.
+- [x] **VERIFY-01**: `pnpm build:pages`, `pnpm audit:pages`, focused portal tests/static guards, and `git diff --check` pass.
+- [x] **VERIFY-02**: Desktop, mobile, reduced-motion, and liquid-accent visual checks are captured before the milestone is considered done.
 
 ## Future Requirements
 

@@ -1,3 +1,10 @@
+---
+requirements-completed:
+  - MOTION-03
+  - VERIFY-01
+  - VERIFY-02
+---
+
 # Phase 79 Summary: Liquid Accent and Visual Verification
 
 **Completed:** 2026-06-06
