@@ -16,10 +16,6 @@
     <div class="page-shell">
       <div class="ambient-field" aria-hidden="true">
         <canvas id="liquid-accent" class="liquid-accent"></canvas>
-        <div class="cradle-arc cradle-arc-primary"></div>
-        <div class="cradle-arc cradle-arc-secondary"></div>
-        <div class="field-line field-line-one"></div>
-        <div class="field-line field-line-two"></div>
       </div>
 
       <main class="landing" aria-labelledby="kehto-title">
@@ -32,42 +28,17 @@
           </h1>
 
           <p id="kehto-summary" class="summary">
-            Kehto is a modular runtime implementation for NIP-5D napplets. It gives
-            host applications the shell-side pieces for protocol routing, ACL
-            enforcement, service handlers, gateway loading, and browser integration.
+            A shell runtime for sandboxed NIP-5D napplets. Route capabilities,
+            enforce policy, and serve gateway-hosted apps without owning the app.
           </p>
         </section>
-
-        <section class="proof-grid" aria-label="Kehto proof points">
-          <div class="proof-item">
-            <span class="proof-kicker">01</span>
-            <strong>Cradle the app</strong>
-            <p>Sandboxed iframes stay contained while the shell owns capabilities.</p>
-          </div>
-          <div class="proof-item">
-            <span class="proof-kicker">02</span>
-            <strong>Route the protocol</strong>
-            <p>Runtime packages handle NIP-5D messages, services, and enforcement.</p>
-          </div>
-          <div class="proof-item">
-            <span class="proof-kicker">03</span>
-            <strong>Prove the surface</strong>
-            <p>Gateway-hosted napplets and docs show the integration contract.</p>
-          </div>
-        </section>
-
-        <p class="notice">
-          <strong>Alpha notice:</strong> NIP-5D is still under development and NUB
-          contracts are not final. APIs, capability names, <code>requires</code>
-          declarations, and <code>supports()</code> behavior may change.
-        </p>
 
         <nav class="destinations" aria-label="Kehto web destinations">
           <a class="destination destination-primary" href="/web/playground/" data-route-link>
             <span class="destination-path">/web/playground/</span>
             <span class="destination-label">Open Playground</span>
             <span class="destination-copy">
-              Watch gateway-hosted demo napplets run through the shell.
+              Run gateway-hosted napplets through the shell.
             </span>
           </a>
 
@@ -75,14 +46,25 @@
             <span class="destination-path">/web/docs/</span>
             <span class="destination-label">Read Docs</span>
             <span class="destination-copy">
-              Integrate packages, runtime services, policies, and host flows.
+              Integrate runtime packages and host flows.
             </span>
           </a>
         </nav>
+
+        <section class="signal-row" aria-label="Kehto proof points">
+          <span>Sandbox</span>
+          <span>Route</span>
+          <span>Enforce</span>
+          <span>Prove</span>
+        </section>
+
+        <p class="notice">
+          <strong>Alpha notice:</strong> NIP-5D and NUB contracts may change.
+        </p>
       </main>
 
       <footer class="site-footer">
-        <span>Kehto is an early runtime and potential reference implementation for NIP-5D napplets.</span>
+        <span>Early reference runtime for NIP-5D napplets.</span>
       </footer>
     </div>
   </body>

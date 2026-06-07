@@ -179,14 +179,19 @@ describe('playground gateway artifact guard', () => {
     expect(portal).toContain('Alpha notice:');
     expect(portal).toContain('Shell-side runtime for sandboxed napplets');
 
-    expect(stylesheet).toContain('--bg: #080805');
-    expect(stylesheet).toContain('--accent: #d6ba5b');
+    expect(stylesheet).toContain('--bg: #020201');
+    expect(stylesheet).toContain('--accent: #f4c539');
     expect(stylesheet).toContain('.liquid-accent');
     expect(stylesheet).toContain('.wordmark-name::after');
     expect(stylesheet).toContain('@media (max-width: 780px)');
     expect(stylesheet).toContain('@media (prefers-reduced-motion: reduce)');
     expect(script).toContain('window.gsap');
     expect(script).toContain('setupLiquidAccent');
+    expect(script).toContain('createFluidNodes');
+    expect(script).toContain('drawFluidFrame');
+    expect(script).toContain('drawFluidWake');
+    expect(script).toContain('driverTween');
+    expect(script).toContain("gsapApi.quickTo(pointer, 'pressure'");
     expect(script).toContain("canvas.getContext('2d'");
     expect(script).toContain('gsapApi.ticker.add');
     expect(script).toContain('function isHistoryRestore');
