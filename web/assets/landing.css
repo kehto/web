@@ -86,7 +86,7 @@ code {
   inset: 0;
   width: 100%;
   height: 100%;
-  opacity: 0.86;
+  opacity: 0.78;
 }
 
 .landing {
@@ -315,7 +315,7 @@ code {
   }
 
   .hairline-accent {
-    opacity: 0.58;
+    opacity: 0.52;
   }
 }
 
