@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.17
 milestone_name: Beautify the SPA Landing Page
 status: Awaiting next milestone
-last_updated: "2026-06-08T12:57:06.482Z"
-last_activity: 2026-06-08 — Quick task 260608-izc topo contour follow-up completed
+last_updated: "2026-06-08T13:01:07.337Z"
+last_activity: 2026-06-08 — Fast task renamed web landing label to Kehto Web Runtime
 progress:
   total_phases: 3
   completed_phases: 3
@@ -96,6 +96,7 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 | 260524-maf | Add the aislop-badge GitHub Action | 2026-05-24 | b5c39f7 | [260524-maf-add-the-aislop-badge-github-action-to-a-](./quick/260524-maf-add-the-aislop-badge-github-action-to-a-/) |
 | 260606-g9z | Deslopify aislop duplicate exported type declarations | 2026-06-06 | 191a187 | [260606-g9z-deslopify-aislop-duplicate-exported-type](./quick/260606-g9z-deslopify-aislop-duplicate-exported-type/) |
 | 260608-izc | Iterate Kehto static site landing page feedback | 2026-06-08 | 0a97b90, 633998a, 7e7679e, e16bc41 | [260608-izc-iterate-the-kehto-static-site-landing-pa](./quick/260608-izc-iterate-the-kehto-static-site-landing-pa/) |
+| fast-web-runtime-label | Rename web landing label to Kehto Web Runtime | 2026-06-08 | 2e0f69e | web/index.html |
 
 ## Session Continuity
 
