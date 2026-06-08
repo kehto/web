@@ -105,6 +105,7 @@ describe('playground gateway artifact guard', () => {
     const pagesScript = readRepoFile('scripts/build-pages.mjs');
     const pagesServeScript = readRepoFile('scripts/serve-pages.mjs');
     const pagesAudit = readRepoFile('scripts/audit-pages-artifact.mjs');
+    const siteDevConfig = readRepoFile('web/vite.config.mjs');
     const turbo = readRepoFile('turbo.json');
     const packageJson = JSON.parse(readRepoFile('package.json')) as {
       dependencies?: Record<string, string>;
@@ -164,6 +165,9 @@ describe('playground gateway artifact guard', () => {
     expect(pagesServeScript).toContain('artifactPathFromRequest');
     expect(pagesServeScript).toContain('Run pnpm site:build first.');
     expect(pagesServeScript).toContain('Kehto web preview:');
+    expect(siteDevConfig).toContain('/web/assets/vendor/gsap.min.js');
+    expect(siteDevConfig).toContain("join(repoRoot, 'node_modules', 'gsap', 'dist', 'gsap.min.js')");
+    expect(siteDevConfig).toContain("name: 'kehto-site-dev-vendor'");
     expect(pagesAudit).toContain("const PORTAL_GSAP_VENDOR = 'assets/vendor/gsap.min.js';");
     expect(pagesAudit).toContain("const PORTAL_LANDING_CSS = 'assets/landing.css';");
     expect(pagesAudit).toContain("const PORTAL_LANDING_JS = 'assets/landing.js';");
@@ -206,20 +210,20 @@ describe('playground gateway artifact guard', () => {
     expect(stylesheet).toContain('@media (max-width: 780px)');
     expect(stylesheet).toContain('@media (prefers-reduced-motion: reduce)');
     expect(script).toContain('window.gsap');
-    expect(script).toContain('setupHairlineAccent');
-    expect(script).toContain('createHairlineStrands');
-    expect(script).toContain('drawHairlineFrame');
-    expect(script).toContain('drawHairlineTrace');
-    expect(script).toContain('drawHairlineEddies');
-    expect(script).toContain('applyVortexForce');
-    expect(script).toContain('applyNeighborTension');
+    expect(script).toContain('setupContourAccent');
+    expect(script).toContain('createContourBodies');
+    expect(script).toContain('drawContourFrame');
+    expect(script).toContain('drawContourLines');
+    expect(script).toContain('drawContourLevel');
+    expect(script).toContain('sampleContourField');
+    expect(script).toContain('interpolateContourPoint');
     expect(script).not.toContain('createRadialGradient');
     expect(script).not.toContain("globalCompositeOperation = 'lighter'");
     expect(script).not.toContain('context.filter');
-    expect(script).toContain('driverTween');
+    expect(script).toContain('phaseTween');
     expect(script).toContain('function updatePointerInertia');
     expect(script).toContain('pointer.targetPressure');
-    expect(script).toContain('requestAnimationFrame(tickHairlines)');
+    expect(script).toContain('requestAnimationFrame(tickContours)');
     expect(script).toContain('cancelAnimationFrame(animationFrameId)');
     expect(script).toContain("canvas.getContext('2d'");
     expect(script).toContain('gsapApi.ticker.add');
