@@ -4,7 +4,7 @@ milestone: v1.17
 milestone_name: Beautify the SPA Landing Page
 status: Awaiting next milestone
 last_updated: "2026-06-08T13:01:07.337Z"
-last_activity: 2026-06-08 — Fast task renamed web landing label to Kehto Web Runtime
+last_activity: 2026-06-08 — Completed quick task 260608-lsu: Explore Kehto typography options
 progress:
   total_phases: 3
   completed_phases: 3
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-06-06, v1.17 shipped)
 Phase: Milestone v1.17 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-06-06 — Milestone v1.17 completed and archived
+Last activity: 2026-06-08 — Completed quick task 260608-lsu: Explore Kehto typography options
 
 ## Accumulated Context
 
@@ -97,6 +97,7 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 | 260606-g9z | Deslopify aislop duplicate exported type declarations | 2026-06-06 | 191a187 | [260606-g9z-deslopify-aislop-duplicate-exported-type](./quick/260606-g9z-deslopify-aislop-duplicate-exported-type/) |
 | 260608-izc | Iterate Kehto static site landing page feedback | 2026-06-08 | 0a97b90, 633998a, 7e7679e, e16bc41 | [260608-izc-iterate-the-kehto-static-site-landing-pa](./quick/260608-izc-iterate-the-kehto-static-site-landing-pa/) |
 | fast-web-runtime-label | Rename web landing label to Kehto Web Runtime | 2026-06-08 | 2e0f69e | web/index.html |
+| 260608-lsu | Explore Kehto typography options | 2026-06-08 | 288df7d | [260608-lsu-explore-more-typographical-options-for-t](./quick/260608-lsu-explore-more-typographical-options-for-t/) |
 
 ## Session Continuity
 
