@@ -23,7 +23,7 @@
     "test:serve": "pnpm --filter @test/harness dev",
     "test:serve:demo": "pnpm --filter @kehto/playground preview --port 4174",
     "lint": "turbo run lint",
-    "site:build": "VITEPRESS_BASE=/web/docs/ pnpm docs:check && pnpm build:pages",
+    "site:build": "PLAYGROUND_BASE_PATH=/web/playground/ pnpm --filter @kehto/playground build && VITEPRESS_BASE=/web/docs/ pnpm docs:check && pnpm build:pages",
     "site:dev": "pnpm --filter @kehto/playground exec vite ../../web --host 127.0.0.1 --port 5175 --base /web/",
     "site:preview": "pnpm site:build && node scripts/serve-pages.mjs",
     "site:serve": "node scripts/serve-pages.mjs",

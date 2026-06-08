@@ -81,13 +81,12 @@ code {
   opacity: 0.96;
 }
 
-.liquid-accent {
+.hairline-accent {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  opacity: 0.42;
-  filter: saturate(1.02) contrast(1.02);
+  opacity: 0.72;
 }
 
 .landing {
@@ -326,7 +325,7 @@ code {
     animation-iteration-count: 1 !important;
   }
 
-  .liquid-accent {
-    opacity: 0.7;
+  .hairline-accent {
+    opacity: 0.62;
   }
 }

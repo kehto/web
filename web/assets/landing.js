@@ -29,235 +29,236 @@ function isHistoryRestore(event) {
   return entries.some((entry) => entry.type === 'back_forward');
 }
 
-function createFluidNodes() {
+function createHairlineStrands() {
   return [
-    { homeX: 0.16, homeY: 0.25, radius: 0.22, mass: 0.9, x: 0, y: 0, vx: 0, vy: 0 },
-    { homeX: 0.31, homeY: 0.18, radius: 0.28, mass: 1.1, x: 0, y: 0, vx: 0, vy: 0 },
-    { homeX: 0.5, homeY: 0.3, radius: 0.34, mass: 1.3, x: 0, y: 0, vx: 0, vy: 0 },
-    { homeX: 0.72, homeY: 0.22, radius: 0.26, mass: 1, x: 0, y: 0, vx: 0, vy: 0 },
-    { homeX: 0.84, homeY: 0.46, radius: 0.3, mass: 1.2, x: 0, y: 0, vx: 0, vy: 0 },
-    { homeX: 0.66, homeY: 0.68, radius: 0.32, mass: 1.3, x: 0, y: 0, vx: 0, vy: 0 },
-    { homeX: 0.42, homeY: 0.78, radius: 0.27, mass: 1, x: 0, y: 0, vx: 0, vy: 0 },
-    { homeX: 0.19, homeY: 0.66, radius: 0.3, mass: 1.15, x: 0, y: 0, vx: 0, vy: 0 },
+    { homeY: 0.2, amplitude: 0.035, phase: 0.2, speed: 0.18, points: [] },
+    { homeY: 0.3, amplitude: 0.026, phase: 1.2, speed: 0.14, points: [] },
+    { homeY: 0.42, amplitude: 0.032, phase: 2.15, speed: 0.16, points: [] },
+    { homeY: 0.56, amplitude: 0.024, phase: 3.3, speed: 0.12, points: [] },
+    { homeY: 0.7, amplitude: 0.03, phase: 4.35, speed: 0.15, points: [] },
   ];
 }
 
-function createFluidState(canvas, context) {
+function createHairlineState(canvas, context) {
   return {
     canvas,
     context,
     height: 0,
     lastTime: 0,
-    nodes: createFluidNodes(),
     pixelRatio: 1,
+    strands: createHairlineStrands(),
     width: 0,
   };
 }
 
-function resizeFluidCanvas(fluid) {
+function createHairlinePoints(strand, width, height) {
+  const count = Math.max(7, Math.round(width / 190));
+  strand.points = Array.from({ length: count }, (_, index) => {
+    const progress = count === 1 ? 0 : index / (count - 1);
+    const x = progress * width;
+    const y = strand.homeY * height;
+
+    return {
+      homeX: progress,
+      x,
+      y,
+      vx: 0,
+      vy: 0,
+    };
+  });
+}
+
+function resizeHairlineCanvas(field) {
   const nextWidth = window.innerWidth;
   const nextHeight = window.innerHeight;
-  const nextRatio = Math.min(window.devicePixelRatio || 1, 1.6);
+  const nextRatio = Math.min(window.devicePixelRatio || 1, 2);
 
-  if (nextWidth === fluid.width && nextHeight === fluid.height && nextRatio === fluid.pixelRatio) return;
+  if (nextWidth === field.width && nextHeight === field.height && nextRatio === field.pixelRatio) return;
 
-  fluid.width = nextWidth;
-  fluid.height = nextHeight;
-  fluid.pixelRatio = nextRatio;
-  fluid.canvas.width = Math.max(1, Math.floor(fluid.width * fluid.pixelRatio));
-  fluid.canvas.height = Math.max(1, Math.floor(fluid.height * fluid.pixelRatio));
-  fluid.canvas.style.width = `${fluid.width}px`;
-  fluid.canvas.style.height = `${fluid.height}px`;
-  fluid.context.setTransform(fluid.pixelRatio, 0, 0, fluid.pixelRatio, 0, 0);
+  field.width = nextWidth;
+  field.height = nextHeight;
+  field.pixelRatio = nextRatio;
+  field.canvas.width = Math.max(1, Math.floor(field.width * field.pixelRatio));
+  field.canvas.height = Math.max(1, Math.floor(field.height * field.pixelRatio));
+  field.canvas.style.width = `${field.width}px`;
+  field.canvas.style.height = `${field.height}px`;
+  field.context.setTransform(field.pixelRatio, 0, 0, field.pixelRatio, 0, 0);
 
-  for (const node of fluid.nodes) {
-    node.x = node.homeX * fluid.width;
-    node.y = node.homeY * fluid.height;
-    node.vx = 0;
-    node.vy = 0;
-  }
-}
-
-function drawFluidNode(fluid, node, strength) {
-  const radius = Math.min(fluid.width, fluid.height) * node.radius * (0.9 + strength * 0.18);
-  const gradient = fluid.context.createRadialGradient(node.x, node.y, 0, node.x, node.y, radius);
-
-  gradient.addColorStop(0, `rgba(255, 218, 88, ${0.044 + strength * 0.032})`);
-  gradient.addColorStop(0.32, `rgba(244, 197, 57, ${0.026 + strength * 0.022})`);
-  gradient.addColorStop(0.68, 'rgba(244, 197, 57, 0.01)');
-  gradient.addColorStop(1, 'rgba(244, 197, 57, 0)');
-
-  fluid.context.fillStyle = gradient;
-  fluid.context.beginPath();
-  fluid.context.arc(node.x, node.y, radius, 0, Math.PI * 2);
-  fluid.context.fill();
-}
-
-function drawFluidWake(fluid, strength) {
-  const scale = Math.min(fluid.width, fluid.height);
-  fluid.context.save();
-  fluid.context.globalCompositeOperation = 'lighter';
-  fluid.context.filter = `blur(${Math.max(18, scale * 0.032)}px)`;
-  fluid.context.lineCap = 'round';
-  fluid.context.lineJoin = 'round';
-  fluid.context.lineWidth = Math.max(34, scale * 0.056);
-  fluid.context.strokeStyle = `rgba(255, 218, 88, ${0.01 + strength * 0.012})`;
-
-  fluid.context.beginPath();
-  fluid.context.moveTo(fluid.nodes[0].x, fluid.nodes[0].y);
-
-  for (let index = 1; index < fluid.nodes.length; index += 2) {
-    const current = fluid.nodes[index];
-    const next = fluid.nodes[(index + 1) % fluid.nodes.length];
-    fluid.context.bezierCurveTo(
-      current.x,
-      current.y,
-      next.x,
-      next.y,
-      (current.x + next.x) * 0.5,
-      (current.y + next.y) * 0.5,
-    );
-  }
-
-  fluid.context.stroke();
-  fluid.context.restore();
-}
-
-function repelFluidNodes(fluid, node, index, dt) {
-  for (let otherIndex = index + 1; otherIndex < fluid.nodes.length; otherIndex += 1) {
-    const other = fluid.nodes[otherIndex];
-    const dx = node.x - other.x;
-    const dy = node.y - other.y;
-    const distance = Math.hypot(dx, dy) || 1;
-    const target = Math.min(fluid.width, fluid.height) * 0.18;
-    const pressure = Math.max(0, 1 - distance / target) * 24 * dt;
-    node.vx += (dx / distance) * pressure;
-    node.vy += (dy / distance) * pressure;
-    other.vx -= (dx / distance) * pressure;
-    other.vy -= (dy / distance) * pressure;
+  for (const strand of field.strands) {
+    createHairlinePoints(strand, field.width, field.height);
   }
 }
 
 function updatePointerInertia(pointer, dt) {
-  const follow = 1 - Math.pow(0.002, dt);
-  const pressureFollow = 1 - Math.pow(0.01, dt);
+  const follow = 1 - Math.pow(0.006, dt);
+  const pressureFollow = 1 - Math.pow(0.018, dt);
   pointer.x += (pointer.targetX - pointer.x) * follow;
   pointer.y += (pointer.targetY - pointer.y) * follow;
   pointer.pressure += (pointer.targetPressure - pointer.pressure) * pressureFollow;
-  pointer.targetPressure *= Math.pow(0.5, dt);
+  pointer.targetPressure *= Math.pow(0.38, dt);
 
-  if (pointer.targetPressure < 0.01) {
+  if (pointer.targetPressure < 0.008) {
     pointer.targetPressure = 0;
   }
 }
 
-function moveFluidNodes(fluid, driver, pointer, dt) {
+function moveHairlinePoints(field, driver, pointer, dt) {
   updatePointerInertia(pointer, dt);
 
-  const centerX = fluid.width * (driver.x + Math.sin(driver.spin * 0.37) * 0.09);
-  const centerY = fluid.height * (driver.y + Math.cos(driver.spin * 0.29) * 0.11);
-  const pointerX = pointer.x * fluid.width;
-  const pointerY = pointer.y * fluid.height;
+  const pointerX = pointer.x * field.width;
+  const pointerY = pointer.y * field.height;
+  const baseScale = Math.min(field.width, field.height);
 
-  for (let index = 0; index < fluid.nodes.length; index += 1) {
-    const node = fluid.nodes[index];
-    const homeX = node.homeX * fluid.width;
-    const homeY = node.homeY * fluid.height;
-    const toDriverX = centerX - node.x;
-    const toDriverY = centerY - node.y;
-    const driverDistance = Math.hypot(toDriverX, toDriverY) || 1;
-    const swirl = Math.sin(driver.spin + index * 0.92) * 24 * driver.pressure;
-    const pointerDistance = Math.hypot(pointerX - node.x, pointerY - node.y) || 1;
-    const pointerRange = Math.min(fluid.width, fluid.height) * 0.48;
-    const pointerInfluence = Math.max(0, 1 - pointerDistance / pointerRange) * pointer.pressure;
+  for (let strandIndex = 0; strandIndex < field.strands.length; strandIndex += 1) {
+    const strand = field.strands[strandIndex];
+    const phase = driver.phase * strand.speed + strand.phase;
 
-    node.vx += ((homeX - node.x) * 0.045 + (toDriverY / driverDistance) * swirl + (pointerX - node.x) * 0.006 * pointerInfluence) * dt / node.mass;
-    node.vy += ((homeY - node.y) * 0.045 - (toDriverX / driverDistance) * swirl + (pointerY - node.y) * 0.006 * pointerInfluence) * dt / node.mass;
+    for (let index = 0; index < strand.points.length; index += 1) {
+      const point = strand.points[index];
+      const progress = point.homeX;
+      const homeX = progress * field.width;
+      const wave = Math.sin(progress * Math.PI * 2 + phase) * strand.amplitude * field.height;
+      const homeY = strand.homeY * field.height + wave;
+      const distance = Math.hypot(pointerX - point.x, pointerY - point.y) || 1;
+      const range = baseScale * 0.46;
+      const influence = Math.max(0, 1 - distance / range) * pointer.pressure;
+      const sideBias = (progress - 0.5) * baseScale * 0.018 * driver.pressure;
+      const targetX = homeX + (pointerX - point.x) * 0.018 * influence + sideBias;
+      const targetY = homeY + (pointerY - point.y) * 0.028 * influence;
 
-    repelFluidNodes(fluid, node, index, dt);
-    node.vx *= 0.987;
-    node.vy *= 0.987;
-    node.x += node.vx;
-    node.y += node.vy;
+      point.vx += (targetX - point.x) * 0.035 * dt;
+      point.vy += (targetY - point.y) * 0.035 * dt;
+      point.vx *= 0.992;
+      point.vy *= 0.992;
+      point.x += point.vx;
+      point.y += point.vy;
+    }
   }
 }
 
-function drawFluidFrame(fluid, driver, pointer, reducedMotionQuery, time = 0) {
-  resizeFluidCanvas(fluid);
-  const dt = Math.min(0.04, Math.max(0.012, time - fluid.lastTime || 0.016));
-  fluid.lastTime = time;
+function drawHairlineTrace(field, strand, index, strength) {
+  const points = strand.points;
+  if (points.length < 2) return;
 
-  fluid.context.globalCompositeOperation = 'destination-out';
-  fluid.context.fillStyle = 'rgba(0, 0, 0, 0.12)';
-  fluid.context.fillRect(0, 0, fluid.width, fluid.height);
+  const context = field.context;
+  const alpha = 0.32 + strength * 0.22 - index * 0.025;
+  context.beginPath();
+  context.moveTo(points[0].x, points[0].y);
+
+  for (let pointIndex = 1; pointIndex < points.length - 1; pointIndex += 1) {
+    const current = points[pointIndex];
+    const next = points[pointIndex + 1];
+    context.quadraticCurveTo(current.x, current.y, (current.x + next.x) * 0.5, (current.y + next.y) * 0.5);
+  }
+
+  const last = points[points.length - 1];
+  context.lineTo(last.x, last.y);
+  context.strokeStyle = `rgba(244, 197, 57, ${Math.max(0.18, alpha)})`;
+  context.lineWidth = index === 0 ? 0.9 : 0.72;
+  context.stroke();
+}
+
+function drawHairlineTicks(field, strand, index, strength) {
+  const context = field.context;
+  const tickEvery = index % 2 === 0 ? 2 : 3;
+  context.strokeStyle = `rgba(255, 218, 88, ${0.24 + strength * 0.16})`;
+  context.lineWidth = 0.62;
+
+  for (let pointIndex = 1; pointIndex < strand.points.length - 1; pointIndex += tickEvery) {
+    const point = strand.points[pointIndex];
+    const next = strand.points[pointIndex + 1];
+    const angle = Math.atan2(next.y - point.y, next.x - point.x) + Math.PI / 2;
+    const length = 6 + strength * 5;
+    const x = Math.cos(angle) * length;
+    const y = Math.sin(angle) * length;
+    context.beginPath();
+    context.moveTo(point.x - x, point.y - y);
+    context.lineTo(point.x + x, point.y + y);
+    context.stroke();
+  }
+}
+
+function drawHairlineFrame(field, driver, pointer, reducedMotionQuery, time = 0) {
+  resizeHairlineCanvas(field);
+  const dt = Math.min(0.04, Math.max(0.012, time - field.lastTime || 0.016));
+  field.lastTime = time;
+  field.context.clearRect(0, 0, field.width, field.height);
 
   if (!reducedMotionQuery.matches) {
-    moveFluidNodes(fluid, driver, pointer, dt);
+    moveHairlinePoints(field, driver, pointer, dt);
   }
 
-  const strength = reducedMotionQuery.matches ? 0.16 : Math.max(driver.pressure, pointer.pressure);
-  drawFluidWake(fluid, strength);
+  const strength = reducedMotionQuery.matches ? 0.18 : Math.max(driver.pressure, pointer.pressure);
+  field.context.save();
+  field.context.lineCap = 'butt';
+  field.context.lineJoin = 'round';
 
-  for (const node of fluid.nodes) {
-    drawFluidNode(fluid, node, strength);
+  for (let index = 0; index < field.strands.length; index += 1) {
+    const strand = field.strands[index];
+    drawHairlineTrace(field, strand, index, strength);
+    drawHairlineTicks(field, strand, index, strength);
   }
 
-  fluid.context.globalCompositeOperation = 'source-over';
+  field.context.restore();
 }
 
-function drawStillFluid(fluid) {
-  resizeFluidCanvas(fluid);
-  fluid.context.clearRect(0, 0, fluid.width, fluid.height);
-  drawFluidWake(fluid, 0.18);
+function drawStillHairlines(field) {
+  resizeHairlineCanvas(field);
+  field.context.clearRect(0, 0, field.width, field.height);
 
-  for (const node of fluid.nodes) {
-    drawFluidNode(fluid, node, 0.16);
+  for (const strand of field.strands) {
+    createHairlinePoints(strand, field.width, field.height);
   }
+
+  drawHairlineFrame(
+    field,
+    { phase: 0.2, pressure: 0.16 },
+    { x: 0.5, y: 0.5, targetX: 0.5, targetY: 0.5, targetPressure: 0, pressure: 0 },
+    { matches: true },
+  );
 }
 
-function setupLiquidAccent(gsapApi, reducedMotionQuery) {
-  const canvas = document.getElementById('liquid-accent');
+function setupHairlineAccent(gsapApi, reducedMotionQuery) {
+  const canvas = document.getElementById('hairline-accent');
   if (!(canvas instanceof HTMLCanvasElement)) return null;
 
   const context = canvas.getContext('2d', { alpha: true });
   if (!context) return null;
 
-  const fluid = createFluidState(canvas, context);
-  const driver = { x: 0.52, y: 0.4, spin: 0, pressure: 0.32 };
+  const field = createHairlineState(canvas, context);
+  const driver = { phase: 0, pressure: 0.2 };
   const pointer = { x: 0.5, y: 0.5, targetX: 0.5, targetY: 0.5, targetPressure: 0, pressure: 0 };
-  const advanceFluid = (time = 0) => drawFluidFrame(fluid, driver, pointer, reducedMotionQuery, time);
+  const advanceHairlines = (time = 0) => drawHairlineFrame(field, driver, pointer, reducedMotionQuery, time);
   const onResize = () => {
     if (reducedMotionQuery.matches || !gsapApi) {
-      drawStillFluid(fluid);
+      drawStillHairlines(field);
       return;
     }
 
-    advanceFluid(fluid.lastTime);
+    advanceHairlines(field.lastTime);
   };
   window.addEventListener('resize', onResize, { passive: true });
-  drawStillFluid(fluid);
+  drawStillHairlines(field);
 
   if (reducedMotionQuery.matches || !gsapApi) {
     return () => window.removeEventListener('resize', onResize);
   }
 
   const driverTween = gsapApi.to(driver, {
-    x: 0.62,
-    y: 0.54,
-    pressure: 0.48,
-    spin: Math.PI * 2,
-    duration: 24,
+    phase: Math.PI * 2,
+    pressure: 0.34,
+    duration: 30,
     ease: 'sine.inOut',
     repeat: -1,
     yoyo: true,
   });
   const onPointerMove = (event) => {
-    const nextX = event.clientX / Math.max(1, fluid.width);
-    const nextY = event.clientY / Math.max(1, fluid.height);
+    const nextX = event.clientX / Math.max(1, field.width);
+    const nextY = event.clientY / Math.max(1, field.height);
     const distance = Math.hypot(nextX - pointer.targetX, nextY - pointer.targetY);
     pointer.targetX = nextX;
     pointer.targetY = nextY;
-    pointer.targetPressure = Math.min(0.34, 0.06 + distance * 2.6);
+    pointer.targetPressure = Math.min(0.42, 0.08 + distance * 2.2);
   };
   const onPointerLeave = () => {
     pointer.targetPressure = 0;
@@ -265,19 +266,19 @@ function setupLiquidAccent(gsapApi, reducedMotionQuery) {
 
   window.addEventListener('pointermove', onPointerMove, { passive: true });
   window.addEventListener('pointerleave', onPointerLeave, { passive: true });
-  gsapApi.ticker.add(advanceFluid);
+  gsapApi.ticker.add(advanceHairlines);
 
   return () => {
     window.removeEventListener('resize', onResize);
     window.removeEventListener('pointermove', onPointerMove);
     window.removeEventListener('pointerleave', onPointerLeave);
     driverTween.kill();
-    gsapApi.ticker.remove(advanceFluid);
+    gsapApi.ticker.remove(advanceHairlines);
   };
 }
 
 if (!gsapInstance) {
-  setupLiquidAccent(null, window.matchMedia('(prefers-reduced-motion: reduce)'));
+  setupHairlineAccent(null, window.matchMedia('(prefers-reduced-motion: reduce)'));
   setFinalState();
 } else {
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -346,7 +347,7 @@ if (!gsapInstance) {
   media.add('(prefers-reduced-motion: reduce)', () => {
     setFinalState();
     gsapInstance.set(motionItems, { clearProps: 'all' });
-    const cleanupLiquidAccent = setupLiquidAccent(null, reduceMotion);
+    const cleanupHairlineAccent = setupHairlineAccent(null, reduceMotion);
     const onPageShow = (event) => {
       if (!isHistoryRestore(event)) return;
       clearLeavingState();
@@ -357,12 +358,12 @@ if (!gsapInstance) {
 
     return () => {
       window.removeEventListener('pageshow', onPageShow);
-      cleanupLiquidAccent?.();
+      cleanupHairlineAccent?.();
     };
   });
 
   media.add('(prefers-reduced-motion: no-preference)', () => {
-    const cleanupLiquidAccent = setupLiquidAccent(gsapInstance, reduceMotion);
+    const cleanupHairlineAccent = setupHairlineAccent(gsapInstance, reduceMotion);
     let entrance = playEntrance();
     const onPageShow = (event) => {
       if (!isHistoryRestore(event)) return;
@@ -375,7 +376,7 @@ if (!gsapInstance) {
     return () => {
       window.removeEventListener('pageshow', onPageShow);
       entrance.kill();
-      cleanupLiquidAccent?.();
+      cleanupHairlineAccent?.();
     };
   });
 

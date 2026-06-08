@@ -88,7 +88,7 @@ function checkPortal() {
   assertContains(portalPath, portal, `href="${PORTAL_LANDING_CSS}"`, 'portal route');
   assertContains(portalPath, portal, `src="${PORTAL_GSAP_VENDOR}"`, 'portal route');
   assertContains(portalPath, portal, `src="${PORTAL_LANDING_JS}"`, 'portal route');
-  assertContains(portalPath, portal, 'id="liquid-accent"', 'portal liquid accent');
+  assertContains(portalPath, portal, 'id="hairline-accent"', 'portal hairline accent');
   assertContains(portalPath, portal, 'class="wordmark"', 'portal brand');
   assertContains(portalPath, portal, 'class="notice"', 'portal alpha notice');
 

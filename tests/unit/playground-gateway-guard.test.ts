@@ -119,7 +119,7 @@ describe('playground gateway artifact guard', () => {
     expect(packageJson.scripts?.dev).toBeUndefined();
     expect(packageJson.scripts?.preview).toBeUndefined();
     expect(packageJson.scripts?.['site:build']).toBe(
-      'VITEPRESS_BASE=/web/docs/ pnpm docs:check && pnpm build:pages',
+      'PLAYGROUND_BASE_PATH=/web/playground/ pnpm --filter @kehto/playground build && VITEPRESS_BASE=/web/docs/ pnpm docs:check && pnpm build:pages',
     );
     expect(packageJson.scripts?.['site:dev']).toBe(
       'pnpm --filter @kehto/playground exec vite ../../web --host 127.0.0.1 --port 5175 --base /web/',
@@ -190,7 +190,7 @@ describe('playground gateway artifact guard', () => {
     expect(portal).toContain('href="assets/landing.css"');
     expect(portal).toContain('src="assets/vendor/gsap.min.js"');
     expect(portal).toContain('src="assets/landing.js"');
-    expect(portal).toContain('id="liquid-accent"');
+    expect(portal).toContain('id="hairline-accent"');
     expect(portal).toContain('href="playground/"');
     expect(portal).toContain('href="docs/"');
     expect(portal).toContain('data-route-link');
@@ -201,15 +201,19 @@ describe('playground gateway artifact guard', () => {
 
     expect(stylesheet).toContain('--bg: #020201');
     expect(stylesheet).toContain('--accent: #f4c539');
-    expect(stylesheet).toContain('.liquid-accent');
+    expect(stylesheet).toContain('.hairline-accent');
     expect(stylesheet).toContain('.wordmark-name::after');
     expect(stylesheet).toContain('@media (max-width: 780px)');
     expect(stylesheet).toContain('@media (prefers-reduced-motion: reduce)');
     expect(script).toContain('window.gsap');
-    expect(script).toContain('setupLiquidAccent');
-    expect(script).toContain('createFluidNodes');
-    expect(script).toContain('drawFluidFrame');
-    expect(script).toContain('drawFluidWake');
+    expect(script).toContain('setupHairlineAccent');
+    expect(script).toContain('createHairlineStrands');
+    expect(script).toContain('drawHairlineFrame');
+    expect(script).toContain('drawHairlineTrace');
+    expect(script).toContain('drawHairlineTicks');
+    expect(script).not.toContain('createRadialGradient');
+    expect(script).not.toContain("globalCompositeOperation = 'lighter'");
+    expect(script).not.toContain('context.filter');
     expect(script).toContain('driverTween');
     expect(script).toContain('function updatePointerInertia');
     expect(script).toContain('pointer.targetPressure');
