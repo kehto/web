@@ -11,6 +11,9 @@
   --accent-hot: #ffda58;
   --accent-deep: #1f1701;
   --shadow: rgba(0, 0, 0, 0.68);
+  --font-brand: Optima, Candara, "Avenir Next", "Segoe UI", FreeSans, sans-serif;
+  --font-copy: "Avenir Next", "Segoe UI", FreeSans, sans-serif;
+  --font-mono: Iosevka, "JetBrainsMono Nerd Font Mono", "SFMono-Regular", Consolas, monospace;
   --max-width: 1040px;
 }
 
@@ -38,11 +41,12 @@ html:not([data-motion="ready"]) .site-footer {
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: Optima, "Avenir Next", "Gill Sans", "Segoe UI", sans-serif;
+  font-family: var(--font-copy);
   background:
     linear-gradient(180deg, rgba(4, 3, 1, 0.4), transparent 42%),
     linear-gradient(145deg, #020201 0%, #040301 58%, #010100 100%);
   color: var(--text);
+  font-feature-settings: "kern" 1, "liga" 1;
 }
 
 a {
@@ -51,7 +55,7 @@ a {
 
 code {
   color: var(--accent-hot);
-  font-family: "SFMono-Regular", Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.94em;
 }
 
@@ -105,9 +109,10 @@ code {
   padding: 6px 9px 5px;
   border-bottom: 1px solid var(--line-strong);
   color: var(--accent-hot);
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.09em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -123,14 +128,14 @@ code {
   display: inline-block;
   width: fit-content;
   padding-right: 0.13em;
-  font-family: "Baskerville", "Libre Baskerville", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
-  font-size: clamp(4.8rem, 12.5vw, 9.7rem);
-  font-weight: 400;
-  line-height: 0.82;
-  letter-spacing: 0.012em;
+  font-family: var(--font-brand);
+  font-size: 8.25rem;
+  font-weight: 300;
+  line-height: 0.88;
+  letter-spacing: 0;
   text-shadow:
-    0 0 26px rgba(255, 218, 88, 0.16),
-    0 24px 90px rgba(244, 197, 57, 0.14);
+    0 0 22px rgba(255, 218, 88, 0.12),
+    0 24px 90px rgba(244, 197, 57, 0.12);
 }
 
 .wordmark-name::after {
@@ -148,17 +153,19 @@ code {
   width: fit-content;
   margin-left: 0.08rem;
   color: var(--accent);
-  font-size: clamp(0.92rem, 1.8vw, 1.12rem);
-  font-weight: 800;
-  letter-spacing: 0.32em;
-  text-transform: uppercase;
+  font-family: var(--font-copy);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .summary {
   max-width: 610px;
   margin: 30px 0 0;
   color: var(--muted);
-  font-size: clamp(1.05rem, 1.8vw, 1.2rem);
+  font-family: var(--font-copy);
+  font-size: 1.12rem;
   line-height: 1.55;
 }
 
@@ -225,15 +232,16 @@ code {
 
 .destination-path {
   color: var(--accent);
-  font-family: "SFMono-Regular", Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.76rem;
 }
 
 .destination-label {
   margin-top: 28px;
-  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
-  font-size: clamp(1.7rem, 3.3vw, 2.45rem);
-  line-height: 0.98;
+  font-family: var(--font-brand);
+  font-size: 2.18rem;
+  font-weight: 300;
+  line-height: 1.04;
 }
 
 .destination-copy {
@@ -255,9 +263,10 @@ code {
   border: 1px solid rgba(255, 218, 88, 0.2);
   background: rgba(4, 3, 1, 0.74);
   color: var(--accent);
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -271,7 +280,7 @@ code {
   color: var(--dim);
   font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   line-height: 1.45;
 }
 
@@ -311,11 +320,29 @@ code {
   }
 
   .wordmark-role {
-    letter-spacing: 0.2em;
+    font-size: 0.92rem;
+  }
+
+  .wordmark-name {
+    font-size: 4.4rem;
+  }
+
+  .summary {
+    font-size: 1.04rem;
+  }
+
+  .destination-label {
+    font-size: 1.78rem;
   }
 
   .hairline-accent {
     opacity: 0.68;
+  }
+}
+
+@media (min-width: 1180px) {
+  .wordmark-name {
+    font-size: 8.9rem;
   }
 }
 

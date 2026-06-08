@@ -114,18 +114,21 @@ describe('playground gateway artifact guard', () => {
     const gitignore = readRepoFile('.gitignore');
     const resourceDemo = readRepoFile('apps/playground/napplets/resource-demo/src/main.ts');
 
-    expect(packageJson.scripts?.['build:playground-pages']).toBe('node scripts/build-playground-pages.mjs');
-    expect(packageJson.scripts?.['build:pages']).toBe('node scripts/build-pages.mjs');
-    expect(packageJson.scripts?.['audit:pages']).toBe('node scripts/audit-pages-artifact.mjs');
+    expect(packageJson.scripts?.['build:playground-pages']).toBe('pnpm site:build:playground-pages');
+    expect(packageJson.scripts?.['build:pages']).toBe('pnpm site:build:pages');
+    expect(packageJson.scripts?.['audit:pages']).toBe('pnpm site:audit');
     expect(packageJson.scripts?.dev).toBeUndefined();
     expect(packageJson.scripts?.preview).toBeUndefined();
-    expect(packageJson.scripts?.['site:build']).toBe(
-      'PLAYGROUND_BASE_PATH=/web/playground/ pnpm --filter @kehto/playground build && VITEPRESS_BASE=/web/docs/ pnpm docs:check && pnpm build:pages',
-    );
+    expect(packageJson.scripts?.['site:audit']).toBe('node scripts/audit-pages-artifact.mjs');
+    expect(packageJson.scripts?.['site:build']).toBe('pnpm site:build:playground && pnpm site:build:docs && pnpm site:build:pages');
+    expect(packageJson.scripts?.['site:build:docs']).toBe('VITEPRESS_BASE=/web/docs/ pnpm docs:check');
+    expect(packageJson.scripts?.['site:build:pages']).toBe('node scripts/build-pages.mjs');
+    expect(packageJson.scripts?.['site:build:playground']).toBe('PLAYGROUND_BASE_PATH=/web/playground/ pnpm --filter @kehto/playground build');
+    expect(packageJson.scripts?.['site:build:playground-pages']).toBe('node scripts/build-playground-pages.mjs');
     expect(packageJson.scripts?.['site:dev']).toBe(
       'pnpm --filter @kehto/playground exec vite ../../web --host 127.0.0.1 --port 5175 --base /web/',
     );
-    expect(packageJson.scripts?.['site:preview']).toBe('pnpm site:build && node scripts/serve-pages.mjs');
+    expect(packageJson.scripts?.['site:preview']).toBe('pnpm site:build && pnpm site:serve');
     expect(packageJson.scripts?.['site:serve']).toBe('node scripts/serve-pages.mjs');
     expect(packageJson.scripts?.['web:build']).toBeUndefined();
     expect(packageJson.scripts?.['web:dev']).toBeUndefined();
@@ -208,8 +211,13 @@ describe('playground gateway artifact guard', () => {
 
     expect(stylesheet).toContain('--bg: #020201');
     expect(stylesheet).toContain('--accent: #f4c539');
+    expect(stylesheet).toContain('--font-brand: Optima');
+    expect(stylesheet).toContain('--font-copy: "Avenir Next"');
+    expect(stylesheet).toContain('--font-mono: Iosevka');
     expect(stylesheet).toContain('.hairline-accent');
     expect(stylesheet).toContain('.wordmark-name::after');
+    expect(stylesheet).toContain('font-family: var(--font-brand)');
+    expect(stylesheet).not.toContain('font-family: "Baskerville"');
     expect(stylesheet).toContain('@media (max-width: 780px)');
     expect(stylesheet).toContain('@media (prefers-reduced-motion: reduce)');
     expect(script).toContain('window.gsap');
@@ -220,6 +228,10 @@ describe('playground gateway artifact guard', () => {
     expect(script).toContain('drawContourLines');
     expect(script).toContain('drawContourLevel');
     expect(script).toContain('sampleContourField');
+    expect(script).toContain('samplePointerWake');
+    expect(script).toContain('samplePassivePulse');
+    expect(script).toContain('sampleActivePulse');
+    expect(script).toContain('triggerContourPulse');
     expect(script).toContain('lineSpacing');
     expect(script).toContain('sampleStep');
     expect(script).toContain('quadraticCurveTo');
@@ -234,6 +246,9 @@ describe('playground gateway artifact guard', () => {
     expect(script).toContain('pointer.targetVelocityX');
     expect(script).toContain('pointer.targetVelocityY');
     expect(script).toContain('event.timeStamp');
+    expect(script).toContain("root.dataset.motion === 'ready'");
+    expect(script).toContain("link.addEventListener('pointerenter', onRoutePulse");
+    expect(script).toContain("link.addEventListener('focus', onRoutePulse");
     expect(script).toContain('while (y < height * 1.18)');
     expect(script).toContain('duration: 46');
     expect(script).toContain('requestAnimationFrame(tickContours)');

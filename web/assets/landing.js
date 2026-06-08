@@ -87,6 +87,15 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function easePulse(value) {
+  const amount = clamp(value, 0, 1);
+  return amount * amount * (3 - 2 * amount);
+}
+
+function getSettledInteraction() {
+  return root.dataset.motion === 'ready' ? 1 : 0.36;
+}
+
 function createPointerState() {
   return {
     lastEventTime: 0,
@@ -158,11 +167,12 @@ function moveContourBodies(field, driver, pointer, dt) {
   updatePointerInertia(pointer, dt);
 
   const scale = Math.min(field.width, field.height);
+  const settledInteraction = getSettledInteraction();
   const pointerX = pointer.x * field.width;
   const pointerY = pointer.y * field.height;
   const pointerSpeed = clamp(Math.hypot(pointer.velocityX, pointer.velocityY), 0, 1.8);
-  const wakeX = pointer.velocityX * scale * 0.035;
-  const wakeY = pointer.velocityY * scale * 0.035;
+  const wakeX = pointer.velocityX * scale * (0.032 + settledInteraction * 0.026);
+  const wakeY = pointer.velocityY * scale * (0.032 + settledInteraction * 0.026);
 
   for (let index = 0; index < field.bodies.length; index += 1) {
     const body = field.bodies[index];
@@ -172,18 +182,18 @@ function moveContourBodies(field, driver, pointer, dt) {
     const dx = pointerX - body.x;
     const dy = pointerY - body.y;
     const distance = Math.hypot(dx, dy) || 1;
-    const pointerRange = scale * 0.58;
-    const pointerInfluence = Math.max(0, 1 - distance / pointerRange) * pointer.pressure;
+    const pointerRange = scale * (0.52 + settledInteraction * 0.18);
+    const pointerInfluence = Math.max(0, 1 - distance / pointerRange) * pointer.pressure * (0.7 + settledInteraction * 0.62);
     const tangent = Math.atan2(dy, dx) + Math.PI / 2;
-    const outward = Math.min(scale * 0.018, distance * 0.024) * pointerInfluence;
-    const directionalWake = pointerInfluence * (0.1 + pointerSpeed * 0.14);
+    const outward = Math.min(scale * (0.014 + settledInteraction * 0.022), distance * 0.026) * pointerInfluence;
+    const directionalWake = pointerInfluence * (0.1 + pointerSpeed * (0.13 + settledInteraction * 0.14));
 
     body.vx +=
-      ((homeX - body.x) * 0.026 + Math.cos(tangent) * outward + wakeX * directionalWake + dx * 0.002 * pointerInfluence) *
+      ((homeX - body.x) * 0.026 + Math.cos(tangent) * outward + wakeX * directionalWake + dx * 0.0032 * pointerInfluence) *
       dt /
       body.mass;
     body.vy +=
-      ((homeY - body.y) * 0.026 + Math.sin(tangent) * outward + wakeY * directionalWake + dy * 0.002 * pointerInfluence + scale * 0.018) *
+      ((homeY - body.y) * 0.026 + Math.sin(tangent) * outward + wakeY * directionalWake + dy * 0.0032 * pointerInfluence + scale * 0.018) *
       dt /
       body.mass;
     repelContourBodies(field, body, index, dt);
@@ -195,7 +205,36 @@ function moveContourBodies(field, driver, pointer, dt) {
   }
 }
 
-function sampleContourField(field, x, baseY, phase) {
+function samplePointerWake(field, x, baseY, phase, pointer) {
+  const pressure = pointer.pressure * getSettledInteraction();
+  if (pressure < 0.004) {
+    return { density: 0, shear: 0, shift: 0 };
+  }
+
+  const scale = Math.min(field.width, field.height);
+  const speed = clamp(Math.hypot(pointer.velocityX, pointer.velocityY), 0, 1.8);
+  const directionX = speed > 0.04 ? pointer.velocityX / speed : 0.92;
+  const directionY = speed > 0.04 ? pointer.velocityY / speed : 0.38;
+  const pointerX = pointer.x * field.width - directionX * scale * 0.08 * speed;
+  const pointerY = pointer.y * field.height - directionY * scale * 0.08 * speed;
+  const dx = x - pointerX;
+  const dy = baseY - pointerY;
+  const along = dx * directionX + dy * directionY;
+  const cross = -dx * directionY + dy * directionX;
+  const longRadius = scale * (0.32 + speed * 0.04);
+  const shortRadius = scale * 0.2;
+  const falloff = Math.exp(-((along * along) / (longRadius * longRadius) + (cross * cross) / (shortRadius * shortRadius)));
+  const side = cross / (Math.abs(cross) + shortRadius * 0.54);
+  const ripple = Math.sin((along / longRadius) * Math.PI * 3.2 + phase * 0.72);
+
+  return {
+    density: falloff * pressure * (0.58 + speed * 0.24),
+    shear: falloff * pressure * (side * 1.7 + ripple * 0.32),
+    shift: (side * 0.72 + ripple * 0.24) * falloff * scale * 0.052 * pressure,
+  };
+}
+
+function sampleContourField(field, x, baseY, phase, pointer) {
   const scale = Math.min(field.width, field.height);
   let shift = Math.sin(x * 0.0035 + baseY * 0.005 + phase * 0.22) * scale * 0.014;
   let density = 0;
@@ -214,6 +253,11 @@ function sampleContourField(field, x, baseY, phase) {
     density += falloff * body.gravity * (0.76 + Math.abs(side) * 0.34);
   }
 
+  const pointerWake = samplePointerWake(field, x, baseY, phase, pointer);
+  shift += pointerWake.shift;
+  shear += pointerWake.shear;
+  density += pointerWake.density;
+
   return {
     density,
     shear,
@@ -221,21 +265,64 @@ function sampleContourField(field, x, baseY, phase) {
   };
 }
 
-function drawContourLevel(field, baseY, lineIndex, driver, strength) {
+function samplePassivePulse(field, baseY, lineIndex, driver) {
+  const normalizedY = baseY / Math.max(1, field.height);
+  const gate = Math.pow(Math.max(0, Math.sin(driver.phase * 0.17 - 0.4)), 3.4);
+  const band = Math.pow(Math.max(0, Math.cos(normalizedY * Math.PI * 2.25 - driver.phase * 0.38 + lineIndex * 0.015)), 4);
+  return gate * band;
+}
+
+function sampleActivePulse(field, y, driver) {
+  if (!driver.pulses || driver.pulses.length === 0) {
+    return { alpha: 0, shift: 0 };
+  }
+
+  const height = Math.max(1, field.height);
+  let alpha = 0;
+  let shift = 0;
+
+  for (const pulse of driver.pulses) {
+    const age = driver.time - pulse.start;
+    if (age < 0 || age > pulse.duration) continue;
+
+    const progress = age / pulse.duration;
+    const centerY = (-0.14 + progress * 1.28) * height;
+    const spread = height * (0.04 + progress * 0.018);
+    const distance = (y - centerY) / spread;
+    const band = Math.exp(-(distance * distance));
+    const envelope = Math.sin(Math.PI * progress) * (0.72 + easePulse(progress) * 0.28);
+    const amount = band * envelope * pulse.force;
+    alpha += amount;
+    shift += amount * field.lineSpacing * 1.9;
+  }
+
+  return { alpha, shift };
+}
+
+function pruneContourPulses(driver) {
+  if (!driver.pulses || driver.pulses.length === 0) return;
+  driver.pulses = driver.pulses.filter((pulse) => driver.time - pulse.start <= pulse.duration + 0.2);
+}
+
+function drawContourLevel(field, baseY, lineIndex, driver, strength, pointer) {
   const { context, height, lineSpacing, width } = field;
   const margin = lineSpacing * 4;
   const sampleStep = Math.max(12, Math.min(24, width / 70));
   const points = [];
   let maxDensity = 0;
+  let pulseTotal = 0;
   let shearTotal = 0;
 
   for (let x = -margin; x <= width + margin; x += sampleStep) {
+    const pulse = sampleActivePulse(field, baseY, driver);
     const waveY =
       baseY +
       Math.sin(x * 0.005 + lineIndex * 0.41 + driver.phase * 0.2) * lineSpacing * 0.6 +
-      Math.sin(x * 0.0017 - lineIndex * 0.23 + driver.phase * 0.13) * lineSpacing * 0.92;
-    const sample = sampleContourField(field, x, waveY, driver.phase + lineIndex * 0.19);
+      Math.sin(x * 0.0017 - lineIndex * 0.23 + driver.phase * 0.13) * lineSpacing * 0.92 +
+      Math.sin(x * 0.0042 + driver.phase + lineIndex * 0.17) * pulse.shift;
+    const sample = sampleContourField(field, x, waveY, driver.phase + lineIndex * 0.19, pointer);
     maxDensity = Math.max(maxDensity, sample.density);
+    pulseTotal += pulse.alpha;
     shearTotal += Math.abs(sample.shear);
     points.push({ x, y: clamp(sample.y, -margin, height + margin) });
   }
@@ -243,9 +330,15 @@ function drawContourLevel(field, baseY, lineIndex, driver, strength) {
   if (points.length < 3) return;
 
   const shearAverage = shearTotal / points.length;
+  const pulseAverage = pulseTotal / points.length;
+  const passivePulse = samplePassivePulse(field, baseY, lineIndex, driver);
   const alphaWave = Math.sin(lineIndex * 0.73 + driver.outward * Math.PI * 2) * 0.035;
-  const alpha = clamp(0.12 + alphaWave + maxDensity * 0.055 + shearAverage * 0.024 + strength * 0.02, 0.05, 0.33);
-  const lineWidth = clamp(0.34 + maxDensity * 0.1, 0.34, 0.72);
+  const alpha = clamp(
+    0.11 + alphaWave + passivePulse * 0.072 + pulseAverage * 0.16 + maxDensity * 0.056 + shearAverage * 0.025 + strength * 0.024,
+    0.045,
+    0.42,
+  );
+  const lineWidth = clamp(0.34 + maxDensity * 0.1 + pulseAverage * 0.08, 0.34, 0.78);
 
   context.beginPath();
   context.moveTo(points[0].x, points[0].y);
@@ -263,7 +356,7 @@ function drawContourLevel(field, baseY, lineIndex, driver, strength) {
   context.stroke();
 }
 
-function drawContourLines(field, driver, strength) {
+function drawContourLines(field, driver, strength, pointer) {
   const { height, lineSpacing } = field;
   const phase = driver.outward * Math.PI * 2;
   let y = -height * 0.18;
@@ -279,7 +372,7 @@ function drawContourLines(field, driver, strength) {
       Math.sin(lineIndex * 1.31 - phase * 0.37) * 0.18 +
       Math.cos(lineIndex * 0.17) * 0.1;
     y += lineSpacing * clamp(variance, 0.58, 1.54);
-    drawContourLevel(field, y, lineIndex, driver, strength);
+    drawContourLevel(field, y, lineIndex, driver, strength, pointer);
     lineIndex += 1;
   }
 
@@ -290,6 +383,8 @@ function drawContourFrame(field, driver, pointer, reducedMotionQuery, time = 0) 
   resizeContourCanvas(field);
   const dt = Math.min(0.04, Math.max(0.012, time - field.lastTime || 0.016));
   field.lastTime = time;
+  driver.time = time;
+  pruneContourPulses(driver);
   field.context.clearRect(0, 0, field.width, field.height);
 
   if (!reducedMotionQuery.matches) {
@@ -297,7 +392,7 @@ function drawContourFrame(field, driver, pointer, reducedMotionQuery, time = 0) 
   }
 
   const strength = reducedMotionQuery.matches ? 0.12 : Math.max(driver.pressure, pointer.pressure);
-  drawContourLines(field, driver, strength);
+  drawContourLines(field, driver, strength, pointer);
 }
 
 function drawStillContours(field) {
@@ -320,7 +415,7 @@ function setupContourAccent(gsapApi, reducedMotionQuery, animateWithoutGsap = fa
   if (!context) return null;
 
   const field = createContourState(canvas, context);
-  const driver = { outward: 0, phase: 0, pressure: 0.14 };
+  const driver = { outward: 0, phase: 0, pressure: 0.14, pulses: [], time: 0 };
   const pointer = createPointerState();
   const advanceContours = (time = 0) => drawContourFrame(field, driver, pointer, reducedMotionQuery, time);
   const onResize = () => {
@@ -349,6 +444,14 @@ function setupContourAccent(gsapApi, reducedMotionQuery, animateWithoutGsap = fa
       })
     : null;
   let animationFrameId = 0;
+  const triggerContourPulse = (force = 1) => {
+    const start = driver.time || window.performance.now() / 1000;
+    driver.pulses.push({ duration: 2.35, force, start });
+
+    if (driver.pulses.length > 5) {
+      driver.pulses.splice(0, driver.pulses.length - 5);
+    }
+  };
   const onPointerMove = (event) => {
     const nextX = event.clientX / Math.max(1, field.width);
     const nextY = event.clientY / Math.max(1, field.height);
@@ -362,16 +465,27 @@ function setupContourAccent(gsapApi, reducedMotionQuery, animateWithoutGsap = fa
     pointer.lastEventTime = event.timeStamp;
     pointer.targetVelocityX = clamp(deltaX * velocityScale, -1.8, 1.8);
     pointer.targetVelocityY = clamp(deltaY * velocityScale, -1.8, 1.8);
-    pointer.targetPressure = Math.min(0.28, 0.035 + distance * 1.3 + Math.hypot(pointer.targetVelocityX, pointer.targetVelocityY) * 0.028);
+    const settledInteraction = getSettledInteraction();
+    const targetLimit = 0.28 + settledInteraction * 0.2;
+    pointer.targetPressure = Math.min(
+      targetLimit,
+      0.036 + distance * (1.35 + settledInteraction * 0.76) + Math.hypot(pointer.targetVelocityX, pointer.targetVelocityY) * (0.03 + settledInteraction * 0.034),
+    );
   };
   const onPointerLeave = () => {
     pointer.targetPressure = 0;
     pointer.targetVelocityX = 0;
     pointer.targetVelocityY = 0;
   };
+  const routeLinks = Array.from(document.querySelectorAll('[data-route-link]'));
+  const onRoutePulse = () => triggerContourPulse(1);
 
   window.addEventListener('pointermove', onPointerMove, { passive: true });
   window.addEventListener('pointerleave', onPointerLeave, { passive: true });
+  for (const link of routeLinks) {
+    link.addEventListener('pointerenter', onRoutePulse, { passive: true });
+    link.addEventListener('focus', onRoutePulse);
+  }
 
   if (gsapApi) {
     gsapApi.ticker.add(advanceContours);
@@ -392,6 +506,10 @@ function setupContourAccent(gsapApi, reducedMotionQuery, animateWithoutGsap = fa
     window.removeEventListener('resize', onResize);
     window.removeEventListener('pointermove', onPointerMove);
     window.removeEventListener('pointerleave', onPointerLeave);
+    for (const link of routeLinks) {
+      link.removeEventListener('pointerenter', onRoutePulse);
+      link.removeEventListener('focus', onRoutePulse);
+    }
     phaseTween?.kill();
 
     if (gsapApi) {
