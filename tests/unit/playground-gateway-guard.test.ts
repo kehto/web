@@ -220,8 +220,11 @@ describe('playground gateway artifact guard', () => {
     expect(script).toContain('drawContourLines');
     expect(script).toContain('drawContourLevel');
     expect(script).toContain('sampleContourField');
-    expect(script).toContain('interpolateContourPoint');
-    expect(script).toContain('dominantValue + blendedValue * 0.14');
+    expect(script).toContain('lineSpacing');
+    expect(script).toContain('sampleStep');
+    expect(script).toContain('quadraticCurveTo');
+    expect(script).not.toContain('interpolateContourPoint');
+    expect(script).not.toContain('contourSegments');
     expect(script).not.toContain('createRadialGradient');
     expect(script).not.toContain("globalCompositeOperation = 'lighter'");
     expect(script).not.toContain('context.filter');
@@ -231,7 +234,7 @@ describe('playground gateway artifact guard', () => {
     expect(script).toContain('pointer.targetVelocityX');
     expect(script).toContain('pointer.targetVelocityY');
     expect(script).toContain('event.timeStamp');
-    expect(script).toContain('const levelCount = 20;');
+    expect(script).toContain('while (y < height * 1.18)');
     expect(script).toContain('duration: 46');
     expect(script).toContain('requestAnimationFrame(tickContours)');
     expect(script).toContain('cancelAnimationFrame(animationFrameId)');

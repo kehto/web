@@ -31,16 +31,14 @@ function isHistoryRestore(event) {
 
 function createContourBodies() {
   return [
-    { homeX: 0.18, homeY: 0.24, radius: 0.16, weight: 0.92, mass: 1.1, phase: 0.1, x: 0, y: 0, vx: 0, vy: 0 },
-    { homeX: 0.32, homeY: 0.2, radius: 0.18, weight: 1.05, mass: 1.25, phase: 0.9, x: 0, y: 0, vx: 0, vy: 0 },
-    { homeX: 0.48, homeY: 0.3, radius: 0.2, weight: 1.12, mass: 1.35, phase: 1.7, x: 0, y: 0, vx: 0, vy: 0 },
-    { homeX: 0.68, homeY: 0.27, radius: 0.18, weight: 0.98, mass: 1.2, phase: 2.5, x: 0, y: 0, vx: 0, vy: 0 },
-    { homeX: 0.84, homeY: 0.42, radius: 0.17, weight: 0.9, mass: 1.1, phase: 3.1, x: 0, y: 0, vx: 0, vy: 0 },
-    { homeX: 0.72, homeY: 0.62, radius: 0.2, weight: 1.06, mass: 1.3, phase: 3.8, x: 0, y: 0, vx: 0, vy: 0 },
-    { homeX: 0.52, homeY: 0.74, radius: 0.19, weight: 1.02, mass: 1.28, phase: 4.5, x: 0, y: 0, vx: 0, vy: 0 },
-    { homeX: 0.34, homeY: 0.66, radius: 0.17, weight: 0.94, mass: 1.15, phase: 5.2, x: 0, y: 0, vx: 0, vy: 0 },
-    { homeX: 0.18, homeY: 0.52, radius: 0.15, weight: 0.86, mass: 1.05, phase: 5.9, x: 0, y: 0, vx: 0, vy: 0 },
-    { homeX: 0.58, homeY: 0.5, radius: 0.15, weight: 0.88, mass: 1.08, phase: 6.6, x: 0, y: 0, vx: 0, vy: 0 },
+    { homeX: 0.14, homeY: 0.16, radius: 0.2, gravity: 0.82, mass: 1.35, phase: 0.1, x: 0, y: 0, vx: 0, vy: 0 },
+    { homeX: 0.34, homeY: 0.22, radius: 0.24, gravity: 1.0, mass: 1.6, phase: 0.9, x: 0, y: 0, vx: 0, vy: 0 },
+    { homeX: 0.58, homeY: 0.17, radius: 0.22, gravity: 0.92, mass: 1.48, phase: 1.7, x: 0, y: 0, vx: 0, vy: 0 },
+    { homeX: 0.82, homeY: 0.28, radius: 0.21, gravity: 0.78, mass: 1.32, phase: 2.5, x: 0, y: 0, vx: 0, vy: 0 },
+    { homeX: 0.73, homeY: 0.5, radius: 0.25, gravity: 1.08, mass: 1.7, phase: 3.3, x: 0, y: 0, vx: 0, vy: 0 },
+    { homeX: 0.5, homeY: 0.62, radius: 0.23, gravity: 0.96, mass: 1.54, phase: 4.1, x: 0, y: 0, vx: 0, vy: 0 },
+    { homeX: 0.24, homeY: 0.72, radius: 0.2, gravity: 0.84, mass: 1.42, phase: 4.9, x: 0, y: 0, vx: 0, vy: 0 },
+    { homeX: 0.9, homeY: 0.76, radius: 0.19, gravity: 0.72, mass: 1.26, phase: 5.7, x: 0, y: 0, vx: 0, vy: 0 },
   ];
 }
 
@@ -48,14 +46,11 @@ function createContourState(canvas, context) {
   return {
     bodies: createContourBodies(),
     canvas,
-    cellSize: 28,
-    columns: 0,
     context,
     height: 0,
     lastTime: 0,
+    lineSpacing: 14,
     pixelRatio: 1,
-    rows: 0,
-    values: new Float32Array(0),
     width: 0,
   };
 }
@@ -79,10 +74,7 @@ function resizeContourCanvas(field) {
   field.width = nextWidth;
   field.height = nextHeight;
   field.pixelRatio = nextRatio;
-  field.cellSize = Math.max(14, Math.min(22, Math.min(field.width, field.height) / 42));
-  field.columns = Math.ceil(field.width / field.cellSize) + 1;
-  field.rows = Math.ceil(field.height / field.cellSize) + 1;
-  field.values = new Float32Array(field.columns * field.rows);
+  field.lineSpacing = Math.max(7, Math.min(13, Math.min(field.width, field.height) / 68));
   field.canvas.width = Math.max(1, Math.floor(field.width * field.pixelRatio));
   field.canvas.height = Math.max(1, Math.floor(field.height * field.pixelRatio));
   field.canvas.style.width = `${field.width}px`;
@@ -142,13 +134,24 @@ function repelContourBodies(field, body, index, dt) {
     const dx = body.x - other.x;
     const dy = body.y - other.y;
     const distance = Math.hypot(dx, dy) || 1;
-    const target = scale * 0.16;
-    const pressure = Math.max(0, 1 - distance / target) * 22 * dt;
-    body.vx += (dx / distance) * pressure;
-    body.vy += (dy / distance) * pressure;
-    other.vx -= (dx / distance) * pressure;
-    other.vy -= (dy / distance) * pressure;
+    const minDistance = scale * (body.radius + other.radius) * 0.58;
+    const gravityRange = scale * 0.72;
+    const attraction = Math.max(0, 1 - distance / gravityRange) * 5.4 * dt;
+    const pressure = Math.max(0, 1 - distance / minDistance) * 42 * dt;
+    const force = pressure - attraction;
+    body.vx += (dx / distance) * force;
+    body.vy += (dy / distance) * force;
+    other.vx -= (dx / distance) * force;
+    other.vy -= (dy / distance) * force;
   }
+}
+
+function containContourBody(field, body, scale, dt) {
+  const margin = scale * 0.14;
+  if (body.x < margin) body.vx += (margin - body.x) * 0.018 * dt;
+  if (body.x > field.width - margin) body.vx -= (body.x - (field.width - margin)) * 0.018 * dt;
+  if (body.y < margin) body.vy += (margin - body.y) * 0.018 * dt;
+  if (body.y > field.height - margin) body.vy -= (body.y - (field.height - margin)) * 0.018 * dt;
 }
 
 function moveContourBodies(field, driver, pointer, dt) {
@@ -164,154 +167,120 @@ function moveContourBodies(field, driver, pointer, dt) {
   for (let index = 0; index < field.bodies.length; index += 1) {
     const body = field.bodies[index];
     const phase = driver.phase + body.phase;
-    const homeX = (body.homeX + Math.sin(phase * 0.44) * 0.026 + Math.cos(phase * 0.17) * 0.012) * field.width;
-    const homeY = (body.homeY + Math.cos(phase * 0.36) * 0.024 + Math.sin(phase * 0.22) * 0.01) * field.height;
+    const homeX = (body.homeX + Math.sin(phase * 0.28) * 0.052 + Math.cos(phase * 0.11) * 0.024) * field.width;
+    const homeY = (body.homeY + Math.cos(phase * 0.24) * 0.046 + Math.sin(phase * 0.15) * 0.02) * field.height;
     const dx = pointerX - body.x;
     const dy = pointerY - body.y;
     const distance = Math.hypot(dx, dy) || 1;
-    const pointerRange = scale * 0.44;
+    const pointerRange = scale * 0.58;
     const pointerInfluence = Math.max(0, 1 - distance / pointerRange) * pointer.pressure;
     const tangent = Math.atan2(dy, dx) + Math.PI / 2;
-    const outward = Math.min(scale * 0.034, distance * 0.038) * pointerInfluence;
-    const directionalWake = pointerInfluence * (0.16 + pointerSpeed * 0.2);
+    const outward = Math.min(scale * 0.018, distance * 0.024) * pointerInfluence;
+    const directionalWake = pointerInfluence * (0.1 + pointerSpeed * 0.14);
 
     body.vx +=
-      ((homeX - body.x) * 0.036 + Math.cos(tangent) * outward + wakeX * directionalWake + dx * 0.004 * pointerInfluence) *
+      ((homeX - body.x) * 0.026 + Math.cos(tangent) * outward + wakeX * directionalWake + dx * 0.002 * pointerInfluence) *
       dt /
       body.mass;
     body.vy +=
-      ((homeY - body.y) * 0.036 + Math.sin(tangent) * outward + wakeY * directionalWake + dy * 0.004 * pointerInfluence) *
+      ((homeY - body.y) * 0.026 + Math.sin(tangent) * outward + wakeY * directionalWake + dy * 0.002 * pointerInfluence + scale * 0.018) *
       dt /
       body.mass;
     repelContourBodies(field, body, index, dt);
-    body.vx *= 0.976;
-    body.vy *= 0.976;
+    containContourBody(field, body, scale, dt);
+    body.vx *= 0.988;
+    body.vy *= 0.988;
     body.x += body.vx;
     body.y += body.vy;
   }
 }
 
-function sampleContourField(field, x, y) {
+function sampleContourField(field, x, baseY, phase) {
   const scale = Math.min(field.width, field.height);
-  let blendedValue = 0;
-  let dominantValue = 0;
+  let shift = Math.sin(x * 0.0035 + baseY * 0.005 + phase * 0.22) * scale * 0.014;
+  let density = 0;
+  let shear = 0;
 
   for (const body of field.bodies) {
     const dx = x - body.x;
-    const dy = y - body.y;
+    const dy = baseY - body.y;
     const radius = scale * body.radius;
-    const contribution = (body.weight * radius * radius) / (dx * dx + dy * dy + radius * radius * 0.34);
-    blendedValue += contribution;
-    dominantValue = Math.max(dominantValue, contribution);
+    const distanceSquared = dx * dx + dy * dy;
+    const falloff = Math.exp(-distanceSquared / (radius * radius * 1.18));
+    const side = dy / (Math.abs(dy) + radius * 0.46);
+    const wave = Math.sin((dx / radius) * Math.PI * 1.25 + body.phase + phase * 0.18);
+    shift += (side * 0.34 + wave * 0.3) * falloff * radius * body.gravity;
+    shear += Math.cos((dx / radius) * 1.7 + phase + body.phase) * falloff;
+    density += falloff * body.gravity * (0.76 + Math.abs(side) * 0.34);
   }
 
-  return dominantValue + blendedValue * 0.14;
-}
-
-function populateScalarField(field) {
-  for (let row = 0; row < field.rows; row += 1) {
-    const y = row * field.cellSize;
-
-    for (let column = 0; column < field.columns; column += 1) {
-      const x = column * field.cellSize;
-      field.values[row * field.columns + column] = sampleContourField(field, x, y);
-    }
-  }
-}
-
-function interpolateContourPoint(level, a, b) {
-  const range = b.value - a.value;
-  const amount = range === 0 ? 0.5 : (level - a.value) / range;
   return {
-    x: a.x + (b.x - a.x) * amount,
-    y: a.y + (b.y - a.y) * amount,
+    density,
+    shear,
+    y: baseY + shift,
   };
 }
 
-const contourSegments = [
-  [],
-  [[3, 0]],
-  [[0, 1]],
-  [[3, 1]],
-  [[1, 2]],
-  [
-    [3, 2],
-    [0, 1],
-  ],
-  [[0, 2]],
-  [[3, 2]],
-  [[2, 3]],
-  [[0, 2]],
-  [
-    [0, 3],
-    [1, 2],
-  ],
-  [[1, 2]],
-  [[1, 3]],
-  [[0, 1]],
-  [[3, 0]],
-  [],
-];
+function drawContourLevel(field, baseY, lineIndex, driver, strength) {
+  const { context, height, lineSpacing, width } = field;
+  const margin = lineSpacing * 4;
+  const sampleStep = Math.max(12, Math.min(24, width / 70));
+  const points = [];
+  let maxDensity = 0;
+  let shearTotal = 0;
 
-function drawContourLevel(field, level, alpha, lineWidth) {
-  const { cellSize, columns, context, rows, values } = field;
-  context.beginPath();
-
-  for (let row = 0; row < rows - 1; row += 1) {
-    for (let column = 0; column < columns - 1; column += 1) {
-      const x = column * cellSize;
-      const y = row * cellSize;
-      const topLeft = { x, y, value: values[row * columns + column] };
-      const topRight = { x: x + cellSize, y, value: values[row * columns + column + 1] };
-      const bottomRight = { x: x + cellSize, y: y + cellSize, value: values[(row + 1) * columns + column + 1] };
-      const bottomLeft = { x, y: y + cellSize, value: values[(row + 1) * columns + column] };
-      const cellIndex =
-        (topLeft.value > level ? 1 : 0) |
-        (topRight.value > level ? 2 : 0) |
-        (bottomRight.value > level ? 4 : 0) |
-        (bottomLeft.value > level ? 8 : 0);
-      const segments = contourSegments[cellIndex];
-      if (segments.length === 0) continue;
-
-      const edges = [
-        interpolateContourPoint(level, topLeft, topRight),
-        interpolateContourPoint(level, topRight, bottomRight),
-        interpolateContourPoint(level, bottomLeft, bottomRight),
-        interpolateContourPoint(level, topLeft, bottomLeft),
-      ];
-
-      for (const [startEdge, endEdge] of segments) {
-        const start = edges[startEdge];
-        const end = edges[endEdge];
-        context.moveTo(start.x, start.y);
-        context.lineTo(end.x, end.y);
-      }
-    }
+  for (let x = -margin; x <= width + margin; x += sampleStep) {
+    const waveY =
+      baseY +
+      Math.sin(x * 0.005 + lineIndex * 0.41 + driver.phase * 0.2) * lineSpacing * 0.6 +
+      Math.sin(x * 0.0017 - lineIndex * 0.23 + driver.phase * 0.13) * lineSpacing * 0.92;
+    const sample = sampleContourField(field, x, waveY, driver.phase + lineIndex * 0.19);
+    maxDensity = Math.max(maxDensity, sample.density);
+    shearTotal += Math.abs(sample.shear);
+    points.push({ x, y: clamp(sample.y, -margin, height + margin) });
   }
 
+  if (points.length < 3) return;
+
+  const shearAverage = shearTotal / points.length;
+  const alphaWave = Math.sin(lineIndex * 0.73 + driver.outward * Math.PI * 2) * 0.035;
+  const alpha = clamp(0.12 + alphaWave + maxDensity * 0.055 + shearAverage * 0.024 + strength * 0.02, 0.05, 0.33);
+  const lineWidth = clamp(0.34 + maxDensity * 0.1, 0.34, 0.72);
+
+  context.beginPath();
+  context.moveTo(points[0].x, points[0].y);
+
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const current = points[index];
+    const next = points[index + 1];
+    context.quadraticCurveTo(current.x, current.y, (current.x + next.x) * 0.5, (current.y + next.y) * 0.5);
+  }
+
+  const last = points[points.length - 1];
+  context.lineTo(last.x, last.y);
   context.strokeStyle = `rgba(244, 197, 57, ${alpha})`;
   context.lineWidth = lineWidth;
   context.stroke();
 }
 
 function drawContourLines(field, driver, strength) {
-  populateScalarField(field);
-
-  const phase = driver.outward % 1;
-  const levelCount = 20;
-  const minLevel = 0.96;
-  const levelStep = 0.05;
+  const { height, lineSpacing } = field;
+  const phase = driver.outward * Math.PI * 2;
+  let y = -height * 0.18;
+  let lineIndex = 0;
   field.context.save();
   field.context.lineCap = 'round';
   field.context.lineJoin = 'round';
 
-  for (let index = 0; index < levelCount; index += 1) {
-    const offset = (index + 1 - phase + levelCount) % levelCount;
-    const level = minLevel + Math.pow(offset + 0.2, 1.05) * levelStep;
-    const normalized = offset / (levelCount - 1);
-    const alpha = 0.12 + (1 - normalized) * 0.24 + strength * 0.04;
-    const lineWidth = 0.32 + (1 - normalized) * 0.24;
-    drawContourLevel(field, level, alpha, lineWidth);
+  while (y < height * 1.18) {
+    const variance =
+      1 +
+      Math.sin(lineIndex * 0.59 + phase) * 0.28 +
+      Math.sin(lineIndex * 1.31 - phase * 0.37) * 0.18 +
+      Math.cos(lineIndex * 0.17) * 0.1;
+    y += lineSpacing * clamp(variance, 0.58, 1.54);
+    drawContourLevel(field, y, lineIndex, driver, strength);
+    lineIndex += 1;
   }
 
   field.context.restore();
