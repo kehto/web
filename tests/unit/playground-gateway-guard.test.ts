@@ -195,6 +195,9 @@ describe('playground gateway artifact guard', () => {
     expect(portal).toContain('src="assets/vendor/gsap.min.js"');
     expect(portal).toContain('src="assets/landing.js"');
     expect(portal).toContain('id="hairline-accent"');
+    expect(portal).toContain('<title>Kehto Web Runtime</title>');
+    expect(portal).toContain('aria-label="Kehto Web Runtime"');
+    expect(portal).toContain('<span class="wordmark-role">Web Runtime</span>');
     expect(portal).toContain('href="playground/"');
     expect(portal).toContain('href="docs/"');
     expect(portal).toContain('data-route-link');
