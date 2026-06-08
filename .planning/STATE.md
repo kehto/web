@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.17
 milestone_name: Beautify the SPA Landing Page
 status: Awaiting next milestone
-last_updated: "2026-06-06T15:21:19.956Z"
-last_activity: 2026-06-06 — Milestone v1.17 completed and archived
+last_updated: "2026-06-08T11:44:57.192Z"
+last_activity: 2026-06-08 — Quick task 260608-izc completed
 progress:
   total_phases: 3
   completed_phases: 3
@@ -95,6 +95,7 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 | 260523-alpha | Clarify alpha runtime positioning | 2026-05-23 | b0de00d | README/docs/splash |
 | 260524-maf | Add the aislop-badge GitHub Action | 2026-05-24 | b5c39f7 | [260524-maf-add-the-aislop-badge-github-action-to-a-](./quick/260524-maf-add-the-aislop-badge-github-action-to-a-/) |
 | 260606-g9z | Deslopify aislop duplicate exported type declarations | 2026-06-06 | 191a187 | [260606-g9z-deslopify-aislop-duplicate-exported-type](./quick/260606-g9z-deslopify-aislop-duplicate-exported-type/) |
+| 260608-izc | Iterate Kehto static site landing page feedback | 2026-06-08 | 0a97b90 | [260608-izc-iterate-the-kehto-static-site-landing-pa](./quick/260608-izc-iterate-the-kehto-static-site-landing-pa/) |
 
 ## Session Continuity
 
