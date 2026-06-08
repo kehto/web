@@ -31,11 +31,12 @@ function isHistoryRestore(event) {
 
 function createHairlineStrands() {
   return [
-    { homeY: 0.2, amplitude: 0.035, phase: 0.2, speed: 0.18, points: [] },
-    { homeY: 0.3, amplitude: 0.026, phase: 1.2, speed: 0.14, points: [] },
-    { homeY: 0.42, amplitude: 0.032, phase: 2.15, speed: 0.16, points: [] },
-    { homeY: 0.56, amplitude: 0.024, phase: 3.3, speed: 0.12, points: [] },
-    { homeY: 0.7, amplitude: 0.03, phase: 4.35, speed: 0.15, points: [] },
+    { homeY: 0.16, amplitude: 0.07, curl: 0.7, phase: 0.2, speed: 0.82, points: [] },
+    { homeY: 0.26, amplitude: 0.06, curl: -0.5, phase: 1.1, speed: 0.68, points: [] },
+    { homeY: 0.37, amplitude: 0.075, curl: 0.48, phase: 2.1, speed: 0.74, points: [] },
+    { homeY: 0.5, amplitude: 0.052, curl: -0.66, phase: 3.0, speed: 0.62, points: [] },
+    { homeY: 0.62, amplitude: 0.07, curl: 0.58, phase: 4.0, speed: 0.78, points: [] },
+    { homeY: 0.74, amplitude: 0.058, curl: -0.42, phase: 4.9, speed: 0.64, points: [] },
   ];
 }
 
@@ -47,19 +48,29 @@ function createHairlineState(canvas, context) {
     lastTime: 0,
     pixelRatio: 1,
     strands: createHairlineStrands(),
+    vortices: [
+      { x: 0.28, y: 0.2, phase: 0.1, radius: 0.44, strength: 0.88 },
+      { x: 0.72, y: 0.36, phase: 2.4, radius: 0.5, strength: -0.74 },
+      { x: 0.46, y: 0.78, phase: 4.0, radius: 0.42, strength: 0.62 },
+    ],
     width: 0,
   };
 }
 
 function createHairlinePoints(strand, width, height) {
-  const count = Math.max(7, Math.round(width / 190));
+  const count = Math.max(18, Math.round(width / 58));
   strand.points = Array.from({ length: count }, (_, index) => {
     const progress = count === 1 ? 0 : index / (count - 1);
-    const x = progress * width;
-    const y = strand.homeY * height;
+    const x = (progress * 1.12 - 0.06) * width;
+    const y =
+      (strand.homeY +
+        Math.sin(progress * Math.PI * 1.8 + strand.phase) * strand.amplitude * 0.45 +
+        Math.sin(progress * Math.PI * 4.6 + strand.phase * 1.7) * strand.amplitude * 0.18) *
+      height;
 
     return {
       homeX: progress,
+      homeY: strand.homeY,
       x,
       y,
       vx: 0,
@@ -90,8 +101,8 @@ function resizeHairlineCanvas(field) {
 }
 
 function updatePointerInertia(pointer, dt) {
-  const follow = 1 - Math.pow(0.006, dt);
-  const pressureFollow = 1 - Math.pow(0.018, dt);
+  const follow = 1 - Math.pow(0.004, dt);
+  const pressureFollow = 1 - Math.pow(0.014, dt);
   pointer.x += (pointer.targetX - pointer.x) * follow;
   pointer.y += (pointer.targetY - pointer.y) * follow;
   pointer.pressure += (pointer.targetPressure - pointer.pressure) * pressureFollow;
@@ -99,6 +110,47 @@ function updatePointerInertia(pointer, dt) {
 
   if (pointer.targetPressure < 0.008) {
     pointer.targetPressure = 0;
+  }
+}
+
+function getVortexPosition(vortex, driver) {
+  return {
+    x: vortex.x + Math.sin(driver.phase * 0.58 + vortex.phase) * 0.09,
+    y: vortex.y + Math.cos(driver.phase * 0.43 + vortex.phase * 1.3) * 0.08,
+  };
+}
+
+function applyVortexForce(point, vortex, driver, field, dt) {
+  const position = getVortexPosition(vortex, driver);
+  const centerX = position.x * field.width;
+  const centerY = position.y * field.height;
+  const dx = point.x - centerX;
+  const dy = point.y - centerY;
+  const distance = Math.hypot(dx, dy) || 1;
+  const radius = Math.min(field.width, field.height) * vortex.radius;
+  const falloff = Math.max(0, 1 - distance / radius);
+  if (falloff === 0) return;
+
+  const force = falloff * falloff * vortex.strength * driver.pressure * 34 * dt;
+  point.vx += (-dy / distance) * force;
+  point.vy += (dx / distance) * force;
+}
+
+function applyNeighborTension(strand, dt) {
+  for (let index = 1; index < strand.points.length; index += 1) {
+    const previous = strand.points[index - 1];
+    const current = strand.points[index];
+    const dx = current.x - previous.x;
+    const dy = current.y - previous.y;
+    const distance = Math.hypot(dx, dy) || 1;
+    const targetDistance = Math.abs(current.homeX - previous.homeX) * window.innerWidth * 1.08;
+    const correction = (distance - targetDistance) * 0.018 * dt;
+    const offsetX = (dx / distance) * correction;
+    const offsetY = (dy / distance) * correction;
+    previous.vx += offsetX;
+    previous.vy += offsetY;
+    current.vx -= offsetX;
+    current.vy -= offsetY;
   }
 }
 
@@ -112,24 +164,35 @@ function moveHairlinePoints(field, driver, pointer, dt) {
   for (let strandIndex = 0; strandIndex < field.strands.length; strandIndex += 1) {
     const strand = field.strands[strandIndex];
     const phase = driver.phase * strand.speed + strand.phase;
+    applyNeighborTension(strand, dt);
 
     for (let index = 0; index < strand.points.length; index += 1) {
       const point = strand.points[index];
       const progress = point.homeX;
-      const homeX = progress * field.width;
-      const wave = Math.sin(progress * Math.PI * 2 + phase) * strand.amplitude * field.height;
+      const easedProgress = progress * 1.12 - 0.06;
+      const homeX =
+        easedProgress * field.width +
+        Math.sin(progress * Math.PI * 2.8 + phase * 0.72) * baseScale * strand.amplitude * strand.curl * 0.42;
+      const wave =
+        Math.sin(progress * Math.PI * 2.2 + phase) * strand.amplitude * field.height +
+        Math.sin(progress * Math.PI * 6.2 - phase * 0.64) * strand.amplitude * field.height * 0.32;
       const homeY = strand.homeY * field.height + wave;
       const distance = Math.hypot(pointerX - point.x, pointerY - point.y) || 1;
-      const range = baseScale * 0.46;
+      const range = baseScale * 0.5;
       const influence = Math.max(0, 1 - distance / range) * pointer.pressure;
-      const sideBias = (progress - 0.5) * baseScale * 0.018 * driver.pressure;
-      const targetX = homeX + (pointerX - point.x) * 0.018 * influence + sideBias;
-      const targetY = homeY + (pointerY - point.y) * 0.028 * influence;
+      const wakeAngle = Math.atan2(point.y - pointerY, point.x - pointerX) + Math.PI / 2;
+      const wake = influence * baseScale * 0.035;
+      const targetX = homeX + Math.cos(wakeAngle) * wake;
+      const targetY = homeY + Math.sin(wakeAngle) * wake;
 
-      point.vx += (targetX - point.x) * 0.035 * dt;
-      point.vy += (targetY - point.y) * 0.035 * dt;
-      point.vx *= 0.992;
-      point.vy *= 0.992;
+      for (const vortex of field.vortices) {
+        applyVortexForce(point, vortex, driver, field, dt);
+      }
+
+      point.vx += (targetX - point.x) * 0.04 * dt;
+      point.vy += (targetY - point.y) * 0.04 * dt;
+      point.vx *= 0.988;
+      point.vy *= 0.988;
       point.x += point.vx;
       point.y += point.vy;
     }
@@ -141,7 +204,7 @@ function drawHairlineTrace(field, strand, index, strength) {
   if (points.length < 2) return;
 
   const context = field.context;
-  const alpha = 0.32 + strength * 0.22 - index * 0.025;
+  const alpha = 0.28 + strength * 0.24 - index * 0.02;
   context.beginPath();
   context.moveTo(points[0].x, points[0].y);
 
@@ -153,27 +216,25 @@ function drawHairlineTrace(field, strand, index, strength) {
 
   const last = points[points.length - 1];
   context.lineTo(last.x, last.y);
-  context.strokeStyle = `rgba(244, 197, 57, ${Math.max(0.18, alpha)})`;
-  context.lineWidth = index === 0 ? 0.9 : 0.72;
+  context.strokeStyle = `rgba(244, 197, 57, ${Math.max(0.16, alpha)})`;
+  context.lineWidth = index === 0 ? 0.82 : 0.64;
   context.stroke();
 }
 
-function drawHairlineTicks(field, strand, index, strength) {
+function drawHairlineEddies(field, strand, index, strength) {
   const context = field.context;
-  const tickEvery = index % 2 === 0 ? 2 : 3;
-  context.strokeStyle = `rgba(255, 218, 88, ${0.24 + strength * 0.16})`;
-  context.lineWidth = 0.62;
+  const every = index % 2 === 0 ? 5 : 6;
+  context.strokeStyle = `rgba(255, 218, 88, ${0.18 + strength * 0.14})`;
+  context.lineWidth = 0.58;
 
-  for (let pointIndex = 1; pointIndex < strand.points.length - 1; pointIndex += tickEvery) {
+  for (let pointIndex = 2; pointIndex < strand.points.length - 2; pointIndex += every) {
+    const previous = strand.points[pointIndex - 1];
     const point = strand.points[pointIndex];
     const next = strand.points[pointIndex + 1];
-    const angle = Math.atan2(next.y - point.y, next.x - point.x) + Math.PI / 2;
-    const length = 6 + strength * 5;
-    const x = Math.cos(angle) * length;
-    const y = Math.sin(angle) * length;
+    const angle = Math.atan2(next.y - previous.y, next.x - previous.x);
+    const radius = 8 + strength * 7;
     context.beginPath();
-    context.moveTo(point.x - x, point.y - y);
-    context.lineTo(point.x + x, point.y + y);
+    context.arc(point.x, point.y, radius, angle - 0.65, angle + 0.45);
     context.stroke();
   }
 }
@@ -196,7 +257,7 @@ function drawHairlineFrame(field, driver, pointer, reducedMotionQuery, time = 0)
   for (let index = 0; index < field.strands.length; index += 1) {
     const strand = field.strands[index];
     drawHairlineTrace(field, strand, index, strength);
-    drawHairlineTicks(field, strand, index, strength);
+    drawHairlineEddies(field, strand, index, strength);
   }
 
   field.context.restore();
@@ -218,7 +279,7 @@ function drawStillHairlines(field) {
   );
 }
 
-function setupHairlineAccent(gsapApi, reducedMotionQuery) {
+function setupHairlineAccent(gsapApi, reducedMotionQuery, animateWithoutGsap = false) {
   const canvas = document.getElementById('hairline-accent');
   if (!(canvas instanceof HTMLCanvasElement)) return null;
 
@@ -240,18 +301,21 @@ function setupHairlineAccent(gsapApi, reducedMotionQuery) {
   window.addEventListener('resize', onResize, { passive: true });
   drawStillHairlines(field);
 
-  if (reducedMotionQuery.matches || !gsapApi) {
+  if (reducedMotionQuery.matches || (!gsapApi && !animateWithoutGsap)) {
     return () => window.removeEventListener('resize', onResize);
   }
 
-  const driverTween = gsapApi.to(driver, {
-    phase: Math.PI * 2,
-    pressure: 0.34,
-    duration: 30,
-    ease: 'sine.inOut',
-    repeat: -1,
-    yoyo: true,
-  });
+  const driverTween = gsapApi
+    ? gsapApi.to(driver, {
+        phase: Math.PI * 2,
+        pressure: 0.34,
+        duration: 30,
+        ease: 'sine.inOut',
+        repeat: -1,
+        yoyo: true,
+      })
+    : null;
+  let animationFrameId = 0;
   const onPointerMove = (event) => {
     const nextX = event.clientX / Math.max(1, field.width);
     const nextY = event.clientY / Math.max(1, field.height);
@@ -266,19 +330,37 @@ function setupHairlineAccent(gsapApi, reducedMotionQuery) {
 
   window.addEventListener('pointermove', onPointerMove, { passive: true });
   window.addEventListener('pointerleave', onPointerLeave, { passive: true });
-  gsapApi.ticker.add(advanceHairlines);
+
+  if (gsapApi) {
+    gsapApi.ticker.add(advanceHairlines);
+  } else {
+    const tickHairlines = (time) => {
+      const seconds = time / 1000;
+      driver.phase = seconds * 0.44;
+      driver.pressure = 0.26 + Math.sin(seconds * 0.42) * 0.08;
+      advanceHairlines(seconds);
+      animationFrameId = window.requestAnimationFrame(tickHairlines);
+    };
+
+    animationFrameId = window.requestAnimationFrame(tickHairlines);
+  }
 
   return () => {
     window.removeEventListener('resize', onResize);
     window.removeEventListener('pointermove', onPointerMove);
     window.removeEventListener('pointerleave', onPointerLeave);
-    driverTween.kill();
-    gsapApi.ticker.remove(advanceHairlines);
+    driverTween?.kill();
+
+    if (gsapApi) {
+      gsapApi.ticker.remove(advanceHairlines);
+    } else {
+      window.cancelAnimationFrame(animationFrameId);
+    }
   };
 }
 
 if (!gsapInstance) {
-  setupHairlineAccent(null, window.matchMedia('(prefers-reduced-motion: reduce)'));
+  setupHairlineAccent(null, window.matchMedia('(prefers-reduced-motion: reduce)'), true);
   setFinalState();
 } else {
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');

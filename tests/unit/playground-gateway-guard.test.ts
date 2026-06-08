@@ -210,13 +210,17 @@ describe('playground gateway artifact guard', () => {
     expect(script).toContain('createHairlineStrands');
     expect(script).toContain('drawHairlineFrame');
     expect(script).toContain('drawHairlineTrace');
-    expect(script).toContain('drawHairlineTicks');
+    expect(script).toContain('drawHairlineEddies');
+    expect(script).toContain('applyVortexForce');
+    expect(script).toContain('applyNeighborTension');
     expect(script).not.toContain('createRadialGradient');
     expect(script).not.toContain("globalCompositeOperation = 'lighter'");
     expect(script).not.toContain('context.filter');
     expect(script).toContain('driverTween');
     expect(script).toContain('function updatePointerInertia');
     expect(script).toContain('pointer.targetPressure');
+    expect(script).toContain('requestAnimationFrame(tickHairlines)');
+    expect(script).toContain('cancelAnimationFrame(animationFrameId)');
     expect(script).toContain("canvas.getContext('2d'");
     expect(script).toContain('gsapApi.ticker.add');
     expect(script).toContain('function isHistoryRestore');
