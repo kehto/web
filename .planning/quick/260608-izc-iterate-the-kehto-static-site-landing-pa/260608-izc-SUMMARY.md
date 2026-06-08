@@ -6,7 +6,7 @@ status: complete
 
 ## Goal
 
-Iterate the public `/web/` landing page from screenshot feedback: remove the low-opacity blended motion field, keep actual fluid dynamics by rendering them as crisp hairline streamlines, improve logo typography, rebalance destination card spacing, move the NIP-5D notice to the top, and make the hero copy less technical.
+Iterate the public `/web/` landing page from screenshot feedback: remove the low-opacity blended motion field, keep actual fluid dynamics by rendering them as crisp topo-style contour lines, improve logo typography, rebalance destination card spacing, move the NIP-5D notice to the top, and make the hero copy less technical.
 
 ## Result
 
@@ -22,7 +22,8 @@ Iterate the public `/web/` landing page from screenshot feedback: remove the low
 - Rewrote the hero summary to be less technical and more user-facing.
 - Adjusted the Kehto wordmark font stack, scale, underline treatment, and spacing.
 - Rebalanced destination cards and proof chips to reduce awkward vertical padding.
-- Replaced the low-opacity blended canvas field with fluid hairline streamlines: elastic curves, vortex forces, neighbor tension, pointer wake, and a `requestAnimationFrame` fallback for `site:dev` when GSAP is absent.
+- Replaced the low-opacity blended canvas field with line-based topo contour dynamics: moving scalar-field bodies, marching-squares isolines, varied contour opacity/spacing, outward level motion, pointer inertia, and responsive opacity tuning.
+- Added `web/vite.config.mjs` so `site:dev` serves `assets/vendor/gsap.min.js` from `node_modules` at the same URL used by the Pages artifact.
 
 ## Simplifications
 
@@ -44,14 +45,16 @@ Iterate the public `/web/` landing page from screenshot feedback: remove the low
 - `pnpm build` passed: 27 successful tasks.
 - `npx --yes aislop scan -d` passed with `100 / 100 Healthy`, no issues.
 - `git diff --check` passed.
-- Playwright confirmed the live dev page at `http://127.0.0.1:5175/web/` loaded one stylesheet, rendered the top notice, used the updated wordmark stack, produced a styled screenshot, and changed `#hairline-accent` canvas pixels after pointer motion with `window.gsap === false`.
+- Playwright confirmed the live dev page at `http://127.0.0.1:5175/web/` loaded CSS and GSAP, rendered the top notice and updated copy, produced desktop/mobile topo-contour screenshots, changed `#hairline-accent` canvas pixels after pointer motion, and had no failed requests or console errors.
+- Visual verdict state recorded a pass score of 92 in `.omx/state/web/ralph-progress.json`.
 
 ## Implementation Commits
 
 - `0a97b90` - Refine the static site iteration loop
 - `633998a` - Replace ambient blending with hairline motion
 - `7e7679e` - Make hairlines behave like a fluid field
+- `e16bc41` - Render the accent as topo contour dynamics
 
 ## Remaining Risks
 
-- The fluid hairline motion was verified through screenshot, canvas pixel sampling over time, and code-level guard checks, but final mouse-feel judgment still depends on manual interaction on the target display.
+- The topo contour motion was verified through screenshot, canvas pixel sampling over time, and code-level guard checks, but final mouse-feel judgment still depends on manual interaction on the target display.
