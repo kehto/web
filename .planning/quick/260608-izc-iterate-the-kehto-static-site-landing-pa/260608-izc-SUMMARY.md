@@ -6,7 +6,7 @@ status: complete
 
 ## Goal
 
-Iterate the public `/web/` landing page from screenshot feedback: calmer liquid motion, less awkward logo typography, better destination card spacing, a top-level generic NIP-5D notice, and less technical hero copy.
+Iterate the public `/web/` landing page from screenshot feedback: remove the low-opacity blended motion field, use crisp hairlines with inertial pointer response, improve logo typography, rebalance destination card spacing, move the NIP-5D notice to the top, and make the hero copy less technical.
 
 ## Result
 
@@ -16,12 +16,13 @@ Iterate the public `/web/` landing page from screenshot feedback: calmer liquid 
   - `site:preview` for build-plus-preview
   - `site:serve` for serving an existing `.pages` artifact
 - Added `scripts/serve-pages.mjs` to preview `.pages` under the same `/web/` route shape used by GitHub Pages.
+- Made `site:build` self-contained by rebuilding the playground with `PLAYGROUND_BASE_PATH=/web/playground/` before packing `.pages`.
 - Converted portal asset and nav URLs to route-relative paths, fixing the Vite dev doubled-prefix CSS issue while preserving the public `/web/` route contract.
 - Moved the NIP-5D notice to the top and changed it to: "NIP-5D is under development and may be subject to change."
 - Rewrote the hero summary to be less technical and more user-facing.
 - Adjusted the Kehto wordmark font stack, scale, underline treatment, and spacing.
 - Rebalanced destination cards and proof chips to reduce awkward vertical padding.
-- Replaced direct eased pointer tracking in the liquid field with lower-pressure inertial pointer state and softer node response.
+- Replaced the low-opacity blended canvas field with crisp hairline traces and ticks that respond to pointer movement through inertial state.
 
 ## Simplifications
 
@@ -39,15 +40,17 @@ Iterate the public `/web/` landing page from screenshot feedback: calmer liquid 
 - `pnpm type-check` passed.
 - `pnpm lint` completed; Turbo reported no package lint tasks.
 - `pnpm site:build && pnpm audit:pages` passed.
+- `pnpm site:build && pnpm audit:pages` was rerun after `pnpm build`, proving `site:build` repairs the playground Pages base before packing `.pages`.
 - `pnpm build` passed: 27 successful tasks.
 - `npx --yes aislop scan -d` passed with `100 / 100 Healthy`, no issues.
 - `git diff --check` passed.
-- Playwright confirmed the live dev page at `http://127.0.0.1:5175/web/` loaded one stylesheet, rendered the top notice, used the updated wordmark stack, and produced a styled screenshot.
+- Playwright confirmed the live dev page at `http://127.0.0.1:5175/web/` loaded one stylesheet, rendered the top notice, used the updated wordmark stack, produced a styled screenshot, and drew nontransparent pixels on `#hairline-accent`.
 
 ## Implementation Commits
 
 - `0a97b90` - Refine the static site iteration loop
+- `633998a` - Replace ambient blending with hairline motion
 
 ## Remaining Risks
 
-- The liquid motion was verified visually through screenshot and code-level damping, but final mouse-feel judgment still depends on manual interaction on the target display.
+- The hairline motion was verified through screenshot, canvas pixel sampling, and code-level guard checks, but final mouse-feel judgment still depends on manual interaction on the target display.
