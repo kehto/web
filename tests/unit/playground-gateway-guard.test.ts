@@ -103,6 +103,7 @@ describe('playground gateway artifact guard', () => {
     const workflow = readRepoFile('.github/workflows/playground-pages.yml');
     const script = readRepoFile('scripts/build-playground-pages.mjs');
     const pagesScript = readRepoFile('scripts/build-pages.mjs');
+    const pagesServeScript = readRepoFile('scripts/serve-pages.mjs');
     const pagesAudit = readRepoFile('scripts/audit-pages-artifact.mjs');
     const turbo = readRepoFile('turbo.json');
     const packageJson = JSON.parse(readRepoFile('package.json')) as {
@@ -115,6 +116,20 @@ describe('playground gateway artifact guard', () => {
     expect(packageJson.scripts?.['build:playground-pages']).toBe('node scripts/build-playground-pages.mjs');
     expect(packageJson.scripts?.['build:pages']).toBe('node scripts/build-pages.mjs');
     expect(packageJson.scripts?.['audit:pages']).toBe('node scripts/audit-pages-artifact.mjs');
+    expect(packageJson.scripts?.dev).toBeUndefined();
+    expect(packageJson.scripts?.preview).toBeUndefined();
+    expect(packageJson.scripts?.['site:build']).toBe(
+      'VITEPRESS_BASE=/web/docs/ pnpm docs:check && pnpm build:pages',
+    );
+    expect(packageJson.scripts?.['site:dev']).toBe(
+      'pnpm --filter @kehto/playground exec vite ../../web --host 127.0.0.1 --port 5175 --base /web/',
+    );
+    expect(packageJson.scripts?.['site:preview']).toBe('pnpm site:build && node scripts/serve-pages.mjs');
+    expect(packageJson.scripts?.['site:serve']).toBe('node scripts/serve-pages.mjs');
+    expect(packageJson.scripts?.['web:build']).toBeUndefined();
+    expect(packageJson.scripts?.['web:dev']).toBeUndefined();
+    expect(packageJson.scripts?.['web:preview']).toBeUndefined();
+    expect(packageJson.scripts?.['web:serve']).toBeUndefined();
     expect(packageJson.dependencies?.gsap).toMatch(/^\^3\./);
     expect(gitignore).toContain('.pages/');
 
@@ -145,9 +160,13 @@ describe('playground gateway artifact guard', () => {
     expect(pagesScript).toContain("join(portalAssetsOutput, 'vendor')");
     expect(pagesScript).toContain("join(outputRoot, 'docs')");
     expect(pagesScript).toContain("join(docsOutput, 'api')");
-    expect(pagesAudit).toContain("const GSAP_VENDOR = `${PUBLIC_SITE_BASE}assets/vendor/gsap.min.js`;");
-    expect(pagesAudit).toContain("const LANDING_CSS = `${PUBLIC_SITE_BASE}assets/landing.css`;");
-    expect(pagesAudit).toContain("const LANDING_JS = `${PUBLIC_SITE_BASE}assets/landing.js`;");
+    expect(pagesServeScript).toContain("const publicBase = '/web/';");
+    expect(pagesServeScript).toContain('artifactPathFromRequest');
+    expect(pagesServeScript).toContain('Run pnpm site:build first.');
+    expect(pagesServeScript).toContain('Kehto web preview:');
+    expect(pagesAudit).toContain("const PORTAL_GSAP_VENDOR = 'assets/vendor/gsap.min.js';");
+    expect(pagesAudit).toContain("const PORTAL_LANDING_CSS = 'assets/landing.css';");
+    expect(pagesAudit).toContain("const PORTAL_LANDING_JS = 'assets/landing.js';");
     expect(pagesAudit).toContain("join(outputRoot, 'assets', 'landing.css')");
     expect(pagesAudit).toContain("join(outputRoot, 'assets', 'landing.js')");
     expect(pagesAudit).toContain("join(outputRoot, 'assets', 'vendor', 'gsap.min.js')");
@@ -168,16 +187,17 @@ describe('playground gateway artifact guard', () => {
     const stylesheet = readRepoFile('web/assets/landing.css');
     const script = readRepoFile('web/assets/landing.js');
 
-    expect(portal).toContain('href="/web/assets/landing.css"');
-    expect(portal).toContain('src="/web/assets/vendor/gsap.min.js"');
-    expect(portal).toContain('src="/web/assets/landing.js"');
+    expect(portal).toContain('href="assets/landing.css"');
+    expect(portal).toContain('src="assets/vendor/gsap.min.js"');
+    expect(portal).toContain('src="assets/landing.js"');
     expect(portal).toContain('id="liquid-accent"');
-    expect(portal).toContain('href="/web/playground/"');
-    expect(portal).toContain('href="/web/docs/"');
+    expect(portal).toContain('href="playground/"');
+    expect(portal).toContain('href="docs/"');
     expect(portal).toContain('data-route-link');
     expect(portal).toContain('class="wordmark"');
-    expect(portal).toContain('Alpha notice:');
-    expect(portal).toContain('Shell-side runtime for sandboxed napplets');
+    expect(portal).toContain('NIP-5D is under development and may be subject to change.');
+    expect(portal).toContain('Contained runtime for experimental Nostr apps');
+    expect(portal).toContain('A contained home for experimental Nostr apps.');
 
     expect(stylesheet).toContain('--bg: #020201');
     expect(stylesheet).toContain('--accent: #f4c539');
@@ -191,7 +211,8 @@ describe('playground gateway artifact guard', () => {
     expect(script).toContain('drawFluidFrame');
     expect(script).toContain('drawFluidWake');
     expect(script).toContain('driverTween');
-    expect(script).toContain("gsapApi.quickTo(pointer, 'pressure'");
+    expect(script).toContain('function updatePointerInertia');
+    expect(script).toContain('pointer.targetPressure');
     expect(script).toContain("canvas.getContext('2d'");
     expect(script).toContain('gsapApi.ticker.add');
     expect(script).toContain('function isHistoryRestore');

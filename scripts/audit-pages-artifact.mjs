@@ -16,9 +16,9 @@ const outputRoot = resolve(repoRoot, process.env.PAGES_OUT_DIR || '.pages');
 const nappletsDir = join(repoRoot, 'apps', 'playground', 'napplets');
 
 const PUBLIC_SITE_BASE = '/web/';
-const GSAP_VENDOR = `${PUBLIC_SITE_BASE}assets/vendor/gsap.min.js`;
-const LANDING_CSS = `${PUBLIC_SITE_BASE}assets/landing.css`;
-const LANDING_JS = `${PUBLIC_SITE_BASE}assets/landing.js`;
+const PORTAL_GSAP_VENDOR = 'assets/vendor/gsap.min.js';
+const PORTAL_LANDING_CSS = 'assets/landing.css';
+const PORTAL_LANDING_JS = 'assets/landing.js';
 const PLAYGROUND_BASE = '/web/playground/';
 const DOCS_BASE = '/web/docs/';
 
@@ -83,11 +83,11 @@ function checkPortal() {
   const portalPath = join(outputRoot, 'index.html');
   if (!assertFile(portalPath, 'portal route')) return;
   const portal = read(portalPath);
-  assertContains(portalPath, portal, 'href="/web/playground/"', 'portal route');
-  assertContains(portalPath, portal, 'href="/web/docs/"', 'portal route');
-  assertContains(portalPath, portal, `href="${LANDING_CSS}"`, 'portal route');
-  assertContains(portalPath, portal, `src="${GSAP_VENDOR}"`, 'portal route');
-  assertContains(portalPath, portal, `src="${LANDING_JS}"`, 'portal route');
+  assertContains(portalPath, portal, 'href="playground/"', 'portal route');
+  assertContains(portalPath, portal, 'href="docs/"', 'portal route');
+  assertContains(portalPath, portal, `href="${PORTAL_LANDING_CSS}"`, 'portal route');
+  assertContains(portalPath, portal, `src="${PORTAL_GSAP_VENDOR}"`, 'portal route');
+  assertContains(portalPath, portal, `src="${PORTAL_LANDING_JS}"`, 'portal route');
   assertContains(portalPath, portal, 'id="liquid-accent"', 'portal liquid accent');
   assertContains(portalPath, portal, 'class="wordmark"', 'portal brand');
   assertContains(portalPath, portal, 'class="notice"', 'portal alpha notice');

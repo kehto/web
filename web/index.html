@@ -8,9 +8,9 @@
       name="description"
       content="Kehto runtime packages, playground, and documentation for sandboxed Nostr napplets."
     >
-    <link rel="stylesheet" href="/web/assets/landing.css">
-    <script src="/web/assets/vendor/gsap.min.js" defer></script>
-    <script src="/web/assets/landing.js" defer></script>
+    <link rel="stylesheet" href="assets/landing.css">
+    <script src="assets/vendor/gsap.min.js" defer></script>
+    <script src="assets/landing.js" defer></script>
   </head>
   <body>
     <div class="page-shell">
@@ -19,8 +19,10 @@
       </div>
 
       <main class="landing" aria-labelledby="kehto-title">
+        <p class="notice">NIP-5D is under development and may be subject to change.</p>
+
         <section class="hero" aria-describedby="kehto-summary">
-          <p class="eyebrow">Shell-side runtime for sandboxed napplets</p>
+          <p class="eyebrow">Contained runtime for experimental Nostr apps</p>
 
           <h1 id="kehto-title" class="wordmark" aria-label="Kehto Runtime">
             <span class="wordmark-name">Kehto</span>
@@ -28,13 +30,14 @@
           </h1>
 
           <p id="kehto-summary" class="summary">
-            A shell runtime for sandboxed NIP-5D napplets. Route capabilities,
-            enforce policy, and serve gateway-hosted apps without owning the app.
+            A contained home for experimental Nostr apps. Kehto lets new
+            interfaces try real capabilities while keeping the shell and user
+            in control.
           </p>
         </section>
 
         <nav class="destinations" aria-label="Kehto web destinations">
-          <a class="destination destination-primary" href="/web/playground/" data-route-link>
+          <a class="destination destination-primary" href="playground/" data-route-link>
             <span class="destination-path">/web/playground/</span>
             <span class="destination-label">Open Playground</span>
             <span class="destination-copy">
@@ -42,7 +45,7 @@
             </span>
           </a>
 
-          <a class="destination" href="/web/docs/" data-route-link>
+          <a class="destination" href="docs/" data-route-link>
             <span class="destination-path">/web/docs/</span>
             <span class="destination-label">Read Docs</span>
             <span class="destination-copy">
@@ -57,10 +60,6 @@
           <span>Enforce</span>
           <span>Prove</span>
         </section>
-
-        <p class="notice">
-          <strong>Alpha notice:</strong> NIP-5D and NUB contracts may change.
-        </p>
       </main>
 
       <footer class="site-footer">

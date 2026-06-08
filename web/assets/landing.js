@@ -79,12 +79,12 @@ function resizeFluidCanvas(fluid) {
 }
 
 function drawFluidNode(fluid, node, strength) {
-  const radius = Math.min(fluid.width, fluid.height) * node.radius * (0.95 + strength * 0.24);
+  const radius = Math.min(fluid.width, fluid.height) * node.radius * (0.9 + strength * 0.18);
   const gradient = fluid.context.createRadialGradient(node.x, node.y, 0, node.x, node.y, radius);
 
-  gradient.addColorStop(0, `rgba(255, 218, 88, ${0.074 + strength * 0.048})`);
-  gradient.addColorStop(0.32, `rgba(244, 197, 57, ${0.04 + strength * 0.035})`);
-  gradient.addColorStop(0.68, 'rgba(244, 197, 57, 0.014)');
+  gradient.addColorStop(0, `rgba(255, 218, 88, ${0.044 + strength * 0.032})`);
+  gradient.addColorStop(0.32, `rgba(244, 197, 57, ${0.026 + strength * 0.022})`);
+  gradient.addColorStop(0.68, 'rgba(244, 197, 57, 0.01)');
   gradient.addColorStop(1, 'rgba(244, 197, 57, 0)');
 
   fluid.context.fillStyle = gradient;
@@ -100,8 +100,8 @@ function drawFluidWake(fluid, strength) {
   fluid.context.filter = `blur(${Math.max(18, scale * 0.032)}px)`;
   fluid.context.lineCap = 'round';
   fluid.context.lineJoin = 'round';
-  fluid.context.lineWidth = Math.max(42, scale * 0.072);
-  fluid.context.strokeStyle = `rgba(255, 218, 88, ${0.014 + strength * 0.018})`;
+  fluid.context.lineWidth = Math.max(34, scale * 0.056);
+  fluid.context.strokeStyle = `rgba(255, 218, 88, ${0.01 + strength * 0.012})`;
 
   fluid.context.beginPath();
   fluid.context.moveTo(fluid.nodes[0].x, fluid.nodes[0].y);
@@ -138,7 +138,22 @@ function repelFluidNodes(fluid, node, index, dt) {
   }
 }
 
+function updatePointerInertia(pointer, dt) {
+  const follow = 1 - Math.pow(0.002, dt);
+  const pressureFollow = 1 - Math.pow(0.01, dt);
+  pointer.x += (pointer.targetX - pointer.x) * follow;
+  pointer.y += (pointer.targetY - pointer.y) * follow;
+  pointer.pressure += (pointer.targetPressure - pointer.pressure) * pressureFollow;
+  pointer.targetPressure *= Math.pow(0.5, dt);
+
+  if (pointer.targetPressure < 0.01) {
+    pointer.targetPressure = 0;
+  }
+}
+
 function moveFluidNodes(fluid, driver, pointer, dt) {
+  updatePointerInertia(pointer, dt);
+
   const centerX = fluid.width * (driver.x + Math.sin(driver.spin * 0.37) * 0.09);
   const centerY = fluid.height * (driver.y + Math.cos(driver.spin * 0.29) * 0.11);
   const pointerX = pointer.x * fluid.width;
@@ -151,17 +166,17 @@ function moveFluidNodes(fluid, driver, pointer, dt) {
     const toDriverX = centerX - node.x;
     const toDriverY = centerY - node.y;
     const driverDistance = Math.hypot(toDriverX, toDriverY) || 1;
-    const swirl = Math.sin(driver.spin + index * 0.92) * 42 * driver.pressure;
+    const swirl = Math.sin(driver.spin + index * 0.92) * 24 * driver.pressure;
     const pointerDistance = Math.hypot(pointerX - node.x, pointerY - node.y) || 1;
-    const pointerRange = Math.min(fluid.width, fluid.height) * 0.62;
+    const pointerRange = Math.min(fluid.width, fluid.height) * 0.48;
     const pointerInfluence = Math.max(0, 1 - pointerDistance / pointerRange) * pointer.pressure;
 
-    node.vx += ((homeX - node.x) * 0.055 + (toDriverY / driverDistance) * swirl + (pointerX - node.x) * 0.018 * pointerInfluence) * dt / node.mass;
-    node.vy += ((homeY - node.y) * 0.055 - (toDriverX / driverDistance) * swirl + (pointerY - node.y) * 0.018 * pointerInfluence) * dt / node.mass;
+    node.vx += ((homeX - node.x) * 0.045 + (toDriverY / driverDistance) * swirl + (pointerX - node.x) * 0.006 * pointerInfluence) * dt / node.mass;
+    node.vy += ((homeY - node.y) * 0.045 - (toDriverX / driverDistance) * swirl + (pointerY - node.y) * 0.006 * pointerInfluence) * dt / node.mass;
 
     repelFluidNodes(fluid, node, index, dt);
-    node.vx *= 0.982;
-    node.vy *= 0.982;
+    node.vx *= 0.987;
+    node.vy *= 0.987;
     node.x += node.vx;
     node.y += node.vy;
   }
@@ -180,7 +195,7 @@ function drawFluidFrame(fluid, driver, pointer, reducedMotionQuery, time = 0) {
     moveFluidNodes(fluid, driver, pointer, dt);
   }
 
-  const strength = reducedMotionQuery.matches ? 0.2 : driver.pressure;
+  const strength = reducedMotionQuery.matches ? 0.16 : Math.max(driver.pressure, pointer.pressure);
   drawFluidWake(fluid, strength);
 
   for (const node of fluid.nodes) {
@@ -208,8 +223,8 @@ function setupLiquidAccent(gsapApi, reducedMotionQuery) {
   if (!context) return null;
 
   const fluid = createFluidState(canvas, context);
-  const driver = { x: 0.52, y: 0.4, spin: 0, pressure: 0.52 };
-  const pointer = { x: 0.5, y: 0.5, pressure: 0 };
+  const driver = { x: 0.52, y: 0.4, spin: 0, pressure: 0.32 };
+  const pointer = { x: 0.5, y: 0.5, targetX: 0.5, targetY: 0.5, targetPressure: 0, pressure: 0 };
   const advanceFluid = (time = 0) => drawFluidFrame(fluid, driver, pointer, reducedMotionQuery, time);
   const onResize = () => {
     if (reducedMotionQuery.matches || !gsapApi) {
@@ -229,22 +244,24 @@ function setupLiquidAccent(gsapApi, reducedMotionQuery) {
   const driverTween = gsapApi.to(driver, {
     x: 0.62,
     y: 0.54,
-    pressure: 0.86,
+    pressure: 0.48,
     spin: Math.PI * 2,
-    duration: 16,
+    duration: 24,
     ease: 'sine.inOut',
     repeat: -1,
     yoyo: true,
   });
-  const easePointerX = gsapApi.quickTo(pointer, 'x', { duration: 1.8, ease: 'power3.out' });
-  const easePointerY = gsapApi.quickTo(pointer, 'y', { duration: 1.8, ease: 'power3.out' });
-  const easePointerPressure = gsapApi.quickTo(pointer, 'pressure', { duration: 1.2, ease: 'power2.out' });
   const onPointerMove = (event) => {
-    easePointerX(event.clientX / Math.max(1, fluid.width));
-    easePointerY(event.clientY / Math.max(1, fluid.height));
-    easePointerPressure(0.76);
+    const nextX = event.clientX / Math.max(1, fluid.width);
+    const nextY = event.clientY / Math.max(1, fluid.height);
+    const distance = Math.hypot(nextX - pointer.targetX, nextY - pointer.targetY);
+    pointer.targetX = nextX;
+    pointer.targetY = nextY;
+    pointer.targetPressure = Math.min(0.34, 0.06 + distance * 2.6);
   };
-  const onPointerLeave = () => easePointerPressure(0);
+  const onPointerLeave = () => {
+    pointer.targetPressure = 0;
+  };
 
   window.addEventListener('pointermove', onPointerMove, { passive: true });
   window.addEventListener('pointerleave', onPointerLeave, { passive: true });
