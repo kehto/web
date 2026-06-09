@@ -23,7 +23,7 @@ import { finalizeEvent, getPublicKey } from 'nostr-tools/pure';
 import { hexToBytes } from 'nostr-tools/utils';
 
 const PLAYGROUND_MANIFEST_PRIVKEY_HEX = '11'.repeat(32);
-const SHORT_NUB_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
+const SHORT_NAP_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
 const SYNTHETIC_XTAG_PATHS = new Set(['config:schema', 'connect:origins']);
 const HOSTED_SHELL_BOOTSTRAP = String.raw`
 ;(() => {
@@ -39,8 +39,12 @@ const HOSTED_SHELL_BOOTSTRAP = String.raw`
       if (capability.startsWith('perm:')) {
         return Array.isArray(capabilities.sandbox) && capabilities.sandbox.includes(capability);
       }
-      const nub = capability.startsWith('nub:') ? capability.slice(4) : capability;
-      return Array.isArray(capabilities.nubs) && capabilities.nubs.includes(nub);
+      const nap = capability.startsWith('nap:')
+        ? capability.slice(4)
+        : capability.startsWith('nub:')
+          ? capability.slice(4)
+          : capability;
+      return Array.isArray(capabilities.nubs) && capabilities.nubs.includes(nap);
     }
     return typeof state.fallbackSupports === 'function'
       ? state.fallbackSupports(capability)
@@ -81,6 +85,9 @@ const HOSTED_SHELL_BOOTSTRAP = String.raw`
     if (message.capabilities && typeof message.capabilities === 'object') {
       state.capabilities = message.capabilities;
       if (currentNapplet) currentNapplet = patchNapplet(currentNapplet);
+      queueMicrotask(() => {
+        if (currentNapplet) currentNapplet = patchNapplet(currentNapplet);
+      });
     }
   });
 
@@ -94,9 +101,9 @@ export interface PlaygroundNappletConfigOptions {
 
 function validateRequires(nappletType: string, requires: readonly string[]): string[] {
   return requires.map((name) => {
-    if (!SHORT_NUB_NAME_PATTERN.test(name) || name.startsWith('nub-')) {
+    if (!SHORT_NAP_NAME_PATTERN.test(name) || name.startsWith('nap-') || name.startsWith('nub-')) {
       throw new Error(
-        `${nappletType} manifest requires must use short NUB names, got "${name}"`,
+        `${nappletType} manifest requires must use short NAP names, got "${name}"`,
       );
     }
     return name;

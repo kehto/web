@@ -12,9 +12,10 @@
  *   Anti-feature surface unchanged; NIP-5D identity is shell-assigned.
  */
 import '@napplet/shim';
-import { identityGetProfile, identityGetPublicKey } from '@napplet/nub/identity/sdk';
+import { installNapTheme } from '../../shared-theme';
+import { identityGetProfile, identityGetPublicKey } from '@napplet/nap/identity/sdk';
 
-const REQUIRED_NUBS = ['identity'] as const;
+const REQUIRED_NAPS = ['identity', 'theme'] as const;
 
 const statusEl = document.getElementById('profile-status')!;
 const pubkeyEl = document.getElementById('profile-pubkey')!;
@@ -48,9 +49,9 @@ function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void
   statusEl.style.color = color === 'green' ? '#39ff14' : color === 'red' ? '#ff3b3b' : '#888';
 }
 
-function getMissingRequiredNubs(): string[] {
+function getMissingRequiredNaps(): string[] {
   const supports = window.napplet.shell.supports;
-  return REQUIRED_NUBS.filter((capability) => !supports(capability));
+  return REQUIRED_NAPS.filter((capability) => !supports(capability));
 }
 
 function truncatePubkey(pubkey: string): string {
@@ -60,10 +61,11 @@ function truncatePubkey(pubkey: string): string {
 }
 
 async function loadIdentity(): Promise<void> {
-  const missing = getMissingRequiredNubs();
+  const missing = getMissingRequiredNaps();
   if (missing.length > 0) {
-    throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+    throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);
   }
+  installNapTheme();
 
   // Load identity: mark identity-bound then fetch pubkey + profile.
   setStatus('identity-bound', 'green');

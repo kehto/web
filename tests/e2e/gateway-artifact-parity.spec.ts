@@ -20,19 +20,19 @@ const expectedNapplets = [
 ] as const;
 
 const expectedRequires: Record<(typeof expectedNapplets)[number], readonly string[]> = {
-  bot: ['ifc', 'storage'],
-  chat: ['ifc', 'storage', 'relay'],
-  composer: ['relay'],
-  'config-demo': ['config'],
-  'decrypt-demo': ['identity'],
-  feed: ['relay'],
-  'hotkey-chord': ['keys'],
-  'media-controller': ['media'],
+  bot: ['ifc', 'storage', 'theme'],
+  chat: ['ifc', 'storage', 'relay', 'theme'],
+  composer: ['relay', 'theme'],
+  'config-demo': ['config', 'theme'],
+  'decrypt-demo': ['identity', 'theme'],
+  feed: ['relay', 'theme'],
+  'hotkey-chord': ['keys', 'theme'],
+  'media-controller': ['media', 'theme'],
   preferences: ['storage', 'theme'],
-  'profile-viewer': ['identity'],
-  'resource-demo': ['resource', 'connect'],
+  'profile-viewer': ['identity', 'theme'],
+  'resource-demo': ['resource', 'connect', 'theme'],
   'theme-switcher': ['theme'],
-  toaster: ['notify'],
+  toaster: ['notify', 'theme'],
 };
 
 test('playground loads all napplets through opaque-origin gateway artifacts', async ({ page }) => {
@@ -134,8 +134,10 @@ test('playground gateway manifests and hosted supports match napplet contracts',
       const supports = maybeWindow.napplet?.shell?.supports;
       if (typeof supports !== 'function') return false;
       return requires.every((capability) => supports(capability)) &&
+        requires.every((capability) => supports(`nap:${capability}`)) &&
         requires.every((capability) => supports(`nub:${capability}`)) &&
         !supports('nostrdb') &&
+        !supports('nap:nostrdb') &&
         !supports('nub:nostrdb') &&
         typeof maybeWindow.nostr === 'undefined';
     }, expectedRequires[name]), { timeout: 10_000 }).toBe(true);

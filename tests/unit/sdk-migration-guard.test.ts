@@ -29,11 +29,21 @@ const helperTargetDirs = [
 ] as const;
 const protocolPackageNames = [
   '@napplet/core',
+  '@napplet/nap',
   '@napplet/nub',
   '@napplet/sdk',
   '@napplet/shim',
   '@napplet/vite-plugin',
 ] as const;
+
+const protocolPackageVersions: Record<(typeof protocolPackageNames)[number], string> = {
+  '@napplet/core': '0.3.1',
+  '@napplet/nap': '0.3.1',
+  '@napplet/nub': '0.3.1',
+  '@napplet/sdk': '0.3.1',
+  '@napplet/shim': '0.3.1',
+  '@napplet/vite-plugin': '0.3.0',
+};
 
 const bannedSdkImportPattern = /from\s+['"]@napplet\/sdk['"]/;
 const oldIfcNamespace = ['i', 'p', 'c'].join('');
@@ -96,33 +106,35 @@ describe('SDK 0.3 migration guard', () => {
     expect(lockfile).not.toContain('napplet/packages');
     for (const pkg of protocolPackageNames) {
       expect(rootPackageJson.pnpm?.overrides ?? {}).not.toHaveProperty(pkg);
-      expect(lockfile).toContain(`'${pkg}@0.3.0':`);
+      expect(lockfile).toContain(`'${pkg}@${protocolPackageVersions[pkg]}':`);
     }
   });
 
-  it('keeps all SDK-migrated manifests on the exact 0.3 package graph', () => {
+  it('keeps all SDK-migrated manifests on the exact 0.3.1 NAP package graph', () => {
     for (const dir of sdkTargetDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
         dependencies?: Record<string, string>;
         devDependencies?: Record<string, string>;
       };
-      expect(pkg.dependencies?.['@napplet/sdk'], `${dir} @napplet/sdk`).toBe('0.3.0');
-      expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe('0.3.0');
-      expect(pkg.dependencies?.['@napplet/nub'], `${dir} @napplet/nub`).toBe('0.3.0');
+      expect(pkg.dependencies?.['@napplet/sdk'], `${dir} @napplet/sdk`).toBe('0.3.1');
+      expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe('0.3.1');
+      expect(pkg.dependencies?.['@napplet/nap'], `${dir} @napplet/nap`).toBe('0.3.1');
+      expect(pkg.dependencies?.['@napplet/nub'], `${dir} @napplet/nub`).toBeUndefined();
       expect(pkg.devDependencies?.['@napplet/vite-plugin'], `${dir} @napplet/vite-plugin`).toBe('0.3.0');
     }
   });
 
-  it('keeps all helper-migrated manifests on the exact 0.3 helper graph', () => {
+  it('keeps all helper-migrated manifests on the exact 0.3.1 NAP helper graph', () => {
     for (const dir of helperTargetDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
         dependencies?: Record<string, string>;
         devDependencies?: Record<string, string>;
       };
-      expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe('0.3.0');
-      expect(pkg.dependencies?.['@napplet/nub'], `${dir} @napplet/nub`).toBe('0.3.0');
+      expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe('0.3.1');
+      expect(pkg.dependencies?.['@napplet/nap'], `${dir} @napplet/nap`).toBe('0.3.1');
+      expect(pkg.dependencies?.['@napplet/nub'], `${dir} @napplet/nub`).toBeUndefined();
       expect(pkg.devDependencies?.['@napplet/vite-plugin'], `${dir} @napplet/vite-plugin`).toBe('0.3.0');
     }
   });
@@ -168,7 +180,7 @@ describe('SDK 0.3 migration guard', () => {
     const file = join(process.cwd(), 'apps/playground/napplets/decrypt-demo/src/main.ts');
     const content = readFileSync(file, 'utf8');
 
-    expect(content).toContain("import { identityDecrypt } from '@napplet/nub/identity/sdk';");
+    expect(content).toContain("import { identityDecrypt } from '@napplet/nap/identity/sdk';");
     for (const pattern of bannedDecryptPlumbingPatterns) {
       expect(content).not.toMatch(pattern);
     }

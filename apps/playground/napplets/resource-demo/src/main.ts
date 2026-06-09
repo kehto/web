@@ -1,5 +1,5 @@
 /**
- * resource-demo napplet -- exercises NUB-RESOURCE (RESOURCE-04, v1.7 Phase 40 / D1..D6).
+ * resource-demo napplet -- exercises NAP-RESOURCE (RESOURCE-04, v1.7 Phase 40 / D1..D6).
  *
  * On init:
  *   1. Dispatches resource.bytes to demo-data.json on the active playground origin
@@ -16,7 +16,7 @@
  *   - #resource-demo-log      -- timestamped event log for diagnostics
  *
  * RESOURCE-SDK-GAP (Phase 58 raw-envelope allowlist):
- *   @napplet/nub/resource/sdk@0.3.0 is published, but its helper surface expects
+ *   @napplet/nap/resource/sdk@0.3.1 is published, but its helper surface expects
  *   upstream wire fields (`id`, Blob `blob`, `mime`, error field `error`). Kehto's
  *   current resource service intentionally uses its internal shell-side wire shape
  *   (`requestId`, `bodyBase64`, `status`, `headers`, error field `code`). Until that
@@ -33,8 +33,9 @@
  * packages/shell/src/types/internal-resource.ts.
  */
 import '@napplet/shim';
+import { installNapTheme } from '../../shared-theme';
 
-const REQUIRED_NUBS = ['resource', 'connect'] as const;
+const REQUIRED_NAPS = ['resource', 'connect', 'theme'] as const;
 
 const statusEl = document.getElementById('resource-demo-status')!;
 const grantedEl = document.getElementById('resource-demo-granted')!;
@@ -56,9 +57,9 @@ function log(text: string): void {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
-function getMissingRequiredNubs(): string[] {
+function getMissingRequiredNaps(): string[] {
   const supports = window.napplet.shell.supports;
-  return REQUIRED_NUBS.filter((capability) => !supports(capability));
+  return REQUIRED_NAPS.filter((capability) => !supports(capability));
 }
 
 function newRequestId(): string {
@@ -134,10 +135,11 @@ const GRANTED_URL = new URL('demo-data.json', getPlaygroundBaseUrl()).href;
 const DENIED_URL = 'https://untrusted.example/';  // D4: RFC-2606 reserved — never resolves
 
 async function init(): Promise<void> {
-  const missing = getMissingRequiredNubs();
+  const missing = getMissingRequiredNaps();
   if (missing.length > 0) {
-    throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+    throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);
   }
+  installNapTheme();
 
   setStatus('requesting...', 'gray');
 

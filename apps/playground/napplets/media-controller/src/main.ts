@@ -2,7 +2,7 @@
  * Media-controller demo napplet — exercises real media backend (MEDIA-03, Phase 27).
  *
  * Per 27-CONTEXT.md Area 3:
- *   - On init: calls mediaCreateSession via @napplet/nub/media/sdk. The helper owns
+ *   - On init: calls mediaCreateSession via @napplet/nap/media/sdk. The helper owns
  *     the correlation ID and Promise resolution on the shell's
  *     media.session.create.result envelope.
  *   - After session create, the napplet subscribes to mediaOnCommand(sessionId, ...)
@@ -15,25 +15,26 @@
  *   - #media-controller-status transitions: 'connecting...' → 'session-ready' → 'playing' | 'paused'
  *
  * Anti-features (enforced per v1.4 milestone — see Phase 27 acceptance greps):
- *   - no raw postMessage listener — uses @napplet/nub/media/sdk helpers exclusively
+ *   - no raw postMessage listener — uses @napplet/nap/media/sdk helpers exclusively
  *   - no direct nostr/signer/legacy-bus imports
  *   - no hand-rolled correlation IDs (helper owns them)
  *
  * Subpath selection rationale (v1.6 Phase 32 fix): imports the pure SDK helpers
- * from `@napplet/nub/media/sdk`, NOT the root `@napplet/nub/media` subpath. The
+ * from `@napplet/nap/media/sdk`, NOT the root `@napplet/nap/media` subpath. The
  * root subpath has a `registerNub(DOMAIN, ...)` side effect at module-init time
  * that collides with `@napplet/shim`'s own registration of the "media" domain,
- * throwing `NUB domain "media" is already registered` and stalling init().
+ * throwing `NAP domain "media" is already registered` and stalling init().
  * The `/sdk` subpath re-exports the same helpers with zero side effects.
  */
 import '@napplet/shim';
+import { installNapTheme } from '../../shared-theme';
 import {
   mediaCreateSession,
   mediaReportState,
   mediaOnCommand,
-} from '@napplet/nub/media/sdk';
+} from '@napplet/nap/media/sdk';
 
-const REQUIRED_NUBS = ['media'] as const;
+const REQUIRED_NAPS = ['media', 'theme'] as const;
 
 const DEMO_METADATA = {
   title: 'Kehto Demo Track',
@@ -58,9 +59,9 @@ function setStatus(text: string, color: 'gray' | 'green' | 'blue' | 'red' = 'gra
     : '#888';
 }
 
-function getMissingRequiredNubs(): string[] {
+function getMissingRequiredNaps(): string[] {
   const supports = window.napplet.shell.supports;
-  return REQUIRED_NUBS.filter((capability) => !supports(capability));
+  return REQUIRED_NAPS.filter((capability) => !supports(capability));
 }
 
 function log(text: string): void {
@@ -77,10 +78,11 @@ function log(text: string): void {
 let commandCount = 0;
 
 async function init(): Promise<void> {
-  const missing = getMissingRequiredNubs();
+  const missing = getMissingRequiredNaps();
   if (missing.length > 0) {
-    throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+    throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);
   }
+  installNapTheme();
 
   log('creating media session');
 

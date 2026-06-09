@@ -11,10 +11,11 @@
  *   no legacy bus enums, no global nostr accessor. Shim handles NIP-5D envelopes.
  */
 import '@napplet/shim';
-import { relayPublish, relayPublishEncrypted } from '@napplet/nub/relay/sdk';
+import { installNapTheme } from '../../shared-theme';
+import { relayPublish, relayPublishEncrypted } from '@napplet/nap/relay/sdk';
 import type { EventTemplate } from '@napplet/core';
 
-const REQUIRED_NUBS = ['relay'] as const;
+const REQUIRED_NAPS = ['relay', 'theme'] as const;
 
 const statusEl = document.getElementById('composer-status')!;
 const inputEl = document.getElementById('composer-input') as HTMLInputElement;
@@ -48,9 +49,9 @@ function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void
   statusEl.style.color = color === 'green' ? '#39ff14' : color === 'red' ? '#ff3b3b' : '#888';
 }
 
-function getMissingRequiredNubs(): string[] {
+function getMissingRequiredNaps(): string[] {
   const supports = window.napplet.shell.supports;
-  return REQUIRED_NUBS.filter((capability) => !supports(capability));
+  return REQUIRED_NAPS.filter((capability) => !supports(capability));
 }
 
 async function publish(): Promise<void> {
@@ -107,13 +108,14 @@ inputEl.addEventListener('keydown', (e) => {
 });
 
 // Initialize the napplet without an identity probe. NIP-5D identity is assigned
-// by the shell at iframe creation; the relay NUB is the only required runtime
+// by the shell at iframe creation; the relay NAP is the only required runtime
 // capability for this demo.
 async function init(): Promise<void> {
-  const missing = getMissingRequiredNubs();
+  const missing = getMissingRequiredNaps();
   if (missing.length > 0) {
-    throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+    throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);
   }
+  installNapTheme();
   setStatus('ready', 'green');
   log('ready to publish');
 }

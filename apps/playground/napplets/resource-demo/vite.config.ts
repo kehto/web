@@ -1,3 +1,3 @@
 import { definePlaygroundNappletConfig } from '../shared-vite-config';
 
-export default definePlaygroundNappletConfig('resource-demo', { requires: ['resource', 'connect'] });
+export default definePlaygroundNappletConfig('resource-demo', { requires: ['resource', 'connect', 'theme'] });

@@ -27,7 +27,7 @@ import {
 } from './demo-definitions.js';
 import {
   createDemoHooks,
-  getMissingRequiredNubs,
+  getMissingRequiredNaps,
   setDemoSessionRegistryRef,
 } from './demo-hooks.js';
 import { createMessageTap, type MessageTap } from './message-tap.js';
@@ -60,7 +60,7 @@ export type { MessageTap, TappedMessage } from './message-tap.js';
 export {
   getConfigServiceBundle,
   getIdentityServiceHandler,
-  getMissingRequiredNubs,
+  getMissingRequiredNaps,
   getNip66Aggregator,
   getNotificationServiceHandler,
   getShellCapabilities,
@@ -389,10 +389,10 @@ export async function loadNapplet(
   options: LoadNappletOptions = {},
 ): Promise<NappletInfo> {
   const metadata = await fetchGatewayMetadata(name);
-  const missingRequiredNubs = getMissingRequiredNubs(metadata.requires);
-  if (missingRequiredNubs.length > 0) {
+  const missingRequiredNaps = getMissingRequiredNaps(metadata.requires);
+  if (missingRequiredNaps.length > 0) {
     throw new Error(
-      `[demo] ${metadata.dTag} requires unsupported NUB capabilities: ${missingRequiredNubs.join(', ')}`,
+      `[demo] ${metadata.dTag} requires unsupported NAP capabilities: ${missingRequiredNaps.join(', ')}`,
     );
   }
 

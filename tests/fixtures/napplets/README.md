@@ -1,18 +1,18 @@
 # Fixture Napplets
 
-This directory holds the **Layer-A fixture napplets** used by the Playwright harness at `:4173`. Each fixture is a single-purpose protocol probe that exercises one NUB domain and is loaded via `window.__loadNapplet__('nub-<domain>')` in a Layer-A spec (`tests/e2e/nub-*.spec.ts`).
+This directory holds the **Layer-A fixture napplets** used by the Playwright harness at `:4173`. Each fixture is a single-purpose protocol probe that exercises one NAP domain and is loaded via the legacy fixture id `window.__loadNapplet__('nub-<domain>')` in a Layer-A spec (`tests/e2e/nub-*.spec.ts`).
 
 ## Pattern (v1.3+)
 
 Each fixture is a minimal helper-based package named `@kehto/fixture-nub-<domain>`:
 
-- `package.json` — exact `@napplet/shim`, `@napplet/sdk`, and `@napplet/nub` 0.3 deps; `vite build` + `vite preview` scripts (mirrors demo napplets)
+- `package.json` — exact `@napplet/shim`, `@napplet/sdk`, and `@napplet/nap` 0.3.1 deps; `vite build` + `vite preview` scripts (mirrors demo napplets)
 - `vite.config.ts` — `nip5aManifest({ nappletType: 'fixture-nub-<domain>' })`
 - `tsconfig.json` — strict TS, ESNext, DOM lib (mirrors demo napplets)
 - `index.html` — minimal HTML with `<title>nub-<domain> fixture</title>` and required DOM sentinels
-- `src/main.ts` — imports `@napplet/shim` + relevant `@napplet/nub/<domain>/sdk` direct helpers; performs one or two helper calls on init
+- `src/main.ts` — imports `@napplet/shim` + relevant `@napplet/nap/<domain>/sdk` direct helpers; performs one or two helper calls on init
 
-Six active fixtures (one per non-stub NUB domain):
+Six active fixtures (one per non-stub NAP domain):
 - `nub-identity/` — `identityGetPublicKey` / `identityGetProfile`
 - `nub-ifc/`      — `ifcOn` / `ifcEmit`
 - `nub-notify/`   — `notifySend`
@@ -26,7 +26,7 @@ Stub-domain coverage (no fixture napplet — spec uses `__injectEnvelope__` dire
 
 ## Anti-features (hard-enforced)
 
-- NO raw `window.addEventListener('message')` — fixtures use shim-mounted NUB helper functions only.
+- NO raw `window.addEventListener('message')` — fixtures use shim-mounted NAP helper functions only.
 - NO `window.nostr`, NO `signer-service`, NO `BusKind`, NO kind 29001/29002.
 - NO new consumers of the former `@napplet/core` compatibility shim (removed in Phase 24).
 - NO `allow-same-origin` in any iframe sandbox.

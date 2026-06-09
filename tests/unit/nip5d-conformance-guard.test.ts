@@ -19,24 +19,24 @@ const playgroundNapplets = [
 ] as const;
 
 const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly string[]> = {
-  bot: ['ifc', 'storage'],
-  chat: ['ifc', 'storage', 'relay'],
-  composer: ['relay'],
-  'config-demo': ['config'],
-  'decrypt-demo': ['identity'],
-  feed: ['relay'],
-  'hotkey-chord': ['keys'],
-  'media-controller': ['media'],
+  bot: ['ifc', 'storage', 'theme'],
+  chat: ['ifc', 'storage', 'relay', 'theme'],
+  composer: ['relay', 'theme'],
+  'config-demo': ['config', 'theme'],
+  'decrypt-demo': ['identity', 'theme'],
+  feed: ['relay', 'theme'],
+  'hotkey-chord': ['keys', 'theme'],
+  'media-controller': ['media', 'theme'],
   preferences: ['storage', 'theme'],
-  'profile-viewer': ['identity'],
-  'resource-demo': ['resource', 'connect'],
+  'profile-viewer': ['identity', 'theme'],
+  'resource-demo': ['resource', 'connect', 'theme'],
   'theme-switcher': ['theme'],
-  toaster: ['notify'],
+  toaster: ['notify', 'theme'],
 };
 
 const rawListenerFiles = [
+  'apps/playground/napplets/shared-theme.ts',
   'apps/playground/napplets/decrypt-demo/src/main.ts',
-  'apps/playground/napplets/preferences/src/main.ts',
   'apps/playground/napplets/resource-demo/src/main.ts',
   'apps/playground/napplets/toaster/src/main.ts',
 ] as const;
@@ -57,8 +57,8 @@ const policyAllowlistTypes = [
 ] as const;
 
 const rawListenerTypeGuards: Record<string, readonly string[]> = {
+  'apps/playground/napplets/shared-theme.ts': ["data.type !== 'theme.changed'"],
   'apps/playground/napplets/decrypt-demo/src/main.ts': ["msg.type === 'demo.decrypt.fixtures'"],
-  'apps/playground/napplets/preferences/src/main.ts': ["data.type !== 'theme.changed'"],
   'apps/playground/napplets/resource-demo/src/main.ts': [
     "envelope.type === 'resource.bytes.result'",
     "envelope.type === 'resource.bytes.error'",
@@ -107,10 +107,13 @@ function listFiles(root: string): string[] {
 }
 
 function nappletSourceFiles(): string[] {
-  return playgroundNapplets.flatMap((name) =>
-    listFiles(join(process.cwd(), 'apps/playground/napplets', name, 'src'))
-      .filter((file) => /\.[cm]?tsx?$/.test(file)),
-  );
+  return [
+    join(process.cwd(), 'apps/playground/napplets/shared-theme.ts'),
+    ...playgroundNapplets.flatMap((name) =>
+      listFiles(join(process.cwd(), 'apps/playground/napplets', name, 'src'))
+        .filter((file) => /\.[cm]?tsx?$/.test(file)),
+    ),
+  ];
 }
 
 function stringLiteralList(values: readonly string[]): string {
@@ -152,7 +155,7 @@ describe('NIP-5D conformance static guards', () => {
     expect(violations).toEqual([]);
   });
 
-  it('requires every playground napplet to declare and preflight its NUB contract', () => {
+  it('requires every playground napplet to declare and preflight its NAP contract', () => {
     for (const name of playgroundNapplets) {
       const config = readRepoFile(`apps/playground/napplets/${name}/vite.config.ts`);
       const source = readRepoFile(`apps/playground/napplets/${name}/src/main.ts`);
@@ -162,10 +165,10 @@ describe('NIP-5D conformance static guards', () => {
         `definePlaygroundNappletConfig('${name}', { requires: [${requiresLiteral}] })`,
       );
       expect(source, `${name} source requires`).toContain(
-        `const REQUIRED_NUBS = [${requiresLiteral}] as const;`,
+        `const REQUIRED_NAPS = [${requiresLiteral}] as const;`,
       );
       expect(source, `${name} source supports preflight`).toContain('.napplet.shell.supports');
-      expect(source, `${name} source unsupported path`).toContain('unsupported NUB capability');
+      expect(source, `${name} source unsupported path`).toContain('unsupported NAP capability');
     }
   });
 

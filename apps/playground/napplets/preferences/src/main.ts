@@ -13,20 +13,21 @@
  *   no BusKind, no global nostr, no signer-service.
  *
  * Per CONTEXT D-USER-02 (Phase 20):
- *   - Installs ONE narrowly-scoped window message listener for `theme.changed` envelopes broadcast
+ *   - Subscribes through the shared NAP-THEME helper for `theme.changed` envelopes broadcast
  *     by the demo's shell-bridge.publishTheme() (triggered when theme-switcher (Plan 20-04) posts
  *     a `demo.publishTheme` message that the demo host (Plan 20-06) forwards to relay.publishTheme).
  *   - On receipt: sets document.body.style.backgroundColor to theme.colors.background AND
  *     sets #preferences-theme-applied textContent to that color hex.
  *
- * THEME-SDK-GAP (Phase 58 raw-envelope allowlist): the helper surface does not
- * expose theme.on / theme.subscribe. The single source-bound message listener
- * registered below is the explicit, narrowly scoped deviation for theme.changed.
+ * THEME-SDK-GAP (Phase 58 raw-envelope allowlist): the shared helper owns the
+ * single source-bound message listener because the published helper surface does
+ * not expose theme.on / theme.subscribe yet.
  */
 import '@napplet/shim';
-import { storageGetItem, storageSetItem } from '@napplet/nub/storage/sdk';
+import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
+import { storageGetItem, storageSetItem } from '@napplet/nap/storage/sdk';
 
-const REQUIRED_NUBS = ['storage', 'theme'] as const;
+const REQUIRED_NAPS = ['storage', 'theme'] as const;
 
 const statusEl = document.getElementById('preferences-status')!;
 const displayNameEl = document.getElementById('pref-display-name') as HTMLInputElement;
@@ -63,9 +64,9 @@ function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void
     color === 'green' ? '#39ff14' : color === 'red' ? '#ff3b3b' : '#888';
 }
 
-function getMissingRequiredNubs(): string[] {
+function getMissingRequiredNaps(): string[] {
   const supports = window.napplet.shell.supports;
-  return REQUIRED_NUBS.filter((capability) => !supports(capability));
+  return REQUIRED_NAPS.filter((capability) => !supports(capability));
 }
 
 async function loadPreferences(): Promise<void> {
@@ -105,12 +106,21 @@ saveBtn.addEventListener('click', () => {
   void savePreferences();
 });
 
+const themeAppliedEl = document.getElementById('preferences-theme-applied');
+onNapThemeChanged((theme) => {
+  applyNapTheme(theme);
+  const bg = theme.colors.background;
+  if (themeAppliedEl) themeAppliedEl.textContent = bg;
+  log(`theme.changed received - bg: ${bg}`);
+});
+
 // Load persisted preferences on mount; status flips to 'loaded' on success.
 async function init(): Promise<void> {
-  const missing = getMissingRequiredNubs();
+  const missing = getMissingRequiredNaps();
   if (missing.length > 0) {
-    throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+    throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);
   }
+  installNapTheme();
   await loadPreferences();
 }
 
@@ -121,31 +131,4 @@ init().catch((err) => {
     setStatus('unavailable', 'red');
     log(`init failed — ${formatError(err, 'NIP-5D capability/storage failure')}`);
   }
-});
-
-/**
- * THE ONLY raw window message listener in this napplet (Phase 58 allowlist).
- *
- * Justified because the helper surface does not expose theme.on / theme.subscribe. This handler:
- *   - Guards on event.source === window.parent (drop messages from other origins)
- *   - Guards on event.data being a plain object with type === 'theme.changed'
- *   - Reads theme.colors.background (string) and applies it to document.body.style.backgroundColor
- *   - Sets #preferences-theme-applied textContent to the hex string
- *   - Tolerates malformed payloads (missing fields → silent return)
- *
- * Does NOT intercept storage.*, ifc.*, or any other envelope types — those still flow through
- * the shim-mounted NUB helper surface so the Phase 19 storage round-trip remains intact.
- */
-const themeAppliedEl = document.getElementById('preferences-theme-applied');
-window.addEventListener('message', (event: MessageEvent) => {
-  if (event.source !== window.parent) return;
-  const data = event.data as Record<string, unknown> | null;
-  if (!data || typeof data !== 'object') return;
-  if (data.type !== 'theme.changed') return;
-  const theme = (data as { theme?: { colors?: { background?: unknown } } }).theme;
-  const bg = theme?.colors?.background;
-  if (typeof bg !== 'string' || bg.length === 0) return;
-  document.body.style.backgroundColor = bg;
-  if (themeAppliedEl) themeAppliedEl.textContent = bg;
-  log(`theme.changed received — bg: ${bg}`);
 });

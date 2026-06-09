@@ -11,7 +11,7 @@
  * Anti-features: NO raw window.addEventListener — uses ifcOn() exclusively for cross-frame.
  */
 import '@napplet/shim';
-import { ifcEmit, ifcOn } from '@napplet/nub/ifc/sdk';
+import { ifcEmit, ifcOn } from '@napplet/nap/ifc/sdk';
 
 const statusEl = document.getElementById('nub-status')!;
 const logEl = document.getElementById('nub-ifc-log')!;

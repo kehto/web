@@ -1,3 +1,3 @@
 import { definePlaygroundNappletConfig } from '../shared-vite-config';
 
-export default definePlaygroundNappletConfig('chat', { requires: ['ifc', 'storage', 'relay'] });
+export default definePlaygroundNappletConfig('chat', { requires: ['ifc', 'storage', 'relay', 'theme'] });

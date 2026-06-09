@@ -82,15 +82,15 @@ importers:
 
   apps/playground/napplets/bot:
     dependencies:
-      '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+      '@napplet/nap':
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.3.0
@@ -105,17 +105,17 @@ importers:
   apps/playground/napplets/chat:
     dependencies:
       '@napplet/core':
-        specifier: 0.3.0
-        version: 0.3.0
-      '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
+      '@napplet/nap':
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.3.0
@@ -130,17 +130,17 @@ importers:
   apps/playground/napplets/composer:
     dependencies:
       '@napplet/core':
-        specifier: 0.3.0
-        version: 0.3.0
-      '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
+      '@napplet/nap':
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.3.0
@@ -154,15 +154,15 @@ importers:
 
   apps/playground/napplets/config-demo:
     dependencies:
-      '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+      '@napplet/nap':
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.3.0
@@ -176,12 +176,12 @@ importers:
 
   apps/playground/napplets/decrypt-demo:
     dependencies:
-      '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+      '@napplet/nap':
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.3.0
@@ -196,17 +196,17 @@ importers:
   apps/playground/napplets/feed:
     dependencies:
       '@napplet/core':
-        specifier: 0.3.0
-        version: 0.3.0
-      '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
+      '@napplet/nap':
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.3.0
@@ -220,15 +220,15 @@ importers:
 
   apps/playground/napplets/hotkey-chord:
     dependencies:
-      '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+      '@napplet/nap':
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.3.0
@@ -242,15 +242,15 @@ importers:
 
   apps/playground/napplets/media-controller:
     dependencies:
-      '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+      '@napplet/nap':
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.3.0
@@ -264,15 +264,15 @@ importers:
 
   apps/playground/napplets/preferences:
     dependencies:
-      '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+      '@napplet/nap':
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.3.0
@@ -286,15 +286,15 @@ importers:
 
   apps/playground/napplets/profile-viewer:
     dependencies:
-      '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+      '@napplet/nap':
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.3.0
@@ -308,15 +308,15 @@ importers:
 
   apps/playground/napplets/resource-demo:
     dependencies:
-      '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+      '@napplet/nap':
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.3.0
@@ -330,15 +330,15 @@ importers:
 
   apps/playground/napplets/theme-switcher:
     dependencies:
-      '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+      '@napplet/nap':
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.3.0
@@ -352,15 +352,15 @@ importers:
 
   apps/playground/napplets/toaster:
     dependencies:
-      '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+      '@napplet/nap':
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.3.0
@@ -510,15 +510,15 @@ importers:
 
   tests/fixtures/napplets/nub-identity:
     dependencies:
-      '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+      '@napplet/nap':
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.3.0
@@ -532,15 +532,15 @@ importers:
 
   tests/fixtures/napplets/nub-ifc:
     dependencies:
-      '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+      '@napplet/nap':
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.3.0
@@ -554,15 +554,15 @@ importers:
 
   tests/fixtures/napplets/nub-notify:
     dependencies:
-      '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+      '@napplet/nap':
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.3.0
@@ -577,17 +577,17 @@ importers:
   tests/fixtures/napplets/nub-relay:
     dependencies:
       '@napplet/core':
-        specifier: 0.3.0
-        version: 0.3.0
-      '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
+      '@napplet/nap':
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.3.0
@@ -601,15 +601,15 @@ importers:
 
   tests/fixtures/napplets/nub-storage:
     dependencies:
-      '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+      '@napplet/nap':
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.3.0
@@ -623,15 +623,15 @@ importers:
 
   tests/fixtures/napplets/nub-theme:
     dependencies:
-      '@napplet/nub':
-        specifier: 0.3.0
-        version: 0.3.0
+      '@napplet/nap':
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/sdk':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
       '@napplet/shim':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.3.0
@@ -1196,6 +1196,17 @@ packages:
   '@napplet/core@0.3.0':
     resolution: {integrity: sha512-3KfvV1OUit1qd7wi3eW/qK2ChhuGCS2zzvXpuYHMksjDkLJP+SPbLoocqr21v1EpJ0LDFAFdqRNdVo+XGsBA/g==}
 
+  '@napplet/core@0.3.1':
+    resolution: {integrity: sha512-79mY4fhNJSEaq3mYmsKFOaSsY8wPnyxizNGXAJYP7vOmumcRFHYlPtBq+w/XwY0T0bSEQ37set4G7f2HGk3QoA==}
+
+  '@napplet/nap@0.3.1':
+    resolution: {integrity: sha512-r84ftc5IIRUrgI72/N3qChQmDXsZCOzfgOOj0nYbDRYfoVnJqkwuqSlcbF0HjLmEnh8JZb/mahRwT9/NOHwOTA==}
+    peerDependencies:
+      json-schema-to-ts: ^3.1.1
+    peerDependenciesMeta:
+      json-schema-to-ts:
+        optional: true
+
   '@napplet/nub@0.3.0':
     resolution: {integrity: sha512-4Hr2LbcpJ5BC9bPhvCdTL8nMcCSMY4UgYKCSWiT1o5Ah6HYSL0E+MJUPyA4P5R+6gbX6hCYPZD9GI8bj8qKpaQ==}
     peerDependencies:
@@ -1204,11 +1215,20 @@ packages:
       json-schema-to-ts:
         optional: true
 
-  '@napplet/sdk@0.3.0':
-    resolution: {integrity: sha512-Wj1634Hc/itqYpKl7mR74aQCtTl8JJiE/NoA9xrVrdO/pVlAQ0MQaopuVqH9AznJGxLzBD8g8i6QXJ6b5gqAhA==}
+  '@napplet/nub@0.3.1':
+    resolution: {integrity: sha512-4g7lx67HrHAo0rpAiyLwfYkrk2JZgF2HHx6SYHuKJVN2WkhEdWLfb8vlGyiPEJ2uLwh2VIUNxqw56fo9Ee7B7w==}
+    deprecated: Renamed to @napplet/nap. Please migrate.
+    peerDependencies:
+      json-schema-to-ts: ^3.1.1
+    peerDependenciesMeta:
+      json-schema-to-ts:
+        optional: true
 
-  '@napplet/shim@0.3.0':
-    resolution: {integrity: sha512-yr+FlBgEKHBa4eTCyLSLaXxuR3Es7nKTIRxtpsNVCDTcGQIT9kRSjMb3IiGbtN3Txh2PYKQ39D03sjkBkOkshw==}
+  '@napplet/sdk@0.3.1':
+    resolution: {integrity: sha512-29wvQ5FoRBd+a4uA5Hv7rLYuf6Lb+TUj3lOngUOlM3MtCyZIqPrpvekYqmzP1Kht3NkqWGJ55jSFoDJ+vbsmzQ==}
+
+  '@napplet/shim@0.3.1':
+    resolution: {integrity: sha512-kYzd4wWwBzQWuO6og1sT/lEgJqfa5IE++wpeQaSvedim/c+vpISYWW3v8JOChACZwc/3yw7Ss8wQSNEiOklCZQ==}
 
   '@napplet/vite-plugin@0.3.0':
     resolution: {integrity: sha512-rpxIKEWSLuMMwCQ7BPZItNg0NLZZ2ggT8Cbl6UlR6rtFj7zCShEqRG/lzD8B/DS78mKCRldYHaD6azn8yzd1mA==}
@@ -3455,21 +3475,31 @@ snapshots:
 
   '@napplet/core@0.3.0': {}
 
+  '@napplet/core@0.3.1': {}
+
+  '@napplet/nap@0.3.1':
+    dependencies:
+      '@napplet/core': 0.3.1
+
   '@napplet/nub@0.3.0':
     dependencies:
-      '@napplet/core': 0.3.0
+      '@napplet/core': 0.3.1
 
-  '@napplet/sdk@0.3.0':
+  '@napplet/nub@0.3.1':
     dependencies:
-      '@napplet/core': 0.3.0
-      '@napplet/nub': 0.3.0
+      '@napplet/core': 0.3.1
+
+  '@napplet/sdk@0.3.1':
+    dependencies:
+      '@napplet/core': 0.3.1
+      '@napplet/nub': 0.3.1
     transitivePeerDependencies:
       - json-schema-to-ts
 
-  '@napplet/shim@0.3.0':
+  '@napplet/shim@0.3.1':
     dependencies:
-      '@napplet/core': 0.3.0
-      '@napplet/nub': 0.3.0
+      '@napplet/core': 0.3.1
+      '@napplet/nub': 0.3.1
     transitivePeerDependencies:
       - json-schema-to-ts
 

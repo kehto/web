@@ -13,12 +13,13 @@
  * NO NIP-01 arrays, NO BusKind, NO window.nostr (anti-features).
  */
 import '@napplet/shim';
-import { ifcEmit, ifcOn } from '@napplet/nub/ifc/sdk';
-import { storageGetItem, storageSetItem } from '@napplet/nub/storage/sdk';
-import { relayPublish, relaySubscribe } from '@napplet/nub/relay/sdk';
+import { installNapTheme } from '../../shared-theme';
+import { ifcEmit, ifcOn } from '@napplet/nap/ifc/sdk';
+import { storageGetItem, storageSetItem } from '@napplet/nap/storage/sdk';
+import { relayPublish, relaySubscribe } from '@napplet/nap/relay/sdk';
 import type { EventTemplate } from '@napplet/core';
 
-const REQUIRED_NUBS = ['ifc', 'storage', 'relay'] as const;
+const REQUIRED_NAPS = ['ifc', 'storage', 'relay', 'theme'] as const;
 
 /**
  * Emit a notifications:create event through the real napplet→service path.
@@ -46,9 +47,9 @@ function formatError(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function getMissingRequiredNubs(): string[] {
+function getMissingRequiredNaps(): string[] {
   const supports = window.napplet.shell.supports;
-  return REQUIRED_NUBS.filter((capability) => !supports(capability));
+  return REQUIRED_NAPS.filter((capability) => !supports(capability));
 }
 
 function addMessage(text: string, type: 'self' | 'other' | 'system' = 'system'): void {
@@ -129,10 +130,11 @@ inputEl.addEventListener('keydown', (e) => {
 });
 
 async function init(): Promise<void> {
-  const missing = getMissingRequiredNubs();
+  const missing = getMissingRequiredNaps();
   if (missing.length > 0) {
-    throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+    throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);
   }
+  installNapTheme();
 
   await loadHistory();
   statusEl.textContent = 'ready';

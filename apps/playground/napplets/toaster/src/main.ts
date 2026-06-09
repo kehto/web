@@ -9,7 +9,7 @@
  *     mirrors the dismissal acks (notification-service does not push a notify.dismissed
  *     reply, so we trust the dispatch and drop locally — equivalent to optimistic UI)
  *
- * NOTIFY-SDK-GAP (Phase 58 raw-envelope allowlist): @napplet/nub/notify/sdk exposes notifySend and
+ * NOTIFY-SDK-GAP (Phase 58 raw-envelope allowlist): @napplet/nap/notify/sdk exposes notifySend and
  * notifyDismiss, but not notify.create / notify.list / notify.read. The
  * demo's notification-service (packages/services/src/notification-service.ts) implements
  * the notify.create / notify.list / notify.read contract, not just notify.send.
@@ -25,9 +25,10 @@
  * no signer-service, no kind === 29001/29002. Shim handles NIP-5D envelopes.
  */
 import '@napplet/shim';
-import { notifyDismiss as notifyDismissHelper } from '@napplet/nub/notify/sdk';
+import { installNapTheme } from '../../shared-theme';
+import { notifyDismiss as notifyDismissHelper } from '@napplet/nap/notify/sdk';
 
-const REQUIRED_NUBS = ['notify'] as const;
+const REQUIRED_NAPS = ['notify', 'theme'] as const;
 
 const statusEl = document.getElementById('toaster-status')!;
 const titleEl = document.getElementById('toaster-title') as HTMLInputElement;
@@ -62,9 +63,9 @@ function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void
   statusEl.style.color = color === 'green' ? '#39ff14' : color === 'red' ? '#ff3b3b' : '#888';
 }
 
-function getMissingRequiredNubs(): string[] {
+function getMissingRequiredNaps(): string[] {
   const supports = window.napplet.shell.supports;
-  return REQUIRED_NUBS.filter((capability) => !supports(capability));
+  return REQUIRED_NAPS.filter((capability) => !supports(capability));
 }
 
 function makeCorrelationId(): string {
@@ -193,10 +194,11 @@ window.addEventListener('message', (event: MessageEvent) => {
 // shell at iframe creation; notify.* flows run from button handlers plus the
 // one documented source-bound message listener.
 async function init(): Promise<void> {
-  const missing = getMissingRequiredNubs();
+  const missing = getMissingRequiredNaps();
   if (missing.length > 0) {
-    throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+    throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);
   }
+  installNapTheme();
   setStatus('ready', 'green');
   log('ready to notify');
 }

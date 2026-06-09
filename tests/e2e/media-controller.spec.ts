@@ -2,7 +2,7 @@
  * media-controller.spec.ts — E2E-13 (Phase 27 real media backend).
  *
  * The media-controller napplet (Plan 27-03) creates a media session via the
- * @napplet/nub/media helpers: `mediaCreateSession(...)` + `mediaReportState(...)`
+ * @napplet/nap/media helpers: `mediaCreateSession(...)` + `mediaReportState(...)`
  * + `mediaOnCommand(...)`. The helper internally routes the shell's
  * `media.session.create.result` envelope (Plan 27-01 preserves that wire shape)
  * and the `media.command` push (Plan 27-01 emits this on every matching

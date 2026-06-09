@@ -3,7 +3,7 @@ import { demoBeforeEach } from './helpers/index.js';
 
 test.use({ baseURL: 'http://localhost:4174' });
 
-test('playground rejects a napplet whose manifest requires an unsupported NUB', async ({ page }) => {
+test('playground rejects a napplet whose manifest requires an unsupported NAP', async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on('console', (message) => {
     if (message.type() === 'error') consoleErrors.push(message.text());

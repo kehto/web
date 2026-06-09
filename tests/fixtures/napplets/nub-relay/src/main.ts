@@ -12,7 +12,7 @@
  *   - On click: __getNubMessage__(windowId, 'relay.publishEncrypted') returns the encrypted envelope
  */
 import '@napplet/shim';
-import { relayPublish, relayPublishEncrypted } from '@napplet/nub/relay/sdk';
+import { relayPublish, relayPublishEncrypted } from '@napplet/nap/relay/sdk';
 import type { EventTemplate } from '@napplet/core';
 
 const statusEl = document.getElementById('nub-status')!;

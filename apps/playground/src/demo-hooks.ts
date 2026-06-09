@@ -292,7 +292,7 @@ export function getShellCapabilities(): ShellCapabilities | null {
   };
 }
 
-export function getMissingRequiredNubs(requires: readonly string[]): string[] {
+export function getMissingRequiredNaps(requires: readonly string[]): string[] {
   const capabilities = shellCapabilities;
   if (!capabilities) return [...requires];
   const supported = new Set(capabilities.nubs);

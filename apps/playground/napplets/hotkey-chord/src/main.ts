@@ -2,7 +2,7 @@
  * Hotkey-chord demo napplet — exercises real keys backend (KEYS-03, Phase 26).
  *
  * Per CONTEXT.md Area 3 + Area 1 + 26-CONTEXT.md checker blocker 1 fix:
- *   - On init: calls `await keysRegisterAction({...})` via the NUB keys helper.
+ *   - On init: calls `await keysRegisterAction({...})` via the NAP keys helper.
  *     The helper owns the correlation ID and Promise resolution on the shell's
  *     keys.registerAction.result envelope.
  *   - On each keys.action push from the shell (emitted by Plan 26-01 on chord
@@ -14,14 +14,15 @@
  *     the helper routes it to the onAction callback, and this file updates the DOM.
  *
  * Anti-features (enforced per v1.4 milestone — see Phase 26 acceptance greps):
- *   - no raw postMessage listener — uses @napplet/nub/keys/sdk helpers exclusively
+ *   - no raw postMessage listener — uses @napplet/nap/keys/sdk helpers exclusively
  *   - no direct nostr/signer/legacy-bus imports
  *   - no hand-rolled correlation IDs (helper owns them)
  */
 import '@napplet/shim';
-import { keysOnAction, keysRegisterAction } from '@napplet/nub/keys/sdk';
+import { installNapTheme } from '../../shared-theme';
+import { keysOnAction, keysRegisterAction } from '@napplet/nap/keys/sdk';
 
-const REQUIRED_NUBS = ['keys'] as const;
+const REQUIRED_NAPS = ['keys', 'theme'] as const;
 
 const DEFAULT_KEY = 'Ctrl+Shift+K';
 const ACTION_ID = 'hotkey-chord.demo';
@@ -36,9 +37,9 @@ function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void
   statusEl.style.color = color === 'green' ? '#39ff14' : color === 'red' ? '#ff3b3b' : '#888';
 }
 
-function getMissingRequiredNubs(): string[] {
+function getMissingRequiredNaps(): string[] {
   const supports = window.napplet.shell.supports;
-  return REQUIRED_NUBS.filter((capability) => !supports(capability));
+  return REQUIRED_NAPS.filter((capability) => !supports(capability));
 }
 
 function log(text: string): void {
@@ -55,10 +56,11 @@ function log(text: string): void {
 let deliveryCount = 0;
 
 async function init(): Promise<void> {
-  const missing = getMissingRequiredNubs();
+  const missing = getMissingRequiredNaps();
   if (missing.length > 0) {
-    throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+    throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);
   }
+  installNapTheme();
 
   log(`registering action (${DEFAULT_KEY})`);
 

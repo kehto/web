@@ -10,20 +10,21 @@
  * expose a theme.publish API. Outbound parent-frame postMessage is the
  * documented demo-only host-control exception.
  *
- * NOTE: theme-switcher is OUTBOUND-ONLY and does NOT install any global message
- * listener. Only element-scoped click handlers are registered on the three buttons.
- * The parent-frame postMessage call in dispatchTheme() is the sole cross-frame seam.
+ * NOTE: theme-switcher publishes theme changes and also installs the shared
+ * NAP-THEME listener so its own frame reflects shell-broadcast theme.changed pushes.
+ * The parent-frame postMessage call in dispatchTheme() is the only outbound seam.
  *
  * Anti-features (v1.3, hard-enforced — zero live-code occurrences):
  *   - No raw NIP-01 arrays
  *   - No bus-kind enums or kind 29001/29002 references
  *   - No global nostr accessor
  *   - No legacy signing-service or legacy @napplet/core compat-shim consumers
- *   - No global message-event listener (OUTBOUND-ONLY napplet)
+ *   - No domain-specific global message-event listener
  */
 import '@napplet/shim';
+import { installNapTheme } from '../../shared-theme';
 
-const REQUIRED_NUBS = ['theme'] as const;
+const REQUIRED_NAPS = ['theme'] as const;
 
 const statusEl = document.getElementById('theme-status')!;
 const lightBtn = document.getElementById('theme-light-btn') as HTMLButtonElement;
@@ -60,9 +61,9 @@ function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void
   statusEl.style.color = color === 'green' ? '#39ff14' : color === 'red' ? '#ff3b3b' : '#888';
 }
 
-function getMissingRequiredNubs(): string[] {
+function getMissingRequiredNaps(): string[] {
   const supports = window.napplet.shell.supports;
-  return REQUIRED_NUBS.filter((capability) => !supports(capability));
+  return REQUIRED_NAPS.filter((capability) => !supports(capability));
 }
 
 // ── Theme presets ─────────────────────────────────────────────────────────────
@@ -134,10 +135,11 @@ customBtn.addEventListener('click', () => {
  *   'unavailable'   — set if init throws unexpectedly
  */
 async function init(): Promise<void> {
-  const missing = getMissingRequiredNubs();
+  const missing = getMissingRequiredNaps();
   if (missing.length > 0) {
-    throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+    throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);
   }
+  installNapTheme();
   setStatus('ready', 'green');
   log('ready to broadcast theme');
 }

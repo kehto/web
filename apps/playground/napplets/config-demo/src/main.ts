@@ -1,9 +1,9 @@
 /**
- * config-demo napplet -- exercises NUB-CONFIG (CONFIG-03, v1.7 Phase 39 / D9).
+ * config-demo napplet -- exercises NAP-CONFIG (CONFIG-03, v1.7 Phase 39 / D9).
  *
  * On init:
  *   1. configSubscribe(values => updateUI(values)) -- starts the live push stream.
- *      Shell emits an immediate initial config.values snapshot per NUB-CONFIG spec.
+ *      Shell emits an immediate initial config.values snapshot per NAP-CONFIG spec.
  *   2. configGet() -- separately requests a correlated snapshot (redundant with
  *      the subscribe initial push, but exercises the one-shot path for Plan 39-05's
  *      nub-config.spec.ts E2E assertion).
@@ -19,9 +19,10 @@
  *   - NO config.set wire message (CONFIG-04 scope boundary)
  */
 import '@napplet/shim';
-import { get as configGet, subscribe as configSubscribe } from '@napplet/nub/config/sdk';
+import { installNapTheme } from '../../shared-theme';
+import { get as configGet, subscribe as configSubscribe } from '@napplet/nap/config/sdk';
 
-const REQUIRED_NUBS = ['config'] as const;
+const REQUIRED_NAPS = ['config', 'theme'] as const;
 
 const statusEl = document.getElementById('config-demo-status')!;
 const valuesEl = document.getElementById('config-demo-values')!;
@@ -42,9 +43,9 @@ function log(text: string): void {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
-function getMissingRequiredNubs(): string[] {
+function getMissingRequiredNaps(): string[] {
   const supports = window.napplet.shell.supports;
-  return REQUIRED_NUBS.filter((capability) => !supports(capability));
+  return REQUIRED_NAPS.filter((capability) => !supports(capability));
 }
 
 function updateUI(values: Record<string, unknown>): void {
@@ -56,10 +57,11 @@ let pushCount = 0;
 
 async function init(): Promise<void> {
   try {
-    const missing = getMissingRequiredNubs();
+    const missing = getMissingRequiredNaps();
     if (missing.length > 0) {
-      throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+      throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);
     }
+    installNapTheme();
 
     setStatus('subscribing...', 'gray');
     // Live push stream -- receives initial snapshot + every subsequent change.

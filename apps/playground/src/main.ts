@@ -140,7 +140,7 @@ window.addEventListener('message', (event: MessageEvent) => {
   const themeTyped = theme as { colors?: { background?: string; text?: string; primary?: string } };
   if (!themeTyped.colors || typeof themeTyped.colors.background !== 'string') return;
   // relay is the ShellBridge — publishTheme fan-outs theme.changed to every registered napplet.
-  // Type cast via ShellBridge['publishTheme'] parameter to avoid direct @napplet/nub/theme import
+  // Type cast via ShellBridge['publishTheme'] parameter to avoid direct @napplet/nap/theme import
   // in the demo app (the nub subpath is covered by @kehto/shell's peer dep, not apps/playground directly).
   relay.publishTheme(themeTyped as Parameters<typeof relay.publishTheme>[0]);
   debuggerEl?.addSystemMessage(`theme broadcast — bg: ${themeTyped.colors.background}`);

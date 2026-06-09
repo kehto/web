@@ -13,7 +13,7 @@
  *   NO raw postMessage, NO NIP-01 envelopes, NO bus-kind references, NO signer service.
  */
 import '@napplet/shim';
-import { identityGetProfile, identityGetPublicKey } from '@napplet/nub/identity/sdk';
+import { identityGetProfile, identityGetPublicKey } from '@napplet/nap/identity/sdk';
 
 const statusEl = document.getElementById('nub-status')!;
 const pubkeyEl = document.getElementById('nub-pubkey')!;
@@ -31,7 +31,7 @@ function truncate(pk: string): string {
 async function init(): Promise<void> {
   try {
     // First SDK call gates readiness. The E2E harness wires a deterministic signer
-    // because @napplet/nub@0.3.0 resolves this helper through result envelopes.
+    // because @napplet/nap@0.3.1 resolves this helper through result envelopes.
     const pubkey = await identityGetPublicKey();
     statusEl.textContent = 'ready';
     pubkeyEl.textContent = truncate(pubkey);

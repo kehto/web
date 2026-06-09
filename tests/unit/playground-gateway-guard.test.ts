@@ -19,19 +19,19 @@ const playgroundNapplets = [
 ] as const;
 
 const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly string[]> = {
-  bot: ['ifc', 'storage'],
-  chat: ['ifc', 'storage', 'relay'],
-  composer: ['relay'],
-  'config-demo': ['config'],
-  'decrypt-demo': ['identity'],
-  feed: ['relay'],
-  'hotkey-chord': ['keys'],
-  'media-controller': ['media'],
+  bot: ['ifc', 'storage', 'theme'],
+  chat: ['ifc', 'storage', 'relay', 'theme'],
+  composer: ['relay', 'theme'],
+  'config-demo': ['config', 'theme'],
+  'decrypt-demo': ['identity', 'theme'],
+  feed: ['relay', 'theme'],
+  'hotkey-chord': ['keys', 'theme'],
+  'media-controller': ['media', 'theme'],
   preferences: ['storage', 'theme'],
-  'profile-viewer': ['identity'],
-  'resource-demo': ['resource', 'connect'],
+  'profile-viewer': ['identity', 'theme'],
+  'resource-demo': ['resource', 'connect', 'theme'],
   'theme-switcher': ['theme'],
-  toaster: ['notify'],
+  toaster: ['notify', 'theme'],
 };
 
 function readRepoFile(path: string): string {
@@ -56,7 +56,7 @@ describe('playground gateway artifact guard', () => {
     const sharedConfig = readRepoFile('apps/playground/napplets/shared-vite-config.ts');
     expect(sharedConfig).toContain("artifactMode: 'single-file'");
     expect(sharedConfig).toContain('requires?: readonly string[]');
-    expect(sharedConfig).toContain('manifest requires must use short NUB names');
+    expect(sharedConfig).toContain('manifest requires must use short NAP names');
     expect(sharedConfig).toContain('requires,');
   });
 
@@ -92,9 +92,9 @@ describe('playground gateway artifact guard', () => {
     expect(viteConfig).toContain('withPlaygroundBasePath(');
 
     expect(shellHost).toContain('requires: string[]');
-    expect(shellHost).toContain('getMissingRequiredNubs(metadata.requires)');
-    expect(shellHost).toContain('requires unsupported NUB capabilities');
-    expect(shellHost.indexOf('getMissingRequiredNubs(metadata.requires)')).toBeLessThan(
+    expect(shellHost).toContain('getMissingRequiredNaps(metadata.requires)');
+    expect(shellHost).toContain('requires unsupported NAP capabilities');
+    expect(shellHost.indexOf('getMissingRequiredNaps(metadata.requires)')).toBeLessThan(
       shellHost.indexOf('iframe.src = metadata.htmlUrl'),
     );
   });

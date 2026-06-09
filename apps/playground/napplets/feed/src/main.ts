@@ -12,10 +12,11 @@
  *   no legacy bus enums, no global nostr accessor. Shim handles NIP-5D envelopes.
  */
 import '@napplet/shim';
-import { relaySubscribe } from '@napplet/nub/relay/sdk';
+import { installNapTheme } from '../../shared-theme';
+import { relaySubscribe } from '@napplet/nap/relay/sdk';
 import type { NostrEvent, Subscription } from '@napplet/core';
 
-const REQUIRED_NUBS = ['relay'] as const;
+const REQUIRED_NAPS = ['relay', 'theme'] as const;
 
 const statusEl = document.getElementById('feed-status')!;
 const listEl = document.getElementById('feed-list')!;
@@ -46,9 +47,9 @@ function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void
   statusEl.style.color = color === 'green' ? '#39ff14' : color === 'red' ? '#ff3b3b' : '#888';
 }
 
-function getMissingRequiredNubs(): string[] {
+function getMissingRequiredNaps(): string[] {
   const supports = window.napplet.shell.supports;
-  return REQUIRED_NUBS.filter((capability) => !supports(capability));
+  return REQUIRED_NAPS.filter((capability) => !supports(capability));
 }
 
 let eventCount = 0;
@@ -72,10 +73,11 @@ function renderEvent(event: NostrEvent): void {
 let _sub: Subscription | null = null;
 
 async function init(): Promise<void> {
-  const missing = getMissingRequiredNubs();
+  const missing = getMissingRequiredNaps();
   if (missing.length > 0) {
-    throw new Error(`unsupported NUB capability: ${missing.join(', ')}`);
+    throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);
   }
+  installNapTheme();
 
   log('subscribing to kind:1 feed');
 

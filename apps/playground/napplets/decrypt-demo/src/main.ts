@@ -2,9 +2,10 @@
  * decrypt-demo napplet -- exercises identityDecrypt over the identity.decrypt wire path.
  */
 import '@napplet/shim';
-import { identityDecrypt } from '@napplet/nub/identity/sdk';
+import { installNapTheme } from '../../shared-theme';
+import { identityDecrypt } from '@napplet/nap/identity/sdk';
 
-const REQUIRED_NUBS = ['identity'] as const;
+const REQUIRED_NAPS = ['identity', 'theme'] as const;
 
 interface NostrEvent {
   id: string;
@@ -58,9 +59,20 @@ function log(text: string): void {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
-function getMissingRequiredNubs(): string[] {
+function getMissingRequiredNaps(): string[] {
   const supports = window.napplet.shell.supports;
-  return REQUIRED_NUBS.filter((capability) => !supports(capability));
+  return REQUIRED_NAPS.filter((capability) => !supports(capability));
+}
+
+function init(): void {
+  const missing = getMissingRequiredNaps();
+  if (missing.length > 0) {
+    setText(statusEl, `error:unsupported NAP capability: ${missing.join(', ')}`);
+    log(`init failed ${missing.join(', ')}`);
+    return;
+  }
+
+  installNapTheme();
 }
 
 function parsePayload(content: string): { mode?: string; id?: string } {
@@ -72,9 +84,9 @@ function parsePayload(content: string): { mode?: string; id?: string } {
 }
 
 async function decrypt(event: NostrEvent): Promise<DecryptResult> {
-  const missing = getMissingRequiredNubs();
+  const missing = getMissingRequiredNaps();
   if (missing.length > 0) {
-    return { ok: false, error: `unsupported NUB capability: ${missing.join(', ')}` };
+    return { ok: false, error: `unsupported NAP capability: ${missing.join(', ')}` };
   }
 
   try {
@@ -131,7 +143,7 @@ async function runClass2Probe(): Promise<void> {
 }
 
 // Phase 58 raw-envelope allowlist: demo/test-only fixture injection. The
-// handler is source-bound to the parent shell and never dispatches a NUB action.
+// handler is source-bound to the parent shell and never dispatches a NAP action.
 window.addEventListener('message', (event: MessageEvent) => {
   if (event.source !== window.parent) return;
   const msg = event.data as { type?: string; fixtures?: DecryptFixtures };
@@ -145,3 +157,11 @@ window.addEventListener('message', (event: MessageEvent) => {
 class2Btn.addEventListener('click', () => {
   void runClass2Probe();
 });
+
+try {
+  init();
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  setText(statusEl, `error:init:${message}`);
+  log(`init failed ${message}`);
+}
