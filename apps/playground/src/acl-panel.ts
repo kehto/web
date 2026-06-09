@@ -58,6 +58,7 @@ const DEMO_CAPABILITIES: { cap: Capability; label: string }[] = [
 ];
 
 let debugger_: NappletDebugger | null = null;
+let defaultAclExpanded = false;
 
 export function setDebugger(dbg: NappletDebugger): void {
   debugger_ = dbg;
@@ -68,20 +69,95 @@ function applyBtnStyle(btn: HTMLButtonElement, on: boolean): void {
     (on ? 'acl-btn-on' : 'acl-btn-off');
 }
 
+function emitAclExpansionChange(): void {
+  window.dispatchEvent(new CustomEvent('acl-panels:expansion-changed'));
+}
+
+function setPanelExpanded(panel: HTMLElement, expanded: boolean): void {
+  panel.dataset.expanded = String(expanded);
+  const toggle = panel.querySelector<HTMLButtonElement>('.acl-summary-toggle');
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', String(expanded));
+    toggle.title = expanded ? 'Collapse ACL controls' : 'Expand ACL controls';
+  }
+  emitAclExpansionChange();
+}
+
+function updateAclSummary(panel: HTMLElement): void {
+  const capButtons = [
+    ...panel.querySelectorAll<HTMLButtonElement>('[data-acl-capability]'),
+  ];
+  const blockBtn = panel.querySelector<HTMLButtonElement>('[data-acl-block]');
+  const blockedWhole = blockBtn?.dataset.blocked === 'true';
+  const enabledCount = capButtons.filter((btn) => btn.dataset.enabled === 'true').length;
+  const allowedCount = blockedWhole ? 0 : enabledCount;
+  const blockedCount = blockedWhole ? capButtons.length : capButtons.length - enabledCount;
+
+  const allowedEl = panel.querySelector<HTMLElement>('[data-acl-summary-allowed]');
+  if (allowedEl) allowedEl.textContent = `${allowedCount} allowed`;
+
+  const blockedEl = panel.querySelector<HTMLElement>('[data-acl-summary-blocked]');
+  if (blockedEl) {
+    blockedEl.textContent = `${blockedCount} blocked`;
+    blockedEl.classList.toggle('empty', blockedCount === 0);
+  }
+}
+
 function renderNappletAcl(containerId: string, windowId: string, info: { name: string; identityBound: boolean }): void {
   const container = document.getElementById(containerId);
   if (!container || !info.identityBound) return;
 
   container.replaceChildren();
 
+  const panel = document.createElement('div');
+  panel.className = 'acl-panel';
+  panel.dataset.aclNapplet = info.name;
+  panel.dataset.expanded = String(defaultAclExpanded);
+
+  const summaryToggle = document.createElement('button');
+  summaryToggle.type = 'button';
+  summaryToggle.className = 'acl-summary-toggle';
+  summaryToggle.setAttribute('aria-expanded', String(defaultAclExpanded));
+  summaryToggle.setAttribute('aria-controls', `${containerId}-controls`);
+  summaryToggle.title = defaultAclExpanded ? 'Collapse ACL controls' : 'Expand ACL controls';
+
+  const summaryLeft = document.createElement('span');
+  summaryLeft.className = 'acl-summary-left';
+
+  const summaryTitle = document.createElement('span');
+  summaryTitle.className = 'acl-summary-title';
+  summaryTitle.textContent = 'acl';
+
+  const allowedPill = document.createElement('span');
+  allowedPill.className = 'acl-summary-pill acl-summary-allowed';
+  allowedPill.dataset.aclSummaryAllowed = 'true';
+
+  const blockedPill = document.createElement('span');
+  blockedPill.className = 'acl-summary-pill acl-summary-blocked empty';
+  blockedPill.dataset.aclSummaryBlocked = 'true';
+
+  summaryLeft.append(summaryTitle, allowedPill, blockedPill);
+
+  const chevron = document.createElement('span');
+  chevron.className = 'acl-summary-chevron';
+  chevron.setAttribute('aria-hidden', 'true');
+  chevron.textContent = '›';
+
+  summaryToggle.append(summaryLeft, chevron);
+  summaryToggle.addEventListener('click', () => {
+    setPanelExpanded(panel, panel.dataset.expanded !== 'true');
+  });
+
   const row = document.createElement('div');
-  row.className = 'flex flex-wrap gap-1.5';
+  row.id = `${containerId}-controls`;
+  row.className = 'acl-controls';
 
   for (const { cap, label } of DEMO_CAPABILITIES) {
     const toggle = document.createElement('button');
     applyBtnStyle(toggle, true);
     toggle.textContent = label;
     toggle.title = `${cap} (${DEMO_CAPABILITY_HINTS[cap]}) — click to revoke`;
+    toggle.dataset.aclCapability = cap;
     toggle.dataset.enabled = 'true';
 
     toggle.addEventListener('click', () => {
@@ -97,6 +173,7 @@ function renderNappletAcl(containerId: string, windowId: string, info: { name: s
       debugger_?.addSystemMessage(
         `${newState ? 'GRANT' : 'REVOKE'} ${cap} (${DEMO_CAPABILITY_HINTS[cap]}) on ${info.name}`
       );
+      updateAclSummary(panel);
       // Sync policy modal if open
       refreshPolicyModal();
     });
@@ -108,6 +185,7 @@ function renderNappletAcl(containerId: string, windowId: string, info: { name: s
   const blockBtn = document.createElement('button');
   blockBtn.className = 'acl-btn px-2 py-0.5 rounded text-[10px] font-semibold border cursor-pointer acl-btn-block';
   blockBtn.textContent = 'Block';
+  blockBtn.dataset.aclBlock = 'true';
   blockBtn.dataset.blocked = 'false';
 
   blockBtn.addEventListener('click', () => {
@@ -127,13 +205,31 @@ function renderNappletAcl(containerId: string, windowId: string, info: { name: s
     if (newState) adapter.block(windowId);
     else adapter.unblock(windowId);
     debugger_?.addSystemMessage(`${newState ? 'BLOCK' : 'UNBLOCK'} ${info.name}`);
+    updateAclSummary(panel);
   });
 
   row.appendChild(blockBtn);
-  container.appendChild(row);
+  panel.append(summaryToggle, row);
+  container.appendChild(panel);
+  updateAclSummary(panel);
 }
 
 const rendered = new Set<string>();
+
+export function setAllAclPanelsExpanded(expanded: boolean): void {
+  defaultAclExpanded = expanded;
+  const panels = document.querySelectorAll<HTMLElement>('.acl-panel');
+  for (const panel of panels) {
+    setPanelExpanded(panel, expanded);
+  }
+  emitAclExpansionChange();
+}
+
+export function areAllAclPanelsExpanded(): boolean {
+  const panels = [...document.querySelectorAll<HTMLElement>('.acl-panel')];
+  if (panels.length === 0) return defaultAclExpanded;
+  return panels.every((panel) => panel.dataset.expanded === 'true');
+}
 
 export function renderAclPanels(onlyFor?: Set<string>): void {
   const napplets = getNapplets();
@@ -176,4 +272,6 @@ export function renderAclPanels(onlyFor?: Set<string>): void {
       rendered.add('theme-switcher');
     }
   }
+
+  emitAclExpansionChange();
 }

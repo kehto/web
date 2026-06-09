@@ -23,7 +23,12 @@ import {
 import { connectStore, type Capability, type NappletClass } from '@kehto/shell';
 import { createConsentModal } from './consent-modal.js';
 import { classifyTappedMessagePath, type NappletDebugger } from './debugger.js';
-import { renderAclPanels, setDebugger } from './acl-panel.js';
+import {
+  areAllAclPanelsExpanded,
+  renderAclPanels,
+  setAllAclPanelsExpanded,
+  setDebugger,
+} from './acl-panel.js';
 import { initFlowAnimator } from './flow-animator.js';
 import { cancelAllTraceAnimations } from './trace-animator.js';
 import {
@@ -57,12 +62,139 @@ import { setAclRingSize } from './acl-history.js';
 
 const STATIC_PAGES_BASE_PATH = '/web/playground/';
 const isStaticPagesDemo = import.meta.env.BASE_URL === STATIC_PAGES_BASE_PATH;
+const NAPPLET_HEIGHT_STORAGE_KEY = 'kehto.playground.nappletHeightPx';
+const DEBUGGER_HIDDEN_STORAGE_KEY = 'kehto.playground.debuggerHidden';
+const DEFAULT_NAPPLET_HEIGHT_PX = 330;
+const MIN_NAPPLET_HEIGHT_PX = 220;
+const MAX_NAPPLET_HEIGHT_PX = 720;
 
 if (isStaticPagesDemo) {
   document.getElementById('static-demo-banner')?.removeAttribute('hidden');
 }
 
 const notificationUi = createNotificationUi();
+
+function readStoredNumber(key: string, fallback: number): number {
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored === null) return fallback;
+    const value = Number.parseInt(stored, 10);
+    return Number.isFinite(value) ? value : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStoredValue(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Storage can be unavailable in hardened contexts; keep the current session usable.
+  }
+}
+
+function readStoredBoolean(key: string, fallback: boolean): boolean {
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored === null) return fallback;
+    return stored === 'true';
+  } catch {
+    return fallback;
+  }
+}
+
+function clampNappletHeight(value: number): number {
+  return Math.min(MAX_NAPPLET_HEIGHT_PX, Math.max(MIN_NAPPLET_HEIGHT_PX, value));
+}
+
+function notifyLayoutChanged(): void {
+  window.dispatchEvent(new Event('resize'));
+  window.setTimeout(() => window.dispatchEvent(new Event('resize')), 0);
+}
+
+function applyNappletHeight(heightPx: number, persist: boolean): void {
+  const clamped = clampNappletHeight(heightPx);
+  document.documentElement.style.setProperty('--napplet-frame-height', `${clamped}px`);
+
+  const slider = document.getElementById('napplet-height-slider') as HTMLInputElement | null;
+  if (slider) slider.value = String(clamped);
+
+  const valueEl = document.getElementById('napplet-height-value');
+  if (valueEl) valueEl.textContent = `${clamped}px`;
+
+  if (persist) writeStoredValue(NAPPLET_HEIGHT_STORAGE_KEY, String(clamped));
+  notifyLayoutChanged();
+}
+
+function initNappletHeightControl(): void {
+  const slider = document.getElementById('napplet-height-slider') as HTMLInputElement | null;
+  const resetBtn = document.getElementById('napplet-height-reset');
+  const initialHeight = clampNappletHeight(
+    readStoredNumber(NAPPLET_HEIGHT_STORAGE_KEY, DEFAULT_NAPPLET_HEIGHT_PX),
+  );
+
+  applyNappletHeight(initialHeight, false);
+
+  slider?.addEventListener('input', () => {
+    applyNappletHeight(Number.parseInt(slider.value, 10), true);
+  });
+
+  resetBtn?.addEventListener('click', () => {
+    applyNappletHeight(DEFAULT_NAPPLET_HEIGHT_PX, true);
+  });
+}
+
+function setDebuggerHidden(hidden: boolean, persist: boolean): void {
+  document.body.classList.toggle('debugger-hidden', hidden);
+
+  const btn = document.getElementById('debugger-toggle-btn') as HTMLButtonElement | null;
+  if (btn) {
+    btn.textContent = hidden ? 'show debugger' : 'hide debugger';
+    btn.setAttribute('aria-pressed', String(hidden));
+  }
+
+  if (persist) writeStoredValue(DEBUGGER_HIDDEN_STORAGE_KEY, String(hidden));
+  notifyLayoutChanged();
+}
+
+function initDebuggerToggle(): void {
+  const btn = document.getElementById('debugger-toggle-btn');
+  const initialHidden = readStoredBoolean(DEBUGGER_HIDDEN_STORAGE_KEY, false);
+  setDebuggerHidden(initialHidden, false);
+
+  btn?.addEventListener('click', () => {
+    setDebuggerHidden(!document.body.classList.contains('debugger-hidden'), true);
+  });
+}
+
+function updateAclExpandAllButton(): void {
+  const btn = document.getElementById('acl-expand-all-btn') as HTMLButtonElement | null;
+  if (!btn) return;
+
+  const allExpanded = areAllAclPanelsExpanded();
+  btn.textContent = allExpanded ? 'collapse all ACL' : 'expand all ACL';
+  btn.setAttribute('aria-pressed', String(allExpanded));
+}
+
+function initAclExpandAllControl(): void {
+  const btn = document.getElementById('acl-expand-all-btn');
+  btn?.addEventListener('click', () => {
+    setAllAclPanelsExpanded(!areAllAclPanelsExpanded());
+    updateAclExpandAllButton();
+    notifyLayoutChanged();
+  });
+
+  window.addEventListener('acl-panels:expansion-changed', () => {
+    updateAclExpandAllButton();
+    notifyLayoutChanged();
+  });
+
+  updateAclExpandAllButton();
+}
+
+initNappletHeightControl();
+initDebuggerToggle();
+initAclExpandAllControl();
 
 const { tap } = bootShell((notifications) => {
   notificationUi.controller.handleServiceChange(notifications);

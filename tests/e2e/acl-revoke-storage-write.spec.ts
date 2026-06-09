@@ -10,7 +10,7 @@
  *     'saved' after both storage.setItem calls resolve).
  *   Phase 2 (revoke + assert): click the state:write toggle in #preferences-acl to
  *     revoke, then save again — status MUST contain 'denied:' AND debugger shows
- *     'storage.set.error' envelope.
+ *     the canonical denied storage.set.result envelope.
  *
  * No page.reload() — Pitfall 5 (PITFALLS.md): reload is banned in ACL-touching specs.
  *
@@ -56,6 +56,8 @@ test('revoking state:write on preferences denies next save (denial visible in st
   // Wait until the ACL panel toggle for state:write is rendered + initial state ON.
   const aclSlot = page.locator('#preferences-acl');
   await expect(aclSlot).toBeVisible({ timeout: 10_000 });
+  await expect(aclSlot.locator('.acl-summary-toggle')).toContainText('8 allowed');
+  await aclSlot.locator('.acl-summary-toggle').click();
   const stateWriteToggle = aclSlot.locator('button[title^="state:write"]');
   await expect(stateWriteToggle).toBeVisible({ timeout: 10_000 });
   await expect(stateWriteToggle).toHaveAttribute('data-enabled', 'true');
@@ -63,8 +65,10 @@ test('revoking state:write on preferences denies next save (denial visible in st
   // Phase 2 (revoke + assert):
   await stateWriteToggle.click();
   await expect(stateWriteToggle).toHaveAttribute('data-enabled', 'false');
+  await expect(aclSlot.locator('.acl-summary-toggle')).toContainText('7 allowed');
+  await expect(aclSlot.locator('.acl-summary-toggle')).toContainText('1 blocked');
 
-  // Trigger another save — runtime's ACL gate emits storage.set.error.
+  // Trigger another save — runtime's ACL gate emits storage.set.result with an error field.
   await prefFrame.locator('#pref-display-name').fill('phase-2-name');
   await prefFrame.locator('#pref-theme-preference').fill('phase-2-theme');
   await prefFrameDirect.evaluate(() => {
@@ -74,8 +78,9 @@ test('revoking state:write on preferences denies next save (denial visible in st
   // Status contains 'denied:' (preferences catch branch sets 'denied: <reason>').
   await expect(prefFrame.locator('#preferences-status')).toContainText('denied:', { timeout: 8_000 });
 
-  // Debugger shows storage.set.error envelope.
-  await expect(page.locator('napplet-debugger')).toContainText('storage.set.error', { timeout: 8_000 });
+  // Debugger shows storage.set.result with the denied capability.
+  await expect(page.locator('napplet-debugger')).toContainText('storage.set.result', { timeout: 8_000 });
+  await expect(page.locator('napplet-debugger')).toContainText('denied: state:write', { timeout: 8_000 });
 
   const antiConsole = consoleMessages.filter((m) => ANTI_TERM_RE.test(m));
   expect(antiConsole, `anti-term found in console: ${antiConsole.join(' | ')}`).toHaveLength(0);

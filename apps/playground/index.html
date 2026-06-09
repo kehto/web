@@ -8,11 +8,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
+    :root { --napplet-frame-height: 330px; }
     /* Page flex-column layout (utility classes have no CSS definitions) */
     body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; margin: 0; }
     #flow-area { flex: 1; min-height: 0; overflow: hidden; }
     #debugger-section { flex-shrink: 0; position: relative; z-index: 1; }
     #resize-handle { position: relative; z-index: 1; }
+    body.debugger-hidden #debugger-section,
+    body.debugger-hidden #resize-handle { display: none; }
     #static-demo-banner {
       padding: 8px 14px;
       border-bottom: 1px solid rgba(98,208,255,0.25);
@@ -32,6 +35,140 @@
     .acl-btn-block { background: transparent; border-color: #3a3a4a; color: #666; }
     .acl-btn-block:hover { border-color: rgba(255,59,59,0.4); color: #ff3b3b; }
     .acl-btn-blocked { background: rgba(255,59,59,0.2); border-color: rgba(255,59,59,0.5); color: #ff3b3b; }
+    .app-header {
+      min-height: 42px;
+      gap: 14px;
+    }
+    .playground-shell-controls {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-left: auto;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+    .shell-control-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 28px;
+      padding: 0 8px;
+      border: 1px solid #2a2a3a;
+      border-radius: 6px;
+      background: rgba(10,10,15,0.45);
+    }
+    .shell-control-label {
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #7981a0;
+      white-space: nowrap;
+    }
+    .shell-control-value {
+      min-width: 38px;
+      font-size: 10px;
+      color: #62d0ff;
+      text-align: right;
+    }
+    .shell-slider {
+      width: 132px;
+      accent-color: #00f0ff;
+    }
+    .shell-control-btn {
+      min-height: 28px;
+      padding: 0 10px;
+      border: 1px solid #3a3a4a;
+      border-radius: 6px;
+      background: transparent;
+      color: #a5abc2;
+      cursor: pointer;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+      white-space: nowrap;
+    }
+    .shell-control-btn:hover,
+    .shell-control-btn[aria-pressed="true"] {
+      border-color: rgba(0,240,255,0.55);
+      color: #00f0ff;
+      background: rgba(0,240,255,0.08);
+    }
+    .shell-control-btn.subtle {
+      min-height: 22px;
+      padding: 0 7px;
+      color: #7981a0;
+    }
+    .acl-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .acl-summary-toggle {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+      font-family: 'JetBrains Mono', monospace;
+      text-align: left;
+    }
+    .acl-summary-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+    .acl-summary-title {
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #7c86a7;
+    }
+    .acl-summary-pill {
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 600;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .acl-summary-allowed {
+      border: 1px solid rgba(57,255,20,0.36);
+      background: rgba(57,255,20,0.08);
+      color: #39ff14;
+    }
+    .acl-summary-blocked {
+      border: 1px solid rgba(255,59,59,0.36);
+      background: rgba(255,59,59,0.08);
+      color: #ff3b3b;
+    }
+    .acl-summary-blocked.empty {
+      border-color: #2a2a3a;
+      background: rgba(255,255,255,0.02);
+      color: #7981a0;
+    }
+    .acl-summary-chevron {
+      color: #62d0ff;
+      font-size: 11px;
+      line-height: 1;
+      transform: rotate(0deg);
+      transition: transform 0.15s ease;
+    }
+    .acl-panel[data-expanded="true"] .acl-summary-chevron { transform: rotate(.25turn); }
+    .acl-controls {
+      display: none;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .acl-panel[data-expanded="true"] .acl-controls { display: flex; }
     .topology-layout { height: 100%; display: flex; flex-direction: column; gap: 32px; position: relative; }
     .topology-region { display: flex; flex-direction: column; gap: 10px; }
     .topology-region-label { font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: #7c86a7; }
@@ -63,8 +200,9 @@
     .topology-runtime-demo-card .topology-node-content { background: linear-gradient(180deg, rgba(14,25,34,0.96), rgba(8,12,18,0.99)); }
     .topology-runtime-demo-card .topology-node-kicker { color: #62d0ff; }
     .topology-service-card { width: 100%; max-width: 220px; }
-    .topology-acl-slot { padding: 10px 14px; border-top: 1px solid #1f2235; border-bottom: 1px solid #1f2235; min-height: 58px; background: rgba(255,255,255,0.01); }
-    .topology-frame-slot { flex: 1; min-height: 220px; position: relative; }
+    .topology-acl-slot { padding: 6px 14px; border-top: 1px solid #1f2235; border-bottom: 1px solid #1f2235; min-height: 0; background: rgba(255,255,255,0.01); }
+    .topology-acl-slot:has(.acl-panel[data-expanded="true"]) { padding: 10px 14px; }
+    .topology-frame-slot { flex: 0 0 var(--napplet-frame-height, 330px); height: var(--napplet-frame-height, 330px); min-height: var(--napplet-frame-height, 330px); position: relative; }
     .topology-frame-slot iframe { width: 100%; height: 100%; border: none; }
     .topology-services-region { padding-bottom: 4px; }
     .topology-flow-log { margin: 0 14px 14px; padding-top: 10px; border-top: 1px solid #1f2235; }
@@ -255,6 +393,9 @@
     .notif-item-btn.read-btn:hover { border-color: rgba(57,255,20,0.4); color: #39ff14; }
     .notif-item-btn.dismiss-btn:hover { border-color: rgba(255,59,59,0.4); color: #ff3b3b; }
     @media (max-width: 768px) {
+      .app-header { align-items: flex-start; flex-direction: column; }
+      .playground-shell-controls { justify-content: flex-start; margin-left: 0; width: 100%; }
+      .shell-slider { width: min(160px, 42vw); }
       .topology-layout { gap: 24px; }
       .topology-core-card { width: 100%; }
       .topology-napplet-grid, .topology-runtime-demo-grid { grid-template-columns: 1fr; }
@@ -320,8 +461,26 @@
   </style>
 </head>
 <body class="bg-surface-dark text-gray-300 font-mono min-h-screen flex flex-col overflow-hidden">
-  <header class="px-4 py-2 bg-surface-mid border-b border-surface-border flex items-center shrink-0">
+  <header class="app-header px-4 py-2 bg-surface-mid border-b border-surface-border flex items-center shrink-0">
     <h1 class="text-neon-blue text-sm font-bold tracking-wider uppercase">napplet playground</h1>
+    <div id="playground-shell-controls" class="playground-shell-controls" aria-label="Playground controls">
+      <div class="shell-control-group" aria-label="Napplet height">
+        <label class="shell-control-label" for="napplet-height-slider">height</label>
+        <input
+          id="napplet-height-slider"
+          class="shell-slider"
+          type="range"
+          min="220"
+          max="720"
+          step="10"
+          value="330"
+        />
+        <output id="napplet-height-value" class="shell-control-value" for="napplet-height-slider">330px</output>
+        <button id="napplet-height-reset" class="shell-control-btn subtle" type="button">reset</button>
+      </div>
+      <button id="acl-expand-all-btn" class="shell-control-btn" type="button">expand all ACL</button>
+      <button id="debugger-toggle-btn" class="shell-control-btn" type="button" aria-pressed="false">hide debugger</button>
+    </div>
   </header>
   <div id="static-demo-banner" role="status" hidden>
     <strong>Static demo:</strong> GitHub Pages serves packaged gateway artifacts here. Live gateway-only controls are disabled.

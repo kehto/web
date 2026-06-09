@@ -253,7 +253,7 @@ describe('handleStorageNub — canonical @napplet/nub/storage envelope shapes', 
 
 // ─── ACL Denial Test (routes through full runtime dispatch) ─────────────────
 
-describe('storage nub — ACL denial emits .error envelope', () => {
+describe('storage nub — ACL denial emits canonical result envelope', () => {
   let mock: MockRuntimeContext;
   let runtime: Runtime;
 
@@ -266,11 +266,11 @@ describe('storage nub — ACL denial emits .error envelope', () => {
     );
   });
 
-  // Test 8 — storage.get denied by ACL → .error envelope with denial reason.
+  // Test 8 — storage.get denied by ACL → canonical .result envelope with error.
   // resolveCapabilitiesNub('storage.get') => { senderCap: 'state:read' }. Blocking
   // the napplet identity makes the cap check return false; the runtime then emits
-  // a `{ type: 'storage.get.error', error: 'denied: state:read' }` envelope.
-  it('storage.get denied by ACL produces storage.get.error envelope', () => {
+  // a `{ type: 'storage.get.result', error: 'denied: state:read' }` envelope.
+  it('storage.get denied by ACL produces storage.get.result error envelope', () => {
     // Block the napplet's identity so any cap check fails.
     runtime.aclState.block('', TEST_DTAG, TEST_HASH);
 
@@ -280,12 +280,12 @@ describe('storage nub — ACL denial emits .error envelope', () => {
       key: 'foo',
     } as NappletMessage);
 
-    const err = findEnvelopeResponse(mock.sent, 'storage.get.error');
+    const err = findEnvelopeResponse(mock.sent, 'storage.get.result');
     expect(err).toBeDefined();
     expect((err as any).id).toBe('g-deny');
     // Denial reason must reference state:read OR the canonical 'denied:' prefix.
     expect((err as any).error).toMatch(/capability_missing|denied|state:read/i);
-    // When ACL denies, no storage.get.result envelope is emitted.
-    expect(findEnvelopeResponse(mock.sent, 'storage.get.result')).toBeUndefined();
+    // When ACL denies, no non-canonical storage.get.error envelope is emitted.
+    expect(findEnvelopeResponse(mock.sent, 'storage.get.error')).toBeUndefined();
   });
 });

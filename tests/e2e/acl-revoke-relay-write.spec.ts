@@ -66,6 +66,8 @@ test('revoking relay:write on composer denies next publish (denial visible in st
   // The button is rendered into #composer-acl after identity binding is detected in main.ts.
   const aclSlot = page.locator('#composer-acl');
   await expect(aclSlot).toBeVisible({ timeout: 10_000 });
+  await expect(aclSlot.locator('.acl-summary-toggle')).toContainText('8 allowed');
+  await aclSlot.locator('.acl-summary-toggle').click();
   const relayWriteToggle = aclSlot.locator('button[title^="relay:write"]');
   await expect(relayWriteToggle).toBeVisible({ timeout: 10_000 });
   await expect(relayWriteToggle).toHaveAttribute('data-enabled', 'true');
@@ -75,6 +77,8 @@ test('revoking relay:write on composer denies next publish (denial visible in st
   await relayWriteToggle.click();
   // Verify the toggle flipped to OFF state (data-enabled=false).
   await expect(relayWriteToggle).toHaveAttribute('data-enabled', 'false');
+  await expect(aclSlot.locator('.acl-summary-toggle')).toContainText('7 allowed');
+  await expect(aclSlot.locator('.acl-summary-toggle')).toContainText('1 blocked');
 
   // Diagnostic: verify ACL state ACTUALLY changed (captures shell console.log output)
   await page.evaluate(() => {
