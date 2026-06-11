@@ -31,7 +31,7 @@ const expectedRequires: Record<(typeof expectedNapplets)[number], readonly strin
   preferences: ['storage', 'theme'],
   'profile-viewer': ['ifc', 'relay', 'theme'],
   'resource-demo': ['resource', 'connect', 'theme'],
-  'theme-switcher': ['theme'],
+  'theme-switcher': ['identity', 'relay', 'theme'],
   toaster: ['notify', 'theme'],
 };
 

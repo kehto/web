@@ -76,6 +76,10 @@ type RelayEnvelope = NappletMessage & {
   event?: NostrEvent;
 };
 
+type PlaygroundRelayFilter = NostrFilter & {
+  relayCache?: unknown;
+};
+
 interface TrackedSubscription {
   closed: boolean;
   seen: Set<string>;
@@ -207,7 +211,9 @@ class PlaygroundRelayRuntimeImpl {
     const subId = message.subId;
     if (!subId) return;
 
-    const filters = Array.isArray(message.filters) ? message.filters : [];
+    const rawFilters = Array.isArray(message.filters) ? message.filters : [];
+    const skipCache = shouldSkipRelayCache(rawFilters);
+    const filters = stripPlaygroundRelayFilterOptions(rawFilters);
     const subKey = `${windowId}:${subId}`;
     this.closeSubscription(subKey);
 
@@ -226,18 +232,21 @@ class PlaygroundRelayRuntimeImpl {
       tracked.seen.add(event.id);
       tracked.events.push(event);
       try { this.eventStore.add(event); } catch { /* keep delivery best-effort */ }
-      void this.cache.store(event).catch(() => {});
+      if (!skipCache) void this.cache.store(event).catch(() => {});
       send({ type: 'relay.event', subId, event } as NappletMessage);
     };
 
     try {
       const mailboxes = await this.resolveMailboxes(
         needsMailboxResolution(filters) ? collectMailboxPubkeys(filters) : [],
+        skipCache,
       );
       if (tracked.closed) return;
 
       for (const event of this.getStoreEvents(filters)) deliver(event);
-      for (const event of await this.cache.query(filters)) deliver(event);
+      if (!skipCache) {
+        for (const event of await this.cache.query(filters)) deliver(event);
+      }
       if (tracked.closed) return;
       if (areFiniteLimitsSatisfied(filters, tracked.events)) {
         sendEose();
@@ -309,7 +318,10 @@ class PlaygroundRelayRuntimeImpl {
     } as NappletMessage);
   }
 
-  private async resolveMailboxes(pubkeys: readonly string[]): Promise<Map<string, NostrEvent>> {
+  private async resolveMailboxes(
+    pubkeys: readonly string[],
+    skipCache = false,
+  ): Promise<Map<string, NostrEvent>> {
     const needed = [...new Set(pubkeys)].filter(Boolean);
     const result = new Map<string, NostrEvent>();
     if (needed.length === 0) return result;
@@ -319,7 +331,7 @@ class PlaygroundRelayRuntimeImpl {
         if (event.kind !== 10002 || !needed.includes(event.pubkey)) continue;
         result.set(event.pubkey, event);
         try { this.eventStore.add(event); } catch { /* cache data is still useful for relay selection */ }
-        void this.cache.store(event).catch(() => {});
+        if (!skipCache) void this.cache.store(event).catch(() => {});
       }
     };
 
@@ -327,9 +339,12 @@ class PlaygroundRelayRuntimeImpl {
     const missingAfterStore = needed.filter((pubkey) => !result.has(pubkey));
     if (missingAfterStore.length === 0) return result;
 
-    absorb(await this.cache.query([{ kinds: [10002], authors: missingAfterStore, limit: missingAfterStore.length }]));
-    const missingAfterCache = needed.filter((pubkey) => !result.has(pubkey));
-    if (missingAfterCache.length === 0) return result;
+    let missingAfterCache = missingAfterStore;
+    if (!skipCache) {
+      absorb(await this.cache.query([{ kinds: [10002], authors: missingAfterStore, limit: missingAfterStore.length }]));
+      missingAfterCache = needed.filter((pubkey) => !result.has(pubkey));
+      if (missingAfterCache.length === 0) return result;
+    }
 
     const indexers = uniqueRelays([
       ...(this.nip66Aggregator?.getRelaysForAttributeGroup('Indexer', this.config.relayAttributeGroups) ?? []),
@@ -503,5 +518,16 @@ function needsMailboxResolution(filters: readonly NostrFilter[]): boolean {
   return filters.some((filter) => {
     if (!filter.kinds || filter.kinds.length === 0) return true;
     return filter.kinds.some((kind) => kind !== 10002 && kind !== 30166 && kind !== 10166);
+  });
+}
+
+function shouldSkipRelayCache(filters: readonly NostrFilter[]): boolean {
+  return filters.some((filter) => (filter as PlaygroundRelayFilter).relayCache === 'skip');
+}
+
+function stripPlaygroundRelayFilterOptions(filters: readonly NostrFilter[]): NostrFilter[] {
+  return filters.map((filter) => {
+    const { relayCache: _relayCache, ...clean } = filter as PlaygroundRelayFilter;
+    return clean;
   });
 }

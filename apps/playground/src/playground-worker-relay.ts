@@ -24,7 +24,7 @@ export function createPlaygroundWorkerRelayBundle(): PlaygroundWorkerRelayBundle
     if (ready) return ready;
     if (typeof Worker === 'undefined') return null;
 
-    ready = (async () => {
+    ready = filterOptionalWorkerRelayStartupLogs(async () => {
       try {
         const { WorkerRelayInterface } = await import('@snort/worker-relay');
         const worker = new WorkerRelayInterface(new URL('@snort/worker-relay/dist/esm/worker.mjs', import.meta.url));
@@ -36,7 +36,7 @@ export function createPlaygroundWorkerRelayBundle(): PlaygroundWorkerRelayBundle
       } catch {
         return null;
       }
-    })();
+    });
     return ready;
   }
 
@@ -99,4 +99,25 @@ function mergeEvents(events: readonly NostrEvent[], filters: readonly NostrFilte
 function requestId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
   return `req-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+async function filterOptionalWorkerRelayStartupLogs<T>(work: () => Promise<T>): Promise<T> {
+  const logger = globalThis.console;
+  const originalError = logger?.error;
+  if (typeof originalError !== 'function') return work();
+
+  logger.error = (...args: unknown[]) => {
+    if (isOptionalWorkerRelayStartupError(args)) return;
+    originalError.apply(logger, args);
+  };
+
+  try {
+    return await work();
+  } finally {
+    logger.error = originalError;
+  }
+}
+
+function isOptionalWorkerRelayStartupError(args: readonly unknown[]): boolean {
+  return args[0] === 'Worker Error:' && args[1] instanceof Event;
 }

@@ -30,7 +30,7 @@ const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly str
   preferences: ['storage', 'theme'],
   'profile-viewer': ['ifc', 'relay', 'theme'],
   'resource-demo': ['resource', 'connect', 'theme'],
-  'theme-switcher': ['theme'],
+  'theme-switcher': ['identity', 'relay', 'theme'],
   toaster: ['notify', 'theme'],
 };
 

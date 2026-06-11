@@ -285,6 +285,33 @@ describe('playground relay service', () => {
     expect(sends.find((message) => message.type === 'relay.event')).toMatchObject({ type: 'relay.event', event: cached });
   });
 
+  it('strips relayCache skip hints and bypasses cache reads plus cache writes', async () => {
+    const cached = mailbox('alice', [['wss://cached.example', 'read']]);
+    const live = mailbox('alice', [['wss://live.example', 'read']]);
+    const cache = createCache([cached]);
+    const pool = createPool({ subscriptionEvents: [live] });
+    const sends: NappletMessage[] = [];
+    const runtime = createRuntime({ cache, relayPool: pool as PlaygroundRelayRuntimeOptions['relayPool'] });
+
+    runtime.relayService.handleMessage(
+      'window-a',
+      {
+        type: 'relay.subscribe',
+        subId: 'sub-a',
+        filters: [{ kinds: [10002], authors: ['alice'], limit: 1, relayCache: 'skip' } as NostrFilter],
+      } as NappletMessage,
+      (message) => sends.push(message),
+    );
+
+    await waitFor(() => expect(pool.log.subscriptions).toHaveLength(1));
+    await waitFor(() => expect(sends.some((message) => message.type === 'relay.event')).toBe(true));
+
+    expect(pool.log.subscriptions[0]?.filters).toEqual([{ kinds: [10002], authors: ['alice'], limit: 1 }]);
+    expect(sends.find((message) => message.type === 'relay.event')).toMatchObject({ type: 'relay.event', event: live });
+    expect(sends.find((message) => message.type === 'relay.event')).not.toMatchObject({ event: cached });
+    expect(cache.stored).toHaveLength(0);
+  });
+
   it('publishes to relay hints, author outboxes, and recipient inboxes, then reports relay acknowledgement', async () => {
     const cache = createCache([
       mailbox('alice', [['wss://alice.write', 'write']]),

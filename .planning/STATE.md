@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.17
 milestone_name: Beautify the SPA Landing Page
 status: Awaiting next milestone
-last_updated: "2026-06-11T14:38:16Z"
-last_activity: 2026-06-11 — Completed quick task 260611-mq3: Implement NAP-01 profile viewer and clickable feed profiles
+last_updated: "2026-06-11T15:41:55Z"
+last_activity: 2026-06-11 — Completed quick task 260611-o91: Improve playground theme switcher discovery
 progress:
   total_phases: 3
   completed_phases: 3
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-06-06, v1.17 shipped)
 Phase: Milestone v1.17 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-06-11 — Completed quick task 260611-mq3: Implement NAP-01 profile viewer and clickable feed profiles
+Last activity: 2026-06-11 — Completed quick task 260611-o91: Improve playground theme switcher discovery
 
 ## Accumulated Context
 
@@ -109,6 +109,7 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 | 260611-ln6 | Replace NIP-66 fixture panel with relay activity stats | 2026-06-11 | working tree | [260611-ln6-replace-nip-66-fixture-panel-with-relay-](./quick/260611-ln6-replace-nip-66-fixture-panel-with-relay-/) |
 | 260611-lwz | Show feed publish time instead of truncated pubkey | 2026-06-11 | working tree | [260611-lwz-show-feed-publish-time-instead-of-trunca](./quick/260611-lwz-show-feed-publish-time-instead-of-trunca/) |
 | 260611-mq3 | Implement NAP-01 profile viewer and clickable feed profiles | 2026-06-11 | working tree | [260611-mq3-implement-nap-01-profile-viewer-and-clic](./quick/260611-mq3-implement-nap-01-profile-viewer-and-clic/) |
+| 260611-o91 | Improve playground theme switcher discovery | 2026-06-11 | working tree | [260611-o91-improve-playground-theme-switcher-discov](./quick/260611-o91-improve-playground-theme-switcher-discov/) |
 
 ## Session Continuity
 
