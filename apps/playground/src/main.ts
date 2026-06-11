@@ -14,7 +14,7 @@ import {
   relay,
   toggleService,
   setDemoConfigValue,
-  getNip66Aggregator,
+  getPlaygroundRelayActivity,
   publishDecryptFixturesToNapplet,
   getDemoDecryptBridgeCallCount,
   resetDemoDecryptBridgeCallCount,
@@ -55,7 +55,7 @@ import {
 import { initNodeInspector, openConstantsTab, setSelectedNodeId } from './node-inspector.js';
 import { replaceChildrenFromTrustedHtml } from './dom-utils.js';
 import { recordSignerRequest, getSignerConnectionState } from './signer-connection.js';
-import { createNotificationUi, initNip66Suggestions } from './main-notifications.js';
+import { createNotificationUi, initRelayActivityPanel } from './main-notifications.js';
 import { initSignerNodeUi } from './main-signer.js';
 import { demoConfig } from './demo-config.js';
 import { setAclRingSize } from './acl-history.js';
@@ -208,7 +208,7 @@ if (notificationHandler) {
 createConsentModal().registerWith(relay, (request) => {
   setTimeout(() => request.resolve(true), 500);
 });
-initNip66Suggestions(getNip66Aggregator());
+initRelayActivityPanel(getPlaygroundRelayActivity);
 
 const topology = buildDemoTopology(getDemoTopologyInputs());
 

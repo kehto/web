@@ -215,6 +215,58 @@ describe('playground relay service', () => {
     ]);
   });
 
+  it('tracks relay activity ordered by latest access', async () => {
+    const pool = createPool({
+      requestEvents: [
+        mailbox('alice', [
+          ['wss://alice.write', 'write'],
+          ['wss://alice.read', 'read'],
+        ]),
+      ],
+      subscriptionEvents: [event({ id: '4'.repeat(64), pubkey: 'alice' })],
+    });
+    const runtime = createRuntime({ relayPool: pool as PlaygroundRelayRuntimeOptions['relayPool'] });
+
+    runtime.relayService.handleMessage(
+      'window-a',
+      { type: 'relay.subscribe', subId: 'sub-a', filters: [{ kinds: [1], authors: ['alice'] }] } as NappletMessage,
+      () => {},
+    );
+
+    await waitFor(() => {
+      const activity = runtime.getRelayActivity(5);
+      expect(activity.some((entry) => entry.url === 'wss://alice.write')).toBe(true);
+      expect(activity.some((entry) => entry.eventsReceived > 0)).toBe(true);
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    runtime.relayService.handleMessage(
+      'window-a',
+      {
+        type: 'relay.publish',
+        id: 'publish-activity',
+        event: event({ id: '5'.repeat(64), pubkey: 'charlie', tags: [['p', 'bob', 'wss://hint.relay']] }),
+      } as NappletMessage,
+      () => {},
+    );
+    await waitFor(() => expect(pool.log.publishes).toHaveLength(1));
+
+    const activity = runtime.getRelayActivity(5);
+    expect(activity).toHaveLength(4);
+    expect(activity[0]).toMatchObject({
+      url: 'wss://hint.relay',
+      publishCount: 1,
+    });
+    expect(activity.find((entry) => entry.url === 'wss://alice.write')).toMatchObject({
+      subscriptionCount: 1,
+      eventsReceived: 1,
+    });
+    expect(activity.find((entry) => entry.url === 'wss://nip66.indexer')).toMatchObject({
+      requestCount: 2,
+      eventsReceived: 2,
+    });
+  });
+
   it('does not open live subscriptions when cache satisfies every finite filter limit', async () => {
     const cached = event({ id: '1'.repeat(64), kind: 1 });
     const cache = createCache([cached]);

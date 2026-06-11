@@ -99,6 +99,30 @@ describe('playground gateway artifact guard', () => {
     );
   });
 
+  it('shows relay runtime activity instead of NIP-66 fixture suggestions', () => {
+    const indexHtml = readRepoFile('apps/playground/index.html');
+    const main = readRepoFile('apps/playground/src/main.ts');
+    const notifications = readRepoFile('apps/playground/src/main-notifications.ts');
+    const demoHooks = readRepoFile('apps/playground/src/demo-hooks.ts');
+    const relayService = readRepoFile('apps/playground/src/playground-relay-service.ts');
+
+    expect(indexHtml).toContain('id="relay-activity-panel"');
+    expect(indexHtml).toContain('id="relay-activity-list"');
+    expect(indexHtml).toContain('relay activity');
+    expect(indexHtml).toContain('no relay activity yet');
+    expect(indexHtml).not.toContain('nip-66 relay suggestions');
+    expect(indexHtml).not.toContain('id="nip66-suggestions-list"');
+
+    expect(main).toContain('getPlaygroundRelayActivity');
+    expect(main).toContain('initRelayActivityPanel(getPlaygroundRelayActivity)');
+    expect(main).not.toContain('initNip66Suggestions');
+    expect(notifications).toContain("document.getElementById('relay-activity-list')");
+    expect(notifications).toContain('formatRelayActivityStats');
+    expect(demoHooks).toContain('getPlaygroundRelayActivity');
+    expect(relayService).toContain('getRelayActivity(limit?: number): PlaygroundRelayActivityEntry[]');
+    expect(relayService).toContain('eventsReceived');
+  });
+
   it('keeps the feed napplet identity-bound, following-scoped, and unseeded', () => {
     const feedSource = readRepoFile('apps/playground/napplets/feed/src/main.ts');
     const feedStore = readRepoFile('apps/playground/napplets/feed/src/feed-store.ts');

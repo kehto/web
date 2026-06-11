@@ -1,6 +1,6 @@
-import type { Nip66Aggregator } from '@kehto/nip66';
 import type { Notification } from '@kehto/services';
 import type { NappletDebugger } from './debugger.js';
+import type { PlaygroundRelayActivityEntry } from './playground-relay-service.js';
 import { demoConfig } from './demo-config.js';
 import {
   createDemoNotificationController,
@@ -252,38 +252,57 @@ export function createNotificationUi(): NotificationUiController {
   };
 }
 
-function renderNip66Suggestions(aggregator: Nip66Aggregator): boolean {
-  const list = document.getElementById('nip66-suggestions-list');
+type RelayActivitySource = (limit?: number) => PlaygroundRelayActivityEntry[];
+
+function formatRelayActivityStats(entry: PlaygroundRelayActivityEntry): string {
+  return [
+    `${entry.eventsReceived} evt`,
+    `${entry.subscriptionCount} sub`,
+    `${entry.requestCount} req`,
+    `${entry.publishCount} pub`,
+  ].join(' / ');
+}
+
+function renderRelayActivity(getActivity: RelayActivitySource): boolean {
+  const list = document.getElementById('relay-activity-list');
   if (!list) return false;
-  const relays = Array.from(aggregator.getRelaySet());
-  if (relays.length === 0) return false;
+  const relays = getActivity(5);
+  if (relays.length === 0) {
+    const empty = document.createElement('li');
+    empty.style.color = '#555';
+    empty.style.fontStyle = 'italic';
+    empty.textContent = 'no relay activity yet';
+    list.replaceChildren(empty);
+    return false;
+  }
+
   list.replaceChildren();
-  for (const url of relays) {
+  for (const entry of relays) {
     const li = document.createElement('li');
     li.style.padding = '2px 0';
-    li.style.color = '#62d0ff';
     li.style.fontFamily = 'monospace';
-    li.textContent = url;
+    const url = document.createElement('span');
+    url.style.color = '#62d0ff';
+    url.textContent = entry.url;
+    const stats = document.createElement('span');
+    stats.style.color = '#7c86a7';
+    stats.style.marginLeft = '8px';
+    stats.textContent = formatRelayActivityStats(entry);
+    li.append(url, stats);
     list.appendChild(li);
   }
   return true;
 }
 
-export function initNip66Suggestions(aggregator: Nip66Aggregator | null | undefined): void {
-  if (!aggregator) return;
-  aggregator.start();
+export function initRelayActivityPanel(getActivity: RelayActivitySource | null | undefined): void {
+  if (!getActivity) return;
 
-  let attempts = 0;
-  const nip66PollId = window.setInterval(() => {
-    attempts++;
-    const rendered = renderNip66Suggestions(aggregator);
-    if (rendered || attempts >= 10) {
-      window.clearInterval(nip66PollId);
-    }
-  }, 100);
+  const relayActivityPollId = window.setInterval(() => {
+    renderRelayActivity(getActivity);
+  }, 500);
 
+  renderRelayActivity(getActivity);
   window.addEventListener('beforeunload', () => {
-    window.clearInterval(nip66PollId);
-    aggregator.stop();
+    window.clearInterval(relayActivityPollId);
   });
 }

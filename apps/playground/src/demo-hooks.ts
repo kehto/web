@@ -25,7 +25,10 @@ import { createNip66Aggregator, type Nip66Aggregator } from '@kehto/nip66';
 import { createDemoDecryptBridge } from './demo-decrypt.js';
 import { demoConfig } from './demo-config.js';
 import { createPlaygroundNip66FixturePool } from './playground-relay-fixtures.js';
-import { createPlaygroundRelayRuntime } from './playground-relay-service.js';
+import {
+  createPlaygroundRelayRuntime,
+  type PlaygroundRelayActivityEntry,
+} from './playground-relay-service.js';
 import { DEFAULT_PLAYGROUND_RELAY_SELECTION } from './playground-relay-selection.js';
 import { createPlaygroundWorkerRelayBundle } from './playground-worker-relay.js';
 import { getSigner, getSignerConnectionState } from './signer-connection.js';
@@ -48,6 +51,7 @@ let configServiceBundle: ConfigService | null = null;
 let shellCapabilities: ShellCapabilities | null = null;
 let nip66Aggregator: Nip66Aggregator | null = null;
 let relayRuntimeDestroy: (() => void) | null = null;
+let relayRuntimeActivity: ((limit?: number) => PlaygroundRelayActivityEntry[]) | null = null;
 let relayTeardownInstalled = false;
 let sessionRegistryRef: {
   getEntryByWindowId(windowId: string): SessionEntry | undefined;
@@ -82,6 +86,7 @@ export function createDemoHooks(
     verifyEvent: verifyDemoEvent,
   });
   relayRuntimeDestroy?.();
+  relayRuntimeActivity = null;
   nip66Aggregator?.stop();
   nip66Aggregator = createNip66Aggregator({
     pool: createPlaygroundNip66FixturePool(),
@@ -94,6 +99,7 @@ export function createDemoHooks(
     cache: workerRelay.cache,
   });
   relayRuntimeDestroy = relayRuntime.destroy;
+  relayRuntimeActivity = relayRuntime.getRelayActivity;
   installRelayTeardown();
 
   const services = {
@@ -217,6 +223,7 @@ function installRelayTeardown(): void {
   relayTeardownInstalled = true;
   window.addEventListener('beforeunload', () => {
     relayRuntimeDestroy?.();
+    relayRuntimeActivity = null;
     nip66Aggregator?.stop();
   });
 }
@@ -298,6 +305,10 @@ export function setDemoSessionRegistryRef(registry: typeof sessionRegistryRef): 
 
 export function getNip66Aggregator(): Nip66Aggregator | null {
   return nip66Aggregator;
+}
+
+export function getPlaygroundRelayActivity(limit = 5): PlaygroundRelayActivityEntry[] {
+  return relayRuntimeActivity?.(limit) ?? [];
 }
 
 export function getConfigServiceBundle(): ConfigService | null {

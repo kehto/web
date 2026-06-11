@@ -596,20 +596,17 @@
     </div>
   </div>
 
-  <!-- Phase 41 Plan 41-01 (NIP66-07 / D5): nip66 relay suggestions panel.
-       Populated by main.ts from createNip66Aggregator after boot. Lives in
-       shell chrome (outside any iframe). E2E-26 asserts at least one <li>
-       lands here within 5s via page.waitForFunction. -->
+  <!-- Relay activity panel: populated from the playground relay runtime after boot. -->
   <section
-    id="nip66-panel"
-    aria-label="NIP-66 relay suggestions"
+    id="relay-activity-panel"
+    aria-label="Relay activity"
     style="padding: 8px 14px; border-top: 1px solid #1f2235; background: #0f0f16; font-size: 11px; color: #a5abc2; flex-shrink: 0;"
   >
     <div style="font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #7c86a7; margin-bottom: 4px;">
-      nip-66 relay suggestions
+      relay activity
     </div>
-    <ul id="nip66-suggestions-list" style="margin: 0; padding: 0; list-style: none;">
-      <li style="color: #555; font-style: italic;">no suggestions yet</li>
+    <ul id="relay-activity-list" style="margin: 0; padding: 0; list-style: none;">
+      <li style="color: #555; font-style: italic;">no relay activity yet</li>
     </ul>
   </section>
 

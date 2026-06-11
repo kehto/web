@@ -48,9 +48,24 @@ export interface PlaygroundRelayRuntimeOptions {
   publishTimeoutMs?: number;
 }
 
+export interface PlaygroundRelayActivityEntry {
+  url: string;
+  lastAccessedAt: number;
+  accessCount: number;
+  subscriptionCount: number;
+  requestCount: number;
+  publishCount: number;
+  eventsReceived: number;
+}
+
+interface PlaygroundRelayActivityRecord extends PlaygroundRelayActivityEntry {
+  lastAccessSequence: number;
+}
+
 export interface PlaygroundRelayRuntime {
   relayService: ServiceHandler;
   relayPoolHooks: RelayPoolHooks;
+  getRelayActivity(limit?: number): PlaygroundRelayActivityEntry[];
   destroy(): void;
 }
 
@@ -85,6 +100,8 @@ class PlaygroundRelayRuntimeImpl {
   private readonly requestTimeoutMs: number;
   private readonly publishTimeoutMs: number;
   private readonly nip66Aggregator: Nip66Aggregator | null;
+  private readonly relayActivity = new Map<string, PlaygroundRelayActivityRecord>();
+  private relayActivitySequence = 0;
 
   constructor(options: PlaygroundRelayRuntimeOptions) {
     this.cache = options.cache;
@@ -103,6 +120,7 @@ class PlaygroundRelayRuntimeImpl {
     return {
       relayService: this.createServiceHandler(),
       relayPoolHooks: this.createRelayPoolHooks(),
+      getRelayActivity: (limit) => this.getRelayActivity(limit),
       destroy: () => this.destroy(),
     };
   }
@@ -134,17 +152,34 @@ class PlaygroundRelayRuntimeImpl {
   private createRelayPoolHooks(): RelayPoolHooks {
     const relayPoolLike: RelayPoolLike = {
       subscription: (relayUrls, filters) => ({
-        subscribe: (observer) => this.pool.subscription(relayUrls, filters as NostrFilter[]).subscribe(observer as (item: NostrEvent) => void),
+        subscribe: (observer) => {
+          this.recordRelayAccess(relayUrls, 'subscription');
+          return this.pool.subscription(relayUrls, filters as NostrFilter[]).subscribe((item: NostrEvent) => {
+            this.recordRelayEvents(relayUrls, 1);
+            if (typeof observer === 'function') {
+              observer(item);
+            } else {
+              observer.next?.(item);
+            }
+          });
+        },
       }),
       publish: (relayUrls, event) => {
+        this.recordRelayAccess(relayUrls, 'publish');
         void Promise.resolve(this.pool.publish(relayUrls, event as NostrEvent, { timeout: this.publishTimeoutMs })).catch(() => null);
       },
       request: (relayUrls, filters) => ({
-        subscribe: (observer) => this.pool.request(relayUrls, filters as NostrFilter[], { timeout: this.requestTimeoutMs }).subscribe(observer as {
-          next: (event: unknown) => void;
-          complete: () => void;
-          error: () => void;
-        }),
+        subscribe: (observer) => {
+          this.recordRelayAccess(relayUrls, 'request');
+          return this.pool.request(relayUrls, filters as NostrFilter[], { timeout: this.requestTimeoutMs }).subscribe({
+            next: (event: unknown) => {
+              this.recordRelayEvents(relayUrls, 1);
+              observer.next?.(event);
+            },
+            complete: () => observer.complete?.(),
+            error: () => observer.error?.(),
+          });
+        },
       }),
     };
 
@@ -215,10 +250,14 @@ class PlaygroundRelayRuntimeImpl {
         return;
       }
 
+      this.recordRelayAccess(relays, 'subscription');
       tracked.timer = setTimeout(sendEose, this.eoseTimeoutMs);
       const source = this.pool.subscription(relays, filters, { id: subId });
       tracked.handle = source.subscribe({
-        next: deliver,
+        next: (event) => {
+          this.recordRelayEvents(relays, 1);
+          deliver(event);
+        },
         error: () => sendEose(),
         complete: () => sendEose(),
       });
@@ -336,6 +375,7 @@ class PlaygroundRelayRuntimeImpl {
 
   private async requestRelays(relays: string[], filters: NostrFilter[]): Promise<NostrEvent[]> {
     if (relays.length === 0) return [];
+    this.recordRelayAccess(relays, 'request');
     return new Promise((resolve) => {
       const events: NostrEvent[] = [];
       let done = false;
@@ -350,7 +390,10 @@ class PlaygroundRelayRuntimeImpl {
       const timer = setTimeout(finish, this.requestTimeoutMs);
       try {
         handle = this.pool.request(relays, filters, { timeout: this.requestTimeoutMs }).subscribe({
-          next: (event) => events.push(event),
+          next: (event) => {
+            events.push(event);
+            this.recordRelayEvents(relays, 1);
+          },
           error: finish,
           complete: finish,
         });
@@ -362,6 +405,7 @@ class PlaygroundRelayRuntimeImpl {
 
   private async publishToRelays(relays: string[], event: NostrEvent): Promise<PublishResponse[]> {
     if (relays.length === 0) return [];
+    this.recordRelayAccess(relays, 'publish');
     try {
       const response = await Promise.race([
         Promise.resolve(this.pool.publish(relays, event, { timeout: this.publishTimeoutMs })),
@@ -392,6 +436,58 @@ class PlaygroundRelayRuntimeImpl {
     for (const subKey of this.tracked.keys()) this.closeSubscription(subKey);
     for (const cleanup of this.hookTracked.values()) cleanup();
     this.hookTracked.clear();
+  }
+
+  private getRelayActivity(limit = 5): PlaygroundRelayActivityEntry[] {
+    return [...this.relayActivity.values()]
+      .sort((a, b) => b.lastAccessSequence - a.lastAccessSequence || b.lastAccessedAt - a.lastAccessedAt)
+      .slice(0, limit)
+      .map(({ lastAccessSequence: _lastAccessSequence, ...entry }) => ({ ...entry }));
+  }
+
+  private recordRelayAccess(
+    relayUrls: readonly string[],
+    type: 'subscription' | 'request' | 'publish',
+  ): void {
+    const now = Date.now();
+    for (const url of uniqueRelays([...relayUrls])) {
+      const entry = this.getOrCreateRelayActivity(url);
+      entry.lastAccessedAt = now;
+      entry.lastAccessSequence = ++this.relayActivitySequence;
+      entry.accessCount += 1;
+      if (type === 'subscription') entry.subscriptionCount += 1;
+      if (type === 'request') entry.requestCount += 1;
+      if (type === 'publish') entry.publishCount += 1;
+    }
+  }
+
+  private recordRelayEvents(relayUrls: readonly string[], count: number): void {
+    if (count <= 0) return;
+    const now = Date.now();
+    for (const url of uniqueRelays([...relayUrls])) {
+      const entry = this.getOrCreateRelayActivity(url);
+      entry.lastAccessedAt = now;
+      entry.lastAccessSequence = ++this.relayActivitySequence;
+      entry.eventsReceived += count;
+    }
+  }
+
+  private getOrCreateRelayActivity(url: string): PlaygroundRelayActivityRecord {
+    let entry = this.relayActivity.get(url);
+    if (!entry) {
+      entry = {
+        url,
+        lastAccessedAt: 0,
+        lastAccessSequence: 0,
+        accessCount: 0,
+        subscriptionCount: 0,
+        requestCount: 0,
+        publishCount: 0,
+        eventsReceived: 0,
+      };
+      this.relayActivity.set(url, entry);
+    }
+    return entry;
   }
 }
 
