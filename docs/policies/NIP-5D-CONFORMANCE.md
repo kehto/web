@@ -36,13 +36,13 @@ they are either:
 
 | Envelope | Location | Classification | Boundary |
 |----------|----------|----------------|----------|
-| `demo.publishTheme` | `apps/playground/napplets/theme-switcher/src/main.ts` | Demo-only host control | Not a NIP-5D or NAP contract. Allowed only in the playground theme broadcast demo until a `theme.publish`/`theme.set` helper exists. |
+| `theme.set` | `apps/playground/napplets/theme-switcher/src/main.ts` | Shell theme request | Not a NIP-5D or NAP contract. Allowed only in the playground theme broadcast demo as the host-side theme mutation request that resolves to `theme.changed`. |
 | `demo.decrypt.fixtures` | `apps/playground/napplets/decrypt-demo/src/main.ts` | Test/demo fixture injection | Not a NIP-5D or NAP contract. Parent-source-bound fixture delivery for the decrypt demo only. |
 | `notify.create` | `apps/playground/napplets/toaster/src/main.ts` | NAP helper-surface gap | Notify service supports create/list, but `@napplet/nap/notify/sdk` lacks create/list helpers. Raw use must stay source-bound and confined to toaster. |
 | `notify.list` | `apps/playground/napplets/toaster/src/main.ts` | NAP helper-surface gap | Same toaster-only helper gap as `notify.create`; raw replies are accepted only from `window.parent`. |
 | `resource.bytes` | `apps/playground/napplets/resource-demo/src/main.ts` | Kehto resource wire-shape gap | Resource SDK expects upstream `id`/`blob`/`mime`; playground service currently uses `requestId`/`bodyBase64`/`status`/`headers`. Raw use is confined to resource-demo. |
 | `identity.changed` | `apps/playground/napplets/feed/src/feed-identity-events.ts` | NAP helper-surface gap | Identity push is proposed for NAP-IDENTITY so napplets can react to signer login/logout without polling. Raw listener must be parent-source-bound and type-narrowed until an identity subscribe/helper API exists. |
-| `theme.changed` | `apps/playground/napplets/shared-theme.ts` | NAP helper-surface gap | Theme push exists as a shell-to-napplet NAP envelope, but no `theme.subscribe` helper exists. Raw listener must be parent-source-bound and type-narrowed. |
+| `theme.changed` | `apps/playground/src/theme.ts` | NAP helper-surface gap | Theme push exists as a shell-to-napplet NAP envelope, but no `theme.subscribe` helper exists. Raw listener must be parent-source-bound and type-narrowed. |
 
 New raw `window.parent.postMessage()` protocol envelopes in playground napplets
 must fail static checks unless they are added to that allowlist with a concrete

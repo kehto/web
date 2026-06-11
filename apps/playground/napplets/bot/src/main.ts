@@ -12,7 +12,7 @@
  * NO NIP-01 arrays, NO legacy bus enums, NO global nostr (anti-features).
  */
 import '@napplet/shim';
-import { installNapTheme } from '../../shared-theme';
+import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
 import { ifcEmit, ifcOn } from '@napplet/nap/ifc/sdk';
 import { storageGetItem, storageSetItem } from '@napplet/nap/storage/sdk';
 
@@ -186,10 +186,13 @@ async function init(): Promise<void> {
     throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);
   }
   installNapTheme();
+  onNapThemeChanged((theme) => {
+    applyNapTheme(theme);
+  });
 
   await loadRules();
   statusEl.textContent = 'ready';
-  statusEl.style.color = '#39ff14';
+  statusEl.style.color = 'var(--nap-theme-success, #39ff14)';
   log('listening for ifc chat:message input', 'info');
 
   // Wire the IFC subscription per D-02.
@@ -199,6 +202,6 @@ async function init(): Promise<void> {
 
 init().catch((err) => {
   statusEl.textContent = 'unavailable';
-  statusEl.style.color = '#ff3b3b';
+  statusEl.style.color = 'var(--nap-theme-danger, #ff3b3b)';
   log(`init failed -- ${formatError(err, 'NIP-5D capability/storage failure')}`, 'error');
 });

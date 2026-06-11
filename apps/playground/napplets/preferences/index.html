@@ -9,8 +9,8 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'JetBrains Mono', monospace;
-      background: #0a0a0f;
-      color: #e0e0e0;
+      background: var(--nap-theme-background, #0a0a0f);
+      color: var(--nap-theme-text, #e0e0e0);
       font-size: 11px;
       height: 100vh;
       overflow: hidden;
@@ -28,14 +28,14 @@
       gap: 8px;
     }
     label {
-      color: #888;
+      color: var(--nap-theme-muted, #888);
       min-width: 90px;
       font-size: 10px;
     }
     input[type="text"] {
-      background: #12121a;
-      border: 1px solid #2a2a3a;
-      color: #e0e0e0;
+      background: var(--nap-theme-surface-1, #12121a);
+      border: 1px solid var(--nap-theme-border, #2a2a3a);
+      color: var(--nap-theme-text, #e0e0e0);
       font-family: inherit;
       font-size: 11px;
       padding: 3px 6px;
@@ -43,42 +43,42 @@
     }
     input[type="text"]:focus {
       outline: none;
-      border-color: #39ff14;
+      border-color: var(--nap-theme-primary-border, #39ff14);
     }
     button {
-      background: #12121a;
-      border: 1px solid #2a2a3a;
-      color: #e0e0e0;
+      background: var(--nap-theme-surface-1, #12121a);
+      border: 1px solid var(--nap-theme-border, #2a2a3a);
+      color: var(--nap-theme-text, #e0e0e0);
       font-family: inherit;
       font-size: 11px;
       padding: 4px 12px;
       cursor: pointer;
     }
     button:hover {
-      border-color: #39ff14;
-      color: #39ff14;
+      border-color: var(--nap-theme-primary-border, #39ff14);
+      color: var(--nap-theme-primary, #39ff14);
     }
     #preferences-status {
       font-size: 10px;
-      color: #888;
+      color: var(--nap-theme-muted, #888);
     }
     #preferences-log {
       flex: 1;
       overflow-y: auto;
       padding-top: 4px;
-      border-top: 1px solid #2a2a3a;
+      border-top: 1px solid var(--nap-theme-border, #2a2a3a);
     }
     .preferences-log-entry {
       padding: 2px 0;
       line-height: 1.4;
-      color: #555;
+      color: var(--nap-theme-muted, #555);
       font-size: 10px;
     }
     #preferences-theme-applied {
-      color: #888;
+      color: var(--nap-theme-muted, #888);
       font-size: 10px;
       padding: 2px 4px;
-      background: rgba(255, 255, 255, 0.04);
+      background: var(--nap-theme-surface-2, rgba(255, 255, 255, 0.04));
       border-radius: 2px;
     }
     .theme-applied-row {
@@ -106,7 +106,7 @@
       <button id="preferences-save-btn">Save</button>
     </div>
     <div class="theme-applied-row">
-      <span style="color:#888;font-size:10px">theme:</span>
+      <span style="color:var(--nap-theme-muted, #888);font-size:10px">theme:</span>
       <span id="preferences-theme-applied"></span>
     </div>
     <div id="preferences-log"></div>

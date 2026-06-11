@@ -9,8 +9,8 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'JetBrains Mono', monospace;
-      background: #0a0a0f;
-      color: #e0e0e0;
+      background: var(--nap-theme-background, #f6f5ef);
+      color: var(--nap-theme-text, #1c1c1c);
       font-size: 11px;
       height: 100vh;
       overflow: hidden;
@@ -21,53 +21,41 @@
       flex-direction: column;
       padding: 8px;
       gap: 6px;
+      min-height: 0;
     }
-    #resource-demo-status { color: #888; font-size: 10px; }
-    section { display: flex; flex-direction: column; gap: 3px; }
-    section h2 {
-      font-size: 10px;
-      color: #888;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+    #resource-demo-status { color: var(--nap-theme-muted, #666); font-size: 10px; }
+    #resource-demo-stage {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
-    #resource-demo-granted,
-    #resource-demo-denied {
-      flex: 1;
-      overflow-y: auto;
-      padding: 6px;
-      border: 1px solid #1e1e2e;
-      background: #0d0d14;
-      font-size: 10px;
-      white-space: pre-wrap;
-      word-break: break-all;
-      color: #b0b0c0;
-      min-height: 60px;
+    #resource-demo-image {
+      flex: 1 1 auto;
+      min-height: 0;
+      width: 100%;
+      object-fit: contain;
+      display: block;
+      border: 1px solid var(--nap-theme-border, #c9c6ba);
+      background: var(--nap-theme-surface-2, #ece9df);
     }
-    #resource-demo-log {
-      max-height: 80px;
-      overflow-y: auto;
-      background: #0d0d14;
-      border: 1px solid #1e1e2e;
-      padding: 6px;
+    #resource-demo-source {
       font-size: 10px;
-      color: #888;
+      color: var(--nap-theme-muted, #666);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
   </style>
 </head>
 <body>
   <div id="app">
     <div id="resource-demo-status">connecting...</div>
-    <section>
-      <h2>granted fetch (playground origin)</h2>
-      <!-- sentinel: E2E-25 asserts #resource-demo-granted via frameLocator (Plan 40-03) -->
-      <pre id="resource-demo-granted">(pending)</pre>
-    </section>
-    <section>
-      <h2>denied fetch (untrusted.example)</h2>
-      <!-- sentinel: E2E-25 asserts #resource-demo-denied via frameLocator (Plan 40-03) -->
-      <pre id="resource-demo-denied">(pending)</pre>
-    </section>
-    <div id="resource-demo-log"></div>
+    <div id="resource-demo-stage">
+      <img id="resource-demo-image" alt="remote resource preview" />
+      <div id="resource-demo-source">loading remote image...</div>
+    </div>
   </div>
   <script type="module" src="./src/main.ts"></script>
 </body>

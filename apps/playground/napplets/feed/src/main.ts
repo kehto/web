@@ -2,7 +2,7 @@
  * Feed demo napplet — following feed over the shell relay service.
  */
 import '@napplet/shim';
-import { installNapTheme } from '../../shared-theme';
+import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
 import { identityGetPublicKey } from '@napplet/nap/identity/sdk';
 import { ifcEmit } from '@napplet/nap/ifc/sdk';
 import type { NostrEvent } from '@napplet/core';
@@ -11,12 +11,11 @@ import { createFeedIdentityEventController } from './feed-identity-events.js';
 
 const REQUIRED_NAPS = ['identity', 'relay', 'ifc', 'theme'] as const;
 const REQUIRED_IFC_PROTOCOL = 'ifc:NAP-01';
-const CAPABILITY_WAIT_MS = 1_000;
+const CAPABILITY_WAIT_MS = 5_000;
 const CAPABILITY_WAIT_INTERVAL_MS = 25;
 
 const statusEl = document.getElementById('feed-status')!;
 const listEl = document.getElementById('feed-list')!;
-const logEl = document.getElementById('feed-log')!;
 const RELATIVE_TIME_REFRESH_MS = 60_000;
 
 function formatError(error: unknown, fallback: string): string {
@@ -25,23 +24,14 @@ function formatError(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function log(text: string): void {
-  const div = document.createElement('div');
-  div.className = 'feed-log-entry';
-  const time = new Date().toLocaleTimeString('en', {
-    hour12: false,
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-  div.textContent = `${time} ${text}`;
-  logEl.appendChild(div);
-  logEl.scrollTop = logEl.scrollHeight;
-}
-
 function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void {
   statusEl.textContent = text;
-  statusEl.style.color = color === 'green' ? '#39ff14' : color === 'red' ? '#ff3b3b' : '#888';
+  statusEl.style.color =
+    color === 'green'
+      ? 'var(--nap-theme-success, #39ff14)'
+      : color === 'red'
+        ? 'var(--nap-theme-danger, #ff3b3b)'
+        : 'var(--nap-theme-muted, #888)';
 }
 
 function getMissingRequiredNaps(): string[] {
@@ -80,15 +70,13 @@ function canonicalPubkey(pubkey: string): string | null {
 function openProfile(pubkey: string): void {
   const normalized = canonicalPubkey(pubkey);
   if (!normalized) {
-    log('profile:open skipped -- invalid pubkey');
     return;
   }
 
   try {
     ifcEmit('profile:open', [], JSON.stringify({ pubkey: normalized }));
-    log(`profile:open emitted -- ${shortenPubkey(normalized)}`);
-  } catch (error) {
-    log(`profile:open failed -- ${formatError(error, 'denied: ifc')}`);
+  } catch {
+    // Best effort; the profile viewer itself surfaces the failure state.
   }
 }
 
@@ -228,33 +216,25 @@ const identityController = createFeedIdentityEventController({
   onLoggedOut: () => {
     store.clear();
     setStatus('not logged in', 'red');
-    if (!waitingForSignerLogged) {
-      waitingForSignerLogged = true;
-      log('identity snapshot empty; waiting for identity.changed');
-    } else {
-      log('identity.changed empty; feed not subscribed');
-    }
+    waitingForSignerLogged = true;
   },
   onPubkey: (pubkey) => {
     waitingForSignerLogged = false;
-    log(`identity active — ${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`);
-    log('loading outbox contacts through shell relay');
     store.init(pubkey);
     setStatus('subscribed', 'green');
-    log(`relay.subscribe dispatched — kinds:[3], authors:[${pubkey.slice(0, 8)}...]`);
   },
   onError: (err) => {
     const reason = formatError(err, 'denied: identity:read or relay:read');
     setStatus(`denied: ${reason}`, 'red');
-    log(`feed identity refresh failed — ${reason}`);
   },
 });
 
 async function init(): Promise<void> {
   installNapTheme();
+  onNapThemeChanged((theme) => {
+    applyNapTheme(theme);
+  });
   await waitForRequiredNaps();
-
-  log('reading identity');
   void identityController.start();
 }
 
@@ -262,7 +242,6 @@ init().catch((err) => {
   // If status hasn't been set by the inner catch, set unavailable.
   if (statusEl.textContent === 'connecting...') {
     setStatus('unavailable', 'red');
-    log(`init failed — ${formatError(err, 'NIP-5D identity/subscribe failure')}`);
   }
 });
 

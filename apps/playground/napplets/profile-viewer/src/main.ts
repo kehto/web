@@ -2,7 +2,7 @@
  * Profile viewer napplet - consumes NAP-01 profile:open events and loads kind 0 metadata.
  */
 import '@napplet/shim';
-import { installNapTheme } from '../../shared-theme';
+import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
 import { ifcOn } from '@napplet/nap/ifc/sdk';
 import { relaySubscribe } from '@napplet/nap/relay/sdk';
 import type { NostrEvent, Subscription } from '@napplet/core';
@@ -19,7 +19,6 @@ const nameEl = document.getElementById('profile-name')!;
 const aboutEl = document.getElementById('profile-about')!;
 const pictureEl = document.getElementById('profile-picture') as HTMLImageElement;
 const detailEl = document.getElementById('profile-details')!;
-const logEl = document.getElementById('profile-log')!;
 
 type ProfileMetadata = {
   name?: string;
@@ -41,23 +40,14 @@ function formatError(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function log(text: string): void {
-  const div = document.createElement('div');
-  div.className = 'profile-log-entry';
-  const time = new Date().toLocaleTimeString('en', {
-    hour12: false,
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-  div.textContent = `${time} ${text}`;
-  logEl.appendChild(div);
-  logEl.scrollTop = logEl.scrollHeight;
-}
-
 function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void {
   statusEl.textContent = text;
-  statusEl.style.color = color === 'green' ? '#39ff14' : color === 'red' ? '#ff3b3b' : '#888';
+  statusEl.style.color =
+    color === 'green'
+      ? 'var(--nap-theme-success, #39ff14)'
+      : color === 'red'
+        ? 'var(--nap-theme-danger, #ff3b3b)'
+        : 'var(--nap-theme-muted, #888)';
 }
 
 function getMissingRequiredNaps(): string[] {
@@ -198,7 +188,6 @@ function loadProfile(pubkey: string): void {
   clearProfile();
   pubkeyEl.textContent = pubkey;
   setStatus('loading', 'gray');
-  log(`profile:open received -- ${truncatePubkey(pubkey)}`);
 
   let latest: NostrEvent | null = null;
   let done = false;
@@ -208,7 +197,6 @@ function loadProfile(pubkey: string): void {
     done = true;
     clearProfileLoadTimer();
     if (!latest) renderProfile(pubkey, null);
-    log(`relay.subscribe profile metadata ${reason} -- ${truncatePubkey(pubkey)}`);
     sub?.close();
     if (profileSub === sub) profileSub = null;
   };
@@ -236,28 +224,26 @@ function payloadPubkey(payload: unknown): string | null {
 function subscribeToProfileOpen(): void {
   ifcSub = ifcOn('profile:open', (payload) => {
     const pubkey = payloadPubkey(payload);
-    if (!pubkey) {
-      log('profile:open ignored -- invalid payload');
-      return;
-    }
+    if (!pubkey) return;
     loadProfile(pubkey);
   });
 }
 
 async function init(): Promise<void> {
   installNapTheme();
+  onNapThemeChanged((theme) => {
+    applyNapTheme(theme);
+  });
   await waitForRequiredNaps();
   clearProfile();
   subscribeToProfileOpen();
   setStatus('waiting', 'gray');
-  log('listening for profile:open');
 }
 
 init().catch((err) => {
   if (statusEl.textContent === 'connecting...') {
     setStatus('unavailable', 'red');
   }
-  log(`init failed -- ${formatError(err, 'NAP-01 profile open failure')}`);
 });
 
 window.addEventListener('pagehide', () => {

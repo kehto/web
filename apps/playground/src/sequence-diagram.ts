@@ -3,17 +3,17 @@ import type { TappedMessage, NappletInfo } from './shell-host.js';
 import { demoConfig } from './demo-config.js';
 
 const VERB_COLORS: Record<string, string> = {
-  AUTH: '#b388ff',
-  EVENT: '#39ff14',
-  REQ: '#00f0ff',
-  CLOSE: '#ff3b3b',
-  OK: '#888899',
-  EOSE: '#ffbf00',
-  NOTICE: '#ffbf00',
-  CLOSED: '#ff3b3b',
-  COUNT: '#00f0ff',
-  SYSTEM: '#ff00ff',
-  ENVELOPE: '#00f0ff',
+  AUTH: 'var(--nap-theme-accent-secondary, #b388ff)',
+  EVENT: 'var(--nap-theme-success, #39ff14)',
+  REQ: 'var(--nap-theme-info, #00f0ff)',
+  CLOSE: 'var(--nap-theme-danger, #ff3b3b)',
+  OK: 'var(--nap-theme-muted, #888899)',
+  EOSE: 'var(--nap-theme-warning, #ffbf00)',
+  NOTICE: 'var(--nap-theme-warning, #ffbf00)',
+  CLOSED: 'var(--nap-theme-danger, #ff3b3b)',
+  COUNT: 'var(--nap-theme-info, #00f0ff)',
+  SYSTEM: 'var(--nap-theme-accent-secondary, #b388ff)',
+  ENVELOPE: 'var(--nap-theme-info, #00f0ff)',
 };
 
 const ARROW_HEAD_SIZE = 7;
@@ -137,24 +137,24 @@ export function renderSequenceDiagram(
   const effectiveLanes = lanes.length > 0 ? lanes : ['Shell'];
 
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="${height}" viewBox="0 0 ${vbWidth} ${height}" preserveAspectRatio="xMidYMin meet">`;
-  svg += `<rect width="${vbWidth}" height="${height}" fill="#0a0a0f" />`;
+  svg += `<rect width="${vbWidth}" height="${height}" fill="var(--nap-theme-background, #0a0a0f)" />`;
 
   for (let i = 0; i < effectiveLanes.length; i++) {
     const x = laneX(i, effectiveLanes.length, vbWidth);
-    svg += `<text x="${x}" y="16" text-anchor="middle" fill="#00f0ff" font-family="monospace" font-size="13" font-weight="bold">${escapeXml(effectiveLanes[i])}</text>`;
+    svg += `<text x="${x}" y="16" text-anchor="middle" fill="var(--nap-theme-primary, #00f0ff)" font-family="monospace" font-size="13" font-weight="bold">${escapeXml(effectiveLanes[i])}</text>`;
   }
 
   for (let i = 0; i < effectiveLanes.length; i++) {
     const x = laneX(i, effectiveLanes.length, vbWidth);
-    svg += `<line x1="${x}" y1="${HEADER_HEIGHT - 10}" x2="${x}" y2="${height}" stroke="#2a2a3a" stroke-width="1" stroke-dasharray="4,4" />`;
+    svg += `<line x1="${x}" y1="${HEADER_HEIGHT - 10}" x2="${x}" y2="${height}" stroke="var(--nap-theme-border, #2a2a3a)" stroke-width="1" stroke-dasharray="4,4" />`;
   }
 
-  svg += `<line x1="0" y1="${HEADER_HEIGHT - 5}" x2="${vbWidth}" y2="${HEADER_HEIGHT - 5}" stroke="#2a2a3a" stroke-width="1" />`;
+  svg += `<line x1="0" y1="${HEADER_HEIGHT - 5}" x2="${vbWidth}" y2="${HEADER_HEIGHT - 5}" stroke="var(--nap-theme-border, #2a2a3a)" stroke-width="1" />`;
 
   for (let i = 0; i < protocolMessages.length; i++) {
     const msg = protocolMessages[i];
     const y = HEADER_HEIGHT + (i * ROW_HEIGHT) + ROW_HEIGHT / 2;
-    const color = VERB_COLORS[msg.verb] || '#555555';
+    const color = VERB_COLORS[msg.verb] || 'var(--nap-theme-muted, #555555)';
     const { from, to } = getLaneEndpoints(msg, effectiveLanes, nappletInfos, vbWidth);
 
     if (from !== to) {

@@ -56,15 +56,15 @@ function formatTimestamp(ts: number): string {
 
 function renderActivityEntry(entry: NodeActivityEntry): string {
   const blocked = entry.blocked
-    ? `<span style="color:#ff3b3b">✗</span>`
-    : `<span style="color:#39ff14">✓</span>`;
+    ? `<span style="color:var(--nap-theme-danger, #ff3b3b)">✗</span>`
+    : `<span style="color:var(--nap-theme-success, #39ff14)">✓</span>`;
   const direction = entry.direction === 'napplet->shell' ? '↑' : '↓';
   return `
-    <div class="inspector-activity-entry" style="display:flex;gap:6px;align-items:baseline;padding:2px 0;font-size:10px;color:#a5abc2">
+    <div class="inspector-activity-entry" style="display:flex;gap:6px;align-items:baseline;padding:2px 0;font-size:10px;color:var(--nap-theme-text, #a5abc2)">
       ${blocked}
-      <span style="color:#b388ff">${direction}</span>
-      <span style="flex:1;color:#d0d4e8">${entry.path}</span>
-      <span style="color:#666">${formatTimestamp(entry.timestamp)}</span>
+      <span style="color:var(--nap-theme-accent-secondary, #b388ff)">${direction}</span>
+      <span style="flex:1;color:var(--nap-theme-text, #d0d4e8)">${entry.path}</span>
+      <span style="color:var(--nap-theme-muted, #666)">${formatTimestamp(entry.timestamp)}</span>
     </div>
   `;
 }
@@ -94,19 +94,19 @@ function renderRejectionEntry(entry: AclHistoryEntry, idx: number): string {
   const rawJson = entry.message ? JSON.stringify(entry.message, null, 2) : 'no message context';
 
   return `
-    <div style="padding:6px 0;border-bottom:1px solid #1a1b2e">
+    <div style="padding:6px 0;border-bottom:1px solid var(--nap-theme-border, #1a1b2e)">
       <div style="display:flex;gap:6px;align-items:baseline;font-size:10px">
-        <span style="color:#ff3b3b">&#10007;</span>
-        <span style="color:#d0d4e8;flex:1">${capLabel}</span>
-        <span style="color:#666">${timeStr}</span>
+        <span style="color:var(--nap-theme-danger, #ff3b3b)">&#10007;</span>
+        <span style="color:var(--nap-theme-text, #d0d4e8);flex:1">${capLabel}</span>
+        <span style="color:var(--nap-theme-muted, #666)">${timeStr}</span>
       </div>
-      ${messageSummary ? `<div style="font-size:9px;color:#7981a0;margin-top:2px;padding-left:16px">${messageSummary}</div>` : ''}
+      ${messageSummary ? `<div style="font-size:9px;color:var(--nap-theme-muted, #7981a0);margin-top:2px;padding-left:16px">${messageSummary}</div>` : ''}
       <div style="margin-top:3px;padding-left:16px">
         <button
           onclick="(function(){var el=document.getElementById('${rawId}');el.style.display=el.style.display==='none'?'block':'none'})()"
-          style="background:transparent;border:none;color:#5a6080;font-size:9px;cursor:pointer;padding:0;text-decoration:underline"
+          style="background:transparent;border:none;color:var(--nap-theme-muted, #5a6080);font-size:9px;cursor:pointer;padding:0;text-decoration:underline"
         >raw</button>
-        <pre id="${rawId}" style="display:none;margin:4px 0 0;padding:6px 8px;background:#0a0b14;border-radius:4px;font-size:9px;color:#7981a0;max-height:120px;overflow:auto;white-space:pre-wrap;word-break:break-all">${rawJson}</pre>
+        <pre id="${rawId}" style="display:none;margin:4px 0 0;padding:6px 8px;background:var(--nap-theme-surface-2, #0a0b14);border-radius:4px;font-size:9px;color:var(--nap-theme-muted, #7981a0);max-height:120px;overflow:auto;white-space:pre-wrap;word-break:break-all">${rawJson}</pre>
       </div>
     </div>
   `;
@@ -114,7 +114,7 @@ function renderRejectionEntry(entry: AclHistoryEntry, idx: number): string {
 
 function renderRejectionHistory(denials: AclHistoryEntry[]): string {
   if (denials.length === 0) {
-    return `<div style="color:#444;font-size:10px;padding:4px 0">no rejections recorded</div>`;
+    return `<div style="color:var(--nap-theme-muted, #444);font-size:10px;padding:4px 0">no rejections recorded</div>`;
   }
   return denials
     .slice()
@@ -138,21 +138,21 @@ function renderForRole(detail: NodeDetail): string {
 function renderAclRoleContent(_detail: NodeDetail): string {
   const rows = getAclAdapter().snapshot();
   if (rows.length === 0) {
-    return '<div style="color:#7981a0;font-size:11px;padding:8px 0">no identity-bound napplets</div>';
+    return '<div style="color:var(--nap-theme-muted, #7981a0);font-size:11px;padding:8px 0">no identity-bound napplets</div>';
   }
   return `
     <table style="width:100%;font-size:10px;border-collapse:collapse">
       <thead><tr>
-        <th style="text-align:left;padding:4px;color:#7981a0">napplet</th>
-        <th style="text-align:left;padding:4px;color:#7981a0">blocked</th>
-        <th style="text-align:left;padding:4px;color:#7981a0">granted caps</th>
+        <th style="text-align:left;padding:4px;color:var(--nap-theme-muted, #7981a0)">napplet</th>
+        <th style="text-align:left;padding:4px;color:var(--nap-theme-muted, #7981a0)">blocked</th>
+        <th style="text-align:left;padding:4px;color:var(--nap-theme-muted, #7981a0)">granted caps</th>
       </tr></thead>
       <tbody>
         ${rows.map(row => `
-          <tr style="border-top:1px solid #1f2235">
-            <td style="padding:4px;color:#d0d4e8">${row.name}</td>
-            <td style="padding:4px;color:${row.blocked ? '#ff3b3b' : '#39ff14'}">${row.blocked ? 'yes' : 'no'}</td>
-            <td style="padding:4px;color:#b388ff">${Object.entries(row.capabilities).filter(([, v]) => v).map(([k]) => k).join(', ') || '(none)'}</td>
+          <tr style="border-top:1px solid var(--nap-theme-border, #1f2235)">
+            <td style="padding:4px;color:var(--nap-theme-text, #d0d4e8)">${row.name}</td>
+            <td style="padding:4px;color:${row.blocked ? 'var(--nap-theme-danger, #ff3b3b)' : 'var(--nap-theme-success, #39ff14)'}">${row.blocked ? 'yes' : 'no'}</td>
+            <td style="padding:4px;color:var(--nap-theme-accent-secondary, #b388ff)">${Object.entries(row.capabilities).filter(([, v]) => v).map(([k]) => k).join(', ') || '(none)'}</td>
           </tr>
         `).join('')}
       </tbody>
@@ -163,12 +163,12 @@ function renderAclRoleContent(_detail: NodeDetail): string {
 function renderRuntimeRoleContent(_detail: NodeDetail): string {
   const services = getDemoServiceNames();
   return `
-    <div style="font-size:11px;color:#7981a0;margin-bottom:6px">Registered NUBs</div>
+    <div style="font-size:11px;color:var(--nap-theme-muted, #7981a0);margin-bottom:6px">Registered NUBs</div>
     <ul style="list-style:none;padding:0;margin:0">
       ${services.map(s => {
         const isStub = STUB_ONLY_SERVICES.includes(s);
-        return `<li style="padding:3px 0;color:#d0d4e8;font-size:11px">
-          ${s}${isStub ? ' <span style="color:#b388ff;font-size:9px">(stub-only)</span>' : ''}
+        return `<li style="padding:3px 0;color:var(--nap-theme-text, #d0d4e8);font-size:11px">
+          ${s}${isStub ? ' <span style="color:var(--nap-theme-accent-secondary, #b388ff);font-size:9px">(stub-only)</span>' : ''}
         </li>`;
       }).join('')}
     </ul>
@@ -184,27 +184,27 @@ function renderNappletRoleContent(detail: NodeDetail): string {
     if (ni.name === nappletName) { info = ni; wid = id; break; }
   }
   if (!info) {
-    return '<div style="color:#7981a0;font-size:11px">napplet not found</div>';
+    return '<div style="color:var(--nap-theme-muted, #7981a0);font-size:11px">napplet not found</div>';
   }
   const adapter = getAclAdapter();
   const capList = info.pubkey
     ? (['relay:read', 'relay:write', 'identity:read', 'state:read', 'state:write'] as const)
         .map(c => {
           const allowed = adapter.check(wid, c);
-          return `<span style="color:${allowed ? '#39ff14' : '#ff3b3b'};margin-right:8px;font-size:10px">${c} ${allowed ? '✓' : '✗'}</span>`;
+          return `<span style="color:${allowed ? 'var(--nap-theme-success, #39ff14)' : 'var(--nap-theme-danger, #ff3b3b)'};margin-right:8px;font-size:10px">${c} ${allowed ? '✓' : '✗'}</span>`;
         })
         .join('')
-    : '<span style="color:#7981a0;font-size:10px">(not identity-bound)</span>';
+    : '<span style="color:var(--nap-theme-muted, #7981a0);font-size:10px">(not identity-bound)</span>';
 
   const recent = detail.recentEnvelopes ?? [];
   return `
-    <div style="font-size:10px;color:#7981a0;margin-bottom:4px">Capability state</div>
+    <div style="font-size:10px;color:var(--nap-theme-muted, #7981a0);margin-bottom:4px">Capability state</div>
     <div style="padding:4px 0;line-height:1.8">${capList}</div>
-    <div style="font-size:10px;color:#7981a0;margin:10px 0 4px">Recent envelopes (last ${recent.length})</div>
+    <div style="font-size:10px;color:var(--nap-theme-muted, #7981a0);margin:10px 0 4px">Recent envelopes (last ${recent.length})</div>
     <div style="font-size:10px;padding:4px 0">
       ${recent.length === 0
-        ? '<span style="color:#444">no recent envelopes</span>'
-        : recent.map(env => `<div style="color:#d0d4e8;padding:1px 0">${env.envelopeType ?? env.verb} <span style="color:#666">${env.direction}</span></div>`).join('')
+        ? '<span style="color:var(--nap-theme-muted, #444)">no recent envelopes</span>'
+        : recent.map(env => `<div style="color:var(--nap-theme-text, #d0d4e8);padding:1px 0">${env.envelopeType ?? env.verb} <span style="color:var(--nap-theme-muted, #666)">${env.direction}</span></div>`).join('')
       }
     </div>
   `;
@@ -213,13 +213,13 @@ function renderNappletRoleContent(detail: NodeDetail): string {
 function renderRuntimeDemoRoleContent(detail: NodeDetail): string {
   const recent = detail.recentEnvelopes ?? [];
   return `
-    <div style="font-size:10px;color:#7981a0;margin-bottom:4px">Surface</div>
-    <div style="font-size:10px;color:#d0d4e8;padding:4px 0">runtime demo</div>
-    <div style="font-size:10px;color:#7981a0;margin:10px 0 4px">Recent envelopes (last ${recent.length})</div>
+    <div style="font-size:10px;color:var(--nap-theme-muted, #7981a0);margin-bottom:4px">Surface</div>
+    <div style="font-size:10px;color:var(--nap-theme-text, #d0d4e8);padding:4px 0">runtime demo</div>
+    <div style="font-size:10px;color:var(--nap-theme-muted, #7981a0);margin:10px 0 4px">Recent envelopes (last ${recent.length})</div>
     <div style="font-size:10px;padding:4px 0">
       ${recent.length === 0
-        ? '<span style="color:#444">no recent envelopes</span>'
-        : recent.map(env => `<div style="color:#d0d4e8;padding:1px 0">${env.envelopeType ?? env.verb} <span style="color:#666">${env.direction}</span></div>`).join('')
+        ? '<span style="color:var(--nap-theme-muted, #444)">no recent envelopes</span>'
+        : recent.map(env => `<div style="color:var(--nap-theme-text, #d0d4e8);padding:1px 0">${env.envelopeType ?? env.verb} <span style="color:var(--nap-theme-muted, #666)">${env.direction}</span></div>`).join('')
       }
     </div>
   `;
@@ -229,8 +229,8 @@ function renderServiceRoleContent(detail: NodeDetail): string {
   const name = detail.title ?? '';
   const isStub = STUB_ONLY_SERVICES.includes(name);
   return `
-    <div style="font-size:11px;color:#7981a0">service: ${name}${isStub ? ' (stub-only)' : ''}</div>
-    <div style="font-size:10px;color:#d0d4e8;padding:6px 0">Use the debugger below to see live envelope traffic for ${name}.*</div>
+    <div style="font-size:11px;color:var(--nap-theme-muted, #7981a0)">service: ${name}${isStub ? ' (stub-only)' : ''}</div>
+    <div style="font-size:10px;color:var(--nap-theme-text, #d0d4e8);padding:6px 0">Use the debugger below to see live envelope traffic for ${name}.*</div>
   `;
 }
 
@@ -240,8 +240,8 @@ function renderShellRoleContent(detail: NodeDetail): string {
   const pubkeyItem = state?.items.find(i => i.label === 'host pubkey');
   const pubkey = pubkeyItem?.value ?? 'unknown';
   return `
-    <div style="font-size:11px;color:#7981a0">host pubkey</div>
-    <div style="font-size:10px;color:#d0d4e8;padding:4px 0;font-family:monospace;word-break:break-all">${pubkey}</div>
+    <div style="font-size:11px;color:var(--nap-theme-muted, #7981a0)">host pubkey</div>
+    <div style="font-size:10px;color:var(--nap-theme-text, #d0d4e8);padding:4px 0;font-family:monospace;word-break:break-all">${pubkey}</div>
   `;
 }
 
@@ -251,9 +251,9 @@ function renderInspectorContent(detail: NodeDetail): string {
     items
       .map(
         (item) => `
-          <div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px solid #1f2235">
-            <span style="color:#7981a0;font-size:10px;letter-spacing:0.12em;text-transform:uppercase">${item.label}</span>
-            <span style="color:#d0d4e8;font-size:11px;text-align:right;word-break:break-all">${item.value}</span>
+          <div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px solid var(--nap-theme-border, #1f2235)">
+            <span style="color:var(--nap-theme-muted, #7981a0);font-size:10px;letter-spacing:0.12em;text-transform:uppercase">${item.label}</span>
+            <span style="color:var(--nap-theme-text, #d0d4e8);font-size:11px;text-align:right;word-break:break-all">${item.value}</span>
           </div>
         `
       )
@@ -263,7 +263,7 @@ function renderInspectorContent(detail: NodeDetail): string {
     .map(
       (section) => `
         <div class="inspector-section" style="margin-bottom:16px">
-          <div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:#7c86a7;margin-bottom:8px">${section.heading}</div>
+          <div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--nap-theme-muted, #7c86a7);margin-bottom:8px">${section.heading}</div>
           ${sectionItems(section.items)}
         </div>
       `
@@ -272,7 +272,7 @@ function renderInspectorContent(detail: NodeDetail): string {
 
   const activity = detail.recentActivity;
   const activityHtml = activity.length === 0
-    ? `<div style="color:#444;font-size:10px;padding:4px 0">no recent activity</div>`
+    ? `<div style="color:var(--nap-theme-muted, #444);font-size:10px;padding:4px 0">no recent activity</div>`
     : activity
         .slice()
         .reverse()
@@ -285,7 +285,7 @@ function renderInspectorContent(detail: NodeDetail): string {
       <div style="padding:0 0 16px">
         <button
           id="inspector-open-policy"
-          style="width:100%;padding:8px 12px;background:#1a1b2e;border:1px solid #2a2d42;border-radius:6px;color:#b388ff;font-size:11px;cursor:pointer;font-family:inherit;letter-spacing:0.05em"
+          style="width:100%;padding:8px 12px;background:var(--nap-theme-surface-1, #1a1b2e);border:1px solid var(--nap-theme-border, #2a2d42);border-radius:6px;color:var(--nap-theme-accent-secondary, #b388ff);font-size:11px;cursor:pointer;font-family:inherit;letter-spacing:0.05em"
         >Open Policy Matrix</button>
       </div>
     `
@@ -295,7 +295,7 @@ function renderInspectorContent(detail: NodeDetail): string {
   const denialsHtml = detail.aclDenials.length > 0 || detail.role === 'napplet' || detail.role === 'acl'
     ? `
       <div class="inspector-section" style="margin-bottom:16px">
-        <div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:#7c86a7;margin-bottom:8px">ACL Rejections</div>
+        <div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--nap-theme-muted, #7c86a7);margin-bottom:8px">ACL Rejections</div>
         <div id="inspector-denials-list">
           ${renderRejectionHistory(detail.aclDenials)}
         </div>
@@ -316,7 +316,7 @@ function renderInspectorContent(detail: NodeDetail): string {
       ${sections}
       ${denialsHtml}
       <div class="inspector-section" style="margin-bottom:16px">
-        <div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:#7c86a7;margin-bottom:8px">Recent Activity</div>
+        <div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--nap-theme-muted, #7c86a7);margin-bottom:8px">Recent Activity</div>
         <div id="inspector-activity-list">
           ${activityHtml}
         </div>
@@ -328,15 +328,15 @@ function renderInspectorContent(detail: NodeDetail): string {
 function renderInspectorHeader(detail: NodeDetail): string {
   const roleLabel = detail.role === 'runtime-demo' ? 'runtime demo' : detail.role;
   return `
-    <div style="padding:12px 16px 10px;border-bottom:1px solid #1f2235;display:flex;align-items:center;justify-content:space-between">
+    <div style="padding:12px 16px 10px;border-bottom:1px solid var(--nap-theme-border, #1f2235);display:flex;align-items:center;justify-content:space-between">
       <div>
-        <div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:#7981a0;margin-bottom:2px">${roleLabel}</div>
-        <div style="font-size:16px;color:#f0f6ff;text-transform:lowercase">${detail.title}</div>
+        <div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--nap-theme-muted, #7981a0);margin-bottom:2px">${roleLabel}</div>
+        <div style="font-size:16px;color:var(--nap-theme-text, #f0f6ff);text-transform:lowercase">${detail.title}</div>
       </div>
       <button
         id="inspector-close"
         aria-label="Close inspector"
-        style="background:transparent;border:1px solid #3a3a4a;color:#7981a0;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px;font-family:inherit"
+        style="background:transparent;border:1px solid var(--nap-theme-border, #3a3a4a);color:var(--nap-theme-muted, #7981a0);padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px;font-family:inherit"
       >close</button>
     </div>
   `;
@@ -347,26 +347,26 @@ function renderTabBar(): string {
   const constActive = _activeTab === 'constants';
   const kindsActive = _activeTab === 'kinds';
   return `
-    <div id="inspector-tab-bar" style="display:flex;border-bottom:1px solid #1f2235;padding:0 12px;gap:0;flex-shrink:0">
+    <div id="inspector-tab-bar" style="display:flex;border-bottom:1px solid var(--nap-theme-border, #1f2235);padding:0 12px;gap:0;flex-shrink:0">
       <button data-inspector-tab="node"
         style="padding:8px 14px;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;font-family:inherit;
                background:transparent;border:none;cursor:pointer;
-               color:${nodeActive ? '#f0f6ff' : '#7981a0'};
-               border-bottom:${nodeActive ? '2px solid #00f0ff' : '2px solid transparent'}">
+               color:${nodeActive ? 'var(--nap-theme-text, #f0f6ff)' : 'var(--nap-theme-muted, #7981a0)'};
+               border-bottom:${nodeActive ? '2px solid var(--nap-theme-primary, #00f0ff)' : '2px solid transparent'}">
         Node
       </button>
       <button data-inspector-tab="constants"
         style="padding:8px 14px;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;font-family:inherit;
                background:transparent;border:none;cursor:pointer;
-               color:${constActive ? '#f0f6ff' : '#7981a0'};
-               border-bottom:${constActive ? '2px solid #00f0ff' : '2px solid transparent'}">
+               color:${constActive ? 'var(--nap-theme-text, #f0f6ff)' : 'var(--nap-theme-muted, #7981a0)'};
+               border-bottom:${constActive ? '2px solid var(--nap-theme-primary, #00f0ff)' : '2px solid transparent'}">
         Constants
       </button>
       <button data-inspector-tab="kinds"
         style="padding:8px 14px;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;font-family:inherit;
                background:transparent;border:none;cursor:pointer;
-               color:${kindsActive ? '#f0f6ff' : '#7981a0'};
-               border-bottom:${kindsActive ? '2px solid #00f0ff' : '2px solid transparent'}">
+               color:${kindsActive ? 'var(--nap-theme-text, #f0f6ff)' : 'var(--nap-theme-muted, #7981a0)'};
+               border-bottom:${kindsActive ? '2px solid var(--nap-theme-primary, #00f0ff)' : '2px solid transparent'}">
         Kinds
       </button>
     </div>
@@ -377,7 +377,7 @@ function renderEmptyInspector(): string {
   return `
     <div style="height:100%;display:flex;flex-direction:column;overflow:hidden">
       ${renderTabBar()}
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;color:#3a3a4a;font-size:11px;text-align:center;padding:24px">
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;color:var(--nap-theme-muted, #3a3a4a);font-size:11px;text-align:center;padding:24px">
         <div style="margin-bottom:8px;font-size:24px;opacity:0.3">&#x2B21;</div>
         <div>select a node to inspect</div>
       </div>

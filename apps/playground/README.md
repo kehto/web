@@ -47,7 +47,7 @@ The demo hosts 13 sandboxed napplets, each built independently under `apps/playg
 | preferences | storage, theme | `storage.set`, `storage.get`, `theme.changed` allowlisted listener | [apps/playground/napplets/preferences/src/](./napplets/preferences/src/) |
 | profile-viewer | ifc, relay | `ifc.subscribe` (`profile:open`), `relay.subscribe` | [apps/playground/napplets/profile-viewer/src/](./napplets/profile-viewer/src/) |
 | resource-demo | resource, connect | `resource.bytes`, connect grant/CSP fixture | [apps/playground/napplets/resource-demo/src/](./napplets/resource-demo/src/) |
-| theme-switcher | identity, relay, theme | discovers user/WoT/global theme events through NAP relay; `demo.publishTheme` allowlisted demo envelope | [apps/playground/napplets/theme-switcher/src/](./napplets/theme-switcher/src/) |
+| theme-switcher | identity, relay, theme | discovers user/WoT/global theme events through NAP relay; `theme.set` shell theme request | [apps/playground/napplets/theme-switcher/src/](./napplets/theme-switcher/src/) |
 | toaster | notify | `notify.create`, `notify.list`, `notify.dismiss` | [apps/playground/napplets/toaster/src/](./napplets/toaster/src/) |
 
 Each napplet is an independent build target with its own `package.json`, `vite.config.ts`, and `index.html`. The topology view (`apps/playground/src/topology.ts`) renders one frame container per `DEMO_NAPPLETS` entry from `apps/playground/src/shell-host.ts` — adding a new napplet requires editing only that array, no per-napplet template duplication.

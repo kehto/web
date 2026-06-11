@@ -174,6 +174,31 @@ export function getDemoHostPubkey(): string {
   return _hostPubkey;
 }
 
+function getCurrentUserIdentityPubkey(): string {
+  const state = getSignerConnectionState();
+  if (state.method === 'none' || state.isConnecting || state.error) return '';
+  return state.pubkey ?? '';
+}
+
+function publishCurrentUserIdentityToNapplet(info: NappletInfo): void {
+  const targetWindow = info.iframe.contentWindow;
+  if (!targetWindow) return;
+  targetWindow.postMessage(
+    { type: 'identity.changed', pubkey: getCurrentUserIdentityPubkey() } as NappletMessage,
+    '*',
+  );
+}
+
+function publishCurrentUserIdentityToWindowId(windowId: string): void {
+  const info = napplets.get(windowId);
+  if (info) publishCurrentUserIdentityToNapplet(info);
+}
+
+function scheduleCurrentUserIdentitySync(info: NappletInfo): void {
+  window.setTimeout(() => publishCurrentUserIdentityToNapplet(info), 0);
+  window.setTimeout(() => publishCurrentUserIdentityToNapplet(info), 100);
+}
+
 export async function publishDecryptFixturesToNapplet(dTag = 'decrypt-demo'): Promise<boolean> {
   const info = [...napplets.values()].find((entry) => entry.name === dTag) ?? null;
   if (!info?.iframe.contentWindow) {
@@ -298,6 +323,9 @@ function bindTapIdentityUpdates(messageTap: MessageTap): void {
     }
     if (msg.verb === 'ENVELOPE' && msg.direction === 'napplet->shell' && msg.windowId) {
       markEnvelopeIdentityBinding(msg.windowId);
+      if (msg.envelopeType === 'identity.getPublicKey') {
+        publishCurrentUserIdentityToWindowId(msg.windowId);
+      }
     }
   });
 }
@@ -369,8 +397,8 @@ function installReservedChordSentinel(): void {
     'right: 4px',
     'padding: 2px 8px',
     'font: 11px/1.4 monospace',
-    'color: #888',
-    'background: rgba(0,0,0,0.4)',
+    'color: var(--nap-theme-muted, #888)',
+    'background: var(--nap-theme-overlay, rgba(0,0,0,0.4))',
     'border-radius: 3px',
     'z-index: 9999',
     'pointer-events: none',
@@ -463,6 +491,7 @@ export async function loadNapplet(
         },
       }));
     }
+    scheduleCurrentUserIdentitySync(info);
   }
 
   // NIP-5D session entry — registered immediately so storage.* and notify.* NUB

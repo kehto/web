@@ -36,4 +36,10 @@ test('connected signer is restored after playground reload', async ({ page }) =>
   await expect(page.locator('napplet-debugger')).toContainText('signer restored from previous session', {
     timeout: 8_000,
   });
+
+  const feedFrame = page.frameLocator('#feed-frame-container iframe');
+  await expect(feedFrame.locator('#feed-status')).toContainText(/^(subscribed|loading|loaded)/, {
+    timeout: 10_000,
+  });
+  await expect(feedFrame.locator('#feed-log')).toHaveCount(0);
 });

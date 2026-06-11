@@ -13,7 +13,7 @@
  * records a class-forbidden AclCheckEvent on window.__aclEvents__.
  *
  * Note on trigger path: theme-switcher normally sends theme via
- * window.parent.postMessage({ type: 'demo.publishTheme' }) which is a
+ * window.parent.postMessage({ type: 'theme.set' }) which is a
  * host-side bypass that does NOT go through enforceNub. The
  * __injectNubEnvelopeAsNapplet__ hook dispatches a real MessageEvent from
  * the napplet's contentWindow, routing through the full NUB gate path.

@@ -44,7 +44,7 @@ test('profile-viewer opens a NAP-01 profile request emitted from the feed frame'
 
   await expect(profileFrame.locator('#profile-pubkey')).toContainText(PROFILE_PUBKEY, { timeout: 10_000 });
   await expect(profileFrame.locator('#profile-status')).toContainText(/^(loaded|not found)/, { timeout: 15_000 });
-  await expect(profileFrame.locator('#profile-log')).toContainText('profile:open received', { timeout: 8_000 });
+  await expect(profileFrame.locator('#profile-log')).toHaveCount(0);
   await expect(page.locator('napplet-debugger')).toContainText('ifc.emit', { timeout: 8_000 });
   await expect(page.locator('napplet-debugger')).toContainText('relay.subscribe', { timeout: 8_000 });
 });

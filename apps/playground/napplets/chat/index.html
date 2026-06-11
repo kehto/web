@@ -9,8 +9,8 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'JetBrains Mono', monospace;
-      background: #0a0a0f;
-      color: #e0e0e0;
+      background: var(--nap-theme-background, #0a0a0f);
+      color: var(--nap-theme-text, #e0e0e0);
       font-size: 11px;
       height: 100vh;
       overflow: hidden;
@@ -22,9 +22,9 @@
     }
     #chat-status {
       padding: 4px 8px;
-      background: #12121a;
-      border-bottom: 1px solid #2a2a3a;
-      color: #555;
+      background: var(--nap-theme-surface-1, #12121a);
+      border-bottom: 1px solid var(--nap-theme-border, #2a2a3a);
+      color: var(--nap-theme-muted, #555);
       font-size: 10px;
     }
     #messages {
@@ -36,37 +36,37 @@
       padding: 2px 0;
       line-height: 1.4;
     }
-    .msg-self { color: #00f0ff; }
-    .msg-other { color: #39ff14; }
-    .msg-system { color: #555; font-style: italic; }
-    .msg-time { color: #333; margin-right: 4px; }
+    .msg-self { color: var(--nap-theme-info, #00f0ff); }
+    .msg-other { color: var(--nap-theme-success, #39ff14); }
+    .msg-system { color: var(--nap-theme-muted, #555); font-style: italic; }
+    .msg-time { color: var(--nap-theme-muted, #333); margin-right: 4px; }
     #input-bar {
       display: flex;
-      border-top: 1px solid #2a2a3a;
-      background: #12121a;
+      border-top: 1px solid var(--nap-theme-border, #2a2a3a);
+      background: var(--nap-theme-surface-1, #12121a);
     }
     #input-bar input {
       flex: 1;
       background: transparent;
       border: none;
-      color: #e0e0e0;
+      color: var(--nap-theme-text, #e0e0e0);
       padding: 6px 8px;
       font-family: inherit;
       font-size: 11px;
       outline: none;
     }
-    #input-bar input::placeholder { color: #333; }
+    #input-bar input::placeholder { color: var(--nap-theme-muted, #333); }
     #input-bar button {
-      background: #00f0ff20;
-      color: #00f0ff;
+      background: var(--nap-theme-primary-soft, #00f0ff20);
+      color: var(--nap-theme-primary, #00f0ff);
       border: none;
-      border-left: 1px solid #2a2a3a;
+      border-left: 1px solid var(--nap-theme-border, #2a2a3a);
       padding: 6px 12px;
       font-family: inherit;
       font-size: 11px;
       cursor: pointer;
     }
-    #input-bar button:hover { background: #00f0ff30; }
+    #input-bar button:hover { background: var(--nap-theme-primary-soft, #00f0ff30); }
   </style>
 </head>
 <body>

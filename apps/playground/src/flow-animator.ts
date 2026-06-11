@@ -173,30 +173,30 @@ export function initFlowAnimator(tap: MessageTap, topology: DemoTopology, edgeFl
     if (!flowLog) return;
     const verbs = Object.keys(counters).sort();
     const total = document.createElement('div');
-    total.style.cssText = 'color:#666;margin-bottom:4px';
+    total.style.cssText = 'color:var(--nap-theme-muted, #666);margin-bottom:4px';
     total.textContent = `${totalMessages} total messages`;
     const rows = verbs.map((verb) => {
       const counter = counters[verb];
       const row = document.createElement('div');
       const label = document.createElement('span');
-      label.style.cssText = 'color:#b388ff;font-weight:600';
+      label.style.cssText = 'color:var(--nap-theme-accent-secondary, #b388ff);font-weight:600';
       label.textContent = verb;
       row.appendChild(label);
       if (counter.in > 0) {
         const inbound = document.createElement('span');
-        inbound.style.color = '#39ff14';
+        inbound.style.color = 'var(--nap-theme-success, #39ff14)';
         inbound.textContent = `↓${counter.in}`;
         row.append(document.createTextNode(' '), inbound);
       }
       if (counter.out > 0) {
         const outbound = document.createElement('span');
-        outbound.style.color = '#00f0ff';
+        outbound.style.color = 'var(--nap-theme-info, #00f0ff)';
         outbound.textContent = `↑${counter.out}`;
         row.append(document.createTextNode(' '), outbound);
       }
       if (counter.blocked > 0) {
         const blocked = document.createElement('span');
-        blocked.style.color = '#ff3b3b';
+        blocked.style.color = 'var(--nap-theme-danger, #ff3b3b)';
         blocked.textContent = `✗${counter.blocked}`;
         row.append(document.createTextNode(' '), blocked);
       }
@@ -277,7 +277,7 @@ export function initFlowAnimator(tap: MessageTap, topology: DemoTopology, edgeFl
       if (!existing) {
         const entry = document.createElement('div');
         entry.dataset.notifTopic = topicLabel;
-        entry.style.cssText = 'color:#39ff14;font-size:10px;margin-top:2px';
+        entry.style.cssText = 'color:var(--nap-theme-success, #39ff14);font-size:10px;margin-top:2px';
         entry.textContent = topicLabel;
         flowLog.appendChild(entry);
       }

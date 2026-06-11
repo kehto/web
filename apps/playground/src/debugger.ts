@@ -5,18 +5,18 @@ import { replaceChildrenFromTrustedHtml } from './dom-utils.js';
 
 /** Verb-to-color mapping for the dark terminal theme */
 const VERB_COLORS: Record<string, string> = {
-  AUTH: '#b388ff',     // purple
-  EVENT: '#39ff14',    // neon green
-  REQ: '#00f0ff',      // neon blue
-  CLOSE: '#ff3b3b',    // red
-  OK: '#888899',       // gray
-  EOSE: '#ffbf00',     // amber
-  NOTICE: '#ffbf00',   // amber
-  CLOSED: '#ff3b3b',   // red
-  COUNT: '#00f0ff',    // blue
-  SYSTEM: '#ff00ff',   // pink (for ACL changes)
-  ENVELOPE: '#00f0ff', // cyan — NIP-5D envelope-shape messages
-  UNKNOWN: '#555555',  // dim gray
+  AUTH: 'var(--nap-theme-accent-secondary, #b388ff)',     // purple
+  EVENT: 'var(--nap-theme-success, #39ff14)',    // neon green
+  REQ: 'var(--nap-theme-info, #00f0ff)',      // neon blue
+  CLOSE: 'var(--nap-theme-danger, #ff3b3b)',    // red
+  OK: 'var(--nap-theme-muted, #888899)',       // gray
+  EOSE: 'var(--nap-theme-warning, #ffbf00)',     // amber
+  NOTICE: 'var(--nap-theme-warning, #ffbf00)',   // amber
+  CLOSED: 'var(--nap-theme-danger, #ff3b3b)',   // red
+  COUNT: 'var(--nap-theme-info, #00f0ff)',      // blue
+  SYSTEM: 'var(--nap-theme-accent-secondary, #ff00ff)',   // pink (for ACL changes)
+  ENVELOPE: 'var(--nap-theme-info, #00f0ff)', // cyan — NIP-5D envelope-shape messages
+  UNKNOWN: 'var(--nap-theme-muted, #555555)',  // dim gray
 };
 
 const DIRECTION_ARROWS: Record<string, string> = {
@@ -174,38 +174,38 @@ export class NappletDebugger extends HTMLElement {
           height: 100%;
           font-family: 'JetBrains Mono', monospace;
           font-size: 12px;
-          color: #e0e0e0;
-          background: #0a0a0f;
+          color: var(--nap-theme-text, #e0e0e0);
+          background: var(--nap-theme-background, #0a0a0f);
         }
         .tabs {
           display: flex;
-          border-bottom: 1px solid #2a2a3a;
-          background: #12121a;
+          border-bottom: 1px solid var(--nap-theme-border, #2a2a3a);
+          background: var(--nap-theme-surface-2, #12121a);
         }
         .tab {
           padding: 6px 16px;
           cursor: pointer;
-          color: #888;
+          color: var(--nap-theme-muted, #888);
           border-bottom: 2px solid transparent;
           transition: all 0.15s;
         }
-        .tab:hover { color: #ccc; }
+        .tab:hover { color: var(--nap-theme-text, #ccc); }
         .tab.active {
-          color: #00f0ff;
-          border-bottom-color: #00f0ff;
+          color: var(--nap-theme-primary, #00f0ff);
+          border-bottom-color: var(--nap-theme-primary, #00f0ff);
         }
         .controls {
           display: flex;
           gap: 8px;
           padding: 6px 12px;
-          background: #12121a;
-          border-bottom: 1px solid #2a2a3a;
+          background: var(--nap-theme-surface-2, #12121a);
+          border-bottom: 1px solid var(--nap-theme-border, #2a2a3a);
           align-items: center;
         }
         .controls select, .controls button {
-          background: #1a1a28;
-          color: #e0e0e0;
-          border: 1px solid #2a2a3a;
+          background: var(--nap-theme-surface-1, #1a1a28);
+          color: var(--nap-theme-text, #e0e0e0);
+          border: 1px solid var(--nap-theme-border, #2a2a3a);
           padding: 2px 8px;
           font-family: inherit;
           font-size: 11px;
@@ -213,10 +213,10 @@ export class NappletDebugger extends HTMLElement {
           cursor: pointer;
         }
         .controls select:hover, .controls button:hover {
-          border-color: #00f0ff;
+          border-color: var(--nap-theme-primary, #00f0ff);
         }
         .controls label {
-          color: #888;
+          color: var(--nap-theme-muted, #888);
           font-size: 11px;
         }
         .log-container {
@@ -229,13 +229,13 @@ export class NappletDebugger extends HTMLElement {
           display: flex;
           gap: 8px;
           line-height: 1.6;
-          border-bottom: 1px solid #0f0f18;
+          border-bottom: 1px solid var(--nap-theme-border, #0f0f18);
         }
         .log-entry:hover {
-          background: #1a1a28;
+          background: var(--nap-theme-surface-1, #1a1a28);
         }
         .log-time {
-          color: #555;
+          color: var(--nap-theme-muted, #555);
           min-width: 80px;
           flex-shrink: 0;
         }
@@ -250,19 +250,19 @@ export class NappletDebugger extends HTMLElement {
           font-weight: 600;
         }
         .log-detail {
-          color: #888;
+          color: var(--nap-theme-muted, #888);
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .log-system {
-          color: #ff00ff;
+          color: var(--nap-theme-primary, #ff00ff);
           font-style: italic;
           padding: 4px 12px;
-          border-bottom: 1px solid #0f0f18;
+          border-bottom: 1px solid var(--nap-theme-border, #0f0f18);
         }
         .msg-count {
-          color: #555;
+          color: var(--nap-theme-muted, #555);
           margin-left: auto;
           font-size: 11px;
         }
@@ -271,7 +271,7 @@ export class NappletDebugger extends HTMLElement {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: #555;
+          color: var(--nap-theme-muted, #555);
         }
         .tab-content { display: none; flex: 1; flex-direction: column; overflow: hidden; }
         .tab-content.active { display: flex; }

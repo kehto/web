@@ -269,7 +269,7 @@ function renderRelayActivity(getActivity: RelayActivitySource): boolean {
   const relays = getActivity(5);
   if (relays.length === 0) {
     const empty = document.createElement('li');
-    empty.style.color = '#555';
+    empty.style.color = 'var(--nap-theme-muted, #555)';
     empty.style.fontStyle = 'italic';
     empty.textContent = 'no relay activity yet';
     list.replaceChildren(empty);
@@ -282,10 +282,10 @@ function renderRelayActivity(getActivity: RelayActivitySource): boolean {
     li.style.padding = '2px 0';
     li.style.fontFamily = 'monospace';
     const url = document.createElement('span');
-    url.style.color = '#62d0ff';
+    url.style.color = 'var(--nap-theme-info, #62d0ff)';
     url.textContent = entry.url;
     const stats = document.createElement('span');
-    stats.style.color = '#7c86a7';
+    stats.style.color = 'var(--nap-theme-muted, #7c86a7)';
     stats.style.marginLeft = '8px';
     stats.textContent = formatRelayActivityStats(entry);
     li.append(url, stats);

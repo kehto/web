@@ -95,10 +95,10 @@ export function createConsentModal(): ConsentModal {
       'top: 0', 'left: 0', 'right: 0', 'bottom: 0',
       'display: flex', 'align-items: center', 'justify-content: center',
       'z-index: 10000',                                   // D6
-      'background: rgba(0, 0, 0, 0.6)',
+      'background: var(--nap-theme-overlay, rgba(0, 0, 0, 0.6))',
       'font-family: JetBrains Mono, monospace',
       'font-size: 12px',
-      'color: #e0e0e0',
+      'color: var(--nap-theme-text, #e0e0e0)',
     ].join('; ');
 
     // Outside-click dismiss (M-04) -- only when the click hits the overlay, not inner dialog.
@@ -108,8 +108,8 @@ export function createConsentModal(): ConsentModal {
 
     const dialog = document.createElement('div');
     dialog.style.cssText = [
-      'background: #0d0d14',
-      'border: 1px solid #1e1e2e',
+      'background: var(--nap-theme-surface-1, #0d0d14)',
+      'border: 1px solid var(--nap-theme-border, #1e1e2e)',
       'padding: 16px',
       'max-width: 500px',
       'min-width: 360px',
@@ -118,26 +118,26 @@ export function createConsentModal(): ConsentModal {
 
     const title = document.createElement('h2');
     title.textContent = `Allow network connections?`;
-    title.style.cssText = 'font-size: 14px; margin-bottom: 6px; color: #7aa2f7;';
+    title.style.cssText = 'font-size: 14px; margin-bottom: 6px; color: var(--nap-theme-primary, #7aa2f7);';
     dialog.appendChild(title);
 
     const subtitle = document.createElement('p');
     subtitle.textContent = `${req.dTag} is requesting permission to connect to:`;
-    subtitle.style.cssText = 'margin-bottom: 8px; color: #b0b0c0; font-size: 11px;';
+    subtitle.style.cssText = 'margin-bottom: 8px; color: var(--nap-theme-muted, #b0b0c0); font-size: 11px;';
     dialog.appendChild(subtitle);
 
     // D8: verbatim origin list + cleartext warning row.
     const list = document.createElement('ul');
-    list.style.cssText = 'list-style: none; padding: 0; margin: 0 0 12px 0; border: 1px solid #1e1e2e; background: #0a0a0f;';
+    list.style.cssText = 'list-style: none; padding: 0; margin: 0 0 12px 0; border: 1px solid var(--nap-theme-border, #1e1e2e); background: var(--nap-theme-surface-2, #0a0a0f);';
     for (const origin of req.requestedOrigins) {
       const li = document.createElement('li');
       li.setAttribute('data-testid', 'connect-consent-origin');
-      li.style.cssText = 'padding: 4px 8px; border-bottom: 1px solid #1a1a2a; word-break: break-all;';
+      li.style.cssText = 'padding: 4px 8px; border-bottom: 1px solid var(--nap-theme-border, #1a1a2a); word-break: break-all;';
       li.textContent = origin;
       if (isCleartext(origin)) {
         const warn = document.createElement('span');
         warn.textContent = ' warning: cleartext';
-        warn.style.cssText = 'color: #ff6b6b; margin-left: 6px; font-size: 10px;';
+        warn.style.cssText = 'color: var(--nap-theme-danger, #ff6b6b); margin-left: 6px; font-size: 10px;';
         warn.setAttribute('data-testid', 'connect-consent-cleartext-warning');
         li.appendChild(warn);
       }
@@ -147,7 +147,7 @@ export function createConsentModal(): ConsentModal {
 
     const timerEl = document.createElement('div');
     timerEl.textContent = `Auto-deny in ${CONSENT_TIMEOUT_MS / 1000}s (Escape or click outside = deny)`;
-    timerEl.style.cssText = 'font-size: 10px; color: #888; margin-bottom: 12px;';
+    timerEl.style.cssText = 'font-size: 10px; color: var(--nap-theme-muted, #888); margin-bottom: 12px;';
     dialog.appendChild(timerEl);
 
     const btnRow = document.createElement('div');
@@ -157,14 +157,14 @@ export function createConsentModal(): ConsentModal {
     denyBtn.textContent = 'Deny';
     denyBtn.setAttribute('data-testid', 'connect-consent-deny');
     denyBtn.type = 'button';
-    denyBtn.style.cssText = 'padding: 6px 14px; background: #1a1a2a; color: #e0e0e0; border: 1px solid #333; cursor: pointer; font-family: inherit;';
+    denyBtn.style.cssText = 'padding: 6px 14px; background: var(--nap-theme-surface-2, #1a1a2a); color: var(--nap-theme-text, #e0e0e0); border: 1px solid var(--nap-theme-border, #333); cursor: pointer; font-family: inherit;';
     denyBtn.addEventListener('click', () => closeModal('deny'));
 
     const allowBtn = document.createElement('button');
     allowBtn.textContent = 'Allow';
     allowBtn.setAttribute('data-testid', 'connect-consent-allow');
     allowBtn.type = 'button';
-    allowBtn.style.cssText = 'padding: 6px 14px; background: #7aa2f7; color: #000; border: 1px solid #7aa2f7; cursor: pointer; font-family: inherit;';
+    allowBtn.style.cssText = 'padding: 6px 14px; background: var(--nap-theme-primary, #7aa2f7); color: var(--nap-theme-background, #000); border: 1px solid var(--nap-theme-primary, #7aa2f7); cursor: pointer; font-family: inherit;';
     allowBtn.addEventListener('click', () => closeModal('approve'));
 
     btnRow.appendChild(denyBtn);

@@ -1,60 +1,32 @@
 /**
- * resource-demo napplet -- exercises NAP-RESOURCE (RESOURCE-04, v1.7 Phase 40 / D1..D6).
+ * resource-demo napplet -- fetches a remote image through the resource service
+ * and renders it as a visible resource preview.
  *
- * On init:
- *   1. Dispatches resource.bytes to demo-data.json on the active playground origin
- *      (granted at demo boot via __grantConnectOrigin__ — D3). Shell proxies the
- *      fetch and returns resource.bytes.result with base64-encoded body.
- *   2. Dispatches resource.bytes to https://untrusted.example/ (D4: RFC-2606 reserved
- *      domain). Shell rejects without fetching and returns resource.bytes.error
- *      with code='denied'.
- *
- * Sentinels:
- *   - #resource-demo-status   -- 'connecting...' -> 'dispatched 2 requests' -> 'done'
- *   - #resource-demo-granted  -- decoded JSON from granted fetch (E2E-25 assertion target)
- *   - #resource-demo-denied   -- canonical error code + message from denied fetch (E2E-25)
- *   - #resource-demo-log      -- timestamped event log for diagnostics
- *
- * RESOURCE-SDK-GAP (Phase 58 raw-envelope allowlist):
- *   @napplet/nap/resource/sdk@0.3.1 is published, but its helper surface expects
- *   upstream wire fields (`id`, Blob `blob`, `mime`, error field `error`). Kehto's
- *   current resource service intentionally uses its internal shell-side wire shape
- *   (`requestId`, `bodyBase64`, `status`, `headers`, error field `code`). Until that
- *   runtime/service protocol is deliberately migrated, this demo must keep the raw
- *   resource.bytes envelope path so E2E can assert the current Kehto contract.
- *
- * Anti-features (v1.3 discipline):
- *   - NO <meta http-equiv="Content-Security-Policy"> in index.html (C-03)
- *   - NO raw window.addEventListener('message') for non-resource domains
- *   - NO window.nostr lookups (forbidden everywhere under NIP-5D)
- *   - NO resource.cancel wire message in this napplet (cancel path is Wave 3 scope)
- *
- * Wire types mirror the Kehto-internal resource model documented in
- * packages/shell/src/types/internal-resource.ts.
+ * Phase 58 raw-envelope allowlist: the demo intentionally uses resource.bytes
+ * to fetch a remote image and surface the response as an object URL.
  */
 import '@napplet/shim';
-import { installNapTheme } from '../../shared-theme';
+import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
 
 const REQUIRED_NAPS = ['resource', 'connect', 'theme'] as const;
+const CAPABILITY_WAIT_MS = 1_000;
+const CAPABILITY_WAIT_INTERVAL_MS = 25;
 
 const statusEl = document.getElementById('resource-demo-status')!;
-const grantedEl = document.getElementById('resource-demo-granted')!;
-const deniedEl = document.getElementById('resource-demo-denied')!;
-const logEl = document.getElementById('resource-demo-log')!;
+const imageEl = document.getElementById('resource-demo-image') as HTMLImageElement;
+const sourceEl = document.getElementById('resource-demo-source')!;
+
+const REMOTE_IMAGE_URL = 'https://raw.githubusercontent.com/github/explore/main/topics/typescript/typescript.png';
+let currentObjectUrl: string | null = null;
 
 function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void {
   statusEl.textContent = text;
-  statusEl.style.color = color === 'green' ? '#39ff14' : color === 'red' ? '#ff3b3b' : '#888';
-}
-
-function log(text: string): void {
-  const div = document.createElement('div');
-  const time = new Date().toLocaleTimeString('en', {
-    hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit',
-  });
-  div.textContent = `${time} ${text}`;
-  logEl.appendChild(div);
-  logEl.scrollTop = logEl.scrollHeight;
+  statusEl.style.color =
+    color === 'green'
+      ? 'var(--nap-theme-success, #39ff14)'
+      : color === 'red'
+        ? 'var(--nap-theme-danger, #ff3b3b)'
+        : 'var(--nap-theme-muted, #888)';
 }
 
 function getMissingRequiredNaps(): string[] {
@@ -62,50 +34,40 @@ function getMissingRequiredNaps(): string[] {
   return REQUIRED_NAPS.filter((capability) => !supports(capability));
 }
 
-function newRequestId(): string {
-  return `res-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-type ResourceErrorCode = 'denied' | 'canceled' | 'network-error' | 'invalid-url' | 'class-forbidden';
+async function waitForRequiredNaps(): Promise<void> {
+  const deadline = Date.now() + CAPABILITY_WAIT_MS;
+  let missing = getMissingRequiredNaps();
+  while (missing.length > 0 && Date.now() < deadline) {
+    await sleep(CAPABILITY_WAIT_INTERVAL_MS);
+    missing = getMissingRequiredNaps();
+  }
+  if (missing.length > 0) {
+    throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);
+  }
+}
 
-interface ResourceBytesResult {
+type ResourceBytesResult = {
   type: 'resource.bytes.result';
   requestId: string;
   status: number;
   headers: Readonly<Record<string, string>>;
   bodyBase64: string;
-}
+};
 
-interface ResourceBytesError {
+type ResourceBytesError = {
   type: 'resource.bytes.error';
   requestId: string;
-  code: ResourceErrorCode;
+  code: string;
   message: string;
+};
+
+function newRequestId(): string {
+  return `res-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
-
-type ResourceOutbound = ResourceBytesResult | ResourceBytesError;
-
-type ResourceEnvelopeCallback = (envelope: ResourceOutbound) => void;
-const _resourceCallbacks: ResourceEnvelopeCallback[] = [];
-
-function onResourceEnvelope(callback: ResourceEnvelopeCallback): () => void {
-  _resourceCallbacks.push(callback);
-  return () => {
-    const idx = _resourceCallbacks.indexOf(callback);
-    if (idx !== -1) _resourceCallbacks.splice(idx, 1);
-  };
-}
-
-window.addEventListener('message', (event: MessageEvent) => {
-  if (event.source !== window.parent) return;
-  const msg = event.data as { type?: string };
-  if (typeof msg !== 'object' || msg === null || typeof msg.type !== 'string') return;
-  if (!msg.type.startsWith('resource.')) return;
-  const envelope = msg as ResourceOutbound;
-  for (const cb of _resourceCallbacks) {
-    try { cb(envelope); } catch { /* isolate per-callback errors */ }
-  }
-});
 
 function dispatchResourceBytes(requestId: string, url: string): void {
   window.parent.postMessage(
@@ -114,101 +76,71 @@ function dispatchResourceBytes(requestId: string, url: string): void {
   );
 }
 
-function getPlaygroundBaseUrl(): URL {
-  if (document.referrer.length > 0) {
-    return new URL('./', document.referrer);
-  }
-
-  const current = new URL(window.location.href);
-  const gatewayIndex = current.pathname.indexOf('/napplet-gateway/');
-  if (gatewayIndex >= 0) {
-    current.pathname = current.pathname.slice(0, gatewayIndex + 1);
-    current.search = '';
-    current.hash = '';
-    return current;
-  }
-
-  return new URL('/', current);
+function decodeBase64(bodyBase64: string): Uint8Array {
+  const binary = atob(bodyBase64);
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
 
-const GRANTED_URL = new URL('demo-data.json', getPlaygroundBaseUrl()).href;
-const DENIED_URL = 'https://untrusted.example/';  // D4: RFC-2606 reserved — never resolves
+function setRemoteImageFromBytes(bytes: Uint8Array, contentType: string | undefined): void {
+  if (currentObjectUrl) {
+    URL.revokeObjectURL(currentObjectUrl);
+    currentObjectUrl = null;
+  }
+  const blob = new Blob([bytes], { type: contentType || 'image/png' });
+  const objectUrl = URL.createObjectURL(blob);
+  currentObjectUrl = objectUrl;
+  imageEl.src = objectUrl;
+  imageEl.addEventListener('load', () => {
+    URL.revokeObjectURL(objectUrl);
+    if (currentObjectUrl === objectUrl) currentObjectUrl = null;
+  }, { once: true });
+  sourceEl.textContent = REMOTE_IMAGE_URL;
+}
 
 async function init(): Promise<void> {
-  const missing = getMissingRequiredNaps();
-  if (missing.length > 0) {
-    throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);
-  }
   installNapTheme();
-
-  setStatus('requesting...', 'gray');
-
-  const grantedId = newRequestId();
-  const deniedId = newRequestId();
-
-  let grantedDone = false;
-  let deniedDone = false;
-
-  function maybeAllDone(): void {
-    if (grantedDone && deniedDone) {
-      setStatus('done', 'green');
-    }
-  }
-
-  // Install envelope listener BEFORE dispatching so we catch both outcomes.
-  const unsub = onResourceEnvelope((envelope) => {
-    if (envelope.type === 'resource.bytes.result' && envelope.requestId === grantedId) {
-      // Decode base64 → Uint8Array → UTF-8 → JSON parse for display.
-      try {
-        const binary = atob(envelope.bodyBase64);
-        const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
-        const text = new TextDecoder('utf-8').decode(bytes);
-        const parsed = JSON.parse(text) as unknown;
-        grantedEl.textContent = JSON.stringify(parsed, null, 2);
-        log(`granted status=${envelope.status} bytes=${bytes.length}`);
-      } catch (err) {
-        grantedEl.textContent = `decode error: ${(err as Error).message}`;
-        log(`granted decode error: ${(err as Error).message}`);
-      }
-      grantedDone = true;
-      maybeAllDone();
-    }
-
-    if (envelope.type === 'resource.bytes.error' && envelope.requestId === grantedId) {
-      grantedEl.textContent = `unexpected error on granted fetch: code=${envelope.code} message=${envelope.message}`;
-      log(`granted error ${envelope.code}`);
-      grantedDone = true;
-      maybeAllDone();
-    }
-
-    if (envelope.type === 'resource.bytes.error' && envelope.requestId === deniedId) {
-      deniedEl.textContent = `code=${envelope.code} message=${envelope.message}`;
-      log(`denied ${envelope.code}`);
-      deniedDone = true;
-      maybeAllDone();
-    }
-
-    if (envelope.type === 'resource.bytes.result' && envelope.requestId === deniedId) {
-      // Should never happen — denied origin MUST NOT reach fetch (RESOURCE-01 H-03).
-      deniedEl.textContent = `PROTOCOL VIOLATION: denied origin returned ${envelope.status}`;
-      log(`PROTOCOL VIOLATION: denied origin returned result`);
-      deniedDone = true;
-      maybeAllDone();
-    }
-
-    if (grantedDone && deniedDone) {
-      unsub();
-    }
+  onNapThemeChanged((theme) => {
+    applyNapTheme(theme);
   });
+  await waitForRequiredNaps();
 
-  dispatchResourceBytes(grantedId, GRANTED_URL);
-  dispatchResourceBytes(deniedId, DENIED_URL);
-  setStatus('dispatched 2 requests', 'gray');
-  log(`dispatched granted requestId=${grantedId}`);
-  log(`dispatched denied requestId=${deniedId}`);
+  const requestId = newRequestId();
+  setStatus('loading remote image', 'gray');
+  sourceEl.textContent = REMOTE_IMAGE_URL;
+
+  const handleMessage = (event: MessageEvent) => {
+    if (event.source !== window.parent) return;
+    const envelope = event.data as ResourceBytesResult | ResourceBytesError | null;
+    if (!envelope || typeof envelope !== 'object' || envelope.requestId !== requestId) return;
+
+    if (envelope.type === 'resource.bytes.result') {
+      const bytes = decodeBase64(envelope.bodyBase64);
+      setRemoteImageFromBytes(bytes, envelope.headers['content-type'] ?? undefined);
+      setStatus(`loaded remote image (${envelope.status})`, 'green');
+      window.removeEventListener('message', handleMessage);
+      return;
+    }
+
+    if (envelope.type === 'resource.bytes.error') {
+      imageEl.removeAttribute('src');
+      sourceEl.textContent = `${REMOTE_IMAGE_URL} — ${envelope.code}: ${envelope.message}`;
+      setStatus('image fetch failed', 'red');
+      window.removeEventListener('message', handleMessage);
+    }
+  };
+
+  window.addEventListener('message', handleMessage);
+  dispatchResourceBytes(requestId, REMOTE_IMAGE_URL);
 }
 
 init().catch((err) => {
   setStatus('init failed', 'red');
-  log(`unhandled init error -- ${err instanceof Error ? err.message : String(err)}`);
+  sourceEl.textContent = err instanceof Error ? err.message : String(err);
+});
+
+window.addEventListener('pagehide', () => {
+  if (currentObjectUrl) {
+    URL.revokeObjectURL(currentObjectUrl);
+    currentObjectUrl = null;
+  }
 });

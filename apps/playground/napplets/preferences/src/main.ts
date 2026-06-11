@@ -14,8 +14,8 @@
  *
  * Per CONTEXT D-USER-02 (Phase 20):
  *   - Subscribes through the shared NAP-THEME helper for `theme.changed` envelopes broadcast
- *     by the demo's shell-bridge.publishTheme() (triggered when theme-switcher (Plan 20-04) posts
- *     a `demo.publishTheme` message that the demo host (Plan 20-06) forwards to relay.publishTheme).
+ *     by the shell's persisted theme broadcaster (triggered when theme-switcher posts
+ *     a `theme.set` message that the demo host translates into `theme.changed`).
  *   - On receipt: sets document.body.style.backgroundColor to theme.colors.background AND
  *     sets #preferences-theme-applied textContent to that color hex.
  *
@@ -61,7 +61,11 @@ function log(text: string): void {
 function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void {
   statusEl.textContent = text;
   statusEl.style.color =
-    color === 'green' ? '#39ff14' : color === 'red' ? '#ff3b3b' : '#888';
+    color === 'green'
+      ? 'var(--nap-theme-success, #39ff14)'
+      : color === 'red'
+        ? 'var(--nap-theme-danger, #ff3b3b)'
+        : 'var(--nap-theme-muted, #888)';
 }
 
 function getMissingRequiredNaps(): string[] {

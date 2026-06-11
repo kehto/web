@@ -2,12 +2,12 @@
  * Theme-switcher demo napplet — exercises theme broadcast (NAP-08, Phase 20).
  *
  * Behavior: clicking a button dispatches an outbound postMessage to the parent
- * frame with { type: 'demo.publishTheme', theme }. The demo host (Plan 20-06) listens
- * for this and calls relay.publishTheme(theme) which fan-outs theme.changed envelopes
- * to every napplet via session-registry.
+ * frame with { type: 'theme.set', theme }. The demo host listens for this,
+ * persists the selected theme, applies it to the shell, and rebroadcasts
+ * theme.changed envelopes to every loaded napplet.
  *
  * THEME-SDK-GAP (Phase 58 raw-envelope allowlist): the helper surface does not
- * expose a theme.publish API. Outbound parent-frame postMessage is the
+ * expose a theme.set helper. Outbound parent-frame postMessage is the
  * documented demo-only host-control exception.
  *
  * NOTE: theme-switcher publishes theme changes and also installs the shared
@@ -22,7 +22,7 @@
  *   - No domain-specific global message-event listener
  */
 import '@napplet/shim';
-import { installNapTheme } from '../../shared-theme';
+import { installNapTheme, onNapThemeChanged } from '../../shared-theme';
 import { identityGetPublicKey } from '@napplet/nap/identity/sdk';
 import {
   discoverThemeCatalog,
@@ -44,7 +44,6 @@ const discoverBtn = document.getElementById('theme-discover-btn') as HTMLButtonE
 const showWotEl = document.getElementById('theme-show-wot') as HTMLInputElement;
 const showGlobalEl = document.getElementById('theme-show-global') as HTMLInputElement;
 const catalogEl = document.getElementById('theme-catalog')!;
-const logEl = document.getElementById('theme-log')!;
 const allBtns = [lightBtn, darkBtn, customBtn];
 let discoveredThemes: DiscoveredTheme[] = [];
 let activeThemeId: string | null = null;
@@ -52,30 +51,15 @@ let discovering = false;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatError(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message) return error.message;
-  if (typeof error === 'string' && error.length > 0) return error;
-  return fallback;
-}
-
-function log(text: string): void {
-  const div = document.createElement('div');
-  div.className = 'theme-log-entry';
-  const time = new Date().toLocaleTimeString('en', {
-    hour12: false,
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-  div.textContent = `${time} ${text}`;
-  logEl.appendChild(div);
-  logEl.scrollTop = logEl.scrollHeight;
-}
-
 function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void {
   statusEl.textContent = text;
   statusEl.title = text;
-  statusEl.style.color = color === 'green' ? '#39ff14' : color === 'red' ? '#ff3b3b' : '#888';
+  statusEl.style.color =
+    color === 'green'
+      ? 'var(--nap-theme-primary, #39ff14)'
+      : color === 'red'
+        ? 'var(--nap-theme-danger, #ff3b3b)'
+        : 'var(--nap-theme-muted, #888)';
 }
 
 function getMissingRequiredNaps(): string[] {
@@ -124,20 +108,33 @@ function clearPresetActive(): void {
   for (const btn of allBtns) btn.dataset.active = 'false';
 }
 
+function syncThemeSelection(theme: ThemePayload): void {
+  const normalizedTitle = theme.title?.trim().toLowerCase();
+  if (normalizedTitle === 'light') {
+    setActive(lightBtn);
+    return;
+  }
+  if (normalizedTitle === 'dark') {
+    setActive(darkBtn);
+    return;
+  }
+
+  activeThemeId = null;
+  clearPresetActive();
+  customBtn.dataset.active = 'true';
+  customColorEl.value = theme.colors.background;
+  renderCatalog();
+}
+
 // ── Theme dispatch (the single outbound seam) ─────────────────────────────────
 
 /**
- * Dispatch a demo.publishTheme message to the parent frame.
- * The demo host (Plan 20-06) listens for this event type and calls
- * relay.publishTheme(theme), which fan-outs theme.changed envelopes
- * to every napplet registered in the session-registry.
+ * Dispatch a theme.set request to the parent frame.
+ * The shell host translates this into a persisted selection and then
+ * rebroadcasts `theme.changed` to every loaded napplet.
  */
-function dispatchTheme(
-  themeName: string,
-  theme: ThemePayload,
-): void {
-  log(`demo.publishTheme dispatch — ${themeName} (bg: ${theme.colors.background})`);
-  window.parent.postMessage({ type: 'demo.publishTheme', theme }, '*');
+function dispatchTheme(theme: ThemePayload): void {
+  window.parent.postMessage({ type: 'theme.set', theme }, '*');
 }
 
 // ── Dynamic discovery catalog ─────────────────────────────────────────────────
@@ -214,7 +211,7 @@ function renderCatalog(): void {
     applyBtn.addEventListener('click', () => {
       activeThemeId = entry.id;
       clearPresetActive();
-      dispatchTheme(entry.title, entry.theme);
+      dispatchTheme(entry.theme);
       renderCatalog();
     });
 
@@ -233,15 +230,11 @@ async function refreshDiscoveredThemes(): Promise<void> {
   try {
     const result = await discoverThemeCatalog({ readPublicKey: identityGetPublicKey });
     discoveredThemes = result.themes;
-    for (const message of result.messages) log(message);
-    for (const error of result.errors) log(error);
 
     const visibleCount = visibleThemes().length;
     setStatus(`ready (${visibleCount} visible)`, result.errors.length > 0 ? 'gray' : 'green');
-    log(`discovered themes — user:${result.counts.user} wot:${result.counts.wot} global:${result.counts.global}`);
-  } catch (error) {
+  } catch {
     setStatus('discovery failed', 'red');
-    log(`theme discovery failed — ${formatError(error, 'relay discovery failure')}`);
   } finally {
     discovering = false;
     discoverBtn.disabled = false;
@@ -253,12 +246,12 @@ async function refreshDiscoveredThemes(): Promise<void> {
 
 lightBtn.addEventListener('click', () => {
   setActive(lightBtn);
-  dispatchTheme('light', LIGHT_THEME);
+  dispatchTheme(LIGHT_THEME);
 });
 
 darkBtn.addEventListener('click', () => {
   setActive(darkBtn);
-  dispatchTheme('dark', DARK_THEME);
+  dispatchTheme(DARK_THEME);
 });
 
 customBtn.addEventListener('click', () => {
@@ -271,7 +264,7 @@ customBtn.addEventListener('click', () => {
     title: 'Custom',
     colors: { background: bg, text: '#e0e0e0', primary: '#7aa2f7' },
   };
-  dispatchTheme('custom', customTheme);
+  dispatchTheme(customTheme);
 });
 
 discoverBtn.addEventListener('click', () => {
@@ -301,14 +294,16 @@ showGlobalEl.addEventListener('change', () => {
  */
 async function init(): Promise<void> {
   installNapTheme();
+  onNapThemeChanged((theme) => {
+    syncThemeSelection(theme as ThemePayload);
+  });
+  syncThemeSelection(DARK_THEME);
   await waitForRequiredNaps();
   setStatus('ready', 'green');
-  log('ready to broadcast theme');
   renderCatalog();
   void refreshDiscoveredThemes();
 }
 
 init().catch((err) => {
   setStatus('unavailable', 'red');
-  log(`init failed — ${formatError(err, 'init failure')}`);
 });

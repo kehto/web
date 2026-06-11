@@ -63,32 +63,32 @@ function buildPolicyRows(adapter: AclAdapter): PolicyRow[] {
 function createOverlay(): HTMLDivElement {
   const overlay = document.createElement('div');
   overlay.id = MODAL_ID;
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px)';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:var(--nap-theme-overlay, rgba(0,0,0,0.6));backdrop-filter:blur(2px)';
   return overlay;
 }
 
 function createContainer(): HTMLDivElement {
   const container = document.createElement('div');
-  container.style.cssText = 'background:#13141f;border:1px solid #2a2d42;border-radius:12px;padding:24px;max-width:90vw;max-height:80vh;overflow:auto;color:#d0d4e8;font-family:inherit;min-width:600px';
+  container.style.cssText = 'background:var(--nap-theme-surface-1, #13141f);border:1px solid var(--nap-theme-border, #2a2d42);border-radius:12px;padding:24px;max-width:90vw;max-height:80vh;overflow:auto;color:var(--nap-theme-text, #d0d4e8);font-family:inherit;min-width:600px';
   return container;
 }
 
 function createHeader(): HTMLDivElement {
   const header = document.createElement('div');
-  header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #1f2235';
+  header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--nap-theme-border, #1f2235)';
   const heading = document.createElement('div');
   const kicker = document.createElement('div');
-  kicker.style.cssText = 'font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:#7981a0;margin-bottom:2px';
+  kicker.style.cssText = 'font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--nap-theme-muted, #7981a0);margin-bottom:2px';
   kicker.textContent = 'system policy';
   const title = document.createElement('div');
-  title.style.cssText = 'font-size:18px;color:#f0f6ff';
+  title.style.cssText = 'font-size:18px;color:var(--nap-theme-text, #f0f6ff)';
   title.textContent = 'ACL Capability Matrix';
   heading.append(kicker, title);
   header.appendChild(heading);
 
   const closeBtn = document.createElement('button');
   closeBtn.textContent = 'close';
-  closeBtn.style.cssText = 'background:transparent;border:1px solid #3a3a4a;color:#7981a0;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-family:inherit';
+  closeBtn.style.cssText = 'background:transparent;border:1px solid var(--nap-theme-border, #3a3a4a);color:var(--nap-theme-muted, #7981a0);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-family:inherit';
   closeBtn.addEventListener('click', closePolicyModal);
   header.appendChild(closeBtn);
   return header;
@@ -96,9 +96,9 @@ function createHeader(): HTMLDivElement {
 
 function createServicesSection(): HTMLDivElement {
   const servicesSection = document.createElement('div');
-  servicesSection.style.cssText = 'margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #1f2235';
+  servicesSection.style.cssText = 'margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--nap-theme-border, #1f2235)';
   const servicesLabel = document.createElement('div');
-  servicesLabel.style.cssText = 'font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:#7981a0;margin-bottom:8px';
+  servicesLabel.style.cssText = 'font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--nap-theme-muted, #7981a0);margin-bottom:8px';
   servicesLabel.textContent = 'services';
   servicesSection.appendChild(servicesLabel);
 
@@ -113,44 +113,44 @@ function createServicesSection(): HTMLDivElement {
 
 function createServiceToggle(name: string): HTMLDivElement {
   const serviceItem = document.createElement('div');
-  serviceItem.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;border:1px solid #2a2d42;background:#181926';
+  serviceItem.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;border:1px solid var(--nap-theme-border, #2a2d42);background:var(--nap-theme-surface-2, #181926)';
   const serviceNameSpan = document.createElement('span');
   serviceNameSpan.textContent = name;
-  serviceNameSpan.style.cssText = 'font-size:11px;color:#d0d4e8;font-weight:500';
+  serviceNameSpan.style.cssText = 'font-size:11px;color:var(--nap-theme-text, #d0d4e8);font-weight:500';
   serviceItem.appendChild(serviceNameSpan);
 
   const toggle = document.createElement('button');
   const enabled = isServiceEnabled(name);
-  toggle.style.cssText = `appearance:none;-webkit-appearance:none;width:32px;height:16px;border-radius:8px;border:none;cursor:pointer;position:relative;transition:background 0.2s;background:${enabled ? '#39ff14' : '#3a3a4a'}`;
+  toggle.style.cssText = `appearance:none;-webkit-appearance:none;width:32px;height:16px;border-radius:8px;border:none;cursor:pointer;position:relative;transition:background 0.2s;background:${enabled ? 'var(--nap-theme-success, #39ff14)' : 'var(--nap-theme-border, #3a3a4a)'}`;
   const knob = document.createElement('span');
-  knob.style.cssText = `display:block;width:12px;height:12px;border-radius:50%;background:#fff;position:absolute;top:2px;transition:left 0.2s;left:${enabled ? '18px' : '2px'}`;
+  knob.style.cssText = `display:block;width:12px;height:12px;border-radius:50%;background:var(--nap-theme-background, #fff);position:absolute;top:2px;transition:left 0.2s;left:${enabled ? '18px' : '2px'}`;
   toggle.appendChild(knob);
   toggle.addEventListener('click', () => {
     const newState = !isServiceEnabled(name);
     toggleService(name, newState);
     updateServiceNodeVisual(name, newState);
-    toggle.style.background = newState ? '#39ff14' : '#3a3a4a';
+    toggle.style.background = newState ? 'var(--nap-theme-success, #39ff14)' : 'var(--nap-theme-border, #3a3a4a)';
     knob.style.left = newState ? '18px' : '2px';
-    serviceNameSpan.style.color = newState ? '#d0d4e8' : '#555';
+    serviceNameSpan.style.color = newState ? 'var(--nap-theme-text, #d0d4e8)' : 'var(--nap-theme-muted, #555)';
   });
 
   serviceItem.appendChild(toggle);
-  if (!enabled) serviceNameSpan.style.color = '#555';
+  if (!enabled) serviceNameSpan.style.color = 'var(--nap-theme-muted, #555)';
   return serviceItem;
 }
 
 function renderCellState(cell: HTMLElement, cellState: PolicyCellState): void {
   const icon = document.createElement('span');
   if (cellState === 'granted') {
-    icon.style.color = '#39ff14';
+    icon.style.color = 'var(--nap-theme-success, #39ff14)';
     icon.title = 'granted — click to revoke';
     icon.textContent = '✓';
   } else if (cellState === 'revoked') {
-    icon.style.color = '#ff3b3b';
+    icon.style.color = 'var(--nap-theme-danger, #ff3b3b)';
     icon.title = 'revoked — click to grant';
     icon.textContent = '✗';
   } else {
-    icon.style.color = '#555';
+    icon.style.color = 'var(--nap-theme-muted, #555)';
     icon.title = 'default (permissive) — click to revoke';
     icon.textContent = '—';
   }
@@ -162,20 +162,20 @@ function createTableHeader(): HTMLTableSectionElement {
   const headerRow = document.createElement('tr');
   const nappletTh = document.createElement('th');
   nappletTh.textContent = 'Napplet';
-  nappletTh.style.cssText = 'text-align:left;padding:8px 6px;color:#7981a0;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;border-bottom:1px solid #1f2235;white-space:nowrap';
+  nappletTh.style.cssText = 'text-align:left;padding:8px 6px;color:var(--nap-theme-muted, #7981a0);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;border-bottom:1px solid var(--nap-theme-border, #1f2235);white-space:nowrap';
   headerRow.appendChild(nappletTh);
 
   for (const cap of ALL_CAPABILITIES) {
     const th = document.createElement('th');
     th.textContent = DEMO_CAPABILITY_LABELS[cap];
     th.title = cap;
-    th.style.cssText = 'text-align:center;padding:8px 4px;color:#7981a0;font-size:9px;letter-spacing:0.05em;text-transform:uppercase;border-bottom:1px solid #1f2235;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis';
+    th.style.cssText = 'text-align:center;padding:8px 4px;color:var(--nap-theme-muted, #7981a0);font-size:9px;letter-spacing:0.05em;text-transform:uppercase;border-bottom:1px solid var(--nap-theme-border, #1f2235);white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis';
     headerRow.appendChild(th);
   }
 
   const blockedTh = document.createElement('th');
   blockedTh.textContent = 'Blocked';
-  blockedTh.style.cssText = 'text-align:center;padding:8px 4px;color:#7981a0;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;border-bottom:1px solid #1f2235';
+  blockedTh.style.cssText = 'text-align:center;padding:8px 4px;color:var(--nap-theme-muted, #7981a0);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;border-bottom:1px solid var(--nap-theme-border, #1f2235)';
   headerRow.appendChild(blockedTh);
   thead.appendChild(headerRow);
   return thead;
@@ -186,7 +186,7 @@ function createEmptyPolicyRow(): HTMLTableRowElement {
   const emptyTd = document.createElement('td');
   emptyTd.colSpan = ALL_CAPABILITIES.length + 2;
   emptyTd.textContent = 'No identity-bound napplets';
-  emptyTd.style.cssText = 'padding:16px;text-align:center;color:#444;font-style:italic';
+  emptyTd.style.cssText = 'padding:16px;text-align:center;color:var(--nap-theme-muted, #444);font-style:italic';
   emptyRow.appendChild(emptyTd);
   return emptyRow;
 }
@@ -212,11 +212,11 @@ function createBlockedCell(row: PolicyRow): HTMLTableCellElement {
   blockedTd.style.cssText = 'text-align:center;padding:8px 4px;font-size:14px';
   const blockedIcon = document.createElement('span');
   if (row.blocked) {
-    blockedIcon.style.cssText = 'color:#ff3b3b;font-weight:bold';
+  blockedIcon.style.cssText = 'color:var(--nap-theme-danger, #ff3b3b);font-weight:bold';
     blockedIcon.title = 'blocked';
     blockedIcon.textContent = '●';
   } else {
-    blockedIcon.style.color = '#555';
+    blockedIcon.style.color = 'var(--nap-theme-muted, #555)';
     blockedIcon.title = 'not blocked';
     blockedIcon.textContent = '—';
   }
@@ -226,10 +226,10 @@ function createBlockedCell(row: PolicyRow): HTMLTableCellElement {
 
 function createPolicyRow(row: PolicyRow, adapter: AclAdapter): HTMLTableRowElement {
   const tr = document.createElement('tr');
-  tr.style.cssText = 'border-bottom:1px solid #1a1b2e';
+  tr.style.cssText = 'border-bottom:1px solid var(--nap-theme-border, #1a1b2e)';
   const nameTd = document.createElement('td');
   nameTd.textContent = row.name;
-  nameTd.style.cssText = 'padding:8px 6px;color:#d0d4e8;font-weight:600;white-space:nowrap';
+  nameTd.style.cssText = 'padding:8px 6px;color:var(--nap-theme-text, #d0d4e8);font-weight:600;white-space:nowrap';
   tr.appendChild(nameTd);
   for (const cap of ALL_CAPABILITIES) {
     tr.appendChild(createPolicyCell(row, cap, adapter));
@@ -255,12 +255,12 @@ function createPolicyTable(rows: PolicyRow[], adapter: AclAdapter): HTMLTableEle
 
 function createLegend(): HTMLDivElement {
   const legend = document.createElement('div');
-  legend.style.cssText = 'margin-top:16px;padding-top:12px;border-top:1px solid #1f2235;display:flex;gap:16px;font-size:10px;color:#7981a0';
+  legend.style.cssText = 'margin-top:16px;padding-top:12px;border-top:1px solid var(--nap-theme-border, #1f2235);display:flex;gap:16px;font-size:10px;color:var(--nap-theme-muted, #7981a0)';
   const legendItems: Array<[string, string, string, string?]> = [
-    ['✓', '#39ff14', 'granted'],
-    ['✗', '#ff3b3b', 'revoked'],
-    ['—', '#555', 'default (permissive)'],
-    ['●', '#ff3b3b', 'blocked', 'font-weight:bold'],
+    ['✓', 'var(--nap-theme-success, #39ff14)', 'granted'],
+    ['✗', 'var(--nap-theme-danger, #ff3b3b)', 'revoked'],
+    ['—', 'var(--nap-theme-muted, #555)', 'default (permissive)'],
+    ['●', 'var(--nap-theme-danger, #ff3b3b)', 'blocked', 'font-weight:bold'],
   ];
   for (const [symbol, color, text, extraStyle] of legendItems) {
     const item = document.createElement('span');

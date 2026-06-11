@@ -187,9 +187,9 @@ export interface EdgeFlasher {
 
 import { demoConfig } from './demo-config.js';
 
-const COLOR_ACTIVE = '#39ff14';
-const COLOR_BLOCKED = '#ff3b3b';
-const COLOR_RESTING = 'rgba(58,58,74,0.7)';
+const COLOR_ACTIVE = 'var(--nap-theme-success, #39ff14)';
+const COLOR_BLOCKED = 'var(--nap-theme-danger, #ff3b3b)';
+const COLOR_RESTING = 'var(--nap-theme-border, rgba(58,58,74,0.7))';
 
 /** Create a zero-size invisible port div anchored at (xPct%, yPct%) inside parent. */
 function makePort(parent: HTMLElement, xPct: number, yPct: number): HTMLElement {
@@ -367,7 +367,7 @@ export function updateServiceNodeVisual(name: string, enabled: boolean): void {
 
   const toggleIcon = nodeEl.querySelector<HTMLButtonElement>('.service-toggle-icon');
   if (toggleIcon) {
-    toggleIcon.style.color = enabled ? '#39ff14' : '#ff3b3b';
+    toggleIcon.style.color = enabled ? 'var(--nap-theme-success, #39ff14)' : 'var(--nap-theme-danger, #ff3b3b)';
     toggleIcon.title = `${enabled ? 'Disable' : 'Enable'} ${name} service`;
   }
 }
@@ -485,7 +485,7 @@ export function renderDemoTopology(topology: DemoTopology): string {
         const isSigner = service === 'signer';
         const isStub = STUB_ONLY_SERVICES.includes(service);
         const stubBadge = isStub
-          ? '<span class="stub-badge" style="display:inline-block;padding:1px 5px;margin-left:6px;background:#2a2a4a;color:#b388ff;border-radius:4px;font-size:9px;letter-spacing:0.1em;text-transform:uppercase">stub-only</span>'
+          ? '<span class="stub-badge" style="display:inline-block;padding:1px 5px;margin-left:6px;background:var(--nap-theme-surface-2, #2a2a4a);color:var(--nap-theme-accent-secondary, #b388ff);border-radius:4px;font-size:9px;letter-spacing:0.1em;text-transform:uppercase">stub-only</span>'
           : '';
         const innerContent = isSigner
           ? renderSignerNodeContent(topology.signerState)
@@ -506,7 +506,7 @@ export function renderDemoTopology(topology: DemoTopology): string {
               class="service-toggle-icon"
               data-service-toggle="${service}"
               title="Toggle ${service} service"
-              style="position:absolute;top:4px;right:4px;width:18px;height:18px;border-radius:50%;border:1px solid #3a3a4a;background:#1a1b2e;color:#39ff14;font-size:10px;line-height:18px;text-align:center;cursor:pointer;z-index:10;padding:0"
+              style="position:absolute;top:4px;right:4px;width:18px;height:18px;border-radius:50%;border:1px solid var(--nap-theme-border, #3a3a4a);background:var(--nap-theme-surface-1, #1a1b2e);color:var(--nap-theme-success, #39ff14);font-size:10px;line-height:18px;text-align:center;cursor:pointer;z-index:10;padding:0"
             >&#9679;</button>
             ${renderColorOverlays(getServiceNodeId(service))}
             <div class="topology-node-content">
@@ -523,7 +523,7 @@ export function renderDemoTopology(topology: DemoTopology): string {
   return `
     <div id="topology-root" class="topology-layout">
       <div id="color-mode-bar" style="display:flex;align-items:center;justify-content:flex-end;padding:0 4px;min-height:24px">
-        <span style="font-size:9px;letter-spacing:0.15em;text-transform:uppercase;color:#555">color mode</span>
+        <span style="font-size:9px;letter-spacing:0.15em;text-transform:uppercase;color:var(--nap-theme-muted, #555)">color mode</span>
         <div class="color-mode-toggle">
           <button class="color-mode-btn color-mode-active" data-color-mode="flash">flash</button>
           <button class="color-mode-btn" data-color-mode="rolling">rolling</button>

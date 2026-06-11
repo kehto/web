@@ -35,7 +35,7 @@ const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly str
 };
 
 const rawListenerFiles = [
-  'apps/playground/napplets/shared-theme.ts',
+  'apps/playground/src/theme.ts',
   'apps/playground/napplets/decrypt-demo/src/main.ts',
   'apps/playground/napplets/resource-demo/src/main.ts',
   'apps/playground/napplets/toaster/src/main.ts',
@@ -43,12 +43,12 @@ const rawListenerFiles = [
 
 const rawPostMessageTypes: Record<string, readonly string[]> = {
   'apps/playground/napplets/resource-demo/src/main.ts': ['resource.bytes'],
-  'apps/playground/napplets/theme-switcher/src/main.ts': ['demo.publishTheme'],
+  'apps/playground/napplets/theme-switcher/src/main.ts': ['theme.set'],
   'apps/playground/napplets/toaster/src/main.ts': ['notify.create', 'notify.list'],
 };
 
 const policyAllowlistTypes = [
-  'demo.publishTheme',
+  'theme.set',
   'demo.decrypt.fixtures',
   'notify.create',
   'notify.list',
@@ -58,7 +58,7 @@ const policyAllowlistTypes = [
 ] as const;
 
 const rawListenerTypeGuards: Record<string, readonly string[]> = {
-  'apps/playground/napplets/shared-theme.ts': ["data.type !== 'theme.changed'"],
+  'apps/playground/src/theme.ts': ["data.type !== 'theme.changed'"],
   'apps/playground/napplets/decrypt-demo/src/main.ts': ["msg.type === 'demo.decrypt.fixtures'"],
   'apps/playground/napplets/resource-demo/src/main.ts': [
     "envelope.type === 'resource.bytes.result'",
@@ -109,7 +109,7 @@ function listFiles(root: string): string[] {
 
 function nappletSourceFiles(): string[] {
   return [
-    join(process.cwd(), 'apps/playground/napplets/shared-theme.ts'),
+    join(process.cwd(), 'apps/playground/src/theme.ts'),
     ...playgroundNapplets.flatMap((name) =>
       listFiles(join(process.cwd(), 'apps/playground/napplets', name, 'src'))
         .filter((file) => /\.[cm]?tsx?$/.test(file)),

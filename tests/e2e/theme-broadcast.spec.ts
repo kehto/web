@@ -2,7 +2,7 @@
  * theme-broadcast.spec.ts — E2E-07 (theme-broadcast subset, Phase 20 NAP-08).
  *
  * Full round-trip: theme-switcher #theme-dark-btn click → window.parent.postMessage({
- * type:'demo.publishTheme' }) → demo host listener (main.ts, Plan 20-06) → relay.publishTheme
+ * type:'theme.set' }) → demo host listener (main.ts, Plan 20-06) → relay.publishTheme
  * (theme) → shell-bridge fan-out theme.changed to every napplet → preferences observer
  * (Plan 20-05) updates document.body.backgroundColor + #preferences-theme-applied textContent.
  *
@@ -51,7 +51,7 @@ test('clicking theme-switcher dark button propagates theme.changed to preference
   const themeFrameDirect = page.frames().find(f => f.url().includes('/theme-switcher/'));
   if (!themeFrameDirect) throw new Error('theme-switcher frame not found in page.frames()');
 
-  // Step 3: click the Dark button — dispatches window.parent.postMessage({ type: 'demo.publishTheme', ... }).
+  // Step 3: click the Dark button — dispatches window.parent.postMessage({ type: 'theme.set', ... }).
   await themeFrameDirect.evaluate(() => {
     (document.getElementById('theme-dark-btn') as HTMLButtonElement | null)?.click();
   });
@@ -59,8 +59,12 @@ test('clicking theme-switcher dark button propagates theme.changed to preference
   // Step 4: verify theme-switcher's active-state toggle (Plan 20-04 contract — button has data-active='true').
   await expect(themeFrame.locator('#theme-dark-btn')).toHaveAttribute('data-active', 'true', { timeout: 5_000 });
 
-  // Step 5: the demo host (Plan 20-06) forwards to relay.publishTheme — expect debugger to show theme.changed.
-  await expect(page.locator('napplet-debugger')).toContainText('theme broadcast — bg: ' + DARK_BG_HEX, { timeout: 8_000 });
+  // Step 5: the demo host (Plan 20-06) forwards to relay.publishTheme — expect debugger to show theme.set.
+  await expect(page.locator('napplet-debugger')).toContainText('theme set — bg: ' + DARK_BG_HEX, { timeout: 8_000 });
+
+  // Step 5b: the host shell should adopt the selected theme too.
+  const hostBodyBg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  expect(hostBodyBg).toBe(DARK_BG_RGB);
 
   // Step 6: preferences napplet (Plan 20-05 observer) receives theme.changed and updates its DOM.
   // #preferences-theme-applied textContent should equal the dark bg hex.

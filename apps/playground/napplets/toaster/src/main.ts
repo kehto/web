@@ -25,7 +25,7 @@
  * no signer-service, no kind === 29001/29002. Shim handles NIP-5D envelopes.
  */
 import '@napplet/shim';
-import { installNapTheme } from '../../shared-theme';
+import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
 import { notifyDismiss as notifyDismissHelper } from '@napplet/nap/notify/sdk';
 
 const REQUIRED_NAPS = ['notify', 'theme'] as const;
@@ -60,7 +60,12 @@ function log(text: string): void {
 
 function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void {
   statusEl.textContent = text;
-  statusEl.style.color = color === 'green' ? '#39ff14' : color === 'red' ? '#ff3b3b' : '#888';
+  statusEl.style.color =
+    color === 'green'
+      ? 'var(--nap-theme-success, #39ff14)'
+      : color === 'red'
+        ? 'var(--nap-theme-danger, #ff3b3b)'
+        : 'var(--nap-theme-muted, #888)';
 }
 
 function getMissingRequiredNaps(): string[] {
@@ -199,6 +204,9 @@ async function init(): Promise<void> {
     throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);
   }
   installNapTheme();
+  onNapThemeChanged((theme) => {
+    applyNapTheme(theme);
+  });
   setStatus('ready', 'green');
   log('ready to notify');
 }

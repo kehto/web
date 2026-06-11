@@ -9,8 +9,8 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'JetBrains Mono', monospace;
-      background: #0a0a0f;
-      color: #e0e0e0;
+      background: var(--nap-theme-background, #f6f5ef);
+      color: var(--nap-theme-text, #1c1c1c);
       font-size: 11px;
       height: 100vh;
       overflow: hidden;
@@ -28,62 +28,62 @@
       gap: 6px;
     }
     .composer-status {
-      color: #888;
+      color: var(--nap-theme-muted, #666);
       font-size: 10px;
       padding: 2px 0;
     }
     .composer-log {
       flex: 1;
       overflow-y: auto;
-      background: #0d0d14;
-      border: 1px solid #1e1e2e;
+      background: var(--nap-theme-surface-2, #ece9df);
+      border: 1px solid var(--nap-theme-border, #c9c6ba);
       padding: 6px;
       font-size: 10px;
     }
     input[type="text"] {
       flex: 1;
-      background: #12121a;
-      border: 1px solid #2a2a3a;
-      color: #e0e0e0;
+      background: var(--nap-theme-surface-1, #f4f1e7);
+      border: 1px solid var(--nap-theme-border, #cfcabf);
+      color: var(--nap-theme-text, #1c1c1c);
       padding: 4px 6px;
       font-family: inherit;
       font-size: 11px;
     }
     input[type="text"]::placeholder {
-      color: #444;
+      color: var(--nap-theme-muted, #666);
     }
     input[type="checkbox"] {
-      accent-color: #39ff14;
+      accent-color: var(--nap-theme-success, #39ff14);
     }
     label {
       display: flex;
       align-items: center;
       gap: 4px;
-      color: #aaa;
+      color: var(--nap-theme-muted, #666);
       cursor: pointer;
     }
     button {
-      background: #1a1a2e;
-      border: 1px solid #3a3a5a;
-      color: #e0e0e0;
+      background: var(--nap-theme-surface-1, #f4f1e7);
+      border: 1px solid var(--nap-theme-border, #cfcabf);
+      color: var(--nap-theme-text, #1c1c1c);
       padding: 4px 12px;
       font-family: inherit;
       font-size: 11px;
       cursor: pointer;
     }
     button:hover {
-      background: #2a2a4e;
+      background: var(--nap-theme-surface-3, #e6e1d2);
     }
     .composer-log-entry {
       padding: 1px 0;
       line-height: 1.4;
-      color: #888;
+      color: var(--nap-theme-muted, #666);
     }
     #composer-log {
       flex: 1;
       overflow-y: auto;
-      background: #0d0d14;
-      border: 1px solid #1e1e2e;
+      background: var(--nap-theme-surface-2, #ece9df);
+      border: 1px solid var(--nap-theme-border, #c9c6ba);
       padding: 6px;
       font-size: 10px;
     }

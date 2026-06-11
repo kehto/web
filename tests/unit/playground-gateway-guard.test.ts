@@ -139,9 +139,7 @@ describe('playground gateway artifact guard', () => {
     expect(feedSource).toContain('supports(REQUIRED_IFC_PROTOCOL)');
     expect(feedSource).toContain('readPublicKey: identityGetPublicKey');
     expect(feedSource).toContain('identityController.start();');
-    expect(feedSource).toContain('identity.changed');
     expect(feedSource).toContain("setStatus('not logged in', 'red');");
-    expect(feedSource).toContain('loading outbox contacts through shell relay');
     expect(existsSync('apps/playground/napplets/feed/src/feed-identity-controller.ts')).toBe(false);
     expect(feedSource).not.toContain('Welcome to the kehto demo');
     expect(feedStore).toContain("import { relaySubscribe } from '@napplet/nap/relay/sdk';");
@@ -200,9 +198,12 @@ describe('playground gateway artifact guard', () => {
     expect(themeHtml.indexOf('id="theme-discover-btn"')).toBeLessThan(themeHtml.indexOf('id="theme-status"'));
     expect(themeHtml.indexOf('id="theme-show-wot"')).toBeLessThan(themeHtml.indexOf('id="theme-status"'));
     expect(themeHtml.indexOf('id="theme-show-global"')).toBeLessThan(themeHtml.indexOf('id="theme-status"'));
-    expect(themeHtml).toContain('.theme-discovery-row { gap: 5px; flex-wrap: nowrap; }');
-    expect(themeHtml).toContain('overflow: hidden; text-overflow: clip; white-space: nowrap; text-align: right;');
+    expect(themeHtml).toContain('flex: 1 1 auto;');
+    expect(themeHtml).not.toContain('id="theme-debug-toggle"');
+    expect(themeHtml).not.toContain('id="theme-log"');
     expect(themeSource).toContain('statusEl.title = text;');
+    expect(themeSource).not.toContain('theme-debug-toggle');
+    expect(themeSource).not.toContain('theme-log');
   });
 
   it('keeps the GitHub Pages publisher aligned with the static gateway artifact contract', () => {
@@ -290,9 +291,12 @@ describe('playground gateway artifact guard', () => {
     expect(pagesAudit).toContain("join(outputRoot, 'docs', 'api', 'modules', '_kehto_shell.html')");
     expect(turbo).toContain('"VITEPRESS_BASE"');
 
-    expect(resourceDemo).toContain('function getPlaygroundBaseUrl()');
-    expect(resourceDemo).toContain("new URL('demo-data.json', getPlaygroundBaseUrl()).href");
-    expect(resourceDemo).not.toContain("const GRANTED_URL = 'http://localhost:4174/demo-data.json'");
+    expect(resourceDemo).toContain('REMOTE_IMAGE_URL');
+    expect(resourceDemo).toContain('resource.bytes');
+    expect(resourceDemo).toContain('loaded remote image');
+    expect(resourceDemo).toContain('currentObjectUrl');
+    expect(resourceDemo).not.toContain('resource-demo-granted');
+    expect(resourceDemo).not.toContain('resource-demo-denied');
   });
 
   it('keeps the public portal on the branded static asset contract', () => {

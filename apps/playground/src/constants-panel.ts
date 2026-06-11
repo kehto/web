@@ -30,7 +30,7 @@ function escapeHtml(s: string): string {
 function flashConstantRow(key: string): void {
   const row = document.querySelector(`[data-const-key="${key}"]`) as HTMLElement | null;
   if (!row) return;
-  row.style.background = 'rgba(57,255,20,0.08)';
+  row.style.background = 'var(--nap-theme-primary-soft, rgba(57,255,20,0.08))';
   setTimeout(() => { row.style.background = 'transparent'; }, 400);
 }
 
@@ -52,23 +52,23 @@ function renderConstantRow(def: ConstantDef): string {
 
   if (!def.editable) {
     return `
-      <div class="const-row" data-const-key="${escapedKey}" style="padding:6px 0;border-bottom:1px solid #1a1a28;position:relative">
+      <div class="const-row" data-const-key="${escapedKey}" style="padding:6px 0;border-bottom:1px solid var(--nap-theme-border, #1a1a28);position:relative">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <span style="font-size:10px;color:#d0d4e8">${escapeHtml(def.label)}</span>
-          <span style="font-size:9px;color:#666">${escapeHtml(def.unit || 'kind')}</span>
+          <span style="font-size:10px;color:var(--nap-theme-text, #d0d4e8)">${escapeHtml(def.label)}</span>
+          <span style="font-size:9px;color:var(--nap-theme-muted, #666)">${escapeHtml(def.unit || 'kind')}</span>
         </div>
-        <div style="font-size:12px;color:#62d0ff;padding:2px 0">${formatValue(def)}</div>
-        <div style="font-size:9px;color:#555;margin-top:2px">${escapeHtml(def.description)}</div>
+        <div style="font-size:12px;color:var(--nap-theme-info, #62d0ff);padding:2px 0">${formatValue(def)}</div>
+        <div style="font-size:9px;color:var(--nap-theme-muted, #555);margin-top:2px">${escapeHtml(def.description)}</div>
       </div>
     `;
   }
 
   return `
-    <div class="const-row" data-const-key="${escapedKey}" style="padding:6px 0;border-bottom:1px solid #1a1a28;position:relative">
+    <div class="const-row" data-const-key="${escapedKey}" style="padding:6px 0;border-bottom:1px solid var(--nap-theme-border, #1a1a28);position:relative">
       <div class="const-modified-dot" style="display:${dotDisplay}"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <span style="font-size:10px;color:#d0d4e8">${escapeHtml(def.label)}</span>
-        <span style="font-size:9px;color:#666">${escapeHtml(def.unit)}</span>
+        <span style="font-size:10px;color:var(--nap-theme-text, #d0d4e8)">${escapeHtml(def.label)}</span>
+        <span style="font-size:9px;color:var(--nap-theme-muted, #666)">${escapeHtml(def.unit)}</span>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <input type="number" class="const-number-input" data-const-input="${escapedKey}"
@@ -79,7 +79,7 @@ function renderConstantRow(def: ConstantDef): string {
           style="display:${resetDisplay}"
           title="Reset to default (${def.defaultValue})">&#8634;</button>
       </div>
-      <div style="font-size:9px;color:#555;margin-top:2px">${escapeHtml(def.description)}</div>
+      <div style="font-size:9px;color:var(--nap-theme-muted, #555);margin-top:2px">${escapeHtml(def.description)}</div>
     </div>
   `;
 }
@@ -184,26 +184,26 @@ export function renderConstantsPanel(role?: TopologyNodeRole): string {
   const toggleHtml = role ? `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0">
       <button id="constants-filter-toggle"
-        style="background:transparent;border:1px solid #2a2d42;border-radius:4px;color:${isFiltering ? '#7981a0' : '#00f0ff'};font-size:10px;cursor:pointer;padding:3px 8px;font-family:inherit"
+        style="background:transparent;border:1px solid var(--nap-theme-border, #2a2d42);border-radius:4px;color:${isFiltering ? 'var(--nap-theme-muted, #7981a0)' : 'var(--nap-theme-primary, #00f0ff)'};font-size:10px;cursor:pointer;padding:3px 8px;font-family:inherit"
       >${isFiltering ? 'Show all' : `Filter to ${role}`}</button>
-      ${isFiltering ? `<span style="font-size:9px;color:#555">filtered to ${role}</span>` : ''}
+      ${isFiltering ? `<span style="font-size:9px;color:var(--nap-theme-muted, #555)">filtered to ${role}</span>` : ''}
     </div>
   ` : '';
 
   // Role-aware empty state (per D-09, D-10)
   const emptyHtml = groups.length === 0
     ? (role && !_showAll
-      ? `<div style="padding:16px 0;color:#3a3a4a;font-size:11px;text-align:center">
-          <div style="margin-bottom:8px">no editable constants for <span style="color:#7981a0">${role}</span></div>
-          <button id="constants-empty-show-all" style="background:transparent;border:1px solid #2a2d42;border-radius:4px;color:#00f0ff;font-size:10px;cursor:pointer;padding:3px 8px;font-family:inherit">Show all</button>
+      ? `<div style="padding:16px 0;color:var(--nap-theme-muted, #3a3a4a);font-size:11px;text-align:center">
+          <div style="margin-bottom:8px">no editable constants for <span style="color:var(--nap-theme-muted, #7981a0)">${role}</span></div>
+          <button id="constants-empty-show-all" style="background:transparent;border:1px solid var(--nap-theme-border, #2a2d42);border-radius:4px;color:var(--nap-theme-primary, #00f0ff);font-size:10px;cursor:pointer;padding:3px 8px;font-family:inherit">Show all</button>
         </div>`
-      : '<div style="padding:12px 0;color:#3a3a4a;font-size:11px;text-align:center">no matching constants</div>')
+      : '<div style="padding:12px 0;color:var(--nap-theme-muted, #3a3a4a);font-size:11px;text-align:center">no matching constants</div>')
     : '';
 
   return `
     <div style="padding:12px 16px 16px;display:flex;flex-direction:column;gap:10px">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:#7c86a7">editable constants</div>
+        <div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--nap-theme-muted, #7c86a7)">editable constants</div>
         <button id="constants-reset-all" class="const-reset-all-btn" style="display:${resetAllDisplay}">Reset All</button>
       </div>
       ${toggleHtml}

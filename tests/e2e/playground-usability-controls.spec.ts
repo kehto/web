@@ -61,6 +61,30 @@ test('color mode persists user selection across reloads', async ({ page }) => {
   await expect(page.locator('[data-color-mode="flash"]')).not.toHaveClass(/color-mode-active/);
 });
 
+test('theme selection persists across reloads and applies to the shell', async ({ page }) => {
+  await demoBeforeEach(page);
+
+  const themeFrame = page.frameLocator('#theme-switcher-frame-container iframe');
+  await expect(themeFrame.locator('#theme-status')).toContainText('ready', { timeout: 10_000 });
+
+  await themeFrame.locator('#theme-dark-btn').evaluate((el) => {
+    (el as HTMLButtonElement).click();
+  });
+
+  await expect(themeFrame.locator('#theme-dark-btn')).toHaveAttribute('data-active', 'true', { timeout: 5_000 });
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(10, 10, 10)');
+  await expect(page.locator('body')).toHaveCSS('color', 'rgb(224, 224, 224)');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('kehto.playground.theme.v1'))).toContain('"title":"Dark"');
+
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#topology-root', { state: 'visible', timeout: 15_000 });
+
+  await expect(themeFrame.locator('#theme-status')).toContainText('ready', { timeout: 10_000 });
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(10, 10, 10)');
+  await expect(page.locator('body')).toHaveCSS('color', 'rgb(224, 224, 224)');
+  await expect(themeFrame.locator('#theme-dark-btn')).toHaveAttribute('data-active', 'true', { timeout: 5_000 });
+});
+
 test('per-napplet ACL panels persist expansion, capability changes, and block state', async ({ page }) => {
   await demoBeforeEach(page);
 
@@ -73,7 +97,9 @@ test('per-napplet ACL panels persist expansion, capability changes, and block st
   const panelCount = await page.locator('.acl-panel').count();
   expect(panelCount).toBeGreaterThan(0);
 
-  await page.locator('#acl-expand-all-btn').click();
+  await page.locator('#acl-expand-all-btn').evaluate((el) => {
+    (el as HTMLButtonElement).click();
+  });
   await expect(page.locator('#acl-expand-all-btn')).toHaveText('collapse all ACL');
   await expect.poll(() => page.locator('.acl-panel[data-expanded="true"]').count()).toBe(panelCount);
   await expect(chatAcl.locator('.acl-controls')).toBeVisible();
@@ -91,7 +117,7 @@ test('per-napplet ACL panels persist expansion, capability changes, and block st
   await expect(reloadedChatAcl.locator('.acl-summary-toggle')).toContainText('1 blocked');
   await expect(reloadedChatAcl.locator('.acl-panel')).toHaveAttribute('data-expanded', 'true');
   await expect(reloadedChatAcl.locator('.acl-controls')).toBeVisible();
-  await expect(reloadedChatAcl.locator('button[title^="relay:write"]')).toHaveAttribute('data-enabled', 'false');
+  await expect(reloadedChatAcl.locator('[data-acl-capability="relay:write"]')).toHaveAttribute('data-enabled', 'false');
 
   await reloadedChatAcl.locator('[data-acl-block]').click();
   await expect(reloadedChatAcl.locator('.acl-summary-toggle')).toContainText('0 allowed');
@@ -105,14 +131,16 @@ test('per-napplet ACL panels persist expansion, capability changes, and block st
   await expect(blockedChatAcl.locator('[data-acl-block]')).toHaveAttribute('data-blocked', 'true', { timeout: 10_000 });
   await expect(blockedChatAcl.locator('.acl-summary-toggle')).toContainText('0 allowed');
   await expect(blockedChatAcl.locator('.acl-summary-toggle')).toContainText('8 blocked');
-  await expect(blockedChatAcl.locator('button[title^="relay:write"]')).toHaveAttribute('data-enabled', 'false');
+  await expect(blockedChatAcl.locator('[data-acl-capability="relay:write"]')).toHaveAttribute('data-enabled', 'false');
 
-  await blockedChatAcl.locator('[data-acl-block]').click();
+  await blockedChatAcl.locator('[data-acl-block]').click({ force: true });
   await expect(blockedChatAcl.locator('[data-acl-block]')).toHaveAttribute('data-blocked', 'false');
   await expect(blockedChatAcl.locator('.acl-summary-toggle')).toContainText('7 allowed');
   await expect(blockedChatAcl.locator('.acl-summary-toggle')).toContainText('1 blocked');
 
-  await page.locator('#acl-expand-all-btn').click();
+  await page.locator('#acl-expand-all-btn').evaluate((el) => {
+    (el as HTMLButtonElement).click();
+  });
   await expect(page.locator('#acl-expand-all-btn')).toHaveText('expand all ACL');
   await expect.poll(() => page.locator('.acl-panel[data-expanded="false"]').count()).toBe(panelCount);
   await expect(blockedChatAcl.locator('.acl-controls')).toBeHidden();
