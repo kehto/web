@@ -53,6 +53,7 @@ const policyAllowlistTypes = [
   'notify.create',
   'notify.list',
   'resource.bytes',
+  'identity.changed',
   'theme.changed',
 ] as const;
 

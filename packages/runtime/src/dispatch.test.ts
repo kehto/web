@@ -119,9 +119,9 @@ describe('NIP-5D Envelope Dispatch', () => {
 
     it('routes identity.* to identity handler', () => {
       runtime.handleMessage(WINDOW_ID, { type: 'identity.getPublicKey', id: 'req-1' } as NappletMessage);
-      // No signer configured — fallback path emits identity.getPublicKey.error
-      const err = findEnvelopeResponse(ctx.sent, 'identity.getPublicKey.error');
-      expect(err).toBeDefined();
+      const result = findEnvelopeResponse(ctx.sent, 'identity.getPublicKey.result');
+      expect(result).toBeDefined();
+      expect((result as any).pubkey).toBe('');
     });
 
     it('routes storage.* to storage handler', () => {
@@ -264,11 +264,11 @@ describe('NIP-5D Envelope Dispatch', () => {
   // ─── Identity Handler ───────────────────────────────────────────────────────
 
   describe('identity handler', () => {
-    it('identity.getPublicKey returns error when no signer configured', () => {
+    it('identity.getPublicKey returns empty pubkey when no signer configured', () => {
       runtime.handleMessage(WINDOW_ID, { type: 'identity.getPublicKey', id: 'req-1' } as NappletMessage);
-      const err = findEnvelopeResponse(ctx.sent, 'identity.getPublicKey.error');
-      expect(err).toBeDefined();
-      expect((err as any).error).toContain('no signer');
+      const result = findEnvelopeResponse(ctx.sent, 'identity.getPublicKey.result');
+      expect(result).toBeDefined();
+      expect((result as any).pubkey).toBe('');
     });
 
     it('identity.getPublicKey returns pubkey when signer is configured', async () => {
@@ -407,15 +407,14 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect((err as any).error).toBe('policy-denied');
     });
 
-    it('identity.getPublicKey bypasses ACL (senderCap is null pre-12-10)', () => {
+    it('identity.getPublicKey bypasses ACL and returns the signed-out sentinel', () => {
       // resolveCapabilitiesNub returns { senderCap: null, recipientCap: null } for
       // identity.* pre-Plan-12-10. The envelope therefore reaches the handler even
-      // when the napplet is blocked; the only failure is "no signer".
+      // when the napplet is blocked.
       runtime.handleMessage(WINDOW_ID, { type: 'identity.getPublicKey', id: 'req-pk-acl' } as NappletMessage);
-      const err = findEnvelopeResponse(ctx.sent, 'identity.getPublicKey.error');
-      expect(err).toBeDefined();
-      expect((err as any).error).not.toContain('denied');
-      expect((err as any).error).toContain('no signer');
+      const result = findEnvelopeResponse(ctx.sent, 'identity.getPublicKey.result');
+      expect(result).toBeDefined();
+      expect((result as any).pubkey).toBe('');
     });
   });
 
@@ -658,18 +657,15 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect((err as any).error).toBeDefined();
     });
 
-    it('identity.getPublicKey bypasses ACL (no capability required pre-12-10)', () => {
+    it('identity.getPublicKey bypasses ACL with signed-out sentinel', () => {
       // Even with napplet blocked, getPublicKey should pass ACL (senderCap is null)
-      // but fail because no signer is configured. Plan 12-10 will add identity:read.
       runtime.aclState.block('', TEST_DTAG, TEST_HASH);
 
       runtime.handleMessage(WINDOW_ID, { type: 'identity.getPublicKey', id: 'req-pk-blocked' } as NappletMessage);
 
-      // Should NOT get ACL error — should get identity error instead
-      const aclErr = findEnvelopeResponse(ctx.sent, 'identity.getPublicKey.error');
-      expect(aclErr).toBeDefined();
-      // Error is about missing signer, not ACL
-      expect((aclErr as any).error).toContain('no signer');
+      const result = findEnvelopeResponse(ctx.sent, 'identity.getPublicKey.result');
+      expect(result).toBeDefined();
+      expect((result as any).pubkey).toBe('');
     });
 
     it('ifc.subscribe bypasses ACL (relay:read required, granted by default)', () => {

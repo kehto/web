@@ -197,6 +197,45 @@ describe('ShellBridge.publishTheme (TH-03, Plan 13-02)', () => {
   });
 });
 
+describe('ShellBridge.publishIdentityChanged', () => {
+  beforeEach(() => {
+    originRegistry.clear();
+  });
+
+  afterEach(() => {
+    originRegistry.clear();
+  });
+
+  it('broadcasts identity.changed to every loaded napplet window', () => {
+    const iframeA = makeFakeIframe();
+    const iframeB = makeFakeIframe();
+    originRegistry.register(iframeA as unknown as Window, 'win-A');
+    originRegistry.register(iframeB as unknown as Window, 'win-B');
+
+    const bridge = createShellBridge(makeTestHooks());
+    const pubkey = 'a'.repeat(64);
+
+    bridge.publishIdentityChanged(pubkey);
+
+    const expectedEnvelope = { type: 'identity.changed', pubkey };
+    expect(iframeA.postMessage).toHaveBeenCalledWith(expectedEnvelope, '*');
+    expect(iframeB.postMessage).toHaveBeenCalledWith(expectedEnvelope, '*');
+
+    bridge.destroy();
+  });
+
+  it('uses an empty pubkey to broadcast signed-out state', () => {
+    const iframe = makeFakeIframe();
+    originRegistry.register(iframe as unknown as Window, 'win-A');
+    const bridge = createShellBridge(makeTestHooks());
+
+    bridge.publishIdentityChanged('');
+
+    expect(iframe.postMessage).toHaveBeenCalledWith({ type: 'identity.changed', pubkey: '' }, '*');
+    bridge.destroy();
+  });
+});
+
 // ─── NIP-5D source validation ───────────────────────────────────────────────
 
 describe('ShellBridge.handleMessage source validation', () => {

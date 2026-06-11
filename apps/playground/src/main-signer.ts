@@ -192,11 +192,23 @@ async function runTestSign(debuggerEl: NappletDebugger | null): Promise<void> {
   }
 }
 
-export function initSignerNodeUi(debuggerEl: NappletDebugger | null): SignerNodeUiController {
+export function initSignerNodeUi(
+  debuggerEl: NappletDebugger | null,
+  publishIdentityChanged?: (pubkey: string) => void,
+): SignerNodeUiController {
   const signerNodeId = getServiceNodeId('signer');
+  let lastPublishedIdentity: string | null = null;
 
   onStateChange((state) => {
     updateSignerNodeDisplay(signerNodeId, state);
+
+    const currentIdentity = state.method !== 'none' && !state.isConnecting && !state.error
+      ? state.pubkey ?? ''
+      : '';
+    if (currentIdentity !== lastPublishedIdentity) {
+      lastPublishedIdentity = currentIdentity;
+      publishIdentityChanged?.(currentIdentity);
+    }
 
     if (state.method !== 'none' && !state.isConnecting && !state.error) {
       debuggerEl?.addSystemMessage(`signer connected via ${state.method}: ${state.pubkey?.substring(0, 16)}...`);

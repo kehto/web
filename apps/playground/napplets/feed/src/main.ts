@@ -7,7 +7,7 @@ import { identityGetPublicKey } from '@napplet/nap/identity/sdk';
 import { ifcEmit } from '@napplet/nap/ifc/sdk';
 import type { NostrEvent } from '@napplet/core';
 import { createFeedStore, type FeedProfile } from './feed-store.js';
-import { createFeedIdentityController } from './feed-identity-controller.js';
+import { createFeedIdentityEventController } from './feed-identity-events.js';
 
 const REQUIRED_NAPS = ['identity', 'relay', 'ifc', 'theme'] as const;
 const REQUIRED_IFC_PROTOCOL = 'ifc:NAP-01';
@@ -223,21 +223,21 @@ function renderState(): void {
   }
 }
 
-const identityController = createFeedIdentityController({
+const identityController = createFeedIdentityEventController({
   readPublicKey: identityGetPublicKey,
   onLoggedOut: () => {
     store.clear();
     setStatus('not logged in', 'red');
     if (!waitingForSignerLogged) {
       waitingForSignerLogged = true;
-      log('identity.getPublicKey — empty; waiting for signer');
+      log('identity snapshot empty; waiting for identity.changed');
     } else {
-      log('identity.getPublicKey — empty; feed not subscribed');
+      log('identity.changed empty; feed not subscribed');
     }
   },
   onPubkey: (pubkey) => {
     waitingForSignerLogged = false;
-    log(`identity.getPublicKey — ${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`);
+    log(`identity active — ${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`);
     log('loading outbox contacts through shell relay');
     store.init(pubkey);
     setStatus('subscribed', 'green');

@@ -12,7 +12,8 @@ import {
   serialize, deserialize, getQuota,
   CAP_RELAY_READ, CAP_RELAY_WRITE, CAP_CACHE_READ, CAP_CACHE_WRITE,
   CAP_HOTKEY_FORWARD,
-  CAP_STATE_READ, CAP_STATE_WRITE, CAP_ALL,
+  CAP_STATE_READ, CAP_STATE_WRITE,
+  toKey,
 } from '@kehto/acl';
 import type { AclPersistence, AclEntryExternal } from './types.js';
 
@@ -46,6 +47,8 @@ const CAP_MAP: Record<Capability, number> = {
   'resource:fetch': CAP_RESOURCE_FETCH,
   'identity:decrypt': CAP_IDENTITY_DECRYPT,
 };
+
+const RUNTIME_CAP_ALL = Object.values(CAP_MAP).reduce((bits, bit) => bits | bit, 0);
 
 function capToBit(cap: Capability): number {
   return CAP_MAP[cap] ?? 0;
@@ -110,6 +113,12 @@ export function createAclState(
 ): AclStateContainer {
   let state: AclState = createState(defaultPolicy);
 
+  function ensureRuntimeDefaultEntry(id: Identity): void {
+    if (state.defaultPolicy !== 'permissive') return;
+    if (state.entries[toKey(id)]) return;
+    state = grant(state, id, RUNTIME_CAP_ALL);
+  }
+
   return {
     check(pubkey: string, dTag: string, aggregateHash: string, capability: Capability): boolean {
       const id = toIdentity(pubkey, dTag, aggregateHash);
@@ -118,29 +127,33 @@ export function createAclState(
 
     grant(pubkey: string, dTag: string, aggregateHash: string, capability: Capability): void {
       const id = toIdentity(pubkey, dTag, aggregateHash);
+      ensureRuntimeDefaultEntry(id);
       state = grant(state, id, capToBit(capability));
     },
 
     revoke(pubkey: string, dTag: string, aggregateHash: string, capability: Capability): void {
       const id = toIdentity(pubkey, dTag, aggregateHash);
+      ensureRuntimeDefaultEntry(id);
       state = revoke(state, id, capToBit(capability));
     },
 
     block(pubkey: string, dTag: string, aggregateHash: string): void {
       const id = toIdentity(pubkey, dTag, aggregateHash);
+      ensureRuntimeDefaultEntry(id);
       state = block(state, id);
     },
 
     unblock(pubkey: string, dTag: string, aggregateHash: string): void {
       const id = toIdentity(pubkey, dTag, aggregateHash);
+      ensureRuntimeDefaultEntry(id);
       state = unblock(state, id);
     },
 
     isBlocked(pubkey: string, dTag: string, aggregateHash: string): boolean {
       const id = toIdentity(pubkey, dTag, aggregateHash);
-      // A blocked identity fails all checks — check with CAP_ALL
+      // A blocked identity fails all checks — check with all runtime caps.
       // If blocked, check returns false even for all caps
-      return !check(state, id, CAP_ALL) && this.getEntry(pubkey, dTag, aggregateHash)?.blocked === true;
+      return !check(state, id, RUNTIME_CAP_ALL) && this.getEntry(pubkey, dTag, aggregateHash)?.blocked === true;
     },
 
     getEntry(pubkey: string, dTag: string, aggregateHash: string): AclEntryExternal | undefined {

@@ -45,7 +45,23 @@ test('napplet height control defaults to 330px and persists user changes', async
   await expect.poll(() => chatFrameSlotHeight(page)).toBe(420);
 });
 
-test('per-napplet ACL panels start collapsed and can expand or collapse together', async ({ page }) => {
+test('color mode persists user selection across reloads', async ({ page }) => {
+  await openFreshPlayground(page);
+
+  await expect(page.locator('[data-color-mode="flash"]')).toHaveClass(/color-mode-active/);
+
+  await page.locator('[data-color-mode="last-message"]').click();
+  await expect(page.locator('[data-color-mode="last-message"]')).toHaveClass(/color-mode-active/);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('kehto.playground.colorMode'))).toBe('last-message');
+
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#topology-root', { state: 'visible', timeout: 15_000 });
+
+  await expect(page.locator('[data-color-mode="last-message"]')).toHaveClass(/color-mode-active/);
+  await expect(page.locator('[data-color-mode="flash"]')).not.toHaveClass(/color-mode-active/);
+});
+
+test('per-napplet ACL panels persist expansion, capability changes, and block state', async ({ page }) => {
   await demoBeforeEach(page);
 
   const chatAcl = page.locator('#chat-acl');
@@ -65,11 +81,46 @@ test('per-napplet ACL panels start collapsed and can expand or collapse together
   await chatAcl.locator('button[title^="relay:write"]').click();
   await expect(chatAcl.locator('.acl-summary-toggle')).toContainText('7 allowed');
   await expect(chatAcl.locator('.acl-summary-toggle')).toContainText('1 blocked');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('napplet:acl'))).not.toBeNull();
+
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#topology-root', { state: 'visible', timeout: 15_000 });
+
+  const reloadedChatAcl = page.locator('#chat-acl');
+  await expect(reloadedChatAcl.locator('.acl-summary-toggle')).toContainText('7 allowed', { timeout: 10_000 });
+  await expect(reloadedChatAcl.locator('.acl-summary-toggle')).toContainText('1 blocked');
+  await expect(reloadedChatAcl.locator('.acl-panel')).toHaveAttribute('data-expanded', 'true');
+  await expect(reloadedChatAcl.locator('.acl-controls')).toBeVisible();
+  await expect(reloadedChatAcl.locator('button[title^="relay:write"]')).toHaveAttribute('data-enabled', 'false');
+
+  await reloadedChatAcl.locator('[data-acl-block]').click();
+  await expect(reloadedChatAcl.locator('.acl-summary-toggle')).toContainText('0 allowed');
+  await expect(reloadedChatAcl.locator('.acl-summary-toggle')).toContainText('8 blocked');
+  await expect(reloadedChatAcl.locator('[data-acl-block]')).toHaveAttribute('data-blocked', 'true');
+
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#topology-root', { state: 'visible', timeout: 15_000 });
+
+  const blockedChatAcl = page.locator('#chat-acl');
+  await expect(blockedChatAcl.locator('[data-acl-block]')).toHaveAttribute('data-blocked', 'true', { timeout: 10_000 });
+  await expect(blockedChatAcl.locator('.acl-summary-toggle')).toContainText('0 allowed');
+  await expect(blockedChatAcl.locator('.acl-summary-toggle')).toContainText('8 blocked');
+  await expect(blockedChatAcl.locator('button[title^="relay:write"]')).toHaveAttribute('data-enabled', 'false');
+
+  await blockedChatAcl.locator('[data-acl-block]').click();
+  await expect(blockedChatAcl.locator('[data-acl-block]')).toHaveAttribute('data-blocked', 'false');
+  await expect(blockedChatAcl.locator('.acl-summary-toggle')).toContainText('7 allowed');
+  await expect(blockedChatAcl.locator('.acl-summary-toggle')).toContainText('1 blocked');
 
   await page.locator('#acl-expand-all-btn').click();
   await expect(page.locator('#acl-expand-all-btn')).toHaveText('expand all ACL');
   await expect.poll(() => page.locator('.acl-panel[data-expanded="false"]').count()).toBe(panelCount);
-  await expect(chatAcl.locator('.acl-controls')).toBeHidden();
+  await expect(blockedChatAcl.locator('.acl-controls')).toBeHidden();
+
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#topology-root', { state: 'visible', timeout: 15_000 });
+  await expect(page.locator('#chat-acl .acl-panel')).toHaveAttribute('data-expanded', 'false', { timeout: 10_000 });
+  await expect(page.locator('#chat-acl .acl-controls')).toBeHidden();
 });
 
 test('debugger pane can be hidden and restored across reloads', async ({ page }) => {

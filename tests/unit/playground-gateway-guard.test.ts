@@ -133,14 +133,16 @@ describe('playground gateway artifact guard', () => {
     expect(feedSource).toContain("import { identityGetPublicKey } from '@napplet/nap/identity/sdk';");
     expect(feedSource).toContain("import { ifcEmit } from '@napplet/nap/ifc/sdk';");
     expect(feedSource).toContain("import { createFeedStore, type FeedProfile } from './feed-store.js';");
-    expect(feedSource).toContain("import { createFeedIdentityController } from './feed-identity-controller.js';");
+    expect(feedSource).toContain("import { createFeedIdentityEventController } from './feed-identity-events.js';");
     expect(feedSource).toContain("const REQUIRED_NAPS = ['identity', 'relay', 'ifc', 'theme'] as const;");
     expect(feedSource).toContain("const REQUIRED_IFC_PROTOCOL = 'ifc:NAP-01';");
     expect(feedSource).toContain('supports(REQUIRED_IFC_PROTOCOL)');
     expect(feedSource).toContain('readPublicKey: identityGetPublicKey');
     expect(feedSource).toContain('identityController.start();');
+    expect(feedSource).toContain('identity.changed');
     expect(feedSource).toContain("setStatus('not logged in', 'red');");
     expect(feedSource).toContain('loading outbox contacts through shell relay');
+    expect(existsSync('apps/playground/napplets/feed/src/feed-identity-controller.ts')).toBe(false);
     expect(feedSource).not.toContain('Welcome to the kehto demo');
     expect(feedStore).toContain("import { relaySubscribe } from '@napplet/nap/relay/sdk';");
     expect(feedStore).toContain('[{ kinds: [3], authors: [pubkey] }]');
@@ -188,6 +190,19 @@ describe('playground gateway artifact guard', () => {
     expect(profileHtml).toContain('id="profile-picture"');
     expect(profileHtml).toContain('id="profile-details"');
     expect(profileSource).toContain('Select a profile from the feed.');
+  });
+
+  it('keeps theme discovery controls visible before status text in the clipped card top row', () => {
+    const themeHtml = readRepoFile('apps/playground/napplets/theme-switcher/index.html');
+    const themeSource = readRepoFile('apps/playground/napplets/theme-switcher/src/main.ts');
+
+    expect(themeHtml).toContain('class="theme-row theme-row-wrap theme-discovery-row"');
+    expect(themeHtml.indexOf('id="theme-discover-btn"')).toBeLessThan(themeHtml.indexOf('id="theme-status"'));
+    expect(themeHtml.indexOf('id="theme-show-wot"')).toBeLessThan(themeHtml.indexOf('id="theme-status"'));
+    expect(themeHtml.indexOf('id="theme-show-global"')).toBeLessThan(themeHtml.indexOf('id="theme-status"'));
+    expect(themeHtml).toContain('.theme-discovery-row { gap: 5px; flex-wrap: nowrap; }');
+    expect(themeHtml).toContain('overflow: hidden; text-overflow: clip; white-space: nowrap; text-align: right;');
+    expect(themeSource).toContain('statusEl.title = text;');
   });
 
   it('keeps the GitHub Pages publisher aligned with the static gateway artifact contract', () => {

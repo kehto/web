@@ -122,6 +122,18 @@ export interface ShellBridge {
   publishTheme(theme: Theme): void;
 
   /**
+   * Publish the current shell-user identity to every loaded napplet.
+   *
+   * Posts an `identity.changed` envelope (shell → napplet push) with the
+   * current user pubkey. An empty pubkey means no signer/user identity is
+   * currently connected. This is distinct from NIP-5D napplet session identity,
+   * which remains source-bound at iframe creation.
+   *
+   * @param pubkey - Current user's hex pubkey, or empty string when signed out.
+   */
+  publishIdentityChanged(pubkey: string): void;
+
+  /**
    * Access the underlying runtime instance for advanced use cases.
    * Provides direct access to the runtime's sessionRegistry, aclState,
    * and manifestCache.
@@ -178,6 +190,20 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
   });
 
   const runtime: Runtime = createRuntime(runtimeHooks);
+
+  function broadcastToNapplets(envelope: NappletMessage): void {
+    // Use originRegistry.getAllWindowIds() rather than sessionRegistry.getAllEntries()
+    // because demo napplets share pubkey:'' — the byPubkey map only retains one entry
+    // per pubkey key, so getAllEntries() would return only the last-registered napplet
+    // when multiple napplets have the same (empty) pubkey. originRegistry is keyed by
+    // Window reference so it has one entry per distinct iframe regardless of pubkey.
+    const windowIds = originRegistry.getAllWindowIds();
+    for (const windowId of windowIds) {
+      const win = originRegistry.getIframeWindow(windowId);
+      if (!win) continue;
+      win.postMessage(envelope, '*');
+    }
+  }
 
   // Attach the host-keydown forwarder (Plan 12-11 / NUB-05 shell half).
   // Skips construction in DOM-less environments (SSR / early Node tests);
@@ -310,17 +336,12 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
 
     publishTheme(theme: Theme): void {
       const envelope: NappletMessage = { type: 'theme.changed', theme } as NappletMessage;
-      // Use originRegistry.getAllWindowIds() rather than sessionRegistry.getAllEntries()
-      // because demo napplets share pubkey:'' — the byPubkey map only retains one entry
-      // per pubkey key, so getAllEntries() would return only the last-registered napplet
-      // when multiple napplets have the same (empty) pubkey. originRegistry is keyed by
-      // Window reference so it has one entry per distinct iframe regardless of pubkey.
-      const windowIds = originRegistry.getAllWindowIds();
-      for (const windowId of windowIds) {
-        const win = originRegistry.getIframeWindow(windowId);
-        if (!win) continue;
-        win.postMessage(envelope, '*');
-      }
+      broadcastToNapplets(envelope);
+    },
+
+    publishIdentityChanged(pubkey: string): void {
+      const envelope: NappletMessage = { type: 'identity.changed', pubkey } as NappletMessage;
+      broadcastToNapplets(envelope);
     },
 
     get runtime() {

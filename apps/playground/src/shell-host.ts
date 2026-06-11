@@ -128,6 +128,7 @@ let nappletCounter = 0;
 
 const serviceHandlerStore = new Map<string, ServiceHandler>();
 const disabledServices = new Set<string>();
+const SERVICE_STATE_STORAGE_KEY = 'kehto.playground.disabledServices.v1';
 
 export let tap: MessageTap;
 export let relay: ShellBridge;
@@ -236,6 +237,34 @@ function wrapRuntimeServiceRegistration(): void {
   };
 }
 
+function readPersistedDisabledServices(): string[] {
+  try {
+    const raw = localStorage.getItem(SERVICE_STATE_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((name): name is string => typeof name === 'string' && name.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+function persistDisabledServices(): void {
+  try {
+    localStorage.setItem(SERVICE_STATE_STORAGE_KEY, JSON.stringify([...disabledServices].sort()));
+  } catch {
+    // Storage can be unavailable; service toggles still apply for this session.
+  }
+}
+
+function applyPersistedServiceState(): void {
+  for (const name of readPersistedDisabledServices()) {
+    if (!serviceHandlerStore.has(name)) continue;
+    disabledServices.add(name);
+    relay.runtime.unregisterService(name);
+  }
+}
+
 function wrapRelayHandleMessage(messageTap: MessageTap): void {
   const originalHandle = relay.handleMessage;
   relay.handleMessage = (event: MessageEvent) => {
@@ -319,6 +348,7 @@ function grantLoadedNappletCapability(name: string, capability: Capability): boo
     entry.info.aggregateHash ?? '',
     capability,
   );
+  relay.runtime.aclState.persist();
   return true;
 }
 
@@ -370,6 +400,7 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
   setDemoSessionRegistryRef(relay.runtime.sessionRegistry);
   populateServiceHandlerStore(hooks.services);
   wrapRuntimeServiceRegistration();
+  applyPersistedServiceState();
   wrapRelayHandleMessage(tap);
 
   window.addEventListener("message", relay.handleMessage);
@@ -530,6 +561,7 @@ export function toggleCapability(windowId: string, capability: Capability, enabl
   } else {
     relay.runtime.aclState.revoke(pubkey, dTag, hash, capability);
   }
+  relay.runtime.aclState.persist();
 }
 
 /**
@@ -550,6 +582,7 @@ export function toggleService(name: string, enabled: boolean): void {
     disabledServices.add(name);
     relay.runtime.unregisterService(name);
   }
+  persistDisabledServices();
 }
 
 /**
@@ -571,6 +604,7 @@ export function toggleBlock(windowId: string, blocked: boolean): void {
   } else {
     relay.runtime.aclState.unblock(info.pubkey, info.dTag || '', info.aggregateHash || '');
   }
+  relay.runtime.aclState.persist();
 }
 
 export interface DemoAclAdapter {
@@ -623,22 +657,24 @@ const aclAdapter: DemoAclAdapter = {
       const dTag = info.dTag ?? '';
       const hash = info.aggregateHash ?? '';
       const entry = relay.runtime.aclState.getEntry(pk, dTag, hash);
+      const hasCapability = (capability: Capability): boolean =>
+        entry ? entry.capabilities.includes(capability) : relay.runtime.aclState.check(pk, dTag, hash, capability);
       const caps: Record<Capability, boolean> = {
-        'relay:read': relay.runtime.aclState.check(pk, dTag, hash, 'relay:read'),
-        'relay:write': relay.runtime.aclState.check(pk, dTag, hash, 'relay:write'),
-        'cache:read': relay.runtime.aclState.check(pk, dTag, hash, 'cache:read'),
-        'cache:write': relay.runtime.aclState.check(pk, dTag, hash, 'cache:write'),
-        'hotkey:forward': relay.runtime.aclState.check(pk, dTag, hash, 'hotkey:forward'),
-        'state:read': relay.runtime.aclState.check(pk, dTag, hash, 'state:read'),
-        'state:write': relay.runtime.aclState.check(pk, dTag, hash, 'state:write'),
-        'identity:read': relay.runtime.aclState.check(pk, dTag, hash, 'identity:read'),
-        'identity:decrypt': relay.runtime.aclState.check(pk, dTag, hash, 'identity:decrypt'),
-        'keys:bind': relay.runtime.aclState.check(pk, dTag, hash, 'keys:bind'),
-        'keys:forward': relay.runtime.aclState.check(pk, dTag, hash, 'keys:forward'),
-        'media:control': relay.runtime.aclState.check(pk, dTag, hash, 'media:control'),
-        'notify:send': relay.runtime.aclState.check(pk, dTag, hash, 'notify:send'),
-        'notify:channel': relay.runtime.aclState.check(pk, dTag, hash, 'notify:channel'),
-        'theme:read': relay.runtime.aclState.check(pk, dTag, hash, 'theme:read'),
+        'relay:read': hasCapability('relay:read'),
+        'relay:write': hasCapability('relay:write'),
+        'cache:read': hasCapability('cache:read'),
+        'cache:write': hasCapability('cache:write'),
+        'hotkey:forward': hasCapability('hotkey:forward'),
+        'state:read': hasCapability('state:read'),
+        'state:write': hasCapability('state:write'),
+        'identity:read': hasCapability('identity:read'),
+        'identity:decrypt': hasCapability('identity:decrypt'),
+        'keys:bind': hasCapability('keys:bind'),
+        'keys:forward': hasCapability('keys:forward'),
+        'media:control': hasCapability('media:control'),
+        'notify:send': hasCapability('notify:send'),
+        'notify:channel': hasCapability('notify:channel'),
+        'theme:read': hasCapability('theme:read'),
       };
       out.push({
         windowId,
@@ -654,8 +690,8 @@ const aclAdapter: DemoAclAdapter = {
   },
   check(windowId, capability) {
     const info = napplets.get(windowId);
-    if (!info?.pubkey) return false;
-    return relay.runtime.aclState.check(info.pubkey, info.dTag ?? '', info.aggregateHash ?? '', capability);
+    if (!info?.identityBound) return false;
+    return relay.runtime.aclState.check(info.pubkey ?? '', info.dTag ?? '', info.aggregateHash ?? '', capability);
   },
   onCheck(listener) {
     _aclCheckListeners.push(listener);

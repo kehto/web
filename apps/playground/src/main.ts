@@ -19,6 +19,7 @@ import {
   getDemoDecryptBridgeCallCount,
   resetDemoDecryptBridgeCallCount,
   type GatewayNappletMetadata,
+  isServiceEnabled,
 } from './shell-host.js';
 import { connectStore, type Capability, type NappletClass } from '@kehto/shell';
 import { createConsentModal } from './consent-modal.js';
@@ -46,6 +47,7 @@ import {
   renderDemoTopology,
   initTopologyEdges,
   wireServiceToggles,
+  updateServiceNodeVisual,
 } from './topology.js';
 import {
   buildAllNodeDetails,
@@ -64,9 +66,11 @@ const STATIC_PAGES_BASE_PATH = '/web/playground/';
 const isStaticPagesDemo = import.meta.env.BASE_URL === STATIC_PAGES_BASE_PATH;
 const NAPPLET_HEIGHT_STORAGE_KEY = 'kehto.playground.nappletHeightPx';
 const DEBUGGER_HIDDEN_STORAGE_KEY = 'kehto.playground.debuggerHidden';
+const COLOR_MODE_STORAGE_KEY = 'kehto.playground.colorMode';
 const DEFAULT_NAPPLET_HEIGHT_PX = 330;
 const MIN_NAPPLET_HEIGHT_PX = 220;
 const MAX_NAPPLET_HEIGHT_PX = 720;
+const COLOR_MODES: readonly PersistenceMode[] = ['flash', 'rolling', 'decay', 'last-message', 'trace'];
 
 if (isStaticPagesDemo) {
   document.getElementById('static-demo-banner')?.removeAttribute('hidden');
@@ -100,6 +104,19 @@ function readStoredBoolean(key: string, fallback: boolean): boolean {
     return stored === 'true';
   } catch {
     return fallback;
+  }
+}
+
+function isPersistenceMode(value: string | null): value is PersistenceMode {
+  return COLOR_MODES.includes(value as PersistenceMode);
+}
+
+function readStoredColorMode(): PersistenceMode {
+  try {
+    const stored = localStorage.getItem(COLOR_MODE_STORAGE_KEY);
+    return isPersistenceMode(stored) ? stored : 'flash';
+  } catch {
+    return 'flash';
   }
 }
 
@@ -192,6 +209,34 @@ function initAclExpandAllControl(): void {
   updateAclExpandAllButton();
 }
 
+function updateColorModeButtons(mode: PersistenceMode): void {
+  document.querySelectorAll('.color-mode-btn').forEach((button) => {
+    button.classList.toggle('color-mode-active', (button as HTMLElement).dataset.colorMode === mode);
+  });
+}
+
+function applyColorMode(mode: PersistenceMode, persist: boolean): void {
+  const prevMode = getPersistenceMode();
+
+  if (prevMode === 'trace' && mode !== 'trace') {
+    cancelAllTraceAnimations(edgeFlasher, topology.edges.map((edge) => edge.id));
+  }
+
+  setPersistenceMode(mode);
+  updateColorModeButtons(mode);
+
+  const ephemeral = ['flash', 'trace'];
+  if (ephemeral.includes(mode) || ephemeral.includes(prevMode)) {
+    clearAllNodeOverlays();
+    for (const edge of topology.edges) {
+      edgeFlasher.setColor(edge.id, 'out', null);
+      edgeFlasher.setColor(edge.id, 'in', null);
+    }
+  }
+
+  if (persist) writeStoredValue(COLOR_MODE_STORAGE_KEY, mode);
+}
+
 initNappletHeightControl();
 initDebuggerToggle();
 initAclExpandAllControl();
@@ -224,9 +269,13 @@ const edgeFlasher = initTopologyEdges(topology);
 wireServiceToggles((name, enabled) => {
   toggleService(name, enabled);
 });
+for (const serviceName of getDemoServiceNames()) {
+  updateServiceNodeVisual(serviceName, isServiceEnabled(serviceName));
+}
 
 // Initialize persistent color state tracking for topology edges
 initColorState(topology);
+applyColorMode(readStoredColorMode(), false);
 
 onColorStateChange(() => {
   for (const node of topology.nodes) {
@@ -295,7 +344,14 @@ demoConfig.subscribe((key, value) => {
 void openConstantsTab;
 
 notificationUi.attachDebugger(debuggerEl ?? null);
-const signerUi = initSignerNodeUi(debuggerEl ?? null);
+const signerUi = initSignerNodeUi(debuggerEl ?? null, (pubkey) => {
+  relay.publishIdentityChanged(pubkey);
+  debuggerEl?.addSystemMessage(
+    pubkey
+      ? `identity changed — ${pubkey.substring(0, 16)}...`
+      : 'identity changed — signed out',
+  );
+});
 
 document.addEventListener('click', (e) => {
   const target = e.target as HTMLElement;
@@ -306,30 +362,7 @@ document.addEventListener('click', (e) => {
   if (colorModeBtn) {
     const mode = colorModeBtn.dataset.colorMode as PersistenceMode;
     if (mode) {
-      const prevMode = getPersistenceMode();
-
-      // Cancel any pending trace animations before switching modes
-      if (prevMode === 'trace') {
-        cancelAllTraceAnimations(edgeFlasher, topology.edges.map((e) => e.id));
-      }
-
-      setPersistenceMode(mode);
-
-      document.querySelectorAll('.color-mode-btn').forEach((b) => {
-        b.classList.toggle('color-mode-active', (b as HTMLElement).dataset.colorMode === mode);
-      });
-
-      // Clear node overlays when entering ephemeral modes or leaving them
-      const ephemeral = ['flash', 'trace'];
-      if (ephemeral.includes(mode) || ephemeral.includes(prevMode)) {
-        clearAllNodeOverlays();
-        // Also reset LeaderLine edges to resting
-        for (const edge of topology.edges) {
-          edgeFlasher.setColor(edge.id, 'out', null);
-          edgeFlasher.setColor(edge.id, 'in', null);
-        }
-      }
-
+      applyColorMode(mode, true);
       debuggerEl?.addSystemMessage(`color mode changed: ${mode}`);
     }
   }

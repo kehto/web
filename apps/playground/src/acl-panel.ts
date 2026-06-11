@@ -58,7 +58,44 @@ const DEMO_CAPABILITIES: { cap: Capability; label: string }[] = [
 ];
 
 let debugger_: NappletDebugger | null = null;
-let defaultAclExpanded = false;
+
+const ACL_EXPANSION_STORAGE_KEY = 'kehto.playground.aclExpansion.v1';
+
+interface AclExpansionState {
+  defaultExpanded: boolean;
+  panels: Record<string, boolean>;
+}
+
+function readAclExpansionState(): AclExpansionState {
+  try {
+    if (typeof localStorage === 'undefined') return { defaultExpanded: false, panels: {} };
+    const raw = localStorage.getItem(ACL_EXPANSION_STORAGE_KEY);
+    if (!raw) return { defaultExpanded: false, panels: {} };
+    const parsed = JSON.parse(raw) as Partial<AclExpansionState>;
+    const panels = typeof parsed.panels === 'object' && parsed.panels !== null
+      ? Object.fromEntries(
+        Object.entries(parsed.panels).filter(([, value]) => typeof value === 'boolean'),
+      ) as Record<string, boolean>
+      : {};
+    return {
+      defaultExpanded: parsed.defaultExpanded === true,
+      panels,
+    };
+  } catch {
+    return { defaultExpanded: false, panels: {} };
+  }
+}
+
+function writeAclExpansionState(): void {
+  try {
+    localStorage.setItem(ACL_EXPANSION_STORAGE_KEY, JSON.stringify(aclExpansionState));
+  } catch {
+    // Storage can be unavailable; keep expansion controls usable for this session.
+  }
+}
+
+const aclExpansionState = readAclExpansionState();
+let defaultAclExpanded = aclExpansionState.defaultExpanded;
 
 export function setDebugger(dbg: NappletDebugger): void {
   debugger_ = dbg;
@@ -73,14 +110,29 @@ function emitAclExpansionChange(): void {
   window.dispatchEvent(new CustomEvent('acl-panels:expansion-changed'));
 }
 
-function setPanelExpanded(panel: HTMLElement, expanded: boolean): void {
+function getInitialPanelExpanded(name: string): boolean {
+  return aclExpansionState.panels[name] ?? defaultAclExpanded;
+}
+
+function setPanelExpanded(
+  panel: HTMLElement,
+  expanded: boolean,
+  options: { persist?: boolean; emit?: boolean } = {},
+): void {
+  const persist = options.persist ?? true;
+  const emit = options.emit ?? true;
   panel.dataset.expanded = String(expanded);
+  const nappletName = panel.dataset.aclNapplet;
+  if (persist && nappletName) {
+    aclExpansionState.panels[nappletName] = expanded;
+    writeAclExpansionState();
+  }
   const toggle = panel.querySelector<HTMLButtonElement>('.acl-summary-toggle');
   if (toggle) {
     toggle.setAttribute('aria-expanded', String(expanded));
     toggle.title = expanded ? 'Collapse ACL controls' : 'Expand ACL controls';
   }
-  emitAclExpansionChange();
+  if (emit) emitAclExpansionChange();
 }
 
 function updateAclSummary(panel: HTMLElement): void {
@@ -112,14 +164,15 @@ function renderNappletAcl(containerId: string, windowId: string, info: { name: s
   const panel = document.createElement('div');
   panel.className = 'acl-panel';
   panel.dataset.aclNapplet = info.name;
-  panel.dataset.expanded = String(defaultAclExpanded);
+  const initialExpanded = getInitialPanelExpanded(info.name);
+  panel.dataset.expanded = String(initialExpanded);
 
   const summaryToggle = document.createElement('button');
   summaryToggle.type = 'button';
   summaryToggle.className = 'acl-summary-toggle';
-  summaryToggle.setAttribute('aria-expanded', String(defaultAclExpanded));
+  summaryToggle.setAttribute('aria-expanded', String(initialExpanded));
   summaryToggle.setAttribute('aria-controls', `${containerId}-controls`);
-  summaryToggle.title = defaultAclExpanded ? 'Collapse ACL controls' : 'Expand ACL controls';
+  summaryToggle.title = initialExpanded ? 'Collapse ACL controls' : 'Expand ACL controls';
 
   const summaryLeft = document.createElement('span');
   summaryLeft.className = 'acl-summary-left';
@@ -151,14 +204,17 @@ function renderNappletAcl(containerId: string, windowId: string, info: { name: s
   const row = document.createElement('div');
   row.id = `${containerId}-controls`;
   row.className = 'acl-controls';
+  const adapter = getAclAdapter();
+  const aclSnapshot = adapter.snapshot().find((entry) => entry.windowId === windowId);
 
   for (const { cap, label } of DEMO_CAPABILITIES) {
     const toggle = document.createElement('button');
-    applyBtnStyle(toggle, true);
+    const initialEnabled = aclSnapshot?.capabilities[cap] ?? adapter.check(windowId, cap);
+    applyBtnStyle(toggle, initialEnabled);
     toggle.textContent = label;
-    toggle.title = `${cap} (${DEMO_CAPABILITY_HINTS[cap]}) — click to revoke`;
+    toggle.title = `${cap} (${DEMO_CAPABILITY_HINTS[cap]}) — click to ${initialEnabled ? 'revoke' : 'grant'}`;
     toggle.dataset.aclCapability = cap;
-    toggle.dataset.enabled = 'true';
+    toggle.dataset.enabled = String(initialEnabled);
 
     toggle.addEventListener('click', () => {
       const enabled = toggle.dataset.enabled === 'true';
@@ -167,7 +223,6 @@ function renderNappletAcl(containerId: string, windowId: string, info: { name: s
       applyBtnStyle(toggle, newState);
       toggle.title = `${cap} (${DEMO_CAPABILITY_HINTS[cap]}) — click to ${newState ? 'revoke' : 'grant'}`;
 
-      const adapter = getAclAdapter();
       if (newState) adapter.grant(windowId, cap);
       else adapter.revoke(windowId, cap);
       debugger_?.addSystemMessage(
@@ -183,10 +238,12 @@ function renderNappletAcl(containerId: string, windowId: string, info: { name: s
 
   // Block button
   const blockBtn = document.createElement('button');
-  blockBtn.className = 'acl-btn px-2 py-0.5 rounded text-[10px] font-semibold border cursor-pointer acl-btn-block';
-  blockBtn.textContent = 'Block';
+  const initialBlocked = aclSnapshot?.blocked ?? false;
+  blockBtn.className = 'acl-btn px-2 py-0.5 rounded text-[10px] font-semibold border cursor-pointer ' +
+    (initialBlocked ? 'acl-btn-blocked' : 'acl-btn-block');
+  blockBtn.textContent = initialBlocked ? 'Blocked' : 'Block';
   blockBtn.dataset.aclBlock = 'true';
-  blockBtn.dataset.blocked = 'false';
+  blockBtn.dataset.blocked = String(initialBlocked);
 
   blockBtn.addEventListener('click', () => {
     const blocked = blockBtn.dataset.blocked === 'true';
@@ -218,10 +275,14 @@ const rendered = new Set<string>();
 
 export function setAllAclPanelsExpanded(expanded: boolean): void {
   defaultAclExpanded = expanded;
+  aclExpansionState.defaultExpanded = expanded;
   const panels = document.querySelectorAll<HTMLElement>('.acl-panel');
   for (const panel of panels) {
-    setPanelExpanded(panel, expanded);
+    const nappletName = panel.dataset.aclNapplet;
+    if (nappletName) aclExpansionState.panels[nappletName] = expanded;
+    setPanelExpanded(panel, expanded, { persist: false, emit: false });
   }
+  writeAclExpansionState();
   emitAclExpansionChange();
 }
 

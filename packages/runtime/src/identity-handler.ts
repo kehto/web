@@ -30,9 +30,9 @@ export function createIdentityHandler(context: IdentityHandlerContext): Identity
 
     switch (action) {
       case 'getPublicKey':
-        if (!signer) { sendError('no signer configured'); return; }
+        if (!signer) { sendResult({ pubkey: '' }); return; }
         Promise.resolve(signer.getPublicKey?.())
-          .then((pubkey) => sendResult({ pubkey }))
+          .then((pubkey) => sendResult({ pubkey: pubkey ?? '' }))
           .catch((err: unknown) => sendError((err as Error)?.message ?? 'getPublicKey failed'));
         return;
       case 'getRelays':
