@@ -4,11 +4,15 @@
 import '@napplet/shim';
 import { installNapTheme } from '../../shared-theme';
 import { identityGetPublicKey } from '@napplet/nap/identity/sdk';
+import { ifcEmit } from '@napplet/nap/ifc/sdk';
 import type { NostrEvent } from '@napplet/core';
 import { createFeedStore, type FeedProfile } from './feed-store.js';
 import { createFeedIdentityController } from './feed-identity-controller.js';
 
-const REQUIRED_NAPS = ['identity', 'relay', 'theme'] as const;
+const REQUIRED_NAPS = ['identity', 'relay', 'ifc', 'theme'] as const;
+const REQUIRED_IFC_PROTOCOL = 'ifc:NAP-01';
+const CAPABILITY_WAIT_MS = 1_000;
+const CAPABILITY_WAIT_INTERVAL_MS = 25;
 
 const statusEl = document.getElementById('feed-status')!;
 const listEl = document.getElementById('feed-list')!;
@@ -42,11 +46,50 @@ function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void
 
 function getMissingRequiredNaps(): string[] {
   const supports = window.napplet.shell.supports;
-  return REQUIRED_NAPS.filter((capability) => !supports(capability));
+  return [
+    ...REQUIRED_NAPS.filter((capability) => !supports(capability)),
+    ...(!supports(REQUIRED_IFC_PROTOCOL) ? [REQUIRED_IFC_PROTOCOL] : []),
+  ];
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function waitForRequiredNaps(): Promise<void> {
+  const deadline = Date.now() + CAPABILITY_WAIT_MS;
+  let missing = getMissingRequiredNaps();
+  while (missing.length > 0 && Date.now() < deadline) {
+    await sleep(CAPABILITY_WAIT_INTERVAL_MS);
+    missing = getMissingRequiredNaps();
+  }
+  if (missing.length > 0) {
+    throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);
+  }
 }
 
 function shortenPubkey(pubkey: string): string {
   return `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;
+}
+
+function canonicalPubkey(pubkey: string): string | null {
+  const normalized = pubkey.toLowerCase();
+  return /^[0-9a-f]{64}$/.test(normalized) ? normalized : null;
+}
+
+function openProfile(pubkey: string): void {
+  const normalized = canonicalPubkey(pubkey);
+  if (!normalized) {
+    log('profile:open skipped -- invalid pubkey');
+    return;
+  }
+
+  try {
+    ifcEmit('profile:open', [], JSON.stringify({ pubkey: normalized }));
+    log(`profile:open emitted -- ${shortenPubkey(normalized)}`);
+  } catch (error) {
+    log(`profile:open failed -- ${formatError(error, 'denied: ifc')}`);
+  }
 }
 
 function getAuthorName(pubkey: string, profile?: FeedProfile): string {
@@ -124,6 +167,25 @@ function renderAvatar(pubkey: string, authorName: string, profile?: FeedProfile)
   return avatarEl;
 }
 
+function renderProfileAvatarButton(pubkey: string, authorName: string, profile?: FeedProfile): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'feed-profile-button feed-profile-avatar-button';
+  button.setAttribute('aria-label', `Open ${authorName} profile`);
+  button.appendChild(renderAvatar(pubkey, authorName, profile));
+  button.addEventListener('click', () => openProfile(pubkey));
+  return button;
+}
+
+function renderAuthorButton(pubkey: string, authorName: string): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'feed-item-author feed-profile-button feed-profile-name-button';
+  button.textContent = authorName;
+  button.addEventListener('click', () => openProfile(pubkey));
+  return button;
+}
+
 function renderEvent(event: NostrEvent): void {
   const li = document.createElement('li');
   li.className = 'feed-item';
@@ -134,16 +196,14 @@ function renderEvent(event: NostrEvent): void {
   bodyEl.className = 'feed-item-body';
   const metaEl = document.createElement('div');
   metaEl.className = 'feed-item-meta';
-  const authorEl = document.createElement('span');
-  authorEl.className = 'feed-item-author';
-  authorEl.textContent = authorName;
+  const authorEl = renderAuthorButton(event.pubkey, authorName);
   const timeEl = renderPublishedTime(event);
   const contentEl = document.createElement('span');
   contentEl.className = 'feed-item-content';
   contentEl.textContent = event.content;
   metaEl.append(authorEl, timeEl);
   bodyEl.append(metaEl, contentEl);
-  li.append(renderAvatar(event.pubkey, authorName, profile), bodyEl);
+  li.append(renderProfileAvatarButton(event.pubkey, authorName, profile), bodyEl);
   listEl.appendChild(li);
 }
 
@@ -191,11 +251,8 @@ const identityController = createFeedIdentityController({
 });
 
 async function init(): Promise<void> {
-  const missing = getMissingRequiredNaps();
-  if (missing.length > 0) {
-    throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);
-  }
   installNapTheme();
+  await waitForRequiredNaps();
 
   log('reading identity');
   void identityController.start();

@@ -24,11 +24,11 @@ const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly str
   composer: ['relay', 'theme'],
   'config-demo': ['config', 'theme'],
   'decrypt-demo': ['identity', 'theme'],
-  feed: ['identity', 'relay', 'theme'],
+  feed: ['identity', 'relay', 'ifc', 'theme'],
   'hotkey-chord': ['keys', 'theme'],
   'media-controller': ['media', 'theme'],
   preferences: ['storage', 'theme'],
-  'profile-viewer': ['identity', 'theme'],
+  'profile-viewer': ['ifc', 'relay', 'theme'],
   'resource-demo': ['resource', 'connect', 'theme'],
   'theme-switcher': ['theme'],
   toaster: ['notify', 'theme'],
@@ -131,9 +131,12 @@ describe('playground gateway artifact guard', () => {
     const workerRelay = readRepoFile('apps/playground/src/playground-worker-relay.ts');
 
     expect(feedSource).toContain("import { identityGetPublicKey } from '@napplet/nap/identity/sdk';");
+    expect(feedSource).toContain("import { ifcEmit } from '@napplet/nap/ifc/sdk';");
     expect(feedSource).toContain("import { createFeedStore, type FeedProfile } from './feed-store.js';");
     expect(feedSource).toContain("import { createFeedIdentityController } from './feed-identity-controller.js';");
-    expect(feedSource).toContain("const REQUIRED_NAPS = ['identity', 'relay', 'theme'] as const;");
+    expect(feedSource).toContain("const REQUIRED_NAPS = ['identity', 'relay', 'ifc', 'theme'] as const;");
+    expect(feedSource).toContain("const REQUIRED_IFC_PROTOCOL = 'ifc:NAP-01';");
+    expect(feedSource).toContain('supports(REQUIRED_IFC_PROTOCOL)');
     expect(feedSource).toContain('readPublicKey: identityGetPublicKey');
     expect(feedSource).toContain('identityController.start();');
     expect(feedSource).toContain("setStatus('not logged in', 'red');");
@@ -147,13 +150,17 @@ describe('playground gateway artifact guard', () => {
     expect(feedStore).toContain('[{ kinds: [0], authors: [pubkey], limit: 1 }]');
     expect(feedStore).toContain('state.profiles.set(pubkey, profile);');
     expect(feedSource).toContain("img.src = picture;");
-    expect(feedSource).toContain("authorEl.className = 'feed-item-author';");
+    expect(feedSource).toContain("button.className = 'feed-item-author feed-profile-button feed-profile-name-button';");
     expect(feedSource).toContain("timeEl.className = 'feed-item-time';");
     expect(feedSource).toContain('formatPublishedAgo(event.created_at)');
+    expect(feedSource).toContain("ifcEmit('profile:open', [], JSON.stringify({ pubkey: normalized }));");
+    expect(feedSource).toContain('renderProfileAvatarButton(event.pubkey, authorName, profile)');
+    expect(feedSource).toContain('renderAuthorButton(event.pubkey, authorName)');
     expect(feedSource).not.toContain("pubkeyEl.className = 'feed-item-pubkey';");
     expect(feedHtml).toContain('.feed-item-avatar');
     expect(feedHtml).toContain('.feed-item-author');
     expect(feedHtml).toContain('.feed-item-time');
+    expect(feedHtml).toContain('.feed-profile-button');
     expect(feedHtml).not.toContain('.feed-item-pubkey');
     expect(feedStore).not.toContain('authors: [pubkey], limit: 50');
     expect(feedStore).not.toContain('authors: [pubkey], since:');
@@ -163,6 +170,24 @@ describe('playground gateway artifact guard', () => {
     expect(workerRelay).toContain("databasePath: 'kehto-playground-relay-live.db'");
     expect(workerRelay).not.toContain('seedEvents');
     expect(existsSync('apps/playground/src/mock-relay-pool.ts')).toBe(false);
+  });
+
+  it('keeps profile-viewer on the NAP-01 profile-open flow', () => {
+    const profileSource = readRepoFile('apps/playground/napplets/profile-viewer/src/main.ts');
+    const profileHtml = readRepoFile('apps/playground/napplets/profile-viewer/index.html');
+
+    expect(profileSource).toContain("import { ifcOn } from '@napplet/nap/ifc/sdk';");
+    expect(profileSource).toContain("import { relaySubscribe } from '@napplet/nap/relay/sdk';");
+    expect(profileSource).toContain("const REQUIRED_NAPS = ['ifc', 'relay', 'theme'] as const;");
+    expect(profileSource).toContain("const REQUIRED_IFC_PROTOCOL = 'ifc:NAP-01';");
+    expect(profileSource).toContain("ifcOn('profile:open'");
+    expect(profileSource).toContain('[{ kinds: [0], authors: [pubkey], limit: 1 }]');
+    expect(profileSource).toContain('normalizePubkey');
+    expect(profileSource).not.toContain('identityGetProfile');
+    expect(profileSource).not.toContain('identityGetPublicKey');
+    expect(profileHtml).toContain('id="profile-picture"');
+    expect(profileHtml).toContain('id="profile-details"');
+    expect(profileSource).toContain('Select a profile from the feed.');
   });
 
   it('keeps the GitHub Pages publisher aligned with the static gateway artifact contract', () => {

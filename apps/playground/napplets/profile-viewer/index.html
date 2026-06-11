@@ -20,19 +20,89 @@
       display: flex;
       flex-direction: column;
       padding: 8px;
-      gap: 6px;
+      gap: 8px;
     }
-    .composer-row {
+    .profile-header {
       display: flex;
       align-items: center;
-      gap: 6px;
+      justify-content: space-between;
+      gap: 8px;
     }
-    .composer-status {
+    .profile-title {
+      color: #8b92b8;
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+    #profile-status {
       color: #888;
       font-size: 10px;
-      padding: 2px 0;
+      white-space: nowrap;
     }
-    .composer-log {
+    .profile-main {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      min-height: 72px;
+    }
+    #profile-picture {
+      width: 42px;
+      height: 42px;
+      flex: 0 0 42px;
+      border-radius: 6px;
+      object-fit: cover;
+      display: none;
+      border: 1px solid #2a2a3a;
+      background: #11111c;
+    }
+    .profile-copy {
+      min-width: 0;
+      flex: 1;
+    }
+    #profile-name {
+      color: #f0f0ff;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.3;
+      overflow-wrap: anywhere;
+    }
+    #profile-pubkey {
+      display: block;
+      color: #6c7bc4;
+      font-size: 9px;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+      margin-top: 2px;
+    }
+    #profile-about {
+      color: #b0b0c0;
+      font-size: 10px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+    #profile-details {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-height: 14px;
+    }
+    .profile-detail-row {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      min-width: 0;
+    }
+    .profile-detail-label {
+      color: #7f8bae;
+      flex: 0 0 36px;
+      font-size: 9px;
+    }
+    .profile-detail-value {
+      color: #d0d0e0;
+      font-size: 10px;
+      overflow-wrap: anywhere;
+    }
+    #profile-log {
       flex: 1;
       overflow-y: auto;
       background: #0d0d14;
@@ -40,69 +110,28 @@
       padding: 6px;
       font-size: 10px;
     }
-    input[type="text"] {
-      flex: 1;
-      background: #12121a;
-      border: 1px solid #2a2a3a;
-      color: #e0e0e0;
-      padding: 4px 6px;
-      font-family: inherit;
-      font-size: 11px;
-    }
-    input[type="text"]::placeholder {
-      color: #444;
-    }
-    input[type="checkbox"] {
-      accent-color: #39ff14;
-    }
-    label {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      color: #aaa;
-      cursor: pointer;
-    }
-    button {
-      background: #1a1a2e;
-      border: 1px solid #3a3a5a;
-      color: #e0e0e0;
-      padding: 4px 12px;
-      font-family: inherit;
-      font-size: 11px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #2a2a4e;
-    }
-    .composer-log-entry {
+    .profile-log-entry {
       padding: 1px 0;
       line-height: 1.4;
       color: #888;
     }
-    #composer-log {
-      flex: 1;
-      overflow-y: auto;
-      background: #0d0d14;
-      border: 1px solid #1e1e2e;
-      padding: 6px;
-      font-size: 10px;
-    }
-    #profile-picture { width: 64px; height: 64px; border-radius: 4px; object-fit: cover; display: none; }
-    .profile-row { display: flex; align-items: flex-start; gap: 8px; padding: 2px 0; }
-    .profile-label { color: #888; min-width: 60px; font-size: 10px; }
-    .profile-value { color: #e0e0e0; font-size: 11px; word-break: break-all; }
-    #profile-about { color: #b0b0c0; font-size: 10px; line-height: 1.4; }
-    #profile-log { overflow-y: auto; max-height: 80px; border-top: 1px solid #2a2a3a; padding-top: 4px; font-size: 10px; color: #555; }
-    .profile-log-entry { padding: 1px 0; line-height: 1.4; }
   </style>
 </head>
 <body>
   <div id="app">
-    <div class="profile-row"><span id="profile-status">connecting...</span></div>
-    <div class="profile-row"><img id="profile-picture" alt="profile" /></div>
-    <div class="profile-row"><span class="profile-label">pubkey:</span><span id="profile-pubkey" class="profile-value"></span></div>
-    <div class="profile-row"><span class="profile-label">name:</span><span id="profile-name" class="profile-value"></span></div>
-    <div class="profile-row"><span class="profile-label">about:</span><span id="profile-about" class="profile-value"></span></div>
+    <div class="profile-header">
+      <span class="profile-title">profile</span>
+      <span id="profile-status">connecting...</span>
+    </div>
+    <div class="profile-main">
+      <img id="profile-picture" alt="profile" />
+      <div class="profile-copy">
+        <div id="profile-name"></div>
+        <span id="profile-pubkey"></span>
+      </div>
+    </div>
+    <div id="profile-about"></div>
+    <div id="profile-details"></div>
     <div id="profile-log"></div>
   </div>
   <script type="module" src="./src/main.ts"></script>

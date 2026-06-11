@@ -41,11 +41,11 @@ The demo hosts 13 sandboxed napplets, each built independently under `apps/playg
 | composer | relay | `relay.publish`, `relay.publishEncrypted` | [apps/playground/napplets/composer/src/](./napplets/composer/src/) |
 | config-demo | config | `config.registerSchema`, `config.get`, `config.subscribe` | [apps/playground/napplets/config-demo/src/](./napplets/config-demo/src/) |
 | decrypt-demo | identity | `identity.decrypt` helper flows for NIP-04, NIP-44, and NIP-17 fixtures | [apps/playground/napplets/decrypt-demo/src/](./napplets/decrypt-demo/src/) |
-| feed | identity, relay | `identity.getPublicKey`, `relay.subscribe` | [apps/playground/napplets/feed/src/](./napplets/feed/src/) |
+| feed | identity, relay, ifc | `identity.getPublicKey`, `relay.subscribe`, `ifc.emit` (`profile:open`) | [apps/playground/napplets/feed/src/](./napplets/feed/src/) |
 | hotkey-chord | keys | `keys.registerAction`, `keys.onAction` (receives `keys.action` push) | [apps/playground/napplets/hotkey-chord/src/](./napplets/hotkey-chord/src/) |
 | media-controller | media | `mediaCreateSession`, `mediaReportState`, `mediaOnCommand` (receives `media.command` push) | [apps/playground/napplets/media-controller/src/](./napplets/media-controller/src/) |
 | preferences | storage, theme | `storage.set`, `storage.get`, `theme.changed` allowlisted listener | [apps/playground/napplets/preferences/src/](./napplets/preferences/src/) |
-| profile-viewer | identity | `identity.getProfile`, `identity.getPublicKey` | [apps/playground/napplets/profile-viewer/src/](./napplets/profile-viewer/src/) |
+| profile-viewer | ifc, relay | `ifc.subscribe` (`profile:open`), `relay.subscribe` | [apps/playground/napplets/profile-viewer/src/](./napplets/profile-viewer/src/) |
 | resource-demo | resource, connect | `resource.bytes`, connect grant/CSP fixture | [apps/playground/napplets/resource-demo/src/](./napplets/resource-demo/src/) |
 | theme-switcher | theme | `demo.publishTheme` allowlisted demo envelope | [apps/playground/napplets/theme-switcher/src/](./napplets/theme-switcher/src/) |
 | toaster | notify | `notify.create`, `notify.list`, `notify.dismiss` | [apps/playground/napplets/toaster/src/](./napplets/toaster/src/) |

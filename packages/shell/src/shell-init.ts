@@ -15,6 +15,7 @@ const CANONICAL_NUB_DOMAINS = [
 ] as const;
 
 const SUPPORTED_IFC_PROTOCOLS = [
+  'ifc:NAP-01',
   'ifc:NUB-01',
   'ifc:NUB-02',
   'ifc:NUB-03',

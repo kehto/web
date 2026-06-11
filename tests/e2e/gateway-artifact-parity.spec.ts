@@ -25,11 +25,11 @@ const expectedRequires: Record<(typeof expectedNapplets)[number], readonly strin
   composer: ['relay', 'theme'],
   'config-demo': ['config', 'theme'],
   'decrypt-demo': ['identity', 'theme'],
-  feed: ['identity', 'relay', 'theme'],
+  feed: ['identity', 'relay', 'ifc', 'theme'],
   'hotkey-chord': ['keys', 'theme'],
   'media-controller': ['media', 'theme'],
   preferences: ['storage', 'theme'],
-  'profile-viewer': ['identity', 'theme'],
+  'profile-viewer': ['ifc', 'relay', 'theme'],
   'resource-demo': ['resource', 'connect', 'theme'],
   'theme-switcher': ['theme'],
   toaster: ['notify', 'theme'],
@@ -136,6 +136,7 @@ test('playground gateway manifests and hosted supports match napplet contracts',
       return requires.every((capability) => supports(capability)) &&
         requires.every((capability) => supports(`nap:${capability}`)) &&
         requires.every((capability) => supports(`nub:${capability}`)) &&
+        (!requires.includes('ifc') || supports('ifc:NAP-01')) &&
         !supports('nostrdb') &&
         !supports('nap:nostrdb') &&
         !supports('nub:nostrdb') &&
