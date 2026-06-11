@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -24,7 +24,7 @@ const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly str
   composer: ['relay', 'theme'],
   'config-demo': ['config', 'theme'],
   'decrypt-demo': ['identity', 'theme'],
-  feed: ['relay', 'theme'],
+  feed: ['identity', 'relay', 'theme'],
   'hotkey-chord': ['keys', 'theme'],
   'media-controller': ['media', 'theme'],
   preferences: ['storage', 'theme'],
@@ -97,6 +97,43 @@ describe('playground gateway artifact guard', () => {
     expect(shellHost.indexOf('getMissingRequiredNaps(metadata.requires)')).toBeLessThan(
       shellHost.indexOf('iframe.src = metadata.htmlUrl'),
     );
+  });
+
+  it('keeps the feed napplet identity-bound, following-scoped, and unseeded', () => {
+    const feedSource = readRepoFile('apps/playground/napplets/feed/src/main.ts');
+    const feedStore = readRepoFile('apps/playground/napplets/feed/src/feed-store.ts');
+    const feedHtml = readRepoFile('apps/playground/napplets/feed/index.html');
+    const demoHooks = readRepoFile('apps/playground/src/demo-hooks.ts');
+    const workerRelay = readRepoFile('apps/playground/src/playground-worker-relay.ts');
+
+    expect(feedSource).toContain("import { identityGetPublicKey } from '@napplet/nap/identity/sdk';");
+    expect(feedSource).toContain("import { createFeedStore, type FeedProfile } from './feed-store.js';");
+    expect(feedSource).toContain("import { createFeedIdentityController } from './feed-identity-controller.js';");
+    expect(feedSource).toContain("const REQUIRED_NAPS = ['identity', 'relay', 'theme'] as const;");
+    expect(feedSource).toContain('readPublicKey: identityGetPublicKey');
+    expect(feedSource).toContain('identityController.start();');
+    expect(feedSource).toContain("setStatus('not logged in', 'red');");
+    expect(feedSource).toContain('loading outbox contacts through shell relay');
+    expect(feedSource).not.toContain('Welcome to the kehto demo');
+    expect(feedStore).toContain("import { relaySubscribe } from '@napplet/nap/relay/sdk';");
+    expect(feedStore).toContain('[{ kinds: [3], authors: [pubkey] }]');
+    expect(feedStore).toContain('return { kinds: [1], authors: pubkeys };');
+    expect(feedStore).toContain('[{ ...filter, limit: 50 }]');
+    expect(feedStore).toContain('[{ ...filter, since: Math.floor(Date.now() / 1000) }]');
+    expect(feedStore).toContain('[{ kinds: [0], authors: [pubkey], limit: 1 }]');
+    expect(feedStore).toContain('state.profiles.set(pubkey, profile);');
+    expect(feedSource).toContain("img.src = picture;");
+    expect(feedSource).toContain("authorEl.className = 'feed-item-author';");
+    expect(feedHtml).toContain('.feed-item-avatar');
+    expect(feedHtml).toContain('.feed-item-author');
+    expect(feedStore).not.toContain('authors: [pubkey], limit: 50');
+    expect(feedStore).not.toContain('authors: [pubkey], since:');
+
+    expect(demoHooks).toContain('createPlaygroundWorkerRelayBundle()');
+    expect(demoHooks).not.toContain('PLAYGROUND_RELAY_SEED_EVENTS');
+    expect(workerRelay).toContain("databasePath: 'kehto-playground-relay-live.db'");
+    expect(workerRelay).not.toContain('seedEvents');
+    expect(existsSync('apps/playground/src/mock-relay-pool.ts')).toBe(false);
   });
 
   it('keeps the GitHub Pages publisher aligned with the static gateway artifact contract', () => {

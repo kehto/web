@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.17
 milestone_name: Beautify the SPA Landing Page
 status: Awaiting next milestone
-last_updated: "2026-06-08T13:01:07.337Z"
-last_activity: 2026-06-08 — Completed quick task 260608-lsu: Explore Kehto typography options
+last_updated: "2026-06-11T13:13:07Z"
+last_activity: 2026-06-11 — Completed quick task 260611-l1s: Show profile images and names in playground feed
 progress:
   total_phases: 3
   completed_phases: 3
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-06-06, v1.17 shipped)
 Phase: Milestone v1.17 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-06-08 — Completed quick task 260608-lsu: Explore Kehto typography options
+Last activity: 2026-06-11 — Completed quick task 260611-l1s: Show profile images and names in playground feed
 
 ## Accumulated Context
 
@@ -98,6 +98,14 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 | 260608-izc | Iterate Kehto static site landing page feedback | 2026-06-08 | 0a97b90, 633998a, 7e7679e, e16bc41 | [260608-izc-iterate-the-kehto-static-site-landing-pa](./quick/260608-izc-iterate-the-kehto-static-site-landing-pa/) |
 | fast-web-runtime-label | Rename web landing label to Kehto Web Runtime | 2026-06-08 | 2e0f69e | web/index.html |
 | 260608-lsu | Explore Kehto typography options | 2026-06-08 | 288df7d | [260608-lsu-explore-more-typographical-options-for-t](./quick/260608-lsu-explore-more-typographical-options-for-t/) |
+| 260610-xa6 | Implement playground relay service with Applesauce and worker cache | 2026-06-10 | working tree | [260610-xa6-implement-playground-relay-service-with-](./quick/260610-xa6-implement-playground-relay-service-with-/) |
+| 260611-2m4 | Remove fake playground feed data and scope feed subscriptions to NAP-IDENTITY | 2026-06-11 | working tree | [260611-2m4-remove-fake-feed-seed-data-and-make-play](./quick/260611-2m4-remove-fake-feed-seed-data-and-make-play/) |
+| 260611-2ut | Get npx aislop scan to 100 | 2026-06-11 | working tree | [260611-2ut-get-npx-aislop-scan-to-100](./quick/260611-2ut-get-npx-aislop-scan-to-100/) |
+| 260611-3pq | Adapt Kehto playground feed napplet to Hyprgate-style identity and shell relay flow | 2026-06-11 | working tree | [260611-3pq-adapt-kehto-playground-feed-napplet-to-h](./quick/260611-3pq-adapt-kehto-playground-feed-napplet-to-h/) |
+| 260611-3x1 | Feed napplet must recover when signer connects after initial empty identity | 2026-06-11 | working tree | [260611-3x1-feed-napplet-must-recover-when-signer-co](./quick/260611-3x1-feed-napplet-must-recover-when-signer-co/) |
+| 260611-42d | Persist playground signer login across reloads and store NIP-46 bunker secret | 2026-06-11 | working tree | [260611-42d-persist-playground-signer-login-across-r](./quick/260611-42d-persist-playground-signer-login-across-r/) |
+| 260611-iok | Switch playground feed to Hyprgate-style following outbox feed | 2026-06-11 | working tree | [260611-iok-switch-playground-feed-to-hyprgate-style](./quick/260611-iok-switch-playground-feed-to-hyprgate-style/) |
+| 260611-l1s | Show profile images and names in playground feed | 2026-06-11 | working tree | [260611-l1s-show-profile-images-and-names-in-playgro](./quick/260611-l1s-show-profile-images-and-names-in-playgro/) |
 
 ## Session Continuity
 

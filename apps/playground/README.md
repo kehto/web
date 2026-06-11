@@ -41,7 +41,7 @@ The demo hosts 13 sandboxed napplets, each built independently under `apps/playg
 | composer | relay | `relay.publish`, `relay.publishEncrypted` | [apps/playground/napplets/composer/src/](./napplets/composer/src/) |
 | config-demo | config | `config.registerSchema`, `config.get`, `config.subscribe` | [apps/playground/napplets/config-demo/src/](./napplets/config-demo/src/) |
 | decrypt-demo | identity | `identity.decrypt` helper flows for NIP-04, NIP-44, and NIP-17 fixtures | [apps/playground/napplets/decrypt-demo/src/](./napplets/decrypt-demo/src/) |
-| feed | relay | `relay.subscribe` | [apps/playground/napplets/feed/src/](./napplets/feed/src/) |
+| feed | identity, relay | `identity.getPublicKey`, `relay.subscribe` | [apps/playground/napplets/feed/src/](./napplets/feed/src/) |
 | hotkey-chord | keys | `keys.registerAction`, `keys.onAction` (receives `keys.action` push) | [apps/playground/napplets/hotkey-chord/src/](./napplets/hotkey-chord/src/) |
 | media-controller | media | `mediaCreateSession`, `mediaReportState`, `mediaOnCommand` (receives `media.command` push) | [apps/playground/napplets/media-controller/src/](./napplets/media-controller/src/) |
 | preferences | storage, theme | `storage.set`, `storage.get`, `theme.changed` allowlisted listener | [apps/playground/napplets/preferences/src/](./napplets/preferences/src/) |

@@ -24,7 +24,7 @@ const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly str
   composer: ['relay', 'theme'],
   'config-demo': ['config', 'theme'],
   'decrypt-demo': ['identity', 'theme'],
-  feed: ['relay', 'theme'],
+  feed: ['identity', 'relay', 'theme'],
   'hotkey-chord': ['keys', 'theme'],
   'media-controller': ['media', 'theme'],
   preferences: ['storage', 'theme'],

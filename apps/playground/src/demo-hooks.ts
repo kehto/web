@@ -24,7 +24,10 @@ import { createNip66Aggregator, type Nip66Aggregator } from '@kehto/nip66';
 
 import { createDemoDecryptBridge } from './demo-decrypt.js';
 import { demoConfig } from './demo-config.js';
-import { createMockRelayPool, createMockNip66Pool } from './mock-relay-pool.js';
+import { createPlaygroundNip66FixturePool } from './playground-relay-fixtures.js';
+import { createPlaygroundRelayRuntime } from './playground-relay-service.js';
+import { DEFAULT_PLAYGROUND_RELAY_SELECTION } from './playground-relay-selection.js';
+import { createPlaygroundWorkerRelayBundle } from './playground-worker-relay.js';
 import { getSigner, getSignerConnectionState } from './signer-connection.js';
 
 type NappletAclInfo = {
@@ -44,6 +47,8 @@ let identityServiceHandler: ServiceHandler | null = null;
 let configServiceBundle: ConfigService | null = null;
 let shellCapabilities: ShellCapabilities | null = null;
 let nip66Aggregator: Nip66Aggregator | null = null;
+let relayRuntimeDestroy: (() => void) | null = null;
+let relayTeardownInstalled = false;
 let sessionRegistryRef: {
   getEntryByWindowId(windowId: string): SessionEntry | undefined;
 } | null = null;
@@ -76,7 +81,23 @@ export function createDemoHooks(
     getDecryptor: () => createDemoDecryptBridge(),
     verifyEvent: verifyDemoEvent,
   });
+  relayRuntimeDestroy?.();
+  nip66Aggregator?.stop();
+  nip66Aggregator = createNip66Aggregator({
+    pool: createPlaygroundNip66FixturePool(),
+    bootstrap: ['wss://demo-monitor.local'],
+  });
+  nip66Aggregator.start();
+  const workerRelay = createPlaygroundWorkerRelayBundle();
+  const relayRuntime = createPlaygroundRelayRuntime({
+    nip66Aggregator,
+    cache: workerRelay.cache,
+  });
+  relayRuntimeDestroy = relayRuntime.destroy;
+  installRelayTeardown();
+
   const services = {
+    relay: relayRuntime.relayService,
     identity: identityService,
     notifications: notificationService,
     notify: notificationService,
@@ -91,12 +112,13 @@ export function createDemoHooks(
   identityServiceHandler = identityService;
   themeServiceBundle = themeBundle;
   configServiceBundle = configBundle;
-  nip66Aggregator = createNip66Aggregator({
-    pool: createMockNip66Pool(),
-    bootstrap: ['wss://demo-monitor.local'],
-  });
 
-  const adapter = createDemoShellAdapter(services, context);
+  const adapter = createDemoShellAdapter(
+    services,
+    context,
+    relayRuntime.relayPoolHooks,
+    workerRelay.workerRelayHooks,
+  );
   shellCapabilities = buildShellCapabilities(adapter);
   return adapter;
 }
@@ -155,13 +177,19 @@ async function verifyDemoEvent(event: NostrEvent): Promise<boolean> {
 function createDemoShellAdapter(
   services: ShellAdapter['services'],
   context: DemoHooksContext,
+  relayPool: ShellAdapter['relayPool'],
+  workerRelay: ShellAdapter['workerRelay'],
 ): ShellAdapter {
   return {
-    relayPool: createMockRelayPool(),
+    relayPool,
     relayConfig: {
       addRelay: () => {},
       removeRelay: () => {},
-      getRelayConfig: () => ({ discovery: [], super: [], outbox: [] }),
+      getRelayConfig: () => ({
+        discovery: [...DEFAULT_PLAYGROUND_RELAY_SELECTION.relayIndexerRelays],
+        super: [...DEFAULT_PLAYGROUND_RELAY_SELECTION.indexerRelays],
+        outbox: [...DEFAULT_PLAYGROUND_RELAY_SELECTION.defaultRelays],
+      }),
       getNip66Suggestions: () => Array.from(nip66Aggregator?.getRelaySet() ?? []),
     },
     windowManager: { createWindow: () => null },
@@ -172,7 +200,7 @@ function createDemoShellAdapter(
     services,
     config: { getNappUpdateBehavior: () => 'auto-grant' },
     hotkeys: { executeHotkeyFromForward: () => {} },
-    workerRelay: { getWorkerRelay: () => null },
+    workerRelay,
     crypto: createDemoCrypto(),
     shellSecretPersistence: createShellSecretPersistence(),
     guidPersistence: createGuidPersistence(),
@@ -182,6 +210,15 @@ function createDemoShellAdapter(
     }),
     onAclCheck: (event) => handleAclCheck(context, event),
   };
+}
+
+function installRelayTeardown(): void {
+  if (relayTeardownInstalled || typeof window === 'undefined') return;
+  relayTeardownInstalled = true;
+  window.addEventListener('beforeunload', () => {
+    relayRuntimeDestroy?.();
+    nip66Aggregator?.stop();
+  });
 }
 
 function createDemoCrypto(): ShellAdapter['crypto'] {

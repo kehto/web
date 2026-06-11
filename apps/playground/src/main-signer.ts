@@ -4,6 +4,7 @@ import {
   getSigner as getSignerFromConnection,
   onStateChange,
   recordSignerRequest,
+  restorePersistedSignerConnection,
 } from './signer-connection.js';
 import { initSignerModal, openSignerModal } from './signer-modal.js';
 import { getServiceNodeId, type SignerConnectionStateView } from './topology.js';
@@ -206,6 +207,13 @@ export function initSignerNodeUi(debuggerEl: NappletDebugger | null): SignerNode
   });
 
   initSignerModal();
+  void restorePersistedSignerConnection()
+    .then((restored) => {
+      if (restored) debuggerEl?.addSystemMessage('signer restored from previous session');
+    })
+    .catch((err) => {
+      debuggerEl?.addSystemMessage(`signer restore failed: ${(err as Error).message}`);
+    });
 
   return {
     handleDocumentClick(event) {

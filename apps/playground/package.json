@@ -13,6 +13,9 @@
     "@kehto/runtime": "workspace:*",
     "@kehto/services": "workspace:*",
     "@kehto/shell": "workspace:*",
+    "@snort/worker-relay": "^2.0.1",
+    "applesauce-core": "^6.1.0",
+    "applesauce-relay": "^6.0.3",
     "leader-line": "^1.0.7",
     "nostr-tools": "^2.23.3",
     "qrcode": "^1.5.4"

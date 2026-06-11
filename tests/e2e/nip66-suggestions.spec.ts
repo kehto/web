@@ -4,8 +4,8 @@
  * Phase 41 (v1.7 / Plan 41-04) — Polish Wave Layer-B E2E.
  * Runs against the built :4174 demo (pnpm test:serve:demo). Locks the
  * NIP66-06/07 contract: the shell chrome panel `#nip66-suggestions-list`
- * surfaces relay URLs from `createNip66Aggregator` fed by 3 kind-30166
- * fixtures in `apps/playground/src/mock-relay-pool.ts`.
+ * surfaces relay URLs from `createNip66Aggregator` fed by kind-30166
+ * fixtures in `apps/playground/src/playground-relay-fixtures.ts`.
  *
  * Anti-features verified:
  *   - M-03 (SimplePool resource leak): the aggregator is instantiated inside
@@ -25,7 +25,7 @@ import { test, expect } from '@playwright/test';
 test.use({ baseURL: 'http://localhost:4174' });
 
 test.describe('NIP-66 demo suggestions (E2E-26 / NIP66-07)', () => {
-  test('#nip66-suggestions-list surfaces at least one relay URL from mock fixtures', async ({ page }) => {
+  test('#nip66-suggestions-list surfaces at least one relay URL from fixture discovery events', async ({ page }) => {
     test.setTimeout(30_000);
 
     await page.goto('/');

@@ -259,7 +259,7 @@ export function renderAclPanels(onlyFor?: Set<string>): void {
       renderNappletAcl('toaster-acl', windowId, info);
       rendered.add('toaster');
     } else if (info.name === 'feed') {
-      // Phase 20 (Plan 20-06): feed napplet ACL panel (relay:read for relay.subscribe)
+      // Feed napplet ACL panel: identity:read for pubkey lookup, relay:read for relay.subscribe.
       renderNappletAcl('feed-acl', windowId, info);
       rendered.add('feed');
     } else if (info.name === 'profile-viewer') {

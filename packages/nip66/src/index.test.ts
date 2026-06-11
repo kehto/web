@@ -23,6 +23,7 @@
 import { describe, it, expect } from 'vitest';
 import type { NostrEvent } from 'nostr-tools';
 import {
+  DEFAULT_RELAY_ATTRIBUTE_GROUPS,
   createNip66Aggregator,
   type Nip66RelayPool,
   type Nip66Filter,
@@ -35,9 +36,10 @@ import {
  * (NIP numbers), and a spurious lowercase `['n', 'clearnet']` tag to prove the
  * N-tag parser's case-sensitivity guard.
  */
-function makeKind30166(relayUrl: string, nTags: number[] = []): NostrEvent {
+function makeKind30166(relayUrl: string, nTags: number[] = [], extraTags: string[][] = []): NostrEvent {
   const tags: string[][] = [['d', relayUrl]];
   for (const n of nTags) tags.push(['N', String(n)]);
+  tags.push(...extraTags);
   // Lowercase 'n' (network-type tag) must NOT be parsed as a NIP number.
   tags.push(['n', 'clearnet']);
   return {
@@ -347,5 +349,43 @@ describe('createNip66Aggregator', () => {
     expect(stub.subscribeCalls).toBe(2);
     expect(stub.unsubscribeCalls).toBe(1);
     expect(agg.getRelaySet().has('wss://restarted.relay')).toBe(true);
+  });
+
+  it('Test 13: ad hoc relay attributes are exposed and matched by default groups', () => {
+    const stub = makePoolStub();
+    const agg = createNip66Aggregator({
+      pool: stub.pool,
+      bootstrap: ['wss://monitor.example.com'],
+    });
+
+    agg.start();
+    stub.fire(makeKind30166('wss://indexer.relay', [65], [['T', 'Indexer'], ['k', '10002']]));
+    stub.fire(makeKind30166('wss://relay-indexer.relay', [66], [['T', 'RelayIndexer'], ['k', '30166']]));
+
+    expect(agg.getRelaysForAttributeGroup('Indexer')).toEqual(['wss://indexer.relay']);
+    expect(agg.getRelaysForAttributeGroup('RelayIndexer')).toEqual(['wss://relay-indexer.relay']);
+
+    const attrs = agg.getRelayAttributes('wss://indexer.relay');
+    expect(attrs?.supportedNips.has(65)).toBe(true);
+    expect(attrs?.values.get('T')?.has('Indexer')).toBe(true);
+    expect(attrs?.values.get('k')?.has('10002')).toBe(true);
+  });
+
+  it('Test 14: custom relay attribute groups can route emerging tag conventions', () => {
+    const stub = makePoolStub();
+    const agg = createNip66Aggregator({
+      pool: stub.pool,
+      bootstrap: ['wss://monitor.example.com'],
+      relayAttributeGroups: {
+        ...DEFAULT_RELAY_ATTRIBUTE_GROUPS,
+        ProfileSearch: [{ tag: 'x-kehto-role', values: ['profile-search'] }],
+      },
+    });
+
+    agg.start();
+    stub.fire(makeKind30166('wss://search.relay', [], [['x-kehto-role', 'profile-search']]));
+
+    expect(agg.getRelaysForAttributeGroup('ProfileSearch')).toEqual(['wss://search.relay']);
+    expect(agg.getRelaysMatchingAttributes([{ tag: 'x-kehto-role' }])).toEqual(['wss://search.relay']);
   });
 });

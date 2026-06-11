@@ -11,8 +11,11 @@ export interface Nip46ClientOptions {
   relayUrl: string;
   bunkerPubkey: string;
   secret?: string;
+  localSecretKey?: Nip46LocalSecretKey;
   timeout?: number; // ms, default 30000
 }
+
+export type Nip46LocalSecretKey = Uint8Array;
 
 export interface Nip46Client {
   /** Connect to the bunker and complete handshake. Returns the authorized pubkey. */
@@ -84,7 +87,7 @@ interface Nip46ClientState {
   relayUrl: string;
   bunkerPubkey: string;
   timeout: number;
-  localSecretKey: ReturnType<typeof generateSecretKey>;
+  localSecretKey: Nip46LocalSecretKey;
   localPubkey: string;
   pending: Map<string, PendingNip46Request>;
   subId: string;
@@ -92,8 +95,19 @@ interface Nip46ClientState {
   authorizedPubkey: string | null;
 }
 
+export function createNip46LocalSecretKey(): Nip46LocalSecretKey {
+  return generateSecretKey();
+}
+
+function normalizeLocalSecretKey(secretKey: Nip46LocalSecretKey): Nip46LocalSecretKey {
+  if (secretKey.length !== 32) {
+    throw new Error('NIP-46 local secret key must be 32 bytes');
+  }
+  return new Uint8Array(secretKey);
+}
+
 function createNip46ClientState(options: Nip46ClientOptions): Nip46ClientState {
-  const localSecretKey = generateSecretKey();
+  const localSecretKey = normalizeLocalSecretKey(options.localSecretKey ?? createNip46LocalSecretKey());
   const localPubkey = getPublicKey(localSecretKey);
   return {
     relayUrl: options.relayUrl,

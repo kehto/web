@@ -1,5 +1,6 @@
 
 import type { Signer } from '@kehto/runtime';
+import type { Nip46LocalSecretKey } from './nip46-client.js';
 
 export type SignerConnectionMethod = 'nip07' | 'nip46' | 'none';
 
@@ -36,6 +37,26 @@ export interface Nip07Signer {
 
 import { demoConfig } from './demo-config.js';
 
+export const SIGNER_CONNECTION_STORAGE_KEY = 'kehto.playground.signerConnection.v1';
+
+interface PersistedNip07Connection {
+  version: 1;
+  method: 'nip07';
+  pubkey: string;
+}
+
+interface PersistedNip46Connection {
+  version: 1;
+  method: 'nip46';
+  pubkey: string;
+  relayUrl: string;
+  bunkerPubkey: string;
+  secret?: string;
+  localSecretKey: string;
+}
+
+type PersistedSignerConnection = PersistedNip07Connection | PersistedNip46Connection;
+
 const _initialState: SignerConnectionState = {
   method: 'none',
   pubkey: null,
@@ -48,6 +69,89 @@ const _initialState: SignerConnectionState = {
 let _state: SignerConnectionState = { ..._initialState };
 let _activeSigner: Signer | null = null;
 const _listeners: Array<(state: SignerConnectionState) => void> = [];
+
+function getStorage(): Storage | null {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    return localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function isHex(value: string, length: number): boolean {
+  return value.length === length && /^[0-9a-f]+$/i.test(value);
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function hexToBytes(hex: string): Uint8Array | null {
+  if (!isHex(hex, 64)) return null;
+  const bytes = new Uint8Array(32);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
+}
+
+function isPersistedSignerConnection(value: unknown): value is PersistedSignerConnection {
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Partial<PersistedSignerConnection>;
+  if (record.version !== 1) return false;
+  if (record.method === 'nip07') {
+    return typeof record.pubkey === 'string' && isHex(record.pubkey, 64);
+  }
+  if (record.method === 'nip46') {
+    const nip46 = record as Partial<PersistedNip46Connection>;
+    return (
+      typeof nip46.pubkey === 'string' &&
+      isHex(nip46.pubkey, 64) &&
+      typeof nip46.relayUrl === 'string' &&
+      nip46.relayUrl.length > 0 &&
+      typeof nip46.bunkerPubkey === 'string' &&
+      isHex(nip46.bunkerPubkey, 64) &&
+      typeof nip46.localSecretKey === 'string' &&
+      isHex(nip46.localSecretKey, 64) &&
+      (nip46.secret === undefined || typeof nip46.secret === 'string')
+    );
+  }
+  return false;
+}
+
+function readPersistedSignerConnection(): PersistedSignerConnection | null {
+  const storage = getStorage();
+  if (!storage) return null;
+
+  try {
+    const raw = storage.getItem(SIGNER_CONNECTION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (isPersistedSignerConnection(parsed)) return parsed;
+    storage.removeItem(SIGNER_CONNECTION_STORAGE_KEY);
+    return null;
+  } catch {
+    try { storage.removeItem(SIGNER_CONNECTION_STORAGE_KEY); } catch { /* best-effort */ }
+    return null;
+  }
+}
+
+function writePersistedSignerConnection(connection: PersistedSignerConnection): void {
+  const storage = getStorage();
+  if (!storage) return;
+  try {
+    storage.setItem(SIGNER_CONNECTION_STORAGE_KEY, JSON.stringify(connection));
+  } catch {
+    // Storage can be unavailable in hardened browser contexts; keep session state usable.
+  }
+}
+
+export function clearPersistedSignerConnection(): void {
+  const storage = getStorage();
+  if (!storage) return;
+  try { storage.removeItem(SIGNER_CONNECTION_STORAGE_KEY); } catch { /* best-effort */ }
+}
 
 function _setState(next: SignerConnectionState): void {
   _state = next;
@@ -90,6 +194,12 @@ function buildNip07Adapter(nostr: Nip07Signer): Signer {
   return adapter;
 }
 
+function getNip07ExtensionSigner(): Nip07Signer | undefined {
+  const globalSigner = (globalThis as typeof globalThis & { nostr?: unknown }).nostr;
+  const windowSigner = (globalThis as typeof globalThis & { window?: { nostr?: unknown } }).window?.nostr;
+  return (globalSigner ?? windowSigner) as Nip07Signer | undefined;
+}
+
 /**
  * Get a shallow copy of the current signer connection state.
  */
@@ -119,13 +229,13 @@ export function recordSignerRequest(record: SignerRequestRecord): void {
  * Sets isConnecting, retrieves the pubkey, and stores the adapter.
  * On failure, sets the error field and clears isConnecting.
  */
-export async function connectNip07(): Promise<void> {
+export async function connectNip07(options: { persist?: boolean } = {}): Promise<void> {
   // Read the NIP-07 extension signer from globalThis (standard NIP-07 discovery).
   // This is NOT `window.nostr` exposed to napplets — the extension injects it
   // and the shell host reads it here to build an internal Signer adapter.
   // Per D-01/D-02: napplets never see `window.nostr`; signing flows through
   // identity.getPublicKey + relay.publish envelopes (17-03 rewires).
-  const extensionSigner = (globalThis as typeof globalThis & { nostr?: unknown }).nostr as Nip07Signer | undefined;
+  const extensionSigner = getNip07ExtensionSigner();
   if (!extensionSigner || typeof extensionSigner.getPublicKey !== 'function') {
     _setState({ ..._state, error: 'No NIP-07 extension detected', isConnecting: false });
     return;
@@ -134,6 +244,9 @@ export async function connectNip07(): Promise<void> {
   try {
     const pubkey = await extensionSigner.getPublicKey();
     _activeSigner = buildNip07Adapter(extensionSigner);
+    if (options.persist !== false) {
+      writePersistedSignerConnection({ version: 1, method: 'nip07', pubkey });
+    }
     _setState({
       ..._state,
       method: 'nip07',
@@ -159,6 +272,7 @@ export async function connectNip07(): Promise<void> {
 export function disconnectSigner(): void {
   // NIP-46 client cleanup is handled by connectNip46 below (module-level ref)
   _cleanupNip46();
+  clearPersistedSignerConnection();
   _activeSigner = null;
   _setState({ ..._initialState, recentRequests: [] });
 }
@@ -180,6 +294,7 @@ export interface Nip46ConnectOptions {
   relayUrl: string;
   bunkerPubkey: string;
   secret?: string;
+  localSecretKey?: Nip46LocalSecretKey;
 }
 
 /** Module-level NIP-46 client ref for cleanup in disconnectSigner(). */
@@ -197,23 +312,36 @@ function _cleanupNip46(): void {
  * Creates a NIP-46 client, performs the connect handshake, and wires
  * the resulting signer into the active signer ref.
  */
-export async function connectNip46(options: Nip46ConnectOptions): Promise<void> {
-  const { createNip46Client } = await import('./nip46-client.js');
+async function connectNip46Internal(options: Nip46ConnectOptions, persist: boolean): Promise<void> {
+  const { createNip46Client, createNip46LocalSecretKey } = await import('./nip46-client.js');
 
   _cleanupNip46();
   _setState({ ..._state, isConnecting: true, error: null });
 
   try {
+    const localSecretKey = options.localSecretKey ?? createNip46LocalSecretKey();
     const client = createNip46Client({
       relayUrl: options.relayUrl,
       bunkerPubkey: options.bunkerPubkey,
       secret: options.secret,
+      localSecretKey,
     });
 
     const pubkey = await client.connect();
 
     _nip46Client = client;
     _activeSigner = client.getSigner();
+    if (persist) {
+      writePersistedSignerConnection({
+        version: 1,
+        method: 'nip46',
+        pubkey,
+        relayUrl: options.relayUrl,
+        bunkerPubkey: options.bunkerPubkey,
+        secret: options.secret,
+        localSecretKey: bytesToHex(localSecretKey),
+      });
+    }
     _setState({
       ..._state,
       method: 'nip46',
@@ -231,6 +359,46 @@ export async function connectNip46(options: Nip46ConnectOptions): Promise<void> 
       error: `NIP-46 connection failed: ${(err as Error).message ?? 'unknown error'}`,
     });
   }
+}
+
+/**
+ * Connect to a NIP-46 bunker.
+ * Creates a NIP-46 client, performs the connect handshake, and wires
+ * the resulting signer into the active signer ref.
+ */
+export async function connectNip46(options: Nip46ConnectOptions): Promise<void> {
+  await connectNip46Internal(options, true);
+}
+
+export async function restorePersistedSignerConnection(): Promise<boolean> {
+  if (_activeSigner || _state.isConnecting) return _activeSigner !== null;
+
+  const persisted = readPersistedSignerConnection();
+  if (!persisted) return false;
+
+  if (persisted.method === 'nip07') {
+    await connectNip07();
+    return _state.method === 'nip07' && _state.pubkey !== null && !_state.error;
+  }
+
+  const localSecretKey = hexToBytes(persisted.localSecretKey);
+  if (!localSecretKey) {
+    clearPersistedSignerConnection();
+    _setState({
+      ..._state,
+      isConnecting: false,
+      error: 'Stored NIP-46 requester key is invalid',
+    });
+    return false;
+  }
+
+  await connectNip46Internal({
+    relayUrl: persisted.relayUrl,
+    bunkerPubkey: persisted.bunkerPubkey,
+    secret: persisted.secret,
+    localSecretKey,
+  }, true);
+  return _state.method === 'nip46' && _state.pubkey !== null && !_state.error;
 }
 
 export interface SignerInspectorDetail {
