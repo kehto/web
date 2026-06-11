@@ -148,8 +148,13 @@ describe('playground gateway artifact guard', () => {
     expect(feedStore).toContain('state.profiles.set(pubkey, profile);');
     expect(feedSource).toContain("img.src = picture;");
     expect(feedSource).toContain("authorEl.className = 'feed-item-author';");
+    expect(feedSource).toContain("timeEl.className = 'feed-item-time';");
+    expect(feedSource).toContain('formatPublishedAgo(event.created_at)');
+    expect(feedSource).not.toContain("pubkeyEl.className = 'feed-item-pubkey';");
     expect(feedHtml).toContain('.feed-item-avatar');
     expect(feedHtml).toContain('.feed-item-author');
+    expect(feedHtml).toContain('.feed-item-time');
+    expect(feedHtml).not.toContain('.feed-item-pubkey');
     expect(feedStore).not.toContain('authors: [pubkey], limit: 50');
     expect(feedStore).not.toContain('authors: [pubkey], since:');
 

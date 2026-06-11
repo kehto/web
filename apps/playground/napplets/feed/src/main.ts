@@ -13,6 +13,7 @@ const REQUIRED_NAPS = ['identity', 'relay', 'theme'] as const;
 const statusEl = document.getElementById('feed-status')!;
 const listEl = document.getElementById('feed-list')!;
 const logEl = document.getElementById('feed-log')!;
+const RELATIVE_TIME_REFRESH_MS = 60_000;
 
 function formatError(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message) return error.message;
@@ -69,6 +70,36 @@ function getProfilePicture(profile?: FeedProfile): string | null {
   }
 }
 
+function formatPublishedAgo(createdAtSeconds: number, nowMs = Date.now()): string {
+  if (!Number.isFinite(createdAtSeconds) || createdAtSeconds <= 0) return 'unknown time';
+  const elapsedSeconds = Math.max(0, Math.floor(nowMs / 1000) - createdAtSeconds);
+  const units: Array<[string, number]> = [
+    ['y', 31_536_000],
+    ['mo', 2_592_000],
+    ['w', 604_800],
+    ['d', 86_400],
+    ['h', 3_600],
+    ['m', 60],
+  ];
+
+  for (const [label, seconds] of units) {
+    if (elapsedSeconds >= seconds) return `${Math.floor(elapsedSeconds / seconds)}${label} ago`;
+  }
+  return elapsedSeconds < 5 ? 'just now' : `${elapsedSeconds}s ago`;
+}
+
+function renderPublishedTime(event: NostrEvent): HTMLTimeElement {
+  const timeEl = document.createElement('time');
+  timeEl.className = 'feed-item-time';
+  timeEl.textContent = formatPublishedAgo(event.created_at);
+  if (Number.isFinite(event.created_at) && event.created_at > 0) {
+    const publishedAt = new Date(event.created_at * 1000);
+    timeEl.dateTime = publishedAt.toISOString();
+    timeEl.title = publishedAt.toLocaleString();
+  }
+  return timeEl;
+}
+
 function renderAvatar(pubkey: string, authorName: string, profile?: FeedProfile): HTMLElement {
   const avatarEl = document.createElement('span');
   avatarEl.className = 'feed-item-avatar';
@@ -106,13 +137,11 @@ function renderEvent(event: NostrEvent): void {
   const authorEl = document.createElement('span');
   authorEl.className = 'feed-item-author';
   authorEl.textContent = authorName;
-  const pubkeyEl = document.createElement('span');
-  pubkeyEl.className = 'feed-item-pubkey';
-  pubkeyEl.textContent = shortenPubkey(event.pubkey);
+  const timeEl = renderPublishedTime(event);
   const contentEl = document.createElement('span');
   contentEl.className = 'feed-item-content';
   contentEl.textContent = event.content;
-  metaEl.append(authorEl, pubkeyEl);
+  metaEl.append(authorEl, timeEl);
   bodyEl.append(metaEl, contentEl);
   li.append(renderAvatar(event.pubkey, authorName, profile), bodyEl);
   listEl.appendChild(li);
@@ -120,6 +149,9 @@ function renderEvent(event: NostrEvent): void {
 
 const store = createFeedStore(renderState);
 let waitingForSignerLogged = false;
+const relativeTimeRefreshId = window.setInterval(() => {
+  if (store.state.timeline.length > 0) renderState();
+}, RELATIVE_TIME_REFRESH_MS);
 
 function renderState(): void {
   listEl.replaceChildren();
@@ -178,6 +210,7 @@ init().catch((err) => {
 });
 
 window.addEventListener('pagehide', () => {
+  window.clearInterval(relativeTimeRefreshId);
   identityController.stop();
   store.destroy();
 });

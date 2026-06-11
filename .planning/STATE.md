@@ -107,6 +107,7 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 | 260611-iok | Switch playground feed to Hyprgate-style following outbox feed | 2026-06-11 | working tree | [260611-iok-switch-playground-feed-to-hyprgate-style](./quick/260611-iok-switch-playground-feed-to-hyprgate-style/) |
 | 260611-l1s | Show profile images and names in playground feed | 2026-06-11 | working tree | [260611-l1s-show-profile-images-and-names-in-playgro](./quick/260611-l1s-show-profile-images-and-names-in-playgro/) |
 | 260611-ln6 | Replace NIP-66 fixture panel with relay activity stats | 2026-06-11 | working tree | [260611-ln6-replace-nip-66-fixture-panel-with-relay-](./quick/260611-ln6-replace-nip-66-fixture-panel-with-relay-/) |
+| 260611-lwz | Show feed publish time instead of truncated pubkey | 2026-06-11 | working tree | [260611-lwz-show-feed-publish-time-instead-of-trunca](./quick/260611-lwz-show-feed-publish-time-instead-of-trunca/) |
 
 ## Session Continuity
 
