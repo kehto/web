@@ -185,6 +185,8 @@ describe('playground gateway artifact guard', () => {
     expect(profileSource).toContain("import { relaySubscribe } from '@napplet/nub/relay/sdk';");
     expect(profileSource).toContain("const REQUIRED_NAPS = ['ifc', 'relay', 'theme'] as const;");
     expect(profileSource).toContain("const REQUIRED_IFC_PROTOCOL = 'ifc:NAP-01';");
+    expect(profileSource).toContain('const CAPABILITY_WAIT_MS = 5_000;');
+    expect(profileSource).toContain("formatError(err, 'ifc or relay unavailable')");
     expect(profileSource).toContain("ifcOn('profile:open'");
     expect(profileSource).toContain('[{ kinds: [0], authors: [pubkey], limit: 1 }]');
     expect(profileSource).toContain('normalizePubkey');

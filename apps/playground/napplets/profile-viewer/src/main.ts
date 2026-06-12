@@ -9,7 +9,7 @@ import type { NostrEvent, Subscription } from '@napplet/core';
 
 const REQUIRED_NAPS = ['ifc', 'relay', 'theme'] as const;
 const REQUIRED_IFC_PROTOCOL = 'ifc:NAP-01';
-const CAPABILITY_WAIT_MS = 1_000;
+const CAPABILITY_WAIT_MS = 5_000;
 const CAPABILITY_WAIT_INTERVAL_MS = 25;
 const PROFILE_LOAD_TIMEOUT_MS = 8_000;
 
@@ -33,6 +33,12 @@ type ProfileMetadata = {
 let profileSub: Subscription | null = null;
 let ifcSub: Subscription | null = null;
 let profileLoadTimer: number | null = null;
+
+function formatError(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === 'string' && error.length > 0) return error;
+  return fallback;
+}
 
 function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void {
   statusEl.textContent = text;
@@ -234,9 +240,9 @@ async function init(): Promise<void> {
   setStatus('waiting', 'gray');
 }
 
-init().catch(() => {
+init().catch((err) => {
   if (statusEl.textContent === 'connecting...') {
-    setStatus('unavailable', 'red');
+    setStatus(`denied: ${formatError(err, 'ifc or relay unavailable')}`, 'red');
   }
 });
 
