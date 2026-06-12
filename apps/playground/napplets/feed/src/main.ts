@@ -196,7 +196,6 @@ function renderEvent(event: NostrEvent): void {
 }
 
 const store = createFeedStore(renderState);
-let waitingForSignerLogged = false;
 const relativeTimeRefreshId = window.setInterval(() => {
   if (store.state.timeline.length > 0) renderState();
 }, RELATIVE_TIME_REFRESH_MS);
@@ -217,10 +216,8 @@ const identityController = createFeedIdentityEventController({
   onLoggedOut: () => {
     store.clear();
     setStatus('not logged in', 'red');
-    waitingForSignerLogged = true;
   },
   onPubkey: (pubkey) => {
-    waitingForSignerLogged = false;
     store.init(pubkey);
     setStatus('subscribed', 'green');
   },
@@ -239,7 +236,7 @@ async function init(): Promise<void> {
   void identityController.start();
 }
 
-init().catch((err) => {
+init().catch(() => {
   // If status hasn't been set by the inner catch, set unavailable.
   if (statusEl.textContent === 'connecting...') {
     setStatus('unavailable', 'red');

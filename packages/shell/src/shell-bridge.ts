@@ -1,18 +1,17 @@
 
-import { createRuntime, type ConsentRequest, type Runtime, type SessionEntry } from '@kehto/runtime';
+import { createRuntime, type ConsentRequest, type Runtime } from '@kehto/runtime';
 import { adaptHooks } from './hooks-adapter.js';
 import { originRegistry } from './origin-registry.js';
 import { sessionRegistry, nappKeyRegistry } from './session-registry.js';
 import { aclStore } from './acl-store.js';
 import { manifestCache } from './manifest-cache.js';
 import { audioManager } from './audio-manager.js';
-import type { ShellAdapter, ShellCapabilities } from './types.js';
+import type { ShellAdapter } from './types.js';
 import type { NappletMessage } from '@napplet/core';
 import type { Theme } from '@napplet/nub/theme/types';
-import type { NappletClass } from './types/internal-class.js';
-import { buildShellCapabilities } from './shell-init.js';
 import { createKeysForwarder, type KeysForwarder } from './keys-forwarder.js';
 import { connectStore, type ConnectStore } from './connect-store.js';
+import { handleShellReady } from './shell-ready.js';
 
 /**
  * Shell-side message bridge that handles NIP-5D communication with napplet iframes.
@@ -240,80 +239,7 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
 
       // Handle shell.ready handshake locally (not forwarded to runtime)
       if (msg.type === 'shell.ready') {
-        const capabilities = buildShellCapabilities(hooks);
-
-        // NIP-5D: register a source-identity session entry in runtime.sessionRegistry
-        // if one does not already exist for this windowId. This wires the originRegistry
-        // identity into the runtime so domain handlers (storage/state, ifc, etc.) can
-        // resolve the napplet via getEntryByWindowId(windowId).
-        //
-        // Identity resolution order:
-        //   1. hooks.onNip5dIframeCreate?.(windowId) — preferred; returns { dTag, aggregateHash, class }
-        //   2. originRegistry.getIdentity(win) — fallback for hosts that register identity
-        //      directly via originRegistry.register(win, windowId, { dTag, aggregateHash })
-        //
-        // If neither source yields an identity, skip registration: the napplet is not
-        // NIP-5D or the host did not supply identity — leave behavior unchanged.
-        if (!runtime.sessionRegistry.getEntryByWindowId(windowId)) {
-          // Attempt hook-based identity first
-          let dTag: string | undefined;
-          let aggregateHash: string | undefined;
-          let resolvedClassFromIdentity: NappletClass = null;
-
-          const hookIdentity = hooks.onNip5dIframeCreate?.(windowId);
-          if (hookIdentity !== null && hookIdentity !== undefined) {
-            dTag = hookIdentity.dTag;
-            aggregateHash = hookIdentity.aggregateHash;
-            resolvedClassFromIdentity = hookIdentity.class;
-          } else {
-            // Fallback: read identity directly from originRegistry
-            const win = originRegistry.getIframeWindow(windowId);
-            if (win) {
-              const originIdentity = originRegistry.getIdentity(win);
-              if (originIdentity) {
-                dTag = originIdentity.dTag;
-                aggregateHash = originIdentity.aggregateHash;
-                resolvedClassFromIdentity = null;
-              }
-            }
-          }
-
-          if (dTag !== undefined && aggregateHash !== undefined) {
-            const entry: SessionEntry = {
-              pubkey: '',
-              windowId,
-              origin: event.origin,
-              type: 'nip5d',
-              dTag,
-              aggregateHash,
-              registeredAt: Date.now(),
-              instanceId: crypto.randomUUID(),
-              provenance: 'nip-5d',
-              class: resolvedClassFromIdentity,
-            };
-            runtime.sessionRegistry.register(windowId, entry);
-          }
-        }
-
-        // CLASS-02: read resolved class from session entry (populated above, or
-        // previously by the host at iframe creation time for legacy flows).
-        // Fallback to null (permissive default, D2) when no entry is resolvable
-        // (genuinely non-NIP-5D napplets, or hosts that do not supply identity).
-        // No async class.assigned envelope is ever emitted (C-01 prevention).
-        const sessionEntry = runtime.sessionRegistry.getEntryByWindowId(windowId);
-        const resolvedClass: NappletClass = sessionEntry?.class ?? null;
-        const initMsg: NappletMessage & {
-          capabilities: ShellCapabilities;
-          services: string[];
-          class: NappletClass;
-        } = {
-          type: 'shell.init',
-          capabilities,
-          services: Object.keys(hooks.services ?? {}),
-          class: resolvedClass,
-        };
-        const win = originRegistry.getIframeWindow(windowId);
-        if (win) win.postMessage(initMsg, '*');
+        handleShellReady({ hooks, origin: event.origin, runtime, windowId });
         return;
       }
 

@@ -49,7 +49,6 @@ export function createFeedStore(
   let contactSub: Subscription | null = null;
   let timelineSub: Subscription | null = null;
   let liveSub: Subscription | null = null;
-  let contactPubkeys: string[] = [];
   const profileSubs = new Set<Subscription>();
   const loadingProfilePubkeys = new Set<string>();
   const profileCreatedAt = new Map<string, number>();
@@ -81,7 +80,6 @@ export function createFeedStore(
     seenIds.clear();
     loadingProfilePubkeys.clear();
     profileCreatedAt.clear();
-    contactPubkeys = [];
     state.pubkey = pubkey;
     state.contactCount = 0;
     state.profiles.clear();
@@ -98,7 +96,6 @@ export function createFeedStore(
     seenIds.clear();
     loadingProfilePubkeys.clear();
     profileCreatedAt.clear();
-    contactPubkeys = [];
     state.pubkey = null;
     state.contactCount = 0;
     state.profiles.clear();
@@ -228,7 +225,6 @@ export function createFeedStore(
 
   function startFollowingFeed(pubkeys: string[]): void {
     closeTimelineSubscriptions();
-    contactPubkeys = pubkeys;
     state.contactCount = pubkeys.length;
     state.loading = true;
     state.loaded = false;

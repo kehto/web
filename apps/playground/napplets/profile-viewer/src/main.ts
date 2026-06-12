@@ -34,12 +34,6 @@ let profileSub: Subscription | null = null;
 let ifcSub: Subscription | null = null;
 let profileLoadTimer: number | null = null;
 
-function formatError(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message) return error.message;
-  if (typeof error === 'string' && error.length > 0) return error;
-  return fallback;
-}
-
 function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void {
   statusEl.textContent = text;
   statusEl.style.color =
@@ -192,7 +186,7 @@ function loadProfile(pubkey: string): void {
   let latest: NostrEvent | null = null;
   let done = false;
   let sub: Subscription | null = null;
-  const finish = (reason: 'complete' | 'timeout') => {
+  const finish = () => {
     if (done) return;
     done = true;
     clearProfileLoadTimer();
@@ -201,7 +195,7 @@ function loadProfile(pubkey: string): void {
     if (profileSub === sub) profileSub = null;
   };
 
-  profileLoadTimer = window.setTimeout(() => finish('timeout'), PROFILE_LOAD_TIMEOUT_MS);
+  profileLoadTimer = window.setTimeout(finish, PROFILE_LOAD_TIMEOUT_MS);
   sub = relaySubscribe(
     [{ kinds: [0], authors: [pubkey], limit: 1 }],
     (event) => {
@@ -211,7 +205,7 @@ function loadProfile(pubkey: string): void {
       latest = event;
       renderProfile(pubkey, parseProfile(event));
     },
-    () => finish('complete'),
+    finish,
   );
   profileSub = sub;
 }
@@ -240,7 +234,7 @@ async function init(): Promise<void> {
   setStatus('waiting', 'gray');
 }
 
-init().catch((err) => {
+init().catch(() => {
   if (statusEl.textContent === 'connecting...') {
     setStatus('unavailable', 'red');
   }

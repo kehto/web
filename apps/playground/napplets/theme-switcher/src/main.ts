@@ -304,6 +304,6 @@ async function init(): Promise<void> {
   void refreshDiscoveredThemes();
 }
 
-init().catch((err) => {
+init().catch(() => {
   setStatus('unavailable', 'red');
 });
