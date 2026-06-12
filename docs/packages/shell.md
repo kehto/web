@@ -16,7 +16,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nub nostr
 | Field | Value |
 |-------|-------|
 | Source | `packages/shell/package.json`, `packages/shell/src/index.ts` |
-| Version | `0.3.0` |
+| Version | `0.3.1` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Dependencies | `@kehto/acl`, `@kehto/runtime` |
@@ -26,8 +26,8 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nub nostr
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `^0.3.0` |
-| `@napplet/nub` | `^0.3.0` |
+| `@napplet/core` | `^0.5.0` |
+| `@napplet/nub` | `^0.5.0` |
 | `nostr-tools` | `>=2.23.3 <3.0.0` |
 
 ## Primary APIs

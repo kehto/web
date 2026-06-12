@@ -14,7 +14,7 @@
  *   1. media.session.create envelope dispatchable via __injectEnvelope__.
  *   2. The real @kehto/services createMediaService() handler replies with a
  *      canonical media.session.create.result envelope carrying { type, id,
- *      sessionId } — captured via __getNubMessage__.
+ *      sessionId, owner } — captured via __getNubMessage__.
  *   3. After session.create, navigator.mediaSession.metadata.title on the
  *      harness page reflects the supplied metadata — proves the real bridge
  *      mirrored via bridge.setMetadata (Plan 27-01 createBrowserMediaBridge).
@@ -65,6 +65,7 @@ test('nub-media: media.session.create/update drives real media-service navigator
   await page.evaluate(
     (wid) => window.__injectEnvelope__(wid, {
       type: 'media.session.create',
+      owner: 'napplet',
       id: 'nub-media-spec-1',
       sessionId: 'nub-media-spec-session',
       metadata: { title: 'Layer-A Real Track', artist: 'kehto' },
@@ -84,6 +85,7 @@ test('nub-media: media.session.create/update drives real media-service navigator
   );
   expect((reqEnvelope as { type: string }).type).toBe('media.session.create');
   expect((reqEnvelope as { id?: string }).id).toBe('nub-media-spec-1');
+  expect((reqEnvelope as { owner?: string }).owner).toBe('napplet');
 
   // Real backend replies with media.session.create.result — captured via envelopeLog.
   await page.waitForFunction(
@@ -98,6 +100,7 @@ test('nub-media: media.session.create/update drives real media-service navigator
   expect((resultEnvelope as { type: string }).type).toBe('media.session.create.result');
   expect((resultEnvelope as { id?: string }).id).toBe('nub-media-spec-1');
   expect((resultEnvelope as { sessionId?: string }).sessionId).toBe('nub-media-spec-session');
+  expect((resultEnvelope as { owner?: string }).owner).toBe('napplet');
 
   // Real bridge mirrored metadata to navigator.mediaSession.metadata via
   // createBrowserMediaBridge.setMetadata (Plan 27-01). Poll to absorb timing.

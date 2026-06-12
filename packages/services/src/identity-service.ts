@@ -21,13 +21,9 @@
  * Host apps plug real backends via runtime.registerService('identity', realHandler).
  */
 
-import type { NappletMessage, NostrEvent, Rumor } from '@napplet/core';
+import type { NappletMessage, NostrEvent } from '@napplet/core';
 import type { ServiceHandler, Signer } from '@kehto/runtime';
 import type {
-  IdentityDecryptErrorCode,
-  IdentityDecryptErrorMessage,
-  IdentityDecryptMessage,
-  IdentityDecryptResultMessage,
   IdentityGetPublicKeyResultMessage,
   IdentityGetRelaysResultMessage,
   IdentityGetProfileResultMessage,
@@ -44,6 +40,44 @@ import type {
 const IDENTITY_SERVICE_VERSION = '1.0.0';
 
 type EncryptionMode = 'nip04' | 'nip44-direct' | 'nip17';
+
+export type IdentityDecryptErrorCode =
+  | 'class-forbidden'
+  | 'signer-denied'
+  | 'signer-unavailable'
+  | 'decrypt-failed'
+  | 'malformed-wrap'
+  | 'impersonation'
+  | 'unsupported-encryption'
+  | 'policy-denied';
+
+export interface Rumor {
+  id: string;
+  pubkey: string;
+  created_at: number;
+  kind: number;
+  tags: string[][];
+  content: string;
+}
+
+export interface IdentityDecryptMessage extends NappletMessage {
+  type: 'identity.decrypt';
+  id: string;
+  event: NostrEvent;
+}
+
+export interface IdentityDecryptResultMessage extends NappletMessage {
+  type: 'identity.decrypt.result';
+  id: string;
+  rumor: Rumor;
+  sender: string;
+}
+
+export interface IdentityDecryptErrorMessage extends NappletMessage {
+  type: 'identity.decrypt.error';
+  id: string;
+  error: IdentityDecryptErrorCode;
+}
 
 const DECRYPT_ERROR_CODES: readonly IdentityDecryptErrorCode[] = [
   'class-forbidden',

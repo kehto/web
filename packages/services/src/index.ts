@@ -39,7 +39,12 @@ export { createIdentityService } from './identity-service.js';
 export type {
   GiftWrapDecryptResult,
   HostDecryptBridge,
+  IdentityDecryptErrorCode,
+  IdentityDecryptErrorMessage,
+  IdentityDecryptMessage,
+  IdentityDecryptResultMessage,
   IdentityServiceOptions,
+  Rumor,
   VerifyEvent,
 } from './identity-service.js';
 
@@ -65,6 +70,9 @@ export type {
   HostMediaBridge,
   MediaSessionTarget,
   MediaMetadataLike,
+  MediaPlaybackOwner,
+  MediaSourceRef,
+  MediaSessionCreateOptions,
 } from './media-service.js';
 // Convenience re-export: host apps implementing HostMediaBridge need the
 // MediaAction literal for their onAction callback typing. Re-exported here

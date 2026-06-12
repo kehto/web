@@ -1,6 +1,6 @@
 {
   "name": "@kehto/services",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Reference service implementations for the napplet protocol — audio, notifications, and extensible service handlers",
   "type": "module",
   "main": "./dist/index.js",
@@ -23,15 +23,15 @@
     "@kehto/runtime": "workspace:*"
   },
   "peerDependencies": {
-    "@napplet/core": "^0.3.0",
-    "@napplet/nub": "^0.3.0"
+    "@napplet/core": "^0.5.0",
+    "@napplet/nub": "^0.5.0"
   },
   "devDependencies": {
-    "@napplet/core": "^0.3.0",
-    "@napplet/nub": "^0.3.0",
+    "@napplet/core": "^0.5.0",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.2"
+    "vitest": "^4.1.2",
+    "@napplet/nub": "^0.5.0"
   },
   "scripts": {
     "build": "tsup",

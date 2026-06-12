@@ -3,8 +3,8 @@
  */
 import '@napplet/shim';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
-import { identityGetPublicKey } from '@napplet/nap/identity/sdk';
-import { ifcEmit } from '@napplet/nap/ifc/sdk';
+import { identityGetPublicKey, identityOnChanged } from '@napplet/nub/identity/sdk';
+import { ifcEmit } from '@napplet/nub/ifc/sdk';
 import type { NostrEvent } from '@napplet/core';
 import { createFeedStore, type FeedProfile } from './feed-store.js';
 import { createFeedIdentityEventController } from './feed-identity-events.js';
@@ -213,6 +213,7 @@ function renderState(): void {
 
 const identityController = createFeedIdentityEventController({
   readPublicKey: identityGetPublicKey,
+  subscribeToChanges: identityOnChanged,
   onLoggedOut: () => {
     store.clear();
     setStatus('not logged in', 'red');

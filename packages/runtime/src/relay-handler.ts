@@ -1,5 +1,5 @@
 import type { NappletMessage, NostrEvent, NostrFilter } from '@napplet/core';
-import type { RelayNubMessage } from '@napplet/nub/relay/types';
+import type { RelayMessage } from '@napplet/nub/relay/types';
 
 import { matchesAnyFilter, type EventBuffer, type SubscriptionEntry } from './event-buffer.js';
 import type { ReplayDetector } from './replay.js';
@@ -8,7 +8,6 @@ import type { RuntimeAdapter, ServiceHandler, ServiceRegistry } from './types.js
 declare function setTimeout(callback: () => void, ms: number): unknown;
 declare function clearTimeout(id: unknown): void;
 
-type RelayMessage = RelayNubMessage;
 type RuntimeRelayMessage = RelayMessage & {
   subId?: string;
   filters?: NostrFilter[];

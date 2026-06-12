@@ -17,9 +17,8 @@
 import { createShellBridge, originRegistry } from '@kehto/shell';
 import type { Capability, SessionEntry } from '@kehto/shell';
 import { createIdentityService, createKeysService, createMediaService } from '@kehto/services';
-import type { HostDecryptBridge } from '@kehto/services';
+import type { HostDecryptBridge, IdentityDecryptErrorCode } from '@kehto/services';
 import type { NappletMessage, NostrEvent } from '@napplet/core';
-import type { IdentityDecryptErrorCode } from '@napplet/nap/identity/types';
 import { createMockHooks } from '@test/helpers';
 import { createMessageTap } from '@test/helpers';
 import { nip04, nip44, nip17 } from 'nostr-tools';

@@ -6,11 +6,11 @@ This directory holds the **Layer-A fixture napplets** used by the Playwright har
 
 Each fixture is a minimal helper-based package named `@kehto/fixture-nub-<domain>`:
 
-- `package.json` — exact `@napplet/shim`, `@napplet/sdk`, and `@napplet/nap` 0.3.1 deps; `vite build` + `vite preview` scripts (mirrors demo napplets)
+- `package.json` — exact `@napplet/shim`, `@napplet/sdk`, and `@napplet/nub` 0.5.0 deps; `vite build` + `vite preview` scripts (mirrors demo napplets)
 - `vite.config.ts` — `nip5aManifest({ nappletType: 'fixture-nub-<domain>' })`
 - `tsconfig.json` — strict TS, ESNext, DOM lib (mirrors demo napplets)
 - `index.html` — minimal HTML with `<title>nub-<domain> fixture</title>` and required DOM sentinels
-- `src/main.ts` — imports `@napplet/shim` + relevant `@napplet/nap/<domain>/sdk` direct helpers; performs one or two helper calls on init
+- `src/main.ts` — imports `@napplet/shim` + relevant `@napplet/nub/<domain>/sdk` direct helpers; performs one or two helper calls on init
 
 Six active fixtures (one per non-stub NAP domain):
 - `nub-identity/` — `identityGetPublicKey` / `identityGetProfile`

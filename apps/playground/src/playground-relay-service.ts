@@ -160,11 +160,7 @@ class PlaygroundRelayRuntimeImpl {
           this.recordRelayAccess(relayUrls, 'subscription');
           return this.pool.subscription(relayUrls, filters as NostrFilter[]).subscribe((item: NostrEvent) => {
             this.recordRelayEvents(relayUrls, 1);
-            if (typeof observer === 'function') {
-              observer(item);
-            } else {
-              observer.next?.(item);
-            }
+            observer(item);
           });
         },
       }),

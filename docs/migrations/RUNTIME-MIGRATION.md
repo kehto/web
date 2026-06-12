@@ -385,7 +385,7 @@ See PITFALLS.md security mistakes section for the full list of post-AUTH securit
 
 Four NUB domain handlers replace the current verb/kind dispatch in `runtime.ts`. The old model routed every inbound message through one of six verb cases (`EVENT`, `REQ`, `CLOSE`, `COUNT`, `REGISTER`, `AUTH`) and then sub-dispatched on `event.kind` to detect signer requests (kind 29001), IPC_PEER traffic (kind 29003), and service discovery (kind 29010).
 
-The new model uses the NUB domain prefix (`msg.type.split('.')[0]`) to dispatch to one of four dedicated handlers: `handleRelayMessage`, `handleSignerMessage`, `handleStorageMessage`, and `handleIfcMessage`. Each handler owns one NUB domain and processes only the flat JSON envelope objects defined in the NIP-5D `@napplet/nub-*` packages.
+The new model uses the NUB domain prefix (`msg.type.split('.')[0]`) to dispatch to one of four dedicated handlers: `handleRelayMessage`, `handleSignerMessage`, `handleStorageMessage`, and `handleIfcMessage`. Each handler owns one NUB domain and processes only the flat JSON envelope objects defined in the NIP-5D `@napplet/nap-*` packages.
 
 This section documents each handler's old code path, new message shapes, capability requirements, and affected source files. The [capability mapping table](#14-capability-resolution-migration) in Section 1.4 serves as the authoritative reference for `resolveCapabilitiesNub()` — the per-handler notes below cross-reference it.
 

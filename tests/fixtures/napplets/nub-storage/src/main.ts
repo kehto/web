@@ -11,7 +11,7 @@
  *   - __getNubMessage__(windowId, 'storage.setItem') and 'storage.getItem' both return non-null
  */
 import '@napplet/shim';
-import { storageGetItem, storageSetItem } from '@napplet/nap/storage/sdk';
+import { storageGetItem, storageSetItem } from '@napplet/nub/storage/sdk';
 
 const statusEl = document.getElementById('nub-status')!;
 const valueEl = document.getElementById('nub-storage-value')!;

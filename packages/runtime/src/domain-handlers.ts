@@ -53,11 +53,29 @@ function handleMediaMessage(context: RuntimeDomainContext, windowId: string, msg
     return;
   }
   if (msg.type === 'media.session.create') {
-    const m = msg as NappletMessage & { id?: string; sessionId?: string };
+    const m = msg as NappletMessage & { id?: string; owner?: string; sessionId?: string };
+    if (m.owner !== 'napplet' && m.owner !== 'shell') {
+      hooks.sendToNapplet(windowId, {
+        type: 'media.session.create.result',
+        id: m.id ?? '',
+        error: 'missing owner',
+      } as NappletMessage);
+      return;
+    }
+    if (m.owner === 'shell') {
+      hooks.sendToNapplet(windowId, {
+        type: 'media.session.create.result',
+        id: m.id ?? '',
+        owner: 'shell',
+        error: 'unsupported owner mode',
+      } as NappletMessage);
+      return;
+    }
     hooks.sendToNapplet(windowId, {
       type: 'media.session.create.result',
       id: m.id ?? '',
       sessionId: m.sessionId ?? '',
+      owner: m.owner,
     } as NappletMessage);
   }
 }

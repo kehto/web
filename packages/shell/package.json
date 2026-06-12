@@ -1,6 +1,6 @@
 {
   "name": "@kehto/shell",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Shell runtime — relay bridge, ACL enforcement, signer proxy, storage proxy for hosting napplet iframe applications",
   "type": "module",
   "main": "./dist/index.js",
@@ -24,16 +24,16 @@
     "@kehto/runtime": "workspace:*"
   },
   "peerDependencies": {
-    "@napplet/core": "^0.3.0",
-    "@napplet/nub": "^0.3.0",
-    "nostr-tools": ">=2.23.3 <3.0.0"
+    "@napplet/core": "^0.5.0",
+    "nostr-tools": ">=2.23.3 <3.0.0",
+    "@napplet/nub": "^0.5.0"
   },
   "devDependencies": {
-    "@napplet/core": "^0.3.0",
-    "@napplet/nub": "^0.3.0",
+    "@napplet/core": "^0.5.0",
     "nostr-tools": "^2.23.3",
     "tsup": "^8.5.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "@napplet/nub": "^0.5.0"
   },
   "scripts": {
     "build": "tsup",

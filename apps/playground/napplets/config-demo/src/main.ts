@@ -20,7 +20,7 @@
  */
 import '@napplet/shim';
 import { installNapTheme } from '../../shared-theme';
-import { get as configGet, subscribe as configSubscribe } from '@napplet/nap/config/sdk';
+import { get as configGet, subscribe as configSubscribe } from '@napplet/nub/config/sdk';
 
 const REQUIRED_NAPS = ['config', 'theme'] as const;
 

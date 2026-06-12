@@ -116,6 +116,7 @@ describe('createMediaService', () => {
         WINDOW_ID,
         {
           type: 'media.session.create',
+          owner: 'napplet',
           id: 'm1',
           sessionId: 's1',
           metadata: { title: 't' },
@@ -127,6 +128,7 @@ describe('createMediaService', () => {
       expect((sent[0] as any).type).toBe('media.session.create.result');
       expect((sent[0] as any).id).toBe('m1');
       expect((sent[0] as any).sessionId).toBe('s1');
+      expect((sent[0] as any).owner).toBe('napplet');
     });
 
     it('invokes onSessionCreate callback with windowId, sessionId, metadata', () => {
@@ -141,6 +143,7 @@ describe('createMediaService', () => {
         WINDOW_ID,
         {
           type: 'media.session.create',
+          owner: 'napplet',
           id: 'm2',
           sessionId: 's2',
           metadata: { title: 'song' },
@@ -152,6 +155,90 @@ describe('createMediaService', () => {
       expect(calls[0].windowId).toBe(WINDOW_ID);
       expect(calls[0].sessionId).toBe('s2');
       expect(calls[0].metadata).toEqual({ title: 'song' });
+    });
+
+    it('rejects ownerless creates with a create result error', () => {
+      const service = createMediaService();
+      const sent: NappletMessage[] = [];
+
+      service.handleMessage(
+        WINDOW_ID,
+        {
+          type: 'media.session.create',
+          id: 'ownerless',
+          sessionId: 's-ownerless',
+          metadata: { title: 't' },
+        } as NappletMessage,
+        (msg) => sent.push(msg),
+      );
+
+      expect(sent).toHaveLength(1);
+      expect((sent[0] as any).type).toBe('media.session.create.result');
+      expect((sent[0] as any).id).toBe('ownerless');
+      expect((sent[0] as any).sessionId).toBeUndefined();
+      expect((sent[0] as any).error).toBe('missing owner');
+    });
+
+    it('rejects shell-owned creates without a source', () => {
+      const service = createMediaService();
+      const sent: NappletMessage[] = [];
+
+      service.handleMessage(
+        WINDOW_ID,
+        {
+          type: 'media.session.create',
+          owner: 'shell',
+          id: 'shell-missing-source',
+        } as NappletMessage,
+        (msg) => sent.push(msg),
+      );
+
+      expect(sent).toHaveLength(1);
+      expect((sent[0] as any).type).toBe('media.session.create.result');
+      expect((sent[0] as any).owner).toBe('shell');
+      expect((sent[0] as any).error).toBe('missing source');
+    });
+
+    it('rejects shell-owned creates until a shell playback bridge exists', () => {
+      const service = createMediaService();
+      const sent: NappletMessage[] = [];
+
+      service.handleMessage(
+        WINDOW_ID,
+        {
+          type: 'media.session.create',
+          owner: 'shell',
+          id: 'shell-source',
+          source: { url: 'https://example.com/live.mp3', mimeType: 'audio/mpeg' },
+        } as NappletMessage,
+        (msg) => sent.push(msg),
+      );
+
+      expect(sent).toHaveLength(1);
+      expect((sent[0] as any).type).toBe('media.session.create.result');
+      expect((sent[0] as any).owner).toBe('shell');
+      expect((sent[0] as any).error).toBe('unsupported owner mode');
+    });
+
+    it('canonicalizes colliding client session ids', () => {
+      const service = createMediaService();
+      const sentA: NappletMessage[] = [];
+      const sentB: NappletMessage[] = [];
+
+      service.handleMessage(
+        'win-a',
+        { type: 'media.session.create', owner: 'napplet', id: 'a', sessionId: 'same' } as NappletMessage,
+        (msg) => sentA.push(msg),
+      );
+      service.handleMessage(
+        'win-b',
+        { type: 'media.session.create', owner: 'napplet', id: 'b', sessionId: 'same' } as NappletMessage,
+        (msg) => sentB.push(msg),
+      );
+
+      expect((sentA[0] as any).sessionId).toBe('same');
+      expect((sentB[0] as any).sessionId).not.toBe('same');
+      expect((sentB[0] as any).sessionId).toContain('win-b:same:');
     });
   });
 
@@ -279,6 +366,7 @@ describe('createMediaService', () => {
         WINDOW_ID,
         {
           type: 'media.session.create',
+          owner: 'napplet',
           id: 'm-deny',
           sessionId: 's-deny',
         } as NappletMessage,
@@ -300,7 +388,7 @@ describe('navigator.mediaSession integration (real mirror path)', () => {
     const service = createMediaService({ mediaSessionTarget: mock.target, documentTarget: mockDoc.doc });
 
     service.handleMessage(WINDOW_ID, {
-      type: 'media.session.create', id: 's-1', sessionId: 'sess-1',
+      type: 'media.session.create', owner: 'napplet', id: 's-1', sessionId: 'sess-1',
       metadata: { title: 'Test Track', artist: 'Test Artist' },
     } as NappletMessage, () => {});
 
@@ -317,7 +405,7 @@ describe('navigator.mediaSession integration (real mirror path)', () => {
     const service = createMediaService({ mediaSessionTarget: mock.target, documentTarget: mockDoc.doc });
 
     service.handleMessage(WINDOW_ID, {
-      type: 'media.session.create', id: 's1', sessionId: 'a',
+      type: 'media.session.create', owner: 'napplet', id: 's1', sessionId: 'a',
     } as NappletMessage, () => {});
 
     expect(mockDoc.appended).toHaveLength(1);
@@ -341,7 +429,7 @@ describe('media.command emission on setActionHandler fire (real push path)', () 
     const service = createMediaService({ mediaSessionTarget: mock.target, documentTarget: mockDoc.doc });
 
     service.handleMessage(WINDOW_ID, {
-      type: 'media.session.create', id: 's-a', sessionId: 'sess-a',
+      type: 'media.session.create', owner: 'napplet', id: 's-a', sessionId: 'sess-a',
       metadata: { title: 'A' },
     } as NappletMessage, (m) => sent.push(m));
 
@@ -373,7 +461,7 @@ describe('media.command emission on setActionHandler fire (real push path)', () 
       const sent: NappletMessage[] = [];
       const service = createMediaService({ mediaSessionTarget: mock.target, documentTarget: mockDoc.doc });
       service.handleMessage(WINDOW_ID, {
-        type: 'media.session.create', id: `s-${domAction}`, sessionId: `sess-${domAction}`,
+        type: 'media.session.create', owner: 'napplet', id: `s-${domAction}`, sessionId: `sess-${domAction}`,
       } as NappletMessage, (m) => sent.push(m));
       sent.length = 0;  // drop the .result envelope
       mock.fire(domAction, domAction === 'seekto' ? { seekTime: 42 } : undefined);
@@ -392,13 +480,13 @@ describe('last-active-wins multi-session semantics', () => {
     const service = createMediaService({ mediaSessionTarget: mock.target, documentTarget: mockDoc.doc });
 
     service.handleMessage(WINDOW_ID, {
-      type: 'media.session.create', id: 'sA', sessionId: 'A',
+      type: 'media.session.create', owner: 'napplet', id: 'sA', sessionId: 'A',
       metadata: { title: 'Track A' },
     } as NappletMessage, () => {});
     expect(mock.target.metadata!.title).toBe('Track A');
 
     service.handleMessage(WINDOW_ID, {
-      type: 'media.session.create', id: 'sB', sessionId: 'B',
+      type: 'media.session.create', owner: 'napplet', id: 'sB', sessionId: 'B',
       metadata: { title: 'Track B' },
     } as NappletMessage, () => {});
     expect(mock.target.metadata!.title).toBe('Track B');
@@ -410,10 +498,10 @@ describe('last-active-wins multi-session semantics', () => {
     const service = createMediaService({ mediaSessionTarget: mock.target, documentTarget: mockDoc.doc });
 
     service.handleMessage(WINDOW_ID, {
-      type: 'media.session.create', id: 'sA', sessionId: 'A', metadata: { title: 'A' },
+      type: 'media.session.create', owner: 'napplet', id: 'sA', sessionId: 'A', metadata: { title: 'A' },
     } as NappletMessage, () => {});
     service.handleMessage(WINDOW_ID, {
-      type: 'media.session.create', id: 'sB', sessionId: 'B', metadata: { title: 'B' },
+      type: 'media.session.create', owner: 'napplet', id: 'sB', sessionId: 'B', metadata: { title: 'B' },
     } as NappletMessage, () => {});
     // B is active.
     service.handleMessage(WINDOW_ID, {
@@ -436,7 +524,7 @@ describe('media.state status -> playbackState mirroring', () => {
     const mockDoc = createMockDocument();
     const service = createMediaService({ mediaSessionTarget: mock.target, documentTarget: mockDoc.doc });
     service.handleMessage(WINDOW_ID, {
-      type: 'media.session.create', id: 's', sessionId: 'x',
+      type: 'media.session.create', owner: 'napplet', id: 's', sessionId: 'x',
     } as NappletMessage, () => {});
     service.handleMessage(WINDOW_ID, {
       type: 'media.state', sessionId: 'x', status,
@@ -451,7 +539,7 @@ describe('media.capabilities narrows action handlers', () => {
     const mockDoc = createMockDocument();
     const service = createMediaService({ mediaSessionTarget: mock.target, documentTarget: mockDoc.doc });
     service.handleMessage(WINDOW_ID, {
-      type: 'media.session.create', id: 's', sessionId: 'x',
+      type: 'media.session.create', owner: 'napplet', id: 's', sessionId: 'x',
     } as NappletMessage, () => {});
     mock.setActionHandlerCalls.length = 0;  // drop the initial install calls
     service.handleMessage(WINDOW_ID, {
@@ -468,10 +556,10 @@ describe('media.session.destroy promotes next-active or clears', () => {
     const mockDoc = createMockDocument();
     const service = createMediaService({ mediaSessionTarget: mock.target, documentTarget: mockDoc.doc });
     service.handleMessage(WINDOW_ID, {
-      type: 'media.session.create', id: 'sA', sessionId: 'A', metadata: { title: 'A' },
+      type: 'media.session.create', owner: 'napplet', id: 'sA', sessionId: 'A', metadata: { title: 'A' },
     } as NappletMessage, () => {});
     service.handleMessage(WINDOW_ID, {
-      type: 'media.session.create', id: 'sB', sessionId: 'B', metadata: { title: 'B' },
+      type: 'media.session.create', owner: 'napplet', id: 'sB', sessionId: 'B', metadata: { title: 'B' },
     } as NappletMessage, () => {});
     // B is active. Destroy B -> A should become active.
     service.handleMessage(WINDOW_ID, {
@@ -485,7 +573,7 @@ describe('media.session.destroy promotes next-active or clears', () => {
     const mockDoc = createMockDocument();
     const service = createMediaService({ mediaSessionTarget: mock.target, documentTarget: mockDoc.doc });
     service.handleMessage(WINDOW_ID, {
-      type: 'media.session.create', id: 's', sessionId: 'X', metadata: { title: 'X' },
+      type: 'media.session.create', owner: 'napplet', id: 's', sessionId: 'X', metadata: { title: 'X' },
     } as NappletMessage, () => {});
     service.handleMessage(WINDOW_ID, {
       type: 'media.session.destroy', sessionId: 'X',
@@ -503,10 +591,10 @@ describe('onWindowDestroyed cleans up sessions for that window only', () => {
     const sentB: NappletMessage[] = [];
     const service = createMediaService({ mediaSessionTarget: mock.target, documentTarget: mockDoc.doc });
     service.handleMessage('win-A', {
-      type: 'media.session.create', id: 'sA', sessionId: 'A', metadata: { title: 'A' },
+      type: 'media.session.create', owner: 'napplet', id: 'sA', sessionId: 'A', metadata: { title: 'A' },
     } as NappletMessage, (m) => sentA.push(m));
     service.handleMessage('win-B', {
-      type: 'media.session.create', id: 'sB', sessionId: 'B', metadata: { title: 'B' },
+      type: 'media.session.create', owner: 'napplet', id: 'sB', sessionId: 'B', metadata: { title: 'B' },
     } as NappletMessage, (m) => sentB.push(m));
 
     service.onWindowDestroyed?.('win-A');
@@ -529,7 +617,7 @@ describe('destroy() detaches all action handlers + silent-audio element', () => 
     const service = createMediaService({ mediaSessionTarget: mock.target, documentTarget: mockDoc.doc });
 
     service.handleMessage(WINDOW_ID, {
-      type: 'media.session.create', id: 's', sessionId: 'x',
+      type: 'media.session.create', owner: 'napplet', id: 's', sessionId: 'x',
     } as NappletMessage, () => {});
 
     mock.setActionHandlerCalls.length = 0;
@@ -577,7 +665,7 @@ describe('HostMediaBridge integration', () => {
     const service = createMediaService({ hostBridge: bridge });
 
     service.handleMessage(WINDOW_ID, {
-      type: 'media.session.create', id: 'b-1', sessionId: 'sess-b', metadata: { title: 'Bridge Track', artist: 'Bridge' },
+      type: 'media.session.create', owner: 'napplet', id: 'b-1', sessionId: 'sess-b', metadata: { title: 'Bridge Track', artist: 'Bridge' },
     } as NappletMessage, (m) => sent.push(m));
 
     expect(metadataCalls).toHaveLength(1);
@@ -591,7 +679,7 @@ describe('HostMediaBridge integration', () => {
     const { bridge, stateCalls } = createFakeBridge();
     const service = createMediaService({ hostBridge: bridge });
     service.handleMessage(WINDOW_ID, {
-      type: 'media.session.create', id: 'b', sessionId: 'sess',
+      type: 'media.session.create', owner: 'napplet', id: 'b', sessionId: 'sess',
     } as NappletMessage, () => {});
     service.handleMessage(WINDOW_ID, {
       type: 'media.state', sessionId: 'sess', status: 'playing',
@@ -604,7 +692,7 @@ describe('HostMediaBridge integration', () => {
     const sent: NappletMessage[] = [];
     const service = createMediaService({ hostBridge: bridge });
     service.handleMessage(WINDOW_ID, {
-      type: 'media.session.create', id: 'b', sessionId: 'sess-x',
+      type: 'media.session.create', owner: 'napplet', id: 'b', sessionId: 'sess-x',
     } as NappletMessage, (m) => sent.push(m));
 
     sent.length = 0;  // drop the .result envelope
@@ -621,7 +709,7 @@ describe('HostMediaBridge integration', () => {
     const sent: NappletMessage[] = [];
     const service = createMediaService({ hostBridge: bridge });
     service.handleMessage(WINDOW_ID, {
-      type: 'media.session.create', id: 'b', sessionId: 'sess-y',
+      type: 'media.session.create', owner: 'napplet', id: 'b', sessionId: 'sess-y',
     } as NappletMessage, (m) => sent.push(m));
 
     sent.length = 0;
@@ -656,7 +744,7 @@ describe('HostMediaBridge integration', () => {
     const { bridge, destroySessionCalls } = createFakeBridge();
     const service = createMediaService({ hostBridge: bridge });
     service.handleMessage(WINDOW_ID, {
-      type: 'media.session.create', id: 'b', sessionId: 'kill-me',
+      type: 'media.session.create', owner: 'napplet', id: 'b', sessionId: 'kill-me',
     } as NappletMessage, () => {});
     service.handleMessage(WINDOW_ID, {
       type: 'media.session.destroy', sessionId: 'kill-me',
@@ -668,10 +756,10 @@ describe('HostMediaBridge integration', () => {
     const { bridge, activeSessionCalls } = createFakeBridge();
     const service = createMediaService({ hostBridge: bridge });
     service.handleMessage(WINDOW_ID, {
-      type: 'media.session.create', id: 'b1', sessionId: 'A',
+      type: 'media.session.create', owner: 'napplet', id: 'b1', sessionId: 'A',
     } as NappletMessage, () => {});
     service.handleMessage(WINDOW_ID, {
-      type: 'media.session.create', id: 'b2', sessionId: 'B',
+      type: 'media.session.create', owner: 'napplet', id: 'b2', sessionId: 'B',
     } as NappletMessage, () => {});
     expect(activeSessionCalls).toEqual(['A', 'B']);
   });
@@ -680,13 +768,13 @@ describe('HostMediaBridge integration', () => {
     const { bridge, destroySessionCalls } = createFakeBridge();
     const service = createMediaService({ hostBridge: bridge });
     service.handleMessage('win-A', {
-      type: 'media.session.create', id: 'bA', sessionId: 'sA',
+      type: 'media.session.create', owner: 'napplet', id: 'bA', sessionId: 'sA',
     } as NappletMessage, () => {});
     service.handleMessage('win-A', {
-      type: 'media.session.create', id: 'bA2', sessionId: 'sA2',
+      type: 'media.session.create', owner: 'napplet', id: 'bA2', sessionId: 'sA2',
     } as NappletMessage, () => {});
     service.handleMessage('win-B', {
-      type: 'media.session.create', id: 'bB', sessionId: 'sB',
+      type: 'media.session.create', owner: 'napplet', id: 'bB', sessionId: 'sB',
     } as NappletMessage, () => {});
 
     service.onWindowDestroyed?.('win-A');

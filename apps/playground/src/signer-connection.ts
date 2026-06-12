@@ -23,7 +23,9 @@ export interface SignerConnectionState {
 /** NIP-07 browser-extension signer interface (read from `globalThis` during `connectNip07`; never exposed to napplets per NIP-5D MUST NOT clause D-01). */
 export interface Nip07Signer {
   getPublicKey(): Promise<string>;
-  signEvent(event: Record<string, unknown>): Promise<Record<string, unknown>>;
+  signEvent(
+    event: Parameters<NonNullable<Signer['signEvent']>>[0],
+  ): Promise<Awaited<ReturnType<NonNullable<Signer['signEvent']>>>>;
   getRelays?(): Promise<Record<string, { read: boolean; write: boolean }>>;
   nip04?: {
     encrypt(pubkey: string, plaintext: string): Promise<string>;
@@ -167,10 +169,7 @@ function _setState(next: SignerConnectionState): void {
 function buildNip07Adapter(nostr: Nip07Signer): Signer {
   const adapter: Signer = {
     getPublicKey: () => nostr.getPublicKey(),
-    signEvent: async (event) => {
-      const result = await nostr.signEvent(event as Record<string, unknown>);
-      return result as Awaited<ReturnType<NonNullable<Signer['signEvent']>>>;
-    },
+    signEvent: (event) => nostr.signEvent(event),
   };
 
   if (typeof nostr.getRelays === 'function') {

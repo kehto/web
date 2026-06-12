@@ -3,7 +3,6 @@
  */
 import '@napplet/shim';
 import { installNapTheme } from '../../shared-theme';
-import { identityDecrypt } from '@napplet/nap/identity/sdk';
 
 const REQUIRED_NAPS = ['identity', 'theme'] as const;
 
@@ -62,6 +61,10 @@ function log(text: string): void {
 function getMissingRequiredNaps(): string[] {
   const supports = window.napplet.shell.supports;
   return REQUIRED_NAPS.filter((capability) => !supports(capability));
+}
+
+function identityDecrypt(event: NostrEvent): Promise<{ rumor: { content: string }; sender: string }> {
+  return window.napplet.identity.decrypt(event);
 }
 
 function init(): void {

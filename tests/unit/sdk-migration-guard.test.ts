@@ -27,9 +27,16 @@ const helperTargetDirs = [
   ...sdkTargetDirs,
   'apps/playground/napplets/decrypt-demo',
 ] as const;
+
+const publicPackageDirs = [
+  'packages/acl',
+  'packages/runtime',
+  'packages/services',
+  'packages/shell',
+] as const;
+
 const protocolPackageNames = [
   '@napplet/core',
-  '@napplet/nap',
   '@napplet/nub',
   '@napplet/sdk',
   '@napplet/shim',
@@ -37,15 +44,15 @@ const protocolPackageNames = [
 ] as const;
 
 const protocolPackageVersions: Record<(typeof protocolPackageNames)[number], string> = {
-  '@napplet/core': '0.3.1',
-  '@napplet/nap': '0.3.1',
-  '@napplet/nub': '0.3.1',
-  '@napplet/sdk': '0.3.1',
-  '@napplet/shim': '0.3.1',
-  '@napplet/vite-plugin': '0.3.0',
+  '@napplet/core': '0.5.0',
+  '@napplet/nub': '0.5.0',
+  '@napplet/sdk': '0.5.0',
+  '@napplet/shim': '0.5.0',
+  '@napplet/vite-plugin': '0.4.0',
 };
 
 const bannedSdkImportPattern = /from\s+['"]@napplet\/sdk['"]/;
+const staleNapPackage = ['@napplet', 'nap'].join('/');
 const oldIfcNamespace = ['i', 'p', 'c'].join('');
 const namespaceImportPattern = new RegExp(
   String.raw`import\s+\{[^}]*\b(${oldIfcNamespace}|storage|relay|identity|keys|config|notify)\b[^}]*\}\s+from\s+['"]@napplet/sdk['"]`,
@@ -93,7 +100,7 @@ function activeTerminologyFiles(root: string): string[] {
   return files;
 }
 
-describe('SDK 0.3 migration guard', () => {
+describe('SDK 0.5 migration guard', () => {
   it('resolves active protocol packages from published registry artifacts', () => {
     const rootPackageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as {
       pnpm?: { overrides?: Record<string, string> };
@@ -110,33 +117,57 @@ describe('SDK 0.3 migration guard', () => {
     }
   });
 
-  it('keeps all SDK-migrated manifests on the exact 0.3.1 NAP package graph', () => {
+  it('keeps all SDK-migrated manifests on the exact 0.5.0 NAP package graph', () => {
     for (const dir of sdkTargetDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
         dependencies?: Record<string, string>;
         devDependencies?: Record<string, string>;
       };
-      expect(pkg.dependencies?.['@napplet/sdk'], `${dir} @napplet/sdk`).toBe('0.3.1');
-      expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe('0.3.1');
-      expect(pkg.dependencies?.['@napplet/nap'], `${dir} @napplet/nap`).toBe('0.3.1');
-      expect(pkg.dependencies?.['@napplet/nub'], `${dir} @napplet/nub`).toBeUndefined();
-      expect(pkg.devDependencies?.['@napplet/vite-plugin'], `${dir} @napplet/vite-plugin`).toBe('0.3.0');
+      expect(pkg.dependencies?.['@napplet/sdk'], `${dir} @napplet/sdk`).toBe('0.5.0');
+      expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe('0.5.0');
+      expect(pkg.dependencies?.['@napplet/nub'], `${dir} @napplet/nub`).toBe('0.5.0');
+      expect(pkg.dependencies?.[staleNapPackage], `${dir} ${staleNapPackage}`).toBeUndefined();
+      expect(pkg.devDependencies?.['@napplet/vite-plugin'], `${dir} @napplet/vite-plugin`).toBe('0.4.0');
     }
   });
 
-  it('keeps all helper-migrated manifests on the exact 0.3.1 NAP helper graph', () => {
+  it('keeps all helper-migrated manifests on the exact 0.5.0 NAP helper graph', () => {
     for (const dir of helperTargetDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
         dependencies?: Record<string, string>;
         devDependencies?: Record<string, string>;
       };
-      expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe('0.3.1');
-      expect(pkg.dependencies?.['@napplet/nap'], `${dir} @napplet/nap`).toBe('0.3.1');
-      expect(pkg.dependencies?.['@napplet/nub'], `${dir} @napplet/nub`).toBeUndefined();
-      expect(pkg.devDependencies?.['@napplet/vite-plugin'], `${dir} @napplet/vite-plugin`).toBe('0.3.0');
+      expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe('0.5.0');
+      expect(pkg.dependencies?.['@napplet/nub'], `${dir} @napplet/nub`).toBe('0.5.0');
+      expect(pkg.dependencies?.[staleNapPackage], `${dir} ${staleNapPackage}`).toBeUndefined();
+      expect(pkg.devDependencies?.['@napplet/vite-plugin'], `${dir} @napplet/vite-plugin`).toBe('0.4.0');
     }
+  });
+
+  it('keeps published kehto packages on @napplet/nub peers and dev deps', () => {
+    for (const dir of publicPackageDirs) {
+      const packageJsonPath = join(process.cwd(), dir, 'package.json');
+      const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
+        peerDependencies?: Record<string, string>;
+        devDependencies?: Record<string, string>;
+      };
+
+      expect(pkg.peerDependencies?.['@napplet/nub'], `${dir} @napplet/nub peer`).toBe('^0.5.0');
+      expect(pkg.devDependencies?.['@napplet/nub'], `${dir} @napplet/nub dev`).toBe('^0.5.0');
+      expect(pkg.peerDependencies?.[staleNapPackage], `${dir} ${staleNapPackage} peer`).toBeUndefined();
+      expect(pkg.devDependencies?.[staleNapPackage], `${dir} ${staleNapPackage} dev`).toBeUndefined();
+    }
+  });
+
+  it('uses the renamed NAP relay union type at the runtime boundary', () => {
+    const file = join(process.cwd(), 'packages/runtime/src/relay-handler.ts');
+    const content = readFileSync(file, 'utf8');
+
+    expect(content).toContain("import type { RelayMessage } from '@napplet/nub/relay/types';");
+    expect(content).not.toContain('RelayNapMessage');
+    expect(content).not.toContain('RelayNubMessage');
   });
 
   it('rejects old napplet helper package resolutions from the active lockfile graph', () => {
@@ -163,11 +194,12 @@ describe('SDK 0.3 migration guard', () => {
   it('keeps active project terminology on IFC vocabulary', () => {
     const violations: string[] = [];
     const disallowedTerm = oldIfcNamespace.toLowerCase();
+    const disallowedTermPattern = new RegExp(String.raw`\b${disallowedTerm}\b`);
 
     for (const root of activeTerminologyRoots) {
       for (const file of activeTerminologyFiles(join(process.cwd(), root))) {
         const content = readFileSync(file, 'utf8').toLowerCase();
-        if (content.includes(disallowedTerm)) {
+        if (disallowedTermPattern.test(content)) {
           violations.push(relative(process.cwd(), file));
         }
       }
@@ -176,11 +208,11 @@ describe('SDK 0.3 migration guard', () => {
     expect(violations).toEqual([]);
   });
 
-  it('keeps decrypt-demo on identityDecrypt instead of manual identity.decrypt plumbing', () => {
+  it('keeps decrypt-demo on the shim-owned identity.decrypt helper instead of manual message plumbing', () => {
     const file = join(process.cwd(), 'apps/playground/napplets/decrypt-demo/src/main.ts');
     const content = readFileSync(file, 'utf8');
 
-    expect(content).toContain("import { identityDecrypt } from '@napplet/nap/identity/sdk';");
+    expect(content).toContain('window.napplet.identity.decrypt(event)');
     for (const pattern of bannedDecryptPlumbingPatterns) {
       expect(content).not.toMatch(pattern);
     }

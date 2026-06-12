@@ -2,7 +2,7 @@
  * media-service.ts — NIP-5D media NUB reference service (navigator.mediaSession
  * reference implementation).
  *
- * Handles 5 napplet -> shell request types from @napplet/nub/media:
+ * Handles the napplet-owned subset of @napplet/nub/media:
  *   media.session.create (result), media.session.update, media.session.destroy,
  *   media.state, media.capabilities.
  *
@@ -19,6 +19,12 @@
  * (play / pause / nexttrack / previoustrack / seekto). Each callback emits a canonical
  * media.command envelope to the owning napplet — that is the @napplet/nub/media
  * MediaCommandMessage shape consumed by the SDK's mediaOnCommand() helper.
+ *
+ * NAP-MEDIA now distinguishes napplet-owned playback from shell-owned
+ * playback. This reference backend supports `owner: "napplet"` because it
+ * mirrors a napplet's own media element to navigator.mediaSession. It rejects
+ * `owner: "shell"` until a host bridge provides policy-checked source fetching
+ * and playback.
  *
  * media.command push: when the OS user clicks a media control (hardware key, lock-screen
  * transport, OS media overlay), the bridge's onAction callback fires. The service looks
@@ -59,8 +65,6 @@ import type {
   MediaCapabilitiesMessage,
   MediaCommandMessage,
   MediaMetadata,
-  MediaSessionCreateMessage,
-  MediaSessionCreateResultMessage,
   MediaSessionDestroyMessage,
   MediaSessionUpdateMessage,
   MediaStateMessage,
@@ -77,6 +81,8 @@ const SILENT_AUDIO_DATA_URL =
 interface SessionEntry {
   sessionId: string;
   windowId: string;
+  owner: MediaPlaybackOwner;
+  source: MediaSourceRef | undefined;
   metadata: MediaMetadata | undefined;
   state: { status: 'playing' | 'paused' | 'stopped' | 'buffering'; position?: number; duration?: number; volume?: number } | undefined;
   actions: readonly MediaAction[];  // from media.capabilities; defaults to ['play','pause','next','prev','seek']
@@ -102,6 +108,42 @@ export type MediaMetadataLike = { title?: string; artist?: string; album?: strin
 
 /** Media service version — follows semver. */
 const MEDIA_SERVICE_VERSION = '1.1.0';
+
+export type MediaPlaybackOwner = 'shell' | 'napplet';
+
+export interface MediaSourceRef {
+  url?: string;
+  blossomHash?: string;
+  nostr?: {
+    eventId?: string;
+    address?: string;
+    relays?: string[];
+  };
+  mimeType?: string;
+}
+
+export interface MediaSessionCreateOptions {
+  owner: MediaPlaybackOwner;
+  sessionId?: string;
+  source?: MediaSourceRef;
+  metadata?: MediaMetadata;
+  capabilities?: MediaAction[];
+  autoplay?: boolean;
+  live?: boolean;
+}
+
+type MediaSessionCreateEnvelope = NappletMessage & Partial<MediaSessionCreateOptions> & {
+  type: 'media.session.create';
+  id?: string;
+};
+
+type MediaSessionCreateResultEnvelope = NappletMessage & {
+  type: 'media.session.create.result';
+  id: string;
+  sessionId?: string;
+  owner?: MediaPlaybackOwner;
+  error?: string;
+};
 
 /**
  * Host-bridge contract for pluggable media backends.
@@ -409,6 +451,7 @@ interface MediaServiceState {
   sendHandles: Map<string, (msg: NappletMessage) => void>;
   activeSessionId: string | null;
   touchCounter: number;
+  sessionCounter: number;
 }
 
 function createMediaServiceState(options: MediaServiceOptions, bridge: HostMediaBridge): MediaServiceState {
@@ -420,6 +463,7 @@ function createMediaServiceState(options: MediaServiceOptions, bridge: HostMedia
     sendHandles: new Map<string, (msg: NappletMessage) => void>(),
     activeSessionId: null,
     touchCounter: 0,
+    sessionCounter: 0,
   };
 }
 
@@ -464,31 +508,85 @@ function registerWindowSession(state: MediaServiceState, windowId: string, sessi
   state.windowSessions.get(windowId)!.add(sessionId);
 }
 
+function sendSessionCreateResult(
+  send: (msg: NappletMessage) => void,
+  id: string | undefined,
+  fields: Omit<MediaSessionCreateResultEnvelope, 'type' | 'id'>,
+): void {
+  send({
+    type: 'media.session.create.result',
+    id: id ?? '',
+    ...fields,
+  } as NappletMessage);
+}
+
+function isMediaPlaybackOwner(value: unknown): value is MediaPlaybackOwner {
+  return value === 'shell' || value === 'napplet';
+}
+
+function hasSourceRef(source: MediaSourceRef | undefined): boolean {
+  if (!source) return false;
+  if (typeof source.url === 'string' && source.url.length > 0) return true;
+  if (typeof source.blossomHash === 'string' && source.blossomHash.length > 0) return true;
+  if (source.nostr) {
+    return Boolean(source.nostr.eventId || source.nostr.address);
+  }
+  return false;
+}
+
+function canonicalizeSessionId(
+  state: MediaServiceState,
+  windowId: string,
+  preferredSessionId: string | undefined,
+): string {
+  const trimmed = typeof preferredSessionId === 'string' ? preferredSessionId.trim() : '';
+  const hint = trimmed || `session-${++state.sessionCounter}`;
+  if (!state.sessionRegistry.has(hint)) return hint;
+
+  let next: string;
+  do {
+    next = `${windowId}:${hint}:${++state.sessionCounter}`;
+  } while (state.sessionRegistry.has(next));
+  return next;
+}
+
 function handleSessionCreate(
   state: MediaServiceState,
   windowId: string,
-  message: MediaSessionCreateMessage,
+  message: MediaSessionCreateEnvelope,
   send: (msg: NappletMessage) => void,
 ): void {
+  if (!isMediaPlaybackOwner(message.owner)) {
+    sendSessionCreateResult(send, message.id, { error: 'missing owner' });
+    return;
+  }
+
+  if (message.owner === 'shell') {
+    if (!hasSourceRef(message.source)) {
+      sendSessionCreateResult(send, message.id, { owner: 'shell', error: 'missing source' });
+      return;
+    }
+    sendSessionCreateResult(send, message.id, { owner: 'shell', error: 'unsupported owner mode' });
+    return;
+  }
+
   state.sendHandles.set(windowId, send);
+  const sessionId = canonicalizeSessionId(state, windowId, message.sessionId);
   const entry: SessionEntry = {
-    sessionId: message.sessionId,
+    sessionId,
     windowId,
+    owner: message.owner,
+    source: message.source,
     metadata: message.metadata,
     state: undefined,
-    actions: DEFAULT_ACTIONS,
+    actions: message.capabilities ?? DEFAULT_ACTIONS,
     lastTouched: ++state.touchCounter,
   };
-  state.sessionRegistry.set(message.sessionId, entry);
-  registerWindowSession(state, windowId, message.sessionId);
-  setActive(state, message.sessionId, entry.actions);
-  state.options.onSessionCreate?.(windowId, message.sessionId, message.metadata);
-  const result: MediaSessionCreateResultMessage = {
-    type: 'media.session.create.result',
-    id: message.id,
-    sessionId: message.sessionId,
-  };
-  send(result as NappletMessage);
+  state.sessionRegistry.set(sessionId, entry);
+  registerWindowSession(state, windowId, sessionId);
+  setActive(state, sessionId, entry.actions);
+  state.options.onSessionCreate?.(windowId, sessionId, message.metadata);
+  sendSessionCreateResult(send, message.id, { sessionId, owner: message.owner });
 }
 
 function handleSessionUpdate(state: MediaServiceState, windowId: string, message: MediaSessionUpdateMessage): void {
@@ -496,7 +594,7 @@ function handleSessionUpdate(state: MediaServiceState, windowId: string, message
   if (entry) {
     entry.metadata = { ...entry.metadata, ...message.metadata };
     entry.lastTouched = ++state.touchCounter;
-    if (message.sessionId === state.activeSessionId && entry.metadata) {
+    if (entry.owner === 'napplet' && message.sessionId === state.activeSessionId && entry.metadata) {
       state.bridge.setMetadata(message.sessionId, entry.metadata);
     }
   }
@@ -520,7 +618,7 @@ function handleSessionDestroy(state: MediaServiceState, windowId: string, messag
 
 function handleMediaState(state: MediaServiceState, windowId: string, message: MediaStateMessage): void {
   const entry = state.sessionRegistry.get(message.sessionId);
-  if (entry) {
+  if (entry?.owner === 'napplet') {
     entry.state = {
       status: message.status,
       position: message.position,
@@ -540,7 +638,7 @@ function handleMediaCapabilities(
   message: MediaCapabilitiesMessage,
 ): void {
   const entry = state.sessionRegistry.get(message.sessionId);
-  if (entry) {
+  if (entry?.owner === 'napplet') {
     entry.actions = message.actions;
     entry.lastTouched = ++state.touchCounter;
     if (message.sessionId === state.activeSessionId) {
@@ -558,7 +656,7 @@ function handleMediaMessage(
 ): void {
   switch (message.type) {
     case 'media.session.create':
-      handleSessionCreate(state, windowId, message as MediaSessionCreateMessage, send);
+      handleSessionCreate(state, windowId, message as MediaSessionCreateEnvelope, send);
       return;
     case 'media.session.update':
       handleSessionUpdate(state, windowId, message as MediaSessionUpdateMessage);
@@ -606,6 +704,7 @@ function destroyMediaState(state: MediaServiceState, unsubscribeAction: () => vo
   state.sendHandles.clear();
   state.activeSessionId = null;
   state.touchCounter = 0;
+  state.sessionCounter = 0;
 }
 
 /**

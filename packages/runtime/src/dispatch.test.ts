@@ -946,6 +946,65 @@ describe('theme NUB dispatch (TH-01 + TH-04)', () => {
     expect(theme.colors.text).toBe('#e0e0e0');
     expect(theme.colors.primary).toBe('#7aa2f7');
   });
+
+  it('fallback: media.session.create rejects ownerless requests when no media service is registered', () => {
+    const ctx2 = createMockRuntimeAdapter();
+    const runtime2 = createRuntime(ctx2.hooks);
+    runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+    runtime2.aclState.grant('', TEST_DTAG, TEST_HASH, 'media:control');
+
+    runtime2.handleMessage(WINDOW_ID, {
+      type: 'media.session.create',
+      id: 'media-ownerless',
+      sessionId: 'hint',
+    } as NappletMessage);
+
+    const result = findEnvelopeResponse(ctx2.sent, 'media.session.create.result');
+    expect(result).toBeDefined();
+    expect((result as any).id).toBe('media-ownerless');
+    expect((result as any).sessionId).toBeUndefined();
+    expect((result as any).error).toBe('missing owner');
+  });
+
+  it('fallback: media.session.create reports unsupported shell-owned playback', () => {
+    const ctx2 = createMockRuntimeAdapter();
+    const runtime2 = createRuntime(ctx2.hooks);
+    runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+    runtime2.aclState.grant('', TEST_DTAG, TEST_HASH, 'media:control');
+
+    runtime2.handleMessage(WINDOW_ID, {
+      type: 'media.session.create',
+      id: 'media-shell',
+      owner: 'shell',
+      source: { url: 'https://example.com/live.mp3' },
+    } as NappletMessage);
+
+    const result = findEnvelopeResponse(ctx2.sent, 'media.session.create.result');
+    expect(result).toBeDefined();
+    expect((result as any).id).toBe('media-shell');
+    expect((result as any).owner).toBe('shell');
+    expect((result as any).error).toBe('unsupported owner mode');
+  });
+
+  it('fallback: media.session.create includes owner for napplet-owned sessions', () => {
+    const ctx2 = createMockRuntimeAdapter();
+    const runtime2 = createRuntime(ctx2.hooks);
+    runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+    runtime2.aclState.grant('', TEST_DTAG, TEST_HASH, 'media:control');
+
+    runtime2.handleMessage(WINDOW_ID, {
+      type: 'media.session.create',
+      id: 'media-napplet',
+      owner: 'napplet',
+      sessionId: 'napplet-owned',
+    } as NappletMessage);
+
+    const result = findEnvelopeResponse(ctx2.sent, 'media.session.create.result');
+    expect(result).toBeDefined();
+    expect((result as any).id).toBe('media-napplet');
+    expect((result as any).sessionId).toBe('napplet-owned');
+    expect((result as any).owner).toBe('napplet');
+  });
 });
 
 // ─── createDispatch integration (Phase 14 DISPATCH-01/02/03) ───────────────────
@@ -963,7 +1022,7 @@ describe('createDispatch integration (Phase 14 DISPATCH-01/02/03)', () => {
       { type: 'relay.subscribe', subId: 'sub-d', filters: [] } as NappletMessage,
       { type: 'identity.getPublicKey', id: 'id-d' } as NappletMessage,
       { type: 'keys.registerAction', id: 'k-d', action: { id: 'a', label: 'A', defaultKey: 'Ctrl+A' } } as NappletMessage,
-      { type: 'media.session.create', id: 'm-d' } as NappletMessage,
+      { type: 'media.session.create', owner: 'napplet', id: 'm-d' } as NappletMessage,
       { type: 'notify.send', id: 'n-d', notification: { title: 't', body: 'b' } } as NappletMessage,
       { type: 'storage.get', id: 's-d', key: 'k' } as NappletMessage,
       { type: 'ifc.subscribe', id: 'i-d', topic: 't' } as NappletMessage,

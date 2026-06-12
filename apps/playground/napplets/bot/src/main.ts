@@ -13,8 +13,8 @@
  */
 import '@napplet/shim';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
-import { ifcEmit, ifcOn } from '@napplet/nap/ifc/sdk';
-import { storageGetItem, storageSetItem } from '@napplet/nap/storage/sdk';
+import { ifcEmit, ifcOn } from '@napplet/nub/ifc/sdk';
+import { storageGetItem, storageSetItem } from '@napplet/nub/storage/sdk';
 
 const REQUIRED_NAPS = ['ifc', 'storage', 'theme'] as const;
 

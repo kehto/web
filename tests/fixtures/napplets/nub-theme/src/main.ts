@@ -16,7 +16,7 @@
  * Anti-features: NO raw window.addEventListener — fixture is outbound-only.
  */
 import '@napplet/shim';
-import { storageGetItem } from '@napplet/nap/storage/sdk';
+import { storageGetItem } from '@napplet/nub/storage/sdk';
 
 const statusEl = document.getElementById('nub-status')!;
 

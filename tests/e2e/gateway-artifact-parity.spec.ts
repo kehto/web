@@ -97,7 +97,7 @@ test('playground loads all napplets through opaque-origin gateway artifacts', as
     );
   }
 
-  expect(gatewayResponses.get('resource-demo')?.csp).toContain('http://localhost:4174');
+  expect(gatewayResponses.get('resource-demo')?.csp).toContain('https://raw.githubusercontent.com');
 });
 
 test('playground gateway manifests and hosted supports match napplet contracts', async ({ page }) => {

@@ -1,5 +1,6 @@
 export function trustedHtmlFragment(target: Node, html: string): DocumentFragment {
-  const range = target.ownerDocument.createRange();
+  const ownerDocument = target.ownerDocument ?? document;
+  const range = ownerDocument.createRange();
   return range.createContextualFragment(html);
 }
 

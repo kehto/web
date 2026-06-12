@@ -14,9 +14,9 @@
  */
 import '@napplet/shim';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
-import { ifcEmit, ifcOn } from '@napplet/nap/ifc/sdk';
-import { storageGetItem, storageSetItem } from '@napplet/nap/storage/sdk';
-import { relayPublish, relaySubscribe } from '@napplet/nap/relay/sdk';
+import { ifcEmit, ifcOn } from '@napplet/nub/ifc/sdk';
+import { storageGetItem, storageSetItem } from '@napplet/nub/storage/sdk';
+import { relayPublish, relaySubscribe } from '@napplet/nub/relay/sdk';
 import type { EventTemplate } from '@napplet/core';
 
 const REQUIRED_NAPS = ['ifc', 'storage', 'relay', 'theme'] as const;

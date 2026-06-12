@@ -452,16 +452,19 @@ function playgroundSingleFileArtifact(): Plugin {
       const distPath = isAbsolute(outDir) ? outDir : resolve(root, outDir);
       rmSync(join(distPath, '.nip5a-manifest.json'), { force: true });
     },
-    async closeBundle() {
-      const distPath = isAbsolute(outDir) ? outDir : resolve(root, outDir);
-      const indexPath = join(distPath, 'index.html');
-      if (!existsSync(indexPath) || !statSync(indexPath).isFile()) return;
+    closeBundle: {
+      order: 'post',
+      async handler() {
+        const distPath = isAbsolute(outDir) ? outDir : resolve(root, outDir);
+        const indexPath = join(distPath, 'index.html');
+        if (!existsSync(indexPath) || !statSync(indexPath).isFile()) return;
 
-      await waitForPublishedManifest(distPath);
-      const html = readFileSync(indexPath, 'utf8');
-      const inlinedHtml = inlineSingleFileBuildAssets(html, distPath, base);
-      assertSingleFileArtifact(inlinedHtml, distPath);
-      recomputeManifest(distPath, inlinedHtml);
+        await waitForPublishedManifest(distPath);
+        const html = readFileSync(indexPath, 'utf8');
+        const inlinedHtml = inlineSingleFileBuildAssets(html, distPath, base);
+        assertSingleFileArtifact(inlinedHtml, distPath);
+        recomputeManifest(distPath, inlinedHtml);
+      },
     },
   };
 }
@@ -476,12 +479,16 @@ export function definePlaygroundNappletConfig(
   return defineConfig({
     base: './',
     plugins: [
+      playgroundSingleFileArtifact(),
       nip5aManifest({
         nappletType,
-        artifactMode: 'single-file',
+        // Let the upstream plugin validate and sign Vite's normal external-asset
+        // graph first. The playground plugin below owns the final single-file
+        // rewrite because it also injects the hosted-shell bootstrap and
+        // recomputes the manifest over those bytes.
+        artifactMode: 'external-assets',
         requires,
       }),
-      playgroundSingleFileArtifact(),
     ],
     build: {
       outDir: 'dist',

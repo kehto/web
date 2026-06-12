@@ -25,14 +25,17 @@
 import type { ConsentRequest, ShellBridge } from '@kehto/shell';
 
 /** Extended ConsentRequest shape for connect-type requests (D5). */
-interface ConnectConsentRequest extends ConsentRequest {
+interface ConnectConsentRequest {
   type: 'connect';
   dTag: string;
   aggregateHash: string;
   requestedOrigins: readonly string[];
+  resolve: (allowed: boolean) => void;
 }
 
-function isConnectRequest(req: ConsentRequest): req is ConnectConsentRequest {
+type ConsentRequestLike = ConsentRequest | ConnectConsentRequest;
+
+function isConnectRequest(req: ConsentRequestLike): req is ConnectConsentRequest {
   return (req as Partial<ConnectConsentRequest>).type === 'connect';
 }
 
@@ -180,7 +183,8 @@ export function createConsentModal(): ConsentModal {
   return {
     registerWith(bridge, fallthrough) {
       bridge.registerConsentHandler((request) => {
-        if (!isConnectRequest(request)) {
+        const requestLike = request as ConsentRequestLike;
+        if (!isConnectRequest(requestLike)) {
           // Fall through to existing shell-host destructive-signing handler if provided.
           if (fallthrough) fallthrough(request);
           else request.resolve(false);  // Safe default if no fallthrough -- deny.
@@ -188,11 +192,11 @@ export function createConsentModal(): ConsentModal {
         }
         if (activeRequest !== null) {
           // Concurrent connect request while one is open: deny immediately (M-04 safety).
-          request.resolve(false);
+          requestLike.resolve(false);
           return;
         }
-        activeRequest = request;
-        renderModal(request);
+        activeRequest = requestLike;
+        renderModal(requestLike);
         activeTimer = window.setTimeout(() => closeModal('timeout'), CONSENT_TIMEOUT_MS);
       });
     },

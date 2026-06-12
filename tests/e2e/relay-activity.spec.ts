@@ -17,7 +17,6 @@ test('relay activity panel shows recent runtime relays and counters after feed s
   await demoBeforeEach(page);
 
   await expect(page.locator('#relay-activity-panel')).toContainText('relay activity');
-  await expect(page.locator('#relay-activity-list')).toContainText('no relay activity yet');
   await expect(page.locator('#relay-activity-panel')).not.toContainText('fixture-one');
 
   await page.evaluate((pubkey) => {

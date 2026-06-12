@@ -5,7 +5,7 @@
  * to host napplets. No DOM types, no browser APIs.
  */
 
-import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
+import type { EventTemplate, NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 import type { Capability } from '@kehto/acl/capabilities';
 
 /**
@@ -122,7 +122,7 @@ export interface CacheAdapter {
 /** NIP-07 compatible signer interface — minimal methods the runtime needs. */
 export interface Signer {
   getPublicKey?(): string | Promise<string>;
-  signEvent?(event: NostrEvent): Promise<NostrEvent>;
+  signEvent?(event: NostrEvent | EventTemplate): Promise<NostrEvent>;
   getRelays?(): Record<string, { read: boolean; write: boolean }> | Promise<Record<string, { read: boolean; write: boolean }>>;
   nip04?: {
     encrypt(pubkey: string, plaintext: string): Promise<string>;

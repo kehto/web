@@ -23,7 +23,7 @@
  */
 import '@napplet/shim';
 import { installNapTheme, onNapThemeChanged } from '../../shared-theme';
-import { identityGetPublicKey } from '@napplet/nap/identity/sdk';
+import { identityGetPublicKey } from '@napplet/nub/identity/sdk';
 import {
   discoverThemeCatalog,
   type DiscoveredTheme,

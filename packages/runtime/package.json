@@ -1,6 +1,6 @@
 {
   "name": "@kehto/runtime",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Browser-agnostic protocol engine for the napplet protocol — message dispatch, ACL enforcement, AUTH handshake",
   "type": "module",
   "main": "./dist/index.js",
@@ -25,15 +25,15 @@
     "@noble/curves": "^2.0.0"
   },
   "peerDependencies": {
-    "@napplet/core": "^0.3.0",
-    "@napplet/nub": "^0.3.0"
+    "@napplet/core": "^0.5.0",
+    "@napplet/nub": "^0.5.0"
   },
   "devDependencies": {
-    "@napplet/core": "^0.3.0",
-    "@napplet/nub": "^0.3.0",
+    "@napplet/core": "^0.5.0",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.2"
+    "vitest": "^4.1.2",
+    "@napplet/nub": "^0.5.0"
   },
   "scripts": {
     "build": "tsup",

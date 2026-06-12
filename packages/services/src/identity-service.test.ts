@@ -11,8 +11,8 @@ declare function setTimeout(cb: () => void, ms?: number): unknown;
 
 import { describe, it, expect } from 'vitest';
 import { createIdentityService } from './identity-service.js';
-import type { HostDecryptBridge } from './identity-service.js';
-import type { NappletMessage, NostrEvent, Rumor } from '@napplet/core';
+import type { HostDecryptBridge, Rumor } from './identity-service.js';
+import type { NappletMessage, NostrEvent } from '@napplet/core';
 import type { Signer } from '@kehto/runtime';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

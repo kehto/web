@@ -50,7 +50,7 @@ test('runtime node shows Registered NUBs with 8 entries', async ({ page }) => {
 test('napplet node (chat) shows capability state and recent envelopes', async ({ page }) => {
   await demoBeforeEach(page);
   // napplets use legacy protocol — chat node will show pending/not identity-bound inspector state
-  await page.locator('[data-napplet-name="chat"]').click();
+  await page.locator('#topology-node-napplet-chat .topology-node-title').click();
   await expect(page.locator('#inspector-pane')).toBeVisible({ timeout: 3_000 });
   await expect(page.locator('#inspector-pane')).toContainText(
     /Capability state|relay:|identity:|not identity-bound|pending/,

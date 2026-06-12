@@ -23,7 +23,7 @@ The `preview` command serves the production build against which the Playwright E
 The active playground boot path is production-equivalent:
 
 1. Each demo napplet uses `apps/playground/napplets/shared-vite-config.ts`.
-2. The shared config enables `@napplet/vite-plugin` with `artifactMode: 'single-file'`.
+2. The shared config lets `@napplet/vite-plugin` validate and sign the normal external-asset graph, then Kehto's post-build plugin rewrites the final gateway artifact to a single HTML file and recomputes the manifest.
 3. Each napplet build emits exactly `dist/index.html` plus `dist/.nip5a-manifest.json`.
 4. The shell fetches `/napplet-gateway/<dTag>/manifest.json`, registers the session with the manifest-derived `(dTag, aggregateHash)`, then navigates the iframe to `/napplet-gateway/<dTag>/<aggregateHash>/index.html`.
 5. The iframe sandbox remains opaque-origin: `allow-scripts` only, no `allow-same-origin`.

@@ -12,7 +12,7 @@
  */
 import '@napplet/shim';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
-import { relayPublish, relayPublishEncrypted } from '@napplet/nap/relay/sdk';
+import { relayPublish, relayPublishEncrypted } from '@napplet/nub/relay/sdk';
 import type { EventTemplate } from '@napplet/core';
 
 const REQUIRED_NAPS = ['relay', 'theme'] as const;

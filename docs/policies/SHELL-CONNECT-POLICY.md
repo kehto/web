@@ -251,8 +251,10 @@ into the runtime code proving the policy is enforced at v1.7 (Phase 39).
 Kehto's playground now exercises the production-equivalent gateway path rather
 than a Vite-only external asset shortcut:
 
-- Every playground napplet uses `apps/playground/napplets/shared-vite-config.ts`
-  with `artifactMode: 'single-file'`.
+- Every playground napplet uses `apps/playground/napplets/shared-vite-config.ts`;
+  the upstream manifest plugin validates and signs the normal Vite external-asset
+  graph before Kehto's post-build plugin rewrites it to the single-file gateway
+  artifact and recomputes the manifest.
 - The only served napplet artifact is `dist/index.html`; manifest metadata lives
   in `dist/.nip5a-manifest.json`.
 - The active loader fetches `/napplet-gateway/<dTag>/manifest.json`, registers

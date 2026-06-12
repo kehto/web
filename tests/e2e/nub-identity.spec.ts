@@ -7,7 +7,7 @@
  *   2. The fixture's identity.getPublicKey envelope was dispatched (visible via __getNubMessage__).
  *   3. The fixture's #nub-status sentinel reflects the success path
  *      ('pubkey:<truncated>'). The test installs a deterministic mock signer first
- *      because @napplet/nap@0.3.1's identityGetPublicKey() helper resolves
+ *      because @napplet/nub@0.5.0's identityGetPublicKey() helper resolves
  *      identity.getPublicKey.result, not the runtime fallback error envelope.
  *
  * No demo server dependency. No frameLocator interactions beyond reading the iframe sentinel.

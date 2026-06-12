@@ -163,16 +163,20 @@ async function runTestSign(debuggerEl: NappletDebugger | null): Promise<void> {
   }
 
   try {
+    if (!signer.getPublicKey || !signer.signEvent) {
+      debuggerEl?.addSystemMessage('test-sign: signer does not support signing');
+      return;
+    }
     const t = Math.floor(Date.now() / 1000);
     const pubkey = await signer.getPublicKey();
-    const template = {
+    const template: Parameters<NonNullable<typeof signer.signEvent>>[0] = {
       kind: 1,
       pubkey,
       created_at: t,
       tags: [],
       content: 'demo test-sign from kehto shell',
     };
-    const signed = await signer.signEvent(template as Parameters<NonNullable<typeof signer.signEvent>>[0]);
+    const signed = await signer.signEvent(template);
     const eventId = (signed as { id?: string }).id ?? 'unknown';
     debuggerEl?.addSystemMessage(`test-sign: OK, event id ${eventId.substring(0, 16)}...`);
     recordSignerRequest({

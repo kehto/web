@@ -1,4 +1,4 @@
-import { relaySubscribe } from '@napplet/nap/relay/sdk';
+import { relaySubscribe } from '@napplet/nub/relay/sdk';
 
 export const THEME_DEFINITION_KIND = 36767;
 export const ACTIVE_THEME_KIND = 16767;

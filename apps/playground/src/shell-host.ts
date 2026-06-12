@@ -582,7 +582,7 @@ export function toggleCapability(windowId: string, capability: Capability, enabl
     console.warn('[acl] toggleCapability: napplet not yet identity-bound', windowId);
     return;
   }
-  const pubkey = info.pubkey;  // '' for NIP-5D, real pubkey for legacy
+  const pubkey = info.pubkey ?? '';  // '' for NIP-5D, real pubkey for legacy
   const dTag = info.dTag || '';
   const hash = info.aggregateHash || '';
   if (enabled) {
@@ -629,9 +629,9 @@ export function toggleBlock(windowId: string, blocked: boolean): void {
   if (!info?.identityBound) return;
   // NIP-5D napplets have pubkey='' — ACL is keyed on dTag:hash; pass pubkey as-is.
   if (blocked) {
-    relay.runtime.aclState.block(info.pubkey, info.dTag || '', info.aggregateHash || '');
+    relay.runtime.aclState.block(info.pubkey ?? '', info.dTag || '', info.aggregateHash || '');
   } else {
-    relay.runtime.aclState.unblock(info.pubkey, info.dTag || '', info.aggregateHash || '');
+    relay.runtime.aclState.unblock(info.pubkey ?? '', info.dTag || '', info.aggregateHash || '');
   }
   relay.runtime.aclState.persist();
 }
@@ -698,6 +698,8 @@ const aclAdapter: DemoAclAdapter = {
         'state:write': hasCapability('state:write'),
         'identity:read': hasCapability('identity:read'),
         'identity:decrypt': hasCapability('identity:decrypt'),
+        'config:read': hasCapability('config:read'),
+        'resource:fetch': hasCapability('resource:fetch'),
         'keys:bind': hasCapability('keys:bind'),
         'keys:forward': hasCapability('keys:forward'),
         'media:control': hasCapability('media:control'),

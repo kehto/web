@@ -11,7 +11,7 @@
  *   - __getNubMessage__(windowId, 'notify.send') returns the request envelope
  */
 import '@napplet/shim';
-import { notifySend } from '@napplet/nap/notify/sdk';
+import { notifySend } from '@napplet/nub/notify/sdk';
 
 const statusEl = document.getElementById('nub-status')!;
 const notifIdEl = document.getElementById('nub-notif-id')!;

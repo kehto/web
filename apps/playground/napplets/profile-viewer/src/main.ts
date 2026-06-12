@@ -3,8 +3,8 @@
  */
 import '@napplet/shim';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
-import { ifcOn } from '@napplet/nap/ifc/sdk';
-import { relaySubscribe } from '@napplet/nap/relay/sdk';
+import { ifcOn } from '@napplet/nub/ifc/sdk';
+import { relaySubscribe } from '@napplet/nub/relay/sdk';
 import type { NostrEvent, Subscription } from '@napplet/core';
 
 const REQUIRED_NAPS = ['ifc', 'relay', 'theme'] as const;

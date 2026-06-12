@@ -14,13 +14,13 @@
  *     the helper routes it to the onAction callback, and this file updates the DOM.
  *
  * Anti-features (enforced per v1.4 milestone — see Phase 26 acceptance greps):
- *   - no raw postMessage listener — uses @napplet/nap/keys/sdk helpers exclusively
+ *   - no raw postMessage listener — uses @napplet/nub/keys/sdk helpers exclusively
  *   - no direct nostr/signer/legacy-bus imports
  *   - no hand-rolled correlation IDs (helper owns them)
  */
 import '@napplet/shim';
 import { installNapTheme } from '../../shared-theme';
-import { keysOnAction, keysRegisterAction } from '@napplet/nap/keys/sdk';
+import { keysOnAction, keysRegisterAction } from '@napplet/nub/keys/sdk';
 
 const REQUIRED_NAPS = ['keys', 'theme'] as const;
 

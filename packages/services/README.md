@@ -344,7 +344,7 @@ runtime.registerService('media', createMediaService({ hostBridge: electronBridge
 
 Plug a `HostMediaBridge` when `navigator.mediaSession` is insufficient: Electron apps that need to route transport events through the main process (lock-screen integration on Windows, Now Playing integration on macOS), Linux shells that speak MPRIS over D-Bus, native mobile wrappers that forward to AVPlayer / ExoPlayer, or test harnesses that record action events without touching the DOM. The bridge owns metadata/state mirroring and OS action routing; the service retains per-session bookkeeping (sessionRegistry + per-window send handles) so `media.command` dispatch semantics stay identical across paths.
 
-See the demo: [`apps/playground/napplets/media-controller/src/main.ts`](../../apps/playground/napplets/media-controller/src/main.ts) (the Phase 27 end-to-end exemplar — uses `@napplet/nub/media` `mediaCreateSession` + `mediaReportState` + `mediaOnCommand` against the real backend).
+See the demo: [`apps/playground/napplets/media-controller/src/main.ts`](../../apps/playground/napplets/media-controller/src/main.ts) (the Phase 27 end-to-end exemplar — uses `@napplet/nub/media` `mediaCreateSession({ owner: 'napplet', ... })` + `mediaReportState` + `mediaOnCommand` against the real backend).
 
 ## Public API
 
@@ -366,7 +366,7 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 - `createKeysService` — `keys.registerAction` / `keys.unregisterAction` / `keys.forward` + `keys.action` push envelopes (`keys:forward`). Document-level chord listener by default; implement the `HostKeysBridge` interface to swap in Electron / Tauri / OS-level backends. See [Keys Service](#keys-service) for the full contract.
 
 ### Media NUB
-- `createMediaService` — `media.session.create` / `update` / `destroy` / `media.state` / `media.capabilities` + `media.command` push envelopes (`media:control`). Mirrors to `navigator.mediaSession` by default; implement the `HostMediaBridge` interface to swap in native backends. See [Media Service](#media-service) for the full contract.
+- `createMediaService` — owner-aware `media.session.create` / `update` / `destroy` / `media.state` / `media.capabilities` + `media.command` push envelopes (`media:control`). Napplet-owned sessions mirror to `navigator.mediaSession` by default; shell-owned creates are rejected until a host playback/fetch bridge is supplied. Implement the `HostMediaBridge` interface to swap in native backends. See [Media Service](#media-service) for the full contract.
 
 ### Theme NUB
 - `createThemeService` — `theme.get` + `theme.changed` fan-out (`theme:read`). Returns a `ThemeService` with `publishTheme()` / `setTheme()` utilities for host-side updates.

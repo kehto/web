@@ -2,9 +2,8 @@
  * Media-controller demo napplet — exercises real media backend (MEDIA-03, Phase 27).
  *
  * Per 27-CONTEXT.md Area 3:
- *   - On init: calls mediaCreateSession via @napplet/nap/media/sdk. The helper owns
- *     the correlation ID and Promise resolution on the shell's
- *     media.session.create.result envelope.
+ *   - On init: calls mediaCreateSession({ owner: 'napplet', ... }) through the
+ *     published @napplet/nub media helper surface.
  *   - After session create, the napplet subscribes to mediaOnCommand(sessionId, ...)
  *     — on each media.command push from the shell (emitted by Plan 27-01 when a
  *     navigator.mediaSession setActionHandler fires), the callback invokes; the
@@ -15,12 +14,12 @@
  *   - #media-controller-status transitions: 'connecting...' → 'session-ready' → 'playing' | 'paused'
  *
  * Anti-features (enforced per v1.4 milestone — see Phase 27 acceptance greps):
- *   - no raw postMessage listener — uses @napplet/nap/media/sdk helpers exclusively
+ *   - no raw media.session.create envelope plumbing
  *   - no direct nostr/signer/legacy-bus imports
  *   - no hand-rolled correlation IDs (helper owns them)
  *
  * Subpath selection rationale (v1.6 Phase 32 fix): imports the pure SDK helpers
- * from `@napplet/nap/media/sdk`, NOT the root `@napplet/nap/media` subpath. The
+ * from `@napplet/nub/media/sdk`, NOT the root `@napplet/nub/media` subpath. The
  * root subpath has a `registerNub(DOMAIN, ...)` side effect at module-init time
  * that collides with `@napplet/shim`'s own registration of the "media" domain,
  * throwing `NAP domain "media" is already registered` and stalling init().
@@ -32,7 +31,8 @@ import {
   mediaCreateSession,
   mediaReportState,
   mediaOnCommand,
-} from '@napplet/nap/media/sdk';
+} from '@napplet/nub/media/sdk';
+import type { MediaAction } from '@napplet/nub/media/types';
 
 const REQUIRED_NAPS = ['media', 'theme'] as const;
 
@@ -41,6 +41,7 @@ const DEMO_METADATA = {
   artist: 'v1.4 Media',
   mediaType: 'audio' as const,
 };
+const DEMO_CAPABILITIES: MediaAction[] = ['play', 'pause'];
 
 const statusEl = document.getElementById('media-controller-status')!;
 const playBtn = document.getElementById('media-controller-play')! as HTMLButtonElement;
@@ -86,9 +87,18 @@ async function init(): Promise<void> {
 
   log('creating media session');
 
-  // Create the session via the media helper. The helper owns correlation +
-  // Promise resolution on the shell's media.session.create.result envelope.
-  const { sessionId } = await mediaCreateSession(DEMO_METADATA);
+  const createResult = await mediaCreateSession({
+    owner: 'napplet',
+    metadata: DEMO_METADATA,
+    capabilities: DEMO_CAPABILITIES,
+  });
+  if (createResult.error) {
+    throw new Error(createResult.error);
+  }
+  if (createResult.owner !== 'napplet' || !createResult.sessionId) {
+    throw new Error('media.session.create.result missing napplet-owned session id');
+  }
+  const { sessionId } = createResult;
 
   // Wire Play / Pause buttons to mediaReportState — the shell mirrors status
   // to navigator.mediaSession.playbackState when this session is active.

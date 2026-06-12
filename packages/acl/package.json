@@ -1,6 +1,6 @@
 {
   "name": "@kehto/acl",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Pure, WASM-ready ACL module for the napplet protocol — zero dependencies, zero side effects",
   "type": "module",
   "main": "./dist/index.js",
@@ -25,14 +25,14 @@
   },
   "dependencies": {},
   "peerDependencies": {
-    "@napplet/core": "^0.3.0",
-    "@napplet/nub": "^0.3.0"
+    "@napplet/core": "^0.5.0",
+    "@napplet/nub": "^0.5.0"
   },
   "devDependencies": {
-    "@napplet/core": "^0.3.0",
-    "@napplet/nub": "^0.3.0",
+    "@napplet/core": "^0.5.0",
     "tsup": "^8.5.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "@napplet/nub": "^0.5.0"
   },
   "scripts": {
     "build": "tsup",

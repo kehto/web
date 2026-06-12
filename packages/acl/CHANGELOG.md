@@ -1,5 +1,11 @@
 # @kehto/acl
 
+## 0.3.1
+
+### Patch Changes
+
+- Align published package peers and source imports with `@napplet/nub@0.5.0`, the June 12 NAP helper release that carries the NAP-MEDIA and NAP-IDENTITY changes.
+
 ## 0.3.0
 
 ### Minor Changes
