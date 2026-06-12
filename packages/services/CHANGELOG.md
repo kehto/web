@@ -1,5 +1,18 @@
 # @kehto/services
 
+## 0.4.0
+
+### Minor Changes
+
+- Release the published NAP-MEDIA and NAP-IDENTITY alignment against `@napplet/nub@0.5.0`.
+
+  The runtime package set now consumes the published NAP helper graph, carries owner-aware media session create/result shapes, validates shell-owned media source requests before returning the current unsupported-owner response, and exposes the identity snapshot-plus-`identity.changed` flow without requiring napplet polling.
+
+### Patch Changes
+
+- Updated dependencies
+  - @kehto/runtime@0.4.0
+
 ## 0.3.1
 
 ### Patch Changes
