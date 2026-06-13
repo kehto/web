@@ -22,6 +22,7 @@ export type RuntimeDomainHandlers = {
   theme: DomainHandler;
   config: DomainHandler;
   resource: DomainHandler;
+  cvm: DomainHandler;
 };
 
 const THEME_FALLBACK_DEFAULT = {
@@ -37,6 +38,7 @@ export function createRuntimeDomainHandlers(context: RuntimeDomainContext): Runt
     theme: (windowId, msg) => handleThemeMessage(context, windowId, msg),
     config: (windowId, msg) => handleServiceOnlyMessage(context, 'config', windowId, msg),
     resource: (windowId, msg) => handleServiceOnlyMessage(context, 'resource', windowId, msg),
+    cvm: (windowId, msg) => handleServiceOnlyMessage(context, 'cvm', windowId, msg),
   };
 }
 
@@ -156,7 +158,7 @@ function handleThemeMessage(context: RuntimeDomainContext, windowId: string, msg
 
 function handleServiceOnlyMessage(
   context: RuntimeDomainContext,
-  name: 'config' | 'resource',
+  name: 'config' | 'resource' | 'cvm',
   windowId: string,
   msg: NappletMessage,
 ): void {

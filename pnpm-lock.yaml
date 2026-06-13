@@ -457,6 +457,9 @@ importers:
       '@napplet/nub':
         specifier: ^0.5.0
         version: 0.5.0
+      nostr-tools:
+        specifier: ^2.23.3
+        version: 2.23.3(typescript@5.9.3)
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.15)(typescript@5.9.3)(yaml@2.8.3)

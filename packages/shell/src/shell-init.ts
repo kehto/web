@@ -11,7 +11,7 @@ import type { ShellAdapter, ShellCapabilities } from './types.js';
  */
 const CANONICAL_NUB_DOMAINS = [
   'identity', 'storage', 'ifc', 'theme', 'keys', 'media', 'notify',
-  'config', 'resource', 'connect', 'class',
+  'config', 'resource', 'connect', 'class', 'cvm',
 ] as const;
 
 const SUPPORTED_IFC_PROTOCOLS = [
@@ -44,7 +44,7 @@ const SUPPORTED_IFC_PROTOCOLS = [
  * @example
  * ```ts
  * const caps = buildShellCapabilities(hooks);
- * // caps.nubs => ['relay','identity','storage','ifc','theme','keys','media','notify','config','resource','connect','class']
+ * // caps.nubs => ['relay','identity','storage','ifc','theme','keys','media','notify','config','resource','connect','class','cvm']
  * //              (relay present when hooks.relayPool is provided; bare names only)
  * // caps.sandbox => []   // host app may extend with 'perm:popups', etc.
  * ```

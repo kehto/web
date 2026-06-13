@@ -84,5 +84,6 @@ export {
   CAP_NOTIFY_SEND,
   CAP_NOTIFY_CHANNEL,
   CAP_THEME_READ,
+  CAP_CVM_CALL,
 } from './capabilities.js';
 export type { Capability } from './capabilities.js';

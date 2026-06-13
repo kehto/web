@@ -304,6 +304,40 @@ describe('resolveCapabilitiesNub', () => {
     });
   });
 
+  describe('cvm domain (NAP-CVM ContextVM bridge)', () => {
+    it('cvm.discover -> sender cvm:call (napplet-originated request)', () => {
+      expect(resolveCapabilitiesNub({ type: 'cvm.discover' })).toEqual({ senderCap: 'cvm:call', recipientCap: null });
+    });
+
+    it('cvm.request -> sender cvm:call (napplet-originated request)', () => {
+      expect(resolveCapabilitiesNub({ type: 'cvm.request' })).toEqual({ senderCap: 'cvm:call', recipientCap: null });
+    });
+
+    it('cvm.close -> sender cvm:call (napplet-originated request)', () => {
+      expect(resolveCapabilitiesNub({ type: 'cvm.close' })).toEqual({ senderCap: 'cvm:call', recipientCap: null });
+    });
+
+    it('cvm.discover.result -> recipient cvm:call (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNub({ type: 'cvm.discover.result' })).toEqual({ senderCap: null, recipientCap: 'cvm:call' });
+    });
+
+    it('cvm.request.result -> recipient cvm:call (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNub({ type: 'cvm.request.result' })).toEqual({ senderCap: null, recipientCap: 'cvm:call' });
+    });
+
+    it('cvm.close.result -> recipient cvm:call (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNub({ type: 'cvm.close.result' })).toEqual({ senderCap: null, recipientCap: 'cvm:call' });
+    });
+
+    it('cvm.event -> recipient cvm:call (shell -> napplet push, no envelope id)', () => {
+      expect(resolveCapabilitiesNub({ type: 'cvm.event' })).toEqual({ senderCap: null, recipientCap: 'cvm:call' });
+    });
+
+    it('cvm.unknown -> sender cvm:call (default sender gate fallthrough)', () => {
+      expect(resolveCapabilitiesNub({ type: 'cvm.unknown' })).toEqual({ senderCap: 'cvm:call', recipientCap: null });
+    });
+  });
+
   describe('ALL_CAPABILITIES content', () => {
     it('contains the 7 v1.2 capability strings', () => {
       expect(ALL_CAPABILITIES).toContain('identity:read');
@@ -322,6 +356,10 @@ describe('resolveCapabilitiesNub', () => {
 
     it('contains resource:fetch (v1.7 Phase 40 10th domain)', () => {
       expect(ALL_CAPABILITIES).toContain('resource:fetch');
+    });
+
+    it('contains cvm:call (NAP-CVM ContextVM bridge)', () => {
+      expect(ALL_CAPABILITIES).toContain('cvm:call');
     });
 
     it('does NOT contain the removed signer capability strings', () => {

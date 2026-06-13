@@ -98,3 +98,30 @@ export type {
   ResourceServiceOptions,
   ResourceService,
 } from './resource-service.js';
+
+export { createCvmService } from './cvm-service.js';
+export type {
+  CvmService,
+  CvmServiceOptions,
+  CvmTransport,
+} from './cvm-service.js';
+export type {
+  McpMessage,
+  McpTool,
+  McpContentBlock,
+  McpToolResult,
+  CvmServer,
+  CvmServerRef,
+  CvmDiscoverQuery,
+  CvmRequestOptions,
+  CvmDiscoverMessage,
+  CvmDiscoverResultMessage,
+  CvmRequestMessage,
+  CvmRequestResultMessage,
+  CvmCloseMessage,
+  CvmCloseResultMessage,
+  CvmEventMessage,
+  CvmInboundMessage,
+  CvmOutboundMessage,
+  CvmTransportError,
+} from './cvm-types.js';

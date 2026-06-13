@@ -194,6 +194,27 @@ function resourceMap(action: string): CapabilityResolution {
 }
 
 /**
+ * `cvm.*` — NAP-CVM ContextVM bridge. Single `cvm:call` cap gates the domain.
+ *
+ * - `discover` / `request` / `close` (napplet → shell requests) →
+ *   sender `cvm:call`, recipient `null`. The napplet must hold `cvm:call`
+ *   to query servers or send MCP messages.
+ * - `discover.result` / `request.result` / `close.result` / `event`
+ *   (shell → napplet pushes) → sender `null`, recipient `cvm:call`. The push
+ *   is gated against the receiving napplet's cap so a napplet without
+ *   `cvm:call` never sees CVM results or server-pushed events.
+ * - Unknown `cvm.*` actions → sender `cvm:call` (default sender gate).
+ */
+function cvmMap(action: string): CapabilityResolution {
+  // Shell-originated pushes: recipient gate.
+  if (action === 'event' || action.endsWith('.result') || action.endsWith('.error')) {
+    return { senderCap: null, recipientCap: 'cvm:call' };
+  }
+  // Napplet-originated requests: sender gate (discover, request, close, unknown).
+  return { senderCap: 'cvm:call', recipientCap: null };
+}
+
+/**
  * `theme.*` — napplet read gate vs shell-initiated push.
  *
  * - `get` / `get.result` (and any other napplet-originated query) →
@@ -295,6 +316,7 @@ export function resolveCapabilitiesNub(msg: NubMessage): CapabilityResolution {
     case 'theme':    return themeMap(action);
     case 'config':   return configMap(action);
     case 'resource': return resourceMap(action);   // Phase 40 (RESOURCE-02)
+    case 'cvm':      return cvmMap(action);         // NAP-CVM ContextVM bridge
     default:         return { senderCap: null, recipientCap: null };
   }
 }

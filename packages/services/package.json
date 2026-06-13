@@ -10,6 +10,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./cvm-nostr-transport": {
+      "types": "./dist/cvm-nostr-transport.d.ts",
+      "import": "./dist/cvm-nostr-transport.js"
     }
   },
   "files": [
@@ -22,16 +26,23 @@
   "dependencies": {
     "@kehto/runtime": "workspace:*"
   },
+  "peerDependenciesMeta": {
+    "nostr-tools": {
+      "optional": true
+    }
+  },
   "peerDependencies": {
     "@napplet/core": "^0.5.0",
-    "@napplet/nub": "^0.5.0"
+    "@napplet/nub": "^0.5.0",
+    "nostr-tools": ">=2.23.3 <3.0.0"
   },
   "devDependencies": {
     "@napplet/core": "^0.5.0",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.2",
-    "@napplet/nub": "^0.5.0"
+    "@napplet/nub": "^0.5.0",
+    "nostr-tools": "^2.23.3"
   },
   "scripts": {
     "build": "tsup",

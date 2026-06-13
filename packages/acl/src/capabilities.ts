@@ -26,6 +26,8 @@ export const ALL_CAPABILITIES = [
   'resource:fetch',
   // v1.8 Phase 45 — NUB-IDENTITY decrypt gate:
   'identity:decrypt',
+  // NAP-CVM — ContextVM bridge (11th domain): call MCP-over-Nostr servers.
+  'cvm:call',
 ] as const;
 
 /** Union of every capability string in ALL_CAPABILITIES. */
@@ -51,3 +53,5 @@ export const CAP_THEME_READ      = 'theme:read' as const;
 export const CAP_CONFIG_READ     = 'config:read' as const;
 /** resource.bytes / resource.cancel (inbound) + resource.bytes.result / resource.bytes.error (outbound) */
 export const CAP_RESOURCE_FETCH  = 'resource:fetch' as const;
+/** cvm.discover / cvm.request / cvm.close (inbound) + cvm.*.result / cvm.event (outbound) */
+export const CAP_CVM_CALL        = 'cvm:call' as const;
