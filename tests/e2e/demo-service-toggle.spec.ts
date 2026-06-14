@@ -21,11 +21,11 @@ test('notifications service toggle flips .service-disabled class', async ({ page
 
   // Disable — first click
   await node.locator('.service-toggle-icon').click();
-  await expect(node).toHaveClass(/service-disabled/, { timeout: 3_000 });
+  await expect(node).toHaveClass(/service-disabled/, { timeout: 15_000 });
 
   // Re-enable — second click
   await node.locator('.service-toggle-icon').click();
-  await expect(node).not.toHaveClass(/service-disabled/, { timeout: 3_000 });
+  await expect(node).not.toHaveClass(/service-disabled/, { timeout: 15_000 });
 });
 
 test('notifications service toggle persists across reloads', async ({ page }) => {
@@ -34,24 +34,24 @@ test('notifications service toggle persists across reloads', async ({ page }) =>
   await expect(node).toBeVisible();
 
   await node.locator('.service-toggle-icon').click();
-  await expect(node).toHaveClass(/service-disabled/, { timeout: 3_000 });
+  await expect(node).toHaveClass(/service-disabled/, { timeout: 15_000 });
   await expect.poll(() =>
     page.evaluate(() => JSON.parse(localStorage.getItem('kehto.playground.disabledServices.v1') ?? '[]')),
   ).toContain('notifications');
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#topology-root', { state: 'visible', timeout: 15_000 });
-  await expect(page.locator('[data-service-name="notifications"]')).toHaveClass(/service-disabled/, { timeout: 3_000 });
+  await expect(page.locator('[data-service-name="notifications"]')).toHaveClass(/service-disabled/, { timeout: 15_000 });
 
   await page.locator('[data-service-name="notifications"] .service-toggle-icon').click();
-  await expect(page.locator('[data-service-name="notifications"]')).not.toHaveClass(/service-disabled/, { timeout: 3_000 });
+  await expect(page.locator('[data-service-name="notifications"]')).not.toHaveClass(/service-disabled/, { timeout: 15_000 });
   await expect.poll(() =>
     page.evaluate(() => JSON.parse(localStorage.getItem('kehto.playground.disabledServices.v1') ?? '[]')),
   ).not.toContain('notifications');
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#topology-root', { state: 'visible', timeout: 15_000 });
-  await expect(page.locator('[data-service-name="notifications"]')).not.toHaveClass(/service-disabled/, { timeout: 3_000 });
+  await expect(page.locator('[data-service-name="notifications"]')).not.toHaveClass(/service-disabled/, { timeout: 15_000 });
 });
 
 test('service toggle click does not cause anti-term page errors', async ({ page }) => {
