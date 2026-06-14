@@ -122,6 +122,28 @@ export type {
   RelayListEntry,
 } from './relay-pool-outbox-router.js';
 
+export { createUploadService } from './upload-service.js';
+export type {
+  UploadServiceOptions,
+  Uploader,
+  UploaderContext,
+  UploadRequest,
+  UploadResult,
+  UploadStatus,
+  UploadRail,
+  UploadState,
+  UploadDimensions,
+  NostrTag,
+} from './upload-service.js';
+
+export { createHttpUploader } from './http-uploader.js';
+export type {
+  HttpUploaderOptions,
+  HttpUploaderRails,
+  RailServerConfig,
+  SignEvent,
+} from './http-uploader.js';
+
 export { createCvmService } from './cvm-service.js';
 export type {
   CvmService,

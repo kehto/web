@@ -388,6 +388,36 @@ describe('resolveCapabilitiesNub', () => {
     });
   });
 
+  describe('upload domain (NAP-UPLOAD shell-mediated file/blob upload)', () => {
+    it('upload.upload -> sender upload:write (napplet-originated request)', () => {
+      expect(resolveCapabilitiesNub({ type: 'upload.upload' })).toEqual({ senderCap: 'upload:write', recipientCap: null });
+    });
+
+    it('upload.status -> sender upload:write (napplet-originated status query)', () => {
+      expect(resolveCapabilitiesNub({ type: 'upload.status' })).toEqual({ senderCap: 'upload:write', recipientCap: null });
+    });
+
+    it('upload.upload.result -> recipient upload:write (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNub({ type: 'upload.upload.result' })).toEqual({ senderCap: null, recipientCap: 'upload:write' });
+    });
+
+    it('upload.status.result -> recipient upload:write (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNub({ type: 'upload.status.result' })).toEqual({ senderCap: null, recipientCap: 'upload:write' });
+    });
+
+    it('upload.status.changed -> recipient upload:write (shell -> napplet push, no envelope id)', () => {
+      expect(resolveCapabilitiesNub({ type: 'upload.status.changed' })).toEqual({ senderCap: null, recipientCap: 'upload:write' });
+    });
+
+    it('upload.upload.error -> recipient upload:write (shell -> napplet error push)', () => {
+      expect(resolveCapabilitiesNub({ type: 'upload.upload.error' })).toEqual({ senderCap: null, recipientCap: 'upload:write' });
+    });
+
+    it('upload.unknown -> sender upload:write (default sender gate fallthrough)', () => {
+      expect(resolveCapabilitiesNub({ type: 'upload.unknown' })).toEqual({ senderCap: 'upload:write', recipientCap: null });
+    });
+  });
+
   describe('ALL_CAPABILITIES content', () => {
     it('contains the 7 v1.2 capability strings', () => {
       expect(ALL_CAPABILITIES).toContain('identity:read');
@@ -415,6 +445,10 @@ describe('resolveCapabilitiesNub', () => {
     it('contains outbox:read and outbox:write (NAP-OUTBOX)', () => {
       expect(ALL_CAPABILITIES).toContain('outbox:read');
       expect(ALL_CAPABILITIES).toContain('outbox:write');
+    });
+
+    it('contains upload:write (NAP-UPLOAD)', () => {
+      expect(ALL_CAPABILITIES).toContain('upload:write');
     });
 
     it('does NOT contain the removed signer capability strings', () => {

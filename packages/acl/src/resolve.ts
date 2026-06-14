@@ -251,6 +251,34 @@ function outboxMap(action: string): CapabilityResolution {
 }
 
 /**
+ * `upload.*` — NAP-UPLOAD shell-mediated file/blob upload (13th NAP domain).
+ *
+ * A single `upload:write` cap gates the domain — uploading is the sensitive op
+ * (network egress + identity-linking), and `status` only inspects the requesting
+ * napplet's own uploads, so it rides the same grant rather than a separate read
+ * cap.
+ *
+ * - `upload` / `status` (and any other napplet-originated request) → sender
+ *   `upload:write`, recipient `null`.
+ * - `upload.result` / `status.result` / `status.changed` / `*.error` (shell →
+ *   napplet pushes) → sender `null`, recipient `upload:write`. The push is gated
+ *   against the receiving napplet's cap so a napplet without `upload:write`
+ *   never sees results or progress updates.
+ */
+function uploadMap(action: string): CapabilityResolution {
+  // Shell-originated pushes: recipient gate.
+  if (
+    action === 'status.changed' ||
+    action.endsWith('.result') ||
+    action.endsWith('.error')
+  ) {
+    return { senderCap: null, recipientCap: 'upload:write' };
+  }
+  // Napplet-originated requests: sender gate (upload, status, unknown).
+  return { senderCap: 'upload:write', recipientCap: null };
+}
+
+/**
  * `theme.*` — napplet read gate vs shell-initiated push.
  *
  * - `get` / `get.result` (and any other napplet-originated query) →
@@ -354,6 +382,7 @@ export function resolveCapabilitiesNub(msg: NubMessage): CapabilityResolution {
     case 'resource': return resourceMap(action);   // Phase 40 (RESOURCE-02)
     case 'cvm':      return cvmMap(action);         // NAP-CVM ContextVM bridge
     case 'outbox':   return outboxMap(action);      // NAP-OUTBOX outbox-aware relay routing
+    case 'upload':   return uploadMap(action);      // NAP-UPLOAD shell-mediated file/blob upload
     default:         return { senderCap: null, recipientCap: null };
   }
 }
