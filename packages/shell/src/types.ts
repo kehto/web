@@ -152,6 +152,23 @@ export interface DmHooks {
 }
 
 /**
+ * Minimal upload backend the shell advertises (NAP-UPLOAD). The host wires the
+ * concrete upload service into the runtime via `registerService('upload', …)`;
+ * this hook is the presence/capability signal `buildShellCapabilities` reads to
+ * decide whether to advertise `upload` to napplets.
+ */
+export interface UploadBackendLike {
+  /** Storage rails this backend can serve, e.g. `['nip96', 'blossom']`. */
+  readonly rails: readonly string[];
+}
+
+/** Hook exposing a shell-mediated upload backend (NAP-UPLOAD). */
+export interface UploadHooks {
+  /** Get the configured upload backend — returns null when none is available. */
+  getUploader(): UploadBackendLike | null;
+}
+
+/**
  * Event emitted on every ACL enforcement check.
  * @example
  * ```ts
@@ -242,6 +259,12 @@ export interface ShellAdapter {
   workerRelay: WorkerRelayHooks;
   crypto: CryptoHooks;
   dm?: DmHooks;
+  /**
+   * Optional shell-mediated upload backend (NAP-UPLOAD). When present, the shell
+   * advertises the `upload` domain so napplets can call `window.napplet.upload`.
+   * The host still registers the concrete service via `registerService('upload')`.
+   */
+  upload?: UploadHooks;
   /** Called on every ACL enforcement check. Both allows and denials are reported. */
   onAclCheck?: (event: AclCheckEvent) => void;
   /** Called when aggregate hash verification fails (computed != declared). */

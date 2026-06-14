@@ -34,6 +34,8 @@ export type {
   WorkerRelayLike,
   CryptoHooks,
   DmHooks,
+  UploadHooks,
+  UploadBackendLike,
   SessionEntry,
   NappKeyEntry,  // @deprecated — use SessionEntry
   AclEntry,
