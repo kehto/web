@@ -37,7 +37,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kehto/runtime.git",
+    "url": "git+https://github.com/kehto/web.git",
     "directory": "packages/nip66"
   },
   "keywords": [
