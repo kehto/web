@@ -29,6 +29,11 @@ test('notifications service toggle flips .service-disabled class', async ({ page
 });
 
 test('notifications service toggle persists across reloads', async ({ page }) => {
+  // Two full page.reload() cycles each re-bind the whole roster before service
+  // state restores from localStorage; the default 30s budget is too tight on
+  // slow CI runners (the real flake — failures land at ~31s total, not on the
+  // per-assertion timeouts). Match the sibling ACL-persistence spec's headroom.
+  test.setTimeout(120_000);
   await demoBeforeEach(page);
   const node = page.locator('[data-service-name="notifications"]');
   await expect(node).toBeVisible();
