@@ -131,8 +131,6 @@ export function createHttpUploader(options: HttpUploaderOptions): Uploader {
   return { upload };
 }
 
-// ─── NIP-96 ───────────────────────────────────────────────────────────────
-
 interface RailUploadArgs {
   request: UploadRequest;
   ctx: UploaderContext;
@@ -222,8 +220,6 @@ function fromNip94Tags(
   return result;
 }
 
-// ─── Blossom ────────────────────────────────────────────────────────────────
-
 async function uploadBlossom(args: RailUploadArgs): Promise<UploadResult> {
   const { request, ctx, server, bytes, sha256, signEvent, fetchFn, nowS } = args;
 
@@ -276,8 +272,6 @@ interface BlossomDescriptor {
   size?: number;
   type?: string;
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────
 
 function failed(uploadId: string, rail: UploadRail, error: string, sha256?: string): UploadResult {
   return { ok: false, uploadId, status: 'failed', rail, error, ...(sha256 ? { sha256 } : {}) };
