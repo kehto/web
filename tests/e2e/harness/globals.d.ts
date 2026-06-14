@@ -108,16 +108,6 @@ declare global {
      */
     __getNotifications__: (windowId?: string) => Array<{ id: string; title: string; body?: string; read: boolean }>;
 
-    __installIdentityDecryptService__: () => boolean;
-    __makeIdentityDecryptFixtures__: () => Promise<{
-      nip04: { event: NostrEvent; expected: { mode: 'nip04'; id: string } };
-      nip44: { event: NostrEvent; expected: { mode: 'nip44'; id: string } };
-      nip17: { event: NostrEvent; expected: { mode: 'nip17'; id: string } };
-    }>;
-    __setDecryptBridgeError__: (error: string | null) => void;
-    __getHarnessDecryptBridgeCallCount__: () => number;
-    __resetHarnessDecryptBridgeCallCount__: () => void;
-
     /**
      * Set the pubkey returned by subsequent `identity.getPublicKey` requests.
      * Delegates to mockResult.setUserPubkey() under the hood.

@@ -77,7 +77,6 @@ export { resolveCapabilitiesNub } from './resolve.js';
 export {
   ALL_CAPABILITIES,
   CAP_IDENTITY_READ,
-  CAP_IDENTITY_DECRYPT,
   CAP_KEYS_BIND,
   CAP_KEYS_FORWARD,
   CAP_MEDIA_CONTROL,

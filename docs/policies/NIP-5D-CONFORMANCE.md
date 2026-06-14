@@ -21,7 +21,6 @@ nested submodule reference file and is not an authority for this milestone.
 | `connect` | Official Kehto NUB extension | Advertise as `nub:connect` only when the shell enforces the connect-origin policy and response/header behavior for the hosted napplet. |
 | `class` | Official Kehto NUB extension | Advertise as `nub:class` only when the shell assigns the napplet class and applies class-specific policy before iframe use. |
 | `nostrdb` | Out of scope for active playground NIP-5D conformance | Do not count as a required playground NUB until a Kehto NUB contract and shell capability advertisement exist. |
-| `identity.decrypt` | Official identity NUB operation | Allowed only as a shell-mediated request. Napplets do not receive raw key material, raw NIP-07 primitives, or reusable encryption primitives. |
 | `relay.publishEncrypted` | Official relay NUB operation | Allowed only when the shell performs encryption/signing policy. Napplets may submit cleartext intent; the shell must not sign or broadcast ciphertext supplied by a napplet. |
 
 ## Raw Envelope Policy

@@ -67,8 +67,10 @@ function relayMap(action: string): CapabilityResolution {
 /**
  * `identity.*` — split shell-public reads from gated profile reads.
  *
+ * Identity is strictly read-only per NAP-IDENTITY: napplets cannot sign,
+ * encrypt, or decrypt (encryption is delegated via `relay.publishEncrypted`).
+ *
  * - `getPublicKey` / `getRelays`            → `null`/`null` (shell-public info).
- * - `decrypt`                               → sender `identity:decrypt` (class-1 only).
  * - `getProfile` / `getFollows` / `getList` / `getZaps` / `getMutes` /
  *   `getBlocked` / `getBadges` (and any other identity read) → sender
  *   `identity:read`, recipient `null`.
@@ -76,9 +78,6 @@ function relayMap(action: string): CapabilityResolution {
 function identityMap(action: string): CapabilityResolution {
   if (action === 'getPublicKey' || action === 'getRelays') {
     return { senderCap: null, recipientCap: null };
-  }
-  if (action === 'decrypt') {
-    return { senderCap: 'identity:decrypt', recipientCap: null };
   }
   return { senderCap: 'identity:read', recipientCap: null };
 }
@@ -311,7 +310,6 @@ function themeMap(action: string): CapabilityResolution {
  * | `relay`    | `publish`                                                    | `relay:write`   | `relay:read`  |
  * | `relay`    | `publishEncrypted`                                           | `relay:write`   | `null`        |
  * | `identity` | `getPublicKey`, `getRelays`                                 | `null`          | `null`        |
- * | `identity` | `decrypt`                                                  | `identity:decrypt` | `null`     |
  * | `identity` | `getProfile/getFollows/getList/getZaps/getMutes/...`        | `identity:read` | `null`        |
  * | `keys`     | `forward`, `action`                                         | `keys:forward`  | `null`        |
  * | `keys`     | `registerAction`, `unregisterAction`, `bindings`            | `keys:bind`     | `null`        |

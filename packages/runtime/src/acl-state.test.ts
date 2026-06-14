@@ -23,7 +23,7 @@ describe('runtime ACL state', () => {
 
     expect(acl.check('', 'chat', 'hash', 'relay:write')).toBe(false);
     expect(acl.check('', 'chat', 'hash', 'relay:read')).toBe(true);
-    expect(acl.check('', 'chat', 'hash', 'identity:decrypt')).toBe(true);
+    expect(acl.check('', 'chat', 'hash', 'cvm:call')).toBe(true);
     expect(acl.check('', 'chat', 'hash', 'notify:send')).toBe(true);
     expect(acl.check('', 'chat', 'hash', 'theme:read')).toBe(true);
 
@@ -32,7 +32,7 @@ describe('runtime ACL state', () => {
     restored.load();
 
     expect(restored.check('', 'chat', 'hash', 'relay:write')).toBe(false);
-    expect(restored.check('', 'chat', 'hash', 'identity:decrypt')).toBe(true);
+    expect(restored.check('', 'chat', 'hash', 'cvm:call')).toBe(true);
     expect(restored.check('', 'chat', 'hash', 'notify:send')).toBe(true);
     expect(restored.check('', 'chat', 'hash', 'theme:read')).toBe(true);
   });
@@ -47,7 +47,7 @@ describe('runtime ACL state', () => {
     acl.unblock('', 'feed', 'hash');
     expect(acl.isBlocked('', 'feed', 'hash')).toBe(false);
     expect(acl.check('', 'feed', 'hash', 'relay:read')).toBe(true);
-    expect(acl.check('', 'feed', 'hash', 'identity:decrypt')).toBe(true);
+    expect(acl.check('', 'feed', 'hash', 'cvm:call')).toBe(true);
     expect(acl.check('', 'feed', 'hash', 'notify:send')).toBe(true);
     expect(acl.check('', 'feed', 'hash', 'theme:read')).toBe(true);
   });

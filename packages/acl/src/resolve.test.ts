@@ -72,8 +72,8 @@ describe('resolveCapabilitiesNub', () => {
       expect(resolveCapabilitiesNub({ type: 'identity.getBadges' })).toEqual({ senderCap: 'identity:read', recipientCap: null });
     });
 
-    it('identity.decrypt -> identity:decrypt', () => {
-      expect(resolveCapabilitiesNub({ type: 'identity.decrypt' })).toEqual({ senderCap: 'identity:decrypt', recipientCap: null });
+    it('identity.decrypt -> identity:read (no dedicated decrypt cap; identity is read-only per NAP-IDENTITY)', () => {
+      expect(resolveCapabilitiesNub({ type: 'identity.decrypt' })).toEqual({ senderCap: 'identity:read', recipientCap: null });
     });
   });
 
@@ -421,7 +421,6 @@ describe('resolveCapabilitiesNub', () => {
   describe('ALL_CAPABILITIES content', () => {
     it('contains the 7 v1.2 capability strings', () => {
       expect(ALL_CAPABILITIES).toContain('identity:read');
-      expect(ALL_CAPABILITIES).toContain('identity:decrypt');
       expect(ALL_CAPABILITIES).toContain('keys:bind');
       expect(ALL_CAPABILITIES).toContain('keys:forward');
       expect(ALL_CAPABILITIES).toContain('media:control');
@@ -456,6 +455,10 @@ describe('resolveCapabilitiesNub', () => {
       expect(caps).not.toContain('sign:event');
       expect(caps).not.toContain('sign:nip04');
       expect(caps).not.toContain('sign:nip44');
+    });
+
+    it('does NOT contain identity:decrypt (removed — not in NAP-IDENTITY; identity is read-only)', () => {
+      expect(ALL_CAPABILITIES as readonly string[]).not.toContain('identity:decrypt');
     });
 
     it('preserves v1.1 capability strings that remain in scope', () => {

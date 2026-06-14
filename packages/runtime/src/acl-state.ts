@@ -26,7 +26,9 @@ const CAP_NOTIFY_CHANNEL = 1 << 12;   // 4096
 const CAP_THEME_READ     = 1 << 13;   // 8192
 const CAP_CONFIG_READ    = 1 << 14;   // 16384 (v1.7 Phase 39 NUB-CONFIG)
 const CAP_RESOURCE_FETCH = 1 << 15;   // 32768 (v1.7 Phase 40 NUB-RESOURCE)
-const CAP_IDENTITY_DECRYPT = 1 << 16; // 65536 (v1.8 Phase 45 NUB-IDENTITY decrypt)
+// 1 << 16 (65536) RETIRED — was identity:decrypt (v1.8); removed as a spec
+// violation. Left as a permanent gap; do NOT reuse this bit (persisted ACL
+// grants are bitfields — reassigning it would silently re-grant old state).
 const CAP_CVM_CALL       = 1 << 17;   // 131072 (NAP-CVM ContextVM bridge)
 const CAP_OUTBOX_READ    = 1 << 18;   // 262144 (NAP-OUTBOX read-side routing)
 const CAP_OUTBOX_WRITE   = 1 << 19;   // 524288 (NAP-OUTBOX shell-signed publish)
@@ -49,7 +51,6 @@ const CAP_MAP: Record<Capability, number> = {
   'theme:read': CAP_THEME_READ,
   'config:read': CAP_CONFIG_READ,
   'resource:fetch': CAP_RESOURCE_FETCH,
-  'identity:decrypt': CAP_IDENTITY_DECRYPT,
   'cvm:call': CAP_CVM_CALL,
   'outbox:read': CAP_OUTBOX_READ,
   'outbox:write': CAP_OUTBOX_WRITE,

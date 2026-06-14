@@ -23,7 +23,6 @@ import {
 } from '@kehto/services';
 import { createNip66Aggregator, type Nip66Aggregator } from '@kehto/nip/66';
 
-import { createDemoDecryptBridge } from './demo-decrypt.js';
 import { demoConfig } from './demo-config.js';
 import { createPlaygroundNip66FixturePool } from './playground-relay-fixtures.js';
 import {
@@ -83,11 +82,7 @@ export function createDemoHooks(
   const configBundle = createConfigService({ getValues: () => ({ ...demoConfigFixtures }) });
   const resourceHandler = createDemoResourceHandler();
   const cvmService = createCvmService({ transport: createPlaygroundCvmTransport() });
-  const identityService = createIdentityService({
-    getSigner,
-    getDecryptor: () => createDemoDecryptBridge(),
-    verifyEvent: verifyDemoEvent,
-  });
+  const identityService = createIdentityService({ getSigner });
   relayRuntimeDestroy?.();
   relayRuntimeActivity = null;
   nip66Aggregator?.stop();
