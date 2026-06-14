@@ -10,7 +10,7 @@ import '@napplet/shim';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
 
 const REQUIRED_NAPS = ['cvm', 'theme'] as const;
-const CAPABILITY_WAIT_MS = 1_000;
+const CAPABILITY_WAIT_MS = 5_000;
 const CAPABILITY_WAIT_INTERVAL_MS = 25;
 const REQUEST_TIMEOUT_MS = 30_000;
 
