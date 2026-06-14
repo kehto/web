@@ -42,7 +42,7 @@ async function openDemo(page: Page): Promise<void> {
   await expect(page.locator('#chat-status')).toHaveText('identity-bound');
   await expect(page.locator('#bot-status')).toHaveText('identity-bound');
   const aclSlot = page.locator('#chat-acl');
-  await expect(aclSlot.locator('.acl-summary-toggle')).toContainText('8 allowed');
+  await expect(aclSlot.locator('.acl-summary-toggle')).toContainText('7 allowed');
   await aclSlot.locator('.acl-summary-toggle').click();
   await expect(aclSlot.locator('button')).toContainText(['Relay Publish / IFC Send']);
 }

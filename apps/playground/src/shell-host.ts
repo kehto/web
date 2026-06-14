@@ -676,7 +676,6 @@ const aclAdapter: DemoAclAdapter = {
         'state:read': hasCapability('state:read'),
         'state:write': hasCapability('state:write'),
         'identity:read': hasCapability('identity:read'),
-        'identity:decrypt': hasCapability('identity:decrypt'),
         'config:read': hasCapability('config:read'),
         'resource:fetch': hasCapability('resource:fetch'),
         'cvm:call': hasCapability('cvm:call'),

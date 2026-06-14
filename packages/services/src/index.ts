@@ -37,15 +37,7 @@ export { createNotificationService } from './notification-service.js';
 
 export { createIdentityService } from './identity-service.js';
 export type {
-  GiftWrapDecryptResult,
-  HostDecryptBridge,
-  IdentityDecryptErrorCode,
-  IdentityDecryptErrorMessage,
-  IdentityDecryptMessage,
-  IdentityDecryptResultMessage,
   IdentityServiceOptions,
-  Rumor,
-  VerifyEvent,
 } from './identity-service.js';
 
 export { createRelayPoolService } from './relay-pool-service.js';

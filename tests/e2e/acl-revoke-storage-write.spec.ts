@@ -56,7 +56,7 @@ test('revoking state:write on preferences denies next save (denial visible in st
   // Wait until the ACL panel toggle for state:write is rendered + initial state ON.
   const aclSlot = page.locator('#preferences-acl');
   await expect(aclSlot).toBeVisible({ timeout: 10_000 });
-  await expect(aclSlot.locator('.acl-summary-toggle')).toContainText('8 allowed');
+  await expect(aclSlot.locator('.acl-summary-toggle')).toContainText('7 allowed');
   await aclSlot.locator('.acl-summary-toggle').click();
   const stateWriteToggle = aclSlot.locator('button[title^="state:write"]');
   await expect(stateWriteToggle).toBeVisible({ timeout: 10_000 });
@@ -65,7 +65,7 @@ test('revoking state:write on preferences denies next save (denial visible in st
   // Phase 2 (revoke + assert):
   await stateWriteToggle.click();
   await expect(stateWriteToggle).toHaveAttribute('data-enabled', 'false');
-  await expect(aclSlot.locator('.acl-summary-toggle')).toContainText('7 allowed');
+  await expect(aclSlot.locator('.acl-summary-toggle')).toContainText('6 allowed');
   await expect(aclSlot.locator('.acl-summary-toggle')).toContainText('1 blocked');
 
   // Trigger another save — runtime's ACL gate emits storage.set.result with an error field.

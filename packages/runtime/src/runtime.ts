@@ -168,11 +168,8 @@ function createMessageHandler(
       const result = enforceNub(windowId, caps.senderCap as Capability, envelope);
       if (!result.allowed) {
         const id = (envelope as NappletMessage & { id?: string }).id ?? '';
-        const isIdentityDecrypt = envelope.type === 'identity.decrypt';
         const isStorageEnvelope = envelope.type.startsWith('storage.');
-        const error = isIdentityDecrypt
-          ? result.reason === 'class-forbidden' ? 'class-forbidden' : 'policy-denied'
-          : formatDenialReason(result.capability);
+        const error = formatDenialReason(result.capability);
         const type = isStorageEnvelope ? `${envelope.type}.result` : `${envelope.type}.error`;
         hooks.sendToNapplet(windowId, { type, id, error } as NappletMessage);
         return;

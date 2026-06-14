@@ -24,8 +24,6 @@ export const ALL_CAPABILITIES = [
   'config:read',
   // v1.7 Phase 40 — NUB-RESOURCE reference service (10th domain):
   'resource:fetch',
-  // v1.8 Phase 45 — NUB-IDENTITY decrypt gate:
-  'identity:decrypt',
   // NAP-CVM — ContextVM bridge (11th domain): call MCP-over-Nostr servers.
   'cvm:call',
   // NAP-OUTBOX — outbox-aware relay routing (12th domain): read = query/
@@ -42,8 +40,6 @@ export type Capability = typeof ALL_CAPABILITIES[number];
 
 /** identity.getProfile/getFollows/getList/getZaps/getMutes/getBlocked/getBadges */
 export const CAP_IDENTITY_READ   = 'identity:read' as const;
-/** identity.decrypt (class-1 only; shell-mediated decrypt) */
-export const CAP_IDENTITY_DECRYPT = 'identity:decrypt' as const;
 /** keys.registerAction / keys.unregisterAction / keys.bindings */
 export const CAP_KEYS_BIND       = 'keys:bind' as const;
 /** keys.forward / keys.action */

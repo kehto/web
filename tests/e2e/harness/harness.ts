@@ -16,132 +16,15 @@
 
 import { createShellBridge, originRegistry } from '@kehto/shell';
 import type { Capability, SessionEntry } from '@kehto/shell';
-import { createIdentityService, createKeysService, createMediaService } from '@kehto/services';
-import type { HostDecryptBridge, IdentityDecryptErrorCode } from '@kehto/services';
-import type { NappletMessage, NostrEvent } from '@napplet/core';
+import { createKeysService, createMediaService } from '@kehto/services';
+import type { NappletMessage } from '@napplet/core';
 import { createMockHooks } from '@test/helpers';
 import { createMessageTap } from '@test/helpers';
-import { nip04, nip44, nip17 } from 'nostr-tools';
-import { finalizeEvent, getPublicKey } from 'nostr-tools/pure';
 
 // --- Initialize ---
 
 const mockResult = createMockHooks();
 const tap = createMessageTap();
-
-function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-  }
-  return bytes;
-}
-
-const HARNESS_DECRYPT_SECRET_KEY = hexToBytes('33'.repeat(32));
-const HARNESS_DECRYPT_PUBKEY = getPublicKey(HARNESS_DECRYPT_SECRET_KEY);
-const HARNESS_DECRYPT_SENDER_SECRET_KEY = hexToBytes('44'.repeat(32));
-const HARNESS_DECRYPT_SENDER_PUBKEY = getPublicKey(HARNESS_DECRYPT_SENDER_SECRET_KEY);
-
-interface HarnessDecryptModeFixture {
-  event: NostrEvent;
-  expected: { mode: 'nip04' | 'nip44' | 'nip17'; id: string };
-}
-
-interface HarnessDecryptFixtures {
-  nip04: HarnessDecryptModeFixture;
-  nip44: HarnessDecryptModeFixture;
-  nip17: HarnessDecryptModeFixture;
-}
-
-let harnessDecryptBridgeCallCount = 0;
-let harnessDecryptNextError: IdentityDecryptErrorCode | null = null;
-
-function finalizeHarnessDecryptEvent(kind: number, content: string, createdAt: number): NostrEvent {
-  return finalizeEvent({
-    kind,
-    content,
-    tags: [['p', HARNESS_DECRYPT_PUBKEY]],
-    created_at: createdAt,
-  }, HARNESS_DECRYPT_SENDER_SECRET_KEY) as NostrEvent;
-}
-
-async function makeHarnessDecryptFixtures(): Promise<HarnessDecryptFixtures> {
-  const payloads = {
-    nip04: { mode: 'nip04' as const, id: 'harness-nip04' },
-    nip44: { mode: 'nip44' as const, id: 'harness-nip44' },
-    nip17: { mode: 'nip17' as const, id: 'harness-nip17' },
-  };
-  const nip04Content = await nip04.encrypt(
-    HARNESS_DECRYPT_SENDER_SECRET_KEY,
-    HARNESS_DECRYPT_PUBKEY,
-    JSON.stringify(payloads.nip04),
-  );
-  const conversationKey = nip44.v2.utils.getConversationKey(
-    HARNESS_DECRYPT_SENDER_SECRET_KEY,
-    HARNESS_DECRYPT_PUBKEY,
-  );
-  const nip44Content = nip44.v2.encrypt(JSON.stringify(payloads.nip44), conversationKey);
-  const nip17Event = nip17.wrapEvent(
-    HARNESS_DECRYPT_SENDER_SECRET_KEY,
-    { publicKey: HARNESS_DECRYPT_PUBKEY },
-    JSON.stringify(payloads.nip17),
-  ) as NostrEvent;
-  return {
-    nip04: {
-      event: finalizeHarnessDecryptEvent(4, nip04Content, 1_710_000_004),
-      expected: payloads.nip04,
-    },
-    nip44: {
-      event: finalizeHarnessDecryptEvent(14, nip44Content, 1_710_000_014),
-      expected: payloads.nip44,
-    },
-    nip17: {
-      event: nip17Event,
-      expected: payloads.nip17,
-    },
-  };
-}
-
-function maybeThrowHarnessDecryptError(): void {
-  harnessDecryptBridgeCallCount++;
-  if (harnessDecryptNextError) {
-    const error = harnessDecryptNextError;
-    harnessDecryptNextError = null;
-    throw error;
-  }
-}
-
-function createHarnessDecryptBridge(): HostDecryptBridge {
-  return {
-    async nip04Decrypt(senderPubkey: string, ciphertext: string): Promise<string> {
-      maybeThrowHarnessDecryptError();
-      return nip04.decrypt(HARNESS_DECRYPT_SECRET_KEY, senderPubkey, ciphertext);
-    },
-    async nip44Decrypt(senderPubkey: string, ciphertext: string): Promise<string> {
-      maybeThrowHarnessDecryptError();
-      const conversationKey = nip44.v2.utils.getConversationKey(HARNESS_DECRYPT_SECRET_KEY, senderPubkey);
-      return nip44.v2.decrypt(ciphertext, conversationKey);
-    },
-    async unwrapGiftWrap(wrap: NostrEvent) {
-      maybeThrowHarnessDecryptError();
-      const rumor = nip17.unwrapEvent(
-        wrap as Parameters<typeof nip17.unwrapEvent>[0],
-        HARNESS_DECRYPT_SECRET_KEY,
-      );
-      const seal: NostrEvent = {
-        ...wrap,
-        id: `${wrap.id}:seal`,
-        kind: 13,
-        pubkey: rumor.pubkey,
-        content: '',
-        tags: [],
-        created_at: rumor.created_at,
-        sig: '',
-      };
-      return { seal, rumor };
-    },
-  };
-}
 
 // ─── NIP-5D envelope log (hoisted) ─────────────────────────────────────────
 //
@@ -601,27 +484,6 @@ window.__getNubMessage__ = (windowId: string, type?: string): NappletMessage | n
  * @returns An array of service names (e.g., ["identity", "notifications"]).
  */
 window.__getServiceNames__ = (): string[] => [...serviceShadow];
-
-window.__installIdentityDecryptService__ = (): boolean => {
-  const bridge = createHarnessDecryptBridge();
-  relay.runtime.registerService('identity', createIdentityService({
-    getSigner: () => null,
-    getDecryptor: () => bridge,
-    verifyEvent: mockResult.hooks.crypto.verifyEvent,
-  }));
-  serviceShadow.add('identity');
-  return true;
-};
-
-window.__makeIdentityDecryptFixtures__ = makeHarnessDecryptFixtures;
-window.__setDecryptBridgeError__ = (error: string | null): void => {
-  harnessDecryptNextError = error as IdentityDecryptErrorCode | null;
-};
-window.__getHarnessDecryptBridgeCallCount__ = (): number => harnessDecryptBridgeCallCount;
-window.__resetHarnessDecryptBridgeCallCount__ = (): void => {
-  harnessDecryptBridgeCallCount = 0;
-  harnessDecryptNextError = null;
-};
 
 /**
  * Register a service with the runtime by evaluating `handlerScript` in the harness context.
