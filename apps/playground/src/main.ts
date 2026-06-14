@@ -15,9 +15,6 @@ import {
   toggleService,
   setDemoConfigValue,
   getPlaygroundRelayActivity,
-  publishDecryptFixturesToNapplet,
-  getDemoDecryptBridgeCallCount,
-  resetDemoDecryptBridgeCallCount,
   type GatewayNappletMetadata,
   isServiceEnabled,
 } from './shell-host.js';
@@ -580,20 +577,4 @@ export function setSelectedNode(id: string | null): void {
     setDemoConfigValue(key, value);
   }
   return true;
-};
-
-(window as Window & {
-  __publishDecryptFixtures__?: (dTag?: string) => Promise<boolean>;
-}).__publishDecryptFixtures__ = async (dTag = 'decrypt-demo'): Promise<boolean> => {
-  return publishDecryptFixturesToNapplet(dTag);
-};
-
-(window as Window & {
-  __getDecryptBridgeCallCount__?: () => number;
-}).__getDecryptBridgeCallCount__ = (): number => getDemoDecryptBridgeCallCount();
-
-(window as Window & {
-  __resetDecryptBridgeCallCount__?: () => void;
-}).__resetDecryptBridgeCallCount__ = (): void => {
-  resetDemoDecryptBridgeCallCount();
 };

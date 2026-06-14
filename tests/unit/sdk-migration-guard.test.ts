@@ -25,7 +25,6 @@ const sdkTargetDirs = [
 
 const helperTargetDirs = [
   ...sdkTargetDirs,
-  'apps/playground/napplets/decrypt-demo',
 ] as const;
 
 const publicPackageDirs = [
@@ -65,11 +64,6 @@ const activeTerminologyRoots = [
   'tests',
 ] as const;
 const activeTerminologyFilePattern = /\.(?:[cm]?[jt]sx?|json|md|html|css)$/;
-const bannedDecryptPlumbingPatterns = [
-  /\brequestCounter\b/,
-  /new\s+Map\s*<\s*string\s*,\s*\([^)]*\)\s*=>\s*void\s*>\s*\(/,
-  /window\.parent\.postMessage\s*\(\s*\{\s*type:\s*['"]identity\.decrypt['"]/s,
-] as const;
 
 function sourceFiles(root: string): string[] {
   if (!existsSync(root)) return [];
@@ -208,13 +202,4 @@ describe('SDK 0.5 migration guard', () => {
     expect(violations).toEqual([]);
   });
 
-  it('keeps decrypt-demo on the shim-owned identity.decrypt helper instead of manual message plumbing', () => {
-    const file = join(process.cwd(), 'apps/playground/napplets/decrypt-demo/src/main.ts');
-    const content = readFileSync(file, 'utf8');
-
-    expect(content).toContain('window.napplet.identity.decrypt(event)');
-    for (const pattern of bannedDecryptPlumbingPatterns) {
-      expect(content).not.toMatch(pattern);
-    }
-  });
 });

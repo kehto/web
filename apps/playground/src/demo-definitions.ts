@@ -94,15 +94,6 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     aclId: 'cvm-relatr-acl',
     frameContainerId: 'cvm-relatr-frame-container',
   },
-  {
-    name: 'decrypt-demo',
-    label: 'decrypt-demo',
-    statusId: 'decrypt-demo-status',
-    aclId: 'decrypt-demo-acl',
-    frameContainerId: 'decrypt-demo-frame-container',
-    surface: 'runtime-demo',
-    hasAclControls: false,
-  },
 ];
 
 export const CLASS_BY_DTAG: ReadonlyMap<string, NappletClass> = new Map<string, NappletClass>([
@@ -119,7 +110,6 @@ export const CLASS_BY_DTAG: ReadonlyMap<string, NappletClass> = new Map<string, 
   ['config-demo', null],
   ['resource-demo', null],
   ['cvm-relatr', null],
-  ['decrypt-demo', null],
 ]);
 
 const missingClassEntries = DEMO_NAPPLETS

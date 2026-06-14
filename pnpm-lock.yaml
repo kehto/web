@@ -205,25 +205,6 @@ importers:
         specifier: ^6.4.2
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
-  apps/playground/napplets/decrypt-demo:
-    dependencies:
-      '@napplet/nub':
-        specifier: 0.5.0
-        version: 0.5.0
-      '@napplet/shim':
-        specifier: 0.5.0
-        version: 0.5.0
-    devDependencies:
-      '@napplet/vite-plugin':
-        specifier: 0.4.0
-        version: 0.4.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vite:
-        specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
-
   apps/playground/napplets/feed:
     dependencies:
       '@napplet/core':

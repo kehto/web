@@ -18,7 +18,6 @@ import {
 import type { Notification } from '@kehto/services';
 import { getSignerConnectionState } from './signer-connection.js';
 import { pushAclEvent } from './acl-history.js';
-import { createDemoDecryptFixtures } from './demo-decrypt.js';
 import {
   CLASS_BY_DTAG,
   DEMO_NAPPLETS,
@@ -37,12 +36,6 @@ import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 const _hostSecretKey = generateSecretKey();
 const _hostPubkey = getPublicKey(_hostSecretKey);
 
-export {
-  DEMO_DECRYPT_PUBKEY,
-  getDemoDecryptBridgeCallCount,
-  resetDemoDecryptBridgeCallCount,
-  type DemoDecryptFixtures,
-} from './demo-decrypt.js';
 export {
   DEMO_NAPPLETS,
   DEMO_PROTOCOL_PATH_INDEX,
@@ -197,20 +190,6 @@ function publishCurrentUserIdentityToWindowId(windowId: string): void {
 function scheduleCurrentUserIdentitySync(info: NappletInfo): void {
   window.setTimeout(() => publishCurrentUserIdentityToNapplet(info), 0);
   window.setTimeout(() => publishCurrentUserIdentityToNapplet(info), 100);
-}
-
-export async function publishDecryptFixturesToNapplet(dTag = 'decrypt-demo'): Promise<boolean> {
-  const info = [...napplets.values()].find((entry) => entry.name === dTag) ?? null;
-  if (!info?.iframe.contentWindow) {
-    console.warn(`[demo] publishDecryptFixturesToNapplet: iframe missing for ${dTag}`);
-    return false;
-  }
-  const fixtures = await createDemoDecryptFixtures();
-  info.iframe.contentWindow.postMessage(
-    { type: 'demo.decrypt.fixtures', fixtures },
-    '*',
-  );
-  return true;
 }
 
 function createInstalledMessageTap(): MessageTap {

@@ -7,7 +7,7 @@ const playgroundNapplets = [
   'chat',
   'composer',
   'config-demo',
-  'decrypt-demo',
+  'cvm-relatr',
   'feed',
   'hotkey-chord',
   'media-controller',
@@ -23,7 +23,7 @@ const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly str
   chat: ['ifc', 'storage', 'relay', 'theme'],
   composer: ['relay', 'theme'],
   'config-demo': ['config', 'theme'],
-  'decrypt-demo': ['identity', 'theme'],
+  'cvm-relatr': ['cvm', 'theme'],
   feed: ['identity', 'relay', 'ifc', 'theme'],
   'hotkey-chord': ['keys', 'theme'],
   'media-controller': ['media', 'theme'],
@@ -36,12 +36,13 @@ const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly str
 
 const rawListenerFiles = [
   'apps/playground/src/theme.ts',
-  'apps/playground/napplets/decrypt-demo/src/main.ts',
+  'apps/playground/napplets/cvm-relatr/src/main.ts',
   'apps/playground/napplets/resource-demo/src/main.ts',
   'apps/playground/napplets/toaster/src/main.ts',
 ] as const;
 
 const rawPostMessageTypes: Record<string, readonly string[]> = {
+  'apps/playground/napplets/cvm-relatr/src/main.ts': ['cvm.discover', 'cvm.request'],
   'apps/playground/napplets/resource-demo/src/main.ts': ['resource.bytes'],
   'apps/playground/napplets/theme-switcher/src/main.ts': ['theme.set'],
   'apps/playground/napplets/toaster/src/main.ts': ['notify.create', 'notify.list'],
@@ -49,7 +50,8 @@ const rawPostMessageTypes: Record<string, readonly string[]> = {
 
 const policyAllowlistTypes = [
   'theme.set',
-  'demo.decrypt.fixtures',
+  'cvm.discover',
+  'cvm.request',
   'notify.create',
   'notify.list',
   'resource.bytes',
@@ -58,7 +60,7 @@ const policyAllowlistTypes = [
 
 const rawListenerTypeGuards: Record<string, readonly string[]> = {
   'apps/playground/src/theme.ts': ["data.type !== 'theme.changed'"],
-  'apps/playground/napplets/decrypt-demo/src/main.ts': ["msg.type === 'demo.decrypt.fixtures'"],
+  'apps/playground/napplets/cvm-relatr/src/main.ts': ['data.type !== resultType'],
   'apps/playground/napplets/resource-demo/src/main.ts': [
     "envelope.type === 'resource.bytes.result'",
     "envelope.type === 'resource.bytes.error'",

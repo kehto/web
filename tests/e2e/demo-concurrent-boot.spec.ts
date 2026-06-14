@@ -35,7 +35,6 @@ const NAPPLETS = [
   { name: 'composer',         statusId: 'composer-status' },
   { name: 'config-demo',      statusId: 'config-demo-status' },
   { name: 'cvm-relatr',       statusId: 'cvm-relatr-status' },
-  { name: 'decrypt-demo',     statusId: 'decrypt-demo-status' },
   { name: 'feed',             statusId: 'feed-status' },
   { name: 'hotkey-chord',     statusId: 'hotkey-chord-status' },
   { name: 'media-controller', statusId: 'media-controller-status' },
@@ -46,7 +45,7 @@ const NAPPLETS = [
   { name: 'toaster',          statusId: 'toaster-status' },
 ] as const;
 
-test('all 14 DEMO_NAPPLETS reach identity-bound within 10s on concurrent boot at :4174', async ({ page }) => {
+test('all 13 DEMO_NAPPLETS reach identity-bound within 10s on concurrent boot at :4174', async ({ page }) => {
   const consoleMessages: string[] = [];
   page.on('console', (msg) => consoleMessages.push(msg.text()));
   const pageErrors: string[] = [];

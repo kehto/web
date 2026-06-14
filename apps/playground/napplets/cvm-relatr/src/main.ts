@@ -72,8 +72,11 @@ function newEnvelopeId(): string {
   return `cvm-${Date.now()}-${envelopeCounter}`;
 }
 
-/** Post a NIP-5D CVM envelope and resolve the correlated `*.result`. */
-function cvmCall<T>(envelope: Record<string, unknown> & { id: string; type: string }, resultType: string): Promise<T> {
+// Phase 58 raw-envelope allowlist: the cvm domain has no @napplet/shim helper
+// at this SDK version, so the demo posts cvm.* envelopes directly and listens
+// for the correlated result. The listener is source-bound to the parent shell.
+/** Resolve the correlated `*.result` envelope for a posted CVM request `id`. */
+function awaitCvmResult<T>(id: string, resultType: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = window.setTimeout(() => {
       window.removeEventListener('message', onMessage);
@@ -83,7 +86,7 @@ function cvmCall<T>(envelope: Record<string, unknown> & { id: string; type: stri
     function onMessage(event: MessageEvent): void {
       if (event.source !== window.parent) return;
       const data = event.data as (Record<string, unknown> & { type?: string; id?: string }) | null;
-      if (!data || data.type !== resultType || data.id !== envelope.id) return;
+      if (!data || data.type !== resultType || data.id !== id) return;
       window.clearTimeout(timer);
       window.removeEventListener('message', onMessage);
       if (typeof data.error === 'string') {
@@ -94,16 +97,18 @@ function cvmCall<T>(envelope: Record<string, unknown> & { id: string; type: stri
     }
 
     window.addEventListener('message', onMessage);
-    window.parent.postMessage(envelope, '*');
   });
 }
 
 async function discoverRelatr(): Promise<void> {
   try {
-    const result = await cvmCall<{ servers: CvmServer[] }>(
-      { type: 'cvm.discover', id: newEnvelopeId(), query: { search: 'relatr', relays: RELATR_RELAYS, limit: 5 } },
-      'cvm.discover.result',
+    const id = newEnvelopeId();
+    const pending = awaitCvmResult<{ servers: CvmServer[] }>(id, 'cvm.discover.result');
+    window.parent.postMessage(
+      { type: 'cvm.discover', id, query: { search: 'relatr', relays: RELATR_RELAYS, limit: 5 } },
+      '*',
     );
+    const result = await pending;
     const relatr = result.servers.find((s) => s.pubkey === RELATR_PUBKEY) ?? result.servers[0];
     if (relatr) {
       const name = document.createElement('strong');
@@ -124,10 +129,12 @@ async function computeTrustScore(targetPubkey: string): Promise<void> {
   scoreEl.textContent = '…';
   setStatus('computing trust score over MCP/Nostr', 'gray');
   try {
-    const result = await cvmCall<{ message?: McpMessage }>(
+    const id = newEnvelopeId();
+    const pending = awaitCvmResult<{ message?: McpMessage }>(id, 'cvm.request.result');
+    window.parent.postMessage(
       {
         type: 'cvm.request',
-        id: newEnvelopeId(),
+        id,
         server: { pubkey: RELATR_PUBKEY, relays: RELATR_RELAYS },
         message: {
           jsonrpc: '2.0',
@@ -137,8 +144,9 @@ async function computeTrustScore(targetPubkey: string): Promise<void> {
         },
         options: { initialize: true, timeoutMs: REQUEST_TIMEOUT_MS },
       },
-      'cvm.request.result',
+      '*',
     );
+    const result = await pending;
 
     const mcp = result.message;
     if (!mcp) throw new Error('empty response');

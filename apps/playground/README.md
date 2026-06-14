@@ -32,7 +32,7 @@ The legacy `/napplets/<name>/...` static route may still exist for compatibility
 
 ## Napplet Inventory
 
-The demo hosts 13 sandboxed napplets, each built independently under `apps/playground/napplets/<name>/` and loaded into a topology-rendered iframe at runtime. v1.3 shipped an 8-napplet demo; later milestones added `hotkey-chord`, `media-controller`, `config-demo`, `resource-demo`, and `decrypt-demo`.
+The demo hosts 13 sandboxed napplets, each built independently under `apps/playground/napplets/<name>/` and loaded into a topology-rendered iframe at runtime. v1.3 shipped an 8-napplet demo; later milestones added `hotkey-chord`, `media-controller`, `config-demo`, `resource-demo`, and `cvm-relatr`.
 
 | Napplet | Domain(s) | NUB methods exercised | File path |
 |---------|-----------|------------------------|-----------|
@@ -40,7 +40,7 @@ The demo hosts 13 sandboxed napplets, each built independently under `apps/playg
 | chat | ifc, storage, relay | `ifc.emit`, `ifc.subscribe`, `storage.get`, `storage.set`, `relay.publish` | [apps/playground/napplets/chat/src/](./napplets/chat/src/) |
 | composer | relay | `relay.publish`, `relay.publishEncrypted` | [apps/playground/napplets/composer/src/](./napplets/composer/src/) |
 | config-demo | config | `config.registerSchema`, `config.get`, `config.subscribe` | [apps/playground/napplets/config-demo/src/](./napplets/config-demo/src/) |
-| decrypt-demo | identity | `identity.decrypt` helper flows for NIP-04, NIP-44, and NIP-17 fixtures | [apps/playground/napplets/decrypt-demo/src/](./napplets/decrypt-demo/src/) |
+| cvm-relatr | cvm | `cvm.discover`, `cvm.request` (`tools/call` calculate_trust_score) against the Relatr ContextVM server | [apps/playground/napplets/cvm-relatr/src/](./napplets/cvm-relatr/src/) |
 | feed | identity, relay, ifc | `identity.getPublicKey`, `relay.subscribe`, `ifc.emit` (`profile:open`) | [apps/playground/napplets/feed/src/](./napplets/feed/src/) |
 | hotkey-chord | keys | `keys.registerAction`, `keys.onAction` (receives `keys.action` push) | [apps/playground/napplets/hotkey-chord/src/](./napplets/hotkey-chord/src/) |
 | media-controller | media | `mediaCreateSession`, `mediaReportState`, `mediaOnCommand` (receives `media.command` push) | [apps/playground/napplets/media-controller/src/](./napplets/media-controller/src/) |

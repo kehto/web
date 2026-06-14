@@ -44,7 +44,6 @@ const IDENTITY_BOUND_STATUS_IDS = [
   'composer-status',
   'config-demo-status',
   'cvm-relatr-status',
-  'decrypt-demo-status',
   'feed-status',
   'hotkey-chord-status',
   'media-controller-status',
@@ -170,13 +169,11 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
     await expect(runtimeRegion).toBeVisible({ timeout: 5_000 });
     await expect(page.locator('#topology-napplets [data-topology-surface="napplet"]')).toHaveCount(10);
     await expect(page.locator('#topology-napplets [data-topology-surface="runtime-demo"]')).toHaveCount(0);
-    await expect(runtimeRegion.locator('[data-topology-surface="runtime-demo"]')).toHaveCount(4);
+    await expect(runtimeRegion.locator('[data-topology-surface="runtime-demo"]')).toHaveCount(3);
 
     await expect(page.locator('[data-napplet-name="config-demo"] .topology-node-kicker')).toHaveText('runtime demo');
-    await expect(page.locator('[data-napplet-name="decrypt-demo"] .topology-node-kicker')).toHaveText('runtime demo');
     await expect(page.locator('[data-napplet-name="resource-demo"] .topology-node-kicker')).toHaveText('napplet');
     await expect(page.locator('#config-demo-acl')).toHaveCount(0);
-    await expect(page.locator('#decrypt-demo-acl')).toHaveCount(0);
     await expect(page.locator('#resource-demo-acl')).toBeVisible();
     await expect(page.locator('#chat-acl')).toBeVisible();
   });
