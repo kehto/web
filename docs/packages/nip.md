@@ -1,6 +1,8 @@
-# @kehto/nip66
+# @kehto/nip
 
-Framework-agnostic NIP-66 kind-30166 relay-discovery aggregator.
+Tree-shakable bundle of framework-agnostic Nostr NIP utilities. Each NIP lives
+at its own subpath (e.g. `@kehto/nip/66`); the barrel re-exports them and
+`sideEffects: false` lets bundlers drop any NIP a consumer does not import.
 
 > **Alpha status:** This utility can support Kehto and other napplet runtimes.
 > Its integration points may change while NIP-5D runtime implementations evolve.
@@ -8,15 +10,15 @@ Framework-agnostic NIP-66 kind-30166 relay-discovery aggregator.
 ## Install
 
 ```bash
-pnpm add @kehto/nip66 nostr-tools
+pnpm add @kehto/nip nostr-tools
 ```
 
 ## Manifest Facts
 
 | Field | Value |
 |-------|-------|
-| Source | `packages/nip66/package.json`, `packages/nip66/src/index.ts` |
-| Version | `0.2.0` |
+| Source | `packages/nip/package.json`, `packages/nip/src/index.ts` |
+| Version | `0.1.0` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Side effects | `false` |
@@ -31,17 +33,18 @@ pnpm add @kehto/nip66 nostr-tools
 
 | Area | Exports |
 |------|---------|
-| Factory | `createNip66Aggregator` |
+| NIP-66 factory | `createNip66Aggregator` (subpath `@kehto/nip/66`) |
 | Pool contract | `Nip66RelayPool`, `Nip66Filter` |
 | Options | `Nip66AggregatorOptions` |
 | Handle | `Nip66Aggregator` with `start`, `resync`, `stop`, `getRelaySet`, `getRelaysSupportingNip`, and `relaySupportsNip` |
 
 ## Scope Boundaries
 
-- Parses kind-30166 `d` tags into relay URLs and uppercase `N` tags into NIP support maps.
+- Ships unique NIP utilities only; each NIP is importable from its own subpath so unused NIPs tree-shake away.
+- NIP-66 parses kind-30166 `d` tags into relay URLs and uppercase `N` tags into NIP support maps.
 - Accepts a user-supplied relay-pool adapter.
 - Does not bundle bootstrap relay policy, NIP-77 sync, OPFS cache priming, or Kehto runtime dependencies.
 
 ## API Reference
 
-- Generated module: <a href="../api/modules/_kehto_nip66.html" target="_self"><code>docs/api/modules/_kehto_nip66.html</code></a>
+- Generated module: <a href="../api/modules/_kehto_nip.html" target="_self"><code>docs/api/modules/_kehto_nip.html</code></a>
