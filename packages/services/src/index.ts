@@ -99,6 +99,29 @@ export type {
   ResourceService,
 } from './resource-service.js';
 
+export { createOutboxService } from './outbox-service.js';
+export type {
+  OutboxServiceOptions,
+  OutboxRouter,
+  OutboxResult,
+  OutboxPublishResult,
+  OutboxRelayPlan,
+  OutboxQueryOptions,
+  OutboxSubscribeOptions,
+  OutboxPublishOptions,
+  OutboxTarget,
+  OutboxStrategy,
+  OutboxSubscriptionSink,
+  OutboxRouterSubscription,
+} from './outbox-service.js';
+
+export { createRelayPoolOutboxRouter } from './relay-pool-outbox-router.js';
+export type {
+  RelayPoolOutboxRouterOptions,
+  OutboxRelayPool,
+  RelayListEntry,
+} from './relay-pool-outbox-router.js';
+
 export { createCvmService } from './cvm-service.js';
 export type {
   CvmService,
