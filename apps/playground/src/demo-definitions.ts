@@ -88,6 +88,13 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     frameContainerId: 'resource-demo-frame-container',
   },
   {
+    name: 'cvm-relatr',
+    label: 'cvm-relatr',
+    statusId: 'cvm-relatr-status',
+    aclId: 'cvm-relatr-acl',
+    frameContainerId: 'cvm-relatr-frame-container',
+  },
+  {
     name: 'decrypt-demo',
     label: 'decrypt-demo',
     statusId: 'decrypt-demo-status',
@@ -111,6 +118,7 @@ export const CLASS_BY_DTAG: ReadonlyMap<string, NappletClass> = new Map<string, 
   ['media-controller', null],
   ['config-demo', null],
   ['resource-demo', null],
+  ['cvm-relatr', null],
   ['decrypt-demo', null],
 ]);
 

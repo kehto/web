@@ -30,6 +30,7 @@
 import { SimplePool } from 'nostr-tools/pool';
 import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 import * as nip44 from 'nostr-tools/nip44';
+import type { Event as NostrToolsEvent, Filter as NostrToolsFilter } from 'nostr-tools';
 
 import type { CvmTransport } from './cvm-service.js';
 import type {
@@ -54,7 +55,7 @@ const DEFAULT_DISCOVER_TIMEOUT_MS = 6_000;
 const MCP_PROTOCOL_VERSION = '2025-11-25';
 const SEEN_WRAP_LIMIT = 512;
 
-/** A minimal signed Nostr event (subset used by this transport). */
+/** Minimal signed Nostr event. */
 interface NostrEventLike {
   id: string;
   pubkey: string;
@@ -142,6 +143,21 @@ function tagValue(tags: string[][], name: string): string | undefined {
   return tags.find((tag) => tag[0] === name)?.[1];
 }
 
+/** Adapt a `nostr-tools` SimplePool to the {@link CvmRelayPool} surface. */
+function simplePoolAdapter(sp: SimplePool): CvmRelayPool {
+  return {
+    subscribe(relays, filter, params) {
+      return sp.subscribe(relays, filter as NostrToolsFilter, {
+        onevent: params.onevent,
+        oneose: params.oneose,
+      });
+    },
+    publish(relays, event) {
+      return sp.publish(relays, event as NostrToolsEvent);
+    },
+  };
+}
+
 /**
  * Create a Nostr-backed ContextVM transport.
  *
@@ -156,7 +172,7 @@ export function createNostrCvmTransport(
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const encrypt = options.encrypt ?? true;
   const wrapKind = options.ephemeralWrap === false ? KIND_GIFT_WRAP_REGULAR : KIND_GIFT_WRAP_EPHEMERAL;
-  const pool: CvmRelayPool = options.pool ?? (new SimplePool() as unknown as CvmRelayPool);
+  const pool: CvmRelayPool = options.pool ?? simplePoolAdapter(new SimplePool());
   const clientSecretKey = options.clientSecretKey ?? generateSecretKey();
   const clientPubkey = getPublicKey(clientSecretKey);
   const clientInfo = options.clientInfo ?? { name: 'kehto-cvm', version: '1.0.0' };
@@ -258,10 +274,15 @@ export function createNostrCvmTransport(
     }
     const wrapSecretKey = generateSecretKey();
     const conversationKey = nip44.getConversationKey(wrapSecretKey, server.pubkey);
+    // Ephemeral wraps (kind 21059) are not stored; relays reject backdated
+    // ephemeral events as "expired", so they MUST carry a current timestamp.
+    // Regular wraps (kind 1059) are backdated per NIP-59 to blur timing metadata.
+    const createdAt =
+      wrapKind === KIND_GIFT_WRAP_EPHEMERAL ? Math.floor(Date.now() / 1000) : randomizedPastTimestamp();
     const wrap = finalizeEvent(
       {
         kind: wrapKind,
-        created_at: randomizedPastTimestamp(),
+        created_at: createdAt,
         tags: [['p', server.pubkey]],
         content: nip44.encrypt(JSON.stringify(inner), conversationKey),
       },

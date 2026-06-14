@@ -700,6 +700,7 @@ const aclAdapter: DemoAclAdapter = {
         'identity:decrypt': hasCapability('identity:decrypt'),
         'config:read': hasCapability('config:read'),
         'resource:fetch': hasCapability('resource:fetch'),
+        'cvm:call': hasCapability('cvm:call'),
         'keys:bind': hasCapability('keys:bind'),
         'keys:forward': hasCapability('keys:forward'),
         'media:control': hasCapability('media:control'),

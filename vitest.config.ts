@@ -7,6 +7,7 @@ export default defineConfig({
       '@kehto/acl/capabilities': resolve(__dirname, 'packages/acl/src/capabilities.ts'),
       '@kehto/acl': resolve(__dirname, 'packages/acl/src/index.ts'),
       '@kehto/runtime': resolve(__dirname, 'packages/runtime/src/index.ts'),
+      '@kehto/services/cvm-nostr-transport': resolve(__dirname, 'packages/services/src/cvm-nostr-transport.ts'),
       '@kehto/services': resolve(__dirname, 'packages/services/src/index.ts'),
       '@kehto/shell': resolve(__dirname, 'packages/shell/src/index.ts'),
     },

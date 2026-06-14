@@ -84,9 +84,10 @@ export interface CvmRequestOptions {
   payment?: 'deny' | 'prompt' | 'allow';
 }
 
-// ──────────────────────────── Wire envelopes ────────────────────────────
-// NIP-5D format: { type: "cvm.<action>", ...payload }. The shell echoes the
-// request `id` in every `*.result`; `cvm.event` carries no envelope id.
+/**
+ * Wire envelopes — NIP-5D format `{ type: "cvm.<action>", ...payload }`. The
+ * shell echoes the request `id` in every `*.result`; `cvm.event` has no id.
+ */
 
 export interface CvmDiscoverMessage {
   type: 'cvm.discover';

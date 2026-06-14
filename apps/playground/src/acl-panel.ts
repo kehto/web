@@ -28,6 +28,7 @@ export const DEMO_CAPABILITY_LABELS: Record<Capability, string> = {
   'notify:send': 'Notify Send',
   'notify:channel': 'Notify Channel',
   'theme:read': 'Theme Read',
+  'cvm:call': 'CVM Call',
 };
 
 export const DEMO_CAPABILITY_HINTS: Record<Capability, string> = {
@@ -48,6 +49,7 @@ export const DEMO_CAPABILITY_HINTS: Record<Capability, string> = {
   'notify:send': 'send notifications',
   'notify:channel': 'subscribe to notification channel',
   'theme:read': 'read active theme',
+  'cvm:call': 'call ContextVM (MCP-over-Nostr) servers',
 };
 
 const DEMO_CAPABILITIES: { cap: Capability; label: string }[] = [
@@ -59,6 +61,7 @@ const DEMO_CAPABILITIES: { cap: Capability; label: string }[] = [
   { cap: 'identity:decrypt', label: DEMO_CAPABILITY_LABELS['identity:decrypt'] },
   { cap: 'notify:send', label: DEMO_CAPABILITY_LABELS['notify:send'] },
   { cap: 'theme:read', label: DEMO_CAPABILITY_LABELS['theme:read'] },
+  { cap: 'cvm:call', label: DEMO_CAPABILITY_LABELS['cvm:call'] },
 ];
 
 let debugger_: NappletDebugger | null = null;

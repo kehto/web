@@ -16,6 +16,7 @@ import {
   createThemeService,
   createConfigService,
   createResourceService,
+  createCvmService,
   type ConfigService,
   type Notification,
   type ThemeService,
@@ -32,6 +33,7 @@ import {
 import { DEFAULT_PLAYGROUND_RELAY_SELECTION } from './playground-relay-selection.js';
 import { createPlaygroundWorkerRelayBundle } from './playground-worker-relay.js';
 import { getSigner, getSignerConnectionState } from './signer-connection.js';
+import { createPlaygroundCvmTransport } from './playground-cvm-transport.js';
 
 type NappletAclInfo = {
   pubkey?: string;
@@ -80,6 +82,7 @@ export function createDemoHooks(
   const themeBundle = createThemeService({ onBroadcast: () => {} });
   const configBundle = createConfigService({ getValues: () => ({ ...demoConfigFixtures }) });
   const resourceHandler = createDemoResourceHandler();
+  const cvmService = createCvmService({ transport: createPlaygroundCvmTransport() });
   const identityService = createIdentityService({
     getSigner,
     getDecryptor: () => createDemoDecryptBridge(),
@@ -112,6 +115,7 @@ export function createDemoHooks(
     theme: themeBundle.handler,
     config: configBundle.handler,
     resource: resourceHandler,
+    cvm: cvmService,
   };
 
   notificationServiceHandler = notificationService;
