@@ -14,7 +14,7 @@ test('decrypt-demo exercises all modes and class-2 forbidden without bridge invo
   test.setTimeout(60_000);
   await demoBeforeEach(page);
 
-  await expect(page.locator('[data-napplet-name]')).toHaveCount(13);
+  await expect(page.locator('[data-napplet-name]')).toHaveCount(14);
   await expect(page.locator('[data-napplet-name="decrypt-demo"]')).toBeVisible();
 
   const frame = page.frameLocator('#decrypt-demo-frame-container iframe');

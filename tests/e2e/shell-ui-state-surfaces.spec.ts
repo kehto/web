@@ -43,6 +43,7 @@ const IDENTITY_BOUND_STATUS_IDS = [
   'chat-status',
   'composer-status',
   'config-demo-status',
+  'cvm-relatr-status',
   'decrypt-demo-status',
   'feed-status',
   'hotkey-chord-status',
@@ -167,7 +168,7 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
 
     const runtimeRegion = page.locator('#topology-runtime-demos');
     await expect(runtimeRegion).toBeVisible({ timeout: 5_000 });
-    await expect(page.locator('#topology-napplets [data-topology-surface="napplet"]')).toHaveCount(9);
+    await expect(page.locator('#topology-napplets [data-topology-surface="napplet"]')).toHaveCount(10);
     await expect(page.locator('#topology-napplets [data-topology-surface="runtime-demo"]')).toHaveCount(0);
     await expect(runtimeRegion.locator('[data-topology-surface="runtime-demo"]')).toHaveCount(4);
 

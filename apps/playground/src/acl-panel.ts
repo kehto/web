@@ -61,7 +61,6 @@ const DEMO_CAPABILITIES: { cap: Capability; label: string }[] = [
   { cap: 'identity:decrypt', label: DEMO_CAPABILITY_LABELS['identity:decrypt'] },
   { cap: 'notify:send', label: DEMO_CAPABILITY_LABELS['notify:send'] },
   { cap: 'theme:read', label: DEMO_CAPABILITY_LABELS['theme:read'] },
-  { cap: 'cvm:call', label: DEMO_CAPABILITY_LABELS['cvm:call'] },
 ];
 
 let debugger_: NappletDebugger | null = null;
