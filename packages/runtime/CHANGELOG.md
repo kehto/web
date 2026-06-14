@@ -1,5 +1,39 @@
 # @kehto/runtime
 
+## 0.8.0
+
+### Minor Changes
+
+- fix!: remove the identity:decrypt capability (spec violation)
+
+  **BREAKING.** Removes the `identity:decrypt` capability and the
+  `identity.decrypt` service surface. This capability was added in v1.8 framed as
+  "upstream alignment" but has **no backing NAP** — canonical NAP-IDENTITY
+  explicitly states napplets "cannot sign events, encrypt, or decrypt" (encryption
+  is delegated to the shell via `relay.publishEncrypted`), and `@napplet/nap`
+  exposes no decrypt. Decryption belongs to the runtime, inline over the wire (via
+  the `Signer` NIP-04/44 primitives), never to napplets. The `decrypt-demo` napplet
+  was already removed for breaking the NAP-IDENTITY contract; this removes the
+  orphaned shell-side surface and restores conformance.
+
+  - `@kehto/acl`: removes the `identity:decrypt` capability string,
+    `CAP_IDENTITY_DECRYPT`, and the `identity.decrypt` capability resolution
+    (identity is now strictly read-only).
+  - `@kehto/runtime`: removes the `identity.decrypt` enforce special-case and the
+    `class-2` exclusion entry; retires the `1<<16` ACL bit as a permanent gap (not
+    renumbered, so persisted grants stay valid).
+  - `@kehto/services`: removes the `identity.decrypt` handler and the
+    `HostDecryptBridge` / `GiftWrapDecryptResult` / `Rumor` / `IdentityDecrypt*` /
+    `VerifyEvent` exports and the `getDecryptor` / `verifyEvent` options from
+    `createIdentityService`. The 9 read-only identity queries are unchanged, as is
+    the runtime-internal `Signer` NIP-04/44 crypto.
+  - `@kehto/shell`: retires the `identity:decrypt` bitfield entry (gap preserved).
+
+### Patch Changes
+
+- Updated dependencies
+  - @kehto/acl@0.8.0
+
 ## 0.7.0
 
 ### Minor Changes
