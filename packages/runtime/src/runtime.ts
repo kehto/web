@@ -139,6 +139,7 @@ function createNubEnvelopeDispatcher(handlers: RuntimeNubHandlers): (windowId: s
   nubDispatch.registerNub('config', adapt(handlers.config));
   nubDispatch.registerNub('resource', adapt(handlers.resource));
   nubDispatch.registerNub('cvm', adapt(handlers.cvm));
+  nubDispatch.registerNub('outbox', adapt(handlers.outbox));
 
   return (windowId, envelope) => {
     currentWindowId = windowId;
