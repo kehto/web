@@ -56,7 +56,7 @@ const MCP_PROTOCOL_VERSION = '2025-11-25';
 const SEEN_WRAP_LIMIT = 512;
 
 /** Minimal signed Nostr event. */
-interface NostrEventLike {
+export interface NostrEventLike {
   id: string;
   pubkey: string;
   created_at: number;
@@ -67,7 +67,7 @@ interface NostrEventLike {
 }
 
 /** A Nostr REQ filter (subset). */
-interface NostrFilterLike {
+export interface NostrFilterLike {
   kinds?: number[];
   authors?: string[];
   limit?: number;
@@ -76,7 +76,7 @@ interface NostrFilterLike {
 }
 
 /** Subscription handle returned by the relay pool. */
-interface CvmSubCloser {
+export interface CvmSubCloser {
   close(): void;
 }
 

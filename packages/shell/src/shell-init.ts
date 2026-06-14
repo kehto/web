@@ -6,8 +6,9 @@ import type { ShellAdapter, ShellCapabilities } from './types.js';
  * resource, and the Phase 56-classified connect/class NUB extensions.
  * Every domain is implemented by the shell/runtime or explicit shell policy.
  *
- * Note: `relay` is NOT in this list — it is gated on `hooks.relayPool` and
- * prepended conditionally in buildShellCapabilities below.
+ * Note: `relay` and `outbox` are NOT in this list — both are gated on
+ * `hooks.relayPool` (NAP-OUTBOX routes over relays, so it is meaningless
+ * without one) and prepended conditionally in buildShellCapabilities below.
  */
 const CANONICAL_NUB_DOMAINS = [
   'identity', 'storage', 'ifc', 'theme', 'keys', 'media', 'notify',
@@ -44,14 +45,14 @@ const SUPPORTED_IFC_PROTOCOLS = [
  * @example
  * ```ts
  * const caps = buildShellCapabilities(hooks);
- * // caps.nubs => ['relay','identity','storage','ifc','theme','keys','media','notify','config','resource','connect','class','cvm']
- * //              (relay present when hooks.relayPool is provided; bare names only)
+ * // caps.nubs => ['relay','outbox','identity','storage','ifc','theme','keys','media','notify','config','resource','connect','class','cvm']
+ * //              (relay + outbox present when hooks.relayPool is provided; bare names only)
  * // caps.sandbox => []   // host app may extend with 'perm:popups', etc.
  * ```
  */
 export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
   const nubs: string[] = hooks.relayPool
-    ? ['relay', ...CANONICAL_NUB_DOMAINS, ...SUPPORTED_IFC_PROTOCOLS]
+    ? ['relay', 'outbox', ...CANONICAL_NUB_DOMAINS, ...SUPPORTED_IFC_PROTOCOLS]
     : [...CANONICAL_NUB_DOMAINS, ...SUPPORTED_IFC_PROTOCOLS];
   return { nubs, sandbox: [] };
 }

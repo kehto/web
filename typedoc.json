@@ -3,7 +3,7 @@
   "entryPointStrategy": "packages",
   "entryPoints": [
     "packages/acl",
-    "packages/nip66",
+    "packages/nip",
     "packages/runtime",
     "packages/shell",
     "packages/services",

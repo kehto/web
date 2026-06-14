@@ -1,5 +1,6 @@
 /**
- * @kehto/acl — NUB domain capability resolution (10-domain: 8 canonical + config + resource).
+ * @kehto/acl — NUB/NAP domain capability resolution (8 canonical + config,
+ * resource, cvm, outbox).
  *
  * Maps NUB message types (e.g., 'relay.subscribe', 'identity.getProfile') to
  * the capability strings required by sender and recipient. This is the
@@ -215,6 +216,41 @@ function cvmMap(action: string): CapabilityResolution {
 }
 
 /**
+ * `outbox.*` — NAP-OUTBOX outbox-aware relay routing (12th NAP domain).
+ *
+ * Split read/write like the `relay` domain, but with dedicated caps so a shell
+ * can grant outbox routing independently of raw relay access:
+ *
+ * - `publish` (napplet → shell)                       → sender `outbox:write`,
+ *   recipient `null`. The shell signs and fans the event out to the relevant
+ *   write relays; there is no napplet-visible recipient ACL check.
+ * - `query` / `subscribe` / `close` / `resolveRelays` (and any other
+ *   napplet-originated request)                        → sender `outbox:read`,
+ *   recipient `null`.
+ * - `event` / `eose` / `closed` / `*.result` / `*.error` (shell → napplet
+ *   pushes)                                            → sender `null`,
+ *   recipient `outbox:read`. The push is gated against the receiving napplet's
+ *   cap so a napplet without `outbox:read` never sees results or streamed
+ *   events.
+ */
+function outboxMap(action: string): CapabilityResolution {
+  // Shell-originated pushes: recipient gate (napplet must hold outbox:read to see them).
+  if (
+    action === 'event' ||
+    action === 'eose' ||
+    action === 'closed' ||
+    action.endsWith('.result') ||
+    action.endsWith('.error')
+  ) {
+    return { senderCap: null, recipientCap: 'outbox:read' };
+  }
+  // Publish is the write op.
+  if (action === 'publish') return { senderCap: 'outbox:write', recipientCap: null };
+  // Napplet-originated reads: query, subscribe, close, resolveRelays, unknown.
+  return { senderCap: 'outbox:read', recipientCap: null };
+}
+
+/**
  * `theme.*` — napplet read gate vs shell-initiated push.
  *
  * - `get` / `get.result` (and any other napplet-originated query) →
@@ -317,6 +353,7 @@ export function resolveCapabilitiesNub(msg: NubMessage): CapabilityResolution {
     case 'config':   return configMap(action);
     case 'resource': return resourceMap(action);   // Phase 40 (RESOURCE-02)
     case 'cvm':      return cvmMap(action);         // NAP-CVM ContextVM bridge
+    case 'outbox':   return outboxMap(action);      // NAP-OUTBOX outbox-aware relay routing
     default:         return { senderCap: null, recipientCap: null };
   }
 }

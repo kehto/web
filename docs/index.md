@@ -31,7 +31,7 @@ Kehto works with the `@napplet` packages. `@napplet/core`, `@napplet/shim`, `@na
 | `@kehto/runtime` | Browser-agnostic protocol engine, dispatch, ACL gates, service registry, and lifecycle. |
 | `@kehto/shell` | Browser adapter: iframe/session lifecycle, `postMessage`, gateway loading, hosted `supports()`, and shell policy. |
 | `@kehto/services` | Reference service handlers for identity, relay, keys, media, notify, config, resource, cache, theme, and audio. |
-| `@kehto/nip66` | Framework-agnostic NIP-66 kind-30166 relay-discovery aggregator. |
+| `@kehto/nip` | Framework-agnostic NIP-66 kind-30166 relay-discovery aggregator. |
 | `@kehto/wm` | Structural window-management contracts for consumer-owned layout strategies. |
 | `@kehto/playground` | 13-napplet browser demo and Playwright verification target. |
 

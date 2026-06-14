@@ -10,7 +10,7 @@ This document defines the target navigation and page model for the Kehto documen
 | Concepts | System model and boundaries | Architecture, NIP-5D boundary, capability model, gateway artifacts |
 | Tutorials | End-to-end learning paths | Minimal host shell, runtime host, napplet integration |
 | How-tos | Focused task recipes | Grant capability, register service, unsupported requires, add service, debug messages, verify artifact |
-| Package Reference | Human-written package pages | `acl`, `runtime`, `shell`, `services`, `nip66`, `wm`, `playground` |
+| Package Reference | Human-written package pages | `acl`, `runtime`, `shell`, `services`, `nip`, `wm`, `playground` |
 | API Reference | Generated TypeDoc entry points | API index and package module links |
 | Policies | Current policy documents | NIP-5D conformance, shell class/connect/resource policy |
 | Migration Archive | Historical material | Archive index and migration snapshots |
@@ -43,7 +43,7 @@ Package Reference
   @kehto/runtime
   @kehto/shell
   @kehto/services
-  @kehto/nip66
+  @kehto/nip
   @kehto/wm
   @kehto/playground
 Reference

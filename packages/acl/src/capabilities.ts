@@ -28,6 +28,9 @@ export const ALL_CAPABILITIES = [
   'identity:decrypt',
   // NAP-CVM — ContextVM bridge (11th domain): call MCP-over-Nostr servers.
   'cvm:call',
+  // NAP-OUTBOX — outbox-aware relay routing (12th domain): read = query/
+  // subscribe/resolveRelays/close; write = publish (shell-signed fanout).
+  'outbox:read', 'outbox:write',
 ] as const;
 
 /** Union of every capability string in ALL_CAPABILITIES. */
@@ -55,3 +58,7 @@ export const CAP_CONFIG_READ     = 'config:read' as const;
 export const CAP_RESOURCE_FETCH  = 'resource:fetch' as const;
 /** cvm.discover / cvm.request / cvm.close (inbound) + cvm.*.result / cvm.event (outbound) */
 export const CAP_CVM_CALL        = 'cvm:call' as const;
+/** outbox.query / outbox.subscribe / outbox.close / outbox.resolveRelays (read-side outbox access) */
+export const CAP_OUTBOX_READ     = 'outbox:read' as const;
+/** outbox.publish (shell-signed, outbox-aware publish fanout) */
+export const CAP_OUTBOX_WRITE    = 'outbox:write' as const;

@@ -338,6 +338,56 @@ describe('resolveCapabilitiesNub', () => {
     });
   });
 
+  describe('outbox domain (NAP-OUTBOX outbox-aware relay routing)', () => {
+    it('outbox.query -> sender outbox:read (napplet-originated request)', () => {
+      expect(resolveCapabilitiesNub({ type: 'outbox.query' })).toEqual({ senderCap: 'outbox:read', recipientCap: null });
+    });
+
+    it('outbox.subscribe -> sender outbox:read (napplet-originated request)', () => {
+      expect(resolveCapabilitiesNub({ type: 'outbox.subscribe' })).toEqual({ senderCap: 'outbox:read', recipientCap: null });
+    });
+
+    it('outbox.close -> sender outbox:read (napplet-originated request)', () => {
+      expect(resolveCapabilitiesNub({ type: 'outbox.close' })).toEqual({ senderCap: 'outbox:read', recipientCap: null });
+    });
+
+    it('outbox.resolveRelays -> sender outbox:read (napplet-originated request)', () => {
+      expect(resolveCapabilitiesNub({ type: 'outbox.resolveRelays' })).toEqual({ senderCap: 'outbox:read', recipientCap: null });
+    });
+
+    it('outbox.publish -> sender outbox:write (shell-signed publish fanout)', () => {
+      expect(resolveCapabilitiesNub({ type: 'outbox.publish' })).toEqual({ senderCap: 'outbox:write', recipientCap: null });
+    });
+
+    it('outbox.query.result -> recipient outbox:read (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNub({ type: 'outbox.query.result' })).toEqual({ senderCap: null, recipientCap: 'outbox:read' });
+    });
+
+    it('outbox.publish.result -> recipient outbox:read (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNub({ type: 'outbox.publish.result' })).toEqual({ senderCap: null, recipientCap: 'outbox:read' });
+    });
+
+    it('outbox.resolveRelays.result -> recipient outbox:read (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNub({ type: 'outbox.resolveRelays.result' })).toEqual({ senderCap: null, recipientCap: 'outbox:read' });
+    });
+
+    it('outbox.event -> recipient outbox:read (shell -> napplet push, no envelope id)', () => {
+      expect(resolveCapabilitiesNub({ type: 'outbox.event' })).toEqual({ senderCap: null, recipientCap: 'outbox:read' });
+    });
+
+    it('outbox.eose -> recipient outbox:read (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNub({ type: 'outbox.eose' })).toEqual({ senderCap: null, recipientCap: 'outbox:read' });
+    });
+
+    it('outbox.closed -> recipient outbox:read (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNub({ type: 'outbox.closed' })).toEqual({ senderCap: null, recipientCap: 'outbox:read' });
+    });
+
+    it('outbox.unknown -> sender outbox:read (default sender gate fallthrough)', () => {
+      expect(resolveCapabilitiesNub({ type: 'outbox.unknown' })).toEqual({ senderCap: 'outbox:read', recipientCap: null });
+    });
+  });
+
   describe('ALL_CAPABILITIES content', () => {
     it('contains the 7 v1.2 capability strings', () => {
       expect(ALL_CAPABILITIES).toContain('identity:read');
@@ -360,6 +410,11 @@ describe('resolveCapabilitiesNub', () => {
 
     it('contains cvm:call (NAP-CVM ContextVM bridge)', () => {
       expect(ALL_CAPABILITIES).toContain('cvm:call');
+    });
+
+    it('contains outbox:read and outbox:write (NAP-OUTBOX)', () => {
+      expect(ALL_CAPABILITIES).toContain('outbox:read');
+      expect(ALL_CAPABILITIES).toContain('outbox:write');
     });
 
     it('does NOT contain the removed signer capability strings', () => {
