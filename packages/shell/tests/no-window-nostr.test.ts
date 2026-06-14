@@ -145,7 +145,7 @@ describe('SH-C01 / SH-C03: window.nostr injection is removed', () => {
     const caps = buildShellCapabilities(stubHooks());
     expect(new Set(caps.nubs)).toEqual(
       new Set([
-        'relay', 'identity', 'storage', 'ifc', 'theme', 'keys', 'media', 'notify', 'config', 'resource', 'connect', 'class', 'cvm',
+        'relay', 'outbox', 'identity', 'storage', 'ifc', 'theme', 'keys', 'media', 'notify', 'config', 'resource', 'connect', 'class', 'cvm',
         'ifc:NAP-01', 'ifc:NUB-01', 'ifc:NUB-02', 'ifc:NUB-03', 'ifc:NUB-04', 'ifc:NUB-05', 'ifc:NUB-06',
       ]),
     );
