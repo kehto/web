@@ -33,6 +33,10 @@ export const ALL_CAPABILITIES = [
   // cap gates the network-egress + identity-linking upload op; status queries
   // ride the same grant (a napplet only inspects its own uploads).
   'upload:write',
+  // NAP-INTENT — archetype intent dispatch (14th domain): read = available/
+  // handlers introspection (and receipt of shell pushes); write = invoke (the
+  // focus-stealing cross-napplet dispatch op).
+  'intent:read', 'intent:write',
 ] as const;
 
 /** Union of every capability string in ALL_CAPABILITIES. */
@@ -64,3 +68,7 @@ export const CAP_OUTBOX_READ     = 'outbox:read' as const;
 export const CAP_OUTBOX_WRITE    = 'outbox:write' as const;
 /** upload.upload / upload.status (shell-mediated file/blob upload + status query) */
 export const CAP_UPLOAD_WRITE    = 'upload:write' as const;
+/** intent.available / intent.handlers (read-side archetype introspection + push receipt) */
+export const CAP_INTENT_READ     = 'intent:read' as const;
+/** intent.invoke (focus-stealing cross-napplet archetype dispatch) */
+export const CAP_INTENT_WRITE    = 'intent:write' as const;
