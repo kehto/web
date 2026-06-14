@@ -31,6 +31,10 @@ export const ALL_CAPABILITIES = [
   // NAP-OUTBOX — outbox-aware relay routing (12th domain): read = query/
   // subscribe/resolveRelays/close; write = publish (shell-signed fanout).
   'outbox:read', 'outbox:write',
+  // NAP-UPLOAD — shell-mediated file/blob upload (13th domain): a single write
+  // cap gates the network-egress + identity-linking upload op; status queries
+  // ride the same grant (a napplet only inspects its own uploads).
+  'upload:write',
 ] as const;
 
 /** Union of every capability string in ALL_CAPABILITIES. */
@@ -62,3 +66,5 @@ export const CAP_CVM_CALL        = 'cvm:call' as const;
 export const CAP_OUTBOX_READ     = 'outbox:read' as const;
 /** outbox.publish (shell-signed, outbox-aware publish fanout) */
 export const CAP_OUTBOX_WRITE    = 'outbox:write' as const;
+/** upload.upload / upload.status (shell-mediated file/blob upload + status query) */
+export const CAP_UPLOAD_WRITE    = 'upload:write' as const;
