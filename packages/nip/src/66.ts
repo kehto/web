@@ -1,7 +1,7 @@
 import type { NostrEvent } from 'nostr-tools';
 
 /**
- * Minimal relay-pool contract `@kehto/nip66` depends on. Consumers implement
+ * Minimal relay-pool contract `@kehto/nip/66` depends on. Consumers implement
  * this against their pool library of choice (nostr-tools SimplePool,
  * applesauce-relay, @snort/worker-relay, etc.). Intentionally smaller than
  * RxJS-style observable pools — one callback, one unsubscribe handle.
@@ -189,7 +189,7 @@ export interface Nip66Aggregator {
  *
  * @example
  * ```ts
- * import { createNip66Aggregator } from '@kehto/nip66';
+ * import { createNip66Aggregator } from '@kehto/nip/66';
  * import { SimplePool } from 'nostr-tools/pool';
  *
  * const pool = new SimplePool();

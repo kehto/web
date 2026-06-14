@@ -5,7 +5,7 @@ import {
   type ProfilePointer,
 } from 'applesauce-core/helpers';
 import type { NostrEvent, NostrFilter } from '@kehto/shell';
-import type { Nip66Aggregator, RelayAttributeGroups } from '@kehto/nip66';
+import type { Nip66Aggregator, RelayAttributeGroups } from '@kehto/nip/66';
 
 export interface PlaygroundRelaySelectionConfig {
   defaultRelays: readonly string[];

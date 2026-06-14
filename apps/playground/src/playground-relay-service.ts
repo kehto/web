@@ -2,7 +2,7 @@ import { EventStore } from 'applesauce-core';
 import { RelayPool } from 'applesauce-relay';
 import type { NappletMessage, NostrEvent, NostrFilter, RelayPoolHooks, RelayPoolLike } from '@kehto/shell';
 import type { ServiceHandler } from '@kehto/runtime';
-import type { Nip66Aggregator } from '@kehto/nip66';
+import type { Nip66Aggregator } from '@kehto/nip/66';
 import {
   DEFAULT_PLAYGROUND_RELAY_SELECTION,
   collectMailboxPubkeys,

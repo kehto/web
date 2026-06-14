@@ -45,9 +45,9 @@ importers:
 
   apps/playground:
     dependencies:
-      '@kehto/nip66':
+      '@kehto/nip':
         specifier: workspace:*
-        version: link:../../packages/nip66
+        version: link:../../packages/nip
       '@kehto/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -405,7 +405,7 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  packages/nip66:
+  packages/nip:
     devDependencies:
       nostr-tools:
         specifier: ^2.23.3

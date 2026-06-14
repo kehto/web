@@ -27,7 +27,7 @@ import {
   createNip66Aggregator,
   type Nip66RelayPool,
   type Nip66Filter,
-} from './index.js';
+} from './66.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { NappletMessage, NostrEvent, NostrFilter } from '@kehto/shell';
-import type { Nip66Aggregator } from '@kehto/nip66';
+import type { Nip66Aggregator } from '@kehto/nip/66';
 import {
   createPlaygroundRelayRuntime,
   type PlaygroundRelayRuntimeOptions,

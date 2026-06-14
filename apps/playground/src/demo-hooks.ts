@@ -21,7 +21,7 @@ import {
   type Notification,
   type ThemeService,
 } from '@kehto/services';
-import { createNip66Aggregator, type Nip66Aggregator } from '@kehto/nip66';
+import { createNip66Aggregator, type Nip66Aggregator } from '@kehto/nip/66';
 
 import { createDemoDecryptBridge } from './demo-decrypt.js';
 import { demoConfig } from './demo-config.js';

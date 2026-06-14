@@ -1,7 +1,7 @@
 {
-  "name": "@kehto/nip66",
-  "version": "0.2.0",
-  "description": "NIP-66 kind-30166 relay-discovery aggregator — framework-agnostic utility for napplet runtimes",
+  "name": "@kehto/nip",
+  "version": "0.1.0",
+  "description": "Tree-shakable bundle of unique Nostr NIP utilities for napplet runtimes — each NIP at its own subpath (e.g. @kehto/nip/66)",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -10,6 +10,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./66": {
+      "types": "./dist/66.d.ts",
+      "import": "./dist/66.js"
     }
   },
   "files": [
@@ -31,17 +35,18 @@
   "scripts": {
     "build": "tsup",
     "type-check": "tsc --noEmit",
-    "test:unit": "cd ../.. && vitest run --config vitest.config.ts packages/nip66/src/index.test.ts",
+    "test:unit": "cd ../.. && vitest run --config vitest.config.ts packages/nip/src/66.test.ts",
     "test": "pnpm test:unit"
   },
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/kehto/web.git",
-    "directory": "packages/nip66"
+    "directory": "packages/nip"
   },
   "keywords": [
     "nostr",
+    "nip",
     "nip66",
     "relay-discovery",
     "kehto",
