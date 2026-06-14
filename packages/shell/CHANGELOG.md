@@ -15,8 +15,9 @@
 
   - `@kehto/acl`: new `upload:write` capability and `upload.*` capability
     resolution (napplet requests → sender gate; shell→napplet result/status pushes
-    → recipient gate). `class-2` excludes `upload:write` (network egress +
-    identity-linking is class-1 only).
+    → recipient gate). No NAP-CLASS restriction — upload is bytes over
+    postMessage with the shell as the policy boundary; any guardrails are
+    runtime/shell policy behind the Uploader seam, not a class contract.
   - `@kehto/runtime`: routes the `upload` domain to a registered `upload` service
     with ACL enforcement, and registers the `upload:write` ACL-state bit.
   - `@kehto/services`: `createUploadService` (pure `upload.*` envelope router that

@@ -4,8 +4,11 @@
  * Verifies the `upload` domain is routed by the runtime to a registered
  * `upload` service (the registerNub lesson — registering the service alone is
  * not enough; the domain must also be wired in createNubEnvelopeDispatcher),
- * that the ACL gate denies `upload.upload` for a blocked napplet, and that
- * `upload.upload` is gated on the class-1-only upload:write capability.
+ * and that the ACL gate denies `upload.upload` for a blocked napplet.
+ *
+ * NAP-UPLOAD imposes no NAP-CLASS posture: a restricted (class-2) napplet may
+ * still upload. Upload guardrails (consent, quotas, allowed rails) are runtime/
+ * shell policy behind the Uploader seam, not a class-authority concern.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -93,7 +96,7 @@ describe('runtime upload domain dispatch', () => {
     expect((err as { id?: string }).id).toBe('u3');
   });
 
-  it('denies upload.upload for a class-2 napplet (upload:write is class-1 only)', () => {
+  it('allows upload.upload for a class-2 napplet (NAP-UPLOAD imposes no class restriction)', () => {
     const received: NappletMessage[] = [];
     runtime.registerService('upload', {
       descriptor: { name: 'upload', version: '1.0.0' },
@@ -107,9 +110,7 @@ describe('runtime upload domain dispatch', () => {
       request: { data: new ArrayBuffer(8) },
     } as NappletMessage);
 
-    expect(received).toHaveLength(0); // class pre-filter refuses before service
-    const err = findEnvelopeResponse(ctx.sent, 'upload.upload.error');
-    expect(err).toBeDefined();
-    expect((err as { id?: string }).id).toBe('u4');
+    expect(received).toHaveLength(1); // upload is not a class-gated capability
+    expect(received[0].type).toBe('upload.upload');
   });
 });

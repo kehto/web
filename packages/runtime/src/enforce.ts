@@ -13,13 +13,11 @@ export type { NubMessage } from '@kehto/acl';
  * classes are added when NUB specs publish new class tokens.
  *
  * - 'class-1': all 15 v1.2-era capabilities (permissive full surface).
- * - 'class-2': all capabilities EXCEPT relay:write, identity:decrypt,
- *   outbox:write, and upload:write - relay:write is the sample restrictive
- *   class Plan 38-03 exercises, identity:decrypt is the NUB-IDENTITY
- *   class-1-only decrypt surface, outbox:write is the shell-signed publish op
- *   (mirrors relay:write — a read-only class can route/query but not publish),
- *   and upload:write is the NAP-UPLOAD network-egress + identity-linking op
- *   (a restricted napplet must not exfiltrate bytes under the user's identity).
+ * - 'class-2': all capabilities EXCEPT relay:write, identity:decrypt, and
+ *   outbox:write - relay:write is the sample restrictive class Plan 38-03
+ *   exercises, identity:decrypt is the NUB-IDENTITY class-1-only decrypt
+ *   surface, and outbox:write is the shell-signed publish op (mirrors
+ *   relay:write — a read-only class can route/query but not publish).
  *
  * Unknown class tokens fall through enforceNub's "treat as maximally
  * restrictive" branch (deny all) - defensive failsafe, not policy.
@@ -27,7 +25,7 @@ export type { NubMessage } from '@kehto/acl';
 const CLASS_CAPABILITY_ALLOWLIST: Readonly<Record<string, ReadonlySet<Capability>>> = Object.freeze({
   'class-1': new Set<Capability>(ALL_CAPABILITIES),
   'class-2': new Set<Capability>(ALL_CAPABILITIES.filter(
-    (c) => c !== 'relay:write' && c !== 'identity:decrypt' && c !== 'outbox:write' && c !== 'upload:write',
+    (c) => c !== 'relay:write' && c !== 'identity:decrypt' && c !== 'outbox:write',
   )),
 });
 

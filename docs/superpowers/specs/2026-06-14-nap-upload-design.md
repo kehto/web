@@ -52,10 +52,13 @@ op (network egress + identity-linking). `status()` only queries the requesting
 napplet's *own* uploads, so it rides the same grant rather than warranting a
 separate `upload:read`. This keeps the surface minimal.
 
-### 2. Runtime class enforcement — `@kehto/runtime/enforce.ts`
-Add `upload:write` to the `class-2` exclusion set (alongside `relay:write`,
-`identity:decrypt`, `outbox:write`). Egress + identity-linking is a class-1-only
-op; a restricted napplet cannot upload.
+### 2. No NAP-CLASS restriction
+NAP-UPLOAD imposes **no** NAP-CLASS posture. Upload is bytes handed across
+postMessage where the shell is already the policy/consent boundary; whether a
+restricted (class-2) napplet may upload is a *runtime/shell policy* decision
+(consent, quotas, allowed rails — all behind the `Uploader` seam), not a
+class-authority contract. `upload:write` is therefore a normal capability any
+class may hold; it is **not** added to the `class-2` exclusion set.
 
 ### 3. Runtime dispatch — `@kehto/runtime`
 - `domain-handlers.ts`: add `upload` to `RuntimeDomainHandlers`, widen the
@@ -139,11 +142,19 @@ op; a restricted napplet cannot upload.
 - `npx aislop scan` with a good score.
 - Push branch `feat/nap-upload` to remote, tag, publish packages to npm.
 
+## Progress streaming — supported, not out of scope
+Upload progress IS part of the protocol and the service: an `Uploader` streams
+`UploadStatus` through `ctx.onStatus`, which the service forwards to the napplet
+as `upload.status.changed` (and tracks for `upload.status`). NAP is
+cross-platform, not web-only — a native/XHR/tus-backed uploader can report
+real progress. The bundled **reference** `createHttpUploader` happens to be
+synchronous only because browser `fetch` lacks portable upload-progress events;
+that is a property of one reference backend, not a limit of NAP-UPLOAD. The
+progress path is covered by the upload-service tests via a mock uploader.
+
 ## Out of scope (YAGNI)
-- Real streaming upload progress (fetch lacks portable upload progress); the
-  reference uploader is synchronous, the push protocol is still implemented and
-  tested via a mock uploader.
 - Consent UI, per-napplet policy/quota enforcement, EXIF stripping — these are
-  host-app concerns behind the `Uploader`/`UploadHooks` seam, not runtime code.
+  host-app/runtime policy decisions behind the `Uploader`/`UploadHooks` seam,
+  not part of the NAP wire contract.
 - Additional rails (torrents, usenet) — the `UploadRail` open string + abstract
   `Uploader` keep them addable without API change.
