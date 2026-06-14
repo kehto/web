@@ -56,7 +56,6 @@ const DEMO_CAPABILITIES: { cap: Capability; label: string }[] = [
   { cap: 'state:read', label: DEMO_CAPABILITY_LABELS['state:read'] },
   { cap: 'state:write', label: DEMO_CAPABILITY_LABELS['state:write'] },
   { cap: 'identity:read', label: DEMO_CAPABILITY_LABELS['identity:read'] },
-  { cap: 'identity:decrypt', label: DEMO_CAPABILITY_LABELS['identity:decrypt'] },
   { cap: 'notify:send', label: DEMO_CAPABILITY_LABELS['notify:send'] },
   { cap: 'theme:read', label: DEMO_CAPABILITY_LABELS['theme:read'] },
 ];

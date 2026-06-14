@@ -93,7 +93,7 @@ test('per-napplet ACL panels persist expansion, capability changes, and block st
   await demoBeforeEach(page);
 
   const chatAcl = page.locator('#chat-acl');
-  await expect(chatAcl.locator('.acl-summary-toggle')).toContainText('8 allowed', { timeout: 10_000 });
+  await expect(chatAcl.locator('.acl-summary-toggle')).toContainText('7 allowed', { timeout: 10_000 });
   await expect(chatAcl.locator('.acl-summary-toggle')).toContainText('0 blocked');
   await expect(chatAcl.locator('.acl-panel')).toHaveAttribute('data-expanded', 'false', { timeout: 10_000 });
   await expect(chatAcl.locator('.acl-controls')).toBeHidden();
@@ -109,7 +109,7 @@ test('per-napplet ACL panels persist expansion, capability changes, and block st
   await expect(chatAcl.locator('.acl-controls')).toBeVisible();
 
   await chatAcl.locator('button[title^="relay:write"]').click();
-  await expect(chatAcl.locator('.acl-summary-toggle')).toContainText('7 allowed');
+  await expect(chatAcl.locator('.acl-summary-toggle')).toContainText('6 allowed');
   await expect(chatAcl.locator('.acl-summary-toggle')).toContainText('1 blocked');
   await expect.poll(() => page.evaluate(() => localStorage.getItem('napplet:acl'))).not.toBeNull();
 
@@ -117,7 +117,7 @@ test('per-napplet ACL panels persist expansion, capability changes, and block st
   await page.waitForSelector('#topology-root', { state: 'visible', timeout: 15_000 });
 
   const reloadedChatAcl = page.locator('#chat-acl');
-  await expect(reloadedChatAcl.locator('.acl-summary-toggle')).toContainText('7 allowed', { timeout: 10_000 });
+  await expect(reloadedChatAcl.locator('.acl-summary-toggle')).toContainText('6 allowed', { timeout: 10_000 });
   await expect(reloadedChatAcl.locator('.acl-summary-toggle')).toContainText('1 blocked');
   await expect(reloadedChatAcl.locator('.acl-panel')).toHaveAttribute('data-expanded', 'true', { timeout: 10_000 });
   await expect(reloadedChatAcl.locator('.acl-controls')).toBeVisible();
@@ -125,7 +125,7 @@ test('per-napplet ACL panels persist expansion, capability changes, and block st
 
   await reloadedChatAcl.locator('[data-acl-block]').click();
   await expect(reloadedChatAcl.locator('.acl-summary-toggle')).toContainText('0 allowed');
-  await expect(reloadedChatAcl.locator('.acl-summary-toggle')).toContainText('8 blocked');
+  await expect(reloadedChatAcl.locator('.acl-summary-toggle')).toContainText('7 blocked');
   await expect(reloadedChatAcl.locator('[data-acl-block]')).toHaveAttribute('data-blocked', 'true', { timeout: 10_000 });
 
   await page.reload({ waitUntil: 'domcontentloaded' });
@@ -134,12 +134,12 @@ test('per-napplet ACL panels persist expansion, capability changes, and block st
   const blockedChatAcl = page.locator('#chat-acl');
   await expect(blockedChatAcl.locator('[data-acl-block]')).toHaveAttribute('data-blocked', 'true', { timeout: 10_000 });
   await expect(blockedChatAcl.locator('.acl-summary-toggle')).toContainText('0 allowed');
-  await expect(blockedChatAcl.locator('.acl-summary-toggle')).toContainText('8 blocked');
+  await expect(blockedChatAcl.locator('.acl-summary-toggle')).toContainText('7 blocked');
   await expect(blockedChatAcl.locator('[data-acl-capability="relay:write"]')).toHaveAttribute('data-enabled', 'false', { timeout: 10_000 });
 
   await blockedChatAcl.locator('[data-acl-block]').click({ force: true });
   await expect(blockedChatAcl.locator('[data-acl-block]')).toHaveAttribute('data-blocked', 'false', { timeout: 10_000 });
-  await expect(blockedChatAcl.locator('.acl-summary-toggle')).toContainText('7 allowed');
+  await expect(blockedChatAcl.locator('.acl-summary-toggle')).toContainText('6 allowed');
   await expect(blockedChatAcl.locator('.acl-summary-toggle')).toContainText('1 blocked');
 
   await page.locator('#acl-expand-all-btn').evaluate((el) => {
