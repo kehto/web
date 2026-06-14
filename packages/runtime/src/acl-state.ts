@@ -30,6 +30,7 @@ const CAP_IDENTITY_DECRYPT = 1 << 16; // 65536 (v1.8 Phase 45 NUB-IDENTITY decry
 const CAP_CVM_CALL       = 1 << 17;   // 131072 (NAP-CVM ContextVM bridge)
 const CAP_OUTBOX_READ    = 1 << 18;   // 262144 (NAP-OUTBOX read-side routing)
 const CAP_OUTBOX_WRITE   = 1 << 19;   // 524288 (NAP-OUTBOX shell-signed publish)
+const CAP_UPLOAD_WRITE   = 1 << 20;   // 1048576 (NAP-UPLOAD shell-mediated upload)
 
 const CAP_MAP: Record<Capability, number> = {
   'relay:read': CAP_RELAY_READ,
@@ -52,6 +53,7 @@ const CAP_MAP: Record<Capability, number> = {
   'cvm:call': CAP_CVM_CALL,
   'outbox:read': CAP_OUTBOX_READ,
   'outbox:write': CAP_OUTBOX_WRITE,
+  'upload:write': CAP_UPLOAD_WRITE,
 };
 
 const RUNTIME_CAP_ALL = Object.values(CAP_MAP).reduce((bits, bit) => bits | bit, 0);
