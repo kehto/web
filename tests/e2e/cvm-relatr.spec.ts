@@ -20,6 +20,10 @@ test('cvm-relatr napplet renders a trust score via the CVM bridge', async ({ pag
   const server = frame.locator('#cvm-server');
   const score = frame.locator('#cvm-score');
 
+  // The napplet is click-driven (no automatic relay traffic on load).
+  await expect(status).toContainText('ready', { timeout: 10_000 });
+  await frame.locator('#cvm-run').click();
+
   // Discovery populates the server line with Relatr's announcement.
   await expect(server).toContainText('Relatr', { timeout: 10_000 });
   // The trust score (tools/call calculate_trust_score) renders as a 0–1 number.

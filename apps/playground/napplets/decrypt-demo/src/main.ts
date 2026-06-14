@@ -63,8 +63,45 @@ function getMissingRequiredNaps(): string[] {
   return REQUIRED_NAPS.filter((capability) => !supports(capability));
 }
 
+let decryptCounter = 0;
+
+// NAP-IDENTITY decrypt is shell-mediated over the `identity.decrypt` wire
+// (there is no napplet-visible signing/decrypt method on the shim). Send the
+// raw NIP-5D envelope and await the correlated result/error, mirroring the
+// resource-demo raw-postMessage pattern.
 function identityDecrypt(event: NostrEvent): Promise<{ rumor: { content: string }; sender: string }> {
-  return window.napplet.identity.decrypt(event);
+  decryptCounter += 1;
+  const id = `dec-${Date.now()}-${decryptCounter}`;
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      window.removeEventListener('message', onMessage);
+      reject(new Error('timed out'));
+    }, 10_000);
+
+    function onMessage(messageEvent: MessageEvent): void {
+      if (messageEvent.source !== window.parent) return;
+      const data = messageEvent.data as {
+        type?: string;
+        id?: string;
+        rumor?: { content: string };
+        sender?: string;
+        error?: string;
+      } | null;
+      if (!data || data.id !== id) return;
+      if (data.type === 'identity.decrypt.result' && data.rumor && typeof data.sender === 'string') {
+        window.clearTimeout(timer);
+        window.removeEventListener('message', onMessage);
+        resolve({ rumor: data.rumor, sender: data.sender });
+      } else if (data.type === 'identity.decrypt.error') {
+        window.clearTimeout(timer);
+        window.removeEventListener('message', onMessage);
+        reject(new Error(data.error ?? 'decrypt failed'));
+      }
+    }
+
+    window.addEventListener('message', onMessage);
+    window.parent.postMessage({ type: 'identity.decrypt', id, event }, '*');
+  });
 }
 
 function init(): void {

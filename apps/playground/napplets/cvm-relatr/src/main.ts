@@ -164,21 +164,27 @@ function readScore(result: unknown): number | null {
   return typeof score === 'number' ? score : null;
 }
 
+async function runDemo(target: string): Promise<void> {
+  await discoverRelatr();
+  await computeTrustScore(target);
+}
+
 async function init(): Promise<void> {
   installNapTheme();
   onNapThemeChanged((theme) => applyNapTheme(theme));
   await waitForRequiredNaps();
 
   targetInput.value = DEFAULT_TARGET;
+  // Click-driven: the shell owns ContextVM transport/relay access, so the
+  // demo only reaches the network on explicit user action (keeps automated
+  // playground loads free of live relay traffic).
   runButton.addEventListener('click', () => {
     const target = targetInput.value.trim();
-    if (/^[0-9a-f]{64}$/.test(target)) void computeTrustScore(target);
+    if (/^[0-9a-f]{64}$/.test(target)) void runDemo(target);
     else setStatus('enter a 64-char hex pubkey', 'red');
   });
 
-  setStatus('connected to CVM bridge', 'green');
-  await discoverRelatr();
-  await computeTrustScore(DEFAULT_TARGET);
+  setStatus('ready — click "trust score" to query Relatr', 'green');
 }
 
 init().catch((err) => {
