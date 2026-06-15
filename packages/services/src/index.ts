@@ -136,6 +136,31 @@ export type {
   SignEvent,
 } from './http-uploader.js';
 
+export { createIntentService } from './intent-service.js';
+export type {
+  IntentServiceOptions,
+  IntentResolver,
+  IntentResolverContext,
+} from './intent-service.js';
+export type {
+  IntentHandlerPreference,
+  IntentBehavior,
+  IntentRequest,
+  IntentCandidate,
+  IntentAvailability,
+  IntentResult,
+} from './intent-types.js';
+
+export { createCatalogIntentResolver } from './catalog-intent-resolver.js';
+export type {
+  CatalogIntentResolver,
+  CatalogIntentResolverOptions,
+  IntentCatalogEntry,
+  IntentArchetypeSupport,
+  IntentWindowController,
+  IntentOpenParams,
+} from './catalog-intent-resolver.js';
+
 export { createCvmService } from './cvm-service.js';
 export type {
   CvmService,

@@ -25,6 +25,7 @@ export type RuntimeDomainHandlers = {
   cvm: DomainHandler;
   outbox: DomainHandler;
   upload: DomainHandler;
+  intent: DomainHandler;
 };
 
 const THEME_FALLBACK_DEFAULT = {
@@ -43,6 +44,7 @@ export function createRuntimeDomainHandlers(context: RuntimeDomainContext): Runt
     cvm: (windowId, msg) => handleServiceOnlyMessage(context, 'cvm', windowId, msg),
     outbox: (windowId, msg) => handleServiceOnlyMessage(context, 'outbox', windowId, msg),
     upload: (windowId, msg) => handleServiceOnlyMessage(context, 'upload', windowId, msg),
+    intent: (windowId, msg) => handleServiceOnlyMessage(context, 'intent', windowId, msg),
   };
 }
 
@@ -162,7 +164,7 @@ function handleThemeMessage(context: RuntimeDomainContext, windowId: string, msg
 
 function handleServiceOnlyMessage(
   context: RuntimeDomainContext,
-  name: 'config' | 'resource' | 'cvm' | 'outbox' | 'upload',
+  name: 'config' | 'resource' | 'cvm' | 'outbox' | 'upload' | 'intent',
   windowId: string,
   msg: NappletMessage,
 ): void {

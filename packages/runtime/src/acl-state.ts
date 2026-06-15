@@ -33,6 +33,8 @@ const CAP_CVM_CALL       = 1 << 17;   // 131072 (NAP-CVM ContextVM bridge)
 const CAP_OUTBOX_READ    = 1 << 18;   // 262144 (NAP-OUTBOX read-side routing)
 const CAP_OUTBOX_WRITE   = 1 << 19;   // 524288 (NAP-OUTBOX shell-signed publish)
 const CAP_UPLOAD_WRITE   = 1 << 20;   // 1048576 (NAP-UPLOAD shell-mediated upload)
+const CAP_INTENT_READ    = 1 << 21;   // 2097152 (NAP-INTENT archetype introspection)
+const CAP_INTENT_WRITE   = 1 << 22;   // 4194304 (NAP-INTENT cross-napplet dispatch)
 
 const CAP_MAP: Record<Capability, number> = {
   'relay:read': CAP_RELAY_READ,
@@ -55,6 +57,8 @@ const CAP_MAP: Record<Capability, number> = {
   'outbox:read': CAP_OUTBOX_READ,
   'outbox:write': CAP_OUTBOX_WRITE,
   'upload:write': CAP_UPLOAD_WRITE,
+  'intent:read': CAP_INTENT_READ,
+  'intent:write': CAP_INTENT_WRITE,
 };
 
 const RUNTIME_CAP_ALL = Object.values(CAP_MAP).reduce((bits, bit) => bits | bit, 0);

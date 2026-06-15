@@ -1,6 +1,6 @@
 /**
  * @kehto/acl — NUB/NAP domain capability resolution (8 canonical + config,
- * resource, cvm, outbox).
+ * resource, cvm, outbox, upload, intent).
  *
  * Maps NUB message types (e.g., 'relay.subscribe', 'identity.getProfile') to
  * the capability strings required by sender and recipient. This is the
@@ -278,6 +278,34 @@ function uploadMap(action: string): CapabilityResolution {
 }
 
 /**
+ * `intent.*` — NAP-INTENT archetype intent dispatch (14th NAP domain).
+ *
+ * Split read/write so a read-only class can introspect available handlers but
+ * cannot dispatch (mirrors `outbox` / `relay`, where the write op is the
+ * sensitive one — here `invoke` is a focus-stealing cross-napplet navigation):
+ *
+ * - `invoke` (napplet → shell)                          → sender `intent:write`,
+ *   recipient `null`. The shell resolves the archetype to a handler, creates or
+ *   focuses its window, and delivers the payload.
+ * - `available` / `handlers` (and any other napplet-originated request)  →
+ *   sender `intent:read`, recipient `null`. Read-side catalog introspection.
+ * - `changed` / `*.result` / `*.error` (shell → napplet pushes)         →
+ *   sender `null`, recipient `intent:read`. The push is gated against the
+ *   receiving napplet's cap so a napplet without `intent:read` never sees
+ *   availability updates or invoke results.
+ */
+function intentMap(action: string): CapabilityResolution {
+  // Shell-originated pushes: recipient gate (napplet must hold intent:read to see them).
+  if (action === 'changed' || action.endsWith('.result') || action.endsWith('.error')) {
+    return { senderCap: null, recipientCap: 'intent:read' };
+  }
+  // Invoke is the write op (cross-napplet dispatch / focus-steal).
+  if (action === 'invoke') return { senderCap: 'intent:write', recipientCap: null };
+  // Napplet-originated reads: available, handlers, unknown.
+  return { senderCap: 'intent:read', recipientCap: null };
+}
+
+/**
  * `theme.*` — napplet read gate vs shell-initiated push.
  *
  * - `get` / `get.result` (and any other napplet-originated query) →
@@ -327,6 +355,9 @@ function themeMap(action: string): CapabilityResolution {
  * | `config`   | `values`, `registerSchema.result`, `schemaError` (shell → napplet pushes) | `null` | `config:read` |
  * | `resource` | `bytes`, `cancel` (napplet → shell requests)               | `resource:fetch`| `null`        |
  * | `resource` | `bytes.result`, `bytes.error` (shell → napplet pushes)     | `null`          | `resource:fetch` |
+ * | `intent`   | `invoke` (napplet → shell)                                  | `intent:write`  | `null`        |
+ * | `intent`   | `available`, `handlers` (napplet → shell)                   | `intent:read`   | `null`        |
+ * | `intent`   | `changed`, `*.result`, `*.error` (shell → napplet pushes)   | `null`          | `intent:read` |
  * | unknown    | any                                                         | `null`          | `null`        |
  *
  * The `signer` domain is REMOVED — signer messages fall through to the
@@ -381,6 +412,7 @@ export function resolveCapabilitiesNub(msg: NubMessage): CapabilityResolution {
     case 'cvm':      return cvmMap(action);         // NAP-CVM ContextVM bridge
     case 'outbox':   return outboxMap(action);      // NAP-OUTBOX outbox-aware relay routing
     case 'upload':   return uploadMap(action);      // NAP-UPLOAD shell-mediated file/blob upload
+    case 'intent':   return intentMap(action);      // NAP-INTENT archetype intent dispatch
     default:         return { senderCap: null, recipientCap: null };
   }
 }

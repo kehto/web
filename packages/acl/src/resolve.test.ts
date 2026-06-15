@@ -418,6 +418,44 @@ describe('resolveCapabilitiesNub', () => {
     });
   });
 
+  describe('intent domain (NAP-INTENT archetype intent dispatch)', () => {
+    it('intent.invoke -> sender intent:write (focus-stealing cross-napplet dispatch)', () => {
+      expect(resolveCapabilitiesNub({ type: 'intent.invoke' })).toEqual({ senderCap: 'intent:write', recipientCap: null });
+    });
+
+    it('intent.available -> sender intent:read (read-side catalog introspection)', () => {
+      expect(resolveCapabilitiesNub({ type: 'intent.available' })).toEqual({ senderCap: 'intent:read', recipientCap: null });
+    });
+
+    it('intent.handlers -> sender intent:read (read-side catalog introspection)', () => {
+      expect(resolveCapabilitiesNub({ type: 'intent.handlers' })).toEqual({ senderCap: 'intent:read', recipientCap: null });
+    });
+
+    it('intent.invoke.result -> recipient intent:read (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNub({ type: 'intent.invoke.result' })).toEqual({ senderCap: null, recipientCap: 'intent:read' });
+    });
+
+    it('intent.available.result -> recipient intent:read (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNub({ type: 'intent.available.result' })).toEqual({ senderCap: null, recipientCap: 'intent:read' });
+    });
+
+    it('intent.handlers.result -> recipient intent:read (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNub({ type: 'intent.handlers.result' })).toEqual({ senderCap: null, recipientCap: 'intent:read' });
+    });
+
+    it('intent.changed -> recipient intent:read (shell -> napplet push, no envelope id)', () => {
+      expect(resolveCapabilitiesNub({ type: 'intent.changed' })).toEqual({ senderCap: null, recipientCap: 'intent:read' });
+    });
+
+    it('intent.invoke.error -> recipient intent:read (shell -> napplet error push)', () => {
+      expect(resolveCapabilitiesNub({ type: 'intent.invoke.error' })).toEqual({ senderCap: null, recipientCap: 'intent:read' });
+    });
+
+    it('intent.unknown -> sender intent:read (default sender gate fallthrough)', () => {
+      expect(resolveCapabilitiesNub({ type: 'intent.unknown' })).toEqual({ senderCap: 'intent:read', recipientCap: null });
+    });
+  });
+
   describe('ALL_CAPABILITIES content', () => {
     it('contains the 7 v1.2 capability strings', () => {
       expect(ALL_CAPABILITIES).toContain('identity:read');
@@ -448,6 +486,11 @@ describe('resolveCapabilitiesNub', () => {
 
     it('contains upload:write (NAP-UPLOAD)', () => {
       expect(ALL_CAPABILITIES).toContain('upload:write');
+    });
+
+    it('contains intent:read and intent:write (NAP-INTENT)', () => {
+      expect(ALL_CAPABILITIES).toContain('intent:read');
+      expect(ALL_CAPABILITIES).toContain('intent:write');
     });
 
     it('does NOT contain the removed signer capability strings', () => {
