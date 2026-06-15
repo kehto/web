@@ -41,10 +41,13 @@ describe('toKey', () => {
     expect(toKey('chat', 'relay:write')).toBe('chat:relay:write');
   });
 
-  it('is dTag-only (version-agnostic) — does NOT include a hash segment', () => {
-    const key = toKey('my-napplet', 'relay:write');
-    // key should be exactly napplet:opClass with no additional colon segment for a hash
-    expect(key.split(':').length).toBe(2);
+  it('is dTag-only (version-agnostic) — does NOT include a hash segment after opClass', () => {
+    // acl uses dTag:hash; firewall uses napplet:opClass (no hash suffix)
+    // 'my-napplet:relay:write' has exactly napplet + opClass, no extra hash segment
+    const key = toKey('my-napplet', 'outbox:publish');
+    // Verify the key is "my-napplet:outbox:publish" — napplet followed by opClass, no extra part
+    expect(key).toBe('my-napplet:outbox:publish');
+    expect(key.startsWith('my-napplet:')).toBe(true);
   });
 });
 
