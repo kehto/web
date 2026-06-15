@@ -54,7 +54,7 @@
   5. Rule precedence resolves first-match-wins, most-to-least specific (per-napplet policy → per-napplet × op-class → per-napplet global fallback → global defaults); config mutates only through pure functions that return new config and round-trips through serialize/deserialize without loss; and pure-core unit tests cover refill, burst windows, matcher/focus matching, precedence, and serialize round-trip using injected `now`.
 **Plans**: 3 plans
 Plans:
-- [ ] 80-01-PLAN.md — Scaffold @kehto/firewall package + full types.ts surface + vitest alias
+- [x] 80-01-PLAN.md — Scaffold @kehto/firewall package + full types.ts surface + vitest alias
 - [ ] 80-02-PLAN.md — defaults.ts (built-in limits, flag/block defaults) + config.ts (immutable mutations, serialize, defensive deserialize) + tests
 - [ ] 80-03-PLAN.md — pure evaluate() engine (token bucket, init-burst, content matchers, focus multiplier, precedence) + barrel index.ts + tests
 
@@ -87,7 +87,7 @@ Phases execute in numeric order: 80 → 81 → 82
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 80. Firewall Pure Core | 0/3 | Planned | - |
+| 80. Firewall Pure Core | 1/3 | In Progress|  |
 | 81. Runtime Container & Choke-Point Integration | 0/TBD | Not started | - |
 | 82. Verification & Closeout | 0/TBD | Not started | - |
 

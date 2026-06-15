@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.18
 milestone_name: Napplet Firewall
 status: planning
-last_updated: "2026-06-15T13:10:00.000Z"
-last_activity: 2026-06-15
+last_updated: "2026-06-15T13:13:47.968Z"
+last_activity: 2026-06-15 — v1.18 roadmap created (Phases 80-82)
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 3
+  completed_plans: 1
+  percent: 33
 ---
 
 # Project State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-06-15, v1.18 started)
 
 ## Current Position
 
-Phase: 80 — Firewall Pure Core (`@kehto/firewall`) — not started
-Plan: —
-Status: Roadmap created; ready to plan Phase 80
-Last activity: 2026-06-15 — v1.18 roadmap created (Phases 80-82)
+Phase: 80 — Firewall Pure Core (`@kehto/firewall`) — in progress (1/3 plans complete)
+Plan: 02 (next)
+Status: Plan 01 complete — package scaffold + type surface done; ready for Plan 02 (evaluate + config + defaults)
+Last activity: 2026-06-15 — Plan 80-01 complete: @kehto/firewall scaffolded, type surface defined
 
 ## v1.18 Phase Sequence
 
@@ -89,10 +89,15 @@ Full decision log (v1.0 → v1.17) lives in `.planning/PROJECT.md` Key Decisions
 
 ## Session Continuity
 
-Last session: 2026-06-15T13:10:00Z
+Last session: 2026-06-15T13:13:47.956Z
 Resume: v1.18 Napplet Firewall roadmap created (Phases 80-82, 24/24 requirements mapped). Ready to plan Phase 80 with `/gsd:plan-phase 80`.
 Current milestone: v1.18 Napplet Firewall.
 
+## Decisions Made
+
+- **BurstGuard is first-class field in NappletRules** (not ContentMatcher) — per RESEARCH Open Question 2 resolution
+- **@kehto/firewall scaffolded as exact structural mirror of @kehto/acl** — zero runtime deps, ESM-only, tsup build, verbatimModuleSyntax
+
 ## Operator Next Steps
 
-- Plan Phase 80 with `/gsd:plan-phase 80`.
+- Execute Plan 80-02 (evaluate + config + defaults) with `/gsd:execute-phase 80 02`.

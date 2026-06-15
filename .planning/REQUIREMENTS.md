@@ -14,7 +14,7 @@
 ### Pure Core (`@kehto/firewall`)
 
 - [ ] **CORE-01**: A host can evaluate a normalized `Observation` against firewall config + counter state via a pure function and receive a decision (`pass` / `reject` / `prompt`) with `action`, `ruleId`, and `reason`, plus the next counter state — with no I/O, mutation, or wall-clock reads.
-- [ ] **CORE-02**: The pure core operates only on the normalized `Observation` (`napplet`, `opClass`, `kind?`, `size?`, `initElapsedMs?`, `focused`, `msSinceFocusGain?`, `now`) and never parses protocol envelopes.
+- [x] **CORE-02**: The pure core operates only on the normalized `Observation` (`napplet`, `opClass`, `kind?`, `size?`, `initElapsedMs?`, `focused`, `msSinceFocusGain?`, `now`) and never parses protocol envelopes.
 - [ ] **CORE-03**: Firewall config can be mutated through pure functions (set per-napplet policy, set rate limit, add content matcher) that return new config, and can be serialized and deserialized round-trip without loss.
 - [ ] **CORE-04**: Built-in defaults apply conservative rate/burst limits to every napplet out of the box, with default exceed-action `flag`.
 
@@ -94,7 +94,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | CORE-01 | Phase 80 | Pending |
-| CORE-02 | Phase 80 | Pending |
+| CORE-02 | Phase 80 | Complete |
 | CORE-03 | Phase 80 | Pending |
 | CORE-04 | Phase 80 | Pending |
 | RATE-01 | Phase 80 | Pending |
