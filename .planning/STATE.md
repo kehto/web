@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.18
 milestone_name: Napplet Firewall
-status: completed
-last_updated: "2026-06-15T13:31:26.810Z"
-last_activity: "2026-06-15 — Plan 80-03 complete: evaluate.ts + index.ts + 43 tests green, 819/819 root suite green; Phase 80 complete"
+status: verifying
+last_updated: "2026-06-15T14:03:12.812Z"
+last_activity: "2026-06-15 — Plan 80-03 complete: evaluate.ts + index.ts + 43 evaluate tests green (819/819 root suite green)"
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 100
+  total_plans: 6
+  completed_plans: 4
+  percent: 67
 ---
 
 # Project State
@@ -89,7 +89,7 @@ Full decision log (v1.0 → v1.17) lives in `.planning/PROJECT.md` Key Decisions
 
 ## Session Continuity
 
-Last session: 2026-06-15T13:31:26.802Z
+Last session: 2026-06-15T14:03:12.804Z
 Resume: v1.18 Napplet Firewall roadmap created (Phases 80-82, 24/24 requirements mapped). Ready to plan Phase 80 with `/gsd:plan-phase 80`.
 Current milestone: v1.18 Napplet Firewall.
 

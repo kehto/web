@@ -70,7 +70,7 @@ Plans:
   5. Runtime integration tests cover each named attack: publish flood (flag → block), init-burst block, backgrounded + init-burst, kind-5 delete spam, `ask` (reject + prompt + remembered), and unfocused-multiplier tightening.
 **Plans**: 3 plans
 Plans:
-- [ ] 81-01-PLAN.md — Workspace dep + firewall types + firewall-state container + container unit tests
+- [x] 81-01-PLAN.md — Workspace dep + firewall types + firewall-state container + container unit tests
 - [ ] 81-02-PLAN.md — Choke-point firewall gate, consent-handler hoist, container wiring in runtime.ts
 - [ ] 81-03-PLAN.md — Named-attack integration tests (flood, burst, kind-5, ask/remember, unfocused)
 
@@ -92,7 +92,7 @@ Phases execute in numeric order: 80 → 81 → 82
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 80. Firewall Pure Core | 3/3 | Complete   | 2026-06-15 |
-| 81. Runtime Container & Choke-Point Integration | 0/TBD | Not started | - |
+| 81. Runtime Container & Choke-Point Integration | 1/3 | In Progress|  |
 | 82. Verification & Closeout | 0/TBD | Not started | - |
 
 ## Backlog

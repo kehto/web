@@ -49,8 +49,8 @@
 ### Runtime Integration
 
 - [ ] **RUNTIME-01**: Every napplet message that passes the ACL check is evaluated by the firewall before dispatch; a `reject` decision sends an error envelope back to the napplet and drops the message.
-- [ ] **RUNTIME-02**: The runtime exposes new `RuntimeAdapter` hooks: `firewallPersistence` (load/persist config), `onFirewallEvent` (audit callback for flag/block/prompt), and `getFocusContext(windowId)`.
-- [ ] **RUNTIME-03**: Firewall config persists across runtime reloads via `firewallPersistence`; counters are ephemeral and reset on reload.
+- [x] **RUNTIME-02**: The runtime exposes new `RuntimeAdapter` hooks: `firewallPersistence` (load/persist config), `onFirewallEvent` (audit callback for flag/block/prompt), and `getFocusContext(windowId)`.
+- [x] **RUNTIME-03**: Firewall config persists across runtime reloads via `firewallPersistence`; counters are ephemeral and reset on reload.
 - [ ] **RUNTIME-04**: A `flag` (allowed) operation emits an `onFirewallEvent` audit event and still dispatches.
 
 ### Verification
@@ -111,8 +111,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FOCUS-01 | Phase 81 | Pending |
 | FOCUS-02 | Phase 80 | Complete |
 | RUNTIME-01 | Phase 81 | Pending |
-| RUNTIME-02 | Phase 81 | Pending |
-| RUNTIME-03 | Phase 81 | Pending |
+| RUNTIME-02 | Phase 81 | Complete |
+| RUNTIME-03 | Phase 81 | Complete |
 | RUNTIME-04 | Phase 81 | Pending |
 | VERIFY-01 | Phase 80 | Complete |
 | VERIFY-02 | Phase 81 | Pending |
