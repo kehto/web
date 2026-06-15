@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.17
-milestone_name: Beautify the SPA Landing Page
-status: Awaiting next milestone
-last_updated: "2026-06-11T17:15:53Z"
-last_activity: 2026-06-11 — Completed quick task 260611-q7p: Persist playground UI session state
+milestone: v1.18
+milestone_name: Napplet Firewall
+status: verifying
+last_updated: "2026-06-15T14:22:00.000Z"
+last_activity: "2026-06-15 — Plan 81-03 complete: 12 VERIFY-02 integration tests green (840/840 root suite, type-check clean)"
 progress:
   total_phases: 3
-  completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
+  completed_phases: 2
+  total_plans: 6
+  completed_plans: 6
   percent: 100
 ---
 
@@ -17,71 +17,45 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-06, v1.17 shipped)
+See: .planning/PROJECT.md (updated 2026-06-15, v1.18 started)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Awaiting next milestone definition
+**Current focus:** v1.18 Napplet Firewall — build `@kehto/firewall` pure core, then runtime integration, then verification.
 
 ## Current Position
 
-Phase: Milestone v1.17 complete
-Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-06-11 — Completed quick task 260611-q7p: Persist playground UI session state
+Phase: 81 — Runtime Container & Choke-Point Integration — COMPLETE (3/3 plans done)
+Plan: 03 (complete)
+Status: Phase 81 complete — firewall state container, choke-point gate, and VERIFY-02 integration tests all green; 840/840 unit tests; ready for Phase 82
+Last activity: 2026-06-15 — Plan 81-03 complete: 12 VERIFY-02 firewall integration tests green (840/840 root suite, type-check clean)
+
+## v1.18 Phase Sequence
+
+- **Phase 80** (not started): Firewall pure core — new zero-dep `@kehto/firewall` package (mirrors `@kehto/acl`): normalized `Observation`, pure `evaluate()` (token-bucket rate, init-burst guard, content matchers, focus multiplier, precedence), pure config mutations + serialize, built-in defaults, pure-core unit tests. Covers CORE-01..04, RATE-01..03, BURST-01..02, CONTENT-01..03, POLICY-03, FOCUS-02, VERIFY-01 — 15 reqs.
+- **Phase 81** (not started): Runtime container & choke-point integration — stateful `packages/runtime/src/firewall-state.ts` (persisted config + ephemeral counters + init/focus tracking), new `RuntimeAdapter` hooks (`firewallPersistence`, `onFirewallEvent`, `getFocusContext`), wiring in `runtime.ts`/`createMessageHandler` after the ACL check, allow/deny/ask decision-to-action mapping, shell-sourced focus, runtime integration tests for each named attack. Covers POLICY-01, POLICY-02, FOCUS-01, RUNTIME-01..04, VERIFY-02 — 8 reqs.
+- **Phase 82** (not started): Verification & closeout — full unit suite (563+) and 87–89 E2E specs green, changeset for the new package + runtime change. Covers VERIFY-03 — 1 req.
+
+Coverage: 24/24 requirements mapped, 0 unmapped.
+
+## Design Anchors (user-approved, do not re-derive)
+
+- `@kehto/firewall` is a NEW pure, zero-dep, WASM-ready package mirroring `@kehto/acl`; it is NOT real WASM — pure TypeScript structured for a later WASM swap (FWX-01).
+- Clean dependency order drives the phase split: pure core (no runtime coupling) → stateful runtime container + choke-point wiring → verification/closeout.
+- Firewall runs only after a successful ACL check, before dispatch. ACL = static authorization; firewall = behavioral abuse-over-time.
+- `ask` is "reject now, prompt async, remember choice" — no message buffering.
+- Policy and counters key on dTag (version-agnostic); counters are ephemeral (reset on reload), config persists.
+- Focus is shell-owned/forge-proof via `@kehto/wm`; supplied through `getFocusContext(windowId)`, never self-reported by the napplet. Focus alone never hard-blocks.
+- Constraints: ESM-only, zero framework deps, `@napplet/core` + `nostr-tools` peer deps, pnpm + turborepo + tsup + changesets, TS strict + `verbatimModuleSyntax`, 2-space indent, lowercase-hyphen filenames, JSDoc on public API.
 
 ## Accumulated Context
 
-Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions table and per-milestone archives under `.planning/milestones/`.
-
-### v1.8 Phase Sequence
-
-- **Phase 42** (ungated): BUG-01/02 + POLISH-01 + RENAME-01/02 — 5 reqs
-- **Phase 43** (ungated): VALIDATE-01 — 1 req
-- **Phase 44** (completed 2026-05-21): DEP-01..07 + VALIDATOR-01/02 — 9 reqs
-- **Phase 45** (completed 2026-05-21): DECRYPT-01..07 — 7 reqs
-- **Phase 46** (completed 2026-05-21): DECRYPT-08..10 + E2E-27/28 — 5 reqs
+Full decision log (v1.0 → v1.17) lives in `.planning/PROJECT.md` Key Decisions table and per-milestone archives under `.planning/milestones/`.
 
 ### Blockers/Concerns
 
-- No active blockers. v1.15 starts from the `aislop 0.9.3` report: 38 errors, 607 warnings, 461 fixable findings across 123 scanned TypeScript files.
-- v1.15 roadmap phases are 68-71: gate baseline/mechanical cleanup, safe DOM rendering/security scanner cleanup, type/dependency/maintainability triage, then quality-gate verification and closeout.
-- Phase 68 completed 2026-05-24: supplied `aislop 0.9.3` baseline recorded, local `aislop` binary absence documented, the fatal undeclared `@napplet/services` reference corrected, report-flagged duplicate imports and mechanical lint/slop findings cleaned in touched files, and verification passed with `pnpm build`, `pnpm type-check`, and `git diff --check`.
-- Phase 69 completed 2026-05-24: direct `.innerHTML =` assignment sinks were removed from playground source and napplet source, a DOM safety guard was added, the NIP-46 hardcoded-token-looking example was reworded, and verification passed with focused render tests, `pnpm type-check`, `pnpm build`, `pnpm test:unit` (563 tests), and `git diff --check`.
-- Phase 70 completed 2026-05-24: runtime/services message-boundary casts were narrowed, runtime double assertions were reduced, private thin wrappers were inlined, napplet `supports()` double casts were removed, safe dependency audit paths were upgraded, and remaining VitePress Vite/esbuild advisories were explicitly deferred with rationale.
-- Phase 71 completed 2026-05-24: final fatal-category source guards passed, build/type/unit/static/docs/Pages gates passed, `gsd-sdk query audit-open` reported zero open items, and v1.15 milestone audit passed at 20/20 requirements across 4/4 phases.
-- Phase 72 completed 2026-05-24 after the local scanner invocation was corrected: `npx --no-install aislop scan -d` now reports `64 / 100 Needs Work` with 0 errors, 16 warnings, 0 fixable, and AI Slop/Linting/Security all clean. Verification passed with `pnpm type-check`, `pnpm build`, `pnpm test:unit`, `pnpm --dir docs docs:build`, final scanner, and diff check.
-- v1.16 started 2026-05-24: the milestone targets the remaining 16 structural `aislop` code-quality warnings with four phases: runtime core decomposition (73), playground shell decomposition (74), service and adapter decomposition (75), and final structural gate verification (76). Requirements are mapped 18/18 and phase numbering continues from v1.15.
-- Phase 73 completed 2026-05-24: runtime relay, identity, IFC, and fallback domain handlers were extracted from `runtime.ts`; local scanner no longer reports runtime file-size, `createRuntime`, `handleRelayMessage`, or runtime deep-nesting warnings; focused runtime type/build/unit gates passed.
-- Phase 74 completed 2026-05-24: playground shell host definitions, decrypt fixtures, message tap, demo hooks, notification UI, and signer UI were extracted into focused modules; local scanner no longer reports `main.ts`, `shell-host.ts`, `createDemoHooks`, or `bootShell` warnings; type-check, playground build, scanner, and diff check passed.
-- Phase 75 completed 2026-05-24: ACL modal, NIP-46 client, media/notification/resource service factories, and shell hooks adapter were split into private helpers; local `aislop` now reports a clean `100 / 100 Healthy` run; focused unit tests, ACL modal E2E, build, type-check, scanner, and diff check passed.
-- Phase 76 completed 2026-05-24: final `npx --no-install aislop scan -d` reports `100 / 100 Healthy` with 0 errors, 0 warnings, and 0 fixable; `.aislop/config.yml` has no diff against the v1.16 start commit; `pnpm type-check`, `pnpm build`, `pnpm test:unit` (563 tests), `pnpm --dir docs docs:build`, and `git diff --check` passed.
-- v1.17 started 2026-06-06: the milestone targets the public `/web/` landing page's brand, UX, GSAP motion, and subtle liquid accent while preserving the current playground/docs links and Pages route contract.
-- v1.17 roadmap phases are 77-79: brand foundation and static portal contract, GSAP transition system, then liquid accent and visual verification. Requirements are mapped 15/15.
-- Phase 77 completed 2026-06-06: `web/index.html` now has a semantic Kehto landing-page foundation, `web/assets/landing.css` provides the almost-black/muted-yellow brand system, `web/assets/landing.js` exists as the enhancement entrypoint, and build/audit/tests verify portal asset copying under `.pages/assets`.
-- Phase 78 completed 2026-06-06: `gsap` is an explicit dependency, `build:pages` vendors `gsap.min.js` under `.pages/assets/vendor/`, `landing.js` runs restrained entrance/exit timelines, and reduced-motion users get immediate final state plus normal navigation.
-- Phase 79 completed 2026-06-06: `#liquid-accent` canvas renders a subtle low-contrast ambient field with GSAP ticker animation and static reduced-motion rendering; desktop, mobile, and reduced-motion screenshots plus canvas nonblank checks passed.
-- v1.17 archived 2026-06-06: the public `/web/` portal now has the branded Kehto identity, GSAP motion, Pages-safe assets, and liquid accent visual proof. Final verification passed with build/type/unit/docs/Pages/static/browser gates.
-- v1.14 started 2026-05-23: public GitHub Pages deployment target is `kehto.github.io/web/`, with a portal slash page at `/web/`, playground at `/web/playground/`, and docs at `/web/docs/`. Current workflow only packs `.pages/playground`, so v1.14 must replace playground-only upload with a unified Pages artifact.
-- v1.14 roadmap phases are 65-67: Pages portal entry point, playground Pages path relocation, then docs Pages publication and deploy gate.
-- Phase 65 completed 2026-05-23: `web/index.html` is the static portal source, `pnpm build:pages` writes `.pages/web/index.html`, and the generated portal links to `/web/playground/` and `/web/docs/`.
-- Phase 66 completed 2026-05-23: `scripts/build-playground-pages.mjs` writes `.pages/web/playground`, defaults to `/web/playground/`, and generated gateway manifest `htmlUrl` values now point under `/web/playground/napplet-gateway/`.
-- Phase 67 completed 2026-05-23: docs publish under `.pages/web/docs`, generated TypeDoc output is copied to `.pages/web/docs/api`, the Pages workflow uploads `.pages`, and `pnpm audit:pages` verifies the `/web/` route contract before deploy.
-- v1.14 archived 2026-05-23: public `/web/` portal, playground `/web/playground/`, docs `/web/docs/`, unified Pages artifact, and `pnpm audit:pages` deploy gate are shipped. Final verification passed: docs check, playground build, Pages artifact build/audit, focused route guard, full build/type/unit, gateway artifact audit, diff check, and open-artifact audit.
-- v1.10 shipped: removed the stale `auth:identity-changed` compatibility branch, migrated `decrypt-demo` to `identityDecrypt`, and retired the remaining old demo package graph.
-- Published package check: `@napplet/sdk@0.3.0`, `@napplet/shim@0.3.0`, and `@napplet/vite-plugin@0.3.0` are all available on npm as of 2026-05-22.
-- Scope boundary: keep v1.10 as a v1 cleanup/continuity milestone; do not promote the compatibility removal to a v2 boundary.
-- Phase 47 completed 2026-05-22: all 18 target manifests now declare exact `@napplet/sdk`, `@napplet/shim`, `@napplet/vite-plugin`, and explicit `@napplet/nub` at `0.3.0`; IFC/storage call sites use direct helper imports; six affected napplet builds pass.
-- Phase 48 completed 2026-05-22: active demo/fixture source has no `@napplet/sdk` imports; relay, identity, keys, notify, config, and media use direct helpers; toaster/resource retained raw exceptions documented as `NOTIFY-SDK-GAP` and `RESOURCE-SDK-GAP`.
-- Phase 49 completed 2026-05-22: migration guard added to `pnpm test:unit`; active lockfile graph has 18 clean importers and zero old SDK graph offenders; `pnpm type-check`, `pnpm test:unit`, and `pnpm test:e2e` pass with Playwright at 86/86.
-- v1.9 archived 2026-05-22: roadmap, requirements, phase artifacts, and milestone audit are stored under `.planning/milestones/v1.9-*`.
-- v1.10 archived 2026-05-22: identity topic compatibility removed, decrypt-demo uses `identityDecrypt`, guard coverage closes the old helper graph, and verification closes at 548 unit tests plus 86/86 Playwright.
-- v1.11 started 2026-05-22: local playground and E2E loading must match the production NIP-5D/NIP-5A gateway path. The milestone aligns single-file artifact generation, aggregate-hash semantics, playground loading, static guards, and Playwright proof around that continuity invariant.
-- v1.11 completed 2026-05-22: `@napplet/vite-plugin` supports explicit single-file artifact mode, playground napplets load through `/napplet-gateway/<dTag>/<aggregateHash>/index.html`, and drift is guarded by unit, audit, and Playwright coverage. Final verification: `pnpm build`, `pnpm type-check`, `pnpm test:unit` (551 tests), `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and `pnpm test:e2e` (87/87).
-- v1.12 started 2026-05-22: authoritative NIP-5D source is the pinned raw `dskvr/nips` commit `d80d7b25f9c4331acbeb40dbeb3b077caa80e885`; `.planning/NIP-5D-DELTA-AUDIT.md` is the delta inventory; `RUNTIME-SPEC.md` and `napplet/specs/NIP-5D.md` are drift sources to repair or replace.
-- v1.12 roadmap phases are 56-59: contract/package source baseline, shell capability/requires enforcement, 13-napplet conformance, then guards/full verification.
-- Phase 58 completed 2026-05-22: all 13 playground napplets now declare manifest `requires`, preflight required NUBs with shell-derived `supports()`, stale protocol auth wording is renamed, and raw demo envelopes are documented in the Phase 58 allowlist.
-- Phase 59 completed 2026-05-22: static/unit/E2E guards now cover sandbox policy, source validation, no napplet `window.nostr`, requires coverage, hosted `supports()` behavior, raw-envelope exceptions, unsupported-requires rejection, and all 13 gateway-hosted napplet contracts. Final verification passed: `pnpm build`, `pnpm type-check`, `pnpm test:unit` (560 tests), `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and `pnpm test:e2e` (89/89).
-- v1.13 completed 2026-05-23: docs strategy, package docs, tutorials/how-tos, VitePress site, generated API integration, and strict docs quality gates are shipped. Final verification passed: `pnpm docs:check`, `pnpm build`, `pnpm type-check`, `pnpm test:unit` (562 tests), `pnpm audit:csp`, `pnpm audit:gateway-artifacts`, and `git diff --check`.
+- No active blockers.
+- v1.18 entering baseline: every napplet message flows through `createMessageHandler` (`packages/runtime/src/runtime.ts`) where `enforceNub` does the static ACL check. `@kehto/acl` is the pure/zero-dep precedent to mirror; `acl-state.ts` is the stateful-container precedent for `firewall-state.ts`. `@kehto/wm` owns focus.
+- Verification gate to preserve: existing unit suite (563+) and 87–89 E2E specs must stay green; reload-heavy E2E specs need `test.setTimeout(120s)`.
 
 ### Quick Tasks Completed
 
@@ -115,10 +89,22 @@ Full decision log (v1.0 → v1.13) lives in `.planning/PROJECT.md` Key Decisions
 
 ## Session Continuity
 
-Last session: 2026-05-23T16:10:00Z
-Resume: v1.16 Structural Code Quality Refactor has completed all phases and is ready for lifecycle audit, completion, and cleanup.
-Current milestone: v1.16 Structural Code Quality Refactor.
+Last session: 2026-06-15T16:22:00.000Z
+Resume: Phase 81 Plan 03 complete — VERIFY-02 integration tests green (840/840). Phase 81 complete. Ready to execute Phase 82 (verification & closeout: E2E + changeset).
+Current milestone: v1.18 Napplet Firewall.
+
+## Decisions Made
+
+- **BurstGuard is first-class field in NappletRules** (not ContentMatcher) — per RESEARCH Open Question 2 resolution
+- **@kehto/firewall scaffolded as exact structural mirror of @kehto/acl** — zero runtime deps, ESM-only, tsup build, verbatimModuleSyntax
+- **setGlobalRate is a separate exported function** (not an overload of setRateLimit) — clearer API, mirrors acl's distinct setQuota
+- **DEFAULT_EXCEED_ACTION='flag', DEFAULT_BURST_ACTION='block'** — conservative allow+audit default with documented burst exception (CORE-04, BURST-02)
+- **DEFAULT_UNFOCUSED_MULTIPLIER=0.25** — tightens unfocused budget without zeroing it (FOCUS-02 invariant)
+- **ruleId encodes resolution tier (rate:opclass|global|default)** — not 'rate:ok' — ruleId is the audit trail for callers
+- **utf8ByteLength replaces TextEncoder in extractKindSize** — ES2022 lib does not include DOM types; mirrors existing state-handler.ts helper
+- **consentHandlerRef mutable cell bridges outer/inner closure scopes** — POLICY-02 prompt flow: createRuntime allocates { current }, registerConsentHandler sets it, fireConsent reads it
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Phase 81 complete. Execute Phase 82 (verification & closeout): E2E green confirmation + changesets for @kehto/firewall (new package) and @kehto/runtime (firewall integration).
+- VERIFY-02 requirements satisfied. VERIFY-03 (E2E green + changeset) is Phase 82's scope.

@@ -72,6 +72,7 @@ export default defineConfig({
         items: [
           { text: 'Packages', link: '/packages/' },
           { text: '@kehto/acl', link: '/packages/acl' },
+          { text: '@kehto/firewall', link: '/packages/firewall' },
           { text: '@kehto/runtime', link: '/packages/runtime' },
           { text: '@kehto/shell', link: '/packages/shell' },
           { text: '@kehto/services', link: '/packages/services' },

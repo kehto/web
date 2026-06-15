@@ -6,6 +6,21 @@
 
 Provide a modular, framework-agnostic runtime for hosting napplet applications — so any Nostr client can embed sandboxed mini-apps by integrating @kehto/shell.
 
+## Current Milestone: v1.18 Napplet Firewall
+
+**Goal:** Add `@kehto/firewall` — a behavioral anti-abuse gate that observes napplet messages at the runtime choke point and applies configurable rate/burst/content rules with allow/deny/ask policies and focus-aware tightening. Composes with the ACL (static authorization) without replacing it.
+
+**Target features:**
+- `@kehto/firewall` pure core (zero-dep, WASM-ready, mirrors `@kehto/acl`): normalized `Observation`, pure `evaluate()`, config mutations + serialize, built-in defaults.
+- Runtime `firewall-state` container — persisted config + ephemeral token-bucket counters + per-window init/focus tracking.
+- Message-handler wiring: firewall runs after a successful ACL check, before dispatch.
+- Per-napplet × op-class rate limiting (token bucket), init-burst guard (defaults to block), declarative content matchers (event kind / size / focus conditions).
+- `allow / deny / ask` per-napplet policy ("reject now, prompt async, remember choice"); exceed-action `flag / block / ignore`; default posture flag-by-default.
+- Focus-aware `unfocusedMultiplier` (soft tightening when unfocused; never hard-blocks on its own).
+- New `RuntimeAdapter` hooks: `firewallPersistence`, `onFirewallEvent`, `getFocusContext`.
+
+**Key context:** Pure TS / WASM-ready (no real WASM now — per-message work is tiny and content inspection would force JS↔WASM string marshalling). Identity key is dTag (version-agnostic). Focus is shell-owned and forge-proof via `@kehto/wm`; mouse-down inside the sandboxed cross-origin iframe is not observable, so focus state is the trustworthy proxy. Must keep the existing unit suite (563+) and 87–89 E2E specs green and add a changeset.
+
 ## Packages
 
 | Package | Scope | Description |
@@ -251,4 +266,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-06 — v1.17 milestone shipped and archived*
+*Last updated: 2026-06-15 — v1.18 Napplet Firewall milestone started*

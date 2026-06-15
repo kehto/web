@@ -9,6 +9,7 @@ Use these pages when you need to choose or integrate one part of Kehto. Each pag
 | Package | Page | Role |
 |---------|------|------|
 | `@kehto/acl` | [ACL](./acl.md) | Pure capability state and enforcement primitives. |
+| `@kehto/firewall` | [Firewall](./firewall.md) | Pure behavioral abuse-detection engine (temporal complement to ACL). |
 | `@kehto/runtime` | [Runtime](./runtime.md) | Browser-agnostic NIP-5D protocol engine. |
 | `@kehto/shell` | [Shell](./shell.md) | Browser shell adapter over the runtime. |
 | `@kehto/services` | [Services](./services.md) | Reference service handlers for runtime domains. |
@@ -21,7 +22,7 @@ Use these pages when you need to choose or integrate one part of Kehto. Each pag
 1. Start with `@kehto/runtime` if you are building a host.
 2. Add `@kehto/shell` when you need browser iframe/session integration.
 3. Add `@kehto/services` for reference implementations of runtime services.
-4. Use `@kehto/acl` directly when you need capability-state persistence or policy tests.
+4. Use `@kehto/acl` directly when you need capability-state persistence or policy tests, and `@kehto/firewall` for behavioral rate-limiting and abuse detection over time.
 5. Use `@kehto/nip` and `@kehto/wm` as optional utilities.
 6. Use the playground page to reproduce integrated behavior locally.
 

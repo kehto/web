@@ -1,7 +1,7 @@
 {
-  "name": "@kehto/runtime",
-  "version": "0.8.0",
-  "description": "Browser-agnostic protocol engine for the napplet protocol — message dispatch, ACL enforcement, AUTH handshake",
+  "name": "@kehto/firewall",
+  "version": "0.1.0",
+  "description": "Pure, WASM-ready behavioral firewall engine for the napplet protocol — zero dependencies, zero side effects",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -19,39 +19,31 @@
   "publishConfig": {
     "access": "public"
   },
-  "dependencies": {
-    "@kehto/acl": "workspace:*",
-    "@kehto/firewall": "workspace:*",
-    "@noble/hashes": "^2.0.0",
-    "@noble/curves": "^2.0.0"
-  },
+  "dependencies": {},
   "peerDependencies": {
-    "@napplet/core": "^0.5.0",
-    "@napplet/nub": "^0.5.0"
+    "@napplet/core": "^0.5.0"
   },
   "devDependencies": {
     "@napplet/core": "^0.5.0",
     "tsup": "^8.5.0",
-    "typescript": "^5.9.3",
-    "vitest": "^4.1.2",
-    "@napplet/nub": "^0.5.0"
+    "typescript": "^5.9.3"
   },
   "scripts": {
     "build": "tsup",
     "type-check": "tsc --noEmit",
-    "test:unit": "echo 'no unit tests yet'"
+    "test:unit": "vitest run --config ../../vitest.config.ts"
   },
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/kehto/web.git",
-    "directory": "packages/runtime"
+    "directory": "packages/firewall"
   },
   "keywords": [
     "nostr",
     "napplet",
     "kehto",
-    "runtime",
-    "protocol-engine"
+    "firewall",
+    "rate-limit"
   ]
 }
