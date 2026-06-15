@@ -16,7 +16,7 @@ pnpm add @kehto/acl @napplet/core @napplet/nub
 | Field | Value |
 |-------|-------|
 | Source | `packages/acl/package.json`, `packages/acl/src/index.ts` |
-| Version | `0.8.0` |
+| Version | `0.9.0` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Exported subpaths | `.`, `./capabilities` |

@@ -1,5 +1,51 @@
 # @kehto/runtime
 
+## 0.9.0
+
+### Minor Changes
+
+- 50a3241: feat: implement NAP-INTENT archetype intent dispatch
+
+  Adds shell-side support for NAP-INTENT, which lets a napplet invoke _another_
+  napplet by its **archetype** (a shared role like `note` or `emoji-list`) without
+  addressing it directly. The napplet names a role, an action, and an opaque
+  payload tagged by a NAP-N protocol; the shell resolves the archetype to an
+  installed handler (honoring the user's default-handler preference), creates or
+  focuses its window, and delivers the payload. Routing (`archetype`) and payload
+  format (`protocol`) are orthogonal — the shell owns resolution, default
+  handling, window lifecycle, and the cross-napplet trust boundary.
+
+  - `@kehto/acl`: new `intent:read` / `intent:write` capabilities and `intent.*`
+    capability resolution (`invoke` → write; `available`/`handlers` → read;
+    `changed`/`*.result`/`*.error` pushes → recipient read).
+  - `@kehto/runtime`: routes the `intent` domain to a registered `intent` service
+    with ACL enforcement; `class-2` excludes `intent:write` (mirrors `relay:write`
+    / `outbox:write` — a read-only class can introspect but not dispatch).
+  - `@kehto/services`: `createIntentService` (pure `intent.*` envelope router with
+    `intent.changed` broadcast) and `createCatalogIntentResolver` (concrete
+    catalog-backed resolver: archetype→handler resolution, default handling,
+    "open with…" chooser, action/protocol validation, and window create/focus).
+    The `IntentRequest`/`IntentResult`/`IntentAvailability` value types are defined
+    locally (wire-compatible with the upstream draft), as the pinned
+    `@napplet/core` predates them.
+  - `@kehto/shell`: advertises `intent` via `shell.supports("intent")` when an
+    available intent dispatcher is wired.
+
+- f5148a3: Add `@kehto/firewall` — a behavioral anti-abuse gate, and integrate it into `@kehto/runtime`.
+
+  **New package `@kehto/firewall`** (pure, zero-dependency, WASM-ready, mirrors `@kehto/acl`): a normalized `Observation` plus a pure `evaluate(config, state, observation)` decision engine implementing per-`(napplet, opClass)` token-bucket rate limiting, an init-burst guard, declarative content matchers (event kind / payload size / focus conditions), a soft `unfocusedMultiplier`, and first-match-wins rule precedence (per-napplet policy → init-burst → content matchers → op-class rate → global rate → defaults). Includes pure config mutations with serialize/deserialize (defensive, falls back to defaults on malformed input) and conservative built-in defaults (exceed-action `flag`, init-burst `block`, `0.25×` unfocused).
+
+  **`@kehto/runtime` integration:** every napplet message that passes the ACL check is now evaluated by the firewall before dispatch. Adds a `firewall-state` container, three new **optional** `RuntimeAdapter` hooks (`firewallPersistence`, `onFirewallEvent`, `getFocusContext`), and an allow/deny/ask per-napplet policy that reuses the consent handler ("reject now, prompt async, remember choice"). Config persists; counters are ephemeral. Focus is sourced shell-side (forge-proof), never self-reported by napplets.
+
+  **Note (`@kehto/runtime` public API):** the `ConsentRequest` type gains a `'firewall-policy'` variant and its `event` field is now optional (a firewall consent prompt carries no Nostr event). Existing consent handlers continue to work; handlers that exhaustively switch on `ConsentRequest.type` should add the new variant.
+
+### Patch Changes
+
+- Updated dependencies [50a3241]
+- Updated dependencies [f5148a3]
+  - @kehto/acl@0.9.0
+  - @kehto/firewall@0.2.0
+
 ## 0.8.0
 
 ### Minor Changes
