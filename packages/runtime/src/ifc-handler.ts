@@ -18,10 +18,14 @@ type RuntimeIfcMessage = IfcMessage & {
   channelId?: string;
 };
 
+type IfcDomain = 'ifc' | 'inc';
+
 type IfcState = {
   subscriptions: Map<string, Set<string>>;
   channels: Map<string, IfcChannel>;
   channelsByWindow: Map<string, Set<string>>;
+  /** D6: per-window vocabulary tracking — set on first message a window sends. */
+  domainByWindow: Map<string, IfcDomain>;
 };
 
 export interface IfcRuntime {
@@ -35,6 +39,7 @@ export function createIfcRuntime(hooks: RuntimeAdapter, sessionRegistry: Session
     subscriptions: new Map(),
     channels: new Map(),
     channelsByWindow: new Map(),
+    domainByWindow: new Map(),
   };
 
   return {
@@ -44,13 +49,33 @@ export function createIfcRuntime(hooks: RuntimeAdapter, sessionRegistry: Session
     destroyWindow(windowId: string): void {
       removeWindowChannels(state, hooks, windowId);
       removeWindowSubscriptions(state, windowId);
+      state.domainByWindow.delete(windowId);
     },
     clear(): void {
       state.subscriptions.clear();
       state.channels.clear();
       state.channelsByWindow.clear();
+      state.domainByWindow.clear();
     },
   };
+}
+
+/**
+ * Extract the domain prefix from a message type (the portion before the first '.').
+ * e.g. 'inc.subscribe' → 'inc', 'ifc.channel.open' → 'ifc'
+ */
+function domainOf(type: string): IfcDomain {
+  const dot = type.indexOf('.');
+  const d = dot === -1 ? type : type.slice(0, dot);
+  return d === 'inc' ? 'inc' : 'ifc';
+}
+
+/**
+ * Look up the tracked vocabulary for a given window, falling back to a provided
+ * default when not yet recorded.
+ */
+function prefixFor(state: IfcState, windowId: string, fallback: IfcDomain): IfcDomain {
+  return state.domainByWindow.get(windowId) ?? fallback;
 }
 
 function addChannel(state: IfcState, channelId: string, peerA: string, peerB: string): void {
@@ -103,36 +128,57 @@ function handleIfcMessage(
   const dotIdx = msg.type.indexOf('.');
   const action = msg.type.slice(dotIdx + 1);
 
+  // D6: record the vocabulary this window uses on the first message it sends
+  const incomingDomain = domainOf(msg.type);
+  if (!state.domainByWindow.has(windowId)) {
+    state.domainByWindow.set(windowId, incomingDomain);
+  }
+
   switch (action) {
-    case 'emit': handleEmit(state, hooks, windowId, m); return;
-    case 'subscribe': handleSubscribe(state, hooks, windowId, m); return;
+    case 'emit': handleEmit(state, hooks, windowId, m, incomingDomain); return;
+    case 'subscribe': handleSubscribe(state, hooks, windowId, m, incomingDomain); return;
     case 'unsubscribe': handleUnsubscribe(state, windowId, m); return;
-    case 'channel.open': handleChannelOpen(state, hooks, sessionRegistry, windowId, m); return;
-    case 'channel.emit': handleChannelEmit(state, hooks, windowId, m); return;
-    case 'channel.broadcast': handleChannelBroadcast(state, hooks, windowId, m); return;
-    case 'channel.list': handleChannelList(state, hooks, windowId, m); return;
-    case 'channel.close': handleChannelClose(state, hooks, windowId, m); return;
+    case 'channel.open': handleChannelOpen(state, hooks, sessionRegistry, windowId, m, incomingDomain); return;
+    case 'channel.emit': handleChannelEmit(state, hooks, windowId, m, incomingDomain); return;
+    case 'channel.broadcast': handleChannelBroadcast(state, hooks, windowId, m, incomingDomain); return;
+    case 'channel.list': handleChannelList(state, hooks, windowId, m, incomingDomain); return;
+    case 'channel.close': handleChannelClose(state, hooks, windowId, m, incomingDomain); return;
     default: return;
   }
 }
 
-function handleEmit(state: IfcState, hooks: RuntimeAdapter, windowId: string, m: RuntimeIfcMessage): void {
+function handleEmit(
+  state: IfcState,
+  hooks: RuntimeAdapter,
+  windowId: string,
+  m: RuntimeIfcMessage,
+  senderDomain: IfcDomain,
+): void {
   const topic = m.topic ?? '';
   if (!topic) return;
   const subscribers = state.subscriptions.get(topic);
   if (!subscribers) return;
   for (const subscriberWindowId of subscribers) {
     if (subscriberWindowId !== windowId) {
-      hooks.sendToNapplet(subscriberWindowId, { type: 'ifc.event', topic, payload: m.payload, sender: windowId } as NappletMessage);
+      // D6: use the recipient's own tracked vocabulary; fall back to sender's domain
+      const prefix = prefixFor(state, subscriberWindowId, senderDomain);
+      hooks.sendToNapplet(subscriberWindowId, { type: `${prefix}.event`, topic, payload: m.payload, sender: windowId } as NappletMessage);
     }
   }
 }
 
-function handleSubscribe(state: IfcState, hooks: RuntimeAdapter, windowId: string, m: RuntimeIfcMessage): void {
+function handleSubscribe(
+  state: IfcState,
+  hooks: RuntimeAdapter,
+  windowId: string,
+  m: RuntimeIfcMessage,
+  incomingDomain: IfcDomain,
+): void {
   const id = m.id ?? '';
   const topic = m.topic ?? '';
   if (!topic) {
-    hooks.sendToNapplet(windowId, { type: 'ifc.subscribe.result', id, error: 'missing topic' } as NappletMessage);
+    // D6: direct response echoes the requester's incoming domain prefix
+    hooks.sendToNapplet(windowId, { type: `${incomingDomain}.subscribe.result`, id, error: 'missing topic' } as NappletMessage);
     return;
   }
   let subscriptions = state.subscriptions.get(topic);
@@ -141,7 +187,8 @@ function handleSubscribe(state: IfcState, hooks: RuntimeAdapter, windowId: strin
     state.subscriptions.set(topic, subscriptions);
   }
   subscriptions.add(windowId);
-  hooks.sendToNapplet(windowId, { type: 'ifc.subscribe.result', id } as NappletMessage);
+  // D6: direct response echoes the requester's incoming domain prefix
+  hooks.sendToNapplet(windowId, { type: `${incomingDomain}.subscribe.result`, id } as NappletMessage);
 }
 
 function handleUnsubscribe(state: IfcState, windowId: string, m: RuntimeIfcMessage): void {
@@ -159,33 +206,62 @@ function handleChannelOpen(
   sessionRegistry: SessionRegistry,
   windowId: string,
   m: RuntimeIfcMessage,
+  incomingDomain: IfcDomain,
 ): void {
   const id = m.id ?? '';
   const peerWindow = resolveTarget(sessionRegistry, m.target ?? '');
   if (!peerWindow) {
-    hooks.sendToNapplet(windowId, { type: 'ifc.channel.open.result', id, error: 'target not found' } as NappletMessage);
+    // D6: direct error response echoes the requester's incoming domain prefix
+    hooks.sendToNapplet(windowId, { type: `${incomingDomain}.channel.open.result`, id, error: 'target not found' } as NappletMessage);
     return;
   }
   const channelId = hooks.crypto.randomUUID().replace(/-/g, '').slice(0, 32);
   addChannel(state, channelId, windowId, peerWindow);
-  hooks.sendToNapplet(windowId, { type: 'ifc.channel.open.result', id, channelId, peer: peerWindow } as NappletMessage);
+  // D6: direct response echoes the requester's incoming domain prefix
+  hooks.sendToNapplet(windowId, { type: `${incomingDomain}.channel.open.result`, id, channelId, peer: peerWindow } as NappletMessage);
 }
 
-function handleChannelEmit(state: IfcState, hooks: RuntimeAdapter, windowId: string, m: RuntimeIfcMessage): void {
+function handleChannelEmit(
+  state: IfcState,
+  hooks: RuntimeAdapter,
+  windowId: string,
+  m: RuntimeIfcMessage,
+  senderDomain: IfcDomain,
+): void {
   const peer = peerOf(state, m.channelId ?? '', windowId);
-  if (peer) hooks.sendToNapplet(peer, { type: 'ifc.channel.event', channelId: m.channelId ?? '', sender: windowId, payload: m.payload } as NappletMessage);
+  if (peer) {
+    // D6: push to other napplet uses recipient's own tracked vocabulary
+    const prefix = prefixFor(state, peer, senderDomain);
+    hooks.sendToNapplet(peer, { type: `${prefix}.channel.event`, channelId: m.channelId ?? '', sender: windowId, payload: m.payload } as NappletMessage);
+  }
 }
 
-function handleChannelBroadcast(state: IfcState, hooks: RuntimeAdapter, windowId: string, m: RuntimeIfcMessage): void {
+function handleChannelBroadcast(
+  state: IfcState,
+  hooks: RuntimeAdapter,
+  windowId: string,
+  m: RuntimeIfcMessage,
+  senderDomain: IfcDomain,
+): void {
   const channels = state.channelsByWindow.get(windowId);
   if (!channels) return;
   for (const channelId of channels) {
     const peer = peerOf(state, channelId, windowId);
-    if (peer) hooks.sendToNapplet(peer, { type: 'ifc.channel.event', channelId, sender: windowId, payload: m.payload } as NappletMessage);
+    if (peer) {
+      // D6: push to other napplet uses recipient's own tracked vocabulary
+      const prefix = prefixFor(state, peer, senderDomain);
+      hooks.sendToNapplet(peer, { type: `${prefix}.channel.event`, channelId, sender: windowId, payload: m.payload } as NappletMessage);
+    }
   }
 }
 
-function handleChannelList(state: IfcState, hooks: RuntimeAdapter, windowId: string, m: RuntimeIfcMessage): void {
+function handleChannelList(
+  state: IfcState,
+  hooks: RuntimeAdapter,
+  windowId: string,
+  m: RuntimeIfcMessage,
+  incomingDomain: IfcDomain,
+): void {
   const channels = [];
   const set = state.channelsByWindow.get(windowId);
   if (set) {
@@ -194,15 +270,25 @@ function handleChannelList(state: IfcState, hooks: RuntimeAdapter, windowId: str
       if (peer) channels.push({ id: channelId, peer });
     }
   }
-  hooks.sendToNapplet(windowId, { type: 'ifc.channel.list.result', id: m.id ?? '', channels } as NappletMessage);
+  // D6: direct response echoes the requester's incoming domain prefix
+  hooks.sendToNapplet(windowId, { type: `${incomingDomain}.channel.list.result`, id: m.id ?? '', channels } as NappletMessage);
 }
 
-function handleChannelClose(state: IfcState, hooks: RuntimeAdapter, windowId: string, m: RuntimeIfcMessage): void {
+function handleChannelClose(
+  state: IfcState,
+  hooks: RuntimeAdapter,
+  windowId: string,
+  m: RuntimeIfcMessage,
+  closerDomain: IfcDomain,
+): void {
   const channelId = m.channelId ?? '';
   const peer = peerOf(state, channelId, windowId);
   if (!peer) return;
-  hooks.sendToNapplet(windowId, { type: 'ifc.channel.closed', channelId } as NappletMessage);
-  hooks.sendToNapplet(peer, { type: 'ifc.channel.closed', channelId } as NappletMessage);
+  // D6: direct response (closed-to-self) echoes the closer's incoming domain prefix
+  hooks.sendToNapplet(windowId, { type: `${closerDomain}.channel.closed`, channelId } as NappletMessage);
+  // D6: push to peer uses the peer's own tracked vocabulary; fall back to closer's domain
+  const peerPrefix = prefixFor(state, peer, closerDomain);
+  hooks.sendToNapplet(peer, { type: `${peerPrefix}.channel.closed`, channelId } as NappletMessage);
   removeChannel(state, channelId);
 }
 
@@ -218,7 +304,12 @@ function removeWindowChannels(state: IfcState, hooks: RuntimeAdapter, windowId: 
   if (!channelIds) return;
   for (const channelId of Array.from(channelIds)) {
     const peer = peerOf(state, channelId, windowId);
-    if (peer) hooks.sendToNapplet(peer, { type: 'ifc.channel.closed', channelId } as NappletMessage);
+    if (peer) {
+      // D6: push to peer uses the peer's own tracked vocabulary; fall back to destroyee's domain
+      const destroyeeDomain = prefixFor(state, windowId, 'ifc');
+      const peerPrefix = prefixFor(state, peer, destroyeeDomain);
+      hooks.sendToNapplet(peer, { type: `${peerPrefix}.channel.closed`, channelId } as NappletMessage);
+    }
     removeChannel(state, channelId);
   }
 }

@@ -218,12 +218,38 @@ export interface AclCheckEvent {
  *
  * The two namespaces do not cross: a bare-name lookup never matches a sandbox
  * entry and a `perm:`-prefixed lookup never matches a NUB entry.
+ *
+ * ## Dual-emit (back-compat window — D2/D3, ALIGN-01..04)
+ *
+ * Both `naps` and `nubs` are emitted in the shell.init payload for one
+ * back-compat release:
+ *
+ *   - `naps` (PRIMARY) — NAP vocabulary: bare domain `inc`, protocol IDs
+ *     `inc:NAP-01..inc:NAP-06`. Consumed by `@napplet/shim >=0.9.0`.
+ *     Contains NO unaliased `ifc` or `NUB-NN` identifiers.
+ *   - `nubs` (LEGACY) — retains the original `ifc` / `ifc:NUB-01..06` /
+ *     `ifc:NAP-01` vocabulary for `@napplet/nub` and `<=0.8.x` shims.
+ *
+ * The dual-emit is intentional; removal is tracked as CLEANUP-01.
  */
 export interface ShellCapabilities {
   /**
-   * NUB domain prefixes the shell handles. Kehto's hosted playground set is:
-   * relay, identity, storage, ifc, theme, keys, media, notify, config,
-   * resource, connect, class. `relay` is conditional on RelayPoolHooks.
+   * NAP-vocabulary domain entries the shell handles (PRIMARY — consumed by
+   * `@napplet/shim >=0.9.0`). Bare domain `inc` (the NAP rename of `ifc`)
+   * plus protocol IDs `inc:NAP-01..inc:NAP-06`. Conditional entries:
+   * `relay`, `outbox` prepended when a relay pool is wired; `upload` appended
+   * when an upload backend is wired; `intent` appended when an intent
+   * dispatcher is available.
+   *
+   * Contains NO `ifc`, `NUB-NN`, or unaliased legacy identifiers.
+   */
+  naps: string[];
+  /**
+   * Legacy NUB domain entries the shell handles (retained for one back-compat
+   * release — consumed by `@napplet/nub` and `@napplet/shim <=0.8.x`).
+   * Vocabulary: `ifc`, `ifc:NUB-01..06`, `ifc:NAP-01`, bare domain names.
+   * Contents are unchanged from the pre-0.9.0 release; `naps` is the primary
+   * field for new shims. Removal tracked as CLEANUP-01.
    *
    * Entries are bare domain names — `'relay'`, `'identity'`, etc. They MUST NOT
    * carry the `perm:` prefix; that prefix is reserved for the `sandbox` array.

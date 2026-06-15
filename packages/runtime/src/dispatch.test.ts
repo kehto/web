@@ -562,6 +562,127 @@ describe('NIP-5D Envelope Dispatch', () => {
       );
       expect(event).toBeUndefined();
     });
+
+    // ─── INC vocabulary parallels (D6 / ALIGN-05) ──────────────────────────────
+
+    it('inc.subscribe produces inc.subscribe.result (D6: requester prefix echoed)', () => {
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.subscribe',
+        id: 'req-sub-inc',
+        topic: 'chat',
+      } as NappletMessage);
+      const result = ctx.sent.find(
+        (s) => s.windowId === WINDOW_ID &&
+          typeof s.message === 'object' &&
+          !Array.isArray(s.message) &&
+          (s.message as NappletMessage).type === 'inc.subscribe.result',
+      );
+      expect(result).toBeDefined();
+      expect((result!.message as any).id).toBe('req-sub-inc');
+      expect((result!.message as any).error).toBeUndefined();
+    });
+
+    it('inc.subscribe + inc.emit delivers inc.event to inc subscriber (D6: all-inc roundtrip)', () => {
+      runtime.sessionRegistry.register(WINDOW_ID_2, makeSessionEntry(WINDOW_ID_2));
+
+      // Window 2 subscribes via inc
+      runtime.handleMessage(WINDOW_ID_2, {
+        type: 'inc.subscribe',
+        topic: 'inc-news',
+      } as NappletMessage);
+
+      // Window 1 emits via inc
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.emit',
+        topic: 'inc-news',
+        payload: { text: 'inc hello' },
+      } as NappletMessage);
+
+      // Window 2 should receive inc.event (not ifc.event)
+      const event = ctx.sent.find(
+        (s) => s.windowId === WINDOW_ID_2 &&
+          typeof s.message === 'object' &&
+          !Array.isArray(s.message) &&
+          (s.message as NappletMessage).type === 'inc.event',
+      );
+      expect(event).toBeDefined();
+      expect((event!.message as any).topic).toBe('inc-news');
+      expect((event!.message as any).payload).toEqual({ text: 'inc hello' });
+      expect((event!.message as any).sender).toBe(WINDOW_ID);
+    });
+  });
+
+  // ─── Mixed-vocabulary delivery (D6 / ALIGN-05) ───────────────────────────────
+
+  describe('mixed-vocabulary delivery (D6 / ALIGN-05)', () => {
+    const WINDOW_A = 'win-mixed-A';
+    const WINDOW_B = 'win-mixed-B';
+    const WINDOW_C = 'win-mixed-C';
+
+    it('ifc subscriber receives ifc.event and inc subscriber receives inc.event for the same topic emit', () => {
+      runtime.sessionRegistry.register(WINDOW_A, makeSessionEntry(WINDOW_A));
+      runtime.sessionRegistry.register(WINDOW_B, makeSessionEntry(WINDOW_B));
+      runtime.sessionRegistry.register(WINDOW_C, makeSessionEntry(WINDOW_C));
+
+      // Window A subscribes via ifc (legacy vocabulary)
+      runtime.handleMessage(WINDOW_A, {
+        type: 'ifc.subscribe',
+        topic: 'mixed-topic',
+      } as NappletMessage);
+
+      // Window B subscribes via inc (NAP 0.9.0 vocabulary)
+      runtime.handleMessage(WINDOW_B, {
+        type: 'inc.subscribe',
+        topic: 'mixed-topic',
+      } as NappletMessage);
+
+      ctx.sent.length = 0; // drain subscribe.result envelopes
+
+      // Window C emits via inc
+      runtime.handleMessage(WINDOW_C, {
+        type: 'inc.emit',
+        topic: 'mixed-topic',
+        payload: { data: 'mixed-payload' },
+      } as NappletMessage);
+
+      // Window A (ifc subscriber) must receive ifc.event — its own vocabulary
+      const eventA = ctx.sent.find(
+        (s) => s.windowId === WINDOW_A &&
+          typeof s.message === 'object' &&
+          !Array.isArray(s.message) &&
+          (s.message as NappletMessage).type === 'ifc.event',
+      );
+      expect(eventA).toBeDefined();
+      expect((eventA!.message as any).topic).toBe('mixed-topic');
+      expect((eventA!.message as any).payload).toEqual({ data: 'mixed-payload' });
+
+      // Window B (inc subscriber) must receive inc.event — its own vocabulary
+      const eventB = ctx.sent.find(
+        (s) => s.windowId === WINDOW_B &&
+          typeof s.message === 'object' &&
+          !Array.isArray(s.message) &&
+          (s.message as NappletMessage).type === 'inc.event',
+      );
+      expect(eventB).toBeDefined();
+      expect((eventB!.message as any).topic).toBe('mixed-topic');
+      expect((eventB!.message as any).payload).toEqual({ data: 'mixed-payload' });
+
+      // No cross-contamination: A must not receive inc.event, B must not receive ifc.event
+      const wrongA = ctx.sent.find(
+        (s) => s.windowId === WINDOW_A &&
+          typeof s.message === 'object' &&
+          !Array.isArray(s.message) &&
+          (s.message as NappletMessage).type === 'inc.event',
+      );
+      const wrongB = ctx.sent.find(
+        (s) => s.windowId === WINDOW_B &&
+          typeof s.message === 'object' &&
+          !Array.isArray(s.message) &&
+          (s.message as NappletMessage).type === 'ifc.event',
+      );
+      expect(wrongA).toBeUndefined();
+      expect(wrongB).toBeUndefined();
+    });
   });
 
   // ─── ACL Enforcement ──────────────────────────────────────────────────────────
