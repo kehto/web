@@ -14,7 +14,20 @@ quality:
 lint:
   typecheck: false
 security:
-  audit: true
+  # Dependency-vulnerability auditing is intentionally OFF for the quality badge.
+  #
+  # aislop's security engine runs a live `pnpm audit`, so the score changes
+  # whenever a new advisory is published against any (transitive) dependency —
+  # independent of this repo's code. In practice every advisory it surfaced was
+  # against build-time devDependencies (esbuild, vite, js-yaml, launch-editor),
+  # several platform-specific (Windows) and none shipped to users. That made the
+  # badge non-deterministic and disconnected from code quality — it kept dropping
+  # no matter how clean the source was.
+  #
+  # This badge measures CODE quality (format, lint, complexity, ai-slop). Supply-
+  # chain vulnerability tracking belongs in a dedicated, non-blocking job
+  # (`pnpm audit` in CI / Dependabot), not gated on the quality badge.
+  audit: false
   auditTimeout: 25000
 scoring:
   weights:
