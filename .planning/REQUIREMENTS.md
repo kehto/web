@@ -93,36 +93,36 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CORE-01 | TBD | Pending |
-| CORE-02 | TBD | Pending |
-| CORE-03 | TBD | Pending |
-| CORE-04 | TBD | Pending |
-| RATE-01 | TBD | Pending |
-| RATE-02 | TBD | Pending |
-| RATE-03 | TBD | Pending |
-| BURST-01 | TBD | Pending |
-| BURST-02 | TBD | Pending |
-| CONTENT-01 | TBD | Pending |
-| CONTENT-02 | TBD | Pending |
-| CONTENT-03 | TBD | Pending |
-| POLICY-01 | TBD | Pending |
-| POLICY-02 | TBD | Pending |
-| POLICY-03 | TBD | Pending |
-| FOCUS-01 | TBD | Pending |
-| FOCUS-02 | TBD | Pending |
-| RUNTIME-01 | TBD | Pending |
-| RUNTIME-02 | TBD | Pending |
-| RUNTIME-03 | TBD | Pending |
-| RUNTIME-04 | TBD | Pending |
-| VERIFY-01 | TBD | Pending |
-| VERIFY-02 | TBD | Pending |
-| VERIFY-03 | TBD | Pending |
+| CORE-01 | Phase 80 | Pending |
+| CORE-02 | Phase 80 | Pending |
+| CORE-03 | Phase 80 | Pending |
+| CORE-04 | Phase 80 | Pending |
+| RATE-01 | Phase 80 | Pending |
+| RATE-02 | Phase 80 | Pending |
+| RATE-03 | Phase 80 | Pending |
+| BURST-01 | Phase 80 | Pending |
+| BURST-02 | Phase 80 | Pending |
+| CONTENT-01 | Phase 80 | Pending |
+| CONTENT-02 | Phase 80 | Pending |
+| CONTENT-03 | Phase 80 | Pending |
+| POLICY-01 | Phase 81 | Pending |
+| POLICY-02 | Phase 81 | Pending |
+| POLICY-03 | Phase 80 | Pending |
+| FOCUS-01 | Phase 81 | Pending |
+| FOCUS-02 | Phase 80 | Pending |
+| RUNTIME-01 | Phase 81 | Pending |
+| RUNTIME-02 | Phase 81 | Pending |
+| RUNTIME-03 | Phase 81 | Pending |
+| RUNTIME-04 | Phase 81 | Pending |
+| VERIFY-01 | Phase 80 | Pending |
+| VERIFY-02 | Phase 81 | Pending |
+| VERIFY-03 | Phase 82 | Pending |
 
 **Coverage:**
 - v1 requirements: 24 total
-- Mapped to phases: 0 (roadmap pending)
-- Unmapped: 24 ⚠️
+- Mapped to phases: 24 (Phase 80: 15, Phase 81: 8, Phase 82: 1)
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-06-15*
-*Last updated: 2026-06-15 — milestone v1.18 start*
+*Last updated: 2026-06-15 — v1.18 roadmap created; traceability mapped to Phases 80-82.*
