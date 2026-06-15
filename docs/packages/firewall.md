@@ -19,7 +19,7 @@ pnpm add @kehto/firewall
 | Field | Value |
 |-------|-------|
 | Source | `packages/firewall/package.json`, `packages/firewall/src/index.ts` |
-| Version | `0.1.0` |
+| Version | `0.2.0` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Side effects | `false` |
