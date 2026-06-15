@@ -68,7 +68,11 @@ Plans:
   3. The runtime exposes new `RuntimeAdapter` hooks — `firewallPersistence` (load/persist config), `onFirewallEvent` (audit callback for flag/block/prompt), and `getFocusContext(windowId)` — and firewall config persists across runtime reloads via `firewallPersistence` while ephemeral counters reset on reload.
   4. Focus context (`focused`, `msSinceFocusGain`) supplied to the firewall is sourced shell-side from the window manager via `getFocusContext`, never self-reported by the napplet.
   5. Runtime integration tests cover each named attack: publish flood (flag → block), init-burst block, backgrounded + init-burst, kind-5 delete spam, `ask` (reject + prompt + remembered), and unfocused-multiplier tightening.
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 81-01-PLAN.md — Workspace dep + firewall types + firewall-state container + container unit tests
+- [ ] 81-02-PLAN.md — Choke-point firewall gate, consent-handler hoist, container wiring in runtime.ts
+- [ ] 81-03-PLAN.md — Named-attack integration tests (flood, burst, kind-5, ask/remember, unfocused)
 
 ### Phase 82: Verification & Closeout
 **Goal**: Prove the milestone is regression-clean and release-ready: the existing unit suite and full E2E baseline stay green with the firewall integrated, and a changeset is staged covering the new package and the runtime change.
