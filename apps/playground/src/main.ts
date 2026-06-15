@@ -436,12 +436,10 @@ const aclRendered = new Set<string>();
 // Phase 29 (Plan 29-01, DEMO-01): Data-driven status refresh.
 //
 // Post-v1.4 UAT revealed that the previous hardcoded if-chain only updated the
-// outer topology status DOM for chat + bot. The other 8 napplets
-// (composer, preferences, toaster, feed, profile-viewer, theme-switcher,
-// hotkey-chord, media-controller) were added to `aclRendered` but their
-// `#<name>-status` span stayed at 'loading...' forever — the cause of the
-// "7/10 stuck on LOADING" user-visible bug. hotkey-chord + media-controller
-// were missing from the function entirely.
+// outer topology status DOM for chat + bot. The other napplets
+// (composer, preferences, toaster, feed, profile-viewer, theme-switcher, …)
+// were added to `aclRendered` but their `#<name>-status` span stayed at
+// 'loading...' forever — the cause of the "stuck on LOADING" user-visible bug.
 //
 // shell-host.ts marks each napplet identity-bound from the gateway-derived
 // source tuple registered for its iframe. This function is pure display: for
@@ -485,11 +483,10 @@ tap.onMessage((msg) => {
   // startup protocol message.
   //
   // Phase 29 (Plan 29-01): removed the stale `aclRendered.size < 8` bail — that
-  // count was set in Phase 20 (pre-hotkey-chord, pre-media-controller) and kept
-  // the refresh from running once the v1.3 napplet set was done, blocking the
-  // v1.4 additions. Idempotence now comes from `aclRendered.has(napplet.name)`
-  // inside the loop in refreshAclPanelsIfNeeded() — a size-based guard is
-  // redundant.
+  // count was set in Phase 20 and kept the refresh from running once the v1.3
+  // napplet set was done, blocking later additions. Idempotence now comes from
+  // `aclRendered.has(napplet.name)` inside the loop in refreshAclPanelsIfNeeded()
+  // — a size-based guard is redundant.
   if (msg.verb === 'ENVELOPE' && msg.direction === 'napplet->shell' && msg.windowId) {
     setTimeout(() => {
       refreshAclPanelsIfNeeded();
@@ -558,17 +555,6 @@ export function setSelectedNode(id: string | null): void {
   window.dispatchEvent(event);
   return true;
 };
-
-{
-  const updateBtn = document.getElementById('config-demo-update-btn');
-  if (updateBtn) {
-    let _currentTheme = 'dark';
-    updateBtn.addEventListener('click', () => {
-      _currentTheme = _currentTheme === 'dark' ? 'light' : 'dark';
-      setDemoConfigValue('theme', _currentTheme);
-    });
-  }
-}
 
 (window as Window & {
   __publishConfigValues__?: (values: Record<string, unknown>) => boolean;

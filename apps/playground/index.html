@@ -577,14 +577,6 @@
     </div>
   </template>
 
-  <!-- Phase 39 Plan 39-04 (D11): config-demo shell UI update button.
-       Wired in main.ts to flip demoConfigFixtures.theme via setDemoConfigValue,
-       which calls configServiceBundle.publishValues so all subscribers receive a push.
-       E2E uses window.__publishConfigValues__ test hook instead of this button. -->
-  <div id="config-demo-controls" style="display:none" aria-hidden="true">
-    <button id="config-demo-update-btn" type="button">toggle config (demo)</button>
-  </div>
-
   <!-- Notification inspector panel: shown inside the right inspector pane -->
   <div id="notification-inspector" aria-label="Notification inspector">
     <div class="notif-inspector-header">
