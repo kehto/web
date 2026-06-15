@@ -36,7 +36,7 @@
 
 ### Phases
 
-- [ ] **Phase 80: Firewall Pure Core (`@kehto/firewall`)** - Zero-dep, WASM-ready engine: normalized `Observation`, pure `evaluate()` (token-bucket rate, init-burst guard, content matchers, focus multiplier, precedence), pure config mutations + serialize, built-in defaults, pure-core unit suite.
+- [x] **Phase 80: Firewall Pure Core (`@kehto/firewall`)** - Zero-dep, WASM-ready engine: normalized `Observation`, pure `evaluate()` (token-bucket rate, init-burst guard, content matchers, focus multiplier, precedence), pure config mutations + serialize, built-in defaults, pure-core unit suite. (completed 2026-06-15)
 - [ ] **Phase 81: Runtime Container & Choke-Point Integration** - Stateful `firewall-state` container, new `RuntimeAdapter` hooks, message-handler wiring after the ACL check, allow/deny/ask decision-to-action mapping with shell-sourced focus, and named-attack integration tests.
 - [ ] **Phase 82: Verification & Closeout** - Full unit suite (563+) and 87–89 E2E specs green, changeset for the new package and the runtime change, milestone closeout.
 
@@ -56,7 +56,7 @@
 Plans:
 - [x] 80-01-PLAN.md — Scaffold @kehto/firewall package + full types.ts surface + vitest alias
 - [x] 80-02-PLAN.md — defaults.ts (built-in limits, flag/block defaults) + config.ts (immutable mutations, serialize, defensive deserialize) + tests
-- [ ] 80-03-PLAN.md — pure evaluate() engine (token bucket, init-burst, content matchers, focus multiplier, precedence) + barrel index.ts + tests
+- [x] 80-03-PLAN.md — pure evaluate() engine (token bucket, init-burst, content matchers, focus multiplier, precedence) + barrel index.ts + tests
 
 ### Phase 81: Runtime Container & Choke-Point Integration
 **Goal**: Wire the pure firewall into the runtime: a stateful container holding persisted config plus ephemeral counters and per-window init/focus tracking, new `RuntimeAdapter` hooks, and evaluation at the message-handler choke point after a successful ACL check, mapping allow/deny/ask decisions to dispatch/reject/consent actions with shell-sourced focus — proven by integration tests for each named attack.
@@ -87,7 +87,7 @@ Phases execute in numeric order: 80 → 81 → 82
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 80. Firewall Pure Core | 2/3 | In Progress|  |
+| 80. Firewall Pure Core | 3/3 | Complete   | 2026-06-15 |
 | 81. Runtime Container & Choke-Point Integration | 0/TBD | Not started | - |
 | 82. Verification & Closeout | 0/TBD | Not started | - |
 

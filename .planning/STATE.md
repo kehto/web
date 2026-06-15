@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.18
 milestone_name: Napplet Firewall
-status: planning
-last_updated: "2026-06-15T15:20:00.000Z"
-last_activity: "2026-06-15 — Plan 80-02 complete: defaults.ts + config.ts + 44 green tests"
+status: completed
+last_updated: "2026-06-15T13:31:26.810Z"
+last_activity: "2026-06-15 — Plan 80-03 complete: evaluate.ts + index.ts + 43 tests green, 819/819 root suite green; Phase 80 complete"
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
-  percent: 67
+  completed_plans: 3
+  percent: 100
 ---
 
 # Project State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-06-15, v1.18 started)
 
 ## Current Position
 
-Phase: 80 — Firewall Pure Core (`@kehto/firewall`) — in progress (2/3 plans complete)
-Plan: 03 (next)
-Status: Plan 02 complete — defaults.ts + config.ts with 44 green tests; ready for Plan 03 (evaluate.ts + index.ts)
-Last activity: 2026-06-15 — Plan 80-02 complete: defaults.ts + config.ts + 44 green tests
+Phase: 80 — Firewall Pure Core (`@kehto/firewall`) — COMPLETE (3/3 plans done)
+Plan: 03 (complete)
+Status: Phase 80 complete — @kehto/firewall pure core with 87 green tests, tsup build artifacts, VERIFY-01 satisfied; ready for Phase 81
+Last activity: 2026-06-15 — Plan 80-03 complete: evaluate.ts + index.ts + 43 evaluate tests green (819/819 root suite green)
 
 ## v1.18 Phase Sequence
 
@@ -89,7 +89,7 @@ Full decision log (v1.0 → v1.17) lives in `.planning/PROJECT.md` Key Decisions
 
 ## Session Continuity
 
-Last session: 2026-06-15T13:13:47.956Z
+Last session: 2026-06-15T13:31:26.802Z
 Resume: v1.18 Napplet Firewall roadmap created (Phases 80-82, 24/24 requirements mapped). Ready to plan Phase 80 with `/gsd:plan-phase 80`.
 Current milestone: v1.18 Napplet Firewall.
 
@@ -100,7 +100,9 @@ Current milestone: v1.18 Napplet Firewall.
 - **setGlobalRate is a separate exported function** (not an overload of setRateLimit) — clearer API, mirrors acl's distinct setQuota
 - **DEFAULT_EXCEED_ACTION='flag', DEFAULT_BURST_ACTION='block'** — conservative allow+audit default with documented burst exception (CORE-04, BURST-02)
 - **DEFAULT_UNFOCUSED_MULTIPLIER=0.25** — tightens unfocused budget without zeroing it (FOCUS-02 invariant)
+- **ruleId encodes resolution tier (rate:opclass|global|default)** — not 'rate:ok' — ruleId is the audit trail for callers
 
 ## Operator Next Steps
 
-- Execute Plan 80-03 (evaluate.ts + index.ts + evaluate.test.ts) with `/gsd:execute-phase 80 03`.
+- Phase 80 complete. Begin Phase 81 (runtime container + choke-point integration) with `/gsd:plan-phase 81`.
+- Reminder: REQUIREMENTS.md now shows 13 of Phase 80's 15 requirements marked complete (CORE-03 and CORE-04 from Plan 02 were pre-marked; all Plan 03 requirements verified).
