@@ -1,5 +1,8 @@
 # Kehto Runtime
 
+[![CI](https://github.com/kehto/web/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kehto/web/actions/workflows/ci.yml)
+[![Release](https://github.com/kehto/web/actions/workflows/release.yml/badge.svg)](https://github.com/kehto/web/actions/workflows/release.yml)
+[![Publish Web to GitHub Pages](https://github.com/kehto/web/actions/workflows/playground-pages.yml/badge.svg?branch=main)](https://github.com/kehto/web/actions/workflows/playground-pages.yml)
 [![AI Slop Score](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkehto%2Fweb%2Fmain%2F.github%2Fbadges%2Faislop-score.json)](https://github.com/kehto/web/actions/workflows/aislop-badge.yml)
 
 Kehto is an early web-based runtime implementation for NIP-5D Nostr applets
