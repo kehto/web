@@ -11,9 +11,21 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./51": {
+      "types": "./dist/51/index.d.ts",
+      "import": "./dist/51/index.js"
+    },
+    "./65": {
+      "types": "./dist/65/index.d.ts",
+      "import": "./dist/65/index.js"
+    },
     "./66": {
-      "types": "./dist/66.d.ts",
-      "import": "./dist/66.js"
+      "types": "./dist/66/index.d.ts",
+      "import": "./dist/66/index.js"
+    },
+    "./89": {
+      "types": "./dist/89/index.d.ts",
+      "import": "./dist/89/index.js"
     }
   },
   "files": [
@@ -35,7 +47,7 @@
   "scripts": {
     "build": "tsup",
     "type-check": "tsc --noEmit",
-    "test:unit": "cd ../.. && vitest run --config vitest.config.ts packages/nip/src/66.test.ts",
+    "test:unit": "cd ../.. && vitest run --config vitest.config.ts packages/nip",
     "test": "pnpm test:unit"
   },
   "license": "MIT",
@@ -47,8 +59,13 @@
   "keywords": [
     "nostr",
     "nip",
+    "nip51",
+    "nip65",
     "nip66",
+    "nip89",
     "relay-discovery",
+    "outbox-model",
+    "app-handlers",
     "kehto",
     "napplet"
   ]

@@ -29,7 +29,7 @@ pnpm --filter @kehto/playground preview --port 4174
 | `@kehto/runtime` | Runtime engine under test. |
 | `@kehto/shell` | Browser shell bridge. |
 | `@kehto/services` | Reference services. |
-| `@kehto/nip` | Relay-discovery utility. |
+| `@kehto/nip` | Unique Nostr NIP utilities (NIP-51/65/66/89). |
 | `nostr-tools`, `leader-line`, `qrcode` | Playground-only integration/display dependencies. |
 
 ## Primary Surfaces
