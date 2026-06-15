@@ -3,6 +3,7 @@
   "entryPointStrategy": "packages",
   "entryPoints": [
     "packages/acl",
+    "packages/firewall",
     "packages/nip",
     "packages/runtime",
     "packages/shell",
