@@ -55,7 +55,7 @@
 **Plans**: 3 plans
 Plans:
 - [x] 80-01-PLAN.md — Scaffold @kehto/firewall package + full types.ts surface + vitest alias
-- [ ] 80-02-PLAN.md — defaults.ts (built-in limits, flag/block defaults) + config.ts (immutable mutations, serialize, defensive deserialize) + tests
+- [x] 80-02-PLAN.md — defaults.ts (built-in limits, flag/block defaults) + config.ts (immutable mutations, serialize, defensive deserialize) + tests
 - [ ] 80-03-PLAN.md — pure evaluate() engine (token bucket, init-burst, content matchers, focus multiplier, precedence) + barrel index.ts + tests
 
 ### Phase 81: Runtime Container & Choke-Point Integration
@@ -87,7 +87,7 @@ Phases execute in numeric order: 80 → 81 → 82
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 80. Firewall Pure Core | 1/3 | In Progress|  |
+| 80. Firewall Pure Core | 2/3 | In Progress|  |
 | 81. Runtime Container & Choke-Point Integration | 0/TBD | Not started | - |
 | 82. Verification & Closeout | 0/TBD | Not started | - |
 

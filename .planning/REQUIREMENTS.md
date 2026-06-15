@@ -15,19 +15,19 @@
 
 - [ ] **CORE-01**: A host can evaluate a normalized `Observation` against firewall config + counter state via a pure function and receive a decision (`pass` / `reject` / `prompt`) with `action`, `ruleId`, and `reason`, plus the next counter state — with no I/O, mutation, or wall-clock reads.
 - [x] **CORE-02**: The pure core operates only on the normalized `Observation` (`napplet`, `opClass`, `kind?`, `size?`, `initElapsedMs?`, `focused`, `msSinceFocusGain?`, `now`) and never parses protocol envelopes.
-- [ ] **CORE-03**: Firewall config can be mutated through pure functions (set per-napplet policy, set rate limit, add content matcher) that return new config, and can be serialized and deserialized round-trip without loss.
-- [ ] **CORE-04**: Built-in defaults apply conservative rate/burst limits to every napplet out of the box, with default exceed-action `flag`.
+- [x] **CORE-03**: Firewall config can be mutated through pure functions (set per-napplet policy, set rate limit, add content matcher) that return new config, and can be serialized and deserialized round-trip without loss.
+- [x] **CORE-04**: Built-in defaults apply conservative rate/burst limits to every napplet out of the box, with default exceed-action `flag`.
 
 ### Rate Limiting
 
 - [ ] **RATE-01**: A napplet exceeding its per-operation-class rate budget triggers the configured exceed-action (`flag` / `block` / `ignore`).
 - [ ] **RATE-02**: Rate limits use a token bucket keyed by `(napplet dTag, opClass)` with O(1) fixed state and time-based refill driven by the injected `now`.
-- [ ] **RATE-03**: A per-napplet global rate budget applies as a fallback to operation classes that have no specific rule.
+- [x] **RATE-03**: A per-napplet global rate budget applies as a fallback to operation classes that have no specific rule.
 
 ### Init-Burst Guard
 
 - [ ] **BURST-01**: A napplet emitting more than the configured number of operations within its init window is caught by the burst guard.
-- [ ] **BURST-02**: The init-burst guard defaults to `block` (no legitimate napplet needs a large burst in its first moments).
+- [x] **BURST-02**: The init-burst guard defaults to `block` (no legitimate napplet needs a large burst in its first moments).
 
 ### Content Matchers
 
@@ -95,13 +95,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | CORE-01 | Phase 80 | Pending |
 | CORE-02 | Phase 80 | Complete |
-| CORE-03 | Phase 80 | Pending |
-| CORE-04 | Phase 80 | Pending |
+| CORE-03 | Phase 80 | Complete |
+| CORE-04 | Phase 80 | Complete |
 | RATE-01 | Phase 80 | Pending |
 | RATE-02 | Phase 80 | Pending |
-| RATE-03 | Phase 80 | Pending |
+| RATE-03 | Phase 80 | Complete |
 | BURST-01 | Phase 80 | Pending |
-| BURST-02 | Phase 80 | Pending |
+| BURST-02 | Phase 80 | Complete |
 | CONTENT-01 | Phase 80 | Pending |
 | CONTENT-02 | Phase 80 | Pending |
 | CONTENT-03 | Phase 80 | Pending |

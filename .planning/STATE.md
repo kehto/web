@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.18
 milestone_name: Napplet Firewall
 status: planning
-last_updated: "2026-06-15T13:13:47.968Z"
-last_activity: 2026-06-15 — v1.18 roadmap created (Phases 80-82)
+last_updated: "2026-06-15T15:20:00.000Z"
+last_activity: "2026-06-15 — Plan 80-02 complete: defaults.ts + config.ts + 44 green tests"
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
-  percent: 33
+  completed_plans: 2
+  percent: 67
 ---
 
 # Project State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-06-15, v1.18 started)
 
 ## Current Position
 
-Phase: 80 — Firewall Pure Core (`@kehto/firewall`) — in progress (1/3 plans complete)
-Plan: 02 (next)
-Status: Plan 01 complete — package scaffold + type surface done; ready for Plan 02 (evaluate + config + defaults)
-Last activity: 2026-06-15 — Plan 80-01 complete: @kehto/firewall scaffolded, type surface defined
+Phase: 80 — Firewall Pure Core (`@kehto/firewall`) — in progress (2/3 plans complete)
+Plan: 03 (next)
+Status: Plan 02 complete — defaults.ts + config.ts with 44 green tests; ready for Plan 03 (evaluate.ts + index.ts)
+Last activity: 2026-06-15 — Plan 80-02 complete: defaults.ts + config.ts + 44 green tests
 
 ## v1.18 Phase Sequence
 
@@ -97,7 +97,10 @@ Current milestone: v1.18 Napplet Firewall.
 
 - **BurstGuard is first-class field in NappletRules** (not ContentMatcher) — per RESEARCH Open Question 2 resolution
 - **@kehto/firewall scaffolded as exact structural mirror of @kehto/acl** — zero runtime deps, ESM-only, tsup build, verbatimModuleSyntax
+- **setGlobalRate is a separate exported function** (not an overload of setRateLimit) — clearer API, mirrors acl's distinct setQuota
+- **DEFAULT_EXCEED_ACTION='flag', DEFAULT_BURST_ACTION='block'** — conservative allow+audit default with documented burst exception (CORE-04, BURST-02)
+- **DEFAULT_UNFOCUSED_MULTIPLIER=0.25** — tightens unfocused budget without zeroing it (FOCUS-02 invariant)
 
 ## Operator Next Steps
 
-- Execute Plan 80-02 (evaluate + config + defaults) with `/gsd:execute-phase 80 02`.
+- Execute Plan 80-03 (evaluate.ts + index.ts + evaluate.test.ts) with `/gsd:execute-phase 80 03`.
