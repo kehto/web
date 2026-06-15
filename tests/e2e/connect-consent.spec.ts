@@ -45,8 +45,8 @@ test.describe('NUB-CONNECT consent flow (E2E-21)', () => {
         });
       } catch { /* best-effort — timeout or network error is acceptable */ }
     });
-    // Wait for demo to boot (config-demo is 11th — gate on its frame container being present).
-    await page.waitForSelector('#config-demo-frame-container iframe', { timeout: 10_000 });
+    // Wait for demo to boot (cvm-relatr is the last napplet in DEMO_NAPPLETS — gate on its frame container being present).
+    await page.waitForSelector('#cvm-relatr-frame-container iframe', { timeout: 10_000 });
   });
 
   test('approve flow — __grantConnectOrigin__ records the grant and localStorage reflects it', async ({ page }) => {

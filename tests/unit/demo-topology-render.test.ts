@@ -23,11 +23,11 @@ describe('demo topology render output', () => {
         frameContainerId: 'bot-frame-container',
       },
       {
-        name: 'config-demo',
-        label: 'config-demo',
-        statusId: 'config-demo-status',
-        aclId: 'config-demo-acl',
-        frameContainerId: 'config-demo-frame-container',
+        name: 'runtime-fixture',
+        label: 'runtime-fixture',
+        statusId: 'runtime-fixture-status',
+        aclId: 'runtime-fixture-acl',
+        frameContainerId: 'runtime-fixture-frame-container',
         surface: 'runtime-demo',
         hasAclControls: false,
       },
@@ -64,7 +64,7 @@ describe('demo topology render output', () => {
     expect(markup).toContain('>runtime demos<');
     expect(markup).toContain('>runtime demo<');
     expect(markup).toContain('id="chat-acl"');
-    expect(markup).not.toContain('id="config-demo-acl"');
+    expect(markup).not.toContain('id="runtime-fixture-acl"');
   });
 
   it('replaces the old merged label and preserves the bottom debugger shell in index.html', () => {
