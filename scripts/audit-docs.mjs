@@ -214,9 +214,9 @@ function checkDocsCommands() {
     fail('docs/package.json scripts.docs:build must copy TypeDoc output into the VitePress artifact');
   }
 
-  const workflowPath = join(repoRoot, '.github', 'workflows', 'build.yml');
-  const workflow = assertFile(workflowPath, 'Build workflow') ? read(workflowPath) : '';
-  assertContains(workflowPath, workflow, 'pnpm docs:check', 'Build workflow docs gate');
+  const workflowPath = join(repoRoot, '.github', 'workflows', 'ci.yml');
+  const workflow = assertFile(workflowPath, 'CI workflow') ? read(workflowPath) : '';
+  assertContains(workflowPath, workflow, 'pnpm docs:check', 'CI workflow docs gate');
 
   const maintenancePath = join(docsDir, 'strategy', 'maintenance.md');
   const maintenance = assertFile(maintenancePath, 'docs maintenance guide') ? read(maintenancePath) : '';
