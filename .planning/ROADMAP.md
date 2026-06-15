@@ -50,7 +50,7 @@
   4. A `>=0.9.0` napplet sending `inc.emit`, `inc.subscribe`, or `inc.unsubscribe` wire messages is routed through the existing IFC handler at the runtime dispatch layer, and legacy `ifc.*` messages continue to be handled during the transition window.
   5. The ACL gate authorizes `inc.*` actions identically to the corresponding `ifc.*` actions, so a napplet using the new `inc` domain key passes the same capability check as one using the legacy `ifc` key.
 **Plans**: 3 plans
-- [ ] 83-01-PLAN.md — ACL resolver maps `inc` identically to `ifc` (ALIGN-06)
+- [x] 83-01-PLAN.md — ACL resolver maps `inc` identically to `ifc` (ALIGN-06)
 - [ ] 83-02-PLAN.md — Runtime registers `inc` dispatch key + domain-aware IFC handler (ALIGN-05)
 - [ ] 83-03-PLAN.md — Shell `naps`/`nubs` dual-emit + shim@0.9.0 conformance test + changeset (ALIGN-01/02/03/04/07/08)
 **UI hint**: no
@@ -59,7 +59,7 @@
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 83. NAP Ontology Alignment | v1.19 | 0/3 | Not started | - |
+| 83. NAP Ontology Alignment | v1.19 | 1/3 | In Progress|  |
 
 ## Backlog
 
