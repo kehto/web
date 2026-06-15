@@ -332,60 +332,6 @@ function markNappletIdentityBound(info: NappletInfo, entry: SessionEntry): void 
   info.aggregateHash = entry.aggregateHash;
 }
 
-function findNappletByName(name: string): { windowId: string; info: NappletInfo } | null {
-  for (const [windowId, info] of napplets.entries()) {
-    if (info.name === name) return { windowId, info };
-  }
-  return null;
-}
-
-function grantLoadedNappletCapability(name: string, capability: Capability): boolean {
-  const entry = findNappletByName(name);
-  if (!entry) {
-    console.warn(`[demo] grant helper: ${name} napplet not loaded yet`);
-    return false;
-  }
-  if (!entry.info.identityBound) {
-    console.warn(`[demo] grant helper: ${name} not yet identity-bound`);
-    return false;
-  }
-  relay.runtime.aclState.grant(
-    entry.info.pubkey ?? '',
-    entry.info.dTag ?? '',
-    entry.info.aggregateHash ?? '',
-    capability,
-  );
-  relay.runtime.aclState.persist();
-  return true;
-}
-
-function installGrantHooks(): void {
-  (window as Window & { __grantKeysForward__?: () => boolean }).__grantKeysForward__ = (): boolean =>
-    grantLoadedNappletCapability('hotkey-chord', 'keys:forward');
-  (window as Window & { __grantMediaControl__?: () => boolean }).__grantMediaControl__ = (): boolean =>
-    grantLoadedNappletCapability('media-controller', 'media:control');
-}
-
-function installReservedChordSentinel(): void {
-  const reservedChordSentinel = document.createElement('div');
-  reservedChordSentinel.id = 'reserved-chord-last-fired';
-  reservedChordSentinel.setAttribute('data-testid', 'reserved-chord-last-fired');
-  reservedChordSentinel.style.cssText = [
-    'position: fixed',
-    'bottom: 4px',
-    'right: 4px',
-    'padding: 2px 8px',
-    'font: 11px/1.4 monospace',
-    'color: var(--nap-theme-muted, #888)',
-    'background: var(--nap-theme-overlay, rgba(0,0,0,0.4))',
-    'border-radius: 3px',
-    'z-index: 9999',
-    'pointer-events: none',
-  ].join('; ');
-  reservedChordSentinel.textContent = '';
-  document.body.appendChild(reservedChordSentinel);
-}
-
 /**
  * Boot the shell: create ShellBridge, install tap, wire up proxy.
  *
@@ -413,8 +359,6 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
   window.addEventListener("message", relay.handleMessage);
   bindTapIdentityUpdates(tap);
   setMessageTap(tap);
-  installGrantHooks();
-  installReservedChordSentinel();
 
   return { tap, relay };
 }

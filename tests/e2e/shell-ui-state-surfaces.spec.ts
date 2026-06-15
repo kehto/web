@@ -42,11 +42,8 @@ const IDENTITY_BOUND_STATUS_IDS = [
   'bot-status',
   'chat-status',
   'composer-status',
-  'config-demo-status',
   'cvm-relatr-status',
   'feed-status',
-  'hotkey-chord-status',
-  'media-controller-status',
   'preferences-status',
   'profile-status',
   'resource-demo-status',
@@ -160,22 +157,6 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
       hasText: /no identity-bound napplets/i,
     });
     await expect(emptyCells).toHaveCount(0);
-  });
-
-  test('runtime demo surfaces are grouped separately without empty ACL slots', async ({ page }) => {
-    await demoBeforeEach(page);
-
-    const runtimeRegion = page.locator('#topology-runtime-demos');
-    await expect(runtimeRegion).toBeVisible({ timeout: 5_000 });
-    await expect(page.locator('#topology-napplets [data-topology-surface="napplet"]')).toHaveCount(10);
-    await expect(page.locator('#topology-napplets [data-topology-surface="runtime-demo"]')).toHaveCount(0);
-    await expect(runtimeRegion.locator('[data-topology-surface="runtime-demo"]')).toHaveCount(3);
-
-    await expect(page.locator('[data-napplet-name="config-demo"] .topology-node-kicker')).toHaveText('runtime demo');
-    await expect(page.locator('[data-napplet-name="resource-demo"] .topology-node-kicker')).toHaveText('napplet');
-    await expect(page.locator('#config-demo-acl')).toHaveCount(0);
-    await expect(page.locator('#resource-demo-acl')).toBeVisible();
-    await expect(page.locator('#chat-acl')).toBeVisible();
   });
 
   test('Sequence Diagram renders a lane for each identity-bound napplet (UI-03)', async ({ page }) => {
