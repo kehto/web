@@ -26,6 +26,8 @@ export type {
   ManifestCacheEntry,
   AclEntryExternal,
   AclCheckEvent,
+  FirewallPersistence,
+  FirewallEvent,
   ServiceHandler,
   ServiceRegistry,
   CompatibilityReport,
@@ -47,6 +49,9 @@ export type { SessionRegistry, NappKeyRegistry } from './session-registry.js';
 
 export { createAclState } from './acl-state.js';
 export type { AclStateContainer } from './acl-state.js';
+
+export { createFirewallState } from './firewall-state.js';
+export type { FirewallStateContainer } from './firewall-state.js';
 
 export { createManifestCache } from './manifest-cache.js';
 export type { ManifestCache } from './manifest-cache.js';

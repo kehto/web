@@ -7,6 +7,7 @@
 
 import type { EventTemplate, NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 import type { Capability } from '@kehto/acl/capabilities';
+import type { Decision, Action } from '@kehto/firewall';
 
 /**
  * A napplet class identifier. `null` is the permissive default (no class).
@@ -172,6 +173,51 @@ export interface AclPersistence {
 }
 
 /**
+ * Firewall persistence — runtime calls these to save/load firewall config.
+ * Implementor decides storage backend (localStorage, file, DB, etc.).
+ * Only the firewall config is persisted; ephemeral counters are never stored.
+ *
+ * @param persist - Store serialized config data; called after each policy mutation.
+ * @param load    - Retrieve previously stored config, or null on first boot.
+ */
+export interface FirewallPersistence {
+  persist(data: string): void;
+  load(): string | null;
+}
+
+/**
+ * Event emitted on every firewall evaluation that results in an audit-level
+ * decision (flag, block, or prompt).
+ *
+ * @param windowId        - The napplet window that sent the message.
+ * @param napplet         - The napplet dTag (version-agnostic identity key).
+ * @param opClass         - Operation class string (e.g. 'relay:write', 'outbox:publish').
+ * @param decision        - Primary disposition: 'pass', 'reject', or 'prompt'.
+ * @param action          - The matched rule's exceed-action: 'flag', 'block', or 'ignore'.
+ * @param ruleId          - Identifier of the rule that made the decision.
+ * @param reason          - Human-readable reason string for logging/audit.
+ * @param message         - The triggering NappletMessage, if available.
+ */
+export interface FirewallEvent {
+  /** The napplet window that sent the message. */
+  windowId: string;
+  /** The napplet dTag (version-agnostic identity key). */
+  napplet: string;
+  /** Operation class string (e.g. 'relay:write', 'outbox:publish', 'intent:invoke'). */
+  opClass: string;
+  /** Primary disposition for the caller. */
+  decision: Decision;
+  /** The matched rule's exceed-action. */
+  action: Action;
+  /** Identifier of the rule that made the decision (e.g. 'rate:default', 'burst', 'policy:deny'). */
+  ruleId: string;
+  /** Human-readable reason string for logging and audit. */
+  reason: string;
+  /** The triggering message, if available. */
+  message?: NappletMessage;
+}
+
+/**
  * Manifest persistence — runtime calls these to save/load manifest cache.
  * Implementor decides storage backend.
  */
@@ -275,8 +321,8 @@ export interface DmAdapter {
 }
 
 /**
- * A pending consent request — either for a destructive signing kind
- * or for undeclared service usage.
+ * A pending consent request — for a destructive signing kind, undeclared
+ * service usage, or a firewall policy prompt.
  *
  * When type is 'destructive-signing' (or omitted for backwards compat):
  *   Raised when a signer request arrives for kinds 0, 3, 5, 10002.
@@ -284,6 +330,15 @@ export interface DmAdapter {
  * When type is 'undeclared-service':
  *   Raised when a napplet uses a service it did not declare in its manifest.
  *   The serviceName field identifies which service was used without declaration.
+ *
+ * When type is 'firewall-policy':
+ *   Raised when the firewall evaluation returns a 'prompt' decision (ask policy).
+ *   No Nostr event is associated — `event` is omitted. The `napplet` field
+ *   carries the dTag the user's allow/deny choice will be remembered against.
+ *   The triggering message is rejected now; if the user allows, subsequent
+ *   messages from this napplet will pass without re-prompting (choice persisted
+ *   as a per-napplet policy via setPolicy). Phase 82 changeset note: `event`
+ *   was relaxed from required to optional to accommodate this variant (A3).
  *
  * @example
  * ```ts
@@ -294,24 +349,41 @@ export interface DmAdapter {
  *   resolve: (allowed) => { ... },
  * };
  *
- * // Undeclared service consent (new)
+ * // Undeclared service consent
  * const serviceConsent: ConsentRequest = {
  *   type: 'undeclared-service',
  *   windowId: 'win-1', pubkey: 'abc...', event: serviceEvent,
  *   serviceName: 'audio',
  *   resolve: (allowed) => { ... },
  * };
+ *
+ * // Firewall policy prompt (no Nostr event)
+ * const firewallConsent: ConsentRequest = {
+ *   type: 'firewall-policy',
+ *   windowId: 'win-1', pubkey: 'abc...', napplet: 'chat',
+ *   resolve: (allowed) => { ... },
+ * };
  * ```
  */
 export interface ConsentRequest {
   /** Consent type discriminator. Defaults to 'destructive-signing' if omitted. */
-  type?: 'destructive-signing' | 'undeclared-service';
+  type?: 'destructive-signing' | 'undeclared-service' | 'firewall-policy';
   windowId: string;
   pubkey: string;
-  event: NostrEvent;
+  /**
+   * The Nostr event associated with this consent request.
+   * Optional for 'firewall-policy' consent — a firewall prompt has no real Nostr event.
+   * Present for 'destructive-signing' and 'undeclared-service' requests.
+   */
+  event?: NostrEvent;
   resolve: (allowed: boolean) => void;
   /** Service name for undeclared-service consent. Only present when type is 'undeclared-service'. */
   serviceName?: string;
+  /**
+   * The napplet dTag the firewall policy choice is remembered against.
+   * Only present when type is 'firewall-policy'.
+   */
+  napplet?: string;
 }
 
 /** Consent handler callback type. */
@@ -661,6 +733,30 @@ export interface RuntimeAdapter {
 
   /** Called on every ACL enforcement check (audit). */
   onAclCheck?: (event: AclCheckEvent) => void;
+
+  /**
+   * Firewall config persistence (save/load firewall config).
+   * When absent, firewall config is in-memory only and resets on reload.
+   * Only the config is persisted; ephemeral counters are never stored.
+   */
+  firewallPersistence?: FirewallPersistence;
+
+  /**
+   * Called on every firewall evaluation that results in an audit-level decision
+   * (flag, block, or prompt). When absent, firewall decisions are not audited.
+   */
+  onFirewallEvent?: (event: FirewallEvent) => void;
+
+  /**
+   * Returns the current focus state for a napplet window.
+   * When absent, defaults to `{ focused: true }` — a host without a window
+   * manager treats everything as focused, so focus never tightens rate budgets.
+   * Focus alone never hard-blocks; it only scales token refill rates.
+   *
+   * @param windowId - The napplet window to query focus state for.
+   * @returns Current focus state and optional milliseconds since last focus gain.
+   */
+  getFocusContext?: (windowId: string) => { focused: boolean; msSinceFocusGain?: number };
 
   /** Called when a pending napp update is set or cleared. */
   onPendingUpdate?: PendingUpdateNotifier;

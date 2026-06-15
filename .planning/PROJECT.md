@@ -6,6 +6,21 @@
 
 Provide a modular, framework-agnostic runtime for hosting napplet applications — so any Nostr client can embed sandboxed mini-apps by integrating @kehto/shell.
 
+## Latest Milestone: v1.18 Napplet Firewall (shipped 2026-06-15)
+
+**Goal:** Add `@kehto/firewall` — a behavioral anti-abuse gate that observes napplet messages at the runtime choke point and applies configurable rate/burst/content rules with allow/deny/ask policies and focus-aware tightening. Composes with the ACL (static authorization) without replacing it.
+
+**Target features:**
+- `@kehto/firewall` pure core (zero-dep, WASM-ready, mirrors `@kehto/acl`): normalized `Observation`, pure `evaluate()`, config mutations + serialize, built-in defaults.
+- Runtime `firewall-state` container — persisted config + ephemeral token-bucket counters + per-window init/focus tracking.
+- Message-handler wiring: firewall runs after a successful ACL check, before dispatch.
+- Per-napplet × op-class rate limiting (token bucket), init-burst guard (defaults to block), declarative content matchers (event kind / size / focus conditions).
+- `allow / deny / ask` per-napplet policy ("reject now, prompt async, remember choice"); exceed-action `flag / block / ignore`; default posture flag-by-default.
+- Focus-aware `unfocusedMultiplier` (soft tightening when unfocused; never hard-blocks on its own).
+- New `RuntimeAdapter` hooks: `firewallPersistence`, `onFirewallEvent`, `getFocusContext`.
+
+**Key context:** Pure TS / WASM-ready (no real WASM now — per-message work is tiny and content inspection would force JS↔WASM string marshalling). Identity key is dTag (version-agnostic). Focus is shell-owned and forge-proof via `@kehto/wm`; mouse-down inside the sandboxed cross-origin iframe is not observable, so focus state is the trustworthy proxy. Must keep the existing unit suite (563+) and 87–89 E2E specs green and add a changeset.
+
 ## Packages
 
 | Package | Scope | Description |
@@ -57,7 +72,7 @@ Verification stands at `pnpm build`, `pnpm type-check`, `pnpm test:unit` (570 te
 
 **Key context:** String-level alignment only — verified against the packed `@napplet 0.9.0` dist: `createShellSupports` reads only `capabilities.naps`; protocol regex `^([^:]+):(NAP-\d+)$`; `NapDomain` includes `inc`, not `ifc`. Core 0.5.0 `createDispatch` routes any string domain key, so the existing IFC handler is registered under both `ifc` and `inc` with **no `@napplet/core` upgrade**. Out of scope: mass-renaming internal `ifc.*` handlers, `nub-*` test fixtures, or docs. Must keep the full unit suite (840) and Playwright E2E (86) green and add a changeset for `@kehto/shell` (+ `acl`/`runtime`). Downstream consumer impact: hyprgate. Branch `milestone/v1.19-nap-ontology` (off `main`); v1.18 Napplet Firewall is a parallel in-flight milestone on its own branch (phases 80–82), so this milestone numbers phases from 83.
 
-## Latest Milestone: v1.17 Beautify the SPA Landing Page
+## Previous Milestone: v1.17 Beautify the SPA Landing Page
 
 **Goal:** Rework the public SPA landing page into a branded Kehto experience that preserves the current destination links while adding a dark, muted-yellow, Scandinavian-inspired visual identity with subtle liquid motion and GSAP-powered transitions.
 
@@ -263,4 +278,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-15 — v1.19 NAP Ontology Alignment milestone started*
+*Last updated: 2026-06-15 — v1.19 NAP Ontology Alignment milestone started (v1.18 Napplet Firewall shipped)*

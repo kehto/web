@@ -1,14 +1,16 @@
 
 import { createDispatch, type NappletMessage, type NostrEvent, type NubHandler } from '@napplet/core';
 import type { Capability } from '@kehto/acl/capabilities';
+import type { Observation } from '@kehto/firewall';
 
 import type {
-  RuntimeAdapter, ConsentHandler,
+  RuntimeAdapter, ConsentHandler, FirewallEvent,
   ServiceHandler, ServiceRegistry, ServiceInfo,
 } from './types.js';
 import { notifyServiceWindowDestroyed } from './service-dispatch.js';
 import { createSessionRegistry, type SessionRegistry } from './session-registry.js';
 import { createAclState, type AclStateContainer } from './acl-state.js';
+import { createFirewallState, type FirewallStateContainer } from './firewall-state.js';
 import { createManifestCache, type ManifestCache } from './manifest-cache.js';
 import { createReplayDetector, type ReplayDetector } from './replay.js';
 import { createEventBuffer, RING_BUFFER_SIZE, type EventBuffer, type SubscriptionEntry } from './event-buffer.js';
@@ -85,6 +87,9 @@ export interface Runtime {
   /** Access the ACL state container. */
   readonly aclState: AclStateContainer;
 
+  /** Access the firewall state container (for tests to pre-set policy/rules). */
+  readonly firewallState: FirewallStateContainer;
+
   /** Access the manifest cache. */
   readonly manifestCache: ManifestCache;
 }
@@ -105,7 +110,9 @@ type RuntimeInstanceContext = {
   ifcRuntime: IfcRuntime;
   sessionRegistry: SessionRegistry;
   aclState: AclStateContainer;
+  firewallState: FirewallStateContainer;
   manifestCache: ManifestCache;
+  consentHandlerRef: { current: ConsentHandler | null };
   handleMessage: Runtime['handleMessage'];
 };
 
@@ -156,10 +163,134 @@ function createNubEnvelopeDispatcher(handlers: RuntimeNubHandlers): (windowId: s
   };
 }
 
+/**
+ * Compute the UTF-8 byte length of a string without TextEncoder (ES2022-safe).
+ * Mirrors the same helper in state-handler.ts to avoid cross-file import.
+ */
+function utf8ByteLength(str: string): number {
+  let bytes = 0;
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    if (c < 0x80) bytes += 1;
+    else if (c < 0x800) bytes += 2;
+    else if (c < 0xd800 || c >= 0xe000) bytes += 3;
+    else { i++; bytes += 4; } // surrogate pair
+  }
+  return bytes;
+}
+
+/**
+ * Extract kind and byte-size from a message envelope (publish-style ops only).
+ * Guards against malformed envelopes — returns undefined fields on any failure.
+ *
+ * @param envelope - Incoming NappletMessage envelope.
+ * @returns `{ kind?, size? }` — both optional; undefined when not a publish-style op.
+ */
+function extractKindSize(envelope: NappletMessage): { kind?: number; size?: number } {
+  const ev = (envelope as NappletMessage & { event?: unknown }).event;
+  if (typeof ev !== 'object' || ev === null) return {};
+  const kind = typeof (ev as { kind?: unknown }).kind === 'number'
+    ? (ev as { kind: number }).kind
+    : undefined;
+  let size: number | undefined;
+  try {
+    size = utf8ByteLength(JSON.stringify(ev));
+  } catch { /* malformed event — size stays undefined */ }
+  return { kind, size };
+}
+
+/**
+ * Build a normalized Observation from a message envelope and runtime context.
+ * The runtime owns the clock (Date.now()); the pure engine never reads it.
+ * Focus is sourced exclusively via getFocusContext (FOCUS-01) — never napplet-self-reported.
+ * When getFocusContext is absent, defaults to `{ focused: true }` (safe relax-only default).
+ *
+ * @param envelope        - Incoming NappletMessage envelope.
+ * @param windowId        - Source napplet window identifier.
+ * @param senderCap       - Resolved sender capability string (or null).
+ * @param sessionRegistry - Used to resolve dTag and registeredAt for the window.
+ * @param getFocusContext  - Optional shell-supplied focus query hook.
+ * @returns A complete Observation ready for evaluate().
+ */
+function buildObservation(
+  envelope: NappletMessage,
+  windowId: string,
+  senderCap: string | null,
+  sessionRegistry: SessionRegistry,
+  getFocusContext?: RuntimeAdapter['getFocusContext'],
+): Observation {
+  const now = Date.now();
+  const entry = sessionRegistry.getEntryByWindowId(windowId);
+  const napplet = entry?.dTag ?? '';
+  const initElapsedMs = now - (entry?.registeredAt ?? now);
+  const focus = getFocusContext?.(windowId) ?? { focused: true };
+  const opClass = senderCap ?? envelope.type;
+  const { kind, size } = extractKindSize(envelope);
+  return { napplet, opClass, kind, size, initElapsedMs, focused: focus.focused, msSinceFocusGain: focus.msSinceFocusGain, now };
+}
+
+/** Configuration for createFirewallGate. */
+interface FirewallGateConfig {
+  firewallState: FirewallStateContainer;
+  sessionRegistry: SessionRegistry;
+  hooks: RuntimeAdapter;
+  fireConsent: (windowId: string, napplet: string) => void;
+}
+
+/**
+ * Create the firewall gate closure to inject into createMessageHandler.
+ * Returns 'dispatch' to allow the message through or 'drop' to reject it.
+ *
+ * Decision→action mapping (RUNTIME-01, RUNTIME-04, POLICY-02):
+ *   - reject → error envelope + drop (no dispatch)
+ *   - prompt → error envelope + fireConsent + drop (ask path)
+ *   - pass + flag → onFirewallEvent audit + dispatch
+ *   - pass (ignore/allow) → dispatch (no audit)
+ *
+ * @param config - Gate configuration (firewallState, sessionRegistry, hooks, fireConsent).
+ * @returns A gate function `(windowId, envelope, senderCap) => 'dispatch' | 'drop'`.
+ */
+function createFirewallGate(config: FirewallGateConfig): (windowId: string, envelope: NappletMessage, senderCap: string | null) => 'dispatch' | 'drop' {
+  const { firewallState, sessionRegistry, hooks, fireConsent } = config;
+
+  return function firewallGate(windowId: string, envelope: NappletMessage, senderCap: string | null): 'dispatch' | 'drop' {
+    const obs = buildObservation(envelope, windowId, senderCap, sessionRegistry, hooks.getFocusContext);
+    const result = firewallState.evaluate(obs);
+    const { decision, action, ruleId, reason } = result;
+    const napplet = obs.napplet;
+    const opClass = obs.opClass;
+
+    if (decision === 'reject' || decision === 'prompt') {
+      // Mirror the ACL denial envelope shaping (runtime.ts ACL path):
+      // storage envelopes → `.result`; all others → `.error` (T-81-03: no internals leaked)
+      const id = (envelope as NappletMessage & { id?: string }).id ?? '';
+      const isStorageEnvelope = envelope.type.startsWith('storage.');
+      const type = isStorageEnvelope ? `${envelope.type}.result` : `${envelope.type}.error`;
+      hooks.sendToNapplet(windowId, { type, id, error: `firewall: ${reason}` } as NappletMessage);
+
+      hooks.onFirewallEvent?.({ windowId, napplet, opClass, decision, action, ruleId, reason, message: envelope } as FirewallEvent);
+
+      if (decision === 'prompt') {
+        // POLICY-02: reject current message AND fire async consent prompt
+        fireConsent(windowId, napplet);
+      }
+      return 'drop';
+    }
+
+    // decision === 'pass'
+    if (action === 'flag') {
+      // RUNTIME-04: flag → audit + dispatch (message is NOT dropped)
+      hooks.onFirewallEvent?.({ windowId, napplet, opClass, decision, action, ruleId, reason, message: envelope } as FirewallEvent);
+    }
+    return 'dispatch';
+  };
+}
+
 function createMessageHandler(
   hooks: RuntimeAdapter,
   enforceNub: ReturnType<typeof createNubEnforceGate>,
   dispatchNubEnvelope: (windowId: string, envelope: NappletMessage) => void,
+  firewallGate: (windowId: string, envelope: NappletMessage, senderCap: string | null) => 'dispatch' | 'drop',
 ): Runtime['handleMessage'] {
   return (windowId: string, msg: unknown): void => {
     if (typeof msg !== 'object' || msg === null || !('type' in msg)) return;
@@ -180,6 +311,9 @@ function createMessageHandler(
       }
     }
 
+    const verdict = firewallGate(windowId, envelope, caps.senderCap);
+    if (verdict === 'drop') return;
+
     dispatchNubEnvelope(windowId, envelope);
   };
 }
@@ -199,11 +333,10 @@ function createInjectedEvent(hooks: RuntimeAdapter, topic: string, payload: unkn
 
 function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
   const {
-    aclState, eventBuffer, hooks, ifcRuntime, manifestCache, registeredServices,
-    replayDetector, serviceRegistry, sessionRegistry, subscriptions,
+    aclState, firewallState, eventBuffer, hooks, ifcRuntime, manifestCache, registeredServices,
+    replayDetector, serviceRegistry, sessionRegistry, subscriptions, consentHandlerRef,
   } = context;
   const undeclaredServiceConsents = new Set<string>();
-  let consentHandler: ConsentHandler | null = null;
 
   return {
     handleMessage: context.handleMessage,
@@ -213,6 +346,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
     destroy(): void {
       manifestCache.persist();
       aclState.persist();
+      firewallState.persist();
       replayDetector.clear();
       subscriptions.clear();
       ifcRuntime.clear();
@@ -221,8 +355,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       undeclaredServiceConsents.clear();
     },
     registerConsentHandler(handler: ConsentHandler): void {
-      consentHandler = handler;
-      void consentHandler;
+      consentHandlerRef.current = handler;
     },
     registerService(name: string, handler: ServiceHandler): void {
       serviceRegistry[name] = handler;
@@ -248,6 +381,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
     },
     get sessionRegistry() { return sessionRegistry; },
     get aclState() { return aclState; },
+    get firewallState() { return firewallState; },
     get manifestCache() { return manifestCache; },
   };
 }
@@ -271,12 +405,36 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   const registeredServices = createRegisteredServices(serviceRegistry);
   const sessionRegistry = createSessionRegistry(hooks.onPendingUpdate);
   const aclState = createAclState(hooks.aclPersistence);
+  const firewallState = createFirewallState(hooks.firewallPersistence);
   const manifestCache = createManifestCache(hooks.manifestPersistence);
   const replayDetector = createReplayDetector(
     hooks.getConfigOverrides
       ? () => hooks.getConfigOverrides!().replayWindowSeconds
       : undefined,
   );
+
+  // Shared consent handler ref — lifted to createRuntime scope so the firewall gate
+  // can fire it. The gate is built here (outer scope) but registerConsentHandler is
+  // called on the runtime instance (inner scope); the ref bridges both closures.
+  const consentHandlerRef: { current: ConsentHandler | null } = { current: null };
+
+  // fireConsent: invoked by the gate on 'prompt' decisions (POLICY-02 ask path).
+  // On resolution the user's choice is persisted as a per-napplet policy so subsequent
+  // messages are NOT re-prompted (T-81-04: bounded consent spam prevention).
+  const fireConsent = (windowId: string, napplet: string): void => {
+    const handler = consentHandlerRef.current;
+    if (!handler) return;
+    handler({
+      type: 'firewall-policy',
+      windowId,
+      napplet,
+      pubkey: '',
+      resolve: (allowed: boolean): void => {
+        firewallState.setPolicy(napplet, allowed ? 'allow' : 'deny');
+        firewallState.persist();
+      },
+    });
+  };
 
   const enforce = createEnforceGate({
     checkAcl: (pubkey, dTag, aggregateHash, capability) =>
@@ -300,6 +458,8 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     onAclCheck: hooks.onAclCheck,
   });
 
+  const firewallGate = createFirewallGate({ firewallState, sessionRegistry, hooks, fireConsent });
+
   const eventBuffer = createEventBuffer(
     hooks.sendToNapplet,
     sessionRegistry,
@@ -311,6 +471,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   );
 
   aclState.load();
+  firewallState.load();
   manifestCache.load();
 
   const ifcRuntime = createIfcRuntime(hooks, sessionRegistry);
@@ -321,7 +482,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     ifc: ifcRuntime.handleMessage,
     ...domainHandlers,
   });
-  const handleMessage = createMessageHandler(hooks, enforceNub, dispatchNubEnvelope);
+  const handleMessage = createMessageHandler(hooks, enforceNub, dispatchNubEnvelope, firewallGate);
 
   return createRuntimeInstance({
     hooks,
@@ -333,7 +494,9 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     ifcRuntime,
     sessionRegistry,
     aclState,
+    firewallState,
     manifestCache,
+    consentHandlerRef,
     handleMessage,
   });
 }
