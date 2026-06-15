@@ -10,10 +10,10 @@ Requirements for this milestone. Each maps to a roadmap phase.
 
 ### Capability Handshake
 
-- [ ] **ALIGN-01**: A napplet built against `@napplet/* >=0.9.0` gets `true` from `window.napplet.shell.supports('inc')` (bare-domain query) when hosted in a kehto shell.
-- [ ] **ALIGN-02**: That napplet gets `true` from `supports('inc', 'NAP-01')` (protocol query) and from the other advertised `inc:NAP-0N` protocol queries.
-- [ ] **ALIGN-03**: The `shell.init` handshake emits the renamed `naps` capability array (consumed by the 0.9.0 shim's `createShellSupports`), and dual-emits the legacy `nubs` array for one back-compat release so napplets on either side of the rename keep negotiating.
-- [ ] **ALIGN-04**: The emitted handshake advertises domain `inc` (not `ifc`) and protocol IDs in `inc:NAP-0N` form (legacy `ifc:NUB-0N` aliased to `inc:NAP-0N`); the emitted `naps` set contains no unaliased `ifc`/`NUB-NN` identifiers except the deliberate `nubs` dual-emit.
+- [x] **ALIGN-01**: A napplet built against `@napplet/* >=0.9.0` gets `true` from `window.napplet.shell.supports('inc')` (bare-domain query) when hosted in a kehto shell.
+- [x] **ALIGN-02**: That napplet gets `true` from `supports('inc', 'NAP-01')` (protocol query) and from the other advertised `inc:NAP-0N` protocol queries.
+- [x] **ALIGN-03**: The `shell.init` handshake emits the renamed `naps` capability array (consumed by the 0.9.0 shim's `createShellSupports`), and dual-emits the legacy `nubs` array for one back-compat release so napplets on either side of the rename keep negotiating.
+- [x] **ALIGN-04**: The emitted handshake advertises domain `inc` (not `ifc`) and protocol IDs in `inc:NAP-0N` form (legacy `ifc:NUB-0N` aliased to `inc:NAP-0N`); the emitted `naps` set contains no unaliased `ifc`/`NUB-NN` identifiers except the deliberate `nubs` dual-emit.
 
 ### INC Dispatch Rail
 
@@ -22,8 +22,8 @@ Requirements for this milestone. Each maps to a roadmap phase.
 
 ### Verification & Release
 
-- [ ] **ALIGN-07**: An automated conformance test feeds kehto-emitted `shell.init` capabilities into the real `@napplet/shim@0.9.0` `createShellSupports` (dev-only dependency) and asserts the resulting `supports(...)` outcomes — not just string-level assertions.
-- [ ] **ALIGN-08**: A changeset records the public `@kehto/shell` `ShellCapabilities` change (plus `@kehto/acl` / `@kehto/runtime` where mirrored) and notes downstream consumer impact (hyprgate).
+- [x] **ALIGN-07**: An automated conformance test feeds kehto-emitted `shell.init` capabilities into the real `@napplet/shim@0.9.0` `createShellSupports` (dev-only dependency) and asserts the resulting `supports(...)` outcomes — not just string-level assertions.
+- [x] **ALIGN-08**: A changeset records the public `@kehto/shell` `ShellCapabilities` change (plus `@kehto/acl` / `@kehto/runtime` where mirrored) and notes downstream consumer impact (hyprgate).
 
 ## v2 Requirements
 
@@ -48,14 +48,14 @@ Explicitly excluded to prevent scope creep.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ALIGN-01 | Phase 83 | Pending |
-| ALIGN-02 | Phase 83 | Pending |
-| ALIGN-03 | Phase 83 | Pending |
-| ALIGN-04 | Phase 83 | Pending |
+| ALIGN-01 | Phase 83 | Complete |
+| ALIGN-02 | Phase 83 | Complete |
+| ALIGN-03 | Phase 83 | Complete |
+| ALIGN-04 | Phase 83 | Complete |
 | ALIGN-05 | Phase 83 | Complete |
 | ALIGN-06 | Phase 83 | Complete |
-| ALIGN-07 | Phase 83 | Pending |
-| ALIGN-08 | Phase 83 | Pending |
+| ALIGN-07 | Phase 83 | Complete |
+| ALIGN-08 | Phase 83 | Complete |
 
 **Coverage:**
 - v1 requirements: 8 total

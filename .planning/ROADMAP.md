@@ -35,7 +35,7 @@
 
 ## Phases
 
-- [ ] **Phase 83: NAP Ontology Alignment** - Align capability handshake and dispatch rail with `@napplet/* >=0.9.0` NAP renames; add shim@0.9.0 conformance test; stage changeset.
+- [x] **Phase 83: NAP Ontology Alignment** - Align capability handshake and dispatch rail with `@napplet/* >=0.9.0` NAP renames; add shim@0.9.0 conformance test; stage changeset. (completed 2026-06-15)
 
 ## Phase Details
 
@@ -52,14 +52,14 @@
 **Plans**: 3 plans
 - [x] 83-01-PLAN.md — ACL resolver maps `inc` identically to `ifc` (ALIGN-06)
 - [x] 83-02-PLAN.md — Runtime registers `inc` dispatch key + domain-aware IFC handler (ALIGN-05)
-- [ ] 83-03-PLAN.md — Shell `naps`/`nubs` dual-emit + shim@0.9.0 conformance test + changeset (ALIGN-01/02/03/04/07/08)
+- [x] 83-03-PLAN.md — Shell `naps`/`nubs` dual-emit + shim@0.9.0 conformance test + changeset (ALIGN-01/02/03/04/07/08)
 **UI hint**: no
 
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 83. NAP Ontology Alignment | v1.19 | 2/3 | In Progress|  |
+| 83. NAP Ontology Alignment | v1.19 | 3/3 | Complete   | 2026-06-15 |
 
 ## Backlog
 
