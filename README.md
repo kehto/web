@@ -17,7 +17,7 @@ other napplet runtimes emerge.
 It provides packages for building a napplet host client by handling capability
 enforcement, message routing, host service registration, gateway artifacts, and
 development tooling. The applet-side packages (`@napplet/core`, `@napplet/shim`,
-`@napplet/nub`, and `@napplet/vite-plugin`) live in the
+`@napplet/sdk`, and `@napplet/vite-plugin`) live in the
 [@napplet](https://github.com/sandwichfarm/napplet) repo; Kehto implements an
 example runtime and NIP-5D shell.
 
@@ -40,12 +40,13 @@ the package table below to jump into the implementation surface you need.
 | Package | Use it for | Package root | Markdown docs | VitePress docs |
 |---------|------------|--------------|---------------|----------------|
 | `@kehto/acl` | Pure capability state, grants, blocks, quotas, and policy checks. | [packages/acl](./packages/acl/) | [docs/packages/acl.md](./docs/packages/acl.md) | [ACL docs](https://kehto.github.io/web/docs/packages/acl) |
+| `@kehto/firewall` | Pure, zero-dependency behavioral anti-abuse engine — rate/burst/content rules with allow/deny/ask policy and focus-aware tightening. | [packages/firewall](./packages/firewall/) | [docs/packages/firewall.md](./docs/packages/firewall.md) | [Firewall docs](https://kehto.github.io/web/docs/packages/firewall) |
 | `@kehto/runtime` | Browser-agnostic NIP-5D dispatch, ACL gates, service registry, sessions, manifests, replay checks, and event buffering. | [packages/runtime](./packages/runtime/) | [docs/packages/runtime.md](./docs/packages/runtime.md) | [Runtime docs](https://kehto.github.io/web/docs/packages/runtime) |
 | `@kehto/shell` | Browser iframe/session adapter over a Kehto runtime, gateway loading, postMessage transport, hosted `supports()`, and shell policy. | [packages/shell](./packages/shell/) | [docs/packages/shell.md](./docs/packages/shell.md) | [Shell docs](https://kehto.github.io/web/docs/packages/shell) |
 | `@kehto/services` | Reference handlers for identity, relay, keys, media, notify, config, resource, cache, theme, and audio surfaces. | [packages/services](./packages/services/) | [docs/packages/services.md](./docs/packages/services.md) | [Services docs](https://kehto.github.io/web/docs/packages/services) |
-| `@kehto/nip66` | Framework-agnostic NIP-66 kind-30166 relay discovery aggregation. | [packages/nip66](./packages/nip66/) | [docs/packages/nip66.md](./docs/packages/nip66.md) | [NIP-66 docs](https://kehto.github.io/web/docs/packages/nip66) |
+| `@kehto/nip` | Tree-shakable bundle of standalone Nostr NIP utilities for napplet runtimes — each NIP at its own subpath (e.g. `@kehto/nip/66` for NIP-66 relay discovery). | [packages/nip](./packages/nip/) | [docs/packages/nip.md](./docs/packages/nip.md) | [NIP docs](https://kehto.github.io/web/docs/packages/nip) |
 | `@kehto/wm` | Structural window-management contracts for shell-owned layout strategies. | [packages/wm](./packages/wm/) | [docs/packages/wm.md](./docs/packages/wm.md) | [WM docs](https://kehto.github.io/web/docs/packages/wm) |
-| `@kehto/playground` | 13-napplet browser demo and integration verification target. | [apps/playground](./apps/playground/) | [docs/packages/playground.md](./docs/packages/playground.md) | [Playground docs](https://kehto.github.io/web/docs/packages/playground) |
+| `@kehto/playground` | 10-napplet browser demo and integration verification target. | [apps/playground](./apps/playground/) | [docs/packages/playground.md](./docs/packages/playground.md) | [Playground docs](https://kehto.github.io/web/docs/packages/playground) |
 
 Package roots link to package-local READMEs and source. Markdown docs are the
 same pages used by the VitePress site.
@@ -66,7 +67,7 @@ same pages used by the VitePress site.
 
 ## Playground Demo
 
-The playground is the reference host application. It loads 13 sandboxed napplets
+The playground is the reference host application. It loads 10 sandboxed napplets
 through the same gateway artifact shape used by the static Pages build.
 
 - Public demo: <https://kehto.github.io/web/playground/>
@@ -94,10 +95,11 @@ pnpm --filter @kehto/playground preview
 | Path | Contents |
 |------|----------|
 | [packages/acl](./packages/acl/) | Capability and ACL primitives. |
+| [packages/firewall](./packages/firewall/) | Pure behavioral anti-abuse firewall engine. |
 | [packages/runtime](./packages/runtime/) | Protocol runtime and service routing. |
 | [packages/shell](./packages/shell/) | Browser shell adapter and gateway/session integration. |
 | [packages/services](./packages/services/) | Reference service implementations. |
-| [packages/nip66](./packages/nip66/) | Relay discovery aggregator. |
+| [packages/nip](./packages/nip/) | Standalone Nostr NIP utilities (per-NIP subpaths). |
 | [packages/wm](./packages/wm/) | Window-management type contracts. |
 | [apps/playground](./apps/playground/) | Demo host and demo napplets. |
 | [docs](./docs/) | VitePress documentation source. |
