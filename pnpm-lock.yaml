@@ -437,6 +437,9 @@ importers:
       '@kehto/acl':
         specifier: workspace:*
         version: link:../acl
+      '@kehto/firewall':
+        specifier: workspace:*
+        version: link:../firewall
       '@noble/curves':
         specifier: ^2.0.0
         version: 2.0.1

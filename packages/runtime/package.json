@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@kehto/acl": "workspace:*",
+    "@kehto/firewall": "workspace:*",
     "@noble/hashes": "^2.0.0",
     "@noble/curves": "^2.0.0"
   },
