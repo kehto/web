@@ -129,7 +129,11 @@ function storageMap(action: string): CapabilityResolution {
 }
 
 /**
- * `ifc.*` — topic + channel sub-protocol.
+ * `ifc.*` / `inc.*` — topic + channel sub-protocol.
+ *
+ * `inc` is the NAP rename of `ifc` (adopted in `@napplet/* >=0.9.0`). Both
+ * domains share exactly the same capability mapping via `ifcMap` so they
+ * cannot drift apart (D5 / ALIGN-06).
  *
  * - Write actions (`emit`, `channel.emit`, `channel.broadcast`) → sender
  *   `relay:write`, recipient `relay:read`. Semantically equivalent to relay
@@ -347,8 +351,8 @@ function themeMap(action: string): CapabilityResolution {
  * | `storage`  | `get`, `keys`                                               | `state:read`    | `null`        |
  * | `storage`  | `set`, `remove`                                             | `state:write`   | `null`        |
  * | `storage`  | any other (incl. removed `clear`)                           | `null`          | `null`        |
- * | `ifc`      | `emit`, `channel.emit`, `channel.broadcast`                 | `relay:write`   | `relay:read`  |
- * | `ifc`      | `subscribe`, `unsubscribe`, `channel.open/list/close`       | `relay:read`    | `null`        |
+ * | `ifc`/`inc` | `emit`, `channel.emit`, `channel.broadcast`                | `relay:write`   | `relay:read`  |
+ * | `ifc`/`inc` | `subscribe`, `unsubscribe`, `channel.open/list/close`      | `relay:read`    | `null`        |
  * | `theme`    | `get`, `get.result`                                         | `theme:read`    | `null`        |
  * | `theme`    | `changed` (shell → napplet push)                            | `null`          | `theme:read`  |
  * | `config`   | `get`, `subscribe`, `unsubscribe`, `registerSchema`, `openSettings` | `config:read` | `null`     |
@@ -405,7 +409,8 @@ export function resolveCapabilitiesNub(msg: NubMessage): CapabilityResolution {
     case 'media':    return { senderCap: 'media:control', recipientCap: null };
     case 'notify':   return notifyMap(action);
     case 'storage':  return storageMap(action);
-    case 'ifc':      return ifcMap(action);
+    case 'ifc':
+    case 'inc':      return ifcMap(action);  // inc is the NAP rename of ifc (D5 / ALIGN-06)
     case 'theme':    return themeMap(action);
     case 'config':   return configMap(action);
     case 'resource': return resourceMap(action);   // Phase 40 (RESOURCE-02)
