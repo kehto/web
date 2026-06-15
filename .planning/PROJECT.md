@@ -45,6 +45,18 @@ The shipped baseline remains pinned-spec NIP-5D conformance, a buildable docs si
 
 Verification stands at `pnpm build`, `pnpm type-check`, `pnpm test:unit` (570 tests), `VITEPRESS_BASE=/web/docs/ pnpm docs:check`, `pnpm build:pages`, `pnpm audit:pages`, `pnpm audit:gateway-artifacts`, `pnpm audit:csp`, `npx --yes aislop scan -d`, browser visual checks for desktop/mobile/reduced motion, and `git diff --check`.
 
+## Current Milestone: v1.19 NAP Ontology Alignment
+
+**Goal:** Align the `@kehto/*` `shell.init` capability handshake (and the INC dispatch rail) with the NAP renames `@napplet/*` adopted at `0.9.0`, so napplets built against `@napplet/* >=0.9.0` negotiate capabilities correctly inside a kehto shell (resolves kehto/web#24).
+
+**Target features:**
+- Emit the renamed capability field `naps` (dual-emit legacy `nubs` for one back-compat release) from `buildShellCapabilities`/`ShellCapabilities`/`postShellInit`.
+- Advertise domain `inc` (was `ifc`) and protocol IDs `inc:NAP-0N` (alias the legacy `ifc:NUB-0N`) in the emitted handshake.
+- Accept `inc.*` wire messages at the runtime dispatch + ACL gate (a `>=0.9.0` napplet emits `inc.emit`/`inc.subscribe`/`inc.unsubscribe`), keeping `ifc.*` during the transition window.
+- An authoritative conformance test that feeds kehto-emitted capabilities into the real `@napplet/shim@0.9.0` `createShellSupports` (dev-only dependency).
+
+**Key context:** String-level alignment only — verified against the packed `@napplet 0.9.0` dist: `createShellSupports` reads only `capabilities.naps`; protocol regex `^([^:]+):(NAP-\d+)$`; `NapDomain` includes `inc`, not `ifc`. Core 0.5.0 `createDispatch` routes any string domain key, so the existing IFC handler is registered under both `ifc` and `inc` with **no `@napplet/core` upgrade**. Out of scope: mass-renaming internal `ifc.*` handlers, `nub-*` test fixtures, or docs. Must keep the full unit suite (840) and Playwright E2E (86) green and add a changeset for `@kehto/shell` (+ `acl`/`runtime`). Downstream consumer impact: hyprgate. Branch `milestone/v1.19-nap-ontology` (off `main`); v1.18 Napplet Firewall is a parallel in-flight milestone on its own branch (phases 80–82), so this milestone numbers phases from 83.
+
 ## Latest Milestone: v1.17 Beautify the SPA Landing Page
 
 **Goal:** Rework the public SPA landing page into a branded Kehto experience that preserves the current destination links while adding a dark, muted-yellow, Scandinavian-inspired visual identity with subtle liquid motion and GSAP-powered transitions.
@@ -251,4 +263,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-06 — v1.17 milestone shipped and archived*
+*Last updated: 2026-06-15 — v1.19 NAP Ontology Alignment milestone started*
