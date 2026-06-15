@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
   "label": "ai slop",
-  "message": "63/100 Needs Work",
-  "color": "yellow"
+  "message": "24/100 Critical",
+  "color": "red"
 }
