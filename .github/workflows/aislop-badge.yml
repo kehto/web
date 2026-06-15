@@ -53,6 +53,11 @@ jobs:
         id: badge
         uses: sandwichfarm/aislop-badge@v1
         with:
+          # Pin the scanner version so the badge is deterministic and matches
+          # local `aislop@0.12.0` scans. Without this the action falls back to
+          # its stale default (0.9.3), which scores this repo differently from
+          # local runs — the badge then never reflects the fixes devs make.
+          aislop-version: 0.12.0
           package-runner: pnpm
           badge-file: .github/badges/aislop-score.json
           fail-on-error: false

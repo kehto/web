@@ -19,10 +19,6 @@ import type {
 } from './types.js';
 import { defaultConfig } from './defaults.js';
 
-// ---------------------------------------------------------------------------
-// Internal helper
-// ---------------------------------------------------------------------------
-
 /**
  * Return the existing NappletRules for `napplet`, or a fresh empty entry.
  * Internal helper — not exported. Mirrors acl's `getEntry` (mutations.ts:33-42).
@@ -32,10 +28,6 @@ function getNapplet(config: FirewallConfig, napplet: string): NappletRules {
   if (existing) return existing;
   return { rateLimits: {} };
 }
-
-// ---------------------------------------------------------------------------
-// Mutation functions — all return a new FirewallConfig
-// ---------------------------------------------------------------------------
 
 /**
  * Set the hard policy posture for a specific napplet (dTag).
@@ -166,10 +158,6 @@ export function addMatcher(config: FirewallConfig, matcher: ContentMatcher): Fir
   return { ...config, matchers: [...config.matchers, matcher] };
 }
 
-// ---------------------------------------------------------------------------
-// Serialization
-// ---------------------------------------------------------------------------
-
 /**
  * Serialize a FirewallConfig to a JSON string.
  *
@@ -189,11 +177,6 @@ export function serialize(config: FirewallConfig): string {
   return JSON.stringify(config);
 }
 
-// ---------------------------------------------------------------------------
-// Validation helpers (internal)
-// ---------------------------------------------------------------------------
-
-/** Valid Action values — used by shape validators below. */
 const VALID_ACTIONS: Action[] = ['flag', 'block', 'ignore'];
 
 function isValidAction(v: unknown): v is Action {
@@ -246,7 +229,6 @@ function isValidNappletRules(v: unknown): v is NappletRules {
   const n = v as Record<string, unknown>;
   // rateLimits must be an object
   if (typeof n['rateLimits'] !== 'object' || n['rateLimits'] === null) return false;
-  // Validate each rate limit entry
   for (const limit of Object.values(n['rateLimits'] as Record<string, unknown>)) {
     if (!isValidRateLimit(limit)) return false;
   }
@@ -259,10 +241,6 @@ function isValidNappletRules(v: unknown): v is NappletRules {
   if ('globalRate' in n && !isValidRateLimit(n['globalRate'])) return false;
   return true;
 }
-
-// ---------------------------------------------------------------------------
-// Deserialize (defensive — T-80-01 mitigation)
-// ---------------------------------------------------------------------------
 
 /**
  * Deserialize a FirewallConfig from a JSON string.
@@ -308,16 +286,11 @@ export function deserialize(json: string): FirewallConfig {
       return defaultConfig();
     }
 
-    // Validate and rebuild napplets
     const napplets: Record<string, NappletRules> = {};
     for (const [key, value] of Object.entries(parsed.napplets as Record<string, unknown>)) {
       if (!isValidNappletRules(value)) return defaultConfig();
-      // value has passed isValidNappletRules — treat as a validated record for extraction
-      const raw = value as unknown as {
-        rateLimits: Record<string, RateLimit>;
-        policy?: NappletPolicy;
-        globalRate?: RateLimit;
-      };
+      // The type guard above narrows `value` to NappletRules.
+      const raw = value;
       const rateLimits: Record<string, RateLimit> = {};
       for (const [opClass, limit] of Object.entries(raw.rateLimits)) {
         rateLimits[opClass] = limit;
@@ -332,7 +305,6 @@ export function deserialize(json: string): FirewallConfig {
       napplets[key] = withGlobalRate;
     }
 
-    // Validate and rebuild matchers
     const matchers: ContentMatcher[] = [];
     for (const item of parsed.matchers as unknown[]) {
       if (!isValidContentMatcher(item)) return defaultConfig();
