@@ -148,6 +148,7 @@ function createNubEnvelopeDispatcher(handlers: RuntimeNubHandlers): (windowId: s
   nubDispatch.registerNub('cvm', adapt(handlers.cvm));
   nubDispatch.registerNub('outbox', adapt(handlers.outbox));
   nubDispatch.registerNub('upload', adapt(handlers.upload));
+  nubDispatch.registerNub('intent', adapt(handlers.intent));
 
   return (windowId, envelope) => {
     currentWindowId = windowId;

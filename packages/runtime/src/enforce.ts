@@ -12,11 +12,12 @@ export type { NubMessage } from '@kehto/acl';
  * (class === null) bypasses this map entirely - see enforceNub. Additional
  * classes are added when NUB specs publish new class tokens.
  *
- * - 'class-1': all 15 v1.2-era capabilities (permissive full surface).
- * - 'class-2': all capabilities EXCEPT relay:write and outbox:write -
- *   relay:write is the sample restrictive class Plan 38-03 exercises, and
- *   outbox:write is the shell-signed publish op (mirrors relay:write — a
- *   read-only class can route/query but not publish).
+ * - 'class-1': the full capability surface (permissive).
+ * - 'class-2': all capabilities EXCEPT relay:write, outbox:write, and
+ *   intent:write - relay:write is the sample restrictive class Plan 38-03
+ *   exercises, outbox:write is the shell-signed publish op, and intent:write is
+ *   the focus-stealing cross-napplet dispatch op (all three mirror each other —
+ *   a read-only class can route/query/introspect but not publish or dispatch).
  *
  * Unknown class tokens fall through enforceNub's "treat as maximally
  * restrictive" branch (deny all) - defensive failsafe, not policy.
@@ -24,7 +25,7 @@ export type { NubMessage } from '@kehto/acl';
 const CLASS_CAPABILITY_ALLOWLIST: Readonly<Record<string, ReadonlySet<Capability>>> = Object.freeze({
   'class-1': new Set<Capability>(ALL_CAPABILITIES),
   'class-2': new Set<Capability>(ALL_CAPABILITIES.filter(
-    (c) => c !== 'relay:write' && c !== 'outbox:write',
+    (c) => c !== 'relay:write' && c !== 'outbox:write' && c !== 'intent:write',
   )),
 });
 

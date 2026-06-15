@@ -169,6 +169,19 @@ export interface UploadHooks {
 }
 
 /**
+ * Minimal intent backend the shell advertises (NAP-INTENT). The host wires the
+ * concrete intent service into the runtime via `registerService('intent', …)`;
+ * this hook is the presence/capability signal `buildShellCapabilities` reads to
+ * decide whether to advertise `intent` to napplets. NAP-INTENT is only
+ * meaningful when the host can resolve archetypes to installed napplets and
+ * create/focus their windows.
+ */
+export interface IntentHooks {
+  /** True when the host has an intent resolver wired and ready to dispatch. */
+  isAvailable(): boolean;
+}
+
+/**
  * Event emitted on every ACL enforcement check.
  * @example
  * ```ts
@@ -265,6 +278,13 @@ export interface ShellAdapter {
    * The host still registers the concrete service via `registerService('upload')`.
    */
   upload?: UploadHooks;
+  /**
+   * Optional archetype intent dispatcher (NAP-INTENT). When present and
+   * `isAvailable()` is true, the shell advertises the `intent` domain so
+   * napplets can call `window.napplet.intent`. The host still registers the
+   * concrete service via `registerService('intent')`.
+   */
+  intent?: IntentHooks;
   /** Called on every ACL enforcement check. Both allows and denials are reported. */
   onAclCheck?: (event: AclCheckEvent) => void;
   /** Called when aggregate hash verification fails (computed != declared). */

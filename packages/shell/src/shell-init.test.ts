@@ -51,3 +51,28 @@ describe('buildShellCapabilities — NAP-UPLOAD advertisement', () => {
     expect(caps.nubs).toContain('upload');
   });
 });
+
+describe('buildShellCapabilities — NAP-INTENT advertisement', () => {
+  it('does NOT advertise intent when no intent dispatcher is wired', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    expect(caps.nubs).not.toContain('intent');
+  });
+
+  it('does NOT advertise intent when the dispatcher reports unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      intent: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.nubs).not.toContain('intent');
+  });
+
+  it('advertises intent when an available intent dispatcher is wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      intent: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.nubs).toContain('intent');
+  });
+});

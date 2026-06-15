@@ -47,7 +47,8 @@ const SUPPORTED_IFC_PROTOCOLS = [
  * const caps = buildShellCapabilities(hooks);
  * // caps.nubs => ['relay','outbox','identity','storage','ifc','theme','keys','media','notify','config','resource','connect','class','cvm']
  * //              (relay + outbox present when hooks.relayPool is provided; 'upload'
- * //               appended when hooks.upload is provided; bare names only)
+ * //               appended when hooks.upload is provided; 'intent' appended when
+ * //               hooks.intent.isAvailable() is true; bare names only)
  * // caps.sandbox => []   // host app may extend with 'perm:popups', etc.
  * ```
  */
@@ -57,5 +58,7 @@ export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
     : [...CANONICAL_NUB_DOMAINS, ...SUPPORTED_IFC_PROTOCOLS];
   // NAP-UPLOAD: advertised only when the host wires an upload backend.
   if (hooks.upload) nubs.push('upload');
+  // NAP-INTENT: advertised only when the host wires an available intent dispatcher.
+  if (hooks.intent?.isAvailable()) nubs.push('intent');
   return { nubs, sandbox: [] };
 }
