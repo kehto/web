@@ -154,7 +154,7 @@ runtime.registerService('keys', createKeysService({ hostBridge: electronBridge }
 
 Plug a `HostKeysBridge` when the default document listener is insufficient: Electron or Tauri apps that need to register OS-level global hotkeys (chords delivered even when the host window is not focused), native shells that route chords through a platform-specific hotkey manager (macOS Carbon, Linux X11 grab, Windows RegisterHotKey), or test harnesses that inject synthetic events through a controlled `EventTarget`. The bridge owns subscription lifecycle; the service retains per-window bookkeeping (so `onWindowDestroyed` cleanup stays identical across paths).
 
-See the demo: [`apps/playground/napplets/hotkey-chord/src/main.ts`](../../apps/playground/napplets/hotkey-chord/src/main.ts) (the Phase 26 end-to-end exemplar — uses `@napplet/sdk` `keys.registerAction` + `keys.onAction` against the real backend).
+A napplet drives this end to end via `@napplet/sdk` — `keys.registerAction` to claim a chord and `keys.onAction` to receive dispatches against the real backend.
 
 ### Reserved Chords
 
@@ -344,7 +344,7 @@ runtime.registerService('media', createMediaService({ hostBridge: electronBridge
 
 Plug a `HostMediaBridge` when `navigator.mediaSession` is insufficient: Electron apps that need to route transport events through the main process (lock-screen integration on Windows, Now Playing integration on macOS), Linux shells that speak MPRIS over D-Bus, native mobile wrappers that forward to AVPlayer / ExoPlayer, or test harnesses that record action events without touching the DOM. The bridge owns metadata/state mirroring and OS action routing; the service retains per-session bookkeeping (sessionRegistry + per-window send handles) so `media.command` dispatch semantics stay identical across paths.
 
-See the demo: [`apps/playground/napplets/media-controller/src/main.ts`](../../apps/playground/napplets/media-controller/src/main.ts) (the Phase 27 end-to-end exemplar — uses `@napplet/nub/media` `mediaCreateSession({ owner: 'napplet', ... })` + `mediaReportState` + `mediaOnCommand` against the real backend).
+A napplet drives this end to end via `@napplet/nub/media` — `mediaCreateSession({ owner: 'napplet', ... })`, `mediaReportState`, and `mediaOnCommand` against the real backend.
 
 ## Public API
 
