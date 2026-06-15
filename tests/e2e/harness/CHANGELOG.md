@@ -1,5 +1,13 @@
 # @test/harness
 
+## 0.0.10
+
+### Patch Changes
+
+- Updated dependencies [968e664]
+  - @kehto/shell@0.10.0
+  - @kehto/services@0.9.1
+
 ## 0.0.9
 
 ### Patch Changes
