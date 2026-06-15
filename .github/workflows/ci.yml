@@ -1,0 +1,142 @@
+# Phase 23 (v1.4): CI-01/02/03 requirements, consolidated.
+#
+# build.yml (Build & Type-Check), unit.yml (Vitest), and e2e.yml (Playwright)
+# were three independent workflows that all fired in parallel on every event.
+# That meant the expensive Playwright suite ran even when a cheap type-check
+# failed, and ran twice per PR push (once for `push`, once for `pull_request`).
+#
+# They are merged here so Playwright `needs` build + unit: a failing
+# type-check or unit run short-circuits E2E entirely. The job names are kept
+# identical so existing required-status-check rules still match. `push` is
+# scoped to `main` only — PR branches are covered by the `pull_request` event,
+# which removes the duplicate per-push runs.
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & Type-Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Audit CSP (residual meta-CSP scan)
+        # v1.7 Phase 39 CONNECT-05 / D16: fail the build if any napplet
+        # dist/index.html contains a residual <meta http-equiv="Content-Security-Policy">
+        # tag. Shell is the sole CSP authority -- napplets must not ship meta-CSP.
+        # See scripts/audit-csp.mjs and SHELL-CONNECT-POLICY.md.
+        run: pnpm audit:csp
+
+      - name: Type-check all packages
+        run: pnpm type-check
+
+      - name: Docs quality gate
+        run: pnpm docs:check
+
+  unit:
+    name: Vitest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run unit tests
+        run: pnpm test
+
+  e2e:
+    name: Playwright
+    # Gate the expensive E2E suite behind the cheap checks. If either build or
+    # unit fails, Playwright never starts.
+    needs: [build, unit]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Resolve Playwright version
+        id: pw-version
+        run: |
+          VERSION=$(node -p "require('./node_modules/@playwright/test/package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.pw-version.outputs.version }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-${{ steps.pw-version.outputs.version }}-
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Install system dependencies (cache hit path)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
+
+      - name: Run Playwright tests
+        run: pnpm test:e2e
