@@ -20,12 +20,43 @@
 - [x] **v1.15: Address AI Slop** - 5 phases (68-72), 20/20 original requirements complete, local `aislop` scan no longer Critical, 563 unit tests green ([archive](milestones/v1.15-ROADMAP.md) | [requirements](milestones/v1.15-REQUIREMENTS.md) | [audit](milestones/v1.15-MILESTONE-AUDIT.md))
 - [x] **v1.16: Structural Code Quality Refactor** - 4 phases (73-76), 18/18 requirements, local `aislop` scan clean, 563 unit tests green ([archive](milestones/v1.16-ROADMAP.md) | [requirements](milestones/v1.16-REQUIREMENTS.md) | [audit](milestones/v1.16-MILESTONE-AUDIT.md))
 - [x] **v1.17: Beautify the SPA Landing Page** - 3 phases (77-79), 15/15 requirements, static `/web/` brand system, GSAP motion, liquid accent, and visual proof ([archive](milestones/v1.17-ROADMAP.md) | [requirements](milestones/v1.17-REQUIREMENTS.md) | [audit](milestones/v1.17-MILESTONE-AUDIT.md))
+- [ ] **v1.18: Napplet Firewall** - phases 80-82 (in-flight on `milestone/v1.18-firewall`, not yet merged)
+- [ ] **v1.19: NAP Ontology Alignment** - 1 phase (83), 8 requirements (in progress on `milestone/v1.19-nap-ontology`)
 
 ---
 
-## Active Milestone
+## Active Milestone: v1.19 NAP Ontology Alignment
 
-None. v1.17 is shipped and archived; start the next milestone with `$gsd-new-milestone`.
+**Goal:** Align the `@kehto/*` `shell.init` capability handshake (and the INC dispatch rail) with the NAP renames `@napplet/*` adopted at `0.9.0`, so napplets built against `@napplet/* >=0.9.0` negotiate capabilities correctly inside a kehto shell. Resolves kehto/web#24.
+
+**Branch:** `milestone/v1.19-nap-ontology` (off `main`)
+
+**Note:** Phase numbering starts at 83 to avoid collision with the parallel in-flight v1.18 Firewall milestone (phases 80-82) on its own branch.
+
+## Phases
+
+- [ ] **Phase 83: NAP Ontology Alignment** - Align capability handshake and dispatch rail with `@napplet/* >=0.9.0` NAP renames; add shim@0.9.0 conformance test; stage changeset.
+
+## Phase Details
+
+### Phase 83: NAP Ontology Alignment
+**Goal**: Napplets built against `@napplet/* >=0.9.0` negotiate capabilities correctly inside a kehto shell — the handshake emits `naps`/`inc`/`inc:NAP-0N`, the runtime routes `inc.*` messages, and the real shim@0.9.0 `createShellSupports` confirms the outcome.
+**Depends on**: Nothing (first phase of this milestone; v1.18 phases 80-82 are parallel on a separate branch)
+**Requirements**: ALIGN-01, ALIGN-02, ALIGN-03, ALIGN-04, ALIGN-05, ALIGN-06, ALIGN-07, ALIGN-08
+**Success Criteria** (what must be TRUE):
+  1. Calling `supports('inc')` on the `window.napplet.shell` object inside a kehto-hosted `>=0.9.0` napplet returns `true` — the shell advertises the `inc` domain.
+  2. Calling `supports('inc', 'NAP-01')` (and other `inc:NAP-0N` protocol queries) against the kehto-emitted `shell.init` capabilities returns `true` via the real `@napplet/shim@0.9.0` `createShellSupports` function — not just string matching.
+  3. The `shell.init` postMessage carries both `naps` (consumed by shim 0.9.0) and `nubs` (back-compat for shim <0.9.0) capability arrays, and the `naps` array contains `inc:NAP-0N` protocol IDs with no unaliased `ifc`/`NUB-NN` identifiers.
+  4. A `>=0.9.0` napplet sending `inc.emit`, `inc.subscribe`, or `inc.unsubscribe` wire messages is routed through the existing IFC handler at the runtime dispatch layer, and legacy `ifc.*` messages continue to be handled during the transition window.
+  5. The ACL gate authorizes `inc.*` actions identically to the corresponding `ifc.*` actions, so a napplet using the new `inc` domain key passes the same capability check as one using the legacy `ifc` key.
+**Plans**: TBD
+**UI hint**: no
+
+## Progress
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 83. NAP Ontology Alignment | v1.19 | 0/? | Not started | - |
 
 ## Backlog
 
@@ -51,4 +82,4 @@ None. v1.17 is shipped and archived; start the next milestone with `$gsd-new-mil
 
 ---
 
-*ROADMAP.md last updated: 2026-06-06 - v1.17 archived.*
+*ROADMAP.md last updated: 2026-06-15 - v1.19 NAP Ontology Alignment roadmap created.*

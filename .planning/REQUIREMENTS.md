@@ -64,4 +64,4 @@ Explicitly excluded to prevent scope creep.
 
 ---
 *Requirements defined: 2026-06-15*
-*Last updated: 2026-06-15 — v1.19 milestone start*
+*Last updated: 2026-06-15 — v1.19 milestone roadmap created; all 8 requirements mapped to Phase 83*
