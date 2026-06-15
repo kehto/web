@@ -1,5 +1,16 @@
 # @kehto/demo
 
+## 0.0.10
+
+### Patch Changes
+
+- Updated dependencies [968e664]
+- Updated dependencies [f5e3089]
+  - @kehto/runtime@0.10.0
+  - @kehto/shell@0.10.0
+  - @kehto/nip@0.2.0
+  - @kehto/services@0.9.1
+
 ## 0.0.9
 
 ### Patch Changes
