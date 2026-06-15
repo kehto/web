@@ -135,6 +135,9 @@ function createNubEnvelopeDispatcher(handlers: RuntimeNubHandlers): (windowId: s
   nubDispatch.registerNub('notify', adapt(handlers.notify));
   nubDispatch.registerNub('storage', adapt(handlers.storage));
   nubDispatch.registerNub('ifc', adapt(handlers.ifc));
+  // D4: inc is the NAP rename of ifc; dual-routed during the back-compat window
+  // so >=0.9.0 napplets (which send inc.*) reach the same handler as legacy ifc.*
+  nubDispatch.registerNub('inc', adapt(handlers.ifc));
   nubDispatch.registerNub('theme', adapt(handlers.theme));
   nubDispatch.registerNub('config', adapt(handlers.config));
   nubDispatch.registerNub('resource', adapt(handlers.resource));
