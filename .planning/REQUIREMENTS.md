@@ -37,21 +37,21 @@
 
 ### Per-Napplet Policy (allow / deny / ask)
 
-- [ ] **POLICY-01**: A per-napplet policy of `allow` / `deny` / `ask` overrides rate/burst/content rules for that napplet, keyed by dTag (applies to any version).
-- [ ] **POLICY-02**: An `ask` verdict rejects the current message and fires a consent prompt; the user's choice is persisted as a per-napplet policy so subsequent messages are not re-prompted (no message buffering).
+- [x] **POLICY-01**: A per-napplet policy of `allow` / `deny` / `ask` overrides rate/burst/content rules for that napplet, keyed by dTag (applies to any version).
+- [x] **POLICY-02**: An `ask` verdict rejects the current message and fires a consent prompt; the user's choice is persisted as a per-napplet policy so subsequent messages are not re-prompted (no message buffering).
 - [x] **POLICY-03**: Rule precedence is first-match-wins, most-to-least specific: per-napplet policy → per-napplet × op-class rule → per-napplet global fallback → global defaults.
 
 ### Focus Context
 
-- [ ] **FOCUS-01**: Focus context (`focused`, `msSinceFocusGain`) is sourced shell-side from the window manager and supplied to the firewall, never self-reported by the napplet.
+- [x] **FOCUS-01**: Focus context (`focused`, `msSinceFocusGain`) is sourced shell-side from the window manager and supplied to the firewall, never self-reported by the napplet.
 - [x] **FOCUS-02**: An unfocused napplet's rate budget is tightened by a configurable `unfocusedMultiplier`; focus alone never hard-blocks an operation.
 
 ### Runtime Integration
 
-- [ ] **RUNTIME-01**: Every napplet message that passes the ACL check is evaluated by the firewall before dispatch; a `reject` decision sends an error envelope back to the napplet and drops the message.
+- [x] **RUNTIME-01**: Every napplet message that passes the ACL check is evaluated by the firewall before dispatch; a `reject` decision sends an error envelope back to the napplet and drops the message.
 - [x] **RUNTIME-02**: The runtime exposes new `RuntimeAdapter` hooks: `firewallPersistence` (load/persist config), `onFirewallEvent` (audit callback for flag/block/prompt), and `getFocusContext(windowId)`.
 - [x] **RUNTIME-03**: Firewall config persists across runtime reloads via `firewallPersistence`; counters are ephemeral and reset on reload.
-- [ ] **RUNTIME-04**: A `flag` (allowed) operation emits an `onFirewallEvent` audit event and still dispatches.
+- [x] **RUNTIME-04**: A `flag` (allowed) operation emits an `onFirewallEvent` audit event and still dispatches.
 
 ### Verification
 
@@ -105,15 +105,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CONTENT-01 | Phase 80 | Complete |
 | CONTENT-02 | Phase 80 | Complete |
 | CONTENT-03 | Phase 80 | Complete |
-| POLICY-01 | Phase 81 | Pending |
-| POLICY-02 | Phase 81 | Pending |
+| POLICY-01 | Phase 81 | Complete |
+| POLICY-02 | Phase 81 | Complete |
 | POLICY-03 | Phase 80 | Complete |
-| FOCUS-01 | Phase 81 | Pending |
+| FOCUS-01 | Phase 81 | Complete |
 | FOCUS-02 | Phase 80 | Complete |
-| RUNTIME-01 | Phase 81 | Pending |
+| RUNTIME-01 | Phase 81 | Complete |
 | RUNTIME-02 | Phase 81 | Complete |
 | RUNTIME-03 | Phase 81 | Complete |
-| RUNTIME-04 | Phase 81 | Pending |
+| RUNTIME-04 | Phase 81 | Complete |
 | VERIFY-01 | Phase 80 | Complete |
 | VERIFY-02 | Phase 81 | Pending |
 | VERIFY-03 | Phase 82 | Pending |

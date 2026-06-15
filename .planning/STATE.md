@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.18
 milestone_name: Napplet Firewall
 status: verifying
-last_updated: "2026-06-15T14:03:12.812Z"
+last_updated: "2026-06-15T14:10:58.445Z"
 last_activity: "2026-06-15 — Plan 80-03 complete: evaluate.ts + index.ts + 43 evaluate tests green (819/819 root suite green)"
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 6
-  completed_plans: 4
-  percent: 67
+  completed_plans: 5
+  percent: 83
 ---
 
 # Project State
@@ -89,8 +89,8 @@ Full decision log (v1.0 → v1.17) lives in `.planning/PROJECT.md` Key Decisions
 
 ## Session Continuity
 
-Last session: 2026-06-15T14:03:12.804Z
-Resume: v1.18 Napplet Firewall roadmap created (Phases 80-82, 24/24 requirements mapped). Ready to plan Phase 80 with `/gsd:plan-phase 80`.
+Last session: 2026-06-15T16:09:37.000Z
+Resume: Phase 81 Plan 02 complete — firewall gate wired into createMessageHandler. Ready to execute Plan 03 (firewall-dispatch integration tests).
 Current milestone: v1.18 Napplet Firewall.
 
 ## Decisions Made
@@ -101,8 +101,10 @@ Current milestone: v1.18 Napplet Firewall.
 - **DEFAULT_EXCEED_ACTION='flag', DEFAULT_BURST_ACTION='block'** — conservative allow+audit default with documented burst exception (CORE-04, BURST-02)
 - **DEFAULT_UNFOCUSED_MULTIPLIER=0.25** — tightens unfocused budget without zeroing it (FOCUS-02 invariant)
 - **ruleId encodes resolution tier (rate:opclass|global|default)** — not 'rate:ok' — ruleId is the audit trail for callers
+- **utf8ByteLength replaces TextEncoder in extractKindSize** — ES2022 lib does not include DOM types; mirrors existing state-handler.ts helper
+- **consentHandlerRef mutable cell bridges outer/inner closure scopes** — POLICY-02 prompt flow: createRuntime allocates { current }, registerConsentHandler sets it, fireConsent reads it
 
 ## Operator Next Steps
 
-- Phase 80 complete. Begin Phase 81 (runtime container + choke-point integration) with `/gsd:plan-phase 81`.
-- Reminder: REQUIREMENTS.md now shows 13 of Phase 80's 15 requirements marked complete (CORE-03 and CORE-04 from Plan 02 were pre-marked; all Plan 03 requirements verified).
+- Phase 81 Plan 02 complete. Run Plan 03 (firewall-dispatch integration tests) to complete Phase 81.
+- RUNTIME-01, RUNTIME-04, POLICY-01, POLICY-02, FOCUS-01 requirements marked complete.
