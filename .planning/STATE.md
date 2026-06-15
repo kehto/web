@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.18
 milestone_name: Napplet Firewall
 status: verifying
-last_updated: "2026-06-15T14:10:58.445Z"
-last_activity: "2026-06-15 — Plan 80-03 complete: evaluate.ts + index.ts + 43 evaluate tests green (819/819 root suite green)"
+last_updated: "2026-06-15T14:22:00.000Z"
+last_activity: "2026-06-15 — Plan 81-03 complete: 12 VERIFY-02 integration tests green (840/840 root suite, type-check clean)"
 progress:
   total_phases: 3
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 6
-  completed_plans: 5
-  percent: 83
+  completed_plans: 6
+  percent: 100
 ---
 
 # Project State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-06-15, v1.18 started)
 
 ## Current Position
 
-Phase: 80 — Firewall Pure Core (`@kehto/firewall`) — COMPLETE (3/3 plans done)
+Phase: 81 — Runtime Container & Choke-Point Integration — COMPLETE (3/3 plans done)
 Plan: 03 (complete)
-Status: Phase 80 complete — @kehto/firewall pure core with 87 green tests, tsup build artifacts, VERIFY-01 satisfied; ready for Phase 81
-Last activity: 2026-06-15 — Plan 80-03 complete: evaluate.ts + index.ts + 43 evaluate tests green (819/819 root suite green)
+Status: Phase 81 complete — firewall state container, choke-point gate, and VERIFY-02 integration tests all green; 840/840 unit tests; ready for Phase 82
+Last activity: 2026-06-15 — Plan 81-03 complete: 12 VERIFY-02 firewall integration tests green (840/840 root suite, type-check clean)
 
 ## v1.18 Phase Sequence
 
@@ -89,8 +89,8 @@ Full decision log (v1.0 → v1.17) lives in `.planning/PROJECT.md` Key Decisions
 
 ## Session Continuity
 
-Last session: 2026-06-15T16:09:37.000Z
-Resume: Phase 81 Plan 02 complete — firewall gate wired into createMessageHandler. Ready to execute Plan 03 (firewall-dispatch integration tests).
+Last session: 2026-06-15T16:22:00.000Z
+Resume: Phase 81 Plan 03 complete — VERIFY-02 integration tests green (840/840). Phase 81 complete. Ready to execute Phase 82 (verification & closeout: E2E + changeset).
 Current milestone: v1.18 Napplet Firewall.
 
 ## Decisions Made
@@ -106,5 +106,5 @@ Current milestone: v1.18 Napplet Firewall.
 
 ## Operator Next Steps
 
-- Phase 81 Plan 02 complete. Run Plan 03 (firewall-dispatch integration tests) to complete Phase 81.
-- RUNTIME-01, RUNTIME-04, POLICY-01, POLICY-02, FOCUS-01 requirements marked complete.
+- Phase 81 complete. Execute Phase 82 (verification & closeout): E2E green confirmation + changesets for @kehto/firewall (new package) and @kehto/runtime (firewall integration).
+- VERIFY-02 requirements satisfied. VERIFY-03 (E2E green + changeset) is Phase 82's scope.

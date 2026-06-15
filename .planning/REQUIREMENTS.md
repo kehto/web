@@ -56,7 +56,7 @@
 ### Verification
 
 - [x] **VERIFY-01**: Pure-core unit tests cover token-bucket refill, burst windows, matcher matching (including focus conditions), rule precedence, and serialize round-trip, using injected `now`.
-- [ ] **VERIFY-02**: Runtime integration tests cover each named attack: publish flood (flag → block), init-burst block, backgrounded + init-burst, kind-5 delete spam, `ask` (reject + prompt + remembered), and unfocused-multiplier tightening.
+- [x] **VERIFY-02**: Runtime integration tests cover each named attack: publish flood (flag → block), init-burst block, backgrounded + init-burst, kind-5 delete spam, `ask` (reject + prompt + remembered), and unfocused-multiplier tightening.
 - [ ] **VERIFY-03**: The existing unit suite (563+) and the 87–89 E2E specs remain green, and a changeset is added for the new package and the runtime change.
 
 ## Future Requirements
@@ -115,7 +115,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RUNTIME-03 | Phase 81 | Complete |
 | RUNTIME-04 | Phase 81 | Complete |
 | VERIFY-01 | Phase 80 | Complete |
-| VERIFY-02 | Phase 81 | Pending |
+| VERIFY-02 | Phase 81 | Complete |
 | VERIFY-03 | Phase 82 | Pending |
 
 **Coverage:**

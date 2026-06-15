@@ -37,7 +37,7 @@
 ### Phases
 
 - [x] **Phase 80: Firewall Pure Core (`@kehto/firewall`)** - Zero-dep, WASM-ready engine: normalized `Observation`, pure `evaluate()` (token-bucket rate, init-burst guard, content matchers, focus multiplier, precedence), pure config mutations + serialize, built-in defaults, pure-core unit suite. (completed 2026-06-15)
-- [ ] **Phase 81: Runtime Container & Choke-Point Integration** - Stateful `firewall-state` container, new `RuntimeAdapter` hooks, message-handler wiring after the ACL check, allow/deny/ask decision-to-action mapping with shell-sourced focus, and named-attack integration tests.
+- [x] **Phase 81: Runtime Container & Choke-Point Integration** - Stateful `firewall-state` container, new `RuntimeAdapter` hooks, message-handler wiring after the ACL check, allow/deny/ask decision-to-action mapping with shell-sourced focus, and named-attack integration tests. (completed 2026-06-15)
 - [ ] **Phase 82: Verification & Closeout** - Full unit suite (563+) and 87–89 E2E specs green, changeset for the new package and the runtime change, milestone closeout.
 
 ## Phase Details
@@ -72,7 +72,7 @@ Plans:
 Plans:
 - [x] 81-01-PLAN.md — Workspace dep + firewall types + firewall-state container + container unit tests
 - [x] 81-02-PLAN.md — Choke-point firewall gate, consent-handler hoist, container wiring in runtime.ts
-- [ ] 81-03-PLAN.md — Named-attack integration tests (flood, burst, kind-5, ask/remember, unfocused)
+- [x] 81-03-PLAN.md — Named-attack integration tests (flood, burst, kind-5, ask/remember, unfocused)
 
 ### Phase 82: Verification & Closeout
 **Goal**: Prove the milestone is regression-clean and release-ready: the existing unit suite and full E2E baseline stay green with the firewall integrated, and a changeset is staged covering the new package and the runtime change.
@@ -92,7 +92,7 @@ Phases execute in numeric order: 80 → 81 → 82
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 80. Firewall Pure Core | 3/3 | Complete   | 2026-06-15 |
-| 81. Runtime Container & Choke-Point Integration | 2/3 | In Progress|  |
+| 81. Runtime Container & Choke-Point Integration | 3/3 | Complete   | 2026-06-15 |
 | 82. Verification & Closeout | 0/TBD | Not started | - |
 
 ## Backlog
