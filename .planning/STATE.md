@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.17
-milestone_name: Beautify the SPA Landing Page
-status: Awaiting next milestone
-last_updated: "2026-06-11T17:15:53Z"
-last_activity: 2026-06-11 — Completed quick task 260611-q7p: Persist playground UI session state
+milestone: v1.18
+milestone_name: Napplet Firewall
+status: planning
+last_updated: "2026-06-15T12:34:16.432Z"
+last_activity: 2026-06-15
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-06-06, v1.17 shipped)
 
 ## Current Position
 
-Phase: Milestone v1.17 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-06-11 — Completed quick task 260611-q7p: Persist playground UI session state
+Status: Defining requirements
+Last activity: 2026-06-15 — Milestone v1.18 started
 
 ## Accumulated Context
 
