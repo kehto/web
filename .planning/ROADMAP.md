@@ -51,7 +51,7 @@
   5. The ACL gate authorizes `inc.*` actions identically to the corresponding `ifc.*` actions, so a napplet using the new `inc` domain key passes the same capability check as one using the legacy `ifc` key.
 **Plans**: 3 plans
 - [x] 83-01-PLAN.md — ACL resolver maps `inc` identically to `ifc` (ALIGN-06)
-- [ ] 83-02-PLAN.md — Runtime registers `inc` dispatch key + domain-aware IFC handler (ALIGN-05)
+- [x] 83-02-PLAN.md — Runtime registers `inc` dispatch key + domain-aware IFC handler (ALIGN-05)
 - [ ] 83-03-PLAN.md — Shell `naps`/`nubs` dual-emit + shim@0.9.0 conformance test + changeset (ALIGN-01/02/03/04/07/08)
 **UI hint**: no
 
@@ -59,7 +59,7 @@
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 83. NAP Ontology Alignment | v1.19 | 1/3 | In Progress|  |
+| 83. NAP Ontology Alignment | v1.19 | 2/3 | In Progress|  |
 
 ## Backlog
 

@@ -17,7 +17,7 @@ Requirements for this milestone. Each maps to a roadmap phase.
 
 ### INC Dispatch Rail
 
-- [ ] **ALIGN-05**: The runtime routes `inc.emit` / `inc.subscribe` / `inc.unsubscribe` wire messages (sent by `>=0.9.0` napplets) through the existing IFC handler so the INC peer-bus rail functions, while legacy `ifc.*` messages continue to be handled during the transition window.
+- [x] **ALIGN-05**: The runtime routes `inc.emit` / `inc.subscribe` / `inc.unsubscribe` wire messages (sent by `>=0.9.0` napplets) through the existing IFC handler so the INC peer-bus rail functions, while legacy `ifc.*` messages continue to be handled during the transition window.
 - [x] **ALIGN-06**: The ACL resolver authorizes `inc.*` actions identically to the corresponding `ifc.*` actions (same capability mapping), so the new dispatch key passes the same ACL gate.
 
 ### Verification & Release
@@ -52,7 +52,7 @@ Explicitly excluded to prevent scope creep.
 | ALIGN-02 | Phase 83 | Pending |
 | ALIGN-03 | Phase 83 | Pending |
 | ALIGN-04 | Phase 83 | Pending |
-| ALIGN-05 | Phase 83 | Pending |
+| ALIGN-05 | Phase 83 | Complete |
 | ALIGN-06 | Phase 83 | Complete |
 | ALIGN-07 | Phase 83 | Pending |
 | ALIGN-08 | Phase 83 | Pending |
