@@ -19,10 +19,6 @@ import type {
   Decision,
 } from './types.js';
 
-// ---------------------------------------------------------------------------
-// toKey — bucket key derivation
-// ---------------------------------------------------------------------------
-
 /**
  * Compute the token-bucket key from napplet dTag and operation class.
  *
@@ -48,10 +44,6 @@ export function toKey(napplet: string, opClass: string): string {
   return `${napplet}:${opClass}`;
 }
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
 /**
  * Map a rule Action to the caller-facing Decision.
  *
@@ -63,10 +55,6 @@ function actionToDecision(action: Action): Decision {
   if (action === 'block') return 'reject';
   return 'pass'; // 'flag' and 'ignore' both pass
 }
-
-// ---------------------------------------------------------------------------
-// evaluate — pure firewall decision engine
-// ---------------------------------------------------------------------------
 
 /**
  * Evaluate a single firewall observation and return the access decision.
@@ -138,10 +126,6 @@ export function evaluate(
 ): EvaluateResult {
   const { napplet, opClass, now } = observation;
 
-  // -------------------------------------------------------------------------
-  // Tier 1: Per-napplet policy — hard override (most specific)
-  // -------------------------------------------------------------------------
-
   const nappletRules = config.napplets[napplet];
   const policy = nappletRules?.policy;
 
@@ -175,10 +159,6 @@ export function evaluate(
     };
   }
 
-  // -------------------------------------------------------------------------
-  // Tier 2: Init-burst guard
-  // -------------------------------------------------------------------------
-
   const { initElapsedMs } = observation;
 
   if (initElapsedMs !== undefined && initElapsedMs < config.burstGuard.windowMs) {
@@ -207,12 +187,7 @@ export function evaluate(
     state = { ...state, bursts: newBursts };
   }
 
-  // -------------------------------------------------------------------------
-  // Tier 3: Content matchers (first-match wins, no bucket spend)
-  // -------------------------------------------------------------------------
-
   for (const matcher of config.matchers) {
-    // Check opClass condition
     if (matcher.opClass !== undefined && matcher.opClass !== opClass) continue;
 
     // Check kinds condition (observation.kind must be in the set)
@@ -221,16 +196,13 @@ export function evaluate(
       if (!matcher.kinds.includes(observation.kind)) continue;
     }
 
-    // Check minSize condition
     if (matcher.minSize !== undefined) {
       if (observation.size === undefined) continue;
       if (observation.size < matcher.minSize) continue;
     }
 
-    // Check focused condition
     if (matcher.focused !== undefined && matcher.focused !== observation.focused) continue;
 
-    // Check maxMsSinceFocusGain condition
     if (matcher.maxMsSinceFocusGain !== undefined) {
       if (observation.msSinceFocusGain === undefined) continue;
       if (observation.msSinceFocusGain > matcher.maxMsSinceFocusGain) continue;
@@ -246,10 +218,6 @@ export function evaluate(
       newState: state,
     };
   }
-
-  // -------------------------------------------------------------------------
-  // Tier 4-6: Token-bucket rate limit (op-class → global → default)
-  // -------------------------------------------------------------------------
 
   // Resolve the applicable RateLimit (precedence: op-class > global > default)
   let rateLimit = config.defaultRate;
@@ -319,4 +287,3 @@ export function evaluate(
     };
   }
 }
-

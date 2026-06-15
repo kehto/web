@@ -1,13 +1,3 @@
-/**
- * @kehto/firewall — Built-in default constants and factory functions.
- *
- * This module is the single source of truth for all conservative rate/burst
- * limits and default actions. It mirrors the role of @kehto/acl's capabilities.ts
- * (named constants, UPPER_SNAKE_CASE, JSDoc on every export).
- *
- * Every exported constant has a one-line JSDoc explaining its behavioral role.
- * No runtime I/O, no side effects — pure constant definitions and factory functions.
- */
 
 import type { Action, FirewallConfig, FirewallState } from './types.js';
 
