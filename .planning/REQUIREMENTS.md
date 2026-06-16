@@ -62,9 +62,9 @@ Explicitly excluded to prevent scope creep.
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
 | RESOLVE-01..07 | 84 | Complete |
-| IDENTITY-01..03 | 85 | Pending |
-| LOAD-01..07 | 85 | Pending |
-| DOCS-01..02 | 85 | Pending |
+| IDENTITY-01..03 | 85 | Complete |
+| LOAD-01..07 | 85 | Complete |
+| DOCS-01..02 | 85 | Complete |
 
 ---
 

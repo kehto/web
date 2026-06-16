@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.20
 milestone_name: NIP-5D Content-Addressed Runtime Resolution
-status: planning
-last_updated: "2026-06-16T15:50:15.531Z"
+status: verifying
+last_updated: "2026-06-16T19:10:00.000Z"
 last_activity: 2026-06-16
 progress:
   total_phases: 2
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
-  percent: 50
+  completed_phases: 2
+  total_plans: 2
+  completed_plans: 2
+  percent: 100
 ---
 
 # Project State
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-15)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 85 — content-addressed loading & identity (srcdoc)
+**Current focus:** v1.20 phases complete — awaiting PR review/merge (PR1 #38 + PR2 stacked)
 
 ## Current Position
 
-Phase: 85 (Content-Addressed Loading & Identity) — Not started
-Plan: —
-Status: Phase 84 complete (PR1: @kehto/nip resolver, 1009 unit tests green); ready to plan Phase 85
-Last activity: 2026-06-16 — Phase 84 NIP-5A/5D resolution module complete (commit 5015a33)
+Phase: 85 (Content-Addressed Loading & Identity) — Complete
+Plan: 85-01 complete
+Status: Both v1.20 phases complete. PR1 (@kehto/nip resolver) + PR2 (srcdoc loading) open. 1017 unit + 79 E2E green; build + type-check green.
+Last activity: 2026-06-16 — Phase 85 content-addressed srcdoc loading complete
 
 ## Performance Metrics
 
