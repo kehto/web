@@ -36,7 +36,7 @@
 
 ## Phases
 
-- [ ] **Phase 84: NIP-5A/5D Resolution Module (`@kehto/nip`)** — manifest parse, aggregate compute/verify, signature verify, Blossom blob fetch+verify, kind constants `35129`/`15129`/`5129`; unit tests incl. pinned NIP-5A vector + every rejection path. (PR1, self-contained, unblocks Phase 85)
+- [x] **Phase 84: NIP-5A/5D Resolution Module (`@kehto/nip`)** — manifest parse, aggregate compute/verify, signature verify, Blossom blob fetch+verify, kind constants `35129`/`15129`/`5129`; unit tests incl. pinned NIP-5A vector + every rejection path. (PR1, self-contained, unblocks Phase 85) — completed 2026-06-16
 - [ ] **Phase 85: Content-Addressed Loading & Identity** — runtime identity from verified bytes (key-derivation / manifest-cache / ACL / shell binding on computed `(dTag, aggregateHash)`); shell-host srcdoc loading replacing gateway trust; minimal in-repo relay+Blossom sim; CSP `<meta>` injection; in-repo build migration; docs/spec/CHANGELOG sync. (PR2, stacked on PR1)
 
 ## Phase Details
@@ -71,7 +71,7 @@
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 84. NIP-5A/5D Resolution Module | v1.20 | 0/TBD | Not started | - |
+| 84. NIP-5A/5D Resolution Module | v1.20 | 1/1 | Complete | 2026-06-16 |
 | 85. Content-Addressed Loading & Identity | v1.20 | 0/TBD | Not started | - |
 ---
 

@@ -7,10 +7,10 @@ last_updated: "2026-06-16T15:50:15.531Z"
 last_activity: 2026-06-16
 progress:
   total_phases: 2
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 50
 ---
 
 # Project State
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-15)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 84 — nip5d-resolution-module (`@kehto/nip`)
+**Current focus:** Phase 85 — content-addressed loading & identity (srcdoc)
 
 ## Current Position
 
-Phase: 84 (NIP-5A/5D Resolution Module) — Not started
+Phase: 85 (Content-Addressed Loading & Identity) — Not started
 Plan: —
-Status: Roadmap defined; ready to plan Phase 84
-Last activity: 2026-06-16 — Milestone v1.20 roadmap created (Phases 84-85)
+Status: Phase 84 complete (PR1: @kehto/nip resolver, 1009 unit tests green); ready to plan Phase 85
+Last activity: 2026-06-16 — Phase 84 NIP-5A/5D resolution module complete (commit 5015a33)
 
 ## Performance Metrics
 
