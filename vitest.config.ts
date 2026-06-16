@@ -11,6 +11,8 @@ export default defineConfig({
       '@kehto/services/cvm-nostr-transport': resolve(__dirname, 'packages/services/src/cvm-nostr-transport.ts'),
       '@kehto/services': resolve(__dirname, 'packages/services/src/index.ts'),
       '@kehto/shell': resolve(__dirname, 'packages/shell/src/index.ts'),
+      '@kehto/nip/5a': resolve(__dirname, 'packages/nip/src/5a/index.ts'),
+      '@kehto/nip/5d': resolve(__dirname, 'packages/nip/src/5d/index.ts'),
       '@kehto/nip/51': resolve(__dirname, 'packages/nip/src/51/index.ts'),
       '@kehto/nip/65': resolve(__dirname, 'packages/nip/src/65/index.ts'),
       '@kehto/nip/66': resolve(__dirname, 'packages/nip/src/66/index.ts'),

@@ -11,6 +11,14 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./5a": {
+      "types": "./dist/5a/index.d.ts",
+      "import": "./dist/5a/index.js"
+    },
+    "./5d": {
+      "types": "./dist/5d/index.d.ts",
+      "import": "./dist/5d/index.js"
+    },
     "./51": {
       "types": "./dist/51/index.d.ts",
       "import": "./dist/51/index.js"
@@ -38,6 +46,9 @@
   "peerDependencies": {
     "nostr-tools": ">=2.23.3 <3.0.0"
   },
+  "dependencies": {
+    "@noble/hashes": "^2.0.0"
+  },
   "devDependencies": {
     "nostr-tools": "^2.23.3",
     "tsup": "^8.5.0",
@@ -59,10 +70,16 @@
   "keywords": [
     "nostr",
     "nip",
+    "nip5a",
+    "nip5d",
     "nip51",
     "nip65",
     "nip66",
     "nip89",
+    "aggregate-hash",
+    "content-addressed",
+    "blossom",
+    "napplet-resolution",
     "relay-discovery",
     "outbox-model",
     "app-handlers",
