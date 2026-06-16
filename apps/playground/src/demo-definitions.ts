@@ -52,7 +52,6 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
   { name: 'toaster', label: 'toaster', statusId: 'toaster-status', aclId: 'toaster-acl', frameContainerId: 'toaster-frame-container' },
   { name: 'feed', label: 'feed', statusId: 'feed-status', aclId: 'feed-acl', frameContainerId: 'feed-frame-container' },
   { name: 'profile-viewer', label: 'profile-viewer', statusId: 'profile-status', aclId: 'profile-viewer-acl', frameContainerId: 'profile-viewer-frame-container' },
-  { name: 'theme-switcher', label: 'theme-switcher', statusId: 'theme-status', aclId: 'theme-switcher-acl', frameContainerId: 'theme-switcher-frame-container' },
   {
     name: 'resource-demo',
     label: 'resource-demo',
@@ -77,7 +76,6 @@ export const CLASS_BY_DTAG: ReadonlyMap<string, NappletClass> = new Map<string, 
   ['toaster', null],
   ['feed', null],
   ['profile-viewer', null],
-  ['theme-switcher', null],
   ['resource-demo', null],
   ['cvm-relatr', null],
 ]);

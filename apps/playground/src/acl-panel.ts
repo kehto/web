@@ -340,10 +340,6 @@ export function renderAclPanels(onlyFor?: Set<string>): void {
       // Phase 20 (Plan 20-06): profile-viewer napplet ACL panel (identity:read)
       renderNappletAcl('profile-viewer-acl', windowId, info);
       rendered.add('profile-viewer');
-    } else if (info.name === 'theme-switcher') {
-      // Phase 20 (Plan 20-06): theme-switcher napplet ACL panel (theme:read for visibility)
-      renderNappletAcl('theme-switcher-acl', windowId, info);
-      rendered.add('theme-switcher');
     }
   }
 
