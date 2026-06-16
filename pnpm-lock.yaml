@@ -161,28 +161,6 @@ importers:
         specifier: ^6.4.2
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
-  apps/playground/napplets/config-demo:
-    dependencies:
-      '@napplet/nub':
-        specifier: 0.5.0
-        version: 0.5.0
-      '@napplet/sdk':
-        specifier: 0.5.0
-        version: 0.5.0
-      '@napplet/shim':
-        specifier: 0.5.0
-        version: 0.5.0
-    devDependencies:
-      '@napplet/vite-plugin':
-        specifier: 0.4.0
-        version: 0.4.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vite:
-        specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
-
   apps/playground/napplets/cvm-relatr:
     dependencies:
       '@napplet/nub':
@@ -210,50 +188,6 @@ importers:
       '@napplet/core':
         specifier: 0.5.0
         version: 0.5.0
-      '@napplet/nub':
-        specifier: 0.5.0
-        version: 0.5.0
-      '@napplet/sdk':
-        specifier: 0.5.0
-        version: 0.5.0
-      '@napplet/shim':
-        specifier: 0.5.0
-        version: 0.5.0
-    devDependencies:
-      '@napplet/vite-plugin':
-        specifier: 0.4.0
-        version: 0.4.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vite:
-        specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
-
-  apps/playground/napplets/hotkey-chord:
-    dependencies:
-      '@napplet/nub':
-        specifier: 0.5.0
-        version: 0.5.0
-      '@napplet/sdk':
-        specifier: 0.5.0
-        version: 0.5.0
-      '@napplet/shim':
-        specifier: 0.5.0
-        version: 0.5.0
-    devDependencies:
-      '@napplet/vite-plugin':
-        specifier: 0.4.0
-        version: 0.4.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vite:
-        specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
-
-  apps/playground/napplets/media-controller:
-    dependencies:
       '@napplet/nub':
         specifier: 0.5.0
         version: 0.5.0
@@ -340,28 +274,6 @@ importers:
         specifier: ^6.4.2
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
-  apps/playground/napplets/theme-switcher:
-    dependencies:
-      '@napplet/nub':
-        specifier: 0.5.0
-        version: 0.5.0
-      '@napplet/sdk':
-        specifier: 0.5.0
-        version: 0.5.0
-      '@napplet/shim':
-        specifier: 0.5.0
-        version: 0.5.0
-    devDependencies:
-      '@napplet/vite-plugin':
-        specifier: 0.4.0
-        version: 0.4.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vite:
-        specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
-
   apps/playground/napplets/toaster:
     dependencies:
       '@napplet/nub':
@@ -418,6 +330,10 @@ importers:
         version: 5.9.3
 
   packages/nip:
+    dependencies:
+      '@noble/hashes':
+        specifier: ^2.0.0
+        version: 2.0.1
     devDependencies:
       nostr-tools:
         specifier: ^2.23.3
@@ -3807,7 +3723,7 @@ snapshots:
   '@scure/bip32@1.3.1':
     dependencies:
       '@noble/curves': 1.1.0
-      '@noble/hashes': 1.3.1
+      '@noble/hashes': 1.3.2
       '@scure/base': 1.1.1
 
   '@scure/bip32@2.0.1':
@@ -3818,7 +3734,7 @@ snapshots:
 
   '@scure/bip39@1.2.1':
     dependencies:
-      '@noble/hashes': 1.3.1
+      '@noble/hashes': 1.3.2
       '@scure/base': 1.1.1
 
   '@scure/bip39@2.0.1':
