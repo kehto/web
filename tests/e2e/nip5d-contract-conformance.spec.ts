@@ -29,7 +29,8 @@ test('playground rejects a napplet whose manifest requires an unsupported NAP', 
 
   await expect(page.locator('#toaster-status')).toContainText('load failed', { timeout: 10_000 });
   await expect(page.locator('#toaster-frame-container iframe')).toHaveCount(0);
-  await expect(page.locator('iframe')).toHaveCount(9);
+  // 9 DEMO_NAPPLETS load iframes; toaster is forced to fail here, leaving 8.
+  await expect(page.locator('iframe')).toHaveCount(8);
 
   expect(consoleErrors.join('\n')).toContain('failed to load napplet toaster');
   expect(consoleErrors.join('\n')).toContain('unsupported-demo-nub');

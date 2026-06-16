@@ -47,7 +47,6 @@ const IDENTITY_BOUND_STATUS_IDS = [
   'preferences-status',
   'profile-status',
   'resource-demo-status',
-  'theme-status',
   'toaster-status',
 ] as const;
 
