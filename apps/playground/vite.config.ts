@@ -242,32 +242,44 @@ function relayListEvent(): unknown {
   return event;
 }
 
-let blossomIndex: Map<string, string> | null = null;
-function buildBlossomIndex(): Map<string, string> {
-  const index = new Map<string, string>();
+// Blob bytes are cached in memory (keyed by sha256) so the hot request path does
+// no synchronous file I/O — important because the dev server is single-threaded
+// and a demo boot resolves 9 napplets concurrently across parallel test workers.
+let blossomBytes: Map<string, Buffer> | null = null;
+function buildBlossomCache(): Map<string, Buffer> {
+  const cache = new Map<string, Buffer>();
   if (fs.existsSync(nappletDirs)) {
     for (const name of fs.readdirSync(nappletDirs)) {
       const dist = path.join(nappletDirs, name, 'dist');
       if (!fs.existsSync(dist) || !fs.statSync(dist).isDirectory()) continue;
       for (const file of walkFiles(dist)) {
         if (file.endsWith('.nip5a-manifest.json')) continue;
-        const hash = createHash('sha256').update(fs.readFileSync(file)).digest('hex');
-        if (!index.has(hash)) index.set(hash, file);
+        const bytes = fs.readFileSync(file);
+        const hash = createHash('sha256').update(bytes).digest('hex');
+        if (!cache.has(hash)) cache.set(hash, bytes);
       }
     }
   }
-  return index;
+  return cache;
 }
-function blossomBlobPath(sha256: string): string | null {
-  // Build once (cheap, static dist). Rebuild at most once per miss so a dev
-  // rebuild is picked up, without a full filesystem walk on every request.
-  if (!blossomIndex) blossomIndex = buildBlossomIndex();
-  let hit = blossomIndex.get(sha256);
+function blossomBlob(sha256: string): Buffer | null {
+  // Build once; rebuild at most once on a miss so a dev rebuild is picked up.
+  if (!blossomBytes) blossomBytes = buildBlossomCache();
+  let hit = blossomBytes.get(sha256);
   if (!hit) {
-    blossomIndex = buildBlossomIndex();
-    hit = blossomIndex.get(sha256);
+    blossomBytes = buildBlossomCache();
+    hit = blossomBytes.get(sha256);
   }
   return hit ?? null;
+}
+
+const manifestEventCache = new Map<string, Buffer | null>();
+function manifestEventBytes(dTag: string): Buffer | null {
+  if (manifestEventCache.has(dTag)) return manifestEventCache.get(dTag) ?? null;
+  const manifestPath = path.join(nappletDirs, dTag, 'dist', '.nip5a-manifest.json');
+  const bytes = fs.existsSync(manifestPath) ? fs.readFileSync(manifestPath) : null;
+  manifestEventCache.set(dTag, bytes);
+  return bytes;
 }
 
 function walkFiles(dir: string): string[] {
@@ -314,9 +326,9 @@ function serveResolutionSim(req: IncomingMessage, res: ServerResponse, next: () 
   if (parts[0] === 'event') {
     const dTag = decodePathSegment(parts[1]);
     if (!dTag) { next(); return; }
-    const manifestPath = path.join(nappletDirs, dTag, 'dist', '.nip5a-manifest.json');
-    if (!fs.existsSync(manifestPath)) { safeSend(res, 404, 'text/plain', `no manifest for ${dTag}`); return; }
-    safeSend(res, 200, 'application/json', fs.readFileSync(manifestPath));
+    const bytes = manifestEventBytes(dTag);
+    if (!bytes) { safeSend(res, 404, 'text/plain', `no manifest for ${dTag}`); return; }
+    safeSend(res, 200, 'application/json', bytes);
     return;
   }
   next();
@@ -327,9 +339,9 @@ function serveBlossom(req: IncomingMessage, res: ServerResponse, next: () => voi
   const urlPath = (req.url?.split('?')[0] || '').replace(/^\//, '');
   const sha256 = urlPath.split('/').filter(Boolean)[0];
   if (!sha256 || !/^[a-f0-9]{64}$/.test(sha256)) { next(); return; }
-  const filePath = blossomBlobPath(sha256);
-  if (!filePath) { safeSend(res, 404, 'text/plain', `no blob ${sha256}`); return; }
-  safeSend(res, 200, 'application/octet-stream', fs.readFileSync(filePath));
+  const bytes = blossomBlob(sha256);
+  if (!bytes) { safeSend(res, 404, 'text/plain', `no blob ${sha256}`); return; }
+  safeSend(res, 200, 'application/octet-stream', bytes);
 }
 
 function serveResolutionSimPlugin(): Plugin {

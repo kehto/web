@@ -25,10 +25,12 @@ export async function demoBeforeEach(
   await page.goto('/');
   // #topology-root is rendered dynamically by renderDemoTopology() into #topology-pane
   await page.waitForSelector('#topology-root', { state: 'visible', timeout });
-  // Wait for at least one service node to render (demo booted + topology built)
+  // Wait for at least one service node to render (demo booted + topology built).
+  // Content-addressed boot resolves every napplet (relays -> Blossom -> verify),
+  // so allow generous headroom under parallel-worker CPU contention.
   await page.waitForFunction(
     () => document.querySelectorAll('[data-service-name]').length >= 1,
     undefined,
-    { timeout: 5000 },
+    { timeout: 15000 },
   );
 }
