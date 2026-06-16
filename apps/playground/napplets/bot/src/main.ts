@@ -191,13 +191,15 @@ async function init(): Promise<void> {
   });
 
   await loadRules();
+
+  // Wire the IFC subscription per D-02 BEFORE announcing ready, so a chat sender
+  // that acts on the bot's "ready" signal cannot race ahead of this subscription.
+  ifcOn('chat:message', handleChatMessage);
+  log('subscribed to ifc chat:message topic', 'info');
+
   statusEl.textContent = 'ready';
   statusEl.style.color = 'var(--nap-theme-success, #39ff14)';
   log('listening for ifc chat:message input', 'info');
-
-  // Wire the IFC subscription per D-02.
-  ifcOn('chat:message', handleChatMessage);
-  log('subscribed to ifc chat:message topic', 'info');
 }
 
 init().catch((err) => {

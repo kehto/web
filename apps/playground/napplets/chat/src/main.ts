@@ -140,11 +140,9 @@ async function init(): Promise<void> {
   });
 
   await loadHistory();
-  statusEl.textContent = 'ready';
-  statusEl.style.color = 'var(--nap-theme-success, #39ff14)';
-  addMessage('ready to chat', 'system');
 
-  // Subscribe to bot replies via IFC (D-03).
+  // Subscribe to bot replies via IFC (D-03) BEFORE announcing ready, so a sender
+  // that acts on the "ready" signal cannot race ahead of this subscription.
   ifcOn('bot:response', (payload: unknown) => {
     const data = payload as { text?: string };
     if (data.text) {
@@ -152,6 +150,10 @@ async function init(): Promise<void> {
       addMessage(`[bot] ${data.text}`, 'other');
     }
   });
+
+  statusEl.textContent = 'ready';
+  statusEl.style.color = 'var(--nap-theme-success, #39ff14)';
+  addMessage('ready to chat', 'system');
 
   // Optional: subscribe to a tagged relay topic for the publish showcase (D-03).
   // Wrapped in try so a relay:read denial does not break IFC functionality.

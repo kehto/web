@@ -16,7 +16,7 @@
  * - Chat or bot DOM contract drift → step 1 or 7 fails (wrong selectors).
  */
 import { test, expect } from '@playwright/test';
-import { demoBeforeEach } from './helpers/index.js';
+import { demoBeforeEach, getNappletFrame } from './helpers/index.js';
 
 test.use({ baseURL: 'http://localhost:4174' });
 test.describe.configure({ mode: 'serial' });
@@ -40,8 +40,16 @@ test('chat input triggers ifc envelope; bot reply appears in chat messages', asy
   // Trigger the round trip: type "hello" in chat, click send.
   // Bot's findResponse returns "hey there!" for any text containing "hello"/"hi"
   // (per apps/playground/napplets/bot/src/main.ts findResponse logic, preserved by Plan 18-01).
-  await chatFrame.locator('#msg-input').fill('hello');
-  await chatFrame.locator('#send-btn').click();
+  // Drive the input + send via JS dispatch inside the frame rather than a
+  // coordinate click: a srcdoc iframe can still be settling its layout right
+  // after "ready", so a compositor-level click can miss the button.
+  const chatFrameEl = await getNappletFrame(page, 'chat-frame-container');
+  await chatFrameEl!.evaluate(() => {
+    const input = document.getElementById('msg-input') as HTMLInputElement;
+    input.value = 'hello';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    (document.getElementById('send-btn') as HTMLButtonElement).click();
+  });
 
   // Bot reply arrives via ifcOn('bot:response') and is rendered as "[bot] <text>".
   // Chat renders it inside #messages with class .msg-other.

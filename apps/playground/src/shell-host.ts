@@ -227,7 +227,26 @@ function installOriginRegistryProxy(messageTap: MessageTap): void {
     const result = originalGetWindowId(win);
     if (result) return result;
     const real = proxyToReal.get(win);
-    if (real) return originalGetWindowId(real);
+    if (real) {
+      const realResult = originalGetWindowId(real);
+      if (realResult) return realResult;
+    }
+    // Self-heal a contentWindow swap: setting iframe.srcdoc replaces the
+    // iframe's Window, and the new one is not re-registered until the iframe
+    // 'load' event — which can fire AFTER the napplet sends its first message.
+    // Resolve such early messages by matching the source against a known
+    // napplet's current contentWindow and registering it on the fly, so the
+    // first request is never silently dropped.
+    const target = real ?? win;
+    for (const [windowId, info] of napplets) {
+      if (info.iframe.contentWindow === target) {
+        originRegistry.register(target, windowId, {
+          dTag: info.dTag ?? '',
+          aggregateHash: info.aggregateHash ?? '',
+        });
+        return windowId;
+      }
+    }
     return undefined;
   };
 }
@@ -473,9 +492,14 @@ export async function loadNapplet(
 
   iframe.addEventListener('load', () => {
     if (iframe.contentWindow) {
-      // Re-register origin and session in case contentWindow reference changed during load.
+      // Re-register the origin (idempotent) in case the contentWindow reference
+      // changed during load. Only (re)create the session entry if it was not
+      // already registered synchronously above — re-registering would mint a new
+      // instanceId/registeredAt and reset per-window runtime state (e.g. the
+      // firewall init-burst window), which can drop a napplet's first request
+      // when it acts immediately after reaching "ready".
       originRegistry.register(iframe.contentWindow, windowId, { dTag, aggregateHash });
-      markSourceDerivedIdentity(registerSessionEntry());
+      if (!info.identityBound) markSourceDerivedIdentity(registerSessionEntry());
     }
   });
 
