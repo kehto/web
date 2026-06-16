@@ -12,8 +12,40 @@ import type { SendToNapplet, StatePersistence } from './types.js';
 import type { SessionRegistry } from './session-registry.js';
 import type { AclStateContainer } from './acl-state.js';
 
-function scopedKey(dTag: string, aggregateHash: string, userKey: string): string {
-  return `napplet-state:${dTag}:${aggregateHash}:${userKey}`;
+/**
+ * Reserved key segment that marks the per-instance sub-namespace inside a
+ * napplet's `(dTag, aggregateHash)` bucket. Server-side only — napplets never
+ * see it. Used when the runtime runs a napplet as instanceable (kehto/web#35).
+ */
+const INSTANCE_MARKER = '@i/';
+
+/**
+ * Build the per-window instance sub-namespace segment: `@i/<windowId>:`.
+ *
+ * The discriminator is derived from the runtime's `windowId`, which is stable
+ * across reload / workspace restore, so per-window storage persists across
+ * sessions. This format is internal and never exposed to the napplet.
+ */
+function instanceSegment(windowId: string): string {
+  return `${INSTANCE_MARKER}${windowId}:`;
+}
+
+/**
+ * Build the storage key for a napplet user key.
+ *
+ * For a non-instanceable napplet (default) this is byte-identical to the
+ * historical key. For an instanceable napplet the runtime folds in the opaque
+ * per-window segment — transparently, with no napplet involvement.
+ */
+function scopedKey(
+  dTag: string,
+  aggregateHash: string,
+  userKey: string,
+  instanceable = false,
+  windowId = '',
+): string {
+  const instance = instanceable ? instanceSegment(windowId) : '';
+  return `napplet-state:${dTag}:${aggregateHash}:${instance}${userKey}`;
 }
 
 /** Build a legacy scoped key that includes pubkey (for migration reads). */
@@ -98,11 +130,24 @@ export function handleStorageNub(
   const { dTag, aggregateHash, pubkey } = entry;
   const prefix = `napplet-state:${dTag}:${aggregateHash}:`;
   const legacyPrefix = pubkey ? `napplet-state:${pubkey}:${dTag}:${aggregateHash}:` : '';
+  // Declarative, runtime-owned (kehto/web#35): the napplet is unaware. When the
+  // runtime has elected to instance this napplet, every storage op is folded into
+  // a stable per-window sub-namespace. Otherwise behavior is byte-identical.
+  const instanceable = entry.instanceable === true;
+  const instancePrefix = `${prefix}${instanceSegment(windowId)}`;
+  const keyFor = (userKey: string): string => scopedKey(dTag, aggregateHash, userKey, instanceable, windowId);
 
   switch (action) {
     case 'get': {
       const key = m.key as string;
       if (!key) { sendErrorNub('missing key'); return; }
+      // Instanceable napplets use a fresh per-window namespace with no legacy
+      // data — read only the instance key. Shared napplets keep the triple-read
+      // migration path.
+      if (instanceable) {
+        sendResult({ value: statePersistence.get(keyFor(key)) });
+        break;
+      }
       const newKey = scopedKey(dTag, aggregateHash, key);
       // Triple-read for migration: new format, legacy-with-pubkey, old prefix
       let result = statePersistence.get(newKey);
@@ -121,8 +166,10 @@ export function handleStorageNub(
       const value = (m.value as string) ?? '';
       if (!key) { sendErrorNub('missing key'); return; }
       const quota = aclState.getStateQuota(pubkey ?? '', dTag, aggregateHash);
-      const sk = scopedKey(dTag, aggregateHash, key);
+      const sk = keyFor(key);
       const newWriteBytes = byteLength(sk + value);
+      // Quota is per napplet identity: `prefix` spans both napplet-scope keys and
+      // every instance sub-key, so instance writes count against the same limit.
       const existingBytes = statePersistence.calculateBytes(prefix, key);
       if (existingBytes + newWriteBytes > quota) {
         sendErrorNub(`quota exceeded: napplet state limit is ${quota} bytes`);
@@ -135,7 +182,7 @@ export function handleStorageNub(
     case 'remove': {
       const key = m.key as string;
       if (!key) { sendErrorNub('missing key'); return; }
-      statePersistence.remove(scopedKey(dTag, aggregateHash, key));
+      statePersistence.remove(keyFor(key));
       // legacyPrefix exists only while `pubkey` is non-empty (legacy AUTH sessions).
       // Suppress "unused binding" warnings: we intentionally retain the computation
       // so future migration lands at call sites, not here.
@@ -152,10 +199,25 @@ export function handleStorageNub(
       break;
     }
     case 'keys': {
+      // Instanceable napplets see only this window's sub-namespace.
+      if (instanceable) {
+        const instKeys = statePersistence.keys(instancePrefix);
+        const userKeySet = new Set<string>();
+        for (const k of instKeys) userKeySet.add(k.startsWith(instancePrefix) ? k.slice(instancePrefix.length) : k);
+        sendResult({ keys: Array.from(userKeySet) });
+        break;
+      }
       const newKeys = statePersistence.keys(prefix);
       const legacyKeys = legacyPrefix ? statePersistence.keys(legacyPrefix) : [];
       const userKeySet = new Set<string>();
-      for (const k of newKeys) userKeySet.add(k.startsWith(prefix) ? k.slice(prefix.length) : k);
+      // Shared scope excludes any instance sub-keys (reserved `@i/` marker) so an
+      // instanceable napplet's per-window data never leaks into a shared listing.
+      for (const k of newKeys) {
+        if (!k.startsWith(prefix)) { userKeySet.add(k); continue; }
+        const userKey = k.slice(prefix.length);
+        if (userKey.startsWith(INSTANCE_MARKER)) continue;
+        userKeySet.add(userKey);
+      }
       for (const k of legacyKeys) userKeySet.add(k.startsWith(legacyPrefix) ? k.slice(legacyPrefix.length) : k);
       sendResult({ keys: Array.from(userKeySet) });
       break;

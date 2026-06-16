@@ -205,15 +205,24 @@ export function createMockRuntimeAdapter(overrides?: Partial<RuntimeAdapter>): M
  * @param windowId - The napplet's window identifier
  * @param dTag - The napplet's dTag (NIP-5D identifier)
  * @param aggregateHash - The napplet's aggregate hash
+ * @param options - Optional entry overrides (e.g. `instanceable` for per-window storage; kehto/web#35)
  * @returns A SessionEntry suitable for registering in tests
  *
  * @example
  * ```ts
  * const entry = createNip5dSessionEntry('win-1', 'my-napp', 'abc123...');
  * runtime.sessionRegistry.register('win-1', entry);
+ *
+ * // Instanceable napplet (per-window storage scoping):
+ * const inst = createNip5dSessionEntry('win-2', 'feed', 'abc123...', { instanceable: true });
  * ```
  */
-export function createNip5dSessionEntry(windowId: string, dTag: string, aggregateHash: string): SessionEntry {
+export function createNip5dSessionEntry(
+  windowId: string,
+  dTag: string,
+  aggregateHash: string,
+  options?: { instanceable?: boolean },
+): SessionEntry {
   return {
     pubkey: '',
     windowId,
@@ -225,6 +234,7 @@ export function createNip5dSessionEntry(windowId: string, dTag: string, aggregat
     instanceId: `guid-${windowId}`,
     provenance: 'nip-5d',
     class: null, // CLASS-02: permissive default
+    instanceable: options?.instanceable ?? false,
   };
 }
 

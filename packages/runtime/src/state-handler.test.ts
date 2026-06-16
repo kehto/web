@@ -251,6 +251,174 @@ describe('handleStorageNub — canonical @napplet/nub/storage envelope shapes', 
   });
 });
 
+// ─── Instanceable napplets — per-window storage scoping (kehto/web#35) ──────
+
+/**
+ * Build a harness whose session registry holds two instanceable windows of the
+ * *same* napplet identity (distinct windowIds), sharing one state store. Models
+ * two open windows of an instanceable napplet (e.g. the feed tab bar).
+ */
+function createInstanceHarness(windowIds: string[], options?: { instanceable?: boolean; quota?: number }): {
+  sent: NappletMessage[];
+  statePersistence: StatePersistence;
+  aclState: AclStateContainer;
+  sessionRegistry: ReturnType<typeof createSessionRegistry>;
+  stateStore: Map<string, string>;
+  dispatchAs(windowId: string, msg: NappletMessage): void;
+  lastOfType(type: string): NappletMessage | undefined;
+} {
+  const base = createDirectHarness({ quota: options?.quota });
+  const instanceable = options?.instanceable ?? true;
+  // Re-register each window as the same napplet identity with the instanceable flag.
+  for (const wid of windowIds) {
+    base.sessionRegistry.register(wid, createNip5dSessionEntry(wid, TEST_DTAG, TEST_HASH, { instanceable }));
+  }
+  return {
+    sent: base.sent,
+    statePersistence: base.statePersistence,
+    aclState: base.aclState,
+    sessionRegistry: base.sessionRegistry,
+    stateStore: base.stateStore,
+    dispatchAs(windowId, msg) {
+      handleStorageNub(windowId, msg, base.sendToNapplet, base.sessionRegistry, base.aclState, base.statePersistence);
+    },
+    lastOfType(type) {
+      for (let i = base.sent.length - 1; i >= 0; i--) {
+        if (base.sent[i]?.type === type) return base.sent[i];
+      }
+      return undefined;
+    },
+  };
+}
+
+describe('handleStorageNub — instanceable per-window storage scoping', () => {
+  const WIN_A = 'win-A';
+  const WIN_B = 'win-B';
+  const instanceKey = (windowId: string, userKey: string) => `${PREFIX}@i/${windowId}:${userKey}`;
+
+  // Criterion: non-instanceable byte-identical — a shared napplet writes the plain key.
+  it('non-instanceable napplet writes the plain (non-instance) scoped key', () => {
+    const h = createDirectHarness(); // default entry: instanceable = false
+    dispatch(h, { type: 'storage.set', id: 's', key: 'tabs', value: 'v' } as NappletMessage);
+    expect(h.stateStore.has(`${PREFIX}tabs`)).toBe(true);
+    // No instance sub-key was created.
+    expect([...h.stateStore.keys()].some(k => k.includes('@i/'))).toBe(false);
+  });
+
+  // Criterion: instanceable set writes under the per-window sub-namespace.
+  it('instanceable set writes under @i/<windowId>: and never the plain key', () => {
+    const h = createInstanceHarness([WIN_A]);
+    h.dispatchAs(WIN_A, { type: 'storage.set', id: 's', key: 'tabs', value: 'feed-1' } as NappletMessage);
+    expect(h.stateStore.get(instanceKey(WIN_A, 'tabs'))).toBe('feed-1');
+    expect(h.stateStore.has(`${PREFIX}tabs`)).toBe(false);
+  });
+
+  // Criterion: two windows (distinct windowId) get isolated, independent storage.
+  it('two windows of the same napplet read/write isolated values', () => {
+    const h = createInstanceHarness([WIN_A, WIN_B]);
+    h.dispatchAs(WIN_A, { type: 'storage.set', id: 'a', key: 'tabs', value: 'A-tabs' } as NappletMessage);
+    h.dispatchAs(WIN_B, { type: 'storage.set', id: 'b', key: 'tabs', value: 'B-tabs' } as NappletMessage);
+
+    h.dispatchAs(WIN_A, { type: 'storage.get', id: 'ga', key: 'tabs' } as NappletMessage);
+    expect((h.lastOfType('storage.get.result') as any).value).toBe('A-tabs');
+    h.dispatchAs(WIN_B, { type: 'storage.get', id: 'gb', key: 'tabs' } as NappletMessage);
+    expect((h.lastOfType('storage.get.result') as any).value).toBe('B-tabs');
+
+    // A freshly opened window (no writes) starts empty.
+    h.sessionRegistry.register('win-C', createNip5dSessionEntry('win-C', TEST_DTAG, TEST_HASH, { instanceable: true }));
+    h.dispatchAs('win-C', { type: 'storage.get', id: 'gc', key: 'tabs' } as NappletMessage);
+    expect((h.lastOfType('storage.get.result') as any).value).toBeNull();
+  });
+
+  // Criterion: instance data persists across reload / workspace restore (stable windowId).
+  it('instance values persist across reload (same stable windowId → same key)', () => {
+    const h = createInstanceHarness([WIN_A]);
+    h.dispatchAs(WIN_A, { type: 'storage.set', id: 's', key: 'tabs', value: 'persisted' } as NappletMessage);
+    // Simulate reload: a brand-new registry entry for the same windowId over the
+    // same persistence store (hyprgate restores windowId verbatim).
+    const reloaded = createSessionRegistry();
+    reloaded.register(WIN_A, createNip5dSessionEntry(WIN_A, TEST_DTAG, TEST_HASH, { instanceable: true }));
+    handleStorageNub(
+      WIN_A,
+      { type: 'storage.get', id: 'g', key: 'tabs' } as NappletMessage,
+      (_w, msg) => { if (!Array.isArray(msg)) h.sent.push(msg); },
+      reloaded,
+      h.aclState,
+      h.statePersistence,
+    );
+    expect((h.lastOfType('storage.get.result') as any).value).toBe('persisted');
+  });
+
+  // Criterion: runtime declines to instance → graceful shared fallback, napplet unchanged.
+  it('runtime declining to instance falls back to shared storage transparently', () => {
+    const shared = createInstanceHarness([WIN_A, WIN_B], { instanceable: false });
+    shared.dispatchAs(WIN_A, { type: 'storage.set', id: 'a', key: 'tabs', value: 'shared-val' } as NappletMessage);
+    // Different window, same identity → sees the shared value (no isolation).
+    shared.dispatchAs(WIN_B, { type: 'storage.get', id: 'b', key: 'tabs' } as NappletMessage);
+    expect((shared.lastOfType('storage.get.result') as any).value).toBe('shared-val');
+    expect(shared.stateStore.has(`${PREFIX}tabs`)).toBe(true);
+  });
+
+  // Criterion: keys() is window-scoped for instanceable napplets.
+  it('storage.keys returns only the calling window\'s keys for instanceable napplets', () => {
+    const h = createInstanceHarness([WIN_A, WIN_B]);
+    h.dispatchAs(WIN_A, { type: 'storage.set', id: 'a1', key: 'k-a1', value: '1' } as NappletMessage);
+    h.dispatchAs(WIN_A, { type: 'storage.set', id: 'a2', key: 'k-a2', value: '2' } as NappletMessage);
+    h.dispatchAs(WIN_B, { type: 'storage.set', id: 'b1', key: 'k-b1', value: '3' } as NappletMessage);
+
+    h.dispatchAs(WIN_A, { type: 'storage.keys', id: 'ka' } as NappletMessage);
+    expect(((h.lastOfType('storage.keys.result') as any).keys as string[]).slice().sort()).toEqual(['k-a1', 'k-a2']);
+    h.dispatchAs(WIN_B, { type: 'storage.keys', id: 'kb' } as NappletMessage);
+    expect((h.lastOfType('storage.keys.result') as any).keys).toEqual(['k-b1']);
+  });
+
+  // Criterion: shared keys() never leaks instance sub-keys (reserved @i/ marker).
+  it('shared keys() excludes instance sub-keys left under the same prefix', () => {
+    const h = createDirectHarness();
+    h.stateStore.set(`${PREFIX}plain`, 'v');
+    h.stateStore.set(instanceKey(WIN_A, 'leaked'), 'v'); // stray instance key under same prefix
+    dispatch(h, { type: 'storage.keys', id: 'k' } as NappletMessage);
+    expect((h.sent.find(m => m.type === 'storage.keys.result') as any).keys).toEqual(['plain']);
+  });
+
+  // Criterion: remove targets the per-window sub-key.
+  it('instanceable remove deletes only the calling window\'s sub-key', () => {
+    const h = createInstanceHarness([WIN_A, WIN_B]);
+    h.dispatchAs(WIN_A, { type: 'storage.set', id: 'a', key: 'tabs', value: 'A' } as NappletMessage);
+    h.dispatchAs(WIN_B, { type: 'storage.set', id: 'b', key: 'tabs', value: 'B' } as NappletMessage);
+    h.dispatchAs(WIN_A, { type: 'storage.remove', id: 'ra', key: 'tabs' } as NappletMessage);
+    expect(h.stateStore.has(instanceKey(WIN_A, 'tabs'))).toBe(false);
+    expect(h.stateStore.get(instanceKey(WIN_B, 'tabs'))).toBe('B'); // B untouched
+  });
+
+  // Criterion: cleanupNappState removes instance sub-keys on teardown.
+  it('cleanupNappState clears instance sub-keys via the shared identity prefix', async () => {
+    const { cleanupNappState } = await import('./state-handler.js');
+    const h = createInstanceHarness([WIN_A, WIN_B]);
+    h.dispatchAs(WIN_A, { type: 'storage.set', id: 'a', key: 'tabs', value: 'A' } as NappletMessage);
+    h.dispatchAs(WIN_B, { type: 'storage.set', id: 'b', key: 'tabs', value: 'B' } as NappletMessage);
+    expect([...h.stateStore.keys()].filter(k => k.includes('@i/'))).toHaveLength(2);
+
+    cleanupNappState('', TEST_DTAG, TEST_HASH, h.statePersistence);
+    expect([...h.stateStore.keys()].filter(k => k.startsWith(PREFIX))).toHaveLength(0);
+  });
+
+  // Criterion: quota accounting covers instance sub-keys (summed under the napplet quota).
+  it('quota sums instance sub-keys across windows under the napplet identity limit', () => {
+    // Shared per-napplet quota spans every instance sub-key. The scoped key is
+    // ~105 bytes (64-char hash); a 50-byte value makes each write ~155 bytes, so
+    // a 250-byte quota fits one window's write but not two.
+    const h = createInstanceHarness([WIN_A, WIN_B], { quota: 250 });
+    const big = 'x'.repeat(50);
+    // First window's write fits.
+    h.dispatchAs(WIN_A, { type: 'storage.set', id: 'a', key: 'tabs', value: big } as NappletMessage);
+    expect((h.lastOfType('storage.set.result') as any).ok).toBe(true);
+    // Second window's write pushes the napplet total past the shared 200-byte quota.
+    h.dispatchAs(WIN_B, { type: 'storage.set', id: 'b', key: 'tabs', value: big } as NappletMessage);
+    expect((h.lastOfType('storage.set.result') as any).error).toMatch(/quota/i);
+  });
+});
+
 // ─── ACL Denial Test (routes through full runtime dispatch) ─────────────────
 
 describe('storage nub — ACL denial emits canonical result envelope', () => {

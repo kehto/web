@@ -395,6 +395,25 @@ export interface SessionEntry {
    * 'class-2' are NUB-defined. See packages/shell/src/types/internal-class.ts.
    */
   class: NappletClass;
+  /**
+   * Runtime-resolved per-instance storage capability (kehto/web#35).
+   *
+   * When `true`, the runtime has elected to run this napplet as an instanceable
+   * napplet and NAP-STORAGE is transparently scoped per window — two windows of
+   * the same napplet (distinct `windowId`) get isolated, independently-persisted
+   * storage. The napplet's code is unaware: it calls `storage.get/set/remove/keys`
+   * exactly as before — no `scope` argument, no reserved prefix, no `windowId`.
+   *
+   * When `false`/absent (the default), storage is shared per napplet identity
+   * `(dTag, aggregateHash)` — byte-identical to the historical behavior. The
+   * runtime sets this only when the napplet declares the capability AND the
+   * runtime chooses to instance it (a single-window host or a resource/policy
+   * limit may decline, gracefully degrading to shared storage).
+   *
+   * The source of the declaration (manifest / NIP-5A / NAP-CLASS) is resolved
+   * when this entry is constructed; placement is tracked upstream in napplet/naps.
+   */
+  instanceable?: boolean;
 }
 
 /** @deprecated Use SessionEntry. Will be removed in v0.9.0. */
