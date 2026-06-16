@@ -27,81 +27,74 @@ const expectedRequires: Record<(typeof expectedNapplets)[number], readonly strin
   toaster: ['notify', 'theme'],
 };
 
-test('playground loads all napplets through opaque-origin gateway artifacts', async ({ page }) => {
-  const gatewayResponses = new Map<string, { url: string; status: number; csp: string }>();
-  const legacyNappletResponses: string[] = [];
+test('playground loads all napplets via verified srcdoc with opaque origins', async ({ page }) => {
+  const relayEventHits = new Set<string>();
+  const blossomHits: string[] = [];
 
   page.on('response', (response) => {
-    const url = new URL(response.url());
-    const parts = url.pathname.split('/').filter(Boolean);
-
-    if (
-      parts[0] === 'napplet-gateway' &&
-      parts.length === 4 &&
-      parts[3] === 'index.html'
-    ) {
-      gatewayResponses.set(parts[1], {
-        url: response.url(),
-        status: response.status(),
-        csp: response.headers()['content-security-policy'] ?? '',
-      });
+    const parts = new URL(response.url()).pathname.split('/').filter(Boolean);
+    const relayIdx = parts.indexOf('napplet-relay');
+    if (relayIdx >= 0 && parts[relayIdx + 1] === 'event' && parts[relayIdx + 2]) {
+      relayEventHits.add(parts[relayIdx + 2]);
     }
-
-    if (parts[0] === 'napplets' && parts.at(-1) === 'index.html') {
-      legacyNappletResponses.push(response.url());
+    if (parts.includes('napplet-blossom')) blossomHits.push(response.url());
+    // The gateway must not be in the trust path: its HTML route is never fetched.
+    if (parts[0] === 'napplet-gateway' && parts.at(-1) === 'index.html') {
+      throw new Error(`gateway HTML must not load under srcdoc: ${response.url()}`);
     }
   });
 
   await demoBeforeEach(page);
 
   await expect(page.locator('iframe')).toHaveCount(expectedNapplets.length);
-  await expect.poll(() => gatewayResponses.size, { timeout: 10_000 }).toBe(expectedNapplets.length);
+  // Every napplet was resolved from the relay sim, and Blossom served blobs.
+  await expect.poll(() => relayEventHits.size, { timeout: 10_000 }).toBe(expectedNapplets.length);
+  expect(blossomHits.length).toBeGreaterThan(0);
 
   const frames = await page.$$eval('iframe', (iframes) =>
     iframes.map((iframe) => ({
       id: iframe.id,
       src: iframe.getAttribute('src') ?? '',
+      srcdoc: iframe.getAttribute('srcdoc') ?? '',
       sandbox: iframe.getAttribute('sandbox') ?? '',
     })),
   );
 
   const loadedNames = frames
-    .map((frame) => frame.src.match(/\/napplet-gateway\/([^/]+)\/[a-f0-9]{64}\/index\.html$/)?.[1])
+    .map((frame) => frame.id.match(/^demo-(.+)-\d+$/)?.[1])
     .filter((name): name is string => typeof name === 'string')
     .sort();
-
   expect(loadedNames).toEqual([...expectedNapplets].sort());
-  expect(legacyNappletResponses).toEqual([]);
 
   for (const frame of frames) {
-    expect(frame.src, `${frame.id} gateway src`).toMatch(
-      /\/napplet-gateway\/[^/]+\/[a-f0-9]{64}\/index\.html$/,
+    // srcdoc carries the verified bytes; no network src navigation.
+    expect(frame.src, `${frame.id} has no src`).toBe('');
+    expect(frame.srcdoc.length, `${frame.id} srcdoc`).toBeGreaterThan(0);
+    expect(frame.srcdoc, `${frame.id} CSP meta`).toContain(
+      '<meta http-equiv="Content-Security-Policy"',
     );
     expect(frame.sandbox, `${frame.id} sandbox`).toContain('allow-scripts');
     expect(frame.sandbox, `${frame.id} sandbox`).not.toContain('allow-same-origin');
   }
 
-  for (const name of expectedNapplets) {
-    const response = gatewayResponses.get(name);
-    expect(response?.status, `${name} gateway status`).toBe(200);
-    expect(response?.url, `${name} gateway response URL`).toMatch(
-      new RegExp(`/napplet-gateway/${name}/[a-f0-9]{64}/index.html$`),
-    );
-  }
-
-  expect(gatewayResponses.get('resource-demo')?.csp).toContain('https://raw.githubusercontent.com');
+  // The resource-demo pre-grant flows into the srcdoc CSP <meta> connect-src.
+  const resourceFrame = frames.find((frame) => frame.id.startsWith('demo-resource-demo-'));
+  expect(resourceFrame?.srcdoc).toContain('https://raw.githubusercontent.com');
 });
 
-test('playground gateway manifests and hosted supports match napplet contracts', async ({ page }) => {
+test('resolved manifests and hosted supports match napplet contracts', async ({ page }) => {
   await demoBeforeEach(page);
 
   const manifests = await page.evaluate(async (names) => {
     const entries = await Promise.all(names.map(async (name) => {
-      const response = await fetch(`/napplet-gateway/${encodeURIComponent(name)}/manifest.json`, {
+      const response = await fetch(`/napplet-relay/event/${encodeURIComponent(name)}`, {
         cache: 'no-store',
       });
-      const metadata = await response.json() as { requires?: string[] };
-      return [name, metadata.requires ?? []] as const;
+      const event = await response.json() as { tags?: string[][] };
+      const requires = (event.tags ?? [])
+        .filter((tag) => tag[0] === 'requires' && typeof tag[1] === 'string')
+        .map((tag) => tag[1]);
+      return [name, requires] as const;
     }));
     return Object.fromEntries(entries);
   }, expectedNapplets);
@@ -111,10 +104,10 @@ test('playground gateway manifests and hosted supports match napplet contracts',
   }
 
   for (const name of expectedNapplets) {
-    const frame = page.frames().find((candidate) =>
-      new URL(candidate.url()).pathname.includes(`/napplet-gateway/${name}/`),
-    );
-    expect(frame, `${name} frame`).toBeDefined();
+    const handle = await page.locator(`#${name}-frame-container iframe`).elementHandle();
+    expect(handle, `${name} iframe handle`).not.toBeNull();
+    const frame = await handle!.contentFrame();
+    expect(frame, `${name} content frame`).not.toBeNull();
 
     await expect.poll(async () => frame!.evaluate((requires) => {
       const maybeWindow = window as Window & {

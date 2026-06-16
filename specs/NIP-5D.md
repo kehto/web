@@ -2,14 +2,13 @@
 
 Status: active repo-local contract for v1.12 conformance work.
 
-Authoritative source: `https://raw.githubusercontent.com/dskvr/nips/d80d7b25f9c4331acbeb40dbeb3b077caa80e885/5D.md`
+Authoritative source: branch-HEAD `dskvr/nips` `nip/5d` `5D.md` (`dskvr/nips#3`),
+with the NIP-5A "Aggregate Hash" from `nostr-protocol/nips` PR #2287 (`5A.md`).
 
-Pinned source commit: `d80d7b25f9c4331acbeb40dbeb3b077caa80e885`
-
-This document is a repo-local working contract derived only from the pinned
-NIP-5D source above. If this file and the pinned source conflict, the pinned
-source wins. `RUNTIME-SPEC.md` and `napplet/specs/NIP-5D.md` are not
-independent authorities for NIP-5D.
+This document is a repo-local working contract derived from the branch-HEAD
+NIP-5D source above. If this file and the source conflict, the source wins.
+`RUNTIME-SPEC.md` and `napplet/specs/NIP-5D.md` are not independent authorities
+for NIP-5D.
 
 ## Core Model
 
@@ -81,14 +80,21 @@ NIP-01 array verbs such as `REGISTER`, `AUTH`, `IDENTITY`, `EVENT`, `REQ`, and
 
 ## Identity
 
-The shell assigns napplet identity at iframe creation time. No napplet-side
-identity negotiation is required.
+A napplet's identity is the `(dTag, aggregateHash)` tuple. The runtime
+**computes** it from the napplet's own verified bytes; it MUST NOT accept it from
+a host or gateway.
 
-When the shell creates a napplet iframe, it binds the iframe `Window` reference
-to the napplet's NIP-5A `(dTag, aggregateHash)` tuple. This tuple is the
-napplet's session identity. Internal representation is an implementation detail
-as long as every inbound message resolves from `MessageEvent.source` to the
-same identity before dispatch.
+The runtime resolves a napplet from a signed manifest event (kinds `35129` named,
+`15129` root, `5129` snapshot): verify the manifest signature, fetch each `path`
+blob from Blossom by sha256 and verify it, recompute the NIP-5A aggregate from the
+`path` tags and assert it equals the `["x","<hex>","aggregate"]` tag, then inject
+the verified `/index.html` via `iframe.srcdoc`. Any failure rejects the load.
+
+When the shell creates the napplet iframe, it binds the iframe `Window` reference
+to that computed `(dTag, aggregateHash)` tuple — the napplet's session identity.
+No napplet-side identity negotiation is required. Internal representation is an
+implementation detail as long as every inbound message resolves from
+`MessageEvent.source` to the same identity before dispatch.
 
 Messages from unknown `Window` references must be silently dropped.
 

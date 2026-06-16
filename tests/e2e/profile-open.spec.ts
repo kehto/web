@@ -14,25 +14,23 @@ test('profile-viewer opens a NAP-01 profile request emitted from the feed frame'
   const profileFrame = page.frameLocator('#profile-viewer-frame-container iframe');
   await expect(profileFrame.locator('#profile-status')).toContainText('waiting', { timeout: 10_000 });
 
+  // srcdoc iframes have an opaque origin (about:srcdoc) — resolve the feed frame
+  // by its container element, not by URL.
   await expect.poll(async () => {
-    const frame = page.frames().find((candidate) =>
-      new URL(candidate.url()).pathname.includes('/napplet-gateway/feed/'),
-    );
+    const handle = await page.locator('#feed-frame-container iframe').elementHandle();
+    const frame = handle ? await handle.contentFrame() : null;
     if (!frame) return false;
     return frame.evaluate(() => {
       const maybeWindow = window as Window & {
-        napplet?: {
-          ifc?: { emit?: unknown };
-        };
+        napplet?: { ifc?: { emit?: unknown } };
       };
       return typeof maybeWindow.napplet?.ifc?.emit === 'function';
     });
   }, { timeout: 10_000 }).toBe(true);
 
-  const frame = page.frames().find((candidate) =>
-    new URL(candidate.url()).pathname.includes('/napplet-gateway/feed/'),
-  );
-  expect(frame, 'feed gateway frame').toBeDefined();
+  const feedHandle = await page.locator('#feed-frame-container iframe').elementHandle();
+  const frame = feedHandle ? await feedHandle.contentFrame() : null;
+  expect(frame, 'feed srcdoc frame').not.toBeNull();
   await frame!.evaluate((pubkey) => {
     const maybeWindow = window as Window & {
       napplet?: {

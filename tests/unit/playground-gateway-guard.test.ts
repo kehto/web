@@ -55,7 +55,7 @@ describe('playground gateway artifact guard', () => {
     expect(sharedConfig).toContain('requires,');
   });
 
-  it('keeps the active loader on the gateway route with opaque-origin iframes', () => {
+  it('loads napplets by content-addressed resolution into opaque-origin srcdoc iframes', () => {
     const shellHost = readRepoFile('apps/playground/src/shell-host.ts');
     const indexHtml = readRepoFile('apps/playground/index.html');
     const main = readRepoFile('apps/playground/src/main.ts');
@@ -64,11 +64,18 @@ describe('playground gateway artifact guard', () => {
     expect(shellHost).toContain('function playgroundPath(');
     expect(shellHost).toContain('import.meta.env.BASE_URL');
     expect(shellHost).not.toContain('meta.env?.BASE_URL');
-    expect(shellHost).toContain('playgroundPath(`/napplet-gateway/${encodeURIComponent(name)}/manifest.json`)');
-    expect(shellHost).toContain('iframe.src = metadata.htmlUrl');
+
+    // Loader resolves + verifies content-addressed bytes, then renders via srcdoc.
+    expect(shellHost).toContain('resolvePlaygroundNapplet({');
+    expect(shellHost).toContain('iframe.srcdoc = injectCspMeta(resolved.indexHtml, origins)');
     expect(shellHost).toContain("iframe.sandbox.add('allow-scripts')");
     expect(shellHost).not.toContain('allow-same-origin');
-    expect(shellHost).not.toContain('`/napplets/${name}/index.html`');
+
+    // The gateway is no longer in the trust path: no gateway metadata fetch and
+    // no iframe.src navigation in the loader.
+    expect(shellHost).not.toContain('iframe.src = metadata.htmlUrl');
+    expect(shellHost).not.toContain('fetchGatewayMetadata');
+    expect(shellHost).not.toContain('napplet-gateway');
 
     expect(indexHtml).toContain('id="static-demo-banner"');
     expect(preferences).toContain("export const STATIC_PAGES_BASE_PATH = '/web/playground/';");
@@ -76,22 +83,30 @@ describe('playground gateway artifact guard', () => {
     expect(main).toContain('if (isStaticPagesDemo) return;');
   });
 
-  it('exposes manifest requires through gateway metadata and checks it before navigation', () => {
+  it('resolves via the relay + Blossom simulation and checks requires before rendering', () => {
     const viteConfig = readRepoFile('apps/playground/vite.config.ts');
     const shellHost = readRepoFile('apps/playground/src/shell-host.ts');
+    const resolver = readRepoFile('apps/playground/src/napplet-resolver.ts');
 
-    expect(viteConfig).toContain('requires: string[]');
-    expect(viteConfig).toContain("tag[0] === 'requires'");
-    expect(viteConfig).toContain('requires,');
+    // In-repo relay + Blossom simulation endpoints.
+    expect(viteConfig).toContain("server.middlewares.use('/napplet-relay'");
+    expect(viteConfig).toContain("server.middlewares.use('/napplet-blossom'");
+    expect(viteConfig).toContain('serveResolutionSimPlugin()');
     expect(viteConfig).toContain('PLAYGROUND_BASE_PATH');
     expect(viteConfig).toContain('base: playgroundBasePath');
-    expect(viteConfig).toContain('withPlaygroundBasePath(');
 
-    expect(shellHost).toContain('requires: string[]');
-    expect(shellHost).toContain('getMissingRequiredNaps(metadata.requires)');
+    // Resolver enforces signature/aggregate/blob verification via @kehto/nip.
+    expect(resolver).toContain("from '@kehto/nip/5d'");
+    expect(resolver).toContain("from '@kehto/nip/65'");
+    expect(resolver).toContain('resolveNapplet(');
+    expect(resolver).toContain('selectWriteRelays(');
+    expect(resolver).toContain('injectCspMeta');
+
+    // requires checked against the COMPUTED manifest before the iframe renders.
+    expect(shellHost).toContain('getMissingRequiredNaps(resolved.requires)');
     expect(shellHost).toContain('requires unsupported NAP capabilities');
-    expect(shellHost.indexOf('getMissingRequiredNaps(metadata.requires)')).toBeLessThan(
-      shellHost.indexOf('iframe.src = metadata.htmlUrl'),
+    expect(shellHost.indexOf('getMissingRequiredNaps(resolved.requires)')).toBeLessThan(
+      shellHost.indexOf('iframe.srcdoc = injectCspMeta'),
     );
   });
 
@@ -281,6 +296,13 @@ describe('playground gateway artifact guard', () => {
     expect(script).toContain("'/web/playground/'");
     expect(script).toContain('htmlUrl: withPagesBasePath(');
     expect(script).toContain('cpSync(sourceHtmlPath, htmlRoute)');
+
+    // Clean break: the static export also materializes the content-addressed
+    // resolution routes (relays -> Blossom) the srcdoc loader uses.
+    expect(script).toContain('materializeResolutionRoutes(');
+    expect(script).toContain("join(outputDir, 'napplet-relay', 'event')");
+    expect(script).toContain("join(outputDir, 'napplet-blossom')");
+    expect(script).toContain('materializeRelayList(');
 
     expect(pagesScript).toContain("'docs', '.vitepress', 'dist'");
     expect(pagesScript).toContain("join(repoRoot, 'web', 'assets')");

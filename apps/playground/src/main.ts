@@ -15,7 +15,7 @@ import {
   toggleService,
   setDemoConfigValue,
   getPlaygroundRelayActivity,
-  type GatewayNappletMetadata,
+  type LoadedNappletIdentity,
   isServiceEnabled,
 } from './shell-host.js';
 import { initThemeSwitcherHost, buildHostRelaySubscribe } from './theme-switcher-host.js';
@@ -269,11 +269,11 @@ function handleLoadedNapplet(): void {
   }, 0);
 }
 
-async function pregrantBeforeGatewayNavigation(metadata: GatewayNappletMetadata): Promise<void> {
-  if (metadata.dTag !== 'resource-demo') return;
+async function pregrantBeforeRender(identity: LoadedNappletIdentity): Promise<void> {
+  if (identity.dTag !== 'resource-demo') return;
   const ok = await grantConnectOrigin(
-    metadata.dTag,
-    metadata.aggregateHash,
+    identity.dTag,
+    identity.aggregateHash,
     RESOURCE_DEMO_REMOTE_IMAGE_ORIGIN,
   );
   if (!ok) {
@@ -283,7 +283,7 @@ async function pregrantBeforeGatewayNavigation(metadata: GatewayNappletMetadata)
 
 for (const napplet of DEMO_NAPPLETS) {
   void loadNapplet(napplet.name, napplet.frameContainerId, {
-    beforeNavigate: pregrantBeforeGatewayNavigation,
+    beforeRender: pregrantBeforeRender,
   }).then(() => {
     handleLoadedNapplet();
   }).catch((err) => {

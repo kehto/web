@@ -3,12 +3,40 @@
 This document is an internal reference for Kehto's active NIP-5D runtime model.
 It is not an independent protocol authority.
 
-Authoritative source for NIP-5D conformance:
-`https://raw.githubusercontent.com/dskvr/nips/d80d7b25f9c4331acbeb40dbeb3b077caa80e885/5D.md`
+Authoritative source for NIP-5D conformance: branch-HEAD `dskvr/nips` `nip/5d`
+`5D.md` (`dskvr/nips#3`), with the NIP-5A "Aggregate Hash" from `nostr-protocol/nips`
+PR #2287 (`5A.md`). Content-addressed resolution adopted in milestone v1.20.
 
 Repo-local working contract: `specs/NIP-5D.md`
 
 Current-state delta inventory: `.planning/NIP-5D-DELTA-AUDIT.md`
+
+## Content-Addressed Loading & Identity
+
+Napplets are content-addressed. The runtime resolves and renders a napplet from
+verified bytes — the gateway is never in the trust path:
+
+1. Resolve the napplet's signed manifest event from relays via NIP-65 outbox
+   relay selection (by kind + author, plus `d` for named napplets) and verify the
+   event signature. Manifest kinds are `35129` (named/addressable, carries `d`),
+   `15129` (root/replaceable), and `5129` (snapshot/regular).
+2. Fetch each `path` blob from Blossom by sha256 and verify `sha256(blob)` equals
+   the `path` tag hash.
+3. Recompute the NIP-5A aggregate from the `path` tags and assert it equals the
+   `["x","<hex>","aggregate"]` tag. This aggregate is the napplet's content
+   address.
+4. Assemble the verified `/index.html` and inject it via `iframe.srcdoc` (with the
+   `connect-src` CSP as a `<meta http-equiv>` so the policy holds inside the
+   opaque-origin iframe).
+
+A napplet's identity is the `(dTag, aggregateHash)` tuple **computed** from these
+verified bytes. The runtime MUST NOT accept identity from a host or gateway. Any
+verification failure rejects the load — no iframe is rendered with unverified
+bytes. A gateway MAY serve bytes as an accelerator, but its output is verified
+against the signed manifest like any other source.
+
+Resolution primitives live in `@kehto/nip/5a` (aggregate hash) and `@kehto/nip/5d`
+(manifest parse, signature/aggregate/blob verification, `resolveNapplet`).
 
 ## Active Runtime Model
 
@@ -24,8 +52,8 @@ The active NIP-5D primitives are:
 - active wire messages are objects with a string `type` in `domain.action`
   form;
 - unknown sources and unrecognized `type` values are silently ignored;
-- napplet identity is assigned by the shell at iframe creation from the NIP-5A
-  `(dTag, aggregateHash)` tuple;
+- napplet identity is the `(dTag, aggregateHash)` tuple computed by the runtime
+  from the verified manifest bytes (NIP-5A aggregate), bound at iframe creation;
 - manifest `requires` tags use short NUB names;
 - hosted `window.napplet.shell.supports()` reflects shell-provided
   capabilities;

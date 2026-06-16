@@ -18,7 +18,7 @@
  * same Playwright worker.
  */
 import { test, expect } from '@playwright/test';
-import { demoBeforeEach } from './helpers/index.js';
+import { demoBeforeEach, getNappletFrame } from './helpers/index.js';
 
 test.use({ baseURL: 'http://localhost:4174' });
 test.describe.configure({ mode: 'serial' });
@@ -64,7 +64,7 @@ test('clicking host dark button propagates theme.changed to preferences napplet'
   await expect(prefFrame.locator('#preferences-theme-applied')).toHaveText(DARK_BG_HEX, { timeout: 8_000 });
 
   // Step 7: preferences iframe body computed backgroundColor should be rgb(10, 10, 10).
-  const prefFrameDirect = page.frames().find(f => f.url().includes('/preferences/'));
+  const prefFrameDirect = await getNappletFrame(page, 'preferences-frame-container');
   if (!prefFrameDirect) throw new Error('preferences frame not found in page.frames()');
   const bodyBg = await prefFrameDirect.evaluate(() => getComputedStyle(document.body).backgroundColor);
   expect(bodyBg, `preferences body backgroundColor after theme.changed`).toBe(DARK_BG_RGB);
