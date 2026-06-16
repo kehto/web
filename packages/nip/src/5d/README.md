@@ -2,8 +2,9 @@
 
 Resolve content-addressed [NIP-5D](https://github.com/dskvr/nips/blob/nip/5d/5D.md)
 napplets: parse the manifest event, verify its signature, verify the
-[NIP-5A](../5a/README.md) aggregate, fetch and verify each blob from Blossom, and
-assemble the verified `/index.html`.
+[NIP-5A](https://github.com/nostr-protocol/nips/pull/2287) aggregate (also at
+`@kehto/nip/5a`), fetch and verify each blob from Blossom, and assemble the
+verified `/index.html`.
 
 The napplet's identity is the `(dTag, aggregateHash)` tuple **computed from the
 verified bytes** — never accepted from a host or gateway. Any failure throws a

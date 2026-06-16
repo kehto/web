@@ -32,5 +32,5 @@ const hex = computeAggregateHash([{ path: '/index.html', sha256: '186ea5…1c99'
 if (!verifyAggregate(manifestEvent.tags)) throw new Error('aggregate mismatch');
 ```
 
-Used by [`@kehto/nip/5d`](../5d/README.md) to verify a napplet manifest's content
-address before loading.
+Used by `@kehto/nip/5d` to verify a napplet manifest's content address before
+loading.
