@@ -11,7 +11,6 @@ const playgroundNapplets = [
   'preferences',
   'profile-viewer',
   'resource-demo',
-  'theme-switcher',
   'toaster',
 ] as const;
 
@@ -24,7 +23,6 @@ const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly str
   preferences: ['storage', 'theme'],
   'profile-viewer': ['ifc', 'relay', 'theme'],
   'resource-demo': ['resource', 'connect', 'theme'],
-  'theme-switcher': ['identity', 'relay', 'theme'],
   toaster: ['notify', 'theme'],
 };
 
@@ -38,12 +36,10 @@ const rawListenerFiles = [
 const rawPostMessageTypes: Record<string, readonly string[]> = {
   'apps/playground/napplets/cvm-relatr/src/main.ts': ['cvm.discover', 'cvm.request'],
   'apps/playground/napplets/resource-demo/src/main.ts': ['resource.bytes'],
-  'apps/playground/napplets/theme-switcher/src/main.ts': ['theme.set'],
   'apps/playground/napplets/toaster/src/main.ts': ['notify.create', 'notify.list'],
 };
 
 const policyAllowlistTypes = [
-  'theme.set',
   'cvm.discover',
   'cvm.request',
   'notify.create',

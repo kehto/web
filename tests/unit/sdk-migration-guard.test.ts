@@ -10,7 +10,6 @@ const sdkTargetDirs = [
   'apps/playground/napplets/preferences',
   'apps/playground/napplets/profile-viewer',
   'apps/playground/napplets/resource-demo',
-  'apps/playground/napplets/theme-switcher',
   'apps/playground/napplets/toaster',
   'tests/fixtures/napplets/nub-identity',
   'tests/fixtures/napplets/nub-ifc',

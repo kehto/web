@@ -25,6 +25,11 @@ export interface ThemeSwitcherHostOptions {
   getHostPubkey: () => string;
   /** Injected relay subscribe adapter from the host relay service. */
   subscribe: ThemeRelaySubscribe;
+  /**
+   * Initial theme to reflect in the button active-states on mount.
+   * If omitted, Dark theme is the default visual selection.
+   */
+  initialTheme?: PlaygroundTheme;
 }
 
 const STYLE_ID = 'playground-theme-switcher-style';
@@ -440,7 +445,7 @@ export function initThemeSwitcherHost(options: ThemeSwitcherHostOptions): void {
 
   // ── Init ─────────────────────────────────────────────────────────────────
 
-  syncThemeSelection(DARK_THEME);
+  syncThemeSelection(options.initialTheme ?? DARK_THEME);
   setStatus('ready', 'green');
   renderCatalog();
   void refreshDiscoveredThemes();

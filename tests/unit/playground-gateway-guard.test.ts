@@ -11,7 +11,6 @@ const playgroundNapplets = [
   'preferences',
   'profile-viewer',
   'resource-demo',
-  'theme-switcher',
   'toaster',
 ] as const;
 
@@ -24,7 +23,6 @@ const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly str
   preferences: ['storage', 'theme'],
   'profile-viewer': ['ifc', 'relay', 'theme'],
   'resource-demo': ['resource', 'connect', 'theme'],
-  'theme-switcher': ['identity', 'relay', 'theme'],
   toaster: ['notify', 'theme'],
 };
 
@@ -191,20 +189,39 @@ describe('playground gateway artifact guard', () => {
     expect(profileSource).toContain('Select a profile from the feed.');
   });
 
-  it('keeps theme discovery controls visible before status text in the clipped card top row', () => {
-    const themeHtml = readRepoFile('apps/playground/napplets/theme-switcher/index.html');
-    const themeSource = readRepoFile('apps/playground/napplets/theme-switcher/src/main.ts');
+  it('keeps host theme-switcher controls in theme-switcher-host.ts with no sandbox postMessage seam', () => {
+    const themeHost = readRepoFile('apps/playground/src/theme-switcher-host.ts');
+    const main = readRepoFile('apps/playground/src/main.ts');
 
-    expect(themeHtml).toContain('class="theme-row theme-row-wrap theme-discovery-row"');
-    expect(themeHtml.indexOf('id="theme-discover-btn"')).toBeLessThan(themeHtml.indexOf('id="theme-status"'));
-    expect(themeHtml.indexOf('id="theme-show-wot"')).toBeLessThan(themeHtml.indexOf('id="theme-status"'));
-    expect(themeHtml.indexOf('id="theme-show-global"')).toBeLessThan(themeHtml.indexOf('id="theme-status"'));
-    expect(themeHtml).toContain('flex: 1 1 auto;');
-    expect(themeHtml).not.toContain('id="theme-debug-toggle"');
-    expect(themeHtml).not.toContain('id="theme-log"');
-    expect(themeSource).toContain('statusEl.title = text;');
-    expect(themeSource).not.toContain('theme-debug-toggle');
-    expect(themeSource).not.toContain('theme-log');
+    // Core DOM element IDs expected by e2e specs
+    expect(themeHost).toContain("'theme-light-btn'");
+    expect(themeHost).toContain("'theme-dark-btn'");
+    expect(themeHost).toContain("'theme-discover-btn'");
+    expect(themeHost).toContain("'theme-show-wot'");
+    expect(themeHost).toContain("'theme-show-global'");
+    expect(themeHost).toContain("'playground-host-theme-status'");
+    expect(themeHost).toContain("'playground-host-theme-catalog'");
+
+    // Discovery row must declare discovery-row class for layout
+    expect(themeHost).toContain('theme-row theme-row-wrap theme-discovery-row');
+
+    // Status element must support tooltip via title attribute
+    expect(themeHost).toContain('statusEl.title = text;');
+
+    // No debug toggle / log artifacts
+    expect(themeHost).not.toContain('theme-debug-toggle');
+    expect(themeHost).not.toContain('theme-log');
+
+    // Theme application must route through applyTheme (host path) — no raw postMessage
+    expect(themeHost).toContain('options.applyTheme(');
+    expect(themeHost).not.toContain("postMessage({ type: 'theme.set'");
+    expect(themeHost).not.toContain("window.parent.postMessage");
+
+    // main.ts must wire initThemeSwitcherHost and drop the theme.set listener
+    expect(main).toContain('initThemeSwitcherHost(');
+    expect(main).toContain('buildHostRelaySubscribe(');
+    expect(main).not.toContain("data.type !== 'theme.set'");
+    expect(main).not.toContain("data.type === 'theme.set'");
   });
 
   it('keeps the GitHub Pages publisher aligned with the static gateway artifact contract', () => {

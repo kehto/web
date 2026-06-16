@@ -8,7 +8,7 @@ import {
   type NostrEvent,
   type NostrFilter,
   type ThemeRelaySubscribe,
-} from '../../apps/playground/napplets/theme-switcher/src/theme-discovery.js';
+} from '../../apps/playground/src/theme-discovery.js';
 
 const USER = 'a'.repeat(64);
 const FOLLOW = 'b'.repeat(64);

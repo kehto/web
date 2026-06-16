@@ -158,6 +158,7 @@ initThemeSwitcherHost({
   },
   getHostPubkey: () => getDemoHostPubkey(),
   subscribe: buildHostRelaySubscribe(() => getRelayServiceHandler()),
+  initialTheme: preferences.getCurrentTheme(),
 });
 debuggerEl?.addSystemMessage('theme service registered -- host theme switcher active');
 

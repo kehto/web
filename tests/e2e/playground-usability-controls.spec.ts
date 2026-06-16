@@ -64,14 +64,11 @@ test('color mode persists user selection across reloads', async ({ page }) => {
 test('theme selection persists across reloads and applies to the shell', async ({ page }) => {
   await demoBeforeEach(page);
 
-  const themeFrame = page.frameLocator('#theme-switcher-frame-container iframe');
-  await expect(themeFrame.locator('#theme-status')).toContainText('ready', { timeout: 10_000 });
+  // The host Dark button is in the theme service topology card (no iframe needed).
+  await expect(page.locator('#theme-dark-btn')).toBeVisible({ timeout: 10_000 });
+  await page.locator('#theme-dark-btn').click();
 
-  await themeFrame.locator('#theme-dark-btn').evaluate((el) => {
-    (el as HTMLButtonElement).click();
-  });
-
-  await expect(themeFrame.locator('#theme-dark-btn')).toHaveAttribute('data-active', 'true', { timeout: 5_000 });
+  await expect(page.locator('#theme-dark-btn')).toHaveAttribute('data-active', 'true', { timeout: 5_000 });
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(10, 10, 10)');
   await expect(page.locator('body')).toHaveCSS('color', 'rgb(224, 224, 224)');
   await expect.poll(() => page.evaluate(() => localStorage.getItem('kehto.playground.theme.v1'))).toContain('"title":"Dark"');
@@ -79,10 +76,12 @@ test('theme selection persists across reloads and applies to the shell', async (
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#topology-root', { state: 'visible', timeout: 15_000 });
 
-  await expect(themeFrame.locator('#theme-status')).toContainText('ready', { timeout: 10_000 });
+  // After reload, the host switcher re-mounts and theme is restored from localStorage.
+  await expect(page.locator('#theme-dark-btn')).toBeVisible({ timeout: 10_000 });
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(10, 10, 10)');
   await expect(page.locator('body')).toHaveCSS('color', 'rgb(224, 224, 224)');
-  await expect(themeFrame.locator('#theme-dark-btn')).toHaveAttribute('data-active', 'true', { timeout: 5_000 });
+  // The button active state is synced on mount via syncThemeSelection.
+  await expect(page.locator('#theme-dark-btn')).toHaveAttribute('data-active', 'true', { timeout: 5_000 });
 });
 
 test('per-napplet ACL panels persist expansion, capability changes, and block state', async ({ page }) => {
