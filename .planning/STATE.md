@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.19
-milestone_name: NAP Ontology Alignment
-status: verifying
-stopped_at: "Completed 83-01: inc domain aliased to ifcMap in ACL resolver"
-last_updated: "2026-06-15T16:22:34.521Z"
-last_activity: 2026-06-15
+milestone: v1.20
+milestone_name: NIP-5D Content-Addressed Runtime Resolution
+status: planning
+last_updated: "2026-06-16T15:50:15.531Z"
+last_activity: 2026-06-16
 progress:
-  total_phases: 1
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 100
+  total_phases: 2
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,16 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-15)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 83 — nap-ontology-alignment
+**Current focus:** Phase 84 — nip5d-resolution-module (`@kehto/nip`)
 
 ## Current Position
 
-Phase: 83 (nap-ontology-alignment) — EXECUTING
-Plan: 3 of 3
-Status: Phase complete — ready for verification
-Last activity: 2026-06-16 - Completed quick task 260616-8iv: theme-switcher moved host-side
-
-Progress: [██████████] 100%
+Phase: 84 (NIP-5A/5D Resolution Module) — Not started
+Plan: —
+Status: Roadmap defined; ready to plan Phase 84
+Last activity: 2026-06-16 — Milestone v1.20 roadmap created (Phases 84-85)
 
 ## Performance Metrics
 

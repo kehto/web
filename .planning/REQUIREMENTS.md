@@ -1,67 +1,71 @@
-# Requirements: Kehto Runtime — v1.19 NAP Ontology Alignment
+# Requirements: Kehto Runtime — v1.20 NIP-5D Content-Addressed Runtime Resolution
 
-**Defined:** 2026-06-15
+**Defined:** 2026-06-16
 **Core Value:** Modular, framework-agnostic runtime for hosting napplet applications — any Nostr client can embed sandboxed mini-apps by integrating @kehto/shell.
-**Resolves:** kehto/web#24
+**Authoritative sources:** branch-HEAD `dskvr/nips` `nip/5d` (`5D.md`, PR #3) + `nostr-protocol/nips` PR #2287 (`5A.md` "Aggregate Hash", head `hzrd149/nips:nsite-aggragate-hash`).
 
 ## v1 Requirements
 
 Requirements for this milestone. Each maps to a roadmap phase.
 
-### Capability Handshake
+### NIP-5A/5D Resolution Module — `@kehto/nip` (Phase 84 / PR1)
 
-- [x] **ALIGN-01**: A napplet built against `@napplet/* >=0.9.0` gets `true` from `window.napplet.shell.supports('inc')` (bare-domain query) when hosted in a kehto shell.
-- [x] **ALIGN-02**: That napplet gets `true` from `supports('inc', 'NAP-01')` (protocol query) and from the other advertised `inc:NAP-0N` protocol queries.
-- [x] **ALIGN-03**: The `shell.init` handshake emits the renamed `naps` capability array (consumed by the 0.9.0 shim's `createShellSupports`), and dual-emits the legacy `nubs` array for one back-compat release so napplets on either side of the rename keep negotiating.
-- [x] **ALIGN-04**: The emitted handshake advertises domain `inc` (not `ifc`) and protocol IDs in `inc:NAP-0N` form (legacy `ifc:NUB-0N` aliased to `inc:NAP-0N`); the emitted `naps` set contains no unaliased `ifc`/`NUB-NN` identifiers except the deliberate `nubs` dual-emit.
+- [ ] **RESOLVE-01**: A developer can import NIP-5D kind constants from `@kehto/nip` — `35129` (named/addressable, has `d`), `15129` (root/replaceable), `5129` (snapshot/regular).
+- [ ] **RESOLVE-02**: The module parses a NIP-5D manifest event into structured fields: `dTag`, `path` entries (`{ path, sha256 }`), the aggregate `x` tag, `server` hints, `requires`, and optional `title`/`description`.
+- [ ] **RESOLVE-03**: The module computes the NIP-5A aggregate hash from `path` tags (per-tag line `"<sha256> <abs-path>\n"` → sort ascending → concat UTF-8 → sha256 → lowercase hex) and a unit test asserts it against a pinned NIP-5A example vector.
+- [ ] **RESOLVE-04**: The module verifies a manifest's recomputed aggregate equals its `["x","<hex>","aggregate"]` tag and rejects on mismatch.
+- [ ] **RESOLVE-05**: The module verifies a manifest event's Nostr signature and rejects an invalid or forged signature.
+- [ ] **RESOLVE-06**: The module fetches a blob from a Blossom server by sha256 and verifies `sha256(blob) === path hash`, rejecting on mismatch.
+- [ ] **RESOLVE-07**: `@kehto/nip` builds and type-checks with the new subpath exported; unit tests cover the aggregate vector, signature, blob-hash, aggregate-vs-`x`, and every rejection path.
 
-### INC Dispatch Rail
+### Runtime Identity From Verified Bytes (Phase 85 / PR2)
 
-- [x] **ALIGN-05**: The runtime routes `inc.emit` / `inc.subscribe` / `inc.unsubscribe` wire messages (sent by `>=0.9.0` napplets) through the existing IFC handler so the INC peer-bus rail functions, while legacy `ifc.*` messages continue to be handled during the transition window.
-- [x] **ALIGN-06**: The ACL resolver authorizes `inc.*` actions identically to the corresponding `ifc.*` actions (same capability mapping), so the new dispatch key passes the same ACL gate.
+- [ ] **IDENTITY-01**: The runtime derives a napplet keypair from the *computed* `(dTag, aggregateHash)` of verified bytes — `key-derivation` is fed resolver output, not gateway-asserted metadata.
+- [ ] **IDENTITY-02**: `manifest-cache`, ACL state/store, and the shell session binding key on the computed `(dTag, aggregateHash)`.
+- [ ] **IDENTITY-03**: The iframe `Window` maps to the computed identity via the existing source-derived binding (`markSourceDerivedIdentity` / `originRegistry`), so every inbound message resolves from `MessageEvent.source` to the same identity before dispatch.
 
-### Verification & Release
+### Content-Addressed Loading (Phase 85 / PR2)
 
-- [x] **ALIGN-07**: An automated conformance test feeds kehto-emitted `shell.init` capabilities into the real `@napplet/shim@0.9.0` `createShellSupports` (dev-only dependency) and asserts the resulting `supports(...)` outcomes — not just string-level assertions.
-- [x] **ALIGN-08**: A changeset records the public `@kehto/shell` `ShellCapabilities` change (plus `@kehto/acl` / `@kehto/runtime` where mirrored) and notes downstream consumer impact (hyprgate).
+- [ ] **LOAD-01**: The shell loads a napplet end-to-end — resolve the signed manifest from relays via NIP-65 outbox selection → fetch each blob from Blossom by sha256 → verify → assemble `/index.html` — backed by a minimal in-repo relay + Blossom simulation in the playground.
+- [ ] **LOAD-02**: The shell injects verified bytes via `iframe.srcdoc` with `sandbox="allow-scripts"` and never `allow-same-origin` (opaque origin preserved, storage stays shell-mediated).
+- [ ] **LOAD-03**: Any resolution/verification failure (missing manifest, bad signature, missing/forged blob, aggregate mismatch) rejects the load — no iframe is ever shown with unverified bytes.
+- [ ] **LOAD-04**: The gateway is no longer in the trust path — `htmlUrl` / `GatewayNappletMetadata` are retired (or `htmlUrl` survives only as an accelerator hint whose output is verified against the signed manifest).
+- [ ] **LOAD-05**: CSP / NAP-CONNECT policy is enforced via an injected `<meta http-equiv="Content-Security-Policy">` in the assembled HTML under `srcdoc`; firewall / storage / relay / ACL mediation behavior is unchanged.
+- [ ] **LOAD-06**: The in-repo build (`shared-vite-config.ts`) emits NIP-5A `path` tags + one `["x","<hex>","aggregate"]` tag and uses kind `35129`, so the playground exercises the real resolve → verify → srcdoc path.
+- [ ] **LOAD-07**: Existing tests asserting gateway / `htmlUrl` behavior are updated to the srcdoc model; `pnpm build`, `pnpm type-check`, unit, and E2E suites are green.
+
+### Documentation Sync (Phase 85 / PR2)
+
+- [ ] **DOCS-01**: `RUNTIME-SPEC.md` and `specs/NIP-5D.md` repin to branch-HEAD NIP-5D (kinds `35129`/`15129`/`5129`) and describe the relays → Blossom → verify → srcdoc loading + computed identity; no "backwards compatibility" language anywhere in the changed docs.
+- [ ] **DOCS-02**: `@kehto/nip` (and `@kehto/runtime` / `@kehto/shell` where changed) READMEs / types / CHANGELOGs document the resolution + identity change; changesets are added.
 
 ## v2 Requirements
 
 Deferred to a future milestone.
 
-### Compatibility Window Cleanup
+### Real Deployment & Instancing
 
-- **CLEANUP-01**: Drop the legacy `nubs` dual-emit and the `ifc`/`NUB-0N` aliases once all downstream consumers are on `>=0.9.0` (one release after this milestone).
-- **CLEANUP-02**: Retire the internal `ifc.*` dispatch key and rename internal `ifc` handlers / `nub-*` test fixtures to the NAP vocabulary.
+- **FUTURE-01**: Real napplet publishing/deployment via the nsyte.run CLI (replaces the in-repo dev-only manifest build).
+- **FUTURE-02**: NIP-5D instancing (`dskvr/nips#2`) — per-instance napplet identity/state scoping.
 
 ## Out of Scope
 
 Explicitly excluded to prevent scope creep.
 
-| Feature | Reason |
-|---------|--------|
-| Upgrading `@napplet/core` / `@napplet/nub` from 0.5.0 | Not required — core 0.5.0 `createDispatch` routes any string domain key and the handshake is string-level; upgrading would force a wide, unrelated type migration. |
-| Mass-renaming internal `ifc.*` message handlers, `nub-*` E2E fixtures, and docs | Out of scope for the handshake fix; would churn 840 unit + 86 E2E tests for no DONE-WHEN benefit. Deferred to CLEANUP-02. |
-| Removing the legacy `nubs` dual-emit this milestone | Back-compat window is intentional (issue #24). Deferred to CLEANUP-01. |
+- **`@napplet/vite-plugin` build tooling** — the portable build plugin lives in the separate `@napplet` repo; only the in-repo `shared-vite-config.ts` re-sign step changes here.
+- **NIP-5D instancing (`dskvr/nips#2`)** — deferred (FUTURE-02).
+- **Backwards-compatibility shims or language** — this is a clean break; no dual-path loading and no "backwards compatibility" wording in changed docs.
+- **Mass-renaming or refactoring unrelated runtime internals** beyond what the identity-source change requires.
 
 ## Traceability
 
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| ALIGN-01 | Phase 83 | Complete |
-| ALIGN-02 | Phase 83 | Complete |
-| ALIGN-03 | Phase 83 | Complete |
-| ALIGN-04 | Phase 83 | Complete |
-| ALIGN-05 | Phase 83 | Complete |
-| ALIGN-06 | Phase 83 | Complete |
-| ALIGN-07 | Phase 83 | Complete |
-| ALIGN-08 | Phase 83 | Complete |
-
-**Coverage:**
-- v1 requirements: 8 total
-- Mapped to phases: 8
-- Unmapped: 0
+| REQ-ID | Phase | Status |
+|--------|-------|--------|
+| RESOLVE-01..07 | 84 | Pending |
+| IDENTITY-01..03 | 85 | Pending |
+| LOAD-01..07 | 85 | Pending |
+| DOCS-01..02 | 85 | Pending |
 
 ---
-*Requirements defined: 2026-06-15*
-*Last updated: 2026-06-15 — v1.19 milestone roadmap created; all 8 requirements mapped to Phase 83*
+
+*REQUIREMENTS.md last updated: 2026-06-16 — v1.20 milestone requirements defined.*

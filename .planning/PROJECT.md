@@ -60,7 +60,21 @@ The shipped baseline remains pinned-spec NIP-5D conformance, a buildable docs si
 
 Verification stands at `pnpm build`, `pnpm type-check`, `pnpm test:unit` (570 tests), `VITEPRESS_BASE=/web/docs/ pnpm docs:check`, `pnpm build:pages`, `pnpm audit:pages`, `pnpm audit:gateway-artifacts`, `pnpm audit:csp`, `npx --yes aislop scan -d`, browser visual checks for desktop/mobile/reduced motion, and `git diff --check`.
 
-## Current Milestone: v1.19 NAP Ontology Alignment
+## Current Milestone: v1.20 NIP-5D Content-Addressed Runtime Resolution
+
+**Goal:** Replace gateway-trusted napplet loading with runtime-computed, content-addressed identity per branch-HEAD NIP-5D (kinds `35129` named / `15129` root / `5129` snapshot) and NIP-5A aggregate hash — the runtime resolves a signed manifest from relays, fetches each blob from Blossom by sha256, verifies signature + per-blob hashes + recomputed aggregate against the `x` tag, then injects verified bytes via `iframe.srcdoc`. Identity `(dTag, aggregateHash)` is computed from verified bytes, never accepted from a host. Clean break: no backwards-compatibility shims or language.
+
+**Target features:**
+- **`@kehto/nip` NIP-5A/5D resolution module** (new subpath): manifest event parse (`path`/`x`/`server`/`requires`/`d` tags), NIP-5A aggregate compute + verify against the `["x","<hex>","aggregate"]` tag, manifest signature verification, Blossom blob fetch + per-blob sha256 verification, kind constants `35129`/`15129`/`5129`. Unit-tested incl. a pinned NIP-5A aggregate example vector and every rejection path.
+- **Runtime identity from verified bytes:** `key-derivation`/`manifest-cache`/ACL state/shell bridge keyed on the computed `(dTag, aggregateHash)` — fed from the resolver, not from gateway metadata.
+- **Shell-host `srcdoc` loading:** `apps/playground/src/shell-host.ts` resolves via relays → Blossom → verify → assemble `/index.html` → `iframe.srcdoc` with `sandbox="allow-scripts"` (never `allow-same-origin`); map iframe `Window` → computed identity via `markSourceDerivedIdentity`/`originRegistry`. `htmlUrl`/`GatewayNappletMetadata` retired (gateway becomes an untrusted accelerator/fallback only, verified against the signed manifest).
+- **Minimal in-repo relay + Blossom simulation** for the playground demo: serve the signed kind-`35129` manifest event + a kind-`10002` NIP-65 relay list and serve blobs by sha256, reusing existing playground relay infra.
+- **CSP under `srcdoc`:** inject `<meta http-equiv="Content-Security-Policy">` into the assembled HTML (retire the HTTP-header path for the srcdoc loader). Firewall / storage / relay / ACL mediation unchanged.
+- **In-repo build migration** (`apps/playground/napplets/shared-vite-config.ts`): emit NIP-5A `path` tags + one `["x","<hex>","aggregate"]` tag and bump kind `35128`→`35129` (dev-only build; real deploys land later via the nsyte.run CLI).
+
+**Key context:** Authoritative sources are branch-HEAD `dskvr/nips` `nip/5d` (PR #3) and `nostr-protocol/nips` PR #2287 (`5A.md` "Aggregate Hash", head `hzrd149/nips:nsite-aggragate-hash`) — both supersede the repo's pinned `d80d7b25`/kind-35128 contract, which is repinned this milestone. NIP-5A gives example aggregate *inputs* but no published digest, so the unit-test vector is computed deterministically and pinned. Two PRs, one concern each: **Phase 84 (PR1)** = the `@kehto/nip` resolver (self-contained, unblocks PR2); **Phase 85 (PR2)** = runtime/shell srcdoc loading + playground sim + docs (stacked on PR1). Branch off `main`; never push the default branch. Out of scope: `@napplet/vite-plugin` build tooling and NIP-5D instancing (`dskvr/nips#2`).
+
+## Previous Milestone: v1.19 NAP Ontology Alignment
 
 **Goal:** Align the `@kehto/*` `shell.init` capability handshake (and the INC dispatch rail) with the NAP renames `@napplet/*` adopted at `0.9.0`, so napplets built against `@napplet/* >=0.9.0` negotiate capabilities correctly inside a kehto shell (resolves kehto/web#24).
 
@@ -278,4 +292,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-15 — v1.19 NAP Ontology Alignment milestone started (v1.18 Napplet Firewall shipped)*
+*Last updated: 2026-06-16 — v1.20 NIP-5D Content-Addressed Runtime Resolution milestone started (v1.19 NAP Ontology Alignment shipped)*
