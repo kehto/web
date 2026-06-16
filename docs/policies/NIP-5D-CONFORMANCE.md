@@ -35,7 +35,6 @@ they are either:
 
 | Envelope | Location | Classification | Boundary |
 |----------|----------|----------------|----------|
-| `theme.set` | `apps/playground/napplets/theme-switcher/src/main.ts` | Shell theme request | Not a NIP-5D or NAP contract. Allowed only in the playground theme broadcast demo as the host-side theme mutation request that resolves to `theme.changed`. |
 | `cvm.discover` | `apps/playground/napplets/cvm-relatr/src/main.ts` | NAP-CVM helper-surface gap | The `cvm` ContextVM domain has no `@napplet/shim` helper at this SDK version, so the Relatr demo posts `cvm.discover` directly. Raw use is confined to cvm-relatr and the listener is parent-source-bound. |
 | `cvm.request` | `apps/playground/napplets/cvm-relatr/src/main.ts` | NAP-CVM helper-surface gap | Same cvm-relatr-only gap as `cvm.discover`; the shell owns all ContextVM transport, signing, and relay access. |
 | `notify.create` | `apps/playground/napplets/toaster/src/main.ts` | NAP helper-surface gap | Notify service supports create/list, but `@napplet/nub/notify/sdk` lacks create/list helpers. Raw use must stay source-bound and confined to toaster. |

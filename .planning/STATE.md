@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 Phase: 83 (nap-ontology-alignment) — EXECUTING
 Plan: 3 of 3
 Status: Phase complete — ready for verification
-Last activity: 2026-06-15
+Last activity: 2026-06-16 - Completed quick task 260616-8iv: theme-switcher moved host-side
 
 Progress: [██████████] 100%
 
@@ -67,6 +67,12 @@ Full decision log lives in `.planning/PROJECT.md` Key Decisions table.
 ### Blockers/Concerns
 
 None.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260616-8iv | Move playground theme-switcher functionality from napplet into host theme-service node | 2026-06-16 | f4358b4 | [260616-8iv-move-playground-theme-switcher-functiona](./quick/260616-8iv-move-playground-theme-switcher-functiona/) |
 
 ## Session Continuity
 

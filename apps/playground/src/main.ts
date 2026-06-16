@@ -9,7 +9,7 @@ import {
   getNapplets,
   loadNapplet,
   getNotificationServiceHandler,
-  getThemeServiceBundle,
+  getRelayServiceHandler,
   findIdentityBoundNappletWindowIdByDTag,
   relay,
   toggleService,
@@ -18,6 +18,7 @@ import {
   type GatewayNappletMetadata,
   isServiceEnabled,
 } from './shell-host.js';
+import { initThemeSwitcherHost, buildHostRelaySubscribe } from './theme-switcher-host.js';
 import { connectStore, type Capability, type NappletClass } from '@kehto/shell';
 import { createConsentModal } from './consent-modal.js';
 import { classifyTappedMessagePath, type NappletDebugger } from './debugger.js';
@@ -147,19 +148,19 @@ window.addEventListener('message', (event: MessageEvent) => {
     }, 100);
     return;
   }
-  if (data.type !== 'theme.set') return;
-  const theme = (data as { theme?: unknown }).theme;
-  const currentTheme = preferences.handleThemeMessage(theme);
-  if (!currentTheme) return;
-
-  debuggerEl?.addSystemMessage(`theme set — bg: ${currentTheme.colors.background}`);
 });
 
-// Keep the existing "theme service registered" debugger message:
-const _themeBundle = getThemeServiceBundle();
-if (_themeBundle) {
-  debuggerEl?.addSystemMessage('theme service registered -- theme.set seam ready');
-}
+// Mount host-side theme switcher on the theme service topology card.
+initThemeSwitcherHost({
+  applyTheme: (theme) => {
+    preferences.applyTheme(theme);
+    debuggerEl?.addSystemMessage(`theme set — bg: ${theme.colors.background}`);
+  },
+  getHostPubkey: () => getDemoHostPubkey(),
+  subscribe: buildHostRelaySubscribe(() => getRelayServiceHandler()),
+  initialTheme: preferences.getCurrentTheme(),
+});
+debuggerEl?.addSystemMessage('theme service registered -- host theme switcher active');
 
 demoConfig.subscribe((key, value) => {
   debuggerEl?.addSystemMessage(`config changed: ${key} = ${value}`);

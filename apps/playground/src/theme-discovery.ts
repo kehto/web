@@ -1,4 +1,10 @@
-import { relaySubscribe } from '@napplet/nub/relay/sdk';
+/**
+ * theme-discovery.ts — Host-side port of the pure theme discovery module.
+ *
+ * Ported verbatim from apps/playground/napplets/theme-switcher/src/theme-discovery.ts,
+ * with the single change that `subscribe` is now required in
+ * DiscoverThemeCatalogOptions — the host always injects its own relay adapter.
+ */
 
 export const THEME_DEFINITION_KIND = 36767;
 export const ACTIVE_THEME_KIND = 16767;
@@ -58,6 +64,10 @@ export interface NostrFilter {
   [key: string]: unknown;
 }
 
+/**
+ * Host-injectable relay subscribe adapter.
+ * The host always provides this — no default napplet SDK import.
+ */
 export type ThemeRelaySubscribe = (
   filters: NostrFilter | NostrFilter[],
   onEvent: (event: NostrEvent) => void,
@@ -66,7 +76,8 @@ export type ThemeRelaySubscribe = (
 
 export interface DiscoverThemeCatalogOptions {
   readPublicKey: () => Promise<string>;
-  subscribe?: ThemeRelaySubscribe;
+  /** Required on the host — inject the host relay subscribe adapter. */
+  subscribe: ThemeRelaySubscribe;
   timeoutMs?: number;
 }
 
@@ -75,10 +86,18 @@ interface EventGroup {
   events: NostrEvent[];
 }
 
+/**
+ * Discover themes from the relay by identity scope (user, WoT, global).
+ *
+ * @param options - Discovery options including an injected relay subscribe adapter.
+ * @returns A ThemeDiscoveryResult with found themes, follow list, and diagnostic info.
+ * @example
+ * const result = await discoverThemeCatalog({ readPublicKey, subscribe: hostSubscribe });
+ */
 export async function discoverThemeCatalog(
   options: DiscoverThemeCatalogOptions,
 ): Promise<ThemeDiscoveryResult> {
-  const subscribe = options.subscribe ?? relaySubscribe as ThemeRelaySubscribe;
+  const subscribe = options.subscribe;
   const timeoutMs = options.timeoutMs ?? DEFAULT_DISCOVERY_TIMEOUT_MS;
   const messages: string[] = [];
   const errors: string[] = [];
@@ -152,6 +171,12 @@ export async function discoverThemeCatalog(
   };
 }
 
+/**
+ * Parse pubkeys from a contact list event (kind 3).
+ *
+ * @param event - A kind-3 contact list Nostr event, or null.
+ * @returns Array of unique lowercase hex pubkeys found in `p` tags.
+ */
 export function parseContactPubkeys(event: NostrEvent | null): string[] {
   if (!event) return [];
   const pubkeys = new Set<string>();
@@ -161,6 +186,13 @@ export function parseContactPubkeys(event: NostrEvent | null): string[] {
   return [...pubkeys];
 }
 
+/**
+ * Parse a theme definition (kind 36767) or active-theme (kind 16767) event.
+ *
+ * @param event - The Nostr event to parse.
+ * @param source - Discovery source label.
+ * @returns A DiscoveredTheme, or null if the event is not a valid theme.
+ */
 export function parseThemeEvent(event: NostrEvent, source: ThemeSource): DiscoveredTheme | null {
   if (event.kind !== ACTIVE_THEME_KIND && event.kind !== THEME_DEFINITION_KIND) return null;
   if (event.content.trim().length > 0) return null;
@@ -188,6 +220,14 @@ export function parseThemeEvent(event: NostrEvent, source: ThemeSource): Discove
   };
 }
 
+/**
+ * Request events from the relay via the injected subscribe adapter.
+ *
+ * @param subscribe - The relay subscribe function.
+ * @param filters - One or more Nostr filters.
+ * @param timeoutMs - Timeout in milliseconds (default 3000).
+ * @returns A promise that resolves to the array of received events.
+ */
 export function requestEventsFromRelay(
   subscribe: ThemeRelaySubscribe,
   filters: NostrFilter | NostrFilter[],

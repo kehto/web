@@ -1,7 +1,7 @@
 /**
  * demo-concurrent-boot.spec.ts — E2E-15 (v1.5 Phase 31).
  *
- * Locks DEMO-01 in CI: all 10 napplets in DEMO_NAPPLETS must reach the
+ * Locks DEMO-01 in CI: all 9 napplets in DEMO_NAPPLETS must reach the
  * 'identity-bound' status sentinel within 10 seconds of booting the full
  * :4174 demo — no __loadNapplet__ single-frame helper, native topology
  * concurrent-boot path only.
@@ -14,10 +14,12 @@
  * driven loop over DEMO_NAPPLETS; this spec prevents the shape from
  * recurring.
  *
- * Note the statusId naming quirks verified in Phase 29 UAT:
+ * Note the statusId naming quirk verified in Phase 29 UAT:
  *   profile-viewer  → #profile-status  (not #profile-viewer-status)
- *   theme-switcher  → #theme-status    (not #theme-switcher-status)
  * All other napplets follow the `${name}-status` pattern.
+ *
+ * theme-switcher was removed in task 260616-8iv: moved to host-side UI on
+ * the theme service card (theme-switcher-host.ts). No iframe status sentinel.
  */
 import { test, expect } from '@playwright/test';
 import { demoBeforeEach } from './helpers/index.js';
@@ -38,11 +40,10 @@ const NAPPLETS = [
   { name: 'preferences',      statusId: 'preferences-status' },
   { name: 'profile-viewer',   statusId: 'profile-status' },
   { name: 'resource-demo',    statusId: 'resource-demo-status' },
-  { name: 'theme-switcher',   statusId: 'theme-status' },
   { name: 'toaster',          statusId: 'toaster-status' },
 ] as const;
 
-test('all 10 DEMO_NAPPLETS reach identity-bound within 10s on concurrent boot at :4174', async ({ page }) => {
+test('all 9 DEMO_NAPPLETS reach identity-bound within 10s on concurrent boot at :4174', async ({ page }) => {
   const consoleMessages: string[] = [];
   page.on('console', (msg) => consoleMessages.push(msg.text()));
   const pageErrors: string[] = [];
