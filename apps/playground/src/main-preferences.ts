@@ -50,6 +50,7 @@ const DEFAULT_THEME: PlaygroundTheme = {
 
 export interface PlaygroundPreferences {
   applyColorMode(mode: PersistenceMode, persist: boolean): void;
+  applyTheme(theme: PlaygroundTheme): void;
   broadcastCurrentTheme(): void;
   handleThemeMessage(theme: unknown): PlaygroundTheme | null;
   initControls(): void;
@@ -97,6 +98,10 @@ export function createPlaygroundPreferences({
     if (persist) writeStoredValue(COLOR_MODE_STORAGE_KEY, mode);
   }
 
+  function applyTheme(theme: PlaygroundTheme): void {
+    handleThemeMessage(theme);
+  }
+
   function handleThemeMessage(theme: unknown): PlaygroundTheme | null {
     if (!isThemeLike(theme)) return null;
     currentTheme = theme;
@@ -114,6 +119,7 @@ export function createPlaygroundPreferences({
 
   return {
     applyColorMode,
+    applyTheme,
     broadcastCurrentTheme,
     handleThemeMessage,
     initControls,
