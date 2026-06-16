@@ -57,6 +57,7 @@ export {
   getNip66Aggregator,
   getNotificationServiceHandler,
   getPlaygroundRelayActivity,
+  getRelayServiceHandler,
   getShellCapabilities,
   getThemeServiceBundle,
   setDemoConfigValue,
@@ -629,6 +630,11 @@ const aclAdapter: DemoAclAdapter = {
         'notify:send': hasCapability('notify:send'),
         'notify:channel': hasCapability('notify:channel'),
         'theme:read': hasCapability('theme:read'),
+        'outbox:read': hasCapability('outbox:read'),
+        'outbox:write': hasCapability('outbox:write'),
+        'upload:write': hasCapability('upload:write'),
+        'intent:read': hasCapability('intent:read'),
+        'intent:write': hasCapability('intent:write'),
       };
       out.push({
         windowId,

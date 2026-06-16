@@ -28,6 +28,11 @@ export const DEMO_CAPABILITY_LABELS: Record<Capability, string> = {
   'notify:channel': 'Notify Channel',
   'theme:read': 'Theme Read',
   'cvm:call': 'CVM Call',
+  'outbox:read': 'Outbox Read',
+  'outbox:write': 'Outbox Write',
+  'upload:write': 'Upload Write',
+  'intent:read': 'Intent Read',
+  'intent:write': 'Intent Write',
 };
 
 export const DEMO_CAPABILITY_HINTS: Record<Capability, string> = {
@@ -48,6 +53,11 @@ export const DEMO_CAPABILITY_HINTS: Record<Capability, string> = {
   'notify:channel': 'subscribe to notification channel',
   'theme:read': 'read active theme',
   'cvm:call': 'call ContextVM (MCP-over-Nostr) servers',
+  'outbox:read': 'outbox read (relay results)',
+  'outbox:write': 'outbox publish',
+  'upload:write': 'upload write',
+  'intent:read': 'intent read',
+  'intent:write': 'intent dispatch',
 };
 
 const DEMO_CAPABILITIES: { cap: Capability; label: string }[] = [

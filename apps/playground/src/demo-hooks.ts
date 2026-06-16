@@ -53,6 +53,7 @@ let shellCapabilities: ShellCapabilities | null = null;
 let nip66Aggregator: Nip66Aggregator | null = null;
 let relayRuntimeDestroy: (() => void) | null = null;
 let relayRuntimeActivity: ((limit?: number) => PlaygroundRelayActivityEntry[]) | null = null;
+let relayServiceHandler: ServiceHandler | null = null;
 let relayTeardownInstalled = false;
 let sessionRegistryRef: {
   getEntryByWindowId(windowId: string): SessionEntry | undefined;
@@ -117,6 +118,7 @@ export function createDemoHooks(
   identityServiceHandler = identityService;
   themeServiceBundle = themeBundle;
   configServiceBundle = configBundle;
+  relayServiceHandler = relayRuntime.relayService;
 
   const adapter = createDemoShellAdapter(
     services,
@@ -292,6 +294,7 @@ export function getIdentityServiceHandler(): ServiceHandler | null {
 export function getShellCapabilities(): ShellCapabilities | null {
   if (!shellCapabilities) return null;
   return {
+    naps: [...shellCapabilities.naps],
     nubs: [...shellCapabilities.nubs],
     sandbox: [...shellCapabilities.sandbox],
   };
@@ -302,4 +305,14 @@ export function getMissingRequiredNaps(requires: readonly string[]): string[] {
   if (!capabilities) return [...requires];
   const supported = new Set(capabilities.nubs);
   return requires.filter((capability) => !supported.has(capability));
+}
+
+/**
+ * Get the relay service handler for host-side relay operations (e.g. theme discovery).
+ * Returns null before createDemoHooks() has run.
+ *
+ * @returns The relay ServiceHandler, or null if not yet initialized.
+ */
+export function getRelayServiceHandler(): ServiceHandler | null {
+  return relayServiceHandler;
 }
