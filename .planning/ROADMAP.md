@@ -93,7 +93,9 @@ Plans:
   3. The playground bootstrap (`shared-vite-config.ts`) and `getMissingRequiredNaps` (`demo-hooks.ts`) resolve capabilities from `capabilities.naps`, falling back to `nubs` only for the installed 0.5.0 shim window. (G6)
   4. An e2e asserts the modern `naps`-only path answers `supports('inc')` true and `supports('inc','NAP-01')` true for an `inc`-capable napplet, proving the path the real shim uses is exercised (under `workers:1`, `test.setTimeout(120000)` if reload-heavy). (G6)
   5. `naps`+`nubs` dual-emit is preserved (installed shim is 0.5.0); CLEANUP-01 is NOT performed; existing `shell-init` / `no-window-nostr` capability-payload assertions and playground napplet counts stay green. (G6 constraint)
-**Plans**: TBD
+**Plans**: 2 plans
+  - [ ] 88-01-PLAN.md — playground reads naps + 4 napplets ifc→inc capability (TERM-02/03/05)
+  - [ ] 88-02-PLAN.md — nap: primary prefix in shell test + naps-path conformance e2e (TERM-01/04)
 **UI hint**: yes
 
 ### Phase 89: Spec / Doc Refresh & Conformance Sweep
