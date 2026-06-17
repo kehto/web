@@ -323,12 +323,15 @@ function sleep(ms: number): Promise<void> {
 async function waitForPublishedManifest(distPath: string): Promise<void> {
   const manifestPath = join(distPath, '.nip5a-manifest.json');
   const indexPath = join(distPath, 'index.html');
+  // @napplet/vite-plugin >=0.8 no longer injects a `napplet-aggregate-hash`
+  // <meta> into the served HTML (a self-contained file cannot reference its own
+  // hash; the aggregate now lives in the manifest `x` tag). The signed
+  // `.nip5a-manifest.json` written by the upstream plugin's `closeBundle` is the
+  // readiness signal — this plugin's `closeBundle` is `order: 'post'`, so the
+  // manifest already exists when we run, but we poll briefly to stay robust.
   for (let attempt = 0; attempt < 100; attempt += 1) {
     if (existsSync(manifestPath) && existsSync(indexPath)) {
-      const html = readFileSync(indexPath, 'utf8');
-      if (/<meta name="napplet-aggregate-hash" content="[a-f0-9]{64}">/.test(html)) {
-        return;
-      }
+      return;
     }
     await sleep(20);
   }
