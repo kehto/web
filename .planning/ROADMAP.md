@@ -94,7 +94,7 @@ Plans:
   4. An e2e asserts the modern `naps`-only path answers `supports('inc')` true and `supports('inc','NAP-01')` true for an `inc`-capable napplet, proving the path the real shim uses is exercised (under `workers:1`, `test.setTimeout(120000)` if reload-heavy). (G6)
   5. `naps`+`nubs` dual-emit is preserved (installed shim is 0.5.0); CLEANUP-01 is NOT performed; existing `shell-init` / `no-window-nostr` capability-payload assertions and playground napplet counts stay green. (G6 constraint)
 **Plans**: 2 plans
-  - [ ] 88-01-PLAN.md — playground reads naps + 4 napplets ifc→inc capability (TERM-02/03/05)
+  - [x] 88-01-PLAN.md — playground reads naps + 4 napplets ifc→inc capability (TERM-02/03/05)
   - [ ] 88-02-PLAN.md — nap: primary prefix in shell test + naps-path conformance e2e (TERM-01/04)
 **UI hint**: yes
 
@@ -120,7 +120,7 @@ Phases execute in numeric order: 86 → 87 → 88 → 89
 |-------|-----------|----------------|--------|-----------|
 | 86. NAP-SHELL Handshake Correctness | v1.21 | 1/1 | Complete   | 2026-06-17 |
 | 87. NAAT Archetype Axis | v1.21 | 0/TBD | Not started | - |
-| 88. Terminology & Playground Modern-Path Alignment | v1.21 | 0/TBD | Not started | - |
+| 88. Terminology & Playground Modern-Path Alignment | v1.21 | 1/4 | In Progress|  |
 | 89. Spec / Doc Refresh & Conformance Sweep | v1.21 | 0/TBD | Not started | - |
 
 ---

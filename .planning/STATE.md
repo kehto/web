@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.21
 milestone_name: "NIP-5D #2303 + NAP-SHELL/INTENT Conformance"
-status: planning
-stopped_at: v1.21 roadmap created — Phases 86–89 defined, 16 requirements mapped
-last_updated: "2026-06-17T02:10:54.367Z"
-last_activity: 2026-06-17 — v1.21 roadmap created (Phases 86–89, 16 requirements mapped)
+status: Phase 88 plan 88-01 executed — playground + fixtures migrated to @napplet/nap (inc/naps); build 24/24 + type-check 13/13 green
+stopped_at: Completed 88-01-PLAN.md (TERM-02/03/05); 88-02 (inc-roundtrip + naps-path e2e) pending
+last_updated: "2026-06-17T00:00:00.000Z"
+last_activity: 2026-06-17 — executed 88-01 (@napplet/nub→@napplet/nap migration + ifc→inc + shim 0.13 owns supports)
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
-  percent: 100
+  total_plans: 8
+  completed_plans: 3
+  percent: 38
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 
 ## Current Position
 
-Phase: 86 — NAP-SHELL Handshake Correctness (complete)
-Plan: 86-01 — complete (SHELL-01 + SHELL-02)
-Status: Phase 86 executed; shell.init exactly-once + class number|null shipped (SUMMARY written)
-Last activity: 2026-06-17 — executed 86-01 (shell.init exactly-once guard + class number|null wire mapping)
+Phase: 88 — Terminology / Playground Modern Path (in progress)
+Plan: 88-01 — complete (TERM-02 + TERM-03 + TERM-05); 88-02 pending
+Status: Phase 88 plan 88-01 executed — playground + fixtures on @napplet/nap (inc/naps); build 24/24 + type-check 13/13 green
+Last activity: 2026-06-17 — executed 88-01 (@napplet/nub→@napplet/nap migration + ifc→inc + shim 0.13 owns supports)
 
 ## Performance Metrics
 
@@ -44,7 +44,7 @@ Last activity: 2026-06-17 — executed 86-01 (shell.init exactly-once guard + cl
 |-------|-------|-------|----------|
 | 86 | 1 | ~6m | ~6m |
 | 87 | TBD | - | - |
-| 88 | TBD | - | - |
+| 88 | 1 | ~18m | ~18m |
 | 89 | TBD | - | - |
 
 ## Accumulated Context

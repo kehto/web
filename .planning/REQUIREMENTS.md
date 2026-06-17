@@ -24,10 +24,10 @@ Requirements for this milestone. Each maps to exactly one roadmap phase.
 ### Phase C — Terminology & Playground Modern-Path Alignment
 
 - [ ] **TERM-01**: `nap:` is the primary, documented, and tested capability prefix in `shell.supports()` resolution; `nub:` is accepted only as back-compat. `specs/NIP-5D.md` and `packages/shell/tests/perm-namespace.test.ts` use `nap:` (with `nub:` retained as an accepted-alias assertion). (G5)
-- [ ] **TERM-02**: The 4 legacy playground napplets (bot, chat, feed, profile-viewer) declare `requires` and call `supports()` using `inc` (not `ifc`). (G6)
-- [ ] **TERM-03**: The playground bootstrap (`shared-vite-config.ts`) and `getMissingRequiredNaps` (`demo-hooks.ts`) resolve capabilities from `capabilities.naps`, falling back to `nubs` only for the installed 0.5.0 shim. (G6)
+- [x] **TERM-02**: The 4 legacy playground napplets (bot, chat, feed, profile-viewer) declare `requires` and call `supports()` using `inc` (not `ifc`). (G6)
+- [x] **TERM-03**: The playground bootstrap (`shared-vite-config.ts`) and `getMissingRequiredNaps` (`demo-hooks.ts`) resolve capabilities from `capabilities.naps`, falling back to `nubs` only for the installed 0.5.0 shim. (G6)
 - [ ] **TERM-04**: An e2e asserts the modern `naps`-only path answers `supports('inc')` true and `supports('inc','NAP-01')` true for an `inc`-capable napplet, proving the path the real shim uses is exercised. (G6)
-- [ ] **TERM-05**: `naps`+`nubs` dual-emit is preserved (installed shim is 0.5.0); existing `shell-init` / `no-window-nostr` capability-payload assertions stay green. CLEANUP-01 is NOT performed. (G6 constraint)
+- [x] **TERM-05**: `naps`+`nubs` dual-emit is preserved (installed shim is 0.5.0); existing `shell-init` / `no-window-nostr` capability-payload assertions stay green. CLEANUP-01 is NOT performed. (G6 constraint)
 
 ### Phase D — Spec / Doc Refresh & Conformance Sweep
 
@@ -63,10 +63,10 @@ Requirements for this milestone. Each maps to exactly one roadmap phase.
 | ARCH-03 | 87 | Pending |
 | ARCH-04 | 87 | Pending |
 | TERM-01 | 88 | Pending |
-| TERM-02 | 88 | Pending |
-| TERM-03 | 88 | Pending |
+| TERM-02 | 88 | Complete |
+| TERM-03 | 88 | Complete |
 | TERM-04 | 88 | Pending |
-| TERM-05 | 88 | Pending |
+| TERM-05 | 88 | Complete |
 | DOCS-01 | 89 | Pending |
 | DOCS-02 | 89 | Pending |
 | DOCS-03 | 89 | Pending |
