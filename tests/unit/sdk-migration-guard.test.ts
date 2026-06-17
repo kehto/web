@@ -47,7 +47,10 @@ const protocolPackageVersions: Record<(typeof protocolPackageNames)[number], str
 };
 
 const bannedSdkImportPattern = /from\s+['"]@napplet\/sdk['"]/;
-const staleNapPackage = ['@napplet', 'nub'].join('/');
+// Legacy package segment, assembled from chars so this guard file contains no
+// literal occurrence of the banned term it bans (same discipline as oldIfcNamespace).
+const legacyNapSegment = ['n', 'u', 'b'].join('');
+const staleNapPackage = ['@napplet', legacyNapSegment].join('/');
 const oldIfcNamespace = ['i', 'p', 'c'].join('');
 const namespaceImportPattern = new RegExp(
   String.raw`import\s+\{[^}]*\b(${oldIfcNamespace}|storage|relay|identity|keys|config|notify)\b[^}]*\}\s+from\s+['"]@napplet/sdk['"]`,
@@ -163,14 +166,18 @@ describe('SDK 0.12 migration guard', () => {
 
     expect(content).toContain("import type { RelayMessage } from '@napplet/nap/relay/types';");
     expect(content).not.toContain('RelayNapMessage');
-    expect(content).not.toContain('RelayNubMessage');
+    // Also reject the pre-rename relay union alias (assembled to avoid a literal).
+    expect(content).not.toContain(`Relay${legacyNapSegment[0].toUpperCase()}${legacyNapSegment.slice(1)}Message`);
   });
 
   it('rejects old napplet helper package resolutions from the active lockfile graph', () => {
     const lockfile = readFileSync(join(process.cwd(), 'pnpm-lock.yaml'), 'utf8');
 
     expect(lockfile).not.toMatch(/@napplet\/(?:core|shim|vite-plugin)@0\.2\.1/);
-    expect(lockfile).not.toMatch(/@napplet\/nub-(?:identity|ifc|keys|media|notify|relay|storage|theme)@0\.2\.1/);
+    const oldNapHelperPattern = new RegExp(
+      String.raw`@napplet\/${legacyNapSegment}-(?:identity|ifc|keys|media|notify|relay|storage|theme)@0\.2\.1`,
+    );
+    expect(lockfile).not.toMatch(oldNapHelperPattern);
   });
 
   it('rejects legacy namespace imports from @napplet/sdk in migrated source', () => {

@@ -1,5 +1,5 @@
 /**
- * keys-service.test.ts — Unit tests for the keys NUB reference service.
+ * keys-service.test.ts — Unit tests for the keys NAP reference service.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -228,7 +228,7 @@ describe('createKeysService', () => {
   describe('ACL-denial envelope shape', () => {
     it('mirrors the runtime enforcer-denial envelope shape for keys.forward', () => {
       // This test asserts the denial envelope shape the runtime emits on ACL denial,
-      // using the same composition logic runtime.ts uses after enforceNub returns
+      // using the same composition logic runtime.ts uses after enforceNap returns
       // { allowed: false }. The service itself is bypassed in that path.
       const enforcer = {
         check: (): { allowed: false; reason: string; capability: string } => ({

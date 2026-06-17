@@ -3,7 +3,7 @@
  *
  * Wraps an existing relay pool implementation (subscribe, publish,
  * selectRelayTier, isAvailable) as a ServiceHandler that receives
- * relay NUB envelope messages and manages subscription lifecycle.
+ * relay NAP envelope messages and manages subscription lifecycle.
  *
  * Handles: relay.subscribe, relay.close, relay.publish, relay.publishEncrypted.
  *

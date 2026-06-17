@@ -1,22 +1,22 @@
 /**
- * config-service.ts — NUB-CONFIG reference service (9th NUB domain, v1.7 Phase 39).
+ * config-service.ts — NAP-CONFIG reference service (9th NAP domain, v1.7 Phase 39).
  *
- * Shell-side reference implementation for the canonical NUB-CONFIG wire
+ * Shell-side reference implementation for the canonical NAP-CONFIG wire
  * protocol (`@napplet/nap/config`, published at `^0.3.0`). Handles the full
  * 8-message discriminated union: 5 napplet→shell request types + 3
  * shell→napplet result/push types.
  *
  * ──────────────────────────── SCOPE BOUNDARY (CONFIG-04) ─────────────────────────
- * NUB-CONFIG is **shell-managed per-napplet configuration**. Napplets observe
+ * NAP-CONFIG is **shell-managed per-napplet configuration**. Napplets observe
  * values via `config.get` (one-shot) or `config.subscribe` (snapshot + live
  * push). The shell is the **sole writer** — there is intentionally **NO**
  * `config.set` wire message. Napplets cannot mutate configuration values;
  * the shell owns persistence and the update flow.
  *
- * Do NOT use this service as a general key-value store. NUB-STORAGE
+ * Do NOT use this service as a general key-value store. NAP-STORAGE
  * (`state:read` / `state:write`) remains the general KV surface. Using
- * NUB-CONFIG to store e.g. `{ lastScrollPosition: 420 }` is an anti-pattern
- * (H-07 in PITFALLS.md) — such state belongs in NUB-STORAGE.
+ * NAP-CONFIG to store e.g. `{ lastScrollPosition: 420 }` is an anti-pattern
+ * (H-07 in PITFALLS.md) — such state belongs in NAP-STORAGE.
  * ──────────────────────────────────────────────────────────────────────────────────
  *
  * Host integration: provide `getValues()` returning the current
@@ -129,7 +129,7 @@ export interface ConfigServiceOptions {
 }
 
 /**
- * NUB-CONFIG reference service bundle — `handler` to register with the
+ * NAP-CONFIG reference service bundle — `handler` to register with the
  * runtime, `publishValues` for the host app to push updates live to all
  * subscribed napplets.
  */
@@ -149,7 +149,7 @@ export interface ConfigService {
 }
 
 /**
- * Minimal JSON Schema validator covering the NUB-CONFIG Core Subset:
+ * Minimal JSON Schema validator covering the NAP-CONFIG Core Subset:
  * type: object / string / number / boolean / array, required[], default, properties.
  *
  * Explicitly rejects: $ref, pattern, oneOf/anyOf/allOf/not, if/then/else.
@@ -165,7 +165,7 @@ function validateCoreSubset(schema: unknown): ConfigSchemaValidation {
   }
   const s = schema as Record<string, unknown>;
 
-  // Reject forbidden keywords (NUB-CONFIG Core Subset limits per spec).
+  // Reject forbidden keywords (NAP-CONFIG Core Subset limits per spec).
   if ('$ref' in s) {
     return { ok: false, code: 'ref-not-allowed', error: '$ref is not permitted in the Core Subset' };
   }
@@ -224,7 +224,7 @@ function validateCoreSubset(schema: unknown): ConfigSchemaValidation {
 }
 
 /**
- * Create a NUB-CONFIG reference service.
+ * Create a NAP-CONFIG reference service.
  *
  * Shell-writes, napplet-reads. Handles the full `@napplet/nap/config` wire
  * protocol: `config.get` (correlated snapshot), `config.subscribe` /
@@ -242,7 +242,7 @@ function validateCoreSubset(schema: unknown): ConfigSchemaValidation {
  *
  * @see ConfigServiceOptions for the options shape.
  * @see packages/services/src/theme-service.ts for the sibling pattern.
- * @see SCOPE BOUNDARY comment at the top of this file re: NUB-STORAGE separation.
+ * @see SCOPE BOUNDARY comment at the top of this file re: NAP-STORAGE separation.
  *
  * @example
  * ```ts
@@ -268,7 +268,7 @@ export function createConfigService(options: ConfigServiceOptions): ConfigServic
   const descriptor: ServiceDescriptor = {
     name: 'config',
     version: CONFIG_SERVICE_VERSION,
-    description: 'NUB-CONFIG reference service — shell-writes, napplet-reads configuration',
+    description: 'NAP-CONFIG reference service — shell-writes, napplet-reads configuration',
   };
 
   const handler: ServiceHandler = {
@@ -355,7 +355,7 @@ export function createConfigService(options: ConfigServiceOptions): ConfigServic
    * Broadcast a new config values snapshot to every subscribed napplet.
    * Each subscriber receives a `config.values` push envelope (no `id` —
    * absence of `id` distinguishes a push from a correlated `config.get`
-   * response per the NUB-CONFIG wire spec).
+   * response per the NAP-CONFIG wire spec).
    */
   function publishValues(values: ConfigValues): void {
     const envelope: ConfigValuesMessage = {

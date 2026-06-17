@@ -2,7 +2,7 @@
  * intent-types.ts — NAP-INTENT (archetype intent dispatch) value types.
  *
  * Kehto-internal model for the NAP-INTENT wire contract (upstream draft:
- * napplet/nubs NAP-INTENT, namespace `window.napplet.intent`). The installed
+ * napplet/naps NAP-INTENT, namespace `window.napplet.intent`). The installed
  * `@napplet/core` peer predates these types, so — as with {@link ./cvm-types} —
  * kehto defines them here, wire-compatible with the upstream shapes, rather
  * than redefining the generic NIP-5D envelope.

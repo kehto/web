@@ -34,13 +34,13 @@ test('nap-relay: relay.publish envelope dispatched and fixture sentinel updates'
 
   // Wait for relay.publish envelope to be recorded by the harness (auto-dispatched on init).
   await page.waitForFunction(
-    (wid) => window.__getNubMessage__(wid, 'relay.publish') !== null,
+    (wid) => window.__getNapMessage__(wid, 'relay.publish') !== null,
     windowId,
     { timeout: 10_000 },
   );
 
   const envelope = await page.evaluate(
-    (wid) => window.__getNubMessage__(wid, 'relay.publish'),
+    (wid) => window.__getNapMessage__(wid, 'relay.publish'),
     windowId,
   );
   expect(envelope).not.toBeNull();
@@ -62,13 +62,13 @@ test('nap-relay: relay.publish envelope dispatched and fixture sentinel updates'
   }
 
   await page.waitForFunction(
-    (wid) => window.__getNubMessage__(wid, 'relay.publishEncrypted') !== null,
+    (wid) => window.__getNapMessage__(wid, 'relay.publishEncrypted') !== null,
     windowId,
     { timeout: 10_000 },
   );
 
   const encEnvelope = await page.evaluate(
-    (wid) => window.__getNubMessage__(wid, 'relay.publishEncrypted'),
+    (wid) => window.__getNapMessage__(wid, 'relay.publishEncrypted'),
     windowId,
   );
   expect(encEnvelope).not.toBeNull();

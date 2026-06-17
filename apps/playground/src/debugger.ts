@@ -70,7 +70,7 @@ export function classifyTappedMessagePath(msg: TappedMessage): DemoProtocolPath 
     }
     if (domain === 'ifc' || domain === 'inc') {
       // The migrated playground napplets now post inc.* envelopes; the legacy
-      // nub-* fixtures still post ifc.*. Both classify to the same audit path
+      // nap-* fixtures still post ifc.*. Both classify to the same audit path
       // labels (ifc-send/ifc-receive) so demo-audit-correctness stays valid.
       return msg.direction === 'napplet->shell' ? 'ifc-send' : 'ifc-receive';
     }

@@ -1,10 +1,10 @@
 /**
- * @kehto/acl — NUB/NAP domain capability resolution (8 canonical + config,
+ * @kehto/acl — NAP/NAP domain capability resolution (8 canonical + config,
  * resource, cvm, outbox, upload, intent).
  *
- * Maps NUB message types (e.g., 'relay.subscribe', 'identity.getProfile') to
+ * Maps NAP message types (e.g., 'relay.subscribe', 'identity.getProfile') to
  * the capability strings required by sender and recipient. This is the
- * canonical source for "which capability does this NUB operation require?"
+ * canonical source for "which capability does this NAP operation require?"
  * in the @kehto/acl package.
  *
  * Canonical NIP-5D 8 domains: identity, keys, media, notify, relay,
@@ -17,7 +17,7 @@
  * Zero dependencies. No imports from @napplet/core or any external package.
  *
  * @see packages/acl/src/capabilities.ts for cap string constants + ALL_CAPABILITIES.
- * @see docs/ACL-MIGRATION.md section 2 — Capability Constant to NUB Domain Mapping.
+ * @see docs/ACL-MIGRATION.md section 2 — Capability Constant to NAP Domain Mapping.
  */
 
 /**
@@ -26,14 +26,14 @@
  * Compatible with NappletMessage from @napplet/core, but defined here
  * independently to maintain @kehto/acl's zero-dependency constraint.
  *
- * @param type - NUB message type, e.g. 'relay.subscribe', 'identity.getProfile'
+ * @param type - NAP message type, e.g. 'relay.subscribe', 'identity.getProfile'
  */
-export interface NubMessage {
+export interface NapMessage {
   readonly type: string;
 }
 
 /**
- * Result of resolving what capabilities a NUB message requires.
+ * Result of resolving what capabilities a NAP message requires.
  *
  * | Field          | Description                                                    |
  * |----------------|----------------------------------------------------------------|
@@ -153,15 +153,15 @@ function ifcMap(action: string): CapabilityResolution {
 }
 
 /**
- * `config.*` — NUB-CONFIG reference service (v1.7 Phase 39 / 9th NUB domain).
+ * `config.*` — NAP-CONFIG reference service (v1.7 Phase 39 / 9th NAP domain).
  *
  * Asymmetric protocol: napplet reads, shell writes. ALL napplet-originated
  * config messages require `config:read`. Shell→napplet pushes
  * (`config.values`, `config.registerSchema.result`, `config.schemaError`)
  * are gated by the recipient's `config:read` cap.
  *
- * Anti-overlap: NUB-STORAGE remains the general key-value surface
- * (`state:read`/`state:write`). NUB-CONFIG is shell-managed per-napplet
+ * Anti-overlap: NAP-STORAGE remains the general key-value surface
+ * (`state:read`/`state:write`). NAP-CONFIG is shell-managed per-napplet
  * configuration only — see CONFIG-04 scope boundary docs.
  */
 function configMap(action: string): CapabilityResolution {
@@ -174,7 +174,7 @@ function configMap(action: string): CapabilityResolution {
 }
 
 /**
- * `resource.*` — NUB-RESOURCE authenticated fetch proxy (v1.7 Phase 40 / 10th NUB domain).
+ * `resource.*` — NAP-RESOURCE authenticated fetch proxy (v1.7 Phase 40 / 10th NAP domain).
  *
  * Asymmetric protocol: napplet initiates fetch requests, shell proxies and responds.
  *
@@ -329,12 +329,12 @@ function themeMap(action: string): CapabilityResolution {
 }
 
 /**
- * Resolve the capabilities required by a NUB message.
+ * Resolve the capabilities required by a NAP message.
  *
  * Splits `msg.type` on '.' to obtain `[domain, action]`, then dispatches to
  * a per-domain mapper. Unknown domains return `null/null` (silently ignored).
  *
- * **NUB domain mapping table (8 canonical domains):**
+ * **NAP domain mapping table (8 canonical domains):**
  *
  * | Domain     | Action(s)                                                    | senderCap       | recipientCap  |
  * |------------|--------------------------------------------------------------|-----------------|---------------|
@@ -369,34 +369,34 @@ function themeMap(action: string): CapabilityResolution {
  * `identity`; napplet-visible signing does not exist in NIP-5D (shell
  * signs internally for `relay.publishEncrypted`).
  *
- * @param msg - Message with a `type` field in NUB format (e.g., 'relay.subscribe')
+ * @param msg - Message with a `type` field in NAP format (e.g., 'relay.subscribe')
  * @returns CapabilityResolution with senderCap and recipientCap (each may be null)
  *
  * @example
  * ```ts
- * resolveCapabilitiesNub({ type: 'relay.subscribe' })
+ * resolveCapabilitiesNap({ type: 'relay.subscribe' })
  * // => { senderCap: 'relay:read', recipientCap: null }
  *
- * resolveCapabilitiesNub({ type: 'relay.publishEncrypted' })
+ * resolveCapabilitiesNap({ type: 'relay.publishEncrypted' })
  * // => { senderCap: 'relay:write', recipientCap: null }
  *
- * resolveCapabilitiesNub({ type: 'identity.getProfile' })
+ * resolveCapabilitiesNap({ type: 'identity.getProfile' })
  * // => { senderCap: 'identity:read', recipientCap: null }
  *
- * resolveCapabilitiesNub({ type: 'keys.forward' })
+ * resolveCapabilitiesNap({ type: 'keys.forward' })
  * // => { senderCap: 'keys:forward', recipientCap: null }
  *
- * resolveCapabilitiesNub({ type: 'ifc.channel.broadcast' })
+ * resolveCapabilitiesNap({ type: 'ifc.channel.broadcast' })
  * // => { senderCap: 'relay:write', recipientCap: 'relay:read' }
  *
- * resolveCapabilitiesNub({ type: 'theme.changed' })
+ * resolveCapabilitiesNap({ type: 'theme.changed' })
  * // => { senderCap: null, recipientCap: 'theme:read' }
  *
- * resolveCapabilitiesNub({ type: 'signer.signEvent' })
+ * resolveCapabilitiesNap({ type: 'signer.signEvent' })
  * // => { senderCap: null, recipientCap: null }   // domain removed
  * ```
  */
-export function resolveCapabilitiesNub(msg: NubMessage): CapabilityResolution {
+export function resolveCapabilitiesNap(msg: NapMessage): CapabilityResolution {
   const dotIdx = msg.type.indexOf('.');
   if (dotIdx === -1) return { senderCap: null, recipientCap: null };
   const domain = msg.type.slice(0, dotIdx);

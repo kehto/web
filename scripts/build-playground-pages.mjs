@@ -34,7 +34,7 @@ const outputDir = resolve(
   process.env.PLAYGROUND_PAGES_OUT_DIR || '.pages/playground',
 );
 
-const SHORT_NUB_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
+const SHORT_NAP_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
 
 const rel = relative.bind(null, repoRoot);
 
@@ -90,7 +90,7 @@ function extractRequires(manifest, manifestPath) {
     .filter((tag) => Array.isArray(tag) && tag[0] === 'requires')
     .map((tag) => tag[1])
     .map((name) => {
-      if (typeof name !== 'string' || !SHORT_NUB_NAME_PATTERN.test(name)) {
+      if (typeof name !== 'string' || !SHORT_NAP_NAME_PATTERN.test(name)) {
         throw new Error(`${rel(manifestPath)} has invalid requires tag: ${String(name)}`);
       }
       return name;

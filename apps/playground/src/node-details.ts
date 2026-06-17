@@ -17,10 +17,10 @@ const ACTIVITY_RING_SIZE = 12;
 /**
  * Envelope-domain → topology-service-id aliases.
  *
- * NUB envelope `type` is domain-dot-action (e.g. `notify.sent`). The topology
+ * NAP envelope `type` is domain-dot-action (e.g. `notify.sent`). The topology
  * service name is usually identical to the domain, except `notify` envelopes
  * route to the `notifications` service node (the topology service is named
- * `notifications` for legacy-UI consistency; the NUB domain is `notify`).
+ * `notifications` for legacy-UI consistency; the NAP domain is `notify`).
  * Add more aliases here if future domain-vs-topology-id drift appears.
  */
 const SERVICE_DOMAIN_ALIAS: Record<string, string> = {
@@ -429,7 +429,7 @@ export function installActivityProjection(
     // Service node: route every envelope-shape message to its domain-matching
     // service node ring (identity / keys / media / notifications / relay /
     // storage / theme). The signer node above is kept on path-classification
-    // rather than domain because its traffic predates NUB envelope shape.
+    // rather than domain because its traffic predates NAP envelope shape.
     if (msg.envelopeType) {
       const rawDomain = msg.parsed.domain ?? msg.envelopeType.split('.')[0];
       if (rawDomain) {

@@ -31,11 +31,11 @@ test('nap-storage: setItem + getItem round-trip via fixture sentinels', async ({
   await waitForNappletReady(page, windowId);
 
   // Wait for both envelopes to be recorded.
-  // Note: @napplet/nub/storage shim sends 'storage.set' (not 'storage.setItem')
+  // Note: @napplet/nap/storage shim sends 'storage.set' (not 'storage.setItem')
   // and 'storage.get' (not 'storage.getItem') — these are the canonical NIP-5D wire types.
   await page.waitForFunction(
-    (wid) => window.__getNubMessage__(wid, 'storage.set') !== null
-          && window.__getNubMessage__(wid, 'storage.get') !== null,
+    (wid) => window.__getNapMessage__(wid, 'storage.set') !== null
+          && window.__getNapMessage__(wid, 'storage.get') !== null,
     windowId,
     { timeout: 10_000 },
   );

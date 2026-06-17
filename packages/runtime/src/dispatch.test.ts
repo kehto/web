@@ -1,5 +1,5 @@
 /**
- * dispatch.test.ts — Unit tests for @kehto/runtime NIP-5D NUB domain dispatch.
+ * dispatch.test.ts — Unit tests for @kehto/runtime NIP-5D NAP domain dispatch.
  *
  * Tests NappletMessage envelope dispatch, domain routing, ACL enforcement,
  * and domain handler implementations (relay, identity, storage, ifc, …).
@@ -28,7 +28,7 @@ function makeSessionEntry(windowId: string = WINDOW_ID) {
 
 // ─── Envelope Guard Tests ──────────────────────────────────────────────────────
 
-describe('runtime NUB dispatch — envelope guard', () => {
+describe('runtime NAP dispatch — envelope guard', () => {
   let mock: MockRuntimeContext;
   let runtime: Runtime;
 
@@ -130,7 +130,7 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(result).toBeDefined();
     });
 
-    it('routes ifc.* to ifc handler — subscribe emits ifc.subscribe.result (Plan 12-04 / NUB-04)', () => {
+    it('routes ifc.* to ifc handler — subscribe emits ifc.subscribe.result (Plan 12-04 / NAP-04)', () => {
       runtime.handleMessage(WINDOW_ID, { type: 'ifc.subscribe', id: 'req-1', topic: 'test-topic' } as NappletMessage);
       // Canonical @napplet/nap/ifc contract: ifc.subscribe emits ifc.subscribe.result.
       const result = findEnvelopeResponse(ctx.sent, 'ifc.subscribe.result');
@@ -334,7 +334,7 @@ describe('NIP-5D Envelope Dispatch', () => {
     });
 
     it('identity.getPublicKey bypasses ACL and returns the signed-out sentinel', () => {
-      // resolveCapabilitiesNub returns { senderCap: null, recipientCap: null } for
+      // resolveCapabilitiesNap returns { senderCap: null, recipientCap: null } for
       // identity.* pre-Plan-12-10. The envelope therefore reaches the handler even
       // when the napplet is blocked.
       runtime.handleMessage(WINDOW_ID, { type: 'identity.getPublicKey', id: 'req-pk-acl' } as NappletMessage);
@@ -347,7 +347,7 @@ describe('NIP-5D Envelope Dispatch', () => {
   // ─── Storage Handler ─────────────────────────────────────────────────────────
 
   describe('storage handler', () => {
-    it('storage.get returns value:null for missing key (canonical nub-storage)', () => {
+    it('storage.get returns value:null for missing key (canonical nap-storage)', () => {
       runtime.handleMessage(WINDOW_ID, {
         type: 'storage.get',
         id: 'req-get-1',
@@ -471,7 +471,7 @@ describe('NIP-5D Envelope Dispatch', () => {
   // ─── IFC Handler ──────────────────────────────────────────────────────────────
 
   describe('IFC handler', () => {
-    it('ifc.subscribe registers subscription and emits ifc.subscribe.result (Plan 12-04 / NUB-04)', () => {
+    it('ifc.subscribe registers subscription and emits ifc.subscribe.result (Plan 12-04 / NAP-04)', () => {
       runtime.handleMessage(WINDOW_ID, {
         type: 'ifc.subscribe',
         id: 'req-sub-ifc',
@@ -793,7 +793,7 @@ describe('NIP-5D Envelope Dispatch', () => {
     });
   });
 
-  // ─── Keys Handler (NUB-05 / Plan 12-05) ─────────────────────────────────
+  // ─── Keys Handler (NAP-05 / Plan 12-05) ─────────────────────────────────
   describe('keys handler', () => {
     it('routes keys.* to registered keys service (keys.registerAction -> .result)', () => {
       const ctx2 = createMockRuntimeAdapter();
@@ -897,9 +897,9 @@ describe('NIP-5D Envelope Dispatch', () => {
   });
 });
 
-// ─── Theme NUB dispatch (TH-01 + TH-04) ────────────────────────────────────────
+// ─── Theme NAP dispatch (TH-01 + TH-04) ────────────────────────────────────────
 
-describe('theme NUB dispatch (TH-01 + TH-04)', () => {
+describe('theme NAP dispatch (TH-01 + TH-04)', () => {
   it('TH-01 happy path: napplet with theme:read reaches a registered theme service', () => {
     const ctx2 = createMockRuntimeAdapter();
     const runtime2 = createRuntime(ctx2.hooks);
@@ -1057,7 +1057,7 @@ describe('theme NUB dispatch (TH-01 + TH-04)', () => {
 // ─── createDispatch integration (Phase 14 DISPATCH-01/02/03) ───────────────────
 
 describe('createDispatch integration (Phase 14 DISPATCH-01/02/03)', () => {
-  it('registerNub integration: all 8 NUB domains route through createDispatch', () => {
+  it('registerNap integration: all 8 NAP domains route through createDispatch', () => {
     const ctx2 = createMockRuntimeAdapter();
     const runtime2 = createRuntime(ctx2.hooks);
     runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
@@ -1082,8 +1082,8 @@ describe('createDispatch integration (Phase 14 DISPATCH-01/02/03)', () => {
 
     // Each of the 8 envelopes must have produced at least one response envelope
     // (either .result, .error, .eose, or a side-channel event like ifc.event/ifc.subscribe.result).
-    // If any domain's handler is missing from registerNub() at runtime startup,
-    // nubDispatch.dispatch() returns false and nothing is emitted — test fails.
+    // If any domain's handler is missing from registerNap() at runtime startup,
+    // napDispatch.dispatch() returns false and nothing is emitted — test fails.
     const domainsWithResponse = new Set<string>();
     for (const sent of ctx2.sent) {
       if (typeof sent.message === 'object' && sent.message !== null && !Array.isArray(sent.message)) {
@@ -1094,19 +1094,19 @@ describe('createDispatch integration (Phase 14 DISPATCH-01/02/03)', () => {
     }
     // Expect every one of the 8 domains to have produced at least one reply envelope.
     for (const d of ['relay', 'identity', 'keys', 'media', 'notify', 'storage', 'ifc', 'theme']) {
-      expect(domainsWithResponse.has(d), `domain ${d} produced no response envelope — handler not registered via registerNub()?`).toBe(true);
+      expect(domainsWithResponse.has(d), `domain ${d} produced no response envelope — handler not registered via registerNap()?`).toBe(true);
     }
   });
 
-  // ─── Resource Handler (NUB-RESOURCE / Phase 40 / RESOURCE-02) ─────────────────
+  // ─── Resource Handler (NAP-RESOURCE / Phase 40 / RESOURCE-02) ─────────────────
   //
   // Phase 39 Dev 1 lesson: adding the service to serviceRegistry is NOT enough —
-  // nubDispatch.registerNub('resource', ...) must also be called or resource.*
+  // napDispatch.registerNap('resource', ...) must also be called or resource.*
   // envelopes are silently dropped. These two tests enforce that lesson:
   //   1. With registerService + pre-granted cap, handleMessage is called.
   //   2. Without registerService, the envelope doesn't throw and doesn't reach any handler.
 
-  it('resource.bytes routes to registered resource service when resource:fetch is granted (registerNub lesson)', async () => {
+  it('resource.bytes routes to registered resource service when resource:fetch is granted (registerNap lesson)', async () => {
     const ctx2 = createMockRuntimeAdapter();
     const runtime2 = createRuntime(ctx2.hooks);
     runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
@@ -1138,7 +1138,7 @@ describe('createDispatch integration (Phase 14 DISPATCH-01/02/03)', () => {
     const ctx2 = createMockRuntimeAdapter();
     const runtime2 = createRuntime(ctx2.hooks);
     runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
-    // Pre-grant resource:fetch so the ACL gate passes — isolates the registerNub check
+    // Pre-grant resource:fetch so the ACL gate passes — isolates the registerNap check
     runtime2.aclState.grant('', TEST_DTAG, TEST_HASH, 'resource:fetch');
 
     // No registerService('resource', ...) call — tests the silent-drop path
@@ -1153,7 +1153,7 @@ describe('createDispatch integration (Phase 14 DISPATCH-01/02/03)', () => {
     expect(ctx2.sent).toHaveLength(0);
   });
 
-  it('unknown NUB domain: dispatch returns false, no envelope emitted (NIP-5D silent drop)', () => {
+  it('unknown NAP domain: dispatch returns false, no envelope emitted (NIP-5D silent drop)', () => {
     const ctx2 = createMockRuntimeAdapter();
     const runtime2 = createRuntime(ctx2.hooks);
     runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));

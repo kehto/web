@@ -1,5 +1,5 @@
 /**
- * state-handler.ts — Storage NUB request handler using persistence hooks.
+ * state-handler.ts — Storage NAP request handler using persistence hooks.
  *
  * Handles napplet storage operations (get, set, remove, keys) via the
  * canonical `@napplet/nap/storage` NIP-5D envelope surface. Delegates
@@ -83,7 +83,7 @@ function byteLength(str: string): number {
 }
 
 /**
- * Handle a NIP-5D NUB storage message from a napplet.
+ * Handle a NIP-5D NAP storage message from a napplet.
  * Routes to the canonical four `@napplet/nap/storage` actions:
  *   - `storage.get`    → `storage.get.result`    `{ value: string | null }`
  *   - `storage.set`    → `storage.set.result`    `{ ok: boolean }` (canonical only checks `error`)
@@ -117,13 +117,13 @@ function byteLength(str: string): number {
  *
  * @example
  * ```ts
- * import { handleStorageNub } from '@kehto/runtime';
+ * import { handleStorageNap } from '@kehto/runtime';
  *
- * handleStorageNub(windowId, { type: 'storage.get', id: 'q1', key: 'draft' },
+ * handleStorageNap(windowId, { type: 'storage.get', id: 'q1', key: 'draft' },
  *   sendToNapplet, sessionRegistry, aclState, statePersistence);
  * ```
  */
-export function handleStorageNub(
+export function handleStorageNap(
   windowId: string,
   msg: NappletMessage,
   sendToNapplet: SendToNapplet,
@@ -143,13 +143,13 @@ export function handleStorageNub(
   function sendResult(payload: Record<string, unknown>): void {
     sendToNapplet(windowId, { type: `${msg.type}.result`, id, ...payload } as NappletMessage);
   }
-  function sendErrorNub(error: string): void {
+  function sendErrorNap(error: string): void {
     sendToNapplet(windowId, { type: `${msg.type}.result`, id, error } as NappletMessage);
   }
 
   // Identity lookup via windowId (NIP-5D path)
   const entry = sessionRegistry.getEntryByWindowId(windowId);
-  if (!entry) { sendErrorNub('not registered'); return; }
+  if (!entry) { sendErrorNap('not registered'); return; }
 
   const { dTag, aggregateHash, pubkey } = entry;
   const prefix = `napplet-state:${dTag}:${aggregateHash}:`;
@@ -158,7 +158,7 @@ export function handleStorageNub(
   // NAP-STORAGE per-call scope. Absent ⇔ "shared" (byte-identical to history).
   // An unrecognized value is an invalid request — the shell MUST return an error.
   if (m.scope !== undefined && m.scope !== 'shared' && m.scope !== 'instance') {
-    sendErrorNub(`invalid scope: ${String(m.scope)} (expected "shared" or "instance")`);
+    sendErrorNap(`invalid scope: ${String(m.scope)} (expected "shared" or "instance")`);
     return;
   }
   const scope: StorageScope = m.scope === 'instance' ? 'instance' : 'shared';
@@ -171,7 +171,7 @@ export function handleStorageNub(
   switch (action) {
     case 'get': {
       const key = m.key as string;
-      if (!key) { sendErrorNub('missing key'); return; }
+      if (!key) { sendErrorNap('missing key'); return; }
       // Instance scope addresses a fresh per-window namespace with no legacy data —
       // read only the instance key. Shared scope keeps the triple-read migration.
       if (isInstance) {
@@ -194,7 +194,7 @@ export function handleStorageNub(
     case 'set': {
       const key = m.key as string;
       const value = (m.value as string) ?? '';
-      if (!key) { sendErrorNub('missing key'); return; }
+      if (!key) { sendErrorNap('missing key'); return; }
       const quota = aclState.getStateQuota(pubkey ?? '', dTag, aggregateHash);
       const sk = keyFor(key);
       const newWriteBytes = byteLength(sk + value);
@@ -202,7 +202,7 @@ export function handleStorageNub(
       // every per-instance sub-key, so instance writes draw from the same budget.
       const existingBytes = statePersistence.calculateBytes(prefix, key);
       if (existingBytes + newWriteBytes > quota) {
-        sendErrorNub(`quota exceeded: napplet state limit is ${quota} bytes`);
+        sendErrorNap(`quota exceeded: napplet state limit is ${quota} bytes`);
         return;
       }
       const success = statePersistence.set(sk, value);
@@ -211,7 +211,7 @@ export function handleStorageNub(
     }
     case 'remove': {
       const key = m.key as string;
-      if (!key) { sendErrorNub('missing key'); return; }
+      if (!key) { sendErrorNap('missing key'); return; }
       statePersistence.remove(keyFor(key));
       // legacyPrefix exists only while `pubkey` is non-empty (legacy AUTH sessions).
       // Suppress "unused binding" warnings: we intentionally retain the computation
@@ -225,7 +225,7 @@ export function handleStorageNub(
       // @napplet/nap/storage union. Napplets hitting this branch receive a
       // storage.clear.result envelope with the error field set. Internal lifecycle
       // cleanup uses cleanupNappState() below (not napplet-reachable).
-      sendErrorNub('storage.clear is not in @napplet/nap/storage; action not supported');
+      sendErrorNap('storage.clear is not in @napplet/nap/storage; action not supported');
       break;
     }
     case 'keys': {
@@ -255,7 +255,7 @@ export function handleStorageNub(
       break;
     }
     default:
-      sendErrorNub(`unknown storage action: ${action}`);
+      sendErrorNap(`unknown storage action: ${action}`);
       break;
   }
 }

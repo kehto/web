@@ -1,5 +1,5 @@
 /**
- * media-service.ts — NIP-5D media NUB reference service (navigator.mediaSession
+ * media-service.ts — NIP-5D media NAP reference service (navigator.mediaSession
  * reference implementation).
  *
  * Handles the napplet-owned subset of @napplet/nap/media:
@@ -31,7 +31,7 @@
  * up the active session's owning napplet, invokes the per-window send callback captured
  * at session.create time, and delivers:
  *   { type: 'media.command', sessionId, action, value? }
- * where action is the nub-media MediaAction literal (play|pause|next|prev|seek) and
+ * where action is the nap-media MediaAction literal (play|pause|next|prev|seek) and
  * value is the seekTime (seconds) for seek.
  *
  * Silent-audio prime: the browser bridge creates a hidden <audio> element with a
@@ -50,7 +50,7 @@
  * is the legacy ifc-topic-based audio source registry (audio:* topic events
  * over ifc.emit). media-service is the canonical @napplet/nap/media NIP-5D
  * path and they coexist — audio-service continues to track audio sources for
- * shell UI, while media-service handles the NUB protocol envelope surface.
+ * shell UI, while media-service handles the NAP protocol envelope surface.
  *
  * Shell -> Napplet push types (media.command) are emitted here when
  * bridge.onAction callbacks fire — this is the canonical Phase 27 real backend.
@@ -185,7 +185,7 @@ export interface HostMediaBridge {
   /**
    * Set the playback state for a session. Called on media.state reports
    * whenever the session is the active session. State strings match
-   * nub-media MediaState.status exactly. Implementations MUST be idempotent.
+   * nap-media MediaState.status exactly. Implementations MUST be idempotent.
    */
   setPlaybackState(sessionId: string, state: 'playing' | 'paused' | 'stopped' | 'buffering'): void;
 
@@ -545,13 +545,13 @@ function destroyMediaState(state: MediaServiceState, unsubscribeAction: () => vo
 }
 
 /**
- * Create a media NUB service handler with navigator.mediaSession integration.
+ * Create a media NAP service handler with navigator.mediaSession integration.
  *
  * Implements the 5 napplet->shell media.* request types defined in
  * `@napplet/nap/media`. Only `media.session.create` produces a reply
  * envelope (`media.session.create.result`) — the remaining four
  * (`session.update`, `session.destroy`, `state`, `capabilities`) are
- * fire-and-forget per the NUB spec.
+ * fire-and-forget per the NAP spec.
  *
  * Unknown `media.*` actions produce a `<type>.error` envelope so
  * napplets are never left hanging on a malformed request.
@@ -576,8 +576,8 @@ export function createMediaService(options: MediaServiceOptions = {}): ServiceHa
     name: 'media',
     version: MEDIA_SERVICE_VERSION,
     description: options.hostBridge
-      ? 'NIP-5D media NUB reference handler (host-bridge delegated)'
-      : 'NIP-5D media NUB reference handler (navigator.mediaSession mirror)',
+      ? 'NIP-5D media NAP reference handler (host-bridge delegated)'
+      : 'NIP-5D media NAP reference handler (navigator.mediaSession mirror)',
   };
 
   const bridge: HostMediaBridge = options.hostBridge

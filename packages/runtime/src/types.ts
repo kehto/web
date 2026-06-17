@@ -411,7 +411,7 @@ export interface AclEntryExternal {
 /**
  * Handler for service-specific messages from napplets.
  * Services receive NIP-5D NappletMessage envelopes and respond via the `send` callback.
- * The same interface is used for all services regardless of what NUB domain they handle.
+ * The same interface is used for all services regardless of what NAP domain they handle.
  *
  * @example
  * ```ts

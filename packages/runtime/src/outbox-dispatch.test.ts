@@ -2,8 +2,8 @@
  * outbox-dispatch.test.ts — NAP-OUTBOX (outbox-aware relay routing) runtime dispatch.
  *
  * Verifies the `outbox` domain is routed by the runtime to a registered
- * `outbox` service (the registerNub lesson — registering the service alone is
- * not enough; the domain must also be wired in createNubEnvelopeDispatcher),
+ * `outbox` service (the registerNap lesson — registering the service alone is
+ * not enough; the domain must also be wired in createNapEnvelopeDispatcher),
  * that the ACL gate denies `outbox.query` for a blocked napplet, and that
  * `outbox.publish` is gated on the dedicated outbox:write capability.
  */
@@ -34,7 +34,7 @@ describe('runtime outbox domain dispatch', () => {
     runtime.sessionRegistry.register(WINDOW_ID, session());
   });
 
-  it('routes outbox.query to a registered outbox service (registerNub wiring)', () => {
+  it('routes outbox.query to a registered outbox service (registerNap wiring)', () => {
     const received: NappletMessage[] = [];
     runtime.registerService('outbox', {
       descriptor: { name: 'outbox', version: '1.0.0' },

@@ -6,7 +6,7 @@
  *   - When the spec injects an ifc.event envelope (via __injectEnvelope__), the
  *     fixture's listener appends a line to #nap-ifc-log
  *   - When the spec clicks #nap-ifc-emit-btn, the harness sees an ifc.emit envelope
- *     via __getNubMessage__(windowId, 'ifc.emit')
+ *     via __getNapMessage__(windowId, 'ifc.emit')
  *
  * Anti-features: NO raw window.addEventListener — uses ifcOn() exclusively for cross-frame.
  */

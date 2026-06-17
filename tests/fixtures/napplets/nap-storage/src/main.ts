@@ -8,7 +8,7 @@
  * Layer-A spec asserts:
  *   - #nap-status flips to 'value:<value>' or 'denied:*'
  *   - #nap-storage-value === 'fixture-v1' on success
- *   - __getNubMessage__(windowId, 'storage.setItem') and 'storage.getItem' both return non-null
+ *   - __getNapMessage__(windowId, 'storage.setItem') and 'storage.getItem' both return non-null
  */
 import '@napplet/shim';
 import { storageGetItem, storageSetItem } from '@napplet/nap/storage/sdk';

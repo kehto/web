@@ -21,8 +21,8 @@
  * ## kehto's emitted wire shape (this release — TERM-03)
  *
  * `buildShellCapabilities` (shell-init.ts) now emits the conformant
- * `capabilities.{ domains, protocols }` shape ALONGSIDE the legacy
- * `{ naps, nubs, sandbox }` fields (superset for back-compat — TERM-05). The
+ * `capabilities.{ domains, protocols }` shape ALONGSIDE the flat
+ * `{ naps, sandbox }` fields (superset for back-compat — TERM-05). The
  * tests below feed kehto's REAL emitted `shell.init` envelope (domains +
  * protocols included) straight into the real 0.13 `createShellEnvironment` +
  * `makeSupports` — no projection/adapter — and assert the shim answers
@@ -150,7 +150,7 @@ describe('real @napplet/shim@0.13 makeSupports fed kehto-emitted capabilities', 
 
   describe('removed / unknown domain queries', () => {
     it('supports("ifc") === false (legacy vocabulary not in conformant domains)', () => {
-      // ifc lives only in legacy nubs — the 0.13 shim reads capabilities.domains.
+      // ifc is the pre-rename domain; the shell now advertises `inc`.
       expect(supports('ifc')).toBe(false);
     });
     it('supports("bogus") === false (not advertised)', () => {

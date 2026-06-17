@@ -14,14 +14,14 @@ import { createFirewallState, type FirewallStateContainer } from './firewall-sta
 import { createManifestCache, type ManifestCache } from './manifest-cache.js';
 import { createReplayDetector, type ReplayDetector } from './replay.js';
 import { createEventBuffer, RING_BUFFER_SIZE, type EventBuffer, type SubscriptionEntry } from './event-buffer.js';
-import { createEnforceGate, createNubEnforceGate, resolveCapabilitiesNub, formatDenialReason } from './enforce.js';
+import { createEnforceGate, createNapEnforceGate, resolveCapabilitiesNap, formatDenialReason } from './enforce.js';
 import { createRelayHandler } from './relay-handler.js';
 import { createIdentityHandler } from './identity-handler.js';
 import { createIfcRuntime, type IfcRuntime } from './ifc-handler.js';
 import { createRuntimeDomainHandlers, type RuntimeDomainHandlers } from './domain-handlers.js';
 
 /**
- * The napplet protocol engine — handles NIP-5D NUB domain dispatch,
+ * The napplet protocol engine — handles NIP-5D NAP domain dispatch,
  * ACL enforcement, subscription lifecycle.
  *
  * @example
@@ -94,7 +94,7 @@ export interface Runtime {
   readonly manifestCache: ManifestCache;
 }
 
-type RuntimeNubHandlers = RuntimeDomainHandlers & {
+type RuntimeNapHandlers = RuntimeDomainHandlers & {
   relay: (windowId: string, msg: NappletMessage) => void;
   identity: (windowId: string, msg: NappletMessage) => void;
   ifc: (windowId: string, msg: NappletMessage) => void;
@@ -128,35 +128,35 @@ function createRegisteredServices(serviceRegistry: ServiceRegistry): Map<string,
   return registeredServices;
 }
 
-function createNubEnvelopeDispatcher(handlers: RuntimeNubHandlers): (windowId: string, envelope: NappletMessage) => void {
+function createNapEnvelopeDispatcher(handlers: RuntimeNapHandlers): (windowId: string, envelope: NappletMessage) => void {
   let currentWindowId: string | null = null;
-  const nubDispatch = createDispatch();
+  const napDispatch = createDispatch();
   const adapt = (handler: (windowId: string, msg: NappletMessage) => void): NapHandler => (msg) => {
     if (currentWindowId !== null) handler(currentWindowId, msg);
   };
 
-  nubDispatch.registerNap('relay', adapt(handlers.relay));
-  nubDispatch.registerNap('identity', adapt(handlers.identity));
-  nubDispatch.registerNap('keys', adapt(handlers.keys));
-  nubDispatch.registerNap('media', adapt(handlers.media));
-  nubDispatch.registerNap('notify', adapt(handlers.notify));
-  nubDispatch.registerNap('storage', adapt(handlers.storage));
-  nubDispatch.registerNap('ifc', adapt(handlers.ifc));
+  napDispatch.registerNap('relay', adapt(handlers.relay));
+  napDispatch.registerNap('identity', adapt(handlers.identity));
+  napDispatch.registerNap('keys', adapt(handlers.keys));
+  napDispatch.registerNap('media', adapt(handlers.media));
+  napDispatch.registerNap('notify', adapt(handlers.notify));
+  napDispatch.registerNap('storage', adapt(handlers.storage));
+  napDispatch.registerNap('ifc', adapt(handlers.ifc));
   // D4: inc is the NAP rename of ifc; dual-routed during the back-compat window
   // so >=0.9.0 napplets (which send inc.*) reach the same handler as legacy ifc.*
-  nubDispatch.registerNap('inc', adapt(handlers.ifc));
-  nubDispatch.registerNap('theme', adapt(handlers.theme));
-  nubDispatch.registerNap('config', adapt(handlers.config));
-  nubDispatch.registerNap('resource', adapt(handlers.resource));
-  nubDispatch.registerNap('cvm', adapt(handlers.cvm));
-  nubDispatch.registerNap('outbox', adapt(handlers.outbox));
-  nubDispatch.registerNap('upload', adapt(handlers.upload));
-  nubDispatch.registerNap('intent', adapt(handlers.intent));
+  napDispatch.registerNap('inc', adapt(handlers.ifc));
+  napDispatch.registerNap('theme', adapt(handlers.theme));
+  napDispatch.registerNap('config', adapt(handlers.config));
+  napDispatch.registerNap('resource', adapt(handlers.resource));
+  napDispatch.registerNap('cvm', adapt(handlers.cvm));
+  napDispatch.registerNap('outbox', adapt(handlers.outbox));
+  napDispatch.registerNap('upload', adapt(handlers.upload));
+  napDispatch.registerNap('intent', adapt(handlers.intent));
 
   return (windowId, envelope) => {
     currentWindowId = windowId;
     try {
-      nubDispatch.dispatch(envelope);
+      napDispatch.dispatch(envelope);
     } finally {
       currentWindowId = null;
     }
@@ -288,8 +288,8 @@ function createFirewallGate(config: FirewallGateConfig): (windowId: string, enve
 
 function createMessageHandler(
   hooks: RuntimeAdapter,
-  enforceNub: ReturnType<typeof createNubEnforceGate>,
-  dispatchNubEnvelope: (windowId: string, envelope: NappletMessage) => void,
+  enforceNap: ReturnType<typeof createNapEnforceGate>,
+  dispatchNapEnvelope: (windowId: string, envelope: NappletMessage) => void,
   firewallGate: (windowId: string, envelope: NappletMessage, senderCap: string | null) => 'dispatch' | 'drop',
 ): Runtime['handleMessage'] {
   return (windowId: string, msg: unknown): void => {
@@ -298,9 +298,9 @@ function createMessageHandler(
     const dotIdx = envelope.type.indexOf('.');
     if (dotIdx === -1) return;
 
-    const caps = resolveCapabilitiesNub(envelope);
+    const caps = resolveCapabilitiesNap(envelope);
     if (caps.senderCap) {
-      const result = enforceNub(windowId, caps.senderCap as Capability, envelope);
+      const result = enforceNap(windowId, caps.senderCap as Capability, envelope);
       if (!result.allowed) {
         const id = (envelope as NappletMessage & { id?: string }).id ?? '';
         const isStorageEnvelope = envelope.type.startsWith('storage.');
@@ -314,7 +314,7 @@ function createMessageHandler(
     const verdict = firewallGate(windowId, envelope, caps.senderCap);
     if (verdict === 'drop') return;
 
-    dispatchNubEnvelope(windowId, envelope);
+    dispatchNapEnvelope(windowId, envelope);
   };
 }
 
@@ -446,7 +446,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     onAclCheck: hooks.onAclCheck,
   });
 
-  const enforceNub = createNubEnforceGate({
+  const enforceNap = createNapEnforceGate({
     checkAcl: (pubkey, dTag, aggregateHash, capability) =>
       aclState.check(pubkey, dTag, aggregateHash, capability),
     resolveIdentityByWindowId: (windowId) => {
@@ -476,13 +476,13 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
 
   const ifcRuntime = createIfcRuntime(hooks, sessionRegistry);
   const domainHandlers = createRuntimeDomainHandlers({ hooks, serviceRegistry, sessionRegistry, aclState });
-  const dispatchNubEnvelope = createNubEnvelopeDispatcher({
+  const dispatchNapEnvelope = createNapEnvelopeDispatcher({
     relay: createRelayHandler({ hooks, serviceRegistry, subscriptions, eventBuffer, replayDetector }),
     identity: createIdentityHandler({ hooks, serviceRegistry }),
     ifc: ifcRuntime.handleMessage,
     ...domainHandlers,
   });
-  const handleMessage = createMessageHandler(hooks, enforceNub, dispatchNubEnvelope, firewallGate);
+  const handleMessage = createMessageHandler(hooks, enforceNap, dispatchNapEnvelope, firewallGate);
 
   return createRuntimeInstance({
     hooks,

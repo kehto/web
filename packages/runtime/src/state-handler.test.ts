@@ -1,17 +1,17 @@
 /**
- * state-handler.test.ts — Unit tests for handleStorageNub (Plan 12-09).
+ * state-handler.test.ts — Unit tests for handleStorageNap (Plan 12-09).
  *
  * Asserts canonical @napplet/nap/storage envelope shapes for the 4 canonical
  * actions (get, set, remove, keys) and explicit rejection of storage.clear
  * (not in the canonical union — kehto extension removed per DRIFT-ACL-08).
  *
- * Direct-dispatch tests call handleStorageNub() to bypass runtime ACL — the
+ * Direct-dispatch tests call handleStorageNap() to bypass runtime ACL — the
  * ACL-denial test goes through createRuntime().handleMessage() to exercise
  * the full enforce gate path.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { handleStorageNub } from './state-handler.js';
+import { handleStorageNap } from './state-handler.js';
 import { createRuntime } from './runtime.js';
 import type { Runtime } from './runtime.js';
 import { createSessionRegistry } from './session-registry.js';
@@ -35,7 +35,7 @@ const PREFIX = `napplet-state:${TEST_DTAG}:${TEST_HASH}:`;
 
 // ─── Direct-dispatch harness ────────────────────────────────────────────────
 
-/** Memoized capture of every NappletMessage handleStorageNub dispatches. */
+/** Memoized capture of every NappletMessage handleStorageNap dispatches. */
 interface DirectHarness {
   sent: NappletMessage[];
   sendToNapplet: SendToNapplet;
@@ -94,7 +94,7 @@ function createDirectHarness(options?: { quota?: number }): DirectHarness {
   } as AclStateContainer;
 
   const sendToNapplet: SendToNapplet = (_windowId, msg) => {
-    // handleStorageNub only sends NappletMessage envelopes (not arrays), but
+    // handleStorageNap only sends NappletMessage envelopes (not arrays), but
     // guard defensively against the overload.
     if (!Array.isArray(msg)) sent.push(msg);
   };
@@ -103,7 +103,7 @@ function createDirectHarness(options?: { quota?: number }): DirectHarness {
 }
 
 function dispatch(h: DirectHarness, msg: NappletMessage): void {
-  handleStorageNub(
+  handleStorageNap(
     WINDOW_ID,
     msg,
     h.sendToNapplet,
@@ -122,7 +122,7 @@ function lastOfType(h: DirectHarness, type: string): NappletMessage | undefined 
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
-describe('handleStorageNub — canonical @napplet/nap/storage envelope shapes', () => {
+describe('handleStorageNap — canonical @napplet/nap/storage envelope shapes', () => {
   let h: DirectHarness;
 
   beforeEach(() => {
@@ -140,7 +140,7 @@ describe('handleStorageNub — canonical @napplet/nap/storage envelope shapes', 
     expect(reply).toBeDefined();
     expect((reply as any).id).toBe('g1');
     expect((reply as any).value).toBe('bar');
-    // Canonical nub-storage drops `found` — null ⇔ missing.
+    // Canonical nap-storage drops `found` — null ⇔ missing.
     expect((reply as any).found).toBeUndefined();
   });
 
@@ -253,7 +253,7 @@ describe('handleStorageNub — canonical @napplet/nap/storage envelope shapes', 
 
 // ─── ACL Denial Test (routes through full runtime dispatch) ─────────────────
 
-describe('storage nub — ACL denial emits canonical result envelope', () => {
+describe('storage nap — ACL denial emits canonical result envelope', () => {
   let mock: MockRuntimeContext;
   let runtime: Runtime;
 
@@ -267,7 +267,7 @@ describe('storage nub — ACL denial emits canonical result envelope', () => {
   });
 
   // Test 8 — storage.get denied by ACL → canonical .result envelope with error.
-  // resolveCapabilitiesNub('storage.get') => { senderCap: 'state:read' }. Blocking
+  // resolveCapabilitiesNap('storage.get') => { senderCap: 'state:read' }. Blocking
   // the napplet identity makes the cap check return false; the runtime then emits
   // a `{ type: 'storage.get.result', error: 'denied: state:read' }` envelope.
   it('storage.get denied by ACL produces storage.get.result error envelope', () => {
@@ -348,7 +348,7 @@ function createMultiHarness(windowIds: string[], quota = 1024 * 1024): MultiHarn
     sent,
     stateStore,
     dispatchAs(windowId, msg) {
-      handleStorageNub(windowId, msg, sendToNapplet, sessionRegistry, aclState, statePersistence);
+      handleStorageNap(windowId, msg, sendToNapplet, sessionRegistry, aclState, statePersistence);
     },
     lastOfType(type) {
       for (let i = sent.length - 1; i >= 0; i--) {
@@ -362,7 +362,7 @@ function createMultiHarness(windowIds: string[], quota = 1024 * 1024): MultiHarn
 const WIN_A = 'win-A';
 const WIN_B = 'win-B';
 
-describe('handleStorageNub — per-call scope (shared | instance)', () => {
+describe('handleStorageNap — per-call scope (shared | instance)', () => {
   let h: MultiHarness;
 
   beforeEach(() => {

@@ -208,28 +208,14 @@ export interface AclCheckEvent {
  * Per canonical NIP-5D (https://github.com/nostr-protocol/nips/pull/2303/),
  * supports() distinguishes two namespaces:
  *
- *   - Bare names (or optional `nub:` prefix) for NUB-capability lookups,
- *     resolved against the `nubs` array — e.g. `supports('relay')`,
- *     `supports('identity')`.
+ *   - Bare names for NAP-capability lookups, resolved against the `naps`
+ *     array — e.g. `supports('relay')`, `supports('identity')`.
  *   - The `perm:<permission>` prefix for sandbox-permission lookups, resolved
  *     against the `sandbox` array — e.g. `supports('perm:popups')`,
  *     `supports('perm:modals')`.
  *
  * The two namespaces do not cross: a bare-name lookup never matches a sandbox
- * entry and a `perm:`-prefixed lookup never matches a NUB entry.
- *
- * ## Dual-emit (back-compat window — D2/D3, ALIGN-01..04)
- *
- * Both `naps` and `nubs` are emitted in the shell.init payload for one
- * back-compat release:
- *
- *   - `naps` (PRIMARY) — NAP vocabulary: bare domain `inc`, protocol IDs
- *     `inc:NAP-01..inc:NAP-06`. Consumed by `@napplet/shim >=0.9.0`.
- *     Contains NO unaliased `ifc` or `NUB-NN` identifiers.
- *   - `nubs` (LEGACY) — retains the original `ifc` / `ifc:NUB-01..06` /
- *     `ifc:NAP-01` vocabulary for `@napplet/nub` and `<=0.8.x` shims.
- *
- * The dual-emit is intentional; removal is tracked as CLEANUP-01.
+ * entry and a `perm:`-prefixed lookup never matches a NAP entry.
  *
  * ## Conformant NAP-SHELL shape (TERM-03 — @napplet/core@0.12 / @napplet/shim@0.13)
  *
@@ -242,8 +228,8 @@ export interface AclCheckEvent {
  *   - `supports('inc','NAP-01')`→ true iff `capabilities.protocols['inc']`
  *                                  includes `'NAP-01'`
  *
- * `domains` and `protocols` are emitted as a SUPERSET ALONGSIDE the legacy
- * `naps`/`nubs`/`sandbox` fields (TERM-05 back-compat). The 0.13 shim has NO
+ * `domains` and `protocols` are emitted as a SUPERSET ALONGSIDE the
+ * `naps`/`sandbox` fields (TERM-05 back-compat). The 0.13 shim has NO
  * special `perm:` logic — `supports('perm:popups')` is an ordinary bare-domain
  * membership check, so kehto's `perm:`-prefixed sandbox entries are folded into
  * `domains` (empty by default, preserving the default-empty sandbox behavior).
@@ -280,32 +266,19 @@ export interface ShellCapabilities {
    * when an upload backend is wired; `intent` appended when an intent
    * dispatcher is available.
    *
-   * Contains NO `ifc`, `NUB-NN`, or unaliased legacy identifiers.
+   * Contains NO `NAP-NN` protocol strings (those live in `protocols`).
    */
   naps: string[];
-  /**
-   * Legacy NUB domain entries the shell handles (retained for one back-compat
-   * release — consumed by `@napplet/nub` and `@napplet/shim <=0.8.x`).
-   * Vocabulary: `ifc`, `ifc:NUB-01..06`, `ifc:NAP-01`, bare domain names.
-   * Contents are unchanged from the pre-0.9.0 release; `naps` is the primary
-   * field for new shims. Removal tracked as CLEANUP-01.
-   *
-   * Entries are bare domain names — `'relay'`, `'identity'`, etc. They MUST NOT
-   * carry the `perm:` prefix; that prefix is reserved for the `sandbox` array.
-   * Napplets query NUB support via `supports('<domain>')` (or, equivalently,
-   * `supports('nub:<domain>')`).
-   */
-  nubs: string[];
   /**
    * Sandbox permissions under the `perm:<permission>` namespace. Each entry
    * MUST begin with the literal prefix `'perm:'` — e.g. `'perm:popups'`,
    * `'perm:modals'`, `'perm:downloads'`. Napplets call
    * `shell.supports('perm:<permission>')` to check sandbox entitlements.
    *
-   * The `perm:` prefix is what separates sandbox permissions from NUB
+   * The `perm:` prefix is what separates sandbox permissions from NAP
    * capabilities; bare-name entries here violate the NIP-5D contract and will
    * be unreachable through `supports()` (see the living NIP-5D at
-   * https://github.com/nostr-protocol/nips/pull/2303/). NUB-capability lookups (on `nubs`) retain the bare-name
+   * https://github.com/nostr-protocol/nips/pull/2303/). NAP-capability lookups (on `naps`) retain the bare-name
    * convention and do NOT use the `perm:` prefix.
    */
   sandbox: string[];

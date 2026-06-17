@@ -2,8 +2,8 @@
  * cvm-dispatch.test.ts — NAP-CVM (ContextVM bridge) runtime dispatch.
  *
  * Verifies the `cvm` domain is routed by the runtime to a registered `cvm`
- * service (the registerNub lesson — registering the service alone is not
- * enough; the domain must also be wired in createNubEnvelopeDispatcher), and
+ * service (the registerNap lesson — registering the service alone is not
+ * enough; the domain must also be wired in createNapEnvelopeDispatcher), and
  * that the ACL gate denies `cvm.request` for a blocked napplet.
  */
 
@@ -33,7 +33,7 @@ describe('runtime cvm domain dispatch', () => {
     runtime.sessionRegistry.register(WINDOW_ID, session());
   });
 
-  it('routes cvm.request to a registered cvm service (registerNub wiring)', () => {
+  it('routes cvm.request to a registered cvm service (registerNap wiring)', () => {
     const received: NappletMessage[] = [];
     runtime.registerService('cvm', {
       descriptor: { name: 'cvm', version: '1.0.0' },

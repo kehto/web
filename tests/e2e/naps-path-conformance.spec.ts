@@ -3,26 +3,25 @@
  *
  * Proves the migrated playground exercises the REAL released @napplet/shim
  * (0.13) naps→supports() path — not the removed hand-rolled override that read
- * the legacy `nubs` array.
+ * a flat capabilities array.
  *
  * Background (verified against the installed dist):
  *   - @kehto/shell advertises conformant NAP-SHELL capabilities in shell.init:
  *     `capabilities.domains` (carries bare 'inc') + `capabilities.protocols`
  *     (`{ inc: ['NAP-01'..'NAP-06'] }`), emitted as a superset alongside the
- *     legacy naps/nubs arrays (TERM-05 back-compat).
+ *     flat naps array (TERM-05 back-compat).
  *   - @napplet/shim 0.13's makeSupports(env) builds supports(domain, protocol?)
  *     from `capabilities.{domains, protocols}`:
  *       * supports(domain)            → domains.has(domain)
  *       * supports(domain, protocol)  → protocols[domain]?.includes(protocol)
- *     It does NOT strip a `nub:` prefix, and it does NOT treat a colon-joined
- *     'inc:NAP-01' as a domain. So the modern two-arg protocol form is the only
- *     one that resolves a numbered NAP protocol at the shim layer.
+ *     It does NOT treat a colon-joined 'inc:NAP-01' as a domain. So the modern
+ *     two-arg protocol form is the only one that resolves a numbered NAP
+ *     protocol at the shim layer.
  *   - The playground layers a thin `nap:` alias on top of the real shim
  *     (apps/playground/src/theme.ts `patchNapSupportsAlias`, installed via
  *     installNapTheme() in each napplet): it strips a leading `nap:` and
- *     resolves `supports(domain) || supports('nub:'+domain)`. So in the
- *     PLAYGROUND host, `supports('nap:inc') === true` (TERM-01 primary prefix),
- *     while `supports('nub:inc')` stays false (the alias does not strip nub:).
+ *     resolves `supports(domain)`. So in the PLAYGROUND host,
+ *     `supports('nap:inc') === true` (TERM-01 primary prefix).
  *
  * Target: the migrated profile-viewer napplet (requires ['inc', ...]; checks
  * supports('inc', 'NAP-01')). Asserting these booleans in-frame proves the real
@@ -78,7 +77,6 @@ test('profile-viewer resolves supports() via the real shim 0.13 naps/domains pat
       ifcDomain: supports('ifc'),                  // 'ifc' not in domains (renamed → inc)
       incProtocolSingleArg: supports('inc:NAP-01'),// colon-joined is NOT a bare domain
       napPrefixed: supports('nap:inc'),            // playground nap: alias → true (TERM-01)
-      nubPrefixed: supports('nub:inc'),            // neither shim nor alias strips nub:
       unknownDomain: supports('nostrdb'),          // not advertised at all
     };
   });
@@ -86,14 +84,13 @@ test('profile-viewer resolves supports() via the real shim 0.13 naps/domains pat
   // The migration's integration proof: the modern wire/domain resolves true,
   // the legacy 'ifc' domain resolves false, only the two-arg protocol form
   // resolves a numbered NAP protocol under the real shim 0.13, and the
-  // playground's nap: primary-prefix alias resolves while nub: does not.
+  // playground's nap: primary-prefix alias resolves.
   expect(result).toEqual({
     incDomain: true,
     incProtocolTwoArg: true,
     ifcDomain: false,
     incProtocolSingleArg: false,
     napPrefixed: true,
-    nubPrefixed: false,
     unknownDomain: false,
   });
 });

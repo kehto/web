@@ -69,9 +69,9 @@ export {
 
 export { migrateAclState } from './migrate.js';
 
-// NUB domain resolution
-export type { CapabilityResolution, NubMessage } from './resolve.js';
-export { resolveCapabilitiesNub } from './resolve.js';
+// NAP domain resolution
+export type { CapabilityResolution, NapMessage } from './resolve.js';
+export { resolveCapabilitiesNap } from './resolve.js';
 
 // Canonical capability strings (v1.2 — 8-domain NIP-5D surface)
 export {

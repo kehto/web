@@ -39,7 +39,7 @@ export interface ShellBridge {
    *
    * shell.ready messages are handled locally: the bridge responds with shell.init
    * containing the capability set and registered service list. All other envelopes
-   * are delegated to the runtime's NUB domain dispatch.
+   * are delegated to the runtime's NAP domain dispatch.
    *
    * @param event - The raw MessageEvent from window.addEventListener('message', ...)
    * @example
@@ -190,7 +190,7 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
     }
   }
 
-  // Attach the host-keydown forwarder (Plan 12-11 / NUB-05 shell half).
+  // Attach the host-keydown forwarder (Plan 12-11 / NAP-05 shell half).
   // Skips construction in DOM-less environments (SSR / early Node tests);
   // any failure is swallowed so a malformed DOM never blocks bridge creation.
   let keysForwarder: KeysForwarder | null = null;
@@ -229,7 +229,7 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
         return;
       }
 
-      // Delegate to runtime — runtime handles NUB domain dispatch
+      // Delegate to runtime — runtime handles NAP domain dispatch
       runtime.handleMessage(windowId, msg);
     },
 

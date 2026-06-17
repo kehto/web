@@ -34,16 +34,16 @@ test('ACL node opens inspector with grant/revoke table', async ({ page }) => {
   );
 });
 
-test('runtime node shows Registered NUBs with 8 entries', async ({ page }) => {
+test('runtime node shows Registered NAPs with 8 entries', async ({ page }) => {
   await demoBeforeEach(page);
   await page.locator('#topology-node-runtime').click();
   await expect(page.locator('#inspector-pane')).toBeVisible({ timeout: 3_000 });
-  // renderRuntimeRoleContent writes "Registered NUBs" header + <ul>
-  await expect(page.locator('#inspector-pane')).toContainText('Registered NUBs', { timeout: 3_000 });
-  // Check each of the 8 canonical NUB names appears somewhere in the pane
+  // renderRuntimeRoleContent writes "Registered NAPs" header + <ul>
+  await expect(page.locator('#inspector-pane')).toContainText('Registered NAPs', { timeout: 3_000 });
+  // Check each of the 8 canonical NAP names appears somewhere in the pane
   const pane = page.locator('#inspector-pane');
-  for (const nub of ['identity', 'keys', 'media', 'notifications', 'relay', 'signer', 'storage', 'theme']) {
-    await expect(pane).toContainText(nub);
+  for (const nap of ['identity', 'keys', 'media', 'notifications', 'relay', 'signer', 'storage', 'theme']) {
+    await expect(pane).toContainText(nap);
   }
 });
 

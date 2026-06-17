@@ -99,7 +99,7 @@ originRegistry.getIframeWindow = (windowId: string): Window | null => {
             typeof (msg as Record<string, unknown>).type === 'string'
           ) {
             // Outbound NIP-5D envelope (service send callback result).
-            // Record into envelopeLog keyed by windowId so __getNubMessage__ can
+            // Record into envelopeLog keyed by windowId so __getNapMessage__ can
             // retrieve both inbound requests AND outbound response envelopes.
             const clone = JSON.parse(JSON.stringify(msg)) as NappletMessage;
             const arr = envelopeLog.get(windowId) ?? [];
@@ -470,7 +470,7 @@ window.__injectEnvelope__ = (windowId: string, envelope: NappletMessage): void =
  * @param type - Optional envelope type filter (e.g., "relay.publish").
  * @returns The last matching NappletMessage, or null if none recorded.
  */
-window.__getNubMessage__ = (windowId: string, type?: string): NappletMessage | null => {
+window.__getNapMessage__ = (windowId: string, type?: string): NappletMessage | null => {
   const arr = envelopeLog.get(windowId) ?? [];
   const filtered = type ? arr.filter(m => m.type === type) : arr;
   if (filtered.length === 0) return null;
