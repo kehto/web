@@ -40,16 +40,20 @@ describe('playground gateway artifact guard', () => {
       const expectedRequiresLiteral = expectedRequires[name]
         .map((capability) => `'${capability}'`)
         .join(', ');
-      expect(config, `${name} d tag/requires`).toContain(
-        `export default definePlaygroundNappletConfig('${name}', { requires: [${expectedRequiresLiteral}] });`,
-      );
+      // profile-viewer also declares the NAAT archetype axis (Phase 87, ARCH-03):
+      // it carries an additional `archetypes` option after `requires`.
+      const expectedConfig =
+        name === 'profile-viewer'
+          ? `export default definePlaygroundNappletConfig('${name}', { requires: [${expectedRequiresLiteral}], archetypes: [{ slug: 'profile', nap: 'NAP-1' }] });`
+          : `export default definePlaygroundNappletConfig('${name}', { requires: [${expectedRequiresLiteral}] });`;
+      expect(config, `${name} d tag/requires`).toContain(expectedConfig);
     }
 
     const sharedConfig = readRepoFile('apps/playground/napplets/shared-vite-config.ts');
-    expect(sharedConfig).toContain('playgroundSingleFileArtifact()');
+    expect(sharedConfig).toContain('playgroundSingleFileArtifact(archetypes)');
     expect(sharedConfig).toContain("artifactMode: 'external-assets'");
     expect(sharedConfig).toContain('assertSingleFileArtifact(inlinedHtml, distPath)');
-    expect(sharedConfig).toContain('recomputeManifest(distPath, inlinedHtml)');
+    expect(sharedConfig).toContain('recomputeManifest(distPath, inlinedHtml, archetypes)');
     expect(sharedConfig).toContain('requires?: readonly string[]');
     expect(sharedConfig).toContain('manifest requires must use short NAP names');
     expect(sharedConfig).toContain('requires,');

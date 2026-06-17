@@ -62,6 +62,14 @@ export interface PlaygroundNapplet {
   aggregateHash: string;
   /** Short NAP capability names the manifest requires. */
   requires: string[];
+  /**
+   * Archetype slugs this napplet fulfills, from the verified manifest's
+   * `archetype` tags; the optional `nap` is the recommended default wire protocol.
+   * Always present (empty when the manifest declares none).
+   */
+  archetypes: Array<{ slug: string; nap?: string }>;
+  /** Optional human title from the verified manifest. */
+  title?: string;
   /** Verified `/index.html` text (no CSP yet — inject with {@link injectCspMeta}). */
   indexHtml: string;
 }
@@ -147,6 +155,8 @@ export async function resolvePlaygroundNapplet(
     dTag: resolved.dTag,
     aggregateHash: resolved.aggregateHash,
     requires: resolved.manifest.requires,
+    archetypes: resolved.manifest.archetypes,
+    ...(resolved.manifest.title === undefined ? {} : { title: resolved.manifest.title }),
     indexHtml: resolved.indexHtml,
   };
 }

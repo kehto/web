@@ -96,9 +96,18 @@ const HOSTED_SHELL_BOOTSTRAP = String.raw`
   window.parent.postMessage({ type: 'shell.ready' }, '*');
 })();`;
 
+/** An archetype the napplet fulfills, optionally with its recommended NAP-N protocol. */
+export interface PlaygroundArchetype {
+  slug: string;
+  nap?: string;
+}
+
 export interface PlaygroundNappletConfigOptions {
   requires?: readonly string[];
+  archetypes?: ReadonlyArray<PlaygroundArchetype>;
 }
+
+const NAP_PROTOCOL_PATTERN = /^NAP-\d+$/;
 
 function validateRequires(nappletType: string, requires: readonly string[]): string[] {
   return requires.map((name) => {
@@ -108,6 +117,25 @@ function validateRequires(nappletType: string, requires: readonly string[]): str
       );
     }
     return name;
+  });
+}
+
+function validateArchetypes(
+  nappletType: string,
+  archetypes: ReadonlyArray<PlaygroundArchetype>,
+): PlaygroundArchetype[] {
+  return archetypes.map(({ slug, nap }) => {
+    if (!SHORT_NAP_NAME_PATTERN.test(slug) || slug.startsWith('nap-') || slug.startsWith('nub-')) {
+      throw new Error(
+        `${nappletType} manifest archetype slug must be a short NAP name, got "${slug}"`,
+      );
+    }
+    if (nap !== undefined && !NAP_PROTOCOL_PATTERN.test(nap)) {
+      throw new Error(
+        `${nappletType} manifest archetype "${slug}" nap must match NAP-<n>, got "${nap}"`,
+      );
+    }
+    return nap === undefined ? { slug } : { slug, nap };
   });
 }
 
@@ -356,7 +384,11 @@ async function waitForPublishedManifest(distPath: string): Promise<void> {
   throw new Error('[playground-single-file] timed out waiting for published manifest plugin output');
 }
 
-function recomputeManifest(distPath: string, inlinedHtml: string): void {
+function recomputeManifest(
+  distPath: string,
+  inlinedHtml: string,
+  archetypes: ReadonlyArray<PlaygroundArchetype> = [],
+): void {
   const manifestPath = join(distPath, '.nip5a-manifest.json');
   if (!existsSync(manifestPath)) return;
 
@@ -401,11 +433,18 @@ function recomputeManifest(distPath: string, inlinedHtml: string): void {
 
   const aggregateHash = computeAggregateHash(pathEntries);
   const pathTags = pathEntries.map(([absPath, hash]) => ['path', absPath, hash]);
+  // Upstream @napplet/vite-plugin 0.4.0 does NOT emit `archetype` tags, so the
+  // playground injects them here from the validated config. They are not d/x/path,
+  // so any re-parse retains them; `retainedTags` is filtered to avoid duplicates.
+  const archetypeTags = archetypes.map((a) =>
+    a.nap ? ['archetype', a.slug, a.nap] : ['archetype', a.slug],
+  );
   const tags = [
     ['d', dTag],
     ...pathTags,
     ['x', aggregateHash, 'aggregate'],
-    ...retainedTags,
+    ...retainedTags.filter((tag) => tag[0] !== 'archetype'),
+    ...archetypeTags,
   ];
   const event = {
     kind: NAPPLET_MANIFEST_KIND,
@@ -422,7 +461,9 @@ function recomputeManifest(distPath: string, inlinedHtml: string): void {
   );
 }
 
-function playgroundSingleFileArtifact(): Plugin {
+function playgroundSingleFileArtifact(
+  archetypes: ReadonlyArray<PlaygroundArchetype> = [],
+): Plugin {
   let outDir = 'dist';
   let root = process.cwd();
   let base = './';
@@ -453,7 +494,7 @@ function playgroundSingleFileArtifact(): Plugin {
         const html = readFileSync(indexPath, 'utf8');
         const inlinedHtml = inlineSingleFileBuildAssets(html, distPath, base);
         assertSingleFileArtifact(inlinedHtml, distPath);
-        recomputeManifest(distPath, inlinedHtml);
+        recomputeManifest(distPath, inlinedHtml, archetypes);
       },
     },
   };
@@ -465,11 +506,12 @@ export function definePlaygroundNappletConfig(
 ) {
   process.env.VITE_DEV_PRIVKEY_HEX ??= PLAYGROUND_MANIFEST_PRIVKEY_HEX;
   const requires = validateRequires(nappletType, options.requires ?? []);
+  const archetypes = validateArchetypes(nappletType, options.archetypes ?? []);
 
   return defineConfig({
     base: './',
     plugins: [
-      playgroundSingleFileArtifact(),
+      playgroundSingleFileArtifact(archetypes),
       nip5aManifest({
         nappletType,
         // Let the upstream plugin validate and sign Vite's normal external-asset
