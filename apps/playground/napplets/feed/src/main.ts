@@ -3,14 +3,14 @@
  */
 import '@napplet/shim';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
-import { identityGetPublicKey, identityOnChanged } from '@napplet/nub/identity/sdk';
-import { ifcEmit } from '@napplet/nub/ifc/sdk';
+import { identityGetPublicKey, identityOnChanged } from '@napplet/nap/identity/sdk';
+import { incEmit } from '@napplet/nap/inc/sdk';
 import type { NostrEvent } from '@napplet/core';
 import { createFeedStore, type FeedProfile } from './feed-store.js';
 import { createFeedIdentityEventController } from './feed-identity-events.js';
 
-const REQUIRED_NAPS = ['identity', 'relay', 'ifc', 'theme'] as const;
-const REQUIRED_IFC_PROTOCOL = 'ifc:NAP-01';
+const REQUIRED_NAPS = ['identity', 'relay', 'inc', 'theme'] as const;
+const REQUIRED_INC_PROTOCOL = 'NAP-01';
 const CAPABILITY_WAIT_MS = 5_000;
 const CAPABILITY_WAIT_INTERVAL_MS = 25;
 
@@ -38,7 +38,7 @@ function getMissingRequiredNaps(): string[] {
   const supports = window.napplet.shell.supports;
   return [
     ...REQUIRED_NAPS.filter((capability) => !supports(capability)),
-    ...(!supports(REQUIRED_IFC_PROTOCOL) ? [REQUIRED_IFC_PROTOCOL] : []),
+    ...(!supports('inc', REQUIRED_INC_PROTOCOL) ? [`inc:${REQUIRED_INC_PROTOCOL}`] : []),
   ];
 }
 
@@ -74,7 +74,7 @@ function openProfile(pubkey: string): void {
   }
 
   try {
-    ifcEmit('profile:open', [], JSON.stringify({ pubkey: normalized }));
+    incEmit('profile:open', [], JSON.stringify({ pubkey: normalized }));
   } catch {
     // Best effort; the profile viewer itself surfaces the failure state.
   }

@@ -1,5 +1,9 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": [
+    "apps/playground/napplets/shared-vite-config.ts",
+    "apps/playground/napplets/shared-theme.ts"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

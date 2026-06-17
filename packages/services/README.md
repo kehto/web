@@ -3,7 +3,7 @@
 Reference service handlers for the napplet protocol — audio, notifications, identity, relay pool, cache, keys, media, notify, theme.
 
 > **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
-> protocol. NUB contracts and service envelopes are not final; treat these
+> protocol. NAP contracts and service envelopes are not final; treat these
 > handlers as reference implementations for the current draft.
 
 ## Install
@@ -22,7 +22,7 @@ Current draft posture:
 
 - The v1.1 signer service is deleted outright. Its responsibilities split into two: read-only identity lookups go through `createIdentityService` (`getPublicKey`, `getRelays`, `getProfile`, `getFollows`, `getList`, `getZaps`, `getMutes`, `getBlocked`, `getBadges`); signing happens inside the shell as part of `relay.publish` / `relay.publishEncrypted` and is never exposed to napplets.
 - `createKeysService` and `createMediaService` ship real reference backends as of v1.4 (see the dedicated sections below). `createKeysService` attaches a document-level `keydown` listener by default and delivers `keys.action` push envelopes to registered napplets; `createMediaService` mirrors session metadata and playback state to `navigator.mediaSession` and emits `media.command` push envelopes on OS transport events. Both accept a host-bridge option (`HostKeysBridge` / `HostMediaBridge`) so Electron / Tauri / native shells can swap in OS-level backends without re-implementing the wire-protocol bookkeeping.
-- `createNotifyService` (NIP-5D `notify.*` NUB) coexists with the legacy `createNotificationService` (ifc-emit `notifications:*` channel). Both may be registered simultaneously while hosts migrate.
+- `createNotifyService` (NIP-5D `notify.*` NAP) coexists with the legacy `createNotificationService` (ifc-emit `notifications:*` channel). Both may be registered simultaneously while hosts migrate.
 
 ## Quick Start
 
@@ -51,7 +51,7 @@ runtime.registerService(
 
 ## Keys Service
 
-Reference keyboard / chord backend for the `keys.*` NIP-5D NUB. By default attaches a single `document`-level `keydown` listener that matches incoming events against registered chord subscriptions and delivers a `keys.action` push envelope back to the owning napplet. Implement the [`HostKeysBridge`](#hostkeysbridge-interface) interface to swap in OS-level backends (Electron `globalShortcut`, Tauri `GlobalShortcut`).
+Reference keyboard / chord backend for the `keys.*` NIP-5D NAP. By default attaches a single `document`-level `keydown` listener that matches incoming events against registered chord subscriptions and delivers a `keys.action` push envelope back to the owning napplet. Implement the [`HostKeysBridge`](#hostkeysbridge-interface) interface to swap in OS-level backends (Electron `globalShortcut`, Tauri `GlobalShortcut`).
 
 ### Factory
 
@@ -85,7 +85,7 @@ export interface HostKeysBridge {
    *   - invoke `callback` exactly once per matching chord event (implementations
    *     are responsible for any OS-autorepeat filtering)
    *   - invoke `callback` synchronously during the event delivery
-   *   - accept the string chord format documented by @napplet/nub/keys
+   *   - accept the string chord format documented by @napplet/nap/keys
    *     (e.g. `'Ctrl+Shift+K'`, `'Cmd+P'`)
    */
   subscribe(chord: string, callback: (event: KeyboardEvent | HostKeyEvent) => void): () => void;
@@ -214,7 +214,7 @@ runtime.registerService('keys', keys);
 
 ## Media Service
 
-Reference media backend for the `media.*` NIP-5D NUB. By default mirrors session metadata + playback state to `navigator.mediaSession` via the DOM `MediaSession` API and installs `setActionHandler` callbacks that emit `media.command` push envelopes on OS transport events (play / pause / next / previous / seek). Implement the [`HostMediaBridge`](#hostmediabridge-interface) interface to swap in native backends (Electron bridge, MPRIS on Linux, MediaRemote on macOS).
+Reference media backend for the `media.*` NIP-5D NAP. By default mirrors session metadata + playback state to `navigator.mediaSession` via the DOM `MediaSession` API and installs `setActionHandler` callbacks that emit `media.command` push envelopes on OS transport events (play / pause / next / previous / seek). Implement the [`HostMediaBridge`](#hostmediabridge-interface) interface to swap in native backends (Electron bridge, MPRIS on Linux, MediaRemote on macOS).
 
 ### Factory
 
@@ -344,31 +344,31 @@ runtime.registerService('media', createMediaService({ hostBridge: electronBridge
 
 Plug a `HostMediaBridge` when `navigator.mediaSession` is insufficient: Electron apps that need to route transport events through the main process (lock-screen integration on Windows, Now Playing integration on macOS), Linux shells that speak MPRIS over D-Bus, native mobile wrappers that forward to AVPlayer / ExoPlayer, or test harnesses that record action events without touching the DOM. The bridge owns metadata/state mirroring and OS action routing; the service retains per-session bookkeeping (sessionRegistry + per-window send handles) so `media.command` dispatch semantics stay identical across paths.
 
-A napplet drives this end to end via `@napplet/nub/media` — `mediaCreateSession({ owner: 'napplet', ... })`, `mediaReportState`, and `mediaOnCommand` against the real backend.
+A napplet drives this end to end via `@napplet/nap/media` — `mediaCreateSession({ owner: 'napplet', ... })`, `mediaReportState`, and `mediaOnCommand` against the real backend.
 
 ## Public API
 
 Each factory returns a `ServiceHandler` registrable via `runtime.registerService()`. The bullets below note the current NIP-5D domain the handler owns and the ACL capability napplets need in order to reach it.
 
-### Identity NUB
+### Identity NAP
 - `createIdentityService` — `identity.*` reads (`identity:read`). No signing surface; shell mediates signing internally.
 
-### Notify NUB
+### Notify NAP
 - `createNotifyService` — canonical `notify.*` envelopes (`notify:send` / `notify:channel`).
 - `createNotificationService` — legacy ifc-emit `notifications:*` channel; coexists with `createNotifyService` until retired.
 
-### Relay NUB
+### Relay NAP
 - `createRelayPoolService` — `relay.publish`, `relay.publishEncrypted`, `relay.subscribe` fan-out (`relay:read` / `relay:write`).
 - `createCacheService` — offline event cache (`cache:read` / `cache:write`).
 - `createCoordinatedRelay` — composite service that bundles relay-pool + cache with read-through behavior.
 
-### Keys NUB
+### Keys NAP
 - `createKeysService` — `keys.registerAction` / `keys.unregisterAction` / `keys.forward` + `keys.action` push envelopes (`keys:forward`). Document-level chord listener by default; implement the `HostKeysBridge` interface to swap in Electron / Tauri / OS-level backends. See [Keys Service](#keys-service) for the full contract.
 
-### Media NUB
+### Media NAP
 - `createMediaService` — owner-aware `media.session.create` / `update` / `destroy` / `media.state` / `media.capabilities` + `media.command` push envelopes (`media:control`). Napplet-owned sessions mirror to `navigator.mediaSession` by default; shell-owned creates are rejected until a host playback/fetch bridge is supplied. Implement the `HostMediaBridge` interface to swap in native backends. See [Media Service](#media-service) for the full contract.
 
-### Theme NUB
+### Theme NAP
 - `createThemeService` — `theme.get` + `theme.changed` fan-out (`theme:read`). Returns a `ThemeService` with `publishTheme()` / `setTheme()` utilities for host-side updates.
 
 ### Audio (legacy ifc-emit)

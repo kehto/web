@@ -1,8 +1,8 @@
 /**
  * identity-flow.spec.ts — profile-viewer no longer reads the shell identity directly.
  *
- * The profile viewer is a NAP-01 consumer: it waits for profile:open over IFC
- * and then fetches kind 0 metadata through relay.subscribe.
+ * The profile viewer is a NAP-01 consumer: it waits for profile:open over the
+ * inc wire and then fetches kind 0 metadata through relay.subscribe.
  */
 import { test, expect } from '@playwright/test';
 import { demoBeforeEach } from './helpers/index.js';
@@ -25,7 +25,7 @@ test('profile-viewer waits for NAP-01 profile:open instead of reading identity d
 
   await expect(profileFrame.locator('#profile-status')).toContainText('waiting', { timeout: 10_000 });
   await expect(profileFrame.locator('#profile-about')).toContainText('Select a profile from the feed.');
-  await expect(page.locator('napplet-debugger')).toContainText('ifc.subscribe', { timeout: 8_000 });
+  await expect(page.locator('napplet-debugger')).toContainText('inc.subscribe', { timeout: 8_000 });
   await expect(page.locator('napplet-debugger')).not.toContainText('identity.getProfile');
 
   const antiConsole = consoleMessages.filter((m) => ANTI_TERM_RE.test(m));

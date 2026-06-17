@@ -4,7 +4,7 @@ Structural primitives for consumer-implemented layout strategies.
 
 > **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
 > protocol. Window-management contracts are shell-owned and experimental; they
-> are not a NUB and may change as runtime implementations evolve.
+> are not a NAP and may change as runtime implementations evolve.
 
 ## What this package is
 
@@ -20,8 +20,8 @@ Structural primitives for consumer-implemented layout strategies.
 - **`createWmService({ hooks, strategy? })` (D4)** — factory with a no-op default
   strategy. Consumers can ship a working shell before implementing a real layout.
 
-`@kehto/wm` is shell-internal state — it is not a NUB domain and there is no
-`@napplet/nub/wm` subpath.
+`@kehto/wm` is shell-internal state — it is not a NAP domain and there is no
+`@napplet/nap/wm` subpath.
 
 ## What this package is not
 
@@ -29,8 +29,8 @@ Structural primitives for consumer-implemented layout strategies.
   ship here. Consumers build those in their own repos.
 - **Not a strategy registry** — `createWmService` accepts exactly one strategy.
   Switching algorithms at runtime is a consumer-side concern.
-- **Not a NUB domain** — window management is shell-internal state. There is no
-  `@napplet/nub/wm` subpath. Do not expose WM state to napplets via the napplet protocol.
+- **Not a NAP domain** — window management is shell-internal state. There is no
+  `@napplet/nap/wm` subpath. Do not expose WM state to napplets via the napplet protocol.
 - **Not algorithm-prescriptive** — `@kehto/wm` deliberately exports no string-literal
   union of algorithm names (H-04 anti-feature). Consumers choose their own names.
 

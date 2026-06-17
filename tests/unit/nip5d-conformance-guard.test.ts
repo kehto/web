@@ -15,13 +15,13 @@ const playgroundNapplets = [
 ] as const;
 
 const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly string[]> = {
-  bot: ['ifc', 'storage', 'theme'],
-  chat: ['ifc', 'storage', 'relay', 'theme'],
+  bot: ['inc', 'storage', 'theme'],
+  chat: ['inc', 'storage', 'relay', 'theme'],
   composer: ['relay', 'theme'],
   'cvm-relatr': ['cvm', 'theme'],
-  feed: ['identity', 'relay', 'ifc', 'theme'],
+  feed: ['identity', 'relay', 'inc', 'theme'],
   preferences: ['storage', 'theme'],
-  'profile-viewer': ['ifc', 'relay', 'theme'],
+  'profile-viewer': ['inc', 'relay', 'theme'],
   'resource-demo': ['resource', 'connect', 'theme'],
   toaster: ['notify', 'theme'],
 };
@@ -153,9 +153,12 @@ describe('NIP-5D conformance static guards', () => {
       const source = readRepoFile(`apps/playground/napplets/${name}/src/main.ts`);
       const requiresLiteral = stringLiteralList(expectedRequires[name]);
 
-      expect(config, `${name} vite requires`).toContain(
-        `definePlaygroundNappletConfig('${name}', { requires: [${requiresLiteral}] })`,
-      );
+      // profile-viewer also declares the NAAT archetype axis (Phase 87, ARCH-03).
+      const expectedConfigCall =
+        name === 'profile-viewer'
+          ? `definePlaygroundNappletConfig('${name}', { requires: [${requiresLiteral}], archetypes: [{ slug: 'profile', nap: 'NAP-1' }] })`
+          : `definePlaygroundNappletConfig('${name}', { requires: [${requiresLiteral}] })`;
+      expect(config, `${name} vite requires`).toContain(expectedConfigCall);
       expect(source, `${name} source requires`).toContain(
         `const REQUIRED_NAPS = [${requiresLiteral}] as const;`,
       );

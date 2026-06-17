@@ -1,7 +1,7 @@
 /**
  * notify-service.test.ts — Unit tests for the notify NUB service.
  *
- * Covers the 5 napplet->shell request types from @napplet/nub/notify:
+ * Covers the 5 napplet->shell request types from @napplet/nap/notify:
  *   notify.send, notify.dismiss, notify.badge, notify.channel.register,
  *   notify.permission.request.
  *

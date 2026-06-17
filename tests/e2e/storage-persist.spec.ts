@@ -21,7 +21,7 @@
  * See 19-05-PLAN.md <demo_runtime_behaviors> sec 3 for storage semantics.
  */
 import { test, expect } from '@playwright/test';
-import { demoBeforeEach } from './helpers/index.js';
+import { demoBeforeEach, getNappletFrame } from './helpers/index.js';
 
 test.use({ baseURL: 'http://localhost:4174' });
 test.describe.configure({ mode: 'serial' });
@@ -43,7 +43,7 @@ test('preferences round-trips display-name and theme-preference across page.relo
   await expect(prefFrame.locator('#preferences-status')).toContainText('loaded', { timeout: 10_000 });
 
   // Get a direct frame reference — CDP Runtime evaluate works in sandboxed cross-origin frames.
-  const prefFrameDirect = page.frames().find(f => f.url().includes('/preferences/'));
+  const prefFrameDirect = await getNappletFrame(page, 'preferences-frame-container');
   if (!prefFrameDirect) throw new Error('preferences frame not found in page.frames()');
 
   // Fill the two inputs with deterministic test values.

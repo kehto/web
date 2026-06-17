@@ -6,6 +6,8 @@ export default defineConfig({
   // Folder entries preserve their directory under dist (dist/66/index.js, ...).
   entry: [
     'src/index.ts',
+    'src/5a/index.ts',
+    'src/5d/index.ts',
     'src/51/index.ts',
     'src/65/index.ts',
     'src/66/index.ts',

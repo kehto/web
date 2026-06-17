@@ -68,7 +68,10 @@ export function classifyTappedMessagePath(msg: TappedMessage): DemoProtocolPath 
       if (action === 'setItem' || action === 'removeItem' || action === 'clear') return 'state-write';
       return 'state-read';
     }
-    if (domain === 'ifc') {
+    if (domain === 'ifc' || domain === 'inc') {
+      // The migrated playground napplets now post inc.* envelopes; the legacy
+      // nub-* fixtures still post ifc.*. Both classify to the same audit path
+      // labels (ifc-send/ifc-receive) so demo-audit-correctness stays valid.
       return msg.direction === 'napplet->shell' ? 'ifc-send' : 'ifc-receive';
     }
     if (domain === 'notify') return 'ifc-receive';

@@ -1,5 +1,5 @@
 import type { NostrEvent, NostrFilter, Subscription } from '@napplet/core';
-import { relaySubscribe } from '@napplet/nub/relay/sdk';
+import { relaySubscribe } from '@napplet/nap/relay/sdk';
 
 type FeedRelaySubscribe = (
   filters: NostrFilter | NostrFilter[],

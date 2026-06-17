@@ -2,6 +2,8 @@ import { defineConfig, type Plugin } from 'vite';
 import UnoCSS from 'unocss/vite';
 import fs from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
+import { finalizeEvent } from 'nostr-tools/pure';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 const nappletDirs = path.resolve(__dirname, 'napplets');
@@ -202,6 +204,156 @@ function serveNappletGateway(): Plugin {
     },
     configurePreviewServer(server) {
       server.middlewares.use('/napplet-gateway', serveGateway);
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// NIP-5D content-addressed resolution simulation (dev + preview).
+//
+// Models the production path the runtime resolver expects: relays serve the
+// signed manifest event + the author's NIP-65 relay list; Blossom serves blobs
+// by sha256. The runtime verifies everything (signature, aggregate, blob hashes)
+// — this sim is never trusted. Static GitHub Pages gets equivalent files from
+// scripts/build-playground-pages.mjs.
+// ---------------------------------------------------------------------------
+
+const DEV_MANIFEST_PRIVKEY_HEX = '11'.repeat(32);
+
+function hexToBytesNode(hex: string): Uint8Array {
+  return Uint8Array.from(hex.match(/.{2}/g)!.map((byte) => parseInt(byte, 16)));
+}
+
+let cachedRelayListEvent: unknown;
+function relayListEvent(): unknown {
+  if (cachedRelayListEvent) return cachedRelayListEvent;
+  // Relative `r` tag → the shell resolves it base-aware via playgroundPath, so
+  // the same sim works in preview ('/') and under the Pages base.
+  const event = finalizeEvent(
+    {
+      kind: 10002,
+      created_at: 1_700_000_000,
+      tags: [['r', `${playgroundBasePath}napplet-relay/event`, 'write']],
+      content: '',
+    },
+    hexToBytesNode(DEV_MANIFEST_PRIVKEY_HEX),
+  );
+  cachedRelayListEvent = event;
+  return event;
+}
+
+// Blob bytes are cached in memory (keyed by sha256) so the hot request path does
+// no synchronous file I/O — important because the dev server is single-threaded
+// and a demo boot resolves 9 napplets concurrently across parallel test workers.
+let blossomBytes: Map<string, Buffer> | null = null;
+function buildBlossomCache(): Map<string, Buffer> {
+  const cache = new Map<string, Buffer>();
+  if (fs.existsSync(nappletDirs)) {
+    for (const name of fs.readdirSync(nappletDirs)) {
+      const dist = path.join(nappletDirs, name, 'dist');
+      if (!fs.existsSync(dist) || !fs.statSync(dist).isDirectory()) continue;
+      for (const file of walkFiles(dist)) {
+        if (file.endsWith('.nip5a-manifest.json')) continue;
+        const bytes = fs.readFileSync(file);
+        const hash = createHash('sha256').update(bytes).digest('hex');
+        if (!cache.has(hash)) cache.set(hash, bytes);
+      }
+    }
+  }
+  return cache;
+}
+function blossomBlob(sha256: string): Buffer | null {
+  // Build once; rebuild at most once on a miss so a dev rebuild is picked up.
+  if (!blossomBytes) blossomBytes = buildBlossomCache();
+  let hit = blossomBytes.get(sha256);
+  if (!hit) {
+    blossomBytes = buildBlossomCache();
+    hit = blossomBytes.get(sha256);
+  }
+  return hit ?? null;
+}
+
+const manifestEventCache = new Map<string, Buffer | null>();
+function manifestEventBytes(dTag: string): Buffer | null {
+  if (manifestEventCache.has(dTag)) return manifestEventCache.get(dTag) ?? null;
+  const manifestPath = path.join(nappletDirs, dTag, 'dist', '.nip5a-manifest.json');
+  const bytes = fs.existsSync(manifestPath) ? fs.readFileSync(manifestPath) : null;
+  manifestEventCache.set(dTag, bytes);
+  return bytes;
+}
+
+function walkFiles(dir: string): string[] {
+  const out: string[] = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...walkFiles(full));
+    else out.push(full);
+  }
+  return out;
+}
+
+// Send a buffered response that cannot crash the preview server when a client
+// aborts an in-flight fetch (common with the demo's double `goto('/')`): swallow
+// socket errors and never write to a closed/finished response.
+function safeSend(
+  res: ServerResponse,
+  status: number,
+  contentType: string,
+  body: string | Buffer,
+): void {
+  res.on('error', () => { /* client aborted — ignore */ });
+  if (res.writableEnded || res.destroyed || res.headersSent) return;
+  try {
+    res.statusCode = status;
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.end(body);
+  } catch {
+    /* socket closed mid-write — ignore */
+  }
+}
+
+function serveResolutionSim(req: IncomingMessage, res: ServerResponse, next: () => void): void {
+  req.on('error', () => { /* client aborted — ignore */ });
+  const urlPath = (req.url?.split('?')[0] || '').replace(/^\//, '');
+  const parts = urlPath.split('/').filter(Boolean);
+  // /napplet-relay/relay-list/<author> → kind-10002 NIP-65 relay list
+  if (parts[0] === 'relay-list') {
+    safeSend(res, 200, 'application/json', JSON.stringify(relayListEvent()));
+    return;
+  }
+  // /napplet-relay/event/<dTag> → signed kind-35129 manifest event
+  if (parts[0] === 'event') {
+    const dTag = decodePathSegment(parts[1]);
+    if (!dTag) { next(); return; }
+    const bytes = manifestEventBytes(dTag);
+    if (!bytes) { safeSend(res, 404, 'text/plain', `no manifest for ${dTag}`); return; }
+    safeSend(res, 200, 'application/json', bytes);
+    return;
+  }
+  next();
+}
+
+function serveBlossom(req: IncomingMessage, res: ServerResponse, next: () => void): void {
+  req.on('error', () => { /* client aborted — ignore */ });
+  const urlPath = (req.url?.split('?')[0] || '').replace(/^\//, '');
+  const sha256 = urlPath.split('/').filter(Boolean)[0];
+  if (!sha256 || !/^[a-f0-9]{64}$/.test(sha256)) { next(); return; }
+  const bytes = blossomBlob(sha256);
+  if (!bytes) { safeSend(res, 404, 'text/plain', `no blob ${sha256}`); return; }
+  safeSend(res, 200, 'application/octet-stream', bytes);
+}
+
+function serveResolutionSimPlugin(): Plugin {
+  return {
+    name: 'serve-napplet-resolution-sim',
+    configureServer(server) {
+      server.middlewares.use('/napplet-relay', serveResolutionSim);
+      server.middlewares.use('/napplet-blossom', serveBlossom);
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use('/napplet-relay', serveResolutionSim);
+      server.middlewares.use('/napplet-blossom', serveBlossom);
     },
   };
 }
@@ -413,6 +565,7 @@ export default defineConfig({
   plugins: [
     UnoCSS(),
     serveNappletCsp(),   // NOTE: must register BEFORE serveDemoNapplets so CSP header sets first
+    serveResolutionSimPlugin(), // NIP-5D relays + Blossom simulation
     serveNappletGateway(),
     serveDemoNapplets(),
   ],

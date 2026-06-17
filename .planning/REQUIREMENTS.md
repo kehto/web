@@ -1,67 +1,74 @@
-# Requirements: Kehto Runtime — v1.19 NAP Ontology Alignment
+# Requirements: Kehto Runtime — v1.21 NIP-5D (#2303) + NAP-SHELL/INTENT Conformance
 
-**Defined:** 2026-06-15
+**Defined:** 2026-06-17
 **Core Value:** Modular, framework-agnostic runtime for hosting napplet applications — any Nostr client can embed sandboxed mini-apps by integrating @kehto/shell.
-**Resolves:** kehto/web#24
+**Authoritative sources:** `nostr-protocol/nips` PR **#2303** (`5D.md`) + the `napplet/naps` registry — **NAP-SHELL** (mandatory handshake) and **NAP-INTENT** (archetype dispatch), plus `projections/web.md`.
+**Audit:** `.planning/NIP-5D-2303-DELTA-AUDIT.md` (gaps G1–G8).
 
 ## v1 Requirements
 
-Requirements for this milestone. Each maps to a roadmap phase.
+Requirements for this milestone. Each maps to exactly one roadmap phase.
 
-### Capability Handshake
+### Phase A — NAP-SHELL Handshake Correctness
 
-- [x] **ALIGN-01**: A napplet built against `@napplet/* >=0.9.0` gets `true` from `window.napplet.shell.supports('inc')` (bare-domain query) when hosted in a kehto shell.
-- [x] **ALIGN-02**: That napplet gets `true` from `supports('inc', 'NAP-01')` (protocol query) and from the other advertised `inc:NAP-0N` protocol queries.
-- [x] **ALIGN-03**: The `shell.init` handshake emits the renamed `naps` capability array (consumed by the 0.9.0 shim's `createShellSupports`), and dual-emits the legacy `nubs` array for one back-compat release so napplets on either side of the rename keep negotiating.
-- [x] **ALIGN-04**: The emitted handshake advertises domain `inc` (not `ifc`) and protocol IDs in `inc:NAP-0N` form (legacy `ifc:NUB-0N` aliased to `inc:NAP-0N`); the emitted `naps` set contains no unaliased `ifc`/`NUB-NN` identifiers except the deliberate `nubs` dual-emit.
+- [x] **SHELL-01**: The runtime sends `shell.init` **exactly once** per napplet lifecycle — a duplicate `shell.ready` from the same window is idempotent (no second session established, no `shell.init` resend). A regression test asserts exactly one `shell.init` postMessage across two `shell.ready` deliveries from one window. (G1)
+- [x] **SHELL-02**: The `class` field carried in `shell.init` conforms to the NAP-SHELL contract `number | null` — an opaque integer class code (or `null` for the permissive default), with the internal class-posture label mapped to that wire value. A test asserts the emitted `class` is `number | null`. (G2)
 
-### INC Dispatch Rail
+### Phase B — NAAT Archetype Axis (NIP-5D manifest + NAP-INTENT)
 
-- [x] **ALIGN-05**: The runtime routes `inc.emit` / `inc.subscribe` / `inc.unsubscribe` wire messages (sent by `>=0.9.0` napplets) through the existing IFC handler so the INC peer-bus rail functions, while legacy `ifc.*` messages continue to be handled during the transition window.
-- [x] **ALIGN-06**: The ACL resolver authorizes `inc.*` actions identically to the corresponding `ifc.*` actions (same capability mapping), so the new dispatch key passes the same ACL gate.
+- [ ] **ARCH-01**: `@kehto/nip/5d` parses the `["archetype","<slug>","<NAP-N>"]` manifest tag(s) into a structured `archetypes` field on `NappletManifest`, and parses the optional `source` tag. Unit tests cover single, multiple, and absent archetype tags. (G3, G4)
+- [ ] **ARCH-02**: A NIP-5A-manifest → `IntentCatalogEntry` adapter derives a napplet's archetype catalog entry (slug → actions/protocols) from its resolved signed manifest, so NAP-INTENT `available()` / `handlers()` are sourced from signed manifests rather than host-injected catalog data. Unit tests cover the adapter. (G3)
+- [ ] **ARCH-03**: The playground catalog is populated from resolved manifests via the adapter, and at least one playground napplet declares an `archetype` tag. (G3)
+- [ ] **ARCH-04**: An e2e (or integration) test exercises NAP-INTENT dispatch end-to-end against the archetype-tagged napplet — `intent.available` reports the candidate and `intent.invoke` resolves to it. (G3)
 
-### Verification & Release
+### Phase C — Terminology & Playground Modern-Path Alignment
 
-- [x] **ALIGN-07**: An automated conformance test feeds kehto-emitted `shell.init` capabilities into the real `@napplet/shim@0.9.0` `createShellSupports` (dev-only dependency) and asserts the resulting `supports(...)` outcomes — not just string-level assertions.
-- [x] **ALIGN-08**: A changeset records the public `@kehto/shell` `ShellCapabilities` change (plus `@kehto/acl` / `@kehto/runtime` where mirrored) and notes downstream consumer impact (hyprgate).
+- [ ] **TERM-01**: `nap:` is the primary, documented, and tested capability prefix in `shell.supports()` resolution; `nub:` is accepted only as back-compat. `specs/NIP-5D.md` and `packages/shell/tests/perm-namespace.test.ts` use `nap:` (with `nub:` retained as an accepted-alias assertion). (G5)
+- [x] **TERM-02**: The 4 legacy playground napplets (bot, chat, feed, profile-viewer) declare `requires` and call `supports()` using `inc` (not `ifc`). (G6)
+- [x] **TERM-03**: The playground bootstrap (`shared-vite-config.ts`) and `getMissingRequiredNaps` (`demo-hooks.ts`) resolve capabilities from `capabilities.naps`, falling back to `nubs` only for the installed 0.5.0 shim. (G6)
+- [ ] **TERM-04**: An e2e asserts the modern `naps`-only path answers `supports('inc')` true and `supports('inc','NAP-01')` true for an `inc`-capable napplet, proving the path the real shim uses is exercised. (G6)
+- [x] **TERM-05**: `naps`+`nubs` dual-emit is preserved (installed shim is 0.5.0); existing `shell-init` / `no-window-nostr` capability-payload assertions stay green. CLEANUP-01 is NOT performed. (G6 constraint)
 
-## v2 Requirements
+### Phase D — Spec / Doc Refresh & Conformance Sweep
 
-Deferred to a future milestone.
+- [x] **DOCS-01**: `specs/NIP-5D.md` cites `nostr-protocol/nips#2303` as the authority (and the current NIP-5A PR), uses NAP terminology throughout (not NUB), and documents the `archetype` and `source` manifest tags. (G7)
+- [x] **DOCS-02**: Local mirrors of NAP-SHELL and NAP-INTENT are added under `specs/` and referenced from `specs/NIP-5D.md`. (G7)
+- [x] **DOCS-03**: `RUNTIME-SPEC.md` is refreshed to the #2303 / NAP model; stale NUB/AUTH/REGISTER comments in shell/services/runtime source are swept (no doc cites `@napplet/nub` as the current dependency — historical `nubs`-array consumer mentions retained). (G7)
+- [x] **DOCS-04**: Unknown-`type` handling is verified uniform — truly unrecognized message types are silently ignored across known domains, except where a NAP spec sanctions structured errors (NAP-INTENT permits `.result`/`.error`; storage `.result`+error). Divergences (identity/media/notify) documented in RUNTIME-SPEC. (G8)
 
-### Compatibility Window Cleanup
+### Verification
 
-- **CLEANUP-01**: Drop the legacy `nubs` dual-emit and the `ifc`/`NUB-0N` aliases once all downstream consumers are on `>=0.9.0` (one release after this milestone).
-- **CLEANUP-02**: Retire the internal `ifc.*` dispatch key and rename internal `ifc` handlers / `nub-*` test fixtures to the NAP vocabulary.
+- [ ] **VERIFY-01**: `pnpm build`, `pnpm type-check`, the unit suite, and the Playwright e2e suite are all green; changesets are added for every `@kehto/*` package whose public surface or behavior changed.
+
+## v2 / Future Requirements
+
+- CLEANUP-01: remove `naps`+`nubs` / `inc`+`ifc` dual-emit once the installed shim is upgraded past 0.5.0 (deferred — would break the current playground shim).
+- Implement remaining registry NAP domains not yet covered (`pow`, `value`) if/when their specs merge.
 
 ## Out of Scope
 
-Explicitly excluded to prevent scope creep.
-
-| Feature | Reason |
-|---------|--------|
-| Upgrading `@napplet/core` / `@napplet/nub` from 0.5.0 | Not required — core 0.5.0 `createDispatch` routes any string domain key and the handshake is string-level; upgrading would force a wide, unrelated type migration. |
-| Mass-renaming internal `ifc.*` message handlers, `nub-*` E2E fixtures, and docs | Out of scope for the handshake fix; would churn 840 unit + 86 E2E tests for no DONE-WHEN benefit. Deferred to CLEANUP-02. |
-| Removing the legacy `nubs` dual-emit this milestone | Back-compat window is intentional (issue #24). Deferred to CLEANUP-01. |
+- Upgrading `@napplet/shim` beyond 0.5.0 or removing back-compat dual-emit (would break the playground; tracked as CLEANUP-01).
+- Re-verifying v1.20 content-addressed loading internals (manifest kinds, identity-from-bytes, srcdoc, signature/blob/aggregate verification) — already aligned; regression-guard only.
+- `@napplet/*` SDK/shim/vite-plugin changes (this repo is runtime-only).
+- NIP-5D instancing and any non-web NAP projection.
 
 ## Traceability
 
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| ALIGN-01 | Phase 83 | Complete |
-| ALIGN-02 | Phase 83 | Complete |
-| ALIGN-03 | Phase 83 | Complete |
-| ALIGN-04 | Phase 83 | Complete |
-| ALIGN-05 | Phase 83 | Complete |
-| ALIGN-06 | Phase 83 | Complete |
-| ALIGN-07 | Phase 83 | Complete |
-| ALIGN-08 | Phase 83 | Complete |
-
-**Coverage:**
-- v1 requirements: 8 total
-- Mapped to phases: 8
-- Unmapped: 0
-
----
-*Requirements defined: 2026-06-15*
-*Last updated: 2026-06-15 — v1.19 milestone roadmap created; all 8 requirements mapped to Phase 83*
+| REQ-ID | Phase | Status |
+|--------|-------|--------|
+| SHELL-01 | 86 | Complete |
+| SHELL-02 | 86 | Complete |
+| ARCH-01 | 87 | Pending |
+| ARCH-02 | 87 | Pending |
+| ARCH-03 | 87 | Pending |
+| ARCH-04 | 87 | Pending |
+| TERM-01 | 88 | Pending |
+| TERM-02 | 88 | Complete |
+| TERM-03 | 88 | Complete |
+| TERM-04 | 88 | Pending |
+| TERM-05 | 88 | Complete |
+| DOCS-01 | 89 | Complete |
+| DOCS-02 | 89 | Complete |
+| DOCS-03 | 89 | Complete |
+| DOCS-04 | 89 | Complete |
+| VERIFY-01 | 86–89 | Complete (docs/changesets; 9 stale guard-tests deferred — see 89/deferred-items.md) |

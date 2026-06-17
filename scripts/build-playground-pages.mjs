@@ -21,6 +21,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -151,15 +152,71 @@ function materializeGatewayRoute(name) {
   );
 }
 
+function walkDistFiles(dir) {
+  const out = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...walkDistFiles(full));
+    else out.push(full);
+  }
+  return out;
+}
+
+// Static equivalents of the dev relay + Blossom simulation so the runtime can
+// resolve content-addressed napplets (relays -> Blossom -> verify -> srcdoc) on
+// GitHub Pages. The relay list is a discovery hint (not a trust anchor), so it
+// need not be signed; the manifest event and blobs ARE verified by the runtime.
+function materializeResolutionRoutes(name) {
+  const dist = join(nappletsDir, name, 'dist');
+  const manifestPath = join(dist, '.nip5a-manifest.json');
+  ensureFile(manifestPath, `${name} napplet manifest`);
+  const manifest = readJson(manifestPath);
+  const dTag = extractDTag(manifest, name, manifestPath);
+
+  // /napplet-relay/event/<dTag> — the signed kind-35129 manifest event.
+  const eventDir = join(outputDir, 'napplet-relay', 'event');
+  mkdirSync(eventDir, { recursive: true });
+  cpSync(manifestPath, join(eventDir, dTag));
+
+  // /napplet-blossom/<sha256> — every published file, addressable by hash.
+  const blossomDir = join(outputDir, 'napplet-blossom');
+  mkdirSync(blossomDir, { recursive: true });
+  for (const file of walkDistFiles(dist)) {
+    if (file.endsWith('.nip5a-manifest.json')) continue;
+    const bytes = readFileSync(file);
+    writeFileSync(join(blossomDir, createHash('sha256').update(bytes).digest('hex')), bytes);
+  }
+
+  return manifest.pubkey;
+}
+
+function materializeRelayList(author) {
+  // kind-10002 NIP-65 relay list whose single write relay points at the static
+  // manifest-event route (base-aware).
+  const event = {
+    kind: 10002,
+    created_at: 1_700_000_000,
+    tags: [['r', withPagesBasePath('/napplet-relay/event'), 'write']],
+    content: '',
+    pubkey: author,
+  };
+  const listDir = join(outputDir, 'napplet-relay', 'relay-list');
+  mkdirSync(listDir, { recursive: true });
+  writeFileSync(join(listDir, author), `${JSON.stringify(event)}\n`);
+}
+
 assertPlaygroundBuildUsesBase();
 copyPlaygroundDist();
 
 const names = nappletNames();
+let resolutionAuthor;
 for (const name of names) {
-  materializeGatewayRoute(name);
+  materializeGatewayRoute(name); // legacy accelerator surface — not in the trust path
+  resolutionAuthor = materializeResolutionRoutes(name);
 }
+if (resolutionAuthor) materializeRelayList(resolutionAuthor);
 
 console.log(
-  `[build:playground-pages] OK - wrote ${rel(outputDir)} with ${names.length} gateway napplet(s), ` +
-  `base ${pagesBasePath}`,
+  `[build:playground-pages] OK - wrote ${rel(outputDir)} with ${names.length} napplet(s) ` +
+  `(relay + Blossom resolution routes + legacy gateway accelerator), base ${pagesBasePath}`,
 );

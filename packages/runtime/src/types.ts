@@ -14,7 +14,7 @@ import type { AclPersistence, FirewallPersistence, FirewallEvent, ManifestPersis
 /**
  * A napplet class identifier. `null` is the permissive default (no class).
  * provisional — mirrors packages/shell/src/types/internal-class.ts::NappletClass;
- * converges on @napplet/nub/class@^0.3.0 publish. Runtime MUST NOT import
+ * converges on @napplet/nap/class@^0.3.0 publish. Runtime MUST NOT import
  * from shell (module-boundary), so this duplicate lives here.
  */
 export type NappletClass = string | null;

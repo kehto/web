@@ -10,6 +10,8 @@ any NIP that isn't referenced.
 
 | Subpath | NIP | What it provides |
 |---------|-----|------------------|
+| [`@kehto/nip/5a`](./src/5a/README.md) | NIP-5A | aggregate hash compute/verify over `path` tags (`computeAggregateHash`, `verifyAggregate`) |
+| [`@kehto/nip/5d`](./src/5d/README.md) | NIP-5D | content-addressed napplet manifest resolution — parse, verify sig + aggregate + Blossom blobs (`resolveNapplet`) |
 | [`@kehto/nip/51`](./src/51/README.md) | NIP-51 | lists & sets parser — mute/bookmarks/relay-sets/emoji-sets/… (`parseList`) |
 | [`@kehto/nip/65`](./src/65/README.md) | NIP-65 | relay-list (kind 10002) parsing + outbox/inbox resolution (`createNip65Registry`) |
 | [`@kehto/nip/66`](./src/66/README.md) | NIP-66 | kind-30166 relay-discovery aggregator (`createNip66Aggregator`) |

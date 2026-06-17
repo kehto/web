@@ -22,7 +22,7 @@
  * See 19-05-PLAN.md <demo_runtime_behaviors> for signer configuration semantics.
  */
 import { test, expect } from '@playwright/test';
-import { demoBeforeEach } from './helpers/index.js';
+import { demoBeforeEach, getNappletFrame } from './helpers/index.js';
 
 test.use({ baseURL: 'http://localhost:4174' });
 test.describe.configure({ mode: 'serial' });
@@ -44,7 +44,7 @@ test('composer with encrypted toggle dispatches relay.publishEncrypted envelope'
   await expect(composerFrame.locator('#composer-status')).toContainText('ready', { timeout: 10_000 });
 
   // Get a direct frame reference — CDP Runtime evaluate works in sandboxed cross-origin frames.
-  const composerFrameDirect = page.frames().find(f => f.url().includes('/composer/'));
+  const composerFrameDirect = await getNappletFrame(page, 'composer-frame-container');
   if (!composerFrameDirect) throw new Error('composer frame not found in page.frames()');
 
   // Enable encrypted toggle and provide a deterministic recipient pubkey (32 bytes hex).

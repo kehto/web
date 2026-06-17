@@ -1,5 +1,5 @@
 
-import { createDispatch, type NappletMessage, type NostrEvent, type NubHandler } from '@napplet/core';
+import { createDispatch, type NappletMessage, type NostrEvent, type NapHandler } from '@napplet/core';
 import type { Capability } from '@kehto/acl/capabilities';
 import type { Observation } from '@kehto/firewall';
 
@@ -131,27 +131,27 @@ function createRegisteredServices(serviceRegistry: ServiceRegistry): Map<string,
 function createNubEnvelopeDispatcher(handlers: RuntimeNubHandlers): (windowId: string, envelope: NappletMessage) => void {
   let currentWindowId: string | null = null;
   const nubDispatch = createDispatch();
-  const adapt = (handler: (windowId: string, msg: NappletMessage) => void): NubHandler => (msg) => {
+  const adapt = (handler: (windowId: string, msg: NappletMessage) => void): NapHandler => (msg) => {
     if (currentWindowId !== null) handler(currentWindowId, msg);
   };
 
-  nubDispatch.registerNub('relay', adapt(handlers.relay));
-  nubDispatch.registerNub('identity', adapt(handlers.identity));
-  nubDispatch.registerNub('keys', adapt(handlers.keys));
-  nubDispatch.registerNub('media', adapt(handlers.media));
-  nubDispatch.registerNub('notify', adapt(handlers.notify));
-  nubDispatch.registerNub('storage', adapt(handlers.storage));
-  nubDispatch.registerNub('ifc', adapt(handlers.ifc));
+  nubDispatch.registerNap('relay', adapt(handlers.relay));
+  nubDispatch.registerNap('identity', adapt(handlers.identity));
+  nubDispatch.registerNap('keys', adapt(handlers.keys));
+  nubDispatch.registerNap('media', adapt(handlers.media));
+  nubDispatch.registerNap('notify', adapt(handlers.notify));
+  nubDispatch.registerNap('storage', adapt(handlers.storage));
+  nubDispatch.registerNap('ifc', adapt(handlers.ifc));
   // D4: inc is the NAP rename of ifc; dual-routed during the back-compat window
   // so >=0.9.0 napplets (which send inc.*) reach the same handler as legacy ifc.*
-  nubDispatch.registerNub('inc', adapt(handlers.ifc));
-  nubDispatch.registerNub('theme', adapt(handlers.theme));
-  nubDispatch.registerNub('config', adapt(handlers.config));
-  nubDispatch.registerNub('resource', adapt(handlers.resource));
-  nubDispatch.registerNub('cvm', adapt(handlers.cvm));
-  nubDispatch.registerNub('outbox', adapt(handlers.outbox));
-  nubDispatch.registerNub('upload', adapt(handlers.upload));
-  nubDispatch.registerNub('intent', adapt(handlers.intent));
+  nubDispatch.registerNap('inc', adapt(handlers.ifc));
+  nubDispatch.registerNap('theme', adapt(handlers.theme));
+  nubDispatch.registerNap('config', adapt(handlers.config));
+  nubDispatch.registerNap('resource', adapt(handlers.resource));
+  nubDispatch.registerNap('cvm', adapt(handlers.cvm));
+  nubDispatch.registerNap('outbox', adapt(handlers.outbox));
+  nubDispatch.registerNap('upload', adapt(handlers.upload));
+  nubDispatch.registerNap('intent', adapt(handlers.intent));
 
   return (windowId, envelope) => {
     currentWindowId = windowId;

@@ -24,80 +24,41 @@ import { hexToBytes } from 'nostr-tools/utils';
 
 const PLAYGROUND_MANIFEST_PRIVKEY_HEX = '11'.repeat(32);
 const SHORT_NAP_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
-const SYNTHETIC_XTAG_PATHS = new Set(['config:schema', 'connect:origins']);
+// NIP-5D named napplet manifest kind (branch-HEAD: 35129 named / 15129 root / 5129 snapshot).
+const NAPPLET_MANIFEST_KIND = 35129;
+// Hosted-shell bootstrap marker + handshake nudge.
+//
+// The real @napplet/shim@0.13 now natively owns capability resolution: on
+// `shell.init` it sets `window.napplet.shell.supports = makeSupports(env)` from
+// the conformant `capabilities.{domains,protocols}` shape the @kehto shell emits,
+// and it auto-posts `{type:'shell.ready'}` on load. The previous hand-rolled
+// `supports()` override (which read the legacy `capabilities.nubs` array and
+// clobbered the shim's `shell.supports`) is therefore redundant and was removed —
+// it must NOT overwrite the shim's correct resolver.
+//
+// What remains is intentionally minimal: set the `__kehtoHostedShellBootstrap`
+// marker (the playground host + single-file artifact tests assert it is injected)
+// and post `shell.ready`. The shim also posts `shell.ready`; per SHELL-01 the
+// runtime treats a duplicate `shell.ready` from the same window as idempotent
+// (one `shell.init`), so both posts are safe.
 const HOSTED_SHELL_BOOTSTRAP = String.raw`
 ;(() => {
-  const state = {
-    capabilities: null,
-    fallbackSupports: null,
-  };
-
-  const supports = (capability) => {
-    if (typeof capability !== 'string') return false;
-    const capabilities = state.capabilities;
-    if (capabilities) {
-      if (capability.startsWith('perm:')) {
-        return Array.isArray(capabilities.sandbox) && capabilities.sandbox.includes(capability);
-      }
-      const nap = capability.startsWith('nap:')
-        ? capability.slice(4)
-        : capability.startsWith('nub:')
-          ? capability.slice(4)
-          : capability;
-      return Array.isArray(capabilities.nubs) && capabilities.nubs.includes(nap);
-    }
-    return typeof state.fallbackSupports === 'function'
-      ? state.fallbackSupports(capability)
-      : false;
-  };
-
-  const patchNapplet = (value) => {
-    if (!value || typeof value !== 'object') return value;
-    const napplet = value;
-    const shell = napplet.shell && typeof napplet.shell === 'object'
-      ? napplet.shell
-      : {};
-    if (typeof shell.supports === 'function' && shell.supports !== supports) {
-      state.fallbackSupports = shell.supports.bind(shell);
-    }
-    shell.supports = supports;
-    napplet.shell = shell;
-    return napplet;
-  };
-
-  let currentNapplet = window.napplet;
-  Object.defineProperty(window, 'napplet', {
-    configurable: true,
-    enumerable: true,
-    get() {
-      return currentNapplet;
-    },
-    set(value) {
-      currentNapplet = patchNapplet(value);
-    },
-  });
-  if (currentNapplet) currentNapplet = patchNapplet(currentNapplet);
-
-  window.addEventListener('message', (event) => {
-    if (event.source !== window.parent) return;
-    const message = event.data;
-    if (!message || typeof message !== 'object' || message.type !== 'shell.init') return;
-    if (message.capabilities && typeof message.capabilities === 'object') {
-      state.capabilities = message.capabilities;
-      if (currentNapplet) currentNapplet = patchNapplet(currentNapplet);
-      queueMicrotask(() => {
-        if (currentNapplet) currentNapplet = patchNapplet(currentNapplet);
-      });
-    }
-  });
-
   window.__kehtoHostedShellBootstrap = true;
   window.parent.postMessage({ type: 'shell.ready' }, '*');
 })();`;
 
+/** An archetype the napplet fulfills, optionally with its recommended NAP-N protocol. */
+export interface PlaygroundArchetype {
+  slug: string;
+  nap?: string;
+}
+
 export interface PlaygroundNappletConfigOptions {
   requires?: readonly string[];
+  archetypes?: ReadonlyArray<PlaygroundArchetype>;
 }
+
+const NAP_PROTOCOL_PATTERN = /^NAP-\d+$/;
 
 function validateRequires(nappletType: string, requires: readonly string[]): string[] {
   return requires.map((name) => {
@@ -107,6 +68,25 @@ function validateRequires(nappletType: string, requires: readonly string[]): str
       );
     }
     return name;
+  });
+}
+
+function validateArchetypes(
+  nappletType: string,
+  archetypes: ReadonlyArray<PlaygroundArchetype>,
+): PlaygroundArchetype[] {
+  return archetypes.map(({ slug, nap }) => {
+    if (!SHORT_NAP_NAME_PATTERN.test(slug) || slug.startsWith('nap-') || slug.startsWith('nub-')) {
+      throw new Error(
+        `${nappletType} manifest archetype slug must be a short NAP name, got "${slug}"`,
+      );
+    }
+    if (nap !== undefined && !NAP_PROTOCOL_PATTERN.test(nap)) {
+      throw new Error(
+        `${nappletType} manifest archetype "${slug}" nap must match NAP-<n>, got "${nap}"`,
+      );
+    }
+    return nap === undefined ? { slug } : { slug, nap };
   });
 }
 
@@ -321,8 +301,10 @@ function sha256Bytes(data: string | Buffer): string {
   return createHash('sha256').update(data).digest('hex');
 }
 
-function computeAggregateHash(xTags: Array<[string, string]>): string {
-  const lines = xTags.map(([hash, path]) => `${hash} ${path}\n`);
+// NIP-5A aggregate hash: per published file the line `"<sha256> <abs-path>\n"`,
+// sorted ascending, concatenated UTF-8, SHA-256 → lowercase hex.
+function computeAggregateHash(pathEntries: Array<[string, string]>): string {
+  const lines = pathEntries.map(([absPath, hash]) => `${hash} ${absPath}\n`);
   lines.sort();
   return sha256Bytes(lines.join(''));
 }
@@ -334,13 +316,6 @@ function resetAggregateHashMeta(html: string): string {
   );
 }
 
-function injectAggregateHashMeta(html: string, aggregateHash: string): string {
-  return html.replace(
-    /<meta name="napplet-aggregate-hash" content="[^"]*">/,
-    `<meta name="napplet-aggregate-hash" content="${aggregateHash}">`,
-  );
-}
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
 }
@@ -348,19 +323,26 @@ function sleep(ms: number): Promise<void> {
 async function waitForPublishedManifest(distPath: string): Promise<void> {
   const manifestPath = join(distPath, '.nip5a-manifest.json');
   const indexPath = join(distPath, 'index.html');
+  // @napplet/vite-plugin >=0.8 no longer injects a `napplet-aggregate-hash`
+  // <meta> into the served HTML (a self-contained file cannot reference its own
+  // hash; the aggregate now lives in the manifest `x` tag). The signed
+  // `.nip5a-manifest.json` written by the upstream plugin's `closeBundle` is the
+  // readiness signal — this plugin's `closeBundle` is `order: 'post'`, so the
+  // manifest already exists when we run, but we poll briefly to stay robust.
   for (let attempt = 0; attempt < 100; attempt += 1) {
     if (existsSync(manifestPath) && existsSync(indexPath)) {
-      const html = readFileSync(indexPath, 'utf8');
-      if (/<meta name="napplet-aggregate-hash" content="[a-f0-9]{64}">/.test(html)) {
-        return;
-      }
+      return;
     }
     await sleep(20);
   }
   throw new Error('[playground-single-file] timed out waiting for published manifest plugin output');
 }
 
-function recomputeManifest(distPath: string, inlinedHtml: string): void {
+function recomputeManifest(
+  distPath: string,
+  inlinedHtml: string,
+  archetypes: ReadonlyArray<PlaygroundArchetype> = [],
+): void {
   const manifestPath = join(distPath, '.nip5a-manifest.json');
   if (!existsSync(manifestPath)) return;
 
@@ -375,7 +357,8 @@ function recomputeManifest(distPath: string, inlinedHtml: string): void {
       Array.isArray(tag) &&
       typeof tag[0] === 'string' &&
       tag[0] !== 'd' &&
-      tag[0] !== 'x',
+      tag[0] !== 'x' &&
+      tag[0] !== 'path',
   );
   const dTag = existingTags.find(
     (tag): tag is string[] =>
@@ -388,36 +371,37 @@ function recomputeManifest(distPath: string, inlinedHtml: string): void {
   const htmlForHash = resetAggregateHashMeta(inlinedHtml);
   writeFileSync(join(distPath, 'index.html'), htmlForHash);
 
-  const xTags: Array<[string, string]> = [];
+  // NIP-5A: the aggregate covers `path` tags only — the real published files,
+  // each at its absolute path. The served bytes are exactly the bytes that hash
+  // to the `path` tag (no aggregate-hash <meta> rewrite), so a content-addressed
+  // runtime can fetch each blob by hash and verify it.
+  const pathEntries: Array<[string, string]> = []; // [absPath, sha256]
   for (const relativePath of walkDir(distPath)) {
     if (relativePath === '.nip5a-manifest.json') continue;
     const filePath = join(distPath, relativePath);
     const hash = relativePath === 'index.html'
       ? sha256Bytes(htmlForHash)
       : sha256Bytes(readFileSync(filePath));
-    xTags.push([hash, relativePath]);
+    pathEntries.push([`/${relativePath.split(sep).join('/')}`, hash]);
   }
 
-  const configTag = retainedTags.find((tag) => tag[0] === 'config' && typeof tag[1] === 'string');
-  if (configTag?.[1]) {
-    xTags.push([sha256Bytes(configTag[1]), 'config:schema']);
-  }
-
-  const connectOrigins = retainedTags
-    .filter((tag) => tag[0] === 'connect' && typeof tag[1] === 'string')
-    .map((tag) => tag[1])
-    .sort();
-  if (connectOrigins.length > 0) {
-    xTags.push([sha256Bytes(connectOrigins.join('\n')), 'connect:origins']);
-  }
-
-  const aggregateHash = computeAggregateHash(xTags);
-  const manifestXTags = xTags
-    .filter(([, path]) => !SYNTHETIC_XTAG_PATHS.has(path))
-    .map(([hash, path]) => ['x', hash, path]);
-  const tags = [['d', dTag], ...manifestXTags, ...retainedTags];
+  const aggregateHash = computeAggregateHash(pathEntries);
+  const pathTags = pathEntries.map(([absPath, hash]) => ['path', absPath, hash]);
+  // Upstream @napplet/vite-plugin 0.4.0 does NOT emit `archetype` tags, so the
+  // playground injects them here from the validated config. They are not d/x/path,
+  // so any re-parse retains them; `retainedTags` is filtered to avoid duplicates.
+  const archetypeTags = archetypes.map((a) =>
+    a.nap ? ['archetype', a.slug, a.nap] : ['archetype', a.slug],
+  );
+  const tags = [
+    ['d', dTag],
+    ...pathTags,
+    ['x', aggregateHash, 'aggregate'],
+    ...retainedTags.filter((tag) => tag[0] !== 'archetype'),
+    ...archetypeTags,
+  ];
   const event = {
-    kind: 35128,
+    kind: NAPPLET_MANIFEST_KIND,
     created_at: existing.created_at ?? Math.floor(Date.now() / 1e3),
     tags,
     content: existing.content ?? '',
@@ -429,10 +413,11 @@ function recomputeManifest(distPath: string, inlinedHtml: string): void {
     manifestPath,
     JSON.stringify({ ...signedEvent, aggregateHash, pubkey }, null, 2),
   );
-  writeFileSync(join(distPath, 'index.html'), injectAggregateHashMeta(htmlForHash, aggregateHash));
 }
 
-function playgroundSingleFileArtifact(): Plugin {
+function playgroundSingleFileArtifact(
+  archetypes: ReadonlyArray<PlaygroundArchetype> = [],
+): Plugin {
   let outDir = 'dist';
   let root = process.cwd();
   let base = './';
@@ -463,7 +448,7 @@ function playgroundSingleFileArtifact(): Plugin {
         const html = readFileSync(indexPath, 'utf8');
         const inlinedHtml = inlineSingleFileBuildAssets(html, distPath, base);
         assertSingleFileArtifact(inlinedHtml, distPath);
-        recomputeManifest(distPath, inlinedHtml);
+        recomputeManifest(distPath, inlinedHtml, archetypes);
       },
     },
   };
@@ -475,11 +460,12 @@ export function definePlaygroundNappletConfig(
 ) {
   process.env.VITE_DEV_PRIVKEY_HEX ??= PLAYGROUND_MANIFEST_PRIVKEY_HEX;
   const requires = validateRequires(nappletType, options.requires ?? []);
+  const archetypes = validateArchetypes(nappletType, options.archetypes ?? []);
 
   return defineConfig({
     base: './',
     plugins: [
-      playgroundSingleFileArtifact(),
+      playgroundSingleFileArtifact(archetypes),
       nip5aManifest({
         nappletType,
         // Let the upstream plugin validate and sign Vite's normal external-asset

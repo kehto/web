@@ -3,7 +3,7 @@
  *
  * Shell-side reference implementation for the canonical NUB-RESOURCE wire
  * protocol (`internal-resource.ts` in @kehto/shell/src/types; kehto-internal
- * model per PROJECT.md Decision #31 — diverges from upstream `@napplet/nub/
+ * model per PROJECT.md Decision #31 — diverges from upstream `@napplet/nap/
  * resource` in field names + error vocabulary). Handles the canonical
  * 4-message protocol:
  *   Inbound:  resource.bytes, resource.cancel

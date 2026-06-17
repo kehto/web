@@ -24,7 +24,7 @@
  * See 19-05-PLAN.md <demo_runtime_behaviors> sec 4 for routing semantics.
  */
 import { test, expect } from '@playwright/test';
-import { demoBeforeEach } from './helpers/index.js';
+import { demoBeforeEach, getNappletFrame } from './helpers/index.js';
 
 test.use({ baseURL: 'http://localhost:4174' });
 test.describe.configure({ mode: 'serial' });
@@ -44,7 +44,7 @@ test('toaster creates notification and Dismiss all empties the list', async ({ p
   await expect(toasterFrame.locator('#toaster-status')).toContainText('ready', { timeout: 10_000 });
 
   // Get a direct frame reference — CDP Runtime evaluate works in sandboxed cross-origin frames.
-  const toasterFrameDirect = page.frames().find(f => f.url().includes('/toaster/'));
+  const toasterFrameDirect = await getNappletFrame(page, 'toaster-frame-container');
   if (!toasterFrameDirect) throw new Error('toaster frame not found in page.frames()');
 
   // List should be empty initially (no li elements in #toaster-list).

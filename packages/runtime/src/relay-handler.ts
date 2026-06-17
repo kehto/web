@@ -1,5 +1,5 @@
 import type { NappletMessage, NostrEvent, NostrFilter } from '@napplet/core';
-import type { RelayMessage } from '@napplet/nub/relay/types';
+import type { RelayMessage } from '@napplet/nap/relay/types';
 
 import { matchesAnyFilter, type EventBuffer, type SubscriptionEntry } from './event-buffer.js';
 import type { ReplayDetector } from './replay.js';
