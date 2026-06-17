@@ -136,7 +136,13 @@ describe('SDK 0.12 migration guard', () => {
     }
   });
 
-  it('keeps published kehto packages on @napplet/nap peers and dev deps', () => {
+  it('admits the @napplet 0.12–0.13 line on published kehto packages (kehto/web#48)', () => {
+    // Peers are widened to admit @napplet 0.13 (caret on 0.x pins the minor, so
+    // `^0.12.0` excluded 0.13 and broke consumers on the current @napplet line).
+    // `>=0.12.0 <0.14.0` keeps 0.12 backward-compatible while admitting 0.13.
+    // Dev deps track the current 0.13 line so kehto's own CI validates against it.
+    const PEER_RANGE = '>=0.12.0 <0.14.0';
+    const DEV_RANGE = '^0.13.0';
     for (const dir of publicPackageDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
@@ -144,8 +150,8 @@ describe('SDK 0.12 migration guard', () => {
         devDependencies?: Record<string, string>;
       };
 
-      expect(pkg.peerDependencies?.['@napplet/nap'], `${dir} @napplet/nap peer`).toBe('^0.12.0');
-      expect(pkg.devDependencies?.['@napplet/nap'], `${dir} @napplet/nap dev`).toBe('^0.12.0');
+      expect(pkg.peerDependencies?.['@napplet/nap'], `${dir} @napplet/nap peer`).toBe(PEER_RANGE);
+      expect(pkg.devDependencies?.['@napplet/nap'], `${dir} @napplet/nap dev`).toBe(DEV_RANGE);
       expect(pkg.peerDependencies?.[staleNapPackage], `${dir} ${staleNapPackage} peer`).toBeUndefined();
       expect(pkg.devDependencies?.[staleNapPackage], `${dir} ${staleNapPackage} dev`).toBeUndefined();
     }

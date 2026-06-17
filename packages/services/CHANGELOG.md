@@ -1,5 +1,25 @@
 # @kehto/services
 
+## 0.10.2
+
+### Patch Changes
+
+- fix(deps): widen @napplet peer range to admit 0.13 (kehto/web#48)
+
+  On a `0.x` line a caret pins the minor, so `@napplet/{core,nap}` peers of `^0.12.0`
+  resolved to `>=0.12.0 <0.13.0` and excluded the current `@napplet` 0.13 line —
+  consumers installing `@napplet 0.13` (e.g. hyprgate's shell) hit a peer mismatch.
+
+  The `@napplet/core` and `@napplet/nap` peer ranges on `@kehto/{acl,runtime,shell,services}`
+  (and `@napplet/core` on `@kehto/firewall`) are widened to `>=0.12.0 <0.14.0`, which keeps
+  0.12 working while admitting 0.13. kehto's dev deps are bumped to the 0.13 line so its own
+  build, type-check, and full unit suite validate against it (all green). No source change —
+  kehto consumes `@napplet` for protocol types + the wire format, which is stable across
+  0.12 → 0.13.
+
+- Updated dependencies
+  - @kehto/runtime@0.12.1
+
 ## 0.10.1
 
 ### Patch Changes

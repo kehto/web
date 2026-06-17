@@ -1,11 +1,11 @@
 {
   "name": "@kehto/runtime",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "license": "MIT",
   "exports": "./src/index.ts",
   "imports": {
-    "@kehto/acl": "jsr:@kehto/acl@^0.11.0",
-    "@kehto/firewall": "jsr:@kehto/firewall@^0.3.0",
+    "@kehto/acl": "jsr:@kehto/acl@^0.11.1",
+    "@kehto/firewall": "jsr:@kehto/firewall@^0.3.1",
     "@napplet/core": "jsr:@napplet/core@^0.12.0",
     "@napplet/nap": "jsr:@napplet/nap@^0.12.0",
     "@noble/hashes": "npm:@noble/hashes@^2.0.0",
