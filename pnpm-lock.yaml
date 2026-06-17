@@ -305,11 +305,11 @@ importers:
   packages/acl:
     devDependencies:
       '@napplet/core':
-        specifier: ^0.12.0
-        version: 0.12.0
+        specifier: ^0.13.0
+        version: 0.13.0
       '@napplet/nap':
-        specifier: ^0.12.0
-        version: 0.12.0
+        specifier: ^0.13.0
+        version: 0.13.0
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.15)(typescript@5.9.3)(yaml@2.8.3)
@@ -320,8 +320,8 @@ importers:
   packages/firewall:
     devDependencies:
       '@napplet/core':
-        specifier: ^0.12.0
-        version: 0.12.0
+        specifier: ^0.13.0
+        version: 0.13.0
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.15)(typescript@5.9.3)(yaml@2.8.3)
@@ -364,11 +364,11 @@ importers:
         version: 2.0.1
     devDependencies:
       '@napplet/core':
-        specifier: ^0.12.0
-        version: 0.12.0
+        specifier: ^0.13.0
+        version: 0.13.0
       '@napplet/nap':
-        specifier: ^0.12.0
-        version: 0.12.0
+        specifier: ^0.13.0
+        version: 0.13.0
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.15)(typescript@5.9.3)(yaml@2.8.3)
@@ -386,11 +386,11 @@ importers:
         version: link:../runtime
     devDependencies:
       '@napplet/core':
-        specifier: ^0.12.0
-        version: 0.12.0
+        specifier: ^0.13.0
+        version: 0.13.0
       '@napplet/nap':
-        specifier: ^0.12.0
-        version: 0.12.0
+        specifier: ^0.13.0
+        version: 0.13.0
       nostr-tools:
         specifier: ^2.23.3
         version: 2.23.3(typescript@5.9.3)
@@ -414,14 +414,14 @@ importers:
         version: link:../runtime
     devDependencies:
       '@napplet/core':
-        specifier: ^0.12.0
-        version: 0.12.0
-      '@napplet/nap':
-        specifier: ^0.12.0
-        version: 0.12.0
-      '@napplet/shim':
-        specifier: 0.13.0
+        specifier: ^0.13.0
         version: 0.13.0
+      '@napplet/nap':
+        specifier: ^0.13.0
+        version: 0.13.0
+      '@napplet/shim':
+        specifier: ^0.14.0
+        version: 0.14.0
       nostr-tools:
         specifier: ^2.23.3
         version: 2.23.3(typescript@5.9.3)
@@ -1145,8 +1145,19 @@ packages:
   '@napplet/core@0.12.0':
     resolution: {integrity: sha512-3dESIDFloNhLOXDC7HpuASDz8TLWUKzkvT2d3gS76FHB6yI+RofVf6o64ZsPYDzfWKUavrb4CzxiFr7fOUlElA==}
 
+  '@napplet/core@0.13.0':
+    resolution: {integrity: sha512-6jo8SNbFS7kNLZReTYup+0HTqaIhbhMoNdzKHkVGh1UlBJqVG1F62vw3/zwUro3HYixMo7ELF2lUWXLKZdTVoQ==}
+
   '@napplet/nap@0.12.0':
     resolution: {integrity: sha512-PG8qCog66igBdCj+Jg6hBWIj7g3yO+IrJi7QvNojIeIRlgty/yYGjN5J5FksnrGuhKlazlFlsEpNM5tREUXPBQ==}
+    peerDependencies:
+      json-schema-to-ts: ^3.1.1
+    peerDependenciesMeta:
+      json-schema-to-ts:
+        optional: true
+
+  '@napplet/nap@0.13.0':
+    resolution: {integrity: sha512-U2vAy9FL6lITYd6Bx/mYsiPlxlDZLxqKXlj+0ul+uFqaXQUz/9m8F37L/5dOlQDZ0HpUijpe/b7qNTNLTm6xlQ==}
     peerDependencies:
       json-schema-to-ts: ^3.1.1
     peerDependenciesMeta:
@@ -1158,6 +1169,9 @@ packages:
 
   '@napplet/shim@0.13.0':
     resolution: {integrity: sha512-xQyQ15g03WYr5dM/+vif/Q7bArx58BIUm6XSVmzz+sb7pdw/RPqlqUY6/9cxVhlAiWpAsRmOMwB5k8lv9dVzLQ==}
+
+  '@napplet/shim@0.14.0':
+    resolution: {integrity: sha512-eJzee9ay4wUdHHCY2dRzJCJBbbliB1n3SWk/+PPXgsLgBK2BeioqS1F/6AP6LMS+zquCkPTurVJVYQzqIzWgEg==}
 
   '@napplet/vite-plugin@0.8.1':
     resolution: {integrity: sha512-FjzQZtaujsQUZP1SBa/mTFyYJI2A7ZwWa3SFC3Wn5S+efeAw4UBnIbWj5QEb698c8myxSPMy5HXpEwSh9st27Q==}
@@ -3476,9 +3490,15 @@ snapshots:
 
   '@napplet/core@0.12.0': {}
 
+  '@napplet/core@0.13.0': {}
+
   '@napplet/nap@0.12.0':
     dependencies:
       '@napplet/core': 0.12.0
+
+  '@napplet/nap@0.13.0':
+    dependencies:
+      '@napplet/core': 0.13.0
 
   '@napplet/sdk@0.12.0':
     dependencies:
@@ -3491,6 +3511,13 @@ snapshots:
     dependencies:
       '@napplet/core': 0.12.0
       '@napplet/nap': 0.12.0
+    transitivePeerDependencies:
+      - json-schema-to-ts
+
+  '@napplet/shim@0.14.0':
+    dependencies:
+      '@napplet/core': 0.13.0
+      '@napplet/nap': 0.13.0
     transitivePeerDependencies:
       - json-schema-to-ts
 
