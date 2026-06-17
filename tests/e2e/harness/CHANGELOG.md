@@ -1,5 +1,12 @@
 # @test/harness
 
+## 0.0.12
+
+### Patch Changes
+
+- @kehto/services@0.10.1
+- @kehto/shell@0.11.1
+
 ## 0.0.11
 
 ### Patch Changes
