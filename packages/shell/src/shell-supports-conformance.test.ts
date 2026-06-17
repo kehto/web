@@ -53,7 +53,7 @@ import type { ShellAdapter, ShellCapabilities } from './types.js';
 // No projection or adapter: kehto now emits capabilities.{ domains, protocols }
 // directly, which is exactly what `createShellEnvironment` reads. This mirrors
 // the runtime's postShellInit wire shape (the whole capabilities object rides
-// along; class is number|null).
+// along).
 // ---------------------------------------------------------------------------
 
 function realShimSupports(caps: ShellCapabilities): (domain: string, protocol?: string) => boolean {
@@ -61,7 +61,6 @@ function realShimSupports(caps: ShellCapabilities): (domain: string, protocol?: 
     type: 'shell.init',
     capabilities: caps,
     services: [],
-    class: null,
   });
   return makeSupports(env);
 }
@@ -181,7 +180,6 @@ describe('real @napplet/shim@0.13 makeSupports fed kehto-emitted capabilities', 
         type: 'shell.init',
         capabilities: caps,
         services: [],
-        class: null,
       });
       const supportsStructured = makeSupports(env);
       expect(supportsStructured('inc')).toBe(true);

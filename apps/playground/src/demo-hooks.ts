@@ -1,6 +1,5 @@
 import {
   buildShellCapabilities,
-  connectStore,
   type AclCheckEvent,
   type NostrEvent,
   type ServiceHandler,
@@ -8,6 +7,16 @@ import {
   type ShellAdapter,
   type ShellCapabilities,
 } from '@kehto/shell';
+import { RESOURCE_DEMO_REMOTE_IMAGE_ORIGIN } from './main-preferences.js';
+
+/**
+ * Static per-dTag origin allowlist for `getConnectGrants` (Task 4 static-allowlist).
+ * resource-demo is the only napplet that fetches external resources; all others
+ * receive an empty array (deny all origins).
+ */
+const STATIC_CONNECT_GRANTS: ReadonlyMap<string, readonly string[]> = new Map([
+  ['resource-demo', [RESOURCE_DEMO_REMOTE_IMAGE_ORIGIN]],
+]);
 import {
   createIdentityService,
   createNotificationService,
@@ -168,7 +177,7 @@ function createDemoResourceHandler(): ServiceHandler {
   return createResourceService({
     fetch: hostFetch,
     isOriginGranted: (origin, grants) => grants.includes(origin),
-    getConnectGrants: (dTag, aggregateHash) => connectStore.getOrigins(dTag, aggregateHash),
+    getConnectGrants: (dTag, _aggregateHash) => STATIC_CONNECT_GRANTS.get(dTag) ?? [],
     resolveIdentity: (windowId) => {
       const entry = sessionRegistryRef?.getEntryByWindowId(windowId);
       return entry ? { dTag: entry.dTag, aggregateHash: entry.aggregateHash } : null;
@@ -297,6 +306,8 @@ export function getShellCapabilities(): ShellCapabilities | null {
     naps: [...shellCapabilities.naps],
     nubs: [...shellCapabilities.nubs],
     sandbox: [...shellCapabilities.sandbox],
+    domains: [...shellCapabilities.domains],
+    protocols: { ...shellCapabilities.protocols },
   };
 }
 

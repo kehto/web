@@ -2,7 +2,7 @@
  * no-window-nostr.test.ts — Regression test for SH-C01 / SH-C03.
  *
  * Canonical NIP-5D forbids the shell from injecting `window.nostr` into
- * napplet iframes (specs/NIP-5D.md line 44 + Security §6). This test
+ * napplet iframes (NIP-5D §Security — https://github.com/nostr-protocol/nips/pull/2303/). This test
  * enforces that constraint by inspecting the @kehto/shell source code and
  * public API:
  *
@@ -140,12 +140,12 @@ describe('SH-C01 / SH-C03: window.nostr injection is removed', () => {
   });
 
   it('buildShellCapabilities emits the canonical hosted domain list when relay hook is wired', () => {
-    // v1.12 Phase 57: connect/class are classified Kehto NUB extensions; nostrdb stays out of scope.
+    // nostrdb stays out of scope; connect/class removed (NAP-CLASS/NAP-CONNECT dropped).
     // The shell also advertises the implemented IFC topic-family protocols.
     const caps = buildShellCapabilities(stubHooks());
     expect(new Set(caps.nubs)).toEqual(
       new Set([
-        'relay', 'outbox', 'identity', 'storage', 'ifc', 'theme', 'keys', 'media', 'notify', 'config', 'resource', 'connect', 'class', 'cvm',
+        'relay', 'outbox', 'identity', 'storage', 'ifc', 'theme', 'keys', 'media', 'notify', 'config', 'resource', 'cvm',
         'ifc:NAP-01', 'ifc:NUB-01', 'ifc:NUB-02', 'ifc:NUB-03', 'ifc:NUB-04', 'ifc:NUB-05', 'ifc:NUB-06',
       ]),
     );

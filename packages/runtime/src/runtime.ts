@@ -452,7 +452,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     resolveIdentityByWindowId: (windowId) => {
       const entry = sessionRegistry.getEntryByWindowId(windowId);
       return entry
-        ? { dTag: entry.dTag, aggregateHash: entry.aggregateHash, class: entry.class }
+        ? { dTag: entry.dTag, aggregateHash: entry.aggregateHash }
         : undefined;
     },
     onAclCheck: hooks.onAclCheck,

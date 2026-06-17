@@ -11,7 +11,7 @@ import type { ShellAdapter, ShellCapabilities } from './types.js';
  */
 const LEGACY_NUB_DOMAINS = [
   'identity', 'storage', 'ifc', 'theme', 'keys', 'media', 'notify',
-  'config', 'resource', 'connect', 'class', 'cvm',
+  'config', 'resource', 'cvm',
 ] as const;
 
 /**
@@ -38,7 +38,7 @@ const LEGACY_IFC_PROTOCOLS = [
  */
 const NAP_DOMAINS = [
   'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify',
-  'config', 'resource', 'connect', 'class', 'cvm',
+  'config', 'resource', 'cvm',
 ] as const;
 
 /**
@@ -79,7 +79,8 @@ const NAP_INC_PROTOCOLS = [
  * construction. Sandbox entries (and any host-app extensions) MUST use the
  * canonical `perm:<permission>` form — e.g. `'perm:popups'`, `'perm:modals'`,
  * `'perm:downloads'`. Napplets rely on the `perm:` prefix to distinguish
- * sandbox permissions from NUB-capability lookups; see specs/NIP-5D.md lines 81-94.
+ * sandbox permissions from NUB-capability lookups; see the living NIP-5D at
+ * https://github.com/nostr-protocol/nips/pull/2303/
  *
  * ### domains array + protocols map (conformant NAP-SHELL — @napplet/core@0.12)
  * The structured shape the released `@napplet/shim@0.13` actually reads via
@@ -101,16 +102,16 @@ const NAP_INC_PROTOCOLS = [
  * @example
  * ```ts
  * const caps = buildShellCapabilities(hooks);
- * // caps.domains => ['relay','outbox','identity','storage','inc','theme','keys','media','notify','config','resource','connect','class','cvm']
+ * // caps.domains => ['relay','outbox','identity','storage','inc','theme','keys','media','notify','config','resource','cvm']
  * //               (relay + outbox present when hooks.relayPool is provided; 'upload'/'intent'
  * //                appended under their hooks; perm:<x> sandbox entries appended when extended)
  * // caps.protocols => { inc: ['NAP-01','NAP-02','NAP-03','NAP-04','NAP-05','NAP-06'] }
- * // caps.naps => ['relay','outbox','identity','storage','inc','theme','keys','media','notify','config','resource','connect','class','cvm',
+ * // caps.naps => ['relay','outbox','identity','storage','inc','theme','keys','media','notify','config','resource','cvm',
  * //               'inc:NAP-01','inc:NAP-02','inc:NAP-03','inc:NAP-04','inc:NAP-05','inc:NAP-06']
  * //              (relay + outbox present when hooks.relayPool is provided; 'upload'
  * //               appended when hooks.upload is provided; 'intent' appended when
  * //               hooks.intent.isAvailable() is true; no ifc or NUB-NN identifiers)
- * // caps.nubs => ['relay','outbox','identity','storage','ifc','theme','keys','media','notify','config','resource','connect','class','cvm',
+ * // caps.nubs => ['relay','outbox','identity','storage','ifc','theme','keys','media','notify','config','resource','cvm',
  * //               'ifc:NAP-01','ifc:NUB-01','ifc:NUB-02','ifc:NUB-03','ifc:NUB-04','ifc:NUB-05','ifc:NUB-06']
  * //              (legacy vocabulary, unchanged for back-compat)
  * // caps.sandbox => []   // host app may extend with 'perm:popups', etc.

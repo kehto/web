@@ -13,20 +13,19 @@
                in-place — edit upstream, then re-sync.
 
   Kehto file:line cross-references (RESOURCE-05):
-    - createResourceService factory:       packages/services/src/resource-service.ts:171 (export function createResourceService)
-    - H-03 construction guard:             packages/services/src/resource-service.ts:172 (if (!getConnectGrants) throw [RESOURCE-01/H-03])
-    - 'resource:fetch' capability:         packages/acl/src/capabilities.ts:38 (ALL_CAPABILITIES 'resource:fetch' entry)
-    - CAP_RESOURCE_FETCH constant:         packages/acl/src/capabilities.ts:70 (export const CAP_RESOURCE_FETCH)
-    - resourceMap() resolver:              packages/acl/src/resolve.ts:187 (function resourceMap)
-    - case 'resource' dispatch:            packages/acl/src/resolve.ts:298 (case 'resource': return resourceMap(action))
-    - handleResourceMessage dispatch:      packages/runtime/src/runtime.ts:1081 (function handleResourceMessage)
-    - resourceAdapter (NubHandler):        packages/runtime/src/runtime.ts:1133 (const resourceAdapter: NubHandler)
-    - nubDispatch.registerNub('resource'): packages/runtime/src/runtime.ts:1147 (Phase 40 RESOURCE-02; Phase 39 Dev 1 lesson held)
-    - hostFetch (AbortController+timeout): apps/demo/src/shell-host.ts:639 (async function hostFetch)
-    - createResourceService wiring:        apps/demo/src/shell-host.ts:657 (createResourceService({ fetch, isOriginGranted, getConnectGrants, resolveIdentity }))
-    - deferred _sessionRegistryRef:        apps/demo/src/shell-host.ts:865 (let _sessionRegistryRef)
-    - resource-demo napplet:               apps/demo/napplets/resource-demo/ (12th DEMO_NAPPLETS entry)
-    - auto-grant fixture (D3):             apps/demo/src/main.ts:689 (__grantConnectOrigin__('resource-demo', '', 'http://localhost:4174'))
+    - createResourceService factory:       packages/services/src/resource-service.ts (export function createResourceService)
+    - H-03 construction guard:             packages/services/src/resource-service.ts (assertResourceOptions throws on missing getConnectGrants)
+    - 'resource:fetch' capability:         packages/acl/src/capabilities.ts (ALL_CAPABILITIES 'resource:fetch' entry)
+    - CAP_RESOURCE_FETCH constant:         packages/acl/src/capabilities.ts (export const CAP_RESOURCE_FETCH)
+    - resourceMap() resolver:              packages/acl/src/resolve.ts (function resourceMap)
+    - case 'resource' dispatch:            packages/acl/src/resolve.ts (case 'resource': return resourceMap(action))
+    - handleResourceMessage dispatch:      packages/runtime/src/runtime.ts (function handleResourceMessage)
+    - resourceAdapter (NubHandler):        packages/runtime/src/runtime.ts (const resourceAdapter: NubHandler)
+    - nubDispatch.registerNub('resource'): packages/runtime/src/runtime.ts (RESOURCE-02)
+    - hostFetch (AbortController+timeout): apps/playground/src/demo-hooks.ts (async function hostFetch)
+    - createResourceService wiring:        apps/playground/src/demo-hooks.ts (createResourceService({ fetch, isOriginGranted, getConnectGrants, resolveIdentity }))
+    - origin grant source:                 apps/playground/src/demo-hooks.ts (STATIC_CONNECT_GRANTS static map)
+    - resource-demo napplet:               apps/playground/napplets/resource-demo/
     - nap-resource.spec.ts (E2E-25):       tests/e2e/nap-resource.spec.ts (2 tests: granted + denied)
 
   Host-app-responsibility surface (D7, delegated to host-supplied fetch option):
@@ -43,7 +42,7 @@
   outside this contract is a host-app extension, not NUB-RESOURCE.
 
   Note on Kehto demo-mode relaxations (not production-conformant):
-    The apps/demo hostFetch does NOT enforce the private-IP block list (demo runs
+    The apps/playground hostFetch does NOT enforce the private-IP block list (demo runs
     on localhost). The E2E denied-origin test exercises the ACL gate (H-03 coupling
     at getConnectGrants), NOT the network-level policy (private-IP block / scheme
     whitelist). Production shells MUST implement the full policy checklist below.

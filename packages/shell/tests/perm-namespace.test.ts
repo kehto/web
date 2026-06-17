@@ -1,7 +1,7 @@
 /**
  * perm-namespace.test.ts — Regression test for SH-C02 / DRIFT-SHELL-02.
  *
- * Canonical NIP-5D (specs/NIP-5D.md lines 81-94) mandates that
+ * Canonical NIP-5D (https://github.com/nostr-protocol/nips/pull/2303/) mandates that
  * `window.napplet.shell.supports()` distinguishes between:
  *
  *   - NAP-capability lookups using bare domain names. `nap:` is the

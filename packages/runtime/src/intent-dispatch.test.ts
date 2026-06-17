@@ -4,9 +4,7 @@
  * Verifies the `intent` domain is routed by the runtime to a registered
  * `intent` service (the registerNub lesson — registering the service alone is
  * not enough; the domain must also be wired in createNubEnvelopeDispatcher),
- * that the ACL gate denies `intent.invoke` for a blocked napplet, and that
- * `intent.invoke` is gated on the dedicated intent:write capability (class-2
- * may introspect but not dispatch).
+ * and that the ACL gate denies `intent.available` for a blocked napplet.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -88,33 +86,4 @@ describe('runtime intent domain dispatch', () => {
     expect((err as { id?: string }).id).toBe('a2');
   });
 
-  it('denies intent.invoke for a class-2 napplet (intent:write is class-1 only)', () => {
-    const received: NappletMessage[] = [];
-    runtime.registerService('intent', {
-      descriptor: { name: 'intent', version: '1.0.0' },
-      handleMessage(_wid, msg) { received.push(msg); },
-    });
-    runtime.sessionRegistry.register(WINDOW_ID, { ...session(), class: 'class-2' });
-
-    runtime.handleMessage(WINDOW_ID, { type: 'intent.invoke', id: 'i3', request: REQUEST } as NappletMessage);
-
-    expect(received).toHaveLength(0); // class pre-filter refuses before service
-    const err = findEnvelopeResponse(ctx.sent, 'intent.invoke.error');
-    expect(err).toBeDefined();
-    expect((err as { id?: string }).id).toBe('i3');
-  });
-
-  it('allows intent.available for a class-2 napplet (intent:read is permitted)', () => {
-    const received: NappletMessage[] = [];
-    runtime.registerService('intent', {
-      descriptor: { name: 'intent', version: '1.0.0' },
-      handleMessage(_wid, msg) { received.push(msg); },
-    });
-    runtime.sessionRegistry.register(WINDOW_ID, { ...session(), class: 'class-2' });
-
-    runtime.handleMessage(WINDOW_ID, { type: 'intent.available', id: 'a3', archetype: 'note' } as NappletMessage);
-
-    expect(received).toHaveLength(1);
-    expect(received[0].type).toBe('intent.available');
-  });
 });

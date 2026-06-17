@@ -88,37 +88,4 @@ describe('runtime outbox domain dispatch', () => {
     expect((err as { id?: string }).id).toBe('q3');
   });
 
-  it('denies outbox.publish for a class-2 napplet (outbox:write is class-1 only)', () => {
-    const received: NappletMessage[] = [];
-    runtime.registerService('outbox', {
-      descriptor: { name: 'outbox', version: '1.0.0' },
-      handleMessage(_wid, msg) { received.push(msg); },
-    });
-    runtime.sessionRegistry.register(WINDOW_ID, { ...session(), class: 'class-2' });
-
-    runtime.handleMessage(WINDOW_ID, {
-      type: 'outbox.publish',
-      id: 'p2',
-      event: { kind: 1, content: 'hi', tags: [], created_at: 1 },
-    } as NappletMessage);
-
-    expect(received).toHaveLength(0); // class pre-filter refuses before service
-    const err = findEnvelopeResponse(ctx.sent, 'outbox.publish.error');
-    expect(err).toBeDefined();
-    expect((err as { id?: string }).id).toBe('p2');
-  });
-
-  it('allows outbox.query for a class-2 napplet (outbox:read is permitted)', () => {
-    const received: NappletMessage[] = [];
-    runtime.registerService('outbox', {
-      descriptor: { name: 'outbox', version: '1.0.0' },
-      handleMessage(_wid, msg) { received.push(msg); },
-    });
-    runtime.sessionRegistry.register(WINDOW_ID, { ...session(), class: 'class-2' });
-
-    runtime.handleMessage(WINDOW_ID, { type: 'outbox.query', id: 'q4', filters: FILTERS } as NappletMessage);
-
-    expect(received).toHaveLength(1);
-    expect(received[0].type).toBe('outbox.query');
-  });
 });

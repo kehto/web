@@ -1,4 +1,4 @@
-import type { Capability, NappletClass } from '@kehto/shell';
+import type { Capability } from '@kehto/shell';
 
 export interface DemoNappletDefinition {
   name: string;
@@ -67,28 +67,6 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     frameContainerId: 'cvm-relatr-frame-container',
   },
 ];
-
-export const CLASS_BY_DTAG: ReadonlyMap<string, NappletClass> = new Map<string, NappletClass>([
-  ['chat', null],
-  ['bot', null],
-  ['composer', null],
-  ['preferences', null],
-  ['toaster', null],
-  ['feed', null],
-  ['profile-viewer', null],
-  ['resource-demo', null],
-  ['cvm-relatr', null],
-]);
-
-const missingClassEntries = DEMO_NAPPLETS
-  .map((definition) => definition.name)
-  .filter((name) => !CLASS_BY_DTAG.has(name));
-if (missingClassEntries.length > 0) {
-  throw new Error(
-    `[CLASS-04 / H-05] CLASS_BY_DTAG is missing entries for DEMO_NAPPLETS: ${missingClassEntries.join(', ')}. ` +
-    'Add each missing entry with an explicit class assignment.',
-  );
-}
 
 export const DEMO_PROTOCOL_PATHS: DemoPathAuditEntry[] = [
   {

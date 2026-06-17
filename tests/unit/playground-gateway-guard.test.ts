@@ -22,7 +22,7 @@ const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly str
   feed: ['identity', 'relay', 'inc', 'theme'],
   preferences: ['storage', 'theme'],
   'profile-viewer': ['inc', 'relay', 'theme'],
-  'resource-demo': ['resource', 'connect', 'theme'],
+  'resource-demo': ['resource', 'theme'],
   toaster: ['notify', 'theme'],
 };
 
@@ -84,7 +84,6 @@ describe('playground gateway artifact guard', () => {
     expect(indexHtml).toContain('id="static-demo-banner"');
     expect(preferences).toContain("export const STATIC_PAGES_BASE_PATH = '/web/playground/';");
     expect(main).toContain("document.getElementById('static-demo-banner')?.removeAttribute('hidden')");
-    expect(main).toContain('if (isStaticPagesDemo) return;');
   });
 
   it('resolves via the relay + Blossom simulation and checks requires before rendering', () => {

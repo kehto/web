@@ -8,7 +8,6 @@
 import {
   createShellBridge,
   originRegistry,
-  connectStore,
   type ShellBridge,
   type ServiceHandler,
   type Capability,
@@ -25,7 +24,6 @@ import {
 import { getSignerConnectionState } from './signer-connection.js';
 import { pushAclEvent } from './acl-history.js';
 import {
-  CLASS_BY_DTAG,
   DEMO_NAPPLETS,
   DEMO_TOPOLOGY_SERVICE_NAMES,
   type DemoNappletDefinition,
@@ -36,6 +34,16 @@ import {
   setDemoSessionRegistryRef,
 } from './demo-hooks.js';
 import { createMessageTap, type MessageTap } from './message-tap.js';
+import { RESOURCE_DEMO_REMOTE_IMAGE_ORIGIN } from './main-preferences.js';
+
+/**
+ * Static per-dTag origin allowlist for the `connect-src` CSP injected into
+ * srcdoc iframes (Task 4 static-allowlist). Only resource-demo needs a
+ * non-empty allowlist; all other napplets get `connect-src 'none'`.
+ */
+const STATIC_ORIGIN_ALLOWLIST: ReadonlyMap<string, readonly string[]> = new Map([
+  ['resource-demo', [RESOURCE_DEMO_REMOTE_IMAGE_ORIGIN]],
+]);
 
 // Static ephemeral host identity for shell node display (separate from signer identity)
 import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
@@ -120,8 +128,7 @@ export interface LoadNappletOptions {
   /**
    * Hook invoked after the napplet is resolved and verified but before the
    * verified bytes are injected into the iframe. Receives the computed identity
-   * so callers can, e.g., pre-grant NAP-CONNECT origins that the CSP `<meta>`
-   * must include.
+   * for any pre-render setup the host requires.
    */
   beforeRender?: (identity: LoadedNappletIdentity) => void | Promise<void>;
 }
@@ -144,7 +151,7 @@ export function getNapplet(windowId: string): NappletInfo | undefined { return n
  * Look up the windowId for a napplet by its dTag (DEMO_NAPPLETS entry `name`).
  * Returns null if the napplet is not yet loaded or not yet identity-bound.
  *
- * Exposed for apps/playground/src/main.ts __setNappletClass__ test hook (D9).
+ * Exposed for apps/playground/src/main.ts test hooks (e.g. __injectNubEnvelopeAsNapplet__).
  * Callers MUST NOT mutate napplet state through this helper — read-only lookup only.
  */
 export function findIdentityBoundNappletWindowIdByDTag(dTag: string): string | null {
@@ -473,11 +480,6 @@ export async function loadNapplet(
       registeredAt: Date.now(),
       instanceId: crypto.randomUUID(),
       provenance: 'nip-5d',
-      // CLASS-04 (Plan 38-03): data-driven class from CLASS_BY_DTAG map (D3).
-      // Defaults to null (permissive, D2) if the dTag has no explicit entry —
-      // defensive fallback; the module-load assertion above guarantees every
-      // DEMO_NAPPLETS name has an entry, so the ?? null is defensive only.
-      class: CLASS_BY_DTAG.get(dTag) ?? null,
     };
     relay.runtime.sessionRegistry.register(windowId, entry);
     return entry;
@@ -503,12 +505,12 @@ export async function loadNapplet(
     }
   });
 
-  // Pre-render hook (e.g. NAP-CONNECT pre-grant) runs against the computed
-  // identity, then the connect-src CSP <meta> is built from the granted origins
-  // and the verified bytes are injected via srcdoc — the CSP travels inside the
-  // document because srcdoc iframes have an opaque origin and no HTTP response.
+  // Optional pre-render hook runs against the computed identity before
+  // the verified bytes are injected via srcdoc. The connect-src CSP <meta>
+  // is built from the static per-dTag allowlist — the CSP travels inside
+  // the document because srcdoc iframes have an opaque origin and no HTTP response.
   await options.beforeRender?.({ dTag, aggregateHash });
-  const origins = connectStore.getOrigins(dTag, aggregateHash);
+  const origins = STATIC_ORIGIN_ALLOWLIST.get(dTag) ?? [];
   iframe.srcdoc = injectCspMeta(resolved.indexHtml, origins);
 
   return info;

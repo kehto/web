@@ -27,7 +27,6 @@ function makeEntry(overrides: Partial<SessionEntry> = {}): SessionEntry {
     registeredAt: Date.now(),
     instanceId: 'guid-1',
     provenance: 'legacy-auth',
-    class: null, // CLASS-02: permissive default for test fixtures
     ...overrides,
   };
 }

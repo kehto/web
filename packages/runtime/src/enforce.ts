@@ -1,33 +1,11 @@
 
-import { ALL_CAPABILITIES, type Capability } from '@kehto/acl/capabilities';
+import type { Capability } from '@kehto/acl/capabilities';
 import type { NubMessage } from '@kehto/acl';
-import type { AclCheckEvent, NappletClass } from './types.js';
+import type { AclCheckEvent } from './types.js';
 
 // Re-export NUB capability resolution for consumers who import through enforce.ts
 export { resolveCapabilitiesNub } from '@kehto/acl';
 export type { NubMessage } from '@kehto/acl';
-
-/**
- * Hardcoded per-class capability allowlist. The permissive default
- * (class === null) bypasses this map entirely - see enforceNub. Additional
- * classes are added when NUB specs publish new class tokens.
- *
- * - 'class-1': the full capability surface (permissive).
- * - 'class-2': all capabilities EXCEPT relay:write, outbox:write, and
- *   intent:write - relay:write is the sample restrictive class Plan 38-03
- *   exercises, outbox:write is the shell-signed publish op, and intent:write is
- *   the focus-stealing cross-napplet dispatch op (all three mirror each other —
- *   a read-only class can route/query/introspect but not publish or dispatch).
- *
- * Unknown class tokens fall through enforceNub's "treat as maximally
- * restrictive" branch (deny all) - defensive failsafe, not policy.
- */
-const CLASS_CAPABILITY_ALLOWLIST: Readonly<Record<string, ReadonlySet<Capability>>> = Object.freeze({
-  'class-1': new Set<Capability>(ALL_CAPABILITIES),
-  'class-2': new Set<Capability>(ALL_CAPABILITIES.filter(
-    (c) => c !== 'relay:write' && c !== 'outbox:write' && c !== 'intent:write',
-  )),
-});
 
 /**
  * Result of an enforcement check.
@@ -40,11 +18,10 @@ export interface EnforceResult {
   allowed: boolean;
   capability: Capability;
   /**
-   * Why the decision was reached (v1.7 CLASS-03 / D7). Always set on the
-   * return path. Distinct from AclCheckEvent.reason (which is optional for
-   * backwards compat on the audit surface).
+   * Why the decision was reached. Always set on the return path.
+   * Distinct from AclCheckEvent.reason (which is optional for backwards compat).
    */
-  reason: 'allowed' | 'capability-missing' | 'class-forbidden';
+  reason: 'allowed' | 'capability-missing';
 }
 
 /**
@@ -121,14 +98,12 @@ export function createEnforceGate(config: EnforceConfig): (pubkey: string, capab
  * Uses windowId for identity resolution instead of pubkey (which is '' in NIP-5D sessions).
  *
  * @param checkAcl - The ACL check function
- * @param resolveIdentityByWindowId - Maps windowId to identity (dTag, aggregateHash, class). Returns
- *   class posture inline (v1.7 CLASS-03) so the NUB gate can pre-filter class-forbidden capabilities
- *   before consulting the ACL check. null class = permissive default (D2).
+ * @param resolveIdentityByWindowId - Maps windowId to identity (dTag, aggregateHash).
  * @param onAclCheck - Optional audit callback, called on every enforceNub() check
  */
 export interface NubEnforceConfig {
   checkAcl: AclChecker;
-  resolveIdentityByWindowId: (windowId: string) => { dTag: string; aggregateHash: string; class: NappletClass } | undefined;
+  resolveIdentityByWindowId: (windowId: string) => { dTag: string; aggregateHash: string } | undefined;
   onAclCheck?: (event: AclCheckEvent) => void;
 }
 
@@ -139,7 +114,8 @@ export interface NubEnforceConfig {
  * resolves identity by windowId — necessary for NIP-5D sessions where pubkey is ''.
  *
  * @param config - NUB enforcement configuration
- * @returns An enforceNub function that resolves identity by windowId
+ * @returns An enforceNub function that resolves identity by windowId and
+ *   delegates to the ACL check.
  *
  * @example
  * ```ts
@@ -159,27 +135,7 @@ export function createNubEnforceGate(config: NubEnforceConfig): (windowId: strin
     const entry = resolveIdentityByWindowId(windowId);
     const dTag = entry?.dTag ?? '';
     const aggregateHash = entry?.aggregateHash ?? '';
-    const nappletClass: NappletClass = entry?.class ?? null;
 
-    if (nappletClass !== null) {
-      const allowlist = CLASS_CAPABILITY_ALLOWLIST[nappletClass];
-      // Unknown class token -> treat as maximally restrictive (deny all).
-      if (!allowlist || !allowlist.has(capability)) {
-        const identity = { pubkey: '', dTag, hash: aggregateHash };
-        if (onAclCheck) {
-          onAclCheck({
-            identity,
-            capability,
-            decision: 'deny',
-            message,
-            reason: 'class-forbidden',
-          });
-        }
-        return { allowed: false, capability, reason: 'class-forbidden' };
-      }
-    }
-
-    // Capability check (unchanged from pre-v1.7 except for propagating reason).
     // NIP-5D: pass empty string for pubkey - toKey() ignores it (uses dTag:hash).
     const allowed = checkAcl('', dTag, aggregateHash, capability);
 

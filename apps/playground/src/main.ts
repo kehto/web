@@ -19,7 +19,7 @@ import {
   isServiceEnabled,
 } from './shell-host.js';
 import { initThemeSwitcherHost, buildHostRelaySubscribe } from './theme-switcher-host.js';
-import { connectStore, type Capability, type NappletClass } from '@kehto/shell';
+import type { Capability } from '@kehto/shell';
 import { createConsentModal } from './consent-modal.js';
 import { classifyTappedMessagePath, type NappletDebugger } from './debugger.js';
 import {
@@ -54,7 +54,6 @@ import { setAclRingSize } from './acl-history.js';
 import {
   createPlaygroundPreferences,
   isStaticPagesDemo,
-  RESOURCE_DEMO_REMOTE_IMAGE_ORIGIN,
   type PersistenceMode,
 } from './main-preferences.js';
 
@@ -201,67 +200,6 @@ document.addEventListener('click', (e) => {
 const shellPubkey = document.getElementById('shell-pubkey');
 if (shellPubkey) shellPubkey.textContent = `pubkey: ${getDemoHostPubkey().substring(0, 20)}...`;
 
-async function syncGrantsToVite(dTag: string, aggregateHash: string, origins: readonly string[]): Promise<void> {
-  if (isStaticPagesDemo) return;
-
-  try {
-    await fetch('/__connect-grants', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dTag, aggregateHash, origins: [...origins] }),
-    });
-  } catch {
-    // Best-effort -- failure here doesn't invalidate the in-memory grant;
-    // the CSP header will be stale until the next sync succeeds.
-  }
-}
-
-async function grantConnectOrigin(dTag: string, aggregateHash: string, origin: string): Promise<boolean> {
-  const existing = connectStore.getOrigins(dTag, aggregateHash);
-  const next = [...new Set([...existing, origin])];
-  connectStore.grant(dTag, aggregateHash, next);
-  await syncGrantsToVite(dTag, aggregateHash, next);
-  return true;
-}
-
-(window as Window & {
-  __grantConnectOrigin__?: (dTag: string, aggregateHash: string, origin: string) => boolean;
-}).__grantConnectOrigin__ = (dTag: string, aggregateHash: string, origin: string): boolean => {
-  void grantConnectOrigin(dTag, aggregateHash, origin);
-  return true;
-};
-
-(window as Window & {
-  __revokeConnect__?: (dTag: string, aggregateHash: string) => boolean;
-}).__revokeConnect__ = (dTag: string, aggregateHash: string): boolean => {
-  connectStore.revoke(dTag, aggregateHash);
-  void syncGrantsToVite(dTag, aggregateHash, []);
-  // C-04 / CONNECT-04: iframe destroy+recreate so the newly-served HTML
-  // picks up the updated CSP header (now without the revoked origin).
-  window.dispatchEvent(new CustomEvent('shell:connect-revoked', { detail: { dTag, aggregateHash } }));
-  return true;
-};
-
-window.addEventListener('shell:connect-revoked', (event) => {
-  const detail = (event as CustomEvent<{ dTag: string; aggregateHash: string }>).detail;
-  const napps = getNapplets();
-  // Snapshot: collect matching entries before mutating the Map.
-  const toRevoke = [...napps.entries()].filter(([, info]) => info.name === detail.dTag);
-  for (const [windowId, info] of toRevoke) {
-    const def = DEMO_NAPPLETS.find((d) => d.name === detail.dTag);
-    if (!def) continue;
-    const containerId = def.frameContainerId;
-    info.iframe.remove();
-    napps.delete(windowId);
-    // Re-load. loadNapplet assigns a fresh windowId and re-appends iframe.
-    void loadNapplet(detail.dTag, containerId).then(() => {
-      handleLoadedNapplet();
-    }).catch((err) => {
-      console.error(`[demo] shell:connect-revoked: failed to reload ${detail.dTag}`, err);
-    });
-  }
-});
-
 function handleLoadedNapplet(): void {
   preferences.broadcastCurrentTheme();
   setTimeout(() => {
@@ -269,17 +207,9 @@ function handleLoadedNapplet(): void {
   }, 0);
 }
 
-async function pregrantBeforeRender(identity: LoadedNappletIdentity): Promise<void> {
-  if (identity.dTag !== 'resource-demo') return;
-  const ok = await grantConnectOrigin(
-    identity.dTag,
-    identity.aggregateHash,
-    RESOURCE_DEMO_REMOTE_IMAGE_ORIGIN,
-  );
-  if (!ok) {
-    console.warn('[demo] resource-demo auto-grant failed; E2E may fail on remote-image assertion');
-  }
-}
+// No pre-render grants needed: resource-demo origin allowlist is sourced from
+// STATIC_ORIGIN_ALLOWLIST in shell-host.ts (Task 4 static-allowlist).
+function pregrantBeforeRender(_identity: LoadedNappletIdentity): void { return; }
 
 for (const napplet of DEMO_NAPPLETS) {
   void loadNapplet(napplet.name, napplet.frameContainerId, {
@@ -508,23 +438,6 @@ export function setSelectedNode(id: string | null): void {
   selectedNodeId = id;
   setSelectedNodeId(id);
 }
-
-(window as Window & {
-  __setNappletClass__?: (dTag: string, newClass: NappletClass) => boolean;
-}).__setNappletClass__ = (dTag: string, newClass: NappletClass): boolean => {
-  const windowId = findIdentityBoundNappletWindowIdByDTag(dTag);
-  if (!windowId) {
-    console.warn(`[demo] __setNappletClass__: ${dTag} not loaded or not identity-bound`);
-    return false;
-  }
-  const entry = relay.runtime.sessionRegistry.getEntryByWindowId(windowId);
-  if (!entry) {
-    console.warn(`[demo] __setNappletClass__: session entry missing for ${dTag}`);
-    return false;
-  }
-  (entry as { class: NappletClass }).class = newClass;
-  return true;
-};
 
 (window as Window & { __clearAclEvents__?: () => void }).__clearAclEvents__ = (): void => {
   const w = window as Window & { __aclEvents__?: Array<unknown> };
