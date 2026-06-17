@@ -15,13 +15,13 @@ const playgroundNapplets = [
 ] as const;
 
 const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly string[]> = {
-  bot: ['ifc', 'storage', 'theme'],
-  chat: ['ifc', 'storage', 'relay', 'theme'],
+  bot: ['inc', 'storage', 'theme'],
+  chat: ['inc', 'storage', 'relay', 'theme'],
   composer: ['relay', 'theme'],
   'cvm-relatr': ['cvm', 'theme'],
-  feed: ['identity', 'relay', 'ifc', 'theme'],
+  feed: ['identity', 'relay', 'inc', 'theme'],
   preferences: ['storage', 'theme'],
-  'profile-viewer': ['ifc', 'relay', 'theme'],
+  'profile-viewer': ['inc', 'relay', 'theme'],
   'resource-demo': ['resource', 'connect', 'theme'],
   toaster: ['notify', 'theme'],
 };
