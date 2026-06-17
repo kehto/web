@@ -26,72 +26,23 @@ const PLAYGROUND_MANIFEST_PRIVKEY_HEX = '11'.repeat(32);
 const SHORT_NAP_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
 // NIP-5D named napplet manifest kind (branch-HEAD: 35129 named / 15129 root / 5129 snapshot).
 const NAPPLET_MANIFEST_KIND = 35129;
+// Hosted-shell bootstrap marker + handshake nudge.
+//
+// The real @napplet/shim@0.13 now natively owns capability resolution: on
+// `shell.init` it sets `window.napplet.shell.supports = makeSupports(env)` from
+// the conformant `capabilities.{domains,protocols}` shape the @kehto shell emits,
+// and it auto-posts `{type:'shell.ready'}` on load. The previous hand-rolled
+// `supports()` override (which read the legacy `capabilities.nubs` array and
+// clobbered the shim's `shell.supports`) is therefore redundant and was removed —
+// it must NOT overwrite the shim's correct resolver.
+//
+// What remains is intentionally minimal: set the `__kehtoHostedShellBootstrap`
+// marker (the playground host + single-file artifact tests assert it is injected)
+// and post `shell.ready`. The shim also posts `shell.ready`; per SHELL-01 the
+// runtime treats a duplicate `shell.ready` from the same window as idempotent
+// (one `shell.init`), so both posts are safe.
 const HOSTED_SHELL_BOOTSTRAP = String.raw`
 ;(() => {
-  const state = {
-    capabilities: null,
-    fallbackSupports: null,
-  };
-
-  const supports = (capability) => {
-    if (typeof capability !== 'string') return false;
-    const capabilities = state.capabilities;
-    if (capabilities) {
-      if (capability.startsWith('perm:')) {
-        return Array.isArray(capabilities.sandbox) && capabilities.sandbox.includes(capability);
-      }
-      const nap = capability.startsWith('nap:')
-        ? capability.slice(4)
-        : capability.startsWith('nub:')
-          ? capability.slice(4)
-          : capability;
-      return Array.isArray(capabilities.nubs) && capabilities.nubs.includes(nap);
-    }
-    return typeof state.fallbackSupports === 'function'
-      ? state.fallbackSupports(capability)
-      : false;
-  };
-
-  const patchNapplet = (value) => {
-    if (!value || typeof value !== 'object') return value;
-    const napplet = value;
-    const shell = napplet.shell && typeof napplet.shell === 'object'
-      ? napplet.shell
-      : {};
-    if (typeof shell.supports === 'function' && shell.supports !== supports) {
-      state.fallbackSupports = shell.supports.bind(shell);
-    }
-    shell.supports = supports;
-    napplet.shell = shell;
-    return napplet;
-  };
-
-  let currentNapplet = window.napplet;
-  Object.defineProperty(window, 'napplet', {
-    configurable: true,
-    enumerable: true,
-    get() {
-      return currentNapplet;
-    },
-    set(value) {
-      currentNapplet = patchNapplet(value);
-    },
-  });
-  if (currentNapplet) currentNapplet = patchNapplet(currentNapplet);
-
-  window.addEventListener('message', (event) => {
-    if (event.source !== window.parent) return;
-    const message = event.data;
-    if (!message || typeof message !== 'object' || message.type !== 'shell.init') return;
-    if (message.capabilities && typeof message.capabilities === 'object') {
-      state.capabilities = message.capabilities;
-      if (currentNapplet) currentNapplet = patchNapplet(currentNapplet);
-      queueMicrotask(() => {
-        if (currentNapplet) currentNapplet = patchNapplet(currentNapplet);
-      });
-    }
-  });
-
   window.__kehtoHostedShellBootstrap = true;
   window.parent.postMessage({ type: 'shell.ready' }, '*');
 })();`;
