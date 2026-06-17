@@ -8,7 +8,7 @@
 import '@napplet/shim';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
 
-const REQUIRED_NAPS = ['resource', 'connect', 'theme'] as const;
+const REQUIRED_NAPS = ['resource', 'theme'] as const;
 // Match the 5s deadline every other playground napplet uses: @napplet/shim@0.13
 // installs shell.supports() asynchronously on shell.init, and a slower CI runner
 // can take >1s to deliver it — a 1s deadline raced ahead and threw "init failed".

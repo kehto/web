@@ -23,7 +23,7 @@ const expectedRequires: Record<(typeof expectedNapplets)[number], readonly strin
   feed: ['identity', 'relay', 'inc', 'theme'],
   preferences: ['storage', 'theme'],
   'profile-viewer': ['inc', 'relay', 'theme'],
-  'resource-demo': ['resource', 'connect', 'theme'],
+  'resource-demo': ['resource', 'theme'],
   toaster: ['notify', 'theme'],
 };
 
@@ -77,7 +77,7 @@ test('playground loads all napplets via verified srcdoc with opaque origins', as
     expect(frame.sandbox, `${frame.id} sandbox`).not.toContain('allow-same-origin');
   }
 
-  // The resource-demo pre-grant flows into the srcdoc CSP <meta> connect-src.
+  // The resource-demo static allowlist flows into the srcdoc CSP <meta> connect-src.
   const resourceFrame = frames.find((frame) => frame.id.startsWith('demo-resource-demo-'));
   expect(resourceFrame?.srcdoc).toContain('https://raw.githubusercontent.com');
 });

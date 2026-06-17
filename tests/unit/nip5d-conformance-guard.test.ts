@@ -22,7 +22,7 @@ const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly str
   feed: ['identity', 'relay', 'inc', 'theme'],
   preferences: ['storage', 'theme'],
   'profile-viewer': ['inc', 'relay', 'theme'],
-  'resource-demo': ['resource', 'connect', 'theme'],
+  'resource-demo': ['resource', 'theme'],
   toaster: ['notify', 'theme'],
 };
 
