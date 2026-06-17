@@ -6,7 +6,7 @@ import { sessionRegistry, nappKeyRegistry } from './session-registry.js';
 import { aclStore } from './acl-store.js';
 import { manifestCache } from './manifest-cache.js';
 import { audioManager } from './audio-manager.js';
-import type { ShellAdapter } from './types.js';
+import type { ShellAdapter, UnroutedMessageInfo } from './types.js';
 import type { NappletMessage } from '@napplet/core';
 import type { Theme } from '@napplet/nap/theme/types';
 import { createKeysForwarder, type KeysForwarder } from './keys-forwarder.js';
@@ -165,6 +165,29 @@ export interface ShellBridge {
  * const bridge = createShellBridge(hooks);
  * ```
  */
+/**
+ * Fire the optional {@link ShellAdapter.onUnroutedMessage} diagnostic hook for a
+ * message the bridge is about to drop. Extracts the envelope `type` defensively
+ * (the message-shape guard hasn't run yet at the drop points) and never throws —
+ * a misbehaving host hook must not break message handling.
+ */
+function reportUnrouted(
+  hooks: ShellAdapter,
+  event: MessageEvent,
+  reason: UnroutedMessageInfo['reason'],
+): void {
+  if (!hooks.onUnroutedMessage) return;
+  const data = event.data as { type?: unknown } | null | undefined;
+  const type = typeof data === 'object' && data !== null && typeof data.type === 'string'
+    ? data.type
+    : undefined;
+  try {
+    hooks.onUnroutedMessage({ type, origin: event.origin, reason });
+  } catch {
+    // Observability must never break routing — swallow host hook errors.
+  }
+}
+
 export function createShellBridge(hooks: ShellAdapter): ShellBridge {
   const runtimeHooks = adaptHooks(hooks, {
     originRegistry,
@@ -215,9 +238,15 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
   return {
     handleMessage(event: MessageEvent): void {
       const sourceWindow = event.source as Window | null;
-      if (!sourceWindow) return;
+      if (!sourceWindow) {
+        reportUnrouted(hooks, event, 'no-source-window');
+        return;
+      }
       const windowId = originRegistry.getWindowId(sourceWindow);
-      if (!windowId) return;
+      if (!windowId) {
+        reportUnrouted(hooks, event, 'unregistered-window');
+        return;
+      }
       const msg = event.data;
 
       // NIP-5D envelope-only guard (clean break — no legacy array support)
