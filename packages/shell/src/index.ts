@@ -37,6 +37,7 @@ export type {
   NappKeyEntry,  // @deprecated — use SessionEntry
   AclEntry,
   AclCheckEvent,
+  UnroutedMessageInfo,
   ServiceDescriptor,
   ServiceHandler,
   ServiceRegistry,

@@ -201,6 +201,36 @@ export interface AclCheckEvent {
 }
 
 /**
+ * Diagnostic payload reported when {@link ShellAdapter.onUnroutedMessage} fires —
+ * i.e. when `ShellBridge.handleMessage` drops an incoming postMessage because it
+ * cannot be routed to a registered napplet window.
+ *
+ * @example
+ * ```ts
+ * hooks.onUnroutedMessage = (info: UnroutedMessageInfo) => {
+ *   console.warn(`[shell] dropped ${info.type ?? '<unknown>'} from ${info.origin}: ${info.reason}`);
+ * };
+ * ```
+ */
+export interface UnroutedMessageInfo {
+  /**
+   * The dropped message's `type` field when `event.data` is an object with a
+   * string `type`; `undefined` for malformed/non-envelope payloads.
+   */
+  type?: string;
+  /** The `MessageEvent.origin` of the dropped message. */
+  origin: string;
+  /**
+   * Why the message was dropped:
+   * - `no-source-window` — the `MessageEvent` had no `source` window to identify the sender.
+   * - `unregistered-window` — the source `Window` is not in `originRegistry` (the
+   *   sending iframe was never registered, or a `srcdoc` reload swapped its
+   *   `contentWindow` to a new object that no longer matches the registry key).
+   */
+  reason: 'no-source-window' | 'unregistered-window';
+}
+
+/**
  * Static capability set sent to napplet iframes through the shell.ready /
  * shell.init handshake. Used by hosted `window.napplet.shell.supports()` for
  * synchronous capability queries after the shim consumes shell.init.
@@ -352,6 +382,14 @@ export interface ShellAdapter {
   intent?: IntentHooks;
   /** Called on every ACL enforcement check. Both allows and denials are reported. */
   onAclCheck?: (event: AclCheckEvent) => void;
+  /**
+   * Called when `ShellBridge.handleMessage` drops an incoming postMessage because
+   * it cannot be routed to a registered napplet window (no source window, or the
+   * source `Window` is not in `originRegistry`). Observe-only — the message is
+   * still dropped; this hook exists so otherwise-silent drops are diagnosable
+   * (the FEED-02 / hyprgate#21 class of "a napplet's messages vanish" bug).
+   */
+  onUnroutedMessage?: (info: UnroutedMessageInfo) => void;
   /** Called when aggregate hash verification fails (computed != declared). */
   onHashMismatch?: (dTag: string, claimed: string, computed: string) => void;
   /**

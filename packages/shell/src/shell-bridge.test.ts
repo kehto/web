@@ -267,6 +267,136 @@ describe('ShellBridge.handleMessage source validation', () => {
   });
 });
 
+// ─── onUnroutedMessage diagnostic hook (FEED-02 / hyprgate#21) ────────────────
+
+describe('ShellBridge.handleMessage onUnroutedMessage hook', () => {
+  beforeEach(() => {
+    originRegistry.clear();
+  });
+
+  afterEach(() => {
+    originRegistry.clear();
+  });
+
+  it('fires with reason "no-source-window" when the MessageEvent has no source', () => {
+    const onUnroutedMessage = vi.fn();
+    const bridge = createShellBridge({ ...makeTestHooks(), onUnroutedMessage });
+
+    bridge.handleMessage({
+      source: null,
+      origin: 'https://feed.example.com',
+      data: { type: 'outbox.subscribe', subId: 's1', filters: [] },
+    } as MessageEvent);
+
+    expect(onUnroutedMessage).toHaveBeenCalledTimes(1);
+    expect(onUnroutedMessage).toHaveBeenCalledWith({
+      type: 'outbox.subscribe',
+      origin: 'https://feed.example.com',
+      reason: 'no-source-window',
+    });
+
+    bridge.destroy();
+  });
+
+  it('fires with reason "unregistered-window" when the source window is not registered', () => {
+    const onUnroutedMessage = vi.fn();
+    const bridge = createShellBridge({ ...makeTestHooks(), onUnroutedMessage });
+    const unknownWindow = makeFakeIframe() as unknown as Window;
+
+    bridge.handleMessage({
+      source: unknownWindow,
+      origin: 'https://feed.example.com',
+      data: { type: 'outbox.subscribe', subId: 's1', filters: [] },
+    } as MessageEvent);
+
+    expect(onUnroutedMessage).toHaveBeenCalledTimes(1);
+    expect(onUnroutedMessage).toHaveBeenCalledWith({
+      type: 'outbox.subscribe',
+      origin: 'https://feed.example.com',
+      reason: 'unregistered-window',
+    });
+
+    bridge.destroy();
+  });
+
+  it('reports type:undefined for a malformed (non-envelope) payload from an unregistered window', () => {
+    const onUnroutedMessage = vi.fn();
+    const bridge = createShellBridge({ ...makeTestHooks(), onUnroutedMessage });
+    const unknownWindow = makeFakeIframe() as unknown as Window;
+
+    bridge.handleMessage({
+      source: unknownWindow,
+      origin: 'https://feed.example.com',
+      data: 'not-an-envelope',
+    } as MessageEvent);
+
+    expect(onUnroutedMessage).toHaveBeenCalledTimes(1);
+    expect(onUnroutedMessage).toHaveBeenCalledWith({
+      type: undefined,
+      origin: 'https://feed.example.com',
+      reason: 'unregistered-window',
+    });
+
+    bridge.destroy();
+  });
+
+  it('does NOT fire for a registered window (message routes normally)', () => {
+    const onUnroutedMessage = vi.fn();
+    const iframe = makeFakeIframe();
+    const win = iframe as unknown as Window;
+    originRegistry.register(win, 'win-registered');
+
+    const bridge = createShellBridge({ ...makeTestHooks(), onUnroutedMessage });
+    const runtimeSpy = vi.spyOn(bridge.runtime, 'handleMessage');
+
+    bridge.handleMessage({
+      source: win,
+      origin: 'https://feed.example.com',
+      data: { type: 'outbox.subscribe', subId: 's1', filters: [] },
+    } as MessageEvent);
+
+    expect(onUnroutedMessage).not.toHaveBeenCalled();
+    expect(runtimeSpy).toHaveBeenCalledTimes(1);
+
+    runtimeSpy.mockRestore();
+    bridge.destroy();
+  });
+
+  it('swallows a throwing hook so routing is never broken', () => {
+    const onUnroutedMessage = vi.fn(() => {
+      throw new Error('host hook blew up');
+    });
+    const bridge = createShellBridge({ ...makeTestHooks(), onUnroutedMessage });
+    const unknownWindow = makeFakeIframe() as unknown as Window;
+
+    expect(() =>
+      bridge.handleMessage({
+        source: unknownWindow,
+        origin: 'https://feed.example.com',
+        data: { type: 'outbox.subscribe' },
+      } as MessageEvent),
+    ).not.toThrow();
+    expect(onUnroutedMessage).toHaveBeenCalledTimes(1);
+
+    bridge.destroy();
+  });
+
+  it('is a no-op when the host does not provide the hook', () => {
+    const bridge = createShellBridge(makeTestHooks());
+    const unknownWindow = makeFakeIframe() as unknown as Window;
+
+    expect(() =>
+      bridge.handleMessage({
+        source: unknownWindow,
+        origin: 'https://feed.example.com',
+        data: { type: 'outbox.subscribe' },
+      } as MessageEvent),
+    ).not.toThrow();
+
+    bridge.destroy();
+  });
+});
+
 // ─── ShellBridge.injectEvent single-topic forwarding (RENAME-HARD-01/02) ─────
 
 describe('ShellBridge.injectEvent single-topic forwarding', () => {
