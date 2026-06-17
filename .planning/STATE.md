@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.20
-milestone_name: NIP-5D Content-Addressed Runtime Resolution
-status: verifying
-last_updated: "2026-06-16T19:10:00.000Z"
-last_activity: 2026-06-16
+milestone: v1.21
+milestone_name: "NIP-5D #2303 + NAP-SHELL/INTENT Conformance"
+status: planning
+last_updated: "2026-06-17T01:52:53.183Z"
+last_activity: 2026-06-17
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 2
-  completed_plans: 2
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 
 ## Current Position
 
-Phase: 85 (Content-Addressed Loading & Identity) — Complete
-Plan: 85-01 complete
-Status: Both v1.20 phases complete. PR1 (@kehto/nip resolver) + PR2 (srcdoc loading) open. 1017 unit + 79 E2E green; build + type-check green.
-Last activity: 2026-06-16 — Phase 85 content-addressed srcdoc loading complete
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-06-17 — Milestone v1.21 started
 
 ## Performance Metrics
 
