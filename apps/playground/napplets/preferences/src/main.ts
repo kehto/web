@@ -25,7 +25,7 @@
  */
 import '@napplet/shim';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
-import { storageGetItem, storageSetItem } from '@napplet/nub/storage/sdk';
+import { storageGetItem, storageSetItem } from '@napplet/nap/storage/sdk';
 
 const REQUIRED_NAPS = ['storage', 'theme'] as const;
 

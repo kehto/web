@@ -9,7 +9,7 @@
  *     mirrors the dismissal acks (notification-service does not push a notify.dismissed
  *     reply, so we trust the dispatch and drop locally — equivalent to optimistic UI)
  *
- * NOTIFY-SDK-GAP (Phase 58 raw-envelope allowlist): @napplet/nub/notify/sdk exposes notifySend and
+ * NOTIFY-SDK-GAP (Phase 58 raw-envelope allowlist): @napplet/nap/notify/sdk exposes notifySend and
  * notifyDismiss, but not notify.create / notify.list / notify.read. The
  * demo's notification-service (packages/services/src/notification-service.ts) implements
  * the notify.create / notify.list / notify.read contract, not just notify.send.
@@ -26,7 +26,7 @@
  */
 import '@napplet/shim';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
-import { notifyDismiss as notifyDismissHelper } from '@napplet/nub/notify/sdk';
+import { notifyDismiss as notifyDismissHelper } from '@napplet/nap/notify/sdk';
 
 const REQUIRED_NAPS = ['notify', 'theme'] as const;
 
@@ -149,7 +149,7 @@ dismissAllBtn.addEventListener('click', () => {
  *   - Guards on event.data being a plain object with a string `type` starting with 'notify.'
  *   - Handles notify.created (correlate via id, render <li>)
  *   - Handles notify.listed (per-id dispatch notify.dismiss for the dismiss-all flow)
- *   - Ignores all other envelope types (storage.*, ifc.*, etc.)
+ *   - Ignores all other envelope types (storage.*, inc.*, etc.)
  */
 window.addEventListener('message', (event: MessageEvent) => {
   if (event.source !== window.parent) return;

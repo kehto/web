@@ -1,10 +1,10 @@
 /**
  * Bot demo napplet — helper-based SDK migration (NAP-01, Phase 18).
  *
- * Exercises: ifc (subscribe + emit), storage (rules persistence).
+ * Exercises: inc (subscribe + emit), storage (rules persistence).
  *
- * - Subscribes via ifcOn('chat:message') (D-02)
- * - Replies via ifcEmit('bot:response') (D-02)
+ * - Subscribes via incOn('chat:message') (D-02)
+ * - Replies via incEmit('bot:response') (D-02)
  * - Persists learned rules via storageSetItem/storageGetItem under key 'bot-rules' (D-02)
  * - Posts #status-text = 'ready' after init completes (loadRules resolves)
  *
@@ -13,18 +13,18 @@
  */
 import '@napplet/shim';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
-import { ifcEmit, ifcOn } from '@napplet/nub/ifc/sdk';
-import { storageGetItem, storageSetItem } from '@napplet/nub/storage/sdk';
+import { incEmit, incOn } from '@napplet/nap/inc/sdk';
+import { storageGetItem, storageSetItem } from '@napplet/nap/storage/sdk';
 
-const REQUIRED_NAPS = ['ifc', 'storage', 'theme'] as const;
+const REQUIRED_NAPS = ['inc', 'storage', 'theme'] as const;
 
 /**
  * Emit a notifications:create event through the real napplet→service path.
- * The shell routes this IFC event to the notification service handler.
+ * The shell routes this INC event to the notification service handler.
  */
 function notifyCreate(title: string, body: string): void {
   try {
-    ifcEmit('notifications:create', [], JSON.stringify({ title, body }));
+    incEmit('notifications:create', [], JSON.stringify({ title, body }));
   } catch {
     /* best-effort — don't break the main flow if notifications are denied */
   }
@@ -127,7 +127,7 @@ function handleTeachCommand(text: string): boolean {
   notifyCreate('Bot activity', `learned: "${trigger}" → "${response}"`);
 
   // Acknowledge the teach command
-  ifcEmit('bot:response', [], JSON.stringify({
+  incEmit('bot:response', [], JSON.stringify({
     text: `learned! I'll respond "${response}" when I hear "${trigger}"`,
     timestamp: Date.now(),
   }));
@@ -159,7 +159,7 @@ function handleChatMessage(payload: unknown): void {
   const text = data.text || '';
   if (!text) return;
 
-  log(`ifc chat:message received -- ${text}`, 'heard');
+  log(`inc chat:message received -- ${text}`, 'heard');
 
   if (handleTeachCommand(text)) return;
 
@@ -167,16 +167,16 @@ function handleChatMessage(payload: unknown): void {
   const response = findResponse(text);
   log(response, 'replied');
 
-  // Emit response to chat via IFC (exercises sign:event for the emit)
+  // Emit response to chat via INC (exercises sign:event for the emit)
   try {
-    ifcEmit('bot:response', [], JSON.stringify({
+    incEmit('bot:response', [], JSON.stringify({
       text: response,
       timestamp: Date.now(),
     }));
-    log('ifc bot:response sent', 'info');
+    log('inc bot:response sent', 'info');
     notifyCreate('Bot activity', response.length > 60 ? response.slice(0, 60) + '…' : response);
   } catch (error) {
-    log(`ifc response failed -- ${formatError(error, 'denied: relay:write')}`, 'error');
+    log(`inc response failed -- ${formatError(error, 'denied: relay:write')}`, 'error');
   }
 }
 
@@ -192,14 +192,14 @@ async function init(): Promise<void> {
 
   await loadRules();
 
-  // Wire the IFC subscription per D-02 BEFORE announcing ready, so a chat sender
+  // Wire the INC subscription per D-02 BEFORE announcing ready, so a chat sender
   // that acts on the bot's "ready" signal cannot race ahead of this subscription.
-  ifcOn('chat:message', handleChatMessage);
-  log('subscribed to ifc chat:message topic', 'info');
+  incOn('chat:message', handleChatMessage);
+  log('subscribed to inc chat:message topic', 'info');
 
   statusEl.textContent = 'ready';
   statusEl.style.color = 'var(--nap-theme-success, #39ff14)';
-  log('listening for ifc chat:message input', 'info');
+  log('listening for inc chat:message input', 'info');
 }
 
 init().catch((err) => {
