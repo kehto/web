@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * scripts/audit-gateway-artifacts.mjs -- gateway artifact drift guard.
+ * scripts/audit-gateway-artifacts.mjs -- napplet artifact drift guard.
  *
- * Enforces the playground's production-equivalent NIP-5A gateway invariant:
- * each built demo napplet must expose exactly one served HTML artifact plus
- * its manifest metadata, and the active shell loader must keep opaque-origin
- * iframes on /napplet-gateway/<dTag>/<aggregateHash>/index.html.
+ * Enforces the playground's NIP-5D content-addressed srcdoc invariant: each
+ * built demo napplet must emit exactly one self-contained /index.html (plus its
+ * signed NIP-5A manifest) with no external assets, and the shell loader must
+ * resolve + verify the bytes and inject them via iframe.srcdoc on an opaque
+ * origin — never the retired gateway htmlUrl/metadata navigation.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
@@ -34,22 +35,24 @@ function read(path) {
 
 function assertSourceInvariants() {
   const shellHost = read(join(repoRoot, 'apps', 'playground', 'src', 'shell-host.ts'));
-  if (
-    !shellHost.includes('function playgroundPath(') ||
-    !shellHost.includes('playgroundPath(`/napplet-gateway/${encodeURIComponent(name)}/manifest.json`)') ||
-    !shellHost.includes('import.meta.env.BASE_URL') ||
-    shellHost.includes('meta.env?.BASE_URL')
-  ) {
-    fail('shell-host.ts does not fetch gateway manifest metadata through the base-aware path helper');
+  // NIP-5D content-addressed srcdoc loading (v1.20): the runtime resolves a
+  // signed manifest, verifies the bytes, computes identity, and injects the
+  // verified bytes via iframe.srcdoc. The gateway htmlUrl/metadata navigation
+  // model is retired and the gateway is never trusted.
+  if (!shellHost.includes('iframe.srcdoc = injectCspMeta(')) {
+    fail('shell-host.ts does not inject verified bytes via iframe.srcdoc');
   }
-  if (!shellHost.includes('iframe.src = metadata.htmlUrl')) {
-    fail('shell-host.ts does not navigate iframes with gateway metadata htmlUrl');
+  if (!shellHost.includes('markSourceDerivedIdentity(')) {
+    fail('shell-host.ts does not bind source-derived (computed) identity');
+  }
+  if (shellHost.includes('iframe.src = metadata.htmlUrl') || shellHost.includes('/napplet-gateway/')) {
+    fail('shell-host.ts still uses the retired gateway htmlUrl/metadata navigation');
   }
   if (!shellHost.includes("iframe.sandbox.add('allow-scripts')")) {
     fail("shell-host.ts does not explicitly add sandbox allow-scripts");
   }
   if (shellHost.includes('allow-same-origin')) {
-    fail('shell-host.ts contains allow-same-origin; gateway napplets must stay opaque-origin');
+    fail('shell-host.ts contains allow-same-origin; napplets must stay opaque-origin');
   }
   if (shellHost.includes('`/napplets/${name}/index.html`')) {
     fail('shell-host.ts contains the legacy active /napplets iframe URL');
@@ -105,10 +108,13 @@ function assertDist(name) {
 
   const html = read(indexPath);
   if (!html.includes('__kehtoHostedShellBootstrap')) {
-    fail(`${rel(indexPath)} missing hosted shell bootstrap`);
+    fail(`${rel(indexPath)} missing hosted shell bootstrap marker`);
   }
-  if (!html.includes("type: 'shell.ready'") || !html.includes("message.type !== 'shell.init'")) {
-    fail(`${rel(indexPath)} missing shell.ready/shell.init supports bridge`);
+  // The NAP-SHELL handshake is provided by the bundled @napplet/shim (it posts
+  // shell.ready and caches shell.init to answer supports()); the legacy custom
+  // supports bridge was removed in the @napplet 0.12/0.13 modernization.
+  if (!html.includes('shell.ready')) {
+    fail(`${rel(indexPath)} missing bundled @napplet/shim shell.ready handshake`);
   }
   if (LOCAL_SCRIPT_SRC_RE.test(html)) {
     fail(`${rel(indexPath)} contains external script src`);
