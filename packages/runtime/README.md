@@ -3,7 +3,7 @@
 Browser-agnostic protocol engine for the napplet protocol.
 
 > **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
-> protocol. NUB contracts and runtime APIs are not final; treat this package as
+> protocol. NAP contracts and runtime APIs are not final; treat this package as
 > current implementation guidance, not as a stable protocol guarantee.
 
 ## Install
@@ -14,7 +14,7 @@ pnpm add @kehto/runtime
 
 ## Overview
 
-`@kehto/runtime` is Kehto's NIP-5D protocol engine. It owns every incoming napplet message, gates it through the ACL enforcement layer, routes it to the correct NUB handler, and emits the corresponding reply envelope.
+`@kehto/runtime` is Kehto's NIP-5D protocol engine. It owns every incoming napplet message, gates it through the ACL enforcement layer, routes it to the correct NAP handler, and emits the corresponding reply envelope.
 
 The runtime is built around the current draft dispatch contract from `@napplet/core` — `createDispatch()` + `registerNub()` — so routing is declarative, not a hand-rolled switch. It covers the NIP-5D domains currently supported by Kehto:
 

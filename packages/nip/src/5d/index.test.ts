@@ -40,6 +40,10 @@ interface BuildOpts {
   noIndex?: boolean;
   /** Omit the aggregate x tag entirely. */
   noAggregateTag?: boolean;
+  /** Archetype tags to emit: `[slug]` or `[slug, nap]`. */
+  archetypes?: Array<[string] | [string, string]>;
+  /** Emit a `source` tag with this value. */
+  source?: string;
 }
 
 function buildManifest(opts: BuildOpts = {}) {
@@ -58,6 +62,8 @@ function buildManifest(opts: BuildOpts = {}) {
   tags.push(['requires', 'storage']);
   tags.push(['title', 'Chat']);
   tags.push(['description', 'A chat napplet']);
+  for (const a of opts.archetypes ?? []) tags.push(['archetype', ...a]);
+  if (opts.source !== undefined) tags.push(['source', opts.source]);
 
   const event = finalizeEvent(
     { kind: opts.kind ?? NAPPLET_KIND_NAMED, created_at: 1_700_000_000, tags, content: '' },
@@ -107,6 +113,7 @@ describe('parseNappletManifest', () => {
     expect(m.requires).toEqual(['relay', 'storage']);
     expect(m.title).toBe('Chat');
     expect(m.description).toBe('A chat napplet');
+    expect(m.archetypes).toEqual([]);
     expect(m.pubkey).toBe(event.pubkey);
   });
 
@@ -126,6 +133,48 @@ describe('parseNappletManifest', () => {
   it('rejects a manifest with no aggregate x tag', () => {
     const { event } = buildManifest({ noAggregateTag: true });
     expect(() => parseNappletManifest(event)).toThrow(/aggregate/i);
+  });
+});
+
+describe('archetype + source parsing', () => {
+  it('parses a single archetype tag with a NAP-N protocol', () => {
+    const { event } = buildManifest({ archetypes: [['profile', 'NAP-1']] });
+    const m = parseNappletManifest(event);
+    expect(m.archetypes).toEqual([{ slug: 'profile', nap: 'NAP-1' }]);
+  });
+
+  it('parses multiple archetype tags in declared order', () => {
+    const { event } = buildManifest({ archetypes: [['profile', 'NAP-1'], ['feed', 'NAP-2']] });
+    const m = parseNappletManifest(event);
+    expect(m.archetypes).toEqual([
+      { slug: 'profile', nap: 'NAP-1' },
+      { slug: 'feed', nap: 'NAP-2' },
+    ]);
+  });
+
+  it('yields an empty array when no archetype tag is present', () => {
+    const { event } = buildManifest();
+    const m = parseNappletManifest(event);
+    expect(m.archetypes).toEqual([]);
+  });
+
+  it('omits nap when the archetype tag has no 3rd element', () => {
+    const { event } = buildManifest({ archetypes: [['feed']] });
+    const m = parseNappletManifest(event);
+    expect(m.archetypes).toEqual([{ slug: 'feed' }]);
+    expect('nap' in m.archetypes[0]).toBe(false);
+  });
+
+  it('parses the source tag when present', () => {
+    const { event } = buildManifest({ source: 'https://example.com/src' });
+    const m = parseNappletManifest(event);
+    expect(m.source).toBe('https://example.com/src');
+  });
+
+  it('leaves source undefined when absent', () => {
+    const { event } = buildManifest();
+    const m = parseNappletManifest(event);
+    expect(m.source).toBeUndefined();
   });
 });
 

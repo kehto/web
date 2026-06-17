@@ -1,4 +1,4 @@
-import type { MediaAction, MediaMetadata } from '@napplet/nub/media/types';
+import type { MediaAction, MediaMetadata } from '@napplet/nap/media/types';
 import type { HostMediaBridge } from './media-service.js';
 
 /** Silent-audio prime data URL (4 kHz silent WAV, 44 bytes, zero network dependency).

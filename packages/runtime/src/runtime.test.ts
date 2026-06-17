@@ -1,7 +1,7 @@
 /**
  * runtime.test.ts — Integration tests for the ifc channel sub-protocol (NUB-04 / DRIFT-RT-09).
  *
- * Exercises the full 14-type @napplet/nub/ifc surface via createRuntime → handleMessage
+ * Exercises the full 14-type @napplet/nap/ifc surface via createRuntime → handleMessage
  * round-trips between three mock napplet windows (A, B, C). The channel sub-protocol
  * tests (open / emit / event fanout / list / close / broadcast) are the RED baseline for
  * Plan 12-04 Task 2's handleIfcMessage extension.

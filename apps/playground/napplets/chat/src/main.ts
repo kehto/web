@@ -1,11 +1,11 @@
 /**
  * Chat demo napplet — helper-based SDK migration (NAP-02, Phase 18).
  *
- * Exercises: ifc (ifcEmit/ifcOn for chat↔bot round-trip) + storage (history persistence).
+ * Exercises: inc (incEmit/incOn for chat↔bot round-trip) + storage (history persistence).
  * Optional showcase: relay.publish for kind:1 events (D-03).
  *
- * - Sends ifcEmit('chat:message', ...) on user input (D-03)
- * - Receives ifcOn('bot:response', ...) for bot replies (D-03)
+ * - Sends incEmit('chat:message', ...) on user input (D-03)
+ * - Receives incOn('bot:response', ...) for bot replies (D-03)
  * - Persists chat history via storageSetItem/storageGetItem under key 'chat-history'
  * - Posts #chat-status = 'ready' after init completes (loadHistory resolves)
  *
@@ -14,20 +14,27 @@
  */
 import '@napplet/shim';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
-import { ifcEmit, ifcOn } from '@napplet/nub/ifc/sdk';
-import { storageGetItem, storageSetItem } from '@napplet/nub/storage/sdk';
-import { relayPublish, relaySubscribe } from '@napplet/nub/relay/sdk';
+import { incEmit, incOn } from '@napplet/nap/inc/sdk';
+import { storageGetItem, storageSetItem } from '@napplet/nap/storage/sdk';
+import { relayPublish, relaySubscribe } from '@napplet/nap/relay/sdk';
 import type { EventTemplate } from '@napplet/core';
 
-const REQUIRED_NAPS = ['ifc', 'storage', 'relay', 'theme'] as const;
+const REQUIRED_NAPS = ['inc', 'storage', 'relay', 'theme'] as const;
+
+// The released @napplet/shim 0.13 installs shell.supports() asynchronously, on
+// the shell.init message — not synchronously at module load. Poll briefly so a
+// capability check that races ahead of shell.init does not spuriously report
+// every NAP as missing. (Mirrors feed/profile-viewer.)
+const CAPABILITY_WAIT_MS = 5_000;
+const CAPABILITY_WAIT_INTERVAL_MS = 25;
 
 /**
  * Emit a notifications:create event through the real napplet→service path.
- * The shell routes this IFC event to the notification service handler.
+ * The shell routes this INC event to the notification service handler.
  */
 function notifyCreate(title: string, body: string): void {
   try {
-    ifcEmit('notifications:create', [], JSON.stringify({ title, body }));
+    incEmit('notifications:create', [], JSON.stringify({ title, body }));
   } catch {
     /* best-effort — don't break the main flow if notifications are denied */
   }
@@ -50,6 +57,22 @@ function formatError(error: unknown, fallback: string): string {
 function getMissingRequiredNaps(): string[] {
   const supports = window.napplet.shell.supports;
   return REQUIRED_NAPS.filter((capability) => !supports(capability));
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function waitForRequiredNaps(): Promise<void> {
+  const deadline = Date.now() + CAPABILITY_WAIT_MS;
+  let missing = getMissingRequiredNaps();
+  while (missing.length > 0 && Date.now() < deadline) {
+    await sleep(CAPABILITY_WAIT_INTERVAL_MS);
+    missing = getMissingRequiredNaps();
+  }
+  if (missing.length > 0) {
+    throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);
+  }
 }
 
 function addMessage(text: string, type: 'self' | 'other' | 'system' = 'system'): void {
@@ -101,16 +124,16 @@ async function sendMessage(): Promise<void> {
   await saveToHistory(text);
 
   try {
-    ifcEmit('chat:message', [], JSON.stringify({ text, timestamp: Date.now() }));
-    addMessage('ifc send attempted -- chat:message', 'system');
+    incEmit('chat:message', [], JSON.stringify({ text, timestamp: Date.now() }));
+    addMessage('inc send attempted -- chat:message', 'system');
     // Emit notification so the host can surface this message send as a toast
     notifyCreate('Chat message sent', text.length > 60 ? text.slice(0, 60) + '…' : text);
   } catch (error) {
-    addMessage(`ifc send failed -- ${formatError(error, 'denied: ifc')}`, 'system');
+    addMessage(`inc send failed -- ${formatError(error, 'denied: inc')}`, 'system');
   }
 
   // Publish to relay (optional showcase — exercises relay:write + signing path per D-03).
-  // Wrapped in its own try so relay denial does not break the IFC path.
+  // Wrapped in its own try so relay denial does not break the INC path.
   try {
     const template: EventTemplate = {
       kind: 1,
@@ -130,10 +153,7 @@ inputEl.addEventListener('keydown', (e) => {
 });
 
 async function init(): Promise<void> {
-  const missing = getMissingRequiredNaps();
-  if (missing.length > 0) {
-    throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);
-  }
+  await waitForRequiredNaps();
   installNapTheme();
   onNapThemeChanged((theme) => {
     applyNapTheme(theme);
@@ -141,12 +161,12 @@ async function init(): Promise<void> {
 
   await loadHistory();
 
-  // Subscribe to bot replies via IFC (D-03) BEFORE announcing ready, so a sender
+  // Subscribe to bot replies via INC (D-03) BEFORE announcing ready, so a sender
   // that acts on the "ready" signal cannot race ahead of this subscription.
-  ifcOn('bot:response', (payload: unknown) => {
+  incOn('bot:response', (payload: unknown) => {
     const data = payload as { text?: string };
     if (data.text) {
-      addMessage('ifc receive -- bot:response', 'system');
+      addMessage('inc receive -- bot:response', 'system');
       addMessage(`[bot] ${data.text}`, 'other');
     }
   });
@@ -156,7 +176,7 @@ async function init(): Promise<void> {
   addMessage('ready to chat', 'system');
 
   // Optional: subscribe to a tagged relay topic for the publish showcase (D-03).
-  // Wrapped in try so a relay:read denial does not break IFC functionality.
+  // Wrapped in try so a relay:read denial does not break INC functionality.
   try {
     relaySubscribe(
       [{ kinds: [1], '#t': ['demo-chat'], limit: 10 }],

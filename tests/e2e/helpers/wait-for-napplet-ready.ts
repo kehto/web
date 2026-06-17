@@ -18,7 +18,7 @@ import type { Page } from '@playwright/test';
  * @returns A Promise that resolves when __nappletReady__(windowId) === true.
  *
  * @example
- *   const wid = await page.evaluate(() => window.__loadNapplet__('nub-identity'));
+ *   const wid = await page.evaluate(() => window.__loadNapplet__('nap-identity'));
  *   await waitForNappletReady(page, wid);
  *   // Safe to interact with the napplet now.
  */

@@ -27,7 +27,7 @@
     - deferred _sessionRegistryRef:        apps/demo/src/shell-host.ts:865 (let _sessionRegistryRef)
     - resource-demo napplet:               apps/demo/napplets/resource-demo/ (12th DEMO_NAPPLETS entry)
     - auto-grant fixture (D3):             apps/demo/src/main.ts:689 (__grantConnectOrigin__('resource-demo', '', 'http://localhost:4174'))
-    - nub-resource.spec.ts (E2E-25):       tests/e2e/nub-resource.spec.ts (2 tests: granted + denied)
+    - nap-resource.spec.ts (E2E-25):       tests/e2e/nap-resource.spec.ts (2 tests: granted + denied)
 
   Host-app-responsibility surface (D7, delegated to host-supplied fetch option):
     - Redirect limits (RFC 7231 §6.4, recommended max 5 hops with per-hop DNS re-validation)

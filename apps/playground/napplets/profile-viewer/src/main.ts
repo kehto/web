@@ -3,12 +3,12 @@
  */
 import '@napplet/shim';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
-import { ifcOn } from '@napplet/nub/ifc/sdk';
-import { relaySubscribe } from '@napplet/nub/relay/sdk';
+import { incOn } from '@napplet/nap/inc/sdk';
+import { relaySubscribe } from '@napplet/nap/relay/sdk';
 import type { NostrEvent, Subscription } from '@napplet/core';
 
-const REQUIRED_NAPS = ['ifc', 'relay', 'theme'] as const;
-const REQUIRED_IFC_PROTOCOL = 'ifc:NAP-01';
+const REQUIRED_NAPS = ['inc', 'relay', 'theme'] as const;
+const REQUIRED_INC_PROTOCOL = 'NAP-01';
 const CAPABILITY_WAIT_MS = 5_000;
 const CAPABILITY_WAIT_INTERVAL_MS = 25;
 const PROFILE_LOAD_TIMEOUT_MS = 8_000;
@@ -31,7 +31,7 @@ type ProfileMetadata = {
 };
 
 let profileSub: Subscription | null = null;
-let ifcSub: Subscription | null = null;
+let incSub: Subscription | null = null;
 let profileLoadTimer: number | null = null;
 
 function formatError(error: unknown, fallback: string): string {
@@ -54,7 +54,7 @@ function getMissingRequiredNaps(): string[] {
   const supports = window.napplet.shell.supports;
   return [
     ...REQUIRED_NAPS.filter((capability) => !supports(capability)),
-    ...(!supports(REQUIRED_IFC_PROTOCOL) ? [REQUIRED_IFC_PROTOCOL] : []),
+    ...(!supports('inc', REQUIRED_INC_PROTOCOL) ? [`inc:${REQUIRED_INC_PROTOCOL}`] : []),
   ];
 }
 
@@ -222,7 +222,7 @@ function payloadPubkey(payload: unknown): string | null {
 }
 
 function subscribeToProfileOpen(): void {
-  ifcSub = ifcOn('profile:open', (payload) => {
+  incSub = incOn('profile:open', (payload) => {
     const pubkey = payloadPubkey(payload);
     if (!pubkey) return;
     loadProfile(pubkey);
@@ -242,12 +242,12 @@ async function init(): Promise<void> {
 
 init().catch((err) => {
   if (statusEl.textContent === 'connecting...') {
-    setStatus(`denied: ${formatError(err, 'ifc or relay unavailable')}`, 'red');
+    setStatus(`denied: ${formatError(err, 'inc or relay unavailable')}`, 'red');
   }
 });
 
 window.addEventListener('pagehide', () => {
   clearProfileLoadTimer();
   profileSub?.close();
-  ifcSub?.close();
+  incSub?.close();
 });

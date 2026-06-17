@@ -15,13 +15,13 @@ const playgroundNapplets = [
 ] as const;
 
 const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly string[]> = {
-  bot: ['ifc', 'storage', 'theme'],
-  chat: ['ifc', 'storage', 'relay', 'theme'],
+  bot: ['inc', 'storage', 'theme'],
+  chat: ['inc', 'storage', 'relay', 'theme'],
   composer: ['relay', 'theme'],
   'cvm-relatr': ['cvm', 'theme'],
-  feed: ['identity', 'relay', 'ifc', 'theme'],
+  feed: ['identity', 'relay', 'inc', 'theme'],
   preferences: ['storage', 'theme'],
-  'profile-viewer': ['ifc', 'relay', 'theme'],
+  'profile-viewer': ['inc', 'relay', 'theme'],
   'resource-demo': ['resource', 'connect', 'theme'],
   toaster: ['notify', 'theme'],
 };
@@ -40,16 +40,20 @@ describe('playground gateway artifact guard', () => {
       const expectedRequiresLiteral = expectedRequires[name]
         .map((capability) => `'${capability}'`)
         .join(', ');
-      expect(config, `${name} d tag/requires`).toContain(
-        `export default definePlaygroundNappletConfig('${name}', { requires: [${expectedRequiresLiteral}] });`,
-      );
+      // profile-viewer also declares the NAAT archetype axis (Phase 87, ARCH-03):
+      // it carries an additional `archetypes` option after `requires`.
+      const expectedConfig =
+        name === 'profile-viewer'
+          ? `export default definePlaygroundNappletConfig('${name}', { requires: [${expectedRequiresLiteral}], archetypes: [{ slug: 'profile', nap: 'NAP-1' }] });`
+          : `export default definePlaygroundNappletConfig('${name}', { requires: [${expectedRequiresLiteral}] });`;
+      expect(config, `${name} d tag/requires`).toContain(expectedConfig);
     }
 
     const sharedConfig = readRepoFile('apps/playground/napplets/shared-vite-config.ts');
-    expect(sharedConfig).toContain('playgroundSingleFileArtifact()');
+    expect(sharedConfig).toContain('playgroundSingleFileArtifact(archetypes)');
     expect(sharedConfig).toContain("artifactMode: 'external-assets'");
     expect(sharedConfig).toContain('assertSingleFileArtifact(inlinedHtml, distPath)');
-    expect(sharedConfig).toContain('recomputeManifest(distPath, inlinedHtml)');
+    expect(sharedConfig).toContain('recomputeManifest(distPath, inlinedHtml, archetypes)');
     expect(sharedConfig).toContain('requires?: readonly string[]');
     expect(sharedConfig).toContain('manifest requires must use short NAP names');
     expect(sharedConfig).toContain('requires,');
@@ -141,20 +145,20 @@ describe('playground gateway artifact guard', () => {
     const demoHooks = readRepoFile('apps/playground/src/demo-hooks.ts');
     const workerRelay = readRepoFile('apps/playground/src/playground-worker-relay.ts');
 
-    expect(feedSource).toContain("import { identityGetPublicKey, identityOnChanged } from '@napplet/nub/identity/sdk';");
-    expect(feedSource).toContain("import { ifcEmit } from '@napplet/nub/ifc/sdk';");
+    expect(feedSource).toContain("import { identityGetPublicKey, identityOnChanged } from '@napplet/nap/identity/sdk';");
+    expect(feedSource).toContain("import { incEmit } from '@napplet/nap/inc/sdk';");
     expect(feedSource).toContain("import { createFeedStore, type FeedProfile } from './feed-store.js';");
     expect(feedSource).toContain("import { createFeedIdentityEventController } from './feed-identity-events.js';");
-    expect(feedSource).toContain("const REQUIRED_NAPS = ['identity', 'relay', 'ifc', 'theme'] as const;");
-    expect(feedSource).toContain("const REQUIRED_IFC_PROTOCOL = 'ifc:NAP-01';");
-    expect(feedSource).toContain('supports(REQUIRED_IFC_PROTOCOL)');
+    expect(feedSource).toContain("const REQUIRED_NAPS = ['identity', 'relay', 'inc', 'theme'] as const;");
+    expect(feedSource).toContain("const REQUIRED_INC_PROTOCOL = 'NAP-01';");
+    expect(feedSource).toContain("supports('inc', REQUIRED_INC_PROTOCOL)");
     expect(feedSource).toContain('readPublicKey: identityGetPublicKey');
     expect(feedSource).toContain('subscribeToChanges: identityOnChanged');
     expect(feedSource).toContain('identityController.start();');
     expect(feedSource).toContain("setStatus('not logged in', 'red');");
     expect(existsSync('apps/playground/napplets/feed/src/feed-identity-controller.ts')).toBe(false);
     expect(feedSource).not.toContain('Welcome to the kehto demo');
-    expect(feedStore).toContain("import { relaySubscribe } from '@napplet/nub/relay/sdk';");
+    expect(feedStore).toContain("import { relaySubscribe } from '@napplet/nap/relay/sdk';");
     expect(feedStore).toContain('[{ kinds: [3], authors: [pubkey] }]');
     expect(feedStore).toContain('return { kinds: [1], authors: pubkeys };');
     expect(feedStore).toContain('[{ ...filter, limit: 50 }]');
@@ -165,7 +169,7 @@ describe('playground gateway artifact guard', () => {
     expect(feedSource).toContain("button.className = 'feed-item-author feed-profile-button feed-profile-name-button';");
     expect(feedSource).toContain("timeEl.className = 'feed-item-time';");
     expect(feedSource).toContain('formatPublishedAgo(event.created_at)');
-    expect(feedSource).toContain("ifcEmit('profile:open', [], JSON.stringify({ pubkey: normalized }));");
+    expect(feedSource).toContain("incEmit('profile:open', [], JSON.stringify({ pubkey: normalized }));");
     expect(feedSource).toContain('renderProfileAvatarButton(event.pubkey, authorName, profile)');
     expect(feedSource).toContain('renderAuthorButton(event.pubkey, authorName)');
     expect(feedSource).not.toContain("pubkeyEl.className = 'feed-item-pubkey';");
@@ -188,13 +192,13 @@ describe('playground gateway artifact guard', () => {
     const profileSource = readRepoFile('apps/playground/napplets/profile-viewer/src/main.ts');
     const profileHtml = readRepoFile('apps/playground/napplets/profile-viewer/index.html');
 
-    expect(profileSource).toContain("import { ifcOn } from '@napplet/nub/ifc/sdk';");
-    expect(profileSource).toContain("import { relaySubscribe } from '@napplet/nub/relay/sdk';");
-    expect(profileSource).toContain("const REQUIRED_NAPS = ['ifc', 'relay', 'theme'] as const;");
-    expect(profileSource).toContain("const REQUIRED_IFC_PROTOCOL = 'ifc:NAP-01';");
+    expect(profileSource).toContain("import { incOn } from '@napplet/nap/inc/sdk';");
+    expect(profileSource).toContain("import { relaySubscribe } from '@napplet/nap/relay/sdk';");
+    expect(profileSource).toContain("const REQUIRED_NAPS = ['inc', 'relay', 'theme'] as const;");
+    expect(profileSource).toContain("const REQUIRED_INC_PROTOCOL = 'NAP-01';");
     expect(profileSource).toContain('const CAPABILITY_WAIT_MS = 5_000;');
-    expect(profileSource).toContain("formatError(err, 'ifc or relay unavailable')");
-    expect(profileSource).toContain("ifcOn('profile:open'");
+    expect(profileSource).toContain("formatError(err, 'inc or relay unavailable')");
+    expect(profileSource).toContain("incOn('profile:open'");
     expect(profileSource).toContain('[{ kinds: [0], authors: [pubkey], limit: 1 }]');
     expect(profileSource).toContain('normalizePubkey');
     expect(profileSource).not.toContain('identityGetProfile');

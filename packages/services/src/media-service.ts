@@ -2,7 +2,7 @@
  * media-service.ts — NIP-5D media NUB reference service (navigator.mediaSession
  * reference implementation).
  *
- * Handles the napplet-owned subset of @napplet/nub/media:
+ * Handles the napplet-owned subset of @napplet/nap/media:
  *   media.session.create (result), media.session.update, media.session.destroy,
  *   media.state, media.capabilities.
  *
@@ -17,7 +17,7 @@
  * napplet-supplied metadata to navigator.mediaSession.metadata via new MediaMetadata()
  * and installs setActionHandler callbacks for the 5 OS transport actions
  * (play / pause / nexttrack / previoustrack / seekto). Each callback emits a canonical
- * media.command envelope to the owning napplet — that is the @napplet/nub/media
+ * media.command envelope to the owning napplet — that is the @napplet/nap/media
  * MediaCommandMessage shape consumed by the SDK's mediaOnCommand() helper.
  *
  * NAP-MEDIA now distinguishes napplet-owned playback from shell-owned
@@ -48,7 +48,7 @@
  *
  * Note: this is SEPARATE from packages/services/src/audio-service.ts, which
  * is the legacy ifc-topic-based audio source registry (audio:* topic events
- * over ifc.emit). media-service is the canonical @napplet/nub/media NIP-5D
+ * over ifc.emit). media-service is the canonical @napplet/nap/media NIP-5D
  * path and they coexist — audio-service continues to track audio sources for
  * shell UI, while media-service handles the NUB protocol envelope surface.
  *
@@ -68,7 +68,7 @@ import type {
   MediaSessionDestroyMessage,
   MediaSessionUpdateMessage,
   MediaStateMessage,
-} from '@napplet/nub/media/types';
+} from '@napplet/nap/media/types';
 import {
   createBrowserMediaBridge,
   DEFAULT_MEDIA_ACTIONS,
@@ -548,7 +548,7 @@ function destroyMediaState(state: MediaServiceState, unsubscribeAction: () => vo
  * Create a media NUB service handler with navigator.mediaSession integration.
  *
  * Implements the 5 napplet->shell media.* request types defined in
- * `@napplet/nub/media`. Only `media.session.create` produces a reply
+ * `@napplet/nap/media`. Only `media.session.create` produces a reply
  * envelope (`media.session.create.result`) — the remaining four
  * (`session.update`, `session.destroy`, `state`, `capabilities`) are
  * fire-and-forget per the NUB spec.

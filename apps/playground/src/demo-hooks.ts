@@ -303,7 +303,10 @@ export function getShellCapabilities(): ShellCapabilities | null {
 export function getMissingRequiredNaps(requires: readonly string[]): string[] {
   const capabilities = shellCapabilities;
   if (!capabilities) return [...requires];
-  const supported = new Set(capabilities.nubs);
+  // Prefer the NAP vocabulary (`naps`, which carries `inc`) so a napplet that
+  // declares requires:['inc',...] resolves correctly; fall back to the legacy
+  // `nubs` array only when `naps` is empty (older shell emitting nubs-only).
+  const supported = new Set(capabilities.naps.length ? capabilities.naps : capabilities.nubs);
   return requires.filter((capability) => !supported.has(capability));
 }
 

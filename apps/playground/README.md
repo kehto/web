@@ -1,8 +1,8 @@
 # @kehto/demo
 
-Reference consumer of the current napplet protocol draft — a 10-napplet browser demo that hosts `@kehto/runtime` + `@kehto/shell` and exercises Kehto's supported NIP-5D NUB surfaces end-to-end. Acts as both the Playwright test harness target (`:4174` preview build) and the showcase for external integrators evaluating Kehto as an early runtime implementation.
+Reference consumer of the current napplet protocol draft — a 10-napplet browser demo that hosts `@kehto/runtime` + `@kehto/shell` and exercises Kehto's supported NIP-5D NAP surfaces end-to-end. Acts as both the Playwright test harness target (`:4174` preview build) and the showcase for external integrators evaluating Kehto as an early runtime implementation.
 
-> **Alpha status:** NIP-5D is still under development, and NUB contracts are not
+> **Alpha status:** NIP-5D is still under development, and NAP contracts are not
 > final. The playground demonstrates Kehto's current behavior; it is not proof
 > that the protocol or helper APIs are stable.
 
@@ -34,15 +34,20 @@ The legacy `/napplets/<name>/...` static route may still exist for compatibility
 
 The demo hosts 10 sandboxed napplets, each built independently under `apps/playground/napplets/<name>/` and loaded into a topology-rendered iframe at runtime. v1.3 shipped an 8-napplet demo; later milestones added `resource-demo` and `cvm-relatr`.
 
-| Napplet | Domain(s) | NUB methods exercised | File path |
+The cross-napplet domain is `inc` (the NAP rename of the legacy `ifc`). The four
+napplets below declare `requires` / call `supports()` with `inc`; the runtime
+dual-routes `ifc`+`inc` for the back-compat window, so legacy `ifc.*` envelopes
+still reach the same handler (removal tracked as CLEANUP-01).
+
+| Napplet | Domain(s) | NAP methods exercised | File path |
 |---------|-----------|------------------------|-----------|
-| bot | ifc, storage | `ifc.emit`, `ifc.subscribe`, `storage.get` | [apps/playground/napplets/bot/src/](./napplets/bot/src/) |
-| chat | ifc, storage, relay | `ifc.emit`, `ifc.subscribe`, `storage.get`, `storage.set`, `relay.publish` | [apps/playground/napplets/chat/src/](./napplets/chat/src/) |
+| bot | inc, storage | `inc.emit`, `inc.subscribe`, `storage.get` | [apps/playground/napplets/bot/src/](./napplets/bot/src/) |
+| chat | inc, storage, relay | `inc.emit`, `inc.subscribe`, `storage.get`, `storage.set`, `relay.publish` | [apps/playground/napplets/chat/src/](./napplets/chat/src/) |
 | composer | relay | `relay.publish`, `relay.publishEncrypted` | [apps/playground/napplets/composer/src/](./napplets/composer/src/) |
 | cvm-relatr | cvm | `cvm.discover`, `cvm.request` (`tools/call` calculate_trust_score) against the Relatr ContextVM server | [apps/playground/napplets/cvm-relatr/src/](./napplets/cvm-relatr/src/) |
-| feed | identity, relay, ifc | `identity.getPublicKey`, `relay.subscribe`, `ifc.emit` (`profile:open`) | [apps/playground/napplets/feed/src/](./napplets/feed/src/) |
+| feed | identity, relay, inc | `identity.getPublicKey`, `relay.subscribe`, `inc.emit` (`profile:open`) | [apps/playground/napplets/feed/src/](./napplets/feed/src/) |
 | preferences | storage, theme | `storage.set`, `storage.get`, `theme.changed` allowlisted listener | [apps/playground/napplets/preferences/src/](./napplets/preferences/src/) |
-| profile-viewer | ifc, relay | `ifc.subscribe` (`profile:open`), `relay.subscribe` | [apps/playground/napplets/profile-viewer/src/](./napplets/profile-viewer/src/) |
+| profile-viewer | inc, relay | `inc.subscribe` (`profile:open`), `relay.subscribe` | [apps/playground/napplets/profile-viewer/src/](./napplets/profile-viewer/src/) |
 | resource-demo | resource, connect | `resource.bytes`, connect grant/CSP fixture | [apps/playground/napplets/resource-demo/src/](./napplets/resource-demo/src/) |
 | theme-switcher | identity, relay, theme | discovers user/WoT/global theme events through NAP relay; `theme.set` shell theme request | [apps/playground/napplets/theme-switcher/src/](./napplets/theme-switcher/src/) |
 | toaster | notify | `notify.create`, `notify.list`, `notify.dismiss` | [apps/playground/napplets/toaster/src/](./napplets/toaster/src/) |
@@ -56,7 +61,7 @@ The demo renders 8 service nodes reflecting the NIP-5D service surface the runti
 - **identity** — read-only identity lookups backed by the shell's signer adapter (`getPublicKey`, `getRelays`, `getProfile`).
 - **keys** — real document-level chord listener (v1.4 Phase 26, `KEYS-01..03`).
 - **media** — real `navigator.mediaSession` mirror (v1.4 Phase 27, `MEDIA-01..03`).
-- **notifications** — notification service (both canonical `notify.*` NUB and legacy ifc-emit `notifications:*` channel).
+- **notifications** — notification service (both canonical `notify.*` NAP and legacy ifc-emit `notifications:*` channel).
 - **relay** — `nostr-tools` SimplePool relay pool service (`relay.publish`, `relay.subscribe`, etc).
 - **signer** — shell-side signing proxy; napplet-invisible per NIP-5D (`MUST NOT` expose `window.nostr`).
 - **storage** — per-napplet namespaced localStorage proxy.
@@ -80,11 +85,11 @@ Capability list (active in v1.4):
 - `relay:read` / `relay:write` — REQ / EVENT pass-through
 - `state:read` / `state:write` — shell:state-get / shell:state-set
 - `storage:read` / `storage:write` — per-napplet localStorage
-- `notify:send` / `notify:channel` — notify.* NUB
+- `notify:send` / `notify:channel` — notify.* NAP
 - `theme:read` — theme.get + theme.changed
 - `cache:read` / `cache:write` — offline event cache
 - `keys:forward` — keys.action push delivery (KEYS-03)
-- `media:control` — media.* NUB control surface (MEDIA-03)
+- `media:control` — media.* NAP control surface (MEDIA-03)
 
 Default ACL state on demo boot: all capabilities ungranted. The demo UI + Playwright specs grant capabilities explicitly per test scenario.
 
