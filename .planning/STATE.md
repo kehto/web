@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 Phase: 89 — Spec / Doc Refresh & Conformance Sweep (complete)
 Plan: 89-01 — complete (DOCS-01..04 + VERIFY-01)
 Status: Phase 89 executed — specs/NIP-5D refreshed to #2303/NAP model, NAP-SHELL/NAP-INTENT mirrors added, RUNTIME-SPEC refreshed (toolchain + unknown-type handling), NUB→NAP doc sweep, modernization changesets for all 6 @kehto packages; build 24/24 + type-check 13/13 + e2e 80/80 green
-Last activity: 2026-06-17 — completed quick task 260617-qoi: dropped NAP-CLASS/NAP-CLASS-1/NAP-CONNECT (clean break) and replaced local spec mirrors with living-doc references
+Last activity: 2026-06-17 — completed quick task 260617-wig: added optional @kehto/shell onUnroutedMessage observability hook (surfaces silently-dropped unregistered-window messages — FEED-02 / hyprgate#21)
 
 ## Performance Metrics
 
@@ -79,6 +79,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 |---|-------------|------|--------|-----------|
 | 260616-8iv | Move playground theme-switcher functionality from napplet into host theme-service node | 2026-06-16 | f4358b4 | [260616-8iv-move-playground-theme-switcher-functiona](./quick/260616-8iv-move-playground-theme-switcher-functiona/) |
 | 260617-qoi | Drop NAP-CLASS, NAP-CLASS-1, NAP-CONNECT (clean break) + replace local spec mirrors with living-doc references | 2026-06-17 | 1d0eef3 | [260617-qoi-drop-nap-class-nap-class-1-nap-connect-c](./quick/260617-qoi-drop-nap-class-nap-class-1-nap-connect-c/) |
+| 260617-wig | Add optional @kehto/shell `onUnroutedMessage` observability hook (surfaces silently-dropped unregistered-window messages — FEED-02 / hyprgate#21) | 2026-06-17 | fba1b67 | [260617-wig-shell-unrouted-message-hook](./quick/260617-wig-shell-unrouted-message-hook/) |
 
 ## Session Continuity
 
