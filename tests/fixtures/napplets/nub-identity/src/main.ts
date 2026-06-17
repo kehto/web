@@ -13,7 +13,7 @@
  *   NO raw postMessage, NO NIP-01 envelopes, NO bus-kind references, NO signer service.
  */
 import '@napplet/shim';
-import { identityGetProfile, identityGetPublicKey } from '@napplet/nub/identity/sdk';
+import { identityGetProfile, identityGetPublicKey } from '@napplet/nap/identity/sdk';
 
 const statusEl = document.getElementById('nub-status')!;
 const pubkeyEl = document.getElementById('nub-pubkey')!;
