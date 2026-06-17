@@ -289,3 +289,199 @@ describe('storage nub — ACL denial emits canonical result envelope', () => {
     expect(findEnvelopeResponse(mock.sent, 'storage.get.error')).toBeUndefined();
   });
 });
+
+// ─── Per-instance scope (NAP-STORAGE / napplet/naps#3) ──────────────────────
+//
+// `scope: "shared" | "instance"` is a per-call wire field (default "shared").
+// "instance" isolates a key to the calling window's sub-namespace; "shared"
+// (or absent) stays common to every window of the napplet. The napplet never
+// sees an instance id — the shell folds `windowId` into the key. These tests
+// exercise both scopes across two windows of the *same* `(dTag, hash)` identity.
+
+/** Multi-window harness: many windowIds, one napplet identity, shared store. */
+interface MultiHarness {
+  sent: NappletMessage[];
+  stateStore: Map<string, string>;
+  dispatchAs(windowId: string, msg: NappletMessage): void;
+  lastOfType(type: string): NappletMessage | undefined;
+}
+
+function createMultiHarness(windowIds: string[], quota = 1024 * 1024): MultiHarness {
+  const sent: NappletMessage[] = [];
+  const stateStore = new Map<string, string>();
+
+  const statePersistence: StatePersistence = {
+    get(key: string) { return stateStore.get(key) ?? null; },
+    set(key: string, value: string) { stateStore.set(key, value); return true; },
+    remove(key: string) { stateStore.delete(key); },
+    clear(prefix: string) {
+      for (const k of stateStore.keys()) { if (k.startsWith(prefix)) stateStore.delete(k); }
+    },
+    keys(prefix: string) { return [...stateStore.keys()].filter(k => k.startsWith(prefix)); },
+    calculateBytes(prefix: string) {
+      let bytes = 0;
+      for (const [k, v] of stateStore.entries()) {
+        if (k.startsWith(prefix)) bytes += k.length + v.length;
+      }
+      return bytes;
+    },
+  };
+
+  const sessionRegistry = createSessionRegistry();
+  // Every window shares the same (dTag, aggregateHash) identity — distinct only
+  // by windowId, which is exactly the instance discriminator under test.
+  for (const w of windowIds) {
+    sessionRegistry.register(w, createNip5dSessionEntry(w, TEST_DTAG, TEST_HASH));
+  }
+
+  const aclBase = createAclState(makeAclPersistence(), 'permissive');
+  const aclState: AclStateContainer = {
+    ...aclBase,
+    getStateQuota: () => quota,
+  } as AclStateContainer;
+
+  const sendToNapplet: SendToNapplet = (_windowId, msg) => {
+    if (!Array.isArray(msg)) sent.push(msg);
+  };
+
+  return {
+    sent,
+    stateStore,
+    dispatchAs(windowId, msg) {
+      handleStorageNub(windowId, msg, sendToNapplet, sessionRegistry, aclState, statePersistence);
+    },
+    lastOfType(type) {
+      for (let i = sent.length - 1; i >= 0; i--) {
+        if (sent[i]?.type === type) return sent[i];
+      }
+      return undefined;
+    },
+  };
+}
+
+const WIN_A = 'win-A';
+const WIN_B = 'win-B';
+
+describe('handleStorageNub — per-call scope (shared | instance)', () => {
+  let h: MultiHarness;
+
+  beforeEach(() => {
+    h = createMultiHarness([WIN_A, WIN_B]);
+  });
+
+  // Shared scope (default) is byte-identical to history — stored under the bare
+  // `(dTag, hash)` prefix with no instance segment.
+  it('shared scope (default) writes to the napplet-wide key with no instance segment', () => {
+    h.dispatchAs(WIN_A, { type: 'storage.set', id: 's1', key: 'theme', value: 'dark' } as NappletMessage);
+    expect((h.lastOfType('storage.set.result') as any).ok).toBe(true);
+    // Stored under the historical key, no `@i/` segment.
+    expect(h.stateStore.get(`${PREFIX}theme`)).toBe('dark');
+    expect([...h.stateStore.keys()].some(k => k.includes('@i/'))).toBe(false);
+  });
+
+  it('explicit scope "shared" behaves the same as omitting scope', () => {
+    h.dispatchAs(WIN_A, { type: 'storage.set', id: 's1', key: 'k', value: 'v', scope: 'shared' } as unknown as NappletMessage);
+    expect(h.stateStore.get(`${PREFIX}k`)).toBe('v');
+  });
+
+  // Instance scope round-trips and folds windowId into the stored key.
+  it('instance scope set/get round-trips and folds windowId into the key', () => {
+    h.dispatchAs(WIN_A, { type: 'storage.set', id: 's1', key: 'criteria', value: 'authors', scope: 'instance' } as unknown as NappletMessage);
+    expect((h.lastOfType('storage.set.result') as any).ok).toBe(true);
+    // Persisted under the per-window sub-namespace.
+    expect(h.stateStore.get(`${PREFIX}@i/${WIN_A}:criteria`)).toBe('authors');
+
+    h.dispatchAs(WIN_A, { type: 'storage.get', id: 'g1', key: 'criteria', scope: 'instance' } as unknown as NappletMessage);
+    expect((h.lastOfType('storage.get.result') as any).value).toBe('authors');
+  });
+
+  // Unique guarantee — two windows of the same napplet never collide on instance keys.
+  it('instance scope isolates the same key across two windows (Unique guarantee)', () => {
+    h.dispatchAs(WIN_A, { type: 'storage.set', id: 'a', key: 'feed', value: 'A-feed', scope: 'instance' } as unknown as NappletMessage);
+    h.dispatchAs(WIN_B, { type: 'storage.set', id: 'b', key: 'feed', value: 'B-feed', scope: 'instance' } as unknown as NappletMessage);
+
+    h.dispatchAs(WIN_A, { type: 'storage.get', id: 'ga', key: 'feed', scope: 'instance' } as unknown as NappletMessage);
+    expect((h.lastOfType('storage.get.result') as any).value).toBe('A-feed');
+    h.dispatchAs(WIN_B, { type: 'storage.get', id: 'gb', key: 'feed', scope: 'instance' } as unknown as NappletMessage);
+    expect((h.lastOfType('storage.get.result') as any).value).toBe('B-feed');
+  });
+
+  // Stable guarantee — the same windowId resolves to the same namespace, so a
+  // later read (simulating a reload that restores the window) sees prior data.
+  it('instance storage is stable per window across re-dispatch (Stable guarantee)', () => {
+    h.dispatchAs(WIN_A, { type: 'storage.set', id: 's', key: 'scroll', value: '42', scope: 'instance' } as unknown as NappletMessage);
+    // A fresh handler invocation with the same windowId (reload) still resolves it.
+    h.dispatchAs(WIN_A, { type: 'storage.get', id: 'g', key: 'scroll', scope: 'instance' } as unknown as NappletMessage);
+    expect((h.lastOfType('storage.get.result') as any).value).toBe('42');
+  });
+
+  // Shared state is common to every window.
+  it('shared scope is common across windows', () => {
+    h.dispatchAs(WIN_A, { type: 'storage.set', id: 's', key: 'theme', value: 'dark', scope: 'shared' } as unknown as NappletMessage);
+    h.dispatchAs(WIN_B, { type: 'storage.get', id: 'g', key: 'theme', scope: 'shared' } as unknown as NappletMessage);
+    expect((h.lastOfType('storage.get.result') as any).value).toBe('dark');
+  });
+
+  // Shared and instance namespaces are independent for the same key name.
+  it('shared and instance keys with the same name do not collide', () => {
+    h.dispatchAs(WIN_A, { type: 'storage.set', id: 's1', key: 'k', value: 'shared-val', scope: 'shared' } as unknown as NappletMessage);
+    h.dispatchAs(WIN_A, { type: 'storage.set', id: 's2', key: 'k', value: 'instance-val', scope: 'instance' } as unknown as NappletMessage);
+
+    h.dispatchAs(WIN_A, { type: 'storage.get', id: 'g1', key: 'k', scope: 'shared' } as unknown as NappletMessage);
+    expect((h.lastOfType('storage.get.result') as any).value).toBe('shared-val');
+    h.dispatchAs(WIN_A, { type: 'storage.get', id: 'g2', key: 'k', scope: 'instance' } as unknown as NappletMessage);
+    expect((h.lastOfType('storage.get.result') as any).value).toBe('instance-val');
+  });
+
+  // keys(): shared listing never leaks per-instance sub-keys.
+  it('shared keys() excludes instance sub-keys; instance keys() is window-scoped', () => {
+    h.dispatchAs(WIN_A, { type: 'storage.set', id: 's1', key: 'shared-key', value: '1', scope: 'shared' } as unknown as NappletMessage);
+    h.dispatchAs(WIN_A, { type: 'storage.set', id: 's2', key: 'inst-key', value: '2', scope: 'instance' } as unknown as NappletMessage);
+
+    h.dispatchAs(WIN_A, { type: 'storage.keys', id: 'k1', scope: 'shared' } as unknown as NappletMessage);
+    const sharedKeys = ((h.lastOfType('storage.keys.result') as any).keys as string[]).slice().sort();
+    expect(sharedKeys).toEqual(['shared-key']);
+    // The reserved `@i/` marker must never appear in a user-facing listing.
+    expect(sharedKeys.some(k => k.includes('@i/'))).toBe(false);
+
+    h.dispatchAs(WIN_A, { type: 'storage.keys', id: 'k2', scope: 'instance' } as unknown as NappletMessage);
+    const instKeys = ((h.lastOfType('storage.keys.result') as any).keys as string[]).slice().sort();
+    expect(instKeys).toEqual(['inst-key']);
+  });
+
+  // keys() instance scope is isolated per window.
+  it('instance keys() returns only the calling window\'s keys', () => {
+    h.dispatchAs(WIN_A, { type: 'storage.set', id: 'a', key: 'ka', value: '1', scope: 'instance' } as unknown as NappletMessage);
+    h.dispatchAs(WIN_B, { type: 'storage.set', id: 'b', key: 'kb', value: '2', scope: 'instance' } as unknown as NappletMessage);
+
+    h.dispatchAs(WIN_A, { type: 'storage.keys', id: 'ka', scope: 'instance' } as unknown as NappletMessage);
+    expect((h.lastOfType('storage.keys.result') as any).keys).toEqual(['ka']);
+    h.dispatchAs(WIN_B, { type: 'storage.keys', id: 'kb', scope: 'instance' } as unknown as NappletMessage);
+    expect((h.lastOfType('storage.keys.result') as any).keys).toEqual(['kb']);
+  });
+
+  // remove() under instance scope only affects the calling window.
+  it('instance remove only deletes the calling window\'s key', () => {
+    h.dispatchAs(WIN_A, { type: 'storage.set', id: 'a', key: 'x', value: 'A', scope: 'instance' } as unknown as NappletMessage);
+    h.dispatchAs(WIN_B, { type: 'storage.set', id: 'b', key: 'x', value: 'B', scope: 'instance' } as unknown as NappletMessage);
+
+    h.dispatchAs(WIN_A, { type: 'storage.remove', id: 'ra', key: 'x', scope: 'instance' } as unknown as NappletMessage);
+
+    h.dispatchAs(WIN_A, { type: 'storage.get', id: 'ga', key: 'x', scope: 'instance' } as unknown as NappletMessage);
+    expect((h.lastOfType('storage.get.result') as any).value).toBeNull();
+    // WIN_B's instance key is untouched.
+    h.dispatchAs(WIN_B, { type: 'storage.get', id: 'gb', key: 'x', scope: 'instance' } as unknown as NappletMessage);
+    expect((h.lastOfType('storage.get.result') as any).value).toBe('B');
+  });
+
+  // Invalid scope value is rejected with a canonical .result error envelope.
+  it('invalid scope value produces a .result envelope with an error field', () => {
+    h.dispatchAs(WIN_A, { type: 'storage.set', id: 's', key: 'k', value: 'v', scope: 'bogus' } as unknown as NappletMessage);
+    const result = h.lastOfType('storage.set.result');
+    expect(result).toBeDefined();
+    expect((result as any).id).toBe('s');
+    expect((result as any).error).toMatch(/invalid scope/i);
+    // Nothing was written.
+    expect(h.stateStore.size).toBe(0);
+  });
+});
