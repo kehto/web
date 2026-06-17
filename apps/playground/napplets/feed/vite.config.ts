@@ -1,3 +1,3 @@
 import { definePlaygroundNappletConfig } from '../shared-vite-config';
 
-export default definePlaygroundNappletConfig('feed', { requires: ['identity', 'relay', 'ifc', 'theme'] });
+export default definePlaygroundNappletConfig('feed', { requires: ['identity', 'relay', 'inc', 'theme'] });

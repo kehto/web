@@ -1,0 +1,22 @@
+{
+  "name": "@kehto/fixture-nap-relay",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@napplet/core": "0.12.0",
+    "@napplet/sdk": "0.12.0",
+    "@napplet/shim": "0.13.0",
+    "@napplet/nap": "0.12.0"
+  },
+  "devDependencies": {
+    "@napplet/vite-plugin": "0.8.1",
+    "vite": "^6.3.0",
+    "typescript": "^5.9.3"
+  }
+}

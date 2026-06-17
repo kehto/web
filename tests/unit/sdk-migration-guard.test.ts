@@ -11,12 +11,12 @@ const sdkTargetDirs = [
   'apps/playground/napplets/profile-viewer',
   'apps/playground/napplets/resource-demo',
   'apps/playground/napplets/toaster',
-  'tests/fixtures/napplets/nub-identity',
-  'tests/fixtures/napplets/nub-ifc',
-  'tests/fixtures/napplets/nub-notify',
-  'tests/fixtures/napplets/nub-relay',
-  'tests/fixtures/napplets/nub-storage',
-  'tests/fixtures/napplets/nub-theme',
+  'tests/fixtures/napplets/nap-identity',
+  'tests/fixtures/napplets/nap-ifc',
+  'tests/fixtures/napplets/nap-notify',
+  'tests/fixtures/napplets/nap-relay',
+  'tests/fixtures/napplets/nap-storage',
+  'tests/fixtures/napplets/nap-theme',
 ] as const;
 
 const helperTargetDirs = [
@@ -32,22 +32,22 @@ const publicPackageDirs = [
 
 const protocolPackageNames = [
   '@napplet/core',
-  '@napplet/nub',
+  '@napplet/nap',
   '@napplet/sdk',
   '@napplet/shim',
   '@napplet/vite-plugin',
 ] as const;
 
 const protocolPackageVersions: Record<(typeof protocolPackageNames)[number], string> = {
-  '@napplet/core': '0.5.0',
-  '@napplet/nub': '0.5.0',
-  '@napplet/sdk': '0.5.0',
-  '@napplet/shim': '0.5.0',
-  '@napplet/vite-plugin': '0.4.0',
+  '@napplet/core': '0.12.0',
+  '@napplet/nap': '0.12.0',
+  '@napplet/sdk': '0.12.0',
+  '@napplet/shim': '0.13.0',
+  '@napplet/vite-plugin': '0.8.1',
 };
 
 const bannedSdkImportPattern = /from\s+['"]@napplet\/sdk['"]/;
-const staleNapPackage = ['@napplet', 'nap'].join('/');
+const staleNapPackage = ['@napplet', 'nub'].join('/');
 const oldIfcNamespace = ['i', 'p', 'c'].join('');
 const namespaceImportPattern = new RegExp(
   String.raw`import\s+\{[^}]*\b(${oldIfcNamespace}|storage|relay|identity|keys|config|notify)\b[^}]*\}\s+from\s+['"]@napplet/sdk['"]`,
@@ -90,7 +90,7 @@ function activeTerminologyFiles(root: string): string[] {
   return files;
 }
 
-describe('SDK 0.5 migration guard', () => {
+describe('SDK 0.12 migration guard', () => {
   it('resolves active protocol packages from published registry artifacts', () => {
     const rootPackageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as {
       pnpm?: { overrides?: Record<string, string> };
@@ -107,36 +107,36 @@ describe('SDK 0.5 migration guard', () => {
     }
   });
 
-  it('keeps all SDK-migrated manifests on the exact 0.5.0 NAP package graph', () => {
+  it('keeps all SDK-migrated manifests on the exact 0.12 NAP package graph', () => {
     for (const dir of sdkTargetDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
         dependencies?: Record<string, string>;
         devDependencies?: Record<string, string>;
       };
-      expect(pkg.dependencies?.['@napplet/sdk'], `${dir} @napplet/sdk`).toBe('0.5.0');
-      expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe('0.5.0');
-      expect(pkg.dependencies?.['@napplet/nub'], `${dir} @napplet/nub`).toBe('0.5.0');
+      expect(pkg.dependencies?.['@napplet/sdk'], `${dir} @napplet/sdk`).toBe('0.12.0');
+      expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe('0.13.0');
+      expect(pkg.dependencies?.['@napplet/nap'], `${dir} @napplet/nap`).toBe('0.12.0');
       expect(pkg.dependencies?.[staleNapPackage], `${dir} ${staleNapPackage}`).toBeUndefined();
-      expect(pkg.devDependencies?.['@napplet/vite-plugin'], `${dir} @napplet/vite-plugin`).toBe('0.4.0');
+      expect(pkg.devDependencies?.['@napplet/vite-plugin'], `${dir} @napplet/vite-plugin`).toBe('0.8.1');
     }
   });
 
-  it('keeps all helper-migrated manifests on the exact 0.5.0 NAP helper graph', () => {
+  it('keeps all helper-migrated manifests on the exact 0.12 NAP helper graph', () => {
     for (const dir of helperTargetDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
         dependencies?: Record<string, string>;
         devDependencies?: Record<string, string>;
       };
-      expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe('0.5.0');
-      expect(pkg.dependencies?.['@napplet/nub'], `${dir} @napplet/nub`).toBe('0.5.0');
+      expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe('0.13.0');
+      expect(pkg.dependencies?.['@napplet/nap'], `${dir} @napplet/nap`).toBe('0.12.0');
       expect(pkg.dependencies?.[staleNapPackage], `${dir} ${staleNapPackage}`).toBeUndefined();
-      expect(pkg.devDependencies?.['@napplet/vite-plugin'], `${dir} @napplet/vite-plugin`).toBe('0.4.0');
+      expect(pkg.devDependencies?.['@napplet/vite-plugin'], `${dir} @napplet/vite-plugin`).toBe('0.8.1');
     }
   });
 
-  it('keeps published kehto packages on @napplet/nub peers and dev deps', () => {
+  it('keeps published kehto packages on @napplet/nap peers and dev deps', () => {
     for (const dir of publicPackageDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
@@ -144,8 +144,8 @@ describe('SDK 0.5 migration guard', () => {
         devDependencies?: Record<string, string>;
       };
 
-      expect(pkg.peerDependencies?.['@napplet/nub'], `${dir} @napplet/nub peer`).toBe('^0.5.0');
-      expect(pkg.devDependencies?.['@napplet/nub'], `${dir} @napplet/nub dev`).toBe('^0.5.0');
+      expect(pkg.peerDependencies?.['@napplet/nap'], `${dir} @napplet/nap peer`).toBe('^0.12.0');
+      expect(pkg.devDependencies?.['@napplet/nap'], `${dir} @napplet/nap dev`).toBe('^0.12.0');
       expect(pkg.peerDependencies?.[staleNapPackage], `${dir} ${staleNapPackage} peer`).toBeUndefined();
       expect(pkg.devDependencies?.[staleNapPackage], `${dir} ${staleNapPackage} dev`).toBeUndefined();
     }
@@ -155,7 +155,7 @@ describe('SDK 0.5 migration guard', () => {
     const file = join(process.cwd(), 'packages/runtime/src/relay-handler.ts');
     const content = readFileSync(file, 'utf8');
 
-    expect(content).toContain("import type { RelayMessage } from '@napplet/nub/relay/types';");
+    expect(content).toContain("import type { RelayMessage } from '@napplet/nap/relay/types';");
     expect(content).not.toContain('RelayNapMessage');
     expect(content).not.toContain('RelayNubMessage');
   });

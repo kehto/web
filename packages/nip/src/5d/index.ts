@@ -70,10 +70,17 @@ export interface NappletManifest {
   servers: string[];
   /** Short NAP capability names from `requires` tags. */
   requires: string[];
+  /**
+   * Archetype slugs this napplet fulfills, from `archetype` manifest tags; the
+   * optional `nap` is the recommended default wire protocol (the 3rd tag element).
+   */
+  archetypes: Array<{ slug: string; nap?: string }>;
   /** Optional human title. */
   title?: string;
   /** Optional human description. */
   description?: string;
+  /** Optional upstream source URL from the `source` tag. */
+  source?: string;
 }
 
 /** Error codes for every napplet resolution failure path. */
@@ -114,6 +121,22 @@ function allTagValues(tags: readonly (readonly string[])[], name: string): strin
   return out;
 }
 
+function archetypesFromTags(
+  tags: readonly (readonly string[])[],
+): Array<{ slug: string; nap?: string }> {
+  const out: Array<{ slug: string; nap?: string }> = [];
+  for (const tag of tags) {
+    if (tag[0] !== 'archetype') continue;
+    if (typeof tag[1] !== 'string' || tag[1].length === 0) continue;
+    out.push(
+      typeof tag[2] === 'string' && tag[2].length > 0
+        ? { slug: tag[1], nap: tag[2] }
+        : { slug: tag[1] },
+    );
+  }
+  return out;
+}
+
 /**
  * Parse a NIP-5D manifest event into a {@link NappletManifest}.
  *
@@ -145,8 +168,10 @@ export function parseNappletManifest(event: NostrEvent): NappletManifest {
     aggregateHash,
     servers: allTagValues(event.tags, 'server'),
     requires: allTagValues(event.tags, 'requires'),
+    archetypes: archetypesFromTags(event.tags),
     title: firstTagValue(event.tags, 'title'),
     description: firstTagValue(event.tags, 'description'),
+    source: firstTagValue(event.tags, 'source'),
   };
 }
 

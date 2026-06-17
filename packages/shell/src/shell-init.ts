@@ -81,11 +81,30 @@ const NAP_INC_PROTOCOLS = [
  * `'perm:downloads'`. Napplets rely on the `perm:` prefix to distinguish
  * sandbox permissions from NUB-capability lookups; see specs/NIP-5D.md lines 81-94.
  *
+ * ### domains array + protocols map (conformant NAP-SHELL — @napplet/core@0.12)
+ * The structured shape the released `@napplet/shim@0.13` actually reads via
+ * `@napplet/nap@0.12`'s `createShellEnvironment` + `makeSupports`:
+ *
+ *   - `domains` — bare NAP domain names (the `naps` set MINUS the `inc:NAP-NN`
+ *     protocol strings) with the same conditional entries (relay/outbox under
+ *     `hooks.relayPool`, upload/intent under their hooks). Any `perm:<x>`
+ *     sandbox entries are appended here too — the 0.13 shim resolves
+ *     `supports('perm:<x>')` as a plain `domains` membership check.
+ *   - `protocols` — `{ inc: ['NAP-01'..'NAP-06'] }`, derived from
+ *     `NAP_INC_PROTOCOLS` by stripping the `inc:` prefix.
+ *
+ * Emitted as a SUPERSET alongside `naps`/`nubs`/`sandbox` (TERM-05 back-compat).
+ *
  * @param hooks - The ShellAdapter provided by the host app
- * @returns ShellCapabilities with naps (NAP vocab), nubs (legacy vocab), and sandbox (perm:-prefixed) arrays
+ * @returns ShellCapabilities with domains/protocols (conformant 0.13 shape) plus
+ *          naps (NAP vocab), nubs (legacy vocab), and sandbox (perm:-prefixed) arrays
  * @example
  * ```ts
  * const caps = buildShellCapabilities(hooks);
+ * // caps.domains => ['relay','outbox','identity','storage','inc','theme','keys','media','notify','config','resource','connect','class','cvm']
+ * //               (relay + outbox present when hooks.relayPool is provided; 'upload'/'intent'
+ * //                appended under their hooks; perm:<x> sandbox entries appended when extended)
+ * // caps.protocols => { inc: ['NAP-01','NAP-02','NAP-03','NAP-04','NAP-05','NAP-06'] }
  * // caps.naps => ['relay','outbox','identity','storage','inc','theme','keys','media','notify','config','resource','connect','class','cvm',
  * //               'inc:NAP-01','inc:NAP-02','inc:NAP-03','inc:NAP-04','inc:NAP-05','inc:NAP-06']
  * //              (relay + outbox present when hooks.relayPool is provided; 'upload'
@@ -98,6 +117,29 @@ const NAP_INC_PROTOCOLS = [
  * ```
  */
 export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
+  // domains — conformant NAP-SHELL bare domain list (@napplet/shim >=0.13).
+  // Same membership/order as `naps` but WITHOUT the inc:NAP-NN protocol strings
+  // (those move to `protocols`). Conditional entries use the same gates as naps.
+  const domains: string[] = hooks.relayPool
+    ? ['relay', 'outbox', ...NAP_DOMAINS]
+    : [...NAP_DOMAINS];
+  if (hooks.upload) domains.push('upload');
+  if (hooks.intent?.isAvailable()) domains.push('intent');
+  // Sandbox permissions are perm:<x>-prefixed and resolved by the 0.13 shim as
+  // plain domains membership (no separate permission namespace). Empty by
+  // default — fold any host-extended sandbox entries in alongside the domains.
+  const sandbox: string[] = [];
+  domains.push(...sandbox);
+
+  // protocols — conformant NAP-SHELL per-domain numbered protocol map.
+  // Derive { inc: ['NAP-01'..'NAP-06'] } by stripping the `inc:` prefix from
+  // NAP_INC_PROTOCOLS so domains/protocols stay the single source of truth.
+  const protocols: Record<string, string[]> = {};
+  for (const entry of NAP_INC_PROTOCOLS) {
+    const [domain, protocol] = entry.split(':') as [string, string];
+    (protocols[domain] ??= []).push(protocol);
+  }
+
   // naps — NAP vocabulary (primary; consumed by @napplet/shim >=0.9.0)
   const naps: string[] = hooks.relayPool
     ? ['relay', 'outbox', ...NAP_DOMAINS, ...NAP_INC_PROTOCOLS]
@@ -116,5 +158,5 @@ export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
   // NAP-INTENT: same conditional in legacy vocabulary.
   if (hooks.intent?.isAvailable()) nubs.push('intent');
 
-  return { naps, nubs, sandbox: [] };
+  return { domains, protocols, naps, nubs, sandbox };
 }

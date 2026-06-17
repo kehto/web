@@ -21,7 +21,7 @@
  * execution context directly, which works reliably (same pattern as storage-persist.spec.ts).
  */
 import { test, expect } from '@playwright/test';
-import { demoBeforeEach } from './helpers/index.js';
+import { demoBeforeEach, getNappletFrame } from './helpers/index.js';
 
 test.use({ baseURL: 'http://localhost:4174' });
 test.describe.configure({ mode: 'serial' });
@@ -42,7 +42,7 @@ test('revoking state:write on preferences denies next save (denial visible in st
   await expect(prefFrame.locator('#preferences-status')).toContainText('loaded', { timeout: 10_000 });
 
   // Get a direct frame reference — CDP Runtime evaluate works in sandboxed cross-origin frames.
-  const prefFrameDirect = page.frames().find(f => f.url().includes('/preferences/'));
+  const prefFrameDirect = await getNappletFrame(page, 'preferences-frame-container');
   if (!prefFrameDirect) throw new Error('preferences frame not found in page.frames()');
 
   // Phase 1 (control): save should succeed with default-granted state:write.

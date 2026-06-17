@@ -6,6 +6,18 @@
 
 Provide a modular, framework-agnostic runtime for hosting napplet applications — so any Nostr client can embed sandboxed mini-apps by integrating @kehto/shell.
 
+## Current Milestone: v1.21 NIP-5D (#2303) + NAP-SHELL/INTENT Conformance
+
+**Goal:** Bring kehto into alignment with the current authoritative napplet protocol — NIP-5D as defined in `nostr-protocol/nips` PR #2303, plus the two merged NAP registry specs (NAP-SHELL, the mandatory bootstrap handshake; NAP-INTENT, archetype dispatch). Closes the deltas that opened since the 2026-05-22 audit: NUB→NAP terminology, the now-formalized NAP-SHELL/INTENT specs, and the missing NAAT archetype axis. Builds on the v1.20 content-addressed runtime resolution (kinds/identity/srcdoc already aligned).
+
+**Target features:**
+- **NAP-SHELL correctness:** `shell.init` sent exactly once per napplet lifecycle (duplicate `shell.ready` idempotent, no resend); `class` wire value reconciled to spec `number | null`.
+- **NAAT archetype axis:** parse `["archetype","<slug>","<NAP-N>"]` + optional `source` manifest tags in `@kehto/nip/5d`; NIP-5A-manifest → `IntentCatalogEntry` adapter so NAP-INTENT sources archetypes from signed manifests; archetype-tagged playground napplet + intent-dispatch e2e.
+- **Terminology & playground modern-path alignment:** `nap:` as primary capability prefix (`nub:` back-compat only); migrate 4 legacy napplets `ifc`→`inc`; playground bootstrap + requires-check read `naps` (nubs fallback for the installed 0.5.0 shim); naps-only-path conformance e2e. Keep `naps`+`nubs` dual-emit.
+- **Spec/doc refresh:** `specs/NIP-5D.md` authority → `nostr-protocol/nips#2303` + NAP terminology + archetype/source tags; local NAP-SHELL/NAP-INTENT mirrors; `RUNTIME-SPEC.md` refresh; stale NUB/AUTH comment sweep; verify unknown-`type` silent-ignore uniformity.
+
+**Key context:** Authoritative source is `nostr-protocol/nips` PR #2303 (`5D.md`) + the `napplet/naps` registry (NAP-SHELL + NAP-INTENT merged; web projection). The repo's pinned `specs/NIP-5D.md` is an older mirror (NUB terminology, `dskvr/nips#3`/`#2287` citation) and is superseded. v1.20 work (manifest kinds 5129/15129/35129, computed-from-bytes identity, srcdoc, signature/blob/aggregate verification, `requires` load-time check) is already aligned — regression-guard only. Installed `@napplet/shim` is **0.5.0** (reads `capabilities.nubs`) → dual-emit MUST stay; do not run CLEANUP-01. CI e2e runs `workers:1`; reload-heavy specs need `test.setTimeout(120000)`. Playground napplet counts asserted by multiple e2e specs — update in lockstep. Branch off the current `feat/nip5d-runtime-srcdoc` (v1.20 PRs #38/#39 still open); never push `main`. Full audit: `.planning/NIP-5D-2303-DELTA-AUDIT.md`.
+
 ## Latest Milestone: v1.18 Napplet Firewall (shipped 2026-06-15)
 
 **Goal:** Add `@kehto/firewall` — a behavioral anti-abuse gate that observes napplet messages at the runtime choke point and applies configurable rate/burst/content rules with allow/deny/ask policies and focus-aware tightening. Composes with the ACL (static authorization) without replacing it.
@@ -60,7 +72,7 @@ The shipped baseline remains pinned-spec NIP-5D conformance, a buildable docs si
 
 Verification stands at `pnpm build`, `pnpm type-check`, `pnpm test:unit` (570 tests), `VITEPRESS_BASE=/web/docs/ pnpm docs:check`, `pnpm build:pages`, `pnpm audit:pages`, `pnpm audit:gateway-artifacts`, `pnpm audit:csp`, `npx --yes aislop scan -d`, browser visual checks for desktop/mobile/reduced motion, and `git diff --check`.
 
-## Current Milestone: v1.20 NIP-5D Content-Addressed Runtime Resolution
+## Previous Milestone: v1.20 NIP-5D Content-Addressed Runtime Resolution
 
 **Goal:** Replace gateway-trusted napplet loading with runtime-computed, content-addressed identity per branch-HEAD NIP-5D (kinds `35129` named / `15129` root / `5129` snapshot) and NIP-5A aggregate hash — the runtime resolves a signed manifest from relays, fetches each blob from Blossom by sha256, verifies signature + per-blob hashes + recomputed aggregate against the `x` tag, then injects verified bytes via `iframe.srcdoc`. Identity `(dTag, aggregateHash)` is computed from verified bytes, never accepted from a host. Clean break: no backwards-compatibility shims or language.
 
@@ -292,4 +304,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-16 — v1.20 NIP-5D Content-Addressed Runtime Resolution milestone started (v1.19 NAP Ontology Alignment shipped)*
+*Last updated: 2026-06-17 — v1.21 NIP-5D (#2303) + NAP-SHELL/INTENT Conformance milestone started (v1.20 Content-Addressed Runtime Resolution phases complete, PRs #38/#39 open)*

@@ -7,7 +7,7 @@
  *
  * Playwright API:
  *   await page.waitForFunction(() => window.__SHELL_READY__)
- *   await page.evaluate(() => window.__loadNapplet__('nub-identity'))
+ *   await page.evaluate(() => window.__loadNapplet__('nap-identity'))
  *   const msgs = await page.evaluate(() => window.__TEST_MESSAGES__)
  *   await page.evaluate(() => window.__clearMessages__())
  *

@@ -7,6 +7,7 @@
  * napplet → shell → cvm service → transport → napplet wire without the network.
  */
 import { test, expect } from '@playwright/test';
+import { getNappletFrame } from './helpers/index.js';
 
 test.use({ baseURL: 'http://localhost:4174' });
 
@@ -20,9 +21,13 @@ test('cvm-relatr napplet renders a trust score via the CVM bridge', async ({ pag
   const server = frame.locator('#cvm-server');
   const score = frame.locator('#cvm-score');
 
-  // The napplet is click-driven (no automatic relay traffic on load).
+  // The napplet is click-driven (no automatic relay traffic on load). Dispatch
+  // the click via JS inside the frame rather than a coordinate click: a srcdoc
+  // iframe can still be settling its layout right after "ready", so a
+  // compositor-level click can miss the button.
   await expect(status).toContainText('ready', { timeout: 10_000 });
-  await frame.locator('#cvm-run').click();
+  const cvmFrame = await getNappletFrame(page, 'cvm-relatr-frame-container');
+  await cvmFrame!.evaluate(() => (document.getElementById('cvm-run') as HTMLButtonElement).click());
 
   // Discovery populates the server line with Relatr's announcement.
   await expect(server).toContainText('Relatr', { timeout: 10_000 });

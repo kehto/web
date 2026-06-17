@@ -2,7 +2,7 @@
  * @file internal-class.ts
  *
  * Kehto-internal shell-side class-posture export. Per PROJECT.md Decision #31,
- * this is NOT a staging-ground duplicate of upstream `@napplet/nub/class`:
+ * this is NOT a staging-ground duplicate of upstream `@napplet/nap/class`:
  * upstream's `NappletClass` is a napplet-side accessor interface, whereas
  * kehto's runtime `NappletClass` is the shell-side session-label string type
  * used by enforcement and host demo code.

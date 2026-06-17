@@ -38,6 +38,87 @@ function baseHooks(): ShellAdapter {
 }
 
 // ---------------------------------------------------------------------------
+// domains + protocols — conformant NAP-SHELL shape (TERM-03: @napplet/core@0.12,
+// read by @napplet/shim@0.13 via createShellEnvironment + makeSupports)
+// ---------------------------------------------------------------------------
+
+describe('buildShellCapabilities — domains array (conformant NAP-SHELL, TERM-03)', () => {
+  it('returns a domains array', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    expect(Array.isArray(caps.domains)).toBe(true);
+  });
+
+  it('domains deep-equals the bare NAP domains (naps MINUS inc:NAP-NN; relayPool always wired)', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    expect(caps.domains).toEqual([
+      'relay', 'outbox',
+      'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify',
+      'config', 'resource', 'connect', 'class', 'cvm',
+    ]);
+  });
+
+  it('domains contains NO inc:NAP-NN protocol strings (those live in protocols)', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    const protocolEntries = caps.domains.filter(e => /:NAP-\d+$/.test(e));
+    expect(protocolEntries).toHaveLength(0);
+  });
+
+  it('domains contains relay/outbox when relayPool is wired (always — required ShellAdapter field)', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    expect(caps.domains).toContain('relay');
+    expect(caps.domains).toContain('outbox');
+  });
+
+  it('does NOT advertise upload in domains when no upload backend is wired', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    expect(caps.domains).not.toContain('upload');
+  });
+
+  it('advertises upload in domains when an upload backend is wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      upload: { getUploader: () => ({ rails: ['nip96'] }) },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).toContain('upload');
+  });
+
+  it('advertises intent in domains when an available intent dispatcher is wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      intent: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).toContain('intent');
+  });
+
+  it('does NOT advertise intent in domains when the dispatcher reports unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      intent: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('intent');
+  });
+});
+
+describe('buildShellCapabilities — protocols map (conformant NAP-SHELL, TERM-03)', () => {
+  it('protocols.inc deep-equals NAP-01..NAP-06 (inc: prefix stripped)', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    expect(caps.protocols).toEqual({
+      inc: ['NAP-01', 'NAP-02', 'NAP-03', 'NAP-04', 'NAP-05', 'NAP-06'],
+    });
+  });
+
+  it('protocols values carry NO inc: prefix (bare NAP-NN ids only)', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    for (const list of Object.values(caps.protocols)) {
+      for (const p of list) expect(p.startsWith('inc:')).toBe(false);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // naps — NAP vocabulary (primary: consumed by @napplet/shim >=0.9.0)
 // ---------------------------------------------------------------------------
 
@@ -221,6 +302,20 @@ describe('buildShellCapabilities — dual-emit shape (D2)', () => {
     expect(caps).toHaveProperty('naps');
     expect(caps).toHaveProperty('nubs');
     expect(caps).toHaveProperty('sandbox');
+  });
+
+  it('superset: conformant domains/protocols ride ALONGSIDE legacy naps/nubs/sandbox (TERM-05)', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    // conformant 0.13 fields
+    expect(caps).toHaveProperty('domains');
+    expect(caps).toHaveProperty('protocols');
+    // legacy back-compat fields preserved
+    expect(caps).toHaveProperty('naps');
+    expect(caps).toHaveProperty('nubs');
+    expect(caps).toHaveProperty('sandbox');
+    expect(caps.naps).toContain('inc:NAP-01');
+    expect(caps.nubs).toContain('ifc');
+    expect(caps.sandbox).toEqual([]);
   });
 
   it('sandbox is empty by default', () => {

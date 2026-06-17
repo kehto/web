@@ -8,7 +8,7 @@ import { manifestCache } from './manifest-cache.js';
 import { audioManager } from './audio-manager.js';
 import type { ShellAdapter } from './types.js';
 import type { NappletMessage } from '@napplet/core';
-import type { Theme } from '@napplet/nub/theme/types';
+import type { Theme } from '@napplet/nap/theme/types';
 import { createKeysForwarder, type KeysForwarder } from './keys-forwarder.js';
 import { connectStore, type ConnectStore } from './connect-store.js';
 import { handleShellReady } from './shell-ready.js';

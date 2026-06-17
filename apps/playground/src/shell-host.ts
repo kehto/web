@@ -8,6 +8,7 @@
 import {
   createShellBridge,
   originRegistry,
+  connectStore,
   type ShellBridge,
   type ServiceHandler,
   type Capability,
@@ -16,6 +17,11 @@ import {
   type SessionEntry,
 } from '@kehto/shell';
 import type { Notification } from '@kehto/services';
+import {
+  resolvePlaygroundNapplet,
+  injectCspMeta,
+  PLAYGROUND_MANIFEST_AUTHOR,
+} from './napplet-resolver.js';
 import { getSignerConnectionState } from './signer-connection.js';
 import { pushAclEvent } from './acl-history.js';
 import {
@@ -105,15 +111,19 @@ export interface NappletInfo {
   identityBound: boolean;
 }
 
-export interface GatewayNappletMetadata {
+export interface LoadedNappletIdentity {
   dTag: string;
   aggregateHash: string;
-  htmlUrl: string;
-  requires: string[];
 }
 
 export interface LoadNappletOptions {
-  beforeNavigate?: (metadata: GatewayNappletMetadata) => void | Promise<void>;
+  /**
+   * Hook invoked after the napplet is resolved and verified but before the
+   * verified bytes are injected into the iframe. Receives the computed identity
+   * so callers can, e.g., pre-grant NAP-CONNECT origins that the CSP `<meta>`
+   * must include.
+   */
+  beforeRender?: (identity: LoadedNappletIdentity) => void | Promise<void>;
 }
 
 const napplets = new Map<string, NappletInfo>();
@@ -217,7 +227,26 @@ function installOriginRegistryProxy(messageTap: MessageTap): void {
     const result = originalGetWindowId(win);
     if (result) return result;
     const real = proxyToReal.get(win);
-    if (real) return originalGetWindowId(real);
+    if (real) {
+      const realResult = originalGetWindowId(real);
+      if (realResult) return realResult;
+    }
+    // Self-heal a contentWindow swap: setting iframe.srcdoc replaces the
+    // iframe's Window, and the new one is not re-registered until the iframe
+    // 'load' event — which can fire AFTER the napplet sends its first message.
+    // Resolve such early messages by matching the source against a known
+    // napplet's current contentWindow and registering it on the fly, so the
+    // first request is never silently dropped.
+    const target = real ?? win;
+    for (const [windowId, info] of napplets) {
+      if (info.iframe.contentWindow === target) {
+        originRegistry.register(target, windowId, {
+          dTag: info.dTag ?? '',
+          aggregateHash: info.aggregateHash ?? '',
+        });
+        return windowId;
+      }
+    }
     return undefined;
   };
 }
@@ -372,20 +401,31 @@ export async function loadNapplet(
   containerId: string,
   options: LoadNappletOptions = {},
 ): Promise<NappletInfo> {
-  const metadata = await fetchGatewayMetadata(name);
-  const missingRequiredNaps = getMissingRequiredNaps(metadata.requires);
+  // Resolve + verify content-addressed bytes: relays (NIP-65 outbox) → Blossom →
+  // verify signature + aggregate + every blob. The gateway is never in the trust
+  // path; identity (dTag, aggregateHash) is COMPUTED from the verified bytes.
+  // Any verification failure throws here — no iframe is ever shown unverified.
+  const resolved = await resolvePlaygroundNapplet({
+    dTag: name,
+    author: PLAYGROUND_MANIFEST_AUTHOR,
+    relayDiscoveryUrl: playgroundPath('/napplet-relay/relay-list'),
+    blossomServers: [playgroundPath('/napplet-blossom')],
+  });
+
+  const missingRequiredNaps = getMissingRequiredNaps(resolved.requires);
   if (missingRequiredNaps.length > 0) {
     throw new Error(
-      `[demo] ${metadata.dTag} requires unsupported NAP capabilities: ${missingRequiredNaps.join(', ')}`,
+      `[demo] ${resolved.dTag} requires unsupported NAP capabilities: ${missingRequiredNaps.join(', ')}`,
     );
   }
 
+  const { dTag, aggregateHash } = resolved;
   const windowId = `demo-${name}-${++nappletCounter}`;
 
   const iframe = document.createElement('iframe');
   iframe.id = windowId;
   iframe.className = 'w-full h-full border-0';
-  iframe.sandbox.add('allow-scripts');
+  iframe.sandbox.add('allow-scripts'); // scripts only — keep the iframe origin opaque
 
   const container = document.getElementById(containerId);
   if (container) container.appendChild(iframe);
@@ -394,8 +434,8 @@ export async function loadNapplet(
     windowId,
     name,
     iframe,
-    dTag: metadata.dTag,
-    aggregateHash: metadata.aggregateHash,
+    dTag,
+    aggregateHash,
     identityBound: false,
   };
   napplets.set(windowId, info);
@@ -418,18 +458,18 @@ export async function loadNapplet(
     scheduleCurrentUserIdentitySync(info);
   }
 
-  // NIP-5D session entry — registered immediately so storage.* and notify.* NUB
+  // NIP-5D session entry — registered immediately so storage.* and notify.* NAP
   // handlers can resolve the napplet's identity without any runtime negotiation.
-  // dTag and aggregateHash come from the local gateway manifest metadata so the
-  // playground exercises the same identity tuple as production NIP-5A loading.
+  // dTag and aggregateHash are the COMPUTED identity from the verified manifest
+  // bytes, never asserted by a gateway.
   function registerSessionEntry(): SessionEntry {
     const entry: SessionEntry = {
       pubkey: '',
       windowId,
       origin: 'null',
       type: 'napplet',
-      dTag: metadata.dTag,
-      aggregateHash: metadata.aggregateHash,
+      dTag,
+      aggregateHash,
       registeredAt: Date.now(),
       instanceId: crypto.randomUUID(),
       provenance: 'nip-5d',
@@ -437,7 +477,7 @@ export async function loadNapplet(
       // Defaults to null (permissive, D2) if the dTag has no explicit entry —
       // defensive fallback; the module-load assertion above guarantees every
       // DEMO_NAPPLETS name has an entry, so the ?? null is defensive only.
-      class: CLASS_BY_DTAG.get(metadata.dTag) ?? null,
+      class: CLASS_BY_DTAG.get(dTag) ?? null,
     };
     relay.runtime.sessionRegistry.register(windowId, entry);
     return entry;
@@ -446,20 +486,30 @@ export async function loadNapplet(
   // Register origin immediately — contentWindow is available after appendChild.
   // This must happen before the hosted artifact bootstrap can send shell.ready.
   if (iframe.contentWindow) {
-    originRegistry.register(iframe.contentWindow, windowId);
+    originRegistry.register(iframe.contentWindow, windowId, { dTag, aggregateHash });
     markSourceDerivedIdentity(registerSessionEntry());
   }
 
   iframe.addEventListener('load', () => {
     if (iframe.contentWindow) {
-      // Re-register origin and session in case contentWindow reference changed during load.
-      originRegistry.register(iframe.contentWindow, windowId);
-      markSourceDerivedIdentity(registerSessionEntry());
+      // Re-register the origin (idempotent) in case the contentWindow reference
+      // changed during load. Only (re)create the session entry if it was not
+      // already registered synchronously above — re-registering would mint a new
+      // instanceId/registeredAt and reset per-window runtime state (e.g. the
+      // firewall init-burst window), which can drop a napplet's first request
+      // when it acts immediately after reaching "ready".
+      originRegistry.register(iframe.contentWindow, windowId, { dTag, aggregateHash });
+      if (!info.identityBound) markSourceDerivedIdentity(registerSessionEntry());
     }
   });
 
-  await options.beforeNavigate?.(metadata);
-  iframe.src = metadata.htmlUrl;
+  // Pre-render hook (e.g. NAP-CONNECT pre-grant) runs against the computed
+  // identity, then the connect-src CSP <meta> is built from the granted origins
+  // and the verified bytes are injected via srcdoc — the CSP travels inside the
+  // document because srcdoc iframes have an opaque origin and no HTTP response.
+  await options.beforeRender?.({ dTag, aggregateHash });
+  const origins = connectStore.getOrigins(dTag, aggregateHash);
+  iframe.srcdoc = injectCspMeta(resolved.indexHtml, origins);
 
   return info;
 }
@@ -470,30 +520,6 @@ function playgroundPath(pathname: string): string {
   if (basePath === './') return cleanPath;
   const normalizedBase = basePath.endsWith('/') ? basePath : `${basePath}/`;
   return `${normalizedBase}${cleanPath}`;
-}
-
-async function fetchGatewayMetadata(name: string): Promise<GatewayNappletMetadata> {
-  const response = await fetch(
-    playgroundPath(`/napplet-gateway/${encodeURIComponent(name)}/manifest.json`),
-    { cache: 'no-store' },
-  );
-  if (!response.ok) {
-    throw new Error(`[demo] gateway metadata load failed for ${name}: ${response.status}`);
-  }
-
-  const metadata = await response.json() as Partial<GatewayNappletMetadata>;
-  if (
-    metadata.dTag !== name ||
-    typeof metadata.aggregateHash !== 'string' ||
-    metadata.aggregateHash.length === 0 ||
-    typeof metadata.htmlUrl !== 'string' ||
-    metadata.htmlUrl.length === 0 ||
-    !Array.isArray(metadata.requires) ||
-    metadata.requires.some((capability) => typeof capability !== 'string' || capability.length === 0)
-  ) {
-    throw new Error(`[demo] malformed gateway metadata for ${name}`);
-  }
-  return metadata as GatewayNappletMetadata;
 }
 
 /**
