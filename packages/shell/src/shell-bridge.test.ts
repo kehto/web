@@ -94,7 +94,6 @@ function makeSessionEntry(overrides: Partial<SessionEntry>): SessionEntry {
     registeredAt: 0,
     instanceId: `inst-${overrides.windowId ?? 'x'}`,
     provenance: 'nip-5d',
-    class: null, // CLASS-02: permissive default for test fixtures
     ...overrides,
   };
 }
@@ -363,7 +362,6 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     expect(entry?.origin).toBe('https://my-napp.example.com');
     expect(entry?.instanceId).toBeTruthy();
     expect(typeof entry?.registeredAt).toBe('number');
-    expect(entry?.class).toBeNull();
 
     bridge.destroy();
   });
@@ -372,7 +370,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
    * End-to-end test: NIP-5D napplet registered via onNip5dIframeCreate hook.
    *
    * When hooks.onNip5dIframeCreate is provided, its return value takes precedence
-   * over originRegistry.getIdentity(). The class posture from the hook is used.
+   * over originRegistry.getIdentity().
    */
   it('registers a NIP-5D session entry on shell.ready using onNip5dIframeCreate hook', () => {
     const iframe = makeFakeIframe();
@@ -385,7 +383,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
       ...makeTestHooks(),
       onNip5dIframeCreate: (windowId: string) => {
         if (windowId === 'win-hook') {
-          return { dTag: 'hook-napp', aggregateHash: 'hookHash99', class: null };
+          return { dTag: 'hook-napp', aggregateHash: 'hookHash99' };
         }
         return null;
       },
@@ -405,7 +403,6 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     expect(entry?.dTag).toBe('hook-napp');
     expect(entry?.aggregateHash).toBe('hookHash99');
     expect(entry?.pubkey).toBe('');
-    expect(entry?.class).toBeNull();
 
     bridge.destroy();
   });
@@ -555,7 +552,6 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
       registeredAt: 1000,
       instanceId: 'pre-guid-fixed',
       provenance: 'nip-5d',
-      class: null,
     };
     bridge.runtime.sessionRegistry.register('win-existing', preEntry);
 
@@ -621,76 +617,3 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
   });
 });
 
-// ─── SHELL-02: shell.init class wire type (NAP-SHELL gap G2) ──────────────────
-
-describe('ShellBridge shell.init class wire type (SHELL-02)', () => {
-  beforeEach(() => {
-    originRegistry.clear();
-    __resetInitSentForTests();
-  });
-
-  afterEach(() => {
-    originRegistry.clear();
-    __resetInitSentForTests();
-  });
-
-  /** Extract the single shell.init message captured by the iframe spy. */
-  function getShellInit(iframe: ReturnType<typeof makeFakeIframe>): Record<string, unknown> {
-    const calls = iframe.postMessage.mock.calls.filter(
-      (call) => (call[0] as Record<string, unknown>).type === 'shell.init',
-    );
-    expect(calls).toHaveLength(1);
-    return calls[0][0] as Record<string, unknown>;
-  }
-
-  it('emits class === null on the shell.init wire for a permissive-default window', () => {
-    const iframe = makeFakeIframe();
-    const win = iframe as unknown as Window;
-
-    // No seeded session class → resolves to the permissive default (null).
-    originRegistry.register(win, 'win-null-class', { dTag: 'nc-napp', aggregateHash: 'ncHash' });
-
-    const bridge = createShellBridge(makeTestHooks());
-
-    bridge.handleMessage({
-      source: win,
-      origin: 'https://nc-napp.example.com',
-      data: { type: 'shell.ready' },
-    } as MessageEvent);
-
-    const initMsg = getShellInit(iframe);
-    expect(initMsg.class).toBeNull();
-    expect(typeof initMsg.class === 'number' || initMsg.class === null).toBe(true);
-
-    bridge.destroy();
-  });
-
-  it("maps internal class label 'class-1' to numeric wire code 1 on shell.init", () => {
-    const iframe = makeFakeIframe();
-    const win = iframe as unknown as Window;
-
-    originRegistry.register(win, 'win-class1', { dTag: 'c1-napp', aggregateHash: 'c1Hash' });
-
-    const bridge = createShellBridge(makeTestHooks());
-
-    // Pre-seed the session entry with the internal 'class-1' label BEFORE
-    // shell.ready. registerNip5dSessionIfNeeded early-returns when an entry
-    // exists, so this seeded class is exactly what postShellInit reads.
-    bridge.runtime.sessionRegistry.register(
-      'win-class1',
-      makeSessionEntry({ windowId: 'win-class1', class: 'class-1' }),
-    );
-
-    bridge.handleMessage({
-      source: win,
-      origin: 'https://c1-napp.example.com',
-      data: { type: 'shell.ready' },
-    } as MessageEvent);
-
-    const initMsg = getShellInit(iframe);
-    expect(initMsg.class).toBe(1);
-    expect(typeof initMsg.class).toBe('number');
-
-    bridge.destroy();
-  });
-});

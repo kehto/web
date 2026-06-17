@@ -15,10 +15,6 @@ export type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 export type { Capability } from '@kehto/runtime';
 export { ALL_CAPABILITIES } from '@kehto/runtime';
 
-// v1.7 Phase 38: NUB-CLASS internal type — consumed by apps/playground and by
-// downstream host apps implementing shell-side class posture.
-export type { NappletClass } from './types/internal-class.js';
-
 // Types for host app integration (shell-specific)
 export type {
   ShellAdapter,
@@ -87,15 +83,6 @@ export type {
   KeysForwarderOriginRegistry,
   KeysForwarderSessionRegistry,
 } from './keys-forwarder.js';
-
-export { connectStore, connectGrantKey } from './connect-store.js';
-export type { ConnectStore } from './connect-store.js';
-export type {
-  ConnectGrant,
-  ConnectGrantKey,
-  ConnectConsentRequest,
-  ConsentResult,
-} from './types/internal-connect.js';
 
 export type {
   ResourceBytesRequest,

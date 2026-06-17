@@ -26,7 +26,6 @@ function makeSessionEntry(overrides: Partial<SessionEntry> = {}): SessionEntry {
     registeredAt: 0,
     instanceId: 'inst-1',
     provenance: 'nip-5d',
-    class: null, // CLASS-02: permissive default for test fixtures
     ...overrides,
   };
 }

@@ -10,7 +10,6 @@ import type { ShellAdapter } from './types.js';
 import type { NappletMessage } from '@napplet/core';
 import type { Theme } from '@napplet/nap/theme/types';
 import { createKeysForwarder, type KeysForwarder } from './keys-forwarder.js';
-import { connectStore, type ConnectStore } from './connect-store.js';
 import { handleShellReady } from './shell-ready.js';
 
 /**
@@ -139,19 +138,6 @@ export interface ShellBridge {
    */
   readonly runtime: Runtime;
 
-  /**
-   * Access the NUB-CONNECT grant store. Per-napplet connect grants are
-   * keyed on (dTag, aggregateHash) and persisted under localStorage key
-   * 'napplet:connect'. Public API surface for the Vite CSP middleware
-   * (Plan 39-03) and the consent flow (Plan 39-04).
-   *
-   * Default policy is RESTRICTIVE: check() returns false for any origin
-   * not explicitly granted. Call load() on shell startup to restore
-   * persisted grants from a previous session.
-   *
-   * @see SHELL-CONNECT-POLICY.md for the full policy.
-   */
-  readonly connectStore: ConnectStore;
 }
 
 /**
@@ -272,10 +258,6 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
 
     get runtime() {
       return runtime;
-    },
-
-    get connectStore() {
-      return connectStore;
     },
   };
 }

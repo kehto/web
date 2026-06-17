@@ -7,8 +7,8 @@
  * field names (kehto's `requestId` vs upstream `id`; kehto's `bodyBase64` vs
  * upstream `blob` + `mime`), different message-type names
  * (`ResourceBytesRequest` vs `ResourceBytesMessage`), and disjoint error
- * vocabularies (kehto: 5 codes `{denied, canceled, network-error, invalid-url,
- * class-forbidden}`; upstream: 8 codes `{not-found, blocked-by-policy,
+ * vocabularies (kehto: 4 codes `{denied, canceled, network-error, invalid-url}`;
+ * upstream: 8 codes `{not-found, blocked-by-policy,
  * timeout, too-large, unsupported-scheme, decode-failed, network-error,
  * quota-exceeded}`).
  *
@@ -73,8 +73,7 @@ export type ResourceErrorCode =
   | 'denied'
   | 'canceled'
   | 'network-error'
-  | 'invalid-url'
-  | 'class-forbidden';
+  | 'invalid-url';
 
 /**
  * Outbound: error result — used for both grant-refusal (RESOURCE-01) and

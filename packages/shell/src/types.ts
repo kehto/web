@@ -16,7 +16,6 @@ export type { SessionEntry, NappKeyEntry } from '@kehto/runtime';
 // Import Capability type locally for use in this file's shell-specific types
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 import type { Capability, RuntimeConfigOverrides, ServiceHandler, ServiceRegistry } from '@kehto/runtime';
-import type { NappletClass } from './types/internal-class.js';
 
 // Re-export service types so shell consumers can still import from @kehto/shell
 // (ServiceDescriptor already re-exported above from @kehto/runtime).
@@ -206,8 +205,8 @@ export interface AclCheckEvent {
  * shell.init handshake. Used by hosted `window.napplet.shell.supports()` for
  * synchronous capability queries after the shim consumes shell.init.
  *
- * Per canonical NIP-5D (specs/NIP-5D.md lines 81-94), supports() distinguishes
- * two namespaces:
+ * Per canonical NIP-5D (https://github.com/nostr-protocol/nips/pull/2303/),
+ * supports() distinguishes two namespaces:
  *
  *   - Bare names (or optional `nub:` prefix) for NUB-capability lookups,
  *     resolved against the `nubs` array — e.g. `supports('relay')`,
@@ -305,8 +304,8 @@ export interface ShellCapabilities {
    *
    * The `perm:` prefix is what separates sandbox permissions from NUB
    * capabilities; bare-name entries here violate the NIP-5D contract and will
-   * be unreachable through `supports()` (see specs/NIP-5D.md §6 and lines
-   * 81-94). NUB-capability lookups (on `nubs`) retain the bare-name
+   * be unreachable through `supports()` (see the living NIP-5D at
+   * https://github.com/nostr-protocol/nips/pull/2303/). NUB-capability lookups (on `nubs`) retain the bare-name
    * convention and do NOT use the `perm:` prefix.
    */
   sandbox: string[];
@@ -357,15 +356,10 @@ export interface ShellAdapter {
   onHashMismatch?: (dTag: string, claimed: string, computed: string) => void;
   /**
    * Called at iframe creation for NIP-5D napplets.
-   * Returns identity metadata for originRegistry.register(), INCLUDING the
-   * class posture (CLASS-01, breaking v1.7). Returning `class: null` selects
-   * the permissive default (D2). Returning null overall means "not NIP-5D /
-   * skip registration" (unchanged semantics from v1.6).
-   *
-   * BREAKING v1.7: previously `{ dTag, aggregateHash } | null`; now requires
-   * `class` in the non-null branch. See .changeset/class-01-breaking-hook.md.
+   * Returns identity metadata for originRegistry.register(). Returning null
+   * means "not NIP-5D / skip registration".
    */
-  onNip5dIframeCreate?: (windowId: string) => { dTag: string; aggregateHash: string; class: NappletClass } | null;
+  onNip5dIframeCreate?: (windowId: string) => { dTag: string; aggregateHash: string } | null;
   /**
    * Optional service extensions. Each key is a service name (e.g., 'audio',
    * 'notifications'). Napplets discover available services via kind 29010

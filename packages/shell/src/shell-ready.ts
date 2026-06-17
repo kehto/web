@@ -3,7 +3,6 @@ import type { NappletMessage } from '@napplet/core';
 import { originRegistry } from './origin-registry.js';
 import { buildShellCapabilities } from './shell-init.js';
 import type { ShellAdapter, ShellCapabilities } from './types.js';
-import type { NappletClass } from './types/internal-class.js';
 
 interface ShellReadyOptions {
   hooks: ShellAdapter;
@@ -50,7 +49,7 @@ export function handleShellReady({
   }
 
   const capabilities = buildShellCapabilities(hooks);
-  postShellInit(runtime, windowId, capabilities, Object.keys(hooks.services ?? {}));
+  postShellInit(windowId, capabilities, Object.keys(hooks.services ?? {}));
   initSent.add(windowId);
 }
 
@@ -83,7 +82,6 @@ function registerNip5dSessionIfNeeded({
     registeredAt: Date.now(),
     instanceId: crypto.randomUUID(),
     provenance: 'nip-5d',
-    class: identity.class,
   };
   runtime.sessionRegistry.register(windowId, entry);
 }
@@ -91,9 +89,9 @@ function registerNip5dSessionIfNeeded({
 function resolveNip5dIdentity(
   hooks: ShellAdapter,
   windowId: string,
-): { dTag: string; aggregateHash: string; class: NappletClass } | null {
+): { dTag: string; aggregateHash: string } | null {
   // Identity resolution order:
-  //   1. hooks.onNip5dIframeCreate?.(windowId) — preferred; includes class posture.
+  //   1. hooks.onNip5dIframeCreate?.(windowId) — preferred.
   //   2. originRegistry.getIdentity(win) — fallback for hosts that register
   //      identity directly via originRegistry.register(win, windowId, identity).
   const hookIdentity = hooks.onNip5dIframeCreate?.(windowId);
@@ -101,7 +99,6 @@ function resolveNip5dIdentity(
     return {
       dTag: hookIdentity.dTag,
       aggregateHash: hookIdentity.aggregateHash,
-      class: hookIdentity.class,
     };
   }
 
@@ -118,61 +115,21 @@ function resolveNip5dIdentity(
   return {
     dTag: originIdentity.dTag,
     aggregateHash: originIdentity.aggregateHash,
-    class: null,
   };
 }
 
-/**
- * SHELL-02 (NAP-SHELL gap G2): map an internal {@link NappletClass} label to
- * the opaque numeric class code carried on the `shell.init` wire.
- *
- * The NAP-SHELL contract for `shell.init.class` is `number | null` (an opaque
- * integer posture code, or `null` for the permissive default). Internally the
- * runtime/ACL layer keys on string labels (`'class-1'`, `'class-2'`); this
- * mapping is applied ONLY at the wire boundary and leaves the internal label
- * type and `enforce.ts` class logic untouched.
- *
- * Mapping: `null -> null`, `'class-N' -> N` (trailing integer of the label).
- * An unrecognized non-null label maps to `null` (fail to the permissive
- * default rather than emit a non-conformant value).
- *
- * @param c - The internal class label resolved from the session entry.
- * @returns The numeric wire code, or `null` for the permissive default.
- * @example
- * classToWireCode('class-1'); // 1
- * classToWireCode('class-2'); // 2
- * classToWireCode(null);      // null
- */
-function classToWireCode(c: NappletClass): number | null {
-  if (c === null) return null;
-  const match = /^class-(\d+)$/.exec(c);
-  if (!match) return null;
-  return Number.parseInt(match[1], 10);
-}
-
 function postShellInit(
-  runtime: Runtime,
   windowId: string,
   capabilities: ShellCapabilities,
   services: string[],
 ): void {
-  // CLASS-02: read resolved class from session entry (populated above, or
-  // previously by the host at iframe creation time for legacy flows).
-  // Fallback to null (permissive default, D2) when no entry is resolvable.
-  const sessionEntry = runtime.sessionRegistry.getEntryByWindowId(windowId);
-  const resolvedClass: NappletClass = sessionEntry?.class ?? null;
-  // SHELL-02: emit class as the opaque numeric wire code (number | null), not
-  // the internal string label. enforce.ts/ACL still key on the internal label
-  // stored on the session entry — only this wire value is mapped.
   const initMsg: NappletMessage & {
     capabilities: ShellCapabilities;
     services: string[];
-    class: number | null;
   } = {
     type: 'shell.init',
     capabilities,
     services,
-    class: classToWireCode(resolvedClass),
   };
   const win = originRegistry.getIframeWindow(windowId);
   if (win) win.postMessage(initMsg, '*');

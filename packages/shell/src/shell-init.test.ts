@@ -53,7 +53,7 @@ describe('buildShellCapabilities — domains array (conformant NAP-SHELL, TERM-0
     expect(caps.domains).toEqual([
       'relay', 'outbox',
       'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify',
-      'config', 'resource', 'connect', 'class', 'cvm',
+      'config', 'resource', 'cvm',
     ]);
   });
 
@@ -161,7 +161,7 @@ describe('buildShellCapabilities — naps array (NAP vocabulary, D2/D3)', () => 
     expect(caps.naps).toEqual([
       'relay', 'outbox',
       'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify',
-      'config', 'resource', 'connect', 'class', 'cvm',
+      'config', 'resource', 'cvm',
       'inc:NAP-01', 'inc:NAP-02', 'inc:NAP-03', 'inc:NAP-04', 'inc:NAP-05', 'inc:NAP-06',
     ]);
   });
