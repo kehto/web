@@ -1,71 +1,74 @@
-# Requirements: Kehto Runtime — v1.20 NIP-5D Content-Addressed Runtime Resolution
+# Requirements: Kehto Runtime — v1.21 NIP-5D (#2303) + NAP-SHELL/INTENT Conformance
 
-**Defined:** 2026-06-16
+**Defined:** 2026-06-17
 **Core Value:** Modular, framework-agnostic runtime for hosting napplet applications — any Nostr client can embed sandboxed mini-apps by integrating @kehto/shell.
-**Authoritative sources:** branch-HEAD `dskvr/nips` `nip/5d` (`5D.md`, PR #3) + `nostr-protocol/nips` PR #2287 (`5A.md` "Aggregate Hash", head `hzrd149/nips:nsite-aggragate-hash`).
+**Authoritative sources:** `nostr-protocol/nips` PR **#2303** (`5D.md`) + the `napplet/naps` registry — **NAP-SHELL** (mandatory handshake) and **NAP-INTENT** (archetype dispatch), plus `projections/web.md`.
+**Audit:** `.planning/NIP-5D-2303-DELTA-AUDIT.md` (gaps G1–G8).
 
 ## v1 Requirements
 
-Requirements for this milestone. Each maps to a roadmap phase.
+Requirements for this milestone. Each maps to exactly one roadmap phase.
 
-### NIP-5A/5D Resolution Module — `@kehto/nip` (Phase 84 / PR1)
+### Phase A — NAP-SHELL Handshake Correctness
 
-- [ ] **RESOLVE-01**: A developer can import NIP-5D kind constants from `@kehto/nip` — `35129` (named/addressable, has `d`), `15129` (root/replaceable), `5129` (snapshot/regular).
-- [ ] **RESOLVE-02**: The module parses a NIP-5D manifest event into structured fields: `dTag`, `path` entries (`{ path, sha256 }`), the aggregate `x` tag, `server` hints, `requires`, and optional `title`/`description`.
-- [ ] **RESOLVE-03**: The module computes the NIP-5A aggregate hash from `path` tags (per-tag line `"<sha256> <abs-path>\n"` → sort ascending → concat UTF-8 → sha256 → lowercase hex) and a unit test asserts it against a pinned NIP-5A example vector.
-- [ ] **RESOLVE-04**: The module verifies a manifest's recomputed aggregate equals its `["x","<hex>","aggregate"]` tag and rejects on mismatch.
-- [ ] **RESOLVE-05**: The module verifies a manifest event's Nostr signature and rejects an invalid or forged signature.
-- [ ] **RESOLVE-06**: The module fetches a blob from a Blossom server by sha256 and verifies `sha256(blob) === path hash`, rejecting on mismatch.
-- [ ] **RESOLVE-07**: `@kehto/nip` builds and type-checks with the new subpath exported; unit tests cover the aggregate vector, signature, blob-hash, aggregate-vs-`x`, and every rejection path.
+- [ ] **SHELL-01**: The runtime sends `shell.init` **exactly once** per napplet lifecycle — a duplicate `shell.ready` from the same window is idempotent (no second session established, no `shell.init` resend). A regression test asserts exactly one `shell.init` postMessage across two `shell.ready` deliveries from one window. (G1)
+- [ ] **SHELL-02**: The `class` field carried in `shell.init` conforms to the NAP-SHELL contract `number | null` — an opaque integer class code (or `null` for the permissive default), with the internal class-posture label mapped to that wire value. A test asserts the emitted `class` is `number | null`. (G2)
 
-### Runtime Identity From Verified Bytes (Phase 85 / PR2)
+### Phase B — NAAT Archetype Axis (NIP-5D manifest + NAP-INTENT)
 
-- [ ] **IDENTITY-01**: The runtime derives a napplet keypair from the *computed* `(dTag, aggregateHash)` of verified bytes — `key-derivation` is fed resolver output, not gateway-asserted metadata.
-- [ ] **IDENTITY-02**: `manifest-cache`, ACL state/store, and the shell session binding key on the computed `(dTag, aggregateHash)`.
-- [ ] **IDENTITY-03**: The iframe `Window` maps to the computed identity via the existing source-derived binding (`markSourceDerivedIdentity` / `originRegistry`), so every inbound message resolves from `MessageEvent.source` to the same identity before dispatch.
+- [ ] **ARCH-01**: `@kehto/nip/5d` parses the `["archetype","<slug>","<NAP-N>"]` manifest tag(s) into a structured `archetypes` field on `NappletManifest`, and parses the optional `source` tag. Unit tests cover single, multiple, and absent archetype tags. (G3, G4)
+- [ ] **ARCH-02**: A NIP-5A-manifest → `IntentCatalogEntry` adapter derives a napplet's archetype catalog entry (slug → actions/protocols) from its resolved signed manifest, so NAP-INTENT `available()` / `handlers()` are sourced from signed manifests rather than host-injected catalog data. Unit tests cover the adapter. (G3)
+- [ ] **ARCH-03**: The playground catalog is populated from resolved manifests via the adapter, and at least one playground napplet declares an `archetype` tag. (G3)
+- [ ] **ARCH-04**: An e2e (or integration) test exercises NAP-INTENT dispatch end-to-end against the archetype-tagged napplet — `intent.available` reports the candidate and `intent.invoke` resolves to it. (G3)
 
-### Content-Addressed Loading (Phase 85 / PR2)
+### Phase C — Terminology & Playground Modern-Path Alignment
 
-- [ ] **LOAD-01**: The shell loads a napplet end-to-end — resolve the signed manifest from relays via NIP-65 outbox selection → fetch each blob from Blossom by sha256 → verify → assemble `/index.html` — backed by a minimal in-repo relay + Blossom simulation in the playground.
-- [ ] **LOAD-02**: The shell injects verified bytes via `iframe.srcdoc` with `sandbox="allow-scripts"` and never `allow-same-origin` (opaque origin preserved, storage stays shell-mediated).
-- [ ] **LOAD-03**: Any resolution/verification failure (missing manifest, bad signature, missing/forged blob, aggregate mismatch) rejects the load — no iframe is ever shown with unverified bytes.
-- [ ] **LOAD-04**: The gateway is no longer in the trust path — `htmlUrl` / `GatewayNappletMetadata` are retired (or `htmlUrl` survives only as an accelerator hint whose output is verified against the signed manifest).
-- [ ] **LOAD-05**: CSP / NAP-CONNECT policy is enforced via an injected `<meta http-equiv="Content-Security-Policy">` in the assembled HTML under `srcdoc`; firewall / storage / relay / ACL mediation behavior is unchanged.
-- [ ] **LOAD-06**: The in-repo build (`shared-vite-config.ts`) emits NIP-5A `path` tags + one `["x","<hex>","aggregate"]` tag and uses kind `35129`, so the playground exercises the real resolve → verify → srcdoc path.
-- [ ] **LOAD-07**: Existing tests asserting gateway / `htmlUrl` behavior are updated to the srcdoc model; `pnpm build`, `pnpm type-check`, unit, and E2E suites are green.
+- [ ] **TERM-01**: `nap:` is the primary, documented, and tested capability prefix in `shell.supports()` resolution; `nub:` is accepted only as back-compat. `specs/NIP-5D.md` and `packages/shell/tests/perm-namespace.test.ts` use `nap:` (with `nub:` retained as an accepted-alias assertion). (G5)
+- [ ] **TERM-02**: The 4 legacy playground napplets (bot, chat, feed, profile-viewer) declare `requires` and call `supports()` using `inc` (not `ifc`). (G6)
+- [ ] **TERM-03**: The playground bootstrap (`shared-vite-config.ts`) and `getMissingRequiredNaps` (`demo-hooks.ts`) resolve capabilities from `capabilities.naps`, falling back to `nubs` only for the installed 0.5.0 shim. (G6)
+- [ ] **TERM-04**: An e2e asserts the modern `naps`-only path answers `supports('inc')` true and `supports('inc','NAP-01')` true for an `inc`-capable napplet, proving the path the real shim uses is exercised. (G6)
+- [ ] **TERM-05**: `naps`+`nubs` dual-emit is preserved (installed shim is 0.5.0); existing `shell-init` / `no-window-nostr` capability-payload assertions stay green. CLEANUP-01 is NOT performed. (G6 constraint)
 
-### Documentation Sync (Phase 85 / PR2)
+### Phase D — Spec / Doc Refresh & Conformance Sweep
 
-- [ ] **DOCS-01**: `RUNTIME-SPEC.md` and `specs/NIP-5D.md` repin to branch-HEAD NIP-5D (kinds `35129`/`15129`/`5129`) and describe the relays → Blossom → verify → srcdoc loading + computed identity; no "backwards compatibility" language anywhere in the changed docs.
-- [ ] **DOCS-02**: `@kehto/nip` (and `@kehto/runtime` / `@kehto/shell` where changed) READMEs / types / CHANGELOGs document the resolution + identity change; changesets are added.
+- [ ] **DOCS-01**: `specs/NIP-5D.md` cites `nostr-protocol/nips#2303` as the authority (and the current NIP-5A PR), uses NAP terminology throughout (not NUB), and documents the `archetype` and `source` manifest tags. (G7)
+- [ ] **DOCS-02**: Local mirrors of NAP-SHELL and NAP-INTENT are added under `specs/` and referenced from `specs/NIP-5D.md`. (G7)
+- [ ] **DOCS-03**: `RUNTIME-SPEC.md` is refreshed to the #2303 / NAP model; stale NUB/AUTH/REGISTER comments in shell/services/runtime source are swept (the `@napplet/nub` import specifier is preserved — it is the real published package name). (G7)
+- [ ] **DOCS-04**: Unknown-`type` handling is verified uniform — truly unrecognized message types are silently ignored across known domains, except where a NAP spec sanctions structured errors (NAP-INTENT permits `.result`/`.error`). Any divergence is normalized or documented. (G8)
 
-## v2 Requirements
+### Verification
 
-Deferred to a future milestone.
+- [ ] **VERIFY-01**: `pnpm build`, `pnpm type-check`, the unit suite, and the Playwright e2e suite are all green; changesets are added for every `@kehto/*` package whose public surface or behavior changed.
 
-### Real Deployment & Instancing
+## v2 / Future Requirements
 
-- **FUTURE-01**: Real napplet publishing/deployment via the nsyte.run CLI (replaces the in-repo dev-only manifest build).
-- **FUTURE-02**: NIP-5D instancing (`dskvr/nips#2`) — per-instance napplet identity/state scoping.
+- CLEANUP-01: remove `naps`+`nubs` / `inc`+`ifc` dual-emit once the installed shim is upgraded past 0.5.0 (deferred — would break the current playground shim).
+- Implement remaining registry NAP domains not yet covered (`pow`, `value`) if/when their specs merge.
 
 ## Out of Scope
 
-Explicitly excluded to prevent scope creep.
-
-- **`@napplet/vite-plugin` build tooling** — the portable build plugin lives in the separate `@napplet` repo; only the in-repo `shared-vite-config.ts` re-sign step changes here.
-- **NIP-5D instancing (`dskvr/nips#2`)** — deferred (FUTURE-02).
-- **Backwards-compatibility shims or language** — this is a clean break; no dual-path loading and no "backwards compatibility" wording in changed docs.
-- **Mass-renaming or refactoring unrelated runtime internals** beyond what the identity-source change requires.
+- Upgrading `@napplet/shim` beyond 0.5.0 or removing back-compat dual-emit (would break the playground; tracked as CLEANUP-01).
+- Re-verifying v1.20 content-addressed loading internals (manifest kinds, identity-from-bytes, srcdoc, signature/blob/aggregate verification) — already aligned; regression-guard only.
+- `@napplet/*` SDK/shim/vite-plugin changes (this repo is runtime-only).
+- NIP-5D instancing and any non-web NAP projection.
 
 ## Traceability
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| RESOLVE-01..07 | 84 | Complete |
-| IDENTITY-01..03 | 85 | Complete |
-| LOAD-01..07 | 85 | Complete |
-| DOCS-01..02 | 85 | Complete |
-
----
-
-*REQUIREMENTS.md last updated: 2026-06-16 — v1.20 milestone requirements defined.*
+| SHELL-01 | A | Pending |
+| SHELL-02 | A | Pending |
+| ARCH-01 | B | Pending |
+| ARCH-02 | B | Pending |
+| ARCH-03 | B | Pending |
+| ARCH-04 | B | Pending |
+| TERM-01 | C | Pending |
+| TERM-02 | C | Pending |
+| TERM-03 | C | Pending |
+| TERM-04 | C | Pending |
+| TERM-05 | C | Pending |
+| DOCS-01 | D | Pending |
+| DOCS-02 | D | Pending |
+| DOCS-03 | D | Pending |
+| DOCS-04 | D | Pending |
+| VERIFY-01 | A–D | Pending |
