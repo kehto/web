@@ -1,0 +1,29 @@
+{
+  "name": "@kehto/nip",
+  "version": "0.3.0",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./5a": "./src/5a/index.ts",
+    "./5d": "./src/5d/index.ts",
+    "./51": "./src/51/index.ts",
+    "./65": "./src/65/index.ts",
+    "./66": "./src/66/index.ts",
+    "./89": "./src/89/index.ts"
+  },
+  "imports": {
+    "@noble/hashes": "npm:@noble/hashes@^2.0.0",
+    "nostr-tools": "npm:nostr-tools@^2.23.3"
+  },
+  "publish": {
+    "include": [
+      "src/**/*.ts",
+      "README.md",
+      "jsr.json"
+    ],
+    "exclude": [
+      "src/**/*.test.ts",
+      "src/**/*.spec.ts"
+    ]
+  }
+}

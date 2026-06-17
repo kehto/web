@@ -86,3 +86,40 @@ jobs:
       # attaches provenance automatically (public repo + public package).
       - name: Publish to npm (OIDC Trusted Publishing)
         run: pnpm changeset publish
+
+      # ── JSR publish ─────────────────────────────────────────────────────────
+      # JSR publishes from the SAME tag as npm, reading the same package.json
+      # versions, so the two registries stay in lockstep (no version-skew window
+      # that a push-to-main JSR trigger would open). JSR auths via the job's
+      # `id-token: write` OIDC — no JSR_TOKEN secret — once each @kehto/* package
+      # is linked to kehto/web under the @kehto scope at jsr.io.
+      #
+      # `if: always()` so a non-fatal npm hiccup (e.g. an already-published
+      # version, which `changeset publish` treats as success anyway) never
+      # silently skips the JSR release.
+
+      # Idempotent — copies each packages/*/package.json#version into the sibling
+      # jsr.json#version and pins internal @kehto/* import constraints to the
+      # current versions. Guards against a hand-edited package.json that skipped
+      # `pnpm version-packages`.
+      - name: Sync jsr.json versions
+        if: always()
+        run: node scripts/sync-jsr-versions.mjs
+
+      # `pnpm -r exec` runs in topological order (respects workspace deps), so
+      # @kehto/acl + @kehto/firewall publish before @kehto/runtime, which
+      # publishes before @kehto/shell + @kehto/services. Each package's
+      # `npx jsr publish` then resolves prior packages from JSR's registry.
+      #
+      # --workspace-concurrency=1 is REQUIRED: pnpm's default recursive
+      # concurrency runs the `npx jsr` invocations in parallel, which both
+      # (a) lets JSR reject dependents whose deps aren't on the registry yet and
+      # (b) races concurrent `npx jsr` processes on the shared npx binary-download
+      # cache. Serializing to 1 runs packages strictly in topological order.
+      #
+      # --allow-slow-types relaxes JSR's strict type-inference checks until the
+      # public type exports are tightened (tracked separately).
+      # --allow-dirty tolerates the sync step's jsr.json edits without a commit.
+      - name: Publish to JSR (topologically ordered)
+        if: always()
+        run: pnpm -r --workspace-concurrency=1 --filter='./packages/*' exec npx jsr publish --allow-slow-types --allow-dirty
