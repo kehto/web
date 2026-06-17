@@ -3,7 +3,7 @@
  *
  * Kehto-internal shell-side connect-store + consent-flow types. Per
  * PROJECT.md Decision #31, this is NOT a staging-ground duplicate of upstream
- * `@napplet/nub/connect`: upstream exports a napplet-side accessor interface
+ * `@napplet/nap/connect`: upstream exports a napplet-side accessor interface
  * (`NappletConnect = { granted, origins }`) plus the shared
  * `normalizeConnectOrigin` pure validator. Kehto's types here describe the
  * shell's grant-store records (`ConnectGrant`, `ConnectGrantKey`,
@@ -13,7 +13,7 @@
  * The two surfaces are complementary: upstream's accessor type ships at the
  * napplet boundary; kehto's grant-store types live shell-side. No retirement
  * planned. For canonical origin validation (kehto has no local impl;
- * Decision #32), consume `@napplet/nub/connect`'s `normalizeConnectOrigin`
+ * Decision #32), consume `@napplet/nap/connect`'s `normalizeConnectOrigin`
  * directly.
  *
  * Downstream consumers (Phase 39 `connect-store.ts`, Vite CSP middleware,

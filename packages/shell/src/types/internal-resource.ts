@@ -2,7 +2,7 @@
  * @file internal-resource.ts
  *
  * Kehto-internal shell-side resource wire types. Per PROJECT.md Decision #31,
- * this is NOT a staging-ground duplicate of upstream `@napplet/nub/resource`:
+ * this is NOT a staging-ground duplicate of upstream `@napplet/nap/resource`:
  * Phase 44 audit confirmed the two surfaces diverge substantively — different
  * field names (kehto's `requestId` vs upstream `id`; kehto's `bodyBase64` vs
  * upstream `blob` + `mime`), different message-type names

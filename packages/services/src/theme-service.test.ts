@@ -2,7 +2,7 @@
  * theme-service.test.ts — Unit tests for the NIP-5D theme NUB service.
  *
  * Covers the 1 napplet->shell request type and the host-driven publishTheme
- * broadcast handle from @napplet/nub/theme:
+ * broadcast handle from @napplet/nap/theme:
  *   theme.get                 -> theme.get.result with current theme
  *   publishTheme(theme)       -> synchronously updates current theme and
  *                                 invokes options.onBroadcast with a

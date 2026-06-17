@@ -15,7 +15,7 @@
  * (An `identity.decrypt` capability was briefly added in v1.8 and removed as a
  * spec violation; decryption belongs to the runtime, inline over the wire.)
  *
- * Handles 9 identity.* request types from @napplet/nub/identity. getPublicKey
+ * Handles 9 identity.* request types from @napplet/nap/identity. getPublicKey
  * and getRelays return real values sourced from hooks.auth.getSigner(); the
  * remaining 7 (getProfile/getFollows/getList/getZaps/getMutes/getBlocked/
  * getBadges) are stub-level. Host apps plug real backends via
@@ -63,7 +63,7 @@ export interface IdentityServiceOptions {
 /**
  * Create an identity service that handles NIP-5D identity.* envelope messages.
  *
- * Supports the 9 read-only identity.* request types from @napplet/nub/identity.
+ * Supports the 9 read-only identity.* request types from @napplet/nap/identity.
  * The two nostr-info queries (getPublicKey, getRelays) resolve through the
  * caller-supplied signer; the remaining 7 return default/empty payloads with
  * spec-correct envelope shapes so napplets always receive a result envelope.

@@ -1,7 +1,7 @@
 /**
  * theme-service.ts — NIP-5D theme NUB reference service.
  *
- * Handles the single napplet->shell request type from @napplet/nub/theme:
+ * Handles the single napplet->shell request type from @napplet/nap/theme:
  *   - `theme.get`         -> `theme.get.result { theme }` (current theme)
  *
  * Exposes a host-facing `publishTheme(theme)` handle that:
@@ -61,7 +61,7 @@ const DEFAULT_THEME: Theme = {
     primary: '#7aa2f7',
   },
   // fonts, background, title intentionally undefined — all optional per
-  // @napplet/nub/theme Theme interface.
+  // @napplet/nap/theme Theme interface.
 };
 
 /**

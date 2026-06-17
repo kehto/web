@@ -3,7 +3,7 @@
 Browser adapter over @kehto/runtime — ShellBridge, domain proxies, keys-forwarder.
 
 > **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
-> protocol. NUB contracts, `supports()` behavior, and shell capabilities are not
+> protocol. NAP contracts, `supports()` behavior, and shell capabilities are not
 > final; treat this package as current implementation guidance.
 
 ## Install
@@ -16,13 +16,13 @@ pnpm add @kehto/shell
 
 `@kehto/shell` is the browser-specific integration layer for kehto. It wraps `@kehto/runtime` with the window/postMessage transport, localStorage persistence hooks, an audio manager, and the five canonical per-domain proxies defined by NIP-5D.
 
-The primary entry point is `createShellBridge()` — it owns the postMessage listener, AUTH handshake, manifest verification, and every dispatch back into the runtime engine.
+The primary entry point is `createShellBridge()` — it owns the postMessage listener, the NAP-SHELL `shell.ready` / `shell.init` handshake, manifest verification, and every dispatch back into the runtime engine.
 
 Current draft behaviors this package enforces:
 
 - The shell does not inject a host-provided nostr object into napplets — NIP-5D explicitly forbids napplet-visible signing. Napplets call `relay.publish` / `relay.publishEncrypted` and the shell mediates the signing flow internally (NIP-44 default, NIP-04 opt-in for encrypted envelopes).
 - `shell.supports(capability)` uses the `perm:<permission>` namespace for sandbox permissions, not the v1.1 bare capability list.
-- Five optional per-domain proxies — `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` — can be composed between napplet and runtime to intercept or augment traffic per NUB. They are NOT wired by default (Kehto's runtime already owns dispatch for the currently supported domains); they exist as host-app composition seams.
+- Five optional per-domain proxies — `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` — can be composed between napplet and runtime to intercept or augment traffic per NAP. They are NOT wired by default (Kehto's runtime already owns dispatch for the currently supported domains); they exist as host-app composition seams.
 - The keys-forwarder pumps host keydown events into `keys.forward` envelopes for napplets that hold the `keys:forward` capability.
 
 ## Quick Start

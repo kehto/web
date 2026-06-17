@@ -3,7 +3,7 @@
 Pure, WASM-ready ACL module for the napplet protocol — zero dependencies, zero side effects.
 
 > **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
-> protocol. NUB contracts and capability names are not final; treat this package
+> protocol. NAP contracts and capability names are not final; treat this package
 > as current implementation guidance, not as a stable protocol guarantee.
 
 ## Install
@@ -87,7 +87,7 @@ check(state, id, CAP_RELAY_WRITE); // true (restored)
 ### Capability resolution
 - `check` — evaluate identity + capability against state
 - `toKey` — compute the `dTag:hash` composite key
-- `resolveCapabilitiesNub` — map a NIP-5D NUB envelope type to the required sender/recipient capabilities across the current supported domains
+- `resolveCapabilitiesNub` — map a NIP-5D NAP envelope type to the required sender/recipient capabilities across the current supported domains
 
 ### Migration
 - `migrateAclState` — one-shot migration from the legacy 3-segment `pubkey:dTag:hash` keys to the v1.2 2-segment `dTag:hash` keys; idempotent (returns the same reference when nothing to migrate)

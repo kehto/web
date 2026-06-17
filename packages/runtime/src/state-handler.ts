@@ -2,7 +2,7 @@
  * state-handler.ts — Storage NUB request handler using persistence hooks.
  *
  * Handles napplet storage operations (get, set, remove, keys) via the
- * canonical `@napplet/nub/storage` NIP-5D envelope surface. Delegates
+ * canonical `@napplet/nap/storage` NIP-5D envelope surface. Delegates
  * storage to StatePersistence. No localStorage, no legacy NIP-01 dispatch.
  */
 
@@ -36,19 +36,19 @@ function byteLength(str: string): number {
 
 /**
  * Handle a NIP-5D NUB storage message from a napplet.
- * Routes to the canonical four `@napplet/nub/storage` actions:
+ * Routes to the canonical four `@napplet/nap/storage` actions:
  *   - `storage.get`    → `storage.get.result`    `{ value: string | null }`
  *   - `storage.set`    → `storage.set.result`    `{ ok: boolean }` (canonical only checks `error`)
  *   - `storage.remove` → `storage.remove.result` `{ ok: boolean }`
  *   - `storage.keys`   → `storage.keys.result`   `{ keys: string[] }`
  *
- * `storage.clear` is NOT in the canonical `@napplet/nub/storage` union (it was a
+ * `storage.clear` is NOT in the canonical `@napplet/nap/storage` union (it was a
  * kehto unilateral extension); attempts produce a `storage.clear.result` envelope
  * with an `error` field set. Internal lifecycle cleanup still uses the
  * `cleanupNappState()` helper below — it is not napplet-reachable.
  *
  * **Deviation note (Phase 15 to decide):** Set/remove results emit both `ok`
- * (legacy compat) and an `error` field on failure. Canonical `@napplet/nub/storage`
+ * (legacy compat) and an `error` field on failure. Canonical `@napplet/nap/storage`
  * only specifies the optional `error`; napplets check `!result.error` for success.
  * Emitting `ok` preserves backward compatibility with existing in-tree callers.
  * Phase 15 (v1.2 release prep) decides whether to drop `ok` pre-release.
@@ -112,7 +112,7 @@ export function handleStorageNub(
       if (result === null && pubkey) {
         result = statePersistence.get(`napp-state:${pubkey}:${dTag}:${aggregateHash}:${key}`);
       }
-      // Canonical @napplet/nub/storage: `value: string | null` — null ⇔ missing.
+      // Canonical @napplet/nap/storage: `value: string | null` — null ⇔ missing.
       sendResult({ value: result });
       break;
     }
@@ -145,10 +145,10 @@ export function handleStorageNub(
     }
     case 'clear': {
       // storage.clear was a kehto unilateral extension; it is NOT in the canonical
-      // @napplet/nub/storage union. Napplets hitting this branch receive a
+      // @napplet/nap/storage union. Napplets hitting this branch receive a
       // storage.clear.result envelope with the error field set. Internal lifecycle
       // cleanup uses cleanupNappState() below (not napplet-reachable).
-      sendErrorNub('storage.clear is not in @napplet/nub/storage; action not supported');
+      sendErrorNub('storage.clear is not in @napplet/nap/storage; action not supported');
       break;
     }
     case 'keys': {
