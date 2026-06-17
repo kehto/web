@@ -31,10 +31,10 @@ Requirements for this milestone. Each maps to exactly one roadmap phase.
 
 ### Phase D — Spec / Doc Refresh & Conformance Sweep
 
-- [ ] **DOCS-01**: `specs/NIP-5D.md` cites `nostr-protocol/nips#2303` as the authority (and the current NIP-5A PR), uses NAP terminology throughout (not NUB), and documents the `archetype` and `source` manifest tags. (G7)
-- [ ] **DOCS-02**: Local mirrors of NAP-SHELL and NAP-INTENT are added under `specs/` and referenced from `specs/NIP-5D.md`. (G7)
-- [ ] **DOCS-03**: `RUNTIME-SPEC.md` is refreshed to the #2303 / NAP model; stale NUB/AUTH/REGISTER comments in shell/services/runtime source are swept (the `@napplet/nub` import specifier is preserved — it is the real published package name). (G7)
-- [ ] **DOCS-04**: Unknown-`type` handling is verified uniform — truly unrecognized message types are silently ignored across known domains, except where a NAP spec sanctions structured errors (NAP-INTENT permits `.result`/`.error`). Any divergence is normalized or documented. (G8)
+- [x] **DOCS-01**: `specs/NIP-5D.md` cites `nostr-protocol/nips#2303` as the authority (and the current NIP-5A PR), uses NAP terminology throughout (not NUB), and documents the `archetype` and `source` manifest tags. (G7)
+- [x] **DOCS-02**: Local mirrors of NAP-SHELL and NAP-INTENT are added under `specs/` and referenced from `specs/NIP-5D.md`. (G7)
+- [x] **DOCS-03**: `RUNTIME-SPEC.md` is refreshed to the #2303 / NAP model; stale NUB/AUTH/REGISTER comments in shell/services/runtime source are swept (no doc cites `@napplet/nub` as the current dependency — historical `nubs`-array consumer mentions retained). (G7)
+- [x] **DOCS-04**: Unknown-`type` handling is verified uniform — truly unrecognized message types are silently ignored across known domains, except where a NAP spec sanctions structured errors (NAP-INTENT permits `.result`/`.error`; storage `.result`+error). Divergences (identity/media/notify) documented in RUNTIME-SPEC. (G8)
 
 ### Verification
 
@@ -67,8 +67,8 @@ Requirements for this milestone. Each maps to exactly one roadmap phase.
 | TERM-03 | 88 | Complete |
 | TERM-04 | 88 | Pending |
 | TERM-05 | 88 | Complete |
-| DOCS-01 | 89 | Pending |
-| DOCS-02 | 89 | Pending |
-| DOCS-03 | 89 | Pending |
-| DOCS-04 | 89 | Pending |
-| VERIFY-01 | 86–89 | Pending |
+| DOCS-01 | 89 | Complete |
+| DOCS-02 | 89 | Complete |
+| DOCS-03 | 89 | Complete |
+| DOCS-04 | 89 | Complete |
+| VERIFY-01 | 86–89 | Complete (docs/changesets; 9 stale guard-tests deferred — see 89/deferred-items.md) |

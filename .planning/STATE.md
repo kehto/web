@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.21
 milestone_name: "NIP-5D #2303 + NAP-SHELL/INTENT Conformance"
-status: Phase 88 plan 88-01 executed — playground + fixtures migrated to @napplet/nap (inc/naps); build 24/24 + type-check 13/13 green
-stopped_at: Completed 88-01-PLAN.md (TERM-02/03/05); 88-02 (inc-roundtrip + naps-path e2e) pending
-last_updated: "2026-06-17T00:00:00.000Z"
-last_activity: 2026-06-17 — executed 88-01 (@napplet/nub→@napplet/nap migration + ifc→inc + shim 0.13 owns supports)
+status: Phase 89 executed (DOCS-01..04 + VERIFY-01) — specs/NIP-5D refreshed, NAP-SHELL/NAP-INTENT mirrors added, RUNTIME-SPEC refreshed, modernization changesets; build 24/24 + type-check 13/13 + e2e 80/80 green
+stopped_at: Phase 89 complete — v1.21 NIP-5D #2303 + NAP-SHELL/INTENT conformance done (docs + changesets)
+last_updated: "2026-06-17T06:58:00.000Z"
+last_activity: 2026-06-17 — executed 89-01 (NIP-5D/NAP doc refresh + @napplet 0.12/0.13 modernization changesets)
 progress:
   total_phases: 4
-  completed_phases: 1
-  total_plans: 8
-  completed_plans: 3
-  percent: 38
+  completed_phases: 4
+  total_plans: 9
+  completed_plans: 9
+  percent: 100
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-15)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** v1.21 roadmapped — Phases 86–89 defined; next: plan Phase 86 (NAP-SHELL handshake correctness)
+**Current focus:** v1.21 complete — Phases 86–89 done; NIP-5D #2303 + NAP-SHELL/INTENT conformance landed with changesets ready for release.
 
 ## Current Position
 
-Phase: 88 — Terminology / Playground Modern Path (in progress)
-Plan: 88-01 — complete (TERM-02 + TERM-03 + TERM-05); 88-02 pending
-Status: Phase 88 plan 88-01 executed — playground + fixtures on @napplet/nap (inc/naps); build 24/24 + type-check 13/13 green
-Last activity: 2026-06-17 — executed 88-01 (@napplet/nub→@napplet/nap migration + ifc→inc + shim 0.13 owns supports)
+Phase: 89 — Spec / Doc Refresh & Conformance Sweep (complete)
+Plan: 89-01 — complete (DOCS-01..04 + VERIFY-01)
+Status: Phase 89 executed — specs/NIP-5D refreshed to #2303/NAP model, NAP-SHELL/NAP-INTENT mirrors added, RUNTIME-SPEC refreshed (toolchain + unknown-type handling), NUB→NAP doc sweep, modernization changesets for all 6 @kehto packages; build 24/24 + type-check 13/13 + e2e 80/80 green
+Last activity: 2026-06-17 — executed 89-01 (NIP-5D/NAP doc refresh + @napplet 0.12/0.13 modernization changesets)
 
 ## Performance Metrics
 
@@ -45,7 +45,7 @@ Last activity: 2026-06-17 — executed 88-01 (@napplet/nub→@napplet/nap migrat
 | 86 | 1 | ~6m | ~6m |
 | 87 | TBD | - | - |
 | 88 | 1 | ~18m | ~18m |
-| 89 | TBD | - | - |
+| 89 | 1 | ~45m | ~45m |
 
 ## Accumulated Context
 
@@ -71,7 +71,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ### Blockers/Concerns
 
-None.
+- **9 pre-existing stale guard-test failures** (`tests/unit/sdk-migration-guard.test.ts`, `playground-gateway-guard.test.ts`, `nip5d-conformance-guard.test.ts`) assert the pre-modernization 0.5.0/`@napplet/nub`/`ifc` graph that phases 86–88 already replaced with 0.12/0.13/`@napplet/nap`/`inc`. Out of phase-89 (docs) scope; logged to `.planning/phases/89-spec-doc-refresh-conformance-sweep/deferred-items.md`. Needs a test-owning follow-up to realign the guards before tagging v1.21.
 
 ### Quick Tasks Completed
 
@@ -81,10 +81,11 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-06-17T02:10:54.358Z
-Stopped at: v1.21 roadmap created — Phases 86–89 defined, 16 requirements mapped
+Last session: 2026-06-17T06:58:00.000Z
+Stopped at: Phase 89 complete — v1.21 NIP-5D #2303 + NAP-SHELL/INTENT conformance done (docs + changesets)
 Resume file: None
 
 ## Operator Next Steps
 
-- Run `/gsd:plan-phase 86` to decompose Phase 86 (NAP-SHELL handshake correctness) into executable plans.
+- Realign the 3 stale guard specs to the 0.12/0.13/`@napplet/nap`/`inc` graph (see `89/deferred-items.md`) so `pnpm test:unit` is fully green before tagging.
+- Run `pnpm changeset version` + publish to cut the v1.21 release (all 6 @kehto packages have changesets).
