@@ -161,6 +161,9 @@ export type {
   IntentOpenParams,
 } from './catalog-intent-resolver.js';
 
+export { manifestToIntentCatalogEntry } from './manifest-intent-catalog.js';
+export type { ManifestArchetypeInput } from './manifest-intent-catalog.js';
+
 export { createCvmService } from './cvm-service.js';
 export type {
   CvmService,
