@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.21
 milestone_name: "NIP-5D #2303 + NAP-SHELL/INTENT Conformance"
-status: Phase 89 executed (DOCS-01..04 + VERIFY-01) — specs/NIP-5D refreshed, NAP-SHELL/NAP-INTENT mirrors added, RUNTIME-SPEC refreshed, modernization changesets; build 24/24 + type-check 13/13 + e2e 80/80 green
-stopped_at: Phase 89 complete — v1.21 NIP-5D #2303 + NAP-SHELL/INTENT conformance done (docs + changesets)
-last_updated: "2026-06-17T06:58:00.000Z"
-last_activity: 2026-06-17 — executed 89-01 (NIP-5D/NAP doc refresh + @napplet 0.12/0.13 modernization changesets)
+status: COMPLETE — v1.21 (phases 86–89) + v1.22 bonus shipped; PR kehto/web#40 opened (stacked on #39). build 24/24 + type-check 13/13 + unit 1053/1053 + e2e 80/80 green
+stopped_at: PR #40 opened — NIP-5D #2303 + NAP-SHELL/INTENT conformance + @napplet 0.12/0.13 modernization + vite-plugin 0.8.1 bonus complete
+last_updated: "2026-06-17T07:15:00.000Z"
+last_activity: 2026-06-17 — pushed milestone/v1.21-nip5d-2303-nap-conformance, opened PR kehto/web#40; filed + resolved upstream napplet/web#53
 progress:
   total_phases: 4
   completed_phases: 4
