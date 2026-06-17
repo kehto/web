@@ -2,15 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.21
 milestone_name: "NIP-5D #2303 + NAP-SHELL/INTENT Conformance"
-status: roadmapped
-last_updated: "2026-06-17T00:00:00.000Z"
-last_activity: 2026-06-17
+status: planning
+stopped_at: v1.21 roadmap created — Phases 86–89 defined, 16 requirements mapped
+last_updated: "2026-06-17T02:10:54.367Z"
+last_activity: 2026-06-17 — v1.21 roadmap created (Phases 86–89, 16 requirements mapped)
 progress:
   total_phases: 4
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 100
 ---
 
 # Project State
@@ -24,24 +25,24 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 
 ## Current Position
 
-Phase: 86 — NAP-SHELL Handshake Correctness (not started)
-Plan: —
-Status: Roadmap created (Phases 86–89); awaiting Phase 86 planning
-Last activity: 2026-06-17 — v1.21 roadmap created (Phases 86–89, 16 requirements mapped)
+Phase: 86 — NAP-SHELL Handshake Correctness (complete)
+Plan: 86-01 — complete (SHELL-01 + SHELL-02)
+Status: Phase 86 executed; shell.init exactly-once + class number|null shipped (SUMMARY written)
+Last activity: 2026-06-17 — executed 86-01 (shell.init exactly-once guard + class number|null wire mapping)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0
-- Average duration: —
-- Total execution time: 0 hours
+- Total plans completed: 1
+- Average duration: ~6m
+- Total execution time: ~6 minutes
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 86 | TBD | - | - |
+| 86 | 1 | ~6m | ~6m |
 | 87 | TBD | - | - |
 | 88 | TBD | - | - |
 | 89 | TBD | - | - |
@@ -60,6 +61,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 - **Phase 89 (G7/G8)** — DOCS-01..04 + VERIFY-01: repin `specs/NIP-5D.md` to #2303 + NAP terms + archetype/source; local NAP-SHELL/NAP-INTENT mirrors; `RUNTIME-SPEC.md` refresh; comment sweep (keep `@napplet/nub` import specifier); verify unknown-`type` silent-ignore uniformity (NAP-INTENT `.result`/`.error` is sanctioned). Full suite green + changesets.
 
 **Hard constraints (every phase):**
+
 - Installed `@napplet/shim` is **0.5.0** (reads `capabilities.nubs`) → KEEP `naps`+`nubs` dual-emit; do NOT run CLEANUP-01.
 - CI e2e runs `workers:1`; reload-heavy specs need `test.setTimeout(120000)`.
 - Playground napplet / `DEMO_CAPABILITIES` counts asserted by multiple e2e specs — update in lockstep.
@@ -79,7 +81,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-06-15T16:22:34.513Z
+Last session: 2026-06-17T02:10:54.358Z
 Stopped at: v1.21 roadmap created — Phases 86–89 defined, 16 requirements mapped
 Resume file: None
 

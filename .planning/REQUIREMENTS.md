@@ -11,8 +11,8 @@ Requirements for this milestone. Each maps to exactly one roadmap phase.
 
 ### Phase A — NAP-SHELL Handshake Correctness
 
-- [ ] **SHELL-01**: The runtime sends `shell.init` **exactly once** per napplet lifecycle — a duplicate `shell.ready` from the same window is idempotent (no second session established, no `shell.init` resend). A regression test asserts exactly one `shell.init` postMessage across two `shell.ready` deliveries from one window. (G1)
-- [ ] **SHELL-02**: The `class` field carried in `shell.init` conforms to the NAP-SHELL contract `number | null` — an opaque integer class code (or `null` for the permissive default), with the internal class-posture label mapped to that wire value. A test asserts the emitted `class` is `number | null`. (G2)
+- [x] **SHELL-01**: The runtime sends `shell.init` **exactly once** per napplet lifecycle — a duplicate `shell.ready` from the same window is idempotent (no second session established, no `shell.init` resend). A regression test asserts exactly one `shell.init` postMessage across two `shell.ready` deliveries from one window. (G1)
+- [x] **SHELL-02**: The `class` field carried in `shell.init` conforms to the NAP-SHELL contract `number | null` — an opaque integer class code (or `null` for the permissive default), with the internal class-posture label mapped to that wire value. A test asserts the emitted `class` is `number | null`. (G2)
 
 ### Phase B — NAAT Archetype Axis (NIP-5D manifest + NAP-INTENT)
 
@@ -56,8 +56,8 @@ Requirements for this milestone. Each maps to exactly one roadmap phase.
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| SHELL-01 | 86 | Pending |
-| SHELL-02 | 86 | Pending |
+| SHELL-01 | 86 | Complete |
+| SHELL-02 | 86 | Complete |
 | ARCH-01 | 87 | Pending |
 | ARCH-02 | 87 | Pending |
 | ARCH-03 | 87 | Pending |

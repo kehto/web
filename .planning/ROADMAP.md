@@ -47,7 +47,7 @@
 
 ## Phases
 
-- [ ] **Phase 86: NAP-SHELL Handshake Correctness** — `shell.init` sent exactly once per napplet lifecycle (duplicate `shell.ready` idempotent, no resend); `class` wire value reconciled to spec `number | null`. (Phase A; smallest blast radius, real protocol bug G1 — do first.)
+- [x] **Phase 86: NAP-SHELL Handshake Correctness** — `shell.init` sent exactly once per napplet lifecycle (duplicate `shell.ready` idempotent, no resend); `class` wire value reconciled to spec `number | null`. (Phase A; smallest blast radius, real protocol bug G1 — do first.) (completed 2026-06-17)
 - [ ] **Phase 87: NAAT Archetype Axis** — parse `["archetype","<slug>","<NAP-N>"]` + optional `source` manifest tags in `@kehto/nip/5d`; NIP-5A-manifest → `IntentCatalogEntry` adapter; archetype-tagged playground napplet + NAP-INTENT dispatch e2e. (Phase B; largest functional gap.)
 - [ ] **Phase 88: Terminology & Playground Modern-Path Alignment** — `nap:` as primary capability prefix (`nub:` back-compat only); migrate 4 legacy napplets `ifc`→`inc`; playground bootstrap + requires-check read `naps` (nubs fallback for the 0.5.0 shim); naps-only-path conformance e2e. Keep `naps`+`nubs` dual-emit. (Phase C.)
 - [ ] **Phase 89: Spec / Doc Refresh & Conformance Sweep** — repin `specs/NIP-5D.md` authority to #2303 + NAP terminology + archetype/source tags; local NAP-SHELL/NAP-INTENT mirrors; `RUNTIME-SPEC.md` refresh; stale NUB/AUTH comment sweep; verify unknown-`type` silent-ignore uniformity; full-suite green + changesets. (Phase D; closes VERIFY-01.)
@@ -64,7 +64,7 @@
   3. The existing `shell-init` / `no-window-nostr` capability-payload assertions stay green and `naps`+`nubs` dual-emit is unchanged; `pnpm build`, `type-check`, and the unit suite are green for the touched runtime/shell packages.
 **Plans**: 1 plan
 Plans:
-- [ ] 86-01-PLAN.md — SHELL-01 exactly-once shell.init guard + SHELL-02 class number|null wire mapping + @kehto/shell changeset
+- [x] 86-01-PLAN.md — SHELL-01 exactly-once shell.init guard + SHELL-02 class number|null wire mapping + @kehto/shell changeset
 **UI hint**: no
 
 ### Phase 87: NAAT Archetype Axis
@@ -113,7 +113,7 @@ Phases execute in numeric order: 86 → 87 → 88 → 89
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 86. NAP-SHELL Handshake Correctness | v1.21 | 0/TBD | Not started | - |
+| 86. NAP-SHELL Handshake Correctness | v1.21 | 1/1 | Complete   | 2026-06-17 |
 | 87. NAAT Archetype Axis | v1.21 | 0/TBD | Not started | - |
 | 88. Terminology & Playground Modern-Path Alignment | v1.21 | 0/TBD | Not started | - |
 | 89. Spec / Doc Refresh & Conformance Sweep | v1.21 | 0/TBD | Not started | - |
