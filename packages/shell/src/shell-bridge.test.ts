@@ -29,7 +29,7 @@ import { createShellBridge } from './shell-bridge.js';
 import { originRegistry } from './origin-registry.js';
 import { __resetInitSentForTests } from './shell-ready.js';
 import type { ShellAdapter, SessionEntry } from './types.js';
-import type { Theme } from '@napplet/nub/theme/types';
+import type { Theme } from '@napplet/nap/theme/types';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

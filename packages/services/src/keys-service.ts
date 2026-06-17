@@ -45,7 +45,7 @@ import type {
   KeysRegisterActionMessage,
   KeysRegisterActionResultMessage,
   KeysActionMessage,
-} from '@napplet/nub/keys/types';
+} from '@napplet/nap/keys/types';
 
 /**
  * Minimal structural subset of the DOM `KeyboardEvent` exposed to

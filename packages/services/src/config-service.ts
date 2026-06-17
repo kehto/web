@@ -59,7 +59,7 @@ import type {
   ConfigRegisterSchemaResultMessage,
   ConfigSchemaErrorCode,
   NappletConfigSchema,
-} from '@napplet/nub/config/types';
+} from '@napplet/nap/config/types';
 
 /** Config service version — follows semver. */
 const CONFIG_SERVICE_VERSION = '1.0.0';

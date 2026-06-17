@@ -68,7 +68,7 @@ import type {
   MediaSessionDestroyMessage,
   MediaSessionUpdateMessage,
   MediaStateMessage,
-} from '@napplet/nub/media/types';
+} from '@napplet/nap/media/types';
 import {
   createBrowserMediaBridge,
   DEFAULT_MEDIA_ACTIONS,

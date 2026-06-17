@@ -1,5 +1,5 @@
 import type { NappletMessage } from '@napplet/core';
-import type { IfcMessage } from '@napplet/nub/ifc/types';
+import type { IfcMessage } from '@napplet/nap/ifc/types';
 
 import type { SessionRegistry } from './session-registry.js';
 import type { RuntimeAdapter } from './types.js';

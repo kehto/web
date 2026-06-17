@@ -35,7 +35,7 @@ import type {
   NotifySendResultMessage,
   NotifyPermissionRequestMessage,
   NotifyPermissionResultMessage,
-} from '@napplet/nub/notify/types';
+} from '@napplet/nap/notify/types';
 
 /** Notify service version — follows semver. */
 const NOTIFY_SERVICE_VERSION = '1.0.0';

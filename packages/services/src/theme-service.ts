@@ -41,7 +41,7 @@ import type {
   Theme,
   ThemeChangedMessage,
   ThemeGetResultMessage,
-} from '@napplet/nub/theme/types';
+} from '@napplet/nap/theme/types';
 
 /** Theme service version — follows semver. */
 const THEME_SERVICE_VERSION = '1.0.0';

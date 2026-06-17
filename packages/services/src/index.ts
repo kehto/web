@@ -70,7 +70,7 @@ export type {
 // MediaAction literal for their onAction callback typing. Re-exported here
 // so host-app code can depend only on @kehto/services, mirroring the Phase 26
 // HostKeyEvent pattern.
-export type { MediaAction } from '@napplet/nub/media/types';
+export type { MediaAction } from '@napplet/nap/media/types';
 
 export { createNotifyService } from './notify-service.js';
 export type { NotifyServiceOptions } from './notify-service.js';

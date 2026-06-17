@@ -15,7 +15,7 @@
 import { describe, it, expect } from 'vitest';
 import { createThemeService } from './theme-service.js';
 import type { NappletMessage } from '@napplet/core';
-import type { Theme, ThemeChangedMessage } from '@napplet/nub/theme/types';
+import type { Theme, ThemeChangedMessage } from '@napplet/nap/theme/types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 

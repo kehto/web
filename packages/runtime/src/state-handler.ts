@@ -7,7 +7,7 @@
  */
 
 import type { NappletMessage } from '@napplet/core';
-import type { StorageMessage } from '@napplet/nub/storage/types';
+import type { StorageMessage } from '@napplet/nap/storage/types';
 import type { SendToNapplet, StatePersistence } from './types.js';
 import type { SessionRegistry } from './session-registry.js';
 import type { AclStateContainer } from './acl-state.js';

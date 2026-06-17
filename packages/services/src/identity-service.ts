@@ -35,7 +35,7 @@ import type {
   IdentityGetBlockedResultMessage,
   IdentityGetBadgesResultMessage,
   RelayPermission,
-} from '@napplet/nub/identity/types';
+} from '@napplet/nap/identity/types';
 
 /** Identity service version — follows semver. */
 const IDENTITY_SERVICE_VERSION = '1.0.0';

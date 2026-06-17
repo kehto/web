@@ -10,7 +10,7 @@ import { describe, it, expect } from 'vitest';
 import { createMediaService, createBrowserMediaBridge } from './media-service.js';
 import type { HostMediaBridge } from './media-service.js';
 import type { NappletMessage } from '@napplet/core';
-import type { MediaAction, MediaMetadata } from '@napplet/nub/media/types';
+import type { MediaAction, MediaMetadata } from '@napplet/nap/media/types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
