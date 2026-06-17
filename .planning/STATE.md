@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v1.21
 milestone_name: "NIP-5D #2303 + NAP-SHELL/INTENT Conformance"
-status: planning
-last_updated: "2026-06-17T01:52:53.183Z"
+status: roadmapped
+last_updated: "2026-06-17T00:00:00.000Z"
 last_activity: 2026-06-17
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-15)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** v1.20 phases complete — awaiting PR review/merge (PR1 #38 + PR2 stacked)
+**Current focus:** v1.21 roadmapped — Phases 86–89 defined; next: plan Phase 86 (NAP-SHELL handshake correctness)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 86 — NAP-SHELL Handshake Correctness (not started)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-06-17 — Milestone v1.21 started
+Status: Roadmap created (Phases 86–89); awaiting Phase 86 planning
+Last activity: 2026-06-17 — v1.21 roadmap created (Phases 86–89, 16 requirements mapped)
 
 ## Performance Metrics
 
@@ -41,25 +41,31 @@ Last activity: 2026-06-17 — Milestone v1.21 started
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 83 | TBD | - | - |
-| Phase 83 P83-01 | 10m | 1 tasks | 2 files |
-| Phase 83 P02 | 4m | 2 tasks | 3 files |
-| Phase 83 P83-03 | 8m | 3 tasks | 7 files |
+| 86 | TBD | - | - |
+| 87 | TBD | - | - |
+| 88 | TBD | - | - |
+| 89 | TBD | - | - |
 
 ## Accumulated Context
 
 Full decision log lives in `.planning/PROJECT.md` Key Decisions table.
 
-### Key Context for Phase 83
+### Key Context for v1.21 (Phases 86–89)
 
-- `@napplet/shim@0.9.0` `createShellSupports` reads only `capabilities.naps`; protocol regex is `^([^:]+):(NAP-\d+)$`; `NapDomain` includes `inc`, not `ifc`.
-- Core 0.5.0 `createDispatch` routes any string domain key — register existing IFC handler under both `ifc` and `inc` keys; NO `@napplet/core` upgrade needed.
-- Files to touch: `packages/shell/src/shell-init.ts`, `shell-ready.ts`, `types.ts`; `packages/runtime/src/runtime.ts`; `packages/acl/src/resolve.ts`.
-- Dual-emit: `naps` (new, 0.9.0 shim reads this) + `nubs` (back-compat, legacy shim reads this). Both must be in the `shell.init` payload for one release.
-- `@napplet/shim@0.9.0` is a dev-only dependency for the conformance test (ALIGN-07) — do not add as a runtime dep.
-- Must keep 840 unit + 86 E2E green. Out of scope: mass-renaming internal `ifc.*` handlers, `nub-*` test fixtures, `@napplet/core` upgrade.
-- Parallel milestone: v1.18 Firewall occupies phases 80-82 on `milestone/v1.18-firewall`. This milestone starts at Phase 83 to avoid directory collisions on merge.
-- Downstream consumer impact: hyprgate (note in changeset per ALIGN-08).
+Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registry (NAP-SHELL + NAP-INTENT merged). Full audit: `.planning/NIP-5D-2303-DELTA-AUDIT.md` (G1–G8).
+
+- **Phase 86 (G1/G2)** — SHELL-01/02: `handleShellReady` calls `postShellInit` unconditionally (`packages/shell/src/shell-ready.ts:15-24`); add a per-windowId "init already sent" guard. `class` wire type is `string|null` (`packages/runtime/src/types.ts:20`, emitted `shell-ready.ts:104-113`) — map to opaque `number|null`, keep internal string label.
+- **Phase 87 (G3/G4)** — ARCH-01..04: parse `["archetype","<slug>","<NAP-N>"]` + optional `source` in `packages/nip/src/5d/index.ts` (parse at ~128-151); add `archetypes` to `NappletManifest`. Add manifest→`IntentCatalogEntry` adapter (consumed by `packages/services/src/catalog-intent-resolver.ts:49-56`). Wire playground catalog from resolved manifests; add 1 archetype-tagged napplet + intent dispatch e2e.
+- **Phase 88 (G5/G6)** — TERM-01..05: `nap:` primary, `nub:` alias (`specs/NIP-5D.md:124`, `packages/shell/tests/perm-namespace.test.ts:120`). Migrate bot/chat/feed/profile-viewer `ifc`→`inc`. Bootstrap (`shared-vite-config.ts:48`) + `getMissingRequiredNaps` (`demo-hooks.ts:303-307`) read `naps`, fallback `nubs`. Conformance e2e for `naps`-only path.
+- **Phase 89 (G7/G8)** — DOCS-01..04 + VERIFY-01: repin `specs/NIP-5D.md` to #2303 + NAP terms + archetype/source; local NAP-SHELL/NAP-INTENT mirrors; `RUNTIME-SPEC.md` refresh; comment sweep (keep `@napplet/nub` import specifier); verify unknown-`type` silent-ignore uniformity (NAP-INTENT `.result`/`.error` is sanctioned). Full suite green + changesets.
+
+**Hard constraints (every phase):**
+- Installed `@napplet/shim` is **0.5.0** (reads `capabilities.nubs`) → KEEP `naps`+`nubs` dual-emit; do NOT run CLEANUP-01.
+- CI e2e runs `workers:1`; reload-heavy specs need `test.setTimeout(120000)`.
+- Playground napplet / `DEMO_CAPABILITIES` counts asserted by multiple e2e specs — update in lockstep.
+- v1.20 content-addressed internals already aligned — regression-guard only, do not change.
+- `turbo.json globalDependencies` must include `shared-vite-config`; resolution sim must stay crash-proof; NIP-5A vector pinned.
+- Branch `milestone/v1.21-nip5d-2303-nap-conformance` (off `feat/nip5d-runtime-srcdoc`); never push `main`.
 
 ### Blockers/Concerns
 
@@ -74,9 +80,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-06-15T16:22:34.513Z
-Stopped at: Completed 83-01: inc domain aliased to ifcMap in ACL resolver
+Stopped at: v1.21 roadmap created — Phases 86–89 defined, 16 requirements mapped
 Resume file: None
 
 ## Operator Next Steps
 
-- Run `/gsd:plan-phase 83` to decompose Phase 83 into executable plans.
+- Run `/gsd:plan-phase 86` to decompose Phase 86 (NAP-SHELL handshake correctness) into executable plans.

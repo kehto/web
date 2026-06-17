@@ -56,19 +56,19 @@ Requirements for this milestone. Each maps to exactly one roadmap phase.
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| SHELL-01 | A | Pending |
-| SHELL-02 | A | Pending |
-| ARCH-01 | B | Pending |
-| ARCH-02 | B | Pending |
-| ARCH-03 | B | Pending |
-| ARCH-04 | B | Pending |
-| TERM-01 | C | Pending |
-| TERM-02 | C | Pending |
-| TERM-03 | C | Pending |
-| TERM-04 | C | Pending |
-| TERM-05 | C | Pending |
-| DOCS-01 | D | Pending |
-| DOCS-02 | D | Pending |
-| DOCS-03 | D | Pending |
-| DOCS-04 | D | Pending |
-| VERIFY-01 | A–D | Pending |
+| SHELL-01 | 86 | Pending |
+| SHELL-02 | 86 | Pending |
+| ARCH-01 | 87 | Pending |
+| ARCH-02 | 87 | Pending |
+| ARCH-03 | 87 | Pending |
+| ARCH-04 | 87 | Pending |
+| TERM-01 | 88 | Pending |
+| TERM-02 | 88 | Pending |
+| TERM-03 | 88 | Pending |
+| TERM-04 | 88 | Pending |
+| TERM-05 | 88 | Pending |
+| DOCS-01 | 89 | Pending |
+| DOCS-02 | 89 | Pending |
+| DOCS-03 | 89 | Pending |
+| DOCS-04 | 89 | Pending |
+| VERIFY-01 | 86–89 | Pending |
