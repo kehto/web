@@ -16,13 +16,13 @@ const expectedNapplets = [
 ] as const;
 
 const expectedRequires: Record<(typeof expectedNapplets)[number], readonly string[]> = {
-  bot: ['ifc', 'storage', 'theme'],
-  chat: ['ifc', 'storage', 'relay', 'theme'],
+  bot: ['inc', 'storage', 'theme'],
+  chat: ['inc', 'storage', 'relay', 'theme'],
   composer: ['relay', 'theme'],
   'cvm-relatr': ['cvm', 'theme'],
-  feed: ['identity', 'relay', 'ifc', 'theme'],
+  feed: ['identity', 'relay', 'inc', 'theme'],
   preferences: ['storage', 'theme'],
-  'profile-viewer': ['ifc', 'relay', 'theme'],
+  'profile-viewer': ['inc', 'relay', 'theme'],
   'resource-demo': ['resource', 'connect', 'theme'],
   toaster: ['notify', 'theme'],
 };
@@ -112,19 +112,19 @@ test('resolved manifests and hosted supports match napplet contracts', async ({ 
     await expect.poll(async () => frame!.evaluate((requires) => {
       const maybeWindow = window as Window & {
         napplet?: {
-          shell?: { supports?: (capability: string) => boolean };
+          shell?: { supports?: (domain: string, protocol?: string) => boolean };
         };
         nostr?: unknown;
       };
       const supports = maybeWindow.napplet?.shell?.supports;
       if (typeof supports !== 'function') return false;
+      // The released @napplet/shim 0.13 resolves supports(domain, protocol?)
+      // against capabilities.{domains, protocols}. It does NOT strip a `nap:` or
+      // `nub:` prefix (those resolve false), and the protocol form is two-arg
+      // supports('inc', 'NAP-01') — NOT a colon-joined single arg.
       return requires.every((capability) => supports(capability)) &&
-        requires.every((capability) => supports(`nap:${capability}`)) &&
-        requires.every((capability) => supports(`nub:${capability}`)) &&
-        (!requires.includes('ifc') || supports('ifc:NAP-01')) &&
+        (!requires.includes('inc') || supports('inc', 'NAP-01')) &&
         !supports('nostrdb') &&
-        !supports('nap:nostrdb') &&
-        !supports('nub:nostrdb') &&
         typeof maybeWindow.nostr === 'undefined';
     }, expectedRequires[name]), { timeout: 10_000 }).toBe(true);
   }

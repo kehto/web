@@ -22,9 +22,9 @@ test('profile-viewer opens a NAP-01 profile request emitted from the feed frame'
     if (!frame) return false;
     return frame.evaluate(() => {
       const maybeWindow = window as Window & {
-        napplet?: { ifc?: { emit?: unknown } };
+        napplet?: { inc?: { emit?: unknown } };
       };
-      return typeof maybeWindow.napplet?.ifc?.emit === 'function';
+      return typeof maybeWindow.napplet?.inc?.emit === 'function';
     });
   }, { timeout: 10_000 }).toBe(true);
 
@@ -34,14 +34,14 @@ test('profile-viewer opens a NAP-01 profile request emitted from the feed frame'
   await frame!.evaluate((pubkey) => {
     const maybeWindow = window as Window & {
       napplet?: {
-        ifc?: { emit?: (topic: string, extraTags?: string[][], content?: string) => void };
+        inc?: { emit?: (topic: string, extraTags?: string[][], content?: string) => void };
       };
     };
-    maybeWindow.napplet?.ifc?.emit?.('profile:open', [], JSON.stringify({ pubkey }));
+    maybeWindow.napplet?.inc?.emit?.('profile:open', [], JSON.stringify({ pubkey }));
   }, PROFILE_PUBKEY);
 
   await expect(profileFrame.locator('#profile-pubkey')).toContainText(PROFILE_PUBKEY, { timeout: 10_000 });
   await expect(profileFrame.locator('#profile-status')).toContainText(/^(loaded|not found)/, { timeout: 15_000 });
   await expect(profileFrame.locator('#profile-log')).toHaveCount(0);
-  await expect(page.locator('napplet-debugger')).toContainText('ifc.emit', { timeout: 8_000 });
+  await expect(page.locator('napplet-debugger')).toContainText('inc.emit', { timeout: 8_000 });
 });
