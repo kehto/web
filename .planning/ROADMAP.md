@@ -77,7 +77,10 @@ Plans:
   3. The playground catalog is populated from resolved manifests via the adapter, and at least one playground napplet declares an `archetype` tag (with playground/e2e napplet counts updated in lockstep). (G3)
   4. An e2e (or integration) test exercises NAP-INTENT dispatch end-to-end against the archetype-tagged napplet — `intent.available` reports the candidate and `intent.invoke` resolves to it (with `test.setTimeout(120000)` where the spec is reload-heavy). (G3)
   5. `pnpm build`, `type-check`, and the unit suite are green for `@kehto/nip` + `@kehto/services`, and the new/changed e2e passes under `workers:1`.
-**Plans**: TBD
+**Plans**: 3 plans
+  - [ ] 87-01-PLAN.md — ARCH-01: parse archetype + source manifest tags into NappletManifest (@kehto/nip/5d) + unit tests + changeset
+  - [ ] 87-02-PLAN.md — ARCH-02/ARCH-04: manifest→IntentCatalogEntry adapter (@kehto/services, structural input) + dispatch integration test + export + changeset
+  - [ ] 87-03-PLAN.md — ARCH-03: playground archetype-tag plumbing (profile-viewer) + catalog-from-resolved-manifests builder + unit test
 **UI hint**: yes
 
 ### Phase 88: Terminology & Playground Modern-Path Alignment
