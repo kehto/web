@@ -1,0 +1,24 @@
+{
+  "name": "@kehto/acl",
+  "version": "0.11.0",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./capabilities": "./src/capabilities.ts"
+  },
+  "imports": {
+    "@napplet/core": "jsr:@napplet/core@^0.12.0",
+    "@napplet/nap": "jsr:@napplet/nap@^0.12.0"
+  },
+  "publish": {
+    "include": [
+      "src/**/*.ts",
+      "README.md",
+      "jsr.json"
+    ],
+    "exclude": [
+      "src/**/*.test.ts",
+      "src/**/*.spec.ts"
+    ]
+  }
+}
