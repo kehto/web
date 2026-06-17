@@ -11,12 +11,12 @@ const sdkTargetDirs = [
   'apps/playground/napplets/profile-viewer',
   'apps/playground/napplets/resource-demo',
   'apps/playground/napplets/toaster',
-  'tests/fixtures/napplets/nub-identity',
-  'tests/fixtures/napplets/nub-ifc',
-  'tests/fixtures/napplets/nub-notify',
-  'tests/fixtures/napplets/nub-relay',
-  'tests/fixtures/napplets/nub-storage',
-  'tests/fixtures/napplets/nub-theme',
+  'tests/fixtures/napplets/nap-identity',
+  'tests/fixtures/napplets/nap-ifc',
+  'tests/fixtures/napplets/nap-notify',
+  'tests/fixtures/napplets/nap-relay',
+  'tests/fixtures/napplets/nap-storage',
+  'tests/fixtures/napplets/nap-theme',
 ] as const;
 
 const helperTargetDirs = [

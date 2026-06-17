@@ -457,7 +457,7 @@ importers:
         specifier: ^6.4.2
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
-  tests/fixtures/napplets/nub-identity:
+  tests/fixtures/napplets/nap-identity:
     dependencies:
       '@napplet/nap':
         specifier: 0.12.0
@@ -479,7 +479,7 @@ importers:
         specifier: ^6.4.2
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
-  tests/fixtures/napplets/nub-ifc:
+  tests/fixtures/napplets/nap-ifc:
     dependencies:
       '@napplet/nap':
         specifier: 0.12.0
@@ -501,7 +501,7 @@ importers:
         specifier: ^6.4.2
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
-  tests/fixtures/napplets/nub-notify:
+  tests/fixtures/napplets/nap-notify:
     dependencies:
       '@napplet/nap':
         specifier: 0.12.0
@@ -523,7 +523,7 @@ importers:
         specifier: ^6.4.2
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
-  tests/fixtures/napplets/nub-relay:
+  tests/fixtures/napplets/nap-relay:
     dependencies:
       '@napplet/core':
         specifier: 0.12.0
@@ -548,7 +548,7 @@ importers:
         specifier: ^6.4.2
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
-  tests/fixtures/napplets/nub-storage:
+  tests/fixtures/napplets/nap-storage:
     dependencies:
       '@napplet/nap':
         specifier: 0.12.0
@@ -570,7 +570,7 @@ importers:
         specifier: ^6.4.2
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
-  tests/fixtures/napplets/nub-theme:
+  tests/fixtures/napplets/nap-theme:
     dependencies:
       '@napplet/nap':
         specifier: 0.12.0
