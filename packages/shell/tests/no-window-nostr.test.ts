@@ -2,7 +2,7 @@
  * no-window-nostr.test.ts — Regression test for SH-C01 / SH-C03.
  *
  * Canonical NIP-5D forbids the shell from injecting `window.nostr` into
- * napplet iframes (specs/NIP-5D.md line 44 + Security §6). This test
+ * napplet iframes (NIP-5D §Security — https://github.com/nostr-protocol/nips/pull/2303/). This test
  * enforces that constraint by inspecting the @kehto/shell source code and
  * public API:
  *

@@ -41,7 +41,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nub nostr
 | Registries and caches | `sessionRegistry`, `nappKeyRegistry`, `originRegistry`, `manifestCache`, `audioManager`, `PendingUpdate`, `ManifestCacheEntry`, `AudioSource` |
 | Enforcement re-exports | `createEnforceGate`, `createNubEnforceGate`, `formatDenialReason`, `EnforceResult`, `EnforceConfig`, `NubEnforceConfig`, `IdentityResolver`, `AclChecker`, `NubMessage` |
 | Proxies and forwarders | `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy`, `createKeysForwarder` |
-| Shell-owned internal models | `NappletClass`, `ConnectGrant`, `ConnectGrantKey`, `ConnectConsentRequest`, `ConsentResult`, resource request/result/error types |
+| Shell-owned internal models | resource request/result/error types |
 | Topics | `TOPICS`, `TopicKey`, `TopicValue` |
 
 ## Scope Boundaries

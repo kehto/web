@@ -12,11 +12,13 @@ NAP-INTENT conformance in v1.21.
 
 Protocol message domains are defined by **NAP** (Nostr Applet Protocol) extension
 specs in the [`napplet/naps`](https://github.com/napplet/naps) registry. The two
-NAPs core to this runtime are mirrored locally:
+NAPs core to this runtime are maintained at upstream living docs:
 
-- Repo-local working contract: [`specs/NIP-5D.md`](specs/NIP-5D.md)
-- [`specs/NAP-SHELL.md`](specs/NAP-SHELL.md) — mandatory bootstrap handshake & `shell.supports`
-- [`specs/NAP-INTENT.md`](specs/NAP-INTENT.md) — archetype intent dispatch
+- NIP-5D: <https://github.com/nostr-protocol/nips/pull/2303/>
+- NAP-SHELL and NAP-INTENT: <https://github.com/napplet/naps>
+
+Local stubs (redirect to upstream): [`specs/NIP-5D.md`](specs/NIP-5D.md),
+[`specs/NAP-SHELL.md`](specs/NAP-SHELL.md), [`specs/NAP-INTENT.md`](specs/NAP-INTENT.md)
 
 Current-state delta inventory: `.planning/NIP-5D-2303-DELTA-AUDIT.md`
 
@@ -83,15 +85,11 @@ Every napplet bootstraps through the mandatory NAP-SHELL two-message handshake
 1. The napplet posts `{ "type": "shell.ready" }` once its receiver is live.
 2. The runtime establishes the session (bound to the creation-time NIP-5A
    identity) and replies **exactly once** with `shell.init`, carrying the
-   capability environment, `services`, and `class`.
+   capability environment and `services`.
 
 `shell.init` is sent exactly once per napplet lifecycle. A duplicate `shell.ready`
 from the same window is idempotent — no second session, no `shell.init` resend
 (enforced by a per-`windowId` `initSent` guard in `packages/shell/src/shell-ready.ts`).
-
-The `class` field is carried on the wire as `number | null` (an opaque integer
-posture code, or `null` for the permissive default), mapped at the `shell.init`
-build site from kehto's internal string label.
 
 ### Capability wire shape
 

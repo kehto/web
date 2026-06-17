@@ -94,8 +94,6 @@ export default defineConfig({
         items: [
           { text: 'Policy Index', link: '/policies/' },
           { text: 'NIP-5D Conformance', link: '/policies/NIP-5D-CONFORMANCE' },
-          { text: 'Shell Class Policy', link: '/policies/SHELL-CLASS-POLICY' },
-          { text: 'Shell Connect Policy', link: '/policies/SHELL-CONNECT-POLICY' },
           { text: 'Shell Resource Policy', link: '/policies/SHELL-RESOURCE-POLICY' },
         ],
       },
