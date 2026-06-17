@@ -8,7 +8,7 @@ reference implementation for other runtimes.
 ## What Is Still Moving
 
 - The NIP-5D specification is still under development.
-- NUB contracts are not final.
+- NAP contracts are not final.
 - Capability names, `requires` declarations, `supports()` behavior, class
   posture, connect/resource behavior, and error envelopes may change.
 - Package APIs may change to track the protocol.

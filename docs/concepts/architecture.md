@@ -3,7 +3,7 @@
 Kehto is an early runtime implementation for NIP-5D napplets. It separates
 napplet hosting into small packages with clear ownership boundaries.
 
-> **Alpha status:** NIP-5D is still under development, and NUB contracts are not
+> **Alpha status:** NIP-5D is still under development, and NAP contracts are not
 > final. This architecture describes Kehto's current implementation, not a
 > requirement that all napplet runtimes follow the same shape.
 

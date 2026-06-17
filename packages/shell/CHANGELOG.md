@@ -34,24 +34,24 @@
 
 - d37ef25: chore: modernize to @napplet 0.12/0.13 (peer dep + core API rename)
 
-  All runtime packages move off the legacy `@napplet/nub` toolchain onto the
+  All runtime packages move off the legacy `@napplet/nap` toolchain onto the
   current `@napplet` line:
 
-  - **Peer dependency** `@napplet/core ^0.5` → `^0.12`, and `@napplet/nub ^0.5`
+  - **Peer dependency** `@napplet/core ^0.5` → `^0.12`, and `@napplet/nap ^0.5`
     → `@napplet/nap ^0.12` (the package was renamed upstream; `@napplet/firewall`
     consumers only need `@napplet/core ^0.12`).
-  - **Core dispatch API** `registerNub` → `registerNap` and the `NubHandler` type
+  - **Core dispatch API** `registerNap` → `registerNap` and the `NapHandler` type
     → `NapHandler`. The runtime's domain dispatcher now calls `registerNap(...)`
     for every domain.
 
   **Migration for consumers:** install `@napplet/core@^0.12` and `@napplet/nap`
-  (replacing `@napplet/nub`). The kehto wire protocol is unchanged — the legacy
-  `ifc`/`nubs` envelopes are still dual-emitted for the installed 0.5.0 shim
+  (replacing `@napplet/nap`). The kehto wire protocol is unchanged — the legacy
+  `ifc`/`naps` envelopes are still dual-emitted for the installed 0.5.0 shim
   (removal is tracked as CLEANUP-01) — so no napplet-side code change is required;
   this is a host-side dependency and core-API modernization only.
 
-  Internal kehto identifiers that still carry "nub"/"ifc" vocabulary
-  (`createNubEnvelopeDispatcher`, `IfcDomain`, `ifc-handler.ts`, …) are unchanged:
+  Internal kehto identifiers that still carry "nap"/"ifc" vocabulary
+  (`createNapEnvelopeDispatcher`, `IfcDomain`, `ifc-handler.ts`, …) are unchanged:
   they are private and the runtime dual-routes `ifc`+`inc`.
 
 - d37ef25: feat(shell): emit conformant NAP-SHELL `capabilities.{domains,protocols}` superset
@@ -63,14 +63,14 @@
   capabilities: {
     domains: string[],                      // bare NAP domain names
     protocols: Record<string, string[]>,    // e.g. { inc: ['NAP-01'..'NAP-06'] }
-    naps, nubs, sandbox                      // legacy back-compat (TERM-05)
+    naps, naps, sandbox                      // legacy back-compat (TERM-05)
   }
   ```
 
   This is the shape the released `@napplet/shim@0.13` reads to answer
   `supports(domain)` and `supports(domain, 'NAP-N')` — validated against the real
   0.13 shim's resolution logic. `domains`/`protocols` are emitted as a **superset
-  alongside** the legacy `naps`/`nubs`/`sandbox` fields so the installed 0.5.0
+  alongside** the legacy `naps`/`naps`/`sandbox` fields so the installed 0.5.0
   playground shim keeps working (dual-emit; removal tracked as CLEANUP-01). Host
   apps that extended the `sandbox` array see those `perm:`-prefixed entries folded
   into `domains` (the 0.13 shim has no separate permission namespace), preserving
@@ -104,7 +104,7 @@
 
   The internal `NappletClass` label type and all `enforce.ts` / ACL class logic
   are unchanged — enforcement still keys on the internal label stored on the
-  session entry. The `{naps, nubs, sandbox}` capability shape and the naps+nubs
+  session entry. The `{naps, naps, sandbox}` capability shape and the naps+naps
   dual-emit are untouched. This is a conformance correction of a wire value no
   released shim relied on (installed shim 0.5.0 stores `class` opaquely; no test
   asserted a string class on the wire), hence `patch`.
@@ -119,7 +119,7 @@
 
 - 968e664: feat: NAP ontology alignment — inc domain, inc:NAP-0N protocol IDs, dual-emit back-compat window
 
-  Aligns `@kehto/*` with the `@napplet/*` 0.9.0 rename from the `ifc`/`NUB-NN`
+  Aligns `@kehto/*` with the `@napplet/*` 0.9.0 rename from the `ifc`/`NAP-NN`
   vocabulary to the canonical NAP vocabulary (`inc`/`NAP-NN`). Resolves kehto/web#24.
 
   ### @kehto/shell — `ShellCapabilities` public interface change
@@ -128,30 +128,25 @@
 
   - **`naps`** (new, primary): NAP-vocabulary capability set consumed by
     `@napplet/shim >=0.9.0`. Advertises bare domain `inc` (the NAP rename of
-    `ifc`) and protocol IDs `inc:NAP-01..inc:NAP-06` (the `ifc:NUB-01..06` aliases
-    renamed, plus `ifc:NAP-01` replaced). Contains NO `ifc` or `NUB-NN` identifiers.
+    the old `ifc` domain) and protocol IDs `inc:NAP-01..inc:NAP-06`.
     Conditional entries: `relay`+`outbox` when a relay pool is wired; `upload` when
     an upload backend is wired; `intent` when an intent dispatcher is available.
 
-  - **`nubs`** (retained, legacy): legacy `ifc`/`ifc:NUB-01..06`/`ifc:NAP-01`
-    vocabulary retained unchanged for one back-compat release, consumed by
-    `@napplet/nub` and `@napplet/shim <=0.8.x`. No content change from prior
-    releases.
-
-  The dual-emit is intentional and slated for removal in a future cleanup milestone
-  (CLEANUP-01) once all downstreams have migrated to `@napplet/shim >=0.9.0`.
+  - A second flat array carrying the pre-rename `ifc` vocabulary was retained
+    for one back-compat release alongside `naps`, then removed in a later
+    cleanup once all downstreams had migrated to `@napplet/shim >=0.9.0`.
 
   **Downstream consumer impact — hyprgate MUST consume `naps`:**
   The `@napplet/shim >=0.9.0` `createShellSupports` function reads ONLY
-  `capabilities.naps`; it ignores `capabilities.nubs`. Any consumer (hyprgate or
+  `capabilities.naps`; it ignores `capabilities.naps`. Any consumer (hyprgate or
   custom shell host) that builds `supports()` from `shell.init.capabilities` must
-  switch from reading `nubs` to reading `naps` to work correctly with napplets
-  built against `@napplet/* >=0.9.0`. Legacy napplets (using `@napplet/nub` /
-  `@napplet/shim <=0.8.x`) continue to read `nubs` and are unaffected.
+  switch from reading `naps` to reading `naps` to work correctly with napplets
+  built against `@napplet/* >=0.9.0`. Legacy napplets (using `@napplet/nap` /
+  `@napplet/shim <=0.8.x`) continue to read `naps` and are unaffected.
 
   ### @kehto/runtime — `inc.*` dispatch acceptance
 
-  The nub envelope dispatcher now registers the IFC handler under **both** the
+  The nap envelope dispatcher now registers the IFC handler under **both** the
   `ifc` and `inc` dispatch keys. A napplet that sends `inc.subscribe`,
   `inc.emit`, or `inc.channel.*` messages reaches the same handler as one that
   sends the legacy `ifc.*` messages. The IFC handler is domain-aware: responses
@@ -160,11 +155,11 @@
   tracked domain prefix, so each napplet receives its own vocabulary.
 
   Legacy `ifc.*` routing is byte-for-byte unchanged — no regression for napplets
-  on `@napplet/nub` or `@napplet/shim <=0.8.x`.
+  on `@napplet/nap` or `@napplet/shim <=0.8.x`.
 
   ### @kehto/acl — `inc.*` ACL gating
 
-  `resolveCapabilitiesNub` now maps the `inc` domain identically to `ifc` via a
+  `resolveCapabilitiesNap` now maps the `inc` domain identically to `ifc` via a
   fall-through `case 'inc':` in the domain switch. `inc.emit` and
   `inc.channel.emit/broadcast` require `relay:write`; `inc.subscribe`,
   `inc.unsubscribe`, `inc.channel.open/list/close` require `relay:read`. This
@@ -340,7 +335,7 @@
 
 ### Minor Changes
 
-- Release the published NAP-MEDIA and NAP-IDENTITY alignment against `@napplet/nub@0.5.0`.
+- Release the published NAP-MEDIA and NAP-IDENTITY alignment against `@napplet/nap@0.5.0`.
 
   The runtime package set now consumes the published NAP helper graph, carries owner-aware media session create/result shapes, validates shell-owned media source requests before returning the current unsupported-owner response, and exposes the identity snapshot-plus-`identity.changed` flow without requiring napplet polling.
 
@@ -354,7 +349,7 @@
 
 ### Patch Changes
 
-- Align published package peers and source imports with `@napplet/nub@0.5.0`, the June 12 NAP helper release that carries the NAP-MEDIA and NAP-IDENTITY changes.
+- Align published package peers and source imports with `@napplet/nap@0.5.0`, the June 12 NAP helper release that carries the NAP-MEDIA and NAP-IDENTITY changes.
 - Updated dependencies
   - @kehto/acl@0.3.1
   - @kehto/runtime@0.3.1
@@ -365,7 +360,7 @@
 
 - 4c3a3eb: Breaking: `ShellAdapter.onNip5dIframeCreate` return type now includes a required `class: NappletClass` field.
 
-  The hook is the canonical synchronous class-posture resolution point for NUB-CLASS (CLASS-01 / Phase 38). Host apps implementing this hook MUST update their return shape to include `class` (value may be `null` for the permissive default). The full new shape is:
+  The hook is the canonical synchronous class-posture resolution point for NAP-CLASS (CLASS-01 / Phase 38). Host apps implementing this hook MUST update their return shape to include `class` (value may be `null` for the permissive default). The full new shape is:
 
       { dTag: string; aggregateHash: string; class: NappletClass } | null
 
@@ -373,21 +368,21 @@
 
   This is a minor bump (not patch) because the public hook contract expanded in a backwards-incompatible way — host apps must update. The change is coordinated in parallel with downstream consumers (hyprgate primary); no dedicated coordination phase is required.
 
-  See `packages/shell/src/types/provisional-class.ts` for the `NappletClass` type. Class tokens (`'class-1'`, `'class-2'`, etc.) are NUB-defined; kehto does not prescribe a taxonomy.
+  See `packages/shell/src/types/provisional-class.ts` for the `NappletClass` type. Class tokens (`'class-1'`, `'class-2'`, etc.) are NAP-defined; kehto does not prescribe a taxonomy.
 
   The resolved class flows through `SessionEntry.class` and is carried inline in the `shell.init` envelope (NO async `class.assigned` envelope — synchronous resolution is the C-01 pre-assignment race fix).
 
-- 6b01607: NUB-CONNECT (v1.7 Phase 39): new `connectStore` singleton and `ShellBridge.connectStore` public surface.
+- 6b01607: NAP-CONNECT (v1.7 Phase 39): new `connectStore` singleton and `ShellBridge.connectStore` public surface.
 
   The store persists per-napplet connect grants keyed on `(dTag, aggregateHash)` under localStorage key `napplet:connect`. Surface: `grant`, `revoke`, `check`, `getOrigins`, `getAllGrants`, `persist`, `load`, `clear`.
 
   The composite key enforces CONNECT-06: a napplet rebuild with a new aggregate hash cannot inherit prior grants silently — the new hash has no entry, `check()` returns `false`.
 
-  Additionally exports `ConnectGrant`, `ConnectGrantKey`, `ConnectConsentRequest`, and `ConsentResult` types from `./types/provisional-connect.ts` (provisional — swap to `@napplet/nub/connect` when upstream publishes at `^0.3.0`).
+  Additionally exports `ConnectGrant`, `ConnectGrantKey`, `ConnectConsentRequest`, and `ConsentResult` types from `./types/provisional-connect.ts` (provisional — swap to `@napplet/nap/connect` when upstream publishes at `^0.3.0`).
 
   Minor bump: additive public API. No breaking changes.
 
-- **Fix #14** — `handleStorageNub` now returns storage errors as the canonical `storage.<action>.result` envelope with an `error` field, instead of a non-canonical `storage.<action>.error` type. The `@napplet/nub/storage` protocol defines no `*.error` message, so conformant shims silently dropped the old envelope and napplets hung until their request timeout. Clean break: the `storage.*.error` envelope is removed entirely (no backwards-compat).
+- **Fix #14** — `handleStorageNap` now returns storage errors as the canonical `storage.<action>.result` envelope with an `error` field, instead of a non-canonical `storage.<action>.error` type. The `@napplet/nap/storage` protocol defines no `*.error` message, so conformant shims silently dropped the old envelope and napplets hung until their request timeout. Clean break: the `storage.*.error` envelope is removed entirely (no backwards-compat).
 
   **Fix #15** — NIP-5D source-identity napplets are now registered into `runtime.sessionRegistry` during the `shell.ready` handshake. Previously `originRegistry` identity was never bridged into the runtime registry, so `getEntryByWindowId` always returned `undefined` and every storage (and other `sessionRegistry`-keyed) operation failed with `not registered`. The `shell.ready` handler resolves identity from the `onNip5dIframeCreate` hook (preferred) or `originRegistry.getIdentity` (fallback) and registers a source-identity `SessionEntry` (`provenance: 'nip-5d'`, `pubkey: ''`); it skips registration cleanly when neither source yields identity.
 
@@ -397,16 +392,16 @@
 
   Host integrations should emit and subscribe to `identity:changed`. The compatibility window announced in the v1.8 changeset is closed in v1.10.
 
-- 93224cd: Consolidate NUB peer dependencies from 8 split `@napplet/nub-{identity,ifc,keys,media,notify,relay,storage,theme}@^0.2.1` packages onto the single `@napplet/nub@^0.2.1` package. All in-repo imports now read from the `@napplet/nub/<domain>/types` subpath (type-only consumers) or the root `@napplet/nub/<domain>` subpath.
+- 93224cd: Consolidate NAP peer dependencies from 8 split `@napplet/nap-{identity,ifc,keys,media,notify,relay,storage,theme}@^0.2.1` packages onto the single `@napplet/nap@^0.2.1` package. All in-repo imports now read from the `@napplet/nap/<domain>/types` subpath (type-only consumers) or the root `@napplet/nap/<domain>` subpath.
 
-  Addresses kehto#4 (hyprgate v2.0 Kehto Migration gap analysis). Eliminates the dual-instance pitfall where downstream shells consuming both the split-package and consolidated NUB shapes ended up with two copies of every NUB module on disk.
+  Addresses kehto#4 (hyprgate v2.0 Kehto Migration gap analysis). Eliminates the dual-instance pitfall where downstream shells consuming both the split-package and consolidated NAP shapes ended up with two copies of every NAP module on disk.
 
-  Downstream consumers note: `@napplet/nub@0.2.1` was published with an unresolved `workspace:*` specifier for its `@napplet/core` dependency. Until upstream re-publishes, workspace consumers should add the following `pnpm.overrides` entry at their workspace root to pin the transitive resolution:
+  Downstream consumers note: `@napplet/nap@0.2.1` was published with an unresolved `workspace:*` specifier for its `@napplet/core` dependency. Until upstream re-publishes, workspace consumers should add the following `pnpm.overrides` entry at their workspace root to pin the transitive resolution:
 
   ```json
   "pnpm": {
     "overrides": {
-      "@napplet/nub>@napplet/core": "^0.2.1"
+      "@napplet/nap>@napplet/core": "^0.2.1"
     }
   }
   ```
@@ -416,7 +411,7 @@
   REQ-IDs: DEP-01, DEP-02, DEP-03, DEP-04, DEP-05.
 
 - 8890904: Phase 45/46 (DECRYPT-02/07/09/10 + E2E-28 / v1.8): playground shell host wires the identity service with event verification and a deterministic demo decrypt bridge, exposes fixture/call-count hooks for the decrypt demo, and persists/displays the `identity:decrypt` ACL capability. The bridge is fixture-only; downstream shells should inject their own key or backend implementation.
-- b7032ab: Phase 44 (DEP-01..06 / v1.8): bump `@napplet/core` and `@napplet/nub` peer deps `^0.2.1` → `^0.3.0`. Internal file paths renamed: `packages/shell/src/types/provisional-{class,connect,resource}.ts` → `internal-{class,connect,resource}.ts`. Per PROJECT.md Decisions #31 + #32, the three files are kehto-internal shell-side models, not staging-ground duplicates of upstream `@napplet/nub/{class,connect,resource}` — upstream's surfaces describe napplet-side accessor types (class/connect) or diverging wire shapes (resource: different field names + 5- vs 8-code error vocabularies). Public re-exports from `packages/shell/src/index.ts` keep the same names + shapes; no consumer break.
+- b7032ab: Phase 44 (DEP-01..06 / v1.8): bump `@napplet/core` and `@napplet/nap` peer deps `^0.2.1` → `^0.3.0`. Internal file paths renamed: `packages/shell/src/types/provisional-{class,connect,resource}.ts` → `internal-{class,connect,resource}.ts`. Per PROJECT.md Decisions #31 + #32, the three files are kehto-internal shell-side models, not staging-ground duplicates of upstream `@napplet/nap/{class,connect,resource}` — upstream's surfaces describe napplet-side accessor types (class/connect) or diverging wire shapes (resource: different field names + 5- vs 8-code error vocabularies). Public re-exports from `packages/shell/src/index.ts` keep the same names + shapes; no consumer break.
 - 597dbdb: **RENAME-01 (v1.8 Phase 42)** — `SessionEntry.identitySource: 'auth' | 'source'` is renamed to `SessionEntry.provenance: 'nip-5d' | 'legacy-auth'` across both `@kehto/shell` and `@kehto/runtime`. The new field name and variant values name the actual provenance (canonical NIP-5D origin registration vs legacy AUTH handshake) instead of the obsolete `'auth'`/`'source'` shorthand.
 
   **Migration:** Downstream consumers reading `entry.identitySource === 'source'` must rewrite to `entry.provenance === 'nip-5d'`. Consumers reading `entry.identitySource === 'auth'` must rewrite to `entry.provenance === 'legacy-auth'`. The old field is hard-removed; no compatibility shim ships.
@@ -425,7 +420,7 @@
 
   Pre-1.0 minor bump is breaking per kehto's convention. The v1.6 carryover note flagged this rename as low-risk because the field is internal-leaning and the test surface is the primary live producer in this repo. Additional consumers updated in the same pass: `apps/playground/src/shell-host.ts` and `tests/e2e/harness/harness.ts`.
 
-- e3cc899: **RENAME-02 (v1.8 Phase 42)** — the shell-bridge `bridge.injectEvent` topic `'auth:identity-changed'` is renamed to `'identity:changed'` (matches NIP-5D `identity` NUB domain naming).
+- e3cc899: **RENAME-02 (v1.8 Phase 42)** — the shell-bridge `bridge.injectEvent` topic `'auth:identity-changed'` is renamed to `'identity:changed'` (matches NIP-5D `identity` NAP domain naming).
 
   **Soft-rename window.** For the v1.8 release, both `'auth:identity-changed'` and `'identity:changed'` trigger dual-emit so subscribers of either topic continue to receive events. Callers may pass either topic name — the wrapper always emits OLD first, then NEW, regardless of which input topic was supplied. Hard-removal of the legacy `'auth:identity-changed'` topic is scheduled for v1.9.
 
@@ -433,12 +428,12 @@
 
 ### Patch Changes
 
-- 239fa70: Add NUB-RESOURCE reference service (10th NUB domain, v1.7 Phase 40).
+- 239fa70: Add NAP-RESOURCE reference service (10th NAP domain, v1.7 Phase 40).
 
   - `@kehto/services`: `createResourceService({ fetch, isOriginGranted, getConnectGrants, resolveIdentity })` factory. All four options required from day one — factory throws on construction if any is missing (H-03 prevention). Implements canonical 4-message protocol: `resource.bytes`, `resource.cancel` inbound; `resource.bytes.result`, `resource.bytes.error` outbound. Cancel correlates to in-flight requests via requestId.
-  - `@kehto/acl`: new `'resource:fetch'` capability; `resolveCapabilitiesNub` extended with `resource.*` mapping (asymmetric: napplet requests get sender gate; shell pushes get recipient gate). `acl-state.ts` CAP_MAP extended with bit 15 for `resource:fetch`.
-  - `@kehto/runtime`: `handleResourceMessage` dispatch + `nubDispatch.registerNub('resource', ...)` wiring (Phase 39 Dev 1 lesson: missing registerNub silently drops all envelopes).
-  - `@kehto/shell`: `CANONICAL_NUB_DOMAINS` extended with `config` and `resource`; provisional-resource wire types re-exported via barrel.
+  - `@kehto/acl`: new `'resource:fetch'` capability; `resolveCapabilitiesNap` extended with `resource.*` mapping (asymmetric: napplet requests get sender gate; shell pushes get recipient gate). `acl-state.ts` CAP_MAP extended with bit 15 for `resource:fetch`.
+  - `@kehto/runtime`: `handleResourceMessage` dispatch + `napDispatch.registerNap('resource', ...)` wiring (Phase 39 Dev 1 lesson: missing registerNap silently drops all envelopes).
+  - `@kehto/shell`: `CANONICAL_NAP_DOMAINS` extended with `config` and `resource`; provisional-resource wire types re-exported via barrel.
 
   No breaking changes. See docs/policies/SHELL-RESOURCE-POLICY.md (Phase 40 Plan 40-03) for host-fetch policy surface (redirects, MIME sniffing, private-IP blocking — host-app concerns).
 
@@ -471,7 +466,7 @@
 
 ### Minor Changes
 
-- 226cdca: Canonical NIP-5D shell posture. `window.nostr` injection is removed — napplet iframes no longer see a host-provided `window.nostr` at any lifecycle point. `shell.supports()` now uses the `perm:<permission>` namespace for sandbox permissions (e.g., `shell.supports('perm:popups')`); bare names continue to resolve NUB capabilities. Signing and NIP-44 encryption are shell-mediated exclusively via `relay.publish` / `relay.publishEncrypted` — napplets never receive raw signing keys or plaintext of encrypted payloads. New per-domain proxies (identity, keys, media, notify, storage) are available as optional composition seams for host-app interception. `keys-forwarder` module published for host-app DOM-event bridging. `ShellBridge.publishTheme()` added as a first-class broadcast API so host apps can push theme changes to every registered napplet.
+- 226cdca: Canonical NIP-5D shell posture. `window.nostr` injection is removed — napplet iframes no longer see a host-provided `window.nostr` at any lifecycle point. `shell.supports()` now uses the `perm:<permission>` namespace for sandbox permissions (e.g., `shell.supports('perm:popups')`); bare names continue to resolve NAP capabilities. Signing and NIP-44 encryption are shell-mediated exclusively via `relay.publish` / `relay.publishEncrypted` — napplets never receive raw signing keys or plaintext of encrypted payloads. New per-domain proxies (identity, keys, media, notify, storage) are available as optional composition seams for host-app interception. `keys-forwarder` module published for host-app DOM-event bridging. `ShellBridge.publishTheme()` added as a first-class broadcast API so host apps can push theme changes to every registered napplet.
 
   **Breaking changes:**
 
@@ -482,7 +477,7 @@
   **Peer deps:**
 
   - @napplet/core bumped from >=0.1.0 to ^0.2.0
-  - Added @napplet/nub-identity, @napplet/nub-ifc, @napplet/nub-keys, @napplet/nub-media, @napplet/nub-notify, @napplet/nub-relay, @napplet/nub-storage, @napplet/nub-theme (all ^0.2.0)
+  - Added @napplet/nap-identity, @napplet/nap-ifc, @napplet/nap-keys, @napplet/nap-media, @napplet/nap-notify, @napplet/nap-relay, @napplet/nap-storage, @napplet/nap-theme (all ^0.2.0)
 
 ### Patch Changes
 

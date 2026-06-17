@@ -2,7 +2,7 @@
 
 Date: 2026-06-14
 Status: approved (autonomous goal execution)
-Upstream draft: napplet/nubs PR #31 `NAP-CVM` (namespace `window.napplet.cvm`, discovery `shell.supports("cvm")`)
+Upstream draft: napplet/naps PR #31 `NAP-CVM` (namespace `window.napplet.cvm`, discovery `shell.supports("cvm")`)
 Protocol: ContextVM — MCP JSON-RPC transported over Nostr (kind 25910), optional CEP-4 gift-wrap encryption.
 
 ## Goal
@@ -51,7 +51,7 @@ NIP-5D envelopes (`{ type: "cvm.<action>", ... }`):
 `message` is an MCP `McpMessage`. MCP-level errors ride in `message.error`;
 transport/policy errors ride in the envelope `error`. These wire types are
 mirrored as a kehto-internal model in `@kehto/services/cvm-types.ts` (same
-convention as NUB-RESOURCE / Decision #31) — no new `@napplet/core` version bump.
+convention as NAP-RESOURCE / Decision #31) — no new `@napplet/core` version bump.
 
 ### Packages
 
@@ -79,11 +79,11 @@ convention as NUB-RESOURCE / Decision #31) — no new `@napplet/core` version bu
 3. **`@kehto/runtime`** — route the `cvm` domain.
    - `domain-handlers.ts`: add `cvm` to `RuntimeDomainHandlers`, wire
      `handleServiceOnlyMessage(context,'cvm',…)`.
-   - `runtime.ts`: `nubDispatch.registerNub('cvm', adapt(handlers.cvm))`.
+   - `runtime.ts`: `napDispatch.registerNap('cvm', adapt(handlers.cvm))`.
    - Test: `cvm-dispatch.test.ts` (routes when registered + ACL allow/deny).
 
 4. **`@kehto/shell`** — advertise capability.
-   - `shell-init.ts`: add `'cvm'` to `CANONICAL_NUB_DOMAINS` so
+   - `shell-init.ts`: add `'cvm'` to `CANONICAL_NAP_DOMAINS` so
      `shell.supports('cvm')` is true.
 
 5. **`apps/playground`** — the Relatr napplet.

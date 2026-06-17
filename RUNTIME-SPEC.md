@@ -23,11 +23,11 @@ Local stubs (redirect to upstream): [`specs/NIP-5D.md`](specs/NIP-5D.md),
 Current-state delta inventory: `.planning/NIP-5D-2303-DELTA-AUDIT.md`
 
 > **Terminology.** The current term for an extension spec is **NAP** (formerly
-> "NUB"); the capability prefix is `nap:` (`nub:` is an accepted back-compat
+> "NAP"); the capability prefix is `nap:` (`nap:` is an accepted back-compat
 > alias); the cross-napplet domain is `inc` (formerly `ifc`, still dual-routed).
-> The `@napplet/nub` npm package was renamed to `@napplet/nap`; no current code
-> depends on `@napplet/nub`. Some internal kehto identifiers retain the legacy
-> spelling (`createNubEnvelopeDispatcher`, `IfcDomain`, `ifc-handler.ts`) — these
+> The `@napplet/nap` npm package was renamed to `@napplet/nap`; no current code
+> depends on `@napplet/nap`. Some internal kehto identifiers retain the legacy
+> spelling (`createNapEnvelopeDispatcher`, `IfcDomain`, `ifc-handler.ts`) — these
 > are private and intentionally unchanged; the runtime dual-routes `ifc`+`inc`.
 
 ## Toolchain
@@ -37,13 +37,13 @@ Kehto's runtime packages target the current `@napplet` line:
 | Package                 | Version  | Role                                            |
 | ----------------------- | -------- | ----------------------------------------------- |
 | `@napplet/core`         | `^0.12`  | protocol types, constants, `createDispatch` / `registerNap` |
-| `@napplet/nap`          | `0.12`   | NAP capability helpers (renamed from `@napplet/nub`) |
+| `@napplet/nap`          | `0.12`   | NAP capability helpers (renamed from `@napplet/nap`) |
 | `@napplet/sdk`          | `0.12`   | napplet-side SDK (playground napplets)          |
 | `@napplet/shim`         | `0.13`   | napplet-side shim; reads `capabilities.{domains,protocols}` |
 | `@napplet/vite-plugin`  | `0.8.1`  | napplet build/sign plugin (napplet/web#53 resolved) |
 
 The runtime's domain dispatcher routes via `createDispatch()` + `registerNap()`
-from `@napplet/core` (the rename of the former `registerNub` / `NubHandler`
+from `@napplet/core` (the rename of the former `registerNap` / `NapHandler`
 surface). `napplet/web#53` is resolved — the playground builds against
 `@napplet/vite-plugin@0.8.1`.
 
@@ -106,7 +106,7 @@ capabilities: {
 `shell.supports('relay')` resolves against `domains`; `shell.supports('inc','NAP-01')`
 resolves against `protocols['inc']`. For back-compat with the installed 0.5.0
 shim, `domains`/`protocols` are emitted as a **superset alongside** the legacy
-`naps` / `nubs` / `sandbox` fields (the `ifc`/`nubs` dual-emit). Host-extended
+`naps` / `naps` / `sandbox` fields (the `ifc`/`naps` dual-emit). Host-extended
 `perm:`-prefixed `sandbox` entries are folded into `domains`. Removal of the
 legacy fields is tracked as CLEANUP-01 and is NOT performed while the playground
 shim path still reads them.
@@ -142,7 +142,7 @@ A NAP MAY define error envelopes only for the messages it recognizes.
 Kehto applies this rule on two levels:
 
 - **Unknown domain** — the domain dispatcher
-  (`createNubEnvelopeDispatcher`, `packages/runtime/src/runtime.ts`) registers a
+  (`createNapEnvelopeDispatcher`, `packages/runtime/src/runtime.ts`) registers a
   handler per known NAP domain via `registerNap`. An envelope whose `domain`
   segment matches no registered NAP is silently dropped (no reply). Envelopes
   without a `.` separator, or non-object messages, are also dropped.

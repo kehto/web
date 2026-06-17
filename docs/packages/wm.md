@@ -3,7 +3,7 @@
 Structural window-management contracts for consumer-owned layout strategies.
 
 > **Alpha status:** These shell-owned contracts are experimental. They are not a
-> NUB and may change as Kehto and other runtime implementations evolve.
+> NAP and may change as Kehto and other runtime implementations evolve.
 
 ## Install
 
@@ -39,7 +39,7 @@ None.
 
 - Provides contracts and a no-op default strategy so hosts can wire window-management state without choosing an algorithm up front.
 - Does not ship BSP, master-stack, floating, or other concrete layout algorithms.
-- Does not expose a NUB domain; window management is shell-internal state.
+- Does not expose a NAP domain; window management is shell-internal state.
 
 ## API Reference
 

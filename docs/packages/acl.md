@@ -3,12 +3,12 @@
 Pure capability state and enforcement primitives for the napplet protocol.
 
 > **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
-> protocol. Capability names and NUB contracts are not final.
+> protocol. Capability names and NAP contracts are not final.
 
 ## Install
 
 ```bash
-pnpm add @kehto/acl @napplet/core @napplet/nub
+pnpm add @kehto/acl @napplet/core @napplet/nap
 ```
 
 ## Manifest Facts
@@ -27,7 +27,7 @@ pnpm add @kehto/acl @napplet/core @napplet/nub
 | Package | Range |
 |---------|-------|
 | `@napplet/core` | `^0.5.0` |
-| `@napplet/nub` | `^0.5.0` |
+| `@napplet/nap` | `^0.5.0` |
 
 ## Primary APIs
 
@@ -39,13 +39,13 @@ pnpm add @kehto/acl @napplet/core @napplet/nub
 | Checks | `check`, `toKey` |
 | Migration | `migrateAclState` |
 | Capability strings | `ALL_CAPABILITIES`, `CAP_IDENTITY_READ`, `CAP_IDENTITY_DECRYPT`, `CAP_KEYS_BIND`, `CAP_KEYS_FORWARD`, `CAP_MEDIA_CONTROL`, `CAP_NOTIFY_SEND`, `CAP_NOTIFY_CHANNEL`, `CAP_THEME_READ`, `Capability` |
-| NUB mapping | `resolveCapabilitiesNub`, `CapabilityResolution`, `NubMessage` |
+| NAP mapping | `resolveCapabilitiesNap`, `CapabilityResolution`, `NapMessage` |
 
 ## Scope Boundaries
 
 - Owns pure capability state and capability resolution.
 - Performs no I/O and has no runtime service registry.
-- Does not host iframes, dispatch NUB messages, or interact with browser APIs.
+- Does not host iframes, dispatch NAP messages, or interact with browser APIs.
 
 ## API Reference
 

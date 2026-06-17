@@ -25,7 +25,7 @@
 - The runtime's `routeServiceMessage()` in `service-dispatch.ts` wraps IPC_PEER events as `['EVENT', event]` before calling `handleMessage`, and routes by the topic prefix before `:` extracted from `event.tags`.
 - Responses are also NIP-01 arrays: `['OK', id, true, '']`, `['EVENT', subId, event]`, `['EOSE', subId]`.
 
-This is **Pitfall 5** from PITFALLS.md: after the runtime migrates to NUB envelope dispatch (RUNTIME-MIGRATION.md section 1), services will receive `NappletMessage` objects (`{ type: string, ... }`) but still expect `unknown[]` arrays. There is no TypeScript error at the call site because `unknown[]` accepts any type — the mismatch is silent. A service that checks `message[0] !== 'EVENT'` will always return early and never process any NIP-5D messages.
+This is **Pitfall 5** from PITFALLS.md: after the runtime migrates to NAP envelope dispatch (RUNTIME-MIGRATION.md section 1), services will receive `NappletMessage` objects (`{ type: string, ... }`) but still expect `unknown[]` arrays. There is no TypeScript error at the call site because `unknown[]` accepts any type — the mismatch is silent. A service that checks `message[0] !== 'EVENT'` will always return early and never process any NIP-5D messages.
 
 ---
 
@@ -74,7 +74,7 @@ export interface ServiceHandler {
 | Type safety | None — `unknown[]` accepts anything | Compile-time catches format mismatches |
 | Import source | No additional import | `NappletMessage` from `@napplet/core` |
 
-`NappletMessage` is defined in `@napplet/core` as `{ type: string } & Record<string, unknown>`. It is the same type that the runtime's NUB dispatch layer dispatches for all inbound napplet messages.
+`NappletMessage` is defined in `@napplet/core` as `{ type: string } & Record<string, unknown>`. It is the same type that the runtime's NAP dispatch layer dispatches for all inbound napplet messages.
 
 ---
 
@@ -106,18 +106,18 @@ export function routeServiceMessage(
 
 **New routing logic (NIP-5D):**
 
-The function signature changes fundamentally — it receives a `NappletMessage` instead of a raw event and topic. Routing is by `message.type` domain prefix for NUB-domain services, and by `message.topic` prefix for IFC-routed services:
+The function signature changes fundamentally — it receives a `NappletMessage` instead of a raw event and topic. Routing is by `message.type` domain prefix for NAP-domain services, and by `message.topic` prefix for IFC-routed services:
 
 ```typescript
 export function routeServiceMessage(
   windowId: string,
-  message: NappletMessage,     // typed envelope from NUB dispatch
+  message: NappletMessage,     // typed envelope from NAP dispatch
   services: ServiceRegistry,
   sendToNapplet: SendToNapplet,
 ): boolean {
   const send = (msg: NappletMessage): void => sendToNapplet(windowId, msg);
 
-  // NUB-domain services: signer.*, relay.*, storage.* route by type prefix
+  // NAP-domain services: signer.*, relay.*, storage.* route by type prefix
   const domain = message.type.split('.')[0];
   const handler = services[domain];
   if (handler) {
@@ -142,7 +142,7 @@ export function routeServiceMessage(
 **What changes:**
 - `event: NostrEvent` and `topic: string` parameters are removed — these were NIP-01 artifacts
 - The `['EVENT', event]` wrap in the function body is removed — `handleMessage` receives the envelope directly
-- NUB-domain services are routed by `message.type.split('.')[0]` (`'signer.signEvent'` → `'signer'`)
+- NAP-domain services are routed by `message.type.split('.')[0]` (`'signer.signEvent'` → `'signer'`)
 - IFC-routed services (audio, notifications) are still routed by topic prefix, but from `message.topic` (a flat field) rather than from `event.tags`
 - The function signature change is a **breaking change at the call site** in `runtime.ts`
 
@@ -232,12 +232,12 @@ This matches the runtime's own dual-mode strategy (RUNTIME-MIGRATION.md section 
 |------|--------|--------|
 | `packages/runtime/src/types.ts` | Update `ServiceHandler.handleMessage` and `SendToNapplet` signatures | All service implementations break at compile time (good — catches missed migrations) |
 | `packages/runtime/src/service-dispatch.ts` | Rewrite `routeServiceMessage()` — remove event/topic params, route by `message.type` | All call sites in `runtime.ts` must be updated |
-| `packages/services/src/signer-service.ts` | Full `handleMessage` rewrite | NUB-domain service: receives `signer.*` messages directly |
+| `packages/services/src/signer-service.ts` | Full `handleMessage` rewrite | NAP-domain service: receives `signer.*` messages directly |
 | `packages/services/src/audio-service.ts` | Full `handleMessage` rewrite | IFC-routed service: receives `ifc.emit` with `audio:*` topic |
 | `packages/services/src/notification-service.ts` | Full `handleMessage` rewrite | IFC-routed service: receives `ifc.emit` with `notifications:*` topic |
-| `packages/services/src/relay-pool-service.ts` | Full `handleMessage` rewrite | Relay NUB service: receives `relay.*` envelopes |
-| `packages/services/src/cache-service.ts` | Full `handleMessage` rewrite | Relay NUB service: receives `relay.*` envelopes |
-| `packages/services/src/coordinated-relay.ts` | Full `handleMessage` rewrite | Composite relay NUB service: receives `relay.*` envelopes |
+| `packages/services/src/relay-pool-service.ts` | Full `handleMessage` rewrite | Relay NAP service: receives `relay.*` envelopes |
+| `packages/services/src/cache-service.ts` | Full `handleMessage` rewrite | Relay NAP service: receives `relay.*` envelopes |
+| `packages/services/src/coordinated-relay.ts` | Full `handleMessage` rewrite | Composite relay NAP service: receives `relay.*` envelopes |
 
 ---
 
@@ -377,7 +377,7 @@ Each signer operation has its own typed `.error` response (`signer.getPublicKey.
 
 #### 2.1.6 BusKind Import Removal
 
-After migration, `import { BusKind } from '@napplet/core'` is no longer needed by `signer-service.ts`. The signer service should instead import the appropriate NUB types (or `NappletMessage`) from `@napplet/core`:
+After migration, `import { BusKind } from '@napplet/core'` is no longer needed by `signer-service.ts`. The signer service should instead import the appropriate NAP types (or `NappletMessage`) from `@napplet/core`:
 
 ```typescript
 // Before (to remove)
@@ -414,7 +414,7 @@ Three helper functions exist solely to bridge the array format:
 
 #### 2.2.2 New Message Shapes
 
-Audio is an **IFC-routed service** under NIP-5D. It does not receive a NUB-domain message like signer (which receives `signer.*` types directly). Instead, audio messages arrive as `ifc.emit` envelopes with `topic` matching `audio:*`. The `routeServiceMessage()` function routes by `message.topic` prefix when `message.type === 'ifc.emit'`.
+Audio is an **IFC-routed service** under NIP-5D. It does not receive a NAP-domain message like signer (which receives `signer.*` types directly). Instead, audio messages arrive as `ifc.emit` envelopes with `topic` matching `audio:*`. The `routeServiceMessage()` function routes by `message.topic` prefix when `message.type === 'ifc.emit'`.
 
 **Inbound (napplet → shell):**
 
@@ -635,7 +635,7 @@ This is because relay-pool is a service that **replaces** the runtime's built-in
 
 #### 2.4.2 New Message Shapes
 
-Under NIP-5D, the relay pool service receives **relay NUB envelopes** instead of NIP-01 verb arrays:
+Under NIP-5D, the relay pool service receives **relay NAP envelopes** instead of NIP-01 verb arrays:
 
 | Operation | Old Format | New Format |
 |-----------|-----------|-----------|
@@ -725,7 +725,7 @@ handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMess
 
 #### 2.4.4 Routing Change
 
-Under NIP-5D, the runtime's NUB dispatch sends `relay.*` messages to the relay-pool service by domain prefix match. The service is registered as `'relay'` or `'relay-pool'` — the key must match what `routeServiceMessage()` uses for domain lookup (`message.type.split('.')[0]` === `'relay'`). If using the key `'relay-pool'`, the service registration name does not match the `relay` domain prefix. Shells should register the relay pool service as `'relay'`:
+Under NIP-5D, the runtime's NAP dispatch sends `relay.*` messages to the relay-pool service by domain prefix match. The service is registered as `'relay'` or `'relay-pool'` — the key must match what `routeServiceMessage()` uses for domain lookup (`message.type.split('.')[0]` === `'relay'`). If using the key `'relay-pool'`, the service registration name does not match the `relay` domain prefix. Shells should register the relay pool service as `'relay'`:
 
 ```typescript
 runtime.registerService('relay', createRelayPoolService(options));
@@ -747,7 +747,7 @@ Cache subscriptions are **one-shot** (query, deliver, EOSE, done) — no subscri
 
 #### 2.5.2 New Message Shapes
 
-Cache receives the same relay NUB envelopes as relay-pool (it is also a relay-tier implementation):
+Cache receives the same relay NAP envelopes as relay-pool (it is also a relay-tier implementation):
 
 | Operation | Old Format | New Format |
 |-----------|-----------|-----------|
@@ -792,7 +792,7 @@ handleMessage(_windowId: string, message: NappletMessage, send: (msg: NappletMes
 
 #### 2.5.4 Routing Consideration
 
-Cache service is typically registered as `'cache'` not `'relay'`. Under NIP-5D, the NUB domain prefix for relay operations is `'relay'` — so `routeServiceMessage()` looks for `services['relay']`. There are two valid patterns for combining relay pool and cache:
+Cache service is typically registered as `'cache'` not `'relay'`. Under NIP-5D, the NAP domain prefix for relay operations is `'relay'` — so `routeServiceMessage()` looks for `services['relay']`. There are two valid patterns for combining relay pool and cache:
 
 **Pattern A — Coordinated relay as single `'relay'` service** (recommended):
 ```typescript
@@ -939,7 +939,7 @@ function maybeSendEose(subKey: string, subId: string, send: (msg: NappletMessage
 
 `CoordinatedRelayOptions` wraps `RelayPoolServiceOptions` and `CacheServiceOptions` internally. These option interfaces are **unchanged** — they describe the underlying relay pool and cache implementations, not the wire format. The migration only affects the `ServiceHandler` entry point (`handleMessage` signature and verb routing) and the response format (the `send` callback).
 
-Coordinated relay should be registered as `'relay'` so the NUB domain prefix lookup matches:
+Coordinated relay should be registered as `'relay'` so the NAP domain prefix lookup matches:
 
 ```typescript
 runtime.registerService('relay', createCoordinatedRelay({ relayPool: myPool, cache: myCache }));
@@ -955,23 +955,23 @@ runtime.registerService('relay', createCoordinatedRelay({ relayPool: myPool, cac
 |------|------------|-------|
 | `packages/runtime/src/types.ts` | Interface update | `ServiceHandler.handleMessage` and `SendToNapplet` signatures change; breaks all six service implementations at compile time |
 | `packages/runtime/src/service-dispatch.ts` | Rewrite | `routeServiceMessage()` routing changes from topic-prefix + event wrap to `message.type` domain prefix |
-| `packages/services/src/signer-service.ts` | Full `handleMessage` rewrite | NUB-domain service; remove kind 29001 check, tag extraction, JSON.parse; switch on `message.type`; remove `BusKind` import |
+| `packages/services/src/signer-service.ts` | Full `handleMessage` rewrite | NAP-domain service; remove kind 29001 check, tag extraction, JSON.parse; switch on `message.type`; remove `BusKind` import |
 | `packages/services/src/audio-service.ts` | Full `handleMessage` rewrite + helper removal | IFC-routed; remove `parseContent`, `extractTopic`, `createResponseEvent`; read from `message.topic` and `message.payload`; remove `BusKind` import |
 | `packages/services/src/notification-service.ts` | Full `handleMessage` rewrite + helper removal | IFC-routed; same pattern as audio; `BusKind` import removed |
-| `packages/services/src/relay-pool-service.ts` | Full `handleMessage` rewrite | Relay NUB service; replace verb string checks with `message.type`; replace array positional reads with flat field reads; update `send()` calls |
-| `packages/services/src/cache-service.ts` | Full `handleMessage` rewrite | Relay NUB service; same pattern as relay-pool; one-shot query logic preserved |
-| `packages/services/src/coordinated-relay.ts` | Full `handleMessage` rewrite | Composite relay NUB service; verb routing → type routing; update `send()` calls in `deliver()` and `maybeSendEose()`; internal coordination logic unchanged |
+| `packages/services/src/relay-pool-service.ts` | Full `handleMessage` rewrite | Relay NAP service; replace verb string checks with `message.type`; replace array positional reads with flat field reads; update `send()` calls |
+| `packages/services/src/cache-service.ts` | Full `handleMessage` rewrite | Relay NAP service; same pattern as relay-pool; one-shot query logic preserved |
+| `packages/services/src/coordinated-relay.ts` | Full `handleMessage` rewrite | Composite relay NAP service; verb routing → type routing; update `send()` calls in `deliver()` and `maybeSendEose()`; internal coordination logic unchanged |
 
 ### 3.2 Migration Order
 
 The recommended migration sequence minimizes broken states:
 
 1. **Update `ServiceHandler` interface in `types.ts`** — changes `message: unknown[]` to `message: NappletMessage` and `send` callback type. This will break all six service implementations at compile time, making all remaining migrations visible.
-2. **Update `service-dispatch.ts` routing** — change `routeServiceMessage()` signature and routing logic to accept NUB envelopes.
-3. **Migrate `signer-service.ts`** — NUB-domain service, most complex (seven operations, consent gating). Migrate first because it is a standalone NUB domain with no IFC dependency.
+2. **Update `service-dispatch.ts` routing** — change `routeServiceMessage()` signature and routing logic to accept NAP envelopes.
+3. **Migrate `signer-service.ts`** — NAP-domain service, most complex (seven operations, consent gating). Migrate first because it is a standalone NAP domain with no IFC dependency.
 4. **Migrate `audio-service.ts` and `notification-service.ts`** (parallel) — both are IFC-routed services with the same structural pattern. Can be migrated simultaneously.
-5. **Migrate `relay-pool-service.ts` and `cache-service.ts`** (parallel) — both are relay NUB services with verb-to-type substitution. Can be migrated simultaneously.
-6. **Migrate `coordinated-relay.ts`** — depends on `RelayPoolServiceOptions` and `CacheServiceOptions` (unchanged), but wraps the relay NUB pattern from steps 5. Migrate last to benefit from already-understood relay NUB patterns.
+5. **Migrate `relay-pool-service.ts` and `cache-service.ts`** (parallel) — both are relay NAP services with verb-to-type substitution. Can be migrated simultaneously.
+6. **Migrate `coordinated-relay.ts`** — depends on `RelayPoolServiceOptions` and `CacheServiceOptions` (unchanged), but wraps the relay NAP pattern from steps 5. Migrate last to benefit from already-understood relay NAP patterns.
 
 ### 3.3 Testing Strategy
 

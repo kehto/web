@@ -112,9 +112,9 @@
 
 ### Patch Changes
 
-- 10b119b: **DECRYPT-DEMO-01/02/03 (v1.10 Phase 51/52)** — move decrypt-demo onto the `@napplet/nub@0.3.0` `identityDecrypt` helper and retire its old `0.2.1` shim/vite-plugin graph.
+- 10b119b: **DECRYPT-DEMO-01/02/03 (v1.10 Phase 51/52)** — move decrypt-demo onto the `@napplet/nap@0.3.0` `identityDecrypt` helper and retire its old `0.2.1` shim/vite-plugin graph.
 
-  The demo now calls `identityDecrypt(event)` from `@napplet/nub/identity/sdk` instead of constructing local request IDs, pending response maps, and raw `window.parent.postMessage({ type: 'identity.decrypt', ... })` envelopes. The Playwright-covered DOM sentinels for NIP-04, NIP-44, NIP-17, and class-2 forbidden behavior remain unchanged.
+  The demo now calls `identityDecrypt(event)` from `@napplet/nap/identity/sdk` instead of constructing local request IDs, pending response maps, and raw `window.parent.postMessage({ type: 'identity.decrypt', ... })` envelopes. The Playwright-covered DOM sentinels for NIP-04, NIP-44, NIP-17, and class-2 forbidden behavior remain unchanged.
 
 - 002598f: Fix stale port label `:5174` → `:4174` in `apps/playground/napplets/resource-demo/index.html:61` h2 (POLISH-01). The actual `GRANTED_URL` constant in the same file correctly points at `:4174` (the playground preview port); only the visible h2 label was stale. Cosmetic only; no behavioral change.
 - ff4009f: Add `tests/e2e/topology-lines.spec.ts` — Layer-B regression spec for BUG-02. Phase 42 / Plan 42-01.

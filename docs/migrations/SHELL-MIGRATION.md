@@ -222,7 +222,7 @@ The shell owns the ACL persistence layer — `@kehto/shell` reads and writes ACL
 
 **Where the migration runs:**
 
-The migration utility `migrateAclState()` must be called inside `aclStore.load()`, immediately after deserializing the stored ACL state and before returning it to the runtime. This ensures that every existing ACL entry is re-keyed to the new format before any ACL check is performed with the updated `resolveCapabilitiesNub()` logic.
+The migration utility `migrateAclState()` must be called inside `aclStore.load()`, immediately after deserializing the stored ACL state and before returning it to the runtime. This ensures that every existing ACL entry is re-keyed to the new format before any ACL check is performed with the updated `resolveCapabilitiesNap()` logic.
 
 **Implementation pattern (`acl-store.ts`):**
 
@@ -360,17 +360,17 @@ function shellRequest(type, params) {
 
 **Option B: postMessage-based initialization handshake**
 
-The napplet loads normally via `src` URL. When it loads, the shim (or a minimal bootstrap included in the napplet build) sends a `{ type: "shell.ready" }` postMessage to the parent. The shell responds with `{ type: "shell.init", capabilities: {...}, services: [...] }`. The shim then knows that `window.nostr` requests should use `signer.*` NUB envelope messages, which it already handles via the postMessage proxy.
+The napplet loads normally via `src` URL. When it loads, the shim (or a minimal bootstrap included in the napplet build) sends a `{ type: "shell.ready" }` postMessage to the parent. The shell responds with `{ type: "shell.init", capabilities: {...}, services: [...] }`. The shim then knows that `window.nostr` requests should use `signer.*` NAP envelope messages, which it already handles via the postMessage proxy.
 
 ```
 Napplet loads → shim sends { type: "shell.ready" }
-             → shell responds { type: "shell.init", capabilities: { nubs: [...], sandbox: [...] }, services: [...] }
-             → shim installs capabilities, window.nostr already proxied via signer.* NUBs
+             → shell responds { type: "shell.init", capabilities: { naps: [...], sandbox: [...] }, services: [...] }
+             → shim installs capabilities, window.nostr already proxied via signer.* NAPs
 ```
 
 - **Pro:** No change to iframe loading model — napplet still loads from its URL
 - **Pro:** Works with any sandbox configuration
-- **Pro:** The shim already handles all NIP-07 methods via signer.* NUB postMessage proxy — `window.nostr` was already available via the shim before NIP-5D
+- **Pro:** The shim already handles all NIP-07 methods via signer.* NAP postMessage proxy — `window.nostr` was already available via the shim before NIP-5D
 - **Con:** `window.nostr` is **not** available synchronously — napplet module-level code that calls `window.nostr.getPublicKey()` immediately on import will fail. The handshake requires a round-trip message before the shim's capabilities are confirmed
 - **Con:** Requires the napplet to include `@napplet/shim` — vanilla JS napplets without the shim have no `window.nostr` until the shell provides one via another mechanism
 
@@ -378,7 +378,7 @@ Napplet loads → shim sends { type: "shell.ready" }
 
 **Option C: Shim-as-shell-provided-bootstrap**
 
-The shell injects the `@napplet/shim` bundle URL into the napplet HTML as the first `<script>` tag, using either the srcdoc mechanism or a Service Worker that intercepts the napplet URL and prepends the shim. The shim itself provides `window.nostr` via its internal signer.* NUB proxy.
+The shell injects the `@napplet/shim` bundle URL into the napplet HTML as the first `<script>` tag, using either the srcdoc mechanism or a Service Worker that intercepts the napplet URL and prepends the shim. The shim itself provides `window.nostr` via its internal signer.* NAP proxy.
 
 ```javascript
 // Shell intercepts napplet HTML fetch (via Service Worker), prepends:
@@ -403,12 +403,12 @@ The NIP-5D MUST requirement — "Shells MUST provide a NIP-07 window.nostr imple
 
 For `@napplet/shim` v0.2.0+ napplets (the primary audience):
 
-- The shim's internal `window.nostr` implementation already uses signer.* NUB postMessage messages. This proxy works today for the kind 29001/29002 round-trip and will work for NIP-5D envelope messages after the guard fix (Section 1). The shell "provides" `window.nostr` by ensuring the signer.* NUB messages are handled — whether the shim loads the nostr object or the shell injects it, the end result for the napplet is the same.
+- The shim's internal `window.nostr` implementation already uses signer.* NAP postMessage messages. This proxy works today for the kind 29001/29002 round-trip and will work for NIP-5D envelope messages after the guard fix (Section 1). The shell "provides" `window.nostr` by ensuring the signer.* NAP messages are handled — whether the shim loads the nostr object or the shell injects it, the end result for the napplet is the same.
 - The Option B handshake (shell.ready / shell.init) solves the one remaining gap: injecting the capability set and service list synchronously. The shim can request these at load time and fall back to safe defaults while awaiting the response.
 
 For vanilla JS napplets (no shim):
 
-- The shell SHOULD use Option A (srcdoc bootstrap) to inject a minimal `window.nostr` proxy before the napplet's script runs. The injected proxy uses the same `signer.*` NUB envelope messages.
+- The shell SHOULD use Option A (srcdoc bootstrap) to inject a minimal `window.nostr` proxy before the napplet's script runs. The injected proxy uses the same `signer.*` NAP envelope messages.
 - This is a fallback path; most napplets will use the shim and the Option B path.
 
 **Critical implementation note:** The shell MUST NOT inject the user's private key or raw signer credentials into the iframe. All signing is proxied through the shell — the iframe's `window.nostr` makes postMessage calls to the shell, which forwards them to `auth.getSigner()` and returns the result. The raw cryptographic material never leaves the shell page.
@@ -417,9 +417,9 @@ For vanilla JS napplets (no shim):
 
 ### 2.5 NIP-07 Method Coverage
 
-All six NIP-07 method groups must be supported. Each maps to a corresponding `signer.*` NUB message type:
+All six NIP-07 method groups must be supported. Each maps to a corresponding `signer.*` NAP message type:
 
-| NIP-07 Method | NUB Message Type | Response Type | ACL Capability |
+| NIP-07 Method | NAP Message Type | Response Type | ACL Capability |
 |---------------|-----------------|---------------|---------------|
 | `window.nostr.getPublicKey()` | `signer.getPublicKey` | `signer.getPublicKey.result` (field: `pubkey`) | None (always allowed) |
 | `window.nostr.signEvent(event)` | `signer.signEvent` | `signer.signEvent.result` (field: `event`) | `sign:event` |
@@ -429,7 +429,7 @@ All six NIP-07 method groups must be supported. Each maps to a corresponding `si
 | `window.nostr.nip44.encrypt(pubkey, plaintext)` | `signer.nip44.encrypt` | `signer.nip44.encrypt.result` (field: `ciphertext`) | `sign:nip44` |
 | `window.nostr.nip44.decrypt(pubkey, ciphertext)` | `signer.nip44.decrypt` | `signer.nip44.decrypt.result` (field: `plaintext`) | `sign:nip44` |
 
-**Wire format for NUB signer messages (NIP-5D):**
+**Wire format for NAP signer messages (NIP-5D):**
 
 ```typescript
 // Request (napplet → shell via postMessage)
@@ -450,11 +450,11 @@ The `id` field is a client-generated UUID. The shell echoes it on the response s
 
 **Shell controls which napplet gets which signer:**
 
-The `AuthHooks.getSigner()` (defined in `types.ts` line 127) returns the NIP-07 compatible signer for the **current user**. Each `signer.*` NUB request is routed through the runtime's dispatch path, which resolves the requesting `windowId` to a session entry before forwarding to the signer. The shell MUST NOT give one napplet access to a signer intended for a different user.
+The `AuthHooks.getSigner()` (defined in `types.ts` line 127) returns the NIP-07 compatible signer for the **current user**. Each `signer.*` NAP request is routed through the runtime's dispatch path, which resolves the requesting `windowId` to a session entry before forwarding to the signer. The shell MUST NOT give one napplet access to a signer intended for a different user.
 
 **ACL enforcement — signer operations are gated:**
 
-All `signer.*` NUB requests go through the runtime's ACL enforcement path before reaching the signer. Specifically:
+All `signer.*` NAP requests go through the runtime's ACL enforcement path before reaching the signer. Specifically:
 
 - `signer.signEvent` → requires `sign:event` capability (ACL bit `CAP_SIGN_EVENT`)
 - `signer.nip04.*` → requires `sign:nip04` capability (ACL bit `CAP_SIGN_NIP04`)
@@ -482,9 +482,9 @@ The `window.nostr` proxy in the iframe sends postMessages to `window.parent` usi
 | File | Change | Impact |
 |------|--------|--------|
 | `packages/shell/src/shell-bridge.ts` or new `packages/shell/src/shell-init.ts` | `window.nostr` bootstrap script generation (Option A) and/or shell.ready/shell.init handshake handler (Option B) | **HIGH** — new injection logic, may be extracted to a dedicated module for clarity |
-| `packages/shell/src/hooks-adapter.ts` | `auth.getSigner()` and `auth.getUserPubkey()` usage in signer NUB handler | **LOW** — existing `AuthAdapter` already wires to `shellHooks.auth.getSigner()`; no change to adapter needed if the runtime's signer handler uses these existing hooks |
+| `packages/shell/src/hooks-adapter.ts` | `auth.getSigner()` and `auth.getUserPubkey()` usage in signer NAP handler | **LOW** — existing `AuthAdapter` already wires to `shellHooks.auth.getSigner()`; no change to adapter needed if the runtime's signer handler uses these existing hooks |
 | `packages/shell/src/types.ts` | Optional `ShellNostrBootstrap` hook type if Option A is used (the shell needs to construct the bootstrap script for srcdoc injection) | **LOW** — additive only |
-| `napplet/packages/shim/src/index.ts` | Replace kind 29001/29002 postMessage proxy with `signer.*` NUB envelope messages; add `shell.ready` init message; read capability set from `shell.init` response | **HIGH** — lives in @napplet repo, not @kehto; coordinated change required with @napplet release |
+| `napplet/packages/shim/src/index.ts` | Replace kind 29001/29002 postMessage proxy with `signer.*` NAP envelope messages; add `shell.ready` init message; read capability set from `shell.init` response | **HIGH** — lives in @napplet repo, not @kehto; coordinated change required with @napplet release |
 
 ---
 
@@ -495,7 +495,7 @@ The `window.nostr` proxy in the iframe sends postMessages to `window.parent` usi
 NIP-5D specifies two synchronous capability query APIs in the "Runtime Capability Query" section:
 
 ```javascript
-window.napplet.shell.supports('relay')     // NUB capability — boolean
+window.napplet.shell.supports('relay')     // NAP capability — boolean
 window.napplet.shell.supports('popups')    // sandbox permission — boolean
 window.napplet.services.has('audio')       // service handler registered — boolean
 ```
@@ -514,7 +514,7 @@ shell: {
 },
 ```
 
-The comment acknowledges that shell population is the missing piece — the shim has no postMessage round-trip for capability queries (unlike relay, signer, and storage which use NUB envelope messages). This section documents the shell-side design that makes `shell.supports()` functional.
+The comment acknowledges that shell population is the missing piece — the shim has no postMessage round-trip for capability queries (unlike relay, signer, and storage which use NAP envelope messages). This section documents the shell-side design that makes `shell.supports()` functional.
 
 ---
 
@@ -524,7 +524,7 @@ The current situation for capability advertisement:
 
 | Component | Current State | Problem |
 |-----------|--------------|---------|
-| `window.napplet.shell.supports()` | Always returns `false` | Napplets cannot detect what NUBs the shell implements |
+| `window.napplet.shell.supports()` | Always returns `false` | Napplets cannot detect what NAPs the shell implements |
 | `window.napplet.services.has()` | Triggers kind 29010 service discovery round-trip | Asynchronous; incompatible with synchronous NIP-5D query model |
 | Shell capability set | Not defined anywhere | No authoritative source for what the shell supports |
 | Sandbox permissions | Not queried | Shell does not inspect the iframe's `sandbox` attribute |
@@ -537,7 +537,7 @@ The shim comment ("TODO: Shell populates supported capabilities at iframe creati
 
 **At iframe creation, the shell knows statically:**
 
-1. Which NUB handlers are registered with the runtime (e.g., relay, signer, storage, ifc). This is the set of service handlers and built-in domain handlers wired into `createRuntime()` / the `ShellAdapter`.
+1. Which NAP handlers are registered with the runtime (e.g., relay, signer, storage, ifc). This is the set of service handlers and built-in domain handlers wired into `createRuntime()` / the `ShellAdapter`.
 2. Which sandbox permissions the iframe has — derived from the iframe element's `sandbox` attribute tokens (e.g., `"allow-scripts allow-popups"` → `['popups']`).
 
 This information is available synchronously before the iframe loads any code, making it suitable for injection at creation time.
@@ -546,12 +546,12 @@ This information is available synchronously before the iframe loads any code, ma
 
 ```typescript
 interface ShellCapabilities {
-  nubs: string[];      // e.g., ['relay', 'signer', 'storage', 'ifc']
+  naps: string[];      // e.g., ['relay', 'signer', 'storage', 'ifc']
   sandbox: string[];   // e.g., ['popups', 'modals'] — derived from sandbox attribute tokens
 }
 ```
 
-`nubs` lists the NUB domain prefixes that the shell's runtime handles. `sandbox` lists the sandbox permissions granted to the iframe (each `allow-*` token with the `allow-` prefix stripped: `allow-popups` → `'popups'`).
+`naps` lists the NAP domain prefixes that the shell's runtime handles. `sandbox` lists the sandbox permissions granted to the iframe (each `allow-*` token with the `allow-` prefix stripped: `allow-popups` → `'popups'`).
 
 **`shell.supports()` implementation (post-migration):**
 
@@ -560,21 +560,21 @@ interface ShellCapabilities {
 const capabilities: ShellCapabilities = /* injected by shell */;
 
 window.napplet.shell.supports = (name: string): boolean => {
-  return capabilities.nubs.includes(name) || capabilities.sandbox.includes(name);
+  return capabilities.naps.includes(name) || capabilities.sandbox.includes(name);
 };
 ```
 
 This check is synchronous and O(n) on the capability list size (typically 4–8 entries).
 
-**NUB name mapping:**
+**NAP name mapping:**
 
-| NUB Domain Prefix | Registered when... |
+| NAP Domain Prefix | Registered when... |
 |-------------------|-------------------|
 | `'relay'` | `relayPool` hooks provided and relay subscription handler active |
 | `'signer'` | `auth.getSigner()` returns non-null |
 | `'storage'` | `statePersistence` hooks provided |
 | `'ifc'` | IFC handler registered (default: always present) |
-| `'theme'` | Theme NUB handler registered (optional extension) |
+| `'theme'` | Theme NAP handler registered (optional extension) |
 
 ---
 
@@ -590,9 +590,9 @@ NIP-5A manifests declare what a napplet needs via `requires` tags:
 
 **At napplet load time (manifest check):**
 
-The shell reads the manifest `requires` tags before creating the iframe. For each required NUB, the shell checks its own capability set. If a required NUB is absent (`shell.supports(nub) === false`), the shell SHOULD reject the load or display a warning: "Napplet requires `signer` but this shell does not provide it."
+The shell reads the manifest `requires` tags before creating the iframe. For each required NAP, the shell checks its own capability set. If a required NAP is absent (`shell.supports(nap) === false`), the shell SHOULD reject the load or display a warning: "Napplet requires `signer` but this shell does not provide it."
 
-This is a pre-flight check — it prevents loading a napplet that will silently fail because a required NUB is missing.
+This is a pre-flight check — it prevents loading a napplet that will silently fail because a required NAP is missing.
 
 **At napplet runtime (dynamic query):**
 
@@ -600,18 +600,18 @@ After loading, `shell.supports()` lets the napplet query optional capabilities:
 
 ```javascript
 if (window.napplet.shell.supports('theme')) {
-  // Use theme NUB to request themed UI tokens
+  // Use theme NAP to request themed UI tokens
 }
 ```
 
-Optional NUBs (those not in the manifest `requires` tags) can be checked at runtime to enable progressive enhancement. The napplet degrades gracefully if the NUB is absent.
+Optional NAPs (those not in the manifest `requires` tags) can be checked at runtime to enable progressive enhancement. The napplet degrades gracefully if the NAP is absent.
 
 **Interaction flow:**
 
 ```
-Manifest load → shell reads requires[] → pre-flight check against ShellCapabilities.nubs
-                                         → REJECT if required NUB missing
-                                         → PROCEED if all required NUBs present
+Manifest load → shell reads requires[] → pre-flight check against ShellCapabilities.naps
+                                         → REJECT if required NAP missing
+                                         → PROCEED if all required NAPs present
                     ↓
 Iframe creation → ShellCapabilities injected → shell.supports() functional
                     ↓
@@ -626,11 +626,11 @@ These are two distinct queries that answer different questions:
 
 | Query | API | Checks | Protocol layer |
 |-------|-----|--------|---------------|
-| `shell.supports('relay')` | `window.napplet.shell.supports()` | Shell implements relay NUB | NUB protocol capability |
+| `shell.supports('relay')` | `window.napplet.shell.supports()` | Shell implements relay NAP | NAP protocol capability |
 | `shell.supports('popups')` | `window.napplet.shell.supports()` | iframe has `allow-popups` in sandbox | Browser sandbox permission |
 | `services.has('audio')` | `window.napplet.services.has()` | Audio service handler registered | Service extension layer |
 
-**NUBs are protocol-level capabilities** (relay, signer, storage, ifc, theme). A NUB being available means the shell's runtime will recognize messages of that domain type and respond to them. NUBs are defined in the NIP-5D specification.
+**NAPs are protocol-level capabilities** (relay, signer, storage, ifc, theme). A NAP being available means the shell's runtime will recognize messages of that domain type and respond to them. NAPs are defined in the NIP-5D specification.
 
 **Services are optional extensions** registered via `ServiceRegistry` (audio, notifications, custom handlers). A service being available means the shell has a handler that processes `ifc.emit` messages with the service's topic prefix.
 
@@ -638,7 +638,7 @@ These are two distinct queries that answer different questions:
 
 ```typescript
 // shell.supports() checks the static capability set injected at creation
-shell.supports('relay');  // → capabilities.nubs.includes('relay')
+shell.supports('relay');  // → capabilities.naps.includes('relay')
 
 // services.has() checks the runtime's live ServiceRegistry
 services.has('audio');    // → !!runtime.services['audio']
@@ -652,7 +652,7 @@ Under NIP-5D, `services.has()` should also be synchronous — the service list i
 
 The `ShellCapabilities` object (Section 3.3) and the service list are injected into the iframe at creation time using the same mechanism as `window.nostr` (Section 2). This is a unified injection approach: a single shell-controlled initialization step installs all three pieces of the `window.napplet` interface:
 
-1. `window.napplet.shell.supports` — from `ShellCapabilities.nubs` and `.sandbox`
+1. `window.napplet.shell.supports` — from `ShellCapabilities.naps` and `.sandbox`
 2. `window.napplet.services.has` — from `ShellAdapter.services` keys
 3. `window.nostr` — from the shell's signer proxy (see Section 2)
 
@@ -664,7 +664,7 @@ All three are injected synchronously, before any napplet code runs. The specific
 
 | File | Change | Impact |
 |------|--------|--------|
-| `packages/shell/src/types.ts` | Add `ShellCapabilities` interface (`nubs: string[]`, `sandbox: string[]`) | **MEDIUM** — new type, no breaking changes |
-| `packages/shell/src/shell-bridge.ts` or new `shell-init.ts` | Capability set construction logic: collect NUB handler list from runtime config, parse `sandbox` attribute tokens | **MEDIUM** — new logic, isolated module |
+| `packages/shell/src/types.ts` | Add `ShellCapabilities` interface (`naps: string[]`, `sandbox: string[]`) | **MEDIUM** — new type, no breaking changes |
+| `packages/shell/src/shell-bridge.ts` or new `shell-init.ts` | Capability set construction logic: collect NAP handler list from runtime config, parse `sandbox` attribute tokens | **MEDIUM** — new logic, isolated module |
 | `packages/shell/src/index.ts` | Export `ShellCapabilities` type for host application use | **LOW** — export surface addition |
 | `napplet/packages/shim/src/index.ts` | Replace `supports() { return false; }` stub with reads from injected capability set | **MEDIUM** — lives in @napplet repo, not @kehto; coordination required |

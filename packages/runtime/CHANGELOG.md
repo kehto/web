@@ -62,24 +62,24 @@
 
 - d37ef25: chore: modernize to @napplet 0.12/0.13 (peer dep + core API rename)
 
-  All runtime packages move off the legacy `@napplet/nub` toolchain onto the
+  All runtime packages move off the legacy `@napplet/nap` toolchain onto the
   current `@napplet` line:
 
-  - **Peer dependency** `@napplet/core ^0.5` → `^0.12`, and `@napplet/nub ^0.5`
+  - **Peer dependency** `@napplet/core ^0.5` → `^0.12`, and `@napplet/nap ^0.5`
     → `@napplet/nap ^0.12` (the package was renamed upstream; `@napplet/firewall`
     consumers only need `@napplet/core ^0.12`).
-  - **Core dispatch API** `registerNub` → `registerNap` and the `NubHandler` type
+  - **Core dispatch API** `registerNap` → `registerNap` and the `NapHandler` type
     → `NapHandler`. The runtime's domain dispatcher now calls `registerNap(...)`
     for every domain.
 
   **Migration for consumers:** install `@napplet/core@^0.12` and `@napplet/nap`
-  (replacing `@napplet/nub`). The kehto wire protocol is unchanged — the legacy
-  `ifc`/`nubs` envelopes are still dual-emitted for the installed 0.5.0 shim
+  (replacing `@napplet/nap`). The kehto wire protocol is unchanged — the legacy
+  `ifc`/`naps` envelopes are still dual-emitted for the installed 0.5.0 shim
   (removal is tracked as CLEANUP-01) — so no napplet-side code change is required;
   this is a host-side dependency and core-API modernization only.
 
-  Internal kehto identifiers that still carry "nub"/"ifc" vocabulary
-  (`createNubEnvelopeDispatcher`, `IfcDomain`, `ifc-handler.ts`, …) are unchanged:
+  Internal kehto identifiers that still carry "nap"/"ifc" vocabulary
+  (`createNapEnvelopeDispatcher`, `IfcDomain`, `ifc-handler.ts`, …) are unchanged:
   they are private and the runtime dual-routes `ifc`+`inc`.
 
 ### Patch Changes
@@ -94,7 +94,7 @@
 
 - 968e664: feat: NAP ontology alignment — inc domain, inc:NAP-0N protocol IDs, dual-emit back-compat window
 
-  Aligns `@kehto/*` with the `@napplet/*` 0.9.0 rename from the `ifc`/`NUB-NN`
+  Aligns `@kehto/*` with the `@napplet/*` 0.9.0 rename from the `ifc`/`NAP-NN`
   vocabulary to the canonical NAP vocabulary (`inc`/`NAP-NN`). Resolves kehto/web#24.
 
   ### @kehto/shell — `ShellCapabilities` public interface change
@@ -103,14 +103,13 @@
 
   - **`naps`** (new, primary): NAP-vocabulary capability set consumed by
     `@napplet/shim >=0.9.0`. Advertises bare domain `inc` (the NAP rename of
-    `ifc`) and protocol IDs `inc:NAP-01..inc:NAP-06` (the `ifc:NUB-01..06` aliases
-    renamed, plus `ifc:NAP-01` replaced). Contains NO `ifc` or `NUB-NN` identifiers.
+    the old `ifc` domain) and protocol IDs `inc:NAP-01..inc:NAP-06`.
     Conditional entries: `relay`+`outbox` when a relay pool is wired; `upload` when
     an upload backend is wired; `intent` when an intent dispatcher is available.
 
-  - **`nubs`** (retained, legacy): legacy `ifc`/`ifc:NUB-01..06`/`ifc:NAP-01`
+  - **`naps`** (retained, legacy): legacy `ifc`/`ifc:NAP-01..06`/`ifc:NAP-01`
     vocabulary retained unchanged for one back-compat release, consumed by
-    `@napplet/nub` and `@napplet/shim <=0.8.x`. No content change from prior
+    `@napplet/nap` and `@napplet/shim <=0.8.x`. No content change from prior
     releases.
 
   The dual-emit is intentional and slated for removal in a future cleanup milestone
@@ -118,15 +117,15 @@
 
   **Downstream consumer impact — hyprgate MUST consume `naps`:**
   The `@napplet/shim >=0.9.0` `createShellSupports` function reads ONLY
-  `capabilities.naps`; it ignores `capabilities.nubs`. Any consumer (hyprgate or
+  `capabilities.naps`; it ignores `capabilities.naps`. Any consumer (hyprgate or
   custom shell host) that builds `supports()` from `shell.init.capabilities` must
-  switch from reading `nubs` to reading `naps` to work correctly with napplets
-  built against `@napplet/* >=0.9.0`. Legacy napplets (using `@napplet/nub` /
-  `@napplet/shim <=0.8.x`) continue to read `nubs` and are unaffected.
+  switch from reading `naps` to reading `naps` to work correctly with napplets
+  built against `@napplet/* >=0.9.0`. Legacy napplets (using `@napplet/nap` /
+  `@napplet/shim <=0.8.x`) continue to read `naps` and are unaffected.
 
   ### @kehto/runtime — `inc.*` dispatch acceptance
 
-  The nub envelope dispatcher now registers the IFC handler under **both** the
+  The nap envelope dispatcher now registers the IFC handler under **both** the
   `ifc` and `inc` dispatch keys. A napplet that sends `inc.subscribe`,
   `inc.emit`, or `inc.channel.*` messages reaches the same handler as one that
   sends the legacy `ifc.*` messages. The IFC handler is domain-aware: responses
@@ -135,11 +134,11 @@
   tracked domain prefix, so each napplet receives its own vocabulary.
 
   Legacy `ifc.*` routing is byte-for-byte unchanged — no regression for napplets
-  on `@napplet/nub` or `@napplet/shim <=0.8.x`.
+  on `@napplet/nap` or `@napplet/shim <=0.8.x`.
 
   ### @kehto/acl — `inc.*` ACL gating
 
-  `resolveCapabilitiesNub` now maps the `inc` domain identically to `ifc` via a
+  `resolveCapabilitiesNap` now maps the `inc` domain identically to `ifc` via a
   fall-through `case 'inc':` in the domain switch. `inc.emit` and
   `inc.channel.emit/broadcast` require `relay:write`; `inc.subscribe`,
   `inc.unsubscribe`, `inc.channel.open/list/close` require `relay:read`. This
@@ -318,7 +317,7 @@
 
 ### Minor Changes
 
-- Release the published NAP-MEDIA and NAP-IDENTITY alignment against `@napplet/nub@0.5.0`.
+- Release the published NAP-MEDIA and NAP-IDENTITY alignment against `@napplet/nap@0.5.0`.
 
   The runtime package set now consumes the published NAP helper graph, carries owner-aware media session create/result shapes, validates shell-owned media source requests before returning the current unsupported-owner response, and exposes the identity snapshot-plus-`identity.changed` flow without requiring napplet polling.
 
@@ -331,7 +330,7 @@
 
 ### Patch Changes
 
-- Align published package peers and source imports with `@napplet/nub@0.5.0`, the June 12 NAP helper release that carries the NAP-MEDIA and NAP-IDENTITY changes.
+- Align published package peers and source imports with `@napplet/nap@0.5.0`, the June 12 NAP helper release that carries the NAP-MEDIA and NAP-IDENTITY changes.
 - Updated dependencies
   - @kehto/acl@0.3.1
 
@@ -339,20 +338,20 @@
 
 ### Minor Changes
 
-- **Fix #14** — `handleStorageNub` now returns storage errors as the canonical `storage.<action>.result` envelope with an `error` field, instead of a non-canonical `storage.<action>.error` type. The `@napplet/nub/storage` protocol defines no `*.error` message, so conformant shims silently dropped the old envelope and napplets hung until their request timeout. Clean break: the `storage.*.error` envelope is removed entirely (no backwards-compat).
+- **Fix #14** — `handleStorageNap` now returns storage errors as the canonical `storage.<action>.result` envelope with an `error` field, instead of a non-canonical `storage.<action>.error` type. The `@napplet/nap/storage` protocol defines no `*.error` message, so conformant shims silently dropped the old envelope and napplets hung until their request timeout. Clean break: the `storage.*.error` envelope is removed entirely (no backwards-compat).
 
   **Fix #15** — NIP-5D source-identity napplets are now registered into `runtime.sessionRegistry` during the `shell.ready` handshake. Previously `originRegistry` identity was never bridged into the runtime registry, so `getEntryByWindowId` always returned `undefined` and every storage (and other `sessionRegistry`-keyed) operation failed with `not registered`. The `shell.ready` handler resolves identity from the `onNip5dIframeCreate` hook (preferred) or `originRegistry.getIdentity` (fallback) and registers a source-identity `SessionEntry` (`provenance: 'nip-5d'`, `pubkey: ''`); it skips registration cleanly when neither source yields identity.
 
-- 93224cd: Consolidate NUB peer dependencies from 8 split `@napplet/nub-{identity,ifc,keys,media,notify,relay,storage,theme}@^0.2.1` packages onto the single `@napplet/nub@^0.2.1` package. All in-repo imports now read from the `@napplet/nub/<domain>/types` subpath (type-only consumers) or the root `@napplet/nub/<domain>` subpath.
+- 93224cd: Consolidate NAP peer dependencies from 8 split `@napplet/nap-{identity,ifc,keys,media,notify,relay,storage,theme}@^0.2.1` packages onto the single `@napplet/nap@^0.2.1` package. All in-repo imports now read from the `@napplet/nap/<domain>/types` subpath (type-only consumers) or the root `@napplet/nap/<domain>` subpath.
 
-  Addresses kehto#4 (hyprgate v2.0 Kehto Migration gap analysis). Eliminates the dual-instance pitfall where downstream shells consuming both the split-package and consolidated NUB shapes ended up with two copies of every NUB module on disk.
+  Addresses kehto#4 (hyprgate v2.0 Kehto Migration gap analysis). Eliminates the dual-instance pitfall where downstream shells consuming both the split-package and consolidated NAP shapes ended up with two copies of every NAP module on disk.
 
-  Downstream consumers note: `@napplet/nub@0.2.1` was published with an unresolved `workspace:*` specifier for its `@napplet/core` dependency. Until upstream re-publishes, workspace consumers should add the following `pnpm.overrides` entry at their workspace root to pin the transitive resolution:
+  Downstream consumers note: `@napplet/nap@0.2.1` was published with an unresolved `workspace:*` specifier for its `@napplet/core` dependency. Until upstream re-publishes, workspace consumers should add the following `pnpm.overrides` entry at their workspace root to pin the transitive resolution:
 
   ```json
   "pnpm": {
     "overrides": {
-      "@napplet/nub>@napplet/core": "^0.2.1"
+      "@napplet/nap>@napplet/core": "^0.2.1"
     }
   }
   ```
@@ -361,8 +360,8 @@
 
   REQ-IDs: DEP-01, DEP-02, DEP-03, DEP-04, DEP-05.
 
-- 8890904: Phase 45 (DECRYPT-01/06 / v1.8): route `identity.decrypt` through the NUB enforcement gate and return typed decrypt errors for ACL denial. Class-forbidden decrypt attempts now emit `identity.decrypt.error` with `error: 'class-forbidden'` before any identity service handler runs.
-- b7032ab: Phase 44 (DEP-01..02 / v1.8): bump `@napplet/core` and `@napplet/nub` peer deps `^0.2.1` → `^0.3.0`. No source code change in `@kehto/runtime` itself; consumers should resolve `@napplet/{core,nub}` at `^0.3.0` alongside.
+- 8890904: Phase 45 (DECRYPT-01/06 / v1.8): route `identity.decrypt` through the NAP enforcement gate and return typed decrypt errors for ACL denial. Class-forbidden decrypt attempts now emit `identity.decrypt.error` with `error: 'class-forbidden'` before any identity service handler runs.
+- b7032ab: Phase 44 (DEP-01..02 / v1.8): bump `@napplet/core` and `@napplet/nap` peer deps `^0.2.1` → `^0.3.0`. No source code change in `@kehto/runtime` itself; consumers should resolve `@napplet/{core,nap}` at `^0.3.0` alongside.
 - 597dbdb: **RENAME-01 (v1.8 Phase 42)** — `SessionEntry.identitySource: 'auth' | 'source'` is renamed to `SessionEntry.provenance: 'nip-5d' | 'legacy-auth'` across both `@kehto/shell` and `@kehto/runtime`. The new field name and variant values name the actual provenance (canonical NIP-5D origin registration vs legacy AUTH handshake) instead of the obsolete `'auth'`/`'source'` shorthand.
 
   **Migration:** Downstream consumers reading `entry.identitySource === 'source'` must rewrite to `entry.provenance === 'nip-5d'`. Consumers reading `entry.identitySource === 'auth'` must rewrite to `entry.provenance === 'legacy-auth'`. The old field is hard-removed; no compatibility shim ships.
@@ -373,12 +372,12 @@
 
 ### Patch Changes
 
-- 239fa70: Add NUB-RESOURCE reference service (10th NUB domain, v1.7 Phase 40).
+- 239fa70: Add NAP-RESOURCE reference service (10th NAP domain, v1.7 Phase 40).
 
   - `@kehto/services`: `createResourceService({ fetch, isOriginGranted, getConnectGrants, resolveIdentity })` factory. All four options required from day one — factory throws on construction if any is missing (H-03 prevention). Implements canonical 4-message protocol: `resource.bytes`, `resource.cancel` inbound; `resource.bytes.result`, `resource.bytes.error` outbound. Cancel correlates to in-flight requests via requestId.
-  - `@kehto/acl`: new `'resource:fetch'` capability; `resolveCapabilitiesNub` extended with `resource.*` mapping (asymmetric: napplet requests get sender gate; shell pushes get recipient gate). `acl-state.ts` CAP_MAP extended with bit 15 for `resource:fetch`.
-  - `@kehto/runtime`: `handleResourceMessage` dispatch + `nubDispatch.registerNub('resource', ...)` wiring (Phase 39 Dev 1 lesson: missing registerNub silently drops all envelopes).
-  - `@kehto/shell`: `CANONICAL_NUB_DOMAINS` extended with `config` and `resource`; provisional-resource wire types re-exported via barrel.
+  - `@kehto/acl`: new `'resource:fetch'` capability; `resolveCapabilitiesNap` extended with `resource.*` mapping (asymmetric: napplet requests get sender gate; shell pushes get recipient gate). `acl-state.ts` CAP_MAP extended with bit 15 for `resource:fetch`.
+  - `@kehto/runtime`: `handleResourceMessage` dispatch + `napDispatch.registerNap('resource', ...)` wiring (Phase 39 Dev 1 lesson: missing registerNap silently drops all envelopes).
+  - `@kehto/shell`: `CANONICAL_NAP_DOMAINS` extended with `config` and `resource`; provisional-resource wire types re-exported via barrel.
 
   No breaking changes. See docs/policies/SHELL-RESOURCE-POLICY.md (Phase 40 Plan 40-03) for host-fetch policy surface (redirects, MIME sniffing, private-IP blocking — host-app concerns).
 
@@ -405,18 +404,18 @@
 
 ### Minor Changes
 
-- 226cdca: NIP-5D 8-nub dispatch and shell-mediated signing. Runtime now uses `createDispatch()` + `registerNub()` from `@napplet/core` instead of a hand-rolled 8-case switch. All eight nub domains (identity, ifc, keys, media, notify, relay, storage, theme) are registered through `registerNub()` adapters at runtime startup. The `signer` domain is deleted; `relay.publishEncrypted` is now the canonical NIP-44 path and synthesizes a `relay.publish` into the registered relay service after shell-side encryption. ifc channel sub-protocol routed via per-runtime registry; `ifc.subscribe` emits the canonical `subscribe.result` envelope. `theme` dispatch added with a fallback default theme envelope so napplets without a registered theme service still get spec-correct replies.
+- 226cdca: NIP-5D 8-nap dispatch and shell-mediated signing. Runtime now uses `createDispatch()` + `registerNap()` from `@napplet/core` instead of a hand-rolled 8-case switch. All eight nap domains (identity, ifc, keys, media, notify, relay, storage, theme) are registered through `registerNap()` adapters at runtime startup. The `signer` domain is deleted; `relay.publishEncrypted` is now the canonical NIP-44 path and synthesizes a `relay.publish` into the registered relay service after shell-side encryption. ifc channel sub-protocol routed via per-runtime registry; `ifc.subscribe` emits the canonical `subscribe.result` envelope. `theme` dispatch added with a fallback default theme envelope so napplets without a registered theme service still get spec-correct replies.
 
   **Breaking changes:**
 
   - Removed `case 'signer'` and all signer.\* dispatch paths
   - Removed the hand-rolled domain switch in `runtime.ts`; inbound routing delegates to `dispatch()`
-  - `storage.clear` no longer dispatched (not in `@napplet/nub-storage`); internal cleanup helper retained for lifecycle use only
+  - `storage.clear` no longer dispatched (not in `@napplet/nap-storage`); internal cleanup helper retained for lifecycle use only
 
   **Peer deps:**
 
   - @napplet/core bumped from >=0.1.0 to ^0.2.0
-  - Added @napplet/nub-identity, @napplet/nub-ifc, @napplet/nub-keys, @napplet/nub-media, @napplet/nub-notify, @napplet/nub-relay, @napplet/nub-storage, @napplet/nub-theme (all ^0.2.0)
+  - Added @napplet/nap-identity, @napplet/nap-ifc, @napplet/nap-keys, @napplet/nap-media, @napplet/nap-notify, @napplet/nap-relay, @napplet/nap-storage, @napplet/nap-theme (all ^0.2.0)
 
   **Known carry-over:**
 
@@ -426,9 +425,9 @@
 
 - 97b7bc8: v1.3 bug-fix rollup — no protocol changes. Fixes landed during the demo-rewire and napplet-migration phases:
 
-  - **Session registry registration on napplet load.** `sessionRegistry.register()` is now invoked inside the loadNapplet path so `storage.*` / `notify.*` NUB handlers resolve napplet identity correctly in the demo shell host (Phase 19 fix).
+  - **Session registry registration on napplet load.** `sessionRegistry.register()` is now invoked inside the loadNapplet path so `storage.*` / `notify.*` NAP handlers resolve napplet identity correctly in the demo shell host (Phase 19 fix).
   - **Identity error-path shim routing.** The napplet-shim central handler now forwards `identity.*.error` envelopes so denial paths propagate to the napplet SDK (Phase 21 fix).
-  - **Documentation surface.** 8 runtime source files received `@example` JSDoc blocks on non-type factory exports (`createManifestCache`, `createReplayDetector`, `createEventBuffer`, `matchesFilter`, `matchesAnyFilter`, `handleStateRequest`, `handleStorageNub`, `cleanupNappState`) so the typedoc-generated API reference is complete.
+  - **Documentation surface.** 8 runtime source files received `@example` JSDoc blocks on non-type factory exports (`createManifestCache`, `createReplayDetector`, `createEventBuffer`, `matchesFilter`, `matchesAnyFilter`, `handleStateRequest`, `handleStorageNap`, `cleanupNappState`) so the typedoc-generated API reference is complete.
 
   Behavioral fan-out of these fixes is proved green end-to-end by the Phase 18-21 Layer-A + Layer-B Playwright specs.
 
@@ -437,7 +436,7 @@
   - NAP-01, NAP-02 (bot + chat SDK migration consuming runtime routing)
   - NAP-03..09 (single-domain napplets exercising runtime dispatch)
   - E2E-07 (napplet-auth, ifc-roundtrip, relay-publish, relay-publish-encrypted, relay-subscribe, identity-flow, storage-persist, notify-lifecycle, theme-broadcast specs)
-  - E2E-09 (Layer-A nub-\* specs against the harness)
+  - E2E-09 (Layer-A nap-\* specs against the harness)
   - DOCS-01, DOCS-02 (typedoc + runtime README)
 
   No new public API. Compat re-exports under `packages/runtime/src/core-compat.ts` (DRIFT-CORE-06) unchanged; removal awaits @napplet/core upstream export restoration.

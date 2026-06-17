@@ -1,6 +1,6 @@
 # How-to: Debug postMessage Traffic
 
-Use this when a napplet appears loaded but no NUB request or response is visible.
+Use this when a napplet appears loaded but no NAP request or response is visible.
 
 ## Checklist
 

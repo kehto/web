@@ -29,7 +29,7 @@ pnpm audit:gateway-artifacts
 
 **Check:** Iframes should remain `allow-scripts` only. Do not add `allow-same-origin` to make a failing demo pass.
 
-**Fix:** Route storage, relay, identity, signing, and resource access through NUB helpers and shell services.
+**Fix:** Route storage, relay, identity, signing, and resource access through NAP helpers and shell services.
 
 ## Raw envelope exceptions
 
@@ -37,7 +37,7 @@ pnpm audit:gateway-artifacts
 
 **Check:** Look for the raw-envelope allowlist in tests and phase docs. Unclassified raw envelopes should fail static checks.
 
-**Fix:** Prefer NUB helpers. If a raw envelope is truly test/demo-only, document the exception and guard it.
+**Fix:** Prefer NAP helpers. If a raw envelope is truly test/demo-only, document the exception and guard it.
 
 ## Pending decrypt fixtures
 

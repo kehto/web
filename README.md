@@ -10,7 +10,7 @@ Kehto is an early web-based runtime implementation for NIP-5D Nostr applets
 the first implementation and may become a useful reference implementation as
 other napplet runtimes emerge.
 
-> **Alpha status:** NIP-5D is still under development, and NUB contracts are not
+> **Alpha status:** NIP-5D is still under development, and NAP contracts are not
 > final. Package APIs, capability names, `requires` declarations, and
 > `supports()` behavior may change as the spec evolves.
 

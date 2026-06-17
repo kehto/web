@@ -24,7 +24,7 @@ and their relative migration priority. Suggested migration order (per ARCHITECTU
 |---|-------------|----------|---------|
 | 1 | Wire format: NIP-01 arrays → NIP-5D JSON envelopes | **HIGH** | @kehto/runtime, @kehto/shell |
 | 2 | Identity model: AUTH-keypair handshake → source-based identity | **HIGH** | @kehto/runtime, @kehto/acl |
-| 3 | window.napplet interface → NUB domain mapping (optionality) | **MEDIUM** | @kehto/shell, @napplet/shim |
+| 3 | window.napplet interface → NAP domain mapping (optionality) | **MEDIUM** | @kehto/shell, @napplet/shim |
 | 4 | Silent failure inventory (messages silently dropped) | **HIGH** | @kehto/runtime, @kehto/shell |
 | 5 | Per-package boundary contracts (old vs new TypeScript interfaces) | **HIGH** | All packages |
 
@@ -98,7 +98,7 @@ The following message types have no NIP-5D equivalent and are removed entirely:
 - **AUTH challenge** (shell → napplet): AUTH handshake eliminated — see Section 2
 - **AUTH response** (napplet → shell): eliminated
 - **kind 29010 service discovery** (`["REQ", ..., {"kinds":[29010]}]`): replaced by `window.napplet.services.has()` API
-- **kind 29008 hotkey event**: not yet in NIP-5D NUB scope; forwarded as `keyboard.forward` implementation detail
+- **kind 29008 hotkey event**: not yet in NIP-5D NAP scope; forwarded as `keyboard.forward` implementation detail
 
 These symbols are exported from `@napplet/core/src/legacy.ts` as `@deprecated` but remain functional for backward compatibility with legacy napplets.
 
@@ -194,9 +194,9 @@ SessionEntry.pubkey = windowId (or empty — no AUTH keypair)
 
 ---
 
-## 3. window.napplet Interface to NUB Domain Mapping (GAP-03)
+## 3. window.napplet Interface to NAP Domain Mapping (GAP-03)
 
-NIP-5D organises all napplet capabilities into **NUB (Napplet Utility Bundle)** domains. Each `window.napplet` namespace maps to a NUB domain with explicit optionality. Shells advertise supported NUBs via `window.napplet.shell.supports()`. This is a capability-negotiation layer that did not exist in RUNTIME-SPEC.md.
+NIP-5D organises all napplet capabilities into **NAP (Napplet Utility Bundle)** domains. Each `window.napplet` namespace maps to a NAP domain with explicit optionality. Shells advertise supported NAPs via `window.napplet.shell.supports()`. This is a capability-negotiation layer that did not exist in RUNTIME-SPEC.md.
 
 ### Current NappletGlobal Interface
 
@@ -213,9 +213,9 @@ interface NappletGlobal {
 }
 ```
 
-### NUB Domain Assignment and Optionality
+### NAP Domain Assignment and Optionality
 
-| window.napplet namespace | NUB Domain | Required per NIP-5D? | Kehto Implementation Status |
+| window.napplet namespace | NAP Domain | Required per NIP-5D? | Kehto Implementation Status |
 |-------------------------|-----------|---------------------|----------------------------|
 | `relay` | `relay` | Optional (shell MAY support) | EXISTS — verb-based (REQ/EVENT/CLOSE/COUNT) |
 | `ipc` / `ifc` | `ifc` | Optional | EXISTS — kind 29003 IPC_PEER topic routing |
@@ -227,7 +227,7 @@ interface NappletGlobal {
 
 ### Optionality Change Summary
 
-NIP-5D makes all NUB capabilities optional from the shell's perspective. The `NappletGlobal` TypeScript interface in `@napplet/core` still marks all five namespaces as required — this is an **interface mismatch** that the migration docs must document. After migration, `ShellAdapter` gains optional fields, and `window.napplet.shell.supports('relay')` is the contract mechanism napplets use to detect what's available.
+NIP-5D makes all NAP capabilities optional from the shell's perspective. The `NappletGlobal` TypeScript interface in `@napplet/core` still marks all five namespaces as required — this is an **interface mismatch** that the migration docs must document. After migration, `ShellAdapter` gains optional fields, and `window.napplet.shell.supports('relay')` is the contract mechanism napplets use to detect what's available.
 
 ### Critical Gap: shell.supports() Stub
 
@@ -248,9 +248,9 @@ NIP-5D adds a **mandatory requirement** not present in RUNTIME-SPEC.md: shells M
 
 Per research Pitfall 3 (PITFALLS.md), this requires iframe context injection at creation time. The shell must inject a NIP-07-compatible `window.nostr` shim into each iframe before the napplet's JavaScript runs. This is net-new work for @kehto/shell, with no existing infrastructure. Flagged as a new requirement for @kehto/shell migration (Phase 4).
 
-### Deferred: theme NUB
+### Deferred: theme NAP
 
-The `theme` NUB domain exists in NIP-5D v0.1.0 but kehto has no existing infrastructure for it. There is no equivalent in RUNTIME-SPEC.md and no current `window.napplet.theme` namespace. Theme support is flagged as out-of-scope per REQUIREMENTS.md and deferred to a future milestone.
+The `theme` NAP domain exists in NIP-5D v0.1.0 but kehto has no existing infrastructure for it. There is no equivalent in RUNTIME-SPEC.md and no current `window.napplet.theme` namespace. Theme support is flagged as out-of-scope per REQUIREMENTS.md and deferred to a future milestone.
 
 **Migration priority: MEDIUM** — `shell.supports()` stub blocks napplet capability detection and should be wired as part of the shell migration. `window.nostr` injection is a new requirement but does not break existing functionality in RUNTIME-SPEC.md-compatible shells.
 
@@ -269,7 +269,7 @@ When a NIP-5D napplet sends envelope messages (`{ type: "domain.action", ... }`)
 ```typescript
 if (!Array.isArray(msg) || msg.length < 2) return;
 ```
-**What fails:** ANY `{ type: "..." }` envelope object from an updated `@napplet/shim`. All NUB messages are silently dropped here before ever reaching the runtime. This is the first and most complete failure point — 100% of NIP-5D traffic is discarded.
+**What fails:** ANY `{ type: "..." }` envelope object from an updated `@napplet/shim`. All NAP messages are silently dropped here before ever reaching the runtime. This is the first and most complete failure point — 100% of NIP-5D traffic is discarded.
 **Reproduction:** Send `{ type: "relay.subscribe", id: "x", subId: "x", filters: [] }` via postMessage to a kehto shell. `ShellBridge.handleMessage` receives the event but returns on line 155. No error, no response.
 **Impact:** CRITICAL — total communication blackout for NIP-5D napplets. No message of any kind reaches the runtime.
 
@@ -301,7 +301,7 @@ if (!sessionRegistry.getPubkey(windowId)) {
 }
 ```
 **What fails:** Updated `@napplet/shim` (v0.2.0) no longer sends `REGISTER` or `AUTH` messages. The runtime never calls `sessionRegistry.setPubkey(windowId)` for these sessions. All messages from NIP-5D napplets are pushed into `pendingAuthQueue` forever — the queue is only drained on successful AUTH completion, which never happens. The queue grows without bound.
-**Reproduction:** Load a napplet using `@napplet/shim` v0.2.0. Send any NUB message. Check `pendingAuthQueue.size` — grows indefinitely. No message is ever dispatched.
+**Reproduction:** Load a napplet using `@napplet/shim` v0.2.0. Send any NAP message. Check `pendingAuthQueue.size` — grows indefinitely. No message is ever dispatched.
 **Impact:** CRITICAL — memory leak plus complete message loss for all NIP-5D sessions. Any messages that somehow reach this point (e.g., in a partially migrated shell) are silently held forever.
 
 ### Failure Point 4: enforce.ts Unknown Verb Fallback
@@ -348,13 +348,13 @@ const handler = services[prefix];
 if (!handler) return false;
 handler.handleMessage(windowId, ['EVENT', event], send);
 ```
-**What fails:** `ifc.emit` envelope objects never produce an `IPC_PEER` event with a `t` tag — so `routeServiceMessage` is never called for NUB `ifc.emit` messages. Additionally, even if it were called with an `ifc.emit` envelope, the function expects a colon-separated topic (e.g., `audio:play`) but `ifc.emit` uses dot notation in its `type` field. `colonIndex === -1` for `type: "ifc.emit"`, so it returns `false` immediately. All NUB-format service messages (audio playback, notifications via ifc.emit) are silently unrouted.
+**What fails:** `ifc.emit` envelope objects never produce an `IPC_PEER` event with a `t` tag — so `routeServiceMessage` is never called for NAP `ifc.emit` messages. Additionally, even if it were called with an `ifc.emit` envelope, the function expects a colon-separated topic (e.g., `audio:play`) but `ifc.emit` uses dot notation in its `type` field. `colonIndex === -1` for `type: "ifc.emit"`, so it returns `false` immediately. All NAP-format service messages (audio playback, notifications via ifc.emit) are silently unrouted.
 **Reproduction:** Register an audio service handler. Send `{ type: "ifc.emit", topic: "audio:play", payload: {} }` from an updated shim. `routeServiceMessage` is never invoked. The audio handler never fires.
 **Impact:** HIGH — all service handlers (audio, notifications) are unreachable via NIP-5D messages. Any @kehto/services extension is dead for NIP-5D napplets.
 
 ### Summary Table
 
-| # | File | Line | Severity | Affected NUB Domains |
+| # | File | Line | Severity | Affected NAP Domains |
 |---|------|------|----------|----------------------|
 | 1 | `packages/shell/src/shell-bridge.ts` | 155 | CRITICAL | All (relay, signer, storage, ifc) |
 | 2 | `packages/runtime/src/runtime.ts` | 1005 | CRITICAL | All (relay, signer, storage, ifc) |
@@ -565,7 +565,7 @@ export interface ServiceHandler {
 |---|---------|----------|-----------|-----------------|
 | 1 | Wire Format (GAP-01) | HIGH | Blocks all NIP-5D communication at two guard points | Phase 3 (Runtime), Phase 4 (Shell) |
 | 2 | Identity/AUTH (GAP-02) | HIGH | NIP-5D napplets queued forever in pendingAuthQueue without fix | Phase 3 (Runtime) |
-| 3 | NUB Domain Mapping (GAP-03) | MEDIUM | shell.supports() stub and window.nostr injection blocking detection | Phase 4 (Shell) |
+| 3 | NAP Domain Mapping (GAP-03) | MEDIUM | shell.supports() stub and window.nostr injection blocking detection | Phase 4 (Shell) |
 | 4 | Silent Failures (GAP-04) | CRITICAL | First thing to fix — no NIP-5D messages reach handlers at all | Phase 3 (Runtime), Phase 4 (Shell) |
 | 5 | Boundary Contracts (GAP-05) | N/A (prescriptive) | These ARE the migration targets | Phases 2–5 |
 

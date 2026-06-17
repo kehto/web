@@ -256,7 +256,7 @@ export interface HostMediaBridge {
   /**
    * Set the playback state for a session. Called on media.state reports
    * whenever the session is the active session. State strings match
-   * nub-media MediaState.status exactly. Implementations MUST be idempotent.
+   * nap-media MediaState.status exactly. Implementations MUST be idempotent.
    */
   setPlaybackState(sessionId: string, state: 'playing' | 'paused' | 'stopped' | 'buffering'): void;
 

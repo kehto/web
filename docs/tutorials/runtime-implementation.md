@@ -29,7 +29,7 @@ Use `createRuntime()` directly only for non-browser tests, alternative transport
 
 ## Step 3: Register services
 
-Register each service under the domain name that incoming NUB messages use.
+Register each service under the domain name that incoming NAP messages use.
 
 ```ts
 import {
@@ -66,7 +66,7 @@ Follow the playground order:
 
 1. Read `/napplet-gateway/<dTag>/manifest.json`.
 2. Parse `requires` tags.
-3. Compare required NUBs against hosted `shell.supports()` capability inventory.
+3. Compare required NAPs against hosted `shell.supports()` capability inventory.
 4. Register `(dTag, aggregateHash)` identity before iframe navigation.
 5. Navigate to `/napplet-gateway/<dTag>/<aggregateHash>/index.html`.
 
