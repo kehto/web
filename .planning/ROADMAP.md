@@ -62,7 +62,9 @@
   1. Delivering `shell.ready` twice from the same window establishes a session and emits `shell.init` exactly once — the second `shell.ready` is a no-op (no second session, no `shell.init` resend), proven by a regression test counting exactly one `shell.init` postMessage across two deliveries. (G1)
   2. The `class` field carried in `shell.init` is `number | null` — an opaque integer class code or `null` for the permissive default — with the internal string class-posture label mapped to that wire value; a test asserts the emitted `class` type. (G2)
   3. The existing `shell-init` / `no-window-nostr` capability-payload assertions stay green and `naps`+`nubs` dual-emit is unchanged; `pnpm build`, `type-check`, and the unit suite are green for the touched runtime/shell packages.
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 86-01-PLAN.md — SHELL-01 exactly-once shell.init guard + SHELL-02 class number|null wire mapping + @kehto/shell changeset
 **UI hint**: no
 
 ### Phase 87: NAAT Archetype Axis
