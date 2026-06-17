@@ -91,19 +91,19 @@ importers:
 
   apps/playground/napplets/bot:
     dependencies:
-      '@napplet/nub':
-        specifier: 0.5.0
-        version: 0.5.0
+      '@napplet/nap':
+        specifier: 0.11.0
+        version: 0.11.0
       '@napplet/sdk':
-        specifier: 0.5.0
-        version: 0.5.0
+        specifier: 0.11.0
+        version: 0.11.0
       '@napplet/shim':
-        specifier: 0.5.0
-        version: 0.5.0
+        specifier: 0.12.0
+        version: 0.12.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.4.0
-        version: 0.4.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.7.0
+        version: 0.7.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -114,21 +114,21 @@ importers:
   apps/playground/napplets/chat:
     dependencies:
       '@napplet/core':
-        specifier: 0.5.0
-        version: 0.5.0
-      '@napplet/nub':
-        specifier: 0.5.0
-        version: 0.5.0
+        specifier: 0.11.0
+        version: 0.11.0
+      '@napplet/nap':
+        specifier: 0.11.0
+        version: 0.11.0
       '@napplet/sdk':
-        specifier: 0.5.0
-        version: 0.5.0
+        specifier: 0.11.0
+        version: 0.11.0
       '@napplet/shim':
-        specifier: 0.5.0
-        version: 0.5.0
+        specifier: 0.12.0
+        version: 0.12.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.4.0
-        version: 0.4.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.7.0
+        version: 0.7.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -139,21 +139,21 @@ importers:
   apps/playground/napplets/composer:
     dependencies:
       '@napplet/core':
-        specifier: 0.5.0
-        version: 0.5.0
-      '@napplet/nub':
-        specifier: 0.5.0
-        version: 0.5.0
+        specifier: 0.11.0
+        version: 0.11.0
+      '@napplet/nap':
+        specifier: 0.11.0
+        version: 0.11.0
       '@napplet/sdk':
-        specifier: 0.5.0
-        version: 0.5.0
+        specifier: 0.11.0
+        version: 0.11.0
       '@napplet/shim':
-        specifier: 0.5.0
-        version: 0.5.0
+        specifier: 0.12.0
+        version: 0.12.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.4.0
-        version: 0.4.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.7.0
+        version: 0.7.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -163,19 +163,19 @@ importers:
 
   apps/playground/napplets/cvm-relatr:
     dependencies:
-      '@napplet/nub':
-        specifier: 0.5.0
-        version: 0.5.0
+      '@napplet/nap':
+        specifier: 0.11.0
+        version: 0.11.0
       '@napplet/sdk':
-        specifier: 0.5.0
-        version: 0.5.0
+        specifier: 0.11.0
+        version: 0.11.0
       '@napplet/shim':
-        specifier: 0.5.0
-        version: 0.5.0
+        specifier: 0.12.0
+        version: 0.12.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.4.0
-        version: 0.4.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.7.0
+        version: 0.7.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -186,21 +186,21 @@ importers:
   apps/playground/napplets/feed:
     dependencies:
       '@napplet/core':
-        specifier: 0.5.0
-        version: 0.5.0
-      '@napplet/nub':
-        specifier: 0.5.0
-        version: 0.5.0
+        specifier: 0.11.0
+        version: 0.11.0
+      '@napplet/nap':
+        specifier: 0.11.0
+        version: 0.11.0
       '@napplet/sdk':
-        specifier: 0.5.0
-        version: 0.5.0
+        specifier: 0.11.0
+        version: 0.11.0
       '@napplet/shim':
-        specifier: 0.5.0
-        version: 0.5.0
+        specifier: 0.12.0
+        version: 0.12.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.4.0
-        version: 0.4.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.7.0
+        version: 0.7.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -210,19 +210,19 @@ importers:
 
   apps/playground/napplets/preferences:
     dependencies:
-      '@napplet/nub':
-        specifier: 0.5.0
-        version: 0.5.0
+      '@napplet/nap':
+        specifier: 0.11.0
+        version: 0.11.0
       '@napplet/sdk':
-        specifier: 0.5.0
-        version: 0.5.0
+        specifier: 0.11.0
+        version: 0.11.0
       '@napplet/shim':
-        specifier: 0.5.0
-        version: 0.5.0
+        specifier: 0.12.0
+        version: 0.12.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.4.0
-        version: 0.4.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.7.0
+        version: 0.7.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -232,19 +232,19 @@ importers:
 
   apps/playground/napplets/profile-viewer:
     dependencies:
-      '@napplet/nub':
-        specifier: 0.5.0
-        version: 0.5.0
+      '@napplet/nap':
+        specifier: 0.11.0
+        version: 0.11.0
       '@napplet/sdk':
-        specifier: 0.5.0
-        version: 0.5.0
+        specifier: 0.11.0
+        version: 0.11.0
       '@napplet/shim':
-        specifier: 0.5.0
-        version: 0.5.0
+        specifier: 0.12.0
+        version: 0.12.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.4.0
-        version: 0.4.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.7.0
+        version: 0.7.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -254,19 +254,19 @@ importers:
 
   apps/playground/napplets/resource-demo:
     dependencies:
-      '@napplet/nub':
-        specifier: 0.5.0
-        version: 0.5.0
+      '@napplet/nap':
+        specifier: 0.11.0
+        version: 0.11.0
       '@napplet/sdk':
-        specifier: 0.5.0
-        version: 0.5.0
+        specifier: 0.11.0
+        version: 0.11.0
       '@napplet/shim':
-        specifier: 0.5.0
-        version: 0.5.0
+        specifier: 0.12.0
+        version: 0.12.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.4.0
-        version: 0.4.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.7.0
+        version: 0.7.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -276,19 +276,19 @@ importers:
 
   apps/playground/napplets/toaster:
     dependencies:
-      '@napplet/nub':
-        specifier: 0.5.0
-        version: 0.5.0
+      '@napplet/nap':
+        specifier: 0.11.0
+        version: 0.11.0
       '@napplet/sdk':
-        specifier: 0.5.0
-        version: 0.5.0
+        specifier: 0.11.0
+        version: 0.11.0
       '@napplet/shim':
-        specifier: 0.5.0
-        version: 0.5.0
+        specifier: 0.12.0
+        version: 0.12.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.4.0
-        version: 0.4.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.7.0
+        version: 0.7.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -1142,11 +1142,22 @@ packages:
       '@emnapi/core': ^1.7.1
       '@emnapi/runtime': ^1.7.1
 
+  '@napplet/core@0.11.0':
+    resolution: {integrity: sha512-r44AcZ4hVfHbykzFR709LjzDfmVhPyt9M/0/xoJaTdB0K/9rL8ipvGQdp/xNivZhG0URgzgKOpvx1DLfWPXkFA==}
+
   '@napplet/core@0.5.0':
     resolution: {integrity: sha512-92kfxJgPYPe4qvmFrJhQfb1Gokyps+qnT725tAZCZYhl7S+652CT1pcHN9U6UbbjvF1V1p4e1cUBGbU/i3EBcw==}
 
   '@napplet/core@0.9.0':
     resolution: {integrity: sha512-jz9ka6GUxTvZtzi0pNIL8I/xJDcx2E24ohMiw/Pn2lyMb12BQOknjAcVeW/DSMbsXSksRJfV/bHstXvWGlOmoA==}
+
+  '@napplet/nap@0.11.0':
+    resolution: {integrity: sha512-UREfppLgDpQTkG/8im7EKM62FzrxOhsR5TBPkGVyoqFCvorSrDd544vVRWHQ+o99ufeX+QP4RO8K65NHf3kZ7Q==}
+    peerDependencies:
+      json-schema-to-ts: ^3.1.1
+    peerDependenciesMeta:
+      json-schema-to-ts:
+        optional: true
 
   '@napplet/nap@0.9.0':
     resolution: {integrity: sha512-Brn65ZHEb2WG4IGe0ZiegzD6HvjHfgKsvKyyx9SnWl0Me7djVhQ7VsYlJqt5kOtUlF3yNAyUg3hXEef3r9yZWg==}
@@ -1164,8 +1175,14 @@ packages:
       json-schema-to-ts:
         optional: true
 
+  '@napplet/sdk@0.11.0':
+    resolution: {integrity: sha512-TOhXdjjKGCJh/VtMIWj7DrThtnzZ62oRlSAlsyYkBic6gXxcEjttZGVJ7YphxlskWgczsb/6Z9/PJ4AWZE+n2g==}
+
   '@napplet/sdk@0.5.0':
     resolution: {integrity: sha512-luFF2dgRRDqiUs1qbqaJ4jMGnMpXQjfAFhCvussVF1DPG0LWPlL4Uz9yhA+Qgjzfbl4xmkKjdlAp/Ai9xVCMRQ==}
+
+  '@napplet/shim@0.12.0':
+    resolution: {integrity: sha512-pPI3BlKE6aPNcJr7hc5Rmbp9i+sWzR/+JIOuWph5k7T+iGtR9cq3uaQsl2yq63WhCZfV8R2cgAoPYe0ZAazpZw==}
 
   '@napplet/shim@0.5.0':
     resolution: {integrity: sha512-thKd1VIxYVodz4d0l49VpRVEm9+488Y0YN4gIEySk9epuhHTeilKI8N5G2cz/EpLEiKMYVQu5xY3IeK84wu5UA==}
@@ -1175,6 +1192,11 @@ packages:
 
   '@napplet/vite-plugin@0.4.0':
     resolution: {integrity: sha512-dysvJI2VBqLxqVUYRb/WhRQ1aN2BIIMxYPy8f2Y6HpVFDVIipjI4EndjWNQ2cE4Zr5ucK0FPDCdlGIEvHyNrhQ==}
+    peerDependencies:
+      vite: ^6.4.2
+
+  '@napplet/vite-plugin@0.7.0':
+    resolution: {integrity: sha512-vpUY3x3dmneiqMEwtw8uMFKnL9JxY2hp6eS0AtQGMgj9oYWgG4oyI1WfWqzFskoNCCTW/ct/giNc0+DqeNsMhw==}
     peerDependencies:
       vite: ^6.4.2
 
@@ -3488,9 +3510,15 @@ snapshots:
       '@tybys/wasm-util': 0.10.1
     optional: true
 
+  '@napplet/core@0.11.0': {}
+
   '@napplet/core@0.5.0': {}
 
   '@napplet/core@0.9.0': {}
+
+  '@napplet/nap@0.11.0':
+    dependencies:
+      '@napplet/core': 0.11.0
 
   '@napplet/nap@0.9.0':
     dependencies:
@@ -3500,10 +3528,24 @@ snapshots:
     dependencies:
       '@napplet/core': 0.5.0
 
+  '@napplet/sdk@0.11.0':
+    dependencies:
+      '@napplet/core': 0.11.0
+      '@napplet/nap': 0.11.0
+    transitivePeerDependencies:
+      - json-schema-to-ts
+
   '@napplet/sdk@0.5.0':
     dependencies:
       '@napplet/core': 0.5.0
       '@napplet/nub': 0.5.0
+    transitivePeerDependencies:
+      - json-schema-to-ts
+
+  '@napplet/shim@0.12.0':
+    dependencies:
+      '@napplet/core': 0.11.0
+      '@napplet/nap': 0.11.0
     transitivePeerDependencies:
       - json-schema-to-ts
 
@@ -3522,6 +3564,13 @@ snapshots:
       - json-schema-to-ts
 
   '@napplet/vite-plugin@0.4.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))':
+    dependencies:
+      nostr-tools: 2.23.3(typescript@5.9.3)
+      vite: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+    transitivePeerDependencies:
+      - typescript
+
+  '@napplet/vite-plugin@0.7.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))':
     dependencies:
       nostr-tools: 2.23.3(typescript@5.9.3)
       vite: 6.4.2(jiti@2.6.1)(yaml@2.8.3)

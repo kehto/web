@@ -1,52 +1,60 @@
-# Phase 88: Terminology & Playground Modern-Path Alignment - Context
+# Phase 88: Modernize Playground onto Released @napplet Packages (inc/naps) - Context
 
-**Gathered:** 2026-06-17
+**Gathered:** 2026-06-17 (REVISED — supersedes the original 0.5.0-based context)
 **Status:** Ready for planning
-**Mode:** Auto-generated (discuss skipped; spec from REQUIREMENTS.md + audit + verified package facts)
+**Mode:** Auto-generated (discuss skipped; spec from REQUIREMENTS.md + audit + user direction + verified modern-package facts)
 
 <domain>
 ## Phase Boundary
 
-Make the playground exercise the modern `naps` / `inc` capability path (the path the real shim uses) and establish `nap:` as the primary capability prefix — WITHOUT removing the `naps`+`nubs` / `inc`+`ifc` dual-emit (installed shim is 0.5.0). Five requirements: TERM-01 (`nap:` primary prefix), TERM-02 (4 napplets `ifc`→`inc` capability declaration), TERM-03 (playground reads `naps`), TERM-04 (naps-path e2e), TERM-05 (keep dual-emit; existing capability-payload assertions stay green).
+**User direction (2026-06-17):** napplet has been released; the playground was pinned to a VERY old 0.5.0; update the playground dependencies. This re-scopes Phase 88 from "work around the old 0.5.0 shim" to "**modernize the playground onto the released @napplet packages and let the real shim drive the naps/inc path.**" This is the most authentic way to satisfy TERM-01..05.
 
-Out of scope: removing dual-emit / CLEANUP-01 (deferred); the `specs/NIP-5D.md` full rewrite + NAP-SHELL/INTENT mirrors (Phase 89 owns that file); archetypes (Phase 87, done).
+Satisfies: TERM-01 (`nap:` primary prefix — now via the real shim), TERM-02 (`ifc`→`inc` — now a real end-to-end wire migration), TERM-03 (playground exercises `naps` — now via the real shim 0.12), TERM-04 (naps-path e2e), TERM-05 (keep `@kehto` dual-emit).
+
+Out of scope: migrating the `@kehto/*` runtime packages or the `tests/fixtures/napplets/nub-*` fixtures off `@napplet/nub` (they stay on 0.5 — runtime↔napplet is wire-only; fixtures have their own `nub-*` specs); `specs/NIP-5D.md` rewrite + NAP-SHELL/INTENT mirrors (Phase 89); removing `@kehto` dual-emit / CLEANUP-01 (future).
 </domain>
 
 <decisions>
 ## Implementation Decisions
 
-### VERIFIED PACKAGE FACTS (do not violate)
-- `naps` and `nubs` arrays (`packages/shell/src/shell-init.ts`) contain the SAME bare domains (relay, outbox, identity, storage, theme, keys, media, notify, config, resource, connect, class, cvm, + conditional upload/intent). The ONLY difference: `naps` has `inc` (+ `inc:NAP-01..06`); `nubs` has `ifc` (+ `ifc:NUB-01..06`, `ifc:NAP-01`). → switching the playground to read `naps` is SAFE for every bare domain the 9 napplets use.
-- **`@napplet/nub@0.5.0` (installed) exposes ONLY `./ifc/*` subpaths — there is NO `./inc` subpath.** Napplet wire helpers `ifcOn`/`ifcEmit` import from `@napplet/nub/ifc/sdk` and emit `ifc.*` wire messages. The runtime DUAL-ROUTES `ifc.*` and `inc.*` to the same handler. → **wire SDK imports and `ifc.*` wire messages MUST stay `ifc` — do NOT change them to `inc` (the subpath does not exist; the build will break).**
+### DONE (already applied this session, before planning)
+- All 9 playground napplet `package.json`s bumped: `@napplet/nub`→`@napplet/nap` `0.11.0`, `@napplet/core` `0.11.0`, `@napplet/sdk` `0.11.0`, `@napplet/shim` `0.12.0`, `@napplet/vite-plugin` `0.7.0`. `pnpm install` succeeded (peer warnings are pre-existing/unrelated: unocss wasm, docsearch, esbuild). `@napplet/nub@0.5.0` and `@napplet/nap@0.11.0` coexist in the store.
 
-### TERM-02 — 4 napplets `ifc`→`inc` (CAPABILITY DECLARATION/QUERY ONLY)
-Napplets: bot, chat, feed, profile-viewer. For each:
-- `apps/playground/napplets/<n>/vite.config.ts`: `requires: ['ifc', ...]` → `['inc', ...]`.
-- `apps/playground/napplets/<n>/src/main.ts`: `REQUIRED_NAPS = ['ifc', ...]` → `['inc', ...]`; `REQUIRED_IFC_PROTOCOL = 'ifc:NAP-01'` → `'inc:NAP-01'` (rename const to `REQUIRED_INC_PROTOCOL` is optional cosmetic); any `supports('ifc')`/`supports('ifc:NAP-01')` call → `supports('inc')`/`supports('inc:NAP-01')`.
-- **DO NOT touch** `import { ifcOn, ifcEmit } from '@napplet/nub/ifc/sdk'` or any `ifcOn(...)`/`ifcEmit(...)` call — the wire stays `ifc.*` (0.5.0 has no `inc` SDK; runtime dual-routes). This is a capability-name migration, not a wire migration.
+### VERIFIED MODERN-PACKAGE FACTS (authoritative — drive the migration)
+- `@napplet/nap@0.11.0` exposes per-domain subpaths `./<domain>` + `/types` + `/shim` + `/sdk` for: relay, storage, **inc**, ifc (back-compat), keys, theme, media, notify, identity, config, resource, connect, class, cvm, outbox, upload, intent.
+- `@napplet/nap/inc/sdk` exports `incEmit`, `incOn` (delegate to `window.napplet.inc.*`). `@napplet/nap/ifc/sdk` is a back-compat alias: `export { incEmit as ifcEmit, incOn as ifcOn } from '../inc/sdk.js'` — so EITHER import path now emits `inc.*` on the wire. **The wire becomes `inc.*` with the modern package.**
+- `@napplet/shim@0.12.0` (the real released shim): auto-posts `{type:'shell.ready'}` to `window.parent` on load; on `shell.init` sets `window.napplet.shell.supports = createShellSupports(capabilities)` which reads `capabilities.naps` (normalized domains, `nap:` prefix); installs `window.napplet.inc` (`@napplet/nap/inc/shim`) and handles `inc.event`. → **The real shim now natively provides correct `supports()` from `naps` and the `inc` surface.** The playground's hand-rolled `supports()` bootstrap override (reading `nubs`) is now REDUNDANT.
+- `@napplet/vite-plugin@0.7.0`: `nip5aManifest({ nappletType, requires?, artifactMode? })` + kind constants — same API the playground uses; still does NOT emit `archetype` tags (Phase 87's manual injection in the playground re-sign path remains correct and necessary).
 
-### TERM-03 — playground reads `naps` (with `nubs` fallback)
-- `apps/playground/napplets/shared-vite-config.ts` ~l.36-48 `supports(capability)`: the bare/`nap:`/`nub:` branch currently checks `capabilities.nubs.includes(nap)`. Change to check `capabilities.naps` first, falling back to `capabilities.nubs` when `naps` is absent/empty (kehto always dual-emits both, so this reads `naps` in practice). Keep the `perm:` → `sandbox` branch unchanged.
-- `apps/playground/src/demo-hooks.ts` ~l.303-307 `getMissingRequiredNaps`: `const supported = new Set(capabilities.nubs)` → prefer `capabilities.naps`, fall back to `nubs`.
-- Net effect: `supports('inc')`/`requires:['inc']` now resolve (naps has `inc`); `supports('ifc')` now returns false (naps lacks `ifc`) — which is correct and is exactly why TERM-02 migrates the 4 napplets in lockstep. Other 5 napplets unaffected (their bare domains are in naps).
+### TERM-02 — migrate napplet source imports `@napplet/nub/*` → `@napplet/nap/*` (+ ifc→inc)
+- In every playground napplet `src/**` and `vite.config.ts`: replace `@napplet/nub/` → `@napplet/nap/`.
+- For inter-napplet comms: `@napplet/nub/ifc/sdk` (`ifcOn`/`ifcEmit`) → `@napplet/nap/inc/sdk` (`incOn`/`incEmit`); rename call sites accordingly (bot, chat, feed, profile-viewer). Wire becomes `inc.*` (runtime dual-routes inc, so dispatch + ACL still work).
+- capability declarations: `requires: ['ifc',...]` → `['inc',...]` (bot/chat/feed/profile-viewer vite.config.ts); `REQUIRED_NAPS` `ifc`→`inc`, `REQUIRED_IFC_PROTOCOL='ifc:NAP-01'`→`'inc:NAP-01'` (rename const optional), `supports('ifc'...)`→`supports('inc'...)` in main.ts.
+- Other domain imports (relay, storage, identity, notify, resource, config, cvm, media, etc.): just `@napplet/nub/`→`@napplet/nap/`; helper names unchanged for non-ifc domains. Verify each against the installed `@napplet/nap` `<domain>/sdk` d.ts if a name differs.
 
-### TERM-01 — `nap:` primary prefix
-- The playground `supports()` already strips both `nap:` and `nub:` prefixes (l.43-46). Confirm `nap:` is the primary/first-checked branch; `nub:` remains an accepted alias. No behavior change needed if both already work — just ensure ordering/intent reads nap-first.
-- `packages/shell/tests/perm-namespace.test.ts`: the local stub (l.115-120) checks `nub:`→`caps.nubs`. Update so the stub/contract treats `nap:` as primary (strip `nap:`, check the capability array) AND still accepts `nub:` as alias; update the JSDoc contract prose (l.8, l.115) from `nub:` to `nap:` (note `nub:` accepted). Keep the `perm:` assertions intact. The stub may read whichever array; keep it consistent with what it asserts.
-- `specs/NIP-5D.md` prefix examples (`supports('nub:identity')` etc.): **DEFERRED to Phase 89** (DOCS-01 rewrites that whole file). Do NOT edit `specs/NIP-5D.md` in this phase to avoid a merge with Phase 89.
+### TERM-01 + TERM-03 — rely on the real shim 0.12 for supports()/naps
+- Remove (or neutralize) the playground's hand-rolled `supports()` bootstrap in `apps/playground/napplets/shared-vite-config.ts` (~l.36-64) that read `capabilities.nubs` and overwrote `shell.supports`. With shim 0.12 setting `supports` from `naps` on `shell.init`, the override is redundant and must not clobber the real shim's `supports`. Inspect what else that bootstrap block does before deleting (it captured `state.fallbackSupports`); preserve anything still needed, drop the nubs-reading supports.
+- `apps/playground/src/demo-hooks.ts` `getMissingRequiredNaps` (~l.303-307): read `capabilities.naps` (fallback `nubs`) so a napplet `requires:['inc',...]` resolves against the shell's advertised `naps` (which carries `inc`).
+- `packages/shell/tests/perm-namespace.test.ts`: make `nap:` the primary asserted prefix (keep `nub:` as accepted alias); update the JSDoc contract prose `nub:`→`nap:`.
+- DEFER `specs/NIP-5D.md` prefix wording to Phase 89.
 
 ### TERM-04 — naps-path conformance e2e
-- Add an e2e (`tests/e2e/*.spec.ts`) asserting the modern `naps`-only path: for an `inc`-capable migrated napplet (profile-viewer or feed), in-page evaluate `window.napplet.shell.supports('inc') === true` and `window.napplet.shell.supports('inc:NAP-01') === true`, and ideally `supports('ifc') === false` (proving the naps path, not the legacy nubs path). Follow existing e2e patterns (`gateway-artifact-parity.spec.ts`); honor `workers:1` + `test.setTimeout(120000)` for reload-heavy specs.
+- Add `tests/e2e/naps-path-conformance.spec.ts`: load a migrated `inc`-capable napplet (profile-viewer/feed) and assert, in-page, `window.napplet.shell.supports('inc') === true`, `supports('inc:NAP-01') === true`, and `supports('ifc') === false` — proving the real shim's `naps` path. Honor `workers:1` + `test.setTimeout(120000)` for reload-heavy specs.
 
-### TERM-05 — keep dual-emit
-- DO NOT modify `packages/shell/src/shell-init.ts` capability arrays or remove `nubs`. `shell-init.test.ts` and `tests/.../no-window-nostr.test.ts` assert the full `nubs` set incl. `ifc`/`ifc:NUB-NN` — these MUST stay green. CLEANUP-01 is explicitly NOT performed.
+### TERM-05 — keep @kehto dual-emit
+- Do NOT touch `packages/shell/src/shell-init.ts` (naps+nubs dual-emit stays; `@kehto` still serves any 0.5 consumers + the nub-* fixtures). `shell-init.test.ts` / `no-window-nostr.test.ts` stay green.
 
-### e2e specs that need updating (ifc capability → inc), vs. specs that must NOT change (ifc WIRE)
-- UPDATE (capability declaration/query): `tests/e2e/gateway-artifact-parity.spec.ts` (the `requires.includes('ifc')` / `supports('ifc:NAP-01')` contract → `inc`), and any spec asserting the 4 napplets' `requires`/`supports` strings (check `nip5d-contract-conformance.spec.ts`, `demo-audit-correctness.spec.ts`).
-- DO NOT CHANGE (wire stays ifc.*): `nub-ifc.spec.ts`, `ifc-roundtrip.spec.ts`, chat↔bot round-trip, and any spec asserting `ifc.emit`/`ifc.subscribe` envelopes — the wire is still `ifc.*` via the 0.5.0 SDK. Verify these stay green.
+### e2e fallout (CRITICAL — the wire moved to inc for the playground)
+- Playground-targeting specs that assert the OLD `ifc.*` wire or `ifc` capability MUST update to `inc`: `ifc-roundtrip.spec.ts` (chat↔bot — now `inc.*`), `gateway-artifact-parity.spec.ts` (`requires.includes('ifc')`/`supports('ifc:NAP-01')` → `inc`), and check `demo-audit-correctness.spec.ts` (`ifc-send` path), `demo-boot`/`demo-concurrent-boot` (9 napplets still reach identity-bound).
+- FIXTURE-targeting specs stay UNCHANGED: `tests/fixtures/napplets/nub-*` remain on `@napplet/nub@0.5` (emit `ifc.*`); their specs at the `:4173` harness (`nub-ifc.spec.ts`, `nub-relay`, etc.) must stay green as-is. Do NOT migrate the fixtures.
+- If renaming a spec helps clarity (e.g. `ifc-roundtrip`→`inc-roundtrip`) that's fine, but keep coverage equivalent.
 
-### Constraints
-- Additive/surgical; no dual-emit removal. Napplet counts unchanged. `@kehto/*` package source largely untouched (this is mostly playground + one shell test); add a `@kehto/shell` changeset only if `perm-namespace` contract or any shell source actually changes behavior (the test-only change may not need one — assess).
+### Verification (gates)
+- `pnpm build` (all napplets rebuild against @napplet/nap/core 0.11 + vite-plugin 0.7).
+- `pnpm type-check`.
+- `pnpm test:unit` (root vitest — playground unit tests incl. Phase 87 catalog test).
+- Targeted Playwright e2e: the new naps-path spec, `ifc-roundtrip`(→inc), `gateway-artifact-parity`, `demo-boot`/`demo-concurrent-boot` (9 napplets identity-bound), plus the `nub-*` fixture specs (regression — must stay green). Honor `workers:1`.
+- Changeset: playground is private (no changeset); add `@kehto/shell` changeset only if `perm-namespace` contract change alters shell behavior (likely test-only → none).
 </decisions>
 
 <canonical_refs>
@@ -54,34 +62,39 @@ Napplets: bot, chat, feed, profile-viewer. For each:
 
 **Downstream agents MUST read these before planning or implementing.**
 
-- `.planning/NIP-5D-2303-DELTA-AUDIT.md` — gaps G5 (`nap:`/`nub:` prefix), G6 (playground exercises legacy path).
+- `.planning/NIP-5D-2303-DELTA-AUDIT.md` — G5, G6.
 - `.planning/REQUIREMENTS.md` — TERM-01..05.
-- `apps/playground/napplets/shared-vite-config.ts` (l.36-64 `supports` + `shell.supports` install) — the lever.
-- `apps/playground/src/demo-hooks.ts` (l.294-308 `getShellCapabilities`/`getMissingRequiredNaps`).
-- `apps/playground/napplets/{bot,chat,feed,profile-viewer}/vite.config.ts` + `src/main.ts` — the 4 migrations.
-- `packages/shell/src/shell-init.ts` (NAP_DOMAINS l.39, LEGACY_NUB_DOMAINS l.12, NAP_INC_PROTOCOLS l.50) — DO NOT edit; reference only.
-- `packages/shell/tests/perm-namespace.test.ts` — `nap:` primary update.
-- `packages/shell/src/shell-init.test.ts`, `packages/shell/tests/no-window-nostr.test.ts` — must stay green (dual-emit).
-- `tests/e2e/gateway-artifact-parity.spec.ts`, `nip5d-contract-conformance.spec.ts`, `demo-audit-correctness.spec.ts` — ifc→inc capability updates.
-- `tests/e2e/nub-ifc.spec.ts`, `ifc-roundtrip.spec.ts` — ifc WIRE; must stay green unchanged.
-- `playwright.config.ts` — workers:1, two webservers.
+- Installed modern packages (read their dist for exact API):
+  - `node_modules/.pnpm/@napplet+nap@0.11.0/node_modules/@napplet/nap/dist/<domain>/sdk.d.ts`
+  - `node_modules/.pnpm/@napplet+shim@0.12.0/node_modules/@napplet/shim/dist/index.js` (handshake + createShellSupports + inc install)
+- `apps/playground/napplets/shared-vite-config.ts` (l.36-64 bootstrap supports override — remove/neutralize) + `definePlaygroundNappletConfig`/`validateArchetypes`/`recomputeManifest` (Phase 87 archetype injection — keep working with vite-plugin 0.7).
+- `apps/playground/src/demo-hooks.ts` (getMissingRequiredNaps → naps).
+- All 9 `apps/playground/napplets/*/src/**` + `vite.config.ts` (import migration; 4 ifc→inc).
+- `packages/shell/tests/perm-namespace.test.ts` (nap: primary).
+- `packages/shell/src/shell-init.ts` (DO NOT EDIT — reference; dual-emit stays).
+- `tests/e2e/ifc-roundtrip.spec.ts`, `gateway-artifact-parity.spec.ts`, `demo-audit-correctness.spec.ts`, `demo-boot.spec.ts`, `demo-concurrent-boot.spec.ts` (playground → inc updates).
+- `tests/e2e/nub-ifc.spec.ts` + `tests/fixtures/napplets/nub-*` (DO NOT CHANGE — fixtures stay on nub 0.5).
+- `playwright.config.ts`.
 </canonical_refs>
 
 <specifics>
 ## Specific Ideas
 
-- The cleanest naps-path e2e target is `profile-viewer` (it checks `supports('inc:NAP-01')` after migration). The new spec can assert all three: `supports('inc')` true, `supports('inc:NAP-01')` true, `supports('ifc')` false.
-- Run the affected e2e specs during verification (not the full suite necessarily): the new naps-path spec, gateway-artifact-parity, ifc-roundtrip/nub-ifc (regression), demo-boot/demo-concurrent-boot (9 napplets still reach identity-bound).
+- Do the import migration mechanically (`@napplet/nub/`→`@napplet/nap/`), then build each napplet and fix any helper-name drift against the installed `@napplet/nap` d.ts (most non-ifc helpers keep their names).
+- The shim 0.12 auto-handshake means napplets that previously used a probe to detect readiness can rely on `window.napplet.shell.ready()`/`supports()` — but minimize churn; only change what the migration requires.
+- naps-path e2e target: profile-viewer (`supports('inc:NAP-01')`).
 </specifics>
 
 <deferred>
 ## Deferred Ideas
 
-- `specs/NIP-5D.md` prefix wording → Phase 89 (DOCS-01).
-- Dual-emit removal / CLEANUP-01 → future (blocked on shim upgrade past 0.5.0).
+- Migrating `@kehto/*` packages + `tests/fixtures/napplets/nub-*` off `@napplet/nub` → future (not required; runtime is wire-compatible).
+- `specs/NIP-5D.md` rewrite + NAP-SHELL/INTENT mirrors → Phase 89.
+- Bumping `@kehto/shell` dev dep `@napplet/shim@0.9.0`→`0.12.0` for the conformance test → consider in Phase 89.
+- Dual-emit removal / CLEANUP-01 → future.
 </deferred>
 
 ---
 
 *Phase: 88-terminology-playground-modern-path*
-*Context gathered: 2026-06-17 (discuss skipped; spec from requirements + audit + verified package facts)*
+*Context gathered: 2026-06-17 (REVISED for released @napplet packages per user direction)*
