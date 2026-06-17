@@ -1,6 +1,6 @@
 {
   "name": "@kehto/firewall",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Pure, WASM-ready behavioral firewall engine for the napplet protocol — zero dependencies, zero side effects",
   "type": "module",
   "main": "./dist/index.js",

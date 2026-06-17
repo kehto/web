@@ -1,5 +1,90 @@
 # @kehto/shell
 
+## 0.11.0
+
+### Minor Changes
+
+- d37ef25: chore: modernize to @napplet 0.12/0.13 (peer dep + core API rename)
+
+  All runtime packages move off the legacy `@napplet/nub` toolchain onto the
+  current `@napplet` line:
+
+  - **Peer dependency** `@napplet/core ^0.5` → `^0.12`, and `@napplet/nub ^0.5`
+    → `@napplet/nap ^0.12` (the package was renamed upstream; `@napplet/firewall`
+    consumers only need `@napplet/core ^0.12`).
+  - **Core dispatch API** `registerNub` → `registerNap` and the `NubHandler` type
+    → `NapHandler`. The runtime's domain dispatcher now calls `registerNap(...)`
+    for every domain.
+
+  **Migration for consumers:** install `@napplet/core@^0.12` and `@napplet/nap`
+  (replacing `@napplet/nub`). The kehto wire protocol is unchanged — the legacy
+  `ifc`/`nubs` envelopes are still dual-emitted for the installed 0.5.0 shim
+  (removal is tracked as CLEANUP-01) — so no napplet-side code change is required;
+  this is a host-side dependency and core-API modernization only.
+
+  Internal kehto identifiers that still carry "nub"/"ifc" vocabulary
+  (`createNubEnvelopeDispatcher`, `IfcDomain`, `ifc-handler.ts`, …) are unchanged:
+  they are private and the runtime dual-routes `ifc`+`inc`.
+
+- d37ef25: feat(shell): emit conformant NAP-SHELL `capabilities.{domains,protocols}` superset
+
+  `shell.init` now carries the conformant NAP-SHELL capability shape alongside the
+  legacy fields:
+
+  ```
+  capabilities: {
+    domains: string[],                      // bare NAP domain names
+    protocols: Record<string, string[]>,    // e.g. { inc: ['NAP-01'..'NAP-06'] }
+    naps, nubs, sandbox                      // legacy back-compat (TERM-05)
+  }
+  ```
+
+  This is the shape the released `@napplet/shim@0.13` reads to answer
+  `supports(domain)` and `supports(domain, 'NAP-N')` — validated against the real
+  0.13 shim's resolution logic. `domains`/`protocols` are emitted as a **superset
+  alongside** the legacy `naps`/`nubs`/`sandbox` fields so the installed 0.5.0
+  playground shim keeps working (dual-emit; removal tracked as CLEANUP-01). Host
+  apps that extended the `sandbox` array see those `perm:`-prefixed entries folded
+  into `domains` (the 0.13 shim has no separate permission namespace), preserving
+  the default-empty sandbox behavior.
+
+  **Migration for consumers:** none required — the capability object is a superset
+  and every previously-emitted field is retained. Hosts on `@napplet/shim@0.13`
+  gain conformant `supports(domain, protocol?)` answers; hosts on older shims read
+  the unchanged legacy fields.
+
+### Patch Changes
+
+- de0bdc3: fix(shell): NAP-SHELL handshake correctness (shell.init exactly-once + class number|null)
+
+  Two surgical conformance corrections to the `shell.init` / `shell.ready`
+  handshake, both isolated to the shell-side `shell.init` build path in
+  `shell-ready.ts`:
+
+  - **SHELL-01 (gap G1) — `shell.init` exactly-once.** `handleShellReady`
+    previously posted `shell.init` on every `shell.ready`, so a duplicate
+    `shell.ready` from the same window resent `shell.init` (a NAP-SHELL MUST
+    violation). A per-`windowId` `initSent` guard now makes a duplicate
+    `shell.ready` idempotent: no resend, no duplicate session.
+
+  - **SHELL-02 (gap G2) — `class` wire type.** The `class` field in the
+    `shell.init` wire payload is now `number | null` (an opaque integer posture
+    code, or `null` for the permissive default), per the NAP-SHELL contract,
+    instead of the internal string label. A wire-only `classToWireCode` mapping
+    (`'class-1' -> 1`, `'class-2' -> 2`, `null -> null`) is applied solely at the
+    `shell.init` build site.
+
+  The internal `NappletClass` label type and all `enforce.ts` / ACL class logic
+  are unchanged — enforcement still keys on the internal label stored on the
+  session entry. The `{naps, nubs, sandbox}` capability shape and the naps+nubs
+  dual-emit are untouched. This is a conformance correction of a wire value no
+  released shim relied on (installed shim 0.5.0 stores `class` opaquely; no test
+  asserted a string class on the wire), hence `patch`.
+
+- Updated dependencies [d37ef25]
+  - @kehto/acl@0.11.0
+  - @kehto/runtime@0.11.0
+
 ## 0.10.0
 
 ### Minor Changes

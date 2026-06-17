@@ -1,5 +1,42 @@
 # @kehto/nip
 
+## 0.3.0
+
+### Minor Changes
+
+- ecd1ab3: feat(nip): parse the NAAT archetype axis + source tag from NIP-5D manifests (ARCH-01)
+
+  `parseNappletManifest` now reads two additional manifest tags into structured
+  fields on `NappletManifest`:
+
+  - **`archetypes`** — every `["archetype","<slug>","<NAP-N>"]` tag becomes an
+    entry `{ slug, nap? }`, preserving tag order. The optional `nap` (3rd tag
+    element) is the recommended default wire protocol. The field is always present
+    and defaults to `[]` when no archetype tag exists.
+  - **`source`** — the optional upstream source URL from the `source` tag, omitted
+    when absent.
+
+  This is strictly additive and backward-compatible: every existing field, parse
+  path, and throw path is unchanged. The archetype axis is the foundation NAP-INTENT
+  uses to derive a napplet's archetype availability from its signed manifest rather
+  than host-injected catalog data.
+
+- 5015a33: feat(nip): add NIP-5A aggregate hash and NIP-5D napplet resolution
+
+  Two new subpaths for content-addressed napplet loading:
+
+  - **`@kehto/nip/5a`** — NIP-5A aggregate hash. `computeAggregateHash` (sorted
+    `"<sha256> <abs-path>\n"` lines → sha256 hex), `pathEntriesFromTags`,
+    `aggregateTagValue`, and `verifyAggregate` (recompute vs the
+    `["x","<hex>","aggregate"]` tag).
+  - **`@kehto/nip/5d`** — NIP-5D napplet manifest resolution. Kind constants
+    `35129` (named) / `15129` (root) / `5129` (snapshot), `parseNappletManifest`,
+    `verifyManifestSignature`, `verifyBlobHash`, `fetchBlob` (Blossom-by-hash,
+    servers untrusted), and `resolveNapplet` — the full verify-signature → verify
+    aggregate → fetch+verify blobs → assemble `/index.html` pipeline. A napplet's
+    identity `(dTag, aggregateHash)` is computed from the verified bytes; any
+    failure throws a typed `NappletResolutionError`.
+
 ## 0.2.0
 
 ### Minor Changes
