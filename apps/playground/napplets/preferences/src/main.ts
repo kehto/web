@@ -29,6 +29,13 @@ import { storageGetItem, storageSetItem } from '@napplet/nap/storage/sdk';
 
 const REQUIRED_NAPS = ['storage', 'theme'] as const;
 
+// The released @napplet/shim 0.13 installs shell.supports() asynchronously, on
+// the shell.init message — not synchronously at module load. Poll briefly so a
+// capability check that races ahead of shell.init does not spuriously report
+// every NAP as missing. (Mirrors feed/profile-viewer.)
+const CAPABILITY_WAIT_MS = 5_000;
+const CAPABILITY_WAIT_INTERVAL_MS = 25;
+
 const statusEl = document.getElementById('preferences-status')!;
 const displayNameEl = document.getElementById('pref-display-name') as HTMLInputElement;
 const themePreferenceEl = document.getElementById('pref-theme-preference') as HTMLInputElement;
@@ -71,6 +78,22 @@ function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void
 function getMissingRequiredNaps(): string[] {
   const supports = window.napplet.shell.supports;
   return REQUIRED_NAPS.filter((capability) => !supports(capability));
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function waitForRequiredNaps(): Promise<void> {
+  const deadline = Date.now() + CAPABILITY_WAIT_MS;
+  let missing = getMissingRequiredNaps();
+  while (missing.length > 0 && Date.now() < deadline) {
+    await sleep(CAPABILITY_WAIT_INTERVAL_MS);
+    missing = getMissingRequiredNaps();
+  }
+  if (missing.length > 0) {
+    throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);
+  }
 }
 
 async function loadPreferences(): Promise<void> {
@@ -120,10 +143,7 @@ onNapThemeChanged((theme) => {
 
 // Load persisted preferences on mount; status flips to 'loaded' on success.
 async function init(): Promise<void> {
-  const missing = getMissingRequiredNaps();
-  if (missing.length > 0) {
-    throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);
-  }
+  await waitForRequiredNaps();
   installNapTheme();
   await loadPreferences();
 }
