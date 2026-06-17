@@ -54,7 +54,6 @@ import { setAclRingSize } from './acl-history.js';
 import {
   createPlaygroundPreferences,
   isStaticPagesDemo,
-  RESOURCE_DEMO_REMOTE_IMAGE_ORIGIN,
   type PersistenceMode,
 } from './main-preferences.js';
 
