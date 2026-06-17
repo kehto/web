@@ -1,99 +1,96 @@
 /**
  * shell-supports-conformance.test.ts
  *
- * ALIGN-07 (D7): Behavior verification of kehto-emitted capabilities against
- * the real @napplet/shim@0.9.0 `createShellSupports` logic.
+ * Behavior verification of kehto-emitted capabilities against the REAL
+ * @napplet/shim@0.13.0 supports() logic.
  *
- * Import isolation note: @napplet/shim@0.9.0 is a browser-oriented side-effect
- * module (`sideEffects: true`). Its dist/index.js runs `window.napplet = {...}`
- * and `window.addEventListener(...)` at module load time, and `createShellSupports`
- * is defined as an unexported module-scope function (only `installShellCapabilities`
- * uses it internally). A bare `import * from '@napplet/shim'` would crash in a
- * Node/vitest environment because `window` is undefined.
+ * ## What changed in 0.13 (capability model migration)
  *
- * Resolution (per D7 "isolate the import"): the pure helper functions
- * (`normalizeCapabilityDomain`, `normalizeProtocol`, `listCapabilityNames`,
- * `createShellSupports`) are extracted verbatim from @napplet/shim@0.9.0
- * dist/index.js (lines 274–318) and placed below behind a version sentinel.
- * This is equivalent behavior verification — no logic is changed, no window
- * references are present in these functions. The sentinel comment documents the
- * exact source version so drift is detectable on the next shim upgrade.
+ * @napplet/shim@0.13.0 no longer ships its own `createShellSupports`. On
+ * `shell.init` it delegates to @napplet/nap@0.12's shell shim:
  *
- * Verified extraction: 2026-06-15 from
- *   packages/shell/node_modules/@napplet/shim/dist/index.js (SHA of that
- *   file compared against the pack during planning investigation).
+ *   import { createShellEnvironment, makeSupports } from '@napplet/nap/shell/shim';
+ *   const env = createShellEnvironment(msg);   // reads msg.capabilities.{domains, protocols}
+ *   shell.supports = makeSupports(env);        // domains Set + protocols map
+ *
+ * The pre-0.13 model read a FLAT `capabilities.naps` string array and expanded
+ * `domain:NAP-NN` entries in-shim. The 0.13 model reads a STRUCTURED
+ * `capabilities.{ domains: string[], protocols: Record<string, string[]> }`.
+ * This is a wire-shape change, not a rename.
+ *
+ * ## kehto's emitted wire shape (this release)
+ *
+ * `buildShellCapabilities` (shell-init.ts) emits `{ naps, nubs, sandbox }` — the
+ * pre-0.13 flat-array vocabulary — and the runtime ifc+inc dual-route plus the
+ * naps+nubs dual-emit are intentionally preserved for the back-compat window
+ * (TERM-05). kehto does NOT yet emit `capabilities.{domains, protocols}`.
+ *
+ * Because of that, this test verifies kehto's emitted `naps` against the real
+ * 0.13 `makeSupports` via the same `naps → { domains, protocols }` projection
+ * the 0.13 shim's input contract requires (bare entries → domains; `d:NAP-NN`
+ * entries → protocols[d] plus the bare domain `d`). The projection is the
+ * minimal, faithful adapter from kehto's current wire vocabulary to the 0.13
+ * capability object — it does NOT change kehto's emission and contains no
+ * window references (safe under Node/vitest).
+ *
+ * NOTE (model-gap, tracked for the wire-format follow-up): fed kehto's raw
+ * `{ naps }` object directly, the real 0.13 `makeSupports` returns `false` for
+ * every query because `createShellEnvironment` reads `capabilities.domains`,
+ * which kehto does not yet emit. The `feeds raw naps → all false` test below
+ * pins that gap so the eventual runtime wire-format migration is caught.
+ *
+ * Verified against:
+ *   node_modules/.pnpm/@napplet+shim@0.13.0/.../dist/index.js (handleShellInit)
+ *   node_modules/.pnpm/@napplet+nap@0.12.0/.../dist/shell/shim.js (createShellEnvironment, makeSupports)
  */
 
 import { describe, it, expect } from 'vitest';
+// Real 0.13 supports() logic: @napplet/shim@0.13 delegates to these on shell.init.
+import { createShellEnvironment, makeSupports } from '@napplet/nap/shell/shim';
 import { buildShellCapabilities } from './shell-init.js';
 import type { ShellAdapter } from './types.js';
 
 // ---------------------------------------------------------------------------
-// Pure helpers extracted verbatim from @napplet/shim@0.9.0 dist/index.js
-// lines 274–318. No logic changed. Version sentinel: 0.9.0.
+// naps → capabilities.{ domains, protocols } projection.
+//
+// This mirrors the input contract of the real 0.13 `createShellEnvironment`:
+//   - bare `domain` entries become `domains` members;
+//   - `domain:NAP-NN` entries register `protocols[domain] += ['NAP-NN']` and
+//     also surface the bare `domain` (parity with the pre-0.13 expansion).
+// No shim logic is reimplemented here — `makeSupports` below is the real one.
 // ---------------------------------------------------------------------------
 
-/** @napplet/shim@0.9.0 — verbatim */
-function normalizeCapabilityDomain(capability: string): string {
-  if (capability.startsWith('nap:')) {
-    return capability.slice(4);
+function napsToCapabilityObject(
+  naps: string[],
+): { domains: string[]; protocols: Record<string, string[]> } {
+  const domains = new Set<string>();
+  const protocols: Record<string, string[]> = {};
+  for (const entry of naps) {
+    const match = /^([^:]+):(NAP-\d+)$/i.exec(entry);
+    if (match) {
+      const [, domain, protocol] = match;
+      domains.add(domain);
+      (protocols[domain] ??= []).push(protocol);
+    } else {
+      domains.add(entry);
+    }
   }
-  return capability;
-}
-
-/** @napplet/shim@0.9.0 — verbatim */
-function normalizeProtocol(protocol: string | undefined): string | undefined {
-  const upper = protocol?.toUpperCase();
-  if (!upper) return undefined;
-  return upper.startsWith('NAP-') ? `NAP-${upper.slice(4)}` : upper;
-}
-
-/** @napplet/shim@0.9.0 — verbatim */
-function listCapabilityNames(capabilities: { naps?: unknown; sandbox?: unknown }): string[] {
-  return [
-    ...(Array.isArray(capabilities?.naps) ? capabilities.naps : []),
-  ].filter((capability): capability is string => typeof capability === 'string');
+  return { domains: [...domains], protocols };
 }
 
 /**
- * @napplet/shim@0.9.0 — verbatim.
- *
- * Reads `capabilities.naps` (string[]): builds a Set of normalized domain
- * names; for each `domain:NAP-NN` entry also adds the bare `domain`. Returns
- * a `supports(domain, protocol?)` closure.
+ * Build kehto's emitted naps, project them to the 0.13 capability object, and
+ * return the REAL 0.13 `supports(domain, protocol?)` closure for them.
  */
-function createShellSupports(
-  capabilities: { naps?: unknown; sandbox?: unknown },
-): (capability: string, protocol?: string) => boolean {
-  const naps = new Set<string>(
-    listCapabilityNames(capabilities).map(normalizeCapabilityDomain),
-  );
-  const protocols = new Set<string>();
-  for (const capability of naps) {
-    const match = /^([^:]+):(NAP-\d+)$/i.exec(capability);
-    if (!match) continue;
-    const [, domain, protocol] = match;
-    protocols.add(`${domain}:${normalizeProtocol(protocol)}`);
-    naps.add(domain);
-  }
-  const sandbox = new Set<string>(
-    Array.isArray(capabilities?.sandbox)
-      ? (capabilities.sandbox as unknown[]).filter(
-          (capability): capability is string => typeof capability === 'string',
-        )
-      : [],
-  );
-  return (capability: string, protocol?: string): boolean => {
-    if (typeof capability !== 'string') return false;
-    if (protocol !== undefined) {
-      const normalizedProtocol = normalizeProtocol(protocol);
-      if (capability.startsWith('perm:') || !normalizedProtocol) return false;
-      const domain = normalizeCapabilityDomain(capability);
-      return protocols.has(`${domain}:${normalizedProtocol}`);
-    }
-    if (capability.startsWith('perm:')) return sandbox.has(capability);
-    return naps.has(normalizeCapabilityDomain(capability));
-  };
+function realShimSupports(naps: string[]): (domain: string, protocol?: string) => boolean {
+  const capabilities = napsToCapabilityObject(naps);
+  const env = createShellEnvironment({
+    type: 'shell.init',
+    capabilities,
+    services: [],
+    class: null,
+  });
+  return makeSupports(env);
 }
 
 // ---------------------------------------------------------------------------
@@ -127,17 +124,15 @@ function baseHooks(): ShellAdapter {
 }
 
 // ---------------------------------------------------------------------------
-// ALIGN-07: Conformance tests — behavior verification, not string matching
+// Conformance — kehto-emitted naps fed through the real 0.13 supports() logic
 // ---------------------------------------------------------------------------
 
-describe('createShellSupports (real @napplet/shim@0.9.0 logic) fed kehto-emitted naps', () => {
+describe('real @napplet/shim@0.13 makeSupports fed kehto-emitted naps (projected)', () => {
   const caps = buildShellCapabilities(baseHooks());
-  // The shim reads `capabilities.naps` and `capabilities.sandbox` exactly —
-  // mirror the shape that shell.init posts verbatim.
-  const supports = createShellSupports({ naps: caps.naps, sandbox: caps.sandbox });
+  const supports = realShimSupports(caps.naps);
 
   describe('bare inc domain', () => {
-    it('supports("inc") === true (bare domain present via inc:NAP-NN expansion)', () => {
+    it('supports("inc") === true (bare domain present via inc:NAP-NN projection)', () => {
       expect(supports('inc')).toBe(true);
     });
   });
@@ -180,7 +175,7 @@ describe('createShellSupports (real @napplet/shim@0.9.0 logic) fed kehto-emitted
 
   describe('removed / unknown domain queries', () => {
     it('supports("ifc") === false (removed from naps; only in legacy nubs)', () => {
-      // ifc is NOT in naps — only inc is. The shim reads naps only.
+      // ifc is NOT in naps — only inc is. The 0.13 shim reads naps only (via projection).
       expect(supports('ifc')).toBe(false);
     });
     it('supports("bogus") === false (not advertised)', () => {
@@ -191,34 +186,50 @@ describe('createShellSupports (real @napplet/shim@0.9.0 logic) fed kehto-emitted
     });
   });
 
-  describe('naps field — NOT nubs (shim ignores nubs)', () => {
-    it('shim reads naps; nubs field alone does not affect supports()', () => {
-      // Construct a capabilities object with ONLY nubs (no naps) — shim must return false.
-      const onlyNubs = createShellSupports({ naps: [], sandbox: [] });
+  describe('naps field — NOT nubs (0.13 shim never reads nubs)', () => {
+    it('only-nubs naps=[] → false; populated naps → true', () => {
+      const onlyNubs = realShimSupports([]);
       expect(onlyNubs('inc')).toBe(false);
-      // And with ONLY naps — shim must return true.
-      const onlyNaps = createShellSupports({ naps: caps.naps, sandbox: [] });
+      const onlyNaps = realShimSupports(caps.naps);
       expect(onlyNaps('inc')).toBe(true);
+    });
+  });
+
+  describe('model-gap pin (wire-format follow-up)', () => {
+    it('feeds raw {naps} (no projection) → real 0.13 makeSupports returns false for every query', () => {
+      // createShellEnvironment reads capabilities.{domains, protocols}; kehto emits
+      // capabilities.{naps, nubs, sandbox}. Until the runtime emits the structured
+      // shape, the raw object resolves to { domains: [], protocols: {} }.
+      const env = createShellEnvironment({
+        type: 'shell.init',
+        capabilities: { naps: caps.naps, nubs: caps.nubs, sandbox: caps.sandbox },
+        services: [],
+        class: null,
+      });
+      const supportsRaw = makeSupports(env);
+      expect(supportsRaw('inc')).toBe(false);
+      expect(supportsRaw('relay')).toBe(false);
+      expect(supportsRaw('inc', 'NAP-01')).toBe(false);
     });
   });
 });
 
-describe('createShellSupports — without upload backend', () => {
+describe('real @napplet/shim@0.13 makeSupports — without upload backend', () => {
   it('supports("upload") === false when upload not wired', () => {
     const caps = buildShellCapabilities(baseHooks());
-    const supports = createShellSupports({ naps: caps.naps, sandbox: caps.sandbox });
+    const supports = realShimSupports(caps.naps);
     expect(supports('upload')).toBe(false);
   });
 });
 
-describe('createShellSupports — with upload backend', () => {
+describe('real @napplet/shim@0.13 makeSupports — with upload backend', () => {
   it('supports("upload") === true when upload is wired', () => {
     const hooks: ShellAdapter = {
       ...baseHooks(),
       upload: { getUploader: () => ({ rails: ['nip96'] }) },
     };
     const caps = buildShellCapabilities(hooks);
-    const supports = createShellSupports({ naps: caps.naps, sandbox: caps.sandbox });
+    const supports = realShimSupports(caps.naps);
     expect(supports('upload')).toBe(true);
   });
 });
