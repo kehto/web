@@ -104,18 +104,24 @@ dirty files left in the tree.
 
 ### 6. Releases (changesets)
 
-Publishing runs from GitHub Actions on push to `main` (npm Trusted Publishing / OIDC);
-do not `pnpm publish-packages` locally.
+Publishing runs from GitHub Actions — the `release.yml` workflow is **tag-triggered**
+(`v*` tags, plus manual `workflow_dispatch`), not push-to-`main`. It publishes to **npm
+and JSR** in one run (both via OIDC, no tokens). Do not `pnpm publish-packages` locally.
 
 1. Add a changeset for each package whose **shipped output** changed. A test- or
    comment-only change ships nothing — do not bump it. On 0.x, a breaking change is a
    `minor` bump.
-2. `pnpm version-packages` (bumps `package.json`, writes `CHANGELOG.md`).
-3. Commit, push, open the release PR. Merging to `main` runs the **Publish** (npm)
-   workflow; already-published versions are skipped.
-4. Every `@kehto/*` package needs an OIDC Trusted Publisher registered on npm for the
-   `kehto/web` `release.yml` workflow, or its publish will 404. Confirm new packages are
-   registered before relying on the automated publish.
+2. `pnpm version-packages` (bumps `package.json`, writes `CHANGELOG.md`). The release
+   workflow re-syncs each `jsr.json#version` from its `package.json` before the JSR
+   publish (`scripts/sync-jsr-versions.mjs`), so you don't bump `jsr.json` by hand.
+3. Commit, push, open the release PR; merge it, then push the `v*` tag. The tag fires
+   `release.yml`, which re-validates build + type-check + unit + e2e, then runs
+   `changeset publish` (npm) followed by `npx jsr publish` for every `packages/*`
+   (topological order). Already-published versions are skipped on both registries.
+4. Every `@kehto/*` package needs an OIDC Trusted Publisher registered on npm **and** a
+   JSR package linked to `kehto/web` under the `@kehto` scope, or that registry's publish
+   404s. Confirm new packages are registered on both before relying on the automated
+   publish.
 
 ## Project Overview
 
@@ -155,8 +161,10 @@ pnpm test:e2e       # Playwright e2e (builds first; CI runs workers=1)
 
 ## Publishing
 
-Publishing runs from GitHub Actions on push to `main`, not from local `pnpm publish-packages`.
-Prepare release metadata locally, then push and let the npm publish workflow run from `main`:
+Publishing runs from GitHub Actions on a `v*` tag (`release.yml`), not from local
+`pnpm publish-packages`. One tagged run publishes to **npm** (`changeset publish`) and
+**JSR** (`npx jsr publish` per `packages/*`), both via OIDC. Prepare release metadata
+locally, then push the tag and let the workflow publish:
 
 ```bash
 pnpm version-packages
