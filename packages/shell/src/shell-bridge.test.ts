@@ -27,6 +27,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createShellBridge } from './shell-bridge.js';
 import { originRegistry } from './origin-registry.js';
+import { __resetInitSentForTests } from './shell-ready.js';
 import type { ShellAdapter, SessionEntry } from './types.js';
 import type { Theme } from '@napplet/nub/theme/types';
 
@@ -315,10 +316,12 @@ describe('ShellBridge.injectEvent single-topic forwarding', () => {
 describe('ShellBridge NIP-5D session registration on shell.ready', () => {
   beforeEach(() => {
     originRegistry.clear();
+    __resetInitSentForTests();
   });
 
   afterEach(() => {
     originRegistry.clear();
+    __resetInitSentForTests();
   });
 
   /**
@@ -566,6 +569,53 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     const entry = bridge.runtime.sessionRegistry.getEntryByWindowId('win-existing');
     expect(entry?.instanceId).toBe('pre-guid-fixed');
     expect(entry?.registeredAt).toBe(1000);
+
+    bridge.destroy();
+  });
+
+  /**
+   * SHELL-01 (NAP-SHELL gap G1): shell.init MUST be sent exactly once per
+   * napplet lifecycle. A duplicate shell.ready from the same window must be
+   * idempotent — no second shell.init postMessage, no duplicate session.
+   *
+   * The `initSent` guard in shell-ready.ts is module-scoped, so we reset it in
+   * beforeEach (see resetInitSent below) to keep this file's tests isolated.
+   */
+  it('sends shell.init exactly once across two shell.ready deliveries from the same window', () => {
+    const iframe = makeFakeIframe();
+    const win = iframe as unknown as Window;
+
+    originRegistry.register(win, 'win-once', { dTag: 'once-napp', aggregateHash: 'onceHash' });
+
+    const bridge = createShellBridge(makeTestHooks());
+
+    // First shell.ready → shell.init posted once.
+    bridge.handleMessage({
+      source: win,
+      origin: 'https://once-napp.example.com',
+      data: { type: 'shell.ready' },
+    } as MessageEvent);
+
+    const entryAfterFirst = bridge.runtime.sessionRegistry.getEntryByWindowId('win-once');
+    expect(entryAfterFirst).toBeDefined();
+    const instanceIdAfterFirst = entryAfterFirst?.instanceId;
+
+    // Second (duplicate) shell.ready from the same window → no resend.
+    bridge.handleMessage({
+      source: win,
+      origin: 'https://once-napp.example.com',
+      data: { type: 'shell.ready' },
+    } as MessageEvent);
+
+    // Exactly one shell.init-typed message across both deliveries.
+    const shellInitCalls = iframe.postMessage.mock.calls.filter(
+      (call) => (call[0] as Record<string, unknown>).type === 'shell.init',
+    );
+    expect(shellInitCalls).toHaveLength(1);
+
+    // Session entry is not duplicated/overwritten by the second ready.
+    const entryAfterSecond = bridge.runtime.sessionRegistry.getEntryByWindowId('win-once');
+    expect(entryAfterSecond?.instanceId).toBe(instanceIdAfterFirst);
 
     bridge.destroy();
   });
