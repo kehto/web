@@ -34,7 +34,7 @@
  * const resourceSvc = createResourceService({
  *   fetch: (url, init) => globalThis.fetch(url, init),
  *   isOriginGranted: (origin, grants) => grants.includes(origin),
- *   getConnectGrants: (dTag, hash) => connectStore.getOrigins(dTag, hash),
+ *   getConnectGrants: (dTag, hash) => myOriginGrantStore.getOrigins(dTag, hash),
  *   resolveIdentity: (windowId) => sessionRegistry.getEntryByWindowId(windowId) ?? null,
  * });
  * runtime.registerService('resource', resourceSvc);
@@ -90,8 +90,8 @@ export interface ResourceServiceOptions {
    * Returns the list of allowed fetch origins for the given napplet identity.
    * Called on every `resource.bytes` request — must be synchronous and fast.
    *
-   * Typically wraps `connectStore.getOrigins(dTag, aggregateHash)` from
-   * @kehto/shell.
+   * Host-supplied grant source (e.g. a static per-dTag allowlist map, or any
+   * other host-controlled policy). Returns an empty array to deny all origins.
    *
    * H-03 prevention: REQUIRED from day one — factory throws on construction
    * if omitted.
@@ -307,7 +307,7 @@ function destroyWindowRequests(state: ResourceRequestState, windowId: string): v
  * const svc = createResourceService({
  *   fetch: (url, init) => globalThis.fetch(url, init),
  *   isOriginGranted: (origin, grants) => grants.includes(origin),
- *   getConnectGrants: (dTag, hash) => connectStore.getOrigins(dTag, hash),
+ *   getConnectGrants: (dTag, hash) => myOriginGrantStore.getOrigins(dTag, hash),
  *   resolveIdentity: (windowId) => sessionRegistry.getEntryByWindowId(windowId) ?? null,
  * });
  * runtime.registerService('resource', svc);
