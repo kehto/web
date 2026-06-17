@@ -12,14 +12,6 @@ import type { Capability } from '@kehto/acl/capabilities';
 import type { AclPersistence, FirewallPersistence, FirewallEvent, ManifestPersistence, ShellSecretPersistence, GuidPersistence, StatePersistence } from './persistence-types.js';
 
 /**
- * A napplet class identifier. `null` is the permissive default (no class).
- * provisional — mirrors packages/shell/src/types/internal-class.ts::NappletClass;
- * converges on @napplet/nap/class@^0.3.0 publish. Runtime MUST NOT import
- * from shell (module-boundary), so this duplicate lives here.
- */
-export type NappletClass = string | null;
-
-/**
  * Event emitted on every ACL enforcement check.
  *
  * @param identity - The napplet identity being checked
@@ -43,13 +35,12 @@ export interface AclCheckEvent {
   /** The triggering message, if available. Accepts NIP-01 arrays or NIP-5D NappletMessage envelopes. */
   message?: unknown[] | NappletMessage;
   /**
-   * Why the decision was reached (v1.7 CLASS-03 / D7). Optional for
-   * backwards compatibility with pre-v1.7 audit consumers.
+   * Why the decision was reached. Optional for backwards compatibility with
+   * pre-v1.7 audit consumers.
    *   'allowed'             -> decision === 'allow'
    *   'capability-missing'  -> decision === 'deny' (capability lookup failed)
-   *   'class-forbidden'     -> decision === 'deny' (class pre-filter refused)
    */
-  reason?: 'allowed' | 'capability-missing' | 'class-forbidden';
+  reason?: 'allowed' | 'capability-missing';
 }
 
 /**
@@ -389,12 +380,6 @@ export interface SessionEntry {
    * Renamed from `identitySource: 'auth' | 'source'` in v1.8; see .changeset/v1-8-rename-01-session-provenance.md.
    */
   provenance: 'nip-5d' | 'legacy-auth';
-  /**
-   * Class posture resolved synchronously at iframe creation (CLASS-02).
-   * `null` is the permissive default (D2). Class tokens like 'class-1' /
-   * 'class-2' are NUB-defined. See packages/shell/src/types/internal-class.ts.
-   */
-  class: NappletClass;
 }
 
 /** @deprecated Use SessionEntry. Will be removed in v0.9.0. */

@@ -224,7 +224,6 @@ export function createNip5dSessionEntry(windowId: string, dTag: string, aggregat
     registeredAt: Date.now(),
     instanceId: `guid-${windowId}`,
     provenance: 'nip-5d',
-    class: null, // CLASS-02: permissive default
   };
 }
 
