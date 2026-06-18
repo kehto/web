@@ -6,12 +6,12 @@
  * even without a registered 'notify' service — fixture's await notifySend(...) resolves.
  *
  * Asserts:
- *   1. notify.send envelope dispatched (__getNubMessage__).
+ *   1. notify.send envelope dispatched (__getNapMessage__).
  *   2. Fixture's #nap-status sentinel becomes 'notification:shell-<timestamp>'.
  *   3. Fixture's #nap-notif-id matches /^shell-\d+$/.
  *
  * Note: __getNotifications__ returns [] in the harness (Phase 16 STATE decision —
- * notification service is not wired in createMockHooks). Spec asserts via __getNubMessage__
+ * notification service is not wired in createMockHooks). Spec asserts via __getNapMessage__
  * + DOM sentinel only — NOT __getNotifications__.
  */
 import { test, expect } from '@playwright/test';
@@ -35,13 +35,13 @@ test('nap-notify: notify.send envelope dispatched and fixture sentinel reflects 
 
   // Wait for fixture's notify.send envelope to be recorded.
   await page.waitForFunction(
-    (wid) => window.__getNubMessage__(wid, 'notify.send') !== null,
+    (wid) => window.__getNapMessage__(wid, 'notify.send') !== null,
     windowId,
     { timeout: 10_000 },
   );
 
   const sendEnvelope = await page.evaluate(
-    (wid) => window.__getNubMessage__(wid, 'notify.send'),
+    (wid) => window.__getNapMessage__(wid, 'notify.send'),
     windowId,
   );
   expect(sendEnvelope).not.toBeNull();

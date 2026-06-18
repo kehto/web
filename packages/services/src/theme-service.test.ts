@@ -1,5 +1,5 @@
 /**
- * theme-service.test.ts — Unit tests for the NIP-5D theme NUB service.
+ * theme-service.test.ts — Unit tests for the NIP-5D theme NAP service.
  *
  * Covers the 1 napplet->shell request type and the host-driven publishTheme
  * broadcast handle from @napplet/nap/theme:
@@ -144,7 +144,7 @@ describe('createThemeService', () => {
   });
 
   describe('ACL denial envelope shape', () => {
-    // NOTE: The real ACL gate lives in @kehto/acl's resolveCapabilitiesNub and
+    // NOTE: The real ACL gate lives in @kehto/acl's resolveCapabilitiesNap and
     // runs in the runtime BEFORE the service is invoked. This test asserts the
     // shape of the denial envelope the runtime would emit — it does NOT
     // exercise the real ACL path end-to-end. See dispatch.test.ts for the

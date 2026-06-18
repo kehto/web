@@ -9,7 +9,7 @@
 
 **Date:** 2026-04-07
 **Package:** @kehto/acl
-**Scope:** Identity key schema, capability-to-NUB mapping, persisted data migration
+**Scope:** Identity key schema, capability-to-NAP mapping, persisted data migration
 **References:** [GAP-ANALYSIS.md section 5.1](./GAP-ANALYSIS.md#51-kehtoacl-boundary-contract)
 
 ---
@@ -117,22 +117,22 @@ Key behavioral notes:
 
 ---
 
-## 2. Capability Constant to NUB Domain Mapping
+## 2. Capability Constant to NAP Domain Mapping
 
 ### Overview
 
 The capability bit constants defined in `@kehto/acl` are **unchanged** by the NIP-5D migration — their names, integer values, and bitfield semantics are identical before and after. What changes is how the *runtime* maps incoming messages to these capabilities.
 
-Under RUNTIME-SPEC v2.0.0, `packages/runtime/src/enforce.ts` mapped NIP-01 verb strings and BusKind event kinds to capabilities (e.g., verb `REQ` → `relay:read`, event kind `29001` → `sign:event`). Under NIP-5D v0.1.0, the same enforce gate maps NUB `type` strings to capabilities (e.g., `relay.subscribe` → `relay:read`). The `@kehto/acl` module itself is format-agnostic: it never sees the wire message, only the resolved capability string.
+Under RUNTIME-SPEC v2.0.0, `packages/runtime/src/enforce.ts` mapped NIP-01 verb strings and BusKind event kinds to capabilities (e.g., verb `REQ` → `relay:read`, event kind `29001` → `sign:event`). Under NIP-5D v0.1.0, the same enforce gate maps NAP `type` strings to capabilities (e.g., `relay.subscribe` → `relay:read`). The `@kehto/acl` module itself is format-agnostic: it never sees the wire message, only the resolved capability string.
 
-### Capability Constant to NUB Domain Mapping Table
+### Capability Constant to NAP Domain Mapping Table
 
-| Capability Constant | Bit Value | Capability String | NUB Domain | NUB Operations | Old Trigger (enforce.ts) |
+| Capability Constant | Bit Value | Capability String | NAP Domain | NAP Operations | Old Trigger (enforce.ts) |
 |---------------------|-----------|-------------------|------------|----------------|--------------------------|
 | `CAP_RELAY_READ` | 1 | `relay:read` | `relay` | subscribe, query, close | verb=`REQ`, verb=`COUNT` |
 | `CAP_RELAY_WRITE` | 2 | `relay:write` | `relay` | publish | verb=`EVENT` (standard kinds) |
-| `CAP_CACHE_READ` | 4 | `cache:read` | (no NUB — internal) | N/A — cache is shell-internal | N/A (not triggered by napplet messages) |
-| `CAP_CACHE_WRITE` | 8 | `cache:write` | (no NUB — internal) | N/A — cache is shell-internal | N/A |
+| `CAP_CACHE_READ` | 4 | `cache:read` | (no NAP — internal) | N/A — cache is shell-internal | N/A (not triggered by napplet messages) |
+| `CAP_CACHE_WRITE` | 8 | `cache:write` | (no NAP — internal) | N/A — cache is shell-internal | N/A |
 | `CAP_HOTKEY_FORWARD` | 16 | `hotkey:forward` | `keyboard` (future) | forward | verb=`EVENT` kind=`HOTKEY_FORWARD` |
 | `CAP_SIGN_EVENT` | 32 | `sign:event` | `signer` | signEvent | verb=`EVENT` kind=`29001` (SIGNER_REQUEST) method=`signEvent` |
 | `CAP_SIGN_NIP04` | 64 | `sign:nip04` | `signer` | nip04.encrypt, nip04.decrypt | verb=`EVENT` kind=`29001` method=`nip04.*` |
@@ -141,15 +141,15 @@ Under RUNTIME-SPEC v2.0.0, `packages/runtime/src/enforce.ts` mapped NIP-01 verb 
 | `CAP_STATE_WRITE` | 512 | `state:write` | `storage` | set, remove, clear | verb=`EVENT` kind=`29003` topic=`shell:state-set/remove/clear` |
 
 Notes:
-- `CAP_CACHE_READ` and `CAP_CACHE_WRITE` have no NUB equivalent — the NIP-5D spec does not expose a cache NUB. These bits are reserved in the bitfield and can be used for future shell-internal cache access control, but no napplet message type currently triggers them.
+- `CAP_CACHE_READ` and `CAP_CACHE_WRITE` have no NAP equivalent — the NIP-5D spec does not expose a cache NAP. These bits are reserved in the bitfield and can be used for future shell-internal cache access control, but no napplet message type currently triggers them.
 - `CAP_ALL` (1023, bits 0–9 set) and `CAP_NONE` (0) are convenience constants, not separate capabilities.
 
-### NUB Domain Resolution (New)
+### NAP Domain Resolution (New)
 
-Under NIP-5D, `enforce.ts` resolves capabilities by splitting the NUB message `type` field on `.` to get `[domain, action]`. The following pseudocode illustrates the new resolution logic:
+Under NIP-5D, `enforce.ts` resolves capabilities by splitting the NAP message `type` field on `.` to get `[domain, action]`. The following pseudocode illustrates the new resolution logic:
 
 ```typescript
-function resolveCapabilitiesNub(msg: NappletMessage): CapabilityResolution {
+function resolveCapabilitiesNap(msg: NappletMessage): CapabilityResolution {
   const [domain, action] = msg.type.split('.');
   switch (domain) {
     case 'relay':
@@ -193,7 +193,7 @@ The following elements of `@kehto/acl` are **not changed** by the NIP-5D migrati
 
 ### INC Capability Note
 
-The `inc` NUB (inter-napplet communication) reuses `relay:write` for sending and `relay:read` for receiving rather than introducing new capability bits. This is intentional and matches the behavior of the old RUNTIME-SPEC: IPC_PEER messages (kind `29003`) that were not state operations required `relay:write` (sender) and `relay:read` (recipient).
+The `inc` NAP (inter-napplet communication) reuses `relay:write` for sending and `relay:read` for receiving rather than introducing new capability bits. This is intentional and matches the behavior of the old RUNTIME-SPEC: IPC_PEER messages (kind `29003`) that were not state operations required `relay:write` (sender) and `relay:read` (recipient).
 
 **Rationale:** INC traffic is inter-napplet relay traffic routed through the shell's internal bus. From an access-control perspective, it is semantically equivalent to relay publish/subscribe: one napplet emits an event that another napplet subscribes to. Granting a napplet `relay:write` implicitly allows it to emit INC messages; granting `relay:read` allows it to receive them. Introducing separate `inc:write` / `inc:read` bits would require changes to every existing ACL entry and would duplicate the semantics of `relay:write`/`relay:read` without adding additional security granularity.
 

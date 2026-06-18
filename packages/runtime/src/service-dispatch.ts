@@ -5,7 +5,7 @@ import type { ServiceRegistry, SendToNapplet } from './types.js';
 /**
  * Route a NappletMessage envelope to the matching service handler.
  *
- * NUB-domain services are routed by the domain prefix of message.type
+ * NAP-domain services are routed by the domain prefix of message.type
  * (e.g., 'signer.signEvent' -> 'signer' service).
  *
  * INC-routed services receive inc.emit messages and are routed by the
@@ -31,7 +31,7 @@ export function routeServiceMessage(
   services: ServiceRegistry,
   sendToNapplet: SendToNapplet,
 ): boolean {
-  // NUB-domain services: signer.*, relay.*, storage.* route by type prefix
+  // NAP-domain services: signer.*, relay.*, storage.* route by type prefix
   const domain = message.type.split('.')[0];
   const handler = services[domain];
   if (handler) {

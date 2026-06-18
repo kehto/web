@@ -189,7 +189,7 @@ function patchNapSupportsAlias(): void {
   const next: SupportsFn = (capability: string) => {
     if (typeof capability === 'string' && capability.startsWith('nap:')) {
       const domain = capability.slice(4);
-      return supports(domain) || supports(`nub:${domain}`);
+      return supports(domain);
     }
     return supports(capability);
   };

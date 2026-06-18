@@ -1,6 +1,6 @@
 /**
  * keys-forwarder.test.ts — Coverage for the shell-side host-keydown forwarder
- * established by Plan 12-11 (NUB-05 shell-side half).
+ * established by Plan 12-11 (NAP-05 shell-side half).
  *
  * Verifies three behaviours:
  *   1. A keydown on the attached EventTarget posts a `keys.forward` envelope
@@ -65,7 +65,7 @@ function dispatchKeydown(
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
-describe('keys-forwarder (Plan 12-11, NUB-05 shell-side)', () => {
+describe('keys-forwarder (Plan 12-11, NAP-05 shell-side)', () => {
   it('posts keys.forward envelopes to napplets that hold the keys:forward cap', () => {
     const target = makeTarget();
     const iframe = { postMessage: vi.fn() };

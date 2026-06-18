@@ -57,8 +57,8 @@ export { manifestCache } from './manifest-cache.js';
 export type { ManifestCacheEntry } from './manifest-cache.js';
 
 // Enforcement gate (re-exported from @kehto/runtime for backwards compatibility)
-export { createEnforceGate, createNubEnforceGate, formatDenialReason } from '@kehto/runtime';
-export type { EnforceResult, EnforceConfig, NubEnforceConfig, IdentityResolver, AclChecker, NubMessage } from '@kehto/runtime';
+export { createEnforceGate, createNapEnforceGate, formatDenialReason } from '@kehto/runtime';
+export type { EnforceResult, EnforceConfig, NapEnforceConfig, IdentityResolver, AclChecker, NapMessage } from '@kehto/runtime';
 // ConsentRequest canonical definition re-exported from @kehto/runtime
 export type { ConsentRequest } from '@kehto/runtime';
 

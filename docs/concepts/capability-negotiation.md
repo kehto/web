@@ -2,7 +2,7 @@
 
 Kehto uses two complementary capability checks:
 
-1. The NIP-5A manifest declares required NUBs through `requires`.
+1. The NIP-5A manifest declares required NAPs through `requires`.
 2. Hosted napplets call `window.napplet.shell.supports()` to check host capabilities at runtime.
 
 Required capabilities should fail early at load time when unsupported. Optional capabilities should degrade gracefully inside the napplet.

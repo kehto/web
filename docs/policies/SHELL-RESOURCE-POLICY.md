@@ -9,7 +9,7 @@
   header and the kehto cross-refs when upstream revises the canonical doc.
 
   Sync policy: Re-copy from canonical at each kehto milestone boundary where
-               NUB-RESOURCE semantics change. Do not edit the canonical text
+               NAP-RESOURCE semantics change. Do not edit the canonical text
                in-place — edit upstream, then re-sync.
 
   Kehto file:line cross-references (RESOURCE-05):
@@ -20,8 +20,8 @@
     - resourceMap() resolver:              packages/acl/src/resolve.ts (function resourceMap)
     - case 'resource' dispatch:            packages/acl/src/resolve.ts (case 'resource': return resourceMap(action))
     - handleResourceMessage dispatch:      packages/runtime/src/runtime.ts (function handleResourceMessage)
-    - resourceAdapter (NubHandler):        packages/runtime/src/runtime.ts (const resourceAdapter: NubHandler)
-    - nubDispatch.registerNub('resource'): packages/runtime/src/runtime.ts (RESOURCE-02)
+    - resourceAdapter (NapHandler):        packages/runtime/src/runtime.ts (const resourceAdapter: NapHandler)
+    - napDispatch.registerNap('resource'): packages/runtime/src/runtime.ts (RESOURCE-02)
     - hostFetch (AbortController+timeout): apps/playground/src/demo-hooks.ts (async function hostFetch)
     - createResourceService wiring:        apps/playground/src/demo-hooks.ts (createResourceService({ fetch, isOriginGranted, getConnectGrants, resolveIdentity }))
     - origin grant source:                 apps/playground/src/demo-hooks.ts (STATIC_CONNECT_GRANTS static map)
@@ -36,10 +36,10 @@
     - Oversize response limits (stream-abort; recommended 10 MiB default per fetch)
     - Scheme allowlist (https:, data:, blossom:sha256:, nostr:<bech32>; block file:, gopher:, ftp:, etc.)
 
-  The NUB-RESOURCE wire protocol is READ-ONLY (no upload / POST body), ATOMIC
+  The NAP-RESOURCE wire protocol is READ-ONLY (no upload / POST body), ATOMIC
   (no streaming / chunked response), and PASS-THROUGH (no shell-side caching
   — host app may layer caching via the supplied fetch option). Any feature
-  outside this contract is a host-app extension, not NUB-RESOURCE.
+  outside this contract is a host-app extension, not NAP-RESOURCE.
 
   Note on Kehto demo-mode relaxations (not production-conformant):
     The apps/playground hostFetch does NOT enforce the private-IP block list (demo runs
@@ -50,16 +50,16 @@
 
 # Shell Resource Policy Checklist
 
-> Shell-implementer guide for v0.28.0+ napplet hosts implementing the resource NUB.
-> Normative wire shape and MUST/SHOULD language live in [NUB-RESOURCE](https://github.com/napplet/nubs); this document is a deployment checklist.
+> Shell-implementer guide for v0.28.0+ napplet hosts implementing the resource NAP.
+> Normative wire shape and MUST/SHOULD language live in [NAP-RESOURCE](https://github.com/napplet/naps); this document is a deployment checklist.
 
 ## Status
 
-This is a non-normative implementer's guide. The normative spec is **NUB-RESOURCE** in the `napplet/nubs` repo. Shell hosts MUST implement the MUSTs in NUB-RESOURCE; this document enumerates the concrete defaults and decisions a deployer needs to make.
+This is a non-normative implementer's guide. The normative spec is **NAP-RESOURCE** in the `napplet/naps` repo. Shell hosts MUST implement the MUSTs in NAP-RESOURCE; this document enumerates the concrete defaults and decisions a deployer needs to make.
 
 ## Why this exists
 
-The resource NUB makes the host shell the sole network-fetch path on behalf of every sandboxed napplet. The shell-as-fetch-proxy model is an irreducible attack surface: a naively-implemented shell becomes an SSRF gadget that can probe internal addresses, exfiltrate cloud-metadata credentials, or scan the deployer's intranet on behalf of an attacker-supplied URL. NUB-RESOURCE locks the protocol-level MUSTs needed to neutralize this; this checklist makes the operator-visible decisions explicit.
+The resource NAP makes the host shell the sole network-fetch path on behalf of every sandboxed napplet. The shell-as-fetch-proxy model is an irreducible attack surface: a naively-implemented shell becomes an SSRF gadget that can probe internal addresses, exfiltrate cloud-metadata credentials, or scan the deployer's intranet on behalf of an attacker-supplied URL. NAP-RESOURCE locks the protocol-level MUSTs needed to neutralize this; this checklist makes the operator-visible decisions explicit.
 
 Shells that violate any of the MUSTs below are non-conformant and SHOULD NOT be deployed in adversarial contexts.
 
@@ -92,7 +92,7 @@ URL-parse-time checks (looking at the literal hostname) are NOT sufficient — a
 
 ## Sidecar Pre-Resolution (default OFF)
 
-The NUB-RELAY amendment adds an optional `resources?: ResourceSidecarEntry[]` field on `relay.event` envelopes. When the shell pre-fetches resources referenced by an event and ships the bytes alongside the event, the napplet's subsequent `resource.bytes(url)` calls resolve from cache without a postMessage round-trip.
+The NAP-RELAY amendment adds an optional `resources?: ResourceSidecarEntry[]` field on `relay.event` envelopes. When the shell pre-fetches resources referenced by an event and ships the bytes alongside the event, the napplet's subsequent `resource.bytes(url)` calls resolve from cache without a postMessage round-trip.
 
 ### Privacy rationale (why default OFF)
 
@@ -186,7 +186,7 @@ Community-deployed shells SHOULD NOT raise the response size cap above ~50 MiB w
 
 Coalesce concurrent same-URL fetches.
 
-- [ ] Cache keyed on the URL string as supplied by the napplet (byte-equal — this NUB does not mandate canonicalization)
+- [ ] Cache keyed on the URL string as supplied by the napplet (byte-equal — this NAP does not mandate canonicalization)
 - [ ] N concurrent calls for the same URL share **one** in-flight fetch and resolve with the same `Blob` reference
 - [ ] Cache scope partitioned per `(dTag, aggregateHash)` per NIP-5D — napplets MUST NOT see another napplet's cached resources
 - [ ] Aborted entries are removed from the in-flight map for retryability
@@ -214,11 +214,11 @@ Unknown schemes emit `code: "unsupported-scheme"`.
 
 ## Capability Advertisement
 
-Shells advertise resource-NUB conformance via the standard capability query API:
+Shells advertise resource-NAP conformance via the standard capability query API:
 
-- [ ] `shell.supports('nub:resource')` returns `true`
+- [ ] `shell.supports('nap:resource')` returns `true`
 - [ ] `shell.supports('resource:scheme:<name>')` returns `true` for each supported scheme (e.g., `resource:scheme:blossom`)
-- [ ] `shell.supports('perm:strict-csp')` returns `true` if the shell enforces strict CSP on napplet iframes (orthogonal to `nub:resource` — a permissive dev shell can implement the resource NUB without enforcing strict CSP)
+- [ ] `shell.supports('perm:strict-csp')` returns `true` if the shell enforces strict CSP on napplet iframes (orthogonal to `nap:resource` — a permissive dev shell can implement the resource NAP without enforcing strict CSP)
 
 
 ## Audit Checklist (one-page summary)
@@ -234,12 +234,12 @@ Use this as a deployment sign-off:
 - [ ] Sidecar bytes obey the same MIME/SVG/size policy as direct calls
 - [ ] Single-flight cache scoped per `(dTag, aggregateHash)`
 - [ ] Scheme dispatch is a whitelist; smuggling-prone schemes blocked
-- [ ] Capability advertisement (`nub:resource`, `resource:scheme:*`, optionally `perm:strict-csp`) wired through `shell.supports()`
+- [ ] Capability advertisement (`nap:resource`, `resource:scheme:*`, optionally `perm:strict-csp`) wired through `shell.supports()`
 - [ ] Resource bytes treated as observable (cleartext over postMessage); deployers document this in user-facing notice if relevant
 
 
 ## References
 
-- [NUB-RESOURCE](https://github.com/napplet/nubs) — normative spec for the resource NUB (wire shape, MUST/SHOULD/MAY contract)
+- [NAP-RESOURCE](https://github.com/napplet/naps) — normative spec for the resource NAP (wire shape, MUST/SHOULD/MAY contract)
 - [NIP-5D Conformance](./NIP-5D-CONFORMANCE.md) — napplet-shell protocol alignment; Security Considerations subsection covers strict-CSP posture and `sandbox="allow-scripts"` reaffirmation
 - [WHATWG MIME Sniffing Standard](https://mimesniff.spec.whatwg.org/) — recommended byte-sniffing reference

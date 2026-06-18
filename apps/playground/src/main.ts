@@ -445,22 +445,22 @@ export function setSelectedNode(id: string | null): void {
 };
 
 (window as Window & {
-  __injectNubEnvelopeAsNapplet__?: (dTag: string, envelope: Record<string, unknown>) => boolean;
-}).__injectNubEnvelopeAsNapplet__ = (dTag: string, envelope: Record<string, unknown>): boolean => {
+  __injectNapEnvelopeAsNapplet__?: (dTag: string, envelope: Record<string, unknown>) => boolean;
+}).__injectNapEnvelopeAsNapplet__ = (dTag: string, envelope: Record<string, unknown>): boolean => {
   const windowId = findIdentityBoundNappletWindowIdByDTag(dTag);
   if (!windowId) {
-    console.warn(`[demo] __injectNubEnvelopeAsNapplet__: ${dTag} not loaded or not identity-bound`);
+    console.warn(`[demo] __injectNapEnvelopeAsNapplet__: ${dTag} not loaded or not identity-bound`);
     return false;
   }
   // Find the iframe for this napplet by its windowId (the id attribute set in loadNapplet).
   const targetFrame = document.getElementById(windowId) as HTMLIFrameElement | null;
   if (!targetFrame?.contentWindow) {
-    console.warn(`[demo] __injectNubEnvelopeAsNapplet__: iframe not found for ${dTag} (windowId=${windowId})`);
+    console.warn(`[demo] __injectNapEnvelopeAsNapplet__: iframe not found for ${dTag} (windowId=${windowId})`);
     return false;
   }
   // relay.handleMessage is installed on window and checks event.source to
   // resolve the windowId -- matching the iframe's contentWindow routes it
-  // through enforceNub with the correct session entry.
+  // through enforceNap with the correct session entry.
   const event = new MessageEvent('message', {
     data: envelope,
     source: targetFrame.contentWindow,

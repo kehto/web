@@ -11,7 +11,7 @@
  *   2. The fixture's inc.subscribe envelope was dispatched (incOn on init).
  *   3. The fixture's #nap-status sentinel reflects 'ready'
  *      (inc.subscribe.result received — proves the envelope round-tripped).
- *   4. Triggering #nap-inc-emit-btn dispatches an inc.emit envelope (visible via __getNubMessage__).
+ *   4. Triggering #nap-inc-emit-btn dispatches an inc.emit envelope (visible via __getNapMessage__).
  *
  * No demo server dependency.
  */
@@ -36,13 +36,13 @@ test('nap-inc: inc.subscribe envelope dispatched and fixture sentinel reaches re
 
   // Wait for inc.subscribe envelope to be recorded by the harness.
   await page.waitForFunction(
-    (wid) => window.__getNubMessage__(wid, 'inc.subscribe') !== null,
+    (wid) => window.__getNapMessage__(wid, 'inc.subscribe') !== null,
     windowId,
     { timeout: 10_000 },
   );
 
   const envelope = await page.evaluate(
-    (wid) => window.__getNubMessage__(wid, 'inc.subscribe'),
+    (wid) => window.__getNapMessage__(wid, 'inc.subscribe'),
     windowId,
   );
   expect(envelope).not.toBeNull();
@@ -62,13 +62,13 @@ test('nap-inc: inc.subscribe envelope dispatched and fixture sentinel reaches re
   }
 
   await page.waitForFunction(
-    (wid) => window.__getNubMessage__(wid, 'inc.emit') !== null,
+    (wid) => window.__getNapMessage__(wid, 'inc.emit') !== null,
     windowId,
     { timeout: 8_000 },
   );
 
   const emitEnvelope = await page.evaluate(
-    (wid) => window.__getNubMessage__(wid, 'inc.emit'),
+    (wid) => window.__getNapMessage__(wid, 'inc.emit'),
     windowId,
   );
   expect(emitEnvelope).not.toBeNull();

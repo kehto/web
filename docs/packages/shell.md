@@ -3,12 +3,12 @@
 Browser adapter over `@kehto/runtime` for iframe/session hosting.
 
 > **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
-> protocol. Shell capabilities, `supports()` behavior, and NUB contracts are not final.
+> protocol. Shell capabilities, `supports()` behavior, and NAP contracts are not final.
 
 ## Install
 
 ```bash
-pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nub nostr-tools
+pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr-tools
 ```
 
 ## Manifest Facts
@@ -27,7 +27,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nub nostr
 | Package | Range |
 |---------|-------|
 | `@napplet/core` | `^0.5.0` |
-| `@napplet/nub` | `^0.5.0` |
+| `@napplet/nap` | `^0.5.0` |
 | `nostr-tools` | `>=2.23.3 <3.0.0` |
 
 ## Primary APIs
@@ -39,7 +39,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nub nostr
 | Protocol and capability types | `NostrEvent`, `NostrFilter`, `NappletMessage`, `Capability`, `ALL_CAPABILITIES` |
 | Shell init | `buildShellCapabilities` |
 | Registries and caches | `sessionRegistry`, `nappKeyRegistry`, `originRegistry`, `manifestCache`, `audioManager`, `PendingUpdate`, `ManifestCacheEntry`, `AudioSource` |
-| Enforcement re-exports | `createEnforceGate`, `createNubEnforceGate`, `formatDenialReason`, `EnforceResult`, `EnforceConfig`, `NubEnforceConfig`, `IdentityResolver`, `AclChecker`, `NubMessage` |
+| Enforcement re-exports | `createEnforceGate`, `createNapEnforceGate`, `formatDenialReason`, `EnforceResult`, `EnforceConfig`, `NapEnforceConfig`, `IdentityResolver`, `AclChecker`, `NapMessage` |
 | Proxies and forwarders | `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy`, `createKeysForwarder` |
 | Shell-owned internal models | resource request/result/error types |
 | Topics | `TOPICS`, `TopicKey`, `TopicValue` |

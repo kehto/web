@@ -2,10 +2,10 @@
 /**
  * scripts/audit-csp.mjs -- meta-CSP residual-tag audit for napplet dist/ outputs.
  *
- * Enforces NUB-CONNECT C-03 invariant: shell is the sole CSP authority.
+ * Enforces NAP-CONNECT C-03 invariant: shell is the sole CSP authority.
  * Any meta tag with http-equiv="Content-Security-Policy" in a built napplet
  * HTML file is a build-breaker -- napplet developers must not set CSP via
- * meta tags (canonical NUB-CONNECT forbids it; shell emits HTTP headers).
+ * meta tags (canonical NAP-CONNECT forbids it; shell emits HTTP headers).
  *
  * Scope (D14): apps/playground/napplets/{name}/dist/index.html for each napplet
  * directory -- napplet build outputs only, not the demo-app's own dist.

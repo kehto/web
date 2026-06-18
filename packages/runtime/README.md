@@ -16,7 +16,7 @@ pnpm add @kehto/runtime
 
 `@kehto/runtime` is Kehto's NIP-5D protocol engine. It owns every incoming napplet message, gates it through the ACL enforcement layer, routes it to the correct NAP handler, and emits the corresponding reply envelope.
 
-The runtime is built around the current draft dispatch contract from `@napplet/core` — `createDispatch()` + `registerNub()` — so routing is declarative, not a hand-rolled switch. It covers the NIP-5D domains currently supported by Kehto:
+The runtime is built around the current draft dispatch contract from `@napplet/core` — `createDispatch()` + `registerNap()` — so routing is declarative, not a hand-rolled switch. It covers the NIP-5D domains currently supported by Kehto:
 
 - **identity** — `identity.getProfile`, `identity.getFollows`, `identity.getPublicKey`, …
 - **inc** — `inc.channel.*`, `inc.emit`, cross-napplet pub/sub
@@ -59,8 +59,8 @@ runtime.handleMessage('window-1', {
 
 ### Enforcement gate
 - `createEnforceGate` — legacy pubkey-keyed ACL gate
-- `createNubEnforceGate` — NIP-5D windowId-keyed ACL gate
-- `resolveCapabilitiesNub` — map a NIP-5D envelope to required capabilities (re-exported from `@kehto/acl`)
+- `createNapEnforceGate` — NIP-5D windowId-keyed ACL gate
+- `resolveCapabilitiesNap` — map a NIP-5D envelope to required capabilities (re-exported from `@kehto/acl`)
 - `formatDenialReason` — `denied: <capability>` canonical string
 
 ### Session registry
@@ -82,7 +82,7 @@ runtime.handleMessage('window-1', {
 - `RING_BUFFER_SIZE` — default ring buffer capacity constant
 
 ### State handler
-- `handleStorageNub` — canonical `storage.*` NIP-5D handler
+- `handleStorageNap` — canonical `storage.*` NIP-5D handler
 - `cleanupNappState` — remove persisted state when a napplet window closes
 
 ### Service dispatch

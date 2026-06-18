@@ -1,5 +1,5 @@
 /**
- * consent-modal.ts -- NUB-CONNECT consent flow UI (CONNECT-03, v1.7 Phase 39).
+ * consent-modal.ts -- NAP-CONNECT consent flow UI (CONNECT-03, v1.7 Phase 39).
  *
  * Custom shell DOM modal (plain HTML+CSS, no framework) per D5. Extends the
  * existing bridge.registerConsentHandler pattern -- dispatches on
@@ -15,7 +15,7 @@
  *   M-04: dismiss (Escape / outside-click) = deny. No implicit allow.
  *
  * NOTE: The full connect.request wire message (napplet -> shell) is NOT
- * routed to this modal in Phase 39 -- upstream NUB-CONNECT types are still
+ * routed to this modal in Phase 39 -- upstream NAP-CONNECT types are still
  * provisional. This file ships the modal DOM + registration surface so the
  * shell is ready when connect.request lands; the E2E specs in Plan 39-05
  * exercise grant/revoke directly via window.__grantConnectOrigin__ and
@@ -56,7 +56,7 @@ export interface ConsentModal {
 }
 
 /**
- * Factory for the NUB-CONNECT consent modal. Returns an object whose
+ * Factory for the NAP-CONNECT consent modal. Returns an object whose
  * `registerWith(bridge, fallthrough?)` method installs the handler.
  *
  * The modal DOM is created lazily on first `type: 'connect'` request

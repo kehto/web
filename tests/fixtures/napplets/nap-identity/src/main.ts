@@ -6,7 +6,7 @@
  * tests/e2e/nap-identity.spec.ts. Spec asserts:
  *   - #nap-status flips to 'ready' then to 'pubkey:<truncated>'
  *   - #nap-pubkey contains a truncated hex pubkey
- *   - The harness's __getNubMessage__(windowId, 'identity.getPublicKey') returns a
+ *   - The harness's __getNapMessage__(windowId, 'identity.getPublicKey') returns a
  *     non-null envelope after fixture init (proves the request was dispatched)
  *
  * Anti-features (hard-enforced): NO raw window.addEventListener, NO NIP-01 arrays,
@@ -31,7 +31,7 @@ function truncate(pk: string): string {
 async function init(): Promise<void> {
   try {
     // First SDK call gates readiness. The E2E harness wires a deterministic signer
-    // because @napplet/nub@0.5.0 resolves this helper through result envelopes.
+    // because @napplet/nap@0.5.0 resolves this helper through result envelopes.
     const pubkey = await identityGetPublicKey();
     statusEl.textContent = 'ready';
     pubkeyEl.textContent = truncate(pubkey);

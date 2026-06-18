@@ -1,7 +1,7 @@
 /**
- * resource-service.ts — NUB-RESOURCE reference service (10th NUB domain, v1.7 Phase 40).
+ * resource-service.ts — NAP-RESOURCE reference service (10th NAP domain, v1.7 Phase 40).
  *
- * Shell-side reference implementation for the canonical NUB-RESOURCE wire
+ * Shell-side reference implementation for the canonical NAP-RESOURCE wire
  * protocol (`internal-resource.ts` in @kehto/shell/src/types; kehto-internal
  * model per PROJECT.md Decision #31 — diverges from upstream `@napplet/nap/
  * resource` in field names + error vocabulary). Handles the canonical
@@ -10,12 +10,12 @@
  *   Outbound: resource.bytes.result, resource.bytes.error
  *
  * ──────────────────────── SCOPE BOUNDARY (RESOURCE-01) ────────────────────────
- * NUB-RESOURCE is an **authenticated fetch proxy** — read-only, atomic.
+ * NAP-RESOURCE is an **authenticated fetch proxy** — read-only, atomic.
  *
  * This service is NOT responsible for:
  *   - Streaming / chunked responses (host-app concern)
  *   - Response caching / conditional requests (host-app concern)
- *   - Upload / POST body construction (NUB-RESOURCE v1.7 is read-only)
+ *   - Upload / POST body construction (NAP-RESOURCE v1.7 is read-only)
  *   - Redirect limits, MIME sniffing, SVG rasterization (host-fetch concern)
  *   - Private-IP blocking, SSRF mitigation (host-provided-fetch responsibility)
  *
@@ -282,7 +282,7 @@ function destroyWindowRequests(state: ResourceRequestState, windowId: string): v
 }
 
 /**
- * Create a NUB-RESOURCE reference service.
+ * Create a NAP-RESOURCE reference service.
  *
  * Implements canonical 4-message protocol: `resource.bytes` (napplet → shell
  * fetch request), `resource.cancel` (napplet → shell in-flight cancellation),
@@ -324,7 +324,7 @@ export function createResourceService(options: ResourceServiceOptions): Resource
     name: 'resource',
     version: RESOURCE_SERVICE_VERSION,
     description:
-      'NUB-RESOURCE reference service — shell-proxied authenticated fetch (RESOURCE-01..06)',
+      'NAP-RESOURCE reference service — shell-proxied authenticated fetch (RESOURCE-01..06)',
   };
 
   const handler: ServiceHandler = {

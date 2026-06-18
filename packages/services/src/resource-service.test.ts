@@ -1,5 +1,5 @@
 /**
- * resource-service.test.ts — Unit tests for the NUB-RESOURCE reference service factory.
+ * resource-service.test.ts — Unit tests for the NAP-RESOURCE reference service factory.
  *
  * Test plan (9 cases):
  *   a. createResourceService({}) throws with message matching /H-03/ (constructor H-03 guard)

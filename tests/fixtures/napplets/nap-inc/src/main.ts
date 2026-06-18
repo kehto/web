@@ -6,7 +6,7 @@
  *   - When the spec injects an inc.event envelope (via __injectEnvelope__), the
  *     fixture's listener appends a line to #nap-inc-log
  *   - When the spec clicks #nap-inc-emit-btn, the harness sees an inc.emit envelope
- *     via __getNubMessage__(windowId, 'inc.emit')
+ *     via __getNapMessage__(windowId, 'inc.emit')
  *
  * Anti-features: NO raw window.addEventListener — uses incOn() exclusively for cross-frame.
  */

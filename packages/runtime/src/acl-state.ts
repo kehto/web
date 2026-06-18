@@ -24,8 +24,8 @@ const CAP_MEDIA_CONTROL  = 1 << 10;   // 1024
 const CAP_NOTIFY_SEND    = 1 << 11;   // 2048
 const CAP_NOTIFY_CHANNEL = 1 << 12;   // 4096
 const CAP_THEME_READ     = 1 << 13;   // 8192
-const CAP_CONFIG_READ    = 1 << 14;   // 16384 (v1.7 Phase 39 NUB-CONFIG)
-const CAP_RESOURCE_FETCH = 1 << 15;   // 32768 (v1.7 Phase 40 NUB-RESOURCE)
+const CAP_CONFIG_READ    = 1 << 14;   // 16384 (v1.7 Phase 39 NAP-CONFIG)
+const CAP_RESOURCE_FETCH = 1 << 15;   // 32768 (v1.7 Phase 40 NAP-RESOURCE)
 // 1 << 16 (65536) RETIRED — was identity:decrypt (v1.8); removed as a spec
 // violation. Left as a permanent gap; do NOT reuse this bit (persisted ACL
 // grants are bitfields — reassigning it would silently re-grant old state).

@@ -21,7 +21,7 @@ Every function is pure: state in, state out. No I/O, no timers, no globals — t
 The module exposes two parallel capability surfaces:
 
 - **Bitfield constants** (`CAP_RELAY_READ`, `CAP_RELAY_WRITE`, `CAP_STATE_READ`, `CAP_STATE_WRITE`, …) — the compact per-entry representation used inside `AclState.entries[*].caps`.
-- **Current draft NIP-5D capability strings** (`CAP_IDENTITY_READ`, `CAP_KEYS_BIND`, `CAP_KEYS_FORWARD`, `CAP_MEDIA_CONTROL`, `CAP_NOTIFY_SEND`, `CAP_NOTIFY_CHANNEL`, `CAP_THEME_READ`) — plus the retained `relay:*`, `cache:*`, `hotkey:forward`, and `state:*` literals. These strings are what `resolveCapabilitiesNub()` returns and what `@kehto/runtime`'s enforce gate grants/revokes against. The earlier `sign:event`/`sign:nip04`/`sign:nip44` entries were intentionally removed — the current NIP-5D draft does not expose napplet-visible signing.
+- **Current draft NIP-5D capability strings** (`CAP_IDENTITY_READ`, `CAP_KEYS_BIND`, `CAP_KEYS_FORWARD`, `CAP_MEDIA_CONTROL`, `CAP_NOTIFY_SEND`, `CAP_NOTIFY_CHANNEL`, `CAP_THEME_READ`) — plus the retained `relay:*`, `cache:*`, `hotkey:forward`, and `state:*` literals. These strings are what `resolveCapabilitiesNap()` returns and what `@kehto/runtime`'s enforce gate grants/revokes against. The earlier `sign:event`/`sign:nip04`/`sign:nip44` entries were intentionally removed — the current NIP-5D draft does not expose napplet-visible signing.
 
 ## Quick Start
 
@@ -63,8 +63,8 @@ check(state, id, CAP_RELAY_WRITE); // true (restored)
 - `AclEntry` — per-identity entry (`caps`, `blocked`, `quota`)
 - `Identity` — `{ dTag, hash }` pair (NIP-5D 2-segment identity)
 - `Capability` — union of every canonical capability string
-- `CapabilityResolution` — `{ senderCap, recipientCap }` returned by `resolveCapabilitiesNub`
-- `NubMessage` — minimal shape consumed by `resolveCapabilitiesNub` (`{ type: string }`)
+- `CapabilityResolution` — `{ senderCap, recipientCap }` returned by `resolveCapabilitiesNap`
+- `NapMessage` — minimal shape consumed by `resolveCapabilitiesNap` (`{ type: string }`)
 
 ### Constants — bit flags
 - `CAP_RELAY_READ`, `CAP_RELAY_WRITE`, `CAP_CACHE_READ`, `CAP_CACHE_WRITE`
@@ -87,7 +87,7 @@ check(state, id, CAP_RELAY_WRITE); // true (restored)
 ### Capability resolution
 - `check` — evaluate identity + capability against state
 - `toKey` — compute the `dTag:hash` composite key
-- `resolveCapabilitiesNub` — map a NIP-5D NAP envelope type to the required sender/recipient capabilities across the current supported domains
+- `resolveCapabilitiesNap` — map a NIP-5D NAP envelope type to the required sender/recipient capabilities across the current supported domains
 
 ### Migration
 - `migrateAclState` — one-shot migration from the legacy 3-segment `pubkey:dTag:hash` keys to the v1.2 2-segment `dTag:hash` keys; idempotent (returns the same reference when nothing to migrate)

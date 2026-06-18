@@ -2,11 +2,11 @@
  * cvm-types.ts — NAP-CVM (ContextVM bridge) wire + MCP value types.
  *
  * Kehto-internal model for the NAP-CVM wire contract (upstream draft:
- * napplet/nubs NAP-CVM, namespace `window.napplet.cvm`). The literal `type`
+ * napplet/naps NAP-CVM, namespace `window.napplet.cvm`). The literal `type`
  * strings and field names below MUST match the upstream `@napplet/nap/cvm`
  * envelopes byte-for-byte so the shim client interoperates; the types live
  * here (not imported from `@napplet/core`) per the same convention as
- * NUB-RESOURCE (PROJECT.md Decision #31) to avoid a peer-dependency version
+ * NAP-RESOURCE (PROJECT.md Decision #31) to avoid a peer-dependency version
  * bump.
  *
  * ContextVM transports MCP JSON-RPC over Nostr (kind 25910), optionally

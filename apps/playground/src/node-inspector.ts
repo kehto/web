@@ -163,7 +163,7 @@ function renderAclRoleContent(_detail: NodeDetail): string {
 function renderRuntimeRoleContent(_detail: NodeDetail): string {
   const services = getDemoServiceNames();
   return `
-    <div style="font-size:11px;color:var(--nap-theme-muted, #7981a0);margin-bottom:6px">Registered NUBs</div>
+    <div style="font-size:11px;color:var(--nap-theme-muted, #7981a0);margin-bottom:6px">Registered NAPs</div>
     <ul style="list-style:none;padding:0;margin:0">
       ${services.map(s => {
         const isStub = STUB_ONLY_SERVICES.includes(s);

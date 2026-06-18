@@ -36,13 +36,13 @@ test('nap-theme: fixture reaches ready via storage probe; theme.get envelope rou
 
   // Wait for the storage.get envelope (dispatched on init).
   await page.waitForFunction(
-    (wid) => window.__getNubMessage__(wid, 'storage.get') !== null,
+    (wid) => window.__getNapMessage__(wid, 'storage.get') !== null,
     windowId,
     { timeout: 10_000 },
   );
 
   const storageEnvelope = await page.evaluate(
-    (wid) => window.__getNubMessage__(wid, 'storage.get'),
+    (wid) => window.__getNapMessage__(wid, 'storage.get'),
     windowId,
   );
   expect(storageEnvelope).not.toBeNull();
@@ -62,13 +62,13 @@ test('nap-theme: fixture reaches ready via storage probe; theme.get envelope rou
   );
 
   await page.waitForFunction(
-    (wid) => window.__getNubMessage__(wid, 'theme.get') !== null,
+    (wid) => window.__getNapMessage__(wid, 'theme.get') !== null,
     windowId,
     { timeout: 8_000 },
   );
 
   const themeEnvelope = await page.evaluate(
-    (wid) => window.__getNubMessage__(wid, 'theme.get'),
+    (wid) => window.__getNapMessage__(wid, 'theme.get'),
     windowId,
   );
   expect(themeEnvelope).not.toBeNull();

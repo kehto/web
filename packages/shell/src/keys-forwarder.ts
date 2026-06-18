@@ -1,14 +1,14 @@
 /**
  * keys-forwarder.ts — Shell-side host keydown listener that forwards events
- * to registered napplets as `keys.forward` envelopes (Plan 12-11, NUB-05
+ * to registered napplets as `keys.forward` envelopes (Plan 12-11, NAP-05
  * shell-side half).
  *
  * Per `@napplet/nap/keys`, `keys.forward` is fire-and-forget (no result
- * envelope, no correlation id). Field names follow the nub convention:
+ * envelope, no correlation id). Field names follow the nap convention:
  * `{ ctrl, alt, shift, meta }` — NOT the DOM-style `ctrlKey`/etc.
  *
  * Capability gate: only forwards to napplets whose ACL grants the
- * `keys:forward` capability (per Plan 12-10 `resolveCapabilitiesNub` 'keys'
+ * `keys:forward` capability (per Plan 12-10 `resolveCapabilitiesNap` 'keys'
  * case). The caller wires the cap-lookup via the `hasKeysForwardCap` dep so
  * this module stays free of any direct ACL-store dependency.
  *

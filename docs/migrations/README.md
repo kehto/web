@@ -14,8 +14,8 @@ For current documentation, see:
 | File | Scope | Captured at |
 |------|-------|-------------|
 | [`GAP-ANALYSIS.md`](./GAP-ANALYSIS.md) | RUNTIME-SPEC v2.0.0 → NIP-5D v0.1.0 boundary contracts and change inventory | 2026-04-07 |
-| [`ACL-MIGRATION.md`](./ACL-MIGRATION.md) | `@kehto/acl` identity schema + capability-to-NUB mapping migration | 2026-04-07 |
-| [`RUNTIME-MIGRATION.md`](./RUNTIME-MIGRATION.md) | `@kehto/runtime` NUB dispatch, AUTH removal, session identity anchor | 2026-04-07 |
+| [`ACL-MIGRATION.md`](./ACL-MIGRATION.md) | `@kehto/acl` identity schema + capability-to-NAP mapping migration | 2026-04-07 |
+| [`RUNTIME-MIGRATION.md`](./RUNTIME-MIGRATION.md) | `@kehto/runtime` NAP dispatch, AUTH removal, session identity anchor | 2026-04-07 |
 | [`SERVICES-MIGRATION.md`](./SERVICES-MIGRATION.md) | `@kehto/services` ServiceHandler interface + per-handler migration | 2026-04-07 |
 | [`SHELL-MIGRATION.md`](./SHELL-MIGRATION.md) | `@kehto/shell` envelope guard, `window.nostr` removal, capability advertisement | 2026-04-07 |
 | [`v1.2-NIP-5D-AUDIT.md`](./v1.2-NIP-5D-AUDIT.md) | v1.2 per-package drift audit vs canonical NIP-5D + 8 `@napplet/nap-*` packages | 2026-04-17 |

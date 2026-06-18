@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-15
 **Status:** Approved (autonomous /goal execution)
-**Spec source:** `napplet/nubs` `NAP-INTENT.md` (draft)
+**Spec source:** `napplet/naps` `NAP-INTENT.md` (draft)
 **SDK side:** `napplet/web` `packages/nap/src/intent/*` + `packages/core/src/types.ts` (changeset `nap-intent`, not yet published to `@napplet/core@0.5.0`)
 
 ## Goal
@@ -80,8 +80,8 @@ route/query but not publish, sign, or steal focus.
 - `domain-handlers.ts`: add `intent` to `RuntimeDomainHandlers`, widen the
   `handleServiceOnlyMessage` name union, and route
   `intent: (windowId, msg) => handleServiceOnlyMessage(context, 'intent', …)`.
-- `runtime.ts`: `nubDispatch.registerNub('intent', adapt(handlers.intent));`
-  (the registerNub lesson — registering the service is not enough; the domain
+- `runtime.ts`: `napDispatch.registerNap('intent', adapt(handlers.intent));`
+  (the registerNap lesson — registering the service is not enough; the domain
   must be wired into the dispatcher).
 
 ### 4. Services — `@kehto/services`

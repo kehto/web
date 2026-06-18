@@ -63,7 +63,7 @@ function laneIndexOf(lanes: string[], name: string): number {
 /**
  * Resolve from/to lane X-coordinates for a message given the dynamic lane list.
  *
- * Envelope-shape messages (NUB) are always shell↔napplet; lane is resolved
+ * Envelope-shape messages (NAP) are always shell↔napplet; lane is resolved
  * via msg.windowId → NappletInfo.name. Legacy NIP-01 bot:response and
  * chat:message topics are preserved as special cases where the named
  * napplet is still present in the lane list.

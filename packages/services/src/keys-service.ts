@@ -1,5 +1,5 @@
 /**
- * keys-service.ts — NIP-5D keys NUB reference document-level listener implementation.
+ * keys-service.ts — NIP-5D keys NAP reference document-level listener implementation.
  *
  * Handles the 3 napplet -> shell request types from @napplet/nap/keys:
  *   - keys.forward          -> invokes options.onForward (hotkey passthrough, fire-and-forget)
@@ -318,8 +318,8 @@ export function createKeysService(
     name: 'keys',
     version: KEYS_SERVICE_VERSION,
     description: options.hostBridge
-      ? 'NIP-5D keys NUB reference handler (host-bridge delegated)'
-      : 'NIP-5D keys NUB reference handler (document-level chord listener)',
+      ? 'NIP-5D keys NAP reference handler (host-bridge delegated)'
+      : 'NIP-5D keys NAP reference handler (document-level chord listener)',
   };
 
   function chordSpecKey(spec: {

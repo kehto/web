@@ -1,5 +1,5 @@
 /**
- * theme-service.ts — NIP-5D theme NUB reference service.
+ * theme-service.ts — NIP-5D theme NAP reference service.
  *
  * Handles the single napplet->shell request type from @napplet/nap/theme:
  *   - `theme.get`         -> `theme.get.result { theme }` (current theme)
@@ -118,7 +118,7 @@ export interface ThemeService {
 }
 
 /**
- * Create a theme service that handles the NIP-5D `theme.*` NUB.
+ * Create a theme service that handles the NIP-5D `theme.*` NAP.
  *
  * Answers `theme.get` with the current theme (default or
  * `options.initialTheme`). Exposes `publishTheme(theme)` for the host app to
@@ -143,7 +143,7 @@ export function createThemeService(options: ThemeServiceOptions = {}): ThemeServ
   const descriptor: ServiceDescriptor = {
     name: 'theme',
     version: THEME_SERVICE_VERSION,
-    description: 'NIP-5D theme NUB reference handler',
+    description: 'NIP-5D theme NAP reference handler',
   };
 
   const handler: ServiceHandler = {

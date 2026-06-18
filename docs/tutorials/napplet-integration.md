@@ -2,9 +2,9 @@
 
 This guide is for authors building a napplet that will be hosted by Kehto.
 
-## Step 1: Declare required NUBs
+## Step 1: Declare required NAPs
 
-Every napplet should declare the NUBs it requires in its NIP-5A manifest build configuration.
+Every napplet should declare the NAPs it requires in its NIP-5A manifest build configuration.
 
 ```ts
 // vite.config.ts
@@ -21,7 +21,7 @@ export default defineConfig({
 });
 ```
 
-Use short NUB names such as `identity`, `relay`, `storage`, `notify`, `keys`, `media`, `config`, `resource`, and `connect`.
+Use short NAP names such as `identity`, `relay`, `storage`, `notify`, `keys`, `media`, `config`, `resource`, and `connect`.
 
 ## Step 2: Check hosted support
 
@@ -38,12 +38,12 @@ if (!canPublish) {
 
 Prefer graceful degradation for optional features. Required features should be declared in `requires` so the shell can reject or warn at load time.
 
-## Step 3: Use NUB helpers
+## Step 3: Use NAP helpers
 
-Use `@napplet/nub` helpers or the published napplet SDK surface for NUB operations. Do not send unclassified raw envelopes unless the host/playground has explicitly documented the exception.
+Use `@napplet/nap` helpers or the published napplet SDK surface for NAP operations. Do not send unclassified raw envelopes unless the host/playground has explicitly documented the exception.
 
 ```ts
-import { relayPublish } from '@napplet/nub/relay';
+import { relayPublish } from '@napplet/nap/relay';
 
 await relayPublish({
   kind: 1,
