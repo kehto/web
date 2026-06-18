@@ -1,0 +1,29 @@
+name: Changeset Guard
+
+on:
+  pull_request:
+    paths:
+      - '.changeset/**'
+      - '**/CHANGELOG.md'
+      - '**/package.json'
+      - 'scripts/check-changeset-deletions.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  changeset-deletions:
+    name: Changeset deletion guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check changeset deletions
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: node scripts/check-changeset-deletions.mjs
