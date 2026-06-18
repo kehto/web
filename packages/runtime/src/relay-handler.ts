@@ -13,6 +13,7 @@ type RuntimeRelayMessage = RelayMessage & {
   filters?: NostrFilter[];
   event?: NostrEvent;
   id?: string;
+  relay?: string;
 };
 
 type RelayHandlerContext = {
@@ -106,7 +107,8 @@ function handleRelaySubscribe(
     return;
   }
 
-  deliverFromRuntimeBackends(context, windowId, subId, subKey, filters, isShellKind, deliver);
+  const relayHint = typeof m.relay === 'string' && m.relay.length > 0 ? m.relay : undefined;
+  deliverFromRuntimeBackends(context, windowId, subId, subKey, filters, isShellKind, deliver, relayHint);
 }
 
 function deliverFromRuntimeBackends(
@@ -117,6 +119,7 @@ function deliverFromRuntimeBackends(
   filters: NostrFilter[],
   isShellKind: boolean,
   deliver: (event: NostrEvent) => void,
+  relayHint?: string,
 ): void {
   const { hooks } = context;
   const cache = hooks.cache;
@@ -136,7 +139,7 @@ function deliverFromRuntimeBackends(
   }
   if (!pool?.isAvailable() || isShellKind) return;
 
-  const relayUrls = pool.selectRelayTier(filters);
+  const relayUrls = relayHint ? [relayHint] : pool.selectRelayTier(filters);
   let eoseSent = false;
   const eoseFallbackTimer = setTimeout(() => {
     if (!eoseSent) {
