@@ -1,5 +1,39 @@
 # @kehto/acl
 
+## 0.12.0
+
+### Minor Changes
+
+- 3a4d2cd: Make INC the only event-channel protocol vocabulary and remove pre-INC aliases.
+
+  **@kehto/runtime** now registers and dispatches only canonical `inc.*` message
+  types, with the runtime handler renamed to INC terminology throughout.
+
+  **@kehto/acl** now resolves only canonical `inc:*` capability actions for
+  event-channel permissions.
+
+  **@kehto/services** now emits and subscribes through canonical `inc.emit` and
+  `inc.event` runtime topics.
+
+  **@kehto/shell** now reports NAP-INC capability protocols only and no longer
+  mirrors older event-channel protocol strings.
+
+- 8ca8fc1: Complete the NAP rename: remove retired helper vocabulary from the public API
+  and the `shell.init` wire (clean break, no aliases).
+
+  **@kehto/acl**: Export the NAP message and capability resolver names only:
+  `NapMessage` and `resolveCapabilitiesNap`.
+
+  **@kehto/runtime**: Export the NAP enforcement, storage, message, and resolver
+  names only: `createNapEnforceGate`, `NapEnforceConfig`, `handleStorageNap`,
+  `NapMessage`, and `resolveCapabilitiesNap`.
+
+  **@kehto/shell**: Remove the retired mirror field from `ShellCapabilities` and
+  the dual-emit in `buildShellCapabilities` — the `shell.init` payload now carries
+  only the NAP-vocabulary `naps` array plus the conformant `domains`/`protocols`
+  shape. Drop the retired capability-lookup alias and re-export only the NAP
+  enforcement/message names.
+
 ## 0.11.1
 
 ### Patch Changes
