@@ -17,7 +17,7 @@ test.use({ baseURL: 'http://localhost:4174' });
 test.describe.configure({ mode: 'serial' });
 
 const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]/;
-const ENVELOPE_TYPE_RE = /shell\.ready|shell\.init|identity\.|relay\.|notify\.|storage\.|inc\.|ifc\.|theme\.|keys\.|media\./;
+const ENVELOPE_TYPE_RE = /shell\.ready|shell\.init|identity\.|relay\.|notify\.|storage\.|inc\.|inc\.|theme\.|keys\.|media\./;
 
 test('debugger displays canonical envelope type strings after host action', async ({ page }) => {
   await demoBeforeEach(page);

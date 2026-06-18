@@ -120,7 +120,7 @@ The `ShellBridge` public interface (defined at `shell-bridge.ts` lines 40–110)
 |--------|--------|--------|
 | `handleMessage(event)` | Guard updated (see 1.2) | Drops NIP-5D envelopes under old guard |
 | `sendChallenge(windowId)` | **REMOVE** | AUTH handshake eliminated — see RUNTIME-MIGRATION.md section 2 |
-| `injectEvent(topic, payload)` | **REVIEW** | Legacy behavior: emits `IPC_PEER` kind event via `runtime.injectEvent()`. Under NIP-5D, shell-originated events should use `ifc.event` envelope format. Document both and flag for update |
+| `injectEvent(topic, payload)` | **REVIEW** | Legacy behavior: emits `IPC_PEER` kind event via `runtime.injectEvent()`. Under NIP-5D, shell-originated events should use `inc.event` envelope format. Document both and flag for update |
 | `registerConsentHandler(handler)` | **UNCHANGED** | Consent gating for destructive signing kinds (0, 3, 5, 10002) remains in NIP-5D |
 | `destroy()` | **UNCHANGED** | Teardown semantics are protocol-agnostic |
 | `readonly runtime` | **UNCHANGED** | Runtime instance access unchanged |
@@ -133,7 +133,7 @@ Under RUNTIME-SPEC v2.0.0, `sendChallenge(windowId)` sent the NIP-42 AUTH challe
 
 Current behavior: `runtime.injectEvent(topic, payload)` emits an `IPC_PEER` kind event (`BusKind.IPC_PEER` = kind 29003) with a `t` tag set to `topic`. Under the old wire format, napplets received this as `["EVENT", "__shell__", { kind: 29003, tags: [["t", topic]], ... }]`.
 
-Target behavior: Under NIP-5D, shell-originated broadcast events should be emitted as `ifc.event` envelopes: `{ type: "ifc.event", topic: topic, payload: payload, sender: "__shell__" }`. The `injectEvent` method signature is unchanged but the runtime's internal implementation of `injectEvent` should emit the new envelope format for NIP-5D sessions. A dual-mode implementation (legacy for authenticated sessions, NIP-5D envelope for source-identity sessions) is needed during the transition period.
+Target behavior: Under NIP-5D, shell-originated broadcast events should be emitted as `inc.event` envelopes: `{ type: "inc.event", topic: topic, payload: payload, sender: "__shell__" }`. The `injectEvent` method signature is unchanged but the runtime's internal implementation of `injectEvent` should emit the new envelope format for NIP-5D sessions. A dual-mode implementation (legacy for authenticated sessions, NIP-5D envelope for source-identity sessions) is needed during the transition period.
 
 ---
 
@@ -537,7 +537,7 @@ The shim comment ("TODO: Shell populates supported capabilities at iframe creati
 
 **At iframe creation, the shell knows statically:**
 
-1. Which NUB handlers are registered with the runtime (e.g., relay, signer, storage, ifc). This is the set of service handlers and built-in domain handlers wired into `createRuntime()` / the `ShellAdapter`.
+1. Which NUB handlers are registered with the runtime (e.g., relay, signer, storage, inc). This is the set of service handlers and built-in domain handlers wired into `createRuntime()` / the `ShellAdapter`.
 2. Which sandbox permissions the iframe has — derived from the iframe element's `sandbox` attribute tokens (e.g., `"allow-scripts allow-popups"` → `['popups']`).
 
 This information is available synchronously before the iframe loads any code, making it suitable for injection at creation time.
@@ -546,7 +546,7 @@ This information is available synchronously before the iframe loads any code, ma
 
 ```typescript
 interface ShellCapabilities {
-  nubs: string[];      // e.g., ['relay', 'signer', 'storage', 'ifc']
+  nubs: string[];      // e.g., ['relay', 'signer', 'storage', 'inc']
   sandbox: string[];   // e.g., ['popups', 'modals'] — derived from sandbox attribute tokens
 }
 ```
@@ -573,7 +573,7 @@ This check is synchronous and O(n) on the capability list size (typically 4–8 
 | `'relay'` | `relayPool` hooks provided and relay subscription handler active |
 | `'signer'` | `auth.getSigner()` returns non-null |
 | `'storage'` | `statePersistence` hooks provided |
-| `'ifc'` | IFC handler registered (default: always present) |
+| `'inc'` | INC handler registered (default: always present) |
 | `'theme'` | Theme NUB handler registered (optional extension) |
 
 ---
@@ -630,9 +630,9 @@ These are two distinct queries that answer different questions:
 | `shell.supports('popups')` | `window.napplet.shell.supports()` | iframe has `allow-popups` in sandbox | Browser sandbox permission |
 | `services.has('audio')` | `window.napplet.services.has()` | Audio service handler registered | Service extension layer |
 
-**NUBs are protocol-level capabilities** (relay, signer, storage, ifc, theme). A NUB being available means the shell's runtime will recognize messages of that domain type and respond to them. NUBs are defined in the NIP-5D specification.
+**NUBs are protocol-level capabilities** (relay, signer, storage, inc, theme). A NUB being available means the shell's runtime will recognize messages of that domain type and respond to them. NUBs are defined in the NIP-5D specification.
 
-**Services are optional extensions** registered via `ServiceRegistry` (audio, notifications, custom handlers). A service being available means the shell has a handler that processes `ifc.emit` messages with the service's topic prefix.
+**Services are optional extensions** registered via `ServiceRegistry` (audio, notifications, custom handlers). A service being available means the shell has a handler that processes `inc.emit` messages with the service's topic prefix.
 
 **Implementation distinction:**
 

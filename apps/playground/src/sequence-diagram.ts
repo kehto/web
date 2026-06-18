@@ -189,7 +189,7 @@ function formatLabel(msg: TappedMessage): string {
       return msg.parsed.success ? 'OK (accepted)' : 'OK (denied)';
     case 'EVENT':
       // Raw kind labels for any NIP-01 event traffic.
-      if (event?.kind === 29003) return `ifc:${topic ?? 'unknown'}`;
+      if (event?.kind === 29003) return `inc:${topic ?? 'unknown'}`;
       if (msg.parsed.topic) return `relay ${msg.parsed.topic}`;
       return `EVENT k:${msg.parsed.eventKind || '?'}`;
     case 'REQ':

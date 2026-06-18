@@ -106,7 +106,7 @@ export function routeServiceMessage(
 
 **New routing logic (NIP-5D):**
 
-The function signature changes fundamentally — it receives a `NappletMessage` instead of a raw event and topic. Routing is by `message.type` domain prefix for NUB-domain services, and by `message.topic` prefix for IFC-routed services:
+The function signature changes fundamentally — it receives a `NappletMessage` instead of a raw event and topic. Routing is by `message.type` domain prefix for NUB-domain services, and by `message.topic` prefix for INC-routed services:
 
 ```typescript
 export function routeServiceMessage(
@@ -125,12 +125,12 @@ export function routeServiceMessage(
     return true;
   }
 
-  // IFC-routed services: audio and notifications receive ifc.emit with topic prefix
-  if (message.type === 'ifc.emit' && typeof message.topic === 'string') {
+  // INC-routed services: audio and notifications receive inc.emit with topic prefix
+  if (message.type === 'inc.emit' && typeof message.topic === 'string') {
     const prefix = message.topic.split(':')[0];
-    const ifcHandler = services[prefix];
-    if (ifcHandler) {
-      ifcHandler.handleMessage(windowId, message, send);
+    const incHandler = services[prefix];
+    if (incHandler) {
+      incHandler.handleMessage(windowId, message, send);
       return true;
     }
   }
@@ -143,7 +143,7 @@ export function routeServiceMessage(
 - `event: NostrEvent` and `topic: string` parameters are removed — these were NIP-01 artifacts
 - The `['EVENT', event]` wrap in the function body is removed — `handleMessage` receives the envelope directly
 - NUB-domain services are routed by `message.type.split('.')[0]` (`'signer.signEvent'` → `'signer'`)
-- IFC-routed services (audio, notifications) are still routed by topic prefix, but from `message.topic` (a flat field) rather than from `event.tags`
+- INC-routed services (audio, notifications) are still routed by topic prefix, but from `message.topic` (a flat field) rather than from `event.tags`
 - The function signature change is a **breaking change at the call site** in `runtime.ts`
 
 ---
@@ -233,8 +233,8 @@ This matches the runtime's own dual-mode strategy (RUNTIME-MIGRATION.md section 
 | `packages/runtime/src/types.ts` | Update `ServiceHandler.handleMessage` and `SendToNapplet` signatures | All service implementations break at compile time (good — catches missed migrations) |
 | `packages/runtime/src/service-dispatch.ts` | Rewrite `routeServiceMessage()` — remove event/topic params, route by `message.type` | All call sites in `runtime.ts` must be updated |
 | `packages/services/src/signer-service.ts` | Full `handleMessage` rewrite | NUB-domain service: receives `signer.*` messages directly |
-| `packages/services/src/audio-service.ts` | Full `handleMessage` rewrite | IFC-routed service: receives `ifc.emit` with `audio:*` topic |
-| `packages/services/src/notification-service.ts` | Full `handleMessage` rewrite | IFC-routed service: receives `ifc.emit` with `notifications:*` topic |
+| `packages/services/src/audio-service.ts` | Full `handleMessage` rewrite | INC-routed service: receives `inc.emit` with `audio:*` topic |
+| `packages/services/src/notification-service.ts` | Full `handleMessage` rewrite | INC-routed service: receives `inc.emit` with `notifications:*` topic |
 | `packages/services/src/relay-pool-service.ts` | Full `handleMessage` rewrite | Relay NUB service: receives `relay.*` envelopes |
 | `packages/services/src/cache-service.ts` | Full `handleMessage` rewrite | Relay NUB service: receives `relay.*` envelopes |
 | `packages/services/src/coordinated-relay.ts` | Full `handleMessage` rewrite | Composite relay NUB service: receives `relay.*` envelopes |
@@ -414,31 +414,31 @@ Three helper functions exist solely to bridge the array format:
 
 #### 2.2.2 New Message Shapes
 
-Audio is an **IFC-routed service** under NIP-5D. It does not receive a NUB-domain message like signer (which receives `signer.*` types directly). Instead, audio messages arrive as `ifc.emit` envelopes with `topic` matching `audio:*`. The `routeServiceMessage()` function routes by `message.topic` prefix when `message.type === 'ifc.emit'`.
+Audio is an **INC-routed service** under NIP-5D. It does not receive a NUB-domain message like signer (which receives `signer.*` types directly). Instead, audio messages arrive as `inc.emit` envelopes with `topic` matching `audio:*`. The `routeServiceMessage()` function routes by `message.topic` prefix when `message.type === 'inc.emit'`.
 
 **Inbound (napplet → shell):**
 
 | Action | Old Format | New Format |
 |--------|-----------|-----------|
-| `register` | `['EVENT', {kind:29003, tags:[['t','audio:register']], content:'{"nappletClass":"...","title":"..."}'}]` | `{type:'ifc.emit', topic:'audio:register', payload:{nappletClass:'...', title:'...'}}` |
-| `unregister` | `['EVENT', {kind:29003, tags:[['t','audio:unregister']], content:'{}'}]` | `{type:'ifc.emit', topic:'audio:unregister', payload:{}}` |
-| `state-changed` | `['EVENT', {kind:29003, tags:[['t','audio:state-changed']], content:'{"title":"..."}'}]` | `{type:'ifc.emit', topic:'audio:state-changed', payload:{title:'...'}}` |
-| `mute` | `['EVENT', {kind:29003, tags:[['t','audio:mute']], content:'{"windowId":"...","muted":true}'}]` | `{type:'ifc.emit', topic:'audio:mute', payload:{windowId:'...', muted:true}}` |
+| `register` | `['EVENT', {kind:29003, tags:[['t','audio:register']], content:'{"nappletClass":"...","title":"..."}'}]` | `{type:'inc.emit', topic:'audio:register', payload:{nappletClass:'...', title:'...'}}` |
+| `unregister` | `['EVENT', {kind:29003, tags:[['t','audio:unregister']], content:'{}'}]` | `{type:'inc.emit', topic:'audio:unregister', payload:{}}` |
+| `state-changed` | `['EVENT', {kind:29003, tags:[['t','audio:state-changed']], content:'{"title":"..."}'}]` | `{type:'inc.emit', topic:'audio:state-changed', payload:{title:'...'}}` |
+| `mute` | `['EVENT', {kind:29003, tags:[['t','audio:mute']], content:'{"windowId":"...","muted":true}'}]` | `{type:'inc.emit', topic:'audio:mute', payload:{windowId:'...', muted:true}}` |
 
 **Outbound (shell → napplet) — mute response only:**
 
 | Response | Old Format | New Format |
 |----------|-----------|-----------|
-| Mute notification | `['EVENT', '__shell__', {kind:29003, tags:[['t','napplet:audio-muted']], content:'{"muted":true}'}]` | `{type:'ifc.event', topic:'napplet:audio-muted', payload:{muted:true}}` |
+| Mute notification | `['EVENT', '__shell__', {kind:29003, tags:[['t','napplet:audio-muted']], content:'{"muted":true}'}]` | `{type:'inc.event', topic:'napplet:audio-muted', payload:{muted:true}}` |
 
 #### 2.2.3 New Code Structure
 
-Target `handleMessage` receives an `ifc.emit` envelope and reads flat fields:
+Target `handleMessage` receives an `inc.emit` envelope and reads flat fields:
 
 ```typescript
 handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
-  // Only handle ifc.emit messages with audio:* topic
-  if (message.type !== 'ifc.emit') return;
+  // Only handle inc.emit messages with audio:* topic
+  if (message.type !== 'inc.emit') return;
   const topic = message.topic as string | undefined;
   if (!topic?.startsWith('audio:')) return;
 
@@ -472,7 +472,7 @@ handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMess
         source.muted = muted;
         notify();
       }
-      send({ type: 'ifc.event', topic: 'napplet:audio-muted', payload: { muted } });
+      send({ type: 'inc.event', topic: 'napplet:audio-muted', payload: { muted } });
       break;
     }
   }
@@ -516,23 +516,23 @@ Same three helper functions exist: `parseContent`, `extractTopic`, `createRespon
 
 #### 2.3.2 New Message Shapes
 
-Notifications is also an **IFC-routed service** — receives `ifc.emit` envelopes with `notifications:*` topics.
+Notifications is also an **INC-routed service** — receives `inc.emit` envelopes with `notifications:*` topics.
 
 **Inbound (napplet → shell):**
 
 | Action | Old Format | New Format |
 |--------|-----------|-----------|
-| `create` | `['EVENT', {kind:29003, tags:[['t','notifications:create']], content:'{"title":"...","body":"..."}'}]` | `{type:'ifc.emit', topic:'notifications:create', payload:{title:'...', body:'...'}}` |
-| `dismiss` | `['EVENT', {kind:29003, tags:[['t','notifications:dismiss']], content:'{"id":"notif-..."}'}]` | `{type:'ifc.emit', topic:'notifications:dismiss', payload:{id:'notif-...'}}` |
-| `read` | `['EVENT', {kind:29003, tags:[['t','notifications:read']], content:'{"id":"notif-..."}'}]` | `{type:'ifc.emit', topic:'notifications:read', payload:{id:'notif-...'}}` |
-| `list` | `['EVENT', {kind:29003, tags:[['t','notifications:list']], content:'{}'}]` | `{type:'ifc.emit', topic:'notifications:list', payload:{}}` |
+| `create` | `['EVENT', {kind:29003, tags:[['t','notifications:create']], content:'{"title":"...","body":"..."}'}]` | `{type:'inc.emit', topic:'notifications:create', payload:{title:'...', body:'...'}}` |
+| `dismiss` | `['EVENT', {kind:29003, tags:[['t','notifications:dismiss']], content:'{"id":"notif-..."}'}]` | `{type:'inc.emit', topic:'notifications:dismiss', payload:{id:'notif-...'}}` |
+| `read` | `['EVENT', {kind:29003, tags:[['t','notifications:read']], content:'{"id":"notif-..."}'}]` | `{type:'inc.emit', topic:'notifications:read', payload:{id:'notif-...'}}` |
+| `list` | `['EVENT', {kind:29003, tags:[['t','notifications:list']], content:'{}'}]` | `{type:'inc.emit', topic:'notifications:list', payload:{}}` |
 
 **Outbound (shell → napplet):**
 
 | Response | Old Format | New Format |
 |----------|-----------|-----------|
-| Create ack | `['EVENT', '__shell__', {kind:29003, tags:[['t','notifications:created']], content:'{"id":"notif-..."}'}]` | `{type:'ifc.event', topic:'notifications:created', payload:{id:'notif-...'}}` |
-| List response | `['EVENT', '__shell__', {kind:29003, tags:[['t','notifications:listed']], content:'{"notifications":[...]}'}]` | `{type:'ifc.event', topic:'notifications:listed', payload:{notifications:[...]}}` |
+| Create ack | `['EVENT', '__shell__', {kind:29003, tags:[['t','notifications:created']], content:'{"id":"notif-..."}'}]` | `{type:'inc.event', topic:'notifications:created', payload:{id:'notif-...'}}` |
+| List response | `['EVENT', '__shell__', {kind:29003, tags:[['t','notifications:listed']], content:'{"notifications":[...]}'}]` | `{type:'inc.event', topic:'notifications:listed', payload:{notifications:[...]}}` |
 
 #### 2.3.3 New Code Structure
 
@@ -540,7 +540,7 @@ Target `handleMessage` — same structural pattern as audio:
 
 ```typescript
 handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
-  if (message.type !== 'ifc.emit') return;
+  if (message.type !== 'inc.emit') return;
   const topic = message.topic as string | undefined;
   if (!topic?.startsWith('notifications:')) return;
 
@@ -557,7 +557,7 @@ handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMess
       list.push(notification);
       enforceLimit(list);
       notify();
-      send({ type: 'ifc.event', topic: 'notifications:created', payload: { id } });
+      send({ type: 'inc.event', topic: 'notifications:created', payload: { id } });
       break;
     }
     case 'dismiss': {
@@ -587,7 +587,7 @@ handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMess
     }
     case 'list': {
       const windowNotifs = notifications.get(windowId) ?? [];
-      send({ type: 'ifc.event', topic: 'notifications:listed', payload: { notifications: windowNotifs } });
+      send({ type: 'inc.event', topic: 'notifications:listed', payload: { notifications: windowNotifs } });
       break;
     }
   }
@@ -956,8 +956,8 @@ runtime.registerService('relay', createCoordinatedRelay({ relayPool: myPool, cac
 | `packages/runtime/src/types.ts` | Interface update | `ServiceHandler.handleMessage` and `SendToNapplet` signatures change; breaks all six service implementations at compile time |
 | `packages/runtime/src/service-dispatch.ts` | Rewrite | `routeServiceMessage()` routing changes from topic-prefix + event wrap to `message.type` domain prefix |
 | `packages/services/src/signer-service.ts` | Full `handleMessage` rewrite | NUB-domain service; remove kind 29001 check, tag extraction, JSON.parse; switch on `message.type`; remove `BusKind` import |
-| `packages/services/src/audio-service.ts` | Full `handleMessage` rewrite + helper removal | IFC-routed; remove `parseContent`, `extractTopic`, `createResponseEvent`; read from `message.topic` and `message.payload`; remove `BusKind` import |
-| `packages/services/src/notification-service.ts` | Full `handleMessage` rewrite + helper removal | IFC-routed; same pattern as audio; `BusKind` import removed |
+| `packages/services/src/audio-service.ts` | Full `handleMessage` rewrite + helper removal | INC-routed; remove `parseContent`, `extractTopic`, `createResponseEvent`; read from `message.topic` and `message.payload`; remove `BusKind` import |
+| `packages/services/src/notification-service.ts` | Full `handleMessage` rewrite + helper removal | INC-routed; same pattern as audio; `BusKind` import removed |
 | `packages/services/src/relay-pool-service.ts` | Full `handleMessage` rewrite | Relay NUB service; replace verb string checks with `message.type`; replace array positional reads with flat field reads; update `send()` calls |
 | `packages/services/src/cache-service.ts` | Full `handleMessage` rewrite | Relay NUB service; same pattern as relay-pool; one-shot query logic preserved |
 | `packages/services/src/coordinated-relay.ts` | Full `handleMessage` rewrite | Composite relay NUB service; verb routing → type routing; update `send()` calls in `deliver()` and `maybeSendEose()`; internal coordination logic unchanged |
@@ -968,8 +968,8 @@ The recommended migration sequence minimizes broken states:
 
 1. **Update `ServiceHandler` interface in `types.ts`** — changes `message: unknown[]` to `message: NappletMessage` and `send` callback type. This will break all six service implementations at compile time, making all remaining migrations visible.
 2. **Update `service-dispatch.ts` routing** — change `routeServiceMessage()` signature and routing logic to accept NUB envelopes.
-3. **Migrate `signer-service.ts`** — NUB-domain service, most complex (seven operations, consent gating). Migrate first because it is a standalone NUB domain with no IFC dependency.
-4. **Migrate `audio-service.ts` and `notification-service.ts`** (parallel) — both are IFC-routed services with the same structural pattern. Can be migrated simultaneously.
+3. **Migrate `signer-service.ts`** — NUB-domain service, most complex (seven operations, consent gating). Migrate first because it is a standalone NUB domain with no INC dependency.
+4. **Migrate `audio-service.ts` and `notification-service.ts`** (parallel) — both are INC-routed services with the same structural pattern. Can be migrated simultaneously.
 5. **Migrate `relay-pool-service.ts` and `cache-service.ts`** (parallel) — both are relay NUB services with verb-to-type substitution. Can be migrated simultaneously.
 6. **Migrate `coordinated-relay.ts`** — depends on `RelayPoolServiceOptions` and `CacheServiceOptions` (unchanged), but wraps the relay NUB pattern from steps 5. Migrate last to benefit from already-understood relay NUB patterns.
 
@@ -977,7 +977,7 @@ The recommended migration sequence minimizes broken states:
 
 Existing tests in `packages/services/src/`:
 - `signer-service.test.ts` — must be updated to send `NappletMessage` objects instead of `['EVENT', kind-29001-event]` arrays
-- `notification-service.test.ts` — must be updated to send `{type:'ifc.emit', topic:'notifications:create', payload:{...}}` envelopes instead of `['EVENT', kind-29003-event]` arrays
+- `notification-service.test.ts` — must be updated to send `{type:'inc.emit', topic:'notifications:create', payload:{...}}` envelopes instead of `['EVENT', kind-29003-event]` arrays
 
 The test structure (mock `send` callback, verify `send` was called with expected response, verify internal state changes) stays the same — only the message format changes. A pattern like:
 
@@ -987,8 +987,8 @@ handler.handleMessage('win-1', ['EVENT', buildIpcEvent('notifications:create', {
 expect(mockSend).toHaveBeenCalledWith(['EVENT', '__shell__', expect.objectContaining({ kind: 29003 })]);
 
 // After
-handler.handleMessage('win-1', { type: 'ifc.emit', topic: 'notifications:create', payload: { title: 'Hello' } }, mockSend);
-expect(mockSend).toHaveBeenCalledWith({ type: 'ifc.event', topic: 'notifications:created', payload: expect.objectContaining({ id: expect.any(String) }) });
+handler.handleMessage('win-1', { type: 'inc.emit', topic: 'notifications:create', payload: { title: 'Hello' } }, mockSend);
+expect(mockSend).toHaveBeenCalledWith({ type: 'inc.event', topic: 'notifications:created', payload: expect.objectContaining({ id: expect.any(String) }) });
 ```
 
 Audio service has no dedicated test file — testing through integration or a new unit test file would cover the `register`, `unregister`, `state-changed`, and `mute` action paths. Relay pool and cache services also lack dedicated test files; the coordinated relay's dual-source dedup logic would benefit from direct unit tests.

@@ -141,12 +141,12 @@ describe('SH-C01 / SH-C03: window.nostr injection is removed', () => {
 
   it('buildShellCapabilities emits the canonical hosted domain list when relay hook is wired', () => {
     // nostrdb stays out of scope; connect/class removed (NAP-CLASS/NAP-CONNECT dropped).
-    // The shell also advertises the implemented IFC topic-family protocols.
+    // The shell also advertises the implemented INC topic-family protocols.
     const caps = buildShellCapabilities(stubHooks());
     expect(new Set(caps.nubs)).toEqual(
       new Set([
-        'relay', 'outbox', 'identity', 'storage', 'ifc', 'theme', 'keys', 'media', 'notify', 'config', 'resource', 'cvm',
-        'ifc:NAP-01', 'ifc:NUB-01', 'ifc:NUB-02', 'ifc:NUB-03', 'ifc:NUB-04', 'ifc:NUB-05', 'ifc:NUB-06',
+        'relay', 'outbox', 'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify', 'config', 'resource', 'cvm',
+        'inc:NAP-01', 'inc:NAP-02', 'inc:NAP-03', 'inc:NAP-04', 'inc:NAP-05', 'inc:NAP-06',
       ]),
     );
     expect(caps.nubs).not.toContain('nostrdb');

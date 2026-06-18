@@ -68,9 +68,9 @@ drop any non-array message — see Section 4 for the full silent failure invento
 | `EVENT` kind 29003 `shell:state-remove` | *(same pattern)* | `storage.remove` | `{"type":"storage.remove","id":"uuid","key":"theme"}` |
 | `EVENT` kind 29003 `shell:state-clear` | *(same pattern)* | `storage.clear` | `{"type":"storage.clear","id":"uuid"}` |
 | `EVENT` kind 29003 `shell:state-keys` | *(same pattern)* | `storage.keys` | `{"type":"storage.keys","id":"uuid"}` |
-| `EVENT` kind 29003 (ifc emit) | `["EVENT", {"kind":29003,"tags":[["t","profile:open"]],"content":"{...}",...}]` | `ifc.emit` | `{"type":"ifc.emit","topic":"profile:open","payload":{...}}` |
-| *(no equivalent)* | N/A | `ifc.subscribe` | `{"type":"ifc.subscribe","id":"uuid","topic":"profile:open"}` |
-| *(no equivalent)* | N/A | `ifc.unsubscribe` | `{"type":"ifc.unsubscribe","id":"uuid","topic":"profile:open"}` |
+| `EVENT` kind 29003 (inc emit) | `["EVENT", {"kind":29003,"tags":[["t","profile:open"]],"content":"{...}",...}]` | `inc.emit` | `{"type":"inc.emit","topic":"profile:open","payload":{...}}` |
+| *(no equivalent)* | N/A | `inc.subscribe` | `{"type":"inc.subscribe","id":"uuid","topic":"profile:open"}` |
+| *(no equivalent)* | N/A | `inc.unsubscribe` | `{"type":"inc.unsubscribe","id":"uuid","topic":"profile:open"}` |
 
 ### Shell → Napplet (Outbound)
 
@@ -87,7 +87,7 @@ drop any non-array message — see Section 4 for the full silent failure invento
 | `NOTICE` | `["NOTICE", "dropped messages..."]` | *(no envelope equivalent — operational diagnostic)* | Shell MAY use `{"type":"shell.notice","message":"..."}` |
 | kind 29002 signer response | `["EVENT", "sub-id", {"kind":29002,"tags":[["id","uuid"],["method","signEvent"],["result","{...}"]],...}]` | `signer.signEvent.result` | `{"type":"signer.signEvent.result","id":"uuid","event":{...}}` |
 | kind 29003 state response | `["EVENT", "__shell__", {"kind":29003,"tags":[["t","napplet:state-response"],["id","uuid"],["value","dark"],["found","true"]],...}]` | `storage.get.result` | `{"type":"storage.get.result","id":"uuid","value":"dark","found":true}` |
-| kind 29003 ifc delivery | `["EVENT", "sub-id", {"kind":29003,"tags":[["t","profile:open"]],"content":"{...}",...}]` | `ifc.event` | `{"type":"ifc.event","topic":"profile:open","payload":{...},"sender":"windowId"}` |
+| kind 29003 inc delivery | `["EVENT", "sub-id", {"kind":29003,"tags":[["t","profile:open"]],"content":"{...}",...}]` | `inc.event` | `{"type":"inc.event","topic":"profile:open","payload":{...},"sender":"windowId"}` |
 
 ### Eliminated Messages
 
@@ -218,7 +218,7 @@ interface NappletGlobal {
 | window.napplet namespace | NUB Domain | Required per NIP-5D? | Kehto Implementation Status |
 |-------------------------|-----------|---------------------|----------------------------|
 | `relay` | `relay` | Optional (shell MAY support) | EXISTS — verb-based (REQ/EVENT/CLOSE/COUNT) |
-| `ipc` / `ifc` | `ifc` | Optional | EXISTS — kind 29003 IPC_PEER topic routing |
+| `ipc` / `inc` | `inc` | Optional | EXISTS — kind 29003 IPC_PEER topic routing |
 | `storage` | `storage` | Optional | EXISTS — kind 29003 state-* topics |
 | `services` (list/has) | N/A — discovery API | `services.has()` mentioned; list implied | EXISTS — kind 29010 discovery |
 | `shell.supports()` | N/A — mandatory shell method | MUST implement | STUB — returns `false` unconditionally in shim |
@@ -240,7 +240,7 @@ supports(capability: string): boolean {
 }
 ```
 
-This stub blocks any napplet from detecting shell capabilities at runtime. A napplet calling `window.napplet.shell.supports('relay')` always gets `false`, even if the shell fully supports relay. Wiring this correctly requires a new initialisation message from shell to shim at iframe creation time — for example `{ type: "shell.capabilities", supports: ["relay", "storage", "ifc"] }` — so the shim can populate an internal capabilities set before napplet code runs.
+This stub blocks any napplet from detecting shell capabilities at runtime. A napplet calling `window.napplet.shell.supports('relay')` always gets `false`, even if the shell fully supports relay. Wiring this correctly requires a new initialisation message from shell to shim at iframe creation time — for example `{ type: "shell.capabilities", supports: ["relay", "storage", "inc"] }` — so the shim can populate an internal capabilities set before napplet code runs.
 
 ### New Requirement: window.nostr Injection
 
@@ -348,20 +348,20 @@ const handler = services[prefix];
 if (!handler) return false;
 handler.handleMessage(windowId, ['EVENT', event], send);
 ```
-**What fails:** `ifc.emit` envelope objects never produce an `IPC_PEER` event with a `t` tag — so `routeServiceMessage` is never called for NUB `ifc.emit` messages. Additionally, even if it were called with an `ifc.emit` envelope, the function expects a colon-separated topic (e.g., `audio:play`) but `ifc.emit` uses dot notation in its `type` field. `colonIndex === -1` for `type: "ifc.emit"`, so it returns `false` immediately. All NUB-format service messages (audio playback, notifications via ifc.emit) are silently unrouted.
-**Reproduction:** Register an audio service handler. Send `{ type: "ifc.emit", topic: "audio:play", payload: {} }` from an updated shim. `routeServiceMessage` is never invoked. The audio handler never fires.
+**What fails:** `inc.emit` envelope objects never produce an `IPC_PEER` event with a `t` tag — so `routeServiceMessage` is never called for NUB `inc.emit` messages. Additionally, even if it were called with an `inc.emit` envelope, the function expects a colon-separated topic (e.g., `audio:play`) but `inc.emit` uses dot notation in its `type` field. `colonIndex === -1` for `type: "inc.emit"`, so it returns `false` immediately. All NUB-format service messages (audio playback, notifications via inc.emit) are silently unrouted.
+**Reproduction:** Register an audio service handler. Send `{ type: "inc.emit", topic: "audio:play", payload: {} }` from an updated shim. `routeServiceMessage` is never invoked. The audio handler never fires.
 **Impact:** HIGH — all service handlers (audio, notifications) are unreachable via NIP-5D messages. Any @kehto/services extension is dead for NIP-5D napplets.
 
 ### Summary Table
 
 | # | File | Line | Severity | Affected NUB Domains |
 |---|------|------|----------|----------------------|
-| 1 | `packages/shell/src/shell-bridge.ts` | 155 | CRITICAL | All (relay, signer, storage, ifc) |
-| 2 | `packages/runtime/src/runtime.ts` | 1005 | CRITICAL | All (relay, signer, storage, ifc) |
-| 3 | `packages/runtime/src/runtime.ts` | 1010–1014 | CRITICAL | All (relay, signer, storage, ifc) |
+| 1 | `packages/shell/src/shell-bridge.ts` | 155 | CRITICAL | All (relay, signer, storage, inc) |
+| 2 | `packages/runtime/src/runtime.ts` | 1005 | CRITICAL | All (relay, signer, storage, inc) |
+| 3 | `packages/runtime/src/runtime.ts` | 1010–1014 | CRITICAL | All (relay, signer, storage, inc) |
 | 4 | `packages/runtime/src/enforce.ts` | 99–102 | HIGH | relay (wrong cap: read vs write) |
 | 5 | `packages/runtime/src/state-handler.ts` | 82–84 | HIGH | storage (get, set, remove, clear, keys) |
-| 6 | `packages/runtime/src/service-dispatch.ts` | 39–44 | HIGH | ifc (audio, notifications via ifc.emit) |
+| 6 | `packages/runtime/src/service-dispatch.ts` | 39–44 | HIGH | inc (audio, notifications via inc.emit) |
 
 **Migration priority: CRITICAL** — these are the first things that must be fixed. Without addressing Failure Points 1–3, no NIP-5D napplet can communicate at all with a kehto shell. Failure Points 4–6 become reachable only after the first three are resolved.
 
@@ -453,7 +453,7 @@ if (typeof msg === 'object' && msg !== null && 'type' in msg) {
     case 'relay':   return handleRelayMessage(windowId, msg as NappletMessage);
     case 'signer':  return handleSignerMessage(windowId, msg as NappletMessage);
     case 'storage': return handleStorageMessage(windowId, msg as NappletMessage);
-    case 'ifc':     return handleIfcMessage(windowId, msg as NappletMessage);
+    case 'inc':     return handleIncMessage(windowId, msg as NappletMessage);
     default:        return; // unknown domain — silently drop per NIP-5D spec
   }
 }
@@ -550,8 +550,8 @@ export interface ServiceHandler {
 | Service | Old Trigger | New Trigger | Response Format Change |
 |---------|-------------|-------------|------------------------|
 | signer | `event.kind === 29001` (BusKind.SIGNER_REQUEST) + `method` tag | `message.type === "signer.signEvent"` (or other `signer.*` types) | From kind 29002 event → `{ type: "signer.signEvent.result", id, event }` |
-| audio | `event.kind === 29003` (IPC_PEER) + `t` tag prefix `audio:` | `message.type === "ifc.emit"` with `topic.startsWith("audio:")` | From IPC_PEER response → `{ type: "ifc.event", topic: "audio:...", payload }` |
-| notifications | `event.kind === 29003` (IPC_PEER) + `t` tag prefix `notifications:` | `message.type === "ifc.emit"` with `topic.startsWith("notifications:")` | From IPC_PEER response → `{ type: "ifc.event", ... }` |
+| audio | `event.kind === 29003` (IPC_PEER) + `t` tag prefix `audio:` | `message.type === "inc.emit"` with `topic.startsWith("audio:")` | From IPC_PEER response → `{ type: "inc.event", topic: "audio:...", payload }` |
+| notifications | `event.kind === 29003` (IPC_PEER) + `t` tag prefix `notifications:` | `message.type === "inc.emit"` with `topic.startsWith("notifications:")` | From IPC_PEER response → `{ type: "inc.event", ... }` |
 
 **Verification criterion:** `serviceHandler.handleMessage(windowId, { type: "signer.getPublicKey", id: "uuid" }, send)` results in `send` being called with `{ type: "signer.getPublicKey.result", id: "uuid", pubkey: "..." }`.
 

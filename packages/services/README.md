@@ -22,7 +22,7 @@ Current draft posture:
 
 - The v1.1 signer service is deleted outright. Its responsibilities split into two: read-only identity lookups go through `createIdentityService` (`getPublicKey`, `getRelays`, `getProfile`, `getFollows`, `getList`, `getZaps`, `getMutes`, `getBlocked`, `getBadges`); signing happens inside the shell as part of `relay.publish` / `relay.publishEncrypted` and is never exposed to napplets.
 - `createKeysService` and `createMediaService` ship real reference backends as of v1.4 (see the dedicated sections below). `createKeysService` attaches a document-level `keydown` listener by default and delivers `keys.action` push envelopes to registered napplets; `createMediaService` mirrors session metadata and playback state to `navigator.mediaSession` and emits `media.command` push envelopes on OS transport events. Both accept a host-bridge option (`HostKeysBridge` / `HostMediaBridge`) so Electron / Tauri / native shells can swap in OS-level backends without re-implementing the wire-protocol bookkeeping.
-- `createNotifyService` (NIP-5D `notify.*` NAP) coexists with the legacy `createNotificationService` (ifc-emit `notifications:*` channel). Both may be registered simultaneously while hosts migrate.
+- `createNotifyService` (NIP-5D `notify.*` NAP) coexists with the legacy `createNotificationService` (inc-emit `notifications:*` channel). Both may be registered simultaneously while hosts migrate.
 
 ## Quick Start
 
@@ -42,7 +42,7 @@ runtime.registerService(
   }),
 );
 
-// Notification service — legacy ifc-emit channel, browser badge fan-out.
+// Notification service — legacy inc-emit channel, browser badge fan-out.
 runtime.registerService(
   'notifications',
   createNotificationService({ onChange: (list) => updateBadge(list) }),
@@ -355,7 +355,7 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 
 ### Notify NAP
 - `createNotifyService` — canonical `notify.*` envelopes (`notify:send` / `notify:channel`).
-- `createNotificationService` — legacy ifc-emit `notifications:*` channel; coexists with `createNotifyService` until retired.
+- `createNotificationService` — legacy inc-emit `notifications:*` channel; coexists with `createNotifyService` until retired.
 
 ### Relay NAP
 - `createRelayPoolService` — `relay.publish`, `relay.publishEncrypted`, `relay.subscribe` fan-out (`relay:read` / `relay:write`).
@@ -371,8 +371,8 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 ### Theme NAP
 - `createThemeService` — `theme.get` + `theme.changed` fan-out (`theme:read`). Returns a `ThemeService` with `publishTheme()` / `setTheme()` utilities for host-side updates.
 
-### Audio (legacy ifc-emit)
-- `createAudioService` — `audio:*` ifc-emit topic handler. Browser-agnostic registry of per-window audio sources; host wires `onChange` to update transport UI.
+### Audio (legacy inc-emit)
+- `createAudioService` — `audio:*` inc-emit topic handler. Browser-agnostic registry of per-window audio sources; host wires `onChange` to update transport UI.
 
 ### Types
 `AudioSource`, `AudioServiceOptions`, `Notification`, `NotificationServiceOptions`, `IdentityServiceOptions`, `RelayPoolServiceOptions`, `CacheServiceOptions`, `CoordinatedRelayOptions`, `KeysServiceOptions`, `MediaServiceOptions`, `NotifyServiceOptions`, `ThemeServiceOptions`, `ThemeService`.

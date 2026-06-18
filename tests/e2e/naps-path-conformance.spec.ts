@@ -74,8 +74,7 @@ test('profile-viewer resolves supports() via the real shim 0.13 naps/domains pat
       // Modern naps/domains path — what the real shim resolves true:
       incDomain: supports('inc'),                  // 'inc' ∈ domains
       incProtocolTwoArg: supports('inc', 'NAP-01'), // protocols['inc'] includes 'NAP-01'
-      // Legacy / unsupported forms — the 0.13 shim resolves these false:
-      ifcDomain: supports('ifc'),                  // 'ifc' not in domains (renamed → inc)
+      // Unsupported forms — the 0.13 shim resolves these false:
       incProtocolSingleArg: supports('inc:NAP-01'),// colon-joined is NOT a bare domain
       napPrefixed: supports('nap:inc'),            // playground nap: alias → true (TERM-01)
       nubPrefixed: supports('nub:inc'),            // neither shim nor alias strips nub:
@@ -84,13 +83,11 @@ test('profile-viewer resolves supports() via the real shim 0.13 naps/domains pat
   });
 
   // The migration's integration proof: the modern wire/domain resolves true,
-  // the legacy 'ifc' domain resolves false, only the two-arg protocol form
-  // resolves a numbered NAP protocol under the real shim 0.13, and the
+  // only the two-arg protocol form resolves a numbered NAP protocol, and the
   // playground's nap: primary-prefix alias resolves while nub: does not.
   expect(result).toEqual({
     incDomain: true,
     incProtocolTwoArg: true,
-    ifcDomain: false,
     incProtocolSingleArg: false,
     napPrefixed: true,
     nubPrefixed: false,

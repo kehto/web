@@ -44,7 +44,7 @@ async function openDemo(page: Page): Promise<void> {
   const aclSlot = page.locator('#chat-acl');
   await expect(aclSlot.locator('.acl-summary-toggle')).toContainText('7 allowed');
   await aclSlot.locator('.acl-summary-toggle').click();
-  await expect(aclSlot.locator('button')).toContainText(['Relay Publish / IFC Send']);
+  await expect(aclSlot.locator('button')).toContainText(['Relay Publish / INC Send']);
 }
 
 async function revokeChatCapability(page: Page, label: string): Promise<void> {
@@ -84,10 +84,10 @@ test.afterAll(async () => {
 
 test('revoke chat relay:write and keep debugger paths legible', async ({ page }) => {
   await openDemo(page);
-  await revokeChatCapability(page, 'Relay Publish / IFC Send');
+  await revokeChatCapability(page, 'Relay Publish / INC Send');
   await sendChatMessage(page, 'relay write revoked');
 
-  await expect(page.locator('napplet-debugger')).toContainText('path:ifc-send');
+  await expect(page.locator('napplet-debugger')).toContainText('path:inc-send');
   await expect(page.locator('napplet-debugger')).toContainText('path:relay-publish');
   await expect(page.locator('napplet-debugger')).toContainText('denied: relay:write');
 });
@@ -110,9 +110,9 @@ test('revoke chat sign:event and separate inter-pane success from signer denial'
 
   await expect(botFrame.locator('#log')).toContainText('signer revoked');
   await expect(chatFrame.locator('#messages')).toContainText('[bot]');
-  await expect(page.locator('napplet-debugger')).toContainText('path:ifc-send');
+  await expect(page.locator('napplet-debugger')).toContainText('path:inc-send');
   // identity:read (formerly sign:event) revocation does not surface a denial in the
   // debugger for the chat napplet because chat does not call identity.getPublicKey.
-  // The IFC round-trip succeeding despite the revocation is the key signal.
+  // The INC round-trip succeeding despite the revocation is the key signal.
   await expect(page.locator('napplet-debugger')).toContainText('path:relay-publish');
 });

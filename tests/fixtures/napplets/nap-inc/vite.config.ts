@@ -5,7 +5,7 @@ export default defineConfig({
   base: './',
   plugins: [
     nip5aManifest({
-      nappletType: 'fixture-nap-ifc',
+      nappletType: 'fixture-nap-inc',
     }),
   ],
   build: {

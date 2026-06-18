@@ -17,17 +17,20 @@ async function openFreshPlayground(page: Page): Promise<void> {
   await page.waitForSelector('#topology-root', { state: 'visible', timeout: 15_000 });
 }
 
-async function chatFrameSlotHeight(page: Page): Promise<number> {
-  return page.locator('#chat-frame-container').evaluate((el) =>
-    Math.round(el.getBoundingClientRect().height),
-  );
+async function expectNappletFrameHeight(page: Page, heightPx: number): Promise<void> {
+  const expected = `${heightPx}px`;
+  await expect.poll(() =>
+    page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--napplet-frame-height').trim()),
+  ).toBe(expected);
+  await expect(page.locator('#chat-frame-container')).toHaveCSS('height', expected);
+  await expect(page.locator('#chat-frame-container')).toHaveCSS('min-height', expected);
 }
 
 test('napplet height control defaults to 330px and persists user changes', async ({ page }) => {
   await openFreshPlayground(page);
 
   await expect(page.locator('#napplet-height-value')).toHaveText('330px');
-  await expect.poll(() => chatFrameSlotHeight(page)).toBe(330);
+  await expectNappletFrameHeight(page, 330);
 
   await page.locator('#napplet-height-slider').evaluate((el) => {
     const input = el as HTMLInputElement;
@@ -36,13 +39,13 @@ test('napplet height control defaults to 330px and persists user changes', async
   });
 
   await expect(page.locator('#napplet-height-value')).toHaveText('420px');
-  await expect.poll(() => chatFrameSlotHeight(page)).toBe(420);
+  await expectNappletFrameHeight(page, 420);
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#topology-root', { state: 'visible', timeout: 15_000 });
 
   await expect(page.locator('#napplet-height-value')).toHaveText('420px');
-  await expect.poll(() => chatFrameSlotHeight(page)).toBe(420);
+  await expectNappletFrameHeight(page, 420);
 });
 
 test('color mode persists user selection across reloads', async ({ page }) => {

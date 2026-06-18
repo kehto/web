@@ -1,13 +1,13 @@
 /**
- * runtime.test.ts — Integration tests for the ifc channel sub-protocol (NUB-04 / DRIFT-RT-09).
+ * runtime.test.ts — Integration tests for the inc channel sub-protocol (NUB-04 / DRIFT-RT-09).
  *
- * Exercises the full 14-type @napplet/nap/ifc surface via createRuntime → handleMessage
+ * Exercises the full 14-type @napplet/nap/inc surface via createRuntime → handleMessage
  * round-trips between three mock napplet windows (A, B, C). The channel sub-protocol
  * tests (open / emit / event fanout / list / close / broadcast) are the RED baseline for
- * Plan 12-04 Task 2's handleIfcMessage extension.
+ * Plan 12-04 Task 2's handleIncMessage extension.
  *
- * Test 6 additionally asserts that `ifc.subscribe` emits an `ifc.subscribe.result`
- * envelope — the canonical nub-ifc contract that the pre-12-04 handler silently dropped.
+ * Test 6 additionally asserts that `inc.subscribe` emits an `inc.subscribe.result`
+ * envelope — the canonical nub-inc contract that the pre-12-04 handler silently dropped.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -49,7 +49,7 @@ function envelopesOfType(sent: SentMessage[], windowId: string, type: string): N
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
-describe('ifc channel sub-protocol (NUB-04 / DRIFT-RT-09)', () => {
+describe('inc channel sub-protocol (NUB-04 / DRIFT-RT-09)', () => {
   let ctx: MockRuntimeContext;
   let runtime: Runtime;
 
@@ -67,12 +67,12 @@ describe('ifc channel sub-protocol (NUB-04 / DRIFT-RT-09)', () => {
 
   it('channel.open resolves with channelId + peer', () => {
     runtime.handleMessage(WINDOW_A, {
-      type: 'ifc.channel.open',
+      type: 'inc.channel.open',
       id: 'q1',
       target: WINDOW_B,
     } as NappletMessage);
 
-    const results = envelopesOfType(ctx.sent, WINDOW_A, 'ifc.channel.open.result');
+    const results = envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.open.result');
     expect(results).toHaveLength(1);
     const r = results[0] as NappletMessage & { id: string; channelId?: string; peer?: string; error?: string };
     expect(r.id).toBe('q1');
@@ -90,24 +90,24 @@ describe('ifc channel sub-protocol (NUB-04 / DRIFT-RT-09)', () => {
 
   it('channel.emit delivers to peer, excludes sender', () => {
     runtime.handleMessage(WINDOW_A, {
-      type: 'ifc.channel.open',
+      type: 'inc.channel.open',
       id: 'q1',
       target: WINDOW_B,
     } as NappletMessage);
-    const openResult = envelopesOfType(ctx.sent, WINDOW_A, 'ifc.channel.open.result')[0] as
+    const openResult = envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.open.result')[0] as
       NappletMessage & { channelId: string };
     const channelId = openResult.channelId;
     expect(channelId).toBeDefined();
 
     ctx.sent.length = 0; // drain
     runtime.handleMessage(WINDOW_A, {
-      type: 'ifc.channel.emit',
+      type: 'inc.channel.emit',
       channelId,
       payload: { msg: 'hi' },
     } as NappletMessage);
 
     // B receives exactly one channel.event with sender=A
-    const bEvents = envelopesOfType(ctx.sent, WINDOW_B, 'ifc.channel.event');
+    const bEvents = envelopesOfType(ctx.sent, WINDOW_B, 'inc.channel.event');
     expect(bEvents).toHaveLength(1);
     const ev = bEvents[0] as NappletMessage & { channelId: string; sender: string; payload?: unknown };
     expect(ev.channelId).toBe(channelId);
@@ -115,7 +115,7 @@ describe('ifc channel sub-protocol (NUB-04 / DRIFT-RT-09)', () => {
     expect(ev.payload).toEqual({ msg: 'hi' });
 
     // A receives nothing for its own emit (sender exclusion)
-    const aEvents = envelopesOfType(ctx.sent, WINDOW_A, 'ifc.channel.event');
+    const aEvents = envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.event');
     expect(aEvents).toHaveLength(0);
   });
 
@@ -123,21 +123,21 @@ describe('ifc channel sub-protocol (NUB-04 / DRIFT-RT-09)', () => {
 
   it('channel.list returns open channels', () => {
     runtime.handleMessage(WINDOW_A, {
-      type: 'ifc.channel.open',
+      type: 'inc.channel.open',
       id: 'open-1',
       target: WINDOW_B,
     } as NappletMessage);
-    const openResult = envelopesOfType(ctx.sent, WINDOW_A, 'ifc.channel.open.result')[0] as
+    const openResult = envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.open.result')[0] as
       NappletMessage & { channelId: string };
     const channelId = openResult.channelId;
 
     ctx.sent.length = 0;
     runtime.handleMessage(WINDOW_A, {
-      type: 'ifc.channel.list',
+      type: 'inc.channel.list',
       id: 'q2',
     } as NappletMessage);
 
-    const listResults = envelopesOfType(ctx.sent, WINDOW_A, 'ifc.channel.list.result');
+    const listResults = envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.list.result');
     expect(listResults).toHaveLength(1);
     const r = listResults[0] as NappletMessage & { id: string; channels: Array<{ id: string; peer: string }> };
     expect(r.id).toBe('q2');
@@ -148,23 +148,23 @@ describe('ifc channel sub-protocol (NUB-04 / DRIFT-RT-09)', () => {
 
   it('channel.close notifies both parties, removes entry', () => {
     runtime.handleMessage(WINDOW_A, {
-      type: 'ifc.channel.open',
+      type: 'inc.channel.open',
       id: 'open-1',
       target: WINDOW_B,
     } as NappletMessage);
-    const openResult = envelopesOfType(ctx.sent, WINDOW_A, 'ifc.channel.open.result')[0] as
+    const openResult = envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.open.result')[0] as
       NappletMessage & { channelId: string };
     const channelId = openResult.channelId;
 
     ctx.sent.length = 0;
     runtime.handleMessage(WINDOW_A, {
-      type: 'ifc.channel.close',
+      type: 'inc.channel.close',
       channelId,
     } as NappletMessage);
 
-    // Both A and B receive ifc.channel.closed
-    const aClosed = envelopesOfType(ctx.sent, WINDOW_A, 'ifc.channel.closed');
-    const bClosed = envelopesOfType(ctx.sent, WINDOW_B, 'ifc.channel.closed');
+    // Both A and B receive inc.channel.closed
+    const aClosed = envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.closed');
+    const bClosed = envelopesOfType(ctx.sent, WINDOW_B, 'inc.channel.closed');
     expect(aClosed).toHaveLength(1);
     expect(bClosed).toHaveLength(1);
     expect((aClosed[0] as NappletMessage & { channelId: string }).channelId).toBe(channelId);
@@ -172,8 +172,8 @@ describe('ifc channel sub-protocol (NUB-04 / DRIFT-RT-09)', () => {
 
     // Subsequent list from A returns empty
     ctx.sent.length = 0;
-    runtime.handleMessage(WINDOW_A, { type: 'ifc.channel.list', id: 'q3' } as NappletMessage);
-    const listResult = envelopesOfType(ctx.sent, WINDOW_A, 'ifc.channel.list.result')[0] as
+    runtime.handleMessage(WINDOW_A, { type: 'inc.channel.list', id: 'q3' } as NappletMessage);
+    const listResult = envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.list.result')[0] as
       NappletMessage & { channels: Array<{ id: string; peer: string }> };
     expect(listResult.channels).toEqual([]);
   });
@@ -183,29 +183,29 @@ describe('ifc channel sub-protocol (NUB-04 / DRIFT-RT-09)', () => {
   it('channel.broadcast emits to all peers across open channels', () => {
     // Open A↔B
     runtime.handleMessage(WINDOW_A, {
-      type: 'ifc.channel.open', id: 'open-ab', target: WINDOW_B,
+      type: 'inc.channel.open', id: 'open-ab', target: WINDOW_B,
     } as NappletMessage);
-    const rAB = envelopesOfType(ctx.sent, WINDOW_A, 'ifc.channel.open.result')[0] as
+    const rAB = envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.open.result')[0] as
       NappletMessage & { channelId: string };
     const channelAB = rAB.channelId;
     // Open A↔C
     runtime.handleMessage(WINDOW_A, {
-      type: 'ifc.channel.open', id: 'open-ac', target: WINDOW_C,
+      type: 'inc.channel.open', id: 'open-ac', target: WINDOW_C,
     } as NappletMessage);
-    const rAC = (envelopesOfType(ctx.sent, WINDOW_A, 'ifc.channel.open.result'))[1] as
+    const rAC = (envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.open.result'))[1] as
       NappletMessage & { channelId: string };
     const channelAC = rAC.channelId;
     expect(channelAB).not.toBe(channelAC);
 
     ctx.sent.length = 0;
     runtime.handleMessage(WINDOW_A, {
-      type: 'ifc.channel.broadcast',
+      type: 'inc.channel.broadcast',
       payload: { x: 1 },
     } as NappletMessage);
 
-    // B and C each receive exactly one ifc.channel.event for their respective channelId
-    const bEvents = envelopesOfType(ctx.sent, WINDOW_B, 'ifc.channel.event');
-    const cEvents = envelopesOfType(ctx.sent, WINDOW_C, 'ifc.channel.event');
+    // B and C each receive exactly one inc.channel.event for their respective channelId
+    const bEvents = envelopesOfType(ctx.sent, WINDOW_B, 'inc.channel.event');
+    const cEvents = envelopesOfType(ctx.sent, WINDOW_C, 'inc.channel.event');
     expect(bEvents).toHaveLength(1);
     expect(cEvents).toHaveLength(1);
     expect((bEvents[0] as NappletMessage & { channelId: string; sender: string; payload?: unknown })).toMatchObject({
@@ -215,20 +215,20 @@ describe('ifc channel sub-protocol (NUB-04 / DRIFT-RT-09)', () => {
       channelId: channelAC, sender: WINDOW_A, payload: { x: 1 },
     });
     // A receives nothing
-    const aEvents = envelopesOfType(ctx.sent, WINDOW_A, 'ifc.channel.event');
+    const aEvents = envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.event');
     expect(aEvents).toHaveLength(0);
   });
 
   // ─── Test 6: subscribe.result ──────────────────────────────────────────────
 
-  it('ifc.subscribe emits ifc.subscribe.result', () => {
+  it('inc.subscribe emits inc.subscribe.result', () => {
     runtime.handleMessage(WINDOW_A, {
-      type: 'ifc.subscribe',
+      type: 'inc.subscribe',
       id: 'q3',
       topic: 'foo',
     } as NappletMessage);
 
-    const results = envelopesOfType(ctx.sent, WINDOW_A, 'ifc.subscribe.result');
+    const results = envelopesOfType(ctx.sent, WINDOW_A, 'inc.subscribe.result');
     expect(results).toHaveLength(1);
     const r = results[0] as NappletMessage & { id: string; error?: string };
     expect(r.id).toBe('q3');

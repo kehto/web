@@ -8,7 +8,7 @@
  * in the @kehto/acl package.
  *
  * Canonical NIP-5D 8 domains: identity, keys, media, notify, relay,
- * storage, ifc, theme. Extended in v1.7 with: config (Phase 39, 9th domain),
+ * storage, inc, theme. Extended in v1.7 with: config (Phase 39, 9th domain),
  * resource (Phase 40, 10th domain). The v1.1 `signer` domain is REMOVED —
  * getPublicKey/getRelays migrated to `identity`; signEvent/nip04/nip44 have
  * no napplet-visible surface (shell handles encryption inside
@@ -129,11 +129,7 @@ function storageMap(action: string): CapabilityResolution {
 }
 
 /**
- * `ifc.*` / `inc.*` — topic + channel sub-protocol.
- *
- * `inc` is the NAP rename of `ifc` (adopted in `@napplet/* >=0.9.0`). Both
- * domains share exactly the same capability mapping via `ifcMap` so they
- * cannot drift apart (D5 / ALIGN-06).
+ * `inc.*` — topic + channel sub-protocol.
  *
  * - Write actions (`emit`, `channel.emit`, `channel.broadcast`) → sender
  *   `relay:write`, recipient `relay:read`. Semantically equivalent to relay
@@ -143,9 +139,9 @@ function storageMap(action: string): CapabilityResolution {
  *   `channel.list`, `channel.close`)                             → sender
  *   `relay:read`, recipient `null`. Channel open-time ACL semantics: the
  *   caller must already hold `relay:read`, and channel membership is
- *   recorded by the ifc handler.
+ *   recorded by the inc handler.
  */
-function ifcMap(action: string): CapabilityResolution {
+function incMap(action: string): CapabilityResolution {
   if (action === 'emit' || action === 'channel.emit' || action === 'channel.broadcast') {
     return { senderCap: 'relay:write', recipientCap: 'relay:read' };
   }
@@ -351,8 +347,8 @@ function themeMap(action: string): CapabilityResolution {
  * | `storage`  | `get`, `keys`                                               | `state:read`    | `null`        |
  * | `storage`  | `set`, `remove`                                             | `state:write`   | `null`        |
  * | `storage`  | any other (incl. removed `clear`)                           | `null`          | `null`        |
- * | `ifc`/`inc` | `emit`, `channel.emit`, `channel.broadcast`                | `relay:write`   | `relay:read`  |
- * | `ifc`/`inc` | `subscribe`, `unsubscribe`, `channel.open/list/close`      | `relay:read`    | `null`        |
+ * | `inc`      | `emit`, `channel.emit`, `channel.broadcast`                | `relay:write`   | `relay:read`  |
+ * | `inc`      | `subscribe`, `unsubscribe`, `channel.open/list/close`      | `relay:read`    | `null`        |
  * | `theme`    | `get`, `get.result`                                         | `theme:read`    | `null`        |
  * | `theme`    | `changed` (shell → napplet push)                            | `null`          | `theme:read`  |
  * | `config`   | `get`, `subscribe`, `unsubscribe`, `registerSchema`, `openSettings` | `config:read` | `null`     |
@@ -386,7 +382,7 @@ function themeMap(action: string): CapabilityResolution {
  * resolveCapabilitiesNub({ type: 'keys.forward' })
  * // => { senderCap: 'keys:forward', recipientCap: null }
  *
- * resolveCapabilitiesNub({ type: 'ifc.channel.broadcast' })
+ * resolveCapabilitiesNub({ type: 'inc.channel.broadcast' })
  * // => { senderCap: 'relay:write', recipientCap: 'relay:read' }
  *
  * resolveCapabilitiesNub({ type: 'theme.changed' })
@@ -409,8 +405,7 @@ export function resolveCapabilitiesNub(msg: NubMessage): CapabilityResolution {
     case 'media':    return { senderCap: 'media:control', recipientCap: null };
     case 'notify':   return notifyMap(action);
     case 'storage':  return storageMap(action);
-    case 'ifc':
-    case 'inc':      return ifcMap(action);  // inc is the NAP rename of ifc (D5 / ALIGN-06)
+    case 'inc':      return incMap(action);
     case 'theme':    return themeMap(action);
     case 'config':   return configMap(action);
     case 'resource': return resourceMap(action);   // Phase 40 (RESOURCE-02)

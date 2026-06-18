@@ -64,7 +64,7 @@ NIP-5D v0.1.0 eliminates the NIP-01 verb model. Every message from an updated `@
 | Message shape | `["VERB", ...params]` | `{ "type": "domain.action", ...payload }` |
 | Dispatch key | `msg[0]` — verb string | `msg.type.split('.')[0]` — domain prefix |
 | Entry guard | `Array.isArray(msg) && msg.length >= 2` | `typeof msg === 'object' && msg !== null && 'type' in msg` |
-| Verbs handled | `REGISTER`, `AUTH`, `EVENT`, `REQ`, `CLOSE`, `COUNT` | `relay`, `signer`, `storage`, `ifc` |
+| Verbs handled | `REGISTER`, `AUTH`, `EVENT`, `REQ`, `CLOSE`, `COUNT` | `relay`, `signer`, `storage`, `inc` |
 | Identity gate | Pre-AUTH queue (`pendingAuthQueue`) blocks all messages until AUTH completes | No gate — identity is registered at iframe creation via `originRegistry` |
 | Capability resolution | `resolveCapabilities(msg: unknown[])` — switches on `msg[0]` verb + `BusKind` event kind | `resolveCapabilitiesNub(msg: NappletMessage)` — splits `msg.type` on `.` |
 
@@ -93,7 +93,7 @@ if (typeof msg === 'object' && msg !== null && 'type' in msg) {
     case 'relay':   return handleRelayMessage(windowId, msg as NappletMessage);
     case 'signer':  return handleSignerMessage(windowId, msg as NappletMessage);
     case 'storage': return handleStorageMessage(windowId, msg as NappletMessage);
-    case 'ifc':     return handleIfcMessage(windowId, msg as NappletMessage);
+    case 'inc':     return handleIncMessage(windowId, msg as NappletMessage);
     default:        return; // unknown domain — silently drop per NIP-5D spec
   }
 }
@@ -115,7 +115,7 @@ function handleMessage(windowId: string, msg: unknown[] | NappletMessage): void 
       case 'relay':   return handleRelayMessage(windowId, msg as NappletMessage);
       case 'signer':  return handleSignerMessage(windowId, msg as NappletMessage);
       case 'storage': return handleStorageMessage(windowId, msg as NappletMessage);
-      case 'ifc':     return handleIfcMessage(windowId, msg as NappletMessage);
+      case 'inc':     return handleIncMessage(windowId, msg as NappletMessage);
       default:        return;
     }
   }
@@ -184,7 +184,7 @@ function resolveCapabilitiesNub(msg: NappletMessage): CapabilityResolution {
       return (action === 'get' || action === 'keys')
         ? { senderCap: 'state:read', recipientCap: null }
         : { senderCap: 'state:write', recipientCap: null };
-    case 'ifc':
+    case 'inc':
       return action === 'emit'
         ? { senderCap: 'relay:write', recipientCap: 'relay:read' }
         : { senderCap: 'relay:read', recipientCap: null };
@@ -216,9 +216,9 @@ function resolveCapabilitiesNub(msg: NappletMessage): CapabilityResolution {
 | `storage.set` | `state:write` | sender | kind 29003 topic=shell:state-set equivalent |
 | `storage.remove` | `state:write` | sender | kind 29003 topic=shell:state-remove equivalent |
 | `storage.clear` | `state:write` | sender | kind 29003 topic=shell:state-clear equivalent |
-| `ifc.emit` | `relay:write` + `relay:read` | sender + recipient | IPC_PEER emit; recipient needs relay:read |
-| `ifc.subscribe` | `relay:read` | sender | ifc subscription registration |
-| `ifc.unsubscribe` | `relay:read` | sender | no capability check needed; included for completeness |
+| `inc.emit` | `relay:write` + `relay:read` | sender + recipient | IPC_PEER emit; recipient needs relay:read |
+| `inc.subscribe` | `relay:read` | sender | inc subscription registration |
+| `inc.unsubscribe` | `relay:read` | sender | no capability check needed; included for completeness |
 | `theme.*` | none | — | Read-only shell state, no user data |
 
 ---
@@ -385,14 +385,14 @@ See PITFALLS.md security mistakes section for the full list of post-AUTH securit
 
 Four NUB domain handlers replace the current verb/kind dispatch in `runtime.ts`. The old model routed every inbound message through one of six verb cases (`EVENT`, `REQ`, `CLOSE`, `COUNT`, `REGISTER`, `AUTH`) and then sub-dispatched on `event.kind` to detect signer requests (kind 29001), IPC_PEER traffic (kind 29003), and service discovery (kind 29010).
 
-The new model uses the NUB domain prefix (`msg.type.split('.')[0]`) to dispatch to one of four dedicated handlers: `handleRelayMessage`, `handleSignerMessage`, `handleStorageMessage`, and `handleIfcMessage`. Each handler owns one NUB domain and processes only the flat JSON envelope objects defined in the NIP-5D `@napplet/nap-*` packages.
+The new model uses the NUB domain prefix (`msg.type.split('.')[0]`) to dispatch to one of four dedicated handlers: `handleRelayMessage`, `handleSignerMessage`, `handleStorageMessage`, and `handleIncMessage`. Each handler owns one NUB domain and processes only the flat JSON envelope objects defined in the NIP-5D `@napplet/nap-*` packages.
 
 This section documents each handler's old code path, new message shapes, capability requirements, and affected source files. The [capability mapping table](#14-capability-resolution-migration) in Section 1.4 serves as the authoritative reference for `resolveCapabilitiesNub()` — the per-handler notes below cross-reference it.
 
 **References:**
 - Wire format before/after tables: [GAP-ANALYSIS.md section 1](./GAP-ANALYSIS.md#1-wire-format-change-gap-01)
 - Capability resolution pseudocode: [ACL-MIGRATION.md section 2](./ACL-MIGRATION.md#2-capability-constant-to-nub-domain-mapping)
-- PITFALLS.md Pitfall 5 (ServiceHandler interface), Pitfall 6 (storage proxy), Pitfall 7 (signer proxy), Pitfall 8 (IFC handler mismatch)
+- PITFALLS.md Pitfall 5 (ServiceHandler interface), Pitfall 6 (storage proxy), Pitfall 7 (signer proxy), Pitfall 8 (INC handler mismatch)
 
 ---
 
@@ -595,11 +595,11 @@ The new `handleStorageMessage()` function accepts the NUB envelope and extracts 
 
 ---
 
-### 3.5 IFC Handler
+### 3.5 INC Handler
 
 #### Old Code Path
 
-IFC (inter-frame communication) used the same kind 29003 IPC_PEER path as storage, but with non-`shell:` topics. After the storage check in `handleEvent()` (lines 619–623), all remaining IPC_PEER events fell through to service dispatch and then to `eventBuffer.bufferAndDeliver()` (lines 647–650):
+INC (inter-frame communication) used the same kind 29003 IPC_PEER path as storage, but with non-`shell:` topics. After the storage check in `handleEvent()` (lines 619–623), all remaining IPC_PEER events fell through to service dispatch and then to `eventBuffer.bufferAndDeliver()` (lines 647–650):
 
 ```typescript
 // runtime.ts:647–650
@@ -609,9 +609,9 @@ if (topic && routeServiceMessage(windowId, event, topic, serviceRegistry, hooks.
 eventBuffer.bufferAndDeliver(event, windowId);
 ```
 
-`eventBuffer.bufferAndDeliver()` (in `event-buffer.ts`) added the event to a ring buffer and delivered it to any open NIP-01 subscription that matched the event (kind 29003 with matching `#t` tag filter). There was no explicit subscribe/unsubscribe for IFC — any napplet with an open `REQ { kinds: [29003], "#t": ["profile:open"] }` would receive the event.
+`eventBuffer.bufferAndDeliver()` (in `event-buffer.ts`) added the event to a ring buffer and delivered it to any open NIP-01 subscription that matched the event (kind 29003 with matching `#t` tag filter). There was no explicit subscribe/unsubscribe for INC — any napplet with an open `REQ { kinds: [29003], "#t": ["profile:open"] }` would receive the event.
 
-This means IFC had no explicit lifecycle: subscriptions were registered via standard REQ, IFC topics were delivered through the same event buffer as relay events, and there was no way to distinguish an IFC subscription from a relay subscription at the protocol level.
+This means INC had no explicit lifecycle: subscriptions were registered via standard REQ, INC topics were delivered through the same event buffer as relay events, and there was no way to distinguish an INC subscription from a relay subscription at the protocol level.
 
 #### New Message Shapes
 
@@ -619,44 +619,44 @@ This means IFC had no explicit lifecycle: subscriptions were registered via stan
 
 | NUB Type | Old Format | New Format |
 |----------|-----------|-----------|
-| `ifc.emit` | `["EVENT", {"kind":29003,"tags":[["t","profile:open"]],"content":"{...}",...}]` | `{"type":"ifc.emit","topic":"profile:open","payload":{...}}` |
-| `ifc.subscribe` | *(no equivalent — implicit via REQ)* | `{"type":"ifc.subscribe","id":"uuid","topic":"profile:open"}` |
-| `ifc.unsubscribe` | *(no equivalent — via CLOSE)* | `{"type":"ifc.unsubscribe","id":"uuid","topic":"profile:open"}` |
+| `inc.emit` | `["EVENT", {"kind":29003,"tags":[["t","profile:open"]],"content":"{...}",...}]` | `{"type":"inc.emit","topic":"profile:open","payload":{...}}` |
+| `inc.subscribe` | *(no equivalent — implicit via REQ)* | `{"type":"inc.subscribe","id":"uuid","topic":"profile:open"}` |
+| `inc.unsubscribe` | *(no equivalent — via CLOSE)* | `{"type":"inc.unsubscribe","id":"uuid","topic":"profile:open"}` |
 
 **Outbound (shell → napplet):**
 
 | Response Type | Old Format | New Format |
 |--------------|-----------|-----------|
-| `ifc.event` | `["EVENT", "sub-id", {"kind":29003,"tags":[["t","profile:open"]],"content":"{...}",...}]` | `{"type":"ifc.event","topic":"profile:open","payload":{...},"sender":"windowId"}` |
+| `inc.event` | `["EVENT", "sub-id", {"kind":29003,"tags":[["t","profile:open"]],"content":"{...}",...}]` | `{"type":"inc.event","topic":"profile:open","payload":{...},"sender":"windowId"}` |
 
 #### New Subscription Lifecycle
 
-The IFC handler introduces explicit topic subscriptions — this is **net new behavior** with no direct equivalent in the old runtime:
+The INC handler introduces explicit topic subscriptions — this is **net new behavior** with no direct equivalent in the old runtime:
 
-1. **`ifc.subscribe`** — registers a `(windowId, topic)` binding in a new IFC subscription registry (separate from the relay `subscriptions` map). Returns no response (or an optional `ifc.subscribe.result`).
-2. **`ifc.emit`** — looks up all windows subscribed to the given topic (excluding the sender's windowId), delivers `{ type: "ifc.event", topic, payload, sender: windowId }` to each subscriber via `hooks.sendToNapplet`.
-3. **`ifc.unsubscribe`** — removes the `(windowId, topic)` binding.
+1. **`inc.subscribe`** — registers a `(windowId, topic)` binding in a new INC subscription registry (separate from the relay `subscriptions` map). Returns no response (or an optional `inc.subscribe.result`).
+2. **`inc.emit`** — looks up all windows subscribed to the given topic (excluding the sender's windowId), delivers `{ type: "inc.event", topic, payload, sender: windowId }` to each subscriber via `hooks.sendToNapplet`.
+3. **`inc.unsubscribe`** — removes the `(windowId, topic)` binding.
 
-The old system required napplets to send a standard REQ to receive IFC events. Under NIP-5D, napplets call `window.napplet.ifc.on(topic, handler)` which internally sends `ifc.subscribe`. The runtime no longer needs to match IFC events against NIP-01 filter objects.
+The old system required napplets to send a standard REQ to receive INC events. Under NIP-5D, napplets call `window.napplet.inc.on(topic, handler)` which internally sends `inc.subscribe`. The runtime no longer needs to match INC events against NIP-01 filter objects.
 
 #### Capability Mapping
 
 | Operation | Required Capability | Notes |
 |-----------|-------------------|-------|
-| `ifc.emit` | `relay:write` (sender) + `relay:read` (recipient) | Reuses relay capability bits per [ACL-MIGRATION.md section 2](./ACL-MIGRATION.md#2-capability-constant-to-nub-domain-mapping) |
-| `ifc.subscribe` | `relay:read` (sender) | — |
-| `ifc.unsubscribe` | `relay:read` (sender) | — |
+| `inc.emit` | `relay:write` (sender) + `relay:read` (recipient) | Reuses relay capability bits per [ACL-MIGRATION.md section 2](./ACL-MIGRATION.md#2-capability-constant-to-nub-domain-mapping) |
+| `inc.subscribe` | `relay:read` (sender) | — |
+| `inc.unsubscribe` | `relay:read` (sender) | — |
 
 #### Affected Files
 
 | File | Change |
 |------|--------|
-| `packages/runtime/src/runtime.ts` | Remove `IPC_PEER` kind 29003 fallthrough path; add `handleIfcMessage()` with IFC subscription registry |
-| `packages/runtime/src/event-buffer.ts` | IFC delivery is replaced by direct `sendToNapplet` dispatch — `bufferAndDeliver` no longer used for IFC topics |
-| `packages/runtime/src/service-dispatch.ts` | IFC topic routing via `routeServiceMessage()` no longer applies — IFC is now a first-class NUB domain, not a service |
-| `packages/runtime/src/enforce.ts` | `resolveCapabilitiesNub()` ifc domain branch |
+| `packages/runtime/src/runtime.ts` | Remove `IPC_PEER` kind 29003 fallthrough path; add `handleIncMessage()` with INC subscription registry |
+| `packages/runtime/src/event-buffer.ts` | INC delivery is replaced by direct `sendToNapplet` dispatch — `bufferAndDeliver` no longer used for INC topics |
+| `packages/runtime/src/service-dispatch.ts` | INC topic routing via `routeServiceMessage()` no longer applies — INC is now a first-class NUB domain, not a service |
+| `packages/runtime/src/enforce.ts` | `resolveCapabilitiesNub()` inc domain branch |
 
-**Pitfall 8 reference:** After migration, the old IPC_PEER path (`event.kind === BusKind.IPC_PEER`) must not handle IFC topics. The distinction from storage: storage handler still exists (rewritten), but IFC routing via `eventBuffer.bufferAndDeliver` is replaced entirely by the new explicit subscription model.
+**Pitfall 8 reference:** After migration, the old IPC_PEER path (`event.kind === BusKind.IPC_PEER`) must not handle INC topics. The distinction from storage: storage handler still exists (rewritten), but INC routing via `eventBuffer.bufferAndDeliver` is replaced entirely by the new explicit subscription model.
 
 ---
 
@@ -706,10 +706,10 @@ Summary of all runtime source files and what changes drives each modification:
 
 | File | Change Type | NUB Domain(s) | Notes |
 |------|------------|---------------|-------|
-| `packages/runtime/src/runtime.ts` | Major rewrite | relay, signer, storage, ifc | Add 4 new NUB handlers; remove verb-switch cases; remove `IPC_PEER` kind-dispatch branching |
+| `packages/runtime/src/runtime.ts` | Major rewrite | relay, signer, storage, inc | Add 4 new NUB handlers; remove verb-switch cases; remove `IPC_PEER` kind-dispatch branching |
 | `packages/runtime/src/state-handler.ts` | Full rewrite | storage | New function signature accepts NUB envelope; preserves key-scoping and quota logic |
 | `packages/runtime/src/enforce.ts` | New function | all | Add `resolveCapabilitiesNub()` alongside existing `resolveCapabilities()` |
-| `packages/runtime/src/event-buffer.ts` | Interface change | ifc | `bufferAndDeliver()` no longer used for IFC delivery; IFC uses direct `sendToNapplet` |
+| `packages/runtime/src/event-buffer.ts` | Interface change | inc | `bufferAndDeliver()` no longer used for INC delivery; INC uses direct `sendToNapplet` |
 | `packages/runtime/src/service-dispatch.ts` | Update | (services) | `routeServiceMessage()` must accept NUB envelope when `ServiceHandler` interface updates (Pitfall 5) |
 | `packages/runtime/src/service-discovery.ts` | Remove (Phase 3) | (none) | Dead code after NIP-5D migration; kept during dual-mode transition for legacy napplets |
 | `packages/runtime/src/types.ts` | Interface update | all | `ServiceHandler.handleMessage` signature updated; `SendToNapplet` may need widening |

@@ -177,43 +177,43 @@ describe('resolveCapabilitiesNub', () => {
     });
   });
 
-  describe('ifc domain', () => {
-    it('ifc.emit -> relay:write (sender) + relay:read (recipient)', () => {
-      const result: CapabilityResolution = resolveCapabilitiesNub({ type: 'ifc.emit' });
+  describe('inc domain', () => {
+    it('inc.emit -> relay:write (sender) + relay:read (recipient)', () => {
+      const result: CapabilityResolution = resolveCapabilitiesNub({ type: 'inc.emit' });
       expect(result).toEqual({ senderCap: 'relay:write', recipientCap: 'relay:read' });
     });
 
-    it('ifc.subscribe -> relay:read only', () => {
-      const result: CapabilityResolution = resolveCapabilitiesNub({ type: 'ifc.subscribe' });
+    it('inc.subscribe -> relay:read only', () => {
+      const result: CapabilityResolution = resolveCapabilitiesNub({ type: 'inc.subscribe' });
       expect(result).toEqual({ senderCap: 'relay:read', recipientCap: null });
     });
 
-    it('ifc.unsubscribe -> relay:read only', () => {
-      expect(resolveCapabilitiesNub({ type: 'ifc.unsubscribe' })).toEqual({ senderCap: 'relay:read', recipientCap: null });
+    it('inc.unsubscribe -> relay:read only', () => {
+      expect(resolveCapabilitiesNub({ type: 'inc.unsubscribe' })).toEqual({ senderCap: 'relay:read', recipientCap: null });
     });
 
-    it('ifc.channel.open -> relay:read only (open-time ACL semantics)', () => {
-      expect(resolveCapabilitiesNub({ type: 'ifc.channel.open' })).toEqual({ senderCap: 'relay:read', recipientCap: null });
+    it('inc.channel.open -> relay:read only (open-time ACL semantics)', () => {
+      expect(resolveCapabilitiesNub({ type: 'inc.channel.open' })).toEqual({ senderCap: 'relay:read', recipientCap: null });
     });
 
-    it('ifc.channel.emit -> relay:write + relay:read (point-to-point write)', () => {
-      expect(resolveCapabilitiesNub({ type: 'ifc.channel.emit' })).toEqual({ senderCap: 'relay:write', recipientCap: 'relay:read' });
+    it('inc.channel.emit -> relay:write + relay:read (point-to-point write)', () => {
+      expect(resolveCapabilitiesNub({ type: 'inc.channel.emit' })).toEqual({ senderCap: 'relay:write', recipientCap: 'relay:read' });
     });
 
-    it('ifc.channel.broadcast -> relay:write + relay:read (fan-out write)', () => {
-      expect(resolveCapabilitiesNub({ type: 'ifc.channel.broadcast' })).toEqual({ senderCap: 'relay:write', recipientCap: 'relay:read' });
+    it('inc.channel.broadcast -> relay:write + relay:read (fan-out write)', () => {
+      expect(resolveCapabilitiesNub({ type: 'inc.channel.broadcast' })).toEqual({ senderCap: 'relay:write', recipientCap: 'relay:read' });
     });
 
-    it('ifc.channel.list -> relay:read only', () => {
-      expect(resolveCapabilitiesNub({ type: 'ifc.channel.list' })).toEqual({ senderCap: 'relay:read', recipientCap: null });
+    it('inc.channel.list -> relay:read only', () => {
+      expect(resolveCapabilitiesNub({ type: 'inc.channel.list' })).toEqual({ senderCap: 'relay:read', recipientCap: null });
     });
 
-    it('ifc.channel.close -> relay:read only', () => {
-      expect(resolveCapabilitiesNub({ type: 'ifc.channel.close' })).toEqual({ senderCap: 'relay:read', recipientCap: null });
+    it('inc.channel.close -> relay:read only', () => {
+      expect(resolveCapabilitiesNub({ type: 'inc.channel.close' })).toEqual({ senderCap: 'relay:read', recipientCap: null });
     });
   });
 
-  describe('inc domain (NAP rename of ifc, D5 / ALIGN-06)', () => {
+  describe('inc domain (NAP rename of inc, D5 / ALIGN-06)', () => {
     it('inc.emit -> relay:write (sender) + relay:read (recipient)', () => {
       const result: CapabilityResolution = resolveCapabilitiesNub({ type: 'inc.emit' });
       expect(result).toEqual({ senderCap: 'relay:write', recipientCap: 'relay:read' });

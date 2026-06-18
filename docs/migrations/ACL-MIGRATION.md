@@ -165,7 +165,7 @@ function resolveCapabilitiesNub(msg: NappletMessage): CapabilityResolution {
       return (action === 'get' || action === 'keys')
         ? { senderCap: 'state:read', recipientCap: null }
         : { senderCap: 'state:write', recipientCap: null };
-    case 'ifc':
+    case 'inc':
       return action === 'emit'
         ? { senderCap: 'relay:write', recipientCap: 'relay:read' }
         : { senderCap: 'relay:read', recipientCap: null };
@@ -191,13 +191,13 @@ The following elements of `@kehto/acl` are **not changed** by the NIP-5D migrati
 - The `defaultPolicy` semantics (`'permissive'` grants all caps to unknown identities; `'restrictive'` denies all)
 - The `serialize()` and `deserialize()` functions (format-agnostic)
 
-### IFC Capability Note
+### INC Capability Note
 
-The `ifc` NUB (inter-napplet communication) reuses `relay:write` for sending and `relay:read` for receiving rather than introducing new capability bits. This is intentional and matches the behavior of the old RUNTIME-SPEC: IPC_PEER messages (kind `29003`) that were not state operations required `relay:write` (sender) and `relay:read` (recipient).
+The `inc` NUB (inter-napplet communication) reuses `relay:write` for sending and `relay:read` for receiving rather than introducing new capability bits. This is intentional and matches the behavior of the old RUNTIME-SPEC: IPC_PEER messages (kind `29003`) that were not state operations required `relay:write` (sender) and `relay:read` (recipient).
 
-**Rationale:** IFC traffic is inter-napplet relay traffic routed through the shell's internal bus. From an access-control perspective, it is semantically equivalent to relay publish/subscribe: one napplet emits an event that another napplet subscribes to. Granting a napplet `relay:write` implicitly allows it to emit IFC messages; granting `relay:read` allows it to receive them. Introducing separate `ifc:write` / `ifc:read` bits would require changes to every existing ACL entry and would duplicate the semantics of `relay:write`/`relay:read` without adding additional security granularity.
+**Rationale:** INC traffic is inter-napplet relay traffic routed through the shell's internal bus. From an access-control perspective, it is semantically equivalent to relay publish/subscribe: one napplet emits an event that another napplet subscribes to. Granting a napplet `relay:write` implicitly allows it to emit INC messages; granting `relay:read` allows it to receive them. Introducing separate `inc:write` / `inc:read` bits would require changes to every existing ACL entry and would duplicate the semantics of `relay:write`/`relay:read` without adding additional security granularity.
 
-If future requirements demand IFC-specific access control (e.g., allow relay publish but deny IFC), new capability bits should be introduced at that time. For the NIP-5D v0.1.0 migration, the `relay:write`/`relay:read` reuse is the correct approach.
+If future requirements demand INC-specific access control (e.g., allow relay publish but deny INC), new capability bits should be introduced at that time. For the NIP-5D v0.1.0 migration, the `relay:write`/`relay:read` reuse is the correct approach.
 
 ---
 

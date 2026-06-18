@@ -2,7 +2,7 @@
  * dispatch.test.ts — Unit tests for @kehto/runtime NIP-5D NUB domain dispatch.
  *
  * Tests NappletMessage envelope dispatch, domain routing, ACL enforcement,
- * and domain handler implementations (relay, identity, storage, ifc, …).
+ * and domain handler implementations (relay, identity, storage, inc, …).
  * All tests run in Node.js without browser globals.
  */
 
@@ -130,10 +130,10 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(result).toBeDefined();
     });
 
-    it('routes ifc.* to ifc handler — subscribe emits ifc.subscribe.result (Plan 12-04 / NUB-04)', () => {
-      runtime.handleMessage(WINDOW_ID, { type: 'ifc.subscribe', id: 'req-1', topic: 'test-topic' } as NappletMessage);
-      // Canonical @napplet/nap/ifc contract: ifc.subscribe emits ifc.subscribe.result.
-      const result = findEnvelopeResponse(ctx.sent, 'ifc.subscribe.result');
+    it('routes inc.* to inc handler — subscribe emits inc.subscribe.result (Plan 12-04 / NUB-04)', () => {
+      runtime.handleMessage(WINDOW_ID, { type: 'inc.subscribe', id: 'req-1', topic: 'test-topic' } as NappletMessage);
+      // Canonical @napplet/nap/inc contract: inc.subscribe emits inc.subscribe.result.
+      const result = findEnvelopeResponse(ctx.sent, 'inc.subscribe.result');
       expect(result).toBeDefined();
       expect((result as any).id).toBe('req-1');
       expect((result as any).error).toBeUndefined();
@@ -468,45 +468,45 @@ describe('NIP-5D Envelope Dispatch', () => {
     });
   });
 
-  // ─── IFC Handler ──────────────────────────────────────────────────────────────
+  // ─── INC Handler ──────────────────────────────────────────────────────────────
 
-  describe('IFC handler', () => {
-    it('ifc.subscribe registers subscription and emits ifc.subscribe.result (Plan 12-04 / NUB-04)', () => {
+  describe('INC handler', () => {
+    it('inc.subscribe registers subscription and emits inc.subscribe.result (Plan 12-04 / NUB-04)', () => {
       runtime.handleMessage(WINDOW_ID, {
-        type: 'ifc.subscribe',
-        id: 'req-sub-ifc',
+        type: 'inc.subscribe',
+        id: 'req-sub-inc',
         topic: 'chat',
       } as NappletMessage);
-      // Canonical @napplet/nap/ifc contract: handler must emit ifc.subscribe.result.
-      const result = findEnvelopeResponse(ctx.sent, 'ifc.subscribe.result');
+      // Canonical @napplet/nap/inc contract: handler must emit inc.subscribe.result.
+      const result = findEnvelopeResponse(ctx.sent, 'inc.subscribe.result');
       expect(result).toBeDefined();
-      expect((result as any).id).toBe('req-sub-ifc');
+      expect((result as any).id).toBe('req-sub-inc');
       expect((result as any).error).toBeUndefined();
     });
 
-    it('ifc.subscribe + ifc.emit delivers to subscriber', () => {
+    it('inc.subscribe + inc.emit delivers to subscriber', () => {
       // Register second window
       runtime.sessionRegistry.register(WINDOW_ID_2, makeSessionEntry(WINDOW_ID_2));
 
       // Window 2 subscribes to topic
       runtime.handleMessage(WINDOW_ID_2, {
-        type: 'ifc.subscribe',
+        type: 'inc.subscribe',
         topic: 'news',
       } as NappletMessage);
 
       // Window 1 emits to topic
       runtime.handleMessage(WINDOW_ID, {
-        type: 'ifc.emit',
+        type: 'inc.emit',
         topic: 'news',
         payload: { text: 'hello' },
       } as NappletMessage);
 
-      // Window 2 should receive ifc.event
+      // Window 2 should receive inc.event
       const event = ctx.sent.find(
         (s) => s.windowId === WINDOW_ID_2 &&
           typeof s.message === 'object' &&
           !Array.isArray(s.message) &&
-          (s.message as NappletMessage).type === 'ifc.event',
+          (s.message as NappletMessage).type === 'inc.event',
       );
       expect(event).toBeDefined();
       expect((event!.message as any).topic).toBe('news');
@@ -514,16 +514,16 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect((event!.message as any).sender).toBe(WINDOW_ID);
     });
 
-    it('ifc.emit does not echo to sender', () => {
+    it('inc.emit does not echo to sender', () => {
       // Window 1 subscribes
       runtime.handleMessage(WINDOW_ID, {
-        type: 'ifc.subscribe',
+        type: 'inc.subscribe',
         topic: 'self-test',
       } as NappletMessage);
 
       // Window 1 emits
       runtime.handleMessage(WINDOW_ID, {
-        type: 'ifc.emit',
+        type: 'inc.emit',
         topic: 'self-test',
         payload: { data: 'echo-check' },
       } as NappletMessage);
@@ -533,22 +533,22 @@ describe('NIP-5D Envelope Dispatch', () => {
         (s) => s.windowId === WINDOW_ID &&
           typeof s.message === 'object' &&
           !Array.isArray(s.message) &&
-          (s.message as NappletMessage).type === 'ifc.event',
+          (s.message as NappletMessage).type === 'inc.event',
       );
       expect(selfEvent).toBeUndefined();
     });
 
-    it('ifc.unsubscribe stops delivery', () => {
+    it('inc.unsubscribe stops delivery', () => {
       runtime.sessionRegistry.register(WINDOW_ID_2, makeSessionEntry(WINDOW_ID_2));
 
       // Window 2 subscribes
-      runtime.handleMessage(WINDOW_ID_2, { type: 'ifc.subscribe', topic: 'updates' } as NappletMessage);
+      runtime.handleMessage(WINDOW_ID_2, { type: 'inc.subscribe', topic: 'updates' } as NappletMessage);
       // Window 2 unsubscribes
-      runtime.handleMessage(WINDOW_ID_2, { type: 'ifc.unsubscribe', topic: 'updates' } as NappletMessage);
+      runtime.handleMessage(WINDOW_ID_2, { type: 'inc.unsubscribe', topic: 'updates' } as NappletMessage);
 
       // Window 1 emits
       runtime.handleMessage(WINDOW_ID, {
-        type: 'ifc.emit',
+        type: 'inc.emit',
         topic: 'updates',
         payload: { msg: 'should not arrive' },
       } as NappletMessage);
@@ -558,7 +558,7 @@ describe('NIP-5D Envelope Dispatch', () => {
         (s) => s.windowId === WINDOW_ID_2 &&
           typeof s.message === 'object' &&
           !Array.isArray(s.message) &&
-          (s.message as NappletMessage).type === 'ifc.event',
+          (s.message as NappletMessage).type === 'inc.event',
       );
       expect(event).toBeUndefined();
     });
@@ -598,7 +598,7 @@ describe('NIP-5D Envelope Dispatch', () => {
         payload: { text: 'inc hello' },
       } as NappletMessage);
 
-      // Window 2 should receive inc.event (not ifc.event)
+      // Window 2 should receive inc.event.
       const event = ctx.sent.find(
         (s) => s.windowId === WINDOW_ID_2 &&
           typeof s.message === 'object' &&
@@ -609,79 +609,6 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect((event!.message as any).topic).toBe('inc-news');
       expect((event!.message as any).payload).toEqual({ text: 'inc hello' });
       expect((event!.message as any).sender).toBe(WINDOW_ID);
-    });
-  });
-
-  // ─── Mixed-vocabulary delivery (D6 / ALIGN-05) ───────────────────────────────
-
-  describe('mixed-vocabulary delivery (D6 / ALIGN-05)', () => {
-    const WINDOW_A = 'win-mixed-A';
-    const WINDOW_B = 'win-mixed-B';
-    const WINDOW_C = 'win-mixed-C';
-
-    it('ifc subscriber receives ifc.event and inc subscriber receives inc.event for the same topic emit', () => {
-      runtime.sessionRegistry.register(WINDOW_A, makeSessionEntry(WINDOW_A));
-      runtime.sessionRegistry.register(WINDOW_B, makeSessionEntry(WINDOW_B));
-      runtime.sessionRegistry.register(WINDOW_C, makeSessionEntry(WINDOW_C));
-
-      // Window A subscribes via ifc (legacy vocabulary)
-      runtime.handleMessage(WINDOW_A, {
-        type: 'ifc.subscribe',
-        topic: 'mixed-topic',
-      } as NappletMessage);
-
-      // Window B subscribes via inc (NAP 0.9.0 vocabulary)
-      runtime.handleMessage(WINDOW_B, {
-        type: 'inc.subscribe',
-        topic: 'mixed-topic',
-      } as NappletMessage);
-
-      ctx.sent.length = 0; // drain subscribe.result envelopes
-
-      // Window C emits via inc
-      runtime.handleMessage(WINDOW_C, {
-        type: 'inc.emit',
-        topic: 'mixed-topic',
-        payload: { data: 'mixed-payload' },
-      } as NappletMessage);
-
-      // Window A (ifc subscriber) must receive ifc.event — its own vocabulary
-      const eventA = ctx.sent.find(
-        (s) => s.windowId === WINDOW_A &&
-          typeof s.message === 'object' &&
-          !Array.isArray(s.message) &&
-          (s.message as NappletMessage).type === 'ifc.event',
-      );
-      expect(eventA).toBeDefined();
-      expect((eventA!.message as any).topic).toBe('mixed-topic');
-      expect((eventA!.message as any).payload).toEqual({ data: 'mixed-payload' });
-
-      // Window B (inc subscriber) must receive inc.event — its own vocabulary
-      const eventB = ctx.sent.find(
-        (s) => s.windowId === WINDOW_B &&
-          typeof s.message === 'object' &&
-          !Array.isArray(s.message) &&
-          (s.message as NappletMessage).type === 'inc.event',
-      );
-      expect(eventB).toBeDefined();
-      expect((eventB!.message as any).topic).toBe('mixed-topic');
-      expect((eventB!.message as any).payload).toEqual({ data: 'mixed-payload' });
-
-      // No cross-contamination: A must not receive inc.event, B must not receive ifc.event
-      const wrongA = ctx.sent.find(
-        (s) => s.windowId === WINDOW_A &&
-          typeof s.message === 'object' &&
-          !Array.isArray(s.message) &&
-          (s.message as NappletMessage).type === 'inc.event',
-      );
-      const wrongB = ctx.sent.find(
-        (s) => s.windowId === WINDOW_B &&
-          typeof s.message === 'object' &&
-          !Array.isArray(s.message) &&
-          (s.message as NappletMessage).type === 'ifc.event',
-      );
-      expect(wrongA).toBeUndefined();
-      expect(wrongB).toBeUndefined();
     });
   });
 
@@ -715,11 +642,11 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect((result as any).pubkey).toBe('');
     });
 
-    it('ifc.subscribe bypasses ACL (relay:read required, granted by default)', () => {
+    it('inc.subscribe bypasses ACL (relay:read required, granted by default)', () => {
       // Default state grants relay:read, so subscribe should work
-      runtime.handleMessage(WINDOW_ID, { type: 'ifc.subscribe', topic: 'test' } as NappletMessage);
+      runtime.handleMessage(WINDOW_ID, { type: 'inc.subscribe', topic: 'test' } as NappletMessage);
       // No error response
-      const err = findEnvelopeResponse(ctx.sent, 'ifc.subscribe.error');
+      const err = findEnvelopeResponse(ctx.sent, 'inc.subscribe.error');
       expect(err).toBeUndefined();
     });
   });
@@ -733,15 +660,15 @@ describe('NIP-5D Envelope Dispatch', () => {
       }).not.toThrow();
     });
 
-    it('destroy() clears IFC subscriptions', () => {
+    it('destroy() clears INC subscriptions', () => {
       runtime.sessionRegistry.register(WINDOW_ID_2, makeSessionEntry(WINDOW_ID_2));
-      runtime.handleMessage(WINDOW_ID_2, { type: 'ifc.subscribe', topic: 'cleanup-test' } as NappletMessage);
+      runtime.handleMessage(WINDOW_ID_2, { type: 'inc.subscribe', topic: 'cleanup-test' } as NappletMessage);
 
       runtime.destroy();
 
       // After destroy, emit should not deliver to anyone
       runtime.handleMessage(WINDOW_ID, {
-        type: 'ifc.emit',
+        type: 'inc.emit',
         topic: 'cleanup-test',
         payload: 'after-destroy',
       } as NappletMessage);
@@ -750,20 +677,20 @@ describe('NIP-5D Envelope Dispatch', () => {
         (s) => s.windowId === WINDOW_ID_2 &&
           typeof s.message === 'object' &&
           !Array.isArray(s.message) &&
-          (s.message as NappletMessage).type === 'ifc.event',
+          (s.message as NappletMessage).type === 'inc.event',
       );
       expect(event).toBeUndefined();
     });
 
-    it('destroyWindow() removes IFC subscriptions for that window', () => {
+    it('destroyWindow() removes INC subscriptions for that window', () => {
       runtime.sessionRegistry.register(WINDOW_ID_2, makeSessionEntry(WINDOW_ID_2));
-      runtime.handleMessage(WINDOW_ID_2, { type: 'ifc.subscribe', topic: 'window-cleanup' } as NappletMessage);
+      runtime.handleMessage(WINDOW_ID_2, { type: 'inc.subscribe', topic: 'window-cleanup' } as NappletMessage);
 
       runtime.destroyWindow(WINDOW_ID_2);
 
       ctx.sent.length = 0;
       runtime.handleMessage(WINDOW_ID, {
-        type: 'ifc.emit',
+        type: 'inc.emit',
         topic: 'window-cleanup',
         payload: 'after-window-destroy',
       } as NappletMessage);
@@ -772,7 +699,7 @@ describe('NIP-5D Envelope Dispatch', () => {
         (s) => s.windowId === WINDOW_ID_2 &&
           typeof s.message === 'object' &&
           !Array.isArray(s.message) &&
-          (s.message as NappletMessage).type === 'ifc.event',
+          (s.message as NappletMessage).type === 'inc.event',
       );
       expect(event).toBeUndefined();
     });
@@ -1072,7 +999,7 @@ describe('createDispatch integration (Phase 14 DISPATCH-01/02/03)', () => {
       { type: 'media.session.create', owner: 'napplet', id: 'm-d' } as NappletMessage,
       { type: 'notify.send', id: 'n-d', notification: { title: 't', body: 'b' } } as NappletMessage,
       { type: 'storage.get', id: 's-d', key: 'k' } as NappletMessage,
-      { type: 'ifc.subscribe', id: 'i-d', topic: 't' } as NappletMessage,
+      { type: 'inc.subscribe', id: 'i-d', topic: 't' } as NappletMessage,
       { type: 'theme.get', id: 't-d' } as NappletMessage,
     ];
 
@@ -1081,7 +1008,7 @@ describe('createDispatch integration (Phase 14 DISPATCH-01/02/03)', () => {
     }
 
     // Each of the 8 envelopes must have produced at least one response envelope
-    // (either .result, .error, .eose, or a side-channel event like ifc.event/ifc.subscribe.result).
+    // (either .result, .error, .eose, or a side-channel event like inc.event/inc.subscribe.result).
     // If any domain's handler is missing from registerNub() at runtime startup,
     // nubDispatch.dispatch() returns false and nothing is emitted — test fails.
     const domainsWithResponse = new Set<string>();
@@ -1093,7 +1020,7 @@ describe('createDispatch integration (Phase 14 DISPATCH-01/02/03)', () => {
       }
     }
     // Expect every one of the 8 domains to have produced at least one reply envelope.
-    for (const d of ['relay', 'identity', 'keys', 'media', 'notify', 'storage', 'ifc', 'theme']) {
+    for (const d of ['relay', 'identity', 'keys', 'media', 'notify', 'storage', 'inc', 'theme']) {
       expect(domainsWithResponse.has(d), `domain ${d} produced no response envelope — handler not registered via registerNub()?`).toBe(true);
     }
   });

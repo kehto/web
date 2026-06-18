@@ -28,8 +28,8 @@ export const DEBUGGER_PATH_LABELS: DemoProtocolPath[] = [
   'identity-bind',
   'relay-publish',
   'relay-subscribe',
-  'ifc-send',
-  'ifc-receive',
+  'inc-send',
+  'inc-receive',
   'state-read',
   'state-write',
   'identity-request',
@@ -68,15 +68,15 @@ export function classifyTappedMessagePath(msg: TappedMessage): DemoProtocolPath 
       if (action === 'setItem' || action === 'removeItem' || action === 'clear') return 'state-write';
       return 'state-read';
     }
-    if (domain === 'ifc' || domain === 'inc') {
+    if (domain === 'inc' || domain === 'inc') {
       // The migrated playground napplets now post inc.* envelopes; the legacy
-      // nub-* fixtures still post ifc.*. Both classify to the same audit path
-      // labels (ifc-send/ifc-receive) so demo-audit-correctness stays valid.
-      return msg.direction === 'napplet->shell' ? 'ifc-send' : 'ifc-receive';
+      // nub-* fixtures still post inc.*. Both classify to the same audit path
+      // labels (inc-send/inc-receive) so demo-audit-correctness stays valid.
+      return msg.direction === 'napplet->shell' ? 'inc-send' : 'inc-receive';
     }
-    if (domain === 'notify') return 'ifc-receive';
+    if (domain === 'notify') return 'inc-receive';
     if (domain === 'theme' || domain === 'keys' || domain === 'media') {
-      return msg.direction === 'napplet->shell' ? 'ifc-send' : 'ifc-receive';
+      return msg.direction === 'napplet->shell' ? 'inc-send' : 'inc-receive';
     }
     if (domain === 'shell') return 'identity-bind';
     return null;
@@ -98,11 +98,11 @@ export function classifyTappedMessagePath(msg: TappedMessage): DemoProtocolPath 
     ? ((event?.tags as string[][] | undefined)?.find((tag) => tag[0] === 't')?.[1] ?? msg.parsed.topic)
     : msg.parsed.topic;
 
-  // Raw NIP-01 kind 29003 traffic maps to IFC path labels.
+  // Raw NIP-01 kind 29003 traffic maps to INC path labels.
   if (kind === 29003) {
     if (topic === 'shell:state-get' || topic === 'shell:state-keys') return 'state-read';
     if (topic === 'shell:state-set' || topic === 'shell:state-remove' || topic === 'shell:state-clear') return 'state-write';
-    return msg.direction === 'napplet->shell' ? 'ifc-send' : 'ifc-receive';
+    return msg.direction === 'napplet->shell' ? 'inc-send' : 'inc-receive';
   }
 
   return msg.direction === 'napplet->shell' ? 'relay-publish' : 'relay-subscribe';

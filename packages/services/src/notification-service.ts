@@ -146,7 +146,7 @@ function handleNotifyEnvelope(
   }
 }
 
-function handleIfcNotification(
+function handleIncNotification(
   store: NotificationStore,
   windowId: string,
   action: string,
@@ -158,7 +158,7 @@ function handleIfcNotification(
       const title = typeof payload.title === 'string' ? payload.title : '';
       const body = typeof payload.body === 'string' ? payload.body : '';
       const notification = createNotification(store, windowId, title, body);
-      send({ type: 'ifc.event', topic: 'notifications:created', payload: { id: notification.id } } as NappletMessage);
+      send({ type: 'inc.event', topic: 'notifications:created', payload: { id: notification.id } } as NappletMessage);
       break;
     }
 
@@ -176,7 +176,7 @@ function handleIfcNotification(
 
     case 'list': {
       const windowNotifs = store.notifications.get(windowId) ?? [];
-      send({ type: 'ifc.event', topic: 'notifications:listed', payload: { notifications: windowNotifs } } as NappletMessage);
+      send({ type: 'inc.event', topic: 'notifications:listed', payload: { notifications: windowNotifs } } as NappletMessage);
       break;
     }
 
@@ -235,12 +235,12 @@ export function createNotificationService(options?: NotificationServiceOptions):
         return;
       }
 
-      if (message.type !== 'ifc.emit') return;
+      if (message.type !== 'inc.emit') return;
       const topic = msg.topic as string | undefined;
       if (!topic?.startsWith('notifications:')) return;
 
       const payload = ((msg.payload ?? {}) as Record<string, unknown>);
-      handleIfcNotification(store, windowId, topic.slice(14), payload, send);
+      handleIncNotification(store, windowId, topic.slice(14), payload, send);
     },
 
     onWindowDestroyed(windowId: string): void {

@@ -34,9 +34,9 @@ The legacy `/napplets/<name>/...` static route may still exist for compatibility
 
 The demo hosts 10 sandboxed napplets, each built independently under `apps/playground/napplets/<name>/` and loaded into a topology-rendered iframe at runtime. v1.3 shipped an 8-napplet demo; later milestones added `resource-demo` and `cvm-relatr`.
 
-The cross-napplet domain is `inc` (the NAP rename of the legacy `ifc`). The four
+The cross-napplet domain is `inc` (the NAP rename of the legacy `inc`). The four
 napplets below declare `requires` / call `supports()` with `inc`; the runtime
-dual-routes `ifc`+`inc` for the back-compat window, so legacy `ifc.*` envelopes
+dual-routes `inc`+`inc` for the back-compat window, so legacy `inc.*` envelopes
 still reach the same handler (removal tracked as CLEANUP-01).
 
 | Napplet | Domain(s) | NAP methods exercised | File path |
@@ -61,7 +61,7 @@ The demo renders 8 service nodes reflecting the NIP-5D service surface the runti
 - **identity** — read-only identity lookups backed by the shell's signer adapter (`getPublicKey`, `getRelays`, `getProfile`).
 - **keys** — real document-level chord listener (v1.4 Phase 26, `KEYS-01..03`).
 - **media** — real `navigator.mediaSession` mirror (v1.4 Phase 27, `MEDIA-01..03`).
-- **notifications** — notification service (both canonical `notify.*` NAP and legacy ifc-emit `notifications:*` channel).
+- **notifications** — notification service (both canonical `notify.*` NAP and legacy inc-emit `notifications:*` channel).
 - **relay** — `nostr-tools` SimplePool relay pool service (`relay.publish`, `relay.subscribe`, etc).
 - **signer** — shell-side signing proxy; napplet-invisible per NIP-5D (`MUST NOT` expose `window.nostr`).
 - **storage** — per-napplet namespaced localStorage proxy.

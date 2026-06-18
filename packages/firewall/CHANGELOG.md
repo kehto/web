@@ -35,13 +35,13 @@
 
   **Migration for consumers:** install `@napplet/core@^0.12` and `@napplet/nap`
   (replacing `@napplet/nub`). The kehto wire protocol is unchanged — the legacy
-  `ifc`/`nubs` envelopes are still dual-emitted for the installed 0.5.0 shim
+  `inc`/`nubs` envelopes are still dual-emitted for the installed 0.5.0 shim
   (removal is tracked as CLEANUP-01) — so no napplet-side code change is required;
   this is a host-side dependency and core-API modernization only.
 
-  Internal kehto identifiers that still carry "nub"/"ifc" vocabulary
-  (`createNubEnvelopeDispatcher`, `IfcDomain`, `ifc-handler.ts`, …) are unchanged:
-  they are private and the runtime dual-routes `ifc`+`inc`.
+  Internal kehto identifiers that still carry "nub"/"inc" vocabulary
+  (`createNubEnvelopeDispatcher`, `IncDomain`, `inc-handler.ts`, …) are unchanged:
+  they are private and the runtime dual-routes `inc`+`inc`.
 
 ## 0.2.0
 

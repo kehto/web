@@ -74,13 +74,13 @@
 
   **Migration for consumers:** install `@napplet/core@^0.12` and `@napplet/nap`
   (replacing `@napplet/nub`). The kehto wire protocol is unchanged — the legacy
-  `ifc`/`nubs` envelopes are still dual-emitted for the installed 0.5.0 shim
+  `inc`/`nubs` envelopes are still dual-emitted for the installed 0.5.0 shim
   (removal is tracked as CLEANUP-01) — so no napplet-side code change is required;
   this is a host-side dependency and core-API modernization only.
 
-  Internal kehto identifiers that still carry "nub"/"ifc" vocabulary
-  (`createNubEnvelopeDispatcher`, `IfcDomain`, `ifc-handler.ts`, …) are unchanged:
-  they are private and the runtime dual-routes `ifc`+`inc`.
+  Internal kehto identifiers that still carry "nub"/"inc" vocabulary
+  (`createNubEnvelopeDispatcher`, `IncDomain`, `inc-handler.ts`, …) are unchanged:
+  they are private and the runtime dual-routes `inc`+`inc`.
 
 ### Patch Changes
 
@@ -94,7 +94,7 @@
 
 - 968e664: feat: NAP ontology alignment — inc domain, inc:NAP-0N protocol IDs, dual-emit back-compat window
 
-  Aligns `@kehto/*` with the `@napplet/*` 0.9.0 rename from the `ifc`/`NUB-NN`
+  Aligns `@kehto/*` with the `@napplet/*` 0.9.0 rename from the `inc`/`NUB-NN`
   vocabulary to the canonical NAP vocabulary (`inc`/`NAP-NN`). Resolves kehto/web#24.
 
   ### @kehto/shell — `ShellCapabilities` public interface change
@@ -103,12 +103,12 @@
 
   - **`naps`** (new, primary): NAP-vocabulary capability set consumed by
     `@napplet/shim >=0.9.0`. Advertises bare domain `inc` (the NAP rename of
-    `ifc`) and protocol IDs `inc:NAP-01..inc:NAP-06` (the `ifc:NUB-01..06` aliases
-    renamed, plus `ifc:NAP-01` replaced). Contains NO `ifc` or `NUB-NN` identifiers.
+    `inc`) and protocol IDs `inc:NAP-01..inc:NAP-06` (the `inc:NUB-01..06` aliases
+    renamed, plus `inc:NAP-01` replaced). Contains NO `inc` or `NUB-NN` identifiers.
     Conditional entries: `relay`+`outbox` when a relay pool is wired; `upload` when
     an upload backend is wired; `intent` when an intent dispatcher is available.
 
-  - **`nubs`** (retained, legacy): legacy `ifc`/`ifc:NUB-01..06`/`ifc:NAP-01`
+  - **`nubs`** (retained, legacy): legacy `inc`/`inc:NUB-01..06`/`inc:NAP-01`
     vocabulary retained unchanged for one back-compat release, consumed by
     `@napplet/nub` and `@napplet/shim <=0.8.x`. No content change from prior
     releases.
@@ -126,25 +126,25 @@
 
   ### @kehto/runtime — `inc.*` dispatch acceptance
 
-  The nub envelope dispatcher now registers the IFC handler under **both** the
-  `ifc` and `inc` dispatch keys. A napplet that sends `inc.subscribe`,
+  The nub envelope dispatcher now registers the INC handler under **both** the
+  `inc` and `inc` dispatch keys. A napplet that sends `inc.subscribe`,
   `inc.emit`, or `inc.channel.*` messages reaches the same handler as one that
-  sends the legacy `ifc.*` messages. The IFC handler is domain-aware: responses
+  sends the legacy `inc.*` messages. The INC handler is domain-aware: responses
   to a requester echo the requester's own domain prefix (`inc.subscribe` →
   `inc.subscribe.result`); push events to other napplets use the recipient's
   tracked domain prefix, so each napplet receives its own vocabulary.
 
-  Legacy `ifc.*` routing is byte-for-byte unchanged — no regression for napplets
+  Legacy `inc.*` routing is byte-for-byte unchanged — no regression for napplets
   on `@napplet/nub` or `@napplet/shim <=0.8.x`.
 
   ### @kehto/acl — `inc.*` ACL gating
 
-  `resolveCapabilitiesNub` now maps the `inc` domain identically to `ifc` via a
+  `resolveCapabilitiesNub` now maps the `inc` domain identically to `inc` via a
   fall-through `case 'inc':` in the domain switch. `inc.emit` and
   `inc.channel.emit/broadcast` require `relay:write`; `inc.subscribe`,
   `inc.unsubscribe`, `inc.channel.open/list/close` require `relay:read`. This
   closes the ACL bypass that would have allowed `inc.emit` to fall through to the
-  `unknown → null/null` branch, bypassing the relay:write gate that `ifc.emit`
+  `unknown → null/null` branch, bypassing the relay:write gate that `inc.emit`
   enforces.
 
 ### Patch Changes
@@ -343,7 +343,7 @@
 
   **Fix #15** — NIP-5D source-identity napplets are now registered into `runtime.sessionRegistry` during the `shell.ready` handshake. Previously `originRegistry` identity was never bridged into the runtime registry, so `getEntryByWindowId` always returned `undefined` and every storage (and other `sessionRegistry`-keyed) operation failed with `not registered`. The `shell.ready` handler resolves identity from the `onNip5dIframeCreate` hook (preferred) or `originRegistry.getIdentity` (fallback) and registers a source-identity `SessionEntry` (`provenance: 'nip-5d'`, `pubkey: ''`); it skips registration cleanly when neither source yields identity.
 
-- 93224cd: Consolidate NUB peer dependencies from 8 split `@napplet/nub-{identity,ifc,keys,media,notify,relay,storage,theme}@^0.2.1` packages onto the single `@napplet/nub@^0.2.1` package. All in-repo imports now read from the `@napplet/nub/<domain>/types` subpath (type-only consumers) or the root `@napplet/nub/<domain>` subpath.
+- 93224cd: Consolidate NUB peer dependencies from 8 split `@napplet/nub-{identity,inc,keys,media,notify,relay,storage,theme}@^0.2.1` packages onto the single `@napplet/nub@^0.2.1` package. All in-repo imports now read from the `@napplet/nub/<domain>/types` subpath (type-only consumers) or the root `@napplet/nub/<domain>` subpath.
 
   Addresses kehto#4 (hyprgate v2.0 Kehto Migration gap analysis). Eliminates the dual-instance pitfall where downstream shells consuming both the split-package and consolidated NUB shapes ended up with two copies of every NUB module on disk.
 
@@ -388,7 +388,7 @@
 
   Highlights:
 
-  - Runtime relay, identity, IFC, and fallback domain handling were split into focused helpers.
+  - Runtime relay, identity, INC, and fallback domain handling were split into focused helpers.
   - Shell and playground-facing helpers were decomposed without changing public package exports.
   - Service factories and adapter builders were split into smaller private helpers.
   - Public package source now passes the local `aislop` gate with the existing scanner thresholds.
@@ -405,7 +405,7 @@
 
 ### Minor Changes
 
-- 226cdca: NIP-5D 8-nub dispatch and shell-mediated signing. Runtime now uses `createDispatch()` + `registerNub()` from `@napplet/core` instead of a hand-rolled 8-case switch. All eight nub domains (identity, ifc, keys, media, notify, relay, storage, theme) are registered through `registerNub()` adapters at runtime startup. The `signer` domain is deleted; `relay.publishEncrypted` is now the canonical NIP-44 path and synthesizes a `relay.publish` into the registered relay service after shell-side encryption. ifc channel sub-protocol routed via per-runtime registry; `ifc.subscribe` emits the canonical `subscribe.result` envelope. `theme` dispatch added with a fallback default theme envelope so napplets without a registered theme service still get spec-correct replies.
+- 226cdca: NIP-5D 8-nub dispatch and shell-mediated signing. Runtime now uses `createDispatch()` + `registerNub()` from `@napplet/core` instead of a hand-rolled 8-case switch. All eight nub domains (identity, inc, keys, media, notify, relay, storage, theme) are registered through `registerNub()` adapters at runtime startup. The `signer` domain is deleted; `relay.publishEncrypted` is now the canonical NIP-44 path and synthesizes a `relay.publish` into the registered relay service after shell-side encryption. inc channel sub-protocol routed via per-runtime registry; `inc.subscribe` emits the canonical `subscribe.result` envelope. `theme` dispatch added with a fallback default theme envelope so napplets without a registered theme service still get spec-correct replies.
 
   **Breaking changes:**
 
@@ -416,7 +416,7 @@
   **Peer deps:**
 
   - @napplet/core bumped from >=0.1.0 to ^0.2.0
-  - Added @napplet/nub-identity, @napplet/nub-ifc, @napplet/nub-keys, @napplet/nub-media, @napplet/nub-notify, @napplet/nub-relay, @napplet/nub-storage, @napplet/nub-theme (all ^0.2.0)
+  - Added @napplet/nub-identity, @napplet/nub-inc, @napplet/nub-keys, @napplet/nub-media, @napplet/nub-notify, @napplet/nub-relay, @napplet/nub-storage, @napplet/nub-theme (all ^0.2.0)
 
   **Known carry-over:**
 
@@ -436,7 +436,7 @@
 
   - NAP-01, NAP-02 (bot + chat SDK migration consuming runtime routing)
   - NAP-03..09 (single-domain napplets exercising runtime dispatch)
-  - E2E-07 (napplet-auth, ifc-roundtrip, relay-publish, relay-publish-encrypted, relay-subscribe, identity-flow, storage-persist, notify-lifecycle, theme-broadcast specs)
+  - E2E-07 (napplet-auth, inc-roundtrip, relay-publish, relay-publish-encrypted, relay-subscribe, identity-flow, storage-persist, notify-lifecycle, theme-broadcast specs)
   - E2E-09 (Layer-A nub-\* specs against the harness)
   - DOCS-01, DOCS-02 (typedoc + runtime README)
 

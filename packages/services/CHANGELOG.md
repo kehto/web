@@ -63,13 +63,13 @@
 
   **Migration for consumers:** install `@napplet/core@^0.12` and `@napplet/nap`
   (replacing `@napplet/nub`). The kehto wire protocol is unchanged — the legacy
-  `ifc`/`nubs` envelopes are still dual-emitted for the installed 0.5.0 shim
+  `inc`/`nubs` envelopes are still dual-emitted for the installed 0.5.0 shim
   (removal is tracked as CLEANUP-01) — so no napplet-side code change is required;
   this is a host-side dependency and core-API modernization only.
 
-  Internal kehto identifiers that still carry "nub"/"ifc" vocabulary
-  (`createNubEnvelopeDispatcher`, `IfcDomain`, `ifc-handler.ts`, …) are unchanged:
-  they are private and the runtime dual-routes `ifc`+`inc`.
+  Internal kehto identifiers that still carry "nub"/"inc" vocabulary
+  (`createNubEnvelopeDispatcher`, `IncDomain`, `inc-handler.ts`, …) are unchanged:
+  they are private and the runtime dual-routes `inc`+`inc`.
 
 ### Patch Changes
 
@@ -284,7 +284,7 @@
 
   No breaking changes. See docs/policies/SHELL-RESOURCE-POLICY.md (Phase 40 Plan 40-03) for host-fetch policy surface (redirects, MIME sniffing, private-IP blocking — host-app concerns).
 
-- 93224cd: Consolidate NUB peer dependencies from 8 split `@napplet/nub-{identity,ifc,keys,media,notify,relay,storage,theme}@^0.2.1` packages onto the single `@napplet/nub@^0.2.1` package. All in-repo imports now read from the `@napplet/nub/<domain>/types` subpath (type-only consumers) or the root `@napplet/nub/<domain>` subpath.
+- 93224cd: Consolidate NUB peer dependencies from 8 split `@napplet/nub-{identity,inc,keys,media,notify,relay,storage,theme}@^0.2.1` packages onto the single `@napplet/nub@^0.2.1` package. All in-repo imports now read from the `@napplet/nub/<domain>/types` subpath (type-only consumers) or the root `@napplet/nub/<domain>` subpath.
 
   Addresses kehto#4 (hyprgate v2.0 Kehto Migration gap analysis). Eliminates the dual-instance pitfall where downstream shells consuming both the split-package and consolidated NUB shapes ended up with two copies of every NUB module on disk.
 
@@ -314,7 +314,7 @@
 
   Highlights:
 
-  - Runtime relay, identity, IFC, and fallback domain handling were split into focused helpers.
+  - Runtime relay, identity, INC, and fallback domain handling were split into focused helpers.
   - Shell and playground-facing helpers were decomposed without changing public package exports.
   - Service factories and adapter builders were split into smaller private helpers.
   - Public package source now passes the local `aislop` gate with the existing scanner thresholds.
@@ -332,7 +332,7 @@
 
 ### Minor Changes
 
-- 226cdca: Reference services realigned to the 8-nub protocol. `signer-service` is deleted; its responsibilities are split into a new `identity-service` (read-only `getPublicKey` / `getRelays` / `getProfile` / `getFollows` / `getList` / `getZaps` / `getMutes` / `getBlocked` / `getBadges`) and shell-mediated signing/encryption inside `relay.publish` / `relay.publishEncrypted`. New reference handlers added for the other four new nub domains: `keys-service` (keyboard actions — bindings/register/forward), `media-service` (MediaSession create/update/destroy + controls), `notify-service` (send/permission/channel register/dismiss/badge), and `theme-service` (get/changed broadcast with `publishTheme`/`getCurrentTheme` host-facing bundle). Legacy `audio-service` and `notification-service` remain for ifc-emit topics and coexist with the new NIP-5D envelope handlers.
+- 226cdca: Reference services realigned to the 8-nub protocol. `signer-service` is deleted; its responsibilities are split into a new `identity-service` (read-only `getPublicKey` / `getRelays` / `getProfile` / `getFollows` / `getList` / `getZaps` / `getMutes` / `getBlocked` / `getBadges`) and shell-mediated signing/encryption inside `relay.publish` / `relay.publishEncrypted`. New reference handlers added for the other four new nub domains: `keys-service` (keyboard actions — bindings/register/forward), `media-service` (MediaSession create/update/destroy + controls), `notify-service` (send/permission/channel register/dismiss/badge), and `theme-service` (get/changed broadcast with `publishTheme`/`getCurrentTheme` host-facing bundle). Legacy `audio-service` and `notification-service` remain for inc-emit topics and coexist with the new NIP-5D envelope handlers.
 
   **Breaking changes:**
 
@@ -340,18 +340,18 @@
 
   **Migration note:**
 
-  - `tests/unit/shell-runtime-integration.test.ts` was removed in v1.2 — its v1.1 BusKind / signer.\* assertions no longer apply to the 8-nub protocol model. Equivalent coverage is provided by the per-package integration tests added in v1.2 Phases 12-03 (identity), 12-04 (ifc), 12-08 (relay publishEncrypted), and 12-09 (storage).
+  - `tests/unit/shell-runtime-integration.test.ts` was removed in v1.2 — its v1.1 BusKind / signer.\* assertions no longer apply to the 8-nub protocol model. Equivalent coverage is provided by the per-package integration tests added in v1.2 Phases 12-03 (identity), 12-04 (inc), 12-08 (relay publishEncrypted), and 12-09 (storage).
 
   **Peer deps:**
 
   - @napplet/core bumped from >=0.1.0 to ^0.2.0
-  - Added @napplet/nub-identity, @napplet/nub-ifc, @napplet/nub-keys, @napplet/nub-media, @napplet/nub-notify, @napplet/nub-relay, @napplet/nub-storage, @napplet/nub-theme (all ^0.2.0)
+  - Added @napplet/nub-identity, @napplet/nub-inc, @napplet/nub-keys, @napplet/nub-media, @napplet/nub-notify, @napplet/nub-relay, @napplet/nub-storage, @napplet/nub-theme (all ^0.2.0)
 
 ### Patch Changes
 
 - 41b12b9: v1.3 behavior-alignment rollup — no new services, no breaking changes:
 
-  - **notification-service canonical `notify.*` handling.** The service now handles both canonical v1.2 NIP-5D `notify.create` / `notify.list` / `notify.read` / `notify.dismiss` envelopes AND the legacy `ifc.emit` format for in-flight compatibility (Phase 17 + Phase 19 alignment). Registered under both `'notifications'` (topology key) and `'notify'` (runtime routing key) so the demo topology and the runtime dispatch both resolve correctly from a single handler instance (Phase 19 dual-register pattern).
+  - **notification-service canonical `notify.*` handling.** The service now handles both canonical v1.2 NIP-5D `notify.create` / `notify.list` / `notify.read` / `notify.dismiss` envelopes AND the legacy `inc.emit` format for in-flight compatibility (Phase 17 + Phase 19 alignment). Registered under both `'notifications'` (topology key) and `'notify'` (runtime routing key) so the demo topology and the runtime dispatch both resolve correctly from a single handler instance (Phase 19 dual-register pattern).
   - **identity-service `getPublicKey` contract.** The service always returns a result envelope (with an empty pubkey when no signer is present) rather than throwing — matches the `identity.getPublicKey` "Always succeeds" contract. Enables the `profile-viewer` napplet to render a `no-pubkey` sentinel cleanly under the no-signer case (Phase 20).
   - **Documentation surface.** Canonical v1.2 `packages/services/README.md` groups factories by NIP-5D NUB domain with explicit capability-gate annotations (e.g., `createIdentityService` requires `identity:read` ACL entry).
 

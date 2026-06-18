@@ -47,8 +47,8 @@
  * destroyed, the next-most-recently-touched session is promoted automatically.
  *
  * Note: this is SEPARATE from packages/services/src/audio-service.ts, which
- * is the legacy ifc-topic-based audio source registry (audio:* topic events
- * over ifc.emit). media-service is the canonical @napplet/nap/media NIP-5D
+ * is the legacy inc-topic-based audio source registry (audio:* topic events
+ * over inc.emit). media-service is the canonical @napplet/nap/media NIP-5D
  * path and they coexist — audio-service continues to track audio sources for
  * shell UI, while media-service handles the NUB protocol envelope surface.
  *

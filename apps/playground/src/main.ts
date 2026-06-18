@@ -426,7 +426,7 @@ tap.onMessage((msg) => {
 
   if (msg.verb === 'EVENT' && msg.parsed.topic) {
     debuggerEl?.addSystemMessage(
-      `ifc: ${msg.parsed.topic} (kind:${msg.parsed.eventKind})`
+      `inc: ${msg.parsed.topic} (kind:${msg.parsed.eventKind})`
     );
   }
 });

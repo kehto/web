@@ -418,9 +418,9 @@ export interface AclEntryExternal {
  * const audioHandler: ServiceHandler = {
  *   descriptor: { name: 'audio', version: '1.0.0' },
  *   handleMessage(windowId, message, send) {
- *     if (message.type === 'ifc.emit') {
- *       // process audio ifc event...
- *       send({ type: 'ifc.emit.result', id: (message as any).id });
+ *     if (message.type === 'inc.emit') {
+ *       // process audio inc event...
+ *       send({ type: 'inc.emit.result', id: (message as any).id });
  *     }
  *   },
  * };

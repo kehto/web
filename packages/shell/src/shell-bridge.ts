@@ -51,7 +51,7 @@ export interface ShellBridge {
 
   /**
    * Inject a shell-originated event into subscription delivery. Under NIP-5D,
-   * shell-originated events are forwarded to napplets as ifc.event envelope
+   * shell-originated events are forwarded to napplets as inc.event envelope
    * messages. The runtime's injectEvent() handles the per-session routing.
    *
    * v1.10 hard-removed the v1.8 soft-rename compatibility branch for the

@@ -59,14 +59,14 @@ export function createAudioService(options?: AudioServiceOptions): ServiceHandle
     descriptor,
 
     handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
-      if (message.type !== 'ifc.emit') return;
-      const ifcMessage = message as NappletMessage & { topic?: unknown; payload?: unknown };
-      const topic = typeof ifcMessage.topic === 'string' ? ifcMessage.topic : undefined;
+      if (message.type !== 'inc.emit') return;
+      const incMessage = message as NappletMessage & { topic?: unknown; payload?: unknown };
+      const topic = typeof incMessage.topic === 'string' ? incMessage.topic : undefined;
       if (!topic?.startsWith('audio:')) return;
 
       const action = topic.slice(6); // 'audio:'.length === 6
-      const payload = ifcMessage.payload && typeof ifcMessage.payload === 'object'
-        ? ifcMessage.payload as Record<string, unknown>
+      const payload = incMessage.payload && typeof incMessage.payload === 'object'
+        ? incMessage.payload as Record<string, unknown>
         : {};
 
       switch (action) {
@@ -107,7 +107,7 @@ export function createAudioService(options?: AudioServiceOptions): ServiceHandle
             notify();
           }
 
-          send({ type: 'ifc.event', topic: 'napplet:audio-muted', payload: { muted } } as NappletMessage);
+          send({ type: 'inc.event', topic: 'napplet:audio-muted', payload: { muted } } as NappletMessage);
           break;
         }
 
