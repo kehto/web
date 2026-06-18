@@ -2,8 +2,8 @@
  * upload-dispatch.test.ts — NAP-UPLOAD (shell-mediated file/blob upload) runtime dispatch.
  *
  * Verifies the `upload` domain is routed by the runtime to a registered
- * `upload` service (the registerNub lesson — registering the service alone is
- * not enough; the domain must also be wired in createNubEnvelopeDispatcher),
+ * `upload` service (the registerNap lesson — registering the service alone is
+ * not enough; the domain must also be wired in createNapEnvelopeDispatcher),
  * and that the ACL gate denies `upload.upload` for a blocked napplet.
  *
  * NAP-UPLOAD: upload guardrails (consent, quotas, allowed rails) are runtime/
@@ -35,7 +35,7 @@ describe('runtime upload domain dispatch', () => {
     runtime.sessionRegistry.register(WINDOW_ID, session());
   });
 
-  it('routes upload.upload to a registered upload service (registerNub wiring)', () => {
+  it('routes upload.upload to a registered upload service (registerNap wiring)', () => {
     const received: NappletMessage[] = [];
     runtime.registerService('upload', {
       descriptor: { name: 'upload', version: '1.0.0' },

@@ -2,8 +2,8 @@
  * intent-dispatch.test.ts — NAP-INTENT (archetype intent dispatch) runtime dispatch.
  *
  * Verifies the `intent` domain is routed by the runtime to a registered
- * `intent` service (the registerNub lesson — registering the service alone is
- * not enough; the domain must also be wired in createNubEnvelopeDispatcher),
+ * `intent` service (the registerNap lesson — registering the service alone is
+ * not enough; the domain must also be wired in createNapEnvelopeDispatcher),
  * and that the ACL gate denies `intent.available` for a blocked napplet.
  */
 
@@ -33,7 +33,7 @@ describe('runtime intent domain dispatch', () => {
     runtime.sessionRegistry.register(WINDOW_ID, session());
   });
 
-  it('routes intent.invoke to a registered intent service (registerNub wiring)', () => {
+  it('routes intent.invoke to a registered intent service (registerNap wiring)', () => {
     const received: NappletMessage[] = [];
     runtime.registerService('intent', {
       descriptor: { name: 'intent', version: '1.0.0' },

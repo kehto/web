@@ -51,24 +51,24 @@
 
 - d37ef25: chore: modernize to @napplet 0.12/0.13 (peer dep + core API rename)
 
-  All runtime packages move off the legacy `@napplet/nub` toolchain onto the
+  All runtime packages move off the legacy `@napplet/nap` toolchain onto the
   current `@napplet` line:
 
-  - **Peer dependency** `@napplet/core ^0.5` → `^0.12`, and `@napplet/nub ^0.5`
+  - **Peer dependency** `@napplet/core ^0.5` → `^0.12`, and `@napplet/nap ^0.5`
     → `@napplet/nap ^0.12` (the package was renamed upstream; `@napplet/firewall`
     consumers only need `@napplet/core ^0.12`).
-  - **Core dispatch API** `registerNub` → `registerNap` and the `NubHandler` type
+  - **Core dispatch API** `registerNap` → `registerNap` and the `NapHandler` type
     → `NapHandler`. The runtime's domain dispatcher now calls `registerNap(...)`
     for every domain.
 
   **Migration for consumers:** install `@napplet/core@^0.12` and `@napplet/nap`
-  (replacing `@napplet/nub`). The kehto wire protocol is unchanged — the legacy
-  `inc`/`nubs` envelopes are still dual-emitted for the installed 0.5.0 shim
+  (replacing `@napplet/nap`). The kehto wire protocol is unchanged — the legacy
+  `inc`/`naps` envelopes are still dual-emitted for the installed 0.5.0 shim
   (removal is tracked as CLEANUP-01) — so no napplet-side code change is required;
   this is a host-side dependency and core-API modernization only.
 
-  Internal kehto identifiers that still carry "nub"/"inc" vocabulary
-  (`createNubEnvelopeDispatcher`, `IncDomain`, `inc-handler.ts`, …) are unchanged:
+  Internal kehto identifiers that still carry "nap"/"inc" vocabulary
+  (`createNapEnvelopeDispatcher`, `IncDomain`, `inc-handler.ts`, …) are unchanged:
   they are private and the runtime dual-routes `inc`+`inc`.
 
 ### Patch Changes
@@ -240,7 +240,7 @@
 
 ### Minor Changes
 
-- Release the published NAP-MEDIA and NAP-IDENTITY alignment against `@napplet/nub@0.5.0`.
+- Release the published NAP-MEDIA and NAP-IDENTITY alignment against `@napplet/nap@0.5.0`.
 
   The runtime package set now consumes the published NAP helper graph, carries owner-aware media session create/result shapes, validates shell-owned media source requests before returning the current unsupported-owner response, and exposes the identity snapshot-plus-`identity.changed` flow without requiring napplet polling.
 
@@ -253,7 +253,7 @@
 
 ### Patch Changes
 
-- Align published package peers and source imports with `@napplet/nub@0.5.0`, the June 12 NAP helper release that carries the NAP-MEDIA and NAP-IDENTITY changes.
+- Align published package peers and source imports with `@napplet/nap@0.5.0`, the June 12 NAP helper release that carries the NAP-MEDIA and NAP-IDENTITY changes.
 - Updated dependencies
   - @kehto/runtime@0.3.1
 
@@ -261,39 +261,39 @@
 
 ### Minor Changes
 
-- 0fa11f1: NUB-CONFIG reference service (v1.7 Phase 39 / 9th NUB domain).
+- 0fa11f1: NAP-CONFIG reference service (v1.7 Phase 39 / 9th NAP domain).
 
   New public surface: `createConfigService(options)`, `ConfigServiceOptions`, `ConfigService`, `ConfigSchemaValidation`.
 
-  Shell-side reference implementation of the canonical `@napplet/nub/config` wire protocol (published at `^0.2.1`). Handles `config.get`, `config.subscribe` / `config.unsubscribe`, `config.registerSchema`, `config.openSettings`. Exposes `publishValues(values)` for live fan-out to subscribed napplets.
+  Shell-side reference implementation of the canonical `@napplet/nap/config` wire protocol (published at `^0.2.1`). Handles `config.get`, `config.subscribe` / `config.unsubscribe`, `config.registerSchema`, `config.openSettings`. Exposes `publishValues(values)` for live fan-out to subscribed napplets.
 
   Options-as-bridge pattern (v1.6 Decision 18): host apps provide `getValues` (required) and optional `registerSchema`, `openSettings`, `onSubscribe`, `onUnsubscribe` hooks.
 
-  **Scope boundary (CONFIG-04):** NUB-CONFIG is shell-managed per-napplet configuration. Shell writes, napplet reads. There is NO `config.set` wire message — that is intentional. Do NOT use this service as a general key-value store; NUB-STORAGE (`state:read` / `state:write`) remains the general KV surface. See `packages/services/src/config-service.ts` top-of-file for the full anti-overlap documentation.
+  **Scope boundary (CONFIG-04):** NAP-CONFIG is shell-managed per-napplet configuration. Shell writes, napplet reads. There is NO `config.set` wire message — that is intentional. Do NOT use this service as a general key-value store; NAP-STORAGE (`state:read` / `state:write`) remains the general KV surface. See `packages/services/src/config-service.ts` top-of-file for the full anti-overlap documentation.
 
-  Pairs with `@kehto/acl` `config:read` capability and `resolveCapabilitiesNub` `config.*` dispatch wiring (shipped in the same Phase 39 plan batch).
+  Pairs with `@kehto/acl` `config:read` capability and `resolveCapabilitiesNap` `config.*` dispatch wiring (shipped in the same Phase 39 plan batch).
 
   Additive — no breaking changes. Minor bump because the public service surface expanded.
 
-- 239fa70: Add NUB-RESOURCE reference service (10th NUB domain, v1.7 Phase 40).
+- 239fa70: Add NAP-RESOURCE reference service (10th NAP domain, v1.7 Phase 40).
 
   - `@kehto/services`: `createResourceService({ fetch, isOriginGranted, getConnectGrants, resolveIdentity })` factory. All four options required from day one — factory throws on construction if any is missing (H-03 prevention). Implements canonical 4-message protocol: `resource.bytes`, `resource.cancel` inbound; `resource.bytes.result`, `resource.bytes.error` outbound. Cancel correlates to in-flight requests via requestId.
-  - `@kehto/acl`: new `'resource:fetch'` capability; `resolveCapabilitiesNub` extended with `resource.*` mapping (asymmetric: napplet requests get sender gate; shell pushes get recipient gate). `acl-state.ts` CAP_MAP extended with bit 15 for `resource:fetch`.
-  - `@kehto/runtime`: `handleResourceMessage` dispatch + `nubDispatch.registerNub('resource', ...)` wiring (Phase 39 Dev 1 lesson: missing registerNub silently drops all envelopes).
-  - `@kehto/shell`: `CANONICAL_NUB_DOMAINS` extended with `config` and `resource`; provisional-resource wire types re-exported via barrel.
+  - `@kehto/acl`: new `'resource:fetch'` capability; `resolveCapabilitiesNap` extended with `resource.*` mapping (asymmetric: napplet requests get sender gate; shell pushes get recipient gate). `acl-state.ts` CAP_MAP extended with bit 15 for `resource:fetch`.
+  - `@kehto/runtime`: `handleResourceMessage` dispatch + `napDispatch.registerNap('resource', ...)` wiring (Phase 39 Dev 1 lesson: missing registerNap silently drops all envelopes).
+  - `@kehto/shell`: `CANONICAL_NAP_DOMAINS` extended with `config` and `resource`; provisional-resource wire types re-exported via barrel.
 
   No breaking changes. See docs/policies/SHELL-RESOURCE-POLICY.md (Phase 40 Plan 40-03) for host-fetch policy surface (redirects, MIME sniffing, private-IP blocking — host-app concerns).
 
-- 93224cd: Consolidate NUB peer dependencies from 8 split `@napplet/nub-{identity,inc,keys,media,notify,relay,storage,theme}@^0.2.1` packages onto the single `@napplet/nub@^0.2.1` package. All in-repo imports now read from the `@napplet/nub/<domain>/types` subpath (type-only consumers) or the root `@napplet/nub/<domain>` subpath.
+- 93224cd: Consolidate NAP peer dependencies from 8 split `@napplet/nap-{identity,inc,keys,media,notify,relay,storage,theme}@^0.2.1` packages onto the single `@napplet/nap@^0.2.1` package. All in-repo imports now read from the `@napplet/nap/<domain>/types` subpath (type-only consumers) or the root `@napplet/nap/<domain>` subpath.
 
-  Addresses kehto#4 (hyprgate v2.0 Kehto Migration gap analysis). Eliminates the dual-instance pitfall where downstream shells consuming both the split-package and consolidated NUB shapes ended up with two copies of every NUB module on disk.
+  Addresses kehto#4 (hyprgate v2.0 Kehto Migration gap analysis). Eliminates the dual-instance pitfall where downstream shells consuming both the split-package and consolidated NAP shapes ended up with two copies of every NAP module on disk.
 
-  Downstream consumers note: `@napplet/nub@0.2.1` was published with an unresolved `workspace:*` specifier for its `@napplet/core` dependency. Until upstream re-publishes, workspace consumers should add the following `pnpm.overrides` entry at their workspace root to pin the transitive resolution:
+  Downstream consumers note: `@napplet/nap@0.2.1` was published with an unresolved `workspace:*` specifier for its `@napplet/core` dependency. Until upstream re-publishes, workspace consumers should add the following `pnpm.overrides` entry at their workspace root to pin the transitive resolution:
 
   ```json
   "pnpm": {
     "overrides": {
-      "@napplet/nub>@napplet/core": "^0.2.1"
+      "@napplet/nap>@napplet/core": "^0.2.1"
     }
   }
   ```
@@ -303,7 +303,7 @@
   REQ-IDs: DEP-01, DEP-02, DEP-03, DEP-04, DEP-05.
 
 - 8890904: Phase 45 (DECRYPT-02..05/07 / v1.8): extend `createIdentityService` with a host decrypt bridge and `verifyEvent` option, then handle `identity.decrypt` for NIP-04, NIP-44 direct, and NIP-17 gift-wrap events with the canonical 8-code error union.
-- b7032ab: Phase 44 (DEP-01..02 / v1.8): bump `@napplet/core` and `@napplet/nub` peer deps `^0.2.1` → `^0.3.0`. Inline JSDoc reference updated to point at `internal-resource.ts` (was `provisional-resource.ts`). No behavioral change.
+- b7032ab: Phase 44 (DEP-01..02 / v1.8): bump `@napplet/core` and `@napplet/nap` peer deps `^0.2.1` → `^0.3.0`. Inline JSDoc reference updated to point at `internal-resource.ts` (was `provisional-resource.ts`). No behavioral change.
 
 ### Patch Changes
 
@@ -332,7 +332,7 @@
 
 ### Minor Changes
 
-- 226cdca: Reference services realigned to the 8-nub protocol. `signer-service` is deleted; its responsibilities are split into a new `identity-service` (read-only `getPublicKey` / `getRelays` / `getProfile` / `getFollows` / `getList` / `getZaps` / `getMutes` / `getBlocked` / `getBadges`) and shell-mediated signing/encryption inside `relay.publish` / `relay.publishEncrypted`. New reference handlers added for the other four new nub domains: `keys-service` (keyboard actions — bindings/register/forward), `media-service` (MediaSession create/update/destroy + controls), `notify-service` (send/permission/channel register/dismiss/badge), and `theme-service` (get/changed broadcast with `publishTheme`/`getCurrentTheme` host-facing bundle). Legacy `audio-service` and `notification-service` remain for inc-emit topics and coexist with the new NIP-5D envelope handlers.
+- 226cdca: Reference services realigned to the 8-nap protocol. `signer-service` is deleted; its responsibilities are split into a new `identity-service` (read-only `getPublicKey` / `getRelays` / `getProfile` / `getFollows` / `getList` / `getZaps` / `getMutes` / `getBlocked` / `getBadges`) and shell-mediated signing/encryption inside `relay.publish` / `relay.publishEncrypted`. New reference handlers added for the other four new nap domains: `keys-service` (keyboard actions — bindings/register/forward), `media-service` (MediaSession create/update/destroy + controls), `notify-service` (send/permission/channel register/dismiss/badge), and `theme-service` (get/changed broadcast with `publishTheme`/`getCurrentTheme` host-facing bundle). Legacy `audio-service` and `notification-service` remain for inc-emit topics and coexist with the new NIP-5D envelope handlers.
 
   **Breaking changes:**
 
@@ -340,12 +340,12 @@
 
   **Migration note:**
 
-  - `tests/unit/shell-runtime-integration.test.ts` was removed in v1.2 — its v1.1 BusKind / signer.\* assertions no longer apply to the 8-nub protocol model. Equivalent coverage is provided by the per-package integration tests added in v1.2 Phases 12-03 (identity), 12-04 (inc), 12-08 (relay publishEncrypted), and 12-09 (storage).
+  - `tests/unit/shell-runtime-integration.test.ts` was removed in v1.2 — its v1.1 BusKind / signer.\* assertions no longer apply to the 8-nap protocol model. Equivalent coverage is provided by the per-package integration tests added in v1.2 Phases 12-03 (identity), 12-04 (inc), 12-08 (relay publishEncrypted), and 12-09 (storage).
 
   **Peer deps:**
 
   - @napplet/core bumped from >=0.1.0 to ^0.2.0
-  - Added @napplet/nub-identity, @napplet/nub-inc, @napplet/nub-keys, @napplet/nub-media, @napplet/nub-notify, @napplet/nub-relay, @napplet/nub-storage, @napplet/nub-theme (all ^0.2.0)
+  - Added @napplet/nap-identity, @napplet/nap-inc, @napplet/nap-keys, @napplet/nap-media, @napplet/nap-notify, @napplet/nap-relay, @napplet/nap-storage, @napplet/nap-theme (all ^0.2.0)
 
 ### Patch Changes
 
@@ -353,7 +353,7 @@
 
   - **notification-service canonical `notify.*` handling.** The service now handles both canonical v1.2 NIP-5D `notify.create` / `notify.list` / `notify.read` / `notify.dismiss` envelopes AND the legacy `inc.emit` format for in-flight compatibility (Phase 17 + Phase 19 alignment). Registered under both `'notifications'` (topology key) and `'notify'` (runtime routing key) so the demo topology and the runtime dispatch both resolve correctly from a single handler instance (Phase 19 dual-register pattern).
   - **identity-service `getPublicKey` contract.** The service always returns a result envelope (with an empty pubkey when no signer is present) rather than throwing — matches the `identity.getPublicKey` "Always succeeds" contract. Enables the `profile-viewer` napplet to render a `no-pubkey` sentinel cleanly under the no-signer case (Phase 20).
-  - **Documentation surface.** Canonical v1.2 `packages/services/README.md` groups factories by NIP-5D NUB domain with explicit capability-gate annotations (e.g., `createIdentityService` requires `identity:read` ACL entry).
+  - **Documentation surface.** Canonical v1.2 `packages/services/README.md` groups factories by NIP-5D NAP domain with explicit capability-gate annotations (e.g., `createIdentityService` requires `identity:read` ACL entry).
 
   Requirement IDs covered:
 

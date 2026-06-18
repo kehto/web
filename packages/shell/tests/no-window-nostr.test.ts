@@ -10,9 +10,9 @@
  * 2. `shell-init.ts` source contains no `_shellRequest(...)` helper
  *    (the former signer proxy plumbing).
  * 3. The @kehto/shell barrel does NOT export `generateNostrBootstrap`.
- * 4. `buildShellCapabilities(hooks)` never advertises the `'signer'` NUB.
+ * 4. `buildShellCapabilities(hooks)` never advertises the `'signer'` NAP.
  * 5. `buildShellCapabilities(hooks)` (with a relay hook) emits the
- *    canonical hosted NUB list and excludes out-of-scope `nostrdb`.
+ *    canonical hosted NAP list and excludes out-of-scope `nostrdb`.
  *
  * Closes DRIFT-SHELL-01 and DRIFT-SHELL-04; partial coverage of
  * DRIFT-SHELL-03 (full closure lands with Plan 12-08 relay.publishEncrypted).
@@ -136,19 +136,19 @@ describe('SH-C01 / SH-C03: window.nostr injection is removed', () => {
 
   it('buildShellCapabilities omits "signer"', () => {
     const caps = buildShellCapabilities(stubHooks());
-    expect(caps.nubs).not.toContain('signer');
+    expect(caps.naps).not.toContain('signer');
   });
 
   it('buildShellCapabilities emits the canonical hosted domain list when relay hook is wired', () => {
     // nostrdb stays out of scope; connect/class removed (NAP-CLASS/NAP-CONNECT dropped).
     // The shell also advertises the implemented INC topic-family protocols.
     const caps = buildShellCapabilities(stubHooks());
-    expect(new Set(caps.nubs)).toEqual(
+    expect(new Set(caps.naps)).toEqual(
       new Set([
         'relay', 'outbox', 'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify', 'config', 'resource', 'cvm',
         'inc:NAP-01', 'inc:NAP-02', 'inc:NAP-03', 'inc:NAP-04', 'inc:NAP-05', 'inc:NAP-06',
       ]),
     );
-    expect(caps.nubs).not.toContain('nostrdb');
+    expect(caps.naps).not.toContain('nostrdb');
   });
 });

@@ -1,5 +1,5 @@
 /**
- * identity-service.test.ts — Unit tests for the NIP-5D identity NUB service.
+ * identity-service.test.ts — Unit tests for the NIP-5D identity NAP service.
  *
  * Covers the full 9-action request -> result round-trip plus an ACL-denial
  * envelope shape assertion. getPublicKey/getRelays exercise the stub signer;
@@ -74,7 +74,7 @@ describe('createIdentityService', () => {
 
     it('emits identity.getPublicKey.result with empty pubkey when no signer is configured', async () => {
       // Per NIP-5D spec "Always succeeds" — no-signer returns empty pubkey as sentinel,
-      // not an error. The nub-identity shim only handles .result; .error would hang the
+      // not an error. The nap-identity shim only handles .result; .error would hang the
       // Promise indefinitely (identity-service.ts:105-113).
       const service = createIdentityService({ getSigner: () => null });
       const sent: NappletMessage[] = [];
@@ -261,12 +261,12 @@ describe('createIdentityService', () => {
   });
 
   describe('ACL denial envelope shape', () => {
-    // NOTE: The real ACL gate lives in @kehto/acl's resolveCapabilitiesNub and
+    // NOTE: The real ACL gate lives in @kehto/acl's resolveCapabilitiesNap and
     // runs in the runtime BEFORE the service is invoked (Plan 12-10 adds the
     // identity:read capability mapping). This test asserts the shape of the
     // denial envelope the runtime would emit — it does NOT exercise the real
     // ACL path end-to-end. TODO(12-10): migrate this to a runtime-level
-    // integration test once resolveCapabilitiesNub covers identity.*.
+    // integration test once resolveCapabilitiesNap covers identity.*.
     it('denial envelope has { type: "<request>.error", id, error }', () => {
       const msg = makeIdentityMessage('identity.getPublicKey', { id: 'corr-denied' });
       const denialEnvelope = {

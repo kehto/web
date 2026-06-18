@@ -1,5 +1,5 @@
 /**
- * notify-service.ts — NIP-5D notify NUB reference service (stub-level).
+ * notify-service.ts — NIP-5D notify NAP reference service (stub-level).
  *
  * Handles the 5 napplet -> shell request types from `@napplet/nap/notify`:
  *   - `notify.send`                -> `notify.send.result` (shell-assigned id)
@@ -105,7 +105,7 @@ export function createNotifyService(options: NotifyServiceOptions = {}): Service
   const descriptor: ServiceDescriptor = {
     name: 'notify',
     version: NOTIFY_SERVICE_VERSION,
-    description: 'NIP-5D notify NUB reference handler (stub)',
+    description: 'NIP-5D notify NAP reference handler (stub)',
   };
 
   return {

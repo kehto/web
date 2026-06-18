@@ -3,12 +3,12 @@
 Browser-agnostic protocol engine for NIP-5D napplet hosting.
 
 > **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
-> protocol. Runtime APIs and NUB dispatch contracts are not final.
+> protocol. Runtime APIs and NAP dispatch contracts are not final.
 
 ## Install
 
 ```bash
-pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nub
+pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 ```
 
 ## Manifest Facts
@@ -27,7 +27,7 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nub
 | Package | Range |
 |---------|-------|
 | `@napplet/core` | `^0.5.0` |
-| `@napplet/nub` | `^0.5.0` |
+| `@napplet/nap` | `^0.5.0` |
 
 ## Primary APIs
 
@@ -35,9 +35,9 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nub
 |------|---------|
 | Factory | `createRuntime`, `Runtime` |
 | Adapter types | `RuntimeAdapter`, `SendToNapplet`, `RelayPoolAdapter`, `CacheAdapter`, `AuthAdapter`, `Signer`, `ConfigAdapter`, `HotkeyAdapter`, `CryptoAdapter`, `WindowManagerAdapter`, `RelayConfigAdapter`, `DmAdapter` |
-| Enforcement | `createEnforceGate`, `createNubEnforceGate`, `resolveCapabilitiesNub`, `formatDenialReason`, `EnforceResult`, `EnforceConfig`, `NubEnforceConfig`, `IdentityResolver`, `AclChecker`, `NubMessage` |
+| Enforcement | `createEnforceGate`, `createNapEnforceGate`, `resolveCapabilitiesNap`, `formatDenialReason`, `EnforceResult`, `EnforceConfig`, `NapEnforceConfig`, `IdentityResolver`, `AclChecker`, `NapMessage` |
 | Session and manifests | `createSessionRegistry`, `createNappKeyRegistry`, `createManifestCache`, `SessionRegistry`, `NappKeyRegistry`, `ManifestCache` |
-| State and replay | `createAclState`, `handleStorageNub`, `cleanupNappState`, `createReplayDetector`, `createEventBuffer`, `matchesFilter`, `matchesAnyFilter`, `RING_BUFFER_SIZE` |
+| State and replay | `createAclState`, `handleStorageNap`, `cleanupNappState`, `createReplayDetector`, `createEventBuffer`, `matchesFilter`, `matchesAnyFilter`, `RING_BUFFER_SIZE` |
 | Service dispatch | `routeServiceMessage`, `notifyServiceWindowDestroyed`, `ServiceHandler`, `ServiceRegistry`, `ServiceInfo` |
 | Re-exports | `Capability`, `ALL_CAPABILITIES`, `ServiceDescriptor` |
 

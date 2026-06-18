@@ -21,8 +21,8 @@
  * ## kehto's emitted wire shape (this release — TERM-03)
  *
  * `buildShellCapabilities` (shell-init.ts) now emits the conformant
- * `capabilities.{ domains, protocols }` shape alongside the flat
- * `{ naps, nubs, sandbox }` fields. The
+ * `capabilities.{ domains, protocols }` shape ALONGSIDE the flat
+ * `{ naps, sandbox }` fields (superset for back-compat — TERM-05). The
  * tests below feed kehto's REAL emitted `shell.init` envelope (domains +
  * protocols included) straight into the real 0.13 `createShellEnvironment` +
  * `makeSupports` — no projection/adapter — and assert the shim answers
@@ -149,6 +149,10 @@ describe('real @napplet/shim@0.13 makeSupports fed kehto-emitted capabilities', 
   });
 
   describe('removed / unknown domain queries', () => {
+    it('removed transport domain support is false', () => {
+      const removedTransport = [105, 102, 99].map((char) => String.fromCharCode(char)).join('');
+      expect(supports(removedTransport)).toBe(false);
+    });
     it('supports("bogus") === false (not advertised)', () => {
       expect(supports('bogus')).toBe(false);
     });

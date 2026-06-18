@@ -8,7 +8,7 @@
  * Layer-A spec asserts:
  *   - #nap-status flips to 'notification:<id>' or 'denied:*'
  *   - #nap-notif-id contains the returned notificationId (matches /^shell-\d+$/)
- *   - __getNubMessage__(windowId, 'notify.send') returns the request envelope
+ *   - __getNapMessage__(windowId, 'notify.send') returns the request envelope
  */
 import '@napplet/shim';
 import { notifySend } from '@napplet/nap/notify/sdk';

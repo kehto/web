@@ -71,7 +71,7 @@ declare global {
      * @param type - Optional envelope type filter (e.g., "relay.publish").
      * @returns The last matching NappletMessage, or null if none recorded.
      */
-    __getNubMessage__: (windowId: string, type?: string) => NappletMessage | null;
+    __getNapMessage__: (windowId: string, type?: string) => NappletMessage | null;
 
     /**
      * List the currently registered service names from the runtime's service registry.

@@ -7,7 +7,7 @@ import type { HostMediaBridge } from './media-service.js';
 const SILENT_AUDIO_DATA_URL =
   'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
 
-/** Default action set — all 5 nub-media transport actions. */
+/** Default action set — all 5 nap-media transport actions. */
 export const DEFAULT_MEDIA_ACTIONS: readonly MediaAction[] = ['play', 'pause', 'next', 'prev', 'seek'];
 
 /** Minimal subset of navigator.mediaSession the browser bridge depends on. Makes the bridge
@@ -26,7 +26,7 @@ export type MediaSessionTarget = {
  *  tests can pass a plain object. */
 export type MediaMetadataLike = { title?: string; artist?: string; album?: string; artwork?: unknown };
 
-/** Mapping from DOM MediaSession action names to nub-media MediaAction literals. */
+/** Mapping from DOM MediaSession action names to nap-media MediaAction literals. */
 const ACTION_MATRIX: ReadonlyArray<[string, MediaAction]> = [
   ['play', 'play'],
   ['pause', 'pause'],
@@ -98,22 +98,22 @@ export function createBrowserMediaBridge(opts: {
   }
 
   /**
-   * Install action handlers for the given set of nub-media actions. Actions not
+   * Install action handlers for the given set of nap-media actions. Actions not
    * in the set get their handler cleared. Matches Plan 27-01's installActionHandlersFor
    * behavior exactly so capabilities-narrowing tests continue to pass.
    */
   function applyActionHandlers(actions: readonly MediaAction[] = DEFAULT_MEDIA_ACTIONS): void {
     if (!ms) return;
-    for (const [domAction, nubAction] of ACTION_MATRIX) {
-      if (!actions.includes(nubAction)) {
+    for (const [domAction, napAction] of ACTION_MATRIX) {
+      if (!actions.includes(napAction)) {
         try { ms.setActionHandler(domAction, null); } catch { /* best-effort */ }
         continue;
       }
       ms.setActionHandler(domAction, (details) => {
         if (!activeSessionId) return;
-        const value = nubAction === 'seek' && typeof details?.seekTime === 'number' ? details.seekTime : undefined;
+        const value = napAction === 'seek' && typeof details?.seekTime === 'number' ? details.seekTime : undefined;
         for (const cb of actionCallbacks) {
-          cb(activeSessionId, nubAction, value);
+          cb(activeSessionId, napAction, value);
         }
       });
     }

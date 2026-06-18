@@ -3,13 +3,13 @@
  *
  * The helper surface does not expose a theme readiness probe. The fixture therefore performs
  * a storage readiness probe to satisfy session registration; the Layer-A nap-theme.spec.ts
- * (Plan 21-03) drives theme behaviour via __injectEnvelope__ + __getNubMessage__ on the
+ * (Plan 21-03) drives theme behaviour via __injectEnvelope__ + __getNapMessage__ on the
  * fixture's windowId.
  *
  * Layer-A spec asserts:
  *   - #nap-status flips to 'ready' (proof the fixture is loadable)
  *   - When spec injects a theme.changed envelope to the fixture window, the harness records
- *     it in envelopeLog and __getNubMessage__(windowId, 'theme.changed') returns it
+ *     it in envelopeLog and __getNapMessage__(windowId, 'theme.changed') returns it
  *   - Spec calls __injectEnvelope__(windowId, { type: 'theme.get', id: '...' }) to drive a
  *     theme.get round-trip; runtime fallback returns DEFAULT_THEME via theme.get.result
  *

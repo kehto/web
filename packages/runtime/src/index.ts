@@ -40,8 +40,8 @@ export type {
   NappletMessage,
 } from './types.js';
 
-export { createEnforceGate, createNubEnforceGate, resolveCapabilitiesNub, formatDenialReason } from './enforce.js';
-export type { EnforceResult, EnforceConfig, NubEnforceConfig, IdentityResolver, AclChecker, NubMessage } from './enforce.js';
+export { createEnforceGate, createNapEnforceGate, resolveCapabilitiesNap, formatDenialReason } from './enforce.js';
+export type { EnforceResult, EnforceConfig, NapEnforceConfig, IdentityResolver, AclChecker, NapMessage } from './enforce.js';
 
 export { createSessionRegistry, createNappKeyRegistry } from './session-registry.js';
 export type { SessionRegistry, NappKeyRegistry } from './session-registry.js';
@@ -64,7 +64,7 @@ export type { EventBuffer, SubscriptionEntry } from './event-buffer.js';
 export { createRuntime } from './runtime.js';
 export type { Runtime } from './runtime.js';
 
-export { handleStorageNub, cleanupNappState } from './state-handler.js';
+export { handleStorageNap, cleanupNappState } from './state-handler.js';
 
 export { routeServiceMessage, notifyServiceWindowDestroyed } from './service-dispatch.js';
 

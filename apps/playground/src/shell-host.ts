@@ -151,7 +151,7 @@ export function getNapplet(windowId: string): NappletInfo | undefined { return n
  * Look up the windowId for a napplet by its dTag (DEMO_NAPPLETS entry `name`).
  * Returns null if the napplet is not yet loaded or not yet identity-bound.
  *
- * Exposed for apps/playground/src/main.ts test hooks (e.g. __injectNubEnvelopeAsNapplet__).
+ * Exposed for apps/playground/src/main.ts test hooks (e.g. __injectNapEnvelopeAsNapplet__).
  * Callers MUST NOT mutate napplet state through this helper — read-only lookup only.
  */
 export function findIdentityBoundNappletWindowIdByDTag(dTag: string): string | null {

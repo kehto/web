@@ -1,11 +1,11 @@
 
 import type { Capability } from '@kehto/acl/capabilities';
-import type { NubMessage } from '@kehto/acl';
+import type { NapMessage } from '@kehto/acl';
 import type { AclCheckEvent } from './types.js';
 
-// Re-export NUB capability resolution for consumers who import through enforce.ts
-export { resolveCapabilitiesNub } from '@kehto/acl';
-export type { NubMessage } from '@kehto/acl';
+// Re-export NAP capability resolution for consumers who import through enforce.ts
+export { resolveCapabilitiesNap } from '@kehto/acl';
+export type { NapMessage } from '@kehto/acl';
 
 /**
  * Result of an enforcement check.
@@ -94,32 +94,32 @@ export function createEnforceGate(config: EnforceConfig): (pubkey: string, capab
 }
 
 /**
- * Enforcement gate configuration for NIP-5D NUB handlers.
+ * Enforcement gate configuration for NIP-5D NAP handlers.
  * Uses windowId for identity resolution instead of pubkey (which is '' in NIP-5D sessions).
  *
  * @param checkAcl - The ACL check function
  * @param resolveIdentityByWindowId - Maps windowId to identity (dTag, aggregateHash).
- * @param onAclCheck - Optional audit callback, called on every enforceNub() check
+ * @param onAclCheck - Optional audit callback, called on every enforceNap() check
  */
-export interface NubEnforceConfig {
+export interface NapEnforceConfig {
   checkAcl: AclChecker;
   resolveIdentityByWindowId: (windowId: string) => { dTag: string; aggregateHash: string } | undefined;
   onAclCheck?: (event: AclCheckEvent) => void;
 }
 
 /**
- * Create an enforcement gate for NIP-5D NUB message handlers.
+ * Create an enforcement gate for NIP-5D NAP message handlers.
  *
  * Unlike createEnforceGate (which resolves identity by pubkey), this factory
  * resolves identity by windowId — necessary for NIP-5D sessions where pubkey is ''.
  *
- * @param config - NUB enforcement configuration
- * @returns An enforceNub function that resolves identity by windowId and
+ * @param config - NAP enforcement configuration
+ * @returns An enforceNap function that resolves identity by windowId and
  *   delegates to the ACL check.
  *
  * @example
  * ```ts
- * const gate = createNubEnforceGate({
+ * const gate = createNapEnforceGate({
  *   checkAcl: aclStore.check,
  *   resolveIdentityByWindowId: (wid) => sessionRegistry.getEntryByWindowId(wid),
  *   onAclCheck: hooks.onAclCheck,
@@ -128,10 +128,10 @@ export interface NubEnforceConfig {
  * // result.allowed === true | false
  * ```
  */
-export function createNubEnforceGate(config: NubEnforceConfig): (windowId: string, capability: Capability, message?: NubMessage) => EnforceResult {
+export function createNapEnforceGate(config: NapEnforceConfig): (windowId: string, capability: Capability, message?: NapMessage) => EnforceResult {
   const { checkAcl, resolveIdentityByWindowId, onAclCheck } = config;
 
-  return function enforceNub(windowId: string, capability: Capability, message?: NubMessage): EnforceResult {
+  return function enforceNap(windowId: string, capability: Capability, message?: NapMessage): EnforceResult {
     const entry = resolveIdentityByWindowId(windowId);
     const dTag = entry?.dTag ?? '';
     const aggregateHash = entry?.aggregateHash ?? '';

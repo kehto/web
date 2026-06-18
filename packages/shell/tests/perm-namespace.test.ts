@@ -7,8 +7,6 @@
  *   - NAP-capability lookups using bare domain names. `nap:` is the
  *     PRIMARY prefix (the NAP vocabulary the released @napplet/shim
  *     resolves), e.g. `supports('nap:relay')`, `supports('relay')`.
- *     `nub:` remains an ACCEPTED back-compat alias for legacy callers,
- *     e.g. `supports('nub:relay')`.
  *   - Sandbox-permission lookups under the `perm:<permission>`
  *     namespace, e.g. `supports('perm:popups')`, `supports('perm:modals')`.
  *
@@ -22,14 +20,13 @@
  *      exercised here.
  *   2. A capability-lookup routine that mirrors the shim's behavior
  *      MUST route `'perm:*'` checks to the sandbox array, `'nap:*'`
- *      checks to the primary naps array, `'nub:*'` checks to the legacy
- *      nubs array, and resolve bare names against naps first (falling
- *      back to nubs) — never crossing into the perm: namespace.
+ *      checks and bare names to the naps array — never crossing into
+ *      the perm: namespace.
  *   3. Negative cases: `supports('popups')` returns false when only
  *      `'perm:popups'` is in sandbox; `supports('perm:relay')` returns
- *      false even when `'relay'` is a recognised NAP/NUB capability.
+ *      false even when `'relay'` is a recognised NAP capability.
  *
- * TERM-01: `nap:` is the primary asserted prefix; `nub:` is an accepted alias.
+ * TERM-01: `nap:` is the primary asserted prefix.
  * Closes DRIFT-SHELL-02.
  */
 
@@ -118,16 +115,14 @@ function stubHooks(): ShellAdapter {
 
 // ─── Capability-lookup contract ──────────────────────────────────────────────
 // Mirrors the behaviour @napplet/shim's shell.supports() helper MUST
-// implement. `nap:` is the primary prefix resolved against the naps array;
-// `nub:` is an accepted legacy alias resolved against the nubs array; a bare
-// name resolves against naps first, falling back to nubs. `perm:` stays in its
-// own namespace (sandbox), never crossing into the capability arrays.
+// implement. `nap:` is the primary prefix resolved against the naps array; a
+// bare name resolves against naps too. `perm:` stays in its own namespace
+// (sandbox), never crossing into the capability arrays.
 
 function lookup(caps: ShellCapabilities, capability: string): boolean {
   if (capability.startsWith('perm:')) return caps.sandbox.includes(capability);
   if (capability.startsWith('nap:')) return (caps.naps ?? []).includes(capability.slice(4));
-  if (capability.startsWith('nub:')) return caps.nubs.includes(capability.slice(4));
-  return (caps.naps ?? []).includes(capability) || caps.nubs.includes(capability);
+  return (caps.naps ?? []).includes(capability);
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -138,7 +133,6 @@ describe('SH-C02: shell.supports() uses perm: namespace for sandbox permissions'
       domains: [],
       protocols: {},
       naps: [],
-      nubs: [],
       sandbox: ['perm:popups', 'perm:modals'],
     };
     expect(lookup(caps, 'perm:popups')).toBe(true);
@@ -148,45 +142,37 @@ describe('SH-C02: shell.supports() uses perm: namespace for sandbox permissions'
     expect(lookup(caps, 'modals')).toBe(false);
   });
 
-  it('NAP lookup uses nap: as the primary prefix; nub: is an accepted alias', () => {
+  it('NAP lookup uses nap: as the primary prefix', () => {
     const caps: ShellCapabilities = {
       domains: ['relay', 'identity', 'storage'],
       protocols: {},
-      // `naps` is the PRIMARY array (NAP vocabulary); `nubs` is the legacy alias.
       naps: ['relay', 'identity', 'storage'],
-      nubs: ['relay', 'identity', 'storage'],
       sandbox: [],
     };
     // nap: is primary — resolves against the naps array.
     expect(lookup(caps, 'nap:relay')).toBe(true);
     expect(lookup(caps, 'nap:identity')).toBe(true);
-    // bare names resolve against naps (primary) first.
+    // bare names resolve against naps too.
     expect(lookup(caps, 'relay')).toBe(true);
     expect(lookup(caps, 'identity')).toBe(true);
-    // nub: remains an accepted back-compat alias resolved against nubs.
-    expect(lookup(caps, 'nub:relay')).toBe(true);
-    expect(lookup(caps, 'nub:identity')).toBe(true);
-    // A NAP/NUB capability is NEVER reachable through the perm: namespace.
+    // A NAP capability is NEVER reachable through the perm: namespace.
     expect(lookup(caps, 'perm:relay')).toBe(false);
     expect(lookup(caps, 'perm:identity')).toBe(false);
     expect(lookup(caps, 'nap:missing')).toBe(false);
-    expect(lookup(caps, 'nub:missing')).toBe(false);
   });
 
   it('namespaces do not cross — perm:<x> and <x> are distinct', () => {
-    // Shell hypothetically advertises both a NUB called "relay" AND a
+    // Shell hypothetically advertises both a NAP called "relay" AND a
     // sandbox permission called "relay". Only the namespaced lookup
-    // should reach the sandbox entry; the bare lookup reaches the nub.
+    // should reach the sandbox entry; the bare lookup reaches the nap.
     const caps: ShellCapabilities = {
       domains: ['relay'],
       protocols: {},
       naps: ['relay'],
-      nubs: ['relay'],
       sandbox: ['perm:relay'],
     };
     expect(lookup(caps, 'nap:relay')).toBe(true);    // NAP reachable (primary)
     expect(lookup(caps, 'relay')).toBe(true);        // bare reachable
-    expect(lookup(caps, 'nub:relay')).toBe(true);    // NUB alias reachable
     expect(lookup(caps, 'perm:relay')).toBe(true);   // sandbox reachable
     // Cross-namespace lookups fail:
     expect(lookup(caps, 'perm:relay') && caps.naps.includes('perm:relay')).toBe(false);

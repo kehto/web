@@ -3,7 +3,7 @@
  * All capability strings recognized by @kehto/acl.
  *
  * Ordering: v1.1 surface first (relay/cache/hotkey/state), then the
- * v1.2 additions for the seven nubs + theme. The v1.1 `sign:event`,
+ * v1.2 additions for the seven naps + theme. The v1.1 `sign:event`,
  * `sign:nip04`, `sign:nip44` strings were intentionally removed — no
  * napplet-visible signing exists in canonical NIP-5D; signing flows
  * through shell-internal `relay.publishEncrypted` instead.
@@ -14,15 +14,15 @@ export const ALL_CAPABILITIES = [
   'cache:read', 'cache:write',
   'hotkey:forward',
   'state:read', 'state:write',
-  // v1.2 additions (seven nubs + theme):
+  // v1.2 additions (seven naps + theme):
   'identity:read',
   'keys:bind', 'keys:forward',
   'media:control',
   'notify:send', 'notify:channel',
   'theme:read',
-  // v1.7 Phase 39 — NUB-CONFIG reference service (9th domain):
+  // v1.7 Phase 39 — NAP-CONFIG reference service (9th domain):
   'config:read',
-  // v1.7 Phase 40 — NUB-RESOURCE reference service (10th domain):
+  // v1.7 Phase 40 — NAP-RESOURCE reference service (10th domain):
   'resource:fetch',
   // NAP-CVM — ContextVM bridge (11th domain): call MCP-over-Nostr servers.
   'cvm:call',

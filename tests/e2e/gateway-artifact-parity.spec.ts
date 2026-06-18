@@ -119,8 +119,8 @@ test('resolved manifests and hosted supports match napplet contracts', async ({ 
       const supports = maybeWindow.napplet?.shell?.supports;
       if (typeof supports !== 'function') return false;
       // The released @napplet/shim 0.13 resolves supports(domain, protocol?)
-      // against capabilities.{domains, protocols}. It does NOT strip a `nap:` or
-      // `nub:` prefix (those resolve false), and the protocol form is two-arg
+      // against capabilities.{domains, protocols}. It does NOT strip a `nap:`
+      // prefix (that resolves false), and the protocol form is two-arg
       // supports('inc', 'NAP-01') — NOT a colon-joined single arg.
       return requires.every((capability) => supports(capability)) &&
         (!requires.includes('inc') || supports('inc', 'NAP-01')) &&

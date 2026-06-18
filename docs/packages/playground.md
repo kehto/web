@@ -3,7 +3,7 @@
 Browser playground that hosts 13 demo napplets and demonstrates Kehto integration behavior.
 
 > **Alpha status:** The playground shows Kehto's current behavior for the draft
-> NIP-5D protocol. It is not a stability guarantee for NUB contracts or helper APIs.
+> NIP-5D protocol. It is not a stability guarantee for NAP contracts or helper APIs.
 
 ## Run
 

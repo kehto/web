@@ -1,5 +1,5 @@
 /**
- * media-service.test.ts — Unit tests for the media NUB service.
+ * media-service.test.ts — Unit tests for the media NAP service.
  *
  * Covers the 5 napplet->shell request types from @napplet/nap/media plus
  * unknown-action + ACL-denial envelope shapes (stub-scope, preserved verbatim),
@@ -447,7 +447,7 @@ describe('media.command emission on setActionHandler fire (real push path)', () 
     expect(cmd.action).toBe('play');
   });
 
-  it('maps DOM MediaSessionAction names to nub-media MediaAction literals (play, pause, next, prev, seek)', () => {
+  it('maps DOM MediaSessionAction names to nap-media MediaAction literals (play, pause, next, prev, seek)', () => {
     const cases: Array<[string, MediaAction]> = [
       ['play', 'play'],
       ['pause', 'pause'],
@@ -455,7 +455,7 @@ describe('media.command emission on setActionHandler fire (real push path)', () 
       ['previoustrack', 'prev'],
       ['seekto', 'seek'],
     ];
-    for (const [domAction, nubAction] of cases) {
+    for (const [domAction, napAction] of cases) {
       const mock = createMockMediaSession();
       const mockDoc = createMockDocument();
       const sent: NappletMessage[] = [];
@@ -467,8 +467,8 @@ describe('media.command emission on setActionHandler fire (real push path)', () 
       mock.fire(domAction, domAction === 'seekto' ? { seekTime: 42 } : undefined);
       expect(sent).toHaveLength(1);
       const cmd = sent[0] as NappletMessage & { action?: string; value?: number };
-      expect(cmd.action).toBe(nubAction);
-      if (nubAction === 'seek') expect(cmd.value).toBe(42);
+      expect(cmd.action).toBe(napAction);
+      if (napAction === 'seek') expect(cmd.value).toBe(42);
     }
   });
 });

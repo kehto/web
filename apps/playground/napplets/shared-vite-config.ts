@@ -32,7 +32,7 @@ const NAPPLET_MANIFEST_KIND = 35129;
 // `shell.init` it sets `window.napplet.shell.supports = makeSupports(env)` from
 // the conformant `capabilities.{domains,protocols}` shape the @kehto shell emits,
 // and it auto-posts `{type:'shell.ready'}` on load. The previous hand-rolled
-// `supports()` override (which read the legacy `capabilities.nubs` array and
+// `supports()` override (which read a flat capabilities array and
 // clobbered the shim's `shell.supports`) is therefore redundant and was removed —
 // it must NOT overwrite the shim's correct resolver.
 //
@@ -62,7 +62,7 @@ const NAP_PROTOCOL_PATTERN = /^NAP-\d+$/;
 
 function validateRequires(nappletType: string, requires: readonly string[]): string[] {
   return requires.map((name) => {
-    if (!SHORT_NAP_NAME_PATTERN.test(name) || name.startsWith('nap-') || name.startsWith('nub-')) {
+    if (!SHORT_NAP_NAME_PATTERN.test(name) || name.startsWith('nap-')) {
       throw new Error(
         `${nappletType} manifest requires must use short NAP names, got "${name}"`,
       );
@@ -76,7 +76,7 @@ function validateArchetypes(
   archetypes: ReadonlyArray<PlaygroundArchetype>,
 ): PlaygroundArchetype[] {
   return archetypes.map(({ slug, nap }) => {
-    if (!SHORT_NAP_NAME_PATTERN.test(slug) || slug.startsWith('nap-') || slug.startsWith('nub-')) {
+    if (!SHORT_NAP_NAME_PATTERN.test(slug) || slug.startsWith('nap-')) {
       throw new Error(
         `${nappletType} manifest archetype slug must be a short NAP name, got "${slug}"`,
       );

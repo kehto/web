@@ -9,12 +9,12 @@
 
 **Date:** 2026-04-07
 **Package:** @kehto/runtime
-**Scope:** NUB dispatch design, AUTH removal scope, handler rewrites, session identity anchor
-**References:** [GAP-ANALYSIS.md section 5.2](./GAP-ANALYSIS.md#52-kehtooruntime-boundary-contract), [ACL-MIGRATION.md section 2](./ACL-MIGRATION.md#2-capability-constant-to-nub-domain-mapping)
+**Scope:** NAP dispatch design, AUTH removal scope, handler rewrites, session identity anchor
+**References:** [GAP-ANALYSIS.md section 5.2](./GAP-ANALYSIS.md#52-kehtooruntime-boundary-contract), [ACL-MIGRATION.md section 2](./ACL-MIGRATION.md#2-capability-constant-to-nap-domain-mapping)
 
 ---
 
-## 1. NUB Dispatch Design (RT-01)
+## 1. NAP Dispatch Design (RT-01)
 
 ### 1.1 Background
 
@@ -66,7 +66,7 @@ NIP-5D v0.1.0 eliminates the NIP-01 verb model. Every message from an updated `@
 | Entry guard | `Array.isArray(msg) && msg.length >= 2` | `typeof msg === 'object' && msg !== null && 'type' in msg` |
 | Verbs handled | `REGISTER`, `AUTH`, `EVENT`, `REQ`, `CLOSE`, `COUNT` | `relay`, `signer`, `storage`, `inc` |
 | Identity gate | Pre-AUTH queue (`pendingAuthQueue`) blocks all messages until AUTH completes | No gate — identity is registered at iframe creation via `originRegistry` |
-| Capability resolution | `resolveCapabilities(msg: unknown[])` — switches on `msg[0]` verb + `BusKind` event kind | `resolveCapabilitiesNub(msg: NappletMessage)` — splits `msg.type` on `.` |
+| Capability resolution | `resolveCapabilities(msg: unknown[])` — switches on `msg[0]` verb + `BusKind` event kind | `resolveCapabilitiesNap(msg: NappletMessage)` — splits `msg.type` on `.` |
 
 #### Old dispatch (verb switch, `runtime.ts:224–232`)
 
@@ -108,7 +108,7 @@ The recommended approach for the migration period is **dual-mode dispatch**: det
 
 ```typescript
 function handleMessage(windowId: string, msg: unknown[] | NappletMessage): void {
-  // NIP-5D envelope path — NUB dispatch
+  // NIP-5D envelope path — NAP dispatch
   if (typeof msg === 'object' && msg !== null && !Array.isArray(msg) && 'type' in msg) {
     const domain = (msg as NappletMessage).type.split('.')[0];
     switch (domain) {
@@ -136,10 +136,10 @@ function handleMessage(windowId: string, msg: unknown[] | NappletMessage): void 
 
 **Important constraints on dual-mode:**
 
-- Dual-mode is **only for the transition period**. The end state is NUB-only dispatch. ARCHITECTURE.md Anti-Pattern 1 identifies keeping dual-mode indefinitely as a correctness risk because it requires every handler to handle two formats.
+- Dual-mode is **only for the transition period**. The end state is NAP-only dispatch. ARCHITECTURE.md Anti-Pattern 1 identifies keeping dual-mode indefinitely as a correctness risk because it requires every handler to handle two formats.
 - Per STACK.md "What NOT to Do": removing NIP-01 array handling entirely in a single step breaks napplets still on `@napplet/shim` v0.1.x. Dual-mode is the correct bridge approach, with a planned deprecation timeline.
-- The NIP-5D path MUST be checked first. This ensures the old array guard (`Array.isArray(msg)`) does not drop NUB envelope objects before they reach the new handler.
-- NUB path messages bypass the `pendingAuthQueue` — there is no AUTH gate for NIP-5D napplets. Identity is already registered via `originRegistry.register()` before the first message arrives.
+- The NIP-5D path MUST be checked first. This ensures the old array guard (`Array.isArray(msg)`) does not drop NAP envelope objects before they reach the new handler.
+- NAP path messages bypass the `pendingAuthQueue` — there is no AUTH gate for NIP-5D napplets. Identity is already registered via `originRegistry.register()` before the first message arrives.
 
 ---
 
@@ -165,10 +165,10 @@ export function resolveCapabilities(msg: unknown[]): CapabilityResolution {
 }
 ```
 
-After migration this function is replaced by `resolveCapabilitiesNub()`, which maps the NUB `type` string to capabilities. The pseudocode is defined in [ACL-MIGRATION.md section 2](./ACL-MIGRATION.md#2-capability-constant-to-nub-domain-mapping):
+After migration this function is replaced by `resolveCapabilitiesNap()`, which maps the NAP `type` string to capabilities. The pseudocode is defined in [ACL-MIGRATION.md section 2](./ACL-MIGRATION.md#2-capability-constant-to-nap-domain-mapping):
 
 ```typescript
-function resolveCapabilitiesNub(msg: NappletMessage): CapabilityResolution {
+function resolveCapabilitiesNap(msg: NappletMessage): CapabilityResolution {
   const [domain, action] = msg.type.split('.');
   switch (domain) {
     case 'relay':
@@ -198,7 +198,7 @@ function resolveCapabilitiesNub(msg: NappletMessage): CapabilityResolution {
 
 #### Complete msg.type to Capability Mapping
 
-| NUB `msg.type` string | Required Capability | Sender/Recipient | Notes |
+| NAP `msg.type` string | Required Capability | Sender/Recipient | Notes |
 |----------------------|---------------------|------------------|-------|
 | `relay.subscribe` | `relay:read` | sender | REQ equivalent |
 | `relay.close` | `relay:read` | sender | CLOSE equivalent (no ACL check currently) |
@@ -229,8 +229,8 @@ The dispatch migration touches these files:
 
 | File | Change | Lines Affected |
 |------|--------|----------------|
-| `packages/runtime/src/runtime.ts` | Replace `handleMessage()` array guard + verb switch with dual-mode or NUB dispatch | 1004–1017, 224–232 |
-| `packages/runtime/src/enforce.ts` | Replace `resolveCapabilities(msg: unknown[])` with `resolveCapabilitiesNub(msg: NappletMessage)` | 42–103 |
+| `packages/runtime/src/runtime.ts` | Replace `handleMessage()` array guard + verb switch with dual-mode or NAP dispatch | 1004–1017, 224–232 |
+| `packages/runtime/src/enforce.ts` | Replace `resolveCapabilities(msg: unknown[])` with `resolveCapabilitiesNap(msg: NappletMessage)` | 42–103 |
 | `packages/runtime/src/types.ts` | Widen `SendToNapplet` and `handleMessage` signatures to accept `NappletMessage | unknown[]` | 47, (Runtime interface) |
 | `packages/shell/src/shell-bridge.ts` | Replace array guard at line 155 with dual-format check (accepts both `{ type: string }` and arrays) | 149–158 |
 
@@ -331,9 +331,9 @@ Note: GAP-ANALYSIS.md section 2 estimates ~40% by a broader count that includes 
 
 AUTH removal must be phased to maintain backward compatibility with legacy napplets using `@napplet/shim` v0.1.x.
 
-**Phase 1 — Add NUB Dispatch Path (does not touch AUTH)**
+**Phase 1 — Add NAP Dispatch Path (does not touch AUTH)**
 
-Add the NUB dispatch branch at the top of `handleMessage()` without removing any existing AUTH code. NIP-5D napplets are routed through the new path; legacy napplets continue through the AUTH handshake. This phase fixes the immediate communication blackout for NIP-5D napplets.
+Add the NAP dispatch branch at the top of `handleMessage()` without removing any existing AUTH code. NIP-5D napplets are routed through the new path; legacy napplets continue through the AUTH handshake. This phase fixes the immediate communication blackout for NIP-5D napplets.
 
 Implementation: dual-mode dispatch as described in Section 1.3.
 
@@ -353,7 +353,7 @@ Implementation: straightforward deletion. No migration utilities needed for runt
 
 PITFALLS.md Pitfall 2 describes the risk of keeping AUTH as a permanent "optional" feature: code paths that check `!isAuthenticated(windowId)` remain active forever, and any napplet that does not complete AUTH has its messages silently queued and never delivered. The phased approach avoids this pitfall by:
 
-- Phase 1: NIP-5D napplets bypass the AUTH queue entirely via the new NUB dispatch branch — they never enter the queue.
+- Phase 1: NIP-5D napplets bypass the AUTH queue entirely via the new NAP dispatch branch — they never enter the queue.
 - Phase 2: explicitly checking for NIP-5D registration before the queue gate, so the queue is only active for legacy sessions.
 - Phase 3: removing the queue entirely when legacy support ends. No silent fallback remains.
 
@@ -383,15 +383,15 @@ See PITFALLS.md security mistakes section for the full list of post-AUTH securit
 
 ### 3.1 Overview
 
-Four NUB domain handlers replace the current verb/kind dispatch in `runtime.ts`. The old model routed every inbound message through one of six verb cases (`EVENT`, `REQ`, `CLOSE`, `COUNT`, `REGISTER`, `AUTH`) and then sub-dispatched on `event.kind` to detect signer requests (kind 29001), IPC_PEER traffic (kind 29003), and service discovery (kind 29010).
+Four NAP domain handlers replace the current verb/kind dispatch in `runtime.ts`. The old model routed every inbound message through one of six verb cases (`EVENT`, `REQ`, `CLOSE`, `COUNT`, `REGISTER`, `AUTH`) and then sub-dispatched on `event.kind` to detect signer requests (kind 29001), IPC_PEER traffic (kind 29003), and service discovery (kind 29010).
 
-The new model uses the NUB domain prefix (`msg.type.split('.')[0]`) to dispatch to one of four dedicated handlers: `handleRelayMessage`, `handleSignerMessage`, `handleStorageMessage`, and `handleIncMessage`. Each handler owns one NUB domain and processes only the flat JSON envelope objects defined in the NIP-5D `@napplet/nap-*` packages.
+The new model uses the NAP domain prefix (`msg.type.split('.')[0]`) to dispatch to one of four dedicated handlers: `handleRelayMessage`, `handleSignerMessage`, `handleStorageMessage`, and `handleIncMessage`. Each handler owns one NAP domain and processes only the flat JSON envelope objects defined in the NIP-5D `@napplet/nap-*` packages.
 
-This section documents each handler's old code path, new message shapes, capability requirements, and affected source files. The [capability mapping table](#14-capability-resolution-migration) in Section 1.4 serves as the authoritative reference for `resolveCapabilitiesNub()` — the per-handler notes below cross-reference it.
+This section documents each handler's old code path, new message shapes, capability requirements, and affected source files. The [capability mapping table](#14-capability-resolution-migration) in Section 1.4 serves as the authoritative reference for `resolveCapabilitiesNap()` — the per-handler notes below cross-reference it.
 
 **References:**
 - Wire format before/after tables: [GAP-ANALYSIS.md section 1](./GAP-ANALYSIS.md#1-wire-format-change-gap-01)
-- Capability resolution pseudocode: [ACL-MIGRATION.md section 2](./ACL-MIGRATION.md#2-capability-constant-to-nub-domain-mapping)
+- Capability resolution pseudocode: [ACL-MIGRATION.md section 2](./ACL-MIGRATION.md#2-capability-constant-to-nap-domain-mapping)
 - PITFALLS.md Pitfall 5 (ServiceHandler interface), Pitfall 6 (storage proxy), Pitfall 7 (signer proxy), Pitfall 8 (INC handler mismatch)
 
 ---
@@ -411,7 +411,7 @@ Relay operations were split across four verb cases in `dispatchVerb()` (lines 22
 
 **Inbound (napplet → shell):**
 
-| NUB Type | Old Format | New Format |
+| NAP Type | Old Format | New Format |
 |----------|-----------|-----------|
 | `relay.subscribe` | `["REQ", "sub-1", {"kinds":[1],"limit":10}]` | `{"type":"relay.subscribe","id":"uuid","subId":"uuid","filters":[...]}` |
 | `relay.close` | `["CLOSE", "sub-1"]` | `{"type":"relay.close","id":"uuid","subId":"uuid"}` |
@@ -443,7 +443,7 @@ Relay operations were split across four verb cases in `dispatchVerb()` (lines 22
 | File | Change |
 |------|--------|
 | `packages/runtime/src/runtime.ts` | Remove `handleReq`, `handleClose`, `handleCount` verb cases; replace EVENT relay path with `relay.publish` in new handler |
-| `packages/runtime/src/enforce.ts` | `resolveCapabilitiesNub()` relay domain branch |
+| `packages/runtime/src/enforce.ts` | `resolveCapabilitiesNap()` relay domain branch |
 
 ---
 
@@ -477,7 +477,7 @@ The internal `handleSignerRequest()` path reads the `method` tag from `event.tag
 
 **Inbound (napplet → shell):**
 
-| NUB Type | Old Format | New Format |
+| NAP Type | Old Format | New Format |
 |----------|-----------|-----------|
 | `signer.signEvent` | `["EVENT", {"kind":29001,"tags":[["method","signEvent"],["id","uuid"],["param","event","{...}"]],...}]` | `{"type":"signer.signEvent","id":"uuid","event":{...}}` |
 | `signer.getPublicKey` | `["EVENT", {"kind":29001,"tags":[["method","getPublicKey"],["id","uuid"]],...}]` | `{"type":"signer.getPublicKey","id":"uuid"}` |
@@ -514,8 +514,8 @@ The internal `handleSignerRequest()` path reads the `method` tag from `event.tag
 | File | Change |
 |------|--------|
 | `packages/runtime/src/runtime.ts` | Remove `BusKind.SIGNER_REQUEST` case from `handleEvent()`; add `handleSignerMessage()` function |
-| `packages/runtime/src/service-dispatch.ts` | Update `routeServiceMessage()` to accept NUB envelope (see Pitfall 5) |
-| `packages/runtime/src/enforce.ts` | `resolveCapabilitiesNub()` signer domain branch |
+| `packages/runtime/src/service-dispatch.ts` | Update `routeServiceMessage()` to accept NAP envelope (see Pitfall 5) |
+| `packages/runtime/src/enforce.ts` | `resolveCapabilitiesNap()` signer domain branch |
 
 **Pitfall 7 reference:** `BusKind.SIGNER_REQUEST` and `BusKind.SIGNER_RESPONSE` remain exported from `@napplet/core/src/legacy.ts` as `@deprecated`. After migration, these constants must not appear in non-legacy runtime dispatch paths. Any signer service handler in `@kehto/services` that operates on `["EVENT", event]` arrays with `kind === 29001` also needs updating (Pitfall 5).
 
@@ -545,7 +545,7 @@ Key scoping logic (`napplet-state:${dTag}:${aggregateHash}:${key}` prefix) and q
 
 **Inbound (napplet → shell):**
 
-| NUB Type | Old Format | New Format |
+| NAP Type | Old Format | New Format |
 |----------|-----------|-----------|
 | `storage.get` | `["EVENT", {"kind":29003,"tags":[["t","shell:state-get"],["id","uuid"],["key","theme"]],...}]` | `{"type":"storage.get","id":"uuid","key":"theme"}` |
 | `storage.set` | `["EVENT", {"kind":29003,"tags":[["t","shell:state-set"],["id","uuid"],["key","theme"],["value","dark"]],...}]` | `{"type":"storage.set","id":"uuid","key":"theme","value":"dark"}` |
@@ -581,15 +581,15 @@ The key scoping and quota enforcement logic in `state-handler.ts` is transport-a
 - **Legacy key migration:** triple-read (new format → legacy-with-pubkey → old prefix) — unchanged
 - **Quota enforcement:** `aclState.getStateQuota()` called on write operations — unchanged
 
-The new `handleStorageMessage()` function accepts the NUB envelope and extracts `id`, `key`, `value` directly from flat object fields rather than from tag arrays, then delegates to the same underlying storage logic.
+The new `handleStorageMessage()` function accepts the NAP envelope and extracts `id`, `key`, `value` directly from flat object fields rather than from tag arrays, then delegates to the same underlying storage logic.
 
 #### Affected Files
 
 | File | Change |
 |------|--------|
 | `packages/runtime/src/runtime.ts` | Remove `shell:state-*` topic check from `IPC_PEER` case; add `handleStorageMessage()` function |
-| `packages/runtime/src/state-handler.ts` | Full rewrite of `handleStateRequest()` to accept NUB envelope; preserve scoping and quota logic |
-| `packages/runtime/src/enforce.ts` | `resolveCapabilitiesNub()` storage domain branch |
+| `packages/runtime/src/state-handler.ts` | Full rewrite of `handleStateRequest()` to accept NAP envelope; preserve scoping and quota logic |
+| `packages/runtime/src/enforce.ts` | `resolveCapabilitiesNap()` storage domain branch |
 
 **Pitfall 6 reference:** After migration, `state-handler.ts` must not import `BusKind.IPC_PEER`. Topic-tag extraction (`event.tags?.find((t) => t[0] === 't')`) is replaced by direct field access (`msg.key`, `msg.value`). The `shell:state-*` topic namespace becomes dead code.
 
@@ -617,7 +617,7 @@ This means INC had no explicit lifecycle: subscriptions were registered via stan
 
 **Inbound (napplet → shell):**
 
-| NUB Type | Old Format | New Format |
+| NAP Type | Old Format | New Format |
 |----------|-----------|-----------|
 | `inc.emit` | `["EVENT", {"kind":29003,"tags":[["t","profile:open"]],"content":"{...}",...}]` | `{"type":"inc.emit","topic":"profile:open","payload":{...}}` |
 | `inc.subscribe` | *(no equivalent — implicit via REQ)* | `{"type":"inc.subscribe","id":"uuid","topic":"profile:open"}` |
@@ -643,7 +643,7 @@ The old system required napplets to send a standard REQ to receive INC events. U
 
 | Operation | Required Capability | Notes |
 |-----------|-------------------|-------|
-| `inc.emit` | `relay:write` (sender) + `relay:read` (recipient) | Reuses relay capability bits per [ACL-MIGRATION.md section 2](./ACL-MIGRATION.md#2-capability-constant-to-nub-domain-mapping) |
+| `inc.emit` | `relay:write` (sender) + `relay:read` (recipient) | Reuses relay capability bits per [ACL-MIGRATION.md section 2](./ACL-MIGRATION.md#2-capability-constant-to-nap-domain-mapping) |
 | `inc.subscribe` | `relay:read` (sender) | — |
 | `inc.unsubscribe` | `relay:read` (sender) | — |
 
@@ -653,8 +653,8 @@ The old system required napplets to send a standard REQ to receive INC events. U
 |------|--------|
 | `packages/runtime/src/runtime.ts` | Remove `IPC_PEER` kind 29003 fallthrough path; add `handleIncMessage()` with INC subscription registry |
 | `packages/runtime/src/event-buffer.ts` | INC delivery is replaced by direct `sendToNapplet` dispatch — `bufferAndDeliver` no longer used for INC topics |
-| `packages/runtime/src/service-dispatch.ts` | INC topic routing via `routeServiceMessage()` no longer applies — INC is now a first-class NUB domain, not a service |
-| `packages/runtime/src/enforce.ts` | `resolveCapabilitiesNub()` inc domain branch |
+| `packages/runtime/src/service-dispatch.ts` | INC topic routing via `routeServiceMessage()` no longer applies — INC is now a first-class NAP domain, not a service |
+| `packages/runtime/src/enforce.ts` | `resolveCapabilitiesNap()` inc domain branch |
 
 **Pitfall 8 reference:** After migration, the old IPC_PEER path (`event.kind === BusKind.IPC_PEER`) must not handle INC topics. The distinction from storage: storage handler still exists (rewritten), but INC routing via `eventBuffer.bufferAndDeliver` is replaced entirely by the new explicit subscription model.
 
@@ -684,10 +684,10 @@ The napplet received synthetic `["EVENT", subId, { kind: 29010, tags: [["s","aud
 
 Under NIP-5D, service discovery is **synchronous at initialization time** — not a message round-trip. The `@napplet/shim` exposes:
 
-- `window.napplet.shell.supports(nubType)` — checks if the shell supports a given NUB domain (e.g., `relay`, `signer`, `storage`)
+- `window.napplet.shell.supports(napType)` — checks if the shell supports a given NAP domain (e.g., `relay`, `signer`, `storage`)
 - `window.napplet.services.has(serviceName)` — checks if a named service is registered
 
-These APIs are populated by the shell communicating its supported NUBs and services to the shim at iframe creation time (part of the initial `window.napplet` initialization handshake documented in the Phase 4 shell migration). No postMessage round-trip is needed for discovery.
+These APIs are populated by the shell communicating its supported NAPs and services to the shim at iframe creation time (part of the initial `window.napplet` initialization handshake documented in the Phase 4 shell migration). No postMessage round-trip is needed for discovery.
 
 #### Impact
 
@@ -704,13 +704,13 @@ The `service-discovery.ts` module can be deleted in Phase 3 of the AUTH/legacy r
 
 Summary of all runtime source files and what changes drives each modification:
 
-| File | Change Type | NUB Domain(s) | Notes |
+| File | Change Type | NAP Domain(s) | Notes |
 |------|------------|---------------|-------|
-| `packages/runtime/src/runtime.ts` | Major rewrite | relay, signer, storage, inc | Add 4 new NUB handlers; remove verb-switch cases; remove `IPC_PEER` kind-dispatch branching |
-| `packages/runtime/src/state-handler.ts` | Full rewrite | storage | New function signature accepts NUB envelope; preserves key-scoping and quota logic |
-| `packages/runtime/src/enforce.ts` | New function | all | Add `resolveCapabilitiesNub()` alongside existing `resolveCapabilities()` |
+| `packages/runtime/src/runtime.ts` | Major rewrite | relay, signer, storage, inc | Add 4 new NAP handlers; remove verb-switch cases; remove `IPC_PEER` kind-dispatch branching |
+| `packages/runtime/src/state-handler.ts` | Full rewrite | storage | New function signature accepts NAP envelope; preserves key-scoping and quota logic |
+| `packages/runtime/src/enforce.ts` | New function | all | Add `resolveCapabilitiesNap()` alongside existing `resolveCapabilities()` |
 | `packages/runtime/src/event-buffer.ts` | Interface change | inc | `bufferAndDeliver()` no longer used for INC delivery; INC uses direct `sendToNapplet` |
-| `packages/runtime/src/service-dispatch.ts` | Update | (services) | `routeServiceMessage()` must accept NUB envelope when `ServiceHandler` interface updates (Pitfall 5) |
+| `packages/runtime/src/service-dispatch.ts` | Update | (services) | `routeServiceMessage()` must accept NAP envelope when `ServiceHandler` interface updates (Pitfall 5) |
 | `packages/runtime/src/service-discovery.ts` | Remove (Phase 3) | (none) | Dead code after NIP-5D migration; kept during dual-mode transition for legacy napplets |
 | `packages/runtime/src/types.ts` | Interface update | all | `ServiceHandler.handleMessage` signature updated; `SendToNapplet` may need widening |
 
@@ -850,7 +850,7 @@ export interface SessionEntry {
 
 **Gate check migration:**
 
-The `handleMessage()` gate at line 1010 currently uses `!sessionRegistry.getPubkey(windowId)` to detect unauthenticated sessions. After migration, the NUB dispatch path bypasses this gate entirely (dual-mode dispatch checks NUB envelope format first, before the gate). The gate remains in the legacy array path only. Internally, `getPubkey()` still returns `''` for NIP-5D sessions, so the gate correctly routes legacy sessions to the `pendingAuthQueue` — NIP-5D sessions never reach it.
+The `handleMessage()` gate at line 1010 currently uses `!sessionRegistry.getPubkey(windowId)` to detect unauthenticated sessions. After migration, the NAP dispatch path bypasses this gate entirely (dual-mode dispatch checks NAP envelope format first, before the gate). The gate remains in the legacy array path only. Internally, `getPubkey()` still returns `''` for NIP-5D sessions, so the gate correctly routes legacy sessions to the `pendingAuthQueue` — NIP-5D sessions never reach it.
 
 For code that previously checked `if (session.pubkey)` as an authentication signal, the equivalent post-migration check is:
 
@@ -877,7 +877,7 @@ if (session.identitySource === 'auth' && !session.pubkey) return sendError('auth
      registeredAt: Date.now(), instanceId: ..., identitySource: 'source' }
    ```
 4. Runtime calls `sessionRegistry.register(windowId, entry)` immediately
-5. First message from napplet arrives — NUB dispatch path in `handleMessage()` routes it to the appropriate domain handler without touching `pendingAuthQueue`
+5. First message from napplet arrives — NAP dispatch path in `handleMessage()` routes it to the appropriate domain handler without touching `pendingAuthQueue`
 
 #### Legacy AUTH Path (preserved)
 
@@ -900,5 +900,5 @@ if (session.identitySource === 'auth' && !session.pubkey) return sendError('auth
 |---------|--------|-------|
 | `@kehto/acl` | Already aligned | `Identity.pubkey` is optional and deprecated; `toKey()` produces `dTag:hash`; no code changes needed in the ACL package itself |
 | `@kehto/shell` | Session creation updated | `shell-bridge.ts` session creation path must pass `identitySource: 'source'` when registering NIP-5D napplets; `sendChallenge()` removal (Section 2.2) is independent of identity anchor change |
-| `@kehto/services` | Guard update | Any service handler that calls `sessionRegistry.getPubkey(windowId)` and errors on empty string must check `identitySource` instead; service handlers receiving NUB envelopes do not use pubkey for routing |
+| `@kehto/services` | Guard update | Any service handler that calls `sessionRegistry.getPubkey(windowId)` and errors on empty string must check `identitySource` instead; service handlers receiving NAP envelopes do not use pubkey for routing |
 | `@kehto/runtime` (internal) | `state-handler.ts` | Line 86 `if (!pubkey)` guard must be updated — for NIP-5D sessions `pubkey === ''` but `identitySource === 'source'`; storage should proceed for both session types |

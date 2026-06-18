@@ -2,10 +2,10 @@
  * shell-ui-state-surfaces.spec.ts — E2E-16 (v1.5 Phase 31).
  *
  * Locks UI-01/02/03 in CI — the three shell-UI state surfaces wired in
- * Phase 30 to live NUB envelope traffic:
+ * Phase 30 to live NAP envelope traffic:
  *
  *   UI-01  Service activity counters on topology service nodes tick
- *          as NUB envelopes of each service's domain are processed.
+ *          as NAP envelopes of each service's domain are processed.
  *   UI-02  ACL Capability Matrix modal lists every identity-bound
  *          napplet as a row (not the 'No identity-bound napplets'
  *          placeholder).
@@ -59,7 +59,7 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
     });
   });
 
-  test('service activity counters tick on NUB traffic (UI-01)', async ({ page }) => {
+  test('service activity counters tick on NAP traffic (UI-01)', async ({ page }) => {
     const consoleMessages: string[] = [];
     page.on('console', (msg) => consoleMessages.push(msg.text()));
 

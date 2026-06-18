@@ -1,5 +1,5 @@
 /**
- * runtime.test.ts — Integration tests for the inc channel sub-protocol (NUB-04 / DRIFT-RT-09).
+ * runtime.test.ts — Integration tests for the inc channel sub-protocol (NAP-04 / DRIFT-RT-09).
  *
  * Exercises the full 14-type @napplet/nap/inc surface via createRuntime → handleMessage
  * round-trips between three mock napplet windows (A, B, C). The channel sub-protocol
@@ -7,7 +7,7 @@
  * Plan 12-04 Task 2's handleIncMessage extension.
  *
  * Test 6 additionally asserts that `inc.subscribe` emits an `inc.subscribe.result`
- * envelope — the canonical nub-inc contract that the pre-12-04 handler silently dropped.
+ * envelope — the canonical nap-inc contract that the pre-12-04 handler silently dropped.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -49,7 +49,7 @@ function envelopesOfType(sent: SentMessage[], windowId: string, type: string): N
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
-describe('inc channel sub-protocol (NUB-04 / DRIFT-RT-09)', () => {
+describe('inc channel sub-protocol (NAP-04 / DRIFT-RT-09)', () => {
   let ctx: MockRuntimeContext;
   let runtime: Runtime;
 
@@ -236,7 +236,7 @@ describe('inc channel sub-protocol (NUB-04 / DRIFT-RT-09)', () => {
   });
 });
 
-// ─── relay.publishEncrypted (NUB-08 / DRIFT-RT-08 / SH-C03) ──────────────────
+// ─── relay.publishEncrypted (NAP-08 / DRIFT-RT-08 / SH-C03) ──────────────────
 
 /**
  * Exercises the shell-mediated encryption path: napplet sends a
@@ -247,7 +247,7 @@ describe('inc channel sub-protocol (NUB-04 / DRIFT-RT-09)', () => {
  * handleRelayMessage.
  */
 
-describe('relay.publishEncrypted (NUB-08 / DRIFT-RT-08 / SH-C03)', () => {
+describe('relay.publishEncrypted (NAP-08 / DRIFT-RT-08 / SH-C03)', () => {
   const PE_WINDOW = 'win-test-pe';
   const PE_DTAG = 'napp-pe';
   const PE_HASH = 'b'.repeat(64);

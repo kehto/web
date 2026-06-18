@@ -71,7 +71,7 @@ export interface RelayListEntry {
 /**
  * Relay pool contract the router drives. Implementors adapt their pool library
  * (nostr-tools SimplePool, applesauce-relay, etc.). Unlike the lower-level
- * relay NUB pool, both methods take an explicit relay-URL set so the router
+ * relay NAP pool, both methods take an explicit relay-URL set so the router
  * controls outbox routing and can attribute events to the relay they arrived on.
  */
 export interface OutboxRelayPool {

@@ -4,10 +4,10 @@
  * Drives the fixture-nap-identity napplet via harness driver globals at :4173.
  * Asserts:
  *   1. Fixture loads and reaches __nappletReady__ (AUTH handshake completes).
- *   2. The fixture's identity.getPublicKey envelope was dispatched (visible via __getNubMessage__).
+ *   2. The fixture's identity.getPublicKey envelope was dispatched (visible via __getNapMessage__).
  *   3. The fixture's #nap-status sentinel reflects the success path
  *      ('pubkey:<truncated>'). The test installs a deterministic mock signer first
- *      because @napplet/nub@0.5.0's identityGetPublicKey() helper resolves
+ *      because @napplet/nap@0.5.0's identityGetPublicKey() helper resolves
  *      identity.getPublicKey.result, not the runtime fallback error envelope.
  *
  * No demo server dependency. No frameLocator interactions beyond reading the iframe sentinel.
@@ -39,13 +39,13 @@ test('nap-identity: getPublicKey envelope dispatched and fixture sentinel update
 
   // Wait for the fixture's identity.getPublicKey envelope to be recorded by the harness.
   await page.waitForFunction(
-    (wid) => window.__getNubMessage__(wid, 'identity.getPublicKey') !== null,
+    (wid) => window.__getNapMessage__(wid, 'identity.getPublicKey') !== null,
     windowId,
     { timeout: 10_000 },
   );
 
   const envelope = await page.evaluate(
-    (wid) => window.__getNubMessage__(wid, 'identity.getPublicKey'),
+    (wid) => window.__getNapMessage__(wid, 'identity.getPublicKey'),
     windowId,
   );
   expect(envelope).not.toBeNull();

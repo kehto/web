@@ -8,8 +8,8 @@
  * Layer-A spec asserts:
  *   - #nap-status flips to 'event:<truncated-id>' or 'denied:*'
  *   - #nap-event-id populated with the returned event id (or empty on denial)
- *   - __getNubMessage__(windowId, 'relay.publish') returns the request envelope
- *   - On click: __getNubMessage__(windowId, 'relay.publishEncrypted') returns the encrypted envelope
+ *   - __getNapMessage__(windowId, 'relay.publish') returns the request envelope
+ *   - On click: __getNapMessage__(windowId, 'relay.publishEncrypted') returns the encrypted envelope
  */
 import '@napplet/shim';
 import { relayPublish, relayPublishEncrypted } from '@napplet/nap/relay/sdk';

@@ -3,12 +3,12 @@
 Reference service handlers for Kehto runtime implementations.
 
 > **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
-> protocol. Service envelopes and NUB contracts are not final.
+> protocol. Service envelopes and NAP contracts are not final.
 
 ## Install
 
 ```bash
-pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nub
+pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 ```
 
 ## Manifest Facts
@@ -27,7 +27,7 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nub
 | Package | Range |
 |---------|-------|
 | `@napplet/core` | `^0.5.0` |
-| `@napplet/nub` | `^0.5.0` |
+| `@napplet/nap` | `^0.5.0` |
 
 ## Primary APIs
 

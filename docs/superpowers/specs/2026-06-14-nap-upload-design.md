@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-14
 **Status:** Approved (autonomous /goal execution)
-**Spec source:** `napplet/nubs` PR #33 / branch `nap-upload` (`NAP-UPLOAD.md`)
+**Spec source:** `napplet/naps` PR #33 / branch `nap-upload` (`NAP-UPLOAD.md`)
 **SDK side:** `napplet/web` `packages/nap/src/upload/*` + `packages/core/src/types.ts` (already shipped)
 
 ## Goal
@@ -64,8 +64,8 @@ class may hold; it is **not** added to the `class-2` exclusion set.
 - `domain-handlers.ts`: add `upload` to `RuntimeDomainHandlers`, widen the
   `handleServiceOnlyMessage` name union, and route
   `upload: (windowId, msg) => handleServiceOnlyMessage(context, 'upload', …)`.
-- `runtime.ts`: `nubDispatch.registerNub('upload', adapt(handlers.upload));`
-  (the registerNub lesson — registering the service is not enough; the domain
+- `runtime.ts`: `napDispatch.registerNap('upload', adapt(handlers.upload));`
+  (the registerNap lesson — registering the service is not enough; the domain
   must be wired into the dispatcher).
 
 ### 4. Services — `@kehto/services`

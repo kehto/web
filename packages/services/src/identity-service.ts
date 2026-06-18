@@ -1,5 +1,5 @@
 /**
- * identity-service.ts — NIP-5D identity nub reference service.
+ * identity-service.ts — NIP-5D identity nap reference service.
  *
  * MIGRATION from signer-service (v1.1 -> v1.2):
  *   - signer.getPublicKey  -> identity.getPublicKey   (same shell state)
@@ -86,7 +86,7 @@ export function createIdentityService(options: IdentityServiceOptions): ServiceH
     descriptor: {
       name: 'identity',
       version: IDENTITY_SERVICE_VERSION,
-      description: 'NIP-5D identity NUB reference handler (9 read-only identity queries)',
+      description: 'NIP-5D identity NAP reference handler (9 read-only identity queries)',
     },
 
     handleMessage(
@@ -109,7 +109,7 @@ export function createIdentityService(options: IdentityServiceOptions): ServiceH
       switch (message.type) {
         case 'identity.getPublicKey': {
           // Per NIP-5D spec comment "Always succeeds" — return empty pubkey when no signer is
-          // configured rather than sending an error. The nub-identity shim's getPublicKey()
+          // configured rather than sending an error. The nap-identity shim's getPublicKey()
           // only handles 'identity.getPublicKey.result'; an error response hangs the Promise
           // indefinitely. Empty pubkey is the correct sentinel for "no signer connected".
           if (!signer) {

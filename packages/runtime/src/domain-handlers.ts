@@ -2,7 +2,7 @@ import type { NappletMessage } from '@napplet/core';
 
 import type { AclStateContainer } from './acl-state.js';
 import type { SessionRegistry } from './session-registry.js';
-import { handleStorageNub } from './state-handler.js';
+import { handleStorageNap } from './state-handler.js';
 import type { RuntimeAdapter, ServiceRegistry } from './types.js';
 
 type DomainHandler = (windowId: string, msg: NappletMessage) => void;
@@ -50,7 +50,7 @@ export function createRuntimeDomainHandlers(context: RuntimeDomainContext): Runt
 
 function handleStorageMessage(context: RuntimeDomainContext, windowId: string, msg: NappletMessage): void {
   const { aclState, hooks, sessionRegistry } = context;
-  handleStorageNub(windowId, msg, hooks.sendToNapplet, sessionRegistry, aclState, hooks.statePersistence);
+  handleStorageNap(windowId, msg, hooks.sendToNapplet, sessionRegistry, aclState, hooks.statePersistence);
 }
 
 function handleMediaMessage(context: RuntimeDomainContext, windowId: string, msg: NappletMessage): void {
