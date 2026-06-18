@@ -1,6 +1,6 @@
 {
   "name": "@kehto/runtime",
-  "version": "0.12.1",
+  "version": "0.13.0",
   "description": "Browser-agnostic protocol engine for the napplet protocol — message dispatch, ACL enforcement, AUTH handshake",
   "type": "module",
   "main": "./dist/index.js",

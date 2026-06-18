@@ -1,5 +1,59 @@
 # @kehto/runtime
 
+## 0.13.0
+
+### Minor Changes
+
+- 8ecfdd1: Remove NAP-CLASS, NAP-CLASS-1, and NAP-CONNECT (clean break, no aliases).
+
+  **@kehto/runtime**: Remove `NappletClass` type, `SessionEntry.class` field, `CLASS_CAPABILITY_ALLOWLIST`,
+  and the class pre-filter from `enforceNap`. `EnforceResult.reason` is now `'allowed' | 'capability-missing'`
+  (no `'class-forbidden'`). `AclCheckEvent.reason` likewise drops `'class-forbidden'`.
+  `resolveIdentityByWindowId` no longer returns a `class` field.
+
+  **@kehto/shell**: Remove `connectStore` singleton, `ConnectStore`, `ConnectGrant`, `ConnectGrantKey`,
+  `ConnectConsentRequest`, `ConsentResult`, `connectGrantKey`, `NappletClass` re-export, and
+  `classToWireCode`. Remove `'connect'` and `'class'` from `NAP_DOMAINS`.
+  `ShellBridge.connectStore` getter removed. `onNip5dIframeCreate` hook return type drops the `class`
+  field. `ResourceErrorCode` drops `'class-forbidden'`.
+
+- 3a4d2cd: Make INC the only event-channel protocol vocabulary and remove pre-INC aliases.
+
+  **@kehto/runtime** now registers and dispatches only canonical `inc.*` message
+  types, with the runtime handler renamed to INC terminology throughout.
+
+  **@kehto/acl** now resolves only canonical `inc:*` capability actions for
+  event-channel permissions.
+
+  **@kehto/services** now emits and subscribes through canonical `inc.emit` and
+  `inc.event` runtime topics.
+
+  **@kehto/shell** now reports NAP-INC capability protocols only and no longer
+  mirrors older event-channel protocol strings.
+
+- 8ca8fc1: Complete the NAP rename: remove retired helper vocabulary from the public API
+  and the `shell.init` wire (clean break, no aliases).
+
+  **@kehto/acl**: Export the NAP message and capability resolver names only:
+  `NapMessage` and `resolveCapabilitiesNap`.
+
+  **@kehto/runtime**: Export the NAP enforcement, storage, message, and resolver
+  names only: `createNapEnforceGate`, `NapEnforceConfig`, `handleStorageNap`,
+  `NapMessage`, and `resolveCapabilitiesNap`.
+
+  **@kehto/shell**: Remove the retired mirror field from `ShellCapabilities` and
+  the dual-emit in `buildShellCapabilities` — the `shell.init` payload now carries
+  only the NAP-vocabulary `naps` array plus the conformant `domains`/`protocols`
+  shape. Drop the retired capability-lookup alias and re-export only the NAP
+  enforcement/message names.
+
+### Patch Changes
+
+- 8c7a39f: Honor the canonical NAP-RELAY `relay` hint on `relay.subscribe` envelopes when routing through the runtime relay pool path.
+- Updated dependencies [3a4d2cd]
+- Updated dependencies [8ca8fc1]
+  - @kehto/acl@0.12.0
+
 ## 0.12.1
 
 ### Patch Changes
