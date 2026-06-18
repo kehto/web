@@ -134,15 +134,19 @@ and JSR** in one run (both via OIDC, no tokens). Do not `pnpm publish-packages` 
 
 1. Add a changeset for each package whose **shipped output** changed. A test- or
    comment-only change ships nothing — do not bump it. On 0.x, a breaking change is a
-   `minor` bump.
-2. `pnpm version-packages` (bumps `package.json`, writes `CHANGELOG.md`). The release
-   workflow re-syncs each `jsr.json#version` from its `package.json` before the JSR
-   publish (`scripts/sync-jsr-versions.mjs`), so you don't bump `jsr.json` by hand.
-3. Commit, push, open the release PR; merge it, then push the `v*` tag. The tag fires
+   `minor` bump. Feature/fix PRs must keep their `.changeset/*.md` files intact.
+2. `pnpm version-packages` is the release-PR ceremony. It consumes/deletes the pending
+   `.changeset/*.md` files, bumps `package.json`, and writes the same changelog text into
+   package `CHANGELOG.md` files. Do not restore consumed changeset files after this step;
+   restore only accidental changeset deletions from non-release work.
+3. Commit the version output as a release PR titled with `chore(release): ...`. The
+   `Changeset Guard` workflow allows `.changeset/*.md` deletion only for this release
+   shape and requires accompanying package version + changelog changes.
+4. Push, open the release PR, merge it, then push the `v*` tag. The tag fires
    `release.yml`, which re-validates build + type-check + unit + e2e, then runs
    `changeset publish` (npm) followed by `npx jsr publish` for every `packages/*`
    (topological order). Already-published versions are skipped on both registries.
-4. Every `@kehto/*` package needs an OIDC Trusted Publisher registered on npm **and** a
+5. Every `@kehto/*` package needs an OIDC Trusted Publisher registered on npm **and** a
    JSR package linked to `kehto/web` under the `@kehto` scope, or that registry's publish
    404s. Confirm new packages are registered on both before relying on the automated
    publish.
