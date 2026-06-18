@@ -2,7 +2,7 @@
 status: complete
 date: 2026-06-18
 mode: quick-validated
-commit: TBD
+commit: cd438c9
 ---
 
 # Quick Task 260618-heo Summary: Remove IFC Vocabulary
