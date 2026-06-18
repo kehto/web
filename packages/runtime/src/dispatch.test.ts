@@ -12,6 +12,7 @@ import type { Runtime } from './runtime.js';
 import { createMockRuntimeAdapter, createNip5dSessionEntry, findEnvelopeResponse } from './test-utils.js';
 import type { MockRuntimeContext, SentMessage } from './test-utils.js';
 import type { NappletMessage } from '@napplet/core';
+import type { RelayPoolAdapter } from './types.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -165,6 +166,42 @@ describe('NIP-5D Envelope Dispatch', () => {
       // Empty filters: the shell-kind fast path is false (no filters.every succeeds with empty), sends eose
       const eose = findEnvelopeResponse(ctx.sent, 'relay.eose');
       expect(eose).toBeDefined();
+    });
+
+    it('relay.subscribe honors the canonical relay hint', () => {
+      let selected = false;
+      let subscribedRelays: string[] | undefined;
+      const relayPool: RelayPoolAdapter = {
+        subscribe: (_filters, _cb, relayUrls) => {
+          subscribedRelays = relayUrls;
+          return { unsubscribe() { /* no-op */ } };
+        },
+        publish: () => { /* no-op */ },
+        selectRelayTier: () => {
+          selected = true;
+          return ['wss://selected.test'];
+        },
+        trackSubscription: () => { /* no-op */ },
+        untrackSubscription: () => { /* no-op */ },
+        openScopedRelay: () => { /* no-op */ },
+        closeScopedRelay: () => { /* no-op */ },
+        publishToScopedRelay: () => false,
+        isAvailable: () => true,
+      };
+      const ctxWithRelay = createMockRuntimeAdapter({ relayPool });
+      const runtimeWithRelay = createRuntime(ctxWithRelay.hooks);
+      runtimeWithRelay.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+
+      runtimeWithRelay.handleMessage(WINDOW_ID, {
+        type: 'relay.subscribe',
+        id: 'req-relay-hint',
+        subId: 'sub-relay-hint',
+        filters: [{ kinds: [1] }],
+        relay: 'wss://explicit.test',
+      } as NappletMessage);
+
+      expect(subscribedRelays).toEqual(['wss://explicit.test']);
+      expect(selected).toBe(false);
     });
 
     it('relay.close sends relay.closed', () => {
