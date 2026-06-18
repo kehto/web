@@ -82,6 +82,30 @@ In the SAME branch/PR as the code change:
   (target 100/100) before shipping. `.aislop/config.yml` is pinned; a new rule disable
   needs a documented, justified reason. Re-assess it after later edits — not just once.
 
+#### NAP / NIP-5D conformance guardrails
+
+When a NAP interface changes, or when shell/runtime code starts accepting a new NAP
+message field, finish the full kehto wiring in the same change. Do not stop at the
+first package that compiles.
+
+- Treat `@napplet/nap/*/types` as the canonical wire contract. Compare the new/changed
+  message field against kehto runtime handlers, shell/playground adapters, reference
+  services, ACL/capability mapping, docs, and tests.
+- For NAP-RELAY subscribe fields, update all relay subscribe surfaces together:
+  `packages/runtime/src/relay-handler.ts`, `packages/services/src/relay-pool-service.ts`,
+  `packages/services/src/coordinated-relay.ts`, `apps/playground/src/playground-relay-service.ts`,
+  and the matching unit/static guards in `tests/unit/nip5d-conformance-guard.test.ts`,
+  `packages/services/src/*relay*.test.ts`, and `tests/unit/playground-relay-service.test.ts`.
+- If the shell or playground adds support for a NAP field, add a guard that proves the
+  reference service implementation consumes the same field. Example: an explicit
+  `relay.subscribe` relay hint must bypass relay selection in runtime fallback,
+  `createRelayPoolService`, `createCoordinatedRelay`, and the playground relay service.
+- If a canonical NAP message gains a field that is intentionally ignored by a kehto
+  surface, document that decision in the nearby test or source comment. Silent omission
+  is treated as drift.
+- NIP-5D loader and napplet-demo exceptions stay under `tests/unit/nip5d-conformance-guard.test.ts`;
+  add allowlist rows there only with matching policy text in `docs/policies/NIP-5D-CONFORMANCE.md`.
+
 ### 5. Definition of done = shipped, without being asked
 
 "Done" is an open PR, not "code written." Run the whole chain yourself before reporting

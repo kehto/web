@@ -67,6 +67,7 @@ type RelayServiceMessage = NappletMessage & {
   subId?: unknown;
   filters?: unknown;
   event?: unknown;
+  relay?: unknown;
 };
 
 /**
@@ -178,7 +179,10 @@ export function createCoordinatedRelay(options: CoordinatedRelayOptions): Servic
             }
           }, timeoutMs);
 
-          const relayUrls = options.relayPool.selectRelayTier(filters);
+          const relayHint = typeof relayMessage.relay === 'string' && relayMessage.relay.length > 0
+            ? relayMessage.relay
+            : undefined;
+          const relayUrls = relayHint ? [relayHint] : options.relayPool.selectRelayTier(filters);
           tracked.relayHandle = options.relayPool.subscribe(filters, (item) => {
             if (item === 'EOSE') {
               clearTimeout(tracked.eoseTimer);

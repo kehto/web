@@ -215,6 +215,27 @@ describe('playground relay service', () => {
     ]);
   });
 
+  it('honors canonical relay.subscribe relay hint without relay selection fallback', async () => {
+    const pool = createPool();
+    const runtime = createRuntime({ relayPool: pool as PlaygroundRelayRuntimeOptions['relayPool'] });
+
+    runtime.relayService.handleMessage(
+      'window-a',
+      {
+        type: 'relay.subscribe',
+        id: 'relay-hint',
+        subId: 'sub-relay-hint',
+        filters: [{ kinds: [1], authors: ['alice'] }],
+        relay: 'wss://explicit.test',
+      } as NappletMessage,
+      () => {},
+    );
+
+    await waitFor(() => expect(pool.log.subscriptions).toHaveLength(1));
+    expect(pool.log.requests).toHaveLength(0);
+    expect(pool.log.subscriptions[0]?.relays).toEqual(['wss://explicit.test']);
+  });
+
   it('tracks relay activity ordered by latest access', async () => {
     const pool = createPool({
       requestEvents: [
