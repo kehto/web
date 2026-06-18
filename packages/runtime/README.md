@@ -19,7 +19,7 @@ pnpm add @kehto/runtime
 The runtime is built around the current draft dispatch contract from `@napplet/core` — `createDispatch()` + `registerNub()` — so routing is declarative, not a hand-rolled switch. It covers the NIP-5D domains currently supported by Kehto:
 
 - **identity** — `identity.getProfile`, `identity.getFollows`, `identity.getPublicKey`, …
-- **ifc** — `ifc.channel.*`, `ifc.emit`, cross-napplet pub/sub
+- **inc** — `inc.channel.*`, `inc.emit`, cross-napplet pub/sub
 - **keys** — `keys.forward`, `keys.action`, `keys.bind`
 - **media** — `media.*` playback & transport control
 - **notify** — `notify.send`, `notify.channel.register`, badge/permission flows

@@ -10,7 +10,7 @@
  * this controller is the bridge between the service callback and the DOM
  * rendering code in main.ts.
  *
- * Per DEMO-07: notify.* envelopes (not ifc.emit topic wrappers) are the
+ * Per DEMO-07: notify.* envelopes (not inc.emit topic wrappers) are the
  * canonical v1.2 dispatch shape. Host-originated envelopes are also recorded
  * through the demo message tap so debugger.ts sees them alongside iframe traffic.
  */
@@ -99,7 +99,7 @@ export function createDemoNotificationController(): DemoNotificationController {
    * debugger because the tap only watches iframe postMessage (17-04 tap surface).
    * The source label 'demo-host' distinguishes host-originated rows in the log.
    *
-   * Per DEMO-07: no BusKind, no kind-tag transport, no ifc-emit topic tags.
+   * Per DEMO-07: no BusKind, no kind-tag transport, no inc-emit topic tags.
    */
   function dispatchEnvelope(
     handler: ServiceHandler | null,

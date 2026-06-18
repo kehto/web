@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -12,7 +13,7 @@ const sdkTargetDirs = [
   'apps/playground/napplets/resource-demo',
   'apps/playground/napplets/toaster',
   'tests/fixtures/napplets/nap-identity',
-  'tests/fixtures/napplets/nap-ifc',
+  'tests/fixtures/napplets/nap-inc',
   'tests/fixtures/napplets/nap-notify',
   'tests/fixtures/napplets/nap-relay',
   'tests/fixtures/napplets/nap-storage',
@@ -48,19 +49,11 @@ const protocolPackageVersions: Record<(typeof protocolPackageNames)[number], str
 
 const bannedSdkImportPattern = /from\s+['"]@napplet\/sdk['"]/;
 const staleNapPackage = ['@napplet', 'nub'].join('/');
-const oldIfcNamespace = ['i', 'p', 'c'].join('');
+const removedTransportNamespace = ['i', 'f', 'c'].join('');
 const namespaceImportPattern = new RegExp(
-  String.raw`import\s+\{[^}]*\b(${oldIfcNamespace}|storage|relay|identity|keys|config|notify)\b[^}]*\}\s+from\s+['"]@napplet/sdk['"]`,
+  String.raw`import\s+\{[^}]*\b(storage|relay|identity|keys|config|notify)\b[^}]*\}\s+from\s+['"]@napplet/sdk['"]`,
   's',
 );
-const activeTerminologyRoots = [
-  'RUNTIME-SPEC.md',
-  'apps',
-  'packages',
-  'tests',
-] as const;
-const activeTerminologyFilePattern = /\.(?:[cm]?[jt]sx?|json|md|html|css)$/;
-
 function sourceFiles(root: string): string[] {
   if (!existsSync(root)) return [];
   const entries = readdirSync(root);
@@ -73,19 +66,6 @@ function sourceFiles(root: string): string[] {
     } else if (/\.[cm]?tsx?$/.test(path)) {
       files.push(path);
     }
-  }
-  return files;
-}
-
-function activeTerminologyFiles(root: string): string[] {
-  if (!existsSync(root)) return [];
-  const stat = statSync(root);
-  if (!stat.isDirectory()) return activeTerminologyFilePattern.test(root) ? [root] : [];
-
-  const files: string[] = [];
-  for (const entry of readdirSync(root)) {
-    if (entry === 'dist' || entry === 'node_modules') continue;
-    files.push(...activeTerminologyFiles(join(root, entry)));
   }
   return files;
 }
@@ -170,7 +150,7 @@ describe('SDK 0.12 migration guard', () => {
     const lockfile = readFileSync(join(process.cwd(), 'pnpm-lock.yaml'), 'utf8');
 
     expect(lockfile).not.toMatch(/@napplet\/(?:core|shim|vite-plugin)@0\.2\.1/);
-    expect(lockfile).not.toMatch(/@napplet\/nub-(?:identity|ifc|keys|media|notify|relay|storage|theme)@0\.2\.1/);
+    expect(lockfile).not.toMatch(/@napplet\/nub-(?:identity|inc|keys|media|notify|relay|storage|theme)@0\.2\.1/);
   });
 
   it('rejects legacy namespace imports from @napplet/sdk in migrated source', () => {
@@ -187,17 +167,24 @@ describe('SDK 0.12 migration guard', () => {
     expect(violations).toEqual([]);
   });
 
-  it('keeps active project terminology on IFC vocabulary', () => {
+  it('rejects the removed transport vocabulary in tracked live files', () => {
     const violations: string[] = [];
-    const disallowedTerm = oldIfcNamespace.toLowerCase();
-    const disallowedTermPattern = new RegExp(String.raw`\b${disallowedTerm}\b`);
+    const files = execFileSync('git', ['ls-files', '-z'], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+    }).split('\0').filter(Boolean);
+    const pattern = new RegExp(removedTransportNamespace, 'i');
 
-    for (const root of activeTerminologyRoots) {
-      for (const file of activeTerminologyFiles(join(process.cwd(), root))) {
-        const content = readFileSync(file, 'utf8').toLowerCase();
-        if (disallowedTermPattern.test(content)) {
-          violations.push(relative(process.cwd(), file));
-        }
+    for (const file of files) {
+      if (file.startsWith('.planning/')) continue;
+      const abs = join(process.cwd(), file);
+      const content = readFileSync(abs, 'utf8');
+      const lines = content.split(/\r?\n/);
+      for (const [index, line] of lines.entries()) {
+        if (!pattern.test(line)) continue;
+        const location = `${file}:${index + 1}`;
+        if (file === 'pnpm-lock.yaml' && line.includes('integrity:')) continue;
+        violations.push(location);
       }
     }
 

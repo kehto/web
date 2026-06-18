@@ -6,7 +6,7 @@
 // deleted; legacy NIP-01 constants (BusKind, AUTH_KIND, DESTRUCTIVE_KINDS,
 // SHELL_BRIDGE_URI, PROTOCOL_VERSION, REPLAY_WINDOW_SECONDS, legacy
 // BusKind-value union) are no longer re-exported. Shell internals that need
-// IFC_PEER=29000 inline the numeric locally.
+// INC_PEER=29000 inline the numeric locally.
 export type { NostrEvent, NostrFilter } from '@napplet/core';
 export type { Capability, ServiceDescriptor } from '@kehto/runtime';
 export { ALL_CAPABILITIES } from '@kehto/runtime';
@@ -255,9 +255,9 @@ export interface UnroutedMessageInfo {
  *
  *   - `naps` (PRIMARY) — NAP vocabulary: bare domain `inc`, protocol IDs
  *     `inc:NAP-01..inc:NAP-06`. Consumed by `@napplet/shim >=0.9.0`.
- *     Contains NO unaliased `ifc` or `NUB-NN` identifiers.
- *   - `nubs` (LEGACY) — retains the original `ifc` / `ifc:NUB-01..06` /
- *     `ifc:NAP-01` vocabulary for `@napplet/nub` and `<=0.8.x` shims.
+ *     Contains NO unaliased `inc` or `NUB-NN` identifiers.
+ *   - `nubs` (LEGACY) — retains the original `inc` / `inc:NUB-01..06` /
+ *     `inc:NAP-01` vocabulary for `@napplet/nub` and `<=0.8.x` shims.
  *
  * The dual-emit is intentional; removal is tracked as CLEANUP-01.
  *
@@ -304,19 +304,19 @@ export interface ShellCapabilities {
   protocols: Record<string, string[]>;
   /**
    * NAP-vocabulary domain entries the shell handles (PRIMARY — consumed by
-   * `@napplet/shim >=0.9.0`). Bare domain `inc` (the NAP rename of `ifc`)
+   * `@napplet/shim >=0.9.0`). Bare domain `inc` (the NAP rename of `inc`)
    * plus protocol IDs `inc:NAP-01..inc:NAP-06`. Conditional entries:
    * `relay`, `outbox` prepended when a relay pool is wired; `upload` appended
    * when an upload backend is wired; `intent` appended when an intent
    * dispatcher is available.
    *
-   * Contains NO `ifc`, `NUB-NN`, or unaliased legacy identifiers.
+   * Contains NO `inc`, `NUB-NN`, or unaliased legacy identifiers.
    */
   naps: string[];
   /**
    * Legacy NUB domain entries the shell handles (retained for one back-compat
    * release — consumed by `@napplet/nub` and `@napplet/shim <=0.8.x`).
-   * Vocabulary: `ifc`, `ifc:NUB-01..06`, `ifc:NAP-01`, bare domain names.
+   * Vocabulary: `inc`, `inc:NUB-01..06`, `inc:NAP-01`, bare domain names.
    * Contents are unchanged from the pre-0.9.0 release; `naps` is the primary
    * field for new shims. Removal tracked as CLEANUP-01.
    *

@@ -14,7 +14,7 @@ Each fixture is a minimal helper-based package named `@kehto/fixture-nap-<domain
 
 Six active fixtures (one per non-stub NAP domain):
 - `nap-identity/` — `identityGetPublicKey` / `identityGetProfile`
-- `nap-ifc/`      — `ifcOn` / `ifcEmit`
+- `nap-inc/`      — `incOn` / `incEmit`
 - `nap-notify/`   — `notifySend`
 - `nap-relay/`    — `relayPublish` / `relayPublishEncrypted`
 - `nap-storage/`  — `storageSetItem` / `storageGetItem`

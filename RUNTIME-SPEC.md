@@ -24,11 +24,11 @@ Current-state delta inventory: `.planning/NIP-5D-2303-DELTA-AUDIT.md`
 
 > **Terminology.** The current term for an extension spec is **NAP** (formerly
 > "NUB"); the capability prefix is `nap:` (`nub:` is an accepted back-compat
-> alias); the cross-napplet domain is `inc` (formerly `ifc`, still dual-routed).
+> alias); the cross-napplet domain is `inc` (formerly `inc`, still dual-routed).
 > The `@napplet/nub` npm package was renamed to `@napplet/nap`; no current code
 > depends on `@napplet/nub`. Some internal kehto identifiers retain the legacy
-> spelling (`createNubEnvelopeDispatcher`, `IfcDomain`, `ifc-handler.ts`) — these
-> are private and intentionally unchanged; the runtime dual-routes `ifc`+`inc`.
+> spelling (`createNubEnvelopeDispatcher`, `IncDomain`, `inc-handler.ts`) — these
+> are private and intentionally unchanged; the runtime dual-routes `inc`+`inc`.
 
 ## Toolchain
 
@@ -106,7 +106,7 @@ capabilities: {
 `shell.supports('relay')` resolves against `domains`; `shell.supports('inc','NAP-01')`
 resolves against `protocols['inc']`. For back-compat with the installed 0.5.0
 shim, `domains`/`protocols` are emitted as a **superset alongside** the legacy
-`naps` / `nubs` / `sandbox` fields (the `ifc`/`nubs` dual-emit). Host-extended
+`naps` / `nubs` / `sandbox` fields (the `inc`/`nubs` dual-emit). Host-extended
 `perm:`-prefixed `sandbox` entries are folded into `domains`. Removal of the
 legacy fields is tracked as CLEANUP-01 and is NOT performed while the playground
 shim path still reads them.

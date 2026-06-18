@@ -98,7 +98,7 @@ export const audioManager = {
     const iframeWindow = originRegistry.getIframeWindow(windowId);
     if (iframeWindow) {
       const muteEvent = {
-        kind: 29000, // IFC_PEER — inlined numeric after Phase 24 DRIFT-01 shim removal
+        kind: 29000, // INC_PEER — inlined numeric after Phase 24 DRIFT-01 shim removal
         created_at: Math.floor(Date.now() / 1000),
         tags: [['t', 'napplet:audio-muted']],
         content: JSON.stringify({ muted }),

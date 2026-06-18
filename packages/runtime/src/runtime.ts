@@ -17,7 +17,7 @@ import { createEventBuffer, RING_BUFFER_SIZE, type EventBuffer, type Subscriptio
 import { createEnforceGate, createNubEnforceGate, resolveCapabilitiesNub, formatDenialReason } from './enforce.js';
 import { createRelayHandler } from './relay-handler.js';
 import { createIdentityHandler } from './identity-handler.js';
-import { createIfcRuntime, type IfcRuntime } from './ifc-handler.js';
+import { createIncRuntime, type IncRuntime } from './inc-handler.js';
 import { createRuntimeDomainHandlers, type RuntimeDomainHandlers } from './domain-handlers.js';
 
 /**
@@ -97,7 +97,7 @@ export interface Runtime {
 type RuntimeNubHandlers = RuntimeDomainHandlers & {
   relay: (windowId: string, msg: NappletMessage) => void;
   identity: (windowId: string, msg: NappletMessage) => void;
-  ifc: (windowId: string, msg: NappletMessage) => void;
+  inc: (windowId: string, msg: NappletMessage) => void;
 };
 
 type RuntimeInstanceContext = {
@@ -107,7 +107,7 @@ type RuntimeInstanceContext = {
   replayDetector: ReplayDetector;
   subscriptions: Map<string, SubscriptionEntry>;
   eventBuffer: EventBuffer;
-  ifcRuntime: IfcRuntime;
+  incRuntime: IncRuntime;
   sessionRegistry: SessionRegistry;
   aclState: AclStateContainer;
   firewallState: FirewallStateContainer;
@@ -141,10 +141,7 @@ function createNubEnvelopeDispatcher(handlers: RuntimeNubHandlers): (windowId: s
   nubDispatch.registerNap('media', adapt(handlers.media));
   nubDispatch.registerNap('notify', adapt(handlers.notify));
   nubDispatch.registerNap('storage', adapt(handlers.storage));
-  nubDispatch.registerNap('ifc', adapt(handlers.ifc));
-  // D4: inc is the NAP rename of ifc; dual-routed during the back-compat window
-  // so >=0.9.0 napplets (which send inc.*) reach the same handler as legacy ifc.*
-  nubDispatch.registerNap('inc', adapt(handlers.ifc));
+  nubDispatch.registerNap('inc', adapt(handlers.inc));
   nubDispatch.registerNap('theme', adapt(handlers.theme));
   nubDispatch.registerNap('config', adapt(handlers.config));
   nubDispatch.registerNap('resource', adapt(handlers.resource));
@@ -333,7 +330,7 @@ function createInjectedEvent(hooks: RuntimeAdapter, topic: string, payload: unkn
 
 function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
   const {
-    aclState, firewallState, eventBuffer, hooks, ifcRuntime, manifestCache, registeredServices,
+    aclState, firewallState, eventBuffer, hooks, incRuntime, manifestCache, registeredServices,
     replayDetector, serviceRegistry, sessionRegistry, subscriptions, consentHandlerRef,
   } = context;
   const undeclaredServiceConsents = new Set<string>();
@@ -349,7 +346,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       firewallState.persist();
       replayDetector.clear();
       subscriptions.clear();
-      ifcRuntime.clear();
+      incRuntime.clear();
       eventBuffer.clear();
       registeredServices.clear();
       undeclaredServiceConsents.clear();
@@ -376,7 +373,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
           hooks.relayPool?.untrackSubscription(key);
         }
       }
-      ifcRuntime.destroyWindow(windowId);
+      incRuntime.destroyWindow(windowId);
       notifyServiceWindowDestroyed(windowId, serviceRegistry);
     },
     get sessionRegistry() { return sessionRegistry; },
@@ -474,12 +471,12 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   firewallState.load();
   manifestCache.load();
 
-  const ifcRuntime = createIfcRuntime(hooks, sessionRegistry);
+  const incRuntime = createIncRuntime(hooks, sessionRegistry);
   const domainHandlers = createRuntimeDomainHandlers({ hooks, serviceRegistry, sessionRegistry, aclState });
   const dispatchNubEnvelope = createNubEnvelopeDispatcher({
     relay: createRelayHandler({ hooks, serviceRegistry, subscriptions, eventBuffer, replayDetector }),
     identity: createIdentityHandler({ hooks, serviceRegistry }),
-    ifc: ifcRuntime.handleMessage,
+    inc: incRuntime.handleMessage,
     ...domainHandlers,
   });
   const handleMessage = createMessageHandler(hooks, enforceNub, dispatchNubEnvelope, firewallGate);
@@ -491,7 +488,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     replayDetector,
     subscriptions,
     eventBuffer,
-    ifcRuntime,
+    incRuntime,
     sessionRegistry,
     aclState,
     firewallState,

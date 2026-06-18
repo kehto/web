@@ -8,7 +8,7 @@ import type { ServiceRegistry, SendToNapplet } from './types.js';
  * NUB-domain services are routed by the domain prefix of message.type
  * (e.g., 'signer.signEvent' -> 'signer' service).
  *
- * IFC-routed services receive ifc.emit messages and are routed by the
+ * INC-routed services receive inc.emit messages and are routed by the
  * topic prefix before ':' (e.g., topic 'audio:play' -> 'audio' service).
  *
  * Returns true if a service handled the message, false otherwise.
@@ -39,13 +39,13 @@ export function routeServiceMessage(
     return true;
   }
 
-  // IFC-routed services: audio and notifications receive ifc.emit with topic prefix
-  const ifcMessage = message as NappletMessage & { topic?: unknown };
-  if (message.type === 'ifc.emit' && typeof ifcMessage.topic === 'string') {
-    const prefix = ifcMessage.topic.split(':')[0];
-    const ifcHandler = services[prefix];
-    if (ifcHandler) {
-      ifcHandler.handleMessage(windowId, message, (msg) => sendToNapplet(windowId, msg));
+  // INC-routed services: audio and notifications receive inc.emit with topic prefix
+  const incMessage = message as NappletMessage & { topic?: unknown };
+  if (message.type === 'inc.emit' && typeof incMessage.topic === 'string') {
+    const prefix = incMessage.topic.split(':')[0];
+    const incHandler = services[prefix];
+    if (incHandler) {
+      incHandler.handleMessage(windowId, message, (msg) => sendToNapplet(windowId, msg));
       return true;
     }
   }

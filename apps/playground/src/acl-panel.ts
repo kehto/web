@@ -12,7 +12,7 @@ import type { Capability } from '@kehto/shell';
 
 export const DEMO_CAPABILITY_LABELS: Record<Capability, string> = {
   'relay:read': 'Relay Subscribe',
-  'relay:write': 'Relay Publish / IFC Send',
+  'relay:write': 'Relay Publish / INC Send',
   'cache:read': 'Cache Read',
   'cache:write': 'Cache Write',
   'hotkey:forward': 'Hotkey Forward',
@@ -36,8 +36,8 @@ export const DEMO_CAPABILITY_LABELS: Record<Capability, string> = {
 };
 
 export const DEMO_CAPABILITY_HINTS: Record<Capability, string> = {
-  'relay:read': 'relay subscribe / ifc receive',
-  'relay:write': 'relay publish / ifc send',
+  'relay:read': 'relay subscribe / inc receive',
+  'relay:write': 'relay publish / inc send',
   'cache:read': 'cache read access',
   'cache:write': 'cache write access',
   'hotkey:forward': 'hotkey forward',

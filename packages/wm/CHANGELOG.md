@@ -17,7 +17,7 @@
 
   Highlights:
 
-  - Runtime relay, identity, IFC, and fallback domain handling were split into focused helpers.
+  - Runtime relay, identity, INC, and fallback domain handling were split into focused helpers.
   - Shell and playground-facing helpers were decomposed without changing public package exports.
   - Service factories and adapter builders were split into smaller private helpers.
   - Public package source now passes the local `aislop` gate with the existing scanner thresholds.

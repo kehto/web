@@ -1,10 +1,8 @@
 /**
  * shell-init.test.ts — buildShellCapabilities advertisement.
  *
- * Verifies the shell dual-emits both `naps` (NAP vocabulary, primary) and
- * `nubs` (legacy vocabulary) in the shell.init handshake, so napplets built
- * against @napplet/shim >=0.9.0 (reading `naps`) and legacy shims (reading
- * `nubs`) both negotiate correctly.
+ * Verifies the shell advertises the canonical NAP vocabulary through structured
+ * `domains`/`protocols`, `naps`, and the deprecated `nubs` mirror.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -119,10 +117,10 @@ describe('buildShellCapabilities — protocols map (conformant NAP-SHELL, TERM-0
 });
 
 // ---------------------------------------------------------------------------
-// naps — NAP vocabulary (primary: consumed by @napplet/shim >=0.9.0)
+// naps — NAP vocabulary
 // ---------------------------------------------------------------------------
 
-describe('buildShellCapabilities — naps array (NAP vocabulary, D2/D3)', () => {
+describe('buildShellCapabilities — naps array (NAP vocabulary)', () => {
   it('returns a naps array', () => {
     const caps = buildShellCapabilities(baseHooks());
     expect(Array.isArray(caps.naps)).toBe(true);
@@ -141,12 +139,6 @@ describe('buildShellCapabilities — naps array (NAP vocabulary, D2/D3)', () => 
     expect(caps.naps).toContain('inc:NAP-04');
     expect(caps.naps).toContain('inc:NAP-05');
     expect(caps.naps).toContain('inc:NAP-06');
-  });
-
-  it('naps contains NO ifc-prefixed entry', () => {
-    const caps = buildShellCapabilities(baseHooks());
-    const ifcEntries = caps.naps.filter(e => e.startsWith('ifc'));
-    expect(ifcEntries).toHaveLength(0);
   });
 
   it('naps contains NO NUB- substring', () => {
@@ -175,7 +167,7 @@ describe('buildShellCapabilities — naps array (NAP vocabulary, D2/D3)', () => 
 });
 
 // ---------------------------------------------------------------------------
-// naps — NAP-UPLOAD advertisement (D2/D3)
+// naps — NAP-UPLOAD advertisement
 // ---------------------------------------------------------------------------
 
 describe('buildShellCapabilities — NAP-UPLOAD advertisement in naps', () => {
@@ -195,7 +187,7 @@ describe('buildShellCapabilities — NAP-UPLOAD advertisement in naps', () => {
 });
 
 // ---------------------------------------------------------------------------
-// naps — NAP-INTENT advertisement (D2/D3)
+// naps — NAP-INTENT advertisement
 // ---------------------------------------------------------------------------
 
 describe('buildShellCapabilities — NAP-INTENT advertisement in naps', () => {
@@ -224,11 +216,10 @@ describe('buildShellCapabilities — NAP-INTENT advertisement in naps', () => {
 });
 
 // ---------------------------------------------------------------------------
-// nubs — legacy vocabulary (back-compat: consumed by @napplet/nub and <=0.8.x shims)
-// The existing assertions are preserved unchanged to confirm nubs is unaffected.
+// nubs — deprecated mirror of naps
 // ---------------------------------------------------------------------------
 
-describe('buildShellCapabilities — NAP-UPLOAD advertisement (nubs, legacy)', () => {
+describe('buildShellCapabilities — NAP-UPLOAD advertisement (nubs mirror)', () => {
   it('does NOT advertise upload when no upload backend is wired', () => {
     const caps = buildShellCapabilities(baseHooks());
     expect(caps.nubs).not.toContain('upload');
@@ -244,7 +235,7 @@ describe('buildShellCapabilities — NAP-UPLOAD advertisement (nubs, legacy)', (
   });
 });
 
-describe('buildShellCapabilities — NAP-INTENT advertisement (nubs, legacy)', () => {
+describe('buildShellCapabilities — NAP-INTENT advertisement (nubs mirror)', () => {
   it('does NOT advertise intent when no intent dispatcher is wired', () => {
     const caps = buildShellCapabilities(baseHooks());
     expect(caps.nubs).not.toContain('intent');
@@ -269,34 +260,33 @@ describe('buildShellCapabilities — NAP-INTENT advertisement (nubs, legacy)', (
   });
 });
 
-describe('buildShellCapabilities — nubs legacy vocabulary content (D3)', () => {
-  it('nubs still contains bare domain "ifc"', () => {
+describe('buildShellCapabilities — nubs canonical mirror content', () => {
+  it('nubs contains bare domain "inc"', () => {
     const caps = buildShellCapabilities(baseHooks());
-    expect(caps.nubs).toContain('ifc');
+    expect(caps.nubs).toContain('inc');
   });
 
-  it('nubs contains ifc:NUB-01 (legacy protocol)', () => {
+  it('nubs contains inc:NAP-01', () => {
     const caps = buildShellCapabilities(baseHooks());
-    expect(caps.nubs).toContain('ifc:NUB-01');
+    expect(caps.nubs).toContain('inc:NAP-01');
   });
 
-  it('nubs contains ifc:NAP-01 (legacy protocol)', () => {
+  it('nubs contains no NUB protocol entries', () => {
     const caps = buildShellCapabilities(baseHooks());
-    expect(caps.nubs).toContain('ifc:NAP-01');
+    expect(caps.nubs.some((entry) => entry.includes('NUB-'))).toBe(false);
   });
 
-  it('nubs does NOT contain inc or inc:NAP-0N (those belong only in naps)', () => {
+  it('nubs mirrors naps exactly', () => {
     const caps = buildShellCapabilities(baseHooks());
-    expect(caps.nubs).not.toContain('inc');
-    expect(caps.nubs).not.toContain('inc:NAP-01');
+    expect(caps.nubs).toEqual(caps.naps);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Dual-emit shape
+// Capability payload shape
 // ---------------------------------------------------------------------------
 
-describe('buildShellCapabilities — dual-emit shape (D2)', () => {
+describe('buildShellCapabilities — capability payload shape', () => {
   it('returns an object with naps, nubs, and sandbox', () => {
     const caps = buildShellCapabilities(baseHooks());
     expect(caps).toHaveProperty('naps');
@@ -304,17 +294,15 @@ describe('buildShellCapabilities — dual-emit shape (D2)', () => {
     expect(caps).toHaveProperty('sandbox');
   });
 
-  it('superset: conformant domains/protocols ride ALONGSIDE legacy naps/nubs/sandbox (TERM-05)', () => {
+  it('includes conformant domains/protocols alongside flat compatibility fields', () => {
     const caps = buildShellCapabilities(baseHooks());
-    // conformant 0.13 fields
     expect(caps).toHaveProperty('domains');
     expect(caps).toHaveProperty('protocols');
-    // legacy back-compat fields preserved
     expect(caps).toHaveProperty('naps');
     expect(caps).toHaveProperty('nubs');
     expect(caps).toHaveProperty('sandbox');
     expect(caps.naps).toContain('inc:NAP-01');
-    expect(caps.nubs).toContain('ifc');
+    expect(caps.nubs).toContain('inc');
     expect(caps.sandbox).toEqual([]);
   });
 

@@ -61,7 +61,7 @@ function registerNip5dSessionIfNeeded({
 }: ShellReadyOptions): void {
   // NIP-5D: register a source-identity session entry in runtime.sessionRegistry
   // if one does not already exist for this windowId. This wires the originRegistry
-  // identity into the runtime so domain handlers (storage/state, ifc, etc.) can
+  // identity into the runtime so domain handlers (storage/state, inc, etc.) can
   // resolve the napplet via getEntryByWindowId(windowId).
   if (runtime.sessionRegistry.getEntryByWindowId(windowId)) {
     return;

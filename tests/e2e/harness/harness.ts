@@ -221,7 +221,7 @@ function loadNapplet(name: string, params?: Record<string, string>): string {
   }
 
   // Register origin + session BEFORE setting src so the napplet's first
-  // postMessages (storage.set, identity.getPublicKey, ifc.subscribe, etc.)
+  // postMessages (storage.set, identity.getPublicKey, inc.subscribe, etc.)
   // are already routable via originRegistry.getWindowId(event.source).
   if (iframe.contentWindow) {
     originRegistry.register(iframe.contentWindow, windowId);
