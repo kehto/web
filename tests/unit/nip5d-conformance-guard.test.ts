@@ -48,6 +48,40 @@ const policyAllowlistTypes = [
   'theme.changed',
 ] as const;
 
+const napRelayTypesPath =
+  'node_modules/.pnpm/@napplet+nap@0.13.0/node_modules/@napplet/nap/dist/relay/types.d.ts';
+
+const relaySubscribeRoutingSurfaces = [
+  {
+    file: 'packages/runtime/src/relay-handler.ts',
+    markers: ['relay?: string;', 'relayHint'],
+  },
+  {
+    file: 'packages/services/src/relay-pool-service.ts',
+    markers: ['relay?: unknown;', 'relayHint'],
+  },
+  {
+    file: 'packages/services/src/coordinated-relay.ts',
+    markers: ['relay?: unknown;', 'relayHint'],
+  },
+  {
+    file: 'apps/playground/src/playground-relay-service.ts',
+    markers: ['relay?: string;', 'message.relay'],
+  },
+  {
+    file: 'packages/services/src/relay-pool-service.test.ts',
+    markers: ['relay: \'wss://explicit.test\'', 'expect(selectRelayTier).not.toHaveBeenCalled()'],
+  },
+  {
+    file: 'packages/services/src/coordinated-relay.test.ts',
+    markers: ['relay: \'wss://explicit.test\'', 'expect(selectRelayTier).not.toHaveBeenCalled()'],
+  },
+  {
+    file: 'tests/unit/playground-relay-service.test.ts',
+    markers: ['relay: \'wss://explicit.test\'', 'expect(pool.log.requests).toHaveLength(0)'],
+  },
+] as const;
+
 const rawListenerTypeGuards: Record<string, readonly string[]> = {
   'apps/playground/src/theme.ts': ["data.type !== 'theme.changed'"],
   'apps/playground/napplets/cvm-relatr/src/main.ts': ['data.type !== resultType'],
@@ -110,6 +144,19 @@ function nappletSourceFiles(): string[] {
 
 function stringLiteralList(values: readonly string[]): string {
   return values.map((value) => `'${value}'`).join(', ');
+}
+
+function interfaceBody(source: string, interfaceName: string): string {
+  const match = source.match(new RegExp(`interface ${interfaceName}[^\\{]*\\{([\\s\\S]*?)\\n\\}`));
+  if (!match) throw new Error(`missing interface ${interfaceName}`);
+  return match[1] ?? '';
+}
+
+function interfaceFieldNames(source: string, interfaceName: string): string[] {
+  const body = interfaceBody(source, interfaceName);
+  return [...body.matchAll(/^\s{4}([a-zA-Z][a-zA-Z0-9_]*)\??:/gm)]
+    .map((match) => match[1])
+    .filter((name) => name !== 'type');
 }
 
 describe('NIP-5D conformance static guards', () => {
@@ -223,6 +270,20 @@ describe('NIP-5D conformance static guards', () => {
 
     for (const file of Object.keys(rawListenerTypeGuards)) {
       expect(policy, `${file} policy path`).toContain(file);
+    }
+  });
+
+  it('keeps NAP-RELAY subscribe routing fields wired through runtime, services, playground, and tests', () => {
+    const relayTypes = readRepoFile(napRelayTypesPath);
+    const fields = interfaceFieldNames(relayTypes, 'RelaySubscribeMessage');
+
+    expect(fields).toEqual(['id', 'subId', 'filters', 'relay']);
+
+    for (const { file, markers } of relaySubscribeRoutingSurfaces) {
+      const source = readRepoFile(file);
+      for (const marker of markers) {
+        expect(source, `${file} missing ${marker}`).toContain(marker);
+      }
     }
   });
 });

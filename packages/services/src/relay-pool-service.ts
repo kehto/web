@@ -87,6 +87,7 @@ type RelayServiceMessage = NappletMessage & {
   subId?: unknown;
   filters?: unknown;
   event?: unknown;
+  relay?: unknown;
 };
 
 /**
@@ -146,7 +147,10 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
           return;
         }
 
-        const relayUrls = options.selectRelayTier(filters);
+        const relayHint = typeof relayMessage.relay === 'string' && relayMessage.relay.length > 0
+          ? relayMessage.relay
+          : undefined;
+        const relayUrls = relayHint ? [relayHint] : options.selectRelayTier(filters);
         let eoseSent = false;
 
         const eoseTimer = setTimeout(() => {

@@ -74,6 +74,7 @@ type RelayEnvelope = NappletMessage & {
   subId?: string;
   filters?: NostrFilter[];
   event?: NostrEvent;
+  relay?: string;
 };
 
 type PlaygroundRelayFilter = NostrFilter & {
@@ -210,6 +211,9 @@ class PlaygroundRelayRuntimeImpl {
     const rawFilters = Array.isArray(message.filters) ? message.filters : [];
     const skipCache = shouldSkipRelayCache(rawFilters);
     const filters = stripPlaygroundRelayFilterOptions(rawFilters);
+    const relayHint = typeof message.relay === 'string' && message.relay.length > 0
+      ? message.relay
+      : undefined;
     const subKey = `${windowId}:${subId}`;
     this.closeSubscription(subKey);
 
@@ -233,10 +237,12 @@ class PlaygroundRelayRuntimeImpl {
     };
 
     try {
-      const mailboxes = await this.resolveMailboxes(
-        needsMailboxResolution(filters) ? collectMailboxPubkeys(filters) : [],
-        skipCache,
-      );
+      const mailboxes = relayHint
+        ? new Map<string, NostrEvent>()
+        : await this.resolveMailboxes(
+          needsMailboxResolution(filters) ? collectMailboxPubkeys(filters) : [],
+          skipCache,
+        );
       if (tracked.closed) return;
 
       for (const event of this.getStoreEvents(filters)) deliver(event);
@@ -249,7 +255,7 @@ class PlaygroundRelayRuntimeImpl {
         return;
       }
 
-      const relays = this.selectRelays(filters, mailboxes);
+      const relays = relayHint ? [relayHint] : this.selectRelays(filters, mailboxes);
       if (relays.length === 0) {
         sendEose();
         return;

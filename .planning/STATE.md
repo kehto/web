@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 Phase: 89 — Spec / Doc Refresh & Conformance Sweep (complete)
 Plan: 89-01 — complete (DOCS-01..04 + VERIFY-01)
 Status: Phase 89 executed — specs/NIP-5D refreshed to #2303/NAP model, NAP-SHELL/NAP-INTENT mirrors added, RUNTIME-SPEC refreshed (toolchain + unknown-type handling), NUB→NAP doc sweep, modernization changesets for all 6 @kehto packages; build 24/24 + type-check 13/13 + e2e 80/80 green
-Last activity: 2026-06-18 — completed quick task 260618-kam: runtime relay.subscribe honors canonical NAP-RELAY relay hint; confirmed pin is not in installed NAP-OUTBOX
+Last activity: 2026-06-18 — completed quick task 260618-l4w: NAP-RELAY relay hint guardrails now cover runtime, services, playground, static conformance, and AGENTS guidance
 
 ## Performance Metrics
 
@@ -82,6 +82,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260617-wig | Add optional @kehto/shell `onUnroutedMessage` observability hook (surfaces silently-dropped unregistered-window messages — FEED-02 / hyprgate#21) | 2026-06-17 | fba1b67 | [260617-wig-shell-unrouted-message-hook](./quick/260617-wig-shell-unrouted-message-hook/) |
 | 260618-heo | Remove IFC vocabulary and enforce INC-only live tracked files | 2026-06-18 | cd438c9 | [260618-heo-completely-remove-ifc-legacy-naming-and-](./quick/260618-heo-completely-remove-ifc-legacy-naming-and-/) |
 | 260618-kam | Honor canonical NAP-RELAY `relay` hint on runtime `relay.subscribe` | 2026-06-18 | 3167eaa | [260618-kam-honor-explicit-relays-on-nap-relay-subsc](./quick/260618-kam-honor-explicit-relays-on-nap-relay-subsc/) |
+| 260618-l4w | Add NAP and NIP-5D conformance guardrails for shell/runtime/services drift | 2026-06-18 | 7e829c3 | [260618-l4w-add-nap-and-nip-5d-conformance-guardrail](./quick/260618-l4w-add-nap-and-nip-5d-conformance-guardrail/) |
 
 ## Session Continuity
 
