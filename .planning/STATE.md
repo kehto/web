@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 Phase: 89 — Spec / Doc Refresh & Conformance Sweep (complete)
 Plan: 89-01 — complete (DOCS-01..04 + VERIFY-01)
 Status: Phase 89 executed — specs/NIP-5D refreshed to #2303/NAP model, NAP-SHELL/NAP-INTENT mirrors added, RUNTIME-SPEC refreshed (toolchain + unknown-type handling), NUB→NAP doc sweep, modernization changesets for all 6 @kehto packages; build 24/24 + type-check 13/13 + e2e 80/80 green
-Last activity: 2026-06-18 — completed quick task 260618-l4w: NAP-RELAY relay hint guardrails now cover runtime, services, playground, static conformance, and AGENTS guidance
+Last activity: 2026-06-19 — completed quick task 260619-vpn: PR #63 Playwright service activity counter wait now requires storage, relay, and identity counters to reach the documented floor
 
 ## Performance Metrics
 
@@ -85,6 +85,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260618-l4w | Add NAP and NIP-5D conformance guardrails for shell/runtime/services drift | 2026-06-18 | 7e829c3 | [260618-l4w-add-nap-and-nip-5d-conformance-guardrail](./quick/260618-l4w-add-nap-and-nip-5d-conformance-guardrail/) |
 | 260619-tmr | Identify and document the web napplet cache strategy | 2026-06-19 | 75efa8b | [260619-tmr-napplet-web-cache-strategy](./quick/260619-tmr-napplet-web-cache-strategy/) |
 | 260619-u3p | Implement napplet web cache strategy | 2026-06-19 | 8869e80 | [260619-u3p-implement-napplet-web-cache-strategy](./quick/260619-u3p-implement-napplet-web-cache-strategy/) |
+| 260619-vpn | Fix flaky Playwright service activity counter wait in PR #63 | 2026-06-19 | bfcd7af | [260619-vpn-fix-flaky-playwright-service-activity-co](./quick/260619-vpn-fix-flaky-playwright-service-activity-co/) |
 
 ## Session Continuity
 
