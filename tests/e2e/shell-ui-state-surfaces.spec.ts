@@ -80,21 +80,16 @@ test.describe('shell UI state surfaces (E2E-16)', () => {
             const match = (el.innerText ?? '').match(/activity:\s*(\d+)\s*recent/i);
             return match ? Number(match[1]) : -1;
           };
-          return {
+          const counters = {
             storage: extract('topology-node-service-storage'),
             relay: extract('topology-node-service-relay'),
             identity: extract('topology-node-service-identity'),
           };
+          return counters.storage >= 1 && counters.relay >= 1 && counters.identity >= 1;
         });
       },
       { timeout: 10_000, intervals: [250, 500, 1000] },
-    ).toEqual(
-      expect.objectContaining({
-        storage: expect.any(Number),
-        relay: expect.any(Number),
-        identity: expect.any(Number),
-      }),
-    );
+    ).toBe(true);
 
     // Final floor check — every counter ≥ 1.
     const counters = await page.evaluate(() => {

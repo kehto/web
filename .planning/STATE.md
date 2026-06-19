@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 Phase: 89 — Spec / Doc Refresh & Conformance Sweep (complete)
 Plan: 89-01 — complete (DOCS-01..04 + VERIFY-01)
 Status: Phase 89 executed — specs/NIP-5D refreshed to #2303/NAP model, NAP-SHELL/NAP-INTENT mirrors added, RUNTIME-SPEC refreshed (toolchain + unknown-type handling), NUB→NAP doc sweep, modernization changesets for all 6 @kehto packages; build 24/24 + type-check 13/13 + e2e 80/80 green
-Last activity: 2026-06-18 — completed quick task 260618-l4w: NAP-RELAY relay hint guardrails now cover runtime, services, playground, static conformance, and AGENTS guidance
+Last activity: 2026-06-20 — completed quick task 260620-07v: cache implementation guide, package references, API links, navigation, and tutorial cross-links document the shipped NIP-5D artifact cache
 
 ## Performance Metrics
 
@@ -84,6 +84,9 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260618-kam | Honor canonical NAP-RELAY `relay` hint on runtime `relay.subscribe` | 2026-06-18 | 3167eaa | [260618-kam-honor-explicit-relays-on-nap-relay-subsc](./quick/260618-kam-honor-explicit-relays-on-nap-relay-subsc/) |
 | 260618-l4w | Add NAP and NIP-5D conformance guardrails for shell/runtime/services drift | 2026-06-18 | 7e829c3 | [260618-l4w-add-nap-and-nip-5d-conformance-guardrail](./quick/260618-l4w-add-nap-and-nip-5d-conformance-guardrail/) |
 | 260619-tmr | Identify and document the web napplet cache strategy | 2026-06-19 | 75efa8b | [260619-tmr-napplet-web-cache-strategy](./quick/260619-tmr-napplet-web-cache-strategy/) |
+| 260619-u3p | Implement napplet web cache strategy | 2026-06-19 | 8869e80 | [260619-u3p-implement-napplet-web-cache-strategy](./quick/260619-u3p-implement-napplet-web-cache-strategy/) |
+| 260619-vpn | Fix flaky Playwright service activity counter wait in PR #63 | 2026-06-19 | bfcd7af | [260619-vpn-fix-flaky-playwright-service-activity-co](./quick/260619-vpn-fix-flaky-playwright-service-activity-co/) |
+| 260620-07v | Update docs for NIP-5D napplet artifact cache implementation | 2026-06-20 | 234c8b4 | [260620-07v-update-kehto-docs-for-napplet-artifact-c](./quick/260620-07v-update-kehto-docs-for-napplet-artifact-c/) |
 
 ## Session Continuity
 

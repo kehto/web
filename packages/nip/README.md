@@ -11,7 +11,7 @@ any NIP that isn't referenced.
 | Subpath | NIP | What it provides |
 |---------|-----|------------------|
 | [`@kehto/nip/5a`](./src/5a/README.md) | NIP-5A | aggregate hash compute/verify over `path` tags (`computeAggregateHash`, `verifyAggregate`) |
-| [`@kehto/nip/5d`](./src/5d/README.md) | NIP-5D | content-addressed napplet manifest resolution — parse, verify sig + aggregate + Blossom blobs (`resolveNapplet`) |
+| [`@kehto/nip/5d`](./src/5d/README.md) | NIP-5D | content-addressed napplet manifest resolution — parse, verify sig + aggregate + Blossom blobs (`resolveNapplet`) with optional Cache Storage artifact caching |
 | [`@kehto/nip/51`](./src/51/README.md) | NIP-51 | lists & sets parser — mute/bookmarks/relay-sets/emoji-sets/… (`parseList`) |
 | [`@kehto/nip/65`](./src/65/README.md) | NIP-65 | relay-list (kind 10002) parsing + outbox/inbox resolution (`createNip65Registry`) |
 | [`@kehto/nip/66`](./src/66/README.md) | NIP-66 | kind-30166 relay-discovery aggregator (`createNip66Aggregator`) |
@@ -19,6 +19,10 @@ any NIP that isn't referenced.
 
 Each subpath has its own README with full API docs and examples (linked above).
 More unique NIPs are added as their own subpath (`@kehto/nip/<n>`) over time.
+
+For browser hosts that want repeated NIP-5D loads to reuse verified artifact
+bytes, see the repo guide:
+[Implement a napplet artifact cache](https://kehto.github.io/web/docs/how-tos/implement-napplet-artifact-cache).
 
 ## Selection criteria
 

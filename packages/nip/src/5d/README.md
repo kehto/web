@@ -30,7 +30,9 @@ Distinct kinds keep napplets out of nsite gateway resolution.
 | `verifyManifestSignature(event)` | verify the manifest's Nostr signature |
 | `verifyBlobHash(bytes, sha256)` | `true` iff bytes hash to `sha256` |
 | `fetchBlob(servers, sha256, fetchBytes)` | fetch a blob from Blossom by hash, re-verifying it (servers untrusted) |
-| `resolveNapplet({ event, fetchBlob })` | full pipeline → `ResolvedNapplet` (computed identity + verified `indexHtml`) |
+| `resolveNapplet({ event, fetchBlob, cache? })` | full pipeline → `ResolvedNapplet` (computed identity + verified `indexHtml`), optionally reading/writing verified artifacts through Cache Storage |
+| `openNappletArtifactCache(options?)` | feature-detect and open the browser Cache Storage artifact cache, returning `undefined` for network-only fallback |
+| `CacheStorageNappletArtifactCache` | Cache Storage adapter for verified blobs, aggregate metadata, coordinate freshness, LRU/refcount pruning, and active aggregate pins |
 | `NappletResolutionError` | typed failure (`code`: `invalid-signature` \| `invalid-manifest` \| `aggregate-mismatch` \| `blob-hash-mismatch` \| `blob-unavailable` \| `missing-index`) |
 
 ```ts
@@ -44,3 +46,27 @@ iframe.srcdoc = napplet.indexHtml;          // opaque origin preserved
 
 The gateway, if used, is only an accelerator: `resolveNapplet` re-verifies every
 blob hash and the aggregate, so a lying server or gateway is rejected.
+
+## Optional artifact cache
+
+Hosts that run in a secure browser context can opt into the Cache Storage based
+artifact cache:
+
+```ts
+import { openNappletArtifactCache, resolveNapplet } from '@kehto/nip/5d';
+
+const cache = await openNappletArtifactCache();
+const napplet = await resolveNapplet({ event, fetchBlob, cache });
+```
+
+The cache is only an optimization. `resolveNapplet()` still verifies the
+manifest signature and aggregate on every call, and cached blob bytes are
+re-hashed before use. If Cache Storage cannot be opened, or a host requires
+storage estimates and the browser cannot provide them, `openNappletArtifactCache`
+returns `undefined`; pass that through to keep network-only loading.
+
+The adapter stores verified blob responses, aggregate metadata, coordinate
+freshness, and its JSON index in the same versioned Cache Storage namespace. It
+prunes by refcount and least-recently-used aggregate order, while in-memory
+active aggregate pins prevent eviction of a currently running napplet unless the
+hard budget is exceeded.

@@ -98,6 +98,11 @@ Before marking the napplet usable, register the session identity from the gatewa
 3. Register session identity.
 4. Navigate the iframe to the gateway artifact.
 
+For repeated loads, add the optional NIP-5D artifact cache during the resolve
+step. The cache reuses verified bytes only; it does not replace manifest,
+aggregate, or blob-hash verification. See
+[Implement a napplet artifact cache](../how-tos/implement-napplet-artifact-cache.md).
+
 ## 5. Tear down cleanly
 
 ```ts

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createHash } from 'node:crypto';
 import { finalizeEvent } from 'nostr-tools/pure';
 import type { NostrEvent } from 'nostr-tools';
@@ -8,6 +8,10 @@ import {
   resolvePlaygroundNapplet,
   PLAYGROUND_MANIFEST_AUTHOR,
 } from '../../apps/playground/src/napplet-resolver.js';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 const hexToBytes = (h: string): Uint8Array =>
   Uint8Array.from(h.match(/.{2}/g)!.map((b) => parseInt(b, 16)));
@@ -94,6 +98,7 @@ describe('resolvePlaygroundNapplet', () => {
   });
 
   it('resolves via NIP-65 → relay → Blossom → verify with computed identity', async () => {
+    vi.stubGlobal('caches', undefined);
     const { event, index, aggregate } = buildManifest();
     const napplet = await resolvePlaygroundNapplet(optsFor(event, index));
     expect(napplet.dTag).toBe('chat');

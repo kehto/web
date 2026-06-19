@@ -21,3 +21,16 @@ The docs site build runs API generation first through the root `docs:site:build`
 | `@kehto/wm` | <a href="../api/modules/_kehto_wm.html" target="_self"><code>docs/api/modules/_kehto_wm.html</code></a> |
 
 Do not hand-edit generated API files. Update source JSDoc and rerun `pnpm docs:api`.
+
+## Common NIP-5D Cache Targets
+
+The Cache Storage napplet artifact cache is generated from `@kehto/nip/5d`
+source exports. Use these links when implementing or reviewing host cache
+integration:
+
+| API | Generated target |
+|-----|------------------|
+| `openNappletArtifactCache()` | <a href="../api/functions/_kehto_nip..openNappletArtifactCache.html" target="_self"><code>docs/api/functions/_kehto_nip..openNappletArtifactCache.html</code></a> |
+| `CacheStorageNappletArtifactCache` | <a href="../api/classes/_kehto_nip..CacheStorageNappletArtifactCache.html" target="_self"><code>docs/api/classes/_kehto_nip..CacheStorageNappletArtifactCache.html</code></a> |
+| `NappletArtifactCache` | <a href="../api/interfaces/_kehto_nip..NappletArtifactCache.html" target="_self"><code>docs/api/interfaces/_kehto_nip..NappletArtifactCache.html</code></a> |
+| `OpenNappletArtifactCacheOptions` | <a href="../api/interfaces/_kehto_nip..OpenNappletArtifactCacheOptions.html" target="_self"><code>docs/api/interfaces/_kehto_nip..OpenNappletArtifactCacheOptions.html</code></a> |
