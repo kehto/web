@@ -57,6 +57,7 @@ same pages used by the VitePress site.
 |------|----------------|----------------|
 | Understand the architecture | [docs/concepts/architecture.md](./docs/concepts/architecture.md) | [Architecture](https://kehto.github.io/web/docs/concepts/architecture) |
 | Understand runtime vs shell boundaries | [docs/concepts/runtime-shell-boundaries.md](./docs/concepts/runtime-shell-boundaries.md) | [Runtime and shell boundaries](https://kehto.github.io/web/docs/concepts/runtime-shell-boundaries) |
+| Decide how to cache napplets on the web | [docs/concepts/napplet-web-cache-strategy.md](./docs/concepts/napplet-web-cache-strategy.md) | [Napplet web cache strategy](https://kehto.github.io/web/docs/concepts/napplet-web-cache-strategy) |
 | Build a minimal host shell | [docs/tutorials/minimal-host-shell.md](./docs/tutorials/minimal-host-shell.md) | [Minimal host shell](https://kehto.github.io/web/docs/tutorials/minimal-host-shell) |
 | Integrate a napplet with Kehto | [docs/tutorials/napplet-integration.md](./docs/tutorials/napplet-integration.md) | [Napplet integration](https://kehto.github.io/web/docs/tutorials/napplet-integration) |
 | Register runtime services | [docs/how-tos/register-service.md](./docs/how-tos/register-service.md) | [Register a service](https://kehto.github.io/web/docs/how-tos/register-service) |
