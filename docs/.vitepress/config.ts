@@ -44,6 +44,7 @@ export default defineConfig({
           { text: 'Runtime and Shell Boundaries', link: '/concepts/runtime-shell-boundaries' },
           { text: 'Capability Negotiation', link: '/concepts/capability-negotiation' },
           { text: 'Gateway Artifacts', link: '/concepts/gateway-artifacts' },
+          { text: 'Napplet Web Cache Strategy', link: '/concepts/napplet-web-cache-strategy' },
         ],
       },
       {

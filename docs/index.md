@@ -39,6 +39,7 @@ Kehto works with the `@napplet` packages. `@napplet/core`, `@napplet/shim`, `@na
 
 - **Start** explains the project, packages, and reader routes.
 - **Concepts** explain architecture, security boundaries, capability negotiation, and source-of-truth decisions.
+- **[Napplet Web Cache Strategy](./concepts/napplet-web-cache-strategy.md)** explains the recommended browser cache layer and eviction policy for verified napplet artifacts.
 - **Tutorials** walk through complete implementation paths.
 - **How-tos** answer focused operational tasks.
 - **Package Reference** documents each public package and links to generated API pages.
