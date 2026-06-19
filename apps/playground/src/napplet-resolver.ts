@@ -17,7 +17,7 @@
  */
 
 import type { NostrEvent } from 'nostr-tools';
-import { resolveNapplet, fetchBlob } from '@kehto/nip/5d';
+import { resolveNapplet, fetchBlob, openNappletArtifactCache } from '@kehto/nip/5d';
 import { parseNip65RelayList, selectWriteRelays } from '@kehto/nip/65';
 
 /**
@@ -138,8 +138,10 @@ export async function resolvePlaygroundNapplet(
   }
 
   // 4. Verify signature + aggregate + every blob; identity is the computed tuple.
+  const artifactCache = await openNappletArtifactCache({ requireStorageEstimate: true });
   const resolved = await resolveNapplet({
     event,
+    cache: artifactCache,
     fetchBlob: (sha256Hex, servers) =>
       fetchBlob([...servers, ...options.blossomServers], sha256Hex, async (url) => {
         const res = await fetcher(url);

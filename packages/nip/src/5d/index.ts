@@ -8,6 +8,24 @@ import {
   aggregateTagValue,
   type PathEntry,
 } from '../5a/index.js';
+import type { NappletArtifactCache } from './artifact-cache.js';
+export {
+  CacheStorageNappletArtifactCache,
+  NAPPLET_ARTIFACT_CACHE_NAME,
+  coordinateKey,
+  isCoordinateFresh,
+  openNappletArtifactCache,
+  type CachedCoordinate,
+  type CacheStorageNappletArtifactCacheOptions,
+  type CoordinateFreshnessOptions,
+  type NappletAggregateIndexEntry,
+  type NappletArtifactCacheIndex,
+  type NappletArtifactCache,
+  type NappletBlobIndexEntry,
+  type NappletCacheDiagnostic,
+  type OpenNappletArtifactCacheOptions,
+  type WriteVerifiedResolutionInput,
+} from './artifact-cache.js';
 
 /**
  * `@kehto/nip/5d` — NIP-5D napplet manifest resolution.
@@ -259,6 +277,12 @@ export interface ResolveNappletOptions {
   fetchBlob: (sha256Hex: string, servers: readonly string[]) => Promise<Uint8Array>;
   /** Decode blob bytes to text for `indexHtml` (default UTF-8). */
   textDecode?: (bytes: Uint8Array) => string;
+  /**
+   * Optional verified artifact cache. Cache hits are still re-verified against
+   * the manifest hash before use; cache writes happen only after the signature,
+   * aggregate, and every blob hash have been verified.
+   */
+  cache?: NappletArtifactCache;
 }
 
 const INDEX_PATHS = ['/index.html', 'index.html', '/'];
@@ -289,7 +313,7 @@ function defaultDecode(bytes: Uint8Array): string {
  * ```
  */
 export async function resolveNapplet(options: ResolveNappletOptions): Promise<ResolvedNapplet> {
-  const { event, fetchBlob: fetchBlobBytes, textDecode = defaultDecode } = options;
+  const { event, fetchBlob: fetchBlobBytes, textDecode = defaultDecode, cache } = options;
 
   if (!verifyManifestSignature(event)) {
     throw new NappletResolutionError('invalid-signature', 'manifest signature is invalid');
@@ -307,7 +331,12 @@ export async function resolveNapplet(options: ResolveNappletOptions): Promise<Re
 
   const files = new Map<string, Uint8Array>();
   for (const entry of manifest.paths) {
-    const bytes = await fetchBlobBytes(entry.sha256, manifest.servers);
+    let bytes = await cache?.readBlob(entry.sha256);
+    if (bytes && !verifyBlobHash(bytes, entry.sha256)) {
+      await cache?.deleteBlob(entry.sha256);
+      bytes = undefined;
+    }
+    bytes ??= await fetchBlobBytes(entry.sha256, manifest.servers);
     if (!verifyBlobHash(bytes, entry.sha256)) {
       throw new NappletResolutionError(
         'blob-hash-mismatch',
@@ -322,11 +351,14 @@ export async function resolveNapplet(options: ResolveNappletOptions): Promise<Re
     throw new NappletResolutionError('missing-index', 'manifest has no /index.html entry');
   }
 
+  const indexHtml = textDecode(files.get(indexEntry.path)!);
+  await cache?.writeVerifiedResolution({ event, manifest, files, indexHtml });
+
   return {
     dTag: manifest.dTag,
     aggregateHash: manifest.aggregateHash,
     files,
-    indexHtml: textDecode(files.get(indexEntry.path)!),
+    indexHtml,
     manifest,
   };
 }
