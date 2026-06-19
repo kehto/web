@@ -2,7 +2,7 @@
 status: complete
 quick_id: 260619-tmr
 slug: napplet-web-cache-strategy
-commit: d9db7a9
+commit: 75efa8b
 ---
 
 # Quick Task 260619-tmr Summary
