@@ -66,6 +66,7 @@ export default defineConfig({
           { text: 'Add a Reference Service', link: '/how-tos/add-reference-service' },
           { text: 'Debug postMessage', link: '/how-tos/debug-postmessage' },
           { text: 'Verify Gateway Artifact', link: '/how-tos/verify-gateway-artifact' },
+          { text: 'Implement Artifact Cache', link: '/how-tos/implement-napplet-artifact-cache' },
         ],
       },
       {

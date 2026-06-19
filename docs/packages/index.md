@@ -13,7 +13,7 @@ Use these pages when you need to choose or integrate one part of Kehto. Each pag
 | `@kehto/runtime` | [Runtime](./runtime.md) | Browser-agnostic NIP-5D protocol engine. |
 | `@kehto/shell` | [Shell](./shell.md) | Browser shell adapter over the runtime. |
 | `@kehto/services` | [Services](./services.md) | Reference service handlers for runtime domains. |
-| `@kehto/nip` | [NIP utilities](./nip.md) | Unique Nostr NIP utilities (NIP-51/65/66/89) not shipped by `nostr-tools`. |
+| `@kehto/nip` | [NIP utilities](./nip.md) | Unique Nostr NIP utilities, including NIP-5A/5D napplet artifact verification and Cache Storage reuse. |
 | `@kehto/wm` | [Window Management](./wm.md) | Structural window-management contracts. |
 | `@kehto/playground` | [Playground](./playground.md) | 13-napplet demo and verification target. |
 

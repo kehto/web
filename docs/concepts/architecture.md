@@ -13,7 +13,7 @@ napplet hosting into small packages with clear ownership boundaries.
 | Protocol engine | `@kehto/runtime` | Dispatch, service routing, ACL checks, storage, manifest/session state. |
 | Browser shell | `@kehto/shell` | iframe/session lifecycle, `postMessage`, gateway loading, hosted `supports()`, browser registries. |
 | Services | `@kehto/services` | Reference service handlers registered with the runtime. |
-| Optional utilities | `@kehto/nip`, `@kehto/wm` | Unique Nostr NIP utilities (NIP-51/65/66/89) and shell-owned window-management contracts. |
+| Optional utilities | `@kehto/nip`, `@kehto/wm` | Unique Nostr NIP utilities, including NIP-5A/5D artifact verification/cache helpers, and shell-owned window-management contracts. |
 
 `@napplet` packages define portable napplet-side contracts and helpers. Kehto
 implements one host-side runtime and shell behavior.

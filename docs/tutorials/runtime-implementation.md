@@ -62,7 +62,21 @@ Use the package docs for `@kehto/acl` when you need lower-level state migration 
 
 ## Step 5: Load gateway artifacts
 
-Follow the playground order:
+Follow the playground order. Hosts that repeatedly load the same napplets can
+open the optional artifact cache before resolving the manifest:
+
+```ts
+import { openNappletArtifactCache, resolveNapplet } from '@kehto/nip/5d';
+
+const cache = await openNappletArtifactCache({ requireStorageEstimate: true });
+const resolved = await resolveNapplet({ event, fetchBlob, cache });
+```
+
+The cache is only a reuse layer for verified blobs and aggregate metadata.
+`resolveNapplet()` still verifies the manifest signature, recomputes the
+aggregate, and re-hashes every cached blob before rendering.
+
+Then continue the load sequence:
 
 1. Read `/napplet-gateway/<dTag>/manifest.json`.
 2. Parse `requires` tags.
@@ -71,6 +85,8 @@ Follow the playground order:
 5. Navigate to `/napplet-gateway/<dTag>/<aggregateHash>/index.html`.
 
 Reject or warn before loading when a required capability is unsupported.
+For cache setup details, see
+[Implement a napplet artifact cache](../how-tos/implement-napplet-artifact-cache.md).
 
 ## Step 6: Handle teardown
 

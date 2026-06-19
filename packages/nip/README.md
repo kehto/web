@@ -20,6 +20,10 @@ any NIP that isn't referenced.
 Each subpath has its own README with full API docs and examples (linked above).
 More unique NIPs are added as their own subpath (`@kehto/nip/<n>`) over time.
 
+For browser hosts that want repeated NIP-5D loads to reuse verified artifact
+bytes, see the repo guide:
+[Implement a napplet artifact cache](https://kehto.github.io/web/docs/how-tos/implement-napplet-artifact-cache).
+
 ## Selection criteria
 
 A NIP earns a place here only if it is:
