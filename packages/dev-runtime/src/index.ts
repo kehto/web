@@ -32,6 +32,7 @@ export {
   normalizeDevRuntimeOptions,
 } from './options.js';
 export { renderDevRuntimeHtml } from './host-page.js';
+export { ReadinessError, waitForTargetUrl } from './readiness.js';
 export { startDevRuntimeServer } from './server.js';
 
 export type {
@@ -44,3 +45,7 @@ export type {
   DevRuntimeServer,
   DevRuntimeServerOptions,
 } from './server.js';
+export type {
+  ReadinessFetch,
+  WaitForTargetUrlOptions,
+} from './readiness.js';

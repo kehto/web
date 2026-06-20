@@ -4,6 +4,7 @@ import {
   createDevRuntimeHostConfig,
   formatDevRuntimeUrl,
   normalizeDevRuntimeOptions,
+  waitForTargetUrl,
   type DevRuntimeCommand,
   type DevRuntimeRawOptions,
   DevRuntimeOptionsError,
@@ -98,12 +99,18 @@ export async function runDevRuntimeCli(
     const hostConfig = createDevRuntimeHostConfig(options);
     const shouldServe = runOptions.serve ?? true;
     const child = shouldServe && options.command ? startManagedCommand(options.command) : undefined;
-    const server = shouldServe
-      ? await startDevRuntimeServer({ options: parsed.options ?? {} }).catch((error: unknown) => {
+    let server: Awaited<ReturnType<typeof startDevRuntimeServer>> | undefined;
+    if (shouldServe) {
+      try {
+        if (options.command) {
+          await waitForTargetUrl(options.targetUrl, { timeoutMs: options.readyTimeoutMs });
+        }
+        server = await startDevRuntimeServer({ options: parsed.options ?? {} });
+      } catch (error) {
         child?.kill();
         throw error;
-      })
-      : undefined;
+      }
+    }
     const runtimeUrl = server?.url ?? formatDevRuntimeUrl(options);
 
     io.stdout.write(`Kehto dev runtime\n`);
@@ -156,6 +163,9 @@ function startManagedCommand(command: DevRuntimeCommand): ManagedChildProcess {
   }
 
   const [executable, ...args] = command.argv;
+  if (!executable) {
+    throw new DevRuntimeOptionsError('Argv command mode requires an executable.');
+  }
   return spawn(executable, args, { stdio: 'inherit' });
 }
 

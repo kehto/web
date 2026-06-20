@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-06-21)
 ## Current Position
 
 Phase: 90 — Dev Runtime Package and CLI Foundation
-Plan: 90-01 — complete (package scaffold, CLI/options/server, focused tests)
-Status: Phase 90 foundation slice complete; continue Phase 90 with readiness polling and docs/TypeDoc integration before marking DEVRT requirements complete
-Last activity: 2026-06-21 — `@kehto/dev-runtime` package, CLI option model, server/host config helper, tests, README, changeset, and lockfile importer added
+Plan: 90-01 — complete (package scaffold, CLI/options/server/readiness, focused tests)
+Status: Phase 90 foundation slice complete; continue Phase 90 with docs/TypeDoc integration before marking DEVRT requirements complete
+Last activity: 2026-06-21 — `@kehto/dev-runtime` package, CLI option model, target readiness polling, server/host config helper, tests, README, changeset, and lockfile importer added
 
 ## Performance Metrics
 
@@ -102,7 +102,7 @@ Resume file: None
 
 Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napplet/packages/nap/src` exposes current web NAP domains `shell`, `relay`, `outbox`, `storage`, `identity`, `keys`, `config`, `resource`, `theme`, `notify`, `media`, `upload`, `intent`, `cvm`, `inc`, and deprecated `ifc` compatibility.
 
-- **Phase 90** — create publishable `@kehto/dev-runtime` package and CLI. First foundation slice is complete (package/options/CLI/server/tests); readiness polling and docs/TypeDoc integration remain before DEVRT requirements are complete.
+- **Phase 90** — create publishable `@kehto/dev-runtime` package and CLI. First foundation slice is complete (package/options/CLI/server/readiness/tests); docs/TypeDoc integration remains before DEVRT requirements are complete.
 - **Phase 91** — build the actual minimal host page: one iframe, one top bar, one bottom bar, production-shaped sandbox/handshake, and runtime reload/reinit behavior.
 - **Phase 92** — wire every possible Kehto service into the runtime and add a static parity guard against `@napplet/nap`.
 - **Phase 93** — expose simulation controls for capabilities, ACL, firewall, identity, relay, storage, cache, upload, media, config, and theme.
