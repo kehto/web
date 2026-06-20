@@ -9,6 +9,7 @@ Use these pages when you need to choose or integrate one part of Kehto. Each pag
 | Package | Page | Role |
 |---------|------|------|
 | `@kehto/acl` | [ACL](./acl.md) | Pure capability state and enforcement primitives. |
+| `@kehto/dev-runtime` | [Dev Runtime](./dev-runtime.md) | Single-window local development runtime for loading a target app URL in a Kehto iframe. |
 | `@kehto/firewall` | [Firewall](./firewall.md) | Pure behavioral abuse-detection engine (temporal complement to ACL). |
 | `@kehto/runtime` | [Runtime](./runtime.md) | Browser-agnostic NIP-5D protocol engine. |
 | `@kehto/shell` | [Shell](./shell.md) | Browser shell adapter over the runtime. |
@@ -24,6 +25,7 @@ Use these pages when you need to choose or integrate one part of Kehto. Each pag
 3. Add `@kehto/services` for reference implementations of runtime services.
 4. Use `@kehto/acl` directly when you need capability-state persistence or policy tests, and `@kehto/firewall` for behavioral rate-limiting and abuse detection over time.
 5. Use `@kehto/nip` and `@kehto/wm` as optional utilities.
-6. Use the playground page to reproduce integrated behavior locally.
+6. Use `@kehto/dev-runtime` when authoring a napplet against a real Kehto iframe while preserving the app dev server's HMR.
+7. Use the playground page to reproduce integrated behavior locally.
 
 Generated API reference lives under `docs/api/`. Package pages link to generated module pages for the public packages included in TypeDoc.

@@ -20,3 +20,6 @@ without Vite, Svelte, React, or any other framework lock-in.
 Phase 90 provides the package, typed option model, CLI parser, runtime server,
 minimal host page, and host config surface. Later v1.22 phases add full
 shell/service wiring, environment simulation controls, and e2e coverage.
+
+Full package docs: [`docs/packages/dev-runtime.md`](../../docs/packages/dev-runtime.md).
+Generated API module: `docs/api/modules/_kehto_dev-runtime.html` (run `pnpm docs:api`).

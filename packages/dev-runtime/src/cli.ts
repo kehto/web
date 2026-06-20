@@ -11,20 +11,39 @@ import {
 } from './index.js';
 import { startDevRuntimeServer } from './server.js';
 
-interface CliIo {
+/**
+ * Minimal output streams used by the CLI runner.
+ *
+ * @remarks
+ * Tests and embedders can pass custom streams to capture output without
+ * patching global `process.stdout` or `process.stderr`.
+ */
+export interface CliIo {
   readonly stdout: { write(chunk: string): void };
   readonly stderr: { write(chunk: string): void };
 }
 
-interface CliParseResult {
+/**
+ * Parsed CLI arguments before full option normalization.
+ */
+export interface CliParseResult {
   readonly options?: DevRuntimeRawOptions;
   readonly help: boolean;
 }
 
+/**
+ * Execution controls for embedding the CLI runner in tests or wrappers.
+ */
 export interface RunDevRuntimeCliOptions {
   readonly serve?: boolean;
 }
 
+/**
+ * Parse raw `kehto-dev-runtime` arguments into raw runtime options.
+ *
+ * @param args - Argument vector without the node executable or script path.
+ * @returns Parsed raw options, or a help flag when `--help` is present.
+ */
 export function parseDevRuntimeArgs(args: readonly string[]): CliParseResult {
   const raw: MutableDevRuntimeRawOptions = {};
 

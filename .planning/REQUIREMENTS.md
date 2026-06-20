@@ -11,10 +11,10 @@ Requirements for this milestone. Each maps to exactly one roadmap phase unless m
 
 ### Developer Runtime Package
 
-- [ ] **DEVRT-01**: A publishable `@kehto/dev-runtime` workspace package exists with ESM output, typed public API, README, TypeDoc coverage, npm/JSR metadata, and a changeset.
-- [ ] **DEVRT-02**: The package exposes a CLI that can be used from any napplet package manager script as `pnpm/npm/yarn dev` by either pointing at an existing target URL or spawning a user-supplied dev command and waiting for its URL.
-- [ ] **DEVRT-03**: The runtime is framework-agnostic: HMR is preserved by loading the target app URL directly in the sandbox iframe, without Vite-specific assumptions or bundling the napplet source.
-- [ ] **DEVRT-04**: The package exposes typed programmatic helpers for building the dev runtime URL/config so non-CLI hosts and tests can reuse the same option contract.
+- [x] **DEVRT-01**: A publishable `@kehto/dev-runtime` workspace package exists with ESM output, typed public API, README, TypeDoc coverage, npm/JSR metadata, and a changeset.
+- [x] **DEVRT-02**: The package exposes a CLI that can be used from any napplet package manager script as `pnpm/npm/yarn dev` by either pointing at an existing target URL or spawning a user-supplied dev command and waiting for its URL.
+- [x] **DEVRT-03**: The runtime is framework-agnostic: HMR is preserved by loading the target app URL directly in the sandbox iframe, without Vite-specific assumptions or bundling the napplet source.
+- [x] **DEVRT-04**: The package exposes typed programmatic helpers for building the dev runtime URL/config so non-CLI hosts and tests can reuse the same option contract.
 
 ### Single-Window Host Experience
 
@@ -64,10 +64,10 @@ Requirements for this milestone. Each maps to exactly one roadmap phase unless m
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| DEVRT-01 | 90 | In Progress |
-| DEVRT-02 | 90 | In Progress |
-| DEVRT-03 | 90 | In Progress |
-| DEVRT-04 | 90 | In Progress |
+| DEVRT-01 | 90 | Complete |
+| DEVRT-02 | 90 | Complete |
+| DEVRT-03 | 90 | Complete |
+| DEVRT-04 | 90 | Complete |
 | HOST-01 | 91 | Pending |
 | HOST-02 | 91 | Pending |
 | HOST-03 | 91 | Pending |
