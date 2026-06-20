@@ -1,74 +1,95 @@
-# Requirements: Kehto Runtime — v1.21 NIP-5D (#2303) + NAP-SHELL/INTENT Conformance
+# Requirements: Kehto Runtime — v1.22 Single-Window Development Runtime
 
-**Defined:** 2026-06-17
+**Defined:** 2026-06-21
 **Core Value:** Modular, framework-agnostic runtime for hosting napplet applications — any Nostr client can embed sandboxed mini-apps by integrating @kehto/shell.
-**Authoritative sources:** `nostr-protocol/nips` PR **#2303** (`5D.md`) + the `napplet/naps` registry — **NAP-SHELL** (mandatory handshake) and **NAP-INTENT** (archetype dispatch), plus `projections/web.md`.
-**Audit:** `.planning/NIP-5D-2303-DELTA-AUDIT.md` (gaps G1–G8).
+**Milestone goal:** Ship a real single-window development runtime that a napplet author can install as a `dev` script, point at their app dev server or child command, and use to exercise the napplet inside a full Kehto runtime iframe with HMR and real NAP/service wiring.
+**Parity source:** Current `@napplet/nap` web-facing domains in `/home/sandwich/Develop/napplet/packages/nap/src`: shell, relay, outbox, storage, identity, keys, config, resource, theme, notify, media, upload, intent, cvm, inc, and deprecated ifc compatibility.
 
 ## v1 Requirements
 
-Requirements for this milestone. Each maps to exactly one roadmap phase.
+Requirements for this milestone. Each maps to exactly one roadmap phase unless marked as a cross-phase verification gate.
 
-### Phase A — NAP-SHELL Handshake Correctness
+### Developer Runtime Package
 
-- [x] **SHELL-01**: The runtime sends `shell.init` **exactly once** per napplet lifecycle — a duplicate `shell.ready` from the same window is idempotent (no second session established, no `shell.init` resend). A regression test asserts exactly one `shell.init` postMessage across two `shell.ready` deliveries from one window. (G1)
-- [x] **SHELL-02**: The `class` field carried in `shell.init` conforms to the NAP-SHELL contract `number | null` — an opaque integer class code (or `null` for the permissive default), with the internal class-posture label mapped to that wire value. A test asserts the emitted `class` is `number | null`. (G2)
+- [ ] **DEVRT-01**: A publishable `@kehto/dev-runtime` workspace package exists with ESM output, typed public API, README, TypeDoc coverage, npm/JSR metadata, and a changeset.
+- [ ] **DEVRT-02**: The package exposes a CLI that can be used from any napplet package manager script as `pnpm/npm/yarn dev` by either pointing at an existing target URL or spawning a user-supplied dev command and waiting for its URL.
+- [ ] **DEVRT-03**: The runtime is framework-agnostic: HMR is preserved by loading the target app URL directly in the sandbox iframe, without Vite-specific assumptions or bundling the napplet source.
+- [ ] **DEVRT-04**: The package exposes typed programmatic helpers for building the dev runtime URL/config so non-CLI hosts and tests can reuse the same option contract.
 
-### Phase B — NAAT Archetype Axis (NIP-5D manifest + NAP-INTENT)
+### Single-Window Host Experience
 
-- [ ] **ARCH-01**: `@kehto/nip/5d` parses the `["archetype","<slug>","<NAP-N>"]` manifest tag(s) into a structured `archetypes` field on `NappletManifest`, and parses the optional `source` tag. Unit tests cover single, multiple, and absent archetype tags. (G3, G4)
-- [ ] **ARCH-02**: A NIP-5A-manifest → `IntentCatalogEntry` adapter derives a napplet's archetype catalog entry (slug → actions/protocols) from its resolved signed manifest, so NAP-INTENT `available()` / `handlers()` are sourced from signed manifests rather than host-injected catalog data. Unit tests cover the adapter. (G3)
-- [ ] **ARCH-03**: The playground catalog is populated from resolved manifests via the adapter, and at least one playground napplet declares an `archetype` tag. (G3)
-- [ ] **ARCH-04**: An e2e (or integration) test exercises NAP-INTENT dispatch end-to-end against the archetype-tagged napplet — `intent.available` reports the candidate and `intent.invoke` resolves to it. (G3)
+- [ ] **HOST-01**: The dev runtime serves a single browser window with exactly one active napplet iframe and minimal visible chrome: a top bar and a bottom bar, with no playground-style panes, cards, or debug side rails enabled by default.
+- [ ] **HOST-02**: The top bar surfaces only runtime identity/status essentials and target reload controls; the bottom bar surfaces compact service/runtime status and errors.
+- [ ] **HOST-03**: The iframe sandbox and shell handshake match production Kehto behavior, including `allow-scripts` without `allow-same-origin`, runtime-derived identity, and `shell.init` capability payloads.
+- [ ] **HOST-04**: The host can reload/reinitialize the runtime around a still-running target app so author edits and HMR cycles do not require restarting the CLI process.
 
-### Phase C — Terminology & Playground Modern-Path Alignment
+### NAP and Service Parity
 
-- [ ] **TERM-01**: `nap:` is the primary, documented, and tested capability prefix in `shell.supports()` resolution; `nub:` is accepted only as back-compat. `specs/NIP-5D.md` and `packages/shell/tests/perm-namespace.test.ts` use `nap:` (with `nub:` retained as an accepted-alias assertion). (G5)
-- [x] **TERM-02**: The 4 legacy playground napplets (bot, chat, feed, profile-viewer) declare `requires` and call `supports()` using `inc` (not `ifc`). (G6)
-- [x] **TERM-03**: The playground bootstrap (`shared-vite-config.ts`) and `getMissingRequiredNaps` (`demo-hooks.ts`) resolve capabilities from `capabilities.naps`, falling back to `nubs` only for the installed 0.5.0 shim. (G6)
-- [ ] **TERM-04**: An e2e asserts the modern `naps`-only path answers `supports('inc')` true and `supports('inc','NAP-01')` true for an `inc`-capable napplet, proving the path the real shim uses is exercised. (G6)
-- [x] **TERM-05**: `naps`+`nubs` dual-emit is preserved (installed shim is 0.5.0); existing `shell-init` / `no-window-nostr` capability-payload assertions stay green. CLEANUP-01 is NOT performed. (G6 constraint)
+- [ ] **PARITY-01**: Every current web NAP domain supported by `@napplet/nap` is represented in the dev runtime capability contract: shell, relay, outbox, storage, identity, keys, config, resource, theme, notify, media, upload, intent, cvm, inc, and ifc compatibility.
+- [ ] **PARITY-02**: Every Kehto service that can be wired today is wired into the dev runtime with real implementations or explicit deterministic development adapters: relay/outbox, storage, identity, keys, config, resource, theme, notify/notification, media/audio, upload, intent, cvm, ACL, firewall, NIP-5D resolution, artifact cache, and manifest cache.
+- [ ] **PARITY-03**: Any NAP/service gap discovered during implementation is filled in the appropriate `@kehto/*` package rather than hidden behind a dev-runtime-only workaround; intentional unsupported behavior must be documented with a test.
+- [ ] **PARITY-04**: A static parity guard compares the current `@napplet/nap` domain/message surface with Kehto runtime/service handling so future protocol additions cannot silently drift.
 
-### Phase D — Spec / Doc Refresh & Conformance Sweep
+### Environment Simulation and Runtime Controls
 
-- [x] **DOCS-01**: `specs/NIP-5D.md` cites `nostr-protocol/nips#2303` as the authority (and the current NIP-5A PR), uses NAP terminology throughout (not NUB), and documents the `archetype` and `source` manifest tags. (G7)
-- [x] **DOCS-02**: Local mirrors of NAP-SHELL and NAP-INTENT are added under `specs/` and referenced from `specs/NIP-5D.md`. (G7)
-- [x] **DOCS-03**: `RUNTIME-SPEC.md` is refreshed to the #2303 / NAP model; stale NUB/AUTH/REGISTER comments in shell/services/runtime source are swept (no doc cites `@napplet/nub` as the current dependency — historical `nubs`-array consumer mentions retained). (G7)
-- [x] **DOCS-04**: Unknown-`type` handling is verified uniform — truly unrecognized message types are silently ignored across known domains, except where a NAP spec sanctions structured errors (NAP-INTENT permits `.result`/`.error`; storage `.result`+error). Divergences (identity/media/notify) documented in RUNTIME-SPEC. (G8)
+- [ ] **SIM-01**: The dev runtime accepts sensible options for runtime capability toggles, ACL config, firewall config, identity/signer mode, relay fixtures, storage persistence, cache behavior, upload backend, media/audio behavior, and config/theme defaults.
+- [ ] **SIM-02**: Options can be supplied from CLI flags and a config file with the same schema; invalid combinations fail fast with actionable messages.
+- [ ] **SIM-03**: The minimal UI exposes a compact way to see and adjust development-only simulation state without becoming a full playground UI.
+- [ ] **SIM-04**: Defaults are useful out of the box: a napplet author can run the dev script against a local app and get real identity, storage, relay, notification, theme, config, resource, upload, media, intent, cvm, ACL, firewall, and cache behavior without custom host code.
 
-### Verification
+### Coverage, Documentation, and Release Readiness
 
-- [ ] **VERIFY-01**: `pnpm build`, `pnpm type-check`, the unit suite, and the Playwright e2e suite are all green; changesets are added for every `@kehto/*` package whose public surface or behavior changed.
+- [ ] **VERIFY-01**: Unit coverage proves CLI option parsing, config schema validation, URL/command handling, HMR-preserving iframe target behavior, service wiring, and simulation controls.
+- [ ] **VERIFY-02**: E2E coverage launches the dev runtime against at least one real napplet fixture and proves shell init, iframe rendering, HMR/reload behavior, minimal chrome, and representative NAP traffic through the wired services.
+- [ ] **VERIFY-03**: Text coverage is complete: package README, docs package page, tutorial/how-to usage, API reference links, and release notes explain how to use the runtime from `pnpm/npm/yarn dev`.
+- [ ] **VERIFY-04**: `pnpm build`, `pnpm type-check`, `pnpm test:unit`, focused dev-runtime e2e, docs checks when docs change, and AI-slop scan pass before PR.
+- [ ] **VERIFY-05**: The branch is committed, pushed, has a clear PR, and is ready for normal npm/JSR release workflow pending trusted-publisher/package setup.
 
-## v2 / Future Requirements
+## Future Requirements
 
-- CLEANUP-01: remove `naps`+`nubs` / `inc`+`ifc` dual-emit once the installed shim is upgraded past 0.5.0 (deferred — would break the current playground shim).
-- Implement remaining registry NAP domains not yet covered (`pow`, `value`) if/when their specs merge.
+- **REMOTE-01**: Remote device or LAN tunneling workflow for phone/tablet testing.
+- **MULTI-01**: Multiple simultaneous napplet windows for host-shell integration testing.
+- **INSPECT-01**: Full playground-grade debugger panes and protocol timeline, if needed after the minimal runtime proves useful.
 
 ## Out of Scope
 
-- Upgrading `@napplet/shim` beyond 0.5.0 or removing back-compat dual-emit (would break the playground; tracked as CLEANUP-01).
-- Re-verifying v1.20 content-addressed loading internals (manifest kinds, identity-from-bytes, srcdoc, signature/blob/aggregate verification) — already aligned; regression-guard only.
-- `@napplet/*` SDK/shim/vite-plugin changes (this repo is runtime-only).
-- NIP-5D instancing and any non-web NAP projection.
+| Feature | Reason |
+|---------|--------|
+| Framework-specific adapters | The runtime must work with many stacks by loading a target URL, not by owning each framework's dev server. |
+| Replacing the existing playground | The playground remains the broad demo/inspection surface; this milestone creates a focused author runtime. |
+| Publishing from a local machine | This repo publishes through tag-triggered GitHub Actions; local publish remains out of scope. |
+| Multi-window shell UX | The requested runtime is single-window with one napplet iframe. |
 
 ## Traceability
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| SHELL-01 | 86 | Complete |
-| SHELL-02 | 86 | Complete |
-| ARCH-01 | 87 | Pending |
-| ARCH-02 | 87 | Pending |
-| ARCH-03 | 87 | Pending |
-| ARCH-04 | 87 | Pending |
-| TERM-01 | 88 | Pending |
-| TERM-02 | 88 | Complete |
-| TERM-03 | 88 | Complete |
-| TERM-04 | 88 | Pending |
-| TERM-05 | 88 | Complete |
-| DOCS-01 | 89 | Complete |
-| DOCS-02 | 89 | Complete |
-| DOCS-03 | 89 | Complete |
-| DOCS-04 | 89 | Complete |
-| VERIFY-01 | 86–89 | Complete (docs/changesets; 9 stale guard-tests deferred — see 89/deferred-items.md) |
+| DEVRT-01 | 90 | Pending |
+| DEVRT-02 | 90 | Pending |
+| DEVRT-03 | 90 | Pending |
+| DEVRT-04 | 90 | Pending |
+| HOST-01 | 91 | Pending |
+| HOST-02 | 91 | Pending |
+| HOST-03 | 91 | Pending |
+| HOST-04 | 91 | Pending |
+| PARITY-01 | 92 | Pending |
+| PARITY-02 | 92 | Pending |
+| PARITY-03 | 92 | Pending |
+| PARITY-04 | 92 | Pending |
+| SIM-01 | 93 | Pending |
+| SIM-02 | 93 | Pending |
+| SIM-03 | 93 | Pending |
+| SIM-04 | 93 | Pending |
+| VERIFY-01 | 90-94 | Pending |
+| VERIFY-02 | 91-94 | Pending |
+| VERIFY-03 | 94 | Pending |
+| VERIFY-04 | 94 | Pending |
+| VERIFY-05 | 94 | Pending |
+
+**Coverage:**
+- v1 requirements: 21 total
+- Mapped to phases: 21
+- Unmapped: 0
+
+---
+*Requirements defined: 2026-06-21 after user objective for a real single-window napplet development runtime*

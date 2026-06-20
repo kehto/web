@@ -23,11 +23,99 @@
 - [x] **v1.18: Napplet Firewall** - 3 phases (80-82), 24 requirements, new `@kehto/firewall` pure core + runtime integration for behavioral rate/burst/content anti-abuse with allow/deny/ask policy and focus-aware tightening (shipped — merged to main, PRs #25/#27)
 - [x] **v1.19: NAP Ontology Alignment** - 1 phase (83), 8 requirements ([archive](milestones/v1.19-ROADMAP.md) | [requirements](milestones/v1.19-REQUIREMENTS.md))
 - [ ] **v1.20: NIP-5D Content-Addressed Runtime Resolution** - 2 phases (84-85), 19 requirements (phases complete; PRs #38/#39 open)
-- [ ] **v1.21: NIP-5D (#2303) + NAP-SHELL/INTENT Conformance** - 4 phases (86-89), 16 requirements (active)
+- [x] **v1.21: NIP-5D (#2303) + NAP-SHELL/INTENT Conformance** - 4 phases (86-89), 16 requirements (completed; follow-up cache PR #63 merged)
+- [ ] **v1.22: Single-Window Development Runtime** - 5 phases (90-94), 21 requirements (active)
 
 ---
 
-## Active Milestone: v1.21 NIP-5D (#2303) + NAP-SHELL/INTENT Conformance
+## Active Milestone: v1.22 Single-Window Development Runtime
+
+**Goal:** Ship a real single-window development runtime for napplet authors. A napplet package can add it as a `dev` script, run `pnpm/npm/yarn dev`, and get their app loaded in a production-shaped Kehto iframe with hot reload, real NAP/service behavior, and only a minimal top bar plus bottom bar around the iframe.
+
+**Authoritative sources:** current `@napplet/nap` web domain surface in `/home/sandwich/Develop/napplet/packages/nap/src`; existing Kehto runtime/shell/service packages; existing playground code as reusable implementation source, not as the final UX.
+
+**Branch:** `feat/dev-single-window-runtime` off current `main`.
+
+**Hard constraints (carry into every phase):**
+- Preserve stack-agnostic HMR by loading a target app URL in the iframe; do not require Vite, Svelte, React, or any specific framework.
+- No new dependencies unless the implementation proves they are necessary and repo policy permits them.
+- Minimal visible chrome means one top bar and one bottom bar by default; no playground panels, node graphs, cards, or side rails.
+- Service parity is not optional: wire every current web NAP that Kehto can support today, and fill missing Kehto package gaps rather than hiding them behind dev-runtime-only shortcuts.
+- Changes must remain publishable through this repo's npm/JSR GitHub Actions flow; do not publish locally.
+
+## Phases
+
+- [ ] **Phase 90: Dev Runtime Package and CLI Foundation** — create `@kehto/dev-runtime`, public option schema, CLI target URL / child-command flow, server entry, and package metadata.
+- [ ] **Phase 91: Single-Window Host and HMR Loop** — implement the minimal two-bar UI, one sandbox iframe, shell bootstrap, runtime reload/reinitialize behavior, and browser proof against a real fixture.
+- [ ] **Phase 92: Full NAP/Service Parity Wiring** — wire all current web NAP domains and Kehto services into the dev runtime; add static parity guard against `@napplet/nap`.
+- [ ] **Phase 93: Environment Simulation Controls** — expose typed CLI/config controls for capabilities, ACL, firewall, identity, relay, storage, cache, upload, media, config, and theme modes.
+- [ ] **Phase 94: Coverage, Docs, Release Readiness, and PR** — complete unit/e2e/text coverage, changesets, full gates, push, and PR.
+
+## Phase Details
+
+### Phase 90: Dev Runtime Package and CLI Foundation
+**Goal:** Establish a publishable package and CLI that can run as a napplet project's `dev` script without taking over the app framework.
+**Depends on:** v1.21 mainline and existing playground/runtime packages.
+**Requirements:** DEVRT-01, DEVRT-02, DEVRT-03, DEVRT-04, VERIFY-01
+**Success Criteria:**
+  1. `@kehto/dev-runtime` is in the workspace with ESM build/type-check/lint/test scripts, typed public exports, README stub, package docs target, and release metadata.
+  2. CLI accepts a target URL or a child command, waits for readiness, and serves the runtime host URL.
+  3. The option contract is typed and reusable programmatically.
+  4. Unit tests cover target URL, command parsing, readiness timeout, and generated host config.
+
+### Phase 91: Single-Window Host and HMR Loop
+**Goal:** Build the actual browser host: one iframe, top bar, bottom bar, production-shaped sandbox/handshake, and reload/reinit loop that preserves app-provided HMR.
+**Depends on:** Phase 90.
+**Requirements:** HOST-01, HOST-02, HOST-03, HOST-04, VERIFY-02
+**Success Criteria:**
+  1. The served page renders exactly one napplet iframe by default with top and bottom bars only.
+  2. The iframe uses production-shaped sandbox and shell handshake behavior.
+  3. Runtime reload/reinitialize controls work without restarting the CLI or child app process.
+  4. Playwright proves a real fixture renders in the iframe and survives an edit/reload cycle.
+
+### Phase 92: Full NAP/Service Parity Wiring
+**Goal:** Wire every current web NAP domain and possible Kehto service into the dev runtime.
+**Depends on:** Phase 91.
+**Requirements:** PARITY-01, PARITY-02, PARITY-03, PARITY-04
+**Success Criteria:**
+  1. Capability payload includes shell, relay, outbox, storage, identity, keys, config, resource, theme, notify, media, upload, intent, cvm, inc, and ifc compatibility.
+  2. Dev runtime constructs real or deterministic development adapters for relay/outbox, storage, identity, keys, config, resource, theme, notify/notification, media/audio, upload, intent, cvm, ACL, firewall, NIP-5D resolution, artifact cache, and manifest cache.
+  3. Any missing package-level handling is implemented in the appropriate `@kehto/*` package with tests.
+  4. A static parity guard fails when `@napplet/nap` adds a supported web domain/message that Kehto does not handle.
+
+### Phase 93: Environment Simulation Controls
+**Goal:** Make the runtime useful for testing different host environments without writing custom host code.
+**Depends on:** Phase 92.
+**Requirements:** SIM-01, SIM-02, SIM-03, SIM-04
+**Success Criteria:**
+  1. CLI flags and config file share one schema for capability toggles, ACL, firewall, identity, relay, storage, cache, upload, media, config, and theme behavior.
+  2. Invalid option combinations fail before serving the runtime.
+  3. Minimal UI exposes compact simulation status and adjustment affordances without becoming a playground.
+  4. Defaults provide real behavior across the wired services for a local app with no custom config.
+
+### Phase 94: Coverage, Docs, Release Readiness, and PR
+**Goal:** Close the milestone with full verification, text coverage, release metadata, and an opened PR.
+**Depends on:** Phases 90-93.
+**Requirements:** VERIFY-01, VERIFY-02, VERIFY-03, VERIFY-04, VERIFY-05
+**Success Criteria:**
+  1. Unit, static parity, focused e2e, docs checks where applicable, build, type-check, and AI-slop scan pass.
+  2. Docs explain `pnpm`, `npm`, and `yarn` script usage plus target URL and command modes.
+  3. Changeset covers shipped package output and any modified `@kehto/*` surfaces.
+  4. Branch is pushed and PR opened with verification evidence and any remaining release setup notes.
+
+## Progress
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 90. Dev Runtime Package and CLI Foundation | v1.22 | 0/TBD | Not started | - |
+| 91. Single-Window Host and HMR Loop | v1.22 | 0/TBD | Not started | - |
+| 92. Full NAP/Service Parity Wiring | v1.22 | 0/TBD | Not started | - |
+| 93. Environment Simulation Controls | v1.22 | 0/TBD | Not started | - |
+| 94. Coverage, Docs, Release Readiness, and PR | v1.22 | 0/TBD | Not started | - |
+
+---
+
+## Previous Milestone: v1.21 NIP-5D (#2303) + NAP-SHELL/INTENT Conformance
 
 **Goal:** Bring kehto into alignment with the current authoritative napplet protocol — NIP-5D as defined in `nostr-protocol/nips` PR #2303 (`5D.md`), plus the two merged NAP registry specs: **NAP-SHELL** (the only mandatory NAP; the bootstrap handshake) and **NAP-INTENT** (archetype dispatch). Closes the deltas that opened since the 2026-05-22 audit — NUB→NAP terminology, the now-formalized NAP-SHELL/INTENT specs, and the missing NAAT archetype axis — while keeping back-compat for the installed `@napplet/shim@0.5.0`. Builds on the v1.20 content-addressed runtime resolution (kinds/identity/srcdoc already aligned; regression-guard only).
 
