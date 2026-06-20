@@ -23,6 +23,11 @@ export interface DevRuntimeOptions {
 
 export interface DevRuntimeHostConfig {
   readonly version: 1;
+  readonly window: {
+    readonly id: string;
+    readonly dTag: string;
+    readonly aggregateHash: string;
+  };
   readonly target: {
     readonly url: string;
     readonly hmrStrategy: 'iframe-target-url';
@@ -53,6 +58,9 @@ export class DevRuntimeOptionsError extends Error {
 export const DEFAULT_DEV_RUNTIME_HOST = '127.0.0.1';
 export const DEFAULT_DEV_RUNTIME_PORT = 5197;
 export const DEFAULT_READY_TIMEOUT_MS = 30_000;
+export const DEFAULT_DEV_RUNTIME_WINDOW_ID = 'kehto-dev-runtime-window';
+export const DEFAULT_DEV_RUNTIME_DTAG = 'dev-target';
+export const DEFAULT_DEV_RUNTIME_AGGREGATE_HASH = 'dev-runtime';
 
 export function normalizeDevRuntimeOptions(raw: DevRuntimeRawOptions): DevRuntimeOptions {
   const targetUrl = normalizeTargetUrl(raw.targetUrl);
@@ -82,6 +90,11 @@ export function createDevRuntimeHostConfig(
 ): DevRuntimeHostConfig {
   return {
     version: 1,
+    window: {
+      id: DEFAULT_DEV_RUNTIME_WINDOW_ID,
+      dTag: DEFAULT_DEV_RUNTIME_DTAG,
+      aggregateHash: DEFAULT_DEV_RUNTIME_AGGREGATE_HASH,
+    },
     target: {
       url: options.targetUrl,
       hmrStrategy: 'iframe-target-url',

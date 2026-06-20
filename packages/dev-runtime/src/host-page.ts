@@ -43,20 +43,16 @@ export function renderDevRuntimeHtml(config: DevRuntimeHostConfig): string {
       <button type="button" id="reload-target">Reload</button>
     </header>
     <main>
-      <iframe id="napplet-frame" title="Napplet development target" sandbox="allow-scripts" src="${targetUrl}"></iframe>
+      <iframe id="napplet-frame" title="Napplet development target" sandbox="allow-scripts" data-target-url="${targetUrl}"></iframe>
     </main>
     <footer class="bar bottom">
       <span>mode: <code>${config.target.command ? 'managed-command' : 'external-target'}</code></span>
       <span>hmr: <code>${config.target.hmrStrategy}</code></span>
       <span>runtime: <code>${escapeHtml(config.runtime.host)}:${config.runtime.port}</code></span>
+      <span>state: <code id="lifecycle-status">booting</code></span>
     </footer>
     <script type="application/json" id="kehto-dev-runtime-config">${configJson}</script>
-    <script>
-      const frame = document.getElementById('napplet-frame');
-      document.getElementById('reload-target').addEventListener('click', () => {
-        frame.src = frame.src;
-      });
-    </script>
+    <script type="module" src="/__kehto/browser-host.js"></script>
   </body>
 </html>`;
 }

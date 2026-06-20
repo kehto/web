@@ -12,7 +12,9 @@ describe('@kehto/dev-runtime host page', () => {
     expect(html).toContain('<footer class="bar bottom">');
     expect(html).toContain('<iframe id="napplet-frame"');
     expect(html).toContain('sandbox="allow-scripts"');
-    expect(html).toContain('src="http://127.0.0.1:5173/"');
+    expect(html).toContain('data-target-url="http://127.0.0.1:5173/"');
+    expect(html).not.toContain('src="http://127.0.0.1:5173/"');
+    expect(html).toContain('src="/__kehto/browser-host.js"');
     expect(html).not.toContain('side-panel');
     expect(html).not.toContain('playground');
   });

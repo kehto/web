@@ -16,6 +16,10 @@ declare module 'node:http' {
   };
 }
 
+declare module 'node:fs' {
+  export function readFileSync(path: URL, encoding: 'utf8'): string;
+}
+
 declare module 'node:child_process' {
   export function spawn(
     command: string,

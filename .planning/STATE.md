@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-06-21)
 
 ## Current Position
 
-Phase: 91 — Single-Window Host and HMR Loop
-Plan: 90-01 — complete (package scaffold, CLI/options/server/readiness/docs/TypeDoc, focused tests)
-Status: Phase 90 complete; continue with Phase 91 browser host, shell bootstrap, reload/reinit loop, and browser proof
-Last activity: 2026-06-21 — `@kehto/dev-runtime` package, CLI option model, target readiness polling, server/host config helper, TypeDoc/docs integration, tests, README, changeset, and lockfile importer added
+Phase: 92 — Full NAP/Service Parity Wiring
+Plan: 91-01 — complete (single-window browser host, shell.init bootstrap, reload/reinit loop, focused Playwright proof)
+Status: Phase 91 complete; continue with Phase 92 NAP/service parity wiring and static parity guard
+Last activity: 2026-06-21 — `@kehto/dev-runtime` browser host bundle added, single iframe navigation moved into runtime bootstrap, shell.init handshake shaped, reload/reinit loop proved with focused Playwright
 
 ## Performance Metrics
 
@@ -103,7 +103,7 @@ Resume file: None
 Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napplet/packages/nap/src` exposes current web NAP domains `shell`, `relay`, `outbox`, `storage`, `identity`, `keys`, `config`, `resource`, `theme`, `notify`, `media`, `upload`, `intent`, `cvm`, `inc`, and deprecated `ifc` compatibility.
 
 - **Phase 90** — create publishable `@kehto/dev-runtime` package and CLI. Complete: package/options/CLI/server/readiness/docs/TypeDoc/tests.
-- **Phase 91** — build the actual minimal host page: one iframe, one top bar, one bottom bar, production-shaped sandbox/handshake, and runtime reload/reinit behavior.
+- **Phase 91** — build the actual minimal host page: one iframe, one top bar, one bottom bar, production-shaped sandbox/handshake, and runtime reload/reinit behavior. Complete with focused browser proof; service parity remains Phase 92.
 - **Phase 92** — wire every possible Kehto service into the runtime and add a static parity guard against `@napplet/nap`.
 - **Phase 93** — expose simulation controls for capabilities, ACL, firewall, identity, relay, storage, cache, upload, media, config, and theme.
 - **Phase 94** — close with unit/e2e/text coverage, changesets, full gates, push, and PR.

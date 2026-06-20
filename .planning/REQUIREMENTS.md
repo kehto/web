@@ -18,10 +18,10 @@ Requirements for this milestone. Each maps to exactly one roadmap phase unless m
 
 ### Single-Window Host Experience
 
-- [ ] **HOST-01**: The dev runtime serves a single browser window with exactly one active napplet iframe and minimal visible chrome: a top bar and a bottom bar, with no playground-style panes, cards, or debug side rails enabled by default.
-- [ ] **HOST-02**: The top bar surfaces only runtime identity/status essentials and target reload controls; the bottom bar surfaces compact service/runtime status and errors.
-- [ ] **HOST-03**: The iframe sandbox and shell handshake match production Kehto behavior, including `allow-scripts` without `allow-same-origin`, runtime-derived identity, and `shell.init` capability payloads.
-- [ ] **HOST-04**: The host can reload/reinitialize the runtime around a still-running target app so author edits and HMR cycles do not require restarting the CLI process.
+- [x] **HOST-01**: The dev runtime serves a single browser window with exactly one active napplet iframe and minimal visible chrome: a top bar and a bottom bar, with no playground-style panes, cards, or debug side rails enabled by default.
+- [x] **HOST-02**: The top bar surfaces only runtime identity/status essentials and target reload controls; the bottom bar surfaces compact service/runtime status and errors.
+- [x] **HOST-03**: The iframe sandbox and shell handshake match production Kehto behavior, including `allow-scripts` without `allow-same-origin`, runtime-derived identity, and `shell.init` capability payloads.
+- [x] **HOST-04**: The host can reload/reinitialize the runtime around a still-running target app so author edits and HMR cycles do not require restarting the CLI process.
 
 ### NAP and Service Parity
 
@@ -68,10 +68,10 @@ Requirements for this milestone. Each maps to exactly one roadmap phase unless m
 | DEVRT-02 | 90 | Complete |
 | DEVRT-03 | 90 | Complete |
 | DEVRT-04 | 90 | Complete |
-| HOST-01 | 91 | Pending |
-| HOST-02 | 91 | Pending |
-| HOST-03 | 91 | Pending |
-| HOST-04 | 91 | Pending |
+| HOST-01 | 91 | Complete |
+| HOST-02 | 91 | Complete |
+| HOST-03 | 91 | Complete |
+| HOST-04 | 91 | Complete |
 | PARITY-01 | 92 | Pending |
 | PARITY-02 | 92 | Pending |
 | PARITY-03 | 92 | Pending |

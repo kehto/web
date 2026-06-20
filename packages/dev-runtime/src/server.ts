@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { readFileSync } from 'node:fs';
 import {
   createDevRuntimeHostConfig,
   formatDevRuntimeUrl,
@@ -41,6 +42,13 @@ export async function startDevRuntimeServer(input: DevRuntimeServerOptions): Pro
       return;
     }
 
+    if (requestUrl === '/__kehto/browser-host.js') {
+      const browserScript = readBrowserHostScript();
+      response.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' });
+      response.end(browserScript);
+      return;
+    }
+
     response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
     response.end('Not found');
   });
@@ -56,6 +64,10 @@ export async function startDevRuntimeServer(input: DevRuntimeServerOptions): Pro
     hostConfig,
     close: () => close(server),
   };
+}
+
+function readBrowserHostScript(): string {
+  return readFileSync(new URL('./browser-host.js', import.meta.url), 'utf8');
 }
 
 function listen(server: HttpServer, host: string, port: number): Promise<void> {

@@ -60,6 +60,11 @@ describe('@kehto/dev-runtime options', () => {
 
     expect(hostConfig).toEqual({
       version: 1,
+      window: {
+        id: 'kehto-dev-runtime-window',
+        dTag: 'dev-target',
+        aggregateHash: 'dev-runtime',
+      },
       target: {
         url: 'https://example.test/napplet',
         hmrStrategy: 'iframe-target-url',

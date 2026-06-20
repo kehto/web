@@ -38,7 +38,7 @@ pnpm add -D @kehto/dev-runtime
 |------|---------|
 | Options | `normalizeDevRuntimeOptions`, `DevRuntimeOptions`, `DevRuntimeRawOptions`, `DevRuntimeCommand`, `DevRuntimeOptionsError` |
 | Host config | `createDevRuntimeHostConfig`, `DevRuntimeHostConfig`, `formatDevRuntimeUrl` |
-| Host page | `renderDevRuntimeHtml` |
+| Host page | `renderDevRuntimeHtml`, bundled `/__kehto/browser-host.js` runtime bootstrap |
 | Readiness | `waitForTargetUrl`, `ReadinessError`, `WaitForTargetUrlOptions`, `ReadinessFetch` |
 | Server | `startDevRuntimeServer`, `DevRuntimeServer`, `DevRuntimeServerOptions` |
 | Defaults | `DEFAULT_DEV_RUNTIME_HOST`, `DEFAULT_DEV_RUNTIME_PORT`, `DEFAULT_READY_TIMEOUT_MS` |
@@ -53,18 +53,27 @@ The target URL is explicit. Managed-command mode may start any framework dev
 command, but readiness waits for the provided URL instead of guessing the port
 or framework.
 
+## Browser Host
+
+The served host page keeps the visible surface intentionally small: one top bar,
+one sandboxed target iframe, and one bottom bar. The iframe is created without a
+static `src`; the browser bootstrap sets `sandbox="allow-scripts"`, navigates to
+the explicit target URL, answers the target's `shell.ready` with a structured
+`shell.init`, and exposes a reload control that reinitializes the iframe without
+restarting the CLI or the app dev server.
+
 ## Scope Boundaries
 
 - Owns the local development host process, option normalization, managed command
-  startup, target readiness polling, host HTML rendering, and runtime config JSON
-  endpoint.
+  startup, target readiness polling, host HTML rendering, browser bootstrap, and
+  runtime config JSON endpoint.
 - Loads the app-provided target URL directly in the iframe so the app dev
   server keeps its own HMR behavior.
 - Does not guess framework dev-server ports, mutate app build tooling, or add
   framework-specific adapters.
-- Phase 90 does not yet provide full shell/service wiring, environment
-  simulation controls, or Playwright e2e coverage; those belong to later v1.22
-  phases.
+- Phase 91 does not yet provide full shell/service wiring, environment
+  simulation controls, or representative service-traffic e2e coverage; those
+  belong to later v1.22 phases.
 
 ## API Reference
 
