@@ -64,10 +64,10 @@ Requirements for this milestone. Each maps to exactly one roadmap phase unless m
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| DEVRT-01 | 90 | Pending |
-| DEVRT-02 | 90 | Pending |
-| DEVRT-03 | 90 | Pending |
-| DEVRT-04 | 90 | Pending |
+| DEVRT-01 | 90 | In Progress |
+| DEVRT-02 | 90 | In Progress |
+| DEVRT-03 | 90 | In Progress |
+| DEVRT-04 | 90 | In Progress |
 | HOST-01 | 91 | Pending |
 | HOST-02 | 91 | Pending |
 | HOST-03 | 91 | Pending |

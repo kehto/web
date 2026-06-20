@@ -1,0 +1,72 @@
+import { describe, expect, it } from 'vitest';
+import { parseDevRuntimeArgs, runDevRuntimeCli } from './cli.js';
+
+describe('@kehto/dev-runtime CLI', () => {
+  it('parses target URL and argv command separator', () => {
+    const parsed = parseDevRuntimeArgs([
+      '--target-url',
+      'http://127.0.0.1:5173',
+      '--port',
+      '5200',
+      '--',
+      'pnpm',
+      'vite',
+      '--host',
+      '127.0.0.1',
+    ]);
+
+    expect(parsed).toEqual({
+      help: false,
+      options: {
+        targetUrl: 'http://127.0.0.1:5173',
+        port: '5200',
+        command: {
+          mode: 'argv',
+          argv: ['pnpm', 'vite', '--host', '127.0.0.1'],
+        },
+      },
+    });
+  });
+
+  it('prints help without requiring target URL', async () => {
+    const stdout: string[] = [];
+    const code = await runDevRuntimeCli(['--help'], {
+      stdout: { write: (chunk) => stdout.push(chunk) },
+      stderr: { write: () => undefined },
+    }, { serve: false });
+
+    expect(code).toBe(0);
+    expect(stdout.join('')).toContain('Usage:');
+  });
+
+  it('returns a non-zero code with a clear error for invalid input', async () => {
+    const stderr: string[] = [];
+    const code = await runDevRuntimeCli(['--target-url', 'notaurl'], {
+      stdout: { write: () => undefined },
+      stderr: { write: (chunk) => stderr.push(chunk) },
+    }, { serve: false });
+
+    expect(code).toBe(1);
+    expect(stderr.join('')).toContain('Invalid --target-url');
+  });
+
+  it('prints the normalized runtime summary for valid input', async () => {
+    const stdout: string[] = [];
+    const code = await runDevRuntimeCli([
+      '--target-url',
+      'http://127.0.0.1:5173',
+      '--command',
+      'pnpm vite --host 127.0.0.1',
+    ], {
+      stdout: { write: (chunk) => stdout.push(chunk) },
+      stderr: { write: () => undefined },
+    }, { serve: false });
+
+    const output = stdout.join('');
+    expect(code).toBe(0);
+    expect(output).toContain('Runtime URL: http://127.0.0.1:5197/');
+    expect(output).toContain('Target URL: http://127.0.0.1:5173/');
+    expect(output).toContain('Mode: managed-command');
+    expect(output).toContain('HMR: iframe-target-url');
+  });
+});

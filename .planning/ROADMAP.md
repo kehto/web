@@ -45,7 +45,7 @@
 
 ## Phases
 
-- [ ] **Phase 90: Dev Runtime Package and CLI Foundation** — create `@kehto/dev-runtime`, public option schema, CLI target URL / child-command flow, server entry, and package metadata.
+- [ ] **Phase 90: Dev Runtime Package and CLI Foundation** — create `@kehto/dev-runtime`, public option schema, CLI target URL / child-command flow, server entry, and package metadata. (In progress: package/options/CLI/server foundation complete; readiness polling and docs/TypeDoc integration remain.)
 - [ ] **Phase 91: Single-Window Host and HMR Loop** — implement the minimal two-bar UI, one sandbox iframe, shell bootstrap, runtime reload/reinitialize behavior, and browser proof against a real fixture.
 - [ ] **Phase 92: Full NAP/Service Parity Wiring** — wire all current web NAP domains and Kehto services into the dev runtime; add static parity guard against `@napplet/nap`.
 - [ ] **Phase 93: Environment Simulation Controls** — expose typed CLI/config controls for capabilities, ACL, firewall, identity, relay, storage, cache, upload, media, config, and theme modes.
@@ -107,7 +107,7 @@
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 90. Dev Runtime Package and CLI Foundation | v1.22 | 0/TBD | Not started | - |
+| 90. Dev Runtime Package and CLI Foundation | v1.22 | 1/TBD | In Progress | - |
 | 91. Single-Window Host and HMR Loop | v1.22 | 0/TBD | Not started | - |
 | 92. Full NAP/Service Parity Wiring | v1.22 | 0/TBD | Not started | - |
 | 93. Environment Simulation Controls | v1.22 | 0/TBD | Not started | - |
