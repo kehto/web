@@ -35,6 +35,15 @@ export {
   normalizeDevRuntimeOptions,
 } from './options.js';
 export { renderDevRuntimeHtml } from './host-page.js';
+export {
+  DEV_RUNTIME_ADVERTISED_DOMAINS,
+  DEV_RUNTIME_COMPATIBILITY_ALIASES,
+  DEV_RUNTIME_HANDSHAKE_DOMAINS,
+  DEV_RUNTIME_REQUIRED_SERVICES,
+  DEV_RUNTIME_UPSTREAM_WEB_DOMAINS,
+  getMissingAdvertisedDomains,
+  getMissingServices,
+} from './parity.js';
 export { ReadinessError, waitForTargetUrl } from './readiness.js';
 export { startDevRuntimeServer } from './server.js';
 

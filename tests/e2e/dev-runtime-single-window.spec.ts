@@ -38,7 +38,16 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   const targetFrame = page.frameLocator('#napplet-frame');
   await expect(targetFrame.locator('#target-status')).toHaveText('shell-init received');
   await expect(targetFrame.locator('#shell-init-type')).toHaveText('shell.init');
-  await expect(targetFrame.locator('#shell-init-domains')).toContainText('identity,storage,inc');
+  await expect(targetFrame.locator('#shell-init-domains')).toContainText('relay,outbox,identity,storage,inc');
+  await expect(targetFrame.locator('#shell-init-domains')).toContainText('upload,intent');
+  await expect(targetFrame.locator('#service-results')).toContainText('storage.set.result');
+  await expect(targetFrame.locator('#service-results')).toContainText('config.values');
+  await expect(targetFrame.locator('#service-results')).toContainText('theme.get.result');
+  await expect(targetFrame.locator('#service-results')).toContainText('notify.send.result');
+  await expect(targetFrame.locator('#service-results')).toContainText('identity.getPublicKey.result');
+  await expect(targetFrame.locator('#service-results')).toContainText('upload.upload.result');
+  await expect(targetFrame.locator('#service-results')).toContainText('intent.available.result');
+  await expect(targetFrame.locator('#service-results')).toContainText('cvm.discover.result');
   await expect(page.locator('#lifecycle-status')).toHaveText('ready');
 
   const firstLoadId = await targetFrame.locator('#load-id').textContent();
@@ -58,6 +67,20 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
     iframeCount: 1,
     initSent: true,
   });
+  expect(state?.services).toEqual(expect.arrayContaining([
+    'config',
+    'cvm',
+    'identity',
+    'intent',
+    'keys',
+    'media',
+    'notify',
+    'outbox',
+    'relay',
+    'resource',
+    'theme',
+    'upload',
+  ]));
 });
 
 async function startTargetServer(): Promise<TargetServer> {
@@ -116,12 +139,38 @@ function renderTargetHtml(loadCount: number): string {
     <div id="load-id">${loadCount}</div>
     <div id="shell-init-type"></div>
     <div id="shell-init-domains"></div>
+    <div id="service-results"></div>
     <script>
+      const seenTypes = new Set();
+      const serviceResults = document.getElementById('service-results');
+      function renderResult(type) {
+        seenTypes.add(type);
+        serviceResults.textContent = Array.from(seenTypes).sort().join(',');
+      }
+      function sendServiceTraffic() {
+        const bytes = new TextEncoder().encode('kehto-dev-runtime').buffer;
+        const messages = [
+          { type: 'storage.set', id: 'storage-1', key: 'phase', value: '92' },
+          { type: 'config.get', id: 'config-1' },
+          { type: 'theme.get', id: 'theme-1' },
+          { type: 'notify.send', id: 'notify-1', title: 'hello from fixture' },
+          { type: 'identity.getPublicKey', id: 'identity-1' },
+          { type: 'upload.upload', id: 'upload-1', request: { data: bytes, mimeType: 'text/plain', filename: 'dev-runtime.txt' } },
+          { type: 'intent.available', id: 'intent-1', archetype: 'dev-runtime-target' },
+          { type: 'cvm.discover', id: 'cvm-1' },
+        ];
+        for (const message of messages) window.parent.postMessage(message, '*');
+      }
       window.addEventListener('message', (event) => {
-        if (!event.data || event.data.type !== 'shell.init') return;
-        document.getElementById('shell-init-type').textContent = event.data.type;
-        document.getElementById('shell-init-domains').textContent = event.data.capabilities.domains.join(',');
-        document.getElementById('target-status').textContent = 'shell-init received';
+        if (!event.data || typeof event.data.type !== 'string') return;
+        if (event.data.type === 'shell.init') {
+          document.getElementById('shell-init-type').textContent = event.data.type;
+          document.getElementById('shell-init-domains').textContent = event.data.capabilities.domains.join(',');
+          document.getElementById('target-status').textContent = 'shell-init received';
+          sendServiceTraffic();
+          return;
+        }
+        renderResult(event.data.type);
       });
       window.parent.postMessage({ type: 'shell.ready' }, '*');
     </script>

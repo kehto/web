@@ -47,8 +47,8 @@
 
 - [x] **Phase 90: Dev Runtime Package and CLI Foundation** — create `@kehto/dev-runtime`, public option schema, CLI target URL / child-command flow, server entry, and package metadata. (Complete: package/options/CLI/server/readiness/docs/TypeDoc foundation.)
 - [x] **Phase 91: Single-Window Host and HMR Loop** — implement the minimal two-bar UI, one sandbox iframe, shell bootstrap, runtime reload/reinitialize behavior, and browser proof against a real fixture. (Complete: browser host bundle, shell.init, reload loop, focused Playwright proof.)
-- [ ] **Phase 92: Full NAP/Service Parity Wiring** — wire all current web NAP domains and Kehto services into the dev runtime; add static parity guard against `@napplet/nap`. (In progress: 92-01 plan written.)
-- [ ] **Phase 93: Environment Simulation Controls** — expose typed CLI/config controls for capabilities, ACL, firewall, identity, relay, storage, cache, upload, media, config, and theme modes.
+- [x] **Phase 92: Full NAP/Service Parity Wiring** — wire all current web NAP domains and Kehto services into the dev runtime; add static parity guard against `@napplet/nap`. (Complete: real ShellBridge adapter, deterministic services, static parity guard, focused service-traffic e2e.)
+- [ ] **Phase 93: Environment Simulation Controls** — expose typed CLI/config controls for capabilities, ACL, firewall, identity, relay, storage, cache, upload, media, config, and theme modes. (Next.)
 - [ ] **Phase 94: Coverage, Docs, Release Readiness, and PR** — complete unit/e2e/text coverage, changesets, full gates, push, and PR.
 
 ## Phase Details
@@ -109,7 +109,7 @@
 |-------|-----------|----------------|--------|-----------|
 | 90. Dev Runtime Package and CLI Foundation | v1.22 | 1/1 | Complete | 90-01-SUMMARY |
 | 91. Single-Window Host and HMR Loop | v1.22 | 1/1 | Complete | 91-01-SUMMARY |
-| 92. Full NAP/Service Parity Wiring | v1.22 | 0/1 | In Progress | - |
+| 92. Full NAP/Service Parity Wiring | v1.22 | 1/1 | Complete | 92-01-SUMMARY |
 | 93. Environment Simulation Controls | v1.22 | 0/TBD | Not started | - |
 | 94. Coverage, Docs, Release Readiness, and PR | v1.22 | 0/TBD | Not started | - |
 

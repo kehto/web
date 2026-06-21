@@ -39,6 +39,7 @@ pnpm add -D @kehto/dev-runtime
 | Options | `normalizeDevRuntimeOptions`, `DevRuntimeOptions`, `DevRuntimeRawOptions`, `DevRuntimeCommand`, `DevRuntimeOptionsError` |
 | Host config | `createDevRuntimeHostConfig`, `DevRuntimeHostConfig`, `formatDevRuntimeUrl` |
 | Host page | `renderDevRuntimeHtml`, bundled `/__kehto/browser-host.js` runtime bootstrap |
+| Parity metadata | `DEV_RUNTIME_UPSTREAM_WEB_DOMAINS`, `DEV_RUNTIME_ADVERTISED_DOMAINS`, `DEV_RUNTIME_HANDSHAKE_DOMAINS`, `DEV_RUNTIME_COMPATIBILITY_ALIASES`, `DEV_RUNTIME_REQUIRED_SERVICES`, `getMissingAdvertisedDomains`, `getMissingServices` |
 | Readiness | `waitForTargetUrl`, `ReadinessError`, `WaitForTargetUrlOptions`, `ReadinessFetch` |
 | Server | `startDevRuntimeServer`, `DevRuntimeServer`, `DevRuntimeServerOptions` |
 | Defaults | `DEFAULT_DEV_RUNTIME_HOST`, `DEFAULT_DEV_RUNTIME_PORT`, `DEFAULT_READY_TIMEOUT_MS` |
@@ -57,10 +58,31 @@ or framework.
 
 The served host page keeps the visible surface intentionally small: one top bar,
 one sandboxed target iframe, and one bottom bar. The iframe is created without a
-static `src`; the browser bootstrap sets `sandbox="allow-scripts"`, navigates to
-the explicit target URL, answers the target's `shell.ready` with a structured
-`shell.init`, and exposes a reload control that reinitializes the iframe without
-restarting the CLI or the app dev server.
+static `src`; the browser bootstrap sets `sandbox="allow-scripts"`, registers the
+iframe with `@kehto/shell`, navigates to the explicit target URL, and uses a real
+`ShellBridge` plus `@kehto/runtime` for `shell.ready`, `shell.init`, ACL,
+firewall, storage, INC, relay/outbox, and service dispatch. Reload uses a
+generation-specific internal window id so the same iframe can receive a fresh
+`shell.init` without restarting the CLI or the app dev server.
+
+## NAP and Service Parity
+
+The dev runtime advertises the web NAP domains that can be reached through the
+current Kehto runtime and deterministic development adapters:
+
+`relay`, `outbox`, `identity`, `storage`, `inc`, `theme`, `keys`, `media`,
+`notify`, `config`, `resource`, `cvm`, `upload`, and `intent`.
+
+`shell` is represented as the mandatory handshake domain rather than a
+`supports()`-discoverable capability. The deprecated legacy compatibility
+package path is represented as an upstream alias to `inc`; upstream
+`@napplet/nap` does not register a separate runtime domain for that alias.
+
+Default service wiring includes in-memory relay/outbox behavior, localStorage
+state persistence through the runtime, deterministic identity/config/theme,
+notification, media, upload, intent, resource, and CVM adapters. These defaults
+are intentionally useful for local authoring; Phase 93 adds explicit simulation
+controls for changing them.
 
 ## Scope Boundaries
 
@@ -71,9 +93,9 @@ restarting the CLI or the app dev server.
   server keeps its own HMR behavior.
 - Does not guess framework dev-server ports, mutate app build tooling, or add
   framework-specific adapters.
-- Phase 91 does not yet provide full shell/service wiring, environment
-  simulation controls, or representative service-traffic e2e coverage; those
-  belong to later v1.22 phases.
+- Simulation controls remain intentionally small in Phase 92; typed CLI/config
+  controls for ACL, firewall, signer, relay, storage, cache, upload, media,
+  config, and theme modes belong to Phase 93.
 
 ## API Reference
 

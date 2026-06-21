@@ -25,10 +25,10 @@ Requirements for this milestone. Each maps to exactly one roadmap phase unless m
 
 ### NAP and Service Parity
 
-- [ ] **PARITY-01**: Every current web NAP domain supported by `@napplet/nap` is represented in the dev runtime capability contract: shell, relay, outbox, storage, identity, keys, config, resource, theme, notify, media, upload, intent, cvm, inc, and ifc compatibility.
-- [ ] **PARITY-02**: Every Kehto service that can be wired today is wired into the dev runtime with real implementations or explicit deterministic development adapters: relay/outbox, storage, identity, keys, config, resource, theme, notify/notification, media/audio, upload, intent, cvm, ACL, firewall, NIP-5D resolution, artifact cache, and manifest cache.
-- [ ] **PARITY-03**: Any NAP/service gap discovered during implementation is filled in the appropriate `@kehto/*` package rather than hidden behind a dev-runtime-only workaround; intentional unsupported behavior must be documented with a test.
-- [ ] **PARITY-04**: A static parity guard compares the current `@napplet/nap` domain/message surface with Kehto runtime/service handling so future protocol additions cannot silently drift.
+- [x] **PARITY-01**: Every current web NAP domain supported by `@napplet/nap` is represented in the dev runtime capability contract: shell, relay, outbox, storage, identity, keys, config, resource, theme, notify, media, upload, intent, cvm, inc, and ifc compatibility.
+- [x] **PARITY-02**: Every Kehto service that can be wired today is wired into the dev runtime with real implementations or explicit deterministic development adapters: relay/outbox, storage, identity, keys, config, resource, theme, notify/notification, media/audio, upload, intent, cvm, ACL, firewall, NIP-5D resolution, artifact cache, and manifest cache.
+- [x] **PARITY-03**: Any NAP/service gap discovered during implementation is filled in the appropriate `@kehto/*` package rather than hidden behind a dev-runtime-only workaround; intentional unsupported behavior must be documented with a test.
+- [x] **PARITY-04**: A static parity guard compares the current `@napplet/nap` domain/message surface with Kehto runtime/service handling so future protocol additions cannot silently drift.
 
 ### Environment Simulation and Runtime Controls
 
@@ -72,10 +72,10 @@ Requirements for this milestone. Each maps to exactly one roadmap phase unless m
 | HOST-02 | 91 | Complete |
 | HOST-03 | 91 | Complete |
 | HOST-04 | 91 | Complete |
-| PARITY-01 | 92 | Pending |
-| PARITY-02 | 92 | Pending |
-| PARITY-03 | 92 | Pending |
-| PARITY-04 | 92 | Pending |
+| PARITY-01 | 92 | Complete |
+| PARITY-02 | 92 | Complete |
+| PARITY-03 | 92 | Complete |
+| PARITY-04 | 92 | Complete |
 | SIM-01 | 93 | Pending |
 | SIM-02 | 93 | Pending |
 | SIM-03 | 93 | Pending |

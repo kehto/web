@@ -17,6 +17,13 @@ declare module 'node:http' {
 }
 
 declare module 'node:fs' {
+  export interface Dirent {
+    readonly name: string;
+    isDirectory(): boolean;
+  }
+
+  export function existsSync(path: string | URL): boolean;
+  export function readdirSync(path: string | URL, options: { withFileTypes: true }): Dirent[];
   export function readFileSync(path: URL, encoding: 'utf8'): string;
 }
 
