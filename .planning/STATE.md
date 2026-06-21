@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.22
 milestone_name: Single-Window Development Runtime
-status: in_progress
+status: complete
 last_updated: "2026-06-21T00:00:00.000Z"
 last_activity: 2026-06-21
 progress:
   total_phases: 5
-  completed_phases: 4
-  total_plans: 4
-  completed_plans: 4
-  percent: 80
+  completed_phases: 5
+  total_plans: 5
+  completed_plans: 5
+  percent: 100
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-06-21)
 ## Current Position
 
 Phase: 94 — Coverage, Docs, Release Readiness, and PR
-Plan: TBD — next
-Status: Phase 93 complete; continue with final coverage/docs/release-readiness/push/PR gate
-Last activity: 2026-06-21 — dev-runtime now has typed CLI/config simulation controls, compact theme simulation UI, shell capability filtering, and focused non-default simulation Playwright proof
+Plan: 94-01 — complete
+Status: v1.22 complete; branch pushed and PR #64 opened
+Last activity: 2026-06-21 — docs how-to coverage landed, full build/type/unit/e2e/docs/slop gates passed, branch pushed, PR #64 opened
 
 ## Performance Metrics
 
@@ -106,7 +106,7 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - **Phase 91** — build the actual minimal host page: one iframe, one top bar, one bottom bar, production-shaped sandbox/handshake, and runtime reload/reinit behavior. Complete with focused browser proof; service parity remains Phase 92.
 - **Phase 92** — wire every possible Kehto service into the runtime and add a static parity guard against `@napplet/nap`. Complete: real ShellBridge adapter, deterministic development services, local/installed `@napplet/nap` domain guard, representative service traffic e2e.
 - **Phase 93** — expose simulation controls for capabilities, ACL, firewall, identity, relay, storage, cache, upload, media, config, and theme. Complete: shared schema, config-file merge, CLI flags, compact UI, shell capability filtering, fixed identity/theme proof.
-- **Phase 94** — close with unit/e2e/text coverage, changesets, full gates, push, and PR.
+- **Phase 94** — close with unit/e2e/text coverage, changesets, full gates, push, and PR. Complete: `pnpm docs:check`, `pnpm build`, `pnpm type-check`, `pnpm test:unit`, `pnpm test:e2e` (68 passed), `aislop` 100/100, `git diff --check`, PR #64.
 
 **Hard constraints (every phase):**
 

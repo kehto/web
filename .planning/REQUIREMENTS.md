@@ -39,11 +39,11 @@ Requirements for this milestone. Each maps to exactly one roadmap phase unless m
 
 ### Coverage, Documentation, and Release Readiness
 
-- [ ] **VERIFY-01**: Unit coverage proves CLI option parsing, config schema validation, URL/command handling, HMR-preserving iframe target behavior, service wiring, and simulation controls.
-- [ ] **VERIFY-02**: E2E coverage launches the dev runtime against at least one real napplet fixture and proves shell init, iframe rendering, HMR/reload behavior, minimal chrome, and representative NAP traffic through the wired services.
-- [ ] **VERIFY-03**: Text coverage is complete: package README, docs package page, tutorial/how-to usage, API reference links, and release notes explain how to use the runtime from `pnpm/npm/yarn dev`.
-- [ ] **VERIFY-04**: `pnpm build`, `pnpm type-check`, `pnpm test:unit`, focused dev-runtime e2e, docs checks when docs change, and AI-slop scan pass before PR.
-- [ ] **VERIFY-05**: The branch is committed, pushed, has a clear PR, and is ready for normal npm/JSR release workflow pending trusted-publisher/package setup.
+- [x] **VERIFY-01**: Unit coverage proves CLI option parsing, config schema validation, URL/command handling, HMR-preserving iframe target behavior, service wiring, and simulation controls.
+- [x] **VERIFY-02**: E2E coverage launches the dev runtime against at least one real napplet fixture and proves shell init, iframe rendering, HMR/reload behavior, minimal chrome, and representative NAP traffic through the wired services.
+- [x] **VERIFY-03**: Text coverage is complete: package README, docs package page, tutorial/how-to usage, API reference links, and release notes explain how to use the runtime from `pnpm/npm/yarn dev`.
+- [x] **VERIFY-04**: `pnpm build`, `pnpm type-check`, `pnpm test:unit`, focused dev-runtime e2e, docs checks when docs change, and AI-slop scan pass before PR.
+- [x] **VERIFY-05**: The branch is committed, pushed, has a clear PR, and is ready for normal npm/JSR release workflow pending trusted-publisher/package setup.
 
 ## Future Requirements
 
@@ -80,11 +80,11 @@ Requirements for this milestone. Each maps to exactly one roadmap phase unless m
 | SIM-02 | 93 | Complete |
 | SIM-03 | 93 | Complete |
 | SIM-04 | 93 | Complete |
-| VERIFY-01 | 90-94 | Pending |
-| VERIFY-02 | 91-94 | Pending |
-| VERIFY-03 | 94 | Pending |
-| VERIFY-04 | 94 | Pending |
-| VERIFY-05 | 94 | Pending |
+| VERIFY-01 | 90-94 | Complete |
+| VERIFY-02 | 91-94 | Complete |
+| VERIFY-03 | 94 | Complete |
+| VERIFY-04 | 94 | Complete |
+| VERIFY-05 | 94 | Complete |
 
 **Coverage:**
 - v1 requirements: 21 total

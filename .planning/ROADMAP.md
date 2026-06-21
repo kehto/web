@@ -24,7 +24,7 @@
 - [x] **v1.19: NAP Ontology Alignment** - 1 phase (83), 8 requirements ([archive](milestones/v1.19-ROADMAP.md) | [requirements](milestones/v1.19-REQUIREMENTS.md))
 - [ ] **v1.20: NIP-5D Content-Addressed Runtime Resolution** - 2 phases (84-85), 19 requirements (phases complete; PRs #38/#39 open)
 - [x] **v1.21: NIP-5D (#2303) + NAP-SHELL/INTENT Conformance** - 4 phases (86-89), 16 requirements (completed; follow-up cache PR #63 merged)
-- [ ] **v1.22: Single-Window Development Runtime** - 5 phases (90-94), 21 requirements (active)
+- [x] **v1.22: Single-Window Development Runtime** - 5 phases (90-94), 21/21 requirements, PR #64 open
 
 ---
 
@@ -49,7 +49,7 @@
 - [x] **Phase 91: Single-Window Host and HMR Loop** — implement the minimal two-bar UI, one sandbox iframe, shell bootstrap, runtime reload/reinitialize behavior, and browser proof against a real fixture. (Complete: browser host bundle, shell.init, reload loop, focused Playwright proof.)
 - [x] **Phase 92: Full NAP/Service Parity Wiring** — wire all current web NAP domains and Kehto services into the dev runtime; add static parity guard against `@napplet/nap`. (Complete: real ShellBridge adapter, deterministic services, static parity guard, focused service-traffic e2e.)
 - [x] **Phase 93: Environment Simulation Controls** — expose typed CLI/config controls for capabilities, ACL, firewall, identity, relay, storage, cache, upload, media, config, and theme modes. (Complete: shared simulation schema, CLI/config merge, shell capability filter, compact UI controls, focused e2e proof.)
-- [ ] **Phase 94: Coverage, Docs, Release Readiness, and PR** — complete unit/e2e/text coverage, changesets, full gates, push, and PR.
+- [x] **Phase 94: Coverage, Docs, Release Readiness, and PR** — complete unit/e2e/text coverage, changesets, full gates, push, and PR. (Complete: docs how-to, full gates, branch push, PR #64.)
 
 ## Phase Details
 
@@ -111,7 +111,7 @@
 | 91. Single-Window Host and HMR Loop | v1.22 | 1/1 | Complete | 91-01-SUMMARY |
 | 92. Full NAP/Service Parity Wiring | v1.22 | 1/1 | Complete | 92-01-SUMMARY |
 | 93. Environment Simulation Controls | v1.22 | 1/1 | Complete | 93-01-SUMMARY |
-| 94. Coverage, Docs, Release Readiness, and PR | v1.22 | 0/TBD | Not started | - |
+| 94. Coverage, Docs, Release Readiness, and PR | v1.22 | 1/1 | Complete | 94-01-SUMMARY |
 
 ---
 
