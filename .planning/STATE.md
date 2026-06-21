@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-06-21)
 Phase: 94 — Coverage, Docs, Release Readiness, and PR
 Plan: 94-01 — complete
 Status: v1.22 complete; branch pushed and PR #64 opened
-Last activity: 2026-06-21 — docs how-to coverage landed, full build/type/unit/e2e/docs/slop gates passed, branch pushed, PR #64 opened
+Last activity: 2026-06-21 — Paja/CLI naming split landed, full build/type/unit/e2e/docs/slop gates passed, branch pushed, PR #64 opened
 
 ## Performance Metrics
 
@@ -86,6 +86,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260619-u3p | Implement napplet web cache strategy | 2026-06-19 | 8869e80 | [260619-u3p-implement-napplet-web-cache-strategy](./quick/260619-u3p-implement-napplet-web-cache-strategy/) |
 | 260619-vpn | Fix flaky Playwright service activity counter wait in PR #63 | 2026-06-19 | bfcd7af | [260619-vpn-fix-flaky-playwright-service-activity-co](./quick/260619-vpn-fix-flaky-playwright-service-activity-co/) |
 | 260620-07v | Update docs for NIP-5D napplet artifact cache implementation | 2026-06-20 | 234c8b4 | [260620-07v-update-kehto-docs-for-napplet-artifact-c](./quick/260620-07v-update-kehto-docs-for-napplet-artifact-c/) |
+| 260621-4bv | Split dev-runtime into @kehto/paja implementation package and @kehto/cli kehto paja command | 2026-06-21 | 1990451 | [260621-4bv-split-dev-runtime-into-kehto-paja-implem](./quick/260621-4bv-split-dev-runtime-into-kehto-paja-implem/) |
 
 ## Session Continuity
 
@@ -102,11 +103,11 @@ Resume file: None
 
 Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napplet/packages/nap/src` exposes current web NAP domains `shell`, `relay`, `outbox`, `storage`, `identity`, `keys`, `config`, `resource`, `theme`, `notify`, `media`, `upload`, `intent`, `cvm`, `inc`, and deprecated `ifc` compatibility.
 
-- **Phase 90** — create publishable `@kehto/dev-runtime` package and CLI. Complete: package/options/CLI/server/readiness/docs/TypeDoc/tests.
+- **Phase 90** — create publishable local authoring runtime package and CLI. Complete: package/options/CLI/server/readiness/docs/TypeDoc/tests.
 - **Phase 91** — build the actual minimal host page: one iframe, one top bar, one bottom bar, production-shaped sandbox/handshake, and runtime reload/reinit behavior. Complete with focused browser proof; service parity remains Phase 92.
 - **Phase 92** — wire every possible Kehto service into the runtime and add a static parity guard against `@napplet/nap`. Complete: real ShellBridge adapter, deterministic development services, local/installed `@napplet/nap` domain guard, representative service traffic e2e.
 - **Phase 93** — expose simulation controls for capabilities, ACL, firewall, identity, relay, storage, cache, upload, media, config, and theme. Complete: shared schema, config-file merge, CLI flags, compact UI, shell capability filtering, fixed identity/theme proof.
-- **Phase 94** — close with unit/e2e/text coverage, changesets, full gates, push, and PR. Complete: `pnpm docs:check`, `pnpm build`, `pnpm type-check`, `pnpm test:unit`, `pnpm test:e2e` (68 passed), `aislop` 100/100, `git diff --check`, PR #64.
+- **Phase 94** — close with unit/e2e/text coverage, changesets, full gates, push, and PR. Complete: `pnpm docs:check`, `pnpm build`, `pnpm type-check`, `pnpm test:unit`, `pnpm test:e2e` (68 passed), `aislop` 100/100, `git diff --check`, PR #64. Follow-up renamed the implementation package to `@kehto/paja` and added `@kehto/cli` as the owner of `kehto paja`.
 
 **Hard constraints (every phase):**
 
