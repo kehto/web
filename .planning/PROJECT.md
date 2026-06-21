@@ -6,17 +6,19 @@
 
 Provide a modular, framework-agnostic runtime for hosting napplet applications — so any Nostr client can embed sandboxed mini-apps by integrating @kehto/shell.
 
-## Current Milestone: v1.21 NIP-5D (#2303) + NAP-SHELL/INTENT Conformance
+## Current Milestone: v1.22 Single-Window Development Runtime
 
-**Goal:** Bring kehto into alignment with the current authoritative napplet protocol — NIP-5D as defined in `nostr-protocol/nips` PR #2303, plus the two merged NAP registry specs (NAP-SHELL, the mandatory bootstrap handshake; NAP-INTENT, archetype dispatch). Closes the deltas that opened since the 2026-05-22 audit: NUB→NAP terminology, the now-formalized NAP-SHELL/INTENT specs, and the missing NAAT archetype axis. Builds on the v1.20 content-addressed runtime resolution (kinds/identity/srcdoc already aligned).
+**Goal:** Ship a real single-window development runtime for napplet authors: installable as a `dev` script, able to launch or point at an arbitrary app dev server, and able to host that app in a Kehto runtime iframe with HMR, real service wiring, and minimal visible chrome.
 
 **Target features:**
-- **NAP-SHELL correctness:** `shell.init` sent exactly once per napplet lifecycle (duplicate `shell.ready` idempotent, no resend); `class` wire value reconciled to spec `number | null`.
-- **NAAT archetype axis:** parse `["archetype","<slug>","<NAP-N>"]` + optional `source` manifest tags in `@kehto/nip/5d`; NIP-5A-manifest → `IntentCatalogEntry` adapter so NAP-INTENT sources archetypes from signed manifests; archetype-tagged playground napplet + intent-dispatch e2e.
-- **Terminology & playground modern-path alignment:** `nap:` as primary capability prefix (`nub:` back-compat only); migrate 4 legacy napplets `ifc`→`inc`; playground bootstrap + requires-check read `naps` (nubs fallback for the installed 0.5.0 shim); naps-only-path conformance e2e. Keep `naps`+`nubs` dual-emit.
-- **Spec/doc refresh:** `specs/NIP-5D.md` authority → `nostr-protocol/nips#2303` + NAP terminology + archetype/source tags; local NAP-SHELL/NAP-INTENT mirrors; `RUNTIME-SPEC.md` refresh; stale NUB/AUTH comment sweep; verify unknown-`type` silent-ignore uniformity.
+- **Publishable dev runtime package:** add `@kehto/dev-runtime` with an ESM API, CLI, package docs, TypeDoc coverage, npm/JSR release metadata, and a changeset.
+- **Stack-agnostic dev flow:** support either `--target-url` or a user-supplied command that starts any framework dev server; preserve HMR by loading the app URL directly in the sandbox iframe rather than taking over the app build.
+- **Single-window host:** serve one browser window with one active napplet iframe, a compact top bar, and a compact bottom bar; no playground side panes or debug cards by default.
+- **Full current NAP parity:** wire every current web NAP domain from `@napplet/nap` that Kehto can support today: shell, relay, outbox, storage, identity, keys, config, resource, theme, notify, media, upload, intent, cvm, inc, and ifc compatibility.
+- **Environment simulation:** expose runtime capability toggles plus ACL, firewall, identity, relay, storage, cache, upload, media, config, and theme settings through a typed config/CLI option surface.
+- **Release-ready coverage:** unit, static parity, docs/text coverage, and Playwright proof against a real napplet fixture; branch pushed and PR opened when gates pass.
 
-**Key context:** Authoritative source is `nostr-protocol/nips` PR #2303 (`5D.md`) + the `napplet/naps` registry (NAP-SHELL + NAP-INTENT merged; web projection). The repo's pinned `specs/NIP-5D.md` is an older mirror (NUB terminology, `dskvr/nips#3`/`#2287` citation) and is superseded. v1.20 work (manifest kinds 5129/15129/35129, computed-from-bytes identity, srcdoc, signature/blob/aggregate verification, `requires` load-time check) is already aligned — regression-guard only. Installed `@napplet/shim` is **0.5.0** (reads `capabilities.nubs`) → dual-emit MUST stay; do not run CLEANUP-01. CI e2e runs `workers:1`; reload-heavy specs need `test.setTimeout(120000)`. Playground napplet counts asserted by multiple e2e specs — update in lockstep. Branch off the current `feat/nip5d-runtime-srcdoc` (v1.20 PRs #38/#39 still open); never push `main`. Full audit: `.planning/NIP-5D-2303-DELTA-AUDIT.md`.
+**Key context:** The existing playground is the best source to recycle, but the runtime must not become a playground skin. The final product is an authoring surface that can be dropped into arbitrary napplet projects and frameworks. Current `@napplet/nap` parity was inspected from `/home/sandwich/Develop/napplet/packages/nap/src` on 2026-06-21. The package must stay framework-agnostic and preserve app-provided HMR; do not introduce framework-specific lock-in or new dependencies without a proven need.
 
 ## Latest Milestone: v1.18 Napplet Firewall (shipped 2026-06-15)
 

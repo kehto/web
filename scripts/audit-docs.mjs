@@ -20,6 +20,10 @@ const violations = [];
 
 const rel = relative.bind(null, repoRoot);
 
+function typedocModuleFileName(slug) {
+  return `_kehto_${slug}.html`;
+}
+
 function fail(message) {
   violations.push(message);
 }
@@ -65,14 +69,14 @@ function publicPackages() {
         version: packageJson.version,
         packageJsonPath,
         pagePath: join(docsDir, 'packages', `${slug}.md`),
-        moduleFile: join(docsDir, 'api', 'modules', `_kehto_${slug.replaceAll('-', '_')}.html`),
+        moduleFile: join(docsDir, 'api', 'modules', typedocModuleFileName(slug)),
         distModuleFile: join(
           docsDir,
           '.vitepress',
           'dist',
           'api',
           'modules',
-          `_kehto_${slug.replaceAll('-', '_')}.html`,
+          typedocModuleFileName(slug),
         ),
       };
     })
@@ -135,7 +139,7 @@ function checkPackageDocs(packages) {
     assertTypeDocAnchor(
       pkg.pagePath,
       page,
-      `../api/modules/_kehto_${pkg.slug.replaceAll('-', '_')}.html`,
+      `../api/modules/${typedocModuleFileName(pkg.slug)}`,
       `${pkg.name} package API link`,
     );
 
@@ -157,7 +161,7 @@ function checkReferencePage(packages) {
   const referencePath = join(docsDir, 'reference', 'api.md');
   const reference = assertFile(referencePath, 'API reference page') ? read(referencePath) : '';
   for (const pkg of packages) {
-    const moduleHref = `../api/modules/_kehto_${pkg.slug.replaceAll('-', '_')}.html`;
+    const moduleHref = `../api/modules/${typedocModuleFileName(pkg.slug)}`;
     assertContains(referencePath, reference, pkg.name, 'API reference page');
     assertTypeDocAnchor(referencePath, reference, moduleHref, 'API reference page');
     assertFile(resolve(dirname(referencePath), moduleHref), `${pkg.name} API reference target`);

@@ -181,6 +181,18 @@ export interface IntentHooks {
 }
 
 /**
+ * Optional host override for the static shell.init capability handshake.
+ *
+ * Hosts normally advertise the default Kehto NAP surface. Development hosts may
+ * temporarily suppress domains to simulate smaller or policy-constrained shell
+ * environments while still using the production shell-ready path.
+ */
+export interface CapabilityHooks {
+  /** Bare capability domains to remove from domains, naps, and protocols. */
+  readonly disabledDomains?: readonly string[];
+}
+
+/**
  * Event emitted on every ACL enforcement check.
  * @example
  * ```ts
@@ -353,6 +365,10 @@ export interface ShellAdapter {
    * concrete service via `registerService('intent')`.
    */
   intent?: IntentHooks;
+  /**
+   * Optional capability advertisement override. Omitted by production hosts.
+   */
+  capabilities?: CapabilityHooks;
   /** Called on every ACL enforcement check. Both allows and denials are reported. */
   onAclCheck?: (event: AclCheckEvent) => void;
   /**

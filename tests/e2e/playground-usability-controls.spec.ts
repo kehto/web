@@ -99,6 +99,7 @@ test('per-napplet ACL panels persist expansion, capability changes, and block st
   await expect(chatAcl.locator('.acl-summary-toggle')).toContainText('0 blocked');
   await expect(chatAcl.locator('.acl-panel')).toHaveAttribute('data-expanded', 'false', { timeout: 10_000 });
   await expect(chatAcl.locator('.acl-controls')).toBeHidden();
+  await expect(page.locator('#profile-viewer-acl .acl-panel')).toHaveCount(1, { timeout: 10_000 });
 
   const panelCount = await page.locator('.acl-panel').count();
   expect(panelCount).toBeGreaterThan(0);

@@ -1,16 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.21
-milestone_name: "NIP-5D #2303 + NAP-SHELL/INTENT Conformance"
-status: COMPLETE — v1.21 (phases 86–89) + v1.22 bonus shipped; PR kehto/web#40 opened (stacked on #39). build 24/24 + type-check 13/13 + unit 1053/1053 + e2e 80/80 green
-stopped_at: PR #40 opened — NIP-5D #2303 + NAP-SHELL/INTENT conformance + @napplet 0.12/0.13 modernization + vite-plugin 0.8.1 bonus complete
-last_updated: "2026-06-17T07:15:00.000Z"
-last_activity: 2026-06-17 — pushed milestone/v1.21-nip5d-2303-nap-conformance, opened PR kehto/web#40; filed + resolved upstream napplet/web#53
+milestone: v1.22
+milestone_name: Single-Window Development Runtime
+status: complete
+last_updated: "2026-06-21T00:00:00.000Z"
+last_activity: 2026-06-21
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 9
-  completed_plans: 9
+  total_phases: 5
+  completed_phases: 5
+  total_plans: 5
+  completed_plans: 5
   percent: 100
 ---
 
@@ -18,17 +17,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-15)
+See: .planning/PROJECT.md (updated 2026-06-21)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** v1.21 complete — Phases 86–89 done; NIP-5D #2303 + NAP-SHELL/INTENT conformance landed with changesets ready for release.
+**Current focus:** v1.22 planning — single-window development runtime for napplet authors with full current NAP/service parity, HMR via target URL, minimal two-bar chrome, and environment simulation controls.
 
 ## Current Position
 
-Phase: 89 — Spec / Doc Refresh & Conformance Sweep (complete)
-Plan: 89-01 — complete (DOCS-01..04 + VERIFY-01)
-Status: Phase 89 executed — specs/NIP-5D refreshed to #2303/NAP model, NAP-SHELL/NAP-INTENT mirrors added, RUNTIME-SPEC refreshed (toolchain + unknown-type handling), NUB→NAP doc sweep, modernization changesets for all 6 @kehto packages; build 24/24 + type-check 13/13 + e2e 80/80 green
-Last activity: 2026-06-20 — completed quick task 260620-07v: cache implementation guide, package references, API links, navigation, and tutorial cross-links document the shipped NIP-5D artifact cache
+Phase: 94 — Coverage, Docs, Release Readiness, and PR
+Plan: 94-01 — complete
+Status: v1.22 complete; branch pushed and PR #64 opened
+Last activity: 2026-06-21 — Paja/CLI naming split landed, full build/type/unit/e2e/docs/slop gates passed, branch pushed, PR #64 opened
 
 ## Performance Metrics
 
@@ -87,6 +86,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260619-u3p | Implement napplet web cache strategy | 2026-06-19 | 8869e80 | [260619-u3p-implement-napplet-web-cache-strategy](./quick/260619-u3p-implement-napplet-web-cache-strategy/) |
 | 260619-vpn | Fix flaky Playwright service activity counter wait in PR #63 | 2026-06-19 | bfcd7af | [260619-vpn-fix-flaky-playwright-service-activity-co](./quick/260619-vpn-fix-flaky-playwright-service-activity-co/) |
 | 260620-07v | Update docs for NIP-5D napplet artifact cache implementation | 2026-06-20 | 234c8b4 | [260620-07v-update-kehto-docs-for-napplet-artifact-c](./quick/260620-07v-update-kehto-docs-for-napplet-artifact-c/) |
+| 260621-4bv | Split dev-runtime into @kehto/paja implementation package and @kehto/cli kehto paja command | 2026-06-21 | 1990451 | [260621-4bv-split-dev-runtime-into-kehto-paja-implem](./quick/260621-4bv-split-dev-runtime-into-kehto-paja-implem/) |
 
 ## Session Continuity
 
@@ -98,3 +98,20 @@ Resume file: None
 
 - Realign the 3 stale guard specs to the 0.12/0.13/`@napplet/nap`/`inc` graph (see `89/deferred-items.md`) so `pnpm test:unit` is fully green before tagging.
 - Run `pnpm changeset version` + publish to cut the v1.21 release (all 6 @kehto packages have changesets).
+
+### Key Context for v1.22 (Phases 90–94)
+
+Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napplet/packages/nap/src` exposes current web NAP domains `shell`, `relay`, `outbox`, `storage`, `identity`, `keys`, `config`, `resource`, `theme`, `notify`, `media`, `upload`, `intent`, `cvm`, `inc`, and deprecated `ifc` compatibility.
+
+- **Phase 90** — create publishable local authoring runtime package and CLI. Complete: package/options/CLI/server/readiness/docs/TypeDoc/tests.
+- **Phase 91** — build the actual minimal host page: one iframe, one top bar, one bottom bar, production-shaped sandbox/handshake, and runtime reload/reinit behavior. Complete with focused browser proof; service parity remains Phase 92.
+- **Phase 92** — wire every possible Kehto service into the runtime and add a static parity guard against `@napplet/nap`. Complete: real ShellBridge adapter, deterministic development services, local/installed `@napplet/nap` domain guard, representative service traffic e2e.
+- **Phase 93** — expose simulation controls for capabilities, ACL, firewall, identity, relay, storage, cache, upload, media, config, and theme. Complete: shared schema, config-file merge, CLI flags, compact UI, shell capability filtering, fixed identity/theme proof.
+- **Phase 94** — close with unit/e2e/text coverage, changesets, full gates, push, and PR. Complete: `pnpm docs:check`, `pnpm build`, `pnpm type-check`, `pnpm test:unit`, `pnpm test:e2e` (68 passed), `aislop` 100/100, `git diff --check`, PR #64. Follow-up renamed the implementation package to `@kehto/paja` and added `@kehto/cli` as the owner of `kehto paja`.
+
+**Hard constraints (every phase):**
+
+- Preserve stack-agnostic HMR by loading the user's app URL in the iframe; do not make the runtime Vite-only.
+- Keep visible UI minimal by default: top bar + bottom bar only.
+- Fill Kehto package gaps where needed; do not hide missing NAP support behind dev-runtime-only shims.
+- Publishing remains GitHub Actions / tag-driven; no local package publishing.

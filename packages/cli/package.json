@@ -1,0 +1,62 @@
+{
+  "name": "@kehto/cli",
+  "version": "0.1.0",
+  "description": "Top-level Kehto CLI for local napplet authoring and runtime tooling",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "kehto": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@kehto/paja": "workspace:*"
+  },
+  "peerDependencies": {
+    "@napplet/core": ">=0.12.0 <0.14.0",
+    "@napplet/nap": ">=0.12.0 <0.14.0",
+    "nostr-tools": ">=2.23.3 <3.0.0"
+  },
+  "devDependencies": {
+    "@napplet/core": "^0.13.0",
+    "@napplet/nap": "^0.13.0",
+    "nostr-tools": "^2.23.3",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.2"
+  },
+  "scripts": {
+    "build": "tsup",
+    "type-check": "tsc --noEmit",
+    "test:unit": "cd ../.. && vitest run --config vitest.config.ts packages/cli",
+    "test": "pnpm test:unit"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kehto/web.git",
+    "directory": "packages/cli"
+  },
+  "keywords": [
+    "nostr",
+    "napplet",
+    "kehto",
+    "cli",
+    "paja",
+    "development"
+  ]
+}
