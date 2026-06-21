@@ -7,10 +7,10 @@ last_updated: "2026-06-21T00:00:00.000Z"
 last_activity: 2026-06-21
 progress:
   total_phases: 5
-  completed_phases: 0
-  total_plans: 1
-  completed_plans: 1
-  percent: 20
+  completed_phases: 2
+  total_plans: 3
+  completed_plans: 2
+  percent: 40
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-06-21)
 ## Current Position
 
 Phase: 92 — Full NAP/Service Parity Wiring
-Plan: 91-01 — complete (single-window browser host, shell.init bootstrap, reload/reinit loop, focused Playwright proof)
-Status: Phase 91 complete; continue with Phase 92 NAP/service parity wiring and static parity guard
-Last activity: 2026-06-21 — `@kehto/dev-runtime` browser host bundle added, single iframe navigation moved into runtime bootstrap, shell.init handshake shaped, reload/reinit loop proved with focused Playwright
+Plan: 92-01 — in progress (real ShellBridge adapter, service wiring, static parity guard, representative NAP traffic proof)
+Status: Phase 92 planned; implement NAP/service parity wiring and static guard next
+Last activity: 2026-06-21 — Phase 92 plan written after Phase 91 host loop shipped with full e2e proof
 
 ## Performance Metrics
 
