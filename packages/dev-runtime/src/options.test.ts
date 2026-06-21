@@ -18,6 +18,12 @@ describe('@kehto/dev-runtime options', () => {
       port: 5197,
       readyTimeoutMs: 30_000,
       mode: 'external-target',
+      simulation: {
+        identity: { mode: 'anonymous', pubkey: '' },
+        relay: { mode: 'memory', urls: ['wss://relay.kehto.dev'] },
+        storage: { mode: 'local' },
+        theme: { mode: 'dark' },
+      },
     });
     expect(formatDevRuntimeUrl(options)).toBe('http://127.0.0.1:5197/');
   });
@@ -58,7 +64,7 @@ describe('@kehto/dev-runtime options', () => {
     });
     const hostConfig = createDevRuntimeHostConfig(options, new Date('2026-06-21T00:00:00.000Z'));
 
-    expect(hostConfig).toEqual({
+    expect(hostConfig).toMatchObject({
       version: 1,
       window: {
         id: 'kehto-dev-runtime-window',
@@ -83,6 +89,40 @@ describe('@kehto/dev-runtime options', () => {
         bottomBar: true,
         sidePanels: false,
       },
+      simulation: {
+        relay: { mode: 'memory' },
+        upload: { mode: 'memory', rail: 'dev-memory' },
+        intent: { enabled: true },
+      },
     });
+  });
+
+  it('normalizes fixed identity and disabled capability modes', () => {
+    const pubkey = '1'.repeat(64);
+    const options = normalizeDevRuntimeOptions({
+      targetUrl: 'http://127.0.0.1:5173',
+      simulation: {
+        capabilities: { domains: { relay: false, upload: false, intent: false } },
+        identity: { mode: 'fixed', pubkey },
+        relay: { mode: 'disabled' },
+        upload: { mode: 'disabled' },
+        intent: { enabled: false },
+        theme: { mode: 'light' },
+      },
+    });
+
+    expect(options.simulation.identity).toEqual({ mode: 'fixed', pubkey });
+    expect(options.simulation.relay.mode).toBe('disabled');
+    expect(options.simulation.upload.mode).toBe('disabled');
+    expect(options.simulation.intent.enabled).toBe(false);
+    expect(options.simulation.theme.mode).toBe('light');
+    expect(options.simulation.capabilities.disabledDomains).toEqual(expect.arrayContaining(['relay', 'outbox', 'upload', 'intent']));
+  });
+
+  it('rejects invalid fixed identity config before serving', () => {
+    expect(() => normalizeDevRuntimeOptions({
+      targetUrl: 'http://127.0.0.1:5173',
+      simulation: { identity: { mode: 'fixed', pubkey: 'short' } },
+    })).toThrow(/identity.pubkey/);
   });
 });

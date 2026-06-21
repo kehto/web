@@ -49,6 +49,7 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   await expect(targetFrame.locator('#service-results')).toContainText('intent.available.result');
   await expect(targetFrame.locator('#service-results')).toContainText('cvm.discover.result');
   await expect(page.locator('#lifecycle-status')).toHaveText('ready');
+  await expect(page.locator('#simulation-status')).toContainText('identity:anon relay:1 storage:local theme:dark off:none');
 
   const firstLoadId = await targetFrame.locator('#load-id').textContent();
   expect(firstLoadId).toBeTruthy();
@@ -81,6 +82,46 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
     'theme',
     'upload',
   ]));
+});
+
+test('applies simulation config and compact theme adjustment', async ({ page }) => {
+  const pubkey = '4'.repeat(64);
+  const customRuntime = await startDevRuntimeServer({
+    options: {
+      targetUrl: targetServer.url,
+      port: 0,
+      simulation: {
+        identity: { mode: 'fixed', pubkey },
+        relay: { mode: 'disabled' },
+        capabilities: { domains: { relay: false, outbox: false } },
+        theme: { mode: 'light' },
+        config: { values: { density: 'compact' } },
+      },
+    },
+    now: new Date('2026-06-21T00:00:00.000Z'),
+  });
+
+  try {
+    await page.goto(customRuntime.url);
+    await expect(page.locator('#simulation-status')).toContainText('identity:fixed relay:off');
+    await expect(page.locator('#simulation-status')).toContainText('theme:light');
+
+    const targetFrame = page.frameLocator('#napplet-frame');
+    await expect(targetFrame.locator('#target-status')).toHaveText('shell-init received');
+    await expect(targetFrame.locator('#shell-init-domains')).not.toContainText('relay');
+    await expect(targetFrame.locator('#shell-init-domains')).not.toContainText('outbox');
+    await expect(targetFrame.locator('#identity-pubkey')).toHaveText(pubkey);
+    await expect(targetFrame.locator('#config-density')).toHaveText('compact');
+    await expect(targetFrame.locator('#theme-background')).toHaveText('#f7f5ed');
+
+    await page.locator('#simulation-theme').selectOption('dark');
+    await expect(page.locator('#simulation-status')).toContainText('theme:dark');
+    await page.locator('#reload-target').click();
+    await expect(targetFrame.locator('#target-status')).toHaveText('shell-init received');
+    await expect(targetFrame.locator('#theme-background')).toHaveText('#101211');
+  } finally {
+    await customRuntime.close();
+  }
 });
 
 async function startTargetServer(): Promise<TargetServer> {
@@ -140,12 +181,25 @@ function renderTargetHtml(loadCount: number): string {
     <div id="shell-init-type"></div>
     <div id="shell-init-domains"></div>
     <div id="service-results"></div>
+    <div id="identity-pubkey"></div>
+    <div id="config-density"></div>
+    <div id="theme-background"></div>
     <script>
       const seenTypes = new Set();
       const serviceResults = document.getElementById('service-results');
-      function renderResult(type) {
+      function renderResult(message) {
+        const type = message.type;
         seenTypes.add(type);
         serviceResults.textContent = Array.from(seenTypes).sort().join(',');
+        if (type === 'identity.getPublicKey.result') {
+          document.getElementById('identity-pubkey').textContent = message.pubkey || '';
+        }
+        if (type === 'config.values') {
+          document.getElementById('config-density').textContent = message.values && message.values.density || '';
+        }
+        if (type === 'theme.get.result') {
+          document.getElementById('theme-background').textContent = message.theme && message.theme.colors && message.theme.colors.background || '';
+        }
       }
       function sendServiceTraffic() {
         const bytes = new TextEncoder().encode('kehto-dev-runtime').buffer;
@@ -170,7 +224,7 @@ function renderTargetHtml(loadCount: number): string {
           sendServiceTraffic();
           return;
         }
-        renderResult(event.data.type);
+        renderResult(event.data);
       });
       window.parent.postMessage({ type: 'shell.ready' }, '*');
     </script>

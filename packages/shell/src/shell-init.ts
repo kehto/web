@@ -111,5 +111,28 @@ export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
   // NAP-INTENT: advertised only when the host wires an available intent dispatcher.
   if (hooks.intent?.isAvailable()) naps.push('intent');
 
-  return { domains, protocols, naps, sandbox };
+  return applyCapabilityOverrides(
+    { domains, protocols, naps, sandbox },
+    hooks.capabilities?.disabledDomains ?? [],
+  );
+}
+
+function applyCapabilityOverrides(
+  capabilities: ShellCapabilities,
+  disabledDomains: readonly string[],
+): ShellCapabilities {
+  if (disabledDomains.length === 0) return capabilities;
+
+  const disabled = new Set(disabledDomains);
+  const protocols: Record<string, string[]> = {};
+  for (const [domain, supportedProtocols] of Object.entries(capabilities.protocols)) {
+    if (!disabled.has(domain)) protocols[domain] = supportedProtocols;
+  }
+
+  return {
+    domains: capabilities.domains.filter((entry) => !disabled.has(entry)),
+    protocols,
+    naps: capabilities.naps.filter((entry) => !disabled.has(entry.split(':')[0] ?? entry)),
+    sandbox: capabilities.sandbox,
+  };
 }

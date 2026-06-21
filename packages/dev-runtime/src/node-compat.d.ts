@@ -24,7 +24,14 @@ declare module 'node:fs' {
 
   export function existsSync(path: string | URL): boolean;
   export function readdirSync(path: string | URL, options: { withFileTypes: true }): Dirent[];
+  export function readFileSync(path: string, encoding: 'utf8'): string;
   export function readFileSync(path: URL, encoding: 'utf8'): string;
+  export function writeFileSync(path: string, data: string, encoding: 'utf8'): void;
+  export function unlinkSync(path: string): void;
+}
+
+declare module 'node:path' {
+  export function resolve(path: string): string;
 }
 
 declare module 'node:child_process' {

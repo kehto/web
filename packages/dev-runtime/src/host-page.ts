@@ -1,4 +1,5 @@
 import type { DevRuntimeHostConfig } from './options.js';
+import { summarizeDevRuntimeSimulation } from './simulation.js';
 
 export function renderDevRuntimeHtml(config: DevRuntimeHostConfig): string {
   const configJson = escapeJsonForHtml(JSON.stringify(config));
@@ -31,6 +32,8 @@ export function renderDevRuntimeHtml(config: DevRuntimeHostConfig): string {
       .spacer { flex: 1; min-width: 0; }
       button { border: 1px solid var(--line); color: var(--text); background: #20241f; height: 26px; padding: 0 10px; border-radius: 4px; font: inherit; cursor: pointer; }
       button:hover { border-color: var(--accent); }
+      label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; }
+      select { border: 1px solid var(--line); color: var(--text); background: #20241f; height: 26px; border-radius: 4px; font: inherit; }
       iframe { width: 100%; height: 100%; border: 0; background: white; display: block; }
       code { color: var(--text); }
     </style>
@@ -40,6 +43,12 @@ export function renderDevRuntimeHtml(config: DevRuntimeHostConfig): string {
       <div class="brand">Kehto</div>
       <div class="target" title="${targetUrl}">${targetUrl}</div>
       <div class="spacer"></div>
+      <label>theme
+        <select id="simulation-theme" aria-label="Simulation theme">
+          <option value="dark"${config.simulation.theme.mode === 'dark' ? ' selected' : ''}>dark</option>
+          <option value="light"${config.simulation.theme.mode === 'light' ? ' selected' : ''}>light</option>
+        </select>
+      </label>
       <button type="button" id="reload-target">Reload</button>
     </header>
     <main>
@@ -49,6 +58,7 @@ export function renderDevRuntimeHtml(config: DevRuntimeHostConfig): string {
       <span>mode: <code>${config.target.command ? 'managed-command' : 'external-target'}</code></span>
       <span>hmr: <code>${config.target.hmrStrategy}</code></span>
       <span>runtime: <code>${escapeHtml(config.runtime.host)}:${config.runtime.port}</code></span>
+      <span>sim: <code id="simulation-status">${escapeHtml(summarizeDevRuntimeSimulation(config.simulation))}</code></span>
       <span>state: <code id="lifecycle-status">booting</code></span>
     </footer>
     <script type="application/json" id="kehto-dev-runtime-config">${configJson}</script>

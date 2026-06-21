@@ -28,6 +28,45 @@ describe('@kehto/dev-runtime CLI', () => {
     });
   });
 
+  it('parses simulation flags into the shared raw option schema', () => {
+    const pubkey = '2'.repeat(64);
+    const parsed = parseDevRuntimeArgs([
+      '--target-url',
+      'http://127.0.0.1:5173',
+      '--identity-mode',
+      'fixed',
+      '--identity-pubkey',
+      pubkey,
+      '--relay-mode',
+      'disabled',
+      '--upload-mode',
+      'disabled',
+      '--capability',
+      'relay:off',
+      '--capability',
+      'upload:off',
+      '--theme',
+      'light',
+      '--config-value',
+      'density="compact"',
+    ]);
+
+    expect(parsed).toEqual({
+      help: false,
+      options: {
+        targetUrl: 'http://127.0.0.1:5173',
+        simulation: {
+          identity: { mode: 'fixed', pubkey },
+          relay: { mode: 'disabled' },
+          upload: { mode: 'disabled' },
+          capabilities: { domains: { relay: false, upload: false } },
+          theme: { mode: 'light' },
+          config: { values: { density: 'compact' } },
+        },
+      },
+    });
+  });
+
   it('prints help without requiring target URL', async () => {
     const stdout: string[] = [];
     const code = await runDevRuntimeCli(['--help'], {
@@ -68,5 +107,6 @@ describe('@kehto/dev-runtime CLI', () => {
     expect(output).toContain('Target URL: http://127.0.0.1:5173/');
     expect(output).toContain('Mode: managed-command');
     expect(output).toContain('HMR: iframe-target-url');
+    expect(output).toContain('Simulation: identity:anon relay:1 storage:local theme:dark off:none');
   });
 });

@@ -23,6 +23,17 @@
  */
 
 export {
+  loadDevRuntimeConfigFile,
+  mergeDevRuntimeRawOptions,
+  resolveDevRuntimeRawOptions,
+} from './config-file.js';
+export {
+  DEV_RUNTIME_SIMULATION_DOMAINS,
+  DevRuntimeSimulationError,
+  normalizeDevRuntimeSimulation,
+  summarizeDevRuntimeSimulation,
+} from './simulation.js';
+export {
   DEFAULT_DEV_RUNTIME_HOST,
   DEFAULT_DEV_RUNTIME_PORT,
   DEFAULT_DEV_RUNTIME_WINDOW_ID,
@@ -53,6 +64,14 @@ export type {
   DevRuntimeOptions,
   DevRuntimeRawOptions,
 } from './options.js';
+export type {
+  DevRuntimeCapabilityDomain,
+  DevRuntimeSimulation,
+  DevRuntimeSimulationRawOptions,
+  JsonPrimitive,
+  JsonRecord,
+  JsonValue,
+} from './simulation.js';
 export type {
   DevRuntimeServer,
   DevRuntimeServerOptions,

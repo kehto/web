@@ -37,6 +37,8 @@ pnpm add -D @kehto/dev-runtime
 | Area | Exports |
 |------|---------|
 | Options | `normalizeDevRuntimeOptions`, `DevRuntimeOptions`, `DevRuntimeRawOptions`, `DevRuntimeCommand`, `DevRuntimeOptionsError` |
+| Simulation | `normalizeDevRuntimeSimulation`, `summarizeDevRuntimeSimulation`, `DevRuntimeSimulation`, `DevRuntimeSimulationRawOptions`, `DEV_RUNTIME_SIMULATION_DOMAINS` |
+| Config files | `loadDevRuntimeConfigFile`, `mergeDevRuntimeRawOptions`, `resolveDevRuntimeRawOptions` |
 | Host config | `createDevRuntimeHostConfig`, `DevRuntimeHostConfig`, `formatDevRuntimeUrl` |
 | Host page | `renderDevRuntimeHtml`, bundled `/__kehto/browser-host.js` runtime bootstrap |
 | Parity metadata | `DEV_RUNTIME_UPSTREAM_WEB_DOMAINS`, `DEV_RUNTIME_ADVERTISED_DOMAINS`, `DEV_RUNTIME_HANDSHAKE_DOMAINS`, `DEV_RUNTIME_COMPATIBILITY_ALIASES`, `DEV_RUNTIME_REQUIRED_SERVICES`, `getMissingAdvertisedDomains`, `getMissingServices` |
@@ -53,6 +55,44 @@ kehto-dev-runtime --target-url http://127.0.0.1:5173 -- pnpm vite --host 127.0.0
 The target URL is explicit. Managed-command mode may start any framework dev
 command, but readiness waits for the provided URL instead of guessing the port
 or framework.
+
+Simulation flags use the same schema as config files. Common flags:
+
+```bash
+kehto-dev-runtime \
+  --target-url http://127.0.0.1:5173 \
+  --identity-mode fixed \
+  --identity-pubkey 4444444444444444444444444444444444444444444444444444444444444444 \
+  --relay-mode disabled \
+  --capability relay:off \
+  --capability outbox:off \
+  --storage-mode memory \
+  --upload-rail dev-memory \
+  --theme light \
+  --config-value 'density="compact"'
+```
+
+The config-file form is the same raw option object:
+
+```json
+{
+  "targetUrl": "http://127.0.0.1:5173",
+  "simulation": {
+    "identity": {
+      "mode": "fixed",
+      "pubkey": "4444444444444444444444444444444444444444444444444444444444444444"
+    },
+    "relay": { "mode": "disabled" },
+    "capabilities": { "domains": { "relay": false, "outbox": false } },
+    "storage": { "mode": "memory" },
+    "upload": { "rail": "dev-memory" },
+    "theme": { "mode": "light" },
+    "config": { "values": { "density": "compact" } }
+  }
+}
+```
+
+CLI flags override config-file values at the same nested paths.
 
 ## Browser Host
 
@@ -81,8 +121,27 @@ package path is represented as an upstream alias to `inc`; upstream
 Default service wiring includes in-memory relay/outbox behavior, localStorage
 state persistence through the runtime, deterministic identity/config/theme,
 notification, media, upload, intent, resource, and CVM adapters. These defaults
-are intentionally useful for local authoring; Phase 93 adds explicit simulation
-controls for changing them.
+are intentionally useful for local authoring.
+
+## Environment Simulation
+
+The normalized simulation object controls:
+
+- Capability domain advertisement through the production `shell.init` path.
+- ACL mode and firewall mode metadata for development policy profiles.
+- Anonymous or fixed identity mode.
+- Memory or disabled relay/outbox behavior.
+- Local, memory, or disabled storage mode advertisement.
+- Memory or disabled artifact/cache metadata.
+- Memory or disabled upload mode and upload rail name.
+- Media, notification, intent, and CVM availability.
+- Config values returned by `config.get`.
+- Theme mode and values returned by `theme.get`.
+
+The visible host stays compact. The top bar includes a theme selector and reload
+button; the bottom bar summarizes active simulation state, HMR strategy, runtime
+address, and lifecycle status. Theme changes apply immediately to the dev
+runtime theme service and survive the next iframe reload.
 
 ## Scope Boundaries
 
@@ -93,9 +152,8 @@ controls for changing them.
   server keeps its own HMR behavior.
 - Does not guess framework dev-server ports, mutate app build tooling, or add
   framework-specific adapters.
-- Simulation controls remain intentionally small in Phase 92; typed CLI/config
-  controls for ACL, firewall, signer, relay, storage, cache, upload, media,
-  config, and theme modes belong to Phase 93.
+- Does not replace the full playground. Simulation controls stay in the top and
+  bottom bars; debugger panes and protocol timelines remain out of scope here.
 
 ## API Reference
 

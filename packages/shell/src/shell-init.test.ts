@@ -244,4 +244,24 @@ describe('buildShellCapabilities — capability shape', () => {
     const caps = buildShellCapabilities(baseHooks());
     expect(caps.sandbox).toEqual([]);
   });
+
+  it('filters disabled domains from domains, naps, and protocols', () => {
+    const caps = buildShellCapabilities({
+      ...baseHooks(),
+      upload: { getUploader: () => ({ rails: ['dev-memory'] }) },
+      intent: { isAvailable: () => true },
+      capabilities: { disabledDomains: ['relay', 'outbox', 'inc', 'upload'] },
+    });
+
+    expect(caps.domains).not.toContain('relay');
+    expect(caps.domains).not.toContain('outbox');
+    expect(caps.domains).not.toContain('inc');
+    expect(caps.domains).not.toContain('upload');
+    expect(caps.naps).not.toContain('relay');
+    expect(caps.naps).not.toContain('outbox');
+    expect(caps.naps).not.toContain('inc');
+    expect(caps.naps).not.toContain('inc:NAP-01');
+    expect(caps.naps).not.toContain('upload');
+    expect(caps.protocols).not.toHaveProperty('inc');
+  });
 });

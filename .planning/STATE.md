@@ -7,10 +7,10 @@ last_updated: "2026-06-21T00:00:00.000Z"
 last_activity: 2026-06-21
 progress:
   total_phases: 5
-  completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
-  percent: 60
+  completed_phases: 4
+  total_plans: 4
+  completed_plans: 4
+  percent: 80
 ---
 
 # Project State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-06-21)
 
 ## Current Position
 
-Phase: 93 — Environment Simulation Controls
+Phase: 94 — Coverage, Docs, Release Readiness, and PR
 Plan: TBD — next
-Status: Phase 92 complete; continue with Phase 93 CLI/config simulation controls
-Last activity: 2026-06-21 — dev-runtime browser host now uses real ShellBridge/runtime/service wiring, static @napplet/nap parity guard, and focused service-traffic Playwright proof
+Status: Phase 93 complete; continue with final coverage/docs/release-readiness/push/PR gate
+Last activity: 2026-06-21 — dev-runtime now has typed CLI/config simulation controls, compact theme simulation UI, shell capability filtering, and focused non-default simulation Playwright proof
 
 ## Performance Metrics
 
@@ -105,7 +105,7 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - **Phase 90** — create publishable `@kehto/dev-runtime` package and CLI. Complete: package/options/CLI/server/readiness/docs/TypeDoc/tests.
 - **Phase 91** — build the actual minimal host page: one iframe, one top bar, one bottom bar, production-shaped sandbox/handshake, and runtime reload/reinit behavior. Complete with focused browser proof; service parity remains Phase 92.
 - **Phase 92** — wire every possible Kehto service into the runtime and add a static parity guard against `@napplet/nap`. Complete: real ShellBridge adapter, deterministic development services, local/installed `@napplet/nap` domain guard, representative service traffic e2e.
-- **Phase 93** — expose simulation controls for capabilities, ACL, firewall, identity, relay, storage, cache, upload, media, config, and theme.
+- **Phase 93** — expose simulation controls for capabilities, ACL, firewall, identity, relay, storage, cache, upload, media, config, and theme. Complete: shared schema, config-file merge, CLI flags, compact UI, shell capability filtering, fixed identity/theme proof.
 - **Phase 94** — close with unit/e2e/text coverage, changesets, full gates, push, and PR.
 
 **Hard constraints (every phase):**

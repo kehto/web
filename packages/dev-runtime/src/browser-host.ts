@@ -35,22 +35,30 @@ import {
   type UploadResult,
   type UploadStatus,
 } from '@kehto/services';
+import type { Theme } from '@napplet/nap/theme/types';
 
 import type { DevRuntimeHostConfig } from './options.js';
+import {
+  summarizeDevRuntimeSimulation,
+  type DevRuntimeSimulation,
+} from './simulation.js';
 
 interface DevRuntimeBrowserState {
   readonly config: DevRuntimeHostConfig;
   readonly capabilities: ShellCapabilities;
   readonly services: string[];
+  simulation: DevRuntimeSimulation;
   generation: number;
   status: 'booting' | 'ready' | 'reloading' | 'error';
   reload(): void;
+  setThemeMode(mode: DevRuntimeSimulation['theme']['mode']): void;
   getState(): {
     generation: number;
     status: DevRuntimeBrowserState['status'];
     iframeCount: number;
     initSent: boolean;
     services: string[];
+    simulation: DevRuntimeSimulation;
   };
 }
 
@@ -60,13 +68,12 @@ declare global {
   }
 }
 
-const DEFAULT_RELAYS = ['wss://relay.kehto.dev'];
 const DEV_INTENT_ARCHETYPE = 'dev-runtime-target';
 const DEV_CVM_SERVER: CvmServer = {
   pubkey: '0'.repeat(64),
   name: 'Kehto Dev Runtime ContextVM',
   description: 'Deterministic development ContextVM adapter',
-  relays: DEFAULT_RELAYS,
+  relays: ['wss://relay.kehto.dev'],
   capabilities: ['echo'],
 };
 
@@ -82,6 +89,13 @@ function setStatus(state: DevRuntimeBrowserState, status: DevRuntimeBrowserState
   state.status = status;
   const statusEl = document.getElementById('lifecycle-status');
   if (statusEl) statusEl.textContent = status;
+}
+
+function setSimulationStatus(state: DevRuntimeBrowserState): void {
+  const statusEl = document.getElementById('simulation-status');
+  if (statusEl) statusEl.textContent = summarizeDevRuntimeSimulation(state.simulation);
+  const themeSelect = document.getElementById('simulation-theme');
+  if (themeSelect instanceof HTMLSelectElement) themeSelect.value = state.simulation.theme.mode;
 }
 
 function getFrame(): HTMLIFrameElement {
@@ -108,8 +122,8 @@ function matchesAnyFilter(event: NostrEvent, filters: NostrFilter[]): boolean {
   return filters.length === 0 || filters.some((filter) => matchesFilter(event, filter));
 }
 
-function createMemoryRelayPool(): RelayPoolLike {
-  const events: NostrEvent[] = [];
+function createMemoryRelayPool(getSimulation: () => DevRuntimeSimulation): RelayPoolLike {
+  const events: NostrEvent[] = getSimulation().relay.fixtures.flatMap(toNostrEvent);
   const subscribers = new Set<{
     filters: NostrFilter[];
     next(item: NostrEvent | 'EOSE'): void;
@@ -139,6 +153,7 @@ function createMemoryRelayPool(): RelayPoolLike {
       };
     },
     publish(_relayUrls: string[], event: NostrEvent): void {
+      if (getSimulation().relay.mode === 'disabled') return;
       events.push(event);
       for (const subscriber of subscribers) {
         if (matchesAnyFilter(event, subscriber.filters)) subscriber.next(event);
@@ -158,7 +173,27 @@ function createMemoryRelayPool(): RelayPoolLike {
   };
 }
 
-function createRelayHooks(pool: RelayPoolLike): RelayPoolHooks {
+function toNostrEvent(value: unknown): NostrEvent[] {
+  if (
+    typeof value === 'object'
+    && value !== null
+    && typeof (value as { id?: unknown }).id === 'string'
+    && typeof (value as { pubkey?: unknown }).pubkey === 'string'
+    && typeof (value as { kind?: unknown }).kind === 'number'
+    && Array.isArray((value as { tags?: unknown }).tags)
+    && typeof (value as { content?: unknown }).content === 'string'
+    && typeof (value as { sig?: unknown }).sig === 'string'
+  ) {
+    return [value as NostrEvent];
+  }
+  return [];
+}
+
+function getRelayUrls(simulation: DevRuntimeSimulation): string[] {
+  return simulation.relay.mode === 'memory' ? [...simulation.relay.urls] : [];
+}
+
+function createRelayHooks(pool: RelayPoolLike, getSimulation: () => DevRuntimeSimulation): RelayPoolHooks {
   const cleanups = new Map<string, () => void>();
   return {
     getRelayPool: () => pool,
@@ -172,10 +207,11 @@ function createRelayHooks(pool: RelayPoolLike): RelayPoolHooks {
     openScopedRelay: () => {},
     closeScopedRelay: () => {},
     publishToScopedRelay: (_windowId, event) => {
-      pool.publish(DEFAULT_RELAYS, event);
+      if (getSimulation().relay.mode === 'disabled') return false;
+      pool.publish(getRelayUrls(getSimulation()), event);
       return true;
     },
-    selectRelayTier: () => [...DEFAULT_RELAYS],
+    selectRelayTier: () => getRelayUrls(getSimulation()),
   };
 }
 
@@ -195,16 +231,20 @@ function createWorkerRelay(events: NostrEvent[]) {
   };
 }
 
-function createDevUploader(): Uploader {
+function createDevUploader(getSimulation: () => DevRuntimeSimulation): Uploader {
   return {
     async upload(request: UploadRequest, ctx): Promise<UploadResult> {
+      const simulation = getSimulation();
+      if (simulation.upload.mode === 'disabled') {
+        throw new Error('upload simulation is disabled');
+      }
       const size = request.data instanceof Blob ? request.data.size : request.data.byteLength;
       const result: UploadResult = {
         ok: true,
         uploadId: ctx.uploadId,
         status: 'complete',
-        rail: request.rail ?? 'dev-memory',
-        url: `kehto-dev://upload/${ctx.uploadId}`,
+        rail: request.rail ?? simulation.upload.rail,
+        url: `kehto-dev://${simulation.upload.rail}/${ctx.uploadId}`,
         size,
         mimeType: request.mimeType ?? (request.data instanceof Blob ? request.data.type : undefined),
       };
@@ -212,12 +252,13 @@ function createDevUploader(): Uploader {
       return result;
     },
     async status(uploadId: string): Promise<UploadStatus> {
+      const simulation = getSimulation();
       return {
-        ok: true,
+        ok: simulation.upload.mode !== 'disabled',
         uploadId,
-        status: 'complete',
-        rail: 'dev-memory',
-        url: `kehto-dev://upload/${uploadId}`,
+        status: simulation.upload.mode === 'disabled' ? 'failed' : 'complete',
+        rail: simulation.upload.rail,
+        url: `kehto-dev://${simulation.upload.rail}/${uploadId}`,
         updatedAt: Date.now(),
       };
     },
@@ -239,10 +280,11 @@ function createDevIntentAvailability(): IntentAvailability {
   };
 }
 
-function createDevCvmTransport(): CvmTransport {
+function createDevCvmTransport(getSimulation: () => DevRuntimeSimulation): CvmTransport {
   return {
     async discover() {
-      return [DEV_CVM_SERVER];
+      if (!getSimulation().cvm.enabled) return [];
+      return [{ ...DEV_CVM_SERVER, relays: getRelayUrls(getSimulation()) }];
     },
     async request(_server, message): Promise<McpMessage> {
       const id = typeof message.id === 'string' || typeof message.id === 'number' ? message.id : 'dev-runtime';
@@ -264,23 +306,25 @@ function createDevCvmTransport(): CvmTransport {
   };
 }
 
-function createOutboxRouter(pool: RelayPoolLike) {
+function createOutboxRouter(pool: RelayPoolLike, getSimulation: () => DevRuntimeSimulation) {
   return {
     async query(filters: NostrFilter[]) {
+      const relayUrls = getRelayUrls(getSimulation());
       const events = await new Promise<NostrEvent[]>((resolve) => {
         const out: NostrEvent[] = [];
-        pool.request(DEFAULT_RELAYS, filters).subscribe({
+        pool.request(relayUrls, filters).subscribe({
           next: (event) => out.push(event as NostrEvent),
           complete: () => resolve(out),
           error: () => resolve(out),
         });
       });
-      return { events, relays: Object.fromEntries(events.map((event) => [event.id, DEFAULT_RELAYS])) };
+      return { events, relays: Object.fromEntries(events.map((event) => [event.id, relayUrls])) };
     },
     subscribe(filters: NostrFilter[], _options: unknown, sink: { event(event: NostrEvent, relay?: string): void; eose(): void; closed(reason?: string): void }) {
-      const sub = pool.subscription(DEFAULT_RELAYS, filters).subscribe((item) => {
+      const relayUrls = getRelayUrls(getSimulation());
+      const sub = pool.subscription(relayUrls, filters).subscribe((item) => {
         if (item === 'EOSE') sink.eose();
-        else sink.event(item as NostrEvent, DEFAULT_RELAYS[0]);
+        else sink.event(item as NostrEvent, relayUrls[0]);
       });
       return { close: () => sub.unsubscribe() };
     },
@@ -295,55 +339,100 @@ function createOutboxRouter(pool: RelayPoolLike) {
         sig: '0'.repeat(128),
         ...template,
       } as NostrEvent;
-      pool.publish(DEFAULT_RELAYS, event);
-      return { ok: true, event, eventId: event.id, relays: { [DEFAULT_RELAYS[0] ?? 'dev']: true } };
+      const relayUrls = getRelayUrls(getSimulation());
+      pool.publish(relayUrls, event);
+      return { ok: true, event, eventId: event.id, relays: { [relayUrls[0] ?? 'dev']: true } };
     },
     async resolveRelays() {
-      return { relays: [...DEFAULT_RELAYS], source: 'policy' as const };
+      return { relays: getRelayUrls(getSimulation()), source: 'policy' as const };
     },
   };
 }
 
-function createDevServices(pool: RelayPoolLike): Record<string, ServiceHandler> {
+function createDevTheme(mode: DevRuntimeSimulation['theme']['mode'], values: DevRuntimeSimulation['theme']['values']): Theme {
+  const defaultColors = mode === 'light'
+    ? { background: '#f7f5ed', text: '#1d211d', primary: '#6a5a12' }
+    : { background: '#101211', text: '#f4f0df', primary: '#d8c36a' };
+  return {
+    ...values,
+    colors: {
+      ...defaultColors,
+      ...((typeof values.colors === 'object' && values.colors !== null && !Array.isArray(values.colors)) ? values.colors : {}),
+    },
+  } as Theme;
+}
+
+function createDevSigner(getSimulation: () => DevRuntimeSimulation) {
+  return {
+    getPublicKey: () => getSimulation().identity.pubkey,
+    getRelays: () => Object.fromEntries(getRelayUrls(getSimulation()).map((relay) => [relay, { read: true, write: true }])),
+  };
+}
+
+function createDevServices(
+  pool: RelayPoolLike,
+  getSimulation: () => DevRuntimeSimulation,
+  onThemeService: (theme: ReturnType<typeof createThemeService>) => void,
+): Record<string, ServiceHandler> {
   const notification = createNotificationService({ maxPerWindow: 50 });
-  const notify = createNotifyService();
-  const theme = createThemeService({ onBroadcast: () => {} });
+  const theme = createThemeService({
+    initialTheme: createDevTheme(getSimulation().theme.mode, getSimulation().theme.values),
+    onBroadcast: () => {},
+  });
+  onThemeService(theme);
   const config = createConfigService({
     getValues: () => ({
-      runtime: 'kehto-dev-runtime',
-      mode: 'development',
-      target: 'single-window',
+      ...getSimulation().config.values,
+      simulation: {
+        identity: getSimulation().identity.mode,
+        relay: getSimulation().relay.mode,
+        storage: getSimulation().storage.mode,
+        cache: getSimulation().cache.mode,
+        upload: getSimulation().upload.mode,
+        theme: getSimulation().theme.mode,
+      },
     }),
   });
-  const uploader = createDevUploader();
-  return {
-    relay: createRelayPoolService({
-      subscribe: (filters, callback, relayUrls) => pool.subscription(relayUrls ?? DEFAULT_RELAYS, filters).subscribe((item) => {
-        if (item === 'EOSE' || (typeof item === 'object' && item !== null)) {
-          callback(item as NostrEvent | 'EOSE');
-        }
-      }),
-      publish: (event) => pool.publish(DEFAULT_RELAYS, event),
-      selectRelayTier: () => [...DEFAULT_RELAYS],
-      isAvailable: () => true,
-    }),
-    outbox: createOutboxService({ router: createOutboxRouter(pool) }),
-    identity: createIdentityService({ getSigner: () => null }),
-    notifications: notification,
-    notify,
+  const services: Record<string, ServiceHandler> = {
     keys: createKeysService(),
-    media: createMediaService(),
-    theme: theme.handler,
-    config: config.handler,
     resource: createResourceService({
       fetch: (url, init) => fetch(url, init),
       isOriginGranted: () => true,
       getConnectGrants: () => ['*'],
       resolveIdentity: () => ({ dTag: 'dev-target', aggregateHash: 'dev-runtime' }),
     }),
-    cvm: createCvmService({ transport: createDevCvmTransport() }),
-    upload: createUploadService({ uploader }),
-    intent: createIntentService({
+  };
+
+  if (getSimulation().relay.mode === 'memory') {
+    services.relay = createRelayPoolService({
+      subscribe: (filters, callback, relayUrls) => pool.subscription(relayUrls ?? getRelayUrls(getSimulation()), filters).subscribe((item) => {
+        if (item === 'EOSE' || (typeof item === 'object' && item !== null)) {
+          callback(item as NostrEvent | 'EOSE');
+        }
+      }),
+      publish: (event) => pool.publish(getRelayUrls(getSimulation()), event),
+      selectRelayTier: () => getRelayUrls(getSimulation()),
+      isAvailable: () => getSimulation().relay.mode === 'memory',
+    });
+    services.outbox = createOutboxService({ router: createOutboxRouter(pool, getSimulation) });
+  }
+
+  if (getSimulation().identity.mode === 'fixed') {
+    services.identity = createIdentityService({ getSigner: () => createDevSigner(getSimulation) });
+  } else if (getSimulation().capabilities.domains.identity) {
+    services.identity = createIdentityService({ getSigner: () => null });
+  }
+  if (getSimulation().notifications.enabled) {
+    services.notifications = notification;
+    services.notify = createNotifyService({ defaultGrant: getSimulation().notifications.grant });
+  }
+  if (getSimulation().media.enabled) services.media = createMediaService();
+  if (getSimulation().capabilities.domains.theme) services.theme = theme.handler;
+  if (getSimulation().capabilities.domains.config) services.config = config.handler;
+  if (getSimulation().cvm.enabled) services.cvm = createCvmService({ transport: createDevCvmTransport(getSimulation) });
+  if (getSimulation().upload.mode === 'memory') services.upload = createUploadService({ uploader: createDevUploader(getSimulation) });
+  if (getSimulation().intent.enabled) {
+    services.intent = createIntentService({
       resolver: {
         invoke(request: IntentRequest): IntentResult {
           return {
@@ -363,29 +452,42 @@ function createDevServices(pool: RelayPoolLike): Record<string, ServiceHandler> 
         }),
         handlers: () => [createDevIntentAvailability()],
       },
-    }),
-  };
+    });
+  }
+
+  return services;
 }
 
-function createDevRuntimeAdapter(config: DevRuntimeHostConfig): ShellAdapter {
-  const pool = createMemoryRelayPool();
+function createDevRuntimeAdapter(
+  config: DevRuntimeHostConfig,
+  getSimulation: () => DevRuntimeSimulation,
+  onThemeService: (theme: ReturnType<typeof createThemeService>) => void,
+): ShellAdapter {
+  const pool = createMemoryRelayPool(getSimulation);
   const workerRelayEvents: NostrEvent[] = [];
   return {
-    relayPool: createRelayHooks(pool),
+    relayPool: createRelayHooks(pool, getSimulation),
     relayConfig: {
       addRelay: () => {},
       removeRelay: () => {},
-      getRelayConfig: () => ({ discovery: [...DEFAULT_RELAYS], super: [...DEFAULT_RELAYS], outbox: [...DEFAULT_RELAYS] }),
-      getNip66Suggestions: () => [...DEFAULT_RELAYS],
+      getRelayConfig: () => {
+        const relays = getRelayUrls(getSimulation());
+        return { discovery: relays, super: relays, outbox: relays };
+      },
+      getNip66Suggestions: () => getRelayUrls(getSimulation()),
     },
     windowManager: { createWindow: () => null },
-    auth: { getUserPubkey: () => '', getSigner: () => null },
-    services: createDevServices(pool),
+    auth: {
+      getUserPubkey: () => getSimulation().identity.pubkey,
+      getSigner: () => (getSimulation().identity.mode === 'fixed' ? createDevSigner(getSimulation) : null),
+    },
+    services: createDevServices(pool, getSimulation, onThemeService),
+    capabilities: { disabledDomains: getSimulation().capabilities.disabledDomains },
     config: { getNappUpdateBehavior: () => 'auto-grant' },
     hotkeys: { executeHotkeyFromForward: () => {} },
     workerRelay: { getWorkerRelay: () => createWorkerRelay(workerRelayEvents) },
-    upload: { getUploader: () => ({ rails: ['dev-memory'] }) },
-    intent: { isAvailable: () => true },
+    upload: getSimulation().upload.mode === 'memory' ? { getUploader: () => ({ rails: [getSimulation().upload.rail] }) } : undefined,
+    intent: { isAvailable: () => getSimulation().intent.enabled },
     crypto: {
       verifyEvent: async () => true,
     },
@@ -420,7 +522,12 @@ function navigateFrame(bridge: ShellBridge, frame: HTMLIFrameElement, config: De
 function installDevRuntimeHost(): void {
   const config = readConfig();
   const frame = getFrame();
-  const adapter = createDevRuntimeAdapter(config);
+  let currentSimulation = config.simulation;
+  const getSimulation = () => currentSimulation;
+  let themeService: ReturnType<typeof createThemeService> | null = null;
+  const adapter = createDevRuntimeAdapter(config, getSimulation, (theme) => {
+    themeService = theme;
+  });
   const bridge = createShellBridge(adapter);
   const capabilities = buildShellCapabilities(adapter);
   const services = Object.keys(adapter.services ?? {}).sort();
@@ -431,6 +538,7 @@ function installDevRuntimeHost(): void {
     config,
     capabilities,
     services,
+    simulation: currentSimulation,
     generation: 0,
     status: 'booting',
     reload() {
@@ -444,6 +552,18 @@ function installDevRuntimeHost(): void {
       setStatus(this, 'reloading');
       currentWindowId = navigateFrame(bridge, frame, config, this.generation);
     },
+    setThemeMode(mode) {
+      currentSimulation = {
+        ...currentSimulation,
+        theme: {
+          ...currentSimulation.theme,
+          mode,
+        },
+      };
+      this.simulation = currentSimulation;
+      themeService?.publishTheme(createDevTheme(currentSimulation.theme.mode, currentSimulation.theme.values));
+      setSimulationStatus(this);
+    },
     getState() {
       return {
         generation: this.generation,
@@ -451,6 +571,7 @@ function installDevRuntimeHost(): void {
         iframeCount: document.querySelectorAll('iframe').length,
         initSent: initReceivedGeneration === this.generation,
         services,
+        simulation: currentSimulation,
       };
     },
   };
@@ -481,7 +602,16 @@ function installDevRuntimeHost(): void {
     state.reload();
   });
 
+  document.getElementById('simulation-theme')?.addEventListener('change', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLSelectElement)) return;
+    if (target.value === 'dark' || target.value === 'light') {
+      state.setThemeMode(target.value);
+    }
+  });
+
   setStatus(state, 'booting');
+  setSimulationStatus(state);
   currentWindowId = navigateFrame(bridge, frame, config, state.generation);
 }
 

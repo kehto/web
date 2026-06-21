@@ -19,6 +19,7 @@ describe('@kehto/dev-runtime server', () => {
       const config = JSON.parse(await fetchText(`${server.url}__kehto/config.json`)) as {
         target: { url: string; hmrStrategy: string };
         chrome: { topBar: boolean; bottomBar: boolean; sidePanels: boolean };
+        simulation: { relay: { mode: string }; theme: { mode: string } };
       };
       expect(config.target).toEqual({
         url: 'http://127.0.0.1:5173/',
@@ -28,6 +29,10 @@ describe('@kehto/dev-runtime server', () => {
         topBar: true,
         bottomBar: true,
         sidePanels: false,
+      });
+      expect(config.simulation).toMatchObject({
+        relay: { mode: 'memory' },
+        theme: { mode: 'dark' },
       });
     } finally {
       await server.close();

@@ -9,6 +9,7 @@ import {
   type DevRuntimeRawOptions,
 } from './options.js';
 import { renderDevRuntimeHtml } from './host-page.js';
+import { resolveDevRuntimeRawOptions } from './config-file.js';
 
 export interface DevRuntimeServerOptions {
   readonly options: DevRuntimeRawOptions;
@@ -22,7 +23,8 @@ export interface DevRuntimeServer {
 }
 
 export async function startDevRuntimeServer(input: DevRuntimeServerOptions): Promise<DevRuntimeServer> {
-  const options = normalizeDevRuntimeOptions(input.options);
+  const rawOptions = resolveDevRuntimeRawOptions(input.options);
+  const options = normalizeDevRuntimeOptions(rawOptions);
   let hostConfig = createDevRuntimeHostConfig(options, input.now);
   let html = renderDevRuntimeHtml(hostConfig);
   let configJson = JSON.stringify(hostConfig, null, 2);

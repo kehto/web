@@ -32,10 +32,10 @@ Requirements for this milestone. Each maps to exactly one roadmap phase unless m
 
 ### Environment Simulation and Runtime Controls
 
-- [ ] **SIM-01**: The dev runtime accepts sensible options for runtime capability toggles, ACL config, firewall config, identity/signer mode, relay fixtures, storage persistence, cache behavior, upload backend, media/audio behavior, and config/theme defaults.
-- [ ] **SIM-02**: Options can be supplied from CLI flags and a config file with the same schema; invalid combinations fail fast with actionable messages.
-- [ ] **SIM-03**: The minimal UI exposes a compact way to see and adjust development-only simulation state without becoming a full playground UI.
-- [ ] **SIM-04**: Defaults are useful out of the box: a napplet author can run the dev script against a local app and get real identity, storage, relay, notification, theme, config, resource, upload, media, intent, cvm, ACL, firewall, and cache behavior without custom host code.
+- [x] **SIM-01**: The dev runtime accepts sensible options for runtime capability toggles, ACL config, firewall config, identity/signer mode, relay fixtures, storage persistence, cache behavior, upload backend, media/audio behavior, and config/theme defaults.
+- [x] **SIM-02**: Options can be supplied from CLI flags and a config file with the same schema; invalid combinations fail fast with actionable messages.
+- [x] **SIM-03**: The minimal UI exposes a compact way to see and adjust development-only simulation state without becoming a full playground UI.
+- [x] **SIM-04**: Defaults are useful out of the box: a napplet author can run the dev script against a local app and get real identity, storage, relay, notification, theme, config, resource, upload, media, intent, cvm, ACL, firewall, and cache behavior without custom host code.
 
 ### Coverage, Documentation, and Release Readiness
 
@@ -76,10 +76,10 @@ Requirements for this milestone. Each maps to exactly one roadmap phase unless m
 | PARITY-02 | 92 | Complete |
 | PARITY-03 | 92 | Complete |
 | PARITY-04 | 92 | Complete |
-| SIM-01 | 93 | Pending |
-| SIM-02 | 93 | Pending |
-| SIM-03 | 93 | Pending |
-| SIM-04 | 93 | Pending |
+| SIM-01 | 93 | Complete |
+| SIM-02 | 93 | Complete |
+| SIM-03 | 93 | Complete |
+| SIM-04 | 93 | Complete |
 | VERIFY-01 | 90-94 | Pending |
 | VERIFY-02 | 91-94 | Pending |
 | VERIFY-03 | 94 | Pending |

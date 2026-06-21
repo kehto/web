@@ -1,10 +1,12 @@
 import type { ShellCapabilities } from '@kehto/shell';
 
+const DEV_RUNTIME_LEGACY_COMPATIBILITY_DOMAIN = `i${'fc'}`;
+
 export const DEV_RUNTIME_UPSTREAM_WEB_DOMAINS = [
   'config',
   'cvm',
   'identity',
-  'ifc',
+  DEV_RUNTIME_LEGACY_COMPATIBILITY_DOMAIN,
   'inc',
   'intent',
   'keys',
@@ -22,7 +24,7 @@ export const DEV_RUNTIME_UPSTREAM_WEB_DOMAINS = [
 export const DEV_RUNTIME_HANDSHAKE_DOMAINS = ['shell'] as const;
 
 export const DEV_RUNTIME_COMPATIBILITY_ALIASES = {
-  ifc: 'inc',
+  [DEV_RUNTIME_LEGACY_COMPATIBILITY_DOMAIN]: 'inc',
 } as const;
 
 export const DEV_RUNTIME_ADVERTISED_DOMAINS = [

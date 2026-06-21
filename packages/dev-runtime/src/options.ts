@@ -1,3 +1,9 @@
+import {
+  normalizeDevRuntimeSimulation,
+  type DevRuntimeSimulation,
+  type DevRuntimeSimulationRawOptions,
+} from './simulation.js';
+
 export type DevRuntimeCommand =
   | { readonly mode: 'argv'; readonly argv: readonly string[] }
   | { readonly mode: 'shell'; readonly command: string };
@@ -9,6 +15,7 @@ export interface DevRuntimeRawOptions {
   readonly port?: number | string;
   readonly readyTimeoutMs?: number | string;
   readonly configPath?: string;
+  readonly simulation?: DevRuntimeSimulationRawOptions;
 }
 
 export interface DevRuntimeOptions {
@@ -18,6 +25,7 @@ export interface DevRuntimeOptions {
   readonly port: number;
   readonly readyTimeoutMs: number;
   readonly configPath?: string;
+  readonly simulation: DevRuntimeSimulation;
   readonly mode: 'external-target' | 'managed-command';
 }
 
@@ -46,6 +54,7 @@ export interface DevRuntimeHostConfig {
     readonly bottomBar: true;
     readonly sidePanels: false;
   };
+  readonly simulation: DevRuntimeSimulation;
 }
 
 export class DevRuntimeOptionsError extends Error {
@@ -72,6 +81,7 @@ export function normalizeDevRuntimeOptions(raw: DevRuntimeRawOptions): DevRuntim
   );
   const command = normalizeCommand(raw.command);
   const configPath = raw.configPath?.trim();
+  const simulation = normalizeDevRuntimeSimulation(raw.simulation);
 
   return {
     targetUrl,
@@ -80,6 +90,7 @@ export function normalizeDevRuntimeOptions(raw: DevRuntimeRawOptions): DevRuntim
     port,
     readyTimeoutMs,
     configPath: configPath && configPath.length > 0 ? configPath : undefined,
+    simulation,
     mode: command ? 'managed-command' : 'external-target',
   };
 }
@@ -113,6 +124,7 @@ export function createDevRuntimeHostConfig(
       bottomBar: true,
       sidePanels: false,
     },
+    simulation: options.simulation,
   };
 }
 

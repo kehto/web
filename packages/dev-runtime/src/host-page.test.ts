@@ -13,6 +13,9 @@ describe('@kehto/dev-runtime host page', () => {
     expect(html).toContain('<iframe id="napplet-frame"');
     expect(html).toContain('sandbox="allow-scripts"');
     expect(html).toContain('data-target-url="http://127.0.0.1:5173/"');
+    expect(html).toContain('id="simulation-theme"');
+    expect(html).toContain('id="simulation-status"');
+    expect(html).toContain('identity:anon relay:1 storage:local theme:dark off:none');
     expect(html).not.toContain('src="http://127.0.0.1:5173/"');
     expect(html).toContain('src="/__kehto/browser-host.js"');
     expect(html).not.toContain('side-panel');
