@@ -64,6 +64,7 @@ export default defineConfig({
           { text: 'Register a Service', link: '/how-tos/register-service' },
           { text: 'Unsupported Requires', link: '/how-tos/unsupported-requires' },
           { text: 'Add a Reference Service', link: '/how-tos/add-reference-service' },
+          { text: 'Use Dev Runtime Locally', link: '/how-tos/dev-runtime-local-authoring' },
           { text: 'Debug postMessage', link: '/how-tos/debug-postmessage' },
           { text: 'Verify Gateway Artifact', link: '/how-tos/verify-gateway-artifact' },
           { text: 'Implement Artifact Cache', link: '/how-tos/implement-napplet-artifact-cache' },

@@ -94,6 +94,9 @@ The config-file form is the same raw option object:
 
 CLI flags override config-file values at the same nested paths.
 
+For package-manager script examples covering `pnpm`, `npm`, and `yarn`, see
+[Use the Dev Runtime for local napplet authoring](/how-tos/dev-runtime-local-authoring).
+
 ## Browser Host
 
 The served host page keeps the visible surface intentionally small: one top bar,
@@ -158,3 +161,4 @@ runtime theme service and survive the next iframe reload.
 ## API Reference
 
 - Generated module: <a href="../api/modules/_kehto_dev-runtime.html" target="_self"><code>docs/api/modules/_kehto_dev-runtime.html</code></a>
+- Local authoring how-to: [Use the Dev Runtime for local napplet authoring](/how-tos/dev-runtime-local-authoring)

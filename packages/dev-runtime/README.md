@@ -57,4 +57,5 @@ kehto-dev-runtime \
 ```
 
 Full package docs: [`docs/packages/dev-runtime.md`](../../docs/packages/dev-runtime.md).
+Local authoring how-to: [`docs/how-tos/dev-runtime-local-authoring.md`](../../docs/how-tos/dev-runtime-local-authoring.md).
 Generated API module: `docs/api/modules/_kehto_dev-runtime.html` (run `pnpm docs:api`).
