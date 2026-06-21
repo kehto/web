@@ -1,4 +1,4 @@
-# @kehto/dev-runtime
+# @kehto/paja
 
 Single-window development runtime for local napplet authoring.
 
@@ -7,7 +7,7 @@ The runtime is designed to be used from a napplet package script:
 ```json
 {
   "scripts": {
-    "dev": "kehto-dev-runtime --target-url http://127.0.0.1:5173 -- pnpm vite --host 127.0.0.1"
+    "dev": "kehto paja --target-url http://127.0.0.1:5173 -- pnpm vite --host 127.0.0.1"
   }
 }
 ```
@@ -29,7 +29,7 @@ upstream compatibility alias to `inc`.
 Environment simulation can be supplied through CLI flags or a JSON config file:
 
 ```bash
-kehto-dev-runtime \
+kehto paja \
   --target-url http://127.0.0.1:5173 \
   --identity-mode fixed \
   --identity-pubkey 4444444444444444444444444444444444444444444444444444444444444444 \
@@ -56,6 +56,6 @@ kehto-dev-runtime \
 }
 ```
 
-Full package docs: [`docs/packages/dev-runtime.md`](../../docs/packages/dev-runtime.md).
-Local authoring how-to: [`docs/how-tos/dev-runtime-local-authoring.md`](../../docs/how-tos/dev-runtime-local-authoring.md).
-Generated API module: `docs/api/modules/_kehto_dev-runtime.html` (run `pnpm docs:api`).
+Full package docs: [`docs/packages/paja.md`](../../docs/packages/paja.md).
+Local authoring how-to: [`docs/how-tos/paja-local-authoring.md`](../../docs/how-tos/paja-local-authoring.md).
+Generated API module: `docs/api/modules/_kehto_paja.html` (run `pnpm docs:api`).

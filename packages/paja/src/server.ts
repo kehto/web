@@ -1,32 +1,32 @@
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import {
-  createDevRuntimeHostConfig,
-  formatDevRuntimeUrl,
-  normalizeDevRuntimeOptions,
-  type DevRuntimeHostConfig,
-  type DevRuntimeOptions,
-  type DevRuntimeRawOptions,
+  createPajaHostConfig,
+  formatPajaUrl,
+  normalizePajaOptions,
+  type PajaHostConfig,
+  type PajaOptions,
+  type PajaRawOptions,
 } from './options.js';
-import { renderDevRuntimeHtml } from './host-page.js';
-import { resolveDevRuntimeRawOptions } from './config-file.js';
+import { renderPajaHtml } from './host-page.js';
+import { resolvePajaRawOptions } from './config-file.js';
 
-export interface DevRuntimeServerOptions {
-  readonly options: DevRuntimeRawOptions;
+export interface PajaServerOptions {
+  readonly options: PajaRawOptions;
   readonly now?: Date;
 }
 
-export interface DevRuntimeServer {
+export interface PajaServer {
   readonly url: string;
-  readonly hostConfig: DevRuntimeHostConfig;
+  readonly hostConfig: PajaHostConfig;
   close(): Promise<void>;
 }
 
-export async function startDevRuntimeServer(input: DevRuntimeServerOptions): Promise<DevRuntimeServer> {
-  const rawOptions = resolveDevRuntimeRawOptions(input.options);
-  const options = normalizeDevRuntimeOptions(rawOptions);
-  let hostConfig = createDevRuntimeHostConfig(options, input.now);
-  let html = renderDevRuntimeHtml(hostConfig);
+export async function startPajaServer(input: PajaServerOptions): Promise<PajaServer> {
+  const rawOptions = resolvePajaRawOptions(input.options);
+  const options = normalizePajaOptions(rawOptions);
+  let hostConfig = createPajaHostConfig(options, input.now);
+  let html = renderPajaHtml(hostConfig);
   let configJson = JSON.stringify(hostConfig, null, 2);
 
   const server = createServer((request, response) => {
@@ -57,12 +57,12 @@ export async function startDevRuntimeServer(input: DevRuntimeServerOptions): Pro
 
   await listen(server, options.host, options.port);
   const servedOptions = withBoundPort(options, getBoundPort(server, options.port));
-  hostConfig = createDevRuntimeHostConfig(servedOptions, input.now);
-  html = renderDevRuntimeHtml(hostConfig);
+  hostConfig = createPajaHostConfig(servedOptions, input.now);
+  html = renderPajaHtml(hostConfig);
   configJson = JSON.stringify(hostConfig, null, 2);
 
   return {
-    url: formatDevRuntimeUrl(servedOptions),
+    url: formatPajaUrl(servedOptions),
     hostConfig,
     close: () => close(server),
   };
@@ -107,6 +107,6 @@ function getBoundPort(server: HttpServer, fallback: number): number {
   return typeof address === 'object' && address !== null ? address.port : fallback;
 }
 
-function withBoundPort(options: DevRuntimeOptions, port: number): DevRuntimeOptions {
+function withBoundPort(options: PajaOptions, port: number): PajaOptions {
   return port === options.port ? options : { ...options, port };
 }

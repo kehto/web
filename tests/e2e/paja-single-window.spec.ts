@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { expect, test } from '@playwright/test';
-import { startDevRuntimeServer, type DevRuntimeServer } from '../../packages/dev-runtime/dist/index.js';
+import { startPajaServer, type PajaServer } from '../../packages/paja/dist/index.js';
 
 interface TargetServer {
   readonly url: string;
@@ -8,11 +8,11 @@ interface TargetServer {
 }
 
 let targetServer: TargetServer;
-let runtimeServer: DevRuntimeServer;
+let runtimeServer: PajaServer;
 
 test.beforeAll(async () => {
   targetServer = await startTargetServer();
-  runtimeServer = await startDevRuntimeServer({
+  runtimeServer = await startPajaServer({
     options: {
       targetUrl: targetServer.url,
       port: 0,
@@ -61,7 +61,7 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   await expect(targetFrame.locator('#target-status')).toHaveText('shell-init received');
   await expect(page.locator('#lifecycle-status')).toHaveText('ready');
 
-  const state = await page.evaluate(() => window.__KEHTO_DEV_RUNTIME__?.getState());
+  const state = await page.evaluate(() => window.__KEHTO_PAJA__?.getState());
   expect(state).toMatchObject({
     generation: 1,
     status: 'ready',
@@ -86,7 +86,7 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
 
 test('applies simulation config and compact theme adjustment', async ({ page }) => {
   const pubkey = '4'.repeat(64);
-  const customRuntime = await startDevRuntimeServer({
+  const customRuntime = await startPajaServer({
     options: {
       targetUrl: targetServer.url,
       port: 0,
@@ -173,7 +173,7 @@ function renderTargetHtml(loadCount: number): string {
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Kehto dev-runtime fixture</title>
+    <title>Kehto Paja fixture</title>
   </head>
   <body>
     <div id="target-status">booting</div>
@@ -202,15 +202,15 @@ function renderTargetHtml(loadCount: number): string {
         }
       }
       function sendServiceTraffic() {
-        const bytes = new TextEncoder().encode('kehto-dev-runtime').buffer;
+        const bytes = new TextEncoder().encode('kehto-paja').buffer;
         const messages = [
           { type: 'storage.set', id: 'storage-1', key: 'phase', value: '92' },
           { type: 'config.get', id: 'config-1' },
           { type: 'theme.get', id: 'theme-1' },
           { type: 'notify.send', id: 'notify-1', title: 'hello from fixture' },
           { type: 'identity.getPublicKey', id: 'identity-1' },
-          { type: 'upload.upload', id: 'upload-1', request: { data: bytes, mimeType: 'text/plain', filename: 'dev-runtime.txt' } },
-          { type: 'intent.available', id: 'intent-1', archetype: 'dev-runtime-target' },
+          { type: 'upload.upload', id: 'upload-1', request: { data: bytes, mimeType: 'text/plain', filename: 'paja.txt' } },
+          { type: 'intent.available', id: 'intent-1', archetype: 'paja-target' },
           { type: 'cvm.discover', id: 'cvm-1' },
         ];
         for (const message of messages) window.parent.postMessage(message, '*');

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { parseDevRuntimeArgs, runDevRuntimeCli } from './cli.js';
+import { parsePajaArgs, runPajaCli } from './cli.js';
 
-describe('@kehto/dev-runtime CLI', () => {
+describe('@kehto/paja CLI', () => {
   it('parses target URL and argv command separator', () => {
-    const parsed = parseDevRuntimeArgs([
+    const parsed = parsePajaArgs([
       '--target-url',
       'http://127.0.0.1:5173',
       '--port',
@@ -30,7 +30,7 @@ describe('@kehto/dev-runtime CLI', () => {
 
   it('parses simulation flags into the shared raw option schema', () => {
     const pubkey = '2'.repeat(64);
-    const parsed = parseDevRuntimeArgs([
+    const parsed = parsePajaArgs([
       '--target-url',
       'http://127.0.0.1:5173',
       '--identity-mode',
@@ -69,7 +69,7 @@ describe('@kehto/dev-runtime CLI', () => {
 
   it('prints help without requiring target URL', async () => {
     const stdout: string[] = [];
-    const code = await runDevRuntimeCli(['--help'], {
+    const code = await runPajaCli(['--help'], {
       stdout: { write: (chunk) => stdout.push(chunk) },
       stderr: { write: () => undefined },
     }, { serve: false });
@@ -80,7 +80,7 @@ describe('@kehto/dev-runtime CLI', () => {
 
   it('returns a non-zero code with a clear error for invalid input', async () => {
     const stderr: string[] = [];
-    const code = await runDevRuntimeCli(['--target-url', 'notaurl'], {
+    const code = await runPajaCli(['--target-url', 'notaurl'], {
       stdout: { write: () => undefined },
       stderr: { write: (chunk) => stderr.push(chunk) },
     }, { serve: false });
@@ -91,7 +91,7 @@ describe('@kehto/dev-runtime CLI', () => {
 
   it('prints the normalized runtime summary for valid input', async () => {
     const stdout: string[] = [];
-    const code = await runDevRuntimeCli([
+    const code = await runPajaCli([
       '--target-url',
       'http://127.0.0.1:5173',
       '--command',

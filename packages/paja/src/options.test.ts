@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DevRuntimeOptionsError,
-  createDevRuntimeHostConfig,
-  formatDevRuntimeUrl,
-  normalizeDevRuntimeOptions,
+  PajaOptionsError,
+  createPajaHostConfig,
+  formatPajaUrl,
+  normalizePajaOptions,
 } from './index.js';
 
-describe('@kehto/dev-runtime options', () => {
+describe('@kehto/paja options', () => {
   it('normalizes external target URL mode', () => {
-    const options = normalizeDevRuntimeOptions({
+    const options = normalizePajaOptions({
       targetUrl: 'http://127.0.0.1:5173',
     });
 
@@ -25,11 +25,11 @@ describe('@kehto/dev-runtime options', () => {
         theme: { mode: 'dark' },
       },
     });
-    expect(formatDevRuntimeUrl(options)).toBe('http://127.0.0.1:5197/');
+    expect(formatPajaUrl(options)).toBe('http://127.0.0.1:5197/');
   });
 
   it('preserves arbitrary command argv without framework-specific parsing', () => {
-    const options = normalizeDevRuntimeOptions({
+    const options = normalizePajaOptions({
       targetUrl: 'http://localhost:4321/app/',
       command: { mode: 'argv', argv: ['pnpm', 'astro', 'dev', '--host', '127.0.0.1'] },
       port: '5200',
@@ -44,32 +44,32 @@ describe('@kehto/dev-runtime options', () => {
   });
 
   it('rejects missing target URL even when a command is provided', () => {
-    expect(() => normalizeDevRuntimeOptions({
+    expect(() => normalizePajaOptions({
       command: { mode: 'shell', command: 'pnpm vite' },
     })).toThrow(/Missing --target-url/);
   });
 
   it('rejects invalid URL protocols and invalid ports', () => {
-    expect(() => normalizeDevRuntimeOptions({ targetUrl: 'file:///tmp/index.html' }))
-      .toThrow(DevRuntimeOptionsError);
-    expect(() => normalizeDevRuntimeOptions({ targetUrl: 'http://127.0.0.1:5173', port: '70000' }))
+    expect(() => normalizePajaOptions({ targetUrl: 'file:///tmp/index.html' }))
+      .toThrow(PajaOptionsError);
+    expect(() => normalizePajaOptions({ targetUrl: 'http://127.0.0.1:5173', port: '70000' }))
       .toThrow(/Invalid --port/);
   });
 
   it('creates framework-agnostic host config with minimal chrome defaults', () => {
-    const options = normalizeDevRuntimeOptions({
+    const options = normalizePajaOptions({
       targetUrl: 'https://example.test/napplet',
       readyTimeoutMs: '1000',
       configPath: 'kehto.dev.json',
     });
-    const hostConfig = createDevRuntimeHostConfig(options, new Date('2026-06-21T00:00:00.000Z'));
+    const hostConfig = createPajaHostConfig(options, new Date('2026-06-21T00:00:00.000Z'));
 
     expect(hostConfig).toMatchObject({
       version: 1,
       window: {
-        id: 'kehto-dev-runtime-window',
+        id: 'kehto-paja-window',
         dTag: 'dev-target',
-        aggregateHash: 'dev-runtime',
+        aggregateHash: 'paja',
       },
       target: {
         url: 'https://example.test/napplet',
@@ -99,7 +99,7 @@ describe('@kehto/dev-runtime options', () => {
 
   it('normalizes fixed identity and disabled capability modes', () => {
     const pubkey = '1'.repeat(64);
-    const options = normalizeDevRuntimeOptions({
+    const options = normalizePajaOptions({
       targetUrl: 'http://127.0.0.1:5173',
       simulation: {
         capabilities: { domains: { relay: false, upload: false, intent: false } },
@@ -120,7 +120,7 @@ describe('@kehto/dev-runtime options', () => {
   });
 
   it('rejects invalid fixed identity config before serving', () => {
-    expect(() => normalizeDevRuntimeOptions({
+    expect(() => normalizePajaOptions({
       targetUrl: 'http://127.0.0.1:5173',
       simulation: { identity: { mode: 'fixed', pubkey: 'short' } },
     })).toThrow(/identity.pubkey/);

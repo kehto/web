@@ -1,35 +1,35 @@
 import {
-  normalizeDevRuntimeSimulation,
-  type DevRuntimeSimulation,
-  type DevRuntimeSimulationRawOptions,
+  normalizePajaSimulation,
+  type PajaSimulation,
+  type PajaSimulationRawOptions,
 } from './simulation.js';
 
-export type DevRuntimeCommand =
+export type PajaCommand =
   | { readonly mode: 'argv'; readonly argv: readonly string[] }
   | { readonly mode: 'shell'; readonly command: string };
 
-export interface DevRuntimeRawOptions {
+export interface PajaRawOptions {
   readonly targetUrl?: string;
-  readonly command?: DevRuntimeCommand;
+  readonly command?: PajaCommand;
   readonly host?: string;
   readonly port?: number | string;
   readonly readyTimeoutMs?: number | string;
   readonly configPath?: string;
-  readonly simulation?: DevRuntimeSimulationRawOptions;
+  readonly simulation?: PajaSimulationRawOptions;
 }
 
-export interface DevRuntimeOptions {
+export interface PajaOptions {
   readonly targetUrl: string;
-  readonly command?: DevRuntimeCommand;
+  readonly command?: PajaCommand;
   readonly host: string;
   readonly port: number;
   readonly readyTimeoutMs: number;
   readonly configPath?: string;
-  readonly simulation: DevRuntimeSimulation;
+  readonly simulation: PajaSimulation;
   readonly mode: 'external-target' | 'managed-command';
 }
 
-export interface DevRuntimeHostConfig {
+export interface PajaHostConfig {
   readonly version: 1;
   readonly window: {
     readonly id: string;
@@ -39,7 +39,7 @@ export interface DevRuntimeHostConfig {
   readonly target: {
     readonly url: string;
     readonly hmrStrategy: 'iframe-target-url';
-    readonly command?: DevRuntimeCommand;
+    readonly command?: PajaCommand;
   };
   readonly runtime: {
     readonly host: string;
@@ -54,24 +54,24 @@ export interface DevRuntimeHostConfig {
     readonly bottomBar: true;
     readonly sidePanels: false;
   };
-  readonly simulation: DevRuntimeSimulation;
+  readonly simulation: PajaSimulation;
 }
 
-export class DevRuntimeOptionsError extends Error {
+export class PajaOptionsError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'DevRuntimeOptionsError';
+    this.name = 'PajaOptionsError';
   }
 }
 
-export const DEFAULT_DEV_RUNTIME_HOST = '127.0.0.1';
-export const DEFAULT_DEV_RUNTIME_PORT = 5197;
+export const DEFAULT_PAJA_HOST = '127.0.0.1';
+export const DEFAULT_PAJA_PORT = 5197;
 export const DEFAULT_READY_TIMEOUT_MS = 30_000;
-export const DEFAULT_DEV_RUNTIME_WINDOW_ID = 'kehto-dev-runtime-window';
-export const DEFAULT_DEV_RUNTIME_DTAG = 'dev-target';
-export const DEFAULT_DEV_RUNTIME_AGGREGATE_HASH = 'dev-runtime';
+export const DEFAULT_PAJA_WINDOW_ID = 'kehto-paja-window';
+export const DEFAULT_PAJA_DTAG = 'dev-target';
+export const DEFAULT_PAJA_AGGREGATE_HASH = 'paja';
 
-export function normalizeDevRuntimeOptions(raw: DevRuntimeRawOptions): DevRuntimeOptions {
+export function normalizePajaOptions(raw: PajaRawOptions): PajaOptions {
   const targetUrl = normalizeTargetUrl(raw.targetUrl);
   const host = normalizeHost(raw.host);
   const port = normalizePort(raw.port, 'port');
@@ -81,7 +81,7 @@ export function normalizeDevRuntimeOptions(raw: DevRuntimeRawOptions): DevRuntim
   );
   const command = normalizeCommand(raw.command);
   const configPath = raw.configPath?.trim();
-  const simulation = normalizeDevRuntimeSimulation(raw.simulation);
+  const simulation = normalizePajaSimulation(raw.simulation);
 
   return {
     targetUrl,
@@ -95,16 +95,16 @@ export function normalizeDevRuntimeOptions(raw: DevRuntimeRawOptions): DevRuntim
   };
 }
 
-export function createDevRuntimeHostConfig(
-  options: DevRuntimeOptions,
+export function createPajaHostConfig(
+  options: PajaOptions,
   now: Date = new Date(),
-): DevRuntimeHostConfig {
+): PajaHostConfig {
   return {
     version: 1,
     window: {
-      id: DEFAULT_DEV_RUNTIME_WINDOW_ID,
-      dTag: DEFAULT_DEV_RUNTIME_DTAG,
-      aggregateHash: DEFAULT_DEV_RUNTIME_AGGREGATE_HASH,
+      id: DEFAULT_PAJA_WINDOW_ID,
+      dTag: DEFAULT_PAJA_DTAG,
+      aggregateHash: DEFAULT_PAJA_AGGREGATE_HASH,
     },
     target: {
       url: options.targetUrl,
@@ -128,40 +128,40 @@ export function createDevRuntimeHostConfig(
   };
 }
 
-export function formatDevRuntimeUrl(options: Pick<DevRuntimeOptions, 'host' | 'port'>): string {
+export function formatPajaUrl(options: Pick<PajaOptions, 'host' | 'port'>): string {
   return `http://${options.host}:${options.port}/`;
 }
 
 function normalizeTargetUrl(value: string | undefined): string {
   const raw = value?.trim();
   if (!raw) {
-    throw new DevRuntimeOptionsError('Missing --target-url. Provide the napplet app URL that the iframe should load.');
+    throw new PajaOptionsError('Missing --target-url. Provide the napplet app URL that the iframe should load.');
   }
 
   let parsed: URL;
   try {
     parsed = new URL(raw);
   } catch {
-    throw new DevRuntimeOptionsError(`Invalid --target-url "${raw}". Expected an absolute http(s) URL.`);
+    throw new PajaOptionsError(`Invalid --target-url "${raw}". Expected an absolute http(s) URL.`);
   }
 
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    throw new DevRuntimeOptionsError(`Invalid --target-url "${raw}". Only http: and https: URLs are supported.`);
+    throw new PajaOptionsError(`Invalid --target-url "${raw}". Only http: and https: URLs are supported.`);
   }
 
   return parsed.href;
 }
 
 function normalizeHost(value: string | undefined): string {
-  const host = value?.trim() || DEFAULT_DEV_RUNTIME_HOST;
+  const host = value?.trim() || DEFAULT_PAJA_HOST;
   if (host.length === 0 || host.includes('/')) {
-    throw new DevRuntimeOptionsError(`Invalid --host "${value ?? ''}". Provide a hostname or IP address.`);
+    throw new PajaOptionsError(`Invalid --host "${value ?? ''}". Provide a hostname or IP address.`);
   }
   return host;
 }
 
 function normalizePort(value: number | string | undefined, label: string): number {
-  return normalizeIntegerInRange(value ?? DEFAULT_DEV_RUNTIME_PORT, label, 0, 65_535);
+  return normalizeIntegerInRange(value ?? DEFAULT_PAJA_PORT, label, 0, 65_535);
 }
 
 function normalizePositiveInteger(value: number | string, label: string, max = Number.MAX_SAFE_INTEGER): number {
@@ -171,25 +171,25 @@ function normalizePositiveInteger(value: number | string, label: string, max = N
 function normalizeIntegerInRange(value: number | string, label: string, min: number, max: number): number {
   const parsed = typeof value === 'number' ? value : Number(value);
   if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
-    throw new DevRuntimeOptionsError(`Invalid --${label} "${String(value)}". Expected an integer from ${min} to ${max}.`);
+    throw new PajaOptionsError(`Invalid --${label} "${String(value)}". Expected an integer from ${min} to ${max}.`);
   }
   return parsed;
 }
 
-function normalizeCommand(command: DevRuntimeCommand | undefined): DevRuntimeCommand | undefined {
+function normalizeCommand(command: PajaCommand | undefined): PajaCommand | undefined {
   if (!command) return undefined;
 
   if (command.mode === 'argv') {
     const argv = command.argv.map((part) => part.trim()).filter((part) => part.length > 0);
     if (argv.length === 0) {
-      throw new DevRuntimeOptionsError('Command mode requires at least one command argument after --.');
+      throw new PajaOptionsError('Command mode requires at least one command argument after --.');
     }
     return { mode: 'argv', argv };
   }
 
   const shellCommand = command.command.trim();
   if (shellCommand.length === 0) {
-    throw new DevRuntimeOptionsError('--command requires a non-empty command string.');
+    throw new PajaOptionsError('--command requires a non-empty command string.');
   }
   return { mode: 'shell', command: shellCommand };
 }

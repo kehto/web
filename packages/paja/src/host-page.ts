@@ -1,7 +1,7 @@
-import type { DevRuntimeHostConfig } from './options.js';
-import { summarizeDevRuntimeSimulation } from './simulation.js';
+import type { PajaHostConfig } from './options.js';
+import { summarizePajaSimulation } from './simulation.js';
 
-export function renderDevRuntimeHtml(config: DevRuntimeHostConfig): string {
+export function renderPajaHtml(config: PajaHostConfig): string {
   const configJson = escapeJsonForHtml(JSON.stringify(config));
   const targetUrl = escapeAttribute(config.target.url);
 
@@ -10,7 +10,7 @@ export function renderDevRuntimeHtml(config: DevRuntimeHostConfig): string {
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Kehto Dev Runtime</title>
+    <title>Kehto Paja</title>
     <style>
       :root {
         color-scheme: dark;
@@ -58,10 +58,10 @@ export function renderDevRuntimeHtml(config: DevRuntimeHostConfig): string {
       <span>mode: <code>${config.target.command ? 'managed-command' : 'external-target'}</code></span>
       <span>hmr: <code>${config.target.hmrStrategy}</code></span>
       <span>runtime: <code>${escapeHtml(config.runtime.host)}:${config.runtime.port}</code></span>
-      <span>sim: <code id="simulation-status">${escapeHtml(summarizeDevRuntimeSimulation(config.simulation))}</code></span>
+      <span>sim: <code id="simulation-status">${escapeHtml(summarizePajaSimulation(config.simulation))}</code></span>
       <span>state: <code id="lifecycle-status">booting</code></span>
     </footer>
-    <script type="application/json" id="kehto-dev-runtime-config">${configJson}</script>
+    <script type="application/json" id="kehto-paja-config">${configJson}</script>
     <script type="module" src="/__kehto/browser-host.js"></script>
   </body>
 </html>`;

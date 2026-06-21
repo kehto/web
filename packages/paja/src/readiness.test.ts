@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ReadinessError, waitForTargetUrl, type ReadinessFetch } from './readiness.js';
 
-describe('@kehto/dev-runtime readiness', () => {
+describe('@kehto/paja readiness', () => {
   it('returns when the target URL responds below 500', async () => {
     const calls: string[] = [];
     const fetcher: ReadinessFetch = async (url) => {

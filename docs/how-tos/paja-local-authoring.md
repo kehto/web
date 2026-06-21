@@ -1,19 +1,19 @@
-# Use the Dev Runtime for Local Napplet Authoring
+# Use Paja for Local Napplet Authoring
 
-Use `@kehto/dev-runtime` when you want a local napplet app to run inside a real
-Kehto iframe while keeping the app dev server's own HMR.
+Use `@kehto/cli` when you want a local napplet app to run inside Paja, the real
+Kehto iframe authoring workshop, while keeping the app dev server's own HMR.
 
 ## Install
 
 ```bash
-pnpm add -D @kehto/dev-runtime
+pnpm add -D @kehto/cli
 ```
 
 Use the matching package-manager command in npm or Yarn projects:
 
 ```bash
-npm install --save-dev @kehto/dev-runtime
-yarn add --dev @kehto/dev-runtime
+npm install --save-dev @kehto/cli
+yarn add --dev @kehto/cli
 ```
 
 ## Add a Dev Script
@@ -26,7 +26,7 @@ stays explicit so Kehto does not guess framework ports.
 ```json
 {
   "scripts": {
-    "dev": "kehto-dev-runtime --target-url http://127.0.0.1:5173 -- pnpm vite --host 127.0.0.1"
+    "dev": "kehto paja --target-url http://127.0.0.1:5173 -- pnpm vite --host 127.0.0.1"
   }
 }
 ```
@@ -36,7 +36,7 @@ stays explicit so Kehto does not guess framework ports.
 ```json
 {
   "scripts": {
-    "dev": "kehto-dev-runtime --target-url http://127.0.0.1:5173 -- npm run dev:app -- --host 127.0.0.1",
+    "dev": "kehto paja --target-url http://127.0.0.1:5173 -- npm run dev:app -- --host 127.0.0.1",
     "dev:app": "vite"
   }
 }
@@ -47,7 +47,7 @@ stays explicit so Kehto does not guess framework ports.
 ```json
 {
   "scripts": {
-    "dev": "kehto-dev-runtime --target-url http://127.0.0.1:5173 -- yarn dev:app --host 127.0.0.1",
+    "dev": "kehto paja --target-url http://127.0.0.1:5173 -- yarn dev:app --host 127.0.0.1",
     "dev:app": "vite"
   }
 }
@@ -68,7 +68,7 @@ reload button reinitializes the Kehto shell state around the same target URL.
 If another process already serves the app, omit the command:
 
 ```bash
-kehto-dev-runtime --target-url http://127.0.0.1:5173
+kehto paja --target-url http://127.0.0.1:5173
 ```
 
 ## Add Simulation Config
@@ -103,14 +103,14 @@ Create `kehto.dev.json`:
 Then run:
 
 ```bash
-kehto-dev-runtime --config kehto.dev.json
+kehto paja --config kehto.dev.json
 ```
 
 CLI flags override the matching config-file fields, so a script can keep common
 defaults in `kehto.dev.json` and still switch one mode for a test:
 
 ```bash
-kehto-dev-runtime --config kehto.dev.json --theme dark
+kehto paja --config kehto.dev.json --theme dark
 ```
 
 ## Verify the Runtime Surface
@@ -121,4 +121,4 @@ Inside the target iframe, `shell.ready` receives `shell.init` through
 and reference services.
 
 The package API reference is generated at
-[docs/api/modules/_kehto_dev-runtime.html](../api/modules/_kehto_dev-runtime.html).
+[docs/api/modules/_kehto_paja.html](../api/modules/_kehto_paja.html).

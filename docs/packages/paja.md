@@ -1,25 +1,28 @@
-# @kehto/dev-runtime
+# @kehto/paja
 
-Single-window development runtime for local napplet authoring.
+Single-window Paja local authoring workshop for napplet development.
 
 > **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
-> protocol. The development runtime API and CLI are new in v1.22 planning work
-> and are not yet a stability guarantee for final NAP contracts.
+> protocol. The Paja API is new in v1.22 planning work
+> and is not yet a stability guarantee for final NAP contracts.
 
 ## Install
 
 ```bash
-pnpm add -D @kehto/dev-runtime
+pnpm add @kehto/paja
 ```
+
+Install `@kehto/cli` instead when you only need the `kehto paja` command in an
+app package's development scripts.
 
 ## Manifest Facts
 
 | Field | Value |
 |-------|-------|
-| Source | `packages/dev-runtime/package.json`, `packages/dev-runtime/src/index.ts` |
+| Source | `packages/paja/package.json`, `packages/paja/src/index.ts` |
 | Version | `0.1.0` |
 | Runtime entry | `./dist/index.js` |
-| CLI entry | `./dist/cli.js` |
+| CLI runner entry | `./dist/cli.js` |
 | Types entry | `./dist/index.d.ts` |
 | Dependencies | `@kehto/acl`, `@kehto/firewall`, `@kehto/nip`, `@kehto/runtime`, `@kehto/services`, `@kehto/shell`, `@kehto/wm` |
 | Side effects | `false` |
@@ -36,20 +39,20 @@ pnpm add -D @kehto/dev-runtime
 
 | Area | Exports |
 |------|---------|
-| Options | `normalizeDevRuntimeOptions`, `DevRuntimeOptions`, `DevRuntimeRawOptions`, `DevRuntimeCommand`, `DevRuntimeOptionsError` |
-| Simulation | `normalizeDevRuntimeSimulation`, `summarizeDevRuntimeSimulation`, `DevRuntimeSimulation`, `DevRuntimeSimulationRawOptions`, `DEV_RUNTIME_SIMULATION_DOMAINS` |
-| Config files | `loadDevRuntimeConfigFile`, `mergeDevRuntimeRawOptions`, `resolveDevRuntimeRawOptions` |
-| Host config | `createDevRuntimeHostConfig`, `DevRuntimeHostConfig`, `formatDevRuntimeUrl` |
-| Host page | `renderDevRuntimeHtml`, bundled `/__kehto/browser-host.js` runtime bootstrap |
-| Parity metadata | `DEV_RUNTIME_UPSTREAM_WEB_DOMAINS`, `DEV_RUNTIME_ADVERTISED_DOMAINS`, `DEV_RUNTIME_HANDSHAKE_DOMAINS`, `DEV_RUNTIME_COMPATIBILITY_ALIASES`, `DEV_RUNTIME_REQUIRED_SERVICES`, `getMissingAdvertisedDomains`, `getMissingServices` |
+| Options | `normalizePajaOptions`, `PajaOptions`, `PajaRawOptions`, `PajaCommand`, `PajaOptionsError` |
+| Simulation | `normalizePajaSimulation`, `summarizePajaSimulation`, `PajaSimulation`, `PajaSimulationRawOptions`, `PAJA_SIMULATION_DOMAINS` |
+| Config files | `loadPajaConfigFile`, `mergePajaRawOptions`, `resolvePajaRawOptions` |
+| Host config | `createPajaHostConfig`, `PajaHostConfig`, `formatPajaUrl` |
+| Host page | `renderPajaHtml`, bundled `/__kehto/browser-host.js` runtime bootstrap |
+| Parity metadata | `PAJA_UPSTREAM_WEB_DOMAINS`, `PAJA_ADVERTISED_DOMAINS`, `PAJA_HANDSHAKE_DOMAINS`, `PAJA_COMPATIBILITY_ALIASES`, `PAJA_REQUIRED_SERVICES`, `getMissingAdvertisedDomains`, `getMissingServices` |
 | Readiness | `waitForTargetUrl`, `ReadinessError`, `WaitForTargetUrlOptions`, `ReadinessFetch` |
-| Server | `startDevRuntimeServer`, `DevRuntimeServer`, `DevRuntimeServerOptions` |
-| Defaults | `DEFAULT_DEV_RUNTIME_HOST`, `DEFAULT_DEV_RUNTIME_PORT`, `DEFAULT_READY_TIMEOUT_MS` |
+| Server | `startPajaServer`, `PajaServer`, `PajaServerOptions` |
+| Defaults | `DEFAULT_PAJA_HOST`, `DEFAULT_PAJA_PORT`, `DEFAULT_READY_TIMEOUT_MS` |
 
 ## CLI
 
 ```bash
-kehto-dev-runtime --target-url http://127.0.0.1:5173 -- pnpm vite --host 127.0.0.1
+kehto paja --target-url http://127.0.0.1:5173 -- pnpm vite --host 127.0.0.1
 ```
 
 The target URL is explicit. Managed-command mode may start any framework dev
@@ -59,7 +62,7 @@ or framework.
 Simulation flags use the same schema as config files. Common flags:
 
 ```bash
-kehto-dev-runtime \
+kehto paja \
   --target-url http://127.0.0.1:5173 \
   --identity-mode fixed \
   --identity-pubkey 4444444444444444444444444444444444444444444444444444444444444444 \
@@ -95,7 +98,7 @@ The config-file form is the same raw option object:
 CLI flags override config-file values at the same nested paths.
 
 For package-manager script examples covering `pnpm`, `npm`, and `yarn`, see
-[Use the Dev Runtime for local napplet authoring](/how-tos/dev-runtime-local-authoring).
+[Use Paja for local napplet authoring](/how-tos/paja-local-authoring).
 
 ## Browser Host
 
@@ -110,7 +113,7 @@ generation-specific internal window id so the same iframe can receive a fresh
 
 ## NAP and Service Parity
 
-The dev runtime advertises the web NAP domains that can be reached through the
+Paja advertises the web NAP domains that can be reached through the
 current Kehto runtime and deterministic development adapters:
 
 `relay`, `outbox`, `identity`, `storage`, `inc`, `theme`, `keys`, `media`,
@@ -143,8 +146,8 @@ The normalized simulation object controls:
 
 The visible host stays compact. The top bar includes a theme selector and reload
 button; the bottom bar summarizes active simulation state, HMR strategy, runtime
-address, and lifecycle status. Theme changes apply immediately to the dev
-runtime theme service and survive the next iframe reload.
+address, and lifecycle status. Theme changes apply immediately to the Paja theme
+service and survive the next iframe reload.
 
 ## Scope Boundaries
 
@@ -160,5 +163,5 @@ runtime theme service and survive the next iframe reload.
 
 ## API Reference
 
-- Generated module: <a href="../api/modules/_kehto_dev-runtime.html" target="_self"><code>docs/api/modules/_kehto_dev-runtime.html</code></a>
-- Local authoring how-to: [Use the Dev Runtime for local napplet authoring](/how-tos/dev-runtime-local-authoring)
+- Generated module: <a href="../api/modules/_kehto_paja.html" target="_self"><code>docs/api/modules/_kehto_paja.html</code></a>
+- Local authoring how-to: [Use Paja for local napplet authoring](/how-tos/paja-local-authoring)

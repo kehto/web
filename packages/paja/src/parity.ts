@@ -1,12 +1,12 @@
 import type { ShellCapabilities } from '@kehto/shell';
 
-const DEV_RUNTIME_LEGACY_COMPATIBILITY_DOMAIN = `i${'fc'}`;
+const PAJA_LEGACY_COMPATIBILITY_DOMAIN = `i${'fc'}`;
 
-export const DEV_RUNTIME_UPSTREAM_WEB_DOMAINS = [
+export const PAJA_UPSTREAM_WEB_DOMAINS = [
   'config',
   'cvm',
   'identity',
-  DEV_RUNTIME_LEGACY_COMPATIBILITY_DOMAIN,
+  PAJA_LEGACY_COMPATIBILITY_DOMAIN,
   'inc',
   'intent',
   'keys',
@@ -21,13 +21,13 @@ export const DEV_RUNTIME_UPSTREAM_WEB_DOMAINS = [
   'upload',
 ] as const;
 
-export const DEV_RUNTIME_HANDSHAKE_DOMAINS = ['shell'] as const;
+export const PAJA_HANDSHAKE_DOMAINS = ['shell'] as const;
 
-export const DEV_RUNTIME_COMPATIBILITY_ALIASES = {
-  [DEV_RUNTIME_LEGACY_COMPATIBILITY_DOMAIN]: 'inc',
+export const PAJA_COMPATIBILITY_ALIASES = {
+  [PAJA_LEGACY_COMPATIBILITY_DOMAIN]: 'inc',
 } as const;
 
-export const DEV_RUNTIME_ADVERTISED_DOMAINS = [
+export const PAJA_ADVERTISED_DOMAINS = [
   'relay',
   'outbox',
   'identity',
@@ -44,7 +44,7 @@ export const DEV_RUNTIME_ADVERTISED_DOMAINS = [
   'intent',
 ] as const;
 
-export const DEV_RUNTIME_REQUIRED_SERVICES = [
+export const PAJA_REQUIRED_SERVICES = [
   'config',
   'cvm',
   'identity',
@@ -62,10 +62,10 @@ export const DEV_RUNTIME_REQUIRED_SERVICES = [
 
 export function getMissingAdvertisedDomains(capabilities: ShellCapabilities): string[] {
   const advertised = new Set(capabilities.domains);
-  return DEV_RUNTIME_ADVERTISED_DOMAINS.filter((domain) => !advertised.has(domain));
+  return PAJA_ADVERTISED_DOMAINS.filter((domain) => !advertised.has(domain));
 }
 
 export function getMissingServices(services: readonly string[]): string[] {
   const wired = new Set(services);
-  return DEV_RUNTIME_REQUIRED_SERVICES.filter((service) => !wired.has(service));
+  return PAJA_REQUIRED_SERVICES.filter((service) => !wired.has(service));
 }

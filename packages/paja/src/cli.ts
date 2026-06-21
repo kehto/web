@@ -1,21 +1,21 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
 import {
-  createDevRuntimeHostConfig,
-  formatDevRuntimeUrl,
-  normalizeDevRuntimeOptions,
+  createPajaHostConfig,
+  formatPajaUrl,
+  normalizePajaOptions,
   waitForTargetUrl,
-  type DevRuntimeCommand,
-  type DevRuntimeRawOptions,
-  DevRuntimeOptionsError,
+  type PajaCommand,
+  type PajaRawOptions,
+  PajaOptionsError,
 } from './index.js';
-import { resolveDevRuntimeRawOptions } from './config-file.js';
-import { startDevRuntimeServer } from './server.js';
+import { resolvePajaRawOptions } from './config-file.js';
+import { startPajaServer } from './server.js';
 import {
-  DEV_RUNTIME_SIMULATION_DOMAINS,
-  summarizeDevRuntimeSimulation,
-  type DevRuntimeCapabilityDomain,
-  type DevRuntimeSimulationRawOptions,
+  PAJA_SIMULATION_DOMAINS,
+  summarizePajaSimulation,
+  type PajaCapabilityDomain,
+  type PajaSimulationRawOptions,
   type JsonValue,
 } from './simulation.js';
 
@@ -35,25 +35,25 @@ export interface CliIo {
  * Parsed CLI arguments before full option normalization.
  */
 export interface CliParseResult {
-  readonly options?: DevRuntimeRawOptions;
+  readonly options?: PajaRawOptions;
   readonly help: boolean;
 }
 
 /**
  * Execution controls for embedding the CLI runner in tests or wrappers.
  */
-export interface RunDevRuntimeCliOptions {
+export interface RunPajaCliOptions {
   readonly serve?: boolean;
 }
 
 /**
- * Parse raw `kehto-dev-runtime` arguments into raw runtime options.
+ * Parse raw `kehto paja` arguments into raw runtime options.
  *
  * @param args - Argument vector without the node executable or script path.
  * @returns Parsed raw options, or a help flag when `--help` is present.
  */
-export function parseDevRuntimeArgs(args: readonly string[]): CliParseResult {
-  const raw: MutableDevRuntimeRawOptions = {};
+export function parsePajaArgs(args: readonly string[]): CliParseResult {
+  const raw: MutablePajaRawOptions = {};
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -73,49 +73,49 @@ export function parseDevRuntimeArgs(args: readonly string[]): CliParseResult {
       continue;
     }
 
-    throw new DevRuntimeOptionsError(`Unknown option "${arg}". Run kehto-dev-runtime --help for usage.`);
+    throw new PajaOptionsError(`Unknown option "${arg}". Run kehto paja --help for usage.`);
   }
 
   return { help: false, options: raw };
 }
 
-export async function runDevRuntimeCli(
+export async function runPajaCli(
   args: readonly string[] = process.argv.slice(2),
   io: CliIo = defaultIo,
-  runOptions: RunDevRuntimeCliOptions = {},
+  runOptions: RunPajaCliOptions = {},
 ): Promise<number> {
   try {
-    const parsed = parseDevRuntimeArgs(args);
+    const parsed = parsePajaArgs(args);
     if (parsed.help) {
       io.stdout.write(`${HELP_TEXT}\n`);
       return 0;
     }
 
-    const rawOptions = resolveDevRuntimeRawOptions(parsed.options ?? {});
-    const options = normalizeDevRuntimeOptions(rawOptions);
-    const hostConfig = createDevRuntimeHostConfig(options);
+    const rawOptions = resolvePajaRawOptions(parsed.options ?? {});
+    const options = normalizePajaOptions(rawOptions);
+    const hostConfig = createPajaHostConfig(options);
     const shouldServe = runOptions.serve ?? true;
     const child = shouldServe && options.command ? startManagedCommand(options.command) : undefined;
-    let server: Awaited<ReturnType<typeof startDevRuntimeServer>> | undefined;
+    let server: Awaited<ReturnType<typeof startPajaServer>> | undefined;
     if (shouldServe) {
       try {
         if (options.command) {
           await waitForTargetUrl(options.targetUrl, { timeoutMs: options.readyTimeoutMs });
         }
-        server = await startDevRuntimeServer({ options: rawOptions });
+        server = await startPajaServer({ options: rawOptions });
       } catch (error) {
         child?.kill();
         throw error;
       }
     }
-    const runtimeUrl = server?.url ?? formatDevRuntimeUrl(options);
+    const runtimeUrl = server?.url ?? formatPajaUrl(options);
 
-    io.stdout.write(`Kehto dev runtime\n`);
+    io.stdout.write(`Kehto Paja\n`);
     io.stdout.write(`Runtime URL: ${runtimeUrl}\n`);
     io.stdout.write(`Target URL: ${hostConfig.target.url}\n`);
     io.stdout.write(`Mode: ${options.mode}\n`);
     io.stdout.write(`HMR: ${hostConfig.target.hmrStrategy}\n`);
-    io.stdout.write(`Simulation: ${summarizeDevRuntimeSimulation(options.simulation)}\n`);
+    io.stdout.write(`Simulation: ${summarizePajaSimulation(options.simulation)}\n`);
 
     if (options.command) {
       io.stdout.write(`Command: ${formatCommand(options.command)}\n`);
@@ -124,14 +124,14 @@ export async function runDevRuntimeCli(
     return 0;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    io.stderr.write(`kehto-dev-runtime: ${message}\n`);
+    io.stderr.write(`kehto paja: ${message}\n`);
     return 1;
   }
 }
 
 const HELP_TEXT = `Usage:
-  kehto-dev-runtime --target-url <url> [options]
-  kehto-dev-runtime --target-url <url> [options] -- <command...>
+  kehto paja --target-url <url> [options]
+  kehto paja --target-url <url> [options] -- <command...>
 
 Options:
   --target-url, -u <url>      App dev-server URL to load in the runtime iframe.
@@ -162,7 +162,7 @@ Options:
 function readValue(args: readonly string[], index: number, option: string): string {
   const value = args[index + 1];
   if (!value || value.startsWith('--')) {
-    throw new DevRuntimeOptionsError(`${option} requires a value.`);
+    throw new PajaOptionsError(`${option} requires a value.`);
   }
   return value;
 }
@@ -171,7 +171,7 @@ function applyCoreOption(
   arg: string,
   args: readonly string[],
   index: number,
-  raw: MutableDevRuntimeRawOptions,
+  raw: MutablePajaRawOptions,
 ): boolean {
   switch (arg) {
     case '--target-url':
@@ -203,7 +203,7 @@ function applySimulationOption(
   arg: string,
   args: readonly string[],
   index: number,
-  raw: MutableDevRuntimeRawOptions,
+  raw: MutablePajaRawOptions,
 ): boolean {
   switch (arg) {
     case '--identity-mode':
@@ -259,7 +259,7 @@ function applySimulationOption(
   }
 }
 
-function formatCommand(command: DevRuntimeCommand): string {
+function formatCommand(command: PajaCommand): string {
   return command.mode === 'argv' ? command.argv.join(' ') : command.command;
 }
 
@@ -271,7 +271,7 @@ function readEnum<const T extends readonly string[]>(
 ): T[number] {
   const value = readValue(args, index, option);
   if (!allowed.includes(value)) {
-    throw new DevRuntimeOptionsError(`${option} must be one of: ${allowed.join(', ')}.`);
+    throw new PajaOptionsError(`${option} must be one of: ${allowed.join(', ')}.`);
   }
   return value;
 }
@@ -280,14 +280,14 @@ function readEnabled(args: readonly string[], index: number, option: string): bo
   const value = readValue(args, index, option);
   if (value === 'enabled') return true;
   if (value === 'disabled') return false;
-  throw new DevRuntimeOptionsError(`${option} must be "enabled" or "disabled".`);
+  throw new PajaOptionsError(`${option} must be "enabled" or "disabled".`);
 }
 
 function readBoolean(args: readonly string[], index: number, option: string): boolean {
   const value = readValue(args, index, option);
   if (value === 'true') return true;
   if (value === 'false') return false;
-  throw new DevRuntimeOptionsError(`${option} must be "true" or "false".`);
+  throw new PajaOptionsError(`${option} must be "true" or "false".`);
 }
 
 function readConfigValue(
@@ -298,16 +298,16 @@ function readConfigValue(
   const raw = readValue(args, index, option);
   const separator = raw.indexOf('=');
   if (separator <= 0) {
-    throw new DevRuntimeOptionsError(`${option} expects key=json.`);
+    throw new PajaOptionsError(`${option} expects key=json.`);
   }
   const key = raw.slice(0, separator).trim();
   if (!key) {
-    throw new DevRuntimeOptionsError(`${option} expects a non-empty key.`);
+    throw new PajaOptionsError(`${option} expects a non-empty key.`);
   }
   try {
     return { key, value: JSON.parse(raw.slice(separator + 1)) as JsonValue };
   } catch {
-    throw new DevRuntimeOptionsError(`${option} value for "${key}" must be valid JSON.`);
+    throw new PajaOptionsError(`${option} value for "${key}" must be valid JSON.`);
   }
 }
 
@@ -315,42 +315,42 @@ function readCapability(
   args: readonly string[],
   index: number,
   option: string,
-): { domain: DevRuntimeCapabilityDomain; enabled: boolean } {
+): { domain: PajaCapabilityDomain; enabled: boolean } {
   const raw = readValue(args, index, option);
   const [domainRaw, stateRaw] = raw.split(':') as [string | undefined, string | undefined];
   if (!domainRaw || (stateRaw !== 'on' && stateRaw !== 'off')) {
-    throw new DevRuntimeOptionsError(`${option} expects domain:on or domain:off.`);
+    throw new PajaOptionsError(`${option} expects domain:on or domain:off.`);
   }
-  if (!DEV_RUNTIME_SIMULATION_DOMAINS.includes(domainRaw as DevRuntimeCapabilityDomain)) {
-    throw new DevRuntimeOptionsError(`${option} unknown domain "${domainRaw}".`);
+  if (!PAJA_SIMULATION_DOMAINS.includes(domainRaw as PajaCapabilityDomain)) {
+    throw new PajaOptionsError(`${option} unknown domain "${domainRaw}".`);
   }
   return {
-    domain: domainRaw as DevRuntimeCapabilityDomain,
+    domain: domainRaw as PajaCapabilityDomain,
     enabled: stateRaw === 'on',
   };
 }
 
-function setIdentity(raw: MutableDevRuntimeRawOptions, identity: NonNullable<DevRuntimeSimulationRawOptions['identity']>): void {
+function setIdentity(raw: MutablePajaRawOptions, identity: NonNullable<PajaSimulationRawOptions['identity']>): void {
   ensureSimulation(raw).identity = { ...raw.simulation?.identity, ...identity };
 }
 
-function setRelay(raw: MutableDevRuntimeRawOptions, relay: NonNullable<DevRuntimeSimulationRawOptions['relay']>): void {
+function setRelay(raw: MutablePajaRawOptions, relay: NonNullable<PajaSimulationRawOptions['relay']>): void {
   ensureSimulation(raw).relay = { ...raw.simulation?.relay, ...relay };
 }
 
-function setUpload(raw: MutableDevRuntimeRawOptions, upload: NonNullable<DevRuntimeSimulationRawOptions['upload']>): void {
+function setUpload(raw: MutablePajaRawOptions, upload: NonNullable<PajaSimulationRawOptions['upload']>): void {
   ensureSimulation(raw).upload = { ...raw.simulation?.upload, ...upload };
 }
 
 function setNotifications(
-  raw: MutableDevRuntimeRawOptions,
-  notifications: NonNullable<DevRuntimeSimulationRawOptions['notifications']>,
+  raw: MutablePajaRawOptions,
+  notifications: NonNullable<PajaSimulationRawOptions['notifications']>,
 ): void {
   ensureSimulation(raw).notifications = { ...raw.simulation?.notifications, ...notifications };
 }
 
 function setConfigValue(
-  raw: MutableDevRuntimeRawOptions,
+  raw: MutablePajaRawOptions,
   entry: { key: string; value: JsonValue },
 ): void {
   ensureSimulation(raw).config = {
@@ -363,8 +363,8 @@ function setConfigValue(
 }
 
 function setCapability(
-  raw: MutableDevRuntimeRawOptions,
-  entry: { domain: DevRuntimeCapabilityDomain; enabled: boolean },
+  raw: MutablePajaRawOptions,
+  entry: { domain: PajaCapabilityDomain; enabled: boolean },
 ): void {
   ensureSimulation(raw).capabilities = {
     ...raw.simulation?.capabilities,
@@ -375,29 +375,29 @@ function setCapability(
   };
 }
 
-function ensureSimulation(raw: MutableDevRuntimeRawOptions): MutableDevRuntimeSimulationRawOptions {
+function ensureSimulation(raw: MutablePajaRawOptions): MutablePajaSimulationRawOptions {
   raw.simulation ??= {};
-  return raw.simulation as MutableDevRuntimeSimulationRawOptions;
+  return raw.simulation as MutablePajaSimulationRawOptions;
 }
 
-function startManagedCommand(command: DevRuntimeCommand): ManagedChildProcess {
+function startManagedCommand(command: PajaCommand): ManagedChildProcess {
   if (command.mode === 'shell') {
     return spawn(command.command, { shell: true, stdio: 'inherit' });
   }
 
   const [executable, ...args] = command.argv;
   if (!executable) {
-    throw new DevRuntimeOptionsError('Argv command mode requires an executable.');
+    throw new PajaOptionsError('Argv command mode requires an executable.');
   }
   return spawn(executable, args, { stdio: 'inherit' });
 }
 
-type MutableDevRuntimeRawOptions = {
-  -readonly [K in keyof DevRuntimeRawOptions]: DevRuntimeRawOptions[K];
+type MutablePajaRawOptions = {
+  -readonly [K in keyof PajaRawOptions]: PajaRawOptions[K];
 };
 
-type MutableDevRuntimeSimulationRawOptions = {
-  -readonly [K in keyof DevRuntimeSimulationRawOptions]: DevRuntimeSimulationRawOptions[K];
+type MutablePajaSimulationRawOptions = {
+  -readonly [K in keyof PajaSimulationRawOptions]: PajaSimulationRawOptions[K];
 };
 
 const defaultIo: CliIo = {
@@ -406,7 +406,7 @@ const defaultIo: CliIo = {
 };
 
 if (isDirectCli()) {
-  void runDevRuntimeCli().then((code) => {
+  void runPajaCli().then((code) => {
     process.exitCode = code;
   });
 }

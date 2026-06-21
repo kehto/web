@@ -2,7 +2,7 @@ export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { readonly [key: string]: JsonValue };
 export type JsonRecord = Record<string, JsonValue>;
 
-export type DevRuntimeCapabilityDomain =
+export type PajaCapabilityDomain =
   | 'relay'
   | 'outbox'
   | 'storage'
@@ -18,9 +18,9 @@ export type DevRuntimeCapabilityDomain =
   | 'cvm'
   | 'inc';
 
-export interface DevRuntimeSimulationRawOptions {
+export interface PajaSimulationRawOptions {
   readonly capabilities?: {
-    readonly domains?: Partial<Record<DevRuntimeCapabilityDomain, boolean>>;
+    readonly domains?: Partial<Record<PajaCapabilityDomain, boolean>>;
   };
   readonly acl?: {
     readonly mode?: 'allow' | 'deny';
@@ -69,10 +69,10 @@ export interface DevRuntimeSimulationRawOptions {
   };
 }
 
-export interface DevRuntimeSimulation {
+export interface PajaSimulation {
   readonly capabilities: {
-    readonly domains: Record<DevRuntimeCapabilityDomain, boolean>;
-    readonly disabledDomains: readonly DevRuntimeCapabilityDomain[];
+    readonly domains: Record<PajaCapabilityDomain, boolean>;
+    readonly disabledDomains: readonly PajaCapabilityDomain[];
   };
   readonly acl: {
     readonly mode: 'allow' | 'deny';
@@ -121,14 +121,14 @@ export interface DevRuntimeSimulation {
   };
 }
 
-export class DevRuntimeSimulationError extends Error {
+export class PajaSimulationError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'DevRuntimeSimulationError';
+    this.name = 'PajaSimulationError';
   }
 }
 
-export const DEV_RUNTIME_SIMULATION_DOMAINS: readonly DevRuntimeCapabilityDomain[] = [
+export const PAJA_SIMULATION_DOMAINS: readonly PajaCapabilityDomain[] = [
   'relay',
   'outbox',
   'storage',
@@ -147,29 +147,29 @@ export const DEV_RUNTIME_SIMULATION_DOMAINS: readonly DevRuntimeCapabilityDomain
 
 const DEFAULT_RELAY_URLS = ['wss://relay.kehto.dev'] as const;
 const DEFAULT_CONFIG_VALUES: JsonRecord = {
-  runtime: 'kehto-dev-runtime',
+  runtime: 'kehto paja',
   mode: 'development',
   target: 'single-window',
 };
 
 const DEFAULT_THEME_VALUES: JsonRecord = {
-  title: 'Kehto Dev Runtime',
+  title: 'Kehto Paja',
 };
 
-export function normalizeDevRuntimeSimulation(
-  raw: DevRuntimeSimulationRawOptions | undefined,
-): DevRuntimeSimulation {
+export function normalizePajaSimulation(
+  raw: PajaSimulationRawOptions | undefined,
+): PajaSimulation {
   const domainOverrides = raw?.capabilities?.domains ?? {};
   const domains = Object.fromEntries(
-    DEV_RUNTIME_SIMULATION_DOMAINS.map((domain) => [domain, domainOverrides[domain] ?? true]),
-  ) as Record<DevRuntimeCapabilityDomain, boolean>;
+    PAJA_SIMULATION_DOMAINS.map((domain) => [domain, domainOverrides[domain] ?? true]),
+  ) as Record<PajaCapabilityDomain, boolean>;
 
   const relayMode = raw?.relay?.mode ?? (domains.relay ? 'memory' : 'disabled');
   if (!domains.relay && relayMode !== 'disabled') {
-    throw new DevRuntimeSimulationError('Invalid simulation: relay.mode must be "disabled" when capabilities.domains.relay is false.');
+    throw new PajaSimulationError('Invalid simulation: relay.mode must be "disabled" when capabilities.domains.relay is false.');
   }
   if (!domains.outbox && relayMode !== 'disabled') {
-    throw new DevRuntimeSimulationError('Invalid simulation: relay.mode must be "disabled" when capabilities.domains.outbox is false.');
+    throw new PajaSimulationError('Invalid simulation: relay.mode must be "disabled" when capabilities.domains.outbox is false.');
   }
   if (relayMode === 'disabled') {
     domains.relay = false;
@@ -178,65 +178,65 @@ export function normalizeDevRuntimeSimulation(
 
   const uploadMode = raw?.upload?.mode ?? (domains.upload ? 'memory' : 'disabled');
   if (!domains.upload && uploadMode !== 'disabled') {
-    throw new DevRuntimeSimulationError('Invalid simulation: upload.mode must be "disabled" when capabilities.domains.upload is false.');
+    throw new PajaSimulationError('Invalid simulation: upload.mode must be "disabled" when capabilities.domains.upload is false.');
   }
   if (uploadMode === 'disabled') domains.upload = false;
 
   const intentEnabled = raw?.intent?.enabled ?? domains.intent;
   if (!domains.intent && intentEnabled) {
-    throw new DevRuntimeSimulationError('Invalid simulation: intent.enabled must be false when capabilities.domains.intent is false.');
+    throw new PajaSimulationError('Invalid simulation: intent.enabled must be false when capabilities.domains.intent is false.');
   }
   if (!intentEnabled) domains.intent = false;
 
   const mediaEnabled = raw?.media?.enabled ?? domains.media;
   if (!domains.media && mediaEnabled) {
-    throw new DevRuntimeSimulationError('Invalid simulation: media.enabled must be false when capabilities.domains.media is false.');
+    throw new PajaSimulationError('Invalid simulation: media.enabled must be false when capabilities.domains.media is false.');
   }
   if (!mediaEnabled) domains.media = false;
 
   const cvmEnabled = raw?.cvm?.enabled ?? domains.cvm;
   if (!domains.cvm && cvmEnabled) {
-    throw new DevRuntimeSimulationError('Invalid simulation: cvm.enabled must be false when capabilities.domains.cvm is false.');
+    throw new PajaSimulationError('Invalid simulation: cvm.enabled must be false when capabilities.domains.cvm is false.');
   }
   if (!cvmEnabled) domains.cvm = false;
 
   const notificationsEnabled = raw?.notifications?.enabled ?? domains.notify;
   if (!domains.notify && notificationsEnabled) {
-    throw new DevRuntimeSimulationError('Invalid simulation: notifications.enabled must be false when capabilities.domains.notify is false.');
+    throw new PajaSimulationError('Invalid simulation: notifications.enabled must be false when capabilities.domains.notify is false.');
   }
   if (!notificationsEnabled) domains.notify = false;
 
   const storageMode = raw?.storage?.mode ?? (domains.storage ? 'local' : 'disabled');
   if (!domains.storage && storageMode !== 'disabled') {
-    throw new DevRuntimeSimulationError('Invalid simulation: storage.mode must be "disabled" when capabilities.domains.storage is false.');
+    throw new PajaSimulationError('Invalid simulation: storage.mode must be "disabled" when capabilities.domains.storage is false.');
   }
   if (storageMode === 'disabled') domains.storage = false;
 
   const identityMode = raw?.identity?.mode ?? 'anonymous';
   const pubkey = raw?.identity?.pubkey?.trim() ?? '';
   if (identityMode === 'fixed' && !isHexPubkey(pubkey)) {
-    throw new DevRuntimeSimulationError('Invalid simulation: identity.pubkey must be a 64-character hex string when identity.mode is "fixed".');
+    throw new PajaSimulationError('Invalid simulation: identity.pubkey must be a 64-character hex string when identity.mode is "fixed".');
   }
 
   const relayUrls = raw?.relay?.urls ?? DEFAULT_RELAY_URLS;
   if (relayMode === 'memory' && relayUrls.length === 0) {
-    throw new DevRuntimeSimulationError('Invalid simulation: relay.urls must contain at least one URL when relay.mode is "memory".');
+    throw new PajaSimulationError('Invalid simulation: relay.urls must contain at least one URL when relay.mode is "memory".');
   }
   for (const url of relayUrls) {
     if (typeof url !== 'string' || url.trim().length === 0) {
-      throw new DevRuntimeSimulationError('Invalid simulation: relay.urls entries must be non-empty strings.');
+      throw new PajaSimulationError('Invalid simulation: relay.urls entries must be non-empty strings.');
     }
   }
 
   const uploadRail = raw?.upload?.rail?.trim() || 'dev-memory';
   if (uploadMode === 'memory' && uploadRail.length === 0) {
-    throw new DevRuntimeSimulationError('Invalid simulation: upload.rail must be non-empty when upload.mode is "memory".');
+    throw new PajaSimulationError('Invalid simulation: upload.rail must be non-empty when upload.mode is "memory".');
   }
 
   return {
     capabilities: {
       domains,
-      disabledDomains: DEV_RUNTIME_SIMULATION_DOMAINS.filter((domain) => !domains[domain]),
+      disabledDomains: PAJA_SIMULATION_DOMAINS.filter((domain) => !domains[domain]),
     },
     acl: {
       mode: raw?.acl?.mode ?? 'allow',
@@ -286,7 +286,7 @@ export function normalizeDevRuntimeSimulation(
   };
 }
 
-export function summarizeDevRuntimeSimulation(simulation: DevRuntimeSimulation): string {
+export function summarizePajaSimulation(simulation: PajaSimulation): string {
   const relay = simulation.relay.mode === 'memory' ? `relay:${simulation.relay.urls.length}` : 'relay:off';
   const identity = simulation.identity.mode === 'fixed' ? 'identity:fixed' : 'identity:anon';
   const storage = `storage:${simulation.storage.mode}`;

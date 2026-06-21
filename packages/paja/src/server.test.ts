@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { startDevRuntimeServer } from './server.js';
+import { startPajaServer } from './server.js';
 
-describe('@kehto/dev-runtime server', () => {
+describe('@kehto/paja server', () => {
   it('serves the host page and config JSON', async () => {
-    const server = await startDevRuntimeServer({
+    const server = await startPajaServer({
       options: {
         targetUrl: 'http://127.0.0.1:5173',
         port: 0,
@@ -13,7 +13,7 @@ describe('@kehto/dev-runtime server', () => {
 
     try {
       const html = await fetchText(server.url);
-      expect(html).toContain('Kehto Dev Runtime');
+      expect(html).toContain('Kehto Paja');
       expect(html).toContain('id="napplet-frame"');
 
       const config = JSON.parse(await fetchText(`${server.url}__kehto/config.json`)) as {

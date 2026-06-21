@@ -37,63 +37,63 @@ import {
 } from '@kehto/services';
 import type { Theme } from '@napplet/nap/theme/types';
 
-import type { DevRuntimeHostConfig } from './options.js';
+import type { PajaHostConfig } from './options.js';
 import {
-  summarizeDevRuntimeSimulation,
-  type DevRuntimeSimulation,
+  summarizePajaSimulation,
+  type PajaSimulation,
 } from './simulation.js';
 
-interface DevRuntimeBrowserState {
-  readonly config: DevRuntimeHostConfig;
+interface PajaBrowserState {
+  readonly config: PajaHostConfig;
   readonly capabilities: ShellCapabilities;
   readonly services: string[];
-  simulation: DevRuntimeSimulation;
+  simulation: PajaSimulation;
   generation: number;
   status: 'booting' | 'ready' | 'reloading' | 'error';
   reload(): void;
-  setThemeMode(mode: DevRuntimeSimulation['theme']['mode']): void;
+  setThemeMode(mode: PajaSimulation['theme']['mode']): void;
   getState(): {
     generation: number;
-    status: DevRuntimeBrowserState['status'];
+    status: PajaBrowserState['status'];
     iframeCount: number;
     initSent: boolean;
     services: string[];
-    simulation: DevRuntimeSimulation;
+    simulation: PajaSimulation;
   };
 }
 
 declare global {
   interface Window {
-    __KEHTO_DEV_RUNTIME__?: DevRuntimeBrowserState;
+    __KEHTO_PAJA__?: PajaBrowserState;
   }
 }
 
-const DEV_INTENT_ARCHETYPE = 'dev-runtime-target';
+const DEV_INTENT_ARCHETYPE = 'paja-target';
 const DEV_CVM_SERVER: CvmServer = {
   pubkey: '0'.repeat(64),
-  name: 'Kehto Dev Runtime ContextVM',
+  name: 'Kehto Paja ContextVM',
   description: 'Deterministic development ContextVM adapter',
   relays: ['wss://relay.kehto.dev'],
   capabilities: ['echo'],
 };
 
-function readConfig(): DevRuntimeHostConfig {
-  const script = document.getElementById('kehto-dev-runtime-config');
+function readConfig(): PajaHostConfig {
+  const script = document.getElementById('kehto-paja-config');
   if (!script?.textContent) {
-    throw new Error('Missing Kehto dev runtime config.');
+    throw new Error('Missing Kehto Paja config.');
   }
-  return JSON.parse(script.textContent) as DevRuntimeHostConfig;
+  return JSON.parse(script.textContent) as PajaHostConfig;
 }
 
-function setStatus(state: DevRuntimeBrowserState, status: DevRuntimeBrowserState['status']): void {
+function setStatus(state: PajaBrowserState, status: PajaBrowserState['status']): void {
   state.status = status;
   const statusEl = document.getElementById('lifecycle-status');
   if (statusEl) statusEl.textContent = status;
 }
 
-function setSimulationStatus(state: DevRuntimeBrowserState): void {
+function setSimulationStatus(state: PajaBrowserState): void {
   const statusEl = document.getElementById('simulation-status');
-  if (statusEl) statusEl.textContent = summarizeDevRuntimeSimulation(state.simulation);
+  if (statusEl) statusEl.textContent = summarizePajaSimulation(state.simulation);
   const themeSelect = document.getElementById('simulation-theme');
   if (themeSelect instanceof HTMLSelectElement) themeSelect.value = state.simulation.theme.mode;
 }
@@ -101,7 +101,7 @@ function setSimulationStatus(state: DevRuntimeBrowserState): void {
 function getFrame(): HTMLIFrameElement {
   const frame = document.getElementById('napplet-frame');
   if (!(frame instanceof HTMLIFrameElement)) {
-    throw new Error('Missing Kehto dev runtime iframe.');
+    throw new Error('Missing Kehto Paja iframe.');
   }
   frame.sandbox.add('allow-scripts');
   frame.sandbox.remove('allow-same-origin');
@@ -122,7 +122,7 @@ function matchesAnyFilter(event: NostrEvent, filters: NostrFilter[]): boolean {
   return filters.length === 0 || filters.some((filter) => matchesFilter(event, filter));
 }
 
-function createMemoryRelayPool(getSimulation: () => DevRuntimeSimulation): RelayPoolLike {
+function createMemoryRelayPool(getSimulation: () => PajaSimulation): RelayPoolLike {
   const events: NostrEvent[] = getSimulation().relay.fixtures.flatMap(toNostrEvent);
   const subscribers = new Set<{
     filters: NostrFilter[];
@@ -189,11 +189,11 @@ function toNostrEvent(value: unknown): NostrEvent[] {
   return [];
 }
 
-function getRelayUrls(simulation: DevRuntimeSimulation): string[] {
+function getRelayUrls(simulation: PajaSimulation): string[] {
   return simulation.relay.mode === 'memory' ? [...simulation.relay.urls] : [];
 }
 
-function createRelayHooks(pool: RelayPoolLike, getSimulation: () => DevRuntimeSimulation): RelayPoolHooks {
+function createRelayHooks(pool: RelayPoolLike, getSimulation: () => PajaSimulation): RelayPoolHooks {
   const cleanups = new Map<string, () => void>();
   return {
     getRelayPool: () => pool,
@@ -231,7 +231,7 @@ function createWorkerRelay(events: NostrEvent[]) {
   };
 }
 
-function createDevUploader(getSimulation: () => DevRuntimeSimulation): Uploader {
+function createDevUploader(getSimulation: () => PajaSimulation): Uploader {
   return {
     async upload(request: UploadRequest, ctx): Promise<UploadResult> {
       const simulation = getSimulation();
@@ -280,14 +280,14 @@ function createDevIntentAvailability(): IntentAvailability {
   };
 }
 
-function createDevCvmTransport(getSimulation: () => DevRuntimeSimulation): CvmTransport {
+function createDevCvmTransport(getSimulation: () => PajaSimulation): CvmTransport {
   return {
     async discover() {
       if (!getSimulation().cvm.enabled) return [];
       return [{ ...DEV_CVM_SERVER, relays: getRelayUrls(getSimulation()) }];
     },
     async request(_server, message): Promise<McpMessage> {
-      const id = typeof message.id === 'string' || typeof message.id === 'number' ? message.id : 'dev-runtime';
+      const id = typeof message.id === 'string' || typeof message.id === 'number' ? message.id : 'paja';
       return {
         jsonrpc: '2.0',
         id,
@@ -306,7 +306,7 @@ function createDevCvmTransport(getSimulation: () => DevRuntimeSimulation): CvmTr
   };
 }
 
-function createOutboxRouter(pool: RelayPoolLike, getSimulation: () => DevRuntimeSimulation) {
+function createOutboxRouter(pool: RelayPoolLike, getSimulation: () => PajaSimulation) {
   return {
     async query(filters: NostrFilter[]) {
       const relayUrls = getRelayUrls(getSimulation());
@@ -349,7 +349,7 @@ function createOutboxRouter(pool: RelayPoolLike, getSimulation: () => DevRuntime
   };
 }
 
-function createDevTheme(mode: DevRuntimeSimulation['theme']['mode'], values: DevRuntimeSimulation['theme']['values']): Theme {
+function createDevTheme(mode: PajaSimulation['theme']['mode'], values: PajaSimulation['theme']['values']): Theme {
   const defaultColors = mode === 'light'
     ? { background: '#f7f5ed', text: '#1d211d', primary: '#6a5a12' }
     : { background: '#101211', text: '#f4f0df', primary: '#d8c36a' };
@@ -362,7 +362,7 @@ function createDevTheme(mode: DevRuntimeSimulation['theme']['mode'], values: Dev
   } as Theme;
 }
 
-function createDevSigner(getSimulation: () => DevRuntimeSimulation) {
+function createDevSigner(getSimulation: () => PajaSimulation) {
   return {
     getPublicKey: () => getSimulation().identity.pubkey,
     getRelays: () => Object.fromEntries(getRelayUrls(getSimulation()).map((relay) => [relay, { read: true, write: true }])),
@@ -371,7 +371,7 @@ function createDevSigner(getSimulation: () => DevRuntimeSimulation) {
 
 function createDevServices(
   pool: RelayPoolLike,
-  getSimulation: () => DevRuntimeSimulation,
+  getSimulation: () => PajaSimulation,
   onThemeService: (theme: ReturnType<typeof createThemeService>) => void,
 ): Record<string, ServiceHandler> {
   const notification = createNotificationService({ maxPerWindow: 50 });
@@ -399,7 +399,7 @@ function createDevServices(
       fetch: (url, init) => fetch(url, init),
       isOriginGranted: () => true,
       getConnectGrants: () => ['*'],
-      resolveIdentity: () => ({ dTag: 'dev-target', aggregateHash: 'dev-runtime' }),
+      resolveIdentity: () => ({ dTag: 'dev-target', aggregateHash: 'paja' }),
     }),
   };
 
@@ -441,7 +441,7 @@ function createDevServices(
             action: request.action ?? 'open',
             handled: request.archetype === DEV_INTENT_ARCHETYPE,
             handler: 'dev-target',
-            windowId: 'kehto-dev-runtime-window',
+            windowId: 'kehto-paja-window',
             protocol: request.protocol ?? 'NAP-01',
           };
         },
@@ -458,9 +458,9 @@ function createDevServices(
   return services;
 }
 
-function createDevRuntimeAdapter(
-  config: DevRuntimeHostConfig,
-  getSimulation: () => DevRuntimeSimulation,
+function createPajaAdapter(
+  config: PajaHostConfig,
+  getSimulation: () => PajaSimulation,
   onThemeService: (theme: ReturnType<typeof createThemeService>) => void,
 ): ShellAdapter {
   const pool = createMemoryRelayPool(getSimulation);
@@ -498,7 +498,7 @@ function createDevRuntimeAdapter(
   };
 }
 
-function registerFrameForGeneration(bridge: ShellBridge, frame: HTMLIFrameElement, config: DevRuntimeHostConfig, generation: number): string | null {
+function registerFrameForGeneration(bridge: ShellBridge, frame: HTMLIFrameElement, config: PajaHostConfig, generation: number): string | null {
   const win = frame.contentWindow;
   if (!win) return null;
   const windowId = `${config.window.id}:${generation}`;
@@ -509,7 +509,7 @@ function registerFrameForGeneration(bridge: ShellBridge, frame: HTMLIFrameElemen
   return windowId;
 }
 
-function navigateFrame(bridge: ShellBridge, frame: HTMLIFrameElement, config: DevRuntimeHostConfig, generation: number): string | null {
+function navigateFrame(bridge: ShellBridge, frame: HTMLIFrameElement, config: PajaHostConfig, generation: number): string | null {
   const windowId = registerFrameForGeneration(bridge, frame, config, generation);
   frame.src = 'about:blank';
   window.setTimeout(() => {
@@ -519,13 +519,13 @@ function navigateFrame(bridge: ShellBridge, frame: HTMLIFrameElement, config: De
   return windowId;
 }
 
-function installDevRuntimeHost(): void {
+function installPajaHost(): void {
   const config = readConfig();
   const frame = getFrame();
   let currentSimulation = config.simulation;
   const getSimulation = () => currentSimulation;
   let themeService: ReturnType<typeof createThemeService> | null = null;
-  const adapter = createDevRuntimeAdapter(config, getSimulation, (theme) => {
+  const adapter = createPajaAdapter(config, getSimulation, (theme) => {
     themeService = theme;
   });
   const bridge = createShellBridge(adapter);
@@ -534,7 +534,7 @@ function installDevRuntimeHost(): void {
   let currentWindowId: string | null = null;
   let initReceivedGeneration = -1;
 
-  const state: DevRuntimeBrowserState = {
+  const state: PajaBrowserState = {
     config,
     capabilities,
     services,
@@ -576,7 +576,7 @@ function installDevRuntimeHost(): void {
     },
   };
 
-  window.__KEHTO_DEV_RUNTIME__ = state;
+  window.__KEHTO_PAJA__ = state;
 
   window.addEventListener('message', (event) => {
     if (event.source !== frame.contentWindow) return;
@@ -616,7 +616,7 @@ function installDevRuntimeHost(): void {
 }
 
 try {
-  installDevRuntimeHost();
+  installPajaHost();
 } catch (error) {
   const statusEl = document.getElementById('lifecycle-status');
   if (statusEl) statusEl.textContent = 'error';

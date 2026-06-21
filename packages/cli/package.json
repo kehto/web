@@ -1,22 +1,18 @@
 {
-  "name": "@kehto/dev-runtime",
+  "name": "@kehto/cli",
   "version": "0.1.0",
-  "description": "Single-window development runtime for hosting napplets in a real Kehto iframe during local development",
+  "description": "Top-level Kehto CLI for local napplet authoring and runtime tooling",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "kehto-dev-runtime": "./dist/cli.js"
+    "kehto": "./dist/index.js"
   },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./cli": {
-      "types": "./dist/cli.d.ts",
-      "import": "./dist/cli.js"
     }
   },
   "files": [
@@ -28,13 +24,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@kehto/acl": "workspace:*",
-    "@kehto/firewall": "workspace:*",
-    "@kehto/nip": "workspace:*",
-    "@kehto/runtime": "workspace:*",
-    "@kehto/services": "workspace:*",
-    "@kehto/shell": "workspace:*",
-    "@kehto/wm": "workspace:*"
+    "@kehto/paja": "workspace:*"
   },
   "peerDependencies": {
     "@napplet/core": ">=0.12.0 <0.14.0",
@@ -52,21 +42,21 @@
   "scripts": {
     "build": "tsup",
     "type-check": "tsc --noEmit",
-    "test:unit": "cd ../.. && vitest run --config vitest.config.ts packages/dev-runtime",
+    "test:unit": "cd ../.. && vitest run --config vitest.config.ts packages/cli",
     "test": "pnpm test:unit"
   },
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/kehto/web.git",
-    "directory": "packages/dev-runtime"
+    "directory": "packages/cli"
   },
   "keywords": [
     "nostr",
     "napplet",
     "kehto",
-    "development",
-    "runtime",
-    "hmr"
+    "cli",
+    "paja",
+    "development"
   ]
 }

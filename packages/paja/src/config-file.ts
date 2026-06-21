@@ -1,36 +1,36 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import type { DevRuntimeRawOptions } from './options.js';
-import type { DevRuntimeSimulationRawOptions } from './simulation.js';
-import { DevRuntimeSimulationError } from './simulation.js';
+import type { PajaRawOptions } from './options.js';
+import type { PajaSimulationRawOptions } from './simulation.js';
+import { PajaSimulationError } from './simulation.js';
 
-export function loadDevRuntimeConfigFile(configPath: string): DevRuntimeRawOptions {
+export function loadPajaConfigFile(configPath: string): PajaRawOptions {
   const resolved = resolve(configPath);
   let parsed: unknown;
   try {
     parsed = JSON.parse(readFileSync(resolved, 'utf8'));
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    throw new DevRuntimeSimulationError(`Unable to read --config "${configPath}": ${detail}`);
+    throw new PajaSimulationError(`Unable to read --config "${configPath}": ${detail}`);
   }
 
   if (!isRecord(parsed)) {
-    throw new DevRuntimeSimulationError(`Invalid --config "${configPath}": expected a JSON object.`);
+    throw new PajaSimulationError(`Invalid --config "${configPath}": expected a JSON object.`);
   }
 
-  return parsed as DevRuntimeRawOptions;
+  return parsed as PajaRawOptions;
 }
 
-export function resolveDevRuntimeRawOptions(raw: DevRuntimeRawOptions): DevRuntimeRawOptions {
+export function resolvePajaRawOptions(raw: PajaRawOptions): PajaRawOptions {
   if (!raw.configPath?.trim()) return raw;
-  return mergeDevRuntimeRawOptions(loadDevRuntimeConfigFile(raw.configPath), raw);
+  return mergePajaRawOptions(loadPajaConfigFile(raw.configPath), raw);
 }
 
-export function mergeDevRuntimeRawOptions(
-  base: DevRuntimeRawOptions,
-  override: DevRuntimeRawOptions,
-): DevRuntimeRawOptions {
+export function mergePajaRawOptions(
+  base: PajaRawOptions,
+  override: PajaRawOptions,
+): PajaRawOptions {
   return {
     targetUrl: override.targetUrl ?? base.targetUrl,
     command: override.command ?? base.command,
@@ -43,9 +43,9 @@ export function mergeDevRuntimeRawOptions(
 }
 
 function mergeSimulationOptions(
-  base: DevRuntimeSimulationRawOptions | undefined,
-  override: DevRuntimeSimulationRawOptions | undefined,
-): DevRuntimeSimulationRawOptions | undefined {
+  base: PajaSimulationRawOptions | undefined,
+  override: PajaSimulationRawOptions | undefined,
+): PajaSimulationRawOptions | undefined {
   if (!base) return override;
   if (!override) return base;
 

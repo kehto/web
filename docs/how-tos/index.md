@@ -8,7 +8,7 @@ How-tos are focused recipes for common host and docs tasks.
 | Register a service | [Register a service](./register-service.md) |
 | Handle unsupported `requires` | [Handle unsupported requires](./unsupported-requires.md) |
 | Add a reference service | [Add a reference service](./add-reference-service.md) |
-| Use the dev runtime locally | [Use the Dev Runtime for local napplet authoring](./dev-runtime-local-authoring.md) |
+| Use Paja locally | [Use Paja for local napplet authoring](./paja-local-authoring.md) |
 | Debug `postMessage` traffic | [Debug postMessage traffic](./debug-postmessage.md) |
 | Verify a gateway artifact | [Verify a gateway artifact](./verify-gateway-artifact.md) |
 | Implement a napplet artifact cache | [Implement a napplet artifact cache](./implement-napplet-artifact-cache.md) |

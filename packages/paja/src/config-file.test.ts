@@ -1,15 +1,15 @@
 import { unlinkSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
-  loadDevRuntimeConfigFile,
-  mergeDevRuntimeRawOptions,
-  normalizeDevRuntimeOptions,
-  resolveDevRuntimeRawOptions,
+  loadPajaConfigFile,
+  mergePajaRawOptions,
+  normalizePajaOptions,
+  resolvePajaRawOptions,
 } from './index.js';
 
-describe('@kehto/dev-runtime config files', () => {
+describe('@kehto/paja config files', () => {
   it('loads JSON config files and lets CLI-shaped overrides win', () => {
-    const path = `/tmp/kehto-dev-runtime-${Date.now()}.json`;
+    const path = `/tmp/kehto-paja-${Date.now()}.json`;
     writeFileSync(path, JSON.stringify({
       targetUrl: 'http://127.0.0.1:5173',
       simulation: {
@@ -24,14 +24,14 @@ describe('@kehto/dev-runtime config files', () => {
     }), 'utf8');
 
     try {
-      const resolved = resolveDevRuntimeRawOptions({
+      const resolved = resolvePajaRawOptions({
         configPath: path,
         simulation: {
           theme: { mode: 'dark' },
           config: { values: { density: 'compact' } },
         },
       });
-      const options = normalizeDevRuntimeOptions(resolved);
+      const options = normalizePajaOptions(resolved);
 
       expect(options.targetUrl).toBe('http://127.0.0.1:5173/');
       expect(options.simulation.identity.pubkey).toBe('3'.repeat(64));
@@ -47,7 +47,7 @@ describe('@kehto/dev-runtime config files', () => {
   });
 
   it('merges nested raw simulation values without losing siblings', () => {
-    const merged = mergeDevRuntimeRawOptions({
+    const merged = mergePajaRawOptions({
       targetUrl: 'http://127.0.0.1:5173',
       simulation: {
         config: { values: { a: 1, b: 2 } },
@@ -64,11 +64,11 @@ describe('@kehto/dev-runtime config files', () => {
   });
 
   it('rejects non-object config files clearly', () => {
-    const path = `/tmp/kehto-dev-runtime-invalid-${Date.now()}.json`;
+    const path = `/tmp/kehto-paja-invalid-${Date.now()}.json`;
     writeFileSync(path, '[]', 'utf8');
 
     try {
-      expect(() => loadDevRuntimeConfigFile(path)).toThrow(/expected a JSON object/);
+      expect(() => loadPajaConfigFile(path)).toThrow(/expected a JSON object/);
     } finally {
       unlinkSync(path);
     }
