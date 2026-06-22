@@ -59,7 +59,7 @@ function isPackageChangelog(path) {
 
 function isReleaseIntent() {
   const title = process.env.PR_TITLE ?? process.env.COMMIT_TITLE ?? '';
-  return /\b(chore\(release\)|release:|changeset version|version packages|version-packages)\b/i.test(
+  return /(?:\bchore\(release\):|\brelease:|\bchangeset version\b|\bversion packages\b|\bversion-packages\b)/i.test(
     title,
   );
 }
