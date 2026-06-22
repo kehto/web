@@ -6,19 +6,19 @@
 
 Provide a modular, framework-agnostic runtime for hosting napplet applications — so any Nostr client can embed sandboxed mini-apps by integrating @kehto/shell.
 
-## Current Milestone: v1.26 NAP-SERIAL Runtime Parity
+## Current Milestone: v1.27 NAP-BLE Runtime Parity
 
-**Goal:** Add one missing recent `@napplet/nap` domain, `NAP-SERIAL`, end to end in Kehto: shell capability advertisement, runtime dispatch, reference service, Paja wiring, playground demo napplet, unit coverage, and Playwright proof.
+**Goal:** Add one missing recent `@napplet/nap` domain, `NAP-BLE`, end to end in Kehto: shell capability advertisement, runtime dispatch, reference service, Paja wiring, playground demo napplet, unit coverage, and Playwright proof.
 
 **Target features:**
-- **One NAP only:** v1.26 is scoped to `serial` / `NAP-SERIAL`; `ble` and `webrtc` remain future one-NAP milestones.
-- **Runtime-owned serial sessions:** napplets can request `serial.open`, `serial.write`, and `serial.close`; the shell/runtime owns device selection, permission, session handles, write ordering, reads, close events, and policy.
-- **Reference service:** add a framework-agnostic `createSerialService` in `@kehto/services` with host-provided `open`, `write`, `close`, and event hooks that return structured upstream-compatible results and deny unavailable actions safely.
-- **Capability and dispatch parity:** advertise `serial` only when the host wires a serial backend, register `serial` in runtime NAP dispatch, and keep parity guards honest against `@napplet/nap`.
-- **Playground and Paja proof:** Paja wires deterministic in-memory serial behavior; playground gains a small `serial-demo` napplet and Playwright coverage that proves representative serial requests work through the real shell path.
+- **One NAP only:** v1.27 is scoped to `ble` / `NAP-BLE`; `webrtc` remains a future one-NAP milestone.
+- **Runtime-owned BLE sessions:** napplets can request `ble.open`, `ble.services`, `ble.read`, `ble.write`, `ble.subscribe`, `ble.unsubscribe`, and `ble.close`; the shell/runtime owns device selection, permission, session handles, attributes, notifications, close events, and policy.
+- **Reference service:** add a framework-agnostic `createBleService` in `@kehto/services` with host-provided hooks that return structured upstream-compatible results and deny unavailable actions safely.
+- **Capability and dispatch parity:** advertise `ble` only when the host wires a BLE backend, register `ble` in runtime NAP dispatch, and keep parity guards honest against `@napplet/nap`.
+- **Playground and Paja proof:** Paja wires deterministic in-memory BLE behavior; playground gains a small `ble-demo` napplet and Playwright coverage that proves representative BLE requests work through the real shell path.
 - **Release-ready coverage:** new unit/static/e2e tests pass; docs/package exports/changesets updated; branch pushed and PR opened when gates pass.
 
-**Key context:** Authoritative delta was inspected on 2026-06-22 from the packed npm tarball `@napplet/nap@0.20.0` (`dist/serial/types.d.ts`, `dist/serial/sdk.d.ts`) and `@napplet/core@0.20.0`. `NAP-LINK`, `NAP-COMMON`, and `NAP-LISTS` are stacked in PRs #71/#72/#73; remaining missing domains after this milestone are `ble` and `webrtc`. No new dependencies.
+**Key context:** Authoritative delta was inspected on 2026-06-22 from the packed npm tarball `@napplet/nap@0.20.0` (`dist/ble/types.d.ts`, `dist/ble/sdk.d.ts`) and `@napplet/core@0.20.0`. `NAP-LINK`, `NAP-COMMON`, `NAP-LISTS`, and `NAP-SERIAL` are stacked in PRs #71/#72/#73/#74; remaining missing domain after this milestone is `webrtc`. No new dependencies.
 
 ## Latest Milestone: v1.18 Napplet Firewall (shipped 2026-06-15)
 

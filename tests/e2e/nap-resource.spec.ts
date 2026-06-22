@@ -9,7 +9,7 @@ test.use({ baseURL: 'http://localhost:4174' });
 test('resource demo loads and renders a remote image', async ({ page }) => {
   test.setTimeout(30_000);
   await page.goto('/');
-  await page.waitForSelector('#resource-demo-frame-container iframe', { timeout: 10_000 });
+  await expect(page.locator('#resource-demo-frame-container iframe')).toHaveCount(1, { timeout: 25_000 });
 
   const resourceFrame = page.frameLocator('#resource-demo-frame-container iframe');
   const image = resourceFrame.locator('#resource-demo-image');

@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const playgroundNapplets = [
+  'ble-demo',
   'bot',
   'chat',
   'common-demo',
@@ -19,6 +20,7 @@ const playgroundNapplets = [
 ] as const;
 
 const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly string[]> = {
+  'ble-demo': ['ble'],
   bot: ['inc', 'storage', 'theme'],
   chat: ['inc', 'storage', 'relay', 'theme'],
   'common-demo': ['common'],

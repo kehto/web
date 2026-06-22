@@ -3,6 +3,7 @@ import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const playgroundNapplets = [
+  'ble-demo',
   'bot',
   'chat',
   'common-demo',
@@ -19,6 +20,7 @@ const playgroundNapplets = [
 ] as const;
 
 const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly string[]> = {
+  'ble-demo': ['ble'],
   bot: ['inc', 'storage', 'theme'],
   chat: ['inc', 'storage', 'relay', 'theme'],
   'common-demo': ['common'],
@@ -40,6 +42,7 @@ const rawListenerFiles = [
   'apps/playground/napplets/cvm-relatr/src/main.ts',
   'apps/playground/napplets/link-demo/src/main.ts',
   'apps/playground/napplets/lists-demo/src/main.ts',
+  'apps/playground/napplets/ble-demo/src/main.ts',
   'apps/playground/napplets/serial-demo/src/main.ts',
   'apps/playground/napplets/resource-demo/src/main.ts',
   'apps/playground/napplets/toaster/src/main.ts',
@@ -100,6 +103,7 @@ const rawListenerTypeGuards: Record<string, readonly string[]> = {
   'apps/playground/napplets/cvm-relatr/src/main.ts': ['data.type !== resultType'],
   'apps/playground/napplets/link-demo/src/main.ts': ["msg.type !== 'link.open.result'"],
   'apps/playground/napplets/lists-demo/src/main.ts': ['msg.type !== resultType'],
+  'apps/playground/napplets/ble-demo/src/main.ts': ['msg.type !== resultType'],
   'apps/playground/napplets/serial-demo/src/main.ts': ['msg.type !== resultType'],
   'apps/playground/napplets/resource-demo/src/main.ts': [
     "envelope.type === 'resource.bytes.result'",

@@ -4,6 +4,7 @@ import { demoBeforeEach } from './helpers/index.js';
 test.use({ baseURL: 'http://localhost:4174' });
 
 const expectedNapplets = [
+  'ble-demo',
   'bot',
   'chat',
   'composer',
@@ -20,6 +21,7 @@ const expectedNapplets = [
 ] as const;
 
 const expectedRequires: Record<(typeof expectedNapplets)[number], readonly string[]> = {
+  'ble-demo': ['ble'],
   bot: ['inc', 'storage', 'theme'],
   chat: ['inc', 'storage', 'relay', 'theme'],
   composer: ['relay', 'theme'],

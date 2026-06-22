@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.26
-milestone_name: NAP-SERIAL Runtime Parity
+milestone: v1.27
+milestone_name: NAP-BLE Runtime Parity
 status: executing
 stopped_at: "Phase 89 complete — v1.21 NIP-5D #2303 + NAP-SHELL/INTENT conformance done (docs + changesets)"
-last_updated: "2026-06-22T23:13:05+02:00"
-last_activity: 2026-06-22 -- Phase 98 implementation verified; PR #74 open
+last_updated: "2026-06-22T23:31:57+02:00"
+last_activity: 2026-06-22 -- Phase 99 NAP-BLE parity planned; implementation in progress
 progress:
   total_phases: 1
-  completed_phases: 1
+  completed_phases: 0
   total_plans: 1
   completed_plans: 1
-  percent: 100
+  percent: 10
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-06-21)
 
 ## Current Position
 
-Phase: 98 - NAP-SERIAL Runtime Parity
-Plan: 98-01-PLAN.md
-Status: Verified
-Last activity: 2026-06-22 -- Phase 98 implementation verified; PR #74 open
+Phase: 99 - NAP-BLE Runtime Parity
+Plan: 99-01-PLAN.md
+Status: In progress
+Last activity: 2026-06-22 -- Phase 99 NAP-BLE parity planned; implementation in progress
 
 ## Performance Metrics
 

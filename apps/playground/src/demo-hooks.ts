@@ -7,6 +7,13 @@ import {
   type ShellAdapter,
   type ShellCapabilities,
 } from '@kehto/shell';
+import type {
+  BleAttribute,
+  BleOpenRequest,
+  BleOpenResult,
+  BleService as CoreBleService,
+  BleWriteOptions,
+} from '@napplet/core';
 import { RESOURCE_DEMO_REMOTE_IMAGE_ORIGIN } from './main-preferences.js';
 
 /**
@@ -28,6 +35,7 @@ import {
   createConfigService,
   createCommonService,
   createResourceService,
+  createBleService,
   createSerialService,
   createCvmService,
   type ConfigService,
@@ -82,6 +90,9 @@ const DEMO_COMMON_PUBKEY = '3'.repeat(64);
 const DEMO_COMMON_EVENT_ID = '4'.repeat(64);
 const DEMO_LISTS_EVENT_ID = '5'.repeat(64);
 const DEMO_SERIAL_LABEL = 'Playground serial';
+const DEMO_BLE_DEVICE_NAME = 'Playground BLE';
+const DEMO_BLE_SERVICE_UUID = 'battery_service';
+const DEMO_BLE_CHARACTERISTIC_UUID = 'battery_level';
 type DemoListRef = { readonly type?: string; readonly kind?: number };
 type DemoListItem = { readonly itemType: string; readonly value: string };
 
@@ -128,6 +139,7 @@ export function createDemoHooks(
   });
   const listsService = createDemoListsService();
   const serialService = createDemoSerialService();
+  const bleService = createDemoBleService();
   const cvmService = createCvmService({ transport: createPlaygroundCvmTransport() });
   const identityService = createIdentityService({ getSigner });
   relayRuntimeDestroy?.();
@@ -158,6 +170,7 @@ export function createDemoHooks(
     common: commonService,
     lists: listsService,
     serial: serialService,
+    ble: bleService,
     theme: themeBundle.handler,
     config: configBundle.handler,
     resource: resourceHandler,
@@ -261,6 +274,7 @@ function createDemoShellAdapter(
     common: { isAvailable: () => true },
     lists: { isAvailable: () => true },
     serial: { isAvailable: () => true },
+    ble: { isAvailable: () => true },
     workerRelay,
     crypto: createDemoCrypto(),
     getConfigOverrides: () => ({
@@ -348,6 +362,15 @@ function createDemoListsService(): ServiceHandler {
   });
 }
 
+function destroyWindowSessions<T extends { windowId: string }>(
+  sessions: Map<string, T>,
+  windowId: string,
+): void {
+  for (const [sessionId, session] of sessions) {
+    if (session.windowId === windowId) sessions.delete(sessionId);
+  }
+}
+
 function createDemoSerialService(): ServiceHandler {
   const sessions = new Map<string, { windowId: string; writes: number[][] }>();
   let nextSession = 1;
@@ -373,9 +396,67 @@ function createDemoSerialService(): ServiceHandler {
       if (!sessions.delete(sessionId)) throw new Error('serial session not found');
     },
     destroyWindow: (windowId) => {
-      for (const [sessionId, session] of sessions) {
-        if (session.windowId === windowId) sessions.delete(sessionId);
-      }
+      destroyWindowSessions(sessions, windowId);
+    },
+  });
+}
+
+function createDemoBleService(): ServiceHandler {
+  const sessions = new Map<string, { windowId: string; writes: number[][]; subscriptions: Set<string> }>();
+  let nextSession = 1;
+  const service: CoreBleService = {
+    uuid: DEMO_BLE_SERVICE_UUID,
+    characteristics: [{
+      uuid: DEMO_BLE_CHARACTERISTIC_UUID,
+      properties: { read: true, write: true, notify: true },
+    }],
+  };
+  const targetKey = (target: BleAttribute): string =>
+    `${String(target.service)}:${String(target.characteristic)}:${String(target.descriptor ?? '')}`;
+  const getSession = (sessionId: string) => {
+    const session = sessions.get(sessionId);
+    if (!session) throw new Error('ble session not found');
+    return session;
+  };
+
+  return createBleService({
+    open: (_request: BleOpenRequest, context): BleOpenResult => {
+      const id = `playground-ble-${nextSession++}`;
+      sessions.set(id, { windowId: context.windowId, writes: [], subscriptions: new Set() });
+      return {
+        session: {
+          id,
+          state: 'open',
+          device: {
+            id: 'playground-ble-device',
+            name: DEMO_BLE_DEVICE_NAME,
+            services: [DEMO_BLE_SERVICE_UUID],
+          },
+        },
+      };
+    },
+    services: (sessionId) => {
+      getSession(sessionId);
+      return [service];
+    },
+    read: (sessionId) => {
+      getSession(sessionId);
+      return [87];
+    },
+    write: (sessionId, _target, data, _options: BleWriteOptions | undefined) => {
+      getSession(sessionId).writes.push([...data]);
+    },
+    subscribe: (sessionId, target) => {
+      getSession(sessionId).subscriptions.add(targetKey(target));
+    },
+    unsubscribe: (sessionId, target) => {
+      getSession(sessionId).subscriptions.delete(targetKey(target));
+    },
+    close: (sessionId) => {
+      if (!sessions.delete(sessionId)) throw new Error('ble session not found');
+    },
+    destroyWindow: (windowId) => {
+      destroyWindowSessions(sessions, windowId);
     },
   });
 }

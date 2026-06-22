@@ -29,50 +29,51 @@
 - [ ] **v1.24: NAP-COMMON Runtime Parity** - 1 phase (96), 6 requirements, PR #72 open
 - [ ] **v1.25: NAP-LISTS Runtime Parity** - 1 phase (97), 6 requirements, PR #73 open
 - [ ] **v1.26: NAP-SERIAL Runtime Parity** - 1 phase (98), 6 requirements, PR #74 open
+- [ ] **v1.27: NAP-BLE Runtime Parity** - 1 phase (99), 6 requirements
 
 ---
 
-## Active Milestone: v1.26 NAP-SERIAL Runtime Parity
+## Active Milestone: v1.27 NAP-BLE Runtime Parity
 
-**Goal:** Implement one missing recent `@napplet/nap` domain, `NAP-SERIAL`, end to end in Kehto with runtime dispatch, shell capability advertisement, reference service behavior, Paja support, playground demo coverage, and release-ready verification.
+**Goal:** Implement one missing recent `@napplet/nap` domain, `NAP-BLE`, end to end in Kehto with runtime dispatch, shell capability advertisement, reference service behavior, Paja support, playground demo coverage, and release-ready verification.
 
-**Authoritative sources:** packed npm tarball `@napplet/nap@0.20.0` (`dist/serial/types.d.ts`, `dist/serial/sdk.d.ts`) plus `@napplet/core@0.20.0` serial exports. `NAP-LINK`, `NAP-COMMON`, and `NAP-LISTS` are stacked in PRs #71/#72/#73; this milestone intentionally handles only `serial`.
+**Authoritative sources:** packed npm tarball `@napplet/nap@0.20.0` (`dist/ble/types.d.ts`, `dist/ble/sdk.d.ts`) plus `@napplet/core@0.20.0` BLE exports. `NAP-LINK`, `NAP-COMMON`, `NAP-LISTS`, and `NAP-SERIAL` are stacked in PRs #71/#72/#73/#74; this milestone intentionally handles only `ble`.
 
-**Branch:** `feat/nap-serial-parity` stacked on `feat/nap-lists-parity` until PR #73 lands.
+**Branch:** `feat/nap-ble-parity` stacked on `feat/nap-serial-parity` until PR #74 lands.
 
 **Hard constraints (carry into every phase):**
-- One NAP per milestone: do not implement `ble` or `webrtc` here.
+- One NAP per milestone: do not implement `webrtc` here.
 - No new dependencies.
-- Serial sessions stay shell-owned; napplets never receive browser `SerialPort` objects, OS device paths, native handles, signing keys, relay sockets, browser NIP-07 access, or direct hardware handles.
+- BLE sessions stay shell-owned; napplets never receive browser `BluetoothDevice` objects, OS device paths, native handles, signing keys, relay sockets, browser NIP-07 access, or direct hardware handles.
 - Paja remains minimal chrome; the new capability is service behavior, not a new panel.
 - Keep package exports, docs, changesets, static parity guards, and Playwright proof aligned.
 
 ## Phases
 
-- [ ] **Phase 98: NAP-SERIAL Runtime Parity** — add shell/runtime/service/Paja/playground support for runtime-owned serial sessions and focused verification.
+- [ ] **Phase 99: NAP-BLE Runtime Parity** — add shell/runtime/service/Paja/playground support for runtime-owned BLE sessions and focused verification.
 
 ## Phase Details
 
-### Phase 98: NAP-SERIAL Runtime Parity
-**Goal:** `serial.*` works through Kehto's normal NAP service path, is advertised only when wired, and is proven in Paja and the playground.
-**Depends on:** v1.25 NAP-LISTS branch/PR #73 base changes.
-**Requirements:** SERIAL-01, SERIAL-02, SERIAL-03, SERIAL-04, SERIAL-05, SERIAL-06
+### Phase 99: NAP-BLE Runtime Parity
+**Goal:** `ble.*` works through Kehto's normal NAP service path, is advertised only when wired, and is proven in Paja and the playground.
+**Depends on:** v1.26 NAP-SERIAL branch/PR #74 base changes.
+**Requirements:** BLE-01, BLE-02, BLE-03, BLE-04, BLE-05, BLE-06
 **Success Criteria:**
-  1. `buildShellCapabilities()` includes `serial` in `domains` and `naps` only when a serial backend is wired, and disabled-domain overrides remove it.
-  2. Runtime dispatch registers `serial` and routes `serial.*` to a `serial` service handler.
-  3. `@kehto/services` exports `createSerialService`; it returns shaped result envelopes for open/write/close and contains unknown messages.
-  4. `@kehto/paja` wires deterministic serial behavior, includes `serial` in parity metadata, and keeps existing minimal UI unchanged.
-  5. A playground `serial-demo` napplet exercises open/write/close with stable DOM markers, and Playwright covers shell-mediated results.
+  1. `buildShellCapabilities()` includes `ble` in `domains` and `naps` only when a BLE backend is wired, and disabled-domain overrides remove it.
+  2. Runtime dispatch registers `ble` and routes `ble.*` to a `ble` service handler.
+  3. `@kehto/services` exports `createBleService`; it returns shaped result envelopes for open/services/read/write/subscribe/unsubscribe/close and contains unknown messages.
+  4. `@kehto/paja` wires deterministic BLE behavior, includes `ble` in parity metadata, and keeps existing minimal UI unchanged.
+  5. A playground `ble-demo` napplet exercises open/services/read/write/subscribe/unsubscribe/close with stable DOM markers, and Playwright covers shell-mediated results.
   6. Focused tests plus full gates pass; changesets cover modified package outputs; PR opened.
 **Plans:** 1 plan
-  - [x] 98-01-PLAN.md — SERIAL-01..SERIAL-06 service/runtime/shell/Paja/playground implementation and verification
+  - [x] 99-01-PLAN.md — BLE-01..BLE-06 service/runtime/shell/Paja/playground implementation and verification
 **UI hint:** yes
 
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 98. NAP-SERIAL Runtime Parity | v1.26 | 1/1 | PR #74 open | 2026-06-22 |
+| 99. NAP-BLE Runtime Parity | v1.27 | 1/1 | In progress | - |
 
 ---
 

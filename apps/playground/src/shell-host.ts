@@ -238,12 +238,7 @@ function installOriginRegistryProxy(messageTap: MessageTap): void {
       const realResult = originalGetWindowId(real);
       if (realResult) return realResult;
     }
-    // Self-heal a contentWindow swap: setting iframe.srcdoc replaces the
-    // iframe's Window, and the new one is not re-registered until the iframe
-    // 'load' event — which can fire AFTER the napplet sends its first message.
-    // Resolve such early messages by matching the source against a known
-    // napplet's current contentWindow and registering it on the fly, so the
-    // first request is never silently dropped.
+    // srcdoc swaps contentWindow before load; register the new source on first message.
     const target = real ?? win;
     for (const [windowId, info] of napplets) {
       if (info.iframe.contentWindow === target) {

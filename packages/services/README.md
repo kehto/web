@@ -1,6 +1,6 @@
 # @kehto/services
 
-Reference service handlers for the napplet protocol — audio, notifications, identity, relay pool, cache, keys, media, notify, theme, link, common, lists, serial.
+Reference service handlers for the napplet protocol — audio, notifications, identity, relay pool, cache, keys, media, notify, theme, link, common, lists, serial, BLE.
 
 > **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
 > protocol. NAP contracts and service envelopes are not final; treat these
@@ -31,6 +31,7 @@ import {
   createIdentityService,
   createListsService,
   createNotificationService,
+  createBleService,
   createSerialService,
 } from '@kehto/services';
 
@@ -66,6 +67,26 @@ runtime.registerService(
   createSerialService({
     open: () => ({ session: { id: 'host-session-1', state: 'open' } }),
     write: (_sessionId, _data) => {},
+    close: (_sessionId) => {},
+  }),
+);
+
+// BLE service — runtime-owned BLE/GATT sessions and host-owned device access.
+runtime.registerService(
+  'ble',
+  createBleService({
+    open: () => ({
+      session: {
+        id: 'host-ble-1',
+        state: 'open',
+        device: { id: 'host-device-1', name: 'Host BLE' },
+      },
+    }),
+    services: () => [],
+    read: () => [87],
+    write: (_sessionId, _target, _data) => {},
+    subscribe: (_sessionId, _target) => {},
+    unsubscribe: (_sessionId, _target) => {},
     close: (_sessionId) => {},
   }),
 );
