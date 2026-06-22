@@ -15,7 +15,7 @@
     "docs:site:build": "pnpm docs:api:strict && turbo run docs:build --filter @kehto/docs && node scripts/copy-docs-api.mjs",
     "docs:site:preview": "pnpm --dir docs docs:preview",
     "docs:check": "pnpm docs:site:build && node scripts/audit-docs.mjs",
-    "type-check": "turbo run type-check",
+    "type-check": "pnpm build && turbo run type-check",
     "test": "pnpm build && pnpm test:unit",
     "test:unit": "vitest run",
     "test:e2e": "pnpm test:build && npx playwright test",

@@ -1,95 +1,53 @@
-# Requirements: Kehto Runtime — v1.22 Single-Window Development Runtime
+# Requirements: v1.23 NAP-LINK Runtime Parity
 
-**Defined:** 2026-06-21
-**Core Value:** Modular, framework-agnostic runtime for hosting napplet applications — any Nostr client can embed sandboxed mini-apps by integrating @kehto/shell.
-**Milestone goal:** Ship a real single-window development runtime that a napplet author can install as a `dev` script, point at their app dev server or child command, and use to exercise the napplet inside a full Kehto runtime iframe with HMR and real NAP/service wiring.
-**Parity source:** Current `@napplet/nap` web-facing domains in `/home/sandwich/Develop/napplet/packages/nap/src`: shell, relay, outbox, storage, identity, keys, config, resource, theme, notify, media, upload, intent, cvm, inc, and deprecated ifc compatibility.
+## Goal
 
-## v1 Requirements
+Implement `NAP-LINK` parity with current `@napplet/nap` without bundling other missing NAP domains into this milestone.
 
-Requirements for this milestone. Each maps to exactly one roadmap phase unless marked as a cross-phase verification gate.
+## Scope
 
-### Developer Runtime Package
+Authoritative source inspected 2026-06-22:
 
-- [x] **DEVRT-01**: A publishable `@kehto/dev-runtime` workspace package exists with ESM output, typed public API, README, TypeDoc coverage, npm/JSR metadata, and a changeset.
-- [x] **DEVRT-02**: The package exposes a CLI that can be used from any napplet package manager script as `pnpm/npm/yarn dev` by either pointing at an existing target URL or spawning a user-supplied dev command and waiting for its URL.
-- [x] **DEVRT-03**: The runtime is framework-agnostic: HMR is preserved by loading the target app URL directly in the sandbox iframe, without Vite-specific assumptions or bundling the napplet source.
-- [x] **DEVRT-04**: The package exposes typed programmatic helpers for building the dev runtime URL/config so non-CLI hosts and tests can reuse the same option contract.
+- `/home/sandwich/Develop/napplet/packages/nap/src/link`
+- `/home/sandwich/Develop/napplet/packages/nap/package.json` version `0.20.0`
 
-### Single-Window Host Experience
+Missing domains still out of scope for this milestone:
 
-- [x] **HOST-01**: The dev runtime serves a single browser window with exactly one active napplet iframe and minimal visible chrome: a top bar and a bottom bar, with no playground-style panes, cards, or debug side rails enabled by default.
-- [x] **HOST-02**: The top bar surfaces only runtime identity/status essentials and target reload controls; the bottom bar surfaces compact service/runtime status and errors.
-- [x] **HOST-03**: The iframe sandbox and shell handshake match production Kehto behavior, including `allow-scripts` without `allow-same-origin`, runtime-derived identity, and `shell.init` capability payloads.
-- [x] **HOST-04**: The host can reload/reinitialize the runtime around a still-running target app so author edits and HMR cycles do not require restarting the CLI process.
+- `common`
+- `lists`
+- `ble`
+- `webrtc`
+- `serial`
 
-### NAP and Service Parity
+## Functional Requirements
 
-- [x] **PARITY-01**: Every current web NAP domain supported by `@napplet/nap` is represented in the dev runtime capability contract: shell, relay, outbox, storage, identity, keys, config, resource, theme, notify, media, upload, intent, cvm, inc, and ifc compatibility.
-- [x] **PARITY-02**: Every Kehto service that can be wired today is wired into the dev runtime with real implementations or explicit deterministic development adapters: relay/outbox, storage, identity, keys, config, resource, theme, notify/notification, media/audio, upload, intent, cvm, ACL, firewall, NIP-5D resolution, artifact cache, and manifest cache.
-- [x] **PARITY-03**: Any NAP/service gap discovered during implementation is filled in the appropriate `@kehto/*` package rather than hidden behind a dev-runtime-only workaround; intentional unsupported behavior must be documented with a test.
-- [x] **PARITY-04**: A static parity guard compares the current `@napplet/nap` domain/message surface with Kehto runtime/service handling so future protocol additions cannot silently drift.
+### LINK-01: Shell Capability Advertisement
 
-### Environment Simulation and Runtime Controls
+Kehto advertises the `link` domain in `shell.init` `domains` and `naps` only when the host wires a link backend. Disabled-domain simulation removes it from both fields.
 
-- [x] **SIM-01**: The dev runtime accepts sensible options for runtime capability toggles, ACL config, firewall config, identity/signer mode, relay fixtures, storage persistence, cache behavior, upload backend, media/audio behavior, and config/theme defaults.
-- [x] **SIM-02**: Options can be supplied from CLI flags and a config file with the same schema; invalid combinations fail fast with actionable messages.
-- [x] **SIM-03**: The minimal UI exposes a compact way to see and adjust development-only simulation state without becoming a full playground UI.
-- [x] **SIM-04**: Defaults are useful out of the box: a napplet author can run the dev script against a local app and get real identity, storage, relay, notification, theme, config, resource, upload, media, intent, cvm, ACL, firewall, and cache behavior without custom host code.
+### LINK-02: Runtime Dispatch
 
-### Coverage, Documentation, and Release Readiness
+The runtime dispatches `link.*` envelopes through the same NAP-domain path as other service-backed domains. Unknown `link.*` messages do not crash the runtime.
 
-- [x] **VERIFY-01**: Unit coverage proves CLI option parsing, config schema validation, URL/command handling, HMR-preserving iframe target behavior, service wiring, and simulation controls.
-- [x] **VERIFY-02**: E2E coverage launches the dev runtime against at least one real napplet fixture and proves shell init, iframe rendering, HMR/reload behavior, minimal chrome, and representative NAP traffic through the wired services.
-- [x] **VERIFY-03**: Text coverage is complete: package README, docs package page, tutorial/how-to usage, API reference links, and release notes explain how to use the runtime from `pnpm/npm/yarn dev`.
-- [x] **VERIFY-04**: `pnpm build`, `pnpm type-check`, `pnpm test:unit`, focused dev-runtime e2e, docs checks when docs change, and AI-slop scan pass before PR.
-- [x] **VERIFY-05**: The branch is committed, pushed, has a clear PR, and is ready for normal npm/JSR release workflow pending trusted-publisher/package setup.
+### LINK-03: Reference Service
 
-## Future Requirements
+`@kehto/services` exports `createLinkService`. It handles `link.open` and returns `link.open.result` with `status: "opened"` or `status: "denied"`. URL validation is deterministic and rejects malformed URLs and unsafe schemes before host navigation.
 
-- **REMOTE-01**: Remote device or LAN tunneling workflow for phone/tablet testing.
-- **MULTI-01**: Multiple simultaneous napplet windows for host-shell integration testing.
-- **INSPECT-01**: Full playground-grade debugger panes and protocol timeline, if needed after the minimal runtime proves useful.
+### LINK-04: Paja Wiring
 
-## Out of Scope
+`@kehto/paja` wires a deterministic link backend, advertises `link`, includes it in parity metadata, and exposes it through the single-window runtime without adding UI chrome.
 
-| Feature | Reason |
-|---------|--------|
-| Framework-specific adapters | The runtime must work with many stacks by loading a target URL, not by owning each framework's dev server. |
-| Replacing the existing playground | The playground remains the broad demo/inspection surface; this milestone creates a focused author runtime. |
-| Publishing from a local machine | This repo publishes through tag-triggered GitHub Actions; local publish remains out of scope. |
-| Multi-window shell UX | The requested runtime is single-window with one napplet iframe. |
+### LINK-05: Playground Demo
 
-## Traceability
+The playground includes a `link-demo` napplet that imports `@napplet/nap/link`, exercises an allowed URL and a denied URL, and displays stable DOM sentinels for Playwright.
 
-| REQ-ID | Phase | Status |
-|--------|-------|--------|
-| DEVRT-01 | 90 | Complete |
-| DEVRT-02 | 90 | Complete |
-| DEVRT-03 | 90 | Complete |
-| DEVRT-04 | 90 | Complete |
-| HOST-01 | 91 | Complete |
-| HOST-02 | 91 | Complete |
-| HOST-03 | 91 | Complete |
-| HOST-04 | 91 | Complete |
-| PARITY-01 | 92 | Complete |
-| PARITY-02 | 92 | Complete |
-| PARITY-03 | 92 | Complete |
-| PARITY-04 | 92 | Complete |
-| SIM-01 | 93 | Complete |
-| SIM-02 | 93 | Complete |
-| SIM-03 | 93 | Complete |
-| SIM-04 | 93 | Complete |
-| VERIFY-01 | 90-94 | Complete |
-| VERIFY-02 | 91-94 | Complete |
-| VERIFY-03 | 94 | Complete |
-| VERIFY-04 | 94 | Complete |
-| VERIFY-05 | 94 | Complete |
+### LINK-06: Verification And Release Readiness
 
-**Coverage:**
-- v1 requirements: 21 total
-- Mapped to phases: 21
-- Unmapped: 0
+Focused unit/static tests and focused Playwright coverage pass. Full build, type-check, unit, e2e, docs check where affected, AI-slop gate, and diff check run before PR.
 
----
-*Requirements defined: 2026-06-21 after user objective for a real single-window napplet development runtime*
+## Non-Goals
+
+- Implementing `NAP-COMMON`, `NAP-LISTS`, `NAP-BLE`, `NAP-WEBRTC`, or `NAP-SERIAL`.
+- Opening links directly from napplet code or exposing opener access.
+- Adding new package dependencies.
+- Changing Paja's minimal two-bar chrome.

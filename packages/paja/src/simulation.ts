@@ -15,6 +15,7 @@ export type PajaCapabilityDomain =
   | 'media'
   | 'upload'
   | 'intent'
+  | 'link'
   | 'cvm'
   | 'inc';
 
@@ -141,6 +142,7 @@ export const PAJA_SIMULATION_DOMAINS: readonly PajaCapabilityDomain[] = [
   'media',
   'upload',
   'intent',
+  'link',
   'cvm',
   'inc',
 ];

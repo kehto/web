@@ -1,16 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.22
-milestone_name: Single-Window Development Runtime
-status: complete
-last_updated: "2026-06-22T00:00:00.000Z"
-last_activity: 2026-06-22
+milestone: v1.23
+milestone_name: NAP-LINK Runtime Parity
+status: executing
+stopped_at: "Phase 89 complete — v1.21 NIP-5D #2303 + NAP-SHELL/INTENT conformance done (docs + changesets)"
+last_updated: "2026-06-22T19:13:53.704Z"
+last_activity: 2026-06-22 -- Phase 95 planning complete
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 5
-  completed_plans: 5
-  percent: 100
+  total_phases: 1
+  completed_phases: 0
+  total_plans: 1
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -24,11 +25,10 @@ See: .planning/PROJECT.md (updated 2026-06-21)
 
 ## Current Position
 
-Phase: 94 — Coverage, Docs, Release Readiness, and PR
-Plan: 94-01 — complete
-Status: v1.22 complete; branch pushed and PR #64 opened
-
-Last activity: 2026-06-22 — v1.34 release branch prepared with consumed Changesets, package/docs version rows, Paja reload e2e stabilization, and CI-shaped e2e proof
+Phase: Not started (defining requirements)
+Plan: —
+Status: Ready to execute
+Last activity: 2026-06-22 -- Phase 95 planning complete
 
 ## Performance Metrics
 

@@ -92,6 +92,24 @@ describe('buildShellCapabilities — domains array (conformant NAP-SHELL, TERM-0
     expect(caps.domains).toContain('intent');
   });
 
+  it('advertises link in domains when a link opener is wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      link: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).toContain('link');
+  });
+
+  it('does NOT advertise link in domains when the link opener reports unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      link: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('link');
+  });
+
   it('does NOT advertise intent in domains when the dispatcher reports unavailable', () => {
     const hooks: ShellAdapter = {
       ...baseHooks(),
@@ -215,6 +233,37 @@ describe('buildShellCapabilities — NAP-INTENT advertisement in naps', () => {
     };
     const caps = buildShellCapabilities(hooks);
     expect(caps.naps).toContain('intent');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// naps — NAP-LINK advertisement
+// ---------------------------------------------------------------------------
+
+describe('buildShellCapabilities — NAP-LINK advertisement in naps', () => {
+  it('does NOT advertise link in naps when no link opener is wired', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    expect(caps.naps).not.toContain('link');
+  });
+
+  it('advertises link in naps when an available link opener is wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      link: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).toContain('link');
+  });
+
+  it('removes link from domains and naps when disabled by capability override', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      link: { isAvailable: () => true },
+      capabilities: { disabledDomains: ['link'] },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('link');
+    expect(caps.naps).not.toContain('link');
   });
 });
 

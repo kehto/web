@@ -1,7 +1,7 @@
 /**
- * demo-boot.spec.ts — E2E-06: demo boots clean at :4174 with all 8 service nodes.
+ * demo-boot.spec.ts — E2E-06: demo boots clean at :4174 with all service nodes.
  *
- * Asserts: topology renders 8 service nodes, STUB_ONLY_SERVICES is now empty
+ * Asserts: topology renders all service nodes, STUB_ONLY_SERVICES is now empty
  * — both keys (graduated to real-backend in Phase 26) and media (graduated in
  * Phase 27) are now backed by real implementations; see STUB_ONLY_SERVICES in
  * apps/playground/src/shell-host.ts. No anti-term (window.nostr / signer-service /
@@ -11,6 +11,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { demoBeforeEach } from './helpers/index.js';
+import { DEMO_TOPOLOGY_SERVICE_NAMES } from '../../apps/playground/src/demo-definitions.js';
 
 test.use({ baseURL: 'http://localhost:4174' });
 test.describe.configure({ mode: 'serial' });
@@ -19,7 +20,7 @@ const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 29
 const POSTMESSAGE_TRANSPORT_RE =
   /target origin provided|recipient window's origin \('null'\)|Transport request timed out|Error restoring session/i;
 
-test('demo renders 8 topology service nodes on boot', async ({ page }) => {
+test('demo renders all topology service nodes on boot', async ({ page }) => {
   const consoleMessages: string[] = [];
   page.on('console', (msg) => consoleMessages.push(msg.text()));
   const pageErrors: string[] = [];
@@ -27,9 +28,8 @@ test('demo renders 8 topology service nodes on boot', async ({ page }) => {
 
   await demoBeforeEach(page);
 
-  // 8 service nodes visible
   const serviceNodes = page.locator('[data-service-name]');
-  await expect(serviceNodes).toHaveCount(8, { timeout: 10_000 });
+  await expect(serviceNodes).toHaveCount(DEMO_TOPOLOGY_SERVICE_NAMES.length, { timeout: 10_000 });
 
   // Both keys and media graduated to real-backend (Phase 26 + Phase 27);
   // STUB_ONLY_SERVICES is now empty, so no data-service-stub="true" markers
