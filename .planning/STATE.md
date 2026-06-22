@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.27
 milestone_name: NAP-BLE Runtime Parity
-status: executing
+status: review
 stopped_at: "Phase 89 complete — v1.21 NIP-5D #2303 + NAP-SHELL/INTENT conformance done (docs + changesets)"
-last_updated: "2026-06-22T23:31:57+02:00"
-last_activity: 2026-06-22 -- Phase 99 NAP-BLE parity planned; implementation in progress
+last_updated: "2026-06-23T00:11:26+02:00"
+last_activity: 2026-06-23 -- Phase 99 NAP-BLE parity implemented, fully verified, pushed, and opened as PR #75
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 1
   completed_plans: 1
-  percent: 10
+  percent: 100
 ---
 
 # Project State
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-06-21)
 
 Phase: 99 - NAP-BLE Runtime Parity
 Plan: 99-01-PLAN.md
-Status: In progress
-Last activity: 2026-06-22 -- Phase 99 NAP-BLE parity planned; implementation in progress
+Status: PR open (#75)
+Last activity: 2026-06-23 -- Phase 99 NAP-BLE parity implemented, fully verified, pushed, and opened as PR #75
 
 ## Performance Metrics
 
@@ -113,6 +113,7 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - **Phase 92** — wire every possible Kehto service into the runtime and add a static parity guard against `@napplet/nap`. Complete: real ShellBridge adapter, deterministic development services, local/installed `@napplet/nap` domain guard, representative service traffic e2e.
 - **Phase 93** — expose simulation controls for capabilities, ACL, firewall, identity, relay, storage, cache, upload, media, config, and theme. Complete: shared schema, config-file merge, CLI flags, compact UI, shell capability filtering, fixed identity/theme proof.
 - **Phase 94** — close with unit/e2e/text coverage, changesets, full gates, push, and PR. Complete: `pnpm docs:check`, `pnpm build`, `pnpm type-check`, `pnpm test:unit`, `pnpm test:e2e` (68 passed), `aislop` 100/100, `git diff --check`, PR #64. Follow-up renamed the implementation package to `@kehto/paja` and added `@kehto/cli` as the owner of `kehto paja`.
+- **Phase 99** — close NAP-BLE runtime parity. Complete: runtime dispatch, conditional shell advertisement, `createBleService`, Paja/playground deterministic BLE controllers, `ble-demo`, static guards/docs/changeset, `pnpm build`, `pnpm type-check`, `pnpm test:unit`, `pnpm docs:check`, `pnpm test:e2e` (73 passed), `aislop` 100/100, `git diff --check`, PR #75. WebRTC remains outstanding for the next one-NAP milestone.
 
 **Hard constraints (every phase):**
 

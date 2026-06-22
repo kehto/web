@@ -29,7 +29,7 @@
 - [ ] **v1.24: NAP-COMMON Runtime Parity** - 1 phase (96), 6 requirements, PR #72 open
 - [ ] **v1.25: NAP-LISTS Runtime Parity** - 1 phase (97), 6 requirements, PR #73 open
 - [ ] **v1.26: NAP-SERIAL Runtime Parity** - 1 phase (98), 6 requirements, PR #74 open
-- [ ] **v1.27: NAP-BLE Runtime Parity** - 1 phase (99), 6 requirements
+- [ ] **v1.27: NAP-BLE Runtime Parity** - 1 phase (99), 6 requirements, PR #75 open
 
 ---
 
@@ -50,7 +50,7 @@
 
 ## Phases
 
-- [ ] **Phase 99: NAP-BLE Runtime Parity** — add shell/runtime/service/Paja/playground support for runtime-owned BLE sessions and focused verification.
+- [x] **Phase 99: NAP-BLE Runtime Parity** — add shell/runtime/service/Paja/playground support for runtime-owned BLE sessions and focused verification. (completed 2026-06-23 — PR #75 open)
 
 ## Phase Details
 
@@ -73,7 +73,7 @@
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 99. NAP-BLE Runtime Parity | v1.27 | 1/1 | In progress | - |
+| 99. NAP-BLE Runtime Parity | v1.27 | 1/1 | PR open | 2026-06-23 — PR #75 |
 
 ---
 
