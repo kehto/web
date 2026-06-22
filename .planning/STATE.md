@@ -28,7 +28,7 @@ Phase: 94 — Coverage, Docs, Release Readiness, and PR
 Plan: 94-01 — complete
 Status: v1.22 complete; branch pushed and PR #64 opened
 
-Last activity: 2026-06-22 — issue #65 identity service host hooks implemented, full build/type/unit/docs/slop gates passed, PR branch prepared
+Last activity: 2026-06-22 — v1.34 release branch prepared with consumed Changesets, package/docs version rows, Paja reload e2e stabilization, and CI-shaped e2e proof
 
 ## Performance Metrics
 
@@ -90,6 +90,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260621-4bv | Split dev-runtime into @kehto/paja implementation package and @kehto/cli kehto paja command | 2026-06-21 | 1990451 | [260621-4bv-split-dev-runtime-into-kehto-paja-implem](./quick/260621-4bv-split-dev-runtime-into-kehto-paja-implem/) |
 | 260622-4ec | Guard valid multi-filter outbox.subscribe startup requests against init-burst rejection | 2026-06-22 | ac262e7 | [260622-4ec-resolve-issue-61-by-guarding-valid-multi](./quick/260622-4ec-resolve-issue-61-by-guarding-valid-multi/) |
 | 260622-44f | Resolve issue #65 by allowing hosts to provide read-only identity data to createIdentityService | 2026-06-22 | bd1f941 | [260622-44f-resolve-issue-65-by-allowing-hosts-to-pr](./quick/260622-44f-resolve-issue-65-by-allowing-hosts-to-pr/) |
+| 260622-6wk | Prepare v1.34 release by consuming pending Changesets and validating the release branch | 2026-06-22 | 8d990d0 | [260622-6wk-prepare-v1-34-release-by-consuming-pendi](./quick/260622-6wk-prepare-v1-34-release-by-consuming-pendi/) |
 
 ## Session Continuity
 
