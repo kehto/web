@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -12,8 +12,6 @@ import {
 } from './parity.js';
 
 function napPackageRoot(): URL {
-  const sibling = new URL('../../../../napplet/packages/nap/src/', import.meta.url);
-  if (existsSync(sibling)) return sibling;
   return new URL('../../../node_modules/.pnpm/@napplet+nap@0.13.0/node_modules/@napplet/nap/dist/', import.meta.url);
 }
 
