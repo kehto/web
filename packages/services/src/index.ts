@@ -38,6 +38,7 @@ export { createNotificationService } from './notification-service.js';
 export { createIdentityService } from './identity-service.js';
 export type {
   IdentityServiceOptions,
+  MaybePromise,
 } from './identity-service.js';
 
 export { createRelayPoolService } from './relay-pool-service.js';

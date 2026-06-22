@@ -17,6 +17,7 @@ import type { Signer } from '@kehto/runtime';
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const WINDOW_ID = 'win-test-1';
+const MOCK_SIGNER_PUBKEY = 'test-pubkey-' + 'a'.repeat(52);
 
 function makeIdentityMessage(type: string, fields: Record<string, unknown> = {}): NappletMessage {
   return { type, id: 'corr-1', ...fields } as NappletMessage;
@@ -28,7 +29,7 @@ function createMockSigner(): Signer & { calls: string[] } {
     calls,
     getPublicKey() {
       calls.push('getPublicKey');
-      return 'test-pubkey-' + 'a'.repeat(52);
+      return MOCK_SIGNER_PUBKEY;
     },
     getRelays() {
       calls.push('getRelays');
@@ -168,6 +169,57 @@ describe('createIdentityService', () => {
       expect(sent[0].type).toBe('identity.getFollows.result');
       expect((sent[0] as any).pubkeys).toEqual([]);
     });
+
+    it('returns host-provided follows without replacing the identity service', async () => {
+      const signer = createMockSigner();
+      const followedPubkeys = ['f'.repeat(64), 'e'.repeat(64)];
+      const seen: string[] = [];
+      const service = createIdentityService({
+        getSigner: () => signer,
+        getFollows: async (pubkey) => {
+          seen.push(pubkey);
+          return followedPubkeys;
+        },
+      });
+      const sent: NappletMessage[] = [];
+      const send = (msg: NappletMessage): void => { sent.push(msg); };
+
+      service.handleMessage(
+        WINDOW_ID,
+        makeIdentityMessage('identity.getFollows', { id: 'corr-follows' }),
+        send,
+      );
+      await nextTick();
+
+      expect(seen).toEqual([MOCK_SIGNER_PUBKEY]);
+      expect(sent).toHaveLength(1);
+      expect(sent[0].type).toBe('identity.getFollows.result');
+      expect((sent[0] as any).id).toBe('corr-follows');
+      expect((sent[0] as any).pubkeys).toEqual(followedPubkeys);
+    });
+
+    it('returns a result envelope with error when a host follows provider fails', async () => {
+      const service = createIdentityService({
+        getSigner: () => createMockSigner(),
+        getFollows: async () => {
+          throw new Error('contacts unavailable');
+        },
+      });
+      const sent: NappletMessage[] = [];
+      const send = (msg: NappletMessage): void => { sent.push(msg); };
+
+      service.handleMessage(
+        WINDOW_ID,
+        makeIdentityMessage('identity.getFollows'),
+        send,
+      );
+      await nextTick();
+
+      expect(sent).toHaveLength(1);
+      expect(sent[0].type).toBe('identity.getFollows.result');
+      expect((sent[0] as any).pubkeys).toEqual([]);
+      expect((sent[0] as any).error).toBe('contacts unavailable');
+    });
   });
 
   describe('identity.getList (stub)', () => {
@@ -185,6 +237,32 @@ describe('createIdentityService', () => {
       expect(sent).toHaveLength(1);
       expect(sent[0].type).toBe('identity.getList.result');
       expect((sent[0] as any).entries).toEqual([]);
+    });
+
+    it('passes listType and current pubkey to a host list provider', async () => {
+      const signer = createMockSigner();
+      const calls: Array<{ listType: string; pubkey: string }> = [];
+      const service = createIdentityService({
+        getSigner: () => signer,
+        getList: (listType, pubkey) => {
+          calls.push({ listType, pubkey });
+          return ['note1example'];
+        },
+      });
+      const sent: NappletMessage[] = [];
+      const send = (msg: NappletMessage): void => { sent.push(msg); };
+
+      service.handleMessage(
+        WINDOW_ID,
+        makeIdentityMessage('identity.getList', { listType: 'bookmarks' }),
+        send,
+      );
+      await nextTick();
+
+      expect(calls).toEqual([{ listType: 'bookmarks', pubkey: MOCK_SIGNER_PUBKEY }]);
+      expect(sent).toHaveLength(1);
+      expect(sent[0].type).toBe('identity.getList.result');
+      expect((sent[0] as any).entries).toEqual(['note1example']);
     });
   });
 

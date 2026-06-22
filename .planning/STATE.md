@@ -27,7 +27,8 @@ See: .planning/PROJECT.md (updated 2026-06-21)
 Phase: 94 — Coverage, Docs, Release Readiness, and PR
 Plan: 94-01 — complete
 Status: v1.22 complete; branch pushed and PR #64 opened
-Last activity: 2026-06-22 — Issue #61 outbox startup multi-filter regression guard implemented; focused runtime test plus full build/type/unit/docs gates passed
+
+Last activity: 2026-06-22 — issue #65 identity service host hooks implemented, full build/type/unit/docs/slop gates passed, PR branch prepared
 
 ## Performance Metrics
 
@@ -88,6 +89,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260620-07v | Update docs for NIP-5D napplet artifact cache implementation | 2026-06-20 | 234c8b4 | [260620-07v-update-kehto-docs-for-napplet-artifact-c](./quick/260620-07v-update-kehto-docs-for-napplet-artifact-c/) |
 | 260621-4bv | Split dev-runtime into @kehto/paja implementation package and @kehto/cli kehto paja command | 2026-06-21 | 1990451 | [260621-4bv-split-dev-runtime-into-kehto-paja-implem](./quick/260621-4bv-split-dev-runtime-into-kehto-paja-implem/) |
 | 260622-4ec | Guard valid multi-filter outbox.subscribe startup requests against init-burst rejection | 2026-06-22 | ac262e7 | [260622-4ec-resolve-issue-61-by-guarding-valid-multi](./quick/260622-4ec-resolve-issue-61-by-guarding-valid-multi/) |
+| 260622-44f | Resolve issue #65 by allowing hosts to provide read-only identity data to createIdentityService | 2026-06-22 | bd1f941 | [260622-44f-resolve-issue-65-by-allowing-hosts-to-pr](./quick/260622-44f-resolve-issue-65-by-allowing-hosts-to-pr/) |
 
 ## Session Continuity
 
