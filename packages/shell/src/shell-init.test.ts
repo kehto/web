@@ -137,6 +137,24 @@ describe('buildShellCapabilities — domains array (conformant NAP-SHELL, TERM-0
     expect(caps.domains).not.toContain('lists');
   });
 
+  it('advertises serial in domains when serial sessions are wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      serial: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).toContain('serial');
+  });
+
+  it('does NOT advertise serial in domains when serial sessions report unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      serial: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('serial');
+  });
+
   it('does NOT advertise common in domains when common social helpers report unavailable', () => {
     const hooks: ShellAdapter = {
       ...baseHooks(),
@@ -380,6 +398,46 @@ describe('buildShellCapabilities — NAP-LISTS advertisement in naps', () => {
     const caps = buildShellCapabilities(hooks);
     expect(caps.domains).not.toContain('lists');
     expect(caps.naps).not.toContain('lists');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// naps — NAP-SERIAL advertisement
+// ---------------------------------------------------------------------------
+
+describe('buildShellCapabilities — NAP-SERIAL advertisement in naps', () => {
+  it('does NOT advertise serial in naps when no serial backend is wired', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    expect(caps.naps).not.toContain('serial');
+  });
+
+  it('does NOT advertise serial in naps when the serial backend reports unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      serial: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).not.toContain('serial');
+  });
+
+  it('advertises serial in naps when an available serial backend is wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      serial: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).toContain('serial');
+  });
+
+  it('removes serial from domains and naps when disabled by capability override', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      serial: { isAvailable: () => true },
+      capabilities: { disabledDomains: ['serial'] },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('serial');
+    expect(caps.naps).not.toContain('serial');
   });
 });
 

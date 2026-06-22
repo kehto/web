@@ -1,6 +1,6 @@
 # @kehto/demo
 
-Reference consumer of the current napplet protocol draft — a 12-napplet browser demo that hosts `@kehto/runtime` + `@kehto/shell` and exercises Kehto's supported NIP-5D NAP surfaces end-to-end. Acts as both the Playwright test harness target (`:4174` preview build) and the showcase for external integrators evaluating Kehto as an early runtime implementation.
+Reference consumer of the current napplet protocol draft — a 13-napplet browser demo that hosts `@kehto/runtime` + `@kehto/shell` and exercises Kehto's supported NIP-5D NAP surfaces end-to-end. Acts as both the Playwright test harness target (`:4174` preview build) and the showcase for external integrators evaluating Kehto as an early runtime implementation.
 
 > **Alpha status:** NIP-5D is still under development, and NAP contracts are not
 > final. The playground demonstrates Kehto's current behavior; it is not proof
@@ -32,7 +32,7 @@ The legacy `/napplets/<name>/...` static route may still exist for compatibility
 
 ## Napplet Inventory
 
-The demo hosts 12 sandboxed napplets, each built independently under `apps/playground/napplets/<name>/` and loaded into a topology-rendered iframe at runtime. v1.3 shipped an 8-napplet demo; later milestones added resource, link, common, lists, and CVM demos.
+The demo hosts 13 sandboxed napplets, each built independently under `apps/playground/napplets/<name>/` and loaded into a topology-rendered iframe at runtime. v1.3 shipped an 8-napplet demo; later milestones added resource, link, common, lists, serial, and CVM demos.
 
 The cross-napplet domain is `inc` (the NAP rename of the legacy `inc`). The four
 napplets below declare `requires` / call `supports()` with `inc`; the runtime
@@ -52,6 +52,7 @@ still reach the same handler (removal tracked as CLEANUP-01).
 | preferences | storage, theme | `storage.set`, `storage.get`, `theme.changed` allowlisted listener | [apps/playground/napplets/preferences/src/](./napplets/preferences/src/) |
 | profile-viewer | inc, relay | `inc.subscribe` (`profile:open`), `relay.subscribe` | [apps/playground/napplets/profile-viewer/src/](./napplets/profile-viewer/src/) |
 | resource-demo | resource, connect | `resource.bytes`, connect grant/CSP fixture | [apps/playground/napplets/resource-demo/src/](./napplets/resource-demo/src/) |
+| serial-demo | serial | `serial.open`, `serial.write`, `serial.close` | [apps/playground/napplets/serial-demo/src/](./napplets/serial-demo/src/) |
 | toaster | notify | `notify.create`, `notify.list`, `notify.dismiss` | [apps/playground/napplets/toaster/src/](./napplets/toaster/src/) |
 
 Each napplet is an independent build target with its own `package.json`, `vite.config.ts`, and `index.html`. The topology view (`apps/playground/src/topology.ts`) renders one frame container per `DEMO_NAPPLETS` entry from `apps/playground/src/shell-host.ts` — adding a new napplet requires editing only that array, no per-napplet template duplication.

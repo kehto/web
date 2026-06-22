@@ -198,6 +198,12 @@ export interface ListsHooks {
   isAvailable(): boolean;
 }
 
+/** Minimal serial backend the shell advertises (NAP-SERIAL). */
+export interface SerialHooks {
+  /** True when the host has shell-mediated serial sessions wired. */
+  isAvailable(): boolean;
+}
+
 /**
  * Optional host override for the static shell.init capability handshake.
  *
@@ -401,6 +407,12 @@ export interface ShellAdapter {
    * registers the concrete service via `registerService('lists')`.
    */
   lists?: ListsHooks;
+  /**
+   * Optional shell-mediated serial backend (NAP-SERIAL). When present and
+   * `isAvailable()` is true, the shell advertises `serial`. The host still
+   * registers the concrete service via `registerService('serial')`.
+   */
+  serial?: SerialHooks;
   /**
    * Optional capability advertisement override. Omitted by production hosts.
    */

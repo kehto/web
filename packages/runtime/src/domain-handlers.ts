@@ -29,6 +29,7 @@ export type RuntimeDomainHandlers = {
   link: DomainHandler;
   common: DomainHandler;
   lists: DomainHandler;
+  serial: DomainHandler;
 };
 
 const THEME_FALLBACK_DEFAULT = {
@@ -51,6 +52,7 @@ export function createRuntimeDomainHandlers(context: RuntimeDomainContext): Runt
     link: (windowId, msg) => handleServiceOnlyMessage(context, 'link', windowId, msg),
     common: (windowId, msg) => handleServiceOnlyMessage(context, 'common', windowId, msg),
     lists: (windowId, msg) => handleServiceOnlyMessage(context, 'lists', windowId, msg),
+    serial: (windowId, msg) => handleServiceOnlyMessage(context, 'serial', windowId, msg),
   };
 }
 
@@ -170,7 +172,7 @@ function handleThemeMessage(context: RuntimeDomainContext, windowId: string, msg
 
 function handleServiceOnlyMessage(
   context: RuntimeDomainContext,
-  name: 'config' | 'resource' | 'cvm' | 'outbox' | 'upload' | 'intent' | 'link' | 'common' | 'lists',
+  name: 'config' | 'resource' | 'cvm' | 'outbox' | 'upload' | 'intent' | 'link' | 'common' | 'lists' | 'serial',
   windowId: string,
   msg: NappletMessage,
 ): void {

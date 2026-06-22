@@ -15,6 +15,7 @@ const expectedNapplets = [
   'preferences',
   'profile-viewer',
   'resource-demo',
+  'serial-demo',
   'toaster',
 ] as const;
 
@@ -30,6 +31,7 @@ const expectedRequires: Record<(typeof expectedNapplets)[number], readonly strin
   preferences: ['storage', 'theme'],
   'profile-viewer': ['inc', 'relay', 'theme'],
   'resource-demo': ['resource', 'theme'],
+  'serial-demo': ['serial'],
   toaster: ['notify', 'theme'],
 };
 

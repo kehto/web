@@ -204,6 +204,12 @@ export type {
   ListsServiceOptions,
 } from './lists-service.js';
 
+export { createSerialService } from './serial-service.js';
+export type {
+  SerialServiceContext,
+  SerialServiceOptions,
+} from './serial-service.js';
+
 export { createCommonService } from './common-service.js';
 export type {
   CommonServiceContext,

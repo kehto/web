@@ -36,6 +36,7 @@ export type {
   LinkHooks,
   CommonHooks,
   ListsHooks,
+  SerialHooks,
   CapabilityHooks,
   SessionEntry,
   NappKeyEntry,  // @deprecated — use SessionEntry

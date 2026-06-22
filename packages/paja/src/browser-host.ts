@@ -1,4 +1,12 @@
-import type { ListItem, ListRef, ListSupport, NostrEvent, NostrFilter } from '@napplet/core';
+import type {
+  ListItem,
+  ListRef,
+  ListSupport,
+  NostrEvent,
+  NostrFilter,
+  SerialOpenRequest,
+  SerialOpenResult,
+} from '@napplet/core';
 import {
   buildShellCapabilities,
   createShellBridge,
@@ -25,6 +33,7 @@ import {
   createOutboxService,
   createRelayPoolService,
   createResourceService,
+  createSerialService,
   createThemeService,
   createUploadService,
   type CvmServer,
@@ -75,6 +84,7 @@ const DEV_INTENT_ARCHETYPE = 'paja-target';
 const DEV_COMMON_PUBKEY = '1'.repeat(64);
 const DEV_COMMON_EVENT_ID = '2'.repeat(64);
 const DEV_LISTS_EVENT_ID = '3'.repeat(64);
+const DEV_SERIAL_LABEL = 'Paja serial';
 const DEV_LISTS_SUPPORT: ListSupport = {
   kind: 10003,
   type: 'bookmarks',
@@ -416,6 +426,38 @@ function createDevListStore() {
   };
 }
 
+function createDevSerialController() {
+  const sessions = new Map<string, { windowId: string; writes: number[][] }>();
+  let nextSession = 1;
+
+  return {
+    open(_request: SerialOpenRequest, context: { windowId: string }): SerialOpenResult {
+      const id = `paja-serial-${nextSession++}`;
+      sessions.set(id, { windowId: context.windowId, writes: [] });
+      return {
+        session: {
+          id,
+          state: 'open',
+          info: { displayName: DEV_SERIAL_LABEL },
+        },
+      };
+    },
+    write(sessionId: string, data: readonly number[]): void {
+      const session = sessions.get(sessionId);
+      if (!session) throw new Error('serial session not found');
+      session.writes.push([...data]);
+    },
+    close(sessionId: string): void {
+      if (!sessions.delete(sessionId)) throw new Error('serial session not found');
+    },
+    destroyWindow(windowId: string): void {
+      for (const [sessionId, session] of sessions) {
+        if (session.windowId === windowId) sessions.delete(sessionId);
+      }
+    },
+  };
+}
+
 function createDevServices(
   pool: RelayPoolLike,
   getSimulation: () => PajaSimulation,
@@ -529,6 +571,9 @@ function createDevServices(
       remove: listStore.remove,
     });
   }
+  if (getSimulation().capabilities.domains.serial) {
+    services.serial = createSerialService(createDevSerialController());
+  }
 
   return services;
 }
@@ -566,6 +611,7 @@ function createPajaAdapter(
     link: { isAvailable: () => getSimulation().capabilities.domains.link },
     common: { isAvailable: () => getSimulation().capabilities.domains.common },
     lists: { isAvailable: () => getSimulation().capabilities.domains.lists },
+    serial: { isAvailable: () => getSimulation().capabilities.domains.serial },
     crypto: {
       verifyEvent: async () => true,
     },
