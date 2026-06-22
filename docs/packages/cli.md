@@ -17,7 +17,7 @@ pnpm add -D @kehto/cli
 | Field | Value |
 |-------|-------|
 | Source | `packages/cli/package.json`, `packages/cli/src/index.ts` |
-| Version | `0.1.0` |
+| Version | `0.2.0` |
 | Runtime entry | `./dist/index.js` |
 | Binary | `kehto` |
 | Types entry | `./dist/index.d.ts` |
