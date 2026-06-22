@@ -26,51 +26,52 @@
 - [x] **v1.21: NIP-5D (#2303) + NAP-SHELL/INTENT Conformance** - 4 phases (86-89), 16 requirements (completed; follow-up cache PR #63 merged)
 - [x] **v1.22: Single-Window Development Runtime** - 5 phases (90-94), 21/21 requirements, PR #64 open
 - [ ] **v1.23: NAP-LINK Runtime Parity** - 1 phase (95), 6 requirements, PR #71 open
-- [ ] **v1.24: NAP-COMMON Runtime Parity** - 1 phase (96), 6 requirements
+- [ ] **v1.24: NAP-COMMON Runtime Parity** - 1 phase (96), 6 requirements, PR #72 open
+- [ ] **v1.25: NAP-LISTS Runtime Parity** - 1 phase (97), 6 requirements
 
 ---
 
-## Active Milestone: v1.24 NAP-COMMON Runtime Parity
+## Active Milestone: v1.25 NAP-LISTS Runtime Parity
 
-**Goal:** Implement one missing recent `@napplet/nap` domain, `NAP-COMMON`, end to end in Kehto with runtime dispatch, shell capability advertisement, reference service behavior, Paja support, playground demo coverage, and release-ready verification.
+**Goal:** Implement one missing recent `@napplet/nap` domain, `NAP-LISTS`, end to end in Kehto with runtime dispatch, shell capability advertisement, reference service behavior, Paja support, playground demo coverage, and release-ready verification.
 
-**Authoritative sources:** `/home/sandwich/Develop/napplet/packages/nap/src/common` and current local `@napplet/nap@0.20.0` package metadata. `NAP-LINK` is implemented in PR #71; this milestone intentionally handles only `common`.
+**Authoritative sources:** `/home/sandwich/Develop/napplet/packages/nap/src/lists`, `/home/sandwich/Develop/napplet/packages/core/src/types/lists.ts`, and current local `@napplet/nap@0.20.0` package metadata. `NAP-LINK` and `NAP-COMMON` are stacked in PRs #71/#72; this milestone intentionally handles only `lists`.
 
-**Branch:** `feat/nap-common-parity` stacked on `feat/nap-parity-recent-naps` until PR #71 lands.
+**Branch:** `feat/nap-lists-parity` stacked on `feat/nap-common-parity` until PR #72 lands.
 
 **Hard constraints (carry into every phase):**
-- One NAP per milestone: do not implement `lists`, `ble`, `webrtc`, or `serial` here.
+- One NAP per milestone: do not implement `ble`, `webrtc`, or `serial` here.
 - No new dependencies.
-- Common social actions stay shell-owned; napplets never receive signing keys, relay sockets, browser NIP-07 access, or direct publish authority.
+- List mutations stay shell-owned; napplets never receive signing keys, relay sockets, browser NIP-07 access, or direct publish authority.
 - Paja remains minimal chrome; the new capability is service behavior, not a new panel.
 - Keep package exports, docs, changesets, static parity guards, and Playwright proof aligned.
 
 ## Phases
 
-- [ ] **Phase 96: NAP-COMMON Runtime Parity** — add shell/runtime/service/Paja/playground support for common social helpers and focused verification.
+- [ ] **Phase 97: NAP-LISTS Runtime Parity** — add shell/runtime/service/Paja/playground support for NIP-51 list helpers and focused verification.
 
 ## Phase Details
 
-### Phase 96: NAP-COMMON Runtime Parity
-**Goal:** `common.*` works through Kehto's normal NAP service path, is advertised only when wired, and is proven in Paja and the playground.
-**Depends on:** v1.23 NAP-LINK branch/PR #71 base changes.
-**Requirements:** COMMON-01, COMMON-02, COMMON-03, COMMON-04, COMMON-05, COMMON-06
+### Phase 97: NAP-LISTS Runtime Parity
+**Goal:** `lists.*` works through Kehto's normal NAP service path, is advertised only when wired, and is proven in Paja and the playground.
+**Depends on:** v1.24 NAP-COMMON branch/PR #72 base changes.
+**Requirements:** LISTS-01, LISTS-02, LISTS-03, LISTS-04, LISTS-05, LISTS-06
 **Success Criteria:**
-  1. `buildShellCapabilities()` includes `common` in `domains` and `naps` only when a common backend is wired, and disabled-domain overrides remove it.
-  2. Runtime dispatch registers `common` and routes `common.*` to a `common` service handler.
-  3. `@kehto/services` exports `createCommonService`; it returns shaped result envelopes for all eight upstream methods and contains unknown messages.
-  4. `@kehto/paja` wires deterministic common behavior, includes `common` in parity metadata, and keeps existing minimal UI unchanged.
-  5. A playground `common-demo` napplet exercises representative common helpers with stable DOM markers, and Playwright covers shell-mediated results.
+  1. `buildShellCapabilities()` includes `lists` in `domains` and `naps` only when a lists backend is wired, and disabled-domain overrides remove it.
+  2. Runtime dispatch registers `lists` and routes `lists.*` to a `lists` service handler.
+  3. `@kehto/services` exports `createListsService`; it returns shaped result envelopes for all upstream methods and contains unknown messages.
+  4. `@kehto/paja` wires deterministic lists behavior, includes `lists` in parity metadata, and keeps existing minimal UI unchanged.
+  5. A playground `lists-demo` napplet exercises supported/add/remove with stable DOM markers, and Playwright covers shell-mediated results.
   6. Focused tests plus full gates pass; changesets cover modified package outputs; PR opened.
 **Plans:** 1 plan
-  - [ ] 96-01-PLAN.md — COMMON-01..COMMON-06 service/runtime/shell/Paja/playground implementation and verification
+  - [ ] 97-01-PLAN.md — LISTS-01..LISTS-06 service/runtime/shell/Paja/playground implementation and verification
 **UI hint:** yes
 
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 96. NAP-COMMON Runtime Parity | v1.24 | 0/1 | Planned | - |
+| 97. NAP-LISTS Runtime Parity | v1.25 | 0/1 | Planned | - |
 
 ---
 

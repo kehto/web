@@ -1,4 +1,4 @@
-import type { NostrEvent, NostrFilter } from '@napplet/core';
+import type { ListItem, ListRef, ListSupport, NostrEvent, NostrFilter } from '@napplet/core';
 import {
   buildShellCapabilities,
   createShellBridge,
@@ -18,6 +18,7 @@ import {
   createIntentService,
   createKeysService,
   createLinkService,
+  createListsService,
   createMediaService,
   createNotificationService,
   createNotifyService,
@@ -73,6 +74,13 @@ declare global {
 const DEV_INTENT_ARCHETYPE = 'paja-target';
 const DEV_COMMON_PUBKEY = '1'.repeat(64);
 const DEV_COMMON_EVENT_ID = '2'.repeat(64);
+const DEV_LISTS_EVENT_ID = '3'.repeat(64);
+const DEV_LISTS_SUPPORT: ListSupport = {
+  kind: 10003,
+  type: 'bookmarks',
+  addressable: false,
+  supportedItemTypes: ['event', 'url'],
+};
 const DEV_CVM_SERVER: CvmServer = {
   pubkey: '0'.repeat(64),
   name: 'Kehto Paja ContextVM',
@@ -373,6 +381,41 @@ function createDevSigner(getSimulation: () => PajaSimulation) {
   };
 }
 
+function createDevListStore() {
+  const values = new Set<string>();
+  const itemKey = (item: ListItem) => `${item.itemType}:${item.value}`;
+  const isSupported = (list: ListRef): boolean =>
+    ('type' in list && list.type === DEV_LISTS_SUPPORT.type)
+    || ('kind' in list && list.kind === DEV_LISTS_SUPPORT.kind);
+  return {
+    supported: () => [DEV_LISTS_SUPPORT],
+    add(list: ListRef, items: readonly ListItem[]) {
+      if (!isSupported(list)) return { ok: false, error: 'unsupported-list' as const, reason: 'unsupported list', supported: [DEV_LISTS_SUPPORT] };
+      let added = 0;
+      let skipped = 0;
+      for (const item of items) {
+        const key = itemKey(item);
+        if (values.has(key)) skipped += 1;
+        else {
+          values.add(key);
+          added += 1;
+        }
+      }
+      return { ok: true, eventId: DEV_LISTS_EVENT_ID, added, skipped };
+    },
+    remove(list: ListRef, items: readonly ListItem[]) {
+      if (!isSupported(list)) return { ok: false, error: 'unsupported-list' as const, reason: 'unsupported list', supported: [DEV_LISTS_SUPPORT] };
+      let removed = 0;
+      let skipped = 0;
+      for (const item of items) {
+        if (values.delete(itemKey(item))) removed += 1;
+        else skipped += 1;
+      }
+      return { ok: true, eventId: DEV_LISTS_EVENT_ID, removed, skipped };
+    },
+  };
+}
+
 function createDevServices(
   pool: RelayPoolLike,
   getSimulation: () => PajaSimulation,
@@ -478,6 +521,14 @@ function createDevServices(
       report: () => ({ ok: true, eventId: DEV_COMMON_EVENT_ID }),
     });
   }
+  if (getSimulation().capabilities.domains.lists) {
+    const listStore = createDevListStore();
+    services.lists = createListsService({
+      supported: listStore.supported,
+      add: listStore.add,
+      remove: listStore.remove,
+    });
+  }
 
   return services;
 }
@@ -514,6 +565,7 @@ function createPajaAdapter(
     intent: { isAvailable: () => getSimulation().intent.enabled },
     link: { isAvailable: () => getSimulation().capabilities.domains.link },
     common: { isAvailable: () => getSimulation().capabilities.domains.common },
+    lists: { isAvailable: () => getSimulation().capabilities.domains.lists },
     crypto: {
       verifyEvent: async () => true,
     },

@@ -38,6 +38,7 @@ const NAPPLETS = [
   { name: 'composer',         statusId: 'composer-status' },
   { name: 'cvm-relatr',       statusId: 'cvm-relatr-status' },
   { name: 'feed',             statusId: 'feed-status' },
+  { name: 'lists-demo',       statusId: 'lists-demo-status' },
   { name: 'preferences',      statusId: 'preferences-status' },
   { name: 'profile-viewer',   statusId: 'profile-status' },
   { name: 'resource-demo',    statusId: 'resource-demo-status' },

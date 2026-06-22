@@ -67,6 +67,7 @@ function requestCommon<T extends { type: string; id: string }>(message: { type: 
       reject(new Error(`${message.type} timed out`));
     }, REQUEST_TIMEOUT_MS);
 
+    // Phase 58 raw-message allowlist: demo waits for one shell-owned NAP result.
     function onMessage(event: MessageEvent): void {
       if (event.source !== window.parent) return;
       const msg = event.data as Partial<T> | null;

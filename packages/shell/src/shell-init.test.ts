@@ -119,6 +119,24 @@ describe('buildShellCapabilities — domains array (conformant NAP-SHELL, TERM-0
     expect(caps.domains).toContain('common');
   });
 
+  it('advertises lists in domains when list mutation helpers are wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      lists: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).toContain('lists');
+  });
+
+  it('does NOT advertise lists in domains when list mutation helpers report unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      lists: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('lists');
+  });
+
   it('does NOT advertise common in domains when common social helpers report unavailable', () => {
     const hooks: ShellAdapter = {
       ...baseHooks(),
@@ -322,6 +340,46 @@ describe('buildShellCapabilities — NAP-COMMON advertisement in naps', () => {
     const caps = buildShellCapabilities(hooks);
     expect(caps.domains).not.toContain('common');
     expect(caps.naps).not.toContain('common');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// naps — NAP-LISTS advertisement
+// ---------------------------------------------------------------------------
+
+describe('buildShellCapabilities — NAP-LISTS advertisement in naps', () => {
+  it('does NOT advertise lists in naps when no lists backend is wired', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    expect(caps.naps).not.toContain('lists');
+  });
+
+  it('does NOT advertise lists in naps when the lists backend reports unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      lists: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).not.toContain('lists');
+  });
+
+  it('advertises lists in naps when an available lists backend is wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      lists: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).toContain('lists');
+  });
+
+  it('removes lists from domains and naps when disabled by capability override', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      lists: { isAvailable: () => true },
+      capabilities: { disabledDomains: ['lists'] },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('lists');
+    expect(caps.naps).not.toContain('lists');
   });
 });
 

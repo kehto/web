@@ -17,6 +17,7 @@ export type PajaCapabilityDomain =
   | 'intent'
   | 'link'
   | 'common'
+  | 'lists'
   | 'cvm'
   | 'inc';
 
@@ -145,6 +146,7 @@ export const PAJA_SIMULATION_DOMAINS: readonly PajaCapabilityDomain[] = [
   'intent',
   'link',
   'common',
+  'lists',
   'cvm',
   'inc',
 ];

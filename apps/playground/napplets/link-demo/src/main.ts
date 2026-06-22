@@ -55,6 +55,7 @@ function openLink(url: string, label: string): Promise<LinkOpenResultMessage> {
       reject(new Error(`link.open timed out for ${label}`));
     }, 5_000);
 
+    // Phase 58 raw-message allowlist: demo waits for one shell-owned NAP result.
     function onMessage(event: MessageEvent): void {
       if (event.source !== window.parent) return;
       const msg = event.data as Partial<LinkOpenResultMessage> | null;
