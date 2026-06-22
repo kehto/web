@@ -25,6 +25,7 @@ import {
   createMediaService,
   createThemeService,
   createConfigService,
+  createCommonService,
   createResourceService,
   createCvmService,
   type ConfigService,
@@ -75,6 +76,8 @@ const demoConfigFixtures: Record<string, unknown> = {
   'notifications-enabled': true,
   recentSearches: [],
 };
+const DEMO_COMMON_PUBKEY = '3'.repeat(64);
+const DEMO_COMMON_EVENT_ID = '4'.repeat(64);
 
 export function createDemoHooks(
   notificationOnChange: ((notifications: readonly Notification[]) => void) | undefined,
@@ -96,6 +99,19 @@ export function createDemoHooks(
     open: ({ url }) => ({
       status: url.hostname === 'blocked.example' ? 'denied' : 'opened',
     }),
+  });
+  const commonService = createCommonService({
+    getProfile: (target) => ({
+      ok: true,
+      pubkey: target || getSignerConnectionState().pubkey || DEMO_COMMON_PUBKEY,
+      profile: { name: 'playground-common', displayName: 'Playground Common' },
+      relays: [...DEFAULT_PLAYGROUND_RELAY_SELECTION.defaultRelays],
+    }),
+    follows: () => ({ ok: true, pubkeys: [getSignerConnectionState().pubkey ?? DEMO_COMMON_PUBKEY] }),
+    follow: () => ({ ok: true, eventId: DEMO_COMMON_EVENT_ID }),
+    unfollow: () => ({ ok: true, eventId: DEMO_COMMON_EVENT_ID }),
+    react: () => ({ ok: true, eventId: DEMO_COMMON_EVENT_ID }),
+    report: () => ({ ok: true, eventId: DEMO_COMMON_EVENT_ID }),
   });
   const cvmService = createCvmService({ transport: createPlaygroundCvmTransport() });
   const identityService = createIdentityService({ getSigner });
@@ -124,6 +140,7 @@ export function createDemoHooks(
     keys: keysService,
     media: mediaService,
     link: linkService,
+    common: commonService,
     theme: themeBundle.handler,
     config: configBundle.handler,
     resource: resourceHandler,
@@ -224,6 +241,7 @@ function createDemoShellAdapter(
     config: { getNappUpdateBehavior: () => 'auto-grant' },
     hotkeys: { executeHotkeyFromForward: () => {} },
     link: { isAvailable: () => true },
+    common: { isAvailable: () => true },
     workerRelay,
     crypto: createDemoCrypto(),
     getConfigOverrides: () => ({

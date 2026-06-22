@@ -197,3 +197,9 @@ export type {
   LinkOpenContext,
   LinkServiceOptions,
 } from './link-service.js';
+
+export { createCommonService } from './common-service.js';
+export type {
+  CommonServiceContext,
+  CommonServiceOptions,
+} from './common-service.js';

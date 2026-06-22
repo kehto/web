@@ -42,6 +42,7 @@ const IDENTITY_BOUND_STATUS_IDS = [
   'bot-status',
   'chat-status',
   'composer-status',
+  'common-demo-status',
   'cvm-relatr-status',
   'feed-status',
   'link-demo-status',

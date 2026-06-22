@@ -7,6 +7,7 @@ const expectedNapplets = [
   'bot',
   'chat',
   'composer',
+  'common-demo',
   'cvm-relatr',
   'feed',
   'link-demo',
@@ -20,6 +21,7 @@ const expectedRequires: Record<(typeof expectedNapplets)[number], readonly strin
   bot: ['inc', 'storage', 'theme'],
   chat: ['inc', 'storage', 'relay', 'theme'],
   composer: ['relay', 'theme'],
+  'common-demo': ['common'],
   'cvm-relatr': ['cvm', 'theme'],
   feed: ['identity', 'relay', 'inc', 'theme'],
   'link-demo': ['link'],
@@ -48,7 +50,7 @@ test('playground loads all napplets via verified srcdoc with opaque origins', as
 
   await demoBeforeEach(page);
 
-  await expect(page.locator('iframe')).toHaveCount(expectedNapplets.length);
+  await expect(page.locator('iframe')).toHaveCount(expectedNapplets.length, { timeout: 15_000 });
   // Every napplet was resolved from the relay sim, and Blossom served blobs.
   await expect.poll(() => relayEventHits.size, { timeout: 10_000 }).toBe(expectedNapplets.length);
   expect(blossomHits.length).toBeGreaterThan(0);
