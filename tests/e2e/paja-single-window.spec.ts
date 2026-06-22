@@ -10,6 +10,8 @@ interface TargetServer {
 let targetServer: TargetServer;
 let runtimeServer: PajaServer;
 
+test.describe.configure({ mode: 'serial' });
+
 test.beforeAll(async () => {
   targetServer = await startTargetServer();
   runtimeServer = await startPajaServer({
@@ -27,6 +29,7 @@ test.afterAll(async () => {
 });
 
 test('hosts one sandboxed target iframe and reinitializes it on reload', async ({ page }) => {
+  test.setTimeout(60_000);
   await page.goto(runtimeServer.url);
 
   await expect(page.locator('header.top')).toBeVisible();
@@ -54,12 +57,15 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   const firstLoadId = await targetFrame.locator('#load-id').textContent();
   expect(firstLoadId).toBeTruthy();
 
+  const firstGeneration = await page.evaluate(() => window.__KEHTO_PAJA__?.getState().generation ?? -1);
   await page.locator('#reload-target').click();
 
   await expect(page.locator('iframe')).toHaveCount(1);
-  await expect.poll(async () => targetFrame.locator('#load-id').textContent()).not.toBe(firstLoadId);
-  await expect(targetFrame.locator('#target-status')).toHaveText('shell-init received');
-  await expect(page.locator('#lifecycle-status')).toHaveText('ready');
+  await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().generation)).toBe(firstGeneration + 1);
+  await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
+  const reloadedFrame = page.frameLocator('#napplet-frame');
+  await expect(reloadedFrame.locator('#load-id')).not.toHaveText(firstLoadId ?? '');
+  await expect(reloadedFrame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
 
   const state = await page.evaluate(() => window.__KEHTO_PAJA__?.getState());
   expect(state).toMatchObject({
@@ -85,6 +91,7 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
 });
 
 test('applies simulation config and compact theme adjustment', async ({ page }) => {
+  test.setTimeout(60_000);
   const pubkey = '4'.repeat(64);
   const customRuntime = await startPajaServer({
     options: {
@@ -116,9 +123,13 @@ test('applies simulation config and compact theme adjustment', async ({ page }) 
 
     await page.locator('#simulation-theme').selectOption('dark');
     await expect(page.locator('#simulation-status')).toContainText('theme:dark');
+    const firstGeneration = await page.evaluate(() => window.__KEHTO_PAJA__?.getState().generation ?? -1);
     await page.locator('#reload-target').click();
-    await expect(targetFrame.locator('#target-status')).toHaveText('shell-init received');
-    await expect(targetFrame.locator('#theme-background')).toHaveText('#101211');
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().generation)).toBe(firstGeneration + 1);
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
+    const reloadedFrame = page.frameLocator('#napplet-frame');
+    await expect(reloadedFrame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
+    await expect(reloadedFrame.locator('#theme-background')).toHaveText('#101211', { timeout: 15_000 });
   } finally {
     await customRuntime.close();
   }

@@ -1,5 +1,11 @@
 # @kehto/services
 
+## 0.11.1
+
+### Patch Changes
+
+- 0090b64: Allow hosts to provide read-only identity data through `createIdentityService` hooks, including `getFollows`, without replacing the whole identity service.
+
 ## 0.11.0
 
 ### Minor Changes

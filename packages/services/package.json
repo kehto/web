@@ -1,6 +1,6 @@
 {
   "name": "@kehto/services",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "description": "Reference service implementations for the napplet protocol — audio, notifications, and extensible service handlers",
   "type": "module",
   "main": "./dist/index.js",

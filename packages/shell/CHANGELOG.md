@@ -1,5 +1,11 @@
 # @kehto/shell
 
+## 0.13.0
+
+### Minor Changes
+
+- 07a4733: Add an optional shell capability advertisement filter so development hosts can simulate constrained NAP domain surfaces while keeping the production shell-ready path.
+
 ## 0.12.0
 
 ### Minor Changes

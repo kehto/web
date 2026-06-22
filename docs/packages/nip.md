@@ -20,7 +20,7 @@ pnpm add @kehto/nip nostr-tools
 | Field | Value |
 |-------|-------|
 | Source | `packages/nip/package.json`, `packages/nip/src/index.ts` |
-| Version | `0.3.0` |
+| Version | `0.4.0` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Side effects | `false` |
