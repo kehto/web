@@ -36,9 +36,9 @@ import {
 runtime.registerService(
   'identity',
   createIdentityService({
-    getPublicKey: () => signer.getPublicKey(),
-    getRelays: () => signer.getRelays(),
+    getSigner: () => signer,
     getProfile: (pk) => nostrClient.fetchProfile(pk),
+    getFollows: (pk) => contactListCache.getFollows(pk),
   }),
 );
 
@@ -352,6 +352,8 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 
 ### Identity NAP
 - `createIdentityService` — `identity.*` reads (`identity:read`). No signing surface; shell mediates signing internally.
+
+`createIdentityService` uses `getSigner()` for `identity.getPublicKey` and `identity.getRelays`. Hosts may also pass optional read-only provider hooks for `getProfile`, `getFollows`, `getList`, `getZaps`, `getMutes`, `getBlocked`, and `getBadges`. These hooks receive the current signer pubkey (or `""` when no signer is connected) and return the payload portion of the corresponding `.result` envelope. Kehto does not query relays itself; the hooks are for hosts that already maintain profile, contact-list, list, zap, moderation, or badge data.
 
 ### Notify NAP
 - `createNotifyService` — canonical `notify.*` envelopes (`notify:send` / `notify:channel`).
