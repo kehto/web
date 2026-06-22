@@ -30,7 +30,7 @@
 - [ ] **v1.25: NAP-LISTS Runtime Parity** - 1 phase (97), 6 requirements, PR #73 open
 - [ ] **v1.26: NAP-SERIAL Runtime Parity** - 1 phase (98), 6 requirements, PR #74 open
 - [ ] **v1.27: NAP-BLE Runtime Parity** - 1 phase (99), 6 requirements, PR #75 open
-- [x] **v1.28: NAP-WEBRTC Runtime Parity** - 1 phase (100), 6 requirements
+- [x] **v1.28: NAP-WEBRTC Runtime Parity** - 1 phase (100), 6 requirements, PR #76 open
 
 ---
 
@@ -74,7 +74,7 @@
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 100. NAP-WEBRTC Runtime Parity | v1.28 | 1/1 | Locally Verified | - |
+| 100. NAP-WEBRTC Runtime Parity | v1.28 | 1/1 | PR #76 open | - |
 
 ---
 

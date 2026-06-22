@@ -4,8 +4,8 @@ milestone: v1.28
 milestone_name: NAP-WEBRTC Runtime Parity
 status: active
 stopped_at: "Phase 89 complete — v1.21 NIP-5D #2303 + NAP-SHELL/INTENT conformance done (docs + changesets)"
-last_updated: "2026-06-23T00:45:53+02:00"
-last_activity: 2026-06-23 -- Phase 100 NAP-WEBRTC parity implemented and locally verified; PR pending
+last_updated: "2026-06-23T00:47:18+02:00"
+last_activity: 2026-06-23 -- Phase 100 NAP-WEBRTC parity verified and opened as PR #76
 progress:
   total_phases: 1
   completed_phases: 1
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-06-21)
 
 Phase: 100 - NAP-WEBRTC Runtime Parity
 Plan: 100-01-PLAN.md
-Status: implementation complete; local verification green; PR pending
-Last activity: 2026-06-23 -- Phase 100 NAP-WEBRTC parity implemented and locally verified; PR pending
+Status: implementation complete; PR #76 open
+Last activity: 2026-06-23 -- Phase 100 NAP-WEBRTC parity verified and opened as PR #76
 
 ## Performance Metrics
 
@@ -114,7 +114,7 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - **Phase 93** — expose simulation controls for capabilities, ACL, firewall, identity, relay, storage, cache, upload, media, config, and theme. Complete: shared schema, config-file merge, CLI flags, compact UI, shell capability filtering, fixed identity/theme proof.
 - **Phase 94** — close with unit/e2e/text coverage, changesets, full gates, push, and PR. Complete: `pnpm docs:check`, `pnpm build`, `pnpm type-check`, `pnpm test:unit`, `pnpm test:e2e` (68 passed), `aislop` 100/100, `git diff --check`, PR #64. Follow-up renamed the implementation package to `@kehto/paja` and added `@kehto/cli` as the owner of `kehto paja`.
 - **Phase 99** — close NAP-BLE runtime parity. Complete: runtime dispatch, conditional shell advertisement, `createBleService`, Paja/playground deterministic BLE controllers, `ble-demo`, static guards/docs/changeset, `pnpm build`, `pnpm type-check`, `pnpm test:unit`, `pnpm docs:check`, `pnpm test:e2e` (73 passed), `aislop` 100/100, `git diff --check`, PR #75.
-- **Phase 100** — close NAP-WEBRTC runtime parity. Active: add runtime dispatch, conditional shell advertisement, `createWebrtcService`, Paja/playground deterministic WebRTC controllers, `webrtc-demo`, static guards/docs/changeset, and full verification.
+- **Phase 100** — close NAP-WEBRTC runtime parity. Complete: runtime dispatch, conditional shell advertisement, `createWebrtcService`, Paja/playground deterministic WebRTC controllers, `webrtc-demo`, static guards/docs/changeset, `pnpm type-check`, `pnpm test:unit`, `pnpm docs:check`, `pnpm test:e2e` (74 passed), `aislop` 100/100, `git diff --check`, PR #76.
 
 **Hard constraints (every phase):**
 
