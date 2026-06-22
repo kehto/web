@@ -28,7 +28,7 @@
 - [ ] **v1.23: NAP-LINK Runtime Parity** - 1 phase (95), 6 requirements, PR #71 open
 - [ ] **v1.24: NAP-COMMON Runtime Parity** - 1 phase (96), 6 requirements, PR #72 open
 - [ ] **v1.25: NAP-LISTS Runtime Parity** - 1 phase (97), 6 requirements, PR #73 open
-- [ ] **v1.26: NAP-SERIAL Runtime Parity** - 1 phase (98), 6 requirements
+- [ ] **v1.26: NAP-SERIAL Runtime Parity** - 1 phase (98), 6 requirements, PR #74 open
 
 ---
 
@@ -72,7 +72,7 @@
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 98. NAP-SERIAL Runtime Parity | v1.26 | 1/1 | Verified | 2026-06-22 |
+| 98. NAP-SERIAL Runtime Parity | v1.26 | 1/1 | PR #74 open | 2026-06-22 |
 
 ---
 
