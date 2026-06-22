@@ -29,6 +29,7 @@ import {
   createSerialService,
   createThemeService,
   createUploadService,
+  createWebrtcService,
   type CvmServer,
   type CvmTransport,
   type IntentAvailability,
@@ -51,6 +52,7 @@ import {
   createDevBleController,
   createDevListStore,
   createDevSerialController,
+  createDevWebrtcController,
 } from './development-services.js';
 
 interface PajaBrowserState {
@@ -500,6 +502,9 @@ function createDevServices(
   if (getSimulation().capabilities.domains.ble) {
     services.ble = createBleService(createDevBleController());
   }
+  if (getSimulation().capabilities.domains.webrtc) {
+    services.webrtc = createWebrtcService(createDevWebrtcController());
+  }
 
   return services;
 }
@@ -539,6 +544,7 @@ function createPajaAdapter(
     lists: { isAvailable: () => getSimulation().capabilities.domains.lists },
     serial: { isAvailable: () => getSimulation().capabilities.domains.serial },
     ble: { isAvailable: () => getSimulation().capabilities.domains.ble },
+    webrtc: { isAvailable: () => getSimulation().capabilities.domains.webrtc },
     crypto: {
       verifyEvent: async () => true,
     },

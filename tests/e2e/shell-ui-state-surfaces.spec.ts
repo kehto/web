@@ -53,6 +53,7 @@ const IDENTITY_BOUND_STATUS_IDS = [
   'resource-demo-status',
   'serial-demo-status',
   'toaster-status',
+  'webrtc-demo-status',
 ] as const;
 
 test.describe('shell UI state surfaces (E2E-16)', () => {

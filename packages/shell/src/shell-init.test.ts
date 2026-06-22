@@ -173,6 +173,24 @@ describe('buildShellCapabilities — domains array (conformant NAP-SHELL, TERM-0
     expect(caps.domains).not.toContain('ble');
   });
 
+  it('advertises webrtc in domains when WebRTC sessions are wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      webrtc: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).toContain('webrtc');
+  });
+
+  it('does NOT advertise webrtc in domains when WebRTC sessions report unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      webrtc: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('webrtc');
+  });
+
   it('does NOT advertise common in domains when common social helpers report unavailable', () => {
     const hooks: ShellAdapter = {
       ...baseHooks(),
@@ -496,6 +514,46 @@ describe('buildShellCapabilities — NAP-BLE advertisement in naps', () => {
     const caps = buildShellCapabilities(hooks);
     expect(caps.domains).not.toContain('ble');
     expect(caps.naps).not.toContain('ble');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// naps — NAP-WEBRTC advertisement
+// ---------------------------------------------------------------------------
+
+describe('buildShellCapabilities — NAP-WEBRTC advertisement in naps', () => {
+  it('does NOT advertise webrtc in naps when no WebRTC backend is wired', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    expect(caps.naps).not.toContain('webrtc');
+  });
+
+  it('does NOT advertise webrtc in naps when the WebRTC backend reports unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      webrtc: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).not.toContain('webrtc');
+  });
+
+  it('advertises webrtc in naps when an available WebRTC backend is wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      webrtc: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).toContain('webrtc');
+  });
+
+  it('removes webrtc from domains and naps when disabled by capability override', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      webrtc: { isAvailable: () => true },
+      capabilities: { disabledDomains: ['webrtc'] },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('webrtc');
+    expect(caps.naps).not.toContain('webrtc');
   });
 });
 

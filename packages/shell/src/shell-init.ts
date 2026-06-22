@@ -96,6 +96,7 @@ export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
   if (hooks.lists?.isAvailable()) domains.push('lists');
   if (hooks.serial?.isAvailable()) domains.push('serial');
   if (hooks.ble?.isAvailable()) domains.push('ble');
+  if (hooks.webrtc?.isAvailable()) domains.push('webrtc');
   // Sandbox permissions are perm:<x>-prefixed and resolved by the 0.13 shim as
   // plain domains membership (no separate permission namespace). Empty by
   // default — fold any host-extended sandbox entries in alongside the domains.
@@ -129,6 +130,8 @@ export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
   if (hooks.serial?.isAvailable()) naps.push('serial');
   // NAP-BLE: advertised only when the host wires runtime-owned BLE sessions.
   if (hooks.ble?.isAvailable()) naps.push('ble');
+  // NAP-WEBRTC: advertised only when the host wires runtime-owned WebRTC sessions.
+  if (hooks.webrtc?.isAvailable()) naps.push('webrtc');
 
   return applyCapabilityOverrides(
     { domains, protocols, naps, sandbox },

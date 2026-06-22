@@ -9,6 +9,9 @@ import type {
   ListSupport,
   SerialOpenRequest,
   SerialOpenResult,
+  WebrtcEvent,
+  WebrtcOpenRequest,
+  WebrtcOpenResult,
 } from '@napplet/core';
 
 const DEV_LISTS_EVENT_ID = '3'.repeat(64);
@@ -16,6 +19,7 @@ const DEV_SERIAL_LABEL = 'Paja serial';
 const DEV_BLE_DEVICE_NAME = 'Paja BLE';
 const DEV_BLE_SERVICE_UUID = 'battery_service';
 const DEV_BLE_CHARACTERISTIC_UUID = 'battery_level';
+const DEV_WEBRTC_PEER = '6'.repeat(64);
 
 const DEV_LISTS_SUPPORT: ListSupport = {
   kind: 10003,
@@ -151,6 +155,47 @@ export function createDevBleController() {
     },
     close(sessionId: string): void {
       if (!sessions.delete(sessionId)) throw new Error('ble session not found');
+    },
+    destroyWindow(windowId: string): void {
+      destroyWindowSessions(sessions, windowId);
+    },
+  };
+}
+
+export function createDevWebrtcController() {
+  const sessions = new Map<string, { windowId: string; payloads: unknown[] }>();
+  let nextSession = 1;
+  const getSession = (sessionId: string) => {
+    const session = sessions.get(sessionId);
+    if (!session) throw new Error('webrtc session not found');
+    return session;
+  };
+
+  return {
+    open(request: WebrtcOpenRequest, context: { windowId: string; emit(event: WebrtcEvent): void }): WebrtcOpenResult {
+      const id = `paja-webrtc-${nextSession++}`;
+      const channel = request.channel ?? 'default';
+      sessions.set(id, { windowId: context.windowId, payloads: [] });
+      context.emit({ type: 'state', sessionId: id, state: 'open' });
+      context.emit({ type: 'peer', sessionId: id, pubkey: DEV_WEBRTC_PEER, state: 'joined' });
+      return {
+        session: {
+          id,
+          scope: request.scope,
+          channel,
+          ...(request.protocol ? { protocol: request.protocol } : {}),
+          state: 'open',
+        },
+      };
+    },
+    send(sessionId: string, payload: unknown, context: { emit(event: WebrtcEvent): void }): void {
+      getSession(sessionId).payloads.push(payload);
+      context.emit({ type: 'message', sessionId, from: DEV_WEBRTC_PEER, payload });
+    },
+    close(sessionId: string, reason: string | undefined, context: { emit(event: WebrtcEvent): void }): void {
+      getSession(sessionId);
+      sessions.delete(sessionId);
+      context.emit({ type: 'closed', sessionId, ...(reason ? { reason } : {}) });
     },
     destroyWindow(windowId: string): void {
       destroyWindowSessions(sessions, windowId);

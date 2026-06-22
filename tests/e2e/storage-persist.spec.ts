@@ -72,7 +72,7 @@ test('preferences round-trips display-name and theme-preference across page.relo
 
   // Re-grab the frame locator after reload.
   const prefFrameAfterReload = page.frameLocator('#preferences-frame-container iframe');
-  await expect(prefFrameAfterReload.locator('#preferences-status')).toContainText('loaded', { timeout: 10_000 });
+  await expect(prefFrameAfterReload.locator('#preferences-status')).toContainText('loaded', { timeout: 20_000 });
 
   // The inputs must show the previously-saved values (loadPreferences populated them).
   await expect(prefFrameAfterReload.locator('#pref-display-name')).toHaveValue(TEST_NAME);

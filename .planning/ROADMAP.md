@@ -30,50 +30,51 @@
 - [ ] **v1.25: NAP-LISTS Runtime Parity** - 1 phase (97), 6 requirements, PR #73 open
 - [ ] **v1.26: NAP-SERIAL Runtime Parity** - 1 phase (98), 6 requirements, PR #74 open
 - [ ] **v1.27: NAP-BLE Runtime Parity** - 1 phase (99), 6 requirements, PR #75 open
+- [x] **v1.28: NAP-WEBRTC Runtime Parity** - 1 phase (100), 6 requirements
 
 ---
 
-## Active Milestone: v1.27 NAP-BLE Runtime Parity
+## Active Milestone: v1.28 NAP-WEBRTC Runtime Parity
 
-**Goal:** Implement one missing recent `@napplet/nap` domain, `NAP-BLE`, end to end in Kehto with runtime dispatch, shell capability advertisement, reference service behavior, Paja support, playground demo coverage, and release-ready verification.
+**Goal:** Implement the remaining missing recent `@napplet/nap` domain, `NAP-WEBRTC`, end to end in Kehto with runtime dispatch, shell capability advertisement, reference service behavior, Paja support, playground demo coverage, and release-ready verification.
 
-**Authoritative sources:** packed npm tarball `@napplet/nap@0.20.0` (`dist/ble/types.d.ts`, `dist/ble/sdk.d.ts`) plus `@napplet/core@0.20.0` BLE exports. `NAP-LINK`, `NAP-COMMON`, `NAP-LISTS`, and `NAP-SERIAL` are stacked in PRs #71/#72/#73/#74; this milestone intentionally handles only `ble`.
+**Authoritative sources:** npm registry latest `@napplet/nap@0.20.0`, local `napplet` checkout `packages/nap/src/webrtc/{types,sdk}.ts`, and local `napplet` checkout `packages/core/src/types/webrtc.ts`. `NAP-LINK`, `NAP-COMMON`, `NAP-LISTS`, `NAP-SERIAL`, and `NAP-BLE` are stacked in PRs #71-#75; this milestone intentionally handles only `webrtc`.
 
-**Branch:** `feat/nap-ble-parity` stacked on `feat/nap-serial-parity` until PR #74 lands.
+**Branch:** `feat/nap-webrtc-parity` stacked on `feat/nap-ble-parity` until PR #75 lands.
 
 **Hard constraints (carry into every phase):**
-- One NAP per milestone: do not implement `webrtc` here.
+- One NAP per milestone: do not bundle non-WebRTC parity work here.
 - No new dependencies.
-- BLE sessions stay shell-owned; napplets never receive browser `BluetoothDevice` objects, OS device paths, native handles, signing keys, relay sockets, browser NIP-07 access, or direct hardware handles.
+- WebRTC sessions stay shell-owned; napplets never receive SDP, ICE, browser `RTCPeerConnection` objects, signing keys, relay sockets, browser NIP-07 access, or direct networking handles.
 - Paja remains minimal chrome; the new capability is service behavior, not a new panel.
 - Keep package exports, docs, changesets, static parity guards, and Playwright proof aligned.
 
 ## Phases
 
-- [x] **Phase 99: NAP-BLE Runtime Parity** — add shell/runtime/service/Paja/playground support for runtime-owned BLE sessions and focused verification. (completed 2026-06-23 — PR #75 open)
+- [x] **Phase 100: NAP-WEBRTC Runtime Parity** — add shell/runtime/service/Paja/playground support for runtime-owned WebRTC sessions and focused verification.
 
 ## Phase Details
 
-### Phase 99: NAP-BLE Runtime Parity
-**Goal:** `ble.*` works through Kehto's normal NAP service path, is advertised only when wired, and is proven in Paja and the playground.
-**Depends on:** v1.26 NAP-SERIAL branch/PR #74 base changes.
-**Requirements:** BLE-01, BLE-02, BLE-03, BLE-04, BLE-05, BLE-06
+### Phase 100: NAP-WEBRTC Runtime Parity
+**Goal:** `webrtc.*` works through Kehto's normal NAP service path, is advertised only when wired, and is proven in Paja and the playground.
+**Depends on:** v1.27 NAP-BLE branch/PR #75 base changes.
+**Requirements:** WEBRTC-01, WEBRTC-02, WEBRTC-03, WEBRTC-04, WEBRTC-05, WEBRTC-06
 **Success Criteria:**
-  1. `buildShellCapabilities()` includes `ble` in `domains` and `naps` only when a BLE backend is wired, and disabled-domain overrides remove it.
-  2. Runtime dispatch registers `ble` and routes `ble.*` to a `ble` service handler.
-  3. `@kehto/services` exports `createBleService`; it returns shaped result envelopes for open/services/read/write/subscribe/unsubscribe/close and contains unknown messages.
-  4. `@kehto/paja` wires deterministic BLE behavior, includes `ble` in parity metadata, and keeps existing minimal UI unchanged.
-  5. A playground `ble-demo` napplet exercises open/services/read/write/subscribe/unsubscribe/close with stable DOM markers, and Playwright covers shell-mediated results.
+  1. `buildShellCapabilities()` includes `webrtc` in `domains` and `naps` only when a WebRTC backend is wired, and disabled-domain overrides remove it.
+  2. Runtime dispatch registers `webrtc` and routes `webrtc.*` to a `webrtc` service handler.
+  3. `@kehto/services` exports `createWebrtcService`; it returns shaped result envelopes for open/send/close, contains unknown messages, and lets host code push `webrtc.event` to the napplet.
+  4. `@kehto/paja` wires deterministic WebRTC behavior, includes `webrtc` in parity metadata, and keeps existing minimal UI unchanged.
+  5. A playground `webrtc-demo` napplet exercises open/send/event/close with stable DOM markers, and Playwright covers shell-mediated results.
   6. Focused tests plus full gates pass; changesets cover modified package outputs; PR opened.
 **Plans:** 1 plan
-  - [x] 99-01-PLAN.md — BLE-01..BLE-06 service/runtime/shell/Paja/playground implementation and verification
+  - [ ] 100-01-PLAN.md — WEBRTC-01..WEBRTC-06 service/runtime/shell/Paja/playground implementation and verification
 **UI hint:** yes
 
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 99. NAP-BLE Runtime Parity | v1.27 | 1/1 | PR open | 2026-06-23 — PR #75 |
+| 100. NAP-WEBRTC Runtime Parity | v1.28 | 1/1 | Locally Verified | - |
 
 ---
 

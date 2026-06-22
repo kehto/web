@@ -210,6 +210,12 @@ export interface BleHooks {
   isAvailable(): boolean;
 }
 
+/** Minimal WebRTC backend the shell advertises (NAP-WEBRTC). */
+export interface WebrtcHooks {
+  /** True when the host has shell-mediated WebRTC sessions wired. */
+  isAvailable(): boolean;
+}
+
 /**
  * Optional host override for the static shell.init capability handshake.
  *
@@ -425,6 +431,12 @@ export interface ShellAdapter {
    * registers the concrete service via `registerService('ble')`.
    */
   ble?: BleHooks;
+  /**
+   * Optional shell-mediated WebRTC backend (NAP-WEBRTC). When present and
+   * `isAvailable()` is true, the shell advertises `webrtc`. The host still
+   * registers the concrete service via `registerService('webrtc')`.
+   */
+  webrtc?: WebrtcHooks;
   /**
    * Optional capability advertisement override. Omitted by production hosts.
    */

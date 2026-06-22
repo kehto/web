@@ -13,6 +13,9 @@ import type {
   BleOpenResult,
   BleService as CoreBleService,
   BleWriteOptions,
+  WebrtcEvent,
+  WebrtcOpenRequest,
+  WebrtcOpenResult,
 } from '@napplet/core';
 import { RESOURCE_DEMO_REMOTE_IMAGE_ORIGIN } from './main-preferences.js';
 
@@ -37,6 +40,7 @@ import {
   createResourceService,
   createBleService,
   createSerialService,
+  createWebrtcService,
   createCvmService,
   type ConfigService,
   type Notification,
@@ -93,6 +97,7 @@ const DEMO_SERIAL_LABEL = 'Playground serial';
 const DEMO_BLE_DEVICE_NAME = 'Playground BLE';
 const DEMO_BLE_SERVICE_UUID = 'battery_service';
 const DEMO_BLE_CHARACTERISTIC_UUID = 'battery_level';
+const DEMO_WEBRTC_PEER = '7'.repeat(64);
 type DemoListRef = { readonly type?: string; readonly kind?: number };
 type DemoListItem = { readonly itemType: string; readonly value: string };
 
@@ -140,6 +145,7 @@ export function createDemoHooks(
   const listsService = createDemoListsService();
   const serialService = createDemoSerialService();
   const bleService = createDemoBleService();
+  const webrtcService = createDemoWebrtcService();
   const cvmService = createCvmService({ transport: createPlaygroundCvmTransport() });
   const identityService = createIdentityService({ getSigner });
   relayRuntimeDestroy?.();
@@ -171,6 +177,7 @@ export function createDemoHooks(
     lists: listsService,
     serial: serialService,
     ble: bleService,
+    webrtc: webrtcService,
     theme: themeBundle.handler,
     config: configBundle.handler,
     resource: resourceHandler,
@@ -275,6 +282,7 @@ function createDemoShellAdapter(
     lists: { isAvailable: () => true },
     serial: { isAvailable: () => true },
     ble: { isAvailable: () => true },
+    webrtc: { isAvailable: () => true },
     workerRelay,
     crypto: createDemoCrypto(),
     getConfigOverrides: () => ({
@@ -454,6 +462,47 @@ function createDemoBleService(): ServiceHandler {
     },
     close: (sessionId) => {
       if (!sessions.delete(sessionId)) throw new Error('ble session not found');
+    },
+    destroyWindow: (windowId) => {
+      destroyWindowSessions(sessions, windowId);
+    },
+  });
+}
+
+function createDemoWebrtcService(): ServiceHandler {
+  const sessions = new Map<string, { windowId: string; payloads: unknown[] }>();
+  let nextSession = 1;
+  const getSession = (sessionId: string) => {
+    const session = sessions.get(sessionId);
+    if (!session) throw new Error('webrtc session not found');
+    return session;
+  };
+
+  return createWebrtcService({
+    open: (request: WebrtcOpenRequest, context): WebrtcOpenResult => {
+      const id = `playground-webrtc-${nextSession++}`;
+      const channel = request.channel ?? 'default';
+      sessions.set(id, { windowId: context.windowId, payloads: [] });
+      context.emit({ type: 'state', sessionId: id, state: 'open' });
+      context.emit({ type: 'peer', sessionId: id, pubkey: DEMO_WEBRTC_PEER, state: 'joined' });
+      return {
+        session: {
+          id,
+          scope: request.scope,
+          channel,
+          ...(request.protocol ? { protocol: request.protocol } : {}),
+          state: 'open',
+        },
+      };
+    },
+    send: (sessionId, payload, context) => {
+      getSession(sessionId).payloads.push(payload);
+      context.emit({ type: 'message', sessionId, from: DEMO_WEBRTC_PEER, payload } satisfies WebrtcEvent);
+    },
+    close: (sessionId, reason, context) => {
+      getSession(sessionId);
+      sessions.delete(sessionId);
+      context.emit({ type: 'closed', sessionId, ...(reason ? { reason } : {}) });
     },
     destroyWindow: (windowId) => {
       destroyWindowSessions(sessions, windowId);
