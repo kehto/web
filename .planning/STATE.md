@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.22
 milestone_name: Single-Window Development Runtime
 status: complete
-last_updated: "2026-06-21T00:00:00.000Z"
-last_activity: 2026-06-21
+last_updated: "2026-06-22T00:00:00.000Z"
+last_activity: 2026-06-22
 progress:
   total_phases: 5
   completed_phases: 5
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-06-21)
 Phase: 94 — Coverage, Docs, Release Readiness, and PR
 Plan: 94-01 — complete
 Status: v1.22 complete; branch pushed and PR #64 opened
-Last activity: 2026-06-21 — Paja/CLI naming split landed, full build/type/unit/e2e/docs/slop gates passed, branch pushed, PR #64 opened
+Last activity: 2026-06-22 — issue #65 identity service host hooks implemented, full build/type/unit/docs/slop gates passed, PR branch prepared
 
 ## Performance Metrics
 
@@ -87,6 +87,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260619-vpn | Fix flaky Playwright service activity counter wait in PR #63 | 2026-06-19 | bfcd7af | [260619-vpn-fix-flaky-playwright-service-activity-co](./quick/260619-vpn-fix-flaky-playwright-service-activity-co/) |
 | 260620-07v | Update docs for NIP-5D napplet artifact cache implementation | 2026-06-20 | 234c8b4 | [260620-07v-update-kehto-docs-for-napplet-artifact-c](./quick/260620-07v-update-kehto-docs-for-napplet-artifact-c/) |
 | 260621-4bv | Split dev-runtime into @kehto/paja implementation package and @kehto/cli kehto paja command | 2026-06-21 | 1990451 | [260621-4bv-split-dev-runtime-into-kehto-paja-implem](./quick/260621-4bv-split-dev-runtime-into-kehto-paja-implem/) |
+| 260622-44f | Resolve issue #65 by allowing hosts to provide read-only identity data to createIdentityService | 2026-06-22 | bd1f941 | [260622-44f-resolve-issue-65-by-allowing-hosts-to-pr](./quick/260622-44f-resolve-issue-65-by-allowing-hosts-to-pr/) |
 
 ## Session Continuity
 
