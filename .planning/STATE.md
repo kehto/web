@@ -91,6 +91,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260622-4ec | Guard valid multi-filter outbox.subscribe startup requests against init-burst rejection | 2026-06-22 | ac262e7 | [260622-4ec-resolve-issue-61-by-guarding-valid-multi](./quick/260622-4ec-resolve-issue-61-by-guarding-valid-multi/) |
 | 260622-44f | Resolve issue #65 by allowing hosts to provide read-only identity data to createIdentityService | 2026-06-22 | bd1f941 | [260622-44f-resolve-issue-65-by-allowing-hosts-to-pr](./quick/260622-44f-resolve-issue-65-by-allowing-hosts-to-pr/) |
 | 260622-6wk | Prepare v1.34 release by consuming pending Changesets and validating the release branch | 2026-06-22 | 8d990d0 | [260622-6wk-prepare-v1-34-release-by-consuming-pendi](./quick/260622-6wk-prepare-v1-34-release-by-consuming-pendi/) |
+| 260622-8oy | Repair v1.34 release workflow after partial npm/JSR publish failure | 2026-06-22 | 74beb36 | [260622-8oy-repair-v1-34-release-workflow-after-part](./quick/260622-8oy-repair-v1-34-release-workflow-after-part/) |
 
 ## Session Continuity
 

@@ -1,11 +1,11 @@
 {
   "name": "@kehto/shell",
-  "version": "0.11.2",
+  "version": "0.13.0",
   "license": "MIT",
   "exports": "./src/index.ts",
   "imports": {
-    "@kehto/acl": "jsr:@kehto/acl@^0.11.1",
-    "@kehto/runtime": "jsr:@kehto/runtime@^0.12.1",
+    "@kehto/acl": "jsr:@kehto/acl@^0.12.0",
+    "@kehto/runtime": "jsr:@kehto/runtime@^0.13.0",
     "@napplet/core": "jsr:@napplet/core@^0.12.0",
     "@napplet/nap": "jsr:@napplet/nap@^0.12.0",
     "nostr-tools": "npm:nostr-tools@^2.23.3"
