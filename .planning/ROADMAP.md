@@ -27,51 +27,52 @@
 - [x] **v1.22: Single-Window Development Runtime** - 5 phases (90-94), 21/21 requirements, PR #64 open
 - [ ] **v1.23: NAP-LINK Runtime Parity** - 1 phase (95), 6 requirements, PR #71 open
 - [ ] **v1.24: NAP-COMMON Runtime Parity** - 1 phase (96), 6 requirements, PR #72 open
-- [ ] **v1.25: NAP-LISTS Runtime Parity** - 1 phase (97), 6 requirements
+- [ ] **v1.25: NAP-LISTS Runtime Parity** - 1 phase (97), 6 requirements, PR #73 open
+- [ ] **v1.26: NAP-SERIAL Runtime Parity** - 1 phase (98), 6 requirements, PR #74 open
 
 ---
 
-## Active Milestone: v1.25 NAP-LISTS Runtime Parity
+## Active Milestone: v1.26 NAP-SERIAL Runtime Parity
 
-**Goal:** Implement one missing recent `@napplet/nap` domain, `NAP-LISTS`, end to end in Kehto with runtime dispatch, shell capability advertisement, reference service behavior, Paja support, playground demo coverage, and release-ready verification.
+**Goal:** Implement one missing recent `@napplet/nap` domain, `NAP-SERIAL`, end to end in Kehto with runtime dispatch, shell capability advertisement, reference service behavior, Paja support, playground demo coverage, and release-ready verification.
 
-**Authoritative sources:** `/home/sandwich/Develop/napplet/packages/nap/src/lists`, `/home/sandwich/Develop/napplet/packages/core/src/types/lists.ts`, and current local `@napplet/nap@0.20.0` package metadata. `NAP-LINK` and `NAP-COMMON` are stacked in PRs #71/#72; this milestone intentionally handles only `lists`.
+**Authoritative sources:** packed npm tarball `@napplet/nap@0.20.0` (`dist/serial/types.d.ts`, `dist/serial/sdk.d.ts`) plus `@napplet/core@0.20.0` serial exports. `NAP-LINK`, `NAP-COMMON`, and `NAP-LISTS` are stacked in PRs #71/#72/#73; this milestone intentionally handles only `serial`.
 
-**Branch:** `feat/nap-lists-parity` stacked on `feat/nap-common-parity` until PR #72 lands.
+**Branch:** `feat/nap-serial-parity` stacked on `feat/nap-lists-parity` until PR #73 lands.
 
 **Hard constraints (carry into every phase):**
-- One NAP per milestone: do not implement `ble`, `webrtc`, or `serial` here.
+- One NAP per milestone: do not implement `ble` or `webrtc` here.
 - No new dependencies.
-- List mutations stay shell-owned; napplets never receive signing keys, relay sockets, browser NIP-07 access, or direct publish authority.
+- Serial sessions stay shell-owned; napplets never receive browser `SerialPort` objects, OS device paths, native handles, signing keys, relay sockets, browser NIP-07 access, or direct hardware handles.
 - Paja remains minimal chrome; the new capability is service behavior, not a new panel.
 - Keep package exports, docs, changesets, static parity guards, and Playwright proof aligned.
 
 ## Phases
 
-- [ ] **Phase 97: NAP-LISTS Runtime Parity** — add shell/runtime/service/Paja/playground support for NIP-51 list helpers and focused verification.
+- [ ] **Phase 98: NAP-SERIAL Runtime Parity** — add shell/runtime/service/Paja/playground support for runtime-owned serial sessions and focused verification.
 
 ## Phase Details
 
-### Phase 97: NAP-LISTS Runtime Parity
-**Goal:** `lists.*` works through Kehto's normal NAP service path, is advertised only when wired, and is proven in Paja and the playground.
-**Depends on:** v1.24 NAP-COMMON branch/PR #72 base changes.
-**Requirements:** LISTS-01, LISTS-02, LISTS-03, LISTS-04, LISTS-05, LISTS-06
+### Phase 98: NAP-SERIAL Runtime Parity
+**Goal:** `serial.*` works through Kehto's normal NAP service path, is advertised only when wired, and is proven in Paja and the playground.
+**Depends on:** v1.25 NAP-LISTS branch/PR #73 base changes.
+**Requirements:** SERIAL-01, SERIAL-02, SERIAL-03, SERIAL-04, SERIAL-05, SERIAL-06
 **Success Criteria:**
-  1. `buildShellCapabilities()` includes `lists` in `domains` and `naps` only when a lists backend is wired, and disabled-domain overrides remove it.
-  2. Runtime dispatch registers `lists` and routes `lists.*` to a `lists` service handler.
-  3. `@kehto/services` exports `createListsService`; it returns shaped result envelopes for all upstream methods and contains unknown messages.
-  4. `@kehto/paja` wires deterministic lists behavior, includes `lists` in parity metadata, and keeps existing minimal UI unchanged.
-  5. A playground `lists-demo` napplet exercises supported/add/remove with stable DOM markers, and Playwright covers shell-mediated results.
+  1. `buildShellCapabilities()` includes `serial` in `domains` and `naps` only when a serial backend is wired, and disabled-domain overrides remove it.
+  2. Runtime dispatch registers `serial` and routes `serial.*` to a `serial` service handler.
+  3. `@kehto/services` exports `createSerialService`; it returns shaped result envelopes for open/write/close and contains unknown messages.
+  4. `@kehto/paja` wires deterministic serial behavior, includes `serial` in parity metadata, and keeps existing minimal UI unchanged.
+  5. A playground `serial-demo` napplet exercises open/write/close with stable DOM markers, and Playwright covers shell-mediated results.
   6. Focused tests plus full gates pass; changesets cover modified package outputs; PR opened.
 **Plans:** 1 plan
-  - [ ] 97-01-PLAN.md — LISTS-01..LISTS-06 service/runtime/shell/Paja/playground implementation and verification
+  - [x] 98-01-PLAN.md — SERIAL-01..SERIAL-06 service/runtime/shell/Paja/playground implementation and verification
 **UI hint:** yes
 
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 97. NAP-LISTS Runtime Parity | v1.25 | 0/1 | Planned | - |
+| 98. NAP-SERIAL Runtime Parity | v1.26 | 1/1 | PR #74 open | 2026-06-22 |
 
 ---
 

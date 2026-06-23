@@ -42,6 +42,7 @@ const NAPPLETS = [
   { name: 'preferences',      statusId: 'preferences-status' },
   { name: 'profile-viewer',   statusId: 'profile-status' },
   { name: 'resource-demo',    statusId: 'resource-demo-status' },
+  { name: 'serial-demo',      statusId: 'serial-demo-status' },
   { name: 'toaster',          statusId: 'toaster-status' },
 ] as const;
 

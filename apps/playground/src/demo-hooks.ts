@@ -28,6 +28,7 @@ import {
   createConfigService,
   createCommonService,
   createResourceService,
+  createSerialService,
   createCvmService,
   type ConfigService,
   type Notification,
@@ -80,6 +81,7 @@ const demoConfigFixtures: Record<string, unknown> = {
 const DEMO_COMMON_PUBKEY = '3'.repeat(64);
 const DEMO_COMMON_EVENT_ID = '4'.repeat(64);
 const DEMO_LISTS_EVENT_ID = '5'.repeat(64);
+const DEMO_SERIAL_LABEL = 'Playground serial';
 type DemoListRef = { readonly type?: string; readonly kind?: number };
 type DemoListItem = { readonly itemType: string; readonly value: string };
 
@@ -125,6 +127,7 @@ export function createDemoHooks(
     report: () => ({ ok: true, eventId: DEMO_COMMON_EVENT_ID }),
   });
   const listsService = createDemoListsService();
+  const serialService = createDemoSerialService();
   const cvmService = createCvmService({ transport: createPlaygroundCvmTransport() });
   const identityService = createIdentityService({ getSigner });
   relayRuntimeDestroy?.();
@@ -154,6 +157,7 @@ export function createDemoHooks(
     link: linkService,
     common: commonService,
     lists: listsService,
+    serial: serialService,
     theme: themeBundle.handler,
     config: configBundle.handler,
     resource: resourceHandler,
@@ -256,6 +260,7 @@ function createDemoShellAdapter(
     link: { isAvailable: () => true },
     common: { isAvailable: () => true },
     lists: { isAvailable: () => true },
+    serial: { isAvailable: () => true },
     workerRelay,
     crypto: createDemoCrypto(),
     getConfigOverrides: () => ({
@@ -339,6 +344,38 @@ function createDemoListsService(): ServiceHandler {
         else skipped += 1;
       }
       return { ok: true, eventId: DEMO_LISTS_EVENT_ID, removed, skipped };
+    },
+  });
+}
+
+function createDemoSerialService(): ServiceHandler {
+  const sessions = new Map<string, { windowId: string; writes: number[][] }>();
+  let nextSession = 1;
+
+  return createSerialService({
+    open: (_request, context) => {
+      const id = `playground-serial-${nextSession++}`;
+      sessions.set(id, { windowId: context.windowId, writes: [] });
+      return {
+        session: {
+          id,
+          state: 'open',
+          info: { displayName: DEMO_SERIAL_LABEL },
+        },
+      };
+    },
+    write: (sessionId, data) => {
+      const session = sessions.get(sessionId);
+      if (!session) throw new Error('serial session not found');
+      session.writes.push([...data]);
+    },
+    close: (sessionId) => {
+      if (!sessions.delete(sessionId)) throw new Error('serial session not found');
+    },
+    destroyWindow: (windowId) => {
+      for (const [sessionId, session] of sessions) {
+        if (session.windowId === windowId) sessions.delete(sessionId);
+      }
     },
   });
 }

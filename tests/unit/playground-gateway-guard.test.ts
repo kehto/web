@@ -14,6 +14,7 @@ const playgroundNapplets = [
   'preferences',
   'profile-viewer',
   'resource-demo',
+  'serial-demo',
   'toaster',
 ] as const;
 
@@ -29,6 +30,7 @@ const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly str
   preferences: ['storage', 'theme'],
   'profile-viewer': ['inc', 'relay', 'theme'],
   'resource-demo': ['resource', 'theme'],
+  'serial-demo': ['serial'],
   toaster: ['notify', 'theme'],
 };
 

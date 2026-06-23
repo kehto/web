@@ -177,3 +177,35 @@ describe('runtime lists domain dispatch', () => {
     expect(ctx.sent).toHaveLength(0);
   });
 });
+
+describe('runtime serial domain dispatch', () => {
+  let ctx: MockRuntimeContext;
+  let runtime: Runtime;
+
+  beforeEach(() => {
+    ctx = createMockRuntimeAdapter();
+    runtime = createRuntime(ctx.hooks);
+    runtime.sessionRegistry.register(WINDOW_ID, session());
+  });
+
+  it('routes serial.open / serial.write / serial.close to the service', () => {
+    const received: NappletMessage[] = [];
+    runtime.registerService('serial', {
+      descriptor: { name: 'serial', version: '1.0.0' },
+      handleMessage(_wid, msg) { received.push(msg); },
+    });
+
+    runtime.handleMessage(WINDOW_ID, { type: 'serial.open', id: 'so-1', request: { options: { baudRate: 9600 } } } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'serial.write', id: 'sw-1', sessionId: 'serial-1', data: [1, 2, 3] } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'serial.close', id: 'sc-1', sessionId: 'serial-1' } as NappletMessage);
+
+    expect(received.map((m) => m.type)).toEqual(['serial.open', 'serial.write', 'serial.close']);
+  });
+
+  it('serial.open without a registered service: no throw, no envelope emitted', () => {
+    expect(() => {
+      runtime.handleMessage(WINDOW_ID, { type: 'serial.open', id: 'so-2', request: { options: { baudRate: 9600 } } } as NappletMessage);
+    }).not.toThrow();
+    expect(ctx.sent).toHaveLength(0);
+  });
+});

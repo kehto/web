@@ -14,6 +14,7 @@ const playgroundNapplets = [
   'preferences',
   'profile-viewer',
   'resource-demo',
+  'serial-demo',
   'toaster',
 ] as const;
 
@@ -29,6 +30,7 @@ const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly str
   preferences: ['storage', 'theme'],
   'profile-viewer': ['inc', 'relay', 'theme'],
   'resource-demo': ['resource', 'theme'],
+  'serial-demo': ['serial'],
   toaster: ['notify', 'theme'],
 };
 
@@ -38,6 +40,7 @@ const rawListenerFiles = [
   'apps/playground/napplets/cvm-relatr/src/main.ts',
   'apps/playground/napplets/link-demo/src/main.ts',
   'apps/playground/napplets/lists-demo/src/main.ts',
+  'apps/playground/napplets/serial-demo/src/main.ts',
   'apps/playground/napplets/resource-demo/src/main.ts',
   'apps/playground/napplets/toaster/src/main.ts',
 ] as const;
@@ -97,6 +100,7 @@ const rawListenerTypeGuards: Record<string, readonly string[]> = {
   'apps/playground/napplets/cvm-relatr/src/main.ts': ['data.type !== resultType'],
   'apps/playground/napplets/link-demo/src/main.ts': ["msg.type !== 'link.open.result'"],
   'apps/playground/napplets/lists-demo/src/main.ts': ['msg.type !== resultType'],
+  'apps/playground/napplets/serial-demo/src/main.ts': ['msg.type !== resultType'],
   'apps/playground/napplets/resource-demo/src/main.ts': [
     "envelope.type === 'resource.bytes.result'",
     "envelope.type === 'resource.bytes.error'",

@@ -152,6 +152,7 @@ function createNapEnvelopeDispatcher(handlers: RuntimeNapHandlers): (windowId: s
   napDispatch.registerNap('link', adapt(handlers.link));
   napDispatch.registerNap('common', adapt(handlers.common));
   napDispatch.registerNap('lists', adapt(handlers.lists));
+  napDispatch.registerNap('serial', adapt(handlers.serial));
 
   return (windowId, envelope) => {
     currentWindowId = windowId;
