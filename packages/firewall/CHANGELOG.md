@@ -1,5 +1,13 @@
 # @kehto/firewall
 
+## 0.3.2
+
+### Patch Changes
+
+- 4e0f4b9: Add NAP-LINK runtime parity for the current `@napplet/nap` contract.
+
+  The runtime now dispatches the `link` domain, `@kehto/services` exports a reference `link.open` service, shell capabilities can advertise NAP-LINK, and Paja/playground hosts register link support. Package peer ranges now track the current `@napplet` 0.20 line.
+
 ## 0.3.1
 
 ### Patch Changes
