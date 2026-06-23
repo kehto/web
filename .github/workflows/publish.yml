@@ -5,11 +5,15 @@ name: Publish
 #   "Version Packages" PR against main
 # - merging that version PR publishes npm packages, then publishes matching JSR
 #   packages through OIDC
+# - CI owns validation on the main commit; this workflow starts only after CI
+#   succeeds and does not rerun unit/docs/Playwright gates.
 #
 # The tag-triggered release.yml remains as a manual/tag fallback path.
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
 
 concurrency:
@@ -18,6 +22,7 @@ concurrency:
 
 jobs:
   publish:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -38,45 +43,6 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - run: pnpm install --frozen-lockfile
-
-      - name: Build all packages
-        run: pnpm build
-
-      - name: Type-check all packages
-        run: pnpm type-check
-
-      - name: Run unit tests
-        run: pnpm test:unit
-
-      - name: Docs quality gate
-        run: pnpm docs:check
-
-      - name: Resolve Playwright version
-        id: pw-version
-        run: |
-          VERSION=$(node -p "require('./node_modules/@playwright/test/package.json').version")
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Playwright browsers
-        id: pw-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ steps.pw-version.outputs.version }}-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-playwright-${{ steps.pw-version.outputs.version }}-
-            ${{ runner.os }}-playwright-
-
-      - name: Install Playwright browsers
-        if: steps.pw-cache.outputs.cache-hit != 'true'
-        run: pnpm exec playwright install --with-deps chromium
-
-      - name: Install system dependencies (cache hit path)
-        if: steps.pw-cache.outputs.cache-hit == 'true'
-        run: pnpm exec playwright install-deps chromium
-
-      - name: Run Playwright tests
-        run: pnpm test:e2e
 
       # Trusted Publishing is implemented in npm >= 11.5.1. Node 22 can ship an
       # older npm, so upgrade before changeset publish shells out to npm.
