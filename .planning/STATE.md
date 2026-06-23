@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.22
 milestone_name: Single-Window Development Runtime
 status: complete
-last_updated: "2026-06-22T00:00:00.000Z"
-last_activity: 2026-06-22
+last_updated: "2026-06-23T00:00:00.000Z"
+last_activity: 2026-06-23
 progress:
   total_phases: 5
   completed_phases: 5
@@ -28,7 +28,7 @@ Phase: 94 — Coverage, Docs, Release Readiness, and PR
 Plan: 94-01 — complete
 Status: v1.22 complete; branch pushed and PR #64 opened
 
-Last activity: 2026-06-22 — v1.34 release branch prepared with consumed Changesets, package/docs version rows, Paja reload e2e stabilization, and CI-shaped e2e proof
+Last activity: 2026-06-23 — Changesets release automation added on `push` to `main`, mirroring napplet/web while preserving npm+JSR OIDC publishing and the tag/manual fallback.
 
 ## Performance Metrics
 
@@ -92,6 +92,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260622-44f | Resolve issue #65 by allowing hosts to provide read-only identity data to createIdentityService | 2026-06-22 | bd1f941 | [260622-44f-resolve-issue-65-by-allowing-hosts-to-pr](./quick/260622-44f-resolve-issue-65-by-allowing-hosts-to-pr/) |
 | 260622-6wk | Prepare v1.34 release by consuming pending Changesets and validating the release branch | 2026-06-22 | 8d990d0 | [260622-6wk-prepare-v1-34-release-by-consuming-pendi](./quick/260622-6wk-prepare-v1-34-release-by-consuming-pendi/) |
 | 260622-8oy | Repair v1.34 release workflow after partial npm/JSR publish failure | 2026-06-22 | 74beb36 | [260622-8oy-repair-v1-34-release-workflow-after-part](./quick/260622-8oy-repair-v1-34-release-workflow-after-part/) |
+| 260623-8is | Implement `resource.bytesMany` from updated NAP-RESOURCE | 2026-06-23 | dec7d18 | [260623-8is-implement-bytesmany-from-updated-nap-res](./quick/260623-8is-implement-bytesmany-from-updated-nap-res/) |
+| 260623-9qg | Automate Changesets release PR and publish flow like napplet/web | 2026-06-23 | 98715b8 | [260623-9qg-automate-changeset-release-flow-like-nap](./quick/260623-9qg-automate-changeset-release-flow-like-nap/) |
 
 ## Session Continuity
 

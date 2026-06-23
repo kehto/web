@@ -335,8 +335,9 @@ describe('playground gateway artifact guard', () => {
     expect(turbo).toContain('"VITEPRESS_BASE"');
 
     expect(resourceDemo).toContain('REMOTE_IMAGE_URL');
-    expect(resourceDemo).toContain('resource.bytes');
-    expect(resourceDemo).toContain('loaded remote image');
+    expect(resourceDemo).toContain('resource.bytesMany');
+    expect(resourceDemo).toContain('loaded remote images');
+    expect(resourceDemo).toContain('bulk loaded');
     expect(resourceDemo).toContain('currentObjectUrl');
     expect(resourceDemo).not.toContain('resource-demo-granted');
     expect(resourceDemo).not.toContain('resource-demo-denied');

@@ -32,7 +32,7 @@
     "site:dev": "pnpm --filter @kehto/playground exec vite ../../web --host 127.0.0.1 --port 5175 --base /web/",
     "site:preview": "pnpm site:build && pnpm site:serve",
     "site:serve": "node scripts/serve-pages.mjs",
-    "version-packages": "changeset version",
+    "version-packages": "changeset version && node scripts/sync-jsr-versions.mjs",
     "publish-packages": "turbo run build && changeset publish"
   },
   "devDependencies": {
