@@ -41,11 +41,11 @@ jobs:
       - name: Build all packages for Pages
         run: pnpm build
 
-      - name: Rebuild playground shell with Pages base
-        run: pnpm --filter @kehto/playground build
-
       - name: Type-check all packages
         run: pnpm type-check
+
+      - name: Rebuild playground shell with Pages base
+        run: pnpm --filter @kehto/playground build
 
       - name: Docs quality gate with Pages base
         run: pnpm docs:check
