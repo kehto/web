@@ -1,13 +1,13 @@
 /**
  * shell-supports-conformance.test.ts
  *
- * Behavior verification of kehto-emitted capabilities against the REAL
- * @napplet/shim@0.13.0 supports() logic.
+ * Behavior verification of kehto-emitted capabilities against the real
+ * @napplet/nap shell supports() logic.
  *
  * ## What changed in 0.13 (capability model migration)
  *
- * @napplet/shim@0.13.0 no longer ships its own `createShellSupports`. On
- * `shell.init` it delegates to @napplet/nap@0.12's shell shim:
+ * @napplet/shim no longer ships its own `createShellSupports`. On
+ * `shell.init` it delegates to @napplet/nap's shell shim:
  *
  *   import { createShellEnvironment, makeSupports } from '@napplet/nap/shell/shim';
  *   const env = createShellEnvironment(msg);   // reads msg.capabilities.{domains, protocols}
@@ -24,25 +24,23 @@
  * `capabilities.{ domains, protocols }` shape ALONGSIDE the flat
  * `{ naps, sandbox }` fields (superset for back-compat — TERM-05). The
  * tests below feed kehto's REAL emitted `shell.init` envelope (domains +
- * protocols included) straight into the real 0.13 `createShellEnvironment` +
+ * protocols included) straight into the real `createShellEnvironment` +
  * `makeSupports` — no projection/adapter — and assert the shim answers
  * truthfully for offered domains/protocols and `false` for everything else.
  *
- * ## perm:<x> handling in 0.13 (verified)
+ * ## perm:<x> handling (verified)
  *
- * The 0.13 shell shim has NO special permission namespace. `makeSupports`
+ * The shell shim has NO special permission namespace. `makeSupports`
  * resolves `supports('perm:popups')` as an ordinary `domains` membership check
  * (`'perm:popups' ∈ capabilities.domains`). kehto's sandbox permissions are
  * therefore folded into `domains`; with the default-empty sandbox, no perm:
  * entries appear and `supports('perm:<x>')` is `false` unless the host extends.
  *
- * Verified against:
- *   node_modules/.pnpm/@napplet+shim@0.13.0/.../dist/index.js (handleShellInit)
- *   node_modules/.pnpm/@napplet+nap@0.12.0/.../dist/shell/shim.js (createShellEnvironment, makeSupports)
+ * Verified against the installed @napplet/nap shell shim.
  */
 
 import { describe, it, expect } from 'vitest';
-// Real 0.13 supports() logic: @napplet/shim@0.13 delegates to these on shell.init.
+// Real supports() logic: @napplet/shim delegates to these on shell.init.
 import { createShellEnvironment, makeSupports } from '@napplet/nap/shell/shim';
 import { buildShellCapabilities } from './shell-init.js';
 import type { ShellAdapter, ShellCapabilities } from './types.js';

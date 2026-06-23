@@ -66,8 +66,7 @@ const policyAllowlistTypes = [
   'theme.changed',
 ] as const;
 
-const napRelayTypesPath =
-  'node_modules/.pnpm/@napplet+nap@0.13.0/node_modules/@napplet/nap/dist/relay/types.d.ts';
+const installedNapDist = 'packages/paja/node_modules/@napplet/nap/dist';
 
 const relaySubscribeRoutingSurfaces = [
   {
@@ -300,7 +299,7 @@ describe('NIP-5D conformance static guards', () => {
   });
 
   it('keeps NAP-RELAY subscribe routing fields wired through runtime, services, playground, and tests', () => {
-    const relayTypes = readRepoFile(napRelayTypesPath);
+    const relayTypes = readRepoFile(`${installedNapDist}/relay/types.d.ts`);
     const fields = interfaceFieldNames(relayTypes, 'RelaySubscribeMessage');
 
     expect(fields).toEqual(['id', 'subId', 'filters', 'relay']);

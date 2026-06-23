@@ -24,12 +24,12 @@
     "access": "public"
   },
   "peerDependencies": {
-    "@napplet/core": ">=0.20.0 <0.21.0",
-    "@napplet/nap": ">=0.20.0 <0.21.0"
+    "@napplet/core": ">=0.21.0 <0.22.0",
+    "@napplet/nap": ">=0.21.0 <0.22.0"
   },
   "devDependencies": {
-    "@napplet/core": "^0.20.0",
-    "@napplet/nap": "^0.20.0",
+    "@napplet/core": ">=0.21.0 <0.22.0",
+    "@napplet/nap": ">=0.21.0 <0.22.0",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3"
   },

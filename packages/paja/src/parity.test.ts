@@ -13,7 +13,7 @@ import {
 } from './parity.js';
 
 function napPackageRoot(): URL {
-  return new URL('../../../node_modules/.pnpm/@napplet+nap@0.20.0/node_modules/@napplet/nap/dist/', import.meta.url);
+  return new URL('../node_modules/@napplet/nap/dist/', import.meta.url);
 }
 
 function readNapDomainDirectories(): string[] {

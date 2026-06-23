@@ -28,6 +28,7 @@ const helperTargetDirs = [
 const publicPackageDirs = [
   'packages/acl',
   'packages/cli',
+  'packages/firewall',
   'packages/paja',
   'packages/runtime',
   'packages/services',
@@ -43,11 +44,11 @@ const protocolPackageNames = [
 ] as const;
 
 const protocolPackageVersions: Record<(typeof protocolPackageNames)[number], string> = {
-  '@napplet/core': '0.20.0',
-  '@napplet/nap': '0.20.0',
-  '@napplet/sdk': '0.12.0',
-  '@napplet/shim': '0.13.0',
-  '@napplet/vite-plugin': '0.8.1',
+  '@napplet/core': '0.21.0',
+  '@napplet/nap': '0.21.0',
+  '@napplet/sdk': '0.19.0',
+  '@napplet/shim': '0.22.0',
+  '@napplet/vite-plugin': '0.10.0',
 };
 
 const bannedSdkImportPattern = /from\s+['"]@napplet\/sdk['"]/;
@@ -74,7 +75,7 @@ function sourceFiles(root: string): string[] {
   return files;
 }
 
-describe('SDK 0.12 migration guard', () => {
+describe('current @napplet package graph guard', () => {
   it('resolves active protocol packages from published registry artifacts', () => {
     const rootPackageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as {
       pnpm?: { overrides?: Record<string, string> };
@@ -98,11 +99,11 @@ describe('SDK 0.12 migration guard', () => {
         dependencies?: Record<string, string>;
         devDependencies?: Record<string, string>;
       };
-      expect(pkg.dependencies?.['@napplet/sdk'], `${dir} @napplet/sdk`).toBe('0.12.0');
-      expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe('0.13.0');
-      expect(pkg.dependencies?.['@napplet/nap'], `${dir} @napplet/nap`).toBe('0.20.0');
+      expect(pkg.dependencies?.['@napplet/sdk'], `${dir} @napplet/sdk`).toBe('0.19.0');
+      expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe('0.22.0');
+      expect(pkg.dependencies?.['@napplet/nap'], `${dir} @napplet/nap`).toBe('0.21.0');
       expect(pkg.dependencies?.[staleNapPackage], `${dir} ${staleNapPackage}`).toBeUndefined();
-      expect(pkg.devDependencies?.['@napplet/vite-plugin'], `${dir} @napplet/vite-plugin`).toBe('0.8.1');
+      expect(pkg.devDependencies?.['@napplet/vite-plugin'], `${dir} @napplet/vite-plugin`).toBe('0.10.0');
     }
   });
 
@@ -113,18 +114,18 @@ describe('SDK 0.12 migration guard', () => {
         dependencies?: Record<string, string>;
         devDependencies?: Record<string, string>;
       };
-      expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe('0.13.0');
-      expect(pkg.dependencies?.['@napplet/nap'], `${dir} @napplet/nap`).toBe('0.20.0');
+      expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe('0.22.0');
+      expect(pkg.dependencies?.['@napplet/nap'], `${dir} @napplet/nap`).toBe('0.21.0');
       expect(pkg.dependencies?.[staleNapPackage], `${dir} ${staleNapPackage}`).toBeUndefined();
-      expect(pkg.devDependencies?.['@napplet/vite-plugin'], `${dir} @napplet/vite-plugin`).toBe('0.8.1');
+      expect(pkg.devDependencies?.['@napplet/vite-plugin'], `${dir} @napplet/vite-plugin`).toBe('0.10.0');
     }
   });
 
-  it('admits only the current @napplet 0.20 line on published kehto packages', () => {
+  it('admits only the current @napplet 0.21 line on published kehto packages', () => {
     // Kehto runtime packages track the current NAP contract so new canonical
     // fields are wired through runtime, services, shell, Paja, docs, and tests.
-    const PEER_RANGE = '>=0.20.0 <0.21.0';
-    const DEV_RANGE = '^0.20.0';
+    const PEER_RANGE = '>=0.21.0 <0.22.0';
+    const DEV_RANGE = '>=0.21.0 <0.22.0';
     for (const dir of publicPackageDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
@@ -132,8 +133,12 @@ describe('SDK 0.12 migration guard', () => {
         devDependencies?: Record<string, string>;
       };
 
-      expect(pkg.peerDependencies?.['@napplet/nap'], `${dir} @napplet/nap peer`).toBe(PEER_RANGE);
-      expect(pkg.devDependencies?.['@napplet/nap'], `${dir} @napplet/nap dev`).toBe(DEV_RANGE);
+      if (pkg.peerDependencies?.['@napplet/nap'] || pkg.devDependencies?.['@napplet/nap']) {
+        expect(pkg.peerDependencies?.['@napplet/nap'], `${dir} @napplet/nap peer`).toBe(PEER_RANGE);
+        expect(pkg.devDependencies?.['@napplet/nap'], `${dir} @napplet/nap dev`).toBe(DEV_RANGE);
+      }
+      expect(pkg.peerDependencies?.['@napplet/core'], `${dir} @napplet/core peer`).toBe(PEER_RANGE);
+      expect(pkg.devDependencies?.['@napplet/core'], `${dir} @napplet/core dev`).toBe(DEV_RANGE);
       expect(pkg.peerDependencies?.[staleNapPackage], `${dir} ${staleNapPackage} peer`).toBeUndefined();
       expect(pkg.devDependencies?.[staleNapPackage], `${dir} ${staleNapPackage} dev`).toBeUndefined();
     }
