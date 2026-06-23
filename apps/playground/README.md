@@ -52,8 +52,9 @@ still reach the same handler (removal tracked as CLEANUP-01).
 | lists-demo | lists | `lists.supported`, `lists.add`, `lists.remove` | [apps/playground/napplets/lists-demo/src/](./napplets/lists-demo/src/) |
 | preferences | storage, theme | `storage.set`, `storage.get`, `theme.changed` allowlisted listener | [apps/playground/napplets/preferences/src/](./napplets/preferences/src/) |
 | profile-viewer | inc, relay | `inc.subscribe` (`profile:open`), `relay.subscribe` | [apps/playground/napplets/profile-viewer/src/](./napplets/profile-viewer/src/) |
-| resource-demo | resource, connect | `resource.bytes`, connect grant/CSP fixture | [apps/playground/napplets/resource-demo/src/](./napplets/resource-demo/src/) |
 | serial-demo | serial | `serial.open`, `serial.write`, `serial.close` | [apps/playground/napplets/serial-demo/src/](./napplets/serial-demo/src/) |
+| resource-demo | resource, connect | `resource.bytesMany`, connect grant/CSP fixture | [apps/playground/napplets/resource-demo/src/](./napplets/resource-demo/src/) |
+| theme-switcher | identity, relay, theme | discovers user/WoT/global theme events through NAP relay; `theme.set` shell theme request | [apps/playground/napplets/theme-switcher/src/](./napplets/theme-switcher/src/) |
 | toaster | notify | `notify.create`, `notify.list`, `notify.dismiss` | [apps/playground/napplets/toaster/src/](./napplets/toaster/src/) |
 | webrtc-demo | webrtc | `webrtc.open`, `webrtc.send`, `webrtc.event`, `webrtc.close` | [apps/playground/napplets/webrtc-demo/src/](./napplets/webrtc-demo/src/) |
 

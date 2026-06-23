@@ -16,8 +16,32 @@
         "tests/fixtures/napplets/*/dist/**"
       ]
     },
+    "@kehto/runtime#build": {
+      "dependsOn": ["@kehto/acl#build", "@kehto/firewall#build"],
+      "outputs": ["dist/**"]
+    },
+    "@kehto/services#build": {
+      "dependsOn": ["@kehto/runtime#build"],
+      "outputs": ["dist/**"]
+    },
+    "@kehto/shell#build": {
+      "dependsOn": ["@kehto/acl#build", "@kehto/runtime#build"],
+      "outputs": ["dist/**"]
+    },
     "@kehto/playground#build": {
       "dependsOn": ["^build", "build:napplets"],
+      "outputs": ["dist/**"]
+    },
+    "@kehto/paja#build": {
+      "dependsOn": [
+        "@kehto/acl#build",
+        "@kehto/firewall#build",
+        "@kehto/nip#build",
+        "@kehto/runtime#build",
+        "@kehto/services#build",
+        "@kehto/shell#build",
+        "@kehto/wm#build"
+      ],
       "outputs": ["dist/**"]
     },
     "test": {

@@ -174,10 +174,11 @@ function configMap(action: string): CapabilityResolution {
  *
  * Asymmetric protocol: napplet initiates fetch requests, shell proxies and responds.
  *
- * - `bytes` / `cancel` (napplet → shell requests)                        →
+ * - `bytes` / `bytesMany` / `cancel` (napplet → shell requests)           →
  *   sender `resource:fetch`, recipient `null`. The napplet must hold
- *   `resource:fetch` to issue a bytes request or cancel one.
- * - `bytes.result` / `bytes.error` (shell → napplet pushes)              →
+ *   `resource:fetch` to issue resource requests or cancel one.
+ * - `bytes.result` / `bytes.error` / `bytesMany.result` /
+ *   `bytesMany.error` (shell → napplet pushes)                           →
  *   sender `null`, recipient `resource:fetch`. The napplet must hold
  *   `resource:fetch` to receive the result/error push.
  * - Unknown resource.* actions → sender `resource:fetch`, recipient `null`
@@ -186,7 +187,7 @@ function configMap(action: string): CapabilityResolution {
  */
 function resourceMap(action: string): CapabilityResolution {
   // Shell-originated pushes: recipient gate (napplet must hold resource:fetch to see them).
-  if (action === 'bytes.result' || action === 'bytes.error') {
+  if (action === 'bytes.result' || action === 'bytes.error' || action === 'bytesMany.result' || action === 'bytesMany.error') {
     return { senderCap: null, recipientCap: 'resource:fetch' };
   }
   // Napplet-originated requests: sender gate (bytes, cancel, and any unknown).
@@ -353,8 +354,8 @@ function themeMap(action: string): CapabilityResolution {
  * | `theme`    | `changed` (shell → napplet push)                            | `null`          | `theme:read`  |
  * | `config`   | `get`, `subscribe`, `unsubscribe`, `registerSchema`, `openSettings` | `config:read` | `null`     |
  * | `config`   | `values`, `registerSchema.result`, `schemaError` (shell → napplet pushes) | `null` | `config:read` |
- * | `resource` | `bytes`, `cancel` (napplet → shell requests)               | `resource:fetch`| `null`        |
- * | `resource` | `bytes.result`, `bytes.error` (shell → napplet pushes)     | `null`          | `resource:fetch` |
+ * | `resource` | `bytes`, `bytesMany`, `cancel` (napplet → shell requests)  | `resource:fetch`| `null`        |
+ * | `resource` | `bytes*.result`, `bytes*.error` (shell → napplet pushes)   | `null`          | `resource:fetch` |
  * | `intent`   | `invoke` (napplet → shell)                                  | `intent:write`  | `null`        |
  * | `intent`   | `available`, `handlers` (napplet → shell)                   | `intent:read`   | `null`        |
  * | `intent`   | `changed`, `*.result`, `*.error` (shell → napplet pushes)   | `null`          | `intent:read` |
