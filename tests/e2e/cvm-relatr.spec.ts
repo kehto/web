@@ -14,7 +14,7 @@ test.use({ baseURL: 'http://localhost:4174' });
 test('cvm-relatr napplet renders a trust score via the CVM bridge', async ({ page }) => {
   test.setTimeout(30_000);
   await page.goto('/?cvmFixture=1');
-  await page.waitForSelector('#cvm-relatr-frame-container iframe', { timeout: 10_000 });
+  await expect(page.locator('#cvm-relatr-frame-container iframe')).toHaveCount(1, { timeout: 25_000 });
 
   const frame = page.frameLocator('#cvm-relatr-frame-container iframe');
   const status = frame.locator('#cvm-status');

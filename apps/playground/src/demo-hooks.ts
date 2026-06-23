@@ -7,6 +7,16 @@ import {
   type ShellAdapter,
   type ShellCapabilities,
 } from '@kehto/shell';
+import type {
+  BleAttribute,
+  BleOpenRequest,
+  BleOpenResult,
+  BleService as CoreBleService,
+  BleWriteOptions,
+  WebrtcEvent,
+  WebrtcOpenRequest,
+  WebrtcOpenResult,
+} from '@napplet/core';
 import { RESOURCE_DEMO_REMOTE_IMAGE_ORIGIN } from './main-preferences.js';
 
 /**
@@ -22,10 +32,15 @@ import {
   createNotificationService,
   createKeysService,
   createLinkService,
+  createListsService,
   createMediaService,
   createThemeService,
   createConfigService,
+  createCommonService,
   createResourceService,
+  createBleService,
+  createSerialService,
+  createWebrtcService,
   createCvmService,
   type ConfigService,
   type Notification,
@@ -75,6 +90,23 @@ const demoConfigFixtures: Record<string, unknown> = {
   'notifications-enabled': true,
   recentSearches: [],
 };
+const DEMO_COMMON_PUBKEY = '3'.repeat(64);
+const DEMO_COMMON_EVENT_ID = '4'.repeat(64);
+const DEMO_LISTS_EVENT_ID = '5'.repeat(64);
+const DEMO_SERIAL_LABEL = 'Playground serial';
+const DEMO_BLE_DEVICE_NAME = 'Playground BLE';
+const DEMO_BLE_SERVICE_UUID = 'battery_service';
+const DEMO_BLE_CHARACTERISTIC_UUID = 'battery_level';
+const DEMO_WEBRTC_PEER = '7'.repeat(64);
+type DemoListRef = { readonly type?: string; readonly kind?: number };
+type DemoListItem = { readonly itemType: string; readonly value: string };
+
+const DEMO_LISTS_SUPPORT = {
+  kind: 10003,
+  type: 'bookmarks',
+  addressable: false,
+  supportedItemTypes: ['event', 'url'] as never[],
+};
 
 export function createDemoHooks(
   notificationOnChange: ((notifications: readonly Notification[]) => void) | undefined,
@@ -97,6 +129,23 @@ export function createDemoHooks(
       status: url.hostname === 'blocked.example' ? 'denied' : 'opened',
     }),
   });
+  const commonService = createCommonService({
+    getProfile: (target) => ({
+      ok: true,
+      pubkey: target || getSignerConnectionState().pubkey || DEMO_COMMON_PUBKEY,
+      profile: { name: 'playground-common', displayName: 'Playground Common' },
+      relays: [...DEFAULT_PLAYGROUND_RELAY_SELECTION.defaultRelays],
+    }),
+    follows: () => ({ ok: true, pubkeys: [getSignerConnectionState().pubkey ?? DEMO_COMMON_PUBKEY] }),
+    follow: () => ({ ok: true, eventId: DEMO_COMMON_EVENT_ID }),
+    unfollow: () => ({ ok: true, eventId: DEMO_COMMON_EVENT_ID }),
+    react: () => ({ ok: true, eventId: DEMO_COMMON_EVENT_ID }),
+    report: () => ({ ok: true, eventId: DEMO_COMMON_EVENT_ID }),
+  });
+  const listsService = createDemoListsService();
+  const serialService = createDemoSerialService();
+  const bleService = createDemoBleService();
+  const webrtcService = createDemoWebrtcService();
   const cvmService = createCvmService({ transport: createPlaygroundCvmTransport() });
   const identityService = createIdentityService({ getSigner });
   relayRuntimeDestroy?.();
@@ -124,6 +173,11 @@ export function createDemoHooks(
     keys: keysService,
     media: mediaService,
     link: linkService,
+    common: commonService,
+    lists: listsService,
+    serial: serialService,
+    ble: bleService,
+    webrtc: webrtcService,
     theme: themeBundle.handler,
     config: configBundle.handler,
     resource: resourceHandler,
@@ -224,6 +278,11 @@ function createDemoShellAdapter(
     config: { getNappUpdateBehavior: () => 'auto-grant' },
     hotkeys: { executeHotkeyFromForward: () => {} },
     link: { isAvailable: () => true },
+    common: { isAvailable: () => true },
+    lists: { isAvailable: () => true },
+    serial: { isAvailable: () => true },
+    ble: { isAvailable: () => true },
+    webrtc: { isAvailable: () => true },
     workerRelay,
     crypto: createDemoCrypto(),
     getConfigOverrides: () => ({
@@ -273,6 +332,182 @@ function resolveAclEntry(
     }
   }
   return null;
+}
+
+function createDemoListsService(): ServiceHandler {
+  const values = new Set<string>();
+  const itemKey = (item: DemoListItem) => `${item.itemType}:${item.value}`;
+  const isSupported = (list: DemoListRef): boolean =>
+    ('type' in list && list.type === DEMO_LISTS_SUPPORT.type)
+    || ('kind' in list && list.kind === DEMO_LISTS_SUPPORT.kind);
+
+  return createListsService({
+    supported: () => [DEMO_LISTS_SUPPORT],
+    add: (list: DemoListRef, items: readonly DemoListItem[]) => {
+      if (!isSupported(list)) return { ok: false, error: 'unsupported-list', reason: 'unsupported list', supported: [DEMO_LISTS_SUPPORT] };
+      let added = 0;
+      let skipped = 0;
+      for (const item of items) {
+        const key = itemKey(item);
+        if (values.has(key)) skipped += 1;
+        else {
+          values.add(key);
+          added += 1;
+        }
+      }
+      return { ok: true, eventId: DEMO_LISTS_EVENT_ID, added, skipped };
+    },
+    remove: (list: DemoListRef, items: readonly DemoListItem[]) => {
+      if (!isSupported(list)) return { ok: false, error: 'unsupported-list', reason: 'unsupported list', supported: [DEMO_LISTS_SUPPORT] };
+      let removed = 0;
+      let skipped = 0;
+      for (const item of items) {
+        if (values.delete(itemKey(item))) removed += 1;
+        else skipped += 1;
+      }
+      return { ok: true, eventId: DEMO_LISTS_EVENT_ID, removed, skipped };
+    },
+  });
+}
+
+function destroyWindowSessions<T extends { windowId: string }>(
+  sessions: Map<string, T>,
+  windowId: string,
+): void {
+  for (const [sessionId, session] of sessions) {
+    if (session.windowId === windowId) sessions.delete(sessionId);
+  }
+}
+
+function createDemoSerialService(): ServiceHandler {
+  const sessions = new Map<string, { windowId: string; writes: number[][] }>();
+  let nextSession = 1;
+
+  return createSerialService({
+    open: (_request, context) => {
+      const id = `playground-serial-${nextSession++}`;
+      sessions.set(id, { windowId: context.windowId, writes: [] });
+      return {
+        session: {
+          id,
+          state: 'open',
+          info: { displayName: DEMO_SERIAL_LABEL },
+        },
+      };
+    },
+    write: (sessionId, data) => {
+      const session = sessions.get(sessionId);
+      if (!session) throw new Error('serial session not found');
+      session.writes.push([...data]);
+    },
+    close: (sessionId) => {
+      if (!sessions.delete(sessionId)) throw new Error('serial session not found');
+    },
+    destroyWindow: (windowId) => {
+      destroyWindowSessions(sessions, windowId);
+    },
+  });
+}
+
+function createDemoBleService(): ServiceHandler {
+  const sessions = new Map<string, { windowId: string; writes: number[][]; subscriptions: Set<string> }>();
+  let nextSession = 1;
+  const service: CoreBleService = {
+    uuid: DEMO_BLE_SERVICE_UUID,
+    characteristics: [{
+      uuid: DEMO_BLE_CHARACTERISTIC_UUID,
+      properties: { read: true, write: true, notify: true },
+    }],
+  };
+  const targetKey = (target: BleAttribute): string =>
+    `${String(target.service)}:${String(target.characteristic)}:${String(target.descriptor ?? '')}`;
+  const getSession = (sessionId: string) => {
+    const session = sessions.get(sessionId);
+    if (!session) throw new Error('ble session not found');
+    return session;
+  };
+
+  return createBleService({
+    open: (_request: BleOpenRequest, context): BleOpenResult => {
+      const id = `playground-ble-${nextSession++}`;
+      sessions.set(id, { windowId: context.windowId, writes: [], subscriptions: new Set() });
+      return {
+        session: {
+          id,
+          state: 'open',
+          device: {
+            id: 'playground-ble-device',
+            name: DEMO_BLE_DEVICE_NAME,
+            services: [DEMO_BLE_SERVICE_UUID],
+          },
+        },
+      };
+    },
+    services: (sessionId) => {
+      getSession(sessionId);
+      return [service];
+    },
+    read: (sessionId) => {
+      getSession(sessionId);
+      return [87];
+    },
+    write: (sessionId, _target, data, _options: BleWriteOptions | undefined) => {
+      getSession(sessionId).writes.push([...data]);
+    },
+    subscribe: (sessionId, target) => {
+      getSession(sessionId).subscriptions.add(targetKey(target));
+    },
+    unsubscribe: (sessionId, target) => {
+      getSession(sessionId).subscriptions.delete(targetKey(target));
+    },
+    close: (sessionId) => {
+      if (!sessions.delete(sessionId)) throw new Error('ble session not found');
+    },
+    destroyWindow: (windowId) => {
+      destroyWindowSessions(sessions, windowId);
+    },
+  });
+}
+
+function createDemoWebrtcService(): ServiceHandler {
+  const sessions = new Map<string, { windowId: string; payloads: unknown[] }>();
+  let nextSession = 1;
+  const getSession = (sessionId: string) => {
+    const session = sessions.get(sessionId);
+    if (!session) throw new Error('webrtc session not found');
+    return session;
+  };
+
+  return createWebrtcService({
+    open: (request: WebrtcOpenRequest, context): WebrtcOpenResult => {
+      const id = `playground-webrtc-${nextSession++}`;
+      const channel = request.channel ?? 'default';
+      sessions.set(id, { windowId: context.windowId, payloads: [] });
+      context.emit({ type: 'state', sessionId: id, state: 'open' });
+      context.emit({ type: 'peer', sessionId: id, pubkey: DEMO_WEBRTC_PEER, state: 'joined' });
+      return {
+        session: {
+          id,
+          scope: request.scope,
+          channel,
+          ...(request.protocol ? { protocol: request.protocol } : {}),
+          state: 'open',
+        },
+      };
+    },
+    send: (sessionId, payload, context) => {
+      getSession(sessionId).payloads.push(payload);
+      context.emit({ type: 'message', sessionId, from: DEMO_WEBRTC_PEER, payload } satisfies WebrtcEvent);
+    },
+    close: (sessionId, reason, context) => {
+      getSession(sessionId);
+      sessions.delete(sessionId);
+      context.emit({ type: 'closed', sessionId, ...(reason ? { reason } : {}) });
+    },
+    destroyWindow: (windowId) => {
+      destroyWindowSessions(sessions, windowId);
+    },
+  });
 }
 
 export function setDemoSessionRegistryRef(registry: typeof sessionRegistryRef): void {

@@ -197,3 +197,33 @@ export type {
   LinkOpenContext,
   LinkServiceOptions,
 } from './link-service.js';
+
+export { createListsService } from './lists-service.js';
+export type {
+  ListsServiceContext,
+  ListsServiceOptions,
+} from './lists-service.js';
+
+export { createSerialService } from './serial-service.js';
+export type {
+  SerialServiceContext,
+  SerialServiceOptions,
+} from './serial-service.js';
+
+export { createBleService } from './ble-service.js';
+export type {
+  BleServiceContext,
+  BleServiceOptions,
+} from './ble-service.js';
+
+export { createWebrtcService } from './webrtc-service.js';
+export type {
+  WebrtcServiceContext,
+  WebrtcServiceOptions,
+} from './webrtc-service.js';
+
+export { createCommonService } from './common-service.js';
+export type {
+  CommonServiceContext,
+  CommonServiceOptions,
+} from './common-service.js';

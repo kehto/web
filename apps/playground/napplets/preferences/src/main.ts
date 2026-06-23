@@ -35,6 +35,8 @@ const REQUIRED_NAPS = ['storage', 'theme'] as const;
 // every NAP as missing. (Mirrors feed/profile-viewer.)
 const CAPABILITY_WAIT_MS = 5_000;
 const CAPABILITY_WAIT_INTERVAL_MS = 25;
+const STORAGE_LOAD_ATTEMPTS = 3;
+const STORAGE_LOAD_RETRY_MS = 250;
 
 const statusEl = document.getElementById('preferences-status')!;
 const displayNameEl = document.getElementById('pref-display-name') as HTMLInputElement;
@@ -84,6 +86,22 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+function isTimeoutError(error: unknown): boolean {
+  return error instanceof Error && /timed out/i.test(error.message);
+}
+
+async function storageGetItemWithRetry(key: string): Promise<string | null> {
+  for (let attempt = 1; attempt <= STORAGE_LOAD_ATTEMPTS; attempt += 1) {
+    try {
+      return await storageGetItem(key);
+    } catch (error) {
+      if (!isTimeoutError(error) || attempt === STORAGE_LOAD_ATTEMPTS) throw error;
+      await sleep(STORAGE_LOAD_RETRY_MS * attempt);
+    }
+  }
+  return null;
+}
+
 async function waitForRequiredNaps(): Promise<void> {
   const deadline = Date.now() + CAPABILITY_WAIT_MS;
   let missing = getMissingRequiredNaps();
@@ -100,8 +118,8 @@ async function loadPreferences(): Promise<void> {
   // Two sequential storageGetItem calls localize denial.
   // If state:read is denied, the rejected Promise surfaces here and we bail.
   try {
-    const name = await storageGetItem(KEY_DISPLAY_NAME);
-    const theme = await storageGetItem(KEY_THEME);
+    const name = await storageGetItemWithRetry(KEY_DISPLAY_NAME);
+    const theme = await storageGetItemWithRetry(KEY_THEME);
     if (name !== null) displayNameEl.value = name;
     if (theme !== null) themePreferenceEl.value = theme;
     setStatus('loaded', 'green');

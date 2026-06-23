@@ -3,32 +3,50 @@ import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const playgroundNapplets = [
+  'ble-demo',
   'bot',
   'chat',
+  'common-demo',
   'composer',
   'cvm-relatr',
   'feed',
+  'link-demo',
+  'lists-demo',
   'preferences',
   'profile-viewer',
   'resource-demo',
+  'serial-demo',
   'toaster',
+  'webrtc-demo',
 ] as const;
 
 const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly string[]> = {
+  'ble-demo': ['ble'],
   bot: ['inc', 'storage', 'theme'],
   chat: ['inc', 'storage', 'relay', 'theme'],
+  'common-demo': ['common'],
   composer: ['relay', 'theme'],
   'cvm-relatr': ['cvm', 'theme'],
   feed: ['identity', 'relay', 'inc', 'theme'],
+  'link-demo': ['link'],
+  'lists-demo': ['lists'],
   preferences: ['storage', 'theme'],
   'profile-viewer': ['inc', 'relay', 'theme'],
   'resource-demo': ['resource', 'theme'],
+  'serial-demo': ['serial'],
   toaster: ['notify', 'theme'],
+  'webrtc-demo': ['webrtc'],
 };
 
 const rawListenerFiles = [
   'apps/playground/src/theme.ts',
+  'apps/playground/napplets/common-demo/src/main.ts',
   'apps/playground/napplets/cvm-relatr/src/main.ts',
+  'apps/playground/napplets/link-demo/src/main.ts',
+  'apps/playground/napplets/lists-demo/src/main.ts',
+  'apps/playground/napplets/ble-demo/src/main.ts',
+  'apps/playground/napplets/serial-demo/src/main.ts',
+  'apps/playground/napplets/webrtc-demo/src/main.ts',
   'apps/playground/napplets/resource-demo/src/main.ts',
   'apps/playground/napplets/toaster/src/main.ts',
 ] as const;
@@ -84,7 +102,13 @@ const relaySubscribeRoutingSurfaces = [
 
 const rawListenerTypeGuards: Record<string, readonly string[]> = {
   'apps/playground/src/theme.ts': ["data.type !== 'theme.changed'"],
+  'apps/playground/napplets/common-demo/src/main.ts': ['msg.type !== resultType'],
   'apps/playground/napplets/cvm-relatr/src/main.ts': ['data.type !== resultType'],
+  'apps/playground/napplets/link-demo/src/main.ts': ["msg.type !== 'link.open.result'"],
+  'apps/playground/napplets/lists-demo/src/main.ts': ['msg.type !== resultType'],
+  'apps/playground/napplets/ble-demo/src/main.ts': ['msg.type !== resultType'],
+  'apps/playground/napplets/serial-demo/src/main.ts': ['msg.type !== resultType'],
+  'apps/playground/napplets/webrtc-demo/src/main.ts': ['msg.type !== resultType'],
   'apps/playground/napplets/resource-demo/src/main.ts': [
     "envelope.type === 'resource.bytes.result'",
     "envelope.type === 'resource.bytes.error'",

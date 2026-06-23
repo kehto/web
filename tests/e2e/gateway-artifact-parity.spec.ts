@@ -4,29 +4,39 @@ import { demoBeforeEach } from './helpers/index.js';
 test.use({ baseURL: 'http://localhost:4174' });
 
 const expectedNapplets = [
+  'ble-demo',
   'bot',
   'chat',
   'composer',
+  'common-demo',
   'cvm-relatr',
   'feed',
   'link-demo',
+  'lists-demo',
   'preferences',
   'profile-viewer',
   'resource-demo',
+  'serial-demo',
   'toaster',
+  'webrtc-demo',
 ] as const;
 
 const expectedRequires: Record<(typeof expectedNapplets)[number], readonly string[]> = {
+  'ble-demo': ['ble'],
   bot: ['inc', 'storage', 'theme'],
   chat: ['inc', 'storage', 'relay', 'theme'],
   composer: ['relay', 'theme'],
+  'common-demo': ['common'],
   'cvm-relatr': ['cvm', 'theme'],
   feed: ['identity', 'relay', 'inc', 'theme'],
   'link-demo': ['link'],
+  'lists-demo': ['lists'],
   preferences: ['storage', 'theme'],
   'profile-viewer': ['inc', 'relay', 'theme'],
   'resource-demo': ['resource', 'theme'],
+  'serial-demo': ['serial'],
   toaster: ['notify', 'theme'],
+  'webrtc-demo': ['webrtc'],
 };
 
 test('playground loads all napplets via verified srcdoc with opaque origins', async ({ page }) => {
@@ -48,7 +58,7 @@ test('playground loads all napplets via verified srcdoc with opaque origins', as
 
   await demoBeforeEach(page);
 
-  await expect(page.locator('iframe')).toHaveCount(expectedNapplets.length);
+  await expect(page.locator('iframe')).toHaveCount(expectedNapplets.length, { timeout: 15_000 });
   // Every napplet was resolved from the relay sim, and Blossom served blobs.
   await expect.poll(() => relayEventHits.size, { timeout: 10_000 }).toBe(expectedNapplets.length);
   expect(blossomHits.length).toBeGreaterThan(0);

@@ -110,6 +110,96 @@ describe('buildShellCapabilities — domains array (conformant NAP-SHELL, TERM-0
     expect(caps.domains).not.toContain('link');
   });
 
+  it('advertises common in domains when common social helpers are wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      common: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).toContain('common');
+  });
+
+  it('advertises lists in domains when list mutation helpers are wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      lists: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).toContain('lists');
+  });
+
+  it('does NOT advertise lists in domains when list mutation helpers report unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      lists: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('lists');
+  });
+
+  it('advertises serial in domains when serial sessions are wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      serial: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).toContain('serial');
+  });
+
+  it('does NOT advertise serial in domains when serial sessions report unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      serial: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('serial');
+  });
+
+  it('advertises ble in domains when BLE sessions are wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      ble: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).toContain('ble');
+  });
+
+  it('does NOT advertise ble in domains when BLE sessions report unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      ble: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('ble');
+  });
+
+  it('advertises webrtc in domains when WebRTC sessions are wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      webrtc: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).toContain('webrtc');
+  });
+
+  it('does NOT advertise webrtc in domains when WebRTC sessions report unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      webrtc: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('webrtc');
+  });
+
+  it('does NOT advertise common in domains when common social helpers report unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      common: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('common');
+  });
+
   it('does NOT advertise intent in domains when the dispatcher reports unavailable', () => {
     const hooks: ShellAdapter = {
       ...baseHooks(),
@@ -264,6 +354,206 @@ describe('buildShellCapabilities — NAP-LINK advertisement in naps', () => {
     const caps = buildShellCapabilities(hooks);
     expect(caps.domains).not.toContain('link');
     expect(caps.naps).not.toContain('link');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// naps — NAP-COMMON advertisement
+// ---------------------------------------------------------------------------
+
+describe('buildShellCapabilities — NAP-COMMON advertisement in naps', () => {
+  it('does NOT advertise common in naps when no common backend is wired', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    expect(caps.naps).not.toContain('common');
+  });
+
+  it('does NOT advertise common in naps when the common backend reports unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      common: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).not.toContain('common');
+  });
+
+  it('advertises common in naps when an available common backend is wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      common: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).toContain('common');
+  });
+
+  it('removes common from domains and naps when disabled by capability override', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      common: { isAvailable: () => true },
+      capabilities: { disabledDomains: ['common'] },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('common');
+    expect(caps.naps).not.toContain('common');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// naps — NAP-LISTS advertisement
+// ---------------------------------------------------------------------------
+
+describe('buildShellCapabilities — NAP-LISTS advertisement in naps', () => {
+  it('does NOT advertise lists in naps when no lists backend is wired', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    expect(caps.naps).not.toContain('lists');
+  });
+
+  it('does NOT advertise lists in naps when the lists backend reports unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      lists: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).not.toContain('lists');
+  });
+
+  it('advertises lists in naps when an available lists backend is wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      lists: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).toContain('lists');
+  });
+
+  it('removes lists from domains and naps when disabled by capability override', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      lists: { isAvailable: () => true },
+      capabilities: { disabledDomains: ['lists'] },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('lists');
+    expect(caps.naps).not.toContain('lists');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// naps — NAP-SERIAL advertisement
+// ---------------------------------------------------------------------------
+
+describe('buildShellCapabilities — NAP-SERIAL advertisement in naps', () => {
+  it('does NOT advertise serial in naps when no serial backend is wired', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    expect(caps.naps).not.toContain('serial');
+  });
+
+  it('does NOT advertise serial in naps when the serial backend reports unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      serial: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).not.toContain('serial');
+  });
+
+  it('advertises serial in naps when an available serial backend is wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      serial: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).toContain('serial');
+  });
+
+  it('removes serial from domains and naps when disabled by capability override', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      serial: { isAvailable: () => true },
+      capabilities: { disabledDomains: ['serial'] },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('serial');
+    expect(caps.naps).not.toContain('serial');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// naps — NAP-BLE advertisement
+// ---------------------------------------------------------------------------
+
+describe('buildShellCapabilities — NAP-BLE advertisement in naps', () => {
+  it('does NOT advertise ble in naps when no BLE backend is wired', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    expect(caps.naps).not.toContain('ble');
+  });
+
+  it('does NOT advertise ble in naps when the BLE backend reports unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      ble: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).not.toContain('ble');
+  });
+
+  it('advertises ble in naps when an available BLE backend is wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      ble: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).toContain('ble');
+  });
+
+  it('removes ble from domains and naps when disabled by capability override', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      ble: { isAvailable: () => true },
+      capabilities: { disabledDomains: ['ble'] },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('ble');
+    expect(caps.naps).not.toContain('ble');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// naps — NAP-WEBRTC advertisement
+// ---------------------------------------------------------------------------
+
+describe('buildShellCapabilities — NAP-WEBRTC advertisement in naps', () => {
+  it('does NOT advertise webrtc in naps when no WebRTC backend is wired', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    expect(caps.naps).not.toContain('webrtc');
+  });
+
+  it('does NOT advertise webrtc in naps when the WebRTC backend reports unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      webrtc: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).not.toContain('webrtc');
+  });
+
+  it('advertises webrtc in naps when an available WebRTC backend is wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      webrtc: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).toContain('webrtc');
+  });
+
+  it('removes webrtc from domains and naps when disabled by capability override', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      webrtc: { isAvailable: () => true },
+      capabilities: { disabledDomains: ['webrtc'] },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('webrtc');
+    expect(caps.naps).not.toContain('webrtc');
   });
 });
 

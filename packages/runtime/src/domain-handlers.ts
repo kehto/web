@@ -27,6 +27,11 @@ export type RuntimeDomainHandlers = {
   upload: DomainHandler;
   intent: DomainHandler;
   link: DomainHandler;
+  common: DomainHandler;
+  lists: DomainHandler;
+  serial: DomainHandler;
+  ble: DomainHandler;
+  webrtc: DomainHandler;
 };
 
 const THEME_FALLBACK_DEFAULT = {
@@ -47,6 +52,11 @@ export function createRuntimeDomainHandlers(context: RuntimeDomainContext): Runt
     upload: (windowId, msg) => handleServiceOnlyMessage(context, 'upload', windowId, msg),
     intent: (windowId, msg) => handleServiceOnlyMessage(context, 'intent', windowId, msg),
     link: (windowId, msg) => handleServiceOnlyMessage(context, 'link', windowId, msg),
+    common: (windowId, msg) => handleServiceOnlyMessage(context, 'common', windowId, msg),
+    lists: (windowId, msg) => handleServiceOnlyMessage(context, 'lists', windowId, msg),
+    serial: (windowId, msg) => handleServiceOnlyMessage(context, 'serial', windowId, msg),
+    ble: (windowId, msg) => handleServiceOnlyMessage(context, 'ble', windowId, msg),
+    webrtc: (windowId, msg) => handleServiceOnlyMessage(context, 'webrtc', windowId, msg),
   };
 }
 
@@ -166,7 +176,7 @@ function handleThemeMessage(context: RuntimeDomainContext, windowId: string, msg
 
 function handleServiceOnlyMessage(
   context: RuntimeDomainContext,
-  name: 'config' | 'resource' | 'cvm' | 'outbox' | 'upload' | 'intent' | 'link',
+  name: 'config' | 'resource' | 'cvm' | 'outbox' | 'upload' | 'intent' | 'link' | 'common' | 'lists' | 'serial' | 'ble' | 'webrtc',
   windowId: string,
   msg: NappletMessage,
 ): void {

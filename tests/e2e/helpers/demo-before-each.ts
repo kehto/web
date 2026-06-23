@@ -12,6 +12,7 @@
  * @param options - Optional { topologyReadyTimeoutMs } (default 15000).
  */
 import type { Page } from '@playwright/test';
+import { DEMO_NAPPLETS } from '../../../apps/playground/src/demo-definitions.js';
 
 export async function demoBeforeEach(
   page: Page,
@@ -32,5 +33,17 @@ export async function demoBeforeEach(
     () => document.querySelectorAll('[data-service-name]').length >= 1,
     undefined,
     { timeout: 15000 },
+  );
+  await page.waitForFunction(
+    (expectedCount: number) => {
+      const statuses = Array.from(document.querySelectorAll('.topology-node-status'));
+      if (statuses.length < expectedCount) return false;
+      return statuses.every((status) => {
+        const text = (status.textContent ?? '').trim().toLowerCase();
+        return text.length > 0 && !text.startsWith('loading');
+      });
+    },
+    DEMO_NAPPLETS.length,
+    { timeout: Math.max(timeout, 25000) },
   );
 }

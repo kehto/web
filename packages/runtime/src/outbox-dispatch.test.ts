@@ -145,3 +145,143 @@ describe('runtime outbox domain dispatch', () => {
   });
 
 });
+
+describe('runtime lists domain dispatch', () => {
+  let ctx: MockRuntimeContext;
+  let runtime: Runtime;
+
+  beforeEach(() => {
+    ctx = createMockRuntimeAdapter();
+    runtime = createRuntime(ctx.hooks);
+    runtime.sessionRegistry.register(WINDOW_ID, session());
+  });
+
+  it('routes lists.supported / lists.add / lists.remove to the service', () => {
+    const received: NappletMessage[] = [];
+    runtime.registerService('lists', {
+      descriptor: { name: 'lists', version: '1.0.0' },
+      handleMessage(_wid, msg) { received.push(msg); },
+    });
+
+    runtime.handleMessage(WINDOW_ID, { type: 'lists.supported', id: 'ls-1' } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'lists.add', id: 'la-1', list: { type: 'bookmarks' }, items: [] } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'lists.remove', id: 'lr-1', list: { type: 'bookmarks' }, items: [] } as NappletMessage);
+
+    expect(received.map((m) => m.type)).toEqual(['lists.supported', 'lists.add', 'lists.remove']);
+  });
+
+  it('lists.supported without a registered service: no throw, no envelope emitted', () => {
+    expect(() => {
+      runtime.handleMessage(WINDOW_ID, { type: 'lists.supported', id: 'ls-2' } as NappletMessage);
+    }).not.toThrow();
+    expect(ctx.sent).toHaveLength(0);
+  });
+});
+
+describe('runtime serial domain dispatch', () => {
+  let ctx: MockRuntimeContext;
+  let runtime: Runtime;
+
+  beforeEach(() => {
+    ctx = createMockRuntimeAdapter();
+    runtime = createRuntime(ctx.hooks);
+    runtime.sessionRegistry.register(WINDOW_ID, session());
+  });
+
+  it('routes serial.open / serial.write / serial.close to the service', () => {
+    const received: NappletMessage[] = [];
+    runtime.registerService('serial', {
+      descriptor: { name: 'serial', version: '1.0.0' },
+      handleMessage(_wid, msg) { received.push(msg); },
+    });
+
+    runtime.handleMessage(WINDOW_ID, { type: 'serial.open', id: 'so-1', request: { options: { baudRate: 9600 } } } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'serial.write', id: 'sw-1', sessionId: 'serial-1', data: [1, 2, 3] } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'serial.close', id: 'sc-1', sessionId: 'serial-1' } as NappletMessage);
+
+    expect(received.map((m) => m.type)).toEqual(['serial.open', 'serial.write', 'serial.close']);
+  });
+
+  it('serial.open without a registered service: no throw, no envelope emitted', () => {
+    expect(() => {
+      runtime.handleMessage(WINDOW_ID, { type: 'serial.open', id: 'so-2', request: { options: { baudRate: 9600 } } } as NappletMessage);
+    }).not.toThrow();
+    expect(ctx.sent).toHaveLength(0);
+  });
+});
+
+describe('runtime ble domain dispatch', () => {
+  let ctx: MockRuntimeContext;
+  let runtime: Runtime;
+
+  beforeEach(() => {
+    ctx = createMockRuntimeAdapter();
+    runtime = createRuntime(ctx.hooks);
+    runtime.sessionRegistry.register(WINDOW_ID, session());
+  });
+
+  it('routes all ble request types to the service', () => {
+    const received: NappletMessage[] = [];
+    runtime.registerService('ble', {
+      descriptor: { name: 'ble', version: '1.0.0' },
+      handleMessage(_wid, msg) { received.push(msg); },
+    });
+
+    runtime.handleMessage(WINDOW_ID, { type: 'ble.open', id: 'bo-1', request: { acceptAllDevices: true } } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'ble.services', id: 'bs-1', sessionId: 'ble-1' } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'ble.read', id: 'br-1', sessionId: 'ble-1', target: { service: 'battery_service', characteristic: 'battery_level' } } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'ble.write', id: 'bw-1', sessionId: 'ble-1', target: { service: 'battery_service', characteristic: 'battery_level' }, data: [1] } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'ble.subscribe', id: 'bsub-1', sessionId: 'ble-1', target: { service: 'battery_service', characteristic: 'battery_level' } } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'ble.unsubscribe', id: 'bunsub-1', sessionId: 'ble-1', target: { service: 'battery_service', characteristic: 'battery_level' } } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'ble.close', id: 'bc-1', sessionId: 'ble-1' } as NappletMessage);
+
+    expect(received.map((m) => m.type)).toEqual([
+      'ble.open',
+      'ble.services',
+      'ble.read',
+      'ble.write',
+      'ble.subscribe',
+      'ble.unsubscribe',
+      'ble.close',
+    ]);
+  });
+
+  it('ble.open without a registered service: no throw, no envelope emitted', () => {
+    expect(() => {
+      runtime.handleMessage(WINDOW_ID, { type: 'ble.open', id: 'bo-2', request: { acceptAllDevices: true } } as NappletMessage);
+    }).not.toThrow();
+    expect(ctx.sent).toHaveLength(0);
+  });
+});
+
+describe('runtime webrtc domain dispatch', () => {
+  let ctx: MockRuntimeContext;
+  let runtime: Runtime;
+
+  beforeEach(() => {
+    ctx = createMockRuntimeAdapter();
+    runtime = createRuntime(ctx.hooks);
+    runtime.sessionRegistry.register(WINDOW_ID, session());
+  });
+
+  it('routes all webrtc request types to the service', () => {
+    const received: NappletMessage[] = [];
+    runtime.registerService('webrtc', {
+      descriptor: { name: 'webrtc', version: '1.0.0' },
+      handleMessage(_wid, msg) { received.push(msg); },
+    });
+
+    runtime.handleMessage(WINDOW_ID, { type: 'webrtc.open', id: 'wo-1', request: { scope: { type: 'direct', pubkey: '7'.repeat(64) } } } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'webrtc.send', id: 'ws-1', sessionId: 'webrtc-1', payload: { body: 'hello' } } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'webrtc.close', id: 'wc-1', sessionId: 'webrtc-1' } as NappletMessage);
+
+    expect(received.map((m) => m.type)).toEqual(['webrtc.open', 'webrtc.send', 'webrtc.close']);
+  });
+
+  it('webrtc.open without a registered service: no throw, no envelope emitted', () => {
+    expect(() => {
+      runtime.handleMessage(WINDOW_ID, { type: 'webrtc.open', id: 'wo-2', request: { scope: { type: 'direct', pubkey: '7'.repeat(64) } } } as NappletMessage);
+    }).not.toThrow();
+    expect(ctx.sent).toHaveLength(0);
+  });
+});

@@ -28,7 +28,7 @@ export const PAJA_UPSTREAM_WEB_DOMAINS = [
 ] as const;
 
 export const PAJA_HANDSHAKE_DOMAINS = ['shell'] as const;
-export const PAJA_DEFERRED_DOMAINS = ['ble', 'common', 'lists', 'serial', 'webrtc'] as const;
+export const PAJA_DEFERRED_DOMAINS = [] as const;
 
 export const PAJA_COMPATIBILITY_ALIASES = {
   [PAJA_LEGACY_COMPATIBILITY_DOMAIN]: 'inc',
@@ -43,6 +43,11 @@ export const PAJA_ADVERTISED_DOMAINS = [
   'theme',
   'keys',
   'link',
+  'common',
+  'lists',
+  'serial',
+  'ble',
+  'webrtc',
   'media',
   'notify',
   'config',
@@ -59,6 +64,11 @@ export const PAJA_REQUIRED_SERVICES = [
   'intent',
   'keys',
   'link',
+  'common',
+  'lists',
+  'serial',
+  'ble',
+  'webrtc',
   'media',
   'notifications',
   'notify',

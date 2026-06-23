@@ -3,27 +3,39 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const playgroundNapplets = [
+  'ble-demo',
   'bot',
   'chat',
+  'common-demo',
   'composer',
   'cvm-relatr',
   'feed',
+  'link-demo',
+  'lists-demo',
   'preferences',
   'profile-viewer',
   'resource-demo',
+  'serial-demo',
   'toaster',
+  'webrtc-demo',
 ] as const;
 
 const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly string[]> = {
+  'ble-demo': ['ble'],
   bot: ['inc', 'storage', 'theme'],
   chat: ['inc', 'storage', 'relay', 'theme'],
+  'common-demo': ['common'],
   composer: ['relay', 'theme'],
   'cvm-relatr': ['cvm', 'theme'],
   feed: ['identity', 'relay', 'inc', 'theme'],
+  'link-demo': ['link'],
+  'lists-demo': ['lists'],
   preferences: ['storage', 'theme'],
   'profile-viewer': ['inc', 'relay', 'theme'],
   'resource-demo': ['resource', 'theme'],
+  'serial-demo': ['serial'],
   toaster: ['notify', 'theme'],
+  'webrtc-demo': ['webrtc'],
 };
 
 function readRepoFile(path: string): string {

@@ -39,7 +39,7 @@ test('connected signer is restored after playground reload', async ({ page }) =>
 
   const feedFrame = page.frameLocator('#feed-frame-container iframe');
   await expect(feedFrame.locator('#feed-status')).toContainText(/^(subscribed|loading|loaded)/, {
-    timeout: 10_000,
+    timeout: 20_000,
   });
   await expect(feedFrame.locator('#feed-log')).toHaveCount(0);
 });

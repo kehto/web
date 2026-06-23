@@ -12,19 +12,24 @@ import {
 } from '@kehto/shell';
 import {
   createConfigService,
+  createCommonService,
   createCvmService,
   createIdentityService,
   createIntentService,
   createKeysService,
   createLinkService,
+  createListsService,
   createMediaService,
   createNotificationService,
   createNotifyService,
   createOutboxService,
   createRelayPoolService,
   createResourceService,
+  createBleService,
+  createSerialService,
   createThemeService,
   createUploadService,
+  createWebrtcService,
   type CvmServer,
   type CvmTransport,
   type IntentAvailability,
@@ -43,6 +48,12 @@ import {
   summarizePajaSimulation,
   type PajaSimulation,
 } from './simulation.js';
+import {
+  createDevBleController,
+  createDevListStore,
+  createDevSerialController,
+  createDevWebrtcController,
+} from './development-services.js';
 
 interface PajaBrowserState {
   readonly config: PajaHostConfig;
@@ -70,6 +81,8 @@ declare global {
 }
 
 const DEV_INTENT_ARCHETYPE = 'paja-target';
+const DEV_COMMON_PUBKEY = '1'.repeat(64);
+const DEV_COMMON_EVENT_ID = '2'.repeat(64);
 const DEV_CVM_SERVER: CvmServer = {
   pubkey: '0'.repeat(64),
   name: 'Kehto Paja ContextVM',
@@ -460,6 +473,38 @@ function createDevServices(
       open: ({ url }) => ({ status: url.protocol === 'https:' || url.protocol === 'http:' ? 'opened' : 'denied' }),
     });
   }
+  if (getSimulation().capabilities.domains.common) {
+    services.common = createCommonService({
+      getProfile: (target) => ({
+        ok: true,
+        pubkey: target || getSimulation().identity.pubkey || DEV_COMMON_PUBKEY,
+        profile: { name: 'paja', displayName: 'Kehto Paja' },
+        relays: getRelayUrls(getSimulation()),
+      }),
+      follows: () => ({ ok: true, pubkeys: [getSimulation().identity.pubkey || DEV_COMMON_PUBKEY] }),
+      follow: () => ({ ok: true, eventId: DEV_COMMON_EVENT_ID }),
+      unfollow: () => ({ ok: true, eventId: DEV_COMMON_EVENT_ID }),
+      react: () => ({ ok: true, eventId: DEV_COMMON_EVENT_ID }),
+      report: () => ({ ok: true, eventId: DEV_COMMON_EVENT_ID }),
+    });
+  }
+  if (getSimulation().capabilities.domains.lists) {
+    const listStore = createDevListStore();
+    services.lists = createListsService({
+      supported: listStore.supported,
+      add: listStore.add,
+      remove: listStore.remove,
+    });
+  }
+  if (getSimulation().capabilities.domains.serial) {
+    services.serial = createSerialService(createDevSerialController());
+  }
+  if (getSimulation().capabilities.domains.ble) {
+    services.ble = createBleService(createDevBleController());
+  }
+  if (getSimulation().capabilities.domains.webrtc) {
+    services.webrtc = createWebrtcService(createDevWebrtcController());
+  }
 
   return services;
 }
@@ -495,6 +540,11 @@ function createPajaAdapter(
     upload: getSimulation().upload.mode === 'memory' ? { getUploader: () => ({ rails: [getSimulation().upload.rail] }) } : undefined,
     intent: { isAvailable: () => getSimulation().intent.enabled },
     link: { isAvailable: () => getSimulation().capabilities.domains.link },
+    common: { isAvailable: () => getSimulation().capabilities.domains.common },
+    lists: { isAvailable: () => getSimulation().capabilities.domains.lists },
+    serial: { isAvailable: () => getSimulation().capabilities.domains.serial },
+    ble: { isAvailable: () => getSimulation().capabilities.domains.ble },
+    webrtc: { isAvailable: () => getSimulation().capabilities.domains.webrtc },
     crypto: {
       verifyEvent: async () => true,
     },
@@ -518,11 +568,7 @@ function registerFrameForGeneration(bridge: ShellBridge, frame: HTMLIFrameElemen
 
 function navigateFrame(bridge: ShellBridge, frame: HTMLIFrameElement, config: PajaHostConfig, generation: number): string | null {
   const windowId = registerFrameForGeneration(bridge, frame, config, generation);
-  frame.src = 'about:blank';
-  window.setTimeout(() => {
-    registerFrameForGeneration(bridge, frame, config, generation);
-    frame.src = config.target.url;
-  }, 0);
+  frame.src = config.target.url;
   return windowId;
 }
 

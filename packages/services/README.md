@@ -1,6 +1,6 @@
 # @kehto/services
 
-Reference service handlers for the napplet protocol — audio, notifications, identity, relay pool, cache, keys, media, notify, theme.
+Reference service handlers for the napplet protocol — audio, notifications, identity, relay pool, cache, keys, media, notify, theme, link, common, lists, serial, BLE, WebRTC.
 
 > **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
 > protocol. NAP contracts and service envelopes are not final; treat these
@@ -30,7 +30,11 @@ Current draft posture:
 ```ts
 import {
   createIdentityService,
+  createListsService,
   createNotificationService,
+  createBleService,
+  createSerialService,
+  createWebrtcService,
 } from '@kehto/services';
 
 // Identity service — read-only lookups backed by a signer adapter.
@@ -47,6 +51,70 @@ runtime.registerService(
 runtime.registerService(
   'notifications',
   createNotificationService({ onChange: (list) => updateBadge(list) }),
+);
+
+// Lists service — shell-owned NIP-51 metadata and mutations.
+runtime.registerService(
+  'lists',
+  createListsService({
+    supported: () => [{ kind: 10003, type: 'bookmarks', addressable: false }],
+    add: (_list, items) => ({ ok: true, added: items.length }),
+    remove: (_list, items) => ({ ok: true, removed: items.length }),
+  }),
+);
+
+// Serial service — runtime-owned serial sessions and host-owned device access.
+runtime.registerService(
+  'serial',
+  createSerialService({
+    open: () => ({ session: { id: 'host-session-1', state: 'open' } }),
+    write: (_sessionId, _data) => {},
+    close: (_sessionId) => {},
+  }),
+);
+
+// BLE service — runtime-owned BLE/GATT sessions and host-owned device access.
+runtime.registerService(
+  'ble',
+  createBleService({
+    open: () => ({
+      session: {
+        id: 'host-ble-1',
+        state: 'open',
+        device: { id: 'host-device-1', name: 'Host BLE' },
+      },
+    }),
+    services: () => [],
+    read: () => [87],
+    write: (_sessionId, _target, _data) => {},
+    subscribe: (_sessionId, _target) => {},
+    unsubscribe: (_sessionId, _target) => {},
+    close: (_sessionId) => {},
+  }),
+);
+
+// WebRTC service — runtime-owned sessions and host-owned signaling/transport.
+runtime.registerService(
+  'webrtc',
+  createWebrtcService({
+    open: (request, ctx) => {
+      const id = 'host-webrtc-1';
+      ctx.emit({ type: 'state', sessionId: id, state: 'open' });
+      return {
+        session: {
+          id,
+          scope: request.scope,
+          channel: request.channel ?? 'default',
+          protocol: request.protocol,
+          state: 'open',
+        },
+      };
+    },
+    send: (sessionId, payload, ctx) => {
+      ctx.emit({ type: 'message', sessionId, from: 'host', payload });
+    },
+    close: (_sessionId) => {},
+  }),
 );
 ```
 
@@ -371,6 +439,9 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 ### Media NAP
 - `createMediaService` — owner-aware `media.session.create` / `update` / `destroy` / `media.state` / `media.capabilities` + `media.command` push envelopes (`media:control`). Napplet-owned sessions mirror to `navigator.mediaSession` by default; shell-owned creates are rejected until a host playback/fetch bridge is supplied. Implement the `HostMediaBridge` interface to swap in native backends. See [Media Service](#media-service) for the full contract.
 
+### WebRTC NAP
+- `createWebrtcService` — `webrtc.open`, `webrtc.send`, `webrtc.close` + host-pushed `webrtc.event` envelopes. The reference handler owns only the NAP request/result bookkeeping; host bridges own signaling, SDP, ICE, peer connection lifecycle, and policy.
+
 ### Theme NAP
 - `createThemeService` — `theme.get` + `theme.changed` fan-out (`theme:read`). Returns a `ThemeService` with `publishTheme()` / `setTheme()` utilities for host-side updates.
 
@@ -378,7 +449,7 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 - `createAudioService` — `audio:*` inc-emit topic handler. Browser-agnostic registry of per-window audio sources; host wires `onChange` to update transport UI.
 
 ### Types
-`AudioSource`, `AudioServiceOptions`, `Notification`, `NotificationServiceOptions`, `IdentityServiceOptions`, `RelayPoolServiceOptions`, `CacheServiceOptions`, `CoordinatedRelayOptions`, `KeysServiceOptions`, `MediaServiceOptions`, `NotifyServiceOptions`, `ThemeServiceOptions`, `ThemeService`.
+`AudioSource`, `AudioServiceOptions`, `Notification`, `NotificationServiceOptions`, `IdentityServiceOptions`, `RelayPoolServiceOptions`, `CacheServiceOptions`, `CoordinatedRelayOptions`, `KeysServiceOptions`, `MediaServiceOptions`, `NotifyServiceOptions`, `ThemeServiceOptions`, `ThemeService`, `WebrtcServiceOptions`, `WebrtcServiceContext`.
 
 ## API Reference
 

@@ -16,6 +16,11 @@ export type PajaCapabilityDomain =
   | 'upload'
   | 'intent'
   | 'link'
+  | 'common'
+  | 'lists'
+  | 'serial'
+  | 'ble'
+  | 'webrtc'
   | 'cvm'
   | 'inc';
 
@@ -143,6 +148,11 @@ export const PAJA_SIMULATION_DOMAINS: readonly PajaCapabilityDomain[] = [
   'upload',
   'intent',
   'link',
+  'common',
+  'lists',
+  'serial',
+  'ble',
+  'webrtc',
   'cvm',
   'inc',
 ];

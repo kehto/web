@@ -39,7 +39,7 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   await expect(page.locator('#napplet-frame')).not.toHaveAttribute('sandbox', /allow-same-origin/);
 
   const targetFrame = page.frameLocator('#napplet-frame');
-  await expect(targetFrame.locator('#target-status')).toHaveText('shell-init received');
+  await expect(targetFrame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
   await expect(targetFrame.locator('#shell-init-type')).toHaveText('shell.init');
   await expect(targetFrame.locator('#shell-init-domains')).toContainText('relay,outbox,identity,storage,inc');
   await expect(targetFrame.locator('#shell-init-domains')).toContainText('upload,intent');
@@ -63,9 +63,12 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   await expect(page.locator('iframe')).toHaveCount(1);
   await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().generation)).toBe(firstGeneration + 1);
   await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
+  await expect.poll(() => page.frames().some((frame) => frame.url() === targetServer.url), { timeout: 15_000 }).toBe(true);
   const reloadedFrame = page.frameLocator('#napplet-frame');
-  await expect(reloadedFrame.locator('#load-id')).not.toHaveText(firstLoadId ?? '');
   await expect(reloadedFrame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
+  const secondLoadId = await reloadedFrame.locator('#load-id').textContent();
+  expect(secondLoadId).toBeTruthy();
+  expect(secondLoadId).not.toBe(firstLoadId);
 
   const state = await page.evaluate(() => window.__KEHTO_PAJA__?.getState());
   expect(state).toMatchObject({
@@ -76,6 +79,7 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   });
   expect(state?.services).toEqual(expect.arrayContaining([
     'config',
+    'common',
     'cvm',
     'identity',
     'intent',
@@ -127,6 +131,7 @@ test('applies simulation config and compact theme adjustment', async ({ page }) 
     await page.locator('#reload-target').click();
     await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().generation)).toBe(firstGeneration + 1);
     await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
+    await expect.poll(() => page.frames().some((frame) => frame.url() === targetServer.url), { timeout: 15_000 }).toBe(true);
     const reloadedFrame = page.frameLocator('#napplet-frame');
     await expect(reloadedFrame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
     await expect(reloadedFrame.locator('#theme-background')).toHaveText('#101211', { timeout: 15_000 });

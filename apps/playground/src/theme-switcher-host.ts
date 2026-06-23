@@ -142,39 +142,24 @@ function injectStyle(): void {
   document.head.appendChild(style);
 }
 
-/**
- * Mount the host theme-switcher UI on the theme service topology card.
- *
- * Replicates full parity with the deleted theme-switcher napplet: Light/Dark/Custom
- * presets, color picker, Discover/Refresh button, WoT/Global filter checkboxes,
- * and the dynamic theme catalog with swatches and per-entry Apply buttons.
- *
- * @param options - Must include applyTheme (routes to host path), getHostPubkey,
- *   and subscribe (relay adapter injected by the caller from getRelayServiceHandler()).
- * @example
- * initThemeSwitcherHost({ applyTheme: (t) => preferences.applyTheme(t), getHostPubkey, subscribe });
- */
-export function initThemeSwitcherHost(options: ThemeSwitcherHostOptions): void {
-  injectStyle();
+interface ThemeSwitcherElements {
+  toolbar: HTMLDivElement;
+  discoverBtn: HTMLButtonElement;
+  showWotEl: HTMLInputElement;
+  showGlobalEl: HTMLInputElement;
+  statusEl: HTMLSpanElement;
+  lightBtn: HTMLButtonElement;
+  darkBtn: HTMLButtonElement;
+  customBtn: HTMLButtonElement;
+  customColorEl: HTMLInputElement;
+  catalogEl: HTMLUListElement;
+  allPresetBtns: HTMLButtonElement[];
+}
 
-  // Locate mount target: .topology-node-content inside topology-node-service-theme.
-  const themeNodeId = 'topology-node-service-theme';
-  const themeServiceCard = document.getElementById(themeNodeId);
-  if (!themeServiceCard) return;
-  const nodeContent = themeServiceCard.querySelector('.topology-node-content');
-  if (!nodeContent) return;
-
-  // State
-  let discoveredThemes: DiscoveredTheme[] = [];
-  let activeThemeId: string | null = null;
-  let discovering = false;
-
-  // ── Build DOM ─────────────────────────────────────────────────────────────
-
+function createThemeSwitcherElements(): ThemeSwitcherElements {
   const toolbar = document.createElement('div');
   toolbar.className = 'theme-toolbar';
 
-  // Discovery row: Refresh, WoT toggle, Global toggle, status
   const discoveryRow = document.createElement('div');
   discoveryRow.className = 'theme-row theme-row-wrap theme-discovery-row';
 
@@ -190,8 +175,7 @@ export function initThemeSwitcherHost(options: ThemeSwitcherHostOptions): void {
   showWotEl.id = 'theme-show-wot';
   showWotEl.type = 'checkbox';
   showWotEl.checked = true;
-  showWotLabel.appendChild(showWotEl);
-  showWotLabel.appendChild(document.createTextNode(' WoT'));
+  showWotLabel.append(showWotEl, document.createTextNode(' WoT'));
 
   const showGlobalLabel = document.createElement('label');
   showGlobalLabel.className = 'theme-toggle';
@@ -199,8 +183,7 @@ export function initThemeSwitcherHost(options: ThemeSwitcherHostOptions): void {
   showGlobalEl.id = 'theme-show-global';
   showGlobalEl.type = 'checkbox';
   showGlobalEl.checked = true;
-  showGlobalLabel.appendChild(showGlobalEl);
-  showGlobalLabel.appendChild(document.createTextNode(' Global'));
+  showGlobalLabel.append(showGlobalEl, document.createTextNode(' Global'));
 
   const statusEl = document.createElement('span');
   statusEl.id = 'playground-host-theme-status';
@@ -208,7 +191,6 @@ export function initThemeSwitcherHost(options: ThemeSwitcherHostOptions): void {
 
   discoveryRow.append(discoverBtn, showWotLabel, showGlobalLabel, statusEl);
 
-  // Preset buttons row
   const presetRow = document.createElement('div');
   presetRow.className = 'theme-row';
 
@@ -239,22 +221,78 @@ export function initThemeSwitcherHost(options: ThemeSwitcherHostOptions): void {
   customColorEl.value = '#1a1a2e';
 
   presetRow.append(lightBtn, darkBtn, customBtn, customColorEl);
-
   toolbar.append(discoveryRow, presetRow);
 
-  // Catalog list
   const catalogEl = document.createElement('ul');
   catalogEl.id = 'playground-host-theme-catalog';
   catalogEl.setAttribute('aria-label', 'Discovered themes');
 
-  nodeContent.appendChild(toolbar);
-  nodeContent.appendChild(catalogEl);
+  return {
+    toolbar,
+    discoverBtn,
+    showWotEl,
+    showGlobalEl,
+    statusEl,
+    lightBtn,
+    darkBtn,
+    customBtn,
+    customColorEl,
+    catalogEl,
+    allPresetBtns: [lightBtn, darkBtn, customBtn],
+  };
+}
 
-  const allPresetBtns = [lightBtn, darkBtn, customBtn];
+class ThemeSwitcherController {
+  private discoveredThemes: DiscoveredTheme[] = [];
+  private activeThemeId: string | null = null;
+  private discovering = false;
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  constructor(
+    private readonly options: ThemeSwitcherHostOptions,
+    private readonly elements: ThemeSwitcherElements,
+  ) {}
 
-  function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void {
+  start(): void {
+    this.bindEvents();
+    this.syncThemeSelection(this.options.initialTheme ?? DARK_THEME);
+    this.setStatus('ready', 'green');
+    this.renderCatalog();
+    void this.refreshDiscoveredThemes();
+  }
+
+  private bindEvents(): void {
+    const { lightBtn, darkBtn, customBtn, discoverBtn, showWotEl, showGlobalEl } = this.elements;
+
+    lightBtn.addEventListener('click', () => {
+      this.setActive(lightBtn);
+      this.options.applyTheme(LIGHT_THEME);
+    });
+
+    darkBtn.addEventListener('click', () => {
+      this.setActive(darkBtn);
+      this.options.applyTheme(DARK_THEME);
+    });
+
+    customBtn.addEventListener('click', () => {
+      this.setActive(customBtn);
+      this.applyCustomTheme();
+    });
+
+    discoverBtn.addEventListener('click', () => { void this.refreshDiscoveredThemes(); });
+    showWotEl.addEventListener('change', () => { this.refreshVisibleState(); });
+    showGlobalEl.addEventListener('change', () => { this.refreshVisibleState(); });
+  }
+
+  private applyCustomTheme(): void {
+    const bg = this.elements.customColorEl.value || '#1a1a2e';
+    this.options.applyTheme({
+      title: 'Custom',
+      colors: { background: bg, text: '#e0e0e0', primary: '#7aa2f7' },
+    });
+  }
+
+  private setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void {
+    const { statusEl } = this.elements;
     statusEl.textContent = text;
     statusEl.title = text;
     statusEl.style.color =
@@ -265,21 +303,22 @@ export function initThemeSwitcherHost(options: ThemeSwitcherHostOptions): void {
           : 'var(--nap-theme-muted, #888)';
   }
 
-  function sourceLabel(source: ThemeSource): string {
+  private sourceLabel(source: ThemeSource): string {
     if (source === 'user') return 'user';
     if (source === 'wot') return 'WoT';
     return 'global';
   }
 
-  function visibleThemes(): DiscoveredTheme[] {
-    return discoveredThemes.filter((theme) => {
+  private visibleThemes(): DiscoveredTheme[] {
+    const { showWotEl, showGlobalEl } = this.elements;
+    return this.discoveredThemes.filter((theme) => {
       if (theme.source === 'wot') return showWotEl.checked;
       if (theme.source === 'global') return showGlobalEl.checked;
       return true;
     });
   }
 
-  function renderSwatch(theme: ThemePayload): HTMLElement {
+  private renderSwatch(theme: ThemePayload): HTMLElement {
     const swatch = document.createElement('span');
     swatch.className = 'theme-swatch';
     for (const role of ['background', 'text', 'primary'] as const) {
@@ -290,94 +329,95 @@ export function initThemeSwitcherHost(options: ThemeSwitcherHostOptions): void {
     return swatch;
   }
 
-  function renderCatalog(): void {
+  private renderCatalog(): void {
+    const { catalogEl } = this.elements;
     catalogEl.replaceChildren();
-    const themes = visibleThemes();
+    const themes = this.visibleThemes();
 
-    if (discovering) {
-      const item = document.createElement('li');
-      item.className = 'theme-catalog-empty';
-      item.textContent = 'Discovering themes...';
-      catalogEl.appendChild(item);
-      return;
-    }
-
-    if (themes.length === 0) {
-      const item = document.createElement('li');
-      item.className = 'theme-catalog-empty';
-      item.textContent = discoveredThemes.length > 0
-        ? 'No themes visible with current filters.'
-        : 'No discovered themes yet.';
-      catalogEl.appendChild(item);
+    if (this.discovering || themes.length === 0) {
+      catalogEl.appendChild(this.createEmptyCatalogItem(themes.length));
       return;
     }
 
     for (const entry of themes) {
-      const item = document.createElement('li');
-      item.className = 'theme-catalog-item';
-      item.dataset['source'] = entry.source;
-      item.dataset['active'] = entry.id === activeThemeId ? 'true' : 'false';
-
-      const body = document.createElement('div');
-      body.className = 'theme-catalog-body';
-
-      const titleEl = document.createElement('span');
-      titleEl.className = 'theme-catalog-title';
-      titleEl.textContent = entry.title;
-
-      const meta = document.createElement('span');
-      meta.className = 'theme-catalog-meta';
-      meta.textContent = `${sourceLabel(entry.source)} · ${entry.eventKind}`;
-
-      body.append(titleEl, meta);
-
-      const applyBtn = document.createElement('button');
-      applyBtn.type = 'button';
-      applyBtn.className = 'theme-btn theme-apply-btn';
-      applyBtn.textContent = entry.id === activeThemeId ? 'Active' : 'Apply';
-      applyBtn.disabled = entry.id === activeThemeId;
-      applyBtn.addEventListener('click', () => {
-        activeThemeId = entry.id;
-        clearPresetActive();
-        applyPayload(entry.theme);
-        renderCatalog();
-      });
-
-      item.append(renderSwatch(entry.theme), body, applyBtn);
-      catalogEl.appendChild(item);
+      catalogEl.appendChild(this.createCatalogItem(entry));
     }
   }
 
-  // ── Active-state helpers ─────────────────────────────────────────────────
+  private createEmptyCatalogItem(visibleCount: number): HTMLLIElement {
+    const item = document.createElement('li');
+    item.className = 'theme-catalog-empty';
+    if (this.discovering) {
+      item.textContent = 'Discovering themes...';
+    } else {
+      item.textContent = this.discoveredThemes.length > 0 || visibleCount > 0
+        ? 'No themes visible with current filters.'
+        : 'No discovered themes yet.';
+    }
+    return item;
+  }
 
-  function setActive(target: HTMLButtonElement): void {
-    activeThemeId = null;
-    for (const btn of allPresetBtns) {
+  private createCatalogItem(entry: DiscoveredTheme): HTMLLIElement {
+    const item = document.createElement('li');
+    item.className = 'theme-catalog-item';
+    item.dataset['source'] = entry.source;
+    item.dataset['active'] = entry.id === this.activeThemeId ? 'true' : 'false';
+
+    const body = document.createElement('div');
+    body.className = 'theme-catalog-body';
+
+    const titleEl = document.createElement('span');
+    titleEl.className = 'theme-catalog-title';
+    titleEl.textContent = entry.title;
+
+    const meta = document.createElement('span');
+    meta.className = 'theme-catalog-meta';
+    meta.textContent = `${this.sourceLabel(entry.source)} · ${entry.eventKind}`;
+    body.append(titleEl, meta);
+
+    const applyBtn = document.createElement('button');
+    applyBtn.type = 'button';
+    applyBtn.className = 'theme-btn theme-apply-btn';
+    applyBtn.textContent = entry.id === this.activeThemeId ? 'Active' : 'Apply';
+    applyBtn.disabled = entry.id === this.activeThemeId;
+    applyBtn.addEventListener('click', () => {
+      this.activeThemeId = entry.id;
+      this.clearPresetActive();
+      this.applyPayload(entry.theme);
+      this.renderCatalog();
+    });
+
+    item.append(this.renderSwatch(entry.theme), body, applyBtn);
+    return item;
+  }
+
+  private setActive(target: HTMLButtonElement): void {
+    this.activeThemeId = null;
+    for (const btn of this.elements.allPresetBtns) {
       btn.dataset['active'] = btn === target ? 'true' : 'false';
     }
-    renderCatalog();
+    this.renderCatalog();
   }
 
-  function clearPresetActive(): void {
-    for (const btn of allPresetBtns) btn.dataset['active'] = 'false';
+  private clearPresetActive(): void {
+    for (const btn of this.elements.allPresetBtns) btn.dataset['active'] = 'false';
   }
 
-  function syncThemeSelection(theme: PlaygroundTheme): void {
+  private syncThemeSelection(theme: PlaygroundTheme): void {
+    const { lightBtn, darkBtn, customBtn, customColorEl } = this.elements;
     const normalizedTitle = theme.title?.trim().toLowerCase();
-    if (normalizedTitle === 'light') { setActive(lightBtn); return; }
-    if (normalizedTitle === 'dark') { setActive(darkBtn); return; }
+    if (normalizedTitle === 'light') { this.setActive(lightBtn); return; }
+    if (normalizedTitle === 'dark') { this.setActive(darkBtn); return; }
 
-    activeThemeId = null;
-    clearPresetActive();
+    this.activeThemeId = null;
+    this.clearPresetActive();
     customBtn.dataset['active'] = 'true';
     customColorEl.value = theme.colors.background;
-    renderCatalog();
+    this.renderCatalog();
   }
 
-  // ── Theme application ────────────────────────────────────────────────────
-
-  function applyPayload(theme: ThemePayload): void {
-    options.applyTheme({
+  private applyPayload(theme: ThemePayload): void {
+    this.options.applyTheme({
       title: theme.title ?? 'Custom',
       colors: {
         background: theme.colors.background,
@@ -387,68 +427,47 @@ export function initThemeSwitcherHost(options: ThemeSwitcherHostOptions): void {
     });
   }
 
-  // ── Discovery ────────────────────────────────────────────────────────────
-
-  async function refreshDiscoveredThemes(): Promise<void> {
-    if (discovering) return;
-    discovering = true;
-    discoverBtn.disabled = true;
-    setStatus('discovering', 'gray');
-    renderCatalog();
+  private async refreshDiscoveredThemes(): Promise<void> {
+    if (this.discovering) return;
+    this.discovering = true;
+    this.elements.discoverBtn.disabled = true;
+    this.setStatus('discovering', 'gray');
+    this.renderCatalog();
 
     try {
       const result = await discoverThemeCatalog({
-        readPublicKey: async () => options.getHostPubkey(),
-        subscribe: options.subscribe,
+        readPublicKey: async () => this.options.getHostPubkey(),
+        subscribe: this.options.subscribe,
       });
-      discoveredThemes = result.themes;
-      const visibleCount = visibleThemes().length;
-      setStatus(`ready (${visibleCount} visible)`, result.errors.length > 0 ? 'gray' : 'green');
+      this.discoveredThemes = result.themes;
+      const visibleCount = this.visibleThemes().length;
+      this.setStatus(`ready (${visibleCount} visible)`, result.errors.length > 0 ? 'gray' : 'green');
     } catch {
-      setStatus('discovery failed', 'red');
+      this.setStatus('discovery failed', 'red');
     } finally {
-      discovering = false;
-      discoverBtn.disabled = false;
-      renderCatalog();
+      this.discovering = false;
+      this.elements.discoverBtn.disabled = false;
+      this.renderCatalog();
     }
   }
 
-  // ── Button handlers ──────────────────────────────────────────────────────
+  private refreshVisibleState(): void {
+    this.renderCatalog();
+    this.setStatus(`ready (${this.visibleThemes().length} visible)`, 'green');
+  }
+}
 
-  lightBtn.addEventListener('click', () => {
-    setActive(lightBtn);
-    options.applyTheme(LIGHT_THEME);
-  });
+export function initThemeSwitcherHost(options: ThemeSwitcherHostOptions): void {
+  injectStyle();
 
-  darkBtn.addEventListener('click', () => {
-    setActive(darkBtn);
-    options.applyTheme(DARK_THEME);
-  });
+  const themeServiceCard = document.getElementById('topology-node-service-theme');
+  if (!themeServiceCard) return;
+  const nodeContent = themeServiceCard.querySelector('.topology-node-content');
+  if (!nodeContent) return;
 
-  customBtn.addEventListener('click', () => {
-    setActive(customBtn);
-    const bg = customColorEl.value || '#1a1a2e';
-    options.applyTheme({ title: 'Custom', colors: { background: bg, text: '#e0e0e0', primary: '#7aa2f7' } });
-  });
-
-  discoverBtn.addEventListener('click', () => { void refreshDiscoveredThemes(); });
-
-  showWotEl.addEventListener('change', () => {
-    renderCatalog();
-    setStatus(`ready (${visibleThemes().length} visible)`, 'green');
-  });
-
-  showGlobalEl.addEventListener('change', () => {
-    renderCatalog();
-    setStatus(`ready (${visibleThemes().length} visible)`, 'green');
-  });
-
-  // ── Init ─────────────────────────────────────────────────────────────────
-
-  syncThemeSelection(options.initialTheme ?? DARK_THEME);
-  setStatus('ready', 'green');
-  renderCatalog();
-  void refreshDiscoveredThemes();
+  const elements = createThemeSwitcherElements();
+  nodeContent.append(elements.toolbar, elements.catalogEl);
+  new ThemeSwitcherController(options, elements).start();
 }
 
 /**
@@ -489,7 +508,7 @@ export function buildHostRelaySubscribe(
 
     handler.handleMessage(
       HOST_WINDOW_ID,
-      { type: 'relay.subscribe', subId, filters } as unknown as NappletMessage,
+      { type: 'relay.subscribe', subId, filters } as NappletMessage,
       send,
     );
 
@@ -497,8 +516,8 @@ export function buildHostRelaySubscribe(
       close() {
         handler.handleMessage(
           HOST_WINDOW_ID,
-          { type: 'relay.close', subId } as unknown as NappletMessage,
-          noop as (msg: NappletMessage) => void,
+          { type: 'relay.close', subId } as NappletMessage,
+          noop,
         );
       },
     };

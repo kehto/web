@@ -6,19 +6,19 @@
 
 Provide a modular, framework-agnostic runtime for hosting napplet applications — so any Nostr client can embed sandboxed mini-apps by integrating @kehto/shell.
 
-## Current Milestone: v1.23 NAP-LINK Runtime Parity
+## Current Milestone: v1.28 NAP-WEBRTC Runtime Parity
 
-**Goal:** Add one missing recent `@napplet/nap` domain, `NAP-LINK`, end to end in Kehto: shell capability advertisement, runtime dispatch, reference service, Paja wiring, playground demo napplet, unit coverage, and Playwright proof.
+**Goal:** Add the remaining missing recent `@napplet/nap` domain, `NAP-WEBRTC`, end to end in Kehto: shell capability advertisement, runtime dispatch, reference service, Paja wiring, playground demo napplet, unit coverage, and Playwright proof.
 
 **Target features:**
-- **One NAP only:** v1.23 is scoped to `link` / `NAP-LINK`; `common`, `lists`, `ble`, `webrtc`, and `serial` remain future one-NAP milestones.
-- **Runtime-owned navigation:** napplets can request `link.open`; the shell/runtime owns URL validation, user-visible navigation policy, opener isolation, and final browser context.
-- **Reference service:** add a framework-agnostic `createLinkService` in `@kehto/services` with host-provided open behavior and safe deny-by-default behavior for unsupported schemes.
-- **Capability and dispatch parity:** advertise `link` only when the host wires a link backend, register `link` in runtime NAP dispatch, and keep parity guards honest against `@napplet/nap`.
-- **Playground and Paja proof:** Paja wires deterministic link behavior; playground gains a small `link-demo` napplet and Playwright coverage that proves `link.open` returns `opened` for allowed URLs and `denied` for unsafe URLs.
+- **One NAP only:** v1.28 is scoped to `webrtc` / `NAP-WEBRTC`; `NAP-BLE` is complete in PR #75.
+- **Runtime-owned WebRTC sessions:** napplets can request `webrtc.open`, `webrtc.send`, and `webrtc.close`; the shell/runtime owns signaling, signing/encryption, SDP, ICE, peer connection lifecycle, session handles, and policy.
+- **Reference service:** add a framework-agnostic `createWebrtcService` in `@kehto/services` with host-provided hooks that return structured upstream-compatible results, route host-pushed events, and deny unavailable actions safely.
+- **Capability and dispatch parity:** advertise `webrtc` only when the host wires a WebRTC backend, register `webrtc` in runtime NAP dispatch, and remove it from Paja's deferred-domain metadata.
+- **Playground and Paja proof:** Paja wires deterministic in-memory WebRTC behavior; playground gains a small `webrtc-demo` napplet and Playwright coverage that proves representative WebRTC requests/events work through the real shell path.
 - **Release-ready coverage:** new unit/static/e2e tests pass; docs/package exports/changesets updated; branch pushed and PR opened when gates pass.
 
-**Key context:** Authoritative delta was inspected on 2026-06-22 from `/home/sandwich/Develop/napplet/packages/nap/src` at `@napplet/nap@0.20.0`. Domains beyond the v1.22 parity list are `ble`, `common`, `link`, `lists`, `serial`, and `webrtc`. `NAP-LINK` is the smallest first slice because its upstream wire surface has one request (`link.open`) and one result (`link.open.result`); it does not require device APIs, relay-list mutation, or WebRTC signaling. No new dependencies.
+**Key context:** Authoritative delta was inspected on 2026-06-23 from `@napplet/nap@0.20.0` / `@napplet/core@0.20.0` and the local `napplet` checkout (`packages/nap/src/webrtc`, `packages/core/src/types/webrtc.ts`). Prior parity milestones are stacked in PRs #71-#75; this should close the recent `@napplet/nap` domain parity set. No new dependencies.
 
 ## Latest Milestone: v1.18 Napplet Firewall (shipped 2026-06-15)
 

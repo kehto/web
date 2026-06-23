@@ -186,6 +186,36 @@ export interface LinkHooks {
   isAvailable(): boolean;
 }
 
+/** Minimal common backend the shell advertises (NAP-COMMON). */
+export interface CommonHooks {
+  /** True when the host has shell-mediated common social helpers wired. */
+  isAvailable(): boolean;
+}
+
+/** Minimal lists backend the shell advertises (NAP-LISTS). */
+export interface ListsHooks {
+  /** True when the host has shell-mediated NIP-51 list mutation helpers wired. */
+  isAvailable(): boolean;
+}
+
+/** Minimal serial backend the shell advertises (NAP-SERIAL). */
+export interface SerialHooks {
+  /** True when the host has shell-mediated serial sessions wired. */
+  isAvailable(): boolean;
+}
+
+/** Minimal BLE backend the shell advertises (NAP-BLE). */
+export interface BleHooks {
+  /** True when the host has shell-mediated BLE sessions wired. */
+  isAvailable(): boolean;
+}
+
+/** Minimal WebRTC backend the shell advertises (NAP-WEBRTC). */
+export interface WebrtcHooks {
+  /** True when the host has shell-mediated WebRTC sessions wired. */
+  isAvailable(): boolean;
+}
+
 /**
  * Optional host override for the static shell.init capability handshake.
  *
@@ -377,6 +407,36 @@ export interface ShellAdapter {
    * registers the concrete service via `registerService('link')`.
    */
   link?: LinkHooks;
+  /**
+   * Optional shell-mediated common social backend (NAP-COMMON). When present
+   * and `isAvailable()` is true, the shell advertises `common`. The host still
+   * registers the concrete service via `registerService('common')`.
+   */
+  common?: CommonHooks;
+  /**
+   * Optional shell-mediated NIP-51 list backend (NAP-LISTS). When present and
+   * `isAvailable()` is true, the shell advertises `lists`. The host still
+   * registers the concrete service via `registerService('lists')`.
+   */
+  lists?: ListsHooks;
+  /**
+   * Optional shell-mediated serial backend (NAP-SERIAL). When present and
+   * `isAvailable()` is true, the shell advertises `serial`. The host still
+   * registers the concrete service via `registerService('serial')`.
+   */
+  serial?: SerialHooks;
+  /**
+   * Optional shell-mediated BLE backend (NAP-BLE). When present and
+   * `isAvailable()` is true, the shell advertises `ble`. The host still
+   * registers the concrete service via `registerService('ble')`.
+   */
+  ble?: BleHooks;
+  /**
+   * Optional shell-mediated WebRTC backend (NAP-WEBRTC). When present and
+   * `isAvailable()` is true, the shell advertises `webrtc`. The host still
+   * registers the concrete service via `registerService('webrtc')`.
+   */
+  webrtc?: WebrtcHooks;
   /**
    * Optional capability advertisement override. Omitted by production hosts.
    */

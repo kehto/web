@@ -25,51 +25,56 @@
 - [ ] **v1.20: NIP-5D Content-Addressed Runtime Resolution** - 2 phases (84-85), 19 requirements (phases complete; PRs #38/#39 open)
 - [x] **v1.21: NIP-5D (#2303) + NAP-SHELL/INTENT Conformance** - 4 phases (86-89), 16 requirements (completed; follow-up cache PR #63 merged)
 - [x] **v1.22: Single-Window Development Runtime** - 5 phases (90-94), 21/21 requirements, PR #64 open
-- [ ] **v1.23: NAP-LINK Runtime Parity** - 1 phase (95), 6 requirements
+- [ ] **v1.23: NAP-LINK Runtime Parity** - 1 phase (95), 6 requirements, PR #71 open
+- [ ] **v1.24: NAP-COMMON Runtime Parity** - 1 phase (96), 6 requirements, PR #72 open
+- [ ] **v1.25: NAP-LISTS Runtime Parity** - 1 phase (97), 6 requirements, PR #73 open
+- [ ] **v1.26: NAP-SERIAL Runtime Parity** - 1 phase (98), 6 requirements, PR #74 open
+- [ ] **v1.27: NAP-BLE Runtime Parity** - 1 phase (99), 6 requirements, PR #75 open
+- [x] **v1.28: NAP-WEBRTC Runtime Parity** - 1 phase (100), 6 requirements, PR #76 open
 
 ---
 
-## Active Milestone: v1.23 NAP-LINK Runtime Parity
+## Active Milestone: v1.28 NAP-WEBRTC Runtime Parity
 
-**Goal:** Implement one missing recent `@napplet/nap` domain, `NAP-LINK`, end to end in Kehto with runtime dispatch, shell capability advertisement, reference service behavior, Paja support, playground demo coverage, and release-ready verification.
+**Goal:** Implement the remaining missing recent `@napplet/nap` domain, `NAP-WEBRTC`, end to end in Kehto with runtime dispatch, shell capability advertisement, reference service behavior, Paja support, playground demo coverage, and release-ready verification.
 
-**Authoritative sources:** `/home/sandwich/Develop/napplet/packages/nap/src/link` and current local `@napplet/nap@0.20.0` package metadata. Full recent missing-domain set is `ble`, `common`, `link`, `lists`, `serial`, and `webrtc`; this milestone intentionally handles only `link`.
+**Authoritative sources:** npm registry latest `@napplet/nap@0.20.0`, local `napplet` checkout `packages/nap/src/webrtc/{types,sdk}.ts`, and local `napplet` checkout `packages/core/src/types/webrtc.ts`. `NAP-LINK`, `NAP-COMMON`, `NAP-LISTS`, `NAP-SERIAL`, and `NAP-BLE` are stacked in PRs #71-#75; this milestone intentionally handles only `webrtc`.
 
-**Branch:** `feat/nap-parity-recent-naps` off current `main`.
+**Branch:** `feat/nap-webrtc-parity` stacked on `feat/nap-ble-parity` until PR #75 lands.
 
 **Hard constraints (carry into every phase):**
-- One NAP per milestone: do not implement `common`, `lists`, `ble`, `webrtc`, or `serial` here.
+- One NAP per milestone: do not bundle non-WebRTC parity work here.
 - No new dependencies.
-- Link opening stays shell-owned; napplets never receive direct navigation authority, opener access, fetched bytes, or browser primitives.
+- WebRTC sessions stay shell-owned; napplets never receive SDP, ICE, browser `RTCPeerConnection` objects, signing keys, relay sockets, browser NIP-07 access, or direct networking handles.
 - Paja remains minimal chrome; the new capability is service behavior, not a new panel.
 - Keep package exports, docs, changesets, static parity guards, and Playwright proof aligned.
 
 ## Phases
 
-- [ ] **Phase 95: NAP-LINK Runtime Parity** — add shell/runtime/service/Paja/playground support for `link.open` and focused verification.
+- [x] **Phase 100: NAP-WEBRTC Runtime Parity** — add shell/runtime/service/Paja/playground support for runtime-owned WebRTC sessions and focused verification.
 
 ## Phase Details
 
-### Phase 95: NAP-LINK Runtime Parity
-**Goal:** `link.open` works through Kehto's normal NAP service path, is advertised only when wired, and is proven in Paja and the playground.
-**Depends on:** v1.22 mainline and PR #70 manifest metadata repair.
-**Requirements:** LINK-01, LINK-02, LINK-03, LINK-04, LINK-05, LINK-06
+### Phase 100: NAP-WEBRTC Runtime Parity
+**Goal:** `webrtc.*` works through Kehto's normal NAP service path, is advertised only when wired, and is proven in Paja and the playground.
+**Depends on:** v1.27 NAP-BLE branch/PR #75 base changes.
+**Requirements:** WEBRTC-01, WEBRTC-02, WEBRTC-03, WEBRTC-04, WEBRTC-05, WEBRTC-06
 **Success Criteria:**
-  1. `buildShellCapabilities()` includes `link` in `domains` and `naps` only when a link backend is wired, and disabled-domain overrides remove it.
-  2. Runtime dispatch registers `link` and routes `link.open` to a `link` service handler.
-  3. `@kehto/services` exports `createLinkService`; allowed HTTP(S) URLs return `{ status: "opened" }`, malformed or unsafe URLs return `{ status: "denied", error }`, and unknown messages are contained.
-  4. `@kehto/paja` wires deterministic link behavior, includes `link` in parity metadata, and keeps existing minimal UI unchanged.
-  5. A playground `link-demo` napplet exercises allowed and denied links with stable DOM markers, and Playwright covers both outcomes.
+  1. `buildShellCapabilities()` includes `webrtc` in `domains` and `naps` only when a WebRTC backend is wired, and disabled-domain overrides remove it.
+  2. Runtime dispatch registers `webrtc` and routes `webrtc.*` to a `webrtc` service handler.
+  3. `@kehto/services` exports `createWebrtcService`; it returns shaped result envelopes for open/send/close, contains unknown messages, and lets host code push `webrtc.event` to the napplet.
+  4. `@kehto/paja` wires deterministic WebRTC behavior, includes `webrtc` in parity metadata, and keeps existing minimal UI unchanged.
+  5. A playground `webrtc-demo` napplet exercises open/send/event/close with stable DOM markers, and Playwright covers shell-mediated results.
   6. Focused tests plus full gates pass; changesets cover modified package outputs; PR opened.
 **Plans:** 1 plan
-  - [ ] 95-01-PLAN.md — LINK-01..LINK-06 service/runtime/shell/Paja/playground implementation and verification
+  - [ ] 100-01-PLAN.md — WEBRTC-01..WEBRTC-06 service/runtime/shell/Paja/playground implementation and verification
 **UI hint:** yes
 
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 95. NAP-LINK Runtime Parity | v1.23 | 0/1 | Planned | - |
+| 100. NAP-WEBRTC Runtime Parity | v1.28 | 1/1 | PR #76 open | - |
 
 ---
 
