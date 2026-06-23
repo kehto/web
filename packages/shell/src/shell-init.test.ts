@@ -110,6 +110,24 @@ describe('buildShellCapabilities — domains array (conformant NAP-SHELL, TERM-0
     expect(caps.domains).not.toContain('link');
   });
 
+  it('advertises common in domains when common social helpers are wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      common: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).toContain('common');
+  });
+
+  it('does NOT advertise common in domains when common social helpers report unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      common: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('common');
+  });
+
   it('does NOT advertise intent in domains when the dispatcher reports unavailable', () => {
     const hooks: ShellAdapter = {
       ...baseHooks(),
@@ -264,6 +282,46 @@ describe('buildShellCapabilities — NAP-LINK advertisement in naps', () => {
     const caps = buildShellCapabilities(hooks);
     expect(caps.domains).not.toContain('link');
     expect(caps.naps).not.toContain('link');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// naps — NAP-COMMON advertisement
+// ---------------------------------------------------------------------------
+
+describe('buildShellCapabilities — NAP-COMMON advertisement in naps', () => {
+  it('does NOT advertise common in naps when no common backend is wired', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    expect(caps.naps).not.toContain('common');
+  });
+
+  it('does NOT advertise common in naps when the common backend reports unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      common: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).not.toContain('common');
+  });
+
+  it('advertises common in naps when an available common backend is wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      common: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).toContain('common');
+  });
+
+  it('removes common from domains and naps when disabled by capability override', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      common: { isAvailable: () => true },
+      capabilities: { disabledDomains: ['common'] },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('common');
+    expect(caps.naps).not.toContain('common');
   });
 });
 

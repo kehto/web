@@ -12,6 +12,7 @@ import {
 } from '@kehto/shell';
 import {
   createConfigService,
+  createCommonService,
   createCvmService,
   createIdentityService,
   createIntentService,
@@ -70,6 +71,8 @@ declare global {
 }
 
 const DEV_INTENT_ARCHETYPE = 'paja-target';
+const DEV_COMMON_PUBKEY = '1'.repeat(64);
+const DEV_COMMON_EVENT_ID = '2'.repeat(64);
 const DEV_CVM_SERVER: CvmServer = {
   pubkey: '0'.repeat(64),
   name: 'Kehto Paja ContextVM',
@@ -460,6 +463,21 @@ function createDevServices(
       open: ({ url }) => ({ status: url.protocol === 'https:' || url.protocol === 'http:' ? 'opened' : 'denied' }),
     });
   }
+  if (getSimulation().capabilities.domains.common) {
+    services.common = createCommonService({
+      getProfile: (target) => ({
+        ok: true,
+        pubkey: target || getSimulation().identity.pubkey || DEV_COMMON_PUBKEY,
+        profile: { name: 'paja', displayName: 'Kehto Paja' },
+        relays: getRelayUrls(getSimulation()),
+      }),
+      follows: () => ({ ok: true, pubkeys: [getSimulation().identity.pubkey || DEV_COMMON_PUBKEY] }),
+      follow: () => ({ ok: true, eventId: DEV_COMMON_EVENT_ID }),
+      unfollow: () => ({ ok: true, eventId: DEV_COMMON_EVENT_ID }),
+      react: () => ({ ok: true, eventId: DEV_COMMON_EVENT_ID }),
+      report: () => ({ ok: true, eventId: DEV_COMMON_EVENT_ID }),
+    });
+  }
 
   return services;
 }
@@ -495,6 +513,7 @@ function createPajaAdapter(
     upload: getSimulation().upload.mode === 'memory' ? { getUploader: () => ({ rails: [getSimulation().upload.rail] }) } : undefined,
     intent: { isAvailable: () => getSimulation().intent.enabled },
     link: { isAvailable: () => getSimulation().capabilities.domains.link },
+    common: { isAvailable: () => getSimulation().capabilities.domains.common },
     crypto: {
       verifyEvent: async () => true,
     },
@@ -518,11 +537,7 @@ function registerFrameForGeneration(bridge: ShellBridge, frame: HTMLIFrameElemen
 
 function navigateFrame(bridge: ShellBridge, frame: HTMLIFrameElement, config: PajaHostConfig, generation: number): string | null {
   const windowId = registerFrameForGeneration(bridge, frame, config, generation);
-  frame.src = 'about:blank';
-  window.setTimeout(() => {
-    registerFrameForGeneration(bridge, frame, config, generation);
-    frame.src = config.target.url;
-  }, 0);
+  frame.src = config.target.url;
   return windowId;
 }
 

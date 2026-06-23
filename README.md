@@ -12,11 +12,11 @@ the first implementation and may become a useful reference implementation as
 other napplet runtimes emerge.
 
 > **Alpha status:** kehto/web is under heavy development and is far from complete,
-> It presently offers components but still requires the implementer to 
+> It presently offers components but still requires the implementer to
 > manage envelope security, process isolation, performance optimization and more.
-> It is presently being dogfooded where lessons and implementations will be reflected 
-> back into the packages. Additionally, NIP-5D is still under development, 
-> and NAP contracts are not final. Package APIs, capability names, `requires` declarations, 
+> It is presently being dogfooded where lessons and implementations will be reflected
+> back into the packages. Additionally, NIP-5D is still under development,
+> and NAP contracts are not final. Package APIs, capability names, `requires` declarations,
 > and `supports()` behavior may change as the spec evolves.
 
 

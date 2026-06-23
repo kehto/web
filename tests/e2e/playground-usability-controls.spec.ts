@@ -100,15 +100,16 @@ test('per-napplet ACL panels persist expansion, capability changes, and block st
   await expect(chatAcl.locator('.acl-panel')).toHaveAttribute('data-expanded', 'false', { timeout: 10_000 });
   await expect(chatAcl.locator('.acl-controls')).toBeHidden();
   await expect(page.locator('#profile-viewer-acl .acl-panel')).toHaveCount(1, { timeout: 10_000 });
-
-  const panelCount = await page.locator('.acl-panel').count();
-  expect(panelCount).toBeGreaterThan(0);
+  await expect.poll(() => page.locator('.acl-panel').count()).toBeGreaterThan(0);
 
   await page.locator('#acl-expand-all-btn').evaluate((el) => {
     (el as HTMLButtonElement).click();
   });
   await expect(page.locator('#acl-expand-all-btn')).toHaveText('collapse all ACL');
-  await expect.poll(() => page.locator('.acl-panel[data-expanded="true"]').count()).toBe(panelCount);
+  await expect.poll(() => page.locator('.acl-panel').evaluateAll((panels) => (
+    panels.length > 0
+    && panels.every((panel) => panel.getAttribute('data-expanded') === 'true')
+  ))).toBe(true);
   await expect(chatAcl.locator('.acl-controls')).toBeVisible();
 
   await chatAcl.locator('button[title^="relay:write"]').click();
@@ -149,7 +150,10 @@ test('per-napplet ACL panels persist expansion, capability changes, and block st
     (el as HTMLButtonElement).click();
   });
   await expect(page.locator('#acl-expand-all-btn')).toHaveText('expand all ACL');
-  await expect.poll(() => page.locator('.acl-panel[data-expanded="false"]').count()).toBe(panelCount);
+  await expect.poll(() => page.locator('.acl-panel').evaluateAll((panels) => (
+    panels.length > 0
+    && panels.every((panel) => panel.getAttribute('data-expanded') === 'false')
+  ))).toBe(true);
   await expect(blockedChatAcl.locator('.acl-controls')).toBeHidden();
 
   await page.reload({ waitUntil: 'domcontentloaded' });

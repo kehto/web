@@ -14,7 +14,7 @@ export default defineConfig([
     format: ['esm'],
     platform: 'browser',
     bundle: true,
-    noExternal: [/@kehto\/.*/, /@napplet\/.*/],
+    noExternal: [/@kehto\/.*/, /@napplet\/.*/, /^nostr-tools/],
     splitting: false,
     dts: false,
     sourcemap: true,

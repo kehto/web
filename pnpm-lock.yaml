@@ -136,6 +136,25 @@ importers:
         specifier: ^6.4.2
         version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
 
+  apps/playground/napplets/common-demo:
+    dependencies:
+      '@napplet/nap':
+        specifier: 0.20.0
+        version: 0.20.0
+      '@napplet/shim':
+        specifier: 0.13.0
+        version: 0.13.0
+    devDependencies:
+      '@napplet/vite-plugin':
+        specifier: 0.8.1
+        version: 0.8.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.4.2
+        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+
   apps/playground/napplets/composer:
     dependencies:
       '@napplet/core':

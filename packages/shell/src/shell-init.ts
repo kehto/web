@@ -7,8 +7,8 @@ import type { ShellAdapter, ShellCapabilities } from './types.js';
  * Note: `relay` and `outbox` are NOT in this list — both are gated on
  * `hooks.relayPool` (NAP-OUTBOX routes over relays, so it is meaningless
  * without one) and prepended conditionally in buildShellCapabilities below.
- * `link` is also conditional because shells must wire an opener service before
- * advertising user-visible navigation.
+ * `link` and `common` are also conditional because shells must wire those
+ * service backends before advertising user-visible navigation/social actions.
  */
 const NAP_DOMAINS = [
   'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify',
@@ -40,7 +40,8 @@ const NAP_INC_PROTOCOLS = [
  * Conditional: `relay`+`outbox` prepended when hooks.relayPool;
  * `upload` appended when hooks.upload;
  * `intent` appended when hooks.intent.isAvailable();
- * `link` appended when hooks.link.isAvailable().
+ * `link` appended when hooks.link.isAvailable();
+ * `common` appended when hooks.common.isAvailable().
  *
  * Sandbox permissions are left empty by default — host apps may extend after
  * construction. Sandbox entries (and any host-app extensions) MUST use the
@@ -55,7 +56,7 @@ const NAP_INC_PROTOCOLS = [
  *
  *   - `domains` — bare NAP domain names (the `naps` set MINUS the `inc:NAP-NN`
  *     protocol strings) with the same conditional entries (relay/outbox under
- *     `hooks.relayPool`, upload/intent under their hooks). Any `perm:<x>`
+ *     `hooks.relayPool`, upload/intent/link/common under their hooks). Any `perm:<x>`
  *     sandbox entries are appended here too — the 0.13 shim resolves
  *     `supports('perm:<x>')` as a plain `domains` membership check.
  *   - `protocols` — `{ inc: ['NAP-01'..'NAP-06'] }`, derived from
@@ -91,6 +92,7 @@ export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
   if (hooks.upload) domains.push('upload');
   if (hooks.intent?.isAvailable()) domains.push('intent');
   if (hooks.link?.isAvailable()) domains.push('link');
+  if (hooks.common?.isAvailable()) domains.push('common');
   // Sandbox permissions are perm:<x>-prefixed and resolved by the 0.13 shim as
   // plain domains membership (no separate permission namespace). Empty by
   // default — fold any host-extended sandbox entries in alongside the domains.
@@ -116,6 +118,8 @@ export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
   if (hooks.intent?.isAvailable()) naps.push('intent');
   // NAP-LINK: advertised only when the host wires shell-mediated link opening.
   if (hooks.link?.isAvailable()) naps.push('link');
+  // NAP-COMMON: advertised only when the host wires common social actions.
+  if (hooks.common?.isAvailable()) naps.push('common');
 
   return applyCapabilityOverrides(
     { domains, protocols, naps, sandbox },

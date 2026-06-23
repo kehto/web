@@ -1,7 +1,7 @@
 /**
  * demo-concurrent-boot.spec.ts — E2E-15 (v1.5 Phase 31).
  *
- * Locks DEMO-01 in CI: all 9 napplets in DEMO_NAPPLETS must reach the
+ * Locks DEMO-01 in CI: all DEMO_NAPPLETS must reach the
  * 'identity-bound' status sentinel within 10 seconds of booting the full
  * :4174 demo — no __loadNapplet__ single-frame helper, native topology
  * concurrent-boot path only.
@@ -34,6 +34,7 @@ const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 29
 const NAPPLETS = [
   { name: 'bot',              statusId: 'bot-status' },
   { name: 'chat',             statusId: 'chat-status' },
+  { name: 'common-demo',      statusId: 'common-demo-status' },
   { name: 'composer',         statusId: 'composer-status' },
   { name: 'cvm-relatr',       statusId: 'cvm-relatr-status' },
   { name: 'feed',             statusId: 'feed-status' },
@@ -43,7 +44,7 @@ const NAPPLETS = [
   { name: 'toaster',          statusId: 'toaster-status' },
 ] as const;
 
-test('all 9 DEMO_NAPPLETS reach identity-bound within 10s on concurrent boot at :4174', async ({ page }) => {
+test('all DEMO_NAPPLETS reach identity-bound within 10s on concurrent boot at :4174', async ({ page }) => {
   const consoleMessages: string[] = [];
   page.on('console', (msg) => consoleMessages.push(msg.text()));
   const pageErrors: string[] = [];

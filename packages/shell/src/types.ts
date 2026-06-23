@@ -186,6 +186,12 @@ export interface LinkHooks {
   isAvailable(): boolean;
 }
 
+/** Minimal common backend the shell advertises (NAP-COMMON). */
+export interface CommonHooks {
+  /** True when the host has shell-mediated common social helpers wired. */
+  isAvailable(): boolean;
+}
+
 /**
  * Optional host override for the static shell.init capability handshake.
  *
@@ -377,6 +383,12 @@ export interface ShellAdapter {
    * registers the concrete service via `registerService('link')`.
    */
   link?: LinkHooks;
+  /**
+   * Optional shell-mediated common social backend (NAP-COMMON). When present
+   * and `isAvailable()` is true, the shell advertises `common`. The host still
+   * registers the concrete service via `registerService('common')`.
+   */
+  common?: CommonHooks;
   /**
    * Optional capability advertisement override. Omitted by production hosts.
    */
