@@ -20,10 +20,10 @@
     "access": "public"
   },
   "dependencies": {
-    "@kehto/acl": "^0.12.0",
-    "@kehto/firewall": "^0.3.1",
-    "@noble/curves": "^2.0.0",
-    "@noble/hashes": "^2.0.0"
+    "@kehto/acl": "workspace:^",
+    "@kehto/firewall": "workspace:^",
+    "@noble/hashes": "^2.0.0",
+    "@noble/curves": "^2.0.0"
   },
   "peerDependencies": {
     "@napplet/core": ">=0.20.0 <0.21.0",

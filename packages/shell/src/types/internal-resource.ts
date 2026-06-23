@@ -4,21 +4,21 @@
  * Kehto-internal shell-side resource wire types. Per PROJECT.md Decision #31,
  * this is NOT a staging-ground duplicate of upstream `@napplet/nap/resource`:
  * Phase 44 audit confirmed the two surfaces diverge substantively — different
- * field names (kehto's `requestId` vs upstream `id`; kehto's `bodyBase64` vs
- * upstream `blob` + `mime`), different message-type names
+ * field names (kehto's legacy `requestId` vs upstream `id`; kehto's legacy
+ * `bodyBase64` vs upstream `blob` + `mime`), different message-type names
  * (`ResourceBytesRequest` vs `ResourceBytesMessage`), and disjoint error
  * vocabularies (kehto: 4 codes `{denied, canceled, network-error, invalid-url}`;
  * upstream: 8 codes `{not-found, blocked-by-policy,
  * timeout, too-large, unsupported-scheme, decode-failed, network-error,
  * quota-exceeded}`).
  *
- * Future migration to upstream's surface is its own phase. For now this file
- * owns the wire shapes kehto's `resource-service.ts` and resource-demo napplet
- * already implement.
+ * `resource-service.ts` now emits both legacy single-fetch compatibility
+ * fields and the current upstream-compatible fields.
  *
- * Canonical 4-message protocol (RESOURCE-03):
- *   Inbound:  resource.bytes, resource.cancel
- *   Outbound: resource.bytes.result, resource.bytes.error
+ * Resource protocol:
+ *   Inbound:  resource.bytes, resource.bytesMany, resource.cancel
+ *   Outbound: resource.bytes.result, resource.bytes.error,
+ *             resource.bytesMany.result, resource.bytesMany.error
  */
 
 /**
@@ -34,7 +34,10 @@ export type ResourceRequestId = string;
  */
 export interface ResourceBytesRequest {
   type: 'resource.bytes';
-  requestId: ResourceRequestId;
+  /** Current NAP-RESOURCE correlation ID. */
+  id?: ResourceRequestId;
+  /** Legacy Kehto correlation ID. */
+  requestId?: ResourceRequestId;
   url: string;
   /** Optional subset of fetch init (method, headers). Body bytes are shell-proxy-internal. */
   init?: {
@@ -50,7 +53,19 @@ export interface ResourceBytesRequest {
  */
 export interface ResourceCancelRequest {
   type: 'resource.cancel';
-  requestId: ResourceRequestId;
+  /** Current NAP-RESOURCE correlation ID. */
+  id?: ResourceRequestId;
+  /** Legacy Kehto correlation ID. */
+  requestId?: ResourceRequestId;
+}
+
+/**
+ * Inbound: napplet requests many resource URLs in one envelope.
+ */
+export interface ResourceBytesManyRequest {
+  type: 'resource.bytesMany';
+  id: ResourceRequestId;
+  urls: readonly string[];
 }
 
 /**
@@ -58,7 +73,14 @@ export interface ResourceCancelRequest {
  */
 export interface ResourceBytesResult {
   type: 'resource.bytes.result';
+  /** Current NAP-RESOURCE correlation ID. */
+  id: ResourceRequestId;
+  /** Legacy Kehto correlation ID. */
   requestId: ResourceRequestId;
+  /** Current NAP-RESOURCE Blob payload. */
+  blob?: Blob;
+  /** Current NAP-RESOURCE runtime-classified MIME. */
+  mime?: string;
   status: number;
   headers: Readonly<Record<string, string>>;
   /** Raw response bytes, base64-encoded for the postMessage wire. */
@@ -81,17 +103,62 @@ export type ResourceErrorCode =
  */
 export interface ResourceBytesError {
   type: 'resource.bytes.error';
+  /** Current NAP-RESOURCE correlation ID. */
+  id: ResourceRequestId;
+  /** Legacy Kehto correlation ID. */
   requestId: ResourceRequestId;
+  /** Current NAP-RESOURCE error field. */
+  error?: string;
   code: ResourceErrorCode;
   message: string;
 }
 
 /**
+ * Current NAP-RESOURCE bulk result item.
+ */
+export type ResourceBytesManyItem =
+  | {
+      url: string;
+      ok: true;
+      blob: Blob;
+      mime: string;
+    }
+  | {
+      url: string;
+      ok: false;
+      error: string;
+      message?: string;
+    };
+
+/**
+ * Outbound: ordered bulk fetch result.
+ */
+export interface ResourceBytesManyResult {
+  type: 'resource.bytesMany.result';
+  id: ResourceRequestId;
+  items: readonly ResourceBytesManyItem[];
+}
+
+/**
+ * Outbound: top-level bulk request failure.
+ */
+export interface ResourceBytesManyError {
+  type: 'resource.bytesMany.error';
+  id: ResourceRequestId;
+  error: string;
+  message?: string;
+}
+
+/**
  * Union of all inbound resource wire messages (napplet -> shell).
  */
-export type ResourceInbound = ResourceBytesRequest | ResourceCancelRequest;
+export type ResourceInbound = ResourceBytesRequest | ResourceBytesManyRequest | ResourceCancelRequest;
 
 /**
  * Union of all outbound resource wire messages (shell -> napplet).
  */
-export type ResourceOutbound = ResourceBytesResult | ResourceBytesError;
+export type ResourceOutbound =
+  | ResourceBytesResult
+  | ResourceBytesError
+  | ResourceBytesManyResult
+  | ResourceBytesManyError;

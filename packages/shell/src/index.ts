@@ -93,9 +93,13 @@ export type {
 
 export type {
   ResourceBytesRequest,
+  ResourceBytesManyRequest,
+  ResourceBytesManyItem,
   ResourceCancelRequest,
   ResourceBytesResult,
+  ResourceBytesManyResult,
   ResourceBytesError,
+  ResourceBytesManyError,
   ResourceErrorCode,
   ResourceRequestId,
   ResourceInbound,
