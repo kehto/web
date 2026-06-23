@@ -20,6 +20,14 @@ on:
         description: 'Skip unit + e2e tests (only when known-green, e.g. re-publishing an already-validated commit)'
         type: boolean
         default: false
+      skip_npm:
+        description: 'Skip npm publish for registry-repair dispatches; tag releases always publish npm'
+        type: boolean
+        default: false
+      jsr_filter:
+        description: 'Space-separated pnpm filters for JSR repair dispatches (default: ./packages/*)'
+        type: string
+        default: './packages/*'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -103,6 +111,7 @@ jobs:
       # npm exchanges the OIDC token for a short-lived publish credential and
       # attaches provenance automatically (public repo + public package).
       - name: Publish to npm (OIDC Trusted Publishing)
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_npm) }}
         run: pnpm changeset publish
 
       # ── JSR publish ─────────────────────────────────────────────────────────
@@ -140,4 +149,12 @@ jobs:
       # --allow-dirty tolerates the sync step's jsr.json edits without a commit.
       - name: Publish to JSR (topologically ordered)
         if: always()
-        run: pnpm -r --workspace-concurrency=1 --filter='./packages/*' exec npx jsr publish --allow-slow-types --allow-dirty
+        env:
+          JSR_FILTERS: ${{ github.event_name == 'workflow_dispatch' && inputs.jsr_filter || './packages/*' }}
+        run: |
+          filter_args=()
+          for filter in $JSR_FILTERS; do
+            filter_args+=(--filter="$filter")
+          done
+
+          pnpm -r --workspace-concurrency=1 "${filter_args[@]}" exec npx jsr publish --allow-slow-types --allow-dirty
