@@ -20,7 +20,6 @@ Playwright CI is now gated by a changed-file selector instead of always running 
   - Added `Detect Playwright Scope`.
   - Made `Playwright` depend on build, unit, and selector output.
   - The Playwright job skips when `run_e2e=false` and passes selected specs to `pnpm test:e2e -- ...` when targeted.
-- Added explicit Turbo build dependencies for runtime/services/shell/paja to keep the existing main-branch build race from blocking CI after Playwright optimization.
 
 ## Verification
 
@@ -32,7 +31,7 @@ Playwright CI is now gated by a changed-file selector instead of always running 
 - `go run github.com/rhysd/actionlint/cmd/actionlint@latest .github/workflows/ci.yml`
 - `pnpm build`
 - `pnpm type-check`
-- `pnpm test:unit`
+- `pnpm test:unit` (85 files, 1115 tests after rebasing onto current `main`)
 - `pnpm docs:check`
 - `pnpm dlx aislop@0.12.0 scan --changes --base origin/main`
 - `git diff --check`
