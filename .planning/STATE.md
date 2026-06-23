@@ -28,7 +28,7 @@ Phase: 94 — Coverage, Docs, Release Readiness, and PR
 Plan: 94-01 — complete
 Status: v1.22 complete; branch pushed and PR #64 opened
 
-Last activity: 2026-06-23 — Playwright CI now uses a changed-file selector to skip browser tests for non-browser changes and target relevant specs for narrow browser-domain changes.
+Last activity: 2026-06-23 — Resolved kehto/web#88 by allowing `createBleService()` host hooks to emit `ble.event` notifications through `BleServiceContext.emit()`.
 
 ## Performance Metrics
 
@@ -100,6 +100,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260623-diu | Fix stale `@napplet/*` JSR import ranges after the v1.35 release publish failure | 2026-06-23 | fix/jsr-napplet-020-imports | [260623-diu-fix-jsr-napplet-dependency-import-ranges](./quick/260623-diu-fix-jsr-napplet-dependency-import-ranges/) |
 | 260623-e5u | Add manual release repair controls for targeted JSR publishing | 2026-06-23 | fix/release-jsr-repair-controls | [260623-e5u-release-jsr-repair-controls](./quick/260623-e5u-release-jsr-repair-controls/) |
 | 260623-fh2 | Align Kehto Napplet dependencies with bytesMany release | 2026-06-23 | fix/napplet-bytesmany-deps | [260623-fh2-align-kehto-napplet-dependencies-with-by](./quick/260623-fh2-align-kehto-napplet-dependencies-with-by/) |
+| 260624-1i5 | Resolve kehto/web#88 by allowing createBleService host hooks to emit ble.event notifications | 2026-06-23 | dbd6810 | [260624-1i5-resolve-kehto-web-88-createbleservice-ho](./quick/260624-1i5-resolve-kehto-web-88-createbleservice-ho/) |
 
 ## Session Continuity
 
