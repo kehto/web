@@ -145,3 +145,35 @@ describe('runtime outbox domain dispatch', () => {
   });
 
 });
+
+describe('runtime lists domain dispatch', () => {
+  let ctx: MockRuntimeContext;
+  let runtime: Runtime;
+
+  beforeEach(() => {
+    ctx = createMockRuntimeAdapter();
+    runtime = createRuntime(ctx.hooks);
+    runtime.sessionRegistry.register(WINDOW_ID, session());
+  });
+
+  it('routes lists.supported / lists.add / lists.remove to the service', () => {
+    const received: NappletMessage[] = [];
+    runtime.registerService('lists', {
+      descriptor: { name: 'lists', version: '1.0.0' },
+      handleMessage(_wid, msg) { received.push(msg); },
+    });
+
+    runtime.handleMessage(WINDOW_ID, { type: 'lists.supported', id: 'ls-1' } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'lists.add', id: 'la-1', list: { type: 'bookmarks' }, items: [] } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'lists.remove', id: 'lr-1', list: { type: 'bookmarks' }, items: [] } as NappletMessage);
+
+    expect(received.map((m) => m.type)).toEqual(['lists.supported', 'lists.add', 'lists.remove']);
+  });
+
+  it('lists.supported without a registered service: no throw, no envelope emitted', () => {
+    expect(() => {
+      runtime.handleMessage(WINDOW_ID, { type: 'lists.supported', id: 'ls-2' } as NappletMessage);
+    }).not.toThrow();
+    expect(ctx.sent).toHaveLength(0);
+  });
+});

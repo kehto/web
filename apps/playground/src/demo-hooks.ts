@@ -22,6 +22,7 @@ import {
   createNotificationService,
   createKeysService,
   createLinkService,
+  createListsService,
   createMediaService,
   createThemeService,
   createConfigService,
@@ -78,6 +79,16 @@ const demoConfigFixtures: Record<string, unknown> = {
 };
 const DEMO_COMMON_PUBKEY = '3'.repeat(64);
 const DEMO_COMMON_EVENT_ID = '4'.repeat(64);
+const DEMO_LISTS_EVENT_ID = '5'.repeat(64);
+type DemoListRef = { readonly type?: string; readonly kind?: number };
+type DemoListItem = { readonly itemType: string; readonly value: string };
+
+const DEMO_LISTS_SUPPORT = {
+  kind: 10003,
+  type: 'bookmarks',
+  addressable: false,
+  supportedItemTypes: ['event', 'url'] as never[],
+};
 
 export function createDemoHooks(
   notificationOnChange: ((notifications: readonly Notification[]) => void) | undefined,
@@ -113,6 +124,7 @@ export function createDemoHooks(
     react: () => ({ ok: true, eventId: DEMO_COMMON_EVENT_ID }),
     report: () => ({ ok: true, eventId: DEMO_COMMON_EVENT_ID }),
   });
+  const listsService = createDemoListsService();
   const cvmService = createCvmService({ transport: createPlaygroundCvmTransport() });
   const identityService = createIdentityService({ getSigner });
   relayRuntimeDestroy?.();
@@ -141,6 +153,7 @@ export function createDemoHooks(
     media: mediaService,
     link: linkService,
     common: commonService,
+    lists: listsService,
     theme: themeBundle.handler,
     config: configBundle.handler,
     resource: resourceHandler,
@@ -242,6 +255,7 @@ function createDemoShellAdapter(
     hotkeys: { executeHotkeyFromForward: () => {} },
     link: { isAvailable: () => true },
     common: { isAvailable: () => true },
+    lists: { isAvailable: () => true },
     workerRelay,
     crypto: createDemoCrypto(),
     getConfigOverrides: () => ({
@@ -291,6 +305,42 @@ function resolveAclEntry(
     }
   }
   return null;
+}
+
+function createDemoListsService(): ServiceHandler {
+  const values = new Set<string>();
+  const itemKey = (item: DemoListItem) => `${item.itemType}:${item.value}`;
+  const isSupported = (list: DemoListRef): boolean =>
+    ('type' in list && list.type === DEMO_LISTS_SUPPORT.type)
+    || ('kind' in list && list.kind === DEMO_LISTS_SUPPORT.kind);
+
+  return createListsService({
+    supported: () => [DEMO_LISTS_SUPPORT],
+    add: (list: DemoListRef, items: readonly DemoListItem[]) => {
+      if (!isSupported(list)) return { ok: false, error: 'unsupported-list', reason: 'unsupported list', supported: [DEMO_LISTS_SUPPORT] };
+      let added = 0;
+      let skipped = 0;
+      for (const item of items) {
+        const key = itemKey(item);
+        if (values.has(key)) skipped += 1;
+        else {
+          values.add(key);
+          added += 1;
+        }
+      }
+      return { ok: true, eventId: DEMO_LISTS_EVENT_ID, added, skipped };
+    },
+    remove: (list: DemoListRef, items: readonly DemoListItem[]) => {
+      if (!isSupported(list)) return { ok: false, error: 'unsupported-list', reason: 'unsupported list', supported: [DEMO_LISTS_SUPPORT] };
+      let removed = 0;
+      let skipped = 0;
+      for (const item of items) {
+        if (values.delete(itemKey(item))) removed += 1;
+        else skipped += 1;
+      }
+      return { ok: true, eventId: DEMO_LISTS_EVENT_ID, removed, skipped };
+    },
+  });
 }
 
 export function setDemoSessionRegistryRef(registry: typeof sessionRegistryRef): void {

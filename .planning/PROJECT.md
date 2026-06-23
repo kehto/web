@@ -6,19 +6,19 @@
 
 Provide a modular, framework-agnostic runtime for hosting napplet applications — so any Nostr client can embed sandboxed mini-apps by integrating @kehto/shell.
 
-## Current Milestone: v1.24 NAP-COMMON Runtime Parity
+## Current Milestone: v1.25 NAP-LISTS Runtime Parity
 
-**Goal:** Add one missing recent `@napplet/nap` domain, `NAP-COMMON`, end to end in Kehto: shell capability advertisement, runtime dispatch, reference service, Paja wiring, playground demo napplet, unit coverage, and Playwright proof.
+**Goal:** Add one missing recent `@napplet/nap` domain, `NAP-LISTS`, end to end in Kehto: shell capability advertisement, runtime dispatch, reference service, Paja wiring, playground demo napplet, unit coverage, and Playwright proof.
 
 **Target features:**
-- **One NAP only:** v1.24 is scoped to `common` / `NAP-COMMON`; `lists`, `ble`, `webrtc`, and `serial` remain future one-NAP milestones.
-- **Shell-owned social actions:** napplets can request public NIP-19 encode/decode, profile lookup, follows, follow/unfollow, reactions, and reports; the shell/runtime owns identity, consent, event construction, signing, publishing, relay access, and NIP-19 handling.
-- **Reference service:** add a framework-agnostic `createCommonService` in `@kehto/services` with deterministic public NIP-19 helpers and host-provided social/profile behavior that denies unavailable actions safely.
-- **Capability and dispatch parity:** advertise `common` only when the host wires a common backend, register `common` in runtime NAP dispatch, and keep parity guards honest against `@napplet/nap`.
-- **Playground and Paja proof:** Paja wires deterministic common behavior; playground gains a small `common-demo` napplet and Playwright coverage that proves representative common requests work through the real shell path.
+- **One NAP only:** v1.25 is scoped to `lists` / `NAP-LISTS`; `ble`, `webrtc`, and `serial` remain future one-NAP milestones.
+- **Shell-owned NIP-51 mutations:** napplets can request supported list metadata plus add/remove item mutations; the shell/runtime owns list lookup, validation, private-item policy, signing, publishing, and event preservation.
+- **Reference service:** add a framework-agnostic `createListsService` in `@kehto/services` with host-provided `supported`, `add`, and `remove` hooks that return structured upstream-compatible results and deny unavailable actions safely.
+- **Capability and dispatch parity:** advertise `lists` only when the host wires a lists backend, register `lists` in runtime NAP dispatch, and keep parity guards honest against `@napplet/nap`.
+- **Playground and Paja proof:** Paja wires deterministic list behavior; playground gains a small `lists-demo` napplet and Playwright coverage that proves representative list requests work through the real shell path.
 - **Release-ready coverage:** new unit/static/e2e tests pass; docs/package exports/changesets updated; branch pushed and PR opened when gates pass.
 
-**Key context:** Authoritative delta was inspected on 2026-06-22 from `/home/sandwich/Develop/napplet/packages/nap/src/common` at `@napplet/nap@0.20.0`. `NAP-LINK` is implemented in PR #71; remaining missing domains after this milestone are `lists`, `ble`, `webrtc`, and `serial`. `NAP-COMMON` is the next narrow slice because it is service-backed and avoids device/WebRTC session APIs. No new dependencies.
+**Key context:** Authoritative delta was inspected on 2026-06-22 from `/home/sandwich/Develop/napplet/packages/nap/src/lists` and `/home/sandwich/Develop/napplet/packages/core/src/types/lists.ts` at `@napplet/nap@0.20.0`. `NAP-LINK` and `NAP-COMMON` are stacked in PRs #71/#72; remaining missing domains after this milestone are `ble`, `webrtc`, and `serial`. `NAP-LISTS` is the next narrow slice because it is service-backed and avoids device/WebRTC session APIs. No new dependencies.
 
 ## Latest Milestone: v1.18 Napplet Firewall (shipped 2026-06-15)
 

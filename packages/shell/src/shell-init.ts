@@ -93,6 +93,7 @@ export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
   if (hooks.intent?.isAvailable()) domains.push('intent');
   if (hooks.link?.isAvailable()) domains.push('link');
   if (hooks.common?.isAvailable()) domains.push('common');
+  if (hooks.lists?.isAvailable()) domains.push('lists');
   // Sandbox permissions are perm:<x>-prefixed and resolved by the 0.13 shim as
   // plain domains membership (no separate permission namespace). Empty by
   // default — fold any host-extended sandbox entries in alongside the domains.
@@ -120,6 +121,8 @@ export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
   if (hooks.link?.isAvailable()) naps.push('link');
   // NAP-COMMON: advertised only when the host wires common social actions.
   if (hooks.common?.isAvailable()) naps.push('common');
+  // NAP-LISTS: advertised only when the host wires list mutation helpers.
+  if (hooks.lists?.isAvailable()) naps.push('lists');
 
   return applyCapabilityOverrides(
     { domains, protocols, naps, sandbox },

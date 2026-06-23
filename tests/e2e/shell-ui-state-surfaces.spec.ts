@@ -45,6 +45,7 @@ const IDENTITY_BOUND_STATUS_IDS = [
   'common-demo-status',
   'cvm-relatr-status',
   'feed-status',
+  'lists-demo-status',
   'link-demo-status',
   'preferences-status',
   'profile-status',

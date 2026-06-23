@@ -26,8 +26,8 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `^0.5.0` |
-| `@napplet/nap` | `^0.5.0` |
+| `@napplet/core` | `>=0.20.0 <0.21.0` |
+| `@napplet/nap` | `>=0.20.0 <0.21.0` |
 
 ## Primary APIs
 
@@ -39,6 +39,7 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 | Keys | `createKeysService`, `KeysServiceOptions`, `HostKeysBridge`, `HostKeyEvent` |
 | Media | `createMediaService`, `createBrowserMediaBridge`, `MediaServiceOptions`, `HostMediaBridge`, `MediaAction` |
 | Notify/theme/config/resource | `createNotifyService`, `NotifyServiceOptions`, `createThemeService`, `ThemeServiceOptions`, `ThemeService`, `createConfigService`, `ConfigServiceOptions`, `ConfigService`, `ConfigSchemaValidation`, `createResourceService`, `ResourceServiceOptions`, `ResourceService` |
+| Shell-mediated helpers | `createLinkService`, `LinkServiceOptions`, `LinkOpenContext`, `createCommonService`, `CommonServiceOptions`, `CommonServiceContext`, `createListsService`, `ListsServiceOptions`, `ListsServiceContext` |
 
 ## Scope Boundaries
 

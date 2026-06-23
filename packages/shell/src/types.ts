@@ -192,6 +192,12 @@ export interface CommonHooks {
   isAvailable(): boolean;
 }
 
+/** Minimal lists backend the shell advertises (NAP-LISTS). */
+export interface ListsHooks {
+  /** True when the host has shell-mediated NIP-51 list mutation helpers wired. */
+  isAvailable(): boolean;
+}
+
 /**
  * Optional host override for the static shell.init capability handshake.
  *
@@ -389,6 +395,12 @@ export interface ShellAdapter {
    * registers the concrete service via `registerService('common')`.
    */
   common?: CommonHooks;
+  /**
+   * Optional shell-mediated NIP-51 list backend (NAP-LISTS). When present and
+   * `isAvailable()` is true, the shell advertises `lists`. The host still
+   * registers the concrete service via `registerService('lists')`.
+   */
+  lists?: ListsHooks;
   /**
    * Optional capability advertisement override. Omitted by production hosts.
    */

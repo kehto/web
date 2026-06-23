@@ -1,6 +1,6 @@
 # @kehto/services
 
-Reference service handlers for the napplet protocol — audio, notifications, identity, relay pool, cache, keys, media, notify, theme.
+Reference service handlers for the napplet protocol — audio, notifications, identity, relay pool, cache, keys, media, notify, theme, link, common, lists.
 
 > **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
 > protocol. NAP contracts and service envelopes are not final; treat these
@@ -30,6 +30,7 @@ Current draft posture:
 ```ts
 import {
   createIdentityService,
+  createListsService,
   createNotificationService,
 } from '@kehto/services';
 
@@ -47,6 +48,16 @@ runtime.registerService(
 runtime.registerService(
   'notifications',
   createNotificationService({ onChange: (list) => updateBadge(list) }),
+);
+
+// Lists service — shell-owned NIP-51 metadata and mutations.
+runtime.registerService(
+  'lists',
+  createListsService({
+    supported: () => [{ kind: 10003, type: 'bookmarks', addressable: false }],
+    add: (_list, items) => ({ ok: true, added: items.length }),
+    remove: (_list, items) => ({ ok: true, removed: items.length }),
+  }),
 );
 ```
 

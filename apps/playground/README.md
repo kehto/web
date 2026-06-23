@@ -1,6 +1,6 @@
 # @kehto/demo
 
-Reference consumer of the current napplet protocol draft — a 10-napplet browser demo that hosts `@kehto/runtime` + `@kehto/shell` and exercises Kehto's supported NIP-5D NAP surfaces end-to-end. Acts as both the Playwright test harness target (`:4174` preview build) and the showcase for external integrators evaluating Kehto as an early runtime implementation.
+Reference consumer of the current napplet protocol draft — a 12-napplet browser demo that hosts `@kehto/runtime` + `@kehto/shell` and exercises Kehto's supported NIP-5D NAP surfaces end-to-end. Acts as both the Playwright test harness target (`:4174` preview build) and the showcase for external integrators evaluating Kehto as an early runtime implementation.
 
 > **Alpha status:** NIP-5D is still under development, and NAP contracts are not
 > final. The playground demonstrates Kehto's current behavior; it is not proof
@@ -32,7 +32,7 @@ The legacy `/napplets/<name>/...` static route may still exist for compatibility
 
 ## Napplet Inventory
 
-The demo hosts 10 sandboxed napplets, each built independently under `apps/playground/napplets/<name>/` and loaded into a topology-rendered iframe at runtime. v1.3 shipped an 8-napplet demo; later milestones added `resource-demo` and `cvm-relatr`.
+The demo hosts 12 sandboxed napplets, each built independently under `apps/playground/napplets/<name>/` and loaded into a topology-rendered iframe at runtime. v1.3 shipped an 8-napplet demo; later milestones added resource, link, common, lists, and CVM demos.
 
 The cross-napplet domain is `inc` (the NAP rename of the legacy `inc`). The four
 napplets below declare `requires` / call `supports()` with `inc`; the runtime
@@ -43,9 +43,12 @@ still reach the same handler (removal tracked as CLEANUP-01).
 |---------|-----------|------------------------|-----------|
 | bot | inc, storage | `inc.emit`, `inc.subscribe`, `storage.get` | [apps/playground/napplets/bot/src/](./napplets/bot/src/) |
 | chat | inc, storage, relay | `inc.emit`, `inc.subscribe`, `storage.get`, `storage.set`, `relay.publish` | [apps/playground/napplets/chat/src/](./napplets/chat/src/) |
+| common-demo | common | `common.encodeNip19`, `common.decodeNip19`, `common.getProfile`, social action helpers | [apps/playground/napplets/common-demo/src/](./napplets/common-demo/src/) |
 | composer | relay | `relay.publish`, `relay.publishEncrypted` | [apps/playground/napplets/composer/src/](./napplets/composer/src/) |
 | cvm-relatr | cvm | `cvm.discover`, `cvm.request` (`tools/call` calculate_trust_score) against the Relatr ContextVM server | [apps/playground/napplets/cvm-relatr/src/](./napplets/cvm-relatr/src/) |
 | feed | identity, relay, inc | `identity.getPublicKey`, `relay.subscribe`, `inc.emit` (`profile:open`) | [apps/playground/napplets/feed/src/](./napplets/feed/src/) |
+| link-demo | link | `link.open` allowed and denied navigation paths | [apps/playground/napplets/link-demo/src/](./napplets/link-demo/src/) |
+| lists-demo | lists | `lists.supported`, `lists.add`, `lists.remove` | [apps/playground/napplets/lists-demo/src/](./napplets/lists-demo/src/) |
 | preferences | storage, theme | `storage.set`, `storage.get`, `theme.changed` allowlisted listener | [apps/playground/napplets/preferences/src/](./napplets/preferences/src/) |
 | profile-viewer | inc, relay | `inc.subscribe` (`profile:open`), `relay.subscribe` | [apps/playground/napplets/profile-viewer/src/](./napplets/profile-viewer/src/) |
 | resource-demo | resource, connect | `resource.bytesMany`, connect grant/CSP fixture | [apps/playground/napplets/resource-demo/src/](./napplets/resource-demo/src/) |

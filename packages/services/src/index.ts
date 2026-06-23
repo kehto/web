@@ -198,6 +198,12 @@ export type {
   LinkServiceOptions,
 } from './link-service.js';
 
+export { createListsService } from './lists-service.js';
+export type {
+  ListsServiceContext,
+  ListsServiceOptions,
+} from './lists-service.js';
+
 export { createCommonService } from './common-service.js';
 export type {
   CommonServiceContext,
