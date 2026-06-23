@@ -1,13 +1,12 @@
 # Phase 25 (v1.4): CI-04 requirement
 # Tag-triggered (and manually dispatchable) release workflow — runs
 # `pnpm changeset publish` via npm OIDC Trusted Publishing (no NPM_TOKEN),
-# then `npx jsr publish` via JSR OIDC, after in-job re-validation of
-# build + type-check + unit + e2e.
+# then `npx jsr publish` via JSR OIDC. CI owns test validation before release;
+# this workflow builds publish artifacts but does not rerun unit or Playwright.
 #
-# A manual `workflow_dispatch` accepts `skip_tests: true` to bypass the unit +
-# e2e gate for a re-publish of an already-validated commit (npm/JSR skip
-# already-published versions, so a dispatch is a safe way to finish a partial
-# release — e.g. publish JSR packages created after the original tag run).
+# A manual `workflow_dispatch` can finish a partial release — e.g. publish JSR
+# packages created after the original tag run. npm/JSR skip already-published
+# versions, so dispatch is a safe recovery path for an already-validated commit.
 name: Release
 
 on:
@@ -16,10 +15,6 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
-      skip_tests:
-        description: 'Skip unit + e2e tests (only when known-green, e.g. re-publishing an already-validated commit)'
-        type: boolean
-        default: false
       skip_npm:
         description: 'Skip npm publish for registry-repair dispatches; tag releases always publish npm'
         type: boolean
@@ -62,45 +57,6 @@ jobs:
 
       - name: Type-check all packages
         run: pnpm type-check
-
-      # `skip_tests` (workflow_dispatch only) bypasses the unit + e2e gate for a
-      # re-publish of a commit whose tests are already known-green — e.g. when a
-      # prior tagged run published npm but the JSR step needs a re-run. Build and
-      # type-check always run (build output is required to publish). Tag-push
-      # releases always run the full gate (the input is empty there).
-      - name: Run unit tests
-        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_tests) }}
-        run: pnpm test
-
-      - name: Resolve Playwright version for cache key
-        id: pw-version
-        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_tests) }}
-        run: |
-          VERSION=$(node -p "require('./node_modules/@playwright/test/package.json').version")
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Restore Playwright browser cache
-        id: pw-cache
-        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_tests) }}
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ steps.pw-version.outputs.version }}-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-playwright-${{ steps.pw-version.outputs.version }}-
-            ${{ runner.os }}-playwright-
-
-      - name: Install Playwright system deps (cache hit)
-        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_tests) && steps.pw-cache.outputs.cache-hit == 'true' }}
-        run: pnpm exec playwright install-deps chromium
-
-      - name: Install Playwright browsers (cache miss)
-        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_tests) && steps.pw-cache.outputs.cache-hit != 'true' }}
-        run: pnpm exec playwright install --with-deps chromium
-
-      - name: Run E2E tests
-        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_tests) }}
-        run: pnpm test:e2e
 
       # Trusted Publishing is implemented in the npm CLI (>= 11.5.1); Node 22.14
       # still ships npm 10.x, so upgrade the npm that `changeset publish` shells out to.
