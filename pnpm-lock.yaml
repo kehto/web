@@ -46,16 +46,16 @@ importers:
   apps/playground:
     dependencies:
       '@kehto/nip':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/nip
       '@kehto/runtime':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/runtime
       '@kehto/services':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/services
       '@kehto/shell':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/shell
       '@snort/worker-relay':
         specifier: ^2.0.1
@@ -358,7 +358,7 @@ importers:
   packages/cli:
     dependencies:
       '@kehto/paja':
-        specifier: ^0.2.0
+        specifier: workspace:^
         version: link:../paja
     devDependencies:
       '@napplet/core':
@@ -414,25 +414,25 @@ importers:
   packages/paja:
     dependencies:
       '@kehto/acl':
-        specifier: ^0.12.0
+        specifier: workspace:^
         version: link:../acl
       '@kehto/firewall':
-        specifier: ^0.3.1
+        specifier: workspace:^
         version: link:../firewall
       '@kehto/nip':
-        specifier: ^0.4.0
+        specifier: workspace:^
         version: link:../nip
       '@kehto/runtime':
-        specifier: ^0.13.0
+        specifier: workspace:^
         version: link:../runtime
       '@kehto/services':
-        specifier: ^0.11.1
+        specifier: workspace:^
         version: link:../services
       '@kehto/shell':
-        specifier: ^0.13.0
+        specifier: workspace:^
         version: link:../shell
       '@kehto/wm':
-        specifier: ^0.0.1
+        specifier: workspace:^
         version: link:../wm
     devDependencies:
       '@napplet/core':
@@ -457,10 +457,10 @@ importers:
   packages/runtime:
     dependencies:
       '@kehto/acl':
-        specifier: ^0.12.0
+        specifier: workspace:^
         version: link:../acl
       '@kehto/firewall':
-        specifier: ^0.3.1
+        specifier: workspace:^
         version: link:../firewall
       '@noble/curves':
         specifier: ^2.0.0
@@ -488,7 +488,7 @@ importers:
   packages/services:
     dependencies:
       '@kehto/runtime':
-        specifier: ^0.13.0
+        specifier: workspace:^
         version: link:../runtime
     devDependencies:
       '@napplet/core':
@@ -513,10 +513,10 @@ importers:
   packages/shell:
     dependencies:
       '@kehto/acl':
-        specifier: ^0.12.0
+        specifier: workspace:^
         version: link:../acl
       '@kehto/runtime':
-        specifier: ^0.13.0
+        specifier: workspace:^
         version: link:../runtime
     devDependencies:
       '@napplet/core':
@@ -547,10 +547,10 @@ importers:
   tests/e2e/harness:
     dependencies:
       '@kehto/services':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../../packages/services
       '@kehto/shell':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../../packages/shell
     devDependencies:
       nostr-tools:

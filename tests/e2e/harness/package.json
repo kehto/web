@@ -9,8 +9,8 @@
     "preview": "vite preview --port 4173"
   },
   "dependencies": {
-    "@kehto/shell": "workspace:*",
-    "@kehto/services": "workspace:*"
+    "@kehto/shell": "workspace:^",
+    "@kehto/services": "workspace:^"
   },
   "devDependencies": {
     "nostr-tools": "^2.23.3",
