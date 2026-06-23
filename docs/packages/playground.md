@@ -18,7 +18,7 @@ pnpm --filter @kehto/playground preview --port 4174
 | Field | Value |
 |-------|-------|
 | Source | `apps/playground/package.json`, `apps/playground/README.md` |
-| Version | `0.0.15` |
+| Version | `0.1.0` |
 | Private | `true` |
 | Scripts | `dev`, `build`, `preview` |
 

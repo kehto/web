@@ -1,5 +1,27 @@
 # @kehto/demo
 
+## 0.1.0
+
+### Minor Changes
+
+- 272277a: Add NAP-WEBRTC runtime parity.
+
+  The runtime now dispatches the `webrtc` domain, `@kehto/services` exports a reference service for shell-mediated WebRTC open/send/close sessions and host-pushed events, shell capabilities can advertise NAP-WEBRTC, and Paja/playground hosts register deterministic WebRTC support.
+
+### Patch Changes
+
+- Updated dependencies [7dbbdf8]
+- Updated dependencies [7c7b019]
+- Updated dependencies [4e0f4b9]
+- Updated dependencies [4fd5e37]
+- Updated dependencies [e1030d8]
+- Updated dependencies [b37337b]
+- Updated dependencies [272277a]
+- Updated dependencies [cacab69]
+  - @kehto/runtime@0.14.0
+  - @kehto/services@0.12.0
+  - @kehto/shell@0.14.0
+
 ## 0.0.15
 
 ### Patch Changes

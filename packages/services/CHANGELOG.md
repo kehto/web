@@ -1,5 +1,48 @@
 # @kehto/services
 
+## 0.12.0
+
+### Minor Changes
+
+- e1030d8: Add draft NAP-RESOURCE `resource.bytesMany` support. The resource service now accepts bulk byte requests, returns ordered per-URL result items, keeps per-URL failures local, and emits current `id`/`blob`/`mime` fields while preserving legacy single-fetch compatibility fields.
+- 272277a: Add NAP-WEBRTC runtime parity.
+
+  The runtime now dispatches the `webrtc` domain, `@kehto/services` exports a reference service for shell-mediated WebRTC open/send/close sessions and host-pushed events, shell capabilities can advertise NAP-WEBRTC, and Paja/playground hosts register deterministic WebRTC support.
+
+### Patch Changes
+
+- 7dbbdf8: Add NAP-BLE runtime parity.
+
+  The runtime now dispatches the `ble` domain, `@kehto/services` exports a reference service for shell-mediated BLE/GATT sessions, shell capabilities can advertise NAP-BLE, and Paja/playground hosts register deterministic BLE support.
+
+- 7c7b019: Add NAP-COMMON runtime parity for the current `@napplet/nap` contract.
+
+  The runtime now dispatches the `common` domain, `@kehto/services` exports a reference service for public NIP-19 helpers and shell-mediated common social actions, shell capabilities can advertise NAP-COMMON, and Paja/playground hosts register deterministic common support.
+
+- 4e0f4b9: Add NAP-LINK runtime parity for the current `@napplet/nap` contract.
+
+  The runtime now dispatches the `link` domain, `@kehto/services` exports a reference `link.open` service, shell capabilities can advertise NAP-LINK, and Paja/playground hosts register link support. Package peer ranges now track the current `@napplet` 0.20 line.
+
+- 4fd5e37: Add NAP-LISTS runtime parity for the current `@napplet/nap` contract.
+
+  The runtime now dispatches the `lists` domain, `@kehto/services` exports a reference service for supported list metadata and shell-mediated add/remove mutations, shell capabilities can advertise NAP-LISTS, and Paja/playground hosts register deterministic list support.
+
+- b37337b: Add NAP-SERIAL runtime parity.
+
+  The runtime now dispatches the `serial` domain, `@kehto/services` exports a reference service for shell-mediated serial open/write/close sessions, shell capabilities can advertise NAP-SERIAL, and Paja/playground hosts register deterministic serial support.
+
+- cacab69: Pin internal `@kehto/*` dependencies to explicit caret version ranges instead of
+  the `workspace:*` protocol, so published packages (npm and JSR) carry correct,
+  resolvable dependency versions. The ranges mirror the existing `jsr.json` imports.
+- Updated dependencies [7dbbdf8]
+- Updated dependencies [7c7b019]
+- Updated dependencies [4e0f4b9]
+- Updated dependencies [4fd5e37]
+- Updated dependencies [b37337b]
+- Updated dependencies [272277a]
+- Updated dependencies [cacab69]
+  - @kehto/runtime@0.14.0
+
 ## 0.11.1
 
 ### Patch Changes

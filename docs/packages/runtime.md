@@ -16,7 +16,7 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 | Field | Value |
 |-------|-------|
 | Source | `packages/runtime/package.json`, `packages/runtime/src/index.ts` |
-| Version | `0.13.0` |
+| Version | `0.14.0` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Dependencies | `@kehto/acl`, `@noble/hashes`, `@noble/curves` |
@@ -26,8 +26,8 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `^0.5.0` |
-| `@napplet/nap` | `^0.5.0` |
+| `@napplet/core` | `>=0.20.0 <0.21.0` |
+| `@napplet/nap` | `>=0.20.0 <0.21.0` |
 
 ## Primary APIs
 

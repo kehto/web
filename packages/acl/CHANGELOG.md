@@ -1,5 +1,17 @@
 # @kehto/acl
 
+## 0.13.0
+
+### Minor Changes
+
+- e1030d8: Add draft NAP-RESOURCE `resource.bytesMany` support. The resource service now accepts bulk byte requests, returns ordered per-URL result items, keeps per-URL failures local, and emits current `id`/`blob`/`mime` fields while preserving legacy single-fetch compatibility fields.
+
+### Patch Changes
+
+- 4e0f4b9: Add NAP-LINK runtime parity for the current `@napplet/nap` contract.
+
+  The runtime now dispatches the `link` domain, `@kehto/services` exports a reference `link.open` service, shell capabilities can advertise NAP-LINK, and Paja/playground hosts register link support. Package peer ranges now track the current `@napplet` 0.20 line.
+
 ## 0.12.0
 
 ### Minor Changes
