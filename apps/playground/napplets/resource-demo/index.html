@@ -47,6 +47,13 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    #resource-demo-bulk {
+      font-size: 10px;
+      color: var(--nap-theme-muted, #666);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
   </style>
 </head>
 <body>
@@ -55,6 +62,7 @@
     <div id="resource-demo-stage">
       <img id="resource-demo-image" alt="remote resource preview" />
       <div id="resource-demo-source">loading remote image...</div>
+      <div id="resource-demo-bulk">bulk pending</div>
     </div>
   </div>
   <script type="module" src="./src/main.ts"></script>

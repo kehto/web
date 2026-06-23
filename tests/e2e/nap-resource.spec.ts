@@ -15,9 +15,11 @@ test('resource demo loads and renders a remote image', async ({ page }) => {
   const image = resourceFrame.locator('#resource-demo-image');
   const status = resourceFrame.locator('#resource-demo-status');
   const source = resourceFrame.locator('#resource-demo-source');
+  const bulk = resourceFrame.locator('#resource-demo-bulk');
 
-  await expect(status).toContainText(/^(loading remote image|loaded remote image)/, { timeout: 10_000 });
+  await expect(status).toContainText(/^(loading remote images|loaded remote images)/, { timeout: 10_000 });
   await expect(source).toContainText('raw.githubusercontent.com', { timeout: 10_000 });
+  await expect(bulk).toContainText(/^(bulk loading|bulk loaded 2\/2)/, { timeout: 10_000 });
   await expect(image).toHaveAttribute('src', /^(blob:|https:\/\/raw\.githubusercontent\.com)/, { timeout: 15_000 });
   await expect.poll(async () => {
     return resourceFrame.locator('#resource-demo-image').evaluate((el) => {

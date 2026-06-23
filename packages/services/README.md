@@ -23,6 +23,7 @@ Current draft posture:
 - The v1.1 signer service is deleted outright. Its responsibilities split into two: read-only identity lookups go through `createIdentityService` (`getPublicKey`, `getRelays`, `getProfile`, `getFollows`, `getList`, `getZaps`, `getMutes`, `getBlocked`, `getBadges`); signing happens inside the shell as part of `relay.publish` / `relay.publishEncrypted` and is never exposed to napplets.
 - `createKeysService` and `createMediaService` ship real reference backends as of v1.4 (see the dedicated sections below). `createKeysService` attaches a document-level `keydown` listener by default and delivers `keys.action` push envelopes to registered napplets; `createMediaService` mirrors session metadata and playback state to `navigator.mediaSession` and emits `media.command` push envelopes on OS transport events. Both accept a host-bridge option (`HostKeysBridge` / `HostMediaBridge`) so Electron / Tauri / native shells can swap in OS-level backends without re-implementing the wire-protocol bookkeeping.
 - `createNotifyService` (NIP-5D `notify.*` NAP) coexists with the legacy `createNotificationService` (inc-emit `notifications:*` channel). Both may be registered simultaneously while hosts migrate.
+- `createResourceService` supports `resource.bytesMany` from draft NAP-RESOURCE. Bulk requests return ordered per-URL items and keep per-URL failures local while preserving legacy single-fetch fields for existing Kehto callers.
 
 ## Quick Start
 

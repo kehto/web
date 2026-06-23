@@ -42,7 +42,7 @@ they are either:
 | `lists.*.result` | `apps/playground/napplets/lists-demo/src/main.ts` | NAP helper-surface gap | The lists demo exercises shell-owned `lists.supported`, `lists.add`, and `lists.remove` request/result pairs directly until the installed playground shim exposes a helper. Raw result listeners are confined to lists-demo, parent-source-bound, and correlation-id/type narrowed. |
 | `notify.create` | `apps/playground/napplets/toaster/src/main.ts` | NAP helper-surface gap | Notify service supports create/list, but `@napplet/nap/notify/sdk` lacks create/list helpers. Raw use must stay source-bound and confined to toaster. |
 | `notify.list` | `apps/playground/napplets/toaster/src/main.ts` | NAP helper-surface gap | Same toaster-only helper gap as `notify.create`; raw replies are accepted only from `window.parent`. |
-| `resource.bytes` | `apps/playground/napplets/resource-demo/src/main.ts` | Kehto resource wire-shape gap | Resource SDK expects upstream `id`/`blob`/`mime`; playground service currently uses `requestId`/`bodyBase64`/`status`/`headers`. Raw use is confined to resource-demo. |
+| `resource.bytesMany` | `apps/playground/napplets/resource-demo/src/main.ts` | Draft NAP-RESOURCE helper gap | Updated NAP-RESOURCE adds bulk byte fetches before `@napplet/nap` ships a web helper. Raw use is confined to resource-demo, parent-source-bound, and type-narrowed. |
 | `theme.changed` | `apps/playground/src/theme.ts` | NAP helper-surface gap | Theme push exists as a shell-to-napplet NAP envelope, but no `theme.subscribe` helper exists. Raw listener must be parent-source-bound and type-narrowed. |
 
 New raw `window.parent.postMessage()` protocol envelopes in playground napplets
