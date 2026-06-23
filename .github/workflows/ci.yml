@@ -88,11 +88,40 @@ jobs:
       - name: Run unit tests
         run: pnpm test
 
+  e2e_changes:
+    name: Detect Playwright Scope
+    runs-on: ubuntu-latest
+    outputs:
+      run_e2e: ${{ steps.select.outputs.run_e2e }}
+      spec_args: ${{ steps.select.outputs.spec_args }}
+      reason: ${{ steps.select.outputs.reason }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Select Playwright tests
+        id: select
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          BASE_SHA="${PR_BASE_SHA:-$PUSH_BEFORE_SHA}"
+          HEAD_SHA="${PR_HEAD_SHA:-$GITHUB_SHA}"
+          node scripts/select-e2e-tests.mjs --base "$BASE_SHA" --head "$HEAD_SHA" --github-output "$GITHUB_OUTPUT" --json
+          echo "Playwright selector reason: $(grep '^reason=' "$GITHUB_OUTPUT" | cut -d= -f2-)"
+
   e2e:
     name: Playwright
-    # Gate the expensive E2E suite behind the cheap checks. If either build or
-    # unit fails, Playwright never starts.
-    needs: [build, unit]
+    # Gate the expensive E2E suite behind the cheap checks and the changed-file
+    # selector. If a PR only changes docs/planning metadata, this required check
+    # is skipped by the job condition instead of leaving the whole workflow
+    # pending via path filters.
+    needs: [build, unit, e2e_changes]
+    if: ${{ needs.e2e_changes.outputs.run_e2e == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -139,4 +168,4 @@ jobs:
         run: pnpm exec playwright install-deps chromium
 
       - name: Run Playwright tests
-        run: pnpm test:e2e
+        run: pnpm test:e2e -- ${{ needs.e2e_changes.outputs.spec_args }}

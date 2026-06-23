@@ -24,7 +24,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@kehto/runtime": "^0.13.0"
+    "@kehto/runtime": "workspace:^"
   },
   "peerDependenciesMeta": {
     "nostr-tools": {

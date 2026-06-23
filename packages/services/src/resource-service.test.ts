@@ -1,7 +1,7 @@
 /**
  * resource-service.test.ts — Unit tests for the NAP-RESOURCE reference service factory.
  *
- * Test plan (9 cases):
+ * Test plan:
  *   a. createResourceService({}) throws with message matching /H-03/ (constructor H-03 guard)
  *   b. createResourceService({ fetch }) throws (missing isOriginGranted + getConnectGrants + resolveIdentity)
  *   c. Full options succeeds; descriptor.name === 'resource'
@@ -11,6 +11,9 @@
  *   g. Invalid URL → bytes.error code='invalid-url'
  *   h. Fetch reject (non-abort) → bytes.error code='network-error'
  *   i. onWindowDestroyed(w) aborts all in-flight requests for that window
+ *   j. resource.bytes emits current NAP-RESOURCE id/blob/mime fields
+ *   k. resource.bytesMany preserves order and returns per-URL success/error items
+ *   l. resource.bytesMany with empty urls emits a top-level bytesMany.error
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -275,6 +278,126 @@ describe('createResourceService', () => {
     svc.onWindowDestroyed?.(WINDOW_ID);
 
     expect(signals.every(s => s.aborted)).toBe(true);
+  });
+
+  // ─── (j) resource.bytes current fields ───────────────────────────────────
+  it('(j) resource.bytes emits id, blob, and mime for current NAP-RESOURCE callers', async () => {
+    const bodyText = 'current resource payload';
+    const opts = makeOpts({
+      fetch: vi.fn(async () => {
+        return new Response(bodyText, {
+          status: 200,
+          headers: { 'content-type': 'text/plain' },
+        });
+      }),
+    });
+    const svc = createResourceService(opts);
+    const { sent, send } = collectSent();
+
+    svc.handleMessage(WINDOW_ID, {
+      type: 'resource.bytes',
+      id: 'current-1',
+      url: `${GRANTED_ORIGIN}/current`,
+    } as NappletMessage, send);
+
+    await flushPromises();
+
+    expect(sent).toHaveLength(1);
+    const result = sent[0] as {
+      type: string;
+      id: string;
+      requestId: string;
+      blob: Blob;
+      mime: string;
+      bodyBase64: string;
+    };
+    expect(result.type).toBe('resource.bytes.result');
+    expect(result.id).toBe('current-1');
+    expect(result.requestId).toBe('current-1');
+    expect(result.mime).toBe('text/plain');
+    expect(await result.blob.text()).toBe(bodyText);
+    expect(atob(result.bodyBase64)).toBe(bodyText);
+  });
+
+  // ─── (k) resource.bytesMany ordered partial result ───────────────────────
+  it('(k) resource.bytesMany preserves input order and keeps per-URL failures local', async () => {
+    const opts = makeOpts({
+      fetch: vi.fn(async (url: string) => {
+        return new Response(url.endsWith('/one') ? 'first' : 'third', {
+          status: 200,
+          headers: { 'content-type': 'text/plain' },
+        });
+      }),
+    });
+    const svc = createResourceService(opts);
+    const { sent, send } = collectSent();
+
+    svc.handleMessage(WINDOW_ID, {
+      type: 'resource.bytesMany',
+      id: 'bulk-1',
+      urls: [
+        `${GRANTED_ORIGIN}/one`,
+        `${DENIED_ORIGIN}/two`,
+        `${GRANTED_ORIGIN}/three`,
+      ],
+    } as NappletMessage, send);
+
+    await flushPromises();
+
+    expect(opts.fetch).toHaveBeenCalledTimes(2);
+    expect(sent).toHaveLength(1);
+    const result = sent[0] as {
+      type: string;
+      id: string;
+      items: Array<{
+        url: string;
+        ok: boolean;
+        blob?: Blob;
+        mime?: string;
+        error?: string;
+        message?: string;
+      }>;
+    };
+    expect(result.type).toBe('resource.bytesMany.result');
+    expect(result.id).toBe('bulk-1');
+    expect(result.items.map((item) => item.url)).toEqual([
+      `${GRANTED_ORIGIN}/one`,
+      `${DENIED_ORIGIN}/two`,
+      `${GRANTED_ORIGIN}/three`,
+    ]);
+    expect(result.items[0]?.ok).toBe(true);
+    expect(result.items[0]?.mime).toBe('text/plain');
+    expect(await result.items[0]?.blob?.text()).toBe('first');
+    expect(result.items[1]).toMatchObject({
+      ok: false,
+      error: 'blocked-by-policy',
+    });
+    expect(result.items[1]?.blob).toBeUndefined();
+    expect(result.items[2]?.ok).toBe(true);
+    expect(await result.items[2]?.blob?.text()).toBe('third');
+  });
+
+  // ─── (l) resource.bytesMany invalid top-level request ────────────────────
+  it('(l) resource.bytesMany with empty urls emits a top-level invalid-request error', async () => {
+    const opts = makeOpts();
+    const svc = createResourceService(opts);
+    const { sent, send } = collectSent();
+
+    svc.handleMessage(WINDOW_ID, {
+      type: 'resource.bytesMany',
+      id: 'bulk-empty',
+      urls: [],
+    } as NappletMessage, send);
+
+    await flushPromises();
+
+    expect(opts.fetch).not.toHaveBeenCalled();
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({
+      type: 'resource.bytesMany.error',
+      id: 'bulk-empty',
+      error: 'invalid-request',
+    });
   });
 
 });
