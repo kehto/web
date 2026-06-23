@@ -21,6 +21,7 @@ import {
   createIdentityService,
   createNotificationService,
   createKeysService,
+  createLinkService,
   createMediaService,
   createThemeService,
   createConfigService,
@@ -91,6 +92,11 @@ export function createDemoHooks(
   const themeBundle = createThemeService({ onBroadcast: () => {} });
   const configBundle = createConfigService({ getValues: () => ({ ...demoConfigFixtures }) });
   const resourceHandler = createDemoResourceHandler();
+  const linkService = createLinkService({
+    open: ({ url }) => ({
+      status: url.hostname === 'blocked.example' ? 'denied' : 'opened',
+    }),
+  });
   const cvmService = createCvmService({ transport: createPlaygroundCvmTransport() });
   const identityService = createIdentityService({ getSigner });
   relayRuntimeDestroy?.();
@@ -117,6 +123,7 @@ export function createDemoHooks(
     notify: notificationService,
     keys: keysService,
     media: mediaService,
+    link: linkService,
     theme: themeBundle.handler,
     config: configBundle.handler,
     resource: resourceHandler,
@@ -216,6 +223,7 @@ function createDemoShellAdapter(
     services,
     config: { getNappUpdateBehavior: () => 'auto-grant' },
     hotkeys: { executeHotkeyFromForward: () => {} },
+    link: { isAvailable: () => true },
     workerRelay,
     crypto: createDemoCrypto(),
     getConfigOverrides: () => ({

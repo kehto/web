@@ -22,10 +22,13 @@ const sdkTargetDirs = [
 
 const helperTargetDirs = [
   ...sdkTargetDirs,
+  'apps/playground/napplets/link-demo',
 ] as const;
 
 const publicPackageDirs = [
   'packages/acl',
+  'packages/cli',
+  'packages/paja',
   'packages/runtime',
   'packages/services',
   'packages/shell',
@@ -40,8 +43,8 @@ const protocolPackageNames = [
 ] as const;
 
 const protocolPackageVersions: Record<(typeof protocolPackageNames)[number], string> = {
-  '@napplet/core': '0.12.0',
-  '@napplet/nap': '0.12.0',
+  '@napplet/core': '0.20.0',
+  '@napplet/nap': '0.20.0',
   '@napplet/sdk': '0.12.0',
   '@napplet/shim': '0.13.0',
   '@napplet/vite-plugin': '0.8.1',
@@ -88,7 +91,7 @@ describe('SDK 0.12 migration guard', () => {
     }
   });
 
-  it('keeps all SDK-migrated manifests on the exact 0.12 NAP package graph', () => {
+  it('keeps all SDK-migrated manifests on the exact current NAP package graph', () => {
     for (const dir of sdkTargetDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
@@ -97,13 +100,13 @@ describe('SDK 0.12 migration guard', () => {
       };
       expect(pkg.dependencies?.['@napplet/sdk'], `${dir} @napplet/sdk`).toBe('0.12.0');
       expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe('0.13.0');
-      expect(pkg.dependencies?.['@napplet/nap'], `${dir} @napplet/nap`).toBe('0.12.0');
+      expect(pkg.dependencies?.['@napplet/nap'], `${dir} @napplet/nap`).toBe('0.20.0');
       expect(pkg.dependencies?.[staleNapPackage], `${dir} ${staleNapPackage}`).toBeUndefined();
       expect(pkg.devDependencies?.['@napplet/vite-plugin'], `${dir} @napplet/vite-plugin`).toBe('0.8.1');
     }
   });
 
-  it('keeps all helper-migrated manifests on the exact 0.12 NAP helper graph', () => {
+  it('keeps all helper-migrated manifests on the exact current NAP helper graph', () => {
     for (const dir of helperTargetDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
@@ -111,19 +114,17 @@ describe('SDK 0.12 migration guard', () => {
         devDependencies?: Record<string, string>;
       };
       expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe('0.13.0');
-      expect(pkg.dependencies?.['@napplet/nap'], `${dir} @napplet/nap`).toBe('0.12.0');
+      expect(pkg.dependencies?.['@napplet/nap'], `${dir} @napplet/nap`).toBe('0.20.0');
       expect(pkg.dependencies?.[staleNapPackage], `${dir} ${staleNapPackage}`).toBeUndefined();
       expect(pkg.devDependencies?.['@napplet/vite-plugin'], `${dir} @napplet/vite-plugin`).toBe('0.8.1');
     }
   });
 
-  it('admits the @napplet 0.12–0.13 line on published kehto packages (kehto/web#48)', () => {
-    // Peers are widened to admit @napplet 0.13 (caret on 0.x pins the minor, so
-    // `^0.12.0` excluded 0.13 and broke consumers on the current @napplet line).
-    // `>=0.12.0 <0.14.0` keeps 0.12 backward-compatible while admitting 0.13.
-    // Dev deps track the current 0.13 line so kehto's own CI validates against it.
-    const PEER_RANGE = '>=0.12.0 <0.14.0';
-    const DEV_RANGE = '^0.13.0';
+  it('admits only the current @napplet 0.20 line on published kehto packages', () => {
+    // Kehto runtime packages track the current NAP contract so new canonical
+    // fields are wired through runtime, services, shell, Paja, docs, and tests.
+    const PEER_RANGE = '>=0.20.0 <0.21.0';
+    const DEV_RANGE = '^0.20.0';
     for (const dir of publicPackageDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {

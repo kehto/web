@@ -180,6 +180,12 @@ export interface IntentHooks {
   isAvailable(): boolean;
 }
 
+/** Minimal link backend the shell advertises (NAP-LINK). */
+export interface LinkHooks {
+  /** True when the host has shell-mediated link opening wired. */
+  isAvailable(): boolean;
+}
+
 /**
  * Optional host override for the static shell.init capability handshake.
  *
@@ -365,6 +371,12 @@ export interface ShellAdapter {
    * concrete service via `registerService('intent')`.
    */
   intent?: IntentHooks;
+  /**
+   * Optional shell-mediated link backend (NAP-LINK). When present and
+   * `isAvailable()` is true, the shell advertises `link`. The host still
+   * registers the concrete service via `registerService('link')`.
+   */
+  link?: LinkHooks;
   /**
    * Optional capability advertisement override. Omitted by production hosts.
    */

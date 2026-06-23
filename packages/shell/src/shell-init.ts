@@ -7,6 +7,8 @@ import type { ShellAdapter, ShellCapabilities } from './types.js';
  * Note: `relay` and `outbox` are NOT in this list — both are gated on
  * `hooks.relayPool` (NAP-OUTBOX routes over relays, so it is meaningless
  * without one) and prepended conditionally in buildShellCapabilities below.
+ * `link` is also conditional because shells must wire an opener service before
+ * advertising user-visible navigation.
  */
 const NAP_DOMAINS = [
   'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify',
@@ -37,7 +39,8 @@ const NAP_INC_PROTOCOLS = [
  * Bare domain `inc` + `inc:NAP-01..inc:NAP-06`.
  * Conditional: `relay`+`outbox` prepended when hooks.relayPool;
  * `upload` appended when hooks.upload;
- * `intent` appended when hooks.intent.isAvailable().
+ * `intent` appended when hooks.intent.isAvailable();
+ * `link` appended when hooks.link.isAvailable().
  *
  * Sandbox permissions are left empty by default — host apps may extend after
  * construction. Sandbox entries (and any host-app extensions) MUST use the
@@ -87,6 +90,7 @@ export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
     : [...NAP_DOMAINS];
   if (hooks.upload) domains.push('upload');
   if (hooks.intent?.isAvailable()) domains.push('intent');
+  if (hooks.link?.isAvailable()) domains.push('link');
   // Sandbox permissions are perm:<x>-prefixed and resolved by the 0.13 shim as
   // plain domains membership (no separate permission namespace). Empty by
   // default — fold any host-extended sandbox entries in alongside the domains.
@@ -110,6 +114,8 @@ export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
   if (hooks.upload) naps.push('upload');
   // NAP-INTENT: advertised only when the host wires an available intent dispatcher.
   if (hooks.intent?.isAvailable()) naps.push('intent');
+  // NAP-LINK: advertised only when the host wires shell-mediated link opening.
+  if (hooks.link?.isAvailable()) naps.push('link');
 
   return applyCapabilityOverrides(
     { domains, protocols, naps, sandbox },

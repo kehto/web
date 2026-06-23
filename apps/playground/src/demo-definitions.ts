@@ -36,6 +36,7 @@ export const STUB_ONLY_SERVICES: readonly string[] = [] as const;
 export const DEMO_TOPOLOGY_SERVICE_NAMES: readonly string[] = [
   'identity',
   'keys',
+  'link',
   'media',
   'notifications',
   'relay',
@@ -58,6 +59,13 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     statusId: 'resource-demo-status',
     aclId: 'resource-demo-acl',
     frameContainerId: 'resource-demo-frame-container',
+  },
+  {
+    name: 'link-demo',
+    label: 'link-demo',
+    statusId: 'link-demo-status',
+    aclId: 'link-demo-acl',
+    frameContainerId: 'link-demo-frame-container',
   },
   {
     name: 'cvm-relatr',

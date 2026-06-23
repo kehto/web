@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   PAJA_ADVERTISED_DOMAINS,
   PAJA_COMPATIBILITY_ALIASES,
+  PAJA_DEFERRED_DOMAINS,
   PAJA_HANDSHAKE_DOMAINS,
   PAJA_REQUIRED_SERVICES,
   PAJA_UPSTREAM_WEB_DOMAINS,
@@ -12,7 +13,7 @@ import {
 } from './parity.js';
 
 function napPackageRoot(): URL {
-  return new URL('../../../node_modules/.pnpm/@napplet+nap@0.13.0/node_modules/@napplet/nap/dist/', import.meta.url);
+  return new URL('../../../node_modules/.pnpm/@napplet+nap@0.20.0/node_modules/@napplet/nap/dist/', import.meta.url);
 }
 
 function readNapDomainDirectories(): string[] {
@@ -31,8 +32,13 @@ describe('@kehto/paja parity metadata', () => {
   it('covers every upstream domain as advertised, handshake-only, or compatibility alias', () => {
     const advertised = new Set<string>(PAJA_ADVERTISED_DOMAINS);
     const handshakeOnly = new Set<string>(PAJA_HANDSHAKE_DOMAINS);
+    const deferred = new Set<string>(PAJA_DEFERRED_DOMAINS);
 
     for (const domain of PAJA_UPSTREAM_WEB_DOMAINS) {
+      if (deferred.has(domain)) {
+        expect(advertised.has(domain)).toBe(false);
+        continue;
+      }
       if (handshakeOnly.has(domain)) {
         expect(advertised.has(domain)).toBe(false);
         continue;

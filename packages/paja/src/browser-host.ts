@@ -16,6 +16,7 @@ import {
   createIdentityService,
   createIntentService,
   createKeysService,
+  createLinkService,
   createMediaService,
   createNotificationService,
   createNotifyService,
@@ -454,6 +455,11 @@ function createDevServices(
       },
     });
   }
+  if (getSimulation().capabilities.domains.link) {
+    services.link = createLinkService({
+      open: ({ url }) => ({ status: url.protocol === 'https:' || url.protocol === 'http:' ? 'opened' : 'denied' }),
+    });
+  }
 
   return services;
 }
@@ -488,6 +494,7 @@ function createPajaAdapter(
     workerRelay: { getWorkerRelay: () => createWorkerRelay(workerRelayEvents) },
     upload: getSimulation().upload.mode === 'memory' ? { getUploader: () => ({ rails: [getSimulation().upload.rail] }) } : undefined,
     intent: { isAvailable: () => getSimulation().intent.enabled },
+    link: { isAvailable: () => getSimulation().capabilities.domains.link },
     crypto: {
       verifyEvent: async () => true,
     },

@@ -191,3 +191,9 @@ export type {
   CvmOutboundMessage,
   CvmTransportError,
 } from './cvm-types.js';
+
+export { createLinkService } from './link-service.js';
+export type {
+  LinkOpenContext,
+  LinkServiceOptions,
+} from './link-service.js';

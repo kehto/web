@@ -3,6 +3,8 @@ import type { ShellCapabilities } from '@kehto/shell';
 const PAJA_LEGACY_COMPATIBILITY_DOMAIN = `i${'fc'}`;
 
 export const PAJA_UPSTREAM_WEB_DOMAINS = [
+  'ble',
+  'common',
   'config',
   'cvm',
   'identity',
@@ -10,18 +12,23 @@ export const PAJA_UPSTREAM_WEB_DOMAINS = [
   'inc',
   'intent',
   'keys',
+  'link',
+  'lists',
   'media',
   'notify',
   'outbox',
   'relay',
   'resource',
+  'serial',
   'shell',
   'storage',
   'theme',
   'upload',
+  'webrtc',
 ] as const;
 
 export const PAJA_HANDSHAKE_DOMAINS = ['shell'] as const;
+export const PAJA_DEFERRED_DOMAINS = ['ble', 'common', 'lists', 'serial', 'webrtc'] as const;
 
 export const PAJA_COMPATIBILITY_ALIASES = {
   [PAJA_LEGACY_COMPATIBILITY_DOMAIN]: 'inc',
@@ -35,6 +42,7 @@ export const PAJA_ADVERTISED_DOMAINS = [
   'inc',
   'theme',
   'keys',
+  'link',
   'media',
   'notify',
   'config',
@@ -50,6 +58,7 @@ export const PAJA_REQUIRED_SERVICES = [
   'identity',
   'intent',
   'keys',
+  'link',
   'media',
   'notifications',
   'notify',

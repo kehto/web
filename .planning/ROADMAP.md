@@ -25,93 +25,51 @@
 - [ ] **v1.20: NIP-5D Content-Addressed Runtime Resolution** - 2 phases (84-85), 19 requirements (phases complete; PRs #38/#39 open)
 - [x] **v1.21: NIP-5D (#2303) + NAP-SHELL/INTENT Conformance** - 4 phases (86-89), 16 requirements (completed; follow-up cache PR #63 merged)
 - [x] **v1.22: Single-Window Development Runtime** - 5 phases (90-94), 21/21 requirements, PR #64 open
+- [ ] **v1.23: NAP-LINK Runtime Parity** - 1 phase (95), 6 requirements
 
 ---
 
-## Active Milestone: v1.22 Single-Window Development Runtime
+## Active Milestone: v1.23 NAP-LINK Runtime Parity
 
-**Goal:** Ship a real single-window development runtime for napplet authors. A napplet package can add it as a `dev` script, run `pnpm/npm/yarn dev`, and get their app loaded in a production-shaped Kehto iframe with hot reload, real NAP/service behavior, and only a minimal top bar plus bottom bar around the iframe.
+**Goal:** Implement one missing recent `@napplet/nap` domain, `NAP-LINK`, end to end in Kehto with runtime dispatch, shell capability advertisement, reference service behavior, Paja support, playground demo coverage, and release-ready verification.
 
-**Authoritative sources:** current `@napplet/nap` web domain surface in `/home/sandwich/Develop/napplet/packages/nap/src`; existing Kehto runtime/shell/service packages; existing playground code as reusable implementation source, not as the final UX.
+**Authoritative sources:** `/home/sandwich/Develop/napplet/packages/nap/src/link` and current local `@napplet/nap@0.20.0` package metadata. Full recent missing-domain set is `ble`, `common`, `link`, `lists`, `serial`, and `webrtc`; this milestone intentionally handles only `link`.
 
-**Branch:** `feat/dev-single-window-runtime` off current `main`.
+**Branch:** `feat/nap-parity-recent-naps` off current `main`.
 
 **Hard constraints (carry into every phase):**
-- Preserve stack-agnostic HMR by loading a target app URL in the iframe; do not require Vite, Svelte, React, or any specific framework.
-- No new dependencies unless the implementation proves they are necessary and repo policy permits them.
-- Minimal visible chrome means one top bar and one bottom bar by default; no playground panels, node graphs, cards, or side rails.
-- Service parity is not optional: wire every current web NAP that Kehto can support today, and fill missing Kehto package gaps rather than hiding them behind dev-runtime-only shortcuts.
-- Changes must remain publishable through this repo's npm/JSR GitHub Actions flow; do not publish locally.
+- One NAP per milestone: do not implement `common`, `lists`, `ble`, `webrtc`, or `serial` here.
+- No new dependencies.
+- Link opening stays shell-owned; napplets never receive direct navigation authority, opener access, fetched bytes, or browser primitives.
+- Paja remains minimal chrome; the new capability is service behavior, not a new panel.
+- Keep package exports, docs, changesets, static parity guards, and Playwright proof aligned.
 
 ## Phases
 
-- [x] **Phase 90: Dev Runtime Package and CLI Foundation** — create `@kehto/dev-runtime`, public option schema, CLI target URL / child-command flow, server entry, and package metadata. (Complete: package/options/CLI/server/readiness/docs/TypeDoc foundation.)
-- [x] **Phase 91: Single-Window Host and HMR Loop** — implement the minimal two-bar UI, one sandbox iframe, shell bootstrap, runtime reload/reinitialize behavior, and browser proof against a real fixture. (Complete: browser host bundle, shell.init, reload loop, focused Playwright proof.)
-- [x] **Phase 92: Full NAP/Service Parity Wiring** — wire all current web NAP domains and Kehto services into the dev runtime; add static parity guard against `@napplet/nap`. (Complete: real ShellBridge adapter, deterministic services, static parity guard, focused service-traffic e2e.)
-- [x] **Phase 93: Environment Simulation Controls** — expose typed CLI/config controls for capabilities, ACL, firewall, identity, relay, storage, cache, upload, media, config, and theme modes. (Complete: shared simulation schema, CLI/config merge, shell capability filter, compact UI controls, focused e2e proof.)
-- [x] **Phase 94: Coverage, Docs, Release Readiness, and PR** — complete unit/e2e/text coverage, changesets, full gates, push, and PR. (Complete: docs how-to, full gates, branch push, PR #64.)
+- [ ] **Phase 95: NAP-LINK Runtime Parity** — add shell/runtime/service/Paja/playground support for `link.open` and focused verification.
 
 ## Phase Details
 
-### Phase 90: Dev Runtime Package and CLI Foundation
-**Goal:** Establish a publishable package and CLI that can run as a napplet project's `dev` script without taking over the app framework.
-**Depends on:** v1.21 mainline and existing playground/runtime packages.
-**Requirements:** DEVRT-01, DEVRT-02, DEVRT-03, DEVRT-04, VERIFY-01
+### Phase 95: NAP-LINK Runtime Parity
+**Goal:** `link.open` works through Kehto's normal NAP service path, is advertised only when wired, and is proven in Paja and the playground.
+**Depends on:** v1.22 mainline and PR #70 manifest metadata repair.
+**Requirements:** LINK-01, LINK-02, LINK-03, LINK-04, LINK-05, LINK-06
 **Success Criteria:**
-  1. `@kehto/dev-runtime` is in the workspace with ESM build/type-check/lint/test scripts, typed public exports, README stub, package docs target, and release metadata.
-  2. CLI accepts a target URL or a child command, waits for readiness, and serves the runtime host URL.
-  3. The option contract is typed and reusable programmatically.
-  4. Unit tests cover target URL, command parsing, readiness timeout, and generated host config.
-
-### Phase 91: Single-Window Host and HMR Loop
-**Goal:** Build the actual browser host: one iframe, top bar, bottom bar, production-shaped sandbox/handshake, and reload/reinit loop that preserves app-provided HMR.
-**Depends on:** Phase 90.
-**Requirements:** HOST-01, HOST-02, HOST-03, HOST-04, VERIFY-02
-**Success Criteria:**
-  1. The served page renders exactly one napplet iframe by default with top and bottom bars only.
-  2. The iframe uses production-shaped sandbox and shell handshake behavior.
-  3. Runtime reload/reinitialize controls work without restarting the CLI or child app process.
-  4. Playwright proves a real fixture renders in the iframe and survives an edit/reload cycle.
-
-### Phase 92: Full NAP/Service Parity Wiring
-**Goal:** Wire every current web NAP domain and possible Kehto service into the dev runtime.
-**Depends on:** Phase 91.
-**Requirements:** PARITY-01, PARITY-02, PARITY-03, PARITY-04
-**Success Criteria:**
-  1. Capability payload includes shell, relay, outbox, storage, identity, keys, config, resource, theme, notify, media, upload, intent, cvm, inc, and ifc compatibility.
-  2. Dev runtime constructs real or deterministic development adapters for relay/outbox, storage, identity, keys, config, resource, theme, notify/notification, media/audio, upload, intent, cvm, ACL, firewall, NIP-5D resolution, artifact cache, and manifest cache.
-  3. Any missing package-level handling is implemented in the appropriate `@kehto/*` package with tests.
-  4. A static parity guard fails when `@napplet/nap` adds a supported web domain/message that Kehto does not handle.
-
-### Phase 93: Environment Simulation Controls
-**Goal:** Make the runtime useful for testing different host environments without writing custom host code.
-**Depends on:** Phase 92.
-**Requirements:** SIM-01, SIM-02, SIM-03, SIM-04
-**Success Criteria:**
-  1. CLI flags and config file share one schema for capability toggles, ACL, firewall, identity, relay, storage, cache, upload, media, config, and theme behavior.
-  2. Invalid option combinations fail before serving the runtime.
-  3. Minimal UI exposes compact simulation status and adjustment affordances without becoming a playground.
-  4. Defaults provide real behavior across the wired services for a local app with no custom config.
-
-### Phase 94: Coverage, Docs, Release Readiness, and PR
-**Goal:** Close the milestone with full verification, text coverage, release metadata, and an opened PR.
-**Depends on:** Phases 90-93.
-**Requirements:** VERIFY-01, VERIFY-02, VERIFY-03, VERIFY-04, VERIFY-05
-**Success Criteria:**
-  1. Unit, static parity, focused e2e, docs checks where applicable, build, type-check, and AI-slop scan pass.
-  2. Docs explain `pnpm`, `npm`, and `yarn` script usage plus target URL and command modes.
-  3. Changeset covers shipped package output and any modified `@kehto/*` surfaces.
-  4. Branch is pushed and PR opened with verification evidence and any remaining release setup notes.
+  1. `buildShellCapabilities()` includes `link` in `domains` and `naps` only when a link backend is wired, and disabled-domain overrides remove it.
+  2. Runtime dispatch registers `link` and routes `link.open` to a `link` service handler.
+  3. `@kehto/services` exports `createLinkService`; allowed HTTP(S) URLs return `{ status: "opened" }`, malformed or unsafe URLs return `{ status: "denied", error }`, and unknown messages are contained.
+  4. `@kehto/paja` wires deterministic link behavior, includes `link` in parity metadata, and keeps existing minimal UI unchanged.
+  5. A playground `link-demo` napplet exercises allowed and denied links with stable DOM markers, and Playwright covers both outcomes.
+  6. Focused tests plus full gates pass; changesets cover modified package outputs; PR opened.
+**Plans:** 1 plan
+  - [ ] 95-01-PLAN.md — LINK-01..LINK-06 service/runtime/shell/Paja/playground implementation and verification
+**UI hint:** yes
 
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 90. Dev Runtime Package and CLI Foundation | v1.22 | 1/1 | Complete | 90-01-SUMMARY |
-| 91. Single-Window Host and HMR Loop | v1.22 | 1/1 | Complete | 91-01-SUMMARY |
-| 92. Full NAP/Service Parity Wiring | v1.22 | 1/1 | Complete | 92-01-SUMMARY |
-| 93. Environment Simulation Controls | v1.22 | 1/1 | Complete | 93-01-SUMMARY |
-| 94. Coverage, Docs, Release Readiness, and PR | v1.22 | 1/1 | Complete | 94-01-SUMMARY |
+| 95. NAP-LINK Runtime Parity | v1.23 | 0/1 | Planned | - |
 
 ---
 

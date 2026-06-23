@@ -44,6 +44,7 @@ const IDENTITY_BOUND_STATUS_IDS = [
   'composer-status',
   'cvm-relatr-status',
   'feed-status',
+  'link-demo-status',
   'preferences-status',
   'profile-status',
   'resource-demo-status',

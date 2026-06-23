@@ -33,6 +33,7 @@ export type {
   UploadHooks,
   UploadBackendLike,
   IntentHooks,
+  LinkHooks,
   CapabilityHooks,
   SessionEntry,
   NappKeyEntry,  // @deprecated — use SessionEntry
