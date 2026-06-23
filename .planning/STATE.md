@@ -96,6 +96,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260623-9qg | Automate Changesets release PR and publish flow like napplet/web | 2026-06-23 | 98715b8 | [260623-9qg-automate-changeset-release-flow-like-nap](./quick/260623-9qg-automate-changeset-release-flow-like-nap/) |
 | 260623-a4i | Optimize Playwright CI triggers and relevant spec selection | 2026-06-23 | 78e4d76 | [260623-a4i-optimize-playwright-ci-triggers-and-rele](./quick/260623-a4i-optimize-playwright-ci-triggers-and-rele/) |
 | 260623-cxc | Prepare and ship the Changesets release for the merged NAP parity stack | 2026-06-23 | release/changesets-nap-parity-20260623 | [260623-cxc-prepare-and-ship-the-changesets-release-](./quick/260623-cxc-prepare-and-ship-the-changesets-release-/) |
+| 260623-d76 | Fix Pages workflow playground base rebuild order | 2026-06-23 | fix/pages-base-rebuild-order | [260623-d76-fix-pages-workflow-playground-base-rebui](./quick/260623-d76-fix-pages-workflow-playground-base-rebui/) |
 
 ## Session Continuity
 
