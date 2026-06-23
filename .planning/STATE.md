@@ -28,7 +28,7 @@ Phase: 94 — Coverage, Docs, Release Readiness, and PR
 Plan: 94-01 — complete
 Status: v1.22 complete; branch pushed and PR #64 opened
 
-Last activity: 2026-06-23 — NAP-RESOURCE `resource.bytesMany` implemented across services, shell types, ACL mapping, playground demo, tests, docs, and build-order guardrails.
+Last activity: 2026-06-23 — Changesets release automation added on `push` to `main`, mirroring napplet/web while preserving npm+JSR OIDC publishing and the tag/manual fallback.
 
 ## Performance Metrics
 
@@ -93,6 +93,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260622-6wk | Prepare v1.34 release by consuming pending Changesets and validating the release branch | 2026-06-22 | 8d990d0 | [260622-6wk-prepare-v1-34-release-by-consuming-pendi](./quick/260622-6wk-prepare-v1-34-release-by-consuming-pendi/) |
 | 260622-8oy | Repair v1.34 release workflow after partial npm/JSR publish failure | 2026-06-22 | 74beb36 | [260622-8oy-repair-v1-34-release-workflow-after-part](./quick/260622-8oy-repair-v1-34-release-workflow-after-part/) |
 | 260623-8is | Implement `resource.bytesMany` from updated NAP-RESOURCE | 2026-06-23 | dec7d18 | [260623-8is-implement-bytesmany-from-updated-nap-res](./quick/260623-8is-implement-bytesmany-from-updated-nap-res/) |
+| 260623-9qg | Automate Changesets release PR and publish flow like napplet/web | 2026-06-23 | 98715b8 | [260623-9qg-automate-changeset-release-flow-like-nap](./quick/260623-9qg-automate-changeset-release-flow-like-nap/) |
 
 ## Session Continuity
 
