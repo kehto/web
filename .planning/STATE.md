@@ -99,6 +99,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260623-d76 | Fix Pages workflow playground base rebuild order | 2026-06-23 | fix/pages-base-rebuild-order | [260623-d76-fix-pages-workflow-playground-base-rebui](./quick/260623-d76-fix-pages-workflow-playground-base-rebui/) |
 | 260623-diu | Fix stale `@napplet/*` JSR import ranges after the v1.35 release publish failure | 2026-06-23 | fix/jsr-napplet-020-imports | [260623-diu-fix-jsr-napplet-dependency-import-ranges](./quick/260623-diu-fix-jsr-napplet-dependency-import-ranges/) |
 | 260623-e5u | Add manual release repair controls for targeted JSR publishing | 2026-06-23 | fix/release-jsr-repair-controls | [260623-e5u-release-jsr-repair-controls](./quick/260623-e5u-release-jsr-repair-controls/) |
+| 260623-fh2 | Align Kehto Napplet dependencies with bytesMany release | 2026-06-23 | fix/napplet-bytesmany-deps | [260623-fh2-align-kehto-napplet-dependencies-with-by](./quick/260623-fh2-align-kehto-napplet-dependencies-with-by/) |
 
 ## Session Continuity
 
