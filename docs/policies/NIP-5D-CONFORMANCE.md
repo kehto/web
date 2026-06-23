@@ -39,7 +39,7 @@ they are either:
 | `cvm.request` | `apps/playground/napplets/cvm-relatr/src/main.ts` | NAP-CVM helper-surface gap | Same cvm-relatr-only gap as `cvm.discover`; the shell owns all ContextVM transport, signing, and relay access. |
 | `notify.create` | `apps/playground/napplets/toaster/src/main.ts` | NAP helper-surface gap | Notify service supports create/list, but `@napplet/nap/notify/sdk` lacks create/list helpers. Raw use must stay source-bound and confined to toaster. |
 | `notify.list` | `apps/playground/napplets/toaster/src/main.ts` | NAP helper-surface gap | Same toaster-only helper gap as `notify.create`; raw replies are accepted only from `window.parent`. |
-| `resource.bytes` | `apps/playground/napplets/resource-demo/src/main.ts` | Kehto resource wire-shape gap | Resource SDK expects upstream `id`/`blob`/`mime`; playground service currently uses `requestId`/`bodyBase64`/`status`/`headers`. Raw use is confined to resource-demo. |
+| `resource.bytesMany` | `apps/playground/napplets/resource-demo/src/main.ts` | Draft NAP-RESOURCE helper gap | Updated NAP-RESOURCE adds bulk byte fetches before `@napplet/nap` ships a web helper. Raw use is confined to resource-demo, parent-source-bound, and type-narrowed. |
 | `theme.changed` | `apps/playground/src/theme.ts` | NAP helper-surface gap | Theme push exists as a shell-to-napplet NAP envelope, but no `theme.subscribe` helper exists. Raw listener must be parent-source-bound and type-narrowed. |
 
 New raw `window.parent.postMessage()` protocol envelopes in playground napplets

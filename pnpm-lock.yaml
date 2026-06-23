@@ -46,16 +46,16 @@ importers:
   apps/playground:
     dependencies:
       '@kehto/nip':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/nip
       '@kehto/runtime':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/runtime
       '@kehto/services':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/services
       '@kehto/shell':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/shell
       '@snort/worker-relay':
         specifier: ^2.0.1
@@ -339,7 +339,7 @@ importers:
   packages/cli:
     dependencies:
       '@kehto/paja':
-        specifier: ^0.2.0
+        specifier: workspace:^
         version: link:../paja
     devDependencies:
       '@napplet/core':
@@ -395,26 +395,26 @@ importers:
   packages/paja:
     dependencies:
       '@kehto/acl':
-        specifier: ^0.12.0
+        specifier: workspace:^
         version: link:../acl
       '@kehto/firewall':
-        specifier: ^0.3.1
+        specifier: workspace:^
         version: link:../firewall
       '@kehto/nip':
-        specifier: ^0.4.0
-        version: 0.4.0(nostr-tools@2.23.3(typescript@5.9.3))
+        specifier: workspace:^
+        version: link:../nip
       '@kehto/runtime':
-        specifier: ^0.13.0
+        specifier: workspace:^
         version: link:../runtime
       '@kehto/services':
-        specifier: ^0.11.1
+        specifier: workspace:^
         version: link:../services
       '@kehto/shell':
-        specifier: ^0.13.0
+        specifier: workspace:^
         version: link:../shell
       '@kehto/wm':
-        specifier: ^0.0.1
-        version: 0.0.1
+        specifier: workspace:^
+        version: link:../wm
     devDependencies:
       '@napplet/core':
         specifier: ^0.20.0
@@ -438,10 +438,10 @@ importers:
   packages/runtime:
     dependencies:
       '@kehto/acl':
-        specifier: ^0.12.0
+        specifier: workspace:^
         version: link:../acl
       '@kehto/firewall':
-        specifier: ^0.3.1
+        specifier: workspace:^
         version: link:../firewall
       '@noble/curves':
         specifier: ^2.0.0
@@ -469,7 +469,7 @@ importers:
   packages/services:
     dependencies:
       '@kehto/runtime':
-        specifier: ^0.13.0
+        specifier: workspace:^
         version: link:../runtime
     devDependencies:
       '@napplet/core':
@@ -494,10 +494,10 @@ importers:
   packages/shell:
     dependencies:
       '@kehto/acl':
-        specifier: ^0.12.0
+        specifier: workspace:^
         version: link:../acl
       '@kehto/runtime':
-        specifier: ^0.13.0
+        specifier: workspace:^
         version: link:../runtime
     devDependencies:
       '@napplet/core':
@@ -528,10 +528,10 @@ importers:
   tests/e2e/harness:
     dependencies:
       '@kehto/services':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../../packages/services
       '@kehto/shell':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../../packages/shell
     devDependencies:
       nostr-tools:
@@ -1216,14 +1216,6 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
-
-  '@kehto/nip@0.4.0':
-    resolution: {integrity: sha512-LRebmwDghVs/3zs9gk3yzcbt7Gp94Oj8eboCHNHoQVwg6Qerq1y3kthZqRjTaH8W5WXljF8j2zuz0Bw519HyOA==}
-    peerDependencies:
-      nostr-tools: '>=2.23.3 <3.0.0'
-
-  '@kehto/wm@0.0.1':
-    resolution: {integrity: sha512-P0wOz2V+wMj6cWK+hgGYzKqqrS9QxDglfcvzDMzg4h7hmtPXdL2emtUcQctegH/2m0eNxYyq1txNKn0L3sEmzQ==}
 
   '@manypkg/find-root@1.1.0':
     resolution: {integrity: sha512-mki5uBvhHzO8kYYix/WRy2WX8S3B5wdVSc9D6KcU5lQNglP2yt58/VfLuAK49glRXChosY8ap2oJ1qgma3GUVA==}
@@ -3572,13 +3564,6 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
-
-  '@kehto/nip@0.4.0(nostr-tools@2.23.3(typescript@5.9.3))':
-    dependencies:
-      '@noble/hashes': 2.0.1
-      nostr-tools: 2.23.3(typescript@5.9.3)
-
-  '@kehto/wm@0.0.1': {}
 
   '@manypkg/find-root@1.1.0':
     dependencies:
