@@ -24,7 +24,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@kehto/paja": "^0.2.0"
+    "@kehto/paja": "workspace:^"
   },
   "peerDependencies": {
     "@napplet/core": ">=0.12.0 <0.14.0",
