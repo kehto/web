@@ -7,6 +7,7 @@
 
 import type {
   BleAttribute,
+  BleEvent,
   BleOpenRequest,
   BleOpenResult,
   BleService,
@@ -30,6 +31,8 @@ const BLE_SERVICE_VERSION = '1.0.0';
 export interface BleServiceContext {
   /** Window id of the requesting napplet. */
   windowId: string;
+  /** Emit a runtime-owned BLE event back to the requesting napplet. */
+  emit(event: BleEvent): void;
 }
 
 /** Options for {@link createBleService}. */
@@ -120,6 +123,15 @@ function unsupported(resultType: string, id: string): NappletMessage {
   } as NappletMessage;
 }
 
+function createContext(windowId: string, send: Send): BleServiceContext {
+  return {
+    windowId,
+    emit(event) {
+      send({ type: 'ble.event', event } as NappletMessage);
+    },
+  };
+}
+
 /**
  * Create the NAP-BLE reference service.
  *
@@ -131,7 +143,7 @@ export function createBleService(options: BleServiceOptions = {}): ServiceHandle
     descriptor: BLE_DESCRIPTOR,
     handleMessage(windowId: string, message: NappletMessage, send: Send): void {
       const id = (message as NappletMessage & { id?: string }).id ?? '';
-      const context = { windowId };
+      const context = createContext(windowId, send);
 
       if (message.type === 'ble.open') {
         if (!options.open) {

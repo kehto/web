@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type {
   BleAttribute,
+  BleEvent,
   BleOpenRequest,
   BleOpenResult,
   BleService,
@@ -88,13 +89,19 @@ describe('createBleService', () => {
     service.handleMessage(WINDOW_ID, { type: 'ble.close', id: 'close-2', sessionId: 'ble-session-1', reason: 'done' } as NappletMessage, send);
     await flush();
 
-    expect(options.open).toHaveBeenCalledWith(REQUEST, { windowId: WINDOW_ID });
-    expect(options.services).toHaveBeenCalledWith('ble-session-1', { windowId: WINDOW_ID });
-    expect(options.read).toHaveBeenCalledWith('ble-session-1', TARGET, { windowId: WINDOW_ID });
-    expect(options.write).toHaveBeenCalledWith('ble-session-1', TARGET, [1, 2], { response: 'with-response' }, { windowId: WINDOW_ID });
-    expect(options.subscribe).toHaveBeenCalledWith('ble-session-1', TARGET, { windowId: WINDOW_ID });
-    expect(options.unsubscribe).toHaveBeenCalledWith('ble-session-1', TARGET, { windowId: WINDOW_ID });
-    expect(options.close).toHaveBeenCalledWith('ble-session-1', 'done', { windowId: WINDOW_ID });
+    expect(options.open).toHaveBeenCalledWith(REQUEST, expect.objectContaining({ windowId: WINDOW_ID }));
+    expect(options.services).toHaveBeenCalledWith('ble-session-1', expect.objectContaining({ windowId: WINDOW_ID }));
+    expect(options.read).toHaveBeenCalledWith('ble-session-1', TARGET, expect.objectContaining({ windowId: WINDOW_ID }));
+    expect(options.write).toHaveBeenCalledWith(
+      'ble-session-1',
+      TARGET,
+      [1, 2],
+      { response: 'with-response' },
+      expect.objectContaining({ windowId: WINDOW_ID }),
+    );
+    expect(options.subscribe).toHaveBeenCalledWith('ble-session-1', TARGET, expect.objectContaining({ windowId: WINDOW_ID }));
+    expect(options.unsubscribe).toHaveBeenCalledWith('ble-session-1', TARGET, expect.objectContaining({ windowId: WINDOW_ID }));
+    expect(options.close).toHaveBeenCalledWith('ble-session-1', 'done', expect.objectContaining({ windowId: WINDOW_ID }));
     expect(sent).toEqual([
       { type: 'ble.open.result', id: 'open-2', session: OPEN_RESULT.session },
       { type: 'ble.services.result', id: 'services-2', services: SERVICES },
@@ -103,6 +110,29 @@ describe('createBleService', () => {
       { type: 'ble.subscribe.result', id: 'sub-2' },
       { type: 'ble.unsubscribe.result', id: 'unsub-2' },
       { type: 'ble.close.result', id: 'close-2' },
+    ]);
+  });
+
+  it('lets host hooks emit ble.event notifications to the requesting napplet', async () => {
+    const event: BleEvent = {
+      type: 'notification',
+      sessionId: 'ble-session-1',
+      target: TARGET,
+      data: [87],
+    };
+    const service = createBleService({
+      subscribe: (_sessionId, _target, context) => {
+        context.emit(event);
+      },
+    });
+    const { sent, send } = collectSent();
+
+    service.handleMessage(WINDOW_ID, { type: 'ble.subscribe', id: 'sub-3', sessionId: 'ble-session-1', target: TARGET } as NappletMessage, send);
+    await flush();
+
+    expect(sent).toEqual([
+      { type: 'ble.event', event },
+      { type: 'ble.subscribe.result', id: 'sub-3' },
     ]);
   });
 

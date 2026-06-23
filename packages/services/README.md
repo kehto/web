@@ -87,7 +87,9 @@ runtime.registerService(
     services: () => [],
     read: () => [87],
     write: (_sessionId, _target, _data) => {},
-    subscribe: (_sessionId, _target) => {},
+    subscribe: (sessionId, target, ctx) => {
+      ctx.emit({ type: 'notification', sessionId, target, data: [87] });
+    },
     unsubscribe: (_sessionId, _target) => {},
     close: (_sessionId) => {},
   }),
@@ -439,6 +441,9 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 ### Media NAP
 - `createMediaService` — owner-aware `media.session.create` / `update` / `destroy` / `media.state` / `media.capabilities` + `media.command` push envelopes (`media:control`). Napplet-owned sessions mirror to `navigator.mediaSession` by default; shell-owned creates are rejected until a host playback/fetch bridge is supplied. Implement the `HostMediaBridge` interface to swap in native backends. See [Media Service](#media-service) for the full contract.
 
+### BLE NAP
+- `createBleService` — `ble.open`, `ble.services`, `ble.read`, `ble.write`, `ble.subscribe`, `ble.unsubscribe`, `ble.close` + host-pushed `ble.event` envelopes. Hook contexts include `ctx.emit(event)`, so host Bluetooth notification listeners can forward `notification`, `state`, and `closed` events to the requesting napplet without replacing the reference handler.
+
 ### WebRTC NAP
 - `createWebrtcService` — `webrtc.open`, `webrtc.send`, `webrtc.close` + host-pushed `webrtc.event` envelopes. The reference handler owns only the NAP request/result bookkeeping; host bridges own signaling, SDP, ICE, peer connection lifecycle, and policy.
 
@@ -449,7 +454,7 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 - `createAudioService` — `audio:*` inc-emit topic handler. Browser-agnostic registry of per-window audio sources; host wires `onChange` to update transport UI.
 
 ### Types
-`AudioSource`, `AudioServiceOptions`, `Notification`, `NotificationServiceOptions`, `IdentityServiceOptions`, `RelayPoolServiceOptions`, `CacheServiceOptions`, `CoordinatedRelayOptions`, `KeysServiceOptions`, `MediaServiceOptions`, `NotifyServiceOptions`, `ThemeServiceOptions`, `ThemeService`, `WebrtcServiceOptions`, `WebrtcServiceContext`.
+`AudioSource`, `AudioServiceOptions`, `Notification`, `NotificationServiceOptions`, `IdentityServiceOptions`, `RelayPoolServiceOptions`, `CacheServiceOptions`, `CoordinatedRelayOptions`, `KeysServiceOptions`, `MediaServiceOptions`, `NotifyServiceOptions`, `ThemeServiceOptions`, `ThemeService`, `BleServiceOptions`, `BleServiceContext`, `WebrtcServiceOptions`, `WebrtcServiceContext`.
 
 ## API Reference
 

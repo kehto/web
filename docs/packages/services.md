@@ -45,6 +45,7 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 
 - Provides reference service handlers that host apps register with `runtime.registerService()`.
 - Host apps provide backing bridges/callbacks for browser, native, signer, relay, fetch, notification, and media behavior.
+- BLE and WebRTC hook contexts expose `emit(...)` so host bridges can send runtime-owned event envelopes back to the requesting napplet.
 - Does not create a runtime or shell bridge by itself.
 
 ## API Reference
