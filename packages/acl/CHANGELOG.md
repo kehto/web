@@ -1,5 +1,11 @@
 # @kehto/acl
 
+## 0.13.1
+
+### Patch Changes
+
+- 2dfdebb: Align Napplet dependency ranges with the `resource.bytesMany` package release.
+
 ## 0.13.0
 
 ### Minor Changes
