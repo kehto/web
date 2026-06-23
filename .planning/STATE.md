@@ -97,6 +97,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260623-a4i | Optimize Playwright CI triggers and relevant spec selection | 2026-06-23 | 78e4d76 | [260623-a4i-optimize-playwright-ci-triggers-and-rele](./quick/260623-a4i-optimize-playwright-ci-triggers-and-rele/) |
 | 260623-cxc | Prepare and ship the Changesets release for the merged NAP parity stack | 2026-06-23 | release/changesets-nap-parity-20260623 | [260623-cxc-prepare-and-ship-the-changesets-release-](./quick/260623-cxc-prepare-and-ship-the-changesets-release-/) |
 | 260623-d76 | Fix Pages workflow playground base rebuild order | 2026-06-23 | fix/pages-base-rebuild-order | [260623-d76-fix-pages-workflow-playground-base-rebui](./quick/260623-d76-fix-pages-workflow-playground-base-rebui/) |
+| 260623-diu | Fix stale `@napplet/*` JSR import ranges after the v1.35 release publish failure | 2026-06-23 | fix/jsr-napplet-020-imports | [260623-diu-fix-jsr-napplet-dependency-import-ranges](./quick/260623-diu-fix-jsr-napplet-dependency-import-ranges/) |
 
 ## Session Continuity
 
