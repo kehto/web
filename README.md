@@ -10,9 +10,14 @@ Kehto is an early web-based runtime implementation for NIP-5D Nostr applets
 the first implementation and may become a useful reference implementation as
 other napplet runtimes emerge.
 
-> **Alpha status:** NIP-5D is still under development, and NAP contracts are not
-> final. Package APIs, capability names, `requires` declarations, and
-> `supports()` behavior may change as the spec evolves.
+> **Alpha status:** kehto/web is under heavy development and is far from complete,
+> It presently offers components but still requires the implementer to 
+> manage envelope security, process isolation, performance optimization and more.
+> It is presently being dogfooded where lessons and implementations will be reflected 
+> back into the packages. Additionally, NIP-5D is still under development, 
+> and NAP contracts are not final. Package APIs, capability names, `requires` declarations, 
+> and `supports()` behavior may change as the spec evolves.
+
 
 It provides packages for building a napplet host client by handling capability
 enforcement, message routing, host service registration, gateway artifacts, and
