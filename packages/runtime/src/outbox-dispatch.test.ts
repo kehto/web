@@ -253,3 +253,35 @@ describe('runtime ble domain dispatch', () => {
     expect(ctx.sent).toHaveLength(0);
   });
 });
+
+describe('runtime webrtc domain dispatch', () => {
+  let ctx: MockRuntimeContext;
+  let runtime: Runtime;
+
+  beforeEach(() => {
+    ctx = createMockRuntimeAdapter();
+    runtime = createRuntime(ctx.hooks);
+    runtime.sessionRegistry.register(WINDOW_ID, session());
+  });
+
+  it('routes all webrtc request types to the service', () => {
+    const received: NappletMessage[] = [];
+    runtime.registerService('webrtc', {
+      descriptor: { name: 'webrtc', version: '1.0.0' },
+      handleMessage(_wid, msg) { received.push(msg); },
+    });
+
+    runtime.handleMessage(WINDOW_ID, { type: 'webrtc.open', id: 'wo-1', request: { scope: { type: 'direct', pubkey: '7'.repeat(64) } } } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'webrtc.send', id: 'ws-1', sessionId: 'webrtc-1', payload: { body: 'hello' } } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'webrtc.close', id: 'wc-1', sessionId: 'webrtc-1' } as NappletMessage);
+
+    expect(received.map((m) => m.type)).toEqual(['webrtc.open', 'webrtc.send', 'webrtc.close']);
+  });
+
+  it('webrtc.open without a registered service: no throw, no envelope emitted', () => {
+    expect(() => {
+      runtime.handleMessage(WINDOW_ID, { type: 'webrtc.open', id: 'wo-2', request: { scope: { type: 'direct', pubkey: '7'.repeat(64) } } } as NappletMessage);
+    }).not.toThrow();
+    expect(ctx.sent).toHaveLength(0);
+  });
+});

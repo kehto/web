@@ -20,6 +20,7 @@ export type PajaCapabilityDomain =
   | 'lists'
   | 'serial'
   | 'ble'
+  | 'webrtc'
   | 'cvm'
   | 'inc';
 
@@ -151,6 +152,7 @@ export const PAJA_SIMULATION_DOMAINS: readonly PajaCapabilityDomain[] = [
   'lists',
   'serial',
   'ble',
+  'webrtc',
   'cvm',
   'inc',
 ];

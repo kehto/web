@@ -32,7 +32,7 @@ The legacy `/napplets/<name>/...` static route may still exist for compatibility
 
 ## Napplet Inventory
 
-The demo hosts 14 sandboxed napplets, each built independently under `apps/playground/napplets/<name>/` and loaded into a topology-rendered iframe at runtime. v1.3 shipped an 8-napplet demo; later milestones added resource, link, common, lists, serial, BLE, and CVM demos.
+The demo hosts 15 sandboxed napplets, each built independently under `apps/playground/napplets/<name>/` and loaded into a topology-rendered iframe at runtime. v1.3 shipped an 8-napplet demo; later milestones added resource, link, common, lists, serial, BLE, WebRTC, and CVM demos.
 
 The cross-napplet domain is `inc` (the NAP rename of the legacy `inc`). The four
 napplets below declare `requires` / call `supports()` with `inc`; the runtime
@@ -56,6 +56,7 @@ still reach the same handler (removal tracked as CLEANUP-01).
 | resource-demo | resource, connect | `resource.bytesMany`, connect grant/CSP fixture | [apps/playground/napplets/resource-demo/src/](./napplets/resource-demo/src/) |
 | theme-switcher | identity, relay, theme | discovers user/WoT/global theme events through NAP relay; `theme.set` shell theme request | [apps/playground/napplets/theme-switcher/src/](./napplets/theme-switcher/src/) |
 | toaster | notify | `notify.create`, `notify.list`, `notify.dismiss` | [apps/playground/napplets/toaster/src/](./napplets/toaster/src/) |
+| webrtc-demo | webrtc | `webrtc.open`, `webrtc.send`, `webrtc.event`, `webrtc.close` | [apps/playground/napplets/webrtc-demo/src/](./napplets/webrtc-demo/src/) |
 
 Each napplet is an independent build target with its own `package.json`, `vite.config.ts`, and `index.html`. The topology view (`apps/playground/src/topology.ts`) renders one frame container per `DEMO_NAPPLETS` entry from `apps/playground/src/shell-host.ts` — adding a new napplet requires editing only that array, no per-napplet template duplication.
 

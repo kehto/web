@@ -216,6 +216,12 @@ export type {
   BleServiceOptions,
 } from './ble-service.js';
 
+export { createWebrtcService } from './webrtc-service.js';
+export type {
+  WebrtcServiceContext,
+  WebrtcServiceOptions,
+} from './webrtc-service.js';
+
 export { createCommonService } from './common-service.js';
 export type {
   CommonServiceContext,

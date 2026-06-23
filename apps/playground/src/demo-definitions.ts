@@ -96,6 +96,13 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     frameContainerId: 'ble-demo-frame-container',
   },
   {
+    name: 'webrtc-demo',
+    label: 'webrtc-demo',
+    statusId: 'webrtc-demo-status',
+    aclId: 'webrtc-demo-acl',
+    frameContainerId: 'webrtc-demo-frame-container',
+  },
+  {
     name: 'cvm-relatr',
     label: 'cvm-relatr',
     statusId: 'cvm-relatr-status',

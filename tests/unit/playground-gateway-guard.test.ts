@@ -17,6 +17,7 @@ const playgroundNapplets = [
   'resource-demo',
   'serial-demo',
   'toaster',
+  'webrtc-demo',
 ] as const;
 
 const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly string[]> = {
@@ -34,6 +35,7 @@ const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly str
   'resource-demo': ['resource', 'theme'],
   'serial-demo': ['serial'],
   toaster: ['notify', 'theme'],
+  'webrtc-demo': ['webrtc'],
 };
 
 function readRepoFile(path: string): string {

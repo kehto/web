@@ -17,6 +17,7 @@ const playgroundNapplets = [
   'resource-demo',
   'serial-demo',
   'toaster',
+  'webrtc-demo',
 ] as const;
 
 const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly string[]> = {
@@ -34,6 +35,7 @@ const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly str
   'resource-demo': ['resource', 'theme'],
   'serial-demo': ['serial'],
   toaster: ['notify', 'theme'],
+  'webrtc-demo': ['webrtc'],
 };
 
 const rawListenerFiles = [
@@ -44,6 +46,7 @@ const rawListenerFiles = [
   'apps/playground/napplets/lists-demo/src/main.ts',
   'apps/playground/napplets/ble-demo/src/main.ts',
   'apps/playground/napplets/serial-demo/src/main.ts',
+  'apps/playground/napplets/webrtc-demo/src/main.ts',
   'apps/playground/napplets/resource-demo/src/main.ts',
   'apps/playground/napplets/toaster/src/main.ts',
 ] as const;
@@ -105,6 +108,7 @@ const rawListenerTypeGuards: Record<string, readonly string[]> = {
   'apps/playground/napplets/lists-demo/src/main.ts': ['msg.type !== resultType'],
   'apps/playground/napplets/ble-demo/src/main.ts': ['msg.type !== resultType'],
   'apps/playground/napplets/serial-demo/src/main.ts': ['msg.type !== resultType'],
+  'apps/playground/napplets/webrtc-demo/src/main.ts': ['msg.type !== resultType'],
   'apps/playground/napplets/resource-demo/src/main.ts': [
     "envelope.type === 'resource.bytes.result'",
     "envelope.type === 'resource.bytes.error'",

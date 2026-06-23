@@ -18,6 +18,7 @@ const expectedNapplets = [
   'resource-demo',
   'serial-demo',
   'toaster',
+  'webrtc-demo',
 ] as const;
 
 const expectedRequires: Record<(typeof expectedNapplets)[number], readonly string[]> = {
@@ -35,6 +36,7 @@ const expectedRequires: Record<(typeof expectedNapplets)[number], readonly strin
   'resource-demo': ['resource', 'theme'],
   'serial-demo': ['serial'],
   toaster: ['notify', 'theme'],
+  'webrtc-demo': ['webrtc'],
 };
 
 test('playground loads all napplets via verified srcdoc with opaque origins', async ({ page }) => {

@@ -45,6 +45,7 @@ const NAPPLETS = [
   { name: 'resource-demo',    statusId: 'resource-demo-status' },
   { name: 'serial-demo',      statusId: 'serial-demo-status' },
   { name: 'toaster',          statusId: 'toaster-status' },
+  { name: 'webrtc-demo',      statusId: 'webrtc-demo-status' },
 ] as const;
 
 test('all DEMO_NAPPLETS reach identity-bound within 10s on concurrent boot at :4174', async ({ page }) => {

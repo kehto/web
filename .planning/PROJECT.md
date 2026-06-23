@@ -6,19 +6,19 @@
 
 Provide a modular, framework-agnostic runtime for hosting napplet applications — so any Nostr client can embed sandboxed mini-apps by integrating @kehto/shell.
 
-## Current Milestone: v1.27 NAP-BLE Runtime Parity
+## Current Milestone: v1.28 NAP-WEBRTC Runtime Parity
 
-**Goal:** Add one missing recent `@napplet/nap` domain, `NAP-BLE`, end to end in Kehto: shell capability advertisement, runtime dispatch, reference service, Paja wiring, playground demo napplet, unit coverage, and Playwright proof.
+**Goal:** Add the remaining missing recent `@napplet/nap` domain, `NAP-WEBRTC`, end to end in Kehto: shell capability advertisement, runtime dispatch, reference service, Paja wiring, playground demo napplet, unit coverage, and Playwright proof.
 
 **Target features:**
-- **One NAP only:** v1.27 is scoped to `ble` / `NAP-BLE`; `webrtc` remains a future one-NAP milestone.
-- **Runtime-owned BLE sessions:** napplets can request `ble.open`, `ble.services`, `ble.read`, `ble.write`, `ble.subscribe`, `ble.unsubscribe`, and `ble.close`; the shell/runtime owns device selection, permission, session handles, attributes, notifications, close events, and policy.
-- **Reference service:** add a framework-agnostic `createBleService` in `@kehto/services` with host-provided hooks that return structured upstream-compatible results and deny unavailable actions safely.
-- **Capability and dispatch parity:** advertise `ble` only when the host wires a BLE backend, register `ble` in runtime NAP dispatch, and keep parity guards honest against `@napplet/nap`.
-- **Playground and Paja proof:** Paja wires deterministic in-memory BLE behavior; playground gains a small `ble-demo` napplet and Playwright coverage that proves representative BLE requests work through the real shell path.
+- **One NAP only:** v1.28 is scoped to `webrtc` / `NAP-WEBRTC`; `NAP-BLE` is complete in PR #75.
+- **Runtime-owned WebRTC sessions:** napplets can request `webrtc.open`, `webrtc.send`, and `webrtc.close`; the shell/runtime owns signaling, signing/encryption, SDP, ICE, peer connection lifecycle, session handles, and policy.
+- **Reference service:** add a framework-agnostic `createWebrtcService` in `@kehto/services` with host-provided hooks that return structured upstream-compatible results, route host-pushed events, and deny unavailable actions safely.
+- **Capability and dispatch parity:** advertise `webrtc` only when the host wires a WebRTC backend, register `webrtc` in runtime NAP dispatch, and remove it from Paja's deferred-domain metadata.
+- **Playground and Paja proof:** Paja wires deterministic in-memory WebRTC behavior; playground gains a small `webrtc-demo` napplet and Playwright coverage that proves representative WebRTC requests/events work through the real shell path.
 - **Release-ready coverage:** new unit/static/e2e tests pass; docs/package exports/changesets updated; branch pushed and PR opened when gates pass.
 
-**Key context:** Authoritative delta was inspected on 2026-06-22 from the packed npm tarball `@napplet/nap@0.20.0` (`dist/ble/types.d.ts`, `dist/ble/sdk.d.ts`) and `@napplet/core@0.20.0`. `NAP-LINK`, `NAP-COMMON`, `NAP-LISTS`, and `NAP-SERIAL` are stacked in PRs #71/#72/#73/#74; remaining missing domain after this milestone is `webrtc`. No new dependencies.
+**Key context:** Authoritative delta was inspected on 2026-06-23 from `@napplet/nap@0.20.0` / `@napplet/core@0.20.0` and the local `napplet` checkout (`packages/nap/src/webrtc`, `packages/core/src/types/webrtc.ts`). Prior parity milestones are stacked in PRs #71-#75; this should close the recent `@napplet/nap` domain parity set. No new dependencies.
 
 ## Latest Milestone: v1.18 Napplet Firewall (shipped 2026-06-15)
 

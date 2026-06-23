@@ -38,6 +38,7 @@ export type {
   ListsHooks,
   SerialHooks,
   BleHooks,
+  WebrtcHooks,
   CapabilityHooks,
   SessionEntry,
   NappKeyEntry,  // @deprecated — use SessionEntry
