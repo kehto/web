@@ -327,12 +327,24 @@ describe('resolveCapabilitiesNap', () => {
       expect(resolveCapabilitiesNap({ type: 'resource.cancel' })).toEqual({ senderCap: 'resource:fetch', recipientCap: null });
     });
 
+    it('resource.bytesMany -> sender resource:fetch (napplet-originated bulk request)', () => {
+      expect(resolveCapabilitiesNap({ type: 'resource.bytesMany' })).toEqual({ senderCap: 'resource:fetch', recipientCap: null });
+    });
+
     it('resource.bytes.result -> recipient resource:fetch (shell -> napplet push)', () => {
       expect(resolveCapabilitiesNap({ type: 'resource.bytes.result' })).toEqual({ senderCap: null, recipientCap: 'resource:fetch' });
     });
 
     it('resource.bytes.error -> recipient resource:fetch (shell -> napplet push)', () => {
       expect(resolveCapabilitiesNap({ type: 'resource.bytes.error' })).toEqual({ senderCap: null, recipientCap: 'resource:fetch' });
+    });
+
+    it('resource.bytesMany.result -> recipient resource:fetch (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNap({ type: 'resource.bytesMany.result' })).toEqual({ senderCap: null, recipientCap: 'resource:fetch' });
+    });
+
+    it('resource.bytesMany.error -> recipient resource:fetch (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNap({ type: 'resource.bytesMany.error' })).toEqual({ senderCap: null, recipientCap: 'resource:fetch' });
     });
 
     it('resource.unknown -> sender resource:fetch (default sender gate fallthrough)', () => {

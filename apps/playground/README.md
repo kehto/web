@@ -48,7 +48,7 @@ still reach the same handler (removal tracked as CLEANUP-01).
 | feed | identity, relay, inc | `identity.getPublicKey`, `relay.subscribe`, `inc.emit` (`profile:open`) | [apps/playground/napplets/feed/src/](./napplets/feed/src/) |
 | preferences | storage, theme | `storage.set`, `storage.get`, `theme.changed` allowlisted listener | [apps/playground/napplets/preferences/src/](./napplets/preferences/src/) |
 | profile-viewer | inc, relay | `inc.subscribe` (`profile:open`), `relay.subscribe` | [apps/playground/napplets/profile-viewer/src/](./napplets/profile-viewer/src/) |
-| resource-demo | resource, connect | `resource.bytes`, connect grant/CSP fixture | [apps/playground/napplets/resource-demo/src/](./napplets/resource-demo/src/) |
+| resource-demo | resource, connect | `resource.bytesMany`, connect grant/CSP fixture | [apps/playground/napplets/resource-demo/src/](./napplets/resource-demo/src/) |
 | theme-switcher | identity, relay, theme | discovers user/WoT/global theme events through NAP relay; `theme.set` shell theme request | [apps/playground/napplets/theme-switcher/src/](./napplets/theme-switcher/src/) |
 | toaster | notify | `notify.create`, `notify.list`, `notify.dismiss` | [apps/playground/napplets/toaster/src/](./napplets/toaster/src/) |
 
