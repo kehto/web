@@ -89,6 +89,13 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     frameContainerId: 'serial-demo-frame-container',
   },
   {
+    name: 'ble-demo',
+    label: 'ble-demo',
+    statusId: 'ble-demo-status',
+    aclId: 'ble-demo-acl',
+    frameContainerId: 'ble-demo-frame-container',
+  },
+  {
     name: 'cvm-relatr',
     label: 'cvm-relatr',
     statusId: 'cvm-relatr-status',

@@ -32,7 +32,7 @@ The legacy `/napplets/<name>/...` static route may still exist for compatibility
 
 ## Napplet Inventory
 
-The demo hosts 13 sandboxed napplets, each built independently under `apps/playground/napplets/<name>/` and loaded into a topology-rendered iframe at runtime. v1.3 shipped an 8-napplet demo; later milestones added resource, link, common, lists, serial, and CVM demos.
+The demo hosts 14 sandboxed napplets, each built independently under `apps/playground/napplets/<name>/` and loaded into a topology-rendered iframe at runtime. v1.3 shipped an 8-napplet demo; later milestones added resource, link, common, lists, serial, BLE, and CVM demos.
 
 The cross-napplet domain is `inc` (the NAP rename of the legacy `inc`). The four
 napplets below declare `requires` / call `supports()` with `inc`; the runtime
@@ -41,6 +41,7 @@ still reach the same handler (removal tracked as CLEANUP-01).
 
 | Napplet | Domain(s) | NAP methods exercised | File path |
 |---------|-----------|------------------------|-----------|
+| ble-demo | ble | `ble.open`, `ble.services`, `ble.read`, `ble.write`, `ble.subscribe`, `ble.unsubscribe`, `ble.close` | [apps/playground/napplets/ble-demo/src/](./napplets/ble-demo/src/) |
 | bot | inc, storage | `inc.emit`, `inc.subscribe`, `storage.get` | [apps/playground/napplets/bot/src/](./napplets/bot/src/) |
 | chat | inc, storage, relay | `inc.emit`, `inc.subscribe`, `storage.get`, `storage.set`, `relay.publish` | [apps/playground/napplets/chat/src/](./napplets/chat/src/) |
 | common-demo | common | `common.encodeNip19`, `common.decodeNip19`, `common.getProfile`, social action helpers | [apps/playground/napplets/common-demo/src/](./napplets/common-demo/src/) |

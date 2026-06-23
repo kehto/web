@@ -7,6 +7,7 @@ import type { LinkOpenMessage, LinkOpenResultMessage } from '@napplet/nap/link/t
 const REQUIRED_NAPS = ['link'] as const;
 const CAPABILITY_WAIT_MS = 5_000;
 const CAPABILITY_WAIT_INTERVAL_MS = 25;
+const LINK_REQUEST_TIMEOUT_MS = 15_000;
 
 const statusEl = document.getElementById('link-demo-status')!;
 const openedEl = document.getElementById('link-demo-opened')!;
@@ -53,7 +54,7 @@ function openLink(url: string, label: string): Promise<LinkOpenResultMessage> {
     const timeout = window.setTimeout(() => {
       window.removeEventListener('message', onMessage);
       reject(new Error(`link.open timed out for ${label}`));
-    }, 5_000);
+    }, LINK_REQUEST_TIMEOUT_MS);
 
     // Phase 58 raw-message allowlist: demo waits for one shell-owned NAP result.
     function onMessage(event: MessageEvent): void {

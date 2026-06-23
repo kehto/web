@@ -209,3 +209,47 @@ describe('runtime serial domain dispatch', () => {
     expect(ctx.sent).toHaveLength(0);
   });
 });
+
+describe('runtime ble domain dispatch', () => {
+  let ctx: MockRuntimeContext;
+  let runtime: Runtime;
+
+  beforeEach(() => {
+    ctx = createMockRuntimeAdapter();
+    runtime = createRuntime(ctx.hooks);
+    runtime.sessionRegistry.register(WINDOW_ID, session());
+  });
+
+  it('routes all ble request types to the service', () => {
+    const received: NappletMessage[] = [];
+    runtime.registerService('ble', {
+      descriptor: { name: 'ble', version: '1.0.0' },
+      handleMessage(_wid, msg) { received.push(msg); },
+    });
+
+    runtime.handleMessage(WINDOW_ID, { type: 'ble.open', id: 'bo-1', request: { acceptAllDevices: true } } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'ble.services', id: 'bs-1', sessionId: 'ble-1' } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'ble.read', id: 'br-1', sessionId: 'ble-1', target: { service: 'battery_service', characteristic: 'battery_level' } } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'ble.write', id: 'bw-1', sessionId: 'ble-1', target: { service: 'battery_service', characteristic: 'battery_level' }, data: [1] } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'ble.subscribe', id: 'bsub-1', sessionId: 'ble-1', target: { service: 'battery_service', characteristic: 'battery_level' } } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'ble.unsubscribe', id: 'bunsub-1', sessionId: 'ble-1', target: { service: 'battery_service', characteristic: 'battery_level' } } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'ble.close', id: 'bc-1', sessionId: 'ble-1' } as NappletMessage);
+
+    expect(received.map((m) => m.type)).toEqual([
+      'ble.open',
+      'ble.services',
+      'ble.read',
+      'ble.write',
+      'ble.subscribe',
+      'ble.unsubscribe',
+      'ble.close',
+    ]);
+  });
+
+  it('ble.open without a registered service: no throw, no envelope emitted', () => {
+    expect(() => {
+      runtime.handleMessage(WINDOW_ID, { type: 'ble.open', id: 'bo-2', request: { acceptAllDevices: true } } as NappletMessage);
+    }).not.toThrow();
+    expect(ctx.sent).toHaveLength(0);
+  });
+});

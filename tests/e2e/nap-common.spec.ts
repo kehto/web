@@ -11,7 +11,7 @@ test.use({ baseURL: 'http://localhost:4174' });
 test('common demo resolves NIP-19, profile, follows, and actions', async ({ page }) => {
   test.setTimeout(30_000);
   await demoBeforeEach(page);
-  await page.waitForSelector('#common-demo-frame-container iframe', { timeout: 10_000 });
+  await expect(page.locator('#common-demo-frame-container iframe')).toHaveCount(1, { timeout: 25_000 });
 
   const commonFrame = page.frameLocator('#common-demo-frame-container iframe');
   await expect(commonFrame.locator('#common-demo-status')).toContainText('encoded:npub; decoded:ok; profile:playground-common; follows:1; actions:ok', { timeout: 20_000 });

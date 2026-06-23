@@ -32,6 +32,7 @@ const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 29
 // Mirrors apps/playground/src/shell-host.ts:DEMO_NAPPLETS statusId fields.
 // Keep this list in sync if a new napplet is added.
 const NAPPLETS = [
+  { name: 'ble-demo',         statusId: 'ble-demo-status' },
   { name: 'bot',              statusId: 'bot-status' },
   { name: 'chat',             statusId: 'chat-status' },
   { name: 'common-demo',      statusId: 'common-demo-status' },

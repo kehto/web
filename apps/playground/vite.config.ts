@@ -208,16 +208,6 @@ function serveNappletGateway(): Plugin {
   };
 }
 
-// ---------------------------------------------------------------------------
-// NIP-5D content-addressed resolution simulation (dev + preview).
-//
-// Models the production path the runtime resolver expects: relays serve the
-// signed manifest event + the author's NIP-65 relay list; Blossom serves blobs
-// by sha256. The runtime verifies everything (signature, aggregate, blob hashes)
-// — this sim is never trusted. Static GitHub Pages gets equivalent files from
-// scripts/build-playground-pages.mjs.
-// ---------------------------------------------------------------------------
-
 const DEV_MANIFEST_PRIVKEY_HEX = '11'.repeat(32);
 
 function hexToBytesNode(hex: string): Uint8Array {

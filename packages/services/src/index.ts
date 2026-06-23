@@ -210,6 +210,12 @@ export type {
   SerialServiceOptions,
 } from './serial-service.js';
 
+export { createBleService } from './ble-service.js';
+export type {
+  BleServiceContext,
+  BleServiceOptions,
+} from './ble-service.js';
+
 export { createCommonService } from './common-service.js';
 export type {
   CommonServiceContext,

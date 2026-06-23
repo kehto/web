@@ -155,6 +155,24 @@ describe('buildShellCapabilities — domains array (conformant NAP-SHELL, TERM-0
     expect(caps.domains).not.toContain('serial');
   });
 
+  it('advertises ble in domains when BLE sessions are wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      ble: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).toContain('ble');
+  });
+
+  it('does NOT advertise ble in domains when BLE sessions report unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      ble: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('ble');
+  });
+
   it('does NOT advertise common in domains when common social helpers report unavailable', () => {
     const hooks: ShellAdapter = {
       ...baseHooks(),
@@ -438,6 +456,46 @@ describe('buildShellCapabilities — NAP-SERIAL advertisement in naps', () => {
     const caps = buildShellCapabilities(hooks);
     expect(caps.domains).not.toContain('serial');
     expect(caps.naps).not.toContain('serial');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// naps — NAP-BLE advertisement
+// ---------------------------------------------------------------------------
+
+describe('buildShellCapabilities — NAP-BLE advertisement in naps', () => {
+  it('does NOT advertise ble in naps when no BLE backend is wired', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    expect(caps.naps).not.toContain('ble');
+  });
+
+  it('does NOT advertise ble in naps when the BLE backend reports unavailable', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      ble: { isAvailable: () => false },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).not.toContain('ble');
+  });
+
+  it('advertises ble in naps when an available BLE backend is wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      ble: { isAvailable: () => true },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).toContain('ble');
+  });
+
+  it('removes ble from domains and naps when disabled by capability override', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      ble: { isAvailable: () => true },
+      capabilities: { disabledDomains: ['ble'] },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('ble');
+    expect(caps.naps).not.toContain('ble');
   });
 });
 

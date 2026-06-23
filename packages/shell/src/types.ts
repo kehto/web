@@ -204,6 +204,12 @@ export interface SerialHooks {
   isAvailable(): boolean;
 }
 
+/** Minimal BLE backend the shell advertises (NAP-BLE). */
+export interface BleHooks {
+  /** True when the host has shell-mediated BLE sessions wired. */
+  isAvailable(): boolean;
+}
+
 /**
  * Optional host override for the static shell.init capability handshake.
  *
@@ -413,6 +419,12 @@ export interface ShellAdapter {
    * registers the concrete service via `registerService('serial')`.
    */
   serial?: SerialHooks;
+  /**
+   * Optional shell-mediated BLE backend (NAP-BLE). When present and
+   * `isAvailable()` is true, the shell advertises `ble`. The host still
+   * registers the concrete service via `registerService('ble')`.
+   */
+  ble?: BleHooks;
   /**
    * Optional capability advertisement override. Omitted by production hosts.
    */
