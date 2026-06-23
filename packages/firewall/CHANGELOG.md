@@ -1,5 +1,11 @@
 # @kehto/firewall
 
+## 0.3.3
+
+### Patch Changes
+
+- 2dfdebb: Align Napplet dependency ranges with the `resource.bytesMany` package release.
+
 ## 0.3.2
 
 ### Patch Changes

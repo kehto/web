@@ -1,5 +1,17 @@
 # @kehto/paja
 
+## 0.3.1
+
+### Patch Changes
+
+- 2dfdebb: Align Napplet dependency ranges with the `resource.bytesMany` package release.
+- Updated dependencies [2dfdebb]
+  - @kehto/acl@0.13.1
+  - @kehto/firewall@0.3.3
+  - @kehto/runtime@0.14.1
+  - @kehto/services@0.12.1
+  - @kehto/shell@0.14.1
+
 ## 0.3.0
 
 ### Minor Changes
