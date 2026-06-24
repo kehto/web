@@ -1,5 +1,11 @@
 # @kehto/runtime
 
+## 0.15.0
+
+### Minor Changes
+
+- 4ab6f12: relay.query one-shot now resolves to matched events (NAP RelayQueryResultMessage) and delegates to the registered relay service, instead of returning a count.
+
 ## 0.14.1
 
 ### Patch Changes

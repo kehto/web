@@ -1,5 +1,12 @@
 # @kehto/shell
 
+## 0.14.2
+
+### Patch Changes
+
+- Updated dependencies [4ab6f12]
+  - @kehto/runtime@0.15.0
+
 ## 0.14.1
 
 ### Patch Changes

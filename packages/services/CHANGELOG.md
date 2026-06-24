@@ -1,5 +1,12 @@
 # @kehto/services
 
+## 0.12.3
+
+### Patch Changes
+
+- Updated dependencies [4ab6f12]
+  - @kehto/runtime@0.15.0
+
 ## 0.12.2
 
 ### Patch Changes
