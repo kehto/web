@@ -17,7 +17,7 @@ Use these pages when you need to choose or integrate one part of Kehto. Each pag
 | `@kehto/services` | [Services](./services.md) | Reference service handlers for runtime domains. |
 | `@kehto/nip` | [NIP utilities](./nip.md) | Unique Nostr NIP utilities, including NIP-5A/5D napplet artifact verification and Cache Storage reuse. |
 | `@kehto/wm` | [Window Management](./wm.md) | Structural window-management contracts. |
-| `@kehto/playground` | [Playground](./playground.md) | 13-napplet demo and verification target. |
+| `@kehto/playground` | [Playground](./playground.md) | 9-napplet demo and verification target. |
 
 ## Reading Order
 

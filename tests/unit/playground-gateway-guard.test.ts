@@ -3,39 +3,36 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const playgroundNapplets = [
-  'ble-demo',
   'bot',
   'chat',
-  'common-demo',
   'composer',
   'cvm-relatr',
   'feed',
-  'link-demo',
-  'lists-demo',
   'preferences',
   'profile-viewer',
   'resource-demo',
-  'serial-demo',
   'toaster',
+] as const;
+
+const disabledDemoNapplets = [
+  'ble-demo',
+  'common-demo',
+  'link-demo',
+  'lists-demo',
+  'serial-demo',
   'webrtc-demo',
 ] as const;
 
 const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly string[]> = {
-  'ble-demo': ['ble'],
   bot: ['inc', 'storage', 'theme'],
   chat: ['inc', 'storage', 'relay', 'theme'],
-  'common-demo': ['common'],
   composer: ['relay', 'theme'],
   'cvm-relatr': ['cvm', 'theme'],
   feed: ['identity', 'relay', 'inc', 'theme'],
-  'link-demo': ['link'],
-  'lists-demo': ['lists'],
   preferences: ['storage', 'theme'],
   'profile-viewer': ['inc', 'relay', 'theme'],
   'resource-demo': ['resource', 'theme'],
-  'serial-demo': ['serial'],
   toaster: ['notify', 'theme'],
-  'webrtc-demo': ['webrtc'],
 };
 
 function readRepoFile(path: string): string {
@@ -43,6 +40,17 @@ function readRepoFile(path: string): string {
 }
 
 describe('playground gateway artifact guard', () => {
+  it('keeps fake demo sources retained but out of the active playground registry', () => {
+    const definitions = readRepoFile('apps/playground/src/demo-definitions.ts');
+
+    for (const name of disabledDemoNapplets) {
+      expect(existsSync(join(process.cwd(), 'apps/playground/napplets', name)), `${name} source`).toBe(true);
+      expect(definitions, `${name} retained list`).toContain(`'${name}'`);
+      expect(definitions, `${name} not hosted`).not.toContain(`name: '${name}'`);
+      expect(definitions, `${name} no frame container`).not.toContain(`${name}-frame-container`);
+    }
+  });
+
   it('keeps every playground napplet on the shared single-file build config', () => {
     for (const name of playgroundNapplets) {
       const config = readRepoFile(`apps/playground/napplets/${name}/vite.config.ts`);

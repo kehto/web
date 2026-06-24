@@ -189,6 +189,7 @@ describe('current @napplet package graph guard', () => {
     for (const file of files) {
       if (file.startsWith('.planning/')) continue;
       const abs = join(process.cwd(), file);
+      if (!existsSync(abs)) continue;
       const content = readFileSync(abs, 'utf8');
       const lines = content.split(/\r?\n/);
       for (const [index, line] of lines.entries()) {

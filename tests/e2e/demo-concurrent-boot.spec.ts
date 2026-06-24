@@ -32,20 +32,15 @@ const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 29
 // Mirrors apps/playground/src/shell-host.ts:DEMO_NAPPLETS statusId fields.
 // Keep this list in sync if a new napplet is added.
 const NAPPLETS = [
-  { name: 'ble-demo',         statusId: 'ble-demo-status' },
   { name: 'bot',              statusId: 'bot-status' },
   { name: 'chat',             statusId: 'chat-status' },
-  { name: 'common-demo',      statusId: 'common-demo-status' },
   { name: 'composer',         statusId: 'composer-status' },
   { name: 'cvm-relatr',       statusId: 'cvm-relatr-status' },
   { name: 'feed',             statusId: 'feed-status' },
-  { name: 'lists-demo',       statusId: 'lists-demo-status' },
   { name: 'preferences',      statusId: 'preferences-status' },
   { name: 'profile-viewer',   statusId: 'profile-status' },
   { name: 'resource-demo',    statusId: 'resource-demo-status' },
-  { name: 'serial-demo',      statusId: 'serial-demo-status' },
   { name: 'toaster',          statusId: 'toaster-status' },
-  { name: 'webrtc-demo',      statusId: 'webrtc-demo-status' },
 ] as const;
 
 test('all DEMO_NAPPLETS reach identity-bound within 10s on concurrent boot at :4174', async ({ page }) => {

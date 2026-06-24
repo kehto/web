@@ -39,21 +39,15 @@ test.describe.configure({ mode: 'serial' });
 
 const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]/;
 const IDENTITY_BOUND_STATUS_IDS = [
-  'ble-demo-status',
   'bot-status',
   'chat-status',
   'composer-status',
-  'common-demo-status',
   'cvm-relatr-status',
   'feed-status',
-  'lists-demo-status',
-  'link-demo-status',
   'preferences-status',
   'profile-status',
   'resource-demo-status',
-  'serial-demo-status',
   'toaster-status',
-  'webrtc-demo-status',
 ] as const;
 
 test.describe('shell UI state surfaces (E2E-16)', () => {

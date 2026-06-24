@@ -45,6 +45,15 @@ export const DEMO_TOPOLOGY_SERVICE_NAMES: readonly string[] = [
   'theme',
 ] as const;
 
+export const DISABLED_DEMO_NAPPLET_NAMES = [
+  'ble-demo',
+  'common-demo',
+  'link-demo',
+  'lists-demo',
+  'serial-demo',
+  'webrtc-demo',
+] as const;
+
 export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
   { name: 'chat', label: 'chat', statusId: 'chat-status', aclId: 'chat-acl', frameContainerId: 'chat-frame-container' },
   { name: 'bot', label: 'bot', statusId: 'bot-status', aclId: 'bot-acl', frameContainerId: 'bot-frame-container' },
@@ -59,48 +68,6 @@ export const DEMO_NAPPLETS: DemoNappletDefinition[] = [
     statusId: 'resource-demo-status',
     aclId: 'resource-demo-acl',
     frameContainerId: 'resource-demo-frame-container',
-  },
-  {
-    name: 'link-demo',
-    label: 'link-demo',
-    statusId: 'link-demo-status',
-    aclId: 'link-demo-acl',
-    frameContainerId: 'link-demo-frame-container',
-  },
-  {
-    name: 'common-demo',
-    label: 'common-demo',
-    statusId: 'common-demo-status',
-    aclId: 'common-demo-acl',
-    frameContainerId: 'common-demo-frame-container',
-  },
-  {
-    name: 'lists-demo',
-    label: 'lists-demo',
-    statusId: 'lists-demo-status',
-    aclId: 'lists-demo-acl',
-    frameContainerId: 'lists-demo-frame-container',
-  },
-  {
-    name: 'serial-demo',
-    label: 'serial-demo',
-    statusId: 'serial-demo-status',
-    aclId: 'serial-demo-acl',
-    frameContainerId: 'serial-demo-frame-container',
-  },
-  {
-    name: 'ble-demo',
-    label: 'ble-demo',
-    statusId: 'ble-demo-status',
-    aclId: 'ble-demo-acl',
-    frameContainerId: 'ble-demo-frame-container',
-  },
-  {
-    name: 'webrtc-demo',
-    label: 'webrtc-demo',
-    statusId: 'webrtc-demo-status',
-    aclId: 'webrtc-demo-acl',
-    frameContainerId: 'webrtc-demo-frame-container',
   },
   {
     name: 'cvm-relatr',

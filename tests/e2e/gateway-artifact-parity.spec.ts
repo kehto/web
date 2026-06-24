@@ -4,39 +4,36 @@ import { demoBeforeEach } from './helpers/index.js';
 test.use({ baseURL: 'http://localhost:4174' });
 
 const expectedNapplets = [
-  'ble-demo',
   'bot',
   'chat',
   'composer',
-  'common-demo',
   'cvm-relatr',
   'feed',
-  'link-demo',
-  'lists-demo',
   'preferences',
   'profile-viewer',
   'resource-demo',
-  'serial-demo',
   'toaster',
+] as const;
+
+const disabledDemoNapplets = [
+  'ble-demo',
+  'common-demo',
+  'link-demo',
+  'lists-demo',
+  'serial-demo',
   'webrtc-demo',
 ] as const;
 
 const expectedRequires: Record<(typeof expectedNapplets)[number], readonly string[]> = {
-  'ble-demo': ['ble'],
   bot: ['inc', 'storage', 'theme'],
   chat: ['inc', 'storage', 'relay', 'theme'],
   composer: ['relay', 'theme'],
-  'common-demo': ['common'],
   'cvm-relatr': ['cvm', 'theme'],
   feed: ['identity', 'relay', 'inc', 'theme'],
-  'link-demo': ['link'],
-  'lists-demo': ['lists'],
   preferences: ['storage', 'theme'],
   'profile-viewer': ['inc', 'relay', 'theme'],
   'resource-demo': ['resource', 'theme'],
-  'serial-demo': ['serial'],
   toaster: ['notify', 'theme'],
-  'webrtc-demo': ['webrtc'],
 };
 
 test('playground loads all napplets via verified srcdoc with opaque origins', async ({ page }) => {
@@ -77,6 +74,10 @@ test('playground loads all napplets via verified srcdoc with opaque origins', as
     .filter((name): name is string => typeof name === 'string')
     .sort();
   expect(loadedNames).toEqual([...expectedNapplets].sort());
+  for (const name of disabledDemoNapplets) {
+    expect(loadedNames, `${name} must not be hosted in the playground`).not.toContain(name);
+    await expect(page.locator(`#${name}-frame-container iframe`)).toHaveCount(0);
+  }
 
   for (const frame of frames) {
     // srcdoc carries the verified bytes; no network src navigation.
