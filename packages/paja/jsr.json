@@ -11,7 +11,7 @@
     "@kehto/firewall": "jsr:@kehto/firewall@^0.3.3",
     "@kehto/nip": "jsr:@kehto/nip@^0.4.0",
     "@kehto/runtime": "jsr:@kehto/runtime@^0.14.1",
-    "@kehto/services": "jsr:@kehto/services@^0.12.1",
+    "@kehto/services": "jsr:@kehto/services@^0.12.2",
     "@kehto/shell": "jsr:@kehto/shell@^0.14.1",
     "@kehto/wm": "jsr:@kehto/wm@^0.0.1",
     "@napplet/core": "jsr:@napplet/core@^0.20.0",
