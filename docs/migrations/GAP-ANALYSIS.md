@@ -83,7 +83,7 @@ drop any non-array message — see Section 4 for the full silent failure invento
 | `OK` rejected | `["OK", "event-id", false, "blocked: relay:write capability denied"]` | `relay.publish.result` | `{"type":"relay.publish.result","id":"uuid","accepted":false,"message":"blocked: relay:write capability denied"}` |
 | `EOSE` | `["EOSE", "sub-1"]` | `relay.eose` | `{"type":"relay.eose","subId":"uuid"}` |
 | `CLOSED` | `["CLOSED", "sub-1", ""]` | `relay.closed` | `{"type":"relay.closed","subId":"uuid","message":""}` |
-| `COUNT` result | `["COUNT", "count-1", {"count":42}]` | `relay.query.result` | `{"type":"relay.query.result","id":"uuid","count":42}` |
+| `COUNT` result | `["COUNT", "count-1", {"count":42}]` | `relay.query.result` | `{"type":"relay.query.result","id":"uuid","count":42}` (**superseded** — canonical contract is `events: NostrEvent[]`, not `count`; see issue #94) |
 | `NOTICE` | `["NOTICE", "dropped messages..."]` | *(no envelope equivalent — operational diagnostic)* | Shell MAY use `{"type":"shell.notice","message":"..."}` |
 | kind 29002 signer response | `["EVENT", "sub-id", {"kind":29002,"tags":[["id","uuid"],["method","signEvent"],["result","{...}"]],...}]` | `signer.signEvent.result` | `{"type":"signer.signEvent.result","id":"uuid","event":{...}}` |
 | kind 29003 state response | `["EVENT", "__shell__", {"kind":29003,"tags":[["t","napplet:state-response"],["id","uuid"],["value","dark"],["found","true"]],...}]` | `storage.get.result` | `{"type":"storage.get.result","id":"uuid","value":"dark","found":true}` |

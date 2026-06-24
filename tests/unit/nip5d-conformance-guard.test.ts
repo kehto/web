@@ -313,4 +313,36 @@ describe('NIP-5D conformance static guards', () => {
       }
     }
   });
+
+  it('keeps handleRelayQuery wired to RelayQueryResultMessage.events contract (issue #94)', () => {
+    const relayHandlerSrc = readRepoFile('packages/runtime/src/relay-handler.ts');
+    const relayTypes = readRepoFile(`${installedNapDist}/relay/types.d.ts`);
+
+    // (a) relay-handler.ts replies with 'relay.query.result'
+    expect(relayHandlerSrc, 'relay-handler must emit relay.query.result').toContain(
+      "'relay.query.result'",
+    );
+
+    // (b) relay-handler.ts produces the canonical events field (not count)
+    //     The result object literal must carry `events` (the settled reply).
+    expect(relayHandlerSrc, 'relay-handler relay.query.result must carry events field').toContain(
+      '{ type: \'relay.query.result\', id, events }',
+    );
+
+    // (c) The legacy count-based shape must not appear in the query.result reply
+    //     Match the exact old object literal to avoid false positives on unrelated uses of 'count'.
+    expect(relayHandlerSrc, 'relay-handler must not emit count in relay.query.result').not.toContain(
+      "'relay.query.result', id, count",
+    );
+
+    // (d) handleRelayQuery consults relayServiceFrom — delegates to the registered relay service
+    expect(relayHandlerSrc, 'relay-handler handleRelayQuery must call relayServiceFrom').toContain(
+      'relayServiceFrom(context)',
+    );
+
+    // (e) Installed RelayQueryResultMessage interface carries 'events', not 'count'
+    const queryResultFields = interfaceFieldNames(relayTypes, 'RelayQueryResultMessage');
+    expect(queryResultFields, 'RelayQueryResultMessage must declare events').toContain('events');
+    expect(queryResultFields, 'RelayQueryResultMessage must not declare count').not.toContain('count');
+  });
 });

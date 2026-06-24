@@ -336,7 +336,6 @@ function handleRelayQuery(
   const id = m.id ?? '';
   const filters = m.filters ?? [];
 
-  // Start result set from buffered events that match the filters
   const seenIds = new Set<string>();
   const events: NostrEvent[] = [];
   for (const event of eventBuffer.getBufferedEvents()) {
