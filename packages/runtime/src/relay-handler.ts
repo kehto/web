@@ -332,11 +332,141 @@ function handleRelayQuery(
   windowId: string,
   m: RuntimeRelayMessage,
 ): void {
+  const { hooks, serviceRegistry, eventBuffer } = context;
   const id = m.id ?? '';
   const filters = m.filters ?? [];
-  let count = 0;
-  for (const event of context.eventBuffer.getBufferedEvents()) {
-    if (matchesAnyFilter(event, filters)) count++;
+
+  // Start result set from buffered events that match the filters
+  const seenIds = new Set<string>();
+  const events: NostrEvent[] = [];
+  for (const event of eventBuffer.getBufferedEvents()) {
+    if (matchesAnyFilter(event, filters) && !seenIds.has(event.id)) {
+      seenIds.add(event.id);
+      events.push(event);
+    }
   }
-  context.hooks.sendToNapplet(windowId, { type: 'relay.query.result', id, count } as NappletMessage);
+
+  let settled = false;
+  let fallbackTimer: unknown;
+
+  function settle(): void {
+    if (settled) return;
+    settled = true;
+    clearTimeout(fallbackTimer);
+    hooks.sendToNapplet(windowId, { type: 'relay.query.result', id, events } as NappletMessage);
+  }
+
+  // Shell-kind queries (kinds 29000-29999): buffer-only, no relay delegation
+  if (isShellKindQuery(filters)) {
+    settle();
+    return;
+  }
+
+  const relayService = relayServiceFrom(context);
+  const cacheService = !serviceRegistry['relay'] ? serviceRegistry['cache'] : undefined;
+
+  if (relayService) {
+    // Delegate to registered relay service via a synthesized relay.subscribe
+    const subId = '__query__:' + id;
+    const subscribeMsg: RuntimeRelayMessage = {
+      type: 'relay.subscribe',
+      id,
+      subId,
+      filters,
+    };
+    if (typeof m.relay === 'string' && m.relay.length > 0) {
+      subscribeMsg.relay = m.relay;
+    }
+
+    let openBackends = cacheService ? 2 : 1;
+
+    function onBackendEose(): void {
+      openBackends--;
+      if (openBackends <= 0) {
+        // Tear down the delegated subscriptions
+        const closeMsg = { type: 'relay.close', id, subId } as NappletMessage;
+        relayService.handleMessage(windowId, closeMsg, () => {});
+        if (cacheService) {
+          cacheService.handleMessage(windowId, closeMsg, () => {});
+        }
+        settle();
+      }
+    }
+
+    function makeCollector(): (resp: NappletMessage) => void {
+      return function collector(resp: NappletMessage): void {
+        const r = resp as RuntimeRelayMessage;
+        if (r.type === 'relay.event' && r.event && !seenIds.has(r.event.id)) {
+          seenIds.add(r.event.id);
+          events.push(r.event);
+        } else if (r.type === 'relay.eose') {
+          onBackendEose();
+        }
+      };
+    }
+
+    fallbackTimer = setTimeout(() => {
+      const closeMsg = { type: 'relay.close', id, subId } as NappletMessage;
+      relayService.handleMessage(windowId, closeMsg, () => {});
+      if (cacheService) {
+        cacheService.handleMessage(windowId, closeMsg, () => {});
+      }
+      settle();
+    }, 15_000);
+
+    relayService.handleMessage(windowId, subscribeMsg as NappletMessage, makeCollector());
+    if (cacheService) {
+      cacheService.handleMessage(windowId, subscribeMsg as NappletMessage, makeCollector());
+    }
+    return;
+  }
+
+  // No registered relay service — fall back to runtime hooks (cache + relay pool)
+  const cache = hooks.cache;
+  const pool = hooks.relayPool;
+
+  if (cache?.isAvailable()) {
+    cache.query(filters)
+      .then((cachedEvents) => {
+        for (const event of cachedEvents) {
+          if (!seenIds.has(event.id)) {
+            seenIds.add(event.id);
+            events.push(event);
+          }
+        }
+      })
+      .catch(() => {});
+  }
+
+  if (!pool?.isAvailable()) {
+    settle();
+    return;
+  }
+
+  const relayHint = typeof m.relay === 'string' && m.relay.length > 0 ? m.relay : undefined;
+  const relayUrls = relayHint ? [relayHint] : pool.selectRelayTier(filters);
+
+  let poolSubscription: { unsubscribe(): void } | undefined;
+
+  fallbackTimer = setTimeout(() => {
+    poolSubscription?.unsubscribe();
+    settle();
+  }, 15_000);
+
+  poolSubscription = pool.subscribe(filters, (item) => {
+    if (item === 'EOSE') {
+      clearTimeout(fallbackTimer);
+      poolSubscription?.unsubscribe();
+      settle();
+      return;
+    }
+    const event = item as NostrEvent;
+    if (!seenIds.has(event.id)) {
+      seenIds.add(event.id);
+      events.push(event);
+    }
+    if (cache?.isAvailable()) {
+      try { cache.store(event); } catch { return; }
+    }
+  }, relayUrls);
 }
