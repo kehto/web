@@ -3,39 +3,41 @@ import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const playgroundNapplets = [
-  'ble-demo',
   'bot',
   'chat',
-  'common-demo',
   'composer',
   'cvm-relatr',
   'feed',
-  'link-demo',
-  'lists-demo',
   'preferences',
   'profile-viewer',
   'resource-demo',
-  'serial-demo',
   'toaster',
+] as const;
+
+const retainedDisabledDemoNapplets = [
+  'ble-demo',
+  'common-demo',
+  'link-demo',
+  'lists-demo',
+  'serial-demo',
   'webrtc-demo',
 ] as const;
 
+const sourceCheckedNapplets = [
+  ...playgroundNapplets,
+  ...retainedDisabledDemoNapplets,
+] as const;
+
 const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly string[]> = {
-  'ble-demo': ['ble'],
   bot: ['inc', 'storage', 'theme'],
   chat: ['inc', 'storage', 'relay', 'theme'],
-  'common-demo': ['common'],
   composer: ['relay', 'theme'],
   'cvm-relatr': ['cvm', 'theme'],
   feed: ['identity', 'relay', 'inc', 'theme'],
-  'link-demo': ['link'],
-  'lists-demo': ['lists'],
   preferences: ['storage', 'theme'],
   'profile-viewer': ['inc', 'relay', 'theme'],
   'resource-demo': ['resource', 'theme'],
-  'serial-demo': ['serial'],
   toaster: ['notify', 'theme'],
-  'webrtc-demo': ['webrtc'],
 };
 
 const rawListenerFiles = [
@@ -160,7 +162,7 @@ function listFiles(root: string): string[] {
 function nappletSourceFiles(): string[] {
   return [
     join(process.cwd(), 'apps/playground/src/theme.ts'),
-    ...playgroundNapplets.flatMap((name) =>
+    ...sourceCheckedNapplets.flatMap((name) =>
       listFiles(join(process.cwd(), 'apps/playground/napplets', name, 'src'))
         .filter((file) => /\.[cm]?tsx?$/.test(file)),
     ),

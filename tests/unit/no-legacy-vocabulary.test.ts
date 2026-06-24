@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { extname } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -70,6 +70,7 @@ describe('legacy vocabulary guard', () => {
 
     for (const file of trackedFiles) {
       if (!shouldScan(file)) continue;
+      if (!existsSync(file)) continue;
       for (const term of terms) {
         if (file.includes(term)) violations.push(file);
       }

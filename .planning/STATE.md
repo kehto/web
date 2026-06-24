@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.22
 milestone_name: Single-Window Development Runtime
 status: complete
-last_updated: "2026-06-23T00:00:00.000Z"
-last_activity: 2026-06-23
+last_updated: "2026-06-24T00:00:00.000Z"
+last_activity: 2026-06-24
 progress:
   total_phases: 5
   completed_phases: 5
@@ -28,7 +28,7 @@ Phase: 94 — Coverage, Docs, Release Readiness, and PR
 Plan: 94-01 — complete
 Status: v1.22 complete; branch pushed and PR #64 opened
 
-Last activity: 2026-06-23 — Changed release publishing workflows to rely on main CI for tests, avoiding duplicate Playwright runs during publish/release jobs.
+Last activity: 2026-06-24 — Disabled fake playground demo napplets from the active registry while retaining source dirs and absence guards.
 
 ## Performance Metrics
 
@@ -102,6 +102,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260623-fh2 | Align Kehto Napplet dependencies with bytesMany release | 2026-06-23 | fix/napplet-bytesmany-deps | [260623-fh2-align-kehto-napplet-dependencies-with-by](./quick/260623-fh2-align-kehto-napplet-dependencies-with-by/) |
 | 260624-1i5 | Resolve kehto/web#88 by allowing createBleService host hooks to emit ble.event notifications | 2026-06-23 | dbd6810 | [260624-1i5-resolve-kehto-web-88-createbleservice-ho](./quick/260624-1i5-resolve-kehto-web-88-createbleservice-ho/) |
 | 260624-26b | Avoid duplicate Playwright release runs by triggering Publish after successful main CI and removing Release test reruns | 2026-06-23 | f64938d | [260624-26b-avoid-duplicate-playwright-tests-by-chai](./quick/260624-26b-avoid-duplicate-playwright-tests-by-chai/) |
+| 260624-34q | Hide fake playground demo napplets from the active registry while retaining source directories | 2026-06-24 | fix/hide-fake-playground-napplets | [260624-34q-hide-fake-playground-napplets-from-runti](./quick/260624-34q-hide-fake-playground-napplets-from-runti/) |
 
 ## Session Continuity
 

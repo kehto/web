@@ -33,7 +33,7 @@ Kehto works with the `@napplet` packages. `@napplet/core`, `@napplet/shim`, `@na
 | `@kehto/services` | Reference service handlers for identity, relay, keys, media, notify, config, resource, cache, theme, and audio. |
 | `@kehto/nip` | Framework-agnostic unique Nostr NIP utilities (NIP-51 lists, NIP-65 outbox, NIP-66 relay discovery, NIP-89 app handlers). |
 | `@kehto/wm` | Structural window-management contracts for consumer-owned layout strategies. |
-| `@kehto/playground` | 13-napplet browser demo and Playwright verification target. |
+| `@kehto/playground` | 9-napplet browser demo and Playwright verification target. |
 
 ## Current Documentation Shape
 
