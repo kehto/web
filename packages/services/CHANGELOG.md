@@ -1,5 +1,11 @@
 # @kehto/services
 
+## 0.12.2
+
+### Patch Changes
+
+- dbd6810: Add `BleServiceContext.emit()` so `createBleService()` host hooks can forward NAP-BLE event notifications to the requesting napplet.
+
 ## 0.12.1
 
 ### Patch Changes
