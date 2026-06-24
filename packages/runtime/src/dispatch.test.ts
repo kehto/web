@@ -257,7 +257,7 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect((err as any).error).toContain('invalid event');
     });
 
-    it('relay.query sends relay.query.result with count', () => {
+    it('relay.query sends relay.query.result with events array (no count field)', () => {
       runtime.handleMessage(WINDOW_ID, {
         type: 'relay.query',
         id: 'req-q',
@@ -267,10 +267,11 @@ describe('NIP-5D Envelope Dispatch', () => {
       const result = findEnvelopeResponse(ctx.sent, 'relay.query.result');
       expect(result).toBeDefined();
       expect((result as any).id).toBe('req-q');
-      expect(typeof (result as any).count).toBe('number');
+      expect(Array.isArray((result as any).events)).toBe(true);
+      expect((result as any).count).toBeUndefined();
     });
 
-    it('relay.query count increases after relay.publish', () => {
+    it('relay.query events contains published event after relay.publish', () => {
       const event = {
         id: 'd'.repeat(64),
         pubkey: 'e'.repeat(64),
@@ -294,7 +295,112 @@ describe('NIP-5D Envelope Dispatch', () => {
       } as NappletMessage);
 
       const result = findEnvelopeResponse(ctx.sent, 'relay.query.result');
-      expect((result as any).count).toBeGreaterThan(0);
+      expect(Array.isArray((result as any).events)).toBe(true);
+      expect((result as any).events.length).toBeGreaterThan(0);
+      expect((result as any).events.some((e: any) => e.id === event.id)).toBe(true);
+    });
+
+    it('relay.query with registered relay-pool service: service receives relay.subscribe, emits events, then relay.close is sent', async () => {
+      const ctx2 = createMockRuntimeAdapter();
+      const runtime2 = createRuntime(ctx2.hooks);
+      runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+
+      const serviceLog: Array<{ type: string; subId?: string }> = [];
+      const fakeEvent = {
+        id: 'a1'.repeat(32),
+        pubkey: 'b2'.repeat(32),
+        created_at: Math.floor(Date.now() / 1000),
+        kind: 1,
+        tags: [],
+        content: 'from-service',
+        sig: 'c3'.repeat(64),
+      };
+
+      runtime2.registerService('relay-pool', {
+        descriptor: { name: 'relay-pool', version: '1.0.0' },
+        handleMessage(_wid: string, msg: NappletMessage, send: (m: NappletMessage) => void) {
+          const m = msg as NappletMessage & { subId?: string };
+          serviceLog.push({ type: msg.type, subId: m.subId });
+          if (msg.type === 'relay.subscribe') {
+            // emit one event then EOSE
+            send({ type: 'relay.event', subId: m.subId, event: fakeEvent } as NappletMessage);
+            send({ type: 'relay.eose', subId: m.subId } as NappletMessage);
+          }
+          if (msg.type === 'relay.close') {
+            serviceLog.push({ type: 'relay.close', subId: m.subId });
+          }
+        },
+      });
+
+      runtime2.handleMessage(WINDOW_ID, {
+        type: 'relay.query',
+        id: 'req-q-svc',
+        filters: [{ kinds: [1] }],
+      } as NappletMessage);
+
+      // Allow microtasks to settle
+      await Promise.resolve();
+
+      const result = findEnvelopeResponse(ctx2.sent, 'relay.query.result');
+      expect(result).toBeDefined();
+      expect((result as any).id).toBe('req-q-svc');
+      expect(Array.isArray((result as any).events)).toBe(true);
+      // Service-emitted event must appear in result
+      expect((result as any).events.some((e: any) => e.id === fakeEvent.id)).toBe(true);
+      // relay.subscribe was sent to the service
+      expect(serviceLog.some((l) => l.type === 'relay.subscribe')).toBe(true);
+      // relay.close was sent to tear down the subscription
+      expect(serviceLog.some((l) => l.type === 'relay.close')).toBe(true);
+    });
+
+    it('relay.query deduplicates events present in both buffer and service result', async () => {
+      const ctx2 = createMockRuntimeAdapter();
+      const runtime2 = createRuntime(ctx2.hooks);
+      runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+
+      const sharedEvent = {
+        id: 'dead'.repeat(16),
+        pubkey: 'beef'.repeat(16),
+        created_at: Math.floor(Date.now() / 1000),
+        kind: 1,
+        tags: [],
+        content: 'shared',
+        sig: 'cafe'.repeat(32),
+      };
+
+      // Publish the event so it lands in the buffer
+      runtime2.handleMessage(WINDOW_ID, {
+        type: 'relay.publish',
+        id: 'req-pub-dedup',
+        event: sharedEvent,
+      } as NappletMessage);
+
+      // Register a relay-pool service that also emits the same event
+      runtime2.registerService('relay-pool', {
+        descriptor: { name: 'relay-pool', version: '1.0.0' },
+        handleMessage(_wid: string, msg: NappletMessage, send: (m: NappletMessage) => void) {
+          const m = msg as NappletMessage & { subId?: string };
+          if (msg.type === 'relay.subscribe') {
+            send({ type: 'relay.event', subId: m.subId, event: sharedEvent } as NappletMessage);
+            send({ type: 'relay.eose', subId: m.subId } as NappletMessage);
+          }
+        },
+      });
+
+      ctx2.sent.length = 0;
+      runtime2.handleMessage(WINDOW_ID, {
+        type: 'relay.query',
+        id: 'req-q-dedup',
+        filters: [{ kinds: [1] }],
+      } as NappletMessage);
+
+      await Promise.resolve();
+
+      const result = findEnvelopeResponse(ctx2.sent, 'relay.query.result');
+      expect(Array.isArray((result as any).events)).toBe(true);
+      // The shared event appears exactly once despite being in both buffer and service
+      const matchingEvents = (result as any).events.filter((e: any) => e.id === sharedEvent.id);
+      expect(matchingEvents).toHaveLength(1);
     });
   });
 
