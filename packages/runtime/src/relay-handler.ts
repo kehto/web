@@ -366,6 +366,7 @@ function handleRelayQuery(
   const cacheService = !serviceRegistry['relay'] ? serviceRegistry['cache'] : undefined;
 
   if (relayService) {
+    const svc = relayService;
     // Delegate to registered relay service via a synthesized relay.subscribe
     const subId = '__query__:' + id;
     const subscribeMsg: RuntimeRelayMessage = {
@@ -385,7 +386,7 @@ function handleRelayQuery(
       if (openBackends <= 0) {
         // Tear down the delegated subscriptions
         const closeMsg = { type: 'relay.close', id, subId } as NappletMessage;
-        relayService.handleMessage(windowId, closeMsg, () => {});
+        svc.handleMessage(windowId, closeMsg, () => {});
         if (cacheService) {
           cacheService.handleMessage(windowId, closeMsg, () => {});
         }
@@ -407,14 +408,14 @@ function handleRelayQuery(
 
     fallbackTimer = setTimeout(() => {
       const closeMsg = { type: 'relay.close', id, subId } as NappletMessage;
-      relayService.handleMessage(windowId, closeMsg, () => {});
+      svc.handleMessage(windowId, closeMsg, () => {});
       if (cacheService) {
         cacheService.handleMessage(windowId, closeMsg, () => {});
       }
       settle();
     }, 15_000);
 
-    relayService.handleMessage(windowId, subscribeMsg as NappletMessage, makeCollector());
+    svc.handleMessage(windowId, subscribeMsg as NappletMessage, makeCollector());
     if (cacheService) {
       cacheService.handleMessage(windowId, subscribeMsg as NappletMessage, makeCollector());
     }
