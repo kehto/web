@@ -1,14 +1,22 @@
 name: Publish
 
-# Mirrors napplet/web's Changesets automation:
-# - feature PR merges with pending .changeset/*.md files update/create a
-#   "Version Packages" PR against main
-# - merging that version PR publishes npm packages, then publishes matching JSR
-#   packages through OIDC
-# - CI owns validation on the main commit; this workflow starts only after CI
-#   succeeds and does not rerun unit/docs/Playwright gates.
+# Changesets "Version Packages" PR automation (versioning only — does NOT publish).
 #
-# The tag-triggered release.yml remains as a manual/tag fallback path.
+# - A feature PR merging with pending .changeset/*.md files makes this workflow
+#   create or update the "Version Packages" PR against main (changeset version +
+#   jsr.json sync).
+# - Merging that Version Packages PR bumps package.json/jsr.json and writes
+#   changelogs. It does NOT publish here.
+#
+# Publishing to npm + JSR is owned entirely by the tag-triggered release.yml,
+# which holds the npm OIDC Trusted Publisher. To publish a release after the
+# Version Packages PR merges, push a `v*` tag (or run release.yml via
+# workflow_dispatch). npm Trusted Publishing keys on the workflow filename, so
+# only one workflow can publish a given package — keeping publishing in
+# release.yml avoids the 404 that the unregistered workflow gets.
+#
+# CI owns validation on the main commit; this workflow starts only after CI
+# succeeds and does not rerun unit/docs/Playwright gates.
 
 on:
   workflow_run:
@@ -21,13 +29,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish:
+  version:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
-      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,28 +48,16 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          registry-url: 'https://registry.npmjs.org'
 
       - run: pnpm install --frozen-lockfile
 
-      # Trusted Publishing is implemented in npm >= 11.5.1. Node 22 can ship an
-      # older npm, so upgrade before changeset publish shells out to npm.
-      - name: Upgrade npm to an OIDC-capable version
-        run: npm install -g npm@latest
-
-      - name: Create Release Pull Request or Publish to npm
-        id: changesets
+      # No `publish:` input — this workflow only opens/updates the Version
+      # Packages PR. Publishing is release.yml's responsibility (it owns the npm
+      # OIDC Trusted Publisher). With no pending changesets, changesets/action is
+      # a no-op here instead of attempting an unauthorized npm publish.
+      - name: Create or update the Version Packages PR
         uses: changesets/action@v1
         with:
           version: pnpm version-packages
-          publish: pnpm publish-packages
         env:
           GITHUB_TOKEN: ${{ secrets.CHANGESETS_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
-
-      - name: Sync jsr.json versions
-        if: steps.changesets.outputs.published == 'true'
-        run: node scripts/sync-jsr-versions.mjs
-
-      - name: Publish to JSR (topologically ordered)
-        if: steps.changesets.outputs.published == 'true'
-        run: pnpm -r --workspace-concurrency=1 --filter='./packages/*' exec npx jsr publish --allow-slow-types --allow-dirty
