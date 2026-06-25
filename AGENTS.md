@@ -128,29 +128,33 @@ dirty files left in the tree.
 
 ### 6. Releases (changesets)
 
-Publishing runs from GitHub Actions. The primary path is `publish.yml`, which mirrors
-napplet/web's Changesets automation on `push` to `main`: feature PR merges with pending
-changesets create or update a Version Packages PR; merging that Version Packages PR
-publishes to **npm and JSR** in one run (both via OIDC, no local tokens). The existing
-`release.yml` tag/manual workflow remains a fallback for explicit `v*` tag releases or
-manual re-publishes. Do not run `pnpm publish-packages` locally.
+Publishing runs from GitHub Actions, split across two workflows. `publish.yml` handles
+**versioning only** (the Version Packages PR); `release.yml` is the **sole publisher**
+(npm + JSR via OIDC). They are split because npm Trusted Publishing keys on the workflow
+filename — only one workflow may publish a given package, and `release.yml` holds that
+registration. Do not run `pnpm publish-packages` locally.
 
 1. Add a changeset for each package whose **shipped output** changed. A test- or
    comment-only change ships nothing — do not bump it. On 0.x, a breaking change is a
    `minor` bump. Feature/fix PRs must keep their `.changeset/*.md` files intact.
-2. After the feature PR merges, `publish.yml` runs `changesets/action@v1`. If pending
-   changesets exist, it runs `pnpm version-packages` and opens/updates the Version
-   Packages PR. That PR consumes/deletes `.changeset/*.md`, bumps `package.json`, syncs
-   `jsr.json`, and writes changelog text into package `CHANGELOG.md` files.
-3. Merge the Version Packages PR after CI is green. `publish.yml` re-validates build,
-   type-check, unit, docs, and e2e, then runs `pnpm publish-packages` (npm) followed by
-   topologically ordered `npx jsr publish` for every `packages/*`.
-4. The `release.yml` fallback still accepts `v*` tag pushes and manual
-   `workflow_dispatch` for explicit re-publish/recovery paths.
-5. Every `@kehto/*` package needs an OIDC Trusted Publisher registered on npm **and** a
-   JSR package linked to `kehto/web` under the `@kehto` scope, or that registry's publish
-   404s. Confirm new packages are registered on both before relying on the automated
-   publish.
+2. After the feature PR merges (and CI is green), `publish.yml` runs `changesets/action@v1`
+   with **no `publish:` input**. If pending changesets exist, it runs `pnpm version-packages`
+   and opens/updates the Version Packages PR. That PR consumes/deletes `.changeset/*.md`,
+   bumps `package.json`, syncs `jsr.json`, and writes changelog text into package
+   `CHANGELOG.md` files. `publish.yml` never publishes.
+3. Merge the Version Packages PR after CI is green. Then trigger the release: push the
+   `v<next>` tag (or run `release.yml` via `workflow_dispatch`). `release.yml` builds,
+   type-checks, runs `changeset publish` (npm) via OIDC, then topologically ordered
+   `npx jsr publish` for every `packages/*`.
+4. `release.yml` also accepts manual `workflow_dispatch` for recovery (e.g. finishing a
+   partial release, or re-publishing JSR after npm). npm/JSR skip already-published
+   versions, so re-dispatch is safe.
+5. Every `@kehto/*` package needs an OIDC Trusted Publisher registered on npm for the
+   **`release.yml`** workflow (repo `kehto/web`) **and** a JSR package linked to `kehto/web`
+   under the `@kehto` scope, or that registry's publish 404s. A 404 on a `PUT` during
+   publish is npm's *unauthorized* response (not "missing") — almost always a Trusted
+   Publisher that doesn't match the publishing workflow. Confirm new packages are
+   registered on both before relying on the automated publish.
 
 ## Project Overview
 
@@ -190,11 +194,20 @@ pnpm test:e2e       # Playwright e2e (builds first; CI runs workers=1)
 
 ## Publishing
 
-Publishing runs from GitHub Actions, not from local `pnpm publish-packages`. The normal
-path is `publish.yml`: merging feature PRs with changesets creates/updates a Version
-Packages PR, and merging that PR publishes to **npm** (`changeset publish`) and **JSR**
-(`npx jsr publish` per `packages/*`), both via OIDC. `release.yml` remains available for
-explicit `v*` tag releases and manual recovery dispatches.
+Publishing runs from GitHub Actions, not from local `pnpm publish-packages`. The flow is
+split across two workflows:
+
+- **`publish.yml` (versioning only):** after CI succeeds on `main`, merging feature PRs
+  with changesets makes it create/update the **Version Packages** PR (`changeset version`
+  + `jsr.json` sync). It does **not** publish.
+- **`release.yml` (publishing):** publishes to **npm** (`changeset publish`) and **JSR**
+  (`npx jsr publish` per `packages/*`), both via npm/JSR **OIDC Trusted Publishing**. It is
+  the **only** workflow that publishes, because npm Trusted Publishing keys on the workflow
+  filename — only one workflow can publish a given package, and `release.yml` holds that
+  registration. Triggered by pushing a `v*` tag, or via `workflow_dispatch` (recovery).
+
+So a release is: merge feature PR → `publish.yml` opens the Version Packages PR → merge it
+→ push the `v<next>` tag (or dispatch `release.yml`) → `release.yml` publishes npm + JSR.
 
 ```bash
 pnpm version-packages  # local dry-run/inspection only; publish.yml runs this for release PRs
