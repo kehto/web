@@ -4,6 +4,14 @@ import {
   renderNappletNamespacePrelude,
 } from './napplet-namespace.js';
 
+function runPrelude(script: string, target: { napplet?: Record<string, unknown> }): void {
+  const source = script.match(/<script[^>]*>([\s\S]*)<\/script>/)?.[1];
+  if (!source) {
+    throw new Error('missing namespace prelude source');
+  }
+  new Function('window', source)(target);
+}
+
 describe('NIP-5D napplet namespace prelude', () => {
   it('renders available bare NAP domains without legacy supports helpers', () => {
     const script = renderNappletNamespacePrelude({
@@ -49,5 +57,33 @@ describe('NIP-5D napplet namespace prelude', () => {
 
     expect(out).toContain('<head><script data-kehto-nip5d-injection>');
     expect(out.indexOf('data-kehto-nip5d-injection')).toBeLessThan(out.indexOf('<body>'));
+  });
+
+  it('filters napplet-owned namespace assignments through the injected domain allowlist', () => {
+    const target: { napplet?: Record<string, unknown> } = {};
+    const relay = { subscribe: () => undefined };
+    const upload = { put: () => undefined };
+    const shell = { supports: () => true };
+
+    runPrelude(renderNappletNamespacePrelude({ domains: ['relay', 'identity'] }), target);
+
+    expect(target.napplet).toMatchObject({
+      relay: {},
+      identity: {},
+    });
+    expect(target.napplet?.upload).toBeUndefined();
+
+    target.napplet = {
+      relay,
+      upload,
+      shell,
+    };
+
+    expect(target.napplet?.relay).toBe(relay);
+    expect(target.napplet?.identity).toEqual({});
+    expect(target.napplet?.shell).toBe(shell);
+    expect(target.napplet?.upload).toBeUndefined();
+    expect(Object.keys(target.napplet ?? {})).toEqual(['relay', 'identity', 'shell']);
+    expect(target.napplet?.__kehtoInjectedDomains).toEqual(['relay', 'identity']);
   });
 });
