@@ -9,6 +9,7 @@ Added regression coverage proving authored napplet `window.napplet` assignments 
 ## Behavior Proven
 
 - Allowed domain implementations supplied by the napplet survive assignment.
+- Pre-existing allowed domain implementations survive prelude installation.
 - Unexposed domains supplied by the napplet are stripped.
 - The transition-only legacy `shell` object remains available when supplied by the current shim.
 - The injected domain diagnostic list remains stable after assignment.

@@ -60,17 +60,21 @@ describe('NIP-5D napplet namespace prelude', () => {
   });
 
   it('filters napplet-owned namespace assignments through the injected domain allowlist', () => {
-    const target: { napplet?: Record<string, unknown> } = {};
     const relay = { subscribe: () => undefined };
+    const existingRelay = { query: () => undefined };
     const upload = { put: () => undefined };
     const shell = { supports: () => true };
+    const target: { napplet?: Record<string, unknown> } = {
+      napplet: {
+        relay: existingRelay,
+        upload,
+      },
+    };
 
     runPrelude(renderNappletNamespacePrelude({ domains: ['relay', 'identity'] }), target);
 
-    expect(target.napplet).toMatchObject({
-      relay: {},
-      identity: {},
-    });
+    expect(target.napplet?.relay).toBe(existingRelay);
+    expect(target.napplet?.identity).toEqual({});
     expect(target.napplet?.upload).toBeUndefined();
 
     target.napplet = {
