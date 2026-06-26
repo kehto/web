@@ -12,7 +12,7 @@
     "@kehto/nip": "jsr:@kehto/nip@^0.4.0",
     "@kehto/runtime": "jsr:@kehto/runtime@^0.15.0",
     "@kehto/services": "jsr:@kehto/services@^0.12.3",
-    "@kehto/shell": "jsr:@kehto/shell@^0.14.2",
+    "@kehto/shell": "jsr:@kehto/shell@^0.14.3",
     "@kehto/wm": "jsr:@kehto/wm@^0.0.1",
     "@napplet/core": "jsr:@napplet/core@^0.20.0",
     "@napplet/nap": "jsr:@napplet/nap@^0.20.0",
