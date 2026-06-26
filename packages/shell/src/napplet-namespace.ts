@@ -1,3 +1,13 @@
+/**
+ * Options for rendering the host-owned NIP-5D `window.napplet` namespace prelude.
+ *
+ * @example
+ * ```ts
+ * const options: NappletNamespacePreludeOptions = {
+ *   domains: ['shell', 'relay', 'identity'],
+ * };
+ * ```
+ */
 export interface NappletNamespacePreludeOptions {
   /**
    * Bare NAP domain names the shell exposes to this napplet.
@@ -29,6 +39,12 @@ function scriptJson(value: unknown): string {
  *
  * @param options - Domain availability to inject.
  * @returns An inline script tag suitable for `srcdoc` prelude insertion.
+ * @example
+ * ```ts
+ * const prelude = renderNappletNamespacePrelude({
+ *   domains: ['shell', 'relay', 'identity'],
+ * });
+ * ```
  */
 export function renderNappletNamespacePrelude(options: NappletNamespacePreludeOptions): string {
   const domains = uniqueBareDomains(options.domains);
@@ -41,6 +57,13 @@ export function renderNappletNamespacePrelude(options: NappletNamespacePreludeOp
  * @param html - Verified napplet artifact HTML.
  * @param options - Domain availability to inject.
  * @returns HTML with the prelude inside `<head>` when possible.
+ * @example
+ * ```ts
+ * const srcdoc = injectNappletNamespacePrelude(verifiedHtml, {
+ *   domains: ['shell', 'relay', 'identity'],
+ * });
+ * iframe.srcdoc = srcdoc;
+ * ```
  */
 export function injectNappletNamespacePrelude(
   html: string,
@@ -76,20 +99,6 @@ function nappletNamespacePrelude(domains: string[]): void {
         writable: true,
       });
     }
-    if (Object.prototype.hasOwnProperty.call(candidate, 'shell')) {
-      Object.defineProperty(next, 'shell', {
-        value: candidate.shell,
-        enumerable: true,
-        configurable: true,
-        writable: true,
-      });
-    }
-    Object.defineProperty(next, '__kehtoInjectedDomains', {
-      value: Object.freeze([...domains]),
-      enumerable: false,
-      configurable: true,
-      writable: false,
-    });
     return next;
   }
 

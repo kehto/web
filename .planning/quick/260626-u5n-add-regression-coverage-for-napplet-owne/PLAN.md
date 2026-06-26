@@ -8,7 +8,7 @@ Add regression coverage for napplet-owned `window.napplet` assignment against th
 
 1. Execute the generated namespace prelude in a test-local window object.
 2. Simulate authored napplet code assigning its own `window.napplet` object with both allowed and unexposed domains.
-3. Verify allowed domain implementations survive, unexposed domains are stripped, and injected diagnostics remain stable.
+3. Verify allowed domain implementations survive, unexposed domains are stripped, and no private diagnostic properties are exposed.
 
 ## Verification
 

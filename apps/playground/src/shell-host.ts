@@ -507,7 +507,10 @@ export async function loadNapplet(
   // the document because srcdoc iframes have an opaque origin and no HTTP response.
   await options.beforeRender?.({ dTag, aggregateHash });
   const origins = STATIC_ORIGIN_ALLOWLIST.get(dTag) ?? [];
-  const exposedDomains = getShellCapabilities()?.domains.filter((domain) => !domain.startsWith('perm:')) ?? [];
+  const exposedDomains = [
+    'shell',
+    ...(getShellCapabilities()?.domains.filter((domain) => !domain.startsWith('perm:')) ?? []),
+  ];
   iframe.srcdoc = injectNappletNamespacePrelude(
     injectCspMeta(resolved.indexHtml, origins),
     { domains: exposedDomains },
