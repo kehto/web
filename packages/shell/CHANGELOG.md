@@ -1,5 +1,11 @@
 # @kehto/shell
 
+## 0.14.3
+
+### Patch Changes
+
+- bba7941: Resend `shell.init` when a reloaded iframe reuses the same logical `windowId`.
+
 ## 0.14.2
 
 ### Patch Changes
