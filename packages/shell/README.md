@@ -21,6 +21,7 @@ The primary entry point is `createShellBridge()` — it owns the postMessage lis
 Current draft behaviors this package enforces:
 
 - The shell does not inject a host-provided nostr object into napplets — NIP-5D explicitly forbids napplet-visible signing. Napplets call `relay.publish` / `relay.publishEncrypted` and the shell mediates the signing flow internally (NIP-44 default, NIP-04 opt-in for encrypted envelopes).
+- `injectNappletNamespacePrelude()` prototypes the next NIP-5D injected-domain bootstrap: hosts prepend a `window.napplet` prelude to `srcdoc` outside the verified artifact bytes, so available NAP domain objects exist before napplet-authored scripts run.
 - `shell.supports(capability)` uses the `perm:<permission>` namespace for sandbox permissions, not the v1.1 bare capability list.
 - Five optional per-domain proxies — `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` — can be composed between napplet and runtime to intercept or augment traffic per NAP. They are NOT wired by default (Kehto's runtime already owns dispatch for the currently supported domains); they exist as host-app composition seams.
 - The keys-forwarder pumps host keydown events into `keys.forward` envelopes for napplets that hold the `keys:forward` capability.
@@ -67,6 +68,8 @@ const bridge = createShellBridge({
 
 ### Shell init
 - `buildShellCapabilities` — construct the current draft `ShellCapabilities` payload emitted during the `shell.ready` / `shell.init` handshake
+- `injectNappletNamespacePrelude` — insert a host-owned NIP-5D `window.napplet` domain-availability prelude into verified HTML before authored scripts
+- `renderNappletNamespacePrelude` — render only the bootstrap `<script>` for hosts that already own HTML insertion
 
 ### Domain proxies (NIP-5D composition seams)
 - `createIdentityProxy` — intercept `identity.getProfile/getFollows/...` traffic

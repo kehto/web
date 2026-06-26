@@ -91,7 +91,8 @@ describe('playground gateway artifact guard', () => {
 
     // Loader resolves + verifies content-addressed bytes, then renders via srcdoc.
     expect(shellHost).toContain('resolvePlaygroundNapplet({');
-    expect(shellHost).toContain('iframe.srcdoc = injectCspMeta(resolved.indexHtml, origins)');
+    expect(shellHost).toContain('iframe.srcdoc = injectNappletNamespacePrelude(');
+    expect(shellHost).toContain('injectCspMeta(resolved.indexHtml, origins)');
     expect(shellHost).toContain("iframe.sandbox.add('allow-scripts')");
     expect(shellHost).not.toContain('allow-same-origin');
 
@@ -124,12 +125,17 @@ describe('playground gateway artifact guard', () => {
     expect(resolver).toContain('resolveNapplet(');
     expect(resolver).toContain('selectWriteRelays(');
     expect(resolver).toContain('injectCspMeta');
+    expect(shellHost).toContain('injectNappletNamespacePrelude');
+    expect(shellHost).toContain('getShellCapabilities()?.domains');
 
     // requires checked against the COMPUTED manifest before the iframe renders.
     expect(shellHost).toContain('getMissingRequiredNaps(resolved.requires)');
     expect(shellHost).toContain('requires unsupported NAP capabilities');
     expect(shellHost.indexOf('getMissingRequiredNaps(resolved.requires)')).toBeLessThan(
-      shellHost.indexOf('iframe.srcdoc = injectCspMeta'),
+      shellHost.indexOf('iframe.srcdoc = injectNappletNamespacePrelude'),
+    );
+    expect(shellHost.indexOf('getShellCapabilities()?.domains')).toBeLessThan(
+      shellHost.indexOf('iframe.srcdoc = injectNappletNamespacePrelude'),
     );
   });
 
