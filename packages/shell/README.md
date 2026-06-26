@@ -24,6 +24,7 @@ Current draft behaviors this package enforces:
 - `shell.supports(capability)` uses the `perm:<permission>` namespace for sandbox permissions, not the v1.1 bare capability list.
 - Five optional per-domain proxies — `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` — can be composed between napplet and runtime to intercept or augment traffic per NAP. They are NOT wired by default (Kehto's runtime already owns dispatch for the currently supported domains); they exist as host-app composition seams.
 - The keys-forwarder pumps host keydown events into `keys.forward` envelopes for napplets that hold the `keys:forward` capability.
+- `buildShellCapabilities()` advertises `dm` when the host adapter provides `hooks.dm`, and disabled-domain overrides remove it from both `domains` and `naps`.
 
 ## Quick Start
 

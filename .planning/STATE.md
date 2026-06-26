@@ -104,6 +104,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260624-26b | Avoid duplicate Playwright release runs by triggering Publish after successful main CI and removing Release test reruns | 2026-06-23 | f64938d | [260624-26b-avoid-duplicate-playwright-tests-by-chai](./quick/260624-26b-avoid-duplicate-playwright-tests-by-chai/) |
 | 260624-34q | Hide fake playground demo napplets from the active registry while retaining source directories | 2026-06-24 | fix/hide-fake-playground-napplets | [260624-34q-hide-fake-playground-napplets-from-runti](./quick/260624-34q-hide-fake-playground-napplets-from-runti/) |
 | 260624-u17 | Fix issue #94 — relay.query one-shot returns matched events (NAP RelayQueryResultMessage) and delegates to the registered relay service, instead of a count | 2026-06-24 | fix/relay-query-events | [260624-u17-fix-relay-query-one-shot-returns-events-](./quick/260624-u17-fix-relay-query-one-shot-returns-events-/) |
+| 260626-n7x | Add runtime-owned NAP-DM service with NIP-17, NDR, and Cordn adapters | 2026-06-26 | feat/nap-dm-chat-adapters | [260626-n7x-nap-dm-chat-adapter-service-for-nip-17-n](./quick/260626-n7x-nap-dm-chat-adapter-service-for-nip-17-n/) |
 
 ## Session Continuity
 

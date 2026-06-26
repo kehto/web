@@ -37,6 +37,9 @@ export const ALL_CAPABILITIES = [
   // handlers introspection (and receipt of shell pushes); write = invoke (the
   // focus-stealing cross-napplet dispatch op).
   'intent:read', 'intent:write',
+  // NAP-DM — runtime-mediated direct messages: read = status/conversations/
+  // messages/subscribe/unsubscribe and receive pushes; write = send.
+  'dm:read', 'dm:write',
 ] as const;
 
 /** Union of every capability string in ALL_CAPABILITIES. */
@@ -72,3 +75,7 @@ export const CAP_UPLOAD_WRITE    = 'upload:write' as const;
 export const CAP_INTENT_READ     = 'intent:read' as const;
 /** intent.invoke (focus-stealing cross-napplet archetype dispatch) */
 export const CAP_INTENT_WRITE    = 'intent:write' as const;
+/** dm.status / dm.conversations / dm.messages / dm.subscribe / dm.unsubscribe / dm.message */
+export const CAP_DM_READ         = 'dm:read' as const;
+/** dm.send */
+export const CAP_DM_WRITE        = 'dm:write' as const;

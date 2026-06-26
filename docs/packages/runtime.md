@@ -44,6 +44,7 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 ## Scope Boundaries
 
 - Owns message dispatch, ACL gates, service routing, storage handling, manifest cache, replay checks, and runtime lifecycle.
+- Routes service-only NAP domains such as `dm` through registered handlers, so chat backends stay outside core runtime dispatch.
 - Does not own browser `window`, iframe creation, DOM, `postMessage` listeners, or localStorage implementation details.
 - Browser concerns live in `@kehto/shell`.
 

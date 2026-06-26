@@ -285,3 +285,36 @@ describe('runtime webrtc domain dispatch', () => {
     expect(ctx.sent).toHaveLength(0);
   });
 });
+
+describe('runtime dm domain dispatch', () => {
+  let ctx: MockRuntimeContext;
+  let runtime: Runtime;
+
+  beforeEach(() => {
+    ctx = createMockRuntimeAdapter();
+    runtime = createRuntime(ctx.hooks);
+    runtime.sessionRegistry.register(WINDOW_ID, session());
+    runtime.aclState.grant('', DTAG, HASH, 'dm:read');
+    runtime.aclState.grant('', DTAG, HASH, 'dm:write');
+  });
+
+  it('routes dm requests to the registered service', () => {
+    const received: NappletMessage[] = [];
+    runtime.registerService('dm', {
+      descriptor: { name: 'dm', version: '1.0.0' },
+      handleMessage(_wid, msg) { received.push(msg); },
+    });
+
+    runtime.handleMessage(WINDOW_ID, { type: 'dm.status', id: 'ds-1' } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'dm.send', id: 'dm-1', recipients: ['7'.repeat(64)], content: 'hello' } as NappletMessage);
+
+    expect(received.map((m) => m.type)).toEqual(['dm.status', 'dm.send']);
+  });
+
+  it('dm.status without a registered service: no throw, no envelope emitted', () => {
+    expect(() => {
+      runtime.handleMessage(WINDOW_ID, { type: 'dm.status', id: 'ds-2' } as NappletMessage);
+    }).not.toThrow();
+    expect(ctx.sent).toHaveLength(0);
+  });
+});

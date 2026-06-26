@@ -9,6 +9,7 @@ import type { ShellAdapter, ShellCapabilities } from './types.js';
  * without one) and prepended conditionally in buildShellCapabilities below.
  * `link` and `common` are also conditional because shells must wire those
  * service backends before advertising user-visible navigation/social actions.
+ * `dm` is conditional because shells must register a runtime-owned DM backend.
  */
 const NAP_DOMAINS = [
   'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify',
@@ -97,6 +98,7 @@ export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
   if (hooks.serial?.isAvailable()) domains.push('serial');
   if (hooks.ble?.isAvailable()) domains.push('ble');
   if (hooks.webrtc?.isAvailable()) domains.push('webrtc');
+  if (hooks.dm) domains.push('dm');
   // Sandbox permissions are perm:<x>-prefixed and resolved by the 0.13 shim as
   // plain domains membership (no separate permission namespace). Empty by
   // default — fold any host-extended sandbox entries in alongside the domains.
@@ -132,6 +134,8 @@ export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
   if (hooks.ble?.isAvailable()) naps.push('ble');
   // NAP-WEBRTC: advertised only when the host wires runtime-owned WebRTC sessions.
   if (hooks.webrtc?.isAvailable()) naps.push('webrtc');
+  // NAP-DM: advertised only when the host wires a runtime-owned DM backend.
+  if (hooks.dm) naps.push('dm');
 
   return applyCapabilityOverrides(
     { domains, protocols, naps, sandbox },
