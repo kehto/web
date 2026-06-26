@@ -8,18 +8,20 @@ interface ShellReadyOptions {
   hooks: ShellAdapter;
   origin: string;
   runtime: Runtime;
+  sourceRegistrationId: number;
+  sourceWindow: Window;
   windowId: string;
 }
 
 /**
- * SHELL-01 (NAP-SHELL gap G1): tracks the windowIds for which `shell.init` has
- * already been posted, so a duplicate `shell.ready` from the same window is
- * idempotent and does NOT resend `shell.init`. Module-scoped because the
- * "no NIP-5D identity" path never registers a session entry, so the guard must
- * live independently of the session registry (and must not mutate the runtime
- * `SessionEntry` shape, which is owned by @kehto/runtime).
+ * SHELL-01 (NAP-SHELL gap G1): tracks the source Window registration for which
+ * `shell.init` has already been posted, so a duplicate `shell.ready` in the same
+ * iframe lifecycle is idempotent and does NOT resend `shell.init`.
+ * Module-scoped because the "no NIP-5D identity" path never registers a session
+ * entry, so the guard must live independently of the session registry (and must
+ * not mutate the runtime `SessionEntry` shape, which is owned by @kehto/runtime).
  */
-const initSent = new Set<string>();
+let initSent = new WeakMap<Window, number>();
 
 /**
  * Test-only hook to clear the module-scoped {@link initSent} guard between
@@ -29,28 +31,38 @@ const initSent = new Set<string>();
  * @internal
  */
 export function __resetInitSentForTests(): void {
-  initSent.clear();
+  initSent = new WeakMap<Window, number>();
 }
 
 export function handleShellReady({
   hooks,
   origin,
   runtime,
+  sourceRegistrationId,
+  sourceWindow,
   windowId,
 }: ShellReadyOptions): void {
-  registerNip5dSessionIfNeeded({ hooks, origin, runtime, windowId });
+  registerNip5dSessionIfNeeded({
+    hooks,
+    origin,
+    runtime,
+    sourceRegistrationId,
+    sourceWindow,
+    windowId,
+  });
 
-  // SHELL-01: exactly-once shell.init per windowId. registerNip5dSessionIfNeeded
-  // is already idempotent (its own getEntryByWindowId early-return); this guard
-  // governs ONLY the postShellInit call so a duplicate shell.ready does not
-  // resend shell.init.
-  if (initSent.has(windowId)) {
+  // SHELL-01: exactly-once shell.init per registered Window lifecycle.
+  // registerNip5dSessionIfNeeded is already idempotent (its own
+  // getEntryByWindowId early-return); this guard governs ONLY postShellInit so a
+  // duplicate shell.ready does not resend shell.init, while an iframe reload
+  // under the same WindowProxy/windowId can boot after re-registration.
+  if (initSent.get(sourceWindow) === sourceRegistrationId) {
     return;
   }
 
   const capabilities = buildShellCapabilities(hooks);
-  postShellInit(windowId, capabilities, Object.keys(hooks.services ?? {}));
-  initSent.add(windowId);
+  postShellInit(sourceWindow, capabilities, Object.keys(hooks.services ?? {}));
+  initSent.set(sourceWindow, sourceRegistrationId);
 }
 
 function registerNip5dSessionIfNeeded({
@@ -119,7 +131,7 @@ function resolveNip5dIdentity(
 }
 
 function postShellInit(
-  windowId: string,
+  win: Window,
   capabilities: ShellCapabilities,
   services: string[],
 ): void {
@@ -131,6 +143,5 @@ function postShellInit(
     capabilities,
     services,
   };
-  const win = originRegistry.getIframeWindow(windowId);
-  if (win) win.postMessage(initMsg, '*');
+  win.postMessage(initMsg, '*');
 }

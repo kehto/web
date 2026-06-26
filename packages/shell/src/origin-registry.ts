@@ -3,9 +3,11 @@ interface OriginEntry {
   windowId: string;
   dTag?: string;
   aggregateHash?: string;
+  registrationId: number;
 }
 
 const registry = new Map<Window, OriginEntry>();
+let nextRegistrationId = 0;
 
 /**
  * Bidirectional registry mapping Window references to windowId strings.
@@ -28,10 +30,17 @@ export const originRegistry = {
    * @param identity - Optional NIP-5D identity metadata (dTag and aggregateHash)
    */
   register(win: Window, windowId: string, identity?: { dTag: string; aggregateHash: string }): void {
+    for (const [registeredWin, entry] of registry.entries()) {
+      if (registeredWin === win || entry.windowId === windowId) {
+        registry.delete(registeredWin);
+      }
+    }
+
     registry.set(win, {
       windowId,
       dTag: identity?.dTag,
       aggregateHash: identity?.aggregateHash,
+      registrationId: ++nextRegistrationId,
     });
   },
 
@@ -90,6 +99,16 @@ export const originRegistry = {
     const entry = registry.get(win);
     if (!entry?.dTag || !entry?.aggregateHash) return undefined;
     return { dTag: entry.dTag, aggregateHash: entry.aggregateHash };
+  },
+
+  /**
+   * Look up the monotonically increasing registration id for a Window.
+   *
+   * @param win - The Window reference to look up
+   * @returns The registration id, or undefined if the Window is not registered
+   */
+  getRegistrationId(win: Window): number | undefined {
+    return registry.get(win)?.registrationId;
   },
 
   /** Clear all registrations. */
