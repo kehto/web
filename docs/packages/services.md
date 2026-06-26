@@ -40,14 +40,14 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 | Media | `createMediaService`, `createBrowserMediaBridge`, `MediaServiceOptions`, `HostMediaBridge`, `MediaAction` |
 | Notify/theme/config/resource | `createNotifyService`, `NotifyServiceOptions`, `createThemeService`, `ThemeServiceOptions`, `ThemeService`, `createConfigService`, `ConfigServiceOptions`, `ConfigService`, `ConfigSchemaValidation`, `createResourceService`, `ResourceServiceOptions`, `ResourceService` |
 | Shell-mediated helpers | `createLinkService`, `LinkServiceOptions`, `LinkOpenContext`, `createCommonService`, `CommonServiceOptions`, `CommonServiceContext`, `createListsService`, `ListsServiceOptions`, `ListsServiceContext`, `createSerialService`, `SerialServiceOptions`, `SerialServiceContext`, `createBleService`, `BleServiceOptions`, `BleServiceContext`, `createWebrtcService`, `WebrtcServiceOptions`, `WebrtcServiceContext` |
-| DM | `createDmService`, `createNip17DmAdapter`, `createNdrDmAdapter`, `createCordnDmAdapter`, `DmServiceOptions`, `DmAdapter`, `DmRelayPool`, `Nip17DmAdapterOptions`, `NdrDmAdapterOptions`, `CordnDmAdapterOptions` |
+| DM | `createDmService`, `createNip17DmAdapter`, `createNdrDmAdapter`, `createNdrRelayTransport`, `createCordnDmAdapter`, `createCordnRelayCoordinatorClient`, `DmServiceOptions`, `DmAdapter`, `DmRelayPool`, `Nip17DmAdapterOptions`, `NdrDmAdapterOptions`, `NdrRelayTransportOptions`, `CordnDmAdapterOptions`, `CordnRelayCoordinatorOptions` |
 
 ## Scope Boundaries
 
 - Provides reference service handlers that host apps register with `runtime.registerService()`.
 - Host apps provide backing bridges/callbacks for browser, native, signer, relay, fetch, notification, and media behavior.
 - BLE and WebRTC hook contexts expose `emit(...)` so host bridges can send runtime-owned event envelopes back to the requesting napplet.
-- NAP-DM support keeps request correlation, subscriptions, and normalized message shape in `createDmService`; NIP-17, NDR, and Cordn specifics live behind adapters.
+- NAP-DM support keeps request correlation, subscriptions, and normalized message shape in `createDmService`; NIP-17, NDR, and Cordn specifics live behind adapters. Relay-backed helper bridges cover NDR runtime hooks and Cordn coordinator methods without adding hard package dependencies.
 - Does not create a runtime or shell bridge by itself.
 
 ## API Reference

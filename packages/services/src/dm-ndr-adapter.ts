@@ -12,6 +12,7 @@ import type {
   DmMessage,
   DmMessagePage,
   DmMessageQuery,
+  DmRelayPool,
   DmSendRequest,
   DmSendResult,
   DmStatus,
@@ -19,6 +20,8 @@ import type {
   DmSubscription,
 } from './dm-types.js';
 import { DmMemoryStore } from './dm-memory-store.js';
+import { finalizeEvent } from 'nostr-tools/pure';
+import type { NostrEvent, NostrFilter } from '@napplet/core';
 
 /** Minimal event shape returned by NDR runtimes for sent or received messages. */
 export interface NdrRumorLike {
@@ -38,14 +41,108 @@ export interface NdrRuntimeLike {
   close?(): void;
 }
 
+export interface NdrRelayTransport {
+  nostrSubscribe(filter: NostrFilter, onEvent: (event: NostrEvent) => void): () => void;
+  nostrFetch(filter: NostrFilter): Promise<NostrEvent[]>;
+  nostrPublish(event: Partial<NostrEvent>, innerEventId?: string): Promise<NostrEvent>;
+}
+
+export interface NdrRelayTransportOptions {
+  relayPool: DmRelayPool;
+  publishSecretKey?: Uint8Array;
+  relays?: string[];
+  fetchTimeoutMs?: number;
+}
+
 /** Options for {@link createNdrDmAdapter}. */
 export interface NdrDmAdapterOptions {
   runtime: NdrRuntimeLike;
   ownerPubkey: string;
   store?: DmMemoryStore;
+  available?: boolean;
 }
 
 let ndrSubCounter = 0;
+
+function nowSeconds(): number {
+  return Math.floor(Date.now() / 1000);
+}
+
+function relaysFor(options: NdrRelayTransportOptions, filter: NostrFilter): string[] {
+  return options.relays && options.relays.length > 0
+    ? options.relays
+    : options.relayPool.selectRelayTier([filter]);
+}
+
+function signedEvent(event: Partial<NostrEvent>, secretKey?: Uint8Array): NostrEvent {
+  if (
+    typeof event.id === 'string' &&
+    typeof event.pubkey === 'string' &&
+    typeof event.sig === 'string' &&
+    typeof event.kind === 'number' &&
+    typeof event.created_at === 'number' &&
+    Array.isArray(event.tags) &&
+    typeof event.content === 'string'
+  ) {
+    return event as NostrEvent;
+  }
+  if (!secretKey) throw new Error('publishSecretKey required for unsigned NDR events');
+  return finalizeEvent(
+    {
+      kind: event.kind ?? 1060,
+      created_at: event.created_at ?? nowSeconds(),
+      tags: event.tags ?? [],
+      content: event.content ?? '',
+    },
+    secretKey,
+  ) as NostrEvent;
+}
+
+/** Build the transport contract expected by nostr-double-ratchet over Kehto relay service hooks. */
+export function createNdrRelayTransport(options: NdrRelayTransportOptions): NdrRelayTransport {
+  return {
+    nostrSubscribe(filter, onEvent) {
+      const handle = options.relayPool.subscribe(
+        [filter],
+        (item) => {
+          if (item !== 'EOSE') onEvent(item);
+        },
+        relaysFor(options, filter),
+      );
+      return () => handle.unsubscribe();
+    },
+
+    nostrFetch(filter) {
+      const events: NostrEvent[] = [];
+      return new Promise((resolve) => {
+        let done = false;
+        let handle: { unsubscribe(): void } | undefined;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          clearTimeout(timer);
+          handle?.unsubscribe();
+          resolve(events);
+        };
+        const timer = setTimeout(finish, options.fetchTimeoutMs ?? 500);
+        handle = options.relayPool.subscribe(
+          [filter],
+          (item) => {
+            if (item === 'EOSE') finish();
+            else events.push(item);
+          },
+          relaysFor(options, filter),
+        );
+      });
+    },
+
+    async nostrPublish(event) {
+      const signed = signedEvent(event, options.publishSecretKey);
+      await Promise.resolve(options.relayPool.publish(signed));
+      return signed;
+    },
+  };
+}
 
 /** Create an NDR-backed NAP-DM adapter. */
 export function createNdrDmAdapter(options: NdrDmAdapterOptions): DmAdapter {
@@ -73,7 +170,7 @@ export function createNdrDmAdapter(options: NdrDmAdapterOptions): DmAdapter {
   return {
     status(): DmStatus {
       return {
-        available: true,
+        available: options.available ?? true,
         ownerPubkey: options.ownerPubkey,
         implementations: ['ndr'],
         capabilities: ['send', 'receive', 'subscribe', 'history', 'double-ratchet'],

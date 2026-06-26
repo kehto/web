@@ -195,7 +195,7 @@ export interface DmRelayPool {
     callback: (item: NostrEvent | 'EOSE') => void,
     relayUrls?: string[],
   ): { unsubscribe(): void };
-  publish(event: NostrEvent): void;
+  publish(event: NostrEvent): void | Promise<void>;
   selectRelayTier(filters: NostrFilter[]): string[];
   isAvailable(): boolean;
 }

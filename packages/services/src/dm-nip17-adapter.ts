@@ -119,7 +119,7 @@ export function createNip17DmAdapter(options: Nip17DmAdapterOptions): DmAdapter 
         recipients.map((publicKey) => ({ publicKey })),
         request.content,
       ) as NostrEvent[];
-      for (const wrap of wraps) options.relayPool.publish(wrap);
+      for (const wrap of wraps) await Promise.resolve(options.relayPool.publish(wrap));
       const conversationId = request.conversationId ?? store.conversationIdFor([ownerPubkey, ...recipients]);
       const message = store.upsertMessage(
         {
