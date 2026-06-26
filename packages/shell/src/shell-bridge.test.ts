@@ -745,5 +745,91 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
 
     bridge.destroy();
   });
-});
 
+  it('resends shell.init when a reloaded iframe reuses the same windowId', () => {
+    const firstIframe = makeFakeIframe();
+    const firstWin = firstIframe as unknown as Window;
+
+    originRegistry.register(firstWin, 'win-reload', {
+      dTag: 'reload-napp',
+      aggregateHash: 'reloadHash',
+    });
+
+    const bridge = createShellBridge(makeTestHooks());
+
+    bridge.handleMessage({
+      source: firstWin,
+      origin: 'https://reload-napp.example.com',
+      data: { type: 'shell.ready' },
+    } as MessageEvent);
+
+    const firstShellInitCalls = firstIframe.postMessage.mock.calls.filter(
+      (call) => (call[0] as Record<string, unknown>).type === 'shell.init',
+    );
+    expect(firstShellInitCalls).toHaveLength(1);
+
+    const secondIframe = makeFakeIframe();
+    const secondWin = secondIframe as unknown as Window;
+
+    originRegistry.register(secondWin, 'win-reload', {
+      dTag: 'reload-napp',
+      aggregateHash: 'reloadHash',
+    });
+
+    bridge.handleMessage({
+      source: secondWin,
+      origin: 'https://reload-napp.example.com',
+      data: { type: 'shell.ready' },
+    } as MessageEvent);
+
+    const secondShellInitCalls = secondIframe.postMessage.mock.calls.filter(
+      (call) => (call[0] as Record<string, unknown>).type === 'shell.init',
+    );
+    expect(secondShellInitCalls).toHaveLength(1);
+
+    expect(originRegistry.getIframeWindow('win-reload')).toBe(secondWin);
+
+    bridge.destroy();
+  });
+
+  it('resends shell.init when a stable WindowProxy is re-registered for the same windowId', () => {
+    const iframe = makeFakeIframe();
+    const win = iframe as unknown as Window;
+
+    originRegistry.register(win, 'win-window-proxy', {
+      dTag: 'proxy-napp',
+      aggregateHash: 'proxyHash',
+    });
+
+    const bridge = createShellBridge(makeTestHooks());
+
+    bridge.handleMessage({
+      source: win,
+      origin: 'https://proxy-napp.example.com',
+      data: { type: 'shell.ready' },
+    } as MessageEvent);
+
+    let shellInitCalls = iframe.postMessage.mock.calls.filter(
+      (call) => (call[0] as Record<string, unknown>).type === 'shell.init',
+    );
+    expect(shellInitCalls).toHaveLength(1);
+
+    originRegistry.register(win, 'win-window-proxy', {
+      dTag: 'proxy-napp',
+      aggregateHash: 'proxyHash',
+    });
+
+    bridge.handleMessage({
+      source: win,
+      origin: 'https://proxy-napp.example.com',
+      data: { type: 'shell.ready' },
+    } as MessageEvent);
+
+    shellInitCalls = iframe.postMessage.mock.calls.filter(
+      (call) => (call[0] as Record<string, unknown>).type === 'shell.init',
+    );
+    expect(shellInitCalls).toHaveLength(2);
+
+    bridge.destroy();
+  });
+});

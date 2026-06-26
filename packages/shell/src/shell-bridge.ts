@@ -254,7 +254,14 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
 
       // Handle shell.ready handshake locally (not forwarded to runtime)
       if (msg.type === 'shell.ready') {
-        handleShellReady({ hooks, origin: event.origin, runtime, windowId });
+        handleShellReady({
+          hooks,
+          origin: event.origin,
+          runtime,
+          sourceRegistrationId: originRegistry.getRegistrationId(sourceWindow) ?? 0,
+          sourceWindow,
+          windowId,
+        });
         return;
       }
 
