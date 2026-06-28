@@ -331,6 +331,18 @@ describe('resolveCapabilitiesNap', () => {
       expect(resolveCapabilitiesNap({ type: 'resource.bytesMany' })).toEqual({ senderCap: 'resource:fetch', recipientCap: null });
     });
 
+    it('resource.info -> sender resource:fetch (napplet-originated introspection request)', () => {
+      expect(resolveCapabilitiesNap({ type: 'resource.info' })).toEqual({ senderCap: 'resource:fetch', recipientCap: null });
+    });
+
+    it('resource.info.result -> recipient resource:fetch (shell -> napplet response)', () => {
+      expect(resolveCapabilitiesNap({ type: 'resource.info.result' })).toEqual({ senderCap: null, recipientCap: 'resource:fetch' });
+    });
+
+    it('resource.info.error -> recipient resource:fetch (shell -> napplet response)', () => {
+      expect(resolveCapabilitiesNap({ type: 'resource.info.error' })).toEqual({ senderCap: null, recipientCap: 'resource:fetch' });
+    });
+
     it('resource.bytes.result -> recipient resource:fetch (shell -> napplet push)', () => {
       expect(resolveCapabilitiesNap({ type: 'resource.bytes.result' })).toEqual({ senderCap: null, recipientCap: 'resource:fetch' });
     });

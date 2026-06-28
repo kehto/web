@@ -11,9 +11,11 @@
  *   g. Invalid URL → bytes.error code='invalid-url'
  *   h. Fetch reject (non-abort) → bytes.error code='network-error'
  *   i. onWindowDestroyed(w) aborts all in-flight requests for that window
- *   j. resource.bytes emits current NAP-RESOURCE id/blob/mime fields
- *   k. resource.bytesMany preserves order and returns per-URL success/error items
- *   l. resource.bytesMany with empty urls emits a top-level bytesMany.error
+ *   j. resource.info emits advisory runtime info
+ *   k. resource.info provider failures emit resource.info.error
+ *   l. resource.bytes emits current NAP-RESOURCE id/blob/mime fields
+ *   m. resource.bytesMany preserves order and returns per-URL success/error items
+ *   n. resource.bytesMany with empty urls emits a top-level bytesMany.error
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -280,8 +282,74 @@ describe('createResourceService', () => {
     expect(signals.every(s => s.aborted)).toBe(true);
   });
 
-  // ─── (j) resource.bytes current fields ───────────────────────────────────
-  it('(j) resource.bytes emits id, blob, and mime for current NAP-RESOURCE callers', async () => {
+  // ─── (j) resource.info current fields ────────────────────────────────────
+  it('(j) resource.info emits advisory runtime info', async () => {
+    const opts = makeOpts({
+      resourceInfo: {
+        schemes: [
+          { scheme: 'https', enabled: true },
+          { scheme: 'blossom', enabled: false },
+        ],
+        maxBytes: 1024,
+        maxUrls: 8,
+      },
+    });
+    const svc = createResourceService(opts);
+    const { sent, send } = collectSent();
+
+    svc.handleMessage(WINDOW_ID, {
+      type: 'resource.info',
+      id: 'info-1',
+    } as NappletMessage, send);
+
+    await flushPromises();
+
+    expect(opts.fetch).not.toHaveBeenCalled();
+    expect(sent).toEqual([
+      {
+        type: 'resource.info.result',
+        id: 'info-1',
+        info: {
+          schemes: [
+            { scheme: 'https', enabled: true },
+            { scheme: 'blossom', enabled: false },
+          ],
+          maxBytes: 1024,
+          maxUrls: 8,
+        },
+      },
+    ]);
+  });
+
+  // ─── (k) resource.info provider failure ──────────────────────────────────
+  it('(k) resource.info provider failures emit resource.info.error', async () => {
+    const opts = makeOpts({
+      resourceInfo: () => {
+        throw new Error('policy unavailable');
+      },
+    });
+    const svc = createResourceService(opts);
+    const { sent, send } = collectSent();
+
+    svc.handleMessage(WINDOW_ID, {
+      type: 'resource.info',
+      id: 'info-fail',
+    } as NappletMessage, send);
+
+    await flushPromises();
+
+    expect(sent).toEqual([
+      {
+        type: 'resource.info.error',
+        id: 'info-fail',
+        error: 'unavailable',
+        message: 'policy unavailable',
+      },
+    ]);
+  });
+
+  // ─── (l) resource.bytes current fields ───────────────────────────────────
+  it('(l) resource.bytes emits id, blob, and mime for current NAP-RESOURCE callers', async () => {
     const bodyText = 'current resource payload';
     const opts = makeOpts({
       fetch: vi.fn(async () => {
@@ -319,8 +387,8 @@ describe('createResourceService', () => {
     expect(atob(result.bodyBase64)).toBe(bodyText);
   });
 
-  // ─── (k) resource.bytesMany ordered partial result ───────────────────────
-  it('(k) resource.bytesMany preserves input order and keeps per-URL failures local', async () => {
+  // ─── (m) resource.bytesMany ordered partial result ───────────────────────
+  it('(m) resource.bytesMany preserves input order and keeps per-URL failures local', async () => {
     const opts = makeOpts({
       fetch: vi.fn(async (url: string) => {
         return new Response(url.endsWith('/one') ? 'first' : 'third', {
@@ -377,8 +445,8 @@ describe('createResourceService', () => {
     expect(await result.items[2]?.blob?.text()).toBe('third');
   });
 
-  // ─── (l) resource.bytesMany invalid top-level request ────────────────────
-  it('(l) resource.bytesMany with empty urls emits a top-level invalid-request error', async () => {
+  // ─── (n) resource.bytesMany invalid top-level request ────────────────────
+  it('(n) resource.bytesMany with empty urls emits a top-level invalid-request error', async () => {
     const opts = makeOpts();
     const svc = createResourceService(opts);
     const { sent, send } = collectSent();

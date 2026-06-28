@@ -28,7 +28,7 @@ Phase: 94 — Coverage, Docs, Release Readiness, and PR
 Plan: 94-01 — complete
 Status: v1.22 complete; branch pushed and PR #64 opened
 
-Last activity: 2026-06-28 — Finished PR #103 NIP-5D injected namespace closeout against current upstream NIP-5D text.
+Last activity: 2026-06-28 — Added NAP-RESOURCE resource.info runtime support.
 
 ## Performance Metrics
 
@@ -109,6 +109,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260626-ugy | Production harden PR #103 NIP-5D injected napplet namespace prelude | 2026-06-26 | feat/nip5d-interface-injection-prototype | [260626-ugy-production-harden-pr-103-nip-5d-injected](./quick/260626-ugy-production-harden-pr-103-nip-5d-injected/) |
 | 260626-n7x | Add runtime-owned NAP-DM service with NIP-17, NDR, and Cordn adapters | 2026-06-26 | feat/nap-dm-chat-adapters | [260626-n7x-nap-dm-chat-adapter-service-for-nip-17-n](./quick/260626-n7x-nap-dm-chat-adapter-service-for-nip-17-n/) |
 | 260628-ipk | Finish PR #103 NIP-5D injected namespace closeout against current upstream text | 2026-06-28 | feat/nip5d-interface-injection-prototype | [260628-ipk-finish-pr-103-nip-5d-injected-namespace-](./quick/260628-ipk-finish-pr-103-nip-5d-injected-namespace-/) |
+| 260628-l1y | Add NAP-RESOURCE resource.info runtime support | 2026-06-28 | 5415c74 | [260628-l1y-add-nap-resource-resource-info-runtime-s](./quick/260628-l1y-add-nap-resource-resource-info-runtime-s/) |
 
 ## Session Continuity
 
