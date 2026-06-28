@@ -191,6 +191,20 @@ describe('buildShellCapabilities — domains array (conformant NAP-SHELL, TERM-0
     expect(caps.domains).not.toContain('webrtc');
   });
 
+  it('advertises dm in domains when a DM backend is wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      dm: { sendDm: async () => ({ success: true }) },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).toContain('dm');
+  });
+
+  it('does NOT advertise dm in domains when no DM backend is wired', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    expect(caps.domains).not.toContain('dm');
+  });
+
   it('does NOT advertise common in domains when common social helpers report unavailable', () => {
     const hooks: ShellAdapter = {
       ...baseHooks(),
@@ -554,6 +568,28 @@ describe('buildShellCapabilities — NAP-WEBRTC advertisement in naps', () => {
     const caps = buildShellCapabilities(hooks);
     expect(caps.domains).not.toContain('webrtc');
     expect(caps.naps).not.toContain('webrtc');
+  });
+});
+
+describe('buildShellCapabilities — NAP-DM advertisement in naps', () => {
+  it('advertises dm in naps when a DM backend is wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      dm: { sendDm: async () => ({ success: true }) },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).toContain('dm');
+  });
+
+  it('removes dm from domains and naps when disabled by capability override', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      dm: { sendDm: async () => ({ success: true }) },
+      capabilities: { disabledDomains: ['dm'] },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).not.toContain('dm');
+    expect(caps.naps).not.toContain('dm');
   });
 });
 

@@ -504,6 +504,28 @@ describe('resolveCapabilitiesNap', () => {
     });
   });
 
+  describe('dm domain (NAP-DM runtime-mediated direct messages)', () => {
+    it('dm.send -> sender dm:write', () => {
+      expect(resolveCapabilitiesNap({ type: 'dm.send' })).toEqual({ senderCap: 'dm:write', recipientCap: null });
+    });
+
+    it('dm.status -> sender dm:read', () => {
+      expect(resolveCapabilitiesNap({ type: 'dm.status' })).toEqual({ senderCap: 'dm:read', recipientCap: null });
+    });
+
+    it('dm.conversations -> sender dm:read', () => {
+      expect(resolveCapabilitiesNap({ type: 'dm.conversations' })).toEqual({ senderCap: 'dm:read', recipientCap: null });
+    });
+
+    it('dm.message -> recipient dm:read', () => {
+      expect(resolveCapabilitiesNap({ type: 'dm.message' })).toEqual({ senderCap: null, recipientCap: 'dm:read' });
+    });
+
+    it('dm.send.result -> recipient dm:read', () => {
+      expect(resolveCapabilitiesNap({ type: 'dm.send.result' })).toEqual({ senderCap: null, recipientCap: 'dm:read' });
+    });
+  });
+
   describe('ALL_CAPABILITIES content', () => {
     it('contains the 7 v1.2 capability strings', () => {
       expect(ALL_CAPABILITIES).toContain('identity:read');
@@ -539,6 +561,11 @@ describe('resolveCapabilitiesNap', () => {
     it('contains intent:read and intent:write (NAP-INTENT)', () => {
       expect(ALL_CAPABILITIES).toContain('intent:read');
       expect(ALL_CAPABILITIES).toContain('intent:write');
+    });
+
+    it('contains dm:read and dm:write (NAP-DM)', () => {
+      expect(ALL_CAPABILITIES).toContain('dm:read');
+      expect(ALL_CAPABILITIES).toContain('dm:write');
     });
 
     it('does NOT contain the removed signer capability strings', () => {

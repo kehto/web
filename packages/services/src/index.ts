@@ -227,3 +227,47 @@ export type {
   CommonServiceContext,
   CommonServiceOptions,
 } from './common-service.js';
+
+export { createDmService } from './dm-service.js';
+export type { DmService, DmServiceOptions } from './dm-service.js';
+export { createNip17DmAdapter } from './dm-nip17-adapter.js';
+export type { Nip17DmAdapterOptions } from './dm-nip17-adapter.js';
+export { createNdrDmAdapter, createNdrRelayTransport } from './dm-ndr-adapter.js';
+export type {
+  NdrDmAdapterOptions,
+  NdrRelayTransport,
+  NdrRelayTransportOptions,
+  NdrRumorLike,
+  NdrRuntimeLike,
+} from './dm-ndr-adapter.js';
+export { createCordnDmAdapter, createCordnRelayCoordinatorClient } from './dm-cordn-adapter.js';
+export type {
+  CordnCodecResult,
+  CordnCoordinatorClient,
+  CordnCoordinatorSubscription,
+  CordnDmAdapterOptions,
+  CordnDmClient,
+  CordnGroupMessage,
+  CordnRelayCoordinatorOptions,
+} from './dm-cordn-adapter.js';
+export { DmMemoryStore } from './dm-memory-store.js';
+export type {
+  DmAdapter,
+  DmConversation,
+  DmConversationPage,
+  DmConversationQuery,
+  DmHexPubkey,
+  DmMessage,
+  DmMessagePage,
+  DmMessageQuery,
+  DmMessageStatus,
+  DmOk,
+  DmPeer,
+  DmRelayPool,
+  DmSendRequest,
+  DmSendResult,
+  DmStatus,
+  DmSubscribeRequest,
+  DmSubscription,
+  DmTimestamp,
+} from './dm-types.js';

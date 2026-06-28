@@ -35,6 +35,8 @@ const CAP_OUTBOX_WRITE   = 1 << 19;   // 524288 (NAP-OUTBOX shell-signed publish
 const CAP_UPLOAD_WRITE   = 1 << 20;   // 1048576 (NAP-UPLOAD shell-mediated upload)
 const CAP_INTENT_READ    = 1 << 21;   // 2097152 (NAP-INTENT archetype introspection)
 const CAP_INTENT_WRITE   = 1 << 22;   // 4194304 (NAP-INTENT cross-napplet dispatch)
+const CAP_DM_READ        = 1 << 23;   // 8388608 (NAP-DM read/history/subscription)
+const CAP_DM_WRITE       = 1 << 24;   // 16777216 (NAP-DM send)
 
 const CAP_MAP: Record<Capability, number> = {
   'relay:read': CAP_RELAY_READ,
@@ -59,6 +61,8 @@ const CAP_MAP: Record<Capability, number> = {
   'upload:write': CAP_UPLOAD_WRITE,
   'intent:read': CAP_INTENT_READ,
   'intent:write': CAP_INTENT_WRITE,
+  'dm:read': CAP_DM_READ,
+  'dm:write': CAP_DM_WRITE,
 };
 
 const RUNTIME_CAP_ALL = Object.values(CAP_MAP).reduce((bits, bit) => bits | bit, 0);
