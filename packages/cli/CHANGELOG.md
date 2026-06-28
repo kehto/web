@@ -1,5 +1,14 @@
 # @kehto/cli
 
+## 0.2.3
+
+### Patch Changes
+
+- a07f3cd: Add a NIP-5D injected-domain namespace prelude helper for srcdoc hosts and
+  align napplet package peer ranges with the inject-compatible release line.
+- Updated dependencies [a07f3cd]
+  - @kehto/paja@0.3.3
+
 ## 0.2.2
 
 ### Patch Changes

@@ -16,8 +16,9 @@
  * fields and the current upstream-compatible fields.
  *
  * Resource protocol:
- *   Inbound:  resource.bytes, resource.bytesMany, resource.cancel
- *   Outbound: resource.bytes.result, resource.bytes.error,
+ *   Inbound:  resource.info, resource.bytes, resource.bytesMany, resource.cancel
+ *   Outbound: resource.info.result, resource.info.error,
+ *             resource.bytes.result, resource.bytes.error,
  *             resource.bytesMany.result, resource.bytesMany.error
  */
 
@@ -26,6 +27,22 @@
  * error / cancel envelope.
  */
 export type ResourceRequestId = string;
+
+/** Advisory resource capability and policy limits disclosed by the runtime. */
+export interface ResourceInfo {
+  schemes: readonly {
+    scheme: string;
+    enabled: boolean;
+  }[];
+  maxBytes?: number;
+  maxUrls?: number;
+}
+
+/** Inbound: napplet asks for advisory resource policy and scheme support. */
+export interface ResourceInfoRequest {
+  type: 'resource.info';
+  id: ResourceRequestId;
+}
 
 /**
  * Inbound: napplet requests bytes from an origin. Shell consults
@@ -149,15 +166,36 @@ export interface ResourceBytesManyError {
   message?: string;
 }
 
+/** Outbound: advisory resource policy and scheme support. */
+export interface ResourceInfoResult {
+  type: 'resource.info.result';
+  id: ResourceRequestId;
+  info: ResourceInfo;
+}
+
+/** Outbound: resource info could not be resolved. */
+export interface ResourceInfoError {
+  type: 'resource.info.error';
+  id: ResourceRequestId;
+  error: string;
+  message?: string;
+}
+
 /**
  * Union of all inbound resource wire messages (napplet -> shell).
  */
-export type ResourceInbound = ResourceBytesRequest | ResourceBytesManyRequest | ResourceCancelRequest;
+export type ResourceInbound =
+  | ResourceInfoRequest
+  | ResourceBytesRequest
+  | ResourceBytesManyRequest
+  | ResourceCancelRequest;
 
 /**
  * Union of all outbound resource wire messages (shell -> napplet).
  */
 export type ResourceOutbound =
+  | ResourceInfoResult
+  | ResourceInfoError
   | ResourceBytesResult
   | ResourceBytesError
   | ResourceBytesManyResult

@@ -25,6 +25,7 @@ Current draft posture:
 - `createNotifyService` (NIP-5D `notify.*` NAP) coexists with the legacy `createNotificationService` (inc-emit `notifications:*` channel). Both may be registered simultaneously while hosts migrate.
 - `createResourceService` supports `resource.bytesMany` from draft NAP-RESOURCE. Bulk requests return ordered per-URL items and keep per-URL failures local while preserving legacy single-fetch fields for existing Kehto callers.
 - `createUploadService` supports `upload.info` from draft NAP-UPLOAD. Hosts may expose configured rails, return URL forms, maximum bytes, and MIME type policy without requiring napplets to start an upload.
+- `createResourceService` supports `resource.info` and `resource.bytesMany` from draft NAP-RESOURCE. `resource.info` returns advisory schemes and coarse limits; bulk requests return ordered per-URL items and keep per-URL failures local while preserving legacy single-fetch fields for existing Kehto callers.
 - `createDmService` keeps NAP-DM request correlation, subscriptions, and message normalization in runtime-owned code. Adapters cover concrete transports: NIP-17 gift wraps via `nostr-tools`, structural NDR runtimes with relay hooks, and Cordn/ContextVM coordinator clients. Kehto mirrors NAP-DM wire types locally until `@napplet/core` / `@napplet/nap` publish them.
 
 ## Quick Start

@@ -99,6 +99,10 @@ export type {
 
 export type {
   ResourceBytesRequest,
+  ResourceInfo,
+  ResourceInfoError,
+  ResourceInfoRequest,
+  ResourceInfoResult,
   ResourceBytesManyRequest,
   ResourceBytesManyItem,
   ResourceCancelRequest,
