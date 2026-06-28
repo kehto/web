@@ -118,6 +118,10 @@ export type {
 export { createUploadService } from './upload-service.js';
 export type {
   UploadServiceOptions,
+  UploadInfo,
+  UploadInfoContext,
+  UploadInfoProvider,
+  UploadRailInfo,
   Uploader,
   UploaderContext,
   UploadRequest,
