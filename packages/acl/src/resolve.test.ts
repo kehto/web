@@ -399,6 +399,10 @@ describe('resolveCapabilitiesNap', () => {
   });
 
   describe('outbox domain (NAP-OUTBOX outbox-aware relay routing)', () => {
+    it('outbox.getEvent -> sender outbox:read (napplet-originated request)', () => {
+      expect(resolveCapabilitiesNap({ type: 'outbox.getEvent' })).toEqual({ senderCap: 'outbox:read', recipientCap: null });
+    });
+
     it('outbox.query -> sender outbox:read (napplet-originated request)', () => {
       expect(resolveCapabilitiesNap({ type: 'outbox.query' })).toEqual({ senderCap: 'outbox:read', recipientCap: null });
     });
@@ -421,6 +425,10 @@ describe('resolveCapabilitiesNap', () => {
 
     it('outbox.query.result -> recipient outbox:read (shell -> napplet push)', () => {
       expect(resolveCapabilitiesNap({ type: 'outbox.query.result' })).toEqual({ senderCap: null, recipientCap: 'outbox:read' });
+    });
+
+    it('outbox.getEvent.result -> recipient outbox:read (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNap({ type: 'outbox.getEvent.result' })).toEqual({ senderCap: null, recipientCap: 'outbox:read' });
     });
 
     it('outbox.publish.result -> recipient outbox:read (shell -> napplet push)', () => {

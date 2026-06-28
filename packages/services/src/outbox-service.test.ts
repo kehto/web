@@ -1,15 +1,16 @@
 /**
  * outbox-service.test.ts — NAP-OUTBOX envelope-router service.
  *
- * Exercises createOutboxService against a mock OutboxRouter: query/publish/
- * resolveRelays result marshalling, subscription event/eose/closed streaming,
- * close + window-teardown cleanup, and structural validation.
+ * Exercises createOutboxService against a mock OutboxRouter: getEvent/query/
+ * publish/resolveRelays result marshalling, subscription event/eose/closed
+ * streaming, close + window-teardown cleanup, and structural validation.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createOutboxService } from './outbox-service.js';
 import type {
   OutboxRouter,
+  OutboxEventResult,
   OutboxResult,
   OutboxPublishResult,
   OutboxRelayPlan,
@@ -39,6 +40,7 @@ function mockRouter(overrides: Partial<OutboxRouter> = {}): MockRouter {
   const router: MockRouter = {
     lastSink: null,
     subClose,
+    getEvent: vi.fn(async (): Promise<OutboxEventResult> => ({ event: EVENT, relays: ['wss://r.test'] })),
     query: vi.fn(async (): Promise<OutboxResult> => ({ events: [EVENT], relays: { [EVENT.id]: ['wss://r.test'] } })),
     subscribe: vi.fn((_filters, _options, sink): OutboxRouterSubscription => {
       router.lastSink = sink;
@@ -65,6 +67,83 @@ describe('createOutboxService', () => {
   it('exposes the outbox descriptor', () => {
     const svc = createOutboxService({ router: mockRouter() });
     expect(svc.descriptor.name).toBe('outbox');
+  });
+
+  describe('outbox.getEvent', () => {
+    it('passes event id and options to the router and returns getEvent.result', async () => {
+      const router = mockRouter();
+      const svc = createOutboxService({ router });
+      const c = collector();
+
+      svc.handleMessage(WINDOW, {
+        type: 'outbox.getEvent',
+        id: 'e1',
+        eventId: EVENT.id,
+        options: { author: EVENT.pubkey, strategy: 'outbox', timeoutMs: 1000 },
+      } as NappletMessage, c.send);
+      await Promise.resolve();
+
+      expect(router.getEvent).toHaveBeenCalledWith(EVENT.id, { author: EVENT.pubkey, strategy: 'outbox', timeoutMs: 1000 });
+      expect(c.sent[0]).toEqual({
+        type: 'outbox.getEvent.result',
+        id: 'e1',
+        event: EVENT,
+        relays: ['wss://r.test'],
+      });
+    });
+
+    it('falls back to query when a router has not implemented getEvent yet', async () => {
+      const router = mockRouter();
+      delete router.getEvent;
+      const svc = createOutboxService({ router });
+      const c = collector();
+
+      svc.handleMessage(WINDOW, {
+        type: 'outbox.getEvent',
+        id: 'e2',
+        eventId: EVENT.id,
+        options: { author: EVENT.pubkey, relays: ['wss://hint.test'], timeoutMs: 500 },
+      } as NappletMessage, c.send);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(router.query).toHaveBeenCalledWith(
+        [{ ids: [EVENT.id], authors: [EVENT.pubkey] }],
+        { limit: 1, authors: [EVENT.pubkey], relays: ['wss://hint.test'], timeoutMs: 500 },
+      );
+      expect(c.sent[0]).toMatchObject({
+        type: 'outbox.getEvent.result',
+        id: 'e2',
+        event: EVENT,
+        relays: ['wss://r.test'],
+      });
+    });
+
+    it('does not leak a router result whose event id does not match the request', async () => {
+      const wrong = { ...EVENT, id: 'b'.repeat(64) };
+      const router = mockRouter({
+        getEvent: vi.fn(async () => ({ event: wrong, relays: ['wss://r.test'] })),
+      });
+      const svc = createOutboxService({ router });
+      const c = collector();
+
+      svc.handleMessage(WINDOW, { type: 'outbox.getEvent', id: 'e3', eventId: EVENT.id } as NappletMessage, c.send);
+      await Promise.resolve();
+
+      expect(c.sent[0]).toEqual({ type: 'outbox.getEvent.result', id: 'e3', relays: [], error: 'not found' });
+    });
+
+    it('rejects a missing eventId as "invalid filter"', () => {
+      const router = mockRouter();
+      const svc = createOutboxService({ router });
+      const c = collector();
+
+      svc.handleMessage(WINDOW, { type: 'outbox.getEvent', id: 'e4' } as NappletMessage, c.send);
+
+      expect(router.getEvent).not.toHaveBeenCalled();
+      expect(router.query).not.toHaveBeenCalled();
+      expect(c.sent[0]).toEqual({ type: 'outbox.getEvent.result', id: 'e4', relays: [], error: 'invalid filter' });
+    });
   });
 
   describe('outbox.query', () => {

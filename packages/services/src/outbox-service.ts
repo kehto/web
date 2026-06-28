@@ -12,10 +12,11 @@
  * ships alongside as {@link createRelayPoolOutboxRouter}.
  *
  * ──────────────────────────── Responsibilities ────────────────────────────
- *   Inbound:  outbox.query, outbox.subscribe, outbox.close, outbox.publish,
- *             outbox.resolveRelays
- *   Outbound: outbox.query.result, outbox.event, outbox.eose, outbox.closed,
- *             outbox.publish.result, outbox.resolveRelays.result
+ *   Inbound:  outbox.getEvent, outbox.query, outbox.subscribe, outbox.close,
+ *             outbox.publish, outbox.resolveRelays
+ *   Outbound: outbox.getEvent.result, outbox.query.result, outbox.event,
+ *             outbox.eose, outbox.closed, outbox.publish.result,
+ *             outbox.resolveRelays.result
  *
  * The shell owns relay discovery, routing, fallback, deduplication, signature
  * validation, signing, and publish fanout policy — all of which live behind
@@ -45,6 +46,18 @@ const OUTBOX_SERVICE_VERSION = '1.0.0';
  * - `auto`   — let the shell choose per its policy and relay intelligence
  */
 export type OutboxStrategy = 'outbox' | 'inbox' | 'auto';
+
+/** Options for a single-event outbox lookup. */
+export interface OutboxEventOptions {
+  /** Author hint for routing through the author's outbox relays. */
+  author?: string;
+  /** Relay hints; treated as a hint subject to shell validation, not a bypass. */
+  relays?: string[];
+  /** Relay-selection strategy. */
+  strategy?: OutboxStrategy;
+  /** Wall-clock budget for the lookup, in milliseconds. */
+  timeoutMs?: number;
+}
 
 /** Options for a one-shot outbox query. */
 export interface OutboxQueryOptions {
@@ -98,6 +111,18 @@ export interface OutboxRelayPlan {
   missingAuthors?: string[];
 }
 
+/** Outcome of a single-event outbox lookup. */
+export interface OutboxEventResult {
+  /** The signature-validated event matching the requested event id, when found. */
+  event?: NostrEvent;
+  /** Relay URLs where the shell observed the event. */
+  relays: string[];
+  /** True when some relay lists or connections failed and the lookup was partial. */
+  incomplete?: boolean;
+  /** Error reason when the lookup could not complete or did not find the event. */
+  error?: string;
+}
+
 /** Outcome of an outbox query, as returned by the {@link OutboxRouter}. */
 export interface OutboxResult {
   /** Deduplicated, signature-validated events. */
@@ -146,6 +171,8 @@ export interface OutboxRouterSubscription {
  * fanout. The service translates wire envelopes into these calls and back.
  */
 export interface OutboxRouter {
+  /** Fetch and validate one event by id through shell-owned outbox routing. */
+  getEvent?(eventId: string, options?: OutboxEventOptions): Promise<OutboxEventResult>;
   /** Resolve relays, query them, dedup by id, validate signatures, collect events. */
   query(filters: NostrFilter[], options?: OutboxQueryOptions): Promise<OutboxResult>;
   /** Open a live outbox-aware subscription, streaming through `sink`. */
@@ -171,7 +198,7 @@ type Send = (msg: NappletMessage) => void;
 const OUTBOX_DESCRIPTOR: ServiceDescriptor = {
   name: 'outbox',
   version: OUTBOX_SERVICE_VERSION,
-  description: 'NAP-OUTBOX outbox-aware relay routing — query/subscribe/publish/resolveRelays',
+  description: 'NAP-OUTBOX outbox-aware relay routing — getEvent/query/subscribe/publish/resolveRelays',
 };
 
 /**
@@ -186,6 +213,66 @@ function normalizeFilters(raw: unknown): NostrFilter[] | null {
   }
   if (typeof raw === 'object' && raw !== null) return [raw as NostrFilter];
   return null;
+}
+
+function buildEventQuery(eventId: string, eventOptions?: OutboxEventOptions): { filter: NostrFilter; queryOptions: OutboxQueryOptions } {
+  const filter: NostrFilter = { ids: [eventId] };
+  const queryOptions: OutboxQueryOptions = { limit: 1 };
+  if (typeof eventOptions?.author === 'string' && eventOptions.author.length > 0) {
+    filter.authors = [eventOptions.author];
+    queryOptions.authors = [eventOptions.author];
+  }
+  if (Array.isArray(eventOptions?.relays)) queryOptions.relays = eventOptions.relays;
+  if (eventOptions?.strategy !== undefined) queryOptions.strategy = eventOptions.strategy;
+  if (eventOptions?.timeoutMs !== undefined) queryOptions.timeoutMs = eventOptions.timeoutMs;
+  return { filter, queryOptions };
+}
+
+function eventResultFromQuery(eventId: string, result: OutboxResult): OutboxEventResult {
+  const event = result.events.find((candidate) => candidate.id === eventId);
+  const eventResult: OutboxEventResult = {
+    relays: event ? (result.relays[eventId] ?? []) : [],
+  };
+  if (event) eventResult.event = event;
+  if (!event) eventResult.error = result.error ?? 'not found';
+  else if (result.error !== undefined) eventResult.error = result.error;
+  if (result.incomplete !== undefined) eventResult.incomplete = result.incomplete;
+  return eventResult;
+}
+
+function fallbackGetEvent(router: OutboxRouter, eventId: string, eventOptions?: OutboxEventOptions): Promise<OutboxEventResult> {
+  const { filter, queryOptions } = buildEventQuery(eventId, eventOptions);
+  return router.query([filter], queryOptions).then((result) => eventResultFromQuery(eventId, result));
+}
+
+function sendEventResult(id: string, eventId: string, result: OutboxEventResult, send: Send): void {
+  if (result.event && result.event.id !== eventId) {
+    send({ type: 'outbox.getEvent.result', id, relays: [], error: 'not found' } as NappletMessage);
+    return;
+  }
+  send({
+    type: 'outbox.getEvent.result',
+    id,
+    ...(result.event === undefined ? {} : { event: result.event }),
+    relays: result.relays,
+    ...(result.incomplete === undefined ? {} : { incomplete: result.incomplete }),
+    ...(result.error === undefined ? {} : { error: result.error }),
+  } as NappletMessage);
+}
+
+function handleGetEvent(router: OutboxRouter, msg: NappletMessage, send: Send): void {
+  const m = msg as NappletMessage & { id?: string; eventId?: unknown; options?: OutboxEventOptions };
+  const id = m.id ?? '';
+  if (typeof m.eventId !== 'string' || m.eventId.length === 0) {
+    send({ type: 'outbox.getEvent.result', id, relays: [], error: 'invalid filter' } as NappletMessage);
+    return;
+  }
+  const getEvent = router.getEvent ?? ((eventId, eventOptions) => fallbackGetEvent(router, eventId, eventOptions));
+  void getEvent(m.eventId, m.options)
+    .then((result) => sendEventResult(id, m.eventId as string, result, send))
+    .catch((err) =>
+      send({ type: 'outbox.getEvent.result', id, relays: [], error: toErrorMessage(err) } as NappletMessage),
+    );
 }
 
 /**
@@ -312,6 +399,9 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
     descriptor: OUTBOX_DESCRIPTOR,
     handleMessage(windowId: string, message: NappletMessage, send: Send): void {
       switch (message.type) {
+        case 'outbox.getEvent':
+          handleGetEvent(router, message, send);
+          return;
         case 'outbox.query':
           handleQuery(message, send);
           return;

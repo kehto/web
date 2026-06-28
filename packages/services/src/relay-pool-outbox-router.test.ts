@@ -222,6 +222,51 @@ describe('createRelayPoolOutboxRouter', () => {
     });
   });
 
+  describe('getEvent', () => {
+    it('fetches a single event by id through the author outbox relays', async () => {
+      const pool = makePool();
+      const router = makeRouter(pool);
+      const target = ev('target');
+      const p = router.getEvent!(target.id, { author: PK_A, timeoutMs: 20 });
+      await tick();
+
+      expect(pool.subs.map((s) => s.relays[0])).toEqual(['wss://a-write']);
+
+      pool.emit('wss://a-write', target);
+      pool.eoseAll();
+
+      const result = await p;
+      expect(result).toEqual({ event: target, relays: ['wss://a-write'] });
+    });
+
+    it('does not return a relay event whose id differs from the requested id', async () => {
+      const pool = makePool();
+      const router = makeRouter(pool);
+      const wantedId = ev('wanted').id;
+      const p = router.getEvent!(wantedId, { author: PK_A, timeoutMs: 20 });
+      await tick();
+
+      pool.emit('wss://a-write', ev('other'));
+      pool.eoseAll();
+
+      const result = await p;
+      expect(result).toEqual({ relays: [], error: 'not found' });
+    });
+
+    it('marks the lookup incomplete when a relay times out after finding the event', async () => {
+      const pool = makePool();
+      const router = makeRouter(pool, { defaultTimeoutMs: 20 });
+      const target = ev('slow');
+      const p = router.getEvent!(target.id, { author: PK_A });
+      await tick();
+
+      pool.emit('wss://a-write', target);
+
+      const result = await p;
+      expect(result).toEqual({ event: target, relays: ['wss://a-write'], incomplete: true });
+    });
+  });
+
   describe('subscribe', () => {
     it('streams attributed events and one eose after all relays EOSE (live keeps open)', async () => {
       const pool = makePool();
