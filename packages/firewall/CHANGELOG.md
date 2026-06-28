@@ -1,5 +1,12 @@
 # @kehto/firewall
 
+## 0.3.4
+
+### Patch Changes
+
+- a07f3cd: Add a NIP-5D injected-domain namespace prelude helper for srcdoc hosts and
+  align napplet package peer ranges with the inject-compatible release line.
+
 ## 0.3.3
 
 ### Patch Changes

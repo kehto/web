@@ -1,6 +1,6 @@
 {
   "name": "@kehto/acl",
-  "version": "0.13.1",
+  "version": "0.14.0",
   "description": "Pure, WASM-ready ACL module for the napplet protocol — zero dependencies, zero side effects",
   "type": "module",
   "main": "./dist/index.js",
