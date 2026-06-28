@@ -16,7 +16,7 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 | Field | Value |
 |-------|-------|
 | Source | `packages/services/package.json`, `packages/services/src/index.ts` |
-| Version | `0.12.3` |
+| Version | `0.13.0` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Dependencies | `@kehto/runtime` |
