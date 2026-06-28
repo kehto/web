@@ -60,18 +60,19 @@ describe('runtime outbox domain dispatch', () => {
     expect(received[0].type).toBe('outbox.query');
   });
 
-  it('routes outbox.subscribe / outbox.publish / outbox.resolveRelays to the service', () => {
+  it('routes outbox.getEvent / subscribe / publish / resolveRelays to the service', () => {
     const received: NappletMessage[] = [];
     runtime.registerService('outbox', {
       descriptor: { name: 'outbox', version: '1.0.0' },
       handleMessage(_wid, msg) { received.push(msg); },
     });
 
+    runtime.handleMessage(WINDOW_ID, { type: 'outbox.getEvent', id: 'e1', eventId: 'e'.repeat(64) } as NappletMessage);
     runtime.handleMessage(WINDOW_ID, { type: 'outbox.subscribe', id: 's1', subId: 'sub-1', filters: FILTERS } as NappletMessage);
     runtime.handleMessage(WINDOW_ID, { type: 'outbox.publish', id: 'p1', event: { kind: 1, content: 'hi', tags: [], created_at: 1 } } as NappletMessage);
     runtime.handleMessage(WINDOW_ID, { type: 'outbox.resolveRelays', id: 'r1', target: { pubkey: 'a'.repeat(64), direction: 'read' } } as NappletMessage);
 
-    expect(received.map((m) => m.type)).toEqual(['outbox.subscribe', 'outbox.publish', 'outbox.resolveRelays']);
+    expect(received.map((m) => m.type)).toEqual(['outbox.getEvent', 'outbox.subscribe', 'outbox.publish', 'outbox.resolveRelays']);
   });
 
   it('allows one init-time outbox.subscribe carrying more filters than the burst op cap', () => {

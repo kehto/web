@@ -96,6 +96,8 @@ export { createOutboxService } from './outbox-service.js';
 export type {
   OutboxServiceOptions,
   OutboxRouter,
+  OutboxEventOptions,
+  OutboxEventResult,
   OutboxResult,
   OutboxPublishResult,
   OutboxRelayPlan,

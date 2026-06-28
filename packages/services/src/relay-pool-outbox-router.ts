@@ -44,6 +44,8 @@ import type {
   OutboxResult,
   OutboxPublishResult,
   OutboxRelayPlan,
+  OutboxEventOptions,
+  OutboxEventResult,
   OutboxQueryOptions,
   OutboxSubscribeOptions,
   OutboxPublishOptions,
@@ -337,6 +339,33 @@ async function queryImpl(ctx: RouterCtx, filters: NostrFilter[], options?: Outbo
   return result;
 }
 
+async function getEventImpl(ctx: RouterCtx, eventId: string, options?: OutboxEventOptions): Promise<OutboxEventResult> {
+  if (typeof eventId !== 'string' || eventId.length === 0) {
+    return { relays: [], error: 'invalid filter' };
+  }
+
+  const filter: NostrFilter = { ids: [eventId] };
+  const queryOptions: OutboxQueryOptions = { limit: 1 };
+  if (typeof options?.author === 'string' && options.author.length > 0) {
+    filter.authors = [options.author];
+    queryOptions.authors = [options.author];
+  }
+  if (Array.isArray(options?.relays)) queryOptions.relays = options.relays;
+  if (options?.strategy !== undefined) queryOptions.strategy = options.strategy;
+  if (options?.timeoutMs !== undefined) queryOptions.timeoutMs = options.timeoutMs;
+
+  const queryResult = await queryImpl(ctx, [filter], queryOptions);
+  const event = queryResult.events.find((candidate) => candidate.id === eventId);
+  const result: OutboxEventResult = {
+    relays: event ? (queryResult.relays[eventId] ?? []) : [],
+  };
+  if (event) result.event = event;
+  if (!event) result.error = queryResult.error ?? 'not found';
+  else if (queryResult.error !== undefined) result.error = queryResult.error;
+  if (queryResult.incomplete !== undefined) result.incomplete = queryResult.incomplete;
+  return result;
+}
+
 /** Tracks a live/one-shot subscription across its per-relay fan-out. */
 interface LiveSub {
   handles: { unsubscribe(): void }[];
@@ -502,6 +531,7 @@ export function createRelayPoolOutboxRouter(options: RelayPoolOutboxRouterOption
   };
 
   return {
+    getEvent: (eventId, eventOptions) => getEventImpl(ctx, eventId, eventOptions),
     query: (filters, queryOptions) => queryImpl(ctx, filters, queryOptions),
     subscribe: (filters, subscribeOptions, sink) => startSubscription(ctx, filters, subscribeOptions, sink),
     publish: (template, publishOptions) => publishImpl(ctx, template, publishOptions),

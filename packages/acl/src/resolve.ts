@@ -224,7 +224,7 @@ function cvmMap(action: string): CapabilityResolution {
  * - `publish` (napplet → shell)                       → sender `outbox:write`,
  *   recipient `null`. The shell signs and fans the event out to the relevant
  *   write relays; there is no napplet-visible recipient ACL check.
- * - `query` / `subscribe` / `close` / `resolveRelays` (and any other
+ * - `getEvent` / `query` / `subscribe` / `close` / `resolveRelays` (and any other
  *   napplet-originated request)                        → sender `outbox:read`,
  *   recipient `null`.
  * - `event` / `eose` / `closed` / `*.result` / `*.error` (shell → napplet
