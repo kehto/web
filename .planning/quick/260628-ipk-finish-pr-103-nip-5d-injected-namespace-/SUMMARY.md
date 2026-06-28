@@ -49,6 +49,10 @@ with the published inject-compatible napplet package line released on
 - Post-release stale package scan passed with no old napplet package pins.
 - Post-release old shim path scan found only explicit legacy/negative guardrails
   for `window.napplet.shell.supports()`.
+- Continuation audit against the live upstream `5D.md` head
+  (`dskvr/nips@6ca56324a3764a17141e681225f0aaa0ad45a5b6`) found and fixed one
+  stale `@napplet/vite-plugin@0.8.1` reference in `RUNTIME-SPEC.md`; the docs
+  now name the current `0.10.1` release.
 
 ## Remaining Baseline
 

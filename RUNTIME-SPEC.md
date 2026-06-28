@@ -44,7 +44,7 @@ Kehto's runtime packages target the current `@napplet` line:
 The runtime's domain dispatcher routes via `createDispatch()` + `registerNap()`
 from `@napplet/core` (the rename of the former `registerNap` / `NapHandler`
 surface). `napplet/web#53` is resolved — the playground builds against
-`@napplet/vite-plugin@0.8.1`.
+`@napplet/vite-plugin@0.10.1`.
 
 ## Content-Addressed Loading & Identity
 
