@@ -265,12 +265,12 @@ function outboxMap(action: string): CapabilityResolution {
  * napplet's own uploads, so it rides the same grant rather than a separate read
  * cap.
  *
- * - `upload` / `status` (and any other napplet-originated request) → sender
+ * - `info` / `upload` / `status` (and any other napplet-originated request) → sender
  *   `upload:write`, recipient `null`.
- * - `upload.result` / `status.result` / `status.changed` / `*.error` (shell →
- *   napplet pushes) → sender `null`, recipient `upload:write`. The push is gated
- *   against the receiving napplet's cap so a napplet without `upload:write`
- *   never sees results or progress updates.
+ * - `info.result` / `upload.result` / `status.result` / `status.changed` /
+ *   `*.error` (shell → napplet pushes) → sender `null`, recipient
+ *   `upload:write`. The push is gated against the receiving napplet's cap so a
+ *   napplet without `upload:write` never sees results or progress updates.
  */
 function uploadMap(action: string): CapabilityResolution {
   // Shell-originated pushes: recipient gate.

@@ -449,6 +449,10 @@ describe('resolveCapabilitiesNap', () => {
   });
 
   describe('upload domain (NAP-UPLOAD shell-mediated file/blob upload)', () => {
+    it('upload.info -> sender upload:write (napplet-originated introspection request)', () => {
+      expect(resolveCapabilitiesNap({ type: 'upload.info' })).toEqual({ senderCap: 'upload:write', recipientCap: null });
+    });
+
     it('upload.upload -> sender upload:write (napplet-originated request)', () => {
       expect(resolveCapabilitiesNap({ type: 'upload.upload' })).toEqual({ senderCap: 'upload:write', recipientCap: null });
     });
@@ -463,6 +467,10 @@ describe('resolveCapabilitiesNap', () => {
 
     it('upload.status.result -> recipient upload:write (shell -> napplet push)', () => {
       expect(resolveCapabilitiesNap({ type: 'upload.status.result' })).toEqual({ senderCap: null, recipientCap: 'upload:write' });
+    });
+
+    it('upload.info.result -> recipient upload:write (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNap({ type: 'upload.info.result' })).toEqual({ senderCap: null, recipientCap: 'upload:write' });
     });
 
     it('upload.status.changed -> recipient upload:write (shell -> napplet push, no envelope id)', () => {

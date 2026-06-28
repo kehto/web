@@ -14,8 +14,9 @@
  * {@link createHttpUploader}.
  *
  * ──────────────────────────── Responsibilities ────────────────────────────
- *   Inbound:  upload.upload, upload.status
- *   Outbound: upload.upload.result, upload.status.result, upload.status.changed
+ *   Inbound:  upload.info, upload.upload, upload.status
+ *   Outbound: upload.info.result, upload.upload.result,
+ *             upload.status.result, upload.status.changed
  *
  * The service owns the `uploadId` (generated per request, scoped to the
  * requesting napplet), tracks the latest {@link UploadStatus} per upload for
@@ -122,6 +123,30 @@ export interface UploadStatus extends UploadResult {
   updatedAt: number;
 }
 
+/** Runtime-disclosed support for one upload rail. */
+export interface UploadRailInfo {
+  rail: UploadRail;
+  enabled: boolean;
+  returns?: string[];
+}
+
+/** Advisory upload rails and coarse policy limits disclosed by the runtime. */
+export interface UploadInfo {
+  rails: UploadRailInfo[];
+  maxBytes?: number;
+  mimeTypes?: string[];
+}
+
+/** Context passed to a host-provided upload info resolver. */
+export interface UploadInfoContext {
+  windowId: string;
+}
+
+/** Static or dynamic advisory upload info exposed through `upload.info`. */
+export type UploadInfoProvider =
+  | UploadInfo
+  | ((context: UploadInfoContext) => UploadInfo | Promise<UploadInfo>);
+
 /**
  * Context handed to an {@link Uploader} for a single upload. Carries the
  * service-owned `uploadId` and a sink for streaming progress / state changes.
@@ -159,6 +184,13 @@ export interface Uploader {
 export interface UploadServiceOptions {
   /** The upload backend the shell uses. Required. */
   uploader: Uploader;
+  /**
+   * Advisory NAP-UPLOAD introspection exposed through `upload.info`.
+   *
+   * Provide a static snapshot or resolver when the shell wants to disclose
+   * configured rails and coarse limits. Omit to expose no rails and no limits.
+   */
+  uploadInfo?: UploadInfoProvider;
   /** Generate an upload id; defaults to `crypto.randomUUID()`. */
   generateId?: () => string;
   /** Current time in unix ms; defaults to `Date.now()`. */
@@ -171,6 +203,10 @@ const UPLOAD_DESCRIPTOR: ServiceDescriptor = {
   name: 'upload',
   version: UPLOAD_SERVICE_VERSION,
   description: 'NAP-UPLOAD shell-mediated file/blob upload — upload/status with progress pushes',
+};
+
+const DEFAULT_UPLOAD_INFO: UploadInfo = {
+  rails: [],
 };
 
 /** Per-upload tracking entry, keyed by `windowId:uploadId`. */
@@ -193,11 +229,41 @@ export function createUploadService(options: UploadServiceOptions): ServiceHandl
     throw new Error('createUploadService: options.uploader is required');
   }
   const { uploader } = options;
+  const uploadInfo = options.uploadInfo ?? DEFAULT_UPLOAD_INFO;
   const generateId = options.generateId ?? (() => crypto.randomUUID());
   const now = options.now ?? (() => Date.now());
 
   // Tracked uploads keyed by `windowId:uploadId` for status lookup + cleanup.
   const entries = new Map<string, UploadEntry>();
+
+  function normalizeUploadInfo(info: UploadInfo): UploadInfo {
+    return {
+      rails: Array.isArray(info.rails)
+        ? info.rails
+            .filter((rail) => typeof rail?.rail === 'string')
+            .map((rail) => ({
+              rail: rail.rail,
+              enabled: rail.enabled !== false,
+              ...(Array.isArray(rail.returns) ? { returns: rail.returns.filter((value) => typeof value === 'string') } : {}),
+            }))
+        : [],
+      ...(typeof info.maxBytes === 'number' ? { maxBytes: info.maxBytes } : {}),
+      ...(Array.isArray(info.mimeTypes) ? { mimeTypes: info.mimeTypes.filter((value) => typeof value === 'string') } : {}),
+    };
+  }
+
+  function handleInfo(windowId: string, msg: NappletMessage, send: Send): void {
+    const m = msg as NappletMessage & { id?: string };
+    const id = m.id ?? '';
+    void Promise.resolve()
+      .then(() => (typeof uploadInfo === 'function' ? uploadInfo({ windowId }) : uploadInfo))
+      .then((info) => {
+        send({ type: 'upload.info.result', id, info: normalizeUploadInfo(info) } as NappletMessage);
+      })
+      .catch((err) => {
+        send({ type: 'upload.info.result', id, error: toErrorMessage(err) } as NappletMessage);
+      });
+  }
 
   function handleUpload(windowId: string, msg: NappletMessage, send: Send): void {
     const m = msg as NappletMessage & { id?: string; request?: UploadRequest };
@@ -275,6 +341,9 @@ export function createUploadService(options: UploadServiceOptions): ServiceHandl
     descriptor: UPLOAD_DESCRIPTOR,
     handleMessage(windowId: string, message: NappletMessage, send: Send): void {
       switch (message.type) {
+        case 'upload.info':
+          handleInfo(windowId, message, send);
+          return;
         case 'upload.upload':
           handleUpload(windowId, message, send);
           return;
