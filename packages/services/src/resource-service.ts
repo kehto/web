@@ -6,8 +6,9 @@
  * model per PROJECT.md Decision #31. Kehto keeps legacy single-fetch fields
  * for existing callers and also emits the current NAP-RESOURCE fields.
  * Handles:
- *   Inbound:  resource.bytes, resource.bytesMany, resource.cancel
- *   Outbound: resource.bytes.result, resource.bytes.error,
+ *   Inbound:  resource.info, resource.bytes, resource.bytesMany, resource.cancel
+ *   Outbound: resource.info.result, resource.info.error,
+ *             resource.bytes.result, resource.bytes.error,
  *             resource.bytesMany.result, resource.bytesMany.error
  *
  * ──────────────────────── SCOPE BOUNDARY (RESOURCE-01) ────────────────────────
@@ -47,6 +48,30 @@ import type { ServiceDescriptor, ServiceHandler } from '@kehto/runtime';
 
 /** Resource service version — follows semver. */
 const RESOURCE_SERVICE_VERSION = '1.0.0';
+
+/** Runtime-disclosed support for one resource URL scheme. */
+export interface ResourceSchemeInfo {
+  scheme: string;
+  enabled: boolean;
+}
+
+/** Advisory resource capability and policy limits disclosed by the runtime. */
+export interface ResourceInfo {
+  schemes: ResourceSchemeInfo[];
+  maxBytes?: number;
+  maxUrls?: number;
+}
+
+/** Context passed to a host-provided resource info resolver. */
+export interface ResourceInfoContext {
+  windowId: string;
+  identity: { dTag: string; aggregateHash: string } | null;
+}
+
+/** Static or dynamic advisory resource info exposed through `resource.info`. */
+export type ResourceInfoProvider =
+  | ResourceInfo
+  | ((context: ResourceInfoContext) => ResourceInfo | Promise<ResourceInfo>);
 
 /**
  * Options for `createResourceService` (options-as-bridge per v1.6 Decision 18).
@@ -111,6 +136,15 @@ export interface ResourceServiceOptions {
    * @param windowId - The iframe window identifier
    */
   resolveIdentity(windowId: string): { dTag: string; aggregateHash: string } | null;
+
+  /**
+   * Advisory NAP-RESOURCE introspection exposed through `resource.info`.
+   *
+   * Provide a static snapshot or a resolver when the shell wants to disclose
+   * configured schemes and coarse limits. Omit to expose the reference
+   * service's conservative default (`https` enabled, no numeric limits).
+   */
+  resourceInfo?: ResourceInfoProvider;
 }
 
 /**
@@ -171,6 +205,10 @@ type ResourceFetchFailure = {
 };
 
 type ResourceFetchItem = ResourceFetchSuccess | ResourceFetchFailure;
+
+const DEFAULT_RESOURCE_INFO: ResourceInfo = {
+  schemes: [{ scheme: 'https', enabled: true }],
+};
 
 function assertResourceOptions(options: ResourceServiceOptions): void {
   if (
@@ -277,6 +315,52 @@ function requestIdFromMessage(message: NappletMessage & { id?: unknown; requestI
   if (typeof message.id === 'string' && message.id.length > 0) return message.id;
   if (typeof message.requestId === 'string' && message.requestId.length > 0) return message.requestId;
   return null;
+}
+
+function normalizeResourceInfo(info: ResourceInfo): ResourceInfo {
+  return {
+    schemes: Array.isArray(info.schemes)
+      ? info.schemes
+          .filter((scheme) => typeof scheme?.scheme === 'string')
+          .map((scheme) => ({ scheme: scheme.scheme, enabled: scheme.enabled !== false }))
+      : [],
+    ...(typeof info.maxBytes === 'number' ? { maxBytes: info.maxBytes } : {}),
+    ...(typeof info.maxUrls === 'number' ? { maxUrls: info.maxUrls } : {}),
+  };
+}
+
+async function resolveResourceInfo(
+  options: ResourceServiceOptions,
+  windowId: string,
+): Promise<ResourceInfo> {
+  const configured = options.resourceInfo ?? DEFAULT_RESOURCE_INFO;
+  const info = typeof configured === 'function'
+    ? await configured({ windowId, identity: options.resolveIdentity(windowId) })
+    : configured;
+  return normalizeResourceInfo(info);
+}
+
+async function handleInfo(
+  options: ResourceServiceOptions,
+  windowId: string,
+  requestId: string,
+  send: (m: NappletMessage) => void,
+): Promise<void> {
+  try {
+    const info = await resolveResourceInfo(options, windowId);
+    send({
+      type: 'resource.info.result',
+      id: requestId,
+      info,
+    } as NappletMessage);
+  } catch (err: unknown) {
+    send({
+      type: 'resource.info.error',
+      id: requestId,
+      error: 'unavailable',
+      message: err instanceof Error ? err.message : String(err),
+    } as NappletMessage);
+  }
 }
 
 function resourceInvalidRequest(url: string, message: string): ResourceFetchFailure {
@@ -456,8 +540,9 @@ function destroyWindowRequests(state: ResourceRequestState, windowId: string): v
 /**
  * Create a NAP-RESOURCE reference service.
  *
- * Implements the NAP-RESOURCE request/response protocol: `resource.bytes`,
- * `resource.bytesMany`, `resource.cancel`, and their result/error envelopes.
+ * Implements the NAP-RESOURCE request/response protocol: `resource.info`,
+ * `resource.bytes`, `resource.bytesMany`, `resource.cancel`, and their
+ * result/error envelopes.
  *
  * On-construction guard (H-03 prevention): all four options are validated at
  * factory call time. If any is missing, the factory throws immediately with a
@@ -516,6 +601,14 @@ export function createResourceService(options: ResourceServiceOptions): Resource
           const requestId = requestIdFromMessage(m);
           if (!requestId || typeof m.url !== 'string') return;
           handleBytes(options, state, windowId, { requestId, url: m.url, init: m.init }, send).catch(() => { /* errors surface via send() */ });
+          return;
+        }
+
+        case 'resource.info': {
+          const m = message as NappletMessage & { id?: string; requestId?: string };
+          const requestId = requestIdFromMessage(m);
+          if (!requestId) return;
+          handleInfo(options, windowId, requestId, send).catch(() => { /* errors surface via send() */ });
           return;
         }
 

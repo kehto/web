@@ -1,7 +1,8 @@
 /**
  * upload-service.test.ts — NAP-UPLOAD envelope-router service.
  *
- * Exercises createUploadService against a mock Uploader: upload.upload result
+ * Exercises createUploadService against a mock Uploader: upload.info result,
+ * upload.upload result
  * marshalling + uploadId stamping, progress (upload.status.changed) streaming,
  * upload.status tracking + lookup, missing-data rejection, uploader-rejection
  * handling, and window-teardown cleanup (cancel).
@@ -74,6 +75,67 @@ describe('createUploadService', () => {
   it('exposes the upload descriptor', () => {
     const svc = createUploadService({ uploader: mockUploader() });
     expect(svc.descriptor.name).toBe('upload');
+  });
+
+  describe('upload.info', () => {
+    it('returns advisory upload rails and coarse limits', async () => {
+      const uploader = mockUploader();
+      const svc = createUploadService({
+        uploader,
+        uploadInfo: {
+          rails: [
+            { rail: 'nip96', enabled: true, returns: ['https'] },
+            { rail: 'blossom', enabled: false, returns: ['https', 'blossom'] },
+          ],
+          maxBytes: 1024,
+          mimeTypes: ['image/png', 'application/pdf'],
+        },
+      });
+      const c = collector();
+
+      svc.handleMessage(WINDOW, { type: 'upload.info', id: 'info-1' } as NappletMessage, c.send);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(uploader.upload).not.toHaveBeenCalled();
+      expect(c.sent).toEqual([
+        {
+          type: 'upload.info.result',
+          id: 'info-1',
+          info: {
+            rails: [
+              { rail: 'nip96', enabled: true, returns: ['https'] },
+              { rail: 'blossom', enabled: false, returns: ['https', 'blossom'] },
+            ],
+            maxBytes: 1024,
+            mimeTypes: ['image/png', 'application/pdf'],
+          },
+        },
+      ]);
+    });
+
+    it('maps upload info provider failures to upload.info.result error', async () => {
+      const svc = createUploadService({
+        uploader: mockUploader(),
+        uploadInfo: () => {
+          throw new Error('policy unavailable');
+        },
+      });
+      const c = collector();
+
+      svc.handleMessage(WINDOW, { type: 'upload.info', id: 'info-fail' } as NappletMessage, c.send);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(c.sent).toEqual([
+        {
+          type: 'upload.info.result',
+          id: 'info-fail',
+          error: 'policy unavailable',
+        },
+      ]);
+    });
   });
 
   describe('upload.upload', () => {

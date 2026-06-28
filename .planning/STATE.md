@@ -110,6 +110,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260626-n7x | Add runtime-owned NAP-DM service with NIP-17, NDR, and Cordn adapters | 2026-06-26 | feat/nap-dm-chat-adapters | [260626-n7x-nap-dm-chat-adapter-service-for-nip-17-n](./quick/260626-n7x-nap-dm-chat-adapter-service-for-nip-17-n/) |
 | 260628-ipk | Finish PR #103 NIP-5D injected namespace closeout against current upstream text | 2026-06-28 | feat/nip5d-interface-injection-prototype | [260628-ipk-finish-pr-103-nip-5d-injected-namespace-](./quick/260628-ipk-finish-pr-103-nip-5d-injected-namespace-/) |
 | 260628-ldd | Add NAP-OUTBOX `outbox.getEvent` runtime support | 2026-06-28 | fix/nap-outbox-get-event | [260628-ldd-add-nap-outbox-getevent-runtime-support](./quick/260628-ldd-add-nap-outbox-getevent-runtime-support/) |
+| 260628-l89 | Add NAP-UPLOAD `upload.info` runtime support | 2026-06-28 | fix/nap-upload-info | [260628-l89-add-nap-upload-upload-info-runtime-suppo](./quick/260628-l89-add-nap-upload-upload-info-runtime-suppo/) |
+| 260628-l1y | Add NAP-RESOURCE resource.info runtime support | 2026-06-28 | 5415c74 | [260628-l1y-add-nap-resource-resource-info-runtime-s](./quick/260628-l1y-add-nap-resource-resource-info-runtime-s/) |
 
 ## Session Continuity
 

@@ -88,6 +88,10 @@ export type {
 
 export { createResourceService } from './resource-service.js';
 export type {
+  ResourceInfo,
+  ResourceInfoContext,
+  ResourceInfoProvider,
+  ResourceSchemeInfo,
   ResourceServiceOptions,
   ResourceService,
 } from './resource-service.js';
@@ -120,6 +124,10 @@ export type {
 export { createUploadService } from './upload-service.js';
 export type {
   UploadServiceOptions,
+  UploadInfo,
+  UploadInfoContext,
+  UploadInfoProvider,
+  UploadRailInfo,
   Uploader,
   UploaderContext,
   UploadRequest,

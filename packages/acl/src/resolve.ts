@@ -174,11 +174,11 @@ function configMap(action: string): CapabilityResolution {
  *
  * Asymmetric protocol: napplet initiates fetch requests, shell proxies and responds.
  *
- * - `bytes` / `bytesMany` / `cancel` (napplet → shell requests)           →
+ * - `info` / `bytes` / `bytesMany` / `cancel` (napplet → shell requests)  →
  *   sender `resource:fetch`, recipient `null`. The napplet must hold
  *   `resource:fetch` to issue resource requests or cancel one.
- * - `bytes.result` / `bytes.error` / `bytesMany.result` /
- *   `bytesMany.error` (shell → napplet pushes)                           →
+ * - `info.result` / `info.error` / `bytes.result` / `bytes.error` /
+ *   `bytesMany.result` / `bytesMany.error` (shell → napplet pushes)       →
  *   sender `null`, recipient `resource:fetch`. The napplet must hold
  *   `resource:fetch` to receive the result/error push.
  * - Unknown resource.* actions → sender `resource:fetch`, recipient `null`
@@ -187,7 +187,14 @@ function configMap(action: string): CapabilityResolution {
  */
 function resourceMap(action: string): CapabilityResolution {
   // Shell-originated pushes: recipient gate (napplet must hold resource:fetch to see them).
-  if (action === 'bytes.result' || action === 'bytes.error' || action === 'bytesMany.result' || action === 'bytesMany.error') {
+  if (
+    action === 'info.result' ||
+    action === 'info.error' ||
+    action === 'bytes.result' ||
+    action === 'bytes.error' ||
+    action === 'bytesMany.result' ||
+    action === 'bytesMany.error'
+  ) {
     return { senderCap: null, recipientCap: 'resource:fetch' };
   }
   // Napplet-originated requests: sender gate (bytes, cancel, and any unknown).
@@ -258,12 +265,12 @@ function outboxMap(action: string): CapabilityResolution {
  * napplet's own uploads, so it rides the same grant rather than a separate read
  * cap.
  *
- * - `upload` / `status` (and any other napplet-originated request) → sender
+ * - `info` / `upload` / `status` (and any other napplet-originated request) → sender
  *   `upload:write`, recipient `null`.
- * - `upload.result` / `status.result` / `status.changed` / `*.error` (shell →
- *   napplet pushes) → sender `null`, recipient `upload:write`. The push is gated
- *   against the receiving napplet's cap so a napplet without `upload:write`
- *   never sees results or progress updates.
+ * - `info.result` / `upload.result` / `status.result` / `status.changed` /
+ *   `*.error` (shell → napplet pushes) → sender `null`, recipient
+ *   `upload:write`. The push is gated against the receiving napplet's cap so a
+ *   napplet without `upload:write` never sees results or progress updates.
  */
 function uploadMap(action: string): CapabilityResolution {
   // Shell-originated pushes: recipient gate.

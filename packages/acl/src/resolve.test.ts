@@ -331,6 +331,18 @@ describe('resolveCapabilitiesNap', () => {
       expect(resolveCapabilitiesNap({ type: 'resource.bytesMany' })).toEqual({ senderCap: 'resource:fetch', recipientCap: null });
     });
 
+    it('resource.info -> sender resource:fetch (napplet-originated introspection request)', () => {
+      expect(resolveCapabilitiesNap({ type: 'resource.info' })).toEqual({ senderCap: 'resource:fetch', recipientCap: null });
+    });
+
+    it('resource.info.result -> recipient resource:fetch (shell -> napplet response)', () => {
+      expect(resolveCapabilitiesNap({ type: 'resource.info.result' })).toEqual({ senderCap: null, recipientCap: 'resource:fetch' });
+    });
+
+    it('resource.info.error -> recipient resource:fetch (shell -> napplet response)', () => {
+      expect(resolveCapabilitiesNap({ type: 'resource.info.error' })).toEqual({ senderCap: null, recipientCap: 'resource:fetch' });
+    });
+
     it('resource.bytes.result -> recipient resource:fetch (shell -> napplet push)', () => {
       expect(resolveCapabilitiesNap({ type: 'resource.bytes.result' })).toEqual({ senderCap: null, recipientCap: 'resource:fetch' });
     });
@@ -445,6 +457,10 @@ describe('resolveCapabilitiesNap', () => {
   });
 
   describe('upload domain (NAP-UPLOAD shell-mediated file/blob upload)', () => {
+    it('upload.info -> sender upload:write (napplet-originated introspection request)', () => {
+      expect(resolveCapabilitiesNap({ type: 'upload.info' })).toEqual({ senderCap: 'upload:write', recipientCap: null });
+    });
+
     it('upload.upload -> sender upload:write (napplet-originated request)', () => {
       expect(resolveCapabilitiesNap({ type: 'upload.upload' })).toEqual({ senderCap: 'upload:write', recipientCap: null });
     });
@@ -459,6 +475,10 @@ describe('resolveCapabilitiesNap', () => {
 
     it('upload.status.result -> recipient upload:write (shell -> napplet push)', () => {
       expect(resolveCapabilitiesNap({ type: 'upload.status.result' })).toEqual({ senderCap: null, recipientCap: 'upload:write' });
+    });
+
+    it('upload.info.result -> recipient upload:write (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNap({ type: 'upload.info.result' })).toEqual({ senderCap: null, recipientCap: 'upload:write' });
     });
 
     it('upload.status.changed -> recipient upload:write (shell -> napplet push, no envelope id)', () => {
