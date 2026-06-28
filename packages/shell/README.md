@@ -25,6 +25,7 @@ Current draft behaviors this package enforces:
 - `window.napplet.shell.supports()` is compatibility behavior for released shim/demo code, not the current NIP-5D availability primitive. New host availability checks should use injected `window.napplet.<domain>` presence and leave per-domain semantic checks to the matching NAP.
 - Five optional per-domain proxies — `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` — can be composed between napplet and runtime to intercept or augment traffic per NAP. They are NOT wired by default (Kehto's runtime already owns dispatch for the currently supported domains); they exist as host-app composition seams.
 - The keys-forwarder pumps host keydown events into `keys.forward` envelopes for napplets that hold the `keys:forward` capability.
+- `buildShellCapabilities()` advertises `dm` when the host adapter provides `hooks.dm`, and disabled-domain overrides remove it from both `domains` and `naps`.
 
 ## Quick Start
 

@@ -1,6 +1,6 @@
 # @kehto/services
 
-Reference service handlers for the napplet protocol — audio, notifications, identity, relay pool, cache, keys, media, notify, theme, link, common, lists, serial, BLE, WebRTC.
+Reference service handlers for the napplet protocol — audio, notifications, identity, relay pool, cache, keys, media, notify, theme, link, common, lists, serial, BLE, WebRTC, DM.
 
 > **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
 > protocol. NAP contracts and service envelopes are not final; treat these
@@ -24,6 +24,7 @@ Current draft posture:
 - `createKeysService` and `createMediaService` ship real reference backends as of v1.4 (see the dedicated sections below). `createKeysService` attaches a document-level `keydown` listener by default and delivers `keys.action` push envelopes to registered napplets; `createMediaService` mirrors session metadata and playback state to `navigator.mediaSession` and emits `media.command` push envelopes on OS transport events. Both accept a host-bridge option (`HostKeysBridge` / `HostMediaBridge`) so Electron / Tauri / native shells can swap in OS-level backends without re-implementing the wire-protocol bookkeeping.
 - `createNotifyService` (NIP-5D `notify.*` NAP) coexists with the legacy `createNotificationService` (inc-emit `notifications:*` channel). Both may be registered simultaneously while hosts migrate.
 - `createResourceService` supports `resource.bytesMany` from draft NAP-RESOURCE. Bulk requests return ordered per-URL items and keep per-URL failures local while preserving legacy single-fetch fields for existing Kehto callers.
+- `createDmService` keeps NAP-DM request correlation, subscriptions, and message normalization in runtime-owned code. Adapters cover concrete transports: NIP-17 gift wraps via `nostr-tools`, structural NDR runtimes with relay hooks, and Cordn/ContextVM coordinator clients. Kehto mirrors NAP-DM wire types locally until `@napplet/core` / `@napplet/nap` publish them.
 
 ## Quick Start
 
@@ -33,6 +34,8 @@ import {
   createListsService,
   createNotificationService,
   createBleService,
+  createDmService,
+  createNip17DmAdapter,
   createSerialService,
   createWebrtcService,
 } from '@kehto/services';
@@ -64,6 +67,17 @@ runtime.registerService(
 );
 
 // Serial service — runtime-owned serial sessions and host-owned device access.
+runtime.registerService(
+  'dm',
+  createDmService({
+    adapter: createNip17DmAdapter({
+      ownerSecretKey: shellOwnedSecretKey,
+      relayPool: shellRelayPool,
+      relays: ['wss://relay.example'],
+    }),
+  }),
+);
+
 runtime.registerService(
   'serial',
   createSerialService({
@@ -447,6 +461,12 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 ### WebRTC NAP
 - `createWebrtcService` — `webrtc.open`, `webrtc.send`, `webrtc.close` + host-pushed `webrtc.event` envelopes. The reference handler owns only the NAP request/result bookkeeping; host bridges own signaling, SDP, ICE, peer connection lifecycle, and policy.
 
+### DM NAP
+- `createDmService` — `dm.status`, `dm.conversations`, `dm.messages`, `dm.send`, `dm.subscribe`, `dm.unsubscribe` + `dm.message` push envelopes (`dm:read` / `dm:write`). Runtime owns correlation, subscriptions, cleanup, and normalized message shape; adapters own protocol transport.
+- `createNip17DmAdapter` — concrete NIP-17 gift-wrap adapter backed by `nostr-tools/nip17` and an injected relay pool. The owner secret key stays shell/runtime-owned.
+- `createNdrDmAdapter` / `createNdrRelayTransport` — structural adapter for Nostr Double Ratchet runtimes plus a relay transport bridge for app-owned `nostrSubscribe` / `nostrFetch` / `nostrPublish` hooks.
+- `createCordnDmAdapter` / `createCordnRelayCoordinatorClient` — structural adapter for Cordn/ContextVM clients plus a relay-backed coordinator bridge for `PostGroupMessage`, `FetchGroupMessages`, and `SubscribeGroupMessages`.
+
 ### Theme NAP
 - `createThemeService` — `theme.get` + `theme.changed` fan-out (`theme:read`). Returns a `ThemeService` with `publishTheme()` / `setTheme()` utilities for host-side updates.
 
@@ -454,7 +474,7 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 - `createAudioService` — `audio:*` inc-emit topic handler. Browser-agnostic registry of per-window audio sources; host wires `onChange` to update transport UI.
 
 ### Types
-`AudioSource`, `AudioServiceOptions`, `Notification`, `NotificationServiceOptions`, `IdentityServiceOptions`, `RelayPoolServiceOptions`, `CacheServiceOptions`, `CoordinatedRelayOptions`, `KeysServiceOptions`, `MediaServiceOptions`, `NotifyServiceOptions`, `ThemeServiceOptions`, `ThemeService`, `BleServiceOptions`, `BleServiceContext`, `WebrtcServiceOptions`, `WebrtcServiceContext`.
+`AudioSource`, `AudioServiceOptions`, `Notification`, `NotificationServiceOptions`, `IdentityServiceOptions`, `RelayPoolServiceOptions`, `CacheServiceOptions`, `CoordinatedRelayOptions`, `KeysServiceOptions`, `MediaServiceOptions`, `NotifyServiceOptions`, `ThemeServiceOptions`, `ThemeService`, `BleServiceOptions`, `BleServiceContext`, `WebrtcServiceOptions`, `WebrtcServiceContext`, `DmServiceOptions`, `DmAdapter`, `DmRelayPool`, `Nip17DmAdapterOptions`, `NdrDmAdapterOptions`, `CordnDmAdapterOptions`.
 
 ## API Reference
 

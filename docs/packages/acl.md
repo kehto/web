@@ -38,12 +38,13 @@ pnpm add @kehto/acl @napplet/core @napplet/nap
 | Mutations | `createState`, `grant`, `revoke`, `block`, `unblock`, `setQuota`, `getQuota`, `serialize`, `deserialize` |
 | Checks | `check`, `toKey` |
 | Migration | `migrateAclState` |
-| Capability strings | `ALL_CAPABILITIES`, `CAP_IDENTITY_READ`, `CAP_IDENTITY_DECRYPT`, `CAP_KEYS_BIND`, `CAP_KEYS_FORWARD`, `CAP_MEDIA_CONTROL`, `CAP_NOTIFY_SEND`, `CAP_NOTIFY_CHANNEL`, `CAP_THEME_READ`, `Capability` |
+| Capability strings | `ALL_CAPABILITIES`, `CAP_IDENTITY_READ`, `CAP_IDENTITY_DECRYPT`, `CAP_KEYS_BIND`, `CAP_KEYS_FORWARD`, `CAP_MEDIA_CONTROL`, `CAP_NOTIFY_SEND`, `CAP_NOTIFY_CHANNEL`, `CAP_THEME_READ`, `CAP_DM_READ`, `CAP_DM_WRITE`, `Capability` |
 | NAP mapping | `resolveCapabilitiesNap`, `CapabilityResolution`, `NapMessage` |
 
 ## Scope Boundaries
 
 - Owns pure capability state and capability resolution.
+- Maps `dm.status`, `dm.conversations`, `dm.messages`, `dm.subscribe`, and `dm.unsubscribe` to `dm:read`; maps `dm.send` to `dm:write`; maps `dm.message` and DM result/error envelopes back to recipient `dm:read`.
 - Performs no I/O and has no runtime service registry.
 - Does not host iframes, dispatch NAP messages, or interact with browser APIs.
 

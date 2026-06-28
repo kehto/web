@@ -107,6 +107,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260626-t30 | Prototype NIP-5D injected NAP interface domain bootstrap | 2026-06-26 | feat/nip5d-interface-injection-prototype | [260626-t30-prototype-nip-5d-injected-nap-interface-](./quick/260626-t30-prototype-nip-5d-injected-nap-interface-/) |
 | 260626-u5n | Add regression coverage for napplet-owned `window.napplet` assignment against injected NIP-5D domain allowlist | 2026-06-26 | feat/nip5d-interface-injection-prototype | [260626-u5n-add-regression-coverage-for-napplet-owne](./quick/260626-u5n-add-regression-coverage-for-napplet-owne/) |
 | 260626-ugy | Production harden PR #103 NIP-5D injected napplet namespace prelude | 2026-06-26 | feat/nip5d-interface-injection-prototype | [260626-ugy-production-harden-pr-103-nip-5d-injected](./quick/260626-ugy-production-harden-pr-103-nip-5d-injected/) |
+| 260626-n7x | Add runtime-owned NAP-DM service with NIP-17, NDR, and Cordn adapters | 2026-06-26 | feat/nap-dm-chat-adapters | [260626-n7x-nap-dm-chat-adapter-service-for-nip-17-n](./quick/260626-n7x-nap-dm-chat-adapter-service-for-nip-17-n/) |
 
 ## Session Continuity
 

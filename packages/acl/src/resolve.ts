@@ -307,6 +307,25 @@ function intentMap(action: string): CapabilityResolution {
 }
 
 /**
+ * `dm.*` — NAP-DM runtime-mediated direct messages.
+ *
+ * Split read/write so a napplet can inspect or subscribe to allowed DM state
+ * without being able to send messages:
+ *
+ * - `send` (napplet → shell)                          → sender `dm:write`.
+ * - `status` / `conversations` / `messages` /
+ *   `subscribe` / `unsubscribe` (and unknown requests) → sender `dm:read`.
+ * - `*.result` / `message` (shell → napplet pushes)    → recipient `dm:read`.
+ */
+function dmMap(action: string): CapabilityResolution {
+  if (action === 'message' || action.endsWith('.result') || action.endsWith('.error')) {
+    return { senderCap: null, recipientCap: 'dm:read' };
+  }
+  if (action === 'send') return { senderCap: 'dm:write', recipientCap: null };
+  return { senderCap: 'dm:read', recipientCap: null };
+}
+
+/**
  * `theme.*` — napplet read gate vs shell-initiated push.
  *
  * - `get` / `get.result` (and any other napplet-originated query) →
@@ -414,6 +433,7 @@ export function resolveCapabilitiesNap(msg: NapMessage): CapabilityResolution {
     case 'outbox':   return outboxMap(action);      // NAP-OUTBOX outbox-aware relay routing
     case 'upload':   return uploadMap(action);      // NAP-UPLOAD shell-mediated file/blob upload
     case 'intent':   return intentMap(action);      // NAP-INTENT archetype intent dispatch
+    case 'dm':       return dmMap(action);          // NAP-DM runtime-mediated direct messages
     default:         return { senderCap: null, recipientCap: null };
   }
 }

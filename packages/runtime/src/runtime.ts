@@ -155,6 +155,7 @@ function createNapEnvelopeDispatcher(handlers: RuntimeNapHandlers): (windowId: s
   napDispatch.registerNap('serial', adapt(handlers.serial));
   napDispatch.registerNap('ble', adapt(handlers.ble));
   napDispatch.registerNap('webrtc', adapt(handlers.webrtc));
+  napDispatch.registerNap('dm', adapt(handlers.dm));
 
   return (windowId, envelope) => {
     currentWindowId = windowId;

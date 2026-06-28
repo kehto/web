@@ -21,7 +21,7 @@ Every function is pure: state in, state out. No I/O, no timers, no globals — t
 The module exposes two parallel capability surfaces:
 
 - **Bitfield constants** (`CAP_RELAY_READ`, `CAP_RELAY_WRITE`, `CAP_STATE_READ`, `CAP_STATE_WRITE`, …) — the compact per-entry representation used inside `AclState.entries[*].caps`.
-- **Current draft NIP-5D capability strings** (`CAP_IDENTITY_READ`, `CAP_KEYS_BIND`, `CAP_KEYS_FORWARD`, `CAP_MEDIA_CONTROL`, `CAP_NOTIFY_SEND`, `CAP_NOTIFY_CHANNEL`, `CAP_THEME_READ`) — plus the retained `relay:*`, `cache:*`, `hotkey:forward`, and `state:*` literals. These strings are what `resolveCapabilitiesNap()` returns and what `@kehto/runtime`'s enforce gate grants/revokes against. The earlier `sign:event`/`sign:nip04`/`sign:nip44` entries were intentionally removed — the current NIP-5D draft does not expose napplet-visible signing.
+- **Current draft NIP-5D capability strings** (`CAP_IDENTITY_READ`, `CAP_KEYS_BIND`, `CAP_KEYS_FORWARD`, `CAP_MEDIA_CONTROL`, `CAP_NOTIFY_SEND`, `CAP_NOTIFY_CHANNEL`, `CAP_THEME_READ`, `CAP_DM_READ`, `CAP_DM_WRITE`) — plus the retained `relay:*`, `cache:*`, `hotkey:forward`, and `state:*` literals. These strings are what `resolveCapabilitiesNap()` returns and what `@kehto/runtime`'s enforce gate grants/revokes against. The earlier `sign:event`/`sign:nip04`/`sign:nip44` entries are retained only as legacy bit constants; the current NIP-5D draft does not expose napplet-visible signing.
 
 ## Quick Start
 
@@ -76,6 +76,7 @@ check(state, id, CAP_RELAY_WRITE); // true (restored)
 - `ALL_CAPABILITIES` — readonly tuple of every recognized capability string
 - `CAP_IDENTITY_READ`, `CAP_KEYS_BIND`, `CAP_KEYS_FORWARD`
 - `CAP_MEDIA_CONTROL`, `CAP_NOTIFY_SEND`, `CAP_NOTIFY_CHANNEL`, `CAP_THEME_READ`
+- `CAP_DM_READ`, `CAP_DM_WRITE`
 
 ### State mutations
 - `createState` — create an empty AclState
