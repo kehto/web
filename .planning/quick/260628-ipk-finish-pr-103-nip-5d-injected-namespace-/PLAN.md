@@ -1,7 +1,7 @@
 ---
 id: 260628-ipk
 slug: finish-pr-103-nip-5d-injected-namespace-
-status: in_progress
+status: complete
 date: 2026-06-28
 ---
 
