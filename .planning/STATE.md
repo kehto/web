@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.22
 milestone_name: Single-Window Development Runtime
 status: complete
-last_updated: "2026-06-28T15:28:27+02:00"
+last_updated: "2026-06-28T16:16:23+02:00"
 last_activity: 2026-06-28
 progress:
   total_phases: 5
@@ -28,7 +28,7 @@ Phase: 94 — Coverage, Docs, Release Readiness, and PR
 Plan: 94-01 — complete
 Status: v1.22 complete; branch pushed and PR #64 opened
 
-Last activity: 2026-06-28 — Added NAP-OUTBOX `outbox.getEvent` support with service, router, ACL, docs, and changeset coverage.
+Last activity: 2026-06-28 — Fixed stale package docs version rows blocking the post-merge publish workflow.
 
 ## Performance Metrics
 
@@ -112,6 +112,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260628-ldd | Add NAP-OUTBOX `outbox.getEvent` runtime support | 2026-06-28 | fix/nap-outbox-get-event | [260628-ldd-add-nap-outbox-getevent-runtime-support](./quick/260628-ldd-add-nap-outbox-getevent-runtime-support/) |
 | 260628-l89 | Add NAP-UPLOAD `upload.info` runtime support | 2026-06-28 | fix/nap-upload-info | [260628-l89-add-nap-upload-upload-info-runtime-suppo](./quick/260628-l89-add-nap-upload-upload-info-runtime-suppo/) |
 | 260628-l1y | Add NAP-RESOURCE resource.info runtime support | 2026-06-28 | 5415c74 | [260628-l1y-add-nap-resource-resource-info-runtime-s](./quick/260628-l1y-add-nap-resource-resource-info-runtime-s/) |
+| 260628-mkr | Fix stale package docs versions blocking publish workflow | 2026-06-28 | fix/docs-version-strings-for-release | [260628-mkr-fix-stale-package-docs-versions-blocking](./quick/260628-mkr-fix-stale-package-docs-versions-blocking/) |
 
 ## Session Continuity
 
