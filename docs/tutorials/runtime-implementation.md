@@ -80,9 +80,10 @@ Then continue the load sequence:
 
 1. Read `/napplet-gateway/<dTag>/manifest.json`.
 2. Parse `requires` tags.
-3. Compare required NAPs against hosted `shell.supports()` capability inventory.
+3. Compare required NAPs against the shell's actual domain capability inventory.
 4. Register `(dTag, aggregateHash)` identity before iframe navigation.
-5. Navigate to `/napplet-gateway/<dTag>/<aggregateHash>/index.html`.
+5. Inject allowed `window.napplet.<domain>` objects before authored scripts run.
+6. Navigate to `/napplet-gateway/<dTag>/<aggregateHash>/index.html`.
 
 Reject or warn before loading when a required capability is unsupported.
 For cache setup details, see

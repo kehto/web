@@ -14,8 +14,8 @@
     "@kehto/services": "jsr:@kehto/services@^0.12.3",
     "@kehto/shell": "jsr:@kehto/shell@^0.14.3",
     "@kehto/wm": "jsr:@kehto/wm@^0.0.1",
-    "@napplet/core": "jsr:@napplet/core@^0.20.0",
-    "@napplet/nap": "jsr:@napplet/nap@^0.20.0",
+    "@napplet/core": "jsr:@napplet/core@^0.23.0",
+    "@napplet/nap": "jsr:@napplet/nap@^0.23.0",
     "nostr-tools": "npm:nostr-tools@^2.23.3"
   },
   "publish": {

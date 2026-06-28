@@ -44,11 +44,11 @@ const protocolPackageNames = [
 ] as const;
 
 const protocolPackageVersions: Record<(typeof protocolPackageNames)[number], string> = {
-  '@napplet/core': '0.21.0',
-  '@napplet/nap': '0.21.0',
-  '@napplet/sdk': '0.19.0',
-  '@napplet/shim': '0.22.0',
-  '@napplet/vite-plugin': '0.10.0',
+  '@napplet/core': '0.23.0',
+  '@napplet/nap': '0.23.0',
+  '@napplet/sdk': '0.20.2',
+  '@napplet/shim': '0.24.0',
+  '@napplet/vite-plugin': '0.10.1',
 };
 
 const bannedSdkImportPattern = /from\s+['"]@napplet\/sdk['"]/;
@@ -99,11 +99,11 @@ describe('current @napplet package graph guard', () => {
         dependencies?: Record<string, string>;
         devDependencies?: Record<string, string>;
       };
-      expect(pkg.dependencies?.['@napplet/sdk'], `${dir} @napplet/sdk`).toBe('0.19.0');
-      expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe('0.22.0');
-      expect(pkg.dependencies?.['@napplet/nap'], `${dir} @napplet/nap`).toBe('0.21.0');
+      expect(pkg.dependencies?.['@napplet/sdk'], `${dir} @napplet/sdk`).toBe(protocolPackageVersions['@napplet/sdk']);
+      expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe(protocolPackageVersions['@napplet/shim']);
+      expect(pkg.dependencies?.['@napplet/nap'], `${dir} @napplet/nap`).toBe(protocolPackageVersions['@napplet/nap']);
       expect(pkg.dependencies?.[staleNapPackage], `${dir} ${staleNapPackage}`).toBeUndefined();
-      expect(pkg.devDependencies?.['@napplet/vite-plugin'], `${dir} @napplet/vite-plugin`).toBe('0.10.0');
+      expect(pkg.devDependencies?.['@napplet/vite-plugin'], `${dir} @napplet/vite-plugin`).toBe(protocolPackageVersions['@napplet/vite-plugin']);
     }
   });
 
@@ -114,18 +114,18 @@ describe('current @napplet package graph guard', () => {
         dependencies?: Record<string, string>;
         devDependencies?: Record<string, string>;
       };
-      expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe('0.22.0');
-      expect(pkg.dependencies?.['@napplet/nap'], `${dir} @napplet/nap`).toBe('0.21.0');
+      expect(pkg.dependencies?.['@napplet/shim'], `${dir} @napplet/shim`).toBe(protocolPackageVersions['@napplet/shim']);
+      expect(pkg.dependencies?.['@napplet/nap'], `${dir} @napplet/nap`).toBe(protocolPackageVersions['@napplet/nap']);
       expect(pkg.dependencies?.[staleNapPackage], `${dir} ${staleNapPackage}`).toBeUndefined();
-      expect(pkg.devDependencies?.['@napplet/vite-plugin'], `${dir} @napplet/vite-plugin`).toBe('0.10.0');
+      expect(pkg.devDependencies?.['@napplet/vite-plugin'], `${dir} @napplet/vite-plugin`).toBe(protocolPackageVersions['@napplet/vite-plugin']);
     }
   });
 
-  it('admits only the current @napplet 0.21 line on published kehto packages', () => {
+  it('admits only the current @napplet 0.23 line on published kehto packages', () => {
     // Kehto runtime packages track the current NAP contract so new canonical
     // fields are wired through runtime, services, shell, Paja, docs, and tests.
-    const PEER_RANGE = '>=0.21.0 <0.22.0';
-    const DEV_RANGE = '>=0.21.0 <0.22.0';
+    const PEER_RANGE = '>=0.23.0 <0.24.0';
+    const DEV_RANGE = '>=0.23.0 <0.24.0';
     for (const dir of publicPackageDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {

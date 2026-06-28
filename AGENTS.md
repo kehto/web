@@ -103,6 +103,14 @@ first package that compiles.
 - If a canonical NAP message gains a field that is intentionally ignored by a kehto
   surface, document that decision in the nearby test or source comment. Silent omission
   is treated as drift.
+- Current NIP-5D runtime availability is injected `window.napplet.<domain>`
+  presence before authored napplet scripts run. Do not describe
+  `window.napplet.shell.supports()` as normative NIP-5D behavior; it is only a
+  compatibility bridge for older consumers unless a future NAP spec owns it.
+- If the playground changes NIP-5D loading, prove provenance in the same change:
+  verified bytes go through `srcdoc`, injected bootstraps stay outside the signed
+  artifact bytes, and gateway output remains an untrusted accelerator rather than
+  the source of napplet identity.
 - NIP-5D loader and napplet-demo exceptions stay under `tests/unit/nip5d-conformance-guard.test.ts`;
   add allowlist rows there only with matching policy text in `docs/policies/NIP-5D-CONFORMANCE.md`.
 

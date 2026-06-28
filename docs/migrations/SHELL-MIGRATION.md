@@ -492,7 +492,12 @@ The `window.nostr` proxy in the iframe sends postMessages to `window.parent` usi
 
 ### 3.1 Background
 
-NIP-5D specifies two synchronous capability query APIs in the "Runtime Capability Query" section:
+> Historical note: this section records the older capability-query design. The
+> current NIP-5D draft uses injected `window.napplet.<domain>` presence as the
+> runtime availability primitive; `shell.supports()` is retained only as
+> compatibility behavior for released shim/demo code.
+
+That older draft specified two synchronous capability query APIs:
 
 ```javascript
 window.napplet.shell.supports('relay')     // NAP capability — boolean

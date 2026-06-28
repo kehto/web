@@ -8,7 +8,9 @@ Authoritative source for NIP-5D conformance:
 (`5D.md`), with the NIP-5A "Aggregate Hash" from
 [`nostr-protocol/nips`](https://github.com/nostr-protocol/nips/blob/master/5A.md)
 (`5A.md`). Content-addressed resolution adopted in milestone v1.20; NAP-SHELL /
-NAP-INTENT conformance in v1.21.
+NAP-INTENT conformance in v1.21. The current draft also includes the injected
+domain-object clarification from `dskvr/nips#4`, merged into the NIP-5D branch
+behind PR #2303 on 2026-06-26.
 
 Protocol message domains are defined by **NAP** (Nostr Applet Protocol) extension
 specs in the [`napplet/naps`](https://github.com/napplet/naps) registry. The two
@@ -33,11 +35,11 @@ Kehto's runtime packages target the current `@napplet` line:
 
 | Package                 | Version  | Role                                            |
 | ----------------------- | -------- | ----------------------------------------------- |
-| `@napplet/core`         | `^0.12`  | protocol types, constants, `createDispatch` / `registerNap` |
-| `@napplet/nap`          | `0.12`   | NAP capability helpers (renamed from `@napplet/nap`) |
-| `@napplet/sdk`          | `0.12`   | napplet-side SDK (playground napplets)          |
-| `@napplet/shim`         | `0.13`   | napplet-side shim; reads `capabilities.{domains,protocols}` |
-| `@napplet/vite-plugin`  | `0.8.1`  | napplet build/sign plugin (napplet/web#53 resolved) |
+| `@napplet/core`         | `0.23.0` | protocol types, constants, `createDispatch` / `registerNap` |
+| `@napplet/nap`          | `0.23.0` | NAP capability helpers |
+| `@napplet/sdk`          | `0.20.2` | napplet-side SDK (playground napplets)          |
+| `@napplet/shim`         | `0.24.0` | napplet-side shim; installs injected `window.napplet.<domain>` objects |
+| `@napplet/vite-plugin`  | `0.10.1` | napplet build/sign plugin |
 
 The runtime's domain dispatcher routes via `createDispatch()` + `registerNap()`
 from `@napplet/core` (the rename of the former `registerNap` / `NapHandler`
@@ -74,7 +76,24 @@ manifest parser also reads the NIP-5D `archetype` (`["archetype","<slug>","<NAP-
 and optional `source` tags into structured `archetypes` / `source` fields on
 `NappletManifest`.
 
-## NAP-SHELL Handshake
+## Injected Domain Availability
+
+Current NIP-5D runtime availability is expressed by a host-injected
+`window.napplet` namespace. The shell prepends this bootstrap to the `srcdoc`
+HTML before any authored napplet script runs. The injection is outside the
+verified artifact bytes and must be limited to `window.napplet`.
+
+`window.napplet.<domain>` presence means that the shell exposes that NAP domain
+to the napplet. Absence means unavailable. Presence does not define operations,
+payloads, versions, errors, or diagnostics; those stay owned by the matching NAP
+spec.
+
+The playground derives injected domains from the same shell capability list used
+for compatibility init payloads and strips permission/protocol entries before
+rendering. It does not inject `shell`; demo napplets preflight availability by
+checking required `window.napplet.<domain>` objects.
+
+## Compatibility NAP-SHELL Handshake
 
 Every napplet bootstraps through the mandatory NAP-SHELL two-message handshake
 (see [`specs/NAP-SHELL.md`](specs/NAP-SHELL.md)):
@@ -88,10 +107,10 @@ Every napplet bootstraps through the mandatory NAP-SHELL two-message handshake
 from the same window is idempotent — no second session, no `shell.init` resend
 (enforced by a per-`windowId` `initSent` guard in `packages/shell/src/shell-ready.ts`).
 
-### Capability wire shape
+### Compatibility capability wire shape
 
-`shell.init` carries the conformant NAP-SHELL capability environment kehto emits
-(read by `@napplet/shim@0.13`):
+`shell.init` carries a compatibility NAP-SHELL capability environment for older
+consumers:
 
 ```ts
 capabilities: {
@@ -100,13 +119,14 @@ capabilities: {
 }
 ```
 
-`shell.supports('relay')` resolves against `domains`; `shell.supports('inc','NAP-01')`
-resolves against `protocols['inc']`. For back-compat with the installed 0.5.0
-shim, `domains`/`protocols` are emitted as a **superset alongside** the legacy
-`naps` / `sandbox` fields. Host-extended
-`perm:`-prefixed `sandbox` entries are folded into `domains`. Removal of the
-legacy fields is tracked as CLEANUP-01 and is NOT performed while the playground
-shim path still reads them.
+Legacy `shell.supports('relay')` helpers resolve against `domains`, and
+`shell.supports('inc','NAP-01')` helpers resolve against `protocols['inc']`.
+This is compatibility behavior only; it is no longer the NIP-5D runtime
+availability primitive. For back-compat, `domains`/`protocols` are emitted as a
+**superset alongside** the legacy `naps` / `sandbox` fields.
+Host-extended `perm:`-prefixed `sandbox` entries are folded into `domains`.
+Removal of the legacy fields is tracked as CLEANUP-01 and is NOT performed while
+the playground shim path still reads them.
 
 ## Active Runtime Model
 
@@ -125,8 +145,10 @@ The active NIP-5D primitives are:
 - napplet identity is the `(dTag, aggregateHash)` tuple computed by the runtime
   from the verified manifest bytes (NIP-5A aggregate), bound at iframe creation;
 - manifest `requires` tags use short NAP/domain names;
-- hosted `window.napplet.shell.supports()` reflects shell-provided capabilities,
-  answered locally from the cached `shell.init` environment;
+- hosted `window.napplet.<domain>` presence reflects shell-provided runtime
+  domain availability before authored scripts execute;
+- legacy `window.napplet.shell.supports()` compatibility is not injected by the
+  playground and is not a current NIP-5D availability primitive;
 - napplets do not receive `window.nostr`, signing keys, encryption keys, direct
   browser storage, IndexedDB, or direct relay WebSockets.
 

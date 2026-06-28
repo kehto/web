@@ -9,11 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@napplet/nap": "0.21.0",
-    "@napplet/shim": "0.22.0"
+    "@napplet/nap": "0.23.0",
+    "@napplet/shim": "0.24.0"
   },
   "devDependencies": {
-    "@napplet/vite-plugin": "0.10.0",
+    "@napplet/vite-plugin": "0.10.1",
     "typescript": "^5.9.3",
     "vite": "^6.3.0"
   }

@@ -6,7 +6,7 @@ and may become a useful reference implementation as other runtimes are built.
 
 > **Alpha status:** NIP-5D is still under development, and NAP contracts are not
 > final. Package APIs, capability names, `requires` declarations, and
-> `supports()` behavior may change as the spec evolves. See
+> injected-domain behavior may change as the spec evolves. See
 > [Alpha Status](./alpha-status.md).
 
 Kehto provides host-side packages that let a Nostr client embed sandboxed napplet iframe applications: access control, protocol dispatch, browser shell integration, reference services, relay discovery, and shell-owned window-management contracts.
@@ -20,7 +20,7 @@ Kehto works with the `@napplet` packages. `@napplet/core`, `@napplet/shim`, `@na
 | Host-app implementer | Runtime implementation guide | Build a shell that hosts sandboxed napplets. |
 | Protocol evaluator | Alpha status | Understand what is still draft-stage before treating Kehto as a reference implementation. |
 | Package API consumer | Package reference | Understand one `@kehto/*` package and its exports. |
-| Napplet author | Napplet integration tutorial | Declare `requires`, check `supports()`, and use NAP helpers safely. |
+| Napplet author | Napplet integration tutorial | Declare `requires`, check injected domains, and use NAP helpers safely. |
 | Maintainer | Docs maintenance guide | Keep README, site, API reference, and milestone history aligned. |
 
 ## Package Map
@@ -29,7 +29,7 @@ Kehto works with the `@napplet` packages. `@napplet/core`, `@napplet/shim`, `@na
 |---------|------|
 | `@kehto/acl` | Pure capability state and enforcement primitives. |
 | `@kehto/runtime` | Browser-agnostic protocol engine, dispatch, ACL gates, service registry, and lifecycle. |
-| `@kehto/shell` | Browser adapter: iframe/session lifecycle, `postMessage`, gateway loading, hosted `supports()`, and shell policy. |
+| `@kehto/shell` | Browser adapter: iframe/session lifecycle, `postMessage`, gateway loading, injected `window.napplet` domains, and shell policy. |
 | `@kehto/services` | Reference service handlers for identity, relay, keys, media, notify, config, resource, cache, theme, and audio. |
 | `@kehto/nip` | Framework-agnostic unique Nostr NIP utilities (NIP-51 lists, NIP-65 outbox, NIP-66 relay discovery, NIP-89 app handlers). |
 | `@kehto/wm` | Structural window-management contracts for consumer-owned layout strategies. |

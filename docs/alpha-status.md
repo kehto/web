@@ -9,7 +9,7 @@ reference implementation for other runtimes.
 
 - The NIP-5D specification is still under development.
 - NAP contracts are not final.
-- Capability names, `requires` declarations, `supports()` behavior, class
+- Capability names, `requires` declarations, injected-domain behavior, class
   posture, connect/resource behavior, and error envelopes may change.
 - Package APIs may change to track the protocol.
 

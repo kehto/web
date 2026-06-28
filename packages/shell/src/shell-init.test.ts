@@ -38,8 +38,8 @@ function baseHooks(): ShellAdapter {
 }
 
 // ---------------------------------------------------------------------------
-// domains + protocols — conformant NAP-SHELL shape (TERM-03: @napplet/core@0.12,
-// read by @napplet/shim@0.13 via createShellEnvironment + makeSupports)
+// domains + protocols — compatibility NAP-SHELL shape for older shell.init
+// capability consumers.
 // ---------------------------------------------------------------------------
 
 describe('buildShellCapabilities — domains array (conformant NAP-SHELL, TERM-03)', () => {

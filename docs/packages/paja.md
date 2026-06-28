@@ -31,8 +31,8 @@ app package's development scripts.
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.20.0 <0.21.0` |
-| `@napplet/nap` | `>=0.20.0 <0.21.0` |
+| `@napplet/core` | `>=0.23.0 <0.24.0` |
+| `@napplet/nap` | `>=0.23.0 <0.24.0` |
 | `nostr-tools` | `>=2.23.3 <3.0.0` |
 
 ## Primary APIs
@@ -119,10 +119,12 @@ current Kehto runtime and deterministic development adapters:
 `relay`, `outbox`, `identity`, `storage`, `inc`, `theme`, `keys`, `media`,
 `notify`, `config`, `resource`, `cvm`, `upload`, and `intent`.
 
-`shell` is represented as the mandatory handshake domain rather than a
-`supports()`-discoverable capability. The deprecated legacy compatibility
-package path is represented as an upstream alias to `inc`; upstream
-`@napplet/nap` does not register a separate runtime domain for that alias.
+`shell` is represented as the mandatory handshake domain rather than an
+injected availability domain. The deprecated legacy compatibility package path
+is represented as an upstream alias to `inc`; upstream
+`@napplet/nap` does not register a separate runtime domain for that alias. The
+upstream `dm` domain is tracked as deferred until Paja wires a deterministic
+development DM backend.
 
 Default service wiring includes in-memory relay/outbox behavior, localStorage
 state persistence through the runtime, deterministic identity/config/theme,

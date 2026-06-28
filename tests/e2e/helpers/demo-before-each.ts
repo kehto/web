@@ -19,11 +19,10 @@ export async function demoBeforeEach(
   options?: { topologyReadyTimeoutMs?: number },
 ): Promise<void> {
   const timeout = options?.topologyReadyTimeoutMs ?? 15000;
-  await page.goto('/');
-  await page.waitForLoadState('domcontentloaded');
+  await page.goto('/', { waitUntil: 'commit' });
   await page.evaluate(() => { try { localStorage.clear(); } catch { /* best-effort */ } });
   // Second goto ensures clean module state after localStorage.clear
-  await page.goto('/');
+  await page.goto('/', { waitUntil: 'commit' });
   // #topology-root is rendered dynamically by renderDemoTopology() into #topology-pane
   await page.waitForSelector('#topology-root', { state: 'visible', timeout });
   // Wait for at least one service node to render (demo booted + topology built).

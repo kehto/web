@@ -280,8 +280,9 @@ export interface UnroutedMessageInfo {
 
 /**
  * Static capability set sent to napplet iframes through the shell.ready /
- * shell.init handshake. Used by hosted `window.napplet.shell.supports()` for
- * synchronous capability queries after the shim consumes shell.init.
+ * shell.init handshake. The current runtime availability primitive is injected
+ * `window.napplet.<domain>` presence; this shape remains for older consumers
+ * that still read shell.init capability metadata.
  *
  * Per canonical NIP-5D (https://github.com/nostr-protocol/nips/pull/2303/),
  * supports() distinguishes two namespaces:
@@ -295,45 +296,39 @@ export interface UnroutedMessageInfo {
  * The two namespaces do not cross: a bare-name lookup never matches a sandbox
  * entry and a `perm:`-prefixed lookup never matches a NAP entry.
  *
- * ## Conformant NAP-SHELL shape (TERM-03 — @napplet/core@0.12 / @napplet/shim@0.13)
+ * ## Compatibility NAP-SHELL shape
  *
- * The released 0.13 shim no longer reads the flat `naps` array. On `shell.init`
- * it calls `@napplet/nap@0.12`'s `createShellEnvironment(msg)` +
- * `makeSupports(env)`, which read the STRUCTURED
- * `capabilities.{ domains: string[], protocols: Record<string, string[]> }`:
+ * Older shell consumers may read the structured
+ * `capabilities.{ domains: string[], protocols: Record<string, string[]> }`
+ * alongside the flat `naps` array:
  *
  *   - `supports('relay')`       → true iff `'relay' ∈ capabilities.domains`
  *   - `supports('inc','NAP-01')`→ true iff `capabilities.protocols['inc']`
  *                                  includes `'NAP-01'`
  *
- * `domains` and `protocols` are emitted as a SUPERSET ALONGSIDE the
- * `naps`/`sandbox` fields (TERM-05 back-compat). The 0.13 shim has NO
- * special `perm:` logic — `supports('perm:popups')` is an ordinary bare-domain
- * membership check, so kehto's `perm:`-prefixed sandbox entries are folded into
+ * `domains` and `protocols` are emitted as a superset alongside the
+ * `naps`/`sandbox` fields for back-compat. The compatibility helper has no
+ * special `perm:` logic: `supports('perm:popups')` is an ordinary bare-domain
+ * membership check, so Kehto's `perm:`-prefixed sandbox entries are folded into
  * `domains` (empty by default, preserving the default-empty sandbox behavior).
  */
 export interface ShellCapabilities {
   /**
-   * Conformant NAP-SHELL domain list (PRIMARY for `@napplet/shim >=0.13`).
+   * Compatibility NAP-SHELL domain list.
    * Bare NAP domain names the shell offers — `'identity'`, `'storage'`,
    * `'inc'`, `'theme'`, etc. — with the same conditional entries as `naps`
    * (`relay`/`outbox` when a relay pool is wired, `upload`/`intent` under their
    * hooks). Carries NO `inc:NAP-NN` protocol strings (those live in
    * `protocols`). Any `perm:<x>` sandbox entries are appended here too, since
-   * the 0.13 shim resolves `supports('perm:<x>')` against this list.
-   *
-   * Read by `createShellEnvironment(msg).capabilities.domains` →
-   * `makeSupports` for `supports('<domain>')` queries.
+   * legacy supports helpers resolve `supports('perm:<x>')` against this list.
    */
   domains: string[];
   /**
-   * Conformant NAP-SHELL per-domain numbered protocols (PRIMARY for
-   * `@napplet/shim >=0.13`). Maps a domain to the NAP-NN protocol IDs it
+   * Compatibility NAP-SHELL per-domain numbered protocols. Maps a domain to the NAP-NN protocol IDs it
    * speaks — `{ inc: ['NAP-01','NAP-02','NAP-03','NAP-04','NAP-05','NAP-06'] }`
    * (derived from `NAP_INC_PROTOCOLS` by stripping the `inc:` prefix).
    *
-   * Read by `createShellEnvironment(msg).capabilities.protocols` →
-   * `makeSupports` for `supports('<domain>','NAP-NN')` queries.
+   * Legacy supports helpers resolve `supports('<domain>','NAP-NN')` against this map.
    */
   protocols: Record<string, string[]>;
   /**

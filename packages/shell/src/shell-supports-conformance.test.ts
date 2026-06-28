@@ -1,66 +1,39 @@
 /**
  * shell-supports-conformance.test.ts
  *
- * Behavior verification of kehto-emitted capabilities against the real
- * @napplet/nap shell supports() logic.
- *
- * ## What changed in 0.13 (capability model migration)
- *
- * @napplet/shim no longer ships its own `createShellSupports`. On
- * `shell.init` it delegates to @napplet/nap's shell shim:
- *
- *   import { createShellEnvironment, makeSupports } from '@napplet/nap/shell/shim';
- *   const env = createShellEnvironment(msg);   // reads msg.capabilities.{domains, protocols}
- *   shell.supports = makeSupports(env);        // domains Set + protocols map
- *
- * The pre-0.13 model read a FLAT `capabilities.naps` string array and expanded
- * `domain:NAP-NN` entries in-shim. The 0.13 model reads a STRUCTURED
- * `capabilities.{ domains: string[], protocols: Record<string, string[]> }`.
- * This is a wire-shape change, not a rename.
+ * Behavior verification of Kehto's legacy `shell.init` compatibility payload.
  *
  * ## kehto's emitted wire shape (this release — TERM-03)
  *
- * `buildShellCapabilities` (shell-init.ts) now emits the conformant
- * `capabilities.{ domains, protocols }` shape ALONGSIDE the flat
- * `{ naps, sandbox }` fields (superset for back-compat — TERM-05). The
- * tests below feed kehto's REAL emitted `shell.init` envelope (domains +
- * protocols included) straight into the real `createShellEnvironment` +
- * `makeSupports` — no projection/adapter — and assert the shim answers
- * truthfully for offered domains/protocols and `false` for everything else.
+ * `buildShellCapabilities` (shell-init.ts) emits
+ * `capabilities.{ domains, protocols }` alongside the flat `{ naps, sandbox }`
+ * fields for older consumers. Current `@napplet/nap@0.23` no longer exports a
+ * shell-level `makeSupports` helper; runtime availability now comes from
+ * injected `window.napplet.<domain>` objects. The tests below keep Kehto's
+ * emitted compatibility shape honest without depending on a removed upstream
+ * helper path.
  *
  * ## perm:<x> handling (verified)
  *
- * The shell shim has NO special permission namespace. `makeSupports`
- * resolves `supports('perm:popups')` as an ordinary `domains` membership check
- * (`'perm:popups' ∈ capabilities.domains`). kehto's sandbox permissions are
+ * The compatibility helper modeled here has no special permission namespace.
+ * `supports('perm:popups')` resolves as ordinary `domains` membership
+ * (`'perm:popups' ∈ capabilities.domains`). Kehto's sandbox permissions are
  * therefore folded into `domains`; with the default-empty sandbox, no perm:
  * entries appear and `supports('perm:<x>')` is `false` unless the host extends.
- *
- * Verified against the installed @napplet/nap shell shim.
  */
 
 import { describe, it, expect } from 'vitest';
-// Real supports() logic: @napplet/shim delegates to these on shell.init.
-import { createShellEnvironment, makeSupports } from '@napplet/nap/shell/shim';
 import { buildShellCapabilities } from './shell-init.js';
 import type { ShellAdapter, ShellCapabilities } from './types.js';
 
-// ---------------------------------------------------------------------------
-// Feed kehto's REAL emitted shell.init envelope into the real 0.13 shim.
-//
-// No projection or adapter: kehto now emits capabilities.{ domains, protocols }
-// directly, which is exactly what `createShellEnvironment` reads. This mirrors
-// the runtime's postShellInit wire shape (the whole capabilities object rides
-// along).
-// ---------------------------------------------------------------------------
-
-function realShimSupports(caps: ShellCapabilities): (domain: string, protocol?: string) => boolean {
-  const env = createShellEnvironment({
-    type: 'shell.init',
-    capabilities: caps,
-    services: [],
-  });
-  return makeSupports(env);
+function legacySupports(caps: ShellCapabilities): (domain: string, protocol?: string) => boolean {
+  const domains = new Set(caps.domains);
+  return (domain, protocol) => {
+    if (typeof protocol === 'string') {
+      return caps.protocols[domain]?.includes(protocol) === true;
+    }
+    return domains.has(domain);
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -94,12 +67,12 @@ function baseHooks(): ShellAdapter {
 }
 
 // ---------------------------------------------------------------------------
-// Conformance — kehto-emitted capabilities fed through the real 0.13 supports()
+// Conformance — Kehto-emitted compatibility capabilities.
 // ---------------------------------------------------------------------------
 
-describe('real @napplet/shim@0.13 makeSupports fed kehto-emitted capabilities', () => {
+describe('legacy shell.supports compatibility over kehto-emitted capabilities', () => {
   const caps = buildShellCapabilities(baseHooks());
-  const supports = realShimSupports(caps);
+  const supports = legacySupports(caps);
 
   describe('bare inc domain', () => {
     it('supports("inc") === true (bare domain present in capabilities.domains)', () => {
@@ -164,46 +137,40 @@ describe('real @napplet/shim@0.13 makeSupports fed kehto-emitted capabilities', 
 
   describe('perm:<x> sandbox handling (0.13 = plain domains membership)', () => {
     it('supports("perm:popups") === false by default (sandbox empty)', () => {
-      // The 0.13 shim has no permission namespace — perm: queries hit domains.
+      // The compatibility helper has no permission namespace; perm: queries hit domains.
       // kehto's default-empty sandbox contributes no perm: entries.
       expect(supports('perm:popups')).toBe(false);
     });
   });
 
-  describe('conformant structured shape — fed kehto capabilities directly', () => {
-    it('kehto-emitted capabilities.{domains,protocols} resolve truthfully under real 0.13', () => {
-      // Replaces the prior pinned "raw {naps} → all false" gap: kehto now emits
-      // the structured shape, so the real shim answers true for offered caps.
-      const env = createShellEnvironment({
-        type: 'shell.init',
-        capabilities: caps,
-        services: [],
-      });
-      const supportsStructured = makeSupports(env);
-      expect(supportsStructured('inc')).toBe(true);
-      expect(supportsStructured('relay')).toBe(true);
-      expect(supportsStructured('inc', 'NAP-01')).toBe(true);
-      expect(supportsStructured('bogus')).toBe(false);
+  describe('structured compatibility shape', () => {
+    it('kehto-emitted capabilities.{domains,protocols} are internally complete', () => {
+      expect(caps.domains).toEqual(expect.arrayContaining(['inc', 'relay']));
+      expect(caps.protocols.inc).toEqual(expect.arrayContaining(['NAP-01']));
+      expect(supports('inc')).toBe(true);
+      expect(supports('relay')).toBe(true);
+      expect(supports('inc', 'NAP-01')).toBe(true);
+      expect(supports('bogus')).toBe(false);
     });
   });
 });
 
-describe('real @napplet/shim@0.13 makeSupports — without upload backend', () => {
+describe('legacy shell.supports compatibility — without upload backend', () => {
   it('supports("upload") === false when upload not wired', () => {
     const caps = buildShellCapabilities(baseHooks());
-    const supports = realShimSupports(caps);
+    const supports = legacySupports(caps);
     expect(supports('upload')).toBe(false);
   });
 });
 
-describe('real @napplet/shim@0.13 makeSupports — with upload backend', () => {
+describe('legacy shell.supports compatibility — with upload backend', () => {
   it('supports("upload") === true when upload is wired', () => {
     const hooks: ShellAdapter = {
       ...baseHooks(),
       upload: { getUploader: () => ({ rails: ['nip96'] }) },
     };
     const caps = buildShellCapabilities(hooks);
-    const supports = realShimSupports(caps);
+    const supports = legacySupports(caps);
     expect(supports('upload')).toBe(true);
   });
 });

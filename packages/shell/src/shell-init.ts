@@ -31,10 +31,10 @@ const NAP_INC_PROTOCOLS = [
 /**
  * Build the shell's static capability set from adapter configuration.
  *
- * Returns the conformant NAP-SHELL `domains`/`protocols` shape (consumed by
- * `@napplet/shim >=0.13` via `@napplet/nap@0.12`'s `createShellEnvironment` +
- * `makeSupports`) alongside the flat `naps` array (consumed by
- * `@napplet/shim >=0.9.0`) and the `sandbox` array.
+ * Returns the compatibility NAP-SHELL `domains`/`protocols` shape alongside
+ * the flat `naps` array and the `sandbox` array. Current availability is
+ * injected `window.napplet.<domain>` presence; this payload remains for older
+ * consumers that still inspect shell.init capabilities.
  *
  * ### naps array (NAP vocabulary)
  * Bare domain `inc` + `inc:NAP-01..inc:NAP-06`.
@@ -51,22 +51,21 @@ const NAP_INC_PROTOCOLS = [
  * sandbox permissions from NAP-capability lookups; see the living NIP-5D at
  * https://github.com/nostr-protocol/nips/pull/2303/
  *
- * ### domains array + protocols map (conformant NAP-SHELL — @napplet/core@0.12)
- * The structured shape the released `@napplet/shim@0.13` actually reads via
- * `@napplet/nap@0.12`'s `createShellEnvironment` + `makeSupports`:
+ * ### domains array + protocols map (compatibility NAP-SHELL)
+ * The structured shape older shell capability consumers read:
  *
  *   - `domains` — bare NAP domain names (the `naps` set MINUS the `inc:NAP-NN`
  *     protocol strings) with the same conditional entries (relay/outbox under
  *     `hooks.relayPool`, upload/intent/link/common under their hooks). Any `perm:<x>`
- *     sandbox entries are appended here too — the 0.13 shim resolves
+ *     sandbox entries are appended here too — legacy supports helpers resolve
  *     `supports('perm:<x>')` as a plain `domains` membership check.
  *   - `protocols` — `{ inc: ['NAP-01'..'NAP-06'] }`, derived from
  *     `NAP_INC_PROTOCOLS` by stripping the `inc:` prefix.
  *
- * Emitted as a SUPERSET alongside `naps`/`sandbox` (TERM-05 back-compat).
+ * Emitted as a superset alongside `naps`/`sandbox` for back-compat.
  *
  * @param hooks - The ShellAdapter provided by the host app
- * @returns ShellCapabilities with domains/protocols (conformant 0.13 shape) plus
+ * @returns ShellCapabilities with domains/protocols (compatibility shape) plus
  *          naps (NAP vocab) and sandbox (perm:-prefixed) arrays
  * @example
  * ```ts
@@ -84,7 +83,7 @@ const NAP_INC_PROTOCOLS = [
  * ```
  */
 export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
-  // domains — conformant NAP-SHELL bare domain list (@napplet/shim >=0.13).
+  // domains — compatibility NAP-SHELL bare domain list.
   // Same membership/order as `naps` but WITHOUT the inc:NAP-NN protocol strings
   // (those move to `protocols`). Conditional entries use the same gates as naps.
   const domains: string[] = hooks.relayPool

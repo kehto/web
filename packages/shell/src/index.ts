@@ -2,6 +2,11 @@
 // Factory function — main entry point
 export { createShellBridge } from './shell-bridge.js';
 export type { ShellBridge } from './shell-bridge.js';
+export {
+  injectNappletNamespacePrelude,
+  renderNappletNamespacePrelude,
+} from './napplet-namespace.js';
+export type { NappletNamespacePreludeOptions } from './napplet-namespace.js';
 
 // Hooks adapter — for advanced integrators who need to customize the adapter
 export { adaptHooks } from './hooks-adapter.js';

@@ -236,7 +236,8 @@ describe('NIP-5D conformance static guards', () => {
       expect(source, `${name} source requires`).toContain(
         `const REQUIRED_NAPS = [${requiresLiteral}] as const;`,
       );
-      expect(source, `${name} source supports preflight`).toContain('.napplet.shell.supports');
+      expect(source, `${name} source domain preflight`).toContain('getMissingNapDomains(REQUIRED_NAPS)');
+      expect(source, `${name} source no shell.supports preflight`).not.toContain('.napplet.shell.supports');
       expect(source, `${name} source unsupported path`).toContain('unsupported NAP capability');
     }
   });

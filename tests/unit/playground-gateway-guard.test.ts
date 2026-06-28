@@ -91,7 +91,8 @@ describe('playground gateway artifact guard', () => {
 
     // Loader resolves + verifies content-addressed bytes, then renders via srcdoc.
     expect(shellHost).toContain('resolvePlaygroundNapplet({');
-    expect(shellHost).toContain('iframe.srcdoc = injectCspMeta(resolved.indexHtml, origins)');
+    expect(shellHost).toContain('iframe.srcdoc = injectNappletNamespacePrelude(');
+    expect(shellHost).toContain('injectCspMeta(resolved.indexHtml, origins)');
     expect(shellHost).toContain("iframe.sandbox.add('allow-scripts')");
     expect(shellHost).not.toContain('allow-same-origin');
 
@@ -124,12 +125,17 @@ describe('playground gateway artifact guard', () => {
     expect(resolver).toContain('resolveNapplet(');
     expect(resolver).toContain('selectWriteRelays(');
     expect(resolver).toContain('injectCspMeta');
+    expect(shellHost).toContain('injectNappletNamespacePrelude');
+    expect(shellHost).toContain('getShellCapabilities()?.domains');
 
     // requires checked against the COMPUTED manifest before the iframe renders.
     expect(shellHost).toContain('getMissingRequiredNaps(resolved.requires)');
     expect(shellHost).toContain('requires unsupported NAP capabilities');
     expect(shellHost.indexOf('getMissingRequiredNaps(resolved.requires)')).toBeLessThan(
-      shellHost.indexOf('iframe.srcdoc = injectCspMeta'),
+      shellHost.indexOf('iframe.srcdoc = injectNappletNamespacePrelude'),
+    );
+    expect(shellHost.indexOf('getShellCapabilities()?.domains')).toBeLessThan(
+      shellHost.indexOf('iframe.srcdoc = injectNappletNamespacePrelude'),
     );
   });
 
@@ -166,11 +172,12 @@ describe('playground gateway artifact guard', () => {
 
     expect(feedSource).toContain("import { identityGetPublicKey, identityOnChanged } from '@napplet/nap/identity/sdk';");
     expect(feedSource).toContain("import { incEmit } from '@napplet/nap/inc/sdk';");
+    expect(feedSource).toContain("import { getMissingNapDomains } from '../../domain-availability';");
     expect(feedSource).toContain("import { createFeedStore, type FeedProfile } from './feed-store.js';");
     expect(feedSource).toContain("import { createFeedIdentityEventController } from './feed-identity-events.js';");
     expect(feedSource).toContain("const REQUIRED_NAPS = ['identity', 'relay', 'inc', 'theme'] as const;");
-    expect(feedSource).toContain("const REQUIRED_INC_PROTOCOL = 'NAP-01';");
-    expect(feedSource).toContain("supports('inc', REQUIRED_INC_PROTOCOL)");
+    expect(feedSource).toContain('getMissingNapDomains(REQUIRED_NAPS)');
+    expect(feedSource).not.toContain('shell.supports');
     expect(feedSource).toContain('readPublicKey: identityGetPublicKey');
     expect(feedSource).toContain('subscribeToChanges: identityOnChanged');
     expect(feedSource).toContain('identityController.start();');
@@ -213,8 +220,10 @@ describe('playground gateway artifact guard', () => {
 
     expect(profileSource).toContain("import { incOn } from '@napplet/nap/inc/sdk';");
     expect(profileSource).toContain("import { relaySubscribe } from '@napplet/nap/relay/sdk';");
+    expect(profileSource).toContain("import { getMissingNapDomains } from '../../domain-availability';");
     expect(profileSource).toContain("const REQUIRED_NAPS = ['inc', 'relay', 'theme'] as const;");
-    expect(profileSource).toContain("const REQUIRED_INC_PROTOCOL = 'NAP-01';");
+    expect(profileSource).toContain('getMissingNapDomains(REQUIRED_NAPS)');
+    expect(profileSource).not.toContain('shell.supports');
     expect(profileSource).toContain('const CAPABILITY_WAIT_MS = 5_000;');
     expect(profileSource).toContain("formatError(err, 'inc or relay unavailable')");
     expect(profileSource).toContain("incOn('profile:open'");

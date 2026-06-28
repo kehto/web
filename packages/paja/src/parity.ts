@@ -7,6 +7,7 @@ export const PAJA_UPSTREAM_WEB_DOMAINS = [
   'common',
   'config',
   'cvm',
+  'dm',
   'identity',
   PAJA_LEGACY_COMPATIBILITY_DOMAIN,
   'inc',
@@ -20,7 +21,6 @@ export const PAJA_UPSTREAM_WEB_DOMAINS = [
   'relay',
   'resource',
   'serial',
-  'shell',
   'storage',
   'theme',
   'upload',
@@ -28,7 +28,7 @@ export const PAJA_UPSTREAM_WEB_DOMAINS = [
 ] as const;
 
 export const PAJA_HANDSHAKE_DOMAINS = ['shell'] as const;
-export const PAJA_DEFERRED_DOMAINS = [] as const;
+export const PAJA_DEFERRED_DOMAINS = ['dm'] as const;
 
 export const PAJA_COMPATIBILITY_ALIASES = {
   [PAJA_LEGACY_COMPATIBILITY_DOMAIN]: 'inc',
