@@ -1,5 +1,12 @@
 # @kehto/acl
 
+## 0.14.1
+
+### Patch Changes
+
+- 5415c74: Add NAP-RESOURCE `resource.info` support so shells can expose advisory resource schemes and coarse policy limits before napplets call `resource.bytes` or `resource.bytesMany`.
+- 8b6f89e: Add NAP-UPLOAD `upload.info` support so shells can expose advisory upload rails and coarse policy limits before napplets call `upload.upload`.
+
 ## 0.14.0
 
 ### Minor Changes

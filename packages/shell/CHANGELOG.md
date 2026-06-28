@@ -1,5 +1,14 @@
 # @kehto/shell
 
+## 0.15.1
+
+### Patch Changes
+
+- 5415c74: Add NAP-RESOURCE `resource.info` support so shells can expose advisory resource schemes and coarse policy limits before napplets call `resource.bytes` or `resource.bytesMany`.
+- Updated dependencies [5415c74]
+- Updated dependencies [8b6f89e]
+  - @kehto/acl@0.14.1
+
 ## 0.15.0
 
 ### Minor Changes
