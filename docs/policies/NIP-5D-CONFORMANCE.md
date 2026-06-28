@@ -1,18 +1,34 @@
 # NIP-5D Conformance Policy
 
-Status: active for the v1.12 NIP-5D Contract Conformance milestone.
+Status: active for current NIP-5D conformance guardrails.
 
 Authoritative NIP-5D source:
-`https://raw.githubusercontent.com/dskvr/nips/d80d7b25f9c4331acbeb40dbeb3b077caa80e885/5D.md`
+`https://github.com/nostr-protocol/nips/pull/2303/`
 
-Repo-local contract: `specs/NIP-5D.md`
+Current injected-domain clarification:
+`https://github.com/dskvr/nips/pull/4` (merged into the NIP-5D branch behind
+PR #2303 on 2026-06-26)
+
+Repo-local pointer: `specs/NIP-5D.md`
 
 ## Authority
 
-Only the pinned NIP-5D source defines the core NIP-5D contract. Kehto's
-repo-local contract is a derived working copy for implementation and tests.
-`RUNTIME-SPEC.md` is internal runtime guidance. `napplet/specs/NIP-5D.md` is a
-nested submodule reference file and is not an authority for this milestone.
+Only the current upstream NIP-5D PR defines the core NIP-5D contract. Kehto's
+repo-local spec file is intentionally a pointer so stale mirrors do not become
+implementation authority. `RUNTIME-SPEC.md` is internal runtime guidance.
+
+## Runtime Availability Policy
+
+Current NIP-5D runtime availability is injected
+`window.napplet.<domain>` presence before authored napplet scripts run.
+
+- Injection must happen outside the signed napplet artifact bytes.
+- Injection must be limited to `window.napplet`.
+- Domain object presence is availability only; operation semantics, versions,
+  errors, and diagnostics belong to the matching NAP spec.
+- `window.napplet.shell.supports()` is not the normative NIP-5D availability
+  primitive. Kehto may carry it as an explicit compatibility domain for released
+  shim/demo code, but docs/tests must label that as transition behavior.
 
 ## Extension Classification
 

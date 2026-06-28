@@ -3,8 +3,8 @@
 Browser adapter over @kehto/runtime — ShellBridge, domain proxies, keys-forwarder.
 
 > **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
-> protocol. NAP contracts, `supports()` behavior, and shell capabilities are not
-> final; treat this package as current implementation guidance.
+> protocol. NAP contracts and injected-domain behavior are still draft; treat
+> this package as current implementation guidance.
 
 ## Install
 
@@ -21,8 +21,8 @@ The primary entry point is `createShellBridge()` — it owns the postMessage lis
 Current draft behaviors this package enforces:
 
 - The shell does not inject a host-provided nostr object into napplets — NIP-5D explicitly forbids napplet-visible signing. Napplets call `relay.publish` / `relay.publishEncrypted` and the shell mediates the signing flow internally (NIP-44 default, NIP-04 opt-in for encrypted envelopes).
-- `injectNappletNamespacePrelude()` prototypes the next NIP-5D injected-domain bootstrap: hosts prepend a `window.napplet` prelude to `srcdoc` outside the verified artifact bytes, so available NAP domain objects exist before napplet-authored scripts run. Assigned namespaces are filtered back to the explicit domain allowlist; the playground includes `shell` as an explicit transition domain for current `@napplet/shim` compatibility.
-- `shell.supports(capability)` uses the `perm:<permission>` namespace for sandbox permissions, not the v1.1 bare capability list.
+- `injectNappletNamespacePrelude()` implements the current draft NIP-5D injected-domain bootstrap: hosts prepend a `window.napplet` prelude to `srcdoc` outside the verified artifact bytes, so available NAP domain objects exist before napplet-authored scripts run. Assigned namespaces are filtered back to the explicit domain allowlist; the playground includes `shell` as an explicit transition domain for current `@napplet/shim` compatibility.
+- `window.napplet.shell.supports()` is compatibility behavior for released shim/demo code, not the current NIP-5D availability primitive. New host availability checks should use injected `window.napplet.<domain>` presence and leave per-domain semantic checks to the matching NAP.
 - Five optional per-domain proxies — `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` — can be composed between napplet and runtime to intercept or augment traffic per NAP. They are NOT wired by default (Kehto's runtime already owns dispatch for the currently supported domains); they exist as host-app composition seams.
 - The keys-forwarder pumps host keydown events into `keys.forward` envelopes for napplets that hold the `keys:forward` capability.
 
