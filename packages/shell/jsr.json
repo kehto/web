@@ -6,8 +6,8 @@
   "imports": {
     "@kehto/acl": "jsr:@kehto/acl@^0.13.1",
     "@kehto/runtime": "jsr:@kehto/runtime@^0.15.0",
-    "@napplet/core": "jsr:@napplet/core@^0.20.0",
-    "@napplet/nap": "jsr:@napplet/nap@^0.20.0",
+    "@napplet/core": "jsr:@napplet/core@^0.23.0",
+    "@napplet/nap": "jsr:@napplet/nap@^0.23.0",
     "nostr-tools": "npm:nostr-tools@^2.23.3"
   },
   "publish": {

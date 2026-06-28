@@ -2,6 +2,7 @@
  * Feed demo napplet — following feed over the shell relay service.
  */
 import '@napplet/shim';
+import { getMissingNapDomains } from '../../domain-availability';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
 import { identityGetPublicKey, identityOnChanged } from '@napplet/nap/identity/sdk';
 import { incEmit } from '@napplet/nap/inc/sdk';
@@ -10,7 +11,6 @@ import { createFeedStore, type FeedProfile } from './feed-store.js';
 import { createFeedIdentityEventController } from './feed-identity-events.js';
 
 const REQUIRED_NAPS = ['identity', 'relay', 'inc', 'theme'] as const;
-const REQUIRED_INC_PROTOCOL = 'NAP-01';
 const CAPABILITY_WAIT_MS = 5_000;
 const CAPABILITY_WAIT_INTERVAL_MS = 25;
 
@@ -34,24 +34,16 @@ function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void
         : 'var(--nap-theme-muted, #888)';
 }
 
-function getMissingRequiredNaps(): string[] {
-  const supports = window.napplet.shell.supports;
-  return [
-    ...REQUIRED_NAPS.filter((capability) => !supports(capability)),
-    ...(!supports('inc', REQUIRED_INC_PROTOCOL) ? [`inc:${REQUIRED_INC_PROTOCOL}`] : []),
-  ];
-}
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 async function waitForRequiredNaps(): Promise<void> {
   const deadline = Date.now() + CAPABILITY_WAIT_MS;
-  let missing = getMissingRequiredNaps();
+  let missing = getMissingNapDomains(REQUIRED_NAPS);
   while (missing.length > 0 && Date.now() < deadline) {
     await sleep(CAPABILITY_WAIT_INTERVAL_MS);
-    missing = getMissingRequiredNaps();
+    missing = getMissingNapDomains(REQUIRED_NAPS);
   }
   if (missing.length > 0) {
     throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);

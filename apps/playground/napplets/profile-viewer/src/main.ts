@@ -2,13 +2,13 @@
  * Profile viewer napplet - consumes NAP-01 profile:open events and loads kind 0 metadata.
  */
 import '@napplet/shim';
+import { getMissingNapDomains } from '../../domain-availability';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
 import { incOn } from '@napplet/nap/inc/sdk';
 import { relaySubscribe } from '@napplet/nap/relay/sdk';
 import type { NostrEvent, Subscription } from '@napplet/core';
 
 const REQUIRED_NAPS = ['inc', 'relay', 'theme'] as const;
-const REQUIRED_INC_PROTOCOL = 'NAP-01';
 const CAPABILITY_WAIT_MS = 5_000;
 const CAPABILITY_WAIT_INTERVAL_MS = 25;
 const PROFILE_LOAD_TIMEOUT_MS = 8_000;
@@ -50,24 +50,16 @@ function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void
         : 'var(--nap-theme-muted, #888)';
 }
 
-function getMissingRequiredNaps(): string[] {
-  const supports = window.napplet.shell.supports;
-  return [
-    ...REQUIRED_NAPS.filter((capability) => !supports(capability)),
-    ...(!supports('inc', REQUIRED_INC_PROTOCOL) ? [`inc:${REQUIRED_INC_PROTOCOL}`] : []),
-  ];
-}
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 async function waitForRequiredNaps(): Promise<void> {
   const deadline = Date.now() + CAPABILITY_WAIT_MS;
-  let missing = getMissingRequiredNaps();
+  let missing = getMissingNapDomains(REQUIRED_NAPS);
   while (missing.length > 0 && Date.now() < deadline) {
     await sleep(CAPABILITY_WAIT_INTERVAL_MS);
-    missing = getMissingRequiredNaps();
+    missing = getMissingNapDomains(REQUIRED_NAPS);
   }
   if (missing.length > 0) {
     throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);

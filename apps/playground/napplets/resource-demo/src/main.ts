@@ -6,12 +6,13 @@
  * to fetch remote bytes and surface the response as an object URL.
  */
 import '@napplet/shim';
+import { getMissingNapDomains } from '../../domain-availability';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
 
 const REQUIRED_NAPS = ['resource', 'theme'] as const;
-// Match the 5s deadline every other playground napplet uses: @napplet/shim@0.13
-// installs shell.supports() asynchronously on shell.init, and a slower CI runner
-// can take >1s to deliver it — a 1s deadline raced ahead and threw "init failed".
+// Match the 5s deadline every other playground napplet uses: the host prelude
+// and @napplet/shim@0.24 both install window.napplet domain objects before
+// authored code runs, but slower CI can still race the iframe bootstrap.
 const CAPABILITY_WAIT_MS = 5_000;
 const CAPABILITY_WAIT_INTERVAL_MS = 25;
 
@@ -34,21 +35,16 @@ function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void
         : 'var(--nap-theme-muted, #888)';
 }
 
-function getMissingRequiredNaps(): string[] {
-  const supports = window.napplet.shell.supports;
-  return REQUIRED_NAPS.filter((capability) => !supports(capability));
-}
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 async function waitForRequiredNaps(): Promise<void> {
   const deadline = Date.now() + CAPABILITY_WAIT_MS;
-  let missing = getMissingRequiredNaps();
+  let missing = getMissingNapDomains(REQUIRED_NAPS);
   while (missing.length > 0 && Date.now() < deadline) {
     await sleep(CAPABILITY_WAIT_INTERVAL_MS);
-    missing = getMissingRequiredNaps();
+    missing = getMissingNapDomains(REQUIRED_NAPS);
   }
   if (missing.length > 0) {
     throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);

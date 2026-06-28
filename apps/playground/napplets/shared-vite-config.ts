@@ -28,13 +28,11 @@ const SHORT_NAP_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
 const NAPPLET_MANIFEST_KIND = 35129;
 // Hosted-shell bootstrap marker + handshake nudge.
 //
-// The real @napplet/shim@0.13 now natively owns capability resolution: on
-// `shell.init` it sets `window.napplet.shell.supports = makeSupports(env)` from
-// the conformant `capabilities.{domains,protocols}` shape the @kehto shell emits,
-// and it auto-posts `{type:'shell.ready'}` on load. The previous hand-rolled
-// `supports()` override (which read a flat capabilities array and
-// clobbered the shim's `shell.supports`) is therefore redundant and was removed —
-// it must NOT overwrite the shim's correct resolver.
+// @napplet/shim@0.24 owns the napplet-side global: it installs
+// `window.napplet.<domain>` objects from the current injected-domain contract
+// and auto-posts `{type:'shell.ready'}` on load. Kehto's host prelude may run
+// before the authored bundle to filter assigned domains through the verified
+// manifest's allowlist, so this bootstrap must not install its own namespace.
 //
 // What remains is intentionally minimal: set the `__kehtoHostedShellBootstrap`
 // marker (the playground host + single-file artifact tests assert it is injected)

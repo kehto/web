@@ -23,13 +23,14 @@ export default defineConfig({
 
 Use short NAP names such as `identity`, `relay`, `storage`, `notify`, `keys`, `media`, `config`, `resource`, and `connect`.
 
-## Step 2: Check hosted support
+## Step 2: Check injected domains
 
-Hosted napplets should ask the shell what it supports instead of assuming every helper is available.
+Hosted napplets should check the injected `window.napplet.<domain>` objects
+instead of assuming every helper is available.
 
 ```ts
-const canPublish = await window.napplet.shell.supports('relay');
-const canNotify = await window.napplet.shell.supports('notify');
+const canPublish = typeof window.napplet?.relay === 'object';
+const canNotify = typeof window.napplet?.notify === 'object';
 
 if (!canPublish) {
   document.querySelector('#status')!.textContent = 'relay unsupported';

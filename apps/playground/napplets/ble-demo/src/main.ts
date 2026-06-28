@@ -2,6 +2,7 @@
  * ble-demo napplet -- sends NAP-BLE envelopes and renders shell decisions.
  */
 import '@napplet/shim';
+import { getMissingNapDomains } from '../../domain-availability';
 import type { BleAttribute } from '@napplet/core';
 import type {
   BleCloseResultMessage,
@@ -37,21 +38,16 @@ function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void
         : 'var(--nap-theme-muted, #888)';
 }
 
-function getMissingRequiredNaps(): string[] {
-  const supports = window.napplet.shell.supports as (capability: string) => boolean;
-  return REQUIRED_NAPS.filter((capability) => !supports(capability));
-}
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 async function waitForRequiredNaps(): Promise<void> {
   const deadline = Date.now() + CAPABILITY_WAIT_MS;
-  let missing = getMissingRequiredNaps();
+  let missing = getMissingNapDomains(REQUIRED_NAPS);
   while (missing.length > 0 && Date.now() < deadline) {
     await sleep(CAPABILITY_WAIT_INTERVAL_MS);
-    missing = getMissingRequiredNaps();
+    missing = getMissingNapDomains(REQUIRED_NAPS);
   }
   if (missing.length > 0) {
     throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);

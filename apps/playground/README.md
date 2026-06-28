@@ -36,9 +36,10 @@ The gateway route may still serve manifest/blob data as a local accelerator or d
 The playground hosts 9 sandboxed napplets, each built independently under `apps/playground/napplets/<name>/` and loaded into a topology-rendered iframe at runtime. Some incomplete demo source folders are retained for later iteration, but they are not part of `DEMO_NAPPLETS` and are not loaded in the playground.
 
 The cross-napplet domain is `inc` (the NAP rename of the legacy `inc`). The four
-napplets below declare `requires` / call `supports()` with `inc`; the runtime
-dual-routes `inc`+`inc` for the back-compat window, so legacy `inc.*` envelopes
-still reach the same handler (removal tracked as CLEANUP-01).
+napplets below declare `requires` with `inc` and preflight injected
+`window.napplet.inc` availability; the runtime dual-routes `inc`+`inc` for the
+back-compat window, so legacy `inc.*` envelopes still reach the same handler
+(removal tracked as CLEANUP-01).
 
 | Napplet | Domain(s) | NAP methods exercised | File path |
 |---------|-----------|------------------------|-----------|

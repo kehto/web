@@ -106,7 +106,7 @@ first package that compiles.
 - Current NIP-5D runtime availability is injected `window.napplet.<domain>`
   presence before authored napplet scripts run. Do not describe
   `window.napplet.shell.supports()` as normative NIP-5D behavior; it is only a
-  compatibility bridge for older shim/demo code unless a future NAP spec owns it.
+  compatibility bridge for older consumers unless a future NAP spec owns it.
 - If the playground changes NIP-5D loading, prove provenance in the same change:
   verified bytes go through `srcdoc`, injected bootstraps stay outside the signed
   artifact bytes, and gateway output remains an untrusted accelerator rather than

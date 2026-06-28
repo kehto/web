@@ -24,7 +24,8 @@ reload loop and wires that frame through a real
 for the current web NAP surface: relay/outbox, storage, identity, keys, config,
 resource, theme, notify, media, upload, intent, cvm, and inc. `shell` is the
 mandatory handshake domain; the deprecated legacy package path remains an
-upstream compatibility alias to `inc`.
+upstream compatibility alias to `inc`. The upstream `dm` domain is not
+advertised until Paja wires a deterministic development DM backend.
 
 Environment simulation can be supplied through CLI flags or a JSON config file:
 

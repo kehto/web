@@ -2,30 +2,18 @@
  * naps-path-conformance.spec.ts — TERM-04 / G6.
  *
  * Proves the migrated playground exercises the REAL released @napplet/shim
- * (0.13) naps→supports() path — not the removed hand-rolled override that read
- * a flat capabilities array.
+ * (0.24) injected-domain path, not the removed hosted shell.supports helper.
  *
  * Background (verified against the installed dist):
- *   - @kehto/shell advertises conformant NAP-SHELL capabilities in shell.init:
- *     `capabilities.domains` (carries bare 'inc') + `capabilities.protocols`
- *     (`{ inc: ['NAP-01'..'NAP-06'] }`), emitted as a superset alongside the
- *     flat naps array (TERM-05 back-compat).
- *   - @napplet/shim 0.13's makeSupports(env) builds supports(domain, protocol?)
- *     from `capabilities.{domains, protocols}`:
- *       * supports(domain)            → domains.has(domain)
- *       * supports(domain, protocol)  → protocols[domain]?.includes(protocol)
- *     It does NOT treat a colon-joined 'inc:NAP-01' as a domain. So the modern
- *     two-arg protocol form is the only one that resolves a numbered NAP
- *     protocol at the shim layer.
- *   - The playground layers a thin `nap:` alias on top of the real shim
- *     (apps/playground/src/theme.ts `patchNapSupportsAlias`, installed via
- *     installNapTheme() in each napplet): it strips a leading `nap:` and
- *     resolves `supports(domain)`. So in the PLAYGROUND host,
- *     `supports('nap:inc') === true` (TERM-01 primary prefix).
+ *   - Kehto injects a srcdoc prelude that predeclares the verified manifest's
+ *     bare required domains.
+ *   - @napplet/shim 0.24 installs `window.napplet.<domain>` objects directly.
+ *   - The prelude filters assignments back through the allowlist, so non-required
+ *     domains and legacy shell helpers stay absent.
  *
- * Target: the migrated profile-viewer napplet (requires ['inc', ...]; checks
- * supports('inc', 'NAP-01')). Asserting these booleans in-frame proves the real
- * shim resolved them from the shell's naps/domains capabilities.
+ * Target: the migrated profile-viewer napplet (requires ['inc', 'relay',
+ * 'theme']). Asserting the namespace in-frame proves the host+shim pair uses the
+ * current NIP-5D availability primitive.
  *
  * Honors workers:1 (serial, no describe.configure parallel) and the reload-heavy
  * demo boot (test.setTimeout(120000)).
@@ -36,26 +24,26 @@ import { demoBeforeEach } from './helpers/index.js';
 test.use({ baseURL: 'http://localhost:4174' });
 test.describe.configure({ mode: 'serial' });
 
-test('profile-viewer resolves supports() via the real shim 0.13 naps/domains path', async ({ page }) => {
+test('profile-viewer receives current injected window.napplet domain objects', async ({ page }) => {
   test.setTimeout(120_000);
 
   await demoBeforeEach(page);
 
-  // Resolve the profile-viewer content frame (srcdoc → opaque origin, so go via
-  // the container element, not the URL), then wait until the shim has installed
-  // window.napplet.shell.supports (set on shell.init).
-  let frameSupportsReady = false;
+  // Resolve the profile-viewer content frame (srcdoc -> opaque origin, so go via
+  // the container element, not the URL), then wait until the shim/prelude
+  // namespace is visible.
   await expect.poll(async () => {
     const handle = await page.locator('#profile-viewer-frame-container iframe').elementHandle();
     const frame = handle ? await handle.contentFrame() : null;
     if (!frame) return false;
-    frameSupportsReady = await frame.evaluate(() => {
+    return frame.evaluate(() => {
       const w = window as Window & {
-        napplet?: { shell?: { supports?: unknown } };
+        napplet?: Record<string, unknown>;
       };
-      return typeof w.napplet?.shell?.supports === 'function';
+      return typeof w.napplet?.inc === 'object' &&
+        typeof w.napplet?.relay === 'object' &&
+        typeof w.napplet?.theme === 'object';
     });
-    return frameSupportsReady;
   }, { timeout: 30_000 }).toBe(true);
 
   const handle = await page.locator('#profile-viewer-frame-container iframe').elementHandle();
@@ -66,28 +54,28 @@ test('profile-viewer resolves supports() via the real shim 0.13 naps/domains pat
   // Single evaluate → deterministic boolean shape under workers:1.
   const result = await frame!.evaluate(() => {
     const w = window as Window & {
-      napplet?: { shell?: { supports?: (domain: string, protocol?: string) => boolean } };
+      napplet?: Record<string, unknown>;
+      nostr?: unknown;
     };
-    const supports = w.napplet!.shell!.supports!;
+    const namespaceKeys = Object.keys(w.napplet ?? {});
     return {
-      // Modern naps/domains path — what the real shim resolves true:
-      incDomain: supports('inc'),                  // 'inc' ∈ domains
-      incProtocolTwoArg: supports('inc', 'NAP-01'), // protocols['inc'] includes 'NAP-01'
-      // Unsupported forms — the 0.13 shim resolves these false:
-      incProtocolSingleArg: supports('inc:NAP-01'),// colon-joined is NOT a bare domain
-      napPrefixed: supports('nap:inc'),            // playground nap: alias → true (TERM-01)
-      unknownDomain: supports('nostrdb'),          // not advertised at all
+      namespaceKeys,
+      incDomain: typeof w.napplet?.inc === 'object',
+      relayDomain: typeof w.napplet?.relay === 'object',
+      themeDomain: typeof w.napplet?.theme === 'object',
+      shellDomain: 'shell' in (w.napplet ?? {}),
+      nostrdbDomain: 'nostrdb' in (w.napplet ?? {}),
+      injectedDomainSentinel: '__kehtoInjectedDomains' in (w.napplet ?? {}),
+      nostrGlobal: typeof w.nostr !== 'undefined',
     };
   });
 
-  // The migration's integration proof: the modern wire/domain resolves true,
-  // only the two-arg protocol form resolves a numbered NAP protocol, and the
-  // playground's nap: primary-prefix alias resolves.
-  expect(result).toEqual({
-    incDomain: true,
-    incProtocolTwoArg: true,
-    incProtocolSingleArg: false,
-    napPrefixed: true,
-    unknownDomain: false,
-  });
+  expect(result.incDomain).toBe(true);
+  expect(result.relayDomain).toBe(true);
+  expect(result.themeDomain).toBe(true);
+  expect(result.shellDomain).toBe(false);
+  expect(result.nostrdbDomain).toBe(false);
+  expect(result.injectedDomainSentinel).toBe(false);
+  expect(result.nostrGlobal).toBe(false);
+  expect(result.namespaceKeys).toEqual(expect.arrayContaining(['inc', 'relay', 'theme']));
 });

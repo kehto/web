@@ -34,13 +34,13 @@
     "@kehto/wm": "workspace:^"
   },
   "peerDependencies": {
-    "@napplet/core": ">=0.21.0 <0.22.0",
-    "@napplet/nap": ">=0.21.0 <0.22.0",
+    "@napplet/core": ">=0.23.0 <0.24.0",
+    "@napplet/nap": ">=0.23.0 <0.24.0",
     "nostr-tools": ">=2.23.3 <3.0.0"
   },
   "devDependencies": {
-    "@napplet/core": ">=0.21.0 <0.22.0",
-    "@napplet/nap": ">=0.21.0 <0.22.0",
+    "@napplet/core": ">=0.23.0 <0.24.0",
+    "@napplet/nap": ">=0.23.0 <0.24.0",
     "nostr-tools": "^2.23.3",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3",

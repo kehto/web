@@ -27,8 +27,8 @@ Current NIP-5D runtime availability is injected
 - Domain object presence is availability only; operation semantics, versions,
   errors, and diagnostics belong to the matching NAP spec.
 - `window.napplet.shell.supports()` is not the normative NIP-5D availability
-  primitive. Kehto may carry it as an explicit compatibility domain for released
-  shim/demo code, but docs/tests must label that as transition behavior.
+  primitive. Kehto may carry compatibility types or tests for older consumers,
+  but the playground must not inject `shell` as an availability domain.
 
 ## Extension Classification
 

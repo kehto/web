@@ -135,22 +135,13 @@ test('resolved manifests and hosted supports match napplet contracts', async ({ 
           relay?: object;
           theme?: object;
           upload?: object;
-          shell?: { supports?: (domain: string, protocol?: string) => boolean };
+          shell?: unknown;
         };
         nostr?: unknown;
       };
-      const supports = maybeWindow.napplet?.shell?.supports;
-      if (typeof supports !== 'function') return false;
       const namespaceKeys = Object.keys(maybeWindow.napplet ?? {});
-      // The released @napplet/shim 0.13 resolves supports(domain, protocol?)
-      // against capabilities.{domains, protocols}. It does NOT strip a `nap:`
-      // prefix (that resolves false), and the protocol form is two-arg
-      // supports('inc', 'NAP-01') — NOT a colon-joined single arg.
-      return requires.every((capability) => supports(capability)) &&
-        requires.every((capability) => namespaceKeys.includes(capability)) &&
-        (!requires.includes('inc') || supports('inc', 'NAP-01')) &&
-        namespaceKeys.includes('shell') &&
-        !supports('nostrdb') &&
+      return requires.every((capability) => namespaceKeys.includes(capability)) &&
+        !namespaceKeys.includes('shell') &&
         !namespaceKeys.includes('nostrdb') &&
         !namespaceKeys.includes('perm:popups') &&
         !namespaceKeys.includes('__kehtoInjectedDomains') &&

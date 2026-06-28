@@ -8,7 +8,9 @@ date: 2026-06-28
 # Summary
 
 Finished the PR #103 closeout against the live NIP-5D text in
-`nostr-protocol/nips#2303` after merged `dskvr/nips#4`.
+`nostr-protocol/nips#2303` after merged `dskvr/nips#4`, then reconciled it
+with the published inject-compatible napplet package line released on
+2026-06-28.
 
 ## Changes
 
@@ -21,6 +23,17 @@ Finished the PR #103 closeout against the live NIP-5D text in
   artifact bytes.
 - Reconciled `origin/main` into PR #103 and kept both PR #102 and PR #103 quick
   task rows in `.planning/STATE.md`.
+- Consumed the current published napplet packages:
+  `@napplet/core@0.23.0`, `@napplet/nap@0.23.0`,
+  `@napplet/shim@0.24.0`, `@napplet/sdk@0.20.2`, and
+  `@napplet/vite-plugin@0.10.1`.
+- Removed the temporary playground `shell` transition domain from injected
+  prelude output; demos now preflight required domains through
+  `window.napplet.<domain>` presence.
+- Updated package metadata, demo fixtures, docs, and guard tests to use the
+  current peer range and to reject stale `shell.supports()` preflight usage.
+- Reconciled Paja with the current upstream NAP domain set by treating `dm` as
+  deferred runtime coverage and `shell` as handshake-only compatibility.
 
 ## Verification
 
@@ -33,6 +46,9 @@ Finished the PR #103 closeout against the live NIP-5D text in
 - `git diff --check` passed.
 - Conflict-marker scan and stale old-model phrase scan passed.
 - `pnpm dlx aislop@0.9.3 scan --changes` passed 100/100 on the clean working tree.
+- Post-release stale package scan passed with no old napplet package pins.
+- Post-release old shim path scan found only explicit legacy/negative guardrails
+  for `window.napplet.shell.supports()`.
 
 ## Remaining Baseline
 

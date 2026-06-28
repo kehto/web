@@ -71,14 +71,14 @@ describe('NIP-5D napplet namespace prelude', () => {
       },
     };
 
-    runPrelude(renderNappletNamespacePrelude({ domains: ['shell', 'relay', 'identity'] }), target);
+    runPrelude(renderNappletNamespacePrelude({ domains: ['relay', 'identity'] }), target);
 
-    expect(target.napplet?.shell).toEqual({});
+    expect(target.napplet?.shell).toBeUndefined();
     expect(target.napplet?.relay).toBe(existingRelay);
     expect(target.napplet?.identity).toEqual({});
     expect(target.napplet?.upload).toBeUndefined();
     expect('__kehtoInjectedDomains' in (target.napplet ?? {})).toBe(false);
-    expect(Object.keys(target.napplet ?? {})).toEqual(['shell', 'relay', 'identity']);
+    expect(Object.keys(target.napplet ?? {})).toEqual(['relay', 'identity']);
 
     target.napplet = {
       relay,
@@ -88,9 +88,9 @@ describe('NIP-5D napplet namespace prelude', () => {
 
     expect(target.napplet?.relay).toBe(relay);
     expect(target.napplet?.identity).toEqual({});
-    expect(target.napplet?.shell).toBe(shell);
+    expect(target.napplet?.shell).toBeUndefined();
     expect(target.napplet?.upload).toBeUndefined();
     expect('__kehtoInjectedDomains' in (target.napplet ?? {})).toBe(false);
-    expect(Object.keys(target.napplet ?? {})).toEqual(['shell', 'relay', 'identity']);
+    expect(Object.keys(target.napplet ?? {})).toEqual(['relay', 'identity']);
   });
 });

@@ -7,6 +7,7 @@
  * access; this napplet never touches keys or sockets.
  */
 import '@napplet/shim';
+import { getMissingNapDomains } from '../../domain-availability';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
 
 const REQUIRED_NAPS = ['cvm', 'theme'] as const;
@@ -51,17 +52,12 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-function getMissingRequiredNaps(): string[] {
-  const supports = window.napplet.shell.supports;
-  return REQUIRED_NAPS.filter((capability) => !supports(capability));
-}
-
 async function waitForRequiredNaps(): Promise<void> {
   const deadline = Date.now() + CAPABILITY_WAIT_MS;
-  let missing = getMissingRequiredNaps();
+  let missing = getMissingNapDomains(REQUIRED_NAPS);
   while (missing.length > 0 && Date.now() < deadline) {
     await sleep(CAPABILITY_WAIT_INTERVAL_MS);
-    missing = getMissingRequiredNaps();
+    missing = getMissingNapDomains(REQUIRED_NAPS);
   }
   if (missing.length > 0) throw new Error(`unsupported NAP capability: ${missing.join(', ')}`);
 }
@@ -72,9 +68,7 @@ function newEnvelopeId(): string {
   return `cvm-${Date.now()}-${envelopeCounter}`;
 }
 
-// Phase 58 raw-envelope allowlist: the cvm domain has no @napplet/shim helper
-// at this SDK version, so the demo posts cvm.* envelopes directly and listens
-// for the correlated result. The listener is source-bound to the parent shell.
+// Phase 58 allowlist: CVM helper gap; raw envelopes stay parent-bound and id-correlated.
 /** Resolve the correlated `*.result` envelope for a posted CVM request `id`. */
 function awaitCvmResult<T>(id: string, resultType: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -183,9 +177,7 @@ async function init(): Promise<void> {
   await waitForRequiredNaps();
 
   targetInput.value = DEFAULT_TARGET;
-  // Click-driven: the shell owns ContextVM transport/relay access, so the
-  // demo only reaches the network on explicit user action (keeps automated
-  // playground loads free of live relay traffic).
+  // Keep relay-backed CVM calls behind explicit user action.
   runButton.addEventListener('click', () => {
     const target = targetInput.value.trim();
     if (/^[0-9a-f]{64}$/.test(target)) void runDemo(target);

@@ -20,4 +20,6 @@ if (unsupported.length > 0) {
 }
 ```
 
-Do not load a napplet and then silently fail required NAP calls. Optional features should use hosted `supports()` checks inside the napplet.
+Do not load a napplet and then silently fail required NAP calls. Optional
+features should check the matching injected `window.napplet.<domain>` before
+using a NAP helper.
