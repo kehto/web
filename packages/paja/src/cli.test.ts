@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePajaArgs, runPajaCli } from './cli.js';
+import { isDirectPajaCli, parsePajaArgs, runPajaCli } from './cli.js';
 
 describe('@kehto/paja CLI', () => {
   it('parses target URL and argv command separator', () => {
@@ -108,5 +108,37 @@ describe('@kehto/paja CLI', () => {
     expect(output).toContain('Mode: managed-command');
     expect(output).toContain('HMR: iframe-target-url');
     expect(output).toContain('Simulation: identity:anon relay:1 storage:local theme:dark off:none');
+  });
+
+  it('prints the runtime URL before waiting for managed target readiness', async () => {
+    const stdout: string[] = [];
+    const stderr: string[] = [];
+    const code = await runPajaCli([
+      '--target-url',
+      'http://127.0.0.1:1',
+      '--port',
+      '0',
+      '--ready-timeout',
+      '1',
+      '--',
+      'node',
+      '-e',
+      'setTimeout(() => {}, 10_000)',
+    ], {
+      stdout: { write: (chunk) => stdout.push(chunk) },
+      stderr: { write: (chunk) => stderr.push(chunk) },
+    });
+
+    const output = stdout.join('');
+    expect(code).toBe(1);
+    expect(output).toContain('Kehto Paja');
+    expect(output).toMatch(/Runtime URL: http:\/\/127\.0\.0\.1:\d+\//);
+    expect(output).toContain('Target URL: http://127.0.0.1:1/');
+    expect(stderr.join('')).toContain('Timed out waiting 1ms for target URL');
+  });
+
+  it('detects package binary symlinks as direct Paja CLI execution', () => {
+    expect(isDirectPajaCli('/home/sandwich/.local/bin/paja')).toBe(true);
+    expect(isDirectPajaCli('/home/sandwich/.local/lib/node_modules/@kehto/paja/dist/cli.js')).toBe(true);
   });
 });
