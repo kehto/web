@@ -1,5 +1,11 @@
 # @kehto/paja
 
+## 0.3.4
+
+### Patch Changes
+
+- 968b286: Run global binary symlinks as CLIs and print the Paja runtime URL before managed target readiness waits.
+
 ## 0.3.3
 
 ### Patch Changes
