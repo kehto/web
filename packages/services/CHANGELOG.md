@@ -1,5 +1,13 @@
 # @kehto/services
 
+## 0.13.2
+
+### Patch Changes
+
+- 91a2c01: Accept `@napplet/core` and `@napplet/nap` 0.24.x peer dependencies across compatible Kehto packages.
+- Updated dependencies [91a2c01]
+  - @kehto/runtime@0.16.1
+
 ## 0.13.1
 
 ### Patch Changes
