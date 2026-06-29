@@ -1,5 +1,11 @@
 # @kehto/firewall
 
+## 0.3.5
+
+### Patch Changes
+
+- 91a2c01: Accept `@napplet/core` and `@napplet/nap` 0.24.x peer dependencies across compatible Kehto packages.
+
 ## 0.3.4
 
 ### Patch Changes

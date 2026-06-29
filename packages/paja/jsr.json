@@ -1,18 +1,18 @@
 {
   "name": "@kehto/paja",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "license": "MIT",
   "exports": {
     ".": "./src/index.ts",
     "./cli": "./src/cli.ts"
   },
   "imports": {
-    "@kehto/acl": "jsr:@kehto/acl@^0.14.1",
-    "@kehto/firewall": "jsr:@kehto/firewall@^0.3.4",
+    "@kehto/acl": "jsr:@kehto/acl@^0.14.2",
+    "@kehto/firewall": "jsr:@kehto/firewall@^0.3.5",
     "@kehto/nip": "jsr:@kehto/nip@^0.4.0",
-    "@kehto/runtime": "jsr:@kehto/runtime@^0.16.0",
-    "@kehto/services": "jsr:@kehto/services@^0.13.1",
-    "@kehto/shell": "jsr:@kehto/shell@^0.15.1",
+    "@kehto/runtime": "jsr:@kehto/runtime@^0.16.1",
+    "@kehto/services": "jsr:@kehto/services@^0.13.2",
+    "@kehto/shell": "jsr:@kehto/shell@^0.15.2",
     "@kehto/wm": "jsr:@kehto/wm@^0.0.1",
     "@napplet/core": "jsr:@napplet/core@^0.23.0",
     "@napplet/nap": "jsr:@napplet/nap@^0.23.0",

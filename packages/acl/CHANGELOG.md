@@ -1,5 +1,11 @@
 # @kehto/acl
 
+## 0.14.2
+
+### Patch Changes
+
+- 91a2c01: Accept `@napplet/core` and `@napplet/nap` 0.24.x peer dependencies across compatible Kehto packages.
+
 ## 0.14.1
 
 ### Patch Changes
