@@ -3,6 +3,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getNappletFrame } from './helpers/index.js';
 
 const DEMO_URL = 'http://127.0.0.1:4174';
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -52,9 +53,16 @@ async function revokeChatCapability(page: Page, label: string): Promise<void> {
 }
 
 async function sendChatMessage(page: Page, text: string): Promise<void> {
-  const chatFrame = page.frameLocator('#chat-frame-container iframe');
-  await chatFrame.locator('#msg-input').fill(text);
-  await chatFrame.locator('#send-btn').click();
+  const chatFrame = await getNappletFrame(page, 'chat-frame-container');
+  if (!chatFrame) throw new Error('chat frame not found in page.frames()');
+  await chatFrame.evaluate((message) => {
+    const input = document.getElementById('msg-input') as HTMLInputElement | null;
+    const button = document.getElementById('send-btn') as HTMLButtonElement | null;
+    if (!input || !button) throw new Error('chat controls not found');
+    input.value = message;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    button.click();
+  }, text);
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -88,7 +96,7 @@ test('revoke chat relay:write and keep debugger paths legible', async ({ page })
   await sendChatMessage(page, 'relay write revoked');
 
   await expect(page.locator('napplet-debugger')).toContainText('path:inc-send');
-  await expect(page.locator('napplet-debugger')).toContainText('path:relay-publish');
+  await expect(page.locator('napplet-debugger')).toContainText('relay-publish:relay:write');
   await expect(page.locator('napplet-debugger')).toContainText('denied: relay:write');
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { runKehtoCli } from './index.js';
+import { isDirectCli, runKehtoCli } from './index.js';
 
 describe('@kehto/cli', () => {
   it('prints top-level help', async () => {
@@ -43,5 +43,10 @@ describe('@kehto/cli', () => {
 
     expect(code).toBe(1);
     expect(stderr.join('')).toContain('unknown command "unknown"');
+  });
+
+  it('detects global binary symlinks as direct CLI execution', () => {
+    expect(isDirectCli('/home/sandwich/.local/bin/kehto')).toBe(true);
+    expect(isDirectCli('/home/sandwich/.local/lib/node_modules/@kehto/cli/dist/index.js')).toBe(true);
   });
 });

@@ -66,8 +66,9 @@ if (isDirectCli()) {
   });
 }
 
-function isDirectCli(): boolean {
-  return typeof process !== 'undefined' && process.argv[1]?.endsWith('/index.js') === true;
+export function isDirectCli(entryPath = process.argv[1]): boolean {
+  if (!entryPath) return false;
+  return entryPath.endsWith('/index.js') || entryPath.endsWith('/kehto');
 }
 
 declare const process: {

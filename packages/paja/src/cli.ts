@@ -95,21 +95,43 @@ export async function runPajaCli(
     const options = normalizePajaOptions(rawOptions);
     const hostConfig = createPajaHostConfig(options);
     const shouldServe = runOptions.serve ?? true;
-    const child = shouldServe && options.command ? startManagedCommand(options.command) : undefined;
+    let child: ManagedChildProcess | undefined;
     let server: Awaited<ReturnType<typeof startPajaServer>> | undefined;
     if (shouldServe) {
       try {
+        server = await startPajaServer({ options: rawOptions });
+        writeRuntimeSummary(io, server.url, hostConfig, options);
+
         if (options.command) {
+          child = startManagedCommand(options.command);
           await waitForTargetUrl(options.targetUrl, { timeoutMs: options.readyTimeoutMs });
         }
-        server = await startPajaServer({ options: rawOptions });
       } catch (error) {
         child?.kill();
+        await server?.close().catch(() => undefined);
         throw error;
       }
     }
     const runtimeUrl = server?.url ?? formatPajaUrl(options);
 
+    if (!shouldServe) {
+      writeRuntimeSummary(io, runtimeUrl, hostConfig, options);
+    }
+
+    return 0;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    io.stderr.write(`kehto paja: ${message}\n`);
+    return 1;
+  }
+}
+
+function writeRuntimeSummary(
+  io: CliIo,
+  runtimeUrl: string,
+  hostConfig: ReturnType<typeof createPajaHostConfig>,
+  options: ReturnType<typeof normalizePajaOptions>,
+): void {
     io.stdout.write(`Kehto Paja\n`);
     io.stdout.write(`Runtime URL: ${runtimeUrl}\n`);
     io.stdout.write(`Target URL: ${hostConfig.target.url}\n`);
@@ -120,13 +142,6 @@ export async function runPajaCli(
     if (options.command) {
       io.stdout.write(`Command: ${formatCommand(options.command)}\n`);
     }
-
-    return 0;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    io.stderr.write(`kehto paja: ${message}\n`);
-    return 1;
-  }
 }
 
 const HELP_TEXT = `Usage:
@@ -405,14 +420,15 @@ const defaultIo: CliIo = {
   stderr: { write: (chunk) => process.stderr.write(chunk) },
 };
 
-if (isDirectCli()) {
+if (isDirectPajaCli()) {
   void runPajaCli().then((code) => {
     process.exitCode = code;
   });
 }
 
-function isDirectCli(): boolean {
-  return typeof process !== 'undefined' && process.argv[1]?.endsWith('/cli.js') === true;
+export function isDirectPajaCli(entryPath = process.argv[1]): boolean {
+  if (!entryPath) return false;
+  return entryPath.endsWith('/cli.js') || entryPath.endsWith('/paja');
 }
 
 declare const process: {
