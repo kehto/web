@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   PajaOptionsError,
   createPajaHostConfig,
+  createPajaRuntimeHostConfig,
   formatPajaUrl,
   normalizePajaOptions,
 } from './index.js';
@@ -72,6 +73,7 @@ describe('@kehto/paja options', () => {
         aggregateHash: 'paja',
       },
       target: {
+        mode: 'iframe-url',
         url: 'https://example.test/napplet',
         hmrStrategy: 'iframe-target-url',
         command: undefined,
@@ -94,6 +96,32 @@ describe('@kehto/paja options', () => {
         upload: { mode: 'memory', rail: 'dev-memory' },
         intent: { enabled: true },
       },
+    });
+  });
+
+  it('creates static runtime config for pointer-loaded napplets without HMR', () => {
+    const hostConfig = createPajaRuntimeHostConfig({
+      pointer: 'naddr1test',
+      relays: ['wss://relay.example'],
+      blossomServers: ['https://blossom.example'],
+      maxWaitMs: 2500,
+    }, new Date('2026-06-30T00:00:00.000Z'));
+
+    expect(hostConfig.target).toEqual({
+      mode: 'runtime-pointer',
+      url: 'about:blank',
+      hmrStrategy: 'none',
+      pointer: {
+        value: 'naddr1test',
+        relays: ['wss://relay.example'],
+        blossomServers: ['https://blossom.example'],
+        maxWaitMs: 2500,
+      },
+    });
+    expect(hostConfig.runtime).toMatchObject({
+      host: 'static',
+      port: 0,
+      readyTimeoutMs: 1,
     });
   });
 

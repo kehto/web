@@ -47,6 +47,9 @@ jobs:
       - name: Rebuild playground shell with Pages base
         run: pnpm --filter @kehto/playground build
 
+      - name: Rebuild Paja Runtime for Pages
+        run: pnpm --filter @kehto/paja build
+
       - name: Docs quality gate with Pages base
         run: pnpm docs:check
 

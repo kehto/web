@@ -3,7 +3,7 @@ import { summarizePajaSimulation } from './simulation.js';
 
 export function renderPajaHtml(config: PajaHostConfig): string {
   const configJson = escapeJsonForHtml(JSON.stringify(config));
-  const targetUrl = escapeAttribute(config.target.url);
+  const targetLabel = escapeAttribute(getTargetLabel(config));
 
   return `<!doctype html>
 <html lang="en">
@@ -47,6 +47,8 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .signer-controls { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 6px; }
       .signer-controls button[data-active="true"] { border-color: var(--accent); color: var(--text); background: #2a2a1d; }
       .signer-controls input { min-width: 0; padding: 0 8px; }
+      .pointer-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+      .pointer-status { min-width: 0; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
       .log-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
       .log-list { min-height: 160px; max-height: 38vh; overflow: auto; border: 1px solid var(--line); border-radius: 4px; background: #0b0d0b; }
       .log-row { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 6px; padding: 5px 7px; border-bottom: 1px solid #1b1f1a; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
@@ -68,7 +70,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
   <body>
     <header class="bar top">
       <div class="brand">@kehto/<span class="brand-product">paja</span></div>
-      <div class="target" title="${targetUrl}">${targetUrl}</div>
+      <div class="target" title="${targetLabel}">${targetLabel}</div>
       <div class="spacer"></div>
       <label>theme
         <select id="simulation-theme" aria-label="Simulation theme">
@@ -80,6 +82,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
     </header>
     <main>
       <aside class="console" aria-label="Paja development controls">
+        ${renderPointerControls(config)}
         <section class="section">
           <div class="section-title">Interfaces</div>
           <div class="switch-grid" id="interface-toggles"></div>
@@ -103,20 +106,45 @@ export function renderPajaHtml(config: PajaHostConfig): string {
         </section>
       </aside>
       <section class="stage">
-        <iframe id="napplet-frame" title="Napplet development target" sandbox="allow-scripts" data-target-url="${targetUrl}"></iframe>
+        <iframe id="napplet-frame" title="Napplet ${config.target.mode === 'runtime-pointer' ? 'runtime' : 'development'} target" sandbox="allow-scripts" data-target-url="${targetLabel}"></iframe>
       </section>
     </main>
     <footer class="bar bottom">
-      <span>mode: <code>${config.target.command ? 'managed-command' : 'external-target'}</code></span>
+      <span>mode: <code>${escapeHtml(getModeLabel(config))}</code></span>
       <span>hmr: <code>${config.target.hmrStrategy}</code></span>
       <span>runtime: <code>${escapeHtml(config.runtime.host)}:${config.runtime.port}</code></span>
       <span>sim: <code id="simulation-status">${escapeHtml(summarizePajaSimulation(config.simulation))}</code></span>
       <span>state: <code id="lifecycle-status">booting</code></span>
     </footer>
     <script type="application/json" id="kehto-paja-config">${configJson}</script>
-    <script type="module" src="/__kehto/browser-host.js"></script>
+    <script type="module" src="./__kehto/browser-host.js"></script>
   </body>
 </html>`;
+}
+
+function renderPointerControls(config: PajaHostConfig): string {
+  if (config.target.mode !== 'runtime-pointer') return '';
+  const value = escapeAttribute(config.target.pointer?.value ?? '');
+  return `<section class="section" id="runtime-pointer-section">
+          <div class="section-title">Pointer</div>
+          <form class="pointer-controls" id="runtime-pointer-form">
+            <input id="runtime-pointer-input" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="naddr or nevent" aria-label="Runtime napplet pointer" value="${value}">
+            <button type="submit" id="runtime-pointer-load">Load</button>
+          </form>
+          <div class="pointer-status" id="runtime-pointer-status" aria-live="polite">idle</div>
+        </section>`;
+}
+
+function getModeLabel(config: PajaHostConfig): string {
+  if (config.target.mode === 'runtime-pointer') return 'runtime-pointer';
+  return config.target.command ? 'managed-command' : 'external-target';
+}
+
+function getTargetLabel(config: PajaHostConfig): string {
+  if (config.target.mode === 'runtime-pointer') {
+    return config.target.pointer?.value ?? 'runtime pointer';
+  }
+  return config.target.url;
 }
 
 function escapeAttribute(value: string): string {

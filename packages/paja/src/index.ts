@@ -39,13 +39,21 @@ export {
   DEFAULT_PAJA_WINDOW_ID,
   DEFAULT_PAJA_DTAG,
   DEFAULT_PAJA_AGGREGATE_HASH,
+  DEFAULT_PAJA_RUNTIME_WAIT_MS,
   DEFAULT_READY_TIMEOUT_MS,
   PajaOptionsError,
   createPajaHostConfig,
+  createPajaRuntimeHostConfig,
   formatPajaUrl,
   normalizePajaOptions,
 } from './options.js';
 export { renderPajaHtml } from './host-page.js';
+export {
+  PAJA_NAPPLET_MANIFEST_KIND,
+  decodePajaPointer,
+  injectPajaRuntimeCsp,
+  resolvePajaPointer,
+} from './runtime-resolver.js';
 export {
   PAJA_ADVERTISED_DOMAINS,
   PAJA_COMPATIBILITY_ALIASES,
@@ -60,10 +68,19 @@ export { startPajaServer } from './server.js';
 
 export type {
   PajaCommand,
+  PajaHmrStrategy,
   PajaHostConfig,
   PajaOptions,
+  PajaPointerRuntimeConfig,
   PajaRawOptions,
+  PajaTargetMode,
 } from './options.js';
+export type {
+  PajaDecodedPointer,
+  PajaPointerRelayPool,
+  PajaResolvedPointer,
+  ResolvePajaPointerOptions,
+} from './runtime-resolver.js';
 export type {
   PajaCapabilityDomain,
   PajaSimulation,

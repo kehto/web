@@ -34,6 +34,10 @@ can switch to a browser NIP-07 signer or a bunker/NIP-46 connection. Every
 signing or publish operation still uses a browser confirmation prompt. There is
 no bypass list.
 
+The static Paja Runtime build is served at `/web/paja/` in the GitHub Pages
+artifact. It uses the same browser host and service adapters, but loads verified
+napplet HTML from a pasted `naddr` or `nevent` pointer with `hmr: none`.
+
 Environment simulation can be supplied through CLI flags or a JSON config file:
 
 ```bash

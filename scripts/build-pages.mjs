@@ -38,6 +38,7 @@ const gsapSource = join(repoRoot, 'node_modules', 'gsap', 'dist', 'gsap.min.js')
 const vendorAssetsOutput = join(portalAssetsOutput, 'vendor');
 const playgroundOutput = join(outputRoot, 'playground');
 const playgroundBasePath = process.env.PLAYGROUND_BASE_PATH || '/web/playground/';
+const pajaOutput = join(outputRoot, 'paja');
 const docsDist = join(repoRoot, 'docs', '.vitepress', 'dist');
 const docsApi = join(repoRoot, 'docs', 'api');
 const docsOutput = join(outputRoot, 'docs');
@@ -72,9 +73,18 @@ execFileSync(process.execPath, [join(scriptDir, 'build-playground-pages.mjs')], 
   },
 });
 
+execFileSync(process.execPath, [join(scriptDir, 'build-paja-pages.mjs')], {
+  cwd: repoRoot,
+  stdio: 'inherit',
+  env: {
+    ...process.env,
+    PAJA_PAGES_OUT_DIR: pajaOutput,
+  },
+});
+
 ensureFile(join(docsDist, 'index.html'), 'VitePress docs build');
 ensureFile(join(docsApi, 'modules', '_kehto_shell.html'), 'TypeDoc API output');
 cpSync(docsDist, docsOutput, { recursive: true });
 cpSync(docsApi, join(docsOutput, 'api'), { recursive: true });
 
-console.log(`[build:pages] OK - wrote ${rel(outputRoot)} portal, playground, and docs roots`);
+console.log(`[build:pages] OK - wrote ${rel(outputRoot)} portal, playground, paja, and docs roots`);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createPajaHostConfig, normalizePajaOptions } from './options.js';
+import { createPajaHostConfig, createPajaRuntimeHostConfig, normalizePajaOptions } from './options.js';
 import { renderPajaHtml } from './host-page.js';
 
 describe('@kehto/paja host page', () => {
@@ -19,7 +19,8 @@ describe('@kehto/paja host page', () => {
     expect(html).toContain('id="simulation-status"');
     expect(html).toContain('identity:anon relay:1 storage:local theme:dark off:none');
     expect(html).not.toContain('src="http://127.0.0.1:5173/"');
-    expect(html).toContain('src="/__kehto/browser-host.js"');
+    expect(html).toContain('src="./__kehto/browser-host.js"');
+    expect(html).not.toContain('id="runtime-pointer-form"');
     expect(html).not.toContain('side-panel');
     expect(html).not.toContain('playground');
   });
@@ -32,5 +33,19 @@ describe('@kehto/paja host page', () => {
     expect(html).toContain('id="kehto-paja-config"');
     expect(html).toContain('https://example.test/%3Cnapplet%3E');
     expect(html).not.toContain('https://example.test/<napplet>');
+  });
+
+  it('renders runtime pointer controls without target-url HMR', () => {
+    const config = createPajaRuntimeHostConfig({ pointer: 'nevent1test' }, new Date('2026-06-30T00:00:00.000Z'));
+    const html = renderPajaHtml(config);
+
+    expect(html).toContain('id="runtime-pointer-form"');
+    expect(html).toContain('id="runtime-pointer-input"');
+    expect(html).toContain('value="nevent1test"');
+    expect(html).toContain('mode: <code>runtime-pointer</code>');
+    expect(html).toContain('hmr: <code>none</code>');
+    expect(html).toContain('data-target-url="nevent1test"');
+    expect(html).toContain('src="./__kehto/browser-host.js"');
+    expect(html).not.toContain('src="about:blank"');
   });
 });
