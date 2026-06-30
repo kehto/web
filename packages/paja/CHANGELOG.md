@@ -1,5 +1,11 @@
 # @kehto/paja
 
+## 0.3.7
+
+### Patch Changes
+
+- c777d32: Show Paja message error details inline and add NIP-07 plus bunker signer controls for local authoring.
+
 ## 0.3.6
 
 ### Patch Changes
