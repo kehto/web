@@ -10,7 +10,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Kehto Paja</title>
+    <title>@kehto/paja</title>
     <style>
       :root {
         color-scheme: dark;
@@ -28,6 +28,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .top { border-bottom: 1px solid var(--line); }
       .bottom { border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
       .brand { font-weight: 700; letter-spacing: 0; color: var(--accent); white-space: nowrap; }
+      .brand-product { color: var(--text); }
       .target { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
       .spacer { flex: 1; min-width: 0; }
       button { border: 1px solid var(--line); color: var(--text); background: #20241f; height: 26px; padding: 0 10px; border-radius: 4px; font: inherit; cursor: pointer; }
@@ -66,7 +67,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
   </head>
   <body>
     <header class="bar top">
-      <div class="brand">Kehto</div>
+      <div class="brand">@kehto/<span class="brand-product">paja</span></div>
       <div class="target" title="${targetUrl}">${targetUrl}</div>
       <div class="spacer"></div>
       <label>theme

@@ -8,6 +8,8 @@ describe('@kehto/paja host page', () => {
     const config = createPajaHostConfig(options, new Date('2026-06-21T00:00:00.000Z'));
     const html = renderPajaHtml(config);
 
+    expect(html).toContain('<title>@kehto/paja</title>');
+    expect(html).toContain('<div class="brand">@kehto/<span class="brand-product">paja</span></div>');
     expect(html).toContain('<header class="bar top">');
     expect(html).toContain('<footer class="bar bottom">');
     expect(html).toContain('<iframe id="napplet-frame"');

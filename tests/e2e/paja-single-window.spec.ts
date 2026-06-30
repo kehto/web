@@ -38,6 +38,12 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   await page.goto(runtimeServer.url);
 
   await expect(page.locator('header.top')).toBeVisible();
+  await expect(page.locator('.brand')).toHaveText('@kehto/paja');
+  await expect.poll(async () => page.locator('.brand').evaluate((brand) => {
+    const product = brand.querySelector('.brand-product');
+    if (!(product instanceof HTMLElement)) return false;
+    return getComputedStyle(brand).color !== getComputedStyle(product).color;
+  })).toBe(true);
   await expect(page.locator('footer.bottom')).toBeVisible();
   await expect(page.locator('.console')).toBeVisible();
   await expect(page.locator('#interface-toggles [data-interface-domain="identity"]')).toHaveAttribute('data-enabled', 'true');
