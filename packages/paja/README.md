@@ -28,9 +28,11 @@ upstream compatibility alias to `inc`. The upstream `dm` domain is not
 advertised until Paja wires a deterministic development DM backend.
 
 The console shows supported interfaces with per-domain injection toggles,
-runtime ACL controls, signer status, and a filterable message log. Paja also
-creates a real local development signer and gates every signing or publish
-operation with a browser confirmation prompt. There is no bypass list.
+runtime ACL controls, signer controls, and a filterable message log with visible
+error details. Paja creates a generated local development signer by default and
+can switch to a browser NIP-07 signer or a bunker/NIP-46 connection. Every
+signing or publish operation still uses a browser confirmation prompt. There is
+no bypass list.
 
 Environment simulation can be supplied through CLI flags or a JSON config file:
 

@@ -10,7 +10,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Kehto Paja</title>
+    <title>@kehto/paja</title>
     <style>
       :root {
         color-scheme: dark;
@@ -28,6 +28,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .top { border-bottom: 1px solid var(--line); }
       .bottom { border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
       .brand { font-weight: 700; letter-spacing: 0; color: var(--accent); white-space: nowrap; }
+      .brand-product { color: var(--text); }
       .target { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
       .spacer { flex: 1; min-width: 0; }
       button { border: 1px solid var(--line); color: var(--text); background: #20241f; height: 26px; padding: 0 10px; border-radius: 4px; font: inherit; cursor: pointer; }
@@ -43,12 +44,18 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .toggle[data-enabled="true"] { color: var(--text); border-color: #5f724f; background: #24301f; }
       .toggle[data-enabled="false"] { color: #8d9187; border-color: #453536; background: #241d1d; }
       .signer { color: var(--muted); word-break: break-all; font-size: 12px; }
+      .signer-controls { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 6px; }
+      .signer-controls button[data-active="true"] { border-color: var(--accent); color: var(--text); background: #2a2a1d; }
+      .signer-controls input { min-width: 0; padding: 0 8px; }
       .log-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
       .log-list { min-height: 160px; max-height: 38vh; overflow: auto; border: 1px solid var(--line); border-radius: 4px; background: #0b0d0b; }
       .log-row { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 6px; padding: 5px 7px; border-bottom: 1px solid #1b1f1a; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .log-row[data-error="true"] { background: #1d1414; }
       .log-row:last-child { border-bottom: 0; }
       .log-dir { color: var(--muted); }
+      .log-body { min-width: 0; display: grid; gap: 2px; }
       .log-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .log-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e6a5a5; }
       .stage { min-width: 0; min-height: 0; }
       iframe { width: 100%; height: 100%; border: 0; background: white; display: block; }
       code { color: var(--text); }
@@ -60,7 +67,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
   </head>
   <body>
     <header class="bar top">
-      <div class="brand">Kehto</div>
+      <div class="brand">@kehto/<span class="brand-product">paja</span></div>
       <div class="target" title="${targetUrl}">${targetUrl}</div>
       <div class="spacer"></div>
       <label>theme
@@ -84,6 +91,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
         <section class="section">
           <div class="section-title">Signer</div>
           <div class="signer" id="signer-status">loading</div>
+          <div class="signer-controls" id="signer-controls"></div>
         </section>
         <section class="section">
           <div class="section-title">Messages</div>

@@ -5,6 +5,7 @@ import type {
   ServiceHandler,
   ShellAdapter,
 } from '@kehto/shell';
+import type { Signer } from '@kehto/runtime';
 import {
   createBleService,
   createCommonService,
@@ -51,6 +52,11 @@ import type { PajaSimulation } from './simulation.js';
 export interface PajaConfirmationRequest {
   action: 'sign' | 'publish';
   event: NostrEvent | Partial<NostrEvent>;
+}
+
+export interface PajaSignerProvider {
+  getSigner(): Signer | null;
+  getPubkey(): string | null;
 }
 
 const DEV_INTENT_ARCHETYPE = 'paja-target';
@@ -272,6 +278,7 @@ function createOutboxRouter(
   pool: RelayPoolLike,
   getSimulation: () => PajaSimulation,
   confirmRequest: (request: PajaConfirmationRequest) => boolean,
+  signerProvider?: PajaSignerProvider,
 ) {
   return {
     async query(filters: NostrFilter[]) {
@@ -295,7 +302,7 @@ function createOutboxRouter(
       return { close: () => sub.unsubscribe() };
     },
     async publish(template: Partial<NostrEvent>) {
-      const event = await createDevSigner(getSimulation, confirmRequest).signEvent({
+      const event = await createRuntimeSigner(getSimulation, confirmRequest, signerProvider).signEvent!({
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
         tags: [],
@@ -328,7 +335,7 @@ export function createDevTheme(mode: PajaSimulation['theme']['mode'], values: Pa
 function createDevSigner(
   getSimulation: () => PajaSimulation,
   confirmRequest: (request: PajaConfirmationRequest) => boolean,
-) {
+): Signer {
   return {
     getPublicKey: () => getSimulation().identity.pubkey || PAJA_DEV_SIGNER_PUBKEY,
     getRelays: () => Object.fromEntries(getRelayUrls(getSimulation()).map((relay) => [relay, { read: true, write: true }])),
@@ -345,11 +352,32 @@ function createDevSigner(
   };
 }
 
+function getRuntimePubkey(
+  getSimulation: () => PajaSimulation,
+  signerProvider?: PajaSignerProvider,
+): string {
+  return getSimulation().identity.pubkey || signerProvider?.getPubkey() || PAJA_DEV_SIGNER_PUBKEY;
+}
+
+function createRuntimeSigner(
+  getSimulation: () => PajaSimulation,
+  confirmRequest: (request: PajaConfirmationRequest) => boolean,
+  signerProvider?: PajaSignerProvider,
+): Signer {
+  const signer = signerProvider?.getSigner();
+  if (!signer) return createDevSigner(getSimulation, confirmRequest);
+  return {
+    ...signer,
+    getPublicKey: () => getRuntimePubkey(getSimulation, signerProvider),
+  };
+}
+
 function createDevServices(
   pool: RelayPoolLike,
   getSimulation: () => PajaSimulation,
   onThemeService: (theme: ReturnType<typeof createThemeService>) => void,
   confirmRequest: (request: PajaConfirmationRequest) => boolean,
+  signerProvider?: PajaSignerProvider,
 ): Record<string, ServiceHandler> {
   const notification = createNotificationService({ maxPerWindow: 50 });
   const theme = createThemeService({
@@ -391,11 +419,11 @@ function createDevServices(
       selectRelayTier: () => getRelayUrls(getSimulation()),
       isAvailable: () => getSimulation().relay.mode === 'memory',
     });
-    services.outbox = createOutboxService({ router: createOutboxRouter(pool, getSimulation, confirmRequest) });
+    services.outbox = createOutboxService({ router: createOutboxRouter(pool, getSimulation, confirmRequest, signerProvider) });
   }
 
   if (getSimulation().capabilities.domains.identity) {
-    services.identity = createIdentityService({ getSigner: () => createDevSigner(getSimulation, confirmRequest) });
+    services.identity = createIdentityService({ getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider) });
   }
   if (getSimulation().notifications.enabled) {
     services.notifications = notification;
@@ -475,6 +503,7 @@ export function createPajaAdapter(
   getSimulation: () => PajaSimulation,
   onThemeService: (theme: ReturnType<typeof createThemeService>) => void,
   confirmRequest: (request: PajaConfirmationRequest) => boolean,
+  signerProvider?: PajaSignerProvider,
 ): ShellAdapter {
   const pool = createMemoryRelayPool(getSimulation, confirmRequest);
   const workerRelayEvents: NostrEvent[] = [];
@@ -491,10 +520,10 @@ export function createPajaAdapter(
     },
     windowManager: { createWindow: () => null },
     auth: {
-      getUserPubkey: () => getSimulation().identity.pubkey || PAJA_DEV_SIGNER_PUBKEY,
-      getSigner: () => createDevSigner(getSimulation, confirmRequest),
+      getUserPubkey: () => getRuntimePubkey(getSimulation, signerProvider),
+      getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider),
     },
-    services: createDevServices(pool, getSimulation, onThemeService, confirmRequest),
+    services: createDevServices(pool, getSimulation, onThemeService, confirmRequest, signerProvider),
     get capabilities() {
       return { disabledDomains: getSimulation().capabilities.disabledDomains };
     },

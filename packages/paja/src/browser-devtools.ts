@@ -6,6 +6,7 @@ import {
 } from '@kehto/shell';
 
 import type { PajaHostConfig } from './options.js';
+import type { PajaSignerState } from './browser-signers.js';
 import {
   PAJA_SIMULATION_DOMAINS,
   type PajaCapabilityDomain,
@@ -19,15 +20,20 @@ export interface PajaMessageLogEntry {
   type: string;
   windowId?: string;
   preview: string;
+  detail: string;
 }
 
 export interface PajaDevtoolsState {
   readonly config: PajaHostConfig;
   simulation: PajaSimulation;
+  signer: PajaSignerState;
   messageFilter: string;
   messageLog: PajaMessageLogEntry[];
   setDomainEnabled(domain: PajaCapabilityDomain, enabled: boolean): void;
   setAclCapability(capability: Capability, enabled: boolean): void;
+  useDevSigner(): void;
+  connectNip07(): Promise<void>;
+  connectBunker(uri: string): Promise<void>;
 }
 
 const PAJA_LOG_LIMIT = 500;
@@ -35,7 +41,7 @@ const proxyToReal = new WeakMap<object, Window>();
 
 interface PajaDevtoolsRenderOptions {
   readonly bridge: ShellBridge | null;
-  readonly signerPubkey: string;
+  readonly devSignerPubkey: string;
 }
 
 interface OriginRegistryLike {
@@ -64,6 +70,35 @@ function previewMessage(raw: unknown): string {
   }
 }
 
+type MessageWithDetails = NappletMessage & {
+  error?: unknown;
+  message?: unknown;
+  reason?: unknown;
+};
+
+function compactMessageDetail(raw: NappletMessage): string {
+  const detail: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (key !== 'type' && key !== 'id' && value !== undefined) detail[key] = value;
+  }
+  if (Object.keys(detail).length === 0) return '';
+  try {
+    return JSON.stringify(detail);
+  } catch {
+    return '';
+  }
+}
+
+function describeMessageDetail(raw: unknown): string {
+  if (!isNappletMessage(raw)) return '';
+  const value = raw as MessageWithDetails;
+  for (const key of ['error', 'message', 'reason'] as const) {
+    const detail = value[key];
+    if (typeof detail === 'string' && detail.length > 0) return detail;
+  }
+  return raw.type.endsWith('.error') ? compactMessageDetail(value) : '';
+}
+
 function domainEnabled(simulation: PajaSimulation, domain: PajaCapabilityDomain): boolean {
   return simulation.capabilities.domains[domain] === true;
 }
@@ -90,6 +125,7 @@ export function appendPajaMessageLog(
     type: describeMessage(raw),
     windowId,
     preview: previewMessage(raw),
+    detail: describeMessageDetail(raw),
   });
   if (state.messageLog.length > PAJA_LOG_LIMIT) {
     state.messageLog.splice(0, state.messageLog.length - PAJA_LOG_LIMIT);
@@ -148,7 +184,7 @@ export function renderPajaDevtools(
 ): void {
   renderInterfaceControls(state);
   renderAclControls(state, options.bridge);
-  renderSignerStatus(state, options.signerPubkey);
+  renderSignerStatus(state, options.devSignerPubkey);
 }
 
 export function renderPajaMessageLog(state: PajaDevtoolsState): void {
@@ -156,20 +192,31 @@ export function renderPajaMessageLog(state: PajaDevtoolsState): void {
   if (!container) return;
   const filter = state.messageFilter.trim().toLowerCase();
   const rows = state.messageLog
-    .filter((entry) => filter.length === 0 || `${entry.direction} ${entry.type} ${entry.preview}`.toLowerCase().includes(filter))
+    .filter((entry) => filter.length === 0 || `${entry.direction} ${entry.type} ${entry.detail} ${entry.preview}`.toLowerCase().includes(filter))
     .slice(-120)
     .map((entry) => {
       const row = document.createElement('div');
       row.className = 'log-row';
       row.dataset.messageType = entry.type;
+      if (entry.type.endsWith('.error')) row.dataset.error = 'true';
       const dir = document.createElement('div');
       dir.className = 'log-dir';
       dir.textContent = entry.direction;
+      const body = document.createElement('div');
+      body.className = 'log-body';
       const type = document.createElement('div');
       type.className = 'log-type';
       type.title = entry.preview;
       type.textContent = entry.type;
-      row.append(dir, type);
+      body.append(type);
+      if (entry.detail) {
+        const detail = document.createElement('div');
+        detail.className = 'log-detail';
+        detail.textContent = entry.detail;
+        detail.title = entry.preview;
+        body.append(detail);
+      }
+      row.append(dir, body);
       return row;
     });
   container.replaceChildren(...rows);
@@ -220,7 +267,47 @@ function renderAclControls(state: PajaDevtoolsState, bridge: ShellBridge | null)
 
 function renderSignerStatus(state: PajaDevtoolsState, signerPubkey: string): void {
   const el = document.getElementById('signer-status');
-  if (!el) return;
-  const pubkey = state.simulation.identity.pubkey || signerPubkey;
-  el.textContent = `pubkey ${pubkey} · every sign/publish request prompts`;
+  const controls = document.getElementById('signer-controls');
+  if (!el || !controls) return;
+
+  const fallbackPubkey = state.simulation.identity.pubkey || signerPubkey;
+  const pubkey = state.simulation.identity.pubkey || state.signer.pubkey || signerPubkey;
+  const methodLabel = state.signer.method === 'nip07' ? 'NIP-07' : state.signer.method === 'nip46' ? 'bunker' : 'dev';
+  const relay = state.signer.relay ? ` · relay ${state.signer.relay}` : '';
+  const prefix = state.signer.status === 'error'
+    ? `${methodLabel} error: ${state.signer.error ?? 'unknown error'} · fallback pubkey ${fallbackPubkey}`
+    : `${methodLabel} ${state.signer.status} · pubkey ${pubkey}${relay}`;
+  el.textContent = `${prefix} · every sign/publish request prompts`;
+
+  const previousInput = controls.querySelector<HTMLInputElement>('#signer-bunker-uri')?.value ?? '';
+  const devButton = document.createElement('button');
+  devButton.type = 'button';
+  devButton.id = 'signer-dev';
+  devButton.dataset.active = String(state.signer.method === 'dev');
+  devButton.textContent = 'Dev';
+  devButton.addEventListener('click', () => state.useDevSigner());
+
+  const nip07Button = document.createElement('button');
+  nip07Button.type = 'button';
+  nip07Button.id = 'signer-nip07';
+  nip07Button.dataset.active = String(state.signer.method === 'nip07');
+  nip07Button.textContent = 'NIP-07';
+  nip07Button.addEventListener('click', () => void state.connectNip07());
+
+  const bunkerInput = document.createElement('input');
+  bunkerInput.id = 'signer-bunker-uri';
+  bunkerInput.type = 'text';
+  bunkerInput.autocomplete = 'off';
+  bunkerInput.placeholder = 'bunker://...';
+  bunkerInput.setAttribute('aria-label', 'Bunker connection URI');
+  bunkerInput.value = previousInput;
+
+  const bunkerButton = document.createElement('button');
+  bunkerButton.type = 'button';
+  bunkerButton.id = 'signer-bunker';
+  bunkerButton.dataset.active = String(state.signer.method === 'nip46');
+  bunkerButton.textContent = 'Bunker';
+  bunkerButton.addEventListener('click', () => void state.connectBunker(bunkerInput.value));
+
+  controls.replaceChildren(devButton, nip07Button, bunkerInput, bunkerButton);
 }
