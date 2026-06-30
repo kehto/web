@@ -35,14 +35,35 @@ declare module 'node:path' {
 }
 
 declare module 'node:child_process' {
+  export interface ChildProcess {
+    kill(): void;
+    readonly stdout?: {
+      on(event: 'data', callback: (chunk: string | Uint8Array) => void): void;
+    } | null;
+    readonly stderr?: {
+      on(event: 'data', callback: (chunk: string | Uint8Array) => void): void;
+    } | null;
+  }
+
   export function spawn(
     command: string,
     options: { shell: true; stdio: 'inherit' },
-  ): { kill(): void };
+  ): ChildProcess;
+
+  export function spawn(
+    command: string,
+    options: { shell: true; stdio: readonly ['inherit', 'pipe', 'pipe'] },
+  ): ChildProcess;
 
   export function spawn(
     command: string,
     args: readonly string[],
     options: { stdio: 'inherit' },
-  ): { kill(): void };
+  ): ChildProcess;
+
+  export function spawn(
+    command: string,
+    args: readonly string[],
+    options: { stdio: readonly ['inherit', 'pipe', 'pipe'] },
+  ): ChildProcess;
 }

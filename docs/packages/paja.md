@@ -102,14 +102,30 @@ For package-manager script examples covering `pnpm`, `npm`, and `yarn`, see
 
 ## Browser Host
 
-The served host page keeps the visible surface intentionally small: one top bar,
-one sandboxed target iframe, and one bottom bar. The iframe is created without a
-static `src`; the browser bootstrap sets `sandbox="allow-scripts"`, registers the
-iframe with `@kehto/shell`, navigates to the explicit target URL, and uses a real
-`ShellBridge` plus `@kehto/runtime` for `shell.ready`, `shell.init`, ACL,
-firewall, storage, INC, relay/outbox, and service dispatch. Reload uses a
+The served host page is a single-window development runtime: a control console
+beside one sandboxed target iframe, plus compact top and bottom bars. The iframe
+is created without a static `src`; the browser bootstrap sets
+`sandbox="allow-scripts"`, registers the iframe with `@kehto/shell`, creates a
+source-derived NIP-5D session entry, navigates to the explicit target URL, and
+uses a real `ShellBridge` plus `@kehto/runtime` for `shell.ready`, `shell.init`,
+ACL, firewall, storage, INC, relay/outbox, and service dispatch. Reload uses a
 generation-specific internal window id so the same iframe can receive a fresh
 `shell.init` without restarting the CLI or the app dev server.
+
+The console includes:
+
+- **Interfaces** — every supported Paja domain has an injection toggle. Toggling
+  a domain updates the live capability override and reloads the target so the
+  next `shell.init` reflects the changed support surface.
+- **ACL** — every runtime capability can be granted or revoked for the target
+  napplet identity. The controls write through `bridge.runtime.aclState`, so the
+  next matching request is allowed or denied by the real runtime gate.
+- **Signer** — Paja exposes a generated real development signer. Every request
+  to sign an event or publish an event opens a browser confirmation prompt. Paja
+  has no bypass list or allow-once whitelist.
+- **Messages** — inbound and outbound envelopes are logged with a text filter,
+  including Paja system events such as interface changes, ACL changes, and
+  signing/publish confirmations.
 
 ## NAP and Service Parity
 
@@ -127,7 +143,8 @@ upstream `dm` domain is tracked as deferred until Paja wires a deterministic
 development DM backend.
 
 Default service wiring includes in-memory relay/outbox behavior, localStorage
-state persistence through the runtime, deterministic identity/config/theme,
+state persistence through the runtime, a generated local signer-backed identity,
+deterministic config/theme,
 notification, media, upload, intent, resource, and CVM adapters. These defaults
 are intentionally useful for local authoring.
 
@@ -146,10 +163,10 @@ The normalized simulation object controls:
 - Config values returned by `config.get`.
 - Theme mode and values returned by `theme.get`.
 
-The visible host stays compact. The top bar includes a theme selector and reload
-button; the bottom bar summarizes active simulation state, HMR strategy, runtime
-address, and lifecycle status. Theme changes apply immediately to the Paja theme
-service and survive the next iframe reload.
+The top bar includes a theme selector and reload button; the bottom bar
+summarizes active simulation state, HMR strategy, runtime address, and lifecycle
+status. Theme changes apply immediately to the Paja theme service and survive
+the next iframe reload.
 
 ## Scope Boundaries
 
@@ -160,10 +177,12 @@ service and survive the next iframe reload.
   server keeps its own HMR behavior.
 - Does not guess framework dev-server ports, mutate app build tooling, or add
   framework-specific adapters.
-- Does not replace the full playground. Simulation controls stay in the top and
-  bottom bars; debugger panes and protocol timelines remain out of scope here.
+- Does not replace the full playground. Paja is the package-scoped authoring
+  runtime for one target app; the playground remains the multi-napplet demo and
+  topology surface.
 
 ## API Reference
 
 - Generated module: <a href="../api/modules/_kehto_paja.html" target="_self"><code>docs/api/modules/_kehto_paja.html</code></a>
+- Getting started: [Paja getting started](/how-tos/paja-getting-started)
 - Local authoring how-to: [Use Paja for local napplet authoring](/how-tos/paja-local-authoring)

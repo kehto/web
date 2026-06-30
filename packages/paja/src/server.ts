@@ -19,15 +19,26 @@ export interface PajaServerOptions {
 export interface PajaServer {
   readonly url: string;
   readonly hostConfig: PajaHostConfig;
+  updateTargetUrl(targetUrl: string): PajaHostConfig;
   close(): Promise<void>;
 }
 
 export async function startPajaServer(input: PajaServerOptions): Promise<PajaServer> {
   const rawOptions = resolvePajaRawOptions(input.options);
   const options = normalizePajaOptions(rawOptions);
-  let hostConfig = createPajaHostConfig(options, input.now);
+  const createdAt = input.now ?? new Date();
+  let hostConfig = createPajaHostConfig(options, createdAt);
   let html = renderPajaHtml(hostConfig);
   let configJson = JSON.stringify(hostConfig, null, 2);
+  let currentOptions = options;
+
+  const setHostConfig = (nextOptions: PajaOptions): PajaHostConfig => {
+    currentOptions = nextOptions;
+    hostConfig = createPajaHostConfig(currentOptions, createdAt);
+    html = renderPajaHtml(hostConfig);
+    configJson = JSON.stringify(hostConfig, null, 2);
+    return hostConfig;
+  };
 
   const server = createServer((request, response) => {
     const requestUrl = request.url ?? '/';
@@ -57,13 +68,16 @@ export async function startPajaServer(input: PajaServerOptions): Promise<PajaSer
 
   await listen(server, options.host, options.port);
   const servedOptions = withBoundPort(options, getBoundPort(server, options.port));
-  hostConfig = createPajaHostConfig(servedOptions, input.now);
-  html = renderPajaHtml(hostConfig);
-  configJson = JSON.stringify(hostConfig, null, 2);
+  setHostConfig(servedOptions);
 
   return {
     url: formatPajaUrl(servedOptions),
-    hostConfig,
+    get hostConfig() {
+      return hostConfig;
+    },
+    updateTargetUrl(targetUrl) {
+      return setHostConfig(withTargetUrl(currentOptions, targetUrl));
+    },
     close: () => close(server),
   };
 }
@@ -109,4 +123,23 @@ function getBoundPort(server: HttpServer, fallback: number): number {
 
 function withBoundPort(options: PajaOptions, port: number): PajaOptions {
   return port === options.port ? options : { ...options, port };
+}
+
+function withTargetUrl(options: PajaOptions, targetUrl: string): PajaOptions {
+  const url = normalizeServerTargetUrl(targetUrl);
+  return url === options.targetUrl ? options : { ...options, targetUrl: url };
+}
+
+function normalizeServerTargetUrl(value: string): string {
+  const raw = value.trim();
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error(`Invalid managed target URL "${raw}". Expected an absolute http(s) URL.`);
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(`Invalid managed target URL "${raw}". Only http: and https: URLs are supported.`);
+  }
+  return parsed.href;
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import {
   createPajaHostConfig,
   formatPajaUrl,
@@ -44,6 +44,10 @@ export interface CliParseResult {
  */
 export interface RunPajaCliOptions {
   readonly serve?: boolean;
+  readonly startServer?: typeof startPajaServer;
+  readonly startCommand?: (command: PajaCommand, io: CliIo) => ManagedChildProcess;
+  readonly waitForTargetUrl?: typeof waitForTargetUrl;
+  readonly targetDiscoveryGraceMs?: number;
 }
 
 /**
@@ -95,16 +99,27 @@ export async function runPajaCli(
     const options = normalizePajaOptions(rawOptions);
     const hostConfig = createPajaHostConfig(options);
     const shouldServe = runOptions.serve ?? true;
+    const startServer = runOptions.startServer ?? startPajaServer;
+    const startCommand = runOptions.startCommand ?? startManagedCommand;
+    const waitForTarget = runOptions.waitForTargetUrl ?? waitForTargetUrl;
     let child: ManagedChildProcess | undefined;
     let server: Awaited<ReturnType<typeof startPajaServer>> | undefined;
     if (shouldServe) {
       try {
-        server = await startPajaServer({ options: rawOptions });
+        server = await startServer({ options: rawOptions });
         writeRuntimeSummary(io, server.url, hostConfig, options);
 
         if (options.command) {
-          child = startManagedCommand(options.command);
-          await waitForTargetUrl(options.targetUrl, { timeoutMs: options.readyTimeoutMs });
+          child = startCommand(options.command, io);
+          const targetUrl = await resolveManagedTargetUrl(options.targetUrl, child, {
+            timeoutMs: options.readyTimeoutMs,
+            discoveryGraceMs: runOptions.targetDiscoveryGraceMs,
+            waitForTargetUrl: waitForTarget,
+          });
+          if (targetUrl !== options.targetUrl) {
+            server.updateTargetUrl(targetUrl);
+            io.stdout.write(`Target URL updated: ${targetUrl}\n`);
+          }
         }
       } catch (error) {
         child?.kill();
@@ -395,16 +410,139 @@ function ensureSimulation(raw: MutablePajaRawOptions): MutablePajaSimulationRawO
   return raw.simulation as MutablePajaSimulationRawOptions;
 }
 
-function startManagedCommand(command: PajaCommand): ManagedChildProcess {
+async function resolveManagedTargetUrl(
+  configuredUrl: string,
+  child: ManagedChildProcess,
+  options: {
+    readonly timeoutMs: number;
+    readonly discoveryGraceMs?: number;
+    readonly waitForTargetUrl: typeof waitForTargetUrl;
+  },
+): Promise<string> {
+  let configuredError: unknown;
+  const configuredReady = options.waitForTargetUrl(configuredUrl, { timeoutMs: options.timeoutMs })
+    .then(() => configuredUrl)
+    .catch((error) => {
+      configuredError = error;
+      return undefined;
+    });
+  const first = await Promise.race([
+    configuredReady.then((url) => url ? { kind: 'configured' as const, url } : undefined),
+    child.detectedTargetUrl.then((url) => ({ kind: 'detected' as const, url })),
+  ]);
+
+  if (first?.kind === 'detected') {
+    await options.waitForTargetUrl(first.url, { timeoutMs: options.timeoutMs });
+    return first.url;
+  }
+
+  const graceMs = options.discoveryGraceMs ?? Math.min(1000, options.timeoutMs);
+  const detected = await resolveWithin(child.detectedTargetUrl, graceMs);
+  if (!detected) {
+    if (first?.url) {
+      return first.url;
+    }
+    throw configuredError instanceof Error ? configuredError : new Error(String(configuredError ?? 'Target URL was not ready.'));
+  }
+
+  await options.waitForTargetUrl(detected, { timeoutMs: options.timeoutMs });
+  return detected;
+}
+
+function resolveWithin<T>(promise: Promise<T>, timeoutMs: number): Promise<T | undefined> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve(undefined);
+    }, Math.max(0, timeoutMs));
+
+    promise.then((value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      resolve(value);
+    }, () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      resolve(undefined);
+    });
+  });
+}
+
+function startManagedCommand(command: PajaCommand, io: CliIo): ManagedChildProcess {
+  const detector = createManagedTargetUrlDetector();
+  const child = spawnManagedCommand(command);
+  forwardManagedOutput(child, detector, io);
+  return {
+    kill: () => child.kill(),
+    detectedTargetUrl: detector.detectedTargetUrl,
+  };
+}
+
+function spawnManagedCommand(command: PajaCommand): ChildProcess {
   if (command.mode === 'shell') {
-    return spawn(command.command, { shell: true, stdio: 'inherit' });
+    return spawn(command.command, { shell: true, stdio: ['inherit', 'pipe', 'pipe'] as const });
   }
 
   const [executable, ...args] = command.argv;
   if (!executable) {
     throw new PajaOptionsError('Argv command mode requires an executable.');
   }
-  return spawn(executable, args, { stdio: 'inherit' });
+  return spawn(executable, args, { stdio: ['inherit', 'pipe', 'pipe'] as const });
+}
+
+function forwardManagedOutput(
+  child: ChildProcess,
+  detector: ManagedTargetUrlDetector,
+  io: CliIo,
+): void {
+  child.stdout?.on('data', (chunk: string | Uint8Array) => {
+    const text = String(chunk);
+    detector.observe(text);
+    io.stdout.write(text);
+  });
+  child.stderr?.on('data', (chunk: string | Uint8Array) => {
+    const text = String(chunk);
+    detector.observe(text);
+    io.stderr.write(text);
+  });
+}
+
+function createManagedTargetUrlDetector(): ManagedTargetUrlDetector {
+  let resolveDetected: (url: string) => void = () => {
+    // Promise executor replaces this before any child-process output can arrive.
+  };
+  let detected: string | undefined;
+  const detectedTargetUrl = new Promise<string>((resolve) => {
+    resolveDetected = resolve;
+  });
+
+  return {
+    detectedTargetUrl,
+    observe(chunk) {
+      if (detected) return;
+      const text = stripAnsi(chunk);
+      for (const match of text.matchAll(LOCAL_HTTP_URL_PATTERN)) {
+        const rawUrl = match[0];
+        let url: URL;
+        try {
+          url = new URL(rawUrl);
+        } catch {
+          continue;
+        }
+        detected = url.href;
+        resolveDetected(detected);
+        return;
+      }
+    },
+  };
+}
+
+function stripAnsi(value: string): string {
+  return value.replace(ANSI_PATTERN, '');
 }
 
 type MutablePajaRawOptions = {
@@ -438,6 +576,15 @@ declare const process: {
   stderr: { write(chunk: string): void };
 };
 
-interface ManagedChildProcess {
+export interface ManagedChildProcess {
   kill(): void;
+  readonly detectedTargetUrl: Promise<string>;
 }
+
+interface ManagedTargetUrlDetector {
+  readonly detectedTargetUrl: Promise<string>;
+  observe(chunk: string): void;
+}
+
+const LOCAL_HTTP_URL_PATTERN = /https?:\/\/(?:localhost|127(?:\.\d{1,3}){3}|\[::1\])(?::\d+)?(?:\/[^\s'"<>)\]]*)?/g;
+const ANSI_PATTERN = /\u001b\[[0-?]*[ -/]*[@-~]/g;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isDirectPajaCli, parsePajaArgs, runPajaCli } from './cli.js';
+import { createPajaHostConfig, normalizePajaOptions, type PajaHostConfig } from './options.js';
 
 describe('@kehto/paja CLI', () => {
   it('parses target URL and argv command separator', () => {
@@ -135,6 +136,54 @@ describe('@kehto/paja CLI', () => {
     expect(output).toMatch(/Runtime URL: http:\/\/127\.0\.0\.1:\d+\//);
     expect(output).toContain('Target URL: http://127.0.0.1:1/');
     expect(stderr.join('')).toContain('Timed out waiting 1ms for target URL');
+  });
+
+  it('updates the served target when a managed command announces a different local URL', async () => {
+    const stdout: string[] = [];
+    const waitedFor: string[] = [];
+    const options = normalizePajaOptions({
+      targetUrl: 'http://127.0.0.1:5173',
+      command: { mode: 'argv', argv: ['vite'] },
+    });
+    let hostConfig: PajaHostConfig = createPajaHostConfig(options, new Date('2026-06-21T00:00:00.000Z'));
+
+    const code = await runPajaCli([
+      '--target-url',
+      'http://127.0.0.1:5173',
+      '--',
+      'vite',
+    ], {
+      stdout: { write: (chunk) => stdout.push(chunk) },
+      stderr: { write: () => undefined },
+    }, {
+      startServer: async () => ({
+        url: 'http://127.0.0.1:5197/',
+        get hostConfig() {
+          return hostConfig;
+        },
+        updateTargetUrl(targetUrl) {
+          hostConfig = {
+            ...hostConfig,
+            target: { ...hostConfig.target, url: new URL(targetUrl).href },
+          };
+          return hostConfig;
+        },
+        close: async () => undefined,
+      }),
+      startCommand: () => ({
+        kill: () => undefined,
+        detectedTargetUrl: Promise.resolve('http://localhost:5174/'),
+      }),
+      waitForTargetUrl: async (url) => {
+        waitedFor.push(url);
+      },
+      targetDiscoveryGraceMs: 0,
+    });
+
+    expect(code).toBe(0);
+    expect(hostConfig.target.url).toBe('http://localhost:5174/');
+    expect(waitedFor).toEqual(['http://127.0.0.1:5173/', 'http://localhost:5174/']);
+    expect(stdout.join('')).toContain('Target URL updated: http://localhost:5174/');
   });
 
   it('detects package binary symlinks as direct Paja CLI execution', () => {
