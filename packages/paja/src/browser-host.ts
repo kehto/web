@@ -28,6 +28,11 @@ import {
 } from './browser-devtools.js';
 import type { PajaHostConfig } from './options.js';
 import {
+  injectPajaRuntimeCsp,
+  resolvePajaPointer,
+  type PajaResolvedPointer,
+} from './runtime-resolver.js';
+import {
   PAJA_SIMULATION_DOMAINS,
   summarizePajaSimulation,
   type PajaSimulation,
@@ -40,6 +45,9 @@ interface PajaBrowserState {
   services: string[];
   simulation: PajaSimulation;
   signer: PajaSignerState;
+  resolvedTarget: PajaResolvedPointer | null;
+  pointerValue: string;
+  pointerStatus: string;
   generation: number;
   status: 'booting' | 'ready' | 'reloading' | 'error';
   messageFilter: string;
@@ -51,6 +59,7 @@ interface PajaBrowserState {
   useDevSigner(): void;
   connectNip07(): Promise<void>;
   connectBunker(uri: string): Promise<void>;
+  loadPointer(value: string): Promise<void>;
   clearLog(): void;
   getState(): {
     generation: number;
@@ -60,6 +69,8 @@ interface PajaBrowserState {
     services: string[];
     simulation: PajaSimulation;
     signer: PajaSignerState;
+    resolvedTarget: PajaResolvedPointer | null;
+    pointerStatus: string;
     messageLog: PajaMessageLogEntry[];
   };
 }
@@ -72,6 +83,26 @@ declare global {
 
 let bridgeRef: ShellBridge | null = null;
 
+type PajaThemeService = { publishTheme(theme: ReturnType<typeof createDevTheme>): unknown };
+type PajaSignerController = ReturnType<typeof createHostSignerController>;
+
+interface PajaHostRuntimeState {
+  currentSimulation: PajaSimulation;
+  themeService: PajaThemeService | null;
+  currentWindowId: string | null;
+  initReceivedGeneration: number;
+}
+
+interface PajaBrowserStateContext {
+  config: PajaHostConfig;
+  frame: HTMLIFrameElement;
+  bridge: ShellBridge;
+  adapter: ReturnType<typeof createPajaAdapter>;
+  signerController: PajaSignerController;
+  capabilities: ShellCapabilities;
+  runtime: PajaHostRuntimeState;
+}
+
 function readConfig(): PajaHostConfig {
   const script = document.getElementById('kehto-paja-config');
   if (!script?.textContent) {
@@ -82,7 +113,7 @@ function readConfig(): PajaHostConfig {
 
 async function readLatestConfig(fallback: PajaHostConfig): Promise<PajaHostConfig> {
   try {
-    const response = await fetch('/__kehto/config.json', { cache: 'no-store' });
+    const response = await fetch(new URL('./__kehto/config.json', window.location.href), { cache: 'no-store' });
     if (!response.ok) return fallback;
     return await response.json() as PajaHostConfig;
   } catch (error) {
@@ -92,12 +123,45 @@ async function readLatestConfig(fallback: PajaHostConfig): Promise<PajaHostConfi
 }
 
 function setTargetUrlDisplay(config: PajaHostConfig, frame: HTMLIFrameElement): void {
+  const label = getTargetLabel(config);
   const targetEl = document.querySelector('.target');
   if (targetEl) {
-    targetEl.textContent = config.target.url;
-    targetEl.setAttribute('title', config.target.url);
+    targetEl.textContent = label;
+    targetEl.setAttribute('title', label);
   }
-  frame.dataset.targetUrl = config.target.url;
+  frame.dataset.targetUrl = label;
+}
+
+function getTargetLabel(config: PajaHostConfig): string {
+  if (config.target.mode === 'runtime-pointer') return config.target.pointer?.value ?? 'runtime pointer';
+  return config.target.url;
+}
+
+function readInitialPointerValue(config: PajaHostConfig): string {
+  if (config.target.mode !== 'runtime-pointer') return '';
+  const params = new URLSearchParams(window.location.search);
+  return params.get('naddr')
+    ?? params.get('nevent')
+    ?? params.get('pointer')
+    ?? config.target.pointer?.value
+    ?? '';
+}
+
+function connectOrigins(urls: readonly string[]): string[] {
+  const out = new Set<string>();
+  for (const value of urls) {
+    try {
+      const url = new URL(value);
+      if (url.protocol === 'wss:' || url.protocol === 'ws:') {
+        out.add(value.replace(/\/$/, ''));
+      } else {
+        out.add(url.origin);
+      }
+    } catch {
+      // Ignore malformed origin hints; the resolver already validates fetches.
+    }
+  }
+  return [...out];
 }
 
 function setStatus(state: PajaBrowserState, status: PajaBrowserState['status']): void {
@@ -112,6 +176,12 @@ function setSimulationStatus(state: PajaBrowserState): void {
   const themeSelect = document.getElementById('simulation-theme');
   if (themeSelect instanceof HTMLSelectElement) themeSelect.value = state.simulation.theme.mode;
   renderPajaDevtools(state, { bridge: bridgeRef, devSignerPubkey: PAJA_DEV_SIGNER_PUBKEY });
+}
+
+function setPointerStatus(state: PajaBrowserState, message: string): void {
+  state.pointerStatus = message;
+  const statusEl = document.getElementById('runtime-pointer-status');
+  if (statusEl) statusEl.textContent = message;
 }
 
 function getFrame(): HTMLIFrameElement {
@@ -141,24 +211,34 @@ function confirmPajaRequest(
   return allowed;
 }
 
-function getTargetIdentity(config: PajaHostConfig): Pick<SessionEntry, 'pubkey' | 'dTag' | 'aggregateHash'> {
+function getTargetIdentity(
+  config: PajaHostConfig,
+  resolvedTarget?: PajaResolvedPointer | null,
+): Pick<SessionEntry, 'pubkey' | 'dTag' | 'aggregateHash'> {
   return {
     pubkey: '',
-    dTag: config.window.dTag,
-    aggregateHash: config.window.aggregateHash,
+    dTag: resolvedTarget?.dTag ?? config.window.dTag,
+    aggregateHash: resolvedTarget?.aggregateHash ?? config.window.aggregateHash,
   };
 }
 
-function registerFrameForGeneration(bridge: ShellBridge, frame: HTMLIFrameElement, config: PajaHostConfig, generation: number): string | null {
+function registerFrameForGeneration(
+  bridge: ShellBridge,
+  frame: HTMLIFrameElement,
+  config: PajaHostConfig,
+  generation: number,
+  resolvedTarget?: PajaResolvedPointer | null,
+): string | null {
   const win = frame.contentWindow;
   if (!win) return null;
   const windowId = `${config.window.id}:${generation}`;
+  const identity = getTargetIdentity(config, resolvedTarget);
   originRegistry.register(win, windowId, {
-    dTag: config.window.dTag,
-    aggregateHash: config.window.aggregateHash,
+    dTag: identity.dTag,
+    aggregateHash: identity.aggregateHash,
   });
   bridge.runtime.sessionRegistry.register(windowId, {
-    ...getTargetIdentity(config),
+    ...identity,
     windowId,
     origin: 'null',
     type: 'napplet',
@@ -169,8 +249,28 @@ function registerFrameForGeneration(bridge: ShellBridge, frame: HTMLIFrameElemen
   return windowId;
 }
 
-function navigateFrame(bridge: ShellBridge, frame: HTMLIFrameElement, config: PajaHostConfig, generation: number): string | null {
-  const windowId = registerFrameForGeneration(bridge, frame, config, generation);
+function navigateFrame(
+  bridge: ShellBridge,
+  frame: HTMLIFrameElement,
+  config: PajaHostConfig,
+  generation: number,
+  resolvedTarget?: PajaResolvedPointer | null,
+): string | null {
+  if (config.target.mode === 'runtime-pointer') {
+    if (!resolvedTarget) {
+      frame.removeAttribute('src');
+      frame.srcdoc = '<!doctype html><html><body></body></html>';
+      return null;
+    }
+    const windowId = registerFrameForGeneration(bridge, frame, config, generation, resolvedTarget);
+    frame.removeAttribute('src');
+    frame.srcdoc = injectPajaRuntimeCsp(
+      resolvedTarget.indexHtml,
+      connectOrigins([...resolvedTarget.relays, ...resolvedTarget.blossomServers]),
+    );
+    return windowId;
+  }
+  const windowId = registerFrameForGeneration(bridge, frame, config, generation, resolvedTarget);
   frame.src = config.target.url;
   return windowId;
 }
@@ -217,84 +317,76 @@ function installPajaControlListeners(state: PajaBrowserState): void {
   document.getElementById('clear-log')?.addEventListener('click', () => {
     state.clearLog();
   });
+
+  document.getElementById('runtime-pointer-form')?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const input = document.getElementById('runtime-pointer-input');
+    if (!(input instanceof HTMLInputElement)) return;
+    void state.loadPointer(input.value);
+  });
 }
 
-async function installPajaHost(): Promise<void> {
-  const config = await readLatestConfig(readConfig());
-  const frame = getFrame();
-  setTargetUrlDisplay(config, frame);
-  let currentSimulation = config.simulation;
-  const getSimulation = () => currentSimulation;
-  let themeService: { publishTheme(theme: ReturnType<typeof createDevTheme>): unknown } | null = null;
-  let stateRef: PajaBrowserState | null = null;
-  const signerController = createHostSignerController(() => stateRef);
-  const adapter = createPajaAdapter(config, getSimulation, (theme) => {
-    themeService = theme;
-  }, (request) => confirmPajaRequest(stateRef, request), signerController);
-  const bridge = createShellBridge(adapter);
-  bridgeRef = bridge;
-  installPajaOriginRegistryProxy(originRegistry, () => stateRef);
-  const capabilities = buildShellCapabilities(adapter);
-  const services = Object.keys(adapter.services ?? {}).sort();
-  let currentWindowId: string | null = null;
-  let initReceivedGeneration = -1;
-
-  const state: PajaBrowserState = {
+function createPajaBrowserState(context: PajaBrowserStateContext): PajaBrowserState {
+  const { config, frame, bridge, adapter, signerController, capabilities, runtime } = context;
+  return {
     config,
     capabilities,
-    services,
-    simulation: currentSimulation,
+    services: Object.keys(adapter.services ?? {}).sort(),
+    simulation: runtime.currentSimulation,
     signer: signerController.getState(),
+    resolvedTarget: null,
+    pointerValue: readInitialPointerValue(config),
+    pointerStatus: config.target.mode === 'runtime-pointer' ? 'idle' : '',
     generation: 0,
     status: 'booting',
     messageFilter: '',
     messageLog: [],
     reload() {
-      if (currentWindowId) {
-        bridge.runtime.destroyWindow(currentWindowId);
-        bridge.runtime.sessionRegistry.unregister(currentWindowId);
-        originRegistry.unregister(currentWindowId);
+      if (runtime.currentWindowId) {
+        bridge.runtime.destroyWindow(runtime.currentWindowId);
+        bridge.runtime.sessionRegistry.unregister(runtime.currentWindowId);
+        originRegistry.unregister(runtime.currentWindowId);
       }
       this.generation += 1;
-      initReceivedGeneration = -1;
+      runtime.initReceivedGeneration = -1;
       setStatus(this, 'reloading');
-      currentWindowId = navigateFrame(bridge, frame, config, this.generation);
+      runtime.currentWindowId = navigateFrame(bridge, frame, config, this.generation, this.resolvedTarget);
     },
     setThemeMode(mode) {
-      currentSimulation = {
-        ...currentSimulation,
+      runtime.currentSimulation = {
+        ...runtime.currentSimulation,
         theme: {
-          ...currentSimulation.theme,
+          ...runtime.currentSimulation.theme,
           mode,
         },
       };
-      this.simulation = currentSimulation;
-      themeService?.publishTheme(createDevTheme(currentSimulation.theme.mode, currentSimulation.theme.values));
+      this.simulation = runtime.currentSimulation;
+      runtime.themeService?.publishTheme(createDevTheme(runtime.currentSimulation.theme.mode, runtime.currentSimulation.theme.values));
       setSimulationStatus(this);
     },
     setDomainEnabled(domain, enabled) {
-      currentSimulation = {
-        ...currentSimulation,
+      runtime.currentSimulation = {
+        ...runtime.currentSimulation,
         capabilities: {
           domains: {
-            ...currentSimulation.capabilities.domains,
+            ...runtime.currentSimulation.capabilities.domains,
             [domain]: enabled,
           },
           disabledDomains: PAJA_SIMULATION_DOMAINS.filter((entry) =>
-            entry === domain ? !enabled : !currentSimulation.capabilities.domains[entry],
+            entry === domain ? !enabled : !runtime.currentSimulation.capabilities.domains[entry],
           ),
         },
       };
-      this.simulation = currentSimulation;
+      this.simulation = runtime.currentSimulation;
       this.services = Object.keys(adapter.services ?? {})
-        .filter((name) => currentSimulation.capabilities.domains[name as PajaCapabilityDomain] !== false)
+        .filter((name) => runtime.currentSimulation.capabilities.domains[name as PajaCapabilityDomain] !== false)
         .sort();
       setSimulationStatus(this);
       appendPajaMessageLog(this, 'paja', { type: `paja.interface.${enabled ? 'enabled' : 'disabled'}`, domain });
       this.reload();
     },
     setAclCapability(capability, enabled) {
-      const identity = getTargetIdentity(config);
+      const identity = getTargetIdentity(config, this.resolvedTarget);
       if (enabled) bridge.runtime.aclState.grant(identity.pubkey, identity.dTag, identity.aggregateHash, capability);
       else bridge.runtime.aclState.revoke(identity.pubkey, identity.dTag, identity.aggregateHash, capability);
       bridge.runtime.aclState.persist();
@@ -310,6 +402,40 @@ async function installPajaHost(): Promise<void> {
     connectBunker(uri) {
       return signerController.connectBunker(uri);
     },
+    async loadPointer(value) {
+      if (config.target.mode !== 'runtime-pointer') return;
+      const pointer = value.trim();
+      const input = document.getElementById('runtime-pointer-input');
+      if (input instanceof HTMLInputElement) input.value = pointer;
+      this.pointerValue = pointer;
+      if (!pointer) {
+        setPointerStatus(this, 'idle');
+        return;
+      }
+      setPointerStatus(this, 'resolving');
+      setStatus(this, 'booting');
+      appendPajaMessageLog(this, 'paja', { type: 'paja.pointer.resolve', pointer });
+      try {
+        this.resolvedTarget = await resolvePajaPointer(pointer, {
+          relays: config.target.pointer?.relays ?? [],
+          blossomServers: config.target.pointer?.blossomServers ?? [],
+          maxWaitMs: config.target.pointer?.maxWaitMs,
+        });
+        setPointerStatus(this, `${this.resolvedTarget.dTag}:${this.resolvedTarget.aggregateHash.slice(0, 12)}`);
+        appendPajaMessageLog(this, 'paja', {
+          type: 'paja.pointer.resolved',
+          dTag: this.resolvedTarget.dTag,
+          aggregateHash: this.resolvedTarget.aggregateHash,
+        });
+        this.reload();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.resolvedTarget = null;
+        setPointerStatus(this, message);
+        setStatus(this, 'error');
+        appendPajaMessageLog(this, 'paja', { type: 'paja.pointer.error', error: message });
+      }
+    },
     clearLog() {
       this.messageLog.length = 0;
       renderPajaMessageLog(this);
@@ -319,22 +445,56 @@ async function installPajaHost(): Promise<void> {
         generation: this.generation,
         status: this.status,
         iframeCount: document.querySelectorAll('iframe').length,
-        initSent: initReceivedGeneration === this.generation,
+        initSent: runtime.initReceivedGeneration === this.generation,
         services: this.services,
-        simulation: currentSimulation,
+        simulation: runtime.currentSimulation,
         signer: this.signer,
+        resolvedTarget: this.resolvedTarget,
+        pointerStatus: this.pointerStatus,
         messageLog: [...this.messageLog],
       };
     },
   };
+}
+
+async function installPajaHost(): Promise<void> {
+  const config = await readLatestConfig(readConfig());
+  const frame = getFrame();
+  setTargetUrlDisplay(config, frame);
+  const runtime: PajaHostRuntimeState = {
+    currentSimulation: config.simulation,
+    themeService: null,
+    currentWindowId: null,
+    initReceivedGeneration: -1,
+  };
+  const getSimulation = () => runtime.currentSimulation;
+  let stateRef: PajaBrowserState | null = null;
+  const signerController = createHostSignerController(() => stateRef);
+  const adapter = createPajaAdapter(config, getSimulation, (theme) => {
+    runtime.themeService = theme;
+  }, (request) => confirmPajaRequest(stateRef, request), signerController, () =>
+    getTargetIdentity(config, stateRef?.resolvedTarget));
+  const bridge = createShellBridge(adapter);
+  bridgeRef = bridge;
+  installPajaOriginRegistryProxy(originRegistry, () => stateRef);
+  const capabilities = buildShellCapabilities(adapter);
+  const state = createPajaBrowserState({
+    config,
+    frame,
+    bridge,
+    adapter,
+    signerController,
+    capabilities,
+    runtime,
+  });
   stateRef = state;
 
   window.__KEHTO_PAJA__ = state;
 
   window.addEventListener('message', (event) => {
     if (event.source !== frame.contentWindow) return;
-    appendPajaMessageLog(state, 'napplet->shell', event.data, currentWindowId ?? undefined);
-    const proxiedSource = createPajaPostMessageProxy(event.source as Window, state, currentWindowId ?? undefined);
+    appendPajaMessageLog(state, 'napplet->shell', event.data, runtime.currentWindowId ?? undefined);
+    const proxiedSource = createPajaPostMessageProxy(event.source as Window, state, runtime.currentWindowId ?? undefined);
     const syntheticEvent = new Proxy(event, {
       get(target, prop) {
         if (prop === 'source') return proxiedSource;
@@ -345,14 +505,14 @@ async function installPajaHost(): Promise<void> {
     bridge.handleMessage(syntheticEvent);
     const data = event.data as { type?: unknown } | null;
     if (data && typeof data === 'object' && data.type === 'shell.ready') {
-      initReceivedGeneration = state.generation;
+      runtime.initReceivedGeneration = state.generation;
       setStatus(state, 'ready');
     }
   });
 
   frame.addEventListener('load', () => {
     if (state.status === 'booting' || state.status === 'reloading') {
-      registerFrameForGeneration(bridge, frame, config, state.generation);
+      runtime.currentWindowId = registerFrameForGeneration(bridge, frame, config, state.generation, state.resolvedTarget);
     }
   });
 
@@ -364,7 +524,15 @@ async function installPajaHost(): Promise<void> {
 
   setStatus(state, 'booting');
   setSimulationStatus(state);
-  currentWindowId = navigateFrame(bridge, frame, config, state.generation);
+  setPointerStatus(state, state.pointerStatus);
+  if (config.target.mode === 'runtime-pointer') {
+    const input = document.getElementById('runtime-pointer-input');
+    if (input instanceof HTMLInputElement) input.value = state.pointerValue;
+    if (state.pointerValue) void state.loadPointer(state.pointerValue);
+    else runtime.currentWindowId = navigateFrame(bridge, frame, config, state.generation, state.resolvedTarget);
+  } else {
+    runtime.currentWindowId = navigateFrame(bridge, frame, config, state.generation, state.resolvedTarget);
+  }
 }
 
 try {

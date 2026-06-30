@@ -2,6 +2,7 @@ import type { NostrEvent, NostrFilter } from '@napplet/core';
 import type {
   RelayPoolHooks,
   RelayPoolLike,
+  SessionEntry,
   ServiceHandler,
   ShellAdapter,
 } from '@kehto/shell';
@@ -58,6 +59,8 @@ export interface PajaSignerProvider {
   getSigner(): Signer | null;
   getPubkey(): string | null;
 }
+
+export type PajaIdentityProvider = () => Pick<SessionEntry, 'dTag' | 'aggregateHash'>;
 
 const DEV_INTENT_ARCHETYPE = 'paja-target';
 const DEV_COMMON_PUBKEY = '1'.repeat(64);
@@ -504,6 +507,7 @@ export function createPajaAdapter(
   onThemeService: (theme: ReturnType<typeof createThemeService>) => void,
   confirmRequest: (request: PajaConfirmationRequest) => boolean,
   signerProvider?: PajaSignerProvider,
+  getIdentity?: PajaIdentityProvider,
 ): ShellAdapter {
   const pool = createMemoryRelayPool(getSimulation, confirmRequest);
   const workerRelayEvents: NostrEvent[] = [];
@@ -541,9 +545,12 @@ export function createPajaAdapter(
     crypto: {
       verifyEvent: async () => true,
     },
-    onNip5dIframeCreate: () => ({
-      dTag: config.window.dTag,
-      aggregateHash: config.window.aggregateHash,
-    }),
+    onNip5dIframeCreate: () => {
+      const identity = getIdentity?.();
+      return {
+        dTag: identity?.dTag ?? config.window.dTag,
+        aggregateHash: identity?.aggregateHash ?? config.window.aggregateHash,
+      };
+    },
   };
 }

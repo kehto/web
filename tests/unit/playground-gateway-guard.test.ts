@@ -274,6 +274,7 @@ describe('playground gateway artifact guard', () => {
   it('keeps the GitHub Pages publisher aligned with the static gateway artifact contract', () => {
     const workflow = readRepoFile('.github/workflows/playground-pages.yml');
     const script = readRepoFile('scripts/build-playground-pages.mjs');
+    const pajaScript = readRepoFile('scripts/build-paja-pages.mjs');
     const pagesScript = readRepoFile('scripts/build-pages.mjs');
     const pagesServeScript = readRepoFile('scripts/serve-pages.mjs');
     const pagesAudit = readRepoFile('scripts/audit-pages-artifact.mjs');
@@ -292,8 +293,9 @@ describe('playground gateway artifact guard', () => {
     expect(packageJson.scripts?.dev).toBeUndefined();
     expect(packageJson.scripts?.preview).toBeUndefined();
     expect(packageJson.scripts?.['site:audit']).toBe('node scripts/audit-pages-artifact.mjs');
-    expect(packageJson.scripts?.['site:build']).toBe('pnpm site:build:playground && pnpm site:build:docs && pnpm site:build:pages');
+    expect(packageJson.scripts?.['site:build']).toBe('pnpm site:build:playground && pnpm site:build:paja && pnpm site:build:docs && pnpm site:build:pages');
     expect(packageJson.scripts?.['site:build:docs']).toBe('VITEPRESS_BASE=/web/docs/ pnpm docs:check');
+    expect(packageJson.scripts?.['site:build:paja']).toBe('pnpm --filter @kehto/paja build');
     expect(packageJson.scripts?.['site:build:pages']).toBe('node scripts/build-pages.mjs');
     expect(packageJson.scripts?.['site:build:playground']).toBe('PLAYGROUND_BASE_PATH=/web/playground/ pnpm --filter @kehto/playground build');
     expect(packageJson.scripts?.['site:build:playground-pages']).toBe('node scripts/build-playground-pages.mjs');
@@ -315,6 +317,7 @@ describe('playground gateway artifact guard', () => {
     expect(workflow).toContain('PLAYGROUND_BASE_PATH: /web/playground/');
     expect(workflow).toContain('VITEPRESS_BASE: /web/docs/');
     expect(workflow).toContain('pnpm --filter @kehto/playground build');
+    expect(workflow).toContain('pnpm --filter @kehto/paja build');
     expect(workflow).toContain('pnpm docs:check');
     expect(workflow).toContain('pnpm build:pages');
     expect(workflow).toContain('pnpm audit:pages');
@@ -336,12 +339,19 @@ describe('playground gateway artifact guard', () => {
     expect(script).toContain("join(outputDir, 'napplet-blossom')");
     expect(script).toContain('materializeRelayList(');
 
+    expect(pajaScript).toContain('.pages/paja');
+    expect(pajaScript).toContain('createPajaRuntimeHostConfig');
+    expect(pajaScript).toContain("join(outputDir, '__kehto', 'browser-host.js')");
+    expect(pajaScript).toContain('renderPajaHtml(hostConfig)');
+
     expect(pagesScript).toContain("'docs', '.vitepress', 'dist'");
     expect(pagesScript).toContain("join(repoRoot, 'web', 'assets')");
     expect(pagesScript).toContain("join(repoRoot, 'node_modules', 'gsap', 'dist', 'gsap.min.js')");
     expect(pagesScript).toContain("join(outputRoot, 'assets')");
     expect(pagesScript).toContain("join(portalAssetsOutput, 'vendor')");
     expect(pagesScript).toContain("join(outputRoot, 'docs')");
+    expect(pagesScript).toContain("join(outputRoot, 'paja')");
+    expect(pagesScript).toContain('build-paja-pages.mjs');
     expect(pagesScript).toContain("join(docsOutput, 'api')");
     expect(pagesServeScript).toContain("const publicBase = '/web/';");
     expect(pagesServeScript).toContain('artifactPathFromRequest');
@@ -357,7 +367,11 @@ describe('playground gateway artifact guard', () => {
     expect(pagesAudit).toContain("join(outputRoot, 'assets', 'landing.js')");
     expect(pagesAudit).toContain("join(outputRoot, 'assets', 'vendor', 'gsap.min.js')");
     expect(pagesAudit).toContain("const PLAYGROUND_BASE = '/web/playground/';");
+    expect(pagesAudit).toContain("const PAJA_BASE = '/web/paja/';");
     expect(pagesAudit).toContain("const DOCS_BASE = '/web/docs/';");
+    expect(pagesAudit).toContain('artifactPathFromPublicPath(PAJA_BASE)');
+    expect(pagesAudit).toContain("join(pajaRoot, 'index.html')");
+    expect(pagesAudit).toContain("join(pajaRoot, '__kehto', 'browser-host.js')");
     expect(pagesAudit).toContain('artifactPathFromPublicPath(htmlUrl)');
     expect(pagesAudit).toContain("join(outputRoot, 'index.html')");
     expect(pagesAudit).toContain("join(outputRoot, 'docs', 'api', 'modules', '_kehto_shell.html')");
@@ -385,7 +399,9 @@ describe('playground gateway artifact guard', () => {
     expect(portal).toContain('aria-label="Kehto Web Runtime"');
     expect(portal).toContain('<span class="wordmark-role">Web Runtime</span>');
     expect(portal).toContain('href="playground/"');
+    expect(portal).toContain('href="paja/"');
     expect(portal).toContain('href="docs/"');
+    expect(portal).toContain('Paja Runtime');
     expect(portal).toContain('data-route-link');
     expect(portal).toContain('class="wordmark"');
     expect(portal).toContain('NIP-5D is under development and may be subject to change.');

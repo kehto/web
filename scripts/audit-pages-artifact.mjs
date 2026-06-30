@@ -20,6 +20,7 @@ const PORTAL_GSAP_VENDOR = 'assets/vendor/gsap.min.js';
 const PORTAL_LANDING_CSS = 'assets/landing.css';
 const PORTAL_LANDING_JS = 'assets/landing.js';
 const PLAYGROUND_BASE = '/web/playground/';
+const PAJA_BASE = '/web/paja/';
 const DOCS_BASE = '/web/docs/';
 
 /** @type {string[]} */
@@ -84,6 +85,7 @@ function checkPortal() {
   if (!assertFile(portalPath, 'portal route')) return;
   const portal = read(portalPath);
   assertContains(portalPath, portal, 'href="playground/"', 'portal route');
+  assertContains(portalPath, portal, 'href="paja/"', 'portal route');
   assertContains(portalPath, portal, 'href="docs/"', 'portal route');
   assertContains(portalPath, portal, `href="${PORTAL_LANDING_CSS}"`, 'portal route');
   assertContains(portalPath, portal, `src="${PORTAL_GSAP_VENDOR}"`, 'portal route');
@@ -95,6 +97,18 @@ function checkPortal() {
   assertFile(join(outputRoot, 'assets', 'landing.css'), 'portal stylesheet asset');
   assertFile(join(outputRoot, 'assets', 'landing.js'), 'portal script asset');
   assertFile(join(outputRoot, 'assets', 'vendor', 'gsap.min.js'), 'portal GSAP vendor asset');
+}
+
+function checkPaja() {
+  const pajaRoot = artifactPathFromPublicPath(PAJA_BASE);
+  const indexPath = join(pajaRoot, 'index.html');
+  if (assertFile(indexPath, 'Paja Runtime route')) {
+    const html = read(indexPath);
+    assertContains(indexPath, html, 'id="runtime-pointer-form"', 'Paja Runtime route');
+    assertContains(indexPath, html, 'hmr: <code>none</code>', 'Paja Runtime route');
+    assertContains(indexPath, html, 'src="./__kehto/browser-host.js"', 'Paja Runtime route');
+  }
+  assertFile(join(pajaRoot, '__kehto', 'browser-host.js'), 'Paja Runtime browser host bundle');
 }
 
 function checkPlayground() {
@@ -140,6 +154,7 @@ function checkDocs() {
 assertFile(join(outputRoot, '.nojekyll'), 'Pages root');
 checkPortal();
 checkPlayground();
+checkPaja();
 checkDocs();
 
 if (violations.length > 0) {
@@ -150,4 +165,4 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log('[audit:pages] OK - verified /web/, /web/playground/, /web/docs/, gateway routes, and TypeDoc output');
+console.log('[audit:pages] OK - verified /web/, /web/playground/, /web/paja/, /web/docs/, gateway routes, and TypeDoc output');

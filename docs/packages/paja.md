@@ -42,12 +42,13 @@ app package's development scripts.
 | Options | `normalizePajaOptions`, `PajaOptions`, `PajaRawOptions`, `PajaCommand`, `PajaOptionsError` |
 | Simulation | `normalizePajaSimulation`, `summarizePajaSimulation`, `PajaSimulation`, `PajaSimulationRawOptions`, `PAJA_SIMULATION_DOMAINS` |
 | Config files | `loadPajaConfigFile`, `mergePajaRawOptions`, `resolvePajaRawOptions` |
-| Host config | `createPajaHostConfig`, `PajaHostConfig`, `formatPajaUrl` |
+| Host config | `createPajaHostConfig`, `createPajaRuntimeHostConfig`, `PajaHostConfig`, `PajaPointerRuntimeConfig`, `formatPajaUrl` |
 | Host page | `renderPajaHtml`, bundled `/__kehto/browser-host.js` runtime bootstrap |
+| Runtime pointers | `decodePajaPointer`, `resolvePajaPointer`, `injectPajaRuntimeCsp`, `PAJA_NAPPLET_MANIFEST_KIND` |
 | Parity metadata | `PAJA_UPSTREAM_WEB_DOMAINS`, `PAJA_ADVERTISED_DOMAINS`, `PAJA_HANDSHAKE_DOMAINS`, `PAJA_COMPATIBILITY_ALIASES`, `PAJA_REQUIRED_SERVICES`, `getMissingAdvertisedDomains`, `getMissingServices` |
 | Readiness | `waitForTargetUrl`, `ReadinessError`, `WaitForTargetUrlOptions`, `ReadinessFetch` |
 | Server | `startPajaServer`, `PajaServer`, `PajaServerOptions` |
-| Defaults | `DEFAULT_PAJA_HOST`, `DEFAULT_PAJA_PORT`, `DEFAULT_READY_TIMEOUT_MS` |
+| Defaults | `DEFAULT_PAJA_HOST`, `DEFAULT_PAJA_PORT`, `DEFAULT_READY_TIMEOUT_MS`, `DEFAULT_PAJA_RUNTIME_WAIT_MS` |
 
 ## CLI
 
@@ -127,7 +128,15 @@ The console includes:
 - **Messages** — inbound and outbound envelopes are logged with a text filter,
   including Paja system events such as interface changes, ACL changes, signer
   connection changes, signing/publish confirmations, and visible details for
-  `.error` envelopes.
+`.error` envelopes.
+
+The GitHub Pages artifact also includes a static Paja Runtime at `/web/paja/`.
+That route uses `createPajaRuntimeHostConfig`, keeps `hmr: none`, and loads a
+verified napplet into the same ShellBridge-backed iframe from a pasted `naddr`
+or `nevent` pointer. `naddr` pointers resolve the latest matching
+kind-35129 manifest by author and `d` tag; `nevent` pointers resolve a specific
+manifest event id. In both cases Paja verifies the signed manifest, aggregate
+hash, and every Blossom blob before assigning iframe `srcdoc`.
 
 ## NAP and Service Parity
 

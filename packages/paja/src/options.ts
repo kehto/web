@@ -18,6 +18,16 @@ export interface PajaRawOptions {
   readonly simulation?: PajaSimulationRawOptions;
 }
 
+export type PajaTargetMode = 'iframe-url' | 'runtime-pointer';
+export type PajaHmrStrategy = 'iframe-target-url' | 'none';
+
+export interface PajaPointerRuntimeConfig {
+  readonly value?: string;
+  readonly relays: readonly string[];
+  readonly blossomServers: readonly string[];
+  readonly maxWaitMs: number;
+}
+
 export interface PajaOptions {
   readonly targetUrl: string;
   readonly command?: PajaCommand;
@@ -37,9 +47,11 @@ export interface PajaHostConfig {
     readonly aggregateHash: string;
   };
   readonly target: {
+    readonly mode: PajaTargetMode;
     readonly url: string;
-    readonly hmrStrategy: 'iframe-target-url';
+    readonly hmrStrategy: PajaHmrStrategy;
     readonly command?: PajaCommand;
+    readonly pointer?: PajaPointerRuntimeConfig;
   };
   readonly runtime: {
     readonly host: string;
@@ -70,6 +82,7 @@ export const DEFAULT_READY_TIMEOUT_MS = 30_000;
 export const DEFAULT_PAJA_WINDOW_ID = 'kehto-paja-window';
 export const DEFAULT_PAJA_DTAG = 'dev-target';
 export const DEFAULT_PAJA_AGGREGATE_HASH = 'paja';
+export const DEFAULT_PAJA_RUNTIME_WAIT_MS = 5_000;
 
 export function normalizePajaOptions(raw: PajaRawOptions): PajaOptions {
   const targetUrl = normalizeTargetUrl(raw.targetUrl);
@@ -99,14 +112,11 @@ export function createPajaHostConfig(
   options: PajaOptions,
   now: Date = new Date(),
 ): PajaHostConfig {
+  const base = createPajaHostConfigBase(options.simulation);
   return {
-    version: 1,
-    window: {
-      id: DEFAULT_PAJA_WINDOW_ID,
-      dTag: DEFAULT_PAJA_DTAG,
-      aggregateHash: DEFAULT_PAJA_AGGREGATE_HASH,
-    },
+    ...base,
     target: {
+      mode: 'iframe-url',
       url: options.targetUrl,
       hmrStrategy: 'iframe-target-url',
       command: options.command,
@@ -119,12 +129,42 @@ export function createPajaHostConfig(
       reloadToken: createReloadToken(now),
       createdAt: now.toISOString(),
     },
-    chrome: {
-      topBar: true,
-      bottomBar: true,
-      sidePanels: false,
+  };
+}
+
+export function createPajaRuntimeHostConfig(
+  options: {
+    readonly pointer?: string;
+    readonly relays?: readonly string[];
+    readonly blossomServers?: readonly string[];
+    readonly maxWaitMs?: number;
+  } = {},
+  now: Date = new Date(),
+): PajaHostConfig {
+  const base = createPajaHostConfigBase(normalizePajaSimulation({}));
+  return {
+    ...base,
+    target: {
+      mode: 'runtime-pointer',
+      url: 'about:blank',
+      hmrStrategy: 'none',
+      pointer: {
+        ...(options.pointer ? { value: options.pointer } : {}),
+        relays: [...(options.relays ?? [])],
+        blossomServers: [...(options.blossomServers ?? [])],
+        maxWaitMs: normalizePositiveInteger(
+          options.maxWaitMs ?? DEFAULT_PAJA_RUNTIME_WAIT_MS,
+          'runtime-wait',
+        ),
+      },
     },
-    simulation: options.simulation,
+    runtime: {
+      host: 'static',
+      port: 0,
+      readyTimeoutMs: 1,
+      reloadToken: createReloadToken(now),
+      createdAt: now.toISOString(),
+    },
   };
 }
 
@@ -166,6 +206,23 @@ function normalizePort(value: number | string | undefined, label: string): numbe
 
 function normalizePositiveInteger(value: number | string, label: string, max = Number.MAX_SAFE_INTEGER): number {
   return normalizeIntegerInRange(value, label, 1, max);
+}
+
+function createPajaHostConfigBase(simulation: PajaSimulation): Pick<PajaHostConfig, 'version' | 'window' | 'chrome' | 'simulation'> {
+  return {
+    version: 1,
+    window: {
+      id: DEFAULT_PAJA_WINDOW_ID,
+      dTag: DEFAULT_PAJA_DTAG,
+      aggregateHash: DEFAULT_PAJA_AGGREGATE_HASH,
+    },
+    chrome: {
+      topBar: true,
+      bottomBar: true,
+      sidePanels: false,
+    },
+    simulation,
+  };
 }
 
 function normalizeIntegerInRange(value: number | string, label: string, min: number, max: number): number {

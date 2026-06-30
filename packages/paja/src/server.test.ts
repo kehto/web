@@ -17,11 +17,12 @@ describe('@kehto/paja server', () => {
       expect(html).toContain('id="napplet-frame"');
 
       const config = JSON.parse(await fetchText(`${server.url}__kehto/config.json`)) as {
-        target: { url: string; hmrStrategy: string };
+        target: { mode: string; url: string; hmrStrategy: string };
         chrome: { topBar: boolean; bottomBar: boolean; sidePanels: boolean };
         simulation: { relay: { mode: string }; theme: { mode: string } };
       };
       expect(config.target).toEqual({
+        mode: 'iframe-url',
         url: 'http://127.0.0.1:5173/',
         hmrStrategy: 'iframe-target-url',
       });
