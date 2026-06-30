@@ -169,6 +169,66 @@ test('applies simulation config and compact theme adjustment', async ({ page }) 
   }
 });
 
+test('shows error details and routes signing through NIP-07', async ({ page }) => {
+  test.setTimeout(60_000);
+  const pubkey = '7'.repeat(64);
+  page.on('dialog', async (dialog) => {
+    await dialog.accept();
+  });
+  await page.addInitScript((signerPubkey) => {
+    const signedEvents: unknown[] = [];
+    const host = window as unknown as {
+      nostr?: unknown;
+      __pajaTestSignerEvents?: unknown[];
+    };
+    host.__pajaTestSignerEvents = signedEvents;
+    host.nostr = {
+      getPublicKey: async () => signerPubkey,
+      getRelays: async () => ({ 'wss://relay.test': { read: true, write: true } }),
+      signEvent: async (event: Record<string, unknown>) => {
+        signedEvents.push(event);
+        return {
+          ...event,
+          id: '8'.repeat(64),
+          pubkey: signerPubkey,
+          sig: '9'.repeat(128),
+          kind: typeof event.kind === 'number' ? event.kind : 1,
+          tags: Array.isArray(event.tags) ? event.tags : [],
+          content: typeof event.content === 'string' ? event.content : '',
+          created_at: typeof event.created_at === 'number' ? event.created_at : Math.floor(Date.now() / 1000),
+        };
+      },
+    };
+  }, pubkey);
+
+  await page.goto(runtimeServer.url);
+  await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
+
+  await page.locator('#signer-nip07').click();
+  await expect(page.locator('#signer-status')).toContainText('NIP-07 connected');
+  await expect(page.locator('#signer-status')).toContainText(pubkey);
+  await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().signer.method)).toBe('nip07');
+  await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
+
+  const targetFrame = page.frameLocator('#napplet-frame');
+  await expect(targetFrame.locator('#identity-pubkey')).toHaveText(pubkey, { timeout: 15_000 });
+  await expect.poll(async () => page.evaluate(() => {
+    const host = window as unknown as { __pajaTestSignerEvents?: unknown[] };
+    return host.__pajaTestSignerEvents?.length ?? 0;
+  })).toBeGreaterThan(0);
+
+  await targetFrame.locator('body').evaluate(() => {
+    window.parent.postMessage({
+      type: 'identity.getPublicKey.error',
+      id: 'manual-error',
+      error: 'visible boom',
+    }, '*');
+  });
+  await page.locator('#message-filter').fill('visible boom');
+  await expect(page.locator('#message-log')).toContainText('identity.getPublicKey.error');
+  await expect(page.locator('#message-log .log-row[data-error="true"]')).toContainText('visible boom');
+});
+
 async function startTargetServer(): Promise<TargetServer> {
   let loadCount = 0;
   const server = createServer((request, response) => {

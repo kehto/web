@@ -15,6 +15,10 @@ import {
   type PajaConfirmationRequest,
 } from './browser-adapter.js';
 import {
+  createPajaSignerController,
+  type PajaSignerState,
+} from './browser-signers.js';
+import {
   appendPajaMessageLog,
   createPajaPostMessageProxy,
   installPajaOriginRegistryProxy,
@@ -35,6 +39,7 @@ interface PajaBrowserState {
   readonly capabilities: ShellCapabilities;
   services: string[];
   simulation: PajaSimulation;
+  signer: PajaSignerState;
   generation: number;
   status: 'booting' | 'ready' | 'reloading' | 'error';
   messageFilter: string;
@@ -43,6 +48,9 @@ interface PajaBrowserState {
   setThemeMode(mode: PajaSimulation['theme']['mode']): void;
   setDomainEnabled(domain: PajaCapabilityDomain, enabled: boolean): void;
   setAclCapability(capability: Capability, enabled: boolean): void;
+  useDevSigner(): void;
+  connectNip07(): Promise<void>;
+  connectBunker(uri: string): Promise<void>;
   clearLog(): void;
   getState(): {
     generation: number;
@@ -51,6 +59,7 @@ interface PajaBrowserState {
     initSent: boolean;
     services: string[];
     simulation: PajaSimulation;
+    signer: PajaSignerState;
     messageLog: PajaMessageLogEntry[];
   };
 }
@@ -102,7 +111,7 @@ function setSimulationStatus(state: PajaBrowserState): void {
   if (statusEl) statusEl.textContent = summarizePajaSimulation(state.simulation);
   const themeSelect = document.getElementById('simulation-theme');
   if (themeSelect instanceof HTMLSelectElement) themeSelect.value = state.simulation.theme.mode;
-  renderPajaDevtools(state, { bridge: bridgeRef, signerPubkey: PAJA_DEV_SIGNER_PUBKEY });
+  renderPajaDevtools(state, { bridge: bridgeRef, devSignerPubkey: PAJA_DEV_SIGNER_PUBKEY });
 }
 
 function getFrame(): HTMLIFrameElement {
@@ -166,6 +175,50 @@ function navigateFrame(bridge: ShellBridge, frame: HTMLIFrameElement, config: Pa
   return windowId;
 }
 
+function createHostSignerController(getState: () => PajaBrowserState | null) {
+  return createPajaSignerController({
+    confirmRequest: (request) => confirmPajaRequest(getState(), request),
+    onChange(signer) {
+      const state = getState();
+      if (!state) return;
+      state.signer = signer;
+      appendPajaMessageLog(state, 'paja', {
+        type: `paja.signer.${signer.method}.${signer.status}`,
+        pubkey: signer.pubkey,
+        relay: signer.relay,
+        error: signer.error,
+      });
+      setSimulationStatus(state);
+      if (signer.status === 'connected') state.reload();
+    },
+  });
+}
+
+function installPajaControlListeners(state: PajaBrowserState): void {
+  document.getElementById('reload-target')?.addEventListener('click', () => {
+    state.reload();
+  });
+
+  document.getElementById('simulation-theme')?.addEventListener('change', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLSelectElement)) return;
+    if (target.value === 'dark' || target.value === 'light') {
+      state.setThemeMode(target.value);
+    }
+  });
+
+  document.getElementById('message-filter')?.addEventListener('input', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    state.messageFilter = target.value;
+    renderPajaMessageLog(state);
+  });
+
+  document.getElementById('clear-log')?.addEventListener('click', () => {
+    state.clearLog();
+  });
+}
+
 async function installPajaHost(): Promise<void> {
   const config = await readLatestConfig(readConfig());
   const frame = getFrame();
@@ -174,9 +227,10 @@ async function installPajaHost(): Promise<void> {
   const getSimulation = () => currentSimulation;
   let themeService: { publishTheme(theme: ReturnType<typeof createDevTheme>): unknown } | null = null;
   let stateRef: PajaBrowserState | null = null;
+  const signerController = createHostSignerController(() => stateRef);
   const adapter = createPajaAdapter(config, getSimulation, (theme) => {
     themeService = theme;
-  }, (request) => confirmPajaRequest(stateRef, request));
+  }, (request) => confirmPajaRequest(stateRef, request), signerController);
   const bridge = createShellBridge(adapter);
   bridgeRef = bridge;
   installPajaOriginRegistryProxy(originRegistry, () => stateRef);
@@ -190,6 +244,7 @@ async function installPajaHost(): Promise<void> {
     capabilities,
     services,
     simulation: currentSimulation,
+    signer: signerController.getState(),
     generation: 0,
     status: 'booting',
     messageFilter: '',
@@ -244,7 +299,16 @@ async function installPajaHost(): Promise<void> {
       else bridge.runtime.aclState.revoke(identity.pubkey, identity.dTag, identity.aggregateHash, capability);
       bridge.runtime.aclState.persist();
       appendPajaMessageLog(this, 'paja', { type: `paja.acl.${enabled ? 'grant' : 'revoke'}`, capability });
-      renderPajaDevtools(this, { bridge, signerPubkey: PAJA_DEV_SIGNER_PUBKEY });
+      renderPajaDevtools(this, { bridge, devSignerPubkey: PAJA_DEV_SIGNER_PUBKEY });
+    },
+    useDevSigner() {
+      signerController.useDevSigner();
+    },
+    connectNip07() {
+      return signerController.connectNip07();
+    },
+    connectBunker(uri) {
+      return signerController.connectBunker(uri);
     },
     clearLog() {
       this.messageLog.length = 0;
@@ -258,6 +322,7 @@ async function installPajaHost(): Promise<void> {
         initSent: initReceivedGeneration === this.generation,
         services: this.services,
         simulation: currentSimulation,
+        signer: this.signer,
         messageLog: [...this.messageLog],
       };
     },
@@ -295,28 +360,7 @@ async function installPajaHost(): Promise<void> {
     setStatus(state, 'error');
   });
 
-  document.getElementById('reload-target')?.addEventListener('click', () => {
-    state.reload();
-  });
-
-  document.getElementById('simulation-theme')?.addEventListener('change', (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLSelectElement)) return;
-    if (target.value === 'dark' || target.value === 'light') {
-      state.setThemeMode(target.value);
-    }
-  });
-
-  document.getElementById('message-filter')?.addEventListener('input', (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLInputElement)) return;
-    state.messageFilter = target.value;
-    renderPajaMessageLog(state);
-  });
-
-  document.getElementById('clear-log')?.addEventListener('click', () => {
-    state.clearLog();
-  });
+  installPajaControlListeners(state);
 
   setStatus(state, 'booting');
   setSimulationStatus(state);

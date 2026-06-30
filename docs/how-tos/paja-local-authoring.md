@@ -124,7 +124,9 @@ and reference services.
 
 Paja provides a generated development signer by default, so
 `identity.getPublicKey` returns a usable pubkey even without external signer
-setup. Every sign or publish operation prompts in the browser before it runs.
+setup. The signer controls can switch to a browser NIP-07 signer or to a
+bunker/NIP-46 URI when you need to test with an actual account. Every sign or
+publish operation prompts in the browser before it runs.
 
 The package API reference is generated at
 [docs/api/modules/_kehto_paja.html](../api/modules/_kehto_paja.html).

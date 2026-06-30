@@ -61,13 +61,16 @@ envelopes.
 
 Use **Messages** to filter inbound and outbound envelopes by type, domain, or
 payload text. The log includes target traffic plus Paja system events for
-interface toggles, ACL changes, and signer/publish confirmations.
+interface toggles, ACL changes, signer changes, and signer/publish
+confirmations. Error envelopes show their error text directly in the row.
 
 ## 7. Publish Safely
 
-Paja uses a real local signer for development. Every sign or publish request
-opens a browser confirmation prompt. There is no bypass list and no remembered
-allow rule.
+Paja uses a generated local signer by default. Use **NIP-07** to connect a
+browser extension signer, or paste a `bunker://` or `nostrconnect://` URI and
+choose **Bunker** for a NIP-46 signer. Every sign or publish request opens a
+browser confirmation prompt. There is no bypass list and no remembered allow
+rule.
 
 ## More
 

@@ -120,12 +120,14 @@ The console includes:
 - **ACL** — every runtime capability can be granted or revoked for the target
   napplet identity. The controls write through `bridge.runtime.aclState`, so the
   next matching request is allowed or denied by the real runtime gate.
-- **Signer** — Paja exposes a generated real development signer. Every request
-  to sign an event or publish an event opens a browser confirmation prompt. Paja
+- **Signer** — Paja exposes a generated development signer by default and can
+  switch to a browser NIP-07 signer or a bunker/NIP-46 URI. Every request to
+  sign an event or publish an event opens a browser confirmation prompt. Paja
   has no bypass list or allow-once whitelist.
 - **Messages** — inbound and outbound envelopes are logged with a text filter,
-  including Paja system events such as interface changes, ACL changes, and
-  signing/publish confirmations.
+  including Paja system events such as interface changes, ACL changes, signer
+  connection changes, signing/publish confirmations, and visible details for
+  `.error` envelopes.
 
 ## NAP and Service Parity
 
