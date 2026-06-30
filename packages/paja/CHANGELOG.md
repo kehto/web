@@ -1,5 +1,11 @@
 # @kehto/paja
 
+## 0.4.0
+
+### Minor Changes
+
+- feb3176: Add a static Paja Runtime build for browser testing napplets from naddr or nevent pointers without dev-server HMR.
+
 ## 0.3.7
 
 ### Patch Changes
