@@ -1,5 +1,12 @@
 # @kehto/paja
 
+## 0.3.6
+
+### Patch Changes
+
+- f3b2cb5: Update managed-command mode to follow local dev servers that bind a different port than the configured target URL.
+- c27d886: Add Paja's development console with supported-interface toggles, ACL controls, signer status, filterable message logs, and confirmation-gated signing/publishing.
+
 ## 0.3.5
 
 ### Patch Changes

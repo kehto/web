@@ -4,7 +4,7 @@
   "license": "MIT",
   "exports": "./src/index.ts",
   "imports": {
-    "@kehto/paja": "jsr:@kehto/paja@^0.3.5"
+    "@kehto/paja": "jsr:@kehto/paja@^0.3.6"
   },
   "publish": {
     "include": [
