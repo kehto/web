@@ -1,5 +1,11 @@
 # @kehto/paja
 
+## 0.3.6
+
+### Patch Changes
+
+- f3b2cb5: Update managed-command mode to follow local dev servers that bind a different port than the configured target URL.
+
 ## 0.3.5
 
 ### Patch Changes
