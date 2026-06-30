@@ -1,69 +1,49 @@
-import type { NostrEvent, NostrFilter } from '@napplet/core';
 import {
   buildShellCapabilities,
   createShellBridge,
   originRegistry,
-  type RelayPoolHooks,
-  type RelayPoolLike,
-  type ServiceHandler,
-  type ShellAdapter,
+  type Capability,
+  type SessionEntry,
   type ShellBridge,
   type ShellCapabilities,
 } from '@kehto/shell';
-import {
-  createConfigService,
-  createCommonService,
-  createCvmService,
-  createIdentityService,
-  createIntentService,
-  createKeysService,
-  createLinkService,
-  createListsService,
-  createMediaService,
-  createNotificationService,
-  createNotifyService,
-  createOutboxService,
-  createRelayPoolService,
-  createResourceService,
-  createBleService,
-  createSerialService,
-  createThemeService,
-  createUploadService,
-  createWebrtcService,
-  type CvmServer,
-  type CvmTransport,
-  type IntentAvailability,
-  type IntentRequest,
-  type IntentResult,
-  type McpMessage,
-  type Uploader,
-  type UploadRequest,
-  type UploadResult,
-  type UploadStatus,
-} from '@kehto/services';
-import type { Theme } from '@napplet/nap/theme/types';
 
+import {
+  createDevTheme,
+  createPajaAdapter,
+  PAJA_DEV_SIGNER_PUBKEY,
+  type PajaConfirmationRequest,
+} from './browser-adapter.js';
+import {
+  appendPajaMessageLog,
+  createPajaPostMessageProxy,
+  installPajaOriginRegistryProxy,
+  renderPajaDevtools,
+  renderPajaMessageLog,
+  type PajaMessageLogEntry,
+} from './browser-devtools.js';
 import type { PajaHostConfig } from './options.js';
 import {
+  PAJA_SIMULATION_DOMAINS,
   summarizePajaSimulation,
   type PajaSimulation,
+  type PajaCapabilityDomain,
 } from './simulation.js';
-import {
-  createDevBleController,
-  createDevListStore,
-  createDevSerialController,
-  createDevWebrtcController,
-} from './development-services.js';
 
 interface PajaBrowserState {
   readonly config: PajaHostConfig;
   readonly capabilities: ShellCapabilities;
-  readonly services: string[];
+  services: string[];
   simulation: PajaSimulation;
   generation: number;
   status: 'booting' | 'ready' | 'reloading' | 'error';
+  messageFilter: string;
+  messageLog: PajaMessageLogEntry[];
   reload(): void;
   setThemeMode(mode: PajaSimulation['theme']['mode']): void;
+  setDomainEnabled(domain: PajaCapabilityDomain, enabled: boolean): void;
+  setAclCapability(capability: Capability, enabled: boolean): void;
+  clearLog(): void;
   getState(): {
     generation: number;
     status: PajaBrowserState['status'];
@@ -71,6 +51,7 @@ interface PajaBrowserState {
     initSent: boolean;
     services: string[];
     simulation: PajaSimulation;
+    messageLog: PajaMessageLogEntry[];
   };
 }
 
@@ -80,16 +61,7 @@ declare global {
   }
 }
 
-const DEV_INTENT_ARCHETYPE = 'paja-target';
-const DEV_COMMON_PUBKEY = '1'.repeat(64);
-const DEV_COMMON_EVENT_ID = '2'.repeat(64);
-const DEV_CVM_SERVER: CvmServer = {
-  pubkey: '0'.repeat(64),
-  name: 'Kehto Paja ContextVM',
-  description: 'Deterministic development ContextVM adapter',
-  relays: ['wss://relay.kehto.dev'],
-  capabilities: ['echo'],
-};
+let bridgeRef: ShellBridge | null = null;
 
 function readConfig(): PajaHostConfig {
   const script = document.getElementById('kehto-paja-config');
@@ -104,7 +76,8 @@ async function readLatestConfig(fallback: PajaHostConfig): Promise<PajaHostConfi
     const response = await fetch('/__kehto/config.json', { cache: 'no-store' });
     if (!response.ok) return fallback;
     return await response.json() as PajaHostConfig;
-  } catch {
+  } catch (error) {
+    console.warn('[paja] config refresh failed; using embedded config', error);
     return fallback;
   }
 }
@@ -129,6 +102,7 @@ function setSimulationStatus(state: PajaBrowserState): void {
   if (statusEl) statusEl.textContent = summarizePajaSimulation(state.simulation);
   const themeSelect = document.getElementById('simulation-theme');
   if (themeSelect instanceof HTMLSelectElement) themeSelect.value = state.simulation.theme.mode;
+  renderPajaDevtools(state, { bridge: bridgeRef, signerPubkey: PAJA_DEV_SIGNER_PUBKEY });
 }
 
 function getFrame(): HTMLIFrameElement {
@@ -141,436 +115,28 @@ function getFrame(): HTMLIFrameElement {
   return frame;
 }
 
-function matchesFilter(event: NostrEvent, filter: NostrFilter): boolean {
-  const ids = filter.ids;
-  if (ids && !ids.includes(event.id)) return false;
-  const authors = filter.authors;
-  if (authors && !authors.includes(event.pubkey)) return false;
-  const kinds = filter.kinds;
-  if (kinds && !kinds.includes(event.kind)) return false;
-  return true;
-}
-
-function matchesAnyFilter(event: NostrEvent, filters: NostrFilter[]): boolean {
-  return filters.length === 0 || filters.some((filter) => matchesFilter(event, filter));
-}
-
-function createMemoryRelayPool(getSimulation: () => PajaSimulation): RelayPoolLike {
-  const events: NostrEvent[] = getSimulation().relay.fixtures.flatMap(toNostrEvent);
-  const subscribers = new Set<{
-    filters: NostrFilter[];
-    next(item: NostrEvent | 'EOSE'): void;
-  }>();
-
-  return {
-    subscription(_relayUrls: string[], filters: NostrFilter[]) {
-      return {
-        subscribe(next: (item: unknown) => void) {
-          const subscriber = {
-            filters,
-            next: (item: NostrEvent | 'EOSE') => next(item),
-          };
-          subscribers.add(subscriber);
-          for (const event of events) {
-            if (matchesAnyFilter(event, filters)) next(event);
-          }
-          queueMicrotask(() => {
-            if (subscribers.has(subscriber)) next('EOSE');
-          });
-          return {
-            unsubscribe() {
-              subscribers.delete(subscriber);
-            },
-          };
-        },
-      };
-    },
-    publish(_relayUrls: string[], event: NostrEvent): void {
-      if (getSimulation().relay.mode === 'disabled') return;
-      events.push(event);
-      for (const subscriber of subscribers) {
-        if (matchesAnyFilter(event, subscriber.filters)) subscriber.next(event);
-      }
-    },
-    request(_relayUrls: string[], filters: NostrFilter[]) {
-      return {
-        subscribe(observer: { next: (event: unknown) => void; complete: () => void; error: () => void }) {
-          for (const event of events) {
-            if (matchesAnyFilter(event, filters)) observer.next(event);
-          }
-          queueMicrotask(() => observer.complete());
-          return { unsubscribe() { /* no-op */ } };
-        },
-      };
-    },
-  };
-}
-
-function toNostrEvent(value: unknown): NostrEvent[] {
-  if (
-    typeof value === 'object'
-    && value !== null
-    && typeof (value as { id?: unknown }).id === 'string'
-    && typeof (value as { pubkey?: unknown }).pubkey === 'string'
-    && typeof (value as { kind?: unknown }).kind === 'number'
-    && Array.isArray((value as { tags?: unknown }).tags)
-    && typeof (value as { content?: unknown }).content === 'string'
-    && typeof (value as { sig?: unknown }).sig === 'string'
-  ) {
-    return [value as NostrEvent];
-  }
-  return [];
-}
-
-function getRelayUrls(simulation: PajaSimulation): string[] {
-  return simulation.relay.mode === 'memory' ? [...simulation.relay.urls] : [];
-}
-
-function createRelayHooks(pool: RelayPoolLike, getSimulation: () => PajaSimulation): RelayPoolHooks {
-  const cleanups = new Map<string, () => void>();
-  return {
-    getRelayPool: () => pool,
-    trackSubscription(subKey, cleanup) {
-      cleanups.set(subKey, cleanup);
-    },
-    untrackSubscription(subKey) {
-      cleanups.get(subKey)?.();
-      cleanups.delete(subKey);
-    },
-    openScopedRelay: () => {},
-    closeScopedRelay: () => {},
-    publishToScopedRelay: (_windowId, event) => {
-      if (getSimulation().relay.mode === 'disabled') return false;
-      pool.publish(getRelayUrls(getSimulation()), event);
-      return true;
-    },
-    selectRelayTier: () => getRelayUrls(getSimulation()),
-  };
-}
-
-function createWorkerRelay(events: NostrEvent[]) {
-  return {
-    event(event: NostrEvent) {
-      events.push(event);
-      return Promise.resolve({ ok: true });
-    },
-    query(req: unknown): Promise<NostrEvent[]> {
-      const filters = Array.isArray(req) ? req.slice(2).filter((item): item is NostrFilter => typeof item === 'object' && item !== null) : [];
-      return Promise.resolve(events.filter((event) => matchesAnyFilter(event, filters)));
-    },
-    count(req: unknown): Promise<number> {
-      return this.query(req).then((matched) => matched.length);
-    },
-  };
-}
-
-function createDevUploader(getSimulation: () => PajaSimulation): Uploader {
-  return {
-    async upload(request: UploadRequest, ctx): Promise<UploadResult> {
-      const simulation = getSimulation();
-      if (simulation.upload.mode === 'disabled') {
-        throw new Error('upload simulation is disabled');
-      }
-      const size = request.data instanceof Blob ? request.data.size : request.data.byteLength;
-      const result: UploadResult = {
-        ok: true,
-        uploadId: ctx.uploadId,
-        status: 'complete',
-        rail: request.rail ?? simulation.upload.rail,
-        url: `kehto-dev://${simulation.upload.rail}/${ctx.uploadId}`,
-        size,
-        mimeType: request.mimeType ?? (request.data instanceof Blob ? request.data.type : undefined),
-      };
-      ctx.onStatus({ ...result, updatedAt: Date.now() });
-      return result;
-    },
-    async status(uploadId: string): Promise<UploadStatus> {
-      const simulation = getSimulation();
-      return {
-        ok: simulation.upload.mode !== 'disabled',
-        uploadId,
-        status: simulation.upload.mode === 'disabled' ? 'failed' : 'complete',
-        rail: simulation.upload.rail,
-        url: `kehto-dev://${simulation.upload.rail}/${uploadId}`,
-        updatedAt: Date.now(),
-      };
-    },
-  };
-}
-
-function createDevIntentAvailability(): IntentAvailability {
-  return {
-    archetype: DEV_INTENT_ARCHETYPE,
-    available: true,
-    hasDefault: true,
-    candidates: [{
-      dTag: 'dev-target',
-      title: 'Dev runtime target',
-      actions: ['open'],
-      protocols: ['NAP-01'],
-      isDefault: true,
-    }],
-  };
-}
-
-function createDevCvmTransport(getSimulation: () => PajaSimulation): CvmTransport {
-  return {
-    async discover() {
-      if (!getSimulation().cvm.enabled) return [];
-      return [{ ...DEV_CVM_SERVER, relays: getRelayUrls(getSimulation()) }];
-    },
-    async request(_server, message): Promise<McpMessage> {
-      const id = typeof message.id === 'string' || typeof message.id === 'number' ? message.id : 'paja';
-      return {
-        jsonrpc: '2.0',
-        id,
-        result: {
-          echoed: true,
-          method: typeof message.method === 'string' ? message.method : null,
-        },
-      };
-    },
-    async close() {},
-    onEvent() {
-      return {
-        close() {},
-      };
-    },
-  };
-}
-
-function createOutboxRouter(pool: RelayPoolLike, getSimulation: () => PajaSimulation) {
-  return {
-    async query(filters: NostrFilter[]) {
-      const relayUrls = getRelayUrls(getSimulation());
-      const events = await new Promise<NostrEvent[]>((resolve) => {
-        const out: NostrEvent[] = [];
-        pool.request(relayUrls, filters).subscribe({
-          next: (event) => out.push(event as NostrEvent),
-          complete: () => resolve(out),
-          error: () => resolve(out),
-        });
-      });
-      return { events, relays: Object.fromEntries(events.map((event) => [event.id, relayUrls])) };
-    },
-    subscribe(filters: NostrFilter[], _options: unknown, sink: { event(event: NostrEvent, relay?: string): void; eose(): void; closed(reason?: string): void }) {
-      const relayUrls = getRelayUrls(getSimulation());
-      const sub = pool.subscription(relayUrls, filters).subscribe((item) => {
-        if (item === 'EOSE') sink.eose();
-        else sink.event(item as NostrEvent, relayUrls[0]);
-      });
-      return { close: () => sub.unsubscribe() };
-    },
-    async publish(template: Partial<NostrEvent>) {
-      const event = {
-        id: crypto.randomUUID().replace(/-/g, '').padEnd(64, '0').slice(0, 64),
-        pubkey: '0'.repeat(64),
-        created_at: Math.floor(Date.now() / 1000),
-        kind: 1,
-        tags: [],
-        content: '',
-        sig: '0'.repeat(128),
-        ...template,
-      } as NostrEvent;
-      const relayUrls = getRelayUrls(getSimulation());
-      pool.publish(relayUrls, event);
-      return { ok: true, event, eventId: event.id, relays: { [relayUrls[0] ?? 'dev']: true } };
-    },
-    async resolveRelays() {
-      return { relays: getRelayUrls(getSimulation()), source: 'policy' as const };
-    },
-  };
-}
-
-function createDevTheme(mode: PajaSimulation['theme']['mode'], values: PajaSimulation['theme']['values']): Theme {
-  const defaultColors = mode === 'light'
-    ? { background: '#f7f5ed', text: '#1d211d', primary: '#6a5a12' }
-    : { background: '#101211', text: '#f4f0df', primary: '#d8c36a' };
-  return {
-    ...values,
-    colors: {
-      ...defaultColors,
-      ...((typeof values.colors === 'object' && values.colors !== null && !Array.isArray(values.colors)) ? values.colors : {}),
-    },
-  } as Theme;
-}
-
-function createDevSigner(getSimulation: () => PajaSimulation) {
-  return {
-    getPublicKey: () => getSimulation().identity.pubkey,
-    getRelays: () => Object.fromEntries(getRelayUrls(getSimulation()).map((relay) => [relay, { read: true, write: true }])),
-  };
-}
-
-function createDevServices(
-  pool: RelayPoolLike,
-  getSimulation: () => PajaSimulation,
-  onThemeService: (theme: ReturnType<typeof createThemeService>) => void,
-): Record<string, ServiceHandler> {
-  const notification = createNotificationService({ maxPerWindow: 50 });
-  const theme = createThemeService({
-    initialTheme: createDevTheme(getSimulation().theme.mode, getSimulation().theme.values),
-    onBroadcast: () => {},
+function confirmPajaRequest(
+  state: PajaBrowserState | null,
+  request: PajaConfirmationRequest,
+): boolean {
+  const event = request.event as { kind?: unknown; content?: unknown };
+  const kind = typeof event.kind === 'number' ? event.kind : 'unknown';
+  const content = typeof event.content === 'string' && event.content.length > 0
+    ? `\n\n${event.content.slice(0, 240)}`
+    : '';
+  const allowed = window.confirm(`Paja ${request.action} request\nkind: ${kind}${content}`);
+  appendPajaMessageLog(state, 'paja', {
+    type: `paja.${request.action}.${allowed ? 'confirmed' : 'denied'}`,
+    kind,
   });
-  onThemeService(theme);
-  const config = createConfigService({
-    getValues: () => ({
-      ...getSimulation().config.values,
-      simulation: {
-        identity: getSimulation().identity.mode,
-        relay: getSimulation().relay.mode,
-        storage: getSimulation().storage.mode,
-        cache: getSimulation().cache.mode,
-        upload: getSimulation().upload.mode,
-        theme: getSimulation().theme.mode,
-      },
-    }),
-  });
-  const services: Record<string, ServiceHandler> = {
-    keys: createKeysService(),
-    resource: createResourceService({
-      fetch: (url, init) => fetch(url, init),
-      isOriginGranted: () => true,
-      getConnectGrants: () => ['*'],
-      resolveIdentity: () => ({ dTag: 'dev-target', aggregateHash: 'paja' }),
-    }),
-  };
-
-  if (getSimulation().relay.mode === 'memory') {
-    services.relay = createRelayPoolService({
-      subscribe: (filters, callback, relayUrls) => pool.subscription(relayUrls ?? getRelayUrls(getSimulation()), filters).subscribe((item) => {
-        if (item === 'EOSE' || (typeof item === 'object' && item !== null)) {
-          callback(item as NostrEvent | 'EOSE');
-        }
-      }),
-      publish: (event) => pool.publish(getRelayUrls(getSimulation()), event),
-      selectRelayTier: () => getRelayUrls(getSimulation()),
-      isAvailable: () => getSimulation().relay.mode === 'memory',
-    });
-    services.outbox = createOutboxService({ router: createOutboxRouter(pool, getSimulation) });
-  }
-
-  if (getSimulation().identity.mode === 'fixed') {
-    services.identity = createIdentityService({ getSigner: () => createDevSigner(getSimulation) });
-  } else if (getSimulation().capabilities.domains.identity) {
-    services.identity = createIdentityService({ getSigner: () => null });
-  }
-  if (getSimulation().notifications.enabled) {
-    services.notifications = notification;
-    services.notify = createNotifyService({ defaultGrant: getSimulation().notifications.grant });
-  }
-  if (getSimulation().media.enabled) services.media = createMediaService();
-  if (getSimulation().capabilities.domains.theme) services.theme = theme.handler;
-  if (getSimulation().capabilities.domains.config) services.config = config.handler;
-  if (getSimulation().cvm.enabled) services.cvm = createCvmService({ transport: createDevCvmTransport(getSimulation) });
-  if (getSimulation().upload.mode === 'memory') services.upload = createUploadService({ uploader: createDevUploader(getSimulation) });
-  if (getSimulation().intent.enabled) {
-    services.intent = createIntentService({
-      resolver: {
-        invoke(request: IntentRequest): IntentResult {
-          return {
-            ok: true,
-            archetype: request.archetype,
-            action: request.action ?? 'open',
-            handled: request.archetype === DEV_INTENT_ARCHETYPE,
-            handler: 'dev-target',
-            windowId: 'kehto-paja-window',
-            protocol: request.protocol ?? 'NAP-01',
-          };
-        },
-        available: (archetype) => ({
-          ...createDevIntentAvailability(),
-          archetype,
-          available: archetype === DEV_INTENT_ARCHETYPE,
-        }),
-        handlers: () => [createDevIntentAvailability()],
-      },
-    });
-  }
-  if (getSimulation().capabilities.domains.link) {
-    services.link = createLinkService({
-      open: ({ url }) => ({ status: url.protocol === 'https:' || url.protocol === 'http:' ? 'opened' : 'denied' }),
-    });
-  }
-  if (getSimulation().capabilities.domains.common) {
-    services.common = createCommonService({
-      getProfile: (target) => ({
-        ok: true,
-        pubkey: target || getSimulation().identity.pubkey || DEV_COMMON_PUBKEY,
-        profile: { name: 'paja', displayName: 'Kehto Paja' },
-        relays: getRelayUrls(getSimulation()),
-      }),
-      follows: () => ({ ok: true, pubkeys: [getSimulation().identity.pubkey || DEV_COMMON_PUBKEY] }),
-      follow: () => ({ ok: true, eventId: DEV_COMMON_EVENT_ID }),
-      unfollow: () => ({ ok: true, eventId: DEV_COMMON_EVENT_ID }),
-      react: () => ({ ok: true, eventId: DEV_COMMON_EVENT_ID }),
-      report: () => ({ ok: true, eventId: DEV_COMMON_EVENT_ID }),
-    });
-  }
-  if (getSimulation().capabilities.domains.lists) {
-    const listStore = createDevListStore();
-    services.lists = createListsService({
-      supported: listStore.supported,
-      add: listStore.add,
-      remove: listStore.remove,
-    });
-  }
-  if (getSimulation().capabilities.domains.serial) {
-    services.serial = createSerialService(createDevSerialController());
-  }
-  if (getSimulation().capabilities.domains.ble) {
-    services.ble = createBleService(createDevBleController());
-  }
-  if (getSimulation().capabilities.domains.webrtc) {
-    services.webrtc = createWebrtcService(createDevWebrtcController());
-  }
-
-  return services;
+  return allowed;
 }
 
-function createPajaAdapter(
-  config: PajaHostConfig,
-  getSimulation: () => PajaSimulation,
-  onThemeService: (theme: ReturnType<typeof createThemeService>) => void,
-): ShellAdapter {
-  const pool = createMemoryRelayPool(getSimulation);
-  const workerRelayEvents: NostrEvent[] = [];
+function getTargetIdentity(config: PajaHostConfig): Pick<SessionEntry, 'pubkey' | 'dTag' | 'aggregateHash'> {
   return {
-    relayPool: createRelayHooks(pool, getSimulation),
-    relayConfig: {
-      addRelay: () => {},
-      removeRelay: () => {},
-      getRelayConfig: () => {
-        const relays = getRelayUrls(getSimulation());
-        return { discovery: relays, super: relays, outbox: relays };
-      },
-      getNip66Suggestions: () => getRelayUrls(getSimulation()),
-    },
-    windowManager: { createWindow: () => null },
-    auth: {
-      getUserPubkey: () => getSimulation().identity.pubkey,
-      getSigner: () => (getSimulation().identity.mode === 'fixed' ? createDevSigner(getSimulation) : null),
-    },
-    services: createDevServices(pool, getSimulation, onThemeService),
-    capabilities: { disabledDomains: getSimulation().capabilities.disabledDomains },
-    config: { getNappUpdateBehavior: () => 'auto-grant' },
-    hotkeys: { executeHotkeyFromForward: () => {} },
-    workerRelay: { getWorkerRelay: () => createWorkerRelay(workerRelayEvents) },
-    upload: getSimulation().upload.mode === 'memory' ? { getUploader: () => ({ rails: [getSimulation().upload.rail] }) } : undefined,
-    intent: { isAvailable: () => getSimulation().intent.enabled },
-    link: { isAvailable: () => getSimulation().capabilities.domains.link },
-    common: { isAvailable: () => getSimulation().capabilities.domains.common },
-    lists: { isAvailable: () => getSimulation().capabilities.domains.lists },
-    serial: { isAvailable: () => getSimulation().capabilities.domains.serial },
-    ble: { isAvailable: () => getSimulation().capabilities.domains.ble },
-    webrtc: { isAvailable: () => getSimulation().capabilities.domains.webrtc },
-    crypto: {
-      verifyEvent: async () => true,
-    },
-    onNip5dIframeCreate: () => ({
-      dTag: config.window.dTag,
-      aggregateHash: config.window.aggregateHash,
-    }),
+    pubkey: '',
+    dTag: config.window.dTag,
+    aggregateHash: config.window.aggregateHash,
   };
 }
 
@@ -581,6 +147,15 @@ function registerFrameForGeneration(bridge: ShellBridge, frame: HTMLIFrameElemen
   originRegistry.register(win, windowId, {
     dTag: config.window.dTag,
     aggregateHash: config.window.aggregateHash,
+  });
+  bridge.runtime.sessionRegistry.register(windowId, {
+    ...getTargetIdentity(config),
+    windowId,
+    origin: 'null',
+    type: 'napplet',
+    registeredAt: Date.now(),
+    instanceId: `${windowId}:${Date.now()}`,
+    provenance: 'nip-5d',
   });
   return windowId;
 }
@@ -597,11 +172,14 @@ async function installPajaHost(): Promise<void> {
   setTargetUrlDisplay(config, frame);
   let currentSimulation = config.simulation;
   const getSimulation = () => currentSimulation;
-  let themeService: ReturnType<typeof createThemeService> | null = null;
+  let themeService: { publishTheme(theme: ReturnType<typeof createDevTheme>): unknown } | null = null;
+  let stateRef: PajaBrowserState | null = null;
   const adapter = createPajaAdapter(config, getSimulation, (theme) => {
     themeService = theme;
-  });
+  }, (request) => confirmPajaRequest(stateRef, request));
   const bridge = createShellBridge(adapter);
+  bridgeRef = bridge;
+  installPajaOriginRegistryProxy(originRegistry, () => stateRef);
   const capabilities = buildShellCapabilities(adapter);
   const services = Object.keys(adapter.services ?? {}).sort();
   let currentWindowId: string | null = null;
@@ -614,6 +192,8 @@ async function installPajaHost(): Promise<void> {
     simulation: currentSimulation,
     generation: 0,
     status: 'booting',
+    messageFilter: '',
+    messageLog: [],
     reload() {
       if (currentWindowId) {
         bridge.runtime.destroyWindow(currentWindowId);
@@ -637,23 +217,67 @@ async function installPajaHost(): Promise<void> {
       themeService?.publishTheme(createDevTheme(currentSimulation.theme.mode, currentSimulation.theme.values));
       setSimulationStatus(this);
     },
+    setDomainEnabled(domain, enabled) {
+      currentSimulation = {
+        ...currentSimulation,
+        capabilities: {
+          domains: {
+            ...currentSimulation.capabilities.domains,
+            [domain]: enabled,
+          },
+          disabledDomains: PAJA_SIMULATION_DOMAINS.filter((entry) =>
+            entry === domain ? !enabled : !currentSimulation.capabilities.domains[entry],
+          ),
+        },
+      };
+      this.simulation = currentSimulation;
+      this.services = Object.keys(adapter.services ?? {})
+        .filter((name) => currentSimulation.capabilities.domains[name as PajaCapabilityDomain] !== false)
+        .sort();
+      setSimulationStatus(this);
+      appendPajaMessageLog(this, 'paja', { type: `paja.interface.${enabled ? 'enabled' : 'disabled'}`, domain });
+      this.reload();
+    },
+    setAclCapability(capability, enabled) {
+      const identity = getTargetIdentity(config);
+      if (enabled) bridge.runtime.aclState.grant(identity.pubkey, identity.dTag, identity.aggregateHash, capability);
+      else bridge.runtime.aclState.revoke(identity.pubkey, identity.dTag, identity.aggregateHash, capability);
+      bridge.runtime.aclState.persist();
+      appendPajaMessageLog(this, 'paja', { type: `paja.acl.${enabled ? 'grant' : 'revoke'}`, capability });
+      renderPajaDevtools(this, { bridge, signerPubkey: PAJA_DEV_SIGNER_PUBKEY });
+    },
+    clearLog() {
+      this.messageLog.length = 0;
+      renderPajaMessageLog(this);
+    },
     getState() {
       return {
         generation: this.generation,
         status: this.status,
         iframeCount: document.querySelectorAll('iframe').length,
         initSent: initReceivedGeneration === this.generation,
-        services,
+        services: this.services,
         simulation: currentSimulation,
+        messageLog: [...this.messageLog],
       };
     },
   };
+  stateRef = state;
 
   window.__KEHTO_PAJA__ = state;
 
   window.addEventListener('message', (event) => {
     if (event.source !== frame.contentWindow) return;
-    bridge.handleMessage(event);
+    appendPajaMessageLog(state, 'napplet->shell', event.data, currentWindowId ?? undefined);
+    const proxiedSource = createPajaPostMessageProxy(event.source as Window, state, currentWindowId ?? undefined);
+    const syntheticEvent = new Proxy(event, {
+      get(target, prop) {
+        if (prop === 'source') return proxiedSource;
+        const val = Reflect.get(target, prop, target) as unknown;
+        return typeof val === 'function' ? (val as Function).bind(target) : val;
+      },
+    }) as MessageEvent;
+    bridge.handleMessage(syntheticEvent);
     const data = event.data as { type?: unknown } | null;
     if (data && typeof data === 'object' && data.type === 'shell.ready') {
       initReceivedGeneration = state.generation;
@@ -681,6 +305,17 @@ async function installPajaHost(): Promise<void> {
     if (target.value === 'dark' || target.value === 'light') {
       state.setThemeMode(target.value);
     }
+  });
+
+  document.getElementById('message-filter')?.addEventListener('input', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    state.messageFilter = target.value;
+    renderPajaMessageLog(state);
+  });
+
+  document.getElementById('clear-log')?.addEventListener('click', () => {
+    state.clearLog();
   });
 
   setStatus(state, 'booting');

@@ -33,9 +33,29 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       button { border: 1px solid var(--line); color: var(--text); background: #20241f; height: 26px; padding: 0 10px; border-radius: 4px; font: inherit; cursor: pointer; }
       button:hover { border-color: var(--accent); }
       label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; }
-      select { border: 1px solid var(--line); color: var(--text); background: #20241f; height: 26px; border-radius: 4px; font: inherit; }
+      select, input { border: 1px solid var(--line); color: var(--text); background: #20241f; height: 26px; border-radius: 4px; font: inherit; }
+      main { min-height: 0; display: grid; grid-template-columns: minmax(320px, 380px) minmax(0, 1fr); }
+      .console { min-height: 0; overflow: auto; border-right: 1px solid var(--line); background: #121512; padding: 10px; display: flex; flex-direction: column; gap: 12px; }
+      .section { display: grid; gap: 8px; }
+      .section-title { color: var(--accent); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0; }
+      .switch-grid, .acl-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+      .toggle { height: 24px; padding: 0 8px; color: var(--muted); }
+      .toggle[data-enabled="true"] { color: var(--text); border-color: #5f724f; background: #24301f; }
+      .toggle[data-enabled="false"] { color: #8d9187; border-color: #453536; background: #241d1d; }
+      .signer { color: var(--muted); word-break: break-all; font-size: 12px; }
+      .log-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+      .log-list { min-height: 160px; max-height: 38vh; overflow: auto; border: 1px solid var(--line); border-radius: 4px; background: #0b0d0b; }
+      .log-row { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 6px; padding: 5px 7px; border-bottom: 1px solid #1b1f1a; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .log-row:last-child { border-bottom: 0; }
+      .log-dir { color: var(--muted); }
+      .log-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .stage { min-width: 0; min-height: 0; }
       iframe { width: 100%; height: 100%; border: 0; background: white; display: block; }
       code { color: var(--text); }
+      @media (max-width: 900px) {
+        main { grid-template-columns: 1fr; grid-template-rows: minmax(240px, 40vh) minmax(0, 1fr); }
+        .console { border-right: 0; border-bottom: 1px solid var(--line); }
+      }
     </style>
   </head>
   <body>
@@ -52,7 +72,31 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       <button type="button" id="reload-target">Reload</button>
     </header>
     <main>
-      <iframe id="napplet-frame" title="Napplet development target" sandbox="allow-scripts" data-target-url="${targetUrl}"></iframe>
+      <aside class="console" aria-label="Paja development controls">
+        <section class="section">
+          <div class="section-title">Interfaces</div>
+          <div class="switch-grid" id="interface-toggles"></div>
+        </section>
+        <section class="section">
+          <div class="section-title">ACL</div>
+          <div class="acl-grid" id="acl-controls"></div>
+        </section>
+        <section class="section">
+          <div class="section-title">Signer</div>
+          <div class="signer" id="signer-status">loading</div>
+        </section>
+        <section class="section">
+          <div class="section-title">Messages</div>
+          <div class="log-tools">
+            <input id="message-filter" type="search" autocomplete="off" placeholder="filter messages" aria-label="Filter message log">
+            <button type="button" id="clear-log">Clear</button>
+          </div>
+          <div class="log-list" id="message-log" aria-live="polite"></div>
+        </section>
+      </aside>
+      <section class="stage">
+        <iframe id="napplet-frame" title="Napplet development target" sandbox="allow-scripts" data-target-url="${targetUrl}"></iframe>
+      </section>
     </main>
     <footer class="bar bottom">
       <span>mode: <code>${config.target.command ? 'managed-command' : 'external-target'}</code></span>

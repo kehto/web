@@ -30,10 +30,19 @@ test.afterAll(async () => {
 
 test('hosts one sandboxed target iframe and reinitializes it on reload', async ({ page }) => {
   test.setTimeout(60_000);
+  const dialogMessages: string[] = [];
+  page.on('dialog', async (dialog) => {
+    dialogMessages.push(dialog.message());
+    await dialog.accept();
+  });
   await page.goto(runtimeServer.url);
 
   await expect(page.locator('header.top')).toBeVisible();
   await expect(page.locator('footer.bottom')).toBeVisible();
+  await expect(page.locator('.console')).toBeVisible();
+  await expect(page.locator('#interface-toggles [data-interface-domain="identity"]')).toHaveAttribute('data-enabled', 'true');
+  await expect(page.locator('#acl-controls [data-acl-capability="state:write"]')).toHaveAttribute('data-enabled', 'true');
+  await expect(page.locator('#signer-status')).toContainText('every sign/publish request prompts');
   await expect(page.locator('iframe')).toHaveCount(1);
   await expect(page.locator('#napplet-frame')).toHaveAttribute('sandbox', 'allow-scripts');
   await expect(page.locator('#napplet-frame')).not.toHaveAttribute('sandbox', /allow-same-origin/);
@@ -51,6 +60,15 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   await expect(targetFrame.locator('#service-results')).toContainText('upload.upload.result');
   await expect(targetFrame.locator('#service-results')).toContainText('intent.available.result');
   await expect(targetFrame.locator('#service-results')).toContainText('cvm.discover.result');
+  await expect(targetFrame.locator('#service-results')).toContainText('outbox.publish.result');
+  await expect(targetFrame.locator('#identity-pubkey')).not.toHaveText('');
+  await expect.poll(() => dialogMessages.filter((message) => message.includes('Paja sign request')).length).toBeGreaterThan(0);
+  await expect.poll(() => dialogMessages.filter((message) => message.includes('Paja publish request')).length).toBeGreaterThan(0);
+  await expect(page.locator('#message-log .log-row')).not.toHaveCount(0);
+  await page.locator('#message-filter').fill('identity.getPublicKey');
+  await expect(page.locator('#message-log .log-row')).not.toHaveCount(0);
+  await expect(page.locator('#message-log .log-row').first()).toContainText('identity.getPublicKey');
+  await page.locator('#message-filter').fill('');
   await expect(page.locator('#lifecycle-status')).toHaveText('ready');
   await expect(page.locator('#simulation-status')).toContainText('identity:anon relay:1 storage:local theme:dark off:none');
 
@@ -92,6 +110,17 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
     'theme',
     'upload',
   ]));
+
+  await page.locator('#acl-controls [data-acl-capability="state:write"]').click();
+  await expect(page.locator('#acl-controls [data-acl-capability="state:write"]')).toHaveAttribute('data-enabled', 'false');
+  await page.locator('#reload-target').click();
+  await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
+  await expect(page.frameLocator('#napplet-frame').locator('#storage-error')).toContainText('denied', { timeout: 15_000 });
+
+  await page.locator('#interface-toggles [data-interface-domain="identity"]').click();
+  await expect(page.locator('#interface-toggles [data-interface-domain="identity"]')).toHaveAttribute('data-enabled', 'false');
+  await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
+  await expect(page.frameLocator('#napplet-frame').locator('#shell-init-domains')).not.toContainText('identity', { timeout: 15_000 });
 });
 
 test('applies simulation config and compact theme adjustment', async ({ page }) => {
@@ -200,6 +229,7 @@ function renderTargetHtml(loadCount: number): string {
     <div id="identity-pubkey"></div>
     <div id="config-density"></div>
     <div id="theme-background"></div>
+    <div id="storage-error"></div>
     <script>
       const seenTypes = new Set();
       const serviceResults = document.getElementById('service-results');
@@ -216,6 +246,9 @@ function renderTargetHtml(loadCount: number): string {
         if (type === 'theme.get.result') {
           document.getElementById('theme-background').textContent = message.theme && message.theme.colors && message.theme.colors.background || '';
         }
+        if (type === 'storage.set.result') {
+          document.getElementById('storage-error').textContent = message.error || '';
+        }
       }
       function sendServiceTraffic() {
         const bytes = new TextEncoder().encode('kehto-paja').buffer;
@@ -228,6 +261,7 @@ function renderTargetHtml(loadCount: number): string {
           { type: 'upload.upload', id: 'upload-1', request: { data: bytes, mimeType: 'text/plain', filename: 'paja.txt' } },
           { type: 'intent.available', id: 'intent-1', archetype: 'paja-target' },
           { type: 'cvm.discover', id: 'cvm-1' },
+          { type: 'outbox.publish', id: 'outbox-1', event: { kind: 1, content: 'hello from paja fixture', tags: [] } },
         ];
         for (const message of messages) window.parent.postMessage(message, '*');
       }

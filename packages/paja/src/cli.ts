@@ -512,7 +512,9 @@ function forwardManagedOutput(
 }
 
 function createManagedTargetUrlDetector(): ManagedTargetUrlDetector {
-  let resolveDetected: (url: string) => void = () => {};
+  let resolveDetected: (url: string) => void = () => {
+    // Promise executor replaces this before any child-process output can arrive.
+  };
   let detected: string | undefined;
   const detectedTargetUrl = new Promise<string>((resolve) => {
     resolveDetected = resolve;

@@ -59,9 +59,11 @@ Run the script and open the printed runtime URL:
 pnpm dev
 ```
 
-The browser page shows one top bar, one sandboxed target iframe, and one bottom
-bar. The app source still reloads through the framework dev server; the runtime
-reload button reinitializes the Kehto shell state around the same target URL.
+The browser page shows a development console beside one sandboxed target iframe.
+The console includes interface injection toggles, ACL controls, signer status,
+and a filterable message log. The app source still reloads through the framework
+dev server; the runtime reload button reinitializes the Kehto shell state around
+the same target URL.
 
 ## Use an Existing Target Server
 
@@ -119,6 +121,10 @@ Inside the target iframe, `shell.ready` receives `shell.init` through
 `@kehto/shell`. Disabled capability domains are removed from the advertised
 `domains` and `naps` lists, while enabled domains route through Kehto runtime
 and reference services.
+
+Paja provides a generated development signer by default, so
+`identity.getPublicKey` returns a usable pubkey even without external signer
+setup. Every sign or publish operation prompts in the browser before it runs.
 
 The package API reference is generated at
 [docs/api/modules/_kehto_paja.html](../api/modules/_kehto_paja.html).
