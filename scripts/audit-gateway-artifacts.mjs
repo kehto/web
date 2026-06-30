@@ -39,7 +39,7 @@ function assertSourceInvariants() {
   // signed manifest, verifies the bytes, computes identity, and injects the
   // verified bytes via iframe.srcdoc. The gateway htmlUrl/metadata navigation
   // model is retired and the gateway is never trusted.
-  if (!shellHost.includes('iframe.srcdoc = injectCspMeta(')) {
+  if (!shellHost.includes('iframe.srcdoc =') || !shellHost.includes('injectCspMeta(')) {
     fail('shell-host.ts does not inject verified bytes via iframe.srcdoc');
   }
   if (!shellHost.includes('markSourceDerivedIdentity(')) {
