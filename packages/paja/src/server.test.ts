@@ -38,6 +38,31 @@ describe('@kehto/paja server', () => {
       await server.close();
     }
   });
+
+  it('updates served host config when a managed target announces a new URL', async () => {
+    const server = await startPajaServer({
+      options: {
+        targetUrl: 'http://127.0.0.1:5173',
+        port: 0,
+      },
+      now: new Date('2026-06-21T00:00:00.000Z'),
+    });
+
+    try {
+      server.updateTargetUrl('http://localhost:5174/');
+
+      const html = await fetchText(server.url);
+      expect(html).toContain('data-target-url="http://localhost:5174/"');
+
+      const config = JSON.parse(await fetchText(`${server.url}__kehto/config.json`)) as {
+        target: { url: string };
+      };
+      expect(config.target.url).toBe('http://localhost:5174/');
+      expect(server.hostConfig.target.url).toBe('http://localhost:5174/');
+    } finally {
+      await server.close();
+    }
+  });
 });
 
 async function fetchText(url: string): Promise<string> {

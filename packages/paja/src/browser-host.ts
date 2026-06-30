@@ -99,6 +99,25 @@ function readConfig(): PajaHostConfig {
   return JSON.parse(script.textContent) as PajaHostConfig;
 }
 
+async function readLatestConfig(fallback: PajaHostConfig): Promise<PajaHostConfig> {
+  try {
+    const response = await fetch('/__kehto/config.json', { cache: 'no-store' });
+    if (!response.ok) return fallback;
+    return await response.json() as PajaHostConfig;
+  } catch {
+    return fallback;
+  }
+}
+
+function setTargetUrlDisplay(config: PajaHostConfig, frame: HTMLIFrameElement): void {
+  const targetEl = document.querySelector('.target');
+  if (targetEl) {
+    targetEl.textContent = config.target.url;
+    targetEl.setAttribute('title', config.target.url);
+  }
+  frame.dataset.targetUrl = config.target.url;
+}
+
 function setStatus(state: PajaBrowserState, status: PajaBrowserState['status']): void {
   state.status = status;
   const statusEl = document.getElementById('lifecycle-status');
@@ -572,9 +591,10 @@ function navigateFrame(bridge: ShellBridge, frame: HTMLIFrameElement, config: Pa
   return windowId;
 }
 
-function installPajaHost(): void {
-  const config = readConfig();
+async function installPajaHost(): Promise<void> {
+  const config = await readLatestConfig(readConfig());
   const frame = getFrame();
+  setTargetUrlDisplay(config, frame);
   let currentSimulation = config.simulation;
   const getSimulation = () => currentSimulation;
   let themeService: ReturnType<typeof createThemeService> | null = null;
@@ -669,7 +689,11 @@ function installPajaHost(): void {
 }
 
 try {
-  installPajaHost();
+  void installPajaHost().catch((error) => {
+    const statusEl = document.getElementById('lifecycle-status');
+    if (statusEl) statusEl.textContent = 'error';
+    console.error(error);
+  });
 } catch (error) {
   const statusEl = document.getElementById('lifecycle-status');
   if (statusEl) statusEl.textContent = 'error';
