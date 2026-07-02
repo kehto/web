@@ -1,5 +1,20 @@
 # @kehto/runtime
 
+## 0.17.1
+
+### Patch Changes
+
+- Accept the released NAP-COUNT-capable `@napplet/core` and `@napplet/nap`
+  `0.25.x` line in published package metadata.
+
+  The NAP-COUNT implementation was versioned before the matching napplet package
+  release landed, so this patch updates peer/dev ranges and local package graph
+  guards without changing Kehto runtime behavior.
+
+- Updated dependencies
+  - @kehto/acl@0.15.1
+  - @kehto/firewall@0.3.6
+
 ## 0.17.0
 
 ### Minor Changes
