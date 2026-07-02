@@ -222,6 +222,25 @@ describe('buildShellCapabilities — domains array (conformant NAP-SHELL, TERM-0
     const caps = buildShellCapabilities(hooks);
     expect(caps.domains).not.toContain('intent');
   });
+
+  it('advertises count in domains when a count service is wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      services: {
+        count: {
+          descriptor: { name: 'count', version: '1.0.0' },
+          handleMessage() { /* no-op */ },
+        },
+      },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.domains).toContain('count');
+  });
+
+  it('does NOT advertise count in domains when no count service is wired', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    expect(caps.domains).not.toContain('count');
+  });
 });
 
 describe('buildShellCapabilities — protocols map (conformant NAP-SHELL, TERM-03)', () => {
@@ -337,6 +356,31 @@ describe('buildShellCapabilities — NAP-INTENT advertisement in naps', () => {
     };
     const caps = buildShellCapabilities(hooks);
     expect(caps.naps).toContain('intent');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// naps — NAP-COUNT advertisement
+// ---------------------------------------------------------------------------
+
+describe('buildShellCapabilities — NAP-COUNT advertisement in naps', () => {
+  it('does NOT advertise count in naps when no count service is wired', () => {
+    const caps = buildShellCapabilities(baseHooks());
+    expect(caps.naps).not.toContain('count');
+  });
+
+  it('advertises count in naps when a count service is wired', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      services: {
+        count: {
+          descriptor: { name: 'count', version: '1.0.0' },
+          handleMessage() { /* no-op */ },
+        },
+      },
+    };
+    const caps = buildShellCapabilities(hooks);
+    expect(caps.naps).toContain('count');
   });
 });
 

@@ -32,6 +32,18 @@ describe('resolveCapabilitiesNap', () => {
     });
   });
 
+  describe('count domain', () => {
+    it('count.query -> relay:read only', () => {
+      const result: CapabilityResolution = resolveCapabilitiesNap({ type: 'count.query' });
+      expect(result).toEqual({ senderCap: 'relay:read', recipientCap: null });
+    });
+
+    it('count.query.result -> relay:read only', () => {
+      const result: CapabilityResolution = resolveCapabilitiesNap({ type: 'count.query.result' });
+      expect(result).toEqual({ senderCap: 'relay:read', recipientCap: null });
+    });
+  });
+
   describe('identity domain', () => {
     it('identity.getPublicKey -> null/null (shell-public info)', () => {
       const result: CapabilityResolution = resolveCapabilitiesNap({ type: 'identity.getPublicKey' });

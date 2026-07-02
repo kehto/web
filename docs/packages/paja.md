@@ -144,7 +144,7 @@ Paja advertises the web NAP domains that can be reached through the
 current Kehto runtime and deterministic development adapters:
 
 `relay`, `outbox`, `identity`, `storage`, `inc`, `theme`, `keys`, `media`,
-`notify`, `config`, `resource`, `cvm`, `upload`, and `intent`.
+`notify`, `config`, `resource`, `cvm`, `upload`, `intent`, and `count`.
 
 `shell` is represented as the mandatory handshake domain rather than an
 injected availability domain. The deprecated legacy compatibility package path
@@ -158,6 +158,11 @@ state persistence through the runtime, a generated local signer-backed identity,
 deterministic config/theme,
 notification, media, upload, intent, resource, and CVM adapters. These defaults
 are intentionally useful for local authoring.
+
+The `count` domain uses Paja's in-memory relay fixture/event store to answer
+`count.query` with exact aggregate counts and `approximate: false`. Broad empty
+filters are refused as too expensive, and setting `relay.mode` to `disabled`
+also disables `count` advertisement.
 
 ## Environment Simulation
 

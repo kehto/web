@@ -76,6 +76,9 @@ importers:
         specifier: ^1.5.4
         version: 1.5.4
     devDependencies:
+      '@napplet/vite-plugin':
+        specifier: 0.10.1
+        version: 0.10.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       '@types/qrcode':
         specifier: ^1.5.6
         version: 1.5.6

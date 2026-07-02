@@ -9,6 +9,8 @@ import type { ShellAdapter, ShellCapabilities } from './types.js';
  * without one) and prepended conditionally in buildShellCapabilities below.
  * `link` and `common` are also conditional because shells must wire those
  * service backends before advertising user-visible navigation/social actions.
+ * `count` is conditional because shells must wire a count service before
+ * advertising runtime-mediated COUNT support.
  * `dm` is conditional because shells must register a runtime-owned DM backend.
  */
 const NAP_DOMAINS = [
@@ -91,6 +93,7 @@ export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
     : [...NAP_DOMAINS];
   if (hooks.upload) domains.push('upload');
   if (hooks.intent?.isAvailable()) domains.push('intent');
+  if (hooks.services?.count) domains.push('count');
   if (hooks.link?.isAvailable()) domains.push('link');
   if (hooks.common?.isAvailable()) domains.push('common');
   if (hooks.lists?.isAvailable()) domains.push('lists');
@@ -121,6 +124,8 @@ export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
   if (hooks.upload) naps.push('upload');
   // NAP-INTENT: advertised only when the host wires an available intent dispatcher.
   if (hooks.intent?.isAvailable()) naps.push('intent');
+  // NAP-COUNT: advertised only when a runtime count service is wired.
+  if (hooks.services?.count) naps.push('count');
   // NAP-LINK: advertised only when the host wires shell-mediated link opening.
   if (hooks.link?.isAvailable()) naps.push('link');
   // NAP-COMMON: advertised only when the host wires common social actions.

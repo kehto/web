@@ -15,6 +15,7 @@ export type PajaCapabilityDomain =
   | 'media'
   | 'upload'
   | 'intent'
+  | 'count'
   | 'link'
   | 'common'
   | 'lists'
@@ -147,6 +148,7 @@ export const PAJA_SIMULATION_DOMAINS: readonly PajaCapabilityDomain[] = [
   'media',
   'upload',
   'intent',
+  'count',
   'link',
   'common',
   'lists',
@@ -199,6 +201,8 @@ export function normalizePajaSimulation(
     throw new PajaSimulationError('Invalid simulation: intent.enabled must be false when capabilities.domains.intent is false.');
   }
   if (!intentEnabled) domains.intent = false;
+
+  if (!domains.relay) domains.count = false;
 
   const mediaEnabled = raw?.media?.enabled ?? domains.media;
   if (!domains.media && mediaEnabled) {
