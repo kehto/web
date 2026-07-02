@@ -1,5 +1,22 @@
 # @kehto/shell
 
+## 0.16.0
+
+### Minor Changes
+
+- 7293d4d: Add NAP-COUNT support for the draft `count.query` domain.
+
+  Kehto now routes `count.query` through a registered runtime count service,
+  advertises `window.napplet.count` only when that service is wired, exposes a
+  reference `createCountService()` helper, and lets Paja answer exact counts from
+  its memory relay fixture store without returning event payloads.
+
+### Patch Changes
+
+- Updated dependencies [7293d4d]
+  - @kehto/acl@0.15.0
+  - @kehto/runtime@0.17.0
+
 ## 0.15.2
 
 ### Patch Changes
