@@ -55,6 +55,7 @@ export const PAJA_ADVERTISED_DOMAINS = [
   'cvm',
   'upload',
   'intent',
+  'count',
 ] as const;
 
 export const PAJA_REQUIRED_SERVICES = [
@@ -77,6 +78,7 @@ export const PAJA_REQUIRED_SERVICES = [
   'resource',
   'theme',
   'upload',
+  'count',
 ] as const;
 
 export function getMissingAdvertisedDomains(capabilities: ShellCapabilities): string[] {

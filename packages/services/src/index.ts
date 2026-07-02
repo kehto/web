@@ -47,6 +47,13 @@ export type { RelayPoolServiceOptions } from './relay-pool-service.js';
 export { createCacheService } from './cache-service.js';
 export type { CacheServiceOptions, HostCacheBridge } from './cache-service.js';
 
+export { createCountService } from './count-service.js';
+export type {
+  CountRequest,
+  CountResult,
+  CountServiceOptions,
+} from './count-service.js';
+
 export { createCoordinatedRelay } from './coordinated-relay.js';
 export type { CoordinatedRelayOptions } from './coordinated-relay.js';
 

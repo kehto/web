@@ -138,7 +138,8 @@ function readStoredNumber(key: string, fallback: number): number {
     if (stored === null) return fallback;
     const value = Number.parseInt(stored, 10);
     return Number.isFinite(value) ? value : fallback;
-  } catch {
+  } catch (error) {
+    console.warn('Failed to read stored number preference; using fallback.', { key, error });
     return fallback;
   }
 }
@@ -156,7 +157,8 @@ function readStoredJson<T>(key: string): T | null {
     const stored = localStorage.getItem(key);
     if (!stored) return null;
     return JSON.parse(stored) as T;
-  } catch {
+  } catch (error) {
+    console.warn('Failed to read stored JSON preference; using empty value.', { key, error });
     return null;
   }
 }
@@ -166,7 +168,8 @@ function readStoredBoolean(key: string, fallback: boolean): boolean {
     const stored = localStorage.getItem(key);
     if (stored === null) return fallback;
     return stored === 'true';
-  } catch {
+  } catch (error) {
+    console.warn('Failed to read stored boolean preference; using fallback.', { key, error });
     return fallback;
   }
 }

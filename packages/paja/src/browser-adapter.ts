@@ -11,6 +11,7 @@ import {
   createBleService,
   createCommonService,
   createConfigService,
+  createCountService,
   createCvmService,
   createIdentityService,
   createIntentService,
@@ -140,6 +141,13 @@ function createMemoryRelayPool(
           return { unsubscribe() { /* no-op */ } };
         },
       };
+    },
+    count(_relayUrls: string[], filters: NostrFilter[]): number {
+      const seen = new Set<string>();
+      for (const event of events) {
+        if (matchesAnyFilter(event, filters)) seen.add(event.id);
+      }
+      return seen.size;
     },
   };
 }
@@ -423,6 +431,25 @@ function createDevServices(
       isAvailable: () => getSimulation().relay.mode === 'memory',
     });
     services.outbox = createOutboxService({ router: createOutboxRouter(pool, getSimulation, confirmRequest, signerProvider) });
+  }
+  if (getSimulation().capabilities.domains.count && typeof pool.count === 'function') {
+    services.count = createCountService({
+      count: async ({ filters }) => {
+        const relays = getRelayUrls(getSimulation());
+        return {
+          ok: true,
+          count: await pool.count!(relays, filters),
+          approximate: false,
+          relays,
+        };
+      },
+      isFilterSupported: (filter) => {
+        if (Object.keys(filter).length === 0) {
+          return 'broad empty filters are too expensive for the Paja count backend';
+        }
+        return true;
+      },
+    });
   }
 
   if (getSimulation().capabilities.domains.identity) {

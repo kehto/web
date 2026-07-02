@@ -17,6 +17,7 @@ import { createEventBuffer, RING_BUFFER_SIZE, type EventBuffer, type Subscriptio
 import { createEnforceGate, createNapEnforceGate, resolveCapabilitiesNap, formatDenialReason } from './enforce.js';
 import { createRelayHandler } from './relay-handler.js';
 import { createIdentityHandler } from './identity-handler.js';
+import { createCountHandler } from './count-handler.js';
 import { createIncRuntime, type IncRuntime } from './inc-handler.js';
 import { createRuntimeDomainHandlers, type RuntimeDomainHandlers } from './domain-handlers.js';
 
@@ -97,6 +98,7 @@ export interface Runtime {
 type RuntimeNapHandlers = RuntimeDomainHandlers & {
   relay: (windowId: string, msg: NappletMessage) => void;
   identity: (windowId: string, msg: NappletMessage) => void;
+  count: (windowId: string, msg: NappletMessage) => void;
   inc: (windowId: string, msg: NappletMessage) => void;
 };
 
@@ -137,6 +139,7 @@ function createNapEnvelopeDispatcher(handlers: RuntimeNapHandlers): (windowId: s
 
   napDispatch.registerNap('relay', adapt(handlers.relay));
   napDispatch.registerNap('identity', adapt(handlers.identity));
+  napDispatch.registerNap('count', adapt(handlers.count));
   napDispatch.registerNap('keys', adapt(handlers.keys));
   napDispatch.registerNap('media', adapt(handlers.media));
   napDispatch.registerNap('notify', adapt(handlers.notify));
@@ -483,6 +486,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   const dispatchNapEnvelope = createNapEnvelopeDispatcher({
     relay: createRelayHandler({ hooks, serviceRegistry, subscriptions, eventBuffer, replayDetector }),
     identity: createIdentityHandler({ hooks, serviceRegistry }),
+    count: createCountHandler({ hooks, serviceRegistry }),
     inc: incRuntime.handleMessage,
     ...domainHandlers,
   });

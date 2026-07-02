@@ -122,6 +122,11 @@ Inside the target iframe, `shell.ready` receives `shell.init` through
 `domains` and `naps` lists, while enabled domains route through Kehto runtime
 and reference services.
 
+The default memory relay also wires NAP-COUNT. `window.napplet.count` can send
+`count.query` requests for non-empty NIP-01 filter arrays and receives exact
+aggregate counts from the fixture/event store without event payloads. Disable
+the relay domain to disable count as well.
+
 Paja provides a generated development signer by default, so
 `identity.getPublicKey` returns a usable pubkey even without external signer
 setup. The signer controls can switch to a browser NIP-07 signer or to a

@@ -1,6 +1,6 @@
 /**
  * @kehto/acl — NAP/NAP domain capability resolution (8 canonical + config,
- * resource, cvm, outbox, upload, intent).
+ * resource, cvm, outbox, upload, intent, count).
  *
  * Maps NAP message types (e.g., 'relay.subscribe', 'identity.getProfile') to
  * the capability strings required by sender and recipient. This is the
@@ -61,6 +61,17 @@ export interface CapabilityResolution {
 function relayMap(action: string): CapabilityResolution {
   if (action === 'publish') return { senderCap: 'relay:write', recipientCap: 'relay:read' };
   if (action === 'publishEncrypted') return { senderCap: 'relay:write', recipientCap: null };
+  return { senderCap: 'relay:read', recipientCap: null };
+}
+
+/**
+ * `count.*` — NAP-COUNT read-side filter counts.
+ *
+ * Count requests depend on relay/index/cache read backends but must not return
+ * event payloads. They reuse `relay:read` until the NAP-COUNT spec introduces
+ * a separate capability bit.
+ */
+function countMap(_action: string): CapabilityResolution {
   return { senderCap: 'relay:read', recipientCap: null };
 }
 
@@ -364,6 +375,7 @@ function themeMap(action: string): CapabilityResolution {
  * | `relay`    | `subscribe`, `query`, `close`, results/pushes                | `relay:read`    | `null`        |
  * | `relay`    | `publish`                                                    | `relay:write`   | `relay:read`  |
  * | `relay`    | `publishEncrypted`                                           | `relay:write`   | `null`        |
+ * | `count`    | `count`, `count.result`                                      | `relay:read`    | `null`        |
  * | `identity` | `getPublicKey`, `getRelays`                                 | `null`          | `null`        |
  * | `identity` | `getProfile/getFollows/getList/getZaps/getMutes/...`        | `identity:read` | `null`        |
  * | `keys`     | `forward`, `action`                                         | `keys:forward`  | `null`        |
@@ -427,6 +439,7 @@ export function resolveCapabilitiesNap(msg: NapMessage): CapabilityResolution {
 
   switch (domain) {
     case 'relay':    return relayMap(action);
+    case 'count':    return countMap(action);
     case 'identity': return identityMap(action);
     case 'keys':     return keysMap(action);
     case 'media':    return { senderCap: 'media:control', recipientCap: null };
