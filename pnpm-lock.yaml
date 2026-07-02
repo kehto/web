@@ -95,11 +95,11 @@ importers:
   apps/playground/napplets/ble-demo:
     dependencies:
       '@napplet/nap':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/shim':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.26.0
+        version: 0.26.0
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.10.1
@@ -114,14 +114,14 @@ importers:
   apps/playground/napplets/bot:
     dependencies:
       '@napplet/nap':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/sdk':
-        specifier: 0.20.2
-        version: 0.20.2
+        specifier: 0.22.0
+        version: 0.22.0
       '@napplet/shim':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.26.0
+        version: 0.26.0
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.10.1
@@ -136,17 +136,17 @@ importers:
   apps/playground/napplets/chat:
     dependencies:
       '@napplet/core':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/nap':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/sdk':
-        specifier: 0.20.2
-        version: 0.20.2
+        specifier: 0.22.0
+        version: 0.22.0
       '@napplet/shim':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.26.0
+        version: 0.26.0
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.10.1
@@ -161,11 +161,11 @@ importers:
   apps/playground/napplets/common-demo:
     dependencies:
       '@napplet/nap':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/shim':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.26.0
+        version: 0.26.0
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.10.1
@@ -180,17 +180,17 @@ importers:
   apps/playground/napplets/composer:
     dependencies:
       '@napplet/core':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/nap':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/sdk':
-        specifier: 0.20.2
-        version: 0.20.2
+        specifier: 0.22.0
+        version: 0.22.0
       '@napplet/shim':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.26.0
+        version: 0.26.0
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.10.1
@@ -205,14 +205,14 @@ importers:
   apps/playground/napplets/cvm-relatr:
     dependencies:
       '@napplet/nap':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/sdk':
-        specifier: 0.20.2
-        version: 0.20.2
+        specifier: 0.22.0
+        version: 0.22.0
       '@napplet/shim':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.26.0
+        version: 0.26.0
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.10.1
@@ -227,17 +227,17 @@ importers:
   apps/playground/napplets/feed:
     dependencies:
       '@napplet/core':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/nap':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/sdk':
-        specifier: 0.20.2
-        version: 0.20.2
+        specifier: 0.22.0
+        version: 0.22.0
       '@napplet/shim':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.26.0
+        version: 0.26.0
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.10.1
@@ -252,11 +252,11 @@ importers:
   apps/playground/napplets/link-demo:
     dependencies:
       '@napplet/nap':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/shim':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.26.0
+        version: 0.26.0
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.10.1
@@ -271,11 +271,11 @@ importers:
   apps/playground/napplets/lists-demo:
     dependencies:
       '@napplet/nap':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/shim':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.26.0
+        version: 0.26.0
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.10.1
@@ -290,14 +290,14 @@ importers:
   apps/playground/napplets/preferences:
     dependencies:
       '@napplet/nap':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/sdk':
-        specifier: 0.20.2
-        version: 0.20.2
+        specifier: 0.22.0
+        version: 0.22.0
       '@napplet/shim':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.26.0
+        version: 0.26.0
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.10.1
@@ -312,14 +312,14 @@ importers:
   apps/playground/napplets/profile-viewer:
     dependencies:
       '@napplet/nap':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/sdk':
-        specifier: 0.20.2
-        version: 0.20.2
+        specifier: 0.22.0
+        version: 0.22.0
       '@napplet/shim':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.26.0
+        version: 0.26.0
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.10.1
@@ -334,14 +334,14 @@ importers:
   apps/playground/napplets/resource-demo:
     dependencies:
       '@napplet/nap':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/sdk':
-        specifier: 0.20.2
-        version: 0.20.2
+        specifier: 0.22.0
+        version: 0.22.0
       '@napplet/shim':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.26.0
+        version: 0.26.0
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.10.1
@@ -356,11 +356,11 @@ importers:
   apps/playground/napplets/serial-demo:
     dependencies:
       '@napplet/nap':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/shim':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.26.0
+        version: 0.26.0
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.10.1
@@ -375,14 +375,14 @@ importers:
   apps/playground/napplets/toaster:
     dependencies:
       '@napplet/nap':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/sdk':
-        specifier: 0.20.2
-        version: 0.20.2
+        specifier: 0.22.0
+        version: 0.22.0
       '@napplet/shim':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.26.0
+        version: 0.26.0
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.10.1
@@ -397,11 +397,11 @@ importers:
   apps/playground/napplets/webrtc-demo:
     dependencies:
       '@napplet/nap':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/shim':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.26.0
+        version: 0.26.0
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.10.1
@@ -422,11 +422,11 @@ importers:
   packages/acl:
     devDependencies:
       '@napplet/core':
-        specifier: '>=0.23.0 <0.25.0'
-        version: 0.24.0
+        specifier: '>=0.23.0 <0.26.0'
+        version: 0.25.0
       '@napplet/nap':
-        specifier: '>=0.23.0 <0.25.0'
-        version: 0.24.0
+        specifier: '>=0.23.0 <0.26.0'
+        version: 0.25.0
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.15)(typescript@5.9.3)(yaml@2.8.3)
@@ -441,11 +441,11 @@ importers:
         version: link:../paja
     devDependencies:
       '@napplet/core':
-        specifier: '>=0.23.0 <0.25.0'
-        version: 0.24.0
+        specifier: '>=0.23.0 <0.26.0'
+        version: 0.25.0
       '@napplet/nap':
-        specifier: '>=0.23.0 <0.25.0'
-        version: 0.24.0
+        specifier: '>=0.23.0 <0.26.0'
+        version: 0.25.0
       nostr-tools:
         specifier: ^2.23.3
         version: 2.23.3(typescript@5.9.3)
@@ -462,8 +462,8 @@ importers:
   packages/firewall:
     devDependencies:
       '@napplet/core':
-        specifier: '>=0.23.0 <0.25.0'
-        version: 0.24.0
+        specifier: '>=0.23.0 <0.26.0'
+        version: 0.25.0
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.15)(typescript@5.9.3)(yaml@2.8.3)
@@ -515,11 +515,11 @@ importers:
         version: link:../wm
     devDependencies:
       '@napplet/core':
-        specifier: '>=0.23.0 <0.25.0'
-        version: 0.24.0
+        specifier: '>=0.23.0 <0.26.0'
+        version: 0.25.0
       '@napplet/nap':
-        specifier: '>=0.23.0 <0.25.0'
-        version: 0.24.0
+        specifier: '>=0.23.0 <0.26.0'
+        version: 0.25.0
       nostr-tools:
         specifier: ^2.23.3
         version: 2.23.3(typescript@5.9.3)
@@ -549,11 +549,11 @@ importers:
         version: 2.0.1
     devDependencies:
       '@napplet/core':
-        specifier: '>=0.23.0 <0.25.0'
-        version: 0.24.0
+        specifier: '>=0.23.0 <0.26.0'
+        version: 0.25.0
       '@napplet/nap':
-        specifier: '>=0.23.0 <0.25.0'
-        version: 0.24.0
+        specifier: '>=0.23.0 <0.26.0'
+        version: 0.25.0
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.15)(typescript@5.9.3)(yaml@2.8.3)
@@ -571,11 +571,11 @@ importers:
         version: link:../runtime
     devDependencies:
       '@napplet/core':
-        specifier: '>=0.23.0 <0.25.0'
-        version: 0.24.0
+        specifier: '>=0.23.0 <0.26.0'
+        version: 0.25.0
       '@napplet/nap':
-        specifier: '>=0.23.0 <0.25.0'
-        version: 0.24.0
+        specifier: '>=0.23.0 <0.26.0'
+        version: 0.25.0
       nostr-tools:
         specifier: ^2.23.3
         version: 2.23.3(typescript@5.9.3)
@@ -599,14 +599,14 @@ importers:
         version: link:../runtime
     devDependencies:
       '@napplet/core':
-        specifier: '>=0.23.0 <0.25.0'
-        version: 0.24.0
+        specifier: '>=0.23.0 <0.26.0'
+        version: 0.25.0
       '@napplet/nap':
-        specifier: '>=0.23.0 <0.25.0'
-        version: 0.24.0
+        specifier: '>=0.23.0 <0.26.0'
+        version: 0.25.0
       '@napplet/shim':
-        specifier: ^0.24.0
-        version: 0.24.0
+        specifier: ^0.26.0
+        version: 0.26.0
       nostr-tools:
         specifier: ^2.23.3
         version: 2.23.3(typescript@5.9.3)
@@ -645,14 +645,14 @@ importers:
   tests/fixtures/napplets/nap-identity:
     dependencies:
       '@napplet/nap':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/sdk':
-        specifier: 0.20.2
-        version: 0.20.2
+        specifier: 0.22.0
+        version: 0.22.0
       '@napplet/shim':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.26.0
+        version: 0.26.0
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.10.1
@@ -667,14 +667,14 @@ importers:
   tests/fixtures/napplets/nap-inc:
     dependencies:
       '@napplet/nap':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/sdk':
-        specifier: 0.20.2
-        version: 0.20.2
+        specifier: 0.22.0
+        version: 0.22.0
       '@napplet/shim':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.26.0
+        version: 0.26.0
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.10.1
@@ -689,14 +689,14 @@ importers:
   tests/fixtures/napplets/nap-notify:
     dependencies:
       '@napplet/nap':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/sdk':
-        specifier: 0.20.2
-        version: 0.20.2
+        specifier: 0.22.0
+        version: 0.22.0
       '@napplet/shim':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.26.0
+        version: 0.26.0
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.10.1
@@ -711,17 +711,17 @@ importers:
   tests/fixtures/napplets/nap-relay:
     dependencies:
       '@napplet/core':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/nap':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/sdk':
-        specifier: 0.20.2
-        version: 0.20.2
+        specifier: 0.22.0
+        version: 0.22.0
       '@napplet/shim':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.26.0
+        version: 0.26.0
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.10.1
@@ -736,14 +736,14 @@ importers:
   tests/fixtures/napplets/nap-storage:
     dependencies:
       '@napplet/nap':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/sdk':
-        specifier: 0.20.2
-        version: 0.20.2
+        specifier: 0.22.0
+        version: 0.22.0
       '@napplet/shim':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.26.0
+        version: 0.26.0
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.10.1
@@ -758,14 +758,14 @@ importers:
   tests/fixtures/napplets/nap-theme:
     dependencies:
       '@napplet/nap':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.25.0
+        version: 0.25.0
       '@napplet/sdk':
-        specifier: 0.20.2
-        version: 0.20.2
+        specifier: 0.22.0
+        version: 0.22.0
       '@napplet/shim':
-        specifier: 0.24.0
-        version: 0.24.0
+        specifier: 0.26.0
+        version: 0.26.0
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.10.1
@@ -1327,33 +1327,22 @@ packages:
       '@emnapi/core': ^1.7.1
       '@emnapi/runtime': ^1.7.1
 
-  '@napplet/core@0.23.0':
-    resolution: {integrity: sha512-nU18uQIIScAssKUzh5t3Os/2AsFeIB4B6RXWfa5mebUQClGT4CCTbVR7FiyvJyzraLs0f3XP7To8koeMi2EdmQ==}
+  '@napplet/core@0.25.0':
+    resolution: {integrity: sha512-XRaVCRpzqW8+A8NsZYWYlxg2vXDbmHVgtjSGGS6OS6500CffZjFeG/SOJO1pRKtNnIG4aU57ti7lYi/Bh7POag==}
 
-  '@napplet/core@0.24.0':
-    resolution: {integrity: sha512-VAyuyrhFBAqsCAuFqebIvEBFEW5iVcx5eqSermfusnlPeY9p35r8RmnPr3YmFifxeD98UJUXvehW2MbFabdjcg==}
-
-  '@napplet/nap@0.23.0':
-    resolution: {integrity: sha512-p92vgAtoNdO6tYZUamXH+x+Ij7OuN+HryZi+sgoEF17nsLRWsMY/5WN5nW9bLoSB39zYMyir4K/RPtu1AA5hKw==}
+  '@napplet/nap@0.25.0':
+    resolution: {integrity: sha512-KluR6AWs9BBj5FOoJjS4tHycqddAUaXdKIPE098VaBULIPl1JgzIhKLvgky5QcRM2kX/unbpbuOdO9iXheYZDg==}
     peerDependencies:
       json-schema-to-ts: ^3.1.1
     peerDependenciesMeta:
       json-schema-to-ts:
         optional: true
 
-  '@napplet/nap@0.24.0':
-    resolution: {integrity: sha512-BPG6iL1idc3WtbSPTIW1yr/qUiHMAzmEawbhEqhEQeJwfu/zknNPUNRNV+kAOW6IrYtFoUuBiQeKwxpj0/CYxg==}
-    peerDependencies:
-      json-schema-to-ts: ^3.1.1
-    peerDependenciesMeta:
-      json-schema-to-ts:
-        optional: true
+  '@napplet/sdk@0.22.0':
+    resolution: {integrity: sha512-F3d68JOsiyQLeQE3ep7B//PWVCgMYp2/VaX5mgZKvecqcJfihj/ia5+iohFxOn3aYZCjOXR2Zpc7EztkPuVL0A==}
 
-  '@napplet/sdk@0.20.2':
-    resolution: {integrity: sha512-klr1s1m/T6Dz+P6Q6IjhIFY4s0H8Y1t8m/+Bjr/7g7yYpoVahlcmx9Pp5lB7DXbcZ+C9l7DsZpvIV9Ecv0wMXA==}
-
-  '@napplet/shim@0.24.0':
-    resolution: {integrity: sha512-WtElzt8m6mlfng1uchaw2FcOQxNhqM2EQTSWVwwyLC/hMEIi4447vsiImNY59qz3y6ofjTdF5JP6u2sJVMDKAQ==}
+  '@napplet/shim@0.26.0':
+    resolution: {integrity: sha512-0SkWS6S5SOt9HQJJ8Bf1JDvvD/PySksW3Xon41Dm9oveNNS0nQpRDeaZew9Nf0jLTghyrCVUpvAZtq5kzDEUcg==}
 
   '@napplet/vite-plugin@0.10.1':
     resolution: {integrity: sha512-bIIQ+9El5+jIVvx1QZahvdCm8VXhtwMPg1cigypJ+0K755CyZBuxtuiA6mbZJ0NBVdi1tPQFvJY72DZiQu1IWA==}
@@ -3670,29 +3659,23 @@ snapshots:
       '@tybys/wasm-util': 0.10.1
     optional: true
 
-  '@napplet/core@0.23.0': {}
+  '@napplet/core@0.25.0': {}
 
-  '@napplet/core@0.24.0': {}
-
-  '@napplet/nap@0.23.0':
+  '@napplet/nap@0.25.0':
     dependencies:
-      '@napplet/core': 0.23.0
+      '@napplet/core': 0.25.0
 
-  '@napplet/nap@0.24.0':
+  '@napplet/sdk@0.22.0':
     dependencies:
-      '@napplet/core': 0.24.0
-
-  '@napplet/sdk@0.20.2':
-    dependencies:
-      '@napplet/core': 0.23.0
-      '@napplet/nap': 0.23.0
+      '@napplet/core': 0.25.0
+      '@napplet/nap': 0.25.0
     transitivePeerDependencies:
       - json-schema-to-ts
 
-  '@napplet/shim@0.24.0':
+  '@napplet/shim@0.26.0':
     dependencies:
-      '@napplet/core': 0.23.0
-      '@napplet/nap': 0.23.0
+      '@napplet/core': 0.25.0
+      '@napplet/nap': 0.25.0
     transitivePeerDependencies:
       - json-schema-to-ts
 

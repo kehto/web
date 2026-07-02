@@ -6,6 +6,7 @@ export const PAJA_UPSTREAM_WEB_DOMAINS = [
   'ble',
   'common',
   'config',
+  'count',
   'cvm',
   'dm',
   'identity',
