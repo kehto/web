@@ -1,5 +1,19 @@
 # @kehto/cli
 
+## 0.2.8
+
+### Patch Changes
+
+- Accept the released NAP-COUNT-capable `@napplet/core` and `@napplet/nap`
+  `0.25.x` line in published package metadata.
+
+  The NAP-COUNT implementation was versioned before the matching napplet package
+  release landed, so this patch updates peer/dev ranges and local package graph
+  guards without changing Kehto runtime behavior.
+
+- Updated dependencies
+  - @kehto/paja@0.5.1
+
 ## 0.2.7
 
 ### Patch Changes

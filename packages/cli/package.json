@@ -1,6 +1,6 @@
 {
   "name": "@kehto/cli",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "Top-level Kehto CLI for local napplet authoring and runtime tooling",
   "type": "module",
   "main": "./dist/index.js",
