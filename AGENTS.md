@@ -151,9 +151,10 @@ registration. Do not run `pnpm publish-packages` locally.
    bumps `package.json`, syncs `jsr.json`, and writes changelog text into package
    `CHANGELOG.md` files. `publish.yml` never publishes.
 3. Merge the Version Packages PR after CI is green. Then trigger the release: push the
-   `v<next>` tag (or run `release.yml` via `workflow_dispatch`). `release.yml` builds,
-   type-checks, runs `changeset publish` (npm) via OIDC, then topologically ordered
-   `npx jsr publish` for every `packages/*`.
+   `v<next>` tag (or run `release.yml` via `workflow_dispatch`). Branch protection
+   owns the required CI gate before merge; `release.yml` only builds publish artifacts,
+   runs `changeset publish` (npm) via OIDC, then topologically ordered `npx jsr publish`
+   for every `packages/*`.
 4. `release.yml` also accepts manual `workflow_dispatch` for recovery (e.g. finishing a
    partial release, or re-publishing JSR after npm). npm/JSR skip already-published
    versions, so re-dispatch is safe.
@@ -208,11 +209,13 @@ split across two workflows:
 - **`publish.yml` (versioning only):** after CI succeeds on `main`, merging feature PRs
   with changesets makes it create/update the **Version Packages** PR (`changeset version`
   + `jsr.json` sync). It does **not** publish.
-- **`release.yml` (publishing):** publishes to **npm** (`changeset publish`) and **JSR**
-  (`npx jsr publish` per `packages/*`), both via npm/JSR **OIDC Trusted Publishing**. It is
-  the **only** workflow that publishes, because npm Trusted Publishing keys on the workflow
-  filename — only one workflow can publish a given package, and `release.yml` holds that
-  registration. Triggered by pushing a `v*` tag, or via `workflow_dispatch` (recovery).
+- **`release.yml` (publishing):** builds publish artifacts, then publishes to **npm**
+  (`changeset publish`) and **JSR** (`npx jsr publish` per `packages/*`), both via npm/JSR
+  **OIDC Trusted Publishing**. It does not rerun CI validation; branch protection must
+  require the CI workflow before release commits reach `main`. It is the **only** workflow
+  that publishes, because npm Trusted Publishing keys on the workflow filename — only one
+  workflow can publish a given package, and `release.yml` holds that registration.
+  Triggered by pushing a `v*` tag, or via `workflow_dispatch` (recovery).
 
 So a release is: merge feature PR → `publish.yml` opens the Version Packages PR → merge it
 → push the `v<next>` tag (or dispatch `release.yml`) → `release.yml` publishes npm + JSR.
