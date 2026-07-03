@@ -245,7 +245,7 @@ function cvmMap(action: string): CapabilityResolution {
  * - `getEvent` / `query` / `subscribe` / `close` / `resolveRelays` (and any other
  *   napplet-originated request)                        → sender `outbox:read`,
  *   recipient `null`.
- * - `event` / `eose` / `closed` / `*.result` / `*.error` (shell → napplet
+ * - `event` / `closed` / `*.result` / `*.error` (shell → napplet
  *   pushes)                                            → sender `null`,
  *   recipient `outbox:read`. The push is gated against the receiving napplet's
  *   cap so a napplet without `outbox:read` never sees results or streamed
@@ -255,7 +255,6 @@ function outboxMap(action: string): CapabilityResolution {
   // Shell-originated pushes: recipient gate (napplet must hold outbox:read to see them).
   if (
     action === 'event' ||
-    action === 'eose' ||
     action === 'closed' ||
     action.endsWith('.result') ||
     action.endsWith('.error')

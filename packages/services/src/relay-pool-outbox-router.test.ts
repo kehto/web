@@ -3,8 +3,8 @@
  *
  * Drives a controllable mock OutboxRelayPool (one subscription per relay) to
  * exercise NIP-65 relay resolution, per-relay fanout + dedup + relay
- * attribution, signature validation, query limit/timeout/incomplete, live vs
- * one-shot subscriptions, and signed publish fanout.
+ * attribution, signature validation, query limit/timeout/incomplete, live
+ * subscriptions, and signed publish fanout.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -102,16 +102,6 @@ describe('createRelayPoolOutboxRouter', () => {
     it('write direction → author READ relays (inbox model)', async () => {
       const plan = await router.resolveRelays({ pubkey: PK_A, direction: 'write' });
       expect(plan).toEqual({ relays: ['wss://a-read'], source: 'nip65' });
-    });
-
-    it('strategy "outbox" forces write relays even for write direction', async () => {
-      const plan = await router.resolveRelays({ pubkey: PK_A, direction: 'write', strategy: 'outbox' });
-      expect(plan.relays).toEqual(['wss://a-write']);
-    });
-
-    it('strategy "inbox" forces read relays even for read direction', async () => {
-      const plan = await router.resolveRelays({ pubkey: PK_A, direction: 'read', strategy: 'inbox' });
-      expect(plan.relays).toEqual(['wss://a-read']);
     });
 
     it('aggregates multiple authors and dedups', async () => {
@@ -268,11 +258,11 @@ describe('createRelayPoolOutboxRouter', () => {
   });
 
   describe('subscribe', () => {
-    it('streams attributed events and one eose after all relays EOSE (live keeps open)', async () => {
+    it('streams attributed events and ignores relay EOSE at the outbox lifecycle boundary', async () => {
       const pool = makePool();
       const router = makeRouter(pool);
       const events: Array<{ content: string; relayHints?: string[] }> = [];
-      const sub = router.subscribe([{ authors: [PK_A, PK_B] }], { live: true }, {
+      const sub = router.subscribe([{ authors: [PK_A, PK_B] }], undefined, {
         event: (result) => events.push({ content: result.event.content, relayHints: result.sidecar?.relayHints }),
         closed: () => { /* ignore */ },
       });
@@ -286,23 +276,8 @@ describe('createRelayPoolOutboxRouter', () => {
         { content: 's1', relayHints: ['wss://a-write'] },
         { content: 's2', relayHints: ['wss://b-write'] },
       ]);
-      expect(pool.subs.some((s) => !s.closed)).toBe(true); // still open (live)
+      expect(pool.subs.some((s) => !s.closed)).toBe(true);
       sub.close();
-      expect(pool.subs.every((s) => s.closed)).toBe(true);
-    });
-
-    it('one-shot (live:false) closes after eose', async () => {
-      const pool = makePool();
-      const router = makeRouter(pool);
-      let closed = false;
-      router.subscribe([{ authors: [PK_A] }], { live: false }, {
-        event: () => { /* ignore */ },
-        closed: () => { closed = true; },
-      });
-      await tick();
-      pool.eoseAll();
-      await tick();
-      expect(closed).toBe(true);
       expect(pool.subs.every((s) => s.closed)).toBe(true);
     });
 

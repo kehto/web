@@ -459,6 +459,10 @@ describe('resolveCapabilitiesNap', () => {
       expect(resolveCapabilitiesNap({ type: 'outbox.closed' })).toEqual({ senderCap: null, recipientCap: 'outbox:read' });
     });
 
+    it('outbox.eose is not a NAP-OUTBOX shell push', () => {
+      expect(resolveCapabilitiesNap({ type: 'outbox.eose' })).toEqual({ senderCap: 'outbox:read', recipientCap: null });
+    });
+
     it('outbox.unknown -> sender outbox:read (default sender gate fallthrough)', () => {
       expect(resolveCapabilitiesNap({ type: 'outbox.unknown' })).toEqual({ senderCap: 'outbox:read', recipientCap: null });
     });

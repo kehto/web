@@ -18,9 +18,6 @@
  * - reading an author's events  → their **write** relays (where they publish)
  * - writing to reach an author   → their **read**  relays (their inbox)
  *
- * `strategy` overrides the direction default: `outbox` forces write relays,
- * `inbox` forces read relays, `auto` (default) follows the read/write direction.
- *
  * @example
  * ```ts
  * import { createOutboxService, createRelayPoolOutboxRouter } from '@kehto/services';
@@ -51,7 +48,6 @@ import type {
   OutboxQueryOptions,
   OutboxSubscribeOptions,
   OutboxPublishOptions,
-  OutboxStrategy,
   OutboxTarget,
   OutboxSubscriptionSink,
   OutboxRouterSubscription,
@@ -157,16 +153,6 @@ function deriveAuthors(filters: NostrFilter[], optionAuthors?: string[]): string
   return [...authors];
 }
 
-/**
- * Whether a resolved plan should use authors' write relays (true) or read
- * relays (false), given the read/write direction and an explicit strategy.
- */
-function wantsWriteRelays(direction: 'read' | 'write', strategy: OutboxStrategy): boolean {
-  if (strategy === 'outbox') return true;
-  if (strategy === 'inbox') return false;
-  return direction === 'read'; // auto: reading → author write relays
-}
-
 /** Apply the relay gate to a candidate set, deduplicating. */
 function allowed(ctx: RouterCtx, urls: Iterable<string>): string[] {
   const out = new Set<string>();
@@ -184,10 +170,9 @@ async function resolvePlan(
   ctx: RouterCtx,
   pubkeys: string[],
   direction: 'read' | 'write',
-  strategy: OutboxStrategy,
   relayHints?: string[],
 ): Promise<OutboxRelayPlan> {
-  const useWrite = wantsWriteRelays(direction, strategy);
+  const useWrite = direction === 'read';
   const collected = new Set<string>();
   const missingAuthors: string[] = [];
   let sawNip65 = false;
@@ -321,9 +306,8 @@ async function queryImpl(ctx: RouterCtx, filters: NostrFilter[], options?: Outbo
   if (!ctx.relayPool.isAvailable()) {
     return { events: [], incomplete: true, error: 'relay list unavailable' };
   }
-  const strategy = options?.strategy ?? 'auto';
   const authors = deriveAuthors(filters, options?.authors);
-  const plan = await resolvePlan(ctx, authors, 'read', strategy, options?.relays);
+  const plan = await resolvePlan(ctx, authors, 'read', options?.relays);
   if (plan.relays.length === 0) {
     return { events: [], incomplete: true, error: 'relay list unavailable' };
   }
@@ -353,7 +337,6 @@ async function getEventImpl(ctx: RouterCtx, eventId: string, options?: OutboxEve
     queryOptions.authors = [options.author];
   }
   if (Array.isArray(options?.relays)) queryOptions.relays = options.relays;
-  if (options?.strategy !== undefined) queryOptions.strategy = options.strategy;
   if (options?.timeoutMs !== undefined) queryOptions.timeoutMs = options.timeoutMs;
 
   const queryResult = await queryImpl(ctx, [filter], queryOptions);
@@ -366,14 +349,11 @@ async function getEventImpl(ctx: RouterCtx, eventId: string, options?: OutboxEve
   return result;
 }
 
-/** Tracks a live/one-shot subscription across its per-relay fan-out. */
+/** Tracks an outbox subscription across its per-relay fan-out. */
 interface LiveSub {
   handles: { unsubscribe(): void }[];
   seen: Set<string>;
   closed: boolean;
-  eoseCount: number;
-  relayCount: number;
-  eoseSent: boolean;
 }
 
 function closeLiveSub(sub: LiveSub): void {
@@ -383,25 +363,17 @@ function closeLiveSub(sub: LiveSub): void {
   sub.handles.length = 0;
 }
 
-/** Wire one relay's subscription into a live subscription's event/eose flow. */
+/** Wire one relay's subscription into an outbox subscription's event flow. */
 function attachLiveRelay(
   ctx: RouterCtx,
   sub: LiveSub,
   filters: NostrFilter[],
   relayUrl: string,
-  live: boolean,
   sink: OutboxSubscriptionSink,
 ): void {
   sub.handles.push(relayPoolSubscribe(ctx, filters, relayUrl, (item) => {
     if (sub.closed) return;
-    if (item === 'EOSE') {
-      sub.eoseCount += 1;
-      if (!sub.eoseSent && sub.eoseCount >= sub.relayCount) {
-        sub.eoseSent = true;
-        if (!live) { sub.closed = true; closeLiveSub(sub); sink.closed(); }
-      }
-      return;
-    }
+    if (item === 'EOSE') return;
     if (sub.seen.has(item.id)) return;
     void ctx.verify(item).then((ok) => {
       if (!ok || sub.closed || sub.seen.has(item.id)) return;
@@ -417,17 +389,14 @@ function startSubscription(
   options: OutboxSubscribeOptions | undefined,
   sink: OutboxSubscriptionSink,
 ): OutboxRouterSubscription {
-  const live = options?.live ?? true;
-  const strategy = options?.strategy ?? 'auto';
   const authors = deriveAuthors(filters, options?.authors);
-  const sub: LiveSub = { handles: [], seen: new Set(), closed: false, eoseCount: 0, relayCount: 0, eoseSent: false };
+  const sub: LiveSub = { handles: [], seen: new Set(), closed: false };
 
-  void resolvePlan(ctx, authors, 'read', strategy, options?.relays)
+  void resolvePlan(ctx, authors, 'read', options?.relays)
     .then((plan) => {
       if (sub.closed) return;
       if (plan.relays.length === 0) { sink.closed('relay list unavailable'); return; }
-      sub.relayCount = plan.relays.length;
-      for (const relayUrl of plan.relays) attachLiveRelay(ctx, sub, filters, relayUrl, live, sink);
+      for (const relayUrl of plan.relays) attachLiveRelay(ctx, sub, filters, relayUrl, sink);
     })
     .catch((err) => {
       if (!sub.closed) sink.closed(err instanceof Error ? err.message : 'subscribe failed');
@@ -448,16 +417,15 @@ async function resolvePublishTargets(
   signed: NostrEvent,
   options?: OutboxPublishOptions,
 ): Promise<string[]> {
-  const strategy = options?.strategy ?? 'auto';
   const targets = new Set<string>();
 
   // The author's own write relays (outbox model for the user's own event).
-  const authorPlan = await resolvePlan(ctx, [signed.pubkey], 'read', strategy === 'inbox' ? 'auto' : 'outbox');
+  const authorPlan = await resolvePlan(ctx, [signed.pubkey], 'read');
   for (const url of authorPlan.relays) targets.add(url);
 
   // Directed events: include recipients' read relays (their inbox).
   if (options?.targetAuthors && options.targetAuthors.length > 0) {
-    const inboxPlan = await resolvePlan(ctx, options.targetAuthors, 'write', 'inbox');
+    const inboxPlan = await resolvePlan(ctx, options.targetAuthors, 'write');
     for (const url of inboxPlan.relays) targets.add(url);
   }
 
@@ -536,7 +504,7 @@ export function createRelayPoolOutboxRouter(options: RelayPoolOutboxRouterOption
     publish: (template, publishOptions) => publishImpl(ctx, template, publishOptions),
     resolveRelays: (target: OutboxTarget) => {
       const pubkeys = target.authors ?? (target.pubkey ? [target.pubkey] : []);
-      return resolvePlan(ctx, pubkeys, target.direction ?? 'read', target.strategy ?? 'auto');
+      return resolvePlan(ctx, pubkeys, target.direction ?? 'read');
     },
   };
 }

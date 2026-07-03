@@ -319,6 +319,9 @@ describe('NIP-5D conformance static guards', () => {
     const relayHandlerSrc = readRepoFile('packages/runtime/src/relay-handler.ts');
     const relayTypes = readRepoFile(`${installedNapDist}/relay/types.d.ts`);
     const outboxServiceSrc = readRepoFile('packages/services/src/outbox-service.ts');
+    const outboxRouterSrc = readRepoFile('packages/services/src/relay-pool-outbox-router.ts');
+    const removedOutboxEose = `outbox.${'eose'}`;
+    const removedStrategyType = `Outbox${'Strategy'}`;
 
     // (a) relay-handler.ts replies with 'relay.query.result'
     expect(relayHandlerSrc, 'relay-handler must emit relay.query.result').toContain(
@@ -350,7 +353,22 @@ describe('NIP-5D conformance static guards', () => {
 
     // (e) NAP-OUTBOX no longer exposes outbox.eose; relay EOSE remains local to NAP-RELAY.
     expect(outboxServiceSrc, 'outbox service must not emit outbox.eose').not.toContain(
-      "'outbox.eose'",
+      `'${removedOutboxEose}'`,
+    );
+    expect(outboxServiceSrc, 'outbox service API must not export OutboxStrategy').not.toContain(
+      removedStrategyType,
+    );
+    expect(outboxServiceSrc, 'outbox service options must not expose strategy').not.toContain(
+      'strategy?:',
+    );
+    expect(outboxServiceSrc, 'outbox subscribe options must not expose live').not.toContain(
+      'live?:',
+    );
+    expect(outboxRouterSrc, 'outbox router must not consume caller strategy').not.toContain(
+      removedStrategyType,
+    );
+    expect(outboxRouterSrc, 'outbox router must not consume subscribe live option').not.toContain(
+      'options?.live',
     );
 
     // (f) Installed RelayQueryResultMessage interface carries 'events', not 'count'
