@@ -118,6 +118,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260703-ghc | Align Kehto raw read-style NAP event surfaces with RelayEventResult sidecars and remove outbox.eose exposure | 2026-07-03 | 8aa2123 | [260703-ghc-align-kehto-raw-read-style-nap-event-sur](./quick/260703-ghc-align-kehto-raw-read-style-nap-event-sur/) |
 | 260703-nva | Fix kehto paja to use NIP-5D event kinds instead of NIP-5A event kinds | 2026-07-03 | e8cedd0 | [260703-nva-fix-kehto-paja-to-use-nip-5d-event-kinds](./quick/260703-nva-fix-kehto-paja-to-use-nip-5d-event-kinds/) |
 | 260703-oi0 | Use <= in package dependency upper bounds for issue #139 | 2026-07-03 | 89f4c11 | [260703-oi0-use-in-package-dependency-upper-bounds-f](./quick/260703-oi0-use-in-package-dependency-upper-bounds-f/) |
+| 260703-pwi | Resolve PR #138 conflicts with current main | 2026-07-03 | 6ebab4e | [260703-pwi-resolve-pr-138-conflicts-with-current-ma](./quick/260703-pwi-resolve-pr-138-conflicts-with-current-ma/) |
 
 ## Session Continuity
 
