@@ -52,7 +52,7 @@ Provide a modular, framework-agnostic runtime for hosting napplet applications â
 - **ESM-only**: No CJS output
 - **Zero framework deps**: Framework-agnostic (no Svelte, React, Vue)
 - **@napplet/core peer dep**: All packages depend on @napplet/core for protocol types
-- **nostr-tools peer dep**: Shell depends on nostr-tools >=2.23.3 <3.0.0
+- **nostr-tools peer dep**: Shell depends on nostr-tools >=2.23.3 <=2.x
 - **Monorepo tooling**: pnpm workspaces + turborepo + tsup + changesets
 
 ## Relationship to @napplet
