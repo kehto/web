@@ -50,6 +50,7 @@ export {
 export { renderPajaHtml } from './host-page.js';
 export {
   PAJA_NAPPLET_MANIFEST_KIND,
+  PAJA_NAPPLET_MANIFEST_KINDS,
   decodePajaPointer,
   injectPajaRuntimeCsp,
   resolvePajaPointer,

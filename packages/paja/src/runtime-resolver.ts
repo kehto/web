@@ -4,12 +4,18 @@ import { SimplePool } from 'nostr-tools/pool';
 import { decode } from 'nostr-tools/nip19';
 import {
   fetchBlob,
+  isNappletManifestKind,
+  NAPPLET_KIND_NAMED,
+  NAPPLET_KINDS,
   openNappletArtifactCache,
   resolveNapplet,
   type ResolvedNapplet,
 } from '@kehto/nip/5d';
 
-export const PAJA_NAPPLET_MANIFEST_KIND = 35129;
+/** Named/addressable NIP-5D napplet manifest kind (`35129`). */
+export const PAJA_NAPPLET_MANIFEST_KIND = NAPPLET_KIND_NAMED;
+/** All NIP-5D napplet manifest kinds accepted by Paja pointers (`5129`, `15129`, `35129`). */
+export const PAJA_NAPPLET_MANIFEST_KINDS = NAPPLET_KINDS;
 
 export type PajaDecodedPointer =
   | {
@@ -160,18 +166,18 @@ async function resolvePointerEvent(
   if (!event) {
     throw new Error(`No napplet manifest event found for ${pointer.type} pointer.`);
   }
-  if (event.kind !== PAJA_NAPPLET_MANIFEST_KIND) {
-    throw new Error(`Pointer resolved kind ${event.kind}; expected ${PAJA_NAPPLET_MANIFEST_KIND}.`);
+  if (!isNappletManifestKind(event.kind)) {
+    throw new Error(`Pointer resolved kind ${event.kind}; expected ${formatNappletManifestKinds()}.`);
   }
   return event;
 }
 
 function addressableFilter(pointer: Extract<PajaDecodedPointer, { type: 'naddr' }>): Filter {
-  if (pointer.kind !== PAJA_NAPPLET_MANIFEST_KIND) {
-    throw new Error(`naddr kind ${pointer.kind} is not a napplet manifest kind.`);
+  if (pointer.kind !== NAPPLET_KIND_NAMED) {
+    throw new Error(`naddr kind ${pointer.kind} is not a named NIP-5D napplet manifest kind.`);
   }
   return {
-    kinds: [PAJA_NAPPLET_MANIFEST_KIND],
+    kinds: [NAPPLET_KIND_NAMED],
     authors: [pointer.pubkey],
     '#d': [pointer.identifier],
     limit: 1,
@@ -231,4 +237,8 @@ function escapeAttribute(value: string): string {
     .replaceAll('"', '&quot;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;');
+}
+
+function formatNappletManifestKinds(): string {
+  return PAJA_NAPPLET_MANIFEST_KINDS.join(' / ');
 }
