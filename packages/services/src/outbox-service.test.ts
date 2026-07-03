@@ -84,7 +84,7 @@ describe('createOutboxService', () => {
         type: 'outbox.getEvent',
         id: 'e1',
         eventId: EVENT.id,
-        options: { author: EVENT.pubkey, strategy: 'outbox', timeoutMs: 1000 },
+        options: { author: EVENT.pubkey, timeoutMs: 1000 },
       } as NappletMessage, c.send);
       await Promise.resolve();
 
@@ -174,7 +174,7 @@ describe('createOutboxService', () => {
         type: 'outbox.query',
         id: 'q2',
         filters: [{ authors: ['ab'] }],
-        options: { authors: ['ab'], strategy: 'outbox', timeoutMs: 1000 },
+        options: { authors: ['ab'], timeoutMs: 1000 },
       } as NappletMessage, c.send);
       await Promise.resolve();
       expect(router.query).toHaveBeenCalledWith([{ authors: ['ab'] }], { authors: ['ab'], timeoutMs: 1000 });
@@ -213,7 +213,7 @@ describe('createOutboxService', () => {
         id: 's1',
         subId: 'sub-1',
         filters: [{ kinds: [1] }],
-        options: { relays: ['wss://hint.test'], live: false, strategy: 'inbox' },
+        options: { relays: ['wss://hint.test'] },
       } as NappletMessage, c.send);
       expect(router.subscribe).toHaveBeenCalledWith(
         [{ kinds: [1] }],
@@ -288,7 +288,7 @@ describe('createOutboxService', () => {
         type: 'outbox.publish',
         id: 'p1',
         event: template,
-        options: { targetAuthors: [EVENT.pubkey], strategy: 'outbox' },
+        options: { targetAuthors: [EVENT.pubkey] },
       } as NappletMessage, c.send);
       await Promise.resolve();
       expect(router.publish).toHaveBeenCalledWith(template, { targetAuthors: [EVENT.pubkey] });
@@ -323,7 +323,7 @@ describe('createOutboxService', () => {
       svc.handleMessage(WINDOW, {
         type: 'outbox.resolveRelays',
         id: 'r1',
-        target: { pubkey: 'ab', direction: 'read', strategy: 'inbox' },
+        target: { pubkey: 'ab', direction: 'read' },
       } as NappletMessage, c.send);
       await Promise.resolve();
       expect(router.resolveRelays).toHaveBeenCalledWith({ pubkey: 'ab', direction: 'read' });
