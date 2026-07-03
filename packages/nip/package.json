@@ -44,7 +44,7 @@
     "access": "public"
   },
   "peerDependencies": {
-    "nostr-tools": ">=2.23.3 <3.0.0"
+    "nostr-tools": ">=2.23.3 <=2.x"
   },
   "dependencies": {
     "@noble/hashes": "^2.0.0"

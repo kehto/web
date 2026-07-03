@@ -35,6 +35,11 @@ const publicPackageDirs = [
   'packages/shell',
 ] as const;
 
+const publishedManifestDirs = [
+  ...publicPackageDirs,
+  'packages/nip',
+] as const;
+
 const protocolPackageNames = [
   '@napplet/core',
   '@napplet/nap',
@@ -121,11 +126,11 @@ describe('current @napplet package graph guard', () => {
     }
   });
 
-  it('admits only the current @napplet 0.25 line on published kehto packages', () => {
+  it('admits only the current @napplet 0.26 line on published kehto packages', () => {
     // Kehto runtime packages track the current NAP contract so new canonical
     // fields are wired through runtime, services, shell, Paja, docs, and tests.
-    const PEER_RANGE = '>=0.23.0 <0.26.0';
-    const DEV_RANGE = '>=0.23.0 <0.26.0';
+    const PEER_RANGE = '>=0.23.0 <=0.26.x';
+    const DEV_RANGE = '>=0.23.0 <=0.26.x';
     for (const dir of publicPackageDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
@@ -141,6 +146,30 @@ describe('current @napplet package graph guard', () => {
       expect(pkg.devDependencies?.['@napplet/core'], `${dir} @napplet/core dev`).toBe(DEV_RANGE);
       expect(pkg.peerDependencies?.[staleNapPackage], `${dir} ${staleNapPackage} peer`).toBeUndefined();
       expect(pkg.devDependencies?.[staleNapPackage], `${dir} ${staleNapPackage} dev`).toBeUndefined();
+    }
+  });
+
+  it('uses inclusive upper bounds in published dependency ranges', () => {
+    for (const dir of publishedManifestDirs) {
+      const packageJsonPath = join(process.cwd(), dir, 'package.json');
+      const content = readFileSync(packageJsonPath, 'utf8');
+      const pkg = JSON.parse(content) as {
+        peerDependencies?: Record<string, string>;
+        devDependencies?: Record<string, string>;
+      };
+      const ranges = [
+        ...Object.values(pkg.peerDependencies ?? {}),
+        ...Object.values(pkg.devDependencies ?? {}),
+      ];
+
+      expect(content, dir).not.toContain(' <0.26.0');
+      expect(content, dir).not.toContain(' <3.0.0');
+      expect(content, dir).not.toContain('<=0.25.x');
+      expect(ranges, `${dir} dependency ranges`).not.toContain('>=0.23.0 <0.26.0');
+      expect(ranges, `${dir} dependency ranges`).not.toContain('>=2.23.3 <3.0.0');
+      if (pkg.peerDependencies?.['nostr-tools']) {
+        expect(pkg.peerDependencies['nostr-tools'], `${dir} nostr-tools peer`).toBe('>=2.23.3 <=2.x');
+      }
     }
   });
 
