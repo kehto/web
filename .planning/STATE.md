@@ -28,7 +28,7 @@ Phase: 94 — Coverage, Docs, Release Readiness, and PR
 Plan: 94-01 — complete
 Status: v1.22 complete; branch pushed and PR #64 opened
 
-Last activity: 2026-07-03 — Fixed stale package docs version rows after the Napplet package catch-up merge.
+Last activity: 2026-07-03 — Added release preflight instructions after repeated docs/test gate release loops.
 
 ## Performance Metrics
 
@@ -123,6 +123,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260703-vfz | Chase current NAP-OUTBOX contract by removing caller-visible strategy, live, and outbox.eose controls | 2026-07-03 | fix/nap-outbox-eose-removal | [260703-vfz-chase-current-nap-outbox-contract-in-keh](./quick/260703-vfz-chase-current-nap-outbox-contract-in-keh/) |
 | 260703-w7r | Bump local napplet demo and fixture package versions to the current published Napplet packages after the NAP-OUTBOX chase | 2026-07-03 | fix/napplet-package-version-catchup | [260703-w7r-bump-local-napplet-demo-and-fixture-pack](./quick/260703-w7r-bump-local-napplet-demo-and-fixture-pack/) |
 | 260704-00s | Fix package docs version rows after the Napplet package catch-up merged on main | 2026-07-03 | fix/docs-version-rows-after-napplet-catchup | [260704-00s-fix-package-docs-version-rows-after-the-](./quick/260704-00s-fix-package-docs-version-rows-after-the-/) |
+| 260704-0qm | Fix package docs version rows after Version Packages PR 147 merged | 2026-07-03 | fix/docs-version-rows-after-version-pr-147 | [260704-0qm-fix-package-docs-version-rows-after-vers](./quick/260704-0qm-fix-package-docs-version-rows-after-vers/) |
+| 260704-0v1 | Update AGENTS.md release instructions to require checking tests and docs gates before pushing a release | 2026-07-03 | fix/docs-version-rows-after-version-pr-147 | [260704-0v1-update-agents-md-release-instructions-to](./quick/260704-0v1-update-agents-md-release-instructions-to/) |
 
 ## Session Continuity
 

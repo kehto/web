@@ -150,15 +150,31 @@ registration. Do not run `pnpm publish-packages` locally.
    and opens/updates the Version Packages PR. That PR consumes/deletes `.changeset/*.md`,
    bumps `package.json`, syncs `jsr.json`, and writes changelog text into package
    `CHANGELOG.md` files. `publish.yml` never publishes.
-3. Merge the Version Packages PR after CI is green. Then trigger the release: push the
-   `v<next>` tag (or run `release.yml` via `workflow_dispatch`). Branch protection
-   owns the required CI gate before merge; `release.yml` only builds publish artifacts,
-   runs `changeset publish` (npm) via OIDC, then topologically ordered `npx jsr publish`
-   for every `packages/*`.
-4. `release.yml` also accepts manual `workflow_dispatch` for recovery (e.g. finishing a
+3. Treat the Version Packages PR as a real release-candidate PR, not a mechanical bump.
+   Before marking it ready, verify that package docs match the bumped versions:
+   `docs/packages/<name>.md` must contain the exact `| Version | \`x.y.z\` |` row for
+   each changed `@kehto/*` package, then run `pnpm docs:check`. This check is mandatory
+   even when the only code changes are generated `package.json`, `jsr.json`, and
+   changelog updates.
+4. Merge the Version Packages PR only after its CI is green. Before pushing a `v<next>`
+   tag or manually dispatching `release.yml`, re-check the actual target commit on
+   `main`: fetch `origin/main`, identify the target SHA, and confirm the GitHub CI run
+   for that same SHA completed successfully with Build & Type-Check, Vitest, docs gate,
+   and any required Playwright job green or intentionally skipped by scope detection.
+   If GitHub does not yet show a successful CI run for the target SHA, run the local
+   fallback gates (`pnpm build`, `pnpm type-check`, `pnpm test:unit`,
+   `pnpm docs:check`, plus relevant `pnpm test:e2e`) and wait for/repair CI before
+   releasing. Never push a release tag or dispatch `release.yml` while the target SHA's
+   CI, docs, Pages, or Publish prerequisite state is failed, pending, skipped
+   unexpectedly, or belongs to an older commit.
+5. After the target SHA is verified, trigger the release: push the `v<next>` tag (or run
+   `release.yml` via `workflow_dispatch`). Branch protection owns the required CI gate
+   before merge; `release.yml` only builds publish artifacts, runs `changeset publish`
+   (npm) via OIDC, then topologically ordered `npx jsr publish` for every `packages/*`.
+6. `release.yml` also accepts manual `workflow_dispatch` for recovery (e.g. finishing a
    partial release, or re-publishing JSR after npm). npm/JSR skip already-published
    versions, so re-dispatch is safe.
-5. Every `@kehto/*` package needs an OIDC Trusted Publisher registered on npm for the
+7. Every `@kehto/*` package needs an OIDC Trusted Publisher registered on npm for the
    **`release.yml`** workflow (repo `kehto/web`) **and** a JSR package linked to `kehto/web`
    under the `@kehto` scope, or that registry's publish 404s. A 404 on a `PUT` during
    publish is npm's *unauthorized* response (not "missing") — almost always a Trusted
@@ -217,8 +233,11 @@ split across two workflows:
   workflow can publish a given package, and `release.yml` holds that registration.
   Triggered by pushing a `v*` tag, or via `workflow_dispatch` (recovery).
 
-So a release is: merge feature PR → `publish.yml` opens the Version Packages PR → merge it
-→ push the `v<next>` tag (or dispatch `release.yml`) → `release.yml` publishes npm + JSR.
+So a release is: merge feature PR → green main CI lets `publish.yml` open the Version
+Packages PR → verify Version Packages docs rows and CI → merge it → re-check the target
+main SHA's test/docs state → push the `v<next>` tag (or dispatch `release.yml`) →
+`release.yml` publishes npm + JSR. Do not tag or dispatch release from a target SHA whose
+CI/docs state is failed, pending, stale, or unverified.
 
 ```bash
 pnpm version-packages  # local dry-run/inspection only; publish.yml runs this for release PRs
