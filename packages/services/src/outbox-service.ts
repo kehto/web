@@ -39,22 +39,12 @@ import type { RelayEventResult, ServiceDescriptor, ServiceHandler } from '@kehto
 /** Outbox service version — follows semver. */
 const OUTBOX_SERVICE_VERSION = '1.0.0';
 
-/**
- * Relay-selection strategy:
- * - `outbox` — query/publish via author write relays (the outbox model)
- * - `inbox`  — query/publish via recipient read relays (the inbox model)
- * - `auto`   — let the shell choose per its policy and relay intelligence
- */
-export type OutboxStrategy = 'outbox' | 'inbox' | 'auto';
-
 /** Options for a single-event outbox lookup. */
 export interface OutboxEventOptions {
   /** Author hint for routing through the author's outbox relays. */
   author?: string;
   /** Relay hints; treated as a hint subject to shell validation, not a bypass. */
   relays?: string[];
-  /** Relay-selection strategy. */
-  strategy?: OutboxStrategy;
   /** Wall-clock budget for the lookup, in milliseconds. */
   timeoutMs?: number;
 }
@@ -65,8 +55,6 @@ export interface OutboxQueryOptions {
   authors?: string[];
   /** Relay hints; treated as a hint subject to shell validation, not a bypass. */
   relays?: string[];
-  /** Relay-selection strategy. */
-  strategy?: OutboxStrategy;
   /** Maximum events to collect. */
   limit?: number;
   /** Wall-clock budget for the query, in milliseconds. */
@@ -74,10 +62,7 @@ export interface OutboxQueryOptions {
 }
 
 /** Options for a live outbox subscription. */
-export interface OutboxSubscribeOptions extends OutboxQueryOptions {
-  /** Keep the subscription open for real-time events after EOSE. */
-  live?: boolean;
-}
+export interface OutboxSubscribeOptions extends OutboxQueryOptions {}
 
 /** Options for an outbox publish. */
 export interface OutboxPublishOptions {
@@ -85,8 +70,6 @@ export interface OutboxPublishOptions {
   relays?: string[];
   /** Recipient authors whose inbox relays should be included for directed events. */
   targetAuthors?: string[];
-  /** Relay-selection strategy. */
-  strategy?: OutboxStrategy;
 }
 
 /** A read/write target for relay-plan resolution. */
@@ -97,8 +80,6 @@ export interface OutboxTarget {
   pubkey?: string;
   /** Whether the plan is for reading (their write relays) or writing (their read relays). */
   direction?: 'read' | 'write';
-  /** Relay-selection strategy. */
-  strategy?: OutboxStrategy;
 }
 
 /** The relay plan the shell would use for a target. */
@@ -195,6 +176,67 @@ const OUTBOX_DESCRIPTOR: ServiceDescriptor = {
   description: 'NAP-OUTBOX outbox-aware relay routing — getEvent/query/subscribe/publish/resolveRelays',
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function stringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const strings = value.filter((item): item is string => typeof item === 'string');
+  return strings.length > 0 ? strings : undefined;
+}
+
+function uint(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined;
+}
+
+function sanitizeEventOptions(raw: unknown): OutboxEventOptions | undefined {
+  if (!isRecord(raw)) return undefined;
+  const out: OutboxEventOptions = {};
+  if (typeof raw.author === 'string') out.author = raw.author;
+  const relays = stringArray(raw.relays);
+  if (relays) out.relays = relays;
+  const timeoutMs = uint(raw.timeoutMs);
+  if (timeoutMs !== undefined) out.timeoutMs = timeoutMs;
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+function sanitizeQueryOptions(raw: unknown): OutboxQueryOptions | undefined {
+  if (!isRecord(raw)) return undefined;
+  const out: OutboxQueryOptions = {};
+  const authors = stringArray(raw.authors);
+  if (authors) out.authors = authors;
+  const relays = stringArray(raw.relays);
+  if (relays) out.relays = relays;
+  const limit = uint(raw.limit);
+  if (limit !== undefined) out.limit = limit;
+  const timeoutMs = uint(raw.timeoutMs);
+  if (timeoutMs !== undefined) out.timeoutMs = timeoutMs;
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+const sanitizeSubscribeOptions = sanitizeQueryOptions;
+
+function sanitizePublishOptions(raw: unknown): OutboxPublishOptions | undefined {
+  if (!isRecord(raw)) return undefined;
+  const out: OutboxPublishOptions = {};
+  const relays = stringArray(raw.relays);
+  if (relays) out.relays = relays;
+  const targetAuthors = stringArray(raw.targetAuthors);
+  if (targetAuthors) out.targetAuthors = targetAuthors;
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+function sanitizeTarget(raw: unknown): OutboxTarget | undefined {
+  if (!isRecord(raw)) return undefined;
+  const out: OutboxTarget = {};
+  const authors = stringArray(raw.authors);
+  if (authors) out.authors = authors;
+  if (typeof raw.pubkey === 'string') out.pubkey = raw.pubkey;
+  if (raw.direction === 'read' || raw.direction === 'write') out.direction = raw.direction;
+  return out;
+}
+
 /**
  * Normalize a wire `filters` field (a single NIP-01 filter or an array) into a
  * filter array. Returns `null` when the input is missing or has no usable
@@ -217,7 +259,6 @@ function buildEventQuery(eventId: string, eventOptions?: OutboxEventOptions): { 
     queryOptions.authors = [eventOptions.author];
   }
   if (Array.isArray(eventOptions?.relays)) queryOptions.relays = eventOptions.relays;
-  if (eventOptions?.strategy !== undefined) queryOptions.strategy = eventOptions.strategy;
   if (eventOptions?.timeoutMs !== undefined) queryOptions.timeoutMs = eventOptions.timeoutMs;
   return { filter, queryOptions };
 }
@@ -252,14 +293,14 @@ function sendEventResult(id: string, eventId: string, result: OutboxEventResult,
 }
 
 function handleGetEvent(router: OutboxRouter, msg: NappletMessage, send: Send): void {
-  const m = msg as NappletMessage & { id?: string; eventId?: unknown; options?: OutboxEventOptions };
+  const m = msg as NappletMessage & { id?: string; eventId?: unknown; options?: unknown };
   const id = m.id ?? '';
   if (typeof m.eventId !== 'string' || m.eventId.length === 0) {
     send({ type: 'outbox.getEvent.result', id, error: 'invalid filter' } as NappletMessage);
     return;
   }
   const getEvent = router.getEvent ?? ((eventId, eventOptions) => fallbackGetEvent(router, eventId, eventOptions));
-  void getEvent(m.eventId, m.options)
+  void getEvent(m.eventId, sanitizeEventOptions(m.options))
     .then((result) => sendEventResult(id, m.eventId as string, result, send))
     .catch((err) =>
       send({ type: 'outbox.getEvent.result', id, error: toErrorMessage(err) } as NappletMessage),
@@ -283,7 +324,7 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
   const subscriptions = new Map<string, OutboxRouterSubscription>();
 
   function handleQuery(msg: NappletMessage, send: Send): void {
-    const m = msg as NappletMessage & { id?: string; filters?: unknown; options?: OutboxQueryOptions };
+    const m = msg as NappletMessage & { id?: string; filters?: unknown; options?: unknown };
     const id = m.id ?? '';
     const filters = normalizeFilters(m.filters);
     if (!filters) {
@@ -291,7 +332,7 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
       return;
     }
     void router
-      .query(filters, m.options)
+      .query(filters, sanitizeQueryOptions(m.options))
       .then((result) =>
         send({
           type: 'outbox.query.result',
@@ -307,7 +348,7 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
   }
 
   function handleSubscribe(windowId: string, msg: NappletMessage, send: Send): void {
-    const m = msg as NappletMessage & { subId?: string; filters?: unknown; options?: OutboxSubscribeOptions };
+    const m = msg as NappletMessage & { subId?: string; filters?: unknown; options?: unknown };
     const subId = m.subId;
     if (typeof subId !== 'string' || subId.length === 0) return;
     const subKey = `${windowId}:${subId}`;
@@ -330,7 +371,7 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
       },
     };
 
-    subscriptions.set(subKey, router.subscribe(filters, m.options, sink));
+    subscriptions.set(subKey, router.subscribe(filters, sanitizeSubscribeOptions(m.options), sink));
   }
 
   function handleClose(windowId: string, msg: NappletMessage, send: Send): void {
@@ -344,14 +385,14 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
   }
 
   function handlePublish(msg: NappletMessage, send: Send): void {
-    const m = msg as NappletMessage & { id?: string; event?: EventTemplate; options?: OutboxPublishOptions };
+    const m = msg as NappletMessage & { id?: string; event?: EventTemplate; options?: unknown };
     const id = m.id ?? '';
     if (!m.event || typeof m.event !== 'object') {
       send({ type: 'outbox.publish.result', id, ok: false, error: 'invalid filter' } as NappletMessage);
       return;
     }
     void router
-      .publish(m.event, m.options)
+      .publish(m.event, sanitizePublishOptions(m.options))
       .then((result) =>
         send({
           type: 'outbox.publish.result',
@@ -369,14 +410,15 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
   }
 
   function handleResolveRelays(msg: NappletMessage, send: Send): void {
-    const m = msg as NappletMessage & { id?: string; target?: OutboxTarget };
+    const m = msg as NappletMessage & { id?: string; target?: unknown };
     const id = m.id ?? '';
-    if (!m.target || typeof m.target !== 'object') {
+    const target = sanitizeTarget(m.target);
+    if (!target) {
       send({ type: 'outbox.resolveRelays.result', id, error: 'invalid filter' } as NappletMessage);
       return;
     }
     void router
-      .resolveRelays(m.target)
+      .resolveRelays(target)
       .then((plan) => send({ type: 'outbox.resolveRelays.result', id, plan } as NappletMessage))
       .catch((err) =>
         send({ type: 'outbox.resolveRelays.result', id, error: toErrorMessage(err) } as NappletMessage),

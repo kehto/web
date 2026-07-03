@@ -120,6 +120,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260703-oi0 | Use <= in package dependency upper bounds for issue #139 | 2026-07-03 | 89f4c11 | [260703-oi0-use-in-package-dependency-upper-bounds-f](./quick/260703-oi0-use-in-package-dependency-upper-bounds-f/) |
 | 260703-pwi | Resolve PR #138 conflicts with current main | 2026-07-03 | 6ebab4e | [260703-pwi-resolve-pr-138-conflicts-with-current-ma](./quick/260703-pwi-resolve-pr-138-conflicts-with-current-ma/) |
 | 260703-qjv | Fix docs package version rows after release version bump | 2026-07-03 | fix/docs-version-rows-after-release | [260703-qjv-fix-docs-package-version-rows-after-rele](./quick/260703-qjv-fix-docs-package-version-rows-after-rele/) |
+| 260703-vfz | Chase current NAP-OUTBOX contract by removing caller-visible strategy, live, and outbox.eose controls | 2026-07-03 | fix/nap-outbox-eose-removal | [260703-vfz-chase-current-nap-outbox-contract-in-keh](./quick/260703-vfz-chase-current-nap-outbox-contract-in-keh/) |
 
 ## Session Continuity
 

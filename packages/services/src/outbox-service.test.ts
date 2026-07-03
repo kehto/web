@@ -2,7 +2,7 @@
  * outbox-service.test.ts — NAP-OUTBOX envelope-router service.
  *
  * Exercises createOutboxService against a mock OutboxRouter: getEvent/query/
- * publish/resolveRelays result marshalling, subscription event/eose/closed
+ * publish/resolveRelays result marshalling, subscription event/closed
  * streaming, close + window-teardown cleanup, and structural validation.
  */
 
@@ -88,7 +88,7 @@ describe('createOutboxService', () => {
       } as NappletMessage, c.send);
       await Promise.resolve();
 
-      expect(router.getEvent).toHaveBeenCalledWith(EVENT.id, { author: EVENT.pubkey, strategy: 'outbox', timeoutMs: 1000 });
+      expect(router.getEvent).toHaveBeenCalledWith(EVENT.id, { author: EVENT.pubkey, timeoutMs: 1000 });
       expect(c.sent[0]).toEqual({
         type: 'outbox.getEvent.result',
         id: 'e1',
@@ -170,9 +170,14 @@ describe('createOutboxService', () => {
 
     it('passes options through and forwards incomplete + error fields', async () => {
       router.query = vi.fn(async () => ({ events: [], incomplete: true, error: 'relay timeout' }));
-      svc.handleMessage(WINDOW, { type: 'outbox.query', id: 'q2', filters: [{ authors: ['ab'] }], options: { strategy: 'outbox', timeoutMs: 1000 } } as NappletMessage, c.send);
+      svc.handleMessage(WINDOW, {
+        type: 'outbox.query',
+        id: 'q2',
+        filters: [{ authors: ['ab'] }],
+        options: { authors: ['ab'], strategy: 'outbox', timeoutMs: 1000 },
+      } as NappletMessage, c.send);
       await Promise.resolve();
-      expect(router.query).toHaveBeenCalledWith([{ authors: ['ab'] }], { strategy: 'outbox', timeoutMs: 1000 });
+      expect(router.query).toHaveBeenCalledWith([{ authors: ['ab'] }], { authors: ['ab'], timeoutMs: 1000 });
       expect(c.sent[0]).toMatchObject({ type: 'outbox.query.result', id: 'q2', incomplete: true, error: 'relay timeout' });
     });
 
@@ -191,7 +196,7 @@ describe('createOutboxService', () => {
     });
   });
 
-  describe('outbox.subscribe / event / eose / close', () => {
+  describe('outbox.subscribe / event / close', () => {
     let router: MockRouter;
     let svc: ReturnType<typeof createOutboxService>;
     let c: ReturnType<typeof collector>;
@@ -203,8 +208,18 @@ describe('createOutboxService', () => {
     });
 
     it('streams event results through the sink without outbox.eose', () => {
-      svc.handleMessage(WINDOW, { type: 'outbox.subscribe', id: 's1', subId: 'sub-1', filters: [{ kinds: [1] }] } as NappletMessage, c.send);
-      expect(router.subscribe).toHaveBeenCalledWith([{ kinds: [1] }], undefined, expect.any(Object));
+      svc.handleMessage(WINDOW, {
+        type: 'outbox.subscribe',
+        id: 's1',
+        subId: 'sub-1',
+        filters: [{ kinds: [1] }],
+        options: { relays: ['wss://hint.test'], live: false, strategy: 'inbox' },
+      } as NappletMessage, c.send);
+      expect(router.subscribe).toHaveBeenCalledWith(
+        [{ kinds: [1] }],
+        { relays: ['wss://hint.test'] },
+        expect.any(Object),
+      );
 
       router.lastSink!.event(RESULT);
 
@@ -269,9 +284,14 @@ describe('createOutboxService', () => {
       const svc = createOutboxService({ router });
       const c = collector();
       const template = { kind: 1, content: 'hi', tags: [], created_at: 1 };
-      svc.handleMessage(WINDOW, { type: 'outbox.publish', id: 'p1', event: template, options: { strategy: 'outbox' } } as NappletMessage, c.send);
+      svc.handleMessage(WINDOW, {
+        type: 'outbox.publish',
+        id: 'p1',
+        event: template,
+        options: { targetAuthors: [EVENT.pubkey], strategy: 'outbox' },
+      } as NappletMessage, c.send);
       await Promise.resolve();
-      expect(router.publish).toHaveBeenCalledWith(template, { strategy: 'outbox' });
+      expect(router.publish).toHaveBeenCalledWith(template, { targetAuthors: [EVENT.pubkey] });
       expect(c.sent[0]).toMatchObject({ type: 'outbox.publish.result', id: 'p1', ok: true, eventId: EVENT.id, relays: { 'wss://r.test': true } });
     });
 
@@ -300,7 +320,11 @@ describe('createOutboxService', () => {
       const router = mockRouter();
       const svc = createOutboxService({ router });
       const c = collector();
-      svc.handleMessage(WINDOW, { type: 'outbox.resolveRelays', id: 'r1', target: { pubkey: 'ab', direction: 'read' } } as NappletMessage, c.send);
+      svc.handleMessage(WINDOW, {
+        type: 'outbox.resolveRelays',
+        id: 'r1',
+        target: { pubkey: 'ab', direction: 'read', strategy: 'inbox' },
+      } as NappletMessage, c.send);
       await Promise.resolve();
       expect(router.resolveRelays).toHaveBeenCalledWith({ pubkey: 'ab', direction: 'read' });
       expect(c.sent[0]).toEqual({ type: 'outbox.resolveRelays.result', id: 'r1', plan: { relays: ['wss://r.test'], source: 'nip65' } });

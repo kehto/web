@@ -116,7 +116,6 @@ export type {
   OutboxSubscribeOptions,
   OutboxPublishOptions,
   OutboxTarget,
-  OutboxStrategy,
   OutboxSubscriptionSink,
   OutboxRouterSubscription,
 } from './outbox-service.js';
