@@ -1,5 +1,14 @@
 # @kehto/paja
 
+## 0.6.2
+
+### Patch Changes
+
+- e8cedd0: Resolve Paja runtime pointers against the NIP-5D napplet manifest kinds `5129`, `15129`, and `35129` instead of accepting only the named/addressable manifest kind.
+- Updated dependencies [449bede]
+  - @kehto/services@0.16.0
+  - @kehto/acl@0.15.3
+
 ## 0.6.1
 
 ### Patch Changes
