@@ -9,4 +9,4 @@
 "@kehto/shell": patch
 ---
 
-Express peer and development dependency upper bounds with inclusive maximum ranges for clearer supported-version metadata.
+Express peer and development dependency upper bounds with inclusive maximum ranges for clearer supported-version metadata, including the current Napplet 0.26 line.

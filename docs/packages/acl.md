@@ -26,8 +26,8 @@ pnpm add @kehto/acl @napplet/core @napplet/nap
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.23.0 <=0.25.x` |
-| `@napplet/nap` | `>=0.23.0 <=0.25.x` |
+| `@napplet/core` | `>=0.23.0 <=0.26.x` |
+| `@napplet/nap` | `>=0.23.0 <=0.26.x` |
 
 ## Primary APIs
 

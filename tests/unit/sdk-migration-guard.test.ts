@@ -126,11 +126,11 @@ describe('current @napplet package graph guard', () => {
     }
   });
 
-  it('admits only the current @napplet 0.25 line on published kehto packages', () => {
+  it('admits only the current @napplet 0.26 line on published kehto packages', () => {
     // Kehto runtime packages track the current NAP contract so new canonical
     // fields are wired through runtime, services, shell, Paja, docs, and tests.
-    const PEER_RANGE = '>=0.23.0 <=0.25.x';
-    const DEV_RANGE = '>=0.23.0 <=0.25.x';
+    const PEER_RANGE = '>=0.23.0 <=0.26.x';
+    const DEV_RANGE = '>=0.23.0 <=0.26.x';
     for (const dir of publicPackageDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
@@ -164,6 +164,7 @@ describe('current @napplet package graph guard', () => {
 
       expect(content, dir).not.toContain(' <0.26.0');
       expect(content, dir).not.toContain(' <3.0.0');
+      expect(content, dir).not.toContain('<=0.25.x');
       expect(ranges, `${dir} dependency ranges`).not.toContain('>=0.23.0 <0.26.0');
       expect(ranges, `${dir} dependency ranges`).not.toContain('>=2.23.3 <3.0.0');
       if (pkg.peerDependencies?.['nostr-tools']) {
