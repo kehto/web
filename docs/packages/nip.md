@@ -29,7 +29,7 @@ pnpm add @kehto/nip nostr-tools
 
 | Package | Range |
 |---------|-------|
-| `nostr-tools` | `>=2.23.3 <3.0.0` |
+| `nostr-tools` | `>=2.23.3 <=2.x` |
 
 ## Primary APIs
 

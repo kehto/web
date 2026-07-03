@@ -422,10 +422,10 @@ importers:
   packages/acl:
     devDependencies:
       '@napplet/core':
-        specifier: '>=0.23.0 <0.26.0'
+        specifier: '>=0.23.0 <=0.25.x'
         version: 0.25.0
       '@napplet/nap':
-        specifier: '>=0.23.0 <0.26.0'
+        specifier: '>=0.23.0 <=0.25.x'
         version: 0.25.0
       tsup:
         specifier: ^8.5.0
@@ -441,10 +441,10 @@ importers:
         version: link:../paja
     devDependencies:
       '@napplet/core':
-        specifier: '>=0.23.0 <0.26.0'
+        specifier: '>=0.23.0 <=0.25.x'
         version: 0.25.0
       '@napplet/nap':
-        specifier: '>=0.23.0 <0.26.0'
+        specifier: '>=0.23.0 <=0.25.x'
         version: 0.25.0
       nostr-tools:
         specifier: ^2.23.3
@@ -462,7 +462,7 @@ importers:
   packages/firewall:
     devDependencies:
       '@napplet/core':
-        specifier: '>=0.23.0 <0.26.0'
+        specifier: '>=0.23.0 <=0.25.x'
         version: 0.25.0
       tsup:
         specifier: ^8.5.0
@@ -515,10 +515,10 @@ importers:
         version: link:../wm
     devDependencies:
       '@napplet/core':
-        specifier: '>=0.23.0 <0.26.0'
+        specifier: '>=0.23.0 <=0.25.x'
         version: 0.25.0
       '@napplet/nap':
-        specifier: '>=0.23.0 <0.26.0'
+        specifier: '>=0.23.0 <=0.25.x'
         version: 0.25.0
       nostr-tools:
         specifier: ^2.23.3
@@ -549,10 +549,10 @@ importers:
         version: 2.0.1
     devDependencies:
       '@napplet/core':
-        specifier: '>=0.23.0 <0.26.0'
+        specifier: '>=0.23.0 <=0.25.x'
         version: 0.25.0
       '@napplet/nap':
-        specifier: '>=0.23.0 <0.26.0'
+        specifier: '>=0.23.0 <=0.25.x'
         version: 0.25.0
       tsup:
         specifier: ^8.5.0
@@ -571,10 +571,10 @@ importers:
         version: link:../runtime
     devDependencies:
       '@napplet/core':
-        specifier: '>=0.23.0 <0.26.0'
+        specifier: '>=0.23.0 <=0.25.x'
         version: 0.25.0
       '@napplet/nap':
-        specifier: '>=0.23.0 <0.26.0'
+        specifier: '>=0.23.0 <=0.25.x'
         version: 0.25.0
       nostr-tools:
         specifier: ^2.23.3
@@ -599,10 +599,10 @@ importers:
         version: link:../runtime
     devDependencies:
       '@napplet/core':
-        specifier: '>=0.23.0 <0.26.0'
+        specifier: '>=0.23.0 <=0.25.x'
         version: 0.25.0
       '@napplet/nap':
-        specifier: '>=0.23.0 <0.26.0'
+        specifier: '>=0.23.0 <=0.25.x'
         version: 0.25.0
       '@napplet/shim':
         specifier: ^0.26.0

@@ -26,12 +26,12 @@
     "@noble/curves": "^2.0.0"
   },
   "peerDependencies": {
-    "@napplet/core": ">=0.23.0 <0.26.0",
-    "@napplet/nap": ">=0.23.0 <0.26.0"
+    "@napplet/core": ">=0.23.0 <=0.25.x",
+    "@napplet/nap": ">=0.23.0 <=0.25.x"
   },
   "devDependencies": {
-    "@napplet/core": ">=0.23.0 <0.26.0",
-    "@napplet/nap": ">=0.23.0 <0.26.0",
+    "@napplet/core": ">=0.23.0 <=0.25.x",
+    "@napplet/nap": ">=0.23.0 <=0.25.x",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.2"
