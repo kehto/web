@@ -1,6 +1,7 @@
 
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 import type { ServiceHandler } from '@kehto/runtime';
+import { createRelayEventResult, createRelayEventResultWithHints } from '@kehto/runtime';
 import type { RelayPoolServiceOptions } from './relay-pool-service.js';
 import type { CacheServiceOptions } from './cache-service.js';
 
@@ -148,10 +149,13 @@ export function createCoordinatedRelay(options: CoordinatedRelayOptions): Servic
         };
         subs.set(subKey, tracked);
 
-        function deliver(event: NostrEvent): void {
+        function deliver(event: NostrEvent, relayHints?: string[]): void {
           if (tracked.seenIds.has(event.id)) return;
           tracked.seenIds.add(event.id);
-          if (subs.has(subKey)) send({ type: 'relay.event', subId, event } as NappletMessage);
+          if (subs.has(subKey)) {
+            const result = relayHints ? createRelayEventResultWithHints(event, relayHints) : createRelayEventResult(event);
+            send({ type: 'relay.event', subId, result } as NappletMessage);
+          }
         }
 
         // Query cache (async)
@@ -190,7 +194,7 @@ export function createCoordinatedRelay(options: CoordinatedRelayOptions): Servic
               maybeSendEose(subKey, subId, send);
               return;
             }
-            deliver(item);
+            deliver(item, relayUrls);
             // Store relay events in cache
             if (cacheAvailable) {
               try { options.cache.store(item); } catch { /* best-effort */ }

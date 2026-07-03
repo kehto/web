@@ -297,7 +297,7 @@ describe('NIP-5D Envelope Dispatch', () => {
       const result = findEnvelopeResponse(ctx.sent, 'relay.query.result');
       expect(Array.isArray((result as any).events)).toBe(true);
       expect((result as any).events.length).toBeGreaterThan(0);
-      expect((result as any).events.some((e: any) => e.id === event.id)).toBe(true);
+      expect((result as any).events.some((e: any) => e.event.id === event.id)).toBe(true);
     });
 
     it('relay.query with registered relay-pool service: service receives relay.subscribe, emits events, then relay.close is sent', async () => {
@@ -346,7 +346,7 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect((result as any).id).toBe('req-q-svc');
       expect(Array.isArray((result as any).events)).toBe(true);
       // Service-emitted event must appear in result
-      expect((result as any).events.some((e: any) => e.id === fakeEvent.id)).toBe(true);
+      expect((result as any).events.some((e: any) => e.event.id === fakeEvent.id)).toBe(true);
       // relay.subscribe was sent to the service
       expect(serviceLog.some((l) => l.type === 'relay.subscribe')).toBe(true);
       // relay.close was sent to tear down the subscription
@@ -399,7 +399,7 @@ describe('NIP-5D Envelope Dispatch', () => {
       const result = findEnvelopeResponse(ctx2.sent, 'relay.query.result');
       expect(Array.isArray((result as any).events)).toBe(true);
       // The shared event appears exactly once despite being in both buffer and service
-      const matchingEvents = (result as any).events.filter((e: any) => e.id === sharedEvent.id);
+      const matchingEvents = (result as any).events.filter((e: any) => e.event.id === sharedEvent.id);
       expect(matchingEvents).toHaveLength(1);
     });
   });

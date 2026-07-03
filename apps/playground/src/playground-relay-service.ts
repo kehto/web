@@ -1,7 +1,7 @@
 import { EventStore } from 'applesauce-core';
 import { RelayPool } from 'applesauce-relay';
 import type { NappletMessage, NostrEvent, NostrFilter, RelayPoolHooks, RelayPoolLike } from '@kehto/shell';
-import type { ServiceHandler } from '@kehto/runtime';
+import { createRelayEventResultWithHints, type ServiceHandler } from '@kehto/runtime';
 import type { Nip66Aggregator } from '@kehto/nip/66';
 import {
   DEFAULT_PLAYGROUND_RELAY_SELECTION,
@@ -227,13 +227,13 @@ class PlaygroundRelayRuntimeImpl {
       }
       send({ type: 'relay.eose', subId } as NappletMessage);
     };
-    const deliver = (event: NostrEvent) => {
+    const deliver = (event: NostrEvent, relayHints?: string[]) => {
       if (tracked.closed || tracked.seen.has(event.id)) return;
       tracked.seen.add(event.id);
       tracked.events.push(event);
       try { this.eventStore.add(event); } catch { /* keep delivery best-effort */ }
       if (!skipCache) void this.cache.store(event).catch(() => {});
-      send({ type: 'relay.event', subId, event } as NappletMessage);
+      send({ type: 'relay.event', subId, result: createRelayEventResultWithHints(event, relayHints) } as NappletMessage);
     };
 
     try {
@@ -267,7 +267,7 @@ class PlaygroundRelayRuntimeImpl {
       tracked.handle = source.subscribe({
         next: (event) => {
           this.recordRelayEvents(relays, 1);
-          deliver(event);
+          deliver(event, relays);
         },
         error: () => sendEose(),
         complete: () => sendEose(),

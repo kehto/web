@@ -15,7 +15,7 @@
  *   Inbound:  outbox.getEvent, outbox.query, outbox.subscribe, outbox.close,
  *             outbox.publish, outbox.resolveRelays
  *   Outbound: outbox.getEvent.result, outbox.query.result, outbox.event,
- *             outbox.eose, outbox.closed, outbox.publish.result,
+ *             outbox.closed, outbox.publish.result,
  *             outbox.resolveRelays.result
  *
  * The shell owns relay discovery, routing, fallback, deduplication, signature
@@ -34,7 +34,7 @@
  */
 
 import type { EventTemplate, NappletMessage, NostrEvent, NostrFilter } from '@napplet/core';
-import type { ServiceDescriptor, ServiceHandler } from '@kehto/runtime';
+import type { RelayEventResult, ServiceDescriptor, ServiceHandler } from '@kehto/runtime';
 
 /** Outbox service version — follows semver. */
 const OUTBOX_SERVICE_VERSION = '1.0.0';
@@ -113,10 +113,8 @@ export interface OutboxRelayPlan {
 
 /** Outcome of a single-event outbox lookup. */
 export interface OutboxEventResult {
-  /** The signature-validated event matching the requested event id, when found. */
-  event?: NostrEvent;
-  /** Relay URLs where the shell observed the event. */
-  relays: string[];
+  /** The signature-validated event result matching the requested event id, when found. */
+  result?: RelayEventResult;
   /** True when some relay lists or connections failed and the lookup was partial. */
   incomplete?: boolean;
   /** Error reason when the lookup could not complete or did not find the event. */
@@ -125,10 +123,8 @@ export interface OutboxEventResult {
 
 /** Outcome of an outbox query, as returned by the {@link OutboxRouter}. */
 export interface OutboxResult {
-  /** Deduplicated, signature-validated events. */
-  events: NostrEvent[];
-  /** Map of event id -> relay URLs where the shell observed the event. */
-  relays: Record<string, string[]>;
+  /** Deduplicated, signature-validated event results. */
+  events: RelayEventResult[];
   /** True when some relay lists or connections failed and results are partial. */
   incomplete?: boolean;
   /** Error reason when the query could not complete. */
@@ -151,10 +147,8 @@ export interface OutboxPublishResult {
 
 /** Sink an {@link OutboxRouter} streams subscription lifecycle through. */
 export interface OutboxSubscriptionSink {
-  /** Deliver a matching event; `relay` is the relay it was observed on, when known. */
-  event(event: NostrEvent, relay?: string): void;
-  /** Signal end-of-stored-events. */
-  eose(): void;
+  /** Deliver a matching event result. */
+  event(result: RelayEventResult): void;
   /** Signal that the subscription was closed upstream; `reason` is optional. */
   closed(reason?: string): void;
 }
@@ -229,12 +223,10 @@ function buildEventQuery(eventId: string, eventOptions?: OutboxEventOptions): { 
 }
 
 function eventResultFromQuery(eventId: string, result: OutboxResult): OutboxEventResult {
-  const event = result.events.find((candidate) => candidate.id === eventId);
-  const eventResult: OutboxEventResult = {
-    relays: event ? (result.relays[eventId] ?? []) : [],
-  };
-  if (event) eventResult.event = event;
-  if (!event) eventResult.error = result.error ?? 'not found';
+  const relayResult = result.events.find((candidate) => candidate.event.id === eventId);
+  const eventResult: OutboxEventResult = {};
+  if (relayResult) eventResult.result = relayResult;
+  if (!relayResult) eventResult.error = result.error ?? 'not found';
   else if (result.error !== undefined) eventResult.error = result.error;
   if (result.incomplete !== undefined) eventResult.incomplete = result.incomplete;
   return eventResult;
@@ -246,15 +238,14 @@ function fallbackGetEvent(router: OutboxRouter, eventId: string, eventOptions?: 
 }
 
 function sendEventResult(id: string, eventId: string, result: OutboxEventResult, send: Send): void {
-  if (result.event && result.event.id !== eventId) {
-    send({ type: 'outbox.getEvent.result', id, relays: [], error: 'not found' } as NappletMessage);
+  if (result.result && result.result.event.id !== eventId) {
+    send({ type: 'outbox.getEvent.result', id, error: 'not found' } as NappletMessage);
     return;
   }
   send({
     type: 'outbox.getEvent.result',
     id,
-    ...(result.event === undefined ? {} : { event: result.event }),
-    relays: result.relays,
+    ...(result.result === undefined ? {} : { result: result.result }),
     ...(result.incomplete === undefined ? {} : { incomplete: result.incomplete }),
     ...(result.error === undefined ? {} : { error: result.error }),
   } as NappletMessage);
@@ -264,14 +255,14 @@ function handleGetEvent(router: OutboxRouter, msg: NappletMessage, send: Send): 
   const m = msg as NappletMessage & { id?: string; eventId?: unknown; options?: OutboxEventOptions };
   const id = m.id ?? '';
   if (typeof m.eventId !== 'string' || m.eventId.length === 0) {
-    send({ type: 'outbox.getEvent.result', id, relays: [], error: 'invalid filter' } as NappletMessage);
+    send({ type: 'outbox.getEvent.result', id, error: 'invalid filter' } as NappletMessage);
     return;
   }
   const getEvent = router.getEvent ?? ((eventId, eventOptions) => fallbackGetEvent(router, eventId, eventOptions));
   void getEvent(m.eventId, m.options)
     .then((result) => sendEventResult(id, m.eventId as string, result, send))
     .catch((err) =>
-      send({ type: 'outbox.getEvent.result', id, relays: [], error: toErrorMessage(err) } as NappletMessage),
+      send({ type: 'outbox.getEvent.result', id, error: toErrorMessage(err) } as NappletMessage),
     );
 }
 
@@ -296,7 +287,7 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
     const id = m.id ?? '';
     const filters = normalizeFilters(m.filters);
     if (!filters) {
-      send({ type: 'outbox.query.result', id, events: [], relays: {}, error: 'invalid filter' } as NappletMessage);
+      send({ type: 'outbox.query.result', id, events: [], error: 'invalid filter' } as NappletMessage);
       return;
     }
     void router
@@ -306,13 +297,12 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
           type: 'outbox.query.result',
           id,
           events: result.events,
-          relays: result.relays,
           ...(result.incomplete === undefined ? {} : { incomplete: result.incomplete }),
           ...(result.error === undefined ? {} : { error: result.error }),
         } as NappletMessage),
       )
       .catch((err) =>
-        send({ type: 'outbox.query.result', id, events: [], relays: {}, error: toErrorMessage(err) } as NappletMessage),
+        send({ type: 'outbox.query.result', id, events: [], error: toErrorMessage(err) } as NappletMessage),
       );
   }
 
@@ -333,9 +323,7 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
     }
 
     const sink: OutboxSubscriptionSink = {
-      event: (event, relay) =>
-        send({ type: 'outbox.event', subId, event, ...(relay === undefined ? {} : { relay }) } as NappletMessage),
-      eose: () => send({ type: 'outbox.eose', subId } as NappletMessage),
+      event: (result) => send({ type: 'outbox.event', subId, result } as NappletMessage),
       closed: (reason) => {
         subscriptions.delete(subKey);
         send({ type: 'outbox.closed', subId, ...(reason === undefined ? {} : { reason }) } as NappletMessage);

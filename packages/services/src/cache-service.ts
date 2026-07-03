@@ -1,6 +1,7 @@
 
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 import type { ServiceHandler } from '@kehto/runtime';
+import { createRelayEventResult } from '@kehto/runtime';
 
 type RelayServiceMessage = NappletMessage & {
   subId?: unknown;
@@ -119,7 +120,7 @@ export function createCacheService(options: CacheServiceOptions): ServiceHandler
           .query(filters)
           .then((events) => {
             for (const event of events) {
-              send({ type: 'relay.event', subId, event } as NappletMessage);
+              send({ type: 'relay.event', subId, result: createRelayEventResult(event) } as NappletMessage);
             }
             send({ type: 'relay.eose', subId } as NappletMessage);
           })

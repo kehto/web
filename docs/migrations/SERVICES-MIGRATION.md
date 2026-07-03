@@ -682,7 +682,7 @@ handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMess
         if (!eoseSent) { eoseSent = true; send({ type: 'relay.eose', subId }); }
         return;
       }
-      send({ type: 'relay.event', subId, event: item });
+      send({ type: 'relay.event', subId, result: { event: item } });
     }, relayUrls);
 
     tracked.set(subKey, { handle, eoseTimer });
@@ -720,7 +720,7 @@ handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMess
 - `verb = message[0]` → `message.type` for routing
 - `message[1] as string` (subId) → `message.subId as string`
 - `message.slice(2) as NostrFilter[]` → `message.filters as NostrFilter[]`
-- `send(['EVENT', subId, item])` → `send({ type: 'relay.event', subId, event: item })`
+- `send(['EVENT', subId, item])` → `send({ type: 'relay.event', subId, result: { event: item } })`
 - `send(['EOSE', subId])` → `send({ type: 'relay.eose', subId })`
 
 #### 2.4.4 Routing Change
@@ -753,7 +753,7 @@ Cache receives the same relay NAP envelopes as relay-pool (it is also a relay-ti
 |-----------|-----------|-----------|
 | Query (subscribe) | `['REQ', subId, ...filters]` | `{type:'relay.subscribe', id:'uuid', subId:'uuid', filters:[...]}` |
 | Store (publish) | `['EVENT', event]` | `{type:'relay.publish', id:'uuid', event:{...}}` |
-| Event (out) | `send(['EVENT', subId, event])` | `send({type:'relay.event', subId:'uuid', event:{...}})` |
+| Event (out) | `send(['EVENT', subId, event])` | `send({type:'relay.event', subId:'uuid', result:{event:{...}}})` |
 | EOSE (out) | `send(['EOSE', subId])` | `send({type:'relay.eose', subId:'uuid'})` |
 
 #### 2.5.3 New Code Structure
@@ -771,7 +771,7 @@ handleMessage(_windowId: string, message: NappletMessage, send: (msg: NappletMes
 
     options.query(filters)
       .then((events) => {
-        for (const event of events) send({ type: 'relay.event', subId, event });
+        for (const event of events) send({ type: 'relay.event', subId, result: { event } });
         send({ type: 'relay.eose', subId });
       })
       .catch(() => {
@@ -860,7 +860,7 @@ handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMess
     function deliver(event: NostrEvent): void {
       if (tracked.seenIds.has(event.id)) return;
       tracked.seenIds.add(event.id);
-      if (subs.has(subKey)) send({ type: 'relay.event', subId, event });
+      if (subs.has(subKey)) send({ type: 'relay.event', subId, result: { event } });
     }
 
     if (cacheAvailable) {

@@ -6,7 +6,7 @@ import type {
   ServiceHandler,
   ShellAdapter,
 } from '@kehto/shell';
-import type { Signer } from '@kehto/runtime';
+import { createRelayEventResultWithHints, type Signer } from '@kehto/runtime';
 import {
   createBleService,
   createCommonService,
@@ -302,13 +302,13 @@ function createOutboxRouter(
           error: () => resolve(out),
         });
       });
-      return { events, relays: Object.fromEntries(events.map((event) => [event.id, relayUrls])) };
+      return { events: events.map((event) => createRelayEventResultWithHints(event, relayUrls)) };
     },
-    subscribe(filters: NostrFilter[], _options: unknown, sink: { event(event: NostrEvent, relay?: string): void; eose(): void; closed(reason?: string): void }) {
+    subscribe(filters: NostrFilter[], _options: unknown, sink: { event(result: ReturnType<typeof createRelayEventResultWithHints>): void; closed(reason?: string): void }) {
       const relayUrls = getRelayUrls(getSimulation());
       const sub = pool.subscription(relayUrls, filters).subscribe((item) => {
-        if (item === 'EOSE') sink.eose();
-        else sink.event(item as NostrEvent, relayUrls[0]);
+        if (item === 'EOSE') return;
+        sink.event(createRelayEventResultWithHints(item as NostrEvent, relayUrls[0] ? [relayUrls[0]] : relayUrls));
       });
       return { close: () => sub.unsubscribe() };
     },

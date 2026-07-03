@@ -148,9 +148,9 @@ describe('createRelayPoolOutboxRouter', () => {
       pool.eoseAll();
 
       const result = await p;
-      expect(result.events.map((e) => e.content).sort()).toEqual(['e1', 'e2']);
-      expect(result.relays[ev('e1').id].sort()).toEqual(['wss://a-write', 'wss://b-write']);
-      expect(result.relays[ev('e2', PK_B).id]).toEqual(['wss://b-write']);
+      expect(result.events.map((e) => e.event.content).sort()).toEqual(['e1', 'e2']);
+      expect(result.events.find((e) => e.event.id === ev('e1').id)?.sidecar?.relayHints?.sort()).toEqual(['wss://a-write', 'wss://b-write']);
+      expect(result.events.find((e) => e.event.id === ev('e2', PK_B).id)?.sidecar?.relayHints).toEqual(['wss://b-write']);
       expect(result.incomplete).toBeUndefined();
     });
 
@@ -164,8 +164,8 @@ describe('createRelayPoolOutboxRouter', () => {
       pool.emit('wss://a-write', ev('bad'));
       pool.eoseAll();
       const result = await p;
-      expect(result.events.map((e) => e.content)).toEqual(['good']);
-      expect(result.relays[ev('bad').id]).toBeUndefined();
+      expect(result.events.map((e) => e.event.content)).toEqual(['good']);
+      expect(result.events.find((e) => e.event.id === ev('bad').id)).toBeUndefined();
     });
 
     it('applies the limit, keeping the most recent events', async () => {
@@ -178,7 +178,7 @@ describe('createRelayPoolOutboxRouter', () => {
       pool.emit('wss://a-write', ev('new', PK_A, 300));
       pool.eoseAll();
       const result = await p;
-      expect(result.events.map((e) => e.content)).toEqual(['new', 'mid']);
+      expect(result.events.map((e) => e.event.content)).toEqual(['new', 'mid']);
     });
 
     it('marks incomplete on timeout when a relay never EOSEs', async () => {
@@ -189,7 +189,7 @@ describe('createRelayPoolOutboxRouter', () => {
       pool.emit('wss://a-write', ev('e1'));
       // no EOSE — let the timeout fire
       const result = await p;
-      expect(result.events.map((e) => e.content)).toEqual(['e1']);
+      expect(result.events.map((e) => e.event.content)).toEqual(['e1']);
       expect(result.incomplete).toBe(true);
     });
 
@@ -208,7 +208,7 @@ describe('createRelayPoolOutboxRouter', () => {
       pool.available = false;
       const router = makeRouter(pool);
       const result = await router.query([{ authors: [PK_A] }]);
-      expect(result).toEqual({ events: [], relays: {}, incomplete: true, error: 'relay list unavailable' });
+      expect(result).toEqual({ events: [], incomplete: true, error: 'relay list unavailable' });
     });
 
     it('unsubscribes all relays once finalized', async () => {
@@ -236,7 +236,7 @@ describe('createRelayPoolOutboxRouter', () => {
       pool.eoseAll();
 
       const result = await p;
-      expect(result).toEqual({ event: target, relays: ['wss://a-write'] });
+      expect(result).toEqual({ result: { event: target, sidecar: { relayHints: ['wss://a-write'] } } });
     });
 
     it('does not return a relay event whose id differs from the requested id', async () => {
@@ -250,7 +250,7 @@ describe('createRelayPoolOutboxRouter', () => {
       pool.eoseAll();
 
       const result = await p;
-      expect(result).toEqual({ relays: [], error: 'not found' });
+      expect(result).toEqual({ error: 'not found' });
     });
 
     it('marks the lookup incomplete when a relay times out after finding the event', async () => {
@@ -263,7 +263,7 @@ describe('createRelayPoolOutboxRouter', () => {
       pool.emit('wss://a-write', target);
 
       const result = await p;
-      expect(result).toEqual({ event: target, relays: ['wss://a-write'], incomplete: true });
+      expect(result).toEqual({ result: { event: target, sidecar: { relayHints: ['wss://a-write'] } }, incomplete: true });
     });
   });
 
@@ -271,11 +271,9 @@ describe('createRelayPoolOutboxRouter', () => {
     it('streams attributed events and one eose after all relays EOSE (live keeps open)', async () => {
       const pool = makePool();
       const router = makeRouter(pool);
-      const events: Array<{ content: string; relay?: string }> = [];
-      let eoseCount = 0;
+      const events: Array<{ content: string; relayHints?: string[] }> = [];
       const sub = router.subscribe([{ authors: [PK_A, PK_B] }], { live: true }, {
-        event: (e, relay) => events.push({ content: e.content, relay }),
-        eose: () => { eoseCount += 1; },
+        event: (result) => events.push({ content: result.event.content, relayHints: result.sidecar?.relayHints }),
         closed: () => { /* ignore */ },
       });
       await tick();
@@ -285,10 +283,9 @@ describe('createRelayPoolOutboxRouter', () => {
       pool.eoseAll();
       await tick();
       expect(events).toEqual([
-        { content: 's1', relay: 'wss://a-write' },
-        { content: 's2', relay: 'wss://b-write' },
+        { content: 's1', relayHints: ['wss://a-write'] },
+        { content: 's2', relayHints: ['wss://b-write'] },
       ]);
-      expect(eoseCount).toBe(1);
       expect(pool.subs.some((s) => !s.closed)).toBe(true); // still open (live)
       sub.close();
       expect(pool.subs.every((s) => s.closed)).toBe(true);
@@ -300,7 +297,6 @@ describe('createRelayPoolOutboxRouter', () => {
       let closed = false;
       router.subscribe([{ authors: [PK_A] }], { live: false }, {
         event: () => { /* ignore */ },
-        eose: () => { /* ignore */ },
         closed: () => { closed = true; },
       });
       await tick();
@@ -316,7 +312,6 @@ describe('createRelayPoolOutboxRouter', () => {
       let reason: string | undefined = 'unset';
       router.subscribe([{ ids: ['x'] }], undefined, {
         event: () => { /* ignore */ },
-        eose: () => { /* ignore */ },
         closed: (r) => { reason = r; },
       });
       await tick();
@@ -328,7 +323,7 @@ describe('createRelayPoolOutboxRouter', () => {
       const pool = makePool();
       const router = makeRouter(pool);
       const sub = router.subscribe([{ authors: [PK_A] }], undefined, {
-        event: () => { /* ignore */ }, eose: () => { /* ignore */ }, closed: () => { /* ignore */ },
+        event: () => { /* ignore */ }, closed: () => { /* ignore */ },
       });
       sub.close();
       await tick();

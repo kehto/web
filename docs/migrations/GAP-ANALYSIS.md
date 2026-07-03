@@ -437,7 +437,7 @@ type SendToNapplet = (windowId: string, msg: unknown[]) => void;
 Target:
 ```typescript
 type SendToNapplet = (windowId: string, msg: NappletMessage | unknown[]) => void;
-// Responses are NIP-5D envelopes: { type: "relay.event", ... }
+// Responses are NIP-5D envelopes: { type: "relay.event", result: { event }, ... }
 // Legacy arrays maintained during transition
 ```
 
@@ -511,7 +511,7 @@ Target:
 sendToNapplet: (windowId: string, msg: NappletMessage | unknown[]) => void;
 ```
 
-**Verification criterion:** `window.addEventListener('message', ...)` in a napplet iframe receives `{ type: "relay.event", subId: "x", event: {...} }` (not `["EVENT", "x", {...}]`) after migration.
+**Verification criterion:** `window.addEventListener('message', ...)` in a napplet iframe receives `{ type: "relay.event", subId: "x", result: { event: {...} } }` (not `["EVENT", "x", {...}]`) after migration.
 
 **Affected files:** `packages/shell/src/shell-bridge.ts`, `packages/shell/src/types.ts`
 
