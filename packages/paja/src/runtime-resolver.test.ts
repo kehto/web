@@ -3,9 +3,15 @@ import { finalizeEvent } from 'nostr-tools/pure';
 import { naddrEncode, neventEncode } from 'nostr-tools/nip19';
 import type { NostrEvent } from 'nostr-tools';
 import { computeAggregateHash } from '@kehto/nip/5a';
+import {
+  NAPPLET_KIND_NAMED,
+  NAPPLET_KIND_ROOT,
+  NAPPLET_KIND_SNAPSHOT,
+} from '@kehto/nip/5d';
 
 import {
   PAJA_NAPPLET_MANIFEST_KIND,
+  PAJA_NAPPLET_MANIFEST_KINDS,
   decodePajaPointer,
   resolvePajaPointer,
   type PajaPointerRelayPool,
@@ -22,15 +28,22 @@ async function sha256hex(bytes: Uint8Array): Promise<string> {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-async function buildManifest(dTag = 'runtime-target') {
+interface BuildManifestOptions {
+  readonly dTag?: string;
+  readonly kind?: number;
+}
+
+async function buildManifest(options: BuildManifestOptions = {}) {
+  const dTag = options.dTag ?? 'runtime-target';
+  const kind = options.kind ?? NAPPLET_KIND_NAMED;
   const bytes = enc.encode('<!doctype html><html><head><title>runtime</title></head><body>ok</body></html>');
   const hash = await sha256hex(bytes);
   const aggregateHash = computeAggregateHash([{ path: '/index.html', sha256: hash }]);
   const event = finalizeEvent({
-    kind: PAJA_NAPPLET_MANIFEST_KIND,
+    kind,
     created_at: 1_700_000_000,
     tags: [
-      ['d', dTag],
+      ...(kind === NAPPLET_KIND_NAMED ? [['d', dTag]] : []),
       ['path', '/index.html', hash],
       ['x', aggregateHash, 'aggregate'],
       ['server', BLOSSOM],
@@ -75,6 +88,15 @@ function fakeFetcher(hash: string, bytes: Uint8Array) {
 }
 
 describe('Paja runtime pointer resolver', () => {
+  it('exports the NIP-5D napplet manifest kinds', () => {
+    expect(PAJA_NAPPLET_MANIFEST_KIND).toBe(NAPPLET_KIND_NAMED);
+    expect([...PAJA_NAPPLET_MANIFEST_KINDS].sort((a, b) => a - b)).toEqual([
+      NAPPLET_KIND_SNAPSHOT,
+      NAPPLET_KIND_ROOT,
+      NAPPLET_KIND_NAMED,
+    ].sort((a, b) => a - b));
+  });
+
   it('decodes and resolves an naddr napplet manifest pointer', async () => {
     const manifest = await buildManifest();
     const pointer = naddrEncode({
@@ -109,7 +131,7 @@ describe('Paja runtime pointer resolver', () => {
   });
 
   it('decodes and resolves a nevent napplet snapshot pointer by event id', async () => {
-    const manifest = await buildManifest('snapshot-target');
+    const manifest = await buildManifest({ dTag: 'snapshot-target' });
     const pointer = neventEncode({
       id: manifest.event.id,
       author: manifest.event.pubkey,
@@ -136,6 +158,52 @@ describe('Paja runtime pointer resolver', () => {
     expect(pool.filters[0]).toMatchObject({ ids: [manifest.event.id] });
   });
 
+  it('resolves NIP-5D snapshot manifest nevent pointers', async () => {
+    const manifest = await buildManifest({ kind: NAPPLET_KIND_SNAPSHOT });
+    const pointer = neventEncode({
+      id: manifest.event.id,
+      author: manifest.event.pubkey,
+      kind: NAPPLET_KIND_SNAPSHOT,
+      relays: [RELAY],
+    });
+    const pool = fakePool([manifest.event]);
+
+    const resolved = await resolvePajaPointer(pointer, {
+      pool,
+      fetcher: fakeFetcher(manifest.hash, manifest.bytes),
+    });
+
+    expect(resolved.event.kind).toBe(NAPPLET_KIND_SNAPSHOT);
+    expect(resolved.dTag).toBe('');
+    expect(pool.filters[0]).toMatchObject({
+      ids: [manifest.event.id],
+      kinds: [NAPPLET_KIND_SNAPSHOT],
+    });
+  });
+
+  it('resolves NIP-5D root manifest nevent pointers', async () => {
+    const manifest = await buildManifest({ kind: NAPPLET_KIND_ROOT });
+    const pointer = neventEncode({
+      id: manifest.event.id,
+      author: manifest.event.pubkey,
+      kind: NAPPLET_KIND_ROOT,
+      relays: [RELAY],
+    });
+    const pool = fakePool([manifest.event]);
+
+    const resolved = await resolvePajaPointer(pointer, {
+      pool,
+      fetcher: fakeFetcher(manifest.hash, manifest.bytes),
+    });
+
+    expect(resolved.event.kind).toBe(NAPPLET_KIND_ROOT);
+    expect(resolved.dTag).toBe('');
+    expect(pool.filters[0]).toMatchObject({
+      ids: [manifest.event.id],
+      kinds: [NAPPLET_KIND_ROOT],
+    });
+  });
+
   it('rejects non-napplet naddr kinds before rendering', async () => {
     const manifest = await buildManifest();
     const pointer = naddrEncode({
@@ -146,6 +214,19 @@ describe('Paja runtime pointer resolver', () => {
     });
 
     await expect(resolvePajaPointer(pointer, { pool: fakePool([manifest.event]) }))
-      .rejects.toThrow(/not a napplet manifest kind/);
+      .rejects.toThrow(/not a named NIP-5D napplet manifest kind/);
+  });
+
+  it('rejects NIP-5A nsite event kinds', async () => {
+    const manifest = await buildManifest({ kind: 35128 });
+    const pointer = neventEncode({
+      id: manifest.event.id,
+      author: manifest.event.pubkey,
+      kind: 35128,
+      relays: [RELAY],
+    });
+
+    await expect(resolvePajaPointer(pointer, { pool: fakePool([manifest.event]) }))
+      .rejects.toThrow(/expected 5129 \/ 15129 \/ 35129/);
   });
 });

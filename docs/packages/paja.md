@@ -44,7 +44,7 @@ app package's development scripts.
 | Config files | `loadPajaConfigFile`, `mergePajaRawOptions`, `resolvePajaRawOptions` |
 | Host config | `createPajaHostConfig`, `createPajaRuntimeHostConfig`, `PajaHostConfig`, `PajaPointerRuntimeConfig`, `formatPajaUrl` |
 | Host page | `renderPajaHtml`, bundled `/__kehto/browser-host.js` runtime bootstrap |
-| Runtime pointers | `decodePajaPointer`, `resolvePajaPointer`, `injectPajaRuntimeCsp`, `PAJA_NAPPLET_MANIFEST_KIND` |
+| Runtime pointers | `decodePajaPointer`, `resolvePajaPointer`, `injectPajaRuntimeCsp`, `PAJA_NAPPLET_MANIFEST_KIND`, `PAJA_NAPPLET_MANIFEST_KINDS` |
 | Parity metadata | `PAJA_UPSTREAM_WEB_DOMAINS`, `PAJA_ADVERTISED_DOMAINS`, `PAJA_HANDSHAKE_DOMAINS`, `PAJA_COMPATIBILITY_ALIASES`, `PAJA_REQUIRED_SERVICES`, `getMissingAdvertisedDomains`, `getMissingServices` |
 | Readiness | `waitForTargetUrl`, `ReadinessError`, `WaitForTargetUrlOptions`, `ReadinessFetch` |
 | Server | `startPajaServer`, `PajaServer`, `PajaServerOptions` |
@@ -133,10 +133,11 @@ The console includes:
 The GitHub Pages artifact also includes a static Paja Runtime at `/web/paja/`.
 That route uses `createPajaRuntimeHostConfig`, keeps `hmr: none`, and loads a
 verified napplet into the same ShellBridge-backed iframe from a pasted `naddr`
-or `nevent` pointer. `naddr` pointers resolve the latest matching
-kind-35129 manifest by author and `d` tag; `nevent` pointers resolve a specific
-manifest event id. In both cases Paja verifies the signed manifest, aggregate
-hash, and every Blossom blob before assigning iframe `srcdoc`.
+or `nevent` pointer. `naddr` pointers resolve the latest matching NIP-5D named
+manifest (`35129`) by author and `d` tag; `nevent` pointers resolve a specific
+NIP-5D snapshot, root, or named manifest event id (`5129`, `15129`, or `35129`).
+In both cases Paja verifies the signed manifest, aggregate hash, and every
+Blossom blob before assigning iframe `srcdoc`.
 
 ## NAP and Service Parity
 
