@@ -303,7 +303,10 @@ describe('playground relay service', () => {
 
     await waitFor(() => expect(sends.some((message) => message.type === 'relay.eose')).toBe(true));
     expect(pool.log.subscriptions).toHaveLength(0);
-    expect(sends.find((message) => message.type === 'relay.event')).toMatchObject({ type: 'relay.event', event: cached });
+    expect(sends.find((message) => message.type === 'relay.event')).toMatchObject({
+      type: 'relay.event',
+      result: { event: cached },
+    });
   });
 
   it('strips relayCache skip hints and bypasses cache reads plus cache writes', async () => {
@@ -328,8 +331,11 @@ describe('playground relay service', () => {
     await waitFor(() => expect(sends.some((message) => message.type === 'relay.event')).toBe(true));
 
     expect(pool.log.subscriptions[0]?.filters).toEqual([{ kinds: [10002], authors: ['alice'], limit: 1 }]);
-    expect(sends.find((message) => message.type === 'relay.event')).toMatchObject({ type: 'relay.event', event: live });
-    expect(sends.find((message) => message.type === 'relay.event')).not.toMatchObject({ event: cached });
+    expect(sends.find((message) => message.type === 'relay.event')).toMatchObject({
+      type: 'relay.event',
+      result: { event: live, sidecar: { relayHints: ['wss://nip66.indexer', 'wss://fallback.indexer'] } },
+    });
+    expect(sends.find((message) => message.type === 'relay.event')).not.toMatchObject({ result: { event: cached } });
     expect(cache.stored).toHaveLength(0);
   });
 

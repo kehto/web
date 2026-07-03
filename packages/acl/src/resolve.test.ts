@@ -455,10 +455,6 @@ describe('resolveCapabilitiesNap', () => {
       expect(resolveCapabilitiesNap({ type: 'outbox.event' })).toEqual({ senderCap: null, recipientCap: 'outbox:read' });
     });
 
-    it('outbox.eose -> recipient outbox:read (shell -> napplet push)', () => {
-      expect(resolveCapabilitiesNap({ type: 'outbox.eose' })).toEqual({ senderCap: null, recipientCap: 'outbox:read' });
-    });
-
     it('outbox.closed -> recipient outbox:read (shell -> napplet push)', () => {
       expect(resolveCapabilitiesNap({ type: 'outbox.closed' })).toEqual({ senderCap: null, recipientCap: 'outbox:read' });
     });

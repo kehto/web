@@ -18,6 +18,7 @@
 
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 import type { ServiceHandler } from '@kehto/runtime';
+import { createRelayEventResultWithHints } from '@kehto/runtime';
 
 // Timer globals available in all JS runtimes
 declare function setTimeout(callback: () => void, ms: number): unknown;
@@ -169,7 +170,7 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
             }
             return;
           }
-          send({ type: 'relay.event', subId, event: item } as NappletMessage);
+          send({ type: 'relay.event', subId, result: createRelayEventResultWithHints(item, relayUrls) } as NappletMessage);
         }, relayUrls);
 
         tracked.set(subKey, { handle, eoseTimer });

@@ -18,6 +18,7 @@ import type {
   OutboxRouterSubscription,
 } from './outbox-service.js';
 import type { NappletMessage, NostrEvent } from '@napplet/core';
+import type { RelayEventResult } from '@kehto/runtime';
 
 const WINDOW = 'win-1';
 const EVENT: NostrEvent = {
@@ -28,6 +29,10 @@ const EVENT: NostrEvent = {
   tags: [],
   created_at: 1234567890,
   sig: 'f'.repeat(128),
+};
+const RESULT: RelayEventResult = {
+  event: EVENT,
+  sidecar: { relayHints: ['wss://r.test'] },
 };
 
 interface MockRouter extends OutboxRouter {
@@ -40,8 +45,8 @@ function mockRouter(overrides: Partial<OutboxRouter> = {}): MockRouter {
   const router: MockRouter = {
     lastSink: null,
     subClose,
-    getEvent: vi.fn(async (): Promise<OutboxEventResult> => ({ event: EVENT, relays: ['wss://r.test'] })),
-    query: vi.fn(async (): Promise<OutboxResult> => ({ events: [EVENT], relays: { [EVENT.id]: ['wss://r.test'] } })),
+    getEvent: vi.fn(async (): Promise<OutboxEventResult> => ({ result: RESULT })),
+    query: vi.fn(async (): Promise<OutboxResult> => ({ events: [RESULT] })),
     subscribe: vi.fn((_filters, _options, sink): OutboxRouterSubscription => {
       router.lastSink = sink;
       return { close: subClose };
@@ -87,8 +92,7 @@ describe('createOutboxService', () => {
       expect(c.sent[0]).toEqual({
         type: 'outbox.getEvent.result',
         id: 'e1',
-        event: EVENT,
-        relays: ['wss://r.test'],
+        result: RESULT,
       });
     });
 
@@ -114,15 +118,14 @@ describe('createOutboxService', () => {
       expect(c.sent[0]).toMatchObject({
         type: 'outbox.getEvent.result',
         id: 'e2',
-        event: EVENT,
-        relays: ['wss://r.test'],
+        result: RESULT,
       });
     });
 
     it('does not leak a router result whose event id does not match the request', async () => {
       const wrong = { ...EVENT, id: 'b'.repeat(64) };
       const router = mockRouter({
-        getEvent: vi.fn(async () => ({ event: wrong, relays: ['wss://r.test'] })),
+        getEvent: vi.fn(async () => ({ result: { event: wrong } })),
       });
       const svc = createOutboxService({ router });
       const c = collector();
@@ -130,7 +133,7 @@ describe('createOutboxService', () => {
       svc.handleMessage(WINDOW, { type: 'outbox.getEvent', id: 'e3', eventId: EVENT.id } as NappletMessage, c.send);
       await Promise.resolve();
 
-      expect(c.sent[0]).toEqual({ type: 'outbox.getEvent.result', id: 'e3', relays: [], error: 'not found' });
+      expect(c.sent[0]).toEqual({ type: 'outbox.getEvent.result', id: 'e3', error: 'not found' });
     });
 
     it('rejects a missing eventId as "invalid filter"', () => {
@@ -142,7 +145,7 @@ describe('createOutboxService', () => {
 
       expect(router.getEvent).not.toHaveBeenCalled();
       expect(router.query).not.toHaveBeenCalled();
-      expect(c.sent[0]).toEqual({ type: 'outbox.getEvent.result', id: 'e4', relays: [], error: 'invalid filter' });
+      expect(c.sent[0]).toEqual({ type: 'outbox.getEvent.result', id: 'e4', error: 'invalid filter' });
     });
   });
 
@@ -162,11 +165,11 @@ describe('createOutboxService', () => {
       await Promise.resolve();
       expect(router.query).toHaveBeenCalledWith([{ kinds: [1] }], undefined);
       expect(c.sent).toHaveLength(1);
-      expect(c.sent[0]).toMatchObject({ type: 'outbox.query.result', id: 'q1', events: [EVENT], relays: { [EVENT.id]: ['wss://r.test'] } });
+      expect(c.sent[0]).toMatchObject({ type: 'outbox.query.result', id: 'q1', events: [RESULT] });
     });
 
     it('passes options through and forwards incomplete + error fields', async () => {
-      router.query = vi.fn(async () => ({ events: [], relays: {}, incomplete: true, error: 'relay timeout' }));
+      router.query = vi.fn(async () => ({ events: [], incomplete: true, error: 'relay timeout' }));
       svc.handleMessage(WINDOW, { type: 'outbox.query', id: 'q2', filters: [{ authors: ['ab'] }], options: { strategy: 'outbox', timeoutMs: 1000 } } as NappletMessage, c.send);
       await Promise.resolve();
       expect(router.query).toHaveBeenCalledWith([{ authors: ['ab'] }], { strategy: 'outbox', timeoutMs: 1000 });
@@ -176,7 +179,7 @@ describe('createOutboxService', () => {
     it('rejects a query with no usable filters as "invalid filter"', () => {
       svc.handleMessage(WINDOW, { type: 'outbox.query', id: 'q3', filters: [] } as NappletMessage, c.send);
       expect(router.query).not.toHaveBeenCalled();
-      expect(c.sent[0]).toMatchObject({ type: 'outbox.query.result', id: 'q3', events: [], relays: {}, error: 'invalid filter' });
+      expect(c.sent[0]).toMatchObject({ type: 'outbox.query.result', id: 'q3', events: [], error: 'invalid filter' });
     });
 
     it('surfaces a router rejection as an inline error (promise still resolves shell-side)', async () => {
@@ -184,7 +187,7 @@ describe('createOutboxService', () => {
       svc.handleMessage(WINDOW, { type: 'outbox.query', id: 'q4', filters: [{ kinds: [1] }] } as NappletMessage, c.send);
       await Promise.resolve();
       await Promise.resolve();
-      expect(c.sent[0]).toMatchObject({ type: 'outbox.query.result', id: 'q4', events: [], relays: {}, error: 'relay list unavailable' });
+      expect(c.sent[0]).toMatchObject({ type: 'outbox.query.result', id: 'q4', events: [], error: 'relay list unavailable' });
     });
   });
 
@@ -199,23 +202,21 @@ describe('createOutboxService', () => {
       c = collector();
     });
 
-    it('streams events (with relay) and eose through the sink', () => {
+    it('streams event results through the sink without outbox.eose', () => {
       svc.handleMessage(WINDOW, { type: 'outbox.subscribe', id: 's1', subId: 'sub-1', filters: [{ kinds: [1] }] } as NappletMessage, c.send);
       expect(router.subscribe).toHaveBeenCalledWith([{ kinds: [1] }], undefined, expect.any(Object));
 
-      router.lastSink!.event(EVENT, 'wss://r.test');
-      router.lastSink!.eose();
+      router.lastSink!.event(RESULT);
 
       expect(c.sent).toEqual([
-        { type: 'outbox.event', subId: 'sub-1', event: EVENT, relay: 'wss://r.test' },
-        { type: 'outbox.eose', subId: 'sub-1' },
+        { type: 'outbox.event', subId: 'sub-1', result: RESULT },
       ]);
     });
 
-    it('omits the relay field when the router does not attribute one', () => {
+    it('omits the sidecar when the router does not attribute one', () => {
       svc.handleMessage(WINDOW, { type: 'outbox.subscribe', id: 's2', subId: 'sub-2', filters: [{ kinds: [1] }] } as NappletMessage, c.send);
-      router.lastSink!.event(EVENT);
-      expect(c.sent[0]).toEqual({ type: 'outbox.event', subId: 'sub-2', event: EVENT });
+      router.lastSink!.event({ event: EVENT });
+      expect(c.sent[0]).toEqual({ type: 'outbox.event', subId: 'sub-2', result: { event: EVENT } });
     });
 
     it('sends outbox.closed with reason on invalid subscribe filters', () => {

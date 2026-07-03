@@ -315,9 +315,10 @@ describe('NIP-5D conformance static guards', () => {
     }
   });
 
-  it('keeps handleRelayQuery wired to RelayQueryResultMessage.events contract (issue #94)', () => {
+  it('keeps handleRelayQuery wired to RelayEventResult query results', () => {
     const relayHandlerSrc = readRepoFile('packages/runtime/src/relay-handler.ts');
     const relayTypes = readRepoFile(`${installedNapDist}/relay/types.d.ts`);
+    const outboxServiceSrc = readRepoFile('packages/services/src/outbox-service.ts');
 
     // (a) relay-handler.ts replies with 'relay.query.result'
     expect(relayHandlerSrc, 'relay-handler must emit relay.query.result').toContain(
@@ -328,6 +329,12 @@ describe('NIP-5D conformance static guards', () => {
     //     The result object literal must carry `events` (the settled reply).
     expect(relayHandlerSrc, 'relay-handler relay.query.result must carry events field').toContain(
       '{ type: \'relay.query.result\', id, events }',
+    );
+    expect(relayHandlerSrc, 'relay-handler query events must be RelayEventResult records').toContain(
+      'const events: RelayEventResult[] = []',
+    );
+    expect(relayHandlerSrc, 'relay-handler must wrap raw events in RelayEventResult').toContain(
+      'createRelayEventResult',
     );
 
     // (c) The legacy count-based shape must not appear in the query.result reply
@@ -341,7 +348,12 @@ describe('NIP-5D conformance static guards', () => {
       'relayServiceFrom(context)',
     );
 
-    // (e) Installed RelayQueryResultMessage interface carries 'events', not 'count'
+    // (e) NAP-OUTBOX no longer exposes outbox.eose; relay EOSE remains local to NAP-RELAY.
+    expect(outboxServiceSrc, 'outbox service must not emit outbox.eose').not.toContain(
+      "'outbox.eose'",
+    );
+
+    // (f) Installed RelayQueryResultMessage interface carries 'events', not 'count'
     const queryResultFields = interfaceFieldNames(relayTypes, 'RelayQueryResultMessage');
     expect(queryResultFields, 'RelayQueryResultMessage must declare events').toContain('events');
     expect(queryResultFields, 'RelayQueryResultMessage must not declare count').not.toContain('count');

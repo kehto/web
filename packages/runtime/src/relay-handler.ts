@@ -3,6 +3,12 @@ import type { RelayMessage } from '@napplet/nap/relay/types';
 
 import { matchesAnyFilter, type EventBuffer, type SubscriptionEntry } from './event-buffer.js';
 import type { ReplayDetector } from './replay.js';
+import {
+  createRelayEventResult,
+  createRelayEventResultWithHints,
+  relayEventResultFromCarrier,
+  type RelayEventResult,
+} from './relay-result.js';
 import type { RuntimeAdapter, ServiceHandler, ServiceRegistry } from './types.js';
 
 declare function setTimeout(callback: () => void, ms: number): unknown;
@@ -12,6 +18,7 @@ type RuntimeRelayMessage = RelayMessage & {
   subId?: string;
   filters?: NostrFilter[];
   event?: NostrEvent;
+  result?: RelayEventResult;
   id?: string;
   relay?: string;
 };
@@ -62,6 +69,17 @@ function isShellKindQuery(filters: NostrFilter[]): boolean {
   return filters.length > 0 && filters.every((filter) => filter.kinds?.every((kind) => kind >= 29000 && kind < 30000));
 }
 
+function sendRelayEvent(hooks: RuntimeAdapter, windowId: string, subId: string, result: RelayEventResult): void {
+  hooks.sendToNapplet(windowId, { type: 'relay.event', subId, result } as NappletMessage);
+}
+
+function normalizeRelayServiceResponse(resp: NappletMessage): NappletMessage {
+  const m = resp as RuntimeRelayMessage;
+  if (m.type !== 'relay.event') return resp;
+  const result = relayEventResultFromCarrier(m);
+  return result ? { type: 'relay.event', subId: m.subId, result } as NappletMessage : resp;
+}
+
 function handleRelaySubscribe(
   context: RelayHandlerContext,
   windowId: string,
@@ -77,11 +95,11 @@ function handleRelaySubscribe(
   subscriptions.set(subKey, { windowId, filters });
 
   const seenIds = new Set<string>();
-  function deliver(event: NostrEvent): void {
+  function deliver(event: NostrEvent, relayHints?: string[]): void {
     if (seenIds.has(event.id)) return;
     seenIds.add(event.id);
     if (subscriptions.has(subKey)) {
-      hooks.sendToNapplet(windowId, { type: 'relay.event', subId, event } as NappletMessage);
+      sendRelayEvent(hooks, windowId, subId, createRelayEventResultWithHints(event, relayHints));
     }
   }
 
@@ -96,12 +114,12 @@ function handleRelaySubscribe(
   if (!isShellKind && relayService) {
     relayService.handleMessage(windowId, msg, (resp: NappletMessage) => {
       if (!subscriptions.has(subKey)) return;
-      hooks.sendToNapplet(windowId, resp);
+      hooks.sendToNapplet(windowId, normalizeRelayServiceResponse(resp));
     });
     if (cacheService) {
       cacheService.handleMessage(windowId, msg, (resp: NappletMessage) => {
         if (!subscriptions.has(subKey)) return;
-        hooks.sendToNapplet(windowId, resp);
+        hooks.sendToNapplet(windowId, normalizeRelayServiceResponse(resp));
       });
     }
     return;
@@ -118,7 +136,7 @@ function deliverFromRuntimeBackends(
   subKey: string,
   filters: NostrFilter[],
   isShellKind: boolean,
-  deliver: (event: NostrEvent) => void,
+  deliver: (event: NostrEvent, relayHints?: string[]) => void,
   relayHint?: string,
 ): void {
   const { hooks } = context;
@@ -157,9 +175,10 @@ function deliverFromRuntimeBackends(
       }
       return;
     }
-    deliver(item as NostrEvent);
+    const event = item as NostrEvent;
+    deliver(event, relayUrls);
     if (cache?.isAvailable() && !isShellKind) {
-      try { cache.store(item as NostrEvent); } catch { return; }
+      try { cache.store(event); } catch { return; }
     }
   }, relayUrls);
 
@@ -337,11 +356,11 @@ function handleRelayQuery(
   const filters = m.filters ?? [];
 
   const seenIds = new Set<string>();
-  const events: NostrEvent[] = [];
+  const events: RelayEventResult[] = [];
   for (const event of eventBuffer.getBufferedEvents()) {
     if (matchesAnyFilter(event, filters) && !seenIds.has(event.id)) {
       seenIds.add(event.id);
-      events.push(event);
+      events.push(createRelayEventResult(event));
     }
   }
 
@@ -396,9 +415,10 @@ function handleRelayQuery(
     function makeCollector(): (resp: NappletMessage) => void {
       return function collector(resp: NappletMessage): void {
         const r = resp as RuntimeRelayMessage;
-        if (r.type === 'relay.event' && r.event && !seenIds.has(r.event.id)) {
-          seenIds.add(r.event.id);
-          events.push(r.event);
+        const result = r.type === 'relay.event' ? relayEventResultFromCarrier(r) : null;
+        if (result && !seenIds.has(result.event.id)) {
+          seenIds.add(result.event.id);
+          events.push(result);
         } else if (r.type === 'relay.eose') {
           onBackendEose();
         }
@@ -431,7 +451,7 @@ function handleRelayQuery(
         for (const event of cachedEvents) {
           if (!seenIds.has(event.id)) {
             seenIds.add(event.id);
-            events.push(event);
+            events.push(createRelayEventResult(event));
           }
         }
       })
@@ -463,7 +483,7 @@ function handleRelayQuery(
     const event = item as NostrEvent;
     if (!seenIds.has(event.id)) {
       seenIds.add(event.id);
-      events.push(event);
+      events.push(createRelayEventResultWithHints(event, relayUrls));
     }
     if (cache?.isAvailable()) {
       try { cache.store(event); } catch { return; }

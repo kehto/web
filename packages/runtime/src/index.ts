@@ -61,6 +61,13 @@ export type { ReplayDetector } from './replay.js';
 export { createEventBuffer, matchesFilter, matchesAnyFilter, RING_BUFFER_SIZE } from './event-buffer.js';
 export type { EventBuffer, SubscriptionEntry } from './event-buffer.js';
 
+export {
+  createRelayEventResult,
+  createRelayEventResultWithHints,
+  relayEventResultFromCarrier,
+} from './relay-result.js';
+export type { RelayEventCarrier, RelayEventResult, RelayEventSidecar } from './relay-result.js';
+
 export { createRuntime } from './runtime.js';
 export type { Runtime } from './runtime.js';
 

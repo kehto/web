@@ -39,6 +39,8 @@
  */
 
 import type { EventTemplate, NostrEvent, NostrFilter } from '@napplet/core';
+import { createRelayEventResultWithHints } from '@kehto/runtime';
+import type { RelayEventResult } from '@kehto/runtime';
 import type {
   OutboxRouter,
   OutboxResult,
@@ -251,11 +253,11 @@ function admitEvent(ctx: RouterCtx, collector: Collector, event: NostrEvent): vo
 function buildCollectResult(
   collector: Collector,
   timedOut: boolean,
-): { events: NostrEvent[]; relayMap: Record<string, string[]>; incomplete: boolean } {
-  const events = [...collector.seen.values()];
-  const relayObj: Record<string, string[]> = {};
-  for (const event of events) relayObj[event.id] = [...(collector.relayMap.get(event.id) ?? [])];
-  return { events, relayMap: relayObj, incomplete: timedOut };
+): { events: RelayEventResult[]; incomplete: boolean } {
+  const events = [...collector.seen.values()].map((event) =>
+    createRelayEventResultWithHints(event, [...(collector.relayMap.get(event.id) ?? [])]),
+  );
+  return { events, incomplete: timedOut };
 }
 
 /**
@@ -268,7 +270,7 @@ function collectFromRelays(
   filters: NostrFilter[],
   relayUrls: string[],
   timeoutMs: number,
-): Promise<{ events: NostrEvent[]; relayMap: Record<string, string[]>; incomplete: boolean }> {
+): Promise<{ events: RelayEventResult[]; incomplete: boolean }> {
   return new Promise((resolve) => {
     const collector: Collector = { seen: new Map(), relayMap: new Map(), verifications: [] };
     const handles: { unsubscribe(): void }[] = [];
@@ -317,13 +319,13 @@ function relayPoolSubscribe(
 
 async function queryImpl(ctx: RouterCtx, filters: NostrFilter[], options?: OutboxQueryOptions): Promise<OutboxResult> {
   if (!ctx.relayPool.isAvailable()) {
-    return { events: [], relays: {}, incomplete: true, error: 'relay list unavailable' };
+    return { events: [], incomplete: true, error: 'relay list unavailable' };
   }
   const strategy = options?.strategy ?? 'auto';
   const authors = deriveAuthors(filters, options?.authors);
   const plan = await resolvePlan(ctx, authors, 'read', strategy, options?.relays);
   if (plan.relays.length === 0) {
-    return { events: [], relays: {}, incomplete: true, error: 'relay list unavailable' };
+    return { events: [], incomplete: true, error: 'relay list unavailable' };
   }
 
   const timeoutMs = options?.timeoutMs ?? ctx.defaultTimeoutMs;
@@ -332,16 +334,16 @@ async function queryImpl(ctx: RouterCtx, filters: NostrFilter[], options?: Outbo
   const incomplete = collected.incomplete || (plan.missingAuthors?.length ?? 0) > 0;
   let events = collected.events;
   if (options?.limit !== undefined && events.length > options.limit) {
-    events = [...events].sort((a, b) => b.created_at - a.created_at).slice(0, options.limit);
+    events = [...events].sort((a, b) => b.event.created_at - a.event.created_at).slice(0, options.limit);
   }
-  const result: OutboxResult = { events, relays: collected.relayMap };
+  const result: OutboxResult = { events };
   if (incomplete) result.incomplete = true;
   return result;
 }
 
 async function getEventImpl(ctx: RouterCtx, eventId: string, options?: OutboxEventOptions): Promise<OutboxEventResult> {
   if (typeof eventId !== 'string' || eventId.length === 0) {
-    return { relays: [], error: 'invalid filter' };
+    return { error: 'invalid filter' };
   }
 
   const filter: NostrFilter = { ids: [eventId] };
@@ -355,12 +357,10 @@ async function getEventImpl(ctx: RouterCtx, eventId: string, options?: OutboxEve
   if (options?.timeoutMs !== undefined) queryOptions.timeoutMs = options.timeoutMs;
 
   const queryResult = await queryImpl(ctx, [filter], queryOptions);
-  const event = queryResult.events.find((candidate) => candidate.id === eventId);
-  const result: OutboxEventResult = {
-    relays: event ? (queryResult.relays[eventId] ?? []) : [],
-  };
-  if (event) result.event = event;
-  if (!event) result.error = queryResult.error ?? 'not found';
+  const eventResult = queryResult.events.find((candidate) => candidate.event.id === eventId);
+  const result: OutboxEventResult = {};
+  if (eventResult) result.result = eventResult;
+  if (!eventResult) result.error = queryResult.error ?? 'not found';
   else if (queryResult.error !== undefined) result.error = queryResult.error;
   if (queryResult.incomplete !== undefined) result.incomplete = queryResult.incomplete;
   return result;
@@ -398,7 +398,6 @@ function attachLiveRelay(
       sub.eoseCount += 1;
       if (!sub.eoseSent && sub.eoseCount >= sub.relayCount) {
         sub.eoseSent = true;
-        sink.eose();
         if (!live) { sub.closed = true; closeLiveSub(sub); sink.closed(); }
       }
       return;
@@ -407,7 +406,7 @@ function attachLiveRelay(
     void ctx.verify(item).then((ok) => {
       if (!ok || sub.closed || sub.seen.has(item.id)) return;
       sub.seen.add(item.id);
-      sink.event(item, relayUrl);
+      sink.event(createRelayEventResultWithHints(item, [relayUrl]));
     });
   }));
 }
