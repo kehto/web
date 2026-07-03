@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.22
 milestone_name: Single-Window Development Runtime
 status: complete
-last_updated: "2026-07-03T18:39:32+02:00"
+last_updated: "2026-07-03T19:08:00+02:00"
 last_activity: 2026-07-03
 progress:
   total_phases: 5
@@ -28,7 +28,7 @@ Phase: 94 — Coverage, Docs, Release Readiness, and PR
 Plan: 94-01 — complete
 Status: v1.22 complete; branch pushed and PR #64 opened
 
-Last activity: 2026-07-03 — Resolved PR #138 conflicts against current main while preserving Paja NIP-5D manifest kind support and dependency-bound metadata.
+Last activity: 2026-07-03 — Fixed package docs version rows after the release PR so main CI and Pages docs gates can pass.
 
 ## Performance Metrics
 
@@ -119,6 +119,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260703-nva | Fix kehto paja to use NIP-5D event kinds instead of NIP-5A event kinds | 2026-07-03 | e8cedd0 | [260703-nva-fix-kehto-paja-to-use-nip-5d-event-kinds](./quick/260703-nva-fix-kehto-paja-to-use-nip-5d-event-kinds/) |
 | 260703-oi0 | Use <= in package dependency upper bounds for issue #139 | 2026-07-03 | 89f4c11 | [260703-oi0-use-in-package-dependency-upper-bounds-f](./quick/260703-oi0-use-in-package-dependency-upper-bounds-f/) |
 | 260703-pwi | Resolve PR #138 conflicts with current main | 2026-07-03 | 6ebab4e | [260703-pwi-resolve-pr-138-conflicts-with-current-ma](./quick/260703-pwi-resolve-pr-138-conflicts-with-current-ma/) |
+| 260703-qjv | Fix docs package version rows after release version bump | 2026-07-03 | fix/docs-version-rows-after-release | [260703-qjv-fix-docs-package-version-rows-after-rele](./quick/260703-qjv-fix-docs-package-version-rows-after-rele/) |
 
 ## Session Continuity
 
