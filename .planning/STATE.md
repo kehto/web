@@ -28,7 +28,7 @@ Phase: 94 — Coverage, Docs, Release Readiness, and PR
 Plan: 94-01 — complete
 Status: v1.22 complete; branch pushed and PR #64 opened
 
-Last activity: 2026-07-03 — Raised Kehto's Napplet package graph to the current published `@napplet/core`/`@napplet/nap` 0.27 line.
+Last activity: 2026-07-03 — Fixed stale package docs version rows after the Napplet package catch-up merge.
 
 ## Performance Metrics
 
@@ -122,6 +122,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260703-qjv | Fix docs package version rows after release version bump | 2026-07-03 | fix/docs-version-rows-after-release | [260703-qjv-fix-docs-package-version-rows-after-rele](./quick/260703-qjv-fix-docs-package-version-rows-after-rele/) |
 | 260703-vfz | Chase current NAP-OUTBOX contract by removing caller-visible strategy, live, and outbox.eose controls | 2026-07-03 | fix/nap-outbox-eose-removal | [260703-vfz-chase-current-nap-outbox-contract-in-keh](./quick/260703-vfz-chase-current-nap-outbox-contract-in-keh/) |
 | 260703-w7r | Bump local napplet demo and fixture package versions to the current published Napplet packages after the NAP-OUTBOX chase | 2026-07-03 | fix/napplet-package-version-catchup | [260703-w7r-bump-local-napplet-demo-and-fixture-pack](./quick/260703-w7r-bump-local-napplet-demo-and-fixture-pack/) |
+| 260704-00s | Fix package docs version rows after the Napplet package catch-up merged on main | 2026-07-03 | fix/docs-version-rows-after-napplet-catchup | [260704-00s-fix-package-docs-version-rows-after-the-](./quick/260704-00s-fix-package-docs-version-rows-after-the-/) |
 
 ## Session Continuity
 
