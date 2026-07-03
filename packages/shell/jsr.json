@@ -4,7 +4,7 @@
   "license": "MIT",
   "exports": "./src/index.ts",
   "imports": {
-    "@kehto/acl": "jsr:@kehto/acl@^0.15.2",
+    "@kehto/acl": "jsr:@kehto/acl@^0.15.3",
     "@kehto/runtime": "jsr:@kehto/runtime@^0.18.1",
     "@napplet/core": "jsr:@napplet/core@^0.23.0",
     "@napplet/nap": "jsr:@napplet/nap@^0.23.0",
