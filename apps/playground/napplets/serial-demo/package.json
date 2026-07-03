@@ -9,8 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@napplet/nap": "0.25.0",
-    "@napplet/shim": "0.26.0"
+    "@napplet/nap": "0.27.0",
+    "@napplet/shim": "0.26.2"
   },
   "devDependencies": {
     "@napplet/vite-plugin": "0.10.1",

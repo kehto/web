@@ -318,6 +318,7 @@ describe('NIP-5D conformance static guards', () => {
   it('keeps handleRelayQuery wired to RelayEventResult query results', () => {
     const relayHandlerSrc = readRepoFile('packages/runtime/src/relay-handler.ts');
     const relayTypes = readRepoFile(`${installedNapDist}/relay/types.d.ts`);
+    const outboxTypes = readRepoFile(`${installedNapDist}/outbox/types.d.ts`);
     const outboxServiceSrc = readRepoFile('packages/services/src/outbox-service.ts');
     const outboxRouterSrc = readRepoFile('packages/services/src/relay-pool-outbox-router.ts');
     const removedOutboxEose = `outbox.${'eose'}`;
@@ -370,6 +371,42 @@ describe('NIP-5D conformance static guards', () => {
     expect(outboxRouterSrc, 'outbox router must not consume subscribe live option').not.toContain(
       'options?.live',
     );
+    expect(outboxTypes, 'installed NAP-OUTBOX types must not export OutboxStrategy').not.toContain(
+      removedStrategyType,
+    );
+    expect(outboxTypes, 'installed NAP-OUTBOX types must not expose outbox.eose').not.toContain(
+      removedOutboxEose,
+    );
+    expect(outboxTypes, 'installed NAP-OUTBOX options must not expose strategy').not.toContain(
+      'strategy?:',
+    );
+    expect(outboxTypes, 'installed NAP-OUTBOX subscribe options must not expose live').not.toContain(
+      'live?:',
+    );
+
+    expect(interfaceFieldNames(outboxTypes, 'OutboxEventOptions')).toEqual([
+      'author',
+      'relays',
+      'timeoutMs',
+    ]);
+    expect(interfaceFieldNames(outboxTypes, 'OutboxQueryOptions')).toEqual([
+      'authors',
+      'relays',
+      'limit',
+      'timeoutMs',
+    ]);
+    expect(interfaceFieldNames(outboxTypes, 'OutboxSubscribeOptions')).toEqual([]);
+    expect(interfaceFieldNames(outboxTypes, 'OutboxPublishOptions')).toEqual([
+      'relays',
+      'targetAuthors',
+    ]);
+    expect(interfaceFieldNames(outboxTypes, 'OutboxTarget')).toEqual([
+      'authors',
+      'pubkey',
+      'direction',
+    ]);
+    expect(interfaceFieldNames(outboxTypes, 'OutboxEventMessage')).toContain('result');
+    expect(interfaceFieldNames(outboxTypes, 'OutboxEventMessage')).not.toContain('event');
 
     // (f) Installed RelayQueryResultMessage interface carries 'events', not 'count'
     const queryResultFields = interfaceFieldNames(relayTypes, 'RelayQueryResultMessage');
