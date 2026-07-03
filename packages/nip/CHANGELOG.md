@@ -1,5 +1,11 @@
 # @kehto/nip
 
+## 0.4.1
+
+### Patch Changes
+
+- 89f4c11: Express peer and development dependency upper bounds with inclusive maximum ranges for clearer supported-version metadata, including the current Napplet 0.26 line.
+
 ## 0.4.0
 
 ### Minor Changes

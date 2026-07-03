@@ -1,5 +1,13 @@
 # @kehto/cli
 
+## 0.2.10
+
+### Patch Changes
+
+- 89f4c11: Express peer and development dependency upper bounds with inclusive maximum ranges for clearer supported-version metadata, including the current Napplet 0.26 line.
+- Updated dependencies [89f4c11]
+  - @kehto/paja@0.6.1
+
 ## 0.2.9
 
 ### Patch Changes
