@@ -1,5 +1,18 @@
 # @kehto/paja
 
+## 0.6.3
+
+### Patch Changes
+
+- 0dbdfe2: Raise the supported `@napplet/core` and `@napplet/nap` peer range through the
+  published `0.27.x` line and refresh local demo/fixture napplet package pins.
+- Updated dependencies [0dbdfe2]
+  - @kehto/acl@0.15.4
+  - @kehto/firewall@0.3.8
+  - @kehto/runtime@0.18.2
+  - @kehto/services@0.16.1
+  - @kehto/shell@0.16.4
+
 ## 0.6.2
 
 ### Patch Changes
