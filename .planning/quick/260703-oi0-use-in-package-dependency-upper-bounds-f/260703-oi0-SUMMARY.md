@@ -3,12 +3,12 @@
 ## Result
 
 Completed issue #139 by replacing published package dependency upper bounds with
-inclusive maximum ranges while preserving the previous support windows.
+inclusive maximum ranges that admit the current Napplet `0.26.x` line.
 
-- `@napplet/core` / `@napplet/nap`: `>=0.23.0 <=0.25.x`
+- `@napplet/core` / `@napplet/nap`: `>=0.23.0 <=0.26.x`
 - `nostr-tools`: `>=2.23.3 <=2.x`
 
-Source commit: `89f4c11`
+Source commits: `89f4c11`, `d029f99`
 
 ## Changed
 
@@ -21,7 +21,9 @@ Source commit: `89f4c11`
 
 ## Verification
 
-- `pnpm dlx semver -r '>=0.23.0 <=0.25.x' 0.23.0 0.25.999 0.26.0`
+- `npm view @napplet/core version`
+- `npm view @napplet/nap version`
+- `pnpm dlx semver -r '>=0.23.0 <=0.26.x' 0.23.0 0.25.999 0.26.0 0.26.999 0.27.0`
 - `pnpm dlx semver -r '>=2.23.3 <=2.x' 2.23.3 2.99.0 3.0.0`
 - `pnpm install --lockfile-only`
 - `pnpm docs:check`
