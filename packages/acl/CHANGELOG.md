@@ -1,5 +1,12 @@
 # @kehto/acl
 
+## 0.15.4
+
+### Patch Changes
+
+- 0dbdfe2: Raise the supported `@napplet/core` and `@napplet/nap` peer range through the
+  published `0.27.x` line and refresh local demo/fixture napplet package pins.
+
 ## 0.15.3
 
 ### Patch Changes
