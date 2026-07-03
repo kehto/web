@@ -1,5 +1,23 @@
 # @kehto/paja
 
+## 0.6.0
+
+### Minor Changes
+
+- 8aa2123: Align read-style NAP event surfaces with `RelayEventResult`.
+
+  Relay and outbox read results now carry raw events as `{ event, sidecar? }`,
+  with observed relay URLs in `sidecar.relayHints`. Outbox subscriptions no
+  longer expose `outbox.eose`; streams continue until `outbox.close` or
+  `outbox.closed`.
+
+### Patch Changes
+
+- Updated dependencies [8aa2123]
+  - @kehto/runtime@0.18.0
+  - @kehto/services@0.15.0
+  - @kehto/shell@0.16.2
+
 ## 0.5.1
 
 ### Patch Changes
