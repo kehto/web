@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.22
 milestone_name: Single-Window Development Runtime
 status: complete
-last_updated: "2026-07-03T12:07:05+02:00"
+last_updated: "2026-07-03T17:15:28+02:00"
 last_activity: 2026-07-03
 progress:
   total_phases: 5
@@ -28,7 +28,7 @@ Phase: 94 — Coverage, Docs, Release Readiness, and PR
 Plan: 94-01 — complete
 Status: v1.22 complete; branch pushed and PR #64 opened
 
-Last activity: 2026-07-03 — Aligned read-style raw NAP event surfaces with RelayEventResult sidecars and removed NAP-OUTBOX outbox.eose exposure.
+Last activity: 2026-07-03 — Fixed Paja runtime pointer resolution to accept the full NIP-5D napplet manifest kind set.
 
 ## Performance Metrics
 
@@ -116,6 +116,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260630-i9k | Make Paja useful for napplet development | 2026-06-30 | c27d886 | [260630-i9k-make-paja-useful-development-tool](./quick/260630-i9k-make-paja-useful-development-tool/) |
 | 260630-k7p | Fix gateway artifact audit srcdoc check | 2026-06-30 | fix/gateway-audit-srcdoc-check | [260630-k7p-fix-gateway-audit-srcdoc-check](./quick/260630-k7p-fix-gateway-audit-srcdoc-check/) |
 | 260703-ghc | Align Kehto raw read-style NAP event surfaces with RelayEventResult sidecars and remove outbox.eose exposure | 2026-07-03 | 8aa2123 | [260703-ghc-align-kehto-raw-read-style-nap-event-sur](./quick/260703-ghc-align-kehto-raw-read-style-nap-event-sur/) |
+| 260703-nva | Fix kehto paja to use NIP-5D event kinds instead of NIP-5A event kinds | 2026-07-03 | e8cedd0 | [260703-nva-fix-kehto-paja-to-use-nip-5d-event-kinds](./quick/260703-nva-fix-kehto-paja-to-use-nip-5d-event-kinds/) |
 
 ## Session Continuity
 
