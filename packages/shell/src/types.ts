@@ -286,17 +286,16 @@ export interface UnroutedMessageInfo {
  * `window.napplet.<domain>` presence; this shape remains for older consumers
  * that still read shell.init capability metadata.
  *
- * Per canonical NIP-5D (https://github.com/nostr-protocol/nips/pull/2303/),
- * supports() distinguishes two namespaces:
+ * Current availability is the injected `window.napplet.<domain>` namespace.
+ * Compatibility supports() helpers should treat only NAP domains and protocols
+ * as advertised capabilities:
  *
  *   - Bare names for NAP-capability lookups, resolved against the `naps`
  *     array — e.g. `supports('relay')`, `supports('identity')`.
- *   - The `perm:<permission>` prefix for sandbox-permission lookups, resolved
- *     against the `sandbox` array — e.g. `supports('perm:popups')`,
- *     `supports('perm:modals')`.
  *
- * The two namespaces do not cross: a bare-name lookup never matches a sandbox
- * entry and a `perm:`-prefixed lookup never matches a NAP entry.
+ * The sandbox array remains for older payload readers, but Kehto emits it empty.
+ * NIP-5D no longer blesses additional browser sandbox tokens as interoperability
+ * requirements or napplet-visible capabilities.
  *
  * ## Compatibility NAP-SHELL shape
  *
@@ -309,10 +308,7 @@ export interface UnroutedMessageInfo {
  *                                  includes `'NAP-01'`
  *
  * `domains` and `protocols` are emitted as a superset alongside the
- * `naps`/`sandbox` fields for back-compat. The compatibility helper has no
- * special `perm:` logic: `supports('perm:popups')` is an ordinary bare-domain
- * membership check, so Kehto's `perm:`-prefixed sandbox entries are folded into
- * `domains` (empty by default, preserving the default-empty sandbox behavior).
+ * `naps`/`sandbox` fields for back-compat.
  */
 export interface ShellCapabilities {
   /**
@@ -321,8 +317,7 @@ export interface ShellCapabilities {
    * `'inc'`, `'theme'`, etc. — with the same conditional entries as `naps`
    * (`relay`/`outbox` when a relay pool is wired, `upload`/`intent` under their
    * hooks). Carries NO `inc:NAP-NN` protocol strings (those live in
-   * `protocols`). Any `perm:<x>` sandbox entries are appended here too, since
-   * legacy supports helpers resolve `supports('perm:<x>')` against this list.
+   * `protocols`).
    */
   domains: string[];
   /**
@@ -345,16 +340,11 @@ export interface ShellCapabilities {
    */
   naps: string[];
   /**
-   * Sandbox permissions under the `perm:<permission>` namespace. Each entry
-   * MUST begin with the literal prefix `'perm:'` — e.g. `'perm:popups'`,
-   * `'perm:modals'`, `'perm:downloads'`. Napplets call
-   * `shell.supports('perm:<permission>')` to check sandbox entitlements.
+   * Empty compatibility field for older `shell.init` payload consumers.
    *
-   * The `perm:` prefix is what separates sandbox permissions from NAP
-   * capabilities; bare-name entries here violate the NIP-5D contract and will
-   * be unreachable through `supports()` (see the living NIP-5D at
-   * https://github.com/nostr-protocol/nips/pull/2303/). NAP-capability lookups (on `naps`) retain the bare-name
-   * convention and do NOT use the `perm:` prefix.
+   * Current NIP-5D keeps the web sandbox baseline narrow: hosted napplet iframes
+   * use `allow-scripts`, never `allow-same-origin`, and do not receive optional
+   * browser sandbox relaxations as advertised capabilities.
    */
   sandbox: string[];
 }

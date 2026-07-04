@@ -13,13 +13,11 @@
  * emitted compatibility shape honest without depending on a removed upstream
  * helper path.
  *
- * ## perm:<x> handling (verified)
+ * ## sandbox compatibility field (verified)
  *
- * The compatibility helper modeled here has no special permission namespace.
- * `supports('perm:popups')` resolves as ordinary `domains` membership
- * (`'perm:popups' ∈ capabilities.domains`). Kehto's sandbox permissions are
- * therefore folded into `domains`; with the default-empty sandbox, no perm:
- * entries appear and `supports('perm:<x>')` is `false` unless the host extends.
+ * Kehto keeps `capabilities.sandbox` empty. Additional browser sandbox tokens are
+ * no longer part of the NIP-5D interoperability baseline or a shell.supports()
+ * compatibility surface.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -135,11 +133,11 @@ describe('legacy shell.supports compatibility over kehto-emitted capabilities', 
     });
   });
 
-  describe('perm:<x> sandbox handling (0.13 = plain domains membership)', () => {
-    it('supports("perm:popups") === false by default (sandbox empty)', () => {
-      // The compatibility helper has no permission namespace; perm: queries hit domains.
-      // kehto's default-empty sandbox contributes no perm: entries.
-      expect(supports('perm:popups')).toBe(false);
+  describe('sandbox compatibility field', () => {
+    it('does not advertise browser sandbox relaxations', () => {
+      expect(caps.sandbox).toEqual([]);
+      expect(caps.domains.some((entry) => entry.startsWith('perm:'))).toBe(false);
+      expect(supports('perm:browser-relaxation')).toBe(false);
     });
   });
 

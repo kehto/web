@@ -143,7 +143,7 @@ test('resolved manifests and hosted supports match napplet contracts', async ({ 
       return requires.every((capability) => namespaceKeys.includes(capability)) &&
         !namespaceKeys.includes('shell') &&
         !namespaceKeys.includes('nostrdb') &&
-        !namespaceKeys.includes('perm:popups') &&
+        !namespaceKeys.some((key) => key.startsWith('perm:')) &&
         !namespaceKeys.includes('__kehtoInjectedDomains') &&
         typeof maybeWindow.napplet?.upload === 'undefined' &&
         typeof maybeWindow.nostr === 'undefined';

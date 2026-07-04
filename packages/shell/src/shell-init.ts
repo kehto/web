@@ -46,42 +46,37 @@ const NAP_INC_PROTOCOLS = [
  * `link` appended when hooks.link.isAvailable();
  * `common` appended when hooks.common.isAvailable().
  *
- * Sandbox permissions are left empty by default — host apps may extend after
- * construction. Sandbox entries (and any host-app extensions) MUST use the
- * canonical `perm:<permission>` form — e.g. `'perm:popups'`, `'perm:modals'`,
- * `'perm:downloads'`. Napplets rely on the `perm:` prefix to distinguish
- * sandbox permissions from NAP-capability lookups; see the living NIP-5D at
- * https://github.com/nostr-protocol/nips/pull/2303/
+ * The sandbox array is retained as an always-empty compatibility field. Current
+ * NIP-5D defines only the `allow-scripts` baseline and does not make additional
+ * browser sandbox tokens a napplet capability surface.
  *
  * ### domains array + protocols map (compatibility NAP-SHELL)
  * The structured shape older shell capability consumers read:
  *
  *   - `domains` — bare NAP domain names (the `naps` set MINUS the `inc:NAP-NN`
  *     protocol strings) with the same conditional entries (relay/outbox under
- *     `hooks.relayPool`, upload/intent/link/common under their hooks). Any `perm:<x>`
- *     sandbox entries are appended here too — legacy supports helpers resolve
- *     `supports('perm:<x>')` as a plain `domains` membership check.
+ *     `hooks.relayPool`, upload/intent/link/common under their hooks).
  *   - `protocols` — `{ inc: ['NAP-01'..'NAP-06'] }`, derived from
  *     `NAP_INC_PROTOCOLS` by stripping the `inc:` prefix.
  *
  * Emitted as a superset alongside `naps`/`sandbox` for back-compat.
  *
  * @param hooks - The ShellAdapter provided by the host app
- * @returns ShellCapabilities with domains/protocols (compatibility shape) plus
- *          naps (NAP vocab) and sandbox (perm:-prefixed) arrays
+ * @returns ShellCapabilities with domains/protocols (compatibility shape), naps
+ *          (NAP vocab), and an empty sandbox compatibility array
  * @example
  * ```ts
  * const caps = buildShellCapabilities(hooks);
  * // caps.domains => ['relay','outbox','identity','storage','inc','theme','keys','media','notify','config','resource','cvm']
  * //               (relay + outbox present when hooks.relayPool is provided; 'upload'/'intent'
- * //                appended under their hooks; perm:<x> sandbox entries appended when extended)
+ * //                appended under their hooks)
  * // caps.protocols => { inc: ['NAP-01','NAP-02','NAP-03','NAP-04','NAP-05','NAP-06'] }
  * // caps.naps => ['relay','outbox','identity','storage','inc','theme','keys','media','notify','config','resource','cvm',
  * //               'inc:NAP-01','inc:NAP-02','inc:NAP-03','inc:NAP-04','inc:NAP-05','inc:NAP-06']
  * //              (relay + outbox present when hooks.relayPool is provided; 'upload'
  * //               appended when hooks.upload is provided; 'intent' appended when
  * //               hooks.intent.isAvailable() is true)
- * // caps.sandbox => []   // host app may extend with 'perm:popups', etc.
+ * // caps.sandbox => []   // retained for compatibility; not a NAP capability surface
  * ```
  */
 export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
@@ -101,11 +96,9 @@ export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
   if (hooks.ble?.isAvailable()) domains.push('ble');
   if (hooks.webrtc?.isAvailable()) domains.push('webrtc');
   if (hooks.dm) domains.push('dm');
-  // Sandbox permissions are perm:<x>-prefixed and resolved by the 0.13 shim as
-  // plain domains membership (no separate permission namespace). Empty by
-  // default — fold any host-extended sandbox entries in alongside the domains.
+  // Current NIP-5D has no optional browser sandbox capability surface.
+  // Keep this field empty for old shell.init consumers that still expect it.
   const sandbox: string[] = [];
-  domains.push(...sandbox);
 
   // protocols — conformant NAP-SHELL per-domain numbered protocol map.
   // Derive { inc: ['NAP-01'..'NAP-06'] } by stripping the `inc:` prefix from
