@@ -934,6 +934,48 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(ctx2.sent).toHaveLength(0);
     });
 
+    it('keys.forward invokes hooks.hotkeys.executeHotkeyFromForward even when a keys service is registered', () => {
+      const forwardSpy: Array<Record<string, unknown>> = [];
+      const serviceMessages: NappletMessage[] = [];
+      const ctx2 = createMockRuntimeAdapter({
+        hotkeys: {
+          executeHotkeyFromForward(event) {
+            forwardSpy.push(event as unknown as Record<string, unknown>);
+          },
+        },
+      });
+      const runtime2 = createRuntime(ctx2.hooks);
+      runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+      runtime2.registerService('keys', {
+        descriptor: { name: 'keys', version: '1.0.0' },
+        handleMessage(_wid, msg) {
+          serviceMessages.push(msg);
+        },
+      });
+
+      runtime2.handleMessage(WINDOW_ID, {
+        type: 'keys.forward',
+        key: '2',
+        code: 'Digit2',
+        ctrl: false,
+        alt: false,
+        shift: false,
+        meta: false,
+      } as NappletMessage);
+
+      expect(forwardSpy).toHaveLength(1);
+      expect(forwardSpy[0]).toEqual({
+        key: '2',
+        code: 'Digit2',
+        ctrlKey: false,
+        altKey: false,
+        shiftKey: false,
+        metaKey: false,
+      });
+      expect(serviceMessages).toHaveLength(0);
+      expect(ctx2.sent).toHaveLength(0);
+    });
+
     it('fallback: keys.registerAction emits keys.registerAction.result when no service registered', () => {
       const ctx2 = createMockRuntimeAdapter();
       const runtime2 = createRuntime(ctx2.hooks);
