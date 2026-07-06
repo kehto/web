@@ -367,6 +367,26 @@ function nappletNamespacePrelude(domains: string[]): void {
 
   function makeKeys(): Record<string, unknown> {
     return {
+      forward: (event: {
+        key?: unknown;
+        code?: unknown;
+        ctrl?: unknown;
+        alt?: unknown;
+        shift?: unknown;
+        meta?: unknown;
+        ctrlKey?: unknown;
+        altKey?: unknown;
+        shiftKey?: unknown;
+        metaKey?: unknown;
+      } = {}) => fire({
+        type: 'keys.forward',
+        key: typeof event.key === 'string' ? event.key : '',
+        code: typeof event.code === 'string' ? event.code : '',
+        ctrl: Boolean(event.ctrl ?? event.ctrlKey),
+        alt: Boolean(event.alt ?? event.altKey),
+        shift: Boolean(event.shift ?? event.shiftKey),
+        meta: Boolean(event.meta ?? event.metaKey),
+      }),
       registerAction: (action: unknown) => request(
         { type: 'keys.registerAction', action },
         'keys.registerAction.result',

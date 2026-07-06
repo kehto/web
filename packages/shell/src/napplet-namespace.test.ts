@@ -327,6 +327,50 @@ describe('NIP-5D napplet namespace prelude', () => {
     });
   });
 
+  it('injects keys.forward so focused napplets can forward key events to the shell', () => {
+    const target = createPreludeTestWindow();
+
+    runPrelude(renderNappletNamespacePrelude({ domains: ['keys'] }), target);
+
+    const keys = target.napplet?.keys as {
+      forward: (event: {
+        key?: string;
+        code?: string;
+        ctrlKey?: boolean;
+        altKey?: boolean;
+        shiftKey?: boolean;
+        metaKey?: boolean;
+      }) => void;
+      registerAction: (action: unknown) => Promise<unknown>;
+      unregisterAction: (actionId: string) => void;
+      onAction: (actionId: string, callback: () => void) => { close(): void };
+    };
+
+    expect(typeof keys.forward).toBe('function');
+    expect(typeof keys.registerAction).toBe('function');
+    expect(typeof keys.unregisterAction).toBe('function');
+    expect(typeof keys.onAction).toBe('function');
+
+    keys.forward({
+      key: 'j',
+      code: 'KeyJ',
+      ctrlKey: true,
+      altKey: false,
+      shiftKey: true,
+      metaKey: false,
+    });
+
+    expect(target.postedMessages.at(-1)).toEqual({
+      type: 'keys.forward',
+      key: 'j',
+      code: 'KeyJ',
+      ctrl: true,
+      alt: false,
+      shift: true,
+      meta: false,
+    });
+  });
+
   it('forwards public SDK wrapper arguments through injected service domains', async () => {
     const target = createPreludeTestWindow();
 
