@@ -15,6 +15,19 @@ describe('selectE2eTests', () => {
     expect(result.specs).toEqual([]);
   });
 
+  test('skips generated Version Packages metadata', () => {
+    const result = selectE2eTests([
+      'docs/packages/shell.md',
+      'packages/paja/jsr.json',
+      'packages/shell/CHANGELOG.md',
+      'packages/shell/jsr.json',
+      'packages/shell/package.json',
+    ]);
+
+    expect(result.runE2e).toBe(false);
+    expect(result.specs).toEqual([]);
+  });
+
   test('runs only directly changed e2e specs', () => {
     const result = selectE2eTests([
       'tests/e2e/nap-resource.spec.ts',

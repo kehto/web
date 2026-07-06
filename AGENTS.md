@@ -150,17 +150,23 @@ registration. Do not run `pnpm publish-packages` locally.
    and opens/updates the Version Packages PR. That PR consumes/deletes `.changeset/*.md`,
    bumps `package.json`, syncs `jsr.json`, and writes changelog text into package
    `CHANGELOG.md` files. `publish.yml` never publishes.
-3. Treat the Version Packages PR as a real release-candidate PR, not a mechanical bump.
-   Before marking it ready, verify that package docs match the bumped versions:
-   `docs/packages/<name>.md` must contain the exact `| Version | \`x.y.z\` |` row for
-   each changed `@kehto/*` package, then run `pnpm docs:check`. This check is mandatory
-   even when the only code changes are generated `package.json`, `jsr.json`, and
-   changelog updates.
-4. Merge the Version Packages PR only after its CI is green. Before pushing a `v<next>`
+3. Treat the Version Packages PR as release metadata, not a new source change.
+   The source PR and the target `main` SHA own full build/type/unit/Playwright
+   validation. The Version Packages PR must still prove package docs match the bumped
+   versions: `docs/packages/<name>.md` must contain the exact `| Version | \`x.y.z\` |`
+   row for each changed `@kehto/*` package, and the CI `Build & Type-Check` job runs
+   only the release-metadata guard (`pnpm docs:check` plus JSR metadata sync
+   validation) for generated `package.json`, `jsr.json`, changelog,
+   changeset-deletion, and docs-package version row changes. Do not rerun full CI,
+   unit tests, or Playwright for those generated-only changes.
+4. Merge the Version Packages PR only after its release-metadata guard is green. Before pushing a `v<next>`
    tag or manually dispatching `release.yml`, re-check the actual target commit on
    `main`: fetch `origin/main`, identify the target SHA, and confirm the GitHub CI run
-   for that same SHA completed successfully with Build & Type-Check, Vitest, docs gate,
-   and any required Playwright job green or intentionally skipped by scope detection.
+   for that same SHA completed successfully. For source-change commits this means Build
+   & Type-Check, Vitest, docs gate, and any required Playwright job are green or
+   intentionally skipped by scope detection; for generated Version Packages commits this
+   means the release-metadata guard passed and Vitest/Playwright were intentionally
+   skipped.
    If GitHub does not yet show a successful CI run for the target SHA, run the local
    fallback gates (`pnpm build`, `pnpm type-check`, `pnpm test:unit`,
    `pnpm docs:check`, plus relevant `pnpm test:e2e`) and wait for/repair CI before
