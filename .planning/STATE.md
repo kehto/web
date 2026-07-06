@@ -28,7 +28,7 @@ Phase: 94 — Coverage, Docs, Release Readiness, and PR
 Plan: 94-01 — complete
 Status: v1.22 complete; branch pushed and PR #64 opened
 
-Last activity: 2026-07-04 — Completed quick task 260704-jrn: Remove stale NIP-5D optional sandbox permission language from kehto.
+Last activity: 2026-07-06 — Completed quick task 260706-pa2: Fix post-release docs version row for @kehto/shell 0.16.5.
 
 ## Performance Metrics
 
@@ -126,6 +126,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260704-0qm | Fix package docs version rows after Version Packages PR 147 merged | 2026-07-03 | fix/docs-version-rows-after-version-pr-147 | [260704-0qm-fix-package-docs-version-rows-after-vers](./quick/260704-0qm-fix-package-docs-version-rows-after-vers/) |
 | 260704-0v1 | Update AGENTS.md release instructions to require checking tests and docs gates before pushing a release | 2026-07-03 | fix/docs-version-rows-after-version-pr-147 | [260704-0v1-update-agents-md-release-instructions-to](./quick/260704-0v1-update-agents-md-release-instructions-to/) |
 | 260704-jrn | Remove stale NIP-5D optional sandbox permission language from kehto | 2026-07-04 | 0b75d3a | [260704-jrn-remove-stale-nip-5d-optional-sandbox-per](./quick/260704-jrn-remove-stale-nip-5d-optional-sandbox-per/) |
+| 260706-pa2 | Fix post-release docs version row for @kehto/shell 0.16.5 | 2026-07-06 | fix/shell-docs-version-0-16-5 | [260706-pa2-fix-post-release-docs-version-row-for-ke](./quick/260706-pa2-fix-post-release-docs-version-row-for-ke/) |
 
 ## Session Continuity
 
