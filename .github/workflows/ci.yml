@@ -90,6 +90,10 @@ jobs:
         run: pnpm type-check
 
       - name: Docs quality gate
+        # TypeDoc resolves workspace declarations produced by package builds.
+        # Generated Version Packages commits only update release metadata and
+        # should not run docs after intentionally skipping the build step.
+        if: ${{ needs.change_scope.outputs.release_only != 'true' }}
         run: pnpm docs:check
 
       - name: Verify generated JSR metadata is synced
