@@ -154,6 +154,21 @@ function nappletNamespacePrelude(domains: string[]): void {
     return msg;
   }
 
+  function withoutEnvelope(msg: Record<string, unknown>): Record<string, unknown> {
+    const { type: _type, id: _id, ...result } = msg;
+    return result;
+  }
+
+  function fieldOrThrow<T>(msg: RuntimeMessage, field: string, fallback: string): T {
+    if (Object.prototype.hasOwnProperty.call(msg, field)) return msg[field] as T;
+    throw new Error(typeof msg.error === 'string' ? msg.error : fallback);
+  }
+
+  function voidResult(msg: RuntimeMessage, fallback: string): void {
+    if (typeof msg.error === 'string' && msg.error) throw new Error(msg.error);
+    if (msg.ok === false) throw new Error(fallback);
+  }
+
   function subscriptionHandle(close: () => void): { close(): void } {
     let closed = false;
     return {
@@ -163,6 +178,19 @@ function nappletNamespacePrelude(domains: string[]): void {
         close();
       },
     };
+  }
+
+  function domainEventHandle(
+    eventType: string,
+    callback: (event: unknown) => void,
+    select: (message: RuntimeMessage) => unknown = (message) => message.event,
+  ): { close(): void } {
+    const off = listen((event) => {
+      if (!isParentMessage(event)) return;
+      const msg = event.data as RuntimeMessage;
+      if (typeof msg === 'object' && msg !== null && msg.type === eventType) callback(select(msg));
+    });
+    return subscriptionHandle(off);
   }
 
   function makeRelay(): Record<string, unknown> {
@@ -369,7 +397,7 @@ function nappletNamespacePrelude(domains: string[]): void {
       createSession: (options: unknown) => request(
         { type: 'media.session.create', ...((options && typeof options === 'object') ? options as Record<string, unknown> : {}) },
         'media.session.create.result',
-        resultOrError,
+        withoutEnvelope,
         { rejectOnError: false },
       ),
       updateSession: (sessionId: string, metadata: unknown) => fire({ type: 'media.session.update', sessionId, metadata }),
@@ -377,10 +405,15 @@ function nappletNamespacePrelude(domains: string[]): void {
       reportState: (sessionId: string, state: unknown) => fire({ type: 'media.state', sessionId, ...((state && typeof state === 'object') ? state as Record<string, unknown> : {}) }),
       reportCapabilities: (sessionId: string, actions: unknown) => fire({ type: 'media.capabilities', sessionId, actions }),
       sendCommand: (sessionId: string, action: string, value?: unknown) => fire({ type: 'media.command', sessionId, action, ...(value === undefined ? {} : { value }) }),
-      onCommand: (sessionId: string, callback: (msg: RuntimeMessage) => void) => on('media.command', sessionId, callback),
-      onState: (sessionId: string, callback: (msg: RuntimeMessage) => void) => on('media.state', sessionId, callback),
-      onCapabilities: (sessionId: string, callback: (msg: RuntimeMessage) => void) => on('media.capabilities', sessionId, callback),
-      onControls: (sessionId: string, callback: (msg: RuntimeMessage) => void) => on('media.controls', sessionId, callback),
+      onCommand: (sessionId: string, callback: (action: unknown, value?: unknown) => void) => on('media.command', sessionId, (msg) => callback(msg.action, msg.value)),
+      onState: (sessionId: string, callback: (state: Record<string, unknown>) => void) => on('media.state', sessionId, (msg) => callback({
+        status: msg.status,
+        position: msg.position,
+        duration: msg.duration,
+        volume: msg.volume,
+      })),
+      onCapabilities: (sessionId: string, callback: (actions: unknown) => void) => on('media.capabilities', sessionId, (msg) => callback(msg.actions)),
+      onControls: (sessionId: string, callback: (controls: unknown) => void) => on('media.controls', sessionId, (msg) => callback(msg.controls)),
     };
   }
 
@@ -397,7 +430,7 @@ function nappletNamespacePrelude(domains: string[]): void {
       send: (notification: Record<string, unknown>) => request(
         { type: 'notify.send', ...notification },
         'notify.send.result',
-        resultOrError,
+        (msg) => ({ notificationId: fieldOrThrow(msg, 'notificationId', 'notify.send.result missing notificationId') }),
       ),
       dismiss: (notificationId: string) => fire({ type: 'notify.dismiss', notificationId }),
       badge: (count: number) => fire({ type: 'notify.badge', count }),
@@ -405,12 +438,12 @@ function nappletNamespacePrelude(domains: string[]): void {
       requestPermission: (channel?: string) => request(
         { type: 'notify.permission.request', ...(channel ? { channel } : {}) },
         'notify.permission.result',
-        resultOrError,
+        (msg) => ({ granted: msg.granted }),
       ),
-      onAction: (callback: (msg: RuntimeMessage) => void) => on('notify.action', callback),
-      onClicked: (callback: (msg: RuntimeMessage) => void) => on('notify.clicked', callback),
-      onDismissed: (callback: (msg: RuntimeMessage) => void) => on('notify.dismissed', callback),
-      onControls: (callback: (msg: RuntimeMessage) => void) => on('notify.controls', callback),
+      onAction: (callback: (notificationId: unknown, actionId: unknown) => void) => on('notify.action', (msg) => callback(msg.notificationId, msg.actionId)),
+      onClicked: (callback: (notificationId: unknown) => void) => on('notify.clicked', (msg) => callback(msg.notificationId)),
+      onDismissed: (callback: (notificationId: unknown, reason: unknown) => void) => on('notify.dismissed', (msg) => callback(msg.notificationId, msg.reason)),
+      onControls: (callback: (controls: unknown) => void) => on('notify.controls', (msg) => callback(msg.controls)),
     };
   }
 
@@ -489,25 +522,73 @@ function nappletNamespacePrelude(domains: string[]): void {
   }
 
   function makeCvm(): Record<string, unknown> {
-    const req = (type: string, payload: Record<string, unknown>) => request(
+    const req = <T>(type: string, payload: Record<string, unknown>, map: (msg: RuntimeMessage) => T) => request(
       { type, ...payload },
       `${type}.result`,
-      resultOrError,
-      { rejectOnError: false },
+      map,
     );
+    const cvmRequest = (server: unknown, message: unknown, options?: Record<string, unknown>) => req(
+      'cvm.request',
+      { server, message, ...(options === undefined ? {} : { options }) },
+      (msg) => fieldOrThrow(msg, 'message', 'cvm.request.result missing message'),
+    );
+    const mcpCall = async (
+      server: unknown,
+      method: string,
+      params?: Record<string, unknown>,
+      options?: Record<string, unknown>,
+    ) => {
+      const reply = await cvmRequest(server, {
+        jsonrpc: '2.0',
+        id: id(),
+        method,
+        ...(params === undefined ? {} : { params }),
+      }, options) as { result?: unknown; error?: { message?: string } | string };
+      if (reply.error !== undefined) {
+        const error = reply.error;
+        throw new Error(typeof error === 'object' && error !== null && typeof error.message === 'string'
+          ? `${method}: ${error.message}`
+          : `${method} failed`);
+      }
+      return reply.result;
+    };
     return {
-      discover: (options?: Record<string, unknown>) => req('cvm.discover', options ?? {}),
-      request: (target: unknown, message: unknown, options?: Record<string, unknown>) => req('cvm.request', { target, message, ...(options ? { options } : {}) }),
-      listTools: (target: unknown, options?: Record<string, unknown>) => req('cvm.tools.list', { target, ...(options ? { options } : {}) }),
-      callTool: (target: unknown, name: string, args?: unknown, options?: Record<string, unknown>) => req('cvm.tools.call', { target, name, arguments: args, ...(options ? { options } : {}) }),
-      listResources: (target: unknown, options?: Record<string, unknown>) => req('cvm.resources.list', { target, ...(options ? { options } : {}) }),
-      readResource: (target: unknown, uri: string, options?: Record<string, unknown>) => req('cvm.resources.read', { target, uri, ...(options ? { options } : {}) }),
-      close: (sessionId: string) => fire({ type: 'cvm.close', sessionId }),
-      onEvent(callback: (msg: RuntimeMessage) => void) {
+      discover: (query?: unknown) => req('cvm.discover', query === undefined ? {} : { query }, (msg) => Array.isArray(msg.servers) ? msg.servers : []),
+      request: cvmRequest,
+      listTools: async (server: unknown, options?: Record<string, unknown>) => {
+        const result = await mcpCall(server, 'tools/list', undefined, options) as { tools?: unknown[] } | undefined;
+        return result?.tools ?? [];
+      },
+      callTool: (server: unknown, name: string, args?: unknown, options?: Record<string, unknown>) => mcpCall(
+        server,
+        'tools/call',
+        { name, ...(args === undefined ? {} : { arguments: args }) },
+        options,
+      ),
+      listResources: async (server: unknown, options?: Record<string, unknown>) => {
+        const result = await mcpCall(server, 'resources/list', undefined, options) as { resources?: unknown[] } | undefined;
+        return result?.resources ?? [];
+      },
+      readResource: async (server: unknown, uri: string, options?: Record<string, unknown>) => {
+        const result = await mcpCall(server, 'resources/read', { uri }, options) as { contents?: unknown[] } | undefined;
+        const first = result?.contents?.[0];
+        if (!first) throw new Error(`resources/read returned no contents for ${uri}`);
+        return first;
+      },
+      close: (server: unknown) => req('cvm.close', { server }, (msg) => voidResult(msg, 'cvm close failed')),
+      onEvent(callback: (server: unknown, message: unknown) => void) {
         const off = listen((event) => {
           if (!isParentMessage(event)) return;
           const msg = event.data as RuntimeMessage;
-          if (typeof msg === 'object' && msg !== null && msg.type?.startsWith('cvm.')) callback(msg);
+          if (
+            typeof msg === 'object'
+            && msg !== null
+            && msg.type === 'cvm.event'
+            && msg.server !== undefined
+            && msg.message !== undefined
+          ) {
+            callback(msg.server, msg.message);
+          }
         });
         return subscriptionHandle(off);
       },
@@ -558,14 +639,14 @@ function nappletNamespacePrelude(domains: string[]): void {
 
   function makeUpload(): Record<string, unknown> {
     return {
-      info: () => request({ type: 'upload.info' }, 'upload.info.result', resultOrError, { rejectOnError: false }),
-      upload: (requestPayload: unknown) => request({ type: 'upload.upload', request: requestPayload }, 'upload.upload.result', resultOrError, { rejectOnError: false }),
-      status: (uploadId: string) => request({ type: 'upload.status', uploadId }, 'upload.status.result', resultOrError, { rejectOnError: false }),
-      onStatus(callback: (msg: RuntimeMessage) => void) {
+      info: () => request({ type: 'upload.info' }, 'upload.info.result', (msg) => fieldOrThrow(msg, 'info', 'upload info unavailable')),
+      upload: (requestPayload: unknown) => request({ type: 'upload.upload', request: requestPayload }, 'upload.upload.result', (msg) => fieldOrThrow(msg, 'result', 'upload failed')),
+      status: (uploadId: string) => request({ type: 'upload.status', uploadId }, 'upload.status.result', (msg) => fieldOrThrow(msg, 'status', 'upload status unavailable')),
+      onStatus(callback: (status: unknown) => void) {
         const off = listen((event) => {
           if (!isParentMessage(event)) return;
           const msg = event.data as RuntimeMessage;
-          if (typeof msg === 'object' && msg !== null && msg.type === 'upload.status.changed') callback(msg);
+          if (typeof msg === 'object' && msg !== null && msg.type === 'upload.status.changed' && msg.status !== undefined) callback(msg.status);
         });
         return subscriptionHandle(off);
       },
@@ -573,47 +654,98 @@ function nappletNamespacePrelude(domains: string[]): void {
   }
 
   function makeIntent(): Record<string, unknown> {
-    const req = (type: string, payload: Record<string, unknown>) => request({ type, ...payload }, `${type}.result`, resultOrError, { rejectOnError: false });
+    const invoke = (requestPayload: unknown) => request(
+      { type: 'intent.invoke', request: requestPayload },
+      'intent.invoke.result',
+      (msg) => fieldOrThrow(msg, 'result', 'intent.invoke.result missing result'),
+    );
     return {
-      invoke: (requestPayload: unknown) => req('intent.invoke', { request: requestPayload }),
-      open: (requestPayload: unknown) => req('intent.open', { request: requestPayload }),
-      available: (requestPayload: unknown) => req('intent.available', { request: requestPayload }),
-      handlers: (requestPayload?: unknown) => req('intent.handlers', { request: requestPayload }),
-      onChanged(callback: (msg: RuntimeMessage) => void) {
-        const off = listen((event) => {
-          if (!isParentMessage(event)) return;
-          const msg = event.data as RuntimeMessage;
-          if (typeof msg === 'object' && msg !== null && msg.type === 'intent.changed') callback(msg);
-        });
-        return subscriptionHandle(off);
-      },
+      invoke,
+      open: (archetype: string, payload?: unknown, opts?: Record<string, unknown>) => invoke({
+        archetype,
+        action: 'open',
+        payload,
+        ...((opts && typeof opts === 'object') ? opts : {}),
+      }),
+      available: (archetype: string) => request(
+        { type: 'intent.available', archetype },
+        'intent.available.result',
+        (msg) => fieldOrThrow(msg, 'availability', 'intent.available.result missing availability'),
+      ),
+      handlers: () => request(
+        { type: 'intent.handlers' },
+        'intent.handlers.result',
+        (msg) => fieldOrThrow(msg, 'handlers', 'intent.handlers.result missing handlers'),
+      ),
+      onChanged: (callback: (availability: unknown) => void) => domainEventHandle(
+        'intent.changed',
+        callback,
+        (msg) => msg.availability,
+      ),
     };
   }
 
-  function makeSessionDomain(domain: string): Record<string, unknown> {
-    const req = (action: string, payload: Record<string, unknown>) => request(
-      { type: `${domain}.${action}`, ...payload },
-      `${domain}.${action}.result`,
-      resultOrError,
-      { rejectOnError: false },
+  function makeWebrtc(): Record<string, unknown> {
+    return {
+      open: (requestPayload?: unknown) => request(
+        { type: 'webrtc.open', request: requestPayload },
+        'webrtc.open.result',
+        (msg) => ({ session: fieldOrThrow(msg, 'session', 'webrtc.open.result missing session') }),
+      ),
+      send: (sessionId: string, payload: unknown) => request(
+        { type: 'webrtc.send', sessionId, payload },
+        'webrtc.send.result',
+        (msg) => voidResult(msg, 'webrtc send failed'),
+      ),
+      close: (sessionId: string, reason?: string) => request(
+        { type: 'webrtc.close', sessionId, ...(reason ? { reason } : {}) },
+        'webrtc.close.result',
+        (msg) => voidResult(msg, 'webrtc close failed'),
+      ),
+      onEvent: (callback: (event: unknown) => void) => domainEventHandle('webrtc.event', callback),
+    };
+  }
+
+  function makeBle(): Record<string, unknown> {
+    const req = (action: string, payload: Record<string, unknown>, map: (msg: RuntimeMessage) => unknown) => request(
+      { type: `ble.${action}`, ...payload },
+      `ble.${action}.result`,
+      map,
     );
     return {
-      open: (requestPayload?: unknown) => req('open', { request: requestPayload }),
-      services: (sessionId: string) => req('services', { sessionId }),
-      read: (sessionId: string, characteristic: string) => req('read', { sessionId, characteristic }),
-      write: (sessionId: string, data: unknown) => req('write', { sessionId, data }),
-      subscribe: (sessionId: string, characteristic?: string) => req('subscribe', { sessionId, characteristic }),
-      unsubscribe: (sessionId: string, characteristic?: string) => req('unsubscribe', { sessionId, characteristic }),
-      send: (sessionId: string, data: unknown) => fire({ type: `${domain}.send`, sessionId, data }),
-      close: (sessionId: string, reason?: string) => fire({ type: `${domain}.close`, sessionId, ...(reason ? { reason } : {}) }),
-      onEvent(callback: (msg: RuntimeMessage) => void) {
-        const off = listen((event) => {
-          if (!isParentMessage(event)) return;
-          const msg = event.data as RuntimeMessage;
-          if (typeof msg === 'object' && msg !== null && msg.type?.startsWith(`${domain}.`)) callback(msg);
-        });
-        return subscriptionHandle(off);
-      },
+      open: (requestPayload?: unknown) => req('open', { request: requestPayload }, (msg) => ({ session: fieldOrThrow(msg, 'session', 'ble.open.result missing session') })),
+      services: (sessionId: string) => req('services', { sessionId }, (msg) => fieldOrThrow(msg, 'services', 'ble.services.result missing services')),
+      read: (sessionId: string, targetValue: unknown) => req('read', { sessionId, target: targetValue }, (msg) => fieldOrThrow(msg, 'data', 'ble.read.result missing data')),
+      write: (sessionId: string, targetValue: unknown, data: unknown, options?: Record<string, unknown>) => req(
+        'write',
+        { sessionId, target: targetValue, data, ...(options ? { options } : {}) },
+        (msg) => voidResult(msg, 'ble write failed'),
+      ),
+      subscribe: (sessionId: string, targetValue: unknown) => req('subscribe', { sessionId, target: targetValue }, (msg) => voidResult(msg, 'ble subscribe failed')),
+      unsubscribe: (sessionId: string, targetValue: unknown) => req('unsubscribe', { sessionId, target: targetValue }, (msg) => voidResult(msg, 'ble unsubscribe failed')),
+      close: (sessionId: string, reason?: string) => req('close', { sessionId, ...(reason ? { reason } : {}) }, (msg) => voidResult(msg, 'ble close failed')),
+      onEvent: (callback: (event: unknown) => void) => domainEventHandle('ble.event', callback),
+    };
+  }
+
+  function makeSerial(): Record<string, unknown> {
+    return {
+      open: (requestPayload?: unknown) => request(
+        { type: 'serial.open', request: requestPayload },
+        'serial.open.result',
+        (msg) => ({ session: fieldOrThrow(msg, 'session', 'serial.open.result missing session') }),
+      ),
+      write: (sessionId: string, data: Uint8Array | number[]) => request(
+        { type: 'serial.write', sessionId, data: Array.from(data) },
+        'serial.write.result',
+        (msg) => voidResult(msg, 'serial write failed'),
+      ),
+      close: (sessionId: string, reason?: string) => request(
+        { type: 'serial.close', sessionId, ...(reason === undefined ? {} : { reason }) },
+        'serial.close.result',
+        (msg) => voidResult(msg, 'serial close failed'),
+      ),
+      onEvent: (callback: (event: unknown) => void) => domainEventHandle('serial.event', callback),
     };
   }
 
@@ -649,33 +781,48 @@ function nappletNamespacePrelude(domains: string[]): void {
   }
 
   function makeCommon(): Record<string, unknown> {
-    const req = (type: string, payload: Record<string, unknown>) => request({ type, ...payload }, `${type}.result`, resultOrError, { rejectOnError: false });
+    const req = (type: string, payload: Record<string, unknown>) => request({ type, ...payload }, `${type}.result`, withoutEnvelope, { rejectOnError: false });
     return {
-      encodeNip19: (entity: unknown) => req('common.encodeNip19', { entity }),
-      decodeNip19: (entity: string) => req('common.decodeNip19', { entity }),
-      getProfile: (pubkey: string) => req('common.getProfile', { pubkey }),
-      follows: (pubkey?: string) => req('common.follows', { pubkey }),
-      follow: (pubkey: string) => req('common.follow', { pubkey }),
-      unfollow: (pubkey: string) => req('common.unfollow', { pubkey }),
-      react: (target: unknown, reaction?: string) => req('common.react', { target, reaction }),
-      report: (target: unknown, reason?: string) => req('common.report', { target, reason }),
+      encodeNip19: (input: unknown) => req('common.encodeNip19', { input }),
+      decodeNip19: (value: string) => req('common.decodeNip19', { value }),
+      getProfile: (targetValue: unknown) => req('common.getProfile', { target: targetValue }),
+      follows: () => req('common.follows', {}),
+      follow: (...pubkeys: string[]) => req('common.follow', { pubkeys }),
+      unfollow: (...pubkeys: string[]) => req('common.unfollow', { pubkeys }),
+      react: (targetEventId: string, reaction?: string, customEmojiHref?: string) => req('common.react', {
+        targetEventId,
+        reaction,
+        ...(customEmojiHref === undefined ? {} : { customEmojiHref }),
+      }),
+      report: (targetValue: unknown, reason?: string, text?: string) => req('common.report', {
+        target: targetValue,
+        reason,
+        text,
+      }),
     };
   }
 
   function makeDm(): Record<string, unknown> {
-    const req = (type: string, payload: Record<string, unknown>) => request({ type, ...payload }, `${type}.result`, resultOrError, { rejectOnError: false });
+    const req = (type: string, payload: Record<string, unknown>) => request({ type, ...payload }, `${type}.result`, withoutEnvelope, { rejectOnError: false });
     return {
       status: () => req('dm.status', {}),
-      conversations: (options?: unknown) => req('dm.conversations', { options }),
-      messages: (conversationId: string, options?: unknown) => req('dm.messages', { conversationId, options }),
-      send: (recipients: string[], content: string, options?: unknown) => req('dm.send', { recipients, content, options }),
-      subscribe: (options?: unknown) => req('dm.subscribe', { options }),
-      unsubscribe: (subscriptionId: string) => fire({ type: 'dm.unsubscribe', subscriptionId }),
-      onMessage(callback: (msg: RuntimeMessage) => void) {
+      conversations: (query?: Record<string, unknown>) => req('dm.conversations', query ?? {}),
+      messages: (query: Record<string, unknown>) => req('dm.messages', query ?? {}),
+      send: (requestPayload: Record<string, unknown>) => req('dm.send', requestPayload ?? {}),
+      subscribe: (requestPayload?: Record<string, unknown>) => req('dm.subscribe', requestPayload ?? {}),
+      unsubscribe: (subscriptionId: string) => req('dm.unsubscribe', { subscriptionId }),
+      onMessage(callback: (message: unknown, subscriptionId: string) => void) {
         const off = listen((event) => {
           if (!isParentMessage(event)) return;
           const msg = event.data as RuntimeMessage;
-          if (typeof msg === 'object' && msg !== null && msg.type === 'dm.message') callback(msg);
+          if (
+            typeof msg === 'object'
+            && msg !== null
+            && msg.type === 'dm.message'
+            && typeof msg.subscriptionId === 'string'
+          ) {
+            callback(msg.message, msg.subscriptionId);
+          }
         });
         return subscriptionHandle(off);
       },
@@ -699,16 +846,33 @@ function nappletNamespacePrelude(domains: string[]): void {
       case 'outbox': return makeOutbox();
       case 'upload': return makeUpload();
       case 'intent': return makeIntent();
-      case 'webrtc': return makeSessionDomain('webrtc');
-      case 'ble': return makeSessionDomain('ble');
+      case 'webrtc': return makeWebrtc();
+      case 'ble': return makeBle();
       case 'link': return makeLink();
       case 'count': return makeCount();
       case 'lists': return makeLists();
       case 'common': return makeCommon();
-      case 'serial': return makeSessionDomain('serial');
+      case 'serial': return makeSerial();
       case 'dm': return makeDm();
       default: return {};
     }
+  }
+
+  function guardNappletNamespace(namespace: Record<string, unknown>): Record<string, unknown> {
+    return new Proxy(namespace, {
+      set(obj, prop, value) {
+        if (typeof prop !== 'string' || !allowed.has(prop)) return true;
+        obj[prop] = makeDomain(prop, value);
+        return true;
+      },
+      defineProperty(obj, prop, descriptor) {
+        if (typeof prop !== 'string' || !allowed.has(prop)) return true;
+        return Reflect.defineProperty(obj, prop, {
+          ...descriptor,
+          value: makeDomain(prop, descriptor.value),
+        });
+      },
+    });
   }
 
   function buildNappletNamespace(value: unknown): Record<string, unknown> {
@@ -728,7 +892,7 @@ function nappletNamespacePrelude(domains: string[]): void {
         writable: true,
       });
     }
-    return next;
+    return guardNappletNamespace(next);
   }
 
   let root = buildNappletNamespace(target.napplet);

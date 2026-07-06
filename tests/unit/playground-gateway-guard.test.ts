@@ -126,7 +126,8 @@ describe('playground gateway artifact guard', () => {
     expect(resolver).toContain('selectWriteRelays(');
     expect(resolver).toContain('injectCspMeta');
     expect(shellHost).toContain('injectNappletNamespacePrelude');
-    expect(shellHost).toContain('getShellCapabilities()?.domains');
+    expect(shellHost).toContain('{ domains: resolved.requires }');
+    expect(shellHost).not.toContain('getShellCapabilities()?.domains');
 
     // requires checked against the COMPUTED manifest before the iframe renders.
     expect(shellHost).toContain('getMissingRequiredNaps(resolved.requires)');
@@ -134,7 +135,7 @@ describe('playground gateway artifact guard', () => {
     expect(shellHost.indexOf('getMissingRequiredNaps(resolved.requires)')).toBeLessThan(
       shellHost.indexOf('iframe.srcdoc = injectNappletNamespacePrelude'),
     );
-    expect(shellHost.indexOf('getShellCapabilities()?.domains')).toBeLessThan(
+    expect(shellHost.indexOf('{ domains: resolved.requires }')).toBeGreaterThan(
       shellHost.indexOf('iframe.srcdoc = injectNappletNamespacePrelude'),
     );
   });
