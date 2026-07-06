@@ -11,7 +11,7 @@
     "@kehto/acl": "jsr:@kehto/acl@^0.15.4",
     "@kehto/firewall": "jsr:@kehto/firewall@^0.3.8",
     "@kehto/nip": "jsr:@kehto/nip@^0.4.1",
-    "@kehto/runtime": "jsr:@kehto/runtime@^0.18.2",
+    "@kehto/runtime": "jsr:@kehto/runtime@^0.18.3",
     "@kehto/services": "jsr:@kehto/services@^0.16.1",
     "@kehto/shell": "jsr:@kehto/shell@^0.16.7",
     "@kehto/wm": "jsr:@kehto/wm@^0.0.1",
