@@ -1,5 +1,11 @@
 # @kehto/shell
 
+## 0.16.7
+
+### Patch Changes
+
+- 3c0dcc8: Install NAP-KEYS smart forwarding in the host-injected `window.napplet.keys` prelude so focused sandboxed iframes forward ordinary keydowns without bundling a napplet-side shim.
+
 ## 0.16.6
 
 ### Patch Changes
