@@ -14,8 +14,10 @@ The runtime is designed to be used from a napplet package script:
 
 The target URL is explicit on purpose. Kehto can spawn any framework command and
 wait for that URL, but it does not guess which URL the framework chose. Loading
-that URL directly in the runtime iframe preserves the app's own HMR behavior
-without Vite, Svelte, React, or any other framework lock-in.
+that URL through Paja as injected `srcdoc` lets Kehto install
+`window.napplet.<domain>` before app code runs, while a `<base>` tag keeps the
+app's own assets and HMR pointed at the target dev server without Vite, Svelte,
+React, or any other framework lock-in.
 
 The package provides the typed option model, CLI parser, runtime server, host
 page, and host config surface. The browser host keeps one target iframe with a

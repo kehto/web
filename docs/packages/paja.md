@@ -107,11 +107,14 @@ The served host page is a single-window development runtime: a control console
 beside one sandboxed target iframe, plus compact top and bottom bars. The iframe
 is created without a static `src`; the browser bootstrap sets
 `sandbox="allow-scripts"`, registers the iframe with `@kehto/shell`, creates a
-source-derived NIP-5D session entry, navigates to the explicit target URL, and
-uses a real `ShellBridge` plus `@kehto/runtime` for `shell.ready`, `shell.init`,
-ACL, firewall, storage, INC, relay/outbox, and service dispatch. Reload uses a
-generation-specific internal window id so the same iframe can receive a fresh
-`shell.init` without restarting the CLI or the app dev server.
+source-derived NIP-5D session entry, fetches the explicit target URL through the
+local Paja server, and renders it as injected `srcdoc`. Paja prepends the
+runtime-owned `window.napplet.<domain>` namespace before authored scripts run and
+adds a `<base>` tag so target assets and HMR still resolve against the app dev
+server. A real `ShellBridge` plus `@kehto/runtime` handles `shell.ready`,
+`shell.init`, ACL, firewall, storage, INC, relay/outbox, and service dispatch.
+Reload uses a generation-specific internal window id so the same iframe can
+receive a fresh `shell.init` without restarting the CLI or the app dev server.
 
 The console includes:
 
@@ -137,7 +140,8 @@ or `nevent` pointer. `naddr` pointers resolve the latest matching NIP-5D named
 manifest (`35129`) by author and `d` tag; `nevent` pointers resolve a specific
 NIP-5D snapshot, root, or named manifest event id (`5129`, `15129`, or `35129`).
 In both cases Paja verifies the signed manifest, aggregate hash, and every
-Blossom blob before assigning iframe `srcdoc`.
+Blossom blob, then injects the same runtime-owned `window.napplet.<domain>`
+namespace before assigning iframe `srcdoc`.
 
 ## NAP and Service Parity
 
@@ -189,9 +193,9 @@ the next iframe reload.
 
 - Owns the local development host process, option normalization, managed command
   startup, target readiness polling, host HTML rendering, browser bootstrap, and
-  runtime config JSON endpoint.
-- Loads the app-provided target URL directly in the iframe so the app dev
-  server keeps its own HMR behavior.
+  runtime config JSON and target HTML endpoints.
+- Fetches the app-provided target URL into injected `srcdoc`; target assets and
+  HMR still resolve against the app dev server through the injected `<base>`.
 - Does not guess framework dev-server ports, mutate app build tooling, or add
   framework-specific adapters.
 - Does not replace the full playground. Paja is the package-scoped authoring

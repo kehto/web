@@ -61,9 +61,10 @@ pnpm dev
 
 The browser page shows a development console beside one sandboxed target iframe.
 The console includes interface injection toggles, ACL controls, signer status,
-and a filterable message log. The app source still reloads through the framework
-dev server; the runtime reload button reinitializes the Kehto shell state around
-the same target URL.
+and a filterable message log. Paja fetches the target HTML into injected
+`srcdoc` so `window.napplet.<domain>` exists before app bootstrap, while target
+assets and HMR still resolve through the framework dev server. The runtime reload
+button reinitializes the Kehto shell state around the same target URL.
 
 ## Use an Existing Target Server
 
@@ -117,10 +118,12 @@ kehto paja --config kehto.dev.json --theme dark
 
 ## Verify the Runtime Surface
 
-Inside the target iframe, `shell.ready` receives `shell.init` through
-`@kehto/shell`. Disabled capability domains are removed from the advertised
-`domains` and `naps` lists, while enabled domains route through Kehto runtime
-and reference services.
+Inside the target iframe, enabled domains are present on
+`window.napplet.<domain>` before authored app scripts run, and `shell.ready`
+still receives `shell.init` through `@kehto/shell`. Disabled capability domains
+are removed from the injected namespace and from the advertised `domains` and
+`naps` lists, while enabled domains route through Kehto runtime and reference
+services.
 
 The default memory relay also wires NAP-COUNT. `window.napplet.count` can send
 `count.query` requests for non-empty NIP-01 filter arrays and receives exact

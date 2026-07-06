@@ -55,6 +55,7 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
 
   const targetFrame = page.frameLocator('#napplet-frame');
   await expect(targetFrame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
+  await expect(targetFrame.locator('#injected-domains')).toHaveText('identity,outbox,resource,keys');
   await expect(targetFrame.locator('#shell-init-type')).toHaveText('shell.init');
   await expect(targetFrame.locator('#shell-init-domains')).toContainText('relay,outbox,identity,storage,inc');
   await expect(targetFrame.locator('#shell-init-domains')).toContainText('upload,intent');
@@ -87,7 +88,8 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   await expect(page.locator('iframe')).toHaveCount(1);
   await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().generation)).toBe(firstGeneration + 1);
   await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
-  await expect.poll(() => page.frames().some((frame) => frame.url() === targetServer.url), { timeout: 15_000 }).toBe(true);
+  await expect.poll(() => page.frames().some((frame) => frame.url() === 'about:srcdoc'), { timeout: 15_000 }).toBe(true);
+  await expect(page.locator('#napplet-frame')).toHaveAttribute('data-target-url', targetServer.url);
   const reloadedFrame = page.frameLocator('#napplet-frame');
   await expect(reloadedFrame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
   const secondLoadId = await reloadedFrame.locator('#load-id').textContent();
@@ -123,18 +125,19 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
   await expect(page.frameLocator('#napplet-frame').locator('#storage-error')).toContainText('denied', { timeout: 15_000 });
 
-  await page.locator('#interface-toggles [data-interface-domain="identity"]').click();
-  await expect(page.locator('#interface-toggles [data-interface-domain="identity"]')).toHaveAttribute('data-enabled', 'false');
+  await page.locator('#interface-toggles [data-interface-domain="media"]').click();
+  await expect(page.locator('#interface-toggles [data-interface-domain="media"]')).toHaveAttribute('data-enabled', 'false');
   await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
-  await expect(page.frameLocator('#napplet-frame').locator('#shell-init-domains')).not.toContainText('identity', { timeout: 15_000 });
+  await expect(page.frameLocator('#napplet-frame').locator('#shell-init-domains')).not.toContainText('media', { timeout: 15_000 });
 });
 
 test('applies simulation config and compact theme adjustment', async ({ page }) => {
   test.setTimeout(60_000);
   const pubkey = '4'.repeat(64);
+  const customTargetUrl = `${targetServer.url}?required=identity,resource,keys`;
   const customRuntime = await startPajaServer({
     options: {
-      targetUrl: targetServer.url,
+      targetUrl: customTargetUrl,
       port: 0,
       simulation: {
         identity: { mode: 'fixed', pubkey },
@@ -166,7 +169,8 @@ test('applies simulation config and compact theme adjustment', async ({ page }) 
     await page.locator('#reload-target').click();
     await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().generation)).toBe(firstGeneration + 1);
     await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
-    await expect.poll(() => page.frames().some((frame) => frame.url() === targetServer.url), { timeout: 15_000 }).toBe(true);
+    await expect.poll(() => page.frames().some((frame) => frame.url() === 'about:srcdoc'), { timeout: 15_000 }).toBe(true);
+    await expect(page.locator('#napplet-frame')).toHaveAttribute('data-target-url', customTargetUrl);
     const reloadedFrame = page.frameLocator('#napplet-frame');
     await expect(reloadedFrame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
     await expect(reloadedFrame.locator('#theme-background')).toHaveText('#101211', { timeout: 15_000 });
@@ -235,10 +239,40 @@ test('shows error details and routes signing through NIP-07', async ({ page }) =
   await expect(page.locator('#message-log .log-row[data-error="true"]')).toContainText('visible boom');
 });
 
+test('marks modern injected-domain targets ready without legacy shell.ready', async ({ page }) => {
+  test.setTimeout(60_000);
+  const modernRuntime = await startPajaServer({
+    options: {
+      targetUrl: `${targetServer.url}?shellReady=0&required=identity,keys`,
+      port: 0,
+    },
+    now: new Date('2026-06-21T00:00:00.000Z'),
+  });
+
+  try {
+    await page.goto(modernRuntime.url);
+
+    const targetFrame = page.frameLocator('#napplet-frame');
+    await expect(targetFrame.locator('#injected-domains')).toHaveText('identity,keys');
+    await expect(targetFrame.locator('#target-status')).toHaveText('napplet namespace ready', { timeout: 15_000 });
+    await expect(targetFrame.locator('#identity-pubkey')).not.toHaveText('');
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
+
+    const state = await page.evaluate(() => window.__KEHTO_PAJA__?.getState());
+    expect(state).toMatchObject({
+      status: 'ready',
+      initSent: false,
+    });
+  } finally {
+    await modernRuntime.close();
+  }
+});
+
 async function startTargetServer(): Promise<TargetServer> {
   let loadCount = 0;
   const server = createServer((request, response) => {
-    if (request.url !== '/') {
+    const requestUrl = new URL(request.url ?? '/', 'http://127.0.0.1');
+    if (requestUrl.pathname !== '/') {
       response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
       response.end('Not found');
       return;
@@ -249,7 +283,10 @@ async function startTargetServer(): Promise<TargetServer> {
       'cache-control': 'no-store',
       'content-type': 'text/html; charset=utf-8',
     });
-    response.end(renderTargetHtml(loadCount));
+    response.end(renderTargetHtml(loadCount, {
+      requiredDomains: readRequiredDomains(requestUrl),
+      shellReady: requestUrl.searchParams.get('shellReady') !== '0',
+    }));
   });
 
   await new Promise<void>((resolve, reject) => {
@@ -279,7 +316,18 @@ async function startTargetServer(): Promise<TargetServer> {
   };
 }
 
-function renderTargetHtml(loadCount: number): string {
+function readRequiredDomains(url: URL): string[] {
+  const raw = url.searchParams.get('required');
+  if (!raw) return ['identity', 'outbox', 'resource', 'keys'];
+  return raw.split(',').map((domain) => domain.trim()).filter(Boolean);
+}
+
+function renderTargetHtml(
+  loadCount: number,
+  options: { requiredDomains: readonly string[]; shellReady: boolean },
+): string {
+  const requiredDomainsJson = JSON.stringify(options.requiredDomains);
+  const shellReadyJson = JSON.stringify(options.shellReady);
   return `<!doctype html>
 <html>
   <head>
@@ -288,6 +336,7 @@ function renderTargetHtml(loadCount: number): string {
   </head>
   <body>
     <div id="target-status">booting</div>
+    <div id="injected-domains"></div>
     <div id="load-id">${loadCount}</div>
     <div id="shell-init-type"></div>
     <div id="shell-init-domains"></div>
@@ -299,6 +348,16 @@ function renderTargetHtml(loadCount: number): string {
     <script>
       const seenTypes = new Set();
       const serviceResults = document.getElementById('service-results');
+      const requiredDomains = ${requiredDomainsJson};
+      const injectedDomains = requiredDomains.filter((domain) =>
+        window.napplet && typeof window.napplet[domain] === 'object'
+      );
+      document.getElementById('injected-domains').textContent = injectedDomains.join(',');
+      if (injectedDomains.length !== requiredDomains.length) {
+        document.getElementById('target-status').textContent = 'Required shell domains unavailable';
+        throw new Error('Required shell domains unavailable');
+      }
+      const sendShellReady = ${shellReadyJson};
       function renderResult(message) {
         const type = message.type;
         seenTypes.add(type);
@@ -331,18 +390,29 @@ function renderTargetHtml(loadCount: number): string {
         ];
         for (const message of messages) window.parent.postMessage(message, '*');
       }
-      window.addEventListener('message', (event) => {
-        if (!event.data || typeof event.data.type !== 'string') return;
-        if (event.data.type === 'shell.init') {
-          document.getElementById('shell-init-type').textContent = event.data.type;
-          document.getElementById('shell-init-domains').textContent = event.data.capabilities.domains.join(',');
-          document.getElementById('target-status').textContent = 'shell-init received';
-          sendServiceTraffic();
-          return;
-        }
-        renderResult(event.data);
-      });
-      window.parent.postMessage({ type: 'shell.ready' }, '*');
+      if (sendShellReady) {
+        window.addEventListener('message', (event) => {
+          if (!event.data || typeof event.data.type !== 'string') return;
+          if (event.data.type === 'shell.init') {
+            document.getElementById('shell-init-type').textContent = event.data.type;
+            document.getElementById('shell-init-domains').textContent = event.data.capabilities.domains.join(',');
+            document.getElementById('target-status').textContent = 'shell-init received';
+            sendServiceTraffic();
+            return;
+          }
+          renderResult(event.data);
+        });
+        window.parent.postMessage({ type: 'shell.ready' }, '*');
+      } else {
+        window.napplet.identity.getPublicKey()
+          .then((pubkey) => {
+            document.getElementById('identity-pubkey').textContent = pubkey || '';
+            document.getElementById('target-status').textContent = 'napplet namespace ready';
+          })
+          .catch((error) => {
+            document.getElementById('target-status').textContent = error instanceof Error ? error.message : String(error);
+          });
+      }
     </script>
   </body>
 </html>`;
