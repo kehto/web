@@ -1,6 +1,6 @@
 {
   "name": "@kehto/paja",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "license": "MIT",
   "nodeModulesDir": "auto",
   "exports": {

@@ -1,5 +1,11 @@
 # @kehto/paja
 
+## 0.6.4
+
+### Patch Changes
+
+- 484630b: Render Paja target-url documents as injected srcdoc so local napplet previews receive runtime-owned window.napplet domains before app bootstrap.
+
 ## 0.6.3
 
 ### Patch Changes
