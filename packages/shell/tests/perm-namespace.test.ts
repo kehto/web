@@ -1,33 +1,13 @@
 /**
- * perm-namespace.test.ts — Regression test for SH-C02 / DRIFT-SHELL-02.
+ * perm-namespace.test.ts — Regression test for sandbox capability drift.
  *
- * Canonical NIP-5D (https://github.com/nostr-protocol/nips/pull/2303/) mandates that
- * `window.napplet.shell.supports()` distinguishes between:
+ * Kehto's current NIP-5D posture is intentionally narrow:
  *
- *   - NAP-capability lookups using bare domain names. `nap:` is the
- *     PRIMARY prefix (the NAP vocabulary the released @napplet/shim
- *     resolves), e.g. `supports('nap:relay')`, `supports('relay')`.
- *   - Sandbox-permission lookups under the `perm:<permission>`
- *     namespace, e.g. `supports('perm:popups')`, `supports('perm:modals')`.
- *
- * @kehto/shell does NOT currently ship a `supports()` helper — the
- * napplet-side @napplet/sdk/shim computes `supports()` locally against
- * the cached capabilities map delivered in the `shell.init` envelope.
- * The contract this test enforces is therefore:
- *
- *   1. ShellCapabilities.sandbox entries MUST begin with the literal
- *      prefix `'perm:'` — encoded as a JSDoc contract on the type and
- *      exercised here.
- *   2. A capability-lookup routine that mirrors the shim's behavior
- *      MUST route `'perm:*'` checks to the sandbox array, `'nap:*'`
- *      checks and bare names to the naps array — never crossing into
- *      the perm: namespace.
- *   3. Negative cases: `supports('popups')` returns false when only
- *      `'perm:popups'` is in sandbox; `supports('perm:relay')` returns
- *      false even when `'relay'` is a recognised NAP capability.
+ *   - NAP capabilities are bare domains or `nap:<domain>` lookups.
+ *   - Browser sandbox relaxations are not a NIP-5D interoperability surface.
+ *   - ShellCapabilities.sandbox remains only as an empty compatibility field.
  *
  * TERM-01: `nap:` is the primary asserted prefix.
- * Closes DRIFT-SHELL-02.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -114,32 +94,22 @@ function stubHooks(): ShellAdapter {
 }
 
 // ─── Capability-lookup contract ──────────────────────────────────────────────
-// Mirrors the behaviour @napplet/shim's shell.supports() helper MUST
-// implement. `nap:` is the primary prefix resolved against the naps array; a
-// bare name resolves against naps too. `perm:` stays in its own namespace
-// (sandbox), never crossing into the capability arrays.
+// Mirrors the capability lookups Kehto still supports for compatibility:
+// `nap:` is the primary prefix resolved against the naps array; a bare name
+// resolves against naps too. Sandbox entries are intentionally ignored.
 
 function lookup(caps: ShellCapabilities, capability: string): boolean {
-  if (capability.startsWith('perm:')) return caps.sandbox.includes(capability);
   if (capability.startsWith('nap:')) return (caps.naps ?? []).includes(capability.slice(4));
   return (caps.naps ?? []).includes(capability);
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
-describe('SH-C02: shell.supports() uses perm: namespace for sandbox permissions', () => {
-  it('sandbox lookup requires the perm: prefix (bare names rejected)', () => {
-    const caps: ShellCapabilities = {
-      domains: [],
-      protocols: {},
-      naps: [],
-      sandbox: ['perm:popups', 'perm:modals'],
-    };
-    expect(lookup(caps, 'perm:popups')).toBe(true);
-    expect(lookup(caps, 'perm:modals')).toBe(true);
-    // Bare-name lookup for a sandbox permission MUST NOT match.
-    expect(lookup(caps, 'popups')).toBe(false);
-    expect(lookup(caps, 'modals')).toBe(false);
+describe('NIP-5D sandbox capability posture', () => {
+  it('buildShellCapabilities emits no browser sandbox capabilities', () => {
+    const caps = buildShellCapabilities(stubHooks());
+    expect(caps.sandbox).toEqual([]);
+    expect(caps.domains.some((entry) => entry.startsWith('perm:'))).toBe(false);
   });
 
   it('NAP lookup uses nap: as the primary prefix', () => {
@@ -155,16 +125,13 @@ describe('SH-C02: shell.supports() uses perm: namespace for sandbox permissions'
     // bare names resolve against naps too.
     expect(lookup(caps, 'relay')).toBe(true);
     expect(lookup(caps, 'identity')).toBe(true);
-    // A NAP capability is NEVER reachable through the perm: namespace.
+    // A NAP capability is not reachable through a sandbox-style prefix.
     expect(lookup(caps, 'perm:relay')).toBe(false);
     expect(lookup(caps, 'perm:identity')).toBe(false);
     expect(lookup(caps, 'nap:missing')).toBe(false);
   });
 
-  it('namespaces do not cross — perm:<x> and <x> are distinct', () => {
-    // Shell hypothetically advertises both a NAP called "relay" AND a
-    // sandbox permission called "relay". Only the namespaced lookup
-    // should reach the sandbox entry; the bare lookup reaches the nap.
+  it('compatibility lookup ignores sandbox entries even if a host mutates the field', () => {
     const caps: ShellCapabilities = {
       domains: ['relay'],
       protocols: {},
@@ -173,27 +140,11 @@ describe('SH-C02: shell.supports() uses perm: namespace for sandbox permissions'
     };
     expect(lookup(caps, 'nap:relay')).toBe(true);    // NAP reachable (primary)
     expect(lookup(caps, 'relay')).toBe(true);        // bare reachable
-    expect(lookup(caps, 'perm:relay')).toBe(true);   // sandbox reachable
-    // Cross-namespace lookups fail:
-    expect(lookup(caps, 'perm:relay') && caps.naps.includes('perm:relay')).toBe(false);
-    expect(caps.sandbox.includes('relay')).toBe(false);
+    expect(lookup(caps, 'perm:relay')).toBe(false);
   });
 
-  it('buildShellCapabilities-emitted sandbox entries all carry the perm: prefix', () => {
-    // The default sandbox is empty today; the assertion nonetheless
-    // enforces the contract so any future host-app extension that adds
-    // a bare-name entry flunks this test.
-    const caps = buildShellCapabilities(stubHooks());
-    for (const entry of caps.sandbox) {
-      expect(entry, `sandbox entry "${entry}" must start with 'perm:'`).toMatch(/^perm:/);
-    }
-  });
-
-  it('ShellCapabilities.sandbox JSDoc documents the perm: namespace contract', () => {
-    // The on-disk JSDoc MUST cite the `perm:` prefix contract, so napplet
-    // authors and downstream shells understand the namespacing rule
-    // without reading the spec. This is the test that fails RED until
-    // Task 2 updates the JSDoc on types.ts.
-    expect(TYPES_SOURCE).toMatch(/sandbox[\s\S]{0,400}perm:/);
+  it('ShellCapabilities.sandbox JSDoc documents the empty compatibility field', () => {
+    expect(TYPES_SOURCE).toMatch(/Empty compatibility field[\s\S]{0,500}sandbox/);
+    expect(TYPES_SOURCE).toMatch(/do not receive optional[\s\S]{0,200}advertised capabilities/);
   });
 });

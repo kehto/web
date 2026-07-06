@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.22
 milestone_name: Single-Window Development Runtime
 status: complete
-last_updated: "2026-07-03T19:08:00+02:00"
-last_activity: 2026-07-03
+last_updated: "2026-07-04T14:22:00+02:00"
+last_activity: 2026-07-04
 progress:
   total_phases: 5
   completed_phases: 5
@@ -28,7 +28,7 @@ Phase: 94 — Coverage, Docs, Release Readiness, and PR
 Plan: 94-01 — complete
 Status: v1.22 complete; branch pushed and PR #64 opened
 
-Last activity: 2026-07-03 — Added release preflight instructions after repeated docs/test gate release loops.
+Last activity: 2026-07-04 — Completed quick task 260704-jrn: Remove stale NIP-5D optional sandbox permission language from kehto.
 
 ## Performance Metrics
 
@@ -125,6 +125,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260704-00s | Fix package docs version rows after the Napplet package catch-up merged on main | 2026-07-03 | fix/docs-version-rows-after-napplet-catchup | [260704-00s-fix-package-docs-version-rows-after-the-](./quick/260704-00s-fix-package-docs-version-rows-after-the-/) |
 | 260704-0qm | Fix package docs version rows after Version Packages PR 147 merged | 2026-07-03 | fix/docs-version-rows-after-version-pr-147 | [260704-0qm-fix-package-docs-version-rows-after-vers](./quick/260704-0qm-fix-package-docs-version-rows-after-vers/) |
 | 260704-0v1 | Update AGENTS.md release instructions to require checking tests and docs gates before pushing a release | 2026-07-03 | fix/docs-version-rows-after-version-pr-147 | [260704-0v1-update-agents-md-release-instructions-to](./quick/260704-0v1-update-agents-md-release-instructions-to/) |
+| 260704-jrn | Remove stale NIP-5D optional sandbox permission language from kehto | 2026-07-04 | 0b75d3a | [260704-jrn-remove-stale-nip-5d-optional-sandbox-per](./quick/260704-jrn-remove-stale-nip-5d-optional-sandbox-per/) |
 
 ## Session Continuity
 

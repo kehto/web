@@ -15,13 +15,13 @@ function runPrelude(script: string, target: { napplet?: Record<string, unknown> 
 describe('NIP-5D napplet namespace prelude', () => {
   it('renders available bare NAP domains without legacy supports helpers', () => {
     const script = renderNappletNamespacePrelude({
-      domains: ['relay', 'identity', 'relay', 'inc:NAP-01', 'perm:popups', 'theme'],
+      domains: ['relay', 'identity', 'relay', 'inc:NAP-01', 'perm:browser-relaxation', 'theme'],
     });
 
     expect(script).toContain('data-kehto-nip5d-injection');
     expect(script).toContain('["relay","identity","theme"]');
     expect(script).not.toContain('shell.supports');
-    expect(script).not.toContain('perm:popups');
+    expect(script).not.toContain('perm:browser-relaxation');
     expect(script).not.toContain('inc:NAP-01');
     expect(script).toContain("set(value)");
     expect(script).toContain("buildNappletNamespace(value)");

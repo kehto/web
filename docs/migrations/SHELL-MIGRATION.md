@@ -501,7 +501,7 @@ That older draft specified two synchronous capability query APIs:
 
 ```javascript
 window.napplet.shell.supports('relay')     // NAP capability — boolean
-window.napplet.shell.supports('popups')    // sandbox permission — boolean
+// Browser sandbox relaxations are not a NIP-5D capability surface.
 window.napplet.services.has('audio')       // service handler registered — boolean
 ```
 
@@ -543,7 +543,8 @@ The shim comment ("TODO: Shell populates supported capabilities at iframe creati
 **At iframe creation, the shell knows statically:**
 
 1. Which NAP handlers are registered with the runtime (e.g., relay, signer, storage, inc). This is the set of service handlers and built-in domain handlers wired into `createRuntime()` / the `ShellAdapter`.
-2. Which sandbox permissions the iframe has — derived from the iframe element's `sandbox` attribute tokens (e.g., `"allow-scripts allow-popups"` → `['popups']`).
+2. The iframe sandbox baseline — Kehto keeps hosted napplets at `allow-scripts`
+   only, with `allow-same-origin` forbidden.
 
 This information is available synchronously before the iframe loads any code, making it suitable for injection at creation time.
 
@@ -552,11 +553,13 @@ This information is available synchronously before the iframe loads any code, ma
 ```typescript
 interface ShellCapabilities {
   naps: string[];      // e.g., ['relay', 'signer', 'storage', 'inc']
-  sandbox: string[];   // e.g., ['popups', 'modals'] — derived from sandbox attribute tokens
+  sandbox: string[];   // always empty compatibility field
 }
 ```
 
-`naps` lists the NAP domain prefixes that the shell's runtime handles. `sandbox` lists the sandbox permissions granted to the iframe (each `allow-*` token with the `allow-` prefix stripped: `allow-popups` → `'popups'`).
+`naps` lists the NAP domain prefixes that the shell's runtime handles. `sandbox`
+is retained only for older payload readers; current NIP-5D does not define
+additional browser sandbox tokens as advertised napplet capabilities.
 
 **`shell.supports()` implementation (post-migration):**
 
@@ -564,9 +567,7 @@ interface ShellCapabilities {
 // Injected into the iframe's window context at creation time
 const capabilities: ShellCapabilities = /* injected by shell */;
 
-window.napplet.shell.supports = (name: string): boolean => {
-  return capabilities.naps.includes(name) || capabilities.sandbox.includes(name);
-};
+window.napplet.shell.supports = (name: string): boolean => capabilities.naps.includes(name);
 ```
 
 This check is synchronous and O(n) on the capability list size (typically 4–8 entries).
@@ -632,7 +633,6 @@ These are two distinct queries that answer different questions:
 | Query | API | Checks | Protocol layer |
 |-------|-----|--------|---------------|
 | `shell.supports('relay')` | `window.napplet.shell.supports()` | Shell implements relay NAP | NAP protocol capability |
-| `shell.supports('popups')` | `window.napplet.shell.supports()` | iframe has `allow-popups` in sandbox | Browser sandbox permission |
 | `services.has('audio')` | `window.napplet.services.has()` | Audio service handler registered | Service extension layer |
 
 **NAPs are protocol-level capabilities** (relay, signer, storage, inc, theme). A NAP being available means the shell's runtime will recognize messages of that domain type and respond to them. NAPs are defined in the NIP-5D specification.
