@@ -1,5 +1,11 @@
 # @kehto/shell
 
+## 0.16.6
+
+### Patch Changes
+
+- 0905596: Expose `keys.forward()` from the host-injected NIP-5D prelude so focused napplet iframes can forward keyboard events to the shell through NAP-KEYS.
+
 ## 0.16.5
 
 ### Patch Changes
