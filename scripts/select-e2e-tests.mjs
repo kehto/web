@@ -39,6 +39,12 @@ const NO_E2E_TRIGGERS = [
   /^tests\/unit\//,
 ];
 
+const VERSION_METADATA_TRIGGERS = [
+  /^packages\/[^/]+\/CHANGELOG\.md$/,
+  /^packages\/[^/]+\/jsr\.json$/,
+  /^packages\/[^/]+\/package\.json$/,
+];
+
 const GROUPS = {
   acl: [
     'tests/e2e/acl-revoke-relay-write.spec.ts',
@@ -177,6 +183,10 @@ function selectionForFile(file) {
 
   if (NO_E2E_TRIGGERS.some((pattern) => pattern.test(file))) {
     return { specs: [], reason: `${file}: no browser runtime effect` };
+  }
+
+  if (VERSION_METADATA_TRIGGERS.some((pattern) => pattern.test(file))) {
+    return { specs: [], reason: `${file}: release metadata has no browser runtime effect` };
   }
 
   if (/^packages\/(?:paja|cli)\//.test(file)) {

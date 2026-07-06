@@ -23,8 +23,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  change_scope:
+    name: Detect CI Scope
+    runs-on: ubuntu-latest
+    outputs:
+      release_only: ${{ steps.classify.outputs.release_only }}
+      reason: ${{ steps.classify.outputs.reason }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Classify changed files
+        id: classify
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_HEAD_REF: ${{ github.head_ref }}
+          COMMIT_TITLE: ${{ github.event.head_commit.message }}
+        run: |
+          BASE_SHA="${PR_BASE_SHA:-$PUSH_BEFORE_SHA}"
+          HEAD_SHA="${PR_HEAD_SHA:-$GITHUB_SHA}"
+          node scripts/classify-ci-changes.mjs --base "$BASE_SHA" --head "$HEAD_SHA" --github-output "$GITHUB_OUTPUT" --json
+          echo "CI scope reason: $(grep '^reason=' "$GITHUB_OUTPUT" | cut -d= -f2-)"
+
   build:
     name: Build & Type-Check
+    needs: [change_scope]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -45,9 +74,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build all packages
+        if: ${{ needs.change_scope.outputs.release_only != 'true' }}
         run: pnpm build
 
       - name: Audit CSP (residual meta-CSP scan)
+        if: ${{ needs.change_scope.outputs.release_only != 'true' }}
         # v1.7 Phase 39 CONNECT-05 / D16: fail the build if any napplet
         # dist/index.html contains a residual <meta http-equiv="Content-Security-Policy">
         # tag. Shell is the sole CSP authority -- napplets must not ship meta-CSP.
@@ -55,13 +86,22 @@ jobs:
         run: pnpm audit:csp
 
       - name: Type-check all packages
+        if: ${{ needs.change_scope.outputs.release_only != 'true' }}
         run: pnpm type-check
 
       - name: Docs quality gate
         run: pnpm docs:check
 
+      - name: Verify generated JSR metadata is synced
+        if: ${{ needs.change_scope.outputs.release_only == 'true' }}
+        run: |
+          node scripts/sync-jsr-versions.mjs
+          git diff --exit-code -- packages
+
   unit:
     name: Vitest
+    needs: [change_scope]
+    if: ${{ needs.change_scope.outputs.release_only != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -86,6 +126,8 @@ jobs:
 
   e2e_changes:
     name: Detect Playwright Scope
+    needs: [change_scope]
+    if: ${{ needs.change_scope.outputs.release_only != 'true' }}
     runs-on: ubuntu-latest
     outputs:
       run_e2e: ${{ steps.select.outputs.run_e2e }}
@@ -116,8 +158,8 @@ jobs:
     # selector. If a PR only changes docs/planning metadata, this required check
     # is skipped by the job condition instead of leaving the whole workflow
     # pending via path filters.
-    needs: [build, unit, e2e_changes]
-    if: ${{ needs.e2e_changes.outputs.run_e2e == 'true' }}
+    needs: [change_scope, build, unit, e2e_changes]
+    if: ${{ needs.change_scope.outputs.release_only != 'true' && needs.e2e_changes.outputs.run_e2e == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
