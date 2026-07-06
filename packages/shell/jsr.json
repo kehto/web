@@ -1,6 +1,6 @@
 {
   "name": "@kehto/shell",
-  "version": "0.16.5",
+  "version": "0.16.6",
   "license": "MIT",
   "exports": "./src/index.ts",
   "imports": {
