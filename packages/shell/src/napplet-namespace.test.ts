@@ -267,6 +267,23 @@ describe('NIP-5D napplet namespace prelude', () => {
     );
   });
 
+  it('does not corrupt minified prelude tokens when inserting after CSP', () => {
+    const html = [
+      '<html><head>',
+      '<meta http-equiv="Content-Security-Policy" content="connect-src none">',
+      '<script src="/assets/app.js"></script>',
+      '</head><body></body></html>',
+    ].join('');
+
+    const out = injectNappletNamespacePrelude(html, { domains: ['inc', 'storage', 'theme'] });
+    const source = out.match(/<script[^>]*data-kehto-nip5d-injection[^>]*>([\s\S]*?)<\/script>/)?.[1];
+
+    expect(source).toBeTruthy();
+    expect(source).not.toContain('<meta http-equiv="Content-Security-Policy"');
+    expect(out.match(/Content-Security-Policy/g)).toHaveLength(1);
+    expect(() => new Function('window', source ?? '')).not.toThrow();
+  });
+
   it('creates a head prelude when an artifact has no head element', () => {
     const out = injectNappletNamespacePrelude('<html><body>x</body></html>', { domains: ['notify'] });
 
