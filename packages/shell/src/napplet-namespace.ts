@@ -72,7 +72,7 @@ export function injectNappletNamespacePrelude(
   const prelude = renderNappletNamespacePrelude(options);
   const cspMeta = /(<meta\s+http-equiv=["']Content-Security-Policy["'][^>]*>)/i;
   if (cspMeta.test(html)) {
-    return html.replace(cspMeta, `$1${prelude}`);
+    return html.replace(cspMeta, (match) => `${match}${prelude}`);
   }
   if (/<head[^>]*>/i.test(html)) {
     return html.replace(/<head[^>]*>/i, (open) => `${open}${prelude}`);
