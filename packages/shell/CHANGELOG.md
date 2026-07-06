@@ -1,5 +1,11 @@
 # @kehto/shell
 
+## 0.16.5
+
+### Patch Changes
+
+- 6eb3b03: Inject callable NIP-5D domain objects in the napplet namespace prelude instead of empty availability objects.
+
 ## 0.16.4
 
 ### Patch Changes
