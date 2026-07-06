@@ -1,6 +1,7 @@
 import {
   buildShellCapabilities,
   createShellBridge,
+  injectNappletNamespacePrelude,
   originRegistry,
   type Capability,
   type SessionEntry,
@@ -249,13 +250,60 @@ function registerFrameForGeneration(
   return windowId;
 }
 
-function navigateFrame(
+function getInjectedDomains(
+  capabilities: ShellCapabilities,
+  simulation: PajaSimulation,
+  resolvedTarget?: PajaResolvedPointer | null,
+): string[] {
+  const available = capabilities.domains.filter((domain) => {
+    const knownDomain = domain as PajaCapabilityDomain;
+    return simulation.capabilities.domains[knownDomain] !== false;
+  });
+  const required = resolvedTarget?.manifest.requires ?? [];
+  if (required.length === 0) return available;
+  const availableSet = new Set(available);
+  return required.filter((domain) => availableSet.has(domain));
+}
+
+async function fetchTargetHtml(): Promise<string> {
+  const response = await fetch(new URL('./__kehto/target.html', window.location.href), {
+    cache: 'no-store',
+    headers: {
+      accept: 'text/html, application/xhtml+xml;q=0.9, */*;q=0.8',
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`Paja target fetch failed: ${response.status} ${response.statusText}`);
+  }
+  return response.text();
+}
+
+function injectBaseHref(html: string, targetUrl: string): string {
+  const base = `<base href="${escapeAttribute(targetUrl)}">`;
+  if (/<head[^>]*>/i.test(html)) {
+    return html.replace(/<head[^>]*>/i, (open) => `${open}${base}`);
+  }
+  if (/<html[^>]*>/i.test(html)) {
+    return html.replace(/<html[^>]*>/i, (open) => `${open}<head>${base}</head>`);
+  }
+  return `${base}${html}`;
+}
+
+function renderTargetErrorHtml(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return `<!doctype html><html><body><pre>${escapeHtml(message)}</pre></body></html>`;
+}
+
+async function navigateFrame(
   bridge: ShellBridge,
   frame: HTMLIFrameElement,
   config: PajaHostConfig,
   generation: number,
+  capabilities: ShellCapabilities,
+  simulation: PajaSimulation,
   resolvedTarget?: PajaResolvedPointer | null,
-): string | null {
+): Promise<string | null> {
+  const domains = getInjectedDomains(capabilities, simulation, resolvedTarget);
   if (config.target.mode === 'runtime-pointer') {
     if (!resolvedTarget) {
       frame.removeAttribute('src');
@@ -264,15 +312,53 @@ function navigateFrame(
     }
     const windowId = registerFrameForGeneration(bridge, frame, config, generation, resolvedTarget);
     frame.removeAttribute('src');
-    frame.srcdoc = injectPajaRuntimeCsp(
-      resolvedTarget.indexHtml,
-      connectOrigins([...resolvedTarget.relays, ...resolvedTarget.blossomServers]),
+    frame.srcdoc = injectNappletNamespacePrelude(
+      injectPajaRuntimeCsp(
+        resolvedTarget.indexHtml,
+        connectOrigins([...resolvedTarget.relays, ...resolvedTarget.blossomServers]),
+      ),
+      { domains },
     );
     return windowId;
   }
+  const html = await fetchTargetHtml();
   const windowId = registerFrameForGeneration(bridge, frame, config, generation, resolvedTarget);
-  frame.src = config.target.url;
+  frame.removeAttribute('src');
+  frame.srcdoc = injectNappletNamespacePrelude(
+    injectBaseHref(html, config.target.url),
+    { domains },
+  );
   return windowId;
+}
+
+function startFrameNavigation(
+  state: PajaBrowserState,
+  context: PajaBrowserStateContext,
+): void {
+  const { config, frame, bridge, capabilities, runtime } = context;
+  const generation = state.generation;
+  void navigateFrame(
+    bridge,
+    frame,
+    config,
+    generation,
+    capabilities,
+    runtime.currentSimulation,
+    state.resolvedTarget,
+  ).then((windowId) => {
+    if (state.generation !== generation) return;
+    runtime.currentWindowId = windowId;
+  }).catch((error) => {
+    if (state.generation !== generation) return;
+    frame.removeAttribute('src');
+    frame.srcdoc = renderTargetErrorHtml(error);
+    setStatus(state, 'error');
+    appendPajaMessageLog(state, 'paja', {
+      type: 'paja.target.error',
+      error: error instanceof Error ? error.message : String(error),
+    });
+    console.error(error);
+  });
 }
 
 function createHostSignerController(getState: () => PajaBrowserState | null) {
@@ -327,7 +413,7 @@ function installPajaControlListeners(state: PajaBrowserState): void {
 }
 
 function createPajaBrowserState(context: PajaBrowserStateContext): PajaBrowserState {
-  const { config, frame, bridge, adapter, signerController, capabilities, runtime } = context;
+  const { config, bridge, adapter, signerController, capabilities, runtime } = context;
   return {
     config,
     capabilities,
@@ -350,7 +436,7 @@ function createPajaBrowserState(context: PajaBrowserStateContext): PajaBrowserSt
       this.generation += 1;
       runtime.initReceivedGeneration = -1;
       setStatus(this, 'reloading');
-      runtime.currentWindowId = navigateFrame(bridge, frame, config, this.generation, this.resolvedTarget);
+      startFrameNavigation(this, context);
     },
     setThemeMode(mode) {
       runtime.currentSimulation = {
@@ -507,6 +593,13 @@ async function installPajaHost(): Promise<void> {
     if (data && typeof data === 'object' && data.type === 'shell.ready') {
       runtime.initReceivedGeneration = state.generation;
       setStatus(state, 'ready');
+    } else if (
+      data
+      && typeof data === 'object'
+      && typeof data.type === 'string'
+      && (state.status === 'booting' || state.status === 'reloading')
+    ) {
+      setStatus(state, 'ready');
     }
   });
 
@@ -529,10 +622,37 @@ async function installPajaHost(): Promise<void> {
     const input = document.getElementById('runtime-pointer-input');
     if (input instanceof HTMLInputElement) input.value = state.pointerValue;
     if (state.pointerValue) void state.loadPointer(state.pointerValue);
-    else runtime.currentWindowId = navigateFrame(bridge, frame, config, state.generation, state.resolvedTarget);
+    else startFrameNavigation(state, {
+      config,
+      frame,
+      bridge,
+      adapter,
+      signerController,
+      capabilities,
+      runtime,
+    });
   } else {
-    runtime.currentWindowId = navigateFrame(bridge, frame, config, state.generation, state.resolvedTarget);
+    startFrameNavigation(state, {
+      config,
+      frame,
+      bridge,
+      adapter,
+      signerController,
+      capabilities,
+      runtime,
+    });
   }
+}
+
+function escapeAttribute(value: string): string {
+  return escapeHtml(value).replaceAll('"', '&quot;');
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
 }
 
 try {

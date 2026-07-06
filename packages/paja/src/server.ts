@@ -40,9 +40,7 @@ export async function startPajaServer(input: PajaServerOptions): Promise<PajaSer
     return hostConfig;
   };
 
-  const server = createServer((request, response) => {
-    const requestUrl = request.url ?? '/';
-
+  const handleRequest = async (requestUrl: string, response: HttpResponse): Promise<void> => {
     if (requestUrl === '/' || requestUrl.startsWith('/?')) {
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       response.end(html);
@@ -55,6 +53,16 @@ export async function startPajaServer(input: PajaServerOptions): Promise<PajaSer
       return;
     }
 
+    if (requestUrl === '/__kehto/target.html') {
+      const targetHtml = await fetchTargetHtml(hostConfig.target.url);
+      response.writeHead(200, {
+        'cache-control': 'no-store',
+        'content-type': 'text/html; charset=utf-8',
+      });
+      response.end(targetHtml);
+      return;
+    }
+
     if (requestUrl === '/__kehto/browser-host.js') {
       const browserScript = readBrowserHostScript();
       response.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' });
@@ -64,6 +72,14 @@ export async function startPajaServer(input: PajaServerOptions): Promise<PajaSer
 
     response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
     response.end('Not found');
+  };
+
+  const server = createServer((request, response) => {
+    void handleRequest(request.url ?? '/', response).catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      response.writeHead(502, { 'content-type': 'text/plain; charset=utf-8' });
+      response.end(message);
+    });
   });
 
   await listen(server, options.host, options.port);
@@ -84,6 +100,18 @@ export async function startPajaServer(input: PajaServerOptions): Promise<PajaSer
 
 function readBrowserHostScript(): string {
   return readFileSync(new URL('./browser-host.js', import.meta.url), 'utf8');
+}
+
+async function fetchTargetHtml(targetUrl: string): Promise<string> {
+  const response = await fetch(targetUrl, {
+    headers: {
+      accept: 'text/html, application/xhtml+xml;q=0.9, */*;q=0.8',
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`Target ${targetUrl} returned ${response.status} ${response.statusText}`);
+  }
+  return response.text();
 }
 
 function listen(server: HttpServer, host: string, port: number): Promise<void> {
@@ -114,6 +142,11 @@ interface HttpServer {
   off(event: 'error', callback: (error: Error) => void): void;
   close(callback: (error?: Error) => void): void;
   address(): string | { port: number } | null;
+}
+
+interface HttpResponse {
+  writeHead(statusCode: number, headers: Record<string, string>): void;
+  end(chunk: string): void;
 }
 
 function getBoundPort(server: HttpServer, fallback: number): number {
