@@ -5,19 +5,55 @@ import {
 } from './napplet-namespace.js';
 
 type PostedMessage = { type: string; id?: string; [key: string]: unknown };
+type PreludeListener = (event: PreludeTestEvent) => void;
+
+interface PreludeTestEvent {
+  source?: unknown;
+  data?: unknown;
+  key?: string;
+  code?: string;
+  ctrlKey?: boolean;
+  altKey?: boolean;
+  shiftKey?: boolean;
+  metaKey?: boolean;
+  isComposing?: boolean;
+  repeat?: boolean;
+  target?: unknown;
+  defaultPrevented: boolean;
+  preventDefault: () => void;
+}
+
+interface PreludeKeydownInit {
+  key?: string;
+  code?: string;
+  ctrlKey?: boolean;
+  altKey?: boolean;
+  shiftKey?: boolean;
+  metaKey?: boolean;
+  isComposing?: boolean;
+  repeat?: boolean;
+  target?: unknown;
+}
 
 interface PreludeTestWindow {
   napplet?: Record<string, unknown>;
   parent: { postMessage: (message: PostedMessage, targetOrigin: string) => void };
   crypto: { randomUUID: () => string };
-  addEventListener: (type: string, listener: (event: { source: unknown; data: unknown }) => void) => void;
-  removeEventListener: (type: string, listener: (event: { source: unknown; data: unknown }) => void) => void;
+  document: {
+    activeElement: unknown;
+    addEventListener: (type: string, listener: PreludeListener) => void;
+    removeEventListener: (type: string, listener: PreludeListener) => void;
+  };
+  addEventListener: (type: string, listener: PreludeListener) => void;
+  removeEventListener: (type: string, listener: PreludeListener) => void;
   dispatchParentMessage: (message: PostedMessage) => void;
+  dispatchKeydown: (event: PreludeKeydownInit) => PreludeTestEvent;
   postedMessages: PostedMessage[];
 }
 
 function createPreludeTestWindow(napplet?: Record<string, unknown>): PreludeTestWindow {
-  const listeners = new Set<(event: { source: unknown; data: unknown }) => void>();
+  const windowListeners = new Map<string, Set<PreludeListener>>();
+  const documentListeners = new Map<string, Set<PreludeListener>>();
   const postedMessages: PostedMessage[] = [];
   let nextId = 0;
   const parent = {
@@ -25,24 +61,87 @@ function createPreludeTestWindow(napplet?: Record<string, unknown>): PreludeTest
       postedMessages.push(message);
     },
   };
+  const add = (listeners: Map<string, Set<PreludeListener>>, type: string, listener: PreludeListener): void => {
+    let byType = listeners.get(type);
+    if (!byType) {
+      byType = new Set();
+      listeners.set(type, byType);
+    }
+    byType.add(listener);
+  };
+  const remove = (listeners: Map<string, Set<PreludeListener>>, type: string, listener: PreludeListener): void => {
+    listeners.get(type)?.delete(listener);
+  };
+  const dispatch = (listeners: Map<string, Set<PreludeListener>>, type: string, event: PreludeTestEvent): void => {
+    for (const listener of listeners.get(type) ?? []) listener(event);
+  };
+  const document = {
+    activeElement: null as unknown,
+    addEventListener(type: string, listener: PreludeListener) {
+      add(documentListeners, type, listener);
+    },
+    removeEventListener(type: string, listener: PreludeListener) {
+      remove(documentListeners, type, listener);
+    },
+  };
   return {
     napplet,
     parent,
     postedMessages,
+    document,
     crypto: {
       randomUUID: () => `id-${++nextId}`,
     },
     addEventListener(type, listener) {
-      if (type === 'message') listeners.add(listener);
+      add(windowListeners, type, listener);
     },
     removeEventListener(type, listener) {
-      if (type === 'message') listeners.delete(listener);
+      remove(windowListeners, type, listener);
     },
     dispatchParentMessage(message) {
-      for (const listener of listeners) {
-        listener({ source: parent, data: message });
-      }
+      dispatch(windowListeners, 'message', {
+        source: parent,
+        data: message,
+        defaultPrevented: false,
+        preventDefault() {
+          this.defaultPrevented = true;
+        },
+      });
     },
+    dispatchKeydown(init) {
+      const event: PreludeTestEvent = {
+        key: init.key ?? '',
+        code: init.code ?? '',
+        ctrlKey: init.ctrlKey ?? false,
+        altKey: init.altKey ?? false,
+        shiftKey: init.shiftKey ?? false,
+        metaKey: init.metaKey ?? false,
+        isComposing: init.isComposing ?? false,
+        repeat: init.repeat ?? false,
+        target: init.target ?? document.activeElement,
+        defaultPrevented: false,
+        preventDefault() {
+          this.defaultPrevented = true;
+        },
+      };
+      dispatch(documentListeners, 'keydown', event);
+      dispatch(windowListeners, 'keydown', event);
+      return event;
+    },
+  };
+}
+
+function elementTarget(
+  tagName: string,
+  options: { type?: string; isContentEditable?: boolean; closestContentEditable?: boolean } = {},
+): { tagName: string; type?: string; isContentEditable?: boolean; closest: (selector: string) => unknown } {
+  return {
+    tagName,
+    type: options.type,
+    isContentEditable: options.isContentEditable,
+    closest: (selector: string) => (
+      options.closestContentEditable && selector.includes('contenteditable') ? {} : null
+    ),
   };
 }
 
@@ -369,6 +468,119 @@ describe('NIP-5D napplet namespace prelude', () => {
       shift: true,
       meta: false,
     });
+  });
+
+  it('smart-forwards ordinary keydown events from the injected keys prelude', () => {
+    const target = createPreludeTestWindow();
+
+    runPrelude(renderNappletNamespacePrelude({ domains: ['keys'] }), target);
+
+    const event = target.dispatchKeydown({
+      key: '2',
+      code: 'Digit2',
+    });
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(target.postedMessages).toEqual([{
+      type: 'keys.forward',
+      key: '2',
+      code: 'Digit2',
+      ctrl: false,
+      alt: false,
+      shift: false,
+      meta: false,
+    }]);
+  });
+
+  it('does not smart-forward text-entry, modifier-only, or IME keydown events', () => {
+    const target = createPreludeTestWindow();
+
+    runPrelude(renderNappletNamespacePrelude({ domains: ['keys'] }), target);
+
+    target.dispatchKeydown({
+      key: 'a',
+      code: 'KeyA',
+      target: elementTarget('input', { type: 'text' }),
+    });
+    target.dispatchKeydown({
+      key: 'ArrowDown',
+      code: 'ArrowDown',
+      target: elementTarget('textarea'),
+    });
+    target.dispatchKeydown({
+      key: 'Control',
+      code: 'ControlLeft',
+      ctrlKey: true,
+    });
+    target.dispatchKeydown({
+      key: 'k',
+      code: 'KeyK',
+      isComposing: true,
+    });
+
+    expect(target.postedMessages).toEqual([]);
+  });
+
+  it('uses keys.bindings as a local suppress list for injected onAction handlers', () => {
+    const target = createPreludeTestWindow();
+    const fired: string[] = [];
+
+    runPrelude(renderNappletNamespacePrelude({ domains: ['keys'] }), target);
+
+    const keys = target.napplet?.keys as {
+      onAction: (actionId: string, callback: () => void) => { close(): void };
+    };
+    const subscription = keys.onAction('editor.save', () => fired.push('editor.save'));
+
+    target.dispatchParentMessage({
+      type: 'keys.bindings',
+      bindings: [{ actionId: 'editor.save', key: 'Ctrl+S' }],
+    });
+
+    const event = target.dispatchKeydown({
+      key: 's',
+      code: 'KeyS',
+      ctrlKey: true,
+    });
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(fired).toEqual(['editor.save']);
+    expect(target.postedMessages).toEqual([]);
+
+    subscription.close();
+  });
+
+  it('does not suppress reserved keys even if a binding names one', () => {
+    const target = createPreludeTestWindow();
+    const fired: string[] = [];
+
+    runPrelude(renderNappletNamespacePrelude({ domains: ['keys'] }), target);
+
+    const keys = target.napplet?.keys as {
+      onAction: (actionId: string, callback: () => void) => { close(): void };
+    };
+    keys.onAction('editor.cancel', () => fired.push('editor.cancel'));
+    target.dispatchParentMessage({
+      type: 'keys.bindings',
+      bindings: [{ actionId: 'editor.cancel', key: 'Escape' }],
+    });
+
+    const event = target.dispatchKeydown({
+      key: 'Escape',
+      code: 'Escape',
+    });
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(fired).toEqual([]);
+    expect(target.postedMessages).toEqual([{
+      type: 'keys.forward',
+      key: 'Escape',
+      code: 'Escape',
+      ctrl: false,
+      alt: false,
+      shift: false,
+      meta: false,
+    }]);
   });
 
   it('forwards public SDK wrapper arguments through injected service domains', async () => {

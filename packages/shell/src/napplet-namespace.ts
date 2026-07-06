@@ -365,41 +365,235 @@ function nappletNamespacePrelude(domains: string[]): void {
     };
   }
 
+  const keyActionCallbacks = new Map<string, Set<() => void>>();
+  const keyBindingActions = new Map<string, string>();
+  const modifierKeys = new Set(['Control', 'Alt', 'Shift', 'Meta']);
+  const reservedKeyNames = new Set(['Tab', 'Escape']);
+  const nonTextInputTypes = new Set([
+    'button',
+    'checkbox',
+    'color',
+    'file',
+    'hidden',
+    'image',
+    'radio',
+    'range',
+    'reset',
+    'submit',
+  ]);
+  let keysSmartForwardingInstalled = false;
+
+  function normalizeKeyName(key: unknown): string {
+    if (typeof key !== 'string') return '';
+    return key.length === 1 ? key.toUpperCase() : key;
+  }
+
+  function keyComboKey(value: {
+    ctrl: boolean;
+    alt: boolean;
+    shift: boolean;
+    meta: boolean;
+    key: string;
+  }): string {
+    return `${value.ctrl}|${value.alt}|${value.shift}|${value.meta}|${normalizeKeyName(value.key)}`;
+  }
+
+  function bindingComboKey(binding: unknown): string | null {
+    if (typeof binding !== 'string' || binding.trim() === '') return null;
+    const parts = binding.split('+');
+    const key = parts.pop()?.trim();
+    if (!key) return null;
+    const combo = { ctrl: false, alt: false, shift: false, meta: false, key };
+    for (const raw of parts) {
+      const token = raw.trim().toLowerCase();
+      if (!token) continue;
+      if (token === 'ctrl' || token === 'control') combo.ctrl = true;
+      else if (token === 'alt' || token === 'option') combo.alt = true;
+      else if (token === 'shift') combo.shift = true;
+      else if (token === 'meta' || token === 'cmd' || token === 'command' || token === 'win' || token === 'super') combo.meta = true;
+      else return null;
+    }
+    return keyComboKey(combo);
+  }
+
+  function eventComboKey(event: {
+    key?: unknown;
+    ctrlKey?: unknown;
+    altKey?: unknown;
+    shiftKey?: unknown;
+    metaKey?: unknown;
+  }): string | null {
+    const key = typeof event.key === 'string' ? event.key : '';
+    if (!key) return null;
+    return keyComboKey({
+      ctrl: Boolean(event.ctrlKey),
+      alt: Boolean(event.altKey),
+      shift: Boolean(event.shiftKey),
+      meta: Boolean(event.metaKey),
+      key,
+    });
+  }
+
+  function isTextEntryTarget(value: unknown): boolean {
+    if (!value || typeof value !== 'object') return false;
+    const targetNode = value as {
+      tagName?: unknown;
+      type?: unknown;
+      isContentEditable?: unknown;
+      closest?: (selector: string) => unknown;
+    };
+    if (targetNode.isContentEditable === true) return true;
+    const tagName = typeof targetNode.tagName === 'string' ? targetNode.tagName.toLowerCase() : '';
+    if (tagName === 'textarea' || tagName === 'select') return true;
+    if (tagName === 'input') {
+      const type = typeof targetNode.type === 'string' && targetNode.type ? targetNode.type.toLowerCase() : 'text';
+      return !nonTextInputTypes.has(type);
+    }
+    if (typeof targetNode.closest === 'function') {
+      try {
+        return Boolean(targetNode.closest('[contenteditable=""],[contenteditable="true"],[contenteditable="plaintext-only"]'));
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  function rememberKeyBinding(actionId: unknown, binding: unknown): void {
+    if (typeof actionId !== 'string') return;
+    const combo = bindingComboKey(binding);
+    if (combo) keyBindingActions.set(combo, actionId);
+  }
+
+  function removeKeyBindingsForAction(actionId: string): void {
+    for (const [combo, boundActionId] of keyBindingActions) {
+      if (boundActionId === actionId) keyBindingActions.delete(combo);
+    }
+  }
+
+  function replaceKeyBindings(bindings: unknown): void {
+    keyBindingActions.clear();
+    if (!Array.isArray(bindings)) return;
+    for (const binding of bindings) {
+      if (!binding || typeof binding !== 'object') continue;
+      const entry = binding as { actionId?: unknown; key?: unknown };
+      rememberKeyBinding(entry.actionId, entry.key);
+    }
+  }
+
+  function notifyKeyAction(actionId: string): void {
+    for (const callback of keyActionCallbacks.get(actionId) ?? []) callback();
+  }
+
+  function forwardKeyEvent(event: {
+    key?: unknown;
+    code?: unknown;
+    ctrl?: unknown;
+    alt?: unknown;
+    shift?: unknown;
+    meta?: unknown;
+    ctrlKey?: unknown;
+    altKey?: unknown;
+    shiftKey?: unknown;
+    metaKey?: unknown;
+  } = {}): void {
+    fire({
+      type: 'keys.forward',
+      key: typeof event.key === 'string' ? event.key : '',
+      code: typeof event.code === 'string' ? event.code : '',
+      ctrl: Boolean(event.ctrl ?? event.ctrlKey),
+      alt: Boolean(event.alt ?? event.altKey),
+      shift: Boolean(event.shift ?? event.shiftKey),
+      meta: Boolean(event.meta ?? event.metaKey),
+    });
+  }
+
+  function installKeysSmartForwarding(): void {
+    if (keysSmartForwardingInstalled) return;
+    keysSmartForwardingInstalled = true;
+
+    listen((event) => {
+      if (!isParentMessage(event)) return;
+      const msg = event.data as RuntimeMessage;
+      if (typeof msg === 'object' && msg !== null && msg.type === 'keys.bindings') {
+        replaceKeyBindings(msg.bindings);
+      }
+    });
+
+    const documentLike = target.document as unknown as {
+      activeElement?: unknown;
+      addEventListener?: (type: string, listener: (event: Event) => void) => void;
+    } | undefined;
+    const listenerTarget = typeof documentLike?.addEventListener === 'function' ? documentLike : target;
+    if (typeof listenerTarget.addEventListener !== 'function') return;
+
+    listenerTarget.addEventListener('keydown', (event: Event) => {
+      const keyEvent = event as Event & {
+        key?: string;
+        code?: string;
+        ctrlKey?: boolean;
+        altKey?: boolean;
+        shiftKey?: boolean;
+        metaKey?: boolean;
+        isComposing?: boolean;
+        target?: unknown;
+        preventDefault?: () => void;
+      };
+      if (keyEvent.isComposing) return;
+      if (typeof keyEvent.key === 'string' && modifierKeys.has(keyEvent.key)) return;
+      if (isTextEntryTarget(keyEvent.target ?? documentLike?.activeElement)) return;
+
+      const combo = eventComboKey(keyEvent);
+      const actionId = combo ? keyBindingActions.get(combo) : undefined;
+      const isReserved = typeof keyEvent.key === 'string' && reservedKeyNames.has(keyEvent.key);
+      if (actionId && !isReserved) {
+        keyEvent.preventDefault?.();
+        notifyKeyAction(actionId);
+        return;
+      }
+
+      forwardKeyEvent(keyEvent);
+    });
+  }
+
   function makeKeys(): Record<string, unknown> {
+    installKeysSmartForwarding();
     return {
-      forward: (event: {
-        key?: unknown;
-        code?: unknown;
-        ctrl?: unknown;
-        alt?: unknown;
-        shift?: unknown;
-        meta?: unknown;
-        ctrlKey?: unknown;
-        altKey?: unknown;
-        shiftKey?: unknown;
-        metaKey?: unknown;
-      } = {}) => fire({
-        type: 'keys.forward',
-        key: typeof event.key === 'string' ? event.key : '',
-        code: typeof event.code === 'string' ? event.code : '',
-        ctrl: Boolean(event.ctrl ?? event.ctrlKey),
-        alt: Boolean(event.alt ?? event.altKey),
-        shift: Boolean(event.shift ?? event.shiftKey),
-        meta: Boolean(event.meta ?? event.metaKey),
-      }),
+      forward: forwardKeyEvent,
       registerAction: (action: unknown) => request(
         { type: 'keys.registerAction', action },
         'keys.registerAction.result',
         resultOrError,
-      ),
-      unregisterAction: (actionId: string) => fire({ type: 'keys.unregisterAction', actionId }),
+      ).then((result) => {
+        const actionRecord = action && typeof action === 'object' ? action as { id?: unknown } : {};
+        const resultRecord = result as { actionId?: unknown; binding?: unknown };
+        rememberKeyBinding(
+          typeof resultRecord.actionId === 'string' ? resultRecord.actionId : actionRecord.id,
+          resultRecord.binding,
+        );
+        return result;
+      }),
+      unregisterAction: (actionId: string) => {
+        removeKeyBindingsForAction(actionId);
+        fire({ type: 'keys.unregisterAction', actionId });
+      },
       onAction(actionId: string, callback: () => void) {
+        let callbacks = keyActionCallbacks.get(actionId);
+        if (!callbacks) {
+          callbacks = new Set();
+          keyActionCallbacks.set(actionId, callbacks);
+        }
+        callbacks.add(callback);
         const off = listen((event) => {
           if (!isParentMessage(event)) return;
           const msg = event.data as RuntimeMessage;
           if (typeof msg === 'object' && msg !== null && msg.type === 'keys.action' && msg.actionId === actionId) callback();
         });
-        return subscriptionHandle(off);
+        return subscriptionHandle(() => {
+          off();
+          callbacks.delete(callback);
+          if (callbacks.size === 0) keyActionCallbacks.delete(actionId);
+        });
       },
     };
   }
