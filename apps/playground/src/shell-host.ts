@@ -32,7 +32,6 @@ import {
 import {
   createDemoHooks,
   getMissingRequiredNaps,
-  getShellCapabilities,
   setDemoSessionRegistryRef,
 } from './demo-hooks.js';
 import { createMessageTap, type MessageTap } from './message-tap.js';
@@ -507,11 +506,9 @@ export async function loadNapplet(
   // the document because srcdoc iframes have an opaque origin and no HTTP response.
   await options.beforeRender?.({ dTag, aggregateHash });
   const origins = STATIC_ORIGIN_ALLOWLIST.get(dTag) ?? [];
-  const exposedDomains =
-    getShellCapabilities()?.domains.filter((domain) => !domain.includes(':')) ?? [];
   iframe.srcdoc = injectNappletNamespacePrelude(
     injectCspMeta(resolved.indexHtml, origins),
-    { domains: exposedDomains },
+    { domains: resolved.requires },
   );
 
   return info;
