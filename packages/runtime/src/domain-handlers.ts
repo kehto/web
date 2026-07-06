@@ -104,13 +104,13 @@ function handleMediaMessage(context: RuntimeDomainContext, windowId: string, msg
 
 function handleKeysMessage(context: RuntimeDomainContext, windowId: string, msg: NappletMessage): void {
   const { hooks, serviceRegistry } = context;
+  if (msg.type === 'keys.forward') {
+    forwardHotkey(hooks, msg);
+    return;
+  }
   const keysService = serviceRegistry['keys'];
   if (keysService) {
     keysService.handleMessage(windowId, msg, (resp: NappletMessage) => hooks.sendToNapplet(windowId, resp));
-    return;
-  }
-  if (msg.type === 'keys.forward') {
-    forwardHotkey(hooks, msg);
     return;
   }
   if (msg.type === 'keys.registerAction') sendRegisterActionResult(hooks, windowId, msg);
