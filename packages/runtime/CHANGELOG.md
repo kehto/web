@@ -1,5 +1,11 @@
 # @kehto/runtime
 
+## 0.18.3
+
+### Patch Changes
+
+- fa3be83: Route `keys.forward` through the runtime hotkey hook before registered keys services so NAP-KEYS forwarding works in normal hosts with a keys service installed.
+
 ## 0.18.2
 
 ### Patch Changes
