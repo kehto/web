@@ -13,26 +13,45 @@ import {
   type PajaSimulation,
 } from './simulation.js';
 
+/** One message row in Paja's browser message log. */
 export interface PajaMessageLogEntry {
+  /** Monotonic row index. */
   index: number;
+  /** Timestamp in milliseconds. */
   timestamp: number;
+  /** Message direction. */
   direction: 'napplet->shell' | 'shell->napplet' | 'paja';
+  /** Message type label. */
   type: string;
+  /** Target window id, when known. */
   windowId?: string;
+  /** Serialized message preview. */
   preview: string;
+  /** Error/detail text, when available. */
   detail: string;
 }
 
+/** Mutable browser devtools state for the Paja host page. */
 export interface PajaDevtoolsState {
+  /** Current host config. */
   readonly config: PajaHostConfig;
+  /** Current simulation model. */
   simulation: PajaSimulation;
+  /** Current signer state. */
   signer: PajaSignerState;
+  /** Lowercase text filter for message log rows. */
   messageFilter: string;
+  /** Accumulated message log rows. */
   messageLog: PajaMessageLogEntry[];
+  /** Enable or disable an injected domain. */
   setDomainEnabled(domain: PajaCapabilityDomain, enabled: boolean): void;
+  /** Enable or disable an ACL capability. */
   setAclCapability(capability: Capability, enabled: boolean): void;
+  /** Switch signer controls to the dev signer. */
   useDevSigner(): void;
+  /** Connect signer controls to a NIP-07 signer. */
   connectNip07(): Promise<void>;
+  /** Connect signer controls to a bunker URI. */
   connectBunker(uri: string): Promise<void>;
 }
 
@@ -111,6 +130,14 @@ function getTargetIdentity(config: PajaHostConfig): { pubkey: string; dTag: stri
   };
 }
 
+/**
+ * Append a message row to Paja's browser log.
+ *
+ * @param state - Current devtools state, or null before initialization.
+ * @param direction - Message direction label.
+ * @param raw - Raw message payload.
+ * @param windowId - Optional target window id.
+ */
 export function appendPajaMessageLog(
   state: PajaDevtoolsState | null,
   direction: PajaMessageLogEntry['direction'],
@@ -133,6 +160,14 @@ export function appendPajaMessageLog(
   renderPajaMessageLog(state);
 }
 
+/**
+ * Wrap a target window so outbound postMessage calls are logged.
+ *
+ * @param realWin - Target iframe window.
+ * @param state - Current devtools state, or null before initialization.
+ * @param windowId - Optional target window id.
+ * @returns Window proxy that preserves normal property access.
+ */
 export function createPajaPostMessageProxy(
   realWin: Window,
   state: PajaDevtoolsState | null,
@@ -158,6 +193,12 @@ export function createPajaPostMessageProxy(
   return proxy;
 }
 
+/**
+ * Install logging proxies into the shell origin registry.
+ *
+ * @param originRegistry - Registry to wrap.
+ * @param stateRef - Lazy state getter used by proxied windows.
+ */
 export function installPajaOriginRegistryProxy(
   originRegistry: OriginRegistryLike,
   stateRef: () => PajaDevtoolsState | null,
@@ -178,6 +219,12 @@ export function installPajaOriginRegistryProxy(
   };
 }
 
+/**
+ * Render all Paja browser devtools panels.
+ *
+ * @param state - Current devtools state.
+ * @param options - Bridge and signer metadata for rendering.
+ */
 export function renderPajaDevtools(
   state: PajaDevtoolsState,
   options: PajaDevtoolsRenderOptions,
@@ -187,6 +234,11 @@ export function renderPajaDevtools(
   renderSignerStatus(state, options.devSignerPubkey);
 }
 
+/**
+ * Render the filtered Paja message log.
+ *
+ * @param state - Current devtools state.
+ */
 export function renderPajaMessageLog(state: PajaDevtoolsState): void {
   const container = document.getElementById('message-log');
   if (!container) return;

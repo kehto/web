@@ -577,6 +577,12 @@ if (isDirectPajaCli()) {
   });
 }
 
+/**
+ * Detect whether this module is running as the direct Paja CLI entrypoint.
+ *
+ * @param entryPath - Process entry path to inspect.
+ * @returns `true` when the entry path looks like Paja's built CLI.
+ */
 export function isDirectPajaCli(entryPath = process.argv[1]): boolean {
   if (!entryPath) return false;
   return entryPath.endsWith('/cli.js') || entryPath.endsWith('/paja');
@@ -589,8 +595,11 @@ declare const process: {
   stderr: { write(chunk: string): void };
 };
 
+/** Managed child process handle. */
 export interface ManagedChildProcess {
+  /** Stop the managed target process. */
   kill(): void;
+  /** First local target URL detected from process output. */
   readonly detectedTargetUrl: Promise<string>;
 }
 

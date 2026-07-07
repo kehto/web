@@ -15,6 +15,8 @@ changing runtime behavior.
   `@kehto/nip`, `@kehto/paja`, and `@kehto/services`.
 - Added public API docs for low-coverage packages: `@kehto/cli`, `@kehto/paja`,
   and `@kehto/wm`.
+- Extended `@kehto/paja` docs to exported browser/dev helper modules included
+  in its JSR source publish set.
 - Removed slow-type diagnostics in `@kehto/nip`, `@kehto/paja`, and
   `@kehto/shell` by adding explicit public types and parameter annotations.
 - Exported the new shell singleton interfaces from `@kehto/shell` so TypeDoc
@@ -37,6 +39,8 @@ changing runtime behavior.
 - JSR dry-runs: passed for `@kehto/acl`, `@kehto/firewall`, `@kehto/nip`,
   `@kehto/paja`, `@kehto/runtime`, `@kehto/services`, `@kehto/shell`, and
   `@kehto/wm`.
+- Final `@kehto/paja` JSR dry-run passed after the browser/dev helper module
+  doc pass.
 - `@kehto/cli` JSR dry-run still fails because live JSR does not yet have
   `@kehto/paja@^0.6.4`.
 

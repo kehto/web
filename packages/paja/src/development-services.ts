@@ -37,6 +37,7 @@ function destroyWindowSessions<T extends { windowId: string }>(
   }
 }
 
+/** Create an in-memory development list store. */
 export function createDevListStore() {
   const values = new Set<string>();
   const itemKey = (item: ListItem) => `${item.itemType}:${item.value}`;
@@ -72,6 +73,7 @@ export function createDevListStore() {
   };
 }
 
+/** Create a deterministic development serial controller. */
 export function createDevSerialController() {
   const sessions = new Map<string, { windowId: string; writes: number[][] }>();
   let nextSession = 1;
@@ -102,6 +104,7 @@ export function createDevSerialController() {
   };
 }
 
+/** Create a deterministic development BLE controller. */
 export function createDevBleController() {
   const sessions = new Map<string, { windowId: string; writes: number[][]; subscriptions: Set<string> }>();
   let nextSession = 1;
@@ -162,6 +165,7 @@ export function createDevBleController() {
   };
 }
 
+/** Create a deterministic development WebRTC controller. */
 export function createDevWebrtcController() {
   const sessions = new Map<string, { windowId: string; payloads: unknown[] }>();
   let nextSession = 1;
