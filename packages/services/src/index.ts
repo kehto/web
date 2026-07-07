@@ -21,6 +21,7 @@
  * runtime.registerService('notifications', notifications);
  * ```
  *
+ * @module
  * @packageDocumentation
  */
 

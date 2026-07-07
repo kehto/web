@@ -14,6 +14,8 @@ import { bytesToHex } from '@noble/hashes/utils.js';
  * 2. sorting the lines in ascending lexicographic order,
  * 3. concatenating them as UTF-8 bytes,
  * 4. hashing with SHA-256, encoded as lowercase hex.
+ *
+ * @module
  */
 
 // TextEncoder is available in all JS runtimes but not in the ES2022 lib types.

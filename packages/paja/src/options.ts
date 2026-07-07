@@ -4,43 +4,73 @@ import {
   type PajaSimulationRawOptions,
 } from './simulation.js';
 
+/** Command configuration for a managed Paja target process. */
 export type PajaCommand =
+  /** Spawn an executable with argv preserved exactly after `--`. */
   | { readonly mode: 'argv'; readonly argv: readonly string[] }
+  /** Run a shell command string. */
   | { readonly mode: 'shell'; readonly command: string };
 
+/** Raw, unnormalized options accepted from CLI arguments or config files. */
 export interface PajaRawOptions {
+  /** App dev-server URL that Paja should load. */
   readonly targetUrl?: string;
+  /** Optional managed command to start before serving Paja. */
   readonly command?: PajaCommand;
+  /** Hostname or IP address for the Paja HTTP server. */
   readonly host?: string;
+  /** Runtime HTTP port. */
   readonly port?: number | string;
+  /** Target readiness timeout in milliseconds. */
   readonly readyTimeoutMs?: number | string;
+  /** Optional JSON config file path. */
   readonly configPath?: string;
+  /** Simulation controls for injected shell domains. */
   readonly simulation?: PajaSimulationRawOptions;
 }
 
+/** Paja target loading mode. */
 export type PajaTargetMode = 'iframe-url' | 'runtime-pointer';
+/** Hot-module-reload strategy for the hosted target. */
 export type PajaHmrStrategy = 'iframe-target-url' | 'none';
 
+/** Runtime-pointer resolution config embedded into the Paja host page. */
 export interface PajaPointerRuntimeConfig {
+  /** Optional naddr/nevent pointer to resolve at boot. */
   readonly value?: string;
+  /** Relay hints used to resolve the pointer. */
   readonly relays: readonly string[];
+  /** Blossom server hints used for artifact blob fetches. */
   readonly blossomServers: readonly string[];
+  /** Maximum pointer-resolution wait in milliseconds. */
   readonly maxWaitMs: number;
 }
 
+/** Normalized Paja runtime options. */
 export interface PajaOptions {
+  /** Absolute target URL for iframe-url mode. */
   readonly targetUrl: string;
+  /** Optional managed target command. */
   readonly command?: PajaCommand;
+  /** Paja server host. */
   readonly host: string;
+  /** Paja server port. */
   readonly port: number;
+  /** Target readiness timeout in milliseconds. */
   readonly readyTimeoutMs: number;
+  /** Optional config path retained for host diagnostics. */
   readonly configPath?: string;
+  /** Normalized simulation model. */
   readonly simulation: PajaSimulation;
+  /** Whether Paja owns a managed command or attaches to an external target. */
   readonly mode: 'external-target' | 'managed-command';
 }
 
+/** Serialized host-page config served to the browser runtime. */
 export interface PajaHostConfig {
+  /** Config schema version. */
   readonly version: 1;
+  /** Window identity used for the development target. */
   readonly window: {
     readonly id: string;
     readonly dTag: string;
@@ -69,6 +99,7 @@ export interface PajaHostConfig {
   readonly simulation: PajaSimulation;
 }
 
+/** Thrown when raw Paja options cannot be normalized. */
 export class PajaOptionsError extends Error {
   constructor(message: string) {
     super(message);
@@ -76,14 +107,27 @@ export class PajaOptionsError extends Error {
   }
 }
 
+/** Default loopback host for the Paja HTTP server. */
 export const DEFAULT_PAJA_HOST = '127.0.0.1';
+/** Default Paja HTTP port. */
 export const DEFAULT_PAJA_PORT = 5197;
+/** Default readiness timeout for the target URL. */
 export const DEFAULT_READY_TIMEOUT_MS = 30_000;
+/** Default development window id used in host config. */
 export const DEFAULT_PAJA_WINDOW_ID = 'kehto-paja-window';
+/** Default development `d` tag used for target identity. */
 export const DEFAULT_PAJA_DTAG = 'dev-target';
+/** Default development aggregate hash used for target identity. */
 export const DEFAULT_PAJA_AGGREGATE_HASH = 'paja';
+/** Default pointer resolution wait in runtime-pointer mode. */
 export const DEFAULT_PAJA_RUNTIME_WAIT_MS = 5_000;
 
+/**
+ * Normalize raw CLI/config options into a validated Paja runtime config.
+ *
+ * @param raw - Raw options from CLI parsing or a config file.
+ * @returns Fully normalized runtime options.
+ */
 export function normalizePajaOptions(raw: PajaRawOptions): PajaOptions {
   const targetUrl = normalizeTargetUrl(raw.targetUrl);
   const host = normalizeHost(raw.host);
@@ -108,6 +152,13 @@ export function normalizePajaOptions(raw: PajaRawOptions): PajaOptions {
   };
 }
 
+/**
+ * Create browser host-page config for iframe-url mode.
+ *
+ * @param options - Normalized Paja options.
+ * @param now - Clock value used for reload token and timestamps.
+ * @returns Serializable host-page config.
+ */
 export function createPajaHostConfig(
   options: PajaOptions,
   now: Date = new Date(),
@@ -132,6 +183,13 @@ export function createPajaHostConfig(
   };
 }
 
+/**
+ * Create browser host-page config for runtime-pointer mode.
+ *
+ * @param options - Pointer, relay, and Blossom hints.
+ * @param now - Clock value used for reload token and timestamps.
+ * @returns Serializable host-page config.
+ */
 export function createPajaRuntimeHostConfig(
   options: {
     readonly pointer?: string;
@@ -168,6 +226,12 @@ export function createPajaRuntimeHostConfig(
   };
 }
 
+/**
+ * Format the local Paja runtime URL for display and CLI output.
+ *
+ * @param options - Host and port pair.
+ * @returns HTTP URL for the Paja runtime.
+ */
 export function formatPajaUrl(options: Pick<PajaOptions, 'host' | 'port'>): string {
   return `http://${options.host}:${options.port}/`;
 }

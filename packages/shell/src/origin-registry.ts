@@ -6,6 +6,12 @@ interface OriginEntry {
   registrationId: number;
 }
 
+/** NIP-5D identity metadata associated with a registered iframe window. */
+export interface OriginIdentity {
+  readonly dTag: string;
+  readonly aggregateHash: string;
+}
+
 const registry = new Map<Window, OriginEntry>();
 let nextRegistrationId = 0;
 
@@ -21,7 +27,19 @@ let nextRegistrationId = 0;
  * const id = originRegistry.getWindowId(iframe.contentWindow); // 'napp-1'
  * ```
  */
-export const originRegistry = {
+export interface OriginRegistry {
+  register(win: Window, windowId: string, identity?: OriginIdentity): void;
+  unregister(windowId: string): void;
+  getWindowId(win: Window): string | undefined;
+  getIframeWindow(windowId: string): Window | null;
+  getAllWindowIds(): string[];
+  getIdentity(win: Window): OriginIdentity | undefined;
+  getRegistrationId(win: Window): number | undefined;
+  clear(): void;
+}
+
+/** Shell-wide iframe window registry singleton. */
+export const originRegistry: OriginRegistry = {
   /**
    * Register a window reference with a windowId and optional identity metadata.
    *
@@ -29,7 +47,7 @@ export const originRegistry = {
    * @param windowId - The unique identifier for this napplet window
    * @param identity - Optional NIP-5D identity metadata (dTag and aggregateHash)
    */
-  register(win: Window, windowId: string, identity?: { dTag: string; aggregateHash: string }): void {
+  register(win: Window, windowId: string, identity?: OriginIdentity): void {
     for (const [registeredWin, entry] of registry.entries()) {
       if (registeredWin === win || entry.windowId === windowId) {
         registry.delete(registeredWin);
@@ -95,7 +113,7 @@ export const originRegistry = {
    * @param win - The Window reference to look up
    * @returns Identity metadata, or undefined if not registered or no identity set
    */
-  getIdentity(win: Window): { dTag: string; aggregateHash: string } | undefined {
+  getIdentity(win: Window): OriginIdentity | undefined {
     const entry = registry.get(win);
     if (!entry?.dTag || !entry?.aggregateHash) return undefined;
     return { dTag: entry.dTag, aggregateHash: entry.aggregateHash };

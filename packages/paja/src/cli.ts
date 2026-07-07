@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+/**
+ * CLI entrypoint for running the Paja local authoring runtime.
+ *
+ * @module
+ */
 import { spawn, type ChildProcess } from 'node:child_process';
 import {
   createPajaHostConfig,
@@ -83,6 +88,14 @@ export function parsePajaArgs(args: readonly string[]): CliParseResult {
   return { help: false, options: raw };
 }
 
+/**
+ * Run the Paja CLI command.
+ *
+ * @param args - Argument vector without the node executable or script path.
+ * @param io - Output streams used by the command.
+ * @param runOptions - Test/embedding controls for server and process spawning.
+ * @returns Process exit code.
+ */
 export async function runPajaCli(
   args: readonly string[] = process.argv.slice(2),
   io: CliIo = defaultIo,

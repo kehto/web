@@ -59,14 +59,16 @@ export type {
 export { buildShellCapabilities } from './shell-init.js';
 
 export { sessionRegistry, nappKeyRegistry } from './session-registry.js';
-export type { PendingUpdate } from './session-registry.js';
+export type { PendingUpdate, SessionRegistry } from './session-registry.js';
 
 // Standalone utilities (usable without full shell)
 export { originRegistry } from './origin-registry.js';
+export type { OriginIdentity, OriginRegistry } from './origin-registry.js';
 export { audioManager } from './audio-manager.js';
-export type { AudioSource } from './audio-manager.js';
+export type { AudioManager, AudioSource } from './audio-manager.js';
 export { manifestCache } from './manifest-cache.js';
-export type { ManifestCacheEntry } from './manifest-cache.js';
+export type { ManifestCache, ManifestCacheEntry } from './manifest-cache.js';
+export type { AclStore } from './acl-store.js';
 
 // Enforcement gate (re-exported from @kehto/runtime for backwards compatibility)
 export { createEnforceGate, createNapEnforceGate, formatDenialReason } from '@kehto/runtime';

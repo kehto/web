@@ -25,6 +25,8 @@
  *   defaultRelays: ['wss://relay.contextvm.org', 'wss://relay2.contextvm.org'],
  * });
  * ```
+ *
+ * @module
  */
 
 import { SimplePool } from 'nostr-tools/pool';

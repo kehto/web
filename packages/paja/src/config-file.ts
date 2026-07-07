@@ -5,6 +5,12 @@ import type { PajaRawOptions } from './options.js';
 import type { PajaSimulationRawOptions } from './simulation.js';
 import { PajaSimulationError } from './simulation.js';
 
+/**
+ * Load a JSON Paja config file from disk.
+ *
+ * @param configPath - Path to a JSON config file.
+ * @returns Raw options parsed from the config file.
+ */
 export function loadPajaConfigFile(configPath: string): PajaRawOptions {
   const resolved = resolve(configPath);
   let parsed: unknown;
@@ -22,11 +28,24 @@ export function loadPajaConfigFile(configPath: string): PajaRawOptions {
   return parsed as PajaRawOptions;
 }
 
+/**
+ * Resolve raw options by merging an optional config file with explicit values.
+ *
+ * @param raw - CLI/config options, optionally including `configPath`.
+ * @returns Raw options with config-file defaults applied.
+ */
 export function resolvePajaRawOptions(raw: PajaRawOptions): PajaRawOptions {
   if (!raw.configPath?.trim()) return raw;
   return mergePajaRawOptions(loadPajaConfigFile(raw.configPath), raw);
 }
 
+/**
+ * Merge two raw Paja option objects, with override values taking precedence.
+ *
+ * @param base - Base options, usually from a config file.
+ * @param override - Explicit options, usually from CLI args.
+ * @returns Merged raw options.
+ */
 export function mergePajaRawOptions(
   base: PajaRawOptions,
   override: PajaRawOptions,

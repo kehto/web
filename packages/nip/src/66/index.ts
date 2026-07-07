@@ -1,3 +1,8 @@
+/**
+ * `@kehto/nip/66` — NIP-66 relay discovery aggregation helpers.
+ *
+ * @module
+ */
 import type { NostrEvent } from 'nostr-tools';
 
 /**

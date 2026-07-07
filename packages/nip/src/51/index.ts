@@ -16,6 +16,8 @@ import type { NostrEvent } from 'nostr-tools';
  * widely-compatible parser that turns either family into a structured
  * {@link Nip51List}, plus item accessors and an injected-decryptor path for
  * private items (so the package stays crypto-free and framework-agnostic).
+ *
+ * @module
  */
 
 /** Canonical NIP-51 **standard list** kinds (replaceable, one per author). */

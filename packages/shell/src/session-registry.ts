@@ -38,7 +38,22 @@ let _pendingVersion = 0;
  * const entry = pubkey ? sessionRegistry.getEntry(pubkey) : undefined;
  * ```
  */
-export const sessionRegistry = {
+export interface SessionRegistry {
+  register(windowId: string, entry: SessionEntry): void;
+  unregister(windowId: string): void;
+  getPubkey(windowId: string): string | undefined;
+  getEntry(pubkey: string): SessionEntry | undefined;
+  getWindowId(pubkey: string): string | undefined;
+  isRegistered(windowId: string): boolean;
+  getAllEntries(): SessionEntry[];
+  setPendingUpdate(windowId: string, update: PendingUpdate): void;
+  getPendingUpdate(windowId: string): PendingUpdate | undefined;
+  clearPendingUpdate(windowId: string): void;
+  clear(): void;
+}
+
+/** Shell-wide verified napplet session registry singleton. */
+export const sessionRegistry: SessionRegistry = {
   /**
    * Register a napplet entry, mapping windowId to pubkey and vice versa.
    *
@@ -159,4 +174,4 @@ export const sessionRegistry = {
 };
 
 /** @deprecated Use sessionRegistry. Will be removed in v0.9.0. */
-export const nappKeyRegistry = sessionRegistry;
+export const nappKeyRegistry: SessionRegistry = sessionRegistry;

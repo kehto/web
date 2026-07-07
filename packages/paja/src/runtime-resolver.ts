@@ -17,6 +17,7 @@ export const PAJA_NAPPLET_MANIFEST_KIND = NAPPLET_KIND_NAMED;
 /** All NIP-5D napplet manifest kinds accepted by Paja pointers (`5129`, `15129`, `35129`). */
 export const PAJA_NAPPLET_MANIFEST_KINDS = NAPPLET_KINDS;
 
+/** Decoded naddr/nevent pointer accepted by Paja runtime-pointer mode. */
 export type PajaDecodedPointer =
   | {
     readonly type: 'naddr';
@@ -35,18 +36,29 @@ export type PajaDecodedPointer =
     readonly relays: readonly string[];
   };
 
+/** Fully resolved pointer plus verified napplet artifact bytes. */
 export interface PajaResolvedPointer {
+  /** Decoded pointer input. */
   readonly pointer: PajaDecodedPointer;
+  /** Manifest event resolved from relays. */
   readonly event: NostrEvent;
+  /** Relay URLs queried for the pointer. */
   readonly relays: readonly string[];
+  /** Blossom server hints used for blob fetches. */
   readonly blossomServers: readonly string[];
+  /** Resolved manifest `d` tag. */
   readonly dTag: string;
+  /** Verified NIP-5A aggregate hash. */
   readonly aggregateHash: string;
+  /** Verified target `/index.html` content. */
   readonly indexHtml: string;
+  /** Parsed NIP-5D manifest. */
   readonly manifest: ResolvedNapplet['manifest'];
 }
 
+/** Relay-pool contract for runtime-pointer resolution. */
 export interface PajaPointerRelayPool {
+  /** Query relays synchronously for matching manifest events. */
   querySync(
     relays: string[],
     filter: Filter,
@@ -56,14 +68,26 @@ export interface PajaPointerRelayPool {
   destroy?(): void;
 }
 
+/** Options for resolving a Paja runtime pointer. */
 export interface ResolvePajaPointerOptions {
+  /** Relay pool override; defaults to a `nostr-tools` `SimplePool`. */
   readonly pool?: PajaPointerRelayPool;
+  /** Fetch override used for Blossom blob URLs. */
   readonly fetcher?: (url: string) => Promise<Response>;
+  /** Extra relay hints appended to pointer relays. */
   readonly relays?: readonly string[];
+  /** Extra Blossom server hints appended during artifact fetch. */
   readonly blossomServers?: readonly string[];
+  /** Maximum relay query wait in milliseconds. */
   readonly maxWaitMs?: number;
 }
 
+/**
+ * Decode a NIP-19 naddr/nevent pointer for Paja runtime-pointer mode.
+ *
+ * @param value - NIP-19 pointer string.
+ * @returns Structured pointer metadata.
+ */
 export function decodePajaPointer(value: string): PajaDecodedPointer {
   const trimmed = value.trim();
   const decoded = decode(trimmed);
@@ -90,6 +114,13 @@ export function decodePajaPointer(value: string): PajaDecodedPointer {
   throw new Error(`Expected naddr or nevent pointer, got ${decoded.type}.`);
 }
 
+/**
+ * Resolve a Paja runtime pointer into verified napplet HTML and manifest data.
+ *
+ * @param value - NIP-19 naddr or nevent pointer.
+ * @param options - Relay, fetch, and Blossom overrides.
+ * @returns Verified napplet artifact ready for srcdoc injection.
+ */
 export async function resolvePajaPointer(
   value: string,
   options: ResolvePajaPointerOptions = {},
@@ -133,6 +164,13 @@ export async function resolvePajaPointer(
   }
 }
 
+/**
+ * Inject a restrictive connect-src CSP for runtime-pointer srcdoc output.
+ *
+ * @param html - Verified target HTML.
+ * @param origins - Origins the resolved target may connect to.
+ * @returns HTML with a CSP meta tag inserted.
+ */
 export function injectPajaRuntimeCsp(html: string, origins: readonly string[]): string {
   const value = origins.length > 0
     ? `connect-src ${[...new Set(origins)].sort().join(' ')}`

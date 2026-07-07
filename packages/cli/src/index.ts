@@ -1,11 +1,18 @@
 #!/usr/bin/env node
+/**
+ * Top-level Kehto command router.
+ *
+ * @module
+ */
 import {
   runPajaCli,
   type CliIo,
   type RunPajaCliOptions,
 } from '@kehto/paja/cli';
 
+/** Execution controls for the top-level Kehto CLI router. */
 export interface RunKehtoCliOptions {
+  /** Options forwarded to the `kehto paja` subcommand. */
   readonly paja?: RunPajaCliOptions;
 }
 
@@ -66,6 +73,12 @@ if (isDirectCli()) {
   });
 }
 
+/**
+ * Detect whether the module is being executed as the CLI entrypoint.
+ *
+ * @param entryPath - Process entry path to inspect.
+ * @returns `true` when the path looks like the built Kehto CLI entry.
+ */
 export function isDirectCli(entryPath = process.argv[1]): boolean {
   if (!entryPath) return false;
   return entryPath.endsWith('/index.js') || entryPath.endsWith('/kehto');

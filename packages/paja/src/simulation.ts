@@ -1,7 +1,11 @@
+/** JSON primitive accepted in Paja simulation config values. */
 export type JsonPrimitive = string | number | boolean | null;
+/** JSON value accepted in Paja simulation config values. */
 export type JsonValue = JsonPrimitive | JsonValue[] | { readonly [key: string]: JsonValue };
+/** JSON object used for Paja simulation fixtures and config/theme values. */
 export type JsonRecord = Record<string, JsonValue>;
 
+/** Capability domain names Paja can advertise or disable. */
 export type PajaCapabilityDomain =
   | 'relay'
   | 'outbox'
@@ -25,10 +29,13 @@ export type PajaCapabilityDomain =
   | 'cvm'
   | 'inc';
 
+/** Raw simulation controls accepted from CLI args or JSON config. */
 export interface PajaSimulationRawOptions {
+  /** Per-domain capability overrides. */
   readonly capabilities?: {
     readonly domains?: Partial<Record<PajaCapabilityDomain, boolean>>;
   };
+  /** ACL behavior mode for simulated services. */
   readonly acl?: {
     readonly mode?: 'allow' | 'deny';
   };
@@ -76,7 +83,9 @@ export interface PajaSimulationRawOptions {
   };
 }
 
+/** Fully normalized Paja simulation model served to the browser host. */
 export interface PajaSimulation {
+  /** Capability domains and disabled-domain summary. */
   readonly capabilities: {
     readonly domains: Record<PajaCapabilityDomain, boolean>;
     readonly disabledDomains: readonly PajaCapabilityDomain[];
@@ -128,6 +137,7 @@ export interface PajaSimulation {
   };
 }
 
+/** Thrown when Paja simulation options are internally inconsistent. */
 export class PajaSimulationError extends Error {
   constructor(message: string) {
     super(message);
@@ -135,6 +145,7 @@ export class PajaSimulationError extends Error {
   }
 }
 
+/** Capability domains exposed by Paja simulation controls. */
 export const PAJA_SIMULATION_DOMAINS: readonly PajaCapabilityDomain[] = [
   'relay',
   'outbox',
@@ -170,6 +181,12 @@ const DEFAULT_THEME_VALUES: JsonRecord = {
   title: 'Kehto Paja',
 };
 
+/**
+ * Normalize raw simulation options into a complete deterministic model.
+ *
+ * @param raw - Partial simulation options from CLI args or config.
+ * @returns Complete simulation model.
+ */
 export function normalizePajaSimulation(
   raw: PajaSimulationRawOptions | undefined,
 ): PajaSimulation {
@@ -302,6 +319,12 @@ export function normalizePajaSimulation(
   };
 }
 
+/**
+ * Format a compact, human-readable simulation summary.
+ *
+ * @param simulation - Normalized simulation model.
+ * @returns One-line summary used by CLI and host-page chrome.
+ */
 export function summarizePajaSimulation(simulation: PajaSimulation): string {
   const relay = simulation.relay.mode === 'memory' ? `relay:${simulation.relay.urls.length}` : 'relay:off';
   const identity = simulation.identity.mode === 'fixed' ? 'identity:fixed' : 'identity:anon';

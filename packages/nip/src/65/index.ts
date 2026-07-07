@@ -20,6 +20,8 @@ import type { NostrEvent } from 'nostr-tools';
  * ["r", "wss://relay.example.com", "read"]  → read-only
  * ["r", "wss://relay.example.com", "write"] → write-only
  * ```
+ *
+ * @module
  */
 
 /**

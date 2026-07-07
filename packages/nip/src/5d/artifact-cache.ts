@@ -14,6 +14,7 @@ const DEFAULT_FOREGROUND_TTL_MS = 15 * 60 * 1000;
 const DEFAULT_BACKGROUND_TTL_MS = 60 * 60 * 1000;
 
 export interface NappletCacheDiagnostic {
+  /** Diagnostic category for cache open/read/write/delete/prune/storage-estimate failures. */
   type:
     | 'cache-open-failed'
     | 'cache-read-failed'
@@ -21,43 +22,73 @@ export interface NappletCacheDiagnostic {
     | 'cache-delete-failed'
     | 'cache-prune-failed'
     | 'storage-estimate-unavailable';
+  /** Human-readable diagnostic detail suitable for logs. */
   message: string;
+  /** Original thrown value, when one exists. */
   cause?: unknown;
 }
 
+/** Metadata tracked for one cached napplet artifact blob. */
 export interface NappletBlobIndexEntry {
+  /** Blob byte length. */
   size: number;
+  /** Last read or write timestamp in milliseconds. */
   lastAccessed: number;
+  /** Number of cached aggregate records currently referencing this blob. */
   refCount: number;
 }
 
+/** Metadata tracked for one verified aggregate cache record. */
 export interface NappletAggregateIndexEntry {
+  /** Manifest `d` tag. */
   dTag: string;
+  /** Verified NIP-5A aggregate hash. */
   aggregateHash: string;
+  /** Internal cache key derived from `dTag` and `aggregateHash`. */
   key: string;
+  /** SHA-256 hashes of blobs referenced by this aggregate. */
   blobHashes: string[];
+  /** Approximate stored aggregate-record byte size. */
   size: number;
+  /** Last read or write timestamp in milliseconds. */
   lastAccessed: number;
+  /** Coordinate cache key that currently points at this aggregate, if any. */
   coordinateKey?: string;
+  /** Reserved pin marker for hosts that want to protect an aggregate. */
   pinned?: boolean;
 }
 
+/** Cached mapping from a NIP-5D coordinate to a verified aggregate. */
 export interface CachedCoordinate {
+  /** Internal coordinate key in the form `kind:pubkey:dTag`. */
   key: string;
+  /** Napplet manifest event kind. */
   kind: number;
+  /** Manifest author public key. */
   pubkey: string;
+  /** Manifest `d` tag. */
   dTag: string;
+  /** Verified aggregate hash for the coordinate. */
   aggregateHash: string;
+  /** Timestamp when this coordinate last resolved successfully. */
   lastResolvedAt: number;
+  /** Foreground refresh TTL in milliseconds. */
   foregroundTtlMs: number;
+  /** Background refresh TTL in milliseconds. */
   backgroundTtlMs: number;
 }
 
+/** Serialized Cache Storage index for verified napplet artifacts. */
 export interface NappletArtifactCacheIndex {
+  /** Index schema version. */
   schemaVersion: number;
+  /** Last index update timestamp in milliseconds. */
   updatedAt: number;
+  /** Blob entries keyed by SHA-256 hash. */
   blobs: Record<string, NappletBlobIndexEntry>;
+  /** Aggregate entries keyed by the internal aggregate key. */
   aggregates: Record<string, NappletAggregateIndexEntry>;
+  /** Coordinate entries keyed by {@link coordinateKey}. */
   coordinates: Record<string, CachedCoordinate>;
 }
 
@@ -80,22 +111,35 @@ interface AggregateRecord {
 }
 
 export interface WriteVerifiedResolutionInput {
+  /** Verified NIP-5D manifest event. */
   event: NostrEvent;
+  /** Parsed manifest whose aggregate and paths have already been verified. */
   manifest: NappletManifest;
+  /** File bytes keyed by manifest path. */
   files: ReadonlyMap<string, Uint8Array>;
+  /** Verified `/index.html` bytes decoded as text. */
   indexHtml: string;
+  /** Timestamp override for deterministic tests. */
   now?: number;
 }
 
+/** Freshness controls for reading a cached coordinate. */
 export interface CoordinateFreshnessOptions {
+  /** Timestamp override in milliseconds. */
   now?: number;
+  /** Use the background TTL instead of the foreground TTL. */
   background?: boolean;
 }
 
+/** Cache interface for verified NIP-5D napplet artifacts. */
 export interface NappletArtifactCache {
+  /** Read one cached artifact blob by SHA-256 hash. */
   readBlob(sha256Hex: string): Promise<Uint8Array | undefined>;
+  /** Delete one cached artifact blob by SHA-256 hash. */
   deleteBlob(sha256Hex: string): Promise<void>;
+  /** Write a verified manifest resolution and all referenced blobs. */
   writeVerifiedResolution(input: WriteVerifiedResolutionInput): Promise<void>;
+  /** Cache the latest aggregate for a NIP-5D coordinate. */
   writeCoordinate(input: {
     kind: number;
     pubkey: string;
@@ -105,30 +149,47 @@ export interface NappletArtifactCache {
     foregroundTtlMs?: number;
     backgroundTtlMs?: number;
   }): Promise<void>;
+  /** Read a cached coordinate with a computed freshness flag. */
   getCoordinate(input: {
     kind: number;
     pubkey: string;
     dTag: string;
   }, options?: CoordinateFreshnessOptions): Promise<(CachedCoordinate & { fresh: boolean }) | undefined>;
+  /** Update aggregate/blob last-access timestamps. */
   touchAggregate(dTag: string, aggregateHash: string, now?: number): Promise<void>;
+  /** Protect an aggregate from normal pruning while it is in active use. */
   markAggregateActive(dTag: string, aggregateHash: string): void;
+  /** Release an aggregate previously marked active. */
   releaseAggregateActive(dTag: string, aggregateHash: string): void;
+  /** Prune cache contents to the configured storage budget. */
   prune(now?: number): Promise<void>;
 }
 
+/** Constructor options for {@link CacheStorageNappletArtifactCache}. */
 export interface CacheStorageNappletArtifactCacheOptions {
+  /** Cache Storage implementation; defaults to `globalThis.caches`. */
   cacheStorage?: CacheStorage;
+  /** Storage manager used for quota estimates; defaults to `navigator.storage`. */
   storage?: StorageManager;
+  /** Cache Storage namespace. */
   cacheName?: string;
+  /** Base URL used to construct synthetic cache keys. */
   baseUrl?: string;
+  /** Clock used for timestamps. */
   now?: () => number;
+  /** Diagnostic callback for non-fatal cache failures. */
   onDiagnostic?: (diagnostic: NappletCacheDiagnostic) => void;
+  /** Budget used when storage estimates are unavailable. */
   unknownBudgetBytes?: number;
+  /** Soft cache ceiling in bytes. */
   softCeilingBytes?: number;
+  /** Hard cache ceiling in bytes. */
   hardCeilingBytes?: number;
 }
 
+/** Options for opening the browser Cache Storage artifact cache. */
 export interface OpenNappletArtifactCacheOptions extends CacheStorageNappletArtifactCacheOptions {
+  /** Return `undefined` when quota estimates are unavailable. */
   requireStorageEstimate?: boolean;
 }
 
@@ -146,10 +207,25 @@ function aggregateKey(dTag: string, aggregateHash: string): string {
   return `${encodeURIComponent(dTag)}:${aggregateHash}`;
 }
 
+/**
+ * Build the stable index key for a NIP-5D coordinate.
+ *
+ * @param kind - Manifest event kind.
+ * @param pubkey - Manifest author public key.
+ * @param dTag - Manifest `d` tag.
+ * @returns Cache key in the form `kind:pubkey:dTag`.
+ */
 export function coordinateKey(kind: number, pubkey: string, dTag: string): string {
   return `${kind}:${pubkey}:${encodeURIComponent(dTag)}`;
 }
 
+/**
+ * Check whether a cached coordinate is still inside its foreground/background TTL.
+ *
+ * @param coordinate - Cached coordinate to inspect.
+ * @param options - Optional clock and TTL mode overrides.
+ * @returns `true` when the coordinate can be used without a network refresh.
+ */
 export function isCoordinateFresh(
   coordinate: CachedCoordinate,
   options: CoordinateFreshnessOptions = {},
@@ -208,6 +284,12 @@ function cachedSize(index: NappletArtifactCacheIndex): number {
   return blobBytes + aggregateBytes;
 }
 
+/**
+ * Browser Cache Storage implementation of {@link NappletArtifactCache}.
+ *
+ * It stores verified blobs and aggregate records under synthetic URLs, keeps a
+ * small JSON index, and prunes according to quota-derived budgets.
+ */
 export class CacheStorageNappletArtifactCache implements NappletArtifactCache {
   private readonly cacheStorage: CacheStorage;
   private readonly storage?: StorageManager;
@@ -325,7 +407,7 @@ export class CacheStorageNappletArtifactCache implements NappletArtifactCache {
     return { ...coordinate, fresh: isCoordinateFresh(coordinate, options) };
   }
 
-  async touchAggregate(dTag: string, aggregateHash: string, now = this.now()): Promise<void> {
+  async touchAggregate(dTag: string, aggregateHash: string, now: number = this.now()): Promise<void> {
     const cache = await this.open();
     const index = await this.readIndex(cache);
     const key = aggregateKey(dTag, aggregateHash);
@@ -347,7 +429,7 @@ export class CacheStorageNappletArtifactCache implements NappletArtifactCache {
     this.activeAggregates.delete(aggregateKey(dTag, aggregateHash));
   }
 
-  async prune(now = this.now()): Promise<void> {
+  async prune(now: number = this.now()): Promise<void> {
     try {
       const cache = await this.open();
       const index = await this.readIndex(cache);
@@ -564,6 +646,12 @@ export class CacheStorageNappletArtifactCache implements NappletArtifactCache {
   }
 }
 
+/**
+ * Open the browser Cache Storage artifact cache when the host supports it.
+ *
+ * @param options - Cache construction options and diagnostics callback.
+ * @returns A cache instance, or `undefined` when Cache Storage is unavailable.
+ */
 export async function openNappletArtifactCache(
   options: OpenNappletArtifactCacheOptions = {},
 ): Promise<CacheStorageNappletArtifactCache | undefined> {

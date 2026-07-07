@@ -11,18 +11,32 @@ import {
 import { renderPajaHtml } from './host-page.js';
 import { resolvePajaRawOptions } from './config-file.js';
 
+/** Options for starting the Paja local HTTP server. */
 export interface PajaServerOptions {
+  /** Raw options accepted by Paja; config-file references are resolved before serving. */
   readonly options: PajaRawOptions;
+  /** Clock override used for deterministic host config in tests. */
   readonly now?: Date;
 }
 
+/** Running Paja server handle. */
 export interface PajaServer {
+  /** Runtime URL where the Paja host page is served. */
   readonly url: string;
+  /** Current host-page config. */
   readonly hostConfig: PajaHostConfig;
+  /** Update the target iframe URL without restarting the server. */
   updateTargetUrl(targetUrl: string): PajaHostConfig;
+  /** Stop the HTTP server. */
   close(): Promise<void>;
 }
 
+/**
+ * Start the local Paja development HTTP server.
+ *
+ * @param input - Raw options and optional clock override.
+ * @returns Running server handle.
+ */
 export async function startPajaServer(input: PajaServerOptions): Promise<PajaServer> {
   const rawOptions = resolvePajaRawOptions(input.options);
   const options = normalizePajaOptions(rawOptions);

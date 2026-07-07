@@ -17,6 +17,8 @@ import type { NostrEvent } from 'nostr-tools';
  * `nostr-tools` ships no NIP-89 helper. This module provides pure parsers for
  * both kinds plus URL-template expansion — no relay, signer, or framework
  * coupling.
+ *
+ * @module
  */
 
 /** Kind 31990 — handler information (an app describing what it can open). */
