@@ -1,6 +1,6 @@
 {
   "name": "@kehto/wm",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Generic window manager service contract for NIP-5D shells (draft — Phase 11 proposal from hyprgate).",
   "type": "module",
   "main": "./src/index.ts",

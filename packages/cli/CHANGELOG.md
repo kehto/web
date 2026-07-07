@@ -1,5 +1,13 @@
 # @kehto/cli
 
+## 0.2.13
+
+### Patch Changes
+
+- 3d14dd7: Improve JSR package scoring metadata by adding entrypoint module docs, public API docs, and explicit public export types without changing runtime behavior.
+- Updated dependencies [3d14dd7]
+  - @kehto/paja@0.6.5
+
 ## 0.2.12
 
 ### Patch Changes

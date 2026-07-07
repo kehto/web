@@ -1,6 +1,6 @@
 {
   "name": "@kehto/nip",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Tree-shakable bundle of unique Nostr NIP utilities for napplet runtimes — each NIP at its own subpath (e.g. @kehto/nip/66)",
   "type": "module",
   "main": "./dist/index.js",
