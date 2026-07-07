@@ -24,7 +24,7 @@ export interface AudioSource {
   muted: boolean;
 }
 
-const sources = new Map<string, AudioSource>();
+const sources: Map<string, AudioSource> = new Map<string, AudioSource>();
 let version = 0;
 
 function bump(): void {
@@ -46,7 +46,21 @@ function bump(): void {
  * audioManager.mute('win-1', true);
  * ```
  */
-export const audioManager = {
+export interface AudioManager {
+  register(windowId: string, nappletClass: string, title: string): void;
+  unregister(windowId: string): void;
+  updateState(windowId: string, update: { title?: string }): void;
+  mute(windowId: string, muted: boolean): void;
+  has(windowId: string): boolean;
+  get(windowId: string): AudioSource | undefined;
+  getSources(): Map<string, AudioSource>;
+  readonly version: number;
+  readonly count: number;
+  clear(): void;
+}
+
+/** Shell-wide audio source registry singleton. */
+export const audioManager: AudioManager = {
   /**
    * Register a new audio source for a window.
    *

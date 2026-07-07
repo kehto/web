@@ -38,7 +38,18 @@ function cacheKey(pubkey: string, dTag: string): string {
  * const entry = manifestCache.get('abc...', 'chat');
  * ```
  */
-export const manifestCache = {
+export interface ManifestCache {
+  get(pubkey: string, dTag: string): ManifestCacheEntry | undefined;
+  set(entry: ManifestCacheEntry): void;
+  has(pubkey: string, dTag: string, hash: string): boolean;
+  remove(pubkey: string, dTag: string): void;
+  load(): void;
+  persist(): void;
+  clear(): void;
+}
+
+/** Shell-wide manifest verification cache singleton. */
+export const manifestCache: ManifestCache = {
   /**
    * Get a cached manifest entry by pubkey and dTag.
    *

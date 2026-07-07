@@ -1,6 +1,12 @@
 import type { PajaHostConfig } from './options.js';
 import { summarizePajaSimulation } from './simulation.js';
 
+/**
+ * Render the browser host page for a Paja runtime config.
+ *
+ * @param config - Serializable host-page config.
+ * @returns Complete HTML document served by Paja.
+ */
 export function renderPajaHtml(config: PajaHostConfig): string {
   const configJson = escapeJsonForHtml(JSON.stringify(config));
   const targetLabel = escapeAttribute(getTargetLabel(config));

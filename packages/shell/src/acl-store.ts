@@ -83,7 +83,23 @@ function getOrCreate(pubkey: string, dTag: string, aggregateHash: string): Inter
  * const allowed = aclStore.check(pubkey, dTag, hash, 'relay:read'); // true
  * ```
  */
-export const aclStore = {
+export interface AclStore {
+  check(pubkey: string, dTag: string, aggregateHash: string, capability: Capability): boolean;
+  grant(pubkey: string, dTag: string, aggregateHash: string, capability: Capability): void;
+  revoke(pubkey: string, dTag: string, aggregateHash: string, capability: Capability): void;
+  block(pubkey: string, dTag: string, aggregateHash: string): void;
+  unblock(pubkey: string, dTag: string, aggregateHash: string): void;
+  isBlocked(pubkey: string, dTag: string, aggregateHash: string): boolean;
+  getEntry(pubkey: string, dTag: string, aggregateHash: string): AclEntry | undefined;
+  getAllEntries(): AclEntry[];
+  persist(): void;
+  load(): void;
+  getStateQuota(pubkey: string, dTag: string, aggregateHash: string): number;
+  clear(): void;
+}
+
+/** Shell ACL store singleton. */
+export const aclStore: AclStore = {
   /**
    * Check if a napp identity has a specific capability.
    * Returns true for unknown identities (permissive default).

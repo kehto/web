@@ -51,22 +51,30 @@ import {
 import type { PajaHostConfig } from './options.js';
 import type { PajaSimulation } from './simulation.js';
 
+/** Confirmation request emitted before Paja signs or publishes. */
 export interface PajaConfirmationRequest {
+  /** Requested action. */
   action: 'sign' | 'publish';
+  /** Event or partial event template to confirm. */
   event: NostrEvent | Partial<NostrEvent>;
 }
 
+/** Paja runtime signer provider. */
 export interface PajaSignerProvider {
+  /** Active signer, if connected. */
   getSigner(): Signer | null;
+  /** Active signer pubkey, if connected. */
   getPubkey(): string | null;
 }
 
+/** Identity provider for Paja's simulated target identity. */
 export type PajaIdentityProvider = () => Pick<SessionEntry, 'dTag' | 'aggregateHash'>;
 
 const DEV_INTENT_ARCHETYPE = 'paja-target';
 const DEV_COMMON_PUBKEY = '1'.repeat(64);
 const DEV_COMMON_EVENT_ID = '2'.repeat(64);
 const DEV_SIGNER_SECRET_KEY = generateSecretKey();
+/** Paja development signer public key. */
 export const PAJA_DEV_SIGNER_PUBKEY = getPublicKey(DEV_SIGNER_SECRET_KEY);
 const DEV_CVM_SERVER: CvmServer = {
   pubkey: '0'.repeat(64),
@@ -330,6 +338,13 @@ function createOutboxRouter(
   };
 }
 
+/**
+ * Create a theme object from Paja simulation settings.
+ *
+ * @param mode - Theme mode.
+ * @param values - Extra theme values.
+ * @returns Theme object exposed to the simulated runtime.
+ */
 export function createDevTheme(mode: PajaSimulation['theme']['mode'], values: PajaSimulation['theme']['values']): Theme {
   const defaultColors = mode === 'light'
     ? { background: '#f7f5ed', text: '#1d211d', primary: '#6a5a12' }
@@ -528,6 +543,17 @@ function createDevServices(
   return services;
 }
 
+/**
+ * Create the shell adapter backing the Paja browser runtime.
+ *
+ * @param config - Host-page config.
+ * @param getSimulation - Current simulation model getter.
+ * @param onThemeService - Callback receiving the created theme service.
+ * @param confirmRequest - Sign/publish confirmation callback.
+ * @param signerProvider - Optional external signer provider.
+ * @param getIdentity - Optional simulated target identity provider.
+ * @returns Shell adapter for `createShellBridge`.
+ */
 export function createPajaAdapter(
   config: PajaHostConfig,
   getSimulation: () => PajaSimulation,

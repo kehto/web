@@ -6,20 +6,36 @@ import {
   getPublicKey,
 } from 'nostr-tools/pure';
 
+/** Options for the browser NIP-46 bunker client. */
 export interface Nip46ClientOptions {
+  /** Relay URL used for bunker communication. */
   relayUrl: string;
+  /** Remote bunker pubkey. */
   bunkerPubkey: string;
+  /** Optional bunker secret from the connection URI. */
   secret?: string;
+  /** Optional local secret key. Defaults to an ephemeral key. */
   localSecretKey?: Uint8Array;
+  /** Request timeout in milliseconds. */
   timeout?: number;
 }
 
+/** Browser NIP-46 client. */
 export interface Nip46Client {
+  /** Connect and authorize with the bunker. */
   connect(): Promise<string>;
+  /** Return a signer backed by the connected bunker. */
   getSigner(): Signer;
+  /** Close sockets and reject pending requests. */
   close(): void;
 }
 
+/**
+ * Parse a bunker or nostrconnect URI into NIP-46 connection fields.
+ *
+ * @param uri - Bunker URI.
+ * @returns Parsed fields, or null when the URI is invalid.
+ */
 export function parseBunkerUri(uri: string): { pubkey: string; relay: string; secret?: string } | null {
   if (!uri || typeof uri !== 'string') return null;
 
@@ -228,6 +244,12 @@ function createNip46Signer(state: Nip46ClientState): Signer {
   };
 }
 
+/**
+ * Create a browser NIP-46 client.
+ *
+ * @param options - Bunker connection options.
+ * @returns Client that can connect and expose a runtime signer.
+ */
 export function createNip46Client(options: Nip46ClientOptions): Nip46Client {
   const state = createNip46ClientState(options);
   return {

@@ -8,23 +8,38 @@ import {
   type Nip46Client,
 } from './browser-nip46-client.js';
 
+/** Signer backend selected in the Paja browser UI. */
 export type PajaSignerMethod = 'dev' | 'nip07' | 'nip46';
+/** Connection state for the selected Paja signer backend. */
 export type PajaSignerStatus = 'connected' | 'connecting' | 'error';
 
+/** Current signer connection state shown by Paja. */
 export interface PajaSignerState {
+  /** Active signer backend. */
   method: PajaSignerMethod;
+  /** Backend connection status. */
   status: PajaSignerStatus;
+  /** Connected signer pubkey, when available. */
   pubkey: string | null;
+  /** Relay URL for NIP-46 signers, when available. */
   relay: string | null;
+  /** Last connection error message, when any. */
   error: string | null;
 }
 
+/** Browser signer controller. */
 export interface PajaSignerController {
+  /** Return a copy of current signer state. */
   getState(): PajaSignerState;
+  /** Return the active runtime signer, if one is connected. */
   getSigner(): Signer | null;
+  /** Return the active signer pubkey, if one is connected. */
   getPubkey(): string | null;
+  /** Switch to the deterministic development signer. */
   useDevSigner(): void;
+  /** Connect to `window.nostr` when a NIP-07 signer is available. */
   connectNip07(): Promise<void>;
+  /** Connect to a NIP-46 bunker signer URI. */
   connectBunker(uri: string): Promise<void>;
 }
 
@@ -85,6 +100,12 @@ function createNip07Adapter(signer: Nip07Signer): Signer {
   };
 }
 
+/**
+ * Create a browser signer controller for Paja's signer controls.
+ *
+ * @param options - Confirmation and state-change callbacks.
+ * @returns Signer controller for dev, NIP-07, and NIP-46 modes.
+ */
 export function createPajaSignerController(options: PajaSignerControllerOptions): PajaSignerController {
   let state: PajaSignerState = {
     method: 'dev',

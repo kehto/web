@@ -19,6 +19,7 @@
  * // hostConfig.target.hmrStrategy === 'iframe-target-url'
  * ```
  *
+ * @module
  * @packageDocumentation
  */
 

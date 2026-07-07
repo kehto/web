@@ -1,7 +1,8 @@
 import type { ShellCapabilities } from '@kehto/shell';
 
-const PAJA_LEGACY_COMPATIBILITY_DOMAIN = `i${'fc'}`;
+const PAJA_LEGACY_COMPATIBILITY_DOMAIN: string = `i${'fc'}`;
 
+/** Domain list mirrored from the upstream web runtime for parity checks. */
 export const PAJA_UPSTREAM_WEB_DOMAINS = [
   'ble',
   'common',
@@ -28,13 +29,17 @@ export const PAJA_UPSTREAM_WEB_DOMAINS = [
   'webrtc',
 ] as const;
 
+/** Domains required during the initial Paja handshake. */
 export const PAJA_HANDSHAKE_DOMAINS = ['shell'] as const;
+/** Domains intentionally deferred until their runtime service exists. */
 export const PAJA_DEFERRED_DOMAINS = ['dm'] as const;
 
+/** Compatibility aliases for renamed upstream capability domains. */
 export const PAJA_COMPATIBILITY_ALIASES = {
   [PAJA_LEGACY_COMPATIBILITY_DOMAIN]: 'inc',
 } as const;
 
+/** Domains Paja advertises through its simulated shell capability surface. */
 export const PAJA_ADVERTISED_DOMAINS = [
   'relay',
   'outbox',
@@ -59,6 +64,7 @@ export const PAJA_ADVERTISED_DOMAINS = [
   'count',
 ] as const;
 
+/** Service names Paja expects the host runtime to provide. */
 export const PAJA_REQUIRED_SERVICES = [
   'config',
   'cvm',
@@ -82,11 +88,23 @@ export const PAJA_REQUIRED_SERVICES = [
   'count',
 ] as const;
 
+/**
+ * Find advertised Paja domains missing from a shell capability snapshot.
+ *
+ * @param capabilities - Shell capability snapshot to inspect.
+ * @returns Advertised domains not present in the snapshot.
+ */
 export function getMissingAdvertisedDomains(capabilities: ShellCapabilities): string[] {
   const advertised = new Set(capabilities.domains);
   return PAJA_ADVERTISED_DOMAINS.filter((domain) => !advertised.has(domain));
 }
 
+/**
+ * Find required service names missing from a runtime service list.
+ *
+ * @param services - Runtime service names to inspect.
+ * @returns Required service names that are absent.
+ */
 export function getMissingServices(services: readonly string[]): string[] {
   const wired = new Set(services);
   return PAJA_REQUIRED_SERVICES.filter((service) => !wired.has(service));

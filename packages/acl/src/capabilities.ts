@@ -1,4 +1,8 @@
-
+/**
+ * Canonical capability string constants for `@kehto/acl`.
+ *
+ * @module
+ */
 /**
  * All capability strings recognized by @kehto/acl.
  *

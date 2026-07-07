@@ -42,6 +42,8 @@ export {
  *
  * The napplet's identity is the `(dTag, aggregateHash)` tuple **computed** from
  * these verified bytes — it is never accepted from a host or gateway.
+ *
+ * @module
  */
 
 /** Snapshot manifest — regular event, immutable point-in-time release. */

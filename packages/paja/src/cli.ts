@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+/**
+ * CLI entrypoint for running the Paja local authoring runtime.
+ *
+ * @module
+ */
 import { spawn, type ChildProcess } from 'node:child_process';
 import {
   createPajaHostConfig,
@@ -83,6 +88,14 @@ export function parsePajaArgs(args: readonly string[]): CliParseResult {
   return { help: false, options: raw };
 }
 
+/**
+ * Run the Paja CLI command.
+ *
+ * @param args - Argument vector without the node executable or script path.
+ * @param io - Output streams used by the command.
+ * @param runOptions - Test/embedding controls for server and process spawning.
+ * @returns Process exit code.
+ */
 export async function runPajaCli(
   args: readonly string[] = process.argv.slice(2),
   io: CliIo = defaultIo,
@@ -564,6 +577,12 @@ if (isDirectPajaCli()) {
   });
 }
 
+/**
+ * Detect whether this module is running as the direct Paja CLI entrypoint.
+ *
+ * @param entryPath - Process entry path to inspect.
+ * @returns `true` when the entry path looks like Paja's built CLI.
+ */
 export function isDirectPajaCli(entryPath = process.argv[1]): boolean {
   if (!entryPath) return false;
   return entryPath.endsWith('/cli.js') || entryPath.endsWith('/paja');
@@ -576,8 +595,11 @@ declare const process: {
   stderr: { write(chunk: string): void };
 };
 
+/** Managed child process handle. */
 export interface ManagedChildProcess {
+  /** Stop the managed target process. */
   kill(): void;
+  /** First local target URL detected from process output. */
   readonly detectedTargetUrl: Promise<string>;
 }
 
