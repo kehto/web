@@ -193,6 +193,18 @@ describe('createRelayPoolOutboxRouter', () => {
       expect(result.incomplete).toBe(true);
     });
 
+    it('treats authorless query relay hints as augmenting fallback relays', async () => {
+      const pool = makePool();
+      const router = makeRouter(pool);
+      const p = router.query([{ kinds: [30831], limit: 24 }], { relays: ['wss://hint'], timeoutMs: 20 });
+      await tick();
+
+      expect(pool.subs.map((s) => s.relays[0]).sort()).toEqual(['wss://fallback', 'wss://hint']);
+
+      pool.eoseAll();
+      await p;
+    });
+
     it('returns relay-list-unavailable error when the pool is offline', async () => {
       const pool = makePool();
       pool.available = false;
