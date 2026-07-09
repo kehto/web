@@ -6,8 +6,10 @@
  *   - keys.registerAction   -> parses action.defaultKey into a chord spec, stores the
  *                              subscription in an in-memory registry keyed by actionId,
  *                              tracks windowId ownership so onWindowDestroyed can auto-
- *                              unsubscribe, and echoes { actionId, binding } as .result
- *   - keys.unregisterAction -> removes the subscription; fire-and-forget (no envelope)
+ *                              unsubscribe, echoes { actionId, binding } as .result, and
+ *                              pushes the window's complete keys.bindings list
+ *   - keys.unregisterAction -> removes the subscription and pushes the window's
+ *                              updated keys.bindings list
  *
  * Real listener: on service construction the handler attaches a single
  * `keydown` listener to `options.listenerTarget` (default: `document`). Each
@@ -33,9 +35,9 @@
  * { ctrlKey, altKey, shiftKey, metaKey } form. This service performs the
  * translation so callers of `onForward` see the DOM shape.
  *
- * Shell -> napplet push envelopes `keys.bindings` remain the shell-side keys
- * forwarder's responsibility (DRIFT-SHELL-06, tracked under Plan 12-11 /
- * future phase); `keys.action` is emitted here per Plan 26-01.
+ * Shell -> napplet push envelopes `keys.bindings` are emitted here whenever
+ * the registered bindings for a window change. The injected shim consumes
+ * that complete list to suppress locally-bound keydowns before forwarding.
  */
 
 import type { NappletMessage } from '@napplet/core';
@@ -46,6 +48,18 @@ import type {
   KeysRegisterActionResultMessage,
   KeysActionMessage,
 } from '@napplet/nap/keys/types';
+import {
+  chordSpecKey,
+  dispatchForwardedActions,
+  eventKey,
+  forwardKey,
+  forwardPayload,
+  parseChord,
+  pushBindings,
+  removeActionFromWindowIndex,
+  type ActionEntry,
+  type ChordSpec,
+} from './keys-service-internals.js';
 
 /**
  * Minimal structural subset of the DOM `KeyboardEvent` exposed to
@@ -133,30 +147,7 @@ export interface HostKeysBridge {
 }
 
 /** Keys service version — follows semver. */
-const KEYS_SERVICE_VERSION = '1.2.0';
-
-/**
- * Parsed chord struct — internal, never on the wire. The napplet-facing API
- * (and the `action.defaultKey` field) is a string like `"Ctrl+Shift+K"`;
- * `parseChord` lowers those strings into this struct for efficient matching
- * against `KeyboardEvent` modifier flags.
- */
-interface ChordSpec {
-  ctrl: boolean;
-  alt: boolean;
-  shift: boolean;
-  meta: boolean;
-  /** Normalized uppercase single character or DOM key name (e.g. 'K', 'Enter'). */
-  key: string;
-}
-
-/** Registry entry — maps a registered actionId back to its owning window + chord. */
-interface ActionEntry {
-  chord: ChordSpec;
-  /** Original chord string, preserved for the .result `binding` field. */
-  chordString: string;
-  windowId: string;
-}
+const KEYS_SERVICE_VERSION = '1.3.0';
 
 /**
  * Options for creating a keys service via createKeysService().
@@ -232,59 +223,6 @@ export interface KeysServiceOptions {
   reservedChords?: ReadonlyArray<string>;
 }
 
-/** Modifier-token aliases accepted by `parseChord` (case-insensitive). */
-const MODIFIER_ALIASES: Record<string, keyof Pick<ChordSpec, 'ctrl' | 'alt' | 'shift' | 'meta'>> = {
-  ctrl: 'ctrl',
-  control: 'ctrl',
-  alt: 'alt',
-  option: 'alt',
-  shift: 'shift',
-  meta: 'meta',
-  cmd: 'meta',
-  command: 'meta',
-  win: 'meta',
-  super: 'meta',
-};
-
-/**
- * Parse a chord string into a `ChordSpec`. Modifier tokens are case-insensitive
- * and recognize common aliases (Cmd/Command/Win/Super → meta, Control → ctrl,
- * Option → alt). Single-character keys are normalized to uppercase so chord
- * matching is case-insensitive; multi-character DOM key names (`Enter`,
- * `ArrowUp`, `F4`) preserve their original casing.
- *
- * Examples:
- *   parseChord('Ctrl+Shift+K') → { ctrl: true, alt: false, shift: true, meta: false, key: 'K' }
- *   parseChord('ctrl+s')       → { ctrl: true, alt: false, shift: false, meta: false, key: 'S' }
- *   parseChord('Cmd+P')        → { ctrl: false, alt: false, shift: false, meta: true, key: 'P' }
- *   parseChord('K')            → { ctrl: false, alt: false, shift: false, meta: false, key: 'K' }
- *   parseChord('Ctrl++')       → { ctrl: true, alt: false, shift: false, meta: false, key: '+' }
- *
- * @throws Error('empty chord') when the input is the empty string.
- * @throws Error(`unknown modifier: ${tok}`) when a non-final token isn't a recognized modifier.
- * @throws Error(`empty key in chord: ${chord}`) when the final token is empty/whitespace.
- */
-function parseChord(chord: string): ChordSpec {
-  if (chord.length === 0) throw new Error('empty chord');
-  const parts = chord.split('+');
-  const out: ChordSpec = { ctrl: false, alt: false, shift: false, meta: false, key: '' };
-  // The final token is always the key — even if it is literally '+' (chord like 'Ctrl++').
-  // All preceding tokens must be modifiers.
-  for (let i = 0; i < parts.length - 1; i++) {
-    const tok = parts[i].trim().toLowerCase();
-    if (tok.length === 0) continue; // tolerate stray whitespace
-    const slot = MODIFIER_ALIASES[tok];
-    if (!slot) throw new Error(`unknown modifier: ${parts[i]}`);
-    out[slot] = true;
-  }
-  const keyTok = parts[parts.length - 1].trim();
-  if (keyTok.length === 0) throw new Error(`empty key in chord: ${chord}`);
-  // Single characters normalize to uppercase for case-insensitive comparison;
-  // multi-character DOM key names (Enter, ArrowUp, F4) preserve their original casing.
-  out.key = keyTok.length === 1 ? keyTok.toUpperCase() : keyTok;
-  return out;
-}
-
 /**
  * Create a keys service handler.
  *
@@ -322,15 +260,6 @@ export function createKeysService(
       : 'NIP-5D keys NAP reference handler (document-level chord listener)',
   };
 
-  function chordSpecKey(spec: {
-    ctrl: boolean;
-    alt: boolean;
-    shift: boolean;
-    meta: boolean;
-    key: string;
-  }): string {
-    return `${spec.ctrl}|${spec.alt}|${spec.shift}|${spec.meta}|${spec.key}`;
-  }
   const reservedChordKeys: Set<string> = new Set();
   if (options.reservedChords) {
     for (const chordStr of options.reservedChords) {
@@ -339,37 +268,13 @@ export function createKeysService(
       reservedChordKeys.add(chordSpecKey(parseChord(chordStr)));
     }
   }
-  // Canonicalize a wire-shape keys.forward payload into the same key.
-  function forwardKey(m: {
-    key: string;
-    ctrl: boolean;
-    alt: boolean;
-    shift: boolean;
-    meta: boolean;
-  }): string {
-    const k = m.key.length === 1 ? m.key.toUpperCase() : m.key;
-    return `${m.ctrl}|${m.alt}|${m.shift}|${m.meta}|${k}`;
-  }
-  function forwardPayload(m: KeysForwardMessage): Omit<HostKeyEvent, 'repeat'> {
-    return {
-      key: m.key,
-      code: m.code,
-      ctrlKey: m.ctrl,
-      altKey: m.alt,
-      shiftKey: m.shift,
-      metaKey: m.meta,
-    };
-  }
-  // Canonicalize a DOM KeyboardEvent into the same key (for Branch B keydown listener).
-  function eventKey(ev: KeyboardEvent): string {
-    const k = ev.key.length === 1 ? ev.key.toUpperCase() : ev.key;
-    return `${ev.ctrlKey}|${ev.altKey}|${ev.shiftKey}|${ev.metaKey}|${k}`;
-  }
 
   if (options.hostBridge) {
     const bridge = options.hostBridge;
     // windowId → Set<actionId> — parallels Branch B for scoped cleanup.
     const bridgeWindowActions = new Map<string, Set<string>>();
+    const bridgeActionRegistry = new Map<string, ActionEntry>();
+    const bridgeSendHandles = new Map<string, (msg: NappletMessage) => void>();
     // actionId → unsubscribe handle returned from bridge.subscribe.
     const unsubscribeHandles = new Map<string, () => void>();
 
@@ -383,26 +288,24 @@ export function createKeysService(
       ): void {
         switch (message.type) {
           case 'keys.forward': {
-            // Legacy napplet-forwarded path still works identically — preserves wire contract.
-            // Phase 33 / KEYS-04-05: reserved chords take precedence. The Branch-A
-            // handler never dispatches keys.action to napplets on forward (bridge
-            // owns chord → napplet routing via its own subscribe callback), so
-            // reservation here is observationally identical to the base case —
-            // but we compute and check the reservation explicitly to document
-            // the contract for future edits and keep both branches uniform.
+            // Napplet-forwarded keydowns still reach the shell hotkey path.
+            // If they match a registered action, also dispatch keys.action to
+            // the owner unless the shell explicitly reserved the chord.
             const m = message as KeysForwardMessage;
-            const reserved = reservedChordKeys.has(forwardKey(m));
+            const key = forwardKey(m);
+            const reserved = reservedChordKeys.has(key);
             options.onForward?.(forwardPayload(m));
-            if (reserved) {
-              return;
-            }
+            if (reserved) return;
+            dispatchForwardedActions(key, bridgeActionRegistry, bridgeSendHandles);
             return;
           }
 
           case 'keys.registerAction': {
             const m = message as KeysRegisterActionMessage;
+            bridgeSendHandles.set(windowId, send);
             if (m.action.defaultKey) {
               try {
+                const chord = parseChord(m.action.defaultKey);
                 const unsubscribe = bridge.subscribe(m.action.defaultKey, (ev) => {
                   // Normalize either KeyboardEvent or HostKeyEvent to the DOM-shape onForward payload.
                   const e = ev as KeyboardEvent | HostKeyEvent;
@@ -416,17 +319,33 @@ export function createKeysService(
                     shiftKey: e.shiftKey,
                     metaKey: e.metaKey,
                   });
+                  if (reservedChordKeys.has(chordSpecKey(chord))) return;
                   // Canonical shell→napplet push: emit keys.action to the owning
                   // napplet. Shape matches Branch B (superset of KeysActionMessage);
-                  // the `chord` extension is omitted here because bridges deliver
-                  // pre-parsed chord events without the internal ChordSpec struct.
-                  const payload: KeysActionMessage = {
+                  // the `chord` extension mirrors Branch B because the service
+                  // parses the registration chord.
+                  const payload: KeysActionMessage & { chord: ChordSpec } = {
                     type: 'keys.action',
                     actionId: m.action.id,
+                    chord,
                   };
                   send(payload as NappletMessage);
                 });
+                const existing = unsubscribeHandles.get(m.action.id);
+                if (existing) {
+                  try {
+                    existing();
+                  } catch {
+                    /* best-effort */
+                  }
+                }
+                removeActionFromWindowIndex(m.action.id, bridgeWindowActions);
                 unsubscribeHandles.set(m.action.id, unsubscribe);
+                bridgeActionRegistry.set(m.action.id, {
+                  chord,
+                  chordString: m.action.defaultKey,
+                  windowId,
+                });
                 if (!bridgeWindowActions.has(windowId)) bridgeWindowActions.set(windowId, new Set());
                 bridgeWindowActions.get(windowId)!.add(m.action.id);
               } catch (err) {
@@ -446,6 +365,9 @@ export function createKeysService(
               ...(m.action.defaultKey ? { binding: m.action.defaultKey } : {}),
             };
             send(result as NappletMessage);
+            if (m.action.defaultKey) {
+              pushBindings(windowId, bridgeActionRegistry, bridgeWindowActions, send);
+            }
             return;
           }
 
@@ -453,6 +375,7 @@ export function createKeysService(
             const m = message as NappletMessage & { actionId?: string };
             if (m.actionId) {
               const unsubscribe = unsubscribeHandles.get(m.actionId);
+              const entry = bridgeActionRegistry.get(m.actionId);
               if (unsubscribe) {
                 try {
                   unsubscribe();
@@ -460,9 +383,14 @@ export function createKeysService(
                   /* best-effort */
                 }
                 unsubscribeHandles.delete(m.actionId);
-                // Prune the bridgeWindowActions entry that owns this actionId.
-                for (const [wid, set] of bridgeWindowActions.entries()) {
-                  if (set.delete(m.actionId) && set.size === 0) bridgeWindowActions.delete(wid);
+                bridgeActionRegistry.delete(m.actionId);
+                removeActionFromWindowIndex(m.actionId, bridgeWindowActions);
+                if (entry) {
+                  const ownerSend = bridgeSendHandles.get(entry.windowId) ?? send;
+                  pushBindings(entry.windowId, bridgeActionRegistry, bridgeWindowActions, ownerSend);
+                  if (!bridgeWindowActions.has(entry.windowId)) {
+                    bridgeSendHandles.delete(entry.windowId);
+                  }
                 }
               }
             }
@@ -494,8 +422,10 @@ export function createKeysService(
             }
           }
           unsubscribeHandles.delete(actionId);
+          bridgeActionRegistry.delete(actionId);
         }
         bridgeWindowActions.delete(windowId);
+        bridgeSendHandles.delete(windowId);
       },
 
       destroy(): void {
@@ -507,7 +437,9 @@ export function createKeysService(
           }
         }
         unsubscribeHandles.clear();
+        bridgeActionRegistry.clear();
         bridgeWindowActions.clear();
+        bridgeSendHandles.clear();
       },
     };
   }
@@ -602,18 +534,15 @@ export function createKeysService(
     ): void {
       switch (message.type) {
         case 'keys.forward': {
-          // Legacy passthrough: napplet-forwarded keydown translation.
-          // Preserved bit-for-bit from the stub — existing tests + the
-          // keys-forwarder.ts -> service.handleMessage path depend on this shape.
-          //
-          // Phase 33 / KEYS-04-05: Branch B's keys.forward handler does NOT
-          // emit keys.action (fan-out happens in the document keydown listener),
-          // so reservation is observationally identical to the base case.
-          // The explicit guard below pins the contract for future edits.
+          // Napplet-forwarded keydown translation. The shell hotkey path still
+          // receives the DOM-shape payload; matching registered actions also
+          // receive keys.action unless the shell reserved the chord.
           const m = message as KeysForwardMessage;
-          const reserved = reservedChordKeys.has(forwardKey(m));
+          const key = forwardKey(m);
+          const reserved = reservedChordKeys.has(key);
           options.onForward?.(forwardPayload(m));
           if (reserved) return;
+          dispatchForwardedActions(key, actionRegistry, sendHandles);
           return;
         }
 
@@ -629,6 +558,8 @@ export function createKeysService(
           if (m.action.defaultKey) {
             try {
               const chord = parseChord(m.action.defaultKey);
+              const existing = actionRegistry.get(m.action.id);
+              if (existing) removeActionFromWindowIndex(m.action.id, windowActions);
               actionRegistry.set(m.action.id, {
                 chord,
                 chordString: m.action.defaultKey,
@@ -654,6 +585,9 @@ export function createKeysService(
             ...(m.action.defaultKey ? { binding: m.action.defaultKey } : {}),
           };
           send(result as NappletMessage);
+          if (m.action.defaultKey) {
+            pushBindings(windowId, actionRegistry, windowActions, send);
+          }
           return;
         }
 
@@ -670,9 +604,11 @@ export function createKeysService(
               // that no longer subscribes to anything.
               if (set.size === 0) {
                 windowActions.delete(entry.windowId);
-                sendHandles.delete(entry.windowId);
               }
             }
+            const ownerSend = sendHandles.get(entry.windowId) ?? send;
+            pushBindings(entry.windowId, actionRegistry, windowActions, ownerSend);
+            if (!windowActions.has(entry.windowId)) sendHandles.delete(entry.windowId);
           }
           return;
         }

@@ -16,7 +16,7 @@ pnpm add @kehto/wm
 | Field | Value |
 |-------|-------|
 | Source | `packages/wm/package.json`, `packages/wm/src/index.ts` |
-| Version | `0.0.1` |
+| Version | `0.0.2` |
 | Runtime entry | `./src/index.ts` |
 | Types entry | `./src/index.ts` |
 | Files | `src`, `README.md` |
