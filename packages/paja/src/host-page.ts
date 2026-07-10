@@ -26,18 +26,21 @@ export function renderPajaHtml(config: PajaHostConfig): string {
         --text: #f4f0df;
         --muted: #a9ad9f;
         --accent: #d8c36a;
+        --paja-console-column: minmax(320px, 380px);
       }
       * { box-sizing: border-box; }
       html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font: 13px/1.4 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
       body { height: 100vh; display: grid; grid-template-rows: 38px minmax(0, 1fr) 30px; overflow: hidden; }
       .bar { display: flex; align-items: center; gap: 14px; min-width: 0; padding: 0 12px; background: var(--bar); border-color: var(--line); }
-      .top { border-bottom: 1px solid var(--line); }
+      .top { display: grid; grid-template-columns: var(--paja-console-column) minmax(0, 1fr); align-items: stretch; gap: 0; padding: 0; border-bottom: 1px solid var(--line); }
+      .top-console { min-width: 0; display: flex; align-items: center; gap: 14px; padding: 0 12px; border-right: 1px solid var(--line); }
+      .top-stage { min-width: 0; display: flex; align-items: stretch; gap: 14px; padding: 0 12px 0 0; overflow: hidden; }
       .bottom { border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
       .brand { font-weight: 700; letter-spacing: 0; color: var(--accent); white-space: nowrap; }
       .brand-product { color: var(--text); }
       .target { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
       .spacer { flex: 1; min-width: 0; }
-      .tabs { display: flex; align-items: stretch; gap: 4px; min-width: 120px; max-width: min(58vw, 760px); overflow-x: auto; scrollbar-width: thin; }
+      .tabs { display: flex; align-items: stretch; gap: 4px; min-width: 120px; max-width: min(100%, 760px); overflow-x: auto; scrollbar-width: thin; }
       .tabs:empty { display: none; }
       .tab { min-width: 96px; max-width: 220px; height: 30px; display: grid; grid-template-columns: minmax(0, 1fr) 24px; align-items: center; gap: 2px; border: 1px solid var(--line); border-bottom-color: transparent; background: #151815; color: var(--muted); border-radius: 5px 5px 0 0; padding: 0 2px 0 9px; }
       .tab[data-active="true"] { color: var(--text); border-color: var(--accent); border-bottom-color: #151815; background: #20241f; }
@@ -48,7 +51,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       button:hover { border-color: var(--accent); }
       label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; }
       select, input { border: 1px solid var(--line); color: var(--text); background: #20241f; height: 26px; border-radius: 4px; font: inherit; }
-      main { min-height: 0; display: grid; grid-template-columns: minmax(320px, 380px) minmax(0, 1fr); }
+      main { min-height: 0; display: grid; grid-template-columns: var(--paja-console-column) minmax(0, 1fr); }
       .console { min-height: 0; overflow: auto; border-right: 1px solid var(--line); background: #121512; padding: 10px; display: flex; flex-direction: column; gap: 12px; }
       .section { display: grid; gap: 8px; }
       .section-title { color: var(--accent); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0; }
@@ -84,6 +87,9 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .dialog-title { font-weight: 700; color: var(--text); }
       .dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
       @media (max-width: 900px) {
+        .top { grid-template-columns: minmax(0, 1fr); }
+        .top-console { display: none; }
+        .top-stage { padding-left: 0; }
         main { grid-template-columns: 1fr; grid-template-rows: minmax(240px, 40vh) minmax(0, 1fr); }
         .console { border-right: 0; border-bottom: 1px solid var(--line); }
       }
@@ -91,17 +97,21 @@ export function renderPajaHtml(config: PajaHostConfig): string {
   </head>
   <body>
     <header class="bar top">
-      <div class="brand">@kehto/<span class="brand-product">paja</span></div>
-      <div class="target" title="${targetLabel}">${targetLabel}</div>
-      <div class="tabs" id="napplet-tabs" role="tablist" aria-label="Loaded napplets"></div>
-      <div class="spacer"></div>
-      <label>theme
-        <select id="simulation-theme" aria-label="Simulation theme">
-          <option value="dark"${config.simulation.theme.mode === 'dark' ? ' selected' : ''}>dark</option>
-          <option value="light"${config.simulation.theme.mode === 'light' ? ' selected' : ''}>light</option>
-        </select>
-      </label>
-      <button type="button" id="reload-target">Reload</button>
+      <div class="top-console">
+        <div class="brand">@kehto/<span class="brand-product">paja</span></div>
+        <div class="target" title="${targetLabel}">${targetLabel}</div>
+      </div>
+      <div class="top-stage">
+        <div class="tabs" id="napplet-tabs" role="tablist" aria-label="Loaded napplets"></div>
+        <div class="spacer"></div>
+        <label>theme
+          <select id="simulation-theme" aria-label="Simulation theme">
+            <option value="dark"${config.simulation.theme.mode === 'dark' ? ' selected' : ''}>dark</option>
+            <option value="light"${config.simulation.theme.mode === 'light' ? ' selected' : ''}>light</option>
+          </select>
+        </label>
+        <button type="button" id="reload-target">Reload</button>
+      </div>
     </header>
     <main>
       <aside class="console" aria-label="Paja development controls">

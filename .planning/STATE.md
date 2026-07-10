@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.22
 milestone_name: Single-Window Development Runtime
 status: complete
-last_updated: "2026-07-10T12:27:53+02:00"
+last_updated: "2026-07-10T14:12:43+02:00"
 last_activity: 2026-07-10
 progress:
   total_phases: 5
@@ -28,7 +28,7 @@ Phase: 94 — Coverage, Docs, Release Readiness, and PR
 Plan: 94-01 — complete
 Status: v1.22 complete; branch pushed and PR #64 opened
 
-Last activity: 2026-07-10 — Completed quick task 260710-hmp: Make Paja useful for development with static runtime tabs.
+Last activity: 2026-07-10 — Completed quick task 260710-jmo: Align Paja runtime tabs with the napplet frame body edge.
 
 ## Performance Metrics
 
@@ -132,6 +132,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260710-h7u | Add AGENTS guardrails requiring issue and PR checks against napplet/naps NAP specs | 2026-07-10 | docs/nap-spec-triage-guardrails | [260710-h7u-add-agents-guardrails-requiring-issue-an](./quick/260710-h7u-add-agents-guardrails-requiring-issue-an/) |
 | 260710-hmp | Make Paja useful for development with static runtime tabs | 2026-07-10 | feat/paja-multi-napplet-tabs | [260710-hmp-make-paja-useful-for-development-with-ru](./quick/260710-hmp-make-paja-useful-for-development-with-ru/) |
 | 260710-jq1 | Make Paja use a real live relay/outbox runtime path and fix duplicate dialog cancel text | 2026-07-10 | feat/paja-multi-napplet-tabs | [260710-jq1-fix-paja-duplicate-cancel-label](./quick/260710-jq1-fix-paja-duplicate-cancel-label/) |
+| 260710-jmo | Align Paja runtime tabs with the napplet frame body edge | 2026-07-10 | feat/paja-multi-napplet-tabs | [260710-jmo-align-paja-runtime-tabs-with-the-napplet](./quick/260710-jmo-align-paja-runtime-tabs-with-the-napplet/) |
 
 ## Session Continuity
 
