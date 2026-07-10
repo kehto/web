@@ -140,13 +140,18 @@ function listen(server: HttpServer, host: string, port: number): Promise<void> {
 
 function close(server: HttpServer): Promise<void> {
   return new Promise((resolve, reject) => {
+    const forceClose = setTimeout(() => {
+      server.closeAllConnections?.();
+    }, 500);
     server.close((error?: Error) => {
+      clearTimeout(forceClose);
       if (error) {
         reject(error);
         return;
       }
       resolve();
     });
+    server.closeIdleConnections?.();
   });
 }
 
@@ -155,6 +160,8 @@ interface HttpServer {
   once(event: 'error', callback: (error: Error) => void): void;
   off(event: 'error', callback: (error: Error) => void): void;
   close(callback: (error?: Error) => void): void;
+  closeAllConnections?(): void;
+  closeIdleConnections?(): void;
   address(): string | { port: number } | null;
 }
 

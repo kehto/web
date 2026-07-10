@@ -59,9 +59,14 @@ describe('@kehto/paja browser host runtime source guards', () => {
 
   it('clears stale single-frame ownership before target reload readiness transitions', () => {
     const source = readFileSync(new URL('./browser-host.ts', import.meta.url), 'utf8');
+    const targetSource = readFileSync(new URL('./browser-target-frame.ts', import.meta.url), 'utf8');
 
     expect(source).toContain('runtime.currentWindowId = null;');
+    expect(source).toContain('unregisterSingleFrameWindow(bridge, runtime, windowId);');
+    expect(source).toContain('const isCurrentGeneration = () => state.generation === generation;');
     expect(source).toContain('const registeredWindowId = source ? originRegistry.getWindowId(source) : null;');
-    expect(source).toContain('if (isSingleFrameMessage && !sourceWindowId) return;');
+    expect(source).toContain('if (isSingleFrameMessage && (!sourceWindowId || sourceWindowId !== runtime.currentWindowId)) return;');
+    expect(targetSource).toContain('isCurrent?: () => boolean');
+    expect(targetSource).toContain('if (isCurrent && !isCurrent()) return null;');
   });
 });

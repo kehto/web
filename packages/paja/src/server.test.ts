@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { startPajaServer } from './server.js';
 
@@ -92,6 +93,13 @@ describe('@kehto/paja server', () => {
       await firstTarget.close();
       await secondTarget.close();
     }
+  });
+
+  it('bounds server shutdown against lingering browser connections', () => {
+    const source = readFileSync(new URL('./server.ts', import.meta.url), 'utf8');
+
+    expect(source).toContain('server.closeIdleConnections?.();');
+    expect(source).toContain('server.closeAllConnections?.();');
   });
 });
 
