@@ -325,12 +325,51 @@ describe('createRelayPoolOutboxRouter', () => {
       expect(result).toEqual({ ok: true, event: expect.objectContaining({ pubkey: PK_A }), eventId: 'signedid'.padEnd(64, '0'), relays: { 'wss://a-write': true } });
     });
 
-    it('includes recipient inbox (read) relays for directed events and merges relay hints', async () => {
+    it('includes recipient inbox (read) relays for directed events and merges explicit relay targets', async () => {
       const pool = makePool();
       const signEvent = async (t: EventTemplate): Promise<NostrEvent> => ({ ...ev('d'), ...t, pubkey: PK_A });
       const router = makeRouter(pool, { signEvent });
-      await router.publish(template, { targetAuthors: [PK_B], relays: ['wss://extra'] });
+      await router.publish(template, { toInboxes: [PK_B], relays: ['wss://extra'] });
       expect(pool.published[0].relays.sort()).toEqual(['wss://a-write', 'wss://b-read', 'wss://extra']);
+    });
+
+    it('honors toOutbox:false while still publishing to required inboxes and explicit relays', async () => {
+      const pool = makePool();
+      const signEvent = async (t: EventTemplate): Promise<NostrEvent> => ({ ...ev('d'), ...t, pubkey: PK_A });
+      const router = makeRouter(pool, { signEvent });
+      await router.publish(template, { toOutbox: false, toInboxes: [PK_B], relays: ['wss://extra'] });
+      expect(pool.published[0].relays.sort()).toEqual(['wss://b-read', 'wss://extra']);
+    });
+
+    it('fails when the default own outbox publish target cannot resolve NIP-65 write relays', async () => {
+      const pool = makePool();
+      const missingPubkey = 'c'.repeat(64);
+      const signEvent = async (t: EventTemplate): Promise<NostrEvent> => ({ ...ev('d'), ...t, pubkey: missingPubkey });
+      const router = makeRouter(pool, { signEvent });
+      const result = await router.publish(template);
+      expect(result).toMatchObject({ ok: false, error: 'relay list unavailable', eventId: ev('d', missingPubkey).id });
+      expect(pool.published).toHaveLength(0);
+    });
+
+    it('fails when a required inbox author has no resolvable NIP-65 read relays', async () => {
+      const pool = makePool();
+      const signEvent = async (t: EventTemplate): Promise<NostrEvent> => ({ ...ev('d'), ...t, pubkey: PK_A });
+      const router = makeRouter(pool, { signEvent });
+      const result = await router.publish(template, { toInboxes: ['c'.repeat(64)] });
+      expect(result).toMatchObject({ ok: false, error: 'relay list unavailable' });
+      expect(pool.published).toHaveLength(0);
+    });
+
+    it('fails when policy denies every relay for a required inbox author', async () => {
+      const pool = makePool();
+      const signEvent = async (t: EventTemplate): Promise<NostrEvent> => ({ ...ev('d'), ...t, pubkey: PK_A });
+      const router = makeRouter(pool, {
+        signEvent,
+        isRelayAllowed: (url) => url !== 'wss://b-read',
+      });
+      const result = await router.publish(template, { toInboxes: [PK_B] });
+      expect(result).toMatchObject({ ok: false, error: 'policy denied' });
+      expect(pool.published).toHaveLength(0);
     });
 
     it('reports per-relay failure and ok:false when every relay rejects', async () => {
@@ -342,6 +381,28 @@ describe('createRelayPoolOutboxRouter', () => {
       expect(result.ok).toBe(false);
       expect(result.relays).toEqual({ 'wss://a-write': false });
       expect(result.error).toBe('publish denied');
+    });
+
+    it('reports ok:false when a required relay rejects even if an explicit candidate succeeds', async () => {
+      const pool = makePool();
+      pool.publishReturn = { 'wss://a-write': false, 'wss://extra': true };
+      const signEvent = async (t: EventTemplate): Promise<NostrEvent> => ({ ...ev('d'), ...t, pubkey: PK_A });
+      const router = makeRouter(pool, { signEvent });
+      const result = await router.publish(template, { relays: ['wss://extra'] });
+      expect(result.ok).toBe(false);
+      expect(result.relays).toEqual({ 'wss://a-write': false, 'wss://extra': true });
+      expect(result.error).toBe('publish denied');
+    });
+
+    it('allows explicit candidate failures when every required relay succeeds', async () => {
+      const pool = makePool();
+      pool.publishReturn = { 'wss://a-write': true, 'wss://extra': false };
+      const signEvent = async (t: EventTemplate): Promise<NostrEvent> => ({ ...ev('d'), ...t, pubkey: PK_A });
+      const router = makeRouter(pool, { signEvent });
+      const result = await router.publish(template, { relays: ['wss://extra'] });
+      expect(result.ok).toBe(true);
+      expect(result.relays).toEqual({ 'wss://a-write': true, 'wss://extra': false });
+      expect(result.error).toBeUndefined();
     });
 
     it('surfaces a signer rejection as an error', async () => {

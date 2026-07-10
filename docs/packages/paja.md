@@ -20,7 +20,7 @@ app package's development scripts.
 | Field | Value |
 |-------|-------|
 | Source | `packages/paja/package.json`, `packages/paja/src/index.ts` |
-| Version | `0.6.6` |
+| Version | `0.6.7` |
 | Runtime entry | `./dist/index.js` |
 | CLI runner entry | `./dist/cli.js` |
 | Types entry | `./dist/index.d.ts` |
@@ -31,8 +31,8 @@ app package's development scripts.
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.23.0 <=0.27.x` |
-| `@napplet/nap` | `>=0.23.0 <=0.27.x` |
+| `@napplet/core` | `>=0.23.0 <=0.28.x` |
+| `@napplet/nap` | `>=0.23.0 <=0.28.x` |
 | `nostr-tools` | `>=2.23.3 <=2.x` |
 
 ## Primary APIs

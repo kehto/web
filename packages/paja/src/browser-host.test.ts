@@ -56,4 +56,12 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(relaySource).toContain('backend.query(await getBootstrapRelayUrls(getSimulation, signerProvider), [{');
     expect(hostSource).toContain('if (hasNip07Signer()) void state.connectNip07();');
   });
+
+  it('clears stale single-frame ownership before target reload readiness transitions', () => {
+    const source = readFileSync(new URL('./browser-host.ts', import.meta.url), 'utf8');
+
+    expect(source).toContain('runtime.currentWindowId = null;');
+    expect(source).toContain('const registeredWindowId = source ? originRegistry.getWindowId(source) : null;');
+    expect(source).toContain('if (isSingleFrameMessage && !sourceWindowId) return;');
+  });
 });
