@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.22
 milestone_name: Single-Window Development Runtime
 status: complete
-last_updated: "2026-07-10T15:22:12+02:00"
+last_updated: "2026-07-10T16:36:43+02:00"
 last_activity: 2026-07-10
 progress:
   total_phases: 5
@@ -28,7 +28,7 @@ Phase: 94 — Coverage, Docs, Release Readiness, and PR
 Plan: 94-01 — complete
 Status: v1.22 complete; branch pushed and PR #64 opened
 
-Last activity: 2026-07-10 — Completed quick task 260710-kwx: Chase current NAP-OUTBOX publish fanout and pin updated Napplet package versions.
+Last activity: 2026-07-10 — Completed quick task 260710-pnr: Fix Paja NIP-07 CI ready race and local server shutdown flake.
 
 ## Performance Metrics
 
@@ -137,6 +137,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260710-k7i | Remove the gap under active Paja runtime tabs | 2026-07-10 | feat/paja-multi-napplet-tabs | [260710-k7i-remove-the-gap-under-active-paja-runtime](./quick/260710-k7i-remove-the-gap-under-active-paja-runtime/) |
 | 260710-kjt | Fix package docs version rows after Version Packages PR 177 | 2026-07-10 | fix/docs-version-rows-after-pr-177 | [260710-kjt-fix-package-docs-version-rows-after-vers](./quick/260710-kjt-fix-package-docs-version-rows-after-vers/) |
 | 260710-kwx | Chase current NAP-OUTBOX publish fanout and pin updated Napplet package versions | 2026-07-10 | fix/nap-outbox-spec-chase | [260710-kwx-chase-current-nap-outbox-publish-fanout-](./quick/260710-kwx-chase-current-nap-outbox-publish-fanout-/) |
+| 260710-pnr | Fix Paja NIP-07 CI ready race and local server shutdown flake | 2026-07-10 | fix/paja-nip07-ci-ready-race | [260710-pnr-fix-paja-nip07-ci-ready-race](./quick/260710-pnr-fix-paja-nip07-ci-ready-race/) |
 
 ## Session Continuity
 

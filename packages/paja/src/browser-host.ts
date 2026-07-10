@@ -232,6 +232,19 @@ function confirmPajaRequest(
   return allowed;
 }
 
+function unregisterSingleFrameWindow(
+  bridge: ShellBridge,
+  runtime: PajaHostRuntimeState,
+  windowId: string | null,
+): void {
+  if (!windowId) return;
+  bridge.runtime.destroyWindow(windowId);
+  bridge.runtime.sessionRegistry.unregister(windowId);
+  originRegistry.unregister(windowId);
+  runtime.readyWindowIds.delete(windowId);
+  if (runtime.currentWindowId === windowId) runtime.currentWindowId = null;
+}
+
 function startFrameNavigation(
   state: PajaBrowserState,
   context: PajaBrowserStateContext,
@@ -239,6 +252,7 @@ function startFrameNavigation(
   const { config, frame, bridge, capabilities, runtime } = context;
   if (!frame) return;
   const generation = state.generation;
+  const isCurrentGeneration = () => state.generation === generation;
   void navigateFrame(
     bridge,
     frame,
@@ -247,11 +261,16 @@ function startFrameNavigation(
     capabilities,
     runtime.currentSimulation,
     state.resolvedTarget,
+    undefined,
+    isCurrentGeneration,
   ).then((windowId) => {
-    if (state.generation !== generation) return;
+    if (!isCurrentGeneration()) {
+      unregisterSingleFrameWindow(bridge, runtime, windowId);
+      return;
+    }
     runtime.currentWindowId = windowId;
   }).catch((error) => {
-    if (state.generation !== generation) return;
+    if (!isCurrentGeneration()) return;
     frame.removeAttribute('src');
     frame.srcdoc = renderTargetErrorHtml(error);
     setStatus(state, 'error');
@@ -326,12 +345,7 @@ function reloadPajaTarget(state: PajaBrowserState, context: PajaBrowserStateCont
     return;
   }
   if (runtime.currentWindowId) {
-    const previousWindowId = runtime.currentWindowId;
-    bridge.runtime.destroyWindow(previousWindowId);
-    bridge.runtime.sessionRegistry.unregister(previousWindowId);
-    originRegistry.unregister(previousWindowId);
-    runtime.readyWindowIds.delete(previousWindowId);
-    runtime.currentWindowId = null;
+    unregisterSingleFrameWindow(bridge, runtime, runtime.currentWindowId);
   }
   state.generation += 1;
   setStatus(state, 'reloading');
@@ -565,8 +579,8 @@ async function installPajaHost(): Promise<void> {
     const isSingleFrameMessage = frame ? event.source === frame.contentWindow : false;
     if (!sourceTab && !isSingleFrameMessage) return;
     const registeredWindowId = source ? originRegistry.getWindowId(source) : null;
-    const sourceWindowId = sourceTab?.windowId ?? registeredWindowId ?? runtime.currentWindowId ?? undefined;
-    if (isSingleFrameMessage && !sourceWindowId) return;
+    const sourceWindowId = sourceTab?.windowId ?? registeredWindowId ?? undefined;
+    if (isSingleFrameMessage && (!sourceWindowId || sourceWindowId !== runtime.currentWindowId)) return;
     appendPajaMessageLog(state, 'napplet->shell', event.data, sourceWindowId);
     const proxiedSource = createPajaPostMessageProxy(event.source as Window, state, sourceWindowId);
     const syntheticEvent = new Proxy(event, {

@@ -57,6 +57,7 @@ export async function navigateFrame(
   simulation: PajaSimulation,
   resolvedTarget?: PajaResolvedPointer | null,
   windowId?: string,
+  isCurrent?: () => boolean,
 ): Promise<string | null> {
   const domains = getInjectedDomains(capabilities, simulation, resolvedTarget);
   if (config.target.mode === 'runtime-pointer') {
@@ -65,6 +66,7 @@ export async function navigateFrame(
       frame.srcdoc = '<!doctype html><html><body></body></html>';
       return null;
     }
+    if (isCurrent && !isCurrent()) return null;
     const registeredWindowId = registerFrameForGeneration(bridge, frame, config, generation, resolvedTarget, windowId);
     frame.removeAttribute('src');
     frame.srcdoc = injectNappletNamespacePrelude(
@@ -77,6 +79,7 @@ export async function navigateFrame(
     return registeredWindowId;
   }
   const html = await fetchTargetHtml();
+  if (isCurrent && !isCurrent()) return null;
   const registeredWindowId = registerFrameForGeneration(bridge, frame, config, generation, resolvedTarget, windowId);
   frame.removeAttribute('src');
   frame.srcdoc = injectNappletNamespacePrelude(
