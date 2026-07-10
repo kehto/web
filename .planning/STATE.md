@@ -129,6 +129,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260706-pa2 | Fix post-release docs version row for @kehto/shell 0.16.5 | 2026-07-06 | fix/shell-docs-version-0-16-5 | [260706-pa2-fix-post-release-docs-version-row-for-ke](./quick/260706-pa2-fix-post-release-docs-version-row-for-ke/) |
 | 260706-s4y | Skip expensive CI and Playwright for generated Version Packages changes | 2026-07-06 | fix/version-packages-ci-gating | [260706-s4y-skip-expensive-ci-and-playwright-for-gen](./quick/260706-s4y-skip-expensive-ci-and-playwright-for-gen/) |
 | 260706-siz | Fix Paja target URL mode to inject NIP-5D domains before target bootstrap | 2026-07-06 | fix/paja-target-url-injection | [260706-siz-fix-paja-target-url-mode-so-local-napple](./quick/260706-siz-fix-paja-target-url-mode-so-local-napple/) |
+| 260710-gsl | Align kehto NAP-KEYS implementation with napplet/naps draft | 2026-07-10 | 5f03089 | [260710-gsl-align-kehto-nap-keys-implementation-with](./quick/260710-gsl-align-kehto-nap-keys-implementation-with/) |
 | 260710-h7u | Add AGENTS guardrails requiring issue and PR checks against napplet/naps NAP specs | 2026-07-10 | docs/nap-spec-triage-guardrails | [260710-h7u-add-agents-guardrails-requiring-issue-an](./quick/260710-h7u-add-agents-guardrails-requiring-issue-an/) |
 
 ## Session Continuity

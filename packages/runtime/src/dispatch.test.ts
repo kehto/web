@@ -934,6 +934,31 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(ctx2.sent).toHaveLength(0);
     });
 
+    it('fallback: keys.forward silently ignores unmapped window identities', () => {
+      const forwardSpy: Array<Record<string, unknown>> = [];
+      const ctx2 = createMockRuntimeAdapter({
+        hotkeys: {
+          executeHotkeyFromForward(event) {
+            forwardSpy.push(event as unknown as Record<string, unknown>);
+          },
+        },
+      });
+      const runtime2 = createRuntime(ctx2.hooks);
+
+      runtime2.handleMessage(WINDOW_ID, {
+        type: 'keys.forward',
+        key: 's',
+        code: 'KeyS',
+        ctrl: true,
+        alt: false,
+        shift: false,
+        meta: false,
+      } as NappletMessage);
+
+      expect(forwardSpy).toHaveLength(0);
+      expect(ctx2.sent).toHaveLength(0);
+    });
+
     it('keys.forward invokes hooks.hotkeys.executeHotkeyFromForward even when a keys service is registered', () => {
       const forwardSpy: Array<Record<string, unknown>> = [];
       const serviceMessages: NappletMessage[] = [];
@@ -991,7 +1016,7 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(reply).toBeDefined();
       expect((reply as any).id).toBe('r2');
       expect((reply as any).actionId).toBe('viewer.zoom');
-      expect((reply as any).binding).toBe('Ctrl+=');
+      expect((reply as any).binding).toBeUndefined();
     });
 
     it('fallback: keys.unregisterAction emits no envelope (fire-and-forget)', () => {

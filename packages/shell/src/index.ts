@@ -91,14 +91,6 @@ export type { MediaProxy, MediaProxyDeps } from './media-proxy.js';
 export { createNotifyProxy } from './notify-proxy.js';
 export type { NotifyProxy, NotifyProxyDeps } from './notify-proxy.js';
 
-export { createKeysForwarder } from './keys-forwarder.js';
-export type {
-  KeysForwarder,
-  KeysForwarderDeps,
-  KeysForwarderOriginRegistry,
-  KeysForwarderSessionRegistry,
-} from './keys-forwarder.js';
-
 export type {
   ResourceBytesRequest,
   ResourceInfo,
