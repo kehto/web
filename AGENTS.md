@@ -84,6 +84,29 @@ In the SAME branch/PR as the code change:
 
 #### NAP / NIP-5D conformance guardrails
 
+Before acting on any GitHub issue, contributor PR, review request, or bug report that
+touches a NAP/NIP-5D surface, run a specification check against the relevant
+`napplet/naps` NAP document first. Treat the issue/PR text, failing repro, proposed
+patch, and local tests as claims to verify — not as protocol authority.
+
+- Identify the owning NAP spec by domain/message (`naps/NAP-*.md` in
+  `napplet/naps`) and record the exact source checked: merged `master` path when
+  available, or the explicit open spec PR branch/ref/commit when the work targets a
+  draft. If no matching NAP exists, call that out as a spec gap before changing Kehto.
+- Compare the issue or contributor PR behavior against the NAP's wire messages,
+  directionality, required/optional fields, errors, lifecycle rules, and security
+  constraints. Do this before planning a fix, writing code, approving a PR, or
+  adapting tests.
+- Do not let contributor implementations, issue assumptions, or Kehto-local
+  convenience behavior override a NAP. If a proposed fix conflicts with the spec,
+  reject or revise it toward spec conformance rather than copying the PR's behavior.
+- When the NAP is ambiguous or a behavior is intentionally outside the current spec,
+  document that as a spec-gap decision in the nearby test/source/docs and prefer an
+  upstream `napplet/naps` issue or PR over silently establishing new Kehto behavior.
+- PR bodies, issue closeout comments, and final agent reports for NAP-touching work
+  must state which `napplet/naps` spec/ref was checked and whether the result is
+  conformant, intentionally deferred as a spec gap, or blocked by upstream spec drift.
+
 When a NAP interface changes, or when shell/runtime code starts accepting a new NAP
 message field, finish the full kehto wiring in the same change. Do not stop at the
 first package that compiles.

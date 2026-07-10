@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.22
 milestone_name: Single-Window Development Runtime
 status: complete
-last_updated: "2026-07-10T12:21:13+02:00"
+last_updated: "2026-07-10T12:27:53+02:00"
 last_activity: 2026-07-10
 progress:
   total_phases: 5
@@ -28,7 +28,7 @@ Phase: 94 — Coverage, Docs, Release Readiness, and PR
 Plan: 94-01 — complete
 Status: v1.22 complete; branch pushed and PR #64 opened
 
-Last activity: 2026-07-10 — Completed quick task 260710-gsl: Align kehto NAP-KEYS implementation with napplet/naps draft.
+Last activity: 2026-07-10 — Completed quick task 260710-h7u: Add AGENTS guardrails requiring issue and PR checks against napplet/naps NAP specs.
 
 ## Performance Metrics
 
@@ -130,6 +130,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260706-s4y | Skip expensive CI and Playwright for generated Version Packages changes | 2026-07-06 | fix/version-packages-ci-gating | [260706-s4y-skip-expensive-ci-and-playwright-for-gen](./quick/260706-s4y-skip-expensive-ci-and-playwright-for-gen/) |
 | 260706-siz | Fix Paja target URL mode to inject NIP-5D domains before target bootstrap | 2026-07-06 | fix/paja-target-url-injection | [260706-siz-fix-paja-target-url-mode-so-local-napple](./quick/260706-siz-fix-paja-target-url-mode-so-local-napple/) |
 | 260710-gsl | Align kehto NAP-KEYS implementation with napplet/naps draft | 2026-07-10 | 5f03089 | [260710-gsl-align-kehto-nap-keys-implementation-with](./quick/260710-gsl-align-kehto-nap-keys-implementation-with/) |
+| 260710-h7u | Add AGENTS guardrails requiring issue and PR checks against napplet/naps NAP specs | 2026-07-10 | docs/nap-spec-triage-guardrails | [260710-h7u-add-agents-guardrails-requiring-issue-an](./quick/260710-h7u-add-agents-guardrails-requiring-issue-an/) |
 
 ## Session Continuity
 
