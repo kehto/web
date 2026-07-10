@@ -1,6 +1,6 @@
 {
   "name": "@kehto/shell",
-  "version": "0.16.8",
+  "version": "0.17.0",
   "description": "Shell runtime — relay bridge, ACL enforcement, signer proxy, storage proxy for hosting napplet iframe applications",
   "type": "module",
   "main": "./dist/index.js",
