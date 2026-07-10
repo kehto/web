@@ -1,11 +1,11 @@
 /**
  * keys-proxy.ts — Shell-side per-domain proxy for keys.* envelopes.
  *
- * Per Plan 12-05, the runtime already dispatches `keys.*` (forward,
- * registerAction, unregisterAction) to the keys-service. This proxy is the
- * shell-side composition point for host apps that want to observe or
- * inject keys envelopes — it pairs with `keys-forwarder.ts` (Plan 12-11)
- * which covers the shell→napplet `keys.forward` push path.
+ * The runtime already dispatches napplet-originated `keys.*` (forward,
+ * registerAction, unregisterAction) to the keys service. This proxy is the
+ * shell-side composition point for host apps that want to observe requests or
+ * inject shell-originated keys envelopes such as `keys.action` and
+ * `keys.bindings`.
  *
  * Shape mirrors identity-proxy (Plan 12-11):
  *
@@ -60,10 +60,6 @@ export interface KeysProxy {
   /**
    * Push a shell-initiated keys-domain envelope (e.g. `keys.action`,
    * `keys.bindings`) into a napplet iframe.
-   *
-   * Paired with `keys-forwarder.ts`: the forwarder targets the DOM
-   * `keydown` → `keys.forward` path; this `emit` covers the complementary
-   * host-initiated pushes (binding updates, action triggers).
    *
    * No-op when the originRegistry cannot resolve the windowId (unknown or
    * unregistered napplet). Never throws.

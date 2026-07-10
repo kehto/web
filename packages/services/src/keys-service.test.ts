@@ -13,7 +13,7 @@ const WINDOW_ID = 'win-test-1';
 
 /**
  * Create a mock EventTarget that records addEventListener / removeEventListener
- * calls. Mirrors the pattern used by packages/shell/src/keys-forwarder.test.ts.
+ * calls.
  */
 function createMockTarget(): EventTarget & {
   _listeners: Array<{ ev: string; fn: EventListener }>;
@@ -185,6 +185,30 @@ describe('createKeysService', () => {
       });
     });
 
+    it('normalizes bindings to the NAP-KEYS modifier order', () => {
+      const sent: NappletMessage[] = [];
+      const service = createKeysService();
+
+      service.handleMessage(
+        WINDOW_ID,
+        {
+          type: 'keys.registerAction',
+          id: 'r-normalized',
+          action: { id: 'editor.toggle', label: 'Toggle', defaultKey: 'shift+ctrl+k' },
+        } as NappletMessage,
+        (m) => sent.push(m),
+      );
+
+      const reply = sent[0] as NappletMessage & { binding?: string };
+      expect(reply.binding).toBe('Ctrl+Shift+K');
+      expect(keysBindingsEnvelopes(sent)).toEqual([
+        {
+          type: 'keys.bindings',
+          bindings: [{ actionId: 'editor.toggle', key: 'Ctrl+Shift+K' }],
+        },
+      ]);
+    });
+
     it('omits binding when action has no defaultKey', () => {
       const sent: NappletMessage[] = [];
       const service = createKeysService();
@@ -205,7 +229,7 @@ describe('createKeysService', () => {
       expect(reply.binding).toBeUndefined();
     });
 
-    it('dispatches keys.action when a forwarded chord matches a registered action', () => {
+    it('does not dispatch keys.action when a forwarded chord matches a registered action', () => {
       const sent: NappletMessage[] = [];
       const received: Array<Record<string, unknown>> = [];
       const service = createKeysService({
@@ -240,18 +264,33 @@ describe('createKeysService', () => {
       expect(keysBindingsEnvelopes(sent)).toEqual([
         {
           type: 'keys.bindings',
-          bindings: [{ actionId: 'game.a', key: 'x' }],
+          bindings: [{ actionId: 'game.a', key: 'X' }],
         },
       ]);
-      expect(keysActionEnvelopes(sent)).toEqual([
-        {
-          type: 'keys.action',
-          actionId: 'game.a',
-          chord: { ctrl: false, alt: false, shift: false, meta: false, key: 'X' },
-        },
-      ]);
+      expect(keysActionEnvelopes(sent)).toHaveLength(0);
 
       service.destroy();
+    });
+
+    it('leaves NAP-reserved default keys unbound', () => {
+      const sent: NappletMessage[] = [];
+      const service = createKeysService();
+
+      service.handleMessage(
+        WINDOW_ID,
+        {
+          type: 'keys.registerAction',
+          id: 'r-reserved',
+          action: { id: 'editor.escape', label: 'Escape', defaultKey: 'Escape' },
+        } as NappletMessage,
+        (m) => sent.push(m),
+      );
+
+      expect(sent).toHaveLength(1);
+      const reply = sent[0] as NappletMessage & { binding?: string };
+      expect(reply.type).toBe('keys.registerAction.result');
+      expect(reply.binding).toBeUndefined();
+      expect(keysBindingsEnvelopes(sent)).toHaveLength(0);
     });
   });
 
@@ -382,13 +421,7 @@ describe('document keydown subscription (real listener path)', () => {
     };
     expect(action.type).toBe('keys.action');
     expect(action.actionId).toBe('demo.chord');
-    expect(action.chord).toMatchObject({
-      ctrl: true,
-      shift: true,
-      alt: false,
-      meta: false,
-      key: 'K',
-    });
+    expect(action.chord).toBeUndefined();
 
     service.destroy();
   });
@@ -639,7 +672,7 @@ describe('destroy() detaches the listener', () => {
 });
 
 describe('invalid chord handling', () => {
-  it('emits keys.registerAction.error when defaultKey has an unknown modifier', () => {
+  it('emits keys.registerAction.result with error when defaultKey has an unknown modifier', () => {
     const target = createMockTarget();
     const sent: NappletMessage[] = [];
     const service = createKeysService({ listenerTarget: target });
@@ -654,8 +687,9 @@ describe('invalid chord handling', () => {
     );
 
     expect(sent).toHaveLength(1);
-    const reply = sent[0] as NappletMessage & { error?: string };
-    expect(reply.type).toBe('keys.registerAction.error');
+    const reply = sent[0] as NappletMessage & { actionId?: string; error?: string };
+    expect(reply.type).toBe('keys.registerAction.result');
+    expect(reply.actionId).toBe('bad.action');
     expect(reply.error).toMatch(/invalid chord|unknown modifier/i);
 
     service.destroy();
@@ -712,7 +746,7 @@ describe('HostKeysBridge integration', () => {
     expect((sent[1] as NappletMessage & { type: string }).type).toBe('keys.bindings');
   });
 
-  it('hostBridge path dispatches keys.action when a forwarded chord matches a registered action', () => {
+  it('hostBridge path does not dispatch keys.action when a forwarded chord matches a registered action', () => {
     const { bridge } = createFakeBridge();
     const sent: NappletMessage[] = [];
     const received: Array<Record<string, unknown>> = [];
@@ -745,18 +779,13 @@ describe('HostKeysBridge integration', () => {
     );
 
     expect(received).toHaveLength(1);
-    expect(keysActionEnvelopes(sent)).toEqual([
-      {
-        type: 'keys.action',
-        actionId: 'editor.find',
-        chord: { ctrl: true, alt: false, shift: false, meta: false, key: 'K' },
-      },
-    ]);
+    expect(keysActionEnvelopes(sent)).toHaveLength(0);
   });
 
-  it('bridge callback fans into onForward with DOM-shape fields', () => {
+  it('bridge callback fans into onForward and keys.action with canonical payloads', () => {
     const { bridge, subscriptions } = createFakeBridge();
     const received: Array<Record<string, unknown>> = [];
+    const sent: NappletMessage[] = [];
     const service = createKeysService({
       hostBridge: bridge,
       onForward: (e) => received.push(e as unknown as Record<string, unknown>),
@@ -769,7 +798,7 @@ describe('HostKeysBridge integration', () => {
         id: 'b-2',
         action: { id: 'a', label: 'A', defaultKey: 'Ctrl+K' },
       } as NappletMessage,
-      () => {},
+      (m) => sent.push(m),
     );
 
     subscriptions[0].callback({
@@ -783,6 +812,12 @@ describe('HostKeysBridge integration', () => {
 
     expect(received).toHaveLength(1);
     expect(received[0]).toMatchObject({ key: 'k', code: 'KeyK', ctrlKey: true });
+    expect(keysActionEnvelopes(sent)).toEqual([
+      {
+        type: 'keys.action',
+        actionId: 'a',
+      },
+    ]);
   });
 
   it('unsubscribe handle is invoked on keys.unregisterAction', () => {
@@ -886,41 +921,43 @@ describe('reserved chords', () => {
     return { bridge, subscriptions };
   }
 
-  it('Test 1 (Branch B, reserved path on keys.forward): onForward fires; zero keys.action envelopes even when a napplet registered the same chord', () => {
+  it('Test 1 (Branch B, reserved path on keys.forward): onForward fires; zero keys.action envelopes for an unbound reserved chord', () => {
     const target = createMockTarget();
     const sent: NappletMessage[] = [];
     const received: Array<Record<string, unknown>> = [];
     const service = createKeysService({
       listenerTarget: target,
-      reservedChords: ['Ctrl+Shift+R'],
+      reservedChords: ['Ctrl+Shift+Y'],
       onForward: (e) => received.push(e as unknown as Record<string, unknown>),
     } as Parameters<typeof createKeysService>[0]);
 
     // Reservation landed with a minor version bump — pin the contract at the test layer.
     expect(service.descriptor.version).toBe('1.3.0');
 
-    // Napplet claims the same chord — reservation should NOT block registration.
+    // Napplet asks for the same chord. The shell leaves it unbound so it never
+    // enters the napplet suppress list.
     service.handleMessage(
       WINDOW_ID,
       {
         type: 'keys.registerAction',
         id: 'r-1',
-        action: { id: 'conflict', label: 'C', defaultKey: 'Ctrl+Shift+R' },
+        action: { id: 'conflict', label: 'C', defaultKey: 'Ctrl+Shift+Y' },
       } as NappletMessage,
       (m) => sent.push(m),
     );
-    // Sanity: registerAction.result still fires (reservation doesn't reject registration).
-    expect(sent).toHaveLength(2);
-    expect((sent[0] as NappletMessage & { type: string }).type).toBe('keys.registerAction.result');
-    expect((sent[1] as NappletMessage & { type: string }).type).toBe('keys.bindings');
+    expect(sent).toHaveLength(1);
+    const reply = sent[0] as NappletMessage & { type: string; binding?: string };
+    expect(reply.type).toBe('keys.registerAction.result');
+    expect(reply.binding).toBeUndefined();
+    expect(keysBindingsEnvelopes(sent)).toHaveLength(0);
 
     // Napplet forwards the reserved chord via keys.forward.
     service.handleMessage(
       WINDOW_ID,
       {
         type: 'keys.forward',
-        key: 'R',
-        code: 'KeyR',
+        key: 'Y',
+        code: 'KeyY',
         ctrl: true,
         alt: false,
         shift: true,
@@ -932,8 +969,8 @@ describe('reserved chords', () => {
     // onForward fires once with DOM-shape payload.
     expect(received).toHaveLength(1);
     expect(received[0]).toMatchObject({
-      key: 'R',
-      code: 'KeyR',
+      key: 'Y',
+      code: 'KeyY',
       ctrlKey: true,
       altKey: false,
       shiftKey: true,
@@ -945,13 +982,13 @@ describe('reserved chords', () => {
     service.destroy();
   });
 
-  it('Test 2 (Branch B, non-reserved registered forward): onForward fires and keys.action is dispatched', () => {
+  it('Test 2 (Branch B, non-reserved registered forward): onForward fires without keys.action dispatch', () => {
     const target = createMockTarget();
     const sent: NappletMessage[] = [];
     const received: Array<Record<string, unknown>> = [];
     const service = createKeysService({
       listenerTarget: target,
-      reservedChords: ['Ctrl+Shift+R'],
+      reservedChords: ['Ctrl+Shift+Y'],
       onForward: (e) => received.push(e as unknown as Record<string, unknown>),
     } as Parameters<typeof createKeysService>[0]);
     expect(service.descriptor.version).toBe('1.3.0');
@@ -983,13 +1020,7 @@ describe('reserved chords', () => {
 
     expect(received).toHaveLength(1);
     expect(received[0]).toMatchObject({ key: 'K', ctrlKey: true, shiftKey: false });
-    expect(keysActionEnvelopes(sent)).toEqual([
-      {
-        type: 'keys.action',
-        actionId: 'editor.find',
-        chord: { ctrl: true, alt: false, shift: false, meta: false, key: 'K' },
-      },
-    ]);
+    expect(keysActionEnvelopes(sent)).toHaveLength(0);
 
     service.destroy();
   });
@@ -1000,24 +1031,26 @@ describe('reserved chords', () => {
     const received: Array<Record<string, unknown>> = [];
     const service = createKeysService({
       listenerTarget: target,
-      reservedChords: ['Ctrl+Shift+R'],
+      reservedChords: ['Ctrl+Shift+Y'],
       onForward: (e) => received.push(e as unknown as Record<string, unknown>),
     } as Parameters<typeof createKeysService>[0]);
     expect(service.descriptor.version).toBe('1.3.0');
 
-    // Napplet registers the same chord via keys.registerAction.
+    // Napplet asks for the same chord; the shell leaves it unbound.
     service.handleMessage(
       WINDOW_ID,
       {
         type: 'keys.registerAction',
         id: 'r-3',
-        action: { id: 'conflict', label: 'C', defaultKey: 'Ctrl+Shift+R' },
+        action: { id: 'conflict', label: 'C', defaultKey: 'Ctrl+Shift+Y' },
       } as NappletMessage,
       (m) => sent.push(m),
     );
+    expect(sent).toHaveLength(1);
+    expect((sent[0] as NappletMessage & { binding?: string }).binding).toBeUndefined();
 
-    // Dispatch synthetic keydown matching Ctrl+Shift+R via the document listener.
-    dispatchChord(target, { key: 'R', code: 'KeyR', ctrlKey: true, shiftKey: true });
+    // Dispatch synthetic keydown matching Ctrl+Shift+Y via the document listener.
+    dispatchChord(target, { key: 'Y', code: 'KeyY', ctrlKey: true, shiftKey: true });
 
     // onForward fires once (shell WANTS the forward — that's why it reserved).
     expect(received).toHaveLength(1);
@@ -1027,38 +1060,38 @@ describe('reserved chords', () => {
     service.destroy();
   });
 
-  it('Test 4 (Branch A / hostBridge, reserved chord on keys.forward): onForward fires, zero keys.action; bridge.subscribe still invoked on registration', () => {
+  it('Test 4 (Branch A / hostBridge, reserved chord on keys.forward): onForward fires, zero keys.action; bridge.subscribe is not invoked', () => {
     const { bridge, subscriptions } = createFakeBridge();
     const sent: NappletMessage[] = [];
     const received: Array<Record<string, unknown>> = [];
     const service = createKeysService({
       hostBridge: bridge,
-      reservedChords: ['Ctrl+Shift+R'],
+      reservedChords: ['Ctrl+Shift+Y'],
       onForward: (e) => received.push(e as unknown as Record<string, unknown>),
     } as Parameters<typeof createKeysService>[0]);
     expect(service.descriptor.version).toBe('1.3.0');
 
-    // Napplet registers the reserved chord — reservation should not block registration.
+    // Napplet asks for the reserved chord; no bridge subscription is created.
     service.handleMessage(
       WINDOW_ID,
       {
         type: 'keys.registerAction',
         id: 'r-4',
-        action: { id: 'conflict', label: 'C', defaultKey: 'Ctrl+Shift+R' },
+        action: { id: 'conflict', label: 'C', defaultKey: 'Ctrl+Shift+Y' },
       } as NappletMessage,
       (m) => sent.push(m),
     );
-    // bridge.subscribe was called for this chord.
-    expect(subscriptions).toHaveLength(1);
-    expect(subscriptions[0].chord).toBe('Ctrl+Shift+R');
+    expect(subscriptions).toHaveLength(0);
+    expect(sent).toHaveLength(1);
+    expect((sent[0] as NappletMessage & { binding?: string }).binding).toBeUndefined();
 
     // Napplet forwards the reserved chord via keys.forward.
     service.handleMessage(
       WINDOW_ID,
       {
         type: 'keys.forward',
-        key: 'R',
-        code: 'KeyR',
+        key: 'Y',
+        code: 'KeyY',
         ctrl: true,
         alt: false,
         shift: true,
@@ -1070,8 +1103,8 @@ describe('reserved chords', () => {
     // onForward fires once with DOM-shape payload.
     expect(received).toHaveLength(1);
     expect(received[0]).toMatchObject({
-      key: 'R',
-      code: 'KeyR',
+      key: 'Y',
+      code: 'KeyY',
       ctrlKey: true,
       shiftKey: true,
     });
@@ -1079,8 +1112,8 @@ describe('reserved chords', () => {
     expect(keysActionEnvelopes(sent)).toHaveLength(0);
   });
 
-  it('Test 5 (normalization parity): case-insensitive + Cmd alias match reserved set', () => {
-    // Sub-case A: lowercase reservation matches uppercase forward.
+  it('Test 5 (normalization parity): case-insensitive + Cmd alias match reserved document keys', () => {
+    // Sub-case A: lowercase reservation matches uppercase document keydown.
     {
       const target = createMockTarget();
       const received: Array<Record<string, unknown>> = [];
@@ -1091,24 +1124,12 @@ describe('reserved chords', () => {
       } as Parameters<typeof createKeysService>[0]);
       expect(service.descriptor.version).toBe('1.3.0');
 
-      service.handleMessage(
-        WINDOW_ID,
-        {
-          type: 'keys.forward',
-          key: 'K',
-          code: 'KeyK',
-          ctrl: true,
-          alt: false,
-          shift: false,
-          meta: false,
-        } as NappletMessage,
-        () => {},
-      );
+      dispatchChord(target, { key: 'K', code: 'KeyK', ctrlKey: true });
       expect(received).toHaveLength(1);
       service.destroy();
     }
 
-    // Sub-case B: Cmd alias maps to meta on forward payload.
+    // Sub-case B: Cmd alias maps to meta on document keydown.
     {
       const target = createMockTarget();
       const received: Array<Record<string, unknown>> = [];
@@ -1118,25 +1139,13 @@ describe('reserved chords', () => {
         onForward: (e) => received.push(e as unknown as Record<string, unknown>),
       } as Parameters<typeof createKeysService>[0]);
 
-      service.handleMessage(
-        WINDOW_ID,
-        {
-          type: 'keys.forward',
-          key: 'K',
-          code: 'KeyK',
-          ctrl: false,
-          alt: false,
-          shift: false,
-          meta: true,
-        } as NappletMessage,
-        () => {},
-      );
+      dispatchChord(target, { key: 'K', code: 'KeyK', metaKey: true });
       expect(received).toHaveLength(1);
       service.destroy();
     }
   });
 
-  it('Test 6 (empty reservedChords): legacy behavior preserved — registered napplet still receives keys.action on document keydown', () => {
+  it('Test 6 (empty reservedChords): registered napplet still receives keys.action on document keydown', () => {
     const target = createMockTarget();
     const sent: NappletMessage[] = [];
     const received: Array<Record<string, unknown>> = [];
@@ -1152,14 +1161,14 @@ describe('reserved chords', () => {
       {
         type: 'keys.registerAction',
         id: 'r-6',
-        action: { id: 'legacy', label: 'L', defaultKey: 'Ctrl+Shift+R' },
+        action: { id: 'legacy', label: 'L', defaultKey: 'Ctrl+Shift+Y' },
       } as NappletMessage,
       (m) => sent.push(m),
     );
 
-    dispatchChord(target, { key: 'R', code: 'KeyR', ctrlKey: true, shiftKey: true });
+    dispatchChord(target, { key: 'Y', code: 'KeyY', ctrlKey: true, shiftKey: true });
 
-    // Legacy behavior: onForward fires AND napplet receives keys.action.
+    // Document listener behavior: onForward fires AND napplet receives keys.action.
     expect(received).toHaveLength(1);
     expect(keysActionEnvelopes(sent)).toHaveLength(1);
     const action = keysActionEnvelopes(sent)[0] as NappletMessage & { actionId: string };

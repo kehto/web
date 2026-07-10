@@ -3,31 +3,30 @@
  *
  * Handles the 3 napplet -> shell request types from @napplet/nap/keys:
  *   - keys.forward          -> invokes options.onForward (hotkey passthrough, fire-and-forget)
- *   - keys.registerAction   -> parses action.defaultKey into a chord spec, stores the
- *                              subscription in an in-memory registry keyed by actionId,
- *                              tracks windowId ownership so onWindowDestroyed can auto-
- *                              unsubscribe, echoes { actionId, binding } as .result, and
- *                              pushes the window's complete keys.bindings list
+ *   - keys.registerAction   -> parses action.defaultKey into a normalized chord binding,
+ *                              stores bound subscriptions in an in-memory registry keyed
+ *                              by actionId, tracks windowId ownership so onWindowDestroyed
+ *                              can auto-unsubscribe, echoes { actionId, binding } as .result
+ *                              when a binding is assigned, and pushes the window's complete
+ *                              keys.bindings list
  *   - keys.unregisterAction -> removes the subscription and pushes the window's
  *                              updated keys.bindings list
  *
  * Real listener: on service construction the handler attaches a single
  * `keydown` listener to `options.listenerTarget` (default: `document`). Each
  * keydown is matched against the chord-subscription registry; matches invoke
- * `options.onForward` with the DOM-shape payload AND push a canonical
+ * `options.onForward` with the DOM-shape payload and push a canonical
  * `keys.action` envelope back to the owning napplet via the per-window `send`
  * callback captured at `keys.registerAction` time. Subscriptions persist
  * across messages; `onWindowDestroyed(windowId)` drops all subscriptions owned
  * by the destroyed window as well as its cached `send` handle.
  *
- * On each document keydown matching a registered action, the service
- * additionally emits a `keys.action` envelope to the action's owning napplet
- * via the per-window `send` callback — this is the canonical @napplet/nap/keys
- * surface the SDK's `keys.onAction(...)` helper consumes. The shape is a
- * superset of `KeysActionMessage`: `{ type, actionId, chord }` where `chord`
- * is the parsed `{ ctrl, alt, shift, meta, key }` struct (extension field;
- * base shape unchanged, downstream SDKs that only read `{ type, actionId }`
- * ignore `chord` silently).
+ * On each document keydown matching a registered action, the service emits a
+ * `keys.action` envelope to the action's owning napplet via the per-window
+ * `send` callback — this is the canonical @napplet/nap/keys surface the SDK's
+ * `keys.onAction(...)` helper consumes. Forwarded keydowns do not trigger
+ * `keys.action`; the active napplet suppresses bound keys locally from the
+ * `keys.bindings` list before forwarding.
  *
  * Field-name translation: @napplet/nap/keys uses the compact
  * { ctrl, alt, shift, meta } form on the wire; the shell's HotkeyHooks
@@ -50,10 +49,10 @@ import type {
 } from '@napplet/nap/keys/types';
 import {
   chordSpecKey,
-  dispatchForwardedActions,
   eventKey,
-  forwardKey,
+  formatChord,
   forwardPayload,
+  isReservedKeyChord,
   parseChord,
   pushBindings,
   removeActionFromWindowIndex,
@@ -164,8 +163,8 @@ const KEYS_SERVICE_VERSION = '1.3.0';
  */
 export interface KeysServiceOptions {
   /**
-   * Called on `keys.forward` (napplet-forwarded chord) AND on document keydown
-   * matching a registered action. Receives the DOM-style field names
+   * Called on `keys.forward` (napplet-forwarded chord) and on document keydown
+   * handled by the reference listener. Receives the DOM-style field names
    * (ctrlKey/altKey/shiftKey/metaKey) to match the shell's HotkeyHooks
    * contract. The service translates from the wire shape
    * ({ ctrl, alt, shift, meta }) before invoking this callback.
@@ -183,7 +182,7 @@ export interface KeysServiceOptions {
    * global `document` when running in a DOM environment, else an isolated
    * `new EventTarget()` (SSR / Node-test safe). Passing a fresh
    * `new EventTarget()` is useful for unit tests. Mirrors the pattern used
-   * by `@kehto/shell`'s `createKeysForwarder`.
+   * by the shell and service test harnesses.
    *
    * Ignored when `hostBridge` is provided — the bridge owns subscription
    * lifecycle and no document listener is attached.
@@ -199,13 +198,9 @@ export interface KeysServiceOptions {
   hostBridge?: HostKeysBridge;
   /**
    * Optional set of shell-reserved chords. Strings in the `@napplet/nap/keys`
-   * wire format (e.g. `'Ctrl+Shift+K'`, `'Cmd+P'`). When a napplet sends
-   * `keys.forward` with a chord matching this set — or when a document
-   * keydown matches a reserved chord — the service invokes `onForward`
-   * (or the `hostBridge`-registered handler) but suppresses the
-   * `keys.action` push to any napplet that registered the same chord via
-   * `keys.registerAction`. Precedence: reserved > registered. The shell
-   * WANTS the forward — that is why it reserved the chord.
+   * wire format (e.g. `'Ctrl+Shift+K'`, `'Cmd+P'`). Reserved chords are not
+   * assigned as napplet action bindings; document keydowns that match them
+   * invoke `onForward` but do not push `keys.action`.
    *
    * Normalized once at service construction via the same chord parser used
    * for `action.defaultKey` — `'Ctrl+K'` / `'Control+k'` / `'ctrl+K'` all
@@ -223,12 +218,129 @@ export interface KeysServiceOptions {
   reservedChords?: ReadonlyArray<string>;
 }
 
+type SendNappletMessage = (msg: NappletMessage) => void;
+
+function rememberActionForWindow(
+  windowIndex: Map<string, Set<string>>,
+  windowId: string,
+  actionId: string,
+): void {
+  if (!windowIndex.has(windowId)) windowIndex.set(windowId, new Set());
+  windowIndex.get(windowId)!.add(actionId);
+}
+
+function bindActionEntry(
+  registry: Map<string, ActionEntry>,
+  windowIndex: Map<string, Set<string>>,
+  actionId: string,
+  windowId: string,
+  chord: ChordSpec,
+  chordString: string,
+): void {
+  registry.set(actionId, { chord, chordString, windowId });
+  rememberActionForWindow(windowIndex, windowId, actionId);
+}
+
+function bindActionAndMarkChanged(
+  registry: Map<string, ActionEntry>,
+  windowIndex: Map<string, Set<string>>,
+  changedWindowIds: Set<string>,
+  actionId: string,
+  windowId: string,
+  chord: ChordSpec,
+  chordString: string,
+): string {
+  bindActionEntry(registry, windowIndex, actionId, windowId, chord, chordString);
+  changedWindowIds.add(windowId);
+  return chordString;
+}
+
+function handleForwardMessage(
+  message: NappletMessage,
+  onForward?: KeysServiceOptions['onForward'],
+): void {
+  onForward?.(forwardPayload(message as KeysForwardMessage));
+}
+
+type KeysUnregisterActionMessage = NappletMessage & { actionId?: string };
+type RegisterActionHandler = (
+  windowId: string,
+  message: KeysRegisterActionMessage,
+  send: SendNappletMessage,
+) => void;
+type UnregisterActionHandler = (
+  windowId: string,
+  message: KeysUnregisterActionMessage,
+  send: SendNappletMessage,
+) => void;
+
+function sendUnknownKeysMethod(send: SendNappletMessage, message: NappletMessage): void {
+  const id = (message as NappletMessage & { id?: string }).id ?? '';
+  send({
+    type: `${message.type}.error`,
+    id,
+    error: `Unknown keys method: ${message.type}`,
+  } as NappletMessage);
+}
+
+function createKeysMessageHandler(options: {
+  onForward?: KeysServiceOptions['onForward'];
+  onRegisterAction: RegisterActionHandler;
+  onUnregisterAction: UnregisterActionHandler;
+}): (windowId: string, message: NappletMessage, send: SendNappletMessage) => void {
+  return (windowId, message, send): void => {
+    switch (message.type) {
+      case 'keys.forward':
+        handleForwardMessage(message, options.onForward);
+        return;
+      case 'keys.registerAction':
+        options.onRegisterAction(windowId, message as KeysRegisterActionMessage, send);
+        return;
+      case 'keys.unregisterAction':
+        options.onUnregisterAction(windowId, message as KeysUnregisterActionMessage, send);
+        return;
+      default:
+        sendUnknownKeysMethod(send, message);
+    }
+  };
+}
+
+function sendRegisterActionResult(
+  send: SendNappletMessage,
+  message: KeysRegisterActionMessage,
+  binding?: string,
+  error?: string,
+): void {
+  const result: KeysRegisterActionResultMessage & { error?: string } = {
+    type: 'keys.registerAction.result',
+    id: message.id,
+    actionId: message.action.id,
+    ...(binding ? { binding } : {}),
+    ...(error ? { error } : {}),
+  };
+  send(result as NappletMessage);
+}
+
+function pushChangedBindings(
+  changedWindowIds: Iterable<string>,
+  registry: ReadonlyMap<string, ActionEntry>,
+  windowIndex: ReadonlyMap<string, ReadonlySet<string>>,
+  sendHandles: Map<string, SendNappletMessage>,
+  fallbackSend: SendNappletMessage,
+): void {
+  for (const changedWindowId of changedWindowIds) {
+    const ownerSend = sendHandles.get(changedWindowId) ?? fallbackSend;
+    pushBindings(changedWindowId, registry, windowIndex, ownerSend);
+    if (!windowIndex.has(changedWindowId)) sendHandles.delete(changedWindowId);
+  }
+}
+
 /**
  * Create a keys service handler.
  *
  * Attaches a single `keydown` listener to `options.listenerTarget`
  * (default `document`). Matching chord subscriptions invoke `options.onForward`
- * with a DOM-shape payload AND push a `keys.action` envelope back to the
+ * with a DOM-shape payload and push a `keys.action` envelope back to the
  * owning napplet via the per-window `send` callback captured at
  * `keys.registerAction` time. Returns a `ServiceHandler` augmented with a
  * `destroy()` method that detaches the listener and clears all registries.
@@ -269,6 +381,9 @@ export function createKeysService(
     }
   }
 
+  const isUnavailableBinding = (chord: ChordSpec): boolean =>
+    reservedChordKeys.has(chordSpecKey(chord)) || isReservedKeyChord(chord);
+
   if (options.hostBridge) {
     const bridge = options.hostBridge;
     // windowId → Set<actionId> — parallels Branch B for scoped cleanup.
@@ -278,136 +393,115 @@ export function createKeysService(
     // actionId → unsubscribe handle returned from bridge.subscribe.
     const unsubscribeHandles = new Map<string, () => void>();
 
+    const handleBridgeRegisterAction: RegisterActionHandler = (windowId, m, send) => {
+      bridgeSendHandles.set(windowId, send);
+      let binding: string | undefined;
+      const changedWindowIds = new Set<string>();
+
+      if (m.action.defaultKey) {
+        try {
+          const chord = parseChord(m.action.defaultKey);
+          const normalizedChord = formatChord(chord);
+          const existingEntry = bridgeActionRegistry.get(m.action.id);
+          const existing = unsubscribeHandles.get(m.action.id);
+          let nextUnsubscribe: (() => void) | undefined;
+
+          if (!isUnavailableBinding(chord)) {
+            nextUnsubscribe = bridge.subscribe(normalizedChord, (ev) => {
+              // Normalize either KeyboardEvent or HostKeyEvent to the DOM-shape onForward payload.
+              const e = ev as KeyboardEvent | HostKeyEvent;
+              // Bridges may not filter autorepeat — we do, matching Branch B semantics.
+              if ('repeat' in e && e.repeat) return;
+              options.onForward?.({
+                key: e.key,
+                code: e.code,
+                ctrlKey: e.ctrlKey,
+                altKey: e.altKey,
+                shiftKey: e.shiftKey,
+                metaKey: e.metaKey,
+              });
+              const payload: KeysActionMessage = {
+                type: 'keys.action',
+                actionId: m.action.id,
+              };
+              send(payload as NappletMessage);
+            });
+          }
+
+          if (existing) {
+            try {
+              existing();
+            } catch {
+              /* best-effort */
+            }
+            unsubscribeHandles.delete(m.action.id);
+          }
+          if (existingEntry) changedWindowIds.add(existingEntry.windowId);
+          removeActionFromWindowIndex(m.action.id, bridgeWindowActions);
+          bridgeActionRegistry.delete(m.action.id);
+
+          if (nextUnsubscribe) {
+            unsubscribeHandles.set(m.action.id, nextUnsubscribe);
+            binding = bindActionAndMarkChanged(
+              bridgeActionRegistry,
+              bridgeWindowActions,
+              changedWindowIds,
+              m.action.id,
+              windowId,
+              chord,
+              normalizedChord,
+            );
+          }
+        } catch (err) {
+          sendRegisterActionResult(
+            send,
+            m,
+            undefined,
+            `bridge subscribe failed: ${(err as Error).message}`,
+          );
+          return;
+        }
+      }
+      sendRegisterActionResult(send, m, binding);
+      pushChangedBindings(
+        changedWindowIds,
+        bridgeActionRegistry,
+        bridgeWindowActions,
+        bridgeSendHandles,
+        send,
+      );
+    };
+
+    const handleBridgeUnregisterAction: UnregisterActionHandler = (_windowId, m, send) => {
+      if (!m.actionId) return;
+      const unsubscribe = unsubscribeHandles.get(m.actionId);
+      const entry = bridgeActionRegistry.get(m.actionId);
+      if (!unsubscribe) return;
+      try {
+        unsubscribe();
+      } catch {
+        /* best-effort */
+      }
+      unsubscribeHandles.delete(m.actionId);
+      bridgeActionRegistry.delete(m.actionId);
+      removeActionFromWindowIndex(m.actionId, bridgeWindowActions);
+      if (entry) {
+        const ownerSend = bridgeSendHandles.get(entry.windowId) ?? send;
+        pushBindings(entry.windowId, bridgeActionRegistry, bridgeWindowActions, ownerSend);
+        if (!bridgeWindowActions.has(entry.windowId)) {
+          bridgeSendHandles.delete(entry.windowId);
+        }
+      }
+    };
+
     return {
       descriptor,
 
-      handleMessage(
-        windowId: string,
-        message: NappletMessage,
-        send: (msg: NappletMessage) => void,
-      ): void {
-        switch (message.type) {
-          case 'keys.forward': {
-            // Napplet-forwarded keydowns still reach the shell hotkey path.
-            // If they match a registered action, also dispatch keys.action to
-            // the owner unless the shell explicitly reserved the chord.
-            const m = message as KeysForwardMessage;
-            const key = forwardKey(m);
-            const reserved = reservedChordKeys.has(key);
-            options.onForward?.(forwardPayload(m));
-            if (reserved) return;
-            dispatchForwardedActions(key, bridgeActionRegistry, bridgeSendHandles);
-            return;
-          }
-
-          case 'keys.registerAction': {
-            const m = message as KeysRegisterActionMessage;
-            bridgeSendHandles.set(windowId, send);
-            if (m.action.defaultKey) {
-              try {
-                const chord = parseChord(m.action.defaultKey);
-                const unsubscribe = bridge.subscribe(m.action.defaultKey, (ev) => {
-                  // Normalize either KeyboardEvent or HostKeyEvent to the DOM-shape onForward payload.
-                  const e = ev as KeyboardEvent | HostKeyEvent;
-                  // Bridges may not filter autorepeat — we do, matching Branch B semantics.
-                  if ('repeat' in e && e.repeat) return;
-                  options.onForward?.({
-                    key: e.key,
-                    code: e.code,
-                    ctrlKey: e.ctrlKey,
-                    altKey: e.altKey,
-                    shiftKey: e.shiftKey,
-                    metaKey: e.metaKey,
-                  });
-                  if (reservedChordKeys.has(chordSpecKey(chord))) return;
-                  // Canonical shell→napplet push: emit keys.action to the owning
-                  // napplet. Shape matches Branch B (superset of KeysActionMessage);
-                  // the `chord` extension mirrors Branch B because the service
-                  // parses the registration chord.
-                  const payload: KeysActionMessage & { chord: ChordSpec } = {
-                    type: 'keys.action',
-                    actionId: m.action.id,
-                    chord,
-                  };
-                  send(payload as NappletMessage);
-                });
-                const existing = unsubscribeHandles.get(m.action.id);
-                if (existing) {
-                  try {
-                    existing();
-                  } catch {
-                    /* best-effort */
-                  }
-                }
-                removeActionFromWindowIndex(m.action.id, bridgeWindowActions);
-                unsubscribeHandles.set(m.action.id, unsubscribe);
-                bridgeActionRegistry.set(m.action.id, {
-                  chord,
-                  chordString: m.action.defaultKey,
-                  windowId,
-                });
-                if (!bridgeWindowActions.has(windowId)) bridgeWindowActions.set(windowId, new Set());
-                bridgeWindowActions.get(windowId)!.add(m.action.id);
-              } catch (err) {
-                const id = m.id ?? '';
-                send({
-                  type: 'keys.registerAction.error',
-                  id,
-                  error: `bridge subscribe failed: ${(err as Error).message}`,
-                } as NappletMessage);
-                return;
-              }
-            }
-            const result: KeysRegisterActionResultMessage = {
-              type: 'keys.registerAction.result',
-              id: m.id,
-              actionId: m.action.id,
-              ...(m.action.defaultKey ? { binding: m.action.defaultKey } : {}),
-            };
-            send(result as NappletMessage);
-            if (m.action.defaultKey) {
-              pushBindings(windowId, bridgeActionRegistry, bridgeWindowActions, send);
-            }
-            return;
-          }
-
-          case 'keys.unregisterAction': {
-            const m = message as NappletMessage & { actionId?: string };
-            if (m.actionId) {
-              const unsubscribe = unsubscribeHandles.get(m.actionId);
-              const entry = bridgeActionRegistry.get(m.actionId);
-              if (unsubscribe) {
-                try {
-                  unsubscribe();
-                } catch {
-                  /* best-effort */
-                }
-                unsubscribeHandles.delete(m.actionId);
-                bridgeActionRegistry.delete(m.actionId);
-                removeActionFromWindowIndex(m.actionId, bridgeWindowActions);
-                if (entry) {
-                  const ownerSend = bridgeSendHandles.get(entry.windowId) ?? send;
-                  pushBindings(entry.windowId, bridgeActionRegistry, bridgeWindowActions, ownerSend);
-                  if (!bridgeWindowActions.has(entry.windowId)) {
-                    bridgeSendHandles.delete(entry.windowId);
-                  }
-                }
-              }
-            }
-            return;
-          }
-
-          default: {
-            const id = (message as NappletMessage & { id?: string }).id ?? '';
-            send({
-              type: `${message.type}.error`,
-              id,
-              error: `Unknown keys method: ${message.type}`,
-            } as NappletMessage);
-            return;
-          }
-        }
-      },
+      handleMessage: createKeysMessageHandler({
+        onForward: options.onForward,
+        onRegisterAction: handleBridgeRegisterAction,
+        onUnregisterAction: handleBridgeUnregisterAction,
+      }),
 
       onWindowDestroyed(windowId: string): void {
         const actions = bridgeWindowActions.get(windowId);
@@ -452,7 +546,7 @@ export function createKeysService(
   // helper consumes.
   const sendHandles = new Map<string, (msg: NappletMessage) => void>(); // windowId → send
 
-  // ─── Listener target (SSR / test-safe fallback, mirrors keys-forwarder.ts) ─
+  // ─── Listener target (SSR / test-safe fallback) ─
   const target: EventTarget =
     options.listenerTarget ??
     (typeof document !== 'undefined' ? document : new EventTarget());
@@ -470,8 +564,7 @@ export function createKeysService(
     const ev = rawEv as KeyboardEvent;
     if (ev.repeat) return; // ignore OS autorepeat — matches "I pressed it once" intent (CONTEXT Area 1)
 
-    // Phase 33 / KEYS-04-05: reserved chords fire onForward but suppress
-    // keys.action fan-out to napplets. Check ONCE up front.
+    // Reserved chords fire onForward but suppress keys.action fan-out to napplets.
     const isReserved = reservedChordKeys.has(eventKey(ev));
 
     // Determine if any registered action would match — needed to decide
@@ -499,19 +592,16 @@ export function createKeysService(
 
     if (isReserved) return; // reserved → no napplet fan-out
 
-    // (2) Canonical shell→napplet push: emit keys.action to the owning
-    //     napplet via its captured send callback. The SDK's keys.onAction
-    //     helper subscribes to this envelope. We attach a `chord` extension
-    //     field so the demo napplet can display the fired chord without
-    //     reconstructing it from the original registration.
+    // Canonical shell→napplet push: emit keys.action to the owning napplet via
+    // its captured send callback. The SDK's keys.onAction helper subscribes to
+    // this envelope.
     for (const [actionId, entry] of actionRegistry.entries()) {
       if (chordMatches(entry.chord, ev)) {
         const send = sendHandles.get(entry.windowId);
         if (send) {
-          const payload: KeysActionMessage & { chord: ChordSpec } = {
+          const payload: KeysActionMessage = {
             type: 'keys.action',
             actionId,
-            chord: entry.chord,
           };
           send(payload as NappletMessage);
         }
@@ -524,106 +614,64 @@ export function createKeysService(
 
   target.addEventListener('keydown', listener);
 
+  const handleDocumentRegisterAction: RegisterActionHandler = (windowId, m, send) => {
+    // Capture (or refresh) the per-window send callback. The runtime's service
+    // handler contract keeps `send` valid until onWindowDestroyed(windowId).
+    sendHandles.set(windowId, send);
+    let binding: string | undefined;
+    const changedWindowIds = new Set<string>();
+
+    if (m.action.defaultKey) {
+      try {
+        const chord = parseChord(m.action.defaultKey);
+        const normalizedChord = formatChord(chord);
+        const existing = actionRegistry.get(m.action.id);
+        if (existing) {
+          changedWindowIds.add(existing.windowId);
+          removeActionFromWindowIndex(m.action.id, windowActions);
+          actionRegistry.delete(m.action.id);
+        }
+        if (!isUnavailableBinding(chord)) {
+          binding = bindActionAndMarkChanged(actionRegistry, windowActions, changedWindowIds, m.action.id, windowId, chord, normalizedChord);
+        }
+      } catch (err) {
+        sendRegisterActionResult(
+          send,
+          m,
+          undefined,
+          `invalid chord: ${(err as Error).message}`,
+        );
+        return;
+      }
+    }
+    sendRegisterActionResult(send, m, binding);
+    pushChangedBindings(changedWindowIds, actionRegistry, windowActions, sendHandles, send);
+  };
+
+  const handleDocumentUnregisterAction: UnregisterActionHandler = (_windowId, m, send) => {
+    if (!m.actionId || !actionRegistry.has(m.actionId)) return;
+    const entry = actionRegistry.get(m.actionId)!;
+    actionRegistry.delete(m.actionId);
+    const set = windowActions.get(entry.windowId);
+    if (set) {
+      set.delete(m.actionId);
+      // If the window has no remaining actions, drop its cached send that no
+      // longer subscribes to anything.
+      if (set.size === 0) windowActions.delete(entry.windowId);
+    }
+    const ownerSend = sendHandles.get(entry.windowId) ?? send;
+    pushBindings(entry.windowId, actionRegistry, windowActions, ownerSend);
+    if (!windowActions.has(entry.windowId)) sendHandles.delete(entry.windowId);
+  };
+
   return {
     descriptor,
 
-    handleMessage(
-      windowId: string,
-      message: NappletMessage,
-      send: (msg: NappletMessage) => void,
-    ): void {
-      switch (message.type) {
-        case 'keys.forward': {
-          // Napplet-forwarded keydown translation. The shell hotkey path still
-          // receives the DOM-shape payload; matching registered actions also
-          // receive keys.action unless the shell reserved the chord.
-          const m = message as KeysForwardMessage;
-          const key = forwardKey(m);
-          const reserved = reservedChordKeys.has(key);
-          options.onForward?.(forwardPayload(m));
-          if (reserved) return;
-          dispatchForwardedActions(key, actionRegistry, sendHandles);
-          return;
-        }
-
-        case 'keys.registerAction': {
-          const m = message as KeysRegisterActionMessage;
-          // Capture (or refresh) the per-window send callback. The runtime's
-          // service-handler contract guarantees `send` remains valid for this
-          // windowId until onWindowDestroyed(windowId) fires — we cache the
-          // most recent invocation so the keydown listener can push
-          // keys.action envelopes back to the owning napplet.
-          sendHandles.set(windowId, send);
-
-          if (m.action.defaultKey) {
-            try {
-              const chord = parseChord(m.action.defaultKey);
-              const existing = actionRegistry.get(m.action.id);
-              if (existing) removeActionFromWindowIndex(m.action.id, windowActions);
-              actionRegistry.set(m.action.id, {
-                chord,
-                chordString: m.action.defaultKey,
-                windowId,
-              });
-              if (!windowActions.has(windowId)) windowActions.set(windowId, new Set());
-              windowActions.get(windowId)!.add(m.action.id);
-            } catch (err) {
-              // Parse failure: respond with .error envelope (unknown-method pattern).
-              const id = m.id ?? '';
-              send({
-                type: 'keys.registerAction.error',
-                id,
-                error: `invalid chord: ${(err as Error).message}`,
-              } as NappletMessage);
-              return;
-            }
-          }
-          const result: KeysRegisterActionResultMessage = {
-            type: 'keys.registerAction.result',
-            id: m.id,
-            actionId: m.action.id,
-            ...(m.action.defaultKey ? { binding: m.action.defaultKey } : {}),
-          };
-          send(result as NappletMessage);
-          if (m.action.defaultKey) {
-            pushBindings(windowId, actionRegistry, windowActions, send);
-          }
-          return;
-        }
-
-        case 'keys.unregisterAction': {
-          // Fire-and-forget per @napplet/nap/keys spec. Remove subscription if present.
-          const m = message as NappletMessage & { actionId?: string };
-          if (m.actionId && actionRegistry.has(m.actionId)) {
-            const entry = actionRegistry.get(m.actionId)!;
-            actionRegistry.delete(m.actionId);
-            const set = windowActions.get(entry.windowId);
-            if (set) {
-              set.delete(m.actionId);
-              // If the window has no remaining actions, drop its cached send
-              // that no longer subscribes to anything.
-              if (set.size === 0) {
-                windowActions.delete(entry.windowId);
-              }
-            }
-            const ownerSend = sendHandles.get(entry.windowId) ?? send;
-            pushBindings(entry.windowId, actionRegistry, windowActions, ownerSend);
-            if (!windowActions.has(entry.windowId)) sendHandles.delete(entry.windowId);
-          }
-          return;
-        }
-
-        default: {
-          const id = (message as NappletMessage & { id?: string }).id ?? '';
-          send({
-            type: `${message.type}.error`,
-            id,
-            error: `Unknown keys method: ${message.type}`,
-          } as NappletMessage);
-          return;
-        }
-      }
-    },
+    handleMessage: createKeysMessageHandler({
+      onForward: options.onForward,
+      onRegisterAction: handleDocumentRegisterAction,
+      onUnregisterAction: handleDocumentUnregisterAction,
+    }),
 
     onWindowDestroyed(windowId: string): void {
       const actions = windowActions.get(windowId);

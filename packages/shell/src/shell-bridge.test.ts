@@ -6,16 +6,15 @@
  * hosting application calls `bridge.publishTheme(theme)` and every napplet
  * currently registered in `runtime.sessionRegistry` receives a
  * `theme.changed` envelope via `originRegistry.getIframeWindow(windowId)
- * .postMessage(envelope, '*')`. This mirrors the multi-napplet fanout
- * pattern established by `keys-forwarder.ts` (lines 131-147).
+ * .postMessage(envelope, '*')`.
  *
  * Test strategy:
  *   - Populate `bridge.runtime.sessionRegistry` (the Runtime's own instance)
  *     and the shell's module-level `originRegistry` singleton — these are
  *     the two sources `publishTheme` iterates.
  *   - Construct minimal fake iframe windows (`{ postMessage: vi.fn() }`)
- *     cast through `unknown` to `Window` — mirrors the identity-proxy and
- *     keys-forwarder test patterns.
+ *     cast through `unknown` to `Window` — mirrors the identity-proxy test
+ *     pattern.
  *   - Clear `originRegistry` in beforeEach/afterEach to keep tests isolated
  *     across the file. Each test creates a fresh bridge, so each runtime's
  *     session registry starts empty.

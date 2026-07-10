@@ -1,6 +1,5 @@
 import type { NappletMessage } from '@napplet/core';
 import type {
-  KeysActionMessage,
   KeysBindingsMessage,
   KeysForwardMessage,
   KeyBinding,
@@ -54,6 +53,36 @@ export function parseChord(chord: string): ChordSpec {
   return out;
 }
 
+/**
+ * Format a parsed chord in the canonical NAP-KEYS wire order:
+ * Alt+Ctrl+Shift+Meta+Key.
+ */
+export function formatChord(spec: ChordSpec): string {
+  const parts: string[] = [];
+  if (spec.alt) parts.push('Alt');
+  if (spec.ctrl) parts.push('Ctrl');
+  if (spec.shift) parts.push('Shift');
+  if (spec.meta) parts.push('Meta');
+  parts.push(spec.key);
+  return parts.join('+');
+}
+
+const BROWSER_RESERVED_CTRL_KEYS = new Set(['L', 'N', 'R', 'T', 'W']);
+
+/**
+ * NAP-KEYS reserved keys must never be bound or added to a napplet suppress
+ * list. The browser-reserved set is intentionally conservative and covers the
+ * shortcuts named by the draft plus the common tab/window variants.
+ */
+export function isReservedKeyChord(spec: ChordSpec): boolean {
+  if (spec.key === 'Tab' || spec.key === 'Escape') return true;
+  if ((spec.ctrl || spec.meta) && !spec.alt && BROWSER_RESERVED_CTRL_KEYS.has(spec.key)) return true;
+  if (spec.alt && !spec.ctrl && !spec.meta && (spec.key === 'ArrowLeft' || spec.key === 'ArrowRight')) {
+    return true;
+  }
+  return false;
+}
+
 export function chordSpecKey(spec: {
   ctrl: boolean;
   alt: boolean;
@@ -62,17 +91,6 @@ export function chordSpecKey(spec: {
   key: string;
 }): string {
   return `${spec.ctrl}|${spec.alt}|${spec.shift}|${spec.meta}|${spec.key}`;
-}
-
-export function forwardKey(m: {
-  key: string;
-  ctrl: boolean;
-  alt: boolean;
-  shift: boolean;
-  meta: boolean;
-}): string {
-  const k = m.key.length === 1 ? m.key.toUpperCase() : m.key;
-  return `${m.ctrl}|${m.alt}|${m.shift}|${m.meta}|${k}`;
 }
 
 export function forwardPayload(m: KeysForwardMessage): {
@@ -133,23 +151,5 @@ export function removeActionFromWindowIndex(
 ): void {
   for (const [wid, set] of windowIndex.entries()) {
     if (set.delete(actionId) && set.size === 0) windowIndex.delete(wid);
-  }
-}
-
-export function dispatchForwardedActions(
-  key: string,
-  registry: ReadonlyMap<string, ActionEntry>,
-  sendIndex: ReadonlyMap<string, (msg: NappletMessage) => void>,
-): void {
-  for (const [actionId, entry] of registry.entries()) {
-    if (chordSpecKey(entry.chord) !== key) continue;
-    const send = sendIndex.get(entry.windowId);
-    if (!send) continue;
-    const payload: KeysActionMessage & { chord: ChordSpec } = {
-      type: 'keys.action',
-      actionId,
-      chord: entry.chord,
-    };
-    send(payload as NappletMessage);
   }
 }

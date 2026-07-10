@@ -103,8 +103,9 @@ function handleMediaMessage(context: RuntimeDomainContext, windowId: string, msg
 }
 
 function handleKeysMessage(context: RuntimeDomainContext, windowId: string, msg: NappletMessage): void {
-  const { hooks, serviceRegistry } = context;
+  const { hooks, serviceRegistry, sessionRegistry } = context;
   if (msg.type === 'keys.forward') {
+    if (!sessionRegistry.getEntryByWindowId(windowId)) return;
     forwardHotkey(hooks, msg);
     return;
   }
@@ -139,7 +140,6 @@ function sendRegisterActionResult(hooks: RuntimeAdapter, windowId: string, msg: 
     type: 'keys.registerAction.result',
     id: m.id ?? '',
     actionId: m.action?.id ?? '',
-    ...(m.action?.defaultKey ? { binding: m.action.defaultKey } : {}),
   } as NappletMessage);
 }
 

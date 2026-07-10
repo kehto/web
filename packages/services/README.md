@@ -155,10 +155,10 @@ export function createKeysService(options?: KeysServiceOptions): ServiceHandler 
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `onForward` | `(event: { key, code, ctrlKey, altKey, shiftKey, metaKey }) => void` | Called on `keys.forward` envelopes AND on matching document keydowns. DOM-shape payload (the service translates from the wire-format `{ ctrl, alt, shift, meta }` before invoking this callback). Matching registered forwards also dispatch `keys.action` unless the chord is reserved. |
+| `onForward` | `(event: { key, code, ctrlKey, altKey, shiftKey, metaKey }) => void` | Called on `keys.forward` envelopes and on document/host-bridge keydowns handled by the reference backend. DOM-shape payload (the service translates from the wire-format `{ ctrl, alt, shift, meta }` before invoking this callback). Forwarded keys do not dispatch `keys.action`; active napplets suppress bound keys locally from `keys.bindings` before forwarding. |
 | `listenerTarget` | `EventTarget` | Defaults to `document`. Pass a fresh `new EventTarget()` in unit tests to isolate the listener. Ignored when `hostBridge` is provided. |
 | `hostBridge` | `HostKeysBridge` | Pluggable OS-bridge. When provided, the service delegates `keys.registerAction` to `bridge.subscribe(chord, cb)` and the default document listener is NOT attached. |
-| `reservedChords` | `ReadonlyArray<string>` | Optional set of shell-reserved chords (wire-format strings like `'Ctrl+Shift+K'`, `'Cmd+P'`). When a napplet forwards a reserved chord via `keys.forward` OR a document keydown matches a reserved chord, `onForward` (or the `hostBridge` handler) fires but `keys.action` is NOT dispatched to any napplet that registered the same chord via `keys.registerAction`. Precedence: **reserved > registered**. Normalized once at construction via the same parser used for `action.defaultKey`. See [Reserved Chords](#reserved-chords). |
+| `reservedChords` | `ReadonlyArray<string>` | Optional set of shell-reserved chords (wire-format strings like `'Ctrl+Shift+K'`, `'Cmd+P'`). Reserved chords are not assigned as napplet action bindings. Document keydowns that match a reserved chord call `onForward` but do not dispatch `keys.action`. Precedence: **reserved > registered**. Normalized once at construction via the same parser used for `action.defaultKey`. See [Reserved Chords](#reserved-chords). |
 
 ### HostKeysBridge interface
 
@@ -255,7 +255,7 @@ const keys = createKeysService({
   reservedChords: [
     'Ctrl+Alt+T',        // launcher
     'Super+Space',       // workspace switch
-    'Ctrl+Shift+Q',      // window close
+    'Ctrl+Shift+Y',      // shell palette
   ],
   onForward: (event) => {
     // The shell's WM dispatcher — fires for reserved chords regardless of
@@ -267,10 +267,11 @@ const keys = createKeysService({
 runtime.registerService('keys', keys);
 ```
 
-**Precedence contract: reserved > registered.** When a napplet forwards a chord via `keys.forward` — or when the default document keydown listener matches a chord registered by a napplet via `keys.registerAction` — the service consults the reserved set first:
+**Precedence contract: reserved > binding.** When a napplet registers an action whose `defaultKey` matches `reservedChords`, the service acknowledges the action with `keys.registerAction.result` but leaves `binding` undefined and does not add the chord to `keys.bindings`. That prevents the active napplet from suppressing a shell-owned chord locally.
 
-- If the chord IS reserved: `onForward` (or the `hostBridge`-registered handler) fires exactly once. No `keys.action` envelope is dispatched to any napplet, even if the napplet registered the identical chord. This is intentional — the shell WANTS the forward; that is why it reserved the chord.
-- If the chord is NOT reserved: `onForward` fires AND every napplet whose registered action matches receives a `keys.action` envelope via its captured `send` handle.
+- If a document keydown matches a reserved chord: `onForward` fires exactly once and no `keys.action` envelope is dispatched.
+- If a document keydown matches a non-reserved registered binding: `onForward` fires and every napplet whose registered action matches receives a `keys.action` envelope via its captured `send` handle.
+- If a napplet sends `keys.forward`: `onForward` fires and the service does not dispatch `keys.action`. Active napplets are expected to suppress bound keys locally from `keys.bindings` before forwarding.
 
 Reserved chords are normalized at service construction via the same parser used for `action.defaultKey`, so `'Ctrl+Shift+K'`, `'Control+shift+k'`, and `'ctrl+Shift+K'` all match the same chord. Modifier aliases (`Cmd` / `Command` / `Win` / `Super` → meta; `Control` → ctrl; `Option` → alt) are recognized case-insensitively.
 
@@ -288,17 +289,16 @@ const keys = createKeysService({
 });
 runtime.registerService('keys', keys);
 
-// Napplet-side (hotkey-chord napplet, for example): perfectly free to register
+// Napplet-side (hotkey-chord napplet, for example): free to request
 // `Ctrl+Shift+K` via keys.registerAction. If Ctrl+Shift+K is NOT in the shell's
-// reservedChords, the napplet receives keys.action as normal. If a shell later
-// adds Ctrl+Shift+K to its reserved set (e.g. because it now binds the chord
-// to a WM action), the napplet's registration is silently suppressed for that
-// chord — the shell is authoritative.
+// reservedChords, the napplet receives a binding and can handle it locally while
+// active. If the shell reserves that chord, the registration result is unbound
+// and no suppress-list entry is pushed.
 ```
 
 **Dynamic reservation is out of scope for v1.6.** If a downstream shell needs runtime updates to the reserved set (e.g. "reservation depends on which workspace is active"), open an issue referencing `HostKeysBridge.reserveAbsolute(chords)` — the deferred extension shape. Until then, `reservedChords` is static at service construction.
 
-**OS-level global hotkeys remain a separate concern.** `reservedChords` operates at the service layer — the chord must still reach the host window's focus (or be forwarded via `keys.forward`). For OS-level reservation (chord fires even when the host window is unfocused), implement [`HostKeysBridge.registerGlobalHotkey`](#hostkeysbridge-interface) in your bridge — reserved chords and global hotkeys compose orthogonally.
+**OS-level global hotkeys remain a separate concern.** `reservedChords` operates at the service layer. For OS-level reservation (chord fires even when the host window is unfocused), implement [`HostKeysBridge.registerGlobalHotkey`](#hostkeysbridge-interface) in your bridge — reserved chords and global hotkeys compose orthogonally.
 
 ## Media Service
 
