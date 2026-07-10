@@ -49,11 +49,11 @@ const protocolPackageNames = [
 ] as const;
 
 const protocolPackageVersions: Record<(typeof protocolPackageNames)[number], string> = {
-  '@napplet/core': '0.27.0',
-  '@napplet/nap': '0.27.0',
-  '@napplet/sdk': '0.24.0',
-  '@napplet/shim': '0.26.2',
-  '@napplet/vite-plugin': '0.10.1',
+  '@napplet/core': '0.28.0',
+  '@napplet/nap': '0.28.0',
+  '@napplet/sdk': '0.24.4',
+  '@napplet/shim': '0.26.8',
+  '@napplet/vite-plugin': '0.11.2',
 };
 
 const bannedSdkImportPattern = /from\s+['"]@napplet\/sdk['"]/;
@@ -126,11 +126,11 @@ describe('current @napplet package graph guard', () => {
     }
   });
 
-  it('admits only the current @napplet 0.27 line on published kehto packages', () => {
+  it('admits only the current @napplet 0.28 line on published kehto packages', () => {
     // Kehto runtime packages track the current NAP contract so new canonical
     // fields are wired through runtime, services, shell, Paja, docs, and tests.
-    const PEER_RANGE = '>=0.23.0 <=0.27.x';
-    const DEV_RANGE = '>=0.23.0 <=0.27.x';
+    const PEER_RANGE = '>=0.23.0 <=0.28.x';
+    const DEV_RANGE = '>=0.23.0 <=0.28.x';
     for (const dir of publicPackageDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {

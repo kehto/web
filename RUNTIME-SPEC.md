@@ -35,16 +35,16 @@ Kehto's runtime packages target the current `@napplet` line:
 
 | Package                 | Version  | Role                                            |
 | ----------------------- | -------- | ----------------------------------------------- |
-| `@napplet/core`         | `0.23.0` | protocol types, constants, `createDispatch` / `registerNap` |
-| `@napplet/nap`          | `0.23.0` | NAP capability helpers |
-| `@napplet/sdk`          | `0.20.2` | napplet-side SDK (playground napplets)          |
-| `@napplet/shim`         | `0.24.0` | napplet-side shim; installs injected `window.napplet.<domain>` objects |
-| `@napplet/vite-plugin`  | `0.10.1` | napplet build/sign plugin |
+| `@napplet/core`         | `0.28.0` | protocol types, constants, `createDispatch` / `registerNap` |
+| `@napplet/nap`          | `0.28.0` | NAP capability helpers |
+| `@napplet/sdk`          | `0.24.4` | napplet-side SDK (playground napplets)          |
+| `@napplet/shim`         | `0.26.8` | napplet-side shim; installs injected `window.napplet.<domain>` objects |
+| `@napplet/vite-plugin`  | `0.11.2` | napplet build/sign plugin |
 
 The runtime's domain dispatcher routes via `createDispatch()` + `registerNap()`
 from `@napplet/core` (the rename of the former `registerNap` / `NapHandler`
 surface). `napplet/web#53` is resolved — the playground builds against
-`@napplet/vite-plugin@0.10.1`.
+`@napplet/vite-plugin@0.11.2`.
 
 ## Content-Addressed Loading & Identity
 

@@ -119,7 +119,9 @@ test('resolved manifests and hosted supports match napplet contracts', async ({ 
   }, expectedNapplets);
 
   for (const name of expectedNapplets) {
-    expect(manifests[name], `${name} manifest requires`).toEqual(expectedRequires[name]);
+    expect([...manifests[name]].sort(), `${name} manifest requires`).toEqual(
+      [...expectedRequires[name]].sort(),
+    );
   }
 
   for (const name of expectedNapplets) {

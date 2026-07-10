@@ -7,8 +7,8 @@
     "./capabilities": "./src/capabilities.ts"
   },
   "imports": {
-    "@napplet/core": "jsr:@napplet/core@^0.23.0",
-    "@napplet/nap": "jsr:@napplet/nap@^0.23.0"
+    "@napplet/core": "jsr:@napplet/core@^0.28.0",
+    "@napplet/nap": "jsr:@napplet/nap@^0.28.0"
   },
   "publish": {
     "include": [

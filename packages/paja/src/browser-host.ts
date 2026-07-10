@@ -326,10 +326,12 @@ function reloadPajaTarget(state: PajaBrowserState, context: PajaBrowserStateCont
     return;
   }
   if (runtime.currentWindowId) {
-    bridge.runtime.destroyWindow(runtime.currentWindowId);
-    bridge.runtime.sessionRegistry.unregister(runtime.currentWindowId);
-    originRegistry.unregister(runtime.currentWindowId);
-    runtime.readyWindowIds.delete(runtime.currentWindowId);
+    const previousWindowId = runtime.currentWindowId;
+    bridge.runtime.destroyWindow(previousWindowId);
+    bridge.runtime.sessionRegistry.unregister(previousWindowId);
+    originRegistry.unregister(previousWindowId);
+    runtime.readyWindowIds.delete(previousWindowId);
+    runtime.currentWindowId = null;
   }
   state.generation += 1;
   setStatus(state, 'reloading');
@@ -562,7 +564,9 @@ async function installPajaHost(): Promise<void> {
     const sourceTab = source ? state.tabs.find((tab) => tab.frame.contentWindow === source) ?? null : null;
     const isSingleFrameMessage = frame ? event.source === frame.contentWindow : false;
     if (!sourceTab && !isSingleFrameMessage) return;
-    const sourceWindowId = sourceTab?.windowId ?? runtime.currentWindowId ?? undefined;
+    const registeredWindowId = source ? originRegistry.getWindowId(source) : null;
+    const sourceWindowId = sourceTab?.windowId ?? registeredWindowId ?? runtime.currentWindowId ?? undefined;
+    if (isSingleFrameMessage && !sourceWindowId) return;
     appendPajaMessageLog(state, 'napplet->shell', event.data, sourceWindowId);
     const proxiedSource = createPajaPostMessageProxy(event.source as Window, state, sourceWindowId);
     const syntheticEvent = new Proxy(event, {

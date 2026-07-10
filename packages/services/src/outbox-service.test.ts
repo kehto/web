@@ -288,10 +288,14 @@ describe('createOutboxService', () => {
         type: 'outbox.publish',
         id: 'p1',
         event: template,
-        options: { targetAuthors: [EVENT.pubkey] },
+        options: { toOutbox: false, toInboxes: [EVENT.pubkey], relays: ['wss://direct.test'] },
       } as NappletMessage, c.send);
       await Promise.resolve();
-      expect(router.publish).toHaveBeenCalledWith(template, { targetAuthors: [EVENT.pubkey] });
+      expect(router.publish).toHaveBeenCalledWith(template, {
+        toOutbox: false,
+        toInboxes: [EVENT.pubkey],
+        relays: ['wss://direct.test'],
+      });
       expect(c.sent[0]).toMatchObject({ type: 'outbox.publish.result', id: 'p1', ok: true, eventId: EVENT.id, relays: { 'wss://r.test': true } });
     });
 

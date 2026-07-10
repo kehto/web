@@ -69,6 +69,7 @@ const policyAllowlistTypes = [
 ] as const;
 
 const installedNapDist = 'packages/paja/node_modules/@napplet/nap/dist';
+const installedCoreDist = 'packages/paja/node_modules/@napplet/core/dist/index.d.ts';
 
 const relaySubscribeRoutingSurfaces = [
   {
@@ -319,10 +320,12 @@ describe('NIP-5D conformance static guards', () => {
     const relayHandlerSrc = readRepoFile('packages/runtime/src/relay-handler.ts');
     const relayTypes = readRepoFile(`${installedNapDist}/relay/types.d.ts`);
     const outboxTypes = readRepoFile(`${installedNapDist}/outbox/types.d.ts`);
+    const coreTypes = readRepoFile(installedCoreDist);
     const outboxServiceSrc = readRepoFile('packages/services/src/outbox-service.ts');
     const outboxRouterSrc = readRepoFile('packages/services/src/relay-pool-outbox-router.ts');
     const removedOutboxEose = `outbox.${'eose'}`;
     const removedStrategyType = `Outbox${'Strategy'}`;
+    const removedTargetAuthors = `target${'Authors'}`;
 
     // (a) relay-handler.ts replies with 'relay.query.result'
     expect(relayHandlerSrc, 'relay-handler must emit relay.query.result').toContain(
@@ -383,6 +386,18 @@ describe('NIP-5D conformance static guards', () => {
     expect(outboxTypes, 'installed NAP-OUTBOX subscribe options must not expose live').not.toContain(
       'live?:',
     );
+    expect(outboxServiceSrc, 'outbox service publish options must not expose targetAuthors').not.toContain(
+      removedTargetAuthors,
+    );
+    expect(outboxRouterSrc, 'outbox router must not consume targetAuthors').not.toContain(
+      removedTargetAuthors,
+    );
+    expect(outboxTypes, 'installed NAP-OUTBOX publish options must not expose targetAuthors').not.toContain(
+      removedTargetAuthors,
+    );
+    expect(coreTypes, 'installed core publish options must not expose targetAuthors').not.toContain(
+      removedTargetAuthors,
+    );
 
     expect(interfaceFieldNames(outboxTypes, 'OutboxEventOptions')).toEqual([
       'author',
@@ -395,10 +410,16 @@ describe('NIP-5D conformance static guards', () => {
       'limit',
       'timeoutMs',
     ]);
-    expect(interfaceFieldNames(outboxTypes, 'OutboxSubscribeOptions')).toEqual([]);
-    expect(interfaceFieldNames(outboxTypes, 'OutboxPublishOptions')).toEqual([
+    expect(outboxTypes, 'installed NAP-OUTBOX subscribe options should alias query options').toContain(
+      'OutboxSubscribeOptions = OutboxQueryOptions',
+    );
+    expect(outboxTypes, 'installed NAP-OUTBOX publish options should use the core contract').toContain(
+      'type OutboxPublishOptions =',
+    );
+    expect(interfaceFieldNames(coreTypes, 'OutboxPublishOptions')).toEqual([
       'relays',
-      'targetAuthors',
+      'toOutbox',
+      'toInboxes',
     ]);
     expect(interfaceFieldNames(outboxTypes, 'OutboxTarget')).toEqual([
       'authors',
