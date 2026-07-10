@@ -1,5 +1,16 @@
 # @kehto/shell
 
+## 0.17.0
+
+### Minor Changes
+
+- a6a0821: Align NAP-KEYS forwarding and action bindings with the active `napplet/naps` draft: `keys.forward` remains napplet-to-shell only, bound keys are delivered through `keys.bindings` for local suppression, registration errors use `keys.registerAction.result`, reserved/default bindings are left unbound, and the non-conforming shell host-keydown forwarder export is removed.
+
+### Patch Changes
+
+- Updated dependencies [a6a0821]
+  - @kehto/runtime@0.18.4
+
 ## 0.16.8
 
 ### Patch Changes
