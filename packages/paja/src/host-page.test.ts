@@ -14,6 +14,7 @@ describe('@kehto/paja host page', () => {
     expect(html).toContain('--paja-console-column: minmax(320px, 380px);');
     expect(html).toContain('.top { display: grid; grid-template-columns: var(--paja-console-column) minmax(0, 1fr);');
     expect(html).toContain('main { min-height: 0; display: grid; grid-template-columns: var(--paja-console-column) minmax(0, 1fr); }');
+    expect(html).toContain('.tabs { display: flex; align-items: stretch; align-self: flex-end;');
     expect(html).toContain('<div class="top-stage">');
     expect(html).toContain('id="napplet-tabs"');
     expect(html).toContain('<footer class="bar bottom">');
