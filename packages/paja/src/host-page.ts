@@ -37,6 +37,13 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .brand-product { color: var(--text); }
       .target { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
       .spacer { flex: 1; min-width: 0; }
+      .tabs { display: flex; align-items: stretch; gap: 4px; min-width: 120px; max-width: min(58vw, 760px); overflow-x: auto; scrollbar-width: thin; }
+      .tabs:empty { display: none; }
+      .tab { min-width: 96px; max-width: 220px; height: 30px; display: grid; grid-template-columns: minmax(0, 1fr) 24px; align-items: center; gap: 2px; border: 1px solid var(--line); border-bottom-color: transparent; background: #151815; color: var(--muted); border-radius: 5px 5px 0 0; padding: 0 2px 0 9px; }
+      .tab[data-active="true"] { color: var(--text); border-color: var(--accent); border-bottom-color: #151815; background: #20241f; }
+      .tab-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; text-align: left; }
+      .tab-close { width: 20px; height: 20px; padding: 0; border: 0; background: transparent; color: var(--muted); display: inline-grid; place-items: center; }
+      .tab-close:hover { color: var(--text); background: #2d302b; border-color: transparent; }
       button { border: 1px solid var(--line); color: var(--text); background: #20241f; height: 26px; padding: 0 10px; border-radius: 4px; font: inherit; cursor: pointer; }
       button:hover { border-color: var(--accent); }
       label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; }
@@ -64,9 +71,18 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .log-body { min-width: 0; display: grid; gap: 2px; }
       .log-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .log-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e6a5a5; }
-      .stage { min-width: 0; min-height: 0; }
+      .stage { min-width: 0; min-height: 0; position: relative; background: #050705; }
+      .empty-stage { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 12px; }
+      .empty-stage[hidden] { display: none; }
+      .tab-panel { position: absolute; inset: 0; min-width: 0; min-height: 0; }
+      .tab-panel[hidden] { display: none; }
       iframe { width: 100%; height: 100%; border: 0; background: white; display: block; }
       code { color: var(--text); }
+      .dialog-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 24px; background: rgb(0 0 0 / 0.58); }
+      .dialog-backdrop[hidden] { display: none; }
+      .dialog { width: min(420px, 100%); border: 1px solid var(--line); border-radius: 6px; background: #181b19; box-shadow: 0 18px 60px rgb(0 0 0 / 0.45); padding: 16px; display: grid; gap: 14px; }
+      .dialog-title { font-weight: 700; color: var(--text); }
+      .dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
       @media (max-width: 900px) {
         main { grid-template-columns: 1fr; grid-template-rows: minmax(240px, 40vh) minmax(0, 1fr); }
         .console { border-right: 0; border-bottom: 1px solid var(--line); }
@@ -77,6 +93,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
     <header class="bar top">
       <div class="brand">@kehto/<span class="brand-product">paja</span></div>
       <div class="target" title="${targetLabel}">${targetLabel}</div>
+      <div class="tabs" id="napplet-tabs" role="tablist" aria-label="Loaded napplets"></div>
       <div class="spacer"></div>
       <label>theme
         <select id="simulation-theme" aria-label="Simulation theme">
@@ -111,10 +128,9 @@ export function renderPajaHtml(config: PajaHostConfig): string {
           <div class="log-list" id="message-log" aria-live="polite"></div>
         </section>
       </aside>
-      <section class="stage">
-        <iframe id="napplet-frame" title="Napplet ${config.target.mode === 'runtime-pointer' ? 'runtime' : 'development'} target" sandbox="allow-scripts" data-target-url="${targetLabel}"></iframe>
-      </section>
+      ${renderStage(config, targetLabel)}
     </main>
+    ${renderDuplicateDialog()}
     <footer class="bar bottom">
       <span>mode: <code>${escapeHtml(getModeLabel(config))}</code></span>
       <span>hmr: <code>${config.target.hmrStrategy}</code></span>
@@ -126,6 +142,30 @@ export function renderPajaHtml(config: PajaHostConfig): string {
     <script type="module" src="./__kehto/browser-host.js"></script>
   </body>
 </html>`;
+}
+
+function renderStage(config: PajaHostConfig, targetLabel: string): string {
+  if (config.target.mode === 'runtime-pointer') {
+    return `<section class="stage" id="napplet-stage" aria-label="Loaded napplet runtimes">
+        <div class="empty-stage" id="empty-runtime-stage">Load a napplet pointer to start a runtime tab.</div>
+      </section>`;
+  }
+  return `<section class="stage" id="napplet-stage">
+        <iframe id="napplet-frame" title="Napplet development target" sandbox="allow-scripts" data-target-url="${targetLabel}"></iframe>
+      </section>`;
+}
+
+function renderDuplicateDialog(): string {
+  return `<div class="dialog-backdrop" id="duplicate-pointer-dialog" hidden>
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="duplicate-pointer-title">
+        <div class="dialog-title" id="duplicate-pointer-title">this napplet is already running.</div>
+        <div class="dialog-actions">
+          <button type="button" id="duplicate-load-again">load it again</button>
+          <button type="button" id="duplicate-open-tab">open it in tab</button>
+          <button type="button" id="duplicate-cancel">cancel &lt;do nothing&gt;</button>
+        </div>
+      </div>
+    </div>`;
 }
 
 function renderPointerControls(config: PajaHostConfig): string {

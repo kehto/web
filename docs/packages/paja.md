@@ -103,18 +103,19 @@ For package-manager script examples covering `pnpm`, `npm`, and `yarn`, see
 
 ## Browser Host
 
-The served host page is a single-window development runtime: a control console
-beside one sandboxed target iframe, plus compact top and bottom bars. The iframe
-is created without a static `src`; the browser bootstrap sets
-`sandbox="allow-scripts"`, registers the iframe with `@kehto/shell`, creates a
-source-derived NIP-5D session entry, fetches the explicit target URL through the
-local Paja server, and renders it as injected `srcdoc`. Paja prepends the
-runtime-owned `window.napplet.<domain>` namespace before authored scripts run and
-adds a `<base>` tag so target assets and HMR still resolve against the app dev
-server. A real `ShellBridge` plus `@kehto/runtime` handles `shell.ready`,
-`shell.init`, ACL, firewall, storage, INC, relay/outbox, and service dispatch.
-Reload uses a generation-specific internal window id so the same iframe can
-receive a fresh `shell.init` without restarting the CLI or the app dev server.
+In local target-url mode, the served host page is a single-window development
+runtime: a control console beside one sandboxed target iframe, plus compact top
+and bottom bars. The iframe is created without a static `src`; the browser
+bootstrap sets `sandbox="allow-scripts"`, registers the iframe with
+`@kehto/shell`, creates a source-derived NIP-5D session entry, fetches the
+explicit target URL through the local Paja server, and renders it as injected
+`srcdoc`. Paja prepends the runtime-owned `window.napplet.<domain>` namespace
+before authored scripts run and adds a `<base>` tag so target assets and HMR
+still resolve against the app dev server. A real `ShellBridge` plus
+`@kehto/runtime` handles `shell.ready`, `shell.init`, ACL, firewall, storage,
+INC, relay/outbox, and service dispatch. Reload uses a generation-specific
+internal window id so the same iframe can receive a fresh `shell.init` without
+restarting the CLI or the app dev server.
 
 The console includes:
 
@@ -134,14 +135,16 @@ The console includes:
 `.error` envelopes.
 
 The GitHub Pages artifact also includes a static Paja Runtime at `/web/paja/`.
-That route uses `createPajaRuntimeHostConfig`, keeps `hmr: none`, and loads a
-verified napplet into the same ShellBridge-backed iframe from a pasted `naddr`
-or `nevent` pointer. `naddr` pointers resolve the latest matching NIP-5D named
+That route uses `createPajaRuntimeHostConfig`, keeps `hmr: none`, and loads
+verified napplets into ShellBridge-backed iframe tabs from pasted `naddr` or
+`nevent` pointers. `naddr` pointers resolve the latest matching NIP-5D named
 manifest (`35129`) by author and `d` tag; `nevent` pointers resolve a specific
 NIP-5D snapshot, root, or named manifest event id (`5129`, `15129`, or `35129`).
 In both cases Paja verifies the signed manifest, aggregate hash, and every
 Blossom blob, then injects the same runtime-owned `window.napplet.<domain>`
-namespace before assigning iframe `srcdoc`.
+namespace before assigning iframe `srcdoc`. Loading an already-running napplet
+opens an in-page choice to load another instance, switch to the existing tab, or
+cancel.
 
 ## NAP and Service Parity
 

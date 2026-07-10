@@ -59,12 +59,13 @@ Run the script and open the printed runtime URL:
 pnpm dev
 ```
 
-The browser page shows a development console beside one sandboxed target iframe.
-The console includes interface injection toggles, ACL controls, signer status,
-and a filterable message log. Paja fetches the target HTML into injected
-`srcdoc` so `window.napplet.<domain>` exists before app bootstrap, while target
-assets and HMR still resolve through the framework dev server. The runtime reload
-button reinitializes the Kehto shell state around the same target URL.
+The browser page shows a development console beside one sandboxed target iframe
+in target-url mode. The console includes interface injection toggles, ACL
+controls, signer status, and a filterable message log. Paja fetches the target
+HTML into injected `srcdoc` so `window.napplet.<domain>` exists before app
+bootstrap, while target assets and HMR still resolve through the framework dev
+server. The runtime reload button reinitializes the Kehto shell state around the
+same target URL.
 
 ## Use an Existing Target Server
 

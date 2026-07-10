@@ -11,6 +11,7 @@ describe('@kehto/paja host page', () => {
     expect(html).toContain('<title>@kehto/paja</title>');
     expect(html).toContain('<div class="brand">@kehto/<span class="brand-product">paja</span></div>');
     expect(html).toContain('<header class="bar top">');
+    expect(html).toContain('id="napplet-tabs"');
     expect(html).toContain('<footer class="bar bottom">');
     expect(html).toContain('<iframe id="napplet-frame"');
     expect(html).toContain('sandbox="allow-scripts"');
@@ -41,10 +42,19 @@ describe('@kehto/paja host page', () => {
 
     expect(html).toContain('id="runtime-pointer-form"');
     expect(html).toContain('id="runtime-pointer-input"');
+    expect(html).toContain('id="napplet-tabs"');
+    expect(html).toContain('id="napplet-stage"');
+    expect(html).toContain('id="empty-runtime-stage"');
+    expect(html).toContain('id="duplicate-pointer-dialog"');
+    expect(html).toContain('this napplet is already running.');
+    expect(html).toContain('id="duplicate-load-again"');
+    expect(html).toContain('id="duplicate-open-tab"');
+    expect(html).toContain('id="duplicate-cancel"');
     expect(html).toContain('value="nevent1test"');
     expect(html).toContain('mode: <code>runtime-pointer</code>');
     expect(html).toContain('hmr: <code>none</code>');
-    expect(html).toContain('data-target-url="nevent1test"');
+    expect(html).not.toContain('<iframe id="napplet-frame"');
+    expect(html).not.toContain('data-target-url="nevent1test"');
     expect(html).toContain('src="./__kehto/browser-host.js"');
     expect(html).not.toContain('src="about:blank"');
   });

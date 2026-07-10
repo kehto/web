@@ -1,6 +1,7 @@
 # @kehto/paja
 
-Single-window development runtime for local napplet authoring.
+Development runtime for local napplet authoring and static pointer-loaded
+napplet testing.
 
 The runtime is designed to be used from a napplet package script:
 
@@ -20,8 +21,8 @@ app's own assets and HMR pointed at the target dev server without Vite, Svelte,
 React, or any other framework lock-in.
 
 The package provides the typed option model, CLI parser, runtime server, host
-page, and host config surface. The browser host keeps one target iframe with a
-reload loop and a development console wired through a real
+page, and host config surface. Local target-url mode keeps one target iframe
+with a reload loop and a development console wired through a real
 `ShellBridge`, `@kehto/runtime`, and deterministic development service adapters
 for the current web NAP surface: relay/outbox, storage, identity, keys, config,
 resource, theme, notify, media, upload, intent, cvm, and inc. `shell` is the
@@ -38,7 +39,10 @@ no bypass list.
 
 The static Paja Runtime build is served at `/web/paja/` in the GitHub Pages
 artifact. It uses the same browser host and service adapters, but loads verified
-napplet HTML from a pasted `naddr` or `nevent` pointer with `hmr: none`.
+napplet HTML from pasted `naddr` or `nevent` pointers with `hmr: none`. Each
+loaded pointer becomes a closeable header tab; loading an already-running
+napplet opens a choice to load another instance, switch to the existing tab, or
+cancel.
 
 Environment simulation can be supplied through CLI flags or a JSON config file:
 
