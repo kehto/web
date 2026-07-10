@@ -131,6 +131,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260706-siz | Fix Paja target URL mode to inject NIP-5D domains before target bootstrap | 2026-07-06 | fix/paja-target-url-injection | [260706-siz-fix-paja-target-url-mode-so-local-napple](./quick/260706-siz-fix-paja-target-url-mode-so-local-napple/) |
 | 260710-h7u | Add AGENTS guardrails requiring issue and PR checks against napplet/naps NAP specs | 2026-07-10 | docs/nap-spec-triage-guardrails | [260710-h7u-add-agents-guardrails-requiring-issue-an](./quick/260710-h7u-add-agents-guardrails-requiring-issue-an/) |
 | 260710-hmp | Make Paja useful for development with static runtime tabs | 2026-07-10 | feat/paja-multi-napplet-tabs | [260710-hmp-make-paja-useful-for-development-with-ru](./quick/260710-hmp-make-paja-useful-for-development-with-ru/) |
+| 260710-jq1 | Make Paja use a real live relay/outbox runtime path and fix duplicate dialog cancel text | 2026-07-10 | feat/paja-multi-napplet-tabs | [260710-jq1-fix-paja-duplicate-cancel-label](./quick/260710-jq1-fix-paja-duplicate-cancel-label/) |
 
 ## Session Continuity
 

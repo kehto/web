@@ -282,6 +282,11 @@ function createHostSignerController(getState: () => PajaBrowserState | null) {
   });
 }
 
+function hasNip07Signer(): boolean {
+  const signer = (globalThis as { nostr?: unknown }).nostr;
+  return typeof signer === 'object' && signer !== null;
+}
+
 function installPajaControlListeners(state: PajaBrowserState): void {
   document.getElementById('reload-target')?.addEventListener('click', () => {
     state.reload();
@@ -626,6 +631,7 @@ async function installPajaHost(): Promise<void> {
   } else {
     startFrameNavigation(state, context);
   }
+  if (hasNip07Signer()) void state.connectNip07();
 }
 
 try {

@@ -39,4 +39,21 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(source).toContain('function injectBaseHref(html: string, targetUrl: string): string');
     expect(source).toContain('`<base href="${escapeAttribute(targetUrl)}">`');
   });
+
+  it('keeps Paja wired to real relay, outbox, and identity bootstrap paths', () => {
+    const adapterSource = readFileSync(new URL('./browser-adapter.ts', import.meta.url), 'utf8');
+    const relaySource = readFileSync(new URL('./browser-relay-runtime.ts', import.meta.url), 'utf8');
+    const hostSource = readFileSync(new URL('./browser-host.ts', import.meta.url), 'utf8');
+
+    expect(adapterSource).toContain('createRelayPoolOutboxRouter');
+    expect(adapterSource).toContain('createPajaRelayListLoader(backend, getSimulation, signerProvider)');
+    expect(relaySource).toContain('createNip65Registry');
+    expect(relaySource).toContain('export const PAJA_NIP65_RELAY_LIST_KIND = 10_002;');
+    expect(relaySource).toContain('export const PAJA_CONTACT_LIST_KIND = 3;');
+    expect(relaySource).toContain('export function createPajaIdentityProviders(');
+    expect(relaySource).toContain('async function getBootstrapRelayUrls(');
+    expect(relaySource).toContain('...await getSignerRelayUrls(signerProvider, \'read\'),');
+    expect(relaySource).toContain('backend.query(await getBootstrapRelayUrls(getSimulation, signerProvider), [{');
+    expect(hostSource).toContain('if (hasNip07Signer()) void state.connectNip07();');
+  });
 });

@@ -162,7 +162,7 @@ function renderDuplicateDialog(): string {
         <div class="dialog-actions">
           <button type="button" id="duplicate-load-again">load it again</button>
           <button type="button" id="duplicate-open-tab">open it in tab</button>
-          <button type="button" id="duplicate-cancel">cancel &lt;do nothing&gt;</button>
+          <button type="button" id="duplicate-cancel">cancel</button>
         </div>
       </div>
     </div>`;

@@ -47,7 +47,7 @@ export interface PajaSimulationRawOptions {
     readonly pubkey?: string;
   };
   readonly relay?: {
-    readonly mode?: 'memory' | 'disabled';
+    readonly mode?: 'live' | 'memory' | 'disabled';
     readonly urls?: readonly string[];
     readonly fixtures?: readonly JsonRecord[];
   };
@@ -101,7 +101,7 @@ export interface PajaSimulation {
     readonly pubkey: string;
   };
   readonly relay: {
-    readonly mode: 'memory' | 'disabled';
+    readonly mode: 'live' | 'memory' | 'disabled';
     readonly urls: readonly string[];
     readonly fixtures: readonly JsonRecord[];
   };
@@ -170,7 +170,12 @@ export const PAJA_SIMULATION_DOMAINS: readonly PajaCapabilityDomain[] = [
   'inc',
 ];
 
-const DEFAULT_RELAY_URLS = ['wss://relay.kehto.dev'] as const;
+const DEFAULT_RELAY_URLS = [
+  'wss://relay.damus.io',
+  'wss://nos.lol',
+  'wss://relay.primal.net',
+  'wss://relay.snort.social',
+] as const;
 const DEFAULT_CONFIG_VALUES: JsonRecord = {
   runtime: 'kehto paja',
   mode: 'development',
@@ -195,7 +200,7 @@ export function normalizePajaSimulation(
     PAJA_SIMULATION_DOMAINS.map((domain) => [domain, domainOverrides[domain] ?? true]),
   ) as Record<PajaCapabilityDomain, boolean>;
 
-  const relayMode = raw?.relay?.mode ?? (domains.relay ? 'memory' : 'disabled');
+  const relayMode = raw?.relay?.mode ?? (domains.relay ? 'live' : 'disabled');
   if (!domains.relay && relayMode !== 'disabled') {
     throw new PajaSimulationError('Invalid simulation: relay.mode must be "disabled" when capabilities.domains.relay is false.');
   }
@@ -252,8 +257,8 @@ export function normalizePajaSimulation(
   }
 
   const relayUrls = raw?.relay?.urls ?? DEFAULT_RELAY_URLS;
-  if (relayMode === 'memory' && relayUrls.length === 0) {
-    throw new PajaSimulationError('Invalid simulation: relay.urls must contain at least one URL when relay.mode is "memory".');
+  if (relayMode !== 'disabled' && relayUrls.length === 0) {
+    throw new PajaSimulationError('Invalid simulation: relay.urls must contain at least one URL when relay.mode is enabled.');
   }
   for (const url of relayUrls) {
     if (typeof url !== 'string' || url.trim().length === 0) {
@@ -326,7 +331,7 @@ export function normalizePajaSimulation(
  * @returns One-line summary used by CLI and host-page chrome.
  */
 export function summarizePajaSimulation(simulation: PajaSimulation): string {
-  const relay = simulation.relay.mode === 'memory' ? `relay:${simulation.relay.urls.length}` : 'relay:off';
+  const relay = simulation.relay.mode === 'disabled' ? 'relay:off' : `relay:${simulation.relay.mode}:${simulation.relay.urls.length}`;
   const identity = simulation.identity.mode === 'fixed' ? 'identity:fixed' : 'identity:anon';
   const storage = `storage:${simulation.storage.mode}`;
   const theme = `theme:${simulation.theme.mode}`;

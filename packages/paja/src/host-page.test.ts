@@ -18,7 +18,7 @@ describe('@kehto/paja host page', () => {
     expect(html).toContain('data-target-url="http://127.0.0.1:5173/"');
     expect(html).toContain('id="simulation-theme"');
     expect(html).toContain('id="simulation-status"');
-    expect(html).toContain('identity:anon relay:1 storage:local theme:dark off:none');
+    expect(html).toContain('identity:anon relay:live:4 storage:local theme:dark off:none');
     expect(html).not.toContain('src="http://127.0.0.1:5173/"');
     expect(html).toContain('src="./__kehto/browser-host.js"');
     expect(html).not.toContain('id="runtime-pointer-form"');
@@ -50,6 +50,8 @@ describe('@kehto/paja host page', () => {
     expect(html).toContain('id="duplicate-load-again"');
     expect(html).toContain('id="duplicate-open-tab"');
     expect(html).toContain('id="duplicate-cancel"');
+    expect(html).toContain('id="duplicate-cancel">cancel</button>');
+    expect(html).not.toContain('cancel &lt;do nothing&gt;');
     expect(html).toContain('value="nevent1test"');
     expect(html).toContain('mode: <code>runtime-pointer</code>');
     expect(html).toContain('hmr: <code>none</code>');

@@ -322,13 +322,21 @@ function renderSignerStatus(state: PajaDevtoolsState, signerPubkey: string): voi
   const controls = document.getElementById('signer-controls');
   if (!el || !controls) return;
 
-  const fallbackPubkey = state.simulation.identity.pubkey || signerPubkey;
-  const pubkey = state.simulation.identity.pubkey || state.signer.pubkey || signerPubkey;
-  const methodLabel = state.signer.method === 'nip07' ? 'NIP-07' : state.signer.method === 'nip46' ? 'bunker' : 'dev';
+  const fallbackPubkey = state.simulation.identity.pubkey || (state.signer.method === 'dev' ? signerPubkey : '');
+  const pubkey = state.simulation.identity.pubkey || state.signer.pubkey || (state.signer.method === 'dev' ? signerPubkey : '');
+  const methodLabel = state.signer.method === 'nip07'
+    ? 'NIP-07'
+    : state.signer.method === 'nip46'
+      ? 'bunker'
+      : state.signer.method === 'dev'
+        ? 'dev'
+        : 'none';
   const relay = state.signer.relay ? ` · relay ${state.signer.relay}` : '';
-  const prefix = state.signer.status === 'error'
+  const prefix = state.signer.status === 'disconnected'
+    ? 'no signer connected'
+    : state.signer.status === 'error'
     ? `${methodLabel} error: ${state.signer.error ?? 'unknown error'} · fallback pubkey ${fallbackPubkey}`
-    : `${methodLabel} ${state.signer.status} · pubkey ${pubkey}${relay}`;
+    : `${methodLabel} ${state.signer.status} · pubkey ${pubkey || '(none)'}${relay}`;
   el.textContent = `${prefix} · every sign/publish request prompts`;
 
   const previousInput = controls.querySelector<HTMLInputElement>('#signer-bunker-uri')?.value ?? '';

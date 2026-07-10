@@ -125,8 +125,9 @@ The console includes:
 - **ACL** — every runtime capability can be granted or revoked for the target
   napplet identity. The controls write through `bridge.runtime.aclState`, so the
   next matching request is allowed or denied by the real runtime gate.
-- **Signer** — Paja exposes a generated development signer by default and can
-  switch to a browser NIP-07 signer or a bunker/NIP-46 URI. Every request to
+- **Signer** — Paja auto-connects a browser NIP-07 signer when `window.nostr`
+  is available, can connect to a bunker/NIP-46 URI, and only uses the generated
+  development signer when the Dev signer button is selected. Every request to
   sign an event or publish an event opens a browser confirmation prompt. Paja
   has no bypass list or allow-once whitelist.
 - **Messages** — inbound and outbound envelopes are logged with a text filter,
@@ -161,16 +162,18 @@ is represented as an upstream alias to `inc`; upstream
 upstream `dm` domain is tracked as deferred until Paja wires a deterministic
 development DM backend.
 
-Default service wiring includes in-memory relay/outbox behavior, localStorage
-state persistence through the runtime, a generated local signer-backed identity,
-deterministic config/theme,
-notification, media, upload, intent, resource, and CVM adapters. These defaults
-are intentionally useful for local authoring.
+Default service wiring uses live relay/outbox behavior, localStorage state
+persistence through the runtime, browser or configured identity, deterministic
+config/theme, notification, media, upload, intent, resource, and CVM adapters.
+Relay/outbox uses NIP-65 relay lists (`kind:10002`) with fallback relays, and the
+identity service reads contact lists (`kind:3`) so social-graph napplets can be
+tested against real account state. `--relay-mode memory` switches relay/outbox
+to deterministic fixture/event-store behavior when a test needs isolation.
 
-The `count` domain uses Paja's in-memory relay fixture/event store to answer
-`count.query` with exact aggregate counts and `approximate: false`. Broad empty
-filters are refused as too expensive, and setting `relay.mode` to `disabled`
-also disables `count` advertisement.
+The `count` domain uses the active Paja relay backend to answer `count.query`
+with exact aggregate counts and `approximate: false`. Broad empty filters are
+refused as too expensive, and setting `relay.mode` to `disabled` also disables
+`count` advertisement.
 
 ## Environment Simulation
 
@@ -179,7 +182,7 @@ The normalized simulation object controls:
 - Capability domain advertisement through the production `shell.init` path.
 - ACL mode and firewall mode metadata for development policy profiles.
 - Anonymous or fixed identity mode.
-- Memory or disabled relay/outbox behavior.
+- Live, memory fixture, or disabled relay/outbox behavior.
 - Local, memory, or disabled storage mode advertisement.
 - Memory or disabled artifact/cache metadata.
 - Memory or disabled upload mode and upload rail name.

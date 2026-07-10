@@ -108,7 +108,7 @@ describe('@kehto/paja CLI', () => {
     expect(output).toContain('Target URL: http://127.0.0.1:5173/');
     expect(output).toContain('Mode: managed-command');
     expect(output).toContain('HMR: iframe-target-url');
-    expect(output).toContain('Simulation: identity:anon relay:1 storage:local theme:dark off:none');
+    expect(output).toContain('Simulation: identity:anon relay:live:4 storage:local theme:dark off:none');
   });
 
   it('prints the runtime URL before waiting for managed target readiness', async () => {
