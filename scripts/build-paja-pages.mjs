@@ -6,6 +6,7 @@
  *
  *   .pages/paja/index.html
  *   .pages/paja/__kehto/browser-host.js
+ *   .pages/paja/__kehto/config.json
  */
 import {
   copyFileSync,
@@ -40,6 +41,7 @@ writeFileSync(join(outputDir, '.nojekyll'), '');
 
 const hostConfig = createPajaRuntimeHostConfig({}, new Date('2026-06-30T00:00:00.000Z'));
 writeFileSync(join(outputDir, 'index.html'), renderPajaHtml(hostConfig));
+writeFileSync(join(outputDir, '__kehto', 'config.json'), `${JSON.stringify(hostConfig, null, 2)}\n`);
 copyFileSync(browserHostScript, join(outputDir, '__kehto', 'browser-host.js'));
 if (existsSync(browserHostMap)) {
   copyFileSync(browserHostMap, join(outputDir, '__kehto', 'browser-host.js.map'));

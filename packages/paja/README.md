@@ -1,6 +1,7 @@
 # @kehto/paja
 
-Single-window development runtime for local napplet authoring.
+Development runtime for local napplet authoring and static pointer-loaded
+napplet testing.
 
 The runtime is designed to be used from a napplet package script:
 
@@ -20,25 +21,31 @@ app's own assets and HMR pointed at the target dev server without Vite, Svelte,
 React, or any other framework lock-in.
 
 The package provides the typed option model, CLI parser, runtime server, host
-page, and host config surface. The browser host keeps one target iframe with a
-reload loop and a development console wired through a real
-`ShellBridge`, `@kehto/runtime`, and deterministic development service adapters
-for the current web NAP surface: relay/outbox, storage, identity, keys, config,
-resource, theme, notify, media, upload, intent, cvm, and inc. `shell` is the
-mandatory handshake domain; the deprecated legacy package path remains an
-upstream compatibility alias to `inc`. The upstream `dm` domain is not
-advertised until Paja wires a deterministic development DM backend.
+page, and host config surface. Local target-url mode keeps one target iframe
+with a reload loop and a development console wired through a real
+`ShellBridge`, `@kehto/runtime`, and service adapters for the current web NAP
+surface: relay/outbox, storage, identity, keys, config, resource, theme, notify,
+media, upload, intent, cvm, and inc. Relay/outbox defaults to live public relays
+and uses NIP-65 relay-list bootstrap plus kind `3` contact-list reads for
+identity flows; `--relay-mode memory` is the explicit deterministic fixture
+mode. `shell` is the mandatory handshake domain; the deprecated legacy package
+path remains an upstream compatibility alias to `inc`. The upstream `dm` domain
+is not advertised until Paja wires a deterministic development DM backend.
 
 The console shows supported interfaces with per-domain injection toggles,
 runtime ACL controls, signer controls, and a filterable message log with visible
-error details. Paja creates a generated local development signer by default and
-can switch to a browser NIP-07 signer or a bunker/NIP-46 connection. Every
-signing or publish operation still uses a browser confirmation prompt. There is
-no bypass list.
+error details. Paja auto-connects a browser NIP-07 signer when `window.nostr` is
+available, can connect to a bunker/NIP-46 URI, and only uses the generated local
+development signer when the Dev signer button is selected. Every signing or
+publish operation still uses a browser confirmation prompt. There is no bypass
+list.
 
 The static Paja Runtime build is served at `/web/paja/` in the GitHub Pages
 artifact. It uses the same browser host and service adapters, but loads verified
-napplet HTML from a pasted `naddr` or `nevent` pointer with `hmr: none`.
+napplet HTML from pasted `naddr` or `nevent` pointers with `hmr: none`. Each
+loaded pointer becomes a closeable header tab; loading an already-running
+napplet opens a choice to load another instance, switch to the existing tab, or
+cancel.
 
 Environment simulation can be supplied through CLI flags or a JSON config file:
 

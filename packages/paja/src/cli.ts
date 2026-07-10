@@ -186,8 +186,8 @@ Options:
   --config <path>             JSON config file using the same option schema.
   --identity-mode <mode>      anonymous or fixed.
   --identity-pubkey <hex>     Required when identity mode is fixed.
-  --relay-mode <mode>         memory or disabled.
-  --relay-url <url>           Add a relay URL for memory relay simulation.
+  --relay-mode <mode>         live, memory, or disabled.
+  --relay-url <url>           Add a relay URL for live or memory relay backends.
   --storage-mode <mode>       local, memory, or disabled.
   --cache-mode <mode>         memory or disabled.
   --upload-mode <mode>        memory or disabled.
@@ -256,7 +256,7 @@ function applySimulationOption(
       setIdentity(raw, { pubkey: readValue(args, index, arg) });
       return true;
     case '--relay-mode':
-      setRelay(raw, { mode: readEnum(args, index, arg, ['memory', 'disabled']) });
+      setRelay(raw, { mode: readEnum(args, index, arg, ['live', 'memory', 'disabled']) });
       return true;
     case '--relay-url':
       setRelay(raw, { urls: [...(raw.simulation?.relay?.urls ?? []), readValue(args, index, arg)] });

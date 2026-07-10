@@ -38,7 +38,7 @@ describe('@kehto/paja server', () => {
         sidePanels: false,
       });
       expect(config.simulation).toMatchObject({
-        relay: { mode: 'memory' },
+        relay: { mode: 'live' },
         theme: { mode: 'dark' },
       });
     } finally {

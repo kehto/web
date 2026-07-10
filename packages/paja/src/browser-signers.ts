@@ -9,9 +9,9 @@ import {
 } from './browser-nip46-client.js';
 
 /** Signer backend selected in the Paja browser UI. */
-export type PajaSignerMethod = 'dev' | 'nip07' | 'nip46';
+export type PajaSignerMethod = 'none' | 'dev' | 'nip07' | 'nip46';
 /** Connection state for the selected Paja signer backend. */
-export type PajaSignerStatus = 'connected' | 'connecting' | 'error';
+export type PajaSignerStatus = 'disconnected' | 'connected' | 'connecting' | 'error';
 
 /** Current signer connection state shown by Paja. */
 export interface PajaSignerState {
@@ -33,6 +33,8 @@ export interface PajaSignerController {
   getState(): PajaSignerState;
   /** Return the active runtime signer, if one is connected. */
   getSigner(): Signer | null;
+  /** Return the selected signer backend. */
+  getMethod(): PajaSignerMethod;
   /** Return the active signer pubkey, if one is connected. */
   getPubkey(): string | null;
   /** Switch to the deterministic development signer. */
@@ -108,8 +110,8 @@ function createNip07Adapter(signer: Nip07Signer): Signer {
  */
 export function createPajaSignerController(options: PajaSignerControllerOptions): PajaSignerController {
   let state: PajaSignerState = {
-    method: 'dev',
-    status: 'connected',
+    method: 'none',
+    status: 'disconnected',
     pubkey: null,
     relay: null,
     error: null,
@@ -130,6 +132,7 @@ export function createPajaSignerController(options: PajaSignerControllerOptions)
   return {
     getState: () => cloneState(state),
     getSigner: () => activeSigner,
+    getMethod: () => state.method,
     getPubkey: () => state.pubkey,
     useDevSigner() {
       closeClient();

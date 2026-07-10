@@ -21,7 +21,15 @@ describe('@kehto/paja options', () => {
       mode: 'external-target',
       simulation: {
         identity: { mode: 'anonymous', pubkey: '' },
-        relay: { mode: 'memory', urls: ['wss://relay.kehto.dev'] },
+        relay: {
+          mode: 'live',
+          urls: [
+            'wss://relay.damus.io',
+            'wss://nos.lol',
+            'wss://relay.primal.net',
+            'wss://relay.snort.social',
+          ],
+        },
         storage: { mode: 'local' },
         theme: { mode: 'dark' },
       },
@@ -92,7 +100,7 @@ describe('@kehto/paja options', () => {
         sidePanels: false,
       },
       simulation: {
-        relay: { mode: 'memory' },
+        relay: { mode: 'live' },
         upload: { mode: 'memory', rail: 'dev-memory' },
         intent: { enabled: true },
       },
