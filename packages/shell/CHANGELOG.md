@@ -1,5 +1,20 @@
 # @kehto/shell
 
+## 0.17.1
+
+### Patch Changes
+
+- 708176b: Chase the published `@napplet/core` and `@napplet/nap` 0.28 line. Kehto package
+  peer and JSR metadata now admit the current NAP contract, local demo napplets
+  build against the refreshed Napplet toolchain, and `@kehto/services` implements
+  the current NAP-OUTBOX publish fanout fields: `relays`, `toOutbox`, and required
+  `toInboxes`. `@kehto/paja` also clears stale iframe ownership during target
+  reloads so late messages from an old frame cannot mark the runtime ready before
+  the reloaded target receives signer-backed identity.
+- Updated dependencies [708176b]
+  - @kehto/acl@0.15.6
+  - @kehto/runtime@0.18.5
+
 ## 0.17.0
 
 ### Minor Changes
