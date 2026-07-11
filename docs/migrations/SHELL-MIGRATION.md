@@ -492,10 +492,9 @@ The `window.nostr` proxy in the iframe sends postMessages to `window.parent` usi
 
 ### 3.1 Background
 
-> Historical note: this section records the older capability-query design. The
-> current NIP-5D draft uses injected `window.napplet.<domain>` presence as the
-> runtime availability primitive; `shell.supports()` is retained only as
-> compatibility behavior for released shim/demo code.
+> Historical note: this section mixes the older service-query design with two
+> current contracts. NIP-5D injects optional `window.napplet.<domain>` bindings,
+> while mandatory NAP-SHELL owns local `shell.supports()` capability queries.
 
 That older draft specified two synchronous capability query APIs:
 

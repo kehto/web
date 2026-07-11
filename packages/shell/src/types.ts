@@ -282,13 +282,13 @@ export interface UnroutedMessageInfo {
 
 /**
  * Static capability set sent to napplet iframes through the shell.ready /
- * shell.init handshake. The current runtime availability primitive is injected
- * `window.napplet.<domain>` presence; this shape remains for older consumers
- * that still read shell.init capability metadata.
+ * shell.init handshake. Optional runtime domain presence is injected before
+ * authored code, while mandatory NAP-SHELL caches this environment for local
+ * capability queries.
  *
  * Current availability is the injected `window.napplet.<domain>` namespace.
- * Compatibility supports() helpers should treat only NAP domains and protocols
- * as advertised capabilities:
+ * NAP-SHELL supports() treats only NAP domains and protocols as advertised
+ * capabilities:
  *
  *   - Bare names for NAP-capability lookups, resolved against the `naps`
  *     array — e.g. `supports('relay')`, `supports('identity')`.
@@ -297,9 +297,9 @@ export interface UnroutedMessageInfo {
  * NIP-5D no longer blesses additional browser sandbox tokens as interoperability
  * requirements or napplet-visible capabilities.
  *
- * ## Compatibility NAP-SHELL shape
+ * ## NAP-SHELL shape
  *
- * Older shell consumers may read the structured
+ * The shell shim reads the structured
  * `capabilities.{ domains: string[], protocols: Record<string, string[]> }`
  * alongside the flat `naps` array:
  *
@@ -312,7 +312,7 @@ export interface UnroutedMessageInfo {
  */
 export interface ShellCapabilities {
   /**
-   * Compatibility NAP-SHELL domain list.
+   * NAP-SHELL domain list.
    * Bare NAP domain names the shell offers — `'identity'`, `'storage'`,
    * `'inc'`, `'theme'`, etc. — with the same conditional entries as `naps`
    * (`relay`/`outbox` when a relay pool is wired, `upload`/`intent` under their
@@ -321,11 +321,11 @@ export interface ShellCapabilities {
    */
   domains: string[];
   /**
-   * Compatibility NAP-SHELL per-domain numbered protocols. Maps a domain to the NAP-NN protocol IDs it
+   * NAP-SHELL per-domain numbered protocols. Maps a domain to the NAP-NN protocol IDs it
    * speaks — `{ inc: ['NAP-01','NAP-02','NAP-03','NAP-04','NAP-05','NAP-06'] }`
    * (derived from `NAP_INC_PROTOCOLS` by stripping the `inc:` prefix).
    *
-   * Legacy supports helpers resolve `supports('<domain>','NAP-NN')` against this map.
+   * Local supports helpers resolve `supports('<domain>','NAP-NN')` against this map.
    */
   protocols: Record<string, string[]>;
   /**

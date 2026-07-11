@@ -46,19 +46,23 @@ interface PreludeTestWindow {
   };
   addEventListener: (type: string, listener: PreludeListener) => void;
   removeEventListener: (type: string, listener: PreludeListener) => void;
+  dispatchMessage: (source: unknown, message: PostedMessage) => void;
   dispatchParentMessage: (message: PostedMessage) => void;
   dispatchKeydown: (event: PreludeKeydownInit) => PreludeTestEvent;
   postedMessages: PostedMessage[];
+  postedMessageListenerCounts: number[];
 }
 
 function createPreludeTestWindow(napplet?: Record<string, unknown>): PreludeTestWindow {
   const windowListeners = new Map<string, Set<PreludeListener>>();
   const documentListeners = new Map<string, Set<PreludeListener>>();
   const postedMessages: PostedMessage[] = [];
+  const postedMessageListenerCounts: number[] = [];
   let nextId = 0;
   const parent = {
     postMessage(message: PostedMessage) {
       postedMessages.push(message);
+      postedMessageListenerCounts.push(windowListeners.get('message')?.size ?? 0);
     },
   };
   const add = (listeners: Map<string, Set<PreludeListener>>, type: string, listener: PreludeListener): void => {
@@ -88,6 +92,7 @@ function createPreludeTestWindow(napplet?: Record<string, unknown>): PreludeTest
     napplet,
     parent,
     postedMessages,
+    postedMessageListenerCounts,
     document,
     crypto: {
       randomUUID: () => `id-${++nextId}`,
@@ -98,15 +103,18 @@ function createPreludeTestWindow(napplet?: Record<string, unknown>): PreludeTest
     removeEventListener(type, listener) {
       remove(windowListeners, type, listener);
     },
-    dispatchParentMessage(message) {
+    dispatchMessage(source, message) {
       dispatch(windowListeners, 'message', {
-        source: parent,
+        source,
         data: message,
         defaultPrevented: false,
         preventDefault() {
           this.defaultPrevented = true;
         },
       });
+    },
+    dispatchParentMessage(message) {
+      this.dispatchMessage(parent, message);
     },
     dispatchKeydown(init) {
       const event: PreludeTestEvent = {
@@ -129,6 +137,10 @@ function createPreludeTestWindow(napplet?: Record<string, unknown>): PreludeTest
       return event;
     },
   };
+}
+
+function withoutShellReady(target: PreludeTestWindow): PostedMessage[] {
+  return target.postedMessages.filter((message) => message.type !== 'shell.ready');
 }
 
 function elementTarget(
@@ -228,18 +240,100 @@ const sdkLike = {
 };
 
 describe('NIP-5D napplet namespace prelude', () => {
-  it('renders available bare NAP domains without legacy supports helpers', () => {
+  it('always renders mandatory NAP-SHELL before optional bare NAP domains', () => {
     const script = renderNappletNamespacePrelude({
       domains: ['relay', 'identity', 'relay', 'inc:NAP-01', 'perm:browser-relaxation', 'theme'],
     });
 
     expect(script).toContain('data-kehto-nip5d-injection');
-    expect(script).toContain('["relay","identity","theme"]');
-    expect(script).not.toContain('shell.supports');
+    expect(script).toContain('["shell","relay","identity","theme"]');
+    expect(script).toContain('makeShell');
     expect(script).not.toContain('perm:browser-relaxation');
     expect(script).not.toContain('inc:NAP-01');
     expect(script).toContain("set(value)");
     expect(script).toContain("buildNappletNamespace(value)");
+  });
+
+  it('installs the NAP-SHELL receiver before signaling ready and caches shell.init locally', async () => {
+    const target = createPreludeTestWindow();
+    const readyEnvironments: unknown[] = [];
+
+    runPrelude(renderNappletNamespacePrelude({ domains: ['relay', 'inc'] }), target);
+
+    const shell = target.napplet?.shell as {
+      ready: () => Promise<unknown>;
+      supports: (domain: string, protocol?: string) => boolean;
+      readonly services: readonly string[];
+      onReady: (handler: (environment: unknown) => void) => { close(): void };
+    };
+    expect(typeof shell.ready).toBe('function');
+    expect(typeof shell.supports).toBe('function');
+    expect(typeof shell.onReady).toBe('function');
+    expect(shell.services).toEqual([]);
+    expect(shell.supports('relay')).toBe(false);
+    expect(target.postedMessages).toEqual([{ type: 'shell.ready' }]);
+    expect(target.postedMessageListenerCounts[0]).toBeGreaterThan(0);
+
+    const subscription = shell.onReady((environment) => readyEnvironments.push(environment));
+    const cancelledEnvironments: unknown[] = [];
+    const cancelled = shell.onReady((environment) => cancelledEnvironments.push(environment));
+    cancelled.close();
+    const ready = shell.ready();
+    target.dispatchMessage({}, {
+      type: 'shell.init',
+      capabilities: { domains: ['forged'] },
+      services: ['forged'],
+    });
+    expect(shell.supports('forged')).toBe(false);
+
+    target.dispatchParentMessage({
+      type: 'shell.init',
+      capabilities: {
+        domains: ['relay', 'inc'],
+        protocols: { inc: ['NAP-01'] },
+      },
+      services: ['relay-pool', 'storage'],
+    });
+    const environment = await ready;
+
+    expect(environment).toEqual({
+      capabilities: {
+        domains: ['relay', 'inc'],
+        protocols: { inc: ['NAP-01'] },
+      },
+      services: ['relay-pool', 'storage'],
+    });
+    expect(readyEnvironments).toEqual([environment]);
+    expect(cancelledEnvironments).toEqual([]);
+    expect(shell.supports('relay')).toBe(true);
+    expect(shell.supports('inc', 'NAP-01')).toBe(true);
+    expect(shell.supports('inc', 'NAP-99')).toBe(false);
+    expect(shell.supports('unknown')).toBe(false);
+    expect(shell.services).toEqual(['relay-pool', 'storage']);
+    expect(Object.isFrozen(shell.services)).toBe(true);
+    (shell as { services: readonly string[] }).services = ['forged'];
+    expect(shell.services).toEqual(['relay-pool', 'storage']);
+
+    target.dispatchParentMessage({
+      type: 'shell.init',
+      capabilities: { domains: ['forged'] },
+      services: ['forged'],
+    });
+    expect(shell.services).toEqual(['relay-pool', 'storage']);
+    expect(readyEnvironments).toHaveLength(1);
+    const lateEnvironments: unknown[] = [];
+    shell.onReady((lateEnvironment) => lateEnvironments.push(lateEnvironment));
+    expect(lateEnvironments).toEqual([environment]);
+    subscription.close();
+  });
+
+  it('injects only mandatory NAP-SHELL when no optional domains are requested', () => {
+    const target = createPreludeTestWindow();
+
+    runPrelude(renderNappletNamespacePrelude({ domains: [] }), target);
+
+    expect(Object.keys(target.napplet ?? {})).toEqual(['shell']);
+    expect(target.postedMessages).toEqual([{ type: 'shell.ready' }]);
   });
 
   it('escapes script-breaking domain text', () => {
@@ -303,12 +397,13 @@ describe('NIP-5D napplet namespace prelude', () => {
 
     runPrelude(renderNappletNamespacePrelude({ domains: ['relay', 'identity'] }), target);
 
-    expect(target.napplet?.shell).toBeUndefined();
+    const injectedShell = target.napplet?.shell;
+    expect(typeof (injectedShell as Record<string, unknown>).ready).toBe('function');
     expect(target.napplet?.relay).toBe(existingRelay);
     expect(typeof (target.napplet?.identity as Record<string, unknown>).getPublicKey).toBe('function');
     expect(target.napplet?.upload).toBeUndefined();
     expect('__kehtoInjectedDomains' in (target.napplet ?? {})).toBe(false);
-    expect(Object.keys(target.napplet ?? {})).toEqual(['relay', 'identity']);
+    expect(Object.keys(target.napplet ?? {})).toEqual(['shell', 'relay', 'identity']);
 
     target.napplet = {
       relay,
@@ -318,10 +413,10 @@ describe('NIP-5D napplet namespace prelude', () => {
 
     expect(target.napplet?.relay).toBe(relay);
     expect(typeof (target.napplet?.identity as Record<string, unknown>).getPublicKey).toBe('function');
-    expect(target.napplet?.shell).toBeUndefined();
+    expect(target.napplet?.shell).toBe(injectedShell);
     expect(target.napplet?.upload).toBeUndefined();
     expect('__kehtoInjectedDomains' in (target.napplet ?? {})).toBe(false);
-    expect(Object.keys(target.napplet ?? {})).toEqual(['relay', 'identity']);
+    expect(Object.keys(target.napplet ?? {})).toEqual(['shell', 'relay', 'identity']);
 
     const namespace = target.napplet as Record<string, unknown>;
     namespace.upload = { put: () => undefined };
@@ -332,8 +427,9 @@ describe('NIP-5D napplet namespace prelude', () => {
     });
 
     expect(target.napplet?.upload).toBeUndefined();
-    expect(target.napplet?.shell).toBeUndefined();
-    expect(Object.keys(target.napplet ?? {})).toEqual(['relay', 'identity']);
+    expect(target.napplet?.shell).toBe(injectedShell);
+    expect(Object.keys(target.napplet ?? {})).toEqual(['shell', 'relay', 'identity']);
+    expect(target.postedMessages.filter((message) => message.type === 'shell.ready')).toHaveLength(1);
   });
 
   it('installs callable domain interfaces that route requests through parent postMessage', async () => {
@@ -498,7 +594,7 @@ describe('NIP-5D napplet namespace prelude', () => {
     });
 
     expect(event.defaultPrevented).toBe(false);
-    expect(target.postedMessages).toEqual([{
+    expect(withoutShellReady(target)).toEqual([{
       type: 'keys.forward',
       key: '2',
       code: 'Digit2',
@@ -535,7 +631,7 @@ describe('NIP-5D napplet namespace prelude', () => {
       isComposing: true,
     });
 
-    expect(target.postedMessages).toEqual([]);
+    expect(withoutShellReady(target)).toEqual([]);
   });
 
   it('uses keys.bindings as a local suppress list for injected onAction handlers', () => {
@@ -562,7 +658,7 @@ describe('NIP-5D napplet namespace prelude', () => {
 
     expect(event.defaultPrevented).toBe(true);
     expect(fired).toEqual(['editor.save']);
-    expect(target.postedMessages).toEqual([]);
+    expect(withoutShellReady(target)).toEqual([]);
 
     subscription.close();
   });
@@ -589,7 +685,7 @@ describe('NIP-5D napplet namespace prelude', () => {
 
     expect(event.defaultPrevented).toBe(false);
     expect(fired).toEqual([]);
-    expect(target.postedMessages).toEqual([{
+    expect(withoutShellReady(target)).toEqual([{
       type: 'keys.forward',
       key: 'Escape',
       code: 'Escape',

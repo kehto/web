@@ -654,23 +654,6 @@ async function installPajaHost(): Promise<void> {
       } else {
         setStatus(state, 'ready');
       }
-    } else if (
-      data
-      && typeof data === 'object'
-      && typeof data.type === 'string'
-      && (
-        sourceTab
-          ? (sourceTab.status === 'booting' || sourceTab.status === 'reloading')
-          : (state.status === 'booting' || state.status === 'reloading')
-      )
-    ) {
-      if (sourceTab) {
-        sourceTab.status = 'ready';
-        if (state.activeTabId === sourceTab.id) setStatus(state, 'ready');
-        renderRuntimeTabs(state);
-      } else {
-        setStatus(state, 'ready');
-      }
     }
   });
 

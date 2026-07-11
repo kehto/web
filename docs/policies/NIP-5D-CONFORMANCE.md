@@ -26,9 +26,13 @@ Current NIP-5D runtime availability is injected
 - Injection must be limited to `window.napplet`.
 - Domain object presence is availability only; operation semantics, versions,
   errors, and diagnostics belong to the matching NAP spec.
-- `window.napplet.shell.supports()` is not the normative NIP-5D availability
-  primitive. Kehto may carry compatibility types or tests for older consumers,
-  but the playground must not inject `shell` as an availability domain.
+- Optional-domain presence and mandatory NAP-SHELL are separate requirements.
+  Every Kehto-hosted iframe receives `window.napplet.shell` before authored code,
+  regardless of manifest `requires` or capability toggles.
+- NAP-SHELL owns `ready()`, local `supports(domain, protocol?)`, read-only
+  `services`, `onReady()`, and the `shell.ready` / `shell.init` lifecycle. The
+  runtime prelude installs its parent-bound receiver before emitting readiness;
+  napplet artifacts are not required to bundle their own handshake.
 
 ## Extension Classification
 

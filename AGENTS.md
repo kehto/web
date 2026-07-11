@@ -84,10 +84,10 @@ In the SAME branch/PR as the code change:
 
 #### NAP / NIP-5D conformance guardrails
 
-Before acting on any GitHub issue, contributor PR, review request, or bug report that
-touches a NAP/NIP-5D surface, run a specification check against the relevant
-`napplet/naps` NAP document first. Treat the issue/PR text, failing repro, proposed
-patch, and local tests as claims to verify — not as protocol authority.
+Before changing code, tests, docs, issue state, or PR review guidance that touches a
+NAP/NIP-5D surface, run a specification check against the relevant `napplet/naps` NAP
+document first. Treat issue/PR text, package exports, failing repros, proposed patches,
+and local tests as claims to verify — not as protocol authority.
 
 - Identify the owning NAP spec by domain/message (`naps/NAP-*.md` in
   `napplet/naps`) and record the exact source checked: merged `master` path when
@@ -111,9 +111,12 @@ When a NAP interface changes, or when shell/runtime code starts accepting a new 
 message field, finish the full kehto wiring in the same change. Do not stop at the
 first package that compiles.
 
-- Treat `@napplet/nap/*/types` as the canonical wire contract. Compare the new/changed
-  message field against kehto runtime handlers, shell/playground adapters, reference
-  services, ACL/capability mapping, docs, and tests.
+- Treat the owning `napplet/naps` document as the protocol authority and
+  `@napplet/nap/*/types` as its packaged implementation contract. A missing or stale
+  package export is upstream drift to report or repair, never permission to omit a
+  specified API. Compare new/changed behavior against kehto runtime handlers,
+  shell/playground/Paja adapters, reference services, ACL/capability mapping, docs, and
+  tests.
 - For NAP-RELAY subscribe fields, update all relay subscribe surfaces together:
   `packages/runtime/src/relay-handler.ts`, `packages/services/src/relay-pool-service.ts`,
   `packages/services/src/coordinated-relay.ts`, `apps/playground/src/playground-relay-service.ts`,
@@ -126,10 +129,16 @@ first package that compiles.
 - If a canonical NAP message gains a field that is intentionally ignored by a kehto
   surface, document that decision in the nearby test or source comment. Silent omission
   is treated as drift.
-- Current NIP-5D runtime availability is injected `window.napplet.<domain>`
-  presence before authored napplet scripts run. Do not describe
-  `window.napplet.shell.supports()` as normative NIP-5D behavior; it is only a
-  compatibility bridge for older consumers unless a future NAP spec owns it.
+- Do not conflate optional-domain discovery with the foundational handshake. NIP-5D
+  exposes optional runtime domains through injected `window.napplet.<domain>` presence;
+  NAP-SHELL separately mandates `window.napplet.shell` in every conformant runtime.
+  The injected shell receiver must be live before one bare `shell.ready`, cache the
+  first parent `shell.init`, and provide local `ready()`, `supports()`, read-only
+  `services`, and one-shot `onReady()` behavior. `shell` is never manifest-optional,
+  capability-toggleable, or removable by napplet namespace reassignment.
+- Every mandatory-NAP change needs a regression covering API shape, wire direction,
+  lifecycle/idempotency, parent-source trust, and all Kehto host consumers. For
+  NAP-SHELL, prove both Paja and playground iframe paths, not only the shell package.
 - If the playground changes NIP-5D loading, prove provenance in the same change:
   verified bytes go through `srcdoc`, injected bootstraps stay outside the signed
   artifact bytes, and gateway output remains an untrusted accelerator rather than

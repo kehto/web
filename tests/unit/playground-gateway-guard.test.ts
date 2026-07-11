@@ -77,6 +77,7 @@ describe('playground gateway artifact guard', () => {
     expect(sharedConfig).toContain('requires?: readonly string[]');
     expect(sharedConfig).toContain('manifest requires must use short NAP names');
     expect(sharedConfig).toContain('requires,');
+    expect(sharedConfig).not.toContain("window.parent.postMessage({ type: 'shell.ready' }, '*');");
   });
 
   it('loads napplets by content-addressed resolution into opaque-origin srcdoc iframes', () => {
@@ -95,6 +96,10 @@ describe('playground gateway artifact guard', () => {
     expect(shellHost).toContain('injectCspMeta(resolved.indexHtml, origins)');
     expect(shellHost).toContain("iframe.sandbox.add('allow-scripts')");
     expect(shellHost).not.toContain('allow-same-origin');
+    expect(shellHost).not.toContain('relay.runtime.sessionRegistry.register(windowId');
+    expect(shellHost).toContain('const realToProxy = new WeakMap<Window, Window>();');
+    expect(shellHost).toContain('originRegistry.getRegistrationId = (win: Window) =>');
+    expect(shellHost).toContain('originRegistry.getIdentity = (win: Window) =>');
 
     // The gateway is no longer in the trust path: no gateway metadata fetch and
     // no iframe.src navigation in the loader.
@@ -126,7 +131,7 @@ describe('playground gateway artifact guard', () => {
     expect(resolver).toContain('selectWriteRelays(');
     expect(resolver).toContain('injectCspMeta');
     expect(shellHost).toContain('injectNappletNamespacePrelude');
-    expect(shellHost).toContain('{ domains: resolved.requires }');
+    expect(shellHost).toContain("{ domains: ['shell', ...resolved.requires] }");
     expect(shellHost).not.toContain('getShellCapabilities()?.domains');
 
     // requires checked against the COMPUTED manifest before the iframe renders.
@@ -135,7 +140,7 @@ describe('playground gateway artifact guard', () => {
     expect(shellHost.indexOf('getMissingRequiredNaps(resolved.requires)')).toBeLessThan(
       shellHost.indexOf('iframe.srcdoc = injectNappletNamespacePrelude'),
     );
-    expect(shellHost.indexOf('{ domains: resolved.requires }')).toBeGreaterThan(
+    expect(shellHost.indexOf("{ domains: ['shell', ...resolved.requires] }")).toBeGreaterThan(
       shellHost.indexOf('iframe.srcdoc = injectNappletNamespacePrelude'),
     );
   });
@@ -178,7 +183,6 @@ describe('playground gateway artifact guard', () => {
     expect(feedSource).toContain("import { createFeedIdentityEventController } from './feed-identity-events.js';");
     expect(feedSource).toContain("const REQUIRED_NAPS = ['identity', 'relay', 'inc', 'theme'] as const;");
     expect(feedSource).toContain('getMissingNapDomains(REQUIRED_NAPS)');
-    expect(feedSource).not.toContain('shell.supports');
     expect(feedSource).toContain('readPublicKey: identityGetPublicKey');
     expect(feedSource).toContain('subscribeToChanges: identityOnChanged');
     expect(feedSource).toContain('identityController.start();');
@@ -224,7 +228,6 @@ describe('playground gateway artifact guard', () => {
     expect(profileSource).toContain("import { getMissingNapDomains } from '../../domain-availability';");
     expect(profileSource).toContain("const REQUIRED_NAPS = ['inc', 'relay', 'theme'] as const;");
     expect(profileSource).toContain('getMissingNapDomains(REQUIRED_NAPS)');
-    expect(profileSource).not.toContain('shell.supports');
     expect(profileSource).toContain('const CAPABILITY_WAIT_MS = 5_000;');
     expect(profileSource).toContain("formatError(err, 'inc or relay unavailable')");
     expect(profileSource).toContain("incOn('profile:open'");

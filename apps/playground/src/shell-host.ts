@@ -81,20 +81,24 @@ export {
 // (they are not a published package)
 
 const proxyToReal = new WeakMap<object, Window>();
+const realToProxy = new WeakMap<Window, Window>();
 
 function createPostMessageProxy(realWin: Window, messageTap: MessageTap, windowId?: string): Window {
+  const existing = realToProxy.get(realWin);
+  if (existing) return existing;
   const proxy = new Proxy(realWin, {
     get(target, prop) {
       if (prop === 'postMessage') {
         return (msg: unknown, targetOrigin: string, transfer?: Transferable[]) => {
+          const resolvedWindowId = windowId ?? originRegistry.getWindowId(realWin);
           if (Array.isArray(msg)) {
-            messageTap.recordOutbound(msg, windowId);
+            messageTap.recordOutbound(msg, resolvedWindowId);
           } else if (
             typeof msg === 'object' &&
             msg !== null &&
             typeof (msg as NappletMessage).type === 'string'
           ) {
-            messageTap.recordOutboundEnvelope(msg as NappletMessage, windowId);
+            messageTap.recordOutboundEnvelope(msg as NappletMessage, resolvedWindowId);
           }
           return target.postMessage(msg, targetOrigin, transfer);
         };
@@ -106,6 +110,7 @@ function createPostMessageProxy(realWin: Window, messageTap: MessageTap, windowI
     },
   });
   proxyToReal.set(proxy, realWin);
+  realToProxy.set(realWin, proxy);
   return proxy;
 }
 
@@ -251,6 +256,14 @@ function installOriginRegistryProxy(messageTap: MessageTap): void {
     }
     return undefined;
   };
+
+  const originalGetIdentity = originRegistry.getIdentity.bind(originRegistry);
+  originRegistry.getIdentity = (win: Window) =>
+    originalGetIdentity(win) ?? originalGetIdentity(proxyToReal.get(win) ?? win);
+
+  const originalGetRegistrationId = originRegistry.getRegistrationId.bind(originRegistry);
+  originRegistry.getRegistrationId = (win: Window) =>
+    originalGetRegistrationId(win) ?? originalGetRegistrationId(proxyToReal.get(win) ?? win);
 }
 
 function populateServiceHandlerStore(services: Record<string, ServiceHandler> | undefined): void {
@@ -315,7 +328,9 @@ function wrapRelayHandleMessage(messageTap: MessageTap): void {
       originalHandle(event);
       return;
     }
-    const proxiedSource = createPostMessageProxy(event.source as Window, messageTap);
+    const sourceWindow = event.source as Window;
+    const windowId = originRegistry.getWindowId(sourceWindow);
+    const proxiedSource = createPostMessageProxy(sourceWindow, messageTap);
     const syntheticEvent = new Proxy(event, {
       get(target, prop) {
         if (prop === 'source') return proxiedSource;
@@ -324,6 +339,14 @@ function wrapRelayHandleMessage(messageTap: MessageTap): void {
       },
     });
     originalHandle(syntheticEvent);
+    if (
+      windowId
+      && typeof event.data === 'object'
+      && event.data !== null
+      && (event.data as NappletMessage).type === 'shell.ready'
+    ) {
+      markEnvelopeIdentityBinding(windowId);
+    }
   };
 }
 
@@ -354,7 +377,16 @@ function markEnvelopeIdentityBinding(windowId: string): void {
   const info = napplets.get(windowId);
   if (!info || info.identityBound) return;
   const entry = relay.runtime.sessionRegistry.getEntryByWindowId(windowId);
-  if (entry) markNappletIdentityBound(info, entry);
+  if (!entry) return;
+  markNappletIdentityBound(info, entry);
+  window.dispatchEvent(new CustomEvent('napplet:identity-bound', {
+    detail: {
+      windowId,
+      dTag: entry.dTag,
+      aggregateHash: entry.aggregateHash,
+    },
+  }));
+  scheduleCurrentUserIdentitySync(info);
 }
 
 function markNappletIdentityBound(info: NappletInfo, entry: SessionEntry): void {
@@ -442,61 +474,19 @@ export async function loadNapplet(
   };
   napplets.set(windowId, info);
 
-  function markSourceDerivedIdentity(entry: SessionEntry): void {
-    const wasBound = info.identityBound;
-    info.identityBound = true;
-    info.pubkey = entry.pubkey;
-    info.dTag = entry.dTag;
-    info.aggregateHash = entry.aggregateHash;
-    if (!wasBound) {
-      window.dispatchEvent(new CustomEvent('napplet:identity-bound', {
-        detail: {
-          windowId,
-          dTag: entry.dTag,
-          aggregateHash: entry.aggregateHash,
-        },
-      }));
-    }
-    scheduleCurrentUserIdentitySync(info);
-  }
-
-  // NIP-5D session entry — registered immediately so storage.* and notify.* NAP
-  // handlers can resolve the napplet's identity without any runtime negotiation.
-  // dTag and aggregateHash are the COMPUTED identity from the verified manifest
-  // bytes, never asserted by a gateway.
-  function registerSessionEntry(): SessionEntry {
-    const entry: SessionEntry = {
-      pubkey: '',
-      windowId,
-      origin: 'null',
-      type: 'napplet',
-      dTag,
-      aggregateHash,
-      registeredAt: Date.now(),
-      instanceId: crypto.randomUUID(),
-      provenance: 'nip-5d',
-    };
-    relay.runtime.sessionRegistry.register(windowId, entry);
-    return entry;
-  }
-
   // Register origin immediately — contentWindow is available after appendChild.
-  // This must happen before the hosted artifact bootstrap can send shell.ready.
+  // shell.ready establishes the runtime session from this creation-time identity.
   if (iframe.contentWindow) {
     originRegistry.register(iframe.contentWindow, windowId, { dTag, aggregateHash });
-    markSourceDerivedIdentity(registerSessionEntry());
   }
 
   iframe.addEventListener('load', () => {
-    if (iframe.contentWindow) {
-      // Re-register the origin (idempotent) in case the contentWindow reference
-      // changed during load. Only (re)create the session entry if it was not
-      // already registered synchronously above — re-registering would mint a new
-      // instanceId/registeredAt and reset per-window runtime state (e.g. the
-      // firewall init-burst window), which can drop a napplet's first request
-      // when it acts immediately after reaching "ready".
+    if (
+      iframe.contentWindow
+      && originRegistry.getWindowId(iframe.contentWindow) !== windowId
+    ) {
+      // srcdoc may replace contentWindow; bind any replacement for its handshake.
       originRegistry.register(iframe.contentWindow, windowId, { dTag, aggregateHash });
-      if (!info.identityBound) markSourceDerivedIdentity(registerSessionEntry());
     }
   });
 
@@ -508,7 +498,7 @@ export async function loadNapplet(
   const origins = STATIC_ORIGIN_ALLOWLIST.get(dTag) ?? [];
   iframe.srcdoc = injectNappletNamespacePrelude(
     injectCspMeta(resolved.indexHtml, origins),
-    { domains: resolved.requires },
+    { domains: ['shell', ...resolved.requires] },
   );
 
   return info;

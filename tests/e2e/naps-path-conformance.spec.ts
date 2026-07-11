@@ -2,14 +2,14 @@
  * naps-path-conformance.spec.ts — TERM-04 / G6.
  *
  * Proves the migrated playground exercises the REAL released @napplet/shim
- * (0.24) injected-domain path, not the removed hosted shell.supports helper.
+ * injected-domain path plus the host-owned mandatory NAP-SHELL shim.
  *
  * Background (verified against the installed dist):
  *   - Kehto injects a srcdoc prelude that predeclares the verified manifest's
  *     bare required domains.
- *   - @napplet/shim 0.24 installs `window.napplet.<domain>` objects directly.
+ *   - A bundled @napplet/shim may install `window.napplet.<domain>` objects directly.
  *   - The prelude filters assignments back through the allowlist, so non-required
- *     domains and legacy shell helpers stay absent.
+ *     optional domains stay absent while NAP-SHELL remains unconditional.
  *
  * Target: the migrated profile-viewer napplet (requires ['inc', 'relay',
  * 'theme']). Asserting the namespace in-frame proves the host+shim pair uses the
@@ -52,18 +52,31 @@ test('profile-viewer receives current injected window.napplet domain objects', a
   expect(frame, 'profile-viewer content frame').not.toBeNull();
 
   // Single evaluate → deterministic boolean shape under workers:1.
-  const result = await frame!.evaluate(() => {
+  const result = await frame!.evaluate(async () => {
     const w = window as Window & {
-      napplet?: Record<string, unknown>;
+      napplet?: Record<string, unknown> & {
+        shell?: {
+          ready: () => Promise<unknown>;
+          supports: (domain: string, protocol?: string) => boolean;
+          services: readonly string[];
+          onReady: (handler: (environment: unknown) => void) => { close(): void };
+        };
+      };
       nostr?: unknown;
     };
     const namespaceKeys = Object.keys(w.napplet ?? {});
+    const shell = w.napplet?.shell;
+    await shell?.ready();
     return {
       namespaceKeys,
       incDomain: typeof w.napplet?.inc === 'object',
       relayDomain: typeof w.napplet?.relay === 'object',
       themeDomain: typeof w.napplet?.theme === 'object',
-      shellDomain: 'shell' in (w.napplet ?? {}),
+      shellDomain: typeof shell === 'object',
+      shellApi: typeof shell?.ready === 'function' &&
+        typeof shell?.supports === 'function' &&
+        typeof shell?.onReady === 'function' &&
+        Array.isArray(shell?.services),
       nostrdbDomain: 'nostrdb' in (w.napplet ?? {}),
       injectedDomainSentinel: '__kehtoInjectedDomains' in (w.napplet ?? {}),
       nostrGlobal: typeof w.nostr !== 'undefined',
@@ -73,9 +86,10 @@ test('profile-viewer receives current injected window.napplet domain objects', a
   expect(result.incDomain).toBe(true);
   expect(result.relayDomain).toBe(true);
   expect(result.themeDomain).toBe(true);
-  expect(result.shellDomain).toBe(false);
+  expect(result.shellDomain).toBe(true);
+  expect(result.shellApi).toBe(true);
   expect(result.nostrdbDomain).toBe(false);
   expect(result.injectedDomainSentinel).toBe(false);
   expect(result.nostrGlobal).toBe(false);
-  expect(result.namespaceKeys).toEqual(expect.arrayContaining(['inc', 'relay', 'theme']));
+  expect(result.namespaceKeys).toEqual(expect.arrayContaining(['shell', 'inc', 'relay', 'theme']));
 });
