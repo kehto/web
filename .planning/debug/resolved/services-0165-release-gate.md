@@ -23,6 +23,7 @@ NAP-OUTBOX draft PR napplet/naps#32 was checked at `4589a8f9a16d8aa29b3740e2b3b0
 - Synchronize package documentation rows with current manifest versions.
 - Fold the already-merged #173 behavior into the unpublished 0.16.5 changelog and consume its pending changeset, avoiding a duplicate future 0.16.6 metadata-only release.
 - Admit that narrow recovery in the changeset deletion guard only for explicit `fix(release):` PRs that update both package docs and a package changelog.
+- Refresh the Pages gateway audit to enforce the current NAP-SHELL lifecycle: creation-time computed identity is registered before render and bound only after bare `shell.ready` establishes the session.
 
 ## Verification target
 
