@@ -254,6 +254,31 @@ function confirmPajaRequest(
   state: PajaBrowserState | null,
   request: PajaConfirmationRequest,
 ): boolean {
+  if (request.action === 'upload') {
+    const filename = request.filename ?? '(unnamed blob)';
+    const mimeType = request.mimeType ?? 'application/octet-stream';
+    const allowed = window.confirm([
+      'Paja upload request',
+      `napplet: ${request.napplet.dTag} (${request.windowId})`,
+      `file: ${filename}`,
+      `size: ${request.size} bytes`,
+      `type: ${mimeType}`,
+      `server: ${request.server}`,
+      request.warning,
+    ].join('\n'));
+    appendPajaMessageLog(state, 'paja', {
+      type: `paja.upload.${allowed ? 'confirmed' : 'denied'}`,
+      windowId: request.windowId,
+      dTag: request.napplet.dTag,
+      aggregateHash: request.napplet.aggregateHash,
+      filename,
+      size: request.size,
+      mimeType,
+      server: request.server,
+      warning: request.warning,
+    });
+    return allowed;
+  }
   const event = request.event as { kind?: unknown; content?: unknown };
   const kind = typeof event.kind === 'number' ? event.kind : 'unknown';
   const content = typeof event.content === 'string' && event.content.length > 0

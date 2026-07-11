@@ -37,6 +37,8 @@ export interface PajaSignerController {
   getMethod(): PajaSignerMethod;
   /** Return the active signer pubkey, if one is connected. */
   getPubkey(): string | null;
+  /** Observe signer connection and identity changes. */
+  subscribe(listener: () => void): () => void;
   /** Switch to the deterministic development signer. */
   useDevSigner(): void;
   /** Connect to `window.nostr` when a NIP-07 signer is available. */
@@ -118,9 +120,11 @@ export function createPajaSignerController(options: PajaSignerControllerOptions)
   };
   let activeSigner: Signer | null = null;
   let activeClient: Nip46Client | null = null;
+  const listeners = new Set<() => void>();
 
   const update = (next: Partial<PajaSignerState>) => {
     state = { ...state, ...next };
+    for (const listener of listeners) listener();
     options.onChange(cloneState(state));
   };
 
@@ -134,6 +138,10 @@ export function createPajaSignerController(options: PajaSignerControllerOptions)
     getSigner: () => activeSigner,
     getMethod: () => state.method,
     getPubkey: () => state.pubkey,
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
     useDevSigner() {
       closeClient();
       activeSigner = null;

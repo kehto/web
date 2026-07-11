@@ -190,8 +190,9 @@ Options:
   --relay-url <url>           Add a relay URL for live or memory relay backends.
   --storage-mode <mode>       local, memory, or disabled.
   --cache-mode <mode>         memory or disabled.
-  --upload-mode <mode>        memory or disabled.
+  --upload-mode <mode>        memory, blossom, or disabled.
   --upload-rail <name>        Upload rail name for memory uploads.
+  --upload-server <url>       Add a shell-owned Blossom server (repeatable).
   --media <state>             enabled or disabled.
   --notifications <state>     enabled or disabled.
   --notify-grant <bool>       true or false default notification grant.
@@ -268,10 +269,13 @@ function applySimulationOption(
       ensureSimulation(raw).cache = { ...raw.simulation?.cache, mode: readEnum(args, index, arg, ['memory', 'disabled']) };
       return true;
     case '--upload-mode':
-      setUpload(raw, { mode: readEnum(args, index, arg, ['memory', 'disabled']) });
+      setUpload(raw, { mode: readEnum(args, index, arg, ['memory', 'blossom', 'disabled']) });
       return true;
     case '--upload-rail':
       setUpload(raw, { rail: readValue(args, index, arg) });
+      return true;
+    case '--upload-server':
+      setUpload(raw, { servers: [...(raw.simulation?.upload?.servers ?? []), readValue(args, index, arg)] });
       return true;
     case '--media':
       ensureSimulation(raw).media = { ...raw.simulation?.media, enabled: readEnabled(args, index, arg) };

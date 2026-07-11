@@ -63,6 +63,20 @@ describe('@kehto/paja config files', () => {
     expect(merged.simulation?.theme?.mode).toBe('light');
   });
 
+  it('replaces configured upload servers when CLI-shaped servers are present', () => {
+    const merged = mergePajaRawOptions({
+      targetUrl: 'http://127.0.0.1:5173',
+      simulation: { upload: { mode: 'blossom', servers: ['https://file.example'] } },
+    }, {
+      simulation: { upload: { servers: ['http://localhost:3000'] } },
+    });
+
+    expect(merged.simulation?.upload).toEqual({
+      mode: 'blossom',
+      servers: ['http://localhost:3000'],
+    });
+  });
+
   it('rejects non-object config files clearly', () => {
     const path = `/tmp/kehto-paja-invalid-${Date.now()}.json`;
     writeFileSync(path, '[]', 'utf8');
