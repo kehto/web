@@ -1,5 +1,11 @@
 # @kehto/paja
 
+## 0.7.0
+
+### Minor Changes
+
+- 96130bc: Add static Paja runtime tab share links and restore pointer-loaded tabs across browser sessions.
+
 ## 0.6.8
 
 ### Patch Changes
