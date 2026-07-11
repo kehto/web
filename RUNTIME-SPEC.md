@@ -88,12 +88,12 @@ to the napplet. Absence means unavailable. Presence does not define operations,
 payloads, versions, errors, or diagnostics; those stay owned by the matching NAP
 spec.
 
-The playground derives injected domains from the same shell capability list used
-for compatibility init payloads and strips permission/protocol entries before
-rendering. It does not inject `shell`; demo napplets preflight availability by
-checking required `window.napplet.<domain>` objects.
+The playground always injects mandatory `shell`, then adds optional domains from
+the verified manifest after stripping permission/protocol entries. Demo napplets
+may preflight optional availability by checking required
+`window.napplet.<domain>` objects or query the cached NAP-SHELL environment.
 
-## Compatibility NAP-SHELL Handshake
+## NAP-SHELL Handshake
 
 Every napplet bootstraps through the mandatory NAP-SHELL two-message handshake
 (see [`specs/NAP-SHELL.md`](specs/NAP-SHELL.md)):
@@ -104,13 +104,12 @@ Every napplet bootstraps through the mandatory NAP-SHELL two-message handshake
    capability environment and `services`.
 
 `shell.init` is sent exactly once per napplet lifecycle. A duplicate `shell.ready`
-from the same window is idempotent — no second session, no `shell.init` resend
-(enforced by a per-`windowId` `initSent` guard in `packages/shell/src/shell-ready.ts`).
+from the same registered window lifecycle is idempotent — no second session and no
+`shell.init` resend.
 
-### Compatibility capability wire shape
+### Capability environment shape
 
-`shell.init` carries a compatibility NAP-SHELL capability environment for older
-consumers:
+`shell.init` carries Kehto's NAP-SHELL capability environment:
 
 ```ts
 capabilities: {
@@ -119,11 +118,9 @@ capabilities: {
 }
 ```
 
-Legacy `shell.supports('relay')` helpers resolve against `domains`, and
-`shell.supports('inc','NAP-01')` helpers resolve against `protocols['inc']`.
-This is compatibility behavior only; it is no longer the NIP-5D runtime
-availability primitive. For back-compat, `domains`/`protocols` are emitted as a
-**superset alongside** the legacy `naps` / `sandbox` fields.
+`shell.supports('relay')` resolves locally against `domains`, and
+`shell.supports('inc','NAP-01')` resolves locally against `protocols['inc']`.
+For older consumers, Kehto also emits the flat `naps` and empty `sandbox` fields.
 Host-extended `perm:`-prefixed `sandbox` entries are folded into `domains`.
 Removal of the legacy fields is tracked as CLEANUP-01 and is NOT performed while
 the playground shim path still reads them.
@@ -147,8 +144,8 @@ The active NIP-5D primitives are:
 - manifest `requires` tags use short NAP/domain names;
 - hosted `window.napplet.<domain>` presence reflects shell-provided runtime
   domain availability before authored scripts execute;
-- legacy `window.napplet.shell.supports()` compatibility is not injected by the
-  playground and is not a current NIP-5D availability primitive;
+- mandatory `window.napplet.shell` is injected by every Kehto host and caches the
+  parent runtime's NAP-SHELL environment for local queries;
 - napplets do not receive `window.nostr`, signing keys, encryption keys, direct
   browser storage, IndexedDB, or direct relay WebSockets.
 

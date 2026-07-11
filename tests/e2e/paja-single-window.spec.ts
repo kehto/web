@@ -239,7 +239,7 @@ test('shows error details and routes signing through NIP-07', async ({ page }) =
   await expect(page.locator('#message-log .log-row[data-error="true"]')).toContainText('visible boom');
 });
 
-test('marks modern injected-domain targets ready without legacy shell.ready', async ({ page }) => {
+test('boots modern injected-domain targets through mandatory NAP-SHELL', async ({ page }) => {
   test.setTimeout(60_000);
   const modernRuntime = await startPajaServer({
     options: {
@@ -254,6 +254,15 @@ test('marks modern injected-domain targets ready without legacy shell.ready', as
 
     const targetFrame = page.frameLocator('#napplet-frame');
     await expect(targetFrame.locator('#injected-domains')).toHaveText('identity,keys');
+    await expect.poll(async () => targetFrame.locator('body').evaluate(() => {
+      const shell = (window as Window & {
+        napplet?: { shell?: Record<string, unknown> };
+      }).napplet?.shell;
+      return typeof shell?.ready === 'function'
+        && typeof shell.supports === 'function'
+        && typeof shell.onReady === 'function'
+        && Array.isArray(shell.services);
+    })).toBe(true);
     await expect(targetFrame.locator('#target-status')).toHaveText('napplet namespace ready', { timeout: 15_000 });
     await expect(targetFrame.locator('#identity-pubkey')).toHaveText('');
     await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
@@ -261,7 +270,7 @@ test('marks modern injected-domain targets ready without legacy shell.ready', as
     const state = await page.evaluate(() => window.__KEHTO_PAJA__?.getState());
     expect(state).toMatchObject({
       status: 'ready',
-      initSent: false,
+      initSent: true,
     });
   } finally {
     await modernRuntime.close();

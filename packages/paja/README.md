@@ -15,8 +15,10 @@ The runtime is designed to be used from a napplet package script:
 
 The target URL is explicit on purpose. Kehto can spawn any framework command and
 wait for that URL, but it does not guess which URL the framework chose. Loading
-that URL through Paja as injected `srcdoc` lets Kehto install
-`window.napplet.<domain>` before app code runs, while a `<base>` tag keeps the
+that URL through Paja as injected `srcdoc` lets Kehto install mandatory
+`window.napplet.shell` plus enabled optional domains before app code runs. The
+shell shim completes `shell.ready` / `shell.init` and caches capability queries,
+while a `<base>` tag keeps the
 app's own assets and HMR pointed at the target dev server without Vite, Svelte,
 React, or any other framework lock-in.
 
@@ -28,7 +30,7 @@ surface: relay/outbox, storage, identity, keys, config, resource, theme, notify,
 media, upload, intent, cvm, and inc. Relay/outbox defaults to live public relays
 and uses NIP-65 relay-list bootstrap plus kind `3` contact-list reads for
 identity flows; `--relay-mode memory` is the explicit deterministic fixture
-mode. `shell` is the mandatory handshake domain; the deprecated legacy package
+mode. `shell` is the mandatory, non-toggleable handshake domain; the deprecated legacy package
 path remains an upstream compatibility alias to `inc`. The upstream `dm` domain
 is not advertised until Paja wires a deterministic development DM backend.
 

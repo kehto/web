@@ -238,7 +238,6 @@ describe('NIP-5D conformance static guards', () => {
         `const REQUIRED_NAPS = [${requiresLiteral}] as const;`,
       );
       expect(source, `${name} source domain preflight`).toContain('getMissingNapDomains(REQUIRED_NAPS)');
-      expect(source, `${name} source no shell.supports preflight`).not.toContain('.napplet.shell.supports');
       expect(source, `${name} source unsupported path`).toContain('unsupported NAP capability');
     }
   });
@@ -300,6 +299,16 @@ describe('NIP-5D conformance static guards', () => {
     for (const file of Object.keys(rawListenerTypeGuards)) {
       expect(policy, `${file} policy path`).toContain(file);
     }
+  });
+
+  it('keeps mandatory NAP-SHELL separate from optional-domain discovery', () => {
+    const agents = readRepoFile('AGENTS.md');
+    const policy = readRepoFile('docs/policies/NIP-5D-CONFORMANCE.md');
+
+    expect(agents).toContain('NAP-SHELL separately mandates `window.napplet.shell`');
+    expect(agents).toMatch(/A missing or stale\s+package export is upstream drift/);
+    expect(policy).toContain('Optional-domain presence and mandatory NAP-SHELL are separate requirements.');
+    expect(policy).toContain('napplet artifacts are not required to bundle their own handshake');
   });
 
   it('keeps NAP-RELAY subscribe routing fields wired through runtime, services, playground, and tests', () => {

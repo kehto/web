@@ -26,23 +26,20 @@ const PLAYGROUND_MANIFEST_PRIVKEY_HEX = '11'.repeat(32);
 const SHORT_NAP_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
 // NIP-5D named napplet manifest kind (branch-HEAD: 35129 named / 15129 root / 5129 snapshot).
 const NAPPLET_MANIFEST_KIND = 35129;
-// Hosted-shell bootstrap marker + handshake nudge.
+// Hosted-shell bootstrap marker.
 //
-// @napplet/shim@0.24 owns the napplet-side global: it installs
+// @napplet/shim owns the napplet-side global when a napplet bundles it: it installs
 // `window.napplet.<domain>` objects from the current injected-domain contract
-// and auto-posts `{type:'shell.ready'}` on load. Kehto's host prelude may run
-// before the authored bundle to filter assigned domains through the verified
-// manifest's allowlist, so this bootstrap must not install its own namespace.
+// and may auto-post `{type:'shell.ready'}` on load. Kehto's host prelude runs
+// before the authored bundle, installs mandatory NAP-SHELL, and filters assigned
+// domains through the verified manifest's allowlist. This artifact bootstrap
+// must not install its own namespace or emit another readiness signal.
 //
 // What remains is intentionally minimal: set the `__kehtoHostedShellBootstrap`
-// marker (the playground host + single-file artifact tests assert it is injected)
-// and post `shell.ready`. The shim also posts `shell.ready`; per SHELL-01 the
-// runtime treats a duplicate `shell.ready` from the same window as idempotent
-// (one `shell.init`), so both posts are safe.
+// marker used by playground host and single-file artifact tests.
 const HOSTED_SHELL_BOOTSTRAP = String.raw`
 ;(() => {
   window.__kehtoHostedShellBootstrap = true;
-  window.parent.postMessage({ type: 'shell.ready' }, '*');
 })();`;
 
 /** An archetype the napplet fulfills, optionally with its recommended NAP-N protocol. */

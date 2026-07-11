@@ -130,20 +130,32 @@ test('resolved manifests and hosted supports match napplet contracts', async ({ 
     const frame = await handle!.contentFrame();
     expect(frame, `${name} content frame`).not.toBeNull();
 
-    await expect.poll(async () => frame!.evaluate((requires) => {
+    await expect.poll(async () => frame!.evaluate(async (requires) => {
       const maybeWindow = window as Window & {
         napplet?: {
           identity?: object;
           relay?: object;
           theme?: object;
           upload?: object;
-          shell?: unknown;
+          shell?: {
+            ready: () => Promise<unknown>;
+            supports: (domain: string, protocol?: string) => boolean;
+            services: readonly string[];
+            onReady: (handler: (environment: unknown) => void) => { close(): void };
+          };
         };
         nostr?: unknown;
       };
       const namespaceKeys = Object.keys(maybeWindow.napplet ?? {});
+      const shell = maybeWindow.napplet?.shell;
+      await shell?.ready();
       return requires.every((capability) => namespaceKeys.includes(capability)) &&
-        !namespaceKeys.includes('shell') &&
+        requires.every((capability) => shell?.supports(capability) === true) &&
+        namespaceKeys.includes('shell') &&
+        typeof shell?.ready === 'function' &&
+        typeof shell?.supports === 'function' &&
+        typeof shell?.onReady === 'function' &&
+        Array.isArray(shell?.services) &&
         !namespaceKeys.includes('nostrdb') &&
         !namespaceKeys.some((key) => key.startsWith('perm:')) &&
         !namespaceKeys.includes('__kehtoInjectedDomains') &&

@@ -119,9 +119,10 @@ kehto paja --config kehto.dev.json --theme dark
 
 ## Verify the Runtime Surface
 
-Inside the target iframe, enabled domains are present on
-`window.napplet.<domain>` before authored app scripts run, and `shell.ready`
-still receives `shell.init` through `@kehto/shell`. Disabled capability domains
+Inside the target iframe, mandatory `window.napplet.shell` and enabled optional
+domains are present before authored app scripts run. Its receiver is installed
+before one `shell.ready`; the returned `shell.init` is cached for `ready()`,
+`supports()`, `services`, and `onReady()`. Disabled optional capability domains
 are removed from the injected namespace and from the advertised `domains` and
 `naps` lists, while enabled domains route through Kehto runtime and reference
 services.

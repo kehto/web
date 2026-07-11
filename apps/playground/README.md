@@ -25,8 +25,8 @@ The active playground boot path is production-equivalent:
 1. Each demo napplet uses `apps/playground/napplets/shared-vite-config.ts`.
 2. The shared config lets `@napplet/vite-plugin` validate and sign the normal external-asset graph, then Kehto's post-build plugin rewrites the final gateway artifact to a single HTML file and recomputes the manifest.
 3. Each napplet build emits exactly `dist/index.html` plus `dist/.nip5a-manifest.json`.
-4. The shell resolves the manifest, verifies the signed content-addressed bytes, registers the session with the computed `(dTag, aggregateHash)`, and writes the verified HTML through `iframe.srcdoc`.
-5. Before authored scripts run, the shell prepends CSP metadata and a host-owned NIP-5D `window.napplet` domain-availability prelude. That injection is outside the signed artifact bytes and is filtered to the explicit domain allowlist.
+4. The shell resolves the manifest, verifies the signed content-addressed bytes, binds the iframe origin to the computed `(dTag, aggregateHash)`, and writes the verified HTML through `iframe.srcdoc`.
+5. Before authored scripts run, the shell prepends CSP metadata and a host-owned NIP-5D prelude outside the signed artifact bytes. It always installs mandatory `window.napplet.shell`, then filters optional domains to the verified manifest allowlist. `shell.ready` establishes the runtime session and receives the cached `shell.init` environment.
 6. The iframe sandbox remains opaque-origin: `allow-scripts` only, no `allow-same-origin`.
 
 The gateway route may still serve manifest/blob data as a local accelerator or debugging surface, but it is not the identity authority. New tests and docs should treat verified `srcdoc` loading plus `(dTag, aggregateHash)` provenance as the canonical playground boot path.

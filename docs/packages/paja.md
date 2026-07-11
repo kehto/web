@@ -106,13 +106,13 @@ For package-manager script examples covering `pnpm`, `npm`, and `yarn`, see
 In local target-url mode, the served host page is a single-window development
 runtime: a control console beside one sandboxed target iframe, plus compact top
 and bottom bars. The iframe is created without a static `src`; the browser
-bootstrap sets `sandbox="allow-scripts"`, registers the iframe with
-`@kehto/shell`, creates a source-derived NIP-5D session entry, fetches the
-explicit target URL through the local Paja server, and renders it as injected
-`srcdoc`. Paja prepends the runtime-owned `window.napplet.<domain>` namespace
-before authored scripts run and adds a `<base>` tag so target assets and HMR
-still resolve against the app dev server. A real `ShellBridge` plus
-`@kehto/runtime` handles `shell.ready`, `shell.init`, ACL, firewall, storage,
+bootstrap sets `sandbox="allow-scripts"`, registers the iframe origin with
+`@kehto/shell`, fetches the explicit target URL through the local Paja server,
+and renders it as injected `srcdoc`. Paja prepends mandatory
+`window.napplet.shell` plus the runtime-owned optional domain namespace before
+authored scripts run and adds a `<base>` tag so target assets and HMR still
+resolve against the app dev server. A real `ShellBridge` completes
+`shell.ready` / `shell.init`; `@kehto/runtime` then handles ACL, firewall, storage,
 INC, relay/outbox, and service dispatch. Reload uses a generation-specific
 internal window id so the same iframe can receive a fresh `shell.init` without
 restarting the CLI or the app dev server.

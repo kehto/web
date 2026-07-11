@@ -7,6 +7,7 @@ import {
 } from '@kehto/shell';
 
 import type { PajaHostConfig } from './options.js';
+import { PAJA_HANDSHAKE_DOMAINS } from './parity.js';
 import { injectPajaRuntimeCsp, type PajaResolvedPointer } from './runtime-resolver.js';
 import type { PajaCapabilityDomain, PajaSimulation } from './simulation.js';
 
@@ -22,7 +23,7 @@ export function getTargetIdentity(
 }
 
 export function registerFrameForGeneration(
-  bridge: ShellBridge,
+  _bridge: ShellBridge,
   frame: HTMLIFrameElement,
   config: PajaHostConfig,
   generation: number,
@@ -35,15 +36,6 @@ export function registerFrameForGeneration(
   originRegistry.register(win, windowId, {
     dTag: identity.dTag,
     aggregateHash: identity.aggregateHash,
-  });
-  bridge.runtime.sessionRegistry.register(windowId, {
-    ...identity,
-    windowId,
-    origin: 'null',
-    type: 'napplet',
-    registeredAt: Date.now(),
-    instanceId: `${windowId}:${Date.now()}`,
-    provenance: 'nip-5d',
   });
   return windowId;
 }
@@ -121,9 +113,16 @@ function getInjectedDomains(
     return simulation.capabilities.domains[knownDomain] !== false;
   });
   const required = resolvedTarget?.manifest.requires ?? [];
-  if (required.length === 0) return available;
   const availableSet = new Set(available);
-  return required.filter((domain) => availableSet.has(domain));
+  const optionalDomains = required.length === 0
+    ? available
+    : required.filter((domain) => availableSet.has(domain));
+  return [
+    ...PAJA_HANDSHAKE_DOMAINS,
+    ...optionalDomains.filter(
+      (domain) => !PAJA_HANDSHAKE_DOMAINS.some((handshakeDomain) => handshakeDomain === domain),
+    ),
+  ];
 }
 
 async function fetchTargetHtml(): Promise<string> {

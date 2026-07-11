@@ -1,4 +1,13 @@
 /**
+ * The injected implementation must remain one self-contained function: the
+ * renderer serializes it ahead of verified artifact scripts without changing
+ * the signed artifact bytes. Splitting it into imported helpers would leave
+ * unresolved closures in the generated `srcdoc`.
+ *
+ * aislop-ignore-file complexity/file-too-large complexity/function-too-long
+ */
+
+/**
  * Options for rendering the host-owned NIP-5D `window.napplet` namespace prelude.
  *
  * @example
@@ -10,7 +19,8 @@
  */
 export interface NappletNamespacePreludeOptions {
   /**
-   * Bare NAP domain names the shell exposes to this napplet.
+   * Optional bare NAP domain names the shell exposes to this napplet.
+   * Mandatory `shell` is injected even when omitted here.
    */
   domains: readonly string[];
 }
@@ -47,7 +57,7 @@ function scriptJson(value: unknown): string {
  * ```
  */
 export function renderNappletNamespacePrelude(options: NappletNamespacePreludeOptions): string {
-  const domains = uniqueBareDomains(options.domains);
+  const domains = uniqueBareDomains(['shell', ...options.domains]);
   return `<script data-kehto-nip5d-injection>(${nappletNamespacePrelude.toString()})(${scriptJson(domains)});</script>`;
 }
 
@@ -178,6 +188,84 @@ function nappletNamespacePrelude(domains: string[]): void {
         close();
       },
     };
+  }
+
+  function makeShell(): Record<string, unknown> {
+    type ShellEnvironment = {
+      capabilities: unknown;
+      services: readonly string[];
+    };
+    type ReadyHandler = (environment: ShellEnvironment) => void;
+
+    const emptyServices = Object.freeze([] as string[]);
+    const readyHandlers = new Set<ReadyHandler>();
+    let environment: ShellEnvironment | undefined;
+    let resolveReady: (environment: ShellEnvironment) => void = () => undefined;
+    const ready = new Promise<ShellEnvironment>((resolve) => {
+      resolveReady = resolve;
+    });
+
+    const off = listen((event) => {
+      if (!isParentMessage(event) || environment) return;
+      const incoming = event.data;
+      if (typeof incoming !== 'object' || incoming === null) return;
+      const message = incoming as RuntimeMessage;
+      if (message.type !== 'shell.init') return;
+
+      const services = Object.freeze(
+        Array.isArray(message.services)
+          ? message.services.filter((service): service is string => typeof service === 'string')
+          : [],
+      );
+      environment = Object.freeze({
+        capabilities: message.capabilities ?? {},
+        services,
+      });
+      off();
+      resolveReady(environment);
+      for (const handler of readyHandlers) handler(environment);
+      readyHandlers.clear();
+    });
+
+    function supports(domain: string, protocol?: string): boolean {
+      if (!environment || typeof environment.capabilities !== 'object' || environment.capabilities === null) {
+        return false;
+      }
+      const capabilities = environment.capabilities as Record<string, unknown>;
+      if (protocol !== undefined) {
+        const protocols = capabilities.protocols;
+        if (typeof protocols === 'object' && protocols !== null) {
+          const supported = (protocols as Record<string, unknown>)[domain];
+          if (Array.isArray(supported) && supported.includes(protocol)) return true;
+        }
+        return Array.isArray(capabilities.naps)
+          && capabilities.naps.includes(`${domain}:${protocol}`);
+      }
+      return (Array.isArray(capabilities.domains) && capabilities.domains.includes(domain))
+        || (Array.isArray(capabilities.naps) && capabilities.naps.includes(domain));
+    }
+
+    const shell = {
+      ready: () => ready,
+      supports,
+      get services(): readonly string[] {
+        return environment?.services ?? emptyServices;
+      },
+      set services(_services: readonly string[]) {
+        // Ignore napplet/shim reassignment; NAP-SHELL services stay runtime-owned.
+      },
+      onReady(handler: ReadyHandler) {
+        if (environment) {
+          handler(environment);
+          return subscriptionHandle(() => undefined);
+        }
+        readyHandlers.add(handler);
+        return subscriptionHandle(() => readyHandlers.delete(handler));
+      },
+    };
+
+    post({ type: 'shell.ready' });
+    return shell;
   }
 
   function domainEventHandle(
@@ -520,7 +608,7 @@ function nappletNamespacePrelude(domains: string[]): void {
       }
     });
 
-    const documentLike = target.document as unknown as {
+    const documentLike = target.document as {
       activeElement?: unknown;
       addEventListener?: (type: string, listener: (event: Event) => void) => void;
     } | undefined;
@@ -1043,7 +1131,10 @@ function nappletNamespacePrelude(domains: string[]): void {
     };
   }
 
+  const shell = makeShell();
+
   function makeDomain(domain: string, existing: unknown): unknown {
+    if (domain === 'shell') return shell;
     if (existing && typeof existing === 'object' && Object.keys(existing).length > 0) return existing;
     switch (domain) {
       case 'relay': return makeRelay();
