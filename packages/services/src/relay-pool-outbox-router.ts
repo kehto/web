@@ -147,7 +147,7 @@ async function resolvePlan(
   relayHints?: string[],
 ): Promise<OutboxRelayPlan> {
   const useWrite = direction === 'read';
-  const collected = new Set<string>();
+  const discovered = new Set<string>();
   const missingAuthors: string[] = [];
   let sawNip65 = false;
 
@@ -158,25 +158,28 @@ async function resolvePlan(
       const relays = entry ? (useWrite ? entry.write : entry.read) : undefined;
       if (relays && relays.length > 0) {
         sawNip65 = true;
-        for (const url of relays) collected.add(url);
+        for (const url of relays) discovered.add(url);
       } else {
         missingAuthors.push(pubkey);
       }
     }
   }
 
-  // Relay hints from the napplet augment the plan, subject to the relay gate.
-  for (const url of relayHints ?? []) collected.add(url);
-
-  let relays = allowed(ctx, collected);
+  const hintRelays = allowed(ctx, relayHints ?? []);
+  let relays = allowed(ctx, discovered);
   let source: OutboxRelayPlan['source'];
-  if (relays.length === 0) {
-    relays = allowed(ctx, ctx.fallbackRelays);
-    source = 'fallback';
-  } else {
-    // nip65 if any author list contributed; otherwise only hints did (policy).
+  if (relays.length > 0) {
     source = sawNip65 ? 'nip65' : 'policy';
+  } else {
+    relays = allowed(ctx, ctx.fallbackRelays);
+    source = relays.length > 0 ? 'fallback' : 'policy';
   }
+
+  // Relay hints from the napplet augment the host-owned plan, subject to the relay gate.
+  for (const url of hintRelays) {
+    if (!relays.includes(url)) relays.push(url);
+  }
+  if (relays.length === 0) source = 'fallback';
 
   const plan: OutboxRelayPlan = { relays, source };
   if (missingAuthors.length > 0) plan.missingAuthors = missingAuthors;
