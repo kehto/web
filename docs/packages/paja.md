@@ -145,7 +145,11 @@ In both cases Paja verifies the signed manifest, aggregate hash, and every
 Blossom blob, then injects the same runtime-owned `window.napplet.<domain>`
 namespace before assigning iframe `srcdoc`. Loading an already-running napplet
 opens an in-page choice to load another instance, switch to the existing tab, or
-cancel.
+cancel. Each tab includes a share control that copies a `/web/paja/?naddr=...`
+or `/web/paja/?nevent=...` link for that pointer, and the browser remembers open
+runtime tabs in local storage so returning to `/web/paja/` restores the previous
+pointer set. An explicit pointer in the URL still takes precedence over restored
+tabs.
 
 ## NAP and Service Parity
 
