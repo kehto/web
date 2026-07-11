@@ -48,6 +48,8 @@ describe('@kehto/paja host page', () => {
     expect(html).toContain('id="runtime-pointer-form"');
     expect(html).toContain('id="runtime-pointer-input"');
     expect(html).toContain('id="napplet-tabs"');
+    expect(html).toContain('grid-template-columns: minmax(0, 1fr) 24px 24px;');
+    expect(html).toContain('.tab-share, .tab-close');
     expect(html).toContain('id="napplet-stage"');
     expect(html).toContain('id="empty-runtime-stage"');
     expect(html).toContain('id="duplicate-pointer-dialog"');

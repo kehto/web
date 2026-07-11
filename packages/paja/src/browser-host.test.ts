@@ -30,7 +30,20 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(tabsSource).toContain('function closeRuntimeTab(');
     expect(tabsSource).toContain('function showDuplicatePointerDialog()');
     expect(tabsSource).toContain("type PajaDuplicateChoice = 'load-again' | 'open-tab' | 'cancel';");
-    expect(source).toContain("const duplicate = state.tabs.find((tab) => tab.key === resolvedTargetKey(resolvedTarget));");
+    expect(source).toContain('state.tabs.find((tab) => tab.key === resolvedTargetKey(resolvedTarget));');
+  });
+
+  it('keeps pointer runtime tabs shareable and restored from local storage', () => {
+    const source = readFileSync(new URL('./browser-host.ts', import.meta.url), 'utf8');
+    const tabsSource = readFileSync(new URL('./browser-runtime-tabs.ts', import.meta.url), 'utf8');
+
+    expect(tabsSource).toContain("export const PAJA_RUNTIME_TABS_STORAGE_KEY = 'kehto:paja:runtime-tabs:v1';");
+    expect(tabsSource).toContain('function renderShareButton(tab: PajaRuntimeTab): HTMLButtonElement');
+    expect(tabsSource).toContain('createPajaShareUrl(tab.pointerValue)');
+    expect(source).toContain('function persistRuntimeTabs(state: PajaBrowserState): void');
+    expect(source).toContain('function restorePersistedRuntimeTabs(');
+    expect(source).toContain('const persistedTabs = readPersistedRuntimeTabs(config);');
+    expect(source).toContain('else if (persistedTabs) void restorePersistedRuntimeTabs(state, context, persistedTabs);');
   });
 
   it('keeps external target asset resolution anchored to the authored target URL', () => {

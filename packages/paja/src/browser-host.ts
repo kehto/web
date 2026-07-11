@@ -22,11 +22,15 @@ import {
   addRuntimeTab,
   closeRuntimeTab,
   getActiveTab,
+  PAJA_RUNTIME_TABS_STORAGE_KEY,
+  parseRuntimeTabsSnapshot,
   reloadActiveRuntimeTab,
   renderRuntimeTabs,
   resolvedTargetKey,
   setEmptyStageVisible,
   showDuplicatePointerDialog,
+  snapshotRuntimeTabs,
+  type PajaRuntimeTabsSnapshot,
   type PajaRuntimeTab,
   type PajaRuntimeTabContext,
   type PajaRuntimeTabRuntime,
@@ -175,6 +179,37 @@ function readInitialPointerValue(config: PajaHostConfig): string {
     ?? params.get('pointer')
     ?? config.target.pointer?.value
     ?? '';
+}
+
+function getRuntimeTabsStorage(config: PajaHostConfig): Storage | null {
+  if (config.target.mode !== 'runtime-pointer') return null;
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function readPersistedRuntimeTabs(config: PajaHostConfig): PajaRuntimeTabsSnapshot | null {
+  const storage = getRuntimeTabsStorage(config);
+  if (!storage) return null;
+  try {
+    return parseRuntimeTabsSnapshot(storage.getItem(PAJA_RUNTIME_TABS_STORAGE_KEY));
+  } catch {
+    return null;
+  }
+}
+
+function persistRuntimeTabs(state: PajaBrowserState): void {
+  const storage = getRuntimeTabsStorage(state.config);
+  if (!storage) return;
+  const snapshot = snapshotRuntimeTabs(state);
+  try {
+    if (snapshot) storage.setItem(PAJA_RUNTIME_TABS_STORAGE_KEY, JSON.stringify(snapshot));
+    else storage.removeItem(PAJA_RUNTIME_TABS_STORAGE_KEY);
+  } catch {
+    // Storage persistence is best-effort; Paja runtime loading must keep working.
+  }
 }
 
 function setStatus(state: PajaBrowserState, status: PajaBrowserState['status']): void {
@@ -384,6 +419,7 @@ async function loadRuntimePointer(
   state: PajaBrowserState,
   context: PajaBrowserStateContext,
   value: string,
+  options: { readonly skipDuplicatePrompt?: boolean; readonly persist?: boolean } = {},
 ): Promise<void> {
   const { config } = context;
   if (config.target.mode !== 'runtime-pointer') return;
@@ -411,7 +447,7 @@ async function loadRuntimePointer(
       dTag: resolvedTarget.dTag,
       aggregateHash: resolvedTarget.aggregateHash,
     });
-    const duplicate = state.tabs.find((tab) => tab.key === resolvedTargetKey(resolvedTarget));
+    const duplicate = options.skipDuplicatePrompt ? undefined : state.tabs.find((tab) => tab.key === resolvedTargetKey(resolvedTarget));
     if (duplicate) {
       const choice = await showDuplicatePointerDialog();
       if (choice === 'cancel') {
@@ -422,11 +458,13 @@ async function loadRuntimePointer(
       }
       if (choice === 'open-tab') {
         activateRuntimeTab(state, context, duplicate.id);
+        if (options.persist !== false) persistRuntimeTabs(state);
         appendPajaMessageLog(state, 'paja', { type: 'paja.pointer.duplicate.opened', tabId: duplicate.id });
         return;
       }
     }
     addRuntimeTab(state, context, pointer, resolvedTarget);
+    if (options.persist !== false) persistRuntimeTabs(state);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     state.resolvedTarget = null;
@@ -434,6 +472,19 @@ async function loadRuntimePointer(
     setStatus(state, 'error');
     appendPajaMessageLog(state, 'paja', { type: 'paja.pointer.error', error: message });
   }
+}
+
+async function restorePersistedRuntimeTabs(
+  state: PajaBrowserState,
+  context: PajaBrowserStateContext,
+  snapshot: PajaRuntimeTabsSnapshot,
+): Promise<void> {
+  for (const pointer of snapshot.pointers) {
+    await loadRuntimePointer(state, context, pointer, { skipDuplicatePrompt: true, persist: false });
+  }
+  const activeTab = state.tabs[snapshot.activeIndex] ?? state.tabs[0];
+  if (activeTab) activateRuntimeTab(state, context, activeTab.id);
+  persistRuntimeTabs(state);
 }
 
 function snapshotPajaBrowserState(state: PajaBrowserState, runtime: PajaHostRuntimeState): ReturnType<PajaBrowserState['getState']> {
@@ -482,9 +533,11 @@ function createPajaBrowserState(context: PajaBrowserStateContext): PajaBrowserSt
     },
     activateTab(tabId) {
       activateRuntimeTab(this, context, tabId);
+      persistRuntimeTabs(this);
     },
     closeTab(tabId) {
       closeRuntimeTab(this, context, tabId);
+      persistRuntimeTabs(this);
     },
     setThemeMode(mode) {
       runtime.currentSimulation = {
@@ -638,9 +691,11 @@ async function installPajaHost(): Promise<void> {
   setSimulationStatus(state);
   setPointerStatus(state, state.pointerStatus);
   if (config.target.mode === 'runtime-pointer') {
+    const persistedTabs = readPersistedRuntimeTabs(config);
     const input = document.getElementById('runtime-pointer-input');
     if (input instanceof HTMLInputElement) input.value = state.pointerValue;
     if (state.pointerValue) void state.loadPointer(state.pointerValue);
+    else if (persistedTabs) void restorePersistedRuntimeTabs(state, context, persistedTabs);
     else {
       setStatus(state, 'ready');
       setEmptyStageVisible(true);
