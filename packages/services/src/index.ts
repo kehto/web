@@ -118,7 +118,10 @@ export type {
   OutboxPublishOptions,
   OutboxTarget,
   OutboxSubscriptionSink,
+  OutboxQueryStreamSink,
+  OutboxQueryStream,
   OutboxRouterSubscription,
+  StreamingOutboxRouter,
 } from './outbox-service.js';
 
 export { createRelayPoolOutboxRouter } from './relay-pool-outbox-router.js';
