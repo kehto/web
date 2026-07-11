@@ -1,15 +1,15 @@
 {
   "name": "@kehto/services",
-  "version": "0.16.2",
+  "version": "0.16.4",
   "license": "MIT",
   "exports": {
     ".": "./src/index.ts",
     "./cvm-nostr-transport": "./src/cvm-nostr-transport.ts"
   },
   "imports": {
-    "@kehto/runtime": "jsr:@kehto/runtime@^0.18.3",
-    "@napplet/core": "jsr:@napplet/core@^0.23.0",
-    "@napplet/nap": "jsr:@napplet/nap@^0.23.0",
+    "@kehto/runtime": "jsr:@kehto/runtime@^0.18.5",
+    "@napplet/core": "jsr:@napplet/core@^0.28.0",
+    "@napplet/nap": "jsr:@napplet/nap@^0.28.0",
     "nostr-tools": "npm:nostr-tools@^2.23.3"
   },
   "publish": {

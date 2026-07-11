@@ -6,7 +6,7 @@ import type {
   ServiceHandler,
   ShellAdapter,
 } from '@kehto/shell';
-import { createRelayEventResultWithHints, type Signer } from '@kehto/runtime';
+import type { Signer } from '@kehto/runtime';
 import {
   createBleService,
   createCommonService,
@@ -22,6 +22,7 @@ import {
   createNotificationService,
   createNotifyService,
   createOutboxService,
+  createRelayPoolOutboxRouter,
   createRelayPoolService,
   createResourceService,
   createSerialService,
@@ -40,7 +41,7 @@ import {
   type UploadStatus,
 } from '@kehto/services';
 import type { Theme } from '@napplet/nap/theme/types';
-import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools/pure';
+import { finalizeEvent, generateSecretKey, getPublicKey, verifyEvent } from 'nostr-tools/pure';
 
 import {
   createDevBleController,
@@ -49,7 +50,18 @@ import {
   createDevWebrtcController,
 } from './development-services.js';
 import type { PajaHostConfig } from './options.js';
+import type { PajaSignerMethod } from './browser-signers.js';
 import type { PajaSimulation } from './simulation.js';
+import {
+  PAJA_LIVE_QUERY_WAIT_MS,
+  createPajaIdentityProviders,
+  createPajaOutboxRelayPool,
+  createPajaRelayBackend,
+  createPajaRelayListLoader,
+  getPajaRelayUrls,
+  matchesAnyFilter,
+  type PajaRelayBackend,
+} from './browser-relay-runtime.js';
 
 /** Confirmation request emitted before Paja signs or publishes. */
 export interface PajaConfirmationRequest {
@@ -63,6 +75,8 @@ export interface PajaConfirmationRequest {
 export interface PajaSignerProvider {
   /** Active signer, if connected. */
   getSigner(): Signer | null;
+  /** Selected signer backend. */
+  getMethod(): PajaSignerMethod;
   /** Active signer pubkey, if connected. */
   getPubkey(): string | null;
 }
@@ -84,102 +98,6 @@ const DEV_CVM_SERVER: CvmServer = {
   capabilities: ['echo'],
 };
 
-function matchesFilter(event: NostrEvent, filter: NostrFilter): boolean {
-  const ids = filter.ids;
-  if (ids && !ids.includes(event.id)) return false;
-  const authors = filter.authors;
-  if (authors && !authors.includes(event.pubkey)) return false;
-  const kinds = filter.kinds;
-  if (kinds && !kinds.includes(event.kind)) return false;
-  return true;
-}
-
-function matchesAnyFilter(event: NostrEvent, filters: NostrFilter[]): boolean {
-  return filters.length === 0 || filters.some((filter) => matchesFilter(event, filter));
-}
-
-function createMemoryRelayPool(
-  getSimulation: () => PajaSimulation,
-  confirmRequest: (request: PajaConfirmationRequest) => boolean,
-): RelayPoolLike {
-  const events: NostrEvent[] = getSimulation().relay.fixtures.flatMap(toNostrEvent);
-  const subscribers = new Set<{
-    filters: NostrFilter[];
-    next(item: NostrEvent | 'EOSE'): void;
-  }>();
-
-  return {
-    subscription(_relayUrls: string[], filters: NostrFilter[]) {
-      return {
-        subscribe(next: (item: unknown) => void) {
-          const subscriber = {
-            filters,
-            next: (item: NostrEvent | 'EOSE') => next(item),
-          };
-          subscribers.add(subscriber);
-          for (const event of events) {
-            if (matchesAnyFilter(event, filters)) next(event);
-          }
-          queueMicrotask(() => {
-            if (subscribers.has(subscriber)) next('EOSE');
-          });
-          return {
-            unsubscribe() {
-              subscribers.delete(subscriber);
-            },
-          };
-        },
-      };
-    },
-    publish(_relayUrls: string[], event: NostrEvent): void {
-      if (getSimulation().relay.mode === 'disabled') return;
-      if (!confirmRequest({ action: 'publish', event })) return;
-      events.push(event);
-      for (const subscriber of subscribers) {
-        if (matchesAnyFilter(event, subscriber.filters)) subscriber.next(event);
-      }
-    },
-    request(_relayUrls: string[], filters: NostrFilter[]) {
-      return {
-        subscribe(observer: { next: (event: unknown) => void; complete: () => void; error: () => void }) {
-          for (const event of events) {
-            if (matchesAnyFilter(event, filters)) observer.next(event);
-          }
-          queueMicrotask(() => observer.complete());
-          return { unsubscribe() { /* no-op */ } };
-        },
-      };
-    },
-    count(_relayUrls: string[], filters: NostrFilter[]): number {
-      const seen = new Set<string>();
-      for (const event of events) {
-        if (matchesAnyFilter(event, filters)) seen.add(event.id);
-      }
-      return seen.size;
-    },
-  };
-}
-
-function toNostrEvent(value: unknown): NostrEvent[] {
-  if (
-    typeof value === 'object'
-    && value !== null
-    && typeof (value as { id?: unknown }).id === 'string'
-    && typeof (value as { pubkey?: unknown }).pubkey === 'string'
-    && typeof (value as { kind?: unknown }).kind === 'number'
-    && Array.isArray((value as { tags?: unknown }).tags)
-    && typeof (value as { content?: unknown }).content === 'string'
-    && typeof (value as { sig?: unknown }).sig === 'string'
-  ) {
-    return [value as NostrEvent];
-  }
-  return [];
-}
-
-function getRelayUrls(simulation: PajaSimulation): string[] {
-  return simulation.relay.mode === 'memory' ? [...simulation.relay.urls] : [];
-}
-
 function createRelayHooks(pool: RelayPoolLike, getSimulation: () => PajaSimulation): RelayPoolHooks {
   const cleanups = new Map<string, () => void>();
   return {
@@ -195,10 +113,10 @@ function createRelayHooks(pool: RelayPoolLike, getSimulation: () => PajaSimulati
     closeScopedRelay: () => {},
     publishToScopedRelay: (_windowId, event) => {
       if (getSimulation().relay.mode === 'disabled') return false;
-      pool.publish(getRelayUrls(getSimulation()), event);
+      pool.publish(getPajaRelayUrls(getSimulation()), event);
       return true;
     },
-    selectRelayTier: () => getRelayUrls(getSimulation()),
+    selectRelayTier: () => getPajaRelayUrls(getSimulation()),
   };
 }
 
@@ -271,7 +189,7 @@ function createDevCvmTransport(getSimulation: () => PajaSimulation): CvmTranspor
   return {
     async discover() {
       if (!getSimulation().cvm.enabled) return [];
-      return [{ ...DEV_CVM_SERVER, relays: getRelayUrls(getSimulation()) }];
+      return [{ ...DEV_CVM_SERVER, relays: getPajaRelayUrls(getSimulation()) }];
     },
     async request(_server, message): Promise<McpMessage> {
       const id = typeof message.id === 'string' || typeof message.id === 'number' ? message.id : 'paja';
@@ -294,48 +212,28 @@ function createDevCvmTransport(getSimulation: () => PajaSimulation): CvmTranspor
 }
 
 function createOutboxRouter(
-  pool: RelayPoolLike,
+  backend: PajaRelayBackend,
   getSimulation: () => PajaSimulation,
   confirmRequest: (request: PajaConfirmationRequest) => boolean,
   signerProvider?: PajaSignerProvider,
 ) {
-  return {
-    async query(filters: NostrFilter[]) {
-      const relayUrls = getRelayUrls(getSimulation());
-      const events = await new Promise<NostrEvent[]>((resolve) => {
-        const out: NostrEvent[] = [];
-        pool.request(relayUrls, filters).subscribe({
-          next: (event) => out.push(event as NostrEvent),
-          complete: () => resolve(out),
-          error: () => resolve(out),
-        });
-      });
-      return { events: events.map((event) => createRelayEventResultWithHints(event, relayUrls)) };
+  return createRelayPoolOutboxRouter({
+    relayPool: createPajaOutboxRelayPool(backend),
+    loadRelayLists: createPajaRelayListLoader(backend, getSimulation, signerProvider),
+    fallbackRelays: getPajaRelayUrls(getSimulation()),
+    signEvent: async (template) => {
+      const signer = createRuntimeSigner(getSimulation, confirmRequest, signerProvider);
+      if (!signer?.signEvent) throw new Error('no signer configured');
+      const event = { ...template };
+      event.created_at ??= Math.floor(Date.now() / 1000);
+      event.kind ??= 1;
+      event.tags ??= [];
+      event.content ??= '';
+      return signer.signEvent(event);
     },
-    subscribe(filters: NostrFilter[], _options: unknown, sink: { event(result: ReturnType<typeof createRelayEventResultWithHints>): void; closed(reason?: string): void }) {
-      const relayUrls = getRelayUrls(getSimulation());
-      const sub = pool.subscription(relayUrls, filters).subscribe((item) => {
-        if (item === 'EOSE') return;
-        sink.event(createRelayEventResultWithHints(item as NostrEvent, relayUrls[0] ? [relayUrls[0]] : relayUrls));
-      });
-      return { close: () => sub.unsubscribe() };
-    },
-    async publish(template: Partial<NostrEvent>) {
-      const event = await createRuntimeSigner(getSimulation, confirmRequest, signerProvider).signEvent!({
-        created_at: Math.floor(Date.now() / 1000),
-        kind: 1,
-        tags: [],
-        content: '',
-        ...template,
-      });
-      const relayUrls = getRelayUrls(getSimulation());
-      pool.publish(relayUrls, event);
-      return { ok: true, event, eventId: event.id, relays: { [relayUrls[0] ?? 'dev']: true } };
-    },
-    async resolveRelays() {
-      return { relays: getRelayUrls(getSimulation()), source: 'policy' as const };
-    },
-  };
+    verifyEvent: (event) => verifyEvent(event as Parameters<typeof verifyEvent>[0]),
+    defaultTimeoutMs: PAJA_LIVE_QUERY_WAIT_MS,
+  });
 }
 
 /**
@@ -363,8 +261,8 @@ function createDevSigner(
   confirmRequest: (request: PajaConfirmationRequest) => boolean,
 ): Signer {
   return {
-    getPublicKey: () => getSimulation().identity.pubkey || PAJA_DEV_SIGNER_PUBKEY,
-    getRelays: () => Object.fromEntries(getRelayUrls(getSimulation()).map((relay) => [relay, { read: true, write: true }])),
+    getPublicKey: () => PAJA_DEV_SIGNER_PUBKEY,
+    getRelays: () => Object.fromEntries(getPajaRelayUrls(getSimulation()).map((relay) => [relay, { read: true, write: true }])),
     async signEvent(event: Parameters<typeof finalizeEvent>[0]): Promise<NostrEvent> {
       if (!confirmRequest({ action: 'sign', event: event as Partial<NostrEvent> })) {
         throw new Error('Paja signing request denied');
@@ -382,16 +280,28 @@ function getRuntimePubkey(
   getSimulation: () => PajaSimulation,
   signerProvider?: PajaSignerProvider,
 ): string {
-  return getSimulation().identity.pubkey || signerProvider?.getPubkey() || PAJA_DEV_SIGNER_PUBKEY;
+  return getSimulation().identity.pubkey
+    || signerProvider?.getPubkey()
+    || (signerProvider?.getMethod() === 'dev' ? PAJA_DEV_SIGNER_PUBKEY : '');
 }
 
 function createRuntimeSigner(
   getSimulation: () => PajaSimulation,
   confirmRequest: (request: PajaConfirmationRequest) => boolean,
   signerProvider?: PajaSignerProvider,
-): Signer {
+): Signer | null {
   const signer = signerProvider?.getSigner();
-  if (!signer) return createDevSigner(getSimulation, confirmRequest);
+  if (!signer) {
+    if (signerProvider?.getMethod() === 'dev') return createDevSigner(getSimulation, confirmRequest);
+    const fixedPubkey = getSimulation().identity.pubkey;
+    if (fixedPubkey) {
+      return {
+        getPublicKey: () => fixedPubkey,
+        getRelays: () => Object.fromEntries(getPajaRelayUrls(getSimulation()).map((relay) => [relay, { read: true, write: true }])),
+      };
+    }
+    return null;
+  }
   return {
     ...signer,
     getPublicKey: () => getRuntimePubkey(getSimulation, signerProvider),
@@ -399,7 +309,7 @@ function createRuntimeSigner(
 }
 
 function createDevServices(
-  pool: RelayPoolLike,
+  backend: PajaRelayBackend,
   getSimulation: () => PajaSimulation,
   onThemeService: (theme: ReturnType<typeof createThemeService>) => void,
   confirmRequest: (request: PajaConfirmationRequest) => boolean,
@@ -434,26 +344,26 @@ function createDevServices(
     }),
   };
 
-  if (getSimulation().relay.mode === 'memory') {
+  if (getSimulation().relay.mode !== 'disabled') {
     services.relay = createRelayPoolService({
-      subscribe: (filters, callback, relayUrls) => pool.subscription(relayUrls ?? getRelayUrls(getSimulation()), filters).subscribe((item) => {
+      subscribe: (filters, callback, relayUrls) => backend.subscription(relayUrls ?? getPajaRelayUrls(getSimulation()), filters).subscribe((item) => {
         if (item === 'EOSE' || (typeof item === 'object' && item !== null)) {
           callback(item as NostrEvent | 'EOSE');
         }
       }),
-      publish: (event) => pool.publish(getRelayUrls(getSimulation()), event),
-      selectRelayTier: () => getRelayUrls(getSimulation()),
-      isAvailable: () => getSimulation().relay.mode === 'memory',
+      publish: (event) => backend.publish(getPajaRelayUrls(getSimulation()), event),
+      selectRelayTier: () => getPajaRelayUrls(getSimulation()),
+      isAvailable: () => backend.isAvailable(),
     });
-    services.outbox = createOutboxService({ router: createOutboxRouter(pool, getSimulation, confirmRequest, signerProvider) });
+    services.outbox = createOutboxService({ router: createOutboxRouter(backend, getSimulation, confirmRequest, signerProvider) });
   }
-  if (getSimulation().capabilities.domains.count && typeof pool.count === 'function') {
+  if (getSimulation().capabilities.domains.count && typeof backend.count === 'function') {
     services.count = createCountService({
       count: async ({ filters }) => {
-        const relays = getRelayUrls(getSimulation());
+        const relays = getPajaRelayUrls(getSimulation());
         return {
           ok: true,
-          count: await pool.count!(relays, filters),
+          count: await backend.count!(relays, filters),
           approximate: false,
           relays,
         };
@@ -468,7 +378,10 @@ function createDevServices(
   }
 
   if (getSimulation().capabilities.domains.identity) {
-    services.identity = createIdentityService({ getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider) });
+    services.identity = createIdentityService({
+      getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider),
+      ...createPajaIdentityProviders(backend, getSimulation, signerProvider),
+    });
   }
   if (getSimulation().notifications.enabled) {
     services.notifications = notification;
@@ -513,7 +426,7 @@ function createDevServices(
         ok: true,
         pubkey: target || getSimulation().identity.pubkey || DEV_COMMON_PUBKEY,
         profile: { name: 'paja', displayName: 'Kehto Paja' },
-        relays: getRelayUrls(getSimulation()),
+        relays: getPajaRelayUrls(getSimulation()),
       }),
       follows: () => ({ ok: true, pubkeys: [getSimulation().identity.pubkey || DEV_COMMON_PUBKEY] }),
       follow: () => ({ ok: true, eventId: DEV_COMMON_EVENT_ID }),
@@ -562,25 +475,25 @@ export function createPajaAdapter(
   signerProvider?: PajaSignerProvider,
   getIdentity?: PajaIdentityProvider,
 ): ShellAdapter {
-  const pool = createMemoryRelayPool(getSimulation, confirmRequest);
+  const relayBackend = createPajaRelayBackend(getSimulation, confirmRequest);
   const workerRelayEvents: NostrEvent[] = [];
   return {
-    relayPool: createRelayHooks(pool, getSimulation),
+    relayPool: createRelayHooks(relayBackend, getSimulation),
     relayConfig: {
       addRelay: () => {},
       removeRelay: () => {},
       getRelayConfig: () => {
-        const relays = getRelayUrls(getSimulation());
+        const relays = getPajaRelayUrls(getSimulation());
         return { discovery: relays, super: relays, outbox: relays };
       },
-      getNip66Suggestions: () => getRelayUrls(getSimulation()),
+      getNip66Suggestions: () => getPajaRelayUrls(getSimulation()),
     },
     windowManager: { createWindow: () => null },
     auth: {
       getUserPubkey: () => getRuntimePubkey(getSimulation, signerProvider),
       getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider),
     },
-    services: createDevServices(pool, getSimulation, onThemeService, confirmRequest, signerProvider),
+    services: createDevServices(relayBackend, getSimulation, onThemeService, confirmRequest, signerProvider),
     get capabilities() {
       return { disabledDomains: getSimulation().capabilities.disabledDomains };
     },

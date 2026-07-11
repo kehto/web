@@ -1,6 +1,6 @@
 {
   "name": "@kehto/paja",
-  "version": "0.6.5",
+  "version": "0.6.8",
   "description": "Paja local authoring workshop for hosting napplets in a real Kehto iframe during development",
   "type": "module",
   "main": "./dist/index.js",
@@ -34,13 +34,13 @@
     "@kehto/wm": "workspace:^"
   },
   "peerDependencies": {
-    "@napplet/core": ">=0.23.0 <=0.27.x",
-    "@napplet/nap": ">=0.23.0 <=0.27.x",
+    "@napplet/core": ">=0.23.0 <=0.28.x",
+    "@napplet/nap": ">=0.23.0 <=0.28.x",
     "nostr-tools": ">=2.23.3 <=2.x"
   },
   "devDependencies": {
-    "@napplet/core": ">=0.23.0 <=0.27.x",
-    "@napplet/nap": ">=0.23.0 <=0.27.x",
+    "@napplet/core": ">=0.23.0 <=0.28.x",
+    "@napplet/nap": ">=0.23.0 <=0.28.x",
     "nostr-tools": "^2.23.3",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3",

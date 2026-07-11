@@ -66,10 +66,12 @@ export interface OutboxSubscribeOptions extends OutboxQueryOptions {}
 
 /** Options for an outbox publish. */
 export interface OutboxPublishOptions {
-  /** Relay hints; treated as a hint subject to shell validation. */
+  /** Explicit relay URL fanout candidates, subject to shell validation. */
   relays?: string[];
-  /** Recipient authors whose inbox relays should be included for directed events. */
-  targetAuthors?: string[];
+  /** Include the shell user's NIP-65 write relays. Defaults to true. */
+  toOutbox?: boolean;
+  /** Recipient pubkeys whose NIP-65 read relays are required fanout targets. */
+  toInboxes?: string[];
 }
 
 /** A read/write target for relay-plan resolution. */
@@ -222,8 +224,9 @@ function sanitizePublishOptions(raw: unknown): OutboxPublishOptions | undefined 
   const out: OutboxPublishOptions = {};
   const relays = stringArray(raw.relays);
   if (relays) out.relays = relays;
-  const targetAuthors = stringArray(raw.targetAuthors);
-  if (targetAuthors) out.targetAuthors = targetAuthors;
+  if (typeof raw.toOutbox === 'boolean') out.toOutbox = raw.toOutbox;
+  const toInboxes = stringArray(raw.toInboxes);
+  if (toInboxes) out.toInboxes = toInboxes;
   return Object.keys(out).length > 0 ? out : undefined;
 }
 

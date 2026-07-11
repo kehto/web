@@ -138,6 +138,18 @@ interface RouterCtx {
   verify(event: NostrEvent): Promise<boolean>;
 }
 
+interface RequiredRelayResolution {
+  relays: string[];
+  missingAuthors: string[];
+  deniedAuthors: string[];
+}
+
+interface PublishTargetResolution {
+  relayUrls: string[];
+  requiredRelayUrls: string[];
+  error?: string;
+}
+
 /** Default relay gate: only ws(s):// URLs are permitted. */
 function defaultRelayAllowed(url: string): boolean {
   return typeof url === 'string' && (url.startsWith('wss://') || url.startsWith('ws://'));
@@ -160,6 +172,40 @@ function allowed(ctx: RouterCtx, urls: Iterable<string>): string[] {
     if (ctx.isRelayAllowed(url)) out.add(url);
   }
   return [...out];
+}
+
+async function resolveRequiredRelays(
+  ctx: RouterCtx,
+  pubkeys: string[],
+  direction: 'read' | 'write',
+): Promise<RequiredRelayResolution> {
+  const useWrite = direction === 'read';
+  const relays = new Set<string>();
+  const missingAuthors: string[] = [];
+  const deniedAuthors: string[] = [];
+  const uniquePubkeys = [...new Set(pubkeys)];
+
+  if (uniquePubkeys.length === 0) return { relays: [], missingAuthors, deniedAuthors };
+
+  const lists = await ctx.loadRelayLists(uniquePubkeys);
+  for (const pubkey of uniquePubkeys) {
+    const entry = lists.get(pubkey);
+    const candidateRelays = entry ? (useWrite ? entry.write : entry.read) : undefined;
+    if (!candidateRelays || candidateRelays.length === 0) {
+      missingAuthors.push(pubkey);
+      continue;
+    }
+
+    const allowedRelays = allowed(ctx, candidateRelays);
+    if (allowedRelays.length === 0) {
+      deniedAuthors.push(pubkey);
+      continue;
+    }
+
+    for (const url of allowedRelays) relays.add(url);
+  }
+
+  return { relays: [...relays], missingAuthors, deniedAuthors };
 }
 
 /**
@@ -419,21 +465,36 @@ async function resolvePublishTargets(
   ctx: RouterCtx,
   signed: NostrEvent,
   options?: OutboxPublishOptions,
-): Promise<string[]> {
+): Promise<PublishTargetResolution> {
   const targets = new Set<string>();
+  const requiredTargets = new Set<string>();
 
-  // The author's own write relays (outbox model for the user's own event).
-  const authorPlan = await resolvePlan(ctx, [signed.pubkey], 'read');
-  for (const url of authorPlan.relays) targets.add(url);
+  if (options?.toOutbox !== false) {
+    // The author's own write relays (outbox model for the user's own event).
+    const outboxPlan = await resolveRequiredRelays(ctx, [signed.pubkey], 'read');
+    if (outboxPlan.missingAuthors.length > 0) return { relayUrls: [], requiredRelayUrls: [], error: 'relay list unavailable' };
+    if (outboxPlan.deniedAuthors.length > 0) return { relayUrls: [], requiredRelayUrls: [], error: 'policy denied' };
+    for (const url of outboxPlan.relays) {
+      targets.add(url);
+      requiredTargets.add(url);
+    }
+  }
 
-  // Directed events: include recipients' read relays (their inbox).
-  if (options?.targetAuthors && options.targetAuthors.length > 0) {
-    const inboxPlan = await resolvePlan(ctx, options.targetAuthors, 'write');
-    for (const url of inboxPlan.relays) targets.add(url);
+  if (options?.toInboxes && options.toInboxes.length > 0) {
+    const inboxPlan = await resolveRequiredRelays(ctx, options.toInboxes, 'write');
+    if (inboxPlan.missingAuthors.length > 0) return { relayUrls: [], requiredRelayUrls: [], error: 'relay list unavailable' };
+    if (inboxPlan.deniedAuthors.length > 0) return { relayUrls: [], requiredRelayUrls: [], error: 'policy denied' };
+    for (const url of inboxPlan.relays) {
+      targets.add(url);
+      requiredTargets.add(url);
+    }
   }
 
   for (const url of options?.relays ?? []) targets.add(url);
-  return allowed(ctx, targets);
+  return {
+    relayUrls: allowed(ctx, targets),
+    requiredRelayUrls: allowed(ctx, requiredTargets),
+  };
 }
 
 async function publishImpl(ctx: RouterCtx, template: EventTemplate, options?: OutboxPublishOptions): Promise<OutboxPublishResult> {
@@ -447,7 +508,11 @@ async function publishImpl(ctx: RouterCtx, template: EventTemplate, options?: Ou
     return { ok: false, error: err instanceof Error ? err.message : 'sign failed' };
   }
 
-  const relayUrls = await resolvePublishTargets(ctx, signed, options);
+  const publishTargets = await resolvePublishTargets(ctx, signed, options);
+  if (publishTargets.error) {
+    return { ok: false, event: signed, eventId: signed.id, error: publishTargets.error };
+  }
+  const relayUrls = publishTargets.relayUrls;
   if (relayUrls.length === 0) return { ok: false, event: signed, eventId: signed.id, error: 'relay list unavailable' };
 
   let relays: Record<string, boolean>;
@@ -457,7 +522,9 @@ async function publishImpl(ctx: RouterCtx, template: EventTemplate, options?: Ou
     return { ok: false, event: signed, eventId: signed.id, error: err instanceof Error ? err.message : 'publish failed' };
   }
 
-  const ok = Object.values(relays).some(Boolean);
+  const ok = publishTargets.requiredRelayUrls.length > 0
+    ? publishTargets.requiredRelayUrls.every((url) => relays[url] === true)
+    : Object.values(relays).some(Boolean);
   const result: OutboxPublishResult = { ok, event: signed, eventId: signed.id, relays };
   if (!ok) result.error = 'publish denied';
   return result;

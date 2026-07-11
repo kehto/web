@@ -59,12 +59,13 @@ Run the script and open the printed runtime URL:
 pnpm dev
 ```
 
-The browser page shows a development console beside one sandboxed target iframe.
-The console includes interface injection toggles, ACL controls, signer status,
-and a filterable message log. Paja fetches the target HTML into injected
-`srcdoc` so `window.napplet.<domain>` exists before app bootstrap, while target
-assets and HMR still resolve through the framework dev server. The runtime reload
-button reinitializes the Kehto shell state around the same target URL.
+The browser page shows a development console beside one sandboxed target iframe
+in target-url mode. The console includes interface injection toggles, ACL
+controls, signer status, and a filterable message log. Paja fetches the target
+HTML into injected `srcdoc` so `window.napplet.<domain>` exists before app
+bootstrap, while target assets and HMR still resolve through the framework dev
+server. The runtime reload button reinitializes the Kehto shell state around the
+same target URL.
 
 ## Use an Existing Target Server
 
@@ -125,16 +126,20 @@ are removed from the injected namespace and from the advertised `domains` and
 `naps` lists, while enabled domains route through Kehto runtime and reference
 services.
 
-The default memory relay also wires NAP-COUNT. `window.napplet.count` can send
-`count.query` requests for non-empty NIP-01 filter arrays and receives exact
-aggregate counts from the fixture/event store without event payloads. Disable
-the relay domain to disable count as well.
+The default relay/outbox backend is live. It queries configured public relays,
+uses NIP-65 relay-list events (`kind:10002`) for outbox routing, and reads
+contact-list events (`kind:3`) for identity/follow data. `window.napplet.count`
+can send `count.query` requests for non-empty NIP-01 filter arrays and receives
+exact aggregate counts from the active relay backend. Use `--relay-mode memory`
+for deterministic fixture tests, or disable the relay domain to disable count as
+well.
 
-Paja provides a generated development signer by default, so
-`identity.getPublicKey` returns a usable pubkey even without external signer
-setup. The signer controls can switch to a browser NIP-07 signer or to a
-bunker/NIP-46 URI when you need to test with an actual account. Every sign or
-publish operation prompts in the browser before it runs.
+Paja auto-connects a browser NIP-07 signer when `window.nostr` is available,
+can switch to a bunker/NIP-46 URI, and exposes a Dev signer button for explicit
+synthetic local signing. Without a browser signer, bunker URI, fixed identity, or
+Dev signer selection, `identity.getPublicKey` reports no connected account
+instead of inventing one. Every sign or publish operation prompts in the browser
+before it runs.
 
 The package API reference is generated at
 [docs/api/modules/_kehto_paja.html](../api/modules/_kehto_paja.html).

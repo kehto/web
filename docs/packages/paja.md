@@ -20,7 +20,7 @@ app package's development scripts.
 | Field | Value |
 |-------|-------|
 | Source | `packages/paja/package.json`, `packages/paja/src/index.ts` |
-| Version | `0.6.5` |
+| Version | `0.6.8` |
 | Runtime entry | `./dist/index.js` |
 | CLI runner entry | `./dist/cli.js` |
 | Types entry | `./dist/index.d.ts` |
@@ -31,8 +31,8 @@ app package's development scripts.
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.23.0 <=0.27.x` |
-| `@napplet/nap` | `>=0.23.0 <=0.27.x` |
+| `@napplet/core` | `>=0.23.0 <=0.28.x` |
+| `@napplet/nap` | `>=0.23.0 <=0.28.x` |
 | `nostr-tools` | `>=2.23.3 <=2.x` |
 
 ## Primary APIs
@@ -103,18 +103,19 @@ For package-manager script examples covering `pnpm`, `npm`, and `yarn`, see
 
 ## Browser Host
 
-The served host page is a single-window development runtime: a control console
-beside one sandboxed target iframe, plus compact top and bottom bars. The iframe
-is created without a static `src`; the browser bootstrap sets
-`sandbox="allow-scripts"`, registers the iframe with `@kehto/shell`, creates a
-source-derived NIP-5D session entry, fetches the explicit target URL through the
-local Paja server, and renders it as injected `srcdoc`. Paja prepends the
-runtime-owned `window.napplet.<domain>` namespace before authored scripts run and
-adds a `<base>` tag so target assets and HMR still resolve against the app dev
-server. A real `ShellBridge` plus `@kehto/runtime` handles `shell.ready`,
-`shell.init`, ACL, firewall, storage, INC, relay/outbox, and service dispatch.
-Reload uses a generation-specific internal window id so the same iframe can
-receive a fresh `shell.init` without restarting the CLI or the app dev server.
+In local target-url mode, the served host page is a single-window development
+runtime: a control console beside one sandboxed target iframe, plus compact top
+and bottom bars. The iframe is created without a static `src`; the browser
+bootstrap sets `sandbox="allow-scripts"`, registers the iframe with
+`@kehto/shell`, creates a source-derived NIP-5D session entry, fetches the
+explicit target URL through the local Paja server, and renders it as injected
+`srcdoc`. Paja prepends the runtime-owned `window.napplet.<domain>` namespace
+before authored scripts run and adds a `<base>` tag so target assets and HMR
+still resolve against the app dev server. A real `ShellBridge` plus
+`@kehto/runtime` handles `shell.ready`, `shell.init`, ACL, firewall, storage,
+INC, relay/outbox, and service dispatch. Reload uses a generation-specific
+internal window id so the same iframe can receive a fresh `shell.init` without
+restarting the CLI or the app dev server.
 
 The console includes:
 
@@ -124,8 +125,9 @@ The console includes:
 - **ACL** — every runtime capability can be granted or revoked for the target
   napplet identity. The controls write through `bridge.runtime.aclState`, so the
   next matching request is allowed or denied by the real runtime gate.
-- **Signer** — Paja exposes a generated development signer by default and can
-  switch to a browser NIP-07 signer or a bunker/NIP-46 URI. Every request to
+- **Signer** — Paja auto-connects a browser NIP-07 signer when `window.nostr`
+  is available, can connect to a bunker/NIP-46 URI, and only uses the generated
+  development signer when the Dev signer button is selected. Every request to
   sign an event or publish an event opens a browser confirmation prompt. Paja
   has no bypass list or allow-once whitelist.
 - **Messages** — inbound and outbound envelopes are logged with a text filter,
@@ -134,14 +136,16 @@ The console includes:
 `.error` envelopes.
 
 The GitHub Pages artifact also includes a static Paja Runtime at `/web/paja/`.
-That route uses `createPajaRuntimeHostConfig`, keeps `hmr: none`, and loads a
-verified napplet into the same ShellBridge-backed iframe from a pasted `naddr`
-or `nevent` pointer. `naddr` pointers resolve the latest matching NIP-5D named
+That route uses `createPajaRuntimeHostConfig`, keeps `hmr: none`, and loads
+verified napplets into ShellBridge-backed iframe tabs from pasted `naddr` or
+`nevent` pointers. `naddr` pointers resolve the latest matching NIP-5D named
 manifest (`35129`) by author and `d` tag; `nevent` pointers resolve a specific
 NIP-5D snapshot, root, or named manifest event id (`5129`, `15129`, or `35129`).
 In both cases Paja verifies the signed manifest, aggregate hash, and every
 Blossom blob, then injects the same runtime-owned `window.napplet.<domain>`
-namespace before assigning iframe `srcdoc`.
+namespace before assigning iframe `srcdoc`. Loading an already-running napplet
+opens an in-page choice to load another instance, switch to the existing tab, or
+cancel.
 
 ## NAP and Service Parity
 
@@ -158,16 +162,18 @@ is represented as an upstream alias to `inc`; upstream
 upstream `dm` domain is tracked as deferred until Paja wires a deterministic
 development DM backend.
 
-Default service wiring includes in-memory relay/outbox behavior, localStorage
-state persistence through the runtime, a generated local signer-backed identity,
-deterministic config/theme,
-notification, media, upload, intent, resource, and CVM adapters. These defaults
-are intentionally useful for local authoring.
+Default service wiring uses live relay/outbox behavior, localStorage state
+persistence through the runtime, browser or configured identity, deterministic
+config/theme, notification, media, upload, intent, resource, and CVM adapters.
+Relay/outbox uses NIP-65 relay lists (`kind:10002`) with fallback relays, and the
+identity service reads contact lists (`kind:3`) so social-graph napplets can be
+tested against real account state. `--relay-mode memory` switches relay/outbox
+to deterministic fixture/event-store behavior when a test needs isolation.
 
-The `count` domain uses Paja's in-memory relay fixture/event store to answer
-`count.query` with exact aggregate counts and `approximate: false`. Broad empty
-filters are refused as too expensive, and setting `relay.mode` to `disabled`
-also disables `count` advertisement.
+The `count` domain uses the active Paja relay backend to answer `count.query`
+with exact aggregate counts and `approximate: false`. Broad empty filters are
+refused as too expensive, and setting `relay.mode` to `disabled` also disables
+`count` advertisement.
 
 ## Environment Simulation
 
@@ -176,7 +182,7 @@ The normalized simulation object controls:
 - Capability domain advertisement through the production `shell.init` path.
 - ACL mode and firewall mode metadata for development policy profiles.
 - Anonymous or fixed identity mode.
-- Memory or disabled relay/outbox behavior.
+- Live, memory fixture, or disabled relay/outbox behavior.
 - Local, memory, or disabled storage mode advertisement.
 - Memory or disabled artifact/cache metadata.
 - Memory or disabled upload mode and upload rail name.

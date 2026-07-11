@@ -1,6 +1,6 @@
 # @kehto/shell
 
-Browser adapter over @kehto/runtime — ShellBridge, domain proxies, keys-forwarder.
+Browser adapter over @kehto/runtime — ShellBridge and domain proxies.
 
 > **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
 > protocol. NAP contracts and injected-domain behavior are still draft; treat
@@ -24,7 +24,7 @@ Current draft behaviors this package enforces:
 - `injectNappletNamespacePrelude()` implements the current draft NIP-5D injected-domain bootstrap: hosts prepend a `window.napplet` prelude to `srcdoc` outside the verified artifact bytes, so callable NAP domain interfaces exist before napplet-authored scripts run. Assigned namespaces are filtered back to the explicit bare-domain allowlist; the playground does not inject `shell`.
 - Legacy `window.napplet.shell.supports()` compatibility is not the current NIP-5D availability primitive. New host and napplet availability checks should use injected `window.napplet.<domain>` presence and leave per-domain semantic checks to the matching NAP.
 - Five optional per-domain proxies — `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` — can be composed between napplet and runtime to intercept or augment traffic per NAP. They are NOT wired by default (Kehto's runtime already owns dispatch for the currently supported domains); they exist as host-app composition seams.
-- The keys-forwarder pumps host keydown events into `keys.forward` envelopes for napplets that hold the `keys:forward` capability.
+- `keys.forward` is napplet-to-shell only. Active napplets suppress locally-bound keys from `keys.bindings` before forwarding; shell-initiated action triggers use `keys.action`.
 - `buildShellCapabilities()` advertises `dm` when the host adapter provides `hooks.dm`, and disabled-domain overrides remove it from both `domains` and `naps`.
 
 ## Quick Start
@@ -79,13 +79,10 @@ const bridge = createShellBridge({
 - `createMediaProxy` — intercept `media.*` playback control
 - `createNotifyProxy` — intercept `notify.send/list/read/dismiss`
 
-### Keys forwarder
-- `createKeysForwarder` — host-keydown pump into `keys.forward` envelopes; auto-attached by `createShellBridge`, also exported for hosts that manage their own forwarder instance
-
 ### Session / origin registry
 - `sessionRegistry` — canonical windowId ↔ verified-napplet registry singleton
 - `nappKeyRegistry` — deprecated alias for `sessionRegistry`
-- `originRegistry` — origin-to-windowId map used by proxies and the keys-forwarder
+- `originRegistry` — origin-to-windowId map used by proxies and bridge broadcasts
 - `PendingUpdate` — type for pending aggregate-hash change prompts
 
 ### Manifest cache

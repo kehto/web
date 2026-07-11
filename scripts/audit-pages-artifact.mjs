@@ -109,6 +109,7 @@ function checkPaja() {
     assertContains(indexPath, html, 'src="./__kehto/browser-host.js"', 'Paja Runtime route');
   }
   assertFile(join(pajaRoot, '__kehto', 'browser-host.js'), 'Paja Runtime browser host bundle');
+  assertFile(join(pajaRoot, '__kehto', 'config.json'), 'Paja Runtime host config');
 }
 
 function checkPlayground() {

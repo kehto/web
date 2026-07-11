@@ -68,16 +68,16 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   await expect(targetFrame.locator('#service-results')).toContainText('intent.available.result');
   await expect(targetFrame.locator('#service-results')).toContainText('cvm.discover.result');
   await expect(targetFrame.locator('#service-results')).toContainText('outbox.publish.result');
-  await expect(targetFrame.locator('#identity-pubkey')).not.toHaveText('');
-  await expect.poll(() => dialogMessages.filter((message) => message.includes('Paja sign request')).length).toBeGreaterThan(0);
-  await expect.poll(() => dialogMessages.filter((message) => message.includes('Paja publish request')).length).toBeGreaterThan(0);
+  await expect(targetFrame.locator('#identity-pubkey')).toHaveText('');
+  expect(dialogMessages.filter((message) => message.includes('Paja sign request'))).toHaveLength(0);
+  expect(dialogMessages.filter((message) => message.includes('Paja publish request'))).toHaveLength(0);
   await expect(page.locator('#message-log .log-row')).not.toHaveCount(0);
   await page.locator('#message-filter').fill('identity.getPublicKey');
   await expect(page.locator('#message-log .log-row')).not.toHaveCount(0);
   await expect(page.locator('#message-log .log-row').first()).toContainText('identity.getPublicKey');
   await page.locator('#message-filter').fill('');
   await expect(page.locator('#lifecycle-status')).toHaveText('ready');
-  await expect(page.locator('#simulation-status')).toContainText('identity:anon relay:1 storage:local theme:dark off:none');
+  await expect(page.locator('#simulation-status')).toContainText('identity:anon relay:live:4 storage:local theme:dark off:none');
 
   const firstLoadId = await targetFrame.locator('#load-id').textContent();
   expect(firstLoadId).toBeTruthy();
@@ -255,7 +255,7 @@ test('marks modern injected-domain targets ready without legacy shell.ready', as
     const targetFrame = page.frameLocator('#napplet-frame');
     await expect(targetFrame.locator('#injected-domains')).toHaveText('identity,keys');
     await expect(targetFrame.locator('#target-status')).toHaveText('napplet namespace ready', { timeout: 15_000 });
-    await expect(targetFrame.locator('#identity-pubkey')).not.toHaveText('');
+    await expect(targetFrame.locator('#identity-pubkey')).toHaveText('');
     await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
 
     const state = await page.evaluate(() => window.__KEHTO_PAJA__?.getState());

@@ -1,13 +1,13 @@
 {
   "name": "@kehto/runtime",
-  "version": "0.18.3",
+  "version": "0.18.5",
   "license": "MIT",
   "exports": "./src/index.ts",
   "imports": {
-    "@kehto/acl": "jsr:@kehto/acl@^0.15.5",
-    "@kehto/firewall": "jsr:@kehto/firewall@^0.3.8",
-    "@napplet/core": "jsr:@napplet/core@^0.23.0",
-    "@napplet/nap": "jsr:@napplet/nap@^0.23.0",
+    "@kehto/acl": "jsr:@kehto/acl@^0.15.6",
+    "@kehto/firewall": "jsr:@kehto/firewall@^0.3.9",
+    "@napplet/core": "jsr:@napplet/core@^0.28.0",
+    "@napplet/nap": "jsr:@napplet/nap@^0.28.0",
     "@noble/hashes": "npm:@noble/hashes@^2.0.0",
     "@noble/curves": "npm:@noble/curves@^2.0.0"
   },

@@ -1,10 +1,10 @@
 {
   "name": "@kehto/firewall",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "license": "MIT",
   "exports": "./src/index.ts",
   "imports": {
-    "@napplet/core": "jsr:@napplet/core@^0.23.0"
+    "@napplet/core": "jsr:@napplet/core@^0.28.0"
   },
   "publish": {
     "include": [
