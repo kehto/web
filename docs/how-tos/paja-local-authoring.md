@@ -117,6 +117,47 @@ defaults in `kehto.dev.json` and still switch one mode for a test:
 kehto paja --config kehto.dev.json --theme dark
 ```
 
+## Use Real Blossom Uploads
+
+Paja's default `memory` upload mode is a simulator and stores nothing. Add an
+explicit shell-owned Blossom server for real `window.napplet.upload` traffic:
+
+```json
+{
+  "targetUrl": "http://127.0.0.1:5173",
+  "simulation": {
+    "upload": {
+      "mode": "blossom",
+      "servers": ["https://blossom.example"],
+      "discoverServers": true,
+      "maxBytes": 10485760,
+      "mimeTypes": ["image/png", "application/pdf"]
+    }
+  }
+}
+```
+
+The equivalent CLI flags are `--upload-mode blossom` and repeatable
+`--upload-server <url>`. Explicit servers win. Without one, signer lifecycle
+may warm the active identity's newest BUD-03 kind `10063` server list. Neither
+`upload.info` nor an upload request starts discovery, and pointer-resolution
+Blossom hints are not upload endpoints.
+
+Select Dev, NIP-07, or NIP-46 in the signer controls. A fixed pubkey alone is
+read-only, and any disagreement between configured, provider, signer,
+discovery, or signed-event pubkeys fails closed. Each upload first shows an
+upload-specific prompt naming the napplet, bytes, MIME type, selected server,
+and public/durable effect. Denial happens before authorization signing or
+storage egress.
+
+Use HTTPS except for `localhost`, `127.0.0.0/8`, or `[::1]` development
+servers. Browser-facing Blossom servers must allow CORS `OPTIONS` and `PUT`
+with `Authorization` and `Content-Type`. Paja currently uploads to the first
+server only and returns its direct URL; it does not mirror or build BUD-10
+URLs. A response is complete only when its descriptor confirms the exact
+SHA-256 and integer byte size. See the pinned draft
+[NAP-UPLOAD at `a7cc174`](https://github.com/napplet/naps/blob/a7cc17463cbf5d9cb87884b31071bc4fc826034c/naps/NAP-UPLOAD.md).
+
 ## Verify the Runtime Surface
 
 Inside the target iframe, mandatory `window.napplet.shell` and enabled optional
