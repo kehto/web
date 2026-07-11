@@ -97,6 +97,11 @@ describe('playground gateway artifact guard', () => {
     expect(shellHost).toContain("iframe.sandbox.add('allow-scripts')");
     expect(shellHost).not.toContain('allow-same-origin');
     expect(shellHost).not.toContain('relay.runtime.sessionRegistry.register(windowId');
+    expect(shellHost).toContain(
+      'originRegistry.register(iframe.contentWindow, windowId, { dTag, aggregateHash });',
+    );
+    expect(shellHost).toContain("(event.data as NappletMessage).type === 'shell.ready'");
+    expect(shellHost).toContain('markEnvelopeIdentityBinding(windowId);');
     expect(shellHost).toContain('const realToProxy = new WeakMap<Window, Window>();');
     expect(shellHost).toContain('originRegistry.getRegistrationId = (win: Window) =>');
     expect(shellHost).toContain('originRegistry.getIdentity = (win: Window) =>');

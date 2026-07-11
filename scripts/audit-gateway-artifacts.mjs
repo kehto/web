@@ -42,8 +42,14 @@ function assertSourceInvariants() {
   if (!shellHost.includes('iframe.srcdoc =') || !shellHost.includes('injectCspMeta(')) {
     fail('shell-host.ts does not inject verified bytes via iframe.srcdoc');
   }
-  if (!shellHost.includes('markSourceDerivedIdentity(')) {
-    fail('shell-host.ts does not bind source-derived (computed) identity');
+  if (!shellHost.includes('originRegistry.register(iframe.contentWindow, windowId, { dTag, aggregateHash });')) {
+    fail('shell-host.ts does not register creation-time computed identity');
+  }
+  if (
+    !shellHost.includes("(event.data as NappletMessage).type === 'shell.ready'")
+    || !shellHost.includes('markEnvelopeIdentityBinding(windowId);')
+  ) {
+    fail('shell-host.ts does not bind computed identity after shell.ready');
   }
   if (shellHost.includes('iframe.src = metadata.htmlUrl') || shellHost.includes('/napplet-gateway/')) {
     fail('shell-host.ts still uses the retired gateway htmlUrl/metadata navigation');
