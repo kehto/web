@@ -1,5 +1,5 @@
 /**
- * relay-pool-outbox-router.ts — concrete {@link OutboxRouter} backed by a relay pool.
+ * relay-pool-outbox-router.ts — concrete {@link StreamingOutboxRouter} backed by a relay pool.
  *
  * Implements the outbox-model routing that NAP-OUTBOX centralizes so napplets
  * don't each reinvent it: derive authors, resolve their NIP-65 relays, fan a
@@ -39,7 +39,6 @@ import type { EventTemplate, NostrEvent, NostrFilter } from '@napplet/core';
 import { createRelayEventResultWithHints } from '@kehto/runtime';
 import type { RelayEventResult } from '@kehto/runtime';
 import type {
-  OutboxRouter,
   OutboxResult,
   OutboxPublishResult,
   OutboxRelayPlan,
@@ -51,7 +50,26 @@ import type {
   OutboxTarget,
   OutboxSubscriptionSink,
   OutboxRouterSubscription,
+  OutboxQueryStream,
+  OutboxQueryStreamSink,
+  StreamingOutboxRouter,
 } from './outbox-service.js';
+import type {
+  DiscoveredReadRelays,
+  LiveOutboxSubscription,
+  OutboxCollector,
+  PublishTargetResolution,
+  RelayListEntry,
+  RelayPoolOutboxRouterOptions,
+  RequiredRelayResolution,
+  RouterCtx,
+} from './relay-pool-outbox-types.js';
+
+export type {
+  OutboxRelayPool,
+  RelayListEntry,
+  RelayPoolOutboxRouterOptions,
+} from './relay-pool-outbox-types.js';
 
 // Timer globals available in all JS runtimes.
 declare function setTimeout(callback: () => void, ms: number): unknown;
@@ -59,96 +77,6 @@ declare function clearTimeout(id: unknown): void;
 
 /** Default per-query wall-clock budget when `options.timeoutMs` is unset. */
 const DEFAULT_QUERY_TIMEOUT_MS = 4000;
-
-/** A NIP-65 relay list for a single pubkey. */
-export interface RelayListEntry {
-  /** Relays the author reads from (their inbox). */
-  read: string[];
-  /** Relays the author writes to (where their events land). */
-  write: string[];
-}
-
-/**
- * Relay pool contract the router drives. Implementors adapt their pool library
- * (nostr-tools SimplePool, applesauce-relay, etc.). Unlike the lower-level
- * relay NAP pool, both methods take an explicit relay-URL set so the router
- * controls outbox routing and can attribute events to the relay they arrived on.
- */
-export interface OutboxRelayPool {
-  /**
-   * Subscribe to `filters` on exactly `relayUrls`. The callback receives each
-   * matching event or the literal `'EOSE'` once stored events are exhausted.
-   * Returns a handle to cancel the subscription.
-   */
-  subscribe(
-    filters: NostrFilter[],
-    relayUrls: string[],
-    callback: (item: NostrEvent | 'EOSE') => void,
-  ): { unsubscribe(): void };
-  /**
-   * Publish `event` to `relayUrls`. May return a per-relay success map; a
-   * `void`/missing return is treated as optimistic success on every target.
-   */
-  publish(
-    event: NostrEvent,
-    relayUrls: string[],
-  ): Promise<Record<string, boolean>> | Record<string, boolean> | void;
-  /** Whether the relay pool is connected and able to handle requests. */
-  isAvailable(): boolean;
-}
-
-/** Options for {@link createRelayPoolOutboxRouter}. */
-export interface RelayPoolOutboxRouterOptions {
-  /** Relay pool the router subscribes/publishes through. Required. */
-  relayPool: OutboxRelayPool;
-  /**
-   * Resolve NIP-65 relay lists for a set of pubkeys. Pubkeys with no known
-   * list are simply omitted from the returned map (they become `missingAuthors`).
-   */
-  loadRelayLists(pubkeys: string[]): Promise<Map<string, RelayListEntry>> | Map<string, RelayListEntry>;
-  /** Relays to fall back to when NIP-65 data is absent, stale, or empty. Required. */
-  fallbackRelays: string[];
-  /**
-   * Sign a template before publish (shell-mediated; napplets never sign). When
-   * omitted, `publish` resolves with `{ ok: false, error: 'publish denied' }`.
-   */
-  signEvent?(template: EventTemplate): Promise<NostrEvent>;
-  /**
-   * Validate an event signature before delivering it to a napplet. May be sync
-   * or async. Defaults to accepting every event (host pools often pre-verify).
-   */
-  verifyEvent?(event: NostrEvent): Promise<boolean> | boolean;
-  /**
-   * Gate relay URLs (e.g. block private-network hosts). Defaults to allowing
-   * only `ws://` / `wss://` URLs — `options.relays` hints pass through this too.
-   */
-  isRelayAllowed?(url: string): boolean;
-  /** Default query timeout when `options.timeoutMs` is unset. Default 4000ms. */
-  defaultTimeoutMs?: number;
-}
-
-/** Resolved router dependencies threaded into the module-level helpers. */
-interface RouterCtx {
-  relayPool: OutboxRelayPool;
-  loadRelayLists: RelayPoolOutboxRouterOptions['loadRelayLists'];
-  fallbackRelays: string[];
-  signEvent?: RelayPoolOutboxRouterOptions['signEvent'];
-  isRelayAllowed: (url: string) => boolean;
-  defaultTimeoutMs: number;
-  verify(event: NostrEvent): Promise<boolean>;
-}
-
-interface RequiredRelayResolution {
-  relays: string[];
-  missingAuthors: string[];
-  deniedAuthors: string[];
-}
-
-interface PublishTargetResolution {
-  relayUrls: string[];
-  requiredRelayUrls: string[];
-  error?: string;
-}
 
 /** Default relay gate: only ws(s):// URLs are permitted. */
 function defaultRelayAllowed(url: string): boolean {
@@ -255,87 +183,88 @@ async function resolvePlan(
   return plan;
 }
 
-/** Mutable accumulator for a one-shot fan-out collection. */
-interface Collector {
-  seen: Map<string, NostrEvent>;
-  relayMap: Map<string, Set<string>>;
-  verifications: Promise<void>[];
+/** Extract policy-allowed author write relays from already-loaded NIP-65 data. */
+function discoveredReadRelays(
+  ctx: RouterCtx,
+  authors: string[],
+  lists: Map<string, RelayListEntry>,
+): DiscoveredReadRelays {
+  const relays = new Set<string>();
+  const missingAuthors: string[] = [];
+  for (const author of new Set(authors)) {
+    const writeRelays = lists.get(author)?.write;
+    if (!writeRelays || writeRelays.length === 0) {
+      missingAuthors.push(author);
+      continue;
+    }
+    for (const url of allowed(ctx, writeRelays)) relays.add(url);
+  }
+  return { relays: [...relays], missingAuthors };
+}
+
+/** Pick immediate policy hints, falling back only when none survive validation. */
+function immediateReadRelays(ctx: RouterCtx, relayHints?: string[]): string[] {
+  const hints = allowed(ctx, relayHints ?? []);
+  return hints.length > 0 ? hints : allowed(ctx, ctx.fallbackRelays);
 }
 
 /** Record that `id` was observed on `relayUrl`. */
-function recordRelay(collector: Collector, id: string, relayUrl: string): void {
+function recordRelay(collector: OutboxCollector, id: string, relayUrl: string): void {
   let set = collector.relayMap.get(id);
   if (!set) { set = new Set<string>(); collector.relayMap.set(id, set); }
   set.add(relayUrl);
 }
 
-/** Verify a freshly-seen event and admit it (or drop its sightings) once settled. */
-function admitEvent(ctx: RouterCtx, collector: Collector, event: NostrEvent): void {
-  if (collector.seen.has(event.id)) return;
-  collector.verifications.push(
-    ctx.verify(event).then((ok) => {
-      if (ok && !collector.seen.has(event.id)) collector.seen.set(event.id, event);
-      else if (!ok) collector.relayMap.delete(event.id);
-    }),
-  );
+/** Materialize one event using every relay sighting known at call time. */
+function collectedEventResult(collector: OutboxCollector, event: NostrEvent): RelayEventResult {
+  return createRelayEventResultWithHints(event, [...(collector.relayMap.get(event.id) ?? [])]);
 }
 
-/** Build the final query outcome from a settled collector. */
-function buildCollectResult(
-  collector: Collector,
-  timedOut: boolean,
-): { events: RelayEventResult[]; incomplete: boolean } {
-  const events = [...collector.seen.values()].map((event) =>
-    createRelayEventResultWithHints(event, [...(collector.relayMap.get(event.id) ?? [])]),
-  );
-  return { events, incomplete: timedOut };
-}
-
-/**
- * Fan a one-shot query out across `relayUrls` (one subscription per relay so
- * events can be attributed to their source relay), dedup by id, validate
- * signatures, and finalize on all-EOSE or timeout.
- */
-function collectFromRelays(
+/** Verify one event id once, then stream it and wake completion checks. */
+function admitEvent(
   ctx: RouterCtx,
-  filters: NostrFilter[],
-  relayUrls: string[],
-  timeoutMs: number,
-): Promise<{ events: RelayEventResult[]; incomplete: boolean }> {
-  return new Promise((resolve) => {
-    const collector: Collector = { seen: new Map(), relayMap: new Map(), verifications: [] };
-    const handles: { unsubscribe(): void }[] = [];
-    let eoseCount = 0;
-    let finished = false;
-    let timedOut = false;
-
-    function finalize(): void {
-      if (finished) return;
-      finished = true;
-      clearTimeout(timer);
-      for (const handle of handles) {
-        try { handle.unsubscribe(); } catch { /* best-effort */ }
-      }
-      void Promise.all(collector.verifications).then(() => resolve(buildCollectResult(collector, timedOut)));
+  collector: OutboxCollector,
+  event: NostrEvent,
+  sink: OutboxQueryStreamSink,
+  isOpen: () => boolean,
+  onSettled: () => void,
+): void {
+  if (collector.admitted.has(event.id)) return;
+  collector.admitted.add(event.id);
+  collector.pendingVerifications += 1;
+  void ctx.verify(event).then((ok) => {
+    if (!isOpen()) return;
+    if (!ok) {
+      collector.relayMap.delete(event.id);
+      return;
     }
-
-    const timer = setTimeout(() => { timedOut = true; finalize(); }, timeoutMs);
-
-    for (const relayUrl of relayUrls) {
-      handles.push(relayPoolSubscribe(ctx, filters, relayUrl, (item) => {
-        if (finished) return;
-        if (item === 'EOSE') {
-          eoseCount += 1;
-          if (eoseCount >= relayUrls.length) finalize();
-          return;
-        }
-        recordRelay(collector, item.id, relayUrl);
-        admitEvent(ctx, collector, item);
-      }));
+    collector.seen.set(event.id, event);
+    try {
+      sink.event(collectedEventResult(collector, event));
+    } catch {
+      // A consumer callback cannot poison relay collection or completion.
     }
-
-    if (relayUrls.length === 0) finalize();
+  }).finally(() => {
+    collector.pendingVerifications -= 1;
+    onSettled();
   });
+}
+
+/** Build the compatibility aggregate without changing its existing limit rule. */
+function buildQueryResult(
+  collector: OutboxCollector,
+  options: OutboxQueryOptions | undefined,
+  incomplete: boolean,
+  subscribedAny: boolean,
+): OutboxResult {
+  let events = [...collector.seen.values()].map((event) => collectedEventResult(collector, event));
+  if (options?.limit !== undefined && events.length > options.limit) {
+    events = [...events].sort((a, b) => b.event.created_at - a.event.created_at).slice(0, options.limit);
+  }
+  const result: OutboxResult = { events };
+  if (incomplete || !subscribedAny) result.incomplete = true;
+  if (!subscribedAny) result.error = 'relay list unavailable';
+  return result;
 }
 
 /** Thin wrapper so callers read as a single-relay subscribe. */
@@ -348,27 +277,136 @@ function relayPoolSubscribe(
   return ctx.relayPool.subscribe(filters, [relayUrl], cb);
 }
 
-async function queryImpl(ctx: RouterCtx, filters: NostrFilter[], options?: OutboxQueryOptions): Promise<OutboxResult> {
+function startQueryImpl(
+  ctx: RouterCtx,
+  filters: NostrFilter[],
+  options: OutboxQueryOptions | undefined,
+  sink: OutboxQueryStreamSink,
+): OutboxQueryStream {
   if (!ctx.relayPool.isAvailable()) {
-    return { events: [], incomplete: true, error: 'relay list unavailable' };
+    return {
+      result: Promise.resolve({ events: [], incomplete: true, error: 'relay list unavailable' }),
+      close(): void { /* no relay handles */ },
+    };
   }
+
   const authors = deriveAuthors(filters, options?.authors);
-  const plan = await resolvePlan(ctx, authors, 'read', options?.relays);
-  if (plan.relays.length === 0) {
-    return { events: [], incomplete: true, error: 'relay list unavailable' };
+  const collector: OutboxCollector = {
+    seen: new Map(),
+    admitted: new Set(),
+    relayMap: new Map(),
+    pendingVerifications: 0,
+  };
+  const handles = new Map<string, { unsubscribe(): void }>();
+  const activeRelays = new Set<string>();
+  const eoseRelays = new Set<string>();
+  let discoveryPending = authors.length > 0;
+  let incomplete = false;
+  let subscribedAny = false;
+  let finished = false;
+  let resolveResult!: (result: OutboxResult) => void;
+  const result = new Promise<OutboxResult>((resolve) => { resolveResult = resolve; });
+  let timer: unknown;
+
+  function closeHandles(): void {
+    for (const handle of handles.values()) {
+      try { handle.unsubscribe(); } catch { /* best-effort */ }
+    }
+    handles.clear();
   }
 
-  const timeoutMs = options?.timeoutMs ?? ctx.defaultTimeoutMs;
-  const collected = await collectFromRelays(ctx, filters, plan.relays, timeoutMs);
-
-  const incomplete = collected.incomplete || (plan.missingAuthors?.length ?? 0) > 0;
-  let events = collected.events;
-  if (options?.limit !== undefined && events.length > options.limit) {
-    events = [...events].sort((a, b) => b.event.created_at - a.event.created_at).slice(0, options.limit);
+  function finalize(forceIncomplete = false): void {
+    if (finished) return;
+    finished = true;
+    incomplete ||= forceIncomplete;
+    clearTimeout(timer);
+    closeHandles();
+    resolveResult(buildQueryResult(collector, options, incomplete, subscribedAny));
   }
-  const result: OutboxResult = { events };
-  if (incomplete) result.incomplete = true;
-  return result;
+
+  function maybeFinalize(): void {
+    if (finished || discoveryPending || collector.pendingVerifications > 0) return;
+    if (activeRelays.size === 0 || eoseRelays.size >= activeRelays.size) finalize();
+  }
+
+  function attachRelay(relayUrl: string): void {
+    if (finished || activeRelays.has(relayUrl)) return;
+    activeRelays.add(relayUrl);
+    try {
+      const handle = relayPoolSubscribe(ctx, filters, relayUrl, (item) => {
+        if (finished) return;
+        if (item === 'EOSE') {
+          eoseRelays.add(relayUrl);
+          maybeFinalize();
+          return;
+        }
+        recordRelay(collector, item.id, relayUrl);
+        admitEvent(ctx, collector, item, sink, () => !finished, maybeFinalize);
+      });
+      subscribedAny = true;
+      if (finished) {
+        try { handle.unsubscribe(); } catch { /* best-effort */ }
+      } else {
+        handles.set(relayUrl, handle);
+      }
+    } catch {
+      activeRelays.delete(relayUrl);
+      incomplete = true;
+    }
+  }
+
+  function attachMany(relayUrls: Iterable<string>): void {
+    for (const relayUrl of relayUrls) attachRelay(relayUrl);
+  }
+
+  timer = setTimeout(() => finalize(true), options?.timeoutMs ?? ctx.defaultTimeoutMs);
+
+  if (authors.length === 0) {
+    discoveryPending = false;
+    attachMany(immediateReadRelays(ctx, options?.relays));
+    maybeFinalize();
+  } else {
+    let loaded: Promise<Map<string, RelayListEntry>> | Map<string, RelayListEntry>;
+    try {
+      loaded = ctx.loadRelayLists(authors);
+    } catch {
+      discoveryPending = false;
+      incomplete = true;
+      attachMany(immediateReadRelays(ctx, options?.relays));
+      maybeFinalize();
+      return { result, close: () => finalize(true) };
+    }
+
+    if (loaded instanceof Map) {
+      const discovery = discoveredReadRelays(ctx, authors, loaded);
+      discoveryPending = false;
+      incomplete ||= discovery.missingAuthors.length > 0;
+      const initial = allowed(ctx, [...(options?.relays ?? []), ...discovery.relays]);
+      attachMany(initial.length > 0 ? initial : allowed(ctx, ctx.fallbackRelays));
+      maybeFinalize();
+    } else {
+      attachMany(immediateReadRelays(ctx, options?.relays));
+      void Promise.resolve(loaded).then((lists) => {
+        if (finished) return;
+        const discovery = discoveredReadRelays(ctx, authors, lists);
+        discoveryPending = false;
+        incomplete ||= discovery.missingAuthors.length > 0;
+        attachMany(discovery.relays);
+        maybeFinalize();
+      }).catch(() => {
+        if (finished) return;
+        discoveryPending = false;
+        incomplete = true;
+        maybeFinalize();
+      });
+    }
+  }
+
+  return { result, close: () => finalize(true) };
+}
+
+function queryImpl(ctx: RouterCtx, filters: NostrFilter[], options?: OutboxQueryOptions): Promise<OutboxResult> {
+  return startQueryImpl(ctx, filters, options, { event: () => { /* aggregate only */ } }).result;
 }
 
 async function getEventImpl(ctx: RouterCtx, eventId: string, options?: OutboxEventOptions): Promise<OutboxEventResult> {
@@ -395,38 +433,43 @@ async function getEventImpl(ctx: RouterCtx, eventId: string, options?: OutboxEve
   return result;
 }
 
-/** Tracks an outbox subscription across its per-relay fan-out. */
-interface LiveSub {
-  handles: { unsubscribe(): void }[];
-  seen: Set<string>;
-  closed: boolean;
-}
-
-function closeLiveSub(sub: LiveSub): void {
-  for (const handle of sub.handles) {
+function closeLiveSub(sub: LiveOutboxSubscription): void {
+  for (const handle of sub.handles.values()) {
     try { handle.unsubscribe(); } catch { /* best-effort */ }
   }
-  sub.handles.length = 0;
+  sub.handles.clear();
 }
 
 /** Wire one relay's subscription into an outbox subscription's event flow. */
 function attachLiveRelay(
   ctx: RouterCtx,
-  sub: LiveSub,
+  sub: LiveOutboxSubscription,
   filters: NostrFilter[],
   relayUrl: string,
   sink: OutboxSubscriptionSink,
-): void {
-  sub.handles.push(relayPoolSubscribe(ctx, filters, relayUrl, (item) => {
-    if (sub.closed) return;
-    if (item === 'EOSE') return;
-    if (sub.seen.has(item.id)) return;
-    void ctx.verify(item).then((ok) => {
-      if (!ok || sub.closed || sub.seen.has(item.id)) return;
-      sub.seen.add(item.id);
-      sink.event(createRelayEventResultWithHints(item, [relayUrl]));
+): boolean {
+  if (sub.closed || sub.relays.has(relayUrl)) return false;
+  sub.relays.add(relayUrl);
+  try {
+    const handle = relayPoolSubscribe(ctx, filters, relayUrl, (item) => {
+      if (sub.closed || item === 'EOSE' || sub.admitted.has(item.id)) return;
+      sub.admitted.add(item.id);
+      void ctx.verify(item).then((ok) => {
+        if (!ok || sub.closed || sub.seen.has(item.id)) return;
+        sub.seen.add(item.id);
+        sink.event(createRelayEventResultWithHints(item, [relayUrl]));
+      });
     });
-  }));
+    if (sub.closed) {
+      try { handle.unsubscribe(); } catch { /* best-effort */ }
+    } else {
+      sub.handles.set(relayUrl, handle);
+    }
+    return true;
+  } catch {
+    sub.relays.delete(relayUrl);
+    return false;
+  }
 }
 
 function startSubscription(
@@ -436,22 +479,76 @@ function startSubscription(
   sink: OutboxSubscriptionSink,
 ): OutboxRouterSubscription {
   const authors = deriveAuthors(filters, options?.authors);
-  const sub: LiveSub = { handles: [], seen: new Set(), closed: false };
+  const sub: LiveOutboxSubscription = {
+    handles: new Map(),
+    relays: new Set(),
+    admitted: new Set(),
+    seen: new Set(),
+    closed: false,
+  };
+  let discoveryOpen = authors.length > 0;
+  let discoveryTimer: unknown;
 
-  void resolvePlan(ctx, authors, 'read', options?.relays)
-    .then((plan) => {
-      if (sub.closed) return;
-      if (plan.relays.length === 0) { sink.closed('relay list unavailable'); return; }
-      for (const relayUrl of plan.relays) attachLiveRelay(ctx, sub, filters, relayUrl, sink);
-    })
-    .catch((err) => {
-      if (!sub.closed) sink.closed(err instanceof Error ? err.message : 'subscribe failed');
-    });
+  function attachMany(relayUrls: Iterable<string>): void {
+    for (const relayUrl of relayUrls) attachLiveRelay(ctx, sub, filters, relayUrl, sink);
+  }
+
+  function closeUnavailable(): void {
+    if (sub.closed || sub.handles.size > 0) return;
+    sub.closed = true;
+    sink.closed('relay list unavailable');
+  }
+
+  if (!ctx.relayPool.isAvailable()) {
+    closeUnavailable();
+  } else if (authors.length === 0) {
+    discoveryOpen = false;
+    attachMany(immediateReadRelays(ctx, options?.relays));
+    closeUnavailable();
+  } else {
+    let loaded: Promise<Map<string, RelayListEntry>> | Map<string, RelayListEntry>;
+    try {
+      loaded = ctx.loadRelayLists(authors);
+    } catch {
+      discoveryOpen = false;
+      attachMany(immediateReadRelays(ctx, options?.relays));
+      closeUnavailable();
+      loaded = new Map();
+    }
+
+    if (discoveryOpen && loaded instanceof Map) {
+      const discovery = discoveredReadRelays(ctx, authors, loaded);
+      discoveryOpen = false;
+      const initial = allowed(ctx, [...(options?.relays ?? []), ...discovery.relays]);
+      attachMany(initial.length > 0 ? initial : allowed(ctx, ctx.fallbackRelays));
+      closeUnavailable();
+    } else if (discoveryOpen) {
+      attachMany(immediateReadRelays(ctx, options?.relays));
+      discoveryTimer = setTimeout(() => {
+        discoveryOpen = false;
+        closeUnavailable();
+      }, options?.timeoutMs ?? ctx.defaultTimeoutMs);
+      void Promise.resolve(loaded).then((lists) => {
+        if (!discoveryOpen || sub.closed) return;
+        discoveryOpen = false;
+        clearTimeout(discoveryTimer);
+        attachMany(discoveredReadRelays(ctx, authors, lists).relays);
+        closeUnavailable();
+      }).catch(() => {
+        if (!discoveryOpen || sub.closed) return;
+        discoveryOpen = false;
+        clearTimeout(discoveryTimer);
+        closeUnavailable();
+      });
+    }
+  }
 
   return {
     close(): void {
       if (sub.closed) return;
       sub.closed = true;
+      discoveryOpen = false;
+      clearTimeout(discoveryTimer);
       closeLiveSub(sub);
     },
   };
@@ -528,14 +625,15 @@ async function publishImpl(ctx: RouterCtx, template: EventTemplate, options?: Ou
 }
 
 /**
- * Create a relay-pool-backed {@link OutboxRouter}.
+ * Create a relay-pool-backed {@link StreamingOutboxRouter}.
  *
  * @param options - Relay pool, NIP-65 loader, fallback relays, and optional
  *   signer / verifier / relay gate / timeout.
- * @returns An {@link OutboxRouter} for {@link createOutboxService}.
+ * @returns A {@link StreamingOutboxRouter} for direct incremental reads and
+ *   compatibility use through {@link createOutboxService}.
  * @throws If `relayPool`, `loadRelayLists`, or `fallbackRelays` are missing.
  */
-export function createRelayPoolOutboxRouter(options: RelayPoolOutboxRouterOptions): OutboxRouter {
+export function createRelayPoolOutboxRouter(options: RelayPoolOutboxRouterOptions): StreamingOutboxRouter {
   if (!options || typeof options.relayPool !== 'object' || options.relayPool === null) {
     throw new Error('createRelayPoolOutboxRouter: options.relayPool is required');
   }
@@ -567,6 +665,7 @@ export function createRelayPoolOutboxRouter(options: RelayPoolOutboxRouterOption
   return {
     getEvent: (eventId, eventOptions) => getEventImpl(ctx, eventId, eventOptions),
     query: (filters, queryOptions) => queryImpl(ctx, filters, queryOptions),
+    queryStream: (filters, queryOptions, sink) => startQueryImpl(ctx, filters, queryOptions, sink),
     subscribe: (filters, subscribeOptions, sink) => startSubscription(ctx, filters, subscribeOptions, sink),
     publish: (template, publishOptions) => publishImpl(ctx, template, publishOptions),
     resolveRelays: (target: OutboxTarget) => {

@@ -23,7 +23,7 @@ Current draft posture:
 - The v1.1 signer service is deleted outright. Its responsibilities split into two: read-only identity lookups go through `createIdentityService` (`getPublicKey`, `getRelays`, `getProfile`, `getFollows`, `getList`, `getZaps`, `getMutes`, `getBlocked`, `getBadges`); signing happens inside the shell as part of `relay.publish` / `relay.publishEncrypted` and is never exposed to napplets.
 - `createKeysService` and `createMediaService` ship real reference backends as of v1.4 (see the dedicated sections below). `createKeysService` attaches a document-level `keydown` listener by default and delivers `keys.action` push envelopes to registered napplets; `createMediaService` mirrors session metadata and playback state to `navigator.mediaSession` and emits `media.command` push envelopes on OS transport events. Both accept a host-bridge option (`HostKeysBridge` / `HostMediaBridge`) so Electron / Tauri / native shells can swap in OS-level backends without re-implementing the wire-protocol bookkeeping.
 - `createNotifyService` (NIP-5D `notify.*` NAP) coexists with the legacy `createNotificationService` (inc-emit `notifications:*` channel). Both may be registered simultaneously while hosts migrate.
-- `createOutboxService` supports `outbox.getEvent` from draft NAP-OUTBOX. Single-event lookups run through shell-owned relay routing and only return events whose ID matches the request.
+- `createOutboxService` supports `outbox.getEvent` from draft NAP-OUTBOX. Single-event lookups run through shell-owned relay routing and only return events whose ID matches the request. The draft wire contract keeps `outbox.query` one-shot and `outbox.subscribe` streaming; Kehto's concrete `createRelayPoolOutboxRouter` additionally exposes host-side `queryStream()` so verified query events can arrive before asynchronous NIP-65 discovery completes.
 - `createResourceService` supports `resource.bytesMany` from draft NAP-RESOURCE. Bulk requests return ordered per-URL items and keep per-URL failures local while preserving legacy single-fetch fields for existing Kehto callers.
 - `createUploadService` supports `upload.info` from draft NAP-UPLOAD. Hosts may expose configured rails, return URL forms, maximum bytes, and MIME type policy without requiring napplets to start an upload.
 - `createResourceService` supports `resource.info` and `resource.bytesMany` from draft NAP-RESOURCE. `resource.info` returns advisory schemes and coarse limits; bulk requests return ordered per-URL items and keep per-URL failures local while preserving legacy single-fetch fields for existing Kehto callers.
@@ -136,6 +136,22 @@ runtime.registerService(
   }),
 );
 ```
+
+## Outbox Streaming Queries
+
+NAP-OUTBOX is still an open upstream draft ([`napplet/naps` PR #32](https://github.com/napplet/naps/pull/32)). Its wire `outbox.query.result` remains one aggregate response. Hosts using Kehto's concrete router can also consume the same bounded read incrementally without changing the napplet wire protocol:
+
+```ts
+const stream = router.queryStream(
+  [{ authors: [author], kinds: [1] }],
+  { timeoutMs: 3000 },
+  { event: (result) => render(result.event) },
+);
+
+const aggregate = await stream.result;
+```
+
+When relay-list loading is asynchronous, the router opens validated relay hints or fallback relays immediately, attaches discovered author write relays to the same deduplicating collector, and applies one deadline to discovery and collection. `query()` remains the compatibility aggregate over this stream. `options.limit` applies to that aggregate; the stream receives every verified unique arrival before completion. `subscribe()` uses the same immediate seed fanout before adding discovered relays.
 
 ## Keys Service
 
