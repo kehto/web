@@ -1,5 +1,21 @@
 # @kehto/paja
 
+## 0.8.0
+
+### Minor Changes
+
+- d4c7da3: Add an opt-in real Blossom upload mode to Paja with shell-owned server policy,
+  signer identity checks, upload consent, cache-only BUD-03 discovery, and browser
+  proof that the disclosed bytes reached the server. Harden the shared HTTP
+  uploader so progress and cancellation are observable and Blossom completion
+  requires exact server-confirmed hash and size metadata.
+
+### Patch Changes
+
+- Updated dependencies [bc53f2d]
+- Updated dependencies [d4c7da3]
+  - @kehto/services@0.16.5
+
 ## 0.7.1
 
 ### Patch Changes
