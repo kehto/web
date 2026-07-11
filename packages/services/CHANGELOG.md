@@ -10,6 +10,8 @@
   proof that the disclosed bytes reached the server. Harden the shared HTTP
   uploader so progress and cancellation are observable and Blossom completion
   requires exact server-confirmed hash and size metadata.
+- [#173](https://github.com/kehto/web/pull/173): Ensure authorless outbox query relay
+  hints augment the shell-owned fallback relay plan instead of replacing it.
 
 ## 0.16.4
 

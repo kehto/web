@@ -57,11 +57,20 @@ function isPackageChangelog(path) {
   return /(^|\/)CHANGELOG\.md$/.test(path);
 }
 
+function isPackageDoc(path) {
+  return /^docs\/packages\/[^/]+\.md$/.test(path);
+}
+
 function isReleaseIntent() {
   const title = process.env.PR_TITLE ?? process.env.COMMIT_TITLE ?? '';
   return /(?:\bchore\(release\):|\brelease:|\bchangeset version\b|\bversion packages\b|\bversion-packages\b)/i.test(
     title,
   );
+}
+
+function isReleaseRepairIntent() {
+  const title = process.env.PR_TITLE ?? process.env.COMMIT_TITLE ?? '';
+  return /^fix\(release\):/i.test(title);
 }
 
 const rows = parseRows(readDiff());
@@ -80,10 +89,20 @@ const changedPackageManifests = rows.some((row) =>
 const changedChangelogs = rows.some((row) =>
   row.paths.some((path) => isPackageChangelog(path)),
 );
+const changedPackageDocs = rows.some((row) =>
+  row.paths.some((path) => isPackageDoc(path)),
+);
 
 if (isReleaseIntent() && changedPackageManifests && changedChangelogs) {
   console.log(
     `Allowed consumed changesets in release/version PR: ${deletedChangesets.join(', ')}`,
+  );
+  process.exit(0);
+}
+
+if (isReleaseRepairIntent() && changedChangelogs && changedPackageDocs) {
+  console.log(
+    `Allowed consumed changesets in release repair PR: ${deletedChangesets.join(', ')}`,
   );
   process.exit(0);
 }

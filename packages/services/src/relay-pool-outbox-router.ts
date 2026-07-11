@@ -366,7 +366,7 @@ function startQueryImpl(
 
   if (authors.length === 0) {
     discoveryPending = false;
-    attachMany(immediateReadRelays(ctx, options?.relays));
+    attachMany(allowed(ctx, [...ctx.fallbackRelays, ...(options?.relays ?? [])]));
     maybeFinalize();
   } else {
     let loaded: Promise<Map<string, RelayListEntry>> | Map<string, RelayListEntry>;
