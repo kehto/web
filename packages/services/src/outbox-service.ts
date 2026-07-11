@@ -136,6 +136,20 @@ export interface OutboxSubscriptionSink {
   closed(reason?: string): void;
 }
 
+/** Sink a bounded outbox query streams verified events through as they arrive. */
+export interface OutboxQueryStreamSink {
+  /** Deliver one deduplicated, signature-validated event result. */
+  event(result: RelayEventResult): void;
+}
+
+/** Handle for a bounded streaming query and its compatibility aggregation. */
+export interface OutboxQueryStream {
+  /** Aggregated result, settled on all-relay EOSE or the overall deadline. */
+  readonly result: Promise<OutboxResult>;
+  /** Stop relay reads and settle {@link result} as incomplete. */
+  close(): void;
+}
+
 /** Handle to a router-owned subscription. */
 export interface OutboxRouterSubscription {
   /** Stop the subscription and release its relay connections. */
@@ -162,6 +176,21 @@ export interface OutboxRouter {
   publish(template: EventTemplate, options?: OutboxPublishOptions): Promise<OutboxPublishResult>;
   /** Return the relay plan the shell would use for a read/write target. */
   resolveRelays(target: OutboxTarget): Promise<OutboxRelayPlan>;
+}
+
+/** Outbox router with an incremental surface for bounded queries. */
+export interface StreamingOutboxRouter extends OutboxRouter {
+  /**
+   * Start policy/fallback reads immediately, stream verified events through
+   * `sink`, and attach author relays when concurrent discovery resolves.
+   * `options.limit` applies to the final aggregate; the sink receives every
+   * verified unique arrival until EOSE, close, or the overall deadline.
+   */
+  queryStream(
+    filters: NostrFilter[],
+    options: OutboxQueryOptions | undefined,
+    sink: OutboxQueryStreamSink,
+  ): OutboxQueryStream;
 }
 
 /** Options for {@link createOutboxService}. */

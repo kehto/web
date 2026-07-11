@@ -58,8 +58,12 @@ export interface PajaSimulationRawOptions {
     readonly mode?: 'memory' | 'disabled';
   };
   readonly upload?: {
-    readonly mode?: 'memory' | 'disabled';
+    readonly mode?: 'memory' | 'blossom' | 'disabled';
     readonly rail?: string;
+    readonly servers?: readonly string[];
+    readonly discoverServers?: boolean;
+    readonly maxBytes?: number;
+    readonly mimeTypes?: readonly string[];
   };
   readonly media?: {
     readonly enabled?: boolean;
@@ -112,8 +116,12 @@ export interface PajaSimulation {
     readonly mode: 'memory' | 'disabled';
   };
   readonly upload: {
-    readonly mode: 'memory' | 'disabled';
-    readonly rail: string;
+    readonly mode: 'memory' | 'blossom' | 'disabled';
+    readonly rail?: string;
+    readonly servers: readonly string[];
+    readonly discoverServers: boolean;
+    readonly maxBytes?: number;
+    readonly mimeTypes?: readonly string[];
   };
   readonly media: {
     readonly enabled: boolean;
@@ -270,6 +278,13 @@ export function normalizePajaSimulation(
   if (uploadMode === 'memory' && uploadRail.length === 0) {
     throw new PajaSimulationError('Invalid simulation: upload.rail must be non-empty when upload.mode is "memory".');
   }
+  const uploadServers = normalizeUploadServers(raw?.upload?.servers ?? []);
+  const discoverServers = raw?.upload?.discoverServers ?? uploadMode === 'blossom';
+  const maxBytes = raw?.upload?.maxBytes;
+  if (maxBytes !== undefined && (!Number.isSafeInteger(maxBytes) || maxBytes <= 0)) {
+    throw new PajaSimulationError('Invalid simulation: upload.maxBytes must be a positive safe integer.');
+  }
+  const mimeTypes = normalizeMimeTypes(raw?.upload?.mimeTypes);
 
   return {
     capabilities: {
@@ -299,7 +314,11 @@ export function normalizePajaSimulation(
     },
     upload: {
       mode: uploadMode,
-      rail: uploadRail,
+      ...(uploadMode === 'memory' ? { rail: uploadRail } : {}),
+      servers: uploadServers,
+      discoverServers,
+      ...(maxBytes !== undefined ? { maxBytes } : {}),
+      ...(mimeTypes ? { mimeTypes } : {}),
     },
     media: {
       enabled: mediaEnabled,
@@ -334,11 +353,63 @@ export function summarizePajaSimulation(simulation: PajaSimulation): string {
   const relay = simulation.relay.mode === 'disabled' ? 'relay:off' : `relay:${simulation.relay.mode}:${simulation.relay.urls.length}`;
   const identity = simulation.identity.mode === 'fixed' ? 'identity:fixed' : 'identity:anon';
   const storage = `storage:${simulation.storage.mode}`;
+  const upload = simulation.upload.mode === 'memory'
+    ? 'upload:memory:simulator'
+    : simulation.upload.mode === 'blossom'
+      ? `upload:blossom:${simulation.upload.servers.length}`
+      : 'upload:off';
   const theme = `theme:${simulation.theme.mode}`;
   const disabled = simulation.capabilities.disabledDomains.length > 0
     ? `off:${simulation.capabilities.disabledDomains.join(',')}`
     : 'off:none';
-  return `${identity} ${relay} ${storage} ${theme} ${disabled}`;
+  return `${identity} ${relay} ${storage} ${upload} ${theme} ${disabled}`;
+}
+
+/** Normalize an ordered list of shell-owned Blossom server base URLs. */
+export function normalizeUploadServers(servers: readonly string[]): string[] {
+  const normalized: string[] = [];
+  for (const value of servers) {
+    if (typeof value !== 'string' || value.trim().length === 0) {
+      throw new PajaSimulationError('Invalid simulation: upload.servers entries must be non-empty URLs.');
+    }
+    let url: URL;
+    try {
+      url = new URL(value.trim());
+    } catch {
+      throw new PajaSimulationError(`Invalid simulation: upload server "${value}" is not a valid URL.`);
+    }
+    if (url.username || url.password) {
+      throw new PajaSimulationError('Invalid simulation: upload server URLs must not contain credentials.');
+    }
+    if (url.protocol !== 'https:' && !(url.protocol === 'http:' && isLoopbackHost(url.hostname))) {
+      throw new PajaSimulationError('Invalid simulation: upload servers require HTTPS, except loopback HTTP for development.');
+    }
+    if (url.search || url.hash) {
+      throw new PajaSimulationError('Invalid simulation: upload server URLs must not contain a query or fragment.');
+    }
+    const result = url.href.replace(/\/+$/, '');
+    if (!normalized.includes(result)) normalized.push(result);
+  }
+  return normalized;
+}
+
+function isLoopbackHost(hostname: string): boolean {
+  return hostname === 'localhost'
+    || hostname === '[::1]'
+    || /^127(?:\.\d{1,3}){3}$/.test(hostname);
+}
+
+function normalizeMimeTypes(mimeTypes: readonly string[] | undefined): string[] | undefined {
+  if (mimeTypes === undefined) return undefined;
+  const normalized: string[] = [];
+  for (const value of mimeTypes) {
+    if (typeof value !== 'string' || value.trim().length === 0) {
+      throw new PajaSimulationError('Invalid simulation: upload.mimeTypes entries must be non-empty strings.');
+    }
+    const mimeType = value.trim();
+    if (!normalized.includes(mimeType)) normalized.push(mimeType);
+  }
+  return normalized;
 }
 
 function isHexPubkey(value: string): boolean {

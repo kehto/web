@@ -1,5 +1,35 @@
 # @kehto/paja
 
+## 0.8.0
+
+### Minor Changes
+
+- d4c7da3: Add an opt-in real Blossom upload mode to Paja with shell-owned server policy,
+  signer identity checks, upload consent, cache-only BUD-03 discovery, and browser
+  proof that the disclosed bytes reached the server. Harden the shared HTTP
+  uploader so progress and cancellation are observable and Blossom completion
+  requires exact server-confirmed hash and size metadata.
+
+### Patch Changes
+
+- Updated dependencies [bc53f2d]
+- Updated dependencies [d4c7da3]
+  - @kehto/services@0.16.5
+
+## 0.7.1
+
+### Patch Changes
+
+- fd5faac: Inject mandatory NAP-SHELL across hosted iframe paths, complete its local handshake API, and require Paja readiness to come from `shell.ready`.
+- Updated dependencies [fd5faac]
+  - @kehto/shell@0.17.2
+
+## 0.7.0
+
+### Minor Changes
+
+- 96130bc: Add static Paja runtime tab share links and restore pointer-loaded tabs across browser sessions.
+
 ## 0.6.8
 
 ### Patch Changes

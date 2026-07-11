@@ -12,6 +12,19 @@ import type { PajaSimulation } from './simulation.js';
 
 type PajaRuntimeStatus = 'booting' | 'ready' | 'reloading' | 'error';
 
+export const PAJA_RUNTIME_TABS_STORAGE_KEY = 'kehto:paja:runtime-tabs:v1';
+
+export interface PajaRuntimeTabsSnapshot {
+  readonly version: 1;
+  readonly pointers: readonly string[];
+  readonly activeIndex: number;
+}
+
+export interface PajaRuntimeTabsSnapshotState {
+  readonly activeTabId: string | null;
+  readonly tabs: readonly Pick<PajaRuntimeTab, 'id' | 'pointerValue'>[];
+}
+
 export interface PajaRuntimeTab {
   id: string;
   title: string;
@@ -90,6 +103,61 @@ export function getActiveTab(state: PajaRuntimeTabState): PajaRuntimeTab | null 
 export function setEmptyStageVisible(visible: boolean): void {
   const empty = document.getElementById('empty-runtime-stage');
   if (empty instanceof HTMLElement) empty.hidden = !visible;
+}
+
+export function createPajaShareUrl(pointerValue: string, href = window.location.href): string {
+  const pointer = pointerValue.trim();
+  const url = new URL(href);
+  url.search = '';
+  url.hash = '';
+  url.searchParams.set(getPointerParamName(pointer), pointer);
+  return url.href;
+}
+
+export function snapshotRuntimeTabs(state: PajaRuntimeTabsSnapshotState): PajaRuntimeTabsSnapshot | null {
+  const pointers = state.tabs
+    .map((tab) => tab.pointerValue.trim())
+    .filter((pointer) => pointer.length > 0);
+  if (pointers.length === 0) return null;
+  const activeIndex = Math.max(
+    0,
+    state.tabs.findIndex((tab) => tab.id === state.activeTabId),
+  );
+  return {
+    version: 1,
+    pointers,
+    activeIndex: Math.min(activeIndex, pointers.length - 1),
+  };
+}
+
+export function parseRuntimeTabsSnapshot(value: string | null): PajaRuntimeTabsSnapshot | null {
+  if (!value) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== 'object' || parsed === null) return null;
+  const candidate = parsed as {
+    readonly version?: unknown;
+    readonly pointers?: unknown;
+    readonly activeIndex?: unknown;
+  };
+  if (candidate.version !== 1 || !Array.isArray(candidate.pointers)) return null;
+  const pointers = candidate.pointers
+    .filter((pointer): pointer is string => typeof pointer === 'string')
+    .map((pointer) => pointer.trim())
+    .filter((pointer) => pointer.length > 0);
+  if (pointers.length === 0) return null;
+  const rawActiveIndex = typeof candidate.activeIndex === 'number' && Number.isInteger(candidate.activeIndex)
+    ? candidate.activeIndex
+    : 0;
+  return {
+    version: 1,
+    pointers,
+    activeIndex: Math.max(0, Math.min(rawActiveIndex, pointers.length - 1)),
+  };
 }
 
 export function renderRuntimeTabs(state: PajaRuntimeTabState): void {
@@ -250,8 +318,28 @@ function renderTab(state: PajaRuntimeTabState, tab: PajaRuntimeTab): HTMLElement
   const label = document.createElement('span');
   label.className = 'tab-label';
   label.textContent = tab.title;
-  tabButton.append(label, renderCloseButton(state, tab));
+  tabButton.append(label, renderShareButton(tab), renderCloseButton(state, tab));
   return tabButton;
+}
+
+function renderShareButton(tab: PajaRuntimeTab): HTMLButtonElement {
+  const share = document.createElement('button');
+  share.type = 'button';
+  share.className = 'tab-share';
+  share.setAttribute('aria-label', `Copy share link for ${tab.title}`);
+  share.title = 'Copy share link';
+  share.textContent = '↗';
+  share.addEventListener('click', (event) => {
+    event.stopPropagation();
+    void shareRuntimeTab(tab, share).catch((error) => console.error(error));
+  });
+  share.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    event.stopPropagation();
+    void shareRuntimeTab(tab, share).catch((error) => console.error(error));
+  });
+  return share;
 }
 
 function renderCloseButton(state: PajaRuntimeTabState, tab: PajaRuntimeTab): HTMLButtonElement {
@@ -271,6 +359,31 @@ function renderCloseButton(state: PajaRuntimeTabState, tab: PajaRuntimeTab): HTM
     state.closeTab(tab.id);
   });
   return close;
+}
+
+async function shareRuntimeTab(tab: PajaRuntimeTab, button: HTMLButtonElement): Promise<void> {
+  const shareUrl = createPajaShareUrl(tab.pointerValue);
+  const clipboard = navigator.clipboard;
+  if (!clipboard) {
+    window.prompt('Copy Paja share link', shareUrl);
+    return;
+  }
+  try {
+    await clipboard.writeText(shareUrl);
+  } catch {
+    window.prompt('Copy Paja share link', shareUrl);
+    return;
+  }
+  button.title = 'Share link copied';
+  window.setTimeout(() => {
+    button.title = 'Copy share link';
+  }, 1200);
+}
+
+function getPointerParamName(pointer: string): 'naddr' | 'nevent' | 'pointer' {
+  if (pointer.startsWith('naddr')) return 'naddr';
+  if (pointer.startsWith('nevent')) return 'nevent';
+  return 'pointer';
 }
 
 function resolvedTargetTitle(target: PajaResolvedPointer): string {

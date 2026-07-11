@@ -15,8 +15,10 @@ The runtime is designed to be used from a napplet package script:
 
 The target URL is explicit on purpose. Kehto can spawn any framework command and
 wait for that URL, but it does not guess which URL the framework chose. Loading
-that URL through Paja as injected `srcdoc` lets Kehto install
-`window.napplet.<domain>` before app code runs, while a `<base>` tag keeps the
+that URL through Paja as injected `srcdoc` lets Kehto install mandatory
+`window.napplet.shell` plus enabled optional domains before app code runs. The
+shell shim completes `shell.ready` / `shell.init` and caches capability queries,
+while a `<base>` tag keeps the
 app's own assets and HMR pointed at the target dev server without Vite, Svelte,
 React, or any other framework lock-in.
 
@@ -28,7 +30,7 @@ surface: relay/outbox, storage, identity, keys, config, resource, theme, notify,
 media, upload, intent, cvm, and inc. Relay/outbox defaults to live public relays
 and uses NIP-65 relay-list bootstrap plus kind `3` contact-list reads for
 identity flows; `--relay-mode memory` is the explicit deterministic fixture
-mode. `shell` is the mandatory handshake domain; the deprecated legacy package
+mode. `shell` is the mandatory, non-toggleable handshake domain; the deprecated legacy package
 path remains an upstream compatibility alias to `inc`. The upstream `dm` domain
 is not advertised until Paja wires a deterministic development DM backend.
 
@@ -45,7 +47,11 @@ artifact. It uses the same browser host and service adapters, but loads verified
 napplet HTML from pasted `naddr` or `nevent` pointers with `hmr: none`. Each
 loaded pointer becomes a closeable header tab; loading an already-running
 napplet opens a choice to load another instance, switch to the existing tab, or
-cancel.
+cancel. Each tab includes a share control that copies a `/web/paja/?naddr=...`
+or `/web/paja/?nevent=...` link for that pointer, and the browser remembers open
+runtime tabs in local storage so returning to `/web/paja/` restores the previous
+pointer set. An explicit pointer in the URL still takes precedence over restored
+tabs.
 
 Environment simulation can be supplied through CLI flags or a JSON config file:
 
@@ -76,6 +82,40 @@ kehto paja \
   }
 }
 ```
+
+## NAP-UPLOAD modes
+
+Paja keeps `memory` as the default upload simulator. It returns deterministic
+`kehto-dev://` results and does not store bytes. Opt into real Blossom storage
+with a shell-owned server and an active Dev, NIP-07, or NIP-46 signer:
+
+```bash
+kehto paja \
+  --target-url http://127.0.0.1:5173 \
+  --upload-mode blossom \
+  --upload-server https://blossom.example \
+  -- pnpm vite --host 127.0.0.1
+```
+
+Paja prompts with the napplet identity, file details, selected server, and a
+public/durable warning before it signs or sends bytes. Production servers must
+use HTTPS; plain HTTP is accepted only for loopback development hosts. The
+server must allow Paja's browser origin, `PUT` and `OPTIONS`, plus the
+`Authorization` and `Content-Type` CORS headers.
+
+Explicit servers win. With no explicit server, Paja may use an independently
+warmed snapshot of the active signer's newest BUD-03 kind `10063` `server`
+tags. `upload.info` and `upload.upload` never initiate that discovery. Pointer
+loader Blossom hints are artifact sources, not upload policy. The current path
+uses the first server only, returns its direct HTTP(S) URL, and does not mirror
+or construct BUD-10 URLs.
+
+Completion requires the server descriptor to confirm the exact local SHA-256
+and byte size as a non-negative safe integer. Missing or mismatched proof is a
+failed result even after an HTTP success. The configured identity, provider,
+signer, discovery author, and signed authorization pubkeys must agree; a fixed
+pubkey without `signEvent` is read-only. This implements the draft
+[NAP-UPLOAD at `a7cc174`](https://github.com/napplet/naps/blob/a7cc17463cbf5d9cb87884b31071bc4fc826034c/naps/NAP-UPLOAD.md).
 
 Full package docs: [`docs/packages/paja.md`](../../docs/packages/paja.md).
 Getting started: [`docs/how-tos/paja-getting-started.md`](../../docs/how-tos/paja-getting-started.md).

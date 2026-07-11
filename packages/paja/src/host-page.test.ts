@@ -23,7 +23,7 @@ describe('@kehto/paja host page', () => {
     expect(html).toContain('data-target-url="http://127.0.0.1:5173/"');
     expect(html).toContain('id="simulation-theme"');
     expect(html).toContain('id="simulation-status"');
-    expect(html).toContain('identity:anon relay:live:4 storage:local theme:dark off:none');
+    expect(html).toContain('identity:anon relay:live:4 storage:local upload:memory:simulator theme:dark off:none');
     expect(html).not.toContain('src="http://127.0.0.1:5173/"');
     expect(html).toContain('src="./__kehto/browser-host.js"');
     expect(html).not.toContain('id="runtime-pointer-form"');
@@ -48,6 +48,8 @@ describe('@kehto/paja host page', () => {
     expect(html).toContain('id="runtime-pointer-form"');
     expect(html).toContain('id="runtime-pointer-input"');
     expect(html).toContain('id="napplet-tabs"');
+    expect(html).toContain('grid-template-columns: minmax(0, 1fr) 24px 24px;');
+    expect(html).toContain('.tab-share, .tab-close');
     expect(html).toContain('id="napplet-stage"');
     expect(html).toContain('id="empty-runtime-stage"');
     expect(html).toContain('id="duplicate-pointer-dialog"');

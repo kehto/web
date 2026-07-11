@@ -38,8 +38,7 @@ function baseHooks(): ShellAdapter {
 }
 
 // ---------------------------------------------------------------------------
-// domains + protocols — compatibility NAP-SHELL shape for older shell.init
-// capability consumers.
+// domains + protocols — NAP-SHELL local-query environment.
 // ---------------------------------------------------------------------------
 
 describe('buildShellCapabilities — domains array (conformant NAP-SHELL, TERM-03)', () => {

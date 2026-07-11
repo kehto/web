@@ -33,10 +33,9 @@ const NAP_INC_PROTOCOLS = [
 /**
  * Build the shell's static capability set from adapter configuration.
  *
- * Returns the compatibility NAP-SHELL `domains`/`protocols` shape alongside
- * the flat `naps` array and the `sandbox` array. Current availability is
- * injected `window.napplet.<domain>` presence; this payload remains for older
- * consumers that still inspect shell.init capabilities.
+ * Returns the NAP-SHELL `domains`/`protocols` environment used by local
+ * `window.napplet.shell.supports()` queries. Flat `naps` and empty `sandbox`
+ * fields remain alongside it for older payload readers.
  *
  * ### naps array (NAP vocabulary)
  * Bare domain `inc` + `inc:NAP-01..inc:NAP-06`.
@@ -50,8 +49,8 @@ const NAP_INC_PROTOCOLS = [
  * NIP-5D defines only the `allow-scripts` baseline and does not make additional
  * browser sandbox tokens a napplet capability surface.
  *
- * ### domains array + protocols map (compatibility NAP-SHELL)
- * The structured shape older shell capability consumers read:
+ * ### domains array + protocols map (NAP-SHELL)
+ * The structured environment delivered to the mandatory shell shim:
  *
  *   - `domains` — bare NAP domain names (the `naps` set MINUS the `inc:NAP-NN`
  *     protocol strings) with the same conditional entries (relay/outbox under
@@ -59,11 +58,10 @@ const NAP_INC_PROTOCOLS = [
  *   - `protocols` — `{ inc: ['NAP-01'..'NAP-06'] }`, derived from
  *     `NAP_INC_PROTOCOLS` by stripping the `inc:` prefix.
  *
- * Emitted as a superset alongside `naps`/`sandbox` for back-compat.
+ * `naps`/`sandbox` are emitted as compatibility fields alongside this shape.
  *
  * @param hooks - The ShellAdapter provided by the host app
- * @returns ShellCapabilities with domains/protocols (compatibility shape), naps
- *          (NAP vocab), and an empty sandbox compatibility array
+ * @returns ShellCapabilities with normative local-query data plus legacy fields
  * @example
  * ```ts
  * const caps = buildShellCapabilities(hooks);
@@ -80,7 +78,7 @@ const NAP_INC_PROTOCOLS = [
  * ```
  */
 export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
-  // domains — compatibility NAP-SHELL bare domain list.
+  // domains — NAP-SHELL bare domain list used by local supports() queries.
   // Same membership/order as `naps` but WITHOUT the inc:NAP-NN protocol strings
   // (those move to `protocols`). Conditional entries use the same gates as naps.
   const domains: string[] = hooks.relayPool

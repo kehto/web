@@ -64,13 +64,31 @@ payload text. The log includes target traffic plus Paja system events for
 interface toggles, ACL changes, signer changes, and signer/publish
 confirmations. Error envelopes show their error text directly in the row.
 
-## 7. Publish Safely
+## 7. Choose Upload Storage
 
-Paja uses a generated local signer by default. Use **NIP-07** to connect a
-browser extension signer, or paste a `bunker://` or `nostrconnect://` URI and
+The default upload backend is a memory simulator; it does not store bytes. For
+real Blossom uploads, select a writable signer in the **Signer** panel and run:
+
+```bash
+kehto paja \
+  --target-url http://127.0.0.1:5173 \
+  --upload-mode blossom \
+  --upload-server https://blossom.example
+```
+
+Paja discloses the file, napplet, selected server, and public/durable effect
+before signing or sending it. Use HTTPS in production. Loopback HTTP is allowed
+for a local Blossom fixture, which must permit browser CORS preflight, `PUT`,
+`Authorization`, and `Content-Type`.
+
+## 8. Publish Safely
+
+Paja begins without a writable signer. Select **Dev**, use **NIP-07** to connect
+a browser extension signer, or paste a `bunker://` or `nostrconnect://` URI and
 choose **Bunker** for a NIP-46 signer. Every sign or publish request opens a
 browser confirmation prompt. There is no bypass list and no remembered allow
-rule.
+rule. A configured fixed pubkey remains read-only unless the connected signer
+proves the same pubkey.
 
 ## More
 

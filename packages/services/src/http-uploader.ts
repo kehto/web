@@ -103,6 +103,7 @@ export function createHttpUploader(options: HttpUploaderOptions): Uploader {
   const digest = options.digestSha256 ?? defaultDigestSha256;
   const nowS = options.now ?? (() => Math.floor(Date.now() / 1000));
   const defaultRail = options.defaultRail ?? firstConfiguredRail(rails);
+  const inFlight = new Map<string, AbortController>();
 
   async function upload(request: UploadRequest, ctx: UploaderContext): Promise<UploadResult> {
     const rail = request.rail ?? defaultRail;
@@ -116,19 +117,34 @@ export function createHttpUploader(options: HttpUploaderOptions): Uploader {
       return failed(ctx.uploadId, rail, 'no server configured');
     }
 
-    const bytes = await toBytes(request.data);
-    const sha256 = await digest(bytes);
+    const controller = new AbortController();
+    inFlight.set(ctx.uploadId, controller);
+    let sha256: string | undefined;
 
     try {
+      const bytes = await toBytes(request.data);
+      sha256 = await digest(bytes);
+      if (controller.signal.aborted) {
+        return cancelled(ctx.uploadId, rail, sha256);
+      }
       return rail === 'nip96'
-        ? await uploadNip96({ request, ctx, server, bytes, sha256, signEvent, fetchFn, nowS })
-        : await uploadBlossom({ request, ctx, server, bytes, sha256, signEvent, fetchFn, nowS });
+        ? await uploadNip96({ request, ctx, server, bytes, sha256, signEvent, fetchFn, nowS, controller })
+        : await uploadBlossom({ request, ctx, server, bytes, sha256, signEvent, fetchFn, nowS, controller });
     } catch (err) {
+      if (controller.signal.aborted) {
+        return cancelled(ctx.uploadId, rail, sha256);
+      }
       return failed(ctx.uploadId, rail, toErrorMessage(err), sha256);
+    } finally {
+      inFlight.delete(ctx.uploadId);
     }
   }
 
-  return { upload };
+  function cancel(uploadId: string): void {
+    inFlight.get(uploadId)?.abort();
+  }
+
+  return { upload, cancel };
 }
 
 interface RailUploadArgs {
@@ -140,10 +156,11 @@ interface RailUploadArgs {
   signEvent: SignEvent;
   fetchFn: typeof fetch;
   nowS: () => number;
+  controller: AbortController;
 }
 
 async function uploadNip96(args: RailUploadArgs): Promise<UploadResult> {
-  const { request, ctx, server, bytes, sha256, signEvent, fetchFn, nowS } = args;
+  const { request, ctx, server, bytes, sha256, signEvent, fetchFn, nowS, controller } = args;
 
   const auth = await signEvent({
     kind: KIND_NIP98,
@@ -162,10 +179,13 @@ async function uploadNip96(args: RailUploadArgs): Promise<UploadResult> {
   if (request.mimeType !== undefined) form.append('content_type', request.mimeType);
   if (request.noTransform) form.append('no_transform', 'true');
 
+  emitUploading(ctx, 'nip96', bytes.byteLength, nowS);
+
   const res = await fetchFn(server, {
     method: 'POST',
     headers: { Authorization: nostrAuthHeader(auth) },
     body: form,
+    signal: controller.signal,
   });
 
   if (!res.ok) {
@@ -221,7 +241,7 @@ function fromNip94Tags(
 }
 
 async function uploadBlossom(args: RailUploadArgs): Promise<UploadResult> {
-  const { request, ctx, server, bytes, sha256, signEvent, fetchFn, nowS } = args;
+  const { request, ctx, server, bytes, sha256, signEvent, fetchFn, nowS, controller } = args;
 
   const auth = await signEvent({
     kind: KIND_BLOSSOM_AUTH,
@@ -238,10 +258,13 @@ async function uploadBlossom(args: RailUploadArgs): Promise<UploadResult> {
   const headers: Record<string, string> = { Authorization: nostrAuthHeader(auth) };
   if (request.mimeType) headers['Content-Type'] = request.mimeType;
 
+  emitUploading(ctx, 'blossom', bytes.byteLength, nowS);
+
   const res = await fetchFn(endpoint, {
     method: 'PUT',
     headers,
     body: bytesToArrayBuffer(bytes),
+    signal: controller.signal,
   });
 
   if (!res.ok) {
@@ -249,9 +272,26 @@ async function uploadBlossom(args: RailUploadArgs): Promise<UploadResult> {
   }
 
   const blob = (await res.json()) as BlossomDescriptor;
-  if (!blob.url) {
+  if (typeof blob.url !== 'string' || blob.url.length === 0) {
     return failed(ctx.uploadId, 'blossom', 'server returned no url', sha256);
   }
+  if (typeof blob.sha256 !== 'string' || blob.sha256.length === 0) {
+    return failed(ctx.uploadId, 'blossom', 'server returned no sha256', sha256);
+  }
+  if (blob.sha256 !== sha256) {
+    return failed(ctx.uploadId, 'blossom', 'server returned mismatched sha256', sha256);
+  }
+  if (!Number.isSafeInteger(blob.size) || (blob.size ?? -1) < 0) {
+    return failed(ctx.uploadId, 'blossom', 'server returned invalid size', sha256);
+  }
+  if (blob.size !== bytes.byteLength) {
+    return failed(ctx.uploadId, 'blossom', 'server returned mismatched size', sha256);
+  }
+
+  const mimeType = blob.type ?? request.mimeType;
+  const nip94: NostrTag[] = [['url', blob.url]];
+  if (mimeType) nip94.push(['m', mimeType]);
+  nip94.push(['x', sha256], ['size', String(bytes.byteLength)]);
 
   const result: UploadResult = {
     ok: true,
@@ -259,10 +299,11 @@ async function uploadBlossom(args: RailUploadArgs): Promise<UploadResult> {
     status: 'complete',
     rail: 'blossom',
     url: blob.url,
-    sha256: blob.sha256 ?? sha256,
-    size: blob.size ?? bytes.byteLength,
+    sha256,
+    size: bytes.byteLength,
+    nip94,
   };
-  if (blob.type) result.mimeType = blob.type;
+  if (mimeType) result.mimeType = mimeType;
   return result;
 }
 
@@ -275,6 +316,21 @@ interface BlossomDescriptor {
 
 function failed(uploadId: string, rail: UploadRail, error: string, sha256?: string): UploadResult {
   return { ok: false, uploadId, status: 'failed', rail, error, ...(sha256 ? { sha256 } : {}) };
+}
+
+function cancelled(uploadId: string, rail: UploadRail, sha256?: string): UploadResult {
+  return { ok: false, uploadId, status: 'cancelled', rail, error: 'user cancelled', ...(sha256 ? { sha256 } : {}) };
+}
+
+function emitUploading(ctx: UploaderContext, rail: UploadRail, bytesTotal: number, nowS: () => number): void {
+  ctx.onStatus({
+    ok: true,
+    uploadId: ctx.uploadId,
+    status: 'uploading',
+    rail,
+    bytesTotal,
+    updatedAt: nowS() * 1_000,
+  });
 }
 
 function firstConfiguredRail(rails: HttpUploaderRails): UploadRail | undefined {

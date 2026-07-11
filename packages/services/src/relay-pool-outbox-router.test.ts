@@ -23,6 +23,20 @@ function ev(id: string, pubkey = PK_A, created_at = 1000): NostrEvent {
 const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
+function deferred<T>(): {
+  promise: Promise<T>;
+  resolve(value: T): void;
+  reject(reason?: unknown): void;
+} {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
 interface Sub {
   relays: string[];
   cb: (item: NostrEvent | 'EOSE') => void;
@@ -124,6 +138,160 @@ describe('createRelayPoolOutboxRouter', () => {
   });
 
   describe('query', () => {
+    it('opens fallback reads immediately and applies the deadline while discovery is unresolved', async () => {
+      const pool = makePool();
+      const relayLists = deferred<Map<string, RelayListEntry>>();
+      const router = makeRouter(pool, { loadRelayLists: () => relayLists.promise });
+
+      const pending = router.query([{ authors: [PK_A], kinds: [1] }], { timeoutMs: 10 });
+
+      expect(pool.subs.map((sub) => sub.relays[0])).toEqual(['wss://fallback']);
+      pool.emit('wss://fallback', ev('seed'));
+      const result = await Promise.race([pending, delay(100).then(() => 'deadline missed' as const)]);
+
+      expect(result).not.toBe('deadline missed');
+      expect(result).toEqual({
+        events: [{ event: ev('seed'), sidecar: { relayHints: ['wss://fallback'] } }],
+        incomplete: true,
+      });
+
+      relayLists.resolve(NIP65);
+      await tick();
+      expect(pool.subs).toHaveLength(1);
+      expect(pool.subs[0].closed).toBe(true);
+    });
+
+    it('exposes an incremental query stream and attaches discovered relays to its collector', async () => {
+      const pool = makePool();
+      const relayLists = deferred<Map<string, RelayListEntry>>();
+      const streamed: string[] = [];
+      const router = makeRouter(pool, { loadRelayLists: () => relayLists.promise });
+
+      const stream = router.queryStream(
+        [{ authors: [PK_A], kinds: [1] }],
+        { timeoutMs: 100 },
+        { event: (result) => streamed.push(result.event.content) },
+      );
+
+      expect(pool.subs.map((sub) => sub.relays[0])).toEqual(['wss://fallback']);
+      pool.emit('wss://fallback', ev('shared'));
+      await tick();
+      expect(streamed).toEqual(['shared']);
+
+      relayLists.resolve(NIP65);
+      await tick();
+      expect(pool.subs.map((sub) => sub.relays[0]).sort()).toEqual(['wss://a-write', 'wss://fallback']);
+
+      pool.emit('wss://a-write', ev('shared'));
+      pool.emit('wss://a-write', ev('discovered'));
+      pool.eoseAll();
+      const result = await stream.result;
+
+      expect(streamed).toEqual(['shared', 'discovered']);
+      expect(result.events.map((item) => item.event.content).sort()).toEqual(['discovered', 'shared']);
+      expect(result.events.find((item) => item.event.content === 'shared')?.sidecar?.relayHints?.sort()).toEqual([
+        'wss://a-write',
+        'wss://fallback',
+      ]);
+      expect(result.incomplete).toBeUndefined();
+    });
+
+    it('waits for discovery after seed EOSE, then completes after discovered EOSE', async () => {
+      const pool = makePool();
+      const relayLists = deferred<Map<string, RelayListEntry>>();
+      const router = makeRouter(pool, { loadRelayLists: () => relayLists.promise });
+      const stream = router.queryStream([{ authors: [PK_A] }], { timeoutMs: 100 }, { event: () => {} });
+      let settled = false;
+      void stream.result.then(() => { settled = true; });
+
+      pool.eoseAll();
+      await tick();
+      expect(settled).toBe(false);
+
+      relayLists.resolve(NIP65);
+      await tick();
+      expect(pool.subs.map((sub) => sub.relays[0]).sort()).toEqual(['wss://a-write', 'wss://fallback']);
+      pool.emit('wss://a-write', 'EOSE');
+
+      await expect(stream.result).resolves.toEqual({ events: [] });
+    });
+
+    it('uses a validated relay hint immediately and falls back when a hint is denied', () => {
+      const hintedPool = makePool();
+      const hintedLists = deferred<Map<string, RelayListEntry>>();
+      const hinted = makeRouter(hintedPool, { loadRelayLists: () => hintedLists.promise });
+      const hintedStream = hinted.queryStream(
+        [{ authors: [PK_A] }],
+        { relays: ['wss://hint'], timeoutMs: 100 },
+        { event: () => {} },
+      );
+      expect(hintedPool.subs.map((sub) => sub.relays[0])).toEqual(['wss://hint']);
+      hintedStream.close();
+
+      const fallbackPool = makePool();
+      const fallbackLists = deferred<Map<string, RelayListEntry>>();
+      const fallback = makeRouter(fallbackPool, { loadRelayLists: () => fallbackLists.promise });
+      const fallbackStream = fallback.queryStream(
+        [{ authors: [PK_A] }],
+        { relays: ['https://not-a-relay'], timeoutMs: 100 },
+        { event: () => {} },
+      );
+      expect(fallbackPool.subs.map((sub) => sub.relays[0])).toEqual(['wss://fallback']);
+      fallbackStream.close();
+    });
+
+    it('close() is idempotent, settles incomplete, and blocks late discovery', async () => {
+      const pool = makePool();
+      const relayLists = deferred<Map<string, RelayListEntry>>();
+      const router = makeRouter(pool, { loadRelayLists: () => relayLists.promise });
+      const stream = router.queryStream([{ authors: [PK_A] }], undefined, { event: () => {} });
+
+      stream.close();
+      stream.close();
+      await expect(stream.result).resolves.toEqual({ events: [], incomplete: true });
+      expect(pool.subs).toHaveLength(1);
+      expect(pool.subs[0].closed).toBe(true);
+
+      relayLists.resolve(NIP65);
+      await tick();
+      expect(pool.subs).toHaveLength(1);
+    });
+
+    it('does not let a hanging verifier overrun the overall deadline', async () => {
+      const pool = makePool();
+      const router = makeRouter(pool, {
+        verifyEvent: () => new Promise<boolean>(() => {}),
+      });
+      const streamed = vi.fn();
+      const stream = router.queryStream(
+        [{ authors: [PK_A] }],
+        { timeoutMs: 10 },
+        { event: streamed },
+      );
+      pool.emit('wss://a-write', ev('unverified'));
+
+      const result = await Promise.race([stream.result, delay(100).then(() => 'deadline missed' as const)]);
+      expect(result).toEqual({ events: [], incomplete: true });
+      expect(streamed).not.toHaveBeenCalled();
+    });
+
+    it('marks a fallback result incomplete when relay-list discovery fails', async () => {
+      const pool = makePool();
+      const router = makeRouter(pool, {
+        loadRelayLists: () => Promise.reject(new Error('discovery offline')),
+      });
+
+      const pending = router.query([{ authors: [PK_A], kinds: [1] }], { timeoutMs: 100 });
+      expect(pool.subs.map((sub) => sub.relays[0])).toEqual(['wss://fallback']);
+      pool.emit('wss://fallback', ev('cached'));
+      pool.eoseAll();
+
+      await expect(pending).resolves.toEqual({
+        events: [{ event: ev('cached'), sidecar: { relayHints: ['wss://fallback'] } }],
+        incomplete: true,
+      });
+    });
+
     it('fans out per relay, dedups by id, and records every relay an event was seen on', async () => {
       const pool = makePool();
       const router = makeRouter(pool);
@@ -270,6 +438,54 @@ describe('createRelayPoolOutboxRouter', () => {
   });
 
   describe('subscribe', () => {
+    it('streams from fallback immediately and adds discovered author relays later', async () => {
+      const pool = makePool();
+      const relayLists = deferred<Map<string, RelayListEntry>>();
+      const events: string[] = [];
+      const router = makeRouter(pool, { loadRelayLists: () => relayLists.promise });
+
+      const sub = router.subscribe([{ authors: [PK_A] }], { timeoutMs: 20 }, {
+        event: (result) => events.push(result.event.content),
+        closed: () => { /* ignore */ },
+      });
+
+      expect(pool.subs.map((item) => item.relays[0])).toEqual(['wss://fallback']);
+      pool.emit('wss://fallback', ev('seed'));
+      await tick();
+      expect(events).toEqual(['seed']);
+
+      relayLists.resolve(NIP65);
+      await tick();
+      expect(pool.subs.map((item) => item.relays[0]).sort()).toEqual(['wss://a-write', 'wss://fallback']);
+      pool.emit('wss://a-write', ev('discovered'));
+      await tick();
+      expect(events).toEqual(['seed', 'discovered']);
+
+      sub.close();
+      expect(pool.subs.every((item) => item.closed)).toBe(true);
+    });
+
+    it('keeps the fallback stream live when discovery rejects', async () => {
+      const pool = makePool();
+      const events: string[] = [];
+      let closed = false;
+      const router = makeRouter(pool, {
+        loadRelayLists: () => Promise.reject(new Error('discovery offline')),
+      });
+
+      const sub = router.subscribe([{ authors: [PK_A] }], undefined, {
+        event: (result) => events.push(result.event.content),
+        closed: () => { closed = true; },
+      });
+      await tick();
+      pool.emit('wss://fallback', ev('still-live'));
+      await tick();
+
+      expect(events).toEqual(['still-live']);
+      expect(closed).toBe(false);
+      sub.close();
+    });
+
     it('streams attributed events and ignores relay EOSE at the outbox lifecycle boundary', async () => {
       const pool = makePool();
       const router = makeRouter(pool);
@@ -306,15 +522,19 @@ describe('createRelayPoolOutboxRouter', () => {
       expect(pool.subs).toHaveLength(0);
     });
 
-    it('close() before resolution prevents any subscription', async () => {
+    it('close() stops the immediate fallback and prevents late discovery attachment', async () => {
       const pool = makePool();
-      const router = makeRouter(pool);
+      const relayLists = deferred<Map<string, RelayListEntry>>();
+      const router = makeRouter(pool, { loadRelayLists: () => relayLists.promise });
       const sub = router.subscribe([{ authors: [PK_A] }], undefined, {
         event: () => { /* ignore */ }, closed: () => { /* ignore */ },
       });
+      expect(pool.subs.map((item) => item.relays[0])).toEqual(['wss://fallback']);
       sub.close();
+      relayLists.resolve(NIP65);
       await tick();
-      expect(pool.subs).toHaveLength(0);
+      expect(pool.subs).toHaveLength(1);
+      expect(pool.subs[0].closed).toBe(true);
     });
   });
 

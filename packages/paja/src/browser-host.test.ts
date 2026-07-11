@@ -16,9 +16,27 @@ describe('@kehto/paja browser host runtime source guards', () => {
     const source = readFileSync(new URL('./browser-target-frame.ts', import.meta.url), 'utf8');
 
     expect(source).toContain('injectNappletNamespacePrelude(');
+    expect(source).toContain('...PAJA_HANDSHAKE_DOMAINS,');
+    expect(source).toContain('!PAJA_HANDSHAKE_DOMAINS.some(');
     expect(source).toContain("fetch(new URL('./__kehto/target.html', window.location.href)");
     expect(source).toContain('frame.removeAttribute(\'src\');');
     expect(source).toContain('frame.srcdoc = injectNappletNamespacePrelude(');
+    expect(source).not.toContain('bridge.runtime.sessionRegistry.register(');
+  });
+
+  it('only marks targets ready after the mandatory shell.ready handshake', () => {
+    const source = readFileSync(new URL('./browser-host.ts', import.meta.url), 'utf8');
+    const devtoolsSource = readFileSync(new URL('./browser-devtools.ts', import.meta.url), 'utf8');
+    const readyBranch = source.slice(
+      source.indexOf("data.type === 'shell.ready'"),
+      source.indexOf("frame?.addEventListener('load'"),
+    );
+
+    expect(readyBranch).toContain("data.type === 'shell.ready'");
+    expect(readyBranch).not.toContain("typeof data.type === 'string'");
+    expect(devtoolsSource).toContain('const realToProxy = new WeakMap<Window, Window>();');
+    expect(devtoolsSource).toContain('originRegistry.getRegistrationId = (win: Window) =>');
+    expect(devtoolsSource).toContain('originRegistry.getIdentity = (win: Window) =>');
   });
 
   it('keeps runtime pointers in closeable tabs with duplicate-load choices', () => {
@@ -30,7 +48,20 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(tabsSource).toContain('function closeRuntimeTab(');
     expect(tabsSource).toContain('function showDuplicatePointerDialog()');
     expect(tabsSource).toContain("type PajaDuplicateChoice = 'load-again' | 'open-tab' | 'cancel';");
-    expect(source).toContain("const duplicate = state.tabs.find((tab) => tab.key === resolvedTargetKey(resolvedTarget));");
+    expect(source).toContain('state.tabs.find((tab) => tab.key === resolvedTargetKey(resolvedTarget));');
+  });
+
+  it('keeps pointer runtime tabs shareable and restored from local storage', () => {
+    const source = readFileSync(new URL('./browser-host.ts', import.meta.url), 'utf8');
+    const tabsSource = readFileSync(new URL('./browser-runtime-tabs.ts', import.meta.url), 'utf8');
+
+    expect(tabsSource).toContain("export const PAJA_RUNTIME_TABS_STORAGE_KEY = 'kehto:paja:runtime-tabs:v1';");
+    expect(tabsSource).toContain('function renderShareButton(tab: PajaRuntimeTab): HTMLButtonElement');
+    expect(tabsSource).toContain('createPajaShareUrl(tab.pointerValue)');
+    expect(source).toContain('function persistRuntimeTabs(state: PajaBrowserState): void');
+    expect(source).toContain('function restorePersistedRuntimeTabs(');
+    expect(source).toContain('const persistedTabs = readPersistedRuntimeTabs(config);');
+    expect(source).toContain('else if (persistedTabs) void restorePersistedRuntimeTabs(state, context, persistedTabs);');
   });
 
   it('keeps external target asset resolution anchored to the authored target URL', () => {

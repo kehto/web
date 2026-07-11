@@ -42,11 +42,11 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .spacer { flex: 1; min-width: 0; }
       .tabs { display: flex; align-items: stretch; align-self: flex-end; gap: 4px; min-width: 120px; max-width: min(100%, 760px); overflow-x: auto; scrollbar-width: thin; }
       .tabs:empty { display: none; }
-      .tab { min-width: 96px; max-width: 220px; height: 30px; display: grid; grid-template-columns: minmax(0, 1fr) 24px; align-items: center; gap: 2px; border: 1px solid var(--line); border-bottom-color: transparent; background: #151815; color: var(--muted); border-radius: 5px 5px 0 0; padding: 0 2px 0 9px; }
+      .tab { min-width: 116px; max-width: 240px; height: 30px; display: grid; grid-template-columns: minmax(0, 1fr) 24px 24px; align-items: center; gap: 2px; border: 1px solid var(--line); border-bottom-color: transparent; background: #151815; color: var(--muted); border-radius: 5px 5px 0 0; padding: 0 2px 0 9px; }
       .tab[data-active="true"] { color: var(--text); border-color: var(--accent); border-bottom-color: #151815; background: #20241f; }
       .tab-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; text-align: left; }
-      .tab-close { width: 20px; height: 20px; padding: 0; border: 0; background: transparent; color: var(--muted); display: inline-grid; place-items: center; }
-      .tab-close:hover { color: var(--text); background: #2d302b; border-color: transparent; }
+      .tab-share, .tab-close { width: 20px; height: 20px; padding: 0; border: 0; background: transparent; color: var(--muted); display: inline-grid; place-items: center; }
+      .tab-share:hover, .tab-close:hover { color: var(--text); background: #2d302b; border-color: transparent; }
       button { border: 1px solid var(--line); color: var(--text); background: #20241f; height: 26px; padding: 0 10px; border-radius: 4px; font: inherit; cursor: pointer; }
       button:hover { border-color: var(--accent); }
       label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; }

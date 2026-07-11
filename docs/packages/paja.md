@@ -20,7 +20,7 @@ app package's development scripts.
 | Field | Value |
 |-------|-------|
 | Source | `packages/paja/package.json`, `packages/paja/src/index.ts` |
-| Version | `0.6.8` |
+| Version | `0.7.1` |
 | Runtime entry | `./dist/index.js` |
 | CLI runner entry | `./dist/cli.js` |
 | Types entry | `./dist/index.d.ts` |
@@ -71,7 +71,8 @@ kehto paja \
   --capability relay:off \
   --capability outbox:off \
   --storage-mode memory \
-  --upload-rail dev-memory \
+  --upload-mode blossom \
+  --upload-server https://blossom.example \
   --theme light \
   --config-value 'density="compact"'
 ```
@@ -89,7 +90,13 @@ The config-file form is the same raw option object:
     "relay": { "mode": "disabled" },
     "capabilities": { "domains": { "relay": false, "outbox": false } },
     "storage": { "mode": "memory" },
-    "upload": { "rail": "dev-memory" },
+    "upload": {
+      "mode": "blossom",
+      "servers": ["https://blossom.example"],
+      "discoverServers": true,
+      "maxBytes": 104857600,
+      "mimeTypes": ["image/png", "application/pdf"]
+    },
     "theme": { "mode": "light" },
     "config": { "values": { "density": "compact" } }
   }
@@ -106,13 +113,13 @@ For package-manager script examples covering `pnpm`, `npm`, and `yarn`, see
 In local target-url mode, the served host page is a single-window development
 runtime: a control console beside one sandboxed target iframe, plus compact top
 and bottom bars. The iframe is created without a static `src`; the browser
-bootstrap sets `sandbox="allow-scripts"`, registers the iframe with
-`@kehto/shell`, creates a source-derived NIP-5D session entry, fetches the
-explicit target URL through the local Paja server, and renders it as injected
-`srcdoc`. Paja prepends the runtime-owned `window.napplet.<domain>` namespace
-before authored scripts run and adds a `<base>` tag so target assets and HMR
-still resolve against the app dev server. A real `ShellBridge` plus
-`@kehto/runtime` handles `shell.ready`, `shell.init`, ACL, firewall, storage,
+bootstrap sets `sandbox="allow-scripts"`, registers the iframe origin with
+`@kehto/shell`, fetches the explicit target URL through the local Paja server,
+and renders it as injected `srcdoc`. Paja prepends mandatory
+`window.napplet.shell` plus the runtime-owned optional domain namespace before
+authored scripts run and adds a `<base>` tag so target assets and HMR still
+resolve against the app dev server. A real `ShellBridge` completes
+`shell.ready` / `shell.init`; `@kehto/runtime` then handles ACL, firewall, storage,
 INC, relay/outbox, and service dispatch. Reload uses a generation-specific
 internal window id so the same iframe can receive a fresh `shell.init` without
 restarting the CLI or the app dev server.
@@ -145,7 +152,11 @@ In both cases Paja verifies the signed manifest, aggregate hash, and every
 Blossom blob, then injects the same runtime-owned `window.napplet.<domain>`
 namespace before assigning iframe `srcdoc`. Loading an already-running napplet
 opens an in-page choice to load another instance, switch to the existing tab, or
-cancel.
+cancel. Each tab includes a share control that copies a `/web/paja/?naddr=...`
+or `/web/paja/?nevent=...` link for that pointer, and the browser remembers open
+runtime tabs in local storage so returning to `/web/paja/` restores the previous
+pointer set. An explicit pointer in the URL still takes precedence over restored
+tabs.
 
 ## NAP and Service Parity
 
@@ -170,6 +181,44 @@ identity service reads contact lists (`kind:3`) so social-graph napplets can be
 tested against real account state. `--relay-mode memory` switches relay/outbox
 to deterministic fixture/event-store behavior when a test needs isolation.
 
+### NAP-UPLOAD
+
+Upload mode defaults to `memory`, an explicit simulator that returns a
+`kehto-dev://` URL without storing bytes. `blossom` mode is opt-in through
+`simulation.upload.mode` or `--upload-mode blossom`. Repeat
+`--upload-server <url>` for an ordered explicit list; CLI server values replace
+the config-file list. Paja uses only the first effective server in this release
+and returns its direct descriptor URL. Mirroring, failover, and BUD-10 result
+construction are not implemented.
+
+The shell chooses the server. Explicit normalized servers take priority. If the
+list is empty and discovery is enabled, signer connection or change warms a
+cache from the active pubkey's newest BUD-03 kind `10063` event, preserving its
+ordered `server` tags. `upload.info` and `upload.upload` read that cache only;
+they do not query relays, reconnect a signer, use a public default, or consult
+runtime-pointer Blossom hints.
+
+HTTPS is accepted everywhere. HTTP is restricted to `localhost`, the
+`127.0.0.0/8` range, and `[::1]`. Credentials, non-loopback HTTP, empty URLs,
+queries, and fragments are rejected. `upload.info.returns` reports `https` or
+the permitted loopback `http` form from the same selected server. A Blossom
+server used from the browser must support CORS preflight and allow `PUT`,
+`Authorization`, and `Content-Type` from the Paja origin.
+
+Before hashing, signing, or storage egress, Paja enforces the Blossom rail,
+`maxBytes`, and `mimeTypes`, then prompts with the requesting napplet, filename,
+size, MIME type, server, and a public/durable warning. Authorization requires a
+writable Dev, NIP-07, or NIP-46 signer. Configured identity, provider identity,
+awaited signer pubkey, BUD-03 author, and returned kind-24242 event pubkey must
+match. A fixed pubkey without `signEvent` cannot upload.
+
+`complete` is reported only when the Blossom descriptor provides a usable
+HTTP(S) URL, the exact local SHA-256, and an exact non-negative safe-integer
+size. Missing, malformed, or mismatched proof fails closed. Successful results
+include direct URL, MIME type, hash, size, and NIP-94 `url`, optional `m`, `x`,
+and `size` tags. This behavior targets the draft
+[NAP-UPLOAD at `a7cc174`](https://github.com/napplet/naps/blob/a7cc17463cbf5d9cb87884b31071bc4fc826034c/naps/NAP-UPLOAD.md).
+
 The `count` domain uses the active Paja relay backend to answer `count.query`
 with exact aggregate counts and `approximate: false`. Broad empty filters are
 refused as too expensive, and setting `relay.mode` to `disabled` also disables
@@ -185,7 +234,8 @@ The normalized simulation object controls:
 - Live, memory fixture, or disabled relay/outbox behavior.
 - Local, memory, or disabled storage mode advertisement.
 - Memory or disabled artifact/cache metadata.
-- Memory or disabled upload mode and upload rail name.
+- Memory simulator, real Blossom, or disabled upload mode; shell-owned servers,
+  BUD-03 discovery, maximum bytes, and MIME policy.
 - Media, notification, intent, and CVM availability.
 - Config values returned by `config.get`.
 - Theme mode and values returned by `theme.get`.

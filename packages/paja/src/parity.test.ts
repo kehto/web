@@ -25,6 +25,11 @@ function readNapDomainDirectories(): string[] {
 }
 
 describe('@kehto/paja parity metadata', () => {
+  it('keeps NAP-SHELL mandatory and outside optional capability toggles', () => {
+    expect(PAJA_HANDSHAKE_DOMAINS).toEqual(['shell']);
+    expect(PAJA_ADVERTISED_DOMAINS).not.toContain('shell');
+  });
+
   it('tracks the current @napplet/nap web domain directories', () => {
     expect(readNapDomainDirectories()).toEqual([...PAJA_UPSTREAM_WEB_DOMAINS]);
   });

@@ -17,7 +17,7 @@ pnpm add -D @kehto/cli
 | Field | Value |
 |-------|-------|
 | Source | `packages/cli/package.json`, `packages/cli/src/index.ts` |
-| Version | `0.2.14` |
+| Version | `0.2.15` |
 | Runtime entry | `./dist/index.js` |
 | Binary | `kehto` |
 | Types entry | `./dist/index.d.ts` |
@@ -33,6 +33,20 @@ kehto paja --target-url http://127.0.0.1:5173 -- pnpm vite --host 127.0.0.1
 `kehto paja` delegates to the Paja implementation package. Keeping the binary
 in `@kehto/cli` leaves room for future top-level commands without causing
 package-bin collisions across `@kehto/*` packages.
+
+Real NAP-UPLOAD is opt-in and its server remains shell-owned:
+
+```bash
+kehto paja \
+  --target-url http://127.0.0.1:5173 \
+  --upload-mode blossom \
+  --upload-server https://blossom.example \
+  -- pnpm vite --host 127.0.0.1
+```
+
+Repeat `--upload-server` to provide an ordered list. These CLI values replace
+servers from the config file. Without `--upload-mode blossom`, Paja retains its
+deterministic memory simulator.
 
 ## Primary APIs
 

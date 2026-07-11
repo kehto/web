@@ -27,6 +27,7 @@ import {
   createResourceService,
   createSerialService,
   createThemeService,
+  type UploadInfoProvider,
   createUploadService,
   createWebrtcService,
   type CvmServer,
@@ -52,6 +53,7 @@ import {
 import type { PajaHostConfig } from './options.js';
 import type { PajaSignerMethod } from './browser-signers.js';
 import type { PajaSimulation } from './simulation.js';
+import { createPajaUploadRuntime, type PajaUploadRuntime } from './browser-upload.js';
 import {
   PAJA_LIVE_QUERY_WAIT_MS,
   createPajaIdentityProviders,
@@ -63,13 +65,22 @@ import {
   type PajaRelayBackend,
 } from './browser-relay-runtime.js';
 
-/** Confirmation request emitted before Paja signs or publishes. */
-export interface PajaConfirmationRequest {
-  /** Requested action. */
-  action: 'sign' | 'publish';
-  /** Event or partial event template to confirm. */
-  event: NostrEvent | Partial<NostrEvent>;
-}
+/** Confirmation request emitted before Paja signs, publishes, or uploads. */
+export type PajaConfirmationRequest =
+  | {
+      readonly action: 'sign' | 'publish';
+      readonly event: NostrEvent | Partial<NostrEvent>;
+    }
+  | {
+      readonly action: 'upload';
+      readonly windowId: string;
+      readonly napplet: { readonly dTag: string; readonly aggregateHash: string };
+      readonly filename?: string;
+      readonly size: number;
+      readonly mimeType?: string;
+      readonly server: string;
+      readonly warning: string;
+    };
 
 /** Paja runtime signer provider. */
 export interface PajaSignerProvider {
@@ -79,6 +90,8 @@ export interface PajaSignerProvider {
   getMethod(): PajaSignerMethod;
   /** Active signer pubkey, if connected. */
   getPubkey(): string | null;
+  /** Observe signer identity lifecycle changes. */
+  subscribe?(listener: () => void): () => void;
 }
 
 /** Identity provider for Paja's simulated target identity. */
@@ -148,8 +161,8 @@ function createDevUploader(getSimulation: () => PajaSimulation): Uploader {
         ok: true,
         uploadId: ctx.uploadId,
         status: 'complete',
-        rail: request.rail ?? simulation.upload.rail,
-        url: `kehto-dev://${simulation.upload.rail}/${ctx.uploadId}`,
+        rail: request.rail ?? simulation.upload.rail ?? 'dev-memory',
+        url: `kehto-dev://${simulation.upload.rail ?? 'dev-memory'}/${ctx.uploadId}`,
         size,
         mimeType: request.mimeType ?? (request.data instanceof Blob ? request.data.type : undefined),
       };
@@ -162,8 +175,8 @@ function createDevUploader(getSimulation: () => PajaSimulation): Uploader {
         ok: simulation.upload.mode !== 'disabled',
         uploadId,
         status: simulation.upload.mode === 'disabled' ? 'failed' : 'complete',
-        rail: simulation.upload.rail,
-        url: `kehto-dev://${simulation.upload.rail}/${uploadId}`,
+        rail: simulation.upload.rail ?? 'dev-memory',
+        url: `kehto-dev://${simulation.upload.rail ?? 'dev-memory'}/${uploadId}`,
         updatedAt: Date.now(),
       };
     },
@@ -302,10 +315,7 @@ function createRuntimeSigner(
     }
     return null;
   }
-  return {
-    ...signer,
-    getPublicKey: () => getRuntimePubkey(getSimulation, signerProvider),
-  };
+  return signer;
 }
 
 function createDevServices(
@@ -313,6 +323,7 @@ function createDevServices(
   getSimulation: () => PajaSimulation,
   onThemeService: (theme: ReturnType<typeof createThemeService>) => void,
   confirmRequest: (request: PajaConfirmationRequest) => boolean,
+  uploadRuntime?: PajaUploadRuntime,
   signerProvider?: PajaSignerProvider,
 ): Record<string, ServiceHandler> {
   const notification = createNotificationService({ maxPerWindow: 50 });
@@ -391,7 +402,14 @@ function createDevServices(
   if (getSimulation().capabilities.domains.theme) services.theme = theme.handler;
   if (getSimulation().capabilities.domains.config) services.config = config.handler;
   if (getSimulation().cvm.enabled) services.cvm = createCvmService({ transport: createDevCvmTransport(getSimulation) });
-  if (getSimulation().upload.mode === 'memory') services.upload = createUploadService({ uploader: createDevUploader(getSimulation) });
+  if (getSimulation().upload.mode === 'memory') {
+    services.upload = createUploadService({ uploader: createDevUploader(getSimulation) });
+  } else if (uploadRuntime) {
+    services.upload = createUploadService({
+      uploader: uploadRuntime.uploader,
+      uploadInfo: uploadRuntime.uploadInfo as UploadInfoProvider,
+    });
+  }
   if (getSimulation().intent.enabled) {
     services.intent = createIntentService({
       resolver: {
@@ -476,6 +494,22 @@ export function createPajaAdapter(
   getIdentity?: PajaIdentityProvider,
 ): ShellAdapter {
   const relayBackend = createPajaRelayBackend(getSimulation, confirmRequest);
+  const uploadRuntime = getSimulation().upload.mode === 'blossom'
+    ? createPajaUploadRuntime({
+        getSimulation,
+        getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider),
+        getProviderPubkey: () => signerProvider?.getPubkey() ?? null,
+        queryDiscovery: (relayUrls, filters) => relayBackend.query(relayUrls, filters),
+        getRelayUrls: () => getPajaRelayUrls(getSimulation()),
+        confirmRequest,
+        getNappletIdentity: () => getIdentity?.() ?? {
+          dTag: config.window.dTag,
+          aggregateHash: config.window.aggregateHash,
+        },
+        subscribeSignerChange: signerProvider?.subscribe?.bind(signerProvider),
+      })
+    : undefined;
+  void uploadRuntime?.refreshIdentity();
   const workerRelayEvents: NostrEvent[] = [];
   return {
     relayPool: createRelayHooks(relayBackend, getSimulation),
@@ -493,14 +527,18 @@ export function createPajaAdapter(
       getUserPubkey: () => getRuntimePubkey(getSimulation, signerProvider),
       getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider),
     },
-    services: createDevServices(relayBackend, getSimulation, onThemeService, confirmRequest, signerProvider),
+    services: createDevServices(relayBackend, getSimulation, onThemeService, confirmRequest, uploadRuntime, signerProvider),
     get capabilities() {
       return { disabledDomains: getSimulation().capabilities.disabledDomains };
     },
     config: { getNappUpdateBehavior: () => 'auto-grant' },
     hotkeys: { executeHotkeyFromForward: () => {} },
     workerRelay: { getWorkerRelay: () => createWorkerRelay(workerRelayEvents) },
-    upload: getSimulation().upload.mode === 'memory' ? { getUploader: () => ({ rails: [getSimulation().upload.rail] }) } : undefined,
+    upload: getSimulation().upload.mode === 'memory'
+      ? { getUploader: () => ({ rails: [getSimulation().upload.rail ?? 'dev-memory'] }) }
+      : uploadRuntime
+        ? { getUploader: uploadRuntime.getBackend }
+        : undefined,
     intent: { isAvailable: () => getSimulation().intent.enabled },
     link: { isAvailable: () => getSimulation().capabilities.domains.link },
     common: { isAvailable: () => getSimulation().capabilities.domains.common },

@@ -57,6 +57,11 @@ export interface PajaDevtoolsState {
 
 const PAJA_LOG_LIMIT = 500;
 const proxyToReal = new WeakMap<object, Window>();
+const realToProxy = new WeakMap<Window, Window>();
+const proxyContexts = new WeakMap<Window, {
+  state: PajaDevtoolsState | null;
+  windowId?: string;
+}>();
 
 interface PajaDevtoolsRenderOptions {
   readonly bridge: ShellBridge | null;
@@ -66,6 +71,8 @@ interface PajaDevtoolsRenderOptions {
 interface OriginRegistryLike {
   getIframeWindow(windowId: string): Window | null;
   getWindowId(win: Window): string | undefined;
+  getIdentity(win: Window): { dTag: string; aggregateHash: string } | undefined;
+  getRegistrationId(win: Window): number | undefined;
 }
 
 function isNappletMessage(value: unknown): value is NappletMessage {
@@ -173,11 +180,22 @@ export function createPajaPostMessageProxy(
   state: PajaDevtoolsState | null,
   windowId?: string,
 ): Window {
+  const existing = realToProxy.get(realWin);
+  if (existing) {
+    proxyContexts.set(existing, { state, windowId });
+    return existing;
+  }
   const proxy = new Proxy(realWin, {
     get(target, prop) {
       if (prop === 'postMessage') {
         return (msg: unknown, targetOrigin: string, transfer?: Transferable[]) => {
-          appendPajaMessageLog(state, 'shell->napplet', msg, windowId);
+          const context = proxyContexts.get(proxy);
+          appendPajaMessageLog(
+            context?.state ?? state,
+            'shell->napplet',
+            msg,
+            context?.windowId ?? windowId,
+          );
           return target.postMessage(msg, targetOrigin, transfer);
         };
       }
@@ -190,6 +208,8 @@ export function createPajaPostMessageProxy(
     },
   });
   proxyToReal.set(proxy, realWin);
+  realToProxy.set(realWin, proxy);
+  proxyContexts.set(proxy, { state, windowId });
   return proxy;
 }
 
@@ -216,6 +236,18 @@ export function installPajaOriginRegistryProxy(
     if (result) return result;
     const real = proxyToReal.get(win);
     return real ? originalGetWindowId(real) : undefined;
+  };
+
+  const originalGetIdentity = originRegistry.getIdentity.bind(originRegistry);
+  originRegistry.getIdentity = (win: Window) => {
+    const real = proxyToReal.get(win);
+    return originalGetIdentity(win) ?? (real ? originalGetIdentity(real) : undefined);
+  };
+
+  const originalGetRegistrationId = originRegistry.getRegistrationId.bind(originRegistry);
+  originRegistry.getRegistrationId = (win: Window) => {
+    const real = proxyToReal.get(win);
+    return originalGetRegistrationId(win) ?? (real ? originalGetRegistrationId(real) : undefined);
   };
 }
 

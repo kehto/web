@@ -110,12 +110,8 @@ function assertDist(name) {
   if (!html.includes('__kehtoHostedShellBootstrap')) {
     fail(`${rel(indexPath)} missing hosted shell bootstrap marker`);
   }
-  // The NAP-SHELL handshake is provided by the bundled @napplet/shim (it posts
-  // shell.ready and caches shell.init to answer supports()); the legacy custom
-  // supports bridge was removed in the @napplet 0.12/0.13 modernization.
-  if (!html.includes('shell.ready')) {
-    fail(`${rel(indexPath)} missing bundled @napplet/shim shell.ready handshake`);
-  }
+  // NAP-SHELL is runtime-owned. The verified artifact need not bundle a shim:
+  // Kehto prepends the mandatory receiver and handshake outside these bytes.
   if (LOCAL_SCRIPT_SRC_RE.test(html)) {
     fail(`${rel(indexPath)} contains external script src`);
   }
