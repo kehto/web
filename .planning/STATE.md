@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.22
 milestone_name: Single-Window Development Runtime
 status: complete
-last_updated: "2026-07-10T17:50:13+02:00"
-last_activity: 2026-07-10
+last_updated: "2026-07-11T13:51:51+02:00"
+last_activity: 2026-07-11
 progress:
   total_phases: 5
   completed_phases: 5
@@ -28,7 +28,7 @@ Phase: 94 — Coverage, Docs, Release Readiness, and PR
 Plan: 94-01 — complete
 Status: v1.22 complete; branch pushed and PR #64 opened
 
-Last activity: 2026-07-10 — Completed quick task 260710-oq5: Fix package docs version rows after Version Packages PR 182 broke Pages docs check.
+Last activity: 2026-07-11 — Completed quick task 260711-j0x: Add Paja runtime tab share buttons and restore open pointer-loaded napplets between sessions.
 
 ## Performance Metrics
 
@@ -139,6 +139,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260710-kwx | Chase current NAP-OUTBOX publish fanout and pin updated Napplet package versions | 2026-07-10 | fix/nap-outbox-spec-chase | [260710-kwx-chase-current-nap-outbox-publish-fanout-](./quick/260710-kwx-chase-current-nap-outbox-publish-fanout-/) |
 | 260710-pnr | Fix Paja NIP-07 CI ready race and local server shutdown flake | 2026-07-10 | fix/paja-nip07-ci-ready-race | [260710-pnr-fix-paja-nip07-ci-ready-race](./quick/260710-pnr-fix-paja-nip07-ci-ready-race/) |
 | 260710-oq5 | Fix package docs version rows after Version Packages PR 182 broke Pages docs check | 2026-07-10 | fix/docs-version-rows-after-pr-182 | [260710-oq5-fix-package-docs-version-rows-after-vers](./quick/260710-oq5-fix-package-docs-version-rows-after-vers/) |
+| 260711-j0x | Add Paja runtime tab share buttons and restore open pointer-loaded napplets between sessions | 2026-07-11 | 96130bc | [260711-j0x-add-paja-runtime-tab-share-buttons-and-r](./quick/260711-j0x-add-paja-runtime-tab-share-buttons-and-r/) |
 
 ## Session Continuity
 
