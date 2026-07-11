@@ -56,9 +56,11 @@ jobs:
         run: pnpm build
 
       # Trusted Publishing is implemented in the npm CLI (>= 11.5.1); Node 22.14
-      # still ships npm 10.x, so upgrade the npm that `changeset publish` shells out to.
+      # still ships npm 10.x, so install a known-compatible OIDC release. Do not
+      # float this to `latest`: npm 11.18 rejects pnpm 10's `--no-git-checks`
+      # publish handoff before any package reaches the registry.
       - name: Upgrade npm to an OIDC-capable version
-        run: npm install -g npm@latest
+        run: npm install -g npm@11.17.0
 
       # No NPM_TOKEN: with `id-token: write` and a configured trusted publisher,
       # npm exchanges the OIDC token for a short-lived publish credential and
