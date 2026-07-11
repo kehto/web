@@ -140,7 +140,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260710-pnr | Fix Paja NIP-07 CI ready race and local server shutdown flake | 2026-07-10 | fix/paja-nip07-ci-ready-race |  | [260710-pnr-fix-paja-nip07-ci-ready-race](./quick/260710-pnr-fix-paja-nip07-ci-ready-race/) |
 | 260710-oq5 | Fix package docs version rows after Version Packages PR 182 broke Pages docs check | 2026-07-10 | fix/docs-version-rows-after-pr-182 |  | [260710-oq5-fix-package-docs-version-rows-after-vers](./quick/260710-oq5-fix-package-docs-version-rows-after-vers/) |
 | 260711-j0x | Add Paja runtime tab share buttons and restore open pointer-loaded napplets between sessions | 2026-07-11 | 96130bc |  | [260711-j0x-add-paja-runtime-tab-share-buttons-and-r](./quick/260711-j0x-add-paja-runtime-tab-share-buttons-and-r/) |
-| 260711-r4p | Implement usable NAP-UPLOAD in Kehto Paja using Hyprgate's Blossom backend implementation as guidance | 2026-07-11 | d4c7da3 | Gaps | [260711-r4p-implement-usable-nap-upload-in-kehto-paj](./quick/260711-r4p-implement-usable-nap-upload-in-kehto-paj/) |
+| 260711-r4p | Implement usable NAP-UPLOAD in Kehto Paja using Hyprgate's Blossom backend implementation as guidance | 2026-07-11 | d4c7da3 | Verified | [260711-r4p-implement-usable-nap-upload-in-kehto-paj](./quick/260711-r4p-implement-usable-nap-upload-in-kehto-paj/) |
 
 ## Session Continuity
 

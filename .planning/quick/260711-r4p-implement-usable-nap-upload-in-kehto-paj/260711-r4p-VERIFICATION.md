@@ -1,25 +1,22 @@
 ---
 phase: quick-260711-r4p
-verified: 2026-07-11T18:35:22Z
-status: gaps_found
-score: 9/10 must-have truths verified
-re_verification: false
-gaps:
-  - "The required delivery state is missing: feat/paja-blossom-upload is not present on origin and no pull request exists for the branch."
-  - "The worktree is not clean because 260711-r4p-RESEARCH.md and 260711-r4p-SUMMARY.md remain untracked."
+verified: 2026-07-11T18:40:15Z
+status: passed
+score: 10/10 must-have truths verified
+re_verification: true
 ---
 
 # Quick Task 260711-r4p Verification
 
 **Goal:** Implement usable NAP-UPLOAD in Kehto Paja using Hyprgate's Blossom backend as guidance.
 
-**Verdict:** `gaps_found`. The implementation and every local gate are verified. The task is not yet shipped: the branch has not been pushed, no PR exists, and two GSD task artifacts remain untracked.
+**Verdict:** `passed`. The implementation, local gates, pushed branch, clean pre-verification worktree, and open PR are verified against current local and GitHub state.
 
 ## Authority checked
 
 - Protocol: `/home/sandwich/Develop/naps`, commit `a7cc17463cbf5d9cb87884b31071bc4fc826034c`, `naps/NAP-UPLOAD.md` from `origin/nap-upload`.
 - Guidance: Hyprgate `apps/shell/src/lib/services/upload-blossom.ts` and `apps/shell/src/lib/blossom/blossom-servers.ts`.
-- Implementation: actual `origin/main...HEAD` diff at `d4c7da3a80969d1120a25ae18afa3f52875997a0`; no reliance on the quick-task summary.
+- Implementation: actual `origin/main...d4c7da3` source diff; delivery head `cda8b6d0d323ea56de67cf03aa2d888234a500c4` adds only GSD evidence/state artifacts and does not change source. No reliance on the quick-task summary.
 
 The pinned NAP requires shell-owned server selection, consent/policy enforcement, shell-constructed Blossom authorization, exact integrity reporting, advisory `upload.info`, and no false `complete` result. The implementation satisfies those protocol obligations locally.
 
@@ -36,7 +33,7 @@ The pinned NAP requires shell-owned server selection, consent/policy enforcement
 | 7 | Memory remains the explicit deterministic default; Blossom is opt-in through config/CLI | VERIFIED | `packages/paja/src/simulation.ts:223-228,277-322` defaults to memory and normalizes Blossom options. CLI accepts `--upload-mode blossom` and repeatable `--upload-server`; config merge tests prove CLI replacement. Docs explicitly call memory a simulator that stores nothing. |
 | 8 | Browser E2E proves stored bytes, signed authorization, consent denial without PUT, and incomplete proof without false success | VERIFIED | `tests/e2e/paja-single-window.spec.ts:256-365` and the in-process CORS Blossom server at lines 615-684. Fresh targeted run: 5/5 passed. |
 | 9 | No dependency is added; Kehto reuses `createHttpUploader`; Hyprgate is behavioral guidance | VERIFIED | `git diff origin/main...HEAD -- package.json pnpm-lock.yaml packages/*/package.json` is empty. `packages/paja/src/browser-upload.ts:147-161` delegates to `@kehto/services` `createHttpUploader`. Hyprgate comparison confirms the same rail rejection, signer requirement, progress/cancel, authorization, NIP-94, and separately warmed server-list shape without importing or copying its Blossom SDK. |
-| 10 | Fully gated, three atomic Lore checkpoints pushed, and an open PR cites the pinned draft | GAP | Local gates and the three Lore commits exist, but `git ls-remote --heads origin feat/paja-blossom-upload` returned no ref and `gh pr view feat/paja-blossom-upload ...` returned `no pull requests found`. The worktree also contains untracked research/summary artifacts. |
+| 10 | Fully gated, three atomic Lore checkpoints pushed, and an open PR cites the pinned draft | VERIFIED | Pre-verification `git status --short --branch` was clean and tracking `origin/feat/paja-blossom-upload`. Local HEAD, fetched remote ref, `git ls-remote`, and PR #191 `headRefOid` all equal `cda8b6d0d323ea56de67cf03aa2d888234a500c4`. PR #191 is OPEN at `https://github.com/kehto/web/pull/191`; its body cites the exact pinned draft, states conformance, records Hyprgate guidance and no copied code/new dependency, lists verification, and explicitly defers mirroring/failover/BUD-10. |
 
 ## Required artifacts
 
@@ -69,7 +66,7 @@ The pinned NAP requires shell-owned server selection, consent/policy enforcement
 
 ## Fresh verification commands
 
-All commands ran against HEAD `d4c7da3a80969d1120a25ae18afa3f52875997a0`, after the last source change.
+All implementation commands ran against source head `d4c7da3a80969d1120a25ae18afa3f52875997a0`, after the last source change. Delivery head `cda8b6d0d323ea56de67cf03aa2d888234a500c4` changes only `.planning` evidence/state files.
 
 | Command | Result |
 |---|---|
@@ -91,11 +88,14 @@ The three implementation checkpoints are atomic and Lore-formatted:
 
 Each records constraints, rejected alternatives, confidence, scope risk, directives, tested/not-tested evidence, and co-author trailer. The final current-state scan independently verifies 100/100; the historical per-checkpoint scans are recorded in their `Tested:` trailers.
 
-## Gaps to close
+## Delivery re-verification
 
-1. Add/commit or otherwise intentionally resolve the untracked `260711-r4p-RESEARCH.md` and `260711-r4p-SUMMARY.md` artifacts so the task worktree has no unexplained files.
-2. Push `feat/paja-blossom-upload` and verify the remote head equals `d4c7da3a80969d1120a25ae18afa3f52875997a0` (or the later verification/wrap-up commit that intentionally contains only GSD artifacts).
-3. Open the PR and verify its body cites NAP-UPLOAD commit `a7cc17463cbf5d9cb87884b31071bc4fc826034c`, states Hyprgate-guided/no-new-dependency reuse, lists local verification, and defers mirroring/failover/BUD-10 without implying they shipped.
-4. Read back `gh pr view --json url,headRefName,headRefOid,state` and re-run this verification as `status: passed` when the remote/PR head matches.
+- `git status --short --branch` before this verifier output: clean, `feat/paja-blossom-upload...origin/feat/paja-blossom-upload`.
+- Local HEAD: `cda8b6d0d323ea56de67cf03aa2d888234a500c4`.
+- Fetched `origin/feat/paja-blossom-upload`: `cda8b6d0d323ea56de67cf03aa2d888234a500c4`.
+- `git ls-remote --heads origin feat/paja-blossom-upload`: the same SHA.
+- PR readback: #191, OPEN, head `feat/paja-blossom-upload`, head OID the same SHA, base `main`, URL `https://github.com/kehto/web/pull/191`.
+- PR body contains the exact `a7cc17463cbf5d9cb87884b31071bc4fc826034c` authority link and conformance result; Hyprgate guidance/no copied code/no new dependency; local gate results; and explicit mirroring, failover, and BUD-10 deferral.
+- At re-verification time, Detect CI Scope, Changeset Guard, and Detect Playwright Scope were successful; Build & Type-Check and Vitest were still in progress. Those live checks are not used as substitutes for the fresh full local gates above, and the repository's task stop condition is an open PR after those local gates pass.
 
-No source-code gap was found.
+No implementation or delivery gap remains.
