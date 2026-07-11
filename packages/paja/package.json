@@ -1,6 +1,6 @@
 {
   "name": "@kehto/paja",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Paja local authoring workshop for hosting napplets in a real Kehto iframe during development",
   "type": "module",
   "main": "./dist/index.js",

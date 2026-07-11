@@ -1,5 +1,11 @@
 # @kehto/shell
 
+## 0.17.2
+
+### Patch Changes
+
+- fd5faac: Inject mandatory NAP-SHELL across hosted iframe paths, complete its local handshake API, and require Paja readiness to come from `shell.ready`.
+
 ## 0.17.1
 
 ### Patch Changes
