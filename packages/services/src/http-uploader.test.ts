@@ -170,7 +170,20 @@ describe('createHttpUploader', () => {
         now: NOW,
       });
 
-      const result = await uploader.upload({ rail: 'blossom', data: new ArrayBuffer(8), filename: 'x.pdf' }, ctx('up-2'));
+      const uploadContext = ctx('up-2');
+      const result = await uploader.upload(
+        { rail: 'blossom', data: new ArrayBuffer(8), filename: 'x.pdf' },
+        uploadContext,
+      );
+
+      expect(uploadContext.onStatus).toHaveBeenCalledWith({
+        ok: true,
+        uploadId: 'up-2',
+        status: 'uploading',
+        rail: 'blossom',
+        bytesTotal: 8,
+        updatedAt: 1_700_000_000_000,
+      });
 
       const authTmpl = (signEvent as ReturnType<typeof vi.fn>).mock.calls[0][0] as EventTemplate;
       expect(authTmpl.kind).toBe(24242);
@@ -183,6 +196,8 @@ describe('createHttpUploader', () => {
       expect(url).toBe('https://blossom.test/upload');
       expect(init.method).toBe('PUT');
       expect(String(init.headers.Authorization)).toMatch(/^Nostr /);
+      expect(init.signal).toBeInstanceOf(AbortSignal);
+      expect(new Uint8Array(init.body as ArrayBuffer)).toEqual(new Uint8Array(8));
 
       expect(result).toMatchObject({
         ok: true,
@@ -194,6 +209,122 @@ describe('createHttpUploader', () => {
         size: 8,
         mimeType: 'application/pdf',
       });
+      expect(result.nip94).toEqual([
+        ['url', 'https://blossom.test/abc.pdf'],
+        ['m', 'application/pdf'],
+        ['x', SHA],
+        ['size', '8'],
+      ]);
+    });
+
+    it.each([
+      ['missing hash', { url: 'https://blossom.test/blob', size: 8 }, /sha256/i],
+      ['mismatched hash', { url: 'https://blossom.test/blob', sha256: OX, size: 8 }, /mismatched sha256/i],
+      ['missing size', { url: 'https://blossom.test/blob', sha256: SHA }, /size/i],
+      ['negative size', { url: 'https://blossom.test/blob', sha256: SHA, size: -1 }, /invalid size/i],
+      ['fractional size', { url: 'https://blossom.test/blob', sha256: SHA, size: 8.5 }, /invalid size/i],
+      ['unsafe size', { url: 'https://blossom.test/blob', sha256: SHA, size: Number.MAX_SAFE_INTEGER + 1 }, /invalid size/i],
+      ['mismatched size', { url: 'https://blossom.test/blob', sha256: SHA, size: 7 }, /mismatched size/i],
+      ['missing URL', { sha256: SHA, size: 8 }, /url/i],
+      ['malformed URL', { url: 42, sha256: SHA, size: 8 }, /url/i],
+    ])('rejects a descriptor with %s', async (_case, descriptor, error) => {
+      const uploader = createHttpUploader({
+        rails: { blossom: { servers: ['https://blossom.test'] } },
+        signEvent: signer(),
+        fetch: vi.fn(async () => ({
+          ok: true,
+          status: 200,
+          json: async () => descriptor,
+        }) as unknown as Response) as unknown as typeof fetch,
+        digestSha256: DIGEST,
+        now: NOW,
+      });
+
+      const result = await uploader.upload({ rail: 'blossom', data: new ArrayBuffer(8) }, ctx());
+
+      expect(result).toMatchObject({ ok: false, status: 'failed' });
+      expect(result.error).toMatch(error);
+    });
+
+    it('maps malformed response JSON and HTTP rejection to failures', async () => {
+      const malformed = createHttpUploader({
+        rails: { blossom: { servers: ['https://blossom.test'] } },
+        signEvent: signer(),
+        fetch: vi.fn(async () => ({
+          ok: true,
+          status: 200,
+          json: async () => { throw new SyntaxError('bad JSON'); },
+        }) as unknown as Response) as unknown as typeof fetch,
+        digestSha256: DIGEST,
+        now: NOW,
+      });
+      const rejected = createHttpUploader({
+        rails: { blossom: { servers: ['https://blossom.test'] } },
+        signEvent: signer(),
+        fetch: vi.fn(async () => ({ ok: false, status: 403 }) as Response) as unknown as typeof fetch,
+        digestSha256: DIGEST,
+        now: NOW,
+      });
+
+      await expect(malformed.upload({ rail: 'blossom', data: new ArrayBuffer(8) }, ctx('bad-json')))
+        .resolves.toMatchObject({ ok: false, status: 'failed', error: 'bad JSON' });
+      await expect(rejected.upload({ rail: 'blossom', data: new ArrayBuffer(8) }, ctx('rejected')))
+        .resolves.toMatchObject({ ok: false, status: 'failed', error: 'server rejected (HTTP 403)' });
+    });
+
+    it('aborts an in-flight request and returns a cancelled result', async () => {
+      const fetchFn = vi.fn((_url: string | URL | Request, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+      }));
+      const uploader = createHttpUploader({
+        rails: { blossom: { servers: ['https://blossom.test'] } },
+        signEvent: signer(),
+        fetch: fetchFn as unknown as typeof fetch,
+        digestSha256: DIGEST,
+        now: NOW,
+      });
+
+      const pending = uploader.upload({ rail: 'blossom', data: new ArrayBuffer(8) }, ctx('cancel-me'));
+      await vi.waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(1));
+      uploader.cancel?.('cancel-me');
+
+      await expect(pending).resolves.toMatchObject({
+        ok: false,
+        uploadId: 'cancel-me',
+        status: 'cancelled',
+        rail: 'blossom',
+        error: 'user cancelled',
+      });
+    });
+
+    it('registers cancellation before hashing can yield to teardown', async () => {
+      let finishDigest: ((sha256: string) => void) | undefined;
+      const digestSha256 = vi.fn(() => new Promise<string>((resolve) => {
+        finishDigest = resolve;
+      }));
+      const signEvent = signer();
+      const fetchFn = vi.fn();
+      const uploader = createHttpUploader({
+        rails: { blossom: { servers: ['https://blossom.test'] } },
+        signEvent,
+        fetch: fetchFn as unknown as typeof fetch,
+        digestSha256,
+        now: NOW,
+      });
+
+      const pending = uploader.upload({ rail: 'blossom', data: new ArrayBuffer(8) }, ctx('cancel-hash'));
+      await vi.waitFor(() => expect(digestSha256).toHaveBeenCalledTimes(1));
+      uploader.cancel?.('cancel-hash');
+      finishDigest?.(SHA);
+
+      await expect(pending).resolves.toMatchObject({
+        ok: false,
+        uploadId: 'cancel-hash',
+        status: 'cancelled',
+        error: 'user cancelled',
+      });
+      expect(signEvent).not.toHaveBeenCalled();
+      expect(fetchFn).not.toHaveBeenCalled();
     });
   });
 
