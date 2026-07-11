@@ -161,4 +161,50 @@ describe('@kehto/paja options', () => {
       simulation: { identity: { mode: 'fixed', pubkey: 'short' } },
     })).toThrow(/identity.pubkey/);
   });
+
+  it('normalizes shell-owned Blossom upload policy and keeps memory as the default simulator', () => {
+    const defaults = normalizePajaOptions({ targetUrl: 'http://127.0.0.1:5173' });
+    const blossom = normalizePajaOptions({
+      targetUrl: 'http://127.0.0.1:5173',
+      simulation: {
+        upload: {
+          mode: 'blossom',
+          servers: [
+            'https://blossom.example/',
+            'https://blossom.example',
+            'http://127.12.0.4:3000/',
+            'http://[::1]:3001/',
+          ],
+          maxBytes: 4096,
+          mimeTypes: ['image/png', 'application/pdf'],
+        },
+      },
+    });
+
+    expect(defaults.simulation.upload).toMatchObject({ mode: 'memory', rail: 'dev-memory' });
+    expect(blossom.simulation.upload).toEqual({
+      mode: 'blossom',
+      servers: [
+        'https://blossom.example',
+        'http://127.12.0.4:3000',
+        'http://[::1]:3001',
+      ],
+      discoverServers: true,
+      maxBytes: 4096,
+      mimeTypes: ['image/png', 'application/pdf'],
+    });
+  });
+
+  it.each([
+    ['non-loopback HTTP', { servers: ['http://blossom.example'] }],
+    ['credentials', { servers: ['https://user:secret@blossom.example'] }],
+    ['empty server', { servers: ['  '] }],
+    ['zero byte limit', { maxBytes: 0 }],
+    ['empty MIME type', { mimeTypes: [''] }],
+  ])('rejects invalid Blossom policy: %s', (_case, upload) => {
+    expect(() => normalizePajaOptions({
+      targetUrl: 'http://127.0.0.1:5173',
+      simulation: { upload: { mode: 'blossom', ...upload } },
+    })).toThrow(/upload/i);
+  });
 });

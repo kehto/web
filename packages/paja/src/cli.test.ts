@@ -68,6 +68,24 @@ describe('@kehto/paja CLI', () => {
     });
   });
 
+  it('parses opt-in Blossom mode with repeatable shell-owned servers', () => {
+    const parsed = parsePajaArgs([
+      '--target-url',
+      'http://127.0.0.1:5173',
+      '--upload-mode',
+      'blossom',
+      '--upload-server',
+      'https://one.example',
+      '--upload-server',
+      'http://localhost:3000',
+    ]);
+
+    expect(parsed.options?.simulation?.upload).toEqual({
+      mode: 'blossom',
+      servers: ['https://one.example', 'http://localhost:3000'],
+    });
+  });
+
   it('prints help without requiring target URL', async () => {
     const stdout: string[] = [];
     const code = await runPajaCli(['--help'], {
@@ -108,7 +126,27 @@ describe('@kehto/paja CLI', () => {
     expect(output).toContain('Target URL: http://127.0.0.1:5173/');
     expect(output).toContain('Mode: managed-command');
     expect(output).toContain('HMR: iframe-target-url');
-    expect(output).toContain('Simulation: identity:anon relay:live:4 storage:local theme:dark off:none');
+    expect(output).toContain('Simulation: identity:anon relay:live:4 storage:local upload:memory:simulator theme:dark off:none');
+  });
+
+  it('labels opt-in Blossom mode by its explicit server count', async () => {
+    const stdout: string[] = [];
+    const code = await runPajaCli([
+      '--target-url',
+      'http://127.0.0.1:5173',
+      '--upload-mode',
+      'blossom',
+      '--upload-server',
+      'https://one.example',
+      '--upload-server',
+      'http://localhost:3000',
+    ], {
+      stdout: { write: (chunk) => stdout.push(chunk) },
+      stderr: { write: () => undefined },
+    }, { serve: false });
+
+    expect(code).toBe(0);
+    expect(stdout.join('')).toContain('upload:blossom:2');
   });
 
   it('prints the runtime URL before waiting for managed target readiness', async () => {

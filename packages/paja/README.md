@@ -83,6 +83,40 @@ kehto paja \
 }
 ```
 
+## NAP-UPLOAD modes
+
+Paja keeps `memory` as the default upload simulator. It returns deterministic
+`kehto-dev://` results and does not store bytes. Opt into real Blossom storage
+with a shell-owned server and an active Dev, NIP-07, or NIP-46 signer:
+
+```bash
+kehto paja \
+  --target-url http://127.0.0.1:5173 \
+  --upload-mode blossom \
+  --upload-server https://blossom.example \
+  -- pnpm vite --host 127.0.0.1
+```
+
+Paja prompts with the napplet identity, file details, selected server, and a
+public/durable warning before it signs or sends bytes. Production servers must
+use HTTPS; plain HTTP is accepted only for loopback development hosts. The
+server must allow Paja's browser origin, `PUT` and `OPTIONS`, plus the
+`Authorization` and `Content-Type` CORS headers.
+
+Explicit servers win. With no explicit server, Paja may use an independently
+warmed snapshot of the active signer's newest BUD-03 kind `10063` `server`
+tags. `upload.info` and `upload.upload` never initiate that discovery. Pointer
+loader Blossom hints are artifact sources, not upload policy. The current path
+uses the first server only, returns its direct HTTP(S) URL, and does not mirror
+or construct BUD-10 URLs.
+
+Completion requires the server descriptor to confirm the exact local SHA-256
+and byte size as a non-negative safe integer. Missing or mismatched proof is a
+failed result even after an HTTP success. The configured identity, provider,
+signer, discovery author, and signed authorization pubkeys must agree; a fixed
+pubkey without `signEvent` is read-only. This implements the draft
+[NAP-UPLOAD at `a7cc174`](https://github.com/napplet/naps/blob/a7cc17463cbf5d9cb87884b31071bc4fc826034c/naps/NAP-UPLOAD.md).
+
 Full package docs: [`docs/packages/paja.md`](../../docs/packages/paja.md).
 Getting started: [`docs/how-tos/paja-getting-started.md`](../../docs/how-tos/paja-getting-started.md).
 Local authoring how-to: [`docs/how-tos/paja-local-authoring.md`](../../docs/how-tos/paja-local-authoring.md).
