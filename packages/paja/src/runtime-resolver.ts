@@ -42,7 +42,7 @@ export interface PajaResolvedPointer {
   readonly pointer: PajaDecodedPointer;
   /** Manifest event resolved from relays. */
   readonly event: NostrEvent;
-  /** Relay URLs queried for the pointer. */
+  /** Ordered relay URLs queried for the pointer, with embedded hints first. */
   readonly relays: readonly string[];
   /** Blossom server hints used for blob fetches. */
   readonly blossomServers: readonly string[];
@@ -64,6 +64,18 @@ export interface PajaPointerRelayPool {
     filter: Filter,
     params?: { readonly maxWait?: number; readonly label?: string; readonly id?: string },
   ): Promise<NostrEvent[]>;
+  /** Subscribe until all relays reach EOSE, fail, or the shared deadline expires. */
+  subscribeManyEose?(
+    relays: string[],
+    filter: Filter,
+    params: {
+      readonly maxWait?: number;
+      readonly label?: string;
+      readonly id?: string;
+      readonly onevent: (event: NostrEvent) => void;
+      readonly onclose: (reasons: string[]) => void;
+    },
+  ): { close(reason?: string): void | Promise<void> };
   close?(relays: string[]): void;
   destroy?(): void;
 }
@@ -74,11 +86,11 @@ export interface ResolvePajaPointerOptions {
   readonly pool?: PajaPointerRelayPool;
   /** Fetch override used for Blossom blob URLs. */
   readonly fetcher?: (url: string) => Promise<Response>;
-  /** Extra relay hints appended to pointer relays. */
+  /** Extra relay candidates appended after embedded pointer hints. */
   readonly relays?: readonly string[];
   /** Extra Blossom server hints appended during artifact fetch. */
   readonly blossomServers?: readonly string[];
-  /** Maximum relay query wait in milliseconds. */
+  /** One overall deadline for relay connection, fanout, and EOSE in milliseconds. */
   readonly maxWaitMs?: number;
 }
 
@@ -128,13 +140,13 @@ export async function resolvePajaPointer(
   const pointer = decodePajaPointer(value);
   const relays = uniqueRelayUrls([...pointer.relays, ...(options.relays ?? [])]);
   if (relays.length === 0) {
-    throw new Error('Pointer does not include relay hints; add a relay-bearing naddr or nevent.');
+    throw new Error('Pointer has no relay hints or enabled configured live relays.');
   }
 
   const pool = options.pool ?? new SimplePool();
   const ownsPool = options.pool === undefined;
   try {
-    const event = await resolvePointerEvent(pointer, pool, relays, options.maxWaitMs ?? 5_000);
+    const event = await resolvePointerEvent(pointer, pool, relays, normalizeMaxWaitMs(options.maxWaitMs));
     const blossomServers = [...(options.blossomServers ?? [])];
     const resolved = await resolveNapplet({
       event,
@@ -194,20 +206,134 @@ async function resolvePointerEvent(
   const filter = pointer.type === 'naddr'
     ? addressableFilter(pointer)
     : eventFilter(pointer);
-  const events = await pool.querySync([...relays], filter, {
-    maxWait: maxWaitMs,
-    label: 'kehto-paja-runtime',
-  });
-  const event = events
+  const result = await queryPointerRelays(pool, relays, filter, maxWaitMs);
+  const event = result.events
     .filter((candidate) => matchesPointer(pointer, candidate))
     .sort((a, b) => b.created_at - a.created_at)[0];
   if (!event) {
-    throw new Error(`No napplet manifest event found for ${pointer.type} pointer.`);
+    if (result.timedOut) {
+      throw new Error(
+        `Relay resolution timed out after ${maxWaitMs}ms for ${pointer.type} pointer across ${relays.length} relays before complete EOSE.`,
+      );
+    }
+    const failures = relayFailureReasons(result.reasons);
+    if (result.error || failures.length > 0) {
+      const detail = result.error instanceof Error
+        ? result.error.message
+        : result.error === undefined
+          ? failures.join('; ')
+          : String(result.error);
+      throw new Error(`Relay query failed for ${pointer.type} pointer before complete EOSE: ${detail}`);
+    }
+    throw new Error(
+      `All ${relays.length} relays reached EOSE without a matching ${pointer.type} napplet manifest event.`,
+    );
   }
   if (!isNappletManifestKind(event.kind)) {
     throw new Error(`Pointer resolved kind ${event.kind}; expected ${formatNappletManifestKinds()}.`);
   }
   return event;
+}
+
+interface PointerRelayQueryResult {
+  readonly events: readonly NostrEvent[];
+  readonly reasons: readonly string[];
+  readonly timedOut: boolean;
+  readonly error?: unknown;
+}
+
+function queryPointerRelays(
+  pool: PajaPointerRelayPool,
+  relays: readonly string[],
+  filter: Filter,
+  maxWaitMs: number,
+): Promise<PointerRelayQueryResult> {
+  if (pool.subscribeManyEose) {
+    return queryPointerRelaySubscription(pool, relays, filter, maxWaitMs);
+  }
+  return queryPointerRelaySync(pool, relays, filter, maxWaitMs);
+}
+
+function queryPointerRelaySubscription(
+  pool: PajaPointerRelayPool,
+  relays: readonly string[],
+  filter: Filter,
+  maxWaitMs: number,
+): Promise<PointerRelayQueryResult> {
+  return new Promise((resolve) => {
+    const events: NostrEvent[] = [];
+    let settled = false;
+    let subscription: ReturnType<NonNullable<PajaPointerRelayPool['subscribeManyEose']>> | undefined;
+    const finish = (result: Omit<PointerRelayQueryResult, 'events'>) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(deadline);
+      resolve({ events, ...result });
+    };
+    const deadline = setTimeout(() => {
+      finish({ reasons: [], timedOut: true });
+      void subscription?.close('Paja pointer relay deadline exceeded');
+    }, maxWaitMs);
+
+    try {
+      subscription = pool.subscribeManyEose!([...relays], filter, {
+        maxWait: maxWaitMs,
+        label: 'kehto-paja-runtime',
+        onevent(event) {
+          events.push(event);
+        },
+        onclose(reasons) {
+          finish({ reasons, timedOut: false });
+        },
+      });
+    } catch (error) {
+      finish({ reasons: [], timedOut: false, error });
+    }
+  });
+}
+
+function queryPointerRelaySync(
+  pool: PajaPointerRelayPool,
+  relays: readonly string[],
+  filter: Filter,
+  maxWaitMs: number,
+): Promise<PointerRelayQueryResult> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (result: PointerRelayQueryResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(deadline);
+      resolve(result);
+    };
+    const deadline = setTimeout(() => {
+      finish({ events: [], reasons: [], timedOut: true });
+    }, maxWaitMs);
+
+    void pool.querySync([...relays], filter, {
+      maxWait: maxWaitMs,
+      label: 'kehto-paja-runtime',
+    }).then(
+      (events) => finish({ events, reasons: [], timedOut: false }),
+      (error: unknown) => finish({ events: [], reasons: [], timedOut: false, error }),
+    );
+  });
+}
+
+function relayFailureReasons(reasons: readonly string[]): string[] {
+  return [...new Set(reasons
+    .map((reason) => reason.trim())
+    .filter((reason) => reason.length > 0 && reason !== 'closed automatically on eose')
+    .map((reason) => reason.slice(0, 160)))]
+    .slice(0, 3);
+}
+
+function normalizeMaxWaitMs(value: number | undefined): number {
+  if (value === undefined) return 5_000;
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error('Pointer relay deadline must be a positive number of milliseconds.');
+  }
+  return Math.floor(value);
 }
 
 function addressableFilter(pointer: Extract<PajaDecodedPointer, { type: 'naddr' }>): Filter {

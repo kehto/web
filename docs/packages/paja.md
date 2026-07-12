@@ -158,6 +158,17 @@ runtime tabs in local storage so returning to `/web/paja/` restores the previous
 pointer set. An explicit pointer in the URL still takes precedence over restored
 tabs.
 
+Pointer relay hints are preferred, not exhaustive. Paja queries embedded
+`naddr` / `nevent` relay hints first in the ordered candidate list, then any
+pointer-specific relay overrides, then the effective configured live simulation
+relays. URLs are normalized and deduplicated without changing first occurrence.
+When relay simulation is disabled, configured relay URLs are not added as
+fallbacks. Connection, fanout, and EOSE share one pointer-resolution deadline;
+the UI distinguishes deadline or connection failure from the clean case where
+all queried relays reached EOSE without a matching manifest. Wider relay search
+does not weaken loading: manifest signature, aggregate, Blossom hash, and
+`srcdoc` verification still fail closed.
+
 ## NAP and Service Parity
 
 Paja advertises the web NAP domains that can be reached through the
