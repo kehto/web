@@ -366,6 +366,74 @@ describe('init-burst guard', () => {
     const result = evaluate(cfg, state, obsOut);
     expect(result.ruleId).not.toBe('burst');
   });
+
+  it('a re-initialized napplet gets a fresh burst budget (counter expires after windowMs)', () => {
+    // Regression: the per-dTag burst counter must not accumulate across
+    // sessions. A napplet window that boots cleanly, is closed/reloaded, and
+    // boots again later must not be blocked by counts from its first session.
+    const cfg = defaultConfig(); // maxOps=20, windowMs=3000
+    let state = createState();
+    const napplet = 'reopened';
+
+    // Session 1: 15 boot ops — under maxOps, all pass.
+    for (let i = 0; i < 15; i++) {
+      const result = evaluate(cfg, state, makeObs({ napplet, initElapsedMs: i * 100, now: NOW + i * 100 }));
+      expect(result.decision).toBe('pass');
+      state = result.newState;
+    }
+
+    // Session 2: window reopened 60s later — initElapsedMs restarts, now advances.
+    // 15 boot ops again: each must pass on its own fresh budget (15 + 15 > 20
+    // would block here if the counter leaked across sessions).
+    const session2Start = NOW + 60_000;
+    for (let i = 0; i < 15; i++) {
+      const result = evaluate(cfg, state, makeObs({ napplet, initElapsedMs: i * 100, now: session2Start + i * 100 }));
+      expect(result.decision).toBe('pass');
+      state = result.newState;
+    }
+  });
+
+  it('still trips within a re-initialized session that exceeds maxOps on its own', () => {
+    // Expiry must not weaken the guard: a fresh session over the limit blocks.
+    const cfg = defaultConfig(); // maxOps=20, windowMs=3000
+    let state = createState();
+    const napplet = 'reopened-burster';
+
+    // Session 1: 10 ops, passes.
+    for (let i = 0; i < 10; i++) {
+      const result = evaluate(cfg, state, makeObs({ napplet, initElapsedMs: 100, now: NOW }));
+      state = result.newState;
+    }
+
+    // Session 2, 60s later: 20 ops pass on the fresh budget, the 21st trips.
+    const session2Start = NOW + 60_000;
+    let result: EvaluateResult | null = null;
+    for (let i = 0; i < 20; i++) {
+      result = evaluate(cfg, state, makeObs({ napplet, initElapsedMs: 100, now: session2Start }));
+      expect(result.decision).toBe('pass');
+      state = result.newState;
+    }
+    result = evaluate(cfg, state, makeObs({ napplet, initElapsedMs: 100, now: session2Start }));
+    expect(result.decision).toBe('reject');
+    expect(result.ruleId).toBe('burst');
+  });
+
+  it('does not reset the counter mid-window within a single session', () => {
+    // Ops spread across one session's init window share one budget: 20 ops
+    // over ~2s (initElapsedMs and now advancing together) then the 21st trips.
+    const cfg = defaultConfig(); // maxOps=20, windowMs=3000
+    let state = createState();
+    const napplet = 'single-session';
+
+    for (let i = 0; i < 20; i++) {
+      const result = evaluate(cfg, state, makeObs({ napplet, initElapsedMs: i * 100, now: NOW + i * 100 }));
+      expect(result.decision).toBe('pass');
+      state = result.newState;
+    }
+    const result = evaluate(cfg, state, makeObs({ napplet, initElapsedMs: 2_000, now: NOW + 2_000 }));
+    expect(result.decision).toBe('reject');
+    expect(result.ruleId).toBe('burst');
+  });
 });
 
 // ---------------------------------------------------------------------------

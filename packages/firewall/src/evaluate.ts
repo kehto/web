@@ -73,6 +73,10 @@ function actionToDecision(action: Action): Decision {
  *    `config.burstGuard.windowMs`, the burst counter for this napplet is advanced.
  *    If the count exceeds `config.burstGuard.maxOps`, the burst action fires
  *    (default `block`). The advanced burst counter is returned in newState.
+ *    A stored counter expires once `now - windowStart >= windowMs`: the guard is
+ *    per init window, so a napplet that re-initializes later (window reloaded or
+ *    reopened, restarting `initElapsedMs`) starts a fresh burst budget instead of
+ *    inheriting counts from a previous session.
  *
  * 3. **Content matchers** — `config.matchers` are evaluated in order; the FIRST
  *    matcher whose declared conditions (opClass, kinds, size, focus, msSinceFocusGain)
@@ -162,11 +166,24 @@ export function evaluate(
   const { initElapsedMs } = observation;
 
   if (initElapsedMs !== undefined && initElapsedMs < config.burstGuard.windowMs) {
-    // Advance the burst counter for this napplet
+    // Advance the burst counter for this napplet. A stored counter whose window
+    // has fully elapsed (now - windowStart >= windowMs) belongs to a PREVIOUS
+    // initialization of this napplet — its window was closed/reloaded and a new
+    // session restarted initElapsedMs. Expire it so each init window gets a
+    // fresh budget: BURST-01 caps ops per init window, not per napplet lifetime.
+    // Without expiry the per-dTag count accumulates forever and every later
+    // re-initialization of the napplet is blocked from its first operation.
+    // Within one init window this never resets early: increments only happen
+    // while initElapsedMs < windowMs, and now - windowStart <= initElapsedMs
+    // there (windowStart is at or after the session's init start).
     const existingBurst: BurstCounter | undefined = state.bursts[napplet];
+    const activeBurst =
+      existingBurst !== undefined && now - existingBurst.windowStart < config.burstGuard.windowMs
+        ? existingBurst
+        : undefined;
     const newBurst: BurstCounter = {
-      count: (existingBurst?.count ?? 0) + 1,
-      windowStart: existingBurst?.windowStart ?? now,
+      count: (activeBurst?.count ?? 0) + 1,
+      windowStart: activeBurst?.windowStart ?? now,
     };
 
     const newBursts = { ...state.bursts, [napplet]: newBurst };
