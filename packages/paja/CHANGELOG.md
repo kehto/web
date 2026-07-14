@@ -1,5 +1,11 @@
 # @kehto/paja
 
+## 0.8.1
+
+### Patch Changes
+
+- 8ba8e30: Resolve runtime pointers against Paja's enabled configured live relays after embedded pointer hints, with one bounded deadline and distinct relay failure diagnostics.
+
 ## 0.8.0
 
 ### Minor Changes
