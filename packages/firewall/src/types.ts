@@ -177,7 +177,9 @@ export interface Bucket {
 /**
  * Init-burst operation counter for a single napplet.
  *
- * Stored in FirewallState.bursts keyed by napplet dTag.
+ * Stored in FirewallState.bursts keyed by napplet dTag. The counter is scoped
+ * to ONE burst window: evaluate() discards it once `now - windowStart >=
+ * burstGuard.windowMs`, so a napplet that re-initializes later starts fresh.
  *
  * @param count       - Number of operations observed within the current burst window.
  * @param windowStart - Timestamp (Unix ms) when the current burst window began.
