@@ -85,6 +85,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(relaySource).toContain('async function getBootstrapRelayUrls(');
     expect(relaySource).toContain('...await getSignerRelayUrls(signerProvider, \'read\'),');
     expect(relaySource).toContain('backend.query(await getBootstrapRelayUrls(getSimulation, signerProvider), [{');
+    expect(hostSource).toContain('...getPajaRelayUrls(runtime.currentSimulation),');
     expect(hostSource).toContain('if (hasNip07Signer()) void state.connectNip07();');
   });
 

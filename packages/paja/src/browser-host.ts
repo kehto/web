@@ -54,6 +54,7 @@ import {
   resolvePajaPointer,
   type PajaResolvedPointer,
 } from './runtime-resolver.js';
+import { getPajaRelayUrls } from './browser-relay-runtime.js';
 import {
   PAJA_SIMULATION_DOMAINS,
   summarizePajaSimulation,
@@ -446,7 +447,7 @@ async function loadRuntimePointer(
   value: string,
   options: { readonly skipDuplicatePrompt?: boolean; readonly persist?: boolean } = {},
 ): Promise<void> {
-  const { config } = context;
+  const { config, runtime } = context;
   if (config.target.mode !== 'runtime-pointer') return;
   const pointer = value.trim();
   const input = document.getElementById('runtime-pointer-input');
@@ -461,7 +462,10 @@ async function loadRuntimePointer(
   appendPajaMessageLog(state, 'paja', { type: 'paja.pointer.resolve', pointer });
   try {
     const resolvedTarget = await resolvePajaPointer(pointer, {
-      relays: config.target.pointer?.relays ?? [],
+      relays: [
+        ...(config.target.pointer?.relays ?? []),
+        ...getPajaRelayUrls(runtime.currentSimulation),
+      ],
       blossomServers: config.target.pointer?.blossomServers ?? [],
       maxWaitMs: config.target.pointer?.maxWaitMs,
     });
