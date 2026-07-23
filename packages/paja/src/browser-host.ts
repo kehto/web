@@ -13,6 +13,7 @@ import {
   PAJA_DEV_SIGNER_PUBKEY,
   type PajaConfirmationRequest,
 } from './browser-adapter.js';
+import { createPajaThemeBroadcastLink } from './theme-broadcast.js';
 import {
   createPajaSignerController,
   type PajaSignerState,
@@ -625,13 +626,15 @@ async function installPajaHost(): Promise<void> {
     readyWindowIds: new Set(),
   };
   const getSimulation = () => runtime.currentSimulation;
+  const themeBroadcast = createPajaThemeBroadcastLink();
   let stateRef: PajaBrowserState | null = null;
   const signerController = createHostSignerController(() => stateRef);
   const adapter = createPajaAdapter(config, getSimulation, (theme) => {
     runtime.themeService = theme;
-  }, (request) => confirmPajaRequest(stateRef, request), signerController, () =>
+  }, themeBroadcast.onBroadcast, (request) => confirmPajaRequest(stateRef, request), signerController, () =>
     getTargetIdentity(config, stateRef?.resolvedTarget), () => stateRef?.reload());
   const bridge = createShellBridge(adapter);
+  themeBroadcast.attach(bridge);
   bridgeRef = bridge;
   installPajaOriginRegistryProxy(originRegistry, () => stateRef);
   const capabilities = buildShellCapabilities(adapter);
