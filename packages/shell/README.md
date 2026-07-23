@@ -113,6 +113,26 @@ const bridge = createShellBridge({
 - `createThemeProxy` — intercept `theme.get/theme.changed`
 - `createKeysProxy` — intercept `keys.bind/unbind/bindings`
 - `createMediaProxy` — intercept `media.*` playback control
+
+### Protected identity and theme delivery
+
+The injected identity/theme bindings follow the draft NAP-IDENTITY, NAP-THEME,
+and web projection at `napplet/naps@896c32c92deee68dc4d10fc1132b62df20cccb6f`.
+They are readonly protected objects: identity exposes supported reads and
+`onChanged`, while theme exposes `get` and `onChanged` only. Results and
+automatic changes are accepted only when their `MessageEvent.source` is
+`window.parent`; direct-domain and whole-namespace assignment cannot replace
+the canonical operations.
+
+`ShellBridge` delivers `identity.changed` and `theme.changed` exactly once per
+eligible recipient: a live authenticated `shell.ready` session, its frozen
+environment includes the relevant domain, and its current recipient read
+capability is still granted. Identity sign-out is `pubkey: ""`. Theme updates
+arrive only after the service has stored the complete color state. These are
+automatic change messages, not NAP-INC/intent delivery and not a subscription
+protocol. Kehto's denied/unavailable theme read policy is a complete fixed
+normal result without `error`, deliberately avoiding a mixed theme/error
+payload.
 - `createNotifyProxy` — intercept `notify.send/list/read/dismiss`
 
 ### Session / origin registry

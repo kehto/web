@@ -497,7 +497,27 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 - `createCordnDmAdapter` / `createCordnRelayCoordinatorClient` — structural adapter for Cordn/ContextVM clients plus a relay-backed coordinator bridge for `PostGroupMessage`, `FetchGroupMessages`, and `SubscribeGroupMessages`.
 
 ### Theme NAP
-- `createThemeService` — `theme.get` + `theme.changed` fan-out (`theme:read`). Returns a `ThemeService` with `publishTheme()` / `setTheme()` utilities for host-side updates.
+- `createThemeService` — `theme.get` plus automatic `theme.changed` delivery
+  (`theme:read`). Returns a `ThemeService` with `publishTheme()` and
+  `getCurrentTheme()` for host-side updates.
+
+### Identity and theme wire guarantees
+
+Against draft NAP-IDENTITY/NAP-THEME and the web projection at
+`napplet/naps@896c32c92deee68dc4d10fc1132b62df20cccb6f`,
+`createIdentityService` is readonly: `identity.getPublicKey` always sends one
+matching `.result` with `pubkey: ""` when a signer is absent or fails, and the
+other supported reads retain their safe primary result fields. Unknown identity
+actions are silent; identity changed values are host pushes, not request
+retries or INC/intent traffic.
+
+`createThemeService` accepts `theme.get` only and owns the current complete
+three-color theme. `publishTheme()` normalizes and stores that state before it
+invokes its one bridge callback, so an immediate `theme.get` observes the same
+value as the automatic push. There is no theme subscribe/unsubscribe protocol.
+For denied or unavailable runtime reads, Kehto uses the fixed non-sensitive
+complete normal result without `error`: this explicit policy reconciles the
+draft error-only example without a mixed theme/error extension.
 
 ### Types
 `AudioSource`, `AudioServiceOptions`, `Notification`, `NotificationServiceOptions`, `IdentityServiceOptions`, `RelayPoolServiceOptions`, `CacheServiceOptions`, `CoordinatedRelayOptions`, `KeysServiceOptions`, `MediaServiceOptions`, `NotifyServiceOptions`, `ThemeServiceOptions`, `ThemeService`, `BleServiceOptions`, `BleServiceContext`, `WebrtcServiceOptions`, `WebrtcServiceContext`, `DmServiceOptions`, `DmAdapter`, `DmRelayPool`, `Nip17DmAdapterOptions`, `NdrDmAdapterOptions`, `CordnDmAdapterOptions`.

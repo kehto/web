@@ -53,6 +53,40 @@ package adoption. Do not claim released package conformance before Phase 105.
 Changelogs and archived `.planning` records are preserved history, not active
 implementation drift.
 
+### Active NAP-IDENTITY and NAP-THEME boundary
+
+Kehto checked [NAP-IDENTITY](https://github.com/napplet/naps/blob/896c32c92deee68dc4d10fc1132b62df20cccb6f/naps/NAP-IDENTITY.md),
+[NAP-THEME](https://github.com/napplet/naps/blob/896c32c92deee68dc4d10fc1132b62df20cccb6f/naps/NAP-THEME.md),
+and their draft web projection at
+`napplet/naps@896c32c92deee68dc4d10fc1132b62df20cccb6f`. These remain draft
+authority; Kehto documents its projection and policy rather than extending the
+wire contract.
+
+- `identity.getPublicKey` always settles with one correlated
+  `identity.getPublicKey.result`; `pubkey: ""` is the no-signer/failure
+  sentinel. Other supported readonly identity reads retain their matching safe
+  primary field. Unknown identity actions are silent. `identity.changed` is
+  automatic for actual connect/sign-out transitions only, including `pubkey:
+  ""`; it is neither an INC event nor an intent delivery.
+- `theme.get` always returns a complete theme with `colors.background`,
+  `colors.text`, and `colors.primary`. Kehto deliberately reconciles the draft
+  error-only example by returning one fixed non-sensitive complete normal
+  `theme.get.result` without `error` for ACL-denied, firewall-denied, or
+  unavailable reads. This is a Kehto policy/spec-gap reconciliation, not a
+  mixed `theme` + `error` extension or a separate theme error message.
+- `theme.changed` is an automatic change push. The injected surface is
+  `theme.get()` and `theme.onChanged()` only; no theme subscribe/unsubscribe
+  wire protocol exists.
+- Host changes target only authenticated live `shell.ready` sessions whose
+  frozen environment includes the matching domain and whose recipient
+  capability is currently granted. The protected injected identity/theme
+  objects are readonly and accept results or changes only from `window.parent`.
+  A theme update stores complete state before its single eligible-recipient
+  push.
+
+Published Napplet package adoption remains Phase 105; this policy does not
+claim that deferred package boundary has been completed.
+
 ## Runtime Availability Policy
 
 Current NIP-5D runtime availability is injected
@@ -102,7 +136,7 @@ they are either:
 | `notify.create` | `apps/playground/napplets/toaster/src/main.ts` | NAP helper-surface gap | Notify service supports create/list, but `@napplet/nap/notify/sdk` lacks create/list helpers. Raw use must stay source-bound and confined to toaster. |
 | `notify.list` | `apps/playground/napplets/toaster/src/main.ts` | NAP helper-surface gap | Same toaster-only helper gap as `notify.create`; raw replies are accepted only from `window.parent`. |
 | `resource.bytesMany` | `apps/playground/napplets/resource-demo/src/main.ts` | Draft NAP-RESOURCE helper gap | Updated NAP-RESOURCE adds bulk byte fetches before `@napplet/nap` ships a web helper. Raw use is confined to resource-demo, parent-source-bound, and type-narrowed. |
-| `theme.changed` | `apps/playground/src/theme.ts` | NAP helper-surface gap | Theme push exists as a shell-to-napplet NAP envelope, but no `theme.subscribe` helper exists. Raw listener must be parent-source-bound and type-narrowed. |
+| `theme.changed` | `apps/playground/src/theme.ts` | NAP helper-surface gap | Theme change is an automatic shell-to-napplet envelope; the raw listener is parent-source-bound and type-narrowed. No subscribe/unsubscribe wire action exists. |
 
 New raw `window.parent.postMessage()` protocol envelopes in playground napplets
 must fail static checks unless they are added to that allowlist with a concrete

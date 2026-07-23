@@ -26,9 +26,29 @@ The runtime is built around the current draft dispatch contract from `@napplet/c
 - **relay** — `relay.publish`, `relay.publishEncrypted`, `relay.subscribe`
 - **dm** — `dm.status`, `dm.conversations`, `dm.messages`, `dm.send`, runtime service dispatch
 - **storage** — `storage.get/set/remove/keys` with quota enforcement
-- **theme** — `theme.get`, `theme.changed` fan-out
+- **theme** — `theme.get` and automatic recipient-authorized `theme.changed`
 
 Signing is shell-mediated inside `relay.publish` / `relay.publishEncrypted` (NIP-44 default, NIP-04 opt-in). The legacy signer domain is dissolved — napplets never see a host-injected nostr object and cannot call signer-sign RPCs directly.
+
+## Identity and theme result policy
+
+This runtime follows draft NAP-IDENTITY, NAP-THEME, and the web projection at
+`napplet/naps@896c32c92deee68dc4d10fc1132b62df20cccb6f`.
+
+- `identity.getPublicKey` always yields exactly one correlated
+  `identity.getPublicKey.result`; no signer or a signer failure is
+  `pubkey: ""`. Other supported readonly identity operations yield their
+  matching result shapes with safe defaults, while unsupported identity actions
+  are silently ignored.
+- `theme.get` uses a complete three-color result. For denied or unavailable
+  reads, Kehto's explicit policy is one fixed non-sensitive normal result with
+  no `error` field. This reconciles the draft's error-only example without
+  emitting `theme.*.error` or inventing a mixed theme/error payload.
+- The runtime neither accepts nor creates identity/theme subscription messages.
+  Change delivery is host-owned and recipient-gated by the shell bridge; it is
+  not routed through NAP-INC or NAP-INTENT.
+
+Published `@napplet/*` package adoption is intentionally deferred to Phase 105.
 
 ## NAP-INC Draft Contract
 
