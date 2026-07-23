@@ -24,7 +24,7 @@ function createService() {
 describe('createNotificationService', () => {
   it('returns the direct notify service descriptor', () => {
     expect(createService().descriptor).toEqual({
-      name: 'notifications',
+      name: 'notify',
       version: '1.0.0',
       description: 'Notification state registry — tracks notifications per napplet window',
     });
@@ -76,6 +76,36 @@ describe('createNotificationService', () => {
 
     service.handleMessage(WINDOW_ID, makeNotify('dismiss', { notificationId }), () => {});
     expect(changes.at(-1)).toEqual([]);
+  });
+
+  it('does not let one window read or dismiss another window notification', () => {
+    const sent: NappletMessage[] = [];
+    const service = createService();
+
+    service.handleMessage(
+      WINDOW_ID,
+      makeNotify('create', { title: 'Owned', body: 'Private state' }),
+      (message) => sent.push(message),
+    );
+    const notificationId = (sent[0] as unknown as { id: string }).id;
+
+    service.handleMessage(WINDOW_ID_2, makeNotify('read', { notificationId }), () => {});
+    service.handleMessage(WINDOW_ID_2, makeNotify('dismiss', { notificationId }), () => {});
+    sent.length = 0;
+    service.handleMessage(WINDOW_ID, makeNotify('list'), (message) => sent.push(message));
+
+    expect(sent).toEqual([
+      expect.objectContaining({
+        type: 'notify.listed',
+        notifications: [
+          expect.objectContaining({
+            id: notificationId,
+            windowId: WINDOW_ID,
+            read: false,
+          }),
+        ],
+      }),
+    ]);
   });
 
   it('enforces the configured direct notification limit', () => {

@@ -55,14 +55,11 @@ function enforceLimit(store: NotificationStore, list: Notification[]): void {
   }
 }
 
-function findById(store: NotificationStore, id: string): [string, Notification, number] | undefined {
-  for (const [windowId, list] of store.notifications) {
-    const index = list.findIndex((n) => n.id === id);
-    if (index !== -1) {
-      return [windowId, list[index], index];
-    }
-  }
-  return undefined;
+function findById(store: NotificationStore, windowId: string, id: string): [Notification, number] | undefined {
+  const list = store.notifications.get(windowId);
+  const index = list?.findIndex((notification) => notification.id === id) ?? -1;
+  if (!list || index === -1) return undefined;
+  return [list[index], index];
 }
 
 function createNotification(
@@ -86,21 +83,21 @@ function createNotification(
   return notification;
 }
 
-function dismissNotification(store: NotificationStore, id: string): void {
-  const found = findById(store, id);
+function dismissNotification(store: NotificationStore, windowId: string, id: string): void {
+  const found = findById(store, windowId, id);
   if (!found) return;
-  const [foundWindowId, , index] = found;
-  const list = store.notifications.get(foundWindowId);
+  const [, index] = found;
+  const list = store.notifications.get(windowId);
   if (!list) return;
   list.splice(index, 1);
-  if (list.length === 0) store.notifications.delete(foundWindowId);
+  if (list.length === 0) store.notifications.delete(windowId);
   notify(store);
 }
 
-function markNotificationRead(store: NotificationStore, id: string): void {
-  const found = findById(store, id);
+function markNotificationRead(store: NotificationStore, windowId: string, id: string): void {
+  const found = findById(store, windowId, id);
   if (!found) return;
-  const [, notification] = found;
+  const [notification] = found;
   if (!notification.read) {
     notification.read = true;
     notify(store);
@@ -125,13 +122,13 @@ function handleNotifyEnvelope(
 
     case 'dismiss': {
       const notifId = typeof msg.notificationId === 'string' ? msg.notificationId : '';
-      if (notifId) dismissNotification(store, notifId);
+      if (notifId) dismissNotification(store, windowId, notifId);
       break;
     }
 
     case 'read': {
       const notifId = typeof msg.notificationId === 'string' ? msg.notificationId : '';
-      if (notifId) markNotificationRead(store, notifId);
+      if (notifId) markNotificationRead(store, windowId, notifId);
       break;
     }
 
@@ -169,7 +166,7 @@ function handleNotifyEnvelope(
  *   maxPerWindow: 50,
  * });
  *
- * runtime.registerService('notifications', notifications);
+ * runtime.registerService('notify', notifications);
  * ```
  */
 export function createNotificationService(options?: NotificationServiceOptions): ServiceHandler {
@@ -180,7 +177,7 @@ export function createNotificationService(options?: NotificationServiceOptions):
   };
 
   const descriptor: ServiceDescriptor = {
-    name: 'notifications',
+    name: 'notify',
     version: NOTIFICATION_SERVICE_VERSION,
     description: 'Notification state registry — tracks notifications per napplet window',
   };

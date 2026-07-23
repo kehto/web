@@ -15,7 +15,7 @@
  *
  * const notifications = createNotificationService({ onChange: (list) => updateBadge(list) });
  *
- * runtime.registerService('notifications', notifications);
+ * runtime.registerService('notify', notifications);
  * ```
  *
  * @module

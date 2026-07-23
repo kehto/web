@@ -76,7 +76,7 @@ const bridge = createShellBridge({
 
 // Register a reference service against the underlying runtime.
 bridge.runtime.registerService(
-  'notifications',
+  'notify',
   createNotificationService({ onChange: updateBadge }),
 );
 ```
