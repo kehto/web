@@ -659,8 +659,8 @@ function nappletNamespacePrelude(domains: string[]): void {
   }
 
   function makeIdentity(): Record<string, unknown> {
-    const read = <T>(type: string, field: string, fallback: T) => request(
-      { type },
+    const read = <T>(type: string, field: string, fallback: T, payload: Record<string, unknown> = {}) => request(
+      { type, ...payload },
       `${type}.result`,
       (msg) => (Object.prototype.hasOwnProperty.call(msg, field) ? msg[field] : fallback) as T,
       { rejectOnError: type !== 'identity.getPublicKey' },
@@ -670,6 +670,11 @@ function nappletNamespacePrelude(domains: string[]): void {
       getRelays: () => read('identity.getRelays', 'relays', {}),
       getProfile: () => read('identity.getProfile', 'profile', null),
       getFollows: () => read('identity.getFollows', 'pubkeys', []),
+      getList: (listType: string) => read('identity.getList', 'entries', [], { listType }),
+      getZaps: () => read('identity.getZaps', 'zaps', []),
+      getMutes: () => read('identity.getMutes', 'pubkeys', []),
+      getBlocked: () => read('identity.getBlocked', 'pubkeys', []),
+      getBadges: () => read('identity.getBadges', 'badges', []),
       onChanged(handler: (pubkey: string) => void) {
         const off = listen((event) => {
           if (!isParentMessage(event)) return;

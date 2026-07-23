@@ -532,7 +532,18 @@ describe('NIP-5D napplet namespace prelude', () => {
     const changes: string[] = [];
     const subscription = onChanged((pubkey: string) => changes.push(pubkey)) as { close(): void };
 
-    expect(Object.keys(identity)).toEqual(['getPublicKey', 'getRelays', 'getProfile', 'getFollows', 'onChanged']);
+    expect(Object.keys(identity)).toEqual([
+      'getPublicKey',
+      'getRelays',
+      'getProfile',
+      'getFollows',
+      'getList',
+      'getZaps',
+      'getMutes',
+      'getBlocked',
+      'getBadges',
+      'onChanged',
+    ]);
     expect(Object.getOwnPropertyDescriptor(identity, 'getPublicKey')).toMatchObject({
       value: getPublicKey,
       enumerable: true,
@@ -564,6 +575,32 @@ describe('NIP-5D napplet namespace prelude', () => {
     subscription.close();
     target.dispatchParentMessage({ type: 'identity.changed', pubkey: 'after-close' });
     expect(changes).toEqual(['trusted', '']);
+  });
+
+  it('binds every sanctioned identity read to its matching parent result', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['identity'] }), target);
+    const identity = target.napplet?.identity as Record<string, (...args: string[]) => Promise<unknown>>;
+    const reads = [
+      ['getPublicKey', [], 'identity.getPublicKey', { pubkey: '' }, ''],
+      ['getRelays', [], 'identity.getRelays', { relays: {} }, {}],
+      ['getProfile', [], 'identity.getProfile', { profile: null }, null],
+      ['getFollows', [], 'identity.getFollows', { pubkeys: [] }, []],
+      ['getList', ['bookmarks'], 'identity.getList', { entries: ['note-1'] }, ['note-1']],
+      ['getZaps', [], 'identity.getZaps', { zaps: [] }, []],
+      ['getMutes', [], 'identity.getMutes', { pubkeys: [] }, []],
+      ['getBlocked', [], 'identity.getBlocked', { pubkeys: [] }, []],
+      ['getBadges', [], 'identity.getBadges', { badges: [] }, []],
+    ] as const;
+
+    for (const [method, args, type, result, expected] of reads) {
+      const pending = identity[method](...args);
+      const request = target.postedMessages.at(-1);
+      expect(request).toMatchObject({ type });
+      if (type === 'identity.getList') expect(request).toMatchObject({ listType: 'bookmarks' });
+      target.dispatchParentMessage({ type: `${type}.result`, id: request?.id, ...result });
+      await expect(pending).resolves.toEqual(expected);
+    }
   });
 
   it('keeps theme and identity canonical across whole-namespace replacement without subscriptions', async () => {

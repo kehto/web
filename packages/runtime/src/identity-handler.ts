@@ -42,6 +42,11 @@ export function createIdentityHandler(context: IdentityHandlerContext): Identity
         return;
       case 'getProfile': sendResult({ profile: null }); return;
       case 'getFollows': sendResult({ pubkeys: [] }); return;
+      case 'getList': sendResult({ entries: [] }); return;
+      case 'getZaps': sendResult({ zaps: [] }); return;
+      case 'getMutes': sendResult({ pubkeys: [] }); return;
+      case 'getBlocked': sendResult({ pubkeys: [] }); return;
+      case 'getBadges': sendResult({ badges: [] }); return;
       default: return;
     }
   };

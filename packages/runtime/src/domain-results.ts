@@ -14,6 +14,11 @@ const IDENTITY_SAFE_DEFAULTS = {
   'identity.getRelays': { relays: {} },
   'identity.getProfile': { profile: null },
   'identity.getFollows': { pubkeys: [] },
+  'identity.getList': { entries: [] },
+  'identity.getZaps': { zaps: [] },
+  'identity.getMutes': { pubkeys: [] },
+  'identity.getBlocked': { pubkeys: [] },
+  'identity.getBadges': { badges: [] },
 } as const;
 
 type RuntimeOwnedIdentityOrThemeRequest = keyof typeof IDENTITY_SAFE_DEFAULTS | 'theme.get';

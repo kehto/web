@@ -581,14 +581,73 @@ describe('NIP-5D Envelope Dispatch', () => {
     });
 
     it.each([
-      ['identity.getRelays', { relays: {} }],
-      ['identity.getProfile', { profile: null }],
-      ['identity.getFollows', { pubkeys: [] }],
-    ])('returns the exact safe result when %s is unavailable', (type, payload) => {
-      runtime.handleMessage(WINDOW_ID, { type, id: `unavailable-${type}` } as NappletMessage);
+      ['identity.getPublicKey', {}, { pubkey: '' }],
+      ['identity.getRelays', {}, { relays: {} }],
+      ['identity.getProfile', {}, { profile: null }],
+      ['identity.getFollows', {}, { pubkeys: [] }],
+      ['identity.getList', { listType: 'bookmarks' }, { entries: [] }],
+      ['identity.getZaps', {}, { zaps: [] }],
+      ['identity.getMutes', {}, { pubkeys: [] }],
+      ['identity.getBlocked', {}, { pubkeys: [] }],
+      ['identity.getBadges', {}, { badges: [] }],
+    ])('returns the exact safe result when %s is unavailable', (type, request, payload) => {
+      runtime.handleMessage(WINDOW_ID, {
+        type,
+        id: `unavailable-${type}`,
+        ...request,
+      } as NappletMessage);
       expect(ctx.sent).toEqual([{
         windowId: WINDOW_ID,
         message: { type: `${type}.result`, id: `unavailable-${type}`, ...payload },
+      }]);
+    });
+
+    it('dispatches every sanctioned identity read to a registered identity service without dropping listType', () => {
+      const serviceContext = createMockRuntimeAdapter();
+      const runtimeWithService = createRuntime(serviceContext.hooks);
+      runtimeWithService.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+      const calls: Array<{ windowId: string; message: NappletMessage }> = [];
+      runtimeWithService.registerService('identity', {
+        descriptor: { name: 'identity', version: '1.0.0' },
+        handleMessage(windowId, message) {
+          calls.push({ windowId, message });
+        },
+      });
+
+      const requests = [
+        { type: 'identity.getPublicKey', id: 'identity-1' },
+        { type: 'identity.getRelays', id: 'identity-2' },
+        { type: 'identity.getProfile', id: 'identity-3' },
+        { type: 'identity.getFollows', id: 'identity-4' },
+        { type: 'identity.getList', id: 'identity-5', listType: 'bookmarks' },
+        { type: 'identity.getZaps', id: 'identity-6' },
+        { type: 'identity.getMutes', id: 'identity-7' },
+        { type: 'identity.getBlocked', id: 'identity-8' },
+        { type: 'identity.getBadges', id: 'identity-9' },
+      ] as unknown as NappletMessage[];
+      for (const request of requests) runtimeWithService.handleMessage(WINDOW_ID, request);
+
+      expect(calls).toEqual(requests.map((message) => ({ windowId: WINDOW_ID, message })));
+      expect((calls[4]?.message as NappletMessage & { listType?: string }).listType).toBe('bookmarks');
+      expect(serviceContext.sent).toHaveLength(0);
+    });
+
+    it.each(['ACL-denied', 'firewall-denied'])('returns safe identity results on the %s path', (path) => {
+      const deniedContext = createMockRuntimeAdapter();
+      const deniedRuntime = createRuntime(deniedContext.hooks);
+      deniedRuntime.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+      if (path === 'ACL-denied') deniedRuntime.aclState.block('', TEST_DTAG, TEST_HASH);
+      if (path === 'firewall-denied') deniedRuntime.firewallState.setPolicy(TEST_DTAG, 'deny');
+
+      deniedRuntime.handleMessage(WINDOW_ID, {
+        type: 'identity.getList',
+        id: `denied-${path}`,
+        listType: 'bookmarks',
+      } as NappletMessage);
+
+      expect(deniedContext.sent).toEqual([{
+        windowId: WINDOW_ID,
+        message: { type: 'identity.getList.result', id: `denied-${path}`, entries: [] },
       }]);
     });
 
@@ -616,7 +675,7 @@ describe('NIP-5D Envelope Dispatch', () => {
       'identity.changed',
       'identity.getPublicKey.result',
       'identity.signEvent',
-      'identity.getList',
+      'identity.decrypt',
       'theme.changed',
       'theme.get.result',
       'theme.subscribe',
