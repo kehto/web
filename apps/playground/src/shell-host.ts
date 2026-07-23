@@ -15,6 +15,7 @@ import {
   type NappletMessage,
   type AclCheckEvent,
   type SessionEntry,
+  type ShellEnvironment,
 } from '@kehto/shell';
 import type { Notification } from '@kehto/services';
 import {
@@ -84,7 +85,12 @@ export {
 const proxyToReal = new WeakMap<object, Window>();
 const realToProxy = new WeakMap<Window, Window>();
 
-function createPostMessageProxy(realWin: Window, messageTap: MessageTap, windowId?: string): Window {
+/**
+ * Wrap a trusted iframe window to record host-to-napplet traffic.
+ *
+ * @internal Exported for host-proxy regression coverage.
+ */
+export function createPostMessageProxy(realWin: Window, messageTap: MessageTap, windowId?: string): Window {
   const existing = realToProxy.get(realWin);
   if (existing) return existing;
   const proxy = new Proxy(realWin, {
@@ -122,6 +128,8 @@ export interface NappletInfo {
   pubkey?: string;
   dTag?: string;
   aggregateHash?: string;
+  /** Immutable environment captured before the iframe's srcdoc is injected. */
+  environment: ShellEnvironment;
   identityBound: boolean;
 }
 
@@ -227,7 +235,12 @@ function createInstalledMessageTap(): MessageTap {
   return messageTap;
 }
 
-function installOriginRegistryProxy(messageTap: MessageTap): void {
+/**
+ * Add playground logging-proxy support to the shell's source registry.
+ *
+ * @internal Exported for host-proxy regression coverage.
+ */
+export function installOriginRegistryProxy(messageTap: MessageTap): void {
   const originalGetIframeWindow = originRegistry.getIframeWindow.bind(originRegistry);
   originRegistry.getIframeWindow = (windowId: string) => {
     const win = originalGetIframeWindow(windowId);
@@ -252,6 +265,7 @@ function installOriginRegistryProxy(messageTap: MessageTap): void {
           dTag: info.dTag ?? '',
           aggregateHash: info.aggregateHash ?? '',
         });
+        originRegistry.setEnvironment(target, info.environment);
         return windowId;
       }
     }
@@ -265,6 +279,10 @@ function installOriginRegistryProxy(messageTap: MessageTap): void {
   const originalGetRegistrationId = originRegistry.getRegistrationId.bind(originRegistry);
   originRegistry.getRegistrationId = (win: Window) =>
     originalGetRegistrationId(win) ?? originalGetRegistrationId(proxyToReal.get(win) ?? win);
+
+  const originalGetEnvironment = originRegistry.getEnvironment.bind(originRegistry);
+  originRegistry.getEnvironment = (win: Window) =>
+    originalGetEnvironment(win) ?? originalGetEnvironment(proxyToReal.get(win) ?? win);
 }
 
 function populateServiceHandlerStore(services: Record<string, ServiceHandler> | undefined): void {
@@ -477,6 +495,7 @@ export async function loadNapplet(
     iframe,
     dTag: identity.dTag,
     aggregateHash: identity.aggregateHash,
+    environment,
     identityBound: false,
   };
   napplets.set(windowId, info);

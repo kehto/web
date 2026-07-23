@@ -3,6 +3,7 @@ import {
   ALL_CAPABILITIES,
   type Capability,
   type ShellBridge,
+  type ShellEnvironment,
 } from '@kehto/shell';
 
 import type { PajaHostConfig } from './options.js';
@@ -72,6 +73,7 @@ interface OriginRegistryLike {
   getIframeWindow(windowId: string): Window | null;
   getWindowId(win: Window): string | undefined;
   getIdentity(win: Window): { dTag: string; aggregateHash: string } | undefined;
+  getEnvironment(win: Window): ShellEnvironment | undefined;
   getRegistrationId(win: Window): number | undefined;
 }
 
@@ -248,6 +250,12 @@ export function installPajaOriginRegistryProxy(
   originRegistry.getRegistrationId = (win: Window) => {
     const real = proxyToReal.get(win);
     return originalGetRegistrationId(win) ?? (real ? originalGetRegistrationId(real) : undefined);
+  };
+
+  const originalGetEnvironment = originRegistry.getEnvironment.bind(originRegistry);
+  originRegistry.getEnvironment = (win: Window) => {
+    const real = proxyToReal.get(win);
+    return originalGetEnvironment(win) ?? (real ? originalGetEnvironment(real) : undefined);
   };
 }
 
