@@ -377,6 +377,23 @@ function nappletNamespacePrelude(domains: string[]): void {
       offResult: () => void;
     };
     const topicStates = new Map<string, TopicState>();
+    type ChannelEvent = { channelId: string; sender: string; payload?: unknown };
+    type ChannelClosed = { channelId: string; reason?: string };
+    type ChannelState = {
+      channelId: string;
+      peer: string;
+      eventHandlers: Set<(event: ChannelEvent) => void>;
+      closedHandlers: Set<(closed: ChannelClosed) => void>;
+      pendingEvents: ChannelEvent[];
+      closed?: ChannelClosed;
+    };
+    const maxRetainedChannels = 32;
+    const maxRetainedEvents = 32;
+    const channelStates = new Map<string, ChannelState>();
+    const openedHandlers = new Set<(handle: Record<string, unknown>) => void>();
+    const pendingOpened: ChannelState[] = [];
+    const unopenedEvents = new Map<string, ChannelEvent[]>();
+    const unopenedClosed = new Map<string, ChannelClosed>();
 
     function stableSubscriptionTopic(topic: unknown): string {
       if (typeof topic !== 'string') throw new TypeError('INC topic must be text');
@@ -385,6 +402,120 @@ function nappletNamespacePrelude(domains: string[]): void {
       }
       return topic;
     }
+
+    function closeChannelState(state: ChannelState, closed: ChannelClosed, notifyShell: boolean): void {
+      if (state.closed) return;
+      state.closed = closed;
+      if (notifyShell) fire({ type: 'inc.channel.close', channelId: state.channelId });
+      for (const handler of state.closedHandlers) handler(closed);
+    }
+
+    function makeChannelHandle(state: ChannelState): Record<string, unknown> {
+      return {
+        id: state.channelId,
+        peer: state.peer,
+        emit(payload?: unknown) {
+          if (state.closed) return;
+          fire({ type: 'inc.channel.emit', channelId: state.channelId, ...(payload === undefined ? {} : { payload }) });
+        },
+        on(handler: (event: ChannelEvent) => void) {
+          if (typeof handler !== 'function') throw new TypeError('INC channel event handler must be a function');
+          state.eventHandlers.add(handler);
+          const pending = state.pendingEvents.splice(0);
+          for (const event of pending) handler(event);
+          return subscriptionHandle(() => state.eventHandlers.delete(handler));
+        },
+        onClosed(handler: (closed: ChannelClosed) => void) {
+          if (typeof handler !== 'function') throw new TypeError('INC channel close handler must be a function');
+          state.closedHandlers.add(handler);
+          if (state.closed) handler(state.closed);
+          return subscriptionHandle(() => state.closedHandlers.delete(handler));
+        },
+        close() {
+          closeChannelState(state, { channelId: state.channelId }, true);
+        },
+      };
+    }
+
+    function materializeChannel(channelId: string, peer: string): ChannelState {
+      const existing = channelStates.get(channelId);
+      if (existing) return existing;
+      const state: ChannelState = {
+        channelId,
+        peer,
+        eventHandlers: new Set(),
+        closedHandlers: new Set(),
+        pendingEvents: unopenedEvents.get(channelId) ?? [],
+      };
+      unopenedEvents.delete(channelId);
+      channelStates.set(channelId, state);
+      const closed = unopenedClosed.get(channelId);
+      unopenedClosed.delete(channelId);
+      if (closed) closeChannelState(state, closed, false);
+      return state;
+    }
+
+    function deliverOpened(state: ChannelState): void {
+      const handle = makeChannelHandle(state);
+      if (openedHandlers.size > 0) {
+        for (const handler of openedHandlers) handler(handle);
+        return;
+      }
+      if (pendingOpened.length >= maxRetainedChannels) {
+        closeChannelState(state, { channelId: state.channelId, reason: 'buffer overflow' }, true);
+        return;
+      }
+      pendingOpened.push(state);
+    }
+
+    function receiveChannelEvent(channelId: string, sender: string, payloadPresent: boolean, payload: unknown): void {
+      const event: ChannelEvent = payloadPresent ? { channelId, sender, payload } : { channelId, sender };
+      const state = channelStates.get(channelId);
+      if (!state) {
+        const pending = unopenedEvents.get(channelId) ?? [];
+        if (pending.length >= maxRetainedEvents) {
+          unopenedEvents.delete(channelId);
+          unopenedClosed.set(channelId, { channelId, reason: 'buffer overflow' });
+          fire({ type: 'inc.channel.close', channelId });
+          return;
+        }
+        pending.push(event);
+        unopenedEvents.set(channelId, pending);
+        return;
+      }
+      if (state.closed) return;
+      if (state.eventHandlers.size > 0) {
+        for (const handler of state.eventHandlers) handler(event);
+        return;
+      }
+      if (state.pendingEvents.length >= maxRetainedEvents) {
+        closeChannelState(state, { channelId, reason: 'buffer overflow' }, true);
+        return;
+      }
+      state.pendingEvents.push(event);
+    }
+
+    listen((event) => {
+      if (!isParentMessage(event)) return;
+      const msg = event.data as RuntimeMessage;
+      if (typeof msg !== 'object' || msg === null || typeof msg.type !== 'string') return;
+      if (msg.type === 'inc.channel.opened' && typeof msg.channelId === 'string' && typeof msg.peer === 'string') {
+        deliverOpened(materializeChannel(msg.channelId, msg.peer));
+        return;
+      }
+      if (msg.type === 'inc.channel.event' && typeof msg.channelId === 'string' && typeof msg.sender === 'string') {
+        receiveChannelEvent(msg.channelId, msg.sender, Object.prototype.hasOwnProperty.call(msg, 'payload'), msg.payload);
+        return;
+      }
+      if (msg.type === 'inc.channel.closed' && typeof msg.channelId === 'string') {
+        const closed: ChannelClosed = typeof msg.reason === 'string'
+          ? { channelId: msg.channelId, reason: msg.reason }
+          : { channelId: msg.channelId };
+        const state = channelStates.get(msg.channelId);
+        if (state) closeChannelState(state, closed, false);
+        else unopenedClosed.set(msg.channelId, closed);
+      }
+    });
 
     return {
       emit(topic: string, payload?: unknown) {
@@ -442,6 +573,47 @@ function nappletNamespacePrelude(domains: string[]): void {
           topicStates.delete(stableTopic);
           fire({ type: 'inc.unsubscribe', topic: stableTopic });
         });
+      },
+      channel: {
+        open(targetDTag: string) {
+          return request(
+            { type: 'inc.channel.open', target: targetDTag },
+            'inc.channel.open.result',
+            (msg) => {
+              if (typeof msg.channelId !== 'string' || typeof msg.peer !== 'string') {
+                throw new Error('inc.channel.open.result missing channel identity');
+              }
+              return makeChannelHandle(materializeChannel(msg.channelId, msg.peer));
+            },
+          );
+        },
+        onOpened(handler: (handle: Record<string, unknown>) => void) {
+          if (typeof handler !== 'function') throw new TypeError('INC opened handler must be a function');
+          openedHandlers.add(handler);
+          const pending = pendingOpened.splice(0);
+          for (const state of pending) handler(makeChannelHandle(state));
+          return subscriptionHandle(() => openedHandlers.delete(handler));
+        },
+        list() {
+          return request(
+            { type: 'inc.channel.list' },
+            'inc.channel.list.result',
+            (msg) => Object.freeze((Array.isArray(msg.channels) ? msg.channels : []).flatMap((channel) => (
+              channel
+              && typeof channel === 'object'
+              && typeof (channel as Record<string, unknown>).id === 'string'
+              && typeof (channel as Record<string, unknown>).peer === 'string'
+                ? [Object.freeze({
+                  id: (channel as Record<string, unknown>).id as string,
+                  peer: (channel as Record<string, unknown>).peer as string,
+                })]
+                : []
+            ))),
+          );
+        },
+        broadcast(payload?: unknown) {
+          fire({ type: 'inc.channel.broadcast', ...(payload === undefined ? {} : { payload }) });
+        },
       },
     };
   }

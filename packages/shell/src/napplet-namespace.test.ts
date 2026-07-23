@@ -669,6 +669,16 @@ describe('NIP-5D napplet namespace prelude', () => {
     const targetClosed: ChannelClosed[] = [];
     inbound[0].onClosed((record) => targetClosed.push(record));
     expect(targetClosed).toEqual([{ channelId: 'c-target', reason: 'peer destroyed' }]);
+
+    target.dispatchParentMessage({ type: 'inc.channel.opened', channelId: 'c-overflow', peer: 'noisy-peer' });
+    const overflowing = inbound.at(-1) as Handle;
+    for (let order = 0; order <= 32; order += 1) {
+      target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-overflow', sender: 'noisy-peer', payload: { order } });
+    }
+    expect(withoutShellReady(target).at(-1)).toEqual({ type: 'inc.channel.close', channelId: 'c-overflow' });
+    const overflowClosed: ChannelClosed[] = [];
+    overflowing.onClosed((record) => overflowClosed.push(record));
+    expect(overflowClosed).toEqual([{ channelId: 'c-overflow', reason: 'buffer overflow' }]);
   });
 
   it('keeps outbox subscriptions callable and dispatches parent events to handlers', () => {
