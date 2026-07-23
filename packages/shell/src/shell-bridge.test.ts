@@ -164,13 +164,8 @@ describe('ShellBridge.publishTheme (TH-03, Plan 13-02)', () => {
 
     // Register only win-A in the origin registry; win-B has a session entry
     // but no origin-registry mapping (simulates a stale session).
-    originRegistry.register(iframeA as unknown as Window, 'win-A');
-
     const bridge = createShellBridge(makeTestHooks());
-    bridge.runtime.sessionRegistry.register(
-      'win-A',
-      makeSessionEntry({ windowId: 'win-A', pubkey: 'pk-A' }),
-    );
+    establishReadySession(bridge, iframeA, 'win-A');
     bridge.runtime.sessionRegistry.register(
       'win-B',
       makeSessionEntry({ windowId: 'win-B', pubkey: 'pk-B' }),
@@ -206,6 +201,140 @@ describe('ShellBridge.publishTheme (TH-03, Plan 13-02)', () => {
       }),
     ).not.toThrow();
 
+    bridge.destroy();
+  });
+});
+
+describe('ShellBridge identity and theme recipient eligibility (Phase 103)', () => {
+  beforeEach(() => {
+    originRegistry.clear();
+  });
+
+  afterEach(() => {
+    originRegistry.clear();
+  });
+
+  it('delivers normal identity, sign-out, and complete theme pushes once per eligible concurrent session', () => {
+    const identityA = makeFakeIframe();
+    const identityB = makeFakeIframe();
+    const ineligible = makeFakeIframe();
+    const bridge = createShellBridge(makeTestHooks());
+    const entryA = establishReadySession(bridge, identityA, 'same-pubkey-a');
+    const entryB = establishReadySession(bridge, identityB, 'same-pubkey-b');
+    const ineligibleEntry = establishReadySession(bridge, ineligible, 'same-pubkey-c');
+
+    // NIP-5D sessions commonly have the same empty source pubkey. The bridge
+    // must therefore evaluate every session entry rather than collapse by key.
+    expect(entryA.pubkey).toBe(entryB.pubkey);
+    bridge.runtime.aclState.revoke(
+      ineligibleEntry.pubkey,
+      ineligibleEntry.dTag,
+      ineligibleEntry.aggregateHash,
+      'identity:read',
+    );
+    bridge.runtime.aclState.revoke(
+      ineligibleEntry.pubkey,
+      ineligibleEntry.dTag,
+      ineligibleEntry.aggregateHash,
+      'theme:read',
+    );
+
+    const theme: Theme = {
+      colors: { background: '#101820', text: '#f2aa4c', primary: '#f95738' },
+      fonts: { body: { name: 'Inter', url: 'https://example.test/inter.woff2' } },
+      title: 'Complete',
+    };
+    bridge.publishIdentityChanged('b'.repeat(64));
+    bridge.publishIdentityChanged('');
+    bridge.publishTheme(theme);
+
+    for (const iframe of [identityA, identityB]) {
+      expect(iframe.postMessage.mock.calls).toEqual([
+        [{ type: 'identity.changed', pubkey: 'b'.repeat(64) }, '*'],
+        [{ type: 'identity.changed', pubkey: '' }, '*'],
+        [{ type: 'theme.changed', theme }, '*'],
+      ]);
+    }
+    expect(ineligible.postMessage).not.toHaveBeenCalled();
+    bridge.destroy();
+  });
+
+  it('excludes pre-session, domain-disabled, ungranted, revoked, and destroyed recipients', () => {
+    const preSession = makeFakeIframe();
+    const identityDisabled = makeFakeIframe();
+    const themeDisabled = makeFakeIframe();
+    const ungranted = makeFakeIframe();
+    const revoked = makeFakeIframe();
+    const destroyed = makeFakeIframe();
+    const bridge = createShellBridge(makeTestHooks());
+    originRegistry.register(preSession as unknown as Window, 'pre-session', {
+      dTag: 'd-pre-session',
+      aggregateHash: 'h-pre-session',
+    });
+    establishReadySession(bridge, identityDisabled, 'identity-disabled', ['theme']);
+    establishReadySession(bridge, themeDisabled, 'theme-disabled', ['identity']);
+    const ungrantedEntry = establishReadySession(bridge, ungranted, 'ungranted');
+    const revokedEntry = establishReadySession(bridge, revoked, 'revoked');
+    const destroyedEntry = establishReadySession(bridge, destroyed, 'destroyed');
+
+    bridge.runtime.aclState.revoke(
+      ungrantedEntry.pubkey,
+      ungrantedEntry.dTag,
+      ungrantedEntry.aggregateHash,
+      'identity:read',
+    );
+    bridge.runtime.aclState.revoke(
+      ungrantedEntry.pubkey,
+      ungrantedEntry.dTag,
+      ungrantedEntry.aggregateHash,
+      'theme:read',
+    );
+    bridge.runtime.aclState.revoke(
+      revokedEntry.pubkey,
+      revokedEntry.dTag,
+      revokedEntry.aggregateHash,
+      'identity:read',
+    );
+    bridge.runtime.aclState.revoke(
+      revokedEntry.pubkey,
+      revokedEntry.dTag,
+      revokedEntry.aggregateHash,
+      'theme:read',
+    );
+    bridge.runtime.sessionRegistry.unregister(destroyedEntry.windowId);
+    originRegistry.unregister(destroyedEntry.windowId);
+
+    bridge.publishIdentityChanged('c'.repeat(64));
+    bridge.publishTheme({ colors: { background: '#000', text: '#fff', primary: '#0af' } });
+
+    for (const iframe of [preSession, ungranted, revoked, destroyed]) {
+      expect(iframe.postMessage).not.toHaveBeenCalled();
+    }
+    expect(identityDisabled.postMessage).toHaveBeenCalledTimes(1);
+    expect(identityDisabled.postMessage).toHaveBeenCalledWith(
+      { type: 'theme.changed', theme: { colors: { background: '#000', text: '#fff', primary: '#0af' } } },
+      '*',
+    );
+    expect(themeDisabled.postMessage).toHaveBeenCalledTimes(1);
+    expect(themeDisabled.postMessage).toHaveBeenCalledWith(
+      { type: 'identity.changed', pubkey: 'c'.repeat(64) },
+      '*',
+    );
+    bridge.destroy();
+  });
+
+  it('checks current ACL state on every push so revocation blocks the next delivery', () => {
+    const iframe = makeFakeIframe();
+    const bridge = createShellBridge(makeTestHooks());
+    const entry = establishReadySession(bridge, iframe, 'revoke-between-pushes');
+
+    bridge.publishTheme({ colors: { background: '#111', text: '#eee', primary: '#f0f' } });
+    expect(iframe.postMessage).toHaveBeenCalledTimes(1);
+
+    bridge.runtime.aclState.revoke(entry.pubkey, entry.dTag, entry.aggregateHash, 'theme:read');
+    bridge.publishTheme({ colors: { background: '#222', text: '#ddd', primary: '#0ff' } });
+
+    expect(iframe.postMessage).toHaveBeenCalledTimes(1);
     bridge.destroy();
   });
 });
