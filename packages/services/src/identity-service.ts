@@ -221,27 +221,18 @@ function sendSignerError(
 }
 
 function handleGetPublicKey(options: IdentityServiceOptions, id: string, send: SendIdentityMessage): void {
-  const signer = options.getSigner();
-  if (!signer) {
-    const result: IdentityGetPublicKeyResultMessage = {
-      type: 'identity.getPublicKey.result',
-      id,
-      pubkey: '',
-    };
-    send(result);
-    return;
-  }
-
-  Promise.resolve(signer.getPublicKey?.())
+  Promise.resolve()
+    .then(() => options.getSigner())
+    .then(async (signer) => signer?.getPublicKey ? signer.getPublicKey() : '')
+    .catch(() => '')
     .then((pubkey) => {
       const result: IdentityGetPublicKeyResultMessage = {
         type: 'identity.getPublicKey.result',
         id,
-        pubkey: (pubkey as string) ?? '',
+        pubkey: pubkey ?? '',
       };
       send(result);
-    })
-    .catch((err: unknown) => sendSignerError(send, id, 'identity.getPublicKey', 'getPublicKey failed', err));
+    });
 }
 
 function handleGetRelays(options: IdentityServiceOptions, id: string, send: SendIdentityMessage): void {
