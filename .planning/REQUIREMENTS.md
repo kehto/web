@@ -401,7 +401,7 @@ lockfile.
 | IDENTITY-04 | Phase 103 | Pending |
 | THEME-01 | Phase 103 | Complete |
 | THEME-02 | Phase 103 | Complete |
-| THEME-03 | Phase 103 | Pending |
+| THEME-03 | Phase 103 | Complete |
 | THEME-05 | Phase 103 | Complete |
 | BASE-01 | Phase 104 | Pending |
 | BASE-02 | Phase 104 | Pending |
