@@ -1,5 +1,7 @@
 import { readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { resolvePajaFrameEnvironment } from './browser-target-frame.js';
+import type { ShellAdapter } from '@kehto/shell';
 
 import {
   PAJA_ADVERTISED_DOMAINS,
@@ -8,9 +10,27 @@ import {
   PAJA_HANDSHAKE_DOMAINS,
   PAJA_REQUIRED_SERVICES,
   PAJA_UPSTREAM_WEB_DOMAINS,
+  hasEqualPajaEnvironmentMembership,
   getMissingAdvertisedDomains,
   getMissingServices,
 } from './parity.js';
+
+function baseHooks(): ShellAdapter {
+  return {
+    relayPool: { getRelayPool: () => null, trackSubscription: () => {}, untrackSubscription: () => {}, openScopedRelay: () => {}, closeScopedRelay: () => {}, publishToScopedRelay: () => false, selectRelayTier: () => [] },
+    relayConfig: { addRelay: () => {}, removeRelay: () => {}, getRelayConfig: () => ({ discovery: [], super: [], outbox: [] }), getNip66Suggestions: () => null },
+    windowManager: { createWindow: () => null },
+    auth: { getUserPubkey: () => null, getSigner: () => null },
+    config: { getNappUpdateBehavior: () => 'banner' },
+    hotkeys: { executeHotkeyFromForward: () => {} },
+    workerRelay: { getWorkerRelay: () => null },
+    crypto: { verifyEvent: async () => true },
+  };
+}
+
+function service(name: string) {
+  return { descriptor: { name, version: '1.0.0' }, handleMessage: () => {} };
+}
 
 function napPackageRoot(): URL {
   return new URL('../node_modules/@napplet/nap/dist/', import.meta.url);
@@ -65,5 +85,55 @@ describe('@kehto/paja parity metadata', () => {
     })).toEqual(['upload']);
     expect(getMissingServices(PAJA_REQUIRED_SERVICES)).toEqual([]);
     expect(getMissingServices(PAJA_REQUIRED_SERVICES.filter((service) => service !== 'intent'))).toEqual(['intent']);
+  });
+
+  it('resolves equal but isolated bootstrap and shell.init environments from trusted live wiring', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      services: { config: service('config'), resource: service('resource') },
+      capabilities: {
+        disabledDomains: ['identity', 'resource'],
+        resolveEnvironment: () => ({
+          domains: ['relay', 'config', 'identity', 'resource'],
+          services: ['config', 'resource'],
+        }),
+      },
+    };
+
+    const { bootstrap, shellInit } = resolvePajaFrameEnvironment(hooks, {
+      dTag: 'trusted-frame',
+      aggregateHash: 'trusted-hash',
+    });
+
+    expect(bootstrap).toEqual({
+      capabilities: { domains: ['relay', 'config'] },
+      services: ['config'],
+    });
+    expect(shellInit).toEqual(bootstrap);
+    expect(shellInit).not.toBe(bootstrap);
+    expect(shellInit.capabilities).not.toBe(bootstrap.capabilities);
+    expect(shellInit.capabilities.domains).not.toBe(bootstrap.capabilities.domains);
+    expect(shellInit.services).not.toBe(bootstrap.services);
+    expect(Object.isFrozen(bootstrap.capabilities.domains)).toBe(true);
+    expect(Object.isFrozen(shellInit.services)).toBe(true);
+    expect(hasEqualPajaEnvironmentMembership(bootstrap, shellInit)).toBe(true);
+  });
+
+  it('does not resurrect an absent domain when the same trusted frame environment is rebuilt', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      capabilities: {
+        disabledDomains: ['relay'],
+        resolveEnvironment: () => ({ domains: ['relay', 'storage'], services: [] }),
+      },
+    };
+    const identity = { dTag: 'same-frame', aggregateHash: 'same-hash' };
+
+    const first = resolvePajaFrameEnvironment(hooks, identity);
+    const second = resolvePajaFrameEnvironment(hooks, identity);
+
+    expect(first.bootstrap).toEqual(second.bootstrap);
+    expect(first.bootstrap.capabilities.domains).not.toContain('relay');
+    expect(second.shellInit.capabilities.domains).not.toContain('relay');
   });
 });

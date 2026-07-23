@@ -1,15 +1,35 @@
 import {
   injectNappletNamespacePrelude,
   originRegistry,
+  resolveShellEnvironment,
+  type OriginIdentity,
+  type ShellAdapter,
   type SessionEntry,
   type ShellBridge,
   type ShellCapabilities,
 } from '@kehto/shell';
 
 import type { PajaHostConfig } from './options.js';
-import { PAJA_HANDSHAKE_DOMAINS } from './parity.js';
+import { hasEqualPajaEnvironmentMembership, type PajaShellEnvironment } from './parity.js';
 import { injectPajaRuntimeCsp, type PajaResolvedPointer } from './runtime-resolver.js';
 import type { PajaCapabilityDomain, PajaSimulation } from './simulation.js';
+
+/**
+ * Resolve Paja's prelude and handshake environments from one trusted frame
+ * identity. Both calls deliberately produce fresh snapshots: callers compare
+ * membership, never object identity, across the two host boundaries.
+ */
+export function resolvePajaFrameEnvironment(
+  hooks: ShellAdapter,
+  identity: OriginIdentity,
+): Readonly<{ bootstrap: PajaShellEnvironment; shellInit: PajaShellEnvironment }> {
+  const bootstrap = resolveShellEnvironment(hooks, identity);
+  const shellInit = resolveShellEnvironment(hooks, identity);
+  if (!hasEqualPajaEnvironmentMembership(bootstrap, shellInit)) {
+    throw new Error('Paja bootstrap and shell.init environment membership diverged.');
+  }
+  return Object.freeze({ bootstrap, shellInit });
+}
 
 export function getTargetIdentity(
   config: PajaHostConfig,
@@ -51,7 +71,7 @@ export async function navigateFrame(
   windowId?: string,
   isCurrent?: () => boolean,
 ): Promise<string | null> {
-  const domains = getInjectedDomains(capabilities, simulation, resolvedTarget);
+  const domains = getInjectedDomains(capabilities, simulation);
   if (config.target.mode === 'runtime-pointer') {
     if (!resolvedTarget) {
       frame.removeAttribute('src');
@@ -104,25 +124,13 @@ function connectOrigins(urls: readonly string[]): string[] {
 }
 
 function getInjectedDomains(
-  capabilities: ShellCapabilities,
+  capabilities: PajaShellEnvironment['capabilities'],
   simulation: PajaSimulation,
-  resolvedTarget?: PajaResolvedPointer | null,
 ): string[] {
-  const available = capabilities.domains.filter((domain) => {
+  return capabilities.domains.filter((domain) => {
     const knownDomain = domain as PajaCapabilityDomain;
     return simulation.capabilities.domains[knownDomain] !== false;
   });
-  const required = resolvedTarget?.manifest.requires ?? [];
-  const availableSet = new Set(available);
-  const optionalDomains = required.length === 0
-    ? available
-    : required.filter((domain) => availableSet.has(domain));
-  return [
-    ...PAJA_HANDSHAKE_DOMAINS,
-    ...optionalDomains.filter(
-      (domain) => !PAJA_HANDSHAKE_DOMAINS.some((handshakeDomain) => handshakeDomain === domain),
-    ),
-  ];
 }
 
 async function fetchTargetHtml(): Promise<string> {
