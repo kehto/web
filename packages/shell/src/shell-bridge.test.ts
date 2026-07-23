@@ -635,7 +635,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
    * This preserves compatibility with existing tests that call
    * originRegistry.register(win, 'win-A') without identity.
    */
-  it('does not throw and skips registration when window has no NIP-5D identity', () => {
+  it('withholds both session and shell.init when the registered source has no NIP-5D identity', () => {
     const iframe = makeFakeIframe();
     const win = iframe as unknown as Window;
 
@@ -654,6 +654,38 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
 
     // No session entry should be created (no identity available)
     expect(bridge.runtime.sessionRegistry.getEntryByWindowId('win-no-id')).toBeUndefined();
+    expect(iframe.postMessage).not.toHaveBeenCalled();
+
+    bridge.destroy();
+  });
+
+  it('ignores identity-like ready payload fields in favor of the source registration identity', () => {
+    const iframe = makeFakeIframe();
+    const win = iframe as unknown as Window;
+    originRegistry.register(win, 'win-forged-ready', {
+      dTag: 'creation-dtag',
+      aggregateHash: 'creation-hash',
+    });
+    const bridge = createShellBridge(makeTestHooks());
+
+    bridge.handleMessage({
+      source: win,
+      origin: 'https://trusted.example.com',
+      data: {
+        type: 'shell.ready',
+        dTag: 'forged-dtag',
+        aggregateHash: 'forged-hash',
+        windowId: 'forged-window',
+        capabilities: { domains: ['identity'] },
+      },
+    } as MessageEvent);
+
+    const entry = bridge.runtime.sessionRegistry.getEntryByWindowId('win-forged-ready');
+    expect(entry?.dTag).toBe('creation-dtag');
+    expect(entry?.aggregateHash).toBe('creation-hash');
+    expect(entry?.windowId).toBe('win-forged-ready');
+    expect(entry?.origin).toBe('https://trusted.example.com');
+    expect(iframe.postMessage).toHaveBeenCalledTimes(1);
 
     bridge.destroy();
   });

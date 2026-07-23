@@ -42,7 +42,7 @@ export function handleShellReady({
   sourceWindow,
   windowId,
 }: ShellReadyOptions): void {
-  registerNip5dSessionIfNeeded({
+  const sessionEstablished = registerNip5dSessionIfNeeded({
     hooks,
     origin,
     runtime,
@@ -50,6 +50,7 @@ export function handleShellReady({
     sourceWindow,
     windowId,
   });
+  if (!sessionEstablished) return;
 
   // SHELL-01: exactly-once shell.init per registered Window lifecycle.
   // registerNip5dSessionIfNeeded is already idempotent (its own
@@ -69,19 +70,18 @@ function registerNip5dSessionIfNeeded({
   hooks,
   origin,
   runtime,
+  sourceWindow,
   windowId,
-}: ShellReadyOptions): void {
+}: ShellReadyOptions): boolean {
   // NIP-5D: register a source-identity session entry in runtime.sessionRegistry
   // if one does not already exist for this windowId. This wires the originRegistry
   // identity into the runtime so domain handlers (storage/state, inc, etc.) can
   // resolve the napplet via getEntryByWindowId(windowId).
-  if (runtime.sessionRegistry.getEntryByWindowId(windowId)) {
-    return;
-  }
+  const identity = resolveNip5dIdentity(hooks, windowId, sourceWindow);
+  if (!identity) return false;
 
-  const identity = resolveNip5dIdentity(hooks, windowId);
-  if (!identity) {
-    return;
+  if (runtime.sessionRegistry.getEntryByWindowId(windowId)) {
+    return true;
   }
 
   const entry: SessionEntry = {
@@ -96,11 +96,13 @@ function registerNip5dSessionIfNeeded({
     provenance: 'nip-5d',
   };
   runtime.sessionRegistry.register(windowId, entry);
+  return true;
 }
 
 function resolveNip5dIdentity(
   hooks: ShellAdapter,
   windowId: string,
+  sourceWindow: Window,
 ): { dTag: string; aggregateHash: string } | null {
   // Identity resolution order:
   //   1. hooks.onNip5dIframeCreate?.(windowId) — preferred.
@@ -114,12 +116,7 @@ function resolveNip5dIdentity(
     };
   }
 
-  const win = originRegistry.getIframeWindow(windowId);
-  if (!win) {
-    return null;
-  }
-
-  const originIdentity = originRegistry.getIdentity(win);
+  const originIdentity = originRegistry.getIdentity(sourceWindow);
   if (!originIdentity) {
     return null;
   }
