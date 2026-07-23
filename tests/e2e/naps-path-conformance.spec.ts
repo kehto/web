@@ -57,7 +57,7 @@ test('profile-viewer receives current injected window.napplet domain objects', a
       napplet?: Record<string, unknown> & {
         shell?: {
           ready: () => Promise<unknown>;
-          supports: (domain: string, protocol?: string) => boolean;
+          supports: (domain: string) => boolean;
           services: readonly string[];
           onReady: (handler: (environment: unknown) => void) => { close(): void };
         };
@@ -77,6 +77,7 @@ test('profile-viewer receives current injected window.napplet domain objects', a
         typeof shell?.supports === 'function' &&
         typeof shell?.onReady === 'function' &&
         Array.isArray(shell?.services),
+      supportsArity: shell?.supports.length,
       nostrdbDomain: 'nostrdb' in (w.napplet ?? {}),
       injectedDomainSentinel: '__kehtoInjectedDomains' in (w.napplet ?? {}),
       nostrGlobal: typeof w.nostr !== 'undefined',
@@ -88,6 +89,7 @@ test('profile-viewer receives current injected window.napplet domain objects', a
   expect(result.themeDomain).toBe(true);
   expect(result.shellDomain).toBe(true);
   expect(result.shellApi).toBe(true);
+  expect(result.supportsArity).toBe(1);
   expect(result.nostrdbDomain).toBe(false);
   expect(result.injectedDomainSentinel).toBe(false);
   expect(result.nostrGlobal).toBe(false);

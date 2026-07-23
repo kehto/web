@@ -139,7 +139,7 @@ test('resolved manifests and hosted supports match napplet contracts', async ({ 
           upload?: object;
           shell?: {
             ready: () => Promise<unknown>;
-            supports: (domain: string, protocol?: string) => boolean;
+            supports: (domain: string) => boolean;
             services: readonly string[];
             onReady: (handler: (environment: unknown) => void) => { close(): void };
           };
@@ -148,9 +148,18 @@ test('resolved manifests and hosted supports match napplet contracts', async ({ 
       };
       const namespaceKeys = Object.keys(maybeWindow.napplet ?? {});
       const shell = maybeWindow.napplet?.shell;
-      await shell?.ready();
+      const environment = await shell?.ready() as {
+        capabilities?: { domains?: readonly string[] };
+        services?: readonly string[];
+      } | undefined;
+      const domains = environment?.capabilities?.domains ?? [];
+      const services = environment?.services ?? [];
       return requires.every((capability) => namespaceKeys.includes(capability)) &&
         requires.every((capability) => shell?.supports(capability) === true) &&
+        domains.every((domain) => namespaceKeys.includes(domain)) &&
+        domains.every((domain) => shell?.supports(domain) === true) &&
+        Object.keys(environment ?? {}).every((key) => key === 'capabilities' || key === 'services') &&
+        Object.isFrozen(domains) && Object.isFrozen(services) &&
         namespaceKeys.includes('shell') &&
         typeof shell?.ready === 'function' &&
         typeof shell?.supports === 'function' &&
