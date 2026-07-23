@@ -329,6 +329,26 @@ describe('playground gateway artifact guard', () => {
     expect(main).not.toContain("data.type === 'theme.set'");
   });
 
+  it('keeps playground identity and theme delivery on one service-to-bridge path', () => {
+    const demoHooks = readRepoFile('apps/playground/src/demo-hooks.ts');
+    const shellHost = readRepoFile('apps/playground/src/shell-host.ts');
+    const preferences = readRepoFile('apps/playground/src/main-preferences.ts');
+    const mainSigner = readRepoFile('apps/playground/src/main-signer.ts');
+
+    expect(demoHooks).toContain('onThemeBroadcast(envelope: ThemeChangedMessage): void;');
+    expect(demoHooks).toContain('createThemeService({ onBroadcast: context.onThemeBroadcast })');
+    expect(shellHost).toContain('onThemeBroadcast: (envelope) => relay.publishTheme(envelope.theme),');
+    expect(preferences).toContain('getThemeServiceBundle()?.publishTheme(currentTheme);');
+    expect(preferences).not.toContain("postMessage({ type: 'theme.changed'");
+    expect(preferences).not.toContain('relay.publishTheme(currentTheme');
+
+    expect(shellHost).not.toContain('scheduleCurrentUserIdentitySync');
+    expect(shellHost).not.toContain('publishCurrentUserIdentityToNapplet');
+    expect(shellHost).not.toContain("msg.envelopeType === 'identity.getPublicKey'");
+    expect(shellHost).not.toContain("type: 'identity.changed'");
+    expect(mainSigner).toContain('publishIdentityChanged?.(currentIdentity);');
+  });
+
   it('keeps the GitHub Pages publisher aligned with the static gateway artifact contract', () => {
     const workflow = readRepoFile('.github/workflows/playground-pages.yml');
     const script = readRepoFile('scripts/build-playground-pages.mjs');
