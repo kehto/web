@@ -1,7 +1,9 @@
 import {
   buildShellCapabilities,
+  resolveShellEnvironment,
   type AclCheckEvent,
   type NostrEvent,
+  type OriginIdentity,
   type ServiceHandler,
   type SessionEntry,
   type ShellAdapter,
@@ -67,6 +69,7 @@ type NappletAclInfo = {
 
 export interface DemoHooksContext {
   getNappletEntries(): Iterable<[string, NappletAclInfo]>;
+  getDisabledDomains(): readonly string[];
   onResolvedAclCheck(event: AclCheckEvent, windowId: string, nappletName: string): void;
 }
 
@@ -75,6 +78,7 @@ let themeServiceBundle: ThemeService | null = null;
 let identityServiceHandler: ServiceHandler | null = null;
 let configServiceBundle: ConfigService | null = null;
 let shellCapabilities: ShellCapabilities | null = null;
+let shellAdapter: ShellAdapter | null = null;
 let nip66Aggregator: Nip66Aggregator | null = null;
 let relayRuntimeDestroy: (() => void) | null = null;
 let relayRuntimeActivity: ((limit?: number) => PlaygroundRelayActivityEntry[]) | null = null;
@@ -196,6 +200,7 @@ export function createDemoHooks(
     relayRuntime.relayPoolHooks,
     workerRelay.workerRelayHooks,
   );
+  shellAdapter = adapter;
   shellCapabilities = buildShellCapabilities(adapter);
   return adapter;
 }
@@ -275,6 +280,11 @@ function createDemoShellAdapter(
       getSigner,
     },
     services,
+    capabilities: {
+      get disabledDomains(): readonly string[] {
+        return context.getDisabledDomains();
+      },
+    },
     config: { getNappUpdateBehavior: () => 'auto-grant' },
     hotkeys: { executeHotkeyFromForward: () => {} },
     link: { isAvailable: () => true },
@@ -544,22 +554,30 @@ export function getIdentityServiceHandler(): ServiceHandler | null {
 }
 
 export function getShellCapabilities(): ShellCapabilities | null {
-  if (!shellCapabilities) return null;
+  if (!shellCapabilities || !shellAdapter) return null;
   return {
-    naps: [...shellCapabilities.naps],
-    sandbox: [...shellCapabilities.sandbox],
-    domains: [...shellCapabilities.domains],
-    protocols: { ...shellCapabilities.protocols },
+    domains: [...buildShellCapabilities(shellAdapter).domains],
   };
 }
 
-export function getMissingRequiredNaps(requires: readonly string[]): string[] {
-  const capabilities = shellCapabilities;
-  if (!capabilities) return [...requires];
-  // The NAP vocabulary (`naps`, which carries `inc`) is the source of truth so
-  // a napplet that declares requires:['inc',...] resolves correctly.
-  const supported = new Set(capabilities.naps);
+export function getMissingRequiredNaps(
+  requires: readonly string[],
+  domains = getShellCapabilities()?.domains,
+): string[] {
+  if (!domains) return [...requires];
+  const supported = new Set(domains);
   return requires.filter((capability) => !supported.has(capability));
+}
+
+/**
+ * Resolve one fresh, immutable host environment for a trusted playground frame.
+ *
+ * @param identity - The frame identity registered before its srcdoc executes.
+ * @returns A host-resolved snapshot of the frame's live, granted environment.
+ */
+export function getPlaygroundShellEnvironment(identity: OriginIdentity) {
+  if (!shellAdapter) throw new Error('playground shell hooks are not initialized');
+  return resolveShellEnvironment(shellAdapter, identity);
 }
 
 /**

@@ -31,6 +31,7 @@ import {
 } from './demo-definitions.js';
 import {
   createDemoHooks,
+  getPlaygroundShellEnvironment,
   getMissingRequiredNaps,
   setDemoSessionRegistryRef,
 } from './demo-hooks.js';
@@ -404,6 +405,7 @@ function markNappletIdentityBound(info: NappletInfo, entry: SessionEntry): void 
  */
 export function bootShell(notificationOnChange?: (notifications: readonly Notification[]) => void): { tap: MessageTap; relay: ShellBridge } {
   const hooks = createDemoHooks(notificationOnChange, {
+    getDisabledDomains: () => [...disabledServices],
     getNappletEntries: () => napplets.entries(),
     onResolvedAclCheck: (event, windowId, nappletName) => {
       pushAclEvent(event, windowId, nappletName);
@@ -446,14 +448,19 @@ export async function loadNapplet(
     blossomServers: [playgroundPath('/napplet-blossom')],
   });
 
-  const missingRequiredNaps = getMissingRequiredNaps(resolved.requires);
+  const { dTag, aggregateHash } = resolved;
+  const identity = Object.freeze({ dTag, aggregateHash });
+  const environment = getPlaygroundShellEnvironment(identity);
+  const missingRequiredNaps = getMissingRequiredNaps(
+    resolved.requires,
+    environment.capabilities.domains,
+  );
   if (missingRequiredNaps.length > 0) {
     throw new Error(
       `[demo] ${resolved.dTag} requires unsupported NAP capabilities: ${missingRequiredNaps.join(', ')}`,
     );
   }
 
-  const { dTag, aggregateHash } = resolved;
   const windowId = `demo-${name}-${++nappletCounter}`;
 
   const iframe = document.createElement('iframe');
@@ -468,8 +475,8 @@ export async function loadNapplet(
     windowId,
     name,
     iframe,
-    dTag,
-    aggregateHash,
+    dTag: identity.dTag,
+    aggregateHash: identity.aggregateHash,
     identityBound: false,
   };
   napplets.set(windowId, info);
@@ -477,7 +484,7 @@ export async function loadNapplet(
   // Register origin immediately — contentWindow is available after appendChild.
   // shell.ready establishes the runtime session from this creation-time identity.
   if (iframe.contentWindow) {
-    originRegistry.register(iframe.contentWindow, windowId, { dTag, aggregateHash });
+    originRegistry.register(iframe.contentWindow, windowId, identity);
   }
 
   iframe.addEventListener('load', () => {
@@ -486,7 +493,7 @@ export async function loadNapplet(
       && originRegistry.getWindowId(iframe.contentWindow) !== windowId
     ) {
       // srcdoc may replace contentWindow; bind any replacement for its handshake.
-      originRegistry.register(iframe.contentWindow, windowId, { dTag, aggregateHash });
+      originRegistry.register(iframe.contentWindow, windowId, identity);
     }
   });
 
@@ -498,7 +505,7 @@ export async function loadNapplet(
   const origins = STATIC_ORIGIN_ALLOWLIST.get(dTag) ?? [];
   iframe.srcdoc = injectNappletNamespacePrelude(
     injectCspMeta(resolved.indexHtml, origins),
-    { domains: ['shell', ...resolved.requires] },
+    environment.capabilities,
   );
 
   return info;
