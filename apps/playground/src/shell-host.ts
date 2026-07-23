@@ -154,6 +154,18 @@ let nappletCounter = 0;
 const serviceHandlerStore = new Map<string, ServiceHandler>();
 const disabledServices = new Set<string>();
 const SERVICE_STATE_STORAGE_KEY = 'kehto.playground.disabledServices.v1';
+const SERVICE_DOMAIN_ALIASES: Readonly<Record<string, string>> = Object.freeze({
+  notifications: 'notify',
+});
+
+function getServiceToggleTargets(name: string): readonly string[] {
+  const domain = SERVICE_DOMAIN_ALIASES[name];
+  return domain ? [name, domain] : [name];
+}
+
+function getDisabledDomains(): readonly string[] {
+  return [...new Set([...disabledServices].flatMap((name) => getServiceToggleTargets(name)))];
+}
 
 export let tap: MessageTap;
 export let relay: ShellBridge;
@@ -327,9 +339,10 @@ function persistDisabledServices(): void {
 
 function applyPersistedServiceState(): void {
   for (const name of readPersistedDisabledServices()) {
-    if (!serviceHandlerStore.has(name)) continue;
+    const targets = getServiceToggleTargets(name);
+    if (!targets.some((target) => serviceHandlerStore.has(target))) continue;
     disabledServices.add(name);
-    relay.runtime.unregisterService(name);
+    for (const target of targets) relay.runtime.unregisterService(target);
   }
 }
 
@@ -423,7 +436,7 @@ function markNappletIdentityBound(info: NappletInfo, entry: SessionEntry): void 
  */
 export function bootShell(notificationOnChange?: (notifications: readonly Notification[]) => void): { tap: MessageTap; relay: ShellBridge } {
   const hooks = createDemoHooks(notificationOnChange, {
-    getDisabledDomains: () => [...disabledServices],
+    getDisabledDomains,
     getNappletEntries: () => napplets.entries(),
     onResolvedAclCheck: (event, windowId, nappletName) => {
       pushAclEvent(event, windowId, nappletName);
@@ -567,17 +580,20 @@ export function toggleCapability(windowId: string, capability: Capability, enabl
  * reference is re-registered. Changes take effect on the very next message.
  */
 export function toggleService(name: string, enabled: boolean): void {
+  const targets = getServiceToggleTargets(name);
   if (enabled) {
-    const handler = serviceHandlerStore.get(name);
-    if (!handler) {
+    const handlers = targets
+      .map((target) => [target, serviceHandlerStore.get(target)] as const)
+      .filter((entry): entry is readonly [string, ServiceHandler] => entry[1] !== undefined);
+    if (handlers.length === 0) {
       console.warn('[service] toggleService: no stored handler for', name);
       return;
     }
     disabledServices.delete(name);
-    relay.runtime.registerService(name, handler);
+    for (const [target, handler] of handlers) relay.runtime.registerService(target, handler);
   } else {
     disabledServices.add(name);
-    relay.runtime.unregisterService(name);
+    for (const target of targets) relay.runtime.unregisterService(target);
   }
   persistDisabledServices();
 }

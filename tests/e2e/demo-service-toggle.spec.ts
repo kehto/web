@@ -94,28 +94,32 @@ test('new registrations reflect disabled live services without mutating concurre
   await page.locator('[data-service-name="notifications"] .service-toggle-icon').click();
   await expect(page.locator('[data-service-name="notifications"]')).toHaveClass(/service-disabled/);
 
-  // Existing frames keep their frozen first-init snapshot; only a new
-  // registration receives the current disabled live environment.
+  // Existing frames keep their frozen first-init snapshot.
   await expect.poll(() => shellState(botFrame!)).toMatchObject({ receiver: true, supports: true });
+  await expect.poll(() => shellState(toasterFrame!)).toMatchObject({ receiver: true, supports: true });
 
-  await page.evaluate(() => {
-    const iframe = document.querySelector<HTMLIFrameElement>('#toaster-frame-container iframe');
-    if (!iframe) throw new Error('toaster iframe missing');
-    iframe.srcdoc = iframe.srcdoc;
-  });
+  // A host reload creates fresh frame lifecycles and rebuilds each verified
+  // srcdoc prelude from the current disabled-domain policy. Reassigning the
+  // same iframe.srcdoc would intentionally preserve its captured environment.
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#topology-root', { state: 'visible', timeout: 15_000 });
+  await expect(page.locator('[data-service-name="notifications"]')).toHaveClass(/service-disabled/);
+  await expect(page.locator('#toaster-frame-container iframe')).toHaveCount(0);
 
   await expect.poll(async () => {
-    const handle = await page.locator('#toaster-frame-container iframe').elementHandle();
+    const handle = await page.locator('#bot-frame-container iframe').elementHandle();
     const frame = handle ? await handle.contentFrame() : null;
-    if (!frame) return false;
-    const state = await shellState(frame);
-    return state.receiver === false && state.supports === false &&
-      !state.domains.includes('notify') && !state.services.includes('notifications');
-  }, { timeout: 30_000 }).toBe(true);
+    return frame ? shellState(frame) : null;
+  }, { timeout: 30_000 }).toMatchObject({
+    receiver: false,
+    supports: false,
+    domains: expect.not.arrayContaining(['notify']),
+    services: expect.not.arrayContaining(['notifications']),
+  });
 
-  const refreshedHandle = await page.locator('#toaster-frame-container iframe').elementHandle();
+  const refreshedHandle = await page.locator('#bot-frame-container iframe').elementHandle();
   const refreshedFrame = await refreshedHandle?.contentFrame();
-  expect(refreshedFrame, 'reloaded toaster content frame').not.toBeNull();
+  expect(refreshedFrame, 'reloaded bot content frame').not.toBeNull();
   const duplicateInitCount = await refreshedFrame!.evaluate(async () => {
     let initCount = 0;
     window.addEventListener('message', (event) => {
