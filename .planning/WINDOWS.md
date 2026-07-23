@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 15
+open_count: 12
 waived_count: 0
-fixed_count: 0
+fixed_count: 3
 total_count: 15
-last_updated: 2026-07-23T18:27:08.984Z
+last_updated: 2026-07-23T18:41:49.000Z
 ---
 
 # Broken Windows Ledger
@@ -15,13 +15,13 @@ last_updated: 2026-07-23T18:27:08.984Z
 
 | id | phase | kind | file | line | description | status | reason | recorded_at | resolved_at |
 |----|-------|------|------|------|-------------|--------|--------|-------------|-------------|
-| 1 | 101 | unrun-verify | packages/shell/README.md |  | pnpm docs:check final audit blocked by unrelated docs/packages/paja.md version row | open |  | 2026-07-23T14:09:52.533Z |  |
+| 1 | 101 | unrun-verify | packages/shell/README.md |  | pnpm docs:check final audit blocked by unrelated docs/packages/paja.md version row | fixed | Exported the Phase 102 ACL observer types, corrected the Paja 0.8.1 version row, and reran pnpm docs:check successfully. | 2026-07-23T14:09:52.533Z | 2026-07-23T18:41:49.000Z |
 | 2 | 101 | deviation | packages/paja/src/parity.test.ts |  | Rule 3 fixture correction removed stale ShellCapabilities fields to restore type-documentation generation | open |  | 2026-07-23T14:09:52.589Z |  |
 | 3 | 101 | deviation | packages/paja/src/browser-adapter.ts |  | Paja identity fallback removed so ready resolves only from pre-srcdoc origin registration. | open |  | 2026-07-23T14:23:34.425Z |  |
 | 4 | 101 | deviation | packages/paja/src/browser-runtime-tabs.ts |  | Runtime-pointer tabs use the same pre-srcdoc registration seam as single-frame Paja. | open |  | 2026-07-23T14:23:34.477Z |  |
 | 5 | 102 | unrun-verify | .aislop/config.yml |  | AI-slop scan could not run because aislop@0.13.1 is absent from the installed workspace | open |  | 2026-07-23T17:41:27.883Z |  |
 | 6 | 102 | deviation | packages/runtime/src/session-registry.ts |  | TDD RED checks passed but branch safety remediation required combined green commits | open |  | 2026-07-23T17:41:27.938Z |  |
-| 7 | 102 | lint-warning | docs/packages/paja.md |  | docs:check fails because the Paja package page lacks the current 0.8.1 version row | open |  | 2026-07-23T17:57:52.447Z |  |
+| 7 | 102 | lint-warning | docs/packages/paja.md |  | docs:check fails because the Paja package page lacks the current 0.8.1 version row | fixed | Corrected the package page to 0.8.1; the complete docs gate now passes. | 2026-07-23T17:57:52.447Z | 2026-07-23T18:41:49.000Z |
 | 8 | 102 | unrun-verify | .aislop/config.yml |  | AI-slop gate not run because the aislop executable is unavailable locally and on PATH | open |  | 2026-07-23T17:57:52.505Z |  |
 | 9 | 102 | unrun-verify | .aislop/config.yml |  | AI-slop verification could not run because aislop is not installed locally; installation is prohibited for this phase. | open |  | 2026-07-23T18:05:35.468Z |  |
 | 10 | 102 | deviation | packages/runtime/src/service-dispatch.ts |  | Exact inc.emit early return added to prevent a generic inc service from bypassing INC runtime ownership. | open |  | 2026-07-23T18:05:35.521Z |  |
@@ -40,10 +40,10 @@ last_updated: 2026-07-23T18:27:08.984Z
     "file": "packages/shell/README.md",
     "line": null,
     "description": "pnpm docs:check final audit blocked by unrelated docs/packages/paja.md version row",
-    "status": "open",
-    "reason": "",
+    "status": "fixed",
+    "reason": "Exported the Phase 102 ACL observer types, corrected the Paja 0.8.1 version row, and reran pnpm docs:check successfully.",
     "recorded_at": "2026-07-23T14:09:52.533Z",
-    "resolved_at": null
+    "resolved_at": "2026-07-23T18:41:49.000Z"
   },
   {
     "id": 2,
@@ -112,10 +112,10 @@ last_updated: 2026-07-23T18:27:08.984Z
     "file": "docs/packages/paja.md",
     "line": null,
     "description": "docs:check fails because the Paja package page lacks the current 0.8.1 version row",
-    "status": "open",
-    "reason": "",
+    "status": "fixed",
+    "reason": "Corrected the package page to 0.8.1; the complete docs gate now passes.",
     "recorded_at": "2026-07-23T17:57:52.447Z",
-    "resolved_at": null
+    "resolved_at": "2026-07-23T18:41:49.000Z"
   },
   {
     "id": 8,

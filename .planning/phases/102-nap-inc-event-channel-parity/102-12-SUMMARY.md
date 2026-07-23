@@ -101,8 +101,7 @@ None - plan executed exactly as written.
 
 ## Issues Encountered
 
-- `pnpm docs:check` could not complete because pre-existing Typedoc strictness reports that runtime type `AclMutationObserver` is referenced but undocumented. It is outside this plan's files and is recorded in `deferred-items.md`.
-- The best-effort `.planning/WINDOWS.md` entry could not be appended because its frontmatter counts already disagree with its entries; no ledger content was changed.
+- The initial `pnpm docs:check` run exposed the Phase 102 ACL observer types and a stale Paja version row. The phase follow-up exported/documented the observer types, corrected the row, repaired the Windows counts, and reran the complete gate successfully.
 
 ## User Setup Required
 
@@ -111,7 +110,7 @@ None - no external service configuration required.
 ## Next Phase Readiness
 
 - Future documentation changes have a focused guard against reintroducing service-over-INC compatibility.
-- The runtime Typedoc warning must be resolved before the full docs gate can pass.
+- The full strict TypeDoc, VitePress, package-page, and docs-wiring gate now passes.
 
 ## Self-Check: PASSED
 

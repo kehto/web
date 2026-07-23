@@ -92,7 +92,7 @@ None - plan executed exactly as written.
 
 ## Issues Encountered
 
-- `pnpm docs:check` completed its API/site build but failed its existing package-page audit because `docs/packages/paja.md` is missing the current `| Version | \`0.8.1\` |` row. This is outside this plan's shell-prelude ownership and was deferred unchanged.
+- The initial `pnpm docs:check` run found a stale Paja version row; the phase follow-up corrected it and the complete docs gate now passes.
 - The repository's configured AI-slop executable is unavailable both locally and on `PATH`; no package was installed because this plan forbids package installation.
 
 ## Known Stubs
@@ -110,7 +110,7 @@ None - no external service configuration required.
 - `pnpm build` — passed
 - `pnpm type-check` — passed
 - `pnpm test:unit` — passed (107 files, 1335 tests)
-- `pnpm docs:check` — failed on the pre-existing Paja package-documentation version row; no in-scope documentation surface changed
+- `pnpm docs:check` — passed after the phase follow-up corrected the stale Paja package-documentation version row
 - AI-slop gate — not run because no `aislop` executable is installed or available on `PATH`
 
 ## Next Phase Readiness
