@@ -26,7 +26,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createShellBridge } from './shell-bridge.js';
 import { originRegistry } from './origin-registry.js';
-import { __resetInitSentForTests } from './shell-ready.js';
 import type { ShellAdapter, SessionEntry } from './types.js';
 import type { Theme } from '@napplet/nap/theme/types';
 
@@ -444,12 +443,10 @@ describe('ShellBridge.injectEvent single-topic forwarding', () => {
 describe('ShellBridge NIP-5D session registration on shell.ready', () => {
   beforeEach(() => {
     originRegistry.clear();
-    __resetInitSentForTests();
   });
 
   afterEach(() => {
     originRegistry.clear();
-    __resetInitSentForTests();
   });
 
   /**
@@ -735,8 +732,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
    * napplet lifecycle. A duplicate shell.ready from the same window must be
    * idempotent — no second shell.init postMessage, no duplicate session.
    *
-   * The `initSent` guard in shell-ready.ts is module-scoped, so we reset it in
-   * beforeEach (see resetInitSent below) to keep this file's tests isolated.
+   * The guard is owned by the bridge, so each runtime lifecycle stays isolated.
    */
   it('sends shell.init exactly once across two shell.ready deliveries from the same window', () => {
     const iframe = makeFakeIframe();
@@ -914,6 +910,40 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     bridge.handleMessage({ source: winA, origin: 'https://a.example', data: { type: 'shell.ready' } } as MessageEvent);
     expect(frameA.postMessage).toHaveBeenCalledTimes(1);
     expect(bridge.runtime.sessionRegistry.getEntryByWindowId('window-a')?.dTag).toBe('frame-a');
+
+    bridge.destroy();
+  });
+
+  it('drops a manually posted excluded domain before ACL, firewall, or dispatch', () => {
+    const iframe = makeFakeIframe();
+    const win = iframe as unknown as Window;
+    const aclChecks = vi.fn();
+    const hooks: ShellAdapter = {
+      ...makeTestHooks(),
+      onAclCheck: aclChecks,
+      capabilities: {
+        resolveEnvironment: () => ({ domains: ['storage'], services: [] }),
+      },
+    };
+    originRegistry.register(win, 'window-excluded-relay', {
+      dTag: 'restricted-napp',
+      aggregateHash: 'restricted-hash',
+    });
+    const bridge = createShellBridge(hooks);
+
+    bridge.handleMessage({ source: win, origin: 'https://restricted.example', data: { type: 'shell.ready' } } as MessageEvent);
+    iframe.postMessage.mockClear();
+
+    // Bypass the injected namespace and post a valid-looking envelope directly.
+    bridge.handleMessage({
+      source: win,
+      origin: 'https://restricted.example',
+      data: { type: 'relay.subscribe', subId: 'forged', filters: [] },
+    } as MessageEvent);
+
+    expect(bridge.runtime.sessionRegistry.getEntryByWindowId('window-excluded-relay')).toBeDefined();
+    expect(iframe.postMessage).not.toHaveBeenCalled();
+    expect(aclChecks).not.toHaveBeenCalled();
 
     bridge.destroy();
   });

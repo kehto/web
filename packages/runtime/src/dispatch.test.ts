@@ -92,6 +92,27 @@ describe('runtime NAP dispatch — envelope guard', () => {
     expect(firewallEvents).not.toHaveBeenCalled();
   });
 
+  it('drops a session-established envelope excluded by the shell environment before ACL, firewall, or dispatch', () => {
+    const firewallEvents = vi.fn();
+    const restrictedCtx = createMockRuntimeAdapter({
+      onFirewallEvent: firewallEvents,
+      isDomainAllowed: () => false,
+    });
+    const restricted = createRuntime(restrictedCtx.hooks);
+    restricted.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+    restricted.firewallState.setPolicy('', 'deny');
+
+    restricted.handleMessage(WINDOW_ID, {
+      type: 'storage.get',
+      id: 'excluded-storage',
+      key: 'secret',
+    } as NappletMessage);
+
+    expect(restrictedCtx.sent).toHaveLength(0);
+    expect(restrictedCtx.aclChecks).toHaveLength(0);
+    expect(firewallEvents).not.toHaveBeenCalled();
+  });
+
   it('keeps a registered service inert before session creation, then dispatches it after registration', () => {
     const serviceCalls = vi.fn();
     const firewallEvents = vi.fn();

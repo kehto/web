@@ -9,7 +9,7 @@ import { audioManager } from './audio-manager.js';
 import type { ShellAdapter, UnroutedMessageInfo } from './types.js';
 import type { NappletMessage } from '@napplet/core';
 import type { Theme } from '@napplet/nap/theme/types';
-import { handleShellReady } from './shell-ready.js';
+import { createShellReadyState, handleShellReady } from './shell-ready.js';
 
 /**
  * Shell-side message bridge that handles NIP-5D communication with napplet iframes.
@@ -188,6 +188,7 @@ function reportUnrouted(
 }
 
 export function createShellBridge(hooks: ShellAdapter): ShellBridge {
+  const shellReadyState = createShellReadyState();
   const runtimeHooks = adaptHooks(hooks, {
     originRegistry,
     manifestCache,
@@ -196,7 +197,10 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
     nappKeyRegistry,
   });
 
-  const runtime: Runtime = createRuntime(runtimeHooks);
+  const runtime: Runtime = createRuntime({
+    ...runtimeHooks,
+    isDomainAllowed: shellReadyState.isDomainAllowed,
+  });
 
   function broadcastToNapplets(envelope: NappletMessage): void {
     // Use originRegistry.getAllWindowIds() rather than sessionRegistry.getAllEntries()
@@ -235,6 +239,7 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
           hooks,
           origin: event.origin,
           runtime,
+          state: shellReadyState,
           sourceRegistrationId: originRegistry.getRegistrationId(sourceWindow) ?? 0,
           sourceWindow,
           windowId,
@@ -252,6 +257,7 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
 
     destroy(): void {
       runtime.destroy();
+      shellReadyState.clear();
     },
 
     registerConsentHandler(handler: (request: ConsentRequest) => void): void {

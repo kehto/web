@@ -1,69 +1,83 @@
 import type { Runtime, SessionEntry } from '@kehto/runtime';
 import { originRegistry, type OriginIdentity } from './origin-registry.js';
 import { resolveShellEnvironment } from './shell-init.js';
-import type { ShellAdapter } from './types.js';
+import type { ShellAdapter, ShellCapabilities } from './types.js';
 
 interface ShellReadyOptions {
   hooks: ShellAdapter;
   origin: string;
   runtime: Runtime;
+  state: ShellReadyState;
   sourceRegistrationId: number;
   sourceWindow: Window;
   windowId: string;
 }
 
-/**
- * SHELL-01 (NAP-SHELL gap G1): tracks the source Window registration for which
- * `shell.init` has already been posted, so a duplicate `shell.ready` in the same
- * iframe lifecycle is idempotent and does NOT resend `shell.init`.
- * Module-scoped because the "no NIP-5D identity" path never registers a session
- * entry, so the guard must live independently of the session registry (and must
- * not mutate the runtime `SessionEntry` shape, which is owned by @kehto/runtime).
- */
-let initSent = new WeakMap<Window, number>();
-let sessionRegistration = new Map<string, number>();
+interface ShellEnvironment {
+  readonly capabilities: ShellCapabilities;
+  readonly services: readonly string[];
+}
 
-/**
- * Test-only hook to clear the module-scoped {@link initSent} guard between
- * test cases. NOT part of the public API; prefixed with `__` and `ForTests` to
- * signal it must never be called by production code.
- *
- * @internal
- */
-export function __resetInitSentForTests(): void {
-  initSent = new WeakMap<Window, number>();
-  sessionRegistration = new Map<string, number>();
+/** State owned by one ShellBridge instance for its NAP-SHELL lifecycles. */
+export interface ShellReadyState {
+  isDomainAllowed(windowId: string, domain: string): boolean;
+  clear(): void;
+  readonly initSent: WeakMap<Window, number>;
+  readonly sessionRegistration: Map<string, number>;
+  readonly environments: Map<string, ShellEnvironment>;
+}
+
+/** Create isolated handshake state for one bridge/runtime pair. */
+export function createShellReadyState(): ShellReadyState {
+  const initSent = new WeakMap<Window, number>();
+  const sessionRegistration = new Map<string, number>();
+  const environments = new Map<string, ShellEnvironment>();
+  return {
+    initSent,
+    sessionRegistration,
+    environments,
+    isDomainAllowed(windowId, domain): boolean {
+      return environments.get(windowId)?.capabilities.domains.includes(domain) ?? false;
+    },
+    clear(): void {
+      sessionRegistration.clear();
+      environments.clear();
+    },
+  };
 }
 
 export function handleShellReady({
   hooks,
   origin,
   runtime,
+  state,
   sourceRegistrationId,
   sourceWindow,
   windowId,
 }: ShellReadyOptions): void {
   // SHELL-01: exactly-once shell.init per registered Window lifecycle.
-  if (initSent.get(sourceWindow) === sourceRegistrationId) {
+  if (state.initSent.get(sourceWindow) === sourceRegistrationId) {
     return;
   }
 
   const identity = resolveNip5dIdentity(hooks, windowId, sourceWindow);
   if (!identity) return;
 
-  registerNip5dSessionIfNeeded({ origin, runtime, sourceRegistrationId, windowId, identity });
+  registerNip5dSessionIfNeeded({ origin, runtime, state, sourceRegistrationId, windowId, identity });
   const environment = resolveShellEnvironment(hooks, identity);
+  state.environments.set(windowId, environment);
   postShellInit(sourceWindow, environment);
-  initSent.set(sourceWindow, sourceRegistrationId);
+  state.initSent.set(sourceWindow, sourceRegistrationId);
 }
 
 function registerNip5dSessionIfNeeded({
   origin,
   runtime,
+  state,
   sourceRegistrationId,
   windowId,
   identity,
-}: Pick<ShellReadyOptions, 'origin' | 'runtime' | 'sourceRegistrationId' | 'windowId'> & {
+}: Pick<ShellReadyOptions, 'origin' | 'runtime' | 'state' | 'sourceRegistrationId' | 'windowId'> & {
   identity: OriginIdentity;
 }): void {
   // NIP-5D: register a source-identity session entry in runtime.sessionRegistry
@@ -71,7 +85,7 @@ function registerNip5dSessionIfNeeded({
   // identity into the runtime so domain handlers (storage/state, inc, etc.) can
   // resolve the napplet via getEntryByWindowId(windowId).
   const existing = runtime.sessionRegistry.getEntryByWindowId(windowId);
-  const previousRegistration = sessionRegistration.get(windowId);
+  const previousRegistration = state.sessionRegistration.get(windowId);
   if (existing && previousRegistration === sourceRegistrationId) {
     return;
   }
@@ -92,7 +106,7 @@ function registerNip5dSessionIfNeeded({
     provenance: 'nip-5d',
   };
   runtime.sessionRegistry.register(windowId, entry);
-  sessionRegistration.set(windowId, sourceRegistrationId);
+  state.sessionRegistration.set(windowId, sourceRegistrationId);
 }
 
 function resolveNip5dIdentity(
@@ -125,10 +139,7 @@ function resolveNip5dIdentity(
 
 function postShellInit(
   win: Window,
-  environment: Readonly<{
-    capabilities: { readonly domains: readonly string[] };
-    services: readonly string[];
-  }>,
+  environment: ShellEnvironment,
 ): void {
   const initMsg = {
     type: 'shell.init',

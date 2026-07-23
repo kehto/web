@@ -310,6 +310,8 @@ function createMessageHandler(
     // creates a session. This deliberately precedes capability resolution,
     // ACL, firewall, service routing, and domain dispatch.
     if (!sessionRegistry.getEntryByWindowId(windowId)) return;
+    const domain = envelope.type.slice(0, dotIdx);
+    if (hooks.isDomainAllowed && !hooks.isDomainAllowed(windowId, domain)) return;
 
     const caps = resolveCapabilitiesNap(envelope);
     if (caps.senderCap) {
