@@ -51,4 +51,19 @@ describe('runtime ACL state', () => {
     expect(acl.check('', 'feed', 'hash', 'notify:send')).toBe(true);
     expect(acl.check('', 'feed', 'hash', 'theme:read')).toBe(true);
   });
+
+  it('reports only revoke and block facts to the internal mutation observer', () => {
+    const mutations: unknown[] = [];
+    const acl = createAclState(makePersistence(), 'permissive', (mutation) => mutations.push(mutation));
+
+    acl.grant('', 'chat', 'hash', 'notify:send');
+    acl.unblock('', 'chat', 'hash');
+    acl.revoke('', 'chat', 'hash', 'relay:read');
+    acl.block('', 'chat', 'hash');
+
+    expect(mutations).toEqual([
+      { type: 'revoke', dTag: 'chat', aggregateHash: 'hash', capability: 'relay:read' },
+      { type: 'block', dTag: 'chat', aggregateHash: 'hash' },
+    ]);
+  });
 });

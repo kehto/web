@@ -830,6 +830,108 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect((event!.message as any).payload).toEqual({ text: 'inc hello' });
       expect((event!.message as any).sender).toBe(TEST_DTAG);
     });
+
+    it('denies a blocked channel open without creating channel state', () => {
+      runtime.sessionRegistry.register(
+        WINDOW_ID_2,
+        createNip5dSessionEntry(WINDOW_ID_2, 'peer-napp', 'c'.repeat(64)),
+      );
+      runtime.aclState.block('', TEST_DTAG, TEST_HASH);
+
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.channel.open', id: 'blocked-open', target: 'peer-napp',
+      } as NappletMessage);
+
+      expect(findEnvelopeResponse(ctx.sent, 'inc.channel.open.error')).toMatchObject({ id: 'blocked-open' });
+      expect(ctx.sent.some(({ message }) => (message as NappletMessage).type === 'inc.channel.opened')).toBe(false);
+    });
+
+    it('checks ACL at channel open but not for established channel traffic', () => {
+      runtime.sessionRegistry.register(
+        WINDOW_ID_2,
+        createNip5dSessionEntry(WINDOW_ID_2, 'peer-napp', 'c'.repeat(64)),
+      );
+      expect(runtime.sessionRegistry.getAllEntries().map(({ windowId }) => windowId)).toEqual(
+        expect.arrayContaining([WINDOW_ID, WINDOW_ID_2]),
+      );
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.channel.open', id: 'open-once', target: 'peer-napp',
+      } as NappletMessage);
+      const openResult = findEnvelopeResponse(ctx.sent, 'inc.channel.open.result');
+      expect(openResult).toBeDefined();
+      const opened = openResult as NappletMessage & { channelId: string };
+      ctx.aclChecks.length = 0;
+
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.channel.emit', channelId: opened.channelId, payload: { command: 'play' },
+      } as NappletMessage);
+
+      expect(ctx.aclChecks).toHaveLength(0);
+      expect(ctx.sent).toContainEqual({
+        windowId: WINDOW_ID_2,
+        message: expect.objectContaining({
+          type: 'inc.channel.event', channelId: opened.channelId, sender: TEST_DTAG,
+        }),
+      });
+    });
+
+    const channelAuthorityMutations = [
+      ['revoke', () => runtime.aclState.revoke('', TEST_DTAG, TEST_HASH, 'relay:read')],
+      ['block', () => runtime.aclState.block('', TEST_DTAG, TEST_HASH)],
+    ] as const;
+
+    it.each(channelAuthorityMutations)('synchronously closes both endpoints and makes traffic inert after ACL %s', (_mutation, mutate) => {
+      runtime.sessionRegistry.register(
+        WINDOW_ID_2,
+        createNip5dSessionEntry(WINDOW_ID_2, 'peer-napp', 'c'.repeat(64)),
+      );
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.channel.open', id: 'revocable-open', target: 'peer-napp',
+      } as NappletMessage);
+      const openResult = findEnvelopeResponse(ctx.sent, 'inc.channel.open.result');
+      expect(openResult).toBeDefined();
+      const opened = openResult as NappletMessage & { channelId: string };
+      ctx.sent.length = 0;
+
+      mutate();
+
+      expect(ctx.sent).toEqual(expect.arrayContaining([
+        { windowId: WINDOW_ID, message: expect.objectContaining({ type: 'inc.channel.closed', channelId: opened.channelId }) },
+        { windowId: WINDOW_ID_2, message: expect.objectContaining({ type: 'inc.channel.closed', channelId: opened.channelId }) },
+      ]));
+      ctx.sent.length = 0;
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.channel.emit', channelId: opened.channelId, payload: { ignored: true },
+      } as NappletMessage);
+      expect(ctx.sent).toHaveLength(0);
+    });
+
+    it('keeps established channels intact for grants, unblocks, and unrelated revocations', () => {
+      runtime.sessionRegistry.register(
+        WINDOW_ID_2,
+        createNip5dSessionEntry(WINDOW_ID_2, 'peer-napp', 'c'.repeat(64)),
+      );
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.channel.open', id: 'stable-open', target: 'peer-napp',
+      } as NappletMessage);
+      const openResult = findEnvelopeResponse(ctx.sent, 'inc.channel.open.result');
+      expect(openResult).toBeDefined();
+      const opened = openResult as NappletMessage & { channelId: string };
+      ctx.sent.length = 0;
+
+      runtime.aclState.grant('', TEST_DTAG, TEST_HASH, 'notify:send');
+      runtime.aclState.unblock('', TEST_DTAG, TEST_HASH);
+      runtime.aclState.revoke('', TEST_DTAG, TEST_HASH, 'notify:send');
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.channel.emit', channelId: opened.channelId, payload: { still: 'open' },
+      } as NappletMessage);
+
+      expect(ctx.sent).toContainEqual({
+        windowId: WINDOW_ID_2,
+        message: expect.objectContaining({ type: 'inc.channel.event', channelId: opened.channelId }),
+      });
+      expect(ctx.sent.some(({ message }) => (message as NappletMessage).type === 'inc.channel.closed')).toBe(false);
+    });
   });
 
   // ─── ACL Enforcement ──────────────────────────────────────────────────────────
