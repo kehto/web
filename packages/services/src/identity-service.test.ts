@@ -91,6 +91,37 @@ describe('createIdentityService', () => {
       expect(sent).toHaveLength(1);
       expect(sent[0].type).toBe('identity.getPublicKey.result');
       expect((sent[0] as any).pubkey).toBe('');
+      expect(sent[0]).not.toHaveProperty('error');
+    });
+
+    it.each([
+      ['a signer without getPublicKey', () => ({}) as Signer],
+      ['a throwing signer lookup', () => { throw new Error('signer lookup failed'); }],
+      ['a synchronously throwing getPublicKey', () => ({
+        getPublicKey: () => { throw new Error('public key failed'); },
+      }) as Signer],
+      ['a rejected getPublicKey promise', () => ({
+        getPublicKey: async () => Promise.reject(new Error('public key rejected')),
+      }) as Signer],
+    ])('returns one empty canonical result for %s', async (_description, getSigner) => {
+      const service = createIdentityService({ getSigner });
+      const sent: NappletMessage[] = [];
+
+      service.handleMessage(
+        WINDOW_ID,
+        makeIdentityMessage('identity.getPublicKey', { id: 'corr-pk-failure' }),
+        (msg) => { sent.push(msg); },
+      );
+      await nextTick();
+
+      expect(sent).toEqual([
+        expect.objectContaining({
+          type: 'identity.getPublicKey.result',
+          id: 'corr-pk-failure',
+          pubkey: '',
+        }),
+      ]);
+      expect(sent[0]).not.toHaveProperty('error');
     });
   });
 
