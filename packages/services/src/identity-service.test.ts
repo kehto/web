@@ -148,7 +148,7 @@ describe('createIdentityService', () => {
       });
     });
 
-    it('emits identity.getRelays.error when no signer is configured', async () => {
+    it('returns a safe empty relay result when no signer is configured', async () => {
       const service = createIdentityService({ getSigner: () => null });
       const sent: NappletMessage[] = [];
       const send = (msg: NappletMessage): void => { sent.push(msg); };
@@ -161,7 +161,12 @@ describe('createIdentityService', () => {
       await nextTick();
 
       expect(sent).toHaveLength(1);
-      expect(sent[0].type).toBe('identity.getRelays.error');
+      expect(sent[0]).toMatchObject({
+        type: 'identity.getRelays.result',
+        id: 'corr-1',
+        relays: {},
+      });
+      expect(sent[0]).not.toHaveProperty('error');
     });
   });
 
@@ -369,29 +374,107 @@ describe('createIdentityService', () => {
     });
   });
 
-  describe('ACL denial envelope shape', () => {
-    // NOTE: The real ACL gate lives in @kehto/acl's resolveCapabilitiesNap and
-    // runs in the runtime BEFORE the service is invoked (Plan 12-10 adds the
-    // identity:read capability mapping). This test asserts the shape of the
-    // denial envelope the runtime would emit — it does NOT exercise the real
-    // ACL path end-to-end. TODO(12-10): migrate this to a runtime-level
-    // integration test once resolveCapabilitiesNap covers identity.*.
-    it('denial envelope has { type: "<request>.error", id, error }', () => {
-      const msg = makeIdentityMessage('identity.getPublicKey', { id: 'corr-denied' });
-      const denialEnvelope = {
-        type: `${msg.type}.error`,
-        id: (msg as any).id,
-        error: 'capability denied: identity:read',
-      };
-      expect(denialEnvelope.type).toBe('identity.getPublicKey.error');
-      expect(denialEnvelope.id).toBe('corr-denied');
-      expect(typeof denialEnvelope.error).toBe('string');
-      expect(denialEnvelope.error).toContain('denied');
+  describe('canonical safe identity read results', () => {
+    const providerCases = [
+      ['identity.getProfile', 'getProfile', 'profile', null],
+      ['identity.getFollows', 'getFollows', 'pubkeys', ['f'.repeat(64)]],
+      ['identity.getList', 'getList', 'entries', ['note1example']],
+      ['identity.getZaps', 'getZaps', 'zaps', [{ eventId: 'zap', sender: 'sender', amount: 1 }]],
+      ['identity.getMutes', 'getMutes', 'pubkeys', ['m'.repeat(64)]],
+      ['identity.getBlocked', 'getBlocked', 'pubkeys', ['b'.repeat(64)]],
+      ['identity.getBadges', 'getBadges', 'badges', [{ id: 'badge', awardedBy: 'issuer' }]],
+    ] as const;
+
+    const safeCases = [
+      ['identity.getRelays', 'relays', {}],
+      ['identity.getProfile', 'profile', null],
+      ['identity.getFollows', 'pubkeys', []],
+      ['identity.getList', 'entries', []],
+      ['identity.getZaps', 'zaps', []],
+      ['identity.getMutes', 'pubkeys', []],
+      ['identity.getBlocked', 'pubkeys', []],
+      ['identity.getBadges', 'badges', []],
+    ] as const;
+
+    it.each(safeCases)('uses the safe %s result when %s has no provider', async (type, field, value) => {
+      const service = createIdentityService({ getSigner: () => null });
+      const sent: NappletMessage[] = [];
+
+      service.handleMessage(
+        WINDOW_ID,
+        makeIdentityMessage(type, { id: `corr-${type}`, listType: 'bookmarks' }),
+        (message) => { sent.push(message); },
+      );
+      await nextTick();
+
+      expect(sent).toHaveLength(1);
+      expect(sent[0]).toMatchObject({
+        type: `${type}.result`,
+        id: `corr-${type}`,
+        [field]: value,
+      });
+      expect(sent[0]).not.toHaveProperty('error');
+    });
+
+    it.each(providerCases)('preserves %s provider data and correlation', async (type, option, field, value) => {
+      const calls: unknown[][] = [];
+      const service = createIdentityService({
+        getSigner: () => createMockSigner(),
+        [option]: (...args: unknown[]) => {
+          calls.push(args);
+          return value;
+        },
+      } as Parameters<typeof createIdentityService>[0]);
+      const sent: NappletMessage[] = [];
+
+      service.handleMessage(
+        WINDOW_ID,
+        makeIdentityMessage(type, { id: `corr-${type}`, listType: 'bookmarks' }),
+        (message) => { sent.push(message); },
+      );
+      await nextTick();
+
+      expect(sent).toEqual([
+        expect.objectContaining({ type: `${type}.result`, id: `corr-${type}`, [field]: value }),
+      ]);
+      expect(calls).toHaveLength(1);
+      expect(calls[0]).toContain(MOCK_SIGNER_PUBKEY);
+      if (type === 'identity.getList') expect(calls[0][0]).toBe('bookmarks');
+    });
+
+    it.each([
+      ['identity.getRelays', 'getRelays'],
+      ...providerCases.map(([type, option]) => [type, option]),
+    ])('keeps the safe result when %s fails synchronously or asynchronously', async (type, option) => {
+      for (const provider of [
+        () => { throw new Error('provider failure'); },
+        async () => Promise.reject(new Error('provider rejection')),
+      ]) {
+        const signer = option === 'getRelays'
+          ? { ...createMockSigner(), getRelays: provider }
+          : createMockSigner();
+        const service = createIdentityService({
+          getSigner: () => signer as Signer,
+          ...(option === 'getRelays' ? {} : { [option]: provider }),
+        } as Parameters<typeof createIdentityService>[0]);
+        const sent: NappletMessage[] = [];
+
+        service.handleMessage(
+          WINDOW_ID,
+          makeIdentityMessage(type, { id: `corr-${type}`, listType: 'bookmarks' }),
+          (message) => { sent.push(message); },
+        );
+        await nextTick();
+
+        expect(sent).toHaveLength(1);
+        expect(sent[0]).toMatchObject({ type: `${type}.result`, id: `corr-${type}` });
+        expect(sent[0]).toHaveProperty('error', `${type} failed`);
+      }
     });
   });
 
   describe('unknown identity action', () => {
-    it('returns .error envelope with "Unknown identity method" reason', () => {
+    it('is silent', () => {
       const service = createIdentityService({ getSigner: () => createMockSigner() });
       const sent: NappletMessage[] = [];
       const send = (msg: NappletMessage): void => { sent.push(msg); };
@@ -402,9 +485,7 @@ describe('createIdentityService', () => {
         send,
       );
 
-      expect(sent).toHaveLength(1);
-      expect(sent[0].type).toBe('identity.doesNotExist.error');
-      expect((sent[0] as any).error).toContain('Unknown identity method');
+      expect(sent).toEqual([]);
     });
   });
 
