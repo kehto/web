@@ -775,6 +775,43 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     bridge.destroy();
   });
 
+  it('establishes a session again when a replacement bridge receives duplicate shell.ready', () => {
+    const iframe = makeFakeIframe();
+    const win = iframe as unknown as Window;
+    originRegistry.register(win, 'win-replacement', {
+      dTag: 'replacement-napp',
+      aggregateHash: 'replacement-hash',
+    });
+
+    const bridgeA = createShellBridge(makeTestHooks());
+    bridgeA.handleMessage({ source: win, origin: 'https://replacement.example', data: { type: 'shell.ready' } } as MessageEvent);
+    expect(bridgeA.runtime.sessionRegistry.getEntryByWindowId('win-replacement')).toBeDefined();
+    bridgeA.destroy();
+
+    iframe.postMessage.mockClear();
+    const bridgeB = createShellBridge(makeTestHooks());
+    bridgeB.handleMessage({ source: win, origin: 'https://replacement.example', data: { type: 'shell.ready' } } as MessageEvent);
+
+    expect(bridgeB.runtime.sessionRegistry.getEntryByWindowId('win-replacement')).toMatchObject({
+      dTag: 'replacement-napp',
+      aggregateHash: 'replacement-hash',
+    });
+    expect(iframe.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'shell.init' }), '*');
+
+    iframe.postMessage.mockClear();
+    bridgeB.handleMessage({
+      source: win,
+      origin: 'https://replacement.example',
+      data: { type: 'relay.subscribe', subId: 'replacement-sub', filters: [] },
+    } as MessageEvent);
+    expect(iframe.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'relay.eose', subId: 'replacement-sub' }),
+      '*',
+    );
+
+    bridgeB.destroy();
+  });
+
   it('resends shell.init when a reloaded iframe reuses the same windowId', () => {
     const firstIframe = makeFakeIframe();
     const firstWin = firstIframe as unknown as Window;
