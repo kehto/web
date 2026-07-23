@@ -41,9 +41,8 @@ coverage:
         status: pass
       - kind: e2e
         ref: pnpm exec playwright test tests/e2e/demo-notification-service.spec.ts tests/e2e/notify-lifecycle.spec.ts --workers=1
-        status: unknown
-    human_judgment: true
-    rationale: Browser execution is blocked locally because Chromium is unavailable.
+        status: pass
+    human_judgment: false
   - id: D2
     description: Bot and chat retain primary demo behavior without retired notification INC side effects.
     requirement: INC-03
@@ -61,9 +60,8 @@ coverage:
         status: pass
       - kind: e2e
         ref: pnpm exec playwright test tests/e2e/demo-notification-service.spec.ts tests/e2e/notify-lifecycle.spec.ts --workers=1
-        status: unknown
-    human_judgment: true
-    rationale: Browser execution is blocked locally because Chromium is unavailable.
+        status: pass
+    human_judgment: false
 metrics:
   duration: 4m
   completed: 2026-07-23
@@ -100,7 +98,7 @@ The local clones do not contain those draft commits, so their scoped requirement
 - `pnpm --filter @kehto/playground build` — passed.
 - `pnpm exec playwright test tests/e2e/demo-notification-service.spec.ts tests/e2e/notify-lifecycle.spec.ts --list` — passed (7 focused browser tests discovered).
 - Active-source retired-prefix scan for `audio:`, `notifications:`, and `inc.event` — passed.
-- `pnpm exec playwright test tests/e2e/demo-notification-service.spec.ts tests/e2e/notify-lifecycle.spec.ts --workers=1` — not run: Chromium is unavailable at `/usr/bin/chromium`.
+- `pnpm exec playwright test tests/e2e/demo-notification-service.spec.ts tests/e2e/notify-lifecycle.spec.ts --workers=1` — passed (7 tests).
 - `git diff --check` — passed.
 - AI-slop gate — not run: the `aislop` executable is unavailable locally and no package was installed.
 
@@ -135,14 +133,28 @@ The local clones do not contain those draft commits, so their scoped requirement
 - **Verification:** Active-source retired-prefix scan passed.
 - **Committed in:** `07b87cd`
 
+**2. [Rule 1 - Bug] Made Playwright's Chromium path portable**
+- **Found during:** Focused browser verification
+- **Issue:** `playwright.config.ts` hardcoded Linux Chromium at `/usr/bin/chromium` even though this macOS host provides Google Chrome.
+- **Fix:** Added an explicit environment override and a macOS Chrome default while preserving the Linux CI default.
+- **Files modified:** `playwright.config.ts`
+- **Verification:** Focused Playwright suite launched and passed all 7 tests.
+
+**3. [Rule 1 - Bug] Read debugger text through Playwright's shadow-aware locator**
+- **Found during:** Focused browser verification
+- **Issue:** The new assertions polled raw host `textContent`, which cannot observe the debugger's rendered shadow content.
+- **Fix:** Reused the repository's established `toContainText` locator pattern for positive and negative assertions.
+- **Files modified:** `tests/e2e/demo-notification-service.spec.ts`, `tests/e2e/notify-lifecycle.spec.ts`
+- **Verification:** Focused Playwright suite passed all 7 tests.
+
 ---
 
-**Total deviations:** 1 auto-fixed (1 bug)
-**Impact on plan:** Necessary completeness correction; no scope expansion.
+**Total deviations:** 3 auto-fixed bugs.
+**Impact on plan:** Necessary completeness and verification corrections; no contract expansion.
 
 ## Issues Encountered
 
-- Focused Playwright execution cannot launch because Chromium is absent at `/usr/bin/chromium`; no browser or package installation was attempted.
+- An unrelated Fipwave process occupied IPv4 port 4174. The Kehto preview was bound temporarily to IPv6 loopback at the same port for isolated verification; the unrelated process was not stopped or modified.
 - The configured AI-slop executable is not installed locally; no package installation was attempted.
 
 ## Known Stubs
@@ -152,7 +164,7 @@ None.
 ## Next Phase Readiness
 
 - 102-12 can sweep docs independently; active playground sources no longer contain the retired notification-service INC compatibility path.
-- Re-run the focused Playwright command in an environment with Chromium before final release verification.
+- The focused notification browser proof is complete; downstream plans can rely on direct `notify.*` lifecycle behavior.
 
 ---
 *Phase: 102-nap-inc-event-channel-parity*

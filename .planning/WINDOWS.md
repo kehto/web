@@ -27,7 +27,7 @@ last_updated: 2026-07-23T18:27:08.984Z
 | 10 | 102 | deviation | packages/runtime/src/service-dispatch.ts |  | Exact inc.emit early return added to prevent a generic inc service from bypassing INC runtime ownership. | open |  | 2026-07-23T18:05:35.521Z |  |
 | 11 | 102 | unrun-verify | .aislop/config.yml |  | AI-slop gate could not run because the aislop executable is unavailable in the workspace. | open |  | 2026-07-23T18:11:19.801Z |  |
 | 12 | 102 | deviation | packages/runtime/src/session-registry.ts | 125 | Enumerate live window sessions so ACL revocation reaches empty-pubkey NIP-5D sessions. | open |  | 2026-07-23T18:20:37.107Z |  |
-| 13 | 102 | unrun-verify | tests/e2e/demo-notification-service.spec.ts |  | Focused notification Playwright verification could not run because Chromium is unavailable at /usr/bin/chromium. | open |  | 2026-07-23T18:27:08.877Z |  |
+| 13 | 102 | unrun-verify | tests/e2e/demo-notification-service.spec.ts |  | Focused notification Playwright verification could not run because Chromium is unavailable at /usr/bin/chromium. | fixed | Portable Chrome resolution and an IPv6-isolated playground preview enabled the focused run; all 7 tests passed. | 2026-07-23T18:27:08.877Z | 2026-07-23T18:32:20.000Z |
 | 14 | 102 | unrun-verify | .aislop/config.yml |  | AI-slop verification could not run because aislop is unavailable locally; no package was installed. | open |  | 2026-07-23T18:27:08.930Z |  |
 | 15 | 102 | deviation | apps/playground/src/main-notifications.ts | 39 | Removed a remaining retired notification topic-form toast cue during the active-source conformance scan. | open |  | 2026-07-23T18:27:08.984Z |  |
 
@@ -184,10 +184,10 @@ last_updated: 2026-07-23T18:27:08.984Z
     "file": "tests/e2e/demo-notification-service.spec.ts",
     "line": null,
     "description": "Focused notification Playwright verification could not run because Chromium is unavailable at /usr/bin/chromium.",
-    "status": "open",
-    "reason": "",
+    "status": "fixed",
+    "reason": "Portable Chrome resolution and an IPv6-isolated playground preview enabled the focused run; all 7 tests passed.",
     "recorded_at": "2026-07-23T18:27:08.877Z",
-    "resolved_at": null
+    "resolved_at": "2026-07-23T18:32:20.000Z"
   },
   {
     "id": 14,
