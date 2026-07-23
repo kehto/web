@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 15
+open_count: 16
 waived_count: 0
 fixed_count: 3
-total_count: 18
-last_updated: 2026-07-23T19:02:33.378Z
+total_count: 19
+last_updated: 2026-07-23T19:10:12.509Z
 ---
 
 # Broken Windows Ledger
@@ -33,6 +33,7 @@ last_updated: 2026-07-23T19:02:33.378Z
 | 16 | 102 | deviation | tests/e2e/paja-single-window.spec.ts |  | Imported the fixture shim-bundle loader after the initial focused browser run. | open |  | 2026-07-23T18:55:12.205Z |  |
 | 17 | 102 | deviation | tests/e2e/paja-single-window.spec.ts |  | Used shell.onReady so the reload fixture cannot miss an early captured shell.init. | open |  | 2026-07-23T18:55:12.259Z |  |
 | 18 | 102 | deviation | tests/e2e/nap-inc-playground.spec.ts |  | Opt-in IPv6 base URL override keeps focused browser proof isolated from an unrelated IPv4 listener on port 4174. | open |  | 2026-07-23T19:02:33.378Z |  |
+| 19 | 102 | deviation | tests/unit/nip5d-conformance-guard.test.ts |  | Allowed Markdown line wrapping in the exact-identity static guard assertion. | open |  | 2026-07-23T19:10:12.509Z |  |
 
 ````json
 [
@@ -250,6 +251,18 @@ last_updated: 2026-07-23T19:02:33.378Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-23T19:02:33.378Z",
+    "resolved_at": null
+  },
+  {
+    "id": 19,
+    "kind": "deviation",
+    "phase": "102",
+    "file": "tests/unit/nip5d-conformance-guard.test.ts",
+    "line": null,
+    "description": "Allowed Markdown line wrapping in the exact-identity static guard assertion.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-23T19:10:12.509Z",
     "resolved_at": null
   }
 ]
