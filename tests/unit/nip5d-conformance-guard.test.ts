@@ -343,8 +343,8 @@ describe('NIP-5D conformance static guards', () => {
 
     expect(namespace).toContain('function supports(domain: string): boolean');
     expect(namespace).not.toContain('resolveShellEnvironment');
-    expect(readme).toContain('`supports(domain)`');
-    expect(readme).toContain('false before `shell.init`');
+    expect(readme).toContain('`window.napplet.shell.supports(domain)`');
+    expect(readme).toContain('returns `false` before `shell.init`');
     expect(readme).toContain('resolveShellEnvironment(hooks, identity)');
     expect(readme).not.toContain('numbered protocols');
     expect(readme).not.toContain('`naps`');

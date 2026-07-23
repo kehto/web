@@ -22,10 +22,10 @@ Current draft behaviors this package enforces:
 
 - The shell does not inject a host-provided nostr object into napplets — NIP-5D explicitly forbids napplet-visible signing. Napplets call `relay.publish` / `relay.publishEncrypted` and the shell mediates the signing flow internally (NIP-44 default, NIP-04 opt-in for encrypted envelopes).
 - `injectNappletNamespacePrelude()` implements the NIP-5D injected-domain bootstrap and mandatory NAP-SHELL shim: hosts prepend it to `srcdoc` outside verified artifact bytes, install the parent-bound `shell.init` receiver, emit one `shell.ready`, and expose callable NAP interfaces before authored scripts run. Optional namespaces are filtered to the bare-domain allowlist; `shell` is always retained.
-- `window.napplet.shell.supports()` answers synchronously from the cached NAP-SHELL environment. Optional-domain presence remains the NIP-5D binding, while method semantics and numbered protocols remain owned by their matching NAP specs.
+- `window.napplet.shell.supports(domain)` answers synchronously and locally from the cached first `shell.init` environment. It returns `false` before `shell.init`, for unknown values, and for domains that are not live and granted to that napplet; it never sends a support-query message.
 - Five optional per-domain proxies — `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` — can be composed between napplet and runtime to intercept or augment traffic per NAP. They are NOT wired by default (Kehto's runtime already owns dispatch for the currently supported domains); they exist as host-app composition seams.
 - `keys.forward` is napplet-to-shell only. Active napplets suppress locally-bound keys from `keys.bindings` before forwarding; shell-initiated action triggers use `keys.action`.
-- `buildShellCapabilities()` advertises `dm` when the host adapter provides `hooks.dm`, and disabled-domain overrides remove it from both `domains` and `naps`.
+- `buildShellCapabilities()` advertises only live domains (including `dm` when the host adapter provides `hooks.dm`); disabled domains are absent from the delivered `domains` and named services snapshots.
 
 ## Quick Start
 
@@ -68,7 +68,8 @@ const bridge = createShellBridge({
 ```
 
 ### Shell init
-- `buildShellCapabilities` — construct the current draft `ShellCapabilities` payload emitted during the `shell.ready` / `shell.init` handshake
+- `buildShellCapabilities` — construct the immutable domain-only `ShellCapabilities` payload emitted during the `shell.ready` / `shell.init` handshake
+- `resolveShellEnvironment(hooks, identity)` — host-integrator-only utility that narrows the live environment for a trusted creation-time identity before `shell.init`; it is not installed on `window.napplet` and is not a shim-facing napplet API
 - `injectNappletNamespacePrelude` — insert a host-owned NIP-5D `window.napplet` callable-domain prelude into verified HTML before authored scripts
 - `renderNappletNamespacePrelude` — render only the bootstrap `<script>` for hosts that already own HTML insertion
 
@@ -98,7 +99,7 @@ const bridge = createShellBridge({
 - `TopicKey`, `TopicValue` — typed topic lookup helpers
 
 ### Types
-Exported for host-app integration: `ShellAdapter`, `ShellCapabilities`, `RelayPoolHooks`, `RelayPoolLike`, `RelayConfigHooks`, `WindowManagerHooks`, `AuthHooks`, `ConfigHooks`, `HotkeyHooks`, `WorkerRelayHooks`, `WorkerRelayLike`, `CryptoHooks`, `DmHooks`, `UploadHooks`, `IntentHooks`, `LinkHooks`, `CommonHooks`, `ListsHooks`, `SerialHooks`, `BleHooks`, `WebrtcHooks`, `SessionEntry`, `NappKeyEntry` (deprecated), `AclEntry`, `AclCheckEvent`, `UnroutedMessageInfo`, `ServiceDescriptor`, `ServiceHandler`, `ServiceRegistry`, `NostrEvent`, `NostrFilter`, `NappletMessage`, `ConsentRequest`, and per-proxy `*Deps`/`*Proxy` interfaces.
+Exported for host-app integration: `ShellAdapter`, `ShellCapabilities`, `CapabilityHooks`, `OriginIdentity`, `RelayPoolHooks`, `RelayPoolLike`, `RelayConfigHooks`, `WindowManagerHooks`, `AuthHooks`, `ConfigHooks`, `HotkeyHooks`, `WorkerRelayHooks`, `WorkerRelayLike`, `CryptoHooks`, `DmHooks`, `UploadHooks`, `IntentHooks`, `LinkHooks`, `CommonHooks`, `ListsHooks`, `SerialHooks`, `BleHooks`, `WebrtcHooks`, `SessionEntry`, `NappKeyEntry` (deprecated), `AclEntry`, `AclCheckEvent`, `UnroutedMessageInfo`, `ServiceDescriptor`, `ServiceHandler`, `ServiceRegistry`, `NostrEvent`, `NostrFilter`, `NappletMessage`, `ConsentRequest`, and per-proxy `*Deps`/`*Proxy` interfaces.
 
 ### Enforcement re-exports (from @kehto/runtime)
 `createEnforceGate`, `createNapEnforceGate`, `formatDenialReason`, plus `EnforceResult`, `EnforceConfig`, `NapEnforceConfig`, `IdentityResolver`, `AclChecker`, `NapMessage`.

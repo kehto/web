@@ -59,15 +59,9 @@ describe('@kehto/paja parity metadata', () => {
   it('identifies missing advertised domains and services', () => {
     expect(getMissingAdvertisedDomains({
       domains: [...PAJA_ADVERTISED_DOMAINS],
-      protocols: { inc: ['NAP-01', 'NAP-02', 'NAP-03', 'NAP-04', 'NAP-05', 'NAP-06'] },
-      naps: [...PAJA_ADVERTISED_DOMAINS],
-      sandbox: [],
     })).toEqual([]);
     expect(getMissingAdvertisedDomains({
       domains: PAJA_ADVERTISED_DOMAINS.filter((domain) => domain !== 'upload'),
-      protocols: {},
-      naps: [],
-      sandbox: [],
     })).toEqual(['upload']);
     expect(getMissingServices(PAJA_REQUIRED_SERVICES)).toEqual([]);
     expect(getMissingServices(PAJA_REQUIRED_SERVICES.filter((service) => service !== 'intent'))).toEqual(['intent']);
