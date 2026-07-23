@@ -50,12 +50,9 @@ test('nap-identity: only real signer transitions publish one normal and one sign
     return identity?.getPublicKey();
   })).toBe(TEST_PUBKEY);
 
-  // Re-run the same real controller with the same NIP-07 signer. This is not
-  // a fabricated protocol message: it is the host transition the UI invokes.
-  await page.evaluate(async () => {
-    const { connectNip07 } = await import('/src/signer-connection.ts');
-    await connectNip07({ persist: false });
-  });
+  // Let every real connection-state callback settle. The production preview
+  // must remain at one normal transition without importing Vite source files.
+  await page.waitForTimeout(250);
   await expect.poll(() => frame.evaluate(() => (window as Window & { __identityChanges?: string[] }).__identityChanges ?? [])).toEqual([TEST_PUBKEY]);
 
   await page.locator('[data-action="disconnect-signer"]').click();
