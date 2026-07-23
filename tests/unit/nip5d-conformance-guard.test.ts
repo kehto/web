@@ -133,6 +133,22 @@ const activeShellSurfaceFiles = [
   'packages/shell/README.md',
 ] as const;
 
+const activeServiceGuidanceFiles = [
+  'apps/playground/README.md',
+  'packages/services/README.md',
+  'docs/packages/services.md',
+  'skills/add-service/SKILL.md',
+  'skills/integrate-shell/SKILL.md',
+] as const;
+
+const unsafeServiceGuidancePatterns = [
+  { label: 'legacy audio factory', pattern: /\bcreateAudioService\s*\(/ },
+  { label: 'legacy notification INC factory', pattern: /\bcreateNotificationService\s*\(/ },
+  { label: 'service registration from a colon topic', pattern: /registerService\(\s*['"][^'"]+:[^'"]*['"]/ },
+  { label: 'INC topic-prefix service handling', pattern: /topic\?\.startsWith\s*\(/ },
+  { label: 'fabricated INC event delivery', pattern: /(?:send|postMessage)\s*\([\s\S]{0,160}type:\s*['"]inc\.event['"]/ },
+] as const;
+
 // Planning history and changelogs retain the removed vocabulary as historical record.
 const historicalShellExclusions = ['.planning/', 'CHANGELOG.md'] as const;
 
@@ -348,6 +364,24 @@ describe('NIP-5D conformance static guards', () => {
     expect(readme).toContain('resolveShellEnvironment(hooks, identity)');
     expect(readme).not.toContain('numbered protocols');
     expect(readme).not.toContain('`naps`');
+  });
+
+  it('keeps active service guidance on direct domains and runtime-attested INC delivery', () => {
+    for (const file of activeServiceGuidanceFiles) {
+      const source = readRepoFile(file);
+
+      expect(source, `${file} direct domain guidance`).toContain('exact `message.type` domain');
+      expect(source, `${file} opaque INC guidance`).toContain('opaque, queryless identities');
+      expect(source, `${file} runtime-attested sender guidance`).toContain('runtime attaches the sender');
+
+      for (const { label, pattern } of unsafeServiceGuidancePatterns) {
+        expect(source, `${file} must not recommend ${label}`).not.toMatch(pattern);
+      }
+    }
+
+    // Mentioning a retired token to prohibit it is documentation, not a compatibility recommendation.
+    expect('Do not use createAudioService() for INC routing.').toMatch(/createAudioService\s*\(/);
+    expect('Do not use createAudioService() for INC routing.').toContain('Do not use');
   });
 
   it('keeps NAP-RELAY subscribe routing fields wired through runtime, services, playground, and tests', () => {
