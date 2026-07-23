@@ -51,7 +51,6 @@ const DEFAULT_THEME: PlaygroundTheme = {
 export interface PlaygroundPreferences {
   applyColorMode(mode: PersistenceMode, persist: boolean): void;
   applyTheme(theme: PlaygroundTheme): void;
-  broadcastCurrentTheme(): void;
   getCurrentTheme(): PlaygroundTheme;
   handleThemeMessage(theme: unknown): PlaygroundTheme | null;
   initControls(): void;
@@ -59,19 +58,17 @@ export interface PlaygroundPreferences {
 
 interface PlaygroundPreferencesOptions {
   edgeFlasher: EdgeFlasher;
+  initialTheme?: PlaygroundTheme;
   topology: DemoTopology;
 }
 
 export function createPlaygroundPreferences({
   edgeFlasher,
+  initialTheme,
   topology,
 }: PlaygroundPreferencesOptions): PlaygroundPreferences {
-  let currentTheme = readStoredTheme();
+  let currentTheme = initialTheme ?? getPersistedPlaygroundTheme();
   applySelectedTheme(currentTheme, false);
-
-  function broadcastCurrentTheme(): void {
-    getThemeServiceBundle()?.publishTheme(currentTheme);
-  }
 
   function applyColorMode(mode: PersistenceMode, persist: boolean): void {
     const prevMode = getPersistenceMode();
@@ -107,7 +104,7 @@ export function createPlaygroundPreferences({
     if (!isThemeLike(theme)) return null;
     currentTheme = theme;
     applySelectedTheme(currentTheme, true);
-    broadcastCurrentTheme();
+    getThemeServiceBundle()?.publishTheme(currentTheme);
     return currentTheme;
   }
 
@@ -121,7 +118,6 @@ export function createPlaygroundPreferences({
   return {
     applyColorMode,
     applyTheme,
-    broadcastCurrentTheme,
     getCurrentTheme,
     handleThemeMessage,
     initControls,
@@ -192,7 +188,15 @@ function isThemeLike(value: unknown): value is PlaygroundTheme {
     && typeof theme.colors?.primary === 'string';
 }
 
-function readStoredTheme(): PlaygroundTheme {
+/**
+ * Read the persisted host theme without publishing a theme change.
+ *
+ * The caller can pass this value into ThemeService construction before any
+ * napplet becomes ready, keeping `theme.get` consistent with host CSS.
+ *
+ * @returns The valid persisted theme, or the complete default theme.
+ */
+export function getPersistedPlaygroundTheme(): PlaygroundTheme {
   const stored = readStoredJson<unknown>(THEME_STORAGE_KEY);
   return isThemeLike(stored) ? stored : DEFAULT_THEME;
 }

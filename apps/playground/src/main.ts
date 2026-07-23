@@ -53,6 +53,7 @@ import { demoConfig } from './demo-config.js';
 import { setAclRingSize } from './acl-history.js';
 import {
   createPlaygroundPreferences,
+  getPersistedPlaygroundTheme,
   isStaticPagesDemo,
   type PersistenceMode,
 } from './main-preferences.js';
@@ -63,9 +64,11 @@ if (isStaticPagesDemo) {
 
 const notificationUi = createNotificationUi();
 
+const initialTheme = getPersistedPlaygroundTheme();
+
 const { tap } = bootShell((notifications) => {
   notificationUi.controller.handleServiceChange(notifications);
-});
+}, initialTheme);
 
 const notificationHandler = getNotificationServiceHandler();
 if (notificationHandler) {
@@ -97,7 +100,7 @@ for (const serviceName of getDemoServiceNames()) {
 
 // Initialize persistent color state tracking for topology edges
 initColorState(topology);
-const preferences = createPlaygroundPreferences({ topology, edgeFlasher });
+const preferences = createPlaygroundPreferences({ topology, edgeFlasher, initialTheme });
 preferences.initControls();
 
 onColorStateChange(() => {
@@ -134,20 +137,6 @@ if (debuggerEl) {
   debuggerEl.addSystemMessage(getDemoHostAuditSummary());
   debuggerEl.addSystemMessage('notification service registered -- host callbacks active');
 }
-
-window.addEventListener('message', (event: MessageEvent) => {
-  const data = event.data as Record<string, unknown> | null;
-  if (!data || typeof data !== 'object') return;
-  if (data.type === 'shell.ready') {
-    window.setTimeout(() => {
-      preferences.broadcastCurrentTheme();
-    }, 0);
-    window.setTimeout(() => {
-      preferences.broadcastCurrentTheme();
-    }, 100);
-    return;
-  }
-});
 
 // Mount host-side theme switcher on the theme service topology card.
 initThemeSwitcherHost({
@@ -201,7 +190,6 @@ const shellPubkey = document.getElementById('shell-pubkey');
 if (shellPubkey) shellPubkey.textContent = `pubkey: ${getDemoHostPubkey().substring(0, 20)}...`;
 
 function handleLoadedNapplet(): void {
-  preferences.broadcastCurrentTheme();
   setTimeout(() => {
     refreshAclPanelsIfNeeded();
   }, 0);

@@ -337,10 +337,10 @@ describe('playground gateway artifact guard', () => {
     const mainSigner = readRepoFile('apps/playground/src/main-signer.ts');
 
     expect(demoHooks).toContain('onThemeBroadcast(envelope: ThemeChangedMessage): void;');
-    expect(demoHooks).toContain('initialTheme?: Theme;');
+    expect(demoHooks).toContain('initialTheme?: Theme,');
     expect(demoHooks).toContain('createThemeService({ initialTheme, onBroadcast: context.onThemeBroadcast })');
     expect(shellHost).toContain('onThemeBroadcast: (envelope) => relay.publishTheme(envelope.theme),');
-    expect(shellHost).toContain('initialTheme?: Theme');
+    expect(shellHost).toContain('initialTheme?: Theme,');
     expect(main).toContain('getPersistedPlaygroundTheme');
     expect(main).toContain('bootShell((notifications) => {');
     expect(main).toContain('}, initialTheme);');

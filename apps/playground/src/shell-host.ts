@@ -18,6 +18,7 @@ import {
   type ShellEnvironment,
 } from '@kehto/shell';
 import type { Notification } from '@kehto/services';
+import type { Theme } from '@napplet/nap/theme/types';
 import {
   resolvePlaygroundNapplet,
   injectCspMeta,
@@ -411,7 +412,10 @@ function markNappletIdentityBound(info: NappletInfo, entry: SessionEntry): void 
  * @param notificationOnChange - Called when the notification service state changes.
  *   Used by the demo notification controller to update host-side toast/summary UX.
  */
-export function bootShell(notificationOnChange?: (notifications: readonly Notification[]) => void): { tap: MessageTap; relay: ShellBridge } {
+export function bootShell(
+  notificationOnChange?: (notifications: readonly Notification[]) => void,
+  initialTheme?: Theme,
+): { tap: MessageTap; relay: ShellBridge } {
   const hooks = createDemoHooks(notificationOnChange, {
     getDisabledDomains,
     getNappletEntries: () => napplets.entries(),
@@ -420,7 +424,7 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
       _notifyAclCheckListeners(event, windowId, nappletName);
     },
     onThemeBroadcast: (envelope) => relay.publishTheme(envelope.theme),
-  });
+  }, initialTheme);
   tap = createInstalledMessageTap();
   installOriginRegistryProxy(tap);
 

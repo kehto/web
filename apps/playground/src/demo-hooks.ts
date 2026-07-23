@@ -19,7 +19,7 @@ import type {
   WebrtcOpenRequest,
   WebrtcOpenResult,
 } from '@napplet/core';
-import type { ThemeChangedMessage } from '@napplet/nap/theme/types';
+import type { Theme, ThemeChangedMessage } from '@napplet/nap/theme/types';
 import { RESOURCE_DEMO_REMOTE_IMAGE_ORIGIN } from './main-preferences.js';
 
 /**
@@ -117,6 +117,7 @@ const DEMO_LISTS_SUPPORT = {
 export function createDemoHooks(
   notificationOnChange: ((notifications: readonly Notification[]) => void) | undefined,
   context: DemoHooksContext,
+  initialTheme?: Theme,
 ): ShellAdapter {
   const notificationService = createNotificationService({ onChange: notificationOnChange, maxPerWindow: 50 });
   const keysService = createDemoKeysService();
@@ -127,7 +128,7 @@ export function createDemoHooks(
       void metadata;
     },
   });
-  const themeBundle = createThemeService({ onBroadcast: context.onThemeBroadcast });
+  const themeBundle = createThemeService({ initialTheme, onBroadcast: context.onThemeBroadcast });
   const configBundle = createConfigService({ getValues: () => ({ ...demoConfigFixtures }) });
   const resourceHandler = createDemoResourceHandler();
   const linkService = createLinkService({
