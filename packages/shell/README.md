@@ -27,6 +27,41 @@ Current draft behaviors this package enforces:
 - `keys.forward` is napplet-to-shell only. Active napplets suppress locally-bound keys from `keys.bindings` before forwarding; shell-initiated action triggers use `keys.action`.
 - `buildShellCapabilities()` advertises only live domains (including `dm` when the host adapter provides `hooks.dm`); disabled domains are absent from the delivered `domains` and named services snapshots.
 
+### NAP-INC binding and channel contract
+
+The injected INC binding tracks [NAP-INC PR #89 at
+`4593ce9e301ce098fd3dad64206fcd6f144fa7af`](https://github.com/napplet/naps/pull/89),
+the [web projection PR #90 at
+`896c32c92deee68dc4d10fc1132b62df20cccb6f`](https://github.com/napplet/naps/pull/90),
+and the stacked [symmetric-channel clarification PR #92 at
+`c5cd06f7be6d4690b303949abb26e87ff62f4729`](https://github.com/napplet/naps/pull/92).
+They are draft living references, so this package links to them rather than
+copying normative protocol text.
+
+`window.napplet.inc` alone owns projection-side query-to-text-payload
+transposition: it converts a convention URI query before emitting a stable,
+exact queryless topic identity. Subscriptions reject query-bearing identities.
+The binding never creates a normalized query-bearing wire/discovery identity,
+does not do prefix/wildcard/query-aware matching or service-over-INC prefix
+dispatch, and does not infer payload kinds. Runtime delivery supplies the
+**runtime-attested dTag**; no caller sender is accepted, topic source exclusion
+is runtime-owned, and IDs and payloads are opaque.
+
+For channels, runtime ACL checks are open-only rather than per-message. The
+target `inc.channel.opened` before the opener result creates an equivalent target
+handle; `channel.onOpened` exposes it, while symmetric handles expose `on` and
+`onClosed`. The binding retains inbound, early, and terminal lifecycle state in
+order, closes on bounded overflow, and treats teardown as deterministic.
+`channel.list()` is informational only. The downstream tracker is
+[`kehto/web#203`](https://github.com/kehto/web/issues/203), with its [upstream
+resolution reply](https://github.com/kehto/web/issues/203#issuecomment-5060904495);
+the prior opener-only interpretation is obsolete.
+
+Phase scope remains explicit: **Phase 104** owns public #91 NAP-INTENT binding,
+resolution, and delivery changes; **Phase 105** owns released package adoption.
+Do not claim published package conformance before Phase 105. Preserve historical
+changelogs and archived planning rather than rewriting them as active guidance.
+
 ## Quick Start
 
 ```ts

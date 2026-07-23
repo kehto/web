@@ -541,7 +541,7 @@ describe('NIP-5D conformance static guards', () => {
     for (const file of docs) {
       const source = readRepoFile(file);
       for (const head of exactHeads) expect(source, `${file} must pin ${head}`).toContain(head);
-      expect(source, `${file} must retain exact queryless identities`).toMatch(/exact queryless (?:topic |)identity/i);
+      expect(source, `${file} must retain exact queryless identities`).toMatch(/exact\s+queryless\s+(?:topic\s+)?identity/i);
       expect(source, `${file} must describe runtime-attested dTags`).toMatch(/runtime-attested dTag/i);
       expect(source, `${file} must defer intent binding work`).toContain('Phase 104');
       expect(source, `${file} must retain the package gate`).toContain('Phase 105');

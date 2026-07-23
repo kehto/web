@@ -30,6 +30,41 @@ The runtime is built around the current draft dispatch contract from `@napplet/c
 
 Signing is shell-mediated inside `relay.publish` / `relay.publishEncrypted` (NIP-44 default, NIP-04 opt-in). The legacy signer domain is dissolved — napplets never see a host-injected nostr object and cannot call signer-sign RPCs directly.
 
+## NAP-INC Draft Contract
+
+The active INC boundary follows [NAP-INC PR #89 at
+`4593ce9e301ce098fd3dad64206fcd6f144fa7af`](https://github.com/napplet/naps/pull/89),
+the [web projection PR #90 at
+`896c32c92deee68dc4d10fc1132b62df20cccb6f`](https://github.com/napplet/naps/pull/90),
+and the stacked [symmetric-channel clarification PR #92 at
+`c5cd06f7be6d4690b303949abb26e87ff62f4729`](https://github.com/napplet/naps/pull/92).
+These are unmerged draft references; this package documents their implemented
+boundary rather than becoming another protocol authority.
+
+The projection-owned binding converts a convention query to a text payload map
+before sending `inc.emit`. Runtime `inc-handler` routing then uses an exact
+queryless topic identity, with no query-bearing normalized wire/discovery
+identity, prefix/wildcard/query-aware matching, generic or service-over-INC
+prefix dispatch, or runtime payload-kind inference. The runtime derives the
+**runtime-attested dTag** from the registered source; callers never supply a
+sender, topic delivery excludes its source, and IDs/payloads are opaque.
+
+Channels apply **open-time authorization** only: ACL and target liveness are
+checked at `inc.channel.open`, never per later message. The target receives
+`inc.channel.opened` before the opener result and both sides get symmetric
+handles with `onOpened`, `on`, and `onClosed`; early events and terminal closure
+are retained in order, bounded overflow closes the channel, and close or endpoint
+destruction tears it down deterministically. `channel.list` is informational
+only. Track draft follow-up through
+[`kehto/web#203`](https://github.com/kehto/web/issues/203) and [its upstream
+resolution reply](https://github.com/kehto/web/issues/203#issuecomment-5060904495),
+not the obsolete opener-only model.
+
+This is INC documentation only. **Phase 104** owns every public #91 NAP-INTENT
+binding/resolution/delivery change; **Phase 105** owns released package adoption.
+Do not claim package conformance before Phase 105. Historical changelogs and
+archived planning are preserved records, not targets for active-surface edits.
+
 Everything plugs into a single factory, `createRuntime()`, via a `RuntimeAdapter` hook bag — persistence, relay pool, auth, services, and so on. No DOM, no postMessage, no localStorage: those live in `@kehto/shell`.
 
 ## Quick Start

@@ -17,6 +17,42 @@ Only the current upstream NIP-5D PR defines the core NIP-5D contract. Kehto's
 repo-local spec file is intentionally a pointer so stale mirrors do not become
 implementation authority. `RUNTIME-SPEC.md` is internal runtime guidance.
 
+### Active NAP-INC boundary
+
+NAP-INC is governed by the living [PR #89 at
+`4593ce9e301ce098fd3dad64206fcd6f144fa7af`](https://github.com/napplet/naps/pull/89),
+the web projection [PR #90 at
+`896c32c92deee68dc4d10fc1132b62df20cccb6f`](https://github.com/napplet/naps/pull/90),
+and the stacked symmetric-channel clarification [PR #92 at
+`c5cd06f7be6d4690b303949abb26e87ff62f4729`](https://github.com/napplet/naps/pull/92).
+Those PRs are draft authority, not merged text; link to them rather than copying
+their specification into this repository.
+
+The projection owns query-to-text-payload transposition in the shared,
+runtime-provided INC binding. Kehto runtime routing uses an exact queryless
+topic identity after that conversion. It rejects query-bearing normalized wire
+or discovery identities and must not add prefix, wildcard, or query-aware
+matching, service-over-INC prefix dispatch, synthetic senderless events, or
+runtime payload-kind inference. The runtime attaches a **runtime-attested dTag**
+to delivered events, does not accept caller `sender`, keeps payloads and IDs
+opaque, and excludes the source endpoint from topic fan-out.
+
+INC channel authorization is open-only: ACL and target liveness are evaluated
+at open, with no per-message authorization. PR #92 requires equivalent handles
+for opener and target, target `inc.channel.opened` before the opener result,
+`channel.onOpened`, per-handle `onClosed`, retained inbound/early/terminal
+lifecycle data in order, bounded overflow closure, and deterministic teardown.
+`channel.list` is informational only. The downstream tracker remains
+[`kehto/web#203`](https://github.com/kehto/web/issues/203), including [the
+upstream-resolution reply](https://github.com/kehto/web/issues/203#issuecomment-5060904495);
+the superseded opener-only view must not be restored.
+
+Phase boundaries are intentional: **Phase 104** owns all public #91 NAP-INTENT
+binding, resolution, and delivery lifecycle work; **Phase 105** owns published
+package adoption. Do not claim released package conformance before Phase 105.
+Changelogs and archived `.planning` records are preserved history, not active
+implementation drift.
+
 ## Runtime Availability Policy
 
 Current NIP-5D runtime availability is injected
