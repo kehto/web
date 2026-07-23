@@ -10,6 +10,7 @@ import {
 } from './options.js';
 import { renderPajaHtml } from './host-page.js';
 import { resolvePajaRawOptions } from './config-file.js';
+import { probeTargetCors } from './target-cors.js';
 
 /** Options for starting the Paja local HTTP server. */
 export interface PajaServerOptions {
@@ -74,6 +75,16 @@ export async function startPajaServer(input: PajaServerOptions): Promise<PajaSer
         'content-type': 'text/html; charset=utf-8',
       });
       response.end(targetHtml);
+      return;
+    }
+
+    if (requestUrl === '/__kehto/target-cors.json') {
+      const diagnostic = await probeTargetCors(hostConfig.target.url);
+      response.writeHead(200, {
+        'cache-control': 'no-store',
+        'content-type': 'application/json; charset=utf-8',
+      });
+      response.end(JSON.stringify(diagnostic));
       return;
     }
 

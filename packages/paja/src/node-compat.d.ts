@@ -1,7 +1,7 @@
 declare module 'node:http' {
   export function createServer(
     listener: (
-      request: { url?: string },
+      request: { url?: string; headers: Record<string, string | string[] | undefined> },
       response: {
         writeHead(statusCode: number, headers: Record<string, string>): void;
         end(body: string): void;

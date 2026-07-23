@@ -95,6 +95,67 @@ describe('@kehto/paja server', () => {
     }
   });
 
+  it('reports a target that blocks the sandboxed frame null origin', async () => {
+    // Mirrors Vite's default server.cors: echo localhost origins, reject `null`.
+    const target = await startTargetServer(
+      '<!doctype html><html><body>target</body></html>',
+      (origin): Record<string, string> =>
+        origin && origin !== 'null' ? { 'access-control-allow-origin': origin } : {},
+    );
+    const server = await startPajaServer({ options: { targetUrl: target.url, port: 0 } });
+
+    try {
+      const diagnostic = JSON.parse(await fetchText(`${server.url}__kehto/target-cors.json`)) as {
+        status: string;
+        allowOrigin: string | null;
+        hint: string | null;
+      };
+
+      expect(diagnostic.status).toBe('blocked');
+      expect(diagnostic.allowOrigin).toBeNull();
+      expect(diagnostic.hint).toContain('allow-same-origin');
+    } finally {
+      await server.close();
+      await target.close();
+    }
+  });
+
+  it('reports a target that allows the sandboxed frame null origin', async () => {
+    const target = await startTargetServer('<!doctype html><html><body>target</body></html>', () => ({
+      'access-control-allow-origin': '*',
+    }));
+    const server = await startPajaServer({ options: { targetUrl: target.url, port: 0 } });
+
+    try {
+      const diagnostic = JSON.parse(await fetchText(`${server.url}__kehto/target-cors.json`)) as {
+        status: string;
+        hint: string | null;
+      };
+
+      expect(diagnostic.status).toBe('allowed');
+      expect(diagnostic.hint).toBeNull();
+    } finally {
+      await server.close();
+      await target.close();
+    }
+  });
+
+  it('reports an unreachable target without failing the endpoint', async () => {
+    const server = await startPajaServer({
+      options: { targetUrl: 'http://127.0.0.1:1/', port: 0 },
+    });
+
+    try {
+      const diagnostic = JSON.parse(await fetchText(`${server.url}__kehto/target-cors.json`)) as {
+        status: string;
+      };
+
+      expect(diagnostic.status).toBe('unreachable');
+    } finally {
+      await server.close();
+    }
+  });
+
   it('bounds server shutdown against lingering browser connections', () => {
     const source = readFileSync(new URL('./server.ts', import.meta.url), 'utf8');
 
@@ -109,11 +170,16 @@ async function fetchText(url: string): Promise<string> {
   return response.text();
 }
 
-async function startTargetServer(html: string): Promise<TargetServer> {
-  const server = createServer((_request, response) => {
+async function startTargetServer(
+  html: string,
+  corsHeaders?: (origin: string | undefined) => Record<string, string>,
+): Promise<TargetServer> {
+  const server = createServer((request, response) => {
+    const origin = request.headers.origin;
     response.writeHead(200, {
       'cache-control': 'no-store',
       'content-type': 'text/html; charset=utf-8',
+      ...corsHeaders?.(typeof origin === 'string' ? origin : undefined),
     });
     response.end(html);
   });
