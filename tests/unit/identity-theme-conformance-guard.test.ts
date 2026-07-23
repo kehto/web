@@ -68,4 +68,22 @@ describe('Phase 103 identity/theme active-surface guard', () => {
     expect(playgroundHost).not.toContain("type: 'identity.changed'");
     expect(playgroundHost).not.toContain("msg.envelopeType === 'identity.getPublicKey'");
   });
+
+  it('keeps current developer guidance on the pinned policy and supported surfaces', () => {
+    const policy = source('docs/policies/NIP-5D-CONFORMANCE.md');
+    const runtime = source('packages/runtime/README.md');
+    const services = source('packages/services/README.md');
+    const shell = source('packages/shell/README.md');
+    const playground = source('apps/playground/README.md');
+    const guidance = [policy, runtime, services, shell, playground].join('\n');
+
+    expect(policy).toContain('896c32c92deee68dc4d10fc1132b62df20cccb6f');
+    expect(policy).toContain('fixed non-sensitive complete normal');
+    expect(runtime).toContain('identity.getPublicKey.result');
+    expect(services).toContain('stores that state before it');
+    expect(shell).toContain('live authenticated `shell.ready` session');
+    expect(playground).toContain('ThemeService.publishTheme()');
+    expect(guidance).not.toContain('identity.getPublicKey.error');
+    expect(guidance).not.toMatch(/theme\.(?:subscribe|unsubscribe)/);
+  });
 });
