@@ -4,17 +4,17 @@ milestone: v1.29
 milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 102
 current_phase_name: nap-inc-event-channel-parity
-status: executing
-stopped_at: Completed 102-07-PLAN.md
-last_updated: "2026-07-23T19:10:12.930Z"
+status: verifying
+stopped_at: Completed 102-08-PLAN.md
+last_updated: "2026-07-23T19:21:14.541Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 102 execution started
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 17
-  completed_plans: 16
-  percent: 17
+  completed_plans: 17
+  percent: 33
 ---
 
 # Project State
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-23)
 
 Phase: 102 (nap-inc-event-channel-parity) — EXECUTING
 Plan: 12 of 12
-Status: Ready to execute
+Status: Phase complete — ready for verification
 
 Last activity: 2026-07-23 -- Phase 102 execution started
 
@@ -70,6 +70,7 @@ Last activity: 2026-07-23 -- Phase 102 execution started
 | Phase 102 P05 | 16min | 2 tasks | 2 files |
 | Phase 102-nap-inc-event-channel-parity P06 | 4min | 2 tasks | 2 files |
 | Phase 102-nap-inc-event-channel-parity P07 | 4min | 1 tasks | 5 files |
+| Phase 102 P08 | 6m 26s | 1 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -105,6 +106,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 ### Blockers/Concerns
 
 - **9 pre-existing stale guard-test failures** (`tests/unit/sdk-migration-guard.test.ts`, `playground-gateway-guard.test.ts`, `nip5d-conformance-guard.test.ts`) assert the pre-modernization 0.5.0/`@napplet/nub`/`ifc` graph that phases 86–88 already replaced with 0.12/0.13/`@napplet/nap`/`inc`. Out of phase-89 (docs) scope; logged to `.planning/phases/89-spec-doc-refresh-conformance-sweep/deferred-items.md`. Needs a test-owning follow-up to realign the guards before tagging v1.21.
+- Full E2E cannot be fully green until tests/e2e/demo-audit-correctness.spec.ts stops hardcoding protected IPv4 127.0.0.1:4174 or the environment isolates that port.
 
 ### Quick Tasks Completed
 
@@ -180,8 +182,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-07-23T19:10:12.923Z
-Stopped at: Completed 102-07-PLAN.md
+Last session: 2026-07-23T19:21:14.533Z
+Stopped at: Completed 102-08-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -241,3 +243,5 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: Pinned active INC guidance to draft heads #89/#90/#92 and linked living PRs instead of copying protocol text.
 - [Phase ?]: Kept query-to-text payload transposition in the binding while runtime routing remains exact and queryless.
 - [Phase ?]: Reserved NAP-INTENT lifecycle changes for Phase 104 and released package adoption for Phase 105.
+- [Phase ?]: Phase 102 release metadata uses separate minor changesets for runtime, shell, ACL, and services; intent lifecycle and published package adoption remain Phase 104 and 105.
+- [Phase ?]: Full Playwright remains blocked by a protected unrelated IPv4 listener because demo-audit-correctness hardcodes 127.0.0.1:4174; focused IPv6 browser proof is green.

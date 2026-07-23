@@ -127,7 +127,7 @@ identifiers and attested dTag identities.
   4. Napplets can create closeable subscriptions and use `channel.open`, `channel.onOpened`, `channel.list`, and `channel.broadcast` plus symmetric endpoint handles with `emit`, `on`, `onClosed`, and `close`; `channel.list()` remains informational.
   5. Channel access is authorized once at open time; target `inc.channel.opened` is enqueued before opener success; early handles/messages/terminal closure are retained in order; buffer overflow closes rather than drops; dead peers and cleanup leave no live route behind.
 
-**Plans:** 11/12 plans executed
+**Plans:** 12/12 plans executed
 
 - [x] 102-01-PLAN.md — Trace one canonical convention emit through the shared prelude and exact dTag runtime delivery.
 - [x] 102-02-PLAN.md — Complete dTag-safe runtime channel identity, routing, and lifecycle behavior.
@@ -140,7 +140,7 @@ identifiers and attested dTag identities.
 - [x] 102-05-PLAN.md — Prove the shared canonical INC prelude through Paja's real srcdoc host.
 - [x] 102-06-PLAN.md — Prove exact event and channel behavior between live playground frames.
 - [x] 102-07-PLAN.md — Synchronize active conformance documentation and static protocol guards.
-- [ ] 102-08-PLAN.md — Add package changesets and run the complete cross-host phase gate.
+- [x] 102-08-PLAN.md — Add package changesets and run the complete cross-host phase gate.
 
 ### Phase 103: Identity and Theme Wire Parity
 
@@ -213,7 +213,7 @@ users rely on.
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 101. NAP-SHELL Session Integrity | v1.29 | 5/5 | Complete | 2026-07-23 |
-| 102. NAP-INC Event and Channel Parity | v1.29 | 11/12 | In Progress|  |
+| 102. NAP-INC Event and Channel Parity | v1.29 | 12/12 | In Progress|  |
 | 103. Identity and Theme Wire Parity | v1.29 | 0/TBD | Not started | - |
 | 104. NAP-INTENT and Manifest Contract Parity | v1.29 | 0/TBD | Not started | - |
 | 105. Published Convention Adoption and Host Flows | v1.29 | 0/TBD | Waiting on upstream package publication | - |

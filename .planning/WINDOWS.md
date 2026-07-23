@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 16
+open_count: 17
 waived_count: 0
 fixed_count: 3
-total_count: 19
-last_updated: 2026-07-23T19:10:12.509Z
+total_count: 20
+last_updated: 2026-07-23T19:19:45.255Z
 ---
 
 # Broken Windows Ledger
@@ -34,6 +34,7 @@ last_updated: 2026-07-23T19:10:12.509Z
 | 17 | 102 | deviation | tests/e2e/paja-single-window.spec.ts |  | Used shell.onReady so the reload fixture cannot miss an early captured shell.init. | open |  | 2026-07-23T18:55:12.259Z |  |
 | 18 | 102 | deviation | tests/e2e/nap-inc-playground.spec.ts |  | Opt-in IPv6 base URL override keeps focused browser proof isolated from an unrelated IPv4 listener on port 4174. | open |  | 2026-07-23T19:02:33.378Z |  |
 | 19 | 102 | deviation | tests/unit/nip5d-conformance-guard.test.ts |  | Allowed Markdown line wrapping in the exact-identity static guard assertion. | open |  | 2026-07-23T19:10:12.509Z |  |
+| 20 | 102 | unmet-truth | tests/e2e/demo-audit-correctness.spec.ts | 8 | Full Playwright gate routes a hardcoded IPv4 demo URL to the unrelated Fipwave listener, so it cannot validate the Kehto playground preview. | open |  | 2026-07-23T19:19:45.255Z |  |
 
 ````json
 [
@@ -263,6 +264,18 @@ last_updated: 2026-07-23T19:10:12.509Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-23T19:10:12.509Z",
+    "resolved_at": null
+  },
+  {
+    "id": 20,
+    "kind": "unmet-truth",
+    "phase": "102",
+    "file": "tests/e2e/demo-audit-correctness.spec.ts",
+    "line": 8,
+    "description": "Full Playwright gate routes a hardcoded IPv4 demo URL to the unrelated Fipwave listener, so it cannot validate the Kehto playground preview.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-23T19:19:45.255Z",
     "resolved_at": null
   }
 ]
