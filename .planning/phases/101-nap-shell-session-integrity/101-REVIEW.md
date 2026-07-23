@@ -1,6 +1,6 @@
 ---
 phase: 101-nap-shell-session-integrity
-reviewed: 2026-07-23T16:02:00Z
+reviewed: 2026-07-23T15:17:06Z
 depth: standard
 files_reviewed: 35
 files_reviewed_list:
@@ -49,18 +49,18 @@ status: clean
 
 # Phase 101: Code Review Report
 
-**Reviewed:** 2026-07-23T16:02:00Z
+**Reviewed:** 2026-07-23T15:17:06Z
 **Depth:** standard
 **Files Reviewed:** 35
 **Status:** clean
 
 ## Summary
 
-The final fixes close all previously reported defects. Session-created capability environments are enforced before ACL, firewall, and dispatch; the same captured environment is used for namespace injection and `shell.init`; and handshake state is isolated to a bridge instance. The playground and Paja source-proxy adapters now unwrap the captured environment lookup, while playground’s source-swap path restores its saved immutable snapshot before routing `shell.ready`.
+The earlier session-environment and bridge-state fixes remain sound: session-created capability environments are enforced before ACL, firewall, and dispatch; the same captured environment is used for namespace injection and `shell.init`; and handshake state is isolated to a bridge instance. The playground and Paja source-proxy adapters unwrap the captured environment lookup, while playground’s source-swap path restores its saved immutable snapshot before routing `shell.ready`.
 
-I checked the governing NAP-SHELL draft at `/Users/sandwich/Develop/naps/naps/NAP-SHELL.md`. Focused verification passed: 175 tests across shell, Paja, runtime, and host-proxy conformance paths, plus `tsc --noEmit` for `@kehto/shell`, `@kehto/runtime`, and `@kehto/paja`.
+The follow-up now canonicalizes both `notifications` and `notify` to one disabled-state key. Either input unregisters and restores both runtime service aliases, removes the native `notify` capability from newly created environments, persists canonical state, fail-closes required napplets, and preserves existing frame snapshots. The revised test uses a host page reload, so it creates a genuinely new iframe lifecycle rather than reusing an existing frame's frozen environment.
 
-All reviewed files meet the required correctness, security, and maintainability standards. No issues found.
+The playground build and all four focused service-toggle Playwright tests passed using the locally installed Google Chrome because the repository's `/usr/bin/chromium` path is unavailable on this macOS host.
 
 ## Narrative Findings (AI reviewer)
 
@@ -68,6 +68,6 @@ No narrative findings.
 
 ---
 
-_Reviewed: 2026-07-23T16:02:00Z_
-_Reviewer: the agent (gsd-code-reviewer)_
+_Reviewed: 2026-07-23T15:17:06Z_
+_Reviewer: gsd-code-reviewer with orchestrator follow-up verification_
 _Depth: standard_
