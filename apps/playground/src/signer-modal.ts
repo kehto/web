@@ -208,11 +208,18 @@ async function runIdentityProbe(expectedPubkey: string): Promise<void> {
     let responded = false;
     const timeout = setTimeout(() => {
       if (!responded) {
+        responded = true;
         console.warn('[signer-modal] identity.getPublicKey probe timed out');
+        recordSignerRequest({
+          timestamp: Date.now(),
+          method: 'identity.getPublicKey',
+          success: false,
+        });
         resolve();
       }
     }, 3000);
     handler.handleMessage(DEMO_HOST_PROBE_WINDOW_ID, request, (reply: NappletMessage) => {
+      if (responded) return;
       responded = true;
       clearTimeout(timeout);
       if (reply.type === 'identity.getPublicKey.result') {
@@ -226,7 +233,8 @@ async function runIdentityProbe(expectedPubkey: string): Promise<void> {
         if (!matches) {
           console.warn('[signer-modal] identity.getPublicKey mismatch', { expected: expectedPubkey, returned });
         }
-      } else if (reply.type === 'identity.getPublicKey.error') {
+      } else {
+        console.warn('[signer-modal] identity.getPublicKey probe received a malformed reply');
         recordSignerRequest({
           timestamp: Date.now(),
           method: 'identity.getPublicKey',

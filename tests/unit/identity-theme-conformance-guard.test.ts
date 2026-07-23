@@ -21,15 +21,15 @@ describe('Phase 103 identity/theme active-surface guard', () => {
     const themeService = source('packages/services/src/theme-service.ts');
 
     expect(runtimeResults).toContain("'identity.getPublicKey': { pubkey: '' }");
-    expect(runtimeResults).toContain("background: '#0d1117'");
-    expect(runtimeResults).toContain("text: '#c9d1d9'");
-    expect(runtimeResults).toContain("primary: '#58a6ff'");
-    expect(runtime).toContain('isCanonicalIdentityOrThemeRequest');
+    expect(runtimeResults).toContain("background: '#0a0a0a'");
+    expect(runtimeResults).toContain("text: '#e0e0e0'");
+    expect(runtimeResults).toContain("primary: '#7aa2f7'");
+    expect(runtime).toContain('isIdentityOrThemeMessage(envelope) && !createCanonicalDomainResult(envelope)');
     expect(identityService).toContain("type: 'identity.getPublicKey.result'");
     expect(identityService).toContain("case 'identity.getPublicKey':");
     expect(themeService).toContain('function publishTheme(theme: Theme): ThemeChangedMessage');
     expect(themeService).toContain('currentTheme = normalizeTheme(theme);');
-    expect(themeService).toContain('onChanged?.(envelope);');
+    expect(themeService).toContain('options.onBroadcast?.(envelope);');
     expect(themeService).not.toMatch(/type:\s*['"]theme\.[^'"]+\.error['"]/);
   });
 
@@ -38,18 +38,19 @@ describe('Phase 103 identity/theme active-surface guard', () => {
     const namespace = source('packages/shell/src/napplet-namespace.ts');
     const acl = source('packages/acl/src/resolve.ts');
 
-    expect(bridge).toContain('getEligibleRecipients');
+    expect(bridge).toContain('function publishToEligibleNapplets(');
     expect(bridge).toContain("'identity:read'");
     expect(bridge).toContain("'theme:read'");
-    expect(bridge).toContain('session.environment.domains.includes(domain)');
+    expect(bridge).toContain('environment?.capabilities.domains.includes(domain)');
     expect(namespace).toContain('function makeProtectedIdentity(): Record<string, unknown>');
     expect(namespace).toContain('function makeProtectedTheme(): Record<string, unknown>');
-    expect(namespace).toContain('event.source !== window.parent');
+    expect(namespace).toContain('return event.source === target.parent;');
     expect(namespace).toContain("getPublicKey: () => read('identity.getPublicKey', 'pubkey', '')");
     expect(namespace).not.toContain("type: 'theme.subscribe'");
     expect(namespace).not.toContain("type: 'theme.unsubscribe'");
-    expect(acl).toContain("case 'identity.changed':");
-    expect(acl).toContain("case 'theme.changed':");
+    expect(acl).toContain("if (action === 'changed')");
+    expect(acl).toContain("recipientCap: 'identity:read'");
+    expect(acl).toContain("recipientCap: 'theme:read'");
   });
 
   it('keeps Paja and playground on one ThemeService-to-bridge path without raw identity fanout', () => {
