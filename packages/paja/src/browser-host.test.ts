@@ -1,7 +1,50 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { createThemeService } from '@kehto/services';
+
+import { createPajaThemeBroadcastLink } from './theme-broadcast.js';
 
 describe('@kehto/paja browser host runtime source guards', () => {
+  it('forwards one stored theme through one attached bridge without replay or replacement', () => {
+    const link = createPajaThemeBroadcastLink();
+    let service!: ReturnType<typeof createThemeService>;
+    const forwarded: unknown[] = [];
+    let callbackState: unknown;
+    const darkTheme = {
+      colors: { background: '#101211', text: '#f4f0df', primary: '#d8c36a' },
+      title: 'Paja dark',
+    };
+
+    service = createThemeService({ onBroadcast: link.onBroadcast });
+    expect(() => service.publishTheme(darkTheme)).toThrow('before a ShellBridge is attached');
+
+    link.attach({
+      publishTheme(theme) {
+        callbackState = service.getCurrentTheme();
+        forwarded.push(theme);
+      },
+    });
+    expect(() => link.attach({ publishTheme() {} })).toThrow('already attached');
+
+    service.publishTheme(darkTheme);
+
+    expect(callbackState).toEqual(darkTheme);
+    expect(forwarded).toEqual([darkTheme]);
+  });
+
+  it('uses the retained ThemeService as the only Paja theme fan-out path', () => {
+    const adapterSource = readFileSync(new URL('./browser-adapter.ts', import.meta.url), 'utf8');
+    const hostSource = readFileSync(new URL('./browser-host.ts', import.meta.url), 'utf8');
+    const setThemeMode = hostSource.slice(hostSource.indexOf('setThemeMode(mode) {'), hostSource.indexOf('setDomainEnabled(domain, enabled)'));
+
+    expect(adapterSource).toContain('onBroadcast: onThemeBroadcast');
+    expect(hostSource).toContain('const themeBroadcast = createPajaThemeBroadcastLink();');
+    expect(hostSource).toContain('themeBroadcast.attach(bridge);');
+    expect(setThemeMode.match(/themeService\?\.publishTheme/g)).toHaveLength(1);
+    expect(setThemeMode).not.toContain('bridge.publishTheme');
+    expect(setThemeMode).not.toContain('postMessage');
+  });
+
   it('preserves resolved pointer identity before the runtime iframe executes', () => {
     const source = readFileSync(new URL('./browser-host.ts', import.meta.url), 'utf8');
     const tabsSource = readFileSync(new URL('./browser-runtime-tabs.ts', import.meta.url), 'utf8');
