@@ -20,9 +20,9 @@ test.describe.configure({ mode: 'serial' });
 const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]/;
 
 async function expectDirectNotificationMessage(page: import('@playwright/test').Page, type: string): Promise<void> {
-  const debuggerText = await page.locator('napplet-debugger').textContent();
-  expect(debuggerText).toContain(type);
-  expect(debuggerText).not.toMatch(/\b(?:notifications|audio):|\binc\.event\b/);
+  const debuggerEl = page.locator('napplet-debugger');
+  await expect(debuggerEl).toContainText(type);
+  await expect(debuggerEl).not.toContainText(/\b(?:notifications|audio):|\binc\.event\b/);
 }
 
 test('notification topology node is visible', async ({ page }) => {
@@ -40,7 +40,6 @@ test('node-control: create toast via notify.create envelope', async ({ page }) =
   await expect(page.locator('#notification-toast-layer .notif-toast')).toBeVisible({ timeout: 3_000 });
 
   // Debugger contains a direct-domain notification, never a topic or synthetic INC event.
-  await expect.poll(async () => page.locator('napplet-debugger').textContent()).toContain('notify.create');
   await expectDirectNotificationMessage(page, 'notify.create');
 
   // Summary increments

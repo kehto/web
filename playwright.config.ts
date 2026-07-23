@@ -1,5 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const chromiumExecutablePath =
+  process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ??
+  (process.platform === 'darwin'
+    ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    : '/usr/bin/chromium');
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -17,7 +23,7 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         launchOptions: {
-          executablePath: '/usr/bin/chromium',
+          executablePath: chromiumExecutablePath,
         },
       },
     },

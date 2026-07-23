@@ -32,9 +32,9 @@ test.describe.configure({ mode: 'serial' });
 const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]/;
 
 async function expectDirectNotificationMessage(page: import('@playwright/test').Page, type: string): Promise<void> {
-  const debuggerText = await page.locator('napplet-debugger').textContent();
-  expect(debuggerText).toContain(type);
-  expect(debuggerText).not.toMatch(/\b(?:notifications|audio):|\binc\.event\b/);
+  const debuggerEl = page.locator('napplet-debugger');
+  await expect(debuggerEl).toContainText(type);
+  await expect(debuggerEl).not.toContainText(/\b(?:notifications|audio):|\binc\.event\b/);
 }
 
 test('toaster creates notification and Dismiss all empties the list', async ({ page }) => {
@@ -70,7 +70,6 @@ test('toaster creates notification and Dismiss all empties the list', async ({ p
   await expect(page.locator('#notification-toast-layer .notif-toast')).toBeVisible({ timeout: 3_000 });
 
   // Debugger shows a direct notify.create envelope, never a topic or synthetic INC event.
-  await expect.poll(async () => page.locator('napplet-debugger').textContent()).toContain('notify.create');
   await expectDirectNotificationMessage(page, 'notify.create');
 
   // Dismiss all: triggers notify.list → iterate notify.dismiss per id.
@@ -82,7 +81,6 @@ test('toaster creates notification and Dismiss all empties the list', async ({ p
   await expect(toasterFrame.locator('#toaster-list li')).toHaveCount(0, { timeout: 5_000 });
 
   // Debugger keeps the direct notification lifecycle after dismissal.
-  await expect.poll(async () => page.locator('napplet-debugger').textContent()).toContain('notify.dismiss');
   await expectDirectNotificationMessage(page, 'notify.dismiss');
 
   const antiConsole = consoleMessages.filter((m) => ANTI_TERM_RE.test(m));
