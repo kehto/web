@@ -127,12 +127,12 @@ identifiers and attested dTag identities.
   4. Napplets can create closeable subscriptions and use `channel.open`, `channel.onOpened`, `channel.list`, and `channel.broadcast` plus symmetric endpoint handles with `emit`, `on`, `onClosed`, and `close`; `channel.list()` remains informational.
   5. Channel access is authorized once at open time; target `inc.channel.opened` is enqueued before opener success; early handles/messages/terminal closure are retained in order; buffer overflow closes rather than drops; dead peers and cleanup leave no live route behind.
 
-**Plans:** 2/12 plans executed
+**Plans:** 3/12 plans executed
 
 - [x] 102-01-PLAN.md — Trace one canonical convention emit through the shared prelude and exact dTag runtime delivery.
 - [x] 102-02-PLAN.md — Complete dTag-safe runtime channel identity, routing, and lifecycle behavior.
 - [ ] 102-03-PLAN.md — Enforce authorization once at channel open and close channels on ACL revocation.
-- [ ] 102-04-PLAN.md — Complete the injected event/subscription/channel API and rejection matrix.
+- [x] 102-04-PLAN.md — Complete the injected event/subscription/channel API and rejection matrix.
 - [ ] 102-09-PLAN.md — Remove generic runtime INC topic-prefix service dispatch.
 - [ ] 102-10-PLAN.md — Retire services-package audio/notification INC compatibility and senderless synthetic events.
 - [ ] 102-11-PLAN.md — Migrate downstream playground code and notification browser tests off the retired service prefixes.
@@ -213,7 +213,7 @@ users rely on.
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 101. NAP-SHELL Session Integrity | v1.29 | 5/5 | Complete | 2026-07-23 |
-| 102. NAP-INC Event and Channel Parity | v1.29 | 2/12 | In Progress|  |
+| 102. NAP-INC Event and Channel Parity | v1.29 | 3/12 | In Progress|  |
 | 103. Identity and Theme Wire Parity | v1.29 | 0/TBD | Not started | - |
 | 104. NAP-INTENT and Manifest Contract Parity | v1.29 | 0/TBD | Not started | - |
 | 105. Published Convention Adoption and Host Flows | v1.29 | 0/TBD | Waiting on upstream package publication | - |
