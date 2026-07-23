@@ -57,6 +57,20 @@ test('notifications service toggle persists across reloads', async ({ page }) =>
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#topology-root', { state: 'visible', timeout: 15_000 });
   await expect(page.locator('[data-service-name="notifications"]')).not.toHaveClass(/service-disabled/, { timeout: 15_000 });
+
+  // Canonicalize the NAP domain alias from older/direct host state and prove
+  // the UI-facing name can fully re-enable both service registrations.
+  await page.evaluate(() => {
+    localStorage.setItem('kehto.playground.disabledServices.v1', JSON.stringify(['notify']));
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#topology-root', { state: 'visible', timeout: 15_000 });
+  await expect(page.locator('[data-service-name="notifications"]')).toHaveClass(/service-disabled/, { timeout: 15_000 });
+  await page.locator('[data-service-name="notifications"] .service-toggle-icon').click();
+  await expect(page.locator('[data-service-name="notifications"]')).not.toHaveClass(/service-disabled/, { timeout: 15_000 });
+  await expect.poll(() =>
+    page.evaluate(() => JSON.parse(localStorage.getItem('kehto.playground.disabledServices.v1') ?? '[]')),
+  ).toEqual([]);
 });
 
 test('new registrations reflect disabled live services without mutating concurrent frame snapshots', async ({ page }) => {

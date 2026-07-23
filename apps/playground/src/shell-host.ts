@@ -154,13 +154,18 @@ let nappletCounter = 0;
 const serviceHandlerStore = new Map<string, ServiceHandler>();
 const disabledServices = new Set<string>();
 const SERVICE_STATE_STORAGE_KEY = 'kehto.playground.disabledServices.v1';
-const SERVICE_DOMAIN_ALIASES: Readonly<Record<string, string>> = Object.freeze({
-  notifications: 'notify',
-});
+const NOTIFICATION_SERVICE_TARGETS = Object.freeze(['notifications', 'notify'] as const);
 
 function getServiceToggleTargets(name: string): readonly string[] {
-  const domain = SERVICE_DOMAIN_ALIASES[name];
-  return domain ? [name, domain] : [name];
+  return NOTIFICATION_SERVICE_TARGETS.includes(name as typeof NOTIFICATION_SERVICE_TARGETS[number])
+    ? NOTIFICATION_SERVICE_TARGETS
+    : [name];
+}
+
+function getServiceToggleStateKey(name: string): string {
+  return NOTIFICATION_SERVICE_TARGETS.includes(name as typeof NOTIFICATION_SERVICE_TARGETS[number])
+    ? 'notifications'
+    : name;
 }
 
 function getDisabledDomains(): readonly string[] {
@@ -339,9 +344,10 @@ function persistDisabledServices(): void {
 
 function applyPersistedServiceState(): void {
   for (const name of readPersistedDisabledServices()) {
-    const targets = getServiceToggleTargets(name);
+    const stateKey = getServiceToggleStateKey(name);
+    const targets = getServiceToggleTargets(stateKey);
     if (!targets.some((target) => serviceHandlerStore.has(target))) continue;
-    disabledServices.add(name);
+    disabledServices.add(stateKey);
     for (const target of targets) relay.runtime.unregisterService(target);
   }
 }
@@ -580,7 +586,8 @@ export function toggleCapability(windowId: string, capability: Capability, enabl
  * reference is re-registered. Changes take effect on the very next message.
  */
 export function toggleService(name: string, enabled: boolean): void {
-  const targets = getServiceToggleTargets(name);
+  const stateKey = getServiceToggleStateKey(name);
+  const targets = getServiceToggleTargets(stateKey);
   if (enabled) {
     const handlers = targets
       .map((target) => [target, serviceHandlerStore.get(target)] as const)
@@ -589,10 +596,10 @@ export function toggleService(name: string, enabled: boolean): void {
       console.warn('[service] toggleService: no stored handler for', name);
       return;
     }
-    disabledServices.delete(name);
+    disabledServices.delete(stateKey);
     for (const [target, handler] of handlers) relay.runtime.registerService(target, handler);
   } else {
-    disabledServices.add(name);
+    disabledServices.add(stateKey);
     for (const target of targets) relay.runtime.unregisterService(target);
   }
   persistDisabledServices();
@@ -602,7 +609,7 @@ export function toggleService(name: string, enabled: boolean): void {
  * Check if a service is currently enabled (registered with the runtime).
  */
 export function isServiceEnabled(name: string): boolean {
-  return !disabledServices.has(name);
+  return !disabledServices.has(getServiceToggleStateKey(name));
 }
 
 /**
