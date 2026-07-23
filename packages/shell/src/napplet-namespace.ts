@@ -192,7 +192,7 @@ function nappletNamespacePrelude(domains: string[]): void {
 
   function makeShell(): Record<string, unknown> {
     type ShellEnvironment = {
-      capabilities: unknown;
+      capabilities: Readonly<{ domains: readonly string[] }>;
       services: readonly string[];
     };
     type ReadyHandler = (environment: ShellEnvironment) => void;
@@ -212,20 +212,16 @@ function nappletNamespacePrelude(domains: string[]): void {
       const message = incoming as RuntimeMessage;
       if (message.type !== 'shell.init') return;
 
-      const services = Object.freeze(
-        Array.isArray(message.services)
-          ? message.services.filter((service): service is string => typeof service === 'string')
-          : [],
-      );
       const rawCapabilities = message.capabilities;
       const rawDomains = typeof rawCapabilities === 'object' && rawCapabilities !== null
         ? (rawCapabilities as Record<string, unknown>).domains
         : undefined;
-      const domains = Array.isArray(rawDomains)
-        ? rawDomains.filter((domain): domain is string => typeof domain === 'string')
-        : [];
+      if (!Array.isArray(rawDomains)) return;
+
+      const domains = freezeStrings(rawDomains);
+      const services = freezeStrings(Array.isArray(message.services) ? message.services : []);
       environment = Object.freeze({
-        capabilities: Object.freeze({ domains: Object.freeze(domains) }),
+        capabilities: Object.freeze({ domains }),
         services,
       });
       off();
@@ -234,13 +230,19 @@ function nappletNamespacePrelude(domains: string[]): void {
       readyHandlers.clear();
     });
 
-    function supports(domain: string, protocol?: string): boolean {
-      if (!environment || typeof environment.capabilities !== 'object' || environment.capabilities === null) {
-        return false;
+    function freezeStrings(values: readonly unknown[]): readonly string[] {
+      const seen = new Set<string>();
+      const strings: string[] = [];
+      for (const value of values) {
+        if (typeof value !== 'string' || value.length === 0 || seen.has(value)) continue;
+        seen.add(value);
+        strings.push(value);
       }
-      if (protocol !== undefined) return false;
-      const capabilities = environment.capabilities as Record<string, unknown>;
-      return Array.isArray(capabilities.domains) && capabilities.domains.includes(domain);
+      return Object.freeze(strings);
+    }
+
+    function supports(domain: string): boolean {
+      return typeof domain === 'string' && environment?.capabilities.domains.includes(domain) === true;
     }
 
     const shell = {
