@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.29
 milestone_name: Napplet Convention and Runtime Conformance
-current_phase: 102
-current_phase_name: nap-inc-event-channel-parity
-status: verifying
-stopped_at: Phase 102 repeated-overflow contract conflict surfaced upstream
-last_updated: "2026-07-23T20:32:38.245Z"
+current_phase: 103
+current_phase_name: identity-and-theme-wire-parity
+status: executing
+stopped_at: Phase 103 planning complete; ready to execute Wave 1
+last_updated: "2026-07-23T21:15:14.370Z"
 last_activity: 2026-07-23
-last_activity_desc: Re-verification blocked on draft #92 bounded-retention semantics
+last_activity_desc: Phase 103 plans passed verification; Phase 102 remains upstream-blocked
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 18
+  total_plans: 25
   completed_plans: 18
   percent: 33
 ---
@@ -24,15 +24,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-23)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 102 — nap-inc-event-channel-parity
+**Current focus:** Phase 103 — identity-and-theme-wire-parity
 
 ## Current Position
 
-Phase: 102 (nap-inc-event-channel-parity) — EXECUTING
-Plan: 13 of 13
-Status: Phase complete — ready for verification
+Phase: 103 (identity-and-theme-wire-parity) — EXECUTING
+Plan: 0 of 7
+Status: Ready to execute
 
-Last activity: 2026-07-23 -- Re-verification blocked on draft #92 bounded-retention semantics
+Last activity: 2026-07-23 -- Phase 103 plans passed verification; Phase 102 remains upstream-blocked
 
 ## Performance Metrics
 

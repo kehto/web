@@ -213,19 +213,17 @@ const envelope = themeService.publishTheme(nextTheme); // updates getCurrentThem
 
 | # | Claim | Section | Risk if Wrong |
 |---|---|---|---|
-| A1 | Protecting a later `window.napplet.identity`/`theme` assignment is necessary to satisfy “readonly API,” rather than merely freezing the originally injected API. | Exact Current Gaps | Could overextend the Phase 102 INC-specific replacement rule. |
+| A1 | **RESOLVED:** Projection-owned identity/theme operations are guarded across direct-domain and whole-namespace assignment, while retaining parent-source checks and a readonly public surface. | Exact Current Gaps | [VERIFIED: Plan 103-04] Replacement could otherwise bypass trusted request/change semantics. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Complete denied/unavailable theme result versus upstream error-only example**
-   - What we know: [VERIFIED: roadmap THEME-01/02] requires a complete `.result` without `.error` types; [VERIFIED: naps@896c32c `naps/NAP-THEME.md`] shows an optional error-only result.
-   - What's unclear: Whether upstream intends complete fallback-without-error for denied/unavailable cases.
-   - Recommendation: Implement the roadmap-required complete fallback without an `error` field, document the reconciliation next to the test, and retain it as an upstream spec-gap note rather than adding mixed payload fields.
+1. **RESOLVED — complete denied/unavailable theme reads**
+   - [VERIFIED: Plan 103-02] Kehto policy is a fixed, non-sensitive complete normal `theme.get.result` with no `error` field for denied or unavailable reads.
+   - [VERIFIED: roadmap THEME-01/02; naps@896c32c `naps/NAP-THEME.md`] This is an allowed host policy and upstream-spec-gap reconciliation: it uses the sanctioned result type, adds no mixed `theme`+`error` extension, and never creates `theme.*.error`.
 
-2. **Identity/theme domain replacement protection**
-   - What we know: [VERIFIED: codebase `packages/shell/src/napplet-namespace.ts`] INC alone is protected against post-shim reassignment.
-   - What's unclear: Whether “readonly identity API” requires preservation across a napplet's own assignment.
-   - Recommendation: Preserve read-only public methods and parent-source validation; only add reassignment protection if an attack test demonstrates an identity privacy or wire-integrity bypass.
+2. **RESOLVED — identity/theme projection ownership**
+   - [VERIFIED: Plan 103-04] Guard identity/theme projection-owned operations across direct-domain and whole-namespace assignment, retaining parent-source checks and the readonly public surface.
+   - [VERIFIED: Plan 103-04] Reassignment protection is required because a replacement could bypass trusted request/change semantics; this is intentionally broader than Phase 102's INC-only guard.
 
 ## Environment Availability
 

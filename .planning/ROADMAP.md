@@ -174,7 +174,26 @@ identifiers and attested dTag identities.
   3. `theme.get` always returns one complete `theme.get.result`; unknown, denied, and unavailable paths never create `theme.*.error` messages or invented theme subscriptions.
   4. One host theme update atomically changes the value later returned by `theme.get` and delivers exactly one matching complete `theme.changed` event.
 
-**Plans:** TBD
+**Plans:** 0/7 plans executed
+
+**Wave 1**
+
+- [ ] 103-01-PLAN.md — Normalize runtime identity/theme result shapes and denial paths.
+- [ ] 103-02-PLAN.md — Align identity/theme services with exact results and atomic theme state.
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 103-03-PLAN.md — Deliver authenticated, eligible-session identity/theme changes exactly once.
+- [ ] 103-04-PLAN.md — Protect readonly identity/theme projection ownership across reassignment.
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 103-05-PLAN.md — Prove Paja theme state and push parity on the isolated browser host.
+- [ ] 103-06-PLAN.md — Align playground theme mutation and identity fanout behavior.
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 103-07-PLAN.md — Remove stale assumptions and close documentation, guard, and release gates.
 
 ### Phase 104: NAP-INTENT and Manifest Contract Parity
 
@@ -234,7 +253,7 @@ users rely on.
 |-------|-----------|----------------|--------|-----------|
 | 101. NAP-SHELL Session Integrity | v1.29 | 5/5 | Complete | 2026-07-23 |
 | 102. NAP-INC Event and Channel Parity | v1.29 | 13/13 | In Progress|  |
-| 103. Identity and Theme Wire Parity | v1.29 | 0/TBD | Not started | - |
+| 103. Identity and Theme Wire Parity | v1.29 | 0/7 | Planned | - |
 | 104. NAP-INTENT and Manifest Contract Parity | v1.29 | 0/TBD | Not started | - |
 | 105. Published Convention Adoption and Host Flows | v1.29 | 0/TBD | Waiting on upstream package publication | - |
 | 106. Active-Surface Conformance and Release | v1.29 | 0/TBD | Not started | - |
