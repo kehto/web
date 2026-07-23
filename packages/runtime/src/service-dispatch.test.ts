@@ -44,6 +44,14 @@ describe('routeServiceMessage', () => {
     expect(audio.handleMessage).not.toHaveBeenCalled();
   });
 
+  it('does not delegate inc.emit to a generic inc service', () => {
+    const inc = createService('inc');
+    const message = { type: 'inc.emit', topic: 'napplet:profile/open' } as NappletMessage;
+
+    expect(route(message, { inc })).toBe(false);
+    expect(inc.handleMessage).not.toHaveBeenCalled();
+  });
+
   it('returns no handler for an unknown direct message domain', () => {
     const notify = createService('notify');
 
