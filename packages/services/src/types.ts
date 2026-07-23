@@ -6,48 +6,6 @@
  */
 
 /**
- * An active audio source registered by a napplet.
- *
- * @example
- * ```ts
- * const source: AudioSource = {
- *   windowId: 'win-1',
- *   nappletClass: 'music-player',
- *   title: 'Now Playing',
- *   muted: false,
- * };
- * ```
- */
-export interface AudioSource {
-  /** The napplet window that registered this audio source. */
-  windowId: string;
-  /** The napplet class/type (e.g., 'music-player'). */
-  nappletClass: string;
-  /** Human-readable title for the audio source. */
-  title: string;
-  /** Whether this source is currently muted. */
-  muted: boolean;
-}
-
-/**
- * Options for creating an audio service via createAudioService().
- *
- * @example
- * ```ts
- * const audioService = createAudioService({
- *   onChange: (sources) => console.log('Audio sources changed:', sources.size),
- * });
- * ```
- */
-export interface AudioServiceOptions {
-  /**
-   * Called when the audio source registry changes (register, unregister,
-   * mute, state update). The shell host uses this to update UI.
-   */
-  onChange?: (sources: ReadonlyMap<string, AudioSource>) => void;
-}
-
-/**
  * A notification created by a napplet.
  *
  * @example
