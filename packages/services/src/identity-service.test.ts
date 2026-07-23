@@ -254,7 +254,7 @@ describe('createIdentityService', () => {
       expect(sent).toHaveLength(1);
       expect(sent[0].type).toBe('identity.getFollows.result');
       expect((sent[0] as any).pubkeys).toEqual([]);
-      expect((sent[0] as any).error).toBe('contacts unavailable');
+      expect((sent[0] as any).error).toBe('identity.getFollows failed');
     });
   });
 
@@ -442,10 +442,12 @@ describe('createIdentityService', () => {
       if (type === 'identity.getList') expect(calls[0][0]).toBe('bookmarks');
     });
 
-    it.each([
+    const failureCases: Array<[string, string]> = [
       ['identity.getRelays', 'getRelays'],
-      ...providerCases.map(([type, option]) => [type, option]),
-    ])('keeps the safe result when %s fails synchronously or asynchronously', async (type, option) => {
+      ...providerCases.map(([type, option]): [string, string] => [type, option]),
+    ];
+
+    it.each(failureCases)('keeps the safe result when %s fails synchronously or asynchronously', async (type, option) => {
       for (const provider of [
         () => { throw new Error('provider failure'); },
         async () => Promise.reject(new Error('provider rejection')),
