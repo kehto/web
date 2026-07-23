@@ -483,6 +483,7 @@ function createDevServices(
  * @param confirmRequest - Sign/publish confirmation callback.
  * @param signerProvider - Optional external signer provider.
  * @param getIdentity - Optional simulated target identity provider.
+ * @param onEnvironmentChanged - Invoked when asynchronous host wiring changes.
  * @returns Shell adapter for `createShellBridge`.
  */
 export function createPajaAdapter(
@@ -492,6 +493,7 @@ export function createPajaAdapter(
   confirmRequest: (request: PajaConfirmationRequest) => boolean,
   signerProvider?: PajaSignerProvider,
   getIdentity?: PajaIdentityProvider,
+  onEnvironmentChanged?: () => void,
 ): ShellAdapter {
   const relayBackend = createPajaRelayBackend(getSimulation, confirmRequest);
   const uploadRuntime = getSimulation().upload.mode === 'blossom'
@@ -510,6 +512,9 @@ export function createPajaAdapter(
       })
     : undefined;
   void uploadRuntime?.refreshIdentity();
+  signerProvider?.subscribe?.(() => {
+    void uploadRuntime?.refreshIdentity().finally(() => onEnvironmentChanged?.());
+  });
   const workerRelayEvents: NostrEvent[] = [];
   return {
     relayPool: createRelayHooks(relayBackend, getSimulation),
@@ -548,13 +553,6 @@ export function createPajaAdapter(
     webrtc: { isAvailable: () => getSimulation().capabilities.domains.webrtc },
     crypto: {
       verifyEvent: async () => true,
-    },
-    onNip5dIframeCreate: () => {
-      const identity = getIdentity?.();
-      return {
-        dTag: identity?.dTag ?? config.window.dTag,
-        aggregateHash: identity?.aggregateHash ?? config.window.aggregateHash,
-      };
     },
   };
 }

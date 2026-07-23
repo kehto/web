@@ -5,14 +5,11 @@ import {
   type OriginIdentity,
   type ShellAdapter,
   type SessionEntry,
-  type ShellBridge,
-  type ShellCapabilities,
 } from '@kehto/shell';
 
 import type { PajaHostConfig } from './options.js';
 import { hasEqualPajaEnvironmentMembership, type PajaShellEnvironment } from './parity.js';
 import { injectPajaRuntimeCsp, type PajaResolvedPointer } from './runtime-resolver.js';
-import type { PajaCapabilityDomain, PajaSimulation } from './simulation.js';
 
 /**
  * Resolve Paja's prelude and handshake environments from one trusted frame
@@ -42,36 +39,41 @@ export function getTargetIdentity(
   };
 }
 
+/** Build the immutable origin identity assigned before a Paja frame executes. */
+export function getTargetOriginIdentity(
+  config: PajaHostConfig,
+  resolvedTarget?: PajaResolvedPointer | null,
+): OriginIdentity {
+  const target = getTargetIdentity(config, resolvedTarget);
+  return Object.freeze({ dTag: target.dTag, aggregateHash: target.aggregateHash });
+}
+
 export function registerFrameForGeneration(
-  _bridge: ShellBridge,
   frame: HTMLIFrameElement,
   config: PajaHostConfig,
   generation: number,
-  resolvedTarget?: PajaResolvedPointer | null,
+  identity: OriginIdentity,
   windowId = `${config.window.id}:${generation}`,
 ): string | null {
   const win = frame.contentWindow;
   if (!win) return null;
-  const identity = getTargetIdentity(config, resolvedTarget);
-  originRegistry.register(win, windowId, {
-    dTag: identity.dTag,
-    aggregateHash: identity.aggregateHash,
-  });
+  originRegistry.register(win, windowId, identity);
   return windowId;
 }
 
 export async function navigateFrame(
-  bridge: ShellBridge,
   frame: HTMLIFrameElement,
   config: PajaHostConfig,
   generation: number,
-  capabilities: ShellCapabilities,
-  simulation: PajaSimulation,
+  adapter: ShellAdapter,
   resolvedTarget?: PajaResolvedPointer | null,
   windowId?: string,
   isCurrent?: () => boolean,
+  onRegistered?: (windowId: string | null) => void,
 ): Promise<string | null> {
-  const domains = getInjectedDomains(capabilities, simulation);
+  const identity = getTargetOriginIdentity(config, resolvedTarget);
+  const { bootstrap } = resolvePajaFrameEnvironment(adapter, identity);
+  const domains = bootstrap.capabilities.domains;
   if (config.target.mode === 'runtime-pointer') {
     if (!resolvedTarget) {
       frame.removeAttribute('src');
@@ -79,7 +81,8 @@ export async function navigateFrame(
       return null;
     }
     if (isCurrent && !isCurrent()) return null;
-    const registeredWindowId = registerFrameForGeneration(bridge, frame, config, generation, resolvedTarget, windowId);
+    const registeredWindowId = registerFrameForGeneration(frame, config, generation, identity, windowId);
+    onRegistered?.(registeredWindowId);
     frame.removeAttribute('src');
     frame.srcdoc = injectNappletNamespacePrelude(
       injectPajaRuntimeCsp(
@@ -92,7 +95,8 @@ export async function navigateFrame(
   }
   const html = await fetchTargetHtml();
   if (isCurrent && !isCurrent()) return null;
-  const registeredWindowId = registerFrameForGeneration(bridge, frame, config, generation, resolvedTarget, windowId);
+  const registeredWindowId = registerFrameForGeneration(frame, config, generation, identity, windowId);
+  onRegistered?.(registeredWindowId);
   frame.removeAttribute('src');
   frame.srcdoc = injectNappletNamespacePrelude(
     injectBaseHref(html, config.target.url),
@@ -121,16 +125,6 @@ function connectOrigins(urls: readonly string[]): string[] {
     }
   }
   return [...out];
-}
-
-function getInjectedDomains(
-  capabilities: PajaShellEnvironment['capabilities'],
-  simulation: PajaSimulation,
-): string[] {
-  return capabilities.domains.filter((domain) => {
-    const knownDomain = domain as PajaCapabilityDomain;
-    return simulation.capabilities.domains[knownDomain] !== false;
-  });
 }
 
 async function fetchTargetHtml(): Promise<string> {

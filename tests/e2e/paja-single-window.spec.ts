@@ -71,8 +71,18 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   await expect(targetFrame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
   await expect(targetFrame.locator('#injected-domains')).toHaveText('identity,outbox,resource,keys');
   await expect(targetFrame.locator('#shell-init-type')).toHaveText('shell.init');
-  await expect(targetFrame.locator('#shell-init-domains')).toContainText('relay,outbox,identity,storage,inc');
+  await expect(targetFrame.locator('#shell-init-domains')).toContainText('relay,identity,storage,inc');
   await expect(targetFrame.locator('#shell-init-domains')).toContainText('upload,intent');
+  await expect.poll(async () => targetFrame.locator('body').evaluate(() => {
+    const napplet = (window as Window & {
+      napplet?: { media?: unknown; shell?: { supports(domain: string): boolean; services: readonly string[] } };
+    }).napplet;
+    return {
+      mediaReceiver: typeof napplet?.media,
+      mediaSupported: napplet?.shell?.supports('media'),
+      mediaService: napplet?.shell?.services.includes('media'),
+    };
+  })).toEqual({ mediaReceiver: 'object', mediaSupported: true, mediaService: true });
   await expect(targetFrame.locator('#service-results')).toContainText('storage.set.result');
   await expect(targetFrame.locator('#service-results')).toContainText('config.values');
   await expect(targetFrame.locator('#service-results')).toContainText('theme.get.result');
@@ -143,6 +153,16 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   await expect(page.locator('#interface-toggles [data-interface-domain="media"]')).toHaveAttribute('data-enabled', 'false');
   await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
   await expect(page.frameLocator('#napplet-frame').locator('#shell-init-domains')).not.toContainText('media', { timeout: 15_000 });
+  await expect.poll(async () => page.frameLocator('#napplet-frame').locator('body').evaluate(() => {
+    const napplet = (window as Window & {
+      napplet?: { media?: unknown; shell?: { supports(domain: string): boolean; services: readonly string[] } };
+    }).napplet;
+    return {
+      mediaReceiver: typeof napplet?.media,
+      mediaSupported: napplet?.shell?.supports('media'),
+      mediaService: napplet?.shell?.services.includes('media'),
+    };
+  })).toEqual({ mediaReceiver: 'undefined', mediaSupported: false, mediaService: false });
 });
 
 test('applies simulation config and compact theme adjustment', async ({ page }) => {

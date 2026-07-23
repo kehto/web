@@ -2,22 +2,21 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 describe('@kehto/paja browser host runtime source guards', () => {
-  it('preserves resolved pointer identity when the runtime iframe finishes loading', () => {
+  it('preserves resolved pointer identity before the runtime iframe executes', () => {
     const source = readFileSync(new URL('./browser-host.ts', import.meta.url), 'utf8');
     const tabsSource = readFileSync(new URL('./browser-runtime-tabs.ts', import.meta.url), 'utf8');
 
-    expect(source).toContain(
-      'runtime.currentWindowId = registerFrameForGeneration(bridge, frame, config, state.generation, state.resolvedTarget);',
-    );
+    expect(source).toContain('if (isCurrentGeneration()) runtime.currentWindowId = windowId;');
     expect(tabsSource).toContain('`${config.window.id}:${tab.id}:${tab.generation}`');
+    expect(tabsSource).toContain('if (state.activeTabId === tab.id) context.runtime.currentWindowId = windowId;');
   });
 
   it('injects the runtime-owned napplet namespace in pointer and URL target srcdoc paths', () => {
     const source = readFileSync(new URL('./browser-target-frame.ts', import.meta.url), 'utf8');
 
     expect(source).toContain('injectNappletNamespacePrelude(');
-    expect(source).toContain('...PAJA_HANDSHAKE_DOMAINS,');
-    expect(source).toContain('!PAJA_HANDSHAKE_DOMAINS.some(');
+    expect(source).toContain('const domains = bootstrap.capabilities.domains;');
+    expect(source).not.toContain('manifest.requires');
     expect(source).toContain("fetch(new URL('./__kehto/target.html', window.location.href)");
     expect(source).toContain('frame.removeAttribute(\'src\');');
     expect(source).toContain('frame.srcdoc = injectNappletNamespacePrelude(');
@@ -100,5 +99,18 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(source).toContain('if (isSingleFrameMessage && (!sourceWindowId || sourceWindowId !== runtime.currentWindowId)) return;');
     expect(targetSource).toContain('isCurrent?: () => boolean');
     expect(targetSource).toContain('if (isCurrent && !isCurrent()) return null;');
+  });
+
+  it('registers the trusted frame identity before resolver-built srcdoc can run', () => {
+    const hostSource = readFileSync(new URL('./browser-host.ts', import.meta.url), 'utf8');
+    const targetSource = readFileSync(new URL('./browser-target-frame.ts', import.meta.url), 'utf8');
+    const adapterSource = readFileSync(new URL('./browser-adapter.ts', import.meta.url), 'utf8');
+
+    expect(targetSource).toContain('const identity = getTargetOriginIdentity(config, resolvedTarget);');
+    expect(targetSource).toContain('resolvePajaFrameEnvironment(adapter, identity);');
+    expect(targetSource).toContain('registerFrameForGeneration(frame, config, generation, identity, windowId);');
+    expect(targetSource).toContain('onRegistered?.(registeredWindowId);');
+    expect(hostSource).not.toContain("frame?.addEventListener('load'");
+    expect(adapterSource).not.toContain('onNip5dIframeCreate:');
   });
 });

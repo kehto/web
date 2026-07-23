@@ -1,4 +1,4 @@
-import { originRegistry, type ShellBridge, type ShellCapabilities } from '@kehto/shell';
+import { originRegistry, type ShellAdapter, type ShellBridge } from '@kehto/shell';
 
 import { PAJA_DEV_SIGNER_PUBKEY } from './browser-adapter.js';
 import {
@@ -60,26 +60,18 @@ export interface PajaRuntimeTabContext {
   config: PajaHostConfig;
   stage: HTMLElement;
   bridge: ShellBridge;
-  capabilities: ShellCapabilities;
+  adapter: ShellAdapter;
   runtime: PajaRuntimeTabRuntime;
   navigateFrame(
-    bridge: ShellBridge,
     frame: HTMLIFrameElement,
     config: PajaHostConfig,
     generation: number,
-    capabilities: ShellCapabilities,
-    simulation: PajaSimulation,
+    adapter: ShellAdapter,
     resolvedTarget: PajaResolvedPointer,
     windowId: string,
+    isCurrent?: () => boolean,
+    onRegistered?: (windowId: string | null) => void,
   ): Promise<string | null>;
-  registerFrameForGeneration(
-    bridge: ShellBridge,
-    frame: HTMLIFrameElement,
-    config: PajaHostConfig,
-    generation: number,
-    resolvedTarget: PajaResolvedPointer,
-    windowId: string,
-  ): string | null;
   renderTargetErrorHtml(error: unknown): string;
   setPointerStatus(state: PajaRuntimeTabState, message: string): void;
   setStatus(state: PajaRuntimeTabState, status: PajaRuntimeStatus): void;
@@ -418,18 +410,6 @@ function createRuntimeTabFrame(
   frame.dataset.tabId = tab.id;
   frame.dataset.targetUrl = tab.pointerValue;
   frame.hidden = true;
-  frame.addEventListener('load', () => {
-    if (tab.status !== 'booting' && tab.status !== 'reloading') return;
-    tab.windowId = context.registerFrameForGeneration(
-      context.bridge,
-      frame,
-      context.config,
-      tab.generation,
-      tab.resolvedTarget,
-      runtimeTabWindowId(context.config, tab),
-    );
-    if (state.activeTabId === tab.id) context.runtime.currentWindowId = tab.windowId;
-  });
   frame.addEventListener('error', () => {
     tab.status = 'error';
     if (state.activeTabId === tab.id) context.setStatus(state, 'error');
@@ -448,14 +428,18 @@ function startRuntimeTabNavigation(
   context.setStatus(state, 'booting');
   renderRuntimeTabs(state);
   void context.navigateFrame(
-    context.bridge,
     tab.frame,
     context.config,
     generation,
-    context.capabilities,
-    context.runtime.currentSimulation,
+    context.adapter,
     tab.resolvedTarget,
     runtimeTabWindowId(context.config, tab),
+    () => tab.generation === generation,
+    (windowId) => {
+      if (tab.generation !== generation) return;
+      tab.windowId = windowId;
+      if (state.activeTabId === tab.id) context.runtime.currentWindowId = windowId;
+    },
   ).then((windowId) => {
     if (tab.generation !== generation) return;
     tab.windowId = windowId;
