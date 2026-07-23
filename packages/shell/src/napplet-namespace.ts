@@ -160,22 +160,19 @@ function nappletNamespacePrelude(domains: string[]): void {
     post(message);
   }
 
-  function transposeConventionUri(
-    topic: string,
+  function normalizeConventionUri(
+    topic: unknown,
     hasExplicitPayload: boolean,
-  ): { topic: string; payload?: Record<string, string> } | null {
-    if (!topic.startsWith('napplet:')) {
-      return { topic };
-    }
-    if (topic.includes('#')) {
-      return null;
-    }
+  ): { topic: string; payload?: Record<string, string> } {
+    if (typeof topic !== 'string') throw new TypeError('INC topic must be text');
+    if (!topic.startsWith('napplet:')) return { topic };
+    if (topic.includes('#')) throw new TypeError('Convention topics cannot contain fragments');
     const queryStart = topic.indexOf('?');
     if (queryStart === -1) {
       return { topic };
     }
     if (hasExplicitPayload) {
-      return null;
+      throw new TypeError('Convention queries cannot be combined with an explicit payload');
     }
 
     const values: Record<string, string> = {};
@@ -187,12 +184,12 @@ function nappletNamespacePrelude(domains: string[]): void {
         const rawName = separator === -1 ? pair : pair.slice(0, separator);
         const rawValue = separator === -1 ? '' : pair.slice(separator + 1);
         const name = decodeURIComponent(rawName);
-        if (names.has(name)) return null;
+        if (names.has(name)) throw new TypeError('Convention query names must be unique');
         names.add(name);
         values[name] = decodeURIComponent(rawValue);
       }
     } catch {
-      return null;
+      throw new TypeError('Convention query contains malformed percent encoding');
     }
     return { topic: topic.slice(0, queryStart), payload: values };
   }
@@ -373,47 +370,77 @@ function nappletNamespacePrelude(domains: string[]): void {
   }
 
   function makeInc(): Record<string, unknown> {
+    type IncEvent = { topic: string; sender: string; payload?: unknown };
+    type TopicState = {
+      handlers: Set<(event: IncEvent) => void>;
+      offEvent: () => void;
+      offResult: () => void;
+    };
+    const topicStates = new Map<string, TopicState>();
+
+    function stableSubscriptionTopic(topic: unknown): string {
+      if (typeof topic !== 'string') throw new TypeError('INC topic must be text');
+      if (topic.includes('?') || topic.includes('#')) {
+        throw new TypeError('INC subscriptions require a queryless topic identity');
+      }
+      return topic;
+    }
+
     return {
       emit(topic: string, payload?: unknown) {
-        const legacyContent = arguments[2];
-        const hasLegacyArguments = arguments.length > 2;
-        let outgoingPayload = payload;
-        if (hasLegacyArguments && typeof legacyContent === 'string' && legacyContent.length > 0) {
-          try {
-            outgoingPayload = JSON.parse(legacyContent);
-          } catch {
-            outgoingPayload = legacyContent;
-          }
-        }
-        const transposed = transposeConventionUri(topic, arguments.length > 1 && !hasLegacyArguments);
-        if (!transposed) return;
+        const transposed = normalizeConventionUri(topic, arguments.length > 1);
         fire({
           type: 'inc.emit',
           topic: transposed.topic,
-          ...(transposed.payload === undefined && (outgoingPayload === undefined || outgoingPayload === '')
-            ? {}
-            : { payload: transposed.payload ?? outgoingPayload }),
+          ...(transposed.payload === undefined && payload === undefined ? {} : { payload: transposed.payload ?? payload }),
         });
       },
-      on(topic: string, callback: (payload: unknown, event: unknown) => void) {
-        const off = listen((event) => {
-          if (!isParentMessage(event)) return;
-          const msg = event.data as RuntimeMessage;
-          if (typeof msg !== 'object' || msg === null || msg.type !== 'inc.event' || msg.topic !== topic) return;
-          callback(msg.payload ?? {}, {
-            id: '',
-            pubkey: typeof msg.sender === 'string' ? msg.sender : '',
-            created_at: Math.floor(Date.now() / 1000),
-            kind: 0,
-            tags: [['t', topic]],
-            content: typeof msg.payload === 'string' ? msg.payload : JSON.stringify(msg.payload ?? {}),
-            sig: '',
+      on(topic: string, callback: (event: IncEvent) => void) {
+        const stableTopic = stableSubscriptionTopic(topic);
+        if (typeof callback !== 'function') throw new TypeError('INC subscription handler must be a function');
+        let state = topicStates.get(stableTopic);
+        if (!state) {
+          const handlers = new Set<(event: IncEvent) => void>();
+          const subscriptionId = id();
+          const offEvent = listen((event) => {
+            if (!isParentMessage(event)) return;
+            const msg = event.data as RuntimeMessage;
+            if (
+              typeof msg !== 'object'
+              || msg === null
+              || msg.type !== 'inc.event'
+              || msg.topic !== stableTopic
+              || typeof msg.sender !== 'string'
+            ) return;
+            const delivered: IncEvent = Object.prototype.hasOwnProperty.call(msg, 'payload')
+              ? { topic: stableTopic, sender: msg.sender, payload: msg.payload }
+              : { topic: stableTopic, sender: msg.sender };
+            for (const handler of handlers) handler(delivered);
           });
-        });
-        fire({ type: 'inc.subscribe', id: id(), topic });
+          const offResult = listen((event) => {
+            if (!isParentMessage(event)) return;
+            const msg = event.data as RuntimeMessage;
+            if (typeof msg !== 'object' || msg === null || msg.type !== 'inc.subscribe.result' || msg.id !== subscriptionId) return;
+            offResult();
+            if (typeof msg.error === 'string' && msg.error) {
+              offEvent();
+              topicStates.delete(stableTopic);
+            }
+          });
+          state = { handlers, offEvent, offResult };
+          topicStates.set(stableTopic, state);
+          fire({ type: 'inc.subscribe', id: subscriptionId, topic: stableTopic });
+        }
+        state.handlers.add(callback);
         return subscriptionHandle(() => {
-          fire({ type: 'inc.unsubscribe', topic });
-          off();
+          const current = topicStates.get(stableTopic);
+          if (!current) return;
+          current.handlers.delete(callback);
+          if (current.handlers.size !== 0) return;
+          current.offEvent();
+          current.offResult();
+          topicStates.delete(stableTopic);
+          fire({ type: 'inc.unsubscribe', topic: stableTopic });
         });
       },
     };
@@ -1179,13 +1206,22 @@ function nappletNamespacePrelude(domains: string[]): void {
   }
 
   const shell = makeShell();
+  let inc: Record<string, unknown> | undefined;
+
+  function makeProtectedInc(existing: unknown): Record<string, unknown> {
+    const extensions = existing && typeof existing === 'object'
+      ? existing as Record<string, unknown>
+      : {};
+    inc ??= makeInc();
+    return { ...extensions, ...inc };
+  }
 
   function makeDomain(domain: string, existing: unknown): unknown {
     if (domain === 'shell') return shell;
+    if (domain === 'inc') return makeProtectedInc(existing);
     if (existing && typeof existing === 'object' && Object.keys(existing).length > 0) return existing;
     switch (domain) {
       case 'relay': return makeRelay();
-      case 'inc': return makeInc();
       case 'storage': return makeStorage();
       case 'keys': return makeKeys();
       case 'media': return makeMedia();
