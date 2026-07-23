@@ -43,7 +43,7 @@ describe('createNotificationService', () => {
 
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({ type: 'notify.created' });
-    expect(typeof (sent[0] as { id: unknown }).id).toBe('string');
+    expect(typeof (sent[0] as unknown as { id: unknown }).id).toBe('string');
     expect(changes).toHaveLength(1);
     expect(changes[0]).toMatchObject([{ windowId: WINDOW_ID, title: 'New Message', body: 'Hello from chat', read: false }]);
   });
@@ -70,7 +70,7 @@ describe('createNotificationService', () => {
     const service = createNotificationService({ onChange: (list) => changes.push([...list]) });
 
     service.handleMessage(WINDOW_ID, makeNotify('create', { title: 'T', body: 'B' }), (message) => sent.push(message));
-    const notificationId = (sent[0] as { id: string }).id;
+    const notificationId = (sent[0] as unknown as { id: string }).id;
     service.handleMessage(WINDOW_ID, makeNotify('read', { notificationId }), () => {});
     expect(changes.at(-1)).toMatchObject([{ id: notificationId, read: true }]);
 
