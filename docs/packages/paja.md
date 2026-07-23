@@ -20,7 +20,7 @@ app package's development scripts.
 | Field | Value |
 |-------|-------|
 | Source | `packages/paja/package.json`, `packages/paja/src/index.ts` |
-| Version | `0.8.0` |
+| Version | `0.8.1` |
 | Runtime entry | `./dist/index.js` |
 | CLI runner entry | `./dist/cli.js` |
 | Types entry | `./dist/index.d.ts` |
@@ -48,6 +48,7 @@ app package's development scripts.
 | Parity metadata | `PAJA_UPSTREAM_WEB_DOMAINS`, `PAJA_ADVERTISED_DOMAINS`, `PAJA_HANDSHAKE_DOMAINS`, `PAJA_COMPATIBILITY_ALIASES`, `PAJA_REQUIRED_SERVICES`, `getMissingAdvertisedDomains`, `getMissingServices` |
 | Readiness | `waitForTargetUrl`, `ReadinessError`, `WaitForTargetUrlOptions`, `ReadinessFetch` |
 | Server | `startPajaServer`, `PajaServer`, `PajaServerOptions` |
+| Target CORS | `probeTargetCors`, `classifyTargetCors`, `PAJA_TARGET_CORS_HINT`, `PajaTargetCorsDiagnostic`, `PajaTargetCorsStatus`, `PajaTargetCorsFetch` |
 | Defaults | `DEFAULT_PAJA_HOST`, `DEFAULT_PAJA_PORT`, `DEFAULT_READY_TIMEOUT_MS`, `DEFAULT_PAJA_RUNTIME_WAIT_MS` |
 
 ## CLI
@@ -123,6 +124,23 @@ resolve against the app dev server. A real `ShellBridge` completes
 INC, relay/outbox, and service dispatch. Reload uses a generation-specific
 internal window id so the same iframe can receive a fresh `shell.init` without
 restarting the CLI or the app dev server.
+
+Because the frame is sandboxed without `allow-same-origin`, the napplet document
+has an opaque origin and requests its own assets with `Origin: null`. Module
+scripts are always fetched in CORS mode, so the app dev server must answer that
+origin with `Access-Control-Allow-Origin: *` or `null`, or the entry module is
+blocked and the frame renders blank. Vite's default `server.cors` allowlist
+matches only `localhost`, `127.0.0.1`, and `[::1]` origins, so Vite projects need
+`server: { cors: { origin: '*' } }`.
+
+Paja does not leave that failure silent. `GET /__kehto/target-cors.json` probes
+the configured target with an explicit `Origin: null` request — a header a
+browser cannot forge, which is why the probe runs on the Paja server — and
+classifies the response as `allowed`, `blocked`, or `unreachable`. The browser
+host requests it once per target-url boot and, for anything other than
+`allowed`, appends a `paja.target.cors.error` entry to the message log and warns
+on the console with the remedy. `classifyTargetCors` and `probeTargetCors` are
+exported for reuse.
 
 The console includes:
 

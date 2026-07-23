@@ -67,6 +67,28 @@ bootstrap, while target assets and HMR still resolve through the framework dev
 server. The runtime reload button reinitializes the Kehto shell state around the
 same target URL.
 
+## Allow the Sandboxed Frame's Origin
+
+Paja sandboxes the target iframe without `allow-same-origin`, so the app
+requests its own assets with `Origin: null`. Module scripts are always fetched
+in CORS mode, so the dev server must allow that origin or the app's entry module
+is blocked and the frame stays blank.
+
+Vite's default `server.cors` allowlist covers only `localhost`, `127.0.0.1`, and
+`[::1]`, so add:
+
+```js
+// vite.config.js
+export default {
+  server: { cors: { origin: '*' } },
+};
+```
+
+Other dev servers need the equivalent: answer `Origin: null` with
+`Access-Control-Allow-Origin: *` or `null`. If the target would block the frame,
+Paja logs a `paja.target.cors.error` entry in the **Messages** panel and warns on
+the browser console with the remedy, so a blank frame is never the only signal.
+
 ## Use an Existing Target Server
 
 If another process already serves the app, omit the command:
