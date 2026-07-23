@@ -126,6 +126,16 @@ const rawListenerTypeGuards: Record<string, readonly string[]> = {
   ],
 };
 
+const activeShellSurfaceFiles = [
+  'packages/shell/src/napplet-namespace.ts',
+  'packages/shell/src/napplet-namespace.test.ts',
+  'packages/shell/src/shell-supports-conformance.test.ts',
+  'packages/shell/README.md',
+] as const;
+
+// Planning history and changelogs retain the removed vocabulary as historical record.
+const historicalShellExclusions = ['.planning/', 'CHANGELOG.md'] as const;
+
 const forbiddenNappletSourcePatterns = [
   { label: 'window.nostr', pattern: /\bwindow\s*\.\s*nostr\b/ },
   { label: 'localStorage', pattern: /\blocalStorage\b/ },
@@ -309,6 +319,35 @@ describe('NIP-5D conformance static guards', () => {
     expect(agents).toMatch(/A missing or stale\s+package export is upstream drift/);
     expect(policy).toContain('Optional-domain presence and mandatory NAP-SHELL are separate requirements.');
     expect(policy).toContain('napplet artifacts are not required to bundle their own handshake');
+  });
+
+  it('keeps active NAP-SHELL support domain-only and host resolution out of injected APIs', () => {
+    const namespace = readRepoFile('packages/shell/src/napplet-namespace.ts');
+    const readme = readRepoFile('packages/shell/README.md');
+    const retiredNegotiationMarkers = [
+      'capabilities.' + 'protocols',
+      'proto' + 'col?: string',
+      'n' + 'aps:',
+    ];
+
+    expect(historicalShellExclusions).toEqual(['.planning/', 'CHANGELOG.md']);
+    for (const file of activeShellSurfaceFiles) {
+      const source = readRepoFile(file);
+      expect(source, `${file} must not declare a second supports parameter`).not.toMatch(
+        /(?:function\s+)?supports\s*(?::\s*)?\(\s*[^,)]+\s*,/,
+      );
+      for (const marker of retiredNegotiationMarkers) {
+        expect(source, `${file} must not expose ${marker}`).not.toContain(marker);
+      }
+    }
+
+    expect(namespace).toContain('function supports(domain: string): boolean');
+    expect(namespace).not.toContain('resolveShellEnvironment');
+    expect(readme).toContain('`supports(domain)`');
+    expect(readme).toContain('false before `shell.init`');
+    expect(readme).toContain('resolveShellEnvironment(hooks, identity)');
+    expect(readme).not.toContain('numbered protocols');
+    expect(readme).not.toContain('`naps`');
   });
 
   it('keeps NAP-RELAY subscribe routing fields wired through runtime, services, playground, and tests', () => {

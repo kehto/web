@@ -306,7 +306,6 @@ describe('NIP-5D napplet namespace prelude', () => {
     expect(shell.supports('relay')).toBe(true);
     expect(shell.supports('inc')).toBe(true);
     expect(shell.supports('Relay')).toBe(true);
-    expect((shell.supports as (...args: unknown[]) => boolean)('relay', 'NAP-01')).toBe(true);
     for (const unsupported of ['RELay', ' relay', ' relay ', 'relay ', 'rel', 'relay-pool', '', 'unknown', null, 1, {}]) {
       expect(() => (shell.supports as (domain: unknown) => boolean)(unsupported)).not.toThrow();
       expect((shell.supports as (domain: unknown) => boolean)(unsupported)).toBe(false);
