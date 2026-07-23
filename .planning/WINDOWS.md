@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 12
+open_count: 15
 waived_count: 0
 fixed_count: 0
-total_count: 12
-last_updated: 2026-07-23T18:20:37.107Z
+total_count: 15
+last_updated: 2026-07-23T18:27:08.984Z
 ---
 
 # Broken Windows Ledger
@@ -27,6 +27,9 @@ last_updated: 2026-07-23T18:20:37.107Z
 | 10 | 102 | deviation | packages/runtime/src/service-dispatch.ts |  | Exact inc.emit early return added to prevent a generic inc service from bypassing INC runtime ownership. | open |  | 2026-07-23T18:05:35.521Z |  |
 | 11 | 102 | unrun-verify | .aislop/config.yml |  | AI-slop gate could not run because the aislop executable is unavailable in the workspace. | open |  | 2026-07-23T18:11:19.801Z |  |
 | 12 | 102 | deviation | packages/runtime/src/session-registry.ts | 125 | Enumerate live window sessions so ACL revocation reaches empty-pubkey NIP-5D sessions. | open |  | 2026-07-23T18:20:37.107Z |  |
+| 13 | 102 | unrun-verify | tests/e2e/demo-notification-service.spec.ts |  | Focused notification Playwright verification could not run because Chromium is unavailable at /usr/bin/chromium. | open |  | 2026-07-23T18:27:08.877Z |  |
+| 14 | 102 | unrun-verify | .aislop/config.yml |  | AI-slop verification could not run because aislop is unavailable locally; no package was installed. | open |  | 2026-07-23T18:27:08.930Z |  |
+| 15 | 102 | deviation | apps/playground/src/main-notifications.ts | 39 | Removed a remaining retired notification topic-form toast cue during the active-source conformance scan. | open |  | 2026-07-23T18:27:08.984Z |  |
 
 ````json
 [
@@ -172,6 +175,42 @@ last_updated: 2026-07-23T18:20:37.107Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-23T18:20:37.107Z",
+    "resolved_at": null
+  },
+  {
+    "id": 13,
+    "kind": "unrun-verify",
+    "phase": "102",
+    "file": "tests/e2e/demo-notification-service.spec.ts",
+    "line": null,
+    "description": "Focused notification Playwright verification could not run because Chromium is unavailable at /usr/bin/chromium.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-23T18:27:08.877Z",
+    "resolved_at": null
+  },
+  {
+    "id": 14,
+    "kind": "unrun-verify",
+    "phase": "102",
+    "file": ".aislop/config.yml",
+    "line": null,
+    "description": "AI-slop verification could not run because aislop is unavailable locally; no package was installed.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-23T18:27:08.930Z",
+    "resolved_at": null
+  },
+  {
+    "id": 15,
+    "kind": "deviation",
+    "phase": "102",
+    "file": "apps/playground/src/main-notifications.ts",
+    "line": 39,
+    "description": "Removed a remaining retired notification topic-form toast cue during the active-source conformance scan.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-23T18:27:08.984Z",
     "resolved_at": null
   }
 ]
