@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.29
 milestone_name: Napplet Convention and Runtime Conformance
-current_phase: 103
-current_phase_name: identity-and-theme-wire-parity
-status: executing
-stopped_at: Completed 103-07-PLAN.md
-last_updated: "2026-07-23T22:02:16.282Z"
+current_phase: 102
+current_phase_name: nap-inc-event-channel-parity
+status: blocked
+stopped_at: Phase 102 repeated-overflow contract conflict surfaced upstream
+last_updated: "2026-07-23T22:32:17.601Z"
 last_activity: 2026-07-23
-last_activity_desc: Phase 103 plans passed verification; Phase 102 remains upstream-blocked
+last_activity_desc: Phase 103 formally verified; Phase 102 remains upstream-blocked
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 2
   total_plans: 25
   completed_plans: 25
-  percent: 50
+  percent: 33
 ---
 
 # Project State
@@ -24,15 +24,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-23)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 103 — identity-and-theme-wire-parity
+**Current focus:** Phase 102 — nap-inc-event-channel-parity
 
 ## Current Position
 
-Phase: 103 (identity-and-theme-wire-parity) — EXECUTING
-Plan: 7 of 7
-Status: Ready to execute
+Phase: 102 (nap-inc-event-channel-parity) — BLOCKED
+Plan: 13 of 13
+Status: Awaiting upstream clarification of repeated unopened-handle overflow semantics
 
-Last activity: 2026-07-23 -- Phase 103 plans passed verification; Phase 102 remains upstream-blocked
+Last activity: 2026-07-23 -- Phase 103 formally verified; Phase 102 remains upstream-blocked
 
 ## Performance Metrics
 

@@ -85,7 +85,7 @@ final host integration wait for mutually compatible convention-capable
 
 - [x] **Phase 101: NAP-SHELL Session Integrity** - napplets establish one isolated session and discover only live, granted runtime domains.
 - [ ] **Phase 102: NAP-INC Event and Channel Parity** - napplets exchange exact convention events and authorized channels using dTag identities.
-- [ ] **Phase 103: Identity and Theme Wire Parity** - identity and theme services use only contract-shaped result and change behavior.
+- [x] **Phase 103: Identity and Theme Wire Parity** - identity and theme services use only contract-shaped result and change behavior.
 - [ ] **Phase 104: NAP-INTENT and Manifest Contract Parity** - resolve authoritative convention URIs through verified contracts and retain carrier-neutral delivery independently of source lifetime.
 - [ ] **Phase 105: Published Convention Adoption and Host Flows** - consume released Napplet contracts and prove intent, profile, resource, and theme behavior in Paja and playground.
 - [ ] **Phase 106: Active-Surface Conformance and Release** - prove the complete migration, regression health, and release readiness.
@@ -252,8 +252,8 @@ users rely on.
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 101. NAP-SHELL Session Integrity | v1.29 | 5/5 | Complete | 2026-07-23 |
-| 102. NAP-INC Event and Channel Parity | v1.29 | 13/13 | In Progress|  |
-| 103. Identity and Theme Wire Parity | v1.29 | 7/7 | In Progress|  |
+| 102. NAP-INC Event and Channel Parity | v1.29 | 13/13 | Blocked on draft #92 ambiguity |  |
+| 103. Identity and Theme Wire Parity | v1.29 | 7/7 | Complete | 2026-07-23 |
 | 104. NAP-INTENT and Manifest Contract Parity | v1.29 | 0/TBD | Not started | - |
 | 105. Published Convention Adoption and Host Flows | v1.29 | 0/TBD | Waiting on upstream package publication | - |
 | 106. Active-Surface Conformance and Release | v1.29 | 0/TBD | Not started | - |
