@@ -19,6 +19,7 @@ import type {
   WebrtcOpenRequest,
   WebrtcOpenResult,
 } from '@napplet/core';
+import type { ThemeChangedMessage } from '@napplet/nap/theme/types';
 import { RESOURCE_DEMO_REMOTE_IMAGE_ORIGIN } from './main-preferences.js';
 
 /**
@@ -71,6 +72,7 @@ export interface DemoHooksContext {
   getNappletEntries(): Iterable<[string, NappletAclInfo]>;
   getDisabledDomains(): readonly string[];
   onResolvedAclCheck(event: AclCheckEvent, windowId: string, nappletName: string): void;
+  onThemeBroadcast(envelope: ThemeChangedMessage): void;
 }
 
 let notificationServiceHandler: ServiceHandler | null = null;
@@ -125,7 +127,7 @@ export function createDemoHooks(
       void metadata;
     },
   });
-  const themeBundle = createThemeService({ onBroadcast: () => {} });
+  const themeBundle = createThemeService({ onBroadcast: context.onThemeBroadcast });
   const configBundle = createConfigService({ getValues: () => ({ ...demoConfigFixtures }) });
   const resourceHandler = createDemoResourceHandler();
   const linkService = createLinkService({

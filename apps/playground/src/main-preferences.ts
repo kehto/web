@@ -8,7 +8,7 @@ import {
   setPersistenceMode,
   type PersistenceMode,
 } from './color-state.js';
-import { relay, getNapplets } from './shell-host.js';
+import { getThemeServiceBundle } from './shell-host.js';
 import {
   cancelAllTraceAnimations,
 } from './trace-animator.js';
@@ -70,11 +70,7 @@ export function createPlaygroundPreferences({
   applySelectedTheme(currentTheme, false);
 
   function broadcastCurrentTheme(): void {
-    if (!relay) return;
-    relay.publishTheme(currentTheme as Parameters<typeof relay.publishTheme>[0]);
-    for (const napplet of getNapplets().values()) {
-      napplet.iframe.contentWindow?.postMessage({ type: 'theme.changed', theme: currentTheme }, '*');
-    }
+    getThemeServiceBundle()?.publishTheme(currentTheme);
   }
 
   function applyColorMode(mode: PersistenceMode, persist: boolean): void {

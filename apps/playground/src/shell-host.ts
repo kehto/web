@@ -216,31 +216,6 @@ export function getDemoHostPubkey(): string {
   return _hostPubkey;
 }
 
-function getCurrentUserIdentityPubkey(): string {
-  const state = getSignerConnectionState();
-  if (state.method === 'none' || state.isConnecting || state.error) return '';
-  return state.pubkey ?? '';
-}
-
-function publishCurrentUserIdentityToNapplet(info: NappletInfo): void {
-  const targetWindow = info.iframe.contentWindow;
-  if (!targetWindow) return;
-  targetWindow.postMessage(
-    { type: 'identity.changed', pubkey: getCurrentUserIdentityPubkey() } as NappletMessage,
-    '*',
-  );
-}
-
-function publishCurrentUserIdentityToWindowId(windowId: string): void {
-  const info = napplets.get(windowId);
-  if (info) publishCurrentUserIdentityToNapplet(info);
-}
-
-function scheduleCurrentUserIdentitySync(info: NappletInfo): void {
-  window.setTimeout(() => publishCurrentUserIdentityToNapplet(info), 0);
-  window.setTimeout(() => publishCurrentUserIdentityToNapplet(info), 100);
-}
-
 function createInstalledMessageTap(): MessageTap {
   const messageTap = createMessageTap((source) => {
     for (const [windowId, info] of napplets) {
@@ -388,16 +363,13 @@ function wrapRelayHandleMessage(messageTap: MessageTap): void {
   };
 }
 
-function bindTapIdentityUpdates(messageTap: MessageTap): void {
+function bindTapIdentityBindings(messageTap: MessageTap): void {
   messageTap.onMessage((msg) => {
     if (msg.verb === 'OK' && msg.parsed.success === true && msg.direction === 'shell->napplet') {
       markLegacyIdentityBindings();
     }
     if (msg.verb === 'ENVELOPE' && msg.direction === 'napplet->shell' && msg.windowId) {
       markEnvelopeIdentityBinding(msg.windowId);
-      if (msg.envelopeType === 'identity.getPublicKey') {
-        publishCurrentUserIdentityToWindowId(msg.windowId);
-      }
     }
   });
 }
@@ -424,7 +396,6 @@ function markEnvelopeIdentityBinding(windowId: string): void {
       aggregateHash: entry.aggregateHash,
     },
   }));
-  scheduleCurrentUserIdentitySync(info);
 }
 
 function markNappletIdentityBound(info: NappletInfo, entry: SessionEntry): void {
@@ -448,6 +419,7 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
       pushAclEvent(event, windowId, nappletName);
       _notifyAclCheckListeners(event, windowId, nappletName);
     },
+    onThemeBroadcast: (envelope) => relay.publishTheme(envelope.theme),
   });
   tap = createInstalledMessageTap();
   installOriginRegistryProxy(tap);
@@ -460,7 +432,7 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
   wrapRelayHandleMessage(tap);
 
   window.addEventListener("message", relay.handleMessage);
-  bindTapIdentityUpdates(tap);
+  bindTapIdentityBindings(tap);
   setMessageTap(tap);
 
   return { tap, relay };
