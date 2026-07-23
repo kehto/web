@@ -5,10 +5,10 @@ milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 102
 current_phase_name: nap-inc-event-channel-parity
 status: verifying
-stopped_at: Verification found 102-13 unopened-handle overflow gap
-last_updated: "2026-07-23T20:27:06.414Z"
+stopped_at: Phase 102 repeated-overflow contract conflict surfaced upstream
+last_updated: "2026-07-23T20:32:38.245Z"
 last_activity: 2026-07-23
-last_activity_desc: Planned Phase 102 overflow gap closure
+last_activity_desc: Re-verification blocked on draft #92 bounded-retention semantics
 progress:
   total_phases: 6
   completed_phases: 2
@@ -32,7 +32,7 @@ Phase: 102 (nap-inc-event-channel-parity) — EXECUTING
 Plan: 13 of 13
 Status: Phase complete — ready for verification
 
-Last activity: 2026-07-23 -- Planned Phase 102 overflow gap closure
+Last activity: 2026-07-23 -- Re-verification blocked on draft #92 bounded-retention semantics
 
 ## Performance Metrics
 
@@ -83,6 +83,7 @@ Baseline contract: `napplet/naps@6461e4b37c29dc09a20dff35d9515889c4433874`. Prop
 - Numbered cross-napplet protocols are gone; conventions use `napplet:<archetype>/<intent>[...?params]`.
 - Full conformance also requires active SHELL, INTENT, INC, IDENTITY, and THEME corrections.
 - `kehto/web#203` tracks implementation against the proposed resolutions: exact queryless identity and binding-owned query transposition from #89/#90, plus the #92 symmetric-channel reply. The issue remains open until Kehto implementation and positive/negative tests satisfy its close criteria.
+- Phase 102 re-verification found draft #92 underspecified for repeated unopened-handle overflow: full late-handle retention and bounded memory cannot both hold without a required backpressure/cap policy. The conflict is recorded in `kehto/web#203` comment `5063109050`; do not silently choose lossy or unbounded semantics.
 - Final package adoption is gated on the concurrent `napplet/web` chase publishing convention-capable core/nap/shim/sdk/vite-plugin releases.
 
 ### Key Context for v1.21 (Phases 86–89)
