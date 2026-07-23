@@ -665,8 +665,11 @@ function nappletNamespacePrelude(domains: string[]): void {
       (msg) => (Object.prototype.hasOwnProperty.call(msg, field) ? msg[field] : fallback) as T,
       { rejectOnError: type !== 'identity.getPublicKey' },
     );
-    return {
+    return Object.freeze({
       getPublicKey: () => read('identity.getPublicKey', 'pubkey', ''),
+      getRelays: () => read('identity.getRelays', 'relays', {}),
+      getProfile: () => read('identity.getProfile', 'profile', null),
+      getFollows: () => read('identity.getFollows', 'pubkeys', []),
       onChanged(handler: (pubkey: string) => void) {
         const off = listen((event) => {
           if (!isParentMessage(event)) return;
@@ -676,19 +679,7 @@ function nappletNamespacePrelude(domains: string[]): void {
         });
         return subscriptionHandle(off);
       },
-      getRelays: () => read('identity.getRelays', 'relays', {}),
-      getProfile: () => read('identity.getProfile', 'profile', null),
-      getFollows: () => read('identity.getFollows', 'pubkeys', []),
-      getList: (listType: string) => request(
-        { type: 'identity.getList', listType },
-        'identity.getList.result',
-        (msg) => Array.isArray(msg.entries) ? msg.entries : [],
-      ),
-      getZaps: () => read('identity.getZaps', 'zaps', []),
-      getMutes: () => read('identity.getMutes', 'pubkeys', []),
-      getBlocked: () => read('identity.getBlocked', 'pubkeys', []),
-      getBadges: () => read('identity.getBadges', 'badges', []),
-    };
+    });
   }
 
   function makeTheme(): Record<string, unknown> {
@@ -1385,6 +1376,8 @@ function nappletNamespacePrelude(domains: string[]): void {
 
   const shell = makeShell();
   let inc: Record<string, unknown> | undefined;
+  let identity: Record<string, unknown> | undefined;
+  let theme: Record<string, unknown> | undefined;
 
   function makeProtectedInc(existing: unknown): Record<string, unknown> {
     const extensions = existing && typeof existing === 'object'
@@ -1394,9 +1387,25 @@ function nappletNamespacePrelude(domains: string[]): void {
     return { ...extensions, ...inc };
   }
 
+  function makeProtectedIdentity(): Record<string, unknown> {
+    identity ??= makeIdentity();
+    return identity;
+  }
+
+  function makeProtectedTheme(): Record<string, unknown> {
+    theme ??= Object.freeze(makeTheme());
+    return theme;
+  }
+
+  function isProtectedDomain(domain: string): boolean {
+    return domain === 'shell' || domain === 'inc' || domain === 'identity' || domain === 'theme';
+  }
+
   function makeDomain(domain: string, existing: unknown): unknown {
     if (domain === 'shell') return shell;
     if (domain === 'inc') return makeProtectedInc(existing);
+    if (domain === 'identity') return makeProtectedIdentity();
+    if (domain === 'theme') return makeProtectedTheme();
     if (existing && typeof existing === 'object' && Object.keys(existing).length > 0) return existing;
     switch (domain) {
       case 'relay': return makeRelay();
@@ -1404,8 +1413,6 @@ function nappletNamespacePrelude(domains: string[]): void {
       case 'keys': return makeKeys();
       case 'media': return makeMedia();
       case 'notify': return makeNotify();
-      case 'identity': return makeIdentity();
-      case 'theme': return makeTheme();
       case 'config': return makeConfig();
       case 'resource': return makeResource();
       case 'cvm': return makeCvm();
@@ -1433,10 +1440,22 @@ function nappletNamespacePrelude(domains: string[]): void {
       },
       defineProperty(obj, prop, descriptor) {
         if (typeof prop !== 'string' || !allowed.has(prop)) return true;
+        if (isProtectedDomain(prop)) {
+          return Reflect.defineProperty(obj, prop, {
+            value: makeDomain(prop, descriptor.value),
+            enumerable: true,
+            configurable: true,
+            writable: true,
+          });
+        }
         return Reflect.defineProperty(obj, prop, {
           ...descriptor,
           value: makeDomain(prop, descriptor.value),
         });
+      },
+      deleteProperty(obj, prop) {
+        if (typeof prop === 'string' && allowed.has(prop) && isProtectedDomain(prop)) return true;
+        return Reflect.deleteProperty(obj, prop);
       },
     });
   }

@@ -521,6 +521,51 @@ describe('NIP-5D napplet namespace prelude', () => {
     });
   });
 
+  it('keeps identity read-only, canonical, and parent-authenticated after direct reassignment', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['identity'] }), target);
+
+    const namespace = target.napplet as Record<string, Record<string, (...args: unknown[]) => unknown>>;
+    const identity = namespace.identity;
+    const getPublicKey = identity.getPublicKey;
+    const onChanged = identity.onChanged;
+    const changes: string[] = [];
+    const subscription = onChanged((pubkey: string) => changes.push(pubkey)) as { close(): void };
+
+    expect(Object.keys(identity)).toEqual(['getPublicKey', 'getRelays', 'getProfile', 'getFollows', 'onChanged']);
+    expect(Object.getOwnPropertyDescriptor(identity, 'getPublicKey')).toMatchObject({
+      value: getPublicKey,
+      enumerable: true,
+      configurable: false,
+      writable: false,
+    });
+    expect(Reflect.set(identity, 'getPublicKey', () => Promise.resolve('forged'))).toBe(false);
+    expect(Reflect.deleteProperty(identity, 'onChanged')).toBe(false);
+    expect(Reflect.defineProperty(identity, 'getPublicKey', { value: () => Promise.resolve('forged') })).toBe(false);
+
+    namespace.identity = { getPublicKey: () => Promise.resolve('forged'), onChanged: () => ({ close() {} }) };
+    target.napplet = { identity: { getPublicKey: () => Promise.resolve('forged') } };
+    expect(target.napplet?.identity).toBe(identity);
+    expect((target.napplet?.identity as typeof identity).getPublicKey).toBe(getPublicKey);
+    expect((target.napplet?.identity as typeof identity).onChanged).toBe(onChanged);
+
+    const publicKey = getPublicKey() as Promise<string>;
+    const request = target.postedMessages.at(-1);
+    expect(request).toEqual({ type: 'identity.getPublicKey', id: 'id-1' });
+    target.dispatchMessage({}, { type: 'identity.getPublicKey.result', id: request?.id, pubkey: 'forged' });
+    target.dispatchMessage({}, { type: 'identity.changed', pubkey: 'forged' });
+    expect(changes).toEqual([]);
+    target.dispatchParentMessage({ type: 'identity.getPublicKey.result', id: request?.id, pubkey: 'trusted' });
+    await expect(publicKey).resolves.toBe('trusted');
+
+    target.dispatchParentMessage({ type: 'identity.changed', pubkey: 'trusted' });
+    target.dispatchParentMessage({ type: 'identity.changed', pubkey: '' });
+    expect(changes).toEqual(['trusted', '']);
+    subscription.close();
+    target.dispatchParentMessage({ type: 'identity.changed', pubkey: 'after-close' });
+    expect(changes).toEqual(['trusted', '']);
+  });
+
   it('normalizes canonical INC conventions, protects INC assignment, and shares topic subscriptions', () => {
     const target = createPreludeTestWindow();
     const receivedA: unknown[] = [];
