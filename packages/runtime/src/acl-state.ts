@@ -84,11 +84,13 @@ function toIdentity(pubkey: string, dTag: string, hash: string): Identity {
   return { pubkey, dTag, hash };
 }
 
-type AclMutation =
+/** An ACL authority change that can invalidate runtime-owned routes. */
+export type AclMutation =
   | { readonly type: 'revoke'; readonly dTag: string; readonly aggregateHash: string; readonly capability: Capability }
   | { readonly type: 'block'; readonly dTag: string; readonly aggregateHash: string };
 
-type AclMutationObserver = (mutation: AclMutation) => void;
+/** Receives synchronous ACL authority changes after persistence succeeds. */
+export type AclMutationObserver = (mutation: AclMutation) => void;
 
 /**
  * ACL state container — wraps @kehto/acl's pure functions with
