@@ -224,12 +224,12 @@ Changesets cover every changed published `@kehto/*` surface; the branch is based
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SHELL-01 | Phase 101 | Pending |
-| SHELL-02 | Phase 101 | Pending |
+| SHELL-01 | Phase 101 | Complete |
+| SHELL-02 | Phase 101 | Complete |
 | SHELL-03 | Phase 101 | Complete |
 | SHELL-04 | Phase 101 | Complete |
 | SHELL-05 | Phase 101 | Complete |
-| SHELL-06 | Phase 101 | Pending |
+| SHELL-06 | Phase 101 | Complete |
 | INC-01 | Phase 102 | Pending |
 | INC-02 | Phase 102 | Pending |
 | INC-03 | Phase 102 | Pending |
