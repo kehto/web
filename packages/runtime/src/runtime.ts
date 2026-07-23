@@ -295,6 +295,7 @@ function createFirewallGate(config: FirewallGateConfig): (windowId: string, enve
 
 function createMessageHandler(
   hooks: RuntimeAdapter,
+  sessionRegistry: SessionRegistry,
   enforceNap: ReturnType<typeof createNapEnforceGate>,
   dispatchNapEnvelope: (windowId: string, envelope: NappletMessage) => void,
   firewallGate: (windowId: string, envelope: NappletMessage, senderCap: string | null) => 'dispatch' | 'drop',
@@ -304,6 +305,11 @@ function createMessageHandler(
     const envelope = msg as NappletMessage;
     const dotIdx = envelope.type.indexOf('.');
     if (dotIdx === -1) return;
+    // NAP-SHELL establishes the sole capability ingress boundary: valid
+    // envelopes remain inert until the source-bound shell.ready transition
+    // creates a session. This deliberately precedes capability resolution,
+    // ACL, firewall, service routing, and domain dispatch.
+    if (!sessionRegistry.getEntryByWindowId(windowId)) return;
 
     const caps = resolveCapabilitiesNap(envelope);
     if (caps.senderCap) {
@@ -490,7 +496,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     inc: incRuntime.handleMessage,
     ...domainHandlers,
   });
-  const handleMessage = createMessageHandler(hooks, enforceNap, dispatchNapEnvelope, firewallGate);
+  const handleMessage = createMessageHandler(hooks, sessionRegistry, enforceNap, dispatchNapEnvelope, firewallGate);
 
   return createRuntimeInstance({
     hooks,

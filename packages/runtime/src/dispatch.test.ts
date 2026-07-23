@@ -6,7 +6,7 @@
  * All tests run in Node.js without browser globals.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createRuntime } from './runtime.js';
 import type { Runtime } from './runtime.js';
 import { createMockRuntimeAdapter, createNip5dSessionEntry, findEnvelopeResponse } from './test-utils.js';
@@ -71,6 +71,55 @@ describe('runtime NAP dispatch — envelope guard', () => {
   it('drops envelopes with unknown domain — silently per NIP-5D spec', () => {
     runtime.handleMessage(WINDOW_ID, { type: 'unknown.action' } as NappletMessage);
     expect(mock.sent).toHaveLength(0);
+  });
+
+  it('drops a valid storage envelope before ACL, firewall, or domain dispatch when no session exists', () => {
+    const firewallEvents = vi.fn();
+    const unregisteredCtx = createMockRuntimeAdapter({ onFirewallEvent: firewallEvents });
+    const unregistered = createRuntime(unregisteredCtx.hooks);
+    // Make a firewall traversal externally observable if the ingress guard is absent.
+    unregistered.firewallState.setPolicy('', 'deny');
+
+    unregistered.handleMessage(WINDOW_ID, {
+      type: 'storage.get',
+      id: 'pre-session-storage',
+      key: 'secret',
+    } as NappletMessage);
+
+    expect(unregistered.sessionRegistry.getEntryByWindowId(WINDOW_ID)).toBeUndefined();
+    expect(unregisteredCtx.sent).toHaveLength(0);
+    expect(unregisteredCtx.aclChecks).toHaveLength(0);
+    expect(firewallEvents).not.toHaveBeenCalled();
+  });
+
+  it('keeps a registered service inert before session creation, then dispatches it after registration', () => {
+    const serviceCalls = vi.fn();
+    const firewallEvents = vi.fn();
+    const ctx = createMockRuntimeAdapter({ onFirewallEvent: firewallEvents });
+    const runtimeWithService = createRuntime(ctx.hooks);
+    runtimeWithService.registerService('keys', {
+      descriptor: { name: 'keys', version: '1.0.0' },
+      handleMessage: serviceCalls,
+    });
+    runtimeWithService.firewallState.setPolicy('', 'deny');
+
+    const envelope = {
+      type: 'keys.registerAction',
+      id: 'pre-session-service',
+      action: { id: 'shortcut' },
+    } as NappletMessage;
+    runtimeWithService.handleMessage(WINDOW_ID, envelope);
+
+    expect(ctx.sent).toHaveLength(0);
+    expect(ctx.aclChecks).toHaveLength(0);
+    expect(firewallEvents).not.toHaveBeenCalled();
+    expect(serviceCalls).not.toHaveBeenCalled();
+
+    runtimeWithService.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+    runtimeWithService.firewallState.setPolicy(TEST_DTAG, 'allow');
+    runtimeWithService.handleMessage(WINDOW_ID, envelope);
+
+    expect(serviceCalls).toHaveBeenCalledWith(WINDOW_ID, envelope, expect.any(Function));
   });
 });
 
@@ -594,20 +643,15 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(keys).toContain('k2');
     });
 
-    it('storage.get returns .result envelope with error field for unregistered window', () => {
+    it('storage.get is silent for an unregistered window before shell.ready', () => {
       // Don't register the window session
       const ctx2 = createMockRuntimeAdapter();
       const runtime2 = createRuntime(ctx2.hooks);
-      // No session registered
 
       runtime2.handleMessage(WINDOW_ID, { type: 'storage.get', id: 'req-nr', key: 'k' } as NappletMessage);
-      // Canonical @napplet/nap/storage has no *.error type — errors arrive as
-      // storage.get.result with the `error` field set.
-      const result = findEnvelopeResponse(ctx2.sent, 'storage.get.result');
-      expect(result).toBeDefined();
-      expect((result as any).error).toContain('not registered');
-      // No non-canonical storage.get.error envelope was emitted.
-      expect(findEnvelopeResponse(ctx2.sent, 'storage.get.error')).toBeUndefined();
+
+      expect(ctx2.sent).toHaveLength(0);
+      expect(ctx2.aclChecks).toHaveLength(0);
     });
   });
 
