@@ -2,15 +2,40 @@
 
 ## Goal
 
-Conform Kehto to `napplet/naps` commit `6461e4b37c29dc09a20dff35d9515889c4433874`: replace numbered cross-napplet protocol negotiation with ad hoc conventions, close every active Kehto gap in the supported NAP-SHELL, NAP-INTENT, NAP-INC, NAP-IDENTITY, and NAP-THEME contracts, and prove the result against convention-capable published Napplet packages.
+Conform Kehto to the v1.29 `napplet/naps` baseline at
+`6461e4b37c29dc09a20dff35d9515889c4433874` plus the proposed exact heads of
+draft PRs #89, #90, #91, and stacked #92: replace numbered cross-napplet protocol negotiation
+with stable queryless convention identities, implement binding-owned
+URI-to-payload transposition and runtime-attested sender identity, close every
+active supported-NAP gap, and prove the result against convention-capable
+published Napplet packages.
 
 ## Authority and Boundary
 
-- Normative authority: `napplet/naps` `master` at `6461e4b37c29dc09a20dff35d9515889c4433874`.
+- Merged baseline: `napplet/naps` `master` at
+  `6461e4b37c29dc09a20dff35d9515889c4433874`.
+- Proposed NAP-INC authority: draft PR #89 head
+  `4593ce9e301ce098fd3dad64206fcd6f144fa7af`.
+- Proposed governance/web projection authority: draft PR #90 head
+  `896c32c92deee68dc4d10fc1132b62df20cccb6f`.
+- Proposed NAP-INTENT authority: draft PR #91 head
+  `a718915ddefa2f03a0126579601f59d8bd86f7c4`.
+- Proposed symmetric NAP-INC channel authority: draft PR #92 head
+  `c5cd06f7be6d4690b303949abb26e87ff62f4729`, stacked on PR #89 head
+  `4593ce9e301ce098fd3dad64206fcd6f144fa7af`.
+- The drafts are open and unmerged. Their exact heads are proposed contract for
+  this chase; any head change requires re-audit before implementation or final
+  dependency adoption.
 - Direct comparison baseline: parent `5fd99465892fbead3888d7146e1737f77b0ed0b4`.
 - Kehto baseline: canonical `origin/main` at `bb3929b3523b75356fd65f658f9bd14c7ff697e4`.
-- Complete audit: `.planning/NAP-CONVENTIONS-6461E4B-DELTA-AUDIT.md`.
+- Baseline audit: `.planning/NAP-CONVENTIONS-6461E4B-DELTA-AUDIT.md`.
+- Exact-head downstream violation matrix:
+  `.planning/NAP-CONVENTIONS-DRAFT-PRS-89-90-91-92-AUDIT.md`.
 - Package gate: final conformance requires convention-capable `@napplet/core`, `@napplet/nap`, `@napplet/shim`, `@napplet/sdk`, and `@napplet/vite-plugin` releases. Kehto may complete independent runtime work first but must not guess unpublished public APIs.
+- Shared-binding boundary: Phase 102 creates one projection-owned convention URI
+  normalizer and wires it only to INC. Phase 104 reuses that helper when it
+  replaces the intent public API and owns normalized-field validation,
+  resolution, acceptance, and delivery lifecycle.
 
 ## Functional Requirements
 
@@ -18,9 +43,29 @@ Conform Kehto to `napplet/naps` commit `6461e4b37c29dc09a20dff35d9515889c4433874
 
 Active code and documentation describe NAPs only as runtime-provided API/capability surfaces. Cross-napplet payload shapes are unnumbered conventions and are never advertised as numbered `NAP-N` protocols.
 
-### BASE-02: Canonical Convention Shape
+### BASE-02: Stable Convention Identity
 
-Archetype-scoped conventions are opaque strings using `napplet:<archetype>/<intent>[...?params]`; Kehto creates neither a numbered registry nor payload schemas derived from NAAT names.
+The stable identity is exactly `napplet:<archetype>/<intent>`. Query parameters
+are per-invocation payload sugar and never appear in subscriptions, normalized
+wire identities, handler metadata, or discovery. Kehto creates neither a
+numbered registry nor payload schemas derived from NAAT names.
+
+### BASE-04: Shared URI-to-Payload Binding
+
+Every runtime-provided web operation that accepts a convention URI uses one
+projection-owned normalizer before `postMessage`. Each unique percent-decoded
+`name=value` pair becomes a text payload field; `+` remains literal and values
+are never coerced. Fragments, malformed percent encoding, repeated decoded
+names, and query plus explicit payload reject locally without sending. Phase
+102 wires this helper to INC; Phase 104 reuses it for intent without creating a
+second parser.
+
+### BASE-05: Exact Normalized Resolution
+
+Runtime routing and handler resolution use exact equality on complete queryless
+identities. No prefix, wildcard, base/query, query-aware matching, or runtime
+query parser exists. Generic service dispatch and host visualizers do not
+intercept INC traffic by topic prefix.
 
 ### BASE-03: Historical Material Boundary
 
@@ -28,7 +73,11 @@ Active code, tests, configs, READMEs, and policies are migrated. Changelogs, arc
 
 ### PKG-01: Published Intent Contracts
 
-Selected published `@napplet/core` and `@napplet/nap` versions expose `convention`/`conventions` intent fields and no canonical `protocol`/`protocols` intent fields.
+Selected published `@napplet/core` and `@napplet/nap` versions expose
+URI-authoritative intent invocation, stable convention contracts,
+acceptance-only results, and carrier-neutral delivery, with no canonical
+`protocol`/`protocols`, `handled`, `windowId`, `newWindow`, intent ID, or
+delivery ID fields.
 
 ### PKG-02: Published Shell Contracts
 
@@ -36,7 +85,10 @@ Selected published `@napplet/core` and `@napplet/shim` versions expose the NAP-S
 
 ### PKG-03: Published Manifest and SDK Contracts
 
-Selected published `@napplet/vite-plugin` accepts convention-bearing archetype configuration and emits `["archetype","<slug>","<convention>"]`; `@napplet/sdk` is rebuilt against the same convention intent contracts.
+Selected published `@napplet/vite-plugin` accepts convention-contract
+configuration and emits one
+`["archetype","<slug>","<convention>","kind:<number>", ...]` tag per contract;
+`@napplet/sdk` is rebuilt against the same binding and intent contracts.
 
 ### PKG-04: Registry and Lockfile Alignment
 
@@ -66,61 +118,123 @@ Capabilities and services are scoped per napplet, readonly to napplet code, and 
 
 Shell, Paja, and playground advertise a domain only when a live implementation is wired; simulation/disabled-domain controls remove it consistently.
 
-### INTENT-01: Convention Field Migration
+### INTENT-01: URI-Authoritative API
 
-`IntentOpenOptions`, `IntentRequest`, and `IntentResult` use optional `convention`; `IntentCandidate` uses required `conventions: string[]`. Canonical serialization emits no `protocol` or `protocols`.
+The injected API is `invoke(uri, options?)` plus `open(uri, options?)` sugar
+whose URI intent must be `open`. The binding derives required `archetype`,
+`action`, queryless `convention`, and optional query-derived `payload`;
+structured or non-text data uses `options.payload` with a queryless URI.
 
-### INTENT-02: Opaque Payload Routing
+### INTENT-02: Normalized Request Validation
 
-`archetype` selects handlers and `convention` names payload parsing. The shell treats payloads as opaque, does not mutate them beyond routing needs, and does not mechanically derive convention from archetype.
+The runtime rejects any normalized request whose convention contains a query or
+fragment, whose convention archetype differs from `request.archetype`, or whose
+convention intent differs from `request.action`. After normalization, payload
+content remains opaque.
 
-### INTENT-03: Installed Verified Catalog
+### INTENT-03: Exact Public Data Model
 
-Availability and handlers are sourced from installed, verified NIP-5A/NIP-5D manifests rather than unsigned host-injected catalog claims.
+Public types expose `IntentInvokeOptions`, `IntentBehavior` with only
+`focus`/`reuse`, required normalized `IntentRequest` fields,
+`IntentContract`, `IntentCandidate` with required `conventions` and `contracts`,
+acceptance-only `IntentResult`, and `IntentDelivery`. Canonical types and wire
+objects contain no protocol fields, `newWindow`, `handled`, `windowId`,
+intent/delivery ID, or caller-supplied sender.
 
-### INTENT-04: Explicit and Default Selection
+### INTENT-04: Installed Manifest Contracts
 
-Explicit convention selection validates handler support. Omission may select the archetype’s recommended default; note/profile/dm defaults are exactly `napplet:note/open`, `napplet:profile/open`, and `napplet:dm/open`, while archetypes with no upstream default remain unset.
+Availability and handlers come from installed, verified NIP-5A manifests rather
+than only running frames or unsigned host claims. Every archetype tag produces
+one contract with a stable queryless convention and optional scoped unsigned
+event kinds. Repeated same-archetype contracts are preserved.
 
-### INTENT-05: User-Controlled Resolution
+### INTENT-05: Exact Contract Resolution
 
-User-overridable defaults are honored. Multiple eligible candidates use a chooser or an explicitly documented user-policy equivalent; Kehto does not silently choose the first installed candidate.
+The runtime resolves an exact convention contract and never synthesizes an
+omitted convention, invents an action, or inspects payload content to infer an
+event kind. A compatible candidate may be installed without already running.
 
-### INTENT-06: Authorized Targeting
+### INTENT-06: User-Controlled and Authorized Selection
 
-Explicit dTag targeting is authorized by shell policy and cannot bypass installation, manifest, or user-choice constraints.
+User-overridable defaults are honored. Multiple eligible candidates use a
+chooser or documented user-policy equivalent rather than silently choosing the
+first. Explicit handler dTags require installation, compatible manifest
+contract, and user/policy authorization.
 
-### INTENT-07: Ready-Before-Delivery
+### INTENT-07: Acceptance-Only Result
 
-Resolved payloads are delivered only after the selected handler is ready, using a convention INC event or cold-start initial state without exposing unrelated identity data.
+`ok: true` means the runtime accepted delivery responsibility, not that the
+target received or handled the intent. A successful result includes normalized
+archetype, action, convention, and handler; a failed result includes a
+pre-acceptance error. The ordinary request `id` correlates only this immediate
+result, and policy denial uses the same structured result rather than
+`intent.*.error`.
 
-### INTENT-08: Wire Results and Errors
+### INTENT-08: Source-Independent Delivery
 
-Existing intent request/result names and correlation IDs remain unchanged. Success and failure use matching `*.result` envelopes; unsupported conventions use exact vocabulary `unsupported convention`; ACL denial does not invent `intent.*.error`.
+After acceptance the runtime retains the normalized delivery independently of
+the source until delivery succeeds or runtime policy reaches terminal failure.
+It sends the immediate result before any policy-driven source close and delivers
+only after target readiness.
 
-### INTENT-09: Catalog Change Notification
+### INTENT-09: Runtime-Attested IntentDelivery
 
-Loaded clients receive `intent.changed` when installed handlers, defaults, or relevant availability changes.
+`intent.deliver` carries one carrier-neutral `IntentDelivery` with a sender dTag
+derived from the authenticated source endpoint. Caller sender data is ignored or
+rejected; delivery reaches only the resolved target and has no request or
+delivery ID.
+
+### INTENT-10: Binding Buffer and Lifecycle Neutrality
+
+The binding retains an incoming delivery until `onDelivery` registers. Delivery
+does not depend on NAP-INC or source liveness. Reuse, source/target ordering and
+overlap, retries, target replacement, restart persistence, and terminal-failure
+handling remain runtime policy; no public field constrains them.
+
+### INTENT-11: Discovery Change Notification
+
+Loaded eligible clients receive `intent.changed` when installed contracts,
+defaults, or relevant availability changes, even if they have not previously
+sent an intent service request.
 
 ### INC-01: Opaque Convention Topics
 
-INC accepts and carries exact `napplet:<archetype>/<intent>[...?params]` topics. It adds no prefix, wildcard, query-stripping, or base/query matching not defined upstream. The pending protocol decision is tracked in `kehto/web#203`.
+The developer-facing `emit` API accepts
+`napplet:<archetype>/<intent>[...?params]`. The shared web binding transposes a
+query before emission; the wire, subscriptions, delivery, and handler metadata
+carry only the stable queryless topic. Runtime routing uses exact
+complete-string equality and no prefix, wildcard, normalization, query parsing,
+or base/query matching.
 
 ### INC-02: Emit and Subscription API
 
-The injected API provides `emit(topic, payload?)`, `on(topic, handler)`, correlated subscribe results, closeable subscriptions, fire-and-forget unsubscribe, and `IncEvent` objects with shell-derived sender dTags.
+The injected API provides `emit(topic, payload?)`, queryless `on(topic,
+handler)`, correlated subscribe results, closeable subscriptions,
+fire-and-forget unsubscribe, and `IncEvent` objects with runtime-attested sender
+dTags. Invalid fire-and-forget emits fail locally and send no wire message.
+Later shim/SDK namespace or INC-domain assignment cannot replace or bypass
+these projection-owned operations.
 
 ### INC-03: Sender and Target Identity
 
-All exposed `sender`, `peer`, and direct targets are napplet dTags. Window IDs and pubkeys are never exposed as napplet identities or accepted as substitutes.
+The emitter never supplies or overrides `sender`; the runtime derives it from
+the authenticated source endpoint. All exposed event/channel `sender`, `peer`,
+and direct targets are napplet dTags. Window IDs and pubkeys are never exposed
+as napplet identities or accepted as substitutes.
 
 ### INC-04: Exact Routing and Exclusion
 
-Events route by exact opaque topic, exclude the sender, preserve optional payloads, and use shell-assigned opaque IDs/channel IDs.
+Events route by exact queryless topic, exclude the sender, preserve optional
+payloads, and use runtime-assigned opaque subscription/channel IDs. Raw
+query-bearing wire topics do not match stable subscriptions.
 
 ### INC-05: Channel Surface
 
-The injected API implements `channel.open`, `channel.list`, and `channel.broadcast`, plus channel handles with `emit`, `on`, and `close`, matching normative result envelopes.
+The injected API implements `channel.open`, `channel.onOpened`, `channel.list`,
+and `channel.broadcast`, plus symmetric endpoint channel handles with `emit`,
+`on`, `onClosed`, and `close`, matching the exact #92 wire shapes.
+`channel.list()` returns informational `ChannelInfo` only and never constructs
+or attaches a handle.
 
 ### INC-06: Channel Authorization
 
@@ -129,10 +243,19 @@ Channel membership/auth is enforced at open time. Per-message channel traffic is
 ### INC-07: Channel Lifecycle
 
 Dead targets return the specified failure, peer destruction closes affected channels with reason `peer destroyed`, and list/broadcast/close cleanup behavior is covered.
+The runtime enqueues the target `inc.channel.opened` before reporting success to
+the opener. The binding materializes each endpoint handle before any event or
+closure, retains an inbound handle until `channel.onOpened`, retains early
+messages until `ChannelHandle.on`, and retains terminal closure for a later
+`ChannelHandle.onClosed`. Any bounded-buffer overflow closes and notifies both
+endpoints rather than dropping data.
 
 ### INC-08: Transport Semantics
 
 Emit/unsubscribe remain fire-and-forget; subscription/channel requests remain correlated; sender exclusion and teardown notification behavior remain intact.
+Channel-open success means only that runtime channel state exists and the target
+notification was enqueued, not that the target registered an application
+handler or accepted application semantics.
 
 ### IDENTITY-01: Public-Key Result Contract
 
@@ -176,7 +299,11 @@ Kehto exposes only normative get/change behavior and does not invent theme subsc
 
 ### ARCH-01: Convention-Bearing Archetype Tags
 
-Manifest parsing and generation preserve `["archetype","<slug>","<convention>"]` tags, including multiple tags and absent conventions, without numbered-NAP validation.
+Manifest parsing and generation preserve one
+`["archetype","<slug>","<stable-convention>","kind:<number>", ...]` tag per
+accepted contract. The convention is required, queryless, and has the same
+archetype as the slug; repeated tags and optional contract-local unsigned event
+kinds remain distinct.
 
 ### ARCH-02: NAAT Boundaries
 
@@ -184,11 +311,18 @@ NAAT slugs, actions, boundaries, and “none yet” defaults remain upstream-def
 
 ### ARCH-03: Playground Profile Convention
 
-The live profile-open flow advertises and uses `napplet:profile/open`. Any query-bearing topic is treated as a distinct exact topic until upstream defines parameter matching.
+The live feed calls `intent.invoke("napplet:profile/open?pubkey=...")`. The
+profile handler advertises stable `napplet:profile/open`, registers
+`onDelivery`, and receives one buffered `IntentDelivery` containing queryless
+convention, text payload, and runtime-attested feed dTag. The flow exposes no
+INC delivery envelope or query-bearing discovery identity.
 
 ### ARCH-04: Convention Validation
 
-Build tooling validates replacement convention declarations as well-formed opaque convention strings and rejects obsolete `NAP-N` declarations, without adding kind-constraint semantics absent from the upstream tag.
+Build tooling validates stable convention declarations, matching archetype
+slugs, and unsigned event-kind metadata; it rejects query/fragment-bearing
+metadata, malformed conventions/kinds, and obsolete `NAP-N` declarations.
+Runtime resolution never infers a kind from payload data.
 
 ## Quality and Release Requirements
 
@@ -212,10 +346,22 @@ Playwright proves NAP-SHELL gating, convention intent selection/delivery, exact 
 
 Changesets cover every changed published `@kehto/*` surface; the branch is based on current canonical `origin/main`, pushed without touching the default branch, and a concise PR is opened only after all gates pass.
 
+### VERIFY-06: Draft-Head and Package Revalidation
+
+Before final merge readiness, Kehto re-fetches draft PRs #89-#92, reports any
+head/semantic drift rather than guessing, and verifies the published npm/JSR
+line implements the same contract used by source, tests, generated docs, and
+lockfile.
+
 ## Non-Goals
 
 - Defining a universal convention registry or allocating convention numbers.
-- Inventing query-aware INC subscription matching while upstream leaves it unspecified.
+- Inventing query-aware routing, subscription, or handler matching; URI
+  normalization occurs only at the runtime-provided binding before the wire.
+- Interpreting normalized convention payload content in the runtime.
+- Choosing retry, restart-persistence, target-replacement, overlap, or terminal
+  failure policy beyond the minimum seams/tests needed to prove the contract
+  remains policy-neutral.
 - Rewriting historical changelogs, archived milestone artifacts, or migration records.
 - Publishing Napplet packages from the Kehto repository.
 - Preserving numbered negotiation as a canonical compatibility API.
@@ -230,6 +376,8 @@ Changesets cover every changed published `@kehto/*` surface; the branch is based
 | SHELL-04 | Phase 101 | Complete |
 | SHELL-05 | Phase 101 | Complete |
 | SHELL-06 | Phase 101 | Complete |
+| BASE-04 | Phase 102 | Pending |
+| BASE-05 | Phase 102 | Pending |
 | INC-01 | Phase 102 | Pending |
 | INC-02 | Phase 102 | Pending |
 | INC-03 | Phase 102 | Pending |
@@ -248,10 +396,6 @@ Changesets cover every changed published `@kehto/*` surface; the branch is based
 | THEME-05 | Phase 103 | Pending |
 | BASE-01 | Phase 104 | Pending |
 | BASE-02 | Phase 104 | Pending |
-| PKG-01 | Phase 104 | Pending |
-| PKG-02 | Phase 104 | Pending |
-| PKG-03 | Phase 104 | Pending |
-| PKG-04 | Phase 104 | Pending |
 | INTENT-01 | Phase 104 | Pending |
 | INTENT-02 | Phase 104 | Pending |
 | INTENT-03 | Phase 104 | Pending |
@@ -261,9 +405,15 @@ Changesets cover every changed published `@kehto/*` surface; the branch is based
 | INTENT-07 | Phase 104 | Pending |
 | INTENT-08 | Phase 104 | Pending |
 | INTENT-09 | Phase 104 | Pending |
+| INTENT-10 | Phase 104 | Pending |
+| INTENT-11 | Phase 104 | Pending |
 | ARCH-01 | Phase 104 | Pending |
 | ARCH-02 | Phase 104 | Pending |
 | ARCH-04 | Phase 104 | Pending |
+| PKG-01 | Phase 105 | Pending |
+| PKG-02 | Phase 105 | Pending |
+| PKG-03 | Phase 105 | Pending |
+| PKG-04 | Phase 105 | Pending |
 | IDENTITY-05 | Phase 105 | Pending |
 | THEME-04 | Phase 105 | Pending |
 | ARCH-03 | Phase 105 | Pending |
@@ -273,3 +423,4 @@ Changesets cover every changed published `@kehto/*` surface; the branch is based
 | VERIFY-03 | Phase 106 | Pending |
 | VERIFY-04 | Phase 106 | Pending |
 | VERIFY-05 | Phase 106 | Pending |
+| VERIFY-06 | Phase 106 | Pending |

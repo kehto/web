@@ -2,8 +2,17 @@
 
 **Audit date:** 2026-07-23  
 **Upstream authority:** `napplet/naps@6461e4b37c29dc09a20dff35d9515889c4433874`  
+**Proposed overrides:** draft PR #89 head `4593ce9e301ce098fd3dad64206fcd6f144fa7af`,
+PR #90 head `896c32c92deee68dc4d10fc1132b62df20cccb6f`, and PR #91 head
+`a718915ddefa2f03a0126579601f59d8bd86f7c4`, plus stacked PR #92 head
+`c5cd06f7be6d4690b303949abb26e87ff62f4729`
 **Upstream parent:** `5fd99465892fbead3888d7146e1737f77b0ed0b4`  
 **Kehto baseline:** `kehto/web@bb3929b3523b75356fd65f658f9bd14c7ff697e4`
+
+The complete exact-head downstream violation matrix is
+`.planning/NAP-CONVENTIONS-DRAFT-PRS-89-90-91-92-AUDIT.md`. The four PRs remain
+draft and unmerged; their heads are proposed authority for this chase and must
+be re-audited if they change.
 
 ## Verdict
 
@@ -27,7 +36,8 @@ The target diff spans 18 files, 160 insertions, and 176 deletions.
 
 - A NAP is only a runtime-provided API/capability surface.
 - Cross-napplet payload shapes are unnumbered conventions, explicitly not NAPs.
-- Convention names normally use `napplet:<archetype>/<intent>[...?params]`.
+- Convention stable identities use `napplet:<archetype>/<intent>`. A
+  developer-facing invocation may append `?params` as payload sugar.
 - Capability discovery is domain-only: `shell.supports("<domain>")`.
 - Convention support is advertised by NIP-5A tags `["archetype","<slug>","<convention>"]` and NAP-INTENT candidate `conventions`.
 - A convention needs no registry edit or assigned number.
@@ -74,41 +84,64 @@ The target diff spans 18 files, 160 insertions, and 176 deletions.
 
 ## NAP-INTENT
 
-### Complete field migration
+Draft PR #91 replaces the older optional-convention/window-opening model.
+`invoke(uri, options?)` takes the convention URI as authoritative input. The
+runtime-provided binding derives required `archetype`, `action`, and queryless
+`convention`, plus optional query-derived text `payload`; conflicting normalized
+fields are rejected.
 
-| Record | Removed | Required |
-|---|---|---|
-| `IntentOpenOptions` | `protocol` | `convention?` |
-| `IntentRequest` | `protocol` | `convention?` |
-| `IntentCandidate` | `protocols` | `conventions: string[]` |
-| `IntentResult` | `protocol` | `convention?` |
+### Acceptance and delivery
 
-Exact error vocabulary changes from `unsupported protocol` to `unsupported convention`.
+- `ok: true` means the runtime accepted delivery responsibility, not that a
+  target received or handled the intent.
+- `IntentResult` exposes normalized archetype, action, convention, and handler
+  on success. It exposes no `handled`, `windowId`, intent ID, or delivery ID.
+- The ordinary wire request `id` correlates only the immediate
+  `intent.invoke.result`.
+- The runtime retains `IntentDelivery` independently of source lifetime,
+  derives its sender from the authenticated source endpoint, and delivers only
+  after target readiness through `intent.deliver` / `onDelivery`.
+- The binding retains delivery until an `onDelivery` handler is registered.
+- NAP-INTENT does not depend on NAP-INC. Reuse, target/source ordering and
+  overlap, retry, restart persistence, replacement, and terminal failure are
+  runtime policy.
 
-### Retained/clarified semantics
+### Discovery
 
-- NAP-INTENT owns the dispatch envelope, not payload meaning.
-- Archetype selects routing; convention names parsing; the relationship is N:M.
-- Omission may use an archetype’s recommended default.
-- Delivery may be a convention INC event or cold-start initial state.
-- Receivers validate untrusted payloads; shell routing does not inspect/mutate them beyond need.
-- Existing request/result names, IDs, discovery, defaults/chooser, ready-before-delivery, and privacy remain.
+- Each NIP-5A archetype tag advertises one stable queryless convention and
+  optional `kind:<unsigned integer>` values scoped to that convention.
+- Each tag becomes one `IntentContract`. Candidates expose required
+  `conventions` and `contracts`; actions may be derived from the contracts.
+- The runtime must not inspect payload content to infer an event kind.
 
 ### Active Kehto drift
 
-- `packages/services/src/intent-types.ts`, `catalog-intent-resolver.ts`, `manifest-intent-catalog.ts`, and `intent-service.ts` use `protocol`, `protocols`, `defaultProtocol`, manifest `nap`, and `unsupported protocol`.
-- `packages/paja/src/browser-adapter.ts` and `apps/playground/src/playground-intent-catalog.ts` propagate those fields; Paja hardcodes `NAP-01`.
-- The playground helper is not the live verified installed-manifest catalog.
-- Explicit dTag targeting has no authorization hook.
-- Multiple candidates silently choose the first.
-- Ready-before-delivery is delegated rather than proven.
-- Generic runtime ACL denial can emit non-contract `intent.*.error`.
+- `packages/services/src/intent-types.ts`, `catalog-intent-resolver.ts`,
+  `manifest-intent-catalog.ts`, and `intent-service.ts` preserve protocol
+  fields, `newWindow`, `handled`, `windowId`, completion-style success, and no
+  carrier-neutral retained-delivery path.
+- `packages/shell/src/napplet-namespace.ts` exposes `invoke(request)` and
+  `open(archetype, ...)`, has no URI-authoritative normalization, and has no
+  buffered `onDelivery`.
+- Runtime/service send plumbing is bound to the source window, while generic
+  ACL denial can emit the invented `intent.invoke.error` shape.
+- Paja hardcodes a running numbered candidate. Playground has no live intent
+  service or installed manifest catalog.
+- Manifest parsing/generation drops repeated contracts and event-kind metadata.
+- Explicit dTag targeting has no authorization hook and ambiguous selection
+  silently chooses the first candidate.
+- The live profile flow is visibly coupled to legacy INC `profile:open`.
 
 ### Proof required
 
-- Convention-only serialization, exact error, explicit/default routing, N:M independence.
-- Installed verified manifest provenance, user defaults/chooser, target authorization.
-- Ready-before-delivery, opaque payload handling, matching `*.result` failures, and `intent.changed`.
+- Full URI normalization/rejection parity with the web projection, including
+  field-consistency validation and sender spoof resistance.
+- Installed verified contract discovery with scoped event kinds, exact stable
+  identity matching, defaults/chooser, and authorized explicit targeting.
+- Acceptance-only results and source-independent retained ready delivery across
+  allowed lifecycle orderings, with no forbidden fields or second source result.
+- Carrier-neutral `intent.deliver`, pre-handler buffering, `intent.changed`,
+  matching structured result failures, and no NAP-INC-visible dependency.
 
 ## NAP-INC
 
@@ -120,22 +153,41 @@ Exact error vocabulary changes from `unsupported protocol` to `unsupported conve
 - `channel.open` failure wording becomes transport-neutral.
 - Optional payloads, fire-and-forget emit/unsubscribe, correlated subscribe/channel calls, channel auth/lifecycle, sender exclusion, and teardown behavior remain.
 
-### Parameter-matching ambiguity
+### Parameter transposition and exact routing
 
-The spec subscribes to `napplet:profile/open` in one example and emits `napplet:profile/open?pubkey=...` in another, while saying routing is by topic match and not prefix parsing. Base/query matching is undefined. Kehto must treat topics as exact opaque strings and add no query stripping, wildcard, or prefix matching.
+The original `6461e4b` audit found the profile example ambiguous. Draft PR #89
+head `4593ce9e301ce098fd3dad64206fcd6f144fa7af` and the shared web projection in
+draft PR #90 head `896c32c92deee68dc4d10fc1132b62df20cccb6f`
+supersede that conclusion: a query-bearing developer convention URI is
+validated and transposed before the wire into its queryless stable identity plus
+a shallow text payload. Literal `+` is preserved, names and values are
+percent-decoded once, text values are not coerced, and fragments, malformed
+encoding, duplicate decoded names, or query plus explicit payload are rejected.
+The projection helper is shared by every `window.napplet.*` operation that
+accepts a convention URI, including INC and intent.
 
-Downstream tracking: [`kehto/web#203`](https://github.com/kehto/web/issues/203). Close it only after upstream defines both topic matching and query-parameter semantics and Kehto carries that decision into implementation, documentation, and positive/negative tests.
+Runtime routing remains exact equality over the complete queryless wire topic.
+The emitter cannot set or override `sender`; the runtime derives it from the
+authenticated source endpoint and serializes its dTag. Kehto must add no runtime
+query parsing, query stripping, wildcard, prefix, normalization, or base/query
+matching. [`kehto/web#203`](https://github.com/kehto/web/issues/203) remains
+open until the drafts merge, final heads are pinned, packages publish, and the
+downstream chase is complete.
 
 ### Active Kehto drift
 
 - `packages/runtime/src/inc-handler.ts` exposes window IDs as sender/peer, accepts window IDs/pubkeys as targets, and omits `peer destroyed`.
 - `packages/acl/src/resolve.ts` rechecks channel messages after open instead of applying authorization at open time.
-- `packages/shell/src/napplet-namespace.ts` exposes a legacy three-argument surface and no complete channel API.
+- `packages/shell/src/napplet-namespace.ts` exposes a legacy three-argument
+  surface, no complete channel API, and permits later namespace/domain
+  assignment to bypass a prelude-only normalizer.
+- Legacy audio/notification service paths prefix-route and fabricate
+  incomplete `inc.event` objects without runtime-attested sender.
 - The live profile demo uses `profile:open`.
 
 ### Proof required
 
-- `emit(topic,payload?)`, `on(topic,IncEvent)`, closeable subscriptions.
+- `emit(topic,payload?)`, including producer-side convention query transposition, plus `on(topic,IncEvent)` and closeable subscriptions.
 - Full channel open/list/broadcast plus handle emit/on/close.
 - dTag-only sender/peer/target identity; exact topics; sender exclusion; optional payload preservation.
 - Correlated results, opaque IDs, dead-target failures, open-time authorization, `peer destroyed`, and cleanup lifecycle.
@@ -195,13 +247,21 @@ Active Kehto drift:
 
 Proof required:
 
-- Exact convention tags, including absent/multiple values.
-- No numbered validator or invented kind-constraint semantics.
+- Exact queryless convention tags, including repeated contracts and optional
+  contract-local `kind:<number>` values.
+- No numbered validator, query-bearing metadata, or payload-kind inference.
 - Exact defaults only and byte/tag-exact signed-manifest projection.
 
 ## Live Profile Convention Flow
 
-Active surfaces are the feed and profile-viewer napplets, profile-viewer Vite config, playground README, profile/identity E2E specs, and gateway guard tests. The final flow advertises `napplet:profile/open`. Tests must assert exact-topic isolation. If data remains in payload, document that local convention shape; if published packages define a query form, sender and receiver must use the exact same topic.
+Active surfaces are the feed and profile-viewer napplets, profile-viewer Vite
+config, playground README, profile/identity E2E specs, and gateway guard tests.
+The feed invokes `napplet:profile/open?pubkey=...`; the profile target advertises
+stable `napplet:profile/open` and receives a buffered carrier-neutral
+`IntentDelivery` with the transposed text payload and runtime-attested sender.
+No visible INC envelope or query-bearing discovery identity remains. Published
+package adoption remains gated until the upstream core/nap/shim/sdk line exposes
+the proposed behavior.
 
 ## Documentation and History Classification
 
@@ -238,10 +298,13 @@ Kehto commonly pins vite-plugin `0.11.2` and the other versions above.
 
 Final dependency gate:
 
-1. Public intent types contain convention fields and no canonical protocol fields.
+1. Public intent types expose URI-authoritative invocation, convention
+   contracts, acceptance-only results, and carrier-neutral delivery with no
+   canonical protocol or forbidden lifecycle/result fields.
 2. Core exports shell environment/global API and includes the shell domain.
 3. Shim emits one ready, consumes init, and answers `supports(domain)` locally.
-4. Vite plugin accepts the published convention option shape and emits the three-field tag.
+4. Vite plugin accepts the published convention-contract option shape and
+   emits one queryless archetype tag per contract with any scoped event kinds.
 5. SDK is rebuilt against the same contracts.
 6. npm/JSR lineage is consistent.
 7. Kehto lockfile, build, type-check, unit, and browser suites pass on those releases.
@@ -254,7 +317,8 @@ Executable requirements live in `.planning/REQUIREMENTS.md`. The roadmap must se
 - NAP-SHELL correctness
 - NAP-INC identity/channel parity
 - NAP-IDENTITY and NAP-THEME parity
-- published package adoption plus INTENT/archetype migration
+- independent INTENT/archetype contract migration
+- published package adoption plus live host-flow migration
 - Paja/playground convention/resource flows
 - full conformance audit, changesets, and PR
 
