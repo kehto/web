@@ -45,6 +45,13 @@ describe('resolveCapabilitiesNap', () => {
   });
 
   describe('identity domain', () => {
+    it('identity.changed -> recipient identity:read (shell -> napplet push)', () => {
+      expect(resolveCapabilitiesNap({ type: 'identity.changed' })).toEqual({
+        senderCap: null,
+        recipientCap: 'identity:read',
+      });
+    });
+
     it('identity.getPublicKey -> null/null (shell-public info)', () => {
       const result: CapabilityResolution = resolveCapabilitiesNap({ type: 'identity.getPublicKey' });
       expect(result).toEqual({ senderCap: null, recipientCap: null });

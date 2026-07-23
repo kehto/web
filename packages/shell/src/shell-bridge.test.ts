@@ -98,6 +98,31 @@ function makeSessionEntry(overrides: Partial<SessionEntry>): SessionEntry {
   };
 }
 
+/** Register an iframe, freeze its shell environment, and complete shell.ready. */
+function establishReadySession(
+  bridge: ReturnType<typeof createShellBridge>,
+  iframe: { postMessage: ReturnType<typeof vi.fn> },
+  windowId: string,
+  domains: readonly string[] = ['identity', 'theme'],
+): SessionEntry {
+  const win = iframe as unknown as Window;
+  const identity = { dTag: `d-${windowId}`, aggregateHash: `h-${windowId}` };
+  originRegistry.register(win, windowId, identity);
+  originRegistry.setEnvironment(win, {
+    capabilities: { domains },
+    services: [],
+  });
+  bridge.handleMessage({
+    source: win,
+    origin: `https://${windowId}.example.test`,
+    data: { type: 'shell.ready' },
+  } as MessageEvent);
+  iframe.postMessage.mockClear();
+  const entry = bridge.runtime.sessionRegistry.getEntryByWindowId(windowId);
+  if (!entry) throw new Error(`shell.ready did not establish ${windowId}`);
+  return entry;
+}
+
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('ShellBridge.publishTheme (TH-03, Plan 13-02)', () => {
@@ -109,26 +134,15 @@ describe('ShellBridge.publishTheme (TH-03, Plan 13-02)', () => {
     originRegistry.clear();
   });
 
-  it('broadcasts theme.changed to every registered napplet window', () => {
+  it('sends theme.changed to an authenticated, domain-enabled session', () => {
     const iframeA = makeFakeIframe();
     const iframeB = makeFakeIframe();
-
-    // Register iframes with the shell-side origin registry (module singleton).
-    originRegistry.register(iframeA as unknown as Window, 'win-A');
-    originRegistry.register(iframeB as unknown as Window, 'win-B');
-
     const bridge = createShellBridge(makeTestHooks());
-
-    // Seed the runtime's own session registry (distinct from the shell
-    // singleton) — publishTheme iterates runtime.sessionRegistry.getAllEntries().
-    bridge.runtime.sessionRegistry.register(
-      'win-A',
-      makeSessionEntry({ windowId: 'win-A', pubkey: 'pk-A' }),
-    );
-    bridge.runtime.sessionRegistry.register(
-      'win-B',
-      makeSessionEntry({ windowId: 'win-B', pubkey: 'pk-B' }),
-    );
+    establishReadySession(bridge, iframeA, 'win-A');
+    originRegistry.register(iframeB as unknown as Window, 'win-B', {
+      dTag: 'd-win-B',
+      aggregateHash: 'h-win-B',
+    });
 
     const theme: Theme = {
       colors: { background: '#111', text: '#eee', primary: '#f0f' },
@@ -140,8 +154,7 @@ describe('ShellBridge.publishTheme (TH-03, Plan 13-02)', () => {
 
     expect(iframeA.postMessage).toHaveBeenCalledTimes(1);
     expect(iframeA.postMessage).toHaveBeenCalledWith(expectedEnvelope, '*');
-    expect(iframeB.postMessage).toHaveBeenCalledTimes(1);
-    expect(iframeB.postMessage).toHaveBeenCalledWith(expectedEnvelope, '*');
+    expect(iframeB.postMessage).not.toHaveBeenCalled();
 
     bridge.destroy();
   });
@@ -206,32 +219,32 @@ describe('ShellBridge.publishIdentityChanged', () => {
     originRegistry.clear();
   });
 
-  it('broadcasts identity.changed to every loaded napplet window', () => {
-    const iframeA = makeFakeIframe();
-    const iframeB = makeFakeIframe();
-    originRegistry.register(iframeA as unknown as Window, 'win-A');
-    originRegistry.register(iframeB as unknown as Window, 'win-B');
-
+  it('sends identity.changed exactly once to an authenticated identity recipient', () => {
+    const iframe = makeFakeIframe();
     const bridge = createShellBridge(makeTestHooks());
+    establishReadySession(bridge, iframe, 'win-A', ['identity']);
     const pubkey = 'a'.repeat(64);
 
     bridge.publishIdentityChanged(pubkey);
 
     const expectedEnvelope = { type: 'identity.changed', pubkey };
-    expect(iframeA.postMessage).toHaveBeenCalledWith(expectedEnvelope, '*');
-    expect(iframeB.postMessage).toHaveBeenCalledWith(expectedEnvelope, '*');
+    expect(iframe.postMessage).toHaveBeenCalledTimes(1);
+    expect(iframe.postMessage).toHaveBeenCalledWith(expectedEnvelope, '*');
 
     bridge.destroy();
   });
 
-  it('uses an empty pubkey to broadcast signed-out state', () => {
+  it('does not send identity.changed to a registered pre-shell.ready iframe', () => {
     const iframe = makeFakeIframe();
-    originRegistry.register(iframe as unknown as Window, 'win-A');
+    originRegistry.register(iframe as unknown as Window, 'win-A', {
+      dTag: 'd-win-A',
+      aggregateHash: 'h-win-A',
+    });
     const bridge = createShellBridge(makeTestHooks());
 
     bridge.publishIdentityChanged('');
 
-    expect(iframe.postMessage).toHaveBeenCalledWith({ type: 'identity.changed', pubkey: '' }, '*');
+    expect(iframe.postMessage).not.toHaveBeenCalled();
     bridge.destroy();
   });
 });
