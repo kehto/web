@@ -61,22 +61,11 @@ function detectServiceTarget(topology: DemoTopology, msg: TappedMessage): string
     return null;
   }
 
-  // Legacy NIP-01 fallback — notifications topic detection retained.
-  if (
-    typeof msg.parsed.topic === 'string' &&
-    msg.parsed.topic.startsWith('notifications:') &&
-    topology.services.includes('notifications')
-  ) {
-    return 'notifications';
-  }
   return null;
 }
 
 function isNotificationTopic(msg: TappedMessage): boolean {
-  // Envelope-shape: domain === 'notify'
-  if (msg.envelopeType) return msg.parsed.domain === 'notify';
-  // Legacy NIP-01: topic string
-  return typeof msg.parsed.topic === 'string' && msg.parsed.topic.startsWith('notifications:');
+  return Boolean(msg.envelopeType) && msg.parsed.domain === 'notify';
 }
 
 /**
@@ -270,9 +259,9 @@ export function initFlowAnimator(tap: MessageTap, topology: DemoTopology, edgeFl
     else counters[counterKey].in++;
     renderCounters();
 
-    // Log notification service activity with the envelope type or topic string
+    // Log notification service activity with its direct-domain envelope type.
     if (isNotificationTopic(msg) && flowLog) {
-      const topicLabel = msg.envelopeType ?? msg.parsed.topic ?? 'notifications:?';
+      const topicLabel = msg.envelopeType ?? 'notify.unknown';
       const existing = flowLog.querySelector(`[data-notif-topic="${topicLabel}"]`);
       if (!existing) {
         const entry = document.createElement('div');

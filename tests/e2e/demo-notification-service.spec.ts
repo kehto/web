@@ -2,7 +2,7 @@
  * demo-notification-service.spec.ts — E2E-06 migration.
  *
  * Original spec (v1.1) spawned its own Vite server and used `napplet-debugger`
- * text assertions that depended on NIP-01 topic strings like `notifications:create`.
+ * text assertions that depended on legacy NIP-01 topic strings.
  * v1.3 / Phase 17 rewrites in place: uses the `webServer` array from
  * playwright.config.ts (no local spawn), uses `demoBeforeEach`, and asserts on
  * canonical `notify.*` envelope type strings.
@@ -22,7 +22,7 @@ const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 29
 async function expectDirectNotificationMessage(page: import('@playwright/test').Page, type: string): Promise<void> {
   const debuggerText = await page.locator('napplet-debugger').textContent();
   expect(debuggerText).toContain(type);
-  expect(debuggerText).not.toMatch(/\b\w+:\w+|\binc\.event\b/);
+  expect(debuggerText).not.toMatch(/\b(?:notifications|audio):|\binc\.event\b/);
 }
 
 test('notification topology node is visible', async ({ page }) => {

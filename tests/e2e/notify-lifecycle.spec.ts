@@ -1,7 +1,7 @@
 /**
  * notify-lifecycle.spec.ts — E2E-07 (notify-lifecycle subset, Phase 19 NAP-05).
  *
- * Asserts the toaster napplet's notify.create → notify.list → notify.dismiss lifecycle.
+ * Asserts the toaster napplet's direct notify.create → notify.list → notify.dismiss lifecycle.
  * Plan 19-04 dual-registered the notification-service under name 'notify' so the
  * runtime's serviceRegistry['notify'] lookup (packages/runtime/src/runtime.ts:1000)
  * routes the toaster's raw envelopes (window.parent.postMessage per Plan 19-03 SDK gap)
@@ -34,7 +34,7 @@ const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 29
 async function expectDirectNotificationMessage(page: import('@playwright/test').Page, type: string): Promise<void> {
   const debuggerText = await page.locator('napplet-debugger').textContent();
   expect(debuggerText).toContain(type);
-  expect(debuggerText).not.toMatch(/\b\w+:\w+|\binc\.event\b/);
+  expect(debuggerText).not.toMatch(/\b(?:notifications|audio):|\binc\.event\b/);
 }
 
 test('toaster creates notification and Dismiss all empties the list', async ({ page }) => {

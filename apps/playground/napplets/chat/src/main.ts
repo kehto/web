@@ -25,18 +25,6 @@ const REQUIRED_NAPS = ['inc', 'storage', 'relay', 'theme'] as const;
 const CAPABILITY_WAIT_MS = 5_000;
 const CAPABILITY_WAIT_INTERVAL_MS = 25;
 
-/**
- * Emit a notifications:create event through the real napplet→service path.
- * The shell routes this INC event to the notification service handler.
- */
-function notifyCreate(title: string, body: string): void {
-  try {
-    incEmit('notifications:create', [], JSON.stringify({ title, body }));
-  } catch {
-    /* best-effort — don't break the main flow if notifications are denied */
-  }
-}
-
 const statusEl = document.getElementById('chat-status')!;
 const messagesEl = document.getElementById('messages')!;
 const inputEl = document.getElementById('msg-input') as HTMLInputElement;
@@ -118,8 +106,6 @@ async function sendMessage(): Promise<void> {
   try {
     incEmit('chat:message', [], JSON.stringify({ text, timestamp: Date.now() }));
     addMessage('inc send attempted -- chat:message', 'system');
-    // Emit notification so the host can surface this message send as a toast
-    notifyCreate('Chat message sent', text.length > 60 ? text.slice(0, 60) + '…' : text);
   } catch (error) {
     addMessage(`inc send failed -- ${formatError(error, 'denied: inc')}`, 'system');
   }
