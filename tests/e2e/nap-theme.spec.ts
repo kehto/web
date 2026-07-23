@@ -1,79 +1,46 @@
 /**
- * nap-theme Layer-A spec — E2E-09 Phase 21.
- *
- * Drives fixture-nap-theme via harness driver globals at :4173.
- * Asserts:
- *   1. Fixture loads and reaches __nappletReady__ (session registered).
- *   2. The fixture's storage.get envelope was dispatched on init.
- *   3. The fixture's #nap-status sentinel reflects 'ready'
- *      (storage round-trip completed — proves the napplet is live and messaging works).
- *   4. Injecting a theme.get envelope FROM the napplet via __injectEnvelope__ is routed
- *      by the harness (envelope recorded in envelopeLog). The runtime replies with
- *      theme.get.result containing a default theme — the napplet need not handle it
- *      but the round-trip proves the theme NAP path is wired.
- *
- * No demo server dependency. No frameLocator interactions beyond reading sentinels.
- * The theme helper surface has no fixture-side readiness probe -- fixture uses storageGetItem as init signal.
+ * NAP-THEME browser contract — exercises the protected injected API in the
+ * real playground rather than fabricating a parent result in the test harness.
  */
 import { test, expect } from '@playwright/test';
-import { aclBeforeEach, waitForNappletReady } from './helpers/index.js';
+import { demoBeforeEach, getNappletFrame } from './helpers/index.js';
 
+test.use({ baseURL: process.env.KEHTO_PLAYGROUND_BASE_URL ?? 'http://localhost:4174' });
 test.describe.configure({ mode: 'serial' });
 
 const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]/;
 
-test('nap-theme: fixture reaches ready via storage probe; theme.get envelope round-trips', async ({ page }) => {
-  test.setTimeout(30_000);
+test('nap-theme: the injected API exposes one complete get result and automatic changes only', async ({ page }) => {
+  test.setTimeout(60_000);
   const consoleMessages: string[] = [];
   const pageErrors: string[] = [];
   page.on('console', (m) => consoleMessages.push(m.text()));
   page.on('pageerror', (e) => pageErrors.push(e.message));
 
-  await aclBeforeEach(page);
+  await demoBeforeEach(page);
+  const frame = await getNappletFrame(page, 'preferences-frame-container');
+  if (!frame) throw new Error('preferences frame not found in page.frames()');
 
-  const windowId = await page.evaluate(() => window.__loadNapplet__('nap-theme'));
-  await waitForNappletReady(page, windowId);
+  const result = await frame.evaluate(async () => {
+    const theme = (window as Window & {
+      napplet?: { theme?: Record<string, unknown> & { get?: () => Promise<unknown> } };
+    }).napplet?.theme;
+    return {
+      api: {
+        get: typeof theme?.get,
+        onChanged: typeof theme?.onChanged,
+        subscribe: typeof theme?.subscribe,
+        unsubscribe: typeof theme?.unsubscribe,
+      },
+      theme: await theme?.get?.(),
+    };
+  });
 
-  // Wait for the storage.get envelope (dispatched on init).
-  await page.waitForFunction(
-    (wid) => window.__getNapMessage__(wid, 'storage.get') !== null,
-    windowId,
-    { timeout: 10_000 },
-  );
-
-  const storageEnvelope = await page.evaluate(
-    (wid) => window.__getNapMessage__(wid, 'storage.get'),
-    windowId,
-  );
-  expect(storageEnvelope).not.toBeNull();
-  expect((storageEnvelope as { type: string }).type).toBe('storage.get');
-
-  // Fixture sets #nap-status to 'ready' after the storage probe completes.
-  const statusLocator = page.frameLocator(`#${windowId}`).locator('#nap-status');
-  await expect(statusLocator).toContainText('ready', { timeout: 8_000 });
-
-  // Inject a theme.get envelope FROM the napplet to the runtime via __injectEnvelope__.
-  // The harness routes it through relay.handleMessage; the runtime's theme handler replies
-  // with theme.get.result. We assert the harness recorded the outbound theme.get envelope.
-  const themeGetId = 'theme-get-probe-' + Date.now();
-  await page.evaluate(
-    ([wid, id]) => window.__injectEnvelope__(wid, { type: 'theme.get', id } as never),
-    [windowId, themeGetId] as [string, string],
-  );
-
-  await page.waitForFunction(
-    (wid) => window.__getNapMessage__(wid, 'theme.get') !== null,
-    windowId,
-    { timeout: 8_000 },
-  );
-
-  const themeEnvelope = await page.evaluate(
-    (wid) => window.__getNapMessage__(wid, 'theme.get'),
-    windowId,
-  );
-  expect(themeEnvelope).not.toBeNull();
-  expect((themeEnvelope as { type: string }).type).toBe('theme.get');
-
+  expect(result.api).toEqual({ get: 'function', onChanged: 'function', subscribe: 'undefined', unsubscribe: 'undefined' });
+  expect(result.theme).toEqual({
+    title: 'Dark',
+    colors: { background: '#0a0a0a', text: '#e0e0e0', primary: '#7aa2f7' },
+  });
   expect(consoleMessages.filter((m) => ANTI_TERM_RE.test(m))).toHaveLength(0);
   expect(pageErrors.filter((m) => ANTI_TERM_RE.test(m))).toHaveLength(0);
 });

@@ -206,9 +206,20 @@ export function initSignerNodeUi(
   onStateChange((state) => {
     updateSignerNodeDisplay(signerNodeId, state);
 
-    const currentIdentity = state.method !== 'none' && !state.isConnecting && !state.error
+    if (state.isConnecting) {
+      return;
+    }
+
+    const currentIdentity = state.method !== 'none' && !state.error
       ? state.pubkey ?? ''
       : '';
+    if (lastPublishedIdentity === null && currentIdentity === '') {
+      // A disconnected initial state is a snapshot, not an identity transition.
+      // In particular, connecting must not emit a transient sign-out before the
+      // real signer pubkey is available.
+      lastPublishedIdentity = currentIdentity;
+      return;
+    }
     if (currentIdentity !== lastPublishedIdentity) {
       lastPublishedIdentity = currentIdentity;
       publishIdentityChanged?.(currentIdentity);
