@@ -5,15 +5,15 @@ milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 103
 current_phase_name: identity-and-theme-wire-parity
 status: executing
-stopped_at: Phase 103 planning complete; ready to execute Wave 1
-last_updated: "2026-07-23T21:15:14.370Z"
+stopped_at: Completed 103-01-PLAN.md
+last_updated: "2026-07-23T21:21:32.659Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 103 plans passed verification; Phase 102 remains upstream-blocked
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 25
-  completed_plans: 18
+  completed_plans: 19
   percent: 33
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-23)
 ## Current Position
 
 Phase: 103 (identity-and-theme-wire-parity) — EXECUTING
-Plan: 0 of 7
+Plan: 1 of 7
 Status: Ready to execute
 
 Last activity: 2026-07-23 -- Phase 103 plans passed verification; Phase 102 remains upstream-blocked
@@ -71,6 +71,7 @@ Last activity: 2026-07-23 -- Phase 103 plans passed verification; Phase 102 rema
 | Phase 102-nap-inc-event-channel-parity P06 | 4min | 2 tasks | 2 files |
 | Phase 102-nap-inc-event-channel-parity P07 | 4min | 1 tasks | 5 files |
 | Phase 102 P08 | 6m 26s | 1 tasks | 8 files |
+| Phase 103 P01 | 7m | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -183,8 +184,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-07-23T19:21:14.533Z
-Stopped at: Completed 102-08-PLAN.md
+Last session: 2026-07-23T21:21:32.651Z
+Stopped at: Completed 103-01-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -246,3 +247,4 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: Reserved NAP-INTENT lifecycle changes for Phase 104 and released package adoption for Phase 105.
 - [Phase ?]: Phase 102 release metadata uses separate minor changesets for runtime, shell, ACL, and services; intent lifecycle and published package adoption remain Phase 104 and 105.
 - [Phase ?]: Full Playwright supports an isolated IPv6 Kehto preview; 69 tests pass, the Phase 102 channel proof is green, and 7 legacy demo/fixture failures remain at the Phase 105 published-package adoption boundary.
+- [Phase ?]: Runtime identity/theme denials use exact same-domain safe results; unsupported messages are silent.
