@@ -33,7 +33,7 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 
 | Area | Exports |
 |------|---------|
-| Legacy/reference basics | `createAudioService`, `createNotificationService`, `AudioSource`, `AudioServiceOptions`, `Notification`, `NotificationServiceOptions` |
+| Direct-domain notifications | `createNotifyService`, `NotifyServiceOptions` |
 | Identity | `createIdentityService`, `IdentityServiceOptions` |
 | Relay/cache/count | `createRelayPoolService`, `RelayPoolServiceOptions`, `createCacheService`, `CacheServiceOptions`, `HostCacheBridge`, `createCoordinatedRelay`, `CoordinatedRelayOptions`, `createCountService`, `CountServiceOptions`, `CountRequest`, `CountResult` |
 | Keys | `createKeysService`, `KeysServiceOptions`, `HostKeysBridge`, `HostKeyEvent` |
@@ -46,6 +46,11 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 ## Scope Boundaries
 
 - Provides reference service handlers that host apps register with `runtime.registerService()`.
+- The runtime selects a handler by the exact `message.type` domain (for example,
+  `notify.create` selects `notify`). INC topics are opaque, queryless identities
+  matched only by exact equality; they never select a service handler. The
+  runtime attaches the sender to delivered INC events from the authenticated
+  endpoint, so a service must not fabricate an INC delivery.
 - Host apps provide backing bridges/callbacks for browser, native, signer, relay, fetch, notification, and media behavior.
 - `createCountService()` implements the NAP-COUNT `count.query` service shape. Backends count NIP-01 filter matches through relay COUNT support, local indexes, or caches and may return exact counts, approximate/HLL metadata, relays, or refusal errors such as `unsupported-filter` and `too-expensive`; they must not return matching events.
 - BLE and WebRTC hook contexts expose `emit(...)` so host bridges can send runtime-owned event envelopes back to the requesting napplet.

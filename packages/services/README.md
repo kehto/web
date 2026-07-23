@@ -1,6 +1,8 @@
 # @kehto/services
 
-Reference service handlers for the napplet protocol — audio, notifications, identity, relay pool, cache, keys, media, notify, theme, link, common, lists, serial, BLE, WebRTC, DM.
+Reference service handlers for the napplet protocol — identity, relay pool,
+cache, keys, media, notify, theme, link, common, lists, serial, BLE, WebRTC,
+and DM.
 
 > **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
 > protocol. NAP contracts and service envelopes are not final; treat these
@@ -14,15 +16,24 @@ pnpm add @kehto/services
 
 ## Overview
 
-`@kehto/services` ships the reference implementations of the `ServiceHandler` contract defined by `@kehto/runtime`. Each factory returns an object that the runtime routes NIP-5D envelopes to based on the domain prefix of the incoming message type (e.g., `identity.*` goes to the handler registered under `identity`).
+`@kehto/services` ships the reference implementations of the `ServiceHandler`
+contract defined by `@kehto/runtime`. Each factory returns an object that the
+runtime routes NIP-5D envelopes to by the exact `message.type` domain (for
+example, `notify.create` goes to the handler registered under `notify`).
 
 Host apps wire services into the runtime via `runtime.registerService(name, handler)`. The services are browser-agnostic — they have no DOM dependency. Browser-specific behaviors (audio element pool, OS notifications) are delivered through host-supplied callbacks.
+
+Services are selected only by the exact `message.type` domain. INC topics are
+opaque, queryless identities matched only by exact equality, so their text must
+not select a service handler. The runtime attaches the sender to delivered INC
+events from the authenticated endpoint; services do not create INC events.
 
 Current draft posture:
 
 - The v1.1 signer service is deleted outright. Its responsibilities split into two: read-only identity lookups go through `createIdentityService` (`getPublicKey`, `getRelays`, `getProfile`, `getFollows`, `getList`, `getZaps`, `getMutes`, `getBlocked`, `getBadges`); signing happens inside the shell as part of `relay.publish` / `relay.publishEncrypted` and is never exposed to napplets.
 - `createKeysService` and `createMediaService` ship real reference backends as of v1.4 (see the dedicated sections below). `createKeysService` attaches a document-level `keydown` listener by default and delivers `keys.action` push envelopes to registered napplets; `createMediaService` mirrors session metadata and playback state to `navigator.mediaSession` and emits `media.command` push envelopes on OS transport events. Both accept a host-bridge option (`HostKeysBridge` / `HostMediaBridge`) so Electron / Tauri / native shells can swap in OS-level backends without re-implementing the wire-protocol bookkeeping.
-- `createNotifyService` (NIP-5D `notify.*` NAP) coexists with the legacy `createNotificationService` (inc-emit `notifications:*` channel). Both may be registered simultaneously while hosts migrate.
+- `createNotifyService` handles direct `notify.*` envelopes. It is not an INC
+  topic handler.
 - `createOutboxService` supports `outbox.getEvent` from draft NAP-OUTBOX. Single-event lookups run through shell-owned relay routing and only return events whose ID matches the request. The draft wire contract keeps `outbox.query` one-shot and `outbox.subscribe` streaming; Kehto's concrete `createRelayPoolOutboxRouter` additionally exposes host-side `queryStream()` so verified query events can arrive before asynchronous NIP-65 discovery completes.
 - `createResourceService` supports `resource.bytesMany` from draft NAP-RESOURCE. Bulk requests return ordered per-URL items and keep per-URL failures local while preserving legacy single-fetch fields for existing Kehto callers.
 - `createUploadService` supports `upload.info` from draft NAP-UPLOAD. Hosts may expose configured rails, return URL forms, maximum bytes, and MIME type policy without requiring napplets to start an upload.
@@ -35,7 +46,7 @@ Current draft posture:
 import {
   createIdentityService,
   createListsService,
-  createNotificationService,
+  createNotifyService,
   createBleService,
   createDmService,
   createNip17DmAdapter,
@@ -53,10 +64,10 @@ runtime.registerService(
   }),
 );
 
-// Notification service — legacy inc-emit channel, browser badge fan-out.
+// Notification service — direct NIP-5D notify.* envelopes.
 runtime.registerService(
-  'notifications',
-  createNotificationService({ onChange: (list) => updateBadge(list) }),
+  'notify',
+  createNotifyService({ onSend: (_windowId, message) => updateBadge(message) }),
 );
 
 // Lists service — shell-owned NIP-51 metadata and mutations.
@@ -460,8 +471,7 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 `createIdentityService` uses `getSigner()` for `identity.getPublicKey` and `identity.getRelays`. Hosts may also pass optional read-only provider hooks for `getProfile`, `getFollows`, `getList`, `getZaps`, `getMutes`, `getBlocked`, and `getBadges`. These hooks receive the current signer pubkey (or `""` when no signer is connected) and return the payload portion of the corresponding `.result` envelope. Kehto does not query relays itself; the hooks are for hosts that already maintain profile, contact-list, list, zap, moderation, or badge data.
 
 ### Notify NAP
-- `createNotifyService` — canonical `notify.*` envelopes (`notify:send` / `notify:channel`).
-- `createNotificationService` — legacy inc-emit `notifications:*` channel; coexists with `createNotifyService` until retired.
+- `createNotifyService` — canonical direct `notify.*` envelopes.
 
 ### Relay NAP
 - `createRelayPoolService` — `relay.publish`, `relay.publishEncrypted`, `relay.subscribe` fan-out (`relay:read` / `relay:write`).
@@ -488,9 +498,6 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 
 ### Theme NAP
 - `createThemeService` — `theme.get` + `theme.changed` fan-out (`theme:read`). Returns a `ThemeService` with `publishTheme()` / `setTheme()` utilities for host-side updates.
-
-### Audio (legacy inc-emit)
-- `createAudioService` — `audio:*` inc-emit topic handler. Browser-agnostic registry of per-window audio sources; host wires `onChange` to update transport UI.
 
 ### Types
 `AudioSource`, `AudioServiceOptions`, `Notification`, `NotificationServiceOptions`, `IdentityServiceOptions`, `RelayPoolServiceOptions`, `CacheServiceOptions`, `CoordinatedRelayOptions`, `KeysServiceOptions`, `MediaServiceOptions`, `NotifyServiceOptions`, `ThemeServiceOptions`, `ThemeService`, `BleServiceOptions`, `BleServiceContext`, `WebrtcServiceOptions`, `WebrtcServiceContext`, `DmServiceOptions`, `DmAdapter`, `DmRelayPool`, `Nip17DmAdapterOptions`, `NdrDmAdapterOptions`, `CordnDmAdapterOptions`.

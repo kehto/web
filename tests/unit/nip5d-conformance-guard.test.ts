@@ -144,6 +144,8 @@ const activeServiceGuidanceFiles = [
 const unsafeServiceGuidancePatterns = [
   { label: 'legacy audio factory', pattern: /\bcreateAudioService\s*\(/ },
   { label: 'legacy notification INC factory', pattern: /\bcreateNotificationService\s*\(/ },
+  { label: 'legacy audio topic emission', pattern: /\b(?:emit|subscribe)\s*\(\s*['"]audio:/ },
+  { label: 'legacy notification topic emission', pattern: /\b(?:emit|subscribe)\s*\(\s*['"]notifications:/ },
   { label: 'service registration from a colon topic', pattern: /registerService\(\s*['"][^'"]+:[^'"]*['"]/ },
   { label: 'INC topic-prefix service handling', pattern: /topic\?\.startsWith\s*\(/ },
   { label: 'fabricated INC event delivery', pattern: /(?:send|postMessage)\s*\([\s\S]{0,160}type:\s*['"]inc\.event['"]/ },
@@ -171,6 +173,10 @@ function removeComments(source: string): string {
   return source
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
+
+function removeExplicitLegacyProhibitions(source: string): string {
+  return source.replace(/(?:do not|never|must not)\b[^.]*\./gi, '');
 }
 
 function listFiles(root: string): string[] {
@@ -369,19 +375,21 @@ describe('NIP-5D conformance static guards', () => {
   it('keeps active service guidance on direct domains and runtime-attested INC delivery', () => {
     for (const file of activeServiceGuidanceFiles) {
       const source = readRepoFile(file);
+      const recommendations = removeExplicitLegacyProhibitions(source);
 
       expect(source, `${file} direct domain guidance`).toContain('exact `message.type` domain');
-      expect(source, `${file} opaque INC guidance`).toContain('opaque, queryless identities');
-      expect(source, `${file} runtime-attested sender guidance`).toContain('runtime attaches the sender');
+      expect(source, `${file} opaque INC guidance`).toMatch(/opaque,?\s+queryless\s+identities/i);
+      expect(source, `${file} runtime-attested sender guidance`).toMatch(/runtime\s+attaches the sender/i);
 
       for (const { label, pattern } of unsafeServiceGuidancePatterns) {
-        expect(source, `${file} must not recommend ${label}`).not.toMatch(pattern);
+        expect(recommendations, `${file} must not recommend ${label}`).not.toMatch(pattern);
       }
     }
 
     // Mentioning a retired token to prohibit it is documentation, not a compatibility recommendation.
-    expect('Do not use createAudioService() for INC routing.').toMatch(/createAudioService\s*\(/);
-    expect('Do not use createAudioService() for INC routing.').toContain('Do not use');
+    expect(removeExplicitLegacyProhibitions('Do not use createAudioService() for INC routing.')).not.toMatch(
+      /createAudioService\s*\(/,
+    );
   });
 
   it('keeps NAP-RELAY subscribe routing fields wired through runtime, services, playground, and tests', () => {
