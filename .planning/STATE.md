@@ -5,16 +5,16 @@ milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 103
 current_phase_name: identity-and-theme-wire-parity
 status: executing
-stopped_at: Completed 103-06-PLAN.md
-last_updated: "2026-07-23T21:52:25.263Z"
+stopped_at: Completed 103-07-PLAN.md
+last_updated: "2026-07-23T22:02:16.282Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 103 plans passed verification; Phase 102 remains upstream-blocked
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 25
-  completed_plans: 24
-  percent: 33
+  completed_plans: 25
+  percent: 50
 ---
 
 # Project State
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-23)
 ## Current Position
 
 Phase: 103 (identity-and-theme-wire-parity) — EXECUTING
-Plan: 6 of 7
+Plan: 7 of 7
 Status: Ready to execute
 
 Last activity: 2026-07-23 -- Phase 103 plans passed verification; Phase 102 remains upstream-blocked
@@ -77,6 +77,7 @@ Last activity: 2026-07-23 -- Phase 103 plans passed verification; Phase 102 rema
 | Phase 103 P03 | 4m | 2 tasks | 4 files |
 | Phase 103 P05 | 5m | 2 tasks | 5 files |
 | Phase 103 P06 | 13m | 2 tasks | 8 files |
+| Phase 103 P07 | 8m | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -189,8 +190,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-07-23T21:52:25.255Z
-Stopped at: Completed 103-06-PLAN.md
+Last session: 2026-07-23T22:02:16.273Z
+Stopped at: Completed 103-07-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -263,3 +264,6 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: Paja's opaque-origin theme proof uses automatic protected onChanged delivery and an immediate theme.get, with no subscribe or unsubscribe traffic.
 - [Phase ?]: Playground theme delivery now flows only through ThemeService state then the eligible ShellBridge push.
 - [Phase ?]: Connecting and initial disconnected signer snapshots do not publish identity.changed; connected and sign-out transitions do.
+- [Phase ?]: Pinned NAP-IDENTITY, NAP-THEME, and web projection authority to napplet/naps@896c32c92deee68dc4d10fc1132b62df20cccb6f.
+- [Phase ?]: Kehto denied/unavailable theme reads use one complete fixed normal result without error as an explicit upstream-spec-gap reconciliation.
+- [Phase ?]: The unrelated Phase 102 Paja INC-after-reload failure remains out of scope; no protocol workaround was added.

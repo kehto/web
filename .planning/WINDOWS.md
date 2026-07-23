@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 18
+open_count: 19
 waived_count: 0
 fixed_count: 4
-total_count: 22
-last_updated: 2026-07-23T21:21:32.351Z
+total_count: 23
+last_updated: 2026-07-23T22:02:35.758Z
 ---
 
 # Broken Windows Ledger
@@ -37,6 +37,7 @@ last_updated: 2026-07-23T21:21:32.351Z
 | 20 | 102 | unmet-truth | tests/e2e/demo-audit-correctness.spec.ts | 8 | Full Playwright gate routes a hardcoded IPv4 demo URL to the unrelated Fipwave listener, so it cannot validate the Kehto playground preview. | fixed | Added an opt-in KEHTO_PLAYGROUND_BASE_URL and completed a clean full-suite run against an isolated IPv6 Kehto preview without touching the unrelated IPv4 listener. | 2026-07-23T19:19:45.255Z | 2026-07-23T19:38:51.000Z |
 | 21 | 102 | unmet-truth | tests/e2e |  | Full Playwright reached the correct Kehto preview but 7 legacy demo/fixture tests remain red until the concurrent napplet/web chase publishes and Kehto adopts the convention-capable package set in Phase 105. | open |  | 2026-07-23T19:38:51.000Z |  |
 | 22 | 103 | unrun-verify | package.json |  | AI-slop quality gate could not run because the aislop executable is unavailable in the workspace. | open |  | 2026-07-23T21:21:32.351Z |  |
+| 23 | 102 | unmet-truth | tests/e2e/paja-single-window.spec.ts | 488 | Combined Phase 103 browser run still times out delivering the post-reload Phase 102 INC event; identity/theme proofs pass and no Phase 102 workaround was added. | open |  | 2026-07-23T22:02:35.758Z |  |
 
 ````json
 [
@@ -302,6 +303,18 @@ last_updated: 2026-07-23T21:21:32.351Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-23T21:21:32.351Z",
+    "resolved_at": null
+  },
+  {
+    "id": 23,
+    "kind": "unmet-truth",
+    "phase": "102",
+    "file": "tests/e2e/paja-single-window.spec.ts",
+    "line": 488,
+    "description": "Combined Phase 103 browser run still times out delivering the post-reload Phase 102 INC event; identity/theme proofs pass and no Phase 102 workaround was added.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-23T22:02:35.758Z",
     "resolved_at": null
   }
 ]
