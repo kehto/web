@@ -1,5 +1,5 @@
 import type { OriginIdentity } from './origin-registry.js';
-import type { ShellAdapter, ShellCapabilities } from './types.js';
+import type { ShellAdapter, ShellCapabilities, ShellEnvironment } from './types.js';
 
 const RUNTIME_NATIVE_DOMAINS = [
   'relay', 'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify',
@@ -46,7 +46,7 @@ export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
 export function resolveShellEnvironment(
   hooks: ShellAdapter,
   identity: OriginIdentity,
-): Readonly<{ capabilities: ShellCapabilities; services: readonly string[] }> {
+): ShellEnvironment {
   const capabilities = buildShellCapabilities(hooks);
   const disabled = new Set(hooks.capabilities?.disabledDomains ?? []);
   const services = getLiveServices(hooks, capabilities.domains, disabled);

@@ -1,8 +1,11 @@
 
+import type { ShellEnvironment } from './types.js';
+
 interface OriginEntry {
   windowId: string;
   dTag?: string;
   aggregateHash?: string;
+  environment?: ShellEnvironment;
   registrationId: number;
 }
 
@@ -34,6 +37,8 @@ export interface OriginRegistry {
   getIframeWindow(windowId: string): Window | null;
   getAllWindowIds(): string[];
   getIdentity(win: Window): OriginIdentity | undefined;
+  setEnvironment(win: Window, environment: ShellEnvironment): void;
+  getEnvironment(win: Window): ShellEnvironment | undefined;
   getRegistrationId(win: Window): number | undefined;
   clear(): void;
 }
@@ -117,6 +122,21 @@ export const originRegistry: OriginRegistry = {
     const entry = registry.get(win);
     if (!entry?.dTag || !entry?.aggregateHash) return undefined;
     return { dTag: entry.dTag, aggregateHash: entry.aggregateHash };
+  },
+
+  /** Store the immutable environment captured for this exact frame registration. */
+  setEnvironment(win: Window, environment: ShellEnvironment): void {
+    const entry = registry.get(win);
+    if (!entry) return;
+    entry.environment = Object.freeze({
+      capabilities: Object.freeze({ domains: Object.freeze([...environment.capabilities.domains]) }),
+      services: Object.freeze([...environment.services]),
+    });
+  },
+
+  /** Return the immutable environment captured before this frame executes. */
+  getEnvironment(win: Window): ShellEnvironment | undefined {
+    return registry.get(win)?.environment;
   },
 
   /**

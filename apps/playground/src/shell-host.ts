@@ -485,6 +485,7 @@ export async function loadNapplet(
   // shell.ready establishes the runtime session from this creation-time identity.
   if (iframe.contentWindow) {
     originRegistry.register(iframe.contentWindow, windowId, identity);
+    originRegistry.setEnvironment(iframe.contentWindow, environment);
   }
 
   iframe.addEventListener('load', () => {
@@ -494,6 +495,7 @@ export async function loadNapplet(
     ) {
       // srcdoc may replace contentWindow; bind any replacement for its handshake.
       originRegistry.register(iframe.contentWindow, windowId, identity);
+      originRegistry.setEnvironment(iframe.contentWindow, environment);
     }
   });
 

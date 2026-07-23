@@ -26,6 +26,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createShellBridge } from './shell-bridge.js';
 import { originRegistry } from './origin-registry.js';
+import { resolveShellEnvironment } from './shell-init.js';
+import { renderNappletNamespacePrelude } from './napplet-namespace.js';
 import type { ShellAdapter, SessionEntry } from './types.js';
 import type { Theme } from '@napplet/nap/theme/types';
 
@@ -944,6 +946,39 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     expect(bridge.runtime.sessionRegistry.getEntryByWindowId('window-excluded-relay')).toBeDefined();
     expect(iframe.postMessage).not.toHaveBeenCalled();
     expect(aclChecks).not.toHaveBeenCalled();
+
+    bridge.destroy();
+  });
+
+  it('uses the frame-registration snapshot for both the injected prelude and shell.init', () => {
+    const iframe = makeFakeIframe();
+    const win = iframe as unknown as Window;
+    let disabledDomains: readonly string[] = [];
+    const hooks: ShellAdapter = {
+      ...makeTestHooks(),
+      capabilities: {
+        get disabledDomains(): readonly string[] {
+          return disabledDomains;
+        },
+      },
+    };
+    const identity = { dTag: 'snapshot-napp', aggregateHash: 'snapshot-hash' };
+    const environment = resolveShellEnvironment(hooks, identity);
+    const prelude = renderNappletNamespacePrelude(environment.capabilities);
+    originRegistry.register(win, 'window-snapshot', identity);
+    originRegistry.setEnvironment(win, environment);
+
+    // This models a host toggle after srcdoc construction but before shell.ready.
+    disabledDomains = ['relay'];
+    const bridge = createShellBridge(hooks);
+    bridge.handleMessage({ source: win, origin: 'https://snapshot.example', data: { type: 'shell.ready' } } as MessageEvent);
+
+    expect(prelude).toContain('relay');
+    expect(iframe.postMessage).toHaveBeenCalledWith({
+      type: 'shell.init',
+      capabilities: environment.capabilities,
+      services: environment.services,
+    }, '*');
 
     bridge.destroy();
   });

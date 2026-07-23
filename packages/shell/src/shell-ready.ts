@@ -1,7 +1,7 @@
 import type { Runtime, SessionEntry } from '@kehto/runtime';
 import { originRegistry, type OriginIdentity } from './origin-registry.js';
 import { resolveShellEnvironment } from './shell-init.js';
-import type { ShellAdapter, ShellCapabilities } from './types.js';
+import type { ShellAdapter, ShellEnvironment } from './types.js';
 
 interface ShellReadyOptions {
   hooks: ShellAdapter;
@@ -11,11 +11,6 @@ interface ShellReadyOptions {
   sourceRegistrationId: number;
   sourceWindow: Window;
   windowId: string;
-}
-
-interface ShellEnvironment {
-  readonly capabilities: ShellCapabilities;
-  readonly services: readonly string[];
 }
 
 /** State owned by one ShellBridge instance for its NAP-SHELL lifecycles. */
@@ -64,7 +59,7 @@ export function handleShellReady({
   if (!identity) return;
 
   registerNip5dSessionIfNeeded({ origin, runtime, state, sourceRegistrationId, windowId, identity });
-  const environment = resolveShellEnvironment(hooks, identity);
+  const environment = originRegistry.getEnvironment(sourceWindow) ?? resolveShellEnvironment(hooks, identity);
   state.environments.set(windowId, environment);
   postShellInit(sourceWindow, environment);
   state.initSent.set(sourceWindow, sourceRegistrationId);

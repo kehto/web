@@ -8,24 +8,19 @@ import {
 } from '@kehto/shell';
 
 import type { PajaHostConfig } from './options.js';
-import { hasEqualPajaEnvironmentMembership, type PajaShellEnvironment } from './parity.js';
+import type { PajaShellEnvironment } from './parity.js';
 import { injectPajaRuntimeCsp, type PajaResolvedPointer } from './runtime-resolver.js';
 
 /**
- * Resolve Paja's prelude and handshake environments from one trusted frame
- * identity. Both calls deliberately produce fresh snapshots: callers compare
- * membership, never object identity, across the two host boundaries.
+ * Resolve Paja's one authoritative environment from a trusted frame identity.
+ * The caller persists this exact snapshot with the frame registration so its
+ * prelude and later shell.init cannot drift when host policy changes.
  */
 export function resolvePajaFrameEnvironment(
   hooks: ShellAdapter,
   identity: OriginIdentity,
-): Readonly<{ bootstrap: PajaShellEnvironment; shellInit: PajaShellEnvironment }> {
-  const bootstrap = resolveShellEnvironment(hooks, identity);
-  const shellInit = resolveShellEnvironment(hooks, identity);
-  if (!hasEqualPajaEnvironmentMembership(bootstrap, shellInit)) {
-    throw new Error('Paja bootstrap and shell.init environment membership diverged.');
-  }
-  return Object.freeze({ bootstrap, shellInit });
+): PajaShellEnvironment {
+  return resolveShellEnvironment(hooks, identity);
 }
 
 export function getTargetIdentity(
@@ -53,11 +48,13 @@ export function registerFrameForGeneration(
   config: PajaHostConfig,
   generation: number,
   identity: OriginIdentity,
+  environment: PajaShellEnvironment,
   windowId = `${config.window.id}:${generation}`,
 ): string | null {
   const win = frame.contentWindow;
   if (!win) return null;
   originRegistry.register(win, windowId, identity);
+  originRegistry.setEnvironment(win, environment);
   return windowId;
 }
 
@@ -72,8 +69,8 @@ export async function navigateFrame(
   onRegistered?: (windowId: string | null) => void,
 ): Promise<string | null> {
   const identity = getTargetOriginIdentity(config, resolvedTarget);
-  const { bootstrap } = resolvePajaFrameEnvironment(adapter, identity);
-  const domains = bootstrap.capabilities.domains;
+  const environment = resolvePajaFrameEnvironment(adapter, identity);
+  const domains = environment.capabilities.domains;
   if (config.target.mode === 'runtime-pointer') {
     if (!resolvedTarget) {
       frame.removeAttribute('src');
@@ -81,7 +78,7 @@ export async function navigateFrame(
       return null;
     }
     if (isCurrent && !isCurrent()) return null;
-    const registeredWindowId = registerFrameForGeneration(frame, config, generation, identity, windowId);
+    const registeredWindowId = registerFrameForGeneration(frame, config, generation, identity, environment, windowId);
     onRegistered?.(registeredWindowId);
     frame.removeAttribute('src');
     frame.srcdoc = injectNappletNamespacePrelude(
@@ -95,7 +92,7 @@ export async function navigateFrame(
   }
   const html = await fetchTargetHtml();
   if (isCurrent && !isCurrent()) return null;
-  const registeredWindowId = registerFrameForGeneration(frame, config, generation, identity, windowId);
+  const registeredWindowId = registerFrameForGeneration(frame, config, generation, identity, environment, windowId);
   onRegistered?.(registeredWindowId);
   frame.removeAttribute('src');
   frame.srcdoc = injectNappletNamespacePrelude(

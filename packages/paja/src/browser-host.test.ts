@@ -15,7 +15,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
     const source = readFileSync(new URL('./browser-target-frame.ts', import.meta.url), 'utf8');
 
     expect(source).toContain('injectNappletNamespacePrelude(');
-    expect(source).toContain('const domains = bootstrap.capabilities.domains;');
+    expect(source).toContain('const domains = environment.capabilities.domains;');
     expect(source).not.toContain('manifest.requires');
     expect(source).toContain("fetch(new URL('./__kehto/target.html', window.location.href)");
     expect(source).toContain('frame.removeAttribute(\'src\');');
@@ -108,7 +108,8 @@ describe('@kehto/paja browser host runtime source guards', () => {
 
     expect(targetSource).toContain('const identity = getTargetOriginIdentity(config, resolvedTarget);');
     expect(targetSource).toContain('resolvePajaFrameEnvironment(adapter, identity);');
-    expect(targetSource).toContain('registerFrameForGeneration(frame, config, generation, identity, windowId);');
+    expect(targetSource).toContain('registerFrameForGeneration(frame, config, generation, identity, environment, windowId);');
+    expect(targetSource).toContain('originRegistry.setEnvironment(win, environment);');
     expect(targetSource).toContain('onRegistered?.(registeredWindowId);');
     expect(hostSource).not.toContain("frame?.addEventListener('load'");
     expect(adapterSource).not.toContain('onNip5dIframeCreate:');

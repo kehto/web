@@ -316,6 +316,12 @@ export interface ShellCapabilities {
   readonly domains: readonly string[];
 }
 
+/** Immutable NAP-SHELL environment delivered to one trusted iframe session. */
+export interface ShellEnvironment {
+  readonly capabilities: ShellCapabilities;
+  readonly services: readonly string[];
+}
+
 /**
  * All adapters that the shell requires from the host application.
  * @example

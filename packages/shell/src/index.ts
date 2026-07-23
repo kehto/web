@@ -24,6 +24,7 @@ export { ALL_CAPABILITIES } from '@kehto/runtime';
 export type {
   ShellAdapter,
   ShellCapabilities,
+  ShellEnvironment,
   RelayPoolHooks,
   RelayPoolLike,
   RelayConfigHooks,

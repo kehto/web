@@ -10,7 +10,6 @@ import {
   PAJA_HANDSHAKE_DOMAINS,
   PAJA_REQUIRED_SERVICES,
   PAJA_UPSTREAM_WEB_DOMAINS,
-  hasEqualPajaEnvironmentMembership,
   getMissingAdvertisedDomains,
   getMissingServices,
 } from './parity.js';
@@ -87,7 +86,7 @@ describe('@kehto/paja parity metadata', () => {
     expect(getMissingServices(PAJA_REQUIRED_SERVICES.filter((service) => service !== 'intent'))).toEqual(['intent']);
   });
 
-  it('resolves equal but isolated bootstrap and shell.init environments from trusted live wiring', () => {
+  it('resolves one immutable frame environment from trusted live wiring', () => {
     const hooks: ShellAdapter = {
       ...baseHooks(),
       services: { config: service('config'), resource: service('resource') },
@@ -100,23 +99,19 @@ describe('@kehto/paja parity metadata', () => {
       },
     };
 
-    const { bootstrap, shellInit } = resolvePajaFrameEnvironment(hooks, {
+    const environment = resolvePajaFrameEnvironment(hooks, {
       dTag: 'trusted-frame',
       aggregateHash: 'trusted-hash',
     });
 
-    expect(bootstrap).toEqual({
+    expect(environment).toEqual({
       capabilities: { domains: ['relay', 'config'] },
       services: ['config'],
     });
-    expect(shellInit).toEqual(bootstrap);
-    expect(shellInit).not.toBe(bootstrap);
-    expect(shellInit.capabilities).not.toBe(bootstrap.capabilities);
-    expect(shellInit.capabilities.domains).not.toBe(bootstrap.capabilities.domains);
-    expect(shellInit.services).not.toBe(bootstrap.services);
-    expect(Object.isFrozen(bootstrap.capabilities.domains)).toBe(true);
-    expect(Object.isFrozen(shellInit.services)).toBe(true);
-    expect(hasEqualPajaEnvironmentMembership(bootstrap, shellInit)).toBe(true);
+    expect(Object.isFrozen(environment)).toBe(true);
+    expect(Object.isFrozen(environment.capabilities)).toBe(true);
+    expect(Object.isFrozen(environment.capabilities.domains)).toBe(true);
+    expect(Object.isFrozen(environment.services)).toBe(true);
   });
 
   it('does not resurrect an absent domain when the same trusted frame environment is rebuilt', () => {
@@ -132,8 +127,27 @@ describe('@kehto/paja parity metadata', () => {
     const first = resolvePajaFrameEnvironment(hooks, identity);
     const second = resolvePajaFrameEnvironment(hooks, identity);
 
-    expect(first.bootstrap).toEqual(second.bootstrap);
-    expect(first.bootstrap.capabilities.domains).not.toContain('relay');
-    expect(second.shellInit.capabilities.domains).not.toContain('relay');
+    expect(first).toEqual(second);
+    expect(first.capabilities.domains).not.toContain('relay');
+    expect(second.capabilities.domains).not.toContain('relay');
+  });
+
+  it('keeps the captured environment stable when a mutable disabled-domain source changes', () => {
+    let disabledDomains: readonly string[] = [];
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      capabilities: {
+        get disabledDomains(): readonly string[] {
+          return disabledDomains;
+        },
+      },
+    };
+
+    const bootstrap = resolvePajaFrameEnvironment(hooks, { dTag: 'toggle-frame', aggregateHash: 'toggle-hash' });
+    disabledDomains = ['relay'];
+    const laterFrame = resolvePajaFrameEnvironment(hooks, { dTag: 'later-frame', aggregateHash: 'later-hash' });
+
+    expect(bootstrap.capabilities.domains).toContain('relay');
+    expect(laterFrame.capabilities.domains).not.toContain('relay');
   });
 });
