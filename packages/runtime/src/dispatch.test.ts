@@ -731,7 +731,7 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(event).toBeDefined();
       expect((event!.message as any).topic).toBe('news');
       expect((event!.message as any).payload).toEqual({ text: 'hello' });
-      expect((event!.message as any).sender).toBe(WINDOW_ID);
+      expect((event!.message as any).sender).toBe(TEST_DTAG);
     });
 
     it('inc.emit does not echo to sender', () => {
@@ -828,7 +828,7 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(event).toBeDefined();
       expect((event!.message as any).topic).toBe('inc-news');
       expect((event!.message as any).payload).toEqual({ text: 'inc hello' });
-      expect((event!.message as any).sender).toBe(WINDOW_ID);
+      expect((event!.message as any).sender).toBe(TEST_DTAG);
     });
   });
 

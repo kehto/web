@@ -160,6 +160,43 @@ function nappletNamespacePrelude(domains: string[]): void {
     post(message);
   }
 
+  function transposeConventionUri(
+    topic: string,
+    hasExplicitPayload: boolean,
+  ): { topic: string; payload?: Record<string, string> } | null {
+    if (!topic.startsWith('napplet:')) {
+      return { topic };
+    }
+    if (topic.includes('#')) {
+      return null;
+    }
+    const queryStart = topic.indexOf('?');
+    if (queryStart === -1) {
+      return { topic };
+    }
+    if (hasExplicitPayload) {
+      return null;
+    }
+
+    const values: Record<string, string> = {};
+    const names = new Set<string>();
+    const query = topic.slice(queryStart + 1);
+    try {
+      for (const pair of query.split('&')) {
+        const separator = pair.indexOf('=');
+        const rawName = separator === -1 ? pair : pair.slice(0, separator);
+        const rawValue = separator === -1 ? '' : pair.slice(separator + 1);
+        const name = decodeURIComponent(rawName);
+        if (names.has(name)) return null;
+        names.add(name);
+        values[name] = decodeURIComponent(rawValue);
+      }
+    } catch {
+      return null;
+    }
+    return { topic: topic.slice(0, queryStart), payload: values };
+  }
+
   function resultOrError(msg: RuntimeMessage): Record<string, unknown> {
     return msg;
   }
@@ -337,16 +374,26 @@ function nappletNamespacePrelude(domains: string[]): void {
 
   function makeInc(): Record<string, unknown> {
     return {
-      emit(topic: string, _extraTags?: string[][], content?: string) {
-        let payload: unknown = content;
-        if (typeof content === 'string' && content.length > 0) {
+      emit(topic: string, payload?: unknown) {
+        const legacyContent = arguments[2];
+        const hasLegacyArguments = arguments.length > 2;
+        let outgoingPayload = payload;
+        if (hasLegacyArguments && typeof legacyContent === 'string' && legacyContent.length > 0) {
           try {
-            payload = JSON.parse(content);
+            outgoingPayload = JSON.parse(legacyContent);
           } catch {
-            payload = content;
+            outgoingPayload = legacyContent;
           }
         }
-        fire({ type: 'inc.emit', topic, ...(payload === undefined || payload === '' ? {} : { payload }) });
+        const transposed = transposeConventionUri(topic, arguments.length > 1 && !hasLegacyArguments);
+        if (!transposed) return;
+        fire({
+          type: 'inc.emit',
+          topic: transposed.topic,
+          ...(transposed.payload === undefined && (outgoingPayload === undefined || outgoingPayload === '')
+            ? {}
+            : { payload: transposed.payload ?? outgoingPayload }),
+        });
       },
       on(topic: string, callback: (payload: unknown, event: unknown) => void) {
         const off = listen((event) => {

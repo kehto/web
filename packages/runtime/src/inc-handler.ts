@@ -104,7 +104,7 @@ function handleIncMessage(
   const action = msg.type.slice(dotIdx + 1);
 
   switch (action) {
-    case 'emit': handleEmit(state, hooks, windowId, m); return;
+    case 'emit': handleEmit(state, hooks, sessionRegistry, windowId, m); return;
     case 'subscribe': handleSubscribe(state, hooks, windowId, m); return;
     case 'unsubscribe': handleUnsubscribe(state, windowId, m); return;
     case 'channel.open': handleChannelOpen(state, hooks, sessionRegistry, windowId, m); return;
@@ -119,16 +119,19 @@ function handleIncMessage(
 function handleEmit(
   state: IncState,
   hooks: RuntimeAdapter,
+  sessionRegistry: SessionRegistry,
   windowId: string,
   m: RuntimeIncMessage,
 ): void {
   const topic = m.topic ?? '';
+  const sender = sessionRegistry.getEntryByWindowId(windowId)?.dTag;
+  if (!sender) return;
   if (!topic) return;
   const subscribers = state.subscriptions.get(topic);
   if (!subscribers) return;
   for (const subscriberWindowId of subscribers) {
     if (subscriberWindowId !== windowId) {
-      hooks.sendToNapplet(subscriberWindowId, { type: 'inc.event', topic, payload: m.payload, sender: windowId } as NappletMessage);
+      hooks.sendToNapplet(subscriberWindowId, { type: 'inc.event', topic, payload: m.payload, sender } as NappletMessage);
     }
   }
 }
