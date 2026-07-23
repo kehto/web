@@ -127,20 +127,40 @@ identifiers and attested dTag identities.
   4. Napplets can create closeable subscriptions and use `channel.open`, `channel.onOpened`, `channel.list`, and `channel.broadcast` plus symmetric endpoint handles with `emit`, `on`, `onClosed`, and `close`; `channel.list()` remains informational.
   5. Channel access is authorized once at open time; target `inc.channel.opened` is enqueued before opener success; early handles/messages/terminal closure are retained in order; buffer overflow closes rather than drops; dead peers and cleanup leave no live route behind.
 
-**Plans:** 12/12 plans executed
+**Plans:** 12/13 plans executed
+**Wave 1**
 
 - [x] 102-01-PLAN.md — Trace one canonical convention emit through the shared prelude and exact dTag runtime delivery.
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [x] 102-02-PLAN.md — Complete dTag-safe runtime channel identity, routing, and lifecycle behavior.
-- [x] 102-03-PLAN.md — Enforce authorization once at channel open and close channels on ACL revocation.
 - [x] 102-04-PLAN.md — Complete the injected event/subscription/channel API and rejection matrix.
 - [x] 102-09-PLAN.md — Remove generic runtime INC topic-prefix service dispatch.
 - [x] 102-10-PLAN.md — Retire services-package audio/notification INC compatibility and senderless synthetic events.
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 102-03-PLAN.md — Enforce authorization once at channel open and close channels on ACL revocation.
 - [x] 102-11-PLAN.md — Migrate downstream playground code and notification browser tests off the retired service prefixes.
 - [x] 102-12-PLAN.md — Align active service documentation, skills, and static guards with the retired compatibility boundary.
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [x] 102-05-PLAN.md — Prove the shared canonical INC prelude through Paja's real srcdoc host.
 - [x] 102-06-PLAN.md — Prove exact event and channel behavior between live playground frames.
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [x] 102-07-PLAN.md — Synchronize active conformance documentation and static protocol guards.
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
 - [x] 102-08-PLAN.md — Add package changesets and run the complete cross-host phase gate.
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 102-13-PLAN.md — Retain and expose the terminal symmetric handle when unopened-handle buffering overflows.
 
 ### Phase 103: Identity and Theme Wire Parity
 
