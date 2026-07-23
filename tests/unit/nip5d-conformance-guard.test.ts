@@ -524,4 +524,50 @@ describe('NIP-5D conformance static guards', () => {
     expect(queryResultFields, 'RelayQueryResultMessage must declare events').toContain('events');
     expect(queryResultFields, 'RelayQueryResultMessage must not declare count').not.toContain('count');
   });
+
+  it('pins active INC guidance to the draft authority and implemented routing boundary', () => {
+    const docs = [
+      'RUNTIME-SPEC.md',
+      'docs/policies/NIP-5D-CONFORMANCE.md',
+      'packages/runtime/README.md',
+      'packages/shell/README.md',
+    ] as const;
+    const exactHeads = [
+      '4593ce9e301ce098fd3dad64206fcd6f144fa7af',
+      '896c32c92deee68dc4d10fc1132b62df20cccb6f',
+      'c5cd06f7be6d4690b303949abb26e87ff62f4729',
+    ] as const;
+
+    for (const file of docs) {
+      const source = readRepoFile(file);
+      for (const head of exactHeads) expect(source, `${file} must pin ${head}`).toContain(head);
+      expect(source, `${file} must retain exact queryless identities`).toMatch(/exact queryless (?:topic |)identity/i);
+      expect(source, `${file} must describe runtime-attested dTags`).toMatch(/runtime-attested dTag/i);
+      expect(source, `${file} must defer intent binding work`).toContain('Phase 104');
+      expect(source, `${file} must retain the package gate`).toContain('Phase 105');
+    }
+
+    const runtimeSpec = readRepoFile('RUNTIME-SPEC.md');
+    const policy = readRepoFile('docs/policies/NIP-5D-CONFORMANCE.md');
+    const runtimeReadme = readRepoFile('packages/runtime/README.md');
+    const shellReadme = readRepoFile('packages/shell/README.md');
+    const incHandler = readRepoFile('packages/runtime/src/inc-handler.ts');
+    const namespace = readRepoFile('packages/shell/src/napplet-namespace.ts');
+
+    expect(runtimeSpec).toContain('Projection-owned query-to-text-payload transposition');
+    expect(policy).toContain('kehto/web#203');
+    expect(policy).toContain('https://github.com/kehto/web/issues/203#issuecomment-5060904495');
+    expect(runtimeReadme).toContain('open-time authorization');
+    expect(shellReadme).toContain('target `inc.channel.opened` before the opener result');
+    expect(shellReadme).toContain('`channel.list()` is informational only');
+
+    expect(incHandler).toContain('const subscribers = state.subscriptions.get(topic);');
+    expect(incHandler).toContain('sessionRegistry.getEntryByWindowId(windowId)?.dTag');
+    expect(incHandler).toContain("type: 'inc.channel.opened'");
+    expect(incHandler).not.toMatch(/topic\??\.startsWith\s*\(/);
+    expect(namespace).toContain('INC subscriptions require a queryless topic identity');
+    expect(namespace).toContain('function deliverOpened');
+    expect(namespace).toContain('function closeChannelState');
+    expect(namespace).toContain("reason: 'buffer overflow'");
+  });
 });
