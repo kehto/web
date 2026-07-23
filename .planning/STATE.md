@@ -2,14 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.29
 milestone_name: Napplet Convention and Runtime Conformance
-status: planned
-last_updated: "2026-07-23T00:00:00+01:00"
+current_phase: 101
+current_phase_name: nap-shell-session-integrity
+status: executing
+stopped_at: Completed 101-01-PLAN.md
+last_updated: "2026-07-23T13:46:05.350Z"
 last_activity: 2026-07-23
+last_activity_desc: Phase 101 execution started
 progress:
-  total_phases: 0
+  total_phases: 6
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 5
+  completed_plans: 1
   percent: 0
 ---
 
@@ -20,15 +24,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-23)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** v1.29 — convention migration plus complete supported-NAP conformance against `napplet/naps@6461e4b`.
+**Current focus:** Phase 101 — nap-shell-session-integrity
 
 ## Current Position
 
-Phase: Roadmap creation
-Plan: GSD roadmapper/checker pending
-Status: Audit and requirements complete; package publication gate remains open
+Phase: 101 (nap-shell-session-integrity) — EXECUTING
+Plan: 2 of 5
+Status: Ready to execute
 
-Last activity: 2026-07-23 — Audited upstream and Kehto, created v1.29 requirements, and opened ambiguity tracker kehto/web#203.
+Last activity: 2026-07-23 — Phase 101 execution started
 
 ## Performance Metrics
 
@@ -46,6 +50,11 @@ Last activity: 2026-07-23 — Audited upstream and Kehto, created v1.29 requirem
 | 87 | TBD | - | - |
 | 88 | 1 | ~18m | ~18m |
 | 89 | 1 | ~45m | ~45m |
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 101 P01 | 5min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -156,8 +165,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-06-17T06:58:00.000Z
-Stopped at: Phase 89 complete — v1.21 NIP-5D #2303 + NAP-SHELL/INTENT conformance done (docs + changesets)
+Last session: 2026-07-23T13:46:05.344Z
+Stopped at: Completed 101-01-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -181,3 +190,8 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - Keep visible UI minimal by default: top bar + bottom bar only.
 - Fill Kehto package gaps where needed; do not hide missing NAP support behind dev-runtime-only shims.
 - Publishing remains GitHub Actions / tag-driven; no local package publishing.
+
+## Decisions
+
+- [Phase ?]: Runtime ingress drops every valid capability envelope until SessionRegistry has a source-bound NAP-SHELL session.
+- [Phase ?]: shell.init is withheld without trusted creation-time identity; ready payload claims are ignored and registration IDs preserve reload semantics.
