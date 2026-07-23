@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
-import { expect, test, type FrameLocator } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+import { expect, test, type FrameLocator, type Page } from '@playwright/test';
 import { verifyEvent } from 'nostr-tools/pure';
 import { startPajaServer, type PajaServer } from '../../packages/paja/dist/index.js';
 
@@ -20,6 +21,11 @@ interface BlossomTestServer extends TargetServer {
   readonly requestMethods: string[];
   omitSizeOnce(): void;
 }
+
+const shimPrelude = readFileSync(
+  new URL('../../packages/shell/node_modules/@napplet/shim/dist/prelude.global.js', import.meta.url),
+  'utf8',
+);
 
 let targetServer: TargetServer;
 let runtimeServer: PajaServer;
@@ -423,10 +429,67 @@ test('boots modern injected-domain targets through mandatory NAP-SHELL', async (
   }
 });
 
+test('keeps canonical INC protected through the real shim assignment in an opaque Paja srcdoc', async ({ page }) => {
+  test.setTimeout(120_000);
+  const incRuntime = await startPajaServer({
+    options: {
+      targetUrl: `${targetServer.url}?incProbe=1`,
+      port: 0,
+    },
+    now: new Date('2026-06-21T00:00:00.000Z'),
+  });
+
+  try {
+    await page.goto(incRuntime.url);
+    const frame = page.frameLocator('#napplet-frame');
+    await expect(frame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
+    await expect(frame.locator('#inc-shim-status')).toHaveText('protected callable');
+    await expect(frame.locator('#inc-emit-topic')).toHaveText('napplet:phase102/probe');
+    await expect(frame.locator('#inc-emit-payload')).toHaveText('{"value":"a b","plus":"a+b"}');
+    await expect(frame.locator('#inc-emit-return')).toHaveText('undefined');
+    await expect(frame.locator('#inc-channel-list')).toHaveText('empty');
+    await expect(frame.locator('#inc-channel-open')).toHaveText('target not found');
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().messageLog
+      .filter((entry) => entry.type === 'inc.emit')
+      .map((entry) => entry.preview) ?? [])).toEqual([
+      '{"type":"inc.emit","topic":"napplet:phase102/probe","payload":{"value":"a b","plus":"a+b"}}',
+    ]);
+
+    await sendIncEvent(page, { value: 'delivered' });
+    await expect(frame.locator('#inc-event')).toHaveText('napplet:phase102/probe|paja-parent|{"value":"delivered"}');
+    await expect(frame.locator('#inc-callback-count')).toHaveText('1');
+
+    const firstLoadId = await frame.locator('#load-id').textContent();
+    const firstGeneration = await page.evaluate(() => window.__KEHTO_PAJA__?.getState().generation ?? -1);
+    await page.locator('#reload-target').click();
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().generation)).toBe(firstGeneration + 1);
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
+    const reloadedFrame = page.frameLocator('#napplet-frame');
+    await expect(reloadedFrame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
+    expect(await reloadedFrame.locator('#load-id').textContent()).not.toBe(firstLoadId);
+    await expect(reloadedFrame.locator('#inc-shim-status')).toHaveText('protected callable');
+    await expect(reloadedFrame.locator('#inc-callback-count')).toHaveText('0');
+
+    await sendIncEvent(page, { value: 'fresh' });
+    await expect(reloadedFrame.locator('#inc-event')).toHaveText('napplet:phase102/probe|paja-parent|{"value":"fresh"}');
+    await expect(reloadedFrame.locator('#inc-callback-count')).toHaveText('1');
+  } finally {
+    await incRuntime.close();
+  }
+});
+
 async function startTargetServer(): Promise<TargetServer> {
   let loadCount = 0;
   const server = createServer((request, response) => {
     const requestUrl = new URL(request.url ?? '/', 'http://127.0.0.1');
+    if (requestUrl.pathname === '/shim-prelude.js') {
+      response.writeHead(200, {
+        'cache-control': 'no-store',
+        'content-type': 'text/javascript; charset=utf-8',
+      });
+      response.end(shimPrelude);
+      return;
+    }
     if (requestUrl.pathname !== '/') {
       response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
       response.end('Not found');
@@ -442,6 +505,7 @@ async function startTargetServer(): Promise<TargetServer> {
       requiredDomains: readRequiredDomains(requestUrl),
       shellReady: requestUrl.searchParams.get('shellReady') !== '0',
       manualTraffic: requestUrl.searchParams.get('manualTraffic') === '1',
+      incProbe: requestUrl.searchParams.get('incProbe') === '1',
     }));
   });
 
@@ -480,11 +544,12 @@ function readRequiredDomains(url: URL): string[] {
 
 function renderTargetHtml(
   loadCount: number,
-  options: { requiredDomains: readonly string[]; shellReady: boolean; manualTraffic: boolean },
+  options: { requiredDomains: readonly string[]; shellReady: boolean; manualTraffic: boolean; incProbe: boolean },
 ): string {
   const requiredDomainsJson = JSON.stringify(options.requiredDomains);
   const shellReadyJson = JSON.stringify(options.shellReady);
   const manualTrafficJson = JSON.stringify(options.manualTraffic);
+  const incProbeJson = JSON.stringify(options.incProbe);
   return `<!doctype html>
 <html>
   <head>
@@ -502,6 +567,16 @@ function renderTargetHtml(
     <div id="config-density"></div>
     <div id="theme-background"></div>
     <div id="storage-error"></div>
+    <div id="inc-shim-status"></div>
+    <div id="inc-emit-topic"></div>
+    <div id="inc-emit-payload"></div>
+    <div id="inc-emit-return"></div>
+    <div id="inc-event"></div>
+    <div id="inc-callback-count"></div>
+    <div id="inc-channel-list"></div>
+    <div id="inc-channel-open"></div>
+    ${options.incProbe ? `<script src="/shim-prelude.js"></script>
+    <script>window.NappletShimPrelude.install({ domains: ${requiredDomainsJson} });</script>` : ''}
     <script>
       const seenTypes = new Set();
       const pajaTestMessages = [];
@@ -518,6 +593,36 @@ function renderTargetHtml(
         throw new Error('Required shell domains unavailable');
       }
       const sendShellReady = ${shellReadyJson};
+      const incProbe = ${incProbeJson};
+      let incCallbackCount = 0;
+      function runIncProbe() {
+        const inc = window.napplet && window.napplet.inc;
+        const protectedInc = inc
+          && typeof inc.emit === 'function'
+          && typeof inc.on === 'function'
+          && inc.channel
+          && typeof inc.channel.list === 'function'
+          && typeof inc.channel.open === 'function';
+        document.getElementById('inc-shim-status').textContent = protectedInc ? 'protected callable' : 'missing protected INC';
+        if (!protectedInc) return;
+        inc.on('napplet:phase102/probe', (event) => {
+          incCallbackCount += 1;
+          document.getElementById('inc-event').textContent = [event.topic, event.sender, JSON.stringify(event.payload)].join('|');
+          document.getElementById('inc-callback-count').textContent = String(incCallbackCount);
+        });
+        const emitResult = inc.emit('napplet:phase102/probe?value=a%20b&plus=a+b');
+        document.getElementById('inc-emit-topic').textContent = 'napplet:phase102/probe';
+        document.getElementById('inc-emit-payload').textContent = '{"value":"a b","plus":"a+b"}';
+        document.getElementById('inc-emit-return').textContent = String(emitResult);
+        document.getElementById('inc-callback-count').textContent = String(incCallbackCount);
+        void inc.channel.list().then((channels) => {
+          document.getElementById('inc-channel-list').textContent = channels.length === 0 ? 'empty' : 'unexpected channels';
+        });
+        void inc.channel.open('missing-paja-peer').then(
+          () => { document.getElementById('inc-channel-open').textContent = 'unexpected open'; },
+          (error) => { document.getElementById('inc-channel-open').textContent = error instanceof Error ? error.message : String(error); },
+        );
+      }
       function renderResult(message) {
         pajaTestMessages.push(message);
         const type = message.type;
@@ -551,18 +656,26 @@ function renderTargetHtml(
         ];
         for (const message of messages) window.parent.postMessage(message, '*');
       }
+      let shellInitialized = false;
+      function handleShellInit(environment) {
+        if (shellInitialized) return;
+        shellInitialized = true;
+        document.getElementById('shell-init-type').textContent = 'shell.init';
+        document.getElementById('shell-init-domains').textContent = environment.capabilities.domains.join(',');
+        document.getElementById('target-status').textContent = 'shell-init received';
+        if (!${manualTrafficJson}) sendServiceTraffic();
+        if (incProbe) runIncProbe();
+      }
       if (sendShellReady) {
         window.addEventListener('message', (event) => {
           if (!event.data || typeof event.data.type !== 'string') return;
           if (event.data.type === 'shell.init') {
-            document.getElementById('shell-init-type').textContent = event.data.type;
-            document.getElementById('shell-init-domains').textContent = event.data.capabilities.domains.join(',');
-            document.getElementById('target-status').textContent = 'shell-init received';
-            if (!${manualTrafficJson}) sendServiceTraffic();
+            handleShellInit(event.data);
             return;
           }
           renderResult(event.data);
         });
+        if (incProbe) window.napplet.shell.onReady(handleShellInit);
         window.parent.postMessage({ type: 'shell.ready' }, '*');
       } else {
         window.napplet.identity.getPublicKey()
@@ -586,6 +699,18 @@ async function sendFixtureMessage(frame: FrameLocator, message: Record<string, u
     };
     fixtureWindow.__sendPajaMessage?.(payload);
   }, message);
+}
+
+async function sendIncEvent(page: Page, payload: Record<string, unknown>): Promise<void> {
+  await page.locator('#napplet-frame').evaluate((frame, eventPayload) => {
+    if (!(frame instanceof HTMLIFrameElement)) throw new Error('Missing Paja iframe.');
+    frame.contentWindow?.postMessage({
+      type: 'inc.event',
+      topic: 'napplet:phase102/probe',
+      sender: 'paja-parent',
+      payload: eventPayload,
+    }, '*');
+  }, payload);
 }
 
 async function sendUploadMessage(frame: FrameLocator, id: string, bytes: number[]): Promise<void> {
