@@ -23,6 +23,17 @@ export interface SessionRegistry {
   getEntry(pubkey: string): SessionEntry | undefined;
   /** Get the windowId for a napplet pubkey. */
   getWindowId(pubkey: string): string | undefined;
+  /**
+   * Resolve an unambiguous live napplet dTag to its internal window ID.
+   *
+   * A duplicate dTag fails closed rather than selecting an arbitrary session.
+   * Window IDs and pubkeys remain internal transport identities and never
+   * resolve through this lookup.
+   *
+   * @param dTag - Runtime-attested napplet dTag
+   * @returns The sole owning window ID, or undefined when missing or ambiguous
+   */
+  getWindowIdByDTag(dTag: string): string | undefined;
   /** Check if a windowId has a registered napplet. */
   isRegistered(windowId: string): boolean;
   /** Get all registered napplet entries. */
@@ -94,6 +105,16 @@ export function createSessionRegistry(notifier?: PendingUpdateNotifier): Session
 
     getWindowId(pubkey: string): string | undefined {
       return byPubkey.get(pubkey)?.windowId;
+    },
+
+    getWindowIdByDTag(dTag: string): string | undefined {
+      let resolvedWindowId: string | undefined;
+      for (const [windowId, entry] of byWindowIdEntry) {
+        if (entry.dTag !== dTag) continue;
+        if (resolvedWindowId !== undefined) return undefined;
+        resolvedWindowId = windowId;
+      }
+      return resolvedWindowId;
     },
 
     isRegistered(windowId: string): boolean {
