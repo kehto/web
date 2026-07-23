@@ -5,15 +5,15 @@ milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 103
 current_phase_name: identity-and-theme-wire-parity
 status: executing
-stopped_at: Completed 103-03-PLAN.md
-last_updated: "2026-07-23T21:30:53.426Z"
+stopped_at: Completed 103-05-PLAN.md
+last_updated: "2026-07-23T21:37:36.198Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 103 plans passed verification; Phase 102 remains upstream-blocked
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 25
-  completed_plans: 22
+  completed_plans: 23
   percent: 33
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-23)
 ## Current Position
 
 Phase: 103 (identity-and-theme-wire-parity) — EXECUTING
-Plan: 4 of 7
+Plan: 5 of 7
 Status: Ready to execute
 
 Last activity: 2026-07-23 -- Phase 103 plans passed verification; Phase 102 remains upstream-blocked
@@ -75,6 +75,7 @@ Last activity: 2026-07-23 -- Phase 103 plans passed verification; Phase 102 rema
 | Phase 103 P02 | 6m | 3 tasks | 4 files |
 | Phase 103 P04 | 3m | 2 tasks | 2 files |
 | Phase 103 P03 | 4m | 2 tasks | 4 files |
+| Phase 103 P05 | 5m | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -187,8 +188,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-07-23T21:30:53.418Z
-Stopped at: Completed 103-03-PLAN.md
+Last session: 2026-07-23T21:37:36.190Z
+Stopped at: Completed 103-05-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -257,3 +258,5 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: Only trusted-parent MessageEvents may settle identity/theme requests or invoke automatic change callbacks.
 - [Phase ?]: Identity and theme host pushes require a shell.ready session, its frozen domain environment, and a current recipient ACL grant per window.
 - [Phase ?]: Identity change pushes are sender-null and recipient identity:read; concurrent empty-pubkey sessions are evaluated independently.
+- [Phase ?]: Paja forwards retained ThemeService callbacks through one attached eligible-session ShellBridge path; controller code never directly fans out theme changes.
+- [Phase ?]: Paja's opaque-origin theme proof uses automatic protected onChanged delivery and an immediate theme.get, with no subscribe or unsubscribe traffic.
