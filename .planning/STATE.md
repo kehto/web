@@ -5,15 +5,15 @@ milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 102
 current_phase_name: nap-inc-event-channel-parity
 status: executing
-stopped_at: Completed 102-10-PLAN.md
-last_updated: "2026-07-23T18:12:17.776Z"
+stopped_at: Completed 102-03-PLAN.md
+last_updated: "2026-07-23T18:20:28.362Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 102 execution started
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 17
-  completed_plans: 10
+  completed_plans: 11
   percent: 17
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-23)
 ## Current Position
 
 Phase: 102 (nap-inc-event-channel-parity) — EXECUTING
-Plan: 6 of 12
+Plan: 7 of 12
 Status: Ready to execute
 
 Last activity: 2026-07-23 -- Phase 102 execution started
@@ -64,6 +64,7 @@ Last activity: 2026-07-23 -- Phase 102 execution started
 | Phase 102-nap-inc-event-channel-parity P04 | 7min | 2 tasks | 2 files |
 | Phase 102-nap-inc-event-channel-parity P09 | 5min | 1 tasks | 2 files |
 | Phase 102-nap-inc-event-channel-parity P10 | 173s | 2 tasks | 8 files |
+| Phase 102-nap-inc-event-channel-parity P03 | 7min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -174,8 +175,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-07-23T18:12:17.769Z
-Stopped at: Completed 102-10-PLAN.md
+Last session: 2026-07-23T18:20:28.355Z
+Stopped at: Completed 102-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -222,3 +223,5 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: Direct canonical service routing remains keyed by the wire message.type domain.
 - [Phase ?]: Notification services ignore every inc.emit input; only direct notify.* envelopes can trigger service behavior.
 - [Phase ?]: The legacy audio topic service and its public types are removed; canonical media behavior remains direct-domain based.
+- [Phase ?]: INC channel ACL is checked only at inc.channel.open; established routes are authorized by opaque membership.
+- [Phase ?]: Only block and relay:read revoke events invalidate matching live dTag and aggregateHash channel routes.

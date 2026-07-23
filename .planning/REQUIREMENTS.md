@@ -392,7 +392,7 @@ lockfile.
 | INC-03 | Phase 102 | Complete |
 | INC-04 | Phase 102 | Complete |
 | INC-05 | Phase 102 | Complete |
-| INC-06 | Phase 102 | Pending |
+| INC-06 | Phase 102 | Complete |
 | INC-07 | Phase 102 | Complete |
 | INC-08 | Phase 102 | Complete |
 | IDENTITY-01 | Phase 103 | Pending |

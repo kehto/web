@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 11
+open_count: 12
 waived_count: 0
 fixed_count: 0
-total_count: 11
-last_updated: 2026-07-23T18:11:19.801Z
+total_count: 12
+last_updated: 2026-07-23T18:20:37.107Z
 ---
 
 # Broken Windows Ledger
@@ -26,6 +26,7 @@ last_updated: 2026-07-23T18:11:19.801Z
 | 9 | 102 | unrun-verify | .aislop/config.yml |  | AI-slop verification could not run because aislop is not installed locally; installation is prohibited for this phase. | open |  | 2026-07-23T18:05:35.468Z |  |
 | 10 | 102 | deviation | packages/runtime/src/service-dispatch.ts |  | Exact inc.emit early return added to prevent a generic inc service from bypassing INC runtime ownership. | open |  | 2026-07-23T18:05:35.521Z |  |
 | 11 | 102 | unrun-verify | .aislop/config.yml |  | AI-slop gate could not run because the aislop executable is unavailable in the workspace. | open |  | 2026-07-23T18:11:19.801Z |  |
+| 12 | 102 | deviation | packages/runtime/src/session-registry.ts | 125 | Enumerate live window sessions so ACL revocation reaches empty-pubkey NIP-5D sessions. | open |  | 2026-07-23T18:20:37.107Z |  |
 
 ````json
 [
@@ -159,6 +160,18 @@ last_updated: 2026-07-23T18:11:19.801Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-23T18:11:19.801Z",
+    "resolved_at": null
+  },
+  {
+    "id": 12,
+    "kind": "deviation",
+    "phase": "102",
+    "file": "packages/runtime/src/session-registry.ts",
+    "line": 125,
+    "description": "Enumerate live window sessions so ACL revocation reaches empty-pubkey NIP-5D sessions.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-23T18:20:37.107Z",
     "resolved_at": null
   }
 ]
