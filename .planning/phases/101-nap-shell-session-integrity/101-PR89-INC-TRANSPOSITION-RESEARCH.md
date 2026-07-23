@@ -1,7 +1,8 @@
 # Upstream PR #89: NAP-INC Convention URI Transposition
 
-**Researched:** 2026-07-23  
-**Upstream authority checked:** `napplet/naps` PR #89 head `34ec29fc4039384a83dbd6b476f83c4fa0d038e6` (`naps/NAP-INC.md`, still marked draft)  
+**Researched:** 2026-07-23
+
+**Upstream authority checked:** `napplet/naps` PR #89 head `34ec29fc4039384a83dbd6b476f83c4fa0d038e6` (`naps/NAP-INC.md`, still marked draft)
 **Scope:** Planning delta only. No Kehto source, test, package, or protocol behavior is changed by this document.
 
 ## Project Constraints (from AGENTS.md)

@@ -98,7 +98,7 @@ describe('playground gateway artifact guard', () => {
     expect(shellHost).not.toContain('allow-same-origin');
     expect(shellHost).not.toContain('relay.runtime.sessionRegistry.register(windowId');
     expect(shellHost).toContain(
-      'originRegistry.register(iframe.contentWindow, windowId, { dTag, aggregateHash });',
+      'originRegistry.register(iframe.contentWindow, windowId, identity);',
     );
     expect(shellHost).toContain("(event.data as NappletMessage).type === 'shell.ready'");
     expect(shellHost).toContain('markEnvelopeIdentityBinding(windowId);');
@@ -136,18 +136,34 @@ describe('playground gateway artifact guard', () => {
     expect(resolver).toContain('selectWriteRelays(');
     expect(resolver).toContain('injectCspMeta');
     expect(shellHost).toContain('injectNappletNamespacePrelude');
-    expect(shellHost).toContain("{ domains: ['shell', ...resolved.requires] }");
-    expect(shellHost).not.toContain('getShellCapabilities()?.domains');
+    expect(shellHost).toContain('getPlaygroundShellEnvironment(identity)');
+    expect(shellHost).toContain('environment.capabilities');
+    expect(shellHost).not.toContain("{ domains: ['shell', ...resolved.requires] }");
 
     // requires checked against the COMPUTED manifest before the iframe renders.
-    expect(shellHost).toContain('getMissingRequiredNaps(resolved.requires)');
+    expect(shellHost).toContain('getMissingRequiredNaps(');
     expect(shellHost).toContain('requires unsupported NAP capabilities');
-    expect(shellHost.indexOf('getMissingRequiredNaps(resolved.requires)')).toBeLessThan(
+    expect(shellHost.indexOf('getMissingRequiredNaps(')).toBeLessThan(
       shellHost.indexOf('iframe.srcdoc = injectNappletNamespacePrelude'),
     );
-    expect(shellHost.indexOf("{ domains: ['shell', ...resolved.requires] }")).toBeGreaterThan(
-      shellHost.indexOf('iframe.srcdoc = injectNappletNamespacePrelude'),
+    expect(shellHost.indexOf('getPlaygroundShellEnvironment(identity)')).toBeLessThan(
+      shellHost.indexOf('getMissingRequiredNaps('),
     );
+  });
+
+  it('derives each frame environment from its trusted creation identity and live host wiring', () => {
+    const demoHooks = readRepoFile('apps/playground/src/demo-hooks.ts');
+    const shellHost = readRepoFile('apps/playground/src/shell-host.ts');
+
+    expect(demoHooks).toContain('resolveShellEnvironment');
+    expect(demoHooks).toContain('getPlaygroundShellEnvironment(identity: OriginIdentity)');
+    expect(shellHost).toContain('const identity = Object.freeze({ dTag, aggregateHash });');
+    expect(shellHost).toContain('const environment = getPlaygroundShellEnvironment(identity);');
+    expect(shellHost).toContain('originRegistry.register(iframe.contentWindow, windowId, identity);');
+    expect(shellHost).toContain('environment.capabilities');
+    expect(shellHost).not.toContain("{ domains: ['shell', ...resolved.requires] }");
+    expect(demoHooks).not.toContain('shellCapabilities.naps');
+    expect(demoHooks).not.toContain('shellCapabilities.protocols');
   });
 
   it('shows relay runtime activity instead of NIP-66 fixture suggestions', () => {
