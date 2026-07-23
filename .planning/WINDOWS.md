@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 14
+open_count: 15
 waived_count: 0
 fixed_count: 3
-total_count: 17
-last_updated: 2026-07-23T18:55:12.259Z
+total_count: 18
+last_updated: 2026-07-23T19:02:33.378Z
 ---
 
 # Broken Windows Ledger
@@ -32,6 +32,7 @@ last_updated: 2026-07-23T18:55:12.259Z
 | 15 | 102 | deviation | apps/playground/src/main-notifications.ts | 39 | Removed a remaining retired notification topic-form toast cue during the active-source conformance scan. | open |  | 2026-07-23T18:27:08.984Z |  |
 | 16 | 102 | deviation | tests/e2e/paja-single-window.spec.ts |  | Imported the fixture shim-bundle loader after the initial focused browser run. | open |  | 2026-07-23T18:55:12.205Z |  |
 | 17 | 102 | deviation | tests/e2e/paja-single-window.spec.ts |  | Used shell.onReady so the reload fixture cannot miss an early captured shell.init. | open |  | 2026-07-23T18:55:12.259Z |  |
+| 18 | 102 | deviation | tests/e2e/nap-inc-playground.spec.ts |  | Opt-in IPv6 base URL override keeps focused browser proof isolated from an unrelated IPv4 listener on port 4174. | open |  | 2026-07-23T19:02:33.378Z |  |
 
 ````json
 [
@@ -237,6 +238,18 @@ last_updated: 2026-07-23T18:55:12.259Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-23T18:55:12.259Z",
+    "resolved_at": null
+  },
+  {
+    "id": 18,
+    "kind": "deviation",
+    "phase": "102",
+    "file": "tests/e2e/nap-inc-playground.spec.ts",
+    "line": null,
+    "description": "Opt-in IPv6 base URL override keeps focused browser proof isolated from an unrelated IPv4 listener on port 4174.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-23T19:02:33.378Z",
     "resolved_at": null
   }
 ]
