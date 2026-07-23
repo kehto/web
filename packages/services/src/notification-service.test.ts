@@ -1,15 +1,17 @@
 /**
- * notification-service.test.ts — Unit tests for the notification service.
+ * notification-service.test.ts — Unit tests for the direct notification service.
  */
 
-import { describe, it, expect } from 'vitest';
-import { createNotificationService } from './notification-service.js';
+import { describe, expect, it } from 'vitest';
 import type { NappletMessage } from '@napplet/core';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+import { createNotificationService } from './notification-service.js';
 
 const WINDOW_ID = 'win-test-1';
 const WINDOW_ID_2 = 'win-test-2';
+
+function makeNotify(action: string, fields: Record<string, unknown> = {}): NappletMessage {
+  return { type: `notify.${action}`, ...fields } as NappletMessage;
+}
 
 function makeIncEmit(topic: string, payload: Record<string, unknown> = {}): NappletMessage {
   return { type: 'inc.emit', topic, payload } as NappletMessage;
@@ -19,228 +21,111 @@ function createService() {
   return createNotificationService();
 }
 
-// ─── Tests ────────────────────────────────────────────────────────────────────
-
 describe('createNotificationService', () => {
-  it('returns ServiceHandler with correct descriptor', () => {
-    const service = createNotificationService();
-    expect(service.descriptor).toEqual({
+  it('returns the direct notify service descriptor', () => {
+    expect(createService().descriptor).toEqual({
       name: 'notifications',
       version: '1.0.0',
       description: 'Notification state registry — tracks notifications per napplet window',
     });
   });
 
-  it('ignores non-inc.emit messages', () => {
+  it('creates a notification from notify.create and emits the shaped direct result', () => {
+    const changes: unknown[] = [];
+    const sent: NappletMessage[] = [];
+    const service = createNotificationService({ onChange: (list) => changes.push(list) });
+
+    service.handleMessage(
+      WINDOW_ID,
+      makeNotify('create', { title: 'New Message', body: 'Hello from chat' }),
+      (message) => sent.push(message),
+    );
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ type: 'notify.created' });
+    expect(typeof (sent[0] as { id: unknown }).id).toBe('string');
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject([{ windowId: WINDOW_ID, title: 'New Message', body: 'Hello from chat', read: false }]);
+  });
+
+  it('lists only the requesting window notifications through notify.list', () => {
     const service = createService();
     const sent: NappletMessage[] = [];
-    service.handleMessage(WINDOW_ID, { type: 'relay.subscribe' } as NappletMessage, (msg) => sent.push(msg));
-    expect(sent).toHaveLength(0);
+
+    service.handleMessage(WINDOW_ID, makeNotify('create', { title: 'First', body: 'One' }), () => {});
+    service.handleMessage(WINDOW_ID_2, makeNotify('create', { title: 'Second', body: 'Two' }), () => {});
+    service.handleMessage(WINDOW_ID, makeNotify('list'), (message) => sent.push(message));
+
+    expect(sent).toEqual([
+      expect.objectContaining({
+        type: 'notify.listed',
+        notifications: [expect.objectContaining({ title: 'First', body: 'One', windowId: WINDOW_ID })],
+      }),
+    ]);
   });
 
-  it('ignores events with non-notifications topic', () => {
-    const service = createService();
+  it('marks and dismisses direct notifications by id', () => {
+    const changes: unknown[] = [];
     const sent: NappletMessage[] = [];
-    service.handleMessage(WINDOW_ID, makeIncEmit('chat:message', { text: 'hello' }), (msg) => sent.push(msg));
-    expect(sent).toHaveLength(0);
+    const service = createNotificationService({ onChange: (list) => changes.push([...list]) });
+
+    service.handleMessage(WINDOW_ID, makeNotify('create', { title: 'T', body: 'B' }), (message) => sent.push(message));
+    const notificationId = (sent[0] as { id: string }).id;
+    service.handleMessage(WINDOW_ID, makeNotify('read', { notificationId }), () => {});
+    expect(changes.at(-1)).toMatchObject([{ id: notificationId, read: true }]);
+
+    service.handleMessage(WINDOW_ID, makeNotify('dismiss', { notificationId }), () => {});
+    expect(changes.at(-1)).toEqual([]);
   });
 
-  describe('notifications:create', () => {
-    it('creates a notification and sends notifications:created with an id', () => {
-      const service = createService();
-      const sent: NappletMessage[] = [];
-
-      service.handleMessage(WINDOW_ID, makeIncEmit('notifications:create', { title: 'New Message', body: 'Hello from chat' }), (msg) => sent.push(msg));
-
-      expect(sent).toHaveLength(1);
-      expect((sent[0] as any).type).toBe('inc.event');
-      expect((sent[0] as any).topic).toBe('notifications:created');
-      expect(typeof (sent[0] as any).payload.id).toBe('string');
-      expect(((sent[0] as any).payload.id as string).length).toBeGreaterThan(0);
+  it('enforces the configured direct notification limit', () => {
+    const changes: unknown[] = [];
+    const service = createNotificationService({
+      maxPerWindow: 2,
+      onChange: (list) => changes.push([...list]),
     });
 
-    it('calls onChange with the new notification', () => {
-      const changes: unknown[] = [];
-      const service = createNotificationService({ onChange: (list) => changes.push(list) });
+    service.handleMessage(WINDOW_ID, makeNotify('create', { title: 'First' }), () => {});
+    service.handleMessage(WINDOW_ID, makeNotify('create', { title: 'Second' }), () => {});
+    service.handleMessage(WINDOW_ID, makeNotify('create', { title: 'Third' }), () => {});
 
-      service.handleMessage(WINDOW_ID, makeIncEmit('notifications:create', { title: 'Alert', body: 'Something happened' }), () => {});
-
-      expect(changes).toHaveLength(1);
-      const list = changes[0] as Array<{ title: string; body: string; read: boolean }>;
-      expect(list).toHaveLength(1);
-      expect(list[0].title).toBe('Alert');
-      expect(list[0].body).toBe('Something happened');
-      expect(list[0].read).toBe(false);
-    });
-
-    it('creates notification with correct windowId', () => {
-      const changes: unknown[] = [];
-      const service = createNotificationService({ onChange: (list) => changes.push(list) });
-
-      service.handleMessage(WINDOW_ID, makeIncEmit('notifications:create', { title: 'T', body: 'B' }), () => {});
-
-      const list = changes[0] as Array<{ windowId: string }>;
-      expect(list[0].windowId).toBe(WINDOW_ID);
-    });
+    expect(changes.at(-1)).toMatchObject([{ title: 'Second' }, { title: 'Third' }]);
   });
 
-  describe('notifications:list', () => {
-    it('returns notifications:listed with current window notifications', () => {
-      const service = createService();
-      const sent: NappletMessage[] = [];
+  it('contains unknown direct notify actions without a side effect or result', () => {
+    const changes: unknown[] = [];
+    const sent: NappletMessage[] = [];
+    const service = createNotificationService({ onChange: (list) => changes.push(list) });
 
-      // Create a notification first
-      service.handleMessage(WINDOW_ID, makeIncEmit('notifications:create', { title: 'T1', body: 'B1' }), () => {});
+    service.handleMessage(WINDOW_ID, makeNotify('unknown', { title: 'ignored' }), (message) => sent.push(message));
 
-      // Request list
-      service.handleMessage(WINDOW_ID, makeIncEmit('notifications:list'), (msg) => sent.push(msg));
-
-      expect(sent).toHaveLength(1);
-      expect((sent[0] as any).type).toBe('inc.event');
-      expect((sent[0] as any).topic).toBe('notifications:listed');
-      const notifs = (sent[0] as any).payload.notifications as Array<{ title: string }>;
-      expect(notifs).toHaveLength(1);
-      expect(notifs[0].title).toBe('T1');
-    });
-
-    it('returns empty list for window with no notifications', () => {
-      const service = createService();
-      const sent: NappletMessage[] = [];
-
-      service.handleMessage(WINDOW_ID, makeIncEmit('notifications:list'), (msg) => sent.push(msg));
-
-      const notifs = (sent[0] as any).payload.notifications as unknown[];
-      expect(notifs).toHaveLength(0);
-    });
-
-    it('returns only notifications for the requesting window', () => {
-      const service = createService();
-      const sent: NappletMessage[] = [];
-
-      // Create notifications for two different windows
-      service.handleMessage(WINDOW_ID, makeIncEmit('notifications:create', { title: 'Win1', body: 'B' }), () => {});
-      service.handleMessage(WINDOW_ID_2, makeIncEmit('notifications:create', { title: 'Win2', body: 'B' }), () => {});
-
-      // Request list from WINDOW_ID — should only see its own
-      service.handleMessage(WINDOW_ID, makeIncEmit('notifications:list'), (msg) => sent.push(msg));
-
-      const notifs = (sent[0] as any).payload.notifications as Array<{ title: string }>;
-      expect(notifs).toHaveLength(1);
-      expect(notifs[0].title).toBe('Win1');
-    });
+    expect(changes).toEqual([]);
+    expect(sent).toEqual([]);
   });
 
-  describe('notifications:read', () => {
-    it('flips read from false to true', () => {
-      const changes: unknown[] = [];
-      const service = createNotificationService({ onChange: (list) => changes.push(list) });
-      const sent: NappletMessage[] = [];
+  it.each([
+    ['notifications:create', { title: 'Legacy', body: 'must not run' }],
+    ['notify.create', { title: 'Direct-looking INC topic', body: 'must not run' }],
+    ['notifications:create?title=Query', { title: 'Query', body: 'must not run' }],
+    ['napplet:archetype/intent', { title: 'Opaque', body: 'must not run' }],
+  ])('ignores opaque INC topic %s without synthesizing an event', (topic, payload) => {
+    const changes: unknown[] = [];
+    const sent: NappletMessage[] = [];
+    const service = createNotificationService({ onChange: (list) => changes.push(list) });
 
-      service.handleMessage(WINDOW_ID, makeIncEmit('notifications:create', { title: 'T', body: 'B' }), (msg) => sent.push(msg));
-      const notifId = (sent[0] as any).payload.id as string;
+    service.handleMessage(WINDOW_ID, makeIncEmit(topic, payload), (message) => sent.push(message));
 
-      // Mark as read
-      service.handleMessage(WINDOW_ID, makeIncEmit('notifications:read', { id: notifId }), () => {});
-
-      const lastChange = changes[changes.length - 1] as Array<{ id: string; read: boolean }>;
-      const notif = lastChange.find((n) => n.id === notifId);
-      expect(notif?.read).toBe(true);
-    });
-
-    it('does not call onChange if notification is already read', () => {
-      const changes: unknown[] = [];
-      const service = createNotificationService({ onChange: (list) => changes.push(list) });
-      const sent: NappletMessage[] = [];
-
-      service.handleMessage(WINDOW_ID, makeIncEmit('notifications:create', { title: 'T', body: 'B' }), (msg) => sent.push(msg));
-      const notifId = (sent[0] as any).payload.id as string;
-
-      service.handleMessage(WINDOW_ID, makeIncEmit('notifications:read', { id: notifId }), () => {});
-      const changesAfterRead = changes.length;
-
-      // Reading again should not trigger onChange
-      service.handleMessage(WINDOW_ID, makeIncEmit('notifications:read', { id: notifId }), () => {});
-      expect(changes.length).toBe(changesAfterRead);
-    });
+    expect(changes).toEqual([]);
+    expect(sent).toEqual([]);
   });
 
-  describe('notifications:dismiss', () => {
-    it('removes the notification from the list', () => {
-      const changes: unknown[] = [];
-      const service = createNotificationService({ onChange: (list) => changes.push(list) });
-      const sent: NappletMessage[] = [];
+  it('cleans up direct notification state when its window is destroyed', () => {
+    const changes: unknown[] = [];
+    const service = createNotificationService({ onChange: (list) => changes.push([...list]) });
 
-      service.handleMessage(WINDOW_ID, makeIncEmit('notifications:create', { title: 'T', body: 'B' }), (msg) => sent.push(msg));
-      const notifId = (sent[0] as any).payload.id as string;
+    service.handleMessage(WINDOW_ID, makeNotify('create', { title: 'T', body: 'B' }), () => {});
+    service.onWindowDestroyed?.(WINDOW_ID);
 
-      service.handleMessage(WINDOW_ID, makeIncEmit('notifications:dismiss', { id: notifId }), () => {});
-
-      const lastChange = changes[changes.length - 1] as Array<{ id: string }>;
-      expect(lastChange.find((n) => n.id === notifId)).toBeUndefined();
-    });
-
-    it('calls onChange after dismissal', () => {
-      const changes: unknown[] = [];
-      const service = createNotificationService({ onChange: (list) => changes.push(list) });
-      const sent: NappletMessage[] = [];
-
-      service.handleMessage(WINDOW_ID, makeIncEmit('notifications:create', { title: 'T', body: 'B' }), (msg) => sent.push(msg));
-      const notifId = (sent[0] as any).payload.id as string;
-      const countBefore = changes.length;
-
-      service.handleMessage(WINDOW_ID, makeIncEmit('notifications:dismiss', { id: notifId }), () => {});
-      expect(changes.length).toBeGreaterThan(countBefore);
-    });
-  });
-
-  describe('maxPerWindow', () => {
-    it('evicts oldest notification (FIFO) when limit is exceeded', () => {
-      const changes: unknown[] = [];
-      const service = createNotificationService({
-        onChange: (list) => changes.push([...list]),
-        maxPerWindow: 2,
-      });
-
-      // Create 3 notifications — the first should be evicted
-      service.handleMessage(WINDOW_ID, makeIncEmit('notifications:create', { title: 'First', body: '1' }), () => {});
-      service.handleMessage(WINDOW_ID, makeIncEmit('notifications:create', { title: 'Second', body: '2' }), () => {});
-      service.handleMessage(WINDOW_ID, makeIncEmit('notifications:create', { title: 'Third', body: '3' }), () => {});
-
-      const lastChange = changes[changes.length - 1] as Array<{ title: string }>;
-      expect(lastChange).toHaveLength(2);
-      expect(lastChange.find((n) => n.title === 'First')).toBeUndefined();
-      expect(lastChange.find((n) => n.title === 'Second')).toBeDefined();
-      expect(lastChange.find((n) => n.title === 'Third')).toBeDefined();
-    });
-  });
-
-  describe('onWindowDestroyed', () => {
-    it('removes notifications for the destroyed window and calls onChange', () => {
-      const changes: unknown[] = [];
-      const service = createNotificationService({ onChange: (list) => changes.push(list) });
-
-      service.handleMessage(WINDOW_ID, makeIncEmit('notifications:create', { title: 'T', body: 'B' }), () => {});
-      const countBefore = changes.length;
-
-      service.onWindowDestroyed?.(WINDOW_ID);
-
-      expect(changes.length).toBeGreaterThan(countBefore);
-      const lastChange = changes[changes.length - 1] as Array<{ windowId: string }>;
-      expect(lastChange.find((n) => n.windowId === WINDOW_ID)).toBeUndefined();
-    });
-
-    it('does not call onChange for a window that has no notifications', () => {
-      const changes: unknown[] = [];
-      const service = createNotificationService({ onChange: (list) => changes.push(list) });
-
-      const countBefore = changes.length;
-      service.onWindowDestroyed?.('nonexistent-window');
-      expect(changes.length).toBe(countBefore);
-    });
-
-    it('does not throw for unknown window', () => {
-      const service = createService();
-      expect(() => service.onWindowDestroyed?.('nonexistent-window')).not.toThrow();
-    });
+    expect(changes.at(-1)).toEqual([]);
   });
 });
