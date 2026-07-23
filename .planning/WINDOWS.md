@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 4
+open_count: 6
 waived_count: 0
 fixed_count: 0
-total_count: 4
-last_updated: 2026-07-23T14:23:34.477Z
+total_count: 6
+last_updated: 2026-07-23T17:41:27.938Z
 ---
 
 # Broken Windows Ledger
@@ -19,6 +19,8 @@ last_updated: 2026-07-23T14:23:34.477Z
 | 2 | 101 | deviation | packages/paja/src/parity.test.ts |  | Rule 3 fixture correction removed stale ShellCapabilities fields to restore type-documentation generation | open |  | 2026-07-23T14:09:52.589Z |  |
 | 3 | 101 | deviation | packages/paja/src/browser-adapter.ts |  | Paja identity fallback removed so ready resolves only from pre-srcdoc origin registration. | open |  | 2026-07-23T14:23:34.425Z |  |
 | 4 | 101 | deviation | packages/paja/src/browser-runtime-tabs.ts |  | Runtime-pointer tabs use the same pre-srcdoc registration seam as single-frame Paja. | open |  | 2026-07-23T14:23:34.477Z |  |
+| 5 | 102 | unrun-verify | .aislop/config.yml |  | AI-slop scan could not run because aislop@0.13.1 is absent from the installed workspace | open |  | 2026-07-23T17:41:27.883Z |  |
+| 6 | 102 | deviation | packages/runtime/src/session-registry.ts |  | TDD RED checks passed but branch safety remediation required combined green commits | open |  | 2026-07-23T17:41:27.938Z |  |
 
 ````json
 [
@@ -68,6 +70,30 @@ last_updated: 2026-07-23T14:23:34.477Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-23T14:23:34.477Z",
+    "resolved_at": null
+  },
+  {
+    "id": 5,
+    "kind": "unrun-verify",
+    "phase": "102",
+    "file": ".aislop/config.yml",
+    "line": null,
+    "description": "AI-slop scan could not run because aislop@0.13.1 is absent from the installed workspace",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-23T17:41:27.883Z",
+    "resolved_at": null
+  },
+  {
+    "id": 6,
+    "kind": "deviation",
+    "phase": "102",
+    "file": "packages/runtime/src/session-registry.ts",
+    "line": null,
+    "description": "TDD RED checks passed but branch safety remediation required combined green commits",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-23T17:41:27.938Z",
     "resolved_at": null
   }
 ]
