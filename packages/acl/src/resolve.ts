@@ -87,6 +87,12 @@ function countMap(_action: string): CapabilityResolution {
  *   `identity:read`, recipient `null`.
  */
 function identityMap(action: string): CapabilityResolution {
+  // NAP-IDENTITY's shell-originated change notification is recipient-gated:
+  // no napplet sends it, and only a napplet currently allowed to read identity
+  // data may receive it.
+  if (action === 'changed') {
+    return { senderCap: null, recipientCap: 'identity:read' };
+  }
   if (action === 'getPublicKey' || action === 'getRelays') {
     return { senderCap: null, recipientCap: null };
   }
@@ -385,6 +391,7 @@ function themeMap(action: string): CapabilityResolution {
  * | `count`    | `count`, `count.result`                                      | `relay:read`    | `null`        |
  * | `identity` | `getPublicKey`, `getRelays`                                 | `null`          | `null`        |
  * | `identity` | `getProfile/getFollows/getList/getZaps/getMutes/...`        | `identity:read` | `null`        |
+ * | `identity` | `changed` (shell → napplet push)                            | `null`          | `identity:read` |
  * | `keys`     | `forward`, `action`                                         | `keys:forward`  | `null`        |
  * | `keys`     | `registerAction`, `unregisterAction`, `bindings`            | `keys:bind`     | `null`        |
  * | `media`    | any                                                         | `media:control` | `null`        |

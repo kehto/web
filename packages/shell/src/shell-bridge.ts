@@ -202,15 +202,19 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
     isDomainAllowed: shellReadyState.isDomainAllowed,
   });
 
-  function broadcastToNapplets(envelope: NappletMessage): void {
-    // Use originRegistry.getAllWindowIds() rather than sessionRegistry.getAllEntries()
-    // because demo napplets share pubkey:'' — the byPubkey map only retains one entry
-    // per pubkey key, so getAllEntries() would return only the last-registered napplet
-    // when multiple napplets have the same (empty) pubkey. originRegistry is keyed by
-    // Window reference so it has one entry per distinct iframe regardless of pubkey.
-    const windowIds = originRegistry.getAllWindowIds();
-    for (const windowId of windowIds) {
-      const win = originRegistry.getIframeWindow(windowId);
+  function publishToEligibleNapplets(
+    envelope: NappletMessage,
+    domain: 'identity' | 'theme',
+    capability: 'identity:read' | 'theme:read',
+  ): void {
+    // A session exists only after shell.ready. Iterate entries, not a pubkey
+    // lookup, because different live windows may legitimately share pubkey ''.
+    for (const entry of runtime.sessionRegistry.getAllEntries()) {
+      const environment = shellReadyState.environments.get(entry.windowId);
+      if (!environment?.capabilities.domains.includes(domain)) continue;
+      if (!runtime.aclState.check(entry.pubkey, entry.dTag, entry.aggregateHash, capability)) continue;
+
+      const win = originRegistry.getIframeWindow(entry.windowId);
       if (!win) continue;
       win.postMessage(envelope, '*');
     }
@@ -266,12 +270,12 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
 
     publishTheme(theme: Theme): void {
       const envelope: NappletMessage = { type: 'theme.changed', theme } as NappletMessage;
-      broadcastToNapplets(envelope);
+      publishToEligibleNapplets(envelope, 'theme', 'theme:read');
     },
 
     publishIdentityChanged(pubkey: string): void {
       const envelope: NappletMessage = { type: 'identity.changed', pubkey } as NappletMessage;
-      broadcastToNapplets(envelope);
+      publishToEligibleNapplets(envelope, 'identity', 'identity:read');
     },
 
     get runtime() {
