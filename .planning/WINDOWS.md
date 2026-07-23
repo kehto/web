@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 10
+open_count: 11
 waived_count: 0
 fixed_count: 0
-total_count: 10
-last_updated: 2026-07-23T18:05:35.521Z
+total_count: 11
+last_updated: 2026-07-23T18:11:19.801Z
 ---
 
 # Broken Windows Ledger
@@ -25,6 +25,7 @@ last_updated: 2026-07-23T18:05:35.521Z
 | 8 | 102 | unrun-verify | .aislop/config.yml |  | AI-slop gate not run because the aislop executable is unavailable locally and on PATH | open |  | 2026-07-23T17:57:52.505Z |  |
 | 9 | 102 | unrun-verify | .aislop/config.yml |  | AI-slop verification could not run because aislop is not installed locally; installation is prohibited for this phase. | open |  | 2026-07-23T18:05:35.468Z |  |
 | 10 | 102 | deviation | packages/runtime/src/service-dispatch.ts |  | Exact inc.emit early return added to prevent a generic inc service from bypassing INC runtime ownership. | open |  | 2026-07-23T18:05:35.521Z |  |
+| 11 | 102 | unrun-verify | .aislop/config.yml |  | AI-slop gate could not run because the aislop executable is unavailable in the workspace. | open |  | 2026-07-23T18:11:19.801Z |  |
 
 ````json
 [
@@ -146,6 +147,18 @@ last_updated: 2026-07-23T18:05:35.521Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-23T18:05:35.521Z",
+    "resolved_at": null
+  },
+  {
+    "id": 11,
+    "kind": "unrun-verify",
+    "phase": "102",
+    "file": ".aislop/config.yml",
+    "line": null,
+    "description": "AI-slop gate could not run because the aislop executable is unavailable in the workspace.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-23T18:11:19.801Z",
     "resolved_at": null
   }
 ]
