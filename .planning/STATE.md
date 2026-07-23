@@ -5,15 +5,15 @@ milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 102
 current_phase_name: nap-inc-event-channel-parity
 status: executing
-stopped_at: Completed 102-12-PLAN.md
-last_updated: "2026-07-23T18:39:36.085Z"
+stopped_at: Completed 102-05-PLAN.md
+last_updated: "2026-07-23T18:55:12.626Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 102 execution started
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 17
-  completed_plans: 13
+  completed_plans: 14
   percent: 17
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-23)
 ## Current Position
 
 Phase: 102 (nap-inc-event-channel-parity) — EXECUTING
-Plan: 9 of 12
+Plan: 10 of 12
 Status: Ready to execute
 
 Last activity: 2026-07-23 -- Phase 102 execution started
@@ -67,6 +67,7 @@ Last activity: 2026-07-23 -- Phase 102 execution started
 | Phase 102-nap-inc-event-channel-parity P03 | 7min | 2 tasks | 7 files |
 | Phase 102-nap-inc-event-channel-parity P11 | 4m | 1 tasks | 6 files |
 | Phase 102-nap-inc-event-channel-parity P12 | 9m | 1 tasks | 6 files |
+| Phase 102 P05 | 16min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -177,8 +178,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-07-23T18:39:36.077Z
-Stopped at: Completed 102-12-PLAN.md
+Last session: 2026-07-23T18:55:12.619Z
+Stopped at: Completed 102-05-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -231,3 +232,5 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: Bot and chat keep core INC chat flows without notification-service side effects.
 - [Phase ?]: Direct services route only from the exact wire message.type domain; INC topics never choose a service.
 - [Phase ?]: Only the authenticated runtime attaches INC sender identity and produces delivery envelopes.
+- [Phase ?]: Paja INC proof uses the installed shim bundle through real opaque-origin srcdoc and verifies Kehto-owned operations are restored after namespace assignment.
+- [Phase ?]: The Paja reload fixture consumes shell.init via protected shell.onReady to avoid raw-listener timing races.

@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 12
+open_count: 14
 waived_count: 0
 fixed_count: 3
-total_count: 15
-last_updated: 2026-07-23T18:41:49.000Z
+total_count: 17
+last_updated: 2026-07-23T18:55:12.259Z
 ---
 
 # Broken Windows Ledger
@@ -30,6 +30,8 @@ last_updated: 2026-07-23T18:41:49.000Z
 | 13 | 102 | unrun-verify | tests/e2e/demo-notification-service.spec.ts |  | Focused notification Playwright verification could not run because Chromium is unavailable at /usr/bin/chromium. | fixed | Portable Chrome resolution and an IPv6-isolated playground preview enabled the focused run; all 7 tests passed. | 2026-07-23T18:27:08.877Z | 2026-07-23T18:32:20.000Z |
 | 14 | 102 | unrun-verify | .aislop/config.yml |  | AI-slop verification could not run because aislop is unavailable locally; no package was installed. | open |  | 2026-07-23T18:27:08.930Z |  |
 | 15 | 102 | deviation | apps/playground/src/main-notifications.ts | 39 | Removed a remaining retired notification topic-form toast cue during the active-source conformance scan. | open |  | 2026-07-23T18:27:08.984Z |  |
+| 16 | 102 | deviation | tests/e2e/paja-single-window.spec.ts |  | Imported the fixture shim-bundle loader after the initial focused browser run. | open |  | 2026-07-23T18:55:12.205Z |  |
+| 17 | 102 | deviation | tests/e2e/paja-single-window.spec.ts |  | Used shell.onReady so the reload fixture cannot miss an early captured shell.init. | open |  | 2026-07-23T18:55:12.259Z |  |
 
 ````json
 [
@@ -211,6 +213,30 @@ last_updated: 2026-07-23T18:41:49.000Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-23T18:27:08.984Z",
+    "resolved_at": null
+  },
+  {
+    "id": 16,
+    "kind": "deviation",
+    "phase": "102",
+    "file": "tests/e2e/paja-single-window.spec.ts",
+    "line": null,
+    "description": "Imported the fixture shim-bundle loader after the initial focused browser run.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-23T18:55:12.205Z",
+    "resolved_at": null
+  },
+  {
+    "id": 17,
+    "kind": "deviation",
+    "phase": "102",
+    "file": "tests/e2e/paja-single-window.spec.ts",
+    "line": null,
+    "description": "Used shell.onReady so the reload fixture cannot miss an early captured shell.init.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-23T18:55:12.259Z",
     "resolved_at": null
   }
 ]
