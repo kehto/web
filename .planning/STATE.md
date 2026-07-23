@@ -1,34 +1,34 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.22
-milestone_name: Single-Window Development Runtime
-status: complete
-last_updated: "2026-07-12T20:53:57+02:00"
-last_activity: 2026-07-12
+milestone: v1.29
+milestone_name: Napplet Convention and Runtime Conformance
+status: planned
+last_updated: "2026-07-23T00:00:00+01:00"
+last_activity: 2026-07-23
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 5
-  completed_plans: 5
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-21)
+See: .planning/PROJECT.md (updated 2026-07-23)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** v1.22 planning — single-window development runtime for napplet authors with full current NAP/service parity, HMR via target URL, minimal two-bar chrome, and environment simulation controls.
+**Current focus:** v1.29 — convention migration plus complete supported-NAP conformance against `napplet/naps@6461e4b`.
 
 ## Current Position
 
-Phase: 94 — Coverage, Docs, Release Readiness, and PR
-Plan: 94-01 — complete
-Status: v1.22 complete; branch pushed and PR #64 opened
+Phase: Roadmap creation
+Plan: GSD roadmapper/checker pending
+Status: Audit and requirements complete; package publication gate remains open
 
-Last activity: 2026-07-12 — Completed quick task 260712-slw: Fix Paja naddr relay resolution end-to-end.
+Last activity: 2026-07-23 — Audited upstream and Kehto, created v1.29 requirements, and opened ambiguity tracker kehto/web#203.
 
 ## Performance Metrics
 
@@ -50,6 +50,15 @@ Last activity: 2026-07-12 — Completed quick task 260712-slw: Fix Paja naddr re
 ## Accumulated Context
 
 Full decision log lives in `.planning/PROJECT.md` Key Decisions table.
+
+### Key Context for v1.29
+
+Authoritative contract: `napplet/naps@6461e4b37c29dc09a20dff35d9515889c4433874`. Complete delta: `.planning/NAP-CONVENTIONS-6461E4B-DELTA-AUDIT.md`.
+
+- Numbered cross-napplet protocols are gone; conventions use `napplet:<archetype>/<intent>[...?params]`.
+- Full conformance also requires active SHELL, INTENT, INC, IDENTITY, and THEME corrections.
+- Parameterized-topic matching and query semantics are upstream ambiguities tracked in `kehto/web#203`; exact opaque matching is the interim Kehto posture.
+- Final package adoption is gated on the concurrent `napplet/web` chase publishing convention-capable core/nap/shim/sdk/vite-plugin releases.
 
 ### Key Context for v1.21 (Phases 86–89)
 

@@ -31,10 +31,116 @@
 - [ ] **v1.26: NAP-SERIAL Runtime Parity** - 1 phase (98), 6 requirements, PR #74 open
 - [ ] **v1.27: NAP-BLE Runtime Parity** - 1 phase (99), 6 requirements, PR #75 open
 - [x] **v1.28: NAP-WEBRTC Runtime Parity** - 1 phase (100), 6 requirements, PR #76 open
+- [ ] **v1.29: Napplet Convention and Runtime Conformance** - 6 phases (101-106), 49 requirements, with final adoption gated on convention-capable published Napplet packages
 
 ---
 
-## Active Milestone: v1.28 NAP-WEBRTC Runtime Parity
+## Active Milestone: v1.29 Napplet Convention and Runtime Conformance
+
+**Goal:** Conform Kehto to `napplet/naps@6461e4b`: replace numbered cross-napplet negotiation with opaque `napplet:<archetype>/<intent>[...?params]` conventions, close every active supported-NAP gap, and prove the result against published convention-capable Napplet packages.
+
+**Authority:** `napplet/naps` commit `6461e4b37c29dc09a20dff35d9515889c4433874`, with the full Kehto delta in `.planning/NAP-CONVENTIONS-6461E4B-DELTA-AUDIT.md`. The older Phase 101 context remains useful input, but this audit and the v1.29 requirements are authoritative where they differ. Topic/query ambiguity remains tracked in `kehto/web#203`; Kehto uses exact opaque-topic matching until upstream specifies otherwise.
+
+**External gate:** Phases 101-103 can proceed on Kehto's current baseline. Phase 104 may begin only after `@napplet/core`, `@napplet/nap`, `@napplet/shim`, `@napplet/sdk`, and `@napplet/vite-plugin` publish verified convention-capable releases; Kehto must not infer unpublished APIs.
+
+**Hard constraints (carry into every phase):**
+- NAPs are runtime API/capability surfaces only; cross-napplet payload semantics are unnumbered conventions, not numbered protocols.
+- Preserve changelogs, archived planning artifacts, migration records, and historical requirement IDs; migrate active code, tests, configuration, documentation, and policies.
+- Keep conventions and INC topics opaque: no numbered registry, reconstructed NAP-1..5 payload schemas, wildcard matching, prefix matching, or query stripping.
+- No phase may claim complete conformance before the package gate and every supported-NAP requirement are proven.
+
+## Phases
+
+- [ ] **Phase 101: NAP-SHELL Session Integrity** - napplets establish one isolated session and discover only live, granted runtime domains.
+- [ ] **Phase 102: NAP-INC Event and Channel Parity** - napplets exchange exact convention events and authorized channels using dTag identities.
+- [ ] **Phase 103: Identity and Theme Wire Parity** - identity and theme services use only contract-shaped result and change behavior.
+- [ ] **Phase 104: Published Convention and Intent Adoption** - consume released Napplet contracts and resolve convention intent through verified manifests.
+- [ ] **Phase 105: Paja and Playground Convention Flows** - prove profile convention, resource-mediated media, and host theme behavior in live hosts.
+- [ ] **Phase 106: Active-Surface Conformance and Release** - prove the complete migration, regression health, and release readiness.
+
+## Phase Details
+
+### Phase 101: NAP-SHELL Session Integrity
+**Goal:** Napplets can establish one isolated shell session and synchronously discover only the domains that are both granted and live.
+**Depends on:** Nothing (independent Kehto work)
+**Requirements:** SHELL-01, SHELL-02, SHELL-03, SHELL-04, SHELL-05, SHELL-06
+**Success Criteria** (what must be TRUE):
+  1. Before `shell.init`, a napplet sees `supports(domain)` return `false`; after one bare `shell.ready`, it sees `true` only for its granted, implemented domains and `false` for unknown or unoffered domains.
+  2. A duplicate `shell.ready` from the same frame neither creates another session nor receives another `shell.init`, and the injected public API has no protocol argument or numbered capability metadata.
+  3. A frame cannot invoke a capability before its session exists, reassign its creation-time identity or trusted source, or observe another frame's capabilities or services.
+  4. Shell, Paja, and playground omit any domain whose live implementation is unavailable, including when simulation or disabled-domain controls remove it.
+**Plans:** TBD
+
+### Phase 102: NAP-INC Event and Channel Parity
+**Goal:** Napplets can safely exchange exact opaque convention events and authorized channel traffic using shell-assigned identifiers and dTag identities.
+**Depends on:** Phase 101
+**Requirements:** INC-01, INC-02, INC-03, INC-04, INC-05, INC-06, INC-07, INC-08
+**Success Criteria** (what must be TRUE):
+  1. A napplet can `emit` and subscribe to an exact opaque convention topic, preserving an optional payload without prefix, wildcard, query, or base-topic matching; the sender never receives its own event.
+  2. Delivered event senders, peers, and direct targets are napplet dTags only, while event and channel identifiers are opaque values assigned by the shell.
+  3. Napplets can create closeable subscriptions and use `channel.open`, `channel.list`, and `channel.broadcast` plus channel `emit`, `on`, and `close` handles with the required correlated or fire-and-forget transport behavior.
+  4. Channel access is authorized once at open time, dead peers fail as specified, destroyed peers close affected channels with `peer destroyed`, and list/broadcast/close cleanup leaves no live route behind.
+**Plans:** TBD
+
+### Phase 103: Identity and Theme Wire Parity
+**Goal:** Napplets receive private identity and theme state through only the result and change messages sanctioned by their NAP contracts.
+**Depends on:** Phase 101
+**Requirements:** IDENTITY-01, IDENTITY-02, IDENTITY-03, IDENTITY-04, THEME-01, THEME-02, THEME-03, THEME-05
+**Success Criteria** (what must be TRUE):
+  1. `identity.getPublicKey` always replies with `identity.getPublicKey.result`, returning an empty `pubkey` on failure; other supported identity requests use safe matching result shapes and unknown actions are ignored.
+  2. A napplet's injected identity API is readonly, identity changes—including sign-out to `""`—reach only affected sessions exactly once, and identity cannot be forged or leaked through shell, intent, or INC traffic.
+  3. `theme.get` always returns one complete `theme.get.result`; unknown, denied, and unavailable paths never create `theme.*.error` messages or invented theme subscriptions.
+  4. One host theme update atomically changes the value later returned by `theme.get` and delivers exactly one matching complete `theme.changed` event.
+**Plans:** TBD
+
+### Phase 104: Published Convention and Intent Adoption
+**Goal:** After upstream publishes the convention-capable Napplet line, Kehto consumes its verified contracts and resolves opaque convention intent from installed manifests rather than numbered negotiation.
+**Depends on:** Phases 101, 102, and 103; published convention-capable `@napplet/core`, `@napplet/nap`, `@napplet/shim`, `@napplet/sdk`, and `@napplet/vite-plugin` releases
+**Requirements:** BASE-01, BASE-02, PKG-01, PKG-02, PKG-03, PKG-04, INTENT-01, INTENT-02, INTENT-03, INTENT-04, INTENT-05, INTENT-06, INTENT-07, INTENT-08, INTENT-09, ARCH-01, ARCH-02, ARCH-04
+**Success Criteria** (what must be TRUE):
+  1. Kehto locks verified npm/JSR-compatible releases whose public core, nap, shim, SDK, and Vite-plugin contracts expose convention fields, domain-only shell support, and convention-bearing archetype tags; no unpublished API is assumed.
+  2. Public Kehto intent and manifest surfaces serialize `convention`/`conventions` rather than numbered protocol fields, treat convention values as opaque, and neither create a numbered registry nor derive payload schemas from NAAT names.
+  3. Intent availability and handler eligibility come from installed verified manifests, preserve exact archetype convention tags, validate only the convention declaration, and retain upstream-defined defaults without inventing missing ones.
+  4. A caller's explicit convention and dTag target are policy-checked; omitted selection honors a user override or documented chooser rather than silently selecting the first candidate.
+  5. Resolved payloads are delivered only to a ready handler without shell mutation, successes and failures retain matching `*.result` envelopes (including `unsupported convention`), and affected clients receive `intent.changed` when availability changes.
+**Plans:** TBD
+
+### Phase 105: Paja and Playground Convention Flows
+**Goal:** Paja and the playground demonstrate the live convention, resource, and theme behaviors that users of Kehto hosts rely on.
+**Depends on:** Phase 104
+**Requirements:** IDENTITY-05, THEME-04, ARCH-03
+**Success Criteria** (what must be TRUE):
+  1. The live profile-open flow advertises and uses exact topic `napplet:profile/open`; a query-bearing value remains a different topic until `kehto/web#203` has upstream resolution.
+  2. Playground profile consumers load remote profile media through NAP-RESOURCE into revocable safe object URLs and clean them up rather than assigning remote URLs directly to image elements.
+  3. Paja and playground both deliver the current theme to required napplets and bridge one host theme update as one synchronized changed theme with matching stored service state.
+**Plans:** TBD
+**UI hint:** yes
+
+### Phase 106: Active-Surface Conformance and Release
+**Goal:** Every active Kehto surface, published package output, and user-visible host flow is demonstrably conformant and ready to ship.
+**Depends on:** Phase 105
+**Requirements:** BASE-03, VERIFY-01, VERIFY-02, VERIFY-03, VERIFY-04, VERIFY-05
+**Success Criteria** (what must be TRUE):
+  1. A classified active-surface guard finds no obsolete numbered negotiation or intent field names in active code, tests, configs, READMEs, policies, or guidance, while retaining historical material and marking the dated intent design as superseded where it remains discoverable.
+  2. Focused unit and integration coverage proves each supported-NAP contract, including negative wire shapes, source/session isolation, and opaque-topic behavior.
+  3. Playwright proves domain-gated shell startup, convention intent selection and delivery, exact INC routing and channels, identity sign-out with resource-mediated media, and atomic host theme updates through the real shell path.
+  4. Build, type-check, unit, relevant and full E2E, docs, AI-slop, and diff gates pass; changesets cover every changed published Kehto package and the branch is ready for its concise PR.
+**Plans:** TBD
+
+## Progress
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 101. NAP-SHELL Session Integrity | v1.29 | 0/TBD | Not started | - |
+| 102. NAP-INC Event and Channel Parity | v1.29 | 0/TBD | Not started | - |
+| 103. Identity and Theme Wire Parity | v1.29 | 0/TBD | Not started | - |
+| 104. Published Convention and Intent Adoption | v1.29 | 0/TBD | Waiting on upstream package publication | - |
+| 105. Paja and Playground Convention Flows | v1.29 | 0/TBD | Not started | - |
+| 106. Active-Surface Conformance and Release | v1.29 | 0/TBD | Not started | - |
+
+---
+
+## Previous Milestone: v1.28 NAP-WEBRTC Runtime Parity
 
 **Goal:** Implement the remaining missing recent `@napplet/nap` domain, `NAP-WEBRTC`, end to end in Kehto with runtime dispatch, shell capability advertisement, reference service behavior, Paja support, playground demo coverage, and release-ready verification.
 
@@ -320,4 +426,4 @@ Phases execute in numeric order: 80 → 81 → 82
 
 ---
 
-*ROADMAP.md last updated: 2026-06-17 - v1.21 NIP-5D (#2303) + NAP-SHELL/INTENT Conformance roadmap created (Phases 86-89); v1.20 phases complete (PRs #38/#39 open).*
+*ROADMAP.md last updated: 2026-07-23 - v1.29 Napplet Convention and Runtime Conformance roadmap created (Phases 101-106); Phases 101-103 are independent Kehto work and Phase 104 awaits convention-capable Napplet package publication.*

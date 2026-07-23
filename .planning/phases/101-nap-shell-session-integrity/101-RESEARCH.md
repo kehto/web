@@ -47,14 +47,14 @@
 - Active-surface documentation, full gates, changesets, and PR: Phase 106.
 </user_constraints>
 
-## Project Constraints (from AGENTS.md)
+## Project Constraints (from user instructions captured in 101-PATTERNS.md)
 
-- Preserve unrelated dirty planning changes; stage only explicit paths. [VERIFIED: AGENTS.md]
-- NAP-facing work must be checked against the owning upstream NAP before source, tests, or docs change; Phase 101's authority is `napplet/naps@6461e4b37c29dc09a20dff35d9515889c4433874` `naps/NAP-SHELL.md`. [VERIFIED: AGENTS.md; napplet/naps@6461e4b]
-- Keep NAP-SHELL receiver/live-before-ready, first-init caching, read-only services, source trust, lifecycle idempotency, and both Paja and playground host paths covered. [VERIFIED: AGENTS.md]
-- TypeScript is strict and ESM-only; use 2-space indentation, lowercase-hyphen filenames, and JSDoc on public exports. [VERIFIED: AGENTS.md]
-- Do not alter archived planning, migrations, changelogs, or historical requirement IDs merely to remove legacy vocabulary. [VERIFIED: AGENTS.md; 101-CONTEXT.md]
-- For production work, tests and directly affected documentation move with source; final shipping gates are build, type-check, unit tests, relevant E2E, docs when changed, AI-slop, diff check, changesets, and PR. Phase 106 owns the milestone-wide release gate. [VERIFIED: AGENTS.md; ROADMAP.md]
+- Preserve unrelated dirty planning changes; stage only explicit paths. [VERIFIED: 101-PATTERNS.md]
+- NAP-facing work must be checked against the owning upstream NAP before source, tests, or docs change; Phase 101's authority is `napplet/naps@6461e4b37c29dc09a20dff35d9515889c4433874` `naps/NAP-SHELL.md`. [VERIFIED: 101-PATTERNS.md; napplet/naps@6461e4b]
+- Keep NAP-SHELL receiver/live-before-ready, first-init caching, read-only services, source trust, lifecycle idempotency, and both Paja and playground host paths covered. [VERIFIED: 101-PATTERNS.md]
+- TypeScript is strict and ESM-only; use 2-space indentation, lowercase-hyphen filenames, and JSDoc on public exports. [VERIFIED: 101-PATTERNS.md]
+- Do not alter archived planning, migrations, changelogs, or historical requirement IDs merely to remove legacy vocabulary. [VERIFIED: 101-PATTERNS.md; 101-CONTEXT.md]
+- For production work, tests and directly affected documentation move with source; final shipping gates are build, type-check, unit tests, relevant E2E, docs when changed, AI-slop, diff check, changesets, and PR. Phase 106 owns the milestone-wide release gate. [VERIFIED: 101-PATTERNS.md; ROADMAP.md]
 
 <phase_requirements>
 ## Phase Requirements
@@ -77,7 +77,7 @@ Kehto already has strong reusable pieces: `handleShellReady` registers a NIP-5D 
 
 The remaining security correction is central: `ShellBridge` forwards every non-ready envelope to `Runtime.handleMessage`, whose current dispatch path has no session-existence gate. Consequently, a trusted registered frame can reach handlers before `shell.ready`; authorization checks alone do not implement the specification's total handshake gate. [VERIFIED: `packages/shell/src/shell-bridge.ts`; `packages/runtime/src/runtime.ts`; napplet/naps@6461e4b `naps/NAP-SHELL.md`]
 
-**Primary recommendation:** Create a small, domain-only `ShellEnvironment` builder that receives the source-bound window identity and live host/service availability; use its immutable snapshot in `shell.init`, Paja/playground prelude injection, and all focused tests, while rejecting every non-ready envelope unless the runtime session registry contains that window.
+**Primary recommendation:** Export a documented host-integrator-only `resolveShellEnvironment(hooks, identity)` from `@kehto/shell`, reusing the existing `OriginIdentity`. It returns a fresh immutable domain-only environment from concrete runtime/service wiring, disabled controls, and an explicit identity-aware host subset callback. Shell ready, Paja, and playground call that one resolver and require content-equivalent isolated results; it is never injected onto `window.napplet`, presented as a normative napplet API, or exposed by the shim. Reject every non-ready envelope unless the runtime session registry contains that window.
 
 ## Architectural Responsibility Map
 
@@ -95,7 +95,7 @@ The remaining security correction is central: `ShellBridge` forwards every non-r
 
 | Library | Version | Purpose | Why Standard |
 |---------|---------|---------|--------------|
-| TypeScript | workspace strict ESM configuration | Source and public API types | Existing project baseline; this phase requires no new dependency. [VERIFIED: AGENTS.md; `tsconfig.json`] |
+| TypeScript | workspace strict ESM configuration | Source and public API types | Existing project baseline; this phase requires no new dependency. [VERIFIED: 101-PATTERNS.md; `tsconfig.json`] |
 | Vitest | `^4.1.2` | Unit and integration regression tests | Existing root test runner and focused shell/runtime test suite. [VERIFIED: `package.json`; `vitest.config.ts`] |
 | Playwright | `^1.54.0` | Real iframe/srcdoc host-path proof | Existing browser suite already covers Paja and playground iframe paths. [VERIFIED: `package.json`; `playwright.config.ts`] |
 
@@ -112,7 +112,7 @@ The remaining security correction is central: `ShellBridge` forwards every non-r
 | Instead of | Could Use | Tradeoff |
 |------------|-----------|----------|
 | Runtime-level session gate | Per-domain handler gates | Per-domain checks can drift and miss a newly registered NAP; one dispatcher gate matches the NAP-SHELL total enforcement point. [VERIFIED: napplet/naps@6461e4b `naps/NAP-SHELL.md`] |
-| One environment builder | Separate shell-init, Paja, and playground lists | Duplicated membership calculations already create advertisement drift risk; preserve host-specific service creation but centralize the advertised snapshot. [VERIFIED: `packages/shell/src/shell-init.ts`; `packages/paja/src/browser-target-frame.ts`; `apps/playground/src/shell-host.ts`] |
+| One exported host-integrator resolver | Separate shell-init, Paja, and playground lists | Duplicated membership calculations already create advertisement drift risk; preserve host-specific wiring but centralize membership in `resolveShellEnvironment(hooks, identity)`. Each call returns fresh immutable data, so consumers compare content rather than JavaScript object identity. [VERIFIED: `packages/shell/src/shell-init.ts`; `packages/shell/src/index.ts`; `packages/paja/src/browser-target-frame.ts`; `apps/playground/src/shell-host.ts`] |
 
 **Installation:** No external package installation is required. [VERIFIED: 101-CONTEXT.md]
 
@@ -285,21 +285,16 @@ postMessage({ type: 'shell.init', capabilities: { domains }, services }, '*');
 |---|-------|---------|---------------|
 | — | None. This research uses the locked phase context, pinned upstream checkout, and current repository source; no implementation decision relies on training-only knowledge. | — | — |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Which active documentation moves in Phase 101 versus Phase 106?**
-   - What we know: locked decisions say remove numbered vocabulary from current documentation, while the roadmap defers active-surface documentation and full gate work to Phase 106. [VERIFIED: 101-CONTEXT.md; ROADMAP.md]
-   - What's unclear: whether Phase 101 should update directly affected `packages/shell/README.md`, `RUNTIME-SPEC.md`, and policy text now or leave all user-facing prose to Phase 106.
-   - Recommendation: the planner should include code-adjacent JSDoc/type documentation required for a truthful public API now, record broad docs sweep/static guard as Phase 106, and request clarification before scheduling broader docs edits.
+1. **Which active documentation moves in Phase 101 versus Phase 106? — RESOLVED**
+   - Phase 101 updates every affected public type/JSDoc surface and `packages/shell/README.md`. Broad `RUNTIME-SPEC.md`, policy prose, global static cleanup, changesets, release artifacts, and the milestone-wide documentation sweep remain Phase 106. [VERIFIED: 101-CONTEXT.md; ROADMAP.md]
 
-2. **How are per-napplet grants represented at environment-build time?**
-   - What we know: the runtime ACL state is keyed by source-bound session identity, but `buildShellCapabilities(hooks)` currently receives only global host hooks. [VERIFIED: `packages/runtime/src/runtime.ts`; `packages/shell/src/shell-init.ts`]
-   - What's unclear: whether a domain is granted only when every operation is granted, when any operation is usable, or by an explicit host capability profile.
-   - Recommendation: add an explicit environment/grant resolver seam taking the resolved creation-time identity; do not infer domain grants from individual request-time ACL checks.
+2. **How are per-napplet grants represented at environment-build time? — RESOLVED**
+   - `@kehto/shell` exports host-integrator-only `resolveShellEnvironment(hooks, identity)` using the existing trusted creation-time `OriginIdentity`. Concrete live runtime/service wiring and disabled domains define availability. The explicit identity-aware host callback may only return a subset, and the resolver intersects its result back against available domains/services. Any/all ACL-operation inference is forbidden. The export is not injected onto `window.napplet`, normative napplet API, or shim surface. [VERIFIED: 101-CONTEXT.md; `packages/shell/src/types.ts`; `packages/shell/src/origin-registry.ts`; `packages/shell/src/shell-init.ts`; `packages/shell/src/index.ts`]
 
-3. **Can `shell.init` be withheld for registered frames with no creation-time identity?**
-   - What we know: current bridge tests allow a registered source without dTag/hash to receive init while skipping runtime session registration; the current upstream contract says session binds to creation-time identity. [VERIFIED: `packages/shell/src/shell-ready.ts`; `packages/shell/src/shell-bridge.test.ts`; napplet/naps@6461e4b `naps/NAP-SHELL.md`]
-   - Recommendation: decide explicitly in the plan. The safer conformant posture is to withhold init (therefore all capabilities) unless a trusted creation-time identity is available, with a compatibility test only if a supported non-NIP-5D host path requires it.
+3. **Can `shell.init` be withheld for registered frames with no creation-time identity? — RESOLVED**
+   - Yes. An identity-less registered frame receives neither a runtime session nor `shell.init`/capabilities. Focused bridge tests lock the fail-closed behavior. [VERIFIED: 101-CONTEXT.md; `packages/shell/src/shell-ready.ts`; `packages/shell/src/shell-bridge.test.ts`; napplet/naps@6461e4b `naps/NAP-SHELL.md`]
 
 ## Environment Availability
 
