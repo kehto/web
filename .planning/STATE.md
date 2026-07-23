@@ -5,15 +5,15 @@ milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 103
 current_phase_name: identity-and-theme-wire-parity
 status: executing
-stopped_at: Completed 103-02-PLAN.md
-last_updated: "2026-07-23T21:23:35.451Z"
+stopped_at: Completed 103-04-PLAN.md
+last_updated: "2026-07-23T21:29:27.459Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 103 plans passed verification; Phase 102 remains upstream-blocked
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 25
-  completed_plans: 20
+  completed_plans: 21
   percent: 33
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-23)
 ## Current Position
 
 Phase: 103 (identity-and-theme-wire-parity) — EXECUTING
-Plan: 2 of 7
+Plan: 3 of 7
 Status: Ready to execute
 
 Last activity: 2026-07-23 -- Phase 103 plans passed verification; Phase 102 remains upstream-blocked
@@ -73,6 +73,7 @@ Last activity: 2026-07-23 -- Phase 103 plans passed verification; Phase 102 rema
 | Phase 102 P08 | 6m 26s | 1 tasks | 8 files |
 | Phase 103 P01 | 7m | 2 tasks | 5 files |
 | Phase 103 P02 | 6m | 3 tasks | 4 files |
+| Phase 103 P04 | 3m | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -185,8 +186,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-07-23T21:23:35.443Z
-Stopped at: Completed 103-02-PLAN.md
+Last session: 2026-07-23T21:29:27.451Z
+Stopped at: Completed 103-04-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -251,3 +252,5 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: Runtime identity/theme denials use exact same-domain safe results; unsupported messages are silent.
 - [Phase ?]: Identity public-key failures resolve once as a correlated empty-pubkey result; provider errors remain stable and non-sensitive.
 - [Phase ?]: Theme service normalizes incomplete values to the fixed complete fallback before its sole changed callback.
+- [Phase ?]: Injected identity and theme operations are stable frozen objects preserved across direct-domain and whole-namespace assignment.
+- [Phase ?]: Only trusted-parent MessageEvents may settle identity/theme requests or invoke automatic change callbacks.

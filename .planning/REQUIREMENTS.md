@@ -397,8 +397,8 @@ lockfile.
 | INC-08 | Phase 102 | Complete |
 | IDENTITY-01 | Phase 103 | Complete |
 | IDENTITY-02 | Phase 103 | Complete |
-| IDENTITY-03 | Phase 103 | Pending |
-| IDENTITY-04 | Phase 103 | Pending |
+| IDENTITY-03 | Phase 103 | Complete |
+| IDENTITY-04 | Phase 103 | Complete |
 | THEME-01 | Phase 103 | Complete |
 | THEME-02 | Phase 103 | Complete |
 | THEME-03 | Phase 103 | Complete |
