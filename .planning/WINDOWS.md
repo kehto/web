@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 6
+open_count: 8
 waived_count: 0
 fixed_count: 0
-total_count: 6
-last_updated: 2026-07-23T17:41:27.938Z
+total_count: 8
+last_updated: 2026-07-23T17:57:52.505Z
 ---
 
 # Broken Windows Ledger
@@ -21,6 +21,8 @@ last_updated: 2026-07-23T17:41:27.938Z
 | 4 | 101 | deviation | packages/paja/src/browser-runtime-tabs.ts |  | Runtime-pointer tabs use the same pre-srcdoc registration seam as single-frame Paja. | open |  | 2026-07-23T14:23:34.477Z |  |
 | 5 | 102 | unrun-verify | .aislop/config.yml |  | AI-slop scan could not run because aislop@0.13.1 is absent from the installed workspace | open |  | 2026-07-23T17:41:27.883Z |  |
 | 6 | 102 | deviation | packages/runtime/src/session-registry.ts |  | TDD RED checks passed but branch safety remediation required combined green commits | open |  | 2026-07-23T17:41:27.938Z |  |
+| 7 | 102 | lint-warning | docs/packages/paja.md |  | docs:check fails because the Paja package page lacks the current 0.8.1 version row | open |  | 2026-07-23T17:57:52.447Z |  |
+| 8 | 102 | unrun-verify | .aislop/config.yml |  | AI-slop gate not run because the aislop executable is unavailable locally and on PATH | open |  | 2026-07-23T17:57:52.505Z |  |
 
 ````json
 [
@@ -94,6 +96,30 @@ last_updated: 2026-07-23T17:41:27.938Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-23T17:41:27.938Z",
+    "resolved_at": null
+  },
+  {
+    "id": 7,
+    "kind": "lint-warning",
+    "phase": "102",
+    "file": "docs/packages/paja.md",
+    "line": null,
+    "description": "docs:check fails because the Paja package page lacks the current 0.8.1 version row",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-23T17:57:52.447Z",
+    "resolved_at": null
+  },
+  {
+    "id": 8,
+    "kind": "unrun-verify",
+    "phase": "102",
+    "file": ".aislop/config.yml",
+    "line": null,
+    "description": "AI-slop gate not run because the aislop executable is unavailable locally and on PATH",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-23T17:57:52.505Z",
     "resolved_at": null
   }
 ]
