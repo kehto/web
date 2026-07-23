@@ -106,8 +106,22 @@ function identifyFailureNode(nodes: string[], msg: TappedMessage): number {
   return nodes.length - 1;
 }
 
-function buildHighlightPath(topology: DemoTopology, msg: TappedMessage): { nodes: string[]; edges: string[] } | null {
+export function buildHighlightPath(topology: DemoTopology, msg: TappedMessage): { nodes: string[]; edges: string[] } | null {
   const nappletName = getNappletName(topology, msg.windowId);
+  if (!nappletName && isNotificationTopic(msg)) {
+    const nodes = [
+      TOPOLOGY_NODE_ACL,
+      TOPOLOGY_NODE_RUNTIME,
+      TOPOLOGY_NODE_SERVICE_NOTIFICATIONS,
+    ];
+    const edges = [
+      getAclRuntimeEdgeId(),
+      getRuntimeServiceEdgeId('notifications'),
+    ];
+    return msg.direction === 'napplet->shell'
+      ? { nodes, edges }
+      : { nodes: [...nodes].reverse(), edges: [...edges].reverse() };
+  }
   if (!nappletName) return null;
 
   const serviceTarget = detectServiceTarget(topology, msg);
@@ -137,15 +151,6 @@ function buildHighlightPath(topology: DemoTopology, msg: TappedMessage): { nodes
   if (msg.direction === 'shell->napplet' && serviceTarget) {
     nodes.unshift(getServiceNodeIdForTarget(serviceTarget));
     edges.unshift(getRuntimeServiceEdgeId(serviceTarget));
-  }
-
-  // Also flash notification node for host-originated notification events (no napplet windowId)
-  if (isNotificationTopic(msg) && !nappletName) {
-    nodes.push(TOPOLOGY_NODE_SERVICE_NOTIFICATIONS);
-    edges.push(getRuntimeServiceEdgeId('notifications'));
-    nodes.push(TOPOLOGY_NODE_RUNTIME);
-    edges.push(getAclRuntimeEdgeId());
-    return { nodes, edges };
   }
 
   return { nodes, edges };
