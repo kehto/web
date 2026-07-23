@@ -122,7 +122,7 @@ export function createSessionRegistry(notifier?: PendingUpdateNotifier): Session
     },
 
     getAllEntries(): SessionEntry[] {
-      return Array.from(byPubkey.values());
+      return Array.from(byWindowIdEntry.values());
     },
 
     getInstanceId(windowId: string): string | undefined {

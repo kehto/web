@@ -419,7 +419,15 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   const serviceRegistry: ServiceRegistry = { ...hooks.services };
   const registeredServices = createRegisteredServices(serviceRegistry);
   const sessionRegistry = createSessionRegistry(hooks.onPendingUpdate);
-  const aclState = createAclState(hooks.aclPersistence);
+  const incRuntime = createIncRuntime(hooks, sessionRegistry);
+  const aclState = createAclState(hooks.aclPersistence, 'permissive', (mutation) => {
+    if (mutation.type === 'revoke' && mutation.capability !== 'relay:read') return;
+    for (const entry of sessionRegistry.getAllEntries()) {
+      if (entry.dTag === mutation.dTag && entry.aggregateHash === mutation.aggregateHash) {
+        incRuntime.revokeWindow(entry.windowId);
+      }
+    }
+  });
   const firewallState = createFirewallState(hooks.firewallPersistence);
   const manifestCache = createManifestCache(hooks.manifestPersistence);
   const replayDetector = createReplayDetector(
@@ -489,7 +497,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   firewallState.load();
   manifestCache.load();
 
-  const incRuntime = createIncRuntime(hooks, sessionRegistry);
   const domainHandlers = createRuntimeDomainHandlers({ hooks, serviceRegistry, sessionRegistry, aclState });
   const dispatchNapEnvelope = createNapEnvelopeDispatcher({
     relay: createRelayHandler({ hooks, serviceRegistry, subscriptions, eventBuffer, replayDetector }),
