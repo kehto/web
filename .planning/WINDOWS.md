@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 2
+open_count: 4
 waived_count: 0
 fixed_count: 0
-total_count: 2
-last_updated: 2026-07-23T14:09:52.589Z
+total_count: 4
+last_updated: 2026-07-23T14:23:34.477Z
 ---
 
 # Broken Windows Ledger
@@ -17,6 +17,8 @@ last_updated: 2026-07-23T14:09:52.589Z
 |----|-------|------|------|------|-------------|--------|--------|-------------|-------------|
 | 1 | 101 | unrun-verify | packages/shell/README.md |  | pnpm docs:check final audit blocked by unrelated docs/packages/paja.md version row | open |  | 2026-07-23T14:09:52.533Z |  |
 | 2 | 101 | deviation | packages/paja/src/parity.test.ts |  | Rule 3 fixture correction removed stale ShellCapabilities fields to restore type-documentation generation | open |  | 2026-07-23T14:09:52.589Z |  |
+| 3 | 101 | deviation | packages/paja/src/browser-adapter.ts |  | Paja identity fallback removed so ready resolves only from pre-srcdoc origin registration. | open |  | 2026-07-23T14:23:34.425Z |  |
+| 4 | 101 | deviation | packages/paja/src/browser-runtime-tabs.ts |  | Runtime-pointer tabs use the same pre-srcdoc registration seam as single-frame Paja. | open |  | 2026-07-23T14:23:34.477Z |  |
 
 ````json
 [
@@ -42,6 +44,30 @@ last_updated: 2026-07-23T14:09:52.589Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-23T14:09:52.589Z",
+    "resolved_at": null
+  },
+  {
+    "id": 3,
+    "kind": "deviation",
+    "phase": "101",
+    "file": "packages/paja/src/browser-adapter.ts",
+    "line": null,
+    "description": "Paja identity fallback removed so ready resolves only from pre-srcdoc origin registration.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-23T14:23:34.425Z",
+    "resolved_at": null
+  },
+  {
+    "id": 4,
+    "kind": "deviation",
+    "phase": "101",
+    "file": "packages/paja/src/browser-runtime-tabs.ts",
+    "line": null,
+    "description": "Runtime-pointer tabs use the same pre-srcdoc registration seam as single-frame Paja.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-23T14:23:34.477Z",
     "resolved_at": null
   }
 ]

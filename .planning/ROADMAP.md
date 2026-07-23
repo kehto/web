@@ -73,12 +73,12 @@
   3. A frame cannot invoke a capability before its session exists, reassign its creation-time identity or trusted source, or observe another frame's capabilities or services.
   4. Shell, Paja, and playground omit any domain whose live implementation is unavailable, including when simulation or disabled-domain controls remove it.
 
-**Plans:** 3/5 plans executed
+**Plans:** 4/5 plans executed
 
 - [x] 101-01-PLAN.md
 - [x] 101-02-PLAN.md
 - [x] 101-03-PLAN.md
-- [ ] 101-04-PLAN.md
+- [x] 101-04-PLAN.md
 - [ ] 101-05-PLAN.md
 
 ### Phase 102: NAP-INC Event and Channel Parity
@@ -156,7 +156,7 @@
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 101. NAP-SHELL Session Integrity | v1.29 | 3/5 | In Progress|  |
+| 101. NAP-SHELL Session Integrity | v1.29 | 4/5 | In Progress|  |
 | 102. NAP-INC Event and Channel Parity | v1.29 | 0/TBD | Not started | - |
 | 103. Identity and Theme Wire Parity | v1.29 | 0/TBD | Not started | - |
 | 104. Published Convention and Intent Adoption | v1.29 | 0/TBD | Waiting on upstream package publication | - |
