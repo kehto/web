@@ -2,15 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.29
 milestone_name: Napplet Convention and Runtime Conformance
+current_phase: 102
+current_phase_name: nap-inc-event-channel-parity
 status: executing
-stopped_at: Completed 101-05-PLAN.md
-last_updated: "2026-07-23T17:27:57.659Z"
-last_activity: 2026-07-23 -- Phase 102 execution started
+stopped_at: Completed 102-01-PLAN.md
+last_updated: "2026-07-23T17:33:24.781Z"
+last_activity: 2026-07-23
+last_activity_desc: Phase 102 execution started
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 17
-  completed_plans: 5
+  completed_plans: 6
   percent: 17
 ---
 
@@ -26,8 +29,8 @@ See: .planning/PROJECT.md (updated 2026-07-23)
 ## Current Position
 
 Phase: 102 (nap-inc-event-channel-parity) — EXECUTING
-Plan: 1 of 12
-Status: Executing Phase 102
+Plan: 2 of 12
+Status: Ready to execute
 
 Last activity: 2026-07-23 -- Phase 102 execution started
 
@@ -56,6 +59,7 @@ Last activity: 2026-07-23 -- Phase 102 execution started
 | Phase 101 P03 | 7 min | 2 tasks | 7 files |
 | Phase 101 P04 | 9min | 2 tasks | 8 files |
 | Phase 101 P05 | 7min | 2 tasks | 6 files |
+| Phase 102-nap-inc-event-channel-parity P01 | 4min | 1 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -166,8 +170,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-07-23T14:34:45.189Z
-Stopped at: Completed 101-05-PLAN.md
+Last session: 2026-07-23T17:33:24.774Z
+Stopped at: Completed 102-01-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -204,3 +208,5 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: Paja shell.ready identity now comes only from pre-srcdoc origin-registry registration, never mutable browser state.
 - [Phase ?]: Playground prelude membership is resolved from trusted OriginIdentity and live disabled-aware wiring, never manifest requirements or gateway data.
 - [Phase ?]: Existing playground frames retain frozen first-init snapshots; only a new registration reflects later disabled-service wiring.
+- [Phase ?]: Convention query transposition is serialized in the injected web prelude and never performed by the runtime router.
+- [Phase ?]: inc.event sender is derived solely from the authenticated source session dTag.

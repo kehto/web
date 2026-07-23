@@ -14,23 +14,30 @@ published Napplet packages.
 
 - Merged baseline: `napplet/naps` `master` at
   `6461e4b37c29dc09a20dff35d9515889c4433874`.
+
 - Proposed NAP-INC authority: draft PR #89 head
   `4593ce9e301ce098fd3dad64206fcd6f144fa7af`.
+
 - Proposed governance/web projection authority: draft PR #90 head
   `896c32c92deee68dc4d10fc1132b62df20cccb6f`.
+
 - Proposed NAP-INTENT authority: draft PR #91 head
   `a718915ddefa2f03a0126579601f59d8bd86f7c4`.
+
 - Proposed symmetric NAP-INC channel authority: draft PR #92 head
   `c5cd06f7be6d4690b303949abb26e87ff62f4729`, stacked on PR #89 head
   `4593ce9e301ce098fd3dad64206fcd6f144fa7af`.
+
 - The drafts are open and unmerged. Their exact heads are proposed contract for
   this chase; any head change requires re-audit before implementation or final
   dependency adoption.
+
 - Direct comparison baseline: parent `5fd99465892fbead3888d7146e1737f77b0ed0b4`.
 - Kehto baseline: canonical `origin/main` at `bb3929b3523b75356fd65f658f9bd14c7ff697e4`.
 - Baseline audit: `.planning/NAP-CONVENTIONS-6461E4B-DELTA-AUDIT.md`.
 - Exact-head downstream violation matrix:
   `.planning/NAP-CONVENTIONS-DRAFT-PRS-89-90-91-92-AUDIT.md`.
+
 - Package gate: final conformance requires convention-capable `@napplet/core`, `@napplet/nap`, `@napplet/shim`, `@napplet/sdk`, and `@napplet/vite-plugin` releases. Kehto may complete independent runtime work first but must not guess unpublished public APIs.
 - Shared-binding boundary: Phase 102 creates one projection-owned convention URI
   normalizer and wires it only to INC. Phase 104 reuses that helper when it
@@ -358,10 +365,12 @@ lockfile.
 - Defining a universal convention registry or allocating convention numbers.
 - Inventing query-aware routing, subscription, or handler matching; URI
   normalization occurs only at the runtime-provided binding before the wire.
+
 - Interpreting normalized convention payload content in the runtime.
 - Choosing retry, restart-persistence, target-replacement, overlap, or terminal
   failure policy beyond the minimum seams/tests needed to prove the contract
   remains policy-neutral.
+
 - Rewriting historical changelogs, archived milestone artifacts, or migration records.
 - Publishing Napplet packages from the Kehto repository.
 - Preserving numbered negotiation as a canonical compatibility API.
@@ -376,16 +385,16 @@ lockfile.
 | SHELL-04 | Phase 101 | Complete |
 | SHELL-05 | Phase 101 | Complete |
 | SHELL-06 | Phase 101 | Complete |
-| BASE-04 | Phase 102 | Pending |
-| BASE-05 | Phase 102 | Pending |
-| INC-01 | Phase 102 | Pending |
-| INC-02 | Phase 102 | Pending |
-| INC-03 | Phase 102 | Pending |
-| INC-04 | Phase 102 | Pending |
+| BASE-04 | Phase 102 | Complete |
+| BASE-05 | Phase 102 | Complete |
+| INC-01 | Phase 102 | Complete |
+| INC-02 | Phase 102 | Complete |
+| INC-03 | Phase 102 | Complete |
+| INC-04 | Phase 102 | Complete |
 | INC-05 | Phase 102 | Pending |
 | INC-06 | Phase 102 | Pending |
 | INC-07 | Phase 102 | Pending |
-| INC-08 | Phase 102 | Pending |
+| INC-08 | Phase 102 | Complete |
 | IDENTITY-01 | Phase 103 | Pending |
 | IDENTITY-02 | Phase 103 | Pending |
 | IDENTITY-03 | Phase 103 | Pending |

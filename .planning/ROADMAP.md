@@ -67,14 +67,18 @@ final host integration wait for mutually compatible convention-capable
 - Stable convention identities, subscriptions, normalized wire fields, and
   discovery metadata are queryless. The shared runtime-provided binding alone
   transposes invocation queries to shallow text payload before the wire.
+
 - No numbered registry, reconstructed NAP-1..5 payload schemas, wildcard,
   prefix, base/query, query-aware matching, runtime query parser, or payload-kind
   inference.
+
 - Callers never supply sender. INC events and intent deliveries carry only the
   runtime-attested source dTag.
+
 - Intent success means accepted delivery responsibility. No `handled`,
   `windowId`, `newWindow`, intent ID, delivery ID, visible INC dependency, or
   source-lifetime dependency.
+
 - No phase may claim complete conformance before the package gate and every supported-NAP requirement are proven.
 
 ## Phases
@@ -123,9 +127,9 @@ identifiers and attested dTag identities.
   4. Napplets can create closeable subscriptions and use `channel.open`, `channel.onOpened`, `channel.list`, and `channel.broadcast` plus symmetric endpoint handles with `emit`, `on`, `onClosed`, and `close`; `channel.list()` remains informational.
   5. Channel access is authorized once at open time; target `inc.channel.opened` is enqueued before opener success; early handles/messages/terminal closure are retained in order; buffer overflow closes rather than drops; dead peers and cleanup leave no live route behind.
 
-**Plans:** 12 plans
+**Plans:** 1/12 plans executed
 
-- [ ] 102-01-PLAN.md — Trace one canonical convention emit through the shared prelude and exact dTag runtime delivery.
+- [x] 102-01-PLAN.md — Trace one canonical convention emit through the shared prelude and exact dTag runtime delivery.
 - [ ] 102-02-PLAN.md — Complete dTag-safe runtime channel identity, routing, and lifecycle behavior.
 - [ ] 102-03-PLAN.md — Enforce authorization once at channel open and close channels on ACL revocation.
 - [ ] 102-04-PLAN.md — Complete the injected event/subscription/channel API and rejection matrix.
@@ -209,7 +213,7 @@ users rely on.
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 101. NAP-SHELL Session Integrity | v1.29 | 5/5 | Complete | 2026-07-23 |
-| 102. NAP-INC Event and Channel Parity | v1.29 | 0/12 | Planned | - |
+| 102. NAP-INC Event and Channel Parity | v1.29 | 1/12 | In Progress|  |
 | 103. Identity and Theme Wire Parity | v1.29 | 0/TBD | Not started | - |
 | 104. NAP-INTENT and Manifest Contract Parity | v1.29 | 0/TBD | Not started | - |
 | 105. Published Convention Adoption and Host Flows | v1.29 | 0/TBD | Waiting on upstream package publication | - |
