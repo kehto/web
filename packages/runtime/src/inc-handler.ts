@@ -27,6 +27,12 @@ type IncState = {
 export interface IncRuntime {
   handleMessage(windowId: string, msg: NappletMessage): void;
   destroyWindow(windowId: string): void;
+  /**
+   * Close a live window's established channels after its open-time authority is revoked.
+   *
+   * @param windowId - Internal identity of the session whose open-time authority changed
+   */
+  revokeWindow(windowId: string): void;
   clear(): void;
 }
 
@@ -44,6 +50,9 @@ export function createIncRuntime(hooks: RuntimeAdapter, sessionRegistry: Session
     destroyWindow(windowId: string): void {
       removeWindowChannels(state, hooks, windowId);
       removeWindowSubscriptions(state, windowId);
+    },
+    revokeWindow(windowId: string): void {
+      revokeWindowChannels(state, hooks, windowId);
     },
     clear(): void {
       state.subscriptions.clear();
@@ -86,10 +95,7 @@ function peerOf(state: IncState, channelId: string, self: string): string | null
 }
 
 function resolveTarget(sessionRegistry: SessionRegistry, target: string): string | null {
-  if (sessionRegistry.getEntryByWindowId(target)) return target;
-  const entries = sessionRegistry.getAllEntries();
-  const byPubkey = entries.find((entry) => entry.pubkey === target);
-  return byPubkey?.windowId ?? null;
+  return sessionRegistry.getWindowIdByDTag(target) ?? null;
 }
 
 function handleIncMessage(
@@ -108,9 +114,9 @@ function handleIncMessage(
     case 'subscribe': handleSubscribe(state, hooks, windowId, m); return;
     case 'unsubscribe': handleUnsubscribe(state, windowId, m); return;
     case 'channel.open': handleChannelOpen(state, hooks, sessionRegistry, windowId, m); return;
-    case 'channel.emit': handleChannelEmit(state, hooks, windowId, m); return;
-    case 'channel.broadcast': handleChannelBroadcast(state, hooks, windowId, m); return;
-    case 'channel.list': handleChannelList(state, hooks, windowId, m); return;
+    case 'channel.emit': handleChannelEmit(state, hooks, sessionRegistry, windowId, m); return;
+    case 'channel.broadcast': handleChannelBroadcast(state, hooks, sessionRegistry, windowId, m); return;
+    case 'channel.list': handleChannelList(state, hooks, sessionRegistry, windowId, m); return;
     case 'channel.close': handleChannelClose(state, hooks, windowId, m); return;
     default: return;
   }
@@ -175,39 +181,52 @@ function handleChannelOpen(
 ): void {
   const id = m.id ?? '';
   const peerWindow = resolveTarget(sessionRegistry, m.target ?? '');
-  if (!peerWindow) {
+  const openerDTag = sessionRegistry.getEntryByWindowId(windowId)?.dTag;
+  const peerDTag = peerWindow ? sessionRegistry.getEntryByWindowId(peerWindow)?.dTag : undefined;
+  if (!peerWindow || !openerDTag || !peerDTag) {
     hooks.sendToNapplet(windowId, { type: 'inc.channel.open.result', id, error: 'target not found' } as NappletMessage);
     return;
   }
   const channelId = hooks.crypto.randomUUID().replace(/-/g, '').slice(0, 32);
   addChannel(state, channelId, windowId, peerWindow);
-  hooks.sendToNapplet(windowId, { type: 'inc.channel.open.result', id, channelId, peer: peerWindow } as NappletMessage);
+  try {
+    hooks.sendToNapplet(peerWindow, { type: 'inc.channel.opened', channelId, peer: openerDTag } as NappletMessage);
+  } catch {
+    removeChannel(state, channelId);
+    hooks.sendToNapplet(windowId, { type: 'inc.channel.open.result', id, error: 'target unavailable' } as NappletMessage);
+    return;
+  }
+  hooks.sendToNapplet(windowId, { type: 'inc.channel.open.result', id, channelId, peer: peerDTag } as NappletMessage);
 }
 
 function handleChannelEmit(
   state: IncState,
   hooks: RuntimeAdapter,
+  sessionRegistry: SessionRegistry,
   windowId: string,
   m: RuntimeIncMessage,
 ): void {
   const peer = peerOf(state, m.channelId ?? '', windowId);
-  if (peer) {
-    hooks.sendToNapplet(peer, { type: 'inc.channel.event', channelId: m.channelId ?? '', sender: windowId, payload: m.payload } as NappletMessage);
+  const sender = sessionRegistry.getEntryByWindowId(windowId)?.dTag;
+  if (peer && sender) {
+    hooks.sendToNapplet(peer, { type: 'inc.channel.event', channelId: m.channelId ?? '', sender, payload: m.payload } as NappletMessage);
   }
 }
 
 function handleChannelBroadcast(
   state: IncState,
   hooks: RuntimeAdapter,
+  sessionRegistry: SessionRegistry,
   windowId: string,
   m: RuntimeIncMessage,
 ): void {
   const channels = state.channelsByWindow.get(windowId);
-  if (!channels) return;
+  const sender = sessionRegistry.getEntryByWindowId(windowId)?.dTag;
+  if (!channels || !sender) return;
   for (const channelId of channels) {
     const peer = peerOf(state, channelId, windowId);
     if (peer) {
-      hooks.sendToNapplet(peer, { type: 'inc.channel.event', channelId, sender: windowId, payload: m.payload } as NappletMessage);
+      hooks.sendToNapplet(peer, { type: 'inc.channel.event', channelId, sender, payload: m.payload } as NappletMessage);
     }
   }
 }
@@ -215,6 +234,7 @@ function handleChannelBroadcast(
 function handleChannelList(
   state: IncState,
   hooks: RuntimeAdapter,
+  sessionRegistry: SessionRegistry,
   windowId: string,
   m: RuntimeIncMessage,
 ): void {
@@ -223,7 +243,8 @@ function handleChannelList(
   if (set) {
     for (const channelId of set) {
       const peer = peerOf(state, channelId, windowId);
-      if (peer) channels.push({ id: channelId, peer });
+      const peerDTag = peer ? sessionRegistry.getEntryByWindowId(peer)?.dTag : undefined;
+      if (peerDTag) channels.push({ id: channelId, peer: peerDTag });
     }
   }
   hooks.sendToNapplet(windowId, { type: 'inc.channel.list.result', id: m.id ?? '', channels } as NappletMessage);
@@ -236,11 +257,32 @@ function handleChannelClose(
   m: RuntimeIncMessage,
 ): void {
   const channelId = m.channelId ?? '';
-  const peer = peerOf(state, channelId, windowId);
-  if (!peer) return;
-  hooks.sendToNapplet(windowId, { type: 'inc.channel.closed', channelId } as NappletMessage);
-  hooks.sendToNapplet(peer, { type: 'inc.channel.closed', channelId } as NappletMessage);
-  removeChannel(state, channelId);
+  if (!peerOf(state, channelId, windowId)) return;
+  teardownChannel(state, hooks, channelId);
+}
+
+function teardownChannel(state: IncState, hooks: RuntimeAdapter, channelId: string, destroyedWindowId?: string): void {
+  const channel = state.channels.get(channelId);
+  if (!channel) return;
+
+  try {
+    if (destroyedWindowId) {
+      const survivor = peerOf(state, channelId, destroyedWindowId);
+      if (survivor) {
+        try {
+          hooks.sendToNapplet(survivor, { type: 'inc.channel.closed', channelId, reason: 'peer destroyed' } as NappletMessage);
+        } catch { /* channel teardown must still complete */ }
+      }
+      return;
+    }
+    for (const peer of [channel.peerA, channel.peerB]) {
+      try {
+        hooks.sendToNapplet(peer, { type: 'inc.channel.closed', channelId } as NappletMessage);
+      } catch { /* channel teardown must still complete */ }
+    }
+  } finally {
+    removeChannel(state, channelId);
+  }
 }
 
 function removeWindowSubscriptions(state: IncState, windowId: string): void {
@@ -254,10 +296,14 @@ function removeWindowChannels(state: IncState, hooks: RuntimeAdapter, windowId: 
   const channelIds = state.channelsByWindow.get(windowId);
   if (!channelIds) return;
   for (const channelId of Array.from(channelIds)) {
-    const peer = peerOf(state, channelId, windowId);
-    if (peer) {
-      hooks.sendToNapplet(peer, { type: 'inc.channel.closed', channelId } as NappletMessage);
-    }
-    removeChannel(state, channelId);
+    teardownChannel(state, hooks, channelId, windowId);
+  }
+}
+
+function revokeWindowChannels(state: IncState, hooks: RuntimeAdapter, windowId: string): void {
+  const channelIds = state.channelsByWindow.get(windowId);
+  if (!channelIds) return;
+  for (const channelId of Array.from(channelIds)) {
+    teardownChannel(state, hooks, channelId);
   }
 }
