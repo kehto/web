@@ -290,7 +290,6 @@ describe('NIP-5D napplet namespace prelude', () => {
       type: 'shell.init',
       capabilities: {
         domains: ['relay', 'inc'],
-        protocols: { inc: ['NAP-01'] },
       },
       services: ['relay-pool', 'storage'],
     });
@@ -299,14 +298,13 @@ describe('NIP-5D napplet namespace prelude', () => {
     expect(environment).toEqual({
       capabilities: {
         domains: ['relay', 'inc'],
-        protocols: { inc: ['NAP-01'] },
       },
       services: ['relay-pool', 'storage'],
     });
     expect(readyEnvironments).toEqual([environment]);
     expect(cancelledEnvironments).toEqual([]);
     expect(shell.supports('relay')).toBe(true);
-    expect(shell.supports('inc', 'NAP-01')).toBe(true);
+    expect(shell.supports('inc', 'NAP-01')).toBe(false);
     expect(shell.supports('inc', 'NAP-99')).toBe(false);
     expect(shell.supports('unknown')).toBe(false);
     expect(shell.services).toEqual(['relay-pool', 'storage']);

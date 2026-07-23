@@ -217,8 +217,15 @@ function nappletNamespacePrelude(domains: string[]): void {
           ? message.services.filter((service): service is string => typeof service === 'string')
           : [],
       );
+      const rawCapabilities = message.capabilities;
+      const rawDomains = typeof rawCapabilities === 'object' && rawCapabilities !== null
+        ? (rawCapabilities as Record<string, unknown>).domains
+        : undefined;
+      const domains = Array.isArray(rawDomains)
+        ? rawDomains.filter((domain): domain is string => typeof domain === 'string')
+        : [];
       environment = Object.freeze({
-        capabilities: message.capabilities ?? {},
+        capabilities: Object.freeze({ domains: Object.freeze(domains) }),
         services,
       });
       off();
@@ -231,18 +238,9 @@ function nappletNamespacePrelude(domains: string[]): void {
       if (!environment || typeof environment.capabilities !== 'object' || environment.capabilities === null) {
         return false;
       }
+      if (protocol !== undefined) return false;
       const capabilities = environment.capabilities as Record<string, unknown>;
-      if (protocol !== undefined) {
-        const protocols = capabilities.protocols;
-        if (typeof protocols === 'object' && protocols !== null) {
-          const supported = (protocols as Record<string, unknown>)[domain];
-          if (Array.isArray(supported) && supported.includes(protocol)) return true;
-        }
-        return Array.isArray(capabilities.naps)
-          && capabilities.naps.includes(`${domain}:${protocol}`);
-      }
-      return (Array.isArray(capabilities.domains) && capabilities.domains.includes(domain))
-        || (Array.isArray(capabilities.naps) && capabilities.naps.includes(domain));
+      return Array.isArray(capabilities.domains) && capabilities.domains.includes(domain);
     }
 
     const shell = {
