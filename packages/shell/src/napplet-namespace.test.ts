@@ -566,6 +566,69 @@ describe('NIP-5D napplet namespace prelude', () => {
     expect(changes).toEqual(['trusted', '']);
   });
 
+  it('keeps theme and identity canonical across whole-namespace replacement without subscriptions', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['identity', 'theme', 'inc', 'intent'] }), target);
+
+    const namespace = target.napplet as Record<string, Record<string, (...args: unknown[]) => unknown>>;
+    const identity = namespace.identity;
+    const theme = namespace.theme;
+    const getPublicKey = identity.getPublicKey;
+    const getTheme = theme.get;
+    const onThemeChanged = theme.onChanged;
+    const changes: unknown[] = [];
+    const subscription = onThemeChanged((next: unknown) => changes.push(next)) as { close(): void };
+
+    expect(Object.keys(theme)).toEqual(['get', 'onChanged']);
+    expect(Object.getOwnPropertyDescriptor(theme, 'get')).toMatchObject({
+      value: getTheme,
+      enumerable: true,
+      configurable: false,
+      writable: false,
+    });
+    expect(Reflect.set(theme, 'get', () => Promise.resolve({ forged: true }))).toBe(false);
+    expect(Reflect.deleteProperty(theme, 'onChanged')).toBe(false);
+    expect(Reflect.defineProperty(theme, 'get', { value: () => Promise.resolve({ forged: true }) })).toBe(false);
+
+    namespace.theme = { get: () => Promise.resolve({ forged: true }), subscribe: () => undefined };
+    target.napplet = {
+      identity: { getPublicKey: () => Promise.resolve('forged') },
+      theme: { get: () => Promise.resolve({ forged: true }), unsubscribe: () => undefined },
+      inc: { extension: true },
+    };
+    expect(target.napplet?.identity).toBe(identity);
+    expect(target.napplet?.theme).toBe(theme);
+    expect((target.napplet?.identity as typeof identity).getPublicKey).toBe(getPublicKey);
+    expect((target.napplet?.theme as typeof theme).get).toBe(getTheme);
+    expect(Object.keys(target.napplet?.theme ?? {})).toEqual(['get', 'onChanged']);
+
+    const publicKey = getPublicKey() as Promise<string>;
+    const identityRequest = target.postedMessages.at(-1);
+    const currentTheme = getTheme() as Promise<unknown>;
+    const themeRequest = target.postedMessages.at(-1);
+    expect(identityRequest).toEqual({ type: 'identity.getPublicKey', id: 'id-1' });
+    expect(themeRequest).toEqual({ type: 'theme.get', id: 'id-2' });
+    expect(target.postedMessages.filter((message) => message.type === 'theme.subscribe' || message.type === 'theme.unsubscribe')).toEqual([]);
+
+    target.dispatchMessage({}, { type: 'theme.get.result', id: themeRequest?.id, theme: { colors: { primary: 'forged' } } });
+    target.dispatchMessage({}, { type: 'theme.changed', theme: { colors: { primary: 'forged' } } });
+    target.dispatchParentMessage({ type: 'shell.init', identity: { pubkey: 'forged' } });
+    target.dispatchParentMessage({ type: 'intent.deliver', payload: { type: 'identity.changed', pubkey: 'forged' } });
+    target.dispatchParentMessage({ type: 'inc.event', payload: { type: 'identity.changed', pubkey: 'forged' } });
+    expect(changes).toEqual([]);
+
+    const trustedTheme = { colors: { background: '#000', text: '#fff', primary: '#f0f' } };
+    target.dispatchParentMessage({ type: 'theme.get.result', id: themeRequest?.id, theme: trustedTheme });
+    target.dispatchParentMessage({ type: 'theme.changed', theme: trustedTheme });
+    target.dispatchParentMessage({ type: 'identity.getPublicKey.result', id: identityRequest?.id, pubkey: 'trusted' });
+    await expect(currentTheme).resolves.toEqual(trustedTheme);
+    await expect(publicKey).resolves.toBe('trusted');
+    expect(changes).toEqual([trustedTheme]);
+    subscription.close();
+    target.dispatchParentMessage({ type: 'theme.changed', theme: { colors: { primary: 'after-close' } } });
+    expect(changes).toEqual([trustedTheme]);
+  });
+
   it('normalizes canonical INC conventions, protects INC assignment, and shares topic subscriptions', () => {
     const target = createPreludeTestWindow();
     const receivedA: unknown[] = [];
