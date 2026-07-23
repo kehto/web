@@ -57,7 +57,6 @@ test('clicking host dark button stores then pushes one complete theme through th
   });
   expect(themeApiShape).toEqual({ get: 'function', onChanged: 'function', subscribe: 'undefined', unsubscribe: 'undefined' });
 
-  await prefFrameDirect.evaluate(() => new Promise((resolve) => window.setTimeout(resolve, 150)));
   await prefFrameDirect.evaluate(() => {
     const target = window as Window & {
       __themeChanges?: unknown[];
@@ -66,6 +65,22 @@ test('clicking host dark button stores then pushes one complete theme through th
     target.__themeChanges = [];
     target.napplet?.theme?.onChanged((theme) => target.__themeChanges?.push(theme));
   });
+
+  // An untrusted sibling frame can forge the old global `shell.ready` shape.
+  // Readiness is consumed only by the bridge's source-bound receiver, so this
+  // must not produce a theme.changed delivery.
+  await page.evaluate(() => {
+    const attacker = document.createElement('iframe');
+    attacker.srcdoc = '<script>parent.postMessage({ type: "shell.ready" }, "*")<\\/script>';
+    attacker.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(attacker);
+  });
+  await page.waitForTimeout(150);
+  const forgedChanges = await prefFrameDirect.evaluate(() => {
+    const target = window as Window & { __themeChanges?: unknown[] };
+    return target.__themeChanges ?? [];
+  });
+  expect(forgedChanges).toHaveLength(0);
 
   // Step 2: wait for the host theme-switcher to be mounted (topology card must be present).
   await expect(page.locator('#theme-dark-btn')).toBeVisible({ timeout: 10_000 });

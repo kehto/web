@@ -332,13 +332,23 @@ describe('playground gateway artifact guard', () => {
   it('keeps playground identity and theme delivery on one service-to-bridge path', () => {
     const demoHooks = readRepoFile('apps/playground/src/demo-hooks.ts');
     const shellHost = readRepoFile('apps/playground/src/shell-host.ts');
+    const main = readRepoFile('apps/playground/src/main.ts');
     const preferences = readRepoFile('apps/playground/src/main-preferences.ts');
     const mainSigner = readRepoFile('apps/playground/src/main-signer.ts');
 
     expect(demoHooks).toContain('onThemeBroadcast(envelope: ThemeChangedMessage): void;');
-    expect(demoHooks).toContain('createThemeService({ onBroadcast: context.onThemeBroadcast })');
+    expect(demoHooks).toContain('initialTheme?: Theme;');
+    expect(demoHooks).toContain('createThemeService({ initialTheme, onBroadcast: context.onThemeBroadcast })');
     expect(shellHost).toContain('onThemeBroadcast: (envelope) => relay.publishTheme(envelope.theme),');
+    expect(shellHost).toContain('initialTheme?: Theme');
+    expect(main).toContain('getPersistedPlaygroundTheme');
+    expect(main).toContain('bootShell((notifications) => {');
+    expect(main).toContain('}, initialTheme);');
+    expect(main).not.toContain("data.type === 'shell.ready'");
+    expect(main).not.toContain('broadcastCurrentTheme');
+    expect(preferences).toContain('initialTheme?: PlaygroundTheme;');
     expect(preferences).toContain('getThemeServiceBundle()?.publishTheme(currentTheme);');
+    expect(preferences).not.toContain('broadcastCurrentTheme');
     expect(preferences).not.toContain("postMessage({ type: 'theme.changed'");
     expect(preferences).not.toContain('relay.publishTheme(currentTheme');
 
