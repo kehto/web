@@ -20,7 +20,7 @@ import { createIdentityHandler } from './identity-handler.js';
 import { createCountHandler } from './count-handler.js';
 import { createIncRuntime, type IncRuntime } from './inc-handler.js';
 import { createRuntimeDomainHandlers, type RuntimeDomainHandlers } from './domain-handlers.js';
-import { createThemeFallbackResult } from './domain-results.js';
+import { createCanonicalDomainResult, isIdentityOrThemeMessage } from './domain-results.js';
 
 /**
  * The napplet protocol engine — handles NIP-5D NAP domain dispatch,
@@ -269,6 +269,14 @@ function createFirewallGate(config: FirewallGateConfig): (windowId: string, enve
     const opClass = obs.opClass;
 
     if (decision === 'reject' || decision === 'prompt') {
+      const canonicalResult = createCanonicalDomainResult(envelope);
+      if (canonicalResult) {
+        hooks.sendToNapplet(windowId, canonicalResult);
+        hooks.onFirewallEvent?.({ windowId, napplet, opClass, decision, action, ruleId, reason, message: envelope } as FirewallEvent);
+        if (decision === 'prompt') fireConsent(windowId, napplet);
+        return 'drop';
+      }
+
       const id = (envelope as NappletMessage & { id?: string }).id ?? '';
       const type = denialResponseType(envelope);
       if (type) {
@@ -321,12 +329,13 @@ function createMessageHandler(
     if (!sessionRegistry.getEntryByWindowId(windowId)) return;
     const domain = envelope.type.slice(0, dotIdx);
     if (hooks.isDomainAllowed && !hooks.isDomainAllowed(windowId, domain)) return;
+    if (isIdentityOrThemeMessage(envelope) && !createCanonicalDomainResult(envelope)) return;
 
     const caps = resolveCapabilitiesNap(envelope);
     if (caps.senderCap) {
       const result = enforceNap(windowId, caps.senderCap as Capability, envelope);
       if (!result.allowed) {
-        const canonicalResult = createThemeFallbackResult(envelope);
+        const canonicalResult = createCanonicalDomainResult(envelope);
         if (canonicalResult) {
           hooks.sendToNapplet(windowId, canonicalResult);
           return;

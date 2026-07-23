@@ -1,6 +1,7 @@
 import type { NappletMessage } from '@napplet/core';
 
 import type { RuntimeAdapter, ServiceRegistry } from './types.js';
+import { createCanonicalDomainResult } from './domain-results.js';
 
 type IdentityHandlerContext = {
   hooks: RuntimeAdapter;
@@ -18,14 +19,12 @@ export function createIdentityHandler(context: IdentityHandlerContext): Identity
       return;
     }
 
-    const id = (msg as NappletMessage & { id?: string }).id ?? '';
     const action = msg.type.slice('identity.'.length);
     const signer = hooks.auth.getSigner();
-    const sendError = (error: string) => {
-      hooks.sendToNapplet(windowId, { type: `${msg.type}.error`, id, error } as NappletMessage);
-    };
-    const sendResult = (payload: Record<string, unknown>) => {
-      hooks.sendToNapplet(windowId, { type: `${msg.type}.result`, id, ...payload } as NappletMessage);
+    const fallback = createCanonicalDomainResult(msg);
+    if (!fallback) return;
+    const sendResult = (payload: Record<string, unknown> = {}) => {
+      hooks.sendToNapplet(windowId, { ...fallback, ...payload } as NappletMessage);
     };
 
     switch (action) {
@@ -33,23 +32,17 @@ export function createIdentityHandler(context: IdentityHandlerContext): Identity
         if (!signer) { sendResult({ pubkey: '' }); return; }
         Promise.resolve(signer.getPublicKey?.())
           .then((pubkey) => sendResult({ pubkey: pubkey ?? '' }))
-          .catch((err: unknown) => sendError((err as Error)?.message ?? 'getPublicKey failed'));
+          .catch(() => sendResult({ pubkey: '' }));
         return;
       case 'getRelays':
-        if (!signer) { sendError('no signer configured'); return; }
+        if (!signer) { sendResult(); return; }
         Promise.resolve(signer.getRelays?.() ?? {})
           .then((relays) => sendResult({ relays }))
-          .catch((err: unknown) => sendError((err as Error)?.message ?? 'getRelays failed'));
+          .catch(() => sendResult());
         return;
       case 'getProfile': sendResult({ profile: null }); return;
       case 'getFollows': sendResult({ pubkeys: [] }); return;
-      case 'getList': sendResult({ entries: [] }); return;
-      case 'getZaps': sendResult({ zaps: [] }); return;
-      case 'getMutes': sendResult({ pubkeys: [] }); return;
-      case 'getBlocked': sendResult({ pubkeys: [] }); return;
-      case 'getBadges': sendResult({ badges: [] }); return;
-      default:
-        sendError(`Unknown identity action: ${action}`);
+      default: return;
     }
   };
 }
