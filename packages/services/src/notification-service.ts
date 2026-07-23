@@ -146,52 +146,13 @@ function handleNotifyEnvelope(
   }
 }
 
-function handleIncNotification(
-  store: NotificationStore,
-  windowId: string,
-  action: string,
-  payload: Record<string, unknown>,
-  send: (msg: NappletMessage) => void,
-): void {
-  switch (action) {
-    case 'create': {
-      const title = typeof payload.title === 'string' ? payload.title : '';
-      const body = typeof payload.body === 'string' ? payload.body : '';
-      const notification = createNotification(store, windowId, title, body);
-      send({ type: 'inc.event', topic: 'notifications:created', payload: { id: notification.id } } as NappletMessage);
-      break;
-    }
-
-    case 'dismiss': {
-      const id = typeof payload.id === 'string' ? payload.id : '';
-      if (id) dismissNotification(store, id);
-      break;
-    }
-
-    case 'read': {
-      const id = typeof payload.id === 'string' ? payload.id : '';
-      if (id) markNotificationRead(store, id);
-      break;
-    }
-
-    case 'list': {
-      const windowNotifs = store.notifications.get(windowId) ?? [];
-      send({ type: 'inc.event', topic: 'notifications:listed', payload: { notifications: windowNotifs } } as NappletMessage);
-      break;
-    }
-
-    default:
-      break;
-  }
-}
-
 /**
  * Create a notification service handler.
  *
  * The notification service is a state registry that tracks notifications
- * per napplet window. Napplets create and manage notifications via
- * `notifications:*` topic events; the shell host controls presentation
- * via the onChange callback.
+ * per napplet window. It accepts direct `notify.*` service envelopes; INC
+ * topics are opaque application data and never select a host service. The
+ * shell host controls presentation through the onChange callback.
  *
  * @param options - Optional configuration (onChange callback, maxPerWindow limit)
  * @returns A ServiceHandler to register with the runtime
@@ -228,19 +189,14 @@ export function createNotificationService(options?: NotificationServiceOptions):
     descriptor,
 
     handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
-      const msg = message as NappletMessage & Record<string, unknown>;
-
-      if (message.type.startsWith('notify.')) {
-        handleNotifyEnvelope(store, windowId, message.type.slice(7), msg, send);
-        return;
-      }
-
-      if (message.type !== 'inc.emit') return;
-      const topic = msg.topic as string | undefined;
-      if (!topic?.startsWith('notifications:')) return;
-
-      const payload = ((msg.payload ?? {}) as Record<string, unknown>);
-      handleIncNotification(store, windowId, topic.slice(14), payload, send);
+      if (!message.type.startsWith('notify.')) return;
+      handleNotifyEnvelope(
+        store,
+        windowId,
+        message.type.slice(7),
+        message as NappletMessage & Record<string, unknown>,
+        send,
+      );
     },
 
     onWindowDestroyed(windowId: string): void {
