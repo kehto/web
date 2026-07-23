@@ -681,6 +681,66 @@ describe('NIP-5D napplet namespace prelude', () => {
     expect(overflowClosed).toEqual([{ channelId: 'c-overflow', reason: 'buffer overflow' }]);
   });
 
+  it('retains one terminal inbound handle for late opened and closed callbacks when unopened delivery overflows', () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['inc'] }), target);
+
+    type ChannelClosed = { channelId: string; reason?: string };
+    type ChannelEvent = { channelId: string; sender: string; payload?: unknown };
+    type Handle = {
+      id: string;
+      emit: (payload?: unknown) => void;
+      on: (handler: (event: ChannelEvent) => void) => { close(): void };
+      onClosed: (handler: (closed: ChannelClosed) => void) => { close(): void };
+      close: () => void;
+    };
+    type Inc = {
+      channel: { onOpened: (handler: (handle: Handle) => void) => { close(): void } };
+    };
+    const inc = target.napplet?.inc as Inc;
+
+    for (let index = 0; index < 32; index += 1) {
+      target.dispatchParentMessage({
+        type: 'inc.channel.opened',
+        channelId: `c-retained-${index}`,
+        peer: 'music-controller',
+      });
+    }
+    target.dispatchParentMessage({
+      type: 'inc.channel.opened',
+      channelId: 'c-overflowed-inbound',
+      peer: 'music-controller',
+    });
+    expect(withoutShellReady(target).filter((message) => message.type === 'inc.channel.close')).toEqual([
+      { type: 'inc.channel.close', channelId: 'c-overflowed-inbound' },
+    ]);
+
+    const opened: Handle[] = [];
+    inc.channel.onOpened((handle) => opened.push(handle));
+    const overflowed = opened.find((handle) => handle.id === 'c-overflowed-inbound');
+    expect(overflowed).toBeDefined();
+
+    const closed: ChannelClosed[] = [];
+    overflowed?.onClosed((record) => closed.push(record));
+    expect(closed).toEqual([{ channelId: 'c-overflowed-inbound', reason: 'buffer overflow' }]);
+
+    const received: ChannelEvent[] = [];
+    overflowed?.on((event) => received.push(event));
+    target.dispatchParentMessage({
+      type: 'inc.channel.event',
+      channelId: 'c-overflowed-inbound',
+      sender: 'music-controller',
+      payload: { ignored: true },
+    });
+    overflowed?.emit({ ignored: true });
+    overflowed?.close();
+    expect(received).toEqual([]);
+    expect(withoutShellReady(target).filter((message) => message.type === 'inc.channel.emit')).toEqual([]);
+    expect(withoutShellReady(target).filter((message) => message.type === 'inc.channel.close')).toEqual([
+      { type: 'inc.channel.close', channelId: 'c-overflowed-inbound' },
+    ]);
+  });
+
   it('keeps outbox subscriptions callable and dispatches parent events to handlers', () => {
     const target = createPreludeTestWindow();
     const received: unknown[] = [];
