@@ -20,6 +20,7 @@ import { createIdentityHandler } from './identity-handler.js';
 import { createCountHandler } from './count-handler.js';
 import { createIncRuntime, type IncRuntime } from './inc-handler.js';
 import { createRuntimeDomainHandlers, type RuntimeDomainHandlers } from './domain-handlers.js';
+import { createThemeFallbackResult } from './domain-results.js';
 
 /**
  * The napplet protocol engine — handles NIP-5D NAP domain dispatch,
@@ -325,6 +326,12 @@ function createMessageHandler(
     if (caps.senderCap) {
       const result = enforceNap(windowId, caps.senderCap as Capability, envelope);
       if (!result.allowed) {
+        const canonicalResult = createThemeFallbackResult(envelope);
+        if (canonicalResult) {
+          hooks.sendToNapplet(windowId, canonicalResult);
+          return;
+        }
+
         const id = (envelope as NappletMessage & { id?: string }).id ?? '';
         const error = formatDenialReason(result.capability);
         const type = denialResponseType(envelope);

@@ -1286,7 +1286,7 @@ describe('theme NAP dispatch (TH-01 + TH-04)', () => {
     expect((result as any).theme.colors.background).toBe('#0a0a0a');
   });
 
-  it('TH-04 ACL denial: napplet without theme:read gets theme.get.error without reaching service', () => {
+  it('TH-04 ACL denial: napplet without theme:read gets one complete theme.get.result without reaching service', () => {
     const ctx2 = createMockRuntimeAdapter();
     const runtime2 = createRuntime(ctx2.hooks);
     runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
@@ -1310,11 +1310,16 @@ describe('theme NAP dispatch (TH-01 + TH-04)', () => {
     // Service MUST NOT be invoked when ACL denies the request.
     expect(serviceCalls).toHaveLength(0);
 
-    const err = findEnvelopeResponse(ctx2.sent, 'theme.get.error');
-    expect(err).toBeDefined();
-    expect((err as any).id).toBe('q-denied');
-    expect(typeof (err as any).error).toBe('string');
-    expect((err as any).error).toMatch(/denied|theme:read/i);
+    expect(ctx2.sent).toHaveLength(1);
+    expect(ctx2.sent[0]?.message).toEqual({
+      type: 'theme.get.result',
+      id: 'q-denied',
+      theme: {
+        colors: { background: '#0a0a0a', text: '#e0e0e0', primary: '#7aa2f7' },
+      },
+    });
+    expect((ctx2.sent[0]?.message as Record<string, unknown>).error).toBeUndefined();
+    expect(findEnvelopeResponse(ctx2.sent, 'theme.get.error')).toBeUndefined();
   });
 
   it('fallback: emits theme.get.result with the canonical default theme when no theme service is registered', () => {
