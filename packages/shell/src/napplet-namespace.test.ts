@@ -607,6 +607,13 @@ describe('NIP-5D napplet namespace prelude', () => {
     const target = createPreludeTestWindow();
     runPrelude(renderNappletNamespacePrelude({ domains: ['identity', 'theme', 'inc', 'intent'] }), target);
 
+    expect(Object.getOwnPropertyDescriptor(target, 'napplet')).toMatchObject({
+      configurable: false,
+      enumerable: false,
+      get: expect.any(Function),
+      set: expect.any(Function),
+    });
+
     const namespace = target.napplet as Record<string, Record<string, (...args: unknown[]) => unknown>>;
     const identity = namespace.identity;
     const theme = namespace.theme;
@@ -638,6 +645,20 @@ describe('NIP-5D napplet namespace prelude', () => {
     expect((target.napplet?.identity as typeof identity).getPublicKey).toBe(getPublicKey);
     expect((target.napplet?.theme as typeof theme).get).toBe(getTheme);
     expect(Object.keys(target.napplet?.theme ?? {})).toEqual(['get', 'onChanged']);
+
+    const protectedRoot = target.napplet;
+    expect(Reflect.defineProperty(target, 'napplet', {
+      configurable: true,
+      value: { identity: { getPublicKey: () => Promise.resolve('forged') } },
+    })).toBe(false);
+    expect(Reflect.deleteProperty(target, 'napplet')).toBe(false);
+    expect(Reflect.defineProperty(target, 'napplet', {
+      configurable: true,
+      value: { theme: { get: () => Promise.resolve({ forged: true }) } },
+    })).toBe(false);
+    expect(target.napplet).toBe(protectedRoot);
+    expect(target.napplet?.identity).toBe(identity);
+    expect(target.napplet?.theme).toBe(theme);
 
     const publicKey = getPublicKey() as Promise<string>;
     const identityRequest = target.postedMessages.at(-1);

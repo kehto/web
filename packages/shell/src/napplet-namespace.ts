@@ -1494,6 +1494,6 @@ function nappletNamespacePrelude(domains: string[]): void {
       root = buildNappletNamespace(value);
     },
     enumerable: false,
-    configurable: true,
+    configurable: false,
   });
 }
