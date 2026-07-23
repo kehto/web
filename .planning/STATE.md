@@ -5,15 +5,15 @@ milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 102
 current_phase_name: nap-inc-event-channel-parity
 status: executing
-stopped_at: Completed 102-11-PLAN.md
-last_updated: "2026-07-23T18:27:24.827Z"
+stopped_at: Completed 102-12-PLAN.md
+last_updated: "2026-07-23T18:39:36.085Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 102 execution started
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 17
-  completed_plans: 12
+  completed_plans: 13
   percent: 17
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-23)
 ## Current Position
 
 Phase: 102 (nap-inc-event-channel-parity) — EXECUTING
-Plan: 8 of 12
+Plan: 9 of 12
 Status: Ready to execute
 
 Last activity: 2026-07-23 -- Phase 102 execution started
@@ -66,6 +66,7 @@ Last activity: 2026-07-23 -- Phase 102 execution started
 | Phase 102-nap-inc-event-channel-parity P10 | 173s | 2 tasks | 8 files |
 | Phase 102-nap-inc-event-channel-parity P03 | 7min | 2 tasks | 7 files |
 | Phase 102-nap-inc-event-channel-parity P11 | 4m | 1 tasks | 6 files |
+| Phase 102-nap-inc-event-channel-parity P12 | 9m | 1 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -176,8 +177,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-07-23T18:27:24.820Z
-Stopped at: Completed 102-11-PLAN.md
+Last session: 2026-07-23T18:39:36.077Z
+Stopped at: Completed 102-12-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -228,3 +229,5 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: Only block and relay:read revoke events invalidate matching live dTag and aggregateHash channel routes.
 - [Phase ?]: Keep direct notify.* notification examples isolated from opaque INC transport.
 - [Phase ?]: Bot and chat keep core INC chat flows without notification-service side effects.
+- [Phase ?]: Direct services route only from the exact wire message.type domain; INC topics never choose a service.
+- [Phase ?]: Only the authenticated runtime attaches INC sender identity and produces delivery envelopes.
