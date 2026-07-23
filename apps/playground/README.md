@@ -72,13 +72,43 @@ The demo renders service nodes reflecting the NIP-5D service surface the runtime
 - **keys** — real document-level chord listener (v1.4 Phase 26, `KEYS-01..03`).
 - **link** — host-owned external navigation service surface.
 - **media** — real `navigator.mediaSession` mirror (v1.4 Phase 27, `MEDIA-01..03`).
-- **notifications** — notification service (both canonical `notify.*` NAP and legacy inc-emit `notifications:*` channel).
+- **notify** — notification service for direct `notify.*` envelopes.
 - **relay** — `nostr-tools` SimplePool relay pool service (`relay.publish`, `relay.subscribe`, etc).
 - **signer** — shell-side signing proxy; napplet-invisible per NIP-5D (`MUST NOT` expose `window.nostr`).
 - **storage** — per-napplet namespaced localStorage proxy.
-- **theme** — theme publisher (`theme.get` + `theme.changed` fan-out).
+- **theme** — ThemeService-backed `theme.get` plus automatic
+  recipient-authorized `theme.changed` delivery.
 
 `STUB_ONLY_SERVICES` is `[]` — the stub-only era ended at Phase 27 close. Both `keys` and `media` ship real reference backends as of v1.4; the services listed above are all backed by real implementations.
+
+## Identity and theme host wiring
+
+The playground follows draft NAP-IDENTITY/NAP-THEME and the web projection at
+`napplet/naps@896c32c92deee68dc4d10fc1132b62df20cccb6f`. Its signer controller
+emits one protected `identity.changed` transition for a real connect or sign-out
+only; it never turns an identity result into a retry, INC event, intent delivery,
+or raw iframe broadcast. `identity.getPublicKey.result` uses `pubkey: ""` for
+the disconnected state.
+
+Theme changes take one path: the preferences controller calls
+`ThemeService.publishTheme()`, which stores complete state before its sole
+ShellBridge callback delivers one automatic change per eligible authenticated
+recipient. The playground does not use theme subscribe/unsubscribe messages or
+all-origin iframe fan-out. Denied or unavailable theme reads retain Kehto's
+fixed non-sensitive complete normal result without `error`; this is the
+documented reconciliation of the upstream error-only example, not a mixed
+theme/error extension. Published Napplet package adoption remains Phase 105.
+
+### Service and INC routing boundary
+
+The runtime routes a service only by the exact `message.type` domain: for
+example, `notify.create` selects the `notify` service. INC is independent of
+that service lookup. Its topics are opaque, queryless identities matched only
+by exact equality; topic text never selects a service handler. The runtime
+attaches the sender to an `inc.event` from the authenticated emitting endpoint,
+so host services and napplets must not fabricate INC deliveries. The target
+contract is [NAP-INC PR #89](https://github.com/napplet/naps/pull/89) and its
+[web projection PR #90](https://github.com/napplet/naps/pull/90).
 
 ## ACL Surface
 

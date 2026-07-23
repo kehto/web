@@ -1,150 +1,57 @@
-/**
- * perm-namespace.test.ts — Regression test for sandbox capability drift.
- *
- * Kehto's current NIP-5D posture is intentionally narrow:
- *
- *   - NAP capabilities are bare domains or `nap:<domain>` lookups.
- *   - Browser sandbox relaxations are not a NIP-5D interoperability surface.
- *   - ShellCapabilities.sandbox remains only as an empty compatibility field.
- *
- * TERM-01: `nap:` is the primary asserted prefix.
- */
+/** Domain-only NAP-SHELL posture regression coverage. */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { buildShellCapabilities } from '../src/shell-init.js';
 import type {
-  ShellAdapter,
-  ShellCapabilities,
-  RelayPoolHooks,
-  RelayConfigHooks,
-  WindowManagerHooks,
   AuthHooks,
   ConfigHooks,
-  HotkeyHooks,
-  WorkerRelayHooks,
   CryptoHooks,
+  HotkeyHooks,
+  RelayConfigHooks,
+  RelayPoolHooks,
+  ShellAdapter,
+  ShellCapabilities,
+  WindowManagerHooks,
+  WorkerRelayHooks,
 } from '../src/types.js';
 
-// ─── Source-text assertions ──────────────────────────────────────────────────
+const TYPES_SOURCE = readFileSync(new URL('../src/types.ts', import.meta.url), 'utf8');
 
-const TYPES_SOURCE = readFileSync(
-  new URL('../src/types.ts', import.meta.url),
-  'utf8',
-);
-
-// ─── Stub hooks (minimal no-op ShellAdapter) ─────────────────────────────────
-
-function makeRelayPoolHooks(): RelayPoolHooks {
-  return {
-    getRelayPool: () => null,
-    trackSubscription: () => {},
-    untrackSubscription: () => {},
-    openScopedRelay: () => {},
-    closeScopedRelay: () => {},
-    publishToScopedRelay: () => false,
-    selectRelayTier: () => [],
-  };
-}
-
-function makeRelayConfigHooks(): RelayConfigHooks {
-  return {
-    addRelay: () => {},
-    removeRelay: () => {},
-    getRelayConfig: () => ({ discovery: [], super: [], outbox: [] }),
-    getNip66Suggestions: () => ({}),
-  };
-}
-
-function makeWindowManagerHooks(): WindowManagerHooks {
-  return { createWindow: () => null };
-}
-
-function makeAuthHooks(): AuthHooks {
-  return { getUserPubkey: () => null, getSigner: () => null };
-}
-
-function makeConfigHooks(): ConfigHooks {
-  return { getNappUpdateBehavior: () => 'banner' };
-}
-
-function makeHotkeyHooks(): HotkeyHooks {
-  return { executeHotkeyFromForward: () => {} };
-}
-
-function makeWorkerRelayHooks(): WorkerRelayHooks {
-  return { getWorkerRelay: () => null };
-}
-
-function makeCryptoHooks(): CryptoHooks {
-  return { verifyEvent: async () => true };
+function lookup(caps: ShellCapabilities, capability: string): boolean {
+  return caps.domains.includes(capability);
 }
 
 function stubHooks(): ShellAdapter {
-  return {
-    relayPool: makeRelayPoolHooks(),
-    relayConfig: makeRelayConfigHooks(),
-    windowManager: makeWindowManagerHooks(),
-    auth: makeAuthHooks(),
-    config: makeConfigHooks(),
-    hotkeys: makeHotkeyHooks(),
-    workerRelay: makeWorkerRelayHooks(),
-    crypto: makeCryptoHooks(),
-  };
+  const relayPool: RelayPoolHooks = { getRelayPool: () => null, trackSubscription: () => {}, untrackSubscription: () => {}, openScopedRelay: () => {}, closeScopedRelay: () => {}, publishToScopedRelay: () => false, selectRelayTier: () => [] };
+  const relayConfig: RelayConfigHooks = { addRelay: () => {}, removeRelay: () => {}, getRelayConfig: () => ({ discovery: [], super: [], outbox: [] }), getNip66Suggestions: () => ({}) };
+  const windowManager: WindowManagerHooks = { createWindow: () => null };
+  const auth: AuthHooks = { getUserPubkey: () => null, getSigner: () => null };
+  const config: ConfigHooks = { getNappUpdateBehavior: () => 'banner' };
+  const hotkeys: HotkeyHooks = { executeHotkeyFromForward: () => {} };
+  const workerRelay: WorkerRelayHooks = { getWorkerRelay: () => null };
+  const crypto: CryptoHooks = { verifyEvent: async () => true };
+  return { relayPool, relayConfig, windowManager, auth, config, hotkeys, workerRelay, crypto };
 }
 
-// ─── Capability-lookup contract ──────────────────────────────────────────────
-// Mirrors the capability lookups Kehto still supports for compatibility:
-// `nap:` is the primary prefix resolved against the naps array; a bare name
-// resolves against naps too. Sandbox entries are intentionally ignored.
-
-function lookup(caps: ShellCapabilities, capability: string): boolean {
-  if (capability.startsWith('nap:')) return (caps.naps ?? []).includes(capability.slice(4));
-  return (caps.naps ?? []).includes(capability);
-}
-
-// ─── Tests ───────────────────────────────────────────────────────────────────
-
-describe('NIP-5D sandbox capability posture', () => {
-  it('buildShellCapabilities emits no browser sandbox capabilities', () => {
+describe('NAP-SHELL domain-only capability posture', () => {
+  it('does not emit browser sandbox capability payloads', () => {
     const caps = buildShellCapabilities(stubHooks());
-    expect(caps.sandbox).toEqual([]);
+    expect(Object.keys(caps)).toEqual(['domains']);
     expect(caps.domains.some((entry) => entry.startsWith('perm:'))).toBe(false);
   });
 
-  it('NAP lookup uses nap: as the primary prefix', () => {
-    const caps: ShellCapabilities = {
-      domains: ['relay', 'identity', 'storage'],
-      protocols: {},
-      naps: ['relay', 'identity', 'storage'],
-      sandbox: [],
-    };
-    // nap: is primary — resolves against the naps array.
-    expect(lookup(caps, 'nap:relay')).toBe(true);
-    expect(lookup(caps, 'nap:identity')).toBe(true);
-    // bare names resolve against naps too.
+  it('answers exact bare domain membership only', () => {
+    const caps: ShellCapabilities = { domains: ['relay', 'identity', 'storage'] };
     expect(lookup(caps, 'relay')).toBe(true);
     expect(lookup(caps, 'identity')).toBe(true);
-    // A NAP capability is not reachable through a sandbox-style prefix.
+    expect(lookup(caps, 'nap:relay')).toBe(false);
     expect(lookup(caps, 'perm:relay')).toBe(false);
-    expect(lookup(caps, 'perm:identity')).toBe(false);
-    expect(lookup(caps, 'nap:missing')).toBe(false);
+    expect(lookup(caps, 'missing')).toBe(false);
   });
 
-  it('compatibility lookup ignores sandbox entries even if a host mutates the field', () => {
-    const caps: ShellCapabilities = {
-      domains: ['relay'],
-      protocols: {},
-      naps: ['relay'],
-      sandbox: ['perm:relay'],
-    };
-    expect(lookup(caps, 'nap:relay')).toBe(true);    // NAP reachable (primary)
-    expect(lookup(caps, 'relay')).toBe(true);        // bare reachable
-    expect(lookup(caps, 'perm:relay')).toBe(false);
-  });
-
-  it('ShellCapabilities.sandbox JSDoc documents the empty compatibility field', () => {
-    expect(TYPES_SOURCE).toMatch(/Empty compatibility field[\s\S]{0,500}sandbox/);
-    expect(TYPES_SOURCE).toMatch(/do not receive optional[\s\S]{0,200}advertised capabilities/);
+  it('defines ShellCapabilities with its sole domains field', () => {
+    expect(TYPES_SOURCE).toMatch(/interface ShellCapabilities\s*\{[\s\S]{0,200}readonly domains/);
+    expect(TYPES_SOURCE).not.toMatch(/interface ShellCapabilities[\s\S]{0,500}\b(naps|sandbox|protocols)\s*:/);
   });
 });

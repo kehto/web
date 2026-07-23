@@ -93,6 +93,48 @@ describe('SessionRegistry.getEntryByWindowId', () => {
   });
 });
 
+// ─── SessionRegistry.getWindowIdByDTag ───────────────────────────────────────
+
+describe('SessionRegistry.getWindowIdByDTag', () => {
+  let registry: SessionRegistry;
+
+  beforeEach(() => {
+    registry = createSessionRegistry();
+  });
+
+  it('resolves exactly one live dTag owner to its internal window ID', () => {
+    registry.register('win-unique', makeEntry({ windowId: 'win-unique', dTag: 'unique-napp' }));
+
+    expect(registry.getWindowIdByDTag('unique-napp')).toBe('win-unique');
+  });
+
+  it('fails closed for missing, window-ID, and legacy pubkey inputs', () => {
+    const pubkey = 'c'.repeat(64);
+    registry.register('win-unique', makeEntry({ windowId: 'win-unique', dTag: 'unique-napp', pubkey }));
+
+    expect(registry.getWindowIdByDTag('missing-napp')).toBeUndefined();
+    expect(registry.getWindowIdByDTag('win-unique')).toBeUndefined();
+    expect(registry.getWindowIdByDTag(pubkey)).toBeUndefined();
+  });
+
+  it('fails closed when multiple live sessions share a dTag', () => {
+    registry.register('win-one', makeEntry({ windowId: 'win-one', dTag: 'shared-napp', pubkey: '1'.repeat(64) }));
+    registry.register('win-two', makeEntry({ windowId: 'win-two', dTag: 'shared-napp', pubkey: '2'.repeat(64) }));
+
+    expect(registry.getWindowIdByDTag('shared-napp')).toBeUndefined();
+  });
+
+  it('stops resolving a dTag as soon as its owner is unregistered or the registry clears', () => {
+    registry.register('win-unique', makeEntry({ windowId: 'win-unique', dTag: 'unique-napp' }));
+    registry.unregister('win-unique');
+    expect(registry.getWindowIdByDTag('unique-napp')).toBeUndefined();
+
+    registry.register('win-unique', makeEntry({ windowId: 'win-unique', dTag: 'unique-napp' }));
+    registry.clear();
+    expect(registry.getWindowIdByDTag('unique-napp')).toBeUndefined();
+  });
+});
+
 // ─── NIP-5D sessions are registered (isRegistered with pubkey='') ─────────────
 
 describe('isRegistered for NIP-5D sessions', () => {

@@ -6,7 +6,7 @@
  * All tests run in Node.js without browser globals.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createRuntime } from './runtime.js';
 import type { Runtime } from './runtime.js';
 import { createMockRuntimeAdapter, createNip5dSessionEntry, findEnvelopeResponse } from './test-utils.js';
@@ -71,6 +71,88 @@ describe('runtime NAP dispatch — envelope guard', () => {
   it('drops envelopes with unknown domain — silently per NIP-5D spec', () => {
     runtime.handleMessage(WINDOW_ID, { type: 'unknown.action' } as NappletMessage);
     expect(mock.sent).toHaveLength(0);
+  });
+
+  it('drops a valid storage envelope before ACL, firewall, or domain dispatch when no session exists', () => {
+    const firewallEvents = vi.fn();
+    const unregisteredCtx = createMockRuntimeAdapter({ onFirewallEvent: firewallEvents });
+    const unregistered = createRuntime(unregisteredCtx.hooks);
+    // Make a firewall traversal externally observable if the ingress guard is absent.
+    unregistered.firewallState.setPolicy('', 'deny');
+
+    unregistered.handleMessage(WINDOW_ID, {
+      type: 'storage.get',
+      id: 'pre-session-storage',
+      key: 'secret',
+    } as NappletMessage);
+
+    expect(unregistered.sessionRegistry.getEntryByWindowId(WINDOW_ID)).toBeUndefined();
+    expect(unregisteredCtx.sent).toHaveLength(0);
+    expect(unregisteredCtx.aclChecks).toHaveLength(0);
+    expect(firewallEvents).not.toHaveBeenCalled();
+  });
+
+  it('fails closed for sessionless INC emit, subscribe, and channel open (#89 4593ce9e301ce098fd3dad64206fcd6f144fa7af)', () => {
+    const unregisteredCtx = createMockRuntimeAdapter();
+    const unregistered = createRuntime(unregisteredCtx.hooks);
+
+    unregistered.handleMessage('unregistered-inc', { type: 'inc.emit', topic: 'napplet:profile/open' } as NappletMessage);
+    unregistered.handleMessage('unregistered-inc', { type: 'inc.subscribe', id: 'sub', topic: 'napplet:profile/open' } as NappletMessage);
+    unregistered.handleMessage('unregistered-inc', { type: 'inc.channel.open', id: 'open', target: 'recipient-dtag' } as NappletMessage);
+
+    expect(unregisteredCtx.sent).toHaveLength(0);
+    expect(unregisteredCtx.aclChecks).toHaveLength(0);
+  });
+
+  it('drops a session-established envelope excluded by the shell environment before ACL, firewall, or dispatch', () => {
+    const firewallEvents = vi.fn();
+    const restrictedCtx = createMockRuntimeAdapter({
+      onFirewallEvent: firewallEvents,
+      isDomainAllowed: () => false,
+    });
+    const restricted = createRuntime(restrictedCtx.hooks);
+    restricted.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+    restricted.firewallState.setPolicy('', 'deny');
+
+    restricted.handleMessage(WINDOW_ID, {
+      type: 'storage.get',
+      id: 'excluded-storage',
+      key: 'secret',
+    } as NappletMessage);
+
+    expect(restrictedCtx.sent).toHaveLength(0);
+    expect(restrictedCtx.aclChecks).toHaveLength(0);
+    expect(firewallEvents).not.toHaveBeenCalled();
+  });
+
+  it('keeps a registered service inert before session creation, then dispatches it after registration', () => {
+    const serviceCalls = vi.fn();
+    const firewallEvents = vi.fn();
+    const ctx = createMockRuntimeAdapter({ onFirewallEvent: firewallEvents });
+    const runtimeWithService = createRuntime(ctx.hooks);
+    runtimeWithService.registerService('keys', {
+      descriptor: { name: 'keys', version: '1.0.0' },
+      handleMessage: serviceCalls,
+    });
+    runtimeWithService.firewallState.setPolicy('', 'deny');
+
+    const envelope = {
+      type: 'keys.registerAction',
+      id: 'pre-session-service',
+      action: { id: 'shortcut' },
+    } as NappletMessage;
+    runtimeWithService.handleMessage(WINDOW_ID, envelope);
+
+    expect(ctx.sent).toHaveLength(0);
+    expect(ctx.aclChecks).toHaveLength(0);
+    expect(firewallEvents).not.toHaveBeenCalled();
+    expect(serviceCalls).not.toHaveBeenCalled();
+
+    runtimeWithService.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+    runtimeWithService.firewallState.setPolicy(TEST_DTAG, 'allow');
+    runtimeWithService.handleMessage(WINDOW_ID, envelope);
+
+    expect(serviceCalls).toHaveBeenCalledWith(WINDOW_ID, envelope, expect.any(Function));
   });
 });
 
@@ -407,11 +489,12 @@ describe('NIP-5D Envelope Dispatch', () => {
   // ─── Identity Handler ───────────────────────────────────────────────────────
 
   describe('identity handler', () => {
-    it('identity.getPublicKey returns empty pubkey when no signer configured', () => {
+    it('identity.getPublicKey returns one exact empty-public-key result when no signer is configured', () => {
       runtime.handleMessage(WINDOW_ID, { type: 'identity.getPublicKey', id: 'req-1' } as NappletMessage);
-      const result = findEnvelopeResponse(ctx.sent, 'identity.getPublicKey.result');
-      expect(result).toBeDefined();
-      expect((result as any).pubkey).toBe('');
+      expect(ctx.sent).toEqual([{
+        windowId: WINDOW_ID,
+        message: { type: 'identity.getPublicKey.result', id: 'req-1', pubkey: '' },
+      }]);
     });
 
     it('identity.getPublicKey returns pubkey when signer is configured', async () => {
@@ -433,9 +516,30 @@ describe('NIP-5D Envelope Dispatch', () => {
       await Promise.resolve();
       await Promise.resolve();
 
-      const result = findEnvelopeResponse(ctxWithSigner.sent, 'identity.getPublicKey.result');
-      expect(result).toBeDefined();
-      expect((result as any).pubkey).toBe('user_pubkey_hex');
+      expect(ctxWithSigner.sent).toEqual([{
+        windowId: WINDOW_ID,
+        message: { type: 'identity.getPublicKey.result', id: 'req-pk', pubkey: 'user_pubkey_hex' },
+      }]);
+    });
+
+    it('identity.getPublicKey returns one exact empty-public-key result when the signer rejects', async () => {
+      const ctxWithRejectedSigner = createMockRuntimeAdapter({
+        auth: {
+          getUserPubkey: () => null,
+          getSigner: () => ({ getPublicKey: () => Promise.reject(new Error('unavailable')) }),
+        },
+      });
+      const runtimeWithRejectedSigner = createRuntime(ctxWithRejectedSigner.hooks);
+      runtimeWithRejectedSigner.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+
+      runtimeWithRejectedSigner.handleMessage(WINDOW_ID, { type: 'identity.getPublicKey', id: 'req-rejected' } as NappletMessage);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(ctxWithRejectedSigner.sent).toEqual([{
+        windowId: WINDOW_ID,
+        message: { type: 'identity.getPublicKey.result', id: 'req-rejected', pubkey: '' },
+      }]);
     });
 
     it('identity.getRelays returns relays map when signer is configured', async () => {
@@ -474,6 +578,125 @@ describe('NIP-5D Envelope Dispatch', () => {
       const result = findEnvelopeResponse(ctx.sent, 'identity.getFollows.result');
       expect(result).toBeDefined();
       expect((result as any).pubkeys).toEqual([]);
+    });
+
+    it.each([
+      ['identity.getPublicKey', {}, { pubkey: '' }],
+      ['identity.getRelays', {}, { relays: {} }],
+      ['identity.getProfile', {}, { profile: null }],
+      ['identity.getFollows', {}, { pubkeys: [] }],
+      ['identity.getList', { listType: 'bookmarks' }, { entries: [] }],
+      ['identity.getZaps', {}, { zaps: [] }],
+      ['identity.getMutes', {}, { pubkeys: [] }],
+      ['identity.getBlocked', {}, { pubkeys: [] }],
+      ['identity.getBadges', {}, { badges: [] }],
+    ])('returns the exact safe result when %s is unavailable', (type, request, payload) => {
+      runtime.handleMessage(WINDOW_ID, {
+        type,
+        id: `unavailable-${type}`,
+        ...request,
+      } as NappletMessage);
+      expect(ctx.sent).toEqual([{
+        windowId: WINDOW_ID,
+        message: { type: `${type}.result`, id: `unavailable-${type}`, ...payload },
+      }]);
+    });
+
+    it('dispatches every sanctioned identity read to a registered identity service without dropping listType', () => {
+      const serviceContext = createMockRuntimeAdapter();
+      const runtimeWithService = createRuntime(serviceContext.hooks);
+      runtimeWithService.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+      const calls: Array<{ windowId: string; message: NappletMessage }> = [];
+      runtimeWithService.registerService('identity', {
+        descriptor: { name: 'identity', version: '1.0.0' },
+        handleMessage(windowId, message) {
+          calls.push({ windowId, message });
+        },
+      });
+
+      const requests = [
+        { type: 'identity.getPublicKey', id: 'identity-1' },
+        { type: 'identity.getRelays', id: 'identity-2' },
+        { type: 'identity.getProfile', id: 'identity-3' },
+        { type: 'identity.getFollows', id: 'identity-4' },
+        { type: 'identity.getList', id: 'identity-5', listType: 'bookmarks' },
+        { type: 'identity.getZaps', id: 'identity-6' },
+        { type: 'identity.getMutes', id: 'identity-7' },
+        { type: 'identity.getBlocked', id: 'identity-8' },
+        { type: 'identity.getBadges', id: 'identity-9' },
+      ] as unknown as NappletMessage[];
+      for (const request of requests) runtimeWithService.handleMessage(WINDOW_ID, request);
+
+      expect(calls).toEqual(requests.map((message) => ({ windowId: WINDOW_ID, message })));
+      expect((calls[4]?.message as NappletMessage & { listType?: string }).listType).toBe('bookmarks');
+      expect(serviceContext.sent).toHaveLength(0);
+    });
+
+    it.each(['ACL-denied', 'firewall-denied'])('returns safe identity results on the %s path', (path) => {
+      const deniedContext = createMockRuntimeAdapter();
+      const deniedRuntime = createRuntime(deniedContext.hooks);
+      deniedRuntime.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+      if (path === 'ACL-denied') deniedRuntime.aclState.block('', TEST_DTAG, TEST_HASH);
+      if (path === 'firewall-denied') deniedRuntime.firewallState.setPolicy(TEST_DTAG, 'deny');
+
+      deniedRuntime.handleMessage(WINDOW_ID, {
+        type: 'identity.getList',
+        id: `denied-${path}`,
+        listType: 'bookmarks',
+      } as NappletMessage);
+
+      expect(deniedContext.sent).toEqual([{
+        windowId: WINDOW_ID,
+        message: { type: 'identity.getList.result', id: `denied-${path}`, entries: [] },
+      }]);
+    });
+
+    it('returns the exact safe relay result when the signer rejects', async () => {
+      const ctxWithRejectedSigner = createMockRuntimeAdapter({
+        auth: {
+          getUserPubkey: () => null,
+          getSigner: () => ({ getRelays: () => Promise.reject(new Error('unavailable')) }),
+        },
+      });
+      const runtimeWithRejectedSigner = createRuntime(ctxWithRejectedSigner.hooks);
+      runtimeWithRejectedSigner.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+
+      runtimeWithRejectedSigner.handleMessage(WINDOW_ID, { type: 'identity.getRelays', id: 'relays-rejected' } as NappletMessage);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(ctxWithRejectedSigner.sent).toEqual([{
+        windowId: WINDOW_ID,
+        message: { type: 'identity.getRelays.result', id: 'relays-rejected', relays: {} },
+      }]);
+    });
+
+    it.each([
+      'identity.changed',
+      'identity.getPublicKey.result',
+      'identity.signEvent',
+      'identity.decrypt',
+      'theme.changed',
+      'theme.get.result',
+      'theme.subscribe',
+      'theme.unsubscribe',
+      'theme.set',
+    ])('silently ignores unsupported identity/theme source message %s', (type) => {
+      runtime.handleMessage(WINDOW_ID, { type, id: `unsupported-${type}` } as NappletMessage);
+      expect(ctx.sent).toHaveLength(0);
+    });
+
+    it.each(['normal', 'ACL-denied', 'firewall-denied'])('silently ignores theme subscription attempts on the %s path', (path) => {
+      const context = createMockRuntimeAdapter();
+      const runtimeForPath = createRuntime(context.hooks);
+      runtimeForPath.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+      if (path === 'ACL-denied') runtimeForPath.aclState.block('', TEST_DTAG, TEST_HASH);
+      if (path === 'firewall-denied') runtimeForPath.firewallState.setPolicy(TEST_DTAG, 'deny');
+
+      runtimeForPath.handleMessage(WINDOW_ID, { type: 'theme.subscribe', id: `subscription-${path}` } as NappletMessage);
+      runtimeForPath.handleMessage(WINDOW_ID, { type: 'theme.unsubscribe', id: `unsubscription-${path}` } as NappletMessage);
+
+      expect(context.sent).toHaveLength(0);
     });
 
     it('identity.getPublicKey bypasses ACL and returns the signed-out sentinel', () => {
@@ -594,20 +817,15 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(keys).toContain('k2');
     });
 
-    it('storage.get returns .result envelope with error field for unregistered window', () => {
+    it('storage.get is silent for an unregistered window before shell.ready', () => {
       // Don't register the window session
       const ctx2 = createMockRuntimeAdapter();
       const runtime2 = createRuntime(ctx2.hooks);
-      // No session registered
 
       runtime2.handleMessage(WINDOW_ID, { type: 'storage.get', id: 'req-nr', key: 'k' } as NappletMessage);
-      // Canonical @napplet/nap/storage has no *.error type — errors arrive as
-      // storage.get.result with the `error` field set.
-      const result = findEnvelopeResponse(ctx2.sent, 'storage.get.result');
-      expect(result).toBeDefined();
-      expect((result as any).error).toContain('not registered');
-      // No non-canonical storage.get.error envelope was emitted.
-      expect(findEnvelopeResponse(ctx2.sent, 'storage.get.error')).toBeUndefined();
+
+      expect(ctx2.sent).toHaveLength(0);
+      expect(ctx2.aclChecks).toHaveLength(0);
     });
   });
 
@@ -654,7 +872,7 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(event).toBeDefined();
       expect((event!.message as any).topic).toBe('news');
       expect((event!.message as any).payload).toEqual({ text: 'hello' });
-      expect((event!.message as any).sender).toBe(WINDOW_ID);
+      expect((event!.message as any).sender).toBe(TEST_DTAG);
     });
 
     it('inc.emit does not echo to sender', () => {
@@ -751,7 +969,138 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(event).toBeDefined();
       expect((event!.message as any).topic).toBe('inc-news');
       expect((event!.message as any).payload).toEqual({ text: 'inc hello' });
-      expect((event!.message as any).sender).toBe(WINDOW_ID);
+      expect((event!.message as any).sender).toBe(TEST_DTAG);
+    });
+
+    it('denies a blocked channel open without creating channel state', () => {
+      runtime.sessionRegistry.register(
+        WINDOW_ID_2,
+        createNip5dSessionEntry(WINDOW_ID_2, 'peer-napp', 'c'.repeat(64)),
+      );
+      runtime.aclState.block('', TEST_DTAG, TEST_HASH);
+
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.channel.open', id: 'blocked-open', target: 'peer-napp',
+      } as NappletMessage);
+
+      expect(findEnvelopeResponse(ctx.sent, 'inc.channel.open.result')).toMatchObject({
+        id: 'blocked-open',
+        error: 'denied: relay:read',
+      });
+      expect(findEnvelopeResponse(ctx.sent, 'inc.channel.open.error')).toBeUndefined();
+      expect(ctx.sent.some(({ message }) => (message as NappletMessage).type === 'inc.channel.opened')).toBe(false);
+    });
+
+    it('uses only contract-defined INC denial responses', () => {
+      runtime.aclState.block('', TEST_DTAG, TEST_HASH);
+
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.subscribe', id: 'blocked-subscribe', topic: 'napplet:profile/open',
+      } as NappletMessage);
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.emit', topic: 'napplet:profile/open', payload: { ignored: true },
+      } as NappletMessage);
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.unsubscribe', topic: 'napplet:profile/open',
+      } as NappletMessage);
+
+      expect(findEnvelopeResponse(ctx.sent, 'inc.subscribe.result')).toMatchObject({
+        id: 'blocked-subscribe',
+        error: 'denied: relay:read',
+      });
+      expect(ctx.sent.some(({ message }) => (
+        typeof message === 'object' &&
+        message !== null &&
+        !Array.isArray(message) &&
+        ['inc.subscribe.error', 'inc.emit.error', 'inc.unsubscribe.error'].includes((message as NappletMessage).type)
+      ))).toBe(false);
+    });
+
+    it('checks ACL at channel open but not for established channel traffic', () => {
+      runtime.sessionRegistry.register(
+        WINDOW_ID_2,
+        createNip5dSessionEntry(WINDOW_ID_2, 'peer-napp', 'c'.repeat(64)),
+      );
+      expect(runtime.sessionRegistry.getAllEntries().map(({ windowId }) => windowId)).toEqual(
+        expect.arrayContaining([WINDOW_ID, WINDOW_ID_2]),
+      );
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.channel.open', id: 'open-once', target: 'peer-napp',
+      } as NappletMessage);
+      const openResult = findEnvelopeResponse(ctx.sent, 'inc.channel.open.result');
+      expect(openResult).toBeDefined();
+      const opened = openResult as NappletMessage & { channelId: string };
+      ctx.aclChecks.length = 0;
+
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.channel.emit', channelId: opened.channelId, payload: { command: 'play' },
+      } as NappletMessage);
+
+      expect(ctx.aclChecks).toHaveLength(0);
+      expect(ctx.sent).toContainEqual({
+        windowId: WINDOW_ID_2,
+        message: expect.objectContaining({
+          type: 'inc.channel.event', channelId: opened.channelId, sender: TEST_DTAG,
+        }),
+      });
+    });
+
+    const channelAuthorityMutations = [
+      ['revoke', () => runtime.aclState.revoke('', TEST_DTAG, TEST_HASH, 'relay:read')],
+      ['block', () => runtime.aclState.block('', TEST_DTAG, TEST_HASH)],
+    ] as const;
+
+    it.each(channelAuthorityMutations)('synchronously closes both endpoints and makes traffic inert after ACL %s', (_mutation, mutate) => {
+      runtime.sessionRegistry.register(
+        WINDOW_ID_2,
+        createNip5dSessionEntry(WINDOW_ID_2, 'peer-napp', 'c'.repeat(64)),
+      );
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.channel.open', id: 'revocable-open', target: 'peer-napp',
+      } as NappletMessage);
+      const openResult = findEnvelopeResponse(ctx.sent, 'inc.channel.open.result');
+      expect(openResult).toBeDefined();
+      const opened = openResult as NappletMessage & { channelId: string };
+      ctx.sent.length = 0;
+
+      mutate();
+
+      expect(ctx.sent).toEqual(expect.arrayContaining([
+        { windowId: WINDOW_ID, message: expect.objectContaining({ type: 'inc.channel.closed', channelId: opened.channelId }) },
+        { windowId: WINDOW_ID_2, message: expect.objectContaining({ type: 'inc.channel.closed', channelId: opened.channelId }) },
+      ]));
+      ctx.sent.length = 0;
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.channel.emit', channelId: opened.channelId, payload: { ignored: true },
+      } as NappletMessage);
+      expect(ctx.sent).toHaveLength(0);
+    });
+
+    it('keeps established channels intact for grants, unblocks, and unrelated revocations', () => {
+      runtime.sessionRegistry.register(
+        WINDOW_ID_2,
+        createNip5dSessionEntry(WINDOW_ID_2, 'peer-napp', 'c'.repeat(64)),
+      );
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.channel.open', id: 'stable-open', target: 'peer-napp',
+      } as NappletMessage);
+      const openResult = findEnvelopeResponse(ctx.sent, 'inc.channel.open.result');
+      expect(openResult).toBeDefined();
+      const opened = openResult as NappletMessage & { channelId: string };
+      ctx.sent.length = 0;
+
+      runtime.aclState.grant('', TEST_DTAG, TEST_HASH, 'notify:send');
+      runtime.aclState.unblock('', TEST_DTAG, TEST_HASH);
+      runtime.aclState.revoke('', TEST_DTAG, TEST_HASH, 'notify:send');
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.channel.emit', channelId: opened.channelId, payload: { still: 'open' },
+      } as NappletMessage);
+
+      expect(ctx.sent).toContainEqual({
+        windowId: WINDOW_ID_2,
+        message: expect.objectContaining({ type: 'inc.channel.event', channelId: opened.channelId }),
+      });
+      expect(ctx.sent.some(({ message }) => (message as NappletMessage).type === 'inc.channel.closed')).toBe(false);
     });
   });
 
@@ -1078,7 +1427,7 @@ describe('theme NAP dispatch (TH-01 + TH-04)', () => {
     expect((result as any).theme.colors.background).toBe('#0a0a0a');
   });
 
-  it('TH-04 ACL denial: napplet without theme:read gets theme.get.error without reaching service', () => {
+  it('TH-04 ACL denial: napplet without theme:read gets one complete theme.get.result without reaching service', () => {
     const ctx2 = createMockRuntimeAdapter();
     const runtime2 = createRuntime(ctx2.hooks);
     runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
@@ -1102,11 +1451,16 @@ describe('theme NAP dispatch (TH-01 + TH-04)', () => {
     // Service MUST NOT be invoked when ACL denies the request.
     expect(serviceCalls).toHaveLength(0);
 
-    const err = findEnvelopeResponse(ctx2.sent, 'theme.get.error');
-    expect(err).toBeDefined();
-    expect((err as any).id).toBe('q-denied');
-    expect(typeof (err as any).error).toBe('string');
-    expect((err as any).error).toMatch(/denied|theme:read/i);
+    expect(ctx2.sent).toHaveLength(1);
+    expect(ctx2.sent[0]?.message).toEqual({
+      type: 'theme.get.result',
+      id: 'q-denied',
+      theme: {
+        colors: { background: '#0a0a0a', text: '#e0e0e0', primary: '#7aa2f7' },
+      },
+    });
+    expect((ctx2.sent[0]?.message as unknown as Record<string, unknown>).error).toBeUndefined();
+    expect(findEnvelopeResponse(ctx2.sent, 'theme.get.error')).toBeUndefined();
   });
 
   it('fallback: emits theme.get.result with the canonical default theme when no theme service is registered', () => {
@@ -1129,6 +1483,25 @@ describe('theme NAP dispatch (TH-01 + TH-04)', () => {
     expect(theme.colors.background).toBe('#0a0a0a');
     expect(theme.colors.text).toBe('#e0e0e0');
     expect(theme.colors.primary).toBe('#7aa2f7');
+  });
+
+  it('firewall denial returns the same complete theme fallback exactly once', () => {
+    const ctx2 = createMockRuntimeAdapter();
+    const runtime2 = createRuntime(ctx2.hooks);
+    runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+    runtime2.aclState.grant('', TEST_DTAG, TEST_HASH, 'theme:read');
+    runtime2.firewallState.setPolicy(TEST_DTAG, 'deny');
+
+    runtime2.handleMessage(WINDOW_ID, { type: 'theme.get', id: 'firewall-denied' } as NappletMessage);
+
+    expect(ctx2.sent).toEqual([{
+      windowId: WINDOW_ID,
+      message: {
+        type: 'theme.get.result',
+        id: 'firewall-denied',
+        theme: { colors: { background: '#0a0a0a', text: '#e0e0e0', primary: '#7aa2f7' } },
+      },
+    }]);
   });
 
   it('fallback: media.session.create rejects ownerless requests when no media service is registered', () => {

@@ -126,6 +126,34 @@ const rawListenerTypeGuards: Record<string, readonly string[]> = {
   ],
 };
 
+const activeShellSurfaceFiles = [
+  'packages/shell/src/napplet-namespace.ts',
+  'packages/shell/src/napplet-namespace.test.ts',
+  'packages/shell/src/shell-supports-conformance.test.ts',
+  'packages/shell/README.md',
+] as const;
+
+const activeServiceGuidanceFiles = [
+  'apps/playground/README.md',
+  'packages/services/README.md',
+  'docs/packages/services.md',
+  'skills/add-service/SKILL.md',
+  'skills/integrate-shell/SKILL.md',
+] as const;
+
+const unsafeServiceGuidancePatterns = [
+  { label: 'legacy audio factory', pattern: /\bcreateAudioService\s*\(/ },
+  { label: 'legacy notification INC factory', pattern: /\bcreateNotificationService\s*\(/ },
+  { label: 'legacy audio topic emission', pattern: /\b(?:emit|subscribe)\s*\(\s*['"]audio:/ },
+  { label: 'legacy notification topic emission', pattern: /\b(?:emit|subscribe)\s*\(\s*['"]notifications:/ },
+  { label: 'service registration from a colon topic', pattern: /registerService\(\s*['"][^'"]+:[^'"]*['"]/ },
+  { label: 'INC topic-prefix service handling', pattern: /topic\?\.startsWith\s*\(/ },
+  { label: 'fabricated INC event delivery', pattern: /(?:send|postMessage)\s*\([\s\S]{0,160}type:\s*['"]inc\.event['"]/ },
+] as const;
+
+// Planning history and changelogs retain the removed vocabulary as historical record.
+const historicalShellExclusions = ['.planning/', 'CHANGELOG.md'] as const;
+
 const forbiddenNappletSourcePatterns = [
   { label: 'window.nostr', pattern: /\bwindow\s*\.\s*nostr\b/ },
   { label: 'localStorage', pattern: /\blocalStorage\b/ },
@@ -145,6 +173,10 @@ function removeComments(source: string): string {
   return source
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
+
+function removeExplicitLegacyProhibitions(source: string): string {
+  return source.replace(/(?:do not|never|must not)\b[^.]*\./gi, '');
 }
 
 function listFiles(root: string): string[] {
@@ -311,6 +343,55 @@ describe('NIP-5D conformance static guards', () => {
     expect(policy).toContain('napplet artifacts are not required to bundle their own handshake');
   });
 
+  it('keeps active NAP-SHELL support domain-only and host resolution out of injected APIs', () => {
+    const namespace = readRepoFile('packages/shell/src/napplet-namespace.ts');
+    const readme = readRepoFile('packages/shell/README.md');
+    const retiredNegotiationMarkers = [
+      'capabilities.' + 'protocols',
+      'proto' + 'col?: string',
+      'n' + 'aps:',
+    ];
+
+    expect(historicalShellExclusions).toEqual(['.planning/', 'CHANGELOG.md']);
+    for (const file of activeShellSurfaceFiles) {
+      const source = readRepoFile(file);
+      expect(source, `${file} must not declare a second supports parameter`).not.toMatch(
+        /(?:function\s+)?supports\s*(?::\s*)?\(\s*[^,)]+\s*,/,
+      );
+      for (const marker of retiredNegotiationMarkers) {
+        expect(source, `${file} must not expose ${marker}`).not.toContain(marker);
+      }
+    }
+
+    expect(namespace).toContain('function supports(domain: string): boolean');
+    expect(namespace).not.toContain('resolveShellEnvironment');
+    expect(readme).toContain('`window.napplet.shell.supports(domain)`');
+    expect(readme).toContain('returns `false` before `shell.init`');
+    expect(readme).toContain('resolveShellEnvironment(hooks, identity)');
+    expect(readme).not.toContain('numbered protocols');
+    expect(readme).not.toContain('`naps`');
+  });
+
+  it('keeps active service guidance on direct domains and runtime-attested INC delivery', () => {
+    for (const file of activeServiceGuidanceFiles) {
+      const source = readRepoFile(file);
+      const recommendations = removeExplicitLegacyProhibitions(source);
+
+      expect(source, `${file} direct domain guidance`).toContain('exact `message.type` domain');
+      expect(source, `${file} opaque INC guidance`).toMatch(/opaque,?\s+queryless\s+identities/i);
+      expect(source, `${file} runtime-attested sender guidance`).toMatch(/runtime\s+attaches the sender/i);
+
+      for (const { label, pattern } of unsafeServiceGuidancePatterns) {
+        expect(recommendations, `${file} must not recommend ${label}`).not.toMatch(pattern);
+      }
+    }
+
+    // Mentioning a retired token to prohibit it is documentation, not a compatibility recommendation.
+    expect(removeExplicitLegacyProhibitions('Do not use createAudioService() for INC routing.')).not.toMatch(
+      /createAudioService\s*\(/,
+    );
+  });
+
   it('keeps NAP-RELAY subscribe routing fields wired through runtime, services, playground, and tests', () => {
     const relayTypes = readRepoFile(`${installedNapDist}/relay/types.d.ts`);
     const fields = interfaceFieldNames(relayTypes, 'RelaySubscribeMessage');
@@ -442,5 +523,51 @@ describe('NIP-5D conformance static guards', () => {
     const queryResultFields = interfaceFieldNames(relayTypes, 'RelayQueryResultMessage');
     expect(queryResultFields, 'RelayQueryResultMessage must declare events').toContain('events');
     expect(queryResultFields, 'RelayQueryResultMessage must not declare count').not.toContain('count');
+  });
+
+  it('pins active INC guidance to the draft authority and implemented routing boundary', () => {
+    const docs = [
+      'RUNTIME-SPEC.md',
+      'docs/policies/NIP-5D-CONFORMANCE.md',
+      'packages/runtime/README.md',
+      'packages/shell/README.md',
+    ] as const;
+    const exactHeads = [
+      '4593ce9e301ce098fd3dad64206fcd6f144fa7af',
+      '896c32c92deee68dc4d10fc1132b62df20cccb6f',
+      'c5cd06f7be6d4690b303949abb26e87ff62f4729',
+    ] as const;
+
+    for (const file of docs) {
+      const source = readRepoFile(file);
+      for (const head of exactHeads) expect(source, `${file} must pin ${head}`).toContain(head);
+      expect(source, `${file} must retain exact queryless identities`).toMatch(/exact\s+queryless\s+(?:topic\s+)?identity/i);
+      expect(source, `${file} must describe runtime-attested dTags`).toMatch(/runtime-attested dTag/i);
+      expect(source, `${file} must defer intent binding work`).toContain('Phase 104');
+      expect(source, `${file} must retain the package gate`).toContain('Phase 105');
+    }
+
+    const runtimeSpec = readRepoFile('RUNTIME-SPEC.md');
+    const policy = readRepoFile('docs/policies/NIP-5D-CONFORMANCE.md');
+    const runtimeReadme = readRepoFile('packages/runtime/README.md');
+    const shellReadme = readRepoFile('packages/shell/README.md');
+    const incHandler = readRepoFile('packages/runtime/src/inc-handler.ts');
+    const namespace = readRepoFile('packages/shell/src/napplet-namespace.ts');
+
+    expect(runtimeSpec).toContain('Projection-owned query-to-text-payload transposition');
+    expect(policy).toContain('kehto/web#203');
+    expect(policy).toContain('https://github.com/kehto/web/issues/203#issuecomment-5060904495');
+    expect(runtimeReadme).toContain('open-time authorization');
+    expect(shellReadme).toContain('target `inc.channel.opened` before the opener result');
+    expect(shellReadme).toContain('`channel.list()` is informational only');
+
+    expect(incHandler).toContain('const subscribers = state.subscriptions.get(topic);');
+    expect(incHandler).toContain('sessionRegistry.getEntryByWindowId(windowId)?.dTag');
+    expect(incHandler).toContain("type: 'inc.channel.opened'");
+    expect(incHandler).not.toMatch(/topic\??\.startsWith\s*\(/);
+    expect(namespace).toContain('INC subscriptions require a queryless topic identity');
+    expect(namespace).toContain('function deliverOpened');
+    expect(namespace).toContain('function closeChannelState');
+    expect(namespace).toContain("reason: 'buffer overflow'");
   });
 });

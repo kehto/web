@@ -98,7 +98,7 @@ describe('playground gateway artifact guard', () => {
     expect(shellHost).not.toContain('allow-same-origin');
     expect(shellHost).not.toContain('relay.runtime.sessionRegistry.register(windowId');
     expect(shellHost).toContain(
-      'originRegistry.register(iframe.contentWindow, windowId, { dTag, aggregateHash });',
+      'originRegistry.register(iframe.contentWindow, windowId, identity);',
     );
     expect(shellHost).toContain("(event.data as NappletMessage).type === 'shell.ready'");
     expect(shellHost).toContain('markEnvelopeIdentityBinding(windowId);');
@@ -136,18 +136,67 @@ describe('playground gateway artifact guard', () => {
     expect(resolver).toContain('selectWriteRelays(');
     expect(resolver).toContain('injectCspMeta');
     expect(shellHost).toContain('injectNappletNamespacePrelude');
-    expect(shellHost).toContain("{ domains: ['shell', ...resolved.requires] }");
-    expect(shellHost).not.toContain('getShellCapabilities()?.domains');
+    expect(shellHost).toContain('getPlaygroundShellEnvironment(identity)');
+    expect(shellHost).toContain('environment.capabilities');
+    expect(shellHost).not.toContain("{ domains: ['shell', ...resolved.requires] }");
 
     // requires checked against the COMPUTED manifest before the iframe renders.
-    expect(shellHost).toContain('getMissingRequiredNaps(resolved.requires)');
+    expect(shellHost).toContain('getMissingRequiredNaps(');
     expect(shellHost).toContain('requires unsupported NAP capabilities');
-    expect(shellHost.indexOf('getMissingRequiredNaps(resolved.requires)')).toBeLessThan(
+    expect(shellHost.indexOf('getMissingRequiredNaps(')).toBeLessThan(
       shellHost.indexOf('iframe.srcdoc = injectNappletNamespacePrelude'),
     );
-    expect(shellHost.indexOf("{ domains: ['shell', ...resolved.requires] }")).toBeGreaterThan(
-      shellHost.indexOf('iframe.srcdoc = injectNappletNamespacePrelude'),
+    expect(shellHost.indexOf('getPlaygroundShellEnvironment(identity)')).toBeLessThan(
+      shellHost.indexOf('getMissingRequiredNaps('),
     );
+  });
+
+  it('derives each frame environment from its trusted creation identity and live host wiring', () => {
+    const demoHooks = readRepoFile('apps/playground/src/demo-hooks.ts');
+    const shellHost = readRepoFile('apps/playground/src/shell-host.ts');
+
+    expect(demoHooks).toContain('resolveShellEnvironment');
+    expect(demoHooks).toContain('getPlaygroundShellEnvironment(identity: OriginIdentity)');
+    expect(shellHost).toContain('const identity = Object.freeze({ dTag, aggregateHash });');
+    expect(shellHost).toContain('const environment = getPlaygroundShellEnvironment(identity);');
+    expect(shellHost).toContain('originRegistry.register(iframe.contentWindow, windowId, identity);');
+    expect(shellHost).toContain('environment.capabilities');
+    expect(shellHost).not.toContain("{ domains: ['shell', ...resolved.requires] }");
+    expect(demoHooks).not.toContain('shellCapabilities.naps');
+    expect(demoHooks).not.toContain('shellCapabilities.protocols');
+  });
+
+  it('registers the trusted INC environment before the shared replacement-safe prelude executes', () => {
+    const shellHost = readRepoFile('apps/playground/src/shell-host.ts');
+    const namespacePrelude = readRepoFile('packages/shell/src/napplet-namespace.ts');
+
+    const identity = shellHost.indexOf('const identity = Object.freeze({ dTag, aggregateHash });');
+    const environment = shellHost.indexOf('const environment = getPlaygroundShellEnvironment(identity);');
+    const registration = shellHost.indexOf('originRegistry.register(iframe.contentWindow, windowId, identity);');
+    const registrationEnvironment = shellHost.indexOf('originRegistry.setEnvironment(iframe.contentWindow, environment);');
+    const srcdoc = shellHost.indexOf('iframe.srcdoc = injectNappletNamespacePrelude(');
+
+    expect(identity).toBeGreaterThanOrEqual(0);
+    expect(environment).toBeGreaterThan(identity);
+    expect(registration).toBeGreaterThan(environment);
+    expect(registrationEnvironment).toBeGreaterThan(registration);
+    expect(srcdoc).toBeGreaterThan(registrationEnvironment);
+    expect(shellHost).toContain('environment.capabilities');
+
+    // INC belongs solely to the shared prelude. The playground must not grow a
+    // host-specific convention parser or channel client around the bridge.
+    expect(shellHost).not.toContain('function normalizeConventionUri(');
+    expect(shellHost).not.toContain('function makeInc(');
+    expect(shellHost).not.toContain('function makeChannelHandle(');
+
+    // The real shim can assign window.napplet, but the injected namespace proxy
+    // merges extensions and restores the Kehto-owned INC operations.
+    expect(namespacePrelude).toContain('function makeProtectedInc(existing: unknown): Record<string, unknown>');
+    expect(namespacePrelude).toContain('return { ...extensions, ...inc };');
+    expect(namespacePrelude).toContain("if (domain === 'inc') return makeProtectedInc(existing);");
+    expect(namespacePrelude).toContain('function guardNappletNamespace(namespace: Record<string, unknown>): Record<string, unknown>');
+    expect(namespacePrelude).toContain('set(obj, prop, value)');
+    expect(namespacePrelude).toContain('root = buildNappletNamespace(value);');
   });
 
   it('shows relay runtime activity instead of NIP-66 fixture suggestions', () => {
@@ -278,6 +327,36 @@ describe('playground gateway artifact guard', () => {
     expect(main).toContain('buildHostRelaySubscribe(');
     expect(main).not.toContain("data.type !== 'theme.set'");
     expect(main).not.toContain("data.type === 'theme.set'");
+  });
+
+  it('keeps playground identity and theme delivery on one service-to-bridge path', () => {
+    const demoHooks = readRepoFile('apps/playground/src/demo-hooks.ts');
+    const shellHost = readRepoFile('apps/playground/src/shell-host.ts');
+    const main = readRepoFile('apps/playground/src/main.ts');
+    const preferences = readRepoFile('apps/playground/src/main-preferences.ts');
+    const mainSigner = readRepoFile('apps/playground/src/main-signer.ts');
+
+    expect(demoHooks).toContain('onThemeBroadcast(envelope: ThemeChangedMessage): void;');
+    expect(demoHooks).toContain('initialTheme?: Theme,');
+    expect(demoHooks).toContain('createThemeService({ initialTheme, onBroadcast: context.onThemeBroadcast })');
+    expect(shellHost).toContain('onThemeBroadcast: (envelope) => relay.publishTheme(envelope.theme),');
+    expect(shellHost).toContain('initialTheme?: Theme,');
+    expect(main).toContain('getPersistedPlaygroundTheme');
+    expect(main).toContain('bootShell((notifications) => {');
+    expect(main).toContain('}, initialTheme);');
+    expect(main).not.toContain("data.type === 'shell.ready'");
+    expect(main).not.toContain('broadcastCurrentTheme');
+    expect(preferences).toContain('initialTheme?: PlaygroundTheme;');
+    expect(preferences).toContain('getThemeServiceBundle()?.publishTheme(currentTheme);');
+    expect(preferences).not.toContain('broadcastCurrentTheme');
+    expect(preferences).not.toContain("postMessage({ type: 'theme.changed'");
+    expect(preferences).not.toContain('relay.publishTheme(currentTheme');
+
+    expect(shellHost).not.toContain('scheduleCurrentUserIdentitySync');
+    expect(shellHost).not.toContain('publishCurrentUserIdentityToNapplet');
+    expect(shellHost).not.toContain("msg.envelopeType === 'identity.getPublicKey'");
+    expect(shellHost).not.toContain("type: 'identity.changed'");
+    expect(mainSigner).toContain('publishIdentityChanged?.(currentIdentity);');
   });
 
   it('keeps the GitHub Pages publisher aligned with the static gateway artifact contract', () => {

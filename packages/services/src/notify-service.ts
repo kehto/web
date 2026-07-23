@@ -12,14 +12,12 @@
  * Host apps wire a real backend via
  * `runtime.registerService('notify', realHandler)`.
  *
- * Coexistence note: this is SEPARATE from
- * `packages/services/src/notification-service.ts`, which is the legacy
- * inc-topic-based notification registry (operates on `inc.emit` topics
- * under `notifications:*`). `notify-service.ts` is the canonical
- * `@napplet/nap/notify` NIP-5D path and lives alongside the legacy module.
+ * `notify-service.ts` is the canonical `@napplet/nap/notify` NIP-5D path.
+ * It lives alongside the direct notification state registry in
+ * `notification-service.ts`; neither service interprets an `inc.emit` topic.
  * If the host app registers this service via
  * `runtime.registerService('notify', ...)`, @napplet/nap/notify messages
- * land here; the legacy inc-emit topic path remains untouched.
+ * land here.
  *
  * Shell -> napplet push messages (`notify.action`, `notify.clicked`,
  * `notify.dismissed`, `notify.controls`) are not emitted by this stub —

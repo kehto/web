@@ -42,6 +42,7 @@ import {
   type UploadStatus,
 } from '@kehto/services';
 import type { Theme } from '@napplet/nap/theme/types';
+import type { ThemeChangedMessage } from '@napplet/nap/theme/types';
 import { finalizeEvent, generateSecretKey, getPublicKey, verifyEvent } from 'nostr-tools/pure';
 
 import {
@@ -322,6 +323,7 @@ function createDevServices(
   backend: PajaRelayBackend,
   getSimulation: () => PajaSimulation,
   onThemeService: (theme: ReturnType<typeof createThemeService>) => void,
+  onThemeBroadcast: (envelope: ThemeChangedMessage) => void,
   confirmRequest: (request: PajaConfirmationRequest) => boolean,
   uploadRuntime?: PajaUploadRuntime,
   signerProvider?: PajaSignerProvider,
@@ -329,7 +331,7 @@ function createDevServices(
   const notification = createNotificationService({ maxPerWindow: 50 });
   const theme = createThemeService({
     initialTheme: createDevTheme(getSimulation().theme.mode, getSimulation().theme.values),
-    onBroadcast: () => {},
+    onBroadcast: onThemeBroadcast,
   });
   onThemeService(theme);
   const config = createConfigService({
@@ -480,18 +482,22 @@ function createDevServices(
  * @param config - Host-page config.
  * @param getSimulation - Current simulation model getter.
  * @param onThemeService - Callback receiving the created theme service.
+ * @param onThemeBroadcast - Callback forwarding the service's single theme update.
  * @param confirmRequest - Sign/publish confirmation callback.
  * @param signerProvider - Optional external signer provider.
  * @param getIdentity - Optional simulated target identity provider.
+ * @param onEnvironmentChanged - Invoked when asynchronous host wiring changes.
  * @returns Shell adapter for `createShellBridge`.
  */
 export function createPajaAdapter(
   config: PajaHostConfig,
   getSimulation: () => PajaSimulation,
   onThemeService: (theme: ReturnType<typeof createThemeService>) => void,
+  onThemeBroadcast: (envelope: ThemeChangedMessage) => void,
   confirmRequest: (request: PajaConfirmationRequest) => boolean,
   signerProvider?: PajaSignerProvider,
   getIdentity?: PajaIdentityProvider,
+  onEnvironmentChanged?: () => void,
 ): ShellAdapter {
   const relayBackend = createPajaRelayBackend(getSimulation, confirmRequest);
   const uploadRuntime = getSimulation().upload.mode === 'blossom'
@@ -510,6 +516,9 @@ export function createPajaAdapter(
       })
     : undefined;
   void uploadRuntime?.refreshIdentity();
+  signerProvider?.subscribe?.(() => {
+    void uploadRuntime?.refreshIdentity().finally(() => onEnvironmentChanged?.());
+  });
   const workerRelayEvents: NostrEvent[] = [];
   return {
     relayPool: createRelayHooks(relayBackend, getSimulation),
@@ -527,7 +536,7 @@ export function createPajaAdapter(
       getUserPubkey: () => getRuntimePubkey(getSimulation, signerProvider),
       getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider),
     },
-    services: createDevServices(relayBackend, getSimulation, onThemeService, confirmRequest, uploadRuntime, signerProvider),
+    services: createDevServices(relayBackend, getSimulation, onThemeService, onThemeBroadcast, confirmRequest, uploadRuntime, signerProvider),
     get capabilities() {
       return { disabledDomains: getSimulation().capabilities.disabledDomains };
     },
@@ -548,13 +557,6 @@ export function createPajaAdapter(
     webrtc: { isAvailable: () => getSimulation().capabilities.domains.webrtc },
     crypto: {
       verifyEvent: async () => true,
-    },
-    onNip5dIframeCreate: () => {
-      const identity = getIdentity?.();
-      return {
-        dTag: identity?.dTag ?? config.window.dTag,
-        aggregateHash: identity?.aggregateHash ?? config.window.aggregateHash,
-      };
     },
   };
 }

@@ -1,0 +1,5 @@
+# Deferred Items
+
+- The configured AI-slop gate cannot run because `aislop` is unavailable locally and on `PATH`. No dependency was installed because Plan 102-04 forbids package installation.
+- A clean full Playwright run against the isolated Kehto preview completed with 69 passed, 1 skipped, and 7 failed. The Phase 102 symmetric-channel proof passed; the remaining legacy demo/fixture failures require the convention-capable packages from the concurrent `napplet/web` chase and are owned by Phase 105 after those packages are published.
+- Draft NAP-INC #92 simultaneously requires every inbound handle to remain observable until `channel.onOpened`, permits bounded unopened-handle buffers, and forbids silently dropping overflowed handles, but it does not require host backpressure or define behavior when a bounded terminal-overflow handoff also fills. Plan 102-13 proves one terminal handoff; re-verification shows a second pre-handler overflow must either become unbounded or be silently dropped. The conflict is surfaced at [kehto/web#203](https://github.com/kehto/web/issues/203#issuecomment-5063109050); Phase 102 remains open pending a normative resolution.

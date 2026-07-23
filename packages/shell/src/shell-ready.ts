@@ -1,88 +1,93 @@
 import type { Runtime, SessionEntry } from '@kehto/runtime';
-import type { NappletMessage } from '@napplet/core';
-import { originRegistry } from './origin-registry.js';
-import { buildShellCapabilities } from './shell-init.js';
-import type { ShellAdapter, ShellCapabilities } from './types.js';
+import { originRegistry, type OriginIdentity } from './origin-registry.js';
+import { resolveShellEnvironment } from './shell-init.js';
+import type { ShellAdapter, ShellEnvironment } from './types.js';
 
 interface ShellReadyOptions {
   hooks: ShellAdapter;
   origin: string;
   runtime: Runtime;
+  state: ShellReadyState;
   sourceRegistrationId: number;
   sourceWindow: Window;
   windowId: string;
 }
 
-/**
- * SHELL-01 (NAP-SHELL gap G1): tracks the source Window registration for which
- * `shell.init` has already been posted, so a duplicate `shell.ready` in the same
- * iframe lifecycle is idempotent and does NOT resend `shell.init`.
- * Module-scoped because the "no NIP-5D identity" path never registers a session
- * entry, so the guard must live independently of the session registry (and must
- * not mutate the runtime `SessionEntry` shape, which is owned by @kehto/runtime).
- */
-let initSent = new WeakMap<Window, number>();
+/** State owned by one ShellBridge instance for its NAP-SHELL lifecycles. */
+export interface ShellReadyState {
+  isDomainAllowed(windowId: string, domain: string): boolean;
+  clear(): void;
+  readonly initSent: WeakMap<Window, number>;
+  readonly sessionRegistration: Map<string, number>;
+  readonly environments: Map<string, ShellEnvironment>;
+}
 
-/**
- * Test-only hook to clear the module-scoped {@link initSent} guard between
- * test cases. NOT part of the public API; prefixed with `__` and `ForTests` to
- * signal it must never be called by production code.
- *
- * @internal
- */
-export function __resetInitSentForTests(): void {
-  initSent = new WeakMap<Window, number>();
+/** Create isolated handshake state for one bridge/runtime pair. */
+export function createShellReadyState(): ShellReadyState {
+  const initSent = new WeakMap<Window, number>();
+  const sessionRegistration = new Map<string, number>();
+  const environments = new Map<string, ShellEnvironment>();
+  return {
+    initSent,
+    sessionRegistration,
+    environments,
+    isDomainAllowed(windowId, domain): boolean {
+      return environments.get(windowId)?.capabilities.domains.includes(domain) ?? false;
+    },
+    clear(): void {
+      sessionRegistration.clear();
+      environments.clear();
+    },
+  };
 }
 
 export function handleShellReady({
   hooks,
   origin,
   runtime,
+  state,
   sourceRegistrationId,
   sourceWindow,
   windowId,
 }: ShellReadyOptions): void {
-  registerNip5dSessionIfNeeded({
-    hooks,
-    origin,
-    runtime,
-    sourceRegistrationId,
-    sourceWindow,
-    windowId,
-  });
-
   // SHELL-01: exactly-once shell.init per registered Window lifecycle.
-  // registerNip5dSessionIfNeeded is already idempotent (its own
-  // getEntryByWindowId early-return); this guard governs ONLY postShellInit so a
-  // duplicate shell.ready does not resend shell.init, while an iframe reload
-  // under the same WindowProxy/windowId can boot after re-registration.
-  if (initSent.get(sourceWindow) === sourceRegistrationId) {
+  if (state.initSent.get(sourceWindow) === sourceRegistrationId) {
     return;
   }
 
-  const capabilities = buildShellCapabilities(hooks);
-  postShellInit(sourceWindow, capabilities, Object.keys(hooks.services ?? {}));
-  initSent.set(sourceWindow, sourceRegistrationId);
+  const identity = resolveNip5dIdentity(hooks, windowId, sourceWindow);
+  if (!identity) return;
+
+  registerNip5dSessionIfNeeded({ origin, runtime, state, sourceRegistrationId, windowId, identity });
+  const environment = originRegistry.getEnvironment(sourceWindow) ?? resolveShellEnvironment(hooks, identity);
+  state.environments.set(windowId, environment);
+  postShellInit(sourceWindow, environment);
+  state.initSent.set(sourceWindow, sourceRegistrationId);
 }
 
 function registerNip5dSessionIfNeeded({
-  hooks,
   origin,
   runtime,
+  state,
+  sourceRegistrationId,
   windowId,
-}: ShellReadyOptions): void {
+  identity,
+}: Pick<ShellReadyOptions, 'origin' | 'runtime' | 'state' | 'sourceRegistrationId' | 'windowId'> & {
+  identity: OriginIdentity;
+}): void {
   // NIP-5D: register a source-identity session entry in runtime.sessionRegistry
   // if one does not already exist for this windowId. This wires the originRegistry
   // identity into the runtime so domain handlers (storage/state, inc, etc.) can
   // resolve the napplet via getEntryByWindowId(windowId).
-  if (runtime.sessionRegistry.getEntryByWindowId(windowId)) {
+  const existing = runtime.sessionRegistry.getEntryByWindowId(windowId);
+  const previousRegistration = state.sessionRegistration.get(windowId);
+  if (existing && previousRegistration === sourceRegistrationId) {
     return;
   }
-
-  const identity = resolveNip5dIdentity(hooks, windowId);
-  if (!identity) {
-    return;
+  if (existing && previousRegistration !== undefined) {
+    runtime.sessionRegistry.unregister(windowId);
   }
+  if (existing && previousRegistration === undefined) return;
 
   const entry: SessionEntry = {
     pubkey: '',
@@ -96,11 +101,13 @@ function registerNip5dSessionIfNeeded({
     provenance: 'nip-5d',
   };
   runtime.sessionRegistry.register(windowId, entry);
+  state.sessionRegistration.set(windowId, sourceRegistrationId);
 }
 
 function resolveNip5dIdentity(
   hooks: ShellAdapter,
   windowId: string,
+  sourceWindow: Window,
 ): { dTag: string; aggregateHash: string } | null {
   // Identity resolution order:
   //   1. hooks.onNip5dIframeCreate?.(windowId) — preferred.
@@ -108,40 +115,31 @@ function resolveNip5dIdentity(
   //      identity directly via originRegistry.register(win, windowId, identity).
   const hookIdentity = hooks.onNip5dIframeCreate?.(windowId);
   if (hookIdentity !== null && hookIdentity !== undefined) {
-    return {
+    return Object.freeze({
       dTag: hookIdentity.dTag,
       aggregateHash: hookIdentity.aggregateHash,
-    };
+    });
   }
 
-  const win = originRegistry.getIframeWindow(windowId);
-  if (!win) {
-    return null;
-  }
-
-  const originIdentity = originRegistry.getIdentity(win);
+  const originIdentity = originRegistry.getIdentity(sourceWindow);
   if (!originIdentity) {
     return null;
   }
 
-  return {
+  return Object.freeze({
     dTag: originIdentity.dTag,
     aggregateHash: originIdentity.aggregateHash,
-  };
+  });
 }
 
 function postShellInit(
   win: Window,
-  capabilities: ShellCapabilities,
-  services: string[],
+  environment: ShellEnvironment,
 ): void {
-  const initMsg: NappletMessage & {
-    capabilities: ShellCapabilities;
-    services: string[];
-  } = {
+  const initMsg = {
     type: 'shell.init',
-    capabilities,
-    services,
+    capabilities: environment.capabilities,
+    services: environment.services,
   };
   win.postMessage(initMsg, '*');
 }

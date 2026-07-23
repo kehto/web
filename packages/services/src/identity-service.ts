@@ -56,18 +56,18 @@ function sendProviderError<T extends IdentityProviderResult>(
   send: SendIdentityMessage,
   result: T,
   fallback: string,
-  err: unknown,
+  _err: unknown,
 ): void {
   send({
     ...result,
-    error: (err as Error)?.message ?? fallback,
+    error: fallback,
   });
 }
 
 async function getCurrentPubkey(options: IdentityServiceOptions): Promise<string> {
-  const currentSigner = options.getSigner();
-  if (!currentSigner?.getPublicKey) return '';
   try {
+    const currentSigner = options.getSigner();
+    if (!currentSigner?.getPublicKey) return '';
     return (await currentSigner.getPublicKey()) ?? '';
   } catch {
     return '';
@@ -201,66 +201,39 @@ export interface IdentityServiceOptions {
   ) => MaybePromise<IdentityGetBadgesResultMessage['badges']>;
 }
 
-function sendIdentityError(
-  send: SendIdentityMessage,
-  id: string,
-  typeBase: string,
-  error: string,
-): void {
-  send({ type: `${typeBase}.error`, id, error } as NappletMessage);
-}
-
-function sendSignerError(
-  send: SendIdentityMessage,
-  id: string,
-  typeBase: string,
-  fallback: string,
-  err: unknown,
-): void {
-  sendIdentityError(send, id, typeBase, (err as Error)?.message ?? fallback);
-}
-
 function handleGetPublicKey(options: IdentityServiceOptions, id: string, send: SendIdentityMessage): void {
-  const signer = options.getSigner();
-  if (!signer) {
-    const result: IdentityGetPublicKeyResultMessage = {
-      type: 'identity.getPublicKey.result',
-      id,
-      pubkey: '',
-    };
-    send(result);
-    return;
-  }
-
-  Promise.resolve(signer.getPublicKey?.())
+  Promise.resolve()
+    .then(() => options.getSigner())
+    .then(async (signer) => signer?.getPublicKey ? signer.getPublicKey() : '')
+    .catch(() => '')
     .then((pubkey) => {
       const result: IdentityGetPublicKeyResultMessage = {
         type: 'identity.getPublicKey.result',
         id,
-        pubkey: (pubkey as string) ?? '',
+        pubkey: pubkey ?? '',
       };
       send(result);
-    })
-    .catch((err: unknown) => sendSignerError(send, id, 'identity.getPublicKey', 'getPublicKey failed', err));
+    });
 }
 
 function handleGetRelays(options: IdentityServiceOptions, id: string, send: SendIdentityMessage): void {
-  const signer = options.getSigner();
-  if (!signer) {
-    sendIdentityError(send, id, 'identity.getRelays', 'no signer configured');
-    return;
-  }
+  const fallbackResult: IdentityGetRelaysResultMessage = {
+    type: 'identity.getRelays.result',
+    id,
+    relays: {},
+  };
 
-  Promise.resolve(signer.getRelays?.() ?? {})
-    .then((relays) => {
-      const result: IdentityGetRelaysResultMessage = {
-        type: 'identity.getRelays.result',
-        id,
-        relays: relays as Record<string, RelayPermission>,
+  Promise.resolve()
+    .then(() => options.getSigner())
+    .then(async (signer): Promise<IdentityGetRelaysResultMessage> => {
+      if (!signer?.getRelays) return fallbackResult;
+      return {
+        ...fallbackResult,
+        relays: (await signer.getRelays()) ?? {} as Record<string, RelayPermission>,
       };
-      send(result);
     })
-    .catch((err: unknown) => sendSignerError(send, id, 'identity.getRelays', 'getRelays failed', err));
+    .catch(() => ({ ...fallbackResult, error: 'identity.getRelays failed' }))
+    .then(send);
 }
 
 function handleReadProvider(
@@ -275,12 +248,12 @@ function handleReadProvider(
         options,
         send,
         { type: 'identity.getProfile.result', id, profile: null },
-        'getProfile failed',
+        'identity.getProfile failed',
         options.getProfile
           ? async (pubkey): Promise<IdentityGetProfileResultMessage> => ({
             type: 'identity.getProfile.result',
             id,
-            profile: await options.getProfile!(pubkey, message as IdentityGetProfileMessage),
+            profile: (await options.getProfile!(pubkey, message as IdentityGetProfileMessage)) ?? null,
           })
           : undefined,
       );
@@ -291,12 +264,12 @@ function handleReadProvider(
         options,
         send,
         { type: 'identity.getFollows.result', id, pubkeys: [] },
-        'getFollows failed',
+        'identity.getFollows failed',
         options.getFollows
           ? async (pubkey): Promise<IdentityGetFollowsResultMessage> => ({
             type: 'identity.getFollows.result',
             id,
-            pubkeys: await options.getFollows!(pubkey, message as IdentityGetFollowsMessage),
+            pubkeys: (await options.getFollows!(pubkey, message as IdentityGetFollowsMessage)) ?? [],
           })
           : undefined,
       );
@@ -311,12 +284,12 @@ function handleReadProvider(
         options,
         send,
         { type: 'identity.getZaps.result', id, zaps: [] },
-        'getZaps failed',
+        'identity.getZaps failed',
         options.getZaps
           ? async (pubkey): Promise<IdentityGetZapsResultMessage> => ({
             type: 'identity.getZaps.result',
             id,
-            zaps: await options.getZaps!(pubkey, message as IdentityGetZapsMessage),
+            zaps: (await options.getZaps!(pubkey, message as IdentityGetZapsMessage)) ?? [],
           })
           : undefined,
       );
@@ -327,12 +300,12 @@ function handleReadProvider(
         options,
         send,
         { type: 'identity.getMutes.result', id, pubkeys: [] },
-        'getMutes failed',
+        'identity.getMutes failed',
         options.getMutes
           ? async (pubkey): Promise<IdentityGetMutesResultMessage> => ({
             type: 'identity.getMutes.result',
             id,
-            pubkeys: await options.getMutes!(pubkey, message as IdentityGetMutesMessage),
+            pubkeys: (await options.getMutes!(pubkey, message as IdentityGetMutesMessage)) ?? [],
           })
           : undefined,
       );
@@ -343,12 +316,12 @@ function handleReadProvider(
         options,
         send,
         { type: 'identity.getBlocked.result', id, pubkeys: [] },
-        'getBlocked failed',
+        'identity.getBlocked failed',
         options.getBlocked
           ? async (pubkey): Promise<IdentityGetBlockedResultMessage> => ({
             type: 'identity.getBlocked.result',
             id,
-            pubkeys: await options.getBlocked!(pubkey, message as IdentityGetBlockedMessage),
+            pubkeys: (await options.getBlocked!(pubkey, message as IdentityGetBlockedMessage)) ?? [],
           })
           : undefined,
       );
@@ -359,12 +332,12 @@ function handleReadProvider(
         options,
         send,
         { type: 'identity.getBadges.result', id, badges: [] },
-        'getBadges failed',
+        'identity.getBadges failed',
         options.getBadges
           ? async (pubkey): Promise<IdentityGetBadgesResultMessage> => ({
             type: 'identity.getBadges.result',
             id,
-            badges: await options.getBadges!(pubkey, message as IdentityGetBadgesMessage),
+            badges: (await options.getBadges!(pubkey, message as IdentityGetBadgesMessage)) ?? [],
           })
           : undefined,
       );
@@ -385,12 +358,12 @@ function handleGetList(
     options,
     send,
     { type: 'identity.getList.result', id, entries: [] },
-    'getList failed',
+    'identity.getList failed',
     options.getList
       ? async (pubkey): Promise<IdentityGetListResultMessage> => ({
         type: 'identity.getList.result',
         id,
-        entries: await options.getList!(message.listType, pubkey, message),
+        entries: (await options.getList!(message.listType, pubkey, message)) ?? [],
       })
       : undefined,
   );
@@ -414,9 +387,7 @@ function handleIdentityServiceMessage(
       return;
 
     default:
-      if (!handleReadProvider(options, id, message, send)) {
-        sendIdentityError(send, id, message.type, `Unknown identity method: ${message.type}`);
-      }
+      handleReadProvider(options, id, message, send);
   }
 }
 

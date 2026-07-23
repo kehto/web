@@ -24,6 +24,49 @@ Local stubs (redirect to upstream): [`specs/NIP-5D.md`](specs/NIP-5D.md),
 
 Current-state delta inventory: `.planning/NIP-5D-2303-DELTA-AUDIT.md`
 
+## NAP-INC Draft Boundary
+
+NAP-INC remains a living draft, not a Kehto-local normative copy. Active INC
+guidance is pinned to [NAP-INC PR #89 at
+`4593ce9e301ce098fd3dad64206fcd6f144fa7af`](https://github.com/napplet/naps/pull/89),
+the [web projection PR #90 at
+`896c32c92deee68dc4d10fc1132b62df20cccb6f`](https://github.com/napplet/naps/pull/90),
+and its stacked [symmetric-channel clarification PR #92 at
+`c5cd06f7be6d4690b303949abb26e87ff62f4729`](https://github.com/napplet/naps/pull/92).
+They are drafts; this reference records the implemented boundary and must be
+re-audited if any of those heads change.
+
+**Projection-owned query-to-text-payload transposition** occurs only in the
+runtime-provided `window.napplet.inc` binding. A convention URI query becomes a
+text payload map before the wire message is emitted; the runtime receives only
+the stable identity. Runtime routing is exact queryless topic identity lookup:
+it does not normalize, prefix/wildcard/query-match, infer a payload kind, or
+intercept an `inc` topic for generic/service dispatch. A normalized
+query-bearing wire or discovery identity is therefore invalid.
+
+The runtime attests identity from the registered endpoint: delivered topic and
+channel events contain a **runtime-attested dTag**, never a caller-supplied
+`sender`; IDs and payloads remain opaque. Topic delivery excludes its source.
+Channel ACL authorization is open-only: target liveness and policy are checked
+at `inc.channel.open`, not per message. A target receives
+`inc.channel.opened` before the opener result, after which both endpoints hold
+equivalent handles. `channel.onOpened`, handle `on`, and `onClosed` retain
+inbound/early/terminal lifecycle state in order; bounded retention closes on
+overflow, and deterministic close/endpoint destruction tears down both sides.
+`channel.list` is informational only, not an authorization or liveness oracle.
+
+The downstream ambiguity tracker is
+[`kehto/web#203`](https://github.com/kehto/web/issues/203), with the upstream
+resolution recorded in [its clarification reply](https://github.com/kehto/web/issues/203#issuecomment-5060904495).
+The obsolete opener-only interpretation is not current guidance.
+
+This Phase 102 documentation does not implement NAP-INTENT: **Phase 104** owns
+every public #91 intent binding, resolution, and delivery lifecycle change.
+**Phase 105** owns adoption of released convention-capable packages. Until then,
+Kehto documents this draft boundary without claiming published package
+conformance. Historical changelogs, migration records, and archived planning
+remain historical evidence rather than active implementation drift.
+
 > **Terminology.** The current term for an extension spec is **NAP**; the
 > capability prefix is `nap:`; the cross-napplet domain is `inc`.
 > The current protocol helper package is `@napplet/nap`; no current code depends

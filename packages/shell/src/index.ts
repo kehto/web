@@ -24,6 +24,7 @@ export { ALL_CAPABILITIES } from '@kehto/runtime';
 export type {
   ShellAdapter,
   ShellCapabilities,
+  ShellEnvironment,
   RelayPoolHooks,
   RelayPoolLike,
   RelayConfigHooks,
@@ -56,7 +57,7 @@ export type {
 } from './types.js';
 
 // Shell initialization — capability construction for shell.ready / shell.init handshake
-export { buildShellCapabilities } from './shell-init.js';
+export { buildShellCapabilities, resolveShellEnvironment } from './shell-init.js';
 
 export { sessionRegistry, nappKeyRegistry } from './session-registry.js';
 export type { PendingUpdate, SessionRegistry } from './session-registry.js';

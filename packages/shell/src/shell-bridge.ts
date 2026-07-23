@@ -9,7 +9,7 @@ import { audioManager } from './audio-manager.js';
 import type { ShellAdapter, UnroutedMessageInfo } from './types.js';
 import type { NappletMessage } from '@napplet/core';
 import type { Theme } from '@napplet/nap/theme/types';
-import { handleShellReady } from './shell-ready.js';
+import { createShellReadyState, handleShellReady } from './shell-ready.js';
 
 /**
  * Shell-side message bridge that handles NIP-5D communication with napplet iframes.
@@ -94,18 +94,13 @@ export interface ShellBridge {
   registerConsentHandler(handler: (request: ConsentRequest) => void): void;
 
   /**
-   * Publish a theme update to every registered napplet.
+   * Publish a theme update to each eligible napplet.
    *
    * Posts a `theme.changed` envelope (shell → napplet push) to every
-   * window currently tracked by the runtime's sessionRegistry, using
-   * the browser-adapter originRegistry to resolve windowId → iframe.
-   * Napplets whose window cannot be resolved (stale sessions) are
-   * silently skipped; this method never throws.
-   *
-   * ACL is enforced BY THE RECIPIENT NAPPLET — the runtime's
-   * `themeMap` in @kehto/acl assigns `recipientCap: 'theme:read'` for
-   * `theme.changed`, and @napplet/shim drops pushes the napplet lacks
-   * the capability for. Hosts should not self-filter here.
+   * live authenticated session whose frozen environment grants `theme` and
+   * whose current ACL grants `theme:read`. Stale or ineligible sessions are
+   * skipped before origin-registry delivery; recipient code is not trusted
+   * to enforce host authorization.
    *
    * @param theme - The new theme payload to broadcast.
    * @example
@@ -188,6 +183,7 @@ function reportUnrouted(
 }
 
 export function createShellBridge(hooks: ShellAdapter): ShellBridge {
+  const shellReadyState = createShellReadyState();
   const runtimeHooks = adaptHooks(hooks, {
     originRegistry,
     manifestCache,
@@ -196,17 +192,24 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
     nappKeyRegistry,
   });
 
-  const runtime: Runtime = createRuntime(runtimeHooks);
+  const runtime: Runtime = createRuntime({
+    ...runtimeHooks,
+    isDomainAllowed: shellReadyState.isDomainAllowed,
+  });
 
-  function broadcastToNapplets(envelope: NappletMessage): void {
-    // Use originRegistry.getAllWindowIds() rather than sessionRegistry.getAllEntries()
-    // because demo napplets share pubkey:'' — the byPubkey map only retains one entry
-    // per pubkey key, so getAllEntries() would return only the last-registered napplet
-    // when multiple napplets have the same (empty) pubkey. originRegistry is keyed by
-    // Window reference so it has one entry per distinct iframe regardless of pubkey.
-    const windowIds = originRegistry.getAllWindowIds();
-    for (const windowId of windowIds) {
-      const win = originRegistry.getIframeWindow(windowId);
+  function publishToEligibleNapplets(
+    envelope: NappletMessage,
+    domain: 'identity' | 'theme',
+    capability: 'identity:read' | 'theme:read',
+  ): void {
+    // A session exists only after shell.ready. Iterate entries, not a pubkey
+    // lookup, because different live windows may legitimately share pubkey ''.
+    for (const entry of runtime.sessionRegistry.getAllEntries()) {
+      const environment = shellReadyState.environments.get(entry.windowId);
+      if (!environment?.capabilities.domains.includes(domain)) continue;
+      if (!runtime.aclState.check(entry.pubkey, entry.dTag, entry.aggregateHash, capability)) continue;
+
+      const win = originRegistry.getIframeWindow(entry.windowId);
       if (!win) continue;
       win.postMessage(envelope, '*');
     }
@@ -235,6 +238,7 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
           hooks,
           origin: event.origin,
           runtime,
+          state: shellReadyState,
           sourceRegistrationId: originRegistry.getRegistrationId(sourceWindow) ?? 0,
           sourceWindow,
           windowId,
@@ -252,6 +256,7 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
 
     destroy(): void {
       runtime.destroy();
+      shellReadyState.clear();
     },
 
     registerConsentHandler(handler: (request: ConsentRequest) => void): void {
@@ -260,12 +265,12 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
 
     publishTheme(theme: Theme): void {
       const envelope: NappletMessage = { type: 'theme.changed', theme } as NappletMessage;
-      broadcastToNapplets(envelope);
+      publishToEligibleNapplets(envelope, 'theme', 'theme:read');
     },
 
     publishIdentityChanged(pubkey: string): void {
       const envelope: NappletMessage = { type: 'identity.changed', pubkey } as NappletMessage;
-      broadcastToNapplets(envelope);
+      publishToEligibleNapplets(envelope, 'identity', 'identity:read');
     },
 
     get runtime() {

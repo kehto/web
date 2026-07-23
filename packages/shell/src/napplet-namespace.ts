@@ -160,6 +160,40 @@ function nappletNamespacePrelude(domains: string[]): void {
     post(message);
   }
 
+  function normalizeConventionUri(
+    topic: unknown,
+    hasExplicitPayload: boolean,
+  ): { topic: string; payload?: Record<string, string> } {
+    if (typeof topic !== 'string') throw new TypeError('INC topic must be text');
+    if (!topic.startsWith('napplet:')) return { topic };
+    if (topic.includes('#')) throw new TypeError('Convention topics cannot contain fragments');
+    const queryStart = topic.indexOf('?');
+    if (queryStart === -1) {
+      return { topic };
+    }
+    if (hasExplicitPayload) {
+      throw new TypeError('Convention queries cannot be combined with an explicit payload');
+    }
+
+    const values: Record<string, string> = {};
+    const names = new Set<string>();
+    const query = topic.slice(queryStart + 1);
+    try {
+      for (const pair of query.split('&')) {
+        const separator = pair.indexOf('=');
+        const rawName = separator === -1 ? pair : pair.slice(0, separator);
+        const rawValue = separator === -1 ? '' : pair.slice(separator + 1);
+        const name = decodeURIComponent(rawName);
+        if (names.has(name)) throw new TypeError('Convention query names must be unique');
+        names.add(name);
+        values[name] = decodeURIComponent(rawValue);
+      }
+    } catch {
+      throw new TypeError('Convention query contains malformed percent encoding');
+    }
+    return { topic: topic.slice(0, queryStart), payload: values };
+  }
+
   function resultOrError(msg: RuntimeMessage): Record<string, unknown> {
     return msg;
   }
@@ -192,7 +226,7 @@ function nappletNamespacePrelude(domains: string[]): void {
 
   function makeShell(): Record<string, unknown> {
     type ShellEnvironment = {
-      capabilities: unknown;
+      capabilities: Readonly<{ domains: readonly string[] }>;
       services: readonly string[];
     };
     type ReadyHandler = (environment: ShellEnvironment) => void;
@@ -212,13 +246,16 @@ function nappletNamespacePrelude(domains: string[]): void {
       const message = incoming as RuntimeMessage;
       if (message.type !== 'shell.init') return;
 
-      const services = Object.freeze(
-        Array.isArray(message.services)
-          ? message.services.filter((service): service is string => typeof service === 'string')
-          : [],
-      );
+      const rawCapabilities = message.capabilities;
+      const rawDomains = typeof rawCapabilities === 'object' && rawCapabilities !== null
+        ? (rawCapabilities as Record<string, unknown>).domains
+        : undefined;
+      if (!Array.isArray(rawDomains)) return;
+
+      const domains = freezeStrings(rawDomains);
+      const services = freezeStrings(Array.isArray(message.services) ? message.services : []);
       environment = Object.freeze({
-        capabilities: message.capabilities ?? {},
+        capabilities: Object.freeze({ domains }),
         services,
       });
       off();
@@ -227,22 +264,19 @@ function nappletNamespacePrelude(domains: string[]): void {
       readyHandlers.clear();
     });
 
-    function supports(domain: string, protocol?: string): boolean {
-      if (!environment || typeof environment.capabilities !== 'object' || environment.capabilities === null) {
-        return false;
+    function freezeStrings(values: readonly unknown[]): readonly string[] {
+      const seen = new Set<string>();
+      const strings: string[] = [];
+      for (const value of values) {
+        if (typeof value !== 'string' || value.length === 0 || seen.has(value)) continue;
+        seen.add(value);
+        strings.push(value);
       }
-      const capabilities = environment.capabilities as Record<string, unknown>;
-      if (protocol !== undefined) {
-        const protocols = capabilities.protocols;
-        if (typeof protocols === 'object' && protocols !== null) {
-          const supported = (protocols as Record<string, unknown>)[domain];
-          if (Array.isArray(supported) && supported.includes(protocol)) return true;
-        }
-        return Array.isArray(capabilities.naps)
-          && capabilities.naps.includes(`${domain}:${protocol}`);
-      }
-      return (Array.isArray(capabilities.domains) && capabilities.domains.includes(domain))
-        || (Array.isArray(capabilities.naps) && capabilities.naps.includes(domain));
+      return Object.freeze(strings);
+    }
+
+    function supports(domain: string): boolean {
+      return typeof domain === 'string' && environment?.capabilities.domains.includes(domain) === true;
     }
 
     const shell = {
@@ -336,38 +370,256 @@ function nappletNamespacePrelude(domains: string[]): void {
   }
 
   function makeInc(): Record<string, unknown> {
-    return {
-      emit(topic: string, _extraTags?: string[][], content?: string) {
-        let payload: unknown = content;
-        if (typeof content === 'string' && content.length > 0) {
-          try {
-            payload = JSON.parse(content);
-          } catch {
-            payload = content;
-          }
+    type IncEvent = { topic: string; sender: string; payload?: unknown };
+    type TopicState = {
+      handlers: Set<(event: IncEvent) => void>;
+      offEvent: () => void;
+      offResult: () => void;
+    };
+    const topicStates = new Map<string, TopicState>();
+    type ChannelEvent = { channelId: string; sender: string; payload?: unknown };
+    type ChannelClosed = { channelId: string; reason?: string };
+    type ChannelState = {
+      channelId: string;
+      peer: string;
+      eventHandlers: Set<(event: ChannelEvent) => void>;
+      closedHandlers: Set<(closed: ChannelClosed) => void>;
+      pendingEvents: ChannelEvent[];
+      closed?: ChannelClosed;
+    };
+    const maxRetainedChannels = 32;
+    const maxRetainedEvents = 32;
+    const channelStates = new Map<string, ChannelState>();
+    const openedHandlers = new Set<(handle: Record<string, unknown>) => void>();
+    const pendingOpened: ChannelState[] = [];
+    let overflowedOpened: ChannelState | undefined;
+    const unopenedEvents = new Map<string, ChannelEvent[]>();
+    const unopenedClosed = new Map<string, ChannelClosed>();
+
+    function stableSubscriptionTopic(topic: unknown): string {
+      if (typeof topic !== 'string') throw new TypeError('INC topic must be text');
+      if (topic.includes('?') || topic.includes('#')) {
+        throw new TypeError('INC subscriptions require a queryless topic identity');
+      }
+      return topic;
+    }
+
+    function closeChannelState(state: ChannelState, closed: ChannelClosed, notifyShell: boolean): void {
+      if (state.closed) return;
+      state.closed = closed;
+      if (notifyShell) fire({ type: 'inc.channel.close', channelId: state.channelId });
+      for (const handler of state.closedHandlers) handler(closed);
+    }
+
+    function makeChannelHandle(state: ChannelState): Record<string, unknown> {
+      return {
+        id: state.channelId,
+        peer: state.peer,
+        emit(payload?: unknown) {
+          if (state.closed) return;
+          fire({ type: 'inc.channel.emit', channelId: state.channelId, ...(payload === undefined ? {} : { payload }) });
+        },
+        on(handler: (event: ChannelEvent) => void) {
+          if (typeof handler !== 'function') throw new TypeError('INC channel event handler must be a function');
+          if (state.closed) return subscriptionHandle(() => undefined);
+          state.eventHandlers.add(handler);
+          const pending = state.pendingEvents.splice(0);
+          for (const event of pending) handler(event);
+          return subscriptionHandle(() => state.eventHandlers.delete(handler));
+        },
+        onClosed(handler: (closed: ChannelClosed) => void) {
+          if (typeof handler !== 'function') throw new TypeError('INC channel close handler must be a function');
+          state.closedHandlers.add(handler);
+          if (state.closed) handler(state.closed);
+          return subscriptionHandle(() => state.closedHandlers.delete(handler));
+        },
+        close() {
+          closeChannelState(state, { channelId: state.channelId }, true);
+        },
+      };
+    }
+
+    function materializeChannel(channelId: string, peer: string): ChannelState {
+      const existing = channelStates.get(channelId);
+      if (existing) return existing;
+      const state: ChannelState = {
+        channelId,
+        peer,
+        eventHandlers: new Set(),
+        closedHandlers: new Set(),
+        pendingEvents: unopenedEvents.get(channelId) ?? [],
+      };
+      unopenedEvents.delete(channelId);
+      channelStates.set(channelId, state);
+      const closed = unopenedClosed.get(channelId);
+      unopenedClosed.delete(channelId);
+      if (closed) closeChannelState(state, closed, false);
+      return state;
+    }
+
+    function deliverOpened(state: ChannelState): void {
+      const handle = makeChannelHandle(state);
+      if (openedHandlers.size > 0) {
+        for (const handler of openedHandlers) handler(handle);
+        return;
+      }
+      if (pendingOpened.length >= maxRetainedChannels) {
+        closeChannelState(state, { channelId: state.channelId, reason: 'buffer overflow' }, true);
+        overflowedOpened ??= state;
+        return;
+      }
+      pendingOpened.push(state);
+    }
+
+    function receiveChannelEvent(channelId: string, sender: string, payloadPresent: boolean, payload: unknown): void {
+      const event: ChannelEvent = payloadPresent ? { channelId, sender, payload } : { channelId, sender };
+      const state = channelStates.get(channelId);
+      if (!state) {
+        const pending = unopenedEvents.get(channelId) ?? [];
+        if (pending.length >= maxRetainedEvents) {
+          unopenedEvents.delete(channelId);
+          unopenedClosed.set(channelId, { channelId, reason: 'buffer overflow' });
+          fire({ type: 'inc.channel.close', channelId });
+          return;
         }
-        fire({ type: 'inc.emit', topic, ...(payload === undefined || payload === '' ? {} : { payload }) });
+        pending.push(event);
+        unopenedEvents.set(channelId, pending);
+        return;
+      }
+      if (state.closed) return;
+      if (state.eventHandlers.size > 0) {
+        for (const handler of state.eventHandlers) handler(event);
+        return;
+      }
+      if (state.pendingEvents.length >= maxRetainedEvents) {
+        closeChannelState(state, { channelId, reason: 'buffer overflow' }, true);
+        return;
+      }
+      state.pendingEvents.push(event);
+    }
+
+    listen((event) => {
+      if (!isParentMessage(event)) return;
+      const msg = event.data as RuntimeMessage;
+      if (typeof msg !== 'object' || msg === null || typeof msg.type !== 'string') return;
+      if (msg.type === 'inc.channel.opened' && typeof msg.channelId === 'string' && typeof msg.peer === 'string') {
+        deliverOpened(materializeChannel(msg.channelId, msg.peer));
+        return;
+      }
+      if (msg.type === 'inc.channel.event' && typeof msg.channelId === 'string' && typeof msg.sender === 'string') {
+        receiveChannelEvent(msg.channelId, msg.sender, Object.prototype.hasOwnProperty.call(msg, 'payload'), msg.payload);
+        return;
+      }
+      if (msg.type === 'inc.channel.closed' && typeof msg.channelId === 'string') {
+        const closed: ChannelClosed = typeof msg.reason === 'string'
+          ? { channelId: msg.channelId, reason: msg.reason }
+          : { channelId: msg.channelId };
+        const state = channelStates.get(msg.channelId);
+        if (state) closeChannelState(state, closed, false);
+        else unopenedClosed.set(msg.channelId, closed);
+      }
+    });
+
+    return {
+      emit(topic: string, payload?: unknown) {
+        const transposed = normalizeConventionUri(topic, arguments.length > 1);
+        fire({
+          type: 'inc.emit',
+          topic: transposed.topic,
+          ...(transposed.payload === undefined && payload === undefined ? {} : { payload: transposed.payload ?? payload }),
+        });
       },
-      on(topic: string, callback: (payload: unknown, event: unknown) => void) {
-        const off = listen((event) => {
-          if (!isParentMessage(event)) return;
-          const msg = event.data as RuntimeMessage;
-          if (typeof msg !== 'object' || msg === null || msg.type !== 'inc.event' || msg.topic !== topic) return;
-          callback(msg.payload ?? {}, {
-            id: '',
-            pubkey: typeof msg.sender === 'string' ? msg.sender : '',
-            created_at: Math.floor(Date.now() / 1000),
-            kind: 0,
-            tags: [['t', topic]],
-            content: typeof msg.payload === 'string' ? msg.payload : JSON.stringify(msg.payload ?? {}),
-            sig: '',
+      on(topic: string, callback: (event: IncEvent) => void) {
+        const stableTopic = stableSubscriptionTopic(topic);
+        if (typeof callback !== 'function') throw new TypeError('INC subscription handler must be a function');
+        let state = topicStates.get(stableTopic);
+        if (!state) {
+          const handlers = new Set<(event: IncEvent) => void>();
+          const subscriptionId = id();
+          const offEvent = listen((event) => {
+            if (!isParentMessage(event)) return;
+            const msg = event.data as RuntimeMessage;
+            if (
+              typeof msg !== 'object'
+              || msg === null
+              || msg.type !== 'inc.event'
+              || msg.topic !== stableTopic
+              || typeof msg.sender !== 'string'
+            ) return;
+            const delivered: IncEvent = Object.prototype.hasOwnProperty.call(msg, 'payload')
+              ? { topic: stableTopic, sender: msg.sender, payload: msg.payload }
+              : { topic: stableTopic, sender: msg.sender };
+            for (const handler of handlers) handler(delivered);
           });
-        });
-        fire({ type: 'inc.subscribe', id: id(), topic });
+          const offResult = listen((event) => {
+            if (!isParentMessage(event)) return;
+            const msg = event.data as RuntimeMessage;
+            if (typeof msg !== 'object' || msg === null || msg.type !== 'inc.subscribe.result' || msg.id !== subscriptionId) return;
+            offResult();
+            if (typeof msg.error === 'string' && msg.error) {
+              offEvent();
+              topicStates.delete(stableTopic);
+            }
+          });
+          state = { handlers, offEvent, offResult };
+          topicStates.set(stableTopic, state);
+          fire({ type: 'inc.subscribe', id: subscriptionId, topic: stableTopic });
+        }
+        state.handlers.add(callback);
         return subscriptionHandle(() => {
-          fire({ type: 'inc.unsubscribe', topic });
-          off();
+          const current = topicStates.get(stableTopic);
+          if (!current) return;
+          current.handlers.delete(callback);
+          if (current.handlers.size !== 0) return;
+          current.offEvent();
+          current.offResult();
+          topicStates.delete(stableTopic);
+          fire({ type: 'inc.unsubscribe', topic: stableTopic });
         });
+      },
+      channel: {
+        open(targetDTag: string) {
+          return request(
+            { type: 'inc.channel.open', target: targetDTag },
+            'inc.channel.open.result',
+            (msg) => {
+              if (typeof msg.channelId !== 'string' || typeof msg.peer !== 'string') {
+                throw new Error('inc.channel.open.result missing channel identity');
+              }
+              return makeChannelHandle(materializeChannel(msg.channelId, msg.peer));
+            },
+          );
+        },
+        onOpened(handler: (handle: Record<string, unknown>) => void) {
+          if (typeof handler !== 'function') throw new TypeError('INC opened handler must be a function');
+          openedHandlers.add(handler);
+          const pending = pendingOpened.splice(0);
+          for (const state of pending) handler(makeChannelHandle(state));
+          const overflowed = overflowedOpened;
+          overflowedOpened = undefined;
+          if (overflowed) handler(makeChannelHandle(overflowed));
+          return subscriptionHandle(() => openedHandlers.delete(handler));
+        },
+        list() {
+          return request(
+            { type: 'inc.channel.list' },
+            'inc.channel.list.result',
+            (msg) => Object.freeze((Array.isArray(msg.channels) ? msg.channels : []).flatMap((channel) => (
+              channel
+              && typeof channel === 'object'
+              && typeof (channel as Record<string, unknown>).id === 'string'
+              && typeof (channel as Record<string, unknown>).peer === 'string'
+                ? [Object.freeze({
+                  id: (channel as Record<string, unknown>).id as string,
+                  peer: (channel as Record<string, unknown>).peer as string,
+                })]
+                : []
+            ))),
+          );
+        },
+        broadcast(payload?: unknown) {
+          fire({ type: 'inc.channel.broadcast', ...(payload === undefined ? {} : { payload }) });
+        },
       },
     };
   }
@@ -407,14 +659,22 @@ function nappletNamespacePrelude(domains: string[]): void {
   }
 
   function makeIdentity(): Record<string, unknown> {
-    const read = <T>(type: string, field: string, fallback: T) => request(
-      { type },
+    const read = <T>(type: string, field: string, fallback: T, payload: Record<string, unknown> = {}) => request(
+      { type, ...payload },
       `${type}.result`,
       (msg) => (Object.prototype.hasOwnProperty.call(msg, field) ? msg[field] : fallback) as T,
       { rejectOnError: type !== 'identity.getPublicKey' },
     );
-    return {
+    return Object.freeze({
       getPublicKey: () => read('identity.getPublicKey', 'pubkey', ''),
+      getRelays: () => read('identity.getRelays', 'relays', {}),
+      getProfile: () => read('identity.getProfile', 'profile', null),
+      getFollows: () => read('identity.getFollows', 'pubkeys', []),
+      getList: (listType: string) => read('identity.getList', 'entries', [], { listType }),
+      getZaps: () => read('identity.getZaps', 'zaps', []),
+      getMutes: () => read('identity.getMutes', 'pubkeys', []),
+      getBlocked: () => read('identity.getBlocked', 'pubkeys', []),
+      getBadges: () => read('identity.getBadges', 'badges', []),
       onChanged(handler: (pubkey: string) => void) {
         const off = listen((event) => {
           if (!isParentMessage(event)) return;
@@ -424,19 +684,7 @@ function nappletNamespacePrelude(domains: string[]): void {
         });
         return subscriptionHandle(off);
       },
-      getRelays: () => read('identity.getRelays', 'relays', {}),
-      getProfile: () => read('identity.getProfile', 'profile', null),
-      getFollows: () => read('identity.getFollows', 'pubkeys', []),
-      getList: (listType: string) => request(
-        { type: 'identity.getList', listType },
-        'identity.getList.result',
-        (msg) => Array.isArray(msg.entries) ? msg.entries : [],
-      ),
-      getZaps: () => read('identity.getZaps', 'zaps', []),
-      getMutes: () => read('identity.getMutes', 'pubkeys', []),
-      getBlocked: () => read('identity.getBlocked', 'pubkeys', []),
-      getBadges: () => read('identity.getBadges', 'badges', []),
-    };
+    });
   }
 
   function makeTheme(): Record<string, unknown> {
@@ -1132,19 +1380,44 @@ function nappletNamespacePrelude(domains: string[]): void {
   }
 
   const shell = makeShell();
+  let inc: Record<string, unknown> | undefined;
+  let identity: Record<string, unknown> | undefined;
+  let theme: Record<string, unknown> | undefined;
+
+  function makeProtectedInc(existing: unknown): Record<string, unknown> {
+    const extensions = existing && typeof existing === 'object'
+      ? existing as Record<string, unknown>
+      : {};
+    inc ??= makeInc();
+    return { ...extensions, ...inc };
+  }
+
+  function makeProtectedIdentity(): Record<string, unknown> {
+    identity ??= makeIdentity();
+    return identity;
+  }
+
+  function makeProtectedTheme(): Record<string, unknown> {
+    theme ??= Object.freeze(makeTheme());
+    return theme;
+  }
+
+  function isProtectedDomain(domain: string): boolean {
+    return domain === 'shell' || domain === 'inc' || domain === 'identity' || domain === 'theme';
+  }
 
   function makeDomain(domain: string, existing: unknown): unknown {
     if (domain === 'shell') return shell;
+    if (domain === 'inc') return makeProtectedInc(existing);
+    if (domain === 'identity') return makeProtectedIdentity();
+    if (domain === 'theme') return makeProtectedTheme();
     if (existing && typeof existing === 'object' && Object.keys(existing).length > 0) return existing;
     switch (domain) {
       case 'relay': return makeRelay();
-      case 'inc': return makeInc();
       case 'storage': return makeStorage();
       case 'keys': return makeKeys();
       case 'media': return makeMedia();
       case 'notify': return makeNotify();
-      case 'identity': return makeIdentity();
-      case 'theme': return makeTheme();
       case 'config': return makeConfig();
       case 'resource': return makeResource();
       case 'cvm': return makeCvm();
@@ -1172,10 +1445,22 @@ function nappletNamespacePrelude(domains: string[]): void {
       },
       defineProperty(obj, prop, descriptor) {
         if (typeof prop !== 'string' || !allowed.has(prop)) return true;
+        if (isProtectedDomain(prop)) {
+          return Reflect.defineProperty(obj, prop, {
+            value: makeDomain(prop, descriptor.value),
+            enumerable: true,
+            configurable: true,
+            writable: true,
+          });
+        }
         return Reflect.defineProperty(obj, prop, {
           ...descriptor,
           value: makeDomain(prop, descriptor.value),
         });
+      },
+      deleteProperty(obj, prop) {
+        if (typeof prop === 'string' && allowed.has(prop) && isProtectedDomain(prop)) return true;
+        return Reflect.deleteProperty(obj, prop);
       },
     });
   }
@@ -1209,6 +1494,6 @@ function nappletNamespacePrelude(domains: string[]): void {
       root = buildNappletNamespace(value);
     },
     enumerable: false,
-    configurable: true,
+    configurable: false,
   });
 }

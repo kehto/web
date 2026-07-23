@@ -2,11 +2,10 @@
  * shell-bridge.test.ts — Coverage for the `bridge.publishTheme(theme)`
  * broadcast API added by Phase 13 Plan 13-02 (TH-03, closes DRIFT-SHELL-05).
  *
- * `publishTheme` is the host-facing broadcast API on the ShellBridge: the
- * hosting application calls `bridge.publishTheme(theme)` and every napplet
- * currently registered in `runtime.sessionRegistry` receives a
- * `theme.changed` envelope via `originRegistry.getIframeWindow(windowId)
- * .postMessage(envelope, '*')`.
+ * `publishTheme` is the host-facing change API on the ShellBridge: the
+ * hosting application calls `bridge.publishTheme(theme)` and each live
+ * session with the theme domain and current theme:read capability receives
+ * exactly one `theme.changed` envelope.
  *
  * Test strategy:
  *   - Populate `bridge.runtime.sessionRegistry` (the Runtime's own instance)
@@ -26,7 +25,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createShellBridge } from './shell-bridge.js';
 import { originRegistry } from './origin-registry.js';
-import { __resetInitSentForTests } from './shell-ready.js';
+import { resolveShellEnvironment } from './shell-init.js';
+import { renderNappletNamespacePrelude } from './napplet-namespace.js';
 import type { ShellAdapter, SessionEntry } from './types.js';
 import type { Theme } from '@napplet/nap/theme/types';
 
@@ -97,6 +97,31 @@ function makeSessionEntry(overrides: Partial<SessionEntry>): SessionEntry {
   };
 }
 
+/** Register an iframe, freeze its shell environment, and complete shell.ready. */
+function establishReadySession(
+  bridge: ReturnType<typeof createShellBridge>,
+  iframe: { postMessage: ReturnType<typeof vi.fn> },
+  windowId: string,
+  domains: readonly string[] = ['identity', 'theme'],
+): SessionEntry {
+  const win = iframe as unknown as Window;
+  const identity = { dTag: `d-${windowId}`, aggregateHash: `h-${windowId}` };
+  originRegistry.register(win, windowId, identity);
+  originRegistry.setEnvironment(win, {
+    capabilities: { domains },
+    services: [],
+  });
+  bridge.handleMessage({
+    source: win,
+    origin: `https://${windowId}.example.test`,
+    data: { type: 'shell.ready' },
+  } as MessageEvent);
+  iframe.postMessage.mockClear();
+  const entry = bridge.runtime.sessionRegistry.getEntryByWindowId(windowId);
+  if (!entry) throw new Error(`shell.ready did not establish ${windowId}`);
+  return entry;
+}
+
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('ShellBridge.publishTheme (TH-03, Plan 13-02)', () => {
@@ -108,26 +133,15 @@ describe('ShellBridge.publishTheme (TH-03, Plan 13-02)', () => {
     originRegistry.clear();
   });
 
-  it('broadcasts theme.changed to every registered napplet window', () => {
+  it('sends theme.changed to an authenticated, domain-enabled session', () => {
     const iframeA = makeFakeIframe();
     const iframeB = makeFakeIframe();
-
-    // Register iframes with the shell-side origin registry (module singleton).
-    originRegistry.register(iframeA as unknown as Window, 'win-A');
-    originRegistry.register(iframeB as unknown as Window, 'win-B');
-
     const bridge = createShellBridge(makeTestHooks());
-
-    // Seed the runtime's own session registry (distinct from the shell
-    // singleton) — publishTheme iterates runtime.sessionRegistry.getAllEntries().
-    bridge.runtime.sessionRegistry.register(
-      'win-A',
-      makeSessionEntry({ windowId: 'win-A', pubkey: 'pk-A' }),
-    );
-    bridge.runtime.sessionRegistry.register(
-      'win-B',
-      makeSessionEntry({ windowId: 'win-B', pubkey: 'pk-B' }),
-    );
+    establishReadySession(bridge, iframeA, 'win-A');
+    originRegistry.register(iframeB as unknown as Window, 'win-B', {
+      dTag: 'd-win-B',
+      aggregateHash: 'h-win-B',
+    });
 
     const theme: Theme = {
       colors: { background: '#111', text: '#eee', primary: '#f0f' },
@@ -139,8 +153,7 @@ describe('ShellBridge.publishTheme (TH-03, Plan 13-02)', () => {
 
     expect(iframeA.postMessage).toHaveBeenCalledTimes(1);
     expect(iframeA.postMessage).toHaveBeenCalledWith(expectedEnvelope, '*');
-    expect(iframeB.postMessage).toHaveBeenCalledTimes(1);
-    expect(iframeB.postMessage).toHaveBeenCalledWith(expectedEnvelope, '*');
+    expect(iframeB.postMessage).not.toHaveBeenCalled();
 
     bridge.destroy();
   });
@@ -150,13 +163,8 @@ describe('ShellBridge.publishTheme (TH-03, Plan 13-02)', () => {
 
     // Register only win-A in the origin registry; win-B has a session entry
     // but no origin-registry mapping (simulates a stale session).
-    originRegistry.register(iframeA as unknown as Window, 'win-A');
-
     const bridge = createShellBridge(makeTestHooks());
-    bridge.runtime.sessionRegistry.register(
-      'win-A',
-      makeSessionEntry({ windowId: 'win-A', pubkey: 'pk-A' }),
-    );
+    establishReadySession(bridge, iframeA, 'win-A');
     bridge.runtime.sessionRegistry.register(
       'win-B',
       makeSessionEntry({ windowId: 'win-B', pubkey: 'pk-B' }),
@@ -196,6 +204,140 @@ describe('ShellBridge.publishTheme (TH-03, Plan 13-02)', () => {
   });
 });
 
+describe('ShellBridge identity and theme recipient eligibility (Phase 103)', () => {
+  beforeEach(() => {
+    originRegistry.clear();
+  });
+
+  afterEach(() => {
+    originRegistry.clear();
+  });
+
+  it('delivers normal identity, sign-out, and complete theme pushes once per eligible concurrent session', () => {
+    const identityA = makeFakeIframe();
+    const identityB = makeFakeIframe();
+    const ineligible = makeFakeIframe();
+    const bridge = createShellBridge(makeTestHooks());
+    const entryA = establishReadySession(bridge, identityA, 'same-pubkey-a');
+    const entryB = establishReadySession(bridge, identityB, 'same-pubkey-b');
+    const ineligibleEntry = establishReadySession(bridge, ineligible, 'same-pubkey-c');
+
+    // NIP-5D sessions commonly have the same empty source pubkey. The bridge
+    // must therefore evaluate every session entry rather than collapse by key.
+    expect(entryA.pubkey).toBe(entryB.pubkey);
+    bridge.runtime.aclState.revoke(
+      ineligibleEntry.pubkey,
+      ineligibleEntry.dTag,
+      ineligibleEntry.aggregateHash,
+      'identity:read',
+    );
+    bridge.runtime.aclState.revoke(
+      ineligibleEntry.pubkey,
+      ineligibleEntry.dTag,
+      ineligibleEntry.aggregateHash,
+      'theme:read',
+    );
+
+    const theme: Theme = {
+      colors: { background: '#101820', text: '#f2aa4c', primary: '#f95738' },
+      fonts: { body: { name: 'Inter', url: 'https://example.test/inter.woff2' } },
+      title: 'Complete',
+    };
+    bridge.publishIdentityChanged('b'.repeat(64));
+    bridge.publishIdentityChanged('');
+    bridge.publishTheme(theme);
+
+    for (const iframe of [identityA, identityB]) {
+      expect(iframe.postMessage.mock.calls).toEqual([
+        [{ type: 'identity.changed', pubkey: 'b'.repeat(64) }, '*'],
+        [{ type: 'identity.changed', pubkey: '' }, '*'],
+        [{ type: 'theme.changed', theme }, '*'],
+      ]);
+    }
+    expect(ineligible.postMessage).not.toHaveBeenCalled();
+    bridge.destroy();
+  });
+
+  it('excludes pre-session, domain-disabled, ungranted, revoked, and destroyed recipients', () => {
+    const preSession = makeFakeIframe();
+    const identityDisabled = makeFakeIframe();
+    const themeDisabled = makeFakeIframe();
+    const ungranted = makeFakeIframe();
+    const revoked = makeFakeIframe();
+    const destroyed = makeFakeIframe();
+    const bridge = createShellBridge(makeTestHooks());
+    originRegistry.register(preSession as unknown as Window, 'pre-session', {
+      dTag: 'd-pre-session',
+      aggregateHash: 'h-pre-session',
+    });
+    establishReadySession(bridge, identityDisabled, 'identity-disabled', ['theme']);
+    establishReadySession(bridge, themeDisabled, 'theme-disabled', ['identity']);
+    const ungrantedEntry = establishReadySession(bridge, ungranted, 'ungranted');
+    const revokedEntry = establishReadySession(bridge, revoked, 'revoked');
+    const destroyedEntry = establishReadySession(bridge, destroyed, 'destroyed');
+
+    bridge.runtime.aclState.revoke(
+      ungrantedEntry.pubkey,
+      ungrantedEntry.dTag,
+      ungrantedEntry.aggregateHash,
+      'identity:read',
+    );
+    bridge.runtime.aclState.revoke(
+      ungrantedEntry.pubkey,
+      ungrantedEntry.dTag,
+      ungrantedEntry.aggregateHash,
+      'theme:read',
+    );
+    bridge.runtime.aclState.revoke(
+      revokedEntry.pubkey,
+      revokedEntry.dTag,
+      revokedEntry.aggregateHash,
+      'identity:read',
+    );
+    bridge.runtime.aclState.revoke(
+      revokedEntry.pubkey,
+      revokedEntry.dTag,
+      revokedEntry.aggregateHash,
+      'theme:read',
+    );
+    bridge.runtime.sessionRegistry.unregister(destroyedEntry.windowId);
+    originRegistry.unregister(destroyedEntry.windowId);
+
+    bridge.publishIdentityChanged('c'.repeat(64));
+    bridge.publishTheme({ colors: { background: '#000', text: '#fff', primary: '#0af' } });
+
+    for (const iframe of [preSession, ungranted, revoked, destroyed]) {
+      expect(iframe.postMessage).not.toHaveBeenCalled();
+    }
+    expect(identityDisabled.postMessage).toHaveBeenCalledTimes(1);
+    expect(identityDisabled.postMessage).toHaveBeenCalledWith(
+      { type: 'theme.changed', theme: { colors: { background: '#000', text: '#fff', primary: '#0af' } } },
+      '*',
+    );
+    expect(themeDisabled.postMessage).toHaveBeenCalledTimes(1);
+    expect(themeDisabled.postMessage).toHaveBeenCalledWith(
+      { type: 'identity.changed', pubkey: 'c'.repeat(64) },
+      '*',
+    );
+    bridge.destroy();
+  });
+
+  it('checks current ACL state on every push so revocation blocks the next delivery', () => {
+    const iframe = makeFakeIframe();
+    const bridge = createShellBridge(makeTestHooks());
+    const entry = establishReadySession(bridge, iframe, 'revoke-between-pushes');
+
+    bridge.publishTheme({ colors: { background: '#111', text: '#eee', primary: '#f0f' } });
+    expect(iframe.postMessage).toHaveBeenCalledTimes(1);
+
+    bridge.runtime.aclState.revoke(entry.pubkey, entry.dTag, entry.aggregateHash, 'theme:read');
+    bridge.publishTheme({ colors: { background: '#222', text: '#ddd', primary: '#0ff' } });
+
+    expect(iframe.postMessage).toHaveBeenCalledTimes(1);
+    bridge.destroy();
+  });
+});
+
 describe('ShellBridge.publishIdentityChanged', () => {
   beforeEach(() => {
     originRegistry.clear();
@@ -205,32 +347,32 @@ describe('ShellBridge.publishIdentityChanged', () => {
     originRegistry.clear();
   });
 
-  it('broadcasts identity.changed to every loaded napplet window', () => {
-    const iframeA = makeFakeIframe();
-    const iframeB = makeFakeIframe();
-    originRegistry.register(iframeA as unknown as Window, 'win-A');
-    originRegistry.register(iframeB as unknown as Window, 'win-B');
-
+  it('sends identity.changed exactly once to an authenticated identity recipient', () => {
+    const iframe = makeFakeIframe();
     const bridge = createShellBridge(makeTestHooks());
+    establishReadySession(bridge, iframe, 'win-A', ['identity']);
     const pubkey = 'a'.repeat(64);
 
     bridge.publishIdentityChanged(pubkey);
 
     const expectedEnvelope = { type: 'identity.changed', pubkey };
-    expect(iframeA.postMessage).toHaveBeenCalledWith(expectedEnvelope, '*');
-    expect(iframeB.postMessage).toHaveBeenCalledWith(expectedEnvelope, '*');
+    expect(iframe.postMessage).toHaveBeenCalledTimes(1);
+    expect(iframe.postMessage).toHaveBeenCalledWith(expectedEnvelope, '*');
 
     bridge.destroy();
   });
 
-  it('uses an empty pubkey to broadcast signed-out state', () => {
+  it('does not send identity.changed to a registered pre-shell.ready iframe', () => {
     const iframe = makeFakeIframe();
-    originRegistry.register(iframe as unknown as Window, 'win-A');
+    originRegistry.register(iframe as unknown as Window, 'win-A', {
+      dTag: 'd-win-A',
+      aggregateHash: 'h-win-A',
+    });
     const bridge = createShellBridge(makeTestHooks());
 
     bridge.publishIdentityChanged('');
 
-    expect(iframe.postMessage).toHaveBeenCalledWith({ type: 'identity.changed', pubkey: '' }, '*');
+    expect(iframe.postMessage).not.toHaveBeenCalled();
     bridge.destroy();
   });
 });
@@ -444,12 +586,10 @@ describe('ShellBridge.injectEvent single-topic forwarding', () => {
 describe('ShellBridge NIP-5D session registration on shell.ready', () => {
   beforeEach(() => {
     originRegistry.clear();
-    __resetInitSentForTests();
   });
 
   afterEach(() => {
     originRegistry.clear();
-    __resetInitSentForTests();
   });
 
   /**
@@ -635,7 +775,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
    * This preserves compatibility with existing tests that call
    * originRegistry.register(win, 'win-A') without identity.
    */
-  it('does not throw and skips registration when window has no NIP-5D identity', () => {
+  it('withholds both session and shell.init when the registered source has no NIP-5D identity', () => {
     const iframe = makeFakeIframe();
     const win = iframe as unknown as Window;
 
@@ -654,6 +794,38 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
 
     // No session entry should be created (no identity available)
     expect(bridge.runtime.sessionRegistry.getEntryByWindowId('win-no-id')).toBeUndefined();
+    expect(iframe.postMessage).not.toHaveBeenCalled();
+
+    bridge.destroy();
+  });
+
+  it('ignores identity-like ready payload fields in favor of the source registration identity', () => {
+    const iframe = makeFakeIframe();
+    const win = iframe as unknown as Window;
+    originRegistry.register(win, 'win-forged-ready', {
+      dTag: 'creation-dtag',
+      aggregateHash: 'creation-hash',
+    });
+    const bridge = createShellBridge(makeTestHooks());
+
+    bridge.handleMessage({
+      source: win,
+      origin: 'https://trusted.example.com',
+      data: {
+        type: 'shell.ready',
+        dTag: 'forged-dtag',
+        aggregateHash: 'forged-hash',
+        windowId: 'forged-window',
+        capabilities: { domains: ['identity'] },
+      },
+    } as MessageEvent);
+
+    const entry = bridge.runtime.sessionRegistry.getEntryByWindowId('win-forged-ready');
+    expect(entry?.dTag).toBe('creation-dtag');
+    expect(entry?.aggregateHash).toBe('creation-hash');
+    expect(entry?.windowId).toBe('win-forged-ready');
+    expect(entry?.origin).toBe('https://trusted.example.com');
+    expect(iframe.postMessage).toHaveBeenCalledTimes(1);
 
     bridge.destroy();
   });
@@ -703,8 +875,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
    * napplet lifecycle. A duplicate shell.ready from the same window must be
    * idempotent — no second shell.init postMessage, no duplicate session.
    *
-   * The `initSent` guard in shell-ready.ts is module-scoped, so we reset it in
-   * beforeEach (see resetInitSent below) to keep this file's tests isolated.
+   * The guard is owned by the bridge, so each runtime lifecycle stays isolated.
    */
   it('sends shell.init exactly once across two shell.ready deliveries from the same window', () => {
     const iframe = makeFakeIframe();
@@ -743,6 +914,43 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     expect(entryAfterSecond?.instanceId).toBe(instanceIdAfterFirst);
 
     bridge.destroy();
+  });
+
+  it('establishes a session again when a replacement bridge receives duplicate shell.ready', () => {
+    const iframe = makeFakeIframe();
+    const win = iframe as unknown as Window;
+    originRegistry.register(win, 'win-replacement', {
+      dTag: 'replacement-napp',
+      aggregateHash: 'replacement-hash',
+    });
+
+    const bridgeA = createShellBridge(makeTestHooks());
+    bridgeA.handleMessage({ source: win, origin: 'https://replacement.example', data: { type: 'shell.ready' } } as MessageEvent);
+    expect(bridgeA.runtime.sessionRegistry.getEntryByWindowId('win-replacement')).toBeDefined();
+    bridgeA.destroy();
+
+    iframe.postMessage.mockClear();
+    const bridgeB = createShellBridge(makeTestHooks());
+    bridgeB.handleMessage({ source: win, origin: 'https://replacement.example', data: { type: 'shell.ready' } } as MessageEvent);
+
+    expect(bridgeB.runtime.sessionRegistry.getEntryByWindowId('win-replacement')).toMatchObject({
+      dTag: 'replacement-napp',
+      aggregateHash: 'replacement-hash',
+    });
+    expect(iframe.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'shell.init' }), '*');
+
+    iframe.postMessage.mockClear();
+    bridgeB.handleMessage({
+      source: win,
+      origin: 'https://replacement.example',
+      data: { type: 'relay.subscribe', subId: 'replacement-sub', filters: [] },
+    } as MessageEvent);
+    expect(iframe.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'relay.eose', subId: 'replacement-sub' }),
+      '*',
+    );
+
+    bridgeB.destroy();
   });
 
   it('resends shell.init when a reloaded iframe reuses the same windowId', () => {
@@ -828,6 +1036,167 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
       (call) => (call[0] as Record<string, unknown>).type === 'shell.init',
     );
     expect(shellInitCalls).toHaveLength(2);
+
+    bridge.destroy();
+  });
+
+  it('delivers immutable, identity-scoped environments without cross-frame leakage', () => {
+    const frameA = makeFakeIframe();
+    const frameB = makeFakeIframe();
+    const winA = frameA as unknown as Window;
+    const winB = frameB as unknown as Window;
+    const grants = {
+      a: { domains: ['relay'], services: ['config'] },
+      b: { domains: ['storage', 'count'], services: ['count'] },
+    };
+    const availableInputs: Array<{ domains: readonly string[]; services: readonly string[] }> = [];
+    const hooks: ShellAdapter = {
+      ...makeTestHooks(),
+      services: {
+        config: { descriptor: { name: 'config', version: '1.0.0' }, handleMessage: () => {} },
+        count: { descriptor: { name: 'count', version: '1.0.0' }, handleMessage: () => {} },
+      },
+      capabilities: {
+        resolveEnvironment(identity, available) {
+          availableInputs.push(available);
+          return identity.dTag === 'frame-a' ? grants.a : grants.b;
+        },
+      },
+    };
+    originRegistry.register(winA, 'window-a', { dTag: 'frame-a', aggregateHash: 'hash-a' });
+    originRegistry.register(winB, 'window-b', { dTag: 'frame-b', aggregateHash: 'hash-b' });
+    const bridge = createShellBridge(hooks);
+
+    bridge.handleMessage({ source: winA, origin: 'https://a.example', data: { type: 'shell.ready' } } as MessageEvent);
+    bridge.handleMessage({ source: winB, origin: 'https://b.example', data: { type: 'shell.ready' } } as MessageEvent);
+
+    const initA = frameA.postMessage.mock.calls[0][0] as { type: string; capabilities: { domains: readonly string[] }; services: readonly string[] };
+    const initB = frameB.postMessage.mock.calls[0][0] as { type: string; capabilities: { domains: readonly string[] }; services: readonly string[] };
+    expect(Object.keys(initA)).toEqual(['type', 'capabilities', 'services']);
+    expect(Object.keys(initA.capabilities)).toEqual(['domains']);
+    expect(initA).toEqual({ type: 'shell.init', capabilities: { domains: ['relay'] }, services: ['config'] });
+    expect(initB).toEqual({ type: 'shell.init', capabilities: { domains: ['storage', 'count'] }, services: ['count'] });
+    expect(initA.capabilities.domains).not.toBe(initB.capabilities.domains);
+    expect(initA.services).not.toBe(initB.services);
+
+    grants.a.domains.push('count');
+    grants.a.services.push('count');
+    expect(() => (availableInputs[0].domains as string[]).push('forged')).toThrow();
+    expect(() => (availableInputs[0].services as string[]).push('forged')).toThrow();
+    expect(() => (initA.capabilities.domains as string[]).push('forged')).toThrow();
+    expect(() => (initA.services as string[]).push('forged')).toThrow();
+    expect(initB).toEqual({ type: 'shell.init', capabilities: { domains: ['storage', 'count'] }, services: ['count'] });
+
+    bridge.handleMessage({ source: winA, origin: 'https://a.example', data: { type: 'shell.ready' } } as MessageEvent);
+    expect(frameA.postMessage).toHaveBeenCalledTimes(1);
+    expect(bridge.runtime.sessionRegistry.getEntryByWindowId('window-a')?.dTag).toBe('frame-a');
+
+    bridge.destroy();
+  });
+
+  it('drops a manually posted excluded domain before ACL, firewall, or dispatch', () => {
+    const iframe = makeFakeIframe();
+    const win = iframe as unknown as Window;
+    const aclChecks = vi.fn();
+    const hooks: ShellAdapter = {
+      ...makeTestHooks(),
+      onAclCheck: aclChecks,
+      capabilities: {
+        resolveEnvironment: () => ({ domains: ['storage'], services: [] }),
+      },
+    };
+    originRegistry.register(win, 'window-excluded-relay', {
+      dTag: 'restricted-napp',
+      aggregateHash: 'restricted-hash',
+    });
+    const bridge = createShellBridge(hooks);
+
+    bridge.handleMessage({ source: win, origin: 'https://restricted.example', data: { type: 'shell.ready' } } as MessageEvent);
+    iframe.postMessage.mockClear();
+
+    // Bypass the injected namespace and post a valid-looking envelope directly.
+    bridge.handleMessage({
+      source: win,
+      origin: 'https://restricted.example',
+      data: { type: 'relay.subscribe', subId: 'forged', filters: [] },
+    } as MessageEvent);
+
+    expect(bridge.runtime.sessionRegistry.getEntryByWindowId('window-excluded-relay')).toBeDefined();
+    expect(iframe.postMessage).not.toHaveBeenCalled();
+    expect(aclChecks).not.toHaveBeenCalled();
+
+    bridge.destroy();
+  });
+
+  it('uses the frame-registration snapshot for both the injected prelude and shell.init', () => {
+    const iframe = makeFakeIframe();
+    const win = iframe as unknown as Window;
+    let disabledDomains: readonly string[] = [];
+    const hooks: ShellAdapter = {
+      ...makeTestHooks(),
+      capabilities: {
+        get disabledDomains(): readonly string[] {
+          return disabledDomains;
+        },
+      },
+    };
+    const identity = { dTag: 'snapshot-napp', aggregateHash: 'snapshot-hash' };
+    const environment = resolveShellEnvironment(hooks, identity);
+    const prelude = renderNappletNamespacePrelude(environment.capabilities);
+    originRegistry.register(win, 'window-snapshot', identity);
+    originRegistry.setEnvironment(win, environment);
+
+    // This models a host toggle after srcdoc construction but before shell.ready.
+    disabledDomains = ['relay'];
+    const bridge = createShellBridge(hooks);
+    bridge.handleMessage({ source: win, origin: 'https://snapshot.example', data: { type: 'shell.ready' } } as MessageEvent);
+
+    expect(prelude).toContain('relay');
+    expect(iframe.postMessage).toHaveBeenCalledWith({
+      type: 'shell.init',
+      capabilities: environment.capabilities,
+      services: environment.services,
+    }, '*');
+
+    bridge.destroy();
+  });
+
+  it('rebuilds the session and environment for an explicit re-registration', () => {
+    const iframe = makeFakeIframe();
+    const win = iframe as unknown as Window;
+    const hooks: ShellAdapter = {
+      ...makeTestHooks(),
+      services: {
+        config: { descriptor: { name: 'config', version: '1.0.0' }, handleMessage: () => {} },
+        count: { descriptor: { name: 'count', version: '1.0.0' }, handleMessage: () => {} },
+      },
+      capabilities: {
+        resolveEnvironment(identity) {
+          return identity.dTag === 'first'
+            ? { domains: ['relay'], services: ['config'] }
+            : { domains: ['count'], services: ['count'] };
+        },
+      },
+    };
+    originRegistry.register(win, 'window-reload', { dTag: 'first', aggregateHash: 'first-hash' });
+    const bridge = createShellBridge(hooks);
+
+    bridge.handleMessage({ source: win, origin: 'https://reload.example', data: { type: 'shell.ready' } } as MessageEvent);
+    const firstSession = bridge.runtime.sessionRegistry.getEntryByWindowId('window-reload');
+    expect(iframe.postMessage.mock.calls[0][0]).toEqual({
+      type: 'shell.init', capabilities: { domains: ['relay'] }, services: ['config'],
+    });
+
+    originRegistry.register(win, 'window-reload', { dTag: 'second', aggregateHash: 'second-hash' });
+    bridge.handleMessage({ source: win, origin: 'https://reload.example', data: { type: 'shell.ready' } } as MessageEvent);
+
+    expect(iframe.postMessage.mock.calls[1][0]).toEqual({
+      type: 'shell.init', capabilities: { domains: ['count'] }, services: ['count'],
+    });
+    const secondSession = bridge.runtime.sessionRegistry.getEntryByWindowId('window-reload');
+    expect(secondSession?.dTag).toBe('second');
+    expect(secondSession?.aggregateHash).toBe('second-hash');
+    expect(secondSession?.instanceId).not.toBe(firstSession?.instanceId);
 
     bridge.destroy();
   });

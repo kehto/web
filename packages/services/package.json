@@ -1,7 +1,7 @@
 {
   "name": "@kehto/services",
   "version": "0.16.5",
-  "description": "Reference service implementations for the napplet protocol — audio, notifications, and extensible service handlers",
+  "description": "Reference service implementations for the napplet protocol — notifications and extensible service handlers",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -60,7 +60,6 @@
     "napplet",
     "kehto",
     "services",
-    "audio",
     "notifications"
   ]
 }

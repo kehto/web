@@ -55,14 +55,11 @@ function enforceLimit(store: NotificationStore, list: Notification[]): void {
   }
 }
 
-function findById(store: NotificationStore, id: string): [string, Notification, number] | undefined {
-  for (const [windowId, list] of store.notifications) {
-    const index = list.findIndex((n) => n.id === id);
-    if (index !== -1) {
-      return [windowId, list[index], index];
-    }
-  }
-  return undefined;
+function findById(store: NotificationStore, windowId: string, id: string): [Notification, number] | undefined {
+  const list = store.notifications.get(windowId);
+  const index = list?.findIndex((notification) => notification.id === id) ?? -1;
+  if (!list || index === -1) return undefined;
+  return [list[index], index];
 }
 
 function createNotification(
@@ -86,21 +83,21 @@ function createNotification(
   return notification;
 }
 
-function dismissNotification(store: NotificationStore, id: string): void {
-  const found = findById(store, id);
+function dismissNotification(store: NotificationStore, windowId: string, id: string): void {
+  const found = findById(store, windowId, id);
   if (!found) return;
-  const [foundWindowId, , index] = found;
-  const list = store.notifications.get(foundWindowId);
+  const [, index] = found;
+  const list = store.notifications.get(windowId);
   if (!list) return;
   list.splice(index, 1);
-  if (list.length === 0) store.notifications.delete(foundWindowId);
+  if (list.length === 0) store.notifications.delete(windowId);
   notify(store);
 }
 
-function markNotificationRead(store: NotificationStore, id: string): void {
-  const found = findById(store, id);
+function markNotificationRead(store: NotificationStore, windowId: string, id: string): void {
+  const found = findById(store, windowId, id);
   if (!found) return;
-  const [, notification] = found;
+  const [notification] = found;
   if (!notification.read) {
     notification.read = true;
     notify(store);
@@ -125,13 +122,13 @@ function handleNotifyEnvelope(
 
     case 'dismiss': {
       const notifId = typeof msg.notificationId === 'string' ? msg.notificationId : '';
-      if (notifId) dismissNotification(store, notifId);
+      if (notifId) dismissNotification(store, windowId, notifId);
       break;
     }
 
     case 'read': {
       const notifId = typeof msg.notificationId === 'string' ? msg.notificationId : '';
-      if (notifId) markNotificationRead(store, notifId);
+      if (notifId) markNotificationRead(store, windowId, notifId);
       break;
     }
 
@@ -146,52 +143,13 @@ function handleNotifyEnvelope(
   }
 }
 
-function handleIncNotification(
-  store: NotificationStore,
-  windowId: string,
-  action: string,
-  payload: Record<string, unknown>,
-  send: (msg: NappletMessage) => void,
-): void {
-  switch (action) {
-    case 'create': {
-      const title = typeof payload.title === 'string' ? payload.title : '';
-      const body = typeof payload.body === 'string' ? payload.body : '';
-      const notification = createNotification(store, windowId, title, body);
-      send({ type: 'inc.event', topic: 'notifications:created', payload: { id: notification.id } } as NappletMessage);
-      break;
-    }
-
-    case 'dismiss': {
-      const id = typeof payload.id === 'string' ? payload.id : '';
-      if (id) dismissNotification(store, id);
-      break;
-    }
-
-    case 'read': {
-      const id = typeof payload.id === 'string' ? payload.id : '';
-      if (id) markNotificationRead(store, id);
-      break;
-    }
-
-    case 'list': {
-      const windowNotifs = store.notifications.get(windowId) ?? [];
-      send({ type: 'inc.event', topic: 'notifications:listed', payload: { notifications: windowNotifs } } as NappletMessage);
-      break;
-    }
-
-    default:
-      break;
-  }
-}
-
 /**
  * Create a notification service handler.
  *
  * The notification service is a state registry that tracks notifications
- * per napplet window. Napplets create and manage notifications via
- * `notifications:*` topic events; the shell host controls presentation
- * via the onChange callback.
+ * per napplet window. It accepts direct `notify.*` service envelopes; INC
+ * topics are opaque application data and never select a host service. The
+ * shell host controls presentation through the onChange callback.
  *
  * @param options - Optional configuration (onChange callback, maxPerWindow limit)
  * @returns A ServiceHandler to register with the runtime
@@ -208,7 +166,7 @@ function handleIncNotification(
  *   maxPerWindow: 50,
  * });
  *
- * runtime.registerService('notifications', notifications);
+ * runtime.registerService('notify', notifications);
  * ```
  */
 export function createNotificationService(options?: NotificationServiceOptions): ServiceHandler {
@@ -219,7 +177,7 @@ export function createNotificationService(options?: NotificationServiceOptions):
   };
 
   const descriptor: ServiceDescriptor = {
-    name: 'notifications',
+    name: 'notify',
     version: NOTIFICATION_SERVICE_VERSION,
     description: 'Notification state registry — tracks notifications per napplet window',
   };
@@ -228,19 +186,14 @@ export function createNotificationService(options?: NotificationServiceOptions):
     descriptor,
 
     handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
-      const msg = message as NappletMessage & Record<string, unknown>;
-
-      if (message.type.startsWith('notify.')) {
-        handleNotifyEnvelope(store, windowId, message.type.slice(7), msg, send);
-        return;
-      }
-
-      if (message.type !== 'inc.emit') return;
-      const topic = msg.topic as string | undefined;
-      if (!topic?.startsWith('notifications:')) return;
-
-      const payload = ((msg.payload ?? {}) as Record<string, unknown>);
-      handleIncNotification(store, windowId, topic.slice(14), payload, send);
+      if (!message.type.startsWith('notify.')) return;
+      handleNotifyEnvelope(
+        store,
+        windowId,
+        message.type.slice(7),
+        message as NappletMessage & Record<string, unknown>,
+        send,
+      );
     },
 
     onWindowDestroyed(windowId: string): void {

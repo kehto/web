@@ -2,7 +2,6 @@
  * @kehto/services — Reference service implementations for the napplet protocol.
  *
  * Provides factory functions for creating ServiceHandler implementations:
- * - createAudioService() — Audio source registry
  * - createNotificationService() — Notification state management
  *
  * These are reference implementations. Shell hosts wire them into the
@@ -11,14 +10,12 @@
  *
  * @example
  * ```ts
- * import { createAudioService, createNotificationService } from '@kehto/services';
- * import type { AudioSource, Notification } from '@kehto/services';
+ * import { createNotificationService } from '@kehto/services';
+ * import type { Notification } from '@kehto/services';
  *
- * const audio = createAudioService({ onChange: (sources) => updateUI(sources) });
  * const notifications = createNotificationService({ onChange: (list) => updateBadge(list) });
  *
- * runtime.registerService('audio', audio);
- * runtime.registerService('notifications', notifications);
+ * runtime.registerService('notify', notifications);
  * ```
  *
  * @module
@@ -26,13 +23,9 @@
  */
 
 export type {
-  AudioSource,
-  AudioServiceOptions,
   Notification,
   NotificationServiceOptions,
 } from './types.js';
-
-export { createAudioService } from './audio-service.js';
 
 export { createNotificationService } from './notification-service.js';
 

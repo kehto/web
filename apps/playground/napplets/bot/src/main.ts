@@ -22,18 +22,6 @@ const REQUIRED_NAPS = ['inc', 'storage', 'theme'] as const;
 const CAPABILITY_WAIT_MS = 5_000;
 const CAPABILITY_WAIT_INTERVAL_MS = 25;
 
-/**
- * Emit a notifications:create event through the real napplet→service path.
- * The shell routes this INC event to the notification service handler.
- */
-function notifyCreate(title: string, body: string): void {
-  try {
-    incEmit('notifications:create', [], JSON.stringify({ title, body }));
-  } catch {
-    /* best-effort — don't break the main flow if notifications are denied */
-  }
-}
-
 const statusEl = document.getElementById('status-text')!;
 const ruleCountEl = document.getElementById('rule-count')!;
 const logEl = document.getElementById('log')!;
@@ -138,9 +126,6 @@ function handleTeachCommand(text: string): boolean {
   saveRules();
   updateRulesDisplay();
 
-  // Emit a notification so the host can surface this rule learn event
-  notifyCreate('Bot activity', `learned: "${trigger}" → "${response}"`);
-
   // Acknowledge the teach command
   incEmit('bot:response', [], JSON.stringify({
     text: `learned! I'll respond "${response}" when I hear "${trigger}"`,
@@ -189,7 +174,6 @@ function handleChatMessage(payload: unknown): void {
       timestamp: Date.now(),
     }));
     log('inc bot:response sent', 'info');
-    notifyCreate('Bot activity', response.length > 60 ? response.slice(0, 60) + '…' : response);
   } catch (error) {
     log(`inc response failed -- ${formatError(error, 'denied: relay:write')}`, 'error');
   }

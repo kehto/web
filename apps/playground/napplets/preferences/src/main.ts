@@ -19,9 +19,8 @@
  *   - On receipt: sets document.body.style.backgroundColor to theme.colors.background AND
  *     sets #preferences-theme-applied textContent to that color hex.
  *
- * THEME-SDK-GAP (Phase 58 raw-envelope allowlist): the shared helper owns the
- * single source-bound message listener because the published helper surface does
- * not expose theme.on / theme.subscribe yet.
+ * The shared helper is a thin convenience wrapper around the published
+ * `theme.onChanged` binding; no raw envelope listener is required.
  */
 import '@napplet/shim';
 import { getMissingNapDomains } from '../../domain-availability';

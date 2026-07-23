@@ -4,6 +4,7 @@ import type { AclStateContainer } from './acl-state.js';
 import type { SessionRegistry } from './session-registry.js';
 import { handleStorageNap } from './state-handler.js';
 import type { RuntimeAdapter, ServiceRegistry } from './types.js';
+import { createCanonicalDomainResult } from './domain-results.js';
 
 type DomainHandler = (windowId: string, msg: NappletMessage) => void;
 
@@ -34,10 +35,6 @@ export type RuntimeDomainHandlers = {
   webrtc: DomainHandler;
   dm: DomainHandler;
 };
-
-const THEME_FALLBACK_DEFAULT = {
-  colors: { background: '#0a0a0a', text: '#e0e0e0', primary: '#7aa2f7' },
-} as const;
 
 export function createRuntimeDomainHandlers(context: RuntimeDomainContext): RuntimeDomainHandlers {
   return {
@@ -166,14 +163,8 @@ function handleThemeMessage(context: RuntimeDomainContext, windowId: string, msg
     themeService.handleMessage(windowId, msg, (resp: NappletMessage) => hooks.sendToNapplet(windowId, resp));
     return;
   }
-  if (msg.type === 'theme.get') {
-    const m = msg as NappletMessage & { id?: string };
-    hooks.sendToNapplet(windowId, {
-      type: 'theme.get.result',
-      id: m.id ?? '',
-      theme: THEME_FALLBACK_DEFAULT,
-    } as NappletMessage);
-  }
+  const fallback = createCanonicalDomainResult(msg);
+  if (fallback) hooks.sendToNapplet(windowId, fallback);
 }
 
 function handleServiceOnlyMessage(

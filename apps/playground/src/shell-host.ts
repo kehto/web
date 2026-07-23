@@ -15,8 +15,10 @@ import {
   type NappletMessage,
   type AclCheckEvent,
   type SessionEntry,
+  type ShellEnvironment,
 } from '@kehto/shell';
 import type { Notification } from '@kehto/services';
+import type { Theme } from '@napplet/nap/theme/types';
 import {
   resolvePlaygroundNapplet,
   injectCspMeta,
@@ -31,6 +33,7 @@ import {
 } from './demo-definitions.js';
 import {
   createDemoHooks,
+  getPlaygroundShellEnvironment,
   getMissingRequiredNaps,
   setDemoSessionRegistryRef,
 } from './demo-hooks.js';
@@ -83,7 +86,12 @@ export {
 const proxyToReal = new WeakMap<object, Window>();
 const realToProxy = new WeakMap<Window, Window>();
 
-function createPostMessageProxy(realWin: Window, messageTap: MessageTap, windowId?: string): Window {
+/**
+ * Wrap a trusted iframe window to record host-to-napplet traffic.
+ *
+ * @internal Exported for host-proxy regression coverage.
+ */
+export function createPostMessageProxy(realWin: Window, messageTap: MessageTap, windowId?: string): Window {
   const existing = realToProxy.get(realWin);
   if (existing) return existing;
   const proxy = new Proxy(realWin, {
@@ -121,6 +129,8 @@ export interface NappletInfo {
   pubkey?: string;
   dTag?: string;
   aggregateHash?: string;
+  /** Immutable environment captured before the iframe's srcdoc is injected. */
+  environment: ShellEnvironment;
   identityBound: boolean;
 }
 
@@ -145,6 +155,23 @@ let nappletCounter = 0;
 const serviceHandlerStore = new Map<string, ServiceHandler>();
 const disabledServices = new Set<string>();
 const SERVICE_STATE_STORAGE_KEY = 'kehto.playground.disabledServices.v1';
+const NOTIFICATION_SERVICE_TARGETS = Object.freeze(['notifications', 'notify'] as const);
+
+function getServiceToggleTargets(name: string): readonly string[] {
+  return NOTIFICATION_SERVICE_TARGETS.includes(name as typeof NOTIFICATION_SERVICE_TARGETS[number])
+    ? NOTIFICATION_SERVICE_TARGETS
+    : [name];
+}
+
+function getServiceToggleStateKey(name: string): string {
+  return NOTIFICATION_SERVICE_TARGETS.includes(name as typeof NOTIFICATION_SERVICE_TARGETS[number])
+    ? 'notifications'
+    : name;
+}
+
+function getDisabledDomains(): readonly string[] {
+  return [...new Set([...disabledServices].flatMap((name) => getServiceToggleTargets(name)))];
+}
 
 export let tap: MessageTap;
 export let relay: ShellBridge;
@@ -190,31 +217,6 @@ export function getDemoHostPubkey(): string {
   return _hostPubkey;
 }
 
-function getCurrentUserIdentityPubkey(): string {
-  const state = getSignerConnectionState();
-  if (state.method === 'none' || state.isConnecting || state.error) return '';
-  return state.pubkey ?? '';
-}
-
-function publishCurrentUserIdentityToNapplet(info: NappletInfo): void {
-  const targetWindow = info.iframe.contentWindow;
-  if (!targetWindow) return;
-  targetWindow.postMessage(
-    { type: 'identity.changed', pubkey: getCurrentUserIdentityPubkey() } as NappletMessage,
-    '*',
-  );
-}
-
-function publishCurrentUserIdentityToWindowId(windowId: string): void {
-  const info = napplets.get(windowId);
-  if (info) publishCurrentUserIdentityToNapplet(info);
-}
-
-function scheduleCurrentUserIdentitySync(info: NappletInfo): void {
-  window.setTimeout(() => publishCurrentUserIdentityToNapplet(info), 0);
-  window.setTimeout(() => publishCurrentUserIdentityToNapplet(info), 100);
-}
-
 function createInstalledMessageTap(): MessageTap {
   const messageTap = createMessageTap((source) => {
     for (const [windowId, info] of napplets) {
@@ -226,7 +228,12 @@ function createInstalledMessageTap(): MessageTap {
   return messageTap;
 }
 
-function installOriginRegistryProxy(messageTap: MessageTap): void {
+/**
+ * Add playground logging-proxy support to the shell's source registry.
+ *
+ * @internal Exported for host-proxy regression coverage.
+ */
+export function installOriginRegistryProxy(messageTap: MessageTap): void {
   const originalGetIframeWindow = originRegistry.getIframeWindow.bind(originRegistry);
   originRegistry.getIframeWindow = (windowId: string) => {
     const win = originalGetIframeWindow(windowId);
@@ -251,6 +258,7 @@ function installOriginRegistryProxy(messageTap: MessageTap): void {
           dTag: info.dTag ?? '',
           aggregateHash: info.aggregateHash ?? '',
         });
+        originRegistry.setEnvironment(target, info.environment);
         return windowId;
       }
     }
@@ -264,6 +272,10 @@ function installOriginRegistryProxy(messageTap: MessageTap): void {
   const originalGetRegistrationId = originRegistry.getRegistrationId.bind(originRegistry);
   originRegistry.getRegistrationId = (win: Window) =>
     originalGetRegistrationId(win) ?? originalGetRegistrationId(proxyToReal.get(win) ?? win);
+
+  const originalGetEnvironment = originRegistry.getEnvironment.bind(originRegistry);
+  originRegistry.getEnvironment = (win: Window) =>
+    originalGetEnvironment(win) ?? originalGetEnvironment(proxyToReal.get(win) ?? win);
 }
 
 function populateServiceHandlerStore(services: Record<string, ServiceHandler> | undefined): void {
@@ -308,9 +320,11 @@ function persistDisabledServices(): void {
 
 function applyPersistedServiceState(): void {
   for (const name of readPersistedDisabledServices()) {
-    if (!serviceHandlerStore.has(name)) continue;
-    disabledServices.add(name);
-    relay.runtime.unregisterService(name);
+    const stateKey = getServiceToggleStateKey(name);
+    const targets = getServiceToggleTargets(stateKey);
+    if (!targets.some((target) => serviceHandlerStore.has(target))) continue;
+    disabledServices.add(stateKey);
+    for (const target of targets) relay.runtime.unregisterService(target);
   }
 }
 
@@ -350,16 +364,13 @@ function wrapRelayHandleMessage(messageTap: MessageTap): void {
   };
 }
 
-function bindTapIdentityUpdates(messageTap: MessageTap): void {
+function bindTapIdentityBindings(messageTap: MessageTap): void {
   messageTap.onMessage((msg) => {
     if (msg.verb === 'OK' && msg.parsed.success === true && msg.direction === 'shell->napplet') {
       markLegacyIdentityBindings();
     }
     if (msg.verb === 'ENVELOPE' && msg.direction === 'napplet->shell' && msg.windowId) {
       markEnvelopeIdentityBinding(msg.windowId);
-      if (msg.envelopeType === 'identity.getPublicKey') {
-        publishCurrentUserIdentityToWindowId(msg.windowId);
-      }
     }
   });
 }
@@ -386,7 +397,6 @@ function markEnvelopeIdentityBinding(windowId: string): void {
       aggregateHash: entry.aggregateHash,
     },
   }));
-  scheduleCurrentUserIdentitySync(info);
 }
 
 function markNappletIdentityBound(info: NappletInfo, entry: SessionEntry): void {
@@ -402,14 +412,19 @@ function markNappletIdentityBound(info: NappletInfo, entry: SessionEntry): void 
  * @param notificationOnChange - Called when the notification service state changes.
  *   Used by the demo notification controller to update host-side toast/summary UX.
  */
-export function bootShell(notificationOnChange?: (notifications: readonly Notification[]) => void): { tap: MessageTap; relay: ShellBridge } {
+export function bootShell(
+  notificationOnChange?: (notifications: readonly Notification[]) => void,
+  initialTheme?: Theme,
+): { tap: MessageTap; relay: ShellBridge } {
   const hooks = createDemoHooks(notificationOnChange, {
+    getDisabledDomains,
     getNappletEntries: () => napplets.entries(),
     onResolvedAclCheck: (event, windowId, nappletName) => {
       pushAclEvent(event, windowId, nappletName);
       _notifyAclCheckListeners(event, windowId, nappletName);
     },
-  });
+    onThemeBroadcast: (envelope) => relay.publishTheme(envelope.theme),
+  }, initialTheme);
   tap = createInstalledMessageTap();
   installOriginRegistryProxy(tap);
 
@@ -421,7 +436,7 @@ export function bootShell(notificationOnChange?: (notifications: readonly Notifi
   wrapRelayHandleMessage(tap);
 
   window.addEventListener("message", relay.handleMessage);
-  bindTapIdentityUpdates(tap);
+  bindTapIdentityBindings(tap);
   setMessageTap(tap);
 
   return { tap, relay };
@@ -446,14 +461,19 @@ export async function loadNapplet(
     blossomServers: [playgroundPath('/napplet-blossom')],
   });
 
-  const missingRequiredNaps = getMissingRequiredNaps(resolved.requires);
+  const { dTag, aggregateHash } = resolved;
+  const identity = Object.freeze({ dTag, aggregateHash });
+  const environment = getPlaygroundShellEnvironment(identity);
+  const missingRequiredNaps = getMissingRequiredNaps(
+    resolved.requires,
+    environment.capabilities.domains,
+  );
   if (missingRequiredNaps.length > 0) {
     throw new Error(
       `[demo] ${resolved.dTag} requires unsupported NAP capabilities: ${missingRequiredNaps.join(', ')}`,
     );
   }
 
-  const { dTag, aggregateHash } = resolved;
   const windowId = `demo-${name}-${++nappletCounter}`;
 
   const iframe = document.createElement('iframe');
@@ -468,8 +488,9 @@ export async function loadNapplet(
     windowId,
     name,
     iframe,
-    dTag,
-    aggregateHash,
+    dTag: identity.dTag,
+    aggregateHash: identity.aggregateHash,
+    environment,
     identityBound: false,
   };
   napplets.set(windowId, info);
@@ -477,7 +498,8 @@ export async function loadNapplet(
   // Register origin immediately — contentWindow is available after appendChild.
   // shell.ready establishes the runtime session from this creation-time identity.
   if (iframe.contentWindow) {
-    originRegistry.register(iframe.contentWindow, windowId, { dTag, aggregateHash });
+    originRegistry.register(iframe.contentWindow, windowId, identity);
+    originRegistry.setEnvironment(iframe.contentWindow, environment);
   }
 
   iframe.addEventListener('load', () => {
@@ -486,7 +508,8 @@ export async function loadNapplet(
       && originRegistry.getWindowId(iframe.contentWindow) !== windowId
     ) {
       // srcdoc may replace contentWindow; bind any replacement for its handshake.
-      originRegistry.register(iframe.contentWindow, windowId, { dTag, aggregateHash });
+      originRegistry.register(iframe.contentWindow, windowId, identity);
+      originRegistry.setEnvironment(iframe.contentWindow, environment);
     }
   });
 
@@ -498,7 +521,7 @@ export async function loadNapplet(
   const origins = STATIC_ORIGIN_ALLOWLIST.get(dTag) ?? [];
   iframe.srcdoc = injectNappletNamespacePrelude(
     injectCspMeta(resolved.indexHtml, origins),
-    { domains: ['shell', ...resolved.requires] },
+    environment.capabilities,
   );
 
   return info;
@@ -539,17 +562,21 @@ export function toggleCapability(windowId: string, capability: Capability, enabl
  * reference is re-registered. Changes take effect on the very next message.
  */
 export function toggleService(name: string, enabled: boolean): void {
+  const stateKey = getServiceToggleStateKey(name);
+  const targets = getServiceToggleTargets(stateKey);
   if (enabled) {
-    const handler = serviceHandlerStore.get(name);
-    if (!handler) {
+    const handlers = targets
+      .map((target) => [target, serviceHandlerStore.get(target)] as const)
+      .filter((entry): entry is readonly [string, ServiceHandler] => entry[1] !== undefined);
+    if (handlers.length === 0) {
       console.warn('[service] toggleService: no stored handler for', name);
       return;
     }
-    disabledServices.delete(name);
-    relay.runtime.registerService(name, handler);
+    disabledServices.delete(stateKey);
+    for (const [target, handler] of handlers) relay.runtime.registerService(target, handler);
   } else {
-    disabledServices.add(name);
-    relay.runtime.unregisterService(name);
+    disabledServices.add(stateKey);
+    for (const target of targets) relay.runtime.unregisterService(target);
   }
   persistDisabledServices();
 }
@@ -558,7 +585,7 @@ export function toggleService(name: string, enabled: boolean): void {
  * Check if a service is currently enabled (registered with the runtime).
  */
 export function isServiceEnabled(name: string): boolean {
-  return !disabledServices.has(name);
+  return !disabledServices.has(getServiceToggleStateKey(name));
 }
 
 /**

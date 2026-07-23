@@ -5,7 +5,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getNappletFrame } from './helpers/index.js';
 
-const DEMO_URL = 'http://127.0.0.1:4174';
+const EXTERNAL_DEMO_URL = process.env.KEHTO_PLAYGROUND_BASE_URL;
+const DEMO_URL = EXTERNAL_DEMO_URL ?? 'http://127.0.0.1:4174';
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 let demoServer: ChildProcessWithoutNullStreams | null = null;
@@ -68,6 +69,11 @@ async function sendChatMessage(page: Page, text: string): Promise<void> {
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async () => {
+  if (EXTERNAL_DEMO_URL) {
+    await waitForServer(DEMO_URL, 30_000);
+    return;
+  }
+
   demoServer = spawn(
     'pnpm',
     ['--filter', '@kehto/playground', 'exec', 'vite', '--host', '127.0.0.1', '--port', '4174', '--strictPort'],

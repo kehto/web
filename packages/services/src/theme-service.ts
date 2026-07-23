@@ -64,6 +64,17 @@ const DEFAULT_THEME: Theme = {
   // @napplet/nap/theme Theme interface.
 };
 
+function isCompleteTheme(theme: Theme | undefined): theme is Theme {
+  const colors = theme?.colors;
+  return typeof colors?.background === 'string'
+    && typeof colors.text === 'string'
+    && typeof colors.primary === 'string';
+}
+
+function normalizeTheme(theme: Theme | undefined): Theme {
+  return isCompleteTheme(theme) ? theme : DEFAULT_THEME;
+}
+
 /**
  * Configuration for `createThemeService`.
  *
@@ -138,7 +149,7 @@ export interface ThemeService {
  * ```
  */
 export function createThemeService(options: ThemeServiceOptions = {}): ThemeService {
-  let currentTheme: Theme = options.initialTheme ?? DEFAULT_THEME;
+  let currentTheme: Theme = normalizeTheme(options.initialTheme);
 
   const descriptor: ServiceDescriptor = {
     name: 'theme',
@@ -166,11 +177,7 @@ export function createThemeService(options: ThemeServiceOptions = {}): ThemeServ
         return;
       }
 
-      send({
-        type: `${message.type}.error`,
-        id,
-        error: `Unknown theme method: ${message.type}`,
-      } as NappletMessage);
+      return;
     },
 
     // Theme service has no per-window state to clean up.
@@ -180,8 +187,8 @@ export function createThemeService(options: ThemeServiceOptions = {}): ThemeServ
   };
 
   function publishTheme(theme: Theme): ThemeChangedMessage {
-    currentTheme = theme;
-    const envelope: ThemeChangedMessage = { type: 'theme.changed', theme };
+    currentTheme = normalizeTheme(theme);
+    const envelope: ThemeChangedMessage = { type: 'theme.changed', theme: currentTheme };
     options.onBroadcast?.(envelope);
     return envelope;
   }

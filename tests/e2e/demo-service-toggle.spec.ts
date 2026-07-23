@@ -57,6 +57,93 @@ test('notifications service toggle persists across reloads', async ({ page }) =>
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#topology-root', { state: 'visible', timeout: 15_000 });
   await expect(page.locator('[data-service-name="notifications"]')).not.toHaveClass(/service-disabled/, { timeout: 15_000 });
+
+  // Canonicalize the NAP domain alias from older/direct host state and prove
+  // the UI-facing name can fully re-enable both service registrations.
+  await page.evaluate(() => {
+    localStorage.setItem('kehto.playground.disabledServices.v1', JSON.stringify(['notify']));
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#topology-root', { state: 'visible', timeout: 15_000 });
+  await expect(page.locator('[data-service-name="notifications"]')).toHaveClass(/service-disabled/, { timeout: 15_000 });
+  await page.locator('[data-service-name="notifications"] .service-toggle-icon').click();
+  await expect(page.locator('[data-service-name="notifications"]')).not.toHaveClass(/service-disabled/, { timeout: 15_000 });
+  await expect.poll(() =>
+    page.evaluate(() => JSON.parse(localStorage.getItem('kehto.playground.disabledServices.v1') ?? '[]')),
+  ).toEqual([]);
+});
+
+test('new registrations reflect disabled live services without mutating concurrent frame snapshots', async ({ page }) => {
+  test.setTimeout(120_000);
+  await demoBeforeEach(page);
+
+  const botHandle = await page.locator('#bot-frame-container iframe').elementHandle();
+  const toasterHandle = await page.locator('#toaster-frame-container iframe').elementHandle();
+  expect(botHandle, 'bot iframe').not.toBeNull();
+  expect(toasterHandle, 'toaster iframe').not.toBeNull();
+  const botFrame = await botHandle!.contentFrame();
+  const toasterFrame = await toasterHandle!.contentFrame();
+  expect(botFrame, 'bot content frame').not.toBeNull();
+  expect(toasterFrame, 'toaster content frame').not.toBeNull();
+
+  const shellState = async (frame: NonNullable<typeof toasterFrame>) => frame.evaluate(async () => {
+    const shell = (window as Window & {
+      napplet?: { shell?: {
+        ready: () => Promise<{ capabilities: { domains: readonly string[] }; services: readonly string[] }>;
+        supports: (domain: string) => boolean;
+      } };
+    }).napplet?.shell;
+    const environment = await shell?.ready();
+    return {
+      receiver: typeof (window as Window & { napplet?: Record<string, unknown> }).napplet?.notify === 'object',
+      supports: shell?.supports('notify') ?? false,
+      domains: environment?.capabilities.domains ?? [],
+      services: environment?.services ?? [],
+    };
+  });
+
+  await expect.poll(() => shellState(botFrame!)).toMatchObject({ receiver: true, supports: true });
+  await expect.poll(() => shellState(toasterFrame!)).toMatchObject({ receiver: true, supports: true });
+
+  await page.locator('[data-service-name="notifications"] .service-toggle-icon').click();
+  await expect(page.locator('[data-service-name="notifications"]')).toHaveClass(/service-disabled/);
+
+  // Existing frames keep their frozen first-init snapshot.
+  await expect.poll(() => shellState(botFrame!)).toMatchObject({ receiver: true, supports: true });
+  await expect.poll(() => shellState(toasterFrame!)).toMatchObject({ receiver: true, supports: true });
+
+  // A host reload creates fresh frame lifecycles and rebuilds each verified
+  // srcdoc prelude from the current disabled-domain policy. Reassigning the
+  // same iframe.srcdoc would intentionally preserve its captured environment.
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#topology-root', { state: 'visible', timeout: 15_000 });
+  await expect(page.locator('[data-service-name="notifications"]')).toHaveClass(/service-disabled/);
+  await expect(page.locator('#toaster-frame-container iframe')).toHaveCount(0);
+
+  await expect.poll(async () => {
+    const handle = await page.locator('#bot-frame-container iframe').elementHandle();
+    const frame = handle ? await handle.contentFrame() : null;
+    return frame ? shellState(frame) : null;
+  }, { timeout: 30_000 }).toMatchObject({
+    receiver: false,
+    supports: false,
+    domains: expect.not.arrayContaining(['notify']),
+    services: expect.not.arrayContaining(['notifications']),
+  });
+
+  const refreshedHandle = await page.locator('#bot-frame-container iframe').elementHandle();
+  const refreshedFrame = await refreshedHandle?.contentFrame();
+  expect(refreshedFrame, 'reloaded bot content frame').not.toBeNull();
+  const duplicateInitCount = await refreshedFrame!.evaluate(async () => {
+    let initCount = 0;
+    window.addEventListener('message', (event) => {
+      if ((event.data as { type?: unknown } | null)?.type === 'shell.init') initCount += 1;
+    });
+    window.parent.postMessage({ type: 'shell.ready' }, '*');
+    await new Promise((resolve) => window.setTimeout(resolve, 100));
+    return initCount;
+  });
+  expect(duplicateInitCount).toBe(0);
 });
 
 test('service toggle click does not cause anti-term page errors', async ({ page }) => {

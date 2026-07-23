@@ -36,7 +36,7 @@ function renderToast(notification: Notification): void {
   }
   const cue = document.createElement('div');
   cue.className = 'notif-toast-cue';
-  cue.textContent = 'notifications:create via service';
+  cue.textContent = 'notify.create via direct service';
   toast.appendChild(cue);
   layer.appendChild(toast);
   setTimeout(() => {
@@ -92,7 +92,7 @@ function renderNotificationInspector(snapshot: DemoNotificationSnapshot): void {
     meta.className = 'notif-item-meta';
     const tag = document.createElement('span');
     tag.className = 'notif-item-tag';
-    tag.textContent = 'notifications:create';
+    tag.textContent = 'notify.create';
     const state = document.createElement('span');
     state.textContent = n.read ? 'read' : 'unread';
     meta.append(tag, state);
@@ -152,7 +152,7 @@ export function createNotificationUi(): NotificationUiController {
       if (!shownToastIds.has(notification.id)) {
         shownToastIds.add(notification.id);
         renderToast(notification);
-        debuggerEl?.addSystemMessage(`notifications:create via service — id:${notification.id.slice(0, 16)}`);
+        debuggerEl?.addSystemMessage(`notify.create via direct service — id:${notification.id.slice(0, 16)}`);
       }
     }
 
@@ -180,16 +180,16 @@ export function createNotificationUi(): NotificationUiController {
         controller.createDemoNotification({
           title: 'Demo notification',
           body: 'Triggered from the notification service node',
-          sourceLabel: 'notifications:create via service',
+          sourceLabel: 'notify.create via direct service',
         });
-        debuggerEl?.addSystemMessage('notifications:create dispatched from host node control');
+        debuggerEl?.addSystemMessage('notify.create dispatched from host node control');
         return true;
       }
 
       if (target.id === 'notification-node-list' || target.closest('#notification-node-list')) {
         event.stopPropagation();
         controller.requestList();
-        debuggerEl?.addSystemMessage('notifications:list requested');
+        debuggerEl?.addSystemMessage('notify.list requested');
         const inspector = document.getElementById('notification-inspector');
         inspector?.classList.add('open');
         renderNotificationInspector(snapshot);
@@ -201,9 +201,9 @@ export function createNotificationUi(): NotificationUiController {
         const newest = [...snapshot.notifications].filter((n) => !n.read).pop();
         if (newest) {
           controller.markRead(newest.id);
-          debuggerEl?.addSystemMessage(`notifications:read dispatched — id:${newest.id.slice(0, 16)}`);
+          debuggerEl?.addSystemMessage(`notify.read dispatched — id:${newest.id.slice(0, 16)}`);
         } else {
-          debuggerEl?.addSystemMessage('notifications:read — no unread notifications');
+          debuggerEl?.addSystemMessage('notify.read — no unread notifications');
         }
         return true;
       }
@@ -213,9 +213,9 @@ export function createNotificationUi(): NotificationUiController {
         const newest = [...snapshot.notifications].pop();
         if (newest) {
           controller.dismiss(newest.id);
-          debuggerEl?.addSystemMessage(`notifications:dismiss dispatched — id:${newest.id.slice(0, 16)}`);
+          debuggerEl?.addSystemMessage(`notify.dismiss dispatched — id:${newest.id.slice(0, 16)}`);
         } else {
-          debuggerEl?.addSystemMessage('notifications:dismiss — no notifications to dismiss');
+          debuggerEl?.addSystemMessage('notify.dismiss — no notifications to dismiss');
         }
         return true;
       }
@@ -225,7 +225,7 @@ export function createNotificationUi(): NotificationUiController {
         const id = target.dataset.notifId;
         if (id) {
           controller.markRead(id);
-          debuggerEl?.addSystemMessage(`notifications:read from inspector — id:${id.slice(0, 16)}`);
+          debuggerEl?.addSystemMessage(`notify.read from inspector — id:${id.slice(0, 16)}`);
         }
         return true;
       }
@@ -235,7 +235,7 @@ export function createNotificationUi(): NotificationUiController {
         const id = target.dataset.notifId;
         if (id) {
           controller.dismiss(id);
-          debuggerEl?.addSystemMessage(`notifications:dismiss from inspector — id:${id.slice(0, 16)}`);
+          debuggerEl?.addSystemMessage(`notify.dismiss from inspector — id:${id.slice(0, 16)}`);
         }
         return true;
       }

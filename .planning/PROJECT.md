@@ -6,19 +6,19 @@
 
 Provide a modular, framework-agnostic runtime for hosting napplet applications — so any Nostr client can embed sandboxed mini-apps by integrating @kehto/shell.
 
-## Current Milestone: v1.28 NAP-WEBRTC Runtime Parity
+## Current Milestone: v1.29 Napplet Convention and Runtime Conformance
 
-**Goal:** Add the remaining missing recent `@napplet/nap` domain, `NAP-WEBRTC`, end to end in Kehto: shell capability advertisement, runtime dispatch, reference service, Paja wiring, playground demo napplet, unit coverage, and Playwright proof.
+**Goal:** Conform Kehto to `napplet/naps@6461e4b`: remove numbered cross-napplet negotiation, adopt `napplet:<archetype>/<intent>[...?params]` conventions, and close every active contract gap in NAP-SHELL, NAP-INTENT, NAP-INC, NAP-IDENTITY, and NAP-THEME.
 
 **Target features:**
-- **One NAP only:** v1.28 is scoped to `webrtc` / `NAP-WEBRTC`; `NAP-BLE` is complete in PR #75.
-- **Runtime-owned WebRTC sessions:** napplets can request `webrtc.open`, `webrtc.send`, and `webrtc.close`; the shell/runtime owns signaling, signing/encryption, SDP, ICE, peer connection lifecycle, session handles, and policy.
-- **Reference service:** add a framework-agnostic `createWebrtcService` in `@kehto/services` with host-provided hooks that return structured upstream-compatible results, route host-pushed events, and deny unavailable actions safely.
-- **Capability and dispatch parity:** advertise `webrtc` only when the host wires a WebRTC backend, register `webrtc` in runtime NAP dispatch, and remove it from Paja's deferred-domain metadata.
-- **Playground and Paja proof:** Paja wires deterministic in-memory WebRTC behavior; playground gains a small `webrtc-demo` napplet and Playwright coverage that proves representative WebRTC requests/events work through the real shell path.
-- **Release-ready coverage:** new unit/static/e2e tests pass; docs/package exports/changesets updated; branch pushed and PR opened when gates pass.
+- **Domain-only NAP-SHELL:** `supports(domain)`, truthful grants, exactly-once bootstrap, no pre-session capability traffic, and no numbered capability metadata.
+- **Convention-based intent and manifests:** `convention`/`conventions`, verified installed-manifest catalogs, user-controlled resolution, convention-bearing archetype tags, and contract-shaped result errors.
+- **Complete INC identity/channel parity:** dTag identities, opaque exact topics and IDs, full subscription/channel API, open-time authorization, and lifecycle cleanup.
+- **Identity/theme wire parity:** result-only failure shapes, readonly/change semantics, NAP-RESOURCE-mediated profile media, and atomic single-broadcast theme updates.
+- **Published-package proof:** consume the convention-capable Napplet release line once the concurrent `napplet/web` chase publishes it; do not guess unpublished APIs.
+- **Release-ready evidence:** focused and full unit/e2e/docs/quality gates, active-surface drift guard, changesets, and a concise PR.
 
-**Key context:** Authoritative delta was inspected on 2026-06-23 from `@napplet/nap@0.20.0` / `@napplet/core@0.20.0` and the local `napplet` checkout (`packages/nap/src/webrtc`, `packages/core/src/types/webrtc.ts`). Prior parity milestones are stacked in PRs #71-#75; this should close the recent `@napplet/nap` domain parity set. No new dependencies.
+**Key context:** Normative authority is `napplet/naps` master commit `6461e4b37c29dc09a20dff35d9515889c4433874`; Kehto baseline is canonical `origin/main` at `bb3929b3523b75356fd65f658f9bd14c7ff697e4`. The complete delta and package gate are recorded in `.planning/NAP-CONVENTIONS-6461E4B-DELTA-AUDIT.md`. Topic/query ambiguity tracking is `kehto/web#203`.
 
 ## Latest Milestone: v1.18 Napplet Firewall (shipped 2026-06-15)
 
@@ -66,13 +66,9 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Status:** v1.17 Beautify the SPA Landing Page shipped and archived. Awaiting next milestone definition.
+**Status:** v1.29 planning from a clean canonical-main baseline; implementation pending.
 
-v1.17 turned the public `/web/` SPA landing page into a branded Kehto first impression while preserving the existing `/web/playground/` and `/web/docs/` destination links. The page now communicates Kehto's modular sandboxed-runtime value with an almost-black background, muted yellow accent, custom wordmark treatment, restrained cradle-inspired geometry, GSAP entrance/exit motion, and a subtle liquid canvas accent with reduced-motion support.
-
-The shipped baseline remains pinned-spec NIP-5D conformance, a buildable docs site, a pre-deploy GitHub Pages artifact contract for `https://kehto.github.io/web/`, local structural scanner health, and a branded static portal that can route visitors to the playground and docs without JavaScript.
-
-Verification stands at `pnpm build`, `pnpm type-check`, `pnpm test:unit` (570 tests), `VITEPRESS_BASE=/web/docs/ pnpm docs:check`, `pnpm build:pages`, `pnpm audit:pages`, `pnpm audit:gateway-artifacts`, `pnpm audit:csp`, `npx --yes aislop scan -d`, browser visual checks for desktop/mobile/reduced motion, and `git diff --check`.
+The upstream specification audit and Kehto active-surface audit are complete. Independent runtime corrections may proceed immediately. Final type, build, integration, and PR gates depend on the concurrent `napplet/web` chase publishing convention-capable core/nap/shim/sdk/vite-plugin releases.
 
 ## Previous Milestone: v1.20 NIP-5D Content-Addressed Runtime Resolution
 

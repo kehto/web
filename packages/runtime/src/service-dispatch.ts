@@ -5,11 +5,9 @@ import type { ServiceRegistry, SendToNapplet } from './types.js';
 /**
  * Route a NappletMessage envelope to the matching service handler.
  *
- * NAP-domain services are routed by the domain prefix of message.type
- * (e.g., 'signer.signEvent' -> 'signer' service).
- *
- * INC-routed services receive inc.emit messages and are routed by the
- * topic prefix before ':' (e.g., topic 'audio:play' -> 'audio' service).
+ * Direct NAP-domain services are routed by the domain in their wire
+ * message.type (e.g., 'signer.signEvent' -> 'signer' service). INC messages
+ * are owned by the INC runtime; their topic values are opaque here.
  *
  * Returns true if a service handled the message, false otherwise.
  *
@@ -31,23 +29,15 @@ export function routeServiceMessage(
   services: ServiceRegistry,
   sendToNapplet: SendToNapplet,
 ): boolean {
-  // NAP-domain services: signer.*, relay.*, storage.* route by type prefix
+  // INC emissions belong exclusively to the INC runtime.
+  if (message.type === 'inc.emit') return false;
+
+  // Direct NAP-domain services: signer.*, relay.*, storage.* route by wire type domain.
   const domain = message.type.split('.')[0];
   const handler = services[domain];
   if (handler) {
     handler.handleMessage(windowId, message, (msg) => sendToNapplet(windowId, msg));
     return true;
-  }
-
-  // INC-routed services: audio and notifications receive inc.emit with topic prefix
-  const incMessage = message as NappletMessage & { topic?: unknown };
-  if (message.type === 'inc.emit' && typeof incMessage.topic === 'string') {
-    const prefix = incMessage.topic.split(':')[0];
-    const incHandler = services[prefix];
-    if (incHandler) {
-      incHandler.handleMessage(windowId, message, (msg) => sendToNapplet(windowId, msg));
-      return true;
-    }
   }
 
   return false;

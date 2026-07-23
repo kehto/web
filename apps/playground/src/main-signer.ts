@@ -13,6 +13,31 @@ export interface SignerNodeUiController {
   handleDocumentClick(event: MouseEvent): boolean;
 }
 
+export function createIdentityTransitionPublisher(
+  publishIdentityChanged?: (pubkey: string) => void,
+): (state: SignerConnectionStateView) => void {
+  let lastPublishedIdentity: string | null = null;
+
+  return (state) => {
+    if (state.isConnecting) return;
+
+    const currentIdentity = state.method !== 'none' && !state.error
+      ? state.pubkey ?? ''
+      : '';
+    if (lastPublishedIdentity === null && currentIdentity === '') {
+      // A disconnected initial state is a snapshot, not an identity transition.
+      // In particular, connecting must not emit a transient sign-out before the
+      // real signer pubkey is available.
+      lastPublishedIdentity = currentIdentity;
+      return;
+    }
+    if (currentIdentity !== lastPublishedIdentity) {
+      lastPublishedIdentity = currentIdentity;
+      publishIdentityChanged?.(currentIdentity);
+    }
+  };
+}
+
 function createMeta(className: string, text: string): HTMLDivElement {
   const el = document.createElement('div');
   el.className = `topology-node-meta ${className}`;
@@ -201,18 +226,11 @@ export function initSignerNodeUi(
   publishIdentityChanged?: (pubkey: string) => void,
 ): SignerNodeUiController {
   const signerNodeId = getServiceNodeId('signer');
-  let lastPublishedIdentity: string | null = null;
+  const publishIdentityTransition = createIdentityTransitionPublisher(publishIdentityChanged);
 
   onStateChange((state) => {
     updateSignerNodeDisplay(signerNodeId, state);
-
-    const currentIdentity = state.method !== 'none' && !state.isConnecting && !state.error
-      ? state.pubkey ?? ''
-      : '';
-    if (currentIdentity !== lastPublishedIdentity) {
-      lastPublishedIdentity = currentIdentity;
-      publishIdentityChanged?.(currentIdentity);
-    }
+    publishIdentityTransition(state);
 
     if (state.method !== 'none' && !state.isConnecting && !state.error) {
       debuggerEl?.addSystemMessage(`signer connected via ${state.method}: ${state.pubkey?.substring(0, 16)}...`);

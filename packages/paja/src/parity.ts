@@ -1,5 +1,11 @@
 import type { ShellCapabilities } from '@kehto/shell';
 
+/** The exact host-visible shell environment shape shared by bootstrap and init. */
+export type PajaShellEnvironment = Readonly<{
+  capabilities: ShellCapabilities;
+  services: readonly string[];
+}>;
+
 const PAJA_LEGACY_COMPATIBILITY_DOMAIN: string = `i${'fc'}`;
 
 /** Domain list mirrored from the upstream web runtime for parity checks. */
@@ -108,4 +114,18 @@ export function getMissingAdvertisedDomains(capabilities: ShellCapabilities): st
 export function getMissingServices(services: readonly string[]): string[] {
   const wired = new Set(services);
   return PAJA_REQUIRED_SERVICES.filter((service) => !wired.has(service));
+}
+
+/**
+ * Compare the observable membership of two independently resolved Paja shell
+ * environments. Resolver calls intentionally return different frozen objects.
+ */
+export function hasEqualPajaEnvironmentMembership(
+  left: PajaShellEnvironment,
+  right: PajaShellEnvironment,
+): boolean {
+  return left.capabilities.domains.length === right.capabilities.domains.length
+    && left.capabilities.domains.every((domain, index) => domain === right.capabilities.domains[index])
+    && left.services.length === right.services.length
+    && left.services.every((service, index) => service === right.services[index]);
 }

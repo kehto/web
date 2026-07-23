@@ -91,13 +91,39 @@ describe('createThemeService', () => {
       expect(theme.colors.text).toBe('#000000');
       expect(theme.colors.primary).toBe('#ff00ff');
     });
+
+    it('uses the complete fixed fallback for an incomplete initial theme', () => {
+      const service = createThemeService({
+        initialTheme: { colors: { background: '#ffffff' } } as Theme,
+      });
+      const sent: NappletMessage[] = [];
+
+      service.handler.handleMessage(
+        WINDOW_ID,
+        makeMsg('theme.get', { id: 'corr-incomplete' }),
+        (message) => { sent.push(message); },
+      );
+
+      expect(sent).toEqual([
+        expect.objectContaining({
+          type: 'theme.get.result',
+          id: 'corr-incomplete',
+          theme: { colors: DEFAULT_THEME_COLORS },
+        }),
+      ]);
+      expect(sent[0]).not.toHaveProperty('error');
+    });
   });
 
   describe('publishTheme broadcast', () => {
-    it('updates internal state and invokes onBroadcast with a theme.changed envelope', () => {
+    it('updates state before invoking onBroadcast once with one matching envelope', () => {
       const broadcasts: ThemeChangedMessage[] = [];
-      const service = createThemeService({
-        onBroadcast: (envelope) => { broadcasts.push(envelope); },
+      let service: ReturnType<typeof createThemeService>;
+      service = createThemeService({
+        onBroadcast: (envelope) => {
+          broadcasts.push(envelope);
+          expect(service.getCurrentTheme()).toEqual(envelope.theme);
+        },
       });
 
       const newTheme: Theme = {
@@ -141,44 +167,38 @@ describe('createThemeService', () => {
 
       expect(service.getCurrentTheme()).toEqual(newTheme);
     });
-  });
 
-  describe('ACL denial envelope shape', () => {
-    // NOTE: The real ACL gate lives in @kehto/acl's resolveCapabilitiesNap and
-    // runs in the runtime BEFORE the service is invoked. This test asserts the
-    // shape of the denial envelope the runtime would emit — it does NOT
-    // exercise the real ACL path end-to-end. See dispatch.test.ts for the
-    // runtime-level integration test exercising the theme:read gate.
-    it('denial envelope has { type: "<request>.error", id, error }', () => {
-      const msg = makeMsg('theme.get', { id: 'corr-denied' });
-      const denialEnvelope = {
-        type: `${msg.type}.error`,
-        id: (msg as any).id,
-        error: 'capability denied: theme:read',
-      };
-      expect(denialEnvelope.type).toBe('theme.get.error');
-      expect(denialEnvelope.id).toBe('corr-denied');
-      expect(typeof denialEnvelope.error).toBe('string');
-      expect(denialEnvelope.error).toContain('denied');
+    it('replaces an incomplete published theme with the complete fixed fallback', () => {
+      const broadcasts: ThemeChangedMessage[] = [];
+      const service = createThemeService({
+        onBroadcast: (envelope) => { broadcasts.push(envelope); },
+      });
+
+      const returned = service.publishTheme({
+        colors: { background: '#ffffff', text: '#000000' },
+      } as Theme);
+
+      expect(broadcasts).toEqual([returned]);
+      expect(returned.theme).toEqual({ colors: DEFAULT_THEME_COLORS });
+      expect(service.getCurrentTheme()).toEqual(returned.theme);
     });
   });
 
   describe('unknown theme action', () => {
-    it('returns .error envelope with "Unknown theme method" reason', () => {
+    it.each(['theme.doesNotExist', 'theme.subscribe', 'theme.unsubscribe'])('silently ignores %s', (type) => {
       const service = createThemeService();
       const sent: NappletMessage[] = [];
       const send = (msg: NappletMessage): void => { sent.push(msg); };
+      const before = service.getCurrentTheme();
 
       service.handler.handleMessage(
         WINDOW_ID,
-        makeMsg('theme.doesNotExist', { id: 'corr-bogus' }),
+        makeMsg(type, { id: 'corr-bogus' }),
         send,
       );
 
-      expect(sent).toHaveLength(1);
-      expect(sent[0].type).toBe('theme.doesNotExist.error');
-      expect((sent[0] as any).id).toBe('corr-bogus');
-      expect((sent[0] as any).error).toMatch(/Unknown theme method/i);
+      expect(sent).toEqual([]);
+      expect(service.getCurrentTheme()).toEqual(before);
     });
   });
 

@@ -1,5 +1,7 @@
 import { readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { resolvePajaFrameEnvironment } from './browser-target-frame.js';
+import type { ShellAdapter } from '@kehto/shell';
 
 import {
   PAJA_ADVERTISED_DOMAINS,
@@ -11,6 +13,23 @@ import {
   getMissingAdvertisedDomains,
   getMissingServices,
 } from './parity.js';
+
+function baseHooks(): ShellAdapter {
+  return {
+    relayPool: { getRelayPool: () => null, trackSubscription: () => {}, untrackSubscription: () => {}, openScopedRelay: () => {}, closeScopedRelay: () => {}, publishToScopedRelay: () => false, selectRelayTier: () => [] },
+    relayConfig: { addRelay: () => {}, removeRelay: () => {}, getRelayConfig: () => ({ discovery: [], super: [], outbox: [] }), getNip66Suggestions: () => null },
+    windowManager: { createWindow: () => null },
+    auth: { getUserPubkey: () => null, getSigner: () => null },
+    config: { getNappUpdateBehavior: () => 'banner' },
+    hotkeys: { executeHotkeyFromForward: () => {} },
+    workerRelay: { getWorkerRelay: () => null },
+    crypto: { verifyEvent: async () => true },
+  };
+}
+
+function service(name: string) {
+  return { descriptor: { name, version: '1.0.0' }, handleMessage: () => {} };
+}
 
 function napPackageRoot(): URL {
   return new URL('../node_modules/@napplet/nap/dist/', import.meta.url);
@@ -59,17 +78,76 @@ describe('@kehto/paja parity metadata', () => {
   it('identifies missing advertised domains and services', () => {
     expect(getMissingAdvertisedDomains({
       domains: [...PAJA_ADVERTISED_DOMAINS],
-      protocols: { inc: ['NAP-01', 'NAP-02', 'NAP-03', 'NAP-04', 'NAP-05', 'NAP-06'] },
-      naps: [...PAJA_ADVERTISED_DOMAINS],
-      sandbox: [],
     })).toEqual([]);
     expect(getMissingAdvertisedDomains({
       domains: PAJA_ADVERTISED_DOMAINS.filter((domain) => domain !== 'upload'),
-      protocols: {},
-      naps: [],
-      sandbox: [],
     })).toEqual(['upload']);
     expect(getMissingServices(PAJA_REQUIRED_SERVICES)).toEqual([]);
     expect(getMissingServices(PAJA_REQUIRED_SERVICES.filter((service) => service !== 'intent'))).toEqual(['intent']);
+  });
+
+  it('resolves one immutable frame environment from trusted live wiring', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      services: { config: service('config'), resource: service('resource') },
+      capabilities: {
+        disabledDomains: ['identity', 'resource'],
+        resolveEnvironment: () => ({
+          domains: ['relay', 'config', 'identity', 'resource'],
+          services: ['config', 'resource'],
+        }),
+      },
+    };
+
+    const environment = resolvePajaFrameEnvironment(hooks, {
+      dTag: 'trusted-frame',
+      aggregateHash: 'trusted-hash',
+    });
+
+    expect(environment).toEqual({
+      capabilities: { domains: ['relay', 'config'] },
+      services: ['config'],
+    });
+    expect(Object.isFrozen(environment)).toBe(true);
+    expect(Object.isFrozen(environment.capabilities)).toBe(true);
+    expect(Object.isFrozen(environment.capabilities.domains)).toBe(true);
+    expect(Object.isFrozen(environment.services)).toBe(true);
+  });
+
+  it('does not resurrect an absent domain when the same trusted frame environment is rebuilt', () => {
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      capabilities: {
+        disabledDomains: ['relay'],
+        resolveEnvironment: () => ({ domains: ['relay', 'storage'], services: [] }),
+      },
+    };
+    const identity = { dTag: 'same-frame', aggregateHash: 'same-hash' };
+
+    const first = resolvePajaFrameEnvironment(hooks, identity);
+    const second = resolvePajaFrameEnvironment(hooks, identity);
+
+    expect(first).toEqual(second);
+    expect(first.capabilities.domains).not.toContain('relay');
+    expect(second.capabilities.domains).not.toContain('relay');
+  });
+
+  it('keeps the captured environment stable when a mutable disabled-domain source changes', () => {
+    let disabledDomains: readonly string[] = [];
+    const hooks: ShellAdapter = {
+      ...baseHooks(),
+      capabilities: {
+        get disabledDomains(): readonly string[] {
+          return disabledDomains;
+        },
+      },
+    };
+
+    const bootstrap = resolvePajaFrameEnvironment(hooks, { dTag: 'toggle-frame', aggregateHash: 'toggle-hash' });
+    disabledDomains = ['relay'];
+    const laterFrame = resolvePajaFrameEnvironment(hooks, { dTag: 'later-frame', aggregateHash: 'later-hash' });
+
+    expect(bootstrap.capabilities.domains).toContain('relay');
+    expect(laterFrame.capabilities.domains).not.toContain('relay');
   });
 });

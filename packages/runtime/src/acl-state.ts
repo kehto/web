@@ -84,6 +84,14 @@ function toIdentity(pubkey: string, dTag: string, hash: string): Identity {
   return { pubkey, dTag, hash };
 }
 
+/** An ACL authority change that can invalidate runtime-owned routes. */
+export type AclMutation =
+  | { readonly type: 'revoke'; readonly dTag: string; readonly aggregateHash: string; readonly capability: Capability }
+  | { readonly type: 'block'; readonly dTag: string; readonly aggregateHash: string };
+
+/** Receives synchronous ACL authority changes after persistence succeeds. */
+export type AclMutationObserver = (mutation: AclMutation) => void;
+
 /**
  * ACL state container — wraps @kehto/acl's pure functions with
  * persistence and a convenient imperative API.
@@ -116,6 +124,7 @@ export interface AclStateContainer {
  *
  * @param persistence - Storage backend for ACL state
  * @param defaultPolicy - Default ACL policy for unknown identities
+ * @param onMutation - Internal runtime observer for revoke and block facts
  * @returns An AclStateContainer instance
  *
  * @example
@@ -127,6 +136,7 @@ export interface AclStateContainer {
 export function createAclState(
   persistence: AclPersistence,
   defaultPolicy: 'permissive' | 'restrictive' = 'permissive',
+  onMutation?: AclMutationObserver,
 ): AclStateContainer {
   let state: AclState = createState(defaultPolicy);
 
@@ -152,12 +162,14 @@ export function createAclState(
       const id = toIdentity(pubkey, dTag, aggregateHash);
       ensureRuntimeDefaultEntry(id);
       state = revoke(state, id, capToBit(capability));
+      onMutation?.({ type: 'revoke', dTag, aggregateHash, capability });
     },
 
     block(pubkey: string, dTag: string, aggregateHash: string): void {
       const id = toIdentity(pubkey, dTag, aggregateHash);
       ensureRuntimeDefaultEntry(id);
       state = block(state, id);
+      onMutation?.({ type: 'block', dTag, aggregateHash });
     },
 
     unblock(pubkey: string, dTag: string, aggregateHash: string): void {

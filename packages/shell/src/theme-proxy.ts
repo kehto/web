@@ -6,12 +6,9 @@
  * API that emits `theme.changed` push envelopes to registered napplets;
  * this proxy is the canonical seam those pieces plug into.
  *
- * Shape mirrors identity-proxy (Plan 12-11):
- *
- *   - `dispatch(windowId, envelope)` routes napplet→shell `theme.get` into
- *     the runtime (where Phase 13's theme-service will answer).
- *   - `emit(windowId, envelope)` posts shell→napplet `theme.changed`
- *     envelopes through the origin registry.
+ * `dispatch(windowId, envelope)` routes napplet→shell `theme.get` into the
+ * runtime. Theme changes must use `ShellBridge.publishTheme()` so the host
+ * projection enforces live-session, granted-domain, and current-ACL checks.
  *
  * By default `createShellBridge()` does NOT compose this proxy into its
  * dispatch path — the runtime owns theme.* dispatch. This module is an
@@ -43,8 +40,8 @@ export interface ThemeProxyDeps {
 /**
  * Per-domain proxy for `theme.*` envelopes.
  *
- * Shape: `dispatch` routes napplet→shell requests into the runtime; `emit`
- * pushes shell→napplet envelopes through the iframe's Window.
+ * `dispatch` routes napplet→shell requests into the runtime. The deprecated
+ * `emit` member remains only as a fail-closed compatibility trap.
  */
 export interface ThemeProxy {
   /**
@@ -56,14 +53,10 @@ export interface ThemeProxy {
    */
   dispatch(windowId: string, envelope: NappletMessage): void;
   /**
-   * Push a shell-initiated theme-domain envelope (e.g. `theme.changed`)
-   * into a napplet iframe.
+   * Direct theme delivery is prohibited.
    *
-   * No-op when the originRegistry cannot resolve the windowId (unknown or
-   * unregistered napplet). Never throws.
-   *
-   * @param windowId - The target napplet's windowId
-   * @param envelope - The NIP-5D NappletMessage envelope to deliver
+   * @deprecated Use `ShellBridge.publishTheme()` so delivery is filtered by
+   * live session, granted domain, and current ACL.
    */
   emit(windowId: string, envelope: NappletMessage): void;
 }
@@ -75,18 +68,13 @@ export interface ThemeProxy {
  * @returns A {@link ThemeProxy} ready to route theme.* envelopes
  * @example
  * ```ts
- * import { createThemeProxy, originRegistry, createShellBridge } from '@kehto/shell';
+ * import { createThemeProxy, originRegistry } from '@kehto/shell';
  *
- * const bridge = createShellBridge(hooks);
  * const themeProxy = createThemeProxy({
- *   runtime: bridge.runtime,
+ *   runtime,
  *   originRegistry,
  * });
- *
- * // Phase 13: broadcast theme.changed to every registered napplet
- * for (const entry of bridge.runtime.sessionRegistry.getAllEntries()) {
- *   themeProxy.emit(entry.windowId, { type: 'theme.changed', theme: newTheme });
- * }
+ * themeProxy.dispatch(windowId, { type: 'theme.get', id: requestId });
  * ```
  */
 export function createThemeProxy(deps: ThemeProxyDeps): ThemeProxy {
@@ -94,9 +82,10 @@ export function createThemeProxy(deps: ThemeProxyDeps): ThemeProxy {
     dispatch(windowId: string, envelope: NappletMessage): void {
       deps.runtime.handleMessage(windowId, envelope);
     },
-    emit(windowId: string, envelope: NappletMessage): void {
-      const win = deps.originRegistry.getIframeWindow(windowId);
-      if (win) win.postMessage(envelope, '*');
+    emit(_windowId: string, _envelope: NappletMessage): void {
+      throw new Error(
+        'Direct theme proxy emit is prohibited; use ShellBridge.publishTheme()',
+      );
     },
   };
 }

@@ -254,20 +254,21 @@ describe('NIP-5D napplet namespace prelude', () => {
     expect(script).toContain("buildNappletNamespace(value)");
   });
 
-  it('installs the NAP-SHELL receiver before signaling ready and caches shell.init locally', async () => {
+  it('installs the NAP-SHELL receiver before signaling ready and caches one immutable unary environment', async () => {
     const target = createPreludeTestWindow();
     const readyEnvironments: unknown[] = [];
 
     runPrelude(renderNappletNamespacePrelude({ domains: ['relay', 'inc'] }), target);
 
     const shell = target.napplet?.shell as {
-      ready: () => Promise<unknown>;
-      supports: (domain: string, protocol?: string) => boolean;
+      ready: () => Promise<{ capabilities: { domains: readonly string[] }; services: readonly string[] }>;
+      supports: (domain: string) => boolean;
       readonly services: readonly string[];
       onReady: (handler: (environment: unknown) => void) => { close(): void };
     };
     expect(typeof shell.ready).toBe('function');
     expect(typeof shell.supports).toBe('function');
+    expect(shell.supports.length).toBe(1);
     expect(typeof shell.onReady).toBe('function');
     expect(shell.services).toEqual([]);
     expect(shell.supports('relay')).toBe(false);
@@ -284,33 +285,38 @@ describe('NIP-5D napplet namespace prelude', () => {
       capabilities: { domains: ['forged'] },
       services: ['forged'],
     });
-    expect(shell.supports('forged')).toBe(false);
-
+    target.dispatchMessage(target, {
+      type: 'shell.init',
+      capabilities: { domains: ['child'] },
+      services: ['child'],
+    });
     target.dispatchParentMessage({
       type: 'shell.init',
-      capabilities: {
-        domains: ['relay', 'inc'],
-        protocols: { inc: ['NAP-01'] },
-      },
-      services: ['relay-pool', 'storage'],
+      capabilities: { domains: ['relay', 'inc', 'relay', 'Relay', '', 1] },
+      services: ['relay-pool', 'storage', 'relay-pool', 1],
     });
     const environment = await ready;
 
     expect(environment).toEqual({
-      capabilities: {
-        domains: ['relay', 'inc'],
-        protocols: { inc: ['NAP-01'] },
-      },
+      capabilities: { domains: ['relay', 'inc', 'Relay'] },
       services: ['relay-pool', 'storage'],
     });
     expect(readyEnvironments).toEqual([environment]);
     expect(cancelledEnvironments).toEqual([]);
     expect(shell.supports('relay')).toBe(true);
-    expect(shell.supports('inc', 'NAP-01')).toBe(true);
-    expect(shell.supports('inc', 'NAP-99')).toBe(false);
-    expect(shell.supports('unknown')).toBe(false);
+    expect(shell.supports('inc')).toBe(true);
+    expect(shell.supports('Relay')).toBe(true);
+    for (const unsupported of ['RELay', ' relay', ' relay ', 'relay ', 'rel', 'relay-pool', '', 'unknown', null, 1, {}]) {
+      expect(() => (shell.supports as (domain: unknown) => boolean)(unsupported)).not.toThrow();
+      expect((shell.supports as (domain: unknown) => boolean)(unsupported)).toBe(false);
+    }
     expect(shell.services).toEqual(['relay-pool', 'storage']);
+    expect(Object.isFrozen(environment)).toBe(true);
+    expect(Object.isFrozen(environment.capabilities)).toBe(true);
+    expect(Object.isFrozen(environment.capabilities.domains)).toBe(true);
     expect(Object.isFrozen(shell.services)).toBe(true);
+    expect(() => (environment.capabilities.domains as string[]).push('forged')).toThrow();
+    expect(() => (shell.services as string[]).push('forged')).toThrow();
     (shell as { services: readonly string[] }).services = ['forged'];
     expect(shell.services).toEqual(['relay-pool', 'storage']);
 
@@ -325,6 +331,28 @@ describe('NIP-5D napplet namespace prelude', () => {
     shell.onReady((lateEnvironment) => lateEnvironments.push(lateEnvironment));
     expect(lateEnvironments).toEqual([environment]);
     subscription.close();
+  });
+
+  it('isolates immutable shell.init snapshots between prelude windows', async () => {
+    const first = createPreludeTestWindow();
+    const second = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['relay'] }), first);
+    runPrelude(renderNappletNamespacePrelude({ domains: ['inc'] }), second);
+
+    const firstShell = first.napplet?.shell as { ready: () => Promise<{ capabilities: { domains: readonly string[] }; services: readonly string[] }> };
+    const secondShell = second.napplet?.shell as { ready: () => Promise<{ capabilities: { domains: readonly string[] }; services: readonly string[] }> };
+    const firstReady = firstShell.ready();
+    const secondReady = secondShell.ready();
+
+    first.dispatchParentMessage({ type: 'shell.init', capabilities: { domains: ['relay'] }, services: ['relay-service'] });
+    second.dispatchParentMessage({ type: 'shell.init', capabilities: { domains: ['inc'] }, services: ['inc-service'] });
+    const [firstEnvironment, secondEnvironment] = await Promise.all([firstReady, secondReady]);
+
+    expect(firstEnvironment).not.toBe(secondEnvironment);
+    expect(firstEnvironment.capabilities.domains).not.toBe(secondEnvironment.capabilities.domains);
+    expect(firstEnvironment.services).not.toBe(secondEnvironment.services);
+    expect(firstEnvironment).toEqual({ capabilities: { domains: ['relay'] }, services: ['relay-service'] });
+    expect(secondEnvironment).toEqual({ capabilities: { domains: ['inc'] }, services: ['inc-service'] });
   });
 
   it('injects only mandatory NAP-SHELL when no optional domains are requested', () => {
@@ -485,12 +513,398 @@ describe('NIP-5D napplet namespace prelude', () => {
     });
     await expect(stored).resolves.toBe('dark');
 
-    napplet.inc.emit('profile:open', [], JSON.stringify({ pubkey: 'pubkey-1' }));
+    napplet.inc.emit('profile:open', { pubkey: 'pubkey-1' });
     expect(target.postedMessages.at(-1)).toMatchObject({
       type: 'inc.emit',
       topic: 'profile:open',
       payload: { pubkey: 'pubkey-1' },
     });
+  });
+
+  it('keeps identity read-only, canonical, and parent-authenticated after direct reassignment', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['identity'] }), target);
+
+    const namespace = target.napplet as Record<string, Record<string, (...args: unknown[]) => unknown>>;
+    const identity = namespace.identity;
+    const getPublicKey = identity.getPublicKey;
+    const onChanged = identity.onChanged;
+    const changes: string[] = [];
+    const subscription = onChanged((pubkey: string) => changes.push(pubkey)) as { close(): void };
+
+    expect(Object.keys(identity)).toEqual([
+      'getPublicKey',
+      'getRelays',
+      'getProfile',
+      'getFollows',
+      'getList',
+      'getZaps',
+      'getMutes',
+      'getBlocked',
+      'getBadges',
+      'onChanged',
+    ]);
+    expect(Object.getOwnPropertyDescriptor(identity, 'getPublicKey')).toMatchObject({
+      value: getPublicKey,
+      enumerable: true,
+      configurable: false,
+      writable: false,
+    });
+    expect(Reflect.set(identity, 'getPublicKey', () => Promise.resolve('forged'))).toBe(false);
+    expect(Reflect.deleteProperty(identity, 'onChanged')).toBe(false);
+    expect(Reflect.defineProperty(identity, 'getPublicKey', { value: () => Promise.resolve('forged') })).toBe(false);
+
+    namespace.identity = { getPublicKey: () => Promise.resolve('forged'), onChanged: () => ({ close() {} }) };
+    target.napplet = { identity: { getPublicKey: () => Promise.resolve('forged') } };
+    expect(target.napplet?.identity).toBe(identity);
+    expect((target.napplet?.identity as typeof identity).getPublicKey).toBe(getPublicKey);
+    expect((target.napplet?.identity as typeof identity).onChanged).toBe(onChanged);
+
+    const publicKey = getPublicKey() as Promise<string>;
+    const request = target.postedMessages.at(-1);
+    expect(request).toEqual({ type: 'identity.getPublicKey', id: 'id-1' });
+    target.dispatchMessage({}, { type: 'identity.getPublicKey.result', id: request?.id, pubkey: 'forged' });
+    target.dispatchMessage({}, { type: 'identity.changed', pubkey: 'forged' });
+    expect(changes).toEqual([]);
+    target.dispatchParentMessage({ type: 'identity.getPublicKey.result', id: request?.id, pubkey: 'trusted' });
+    await expect(publicKey).resolves.toBe('trusted');
+
+    target.dispatchParentMessage({ type: 'identity.changed', pubkey: 'trusted' });
+    target.dispatchParentMessage({ type: 'identity.changed', pubkey: '' });
+    expect(changes).toEqual(['trusted', '']);
+    subscription.close();
+    target.dispatchParentMessage({ type: 'identity.changed', pubkey: 'after-close' });
+    expect(changes).toEqual(['trusted', '']);
+  });
+
+  it('binds every sanctioned identity read to its matching parent result', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['identity'] }), target);
+    const identity = target.napplet?.identity as Record<string, (...args: string[]) => Promise<unknown>>;
+    const reads = [
+      ['getPublicKey', [], 'identity.getPublicKey', { pubkey: '' }, ''],
+      ['getRelays', [], 'identity.getRelays', { relays: {} }, {}],
+      ['getProfile', [], 'identity.getProfile', { profile: null }, null],
+      ['getFollows', [], 'identity.getFollows', { pubkeys: [] }, []],
+      ['getList', ['bookmarks'], 'identity.getList', { entries: ['note-1'] }, ['note-1']],
+      ['getZaps', [], 'identity.getZaps', { zaps: [] }, []],
+      ['getMutes', [], 'identity.getMutes', { pubkeys: [] }, []],
+      ['getBlocked', [], 'identity.getBlocked', { pubkeys: [] }, []],
+      ['getBadges', [], 'identity.getBadges', { badges: [] }, []],
+    ] as const;
+
+    for (const [method, args, type, result, expected] of reads) {
+      const pending = identity[method](...args);
+      const request = target.postedMessages.at(-1);
+      expect(request).toMatchObject({ type });
+      if (type === 'identity.getList') expect(request).toMatchObject({ listType: 'bookmarks' });
+      target.dispatchParentMessage({ type: `${type}.result`, id: request?.id, ...result });
+      await expect(pending).resolves.toEqual(expected);
+    }
+  });
+
+  it('keeps theme and identity canonical across whole-namespace replacement without subscriptions', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['identity', 'theme', 'inc', 'intent'] }), target);
+
+    expect(Object.getOwnPropertyDescriptor(target, 'napplet')).toMatchObject({
+      configurable: false,
+      enumerable: false,
+      get: expect.any(Function),
+      set: expect.any(Function),
+    });
+
+    const namespace = target.napplet as Record<string, Record<string, (...args: unknown[]) => unknown>>;
+    const identity = namespace.identity;
+    const theme = namespace.theme;
+    const getPublicKey = identity.getPublicKey;
+    const getTheme = theme.get;
+    const onThemeChanged = theme.onChanged;
+    const changes: unknown[] = [];
+    const subscription = onThemeChanged((next: unknown) => changes.push(next)) as { close(): void };
+
+    expect(Object.keys(theme)).toEqual(['get', 'onChanged']);
+    expect(Object.getOwnPropertyDescriptor(theme, 'get')).toMatchObject({
+      value: getTheme,
+      enumerable: true,
+      configurable: false,
+      writable: false,
+    });
+    expect(Reflect.set(theme, 'get', () => Promise.resolve({ forged: true }))).toBe(false);
+    expect(Reflect.deleteProperty(theme, 'onChanged')).toBe(false);
+    expect(Reflect.defineProperty(theme, 'get', { value: () => Promise.resolve({ forged: true }) })).toBe(false);
+
+    namespace.theme = { get: () => Promise.resolve({ forged: true }), subscribe: () => undefined };
+    target.napplet = {
+      identity: { getPublicKey: () => Promise.resolve('forged') },
+      theme: { get: () => Promise.resolve({ forged: true }), unsubscribe: () => undefined },
+      inc: { extension: true },
+    };
+    expect(target.napplet?.identity).toBe(identity);
+    expect(target.napplet?.theme).toBe(theme);
+    expect((target.napplet?.identity as typeof identity).getPublicKey).toBe(getPublicKey);
+    expect((target.napplet?.theme as typeof theme).get).toBe(getTheme);
+    expect(Object.keys(target.napplet?.theme ?? {})).toEqual(['get', 'onChanged']);
+
+    const protectedRoot = target.napplet;
+    expect(Reflect.defineProperty(target, 'napplet', {
+      configurable: true,
+      value: { identity: { getPublicKey: () => Promise.resolve('forged') } },
+    })).toBe(false);
+    expect(Reflect.deleteProperty(target, 'napplet')).toBe(false);
+    expect(Reflect.defineProperty(target, 'napplet', {
+      configurable: true,
+      value: { theme: { get: () => Promise.resolve({ forged: true }) } },
+    })).toBe(false);
+    expect(target.napplet).toBe(protectedRoot);
+    expect(target.napplet?.identity).toBe(identity);
+    expect(target.napplet?.theme).toBe(theme);
+
+    const publicKey = getPublicKey() as Promise<string>;
+    const identityRequest = target.postedMessages.at(-1);
+    const currentTheme = getTheme() as Promise<unknown>;
+    const themeRequest = target.postedMessages.at(-1);
+    expect(identityRequest).toEqual({ type: 'identity.getPublicKey', id: 'id-1' });
+    expect(themeRequest).toEqual({ type: 'theme.get', id: 'id-2' });
+    expect(target.postedMessages.filter((message) => message.type === 'theme.subscribe' || message.type === 'theme.unsubscribe')).toEqual([]);
+
+    target.dispatchMessage({}, { type: 'theme.get.result', id: themeRequest?.id, theme: { colors: { primary: 'forged' } } });
+    target.dispatchMessage({}, { type: 'theme.changed', theme: { colors: { primary: 'forged' } } });
+    target.dispatchParentMessage({ type: 'shell.init', identity: { pubkey: 'forged' } });
+    target.dispatchParentMessage({ type: 'intent.deliver', payload: { type: 'identity.changed', pubkey: 'forged' } });
+    target.dispatchParentMessage({ type: 'inc.event', payload: { type: 'identity.changed', pubkey: 'forged' } });
+    expect(changes).toEqual([]);
+
+    const trustedTheme = { colors: { background: '#000', text: '#fff', primary: '#f0f' } };
+    target.dispatchParentMessage({ type: 'theme.get.result', id: themeRequest?.id, theme: trustedTheme });
+    target.dispatchParentMessage({ type: 'theme.changed', theme: trustedTheme });
+    target.dispatchParentMessage({ type: 'identity.getPublicKey.result', id: identityRequest?.id, pubkey: 'trusted' });
+    await expect(currentTheme).resolves.toEqual(trustedTheme);
+    await expect(publicKey).resolves.toBe('trusted');
+    expect(changes).toEqual([trustedTheme]);
+    subscription.close();
+    target.dispatchParentMessage({ type: 'theme.changed', theme: { colors: { primary: 'after-close' } } });
+    expect(changes).toEqual([trustedTheme]);
+  });
+
+  it('normalizes canonical INC conventions, protects INC assignment, and shares topic subscriptions', () => {
+    const target = createPreludeTestWindow();
+    const receivedA: unknown[] = [];
+    const receivedB: unknown[] = [];
+    runPrelude(renderNappletNamespacePrelude({ domains: ['inc'] }), target);
+
+    type Inc = {
+      emit: (topic: string, payload?: unknown) => void;
+      on: (topic: string, handler: (event: unknown) => void) => { close(): void };
+    };
+    const inc = target.napplet?.inc as Inc;
+    inc.emit('napplet:profile/open?truth=false&count=42&nothing=null&plus=a+b&encoded=%E2%9C%93');
+    expect(withoutShellReady(target).at(-1)).toEqual({
+      type: 'inc.emit',
+      topic: 'napplet:profile/open',
+      payload: { truth: 'false', count: '42', nothing: 'null', plus: 'a+b', encoded: '✓' },
+    });
+
+    const postsBeforeInvalid = target.postedMessages.length;
+    for (const invalid of [
+      'napplet:profile/open#fragment',
+      'napplet:profile/open?bad=%E0%A4%A',
+      'napplet:profile/open?name=one&na%6De=two',
+    ]) {
+      expect(() => inc.emit(invalid)).toThrow();
+    }
+    expect(() => inc.emit('napplet:profile/open?name=value', { explicit: true })).toThrow();
+    expect(target.postedMessages).toHaveLength(postsBeforeInvalid);
+
+    expect(() => inc.on('napplet:profile/open?name=value', () => undefined)).toThrow();
+    expect(() => inc.on('napplet:profile/open#fragment', () => undefined)).toThrow();
+    expect(target.postedMessages).toHaveLength(postsBeforeInvalid);
+
+    const first = inc.on('napplet:profile/open', (event) => receivedA.push(event));
+    const second = inc.on('napplet:profile/open', (event) => receivedB.push(event));
+    const subscribe = withoutShellReady(target).at(-1);
+    expect(withoutShellReady(target).filter((message) => message.type === 'inc.subscribe')).toHaveLength(1);
+    expect(subscribe).toMatchObject({ type: 'inc.subscribe', topic: 'napplet:profile/open', id: 'id-1' });
+    target.dispatchParentMessage({ type: 'inc.subscribe.result', id: subscribe?.id });
+    target.dispatchParentMessage({ type: 'inc.event', topic: 'napplet:profile/open', sender: 'profile-owner', payload: { id: 'one' } });
+    expect(receivedA).toEqual([{ topic: 'napplet:profile/open', sender: 'profile-owner', payload: { id: 'one' } }]);
+    expect(receivedB).toEqual(receivedA);
+    first.close();
+    target.dispatchParentMessage({ type: 'inc.event', topic: 'napplet:profile/open', sender: 'profile-owner', payload: { id: 'two' } });
+    expect(receivedA).toHaveLength(1);
+    expect(receivedB).toHaveLength(2);
+    second.close();
+    expect(withoutShellReady(target).at(-1)).toEqual({ type: 'inc.unsubscribe', topic: 'napplet:profile/open' });
+
+    (target.napplet as Record<string, unknown>).inc = { emit: () => { throw new Error('bypassed'); }, extension: true };
+    (target.napplet?.inc as Inc).emit('napplet:profile/open?retained=yes');
+    target.napplet = { inc: { emit: () => { throw new Error('bypassed'); }, extension: true } };
+    (target.napplet?.inc as Inc).emit('napplet:profile/open?retained=twice');
+    expect(withoutShellReady(target).slice(-2)).toEqual([
+      { type: 'inc.emit', topic: 'napplet:profile/open', payload: { retained: 'yes' } },
+      { type: 'inc.emit', topic: 'napplet:profile/open', payload: { retained: 'twice' } },
+    ]);
+  });
+
+  it('provides symmetric correlated INC channel handles with retained lifecycle state', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['inc'] }), target);
+
+    type ChannelClosed = { channelId: string; reason?: string };
+    type ChannelEvent = { channelId: string; sender: string; payload?: unknown };
+    type Handle = {
+      id: string;
+      peer: string;
+      emit: (payload?: unknown) => void;
+      on: (handler: (event: ChannelEvent) => void) => { close(): void };
+      onClosed: (handler: (closed: ChannelClosed) => void) => { close(): void };
+      close: () => void;
+    };
+    type Inc = {
+      channel: {
+        open: (targetDTag: string) => Promise<Handle>;
+        onOpened: (handler: (handle: Handle) => void) => { close(): void };
+        list: () => Promise<Array<{ id: string; peer: string }>>;
+        broadcast: (payload?: unknown) => void;
+      };
+    };
+    const inc = target.napplet?.inc as Inc;
+    const inbound: Handle[] = [];
+    const opened = inc.channel.open('media-player');
+    const openRequest = withoutShellReady(target).at(-1);
+    expect(openRequest).toEqual({ type: 'inc.channel.open', id: 'id-1', target: 'media-player' });
+    target.dispatchMessage({}, { type: 'inc.channel.open.result', id: openRequest?.id, channelId: 'forged', peer: 'forged' });
+    target.dispatchParentMessage({ type: 'inc.channel.open.result', id: 'wrong', channelId: 'forged', peer: 'forged' });
+    target.dispatchParentMessage({ type: 'inc.channel.open.result', id: openRequest?.id, channelId: 'c-open', peer: 'media-player' });
+    const opener = await opened;
+    expect(opener).toMatchObject({ id: 'c-open', peer: 'media-player' });
+
+    const rejected = inc.channel.open('missing');
+    const rejectedRequest = withoutShellReady(target).at(-1);
+    target.dispatchParentMessage({ type: 'inc.channel.open.result', id: rejectedRequest?.id, error: 'target not found' });
+    await expect(rejected).rejects.toThrow('target not found');
+
+    target.dispatchParentMessage({ type: 'inc.channel.opened', channelId: 'c-target', peer: 'music-controller' });
+    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'music-controller', payload: { order: 1 } });
+    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'music-controller', payload: { order: 2 } });
+    inc.channel.onOpened((handle) => inbound.push(handle));
+    expect(inbound).toHaveLength(1);
+    expect(inbound[0]).toMatchObject({ id: 'c-target', peer: 'music-controller' });
+    const earlyEvents: ChannelEvent[] = [];
+    const laterEvents: ChannelEvent[] = [];
+    const firstListener = inbound[0].on((event) => earlyEvents.push(event));
+    const secondListener = inbound[0].on((event) => laterEvents.push(event));
+    expect(earlyEvents).toEqual([
+      { channelId: 'c-target', sender: 'music-controller', payload: { order: 1 } },
+      { channelId: 'c-target', sender: 'music-controller', payload: { order: 2 } },
+    ]);
+    expect(laterEvents).toEqual([]);
+    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'music-controller', payload: { order: 3 } });
+    firstListener.close();
+    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'music-controller', payload: { order: 4 } });
+    expect(earlyEvents).toHaveLength(3);
+    expect(laterEvents).toEqual([
+      { channelId: 'c-target', sender: 'music-controller', payload: { order: 3 } },
+      { channelId: 'c-target', sender: 'music-controller', payload: { order: 4 } },
+    ]);
+    secondListener.close();
+
+    const list = inc.channel.list();
+    const listRequest = withoutShellReady(target).at(-1);
+    expect(listRequest).toEqual({ type: 'inc.channel.list', id: 'id-3' });
+    target.dispatchParentMessage({
+      type: 'inc.channel.list.result',
+      id: listRequest?.id,
+      channels: [{ id: 'c-open', peer: 'media-player', emit: 'forged' }, { id: 7, peer: 'invalid' }],
+    });
+    await expect(list).resolves.toEqual([{ id: 'c-open', peer: 'media-player' }]);
+
+    inc.channel.broadcast({ all: true });
+    opener.emit({ command: 'play' });
+    opener.close();
+    expect(withoutShellReady(target).slice(-3)).toEqual([
+      { type: 'inc.channel.broadcast', payload: { all: true } },
+      { type: 'inc.channel.emit', channelId: 'c-open', payload: { command: 'play' } },
+      { type: 'inc.channel.close', channelId: 'c-open' },
+    ]);
+    const closed: ChannelClosed[] = [];
+    opener.onClosed((record) => closed.push(record));
+    expect(closed).toEqual([{ channelId: 'c-open' }]);
+
+    target.dispatchParentMessage({ type: 'inc.channel.closed', channelId: 'c-target', reason: 'peer destroyed' });
+    const targetClosed: ChannelClosed[] = [];
+    inbound[0].onClosed((record) => targetClosed.push(record));
+    expect(targetClosed).toEqual([{ channelId: 'c-target', reason: 'peer destroyed' }]);
+
+    target.dispatchParentMessage({ type: 'inc.channel.opened', channelId: 'c-overflow', peer: 'noisy-peer' });
+    const overflowing = inbound.at(-1) as Handle;
+    for (let order = 0; order <= 32; order += 1) {
+      target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-overflow', sender: 'noisy-peer', payload: { order } });
+    }
+    expect(withoutShellReady(target).at(-1)).toEqual({ type: 'inc.channel.close', channelId: 'c-overflow' });
+    const overflowClosed: ChannelClosed[] = [];
+    overflowing.onClosed((record) => overflowClosed.push(record));
+    expect(overflowClosed).toEqual([{ channelId: 'c-overflow', reason: 'buffer overflow' }]);
+  });
+
+  it('retains one terminal inbound handle for late opened and closed callbacks when unopened delivery overflows', () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['inc'] }), target);
+
+    type ChannelClosed = { channelId: string; reason?: string };
+    type ChannelEvent = { channelId: string; sender: string; payload?: unknown };
+    type Handle = {
+      id: string;
+      emit: (payload?: unknown) => void;
+      on: (handler: (event: ChannelEvent) => void) => { close(): void };
+      onClosed: (handler: (closed: ChannelClosed) => void) => { close(): void };
+      close: () => void;
+    };
+    type Inc = {
+      channel: { onOpened: (handler: (handle: Handle) => void) => { close(): void } };
+    };
+    const inc = target.napplet?.inc as Inc;
+
+    for (let index = 0; index < 32; index += 1) {
+      target.dispatchParentMessage({
+        type: 'inc.channel.opened',
+        channelId: `c-retained-${index}`,
+        peer: 'music-controller',
+      });
+    }
+    target.dispatchParentMessage({
+      type: 'inc.channel.opened',
+      channelId: 'c-overflowed-inbound',
+      peer: 'music-controller',
+    });
+    expect(withoutShellReady(target).filter((message) => message.type === 'inc.channel.close')).toEqual([
+      { type: 'inc.channel.close', channelId: 'c-overflowed-inbound' },
+    ]);
+
+    const opened: Handle[] = [];
+    inc.channel.onOpened((handle) => opened.push(handle));
+    const overflowed = opened.find((handle) => handle.id === 'c-overflowed-inbound');
+    expect(overflowed).toBeDefined();
+
+    const closed: ChannelClosed[] = [];
+    overflowed?.onClosed((record) => closed.push(record));
+    expect(closed).toEqual([{ channelId: 'c-overflowed-inbound', reason: 'buffer overflow' }]);
+
+    const received: ChannelEvent[] = [];
+    overflowed?.on((event) => received.push(event));
+    target.dispatchParentMessage({
+      type: 'inc.channel.event',
+      channelId: 'c-overflowed-inbound',
+      sender: 'music-controller',
+      payload: { ignored: true },
+    });
+    overflowed?.emit({ ignored: true });
+    overflowed?.close();
+    expect(received).toEqual([]);
+    expect(withoutShellReady(target).filter((message) => message.type === 'inc.channel.emit')).toEqual([]);
+    expect(withoutShellReady(target).filter((message) => message.type === 'inc.channel.close')).toEqual([
+      { type: 'inc.channel.close', channelId: 'c-overflowed-inbound' },
+    ]);
   });
 
   it('keeps outbox subscriptions callable and dispatches parent events to handlers', () => {

@@ -13,6 +13,7 @@ import {
   PAJA_DEV_SIGNER_PUBKEY,
   type PajaConfirmationRequest,
 } from './browser-adapter.js';
+import { createPajaThemeBroadcastLink } from './theme-broadcast.js';
 import {
   createPajaSignerController,
   type PajaSignerState,
@@ -47,7 +48,6 @@ import type { PajaHostConfig } from './options.js';
 import {
   getTargetIdentity,
   navigateFrame,
-  registerFrameForGeneration,
   renderTargetErrorHtml,
 } from './browser-target-frame.js';
 import {
@@ -310,20 +310,21 @@ function startFrameNavigation(
   state: PajaBrowserState,
   context: PajaBrowserStateContext,
 ): void {
-  const { config, frame, bridge, capabilities, runtime } = context;
+  const { config, frame, bridge, adapter, runtime } = context;
   if (!frame) return;
   const generation = state.generation;
   const isCurrentGeneration = () => state.generation === generation;
   void navigateFrame(
-    bridge,
     frame,
     config,
     generation,
-    capabilities,
-    runtime.currentSimulation,
+    adapter,
     state.resolvedTarget,
     undefined,
     isCurrentGeneration,
+    (windowId) => {
+      if (isCurrentGeneration()) runtime.currentWindowId = windowId;
+    },
   ).then((windowId) => {
     if (!isCurrentGeneration()) {
       unregisterSingleFrameWindow(bridge, runtime, windowId);
@@ -625,13 +626,15 @@ async function installPajaHost(): Promise<void> {
     readyWindowIds: new Set(),
   };
   const getSimulation = () => runtime.currentSimulation;
+  const themeBroadcast = createPajaThemeBroadcastLink();
   let stateRef: PajaBrowserState | null = null;
   const signerController = createHostSignerController(() => stateRef);
   const adapter = createPajaAdapter(config, getSimulation, (theme) => {
     runtime.themeService = theme;
-  }, (request) => confirmPajaRequest(stateRef, request), signerController, () =>
-    getTargetIdentity(config, stateRef?.resolvedTarget));
+  }, themeBroadcast.onBroadcast, (request) => confirmPajaRequest(stateRef, request), signerController, () =>
+    getTargetIdentity(config, stateRef?.resolvedTarget), () => stateRef?.reload());
   const bridge = createShellBridge(adapter);
+  themeBroadcast.attach(bridge);
   bridgeRef = bridge;
   installPajaOriginRegistryProxy(originRegistry, () => stateRef);
   const capabilities = buildShellCapabilities(adapter);
@@ -645,7 +648,6 @@ async function installPajaHost(): Promise<void> {
     capabilities,
     runtime,
     navigateFrame,
-    registerFrameForGeneration,
     renderTargetErrorHtml,
     setPointerStatus: (state, message) => setPointerStatus(state as PajaBrowserState, message),
     setStatus: (state, status) => setStatus(state as PajaBrowserState, status),
@@ -683,13 +685,6 @@ async function installPajaHost(): Promise<void> {
       } else {
         setStatus(state, 'ready');
       }
-    }
-  });
-
-  frame?.addEventListener('load', () => {
-    if (!frame) return;
-    if (state.status === 'booting' || state.status === 'reloading') {
-      runtime.currentWindowId = registerFrameForGeneration(bridge, frame, config, state.generation, state.resolvedTarget);
     }
   });
 

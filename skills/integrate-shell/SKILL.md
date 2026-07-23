@@ -103,7 +103,7 @@ const hooks: ShellAdapter = {
   // dm: { sendDm: async (pubkey, msg) => ({ success: true }) },
 
   // ─── Optional: Services (static wiring) ────────────────────────────────
-  // services: { audio: createAudioService() },
+  // services: { notify: createNotifyService() },
 };
 ```
 
@@ -160,14 +160,21 @@ For production use, replace `confirm()` with a proper modal component.
 
 ## Step 6 — Register a service (optional)
 
-Services are shell-side handlers that napplets communicate with via inter-pane topic events. Register them after bridge creation via `bridge.runtime.registerService()`, or provide them statically in `hooks.services` at construction time.
+Services are shell-side handlers for direct NIP-5D envelopes. The runtime
+selects a service by the exact `message.type` domain: `notify.create`, for
+example, reaches the `notify` service. Register services after bridge creation
+via `bridge.runtime.registerService()`, or provide them statically in
+`hooks.services` at construction time. INC topics are opaque, queryless
+identities matched only by exact equality; they never select a service handler.
+The runtime attaches the sender to delivered INC events, so hosts must not
+fabricate them.
 
 ```ts
-import { createAudioService } from '@kehto/services';
+import { createNotifyService } from '@kehto/services';
 
 // Dynamic registration — allows lazy loading or post-login setup
-bridge.runtime.registerService('audio', createAudioService({
-  onChange: (sources) => updateAudioUI(sources),
+bridge.runtime.registerService('notify', createNotifyService({
+  onSend: (_windowId, message) => showNotification(message),
 }));
 ```
 

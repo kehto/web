@@ -523,6 +523,13 @@ export interface RuntimeAdapter {
   sendToNapplet: SendToNapplet;
 
   /**
+   * Determines whether a session-established napplet may invoke a NAP domain.
+   * When omitted, every domain remains eligible for dispatch. Browser shells
+   * use this to enforce the immutable environment delivered in `shell.init`.
+   */
+  isDomainAllowed?: (windowId: string, domain: string) => boolean;
+
+  /**
    * Relay pool operations.
    * Optional when a 'relay' or 'relay-pool' service is registered via
    * RuntimeAdapter.services or runtime.registerService(). If neither adapter

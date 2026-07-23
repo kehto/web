@@ -61,22 +61,11 @@ function detectServiceTarget(topology: DemoTopology, msg: TappedMessage): string
     return null;
   }
 
-  // Legacy NIP-01 fallback — notifications topic detection retained.
-  if (
-    typeof msg.parsed.topic === 'string' &&
-    msg.parsed.topic.startsWith('notifications:') &&
-    topology.services.includes('notifications')
-  ) {
-    return 'notifications';
-  }
   return null;
 }
 
 function isNotificationTopic(msg: TappedMessage): boolean {
-  // Envelope-shape: domain === 'notify'
-  if (msg.envelopeType) return msg.parsed.domain === 'notify';
-  // Legacy NIP-01: topic string
-  return typeof msg.parsed.topic === 'string' && msg.parsed.topic.startsWith('notifications:');
+  return Boolean(msg.envelopeType) && msg.parsed.domain === 'notify';
 }
 
 /**
@@ -117,8 +106,22 @@ function identifyFailureNode(nodes: string[], msg: TappedMessage): number {
   return nodes.length - 1;
 }
 
-function buildHighlightPath(topology: DemoTopology, msg: TappedMessage): { nodes: string[]; edges: string[] } | null {
+export function buildHighlightPath(topology: DemoTopology, msg: TappedMessage): { nodes: string[]; edges: string[] } | null {
   const nappletName = getNappletName(topology, msg.windowId);
+  if (!nappletName && isNotificationTopic(msg)) {
+    const nodes = [
+      TOPOLOGY_NODE_ACL,
+      TOPOLOGY_NODE_RUNTIME,
+      TOPOLOGY_NODE_SERVICE_NOTIFICATIONS,
+    ];
+    const edges = [
+      getAclRuntimeEdgeId(),
+      getRuntimeServiceEdgeId('notifications'),
+    ];
+    return msg.direction === 'napplet->shell'
+      ? { nodes, edges }
+      : { nodes: [...nodes].reverse(), edges: [...edges].reverse() };
+  }
   if (!nappletName) return null;
 
   const serviceTarget = detectServiceTarget(topology, msg);
@@ -148,15 +151,6 @@ function buildHighlightPath(topology: DemoTopology, msg: TappedMessage): { nodes
   if (msg.direction === 'shell->napplet' && serviceTarget) {
     nodes.unshift(getServiceNodeIdForTarget(serviceTarget));
     edges.unshift(getRuntimeServiceEdgeId(serviceTarget));
-  }
-
-  // Also flash notification node for host-originated notification events (no napplet windowId)
-  if (isNotificationTopic(msg) && !nappletName) {
-    nodes.push(TOPOLOGY_NODE_SERVICE_NOTIFICATIONS);
-    edges.push(getRuntimeServiceEdgeId('notifications'));
-    nodes.push(TOPOLOGY_NODE_RUNTIME);
-    edges.push(getAclRuntimeEdgeId());
-    return { nodes, edges };
   }
 
   return { nodes, edges };
@@ -270,9 +264,9 @@ export function initFlowAnimator(tap: MessageTap, topology: DemoTopology, edgeFl
     else counters[counterKey].in++;
     renderCounters();
 
-    // Log notification service activity with the envelope type or topic string
+    // Log notification service activity with its direct-domain envelope type.
     if (isNotificationTopic(msg) && flowLog) {
-      const topicLabel = msg.envelopeType ?? msg.parsed.topic ?? 'notifications:?';
+      const topicLabel = msg.envelopeType ?? 'notify.unknown';
       const existing = flowLog.querySelector(`[data-notif-topic="${topicLabel}"]`);
       if (!existing) {
         const entry = document.createElement('div');
