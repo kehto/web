@@ -174,7 +174,7 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
 test('applies simulation config and compact theme adjustment', async ({ page }) => {
   test.setTimeout(60_000);
   const pubkey = '4'.repeat(64);
-  const customTargetUrl = `${targetServer.url}?required=identity,resource,keys`;
+  const customTargetUrl = `${targetServer.url}?required=identity,resource,keys,theme`;
   const customRuntime = await startPajaServer({
     options: {
       targetUrl: customTargetUrl,
@@ -202,9 +202,23 @@ test('applies simulation config and compact theme adjustment', async ({ page }) 
     await expect(targetFrame.locator('#identity-pubkey')).toHaveText(pubkey);
     await expect(targetFrame.locator('#config-density')).toHaveText('compact');
     await expect(targetFrame.locator('#theme-background')).toHaveText('#f7f5ed');
+    await expect(targetFrame.locator('#theme-changed-count')).toHaveText('0');
+    await expect(targetFrame.locator('#theme-changed-background')).toHaveText('');
+    await expect(targetFrame.locator('#theme-callback-get-background')).toHaveText('');
+    const themeChangedBefore = await page.evaluate(() => window.__KEHTO_PAJA__?.getState().messageLog
+      .filter((entry) => entry.direction === 'shell->napplet' && entry.type === 'theme.changed').length ?? 0);
+    const themeSubscriptionsBefore = await page.evaluate(() => window.__KEHTO_PAJA__?.getState().messageLog
+      .filter((entry) => entry.direction === 'napplet->shell' && /^theme\.(subscribe|unsubscribe)$/.test(entry.type)).length ?? 0);
 
     await page.locator('#simulation-theme').selectOption('dark');
     await expect(page.locator('#simulation-status')).toContainText('theme:dark');
+    await expect(targetFrame.locator('#theme-changed-count')).toHaveText('1');
+    await expect(targetFrame.locator('#theme-changed-background')).toHaveText('#101211');
+    await expect(targetFrame.locator('#theme-callback-get-background')).toHaveText('#101211');
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().messageLog
+      .filter((entry) => entry.direction === 'shell->napplet' && entry.type === 'theme.changed').length ?? 0)).toBe(themeChangedBefore + 1);
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().messageLog
+      .filter((entry) => entry.direction === 'napplet->shell' && /^theme\.(subscribe|unsubscribe)$/.test(entry.type)).length ?? 0)).toBe(themeSubscriptionsBefore);
     const firstGeneration = await page.evaluate(() => window.__KEHTO_PAJA__?.getState().generation ?? -1);
     await page.locator('#reload-target').click();
     await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().generation)).toBe(firstGeneration + 1);
@@ -566,6 +580,9 @@ function renderTargetHtml(
     <div id="identity-pubkey"></div>
     <div id="config-density"></div>
     <div id="theme-background"></div>
+    <div id="theme-changed-count">0</div>
+    <div id="theme-changed-background"></div>
+    <div id="theme-callback-get-background"></div>
     <div id="storage-error"></div>
     <div id="inc-shim-status"></div>
     <div id="inc-emit-topic"></div>
@@ -591,6 +608,18 @@ function renderTargetHtml(
       if (injectedDomains.length !== requiredDomains.length) {
         document.getElementById('target-status').textContent = 'Required shell domains unavailable';
         throw new Error('Required shell domains unavailable');
+      }
+      const theme = window.napplet && window.napplet.theme;
+      let themeChangedCount = 0;
+      if (theme && typeof theme.onChanged === 'function' && typeof theme.get === 'function') {
+        theme.onChanged((changedTheme) => {
+          themeChangedCount += 1;
+          document.getElementById('theme-changed-count').textContent = String(themeChangedCount);
+          document.getElementById('theme-changed-background').textContent = changedTheme && changedTheme.colors && changedTheme.colors.background || '';
+          void theme.get().then((currentTheme) => {
+            document.getElementById('theme-callback-get-background').textContent = currentTheme && currentTheme.colors && currentTheme.colors.background || '';
+          });
+        });
       }
       const sendShellReady = ${shellReadyJson};
       const incProbe = ${incProbeJson};
