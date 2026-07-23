@@ -4,17 +4,17 @@ milestone: v1.29
 milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 101
 current_phase_name: nap-shell-session-integrity
-status: executing
-stopped_at: Completed 101-04-PLAN.md
-last_updated: "2026-07-23T14:23:34.265Z"
+status: verifying
+stopped_at: Completed 101-05-PLAN.md
+last_updated: "2026-07-23T14:34:45.196Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 101 execution started
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 4
-  percent: 0
+  completed_plans: 5
+  percent: 17
 ---
 
 # Project State
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-23)
 
 Phase: 101 (nap-shell-session-integrity) — EXECUTING
 Plan: 5 of 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 
 Last activity: 2026-07-23 — Phase 101 execution started
 
@@ -58,6 +58,7 @@ Last activity: 2026-07-23 — Phase 101 execution started
 | Phase 101 P02 | 8min | 2 tasks | 11 files |
 | Phase 101 P03 | 7 min | 2 tasks | 7 files |
 | Phase 101 P04 | 9min | 2 tasks | 8 files |
+| Phase 101 P05 | 7min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -168,8 +169,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-07-23T14:23:34.259Z
-Stopped at: Completed 101-04-PLAN.md
+Last session: 2026-07-23T14:34:45.189Z
+Stopped at: Completed 101-05-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -204,3 +205,5 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: resolveShellEnvironment remains a host-only package export and is absent from injected and shim-facing APIs.
 - [Phase ?]: Paja resolves bootstrap and shell.init from the same trusted OriginIdentity with equal content and isolated frozen snapshots.
 - [Phase ?]: Paja shell.ready identity now comes only from pre-srcdoc origin-registry registration, never mutable browser state.
+- [Phase ?]: Playground prelude membership is resolved from trusted OriginIdentity and live disabled-aware wiring, never manifest requirements or gateway data.
+- [Phase ?]: Existing playground frames retain frozen first-init snapshots; only a new registration reflects later disabled-service wiring.
