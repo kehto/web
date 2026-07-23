@@ -580,6 +580,97 @@ describe('NIP-5D napplet namespace prelude', () => {
     ]);
   });
 
+  it('provides symmetric correlated INC channel handles with retained lifecycle state', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['inc'] }), target);
+
+    type ChannelClosed = { channelId: string; reason?: string };
+    type ChannelEvent = { channelId: string; sender: string; payload?: unknown };
+    type Handle = {
+      id: string;
+      peer: string;
+      emit: (payload?: unknown) => void;
+      on: (handler: (event: ChannelEvent) => void) => { close(): void };
+      onClosed: (handler: (closed: ChannelClosed) => void) => { close(): void };
+      close: () => void;
+    };
+    type Inc = {
+      channel: {
+        open: (targetDTag: string) => Promise<Handle>;
+        onOpened: (handler: (handle: Handle) => void) => { close(): void };
+        list: () => Promise<Array<{ id: string; peer: string }>>;
+        broadcast: (payload?: unknown) => void;
+      };
+    };
+    const inc = target.napplet?.inc as Inc;
+    const inbound: Handle[] = [];
+    const opened = inc.channel.open('media-player');
+    const openRequest = withoutShellReady(target).at(-1);
+    expect(openRequest).toEqual({ type: 'inc.channel.open', id: 'id-1', target: 'media-player' });
+    target.dispatchMessage({}, { type: 'inc.channel.open.result', id: openRequest?.id, channelId: 'forged', peer: 'forged' });
+    target.dispatchParentMessage({ type: 'inc.channel.open.result', id: 'wrong', channelId: 'forged', peer: 'forged' });
+    target.dispatchParentMessage({ type: 'inc.channel.open.result', id: openRequest?.id, channelId: 'c-open', peer: 'media-player' });
+    const opener = await opened;
+    expect(opener).toMatchObject({ id: 'c-open', peer: 'media-player' });
+
+    const rejected = inc.channel.open('missing');
+    const rejectedRequest = withoutShellReady(target).at(-1);
+    target.dispatchParentMessage({ type: 'inc.channel.open.result', id: rejectedRequest?.id, error: 'target not found' });
+    await expect(rejected).rejects.toThrow('target not found');
+
+    target.dispatchParentMessage({ type: 'inc.channel.opened', channelId: 'c-target', peer: 'music-controller' });
+    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'music-controller', payload: { order: 1 } });
+    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'music-controller', payload: { order: 2 } });
+    inc.channel.onOpened((handle) => inbound.push(handle));
+    expect(inbound).toHaveLength(1);
+    expect(inbound[0]).toMatchObject({ id: 'c-target', peer: 'music-controller' });
+    const earlyEvents: ChannelEvent[] = [];
+    const laterEvents: ChannelEvent[] = [];
+    const firstListener = inbound[0].on((event) => earlyEvents.push(event));
+    const secondListener = inbound[0].on((event) => laterEvents.push(event));
+    expect(earlyEvents).toEqual([
+      { channelId: 'c-target', sender: 'music-controller', payload: { order: 1 } },
+      { channelId: 'c-target', sender: 'music-controller', payload: { order: 2 } },
+    ]);
+    expect(laterEvents).toEqual([]);
+    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'music-controller', payload: { order: 3 } });
+    firstListener.close();
+    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'music-controller', payload: { order: 4 } });
+    expect(earlyEvents).toHaveLength(3);
+    expect(laterEvents).toEqual([
+      { channelId: 'c-target', sender: 'music-controller', payload: { order: 3 } },
+      { channelId: 'c-target', sender: 'music-controller', payload: { order: 4 } },
+    ]);
+    secondListener.close();
+
+    const list = inc.channel.list();
+    const listRequest = withoutShellReady(target).at(-1);
+    expect(listRequest).toEqual({ type: 'inc.channel.list', id: 'id-3' });
+    target.dispatchParentMessage({
+      type: 'inc.channel.list.result',
+      id: listRequest?.id,
+      channels: [{ id: 'c-open', peer: 'media-player', emit: 'forged' }, { id: 7, peer: 'invalid' }],
+    });
+    await expect(list).resolves.toEqual([{ id: 'c-open', peer: 'media-player' }]);
+
+    inc.channel.broadcast({ all: true });
+    opener.emit({ command: 'play' });
+    opener.close();
+    expect(withoutShellReady(target).slice(-3)).toEqual([
+      { type: 'inc.channel.broadcast', payload: { all: true } },
+      { type: 'inc.channel.emit', channelId: 'c-open', payload: { command: 'play' } },
+      { type: 'inc.channel.close', channelId: 'c-open' },
+    ]);
+    const closed: ChannelClosed[] = [];
+    opener.onClosed((record) => closed.push(record));
+    expect(closed).toEqual([{ channelId: 'c-open' }]);
+
+    target.dispatchParentMessage({ type: 'inc.channel.closed', channelId: 'c-target', reason: 'peer destroyed' });
+    const targetClosed: ChannelClosed[] = [];
+    inbound[0].onClosed((record) => targetClosed.push(record));
+    expect(targetClosed).toEqual([{ channelId: 'c-target', reason: 'peer destroyed' }]);
+  });
+
   it('keeps outbox subscriptions callable and dispatches parent events to handlers', () => {
     const target = createPreludeTestWindow();
     const received: unknown[] = [];
