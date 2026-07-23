@@ -23,6 +23,25 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(source).not.toContain('bridge.runtime.sessionRegistry.register(');
   });
 
+  it('registers both Paja target modes before their shared protected INC prelude executes', () => {
+    const targetSource = readFileSync(new URL('./browser-target-frame.ts', import.meta.url), 'utf8');
+    const preludeSource = readFileSync(new URL('../../shell/src/napplet-namespace.ts', import.meta.url), 'utf8');
+    const registration = 'registerFrameForGeneration(frame, config, generation, identity, environment, windowId);';
+    const injection = 'frame.srcdoc = injectNappletNamespacePrelude(';
+
+    expect(targetSource.match(new RegExp(registration.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'))).toHaveLength(2);
+    expect(targetSource.match(new RegExp(injection.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'))).toHaveLength(2);
+    expect(targetSource.indexOf(registration)).toBeLessThan(targetSource.indexOf(injection));
+    expect(targetSource.lastIndexOf(registration)).toBeLessThan(targetSource.lastIndexOf(injection));
+    expect(targetSource).toContain('resolvedTarget.indexHtml');
+    expect(targetSource).toContain('injectBaseHref(html, config.target.url)');
+
+    expect(targetSource).not.toMatch(/decodeURIComponent\(|URLSearchParams|makeInc|inc\.channel\.(?:open|list|broadcast)/);
+    expect(preludeSource).toContain('function makeProtectedInc(existing: unknown)');
+    expect(preludeSource).toContain('return { ...extensions, ...inc };');
+    expect(preludeSource).toContain('function guardNappletNamespace(namespace: Record<string, unknown>)');
+  });
+
   it('only marks targets ready after the mandatory shell.ready handshake', () => {
     const source = readFileSync(new URL('./browser-host.ts', import.meta.url), 'utf8');
     const devtoolsSource = readFileSync(new URL('./browser-devtools.ts', import.meta.url), 'utf8');
