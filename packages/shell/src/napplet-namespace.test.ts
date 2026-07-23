@@ -254,23 +254,25 @@ describe('NIP-5D napplet namespace prelude', () => {
     expect(script).toContain("buildNappletNamespace(value)");
   });
 
-  it('installs the NAP-SHELL receiver before signaling ready and caches shell.init locally', async () => {
+  it('installs the NAP-SHELL receiver before signaling ready and caches one immutable unary environment', async () => {
     const target = createPreludeTestWindow();
     const readyEnvironments: unknown[] = [];
 
     runPrelude(renderNappletNamespacePrelude({ domains: ['relay', 'inc'] }), target);
 
     const shell = target.napplet?.shell as {
-      ready: () => Promise<unknown>;
-      supports: (domain: string, protocol?: string) => boolean;
+      ready: () => Promise<{ capabilities: { domains: readonly string[] }; services: readonly string[] }>;
+      supports: (domain: string) => boolean;
       readonly services: readonly string[];
       onReady: (handler: (environment: unknown) => void) => { close(): void };
     };
     expect(typeof shell.ready).toBe('function');
     expect(typeof shell.supports).toBe('function');
+    expect(shell.supports.length).toBe(1);
     expect(typeof shell.onReady).toBe('function');
     expect(shell.services).toEqual([]);
     expect(shell.supports('relay')).toBe(false);
+    expect((shell.supports as (...args: unknown[]) => boolean)('relay', 'NAP-01')).toBe(true);
     expect(target.postedMessages).toEqual([{ type: 'shell.ready' }]);
     expect(target.postedMessageListenerCounts[0]).toBeGreaterThan(0);
 
@@ -284,31 +286,38 @@ describe('NIP-5D napplet namespace prelude', () => {
       capabilities: { domains: ['forged'] },
       services: ['forged'],
     });
-    expect(shell.supports('forged')).toBe(false);
-
+    target.dispatchMessage(target, {
+      type: 'shell.init',
+      capabilities: { domains: ['child'] },
+      services: ['child'],
+    });
     target.dispatchParentMessage({
       type: 'shell.init',
-      capabilities: {
-        domains: ['relay', 'inc'],
-      },
-      services: ['relay-pool', 'storage'],
+      capabilities: { domains: ['relay', 'inc', 'relay', 'Relay', ' relay ', '', 1] },
+      services: ['relay-pool', 'storage', 'relay-pool', 1],
     });
     const environment = await ready;
 
     expect(environment).toEqual({
-      capabilities: {
-        domains: ['relay', 'inc'],
-      },
+      capabilities: { domains: ['relay', 'inc', 'Relay', ' relay '] },
       services: ['relay-pool', 'storage'],
     });
     expect(readyEnvironments).toEqual([environment]);
     expect(cancelledEnvironments).toEqual([]);
     expect(shell.supports('relay')).toBe(true);
-    expect(shell.supports('inc', 'NAP-01')).toBe(false);
-    expect(shell.supports('inc', 'NAP-99')).toBe(false);
-    expect(shell.supports('unknown')).toBe(false);
+    expect(shell.supports('inc')).toBe(true);
+    expect(shell.supports('Relay')).toBe(true);
+    for (const unsupported of ['RELay', ' relay', 'relay ', 'rel', 'relay-pool', '', 'unknown', null, 1, {}]) {
+      expect(() => (shell.supports as (domain: unknown) => boolean)(unsupported)).not.toThrow();
+      expect((shell.supports as (domain: unknown) => boolean)(unsupported)).toBe(false);
+    }
     expect(shell.services).toEqual(['relay-pool', 'storage']);
+    expect(Object.isFrozen(environment)).toBe(true);
+    expect(Object.isFrozen(environment.capabilities)).toBe(true);
+    expect(Object.isFrozen(environment.capabilities.domains)).toBe(true);
     expect(Object.isFrozen(shell.services)).toBe(true);
+    expect(() => (environment.capabilities.domains as string[]).push('forged')).toThrow();
+    expect(() => (shell.services as string[]).push('forged')).toThrow();
     (shell as { services: readonly string[] }).services = ['forged'];
     expect(shell.services).toEqual(['relay-pool', 'storage']);
 
@@ -323,6 +332,28 @@ describe('NIP-5D napplet namespace prelude', () => {
     shell.onReady((lateEnvironment) => lateEnvironments.push(lateEnvironment));
     expect(lateEnvironments).toEqual([environment]);
     subscription.close();
+  });
+
+  it('isolates immutable shell.init snapshots between prelude windows', async () => {
+    const first = createPreludeTestWindow();
+    const second = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['relay'] }), first);
+    runPrelude(renderNappletNamespacePrelude({ domains: ['inc'] }), second);
+
+    const firstShell = first.napplet?.shell as { ready: () => Promise<{ capabilities: { domains: readonly string[] }; services: readonly string[] }> };
+    const secondShell = second.napplet?.shell as { ready: () => Promise<{ capabilities: { domains: readonly string[] }; services: readonly string[] }> };
+    const firstReady = firstShell.ready();
+    const secondReady = secondShell.ready();
+
+    first.dispatchParentMessage({ type: 'shell.init', capabilities: { domains: ['relay'] }, services: ['relay-service'] });
+    second.dispatchParentMessage({ type: 'shell.init', capabilities: { domains: ['inc'] }, services: ['inc-service'] });
+    const [firstEnvironment, secondEnvironment] = await Promise.all([firstReady, secondReady]);
+
+    expect(firstEnvironment).not.toBe(secondEnvironment);
+    expect(firstEnvironment.capabilities.domains).not.toBe(secondEnvironment.capabilities.domains);
+    expect(firstEnvironment.services).not.toBe(secondEnvironment.services);
+    expect(firstEnvironment).toEqual({ capabilities: { domains: ['relay'] }, services: ['relay-service'] });
+    expect(secondEnvironment).toEqual({ capabilities: { domains: ['inc'] }, services: ['inc-service'] });
   });
 
   it('injects only mandatory NAP-SHELL when no optional domains are requested', () => {
