@@ -24,6 +24,8 @@ type IncState = {
   channelsByWindow: Map<string, Set<string>>;
 };
 
+type ChannelOpenAuthorizer = (targetWindowId: string, message: NappletMessage) => boolean;
+
 export interface IncRuntime {
   handleMessage(windowId: string, msg: NappletMessage): void;
   destroyWindow(windowId: string): void;
@@ -36,7 +38,11 @@ export interface IncRuntime {
   clear(): void;
 }
 
-export function createIncRuntime(hooks: RuntimeAdapter, sessionRegistry: SessionRegistry): IncRuntime {
+export function createIncRuntime(
+  hooks: RuntimeAdapter,
+  sessionRegistry: SessionRegistry,
+  authorizeChannelOpen: ChannelOpenAuthorizer,
+): IncRuntime {
   const state: IncState = {
     subscriptions: new Map(),
     channels: new Map(),
@@ -45,7 +51,7 @@ export function createIncRuntime(hooks: RuntimeAdapter, sessionRegistry: Session
 
   return {
     handleMessage(windowId: string, msg: NappletMessage): void {
-      handleIncMessage(state, hooks, sessionRegistry, windowId, msg);
+      handleIncMessage(state, hooks, sessionRegistry, authorizeChannelOpen, windowId, msg);
     },
     destroyWindow(windowId: string): void {
       removeWindowChannels(state, hooks, windowId);
@@ -102,6 +108,7 @@ function handleIncMessage(
   state: IncState,
   hooks: RuntimeAdapter,
   sessionRegistry: SessionRegistry,
+  authorizeChannelOpen: ChannelOpenAuthorizer,
   windowId: string,
   msg: NappletMessage,
 ): void {
@@ -113,7 +120,7 @@ function handleIncMessage(
     case 'emit': handleEmit(state, hooks, sessionRegistry, windowId, m); return;
     case 'subscribe': handleSubscribe(state, hooks, windowId, m); return;
     case 'unsubscribe': handleUnsubscribe(state, windowId, m); return;
-    case 'channel.open': handleChannelOpen(state, hooks, sessionRegistry, windowId, m); return;
+    case 'channel.open': handleChannelOpen(state, hooks, sessionRegistry, authorizeChannelOpen, windowId, m); return;
     case 'channel.emit': handleChannelEmit(state, hooks, sessionRegistry, windowId, m); return;
     case 'channel.broadcast': handleChannelBroadcast(state, hooks, sessionRegistry, windowId, m); return;
     case 'channel.list': handleChannelList(state, hooks, sessionRegistry, windowId, m); return;
@@ -176,6 +183,7 @@ function handleChannelOpen(
   state: IncState,
   hooks: RuntimeAdapter,
   sessionRegistry: SessionRegistry,
+  authorizeChannelOpen: ChannelOpenAuthorizer,
   windowId: string,
   m: RuntimeIncMessage,
 ): void {
@@ -187,6 +195,10 @@ function handleChannelOpen(
     hooks.sendToNapplet(windowId, { type: 'inc.channel.open.result', id, error: 'target not found' } as NappletMessage);
     return;
   }
+  if (!authorizeChannelOpen(peerWindow, m)) {
+    hooks.sendToNapplet(windowId, { type: 'inc.channel.open.result', id, error: 'target denied' } as NappletMessage);
+    return;
+  }
   const channelId = hooks.crypto.randomUUID().replace(/-/g, '').slice(0, 32);
   addChannel(state, channelId, windowId, peerWindow);
   try {
@@ -196,7 +208,11 @@ function handleChannelOpen(
     hooks.sendToNapplet(windowId, { type: 'inc.channel.open.result', id, error: 'target unavailable' } as NappletMessage);
     return;
   }
-  hooks.sendToNapplet(windowId, { type: 'inc.channel.open.result', id, channelId, peer: peerDTag } as NappletMessage);
+  try {
+    hooks.sendToNapplet(windowId, { type: 'inc.channel.open.result', id, channelId, peer: peerDTag } as NappletMessage);
+  } catch {
+    teardownChannel(state, hooks, channelId);
+  }
 }
 
 function handleChannelEmit(

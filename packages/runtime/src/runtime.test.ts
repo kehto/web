@@ -282,6 +282,67 @@ describe('inc channel sub-protocol (NAP-04 / DRIFT-RT-09)', () => {
     expect(envelopesOfType(unavailableCtx.sent, WINDOW_A, 'inc.channel.list.result')[0]).toMatchObject({ channels: [] });
   });
 
+  it.each(['block', 'revoke relay:read'] as const)(
+    'rejects channel.open before target delivery when target ACL policy is %s',
+    (mutation) => {
+      if (mutation === 'block') {
+        runtime.aclState.block('', DTAG_B, HASH);
+      } else {
+        runtime.aclState.revoke('', DTAG_B, HASH, 'relay:read');
+      }
+      ctx.sent.length = 0;
+      ctx.aclChecks.length = 0;
+
+      runtime.handleMessage(WINDOW_A, {
+        type: 'inc.channel.open',
+        id: 'target-denied',
+        target: DTAG_B,
+      } as NappletMessage);
+
+      expect(envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.open.result')).toEqual([
+        { type: 'inc.channel.open.result', id: 'target-denied', error: 'target denied' },
+      ]);
+      expect(envelopesOfType(ctx.sent, WINDOW_B, 'inc.channel.opened')).toEqual([]);
+      expect(ctx.aclChecks).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          identity: expect.objectContaining({ dTag: DTAG_B, hash: HASH }),
+          capability: 'relay:read',
+          decision: 'deny',
+        }),
+      ]));
+    },
+  );
+
+  it('tears down both memberships when the opener cannot receive its success result', () => {
+    let resultUnavailableCtx: MockRuntimeContext;
+    resultUnavailableCtx = createMockRuntimeAdapter({
+      sendToNapplet(windowId, message) {
+        if (windowId === WINDOW_A) throw new Error('opener unavailable');
+        resultUnavailableCtx.sent.push({ windowId, message });
+      },
+    });
+    const resultUnavailableRuntime = createRuntime(resultUnavailableCtx.hooks);
+    resultUnavailableRuntime.sessionRegistry.register(WINDOW_A, createNip5dSessionEntry(WINDOW_A, DTAG_A, HASH));
+    resultUnavailableRuntime.sessionRegistry.register(WINDOW_B, createNip5dSessionEntry(WINDOW_B, DTAG_B, HASH));
+
+    expect(() => resultUnavailableRuntime.handleMessage(WINDOW_A, {
+      type: 'inc.channel.open',
+      id: 'unavailable-result',
+      target: DTAG_B,
+    } as NappletMessage)).not.toThrow();
+
+    const opened = envelopesOfType(resultUnavailableCtx.sent, WINDOW_B, 'inc.channel.opened');
+    expect(opened).toHaveLength(1);
+    const channelId = (opened[0] as NappletMessage & { channelId: string }).channelId;
+    expect(envelopesOfType(resultUnavailableCtx.sent, WINDOW_B, 'inc.channel.closed')).toEqual([
+      { type: 'inc.channel.closed', channelId },
+    ]);
+
+    resultUnavailableCtx.sent.length = 0;
+    resultUnavailableRuntime.handleMessage(WINDOW_B, { type: 'inc.channel.list', id: 'list' } as NappletMessage);
+    expect(envelopesOfType(resultUnavailableCtx.sent, WINDOW_B, 'inc.channel.list.result')[0]).toMatchObject({ channels: [] });
+  });
+
   it('notifies only the surviving peer with peer destroyed and makes the route inert', () => {
     runtime.handleMessage(WINDOW_A, {
       type: 'inc.channel.open', id: 'open', target: DTAG_B,

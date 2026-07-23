@@ -842,8 +842,37 @@ describe('NIP-5D Envelope Dispatch', () => {
         type: 'inc.channel.open', id: 'blocked-open', target: 'peer-napp',
       } as NappletMessage);
 
-      expect(findEnvelopeResponse(ctx.sent, 'inc.channel.open.error')).toMatchObject({ id: 'blocked-open' });
+      expect(findEnvelopeResponse(ctx.sent, 'inc.channel.open.result')).toMatchObject({
+        id: 'blocked-open',
+        error: 'denied: relay:read',
+      });
+      expect(findEnvelopeResponse(ctx.sent, 'inc.channel.open.error')).toBeUndefined();
       expect(ctx.sent.some(({ message }) => (message as NappletMessage).type === 'inc.channel.opened')).toBe(false);
+    });
+
+    it('uses only contract-defined INC denial responses', () => {
+      runtime.aclState.block('', TEST_DTAG, TEST_HASH);
+
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.subscribe', id: 'blocked-subscribe', topic: 'napplet:profile/open',
+      } as NappletMessage);
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.emit', topic: 'napplet:profile/open', payload: { ignored: true },
+      } as NappletMessage);
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.unsubscribe', topic: 'napplet:profile/open',
+      } as NappletMessage);
+
+      expect(findEnvelopeResponse(ctx.sent, 'inc.subscribe.result')).toMatchObject({
+        id: 'blocked-subscribe',
+        error: 'denied: relay:read',
+      });
+      expect(ctx.sent.some(({ message }) => (
+        typeof message === 'object' &&
+        message !== null &&
+        !Array.isArray(message) &&
+        ['inc.subscribe.error', 'inc.emit.error', 'inc.unsubscribe.error'].includes((message as NappletMessage).type)
+      ))).toBe(false);
     });
 
     it('checks ACL at channel open but not for established channel traffic', () => {

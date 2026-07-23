@@ -268,12 +268,11 @@ function createFirewallGate(config: FirewallGateConfig): (windowId: string, enve
     const opClass = obs.opClass;
 
     if (decision === 'reject' || decision === 'prompt') {
-      // Mirror the ACL denial envelope shaping (runtime.ts ACL path):
-      // storage envelopes → `.result`; all others → `.error` (T-81-03: no internals leaked)
       const id = (envelope as NappletMessage & { id?: string }).id ?? '';
-      const isStorageEnvelope = envelope.type.startsWith('storage.');
-      const type = isStorageEnvelope ? `${envelope.type}.result` : `${envelope.type}.error`;
-      hooks.sendToNapplet(windowId, { type, id, error: `firewall: ${reason}` } as NappletMessage);
+      const type = denialResponseType(envelope);
+      if (type) {
+        hooks.sendToNapplet(windowId, { type, id, error: `firewall: ${reason}` } as NappletMessage);
+      }
 
       hooks.onFirewallEvent?.({ windowId, napplet, opClass, decision, action, ruleId, reason, message: envelope } as FirewallEvent);
 
@@ -291,6 +290,15 @@ function createFirewallGate(config: FirewallGateConfig): (windowId: string, enve
     }
     return 'dispatch';
   };
+}
+
+function denialResponseType(envelope: NappletMessage): string | null {
+  if (envelope.type.startsWith('storage.')) return `${envelope.type}.result`;
+  if (envelope.type === 'inc.subscribe' || envelope.type === 'inc.channel.open') {
+    return `${envelope.type}.result`;
+  }
+  if (envelope.type.startsWith('inc.')) return null;
+  return `${envelope.type}.error`;
 }
 
 function createMessageHandler(
@@ -318,10 +326,11 @@ function createMessageHandler(
       const result = enforceNap(windowId, caps.senderCap as Capability, envelope);
       if (!result.allowed) {
         const id = (envelope as NappletMessage & { id?: string }).id ?? '';
-        const isStorageEnvelope = envelope.type.startsWith('storage.');
         const error = formatDenialReason(result.capability);
-        const type = isStorageEnvelope ? `${envelope.type}.result` : `${envelope.type}.error`;
-        hooks.sendToNapplet(windowId, { type, id, error } as NappletMessage);
+        const type = denialResponseType(envelope);
+        if (type) {
+          hooks.sendToNapplet(windowId, { type, id, error } as NappletMessage);
+        }
         return;
       }
     }
@@ -419,12 +428,12 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   const serviceRegistry: ServiceRegistry = { ...hooks.services };
   const registeredServices = createRegisteredServices(serviceRegistry);
   const sessionRegistry = createSessionRegistry(hooks.onPendingUpdate);
-  const incRuntime = createIncRuntime(hooks, sessionRegistry);
+  let incRuntime: IncRuntime | null = null;
   const aclState = createAclState(hooks.aclPersistence, 'permissive', (mutation) => {
     if (mutation.type === 'revoke' && mutation.capability !== 'relay:read') return;
     for (const entry of sessionRegistry.getAllEntries()) {
       if (entry.dTag === mutation.dTag && entry.aggregateHash === mutation.aggregateHash) {
-        incRuntime.revokeWindow(entry.windowId);
+        incRuntime?.revokeWindow(entry.windowId);
       }
     }
   });
@@ -480,6 +489,12 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     },
     onAclCheck: hooks.onAclCheck,
   });
+
+  incRuntime = createIncRuntime(
+    hooks,
+    sessionRegistry,
+    (targetWindowId, message) => enforceNap(targetWindowId, 'relay:read', message).allowed,
+  );
 
   const firewallGate = createFirewallGate({ firewallState, sessionRegistry, hooks, fireConsent });
 
