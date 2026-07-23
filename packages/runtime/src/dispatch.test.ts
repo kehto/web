@@ -92,6 +92,18 @@ describe('runtime NAP dispatch — envelope guard', () => {
     expect(firewallEvents).not.toHaveBeenCalled();
   });
 
+  it('fails closed for sessionless INC emit, subscribe, and channel open (#89 4593ce9e301ce098fd3dad64206fcd6f144fa7af)', () => {
+    const unregisteredCtx = createMockRuntimeAdapter();
+    const unregistered = createRuntime(unregisteredCtx.hooks);
+
+    unregistered.handleMessage('unregistered-inc', { type: 'inc.emit', topic: 'napplet:profile/open' } as NappletMessage);
+    unregistered.handleMessage('unregistered-inc', { type: 'inc.subscribe', id: 'sub', topic: 'napplet:profile/open' } as NappletMessage);
+    unregistered.handleMessage('unregistered-inc', { type: 'inc.channel.open', id: 'open', target: 'recipient-dtag' } as NappletMessage);
+
+    expect(unregisteredCtx.sent).toHaveLength(0);
+    expect(unregisteredCtx.aclChecks).toHaveLength(0);
+  });
+
   it('drops a session-established envelope excluded by the shell environment before ACL, firewall, or dispatch', () => {
     const firewallEvents = vi.fn();
     const restrictedCtx = createMockRuntimeAdapter({
