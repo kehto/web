@@ -863,4 +863,98 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
 
     bridge.destroy();
   });
+
+  it('delivers immutable, identity-scoped environments without cross-frame leakage', () => {
+    const frameA = makeFakeIframe();
+    const frameB = makeFakeIframe();
+    const winA = frameA as unknown as Window;
+    const winB = frameB as unknown as Window;
+    const grants = {
+      a: { domains: ['relay'], services: ['config'] },
+      b: { domains: ['storage', 'count'], services: ['count'] },
+    };
+    const availableInputs: Array<{ domains: readonly string[]; services: readonly string[] }> = [];
+    const hooks: ShellAdapter = {
+      ...makeTestHooks(),
+      services: {
+        config: { descriptor: { name: 'config', version: '1.0.0' }, handleMessage: () => {} },
+        count: { descriptor: { name: 'count', version: '1.0.0' }, handleMessage: () => {} },
+      },
+      capabilities: {
+        resolveEnvironment(identity, available) {
+          availableInputs.push(available);
+          return identity.dTag === 'frame-a' ? grants.a : grants.b;
+        },
+      },
+    };
+    originRegistry.register(winA, 'window-a', { dTag: 'frame-a', aggregateHash: 'hash-a' });
+    originRegistry.register(winB, 'window-b', { dTag: 'frame-b', aggregateHash: 'hash-b' });
+    const bridge = createShellBridge(hooks);
+
+    bridge.handleMessage({ source: winA, origin: 'https://a.example', data: { type: 'shell.ready' } } as MessageEvent);
+    bridge.handleMessage({ source: winB, origin: 'https://b.example', data: { type: 'shell.ready' } } as MessageEvent);
+
+    const initA = frameA.postMessage.mock.calls[0][0] as { type: string; capabilities: { domains: readonly string[] }; services: readonly string[] };
+    const initB = frameB.postMessage.mock.calls[0][0] as { type: string; capabilities: { domains: readonly string[] }; services: readonly string[] };
+    expect(Object.keys(initA)).toEqual(['type', 'capabilities', 'services']);
+    expect(Object.keys(initA.capabilities)).toEqual(['domains']);
+    expect(initA).toEqual({ type: 'shell.init', capabilities: { domains: ['relay'] }, services: ['config'] });
+    expect(initB).toEqual({ type: 'shell.init', capabilities: { domains: ['storage', 'count'] }, services: ['count'] });
+    expect(initA.capabilities.domains).not.toBe(initB.capabilities.domains);
+    expect(initA.services).not.toBe(initB.services);
+
+    grants.a.domains.push('count');
+    grants.a.services.push('count');
+    expect(() => (availableInputs[0].domains as string[]).push('forged')).toThrow();
+    expect(() => (availableInputs[0].services as string[]).push('forged')).toThrow();
+    expect(() => (initA.capabilities.domains as string[]).push('forged')).toThrow();
+    expect(() => (initA.services as string[]).push('forged')).toThrow();
+    expect(initB).toEqual({ type: 'shell.init', capabilities: { domains: ['storage', 'count'] }, services: ['count'] });
+
+    bridge.handleMessage({ source: winA, origin: 'https://a.example', data: { type: 'shell.ready' } } as MessageEvent);
+    expect(frameA.postMessage).toHaveBeenCalledTimes(1);
+    expect(bridge.runtime.sessionRegistry.getEntryByWindowId('window-a')?.dTag).toBe('frame-a');
+
+    bridge.destroy();
+  });
+
+  it('rebuilds the session and environment for an explicit re-registration', () => {
+    const iframe = makeFakeIframe();
+    const win = iframe as unknown as Window;
+    const hooks: ShellAdapter = {
+      ...makeTestHooks(),
+      services: {
+        config: { descriptor: { name: 'config', version: '1.0.0' }, handleMessage: () => {} },
+        count: { descriptor: { name: 'count', version: '1.0.0' }, handleMessage: () => {} },
+      },
+      capabilities: {
+        resolveEnvironment(identity) {
+          return identity.dTag === 'first'
+            ? { domains: ['relay'], services: ['config'] }
+            : { domains: ['count'], services: ['count'] };
+        },
+      },
+    };
+    originRegistry.register(win, 'window-reload', { dTag: 'first', aggregateHash: 'first-hash' });
+    const bridge = createShellBridge(hooks);
+
+    bridge.handleMessage({ source: win, origin: 'https://reload.example', data: { type: 'shell.ready' } } as MessageEvent);
+    const firstSession = bridge.runtime.sessionRegistry.getEntryByWindowId('window-reload');
+    expect(iframe.postMessage.mock.calls[0][0]).toEqual({
+      type: 'shell.init', capabilities: { domains: ['relay'] }, services: ['config'],
+    });
+
+    originRegistry.register(win, 'window-reload', { dTag: 'second', aggregateHash: 'second-hash' });
+    bridge.handleMessage({ source: win, origin: 'https://reload.example', data: { type: 'shell.ready' } } as MessageEvent);
+
+    expect(iframe.postMessage.mock.calls[1][0]).toEqual({
+      type: 'shell.init', capabilities: { domains: ['count'] }, services: ['count'],
+    });
+    const secondSession = bridge.runtime.sessionRegistry.getEntryByWindowId('window-reload');
+    expect(secondSession?.dTag).toBe('second');
+    expect(secondSession?.aggregateHash).toBe('second-hash');
+    expect(secondSession?.instanceId).not.toBe(firstSession?.instanceId);
+
+    bridge.destroy();
+  });
 });
