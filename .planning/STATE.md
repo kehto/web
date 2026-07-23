@@ -5,15 +5,15 @@ milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 101
 current_phase_name: nap-shell-session-integrity
 status: executing
-stopped_at: Completed 101-02-PLAN.md
-last_updated: "2026-07-23T13:59:13.602Z"
+stopped_at: Completed 101-03-PLAN.md
+last_updated: "2026-07-23T14:09:52.962Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 101 execution started
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 5
-  completed_plans: 2
+  completed_plans: 3
   percent: 0
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-23)
 ## Current Position
 
 Phase: 101 (nap-shell-session-integrity) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
 
 Last activity: 2026-07-23 — Phase 101 execution started
@@ -56,6 +56,7 @@ Last activity: 2026-07-23 — Phase 101 execution started
 |------|----------|-------|-------|
 | Phase 101 P01 | 5min | 2 tasks | 4 files |
 | Phase 101 P02 | 8min | 2 tasks | 11 files |
+| Phase 101 P03 | 7 min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -166,8 +167,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-07-23T13:59:13.596Z
-Stopped at: Completed 101-02-PLAN.md
+Last session: 2026-07-23T14:09:52.955Z
+Stopped at: Completed 101-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -198,3 +199,5 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: shell.init is withheld without trusted creation-time identity; ready payload claims are ignored and registration IDs preserve reload semantics.
 - [Phase ?]: ShellCapabilities now delivers only frozen bare domains; numbered protocols, naps, and sandbox payload fields are removed.
 - [Phase ?]: Host grants are per trusted creation identity and can only narrow exact live, non-disabled domains and services.
+- [Phase ?]: Injected shell supports(domain) is unary exact membership over the first valid frozen parent init.
+- [Phase ?]: resolveShellEnvironment remains a host-only package export and is absent from injected and shim-facing APIs.
