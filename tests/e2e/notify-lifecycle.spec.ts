@@ -31,6 +31,12 @@ test.describe.configure({ mode: 'serial' });
 
 const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]/;
 
+async function expectDirectNotificationMessage(page: import('@playwright/test').Page, type: string): Promise<void> {
+  const debuggerText = await page.locator('napplet-debugger').textContent();
+  expect(debuggerText).toContain(type);
+  expect(debuggerText).not.toMatch(/\b\w+:\w+|\binc\.event\b/);
+}
+
 test('toaster creates notification and Dismiss all empties the list', async ({ page }) => {
   test.setTimeout(60_000);
   const consoleMessages: string[] = [];
@@ -63,8 +69,9 @@ test('toaster creates notification and Dismiss all empties the list', async ({ p
   // Host toast appears (notification-service onChange → notification-demo.ts → renderToast).
   await expect(page.locator('#notification-toast-layer .notif-toast')).toBeVisible({ timeout: 3_000 });
 
-  // Debugger shows the canonical notify.create envelope type (not notifications:create legacy).
-  await expect(page.locator('napplet-debugger')).toContainText('notify.create', { timeout: 5_000 });
+  // Debugger shows a direct notify.create envelope, never a topic or synthetic INC event.
+  await expect.poll(async () => page.locator('napplet-debugger').textContent()).toContain('notify.create');
+  await expectDirectNotificationMessage(page, 'notify.create');
 
   // Dismiss all: triggers notify.list → iterate notify.dismiss per id.
   await toasterFrameDirect.evaluate(() => {
@@ -74,8 +81,9 @@ test('toaster creates notification and Dismiss all empties the list', async ({ p
   // List becomes empty.
   await expect(toasterFrame.locator('#toaster-list li')).toHaveCount(0, { timeout: 5_000 });
 
-  // Debugger shows notify.dismiss envelope.
-  await expect(page.locator('napplet-debugger')).toContainText('notify.dismiss', { timeout: 5_000 });
+  // Debugger keeps the direct notification lifecycle after dismissal.
+  await expect.poll(async () => page.locator('napplet-debugger').textContent()).toContain('notify.dismiss');
+  await expectDirectNotificationMessage(page, 'notify.dismiss');
 
   const antiConsole = consoleMessages.filter((m) => ANTI_TERM_RE.test(m));
   expect(antiConsole, `anti-term found in console: ${antiConsole.join(' | ')}`).toHaveLength(0);

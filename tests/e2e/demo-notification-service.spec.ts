@@ -19,6 +19,12 @@ test.describe.configure({ mode: 'serial' });
 
 const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]/;
 
+async function expectDirectNotificationMessage(page: import('@playwright/test').Page, type: string): Promise<void> {
+  const debuggerText = await page.locator('napplet-debugger').textContent();
+  expect(debuggerText).toContain(type);
+  expect(debuggerText).not.toMatch(/\b\w+:\w+|\binc\.event\b/);
+}
+
 test('notification topology node is visible', async ({ page }) => {
   await demoBeforeEach(page);
   await expect(page.locator('[data-service-name="notifications"]')).toBeVisible();
@@ -33,8 +39,9 @@ test('node-control: create toast via notify.create envelope', async ({ page }) =
   // Toast appears
   await expect(page.locator('#notification-toast-layer .notif-toast')).toBeVisible({ timeout: 3_000 });
 
-  // Debugger shows canonical envelope type (not BusKind, not kind:29003)
-  await expect(page.locator('napplet-debugger')).toContainText('notify.create', { timeout: 3_000 });
+  // Debugger contains a direct-domain notification, never a topic or synthetic INC event.
+  await expect.poll(async () => page.locator('napplet-debugger').textContent()).toContain('notify.create');
+  await expectDirectNotificationMessage(page, 'notify.create');
 
   // Summary increments
   await expect(totalEl).toHaveText(String(initial + 1), { timeout: 3_000 });
@@ -48,6 +55,7 @@ test('notify.list opens inspector with items', async ({ page }) => {
   const inspector = page.locator('#notification-inspector');
   await expect(inspector).toBeVisible({ timeout: 2_000 });
   await expect(page.locator('#notification-list .notif-item')).toHaveCount(1, { timeout: 3_000 });
+  await expectDirectNotificationMessage(page, 'notify.list');
 });
 
 test('notify.read decrements unread count', async ({ page }) => {
@@ -58,6 +66,7 @@ test('notify.read decrements unread count', async ({ page }) => {
   expect(before).toBeGreaterThan(0);
   await page.locator('#notification-node-mark-read').click();
   await expect(unreadEl).toHaveText(String(before - 1), { timeout: 3_000 });
+  await expectDirectNotificationMessage(page, 'notify.read');
 });
 
 test('notify.dismiss removes item from inspector', async ({ page }) => {
@@ -67,6 +76,7 @@ test('notify.dismiss removes item from inspector', async ({ page }) => {
   const before = await page.locator('#notification-list .notif-item').count();
   await page.locator('#notification-node-dismiss').click();
   await expect(page.locator('#notification-list .notif-item')).toHaveCount(before - 1, { timeout: 3_000 });
+  await expectDirectNotificationMessage(page, 'notify.dismiss');
 });
 
 test('no anti-term in captured console output', async ({ page }) => {
