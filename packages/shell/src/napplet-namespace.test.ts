@@ -513,12 +513,71 @@ describe('NIP-5D napplet namespace prelude', () => {
     });
     await expect(stored).resolves.toBe('dark');
 
-    napplet.inc.emit('profile:open', [], JSON.stringify({ pubkey: 'pubkey-1' }));
+    napplet.inc.emit('profile:open', { pubkey: 'pubkey-1' });
     expect(target.postedMessages.at(-1)).toMatchObject({
       type: 'inc.emit',
       topic: 'profile:open',
       payload: { pubkey: 'pubkey-1' },
     });
+  });
+
+  it('normalizes canonical INC conventions, protects INC assignment, and shares topic subscriptions', () => {
+    const target = createPreludeTestWindow();
+    const receivedA: unknown[] = [];
+    const receivedB: unknown[] = [];
+    runPrelude(renderNappletNamespacePrelude({ domains: ['inc'] }), target);
+
+    type Inc = {
+      emit: (topic: string, payload?: unknown) => void;
+      on: (topic: string, handler: (event: unknown) => void) => { close(): void };
+    };
+    const inc = target.napplet?.inc as Inc;
+    inc.emit('napplet:profile/open?truth=false&count=42&nothing=null&plus=a+b&encoded=%E2%9C%93');
+    expect(withoutShellReady(target).at(-1)).toEqual({
+      type: 'inc.emit',
+      topic: 'napplet:profile/open',
+      payload: { truth: 'false', count: '42', nothing: 'null', plus: 'a+b', encoded: '✓' },
+    });
+
+    const postsBeforeInvalid = target.postedMessages.length;
+    for (const invalid of [
+      'napplet:profile/open#fragment',
+      'napplet:profile/open?bad=%E0%A4%A',
+      'napplet:profile/open?name=one&na%6De=two',
+    ]) {
+      expect(() => inc.emit(invalid)).toThrow();
+    }
+    expect(() => inc.emit('napplet:profile/open?name=value', { explicit: true })).toThrow();
+    expect(target.postedMessages).toHaveLength(postsBeforeInvalid);
+
+    expect(() => inc.on('napplet:profile/open?name=value', () => undefined)).toThrow();
+    expect(() => inc.on('napplet:profile/open#fragment', () => undefined)).toThrow();
+    expect(target.postedMessages).toHaveLength(postsBeforeInvalid);
+
+    const first = inc.on('napplet:profile/open', (event) => receivedA.push(event));
+    const second = inc.on('napplet:profile/open', (event) => receivedB.push(event));
+    const subscribe = withoutShellReady(target).at(-1);
+    expect(withoutShellReady(target).filter((message) => message.type === 'inc.subscribe')).toHaveLength(1);
+    expect(subscribe).toMatchObject({ type: 'inc.subscribe', topic: 'napplet:profile/open', id: 'id-1' });
+    target.dispatchParentMessage({ type: 'inc.subscribe.result', id: subscribe?.id });
+    target.dispatchParentMessage({ type: 'inc.event', topic: 'napplet:profile/open', sender: 'profile-owner', payload: { id: 'one' } });
+    expect(receivedA).toEqual([{ topic: 'napplet:profile/open', sender: 'profile-owner', payload: { id: 'one' } }]);
+    expect(receivedB).toEqual(receivedA);
+    first.close();
+    target.dispatchParentMessage({ type: 'inc.event', topic: 'napplet:profile/open', sender: 'profile-owner', payload: { id: 'two' } });
+    expect(receivedA).toHaveLength(1);
+    expect(receivedB).toHaveLength(2);
+    second.close();
+    expect(withoutShellReady(target).at(-1)).toEqual({ type: 'inc.unsubscribe', topic: 'napplet:profile/open' });
+
+    (target.napplet as Record<string, unknown>).inc = { emit: () => { throw new Error('bypassed'); }, extension: true };
+    (target.napplet?.inc as Inc).emit('napplet:profile/open?retained=yes');
+    target.napplet = { inc: { emit: () => { throw new Error('bypassed'); }, extension: true } };
+    (target.napplet?.inc as Inc).emit('napplet:profile/open?retained=twice');
+    expect(withoutShellReady(target).slice(-2)).toEqual([
+      { type: 'inc.emit', topic: 'napplet:profile/open', payload: { retained: 'yes' } },
+      { type: 'inc.emit', topic: 'napplet:profile/open', payload: { retained: 'twice' } },
+    ]);
   });
 
   it('keeps outbox subscriptions callable and dispatches parent events to handlers', () => {
