@@ -190,74 +190,19 @@ describe('resolveCapabilitiesNap', () => {
   });
 
   describe('inc domain', () => {
-    it('inc.emit -> relay:write (sender) + relay:read (recipient)', () => {
-      const result: CapabilityResolution = resolveCapabilitiesNap({ type: 'inc.emit' });
-      expect(result).toEqual({ senderCap: 'relay:write', recipientCap: 'relay:read' });
-    });
+    const incCapabilityCases: ReadonlyArray<readonly [string, CapabilityResolution]> = [
+      ['inc.emit', { senderCap: 'relay:write', recipientCap: 'relay:read' }],
+      ['inc.subscribe', { senderCap: 'relay:read', recipientCap: null }],
+      ['inc.unsubscribe', { senderCap: 'relay:read', recipientCap: null }],
+      ['inc.channel.open', { senderCap: 'relay:read', recipientCap: null }],
+      ['inc.channel.emit', { senderCap: null, recipientCap: null }],
+      ['inc.channel.broadcast', { senderCap: null, recipientCap: null }],
+      ['inc.channel.list', { senderCap: null, recipientCap: null }],
+      ['inc.channel.close', { senderCap: null, recipientCap: null }],
+    ];
 
-    it('inc.subscribe -> relay:read only', () => {
-      const result: CapabilityResolution = resolveCapabilitiesNap({ type: 'inc.subscribe' });
-      expect(result).toEqual({ senderCap: 'relay:read', recipientCap: null });
-    });
-
-    it('inc.unsubscribe -> relay:read only', () => {
-      expect(resolveCapabilitiesNap({ type: 'inc.unsubscribe' })).toEqual({ senderCap: 'relay:read', recipientCap: null });
-    });
-
-    it('inc.channel.open -> relay:read only (open-time ACL semantics)', () => {
-      expect(resolveCapabilitiesNap({ type: 'inc.channel.open' })).toEqual({ senderCap: 'relay:read', recipientCap: null });
-    });
-
-    it('inc.channel.emit -> relay:write + relay:read (point-to-point write)', () => {
-      expect(resolveCapabilitiesNap({ type: 'inc.channel.emit' })).toEqual({ senderCap: 'relay:write', recipientCap: 'relay:read' });
-    });
-
-    it('inc.channel.broadcast -> relay:write + relay:read (fan-out write)', () => {
-      expect(resolveCapabilitiesNap({ type: 'inc.channel.broadcast' })).toEqual({ senderCap: 'relay:write', recipientCap: 'relay:read' });
-    });
-
-    it('inc.channel.list -> relay:read only', () => {
-      expect(resolveCapabilitiesNap({ type: 'inc.channel.list' })).toEqual({ senderCap: 'relay:read', recipientCap: null });
-    });
-
-    it('inc.channel.close -> relay:read only', () => {
-      expect(resolveCapabilitiesNap({ type: 'inc.channel.close' })).toEqual({ senderCap: 'relay:read', recipientCap: null });
-    });
-  });
-
-  describe('inc domain (NAP rename of inc, D5 / ALIGN-06)', () => {
-    it('inc.emit -> relay:write (sender) + relay:read (recipient)', () => {
-      const result: CapabilityResolution = resolveCapabilitiesNap({ type: 'inc.emit' });
-      expect(result).toEqual({ senderCap: 'relay:write', recipientCap: 'relay:read' });
-    });
-
-    it('inc.subscribe -> relay:read only', () => {
-      const result: CapabilityResolution = resolveCapabilitiesNap({ type: 'inc.subscribe' });
-      expect(result).toEqual({ senderCap: 'relay:read', recipientCap: null });
-    });
-
-    it('inc.unsubscribe -> relay:read only', () => {
-      expect(resolveCapabilitiesNap({ type: 'inc.unsubscribe' })).toEqual({ senderCap: 'relay:read', recipientCap: null });
-    });
-
-    it('inc.channel.open -> relay:read only (open-time ACL semantics)', () => {
-      expect(resolveCapabilitiesNap({ type: 'inc.channel.open' })).toEqual({ senderCap: 'relay:read', recipientCap: null });
-    });
-
-    it('inc.channel.emit -> relay:write + relay:read (point-to-point write)', () => {
-      expect(resolveCapabilitiesNap({ type: 'inc.channel.emit' })).toEqual({ senderCap: 'relay:write', recipientCap: 'relay:read' });
-    });
-
-    it('inc.channel.broadcast -> relay:write + relay:read (fan-out write)', () => {
-      expect(resolveCapabilitiesNap({ type: 'inc.channel.broadcast' })).toEqual({ senderCap: 'relay:write', recipientCap: 'relay:read' });
-    });
-
-    it('inc.channel.list -> relay:read only', () => {
-      expect(resolveCapabilitiesNap({ type: 'inc.channel.list' })).toEqual({ senderCap: 'relay:read', recipientCap: null });
-    });
-
-    it('inc.channel.close -> relay:read only', () => {
-      expect(resolveCapabilitiesNap({ type: 'inc.channel.close' })).toEqual({ senderCap: 'relay:read', recipientCap: null });
+    it.each(incCapabilityCases)('%s resolves the NAP-INC capability policy', (type, expected) => {
+      expect(resolveCapabilitiesNap({ type })).toEqual(expected);
     });
   });
 
