@@ -41,7 +41,7 @@ coverage:
         status: pass
     human_judgment: false
   - id: D2
-    description: Complete browser conformance remains gated on the repository's IPv4-bound audit spec and unavailable local AI-slop executable.
+    description: Complete browser conformance remains gated on published Napplet package adoption and the unavailable local AI-slop executable.
     requirement: INC-08
     verification:
       - kind: e2e
@@ -51,7 +51,7 @@ coverage:
         ref: npx --no-install aislop scan -d
         status: fail
     human_judgment: true
-    rationale: Full-gate failures are environmental and are tracked in .planning/WINDOWS.md; no out-of-scope listener, test, or dependency was changed.
+    rationale: The full suite reached the isolated Kehto preview and proved the Phase 102 channel flow, but seven legacy demo/fixture tests remain red at the Phase 105 package-adoption boundary; the unrelated IPv4 listener and unpublished dependencies were not changed.
 metrics:
   duration: 6m 26s
   completed: 2026-07-23
@@ -77,6 +77,7 @@ status: complete
 - Added one minor 0.x changeset each for `@kehto/runtime`, `@kehto/shell`, `@kehto/acl`, and `@kehto/services`; no package version was applied.
 - Kept the release notes scoped to the exact draft authorities: NAP-INC #89 `4593ce9e301ce098fd3dad64206fcd6f144fa7af`, web projection #90 `896c32c92deee68dc4d10fc1132b62df20cccb6f`, and symmetric channels #92 `c5cd06f7be6d4690b303949abb26e87ff62f4729`.
 - Proved the focused cross-host chain with 309 unit assertions and 14 browser tests, including Paja and the IPv6-isolated playground INC proof.
+- Rechecked the upstream reply on `kehto/web#203`: it points to draft #92 and confirms symmetric handles, target-open-before-result ordering, retained early/terminal lifecycle state, explicit close notifications, informational-only `channel.list()`, and the distinction between runtime open success and target application acceptance.
 
 ## NAP Authority Checked
 
@@ -95,7 +96,7 @@ The GitHub commit records were checked directly. These remain draft authorities;
 - `KEHTO_PLAYGROUND_BASE_URL='http://[::1]:4174' pnpm exec playwright test tests/e2e/demo-notification-service.spec.ts tests/e2e/notify-lifecycle.spec.ts tests/e2e/paja-single-window.spec.ts tests/e2e/nap-inc-playground.spec.ts --workers=1` — passed: 14 tests. The temporary IPv6 preview was stopped; the unrelated IPv4 `127.0.0.1:4174` Fipwave process was never modified.
 - `pnpm docs:check` — passed.
 - `git diff --check` — passed before staging the changesets and again in the staged task commit.
-- `pnpm test:e2e` — ran but failed in `tests/e2e/demo-audit-correctness.spec.ts` because that pre-existing spec hardcodes `http://127.0.0.1:4174` and therefore reaches the protected unrelated Fipwave listener instead of Kehto. Recorded as open Windows ledger entry 20; no out-of-scope test or listener was changed.
+- `KEHTO_PLAYGROUND_BASE_URL='http://[::1]:4174' pnpm test:e2e -- --workers=1` — reached the correct Kehto preview and completed with 69 passed, 1 skipped, and 7 failed. The symmetric-channel test passed. The remaining failures are legacy demo/fixture package-adoption work owned by Phase 105 and are recorded in Windows entry 21.
 - `npx --no-install aislop scan -d` — not run successfully: the pinned `aislop@0.13.1` executable is absent, and `--no-install` correctly declined installation. The existing open Phase 102 Windows ledger entries cover this environment limitation.
 
 ## Task Commit
@@ -108,7 +109,7 @@ The GitHub commit records were checked directly. These remain draft authorities;
 - `.changeset/phase-102-shell-inc.md` — injected binding and symmetric-channel API break record, explicitly scoped away from intent lifecycle.
 - `.changeset/phase-102-acl-inc.md` — channel-open authorization mapping break record.
 - `.changeset/phase-102-services-inc.md` — legacy audio/notification INC compatibility retirement break record.
-- `.planning/WINDOWS.md` — records the full-browser IPv4 harness conflict.
+- `.planning/WINDOWS.md` — closes the IPv4 harness conflict and records the remaining published-package adoption boundary.
 
 ## Decisions Made
 
@@ -123,7 +124,8 @@ None - implementation scope and package metadata followed the plan exactly. Two 
 ## Issues Encountered
 
 - The initial IPv6 preview invocation passed script arguments through incorrectly and did not bind. Retrying `vite preview` directly with `--host ::1 --port 4174` established the required isolated preview; no source file changed.
-- The full E2E suite cannot exercise `demo-audit-correctness.spec.ts` under the required port isolation because that spec is hardcoded to IPv4 `127.0.0.1:4174`; Fipwave owns that listener. Windows entry 20 tracks the unmet full-gate truth.
+- The audit spec's hardcoded IPv4 URL was made externally configurable in follow-up commit `b86c927`; a clean full run then reached Kehto over IPv6 while leaving the unrelated Fipwave listener untouched.
+- Seven legacy demo/fixture tests remain red until the concurrent `napplet/web` chase publishes and Kehto adopts the convention-capable package set. Windows entry 21 tracks this Phase 105 boundary.
 - The configured `aislop@0.13.1` executable is absent. Installation was intentionally not attempted, and the existing open Phase 102 Windows entries retain that unrun verification.
 
 ## Known Stubs
@@ -138,7 +140,7 @@ None - this plan adds release metadata and planning records only; it introduces 
 
 - The four changesets are ready for the normal Version Packages workflow; no local versioning, publishing, push, or PR was performed.
 - Phase 104 may reuse the binding helper only within its NAP-INTENT lifecycle scope, and Phase 105 remains responsible for published Napplet package conformance.
-- The hardcoded IPv4 audit harness and missing AI-slop binary must be resolved before a fully green repository release gate can be claimed.
+- Published Napplet package adoption and the missing AI-slop binary must be resolved before a fully green repository release gate can be claimed.
 
 ## Self-Check: PASSED
 

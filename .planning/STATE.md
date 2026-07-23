@@ -78,11 +78,11 @@ Full decision log lives in `.planning/PROJECT.md` Key Decisions table.
 
 ### Key Context for v1.29
 
-Authoritative contract: `napplet/naps@6461e4b37c29dc09a20dff35d9515889c4433874`. Complete delta: `.planning/NAP-CONVENTIONS-6461E4B-DELTA-AUDIT.md`.
+Baseline contract: `napplet/naps@6461e4b37c29dc09a20dff35d9515889c4433874`. Proposed authority additionally includes the exact draft heads of NAP-INC #89 `4593ce9e301ce098fd3dad64206fcd6f144fa7af`, governance/web projection #90 `896c32c92deee68dc4d10fc1132b62df20cccb6f`, NAP-INTENT #91 `a718915ddefa2f03a0126579601f59d8bd86f7c4`, and symmetric channels #92 `c5cd06f7be6d4690b303949abb26e87ff62f4729`. Complete baseline delta: `.planning/NAP-CONVENTIONS-6461E4B-DELTA-AUDIT.md`.
 
 - Numbered cross-napplet protocols are gone; conventions use `napplet:<archetype>/<intent>[...?params]`.
 - Full conformance also requires active SHELL, INTENT, INC, IDENTITY, and THEME corrections.
-- Parameterized-topic matching and query semantics are upstream ambiguities tracked in `kehto/web#203`; exact opaque matching is the interim Kehto posture.
+- `kehto/web#203` tracks implementation against the proposed resolutions: exact queryless identity and binding-owned query transposition from #89/#90, plus the #92 symmetric-channel reply. The issue remains open until Kehto implementation and positive/negative tests satisfy its close criteria.
 - Final package adoption is gated on the concurrent `napplet/web` chase publishing convention-capable core/nap/shim/sdk/vite-plugin releases.
 
 ### Key Context for v1.21 (Phases 86–89)
@@ -106,7 +106,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 ### Blockers/Concerns
 
 - **9 pre-existing stale guard-test failures** (`tests/unit/sdk-migration-guard.test.ts`, `playground-gateway-guard.test.ts`, `nip5d-conformance-guard.test.ts`) assert the pre-modernization 0.5.0/`@napplet/nub`/`ifc` graph that phases 86–88 already replaced with 0.12/0.13/`@napplet/nap`/`inc`. Out of phase-89 (docs) scope; logged to `.planning/phases/89-spec-doc-refresh-conformance-sweep/deferred-items.md`. Needs a test-owning follow-up to realign the guards before tagging v1.21.
-- Full E2E cannot be fully green until tests/e2e/demo-audit-correctness.spec.ts stops hardcoding protected IPv4 127.0.0.1:4174 or the environment isolates that port.
+- The isolated-host full E2E run reaches Kehto and completes with 69 passed, 1 skipped, and 7 failed. Phase 102's symmetric-channel proof passes; remaining legacy demo/fixture failures wait on Phase 105 adoption of the convention-capable packages from the concurrent `napplet/web` chase.
 
 ### Quick Tasks Completed
 
@@ -244,4 +244,4 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: Kept query-to-text payload transposition in the binding while runtime routing remains exact and queryless.
 - [Phase ?]: Reserved NAP-INTENT lifecycle changes for Phase 104 and released package adoption for Phase 105.
 - [Phase ?]: Phase 102 release metadata uses separate minor changesets for runtime, shell, ACL, and services; intent lifecycle and published package adoption remain Phase 104 and 105.
-- [Phase ?]: Full Playwright remains blocked by a protected unrelated IPv4 listener because demo-audit-correctness hardcodes 127.0.0.1:4174; focused IPv6 browser proof is green.
+- [Phase ?]: Full Playwright supports an isolated IPv6 Kehto preview; 69 tests pass, the Phase 102 channel proof is green, and 7 legacy demo/fixture failures remain at the Phase 105 published-package adoption boundary.
