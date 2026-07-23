@@ -1,7 +1,7 @@
 ---
 phase: 102
 slug: nap-inc-event-channel-parity
-status: planned
+status: validated
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-07-23
@@ -86,24 +86,24 @@ Same-wave ownership is disjoint:
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure behavior | Test type | Automated command | File exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 102-01-01 | 102-01 | 1 | BASE-04, BASE-05, INC-01, INC-02, INC-03, INC-04, INC-08 | T-102-01..03 | Shared query transposition crosses exact runtime routing, yields an attested dTag event, and sessionless emit/subscribe/open fail closed | tracer/integration | `pnpm exec vitest run tests/unit/nap-inc-conformance.test.ts packages/runtime/src/dispatch.test.ts` | ❌ Wave 0 create/✅ extend | ⬜ pending |
-| 102-02-01 | 102-02 | 2 | INC-03 | T-102-04 | Only one live dTag resolves; missing/duplicate/window/pubkey inputs fail closed | unit | `pnpm exec vitest run packages/runtime/src/types.test.ts` | ✅ extend | ⬜ pending |
-| 102-02-02 | 102-02 | 2 | INC-03, INC-04, INC-05, INC-07, INC-08 | T-102-04..07 | Channel identity, target-opened-before-success ordering, opaque IDs, membership, and teardown are complete | integration | `pnpm exec vitest run packages/runtime/src/runtime.test.ts packages/runtime/src/types.test.ts` | ✅ extend | ⬜ pending |
-| 102-03-01 | 102-03 | 3 | INC-06, INC-08 | T-102-08..09 | Existing ACL checks channel open only; established actions use membership | unit | `pnpm exec vitest run packages/acl/src/resolve.test.ts` | ✅ extend | ⬜ pending |
-| 102-03-02 | 102-03 | 3 | INC-06, INC-07 | T-102-08..11 | Denied opens create no state; relevant revoke/block closes established routes | integration | `pnpm exec vitest run packages/runtime/src/acl-state.test.ts packages/runtime/src/dispatch.test.ts packages/acl/src/resolve.test.ts` | ✅ extend | ⬜ pending |
-| 102-04-01 | 102-04 | 2 | BASE-04, BASE-05, INC-01, INC-02, INC-08 | T-102-12..14 | Full parser rejection matrix, INC replacement safety, exact IncEvent, independent local subscriptions, prescribed transport, with no intent API change | unit | `pnpm exec vitest run packages/shell/src/napplet-namespace.test.ts` | ✅ extend | ⬜ pending |
-| 102-04-02 | 102-04 | 2 | INC-05, INC-07, INC-08 | T-102-13..15 | Symmetric channel API with exact correlation/push filtering, opened-event-closed ordering, early-data retention, overflow close, and cleanup | unit | `pnpm exec vitest run packages/shell/src/napplet-namespace.test.ts` | ✅ extend | ⬜ pending |
-| 102-09-01 | 102-09 | 2 | BASE-05, INC-04 | T-102-29 | Generic dispatch never routes INC by topic prefix and retains exact direct-domain service routing | unit | `pnpm exec vitest run packages/runtime/src/service-dispatch.test.ts` | ❌ Wave 0 create | ⬜ pending |
-| 102-10-01 | 102-10 | 2 | BASE-05, INC-03, INC-04 | T-102-30..31 | Notification service ignores all INC traffic, fabricates no event, and preserves canonical direct notify handling | unit | `pnpm exec vitest run packages/services/src/notification-service.test.ts` | ✅ extend | ⬜ pending |
-| 102-10-02 | 102-10 | 2 | BASE-05 | T-102-31 | Legacy audio exports/types/source are absent while the services package type-checks and builds | static/build | `pnpm --filter @kehto/services type-check && pnpm --filter @kehto/services build` | ✅ extend | ⬜ pending |
-| 102-11-01 | 102-11 | 3 | BASE-05, INC-03, INC-04 | T-102-32..33 | Active playground code and notification browser flows use direct notify messages with no legacy INC path | browser/build | `pnpm --filter @kehto/playground build && pnpm exec playwright test tests/e2e/demo-notification-service.spec.ts tests/e2e/notify-lifecycle.spec.ts --workers=1` | ✅ extend | ⬜ pending |
-| 102-12-01 | 102-12 | 3 | BASE-05, INC-03, INC-04 | T-102-34..35 | Active docs/skills teach exact routing and the scoped guard blocks legacy executable behavior while preserving history | static/docs | `pnpm exec vitest run tests/unit/nip5d-conformance-guard.test.ts && pnpm docs:check` | ✅ extend | ⬜ pending |
-| 102-05-01 | 102-05 | 4 | BASE-04, BASE-05, INC-01, INC-02, INC-05 | T-102-16..17 | Paja URL/pointer modes inject one replacement-safe shared binding after trusted registration | static/unit | `pnpm exec vitest run packages/paja/src/browser-host.test.ts` | ✅ extend | ⬜ pending |
-| 102-05-02 | 102-05 | 4 | INC-01, INC-02, INC-05, INC-08 | T-102-16..18 | Real Paja srcdoc proves producer, event, correlation/error, fire-and-forget, and reload cleanup | browser | `pnpm exec playwright test tests/e2e/paja-single-window.spec.ts --workers=1` | ✅ extend | ⬜ pending |
-| 102-06-01 | 102-06 | 4 | BASE-04, BASE-05, INC-01, INC-02 | T-102-19..20 | Playground registers identity then injects one shared binding that survives shim assignment; host has no parser/client fork | static/unit | `pnpm exec vitest run tests/unit/playground-gateway-guard.test.ts` | ✅ extend | ⬜ pending |
-| 102-06-02 | 102-06 | 4 | INC-01..INC-08 | T-102-19..22 | Two live dTags prove event transposition, exact isolation, symmetric public handles, bidirectional traffic, ordering/retention, and cleanup | browser | `pnpm exec playwright test tests/e2e/nap-inc-playground.spec.ts --workers=1` | ❌ Wave 0 create | ⬜ pending |
-| 102-07-01 | 102-07 | 5 | BASE-04, BASE-05, INC-01..INC-08 | T-102-23..25 | Active source/docs cite all three Phase 102 heads and preserve shared-binding, intent-lifecycle, package, and history boundaries | static/docs | `pnpm exec vitest run tests/unit/nip5d-conformance-guard.test.ts && pnpm docs:check` | ✅ extend | ⬜ pending |
-| 102-08-01 | 102-08 | 6 | INC-01..INC-08 | T-102-26..28 | Package metadata and complete focused/full cross-host phase gate agree | release/verification | Plan 102-08 full command | ❌ Wave 6 create | ⬜ pending |
+| 102-01-01 | 102-01 | 1 | BASE-04, BASE-05, INC-01, INC-02, INC-03, INC-04, INC-08 | T-102-01..03 | Shared query transposition crosses exact runtime routing, yields an attested dTag event, and sessionless emit/subscribe/open fail closed | tracer/integration | `pnpm exec vitest run tests/unit/nap-inc-conformance.test.ts packages/runtime/src/dispatch.test.ts` | ✅ created/extended | ✅ green |
+| 102-02-01 | 102-02 | 2 | INC-03 | T-102-04 | Only one live dTag resolves; missing/duplicate/window/pubkey inputs fail closed | unit | `pnpm exec vitest run packages/runtime/src/types.test.ts` | ✅ extended | ✅ green |
+| 102-02-02 | 102-02 | 2 | INC-03, INC-04, INC-05, INC-07, INC-08 | T-102-04..07 | Channel identity, target-opened-before-success ordering, opaque IDs, membership, and teardown are complete | integration | `pnpm exec vitest run packages/runtime/src/runtime.test.ts packages/runtime/src/types.test.ts` | ✅ extended | ✅ green |
+| 102-03-01 | 102-03 | 3 | INC-06, INC-08 | T-102-08..09 | Existing ACL checks channel open only; established actions use membership | unit | `pnpm exec vitest run packages/acl/src/resolve.test.ts` | ✅ extended | ✅ green |
+| 102-03-02 | 102-03 | 3 | INC-06, INC-07 | T-102-08..11 | Denied opens create no state; relevant revoke/block closes established routes | integration | `pnpm exec vitest run packages/runtime/src/acl-state.test.ts packages/runtime/src/dispatch.test.ts packages/acl/src/resolve.test.ts` | ✅ extended | ✅ green |
+| 102-04-01 | 102-04 | 2 | BASE-04, BASE-05, INC-01, INC-02, INC-08 | T-102-12..14 | Full parser rejection matrix, INC replacement safety, exact IncEvent, independent local subscriptions, prescribed transport, with no intent API change | unit | `pnpm exec vitest run packages/shell/src/napplet-namespace.test.ts` | ✅ extended | ✅ green |
+| 102-04-02 | 102-04 | 2 | INC-05, INC-07, INC-08 | T-102-13..15 | Symmetric channel API with exact correlation/push filtering, opened-event-closed ordering, early-data retention, overflow close, and cleanup | unit | `pnpm exec vitest run packages/shell/src/napplet-namespace.test.ts` | ✅ extended | ✅ green |
+| 102-09-01 | 102-09 | 2 | BASE-05, INC-04 | T-102-29 | Generic dispatch never routes INC by topic prefix and retains exact direct-domain service routing | unit | `pnpm exec vitest run packages/runtime/src/service-dispatch.test.ts` | ✅ created | ✅ green |
+| 102-10-01 | 102-10 | 2 | BASE-05, INC-03, INC-04 | T-102-30..31 | Notification service ignores all INC traffic, fabricates no event, and preserves canonical direct notify handling | unit | `pnpm exec vitest run packages/services/src/notification-service.test.ts` | ✅ extended | ✅ green |
+| 102-10-02 | 102-10 | 2 | BASE-05 | T-102-31 | Legacy audio exports/types/source are absent while the services package type-checks and builds | static/build | `pnpm --filter @kehto/services type-check && pnpm --filter @kehto/services build` | ✅ extended | ✅ green |
+| 102-11-01 | 102-11 | 3 | BASE-05, INC-03, INC-04 | T-102-32..33 | Active playground code and notification browser flows use direct notify messages with no legacy INC path | browser/build | `pnpm --filter @kehto/playground build && pnpm exec playwright test tests/e2e/demo-notification-service.spec.ts tests/e2e/notify-lifecycle.spec.ts --workers=1` | ✅ extended | ✅ green |
+| 102-12-01 | 102-12 | 3 | BASE-05, INC-03, INC-04 | T-102-34..35 | Active docs/skills teach exact routing and the scoped guard blocks legacy executable behavior while preserving history | static/docs | `pnpm exec vitest run tests/unit/nip5d-conformance-guard.test.ts && pnpm docs:check` | ✅ extended | ✅ green |
+| 102-05-01 | 102-05 | 4 | BASE-04, BASE-05, INC-01, INC-02, INC-05 | T-102-16..17 | Paja URL/pointer modes inject one replacement-safe shared binding after trusted registration | static/unit | `pnpm exec vitest run packages/paja/src/browser-host.test.ts` | ✅ extended | ✅ green |
+| 102-05-02 | 102-05 | 4 | INC-01, INC-02, INC-05, INC-08 | T-102-16..18 | Real Paja srcdoc proves producer, event, correlation/error, fire-and-forget, and reload cleanup | browser | `pnpm exec playwright test tests/e2e/paja-single-window.spec.ts --workers=1` | ✅ extended | ✅ green |
+| 102-06-01 | 102-06 | 4 | BASE-04, BASE-05, INC-01, INC-02 | T-102-19..20 | Playground registers identity then injects one shared binding that survives shim assignment; host has no parser/client fork | static/unit | `pnpm exec vitest run tests/unit/playground-gateway-guard.test.ts` | ✅ extended | ✅ green |
+| 102-06-02 | 102-06 | 4 | INC-01..INC-08 | T-102-19..22 | Two live dTags prove event transposition, exact isolation, symmetric public handles, bidirectional traffic, ordering/retention, and cleanup | browser | `pnpm exec playwright test tests/e2e/nap-inc-playground.spec.ts --workers=1` | ✅ created | ✅ green |
+| 102-07-01 | 102-07 | 5 | BASE-04, BASE-05, INC-01..INC-08 | T-102-23..25 | Active source/docs cite all three Phase 102 heads and preserve shared-binding, intent-lifecycle, package, and history boundaries | static/docs | `pnpm exec vitest run tests/unit/nip5d-conformance-guard.test.ts && pnpm docs:check` | ✅ extended | ✅ green |
+| 102-08-01 | 102-08 | 6 | INC-01..INC-08 | T-102-26..28 | Package metadata and complete focused/cross-host phase evidence agree; full E2E package-adoption and unavailable aislop gates are external to Phase 102 behavior | release/verification | Plan 102-08 full command | ✅ created | ⚠️ partial (external gates) |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -185,4 +185,23 @@ All Phase 102 behaviors have automated proof. No human-only checkpoint is requir
 - [x] No watch-mode flag, package install, or unpublished API assumption is present.
 - [x] `nyquist_compliant: true` and `wave_0_complete: true` are set.
 
-**Approval:** pending execution
+**Approval:** validated 2026-07-23 — all Phase 102 behavior rows are green; the Plan 102-08 aggregate gate is partial only for the external Phase 105 package-adoption failures and unavailable aislop executable. No manual-only Phase 102 behavior remains.
+
+## Validation Audit 2026-07-23
+
+| Metric | Count |
+|--------|-------|
+| Plans/SUMMARYs reconciled | 12/12 |
+| Phase requirements reconciled | 10/10 (BASE-04, BASE-05, INC-01..INC-08) |
+| Per-task rows green | 17/18 |
+| Per-task rows partial (external, non-behavioral) | 1/18 (102-08-01) |
+| New behavioral tests required | 0 |
+| Escalated Phase 102 implementation gaps | 0 |
+
+### Audit Evidence
+
+- Fresh audit run: `pnpm exec vitest run tests/unit/nap-inc-conformance.test.ts packages/runtime/src/types.test.ts packages/runtime/src/runtime.test.ts packages/runtime/src/acl-state.test.ts packages/runtime/src/dispatch.test.ts packages/runtime/src/service-dispatch.test.ts packages/acl/src/resolve.test.ts packages/shell/src/napplet-namespace.test.ts packages/services/src/notification-service.test.ts packages/paja/src/browser-host.test.ts tests/unit/playground-gateway-guard.test.ts tests/unit/nip5d-conformance-guard.test.ts` — **12 files, 314 tests passed**.
+- Review-fix regression run: `pnpm exec vitest run packages/runtime/src/runtime.test.ts packages/runtime/src/dispatch.test.ts packages/services/src/notification-service.test.ts tests/unit/flow-animator-path.test.ts` — **4 files, 111 tests passed**. This includes target ACL denial/open-result teardown, owner-scoped notification mutation, contract-defined INC denials, and host-originated notification animation.
+- Executed plan evidence: the Phase 102 focused proof recorded **12 files, 309 tests passed**; browser proofs recorded Paja **6**, playground channel **1**, and notification **7** tests passed. The correct-host full E2E result, **69 passed / 1 skipped / 7 failed**, is not a Phase 102 gap: the seven failures are the separately owned Phase 105 published-package-adoption gate.
+- `aislop` remains unavailable and was deliberately not installed; it is an environment limitation, not an automated behavioral coverage gap.
+- Authority remains the exact draft heads: NAP-INC #89 `4593ce9e301ce098fd3dad64206fcd6f144fa7af`, web projection #90 `896c32c92deee68dc4d10fc1132b62df20cccb6f`, and symmetric channels #92 `c5cd06f7be6d4690b303949abb26e87ff62f4729`.
