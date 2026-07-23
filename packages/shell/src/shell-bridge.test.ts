@@ -2,11 +2,10 @@
  * shell-bridge.test.ts — Coverage for the `bridge.publishTheme(theme)`
  * broadcast API added by Phase 13 Plan 13-02 (TH-03, closes DRIFT-SHELL-05).
  *
- * `publishTheme` is the host-facing broadcast API on the ShellBridge: the
- * hosting application calls `bridge.publishTheme(theme)` and every napplet
- * currently registered in `runtime.sessionRegistry` receives a
- * `theme.changed` envelope via `originRegistry.getIframeWindow(windowId)
- * .postMessage(envelope, '*')`.
+ * `publishTheme` is the host-facing change API on the ShellBridge: the
+ * hosting application calls `bridge.publishTheme(theme)` and each live
+ * session with the theme domain and current theme:read capability receives
+ * exactly one `theme.changed` envelope.
  *
  * Test strategy:
  *   - Populate `bridge.runtime.sessionRegistry` (the Runtime's own instance)

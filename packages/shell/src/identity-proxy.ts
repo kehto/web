@@ -3,8 +3,7 @@
  *
  * Establishes the canonical proxy shape for @kehto/shell (Plan 12-11): each
  * per-domain proxy exposes a `dispatch` method that delegates napplet→shell
- * requests to the runtime and an `emit` method that posts shell→napplet
- * push envelopes through the origin registry.
+ * requests to the runtime.
  *
  * By default, `createShellBridge()` does NOT compose this proxy into its
  * dispatch path — the runtime already owns identity.* dispatch per Plan
@@ -13,10 +12,9 @@
  * augment identity dispatch (e.g. custom logging, sandboxed rewrites, test
  * doubles).
  *
- * The canonical proxy shape — dispatch + emit — is mirrored verbatim by
- * theme-proxy, keys-proxy, media-proxy, and notify-proxy. Storage today is
- * served by `@kehto/runtime` state-handler directly; a storage-proxy using
- * this shape can be added later if host apps need a composition seam.
+ * Identity changes are deliberately not emitted through this proxy. Hosts
+ * must use `ShellBridge.publishIdentityChanged()`, which enforces the live
+ * session, granted-domain, and current recipient-capability checks.
  */
 
 import type { Runtime } from '@kehto/runtime';
@@ -54,9 +52,8 @@ export interface IdentityProxyDeps {
 /**
  * Per-domain proxy for `identity.*` envelopes.
  *
- * The canonical proxy shape: `dispatch` routes napplet→shell requests into
- * the runtime; `emit` pushes shell→napplet envelopes through the iframe's
- * Window.
+ * `dispatch` routes napplet→shell requests into the runtime. The deprecated
+ * `emit` member remains only as a fail-closed compatibility trap.
  */
 export interface IdentityProxy {
   /**
@@ -70,13 +67,10 @@ export interface IdentityProxy {
    */
   dispatch(windowId: string, envelope: NappletMessage): void;
   /**
-   * Push a shell-initiated identity-domain envelope into a napplet iframe.
+   * Direct identity delivery is prohibited.
    *
-   * No-op when the originRegistry cannot resolve the windowId (unknown or
-   * unregistered napplet). Never throws.
-   *
-   * @param windowId - The target napplet's windowId
-   * @param envelope - The NIP-5D NappletMessage envelope to deliver
+   * @deprecated Use `ShellBridge.publishIdentityChanged()` so delivery is
+   * filtered by live session, granted domain, and current ACL.
    */
   emit(windowId: string, envelope: NappletMessage): void;
 }
@@ -109,9 +103,10 @@ export function createIdentityProxy(deps: IdentityProxyDeps): IdentityProxy {
     dispatch(windowId: string, envelope: NappletMessage): void {
       deps.runtime.handleMessage(windowId, envelope);
     },
-    emit(windowId: string, envelope: NappletMessage): void {
-      const win = deps.originRegistry.getIframeWindow(windowId);
-      if (win) win.postMessage(envelope, '*');
+    emit(_windowId: string, _envelope: NappletMessage): void {
+      throw new Error(
+        'Direct identity proxy emit is prohibited; use ShellBridge.publishIdentityChanged()',
+      );
     },
   };
 }

@@ -94,18 +94,13 @@ export interface ShellBridge {
   registerConsentHandler(handler: (request: ConsentRequest) => void): void;
 
   /**
-   * Publish a theme update to every registered napplet.
+   * Publish a theme update to each eligible napplet.
    *
    * Posts a `theme.changed` envelope (shell → napplet push) to every
-   * window currently tracked by the runtime's sessionRegistry, using
-   * the browser-adapter originRegistry to resolve windowId → iframe.
-   * Napplets whose window cannot be resolved (stale sessions) are
-   * silently skipped; this method never throws.
-   *
-   * ACL is enforced BY THE RECIPIENT NAPPLET — the runtime's
-   * `themeMap` in @kehto/acl assigns `recipientCap: 'theme:read'` for
-   * `theme.changed`, and @napplet/shim drops pushes the napplet lacks
-   * the capability for. Hosts should not self-filter here.
+   * live authenticated session whose frozen environment grants `theme` and
+   * whose current ACL grants `theme:read`. Stale or ineligible sessions are
+   * skipped before origin-registry delivery; recipient code is not trusted
+   * to enforce host authorization.
    *
    * @param theme - The new theme payload to broadcast.
    * @example

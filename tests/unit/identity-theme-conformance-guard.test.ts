@@ -36,6 +36,8 @@ describe('Phase 103 identity/theme active-surface guard', () => {
   it('keeps identity/theme delivery session, domain, capability, and parent-source gated', () => {
     const bridge = source('packages/shell/src/shell-bridge.ts');
     const namespace = source('packages/shell/src/napplet-namespace.ts');
+    const identityProxy = source('packages/shell/src/identity-proxy.ts');
+    const themeProxy = source('packages/shell/src/theme-proxy.ts');
     const acl = source('packages/acl/src/resolve.ts');
 
     expect(bridge).toContain('function publishToEligibleNapplets(');
@@ -48,6 +50,12 @@ describe('Phase 103 identity/theme active-surface guard', () => {
     expect(namespace).toContain("getPublicKey: () => read('identity.getPublicKey', 'pubkey', '')");
     expect(namespace).not.toContain("type: 'theme.subscribe'");
     expect(namespace).not.toContain("type: 'theme.unsubscribe'");
+    expect(identityProxy).not.toContain('win.postMessage(');
+    expect(themeProxy).not.toContain('win.postMessage(');
+    expect(identityProxy).toContain('use ShellBridge.publishIdentityChanged()');
+    expect(themeProxy).toContain('use ShellBridge.publishTheme()');
+    expect(bridge).not.toContain('ACL is enforced BY THE RECIPIENT');
+    expect(bridge).not.toContain('Hosts should not self-filter');
     expect(acl).toContain("if (action === 'changed')");
     expect(acl).toContain("recipientCap: 'identity:read'");
     expect(acl).toContain("recipientCap: 'theme:read'");
@@ -75,6 +83,7 @@ describe('Phase 103 identity/theme active-surface guard', () => {
     const services = source('packages/services/README.md');
     const shell = source('packages/shell/README.md');
     const playground = source('apps/playground/README.md');
+    const pajaE2e = source('tests/e2e/paja-single-window.spec.ts');
     const guidance = [policy, runtime, services, shell, playground].join('\n');
 
     expect(policy).toContain('896c32c92deee68dc4d10fc1132b62df20cccb6f');
@@ -85,5 +94,6 @@ describe('Phase 103 identity/theme active-surface guard', () => {
     expect(playground).toContain('ThemeService.publishTheme()');
     expect(guidance).not.toContain('identity.getPublicKey.error');
     expect(guidance).not.toMatch(/theme\.(?:subscribe|unsubscribe)/);
+    expect(pajaE2e).not.toContain('identity.getPublicKey.error');
   });
 });

@@ -2,16 +2,9 @@
  * identity-proxy.test.ts — Canonical shape test for the shell-side per-domain
  * proxy pattern established by Plan 12-11.
  *
- * Every per-domain proxy (identity, theme, keys, media, notify) exposes the
- * same two-method surface:
- *
- *   - `dispatch(windowId, envelope)` — route napplet→shell requests to the
- *     runtime (the runtime already owns domain dispatch per Plans 12-03..12-09).
- *   - `emit(windowId, envelope)` — post a shell→napplet push envelope into
- *     the napplet iframe through the origin registry.
- *
- * The identity-proxy is the canonical example. The other four proxies share
- * the identical shape; they are covered by build + type-check.
+ * Identity requests may be intercepted before runtime dispatch. Direct
+ * identity delivery fails closed because it would bypass ShellBridge's live
+ * session, granted-domain, and current-capability checks.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -57,7 +50,7 @@ describe('identity-proxy (canonical per-domain proxy shape)', () => {
     expect(runtime.handleMessage).toHaveBeenCalledWith('win-1', envelope);
   });
 
-  it('emit() posts shell→napplet push envelopes through the origin registry', () => {
+  it('emit() fails closed instead of bypassing ShellBridge recipient checks', () => {
     const runtime = fakeRuntime();
     const iframe = fakeIframeWindow();
     const originRegistry = fakeOriginRegistry(iframe as unknown as Window);
@@ -68,13 +61,13 @@ describe('identity-proxy (canonical per-domain proxy shape)', () => {
       id: 'q1',
       pubkey: 'abc',
     } as unknown as NappletMessage;
-    proxy.emit('win-1', envelope);
-
-    expect(iframe.postMessage).toHaveBeenCalledTimes(1);
-    expect(iframe.postMessage).toHaveBeenCalledWith(envelope, '*');
+    expect(() => proxy.emit('win-1', envelope)).toThrow(
+      'use ShellBridge.publishIdentityChanged()',
+    );
+    expect(iframe.postMessage).not.toHaveBeenCalled();
   });
 
-  it('emit() is a no-op when the origin registry returns null (unknown window)', () => {
+  it('emit() also fails closed for an unknown window', () => {
     const runtime = fakeRuntime();
     const originRegistry = fakeOriginRegistry(null);
     const proxy = createIdentityProxy({ runtime, originRegistry });
@@ -85,9 +78,9 @@ describe('identity-proxy (canonical per-domain proxy shape)', () => {
       pubkey: 'abc',
     } as unknown as NappletMessage;
 
-    // Must not throw, must not invoke any postMessage.
-    expect(() => proxy.emit('missing-win', envelope)).not.toThrow();
-    // dispatch() remains untouched too.
+    expect(() => proxy.emit('missing-win', envelope)).toThrow(
+      'use ShellBridge.publishIdentityChanged()',
+    );
     expect(runtime.handleMessage).not.toHaveBeenCalled();
   });
 });

@@ -283,13 +283,13 @@ test('shows error details and routes signing through NIP-07', async ({ page }) =
 
   await targetFrame.locator('body').evaluate(() => {
     window.parent.postMessage({
-      type: 'identity.getPublicKey.error',
+      type: 'resource.info.error',
       id: 'manual-error',
       error: 'visible boom',
     }, '*');
   });
   await page.locator('#message-filter').fill('visible boom');
-  await expect(page.locator('#message-log')).toContainText('identity.getPublicKey.error');
+  await expect(page.locator('#message-log')).toContainText('resource.info.error');
   await expect(page.locator('#message-log .log-row[data-error="true"]')).toContainText('visible boom');
 });
 
