@@ -5,15 +5,15 @@ milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 102
 current_phase_name: nap-inc-event-channel-parity
 status: executing
-stopped_at: Completed 102-04-PLAN.md
-last_updated: "2026-07-23T17:56:46.772Z"
+stopped_at: Completed 102-09-PLAN.md
+last_updated: "2026-07-23T18:05:48.137Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 102 execution started
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 17
-  completed_plans: 8
+  completed_plans: 9
   percent: 17
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-23)
 ## Current Position
 
 Phase: 102 (nap-inc-event-channel-parity) — EXECUTING
-Plan: 4 of 12
+Plan: 5 of 12
 Status: Ready to execute
 
 Last activity: 2026-07-23 -- Phase 102 execution started
@@ -62,6 +62,7 @@ Last activity: 2026-07-23 -- Phase 102 execution started
 | Phase 102-nap-inc-event-channel-parity P01 | 4min | 1 tasks | 4 files |
 | Phase 102-nap-inc-event-channel-parity P02 | 6min | 2 tasks | 4 files |
 | Phase 102-nap-inc-event-channel-parity P04 | 7min | 2 tasks | 2 files |
+| Phase 102-nap-inc-event-channel-parity P09 | 5min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -172,8 +173,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-07-23T17:56:46.765Z
-Stopped at: Completed 102-04-PLAN.md
+Last session: 2026-07-23T18:05:48.130Z
+Stopped at: Completed 102-09-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -216,3 +217,5 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: INC channels expose dTags and opaque IDs; teardown is shared across close, destroy, and revocation.
 - [Phase ?]: INC binding uses the #89/#90/#92 exact-head contract with a projection-side reusable normalizer.
 - [Phase ?]: INC assignment preserves extension fields but restores canonical convention operations and symmetric channel handles.
+- [Phase ?]: Generic service dispatch reserves exact inc.emit messages for IncRuntime; topic text cannot select a handler.
+- [Phase ?]: Direct canonical service routing remains keyed by the wire message.type domain.

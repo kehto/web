@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 8
+open_count: 10
 waived_count: 0
 fixed_count: 0
-total_count: 8
-last_updated: 2026-07-23T17:57:52.505Z
+total_count: 10
+last_updated: 2026-07-23T18:05:35.521Z
 ---
 
 # Broken Windows Ledger
@@ -23,6 +23,8 @@ last_updated: 2026-07-23T17:57:52.505Z
 | 6 | 102 | deviation | packages/runtime/src/session-registry.ts |  | TDD RED checks passed but branch safety remediation required combined green commits | open |  | 2026-07-23T17:41:27.938Z |  |
 | 7 | 102 | lint-warning | docs/packages/paja.md |  | docs:check fails because the Paja package page lacks the current 0.8.1 version row | open |  | 2026-07-23T17:57:52.447Z |  |
 | 8 | 102 | unrun-verify | .aislop/config.yml |  | AI-slop gate not run because the aislop executable is unavailable locally and on PATH | open |  | 2026-07-23T17:57:52.505Z |  |
+| 9 | 102 | unrun-verify | .aislop/config.yml |  | AI-slop verification could not run because aislop is not installed locally; installation is prohibited for this phase. | open |  | 2026-07-23T18:05:35.468Z |  |
+| 10 | 102 | deviation | packages/runtime/src/service-dispatch.ts |  | Exact inc.emit early return added to prevent a generic inc service from bypassing INC runtime ownership. | open |  | 2026-07-23T18:05:35.521Z |  |
 
 ````json
 [
@@ -120,6 +122,30 @@ last_updated: 2026-07-23T17:57:52.505Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-23T17:57:52.505Z",
+    "resolved_at": null
+  },
+  {
+    "id": 9,
+    "kind": "unrun-verify",
+    "phase": "102",
+    "file": ".aislop/config.yml",
+    "line": null,
+    "description": "AI-slop verification could not run because aislop is not installed locally; installation is prohibited for this phase.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-23T18:05:35.468Z",
+    "resolved_at": null
+  },
+  {
+    "id": 10,
+    "kind": "deviation",
+    "phase": "102",
+    "file": "packages/runtime/src/service-dispatch.ts",
+    "line": null,
+    "description": "Exact inc.emit early return added to prevent a generic inc service from bypassing INC runtime ownership.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-23T18:05:35.521Z",
     "resolved_at": null
   }
 ]
