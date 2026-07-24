@@ -185,6 +185,34 @@ bridge.destroy();
 
 After `bridge.destroy()`, do NOT call any bridge methods. Create a new bridge instance instead.
 
+## Paja local-dev verification
+
+When using Paja to host a target napplet from a local dev server (`kehto paja
+--target-url ...`), remember that Paja loads the target document into a
+`srcdoc` iframe sandboxed without `allow-same-origin`. The napplet document has
+an opaque origin, so browser module-script fetches send `Origin: null` to the
+target dev server.
+
+The target dev server must allow that origin. For Vite targets, add this to the
+napplet app's Vite config:
+
+```ts
+export default defineConfig({
+  server: {
+    cors: {
+      origin: '*',
+    },
+  },
+});
+```
+
+If the iframe is blank while asset URLs point at the correct target port, check
+Paja's message log or `/__kehto/target-cors.json`. A
+`paja.target.cors.error` diagnostic means the target server is not returning an
+`Access-Control-Allow-Origin` value that permits `Origin: null`. Do not diagnose
+that failure as a bad `<base href>` unless requests are actually routed to the
+Paja server instead of the target server.
+
 ## Common pitfalls
 
 - `originRegistry.register()` MUST be called before `bridge.sendChallenge()`. Messages from an unregistered window are dropped silently.
@@ -195,3 +223,4 @@ After `bridge.destroy()`, do NOT call any bridge methods. Create a new bridge in
 - Consent handler fires for kinds 0, 3, 5, 10002 only. All other signing kinds pass automatically unless the napplet's ACL explicitly blocks `sign:event`.
 - After `bridge.destroy()`, do NOT call any bridge methods. Create a new bridge instance with `createShellBridge(hooks)` instead.
 - `ShellAdapter` requires ALL listed groups (`relayPool`, `relayConfig`, `auth`, `config`, `hotkeys`, `workerRelay`, `crypto`, `windowManager`). Omitting any required group causes a TypeScript error at compile time and a runtime error at bridge creation.
+- Paja target-url mode uses a sandboxed opaque-origin iframe. The target dev server must allow `Origin: null`; otherwise module scripts are blocked and the frame can appear blank even when asset URLs are correct.

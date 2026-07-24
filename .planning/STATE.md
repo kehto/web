@@ -144,6 +144,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260711-jhr | Resolve PR #173 merge conflicts | 2026-07-11 | 14f902a | [260711-jhr-resolve-pr-173-merge-conflicts-by-mergin](./quick/260711-jhr-resolve-pr-173-merge-conflicts-by-mergin/) |
 | 260711-r4p | Implement usable NAP-UPLOAD in Kehto Paja using Hyprgate's Blossom backend implementation as guidance | 2026-07-11 | d4c7da3 | Verified | [260711-r4p-implement-usable-nap-upload-in-kehto-paj](./quick/260711-r4p-implement-usable-nap-upload-in-kehto-paj/) |
 | 260712-slw | Fix Paja naddr relay resolution end-to-end | 2026-07-12 | 8ba8e30 | Verified | [260712-slw-fix-paja-naddr-relay-resolution-end-to-e](./quick/260712-slw-fix-paja-naddr-relay-resolution-end-to-e/) |
+| 260723-cvz | Diagnose and document Paja dev-mode opaque-origin CORS failure blocking napplet module scripts | 2026-07-23 | 0af445b | Verified | [260723-cvz-fix-paja-dev-mode-napplet-load-failure-c](./quick/260723-cvz-fix-paja-dev-mode-napplet-load-failure-c/) |
 | 260724-czo | Inject a full Class-1 CSP into verified srcdoc loaders | 2026-07-24 | d3d966a | Verified | [260724-czo-inject-a-full-class-1-csp-into-verified-](./quick/260724-czo-inject-a-full-class-1-csp-into-verified-/) |
 
 ## Session Continuity

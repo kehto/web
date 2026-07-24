@@ -67,6 +67,11 @@ export {
 } from './parity.js';
 export { ReadinessError, waitForTargetUrl } from './readiness.js';
 export { startPajaServer } from './server.js';
+export {
+  PAJA_TARGET_CORS_HINT,
+  classifyTargetCors,
+  probeTargetCors,
+} from './target-cors.js';
 
 export type {
   PajaCommand,
@@ -99,3 +104,8 @@ export type {
   ReadinessFetch,
   WaitForTargetUrlOptions,
 } from './readiness.js';
+export type {
+  PajaTargetCorsDiagnostic,
+  PajaTargetCorsFetch,
+  PajaTargetCorsStatus,
+} from './target-cors.js';

@@ -29,6 +29,13 @@ pnpm dev
 
 Open the printed Paja runtime URL, not the app server URL.
 
+Paja sandboxes the target iframe without `allow-same-origin`, so the app fetches
+its own module scripts with `Origin: null`. Allow that origin in the dev server
+or the app's entry module is blocked and the frame stays blank — Vite needs
+`server: { cors: { origin: '*' } }` because its default allowlist covers only
+localhost origins. When the target would block the frame, Paja logs a
+`paja.target.cors.error` entry in **Messages** and warns on the browser console.
+
 ## 3. Check Identity
 
 The **Signer** panel shows the generated development pubkey. Calls to
