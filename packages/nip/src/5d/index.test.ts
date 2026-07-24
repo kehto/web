@@ -137,18 +137,18 @@ describe('parseNappletManifest', () => {
 });
 
 describe('archetype + source parsing', () => {
-  it('parses a single archetype tag with a NAP-N protocol', () => {
+  it('parses a single archetype tag with a stable convention', () => {
     const { event } = buildManifest({ archetypes: [['profile', 'NAP-1']] });
     const m = parseNappletManifest(event);
-    expect(m.archetypes).toEqual([{ slug: 'profile', nap: 'NAP-1' }]);
+    expect(m.archetypes).toEqual([{ slug: 'profile', convention: 'NAP-1' }]);
   });
 
   it('parses multiple archetype tags in declared order', () => {
     const { event } = buildManifest({ archetypes: [['profile', 'NAP-1'], ['feed', 'NAP-2']] });
     const m = parseNappletManifest(event);
     expect(m.archetypes).toEqual([
-      { slug: 'profile', nap: 'NAP-1' },
-      { slug: 'feed', nap: 'NAP-2' },
+      { slug: 'profile', convention: 'NAP-1' },
+      { slug: 'feed', convention: 'NAP-2' },
     ]);
   });
 

@@ -7,9 +7,7 @@
  * kehto defines them here, wire-compatible with the upstream shapes, rather
  * than redefining the generic NIP-5D envelope.
  *
- * NAP-INTENT standardizes the *envelope*, not the payload. `archetype` is the
- * routing axis (which role, whose default), `protocol` is the parsing axis
- * (which NAP-N wire format shapes `payload`); the two are orthogonal.
+ * NAP-INTENT derives routing and convention identity from the authoritative URI.
  *
  * @packageDocumentation
  */
@@ -29,20 +27,21 @@ export interface IntentBehavior {
   /** Bring the handler window to the foreground. */
   focus?: boolean;
   /** Force a new window rather than reusing an existing handler instance. */
-  newWindow?: boolean;
   /** Prefer reusing an already-open handler instance when one exists. */
   reuse?: boolean;
 }
 
 /** A request to dispatch an action to a napplet of a given archetype. */
 export interface IntentRequest {
-  /** Role slug, e.g. `"note"` (see the archetype registry). */
+  /** Role slug derived from the authoritative convention URI. */
   archetype: string;
-  /** Verb, default `"open"` (e.g. `"open"` | `"edit"` | `"pick"` | `"share"`). */
+  /** Intent derived from the authoritative convention URI. */
   action?: string;
-  /** NAP-N id shaping `payload`; omit to use the archetype's recommended default. */
+  /** Stable queryless convention identity derived from the URI. */
+  convention?: string;
+  /** @deprecated Draft #91 replaces protocol with convention. */
   protocol?: string;
-  /** Opaque payload, typed by `protocol`. */
+  /** Query-derived text map or explicit structured payload. */
   payload?: unknown;
   /** Handler-selection preference. */
   handler?: IntentHandlerPreference;
@@ -58,7 +57,11 @@ export interface IntentCandidate {
   title?: string;
   /** Verbs this candidate supports for the archetype. */
   actions: string[];
-  /** NAP-N ids this candidate accepts for the archetype. */
+  /** Stable queryless convention identities accepted by this candidate. */
+  conventions?: string[];
+  /** Parsed manifest contracts for this candidate. */
+  contracts?: IntentContract[];
+  /** @deprecated Draft #91 replaces protocol metadata with contracts. */
   protocols: string[];
   /** Whether this candidate is the user/runtime default for the archetype. */
   isDefault?: boolean;
@@ -78,20 +81,32 @@ export interface IntentAvailability {
 
 /** The result of an intent invocation. */
 export interface IntentResult {
-  /** Whether the intent was dispatched successfully. */
+  /** Whether the runtime accepted responsibility for delivery. */
   ok: boolean;
-  /** The requested archetype, echoed back. */
-  archetype: string;
-  /** The resolved action (defaults to `"open"` when the request omits it). */
-  action: string;
-  /** True when a handler accepted the dispatch. */
-  handled: boolean;
+  archetype?: string;
+  action?: string;
+  convention?: string;
+  /** @deprecated Delivery acceptance is represented only by ok. */
+  handled?: boolean;
+  /** @deprecated Target window identity is runtime policy, not wire contract. */
+  windowId?: string;
+  /** @deprecated Draft #91 uses convention. */
+  protocol?: string;
   /** dTag of the napplet that handled the intent, when one did. */
   handler?: string;
-  /** Window id the handler was created or focused in. */
-  windowId?: string;
-  /** The wire format actually used to deliver `payload`. */
-  protocol?: string;
   /** Error reason when the intent could not be fulfilled. */
   error?: string;
+}
+
+export interface IntentContract {
+  convention: string;
+  eventKinds?: number[];
+}
+
+export interface IntentDelivery {
+  sender: string;
+  archetype: string;
+  action: string;
+  convention: string;
+  payload?: unknown;
 }

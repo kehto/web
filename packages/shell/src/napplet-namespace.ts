@@ -1204,19 +1204,47 @@ function nappletNamespacePrelude(domains: string[]): void {
   }
 
   function makeIntent(): Record<string, unknown> {
-    const invoke = (requestPayload: unknown) => request(
-      { type: 'intent.invoke', request: requestPayload },
+    const deliveryHandlers = new Set<(delivery: unknown) => void>();
+    const pendingDeliveries: unknown[] = [];
+    listen((event) => {
+      if (!isParentMessage(event)) return;
+      const msg = event.data as RuntimeMessage;
+      if (typeof msg !== 'object' || msg === null || msg.type !== 'intent.deliver') return;
+      if (deliveryHandlers.size === 0) pendingDeliveries.push(msg.delivery);
+      else for (const handler of deliveryHandlers) handler(msg.delivery);
+    });
+    function normalizeIntentUri(uri: unknown, explicitPayload: boolean, actionMustBe?: string): Record<string, unknown> {
+      if (typeof uri !== 'string' || !uri.startsWith('napplet:')) {
+        throw new TypeError('Intent convention URI must start with napplet:');
+      }
+      if (uri.includes('#')) throw new TypeError('Intent convention URI cannot contain fragments');
+      const normalized = normalizeConventionUri(uri, explicitPayload);
+      const match = /^napplet:([^/?#]+)\/([^/?#]+)$/.exec(normalized.topic);
+      if (!match) throw new TypeError('Intent convention URI must be napplet:<archetype>/<intent>');
+      if (actionMustBe !== undefined && match[2] !== actionMustBe) {
+        throw new TypeError(`Intent convention URI must use the ${actionMustBe} intent`);
+      }
+      return {
+        archetype: match[1],
+        action: match[2],
+        convention: normalized.topic,
+        ...(normalized.payload === undefined ? {} : { payload: normalized.payload }),
+      };
+    }
+    const invoke = (uri: unknown, opts?: Record<string, unknown>, actionMustBe?: string) => {
+      const explicitPayload = Boolean(opts && Object.prototype.hasOwnProperty.call(opts, 'payload'));
+      const normalized = normalizeIntentUri(uri, explicitPayload, actionMustBe);
+      const options = opts && typeof opts === 'object' ? { ...opts } : {};
+      delete options.payload;
+      return request(
+        { type: 'intent.invoke', request: { ...normalized, ...options, ...(explicitPayload ? { payload: opts?.payload } : {}) } },
       'intent.invoke.result',
       (msg) => fieldOrThrow(msg, 'result', 'intent.invoke.result missing result'),
-    );
+      );
+    };
     return {
       invoke,
-      open: (archetype: string, payload?: unknown, opts?: Record<string, unknown>) => invoke({
-        archetype,
-        action: 'open',
-        payload,
-        ...((opts && typeof opts === 'object') ? opts : {}),
-      }),
+      open: (uri: string, opts?: Record<string, unknown>) => invoke(uri, opts, 'open'),
       available: (archetype: string) => request(
         { type: 'intent.available', archetype },
         'intent.available.result',
@@ -1232,6 +1260,13 @@ function nappletNamespacePrelude(domains: string[]): void {
         callback,
         (msg) => msg.availability,
       ),
+      onDelivery: (callback: (delivery: unknown) => void) => {
+        if (typeof callback !== 'function') throw new TypeError('Intent delivery handler must be a function');
+        deliveryHandlers.add(callback);
+        const pending = pendingDeliveries.splice(0);
+        for (const delivery of pending) callback(delivery);
+        return subscriptionHandle(() => deliveryHandlers.delete(callback));
+      },
     };
   }
 

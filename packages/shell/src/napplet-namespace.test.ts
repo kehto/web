@@ -197,8 +197,8 @@ function requireDomain(domain: string): Record<string, (...args: unknown[]) => u
 
 const sdkLike = {
   intent: {
-    open: (archetype: string, payload?: unknown, opts?: Record<string, unknown>) => (
-      requireDomain('intent').open(archetype, payload, opts) as Promise<unknown>
+    open: (uri: string, opts?: Record<string, unknown>) => (
+      requireDomain('intent').open(uri, opts) as Promise<unknown>
     ),
   },
   common: {
@@ -1121,7 +1121,7 @@ describe('NIP-5D napplet namespace prelude', () => {
     );
 
     await withGlobalWindow(target, async () => {
-      const opened = sdkLike.intent.open('note', { id: 'event-1' }, { protocol: 'profile' });
+      const opened = sdkLike.intent.open('napplet:note/open', { payload: { id: 'event-1' } });
       const intentRequest = target.postedMessages.at(-1);
       expect(intentRequest).toMatchObject({
         type: 'intent.invoke',
@@ -1129,8 +1129,8 @@ describe('NIP-5D napplet namespace prelude', () => {
         request: {
           archetype: 'note',
           action: 'open',
+          convention: 'napplet:note/open',
           payload: { id: 'event-1' },
-          protocol: 'profile',
         },
       });
       target.dispatchParentMessage({

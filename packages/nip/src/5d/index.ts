@@ -91,10 +91,9 @@ export interface NappletManifest {
   /** Short NAP capability names from `requires` tags. */
   requires: string[];
   /**
-   * Archetype slugs this napplet fulfills, from `archetype` manifest tags; the
-   * optional `nap` is the recommended default wire protocol (the 3rd tag element).
+   * Convention contracts this napplet fulfills, from `archetype` manifest tags.
    */
-  archetypes: Array<{ slug: string; nap?: string }>;
+  archetypes: Array<{ slug: string; convention?: string; eventKinds?: number[]; nap?: string }>;
   /** Optional human title. */
   title?: string;
   /** Optional human description. */
@@ -143,16 +142,21 @@ function allTagValues(tags: readonly (readonly string[])[], name: string): strin
 
 function archetypesFromTags(
   tags: readonly (readonly string[])[],
-): Array<{ slug: string; nap?: string }> {
-  const out: Array<{ slug: string; nap?: string }> = [];
+): Array<{ slug: string; convention?: string; eventKinds?: number[]; nap?: string }> {
+  const out: Array<{ slug: string; convention?: string; eventKinds?: number[]; nap?: string }> = [];
   for (const tag of tags) {
     if (tag[0] !== 'archetype') continue;
     if (typeof tag[1] !== 'string' || tag[1].length === 0) continue;
-    out.push(
-      typeof tag[2] === 'string' && tag[2].length > 0
-        ? { slug: tag[1], nap: tag[2] }
-        : { slug: tag[1] },
-    );
+    const convention = typeof tag[2] === 'string' && tag[2].length > 0 ? tag[2] : undefined;
+    const eventKinds = tag.slice(3).flatMap((value) => {
+      const match = /^kind:(\d+)$/.exec(value);
+      return match ? [Number(match[1])] : [];
+    });
+    out.push({
+      slug: tag[1],
+      ...(convention === undefined ? {} : { convention }),
+      ...(eventKinds.length === 0 ? {} : { eventKinds }),
+    });
   }
   return out;
 }

@@ -16,6 +16,7 @@
  */
 
 import type { IntentArchetypeSupport, IntentCatalogEntry } from './catalog-intent-resolver.js';
+import type { IntentContract } from './intent-types.js';
 
 /** NAP-INTENT default action when a manifest does not enumerate actions. */
 const DEFAULT_ACTIONS: readonly string[] = ['open'];
@@ -34,7 +35,7 @@ export interface ManifestArchetypeInput {
    * Archetype slugs this napplet fulfills, from the manifest's `archetype` tags;
    * the optional `nap` is the recommended default wire protocol.
    */
-  archetypes: Array<{ slug: string; nap?: string }>;
+  archetypes: Array<{ slug: string; convention?: string; eventKinds?: number[]; nap?: string }>;
 }
 
 /**
@@ -62,10 +63,16 @@ export interface ManifestArchetypeInput {
  */
 export function manifestToIntentCatalogEntry(manifest: ManifestArchetypeInput): IntentCatalogEntry {
   const archetypes: Record<string, IntentArchetypeSupport> = {};
-  for (const { slug, nap } of manifest.archetypes) {
+  for (const { slug, convention, eventKinds, nap } of manifest.archetypes) {
+    const stableConvention = convention ?? nap;
+    const contracts: IntentContract[] = stableConvention
+      ? [{ convention: stableConvention, ...(eventKinds?.length ? { eventKinds: [...eventKinds] } : {}) }]
+      : [];
     archetypes[slug] = {
       actions: [...DEFAULT_ACTIONS],
-      protocols: nap ? [nap] : [],
+      protocols: stableConvention ? [stableConvention] : [],
+      conventions: stableConvention ? [stableConvention] : [],
+      contracts,
     };
   }
   return {

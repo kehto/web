@@ -30,6 +30,7 @@ import type {
   IntentCandidate,
   IntentRequest,
   IntentResult,
+  IntentContract,
 } from './intent-types.js';
 import type { IntentResolver, IntentResolverContext } from './intent-service.js';
 
@@ -39,6 +40,9 @@ export interface IntentArchetypeSupport {
   actions: string[];
   /** NAP-N protocol ids this napplet accepts for the archetype. */
   protocols: string[];
+  /** Stable queryless convention contracts from the manifest. */
+  conventions?: string[];
+  contracts?: IntentContract[];
 }
 
 /**
@@ -135,6 +139,8 @@ function candidatesFor(
       ...(entry.title === undefined ? {} : { title: entry.title }),
       actions: support.actions,
       protocols: support.protocols,
+      conventions: support.conventions ?? [],
+      contracts: support.contracts ?? [],
       ...(entry.dTag === defaultHandler ? { isDefault: true } : {}),
     });
   }
