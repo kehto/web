@@ -177,16 +177,37 @@ export async function resolvePajaPointer(
 }
 
 /**
- * Inject a restrictive connect-src CSP for runtime-pointer srcdoc output.
+ * Inject Kehto's Class-1 CSP for verified runtime-pointer srcdoc output.
+ * NIP-5D mandates the verified srcdoc and opaque sandbox, but this baseline CSP
+ * is Kehto policy rather than a protocol requirement.
  *
  * @param html - Verified target HTML.
  * @param origins - Origins the resolved target may connect to.
  * @returns HTML with a CSP meta tag inserted.
  */
 export function injectPajaRuntimeCsp(html: string, origins: readonly string[]): string {
-  const value = origins.length > 0
-    ? `connect-src ${[...new Set(origins)].sort().join(' ')}`
+  const grantedOrigins = [...new Set(origins)].sort();
+  const connectSrc = grantedOrigins.length > 0
+    ? `connect-src ${grantedOrigins.join(' ')}`
     : "connect-src 'none'";
+  const value = [
+    "default-src 'none'",
+    "script-src 'unsafe-inline'",
+    "style-src 'unsafe-inline'",
+    'img-src data: blob:',
+    'font-src data:',
+    connectSrc,
+    "worker-src 'none'",
+    "child-src 'none'",
+    "frame-src 'none'",
+    "media-src 'none'",
+    "object-src 'none'",
+    "manifest-src 'none'",
+    "prefetch-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+    "frame-ancestors 'self'",
+  ].join('; ');
   const meta = `<meta http-equiv="Content-Security-Policy" content="${escapeAttribute(value)}">`;
   if (/<head[^>]*>/i.test(html)) {
     return html.replace(/<head[^>]*>/i, (open) => `${open}${meta}`);

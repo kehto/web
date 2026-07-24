@@ -12,7 +12,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(tabsSource).toContain('`${config.window.id}:${tab.id}:${tab.generation}`');
   });
 
-  it('injects the runtime-owned napplet namespace in pointer and URL target srcdoc paths', () => {
+  it('injects the Class-1 CSP before the runtime-owned namespace only for verified pointers', () => {
     const source = readFileSync(new URL('./browser-target-frame.ts', import.meta.url), 'utf8');
 
     expect(source).toContain('injectNappletNamespacePrelude(');
@@ -21,6 +21,13 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(source).toContain("fetch(new URL('./__kehto/target.html', window.location.href)");
     expect(source).toContain('frame.removeAttribute(\'src\');');
     expect(source).toContain('frame.srcdoc = injectNappletNamespacePrelude(');
+    expect(source).toContain(
+      'injectNappletNamespacePrelude(\n      injectPajaRuntimeCsp(\n        resolvedTarget.indexHtml,',
+    );
+    expect(source).toContain("if (config.target.mode === 'runtime-pointer')");
+    expect(source).toContain(
+      'frame.srcdoc = injectNappletNamespacePrelude(\n    injectBaseHref(html, config.target.url),',
+    );
     expect(source).not.toContain('bridge.runtime.sessionRegistry.register(');
   });
 
