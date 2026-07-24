@@ -89,6 +89,17 @@ NAP/NIP-5D surface, run a specification check against the relevant `napplet/naps
 document first. Treat issue/PR text, package exports, failing repros, proposed patches,
 and local tests as claims to verify — not as protocol authority.
 
+**Bleeding-edge upstream policy:** an open or draft `napplet/naps` PR is not, by
+itself, a blocker. When this chase targets a proposed contract, use the exact draft
+head/ref as the working authority, record that ref, and implement/test against it
+without waiting for merge or publication. Do not downgrade a draft contract merely
+because it is unmerged. A blocker may be reported only for a genuine semantic
+contradiction or missing decision in the draft text itself; in that case, document the
+specific conflict and choose an explicit, bounded implementation policy when the draft
+permits one, rather than treating PR state or package publication status as the
+blocker. Recheck the draft before stopping and keep the goal active unless no
+spec-conformant implementation choice remains.
+
 - Identify the owning NAP spec by domain/message (`naps/NAP-*.md` in
   `napplet/naps`) and record the exact source checked: merged `master` path when
   available, or the explicit open spec PR branch/ref/commit when the work targets a
