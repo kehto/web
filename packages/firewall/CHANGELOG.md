@@ -1,5 +1,11 @@
 # @kehto/firewall
 
+## 0.3.10
+
+### Patch Changes
+
+- 418d22b: Reset expired init-burst counters so reloaded or reopened napplets receive a fresh startup operation budget.
+
 ## 0.3.9
 
 ### Patch Changes
