@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.29
 milestone_name: Napplet Convention and Runtime Conformance
-current_phase: 102
-current_phase_name: nap-inc-event-channel-parity
-status: blocked
-stopped_at: Phase 102 repeated-overflow contract conflict surfaced upstream
-last_updated: "2026-07-23T22:32:17.601Z"
-last_activity: 2026-07-23
-last_activity_desc: Phase 103 formally verified; Phase 102 remains upstream-blocked
+current_phase: 104
+current_phase_name: nap-intent-and-manifest-contract-parity
+status: in_progress
+stopped_at: null
+last_updated: "2026-07-24T10:15:00.000Z"
+last_activity: 2026-07-24
+last_activity_desc: NAP-INC #92 merged; resumed Phase 104 against merged INC and #91 intent draft
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 25
   completed_plans: 25
-  percent: 33
+  percent: 50
 ---
 
 # Project State
@@ -28,9 +28,9 @@ See: .planning/PROJECT.md (updated 2026-07-23)
 
 ## Current Position
 
-Phase: 102 (nap-inc-event-channel-parity) — BLOCKED
-Plan: 13 of 13
-Status: Awaiting upstream clarification of repeated unopened-handle overflow semantics
+Phase: 104 (nap-intent-and-manifest-contract-parity) — IN PROGRESS
+Plan: 0 of TBD
+Status: Implementing URI-authoritative intent binding and carrier-neutral delivery
 
 Last activity: 2026-07-23 -- Phase 103 formally verified; Phase 102 remains upstream-blocked
 

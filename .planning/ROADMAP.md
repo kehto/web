@@ -252,9 +252,9 @@ users rely on.
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 101. NAP-SHELL Session Integrity | v1.29 | 5/5 | Complete | 2026-07-23 |
-| 102. NAP-INC Event and Channel Parity | v1.29 | 13/13 | Blocked on draft #92 ambiguity |  |
+| 102. NAP-INC Event and Channel Parity | v1.29 | 13/13 | Complete | 2026-07-24 |
 | 103. Identity and Theme Wire Parity | v1.29 | 7/7 | Complete | 2026-07-23 |
-| 104. NAP-INTENT and Manifest Contract Parity | v1.29 | 0/TBD | Not started | - |
+| 104. NAP-INTENT and Manifest Contract Parity | v1.29 | 0/TBD | In progress |  |
 | 105. Published Convention Adoption and Host Flows | v1.29 | 0/TBD | Waiting on upstream package publication | - |
 | 106. Active-Surface Conformance and Release | v1.29 | 0/TBD | Not started | - |
 
