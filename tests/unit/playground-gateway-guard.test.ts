@@ -94,6 +94,9 @@ describe('playground gateway artifact guard', () => {
     expect(shellHost).toContain('resolvePlaygroundNapplet({');
     expect(shellHost).toContain('iframe.srcdoc = injectNappletNamespacePrelude(');
     expect(shellHost).toContain('injectCspMeta(resolved.indexHtml, origins)');
+    expect(shellHost).toContain(
+      'iframe.srcdoc = injectNappletNamespacePrelude(\n    injectCspMeta(resolved.indexHtml, origins)',
+    );
     expect(shellHost).toContain("iframe.sandbox.add('allow-scripts')");
     expect(shellHost).not.toContain('allow-same-origin');
     expect(shellHost).not.toContain('relay.runtime.sessionRegistry.register(windowId');
@@ -135,6 +138,8 @@ describe('playground gateway artifact guard', () => {
     expect(resolver).toContain('resolveNapplet(');
     expect(resolver).toContain('selectWriteRelays(');
     expect(resolver).toContain('injectCspMeta');
+    expect(resolver).toContain("default-src 'none'");
+    expect(resolver).toContain("frame-ancestors 'self'");
     expect(shellHost).toContain('injectNappletNamespacePrelude');
     expect(shellHost).toContain("{ domains: ['shell', ...resolved.requires] }");
     expect(shellHost).not.toContain('getShellCapabilities()?.domains');
