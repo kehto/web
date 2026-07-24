@@ -63,20 +63,25 @@ function fakeFetcher(routes: Record<string, () => { ok: boolean; json?: unknown;
 }
 
 describe('injectCspMeta', () => {
-  it('injects a connect-src meta with the given origins into <head>', () => {
+  const classOnePrefix = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;";
+  const classOneSuffix = "worker-src 'none'; child-src 'none'; frame-src 'none'; media-src 'none'; object-src 'none'; manifest-src 'none'; prefetch-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
+
+  it('injects the complete Class-1 policy with sorted, deduplicated grants into <head>', () => {
     const html = '<html><head><title>x</title></head><body></body></html>';
-    const out = injectCspMeta(html, ['https://b.example', 'https://a.example']);
+    const out = injectCspMeta(html, ['https://b.example', 'https://a.example', 'https://b.example']);
     expect(out).toContain(
-      '<meta http-equiv="Content-Security-Policy" content="connect-src https://a.example https://b.example">',
+      `<meta http-equiv="Content-Security-Policy" content="${classOnePrefix} connect-src https://a.example https://b.example; ${classOneSuffix}">`,
     );
+    expect(out).not.toContain("connect-src 'self'");
+    expect(out).not.toContain('connect-src *');
     // sits inside <head>
     expect(out.indexOf('Content-Security-Policy')).toBeLessThan(out.indexOf('</head>'));
     expect(out.indexOf('<head>')).toBeLessThan(out.indexOf('Content-Security-Policy'));
   });
 
-  it("emits connect-src 'none' when there are no origins", () => {
+  it("emits the complete Class-1 policy with connect-src 'none' when there are no origins", () => {
     const out = injectCspMeta('<html><head></head></html>', []);
-    expect(out).toContain('content="connect-src \'none\'"');
+    expect(out).toContain(`content="${classOnePrefix} connect-src 'none'; ${classOneSuffix}"`);
   });
 
   it('still injects when there is no <head> (prepends a head)', () => {

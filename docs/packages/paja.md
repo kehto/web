@@ -20,7 +20,7 @@ app package's development scripts.
 | Field | Value |
 |-------|-------|
 | Source | `packages/paja/package.json`, `packages/paja/src/index.ts` |
-| Version | `0.8.0` |
+| Version | `0.8.1` |
 | Runtime entry | `./dist/index.js` |
 | CLI runner entry | `./dist/cli.js` |
 | Types entry | `./dist/index.d.ts` |
@@ -150,7 +150,15 @@ manifest (`35129`) by author and `d` tag; `nevent` pointers resolve a specific
 NIP-5D snapshot, root, or named manifest event id (`5129`, `15129`, or `35129`).
 In both cases Paja verifies the signed manifest, aggregate hash, and every
 Blossom blob, then injects the same runtime-owned `window.napplet.<domain>`
-namespace before assigning iframe `srcdoc`. Loading an already-running napplet
+namespace before assigning iframe `srcdoc`. Before that namespace prelude, Paja
+inserts Kehto's local Class-1 CSP: default deny; inline script/style;
+`data:`/`blob:` images and `data:` fonts; `connect-src` limited exclusively to
+the resolved relay and Blossom origins; explicit worker, child, frame, media,
+object, manifest, prefetch, base, and form denial; and final
+`frame-ancestors 'self'`. NIP-5D requires the verified `srcdoc` and opaque
+`allow-scripts` sandbox, but not this CSP baseline, so the policy is a Kehto
+security decision. Local target-URL mode remains outside the verified-pointer
+policy path. Loading an already-running napplet
 opens an in-page choice to load another instance, switch to the existing tab, or
 cancel. Each tab includes a share control that copies a `/web/paja/?naddr=...`
 or `/web/paja/?nevent=...` link for that pointer, and the browser remembers open

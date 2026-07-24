@@ -53,6 +53,16 @@ runtime tabs in local storage so returning to `/web/paja/` restores the previous
 pointer set. An explicit pointer in the URL still takes precedence over restored
 tabs.
 
+Before Paja assigns a verified runtime-pointer document to `srcdoc`, it inserts
+Kehto's local Class-1 CSP before the host-owned namespace prelude. The policy
+denies all defaults; permits inline script/style, `data:`/`blob:` images, and
+`data:` fonts; grants `connect-src` only to the resolved relay and Blossom
+origins; explicitly denies worker, child, frame, media, object, manifest,
+prefetch, base, and form capabilities; and ends with `frame-ancestors 'self'`.
+The NIP-5D verified-srcdoc and opaque-sandbox rules do not mandate this CSP;
+it is Kehto policy. Local target-URL authoring mode is intentionally outside
+this verified-artifact policy path.
+
 Environment simulation can be supplied through CLI flags or a JSON config file:
 
 ```bash
