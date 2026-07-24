@@ -1,6 +1,6 @@
 {
   "name": "@kehto/firewall",
-  "version": "0.3.9",
+  "version": "0.3.10",
   "license": "MIT",
   "exports": "./src/index.ts",
   "imports": {

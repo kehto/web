@@ -1,5 +1,15 @@
 # @kehto/paja
 
+## 0.8.2
+
+### Patch Changes
+
+- d3d966a: Harden verified runtime-pointer `srcdoc` documents with Kehto's complete
+  Class-1 CSP before the host-owned NIP-5D namespace prelude.
+- 19e532a: Diagnose dev servers that block the sandboxed napplet frame. The target iframe is sandboxed without `allow-same-origin`, so the napplet requests its own module scripts with `Origin: null`, which Vite's default `server.cors` allowlist rejects — the frame rendered blank with no signal from Paja. Paja now probes the target through `GET /__kehto/target-cors.json` and reports a `paja.target.cors.error` message-log entry plus a console warning naming the fix. Adds `probeTargetCors`, `classifyTargetCors`, and `PAJA_TARGET_CORS_HINT` exports.
+- Updated dependencies [418d22b]
+  - @kehto/firewall@0.3.10
+
 ## 0.8.1
 
 ### Patch Changes
