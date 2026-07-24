@@ -16,6 +16,8 @@ import {
 const LIVE_NADDR = 'naddr1qqxxwmm0vskk6mmjde5kueczyqnxs90qeyssm73jf3kt5dtnk997ujw6ggy6j3t0jjzw2yrv6sy22qcyqqqgjwgpz4mhxue69uhhyetvv9ujuerfw36x7tnsw43qzd3wc3';
 const LIVE_EVENT_ID = 'f39dfca7dbaeacbddf294977c5654c912fced30d8b839b32a1910a988ccc1f5a';
 const LIVE_AGGREGATE = 'c922cf30dc1e12b135462057631ba3017cdaeea591725f077c5a20a6d9967b68';
+const classOnePrefix = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;";
+const classOneSuffix = "worker-src 'none'; child-src 'none'; frame-src 'none'; media-src 'none'; object-src 'none'; manifest-src 'none'; prefetch-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
 
 interface PointerServer {
   readonly url: string;
@@ -84,6 +86,15 @@ test('resolves a stale embedded hint through configured live relays in the runni
     });
     await expect(page.locator('iframe')).toHaveCount(1);
     await expect(page.locator('iframe')).toHaveAttribute('srcdoc', /Configured Relay Target/);
+    const frame = page.locator('iframe');
+    const srcdoc = await frame.getAttribute('srcdoc');
+    expect(srcdoc).toContain(classOnePrefix);
+    expect(srcdoc).toContain(`connect-src wss://configured-fallback.example wss://stale-hint.example; ${classOneSuffix}`);
+    expect(srcdoc!.indexOf('Content-Security-Policy')).toBeLessThan(
+      srcdoc!.indexOf('data-kehto-nip5d-injection'),
+    );
+    await expect(frame).toHaveAttribute('sandbox', /allow-scripts/);
+    await expect(frame).not.toHaveAttribute('sandbox', /allow-same-origin/);
   } finally {
     await server.close();
   }

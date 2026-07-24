@@ -13,6 +13,7 @@ import {
   PAJA_NAPPLET_MANIFEST_KIND,
   PAJA_NAPPLET_MANIFEST_KINDS,
   decodePajaPointer,
+  injectPajaRuntimeCsp,
   resolvePajaPointer,
   type PajaPointerRelayPool,
 } from './runtime-resolver.js';
@@ -118,6 +119,27 @@ function fakeFetcher(hash: string, bytes: Uint8Array) {
 }
 
 describe('Paja runtime pointer resolver', () => {
+  const classOnePrefix = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;";
+  const classOneSuffix = "worker-src 'none'; child-src 'none'; frame-src 'none'; media-src 'none'; object-src 'none'; manifest-src 'none'; prefetch-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
+
+  it('injects the complete Class-1 policy with only sorted, deduplicated grants', () => {
+    const out = injectPajaRuntimeCsp(
+      '<html><head></head><body>verified</body></html>',
+      ['https://b.example', 'https://a.example', 'https://b.example'],
+    );
+
+    expect(out).toContain(
+      `<meta http-equiv="Content-Security-Policy" content="${classOnePrefix} connect-src https://a.example https://b.example; ${classOneSuffix}">`,
+    );
+    expect(out).not.toContain("connect-src 'self'");
+    expect(out).not.toContain('connect-src *');
+  });
+
+  it("uses the complete Class-1 policy with connect-src 'none' for no grants", () => {
+    const out = injectPajaRuntimeCsp('<html><head></head></html>', []);
+    expect(out).toContain(`content="${classOnePrefix} connect-src 'none'; ${classOneSuffix}"`);
+  });
+
   it('exports the NIP-5D napplet manifest kinds', () => {
     expect(PAJA_NAPPLET_MANIFEST_KIND).toBe(NAPPLET_KIND_NAMED);
     expect([...PAJA_NAPPLET_MANIFEST_KINDS].sort((a, b) => a - b)).toEqual([

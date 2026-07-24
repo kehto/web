@@ -36,6 +36,9 @@ const expectedRequires: Record<(typeof expectedNapplets)[number], readonly strin
   toaster: ['notify', 'theme'],
 };
 
+const classOnePrefix = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;";
+const classOneSuffix = "worker-src 'none'; child-src 'none'; frame-src 'none'; media-src 'none'; object-src 'none'; manifest-src 'none'; prefetch-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
+
 test('playground loads all napplets via verified srcdoc with opaque origins', async ({ page }) => {
   const relayEventHits = new Set<string>();
   const blossomHits: string[] = [];
@@ -86,6 +89,8 @@ test('playground loads all napplets via verified srcdoc with opaque origins', as
     expect(frame.srcdoc, `${frame.id} CSP meta`).toContain(
       '<meta http-equiv="Content-Security-Policy"',
     );
+    expect(frame.srcdoc, `${frame.id} Class-1 CSP`).toContain(classOnePrefix);
+    expect(frame.srcdoc, `${frame.id} Class-1 CSP`).toContain(classOneSuffix);
     expect(frame.srcdoc, `${frame.id} NIP-5D injection`).toContain(
       'data-kehto-nip5d-injection',
     );
@@ -98,7 +103,9 @@ test('playground loads all napplets via verified srcdoc with opaque origins', as
 
   // The resource-demo static allowlist flows into the srcdoc CSP <meta> connect-src.
   const resourceFrame = frames.find((frame) => frame.id.startsWith('demo-resource-demo-'));
-  expect(resourceFrame?.srcdoc).toContain('https://raw.githubusercontent.com');
+  expect(resourceFrame?.srcdoc).toContain(
+    `connect-src https://raw.githubusercontent.com; ${classOneSuffix}`,
+  );
 });
 
 test('resolved manifests and hosted supports match napplet contracts', async ({ page }) => {

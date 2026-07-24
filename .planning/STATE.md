@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.22
 milestone_name: Single-Window Development Runtime
 status: complete
-last_updated: "2026-07-12T20:53:57+02:00"
-last_activity: 2026-07-12
+last_updated: "2026-07-24T10:12:00+01:00"
+last_activity: 2026-07-24
 progress:
   total_phases: 5
   completed_phases: 5
@@ -28,7 +28,7 @@ Phase: 94 — Coverage, Docs, Release Readiness, and PR
 Plan: 94-01 — complete
 Status: v1.22 complete; branch pushed and PR #64 opened
 
-Last activity: 2026-07-12 — Completed quick task 260712-slw: Fix Paja naddr relay resolution end-to-end.
+Last activity: 2026-07-24 — Completed quick task 260724-czo: Inject a full Class-1 CSP into verified srcdoc loaders.
 
 ## Performance Metrics
 
@@ -145,6 +145,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260711-r4p | Implement usable NAP-UPLOAD in Kehto Paja using Hyprgate's Blossom backend implementation as guidance | 2026-07-11 | d4c7da3 | Verified | [260711-r4p-implement-usable-nap-upload-in-kehto-paj](./quick/260711-r4p-implement-usable-nap-upload-in-kehto-paj/) |
 | 260712-slw | Fix Paja naddr relay resolution end-to-end | 2026-07-12 | 8ba8e30 | Verified | [260712-slw-fix-paja-naddr-relay-resolution-end-to-e](./quick/260712-slw-fix-paja-naddr-relay-resolution-end-to-e/) |
 | 260723-cvz | Diagnose and document Paja dev-mode opaque-origin CORS failure blocking napplet module scripts | 2026-07-23 | 0af445b | Verified | [260723-cvz-fix-paja-dev-mode-napplet-load-failure-c](./quick/260723-cvz-fix-paja-dev-mode-napplet-load-failure-c/) |
+| 260724-czo | Inject a full Class-1 CSP into verified srcdoc loaders | 2026-07-24 | d3d966a | Verified | [260724-czo-inject-a-full-class-1-csp-into-verified-](./quick/260724-czo-inject-a-full-class-1-csp-into-verified-/) |
 
 ## Session Continuity
 

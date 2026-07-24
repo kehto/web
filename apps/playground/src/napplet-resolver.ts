@@ -8,7 +8,7 @@
  *      (kind 35129, by author + `d`),
  *   3. verify the signature, recompute + verify the NIP-5A aggregate, fetch each
  *      blob from Blossom and verify its hash (`@kehto/nip/5d` `resolveNapplet`),
- *   4. assemble the verified `/index.html` and inject the connect-src CSP `<meta>`
+ *   4. assemble the verified `/index.html` and inject Kehto's Class-1 CSP `<meta>`
  *      so the policy holds inside the `srcdoc` opaque-origin iframe.
  *
  * Identity `(dTag, aggregateHash)` is computed from the verified bytes — never
@@ -32,18 +32,38 @@ export const PLAYGROUND_MANIFEST_AUTHOR =
 export type Fetcher = (url: string) => Promise<Response>;
 
 /**
- * Inject a `connect-src` Content-Security-Policy `<meta http-equiv>` into the
+ * Inject Kehto's Class-1 Content-Security-Policy `<meta http-equiv>` into the
  * assembled HTML. Under `srcdoc` the iframe has an opaque origin and no HTTP
- * response, so the CSP must travel inside the document.
+ * response, so the CSP must travel inside the document. NIP-5D mandates the
+ * verified srcdoc and opaque sandbox, but this baseline CSP is Kehto policy.
  *
  * @param html - The verified, assembled `/index.html`
  * @param origins - Granted connect-src origins (empty → `'none'`)
  * @returns HTML with the CSP meta inside `<head>`
  */
 export function injectCspMeta(html: string, origins: readonly string[]): string {
-  const value = origins.length > 0
-    ? `connect-src ${[...origins].sort().join(' ')}`
+  const grantedOrigins = [...new Set(origins)].sort();
+  const connectSrc = grantedOrigins.length > 0
+    ? `connect-src ${grantedOrigins.join(' ')}`
     : "connect-src 'none'";
+  const value = [
+    "default-src 'none'",
+    "script-src 'unsafe-inline'",
+    "style-src 'unsafe-inline'",
+    'img-src data: blob:',
+    'font-src data:',
+    connectSrc,
+    "worker-src 'none'",
+    "child-src 'none'",
+    "frame-src 'none'",
+    "media-src 'none'",
+    "object-src 'none'",
+    "manifest-src 'none'",
+    "prefetch-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+    "frame-ancestors 'self'",
+  ].join('; ');
   const meta = `<meta http-equiv="Content-Security-Policy" content="${value}">`;
   if (/<head[^>]*>/i.test(html)) {
     return html.replace(/<head[^>]*>/i, (open) => `${open}${meta}`);
