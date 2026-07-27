@@ -66,9 +66,9 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Status:** v1.29 planning from a clean canonical-main baseline; implementation pending.
+**Status:** All six v1.29 phases are complete. PR #204 is open, non-draft, clean, mergeable, and technically green; merge, Version Packages metadata, exact-main release verification, tagging, and publishing remain unexecuted maintainer steps.
 
-The upstream specification audit and Kehto active-surface audit are complete. Independent runtime corrections may proceed immediately. Final type, build, integration, and PR gates depend on the concurrent `napplet/web` chase publishing convention-capable core/nap/shim/sdk/vite-plugin releases.
+The upstream specification and active-surface audits, published package adoption, real Paja/playground flows, focused and full regression gates, exact-SHA CI, changeset accounting, and Phase 106 verification are complete. The Phase 105 visual audit remains explicit non-passing post-merge debt and is not visual sign-off.
 
 ## Previous Milestone: v1.20 NIP-5D Content-Addressed Runtime Resolution
 
@@ -238,6 +238,7 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 - **Decrypt-demo fixture pending repair** — Backlog 999.1 remains valid and intentionally separate from the static publication route milestone.
 - **Lint task surface** — `pnpm lint` succeeds but turbo currently reports no configured package lint tasks; type-check, unit tests, E2E, and static guards carry verification.
 - **Stricter structural scanner policy** — v1.16 removed the current-threshold warnings. Lowering `maxFunctionLoc` toward 80 and `maxFileLoc` toward 400 remains future policy work.
+- **Paja/playground visual follow-up** — Phase 105's desktop/mobile audit scored 12/24. Recoverability, type scale, semantic tokens/spacing, and mobile composition remain non-passing post-merge debt owned by Kehto maintainers; Phase 106 provides protocol/runtime conformance, not visual sign-off.
 
 ## Key Decisions
 
@@ -283,6 +284,9 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 | 38 | Static portal branding is progressive enhancement, not navigation infrastructure | v1.17 keeps real `/web/playground/` and `/web/docs/` anchors as the contract, then layers GSAP entrance/exit motion and liquid accent rendering on top. Reduced-motion and no-JS behavior must preserve direct navigation. | 2026-06-06 |
 | 38 | VitePress public base is a build cache input | `VITEPRESS_BASE=/web/docs/` changes generated asset URLs, so `turbo.json` includes it in `docs:build` env to prevent cached docs output from reusing an old base path. | 2026-05-23 |
 | 39 | Structural scanner closure must come from source decomposition, not threshold loosening | v1.16 proved the final clean `aislop` result with `.aislop/config.yml` unchanged from the milestone start commit. Future complexity-policy work should be explicit and separately justified. | 2026-05-24 |
+| 40 | v1.29 conformance evidence classifies active surfaces separately from preserved history | Current source and guidance fail closed on obsolete protocol shapes, while archived planning, changesets, changelogs, migrations, and deliberate fixtures remain intact and non-authoritative. | 2026-07-27 |
+| 41 | v1.29 release readiness ends at a green exact-SHA PR | PR #204 must match the locally reviewed head and have green required checks; merge, generated Version Packages metadata, exact-main verification, tagging, and publishing remain distinct maintainer actions. | 2026-07-27 |
+| 42 | The Phase 105 12/24 UI audit remains non-passing post-merge debt | The audit is acknowledged and owned by Kehto maintainers, but Phase 106 closes protocol/runtime conformance only and must not imply visual approval. | 2026-07-27 |
 
 ## Evolution
 
@@ -302,4 +306,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-17 — v1.21 NIP-5D (#2303) + NAP-SHELL/INTENT Conformance milestone started (v1.20 Content-Addressed Runtime Resolution phases complete, PRs #38/#39 open)*
+*Last updated: 2026-07-27 after Phase 106 — all v1.29 phases complete; PR #204 is ready for maintainer review and the 12/24 UI audit remains explicit post-merge debt.*

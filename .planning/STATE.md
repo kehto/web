@@ -3,42 +3,42 @@ gsd_state_version: 1.0
 milestone: v1.29
 milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 106
-current_phase_name: Active-Surface Conformance and Release
-status: verifying
-stopped_at: Completed 106-03-PLAN.md
-last_updated: "2026-07-27T16:22:48.906Z"
+status: completed
+stopped_at: Phase 106 complete; v1.29 ready for milestone completion
+last_updated: "2026-07-27T19:01:59Z"
 last_activity: 2026-07-27
-last_activity_desc: Phase 106 execution started
+last_activity_desc: Phase 106 complete
 progress:
   total_phases: 6
   completed_phases: 6
   total_plans: 47
   completed_plans: 47
   percent: 100
+current_phase_name: Active-Surface Conformance and Release
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-23)
+See: .planning/PROJECT.md (updated 2026-07-27)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 106 — Active-Surface Conformance and Release
+**Current focus:** v1.29 milestone closeout and maintainer review of PR #204
 
 ## Current Position
 
-Phase: 106 (Active-Surface Conformance and Release) — EXECUTING
+Phase: 106 (Active-Surface Conformance and Release) — COMPLETE
 Plan: 3 of 3
-Status: Phase complete — ready for verification
+Status: All v1.29 phases complete — ready for milestone completion
 
-Last activity: 2026-07-27 — Phase 106 execution started
+Last activity: 2026-07-27 — Phase 106 complete
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 42
+- Total plans completed: 45
 - Average duration: ~6m
 - Total execution time: ~6 minutes
 
@@ -54,6 +54,7 @@ Last activity: 2026-07-27 — Phase 106 execution started
 | 103 | 7 | - | - |
 | 104 | 6 | - | - |
 | 105 | 12 | - | - |
+| 106 | 3 | - | - |
 **Per-Plan Metrics:**
 
 | Plan | Duration | Tasks | Files |
@@ -116,7 +117,7 @@ Baseline contract: `napplet/naps@6461e4b37c29dc09a20dff35d9515889c4433874`. Prop
 - Full conformance also requires active SHELL, INTENT, INC, IDENTITY, and THEME corrections.
 - `kehto/web#203` tracks implementation against the proposed resolutions: exact queryless identity and binding-owned query transposition from #89/#90, plus the #92 symmetric-channel reply. The issue remains open until Kehto implementation and positive/negative tests satisfy its close criteria.
 - Merged `napplet/naps@5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INC.md` resolves Phase 102's repeated unopened-handle conflict: retain every trusted-parent handle in the binding and enforce the permitted per-napplet concurrent-channel maximum at authenticated runtime admission. Plan 102-14 owns the correction.
-- Final package adoption is gated on the concurrent `napplet/web` chase publishing convention-capable core/nap/shim/sdk/vite-plugin releases.
+- Final package adoption is complete against the published core 0.29.0, nap 0.29.0, shim 0.27.0, SDK 0.25.0, and Vite plugin 0.12.0 line.
 
 ### Key Context for v1.21 (Phases 86–89)
 
@@ -138,8 +139,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ### Blockers/Concerns
 
-- **9 pre-existing stale guard-test failures** (`tests/unit/sdk-migration-guard.test.ts`, `playground-gateway-guard.test.ts`, `nip5d-conformance-guard.test.ts`) assert the pre-modernization 0.5.0/`@napplet/nub`/`ifc` graph that phases 86–88 already replaced with 0.12/0.13/`@napplet/nap`/`inc`. Out of phase-89 (docs) scope; logged to `.planning/phases/89-spec-doc-refresh-conformance-sweep/deferred-items.md`. Needs a test-owning follow-up to realign the guards before tagging v1.21.
-- The isolated-host full E2E run reaches Kehto and completes with 69 passed, 1 skipped, and 7 failed. Phase 102's symmetric-channel proof passes; remaining legacy demo/fixture failures wait on Phase 105 adoption of the convention-capable packages from the concurrent `napplet/web` chase.
+- PR #204 remains intentionally unmerged. Version Packages metadata, exact-main release verification, tagging, and publishing have not been performed.
+- Phase 105's 12/24 desktop/mobile UI audit remains non-passing post-merge debt owned by Kehto maintainers; it is not visual sign-off for PR #204.
 
 ### Quick Tasks Completed
 
@@ -218,14 +219,15 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-07-27T16:22:48.893Z
-Stopped at: Completed 106-03-PLAN.md
+Last session: 2026-07-27T19:01:59Z
+Stopped at: Phase 106 complete; v1.29 ready for milestone completion
 Resume file: None
 
 ## Operator Next Steps
 
-- Realign the 3 stale guard specs to the 0.12/0.13/`@napplet/nap`/`inc` graph (see `89/deferred-items.md`) so `pnpm test:unit` is fully green before tagging.
-- Run `pnpm changeset version` + publish to cut the v1.21 release (all 6 @kehto packages have changesets).
+- Review and merge PR #204 through branch protection when maintainers are ready.
+- Track the Phase 105 12/24 UI findings as a separately scoped post-merge follow-up.
+- After merge, let the generated Version Packages PR run its release-metadata guard, verify the exact target `main` SHA, then tag or dispatch `release.yml` through the protected release process.
 
 ### Key Context for v1.22 (Phases 90–94)
 

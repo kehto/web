@@ -31,7 +31,7 @@
 - [ ] **v1.26: NAP-SERIAL Runtime Parity** - 1 phase (98), 6 requirements, PR #74 open
 - [ ] **v1.27: NAP-BLE Runtime Parity** - 1 phase (99), 6 requirements, PR #75 open
 - [x] **v1.28: NAP-WEBRTC Runtime Parity** - 1 phase (100), 6 requirements, PR #76 open
-- [ ] **v1.29: Napplet Convention and Runtime Conformance** - 6 phases (101-106), 49 requirements, with final adoption gated on convention-capable published Napplet packages
+- [ ] **v1.29: Napplet Convention and Runtime Conformance** - 6/6 phases complete (101-106), 49 requirements, PR #204 ready for maintainer review; milestone archival and release remain pending
 
 ---
 
@@ -88,7 +88,7 @@ final host integration wait for mutually compatible convention-capable
 - [x] **Phase 103: Identity and Theme Wire Parity** - identity and theme services use only contract-shaped result and change behavior.
 - [x] **Phase 104: NAP-INTENT and Manifest Contract Parity** - resolve authoritative convention URIs through verified contracts and retain carrier-neutral delivery independently of source lifetime. (completed 2026-07-26)
 - [x] **Phase 105: Published Convention Adoption and Host Flows** - consume released Napplet contracts and prove intent, profile, resource, and theme behavior in Paja and playground. (completed 2026-07-27)
-- [ ] **Phase 106: Active-Surface Conformance and Release** - prove the complete migration, regression health, and release readiness.
+- [x] **Phase 106: Active-Surface Conformance and Release** - prove the complete migration, regression health, and release readiness. (completed 2026-07-27)
 
 ## Phase Details
 
@@ -323,7 +323,7 @@ users rely on.
   5. The exact upstream draft heads and published npm/JSR artifacts are revalidated; any drift is reported and reconciled rather than silently inferred.
   6. Build, type-check, unit, relevant and full E2E, docs, AI-slop, and diff gates pass; changesets cover every changed published Kehto package and the branch is ready for its concise PR.
 
-**Plans:** 3/3 plans executed
+**Plans:** 3/3 plans complete
 
 **Wave 1**
 
@@ -346,7 +346,7 @@ users rely on.
 | 103. Identity and Theme Wire Parity | v1.29 | 7/7 | Complete    | 2026-07-23 |
 | 104. NAP-INTENT and Manifest Contract Parity | v1.29 | 6/6 | Complete    | 2026-07-26 |
 | 105. Published Convention Adoption and Host Flows | v1.29 | 12/12 | Complete    | 2026-07-27 |
-| 106. Active-Surface Conformance and Release | v1.29 | 3/3 | In Progress|  |
+| 106. Active-Surface Conformance and Release | v1.29 | 3/3 | Complete    | 2026-07-27 |
 
 ---
 
@@ -680,4 +680,4 @@ Phases execute in numeric order: 80 → 81 → 82
 
 ---
 
-*ROADMAP.md last updated: 2026-07-27 - Phase 105 planned against the released convention-capable Napplet package line.*
+*ROADMAP.md last updated: 2026-07-27 - Phase 106 complete; all v1.29 phases are finished and the milestone is ready for completion.*
