@@ -137,29 +137,28 @@ describe('parseNappletManifest', () => {
 });
 
 describe('archetype + source parsing', () => {
-  it('parses one strict convention contract with same-tag event kinds', () => {
+  it('parses one strict canonical convention contract', () => {
     const { event } = buildManifest({
-      archetypes: [['note', 'napplet:note/open', 'kind:1', 'kind:30023']],
+      archetypes: [['note', 'napplet:note/open']],
     });
     const m = parseNappletManifest(event);
     expect(m.archetypes).toEqual([{
       slug: 'note',
       convention: 'napplet:note/open',
-      eventKinds: [1, 30023],
     }]);
   });
 
-  it('preserves repeated same-archetype tags and independently scoped kinds in declared order', () => {
+  it('preserves repeated same-archetype conventions in declared order', () => {
     const { event } = buildManifest({
       archetypes: [
-        ['note', 'napplet:note/open', 'kind:1'],
-        ['note', 'napplet:note/edit', 'kind:30023', 'kind:0'],
+        ['note', 'napplet:note/open'],
+        ['note', 'napplet:note/edit'],
       ],
     });
     const m = parseNappletManifest(event);
     expect(m.archetypes).toEqual([
-      { slug: 'note', convention: 'napplet:note/open', eventKinds: [1] },
-      { slug: 'note', convention: 'napplet:note/edit', eventKinds: [30023, 0] },
+      { slug: 'note', convention: 'napplet:note/open' },
+      { slug: 'note', convention: 'napplet:note/edit' },
     ]);
   });
 

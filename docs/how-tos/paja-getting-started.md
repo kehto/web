@@ -57,7 +57,7 @@ Use **Interfaces** to turn individual `window.napplet.<domain>` injection on or
 off. Paja reloads the target after each toggle, and the next `shell.init`
 advertises the changed support surface.
 
-`shell` is not an interface toggle. `@napplet/shim@0.27.0` does not supply a
+`shell` is not an interface toggle. `@napplet/shim@0.29.0` does not supply a
 generic shell API, so Paja's Kehto-owned prelude always installs mandatory
 `window.napplet.shell` before one bare `shell.ready`. It caches the first
 `shell.init` for local `ready()`, `supports()`, read-only `services`, and
@@ -85,12 +85,11 @@ installed and be cold-started. Selection uses only exact compatible installed
 contracts: a compatible default can win, the host can ask a chooser, ambiguity
 is rejected, and an explicit d-tag needs sender-aware authorization.
 
-After Paja retains a delivery it returns the accepted result, then starts or
-reuses the target. It waits for the current target's registered source and
-`shell.ready` before exactly one target-only delivery. The invoking source may
-close after acceptance. Stale/replaced targets and terminal failures stay in
-the host controller's retry/replacement policy; they do not produce an INC
-message or delivery acknowledgement.
+Paja starts or reuses the verified target, waits for its current registered
+source and `shell.ready`, then sends exactly one target-only `inc.event` for
+the selected convention. The final result identifies the handled target.
+Stale/replaced targets and terminal failures stay in the host controller's
+retry/replacement policy and produce a canonical failed result.
 
 ## 7. Choose Upload Storage
 

@@ -1,18 +1,17 @@
 /**
- * Retained NAP-INTENT target lifecycle policy for the playground host.
+ * NAP-INTENT target lifecycle policy for the playground host.
  *
- * The controller retains immutable delivery responsibility before source
- * acceptance, then relies on injected shell-host callbacks for verified target
+ * The controller relies on injected shell-host callbacks for verified target
  * creation, registered-source readiness, current-generation checks, and one
- * target-only delivery. It has no iframe or INC routing state of its own.
+ * convention delivery. It has no iframe or INC routing state of its own.
  *
  * @packageDocumentation
  */
 
 import type {
-  IntentRetentionParams,
-  IntentRetainedDelivery,
+  IntentDispatchParams,
   IntentTargetController,
+  IntentTargetDispatch,
 } from '@kehto/services';
 
 /** Opaque shell-host generation for a target iframe/source pair. */
@@ -21,7 +20,7 @@ export interface PlaygroundIntentGeneration {
   readonly id: string;
 }
 
-/** Terminal post-acceptance reasons visible only to host policy. */
+/** Terminal dispatch reasons visible only to host policy. */
 export type PlaygroundIntentTerminalReason =
   | 'open-failed'
   | 'ready-failed'
@@ -32,34 +31,35 @@ export type PlaygroundIntentTerminalReason =
 export interface PlaygroundIntentControllerOptions {
   /** Open a verified cold target or reuse a compatible current target. */
   openOrReuse(
-    params: IntentRetentionParams,
+    params: IntentDispatchParams,
     attempt: number,
   ): PlaygroundIntentGeneration | null | Promise<PlaygroundIntentGeneration | null>;
   /** Await NAP-SHELL readiness from the generation's registered current source. */
   waitForReady(generation: PlaygroundIntentGeneration): void | Promise<void>;
   /** Return true only while this generation remains current for its target d-tag. */
   isCurrent(generation: PlaygroundIntentGeneration): boolean | Promise<boolean>;
-  /** Send the retained delivery once to that current ready source. */
+  /** Return the runtime-assigned window identifier once the target is ready. */
+  getWindowId(generation: PlaygroundIntentGeneration): string | null;
+  /** Send the convention once to that current ready source. */
   send(
     generation: PlaygroundIntentGeneration,
-    delivery: IntentRetentionParams['delivery'],
+    params: IntentDispatchParams,
   ): void | Promise<void>;
-  /** Maximum open/replacement attempts after acceptance. Finite values clamp to 1–10; defaults to two. */
+  /** Maximum open/replacement attempts. Finite values clamp to 1–10; defaults to two. */
   maxAttempts?: number;
   /** Observe terminal policy without manufacturing a second source result. */
-  onTerminal?(params: IntentRetentionParams, reason: PlaygroundIntentTerminalReason): void;
+  onTerminal?(params: IntentDispatchParams, reason: PlaygroundIntentTerminalReason): void;
 }
 
 const MAX_INTENT_DELIVERY_ATTEMPTS = 10;
 
 /**
- * Retains target delivery before the resolver returns acceptance.
+ * Creates/focuses a target and enqueues one convention delivery.
  *
  * @example
  * ```ts
  * const controller = new PlaygroundIntentController({ openOrReuse, waitForReady, isCurrent, send });
- * const retained = controller.retain(params);
- * // The intent service sends acceptance, then starts this task.
+ * const target = await controller.dispatch(params);
  * ```
  */
 export class PlaygroundIntentController implements IntentTargetController {
@@ -69,29 +69,13 @@ export class PlaygroundIntentController implements IntentTargetController {
     this.maxAttempts = normalizeAttempts(options.maxAttempts);
   }
 
-  retain(params: IntentRetentionParams): IntentRetainedDelivery {
-    const retained = freezeRetention(params);
-    let started: Promise<void> | undefined;
-    let delivered = false;
-
-    return {
-      start: () => {
-        started ??= this.start(retained, () => delivered, () => { delivered = true; });
-        return started;
-      },
-    };
-  }
-
-  private async start(
-    params: IntentRetentionParams,
-    isDelivered: () => boolean,
-    markDelivered: () => void,
-  ): Promise<void> {
+  async dispatch(params: IntentDispatchParams): Promise<IntentTargetDispatch> {
+    const dispatch = freezeDispatch(params);
     let reason: PlaygroundIntentTerminalReason = 'no-current-target';
     for (let attempt = 1; attempt <= this.maxAttempts; attempt += 1) {
       let generation: PlaygroundIntentGeneration | null;
       try {
-        generation = await this.options.openOrReuse(params, attempt);
+        generation = await this.options.openOrReuse(dispatch, attempt);
       } catch {
         reason = 'open-failed';
         continue;
@@ -110,17 +94,18 @@ export class PlaygroundIntentController implements IntentTargetController {
         reason = 'no-current-target';
         continue;
       }
-      if (isDelivered()) return;
-      markDelivered();
       try {
-        await this.options.send(generation, params.delivery);
-        return;
+        await this.options.send(generation, dispatch);
+        const windowId = this.options.getWindowId(generation);
+        if (!windowId) throw new Error('intent target window is unavailable');
+        return { windowId };
       } catch {
-        this.options.onTerminal?.(params, 'send-failed');
-        return;
+        this.options.onTerminal?.(dispatch, 'send-failed');
+        throw new Error('intent target send failed');
       }
     }
-    this.options.onTerminal?.(params, reason);
+    this.options.onTerminal?.(dispatch, reason);
+    throw new Error(`intent target ${reason}`);
   }
 }
 
@@ -130,17 +115,33 @@ function normalizeAttempts(value: number | undefined): number {
   return Math.min(MAX_INTENT_DELIVERY_ATTEMPTS, Math.max(1, Math.floor(value)));
 }
 
-function freezeRetention(params: IntentRetentionParams): IntentRetentionParams {
+function freezeDispatch(params: IntentDispatchParams): IntentDispatchParams {
   if (!params || typeof params.handler !== 'string' || params.handler.length === 0) {
-    throw new TypeError('Intent retention requires a handler');
+    throw new TypeError('Intent dispatch requires a handler');
   }
-  const delivery = freezeValue({ ...params.delivery }) as IntentRetentionParams['delivery'];
+  if (
+    typeof params.sender !== 'string'
+    || params.sender.length === 0
+    || typeof params.archetype !== 'string'
+    || params.archetype.length === 0
+    || typeof params.action !== 'string'
+    || params.action.length === 0
+    || typeof params.convention !== 'string'
+    || params.convention.length === 0
+  ) {
+    throw new TypeError('Intent dispatch requires canonical routing fields');
+  }
+  const payload = freezeValue(params.payload);
   const behavior = params.behavior === undefined
     ? undefined
-    : freezeValue({ ...params.behavior }) as NonNullable<IntentRetentionParams['behavior']>;
+    : freezeValue({ ...params.behavior }) as NonNullable<IntentDispatchParams['behavior']>;
   return Object.freeze({
     handler: params.handler,
-    delivery,
+    sender: params.sender,
+    archetype: params.archetype,
+    action: params.action,
+    convention: params.convention,
+    ...(params.payload === undefined ? {} : { payload }),
     ...(behavior === undefined ? {} : { behavior }),
   });
 }

@@ -31,7 +31,7 @@ const expectedRequires: Record<(typeof expectedNapplets)[number], readonly strin
   'cvm-relatr': ['cvm', 'theme'],
   feed: ['identity', 'intent', 'relay', 'resource', 'theme'],
   preferences: ['storage', 'theme'],
-  'profile-viewer': ['intent', 'relay', 'resource', 'theme'],
+  'profile-viewer': ['inc', 'relay', 'resource', 'theme'],
   'resource-demo': ['resource', 'theme'],
   toaster: ['notify', 'theme'],
 };

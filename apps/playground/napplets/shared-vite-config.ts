@@ -48,8 +48,6 @@ export interface PlaygroundArchetype {
   slug: string;
   /** Stable queryless `napplet:<archetype>/<intent>` identity. */
   convention: string;
-  /** Optional unsigned event-kind discovery metadata scoped to this contract. */
-  eventKinds?: number[];
 }
 
 /** Options shared by every in-repository playground napplet build. */
@@ -75,7 +73,17 @@ function validateArchetypes(
   nappletType: string,
   archetypes: ReadonlyArray<PlaygroundArchetype>,
 ): PlaygroundArchetype[] {
-  return archetypes.map(({ slug: rawSlug, convention: rawConvention, eventKinds }) => {
+  return archetypes.map((archetype) => {
+    if (
+      !archetype
+      || typeof archetype !== 'object'
+      || Object.keys(archetype).some((field) => field !== 'slug' && field !== 'convention')
+    ) {
+      throw new Error(
+        `${nappletType} manifest archetype must contain exactly slug and convention`,
+      );
+    }
+    const { slug: rawSlug, convention: rawConvention } = archetype;
     const slug = typeof rawSlug === 'string' ? rawSlug : '';
     if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
       throw new Error(
@@ -100,18 +108,9 @@ function validateArchetypes(
     if (match[1] !== slug) {
       throw new Error(`${nappletType} manifest archetype slug must match the convention archetype`);
     }
-    const kinds = eventKinds ?? [];
-    for (const kind of kinds) {
-      if (!Number.isSafeInteger(kind) || kind < 0) {
-        throw new Error(
-          `${nappletType} manifest archetype eventKinds must contain unsigned integers`,
-        );
-      }
-    }
     return {
       slug,
       convention,
-      ...(kinds.length === 0 ? {} : { eventKinds: [...kinds] }),
     };
   });
 }
@@ -424,14 +423,12 @@ export function recomputeManifest(
 
   const aggregateHash = computeAggregateHash(pathEntries);
   const pathTags = pathEntries.map(([absPath, hash]) => ['path', absPath, hash]);
-  // The installed upstream plugin does not yet emit convention archetype tags, so the
-  // playground injects them here from the validated config. They are not d/x/path,
-  // so any re-parse retains them; `retainedTags` is filtered to avoid duplicates.
+  // Re-emit the validated canonical archetype tags after the playground
+  // single-file rewrite. They are not part of the NIP-5A aggregate.
   const archetypeTags = archetypes.map((archetype) => [
     'archetype',
     archetype.slug,
     archetype.convention,
-    ...(archetype.eventKinds ?? []).map((kind) => `kind:${kind}`),
   ]);
   const tags = [
     ['d', dTag],
@@ -514,6 +511,7 @@ export function definePlaygroundNappletConfig(
         // recomputes the manifest over those bytes.
         artifactMode: 'external-assets',
         requires,
+        archetypes,
       }),
     ],
     build: {

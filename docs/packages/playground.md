@@ -52,24 +52,24 @@ installed handler, so availability can select an installed cold target.
 Selection uses exact compatible installed conventions, not frame presence. A
 compatible default can resolve a request, a chooser can resolve several
 candidates, and ambiguity without a choice is rejected. An explicit handler
-d-tag also requires sender-aware authorization. After the host retains the
-delivery, it returns the accepted result, then starts or reuses the selected
-target. It waits for that generation's registered source to complete real
-`shell.ready`; only a current target receives one `intent.deliver`. Source
-teardown after acceptance is safe. Replacement, retry, and terminal behavior
-remain controller policy, and this path has no INC carrier.
+d-tag also requires sender-aware authorization. The host starts or reuses the
+selected target and waits for that generation's registered source to complete
+real `shell.ready`; only a current target receives one `inc.event` for the
+selected convention. The final result identifies the handled target. Replacement,
+retry, and terminal behavior remain controller policy.
 
-The feed opens profiles with `napplet:profile/open?pubkey=…`; profile metadata
-advertises only the queryless `napplet:profile/open` convention. Profile-viewer
-registers `intent.onDelivery` before capability waiting, so buffered target
-delivery is not missed. It reads profile picture/banner bytes with
+The feed opens profiles with a structured request whose payload contains the
+pubkey and whose metadata advertises the queryless `napplet:profile/open`
+convention. Profile-viewer registers
+`inc.on('napplet:profile/open', …)` before capability waiting. It reads profile
+picture/banner bytes with
 `resourceBytes`, creates Blob URLs, and revokes URLs for stale completion,
 replacement, error, clear, and `pagehide`—never direct remote image URLs.
 
 `theme.get` supplies the current complete state and each eligible frame receives
 one automatic synchronized `theme.changed` after an update. There is no
 subscribe/unsubscribe protocol. The mandatory shell is likewise host-owned:
-`@napplet/shim@0.27.0` does not provide `window.napplet.shell`; Kehto's prelude
+`@napplet/shim@0.29.0` does not provide `window.napplet.shell`; Kehto's prelude
 installs it before one bare ready/init handshake.
 
 The pinned NAP authority has no standalone `NAP-RESOURCE.md`; this package uses

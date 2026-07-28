@@ -16,6 +16,7 @@ export const PAJA_UPSTREAM_WEB_DOMAINS = [
   'count',
   'cvm',
   'dm',
+  'fs',
   'identity',
   PAJA_LEGACY_COMPATIBILITY_DOMAIN,
   'inc',
@@ -38,7 +39,7 @@ export const PAJA_UPSTREAM_WEB_DOMAINS = [
 /** Domains required during the initial Paja handshake. */
 export const PAJA_HANDSHAKE_DOMAINS = ['shell'] as const;
 /** Domains intentionally deferred until their runtime service exists. */
-export const PAJA_DEFERRED_DOMAINS = ['dm'] as const;
+export const PAJA_DEFERRED_DOMAINS = ['dm', 'fs'] as const;
 
 /** Compatibility aliases for renamed upstream capability domains. */
 export const PAJA_COMPATIBILITY_ALIASES = {

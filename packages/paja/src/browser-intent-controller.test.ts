@@ -1,30 +1,28 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { IntentRetentionParams } from '@kehto/services';
+import type { IntentDispatchParams } from '@kehto/services';
 import { BrowserIntentController } from './browser-intent-controller.js';
 
-const delivery = {
-  sender: 'social-feed',
-  archetype: 'profile',
-  action: 'open',
-  convention: 'napplet:profile/open',
-  payload: { pubkey: 'a'.repeat(64) },
-};
-
-function params(overrides: Partial<IntentRetentionParams> = {}): IntentRetentionParams {
+function params(overrides: Partial<IntentDispatchParams> = {}): IntentDispatchParams {
   return {
     handler: 'profile-viewer',
-    delivery,
+    sender: 'social-feed',
+    archetype: 'profile',
+    action: 'open',
+    convention: 'napplet:profile/open',
+    payload: { pubkey: 'a'.repeat(64) },
     ...overrides,
   };
 }
 
 describe('BrowserIntentController', () => {
-  it('freezes retained handler and delivery before returning an unstarted idempotent task', async () => {
+  it('waits for a current ready generation, sends once, and returns its window id', async () => {
     let releaseReady!: () => void;
-    const ready = new Promise<void>((resolve) => { releaseReady = resolve; });
-    let retainedParams: IntentRetentionParams | undefined;
-    const openOrReuse = vi.fn((value: IntentRetentionParams) => {
-      retainedParams = value;
+    const ready = new Promise<void>((resolve) => {
+      releaseReady = resolve;
+    });
+    let dispatched: IntentDispatchParams | undefined;
+    const openOrReuse = vi.fn((value: IntentDispatchParams) => {
+      dispatched = value;
       return { id: 'generation-1' };
     });
     const send = vi.fn();
@@ -32,89 +30,80 @@ describe('BrowserIntentController', () => {
       openOrReuse,
       waitForReady: () => ready,
       isCurrent: () => true,
+      getWindowId: () => 'window-1',
       send,
     });
 
-    const task = controller.retain(params());
-    expect(openOrReuse).not.toHaveBeenCalled();
-
-    const started = task.start();
-    const startedAgain = task.start();
+    const result = controller.dispatch(params());
     expect(openOrReuse).toHaveBeenCalledOnce();
-    expect(startedAgain).toBe(started);
-    expect(retainedParams).toEqual(expect.objectContaining({ handler: 'profile-viewer' }));
-    expect(retainedParams).toBeDefined();
-    expect(Object.isFrozen(retainedParams)).toBe(true);
-    expect(Object.isFrozen(retainedParams?.delivery)).toBe(true);
-    expect(Object.isFrozen(retainedParams?.delivery.payload)).toBe(true);
-
+    expect(dispatched).toBeDefined();
+    expect(Object.isFrozen(dispatched)).toBe(true);
+    expect(Object.isFrozen(dispatched?.payload)).toBe(true);
     releaseReady();
-    await started;
+
+    await expect(result).resolves.toEqual({ windowId: 'window-1' });
     expect(send).toHaveBeenCalledOnce();
   });
 
-  it('delivers at most once to a current ready generation despite replacement and repeated readiness', async () => {
-    const current = vi.fn((generation: { id: string }) => generation.id === 'generation-2');
+  it('retries replaced generations and delivers only to the current one', async () => {
     const openOrReuse = vi.fn()
       .mockResolvedValueOnce({ id: 'generation-1' })
       .mockResolvedValueOnce({ id: 'generation-2' });
-    const waitForReady = vi.fn().mockResolvedValue(undefined);
-    const send = vi.fn().mockResolvedValue(undefined);
+    const send = vi.fn();
     const controller = new BrowserIntentController({
       openOrReuse,
-      waitForReady,
-      isCurrent: current,
+      waitForReady: vi.fn(),
+      isCurrent: (generation) => generation.id === 'generation-2',
+      getWindowId: () => 'window-2',
       send,
       maxAttempts: 2,
     });
 
-    const task = controller.retain(params());
-    await Promise.all([task.start(), task.start()]);
-
+    await expect(controller.dispatch(params())).resolves.toEqual({ windowId: 'window-2' });
     expect(openOrReuse).toHaveBeenCalledTimes(2);
-    expect(waitForReady).toHaveBeenCalledTimes(2);
     expect(send).toHaveBeenCalledTimes(1);
-    expect(send).toHaveBeenCalledWith({ id: 'generation-2' }, expect.objectContaining(delivery));
+    expect(send).toHaveBeenCalledWith(
+      { id: 'generation-2' },
+      expect.objectContaining({ convention: 'napplet:profile/open' }),
+    );
   });
 
-  it('terminates bounded retries without duplicate sends when no current generation becomes ready', async () => {
+  it('rejects bounded terminal failures and reports the final reason', async () => {
     const onTerminal = vi.fn();
     const controller = new BrowserIntentController({
-      openOrReuse: vi.fn(() => ({ id: 'stale' })),
-      waitForReady: vi.fn().mockResolvedValue(undefined),
+      openOrReuse: () => ({ id: 'stale' }),
+      waitForReady: vi.fn(),
       isCurrent: () => false,
+      getWindowId: () => null,
       send: vi.fn(),
       maxAttempts: 2,
       onTerminal,
     });
 
-    await controller.retain(params()).start();
-
-    expect(onTerminal).toHaveBeenCalledWith(expect.objectContaining({ handler: 'profile-viewer' }), 'no-current-target');
+    await expect(controller.dispatch(params())).rejects.toThrow('no-current-target');
+    expect(onTerminal).toHaveBeenCalledWith(
+      expect.objectContaining({ handler: 'profile-viewer' }),
+      'no-current-target',
+    );
   });
 
-  it('rejects non-finite maxAttempts and bounds finite attempt limits', async () => {
+  it('rejects non-finite attempt limits and clamps finite values', async () => {
     const callbacks = {
       openOrReuse: vi.fn(() => null),
       waitForReady: () => undefined,
       isCurrent: () => false,
-      send: () => {},
+      getWindowId: () => null,
+      send: () => undefined,
     };
-
     for (const value of [Number.NaN, Number.POSITIVE_INFINITY]) {
       expect(() => new BrowserIntentController({ ...callbacks, maxAttempts: value }))
         .toThrow('maxAttempts must be finite');
     }
-
-    for (const value of [0, -1]) {
-      const normalized = new BrowserIntentController({ ...callbacks, maxAttempts: value });
-      await normalized.retain(params()).start();
-      expect(callbacks.openOrReuse).toHaveBeenCalledTimes(1);
+    for (const [value, attempts] of [[0, 1], [-1, 1], [999, 10]] as const) {
       callbacks.openOrReuse.mockClear();
+      const controller = new BrowserIntentController({ ...callbacks, maxAttempts: value });
+      await expect(controller.dispatch(params())).rejects.toThrow('open-failed');
+      expect(callbacks.openOrReuse).toHaveBeenCalledTimes(attempts);
     }
-
-    const bounded = new BrowserIntentController({ ...callbacks, maxAttempts: 999 });
-    await bounded.retain(params()).start();
-    expect(callbacks.openOrReuse).toHaveBeenCalledTimes(10);
   });
 });

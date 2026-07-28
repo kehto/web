@@ -49,18 +49,18 @@ const protocolPackageNames = [
 ] as const;
 
 const protocolPackageVersions: Record<(typeof protocolPackageNames)[number], string> = {
-  '@napplet/core': '0.29.0',
-  '@napplet/nap': '0.29.0',
-  '@napplet/sdk': '0.25.0',
-  '@napplet/shim': '0.27.0',
-  '@napplet/vite-plugin': '0.12.0',
+  '@napplet/core': '0.31.0',
+  '@napplet/nap': '0.31.0',
+  '@napplet/sdk': '0.27.0',
+  '@napplet/shim': '0.29.0',
+  '@napplet/vite-plugin': '0.14.0',
 };
 
 const protocolAuthorities = Object.freeze({
-  napIntent: 'a718915ddefa2f03a0126579601f59d8bd86f7c4',
+  napIntent: '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24',
   napIdentityTheme: '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24',
-  publishedSource: 'dd7b3a728eb9c838b7218fcec7bb7bb00e7cc88b',
-  publishedRelease: '60889f1c2476e063500c7ab6624af6abe0dbcbe5',
+  publishedSource: '7b675622e13870628ce174833d7b2a33cf32a0ab',
+  publishedRelease: '03ad65b66413e5798536ef48695ffc4c2508f2c3',
 });
 
 // Only these executable product paths are migration evidence. Archived plans,
@@ -122,23 +122,23 @@ const obsoleteGuidancePatterns = {
 const currentGuidanceAuthorities = {
   'docs/policies/NIP-5D-CONFORMANCE.md': [
     'NAP-INTENT:',
-    'a718915ddefa2f03a0126579601f59d8bd86f7c4',
+    '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24',
   ],
   'packages/nip/README.md': [
-    'NAP-INTENT PR #91',
-    'a718915ddefa2f03a0126579601f59d8bd86f7c4',
+    'merged [NAP-INTENT at',
+    '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24',
   ],
   'packages/runtime/README.md': [
-    'NAP-INTENT PR #91',
-    'a718915ddefa2f03a0126579601f59d8bd86f7c4',
+    'merged [NAP-INTENT at',
+    '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24',
   ],
   'packages/services/README.md': [
-    'NAP-INTENT PR #91',
-    'a718915ddefa2f03a0126579601f59d8bd86f7c4',
+    'merged [NAP-INTENT at',
+    '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24',
   ],
   'packages/shell/README.md': [
-    'NAP-INTENT PR #91',
-    'a718915ddefa2f03a0126579601f59d8bd86f7c4',
+    'merged [NAP-INTENT at',
+    '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24',
   ],
 } as const;
 
@@ -269,10 +269,10 @@ describe('current @napplet package graph guard', () => {
 
   it('records the exact released convention and package authorities in active evidence', () => {
     expect(protocolAuthorities).toEqual({
-      napIntent: 'a718915ddefa2f03a0126579601f59d8bd86f7c4',
+      napIntent: '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24',
       napIdentityTheme: '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24',
-      publishedSource: 'dd7b3a728eb9c838b7218fcec7bb7bb00e7cc88b',
-      publishedRelease: '60889f1c2476e063500c7ab6624af6abe0dbcbe5',
+      publishedSource: '7b675622e13870628ce174833d7b2a33cf32a0ab',
+      publishedRelease: '03ad65b66413e5798536ef48695ffc4c2508f2c3',
     });
 
     const publishedContract = readFileSync(
@@ -324,11 +324,11 @@ describe('current @napplet package graph guard', () => {
     }
   });
 
-  it('admits only the current @napplet 0.29 line on published kehto packages', () => {
+  it('admits only the current @napplet 0.31 line on published kehto packages', () => {
     // Kehto runtime packages track the current NAP contract so new canonical
     // fields are wired through runtime, services, shell, Paja, docs, and tests.
-    const PEER_RANGE = '>=0.29.0 <0.30.0';
-    const DEV_RANGE = '>=0.29.0 <0.30.0';
+    const PEER_RANGE = '>=0.31.0 <0.32.0';
+    const DEV_RANGE = '>=0.31.0 <0.32.0';
     for (const dir of publicPackageDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {

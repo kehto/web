@@ -1,18 +1,18 @@
 /**
- * Browser-owned retained NAP-INTENT target lifecycle policy.
+ * Browser-owned NAP-INTENT target lifecycle policy.
  *
  * Retention is intentionally independent from browser frames. The host supplies
  * generation creation/reuse, source-bound readiness, current-generation checks,
- * and delivery. This controller freezes responsibility before an accepted
- * result, then starts that policy only afterward.
+ * and convention delivery. The controller resolves only after the target is
+ * ready and the delivery is enqueued.
  *
  * @packageDocumentation
  */
 
 import type {
-  IntentRetentionParams,
-  IntentRetainedDelivery,
+  IntentDispatchParams,
   IntentTargetController,
+  IntentTargetDispatch,
 } from '@kehto/services';
 
 /** Opaque current target generation controlled by the browser host. */
@@ -32,32 +32,30 @@ export type BrowserIntentTerminalReason =
 export interface BrowserIntentControllerOptions {
   /** Open a compatible target or reuse its current generation. */
   openOrReuse(
-    params: IntentRetentionParams,
+    params: IntentDispatchParams,
     attempt: number,
   ): BrowserIntentGeneration | null | Promise<BrowserIntentGeneration | null>;
   /** Await source-bound NAP-SHELL readiness for a selected generation. */
   waitForReady(generation: BrowserIntentGeneration): void | Promise<void>;
   /** Return true only while the generation remains the selected current target. */
   isCurrent(generation: BrowserIntentGeneration): boolean | Promise<boolean>;
-  /** Send the retained delivery to the current ready generation exactly once. */
+  /** Return the runtime-assigned window identifier once the target is ready. */
+  getWindowId(generation: BrowserIntentGeneration): string | null;
+  /** Send the convention through the ordinary carrier to the ready generation. */
   send(
     generation: BrowserIntentGeneration,
-    delivery: IntentRetentionParams['delivery'],
+    params: IntentDispatchParams,
   ): void | Promise<void>;
-  /** Maximum open/replacement attempts after acceptance. Finite values clamp to 1–10; defaults to two. */
+  /** Maximum open/replacement attempts. Finite values clamp to 1–10; defaults to two. */
   maxAttempts?: number;
-  /** Observe terminal post-acceptance policy without producing another result. */
-  onTerminal?(params: IntentRetentionParams, reason: BrowserIntentTerminalReason): void;
+  /** Observe terminal target policy. */
+  onTerminal?(params: IntentDispatchParams, reason: BrowserIntentTerminalReason): void;
 }
 
 const MAX_INTENT_DELIVERY_ATTEMPTS = 10;
 
 /**
- * Retains immutable delivery responsibility before the intent service accepts.
- *
- * It has no public lifecycle state: host callbacks own generation identity,
- * readiness, reuse, and replacement. A returned task is inert until its
- * `start()` method is invoked by the intent service after sending acceptance.
+ * Creates/focuses a target and enqueues one convention delivery.
  */
 export class BrowserIntentController implements IntentTargetController {
   private readonly maxAttempts: number;
@@ -66,29 +64,13 @@ export class BrowserIntentController implements IntentTargetController {
     this.maxAttempts = normalizeAttempts(options.maxAttempts);
   }
 
-  retain(params: IntentRetentionParams): IntentRetainedDelivery {
-    const retained = freezeRetention(params);
-    let started: Promise<void> | undefined;
-    let delivered = false;
-
-    return {
-      start: () => {
-        started ??= this.start(retained, () => delivered, () => { delivered = true; });
-        return started;
-      },
-    };
-  }
-
-  private async start(
-    params: IntentRetentionParams,
-    isDelivered: () => boolean,
-    markDelivered: () => void,
-  ): Promise<void> {
+  async dispatch(params: IntentDispatchParams): Promise<IntentTargetDispatch> {
+    const dispatch = freezeDispatch(params);
     let reason: BrowserIntentTerminalReason = 'no-current-target';
     for (let attempt = 1; attempt <= this.maxAttempts; attempt += 1) {
       let generation: BrowserIntentGeneration | null;
       try {
-        generation = await this.options.openOrReuse(params, attempt);
+        generation = await this.options.openOrReuse(dispatch, attempt);
       } catch {
         reason = 'open-failed';
         continue;
@@ -107,17 +89,18 @@ export class BrowserIntentController implements IntentTargetController {
         reason = 'no-current-target';
         continue;
       }
-      if (isDelivered()) return;
-      markDelivered();
       try {
-        await this.options.send(generation, params.delivery);
-        return;
+        await this.options.send(generation, dispatch);
+        const windowId = this.options.getWindowId(generation);
+        if (!windowId) throw new Error('intent target window is unavailable');
+        return { windowId };
       } catch {
-        this.options.onTerminal?.(params, 'send-failed');
-        return;
+        this.options.onTerminal?.(dispatch, 'send-failed');
+        throw new Error('intent target send failed');
       }
     }
-    this.options.onTerminal?.(params, reason);
+    this.options.onTerminal?.(dispatch, reason);
+    throw new Error(`intent target ${reason}`);
   }
 }
 
@@ -127,17 +110,33 @@ function normalizeAttempts(value: number | undefined): number {
   return Math.min(MAX_INTENT_DELIVERY_ATTEMPTS, Math.max(1, Math.floor(value)));
 }
 
-function freezeRetention(params: IntentRetentionParams): IntentRetentionParams {
+function freezeDispatch(params: IntentDispatchParams): IntentDispatchParams {
   if (!params || typeof params.handler !== 'string' || params.handler.length === 0) {
-    throw new TypeError('Intent retention requires a handler');
+    throw new TypeError('Intent dispatch requires a handler');
   }
-  const delivery = freezeValue({ ...params.delivery }) as IntentRetentionParams['delivery'];
+  if (
+    typeof params.sender !== 'string'
+    || params.sender.length === 0
+    || typeof params.archetype !== 'string'
+    || params.archetype.length === 0
+    || typeof params.action !== 'string'
+    || params.action.length === 0
+    || typeof params.convention !== 'string'
+    || params.convention.length === 0
+  ) {
+    throw new TypeError('Intent dispatch requires canonical routing fields');
+  }
+  const payload = freezeValue(params.payload);
   const behavior = params.behavior === undefined
     ? undefined
-    : freezeValue({ ...params.behavior }) as NonNullable<IntentRetentionParams['behavior']>;
+    : freezeValue({ ...params.behavior }) as NonNullable<IntentDispatchParams['behavior']>;
   return Object.freeze({
     handler: params.handler,
-    delivery,
+    sender: params.sender,
+    archetype: params.archetype,
+    action: params.action,
+    convention: params.convention,
+    ...(params.payload === undefined ? {} : { payload }),
     ...(behavior === undefined ? {} : { behavior }),
   });
 }

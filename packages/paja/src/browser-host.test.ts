@@ -237,7 +237,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
       pointer: { type: 'naddr', value: `naddr-${aggregateHash}`, identifier: 'profile-viewer', pubkey: 'a'.repeat(64), kind: 35_129, relays: [] },
       event: { id: 'b'.repeat(64), pubkey: 'a'.repeat(64), created_at: 1, kind: 35_129, tags: [], content: '', sig: 'c'.repeat(128) },
       relays: [], blossomServers: [], dTag: 'profile-viewer', aggregateHash, indexHtml: '',
-      manifest: { kind: 35_129, pubkey: 'a'.repeat(64), dTag: 'profile-viewer', aggregateHash, paths: [], servers: [], requires: ['intent'], archetypes: [{ slug: 'profile', convention: 'napplet:profile/open' }] },
+      manifest: { kind: 35_129, pubkey: 'a'.repeat(64), dTag: 'profile-viewer', aggregateHash, paths: [], servers: [], requires: ['inc'], archetypes: [{ slug: 'profile', convention: 'napplet:profile/open' }] },
     }) as PajaResolvedPointer;
     const makeTab = (id: string, target: PajaResolvedPointer) => {
       const source = { postMessage: vi.fn() } as unknown as Window;
@@ -255,7 +255,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
     try {
       catalog.install(targetA);
       const controller = new BrowserIntentController({ ...createPajaIntentTargetOptions(() => state, () => context), maxAttempts: 3 });
-      const task = controller.retain({ handler: 'profile-viewer', delivery: { sender: 'feed', archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: {} } }).start();
+      const task = controller.dispatch({ handler: 'profile-viewer', sender: 'feed', archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: {} });
       await Promise.resolve();
       // Installing an equal record still replaces the object version token and
       // must reject A's outstanding readiness wait.
@@ -269,7 +269,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
       await task;
       expect((tabA.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).not.toHaveBeenCalled();
       expect((tabB.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).toHaveBeenCalledTimes(1);
-      expect((tabB.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'intent.deliver' }), '*', undefined);
+      expect((tabB.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'inc.event', topic: 'napplet:profile/open', sender: 'feed' }), '*', undefined);
       expect(catalog.get('profile-viewer')).toMatchObject({ aggregateHash: 'aggregate-b' });
     } finally {
       stopCatalogChanges();

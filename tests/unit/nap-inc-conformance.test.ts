@@ -4,7 +4,7 @@ import { renderNappletNamespacePrelude } from '../../packages/shell/src/napplet-
 import { createRuntime } from '../../packages/runtime/src/runtime.js';
 import { createMockRuntimeAdapter, createNip5dSessionEntry } from '../../packages/runtime/src/test-utils.js';
 
-const NAP_INC_MASTER = '6461e4b37c29dc09a20dff35d9515889c4433874';
+const NAP_INC_MASTER = '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24';
 
 type Message = { type: string; [key: string]: unknown };
 type Listener = (event: { source: unknown; data: Message }) => void;

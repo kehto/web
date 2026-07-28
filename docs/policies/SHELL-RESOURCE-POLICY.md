@@ -42,7 +42,7 @@
 
 # Shell Resource Policy Checklist
 
-> Kehto host-hardening guide for core/nap 0.29.0 consumers using profile-media
+> Kehto host-hardening guide for core/nap 0.31.0 consumers using profile-media
 > `resource.bytes` delegation.
 > This is not a standalone NAP-RESOURCE specification and does not define wire
 > messages, fields, or capability strings.
@@ -52,7 +52,7 @@
 `napplet/naps` master at `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` has no
 standalone `NAP-RESOURCE.md`. For profile picture and banner bytes, authority is
 NAP-IDENTITY's explicit `resource.bytes` delegation plus the published
-`@napplet/core` / `@napplet/nap` 0.29.0 declarations. This document is a
+`@napplet/core` / `@napplet/nap` 0.31.0 declarations. This document is a
 non-normative Kehto deployment checklist; its MUST/SHOULD labels are local
 hardening requirements, not protocol language. It does not infer any missing
 resource wire semantics.
@@ -257,8 +257,8 @@ Use this as a deployment sign-off:
   `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` — profile-media
   `resource.bytes` delegation; `napplet/naps` has no standalone
   `NAP-RESOURCE.md` at this ref
-- Published `@napplet/core` / `@napplet/nap` 0.29.0 declarations — released
-  implementation contract, source `dd7b3a728eb9c838b7218fcec7bb7bb00e7cc88b`,
-  release `60889f1c2476e063500c7ab6624af6abe0dbcbe5`
+- Published `@napplet/core` / `@napplet/nap` 0.31.0 declarations — released
+  implementation contract, source `7b675622e13870628ce174833d7b2a33cf32a0ab`,
+  release `03ad65b66413e5798536ef48695ffc4c2508f2c3`
 - [NIP-5D Conformance](./NIP-5D-CONFORMANCE.md) — napplet-shell protocol alignment; Security Considerations subsection covers strict-CSP posture and `sandbox="allow-scripts"` reaffirmation
 - [WHATWG MIME Sniffing Standard](https://mimesniff.spec.whatwg.org/) — recommended byte-sniffing reference

@@ -4,14 +4,14 @@
 import '@napplet/shim';
 import { getMissingNapDomains } from '../../domain-availability';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
-import { intentOnDelivery } from '@napplet/nap/intent/sdk';
+import { incOn } from '@napplet/nap/inc/sdk';
 import { relaySubscribe } from '@napplet/nap/relay/sdk';
 import { resourceBytes } from '@napplet/nap/resource/sdk';
-import type { IntentDelivery, NostrEvent, Subscription } from '@napplet/core';
+import type { IncEvent, NostrEvent, Subscription } from '@napplet/core';
 import { createProfileMediaController } from './profile-media.js';
 import { createProfileLoadController } from './profile-load-controller.js';
 
-const REQUIRED_NAPS = ['intent', 'relay', 'resource', 'theme'] as const;
+const REQUIRED_NAPS = ['inc', 'relay', 'resource', 'theme'] as const;
 const CAPABILITY_WAIT_MS = 5_000;
 const CAPABILITY_WAIT_INTERVAL_MS = 25;
 const PROFILE_LOAD_TIMEOUT_MS = 8_000;
@@ -39,7 +39,7 @@ type ProfileMetadata = {
   lud16?: string;
 };
 
-let intentDeliverySub: Subscription | null = null;
+let profileIntentSub: Subscription | null = null;
 
 function formatError(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message) return error.message;
@@ -233,9 +233,8 @@ function payloadPubkey(payload: unknown): string | null {
 }
 
 function subscribeToProfileDelivery(): void {
-  intentDeliverySub = intentOnDelivery((delivery: IntentDelivery) => {
-    if (delivery.convention !== 'napplet:profile/open') return;
-    const pubkey = payloadPubkey(delivery.payload);
+  profileIntentSub = incOn('napplet:profile/open', (event: IncEvent) => {
+    const pubkey = payloadPubkey(event.payload);
     if (!pubkey) return;
     loadProfile(pubkey);
   });
@@ -254,12 +253,12 @@ async function init(): Promise<void> {
 
 init().catch((err) => {
   if (statusEl.textContent === 'connecting...') {
-    setStatus(`denied: ${formatError(err, 'intent, relay, or resource unavailable')}`, 'red');
+    setStatus(`denied: ${formatError(err, 'inc, relay, or resource unavailable')}`, 'red');
   }
 });
 
 window.addEventListener('pagehide', () => {
   profileLoader.clear();
-  intentDeliverySub?.close();
+  profileIntentSub?.close();
   profileMedia.destroy();
 });

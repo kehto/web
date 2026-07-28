@@ -22,11 +22,12 @@ export interface InstalledNappletRecord {
   readonly pointer: PajaDecodedPointer;
   /** Optional manifest title for handler selection UI. */
   readonly title?: string;
+  /** Verified NAP domains required by the artifact. */
+  readonly requires: readonly string[];
   /** Exact manifest convention contracts used for intent eligibility. */
   readonly archetypes: readonly {
     readonly slug: string;
     readonly convention: string;
-    readonly eventKinds?: readonly number[];
   }[];
 }
 
@@ -62,10 +63,10 @@ export class InstalledNappletCatalog {
       aggregateHash: resolved.aggregateHash,
       pointer: copyPointer(resolved.pointer),
       ...(resolved.manifest.title === undefined ? {} : { title: resolved.manifest.title }),
+      requires: [...resolved.manifest.requires],
       archetypes: resolved.manifest.archetypes.map((archetype) => ({
         slug: archetype.slug,
         convention: archetype.convention,
-        ...(archetype.eventKinds === undefined ? {} : { eventKinds: [...archetype.eventKinds] }),
       })),
     });
     this.records.set(record.dTag, record);
@@ -110,15 +111,16 @@ export class InstalledNappletCatalog {
 
   /** Return exact handler candidates derived only from installed manifests. */
   intentCatalog(): IntentCatalogEntry[] {
-    return this.installed().map((record) => manifestToIntentCatalogEntry({
+    return this.installed()
+      .filter((record) => record.requires.includes('inc'))
+      .map((record) => manifestToIntentCatalogEntry({
       dTag: record.dTag,
       ...(record.title === undefined ? {} : { title: record.title }),
       archetypes: record.archetypes.map((archetype) => ({
         slug: archetype.slug,
         convention: archetype.convention,
-        ...(archetype.eventKinds === undefined ? {} : { eventKinds: [...archetype.eventKinds] }),
       })),
-    }));
+      }));
   }
 
   /** Subscribe to explicit install and artifact-removal changes. */
@@ -157,14 +159,12 @@ function freezeRecord(record: Omit<InstalledNappletRecord, 'archetypes'> & {
   readonly archetypes: readonly {
     readonly slug: string;
     readonly convention: string;
-    readonly eventKinds?: readonly number[];
   }[];
 }): InstalledNappletRecord {
   return Object.freeze({
     ...record,
-    archetypes: Object.freeze(record.archetypes.map((archetype) => Object.freeze({
-      ...archetype,
-      ...(archetype.eventKinds === undefined ? {} : { eventKinds: Object.freeze([...archetype.eventKinds]) }),
-    }))),
+    requires: Object.freeze([...record.requires]),
+    archetypes: Object.freeze(record.archetypes.map((archetype) =>
+      Object.freeze({ ...archetype }))),
   });
 }

@@ -487,10 +487,6 @@ describe('resolveCapabilitiesNap', () => {
       expect(resolveCapabilitiesNap({ type: 'intent.changed' })).toEqual({ senderCap: null, recipientCap: 'intent:read' });
     });
 
-    it('intent.deliver -> recipient intent:read (runtime -> selected target push)', () => {
-      expect(resolveCapabilitiesNap({ type: 'intent.deliver' })).toEqual({ senderCap: null, recipientCap: 'intent:read' });
-    });
-
     it('intent.unknown has no sanctioned sender or recipient direction', () => {
       expect(resolveCapabilitiesNap({ type: 'intent.unknown' })).toEqual({
         senderCap: null,

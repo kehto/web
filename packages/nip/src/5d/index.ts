@@ -93,7 +93,7 @@ export interface NappletManifest {
   /**
    * Convention contracts this napplet fulfills, from `archetype` manifest tags.
    */
-  archetypes: Array<{ slug: string; convention: string; eventKinds?: number[] }>;
+  archetypes: Array<{ slug: string; convention: string }>;
   /** Optional human title. */
   title?: string;
   /** Optional human description. */
@@ -142,8 +142,8 @@ function allTagValues(tags: readonly (readonly string[])[], name: string): strin
 
 function archetypesFromTags(
   tags: readonly (readonly string[])[],
-): Array<{ slug: string; convention: string; eventKinds?: number[] }> {
-  const out: Array<{ slug: string; convention: string; eventKinds?: number[] }> = [];
+): Array<{ slug: string; convention: string }> {
+  const out: Array<{ slug: string; convention: string }> = [];
   for (const tag of tags) {
     if (tag[0] !== 'archetype') continue;
     const slug = tag[1];
@@ -178,28 +178,13 @@ function archetypesFromTags(
       );
     }
 
-    const eventKinds = tag.slice(3).map((value) => {
-      const match = /^kind:(\d+)$/.exec(value);
-      if (!match) {
-        throw new NappletResolutionError(
-          'invalid-manifest',
-          'archetype trailing fields must use kind:<unsigned-integer>',
-        );
-      }
-      const kind = Number(match[1]);
-      if (!Number.isSafeInteger(kind) || kind < 0) {
-        throw new NappletResolutionError(
-          'invalid-manifest',
-          'archetype event kinds must be unsigned safe integers',
-        );
-      }
-      return kind;
-    });
-    out.push({
-      slug,
-      convention,
-      ...(eventKinds.length === 0 ? {} : { eventKinds }),
-    });
+    if (tag.length !== 3) {
+      throw new NappletResolutionError(
+        'invalid-manifest',
+        'archetype tags must contain exactly slug and convention',
+      );
+    }
+    out.push({ slug, convention });
   }
   return out;
 }

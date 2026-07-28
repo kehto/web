@@ -93,17 +93,16 @@ accepted only when it is an installed compatible handler and the invoking sender
 has been explicitly authorized for it. It is not a request to deliver to an
 arbitrary running frame.
 
-When Paja accepts an invocation, it first retains an immutable target delivery,
-then returns the accepted result. Only after that result can it reuse a current
-target or start a cold target. The controller waits for the target generation's
+When Paja receives an invocation, it selects and opens or reuses a verified
+target. The controller waits for the target generation's
 registered `MessageEvent.source` to establish its real `shell.ready` session;
-it checks that generation is still current and sends one target-only
-`intent.deliver`. The invoking source may be torn down after acceptance without
-changing that responsibility. A superseded target/source, failed open/readiness,
-or terminal send is handled by the controller's replacement/retry/terminal
-policy; it never turns into an INC carrier or a delivery acknowledgement.
+it checks that generation is still current, sends one target-only `inc.event`
+with the selected queryless convention, and returns the final handled target
+identity. A superseded target/source, failed open/readiness, or terminal send is
+handled by the controller's replacement/retry/terminal policy and produces a
+canonical failed `IntentResult`.
 
-`@napplet/shim@0.27.0` supplies no generic shell API. Kehto deliberately keeps
+`@napplet/shim@0.29.0` supplies no generic shell API. Kehto deliberately keeps
 its host-owned mandatory `window.napplet.shell` prelude: it installs the live
 receiver before the one bare `shell.ready`, caches the first `shell.init`, and
 provides local `ready()`, `supports()`, read-only `services`, and one-shot

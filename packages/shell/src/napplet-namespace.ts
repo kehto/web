@@ -1200,98 +1200,87 @@ function nappletNamespacePrelude(domains: string[]): void {
   }
 
   function makeIntent(): Record<string, unknown> {
-    type IntentDelivery = {
-      sender: string;
-      archetype: string;
-      action: string;
-      convention: string;
-      payload?: unknown;
-    };
-    const deliveryHandlers = new Set<(delivery: IntentDelivery) => void>();
-    const pendingDeliveries: IntentDelivery[] = [];
     const hasOwn = (value: Record<string, unknown>, key: string): boolean => (
       Object.prototype.hasOwnProperty.call(value, key)
     );
-    const normalizeDelivery = (value: unknown): IntentDelivery | undefined => {
-      if (
-        !value
-        || typeof value !== 'object'
-        || typeof (value as Record<string, unknown>).sender !== 'string'
-        || typeof (value as Record<string, unknown>).archetype !== 'string'
-        || typeof (value as Record<string, unknown>).action !== 'string'
-        || typeof (value as Record<string, unknown>).convention !== 'string'
-      ) {
-        return undefined;
+    const normalizeRequest = (value: unknown): Record<string, unknown> => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        throw new TypeError('Intent request must be an object');
       }
-      const delivery = value as Record<string, unknown>;
-      return {
-        sender: delivery.sender as string,
-        archetype: delivery.archetype as string,
-        action: delivery.action as string,
-        convention: delivery.convention as string,
-        ...(hasOwn(delivery, 'payload') ? { payload: delivery.payload } : {}),
-      };
-    };
-    listen((event) => {
-      if (!isParentMessage(event)) return;
-      const msg = event.data as RuntimeMessage;
-      if (typeof msg !== 'object' || msg === null || msg.type !== 'intent.deliver') return;
-      const delivery = normalizeDelivery(msg.delivery);
-      if (!delivery) return;
-      if (deliveryHandlers.size === 0) pendingDeliveries.push(delivery);
-      else for (const handler of deliveryHandlers) handler(delivery);
-    });
-    function normalizeIntentUri(uri: unknown, explicitPayload: boolean, actionMustBe?: string): Record<string, unknown> {
-      if (typeof uri !== 'string' || !uri.startsWith('napplet:')) {
-        throw new TypeError('Intent convention URI must start with napplet:');
-      }
-      if (uri.includes('#')) throw new TypeError('Intent convention URI cannot contain fragments');
-      const normalized = normalizeConventionUri(uri, explicitPayload);
-      const match = /^napplet:([^/?#]+)\/([^/?#]+)$/.exec(normalized.topic);
-      if (!match) throw new TypeError('Intent convention URI must be napplet:<archetype>/<intent>');
-      if (actionMustBe !== undefined && match[2] !== actionMustBe) {
-        throw new TypeError(`Intent convention URI must use the ${actionMustBe} intent`);
-      }
-      return {
-        archetype: match[1],
-        action: match[2],
-        convention: normalized.topic,
-        ...(normalized.payload === undefined ? {} : { payload: normalized.payload }),
-      };
-    }
-    const invoke = (uri: unknown, opts?: Record<string, unknown>, actionMustBe?: string) => {
-      const supplied = opts && typeof opts === 'object' ? opts : undefined;
-      const explicitPayload = supplied?.payload !== undefined;
-      const normalized = normalizeIntentUri(uri, explicitPayload, actionMustBe);
-
-      if (supplied && hasOwn(supplied, 'sender')) {
+      const supplied = value as Record<string, unknown>;
+      if (hasOwn(supplied, 'sender')) {
         throw new TypeError('Intent callers cannot supply sender');
       }
-      for (const field of ['archetype', 'action', 'convention']) {
-        if (supplied && hasOwn(supplied, field) && supplied[field] !== normalized[field]) {
-          throw new TypeError(`Intent options cannot override URI-derived ${field}`);
-        }
+      const allowed = ['archetype', 'action', 'convention', 'payload', 'handler', 'behavior'];
+      if (Object.keys(supplied).some((field) => !allowed.includes(field))) {
+        throw new TypeError('Intent request contains unsupported fields');
       }
-
+      if (typeof supplied.archetype !== 'string' || supplied.archetype.length === 0) {
+        throw new TypeError('Intent request requires an archetype');
+      }
+      const action = supplied.action === undefined ? 'open' : supplied.action;
+      if (typeof action !== 'string' || action.length === 0) {
+        throw new TypeError('Intent action must be a non-empty string');
+      }
+      if (
+        supplied.convention !== undefined
+        && (
+          typeof supplied.convention !== 'string'
+          || !/^napplet:[^/?#\s]+\/[^/?#\s]+$/.test(supplied.convention)
+        )
+      ) {
+        throw new TypeError('Intent convention must be queryless');
+      }
+      if (
+        supplied.handler !== undefined
+        && (typeof supplied.handler !== 'string' || supplied.handler.length === 0)
+      ) {
+        throw new TypeError('Intent handler must be a non-empty string');
+      }
       const behaviorValue = supplied?.behavior;
       const behavior = behaviorValue && typeof behaviorValue === 'object'
         ? behaviorValue as Record<string, unknown>
         : undefined;
+      if (
+        behaviorValue !== undefined
+        && (
+          !behavior
+          || Array.isArray(behaviorValue)
+          || Object.keys(behavior).some((field) =>
+            field !== 'focus' && field !== 'newWindow' && field !== 'reuse')
+          || (hasOwn(behavior, 'focus') && typeof behavior.focus !== 'boolean')
+          || (hasOwn(behavior, 'newWindow') && typeof behavior.newWindow !== 'boolean')
+          || (hasOwn(behavior, 'reuse') && typeof behavior.reuse !== 'boolean')
+        )
+      ) {
+        throw new TypeError('Intent behavior contains unsupported fields');
+      }
       const sanitizedBehavior = {
         ...(typeof behavior?.focus === 'boolean' ? { focus: behavior.focus } : {}),
+        ...(typeof behavior?.newWindow === 'boolean'
+          ? { newWindow: behavior.newWindow }
+          : {}),
         ...(typeof behavior?.reuse === 'boolean' ? { reuse: behavior.reuse } : {}),
       };
-      const handler = typeof supplied?.handler === 'string' ? supplied.handler : undefined;
-
+      return {
+        archetype: supplied.archetype,
+        action,
+        ...(typeof supplied.convention === 'string'
+          ? { convention: supplied.convention }
+          : {}),
+        ...(hasOwn(supplied, 'payload') ? { payload: supplied.payload } : {}),
+        ...(typeof supplied.handler === 'string' ? { handler: supplied.handler } : {}),
+        ...(Object.keys(sanitizedBehavior).length === 0
+          ? {}
+          : { behavior: sanitizedBehavior }),
+      };
+    };
+    const invoke = (value: unknown) => {
+      const normalized = normalizeRequest(value);
       return request(
         {
           type: 'intent.invoke',
-          request: {
-            ...normalized,
-            ...(explicitPayload ? { payload: supplied?.payload } : {}),
-            ...(handler === undefined ? {} : { handler }),
-            ...(Object.keys(sanitizedBehavior).length === 0 ? {} : { behavior: sanitizedBehavior }),
-          },
+          request: normalized,
         },
         'intent.invoke.result',
         (msg) => fieldOrThrow(msg, 'result', 'intent.invoke.result missing result'),
@@ -1299,7 +1288,16 @@ function nappletNamespacePrelude(domains: string[]): void {
     };
     return {
       invoke,
-      open: (uri: string, opts?: Record<string, unknown>) => invoke(uri, opts, 'open'),
+      open: (
+        archetype: string,
+        payload?: unknown,
+        opts?: Record<string, unknown>,
+      ) => invoke({
+        archetype,
+        action: 'open',
+        ...(payload === undefined ? {} : { payload }),
+        ...opts,
+      }),
       available: (archetype: string) => request(
         { type: 'intent.available', archetype },
         'intent.available.result',
@@ -1315,13 +1313,6 @@ function nappletNamespacePrelude(domains: string[]): void {
         callback,
         (msg) => msg.availability,
       ),
-      onDelivery: (callback: (delivery: IntentDelivery) => void) => {
-        if (typeof callback !== 'function') throw new TypeError('Intent delivery handler must be a function');
-        deliveryHandlers.add(callback);
-        const pending = pendingDeliveries.splice(0);
-        for (const delivery of pending) callback(delivery);
-        return subscriptionHandle(() => deliveryHandlers.delete(callback));
-      },
     };
   }
 

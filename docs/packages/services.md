@@ -26,8 +26,8 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.29.0 <0.30.0` |
-| `@napplet/nap` | `>=0.29.0 <0.30.0` |
+| `@napplet/core` | `>=0.31.0 <0.32.0` |
+| `@napplet/nap` | `>=0.31.0 <0.32.0` |
 
 ## Primary APIs
 

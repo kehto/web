@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { IntentRetentionParams } from '@kehto/services';
+import type { IntentDispatchParams } from '@kehto/services';
 import type { PajaResolvedPointer } from './runtime-resolver.js';
 import { BrowserIntentController } from './browser-intent-controller.js';
 import { InstalledNappletCatalog } from './installed-napplet-catalog.js';
@@ -35,7 +35,7 @@ function resolvedNapplet(overrides: Partial<PajaResolvedPointer> = {}): PajaReso
       aggregateHash: 'd'.repeat(64),
       paths: [],
       servers: [],
-      requires: ['intent'],
+      requires: ['inc'],
       title: 'Profile Viewer',
       archetypes: [{ slug: 'profile', convention: 'napplet:profile/open' }],
     },
@@ -80,7 +80,7 @@ describe('InstalledNappletCatalog', () => {
         ...resolvedNapplet().manifest,
         archetypes: [
           { slug: 'profile', convention: 'napplet:profile/open' },
-          { slug: 'profile', convention: 'napplet:profile/edit', eventKinds: [0] },
+          { slug: 'profile', convention: 'napplet:profile/edit' },
         ],
       },
     }));
@@ -92,10 +92,6 @@ describe('InstalledNappletCatalog', () => {
         profile: {
           actions: ['open', 'edit'],
           conventions: ['napplet:profile/open', 'napplet:profile/edit'],
-          contracts: [
-            { convention: 'napplet:profile/open' },
-            { convention: 'napplet:profile/edit', eventKinds: [0] },
-          ],
         },
       },
     }]);
@@ -130,26 +126,25 @@ describe('InstalledNappletCatalog', () => {
       },
       waitForReady: () => undefined,
       isCurrent: () => true,
+      getWindowId: () => 'profile-window',
       send,
       maxAttempts: 2,
       onTerminal,
     });
-    const delivery: IntentRetentionParams = {
+    const delivery: IntentDispatchParams = {
       handler: 'profile-viewer',
-      delivery: {
-        sender: 'social-feed',
-        archetype: 'profile',
-        action: 'open',
-        convention: 'napplet:profile/open',
-        payload: { pubkey: 'a'.repeat(64) },
-      },
+      sender: 'social-feed',
+      archetype: 'profile',
+      action: 'open',
+      convention: 'napplet:profile/open',
+      payload: { pubkey: 'a'.repeat(64) },
     };
 
-    const deliveryTask = controller.retain(delivery).start();
+    const deliveryTask = controller.dispatch(delivery);
     await Promise.resolve();
     catalog.install(resolvedB);
     releaseResolution(resolvedA);
-    await deliveryTask;
+    await expect(deliveryTask).rejects.toThrow('open-failed');
 
     expect(catalog.get('profile-viewer')).toMatchObject({ aggregateHash: aggregateB });
     expect(send).not.toHaveBeenCalled();

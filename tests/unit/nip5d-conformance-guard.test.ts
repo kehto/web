@@ -35,7 +35,7 @@ const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly str
   'cvm-relatr': ['cvm', 'theme'],
   feed: ['identity', 'intent', 'relay', 'resource', 'theme'],
   preferences: ['storage', 'theme'],
-  'profile-viewer': ['intent', 'relay', 'resource', 'theme'],
+  'profile-viewer': ['inc', 'relay', 'resource', 'theme'],
   'resource-demo': ['resource', 'theme'],
   toaster: ['notify', 'theme'],
 };
@@ -236,11 +236,11 @@ const unsafeServiceGuidancePatterns = [
 const historicalShellExclusions = ['.planning/', 'CHANGELOG.md'] as const;
 
 const publishedConventionAuthorities = Object.freeze({
-  napIntent: 'a718915ddefa2f03a0126579601f59d8bd86f7c4',
+  napIntent: '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24',
   napIdentityTheme: '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24',
   napRelayDraft: '0be8abce18beb46ca37bd4ddd042f58d30b4eedc',
-  publishedSource: 'dd7b3a728eb9c838b7218fcec7bb7bb00e7cc88b',
-  publishedRelease: '60889f1c2476e063500c7ab6624af6abe0dbcbe5',
+  publishedSource: '7b675622e13870628ce174833d7b2a33cf32a0ab',
+  publishedRelease: '03ad65b66413e5798536ef48695ffc4c2508f2c3',
 });
 
 const forbiddenNappletSourcePatterns = [
@@ -330,17 +330,17 @@ describe('NIP-5D conformance static guards', () => {
     const publishedContract = readRepoFile('tests/unit/published-napplet-contract.test.ts');
 
     expect(publishedConventionAuthorities).toEqual({
-      napIntent: 'a718915ddefa2f03a0126579601f59d8bd86f7c4',
+      napIntent: '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24',
       napIdentityTheme: '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24',
       napRelayDraft: '0be8abce18beb46ca37bd4ddd042f58d30b4eedc',
-      publishedSource: 'dd7b3a728eb9c838b7218fcec7bb7bb00e7cc88b',
-      publishedRelease: '60889f1c2476e063500c7ab6624af6abe0dbcbe5',
+      publishedSource: '7b675622e13870628ce174833d7b2a33cf32a0ab',
+      publishedRelease: '03ad65b66413e5798536ef48695ffc4c2508f2c3',
     });
     for (const authority of Object.values(publishedConventionAuthorities)) {
       expect(publishedContract, `published contract authority ${authority}`).toContain(authority);
     }
     expect(services).toContain("} from '@napplet/core';");
-    for (const typeName of ['IntentRequest', 'IntentContract', 'IntentResult', 'IntentDelivery']) {
+    for (const typeName of ['IntentOpenOptions', 'IntentRequest', 'IntentResult']) {
       expect(services, `published intent type ${typeName}`).toContain(typeName);
     }
     expect(existsSync(join(process.cwd(), 'packages/services/src/intent-types.ts'))).toBe(false);
@@ -367,7 +367,7 @@ describe('NIP-5D conformance static guards', () => {
     expect(adapter).toContain('controller: new BrowserIntentController(');
     expect(controller).toContain('await this.options.waitForReady(generation);');
     expect(controller).toContain('await this.options.isCurrent(generation)');
-    expect(controller).toContain('if (isDelivered()) return;');
+    expect(controller).toContain('return { windowId };');
   });
 
   it('keeps test resolution on published napplet packages', () => {
@@ -420,43 +420,33 @@ describe('NIP-5D conformance static guards', () => {
         'if (getSimulation().capabilities.domains.link)',
       ),
     ].join('\n');
-    const forbiddenCanonicalField =
-      /\b(?:protocol|protocols|handled|windowId|newWindow)\s*(?:\?|):/;
+    const forbiddenCanonicalField = /\b(?:protocol|protocols)\s*(?:\?|):/;
 
     expect(existsSync(join(process.cwd(), 'packages/services/src/intent-types.ts'))).toBe(false);
-    expect(interfaceFieldNames(publishedIntentTypes, 'IntentContract')).toEqual([
-      'convention',
-      'eventKinds',
-    ]);
     expect(interfaceFieldNames(publishedIntentTypes, 'IntentCandidate')).toEqual([
       'dTag',
       'title',
       'actions',
       'conventions',
-      'contracts',
       'isDefault',
     ]);
-    expect(interfaceFieldNames(publishedIntentTypes, 'IntentAcceptedResult')).toEqual([
+    expect(interfaceFieldNames(publishedIntentTypes, 'IntentResult')).toEqual([
       'ok',
       'archetype',
       'action',
-      'convention',
+      'handled',
       'handler',
-    ]);
-    expect(interfaceFieldNames(publishedIntentTypes, 'IntentRejectedResult')).toEqual([
-      'ok',
+      'windowId',
+      'convention',
       'error',
     ]);
-    expect(interfaceFieldNames(publishedIntentTypes, 'IntentDelivery')).toEqual([
+    expect(localInterfaceFieldNames(resolver, 'IntentDispatchParams')).toEqual([
+      'handler',
       'sender',
       'archetype',
       'action',
       'convention',
       'payload',
-    ]);
-    expect(localInterfaceFieldNames(resolver, 'IntentRetentionParams')).toEqual([
-      'handler',
-      'delivery',
       'behavior',
     ]);
 
@@ -782,15 +772,16 @@ describe('NIP-5D conformance static guards', () => {
       'packages/runtime/README.md',
       'packages/shell/README.md',
     ] as const;
-    const exactHeads = ['6461e4b37c29dc09a20dff35d9515889c4433874'] as const;
+    const exactHeads = ['5ac0490461ca6fec2f0d2e45b4835cf9bc08de24'] as const;
 
     for (const file of docs) {
       const source = readRepoFile(file);
       for (const head of exactHeads) expect(source, `${file} must pin ${head}`).toContain(head);
       expect(source, `${file} must retain exact queryless identities`).toMatch(/exact\s+queryless\s+(?:topic\s+)?identity/i);
       expect(source, `${file} must describe runtime-attested dTags`).toMatch(/runtime-attested dTag/i);
-      expect(source, `${file} must defer intent binding work`).toContain('Phase 104');
-      expect(source, `${file} must retain the package gate`).toContain('Phase 105');
+      expect(source, `${file} must not retain the superseded INC authority`).not.toContain(
+        '6461e4b37c29dc09a20dff35d9515889c4433874',
+      );
     }
 
     const runtimeSpec = readRepoFile('RUNTIME-SPEC.md');
@@ -803,11 +794,11 @@ describe('NIP-5D conformance static guards', () => {
     expect(runtimeSpec).toContain('Published-projection query-to-text-payload transposition');
     expect(policy).toContain('kehto/web#203');
     expect(policy).toContain('https://github.com/kehto/web/issues/203#issuecomment-5060904495');
-    expect(policy).toContain('Merged NAP-INC says `on(topic, callback)` delivers one `IncEvent`');
+    expect(policy).toContain('`on(topic, callback)` with one `IncEvent`');
     expect(runtimeReadme).toContain('open-time authorization');
     expect(shellReadme).toContain('target `inc.channel.opened` before the opener result');
     expect(shellReadme).toContain('`channel.list()` is informational only');
-    expect(shellReadme).toContain('`(payload, NostrEvent)` callback');
+    expect(shellReadme).toContain('both deliver one `IncEvent`');
 
     expect(incHandler).toContain('const subscribers = state.subscriptions.get(topic);');
     expect(incHandler).toContain('sessionRegistry.getEntryByWindowId(windowId)?.dTag');

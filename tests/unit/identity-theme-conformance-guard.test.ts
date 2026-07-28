@@ -86,7 +86,7 @@ describe('Phase 103 identity/theme active-surface guard', () => {
     const pajaE2e = source('tests/e2e/paja-single-window.spec.ts');
     const guidance = [policy, runtime, services, shell, playground].join('\n');
 
-    expect(policy).toContain('6461e4b37c29dc09a20dff35d9515889c4433874');
+    expect(policy).toContain('5ac0490461ca6fec2f0d2e45b4835cf9bc08de24');
     expect(policy).toContain('fixed non-sensitive complete normal');
     expect(runtime).toContain('identity.getPublicKey.result');
     expect(services).toContain('stores that state before it');

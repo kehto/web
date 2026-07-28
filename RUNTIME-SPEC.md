@@ -14,9 +14,8 @@ behind PR #2303 on 2026-06-26.
 
 Protocol message domains are defined by **NAP** (Nostr Applet Protocol) extension
 specs in the [`napplet/naps`](https://github.com/napplet/naps) registry. Active
-authority is NAP-INTENT PR #91
-[`a718915ddefa2f03a0126579601f59d8bd86f7c4`](https://github.com/napplet/naps/pull/91)
-and NAP-IDENTITY, NAP-THEME, and NAP-SHELL at master
+authority for NAP-INTENT, NAP-INC, NAP-IDENTITY, NAP-THEME, and NAP-SHELL is
+merged `napplet/naps` master
 `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`. The core NAP references are:
 
 - NIP-5D: <https://github.com/nostr-protocol/nips/pull/2303/>
@@ -31,9 +30,9 @@ Current-state delta inventory: `.planning/NIP-5D-2303-DELTA-AUDIT.md`
 
 NAP-INC remains marked draft, not a Kehto-local normative copy. Active INC
 guidance is pinned to merged
-[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/6461e4b37c29dc09a20dff35d9515889c4433874/naps/NAP-INC.md)
+[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INC.md)
 on `napplet/naps` master
-`6461e4b37c29dc09a20dff35d9515889c4433874`. This reference records the
+`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`. This reference records the
 implemented boundary and must be re-audited when that source changes.
 
 **Published-projection query-to-text-payload transposition** occurs only in the
@@ -60,10 +59,11 @@ The downstream ambiguity tracker is
 resolution recorded in [its clarification reply](https://github.com/kehto/web/issues/203#issuecomment-5060904495).
 The obsolete opener-only interpretation is not current guidance.
 
-**Phase 104** owns every public #91 intent binding, resolution, and delivery
-lifecycle change. **Phase 105** adopts the released convention-capable packages.
-Historical changelogs, migration records, and archived planning remain historical
-evidence rather than active implementation drift.
+NAP-INTENT uses structured requests and a single final result after target
+selection, readiness, and convention dispatch. The selected convention reaches
+the target over runtime-attested NAP-INC; no separate intent delivery lifecycle
+exists. Historical changelogs, migration records, and archived planning remain
+historical evidence rather than active implementation guidance.
 
 > **Terminology.** The current term for an extension spec is **NAP**; the
 > capability prefix is `nap:`; the cross-napplet domain is `inc`.
@@ -77,26 +77,27 @@ Kehto's runtime packages target the current `@napplet` line:
 
 | Package                 | Version  | Role                                            |
 | ----------------------- | -------- | ----------------------------------------------- |
-| `@napplet/core`         | `0.29.0` | protocol types, constants, `createDispatch` / `registerNap` |
-| `@napplet/nap`          | `0.29.0` | NAP capability helpers |
-| `@napplet/sdk`          | `0.25.0` | napplet-side SDK (playground napplets)          |
-| `@napplet/shim`         | `0.27.0` | generic non-shell NAP domains; does not supply mandatory shell |
-| `@napplet/vite-plugin`  | `0.12.0` | napplet build/sign plugin |
+| `@napplet/core`         | `0.31.0` | protocol types, constants, `createDispatch` / `registerNap` |
+| `@napplet/nap`          | `0.31.0` | NAP capability helpers |
+| `@napplet/sdk`          | `0.27.0` | napplet-side SDK (playground napplets)          |
+| `@napplet/shim`         | `0.29.0` | generic non-shell NAP domains; does not supply mandatory shell |
+| `@napplet/vite-plugin`  | `0.14.0` | napplet build/sign plugin |
 
 The runtime's domain dispatcher routes via `createDispatch()` + `registerNap()`
 from `@napplet/core` (the rename of the former `registerNap` / `NapHandler`
-surface). The selected packages are published from source
-`dd7b3a728eb9c838b7218fcec7bb7bb00e7cc88b` and release
-`60889f1c2476e063500c7ab6624af6abe0dbcbe5`.
+surface). The selected packages are published from canonical INTENT/INC source
+`7b675622e13870628ce174833d7b2a33cf32a0ab` and release
+`03ad65b66413e5798536ef48695ffc4c2508f2c3`.
 
 ## Published Intent Contract
 
-NAP-INTENT public `Intent*` request, result, catalog, and delivery types are
-the canonical published core/nap 0.29.0 declarations; Kehto retains no local
-mirror. An `ok: true` result records host acceptance and retained delivery
-responsibility, not completed target handling. The host sends that result before
-starting retained delivery, and a post-acceptance failure must not manufacture a
-second source result.
+NAP-INTENT public `Intent*` request, result, and catalog types are the canonical
+published core/nap 0.31.0 declarations; Kehto retains no local mirror.
+`intent.invoke` accepts a structured `IntentRequest`, defaults `action` to
+`open`, and produces one final `IntentResult` after target selection, readiness,
+and convention dispatch. A successful result includes `handled`, `handler`,
+`windowId`, and `convention`; the target receives the selected convention
+through runtime-attested `inc.event`.
 
 ## Content-Addressed Loading & Identity
 
@@ -148,7 +149,7 @@ may preflight optional availability by checking required
 ### Published shell-package exception
 
 NAP-SHELL at `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` remains mandatory.
-Published core 0.29.0 and shim 0.27.0 omit a generic mandatory
+Published core 0.31.0 and shim 0.29.0 omit a generic mandatory
 `window.napplet.shell` surface, so Kehto retains its host-owned, parent-bound
 prelude. This is a locked upstream package-drift exception, not a claim that
 the shim supplies shell.

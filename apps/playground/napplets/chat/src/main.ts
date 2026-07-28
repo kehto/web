@@ -142,8 +142,8 @@ async function init(): Promise<void> {
 
   // Subscribe to bot replies via INC (D-03) BEFORE announcing ready, so a sender
   // that acts on the "ready" signal cannot race ahead of this subscription.
-  incOn('bot:response', (value, packageEvent) => {
-    const data = readIncPayload(value, packageEvent) as { text?: string };
+  incOn('bot:response', (event) => {
+    const data = readIncPayload(event) as { text?: string };
     if (data.text) {
       addMessage('inc receive -- bot:response', 'system');
       addMessage(`[bot] ${data.text}`, 'other');

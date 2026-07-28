@@ -197,8 +197,8 @@ function requireDomain(domain: string): Record<string, (...args: unknown[]) => u
 
 const sdkLike = {
   intent: {
-    open: (uri: string, opts?: Record<string, unknown>) => (
-      requireDomain('intent').open(uri, opts) as Promise<unknown>
+    open: (archetype: string, payload?: unknown, opts?: Record<string, unknown>) => (
+      requireDomain('intent').open(archetype, payload, opts) as Promise<unknown>
     ),
   },
   common: {
@@ -787,86 +787,94 @@ describe('NIP-5D napplet namespace prelude', () => {
     ]);
   });
 
-  it('derives intent requests from one authoritative convention URI and sanitizes options', async () => {
+  it('normalizes canonical intent requests and open arguments', async () => {
     const target = createPreludeTestWindow();
     runPrelude(renderNappletNamespacePrelude({ domains: ['intent'] }), target);
 
     type Intent = {
-      invoke: (uri: unknown, options?: Record<string, unknown>) => Promise<unknown>;
-      open: (uri: unknown, options?: Record<string, unknown>) => Promise<unknown>;
+      invoke: (request: unknown) => Promise<unknown>;
+      open: (
+        archetype: string,
+        payload?: unknown,
+        options?: Record<string, unknown>,
+      ) => Promise<unknown>;
     };
     const intent = target.napplet?.intent as Intent;
 
-    const queryInvoke = intent.invoke('napplet:profile/open?encoded=a%2Bb&literal=a+b&empty=');
-    const queryRequest = withoutShellReady(target).at(-1);
-    expect(queryRequest).toEqual({
+    const invoked = intent.invoke({
+      archetype: 'profile',
+      convention: 'napplet:profile/open',
+      payload: { pubkey: 'abc123' },
+      handler: 'choose',
+      behavior: { focus: true, newWindow: true, reuse: false },
+    });
+    const invokeRequest = withoutShellReady(target).at(-1);
+    expect(invokeRequest).toEqual({
       type: 'intent.invoke',
       id: 'id-1',
       request: {
         archetype: 'profile',
         action: 'open',
         convention: 'napplet:profile/open',
-        payload: {
-          encoded: 'a+b',
-          literal: 'a+b',
-          empty: '',
-        },
+        payload: { pubkey: 'abc123' },
+        handler: 'choose',
+        behavior: { focus: true, newWindow: true, reuse: false },
       },
     });
     target.dispatchParentMessage({
       type: 'intent.invoke.result',
-      id: queryRequest?.id,
+      id: invokeRequest?.id,
       result: {
         ok: true,
         archetype: 'profile',
         action: 'open',
+        handled: true,
         convention: 'napplet:profile/open',
         handler: 'profile-viewer',
+        windowId: 'profile-window',
       },
     });
-    await expect(queryInvoke).resolves.toMatchObject({ ok: true, handler: 'profile-viewer' });
+    await expect(invoked).resolves.toMatchObject({
+      ok: true,
+      handled: true,
+      handler: 'profile-viewer',
+      windowId: 'profile-window',
+    });
 
-    const optionInvoke = intent.open('napplet:profile/open', {
-      payload: { pubkey: 'abc123' },
-      handler: 'choose',
-      behavior: {
-        focus: true,
-        reuse: false,
-        newWindow: true,
-        unknown: 'discard',
-      },
-      archetype: 'profile',
-      action: 'open',
+    const opened = intent.open('profile', { pubkey: 'def456' }, {
       convention: 'napplet:profile/open',
-      protocol: 'NAP-1',
-      newWindow: true,
-      unknown: 'discard',
+      handler: 'choose',
+      behavior: { focus: true, reuse: false },
     });
-    const optionRequest = withoutShellReady(target).at(-1);
-    expect(optionRequest).toEqual({
+    const openRequest = withoutShellReady(target).at(-1);
+    expect(openRequest).toEqual({
       type: 'intent.invoke',
       id: 'id-2',
       request: {
         archetype: 'profile',
         action: 'open',
         convention: 'napplet:profile/open',
-        payload: { pubkey: 'abc123' },
+        payload: { pubkey: 'def456' },
         handler: 'choose',
-        behavior: {
-          focus: true,
-          reuse: false,
-        },
+        behavior: { focus: true, reuse: false },
       },
     });
     target.dispatchParentMessage({
       type: 'intent.invoke.result',
-      id: optionRequest?.id,
+      id: openRequest?.id,
       result: {
         ok: false,
+        archetype: 'profile',
+        action: 'open',
+        handled: false,
         error: 'user cancelled',
       },
     });
-    await expect(optionInvoke).resolves.toEqual({ ok: false, error: 'user cancelled' });
+    await expect(opened).resolves.toMatchObject({
+      ok: false,
+      handled: false,
+      error: 'user cancelled',
+    });
   });
 
   it('rejects invalid or conflicting intent input before posting a message', () => {
@@ -874,27 +882,29 @@ describe('NIP-5D napplet namespace prelude', () => {
     runPrelude(renderNappletNamespacePrelude({ domains: ['intent'] }), target);
 
     type Intent = {
-      invoke: (uri: unknown, options?: Record<string, unknown>) => Promise<unknown>;
-      open: (uri: unknown, options?: Record<string, unknown>) => Promise<unknown>;
+      invoke: (request: unknown) => Promise<unknown>;
+      open: (
+        archetype: string,
+        payload?: unknown,
+        options?: Record<string, unknown>,
+      ) => Promise<unknown>;
     };
     const intent = target.napplet?.intent as Intent;
     const before = withoutShellReady(target).length;
 
     const invalidInvocations: Array<() => unknown> = [
-      () => intent.invoke('napplet:profile/open#fragment'),
-      () => intent.invoke('napplet:profile/open?bad=%E0%A4%A'),
-      () => intent.invoke('napplet:profile/open?missing-separator'),
-      () => intent.invoke('napplet:profile/open?name=one&na%6De=two'),
-      () => intent.invoke('napplet:/open'),
-      () => intent.invoke('napplet:profile/'),
-      () => intent.invoke('napplet:profile/open/extra'),
-      () => intent.invoke('https://example.test/profile/open'),
-      () => intent.invoke('napplet:profile/open?name=value', { payload: { explicit: true } }),
-      () => intent.open('napplet:profile/edit'),
-      () => intent.invoke('napplet:profile/open', { sender: 'forged' }),
-      () => intent.invoke('napplet:profile/open', { archetype: 'note' }),
-      () => intent.invoke('napplet:profile/open', { action: 'edit' }),
-      () => intent.invoke('napplet:profile/open', { convention: 'napplet:profile/edit' }),
+      () => intent.invoke(null),
+      () => intent.invoke([]),
+      () => intent.invoke({}),
+      () => intent.invoke({ archetype: '' }),
+      () => intent.invoke({ archetype: 'profile', action: '' }),
+      () => intent.invoke({ archetype: 'profile', convention: 'napplet:profile/open?x=1' }),
+      () => intent.invoke({ archetype: 'profile', sender: 'forged' }),
+      () => intent.invoke({ archetype: 'profile', protocol: 'NAP-1' }),
+      () => intent.invoke({ archetype: 'profile', handler: '' }),
+      () => intent.invoke({ archetype: 'profile', behavior: null }),
+      () => intent.invoke({ archetype: 'profile', behavior: { focus: 'yes' } }),
+      () => intent.open('profile', undefined, { sender: 'forged' }),
     ];
 
     for (const invoke of invalidInvocations) {
@@ -903,148 +913,18 @@ describe('NIP-5D napplet namespace prelude', () => {
     expect(withoutShellReady(target)).toHaveLength(before);
   });
 
-  it('retains only canonical trusted intent deliveries and drains them FIFO', () => {
-    const target = createPreludeTestWindow();
-    runPrelude(renderNappletNamespacePrelude({ domains: ['intent', 'inc'] }), target);
-
-    type Delivery = {
-      sender: string;
-      archetype: string;
-      action: string;
-      convention: string;
-      payload?: unknown;
-    };
-    type Intent = {
-      onDelivery: (handler: (delivery: Delivery) => void) => { close(): void };
-    };
-    const intent = target.napplet?.intent as Intent;
-    const first: Delivery[] = [];
-    const second: Delivery[] = [];
-    const afterClose: Delivery[] = [];
-
-    target.dispatchMessage({}, {
-      type: 'intent.deliver',
-      delivery: {
-        sender: 'forged',
-        archetype: 'profile',
-        action: 'open',
-        convention: 'napplet:profile/open',
-      },
-    });
-    for (const delivery of [
-      null,
-      {},
-      { sender: 42, archetype: 'profile', action: 'open', convention: 'napplet:profile/open' },
-      { sender: 'source', archetype: null, action: 'open', convention: 'napplet:profile/open' },
-      { sender: 'source', archetype: 'profile', action: [], convention: 'napplet:profile/open' },
-      { sender: 'source', archetype: 'profile', action: 'open', convention: 7 },
-    ]) {
-      target.dispatchParentMessage({ type: 'intent.deliver', delivery });
-    }
-    target.dispatchParentMessage({
-      type: 'intent.deliver',
-      id: 'carrier-id',
-      request: { forged: true },
-      delivery: {
-        sender: 'social-feed',
-        archetype: 'profile',
-        action: 'open',
-        convention: 'napplet:profile/open',
-        payload: { pubkey: 'one' },
-        id: 'delivery-id',
-        windowId: 'source-window',
-        handled: true,
-        protocol: 'NAP-1',
-      },
-    });
-    target.dispatchParentMessage({
-      type: 'intent.deliver',
-      delivery: {
-        sender: 'note-list',
-        archetype: 'note',
-        action: 'edit',
-        convention: 'napplet:note/edit',
-      },
-    });
-
-    const firstSubscription = intent.onDelivery((delivery) => first.push(delivery));
-    expect(first).toEqual([
-      {
-        sender: 'social-feed',
-        archetype: 'profile',
-        action: 'open',
-        convention: 'napplet:profile/open',
-        payload: { pubkey: 'one' },
-      },
-      {
-        sender: 'note-list',
-        archetype: 'note',
-        action: 'edit',
-        convention: 'napplet:note/edit',
-      },
-    ]);
-
-    const secondSubscription = intent.onDelivery((delivery) => second.push(delivery));
-    expect(second).toEqual([]);
-    target.dispatchParentMessage({
-      type: 'intent.deliver',
-      delivery: {
-        sender: 'social-feed',
-        archetype: 'profile',
-        action: 'open',
-        convention: 'napplet:profile/open',
-        payload: { pubkey: 'live' },
-      },
-    });
-    expect(first.at(-1)?.payload).toEqual({ pubkey: 'live' });
-    expect(second).toEqual([first.at(-1)]);
-
-    firstSubscription.close();
-    secondSubscription.close();
-    target.dispatchParentMessage({
-      type: 'intent.deliver',
-      delivery: {
-        sender: 'social-feed',
-        archetype: 'profile',
-        action: 'open',
-        convention: 'napplet:profile/open',
-        payload: { pubkey: 'after-close' },
-      },
-    });
-    intent.onDelivery((delivery) => afterClose.push(delivery));
-    expect(afterClose).toEqual([{
-      sender: 'social-feed',
-      archetype: 'profile',
-      action: 'open',
-      convention: 'napplet:profile/open',
-      payload: { pubkey: 'after-close' },
-    }]);
-    expect(withoutShellReady(target)).toEqual([]);
-  });
-
-  it('protects one intent binding and its pending delivery state across namespace attacks', () => {
+  it('protects the canonical intent binding across namespace attacks', () => {
     const target = createPreludeTestWindow();
     runPrelude(renderNappletNamespacePrelude({ domains: ['intent'] }), target);
 
     type Intent = {
       invoke: (...args: unknown[]) => Promise<unknown>;
-      onDelivery: (handler: (delivery: unknown) => void) => { close(): void };
+      open: (...args: unknown[]) => Promise<unknown>;
     };
     const namespace = target.napplet as Record<string, unknown>;
     const intent = namespace.intent as Intent;
     const invoke = intent.invoke;
-    const onDelivery = intent.onDelivery;
-    const received: unknown[] = [];
-
-    target.dispatchParentMessage({
-      type: 'intent.deliver',
-      delivery: {
-        sender: 'social-feed',
-        archetype: 'profile',
-        action: 'open',
-        convention: 'napplet:profile/open',
-      },
-    });
+    const open = intent.open;
 
     namespace.intent = { invoke: () => Promise.resolve({ ok: false, error: 'forged' }) };
     expect(target.napplet?.intent).toBe(intent);
@@ -1059,25 +939,17 @@ describe('NIP-5D napplet namespace prelude', () => {
     target.napplet = {
       intent: {
         invoke: () => Promise.resolve({ ok: false, error: 'forged' }),
-        onDelivery: () => ({ close() {} }),
+        open: () => Promise.resolve({ ok: false, error: 'forged' }),
       },
     };
 
     const current = target.napplet?.intent as Intent;
     expect(current).toBe(intent);
     expect(current.invoke).toBe(invoke);
-    expect(current.onDelivery).toBe(onDelivery);
+    expect(current.open).toBe(open);
     expect(Reflect.set(current, 'invoke', () => Promise.resolve({ ok: false, error: 'forged' }))).toBe(false);
-    expect(Reflect.deleteProperty(current, 'onDelivery')).toBe(false);
+    expect(Reflect.deleteProperty(current, 'open')).toBe(false);
     expect(Reflect.defineProperty(current, 'invoke', { value: () => Promise.resolve({ ok: false }) })).toBe(false);
-
-    current.onDelivery((delivery) => received.push(delivery));
-    expect(received).toEqual([{
-      sender: 'social-feed',
-      archetype: 'profile',
-      action: 'open',
-      convention: 'napplet:profile/open',
-    }]);
   });
 
   it('provides symmetric correlated INC channel handles with retained lifecycle state', async () => {
@@ -1440,7 +1312,11 @@ describe('NIP-5D napplet namespace prelude', () => {
     );
 
     await withGlobalWindow(target, async () => {
-      const opened = sdkLike.intent.open('napplet:note/open', { payload: { id: 'event-1' } });
+      const opened = sdkLike.intent.open(
+        'note',
+        { id: 'event-1' },
+        { convention: 'napplet:note/open' },
+      );
       const intentRequest = target.postedMessages.at(-1);
       expect(intentRequest).toMatchObject({
         type: 'intent.invoke',
@@ -1455,9 +1331,17 @@ describe('NIP-5D napplet namespace prelude', () => {
       target.dispatchParentMessage({
         type: 'intent.invoke.result',
         id: intentRequest?.id,
-        result: { ok: true },
+        result: {
+          ok: true,
+          archetype: 'note',
+          action: 'open',
+          handled: true,
+          handler: 'note-viewer',
+          windowId: 'note-window',
+          convention: 'napplet:note/open',
+        },
       });
-      await expect(opened).resolves.toEqual({ ok: true });
+      await expect(opened).resolves.toMatchObject({ ok: true, handled: true });
 
       const followed = sdkLike.common.follow('pubkey-1', 'pubkey-2');
       const followRequest = target.postedMessages.at(-1);

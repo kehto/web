@@ -46,7 +46,7 @@ function resolvedNapplet(dTag = 'profile-viewer'): PajaResolvedPointer {
       aggregateHash: 'd'.repeat(64),
       paths: [],
       servers: [],
-      requires: ['intent'],
+      requires: ['inc'],
       title: dTag,
       archetypes: [{ slug: 'profile', convention: 'napplet:profile/open' }],
     },
@@ -67,6 +67,7 @@ function makeAdapter(policy: {
     },
     waitForReady: () => undefined,
     isCurrent: () => true,
+    getWindowId: () => 'target-window',
     send: () => { sequence.push('deliver target'); },
   });
   const adapter = createPajaAdapter(
@@ -104,7 +105,7 @@ async function sendIntent(
     sent.push(outbound);
     onSend?.();
   });
-  for (let turn = 0; turn < 8; turn += 1) await Promise.resolve();
+  for (let turn = 0; turn < 24; turn += 1) await Promise.resolve();
   return sent;
 }
 
@@ -177,7 +178,7 @@ describe('Paja browser adapter intent composition', () => {
     } as NappletMessage)).resolves.toMatchObject([{ result: { ok: false, error: 'invoke rejected' } }]);
   });
 
-  it('accepts an authorized exact installed handler before starting the retained target task', async () => {
+  it('returns only after an authorized exact installed handler has been dispatched', async () => {
     const { adapter, catalog, sequence } = makeAdapter({ authorizeExplicitHandler: () => true });
     catalog.install(resolvedNapplet());
 
@@ -186,10 +187,10 @@ describe('Paja browser adapter intent composition', () => {
     } as NappletMessage, () => sequence.push('source accepted'));
 
     expect(accepted).toMatchObject([{ result: { ok: true, handler: 'profile-viewer' } }]);
-    expect(sequence).toEqual(['source accepted', 'open target', 'deliver target']);
+    expect(sequence).toEqual(['open target', 'deliver target', 'source accepted']);
   });
 
-  it('removes the development simulator and composes the catalog resolver with the retained controller', () => {
+  it('removes the development simulator and composes the catalog resolver with the target controller', () => {
     const source = readFileSync(new URL('./browser-adapter.ts', import.meta.url), 'utf8');
 
     expect(source).toContain('createCatalogIntentResolver');

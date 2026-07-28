@@ -498,7 +498,7 @@ export function setSelectedNode(id: string | null): void {
     direction: string;
     windowId?: string;
     type?: string;
-    delivery?: unknown;
+    event?: unknown;
   }>;
 }).__getPlaygroundEnvelopeTapForTest__ = () => tap.messages
   .filter((message) => message.envelopeType !== undefined)
@@ -506,8 +506,8 @@ export function setSelectedNode(id: string | null): void {
     direction: message.direction,
     windowId: message.windowId,
     type: message.envelopeType,
-    delivery: message.envelopeType === 'intent.deliver'
-      ? (message.envelope as { delivery?: unknown } | undefined)?.delivery
+    event: message.envelopeType === 'inc.event'
+      ? message.envelope
       : undefined,
   }));
 

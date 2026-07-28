@@ -26,7 +26,7 @@ The active playground boot path is production-equivalent:
 2. The shared config lets `@napplet/vite-plugin` validate and sign the normal external-asset graph, then Kehto's post-build plugin rewrites the final gateway artifact to a single HTML file and recomputes the manifest.
 3. Each napplet build emits exactly `dist/index.html` plus `dist/.nip5a-manifest.json`.
 4. The shell resolves the manifest, verifies the signed content-addressed bytes, binds the iframe origin to the computed `(dTag, aggregateHash)`, and writes the verified HTML through `iframe.srcdoc`.
-5. Before authored scripts run, the shell prepends Kehto's local Class-1 CSP and a host-owned NIP-5D prelude outside the signed artifact bytes. The policy denies all defaults, permits only inline script/style plus `data:`/`blob:` images and `data:` fonts, and limits `connect-src` to caller-granted origins. It explicitly denies worker, child, frame, media, object, manifest, prefetch, base, and form capabilities, then ends with `frame-ancestors 'self'`. It always installs mandatory `window.napplet.shell`, then filters optional domains to the verified manifest allowlist. The published `@napplet/shim@0.27.0` is non-shell, so this Kehto prelude remains the required receiver before one bare `shell.ready`, the first `shell.init` cache, and local `ready()`, `supports()`, read-only `services`, and one-shot `onReady()` behavior. `shell.ready` establishes the runtime session.
+5. Before authored scripts run, the shell prepends Kehto's local Class-1 CSP and a host-owned NIP-5D prelude outside the signed artifact bytes. The policy denies all defaults, permits only inline script/style plus `data:`/`blob:` images and `data:` fonts, and limits `connect-src` to caller-granted origins. It explicitly denies worker, child, frame, media, object, manifest, prefetch, base, and form capabilities, then ends with `frame-ancestors 'self'`. It always installs mandatory `window.napplet.shell`, then filters optional domains to the verified manifest allowlist. The published `@napplet/shim@0.29.0` is non-shell, so this Kehto prelude remains the required receiver before one bare `shell.ready`, the first `shell.init` cache, and local `ready()`, `supports()`, read-only `services`, and one-shot `onReady()` behavior. `shell.ready` establishes the runtime session.
 6. The iframe sandbox remains opaque-origin: `allow-scripts` only, no `allow-same-origin`.
 
 The gateway route may still serve manifest/blob data as a local accelerator or debugging surface, but it is not the identity authority. New tests and docs should treat verified `srcdoc` loading plus `(dTag, aggregateHash)` provenance as the canonical playground boot path.
@@ -49,9 +49,9 @@ back-compat window, so legacy `inc.*` envelopes still reach the same handler
 | chat | inc, storage, relay | `inc.emit`, `inc.subscribe`, `storage.get`, `storage.set`, `relay.publish` | [apps/playground/napplets/chat/src/](./napplets/chat/src/) |
 | composer | relay | `relay.publish`, `relay.publishEncrypted` | [apps/playground/napplets/composer/src/](./napplets/composer/src/) |
 | cvm-relatr | cvm | `cvm.discover`, `cvm.request` (`tools/call` calculate_trust_score) against the Relatr ContextVM server | [apps/playground/napplets/cvm-relatr/src/](./napplets/cvm-relatr/src/) |
-| feed | identity, relay, resource, intent, theme | `identity.getPublicKey`, `relay.subscribe`, `resource.bytes`, `intent.invoke` (`napplet:profile/open?pubkey=…`) | [apps/playground/napplets/feed/src/](./napplets/feed/src/) |
+| feed | identity, relay, resource, intent, theme | `identity.getPublicKey`, `relay.subscribe`, `resource.bytes`, structured `intent.invoke` (`profile` / `open` / `napplet:profile/open`) | [apps/playground/napplets/feed/src/](./napplets/feed/src/) |
 | preferences | storage, theme | `storage.set`, `storage.get`, `theme.changed` allowlisted listener | [apps/playground/napplets/preferences/src/](./napplets/preferences/src/) |
-| profile-viewer | intent, relay, resource, theme | early `intent.onDelivery`, `relay.subscribe`, `resource.bytes` | [apps/playground/napplets/profile-viewer/src/](./napplets/profile-viewer/src/) |
+| profile-viewer | inc, relay, resource, theme | `inc.on` (`napplet:profile/open`), `relay.subscribe`, `resource.bytes` | [apps/playground/napplets/profile-viewer/src/](./napplets/profile-viewer/src/) |
 | resource-demo | resource, connect | `resource.bytesMany`, connect grant/CSP fixture | [apps/playground/napplets/resource-demo/src/](./napplets/resource-demo/src/) |
 | toaster | notify | `notify.create`, `notify.list`, `notify.dismiss` | [apps/playground/napplets/toaster/src/](./napplets/toaster/src/) |
 
@@ -112,16 +112,15 @@ exact installed contracts. The host may use a compatible default, present a
 chooser for several candidates, or reject ambiguity. An explicit d-tag requires
 both an exact installed contract and sender-aware authorization.
 
-The feed invokes `napplet:profile/open?pubkey=…`; the stable handler metadata is
-the queryless `napplet:profile/open` convention. On acceptance, the host retains
-the delivery before its accepted result, then reuses or starts the target,
-waits for its current registered source and `shell.ready`, and makes one
-target-only `intent.deliver`. The feed can disappear after acceptance. A stale
-or replaced target is never used; controller retry and terminal policy remain
-host-owned. This is NAP-INTENT delivery, not INC.
+The feed invokes a structured profile request with the stable, queryless
+`napplet:profile/open` convention and a `{ pubkey }` payload. The host reuses or
+starts the verified target, waits for its current registered source and
+`shell.ready`, sends one runtime-attested `inc.event` for that convention, and
+then returns the final handled target identity. A stale or replaced target is
+never used; controller retry and terminal policy remain host-owned.
 
-Profile-viewer registers `intent.onDelivery` early so the binding can buffer a
-target delivery until its handler exists. It validates the delivered `pubkey`,
+Profile-viewer registers `inc.on('napplet:profile/open', …)` early. It validates
+the delivered `pubkey`,
 loads kind-0 metadata, and obtains profile pictures/banners through
 `resourceBytes(url)`. It creates Blob URLs only from those bytes and revokes
 them on replacement, stale completion, image error, profile clear, and
@@ -143,12 +142,10 @@ by exact equality; topic text never selects a service handler. The runtime
 attaches the sender to an `inc.event` from the authenticated emitting endpoint,
 so host services and napplets must not fabricate INC deliveries. The target
 contract is merged
-[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/6461e4b37c29dc09a20dff35d9515889c4433874/naps/NAP-INC.md)
+[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INC.md)
 on `napplet/naps` master
-`6461e4b37c29dc09a20dff35d9515889c4433874`. Playground package consumers use
-an explicit callback compatibility reader because released
-`@napplet/nap@0.29.0` projects `(payload, NostrEvent)` while the NAP delivers
-one `IncEvent`.
+`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`. Released
+`@napplet/nap@0.31.0` and merged NAP-INC both deliver one `IncEvent`.
 
 ## ACL Surface
 

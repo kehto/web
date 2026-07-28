@@ -100,11 +100,11 @@ test('resolves a stale embedded hint through configured live relays in the runni
   }
 });
 
-test('retains an accepted verified intent after the source tab closes and delivers it once to a cold target', async ({ page }) => {
+test('completes a verified intent and delivers its convention once to a cold target', async ({ page }) => {
   test.setTimeout(60_000);
   const server = await startPointerServer();
   const source = createPointerFixture(server.url, 'intent-source', sourceIntentHtml(), ['intent']);
-  const target = createPointerFixture(server.url, 'profile-target', targetIntentHtml(), ['intent', 'theme'], [
+  const target = createPointerFixture(server.url, 'profile-target', targetIntentHtml(), ['inc', 'theme'], [
     ['archetype', 'profile', 'napplet:profile/open'],
   ]);
   const relay = 'wss://intent-fixture.example';
@@ -163,7 +163,7 @@ test('retains an accepted verified intent after the source tab closes and delive
     await expect(targetFrame.locator('#delivery-count')).toHaveText('1', { timeout: 15_000 });
     await expect(targetFrame.locator('#delivery-pubkey')).toHaveText('f'.repeat(64));
     await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().messageLog
-      .filter((entry) => entry.type === 'inc.emit' || entry.type === 'inc.event').length ?? 0)).toBe(0);
+      .filter((entry) => entry.type === 'inc.event').length ?? 0)).toBe(1);
 
     await page.evaluate(() => {
       const forged = document.createElement('iframe');
@@ -318,10 +318,10 @@ function sourceIntentHtml(): string {
 function targetIntentHtml(): string {
   return `<!doctype html><html><body><div id="delivery-count">0</div><div id="delivery-pubkey"></div><script>
     let count = 0;
-    window.napplet.intent.onDelivery((delivery) => {
+    window.napplet.inc.on('napplet:profile/open', (event) => {
       count += 1;
       document.getElementById('delivery-count').textContent = String(count);
-      document.getElementById('delivery-pubkey').textContent = delivery.payload && delivery.payload.pubkey || '';
+      document.getElementById('delivery-pubkey').textContent = event.payload && event.payload.pubkey || '';
     });
     window.parent.postMessage({ type: 'shell.ready' }, '*');
   </script></body></html>`;

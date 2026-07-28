@@ -15,9 +15,9 @@ pnpm add @kehto/runtime
 ## Published Napplet Compatibility
 
 `@kehto/runtime` publishes against `@napplet/core` and `@napplet/nap`
-`>=0.29.0 <0.30.0`. The exact installed convention contracts are core/nap
-0.29.0 from source `dd7b3a728eb9c838b7218fcec7bb7bb00e7cc88b` and release
-`60889f1c2476e063500c7ab6624af6abe0dbcbe5`.
+`>=0.31.0 <0.32.0`. The exact installed convention contracts are core/nap
+0.31.0 from source `7b675622e13870628ce174833d7b2a33cf32a0ab` and release
+`03ad65b66413e5798536ef48695ffc4c2508f2c3`.
 
 ## Overview
 
@@ -48,7 +48,7 @@ the relay backend. Success returns exactly one correlated
 Signing, replay, relay, and service failures return `ok: false` plus `error`
 and are never buffered as successful local publications.
 
-The released `@napplet/nap@0.29.0` SDK accepts `EventTemplate`, while its
+The released `@napplet/nap@0.31.0` SDK accepts `EventTemplate`, while its
 `RelayPublishMessage.event` declaration still says `NostrEvent`; Kehto records
 that mismatch as upstream package drift and follows the NAP wire direction.
 
@@ -75,8 +75,8 @@ phase records remain history rather than active compatibility guidance.
 
 ## NAP-INTENT runtime boundary
 
-Phase 104 implements the draft [NAP-INTENT PR #91 at
-`a718915ddefa2f03a0126579601f59d8bd86f7c4`](https://github.com/napplet/naps/pull/91).
+Kehto implements merged [NAP-INTENT at
+`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INTENT.md).
 The runtime accepts only source-side `intent.invoke`, `intent.available`, and
 `intent.handlers` requests. It validates the exact queryless
 `napplet:<archetype>/<action>` identity, derives the sender dTag from the live
@@ -85,17 +85,14 @@ envelopes without exposing ACL or firewall details.
 
 Registered services receive a frozen `ServiceRuntimeContext`: current dTag
 resolution, a frozen live-window snapshot, and recipient-policy-aware sends.
-An `intent.invoke.result` with `ok: true` means only that a host controller has
-already retained delivery responsibility. The service sends that result before
-starting the retained task; target startup, readiness, reuse, replacement,
-retry, and terminal failure remain private host policy. A ready target receives
-one no-ID `intent.deliver` with the runtime-attested sender, never a visible INC
-carrier or window/lifecycle fields.
+An `intent.invoke.result` with `ok: true` means a host controller selected and
+readied the verified target and dispatched its convention. The final result
+includes `handled`, `handler`, `windowId`, and `convention`. The target receives
+one runtime-attested `inc.event` carrying that queryless convention and opaque
+payload; `intent.deliver` is not part of the merged contract.
 
 The canonical public `Intent*` contracts are the released `@napplet/core` /
-`@napplet/nap` declarations; Kehto retains no local type mirror. An accepted
-result transfers delivery responsibility before a retained task starts, and a
-post-acceptance outcome never creates a second source result.
+`@napplet/nap` declarations; Kehto retains no local type mirror.
 
 Phase 105 completed released package adoption and persistent installed-manifest
 controllers for the live Paja and playground hosts.
@@ -103,9 +100,9 @@ controllers for the live Paja and playground hosts.
 ## NAP-INC Contract
 
 The active INC boundary follows merged
-[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/6461e4b37c29dc09a20dff35d9515889c4433874/naps/NAP-INC.md)
+[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INC.md)
 on `napplet/naps` master
-`6461e4b37c29dc09a20dff35d9515889c4433874`. The document remains marked
+`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`. The document remains marked
 draft, but the merged path is the protocol authority.
 
 The released projection binding converts a convention query to a text payload

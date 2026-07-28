@@ -17,9 +17,9 @@ pnpm add @kehto/services
 ## Published Napplet Compatibility
 
 `@kehto/services` publishes against `@napplet/core` and `@napplet/nap`
-`>=0.29.0 <0.30.0`. The exact installed contracts are core/nap 0.29.0 from
-source `dd7b3a728eb9c838b7218fcec7bb7bb00e7cc88b` and release
-`60889f1c2476e063500c7ab6624af6abe0dbcbe5`.
+`>=0.31.0 <0.32.0`. The exact installed contracts are core/nap 0.31.0 from
+source `7b675622e13870628ce174833d7b2a33cf32a0ab` and release
+`03ad65b66413e5798536ef48695ffc4c2508f2c3`.
 
 ## Overview
 
@@ -49,36 +49,35 @@ Current draft posture:
 
 ## NAP-INTENT manifest resolver
 
-Phase 104 follows the draft [NAP-INTENT PR #91 at
-`a718915ddefa2f03a0126579601f59d8bd86f7c4`](https://github.com/napplet/naps/pull/91).
+Kehto follows merged [NAP-INTENT at
+`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INTENT.md).
 Callers invoke a stable, queryless `napplet:<archetype>/<action>` convention.
-Installed verified manifest tags produce exact `{ convention, eventKinds? }`
-contracts; numbered protocol names and payload inspection do not select a
-handler.
+Installed verified manifest tags produce exact `{ slug, convention }`
+declarations; numbered protocol names, trailing metadata, and payload inspection
+do not select a handler.
 
 - `manifestToIntentCatalogEntry()` converts resolved manifest
-  `{ dTag, title?, archetypes: [{ slug, convention, eventKinds? }] }` data into
-  exact candidates with `actions`, `conventions`, and `contracts`.
+  `{ dTag, title?, archetypes: [{ slug, convention }] }` data into exact
+  candidates with `actions` and `conventions`.
 - `createCatalogIntentResolver()` filters by exact convention, applies the
   user-owned default/chooser/explicit-authorization policy, and asks an
-  `IntentTargetController` to retain immutable delivery responsibility.
+  `IntentTargetController` to create/focus a target and dispatch the selected
+  convention.
 - `createIntentService()` validates source envelopes, uses the runtime-attested
-  sender, returns one immediate acceptance or rejection, starts an accepted
-  retained task only after the source result, and broadcasts catalog changes
-  through recipient-policy-aware runtime sends.
+  sender, returns one final canonical `IntentResult`, and broadcasts catalog
+  changes through recipient-policy-aware runtime sends.
 
-`ok: true` means responsibility was retained, not that the target handled the
-intent. Once the target is ready it receives one no-ID `intent.deliver` with
-`sender`, `archetype`, `action`, `convention`, and optional opaque `payload`.
-Reuse, target windows, retries, replacement, persistence, and terminal reasons
-remain private controller state and never appear in the result or delivery.
+`ok: true` means the selected target was ready and the convention was dispatched.
+The result includes `handled`, `handler`, `windowId`, and `convention`. The
+target receives the convention and opaque payload through one runtime-attested
+`inc.event`; there is no separate `intent.deliver` lifecycle.
 
 Paja currently exposes only an exact-contract development simulator, and the
 playground currently exposes only a verified-manifest catalog builder. Phase
 105 completed released `@napplet/*` package adoption plus the persistent live
 catalog/controller and feed-to-profile flow. Its public `Intent*` types are
 canonical releases from `@napplet/core` / `@napplet/nap`, not a local mirror;
-successful acceptance retains host delivery responsibility before target start.
+successful results report completed target dispatch.
 
 ## Quick Start
 
@@ -573,7 +572,7 @@ complete normal result without `error`: this explicit policy reconciles the
 draft error-only example without a mixed theme/error extension.
 
 ### Types
-`AudioSource`, `AudioServiceOptions`, `Notification`, `NotificationServiceOptions`, `IdentityServiceOptions`, `RelayPoolServiceOptions`, `CacheServiceOptions`, `CoordinatedRelayOptions`, `KeysServiceOptions`, `MediaServiceOptions`, `NotifyServiceOptions`, `ThemeServiceOptions`, `ThemeService`, `IntentRequest`, `IntentResult`, `IntentDelivery`, `IntentContract`, `IntentCandidate`, `IntentAvailability`, `IntentResolver`, `IntentTargetController`, `BleServiceOptions`, `BleServiceContext`, `WebrtcServiceOptions`, `WebrtcServiceContext`, `DmServiceOptions`, `DmAdapter`, `DmRelayPool`, `Nip17DmAdapterOptions`, `NdrDmAdapterOptions`, `CordnDmAdapterOptions`.
+`AudioSource`, `AudioServiceOptions`, `Notification`, `NotificationServiceOptions`, `IdentityServiceOptions`, `RelayPoolServiceOptions`, `CacheServiceOptions`, `CoordinatedRelayOptions`, `KeysServiceOptions`, `MediaServiceOptions`, `NotifyServiceOptions`, `ThemeServiceOptions`, `ThemeService`, `IntentOpenOptions`, `IntentRequest`, `IntentResult`, `IntentCandidate`, `IntentAvailability`, `IntentResolver`, `IntentTargetController`, `IntentDispatchParams`, `IntentTargetDispatch`, `BleServiceOptions`, `BleServiceContext`, `WebrtcServiceOptions`, `WebrtcServiceContext`, `DmServiceOptions`, `DmAdapter`, `DmRelayPool`, `Nip17DmAdapterOptions`, `NdrDmAdapterOptions`, `CordnDmAdapterOptions`.
 
 ## API Reference
 

@@ -16,8 +16,8 @@ describe('buildPlaygroundIntentCatalog', () => {
         dTag: 'profile-viewer',
         title: 'Profile',
         archetypes: [
-          { slug: 'profile', convention: 'napplet:profile/open', eventKinds: [0] },
-          { slug: 'profile', convention: 'napplet:profile/edit', eventKinds: [0, 10002] },
+          { slug: 'profile', convention: 'napplet:profile/open' },
+          { slug: 'profile', convention: 'napplet:profile/edit' },
         ],
       },
     ]);
@@ -29,10 +29,6 @@ describe('buildPlaygroundIntentCatalog', () => {
           profile: {
             actions: ['open', 'edit'],
             conventions: ['napplet:profile/open', 'napplet:profile/edit'],
-            contracts: [
-              { convention: 'napplet:profile/open', eventKinds: [0] },
-              { convention: 'napplet:profile/edit', eventKinds: [0, 10002] },
-            ],
           },
         },
       },
@@ -65,7 +61,6 @@ describe('buildPlaygroundIntentCatalog', () => {
     expect(catalog[1].archetypes.feed).toEqual({
       actions: ['read'],
       conventions: ['napplet:feed/read'],
-      contracts: [{ convention: 'napplet:feed/read' }],
     });
   });
 });

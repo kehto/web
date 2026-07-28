@@ -26,20 +26,19 @@ bytes, see the repo guide:
 
 ## NIP-5D archetype manifest contracts
 
-Phase 104 follows the draft [NAP-INTENT PR #91 at
-`a718915ddefa2f03a0126579601f59d8bd86f7c4`](https://github.com/napplet/naps/pull/91).
+Kehto follows merged [NAP-INTENT at
+`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INTENT.md).
 An accepted manifest tag has the exact form
-`["archetype", "<slug>", "napplet:<slug>/<action>", "kind:<number>", ...]`.
-The convention is stable and queryless; each tag becomes one ordered contract,
-and optional unsigned `kind:` values remain discovery metadata for that
-contract. Numbered NAP names are not archetype metadata.
+`["archetype", "<slug>", "napplet:<slug>/<action>"]`.
+The convention is stable and queryless; each tag becomes one ordered
+archetype/convention declaration. Trailing metadata and numbered NAP names are
+rejected.
 
 `resolveNapplet()` exposes these verified tags as
-`manifest.archetypes: Array<{ slug, convention, eventKinds? }>`. The NIP package
+`manifest.archetypes: Array<{ slug, convention }>`. The NIP package
 parses and verifies that metadata but does not select handlers, retain intent
 delivery, or start target windows. Those responsibilities live in
-`@kehto/services` and the host runtime. Phase 105 owns adoption of the released
-`@napplet/*` convention package line and persistent Paja/playground catalogs.
+`@kehto/services` and the host runtime.
 
 ## Selection criteria
 

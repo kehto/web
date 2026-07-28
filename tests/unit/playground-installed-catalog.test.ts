@@ -5,10 +5,10 @@ import { getInstalledNappletCatalog, installVerifiedNapplet } from '../../apps/p
 const resolvedProfile = {
   dTag: 'profile-viewer',
   aggregateHash: 'profile-aggregate',
-  requires: ['intent'],
+  requires: ['inc'],
   title: 'Profile Viewer',
   archetypes: [
-    { slug: 'profile', convention: 'napplet:profile/open', eventKinds: [0] },
+    { slug: 'profile', convention: 'napplet:profile/open' },
   ],
   indexHtml: '<main>verified profile</main>',
 };
@@ -29,7 +29,8 @@ describe('InstalledNappletCatalog', () => {
       aggregateHash: 'profile-aggregate',
       restart: { name: 'profile-viewer', containerId: 'profile-viewer-frame' },
       title: 'Profile Viewer',
-      archetypes: [{ slug: 'profile', convention: 'napplet:profile/open', eventKinds: [0] }],
+      requires: ['inc'],
+      archetypes: [{ slug: 'profile', convention: 'napplet:profile/open' }],
     }]);
     expect(catalog.intentCatalog()).toEqual([expect.objectContaining({
       dTag: 'profile-viewer',

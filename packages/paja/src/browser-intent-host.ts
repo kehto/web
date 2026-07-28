@@ -1,4 +1,4 @@
-import type { IntentRetentionParams } from '@kehto/services';
+import type { IntentDispatchParams } from '@kehto/services';
 import { originRegistry } from '@kehto/shell';
 
 import {
@@ -34,7 +34,7 @@ export interface PajaIntentHostEffects {
 }
 
 /**
- * Create the browser target operations used by retained intent delivery.
+ * Create the browser target operations used by canonical intent dispatch.
  *
  * @param getState - Returns the live Paja browser state.
  * @param getContext - Returns the live Paja host context.
@@ -67,7 +67,11 @@ export function createPajaIntentTargetOptions(
         matchesInstalledNappletRecord(record, tab.resolvedTarget)
         && isCurrentRuntimeTabGeneration(state, context, tab),
       );
-      if (current && params.behavior?.reuse !== false) {
+      if (
+        current
+        && params.behavior?.newWindow !== true
+        && params.behavior?.reuse !== false
+      ) {
         return bindPajaIntentGeneration(current, record, context.runtime);
       }
 
@@ -110,7 +114,12 @@ export function createPajaIntentTargetOptions(
       }
       return true;
     },
-    send(generation, delivery) {
+    getWindowId(generation) {
+      const state = getState();
+      const tab = state ? findRuntimeTabGeneration(state, generation) : null;
+      return tab?.windowId ?? null;
+    },
+    send(generation, params) {
       const state = getState();
       const context = getContext();
       const tab = state && context ? findRuntimeTabGeneration(state, generation) : null;
@@ -123,8 +132,10 @@ export function createPajaIntentTargetOptions(
         throw new Error('intent target source is no longer registered');
       }
       createPajaPostMessageProxy(source, state, tab.windowId).postMessage({
-        type: 'intent.deliver',
-        delivery,
+        type: 'inc.event',
+        topic: params.convention,
+        sender: params.sender,
+        ...(params.payload === undefined ? {} : { payload: params.payload }),
       }, '*');
     },
   };
@@ -149,21 +160,21 @@ export function pajaPointerResolverOptions(context: PajaBrowserStateContext) {
 
 function recordSupportsDelivery(
   record: ReturnType<InstalledNappletCatalog['installed']>[number],
-  params: IntentRetentionParams,
+  params: IntentDispatchParams,
 ): boolean {
   return record.archetypes.some((archetype) =>
-    archetype.slug === params.delivery.archetype
-    && archetype.convention === params.delivery.convention,
+    archetype.slug === params.archetype
+    && archetype.convention === params.convention,
   );
 }
 
 function resolvedSupportsDelivery(
   resolved: PajaResolvedPointer,
-  params: IntentRetentionParams,
+  params: IntentDispatchParams,
 ): boolean {
   return resolved.manifest.archetypes.some((archetype) =>
-    archetype.slug === params.delivery.archetype
-    && archetype.convention === params.delivery.convention,
+    archetype.slug === params.archetype
+    && archetype.convention === params.convention,
   );
 }
 

@@ -43,7 +43,7 @@ const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly str
   'cvm-relatr': ['cvm', 'theme'],
   feed: ['identity', 'intent', 'relay', 'resource', 'theme'],
   preferences: ['storage', 'theme'],
-  'profile-viewer': ['intent', 'relay', 'resource', 'theme'],
+  'profile-viewer': ['inc', 'relay', 'resource', 'theme'],
   'resource-demo': ['resource', 'theme'],
   toaster: ['notify', 'theme'],
 };
@@ -90,7 +90,7 @@ describe('playground gateway artifact guard', () => {
     ]);
   });
 
-  it('keeps verified catalogs separate from live frames and retained delivery on the target-only path', () => {
+  it('keeps verified catalogs separate from live frames and dispatches on the target-only path', () => {
     const source = Object.fromEntries(
       Object.entries(activeHostFlowSources).map(([name, path]) => [name, readRepoFile(path)]),
     );
@@ -114,20 +114,16 @@ describe('playground gateway artifact guard', () => {
     for (const controller of [source.pajaController, source.playgroundController]) {
       const ready = controller.indexOf('await this.options.waitForReady(generation);');
       const current = controller.indexOf('await this.options.isCurrent(generation)');
-      const once = controller.indexOf('if (isDelivered()) return;');
-      const mark = controller.indexOf('markDelivered();');
-      const send = controller.indexOf('await this.options.send(generation, params.delivery);');
+      const send = controller.indexOf('await this.options.send(generation, dispatch);');
+      const windowId = controller.indexOf('const windowId = this.options.getWindowId(generation);');
       expect(ready).toBeGreaterThanOrEqual(0);
       expect(current).toBeGreaterThan(ready);
-      expect(once).toBeGreaterThan(current);
-      expect(mark).toBeGreaterThan(once);
-      expect(send).toBeGreaterThan(mark);
+      expect(send).toBeGreaterThan(current);
+      expect(windowId).toBeGreaterThan(send);
     }
-    expect(source.intentService.indexOf("type: 'intent.invoke.result'")).toBeLessThan(
-      source.intentService.indexOf('const started = outcome.retained.start();'),
-    );
-    expect(source.playgroundHost).toContain('type: \'intent.deliver\'');
-    expect(source.playgroundHost).not.toContain("type: 'inc.event'");
+    expect(source.intentService).toContain("type: 'intent.invoke.result'");
+    expect(source.playgroundHost).toContain("type: 'inc.event'");
+    expect(source.playgroundHost).not.toContain("type: 'intent.deliver'");
   });
 
   it('keeps published profile delivery, resource cleanup, and current theme proof in active sources', () => {
@@ -135,14 +131,10 @@ describe('playground gateway artifact guard', () => {
       Object.entries(activeHostFlowSources).map(([name, path]) => [name, readRepoFile(path)]),
     );
 
-    expect(source.feed).toContain('intentInvoke(`napplet:profile/open?pubkey=${encodeURIComponent(normalized)}`)');
-    expect(source.profile).toContain('intentOnDelivery((delivery: IntentDelivery) => {');
-    expect(source.profile).toContain("if (delivery.convention !== 'napplet:profile/open') return;");
-    for (const profileSource of [source.feed, source.profile]) {
-      expect(profileSource).not.toContain("from '@napplet/nap/inc/sdk'");
-      expect(profileSource).not.toContain("'profile:open'");
-    }
-    expect(source.profileOpen).toContain('intent.invoke(`napplet:profile/open?pubkey=${encodeURIComponent(pubkey)}`)');
+    expect(source.feed).toContain("archetype: 'profile'");
+    expect(source.feed).toContain("convention: 'napplet:profile/open'");
+    expect(source.profile).toContain("incOn('napplet:profile/open', (event: IncEvent) => {");
+    expect(source.profileOpen).toContain("convention: 'napplet:profile/open'");
     expect(source.identityFlow).toContain('published NAP-INTENT target');
 
     for (const media of [source.feedMedia, source.profileMedia]) {
@@ -150,7 +142,7 @@ describe('playground gateway artifact guard', () => {
       expect(media).toContain('URL.createObjectURL(blob)');
       expect(media).toContain('URL.revokeObjectURL(url)');
     }
-    expect(source.resourceDemo).toContain('@napplet/core@0.29.0');
+    expect(source.resourceDemo).toContain('@napplet/core@0.31.0');
     expect(source.resourceDemo).toContain('URL.createObjectURL(blob)');
     expect(source.resourceDemo).toContain('URL.revokeObjectURL(currentObjectUrl)');
     expect(source.themeBroadcast).toContain('theme.napplet?.theme?.get()');
@@ -206,12 +198,10 @@ describe('playground gateway artifact guard', () => {
         {
           slug: 'profile',
           convention: 'napplet:profile/open',
-          eventKinds: [0, 10002],
         },
         {
           slug: 'profile',
           convention: 'napplet:profile/edit',
-          eventKinds: [30023],
         },
       ],
     })).not.toThrow();
@@ -229,13 +219,7 @@ describe('playground gateway artifact guard', () => {
       { slug: 'profile', convention: 'napplet:profile/open?x=1' },
       { slug: 'profile', convention: 'napplet:profile/open#section' },
       { slug: 'profile', convention: 'napplet:note/open' },
-      { slug: 'profile', convention: 'napplet:profile/open', eventKinds: [-1] },
-      { slug: 'profile', convention: 'napplet:profile/open', eventKinds: [1.5] },
-      {
-        slug: 'profile',
-        convention: 'napplet:profile/open',
-        eventKinds: [Number.MAX_SAFE_INTEGER + 1],
-      },
+      { slug: 'profile', convention: 'napplet:profile/open', eventKinds: [0] },
     ];
     for (const archetype of invalid) {
       const options = {
@@ -263,12 +247,10 @@ describe('playground gateway artifact guard', () => {
       {
         slug: 'profile',
         convention: 'napplet:profile/open',
-        eventKinds: [0, 10002],
       },
       {
         slug: 'profile',
         convention: 'napplet:profile/open',
-        eventKinds: [30023],
       },
     ];
 
@@ -277,7 +259,7 @@ describe('playground gateway artifact guard', () => {
       seed(secondDir);
       recomputeManifest(firstDir, '<!doctype html><title>Profile</title>', archetypes);
       recomputeManifest(secondDir, '<!doctype html><title>Profile</title>', [
-        { slug: 'profile', convention: 'napplet:profile/edit', eventKinds: [1] },
+        { slug: 'profile', convention: 'napplet:profile/edit' },
       ]);
 
       const manifest = JSON.parse(
@@ -293,8 +275,8 @@ describe('playground gateway artifact guard', () => {
         tags: string[][];
       };
       expect(manifest.tags.filter((tag) => tag[0] === 'archetype')).toEqual([
-        ['archetype', 'profile', 'napplet:profile/open', 'kind:0', 'kind:10002'],
-        ['archetype', 'profile', 'napplet:profile/open', 'kind:30023'],
+        ['archetype', 'profile', 'napplet:profile/open'],
+        ['archetype', 'profile', 'napplet:profile/open'],
       ]);
       expect(manifest.tags.flat()).not.toContain('NAP-1');
       expect(manifest.aggregateHash).toBe(secondManifest.aggregateHash);
@@ -504,9 +486,7 @@ describe('playground gateway artifact guard', () => {
     expect(feedSource).toContain("button.className = 'feed-item-author feed-profile-button feed-profile-name-button';");
     expect(feedSource).toContain("timeEl.className = 'feed-item-time';");
     expect(feedSource).toContain('formatPublishedAgo(event.created_at)');
-    expect(feedSource).toContain('intentInvoke(`napplet:profile/open?pubkey=${encodeURIComponent(normalized)}`)');
-    expect(feedSource).not.toContain("from '@napplet/nap/inc/sdk'");
-    expect(feedSource).not.toContain("incEmit('profile:open'");
+    expect(feedSource).toContain("convention: 'napplet:profile/open'");
     expect(feedSource).toContain('renderProfileAvatarButton(event.pubkey, authorName, profile)');
     expect(feedSource).toContain('renderAuthorButton(event.pubkey, authorName)');
     expect(feedSource).not.toContain("pubkeyEl.className = 'feed-item-pubkey';");
@@ -525,24 +505,22 @@ describe('playground gateway artifact guard', () => {
     expect(existsSync('apps/playground/src/mock-relay-pool.ts')).toBe(false);
   });
 
-  it('keeps the profile demo on published intent delivery with resource-backed media', () => {
+  it('keeps the profile demo on canonical INC convention delivery with resource-backed media', () => {
     const profileSource = readRepoFile('apps/playground/napplets/profile-viewer/src/main.ts');
     const profileHtml = readRepoFile('apps/playground/napplets/profile-viewer/index.html');
 
-    expect(profileSource).toContain("import { intentOnDelivery } from '@napplet/nap/intent/sdk';");
+    expect(profileSource).toContain("import { incOn } from '@napplet/nap/inc/sdk';");
     expect(profileSource).toContain("import { relaySubscribe } from '@napplet/nap/relay/sdk';");
     expect(profileSource).toContain("import { resourceBytes } from '@napplet/nap/resource/sdk';");
     expect(profileSource).toContain("import { getMissingNapDomains } from '../../domain-availability';");
-    expect(profileSource).toContain("const REQUIRED_NAPS = ['intent', 'relay', 'resource', 'theme'] as const;");
+    expect(profileSource).toContain("const REQUIRED_NAPS = ['inc', 'relay', 'resource', 'theme'] as const;");
     expect(profileSource).toContain('getMissingNapDomains(REQUIRED_NAPS)');
     expect(profileSource).toContain('const CAPABILITY_WAIT_MS = 5_000;');
-    expect(profileSource).toContain("formatError(err, 'intent, relay, or resource unavailable')");
-    expect(profileSource).toContain('intentDeliverySub = intentOnDelivery((delivery: IntentDelivery) => {');
-    expect(profileSource).toContain("if (delivery.convention !== 'napplet:profile/open') return;");
+    expect(profileSource).toContain("formatError(err, 'inc, relay, or resource unavailable')");
+    expect(profileSource).toContain("profileIntentSub = incOn('napplet:profile/open', (event: IncEvent) => {");
     expect(profileSource).toContain("import { createProfileMediaController } from './profile-media.js';");
     expect(profileSource).toContain('const profileMedia = createProfileMediaController({ loadBytes: resourceBytes });');
-    expect(profileSource).not.toContain("from '@napplet/nap/inc/sdk'");
-    expect(profileSource).not.toContain("incOn('profile:open'");
+    expect(profileSource).not.toContain('intentOnDelivery');
     expect(profileSource).toContain('[{ kinds: [0], authors: [pubkey], limit: 1 }]');
     expect(profileSource).toContain('normalizePubkey');
     expect(profileSource).not.toContain('identityGetProfile');

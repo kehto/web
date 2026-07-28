@@ -317,19 +317,19 @@ function uploadMap(action: string): CapabilityResolution {
  * sensitive one — here `invoke` is a focus-stealing cross-napplet navigation):
  *
  * - `invoke` (napplet → runtime)                        → sender `intent:write`,
- *   recipient `null`. The runtime resolves and retains delivery responsibility.
+ *   recipient `null`. The runtime resolves and completes target dispatch.
  * - `available` / `handlers` (napplet → runtime)        →
  *   sender `intent:read`, recipient `null`. Read-side catalog introspection.
- * - `changed` / `deliver` / sanctioned `*.result` (runtime → napplet)   →
+ * - `changed` / sanctioned `*.result` (runtime → napplet)   →
  *   sender `null`, recipient `intent:read`. The push is gated against the
  *   receiving napplet's cap so a napplet without `intent:read` never sees
- *   availability updates, delivery, or results.
+ *   availability updates or results. Selected convention delivery uses the
+ *   target's ordinary `inc.event` carrier and `inc:read` recipient gate.
  * - every other action → no capability mapping in either direction.
  */
 function intentMap(action: string): CapabilityResolution {
   if (
     action === 'changed'
-    || action === 'deliver'
     || action === 'invoke.result'
     || action === 'available.result'
     || action === 'handlers.result'

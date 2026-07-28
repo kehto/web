@@ -15,7 +15,6 @@
  * @packageDocumentation
  */
 
-import type { IntentContract } from '@napplet/core';
 import type { IntentArchetypeSupport, IntentCatalogEntry } from './catalog-intent-resolver.js';
 
 /**
@@ -31,7 +30,7 @@ export interface ManifestArchetypeInput {
   /**
    * Ordered convention contracts from the manifest's `archetype` tags.
    */
-  archetypes: Array<{ slug: string; convention: string; eventKinds?: number[] }>;
+  archetypes: Array<{ slug: string; convention: string }>;
 }
 
 function actionFromConvention(slug: string, convention: string): string {
@@ -49,10 +48,8 @@ function actionFromConvention(slug: string, convention: string): string {
  * Map a resolved napplet manifest's archetype data into an
  * {@link IntentCatalogEntry}.
  *
- * Each manifest tag remains one ordered contract. Repeated slugs group into one
- * support record while repeated conventions remain distinct contracts; action
- * and convention arrays are stable, deduplicated indexes derived from those
- * contracts.
+ * Repeated slugs group into one support record; action and convention arrays
+ * remain stable and deduplicated.
  *
  * @param manifest - A resolved manifest's structural archetype data.
  * @returns The `IntentCatalogEntry` for `createCatalogIntentResolver`.
@@ -68,29 +65,17 @@ function actionFromConvention(slug: string, convention: string): string {
  * //     archetypes: { profile: {
  * //       actions: ['open'],
  * //       conventions: ['napplet:profile/open'],
- * //       contracts: [{ convention: 'napplet:profile/open' }],
  * //     } } }
  * ```
  */
 export function manifestToIntentCatalogEntry(manifest: ManifestArchetypeInput): IntentCatalogEntry {
   const archetypes: Record<string, IntentArchetypeSupport> = {};
-  for (const { slug, convention, eventKinds } of manifest.archetypes) {
+  for (const { slug, convention } of manifest.archetypes) {
     const action = actionFromConvention(slug, convention);
-    if (eventKinds?.some((kind) => !Number.isSafeInteger(kind) || kind < 0)) {
-      throw new TypeError('manifest archetype event kinds must be unsigned safe integers');
-    }
     const support = archetypes[slug] ??= {
       actions: [],
       conventions: [],
-      contracts: [],
     };
-    const contract: IntentContract = {
-      convention,
-      ...(eventKinds === undefined || eventKinds.length === 0
-        ? {}
-        : { eventKinds: [...eventKinds] }),
-    };
-    support.contracts.push(contract);
     if (!support.actions.includes(action)) support.actions.push(action);
     if (!support.conventions.includes(convention)) support.conventions.push(convention);
   }

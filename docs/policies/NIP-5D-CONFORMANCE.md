@@ -19,16 +19,18 @@ implementation authority. `RUNTIME-SPEC.md` is internal runtime guidance.
 
 ### Published convention authority
 
-- **NAP-INTENT:** PR #91 head `a718915ddefa2f03a0126579601f59d8bd86f7c4`.
-- **NAP-INC:** merged `naps/NAP-INC.md` on `napplet/naps` master
-  `6461e4b37c29dc09a20dff35d9515889c4433874`.
-- **NAP-IDENTITY / NAP-THEME / NAP-SHELL:** `napplet/naps` master
+- **NAP-INTENT:** merged `napplet/naps` master
+  `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`.
+- **NAP-INC:** merged `napplet/naps` master
+  `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`.
+- **NAP-IDENTITY / NAP-THEME / NAP-SHELL:** merged `napplet/naps` master
   `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`.
 - **NAP-RELAY:** open PR #2 at
   `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`.
-- **Published packages:** source `dd7b3a728eb9c838b7218fcec7bb7bb00e7cc88b`;
-  release `60889f1c2476e063500c7ab6624af6abe0dbcbe5`; core/nap `0.29.0`, shim
-  `0.27.0`, SDK `0.25.0`, and Vite plugin `0.12.0`.
+- **Published packages:** canonical INTENT/INC source
+  `7b675622e13870628ce174833d7b2a33cf32a0ab`; release
+  `03ad65b66413e5798536ef48695ffc4c2508f2c3`; core/nap `0.31.0`, shim
+  `0.29.0`, SDK `0.27.0`, and Vite plugin `0.14.0`.
 
 ### Active NAP-RELAY boundary
 
@@ -42,16 +44,16 @@ success or `error` on failure. Runtime, `createRelayPoolService`,
 event and result contract. Failed publications are not delivered through the
 runtime's successful-event buffer.
 
-The released `@napplet/nap@0.29.0` SDK accepts `EventTemplate`, but the package's
+The released `@napplet/nap@0.31.0` SDK accepts `EventTemplate`, but the package's
 `RelayPublishMessage.event` declaration still names `NostrEvent`. That is
 recorded upstream drift, not authority to let a napplet bypass shell signing.
 
 ### Active NAP-INC boundary
 
 NAP-INC is governed by merged
-[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/6461e4b37c29dc09a20dff35d9515889c4433874/naps/NAP-INC.md)
+[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INC.md)
 on `napplet/naps` master
-`6461e4b37c29dc09a20dff35d9515889c4433874`. The document remains marked
+`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`. The document remains marked
 draft, but the merged path supersedes the earlier stacked PR heads as protocol
 authority.
 
@@ -64,11 +66,8 @@ payload-kind inference. The runtime attaches a **runtime-attested dTag** to
 delivered events, does not accept caller `sender`, keeps payloads and IDs
 opaque, and excludes the source endpoint from topic fan-out.
 
-Merged NAP-INC says `on(topic, callback)` delivers one `IncEvent`. Released
-`@napplet/nap@0.29.0` instead declares `(payload, NostrEvent)` and its shim
-implements that projection. Kehto's protected injected binding follows the NAP;
-package-based demo consumers explicitly bridge the callback seam. This is
-upstream package drift, not authority to replace `IncEvent`.
+Merged NAP-INC and released `@napplet/nap@0.31.0` both define
+`on(topic, callback)` with one `IncEvent`.
 
 INC channel authorization is open-only: ACL and target liveness are evaluated
 at open, with no per-message authorization. The merged spec requires equivalent handles
@@ -80,10 +79,13 @@ lifecycle data in order, bounded overflow closure, and deterministic teardown.
 upstream-resolution reply](https://github.com/kehto/web/issues/203#issuecomment-5060904495);
 the superseded opener-only view must not be restored.
 
-Phase boundaries are intentional: **Phase 104** owns all public #91 NAP-INTENT
-binding, resolution, and delivery lifecycle work; **Phase 105** records the
-completed published package adoption. Changelogs and archived `.planning`
-records are preserved history, not active implementation drift.
+NAP-INTENT uses the merged structured `IntentRequest` and final `IntentResult`
+contract. The host resolves a verified manifest candidate, completes target
+creation/readiness and convention dispatch, then returns `handled`, `handler`,
+`windowId`, and `convention`. There is no `intent.deliver` or `onDelivery`
+surface. Kehto carries the selected convention to the target through the
+ordinary runtime-attested `inc.event` path; eligible intent targets therefore
+declare `inc`.
 
 ### Active NAP-IDENTITY and NAP-THEME boundary
 
@@ -132,7 +134,7 @@ Current NIP-5D runtime availability is injected
   `services`, `onReady()`, and the `shell.ready` / `shell.init` lifecycle. The
   runtime prelude installs its parent-bound receiver before emitting readiness;
   napplet artifacts are not required to bundle their own handshake.
-- Published core `0.29.0` and shim `0.27.0` omit a generic mandatory shell
+- Published core `0.31.0` and shim `0.29.0` omit a generic mandatory shell
   implementation. Kehto retains the host-owned NAP-SHELL prelude under
   `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until a corrected upstream release
   is reviewed; the shim is never documented as supplying shell.

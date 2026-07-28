@@ -4,16 +4,16 @@ import { describe, expect, it } from 'vitest';
 
 const ROOT = process.cwd();
 const PACKAGE_VERSIONS = {
-  '@napplet/core': '0.29.0',
-  '@napplet/nap': '0.29.0',
-  '@napplet/shim': '0.27.0',
-  '@napplet/sdk': '0.25.0',
-  '@napplet/vite-plugin': '0.12.0',
+  '@napplet/core': '0.31.0',
+  '@napplet/nap': '0.31.0',
+  '@napplet/shim': '0.29.0',
+  '@napplet/sdk': '0.27.0',
+  '@napplet/vite-plugin': '0.14.0',
 } as const;
 
-const PUBLIC_CORE_RANGE = '>=0.29.0 <0.30.0';
-const JSR_CORE_RANGE = 'jsr:@napplet/core@^0.29.0';
-const JSR_NAP_RANGE = 'jsr:@napplet/nap@^0.29.0';
+const PUBLIC_CORE_RANGE = '>=0.31.0 <0.32.0';
+const JSR_CORE_RANGE = 'jsr:@napplet/core@^0.31.0';
+const JSR_NAP_RANGE = 'jsr:@napplet/nap@^0.31.0';
 
 type PackageJson = {
   dependencies?: Record<string, string>;

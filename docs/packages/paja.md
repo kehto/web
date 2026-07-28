@@ -31,8 +31,8 @@ app package's development scripts.
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.29.0 <0.30.0` |
-| `@napplet/nap` | `>=0.29.0 <0.30.0` |
+| `@napplet/core` | `>=0.31.0 <0.32.0` |
+| `@napplet/nap` | `>=0.31.0 <0.32.0` |
 | `nostr-tools` | `>=2.23.3 <=2.x` |
 
 ## Primary APIs
@@ -214,17 +214,14 @@ explicit handler d-tag is valid only when it names a compatible installed record
 and passes sender-aware explicit authorization. A current frame is only a later
 delivery endpoint, never selection authority.
 
-Paja retains the immutable delivery before sending an accepted
-`intent.invoke.result`. After acceptance, its controller may reuse a current
-target or start a cold one, but it waits for the current target generation's
-registered `MessageEvent.source` and real `shell.ready` session before one
-target-only `intent.deliver`. The source may close after acceptance. A replaced
-generation is not delivered to; failed open/readiness attempts follow the
-private retry/replacement policy and a terminal failure remains terminal. The
-accepted result means Paja owns delivery responsibility, not that a target has
-handled it. This host flow has no INC carrier or completion acknowledgement.
+Paja may reuse a current target or start a cold one, but it waits for the
+current target generation's registered `MessageEvent.source` and real
+`shell.ready` session before one target-only `inc.event`. A replaced generation
+is not delivered to; failed open/readiness attempts follow the private
+retry/replacement policy. The final result includes the handled target's d-tag,
+window identifier, and convention.
 
-The published `@napplet/shim@0.27.0` is intentionally non-shell. Kehto's
+The published `@napplet/shim@0.29.0` is intentionally non-shell. Kehto's
 host-owned prelude remains responsible for mandatory `window.napplet.shell`,
 the one bare `shell.ready` / first `shell.init` handshake, and local cached
 `ready()`, `supports()`, read-only `services`, and one-shot `onReady()`.

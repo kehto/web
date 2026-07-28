@@ -144,7 +144,7 @@ export interface PajaHostRuntimeState extends PajaRuntimeTabRuntime {
     resolve(): void;
     reject(reason: Error): void;
   }>>;
-  /** Immutable selected catalog record for each retained intent generation. */
+  /** Immutable selected catalog record for each in-flight intent generation. */
   readonly intentRecords: WeakMap<BrowserIntentGeneration, ReturnType<InstalledNappletCatalog['get']>>;
 }
 

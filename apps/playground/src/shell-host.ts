@@ -8,7 +8,7 @@ import {
   type SessionEntry,
   type ShellEnvironment,
 } from '@kehto/shell';
-import type { IntentRetentionParams, Notification } from '@kehto/services';
+import type { IntentDispatchParams, Notification } from '@kehto/services';
 import type { Theme } from '@napplet/nap/theme/types';
 import type { PlaygroundNapplet } from './napplet-resolver.js';
 import { InstalledNappletCatalog, matchesInstalledNappletRecord } from './installed-napplet-catalog.js';
@@ -210,7 +210,8 @@ export function createPlaygroundIntentTargetOptions(): PlaygroundIntentControlle
     openOrReuse: openOrReuseIntentTarget,
     waitForReady: (generation) => waitForPlaygroundIntentReady(intentGeneration(generation)),
     isCurrent: (generation) => isCurrentPlaygroundIntentGeneration(intentGeneration(generation)),
-    send: sendIntentDelivery,
+    getWindowId: (generation) => intentGeneration(generation).windowId,
+    send: sendIntentConvention,
   };
 }
 
@@ -237,7 +238,7 @@ function intentGeneration(generation: PlaygroundIntentGeneration): IntentGenerat
 }
 
 async function openOrReuseIntentTarget(
-  params: IntentRetentionParams,
+  params: IntentDispatchParams,
   _attempt: number,
 ): Promise<PlaygroundIntentGeneration | null> {
   const record = installedNapplets.get(params.handler);
@@ -250,6 +251,8 @@ async function openOrReuseIntentTarget(
     && current.selectedRecord === record
     && matchesInstalledNappletRecord(record, currentInfo)
     && isCurrentIntentGeneration(current)
+    && params.behavior?.newWindow !== true
+    && params.behavior?.reuse !== false
   ) return current;
 
   // A catalog replacement may retain the same d-tag while changing verified bytes.
@@ -282,11 +285,11 @@ async function openOrReuseIntentTarget(
 
 function recordSupportsDelivery(
   record: ReturnType<InstalledNappletCatalog['get']>,
-  params: IntentRetentionParams,
+  params: IntentDispatchParams,
 ): boolean {
   return record?.archetypes.some((archetype) =>
-    archetype.slug === params.delivery.archetype
-    && archetype.convention === params.delivery.convention,
+    archetype.slug === params.archetype
+    && archetype.convention === params.convention,
   ) ?? false;
 }
 
@@ -395,17 +398,19 @@ export function markIntentTargetReady(windowId: string, source: Window): void {
   generation.resolveReady();
 }
 
-function sendIntentDelivery(
+function sendIntentConvention(
   generation: PlaygroundIntentGeneration,
-  delivery: IntentRetentionParams['delivery'],
+  params: IntentDispatchParams,
 ): void {
   const state = intentGeneration(generation);
   if (!state.source || !isCurrentPlaygroundIntentGeneration(state)) {
     throw new Error('intent target generation is not current and ready');
   }
   createPostMessageProxy(state.source, tap, state.windowId).postMessage({
-    type: 'intent.deliver',
-    delivery,
+    type: 'inc.event',
+    topic: params.convention,
+    sender: params.sender,
+    ...(params.payload === undefined ? {} : { payload: params.payload }),
   }, '*');
 }
 

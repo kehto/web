@@ -21,7 +21,11 @@ test('profile-viewer receives the published profile convention from the feed fra
       napplet?: { intent?: { invoke(uri: string): Promise<unknown> } };
     }).napplet?.intent;
     if (!intent) throw new Error('published intent API unavailable');
-    return intent.invoke(`napplet:profile/open?pubkey=${encodeURIComponent(pubkey)}`);
+    return intent.invoke({
+      archetype: 'profile',
+      convention: 'napplet:profile/open',
+      payload: { pubkey },
+    });
   }, PROFILE_PUBKEY);
   expect(result).toMatchObject({ ok: true, convention: 'napplet:profile/open' });
 

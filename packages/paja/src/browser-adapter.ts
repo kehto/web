@@ -212,6 +212,7 @@ function createDefaultIntentHost(): PajaIntentHost {
       openOrReuse: () => null,
       waitForReady: () => undefined,
       isCurrent: () => false,
+      getWindowId: () => null,
       send: () => undefined,
     }),
   };

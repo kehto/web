@@ -27,13 +27,13 @@
     "@kehto/paja": "workspace:^"
   },
   "peerDependencies": {
-    "@napplet/core": ">=0.29.0 <0.30.0",
-    "@napplet/nap": ">=0.29.0 <0.30.0",
+    "@napplet/core": ">=0.31.0 <0.32.0",
+    "@napplet/nap": ">=0.31.0 <0.32.0",
     "nostr-tools": ">=2.23.3 <=2.x"
   },
   "devDependencies": {
-    "@napplet/core": ">=0.29.0 <0.30.0",
-    "@napplet/nap": ">=0.29.0 <0.30.0",
+    "@napplet/core": ">=0.31.0 <0.32.0",
+    "@napplet/nap": ">=0.31.0 <0.32.0",
     "nostr-tools": "^2.23.3",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3",

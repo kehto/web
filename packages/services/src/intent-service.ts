@@ -3,7 +3,7 @@
  *
  * Shell-side handler for the NAP-INTENT wire protocol. It is a pure envelope
  * router: it validates `intent.*` envelopes, delegates archetype resolution,
- * default handling and retained target delivery to an injected
+ * default handling and target dispatch to an injected
  * {@link IntentResolver}, then posts correlated result and push messages back
  * to the napplet.
  *
@@ -17,7 +17,7 @@
  *             intent.handlers.result, intent.changed
  *
  * The shell owns archetype→handler resolution, the user's default-handler
- * preference, chooser, and retained target policy behind the
+ * preference, chooser, and target lifecycle policy behind the
  * {@link IntentResolver}. This service only marshals the wire protocol and
  * fans `intent.changed` pushes out to eligible napplets.
  *
@@ -33,10 +33,9 @@
  */
 
 import type {
-  IntentAcceptedResult,
   IntentAvailability,
-  IntentRejectedResult,
   IntentRequest,
+  IntentResult,
   NappletMessage,
 } from '@napplet/core';
 import type {
@@ -55,58 +54,23 @@ export interface IntentResolverContext {
 }
 
 /**
- * Opaque runtime-owned delivery responsibility retained before acceptance.
- *
- * Starting the task may wait for target readiness and apply host retry,
- * replacement, or terminal-failure policy. It never produces a second source
- * result.
- */
-export interface IntentRetainedDelivery {
-  /**
-   * Begin target lifecycle and eventual delivery policy.
-   *
-   * @returns Nothing, or a promise settled when controller policy completes.
-   */
-  start(): void | Promise<void>;
-}
-
-/** A resolver rejection before delivery responsibility was retained. */
-export interface IntentRejectedResolverOutcome {
-  /** Exact canonical pre-acceptance rejection. */
-  result: IntentRejectedResult;
-}
-
-/** A resolver acceptance backed by already-retained delivery responsibility. */
-export interface IntentAcceptedResolverOutcome {
-  /** Exact canonical acceptance result. */
-  result: IntentAcceptedResult;
-  /** Opaque task that the service starts only after sending the source result. */
-  retained: IntentRetainedDelivery;
-}
-
-/** Pre-acceptance rejection or accepted retained-delivery responsibility. */
-export type IntentResolverOutcome =
-  | IntentRejectedResolverOutcome
-  | IntentAcceptedResolverOutcome;
-
-/**
  * Abstract intent resolver. Implementors own the installed-napplet catalog,
  * archetype→handler resolution, the user's default-handler preference, the
- * chooser and retained target delivery policy. The
+ * chooser and target lifecycle/delivery policy. The
  * service translates wire envelopes into these calls and back.
  */
 export interface IntentResolver {
   /**
-   * Resolve the request and retain target delivery responsibility.
+   * Resolve and dispatch the request.
    *
    * @param request - Validated normalized intent request.
    * @param context - Runtime-attested source identity.
-   * @returns A structured rejection, or an acceptance plus an unstarted task.
+   * @returns The canonical structured dispatch result.
    */
   invoke(
     request: IntentRequest,
     context: IntentResolverContext,
-  ): IntentResolverOutcome | Promise<IntentResolverOutcome>;
+  ): IntentResult | Promise<IntentResult>;
   /** Report whether the runtime can currently satisfy `archetype`, and how. */
   available(archetype: string): IntentAvailability | Promise<IntentAvailability>;
   /** Report availability for every archetype the runtime can currently satisfy. */
@@ -146,26 +110,31 @@ function hasOwn(value: object, key: string): boolean {
 
 type RequestValidation =
   | { request: IntentRequest }
-  | { error: 'invalid convention' | 'invoke rejected' };
+  | { error: 'invalid request' | 'invalid convention' | 'invoke rejected' };
 
 function validateIntentRequest(value: unknown): RequestValidation {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return { error: 'invalid convention' };
+    return { error: 'invalid request' };
   }
   const request = value as Record<string, unknown>;
   if (
     typeof request.archetype !== 'string'
     || request.archetype.length === 0
-    || typeof request.action !== 'string'
-    || request.action.length === 0
-    || typeof request.convention !== 'string'
-    || request.convention.length === 0
   ) {
-    return { error: 'invalid convention' };
+    return { error: 'invalid request' };
   }
 
-  const match = /^napplet:([^/?#\s]+)\/([^/?#\s]+)$/.exec(request.convention);
-  if (!match || match[1] !== request.archetype || match[2] !== request.action) {
+  const action = request.action === undefined ? 'open' : request.action;
+  if (typeof action !== 'string' || action.length === 0) {
+    return { error: 'invalid request' };
+  }
+  if (
+    request.convention !== undefined
+    && (
+      typeof request.convention !== 'string'
+      || !/^napplet:[^/?#\s]+\/[^/?#\s]+$/.test(request.convention)
+    )
+  ) {
     return { error: 'invalid convention' };
   }
 
@@ -193,14 +162,19 @@ function validateIntentRequest(value: unknown): RequestValidation {
     }
     const record = request.behavior as Record<string, unknown>;
     if (
-      Object.keys(record).some((key) => key !== 'focus' && key !== 'reuse')
+      Object.keys(record).some((key) =>
+        key !== 'focus' && key !== 'newWindow' && key !== 'reuse')
       || (hasOwn(record, 'focus') && typeof record.focus !== 'boolean')
+      || (hasOwn(record, 'newWindow') && typeof record.newWindow !== 'boolean')
       || (hasOwn(record, 'reuse') && typeof record.reuse !== 'boolean')
     ) {
       return { error: 'invoke rejected' };
     }
     behavior = {
       ...(record.focus === undefined ? {} : { focus: record.focus as boolean }),
+      ...(record.newWindow === undefined
+        ? {}
+        : { newWindow: record.newWindow as boolean }),
       ...(record.reuse === undefined ? {} : { reuse: record.reuse as boolean }),
     };
   }
@@ -208,8 +182,10 @@ function validateIntentRequest(value: unknown): RequestValidation {
   return {
     request: {
       archetype: request.archetype,
-      action: request.action,
-      convention: request.convention,
+      action,
+      ...(typeof request.convention === 'string'
+        ? { convention: request.convention }
+        : {}),
       ...(hasOwn(request, 'payload') ? { payload: request.payload } : {}),
       ...(typeof request.handler === 'string' ? { handler: request.handler } : {}),
       ...(behavior === undefined ? {} : { behavior }),
@@ -236,11 +212,29 @@ function settleResolverCall<T>(
     .catch((error) => send({ type: resultType, id, error: toErrorMessage(error) } as NappletMessage));
 }
 
-function rejectInvoke(send: Send, id: string): void {
+function rejectedResult(
+  request: Pick<IntentRequest, 'archetype' | 'action'>,
+  error: string,
+): IntentResult {
+  return {
+    ok: false,
+    archetype: request.archetype,
+    action: request.action ?? 'open',
+    handled: false,
+    error,
+  };
+}
+
+function rejectInvoke(
+  send: Send,
+  id: string,
+  request: Pick<IntentRequest, 'archetype' | 'action'>,
+  error = 'invoke rejected',
+): void {
   send({
     type: 'intent.invoke.result',
     id,
-    result: { ok: false, error: 'invoke rejected' },
+    result: rejectedResult(request, error),
   } as NappletMessage);
 }
 
@@ -264,52 +258,43 @@ export function createIntentService(options: IntentServiceOptions): ServiceHandl
     const id = m.id ?? '';
     const validation = validateIntentRequest(m.request);
     if ('error' in validation) {
-      send({
-        type: 'intent.invoke.result',
+      const raw = typeof m.request === 'object' && m.request !== null
+        ? m.request as Record<string, unknown>
+        : {};
+      rejectInvoke(
+        send,
         id,
-        result: { ok: false, error: validation.error },
-      } as NappletMessage);
+        {
+          archetype: typeof raw.archetype === 'string' ? raw.archetype : '',
+          action: typeof raw.action === 'string' ? raw.action : 'open',
+        },
+        validation.error,
+      );
       return;
     }
     const sender = runtimeContext?.resolveDTag(windowId);
     if (!sender) {
-      rejectInvoke(send, id);
+      rejectInvoke(send, id, validation.request);
       return;
     }
 
-    let pending: Promise<IntentResolverOutcome>;
+    let pending: Promise<IntentResult>;
     try {
       pending = Promise.resolve(resolver.invoke(validation.request, { sender }));
     } catch {
-      rejectInvoke(send, id);
+      rejectInvoke(send, id, validation.request);
       return;
     }
     void pending.then(
-      (outcome) => {
-        if (
-          outcome.result.ok
-          && (!('retained' in outcome) || typeof outcome.retained.start !== 'function')
-        ) {
-          rejectInvoke(send, id);
-          return;
-        }
+      (result) => {
         send({
           type: 'intent.invoke.result',
           id,
-          result: outcome.result,
+          result,
         } as NappletMessage);
-        if (!outcome.result.ok || !('retained' in outcome)) return;
-        try {
-          const started = outcome.retained.start();
-          void Promise.resolve(started).catch(() => {
-            // Post-acceptance terminal policy never creates a second result.
-          });
-        } catch {
-          // A synchronous post-acceptance failure is likewise controller policy.
-        }
       },
       () => {
-        rejectInvoke(send, id);
+        rejectInvoke(send, id, validation.request);
       },
     ).catch(() => {
       // Adapter send failures must not manufacture a second source result.

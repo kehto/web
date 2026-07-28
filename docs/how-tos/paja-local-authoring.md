@@ -67,7 +67,7 @@ bootstrap, while target assets and HMR still resolve through the framework dev
 server. The runtime reload button reinitializes the Kehto shell state around the
 same target URL.
 
-The published `@napplet/shim@0.27.0` remains non-shell. Paja therefore retains
+The published `@napplet/shim@0.29.0` remains non-shell. Paja therefore retains
 Kehto's host-owned mandatory `window.napplet.shell` prelude, installed before
 one bare `shell.ready`; its first `shell.init` is cached for local `ready()`,
 `supports()`, read-only `services`, and one-shot `onReady()`. `shell` is not a
@@ -214,7 +214,7 @@ before it runs.
 The package API reference is generated at
 [docs/api/modules/_kehto_paja.html](../api/modules/_kehto_paja.html).
 
-### Verify retained intent delivery
+### Verify intent convention delivery
 
 For a verified installed intent handler, distinguish the persistent manifest
 catalog from the live iframe. A closed iframe does not remove its installed
@@ -223,9 +223,8 @@ use a compatible default, use a chooser when there are multiple candidates,
 reject an ambiguity, and accepts an explicit d-tag only with sender-aware
 authorization.
 
-Paja retains the immutable delivery before it returns an accepted result. It
-then opens or reuses the target, waits for the generation's registered source to
-send `shell.ready`, verifies that generation is still current, and makes one
-target-only delivery. The source can be torn down after acceptance. Replacement,
-readiness failure, and terminal send paths are controller-owned; this lifecycle
-does not use INC.
+Paja opens or reuses the target, waits for the generation's registered source
+to send `shell.ready`, verifies that generation is still current, and makes one
+target-only `inc.event` for the selected convention. The final result identifies
+the handled target. Replacement, readiness failure, and terminal send paths are
+controller-owned.

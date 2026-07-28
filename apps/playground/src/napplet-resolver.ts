@@ -87,7 +87,7 @@ export interface PlaygroundNapplet {
    * manifest's `archetype` tags. Always present (empty when the manifest
    * declares none).
    */
-  archetypes: Array<{ slug: string; convention: string; eventKinds?: number[] }>;
+  archetypes: Array<{ slug: string; convention: string }>;
   /** Optional human title from the verified manifest. */
   title?: string;
   /** Verified `/index.html` text (no CSP yet — inject with {@link injectCspMeta}). */

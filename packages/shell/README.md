@@ -15,9 +15,9 @@ pnpm add @kehto/shell
 ## Published Napplet Compatibility
 
 `@kehto/shell` publishes against `@napplet/core` and `@napplet/nap`
-`>=0.29.0 <0.30.0`. The installed core/nap 0.29.0 contracts are from source
-`dd7b3a728eb9c838b7218fcec7bb7bb00e7cc88b` and release
-`60889f1c2476e063500c7ab6624af6abe0dbcbe5`.
+`>=0.31.0 <0.32.0`. The installed core/nap 0.31.0 contracts are from source
+`7b675622e13870628ce174833d7b2a33cf32a0ab` and release
+`03ad65b66413e5798536ef48695ffc4c2508f2c3`.
 
 ## Overview
 
@@ -28,7 +28,7 @@ The primary entry point is `createShellBridge()` — it owns the postMessage lis
 Current draft behaviors this package enforces:
 
 - The shell does not inject a host-provided nostr object into napplets — NIP-5D explicitly forbids napplet-visible signing. Napplets call `relay.publish` / `relay.publishEncrypted` and the shell mediates the signing flow internally (NIP-44 default, NIP-04 opt-in for encrypted envelopes).
-- `injectNappletNamespacePrelude()` implements the NIP-5D injected-domain bootstrap and mandatory NAP-SHELL shim: hosts prepend it to `srcdoc` outside verified artifact bytes, install the parent-bound `shell.init` receiver, emit one `shell.ready`, and expose callable NAP interfaces before authored scripts run. Optional namespaces are filtered to the bare-domain allowlist; `shell` is always retained. Published core 0.29.0 and shim 0.27.0 omit generic mandatory shell, so Kehto retains this host-owned prelude under NAP-SHELL `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until an upstream correction is reviewed.
+- `injectNappletNamespacePrelude()` implements the NIP-5D injected-domain bootstrap and mandatory NAP-SHELL shim: hosts prepend it to `srcdoc` outside verified artifact bytes, install the parent-bound `shell.init` receiver, emit one `shell.ready`, and expose callable NAP interfaces before authored scripts run. Optional namespaces are filtered to the bare-domain allowlist; `shell` is always retained. Published core 0.31.0 and shim 0.29.0 omit generic mandatory shell, so Kehto retains this host-owned prelude under NAP-SHELL `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until an upstream correction is reviewed.
 - `window.napplet.shell.supports(domain)` answers synchronously and locally from the cached first `shell.init` environment. It returns `false` before `shell.init`, for unknown values, and for domains that are not live and granted to that napplet; it never sends a support-query message.
 - Five optional per-domain proxies — `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` — can be composed between napplet and runtime to intercept request traffic per NAP. They are NOT wired by default. Identity/theme proxy `emit()` compatibility members fail closed; hosts must deliver automatic changes through `ShellBridge.publishIdentityChanged()` / `publishTheme()`, which enforce live session, granted domain, and current ACL.
 - `keys.forward` is napplet-to-shell only. Active napplets suppress locally-bound keys from `keys.bindings` before forwarding; shell-initiated action triggers use `keys.action`.
@@ -37,9 +37,9 @@ Current draft behaviors this package enforces:
 ### NAP-INC binding and channel contract
 
 The injected INC binding follows merged
-[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/6461e4b37c29dc09a20dff35d9515889c4433874/naps/NAP-INC.md)
+[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INC.md)
 on `napplet/naps` master
-`6461e4b37c29dc09a20dff35d9515889c4433874`. The specification remains marked
+`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`. The specification remains marked
 draft, but its merged path is the protocol authority.
 
 The released package projection and `window.napplet.inc` binding own
@@ -52,10 +52,8 @@ dispatch, and does not infer payload kinds. Runtime delivery supplies the
 **runtime-attested dTag**; no caller sender is accepted, topic source exclusion
 is runtime-owned, and IDs and payloads are opaque.
 
-Merged NAP-INC delivers one `IncEvent` to `on(topic, callback)`. Released
-`@napplet/nap@0.29.0` instead declares and implements a
-`(payload, NostrEvent)` callback. The protected binding follows the NAP;
-package-based consumers must bridge that upstream callback drift.
+Merged NAP-INC and released `@napplet/nap@0.31.0` both deliver one `IncEvent`
+to `on(topic, callback)`.
 
 For channels, runtime ACL checks are open-only rather than per-message. The
 target `inc.channel.opened` before the opener result creates an equivalent target
@@ -69,18 +67,18 @@ the prior opener-only interpretation is obsolete.
 
 ### NAP-INTENT binding and delivery
 
-Phase 104 implements the draft [NAP-INTENT PR #91 at
-`a718915ddefa2f03a0126579601f59d8bd86f7c4`](https://github.com/napplet/naps/pull/91).
-The protected `window.napplet.intent` binding normalizes URI invocation into
-exact `archetype`, `action`, queryless `convention`, and optional payload
-fields. It rejects fragments, malformed/repeated queries, query plus explicit
-payload, mismatched normalized fields, and caller-supplied sender data.
+Kehto implements merged [NAP-INTENT at
+`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INTENT.md).
+The protected `window.napplet.intent` binding accepts structured
+`invoke(request)` calls and `open(archetype, payload?, opts?)`. It defaults
+`action` to `open`, preserves an optional queryless convention, rejects
+unsupported fields and caller-supplied sender data, and resolves only
+parent-originated correlated results.
 
-Only parent-originated result, change, and delivery envelopes settle the
-binding. Incoming no-ID `intent.deliver` values are retained until an
-`onDelivery` handler is registered. The runtime, not the source, attests the
-sender dTag; an accepted result records retained responsibility and does not
-expose target window, handled, protocol, retry, or lifecycle state.
+Successful results include `handled`, `handler`, `windowId`, and `convention`
+after target dispatch completes. There is no `intent.deliver` or `onDelivery`;
+selected targets consume their convention through the ordinary
+runtime-attested INC binding.
 
 Phase 105 completed released `@napplet/*` package adoption and persistent live
 Paja/playground catalogs and target controllers. The Phase 104 Paja simulator

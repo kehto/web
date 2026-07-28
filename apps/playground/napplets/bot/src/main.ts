@@ -191,8 +191,8 @@ async function init(): Promise<void> {
 
   // Wire the INC subscription per D-02 BEFORE announcing ready, so a chat sender
   // that acts on the bot's "ready" signal cannot race ahead of this subscription.
-  incOn('chat:message', (value, packageEvent) => {
-    handleChatMessage(readIncPayload(value, packageEvent));
+  incOn('chat:message', (event) => {
+    handleChatMessage(readIncPayload(event));
   });
   log('subscribed to inc chat:message topic', 'info');
 

@@ -6,7 +6,7 @@ test.describe.configure({ mode: 'serial' });
 
 const PROFILE_PUBKEY = 'b'.repeat(64);
 
-test('accepts the feed profile convention before its source closes and cold-starts one profile delivery without INC', async ({ page }) => {
+test('dispatches the feed profile convention to a cold target through canonical INC', async ({ page }) => {
   test.setTimeout(120_000);
   await demoBeforeEach(page);
 
@@ -30,10 +30,14 @@ test('accepts the feed profile convention before its source closes and cold-star
 
   const accepted = await feed.evaluate(async (pubkey) => {
     const napplet = (window as Window & {
-      napplet?: { intent?: { invoke(uri: string): Promise<unknown> } };
+      napplet?: { intent?: { invoke(request: unknown): Promise<unknown> } };
     }).napplet;
     if (!napplet?.intent) throw new Error('published intent API unavailable');
-    return napplet.intent.invoke(`napplet:profile/open?pubkey=${encodeURIComponent(pubkey)}`);
+    return napplet.intent.invoke({
+      archetype: 'profile',
+      convention: 'napplet:profile/open',
+      payload: { pubkey },
+    });
   }, PROFILE_PUBKEY);
   expect(accepted).toMatchObject({ ok: true, convention: 'napplet:profile/open' });
 
@@ -43,8 +47,8 @@ test('accepts the feed profile convention before its source closes and cold-star
   });
   expect(closedSource).toBe(true);
 
-  // The accepted request must revive the verified profile handler, rather than
-  // carrying the intent through a profile-specific INC topic or query identity.
+  // The completed request must revive the verified profile handler and deliver
+  // its stable convention through the ordinary runtime-attested INC carrier.
   await expect(page.locator('#profile-viewer-frame-container iframe')).toHaveCount(1, { timeout: 15_000 });
   await expect(page.frameLocator('#profile-viewer-frame-container iframe').locator('#profile-pubkey'))
     .toHaveText(PROFILE_PUBKEY, { timeout: 15_000 });
@@ -55,11 +59,11 @@ test('accepts the feed profile convention before its source closes and cold-star
         direction: string;
         windowId?: string;
         type?: string;
-        delivery?: unknown;
+        event?: unknown;
       }>;
     };
     return (host.__getPlaygroundEnvelopeTapForTest__?.() ?? [])
-      .filter((message) => message.type === 'intent.deliver').length;
+      .filter((message) => message.type === 'inc.event').length;
   }), { timeout: 15_000 }).toBe(1);
 
   const messages = await page.evaluate(() => {
@@ -68,23 +72,22 @@ test('accepts the feed profile convention before its source closes and cold-star
         direction: string;
         windowId?: string;
         type?: string;
-        delivery?: unknown;
+        event?: unknown;
       }>;
     };
     return host.__getPlaygroundEnvelopeTapForTest__?.() ?? [];
   });
 
-  const deliveries = messages.filter((message) => message.type === 'intent.deliver');
+  const deliveries = messages.filter((message) => message.type === 'inc.event');
   expect(deliveries).toHaveLength(1);
   expect(deliveries[0]).toMatchObject({
     direction: 'shell->napplet',
   });
-  expect(deliveries[0]?.delivery).toMatchObject({
+  expect(deliveries[0]?.event).toMatchObject({
+    type: 'inc.event',
+    topic: 'napplet:profile/open',
     sender: 'feed',
-    archetype: 'profile',
-    action: 'open',
-    convention: 'napplet:profile/open',
     payload: { pubkey: PROFILE_PUBKEY },
   });
-  expect(messages.filter((message) => message.type?.startsWith('inc.'))).toHaveLength(0);
+  expect(messages.filter((message) => message.type === 'intent.deliver')).toHaveLength(0);
 });

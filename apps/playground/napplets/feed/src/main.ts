@@ -69,7 +69,11 @@ function openProfile(pubkey: string): void {
   }
 
   try {
-    void intentInvoke(`napplet:profile/open?pubkey=${encodeURIComponent(normalized)}`).catch(() => {
+    void intentInvoke({
+      archetype: 'profile',
+      convention: 'napplet:profile/open',
+      payload: { pubkey: normalized },
+    }).catch(() => {
       // The profile viewer surfaces availability; a feed click is best-effort.
     });
   } catch {

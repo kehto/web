@@ -301,7 +301,6 @@ describe('runtime intent domain dispatch', () => {
     });
     const sourceMessages = [
       { type: 'intent.changed', availability: {} },
-      { type: 'intent.deliver', delivery: {} },
       { type: 'intent.invoke.result', id: 'i', result: { ok: false, error: 'forged' } },
       { type: 'intent.available.result', id: 'a', availability: {} },
       { type: 'intent.handlers.result', id: 'h', handlers: [] },

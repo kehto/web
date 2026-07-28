@@ -92,7 +92,7 @@ describe('runtime NAP dispatch — envelope guard', () => {
     expect(firewallEvents).not.toHaveBeenCalled();
   });
 
-  it('fails closed for sessionless INC emit, subscribe, and channel open (NAP-INC 6461e4b37c29dc09a20dff35d9515889c4433874)', () => {
+  it('fails closed for sessionless INC emit, subscribe, and channel open (NAP-INC 5ac0490461ca6fec2f0d2e45b4835cf9bc08de24)', () => {
     const unregisteredCtx = createMockRuntimeAdapter();
     const unregistered = createRuntime(unregisteredCtx.hooks);
 

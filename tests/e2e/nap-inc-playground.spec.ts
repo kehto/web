@@ -1,6 +1,6 @@
 /**
  * Browser conformance proof for merged NAP-INC at napplet/naps master
- * 6461e4b37c29dc09a20dff35d9515889c4433874.
+ * 5ac0490461ca6fec2f0d2e45b4835cf9bc08de24.
  *
  * The two existing post-shim playground srcdoc frames are neutral endpoints:
  * all normal event and channel operations use window.napplet.inc. Raw envelopes
