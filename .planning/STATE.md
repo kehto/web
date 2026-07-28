@@ -4,10 +4,10 @@ milestone: v1.29
 milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 106
 status: completed
-stopped_at: Phase 106 complete; v1.29 ready for milestone completion
-last_updated: "2026-07-27T19:01:59Z"
-last_activity: 2026-07-27
-last_activity_desc: Phase 106 complete
+stopped_at: Phase 106 current-Napplet release complete; v1.29 ready for milestone completion
+last_updated: "2026-07-28T18:55:51Z"
+last_activity: 2026-07-28
+last_activity_desc: Phase 106 corrective Napplet 0.31 release complete
 progress:
   total_phases: 6
   completed_phases: 6
@@ -24,15 +24,15 @@ current_phase_name: Active-Surface Conformance and Release
 See: .planning/PROJECT.md (updated 2026-07-28)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** v1.29 publication complete; milestone archival and the separate Phase 105 UI-debt follow-up remain
+**Current focus:** v1.29 current-Napplet publication complete; milestone archival and the separate Phase 105 UI-debt follow-up remain
 
 ## Current Position
 
 Phase: 106 (Active-Surface Conformance and Release) — COMPLETE
 Plan: 3 of 3
-Status: All v1.29 phases complete — seven-package npm/JSR release published and downstream-verified
+Status: All v1.29 phases complete — eight-package Napplet-0.31-compatible npm/JSR release published and downstream-verified
 
-Last activity: 2026-07-28 — Phase 106 publication gap closed
+Last activity: 2026-07-28 — Phase 106 current-Napplet publication gap closed
 
 ## Performance Metrics
 
@@ -117,7 +117,9 @@ Baseline contract: `napplet/naps@6461e4b37c29dc09a20dff35d9515889c4433874`. Prop
 - Full conformance also requires active SHELL, INTENT, INC, IDENTITY, and THEME corrections.
 - `kehto/web#203` tracks implementation against the proposed resolutions: exact queryless identity and binding-owned query transposition from #89/#90, plus the #92 symmetric-channel reply. The issue remains open until Kehto implementation and positive/negative tests satisfy its close criteria.
 - Merged `napplet/naps@5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INC.md` resolves Phase 102's repeated unopened-handle conflict: retain every trusted-parent handle in the binding and enforce the permitted per-napplet concurrent-channel maximum at authenticated runtime admission. Plan 102-14 owns the correction.
-- Final package adoption is complete against the published core 0.29.0, nap 0.29.0, shim 0.27.0, SDK 0.25.0, and Vite plugin 0.12.0 line.
+- Final package adoption is complete against the current published core 0.31.0,
+  nap 0.31.0, shim 0.29.0, SDK 0.27.0, and Vite plugin 0.14.0 line. Kehto
+  Paja 0.10.0 and its dependency graph accept the core/nap 0.31 peer window.
 
 ### Key Context for v1.21 (Phases 86–89)
 
@@ -216,11 +218,12 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260724-czo | Inject a full Class-1 CSP into verified srcdoc loaders | 2026-07-24 | d3d966a | Verified | [260724-czo-inject-a-full-class-1-csp-into-verified-](./quick/260724-czo-inject-a-full-class-1-csp-into-verified-/) |
 | 260726-g8r | Update AGENTS.md to require Kehto worktrees under ~/.worktrees/kehto | 2026-07-26 | 683018b | Verified | [260726-g8r-update-agents-md-to-require-kehto-worktr](./quick/260726-g8r-update-agents-md-to-require-kehto-worktr/) |
 | 260728-fv2 | Record completed Phase 106 npm and JSR publication and downstream proof | 2026-07-28 | bec8074 | Verified | [260728-fv2-record-completed-phase-106-npm-and-jsr-p](./quick/260728-fv2-record-completed-phase-106-npm-and-jsr-p/) |
+| 260728-pub | Publish Kehto against the current Napplet line | 2026-07-28 | 9390eca / b61b8cf | Verified | [260728-pub-update-kehto-compatibility-for-current-n](./quick/260728-pub-update-kehto-compatibility-for-current-n/) |
 
 ## Session Continuity
 
-Last session: 2026-07-28T10:24:00Z
-Stopped at: Phase 106 package line published and downstream-verified
+Last session: 2026-07-28T18:55:51Z
+Stopped at: Phase 106 current-Napplet package line published and downstream-verified
 Resume file: None
 
 ## Operator Next Steps
@@ -330,3 +333,5 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: Phase 106 release readiness requires local gates plus exact-SHA CI before PR #204 can be called merge-ready.
 - [Phase ?]: Phase 105 UI audit remains explicit non-blocking Kehto-maintainer follow-up debt, not a visual pass.
 - [Phase ?]: The post-Phase-106 publication follow-up is distinct from the original PR-readiness boundary and is complete only with exact-main CI/Pages, successful npm/JSR publishing, direct registry metadata, and a clean downstream install/import/build.
+- [Phase ?]: A release is not current merely because its workflow succeeded; the published Kehto peer window must accept the registry's current Napplet `latest` line.
+- [Phase ?]: Corrective PR #220 supplies the eight-package Changeset omitted from the prior release path; PR #221 and Release #30389303760 publish the Napplet 0.31-compatible line.

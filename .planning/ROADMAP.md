@@ -31,7 +31,7 @@
 - [ ] **v1.26: NAP-SERIAL Runtime Parity** - 1 phase (98), 6 requirements, PR #74 open
 - [ ] **v1.27: NAP-BLE Runtime Parity** - 1 phase (99), 6 requirements, PR #75 open
 - [x] **v1.28: NAP-WEBRTC Runtime Parity** - 1 phase (100), 6 requirements, PR #76 open
-- [x] **v1.29: Napplet Convention and Runtime Conformance** - 6/6 phases complete (101-106), 49 requirements, PR #204 merged, seven-package npm/JSR release published and downstream-verified; archival remains pending
+- [x] **v1.29: Napplet Convention and Runtime Conformance** - 6/6 phases complete (101-106), 49 requirements, corrective PR #220 and Version Packages PR #221 merged, eight-package Napplet-0.31-compatible npm/JSR release published and downstream-verified; archival remains pending
 
 ---
 
@@ -337,12 +337,15 @@ users rely on.
 
 - [x] 106-03-PLAN.md — Run final release gates, preserve exact changesets, and make existing PR #204 green and mergeable.
 
-**Post-phase publication follow-up (2026-07-28):** PRs #204, #209, #210, and
-#211 merged; exact `main` SHA `54ef2ead03ee0c37783727468b8658b6dc224137`
-passed CI and Pages; Release #30350331202 published all seven intended versions
-to npm and JSR; a clean Paja/core/nap consumer install, ESM import, and bundle
-smoke passed. This evidence is separate from the earlier Plan 106-03
-PR-readiness endpoint.
+**Post-phase publication follow-up (2026-07-28):** The former 0.29 release is
+preserved as historical proof, but it stopped satisfying the current-`latest`
+terminal condition after Napplet advanced to 0.31. PR #220 supplied the missing
+Changeset and canonical migration; Version Packages PR #221 merged as exact
+release source `b61b8cf5e4e40859b0fba6c6e690dc9726f03431`; exact-source CI,
+Pages, and slop gates passed; Release #30389303760 published all eight intended
+versions to npm and JSR. A clean Paja/core/nap 0.10.0/0.31.0/0.31.0 consumer
+install, ESM import, and bundle smoke passed. This evidence is separate from the
+earlier Plan 106-03 PR-readiness endpoint.
 
 ## Progress
 

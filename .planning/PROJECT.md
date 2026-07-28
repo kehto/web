@@ -66,9 +66,19 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Status:** All six v1.29 phases are complete and the package line is published. PR #204, the generated Version Packages PR #209, the planning closeout PR #210, and release-gate repair PR #211 are merged. Exact `main` SHA `54ef2ead03ee0c37783727468b8658b6dc224137` passed CI and Pages, and Release run #30350331202 published the seven intended versions to npm and JSR.
+**Status:** All six v1.29 phases are complete and the current package line is
+published. Corrective source PR #220 supplied the missing Changeset and merged
+as `9390eca7d294375e8330730c411ed5aef74a7a61`; generated Version Packages PR
+#221 merged as exact release source
+`b61b8cf5e4e40859b0fba6c6e690dc9726f03431`. Exact-source CI, Pages, and
+AI-slop runs passed, and Release #30389303760 published all eight intended
+versions to npm and JSR.
 
-The upstream specification and active-surface audits, published package adoption, real Paja/playground flows, focused and full regression gates, exact-SHA CI, changeset accounting, public-registry verification, and clean downstream Paja installation are complete. The Phase 105 visual audit remains explicit non-passing post-merge debt and is not visual sign-off.
+The upstream specification and active-surface audits, canonical Napplet 0.31
+package adoption, real Paja/playground flows, focused and full regression
+gates, exact-SHA CI, changeset accounting, public-registry verification, and
+clean downstream Paja 0.10.0 installation are complete. The Phase 105 visual
+audit remains explicit non-passing post-merge debt and is not visual sign-off.
 
 ## Previous Milestone: v1.20 NIP-5D Content-Addressed Runtime Resolution
 
@@ -288,6 +298,7 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 | 41 | v1.29 release readiness ends at a green exact-SHA PR | PR #204 must match the locally reviewed head and have green required checks; merge, generated Version Packages metadata, exact-main verification, tagging, and publishing remain distinct maintainer actions. | 2026-07-27 |
 | 42 | The Phase 105 12/24 UI audit remains non-passing post-merge debt | The audit is acknowledged and owned by Kehto maintainers, but Phase 106 closes protocol/runtime conformance only and must not imply visual approval. | 2026-07-27 |
 | 43 | v1.29 registry publication is a separate terminal proof after PR readiness | Release completion requires exact-main CI and Pages, successful npm/JSR workflow steps, direct registry metadata for all seven versions, and a clean downstream install/import/build; Release #30350331202 and the recorded consumer smoke provide that proof. | 2026-07-28 |
+| 44 | Phase 106 publication must remain compatible with the current Napplet `latest` line | PR #211 had no package changeset and the former Kehto release accepted only Napplet 0.29. Corrective PR #220 added explicit eight-package release intent and canonical 0.31 adoption; Version Packages PR #221 plus Release #30389303760 published and downstream-verified the current line. | 2026-07-28 |
 
 ## Evolution
 

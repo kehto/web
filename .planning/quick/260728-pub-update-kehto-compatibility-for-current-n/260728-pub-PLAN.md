@@ -26,7 +26,7 @@ changeset/version/release sequence, and install with `@napplet/core@latest` and
       shipped output or compatibility metadata changes. Regenerate the lockfile
       and prove build, type-check, unit, Playwright, docs, AI-slop, and clean
       downstream install/import/build gates.
-- [ ] Push and merge the green corrective PR, verify exact-main CI/docs/Pages,
+- [x] Push and merge the green corrective PR, verify exact-main CI/docs/Pages,
       merge the generated Version Packages PR, verify that generated commit,
       trigger `release.yml`, and monitor npm plus JSR publication. Update the
       Phase 106 closeout with the exact PRs, SHAs, workflow runs, versions,

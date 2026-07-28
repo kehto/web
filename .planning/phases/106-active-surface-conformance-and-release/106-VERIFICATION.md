@@ -12,6 +12,13 @@ publication_followup:
   release_run: 30350331202
   registry_packages: 7/7
   downstream_smoke: passed
+current_napplet_release:
+  status: passed
+  verified: 2026-07-28T18:55:51Z
+  release_source_sha: b61b8cf5e4e40859b0fba6c6e690dc9726f03431
+  release_run: 30389303760
+  registry_packages: 8/8
+  downstream_smoke: passed
 re_verification:
   previous_status: gaps_found
   previous_score: 12/13
@@ -36,7 +43,28 @@ human_verification:
 **Status:** passed
 **Re-verification:** Yes — after PR-head gap closure
 
-## Post-merge publication follow-up
+## Current-Napplet corrective release
+
+The prior 0.29 release no longer met the clean-`@latest` terminal condition
+after Napplet advanced to 0.31.0. PR #211 contained no package changeset, so the
+required compatibility release was not queued. The corrective release is now
+verified against merged `napplet/naps` master
+`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`:
+
+| # | Corrective publication truth | Status | Evidence |
+| --- | --- | --- | --- |
+| C1 | The canonical 0.31 migration and explicit eight-package release intent merged. | ✓ VERIFIED | Source PR #220 merged as `9390eca7d294375e8330730c411ed5aef74a7a61`; its Changeset covers ACL, CLI, firewall, NIP, Paja, runtime, services, and shell. |
+| C2 | Source and generated release metadata passed their exact-main gates. | ✓ VERIFIED | Source CI #30387669270, Pages #30387670585, and slop #30387669702 succeeded on `9390eca`; Version Packages PR #221 merged as `b61b8cf5e4e40859b0fba6c6e690dc9726f03431`; release-source CI #30388794341, Pages #30388794322, and slop #30388796044 succeeded on that exact SHA. |
+| C3 | The protected release published all intended packages through both registries. | ✓ VERIFIED | Release #30389303760 succeeded on exact SHA `b61b8cf`; npm OIDC and topologically ordered JSR publication both passed. |
+| C4 | All eight current versions are `latest`, with the active Kehto graph accepting Napplet 0.31. | ✓ VERIFIED | npm and JSR report acl 0.17.0, cli 0.4.0, firewall 0.5.0, nip 0.5.0, Paja 0.10.0, runtime 0.20.0, services 0.18.0, and shell 0.19.0. Direct Napplet peers use `>=0.31.0 <0.32.0`; Paja's JSR mappings use `^0.31.0`. |
+| C5 | A clean public consumer installs and bundles the actual current line. | ✓ VERIFIED | A fresh project resolved Paja/core/nap as 0.10.0/0.31.0/0.31.0 without peer errors; direct ESM import and a 179.2 KiB Node esbuild bundle both exposed `startPajaServer`. |
+
+**Corrective publication score:** 5/5 truths verified. Phase 106 now satisfies
+the registry terminal condition against the current Napplet package line. The
+Phase 105 12/24 UI audit remains non-passing debt and is unaffected by this
+release result.
+
+## Prior 0.29 post-merge publication follow-up
 
 The original 13/13 report verified Phase 106's deliberately bounded
 PR-readiness goal. In particular, original truth 13 proved that the Phase 106

@@ -3,11 +3,12 @@ phase: 106
 status: published
 pr_readiness_checked_at: 2026-07-27T16:15:00Z
 publication_checked_at: 2026-07-28T10:24:00Z
+current_napplet_publication_checked_at: 2026-07-28T18:55:51Z
 authority_verdict: conformant
 tested_branch: chore/napplet-scheme-conformance
 tested_source_sha: b2f4c2b80bd62586d28917239de6b93a299d5aa2
-release_source_sha: 54ef2ead03ee0c37783727468b8658b6dc224137
-release_run: 30350331202
+release_source_sha: b61b8cf5e4e40859b0fba6c6e690dc9726f03431
+release_run: 30389303760
 ---
 
 # Phase 106 Release Checklist
@@ -18,11 +19,83 @@ release metadata creation, tagging, or publishing. The separate post-merge
 closure below records the later authorized publication and must not be confused
 with the earlier PR-readiness verdict.
 
-## Post-merge publication closure — 2026-07-28
+## Current-Napplet corrective publication — 2026-07-28
 
-The registry-publication gap is closed. The public npm and JSR packages, rather
-than the earlier source branch or changeset alone, now provide the terminal
-downstream evidence.
+The earlier 0.29 publication was successful but ceased to satisfy Phase 106's
+downstream terminal condition after `@napplet/core@latest` and
+`@napplet/nap@latest` advanced to 0.31.0. PR #211 had no package changeset, so
+its merge could not queue a compatibility release. The corrective source PR
+adds explicit release intent, adopts the packaged canonical 0.31 contracts,
+and completes the protected source → Version Packages → release sequence.
+
+- **Protocol authority:** merged `napplet/naps` master
+  `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`, especially
+  `naps/NAP-INTENT.md`, `naps/NAP-INC.md`, and `naps/NAP-SHELL.md`. The
+  implementation is conformant; no Kehto-only protocol extension was used.
+- **Canonical Napplet source:** `napplet/web`
+  `7b675622e13870628ce174833d7b2a33cf32a0ab` for canonical INC/INTENT
+  alignment and release commit
+  `03ad65b66413e5798536ef48695ffc4c2508f2c3`.
+- **Corrective source and Changeset:** [PR
+  #220](https://github.com/kehto/web/pull/220) merged as
+  `9390eca7d294375e8330730c411ed5aef74a7a61`. Its explicit Changeset covered
+  all eight packages whose shipped output or compatibility metadata changed:
+  ACL, CLI, firewall, NIP, Paja, runtime, services, and shell.
+- **Source exact-main gates:** [CI
+  #30387669270](https://github.com/kehto/web/actions/runs/30387669270),
+  [Pages #30387670585](https://github.com/kehto/web/actions/runs/30387670585),
+  and [AI Slop Badge
+  #30387669702](https://github.com/kehto/web/actions/runs/30387669702) all
+  succeeded on exact source SHA `9390eca7d294375e8330730c411ed5aef74a7a61`.
+- **Generated release metadata:** [Version Packages PR
+  #221](https://github.com/kehto/web/pull/221) merged as exact release source
+  `b61b8cf5e4e40859b0fba6c6e690dc9726f03431`. Its generated package,
+  changelog, JSR, documentation-version, and Changeset-deletion checks passed.
+- **Release exact-main gates:** [CI
+  #30388794341](https://github.com/kehto/web/actions/runs/30388794341),
+  [Pages #30388794322](https://github.com/kehto/web/actions/runs/30388794322),
+  and [AI Slop Badge
+  #30388796044](https://github.com/kehto/web/actions/runs/30388796044) all
+  succeeded on exact release source
+  `b61b8cf5e4e40859b0fba6c6e690dc9726f03431`.
+- **Publication:** authorized [Release
+  #30389303760](https://github.com/kehto/web/actions/runs/30389303760)
+  completed successfully on that exact SHA. Its npm OIDC and topologically
+  ordered JSR publish steps both passed.
+
+### Current public registry versions
+
+Direct npm and JSR `latest` queries returned the same intended versions:
+
+| Package | npm `latest` | npm Napplet peer range | JSR `latest` |
+| --- | --- | --- | --- |
+| `@kehto/acl` | `0.17.0` | core/nap `>=0.31.0 <0.32.0` | `0.17.0` |
+| `@kehto/cli` | `0.4.0` | core/nap `>=0.31.0 <0.32.0` | `0.4.0` |
+| `@kehto/firewall` | `0.5.0` | core `>=0.31.0 <0.32.0` | `0.5.0` |
+| `@kehto/nip` | `0.5.0` | — | `0.5.0` |
+| `@kehto/paja` | `0.10.0` | core/nap `>=0.31.0 <0.32.0` | `0.10.0` |
+| `@kehto/runtime` | `0.20.0` | core/nap `>=0.31.0 <0.32.0` | `0.20.0` |
+| `@kehto/services` | `0.18.0` | core/nap `>=0.31.0 <0.32.0` | `0.18.0` |
+| `@kehto/shell` | `0.19.0` | core/nap `>=0.31.0 <0.32.0` | `0.19.0` |
+
+Paja's published JSR metadata pins the matching internal Kehto releases and
+maps `@napplet/core` plus `@napplet/nap` to `^0.31.0`.
+
+### Current clean downstream proof
+
+A new temporary npm project, with no workspace overrides or existing lockfile,
+successfully installed `@kehto/paja@latest`, `@napplet/core@latest`, and
+`@napplet/nap@latest`. It resolved Paja/core/nap as
+`0.10.0`/`0.31.0`/`0.31.0`, deduplicated Napplet through Paja's complete Kehto
+dependency graph, and reported zero vulnerabilities. Direct ESM import and a
+179.2 KiB Node-platform esbuild bundle both exposed the public
+`startPajaServer` function.
+
+## Prior 0.29 post-merge publication closure — 2026-07-28
+
+At that point, the initial registry-publication gap was closed for the Napplet
+0.29 package line. This section is retained as historical evidence; the
+current-Napplet terminal proof is the corrective publication recorded above.
 
 - **Source PR:** [PR #204](https://github.com/kehto/web/pull/204) merged as
   `b85db51db838866de753b275b9d34ec908785bd2`.
