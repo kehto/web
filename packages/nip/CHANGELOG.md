@@ -1,5 +1,12 @@
 # @kehto/nip
 
+## 0.5.0
+
+### Minor Changes
+
+- 9390eca: Move the public Kehto compatibility line to the current Napplet packages and
+  align the host implementation with the merged NAP-INC and NAP-INTENT contracts.
+
 ## 0.4.2
 
 ### Patch Changes

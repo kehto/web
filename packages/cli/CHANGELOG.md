@@ -1,5 +1,17 @@
 # @kehto/cli
 
+## 0.4.0
+
+### Minor Changes
+
+- 9390eca: Move the public Kehto compatibility line to the current Napplet packages and
+  align the host implementation with the merged NAP-INC and NAP-INTENT contracts.
+
+### Patch Changes
+
+- Updated dependencies [9390eca]
+  - @kehto/paja@0.10.0
+
 ## 0.3.0
 
 ### Minor Changes
