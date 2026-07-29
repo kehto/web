@@ -9,6 +9,7 @@ import {
   createPostMessageProxy,
   getNapplets,
   installOriginRegistryProxy,
+  shouldReuseIntentTarget,
   type NappletInfo,
 } from '../../apps/playground/src/shell-host.js';
 import type { MessageTap } from '../../apps/playground/src/message-tap.js';
@@ -117,5 +118,20 @@ describe('playground origin-registry proxy', () => {
     );
 
     bridge.destroy();
+  });
+});
+
+describe('playground intent target reuse', () => {
+  it('forces a fresh frame for newWindow and reuse:false dispatches', () => {
+    const request = {
+      handler: 'target',
+      sender: 'source',
+      archetype: 'note',
+      action: 'open',
+      convention: 'napplet:note/open',
+    };
+    expect(shouldReuseIntentTarget(request)).toBe(true);
+    expect(shouldReuseIntentTarget({ ...request, behavior: { newWindow: true } })).toBe(false);
+    expect(shouldReuseIntentTarget({ ...request, behavior: { reuse: false } })).toBe(false);
   });
 });

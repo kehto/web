@@ -237,6 +237,11 @@ function intentGeneration(generation: PlaygroundIntentGeneration): IntentGenerat
   throw new Error('intent target generation is no longer available');
 }
 
+/** Whether an intent dispatch permits selecting an already-live target frame. */
+export function shouldReuseIntentTarget(params: IntentDispatchParams): boolean {
+  return params.behavior?.newWindow !== true && params.behavior?.reuse !== false;
+}
+
 async function openOrReuseIntentTarget(
   params: IntentDispatchParams,
   _attempt: number,
@@ -251,8 +256,7 @@ async function openOrReuseIntentTarget(
     && current.selectedRecord === record
     && matchesInstalledNappletRecord(record, currentInfo)
     && isCurrentIntentGeneration(current)
-    && params.behavior?.newWindow !== true
-    && params.behavior?.reuse !== false
+    && shouldReuseIntentTarget(params)
   ) return current;
 
   // A catalog replacement may retain the same d-tag while changing verified bytes.
@@ -263,7 +267,9 @@ async function openOrReuseIntentTarget(
     }
   }
 
-  const live = [...napplets.values()].find((info) => matchesInstalledNappletRecord(record, info));
+  const live = !shouldReuseIntentTarget(params)
+    ? undefined
+    : [...napplets.values()].find((info) => matchesInstalledNappletRecord(record, info));
   if (live) return replaceIntentGeneration(live, record);
 
   let info: NappletInfo;

@@ -151,6 +151,7 @@ describe('PlaygroundIntentController', () => {
     )).toBe(false);
     const shellHost = readFileSync(new URL('../../apps/playground/src/shell-host.ts', import.meta.url), 'utf8');
     expect(shellHost).toContain('closeNapplet(stale.windowId)');
+    expect(shellHost).toContain('shouldReuseIntentTarget(params)');
   });
 
 });
