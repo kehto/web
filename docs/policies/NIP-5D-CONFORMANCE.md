@@ -59,10 +59,12 @@ authority.
 
 The released package projection owns query-to-text-payload transposition in the
 shared, runtime-provided INC binding. Kehto runtime routing then uses an exact
-queryless topic identity. It rejects query-bearing normalized wire or discovery
-identities and must not add prefix, wildcard, or query-aware matching,
-service-over-INC prefix dispatch, synthetic senderless events, or runtime
-payload-kind inference. The runtime attaches a **runtime-attested dTag** to
+stable convention topic identity. It rejects query-bearing normalized wire or
+discovery identities, while routing arbitrary opaque strings (including `?` and
+`#`) by their complete exact text. It must not add prefix, wildcard, or
+query-aware matching, service-over-INC prefix dispatch, synthetic senderless
+events, or runtime payload-kind inference. The runtime attaches a
+**runtime-attested dTag** to
 delivered events, does not accept caller `sender`, keeps payloads and IDs
 opaque, and excludes the source endpoint from topic fan-out.
 

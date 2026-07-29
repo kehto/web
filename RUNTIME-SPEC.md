@@ -38,10 +38,11 @@ implemented boundary and must be re-audited when that source changes.
 **Published-projection query-to-text-payload transposition** occurs only in the
 runtime-provided `window.napplet.inc` binding. A convention URI query becomes a
 text payload map before the wire message is emitted; the runtime receives only
-the stable identity. Runtime routing is exact queryless topic identity lookup:
-it does not normalize, prefix/wildcard/query-match, infer a payload kind, or
-intercept an `inc` topic for generic/service dispatch. A normalized
-query-bearing wire or discovery identity is therefore invalid.
+the exact stable convention topic identity. Runtime routing is exact lookup: it routes an
+opaque topic, including `?` and `#`, by its complete text and does not
+normalize, prefix/wildcard/query-match, infer a payload kind, or intercept an
+`inc` topic for generic/service dispatch. A normalized query-bearing convention
+wire or discovery identity is therefore invalid.
 
 The runtime attests identity from the registered endpoint: delivered topic and
 channel events contain a **runtime-attested dTag**, never a caller-supplied

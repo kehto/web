@@ -45,8 +45,10 @@ draft, but its merged path is the protocol authority.
 The released package projection and `window.napplet.inc` binding own
 query-to-text-payload
 transposition: it converts a convention URI query before emitting a stable,
-exact queryless topic identity. Subscriptions reject query-bearing identities.
-The binding never creates a normalized query-bearing wire/discovery identity,
+exact stable convention topic identity. Subscriptions reject query- or fragment-bearing
+**convention** identities; arbitrary opaque topics remain byte-for-byte exact,
+including `?` and `#`. The binding never creates a normalized query-bearing
+wire/discovery identity,
 does not do prefix/wildcard/query-aware matching or service-over-INC prefix
 dispatch, and does not infer payload kinds. Runtime delivery supplies the
 **runtime-attested dTag**; no caller sender is accepted, topic source exclusion

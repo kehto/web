@@ -761,11 +761,31 @@ describe('NIP-5D napplet namespace prelude', () => {
     expect(() => inc.on('napplet:profile/open#fragment', () => undefined)).toThrow();
     expect(target.postedMessages).toHaveLength(postsBeforeInvalid);
 
+    const opaqueTopics = [
+      'custom:topic?name=value',
+      'custom:topic#part',
+      'custom:topic?name=value#part',
+    ];
+    for (const topic of opaqueTopics) {
+      const received: unknown[] = [];
+      const subscription = inc.on(topic, (event) => received.push(event));
+      const opaqueSubscribe = withoutShellReady(target).at(-1);
+      expect(opaqueSubscribe).toMatchObject({ type: 'inc.subscribe', topic });
+      target.dispatchParentMessage({ type: 'inc.subscribe.result', id: opaqueSubscribe?.id });
+      target.dispatchParentMessage({ type: 'inc.event', topic, sender: 'opaque-owner', payload: { value: 'exact' } });
+      expect(received).toEqual([{ topic, sender: 'opaque-owner', payload: { value: 'exact' } }]);
+      subscription.close();
+      expect(withoutShellReady(target).at(-1)).toEqual({ type: 'inc.unsubscribe', topic });
+    }
+
+    const subscriptionsBeforeCanonical = withoutShellReady(target)
+      .filter((message) => message.type === 'inc.subscribe').length;
     const first = inc.on('napplet:profile/open', (event) => receivedA.push(event));
     const second = inc.on('napplet:profile/open', (event) => receivedB.push(event));
     const subscribe = withoutShellReady(target).at(-1);
-    expect(withoutShellReady(target).filter((message) => message.type === 'inc.subscribe')).toHaveLength(1);
-    expect(subscribe).toMatchObject({ type: 'inc.subscribe', topic: 'napplet:profile/open', id: 'id-1' });
+    expect(withoutShellReady(target).filter((message) => message.type === 'inc.subscribe'))
+      .toHaveLength(subscriptionsBeforeCanonical + 1);
+    expect(subscribe).toMatchObject({ type: 'inc.subscribe', topic: 'napplet:profile/open' });
     target.dispatchParentMessage({ type: 'inc.subscribe.result', id: subscribe?.id });
     target.dispatchParentMessage({ type: 'inc.event', topic: 'napplet:profile/open', sender: 'profile-owner', payload: { id: 'one' } });
     expect(receivedA).toEqual([{ topic: 'napplet:profile/open', sender: 'profile-owner', payload: { id: 'one' } }]);

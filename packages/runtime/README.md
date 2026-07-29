@@ -107,9 +107,11 @@ draft, but the merged path is the protocol authority.
 
 The released projection binding converts a convention query to a text payload
 map before sending `inc.emit`. Runtime `inc-handler` routing then uses an exact
-queryless topic identity, with no query-bearing normalized wire/discovery
-identity, prefix/wildcard/query-aware matching, generic or service-over-INC
-prefix dispatch, or runtime payload-kind inference. The runtime derives the
+stable convention topic identity, with no query-bearing normalized
+wire/discovery identity, prefix/wildcard/query-aware matching, generic or
+service-over-INC prefix dispatch, or runtime payload-kind inference. Arbitrary
+opaque topic strings, including `?` and `#`, are routed by their complete exact
+text. The runtime derives the
 **runtime-attested dTag** from the registered source; callers never supply a
 sender, topic delivery excludes its source, and IDs/payloads are opaque.
 

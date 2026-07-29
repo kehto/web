@@ -400,9 +400,17 @@ function nappletNamespacePrelude(domains: string[]): void {
     const unopenedEvents = new Map<string, ChannelEvent[]>();
     const unopenedClosed = new Map<string, ChannelClosed>();
 
+    function isConventionTopic(topic: string): boolean {
+      if (!topic.startsWith('napplet:')) return false;
+      const pathEnd = topic.search(/[?#]/);
+      const path = pathEnd === -1 ? topic : topic.slice(0, pathEnd);
+      const separator = path.indexOf('/', 'napplet:'.length);
+      return separator > 'napplet:'.length && separator < path.length - 1;
+    }
+
     function stableSubscriptionTopic(topic: unknown): string {
       if (typeof topic !== 'string') throw new TypeError('INC topic must be text');
-      if (topic.includes('?') || topic.includes('#')) {
+      if (isConventionTopic(topic) && (topic.includes('?') || topic.includes('#'))) {
         throw new TypeError('INC subscriptions require a queryless topic identity');
       }
       return topic;

@@ -777,7 +777,9 @@ describe('NIP-5D conformance static guards', () => {
     for (const file of docs) {
       const source = readRepoFile(file);
       for (const head of exactHeads) expect(source, `${file} must pin ${head}`).toContain(head);
-      expect(source, `${file} must retain exact queryless identities`).toMatch(/exact\s+queryless\s+(?:topic\s+)?identity/i);
+      expect(source, `${file} must retain exact stable convention identities`)
+        .toMatch(/exact\s+stable\s+convention\s+topic\s+identity/i);
+      expect(source, `${file} must retain opaque-topic routing`).toMatch(/opaque[\s\S]*`\?`[\s\S]*`#`/i);
       expect(source, `${file} must describe runtime-attested dTags`).toMatch(/runtime-attested dTag/i);
       expect(source, `${file} must not retain the superseded INC authority`).not.toContain(
         '6461e4b37c29dc09a20dff35d9515889c4433874',
@@ -805,6 +807,8 @@ describe('NIP-5D conformance static guards', () => {
     expect(incHandler).toContain("type: 'inc.channel.opened'");
     expect(incHandler).not.toMatch(/topic\??\.startsWith\s*\(/);
     expect(namespace).toContain('INC subscriptions require a queryless topic identity');
+    expect(namespace).toContain('function isConventionTopic');
+    expect(namespace).toContain("isConventionTopic(topic) && (topic.includes('?') || topic.includes('#'))");
     expect(namespace).toContain('function deliverOpened');
     expect(namespace).toContain('function closeChannelState');
     expect(namespace).toContain("reason: 'buffer overflow'");
