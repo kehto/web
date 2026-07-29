@@ -212,10 +212,14 @@ export function parseNappletManifest(event: NostrEvent): NappletManifest {
   if (!aggregateHash) {
     throw new NappletResolutionError('invalid-manifest', 'manifest has no aggregate x tag');
   }
+  const dTag = firstTagValue(event.tags, 'd');
+  if (event.kind !== NAPPLET_KIND_NAMED && dTag !== undefined) {
+    throw new NappletResolutionError('invalid-manifest', 'only named manifests may carry a d tag');
+  }
   return {
     kind: event.kind,
     pubkey: event.pubkey,
-    dTag: firstTagValue(event.tags, 'd') ?? '',
+    dTag: dTag ?? '',
     paths,
     aggregateHash,
     servers: allTagValues(event.tags, 'server'),

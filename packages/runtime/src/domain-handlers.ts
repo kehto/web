@@ -1,10 +1,13 @@
 import type { NappletMessage } from '@napplet/core';
+import {
+  createCanonicalDomainResult,
+  createIntentServiceUnavailableResult,
+} from './domain-results.js';
 
 import type { AclStateContainer } from './acl-state.js';
 import type { SessionRegistry } from './session-registry.js';
 import { handleStorageNap } from './state-handler.js';
 import type { RuntimeAdapter, ServiceRegistry } from './types.js';
-import { createCanonicalDomainResult } from './domain-results.js';
 
 type DomainHandler = (windowId: string, msg: NappletMessage) => void;
 
@@ -182,6 +185,12 @@ function handleServiceOnlyMessage(
     return;
   }
   const service = context.serviceRegistry[name];
-  if (!service) return;
+  if (!service) {
+    if (name === 'intent') {
+      const result = createIntentServiceUnavailableResult(msg);
+      if (result) context.hooks.sendToNapplet(windowId, result);
+    }
+    return;
+  }
   service.handleMessage(windowId, msg, (resp: NappletMessage) => context.hooks.sendToNapplet(windowId, resp));
 }

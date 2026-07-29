@@ -33,13 +33,10 @@ export interface ManifestArchetypeInput {
   archetypes: Array<{ slug: string; convention: string }>;
 }
 
-function actionFromConvention(slug: string, convention: string): string {
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
-    throw new TypeError('manifest archetype slug is invalid');
-  }
+function actionFromConvention(convention: string): string {
   const match = /^napplet:([^/?#\s]+)\/([^/?#\s]+)$/.exec(convention);
-  if (!match || match[1] !== slug) {
-    throw new TypeError('manifest archetype convention is invalid or mismatched');
+  if (!match) {
+    throw new TypeError('manifest archetype convention is invalid');
   }
   return match[2];
 }
@@ -71,7 +68,12 @@ function actionFromConvention(slug: string, convention: string): string {
 export function manifestToIntentCatalogEntry(manifest: ManifestArchetypeInput): IntentCatalogEntry {
   const archetypes: Record<string, IntentArchetypeSupport> = {};
   for (const { slug, convention } of manifest.archetypes) {
-    const action = actionFromConvention(slug, convention);
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
+      throw new TypeError('manifest archetype slug is invalid');
+    }
+    // NAP-INTENT deliberately keeps routing archetypes and payload conventions
+    // orthogonal, so the convention's URI archetype need not equal this slug.
+    const action = actionFromConvention(convention);
     const support = archetypes[slug] ??= {
       actions: [],
       conventions: [],

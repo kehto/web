@@ -1053,6 +1053,37 @@ describe('NIP-5D napplet namespace prelude', () => {
     expect(overflowClosed).toEqual([{ channelId: 'c-overflow', reason: 'buffer overflow' }]);
   });
 
+  it('replays buffered events once even when the terminal close arrived first', () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['inc'] }), target);
+
+    type ChannelEvent = { channelId: string; sender: string; payload?: unknown };
+    type ChannelClosed = { channelId: string; reason?: string };
+    type Handle = {
+      on: (handler: (event: ChannelEvent) => void) => { close(): void };
+      onClosed: (handler: (closed: ChannelClosed) => void) => { close(): void };
+    };
+    type Inc = {
+      channel: { onOpened: (handler: (handle: Handle) => void) => { close(): void } };
+    };
+    const inc = target.napplet?.inc as Inc;
+
+    target.dispatchParentMessage({ type: 'inc.channel.opened', channelId: 'c-closed', peer: 'music-controller' });
+    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-closed', sender: 'music-controller', payload: { order: 1 } });
+    target.dispatchParentMessage({ type: 'inc.channel.closed', channelId: 'c-closed', reason: 'peer destroyed' });
+
+    let handle: Handle | undefined;
+    inc.channel.onOpened((opened) => { handle = opened; });
+    const events: ChannelEvent[] = [];
+    const closed: ChannelClosed[] = [];
+    handle?.on((event) => events.push(event));
+    handle?.onClosed((event) => closed.push(event));
+    handle?.on(() => events.push({ channelId: 'unexpected', sender: 'unexpected' }));
+
+    expect(events).toEqual([{ channelId: 'c-closed', sender: 'music-controller', payload: { order: 1 } }]);
+    expect(closed).toEqual([{ channelId: 'c-closed', reason: 'peer destroyed' }]);
+  });
+
   it('retains every trusted-parent inbound handle in arrival order until onOpened registers', () => {
     const target = createPreludeTestWindow();
     runPrelude(renderNappletNamespacePrelude({ domains: ['inc'] }), target);

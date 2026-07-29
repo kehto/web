@@ -425,7 +425,6 @@ function nappletNamespacePrelude(domains: string[]): void {
         },
         on(handler: (event: ChannelEvent) => void) {
           if (typeof handler !== 'function') throw new TypeError('INC channel event handler must be a function');
-          if (state.closed) return subscriptionHandle(() => undefined);
           state.eventHandlers.add(handler);
           const pending = state.pendingEvents.splice(0);
           for (const event of pending) handler(event);

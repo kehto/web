@@ -31,6 +31,28 @@ function createRuntimeOwnedResultEnvelope(type: string, id: string): NappletMess
   return Object.assign({ type } as NappletMessage, { id });
 }
 
+function intentRequestDetails(message: NappletMessage): { archetype: string; action: string } {
+  const request = (message as NappletMessage & {
+    request?: { archetype?: unknown; action?: unknown };
+  }).request;
+  return {
+    archetype: typeof request?.archetype === 'string' ? request.archetype : '',
+    action: typeof request?.action === 'string' && request.action.length > 0
+      ? request.action
+      : 'open',
+  };
+}
+
+function createIntentInvokeRejection(message: NappletMessage, error: string): NappletMessage {
+  const id = (message as NappletMessage & { id?: string }).id ?? '';
+  const { archetype, action } = intentRequestDetails(message);
+  return {
+    type: 'intent.invoke.result',
+    id,
+    result: { ok: false, archetype, action, handled: false, error },
+  } as NappletMessage;
+}
+
 /** Return whether a message belongs to a runtime-owned identity/theme domain. */
 export function isIdentityOrThemeMessage(message: NappletMessage): boolean {
   return message.type.startsWith('identity.') || message.type.startsWith('theme.');
@@ -51,11 +73,7 @@ export function createIntentPolicyDenial(
 ): NappletMessage | undefined {
   const id = (message as NappletMessage & { id?: string }).id ?? '';
   if (message.type === 'intent.invoke') {
-    return {
-      type: 'intent.invoke.result',
-      id,
-      result: { ok: false, error: 'invoke rejected' },
-    } as NappletMessage;
+    return createIntentInvokeRejection(message, 'invoke rejected');
   }
   if (message.type === 'intent.available' || message.type === 'intent.handlers') {
     return {
@@ -63,6 +81,33 @@ export function createIntentPolicyDenial(
       id,
       error: 'intent request denied',
     } as NappletMessage;
+  }
+  return undefined;
+}
+
+/** Shape canonical replies when no NAP-INTENT service is registered. */
+export function createIntentServiceUnavailableResult(
+  message: NappletMessage,
+): NappletMessage | undefined {
+  const id = (message as NappletMessage & { id?: string }).id ?? '';
+  if (message.type === 'intent.invoke') {
+    return createIntentInvokeRejection(message, 'no handler');
+  }
+  if (message.type === 'intent.available') {
+    const archetype = (message as NappletMessage & { archetype?: unknown }).archetype;
+    return {
+      type: 'intent.available.result',
+      id,
+      availability: {
+        archetype: typeof archetype === 'string' ? archetype : '',
+        available: false,
+        candidates: [],
+        hasDefault: false,
+      },
+    } as NappletMessage;
+  }
+  if (message.type === 'intent.handlers') {
+    return { type: 'intent.handlers.result', id, handlers: [] } as NappletMessage;
   }
   return undefined;
 }

@@ -134,6 +134,20 @@ describe('parseNappletManifest', () => {
     const { event } = buildManifest({ noAggregateTag: true });
     expect(() => parseNappletManifest(event)).toThrow(/aggregate/i);
   });
+
+  it.each([NAPPLET_KIND_SNAPSHOT, NAPPLET_KIND_ROOT])(
+    'rejects a forbidden d tag on kind %i',
+    (kind) => {
+      const { event } = buildManifest({ kind });
+      try {
+        parseNappletManifest(event);
+        throw new Error('expected parseNappletManifest to reject');
+      } catch (error) {
+        expect(error).toBeInstanceOf(NappletResolutionError);
+        expect((error as NappletResolutionError).code).toBe('invalid-manifest');
+      }
+    },
+  );
 });
 
 describe('archetype + source parsing', () => {

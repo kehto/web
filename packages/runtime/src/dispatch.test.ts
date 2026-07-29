@@ -1264,6 +1264,30 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(ctx.sent).toHaveLength(0);
     });
 
+    it('removes INC topic subscriptions synchronously when relay:read is revoked', () => {
+      runtime.sessionRegistry.register(
+        WINDOW_ID_2,
+        createNip5dSessionEntry(WINDOW_ID_2, 'peer-napp', 'c'.repeat(64)),
+      );
+      runtime.handleMessage(WINDOW_ID_2, {
+        type: 'inc.subscribe', id: 'revoked-topic-subscription', topic: 'revoked-topic',
+      } as NappletMessage);
+      ctx.sent.length = 0;
+
+      runtime.aclState.revoke('', 'peer-napp', 'c'.repeat(64), 'relay:read');
+      runtime.handleMessage(WINDOW_ID, {
+        type: 'inc.emit', topic: 'revoked-topic', payload: { should: 'not arrive' },
+      } as NappletMessage);
+
+      expect(ctx.sent.some(({ windowId, message }) => (
+        windowId === WINDOW_ID_2
+        && typeof message === 'object'
+        && message !== null
+        && !Array.isArray(message)
+        && (message as NappletMessage).type === 'inc.event'
+      ))).toBe(false);
+    });
+
     it('keeps established channels intact for grants, unblocks, and unrelated revocations', () => {
       runtime.sessionRegistry.register(
         WINDOW_ID_2,

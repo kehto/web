@@ -342,6 +342,34 @@ describe('inc channel sub-protocol (NAP-04 / DRIFT-RT-09)', () => {
     expect(aEvents).toHaveLength(0);
   });
 
+  it('omits absent payloads and preserves explicit null and falsy payloads', () => {
+    runtime.handleMessage(WINDOW_B, { type: 'inc.subscribe', id: 'topic-sub', topic: 'payload-topic' } as NappletMessage);
+    ctx.sent.length = 0;
+    runtime.handleMessage(WINDOW_A, { type: 'inc.emit', topic: 'payload-topic' } as NappletMessage);
+    const topicEvent = envelopesOfType(ctx.sent, WINDOW_B, 'inc.event')[0] as unknown as Record<string, unknown>;
+    expect(Object.hasOwn(topicEvent, 'payload')).toBe(false);
+
+    runtime.handleMessage(WINDOW_A, { type: 'inc.channel.open', id: 'payload-open', target: DTAG_B } as NappletMessage);
+    const channelId = envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.open.result').at(-1) as NappletMessage & { channelId: string };
+    ctx.sent.length = 0;
+    runtime.handleMessage(WINDOW_A, { type: 'inc.channel.emit', channelId: channelId.channelId } as NappletMessage);
+    const channelEvent = envelopesOfType(ctx.sent, WINDOW_B, 'inc.channel.event')[0] as unknown as Record<string, unknown>;
+    expect(Object.hasOwn(channelEvent, 'payload')).toBe(false);
+
+    runtime.handleMessage(WINDOW_A, { type: 'inc.channel.broadcast', payload: null } as NappletMessage);
+    const broadcastEvent = envelopesOfType(ctx.sent, WINDOW_B, 'inc.channel.event').at(-1) as unknown as Record<string, unknown>;
+    expect(Object.hasOwn(broadcastEvent, 'payload')).toBe(true);
+    expect(broadcastEvent.payload).toBeNull();
+
+    for (const payload of [false, 0, '', [], {}]) {
+      ctx.sent.length = 0;
+      runtime.handleMessage(WINDOW_A, { type: 'inc.emit', topic: 'payload-topic', payload } as NappletMessage);
+      const explicitEvent = envelopesOfType(ctx.sent, WINDOW_B, 'inc.event')[0] as unknown as Record<string, unknown>;
+      expect(Object.hasOwn(explicitEvent, 'payload')).toBe(true);
+      expect(explicitEvent.payload).toEqual(payload);
+    }
+  });
+
   // ─── Test 6: subscribe.result ──────────────────────────────────────────────
 
   it('inc.subscribe emits inc.subscribe.result', () => {

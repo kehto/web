@@ -200,11 +200,31 @@ describe('runtime intent domain dispatch', () => {
     expect(received.map((m) => m.type)).toEqual(['intent.available', 'intent.handlers']);
   });
 
-  it('intent.invoke without a registered service: no throw, no envelope emitted (silent drop)', () => {
+  it('returns canonical unavailable results when no intent service is registered', () => {
     expect(() => {
       runtime.handleMessage(WINDOW_ID, { type: 'intent.invoke', id: 'i2', request: REQUEST } as NappletMessage);
     }).not.toThrow();
-    expect(ctx.sent).toHaveLength(0);
+    runtime.handleMessage(WINDOW_ID, { type: 'intent.available', id: 'a2', archetype: 'note' } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'intent.handlers', id: 'h2' } as NappletMessage);
+    expect(ctx.sent).toEqual([
+      {
+        windowId: WINDOW_ID,
+        message: {
+          type: 'intent.invoke.result',
+          id: 'i2',
+          result: { ok: false, archetype: 'note', action: 'open', handled: false, error: 'no handler' },
+        },
+      },
+      {
+        windowId: WINDOW_ID,
+        message: {
+          type: 'intent.available.result',
+          id: 'a2',
+          availability: { archetype: 'note', available: false, candidates: [], hasDefault: false },
+        },
+      },
+      { windowId: WINDOW_ID, message: { type: 'intent.handlers.result', id: 'h2', handlers: [] } },
+    ]);
   });
 
   it('shapes ACL-denied intent.invoke as one fixed structured result', () => {
@@ -226,7 +246,7 @@ describe('runtime intent domain dispatch', () => {
       message: {
         type: 'intent.invoke.result',
         id: 'i-denied',
-        result: { ok: false, error: 'invoke rejected' },
+        result: { ok: false, archetype: 'note', action: 'open', handled: false, error: 'invoke rejected' },
       },
     }]);
   });
@@ -250,7 +270,7 @@ describe('runtime intent domain dispatch', () => {
       message: {
         type: 'intent.invoke.result',
         id: 'i-firewall',
-        result: { ok: false, error: 'invoke rejected' },
+        result: { ok: false, archetype: 'note', action: 'open', handled: false, error: 'invoke rejected' },
       },
     }]);
   });

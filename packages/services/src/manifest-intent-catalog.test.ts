@@ -23,11 +23,20 @@ describe('manifestToIntentCatalogEntry', () => {
     });
   });
 
+  it('keeps routing archetypes orthogonal to convention URI archetypes', () => {
+    expect(manifestToIntentCatalogEntry({
+      dTag: 'profile-viewer',
+      archetypes: [{ slug: 'bookmark', convention: 'napplet:note/open' }],
+    })).toEqual({
+      dTag: 'profile-viewer',
+      archetypes: { bookmark: { actions: ['open'], conventions: ['napplet:note/open'] } },
+    });
+  });
+
   it.each([
-    [[{ slug: 'Bad Slug', convention: 'napplet:Bad Slug/open' }]],
-    [[{ slug: 'profile', convention: 'napplet:note/open' }]],
+    [[{ slug: 'Bad Slug', convention: 'napplet:note/open' }]],
     [[{ slug: 'profile', convention: 'napplet:profile/open?kind=0' }]],
-  ])('rejects malformed or mismatched canonical archetype data', (archetypes) => {
+  ])('rejects malformed canonical archetype data', (archetypes) => {
     expect(() => manifestToIntentCatalogEntry({ dTag: 'target', archetypes }))
       .toThrow(/archetype/);
   });
