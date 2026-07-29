@@ -1,5 +1,14 @@
 # @kehto/shell
 
+## 0.19.1
+
+### Patch Changes
+
+- 8e0dabc: Preserve opaque INC subscription topics containing query or fragment characters.
+- 9d70803: Fix INC delivery retention and revocation cleanup, align INTENT resolution with the canonical contract, and reject invalid NIP-5D manifest identities.
+- Updated dependencies [9d70803]
+  - @kehto/runtime@0.20.1
+
 ## 0.19.0
 
 ### Minor Changes

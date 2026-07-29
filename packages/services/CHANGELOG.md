@@ -1,5 +1,13 @@
 # @kehto/services
 
+## 0.18.1
+
+### Patch Changes
+
+- 9d70803: Fix INC delivery retention and revocation cleanup, align INTENT resolution with the canonical contract, and reject invalid NIP-5D manifest identities.
+- Updated dependencies [9d70803]
+  - @kehto/runtime@0.20.1
+
 ## 0.18.0
 
 ### Minor Changes

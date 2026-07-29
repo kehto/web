@@ -1,5 +1,11 @@
 # @kehto/nip
 
+## 0.5.1
+
+### Patch Changes
+
+- 9d70803: Fix INC delivery retention and revocation cleanup, align INTENT resolution with the canonical contract, and reject invalid NIP-5D manifest identities.
+
 ## 0.5.0
 
 ### Minor Changes
