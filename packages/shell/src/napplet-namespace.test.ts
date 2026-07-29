@@ -745,6 +745,11 @@ describe('NIP-5D napplet namespace prelude', () => {
       topic: 'napplet:profile/open',
       payload: { truth: 'false', count: '42', nothing: 'null', plus: 'a+b', encoded: '✓' },
     });
+    inc.emit('napplet:profile/open?__proto__=literal');
+    const protoPayload = withoutShellReady(target).at(-1)?.payload as Record<string, string>;
+    expect(Object.hasOwn(protoPayload, '__proto__')).toBe(true);
+    expect(protoPayload.__proto__).toBe('literal');
+    expect(Object.getPrototypeOf(protoPayload)).toBe(Object.prototype);
 
     const postsBeforeInvalid = target.postedMessages.length;
     for (const invalid of [
@@ -765,9 +770,14 @@ describe('NIP-5D napplet namespace prelude', () => {
       'custom:topic?name=value',
       'custom:topic#part',
       'custom:topic?name=value#part',
+      'napplet:profile?x=1',
+      'napplet:profile/open/extra?x=1',
+      'napplet:profile//?x=1',
     ];
     for (const topic of opaqueTopics) {
       const received: unknown[] = [];
+      inc.emit(topic, { topic });
+      expect(withoutShellReady(target).at(-1)).toEqual({ type: 'inc.emit', topic, payload: { topic } });
       const subscription = inc.on(topic, (event) => received.push(event));
       const opaqueSubscribe = withoutShellReady(target).at(-1);
       expect(opaqueSubscribe).toMatchObject({ type: 'inc.subscribe', topic });

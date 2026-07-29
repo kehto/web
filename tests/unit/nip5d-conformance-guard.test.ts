@@ -808,7 +808,10 @@ describe('NIP-5D conformance static guards', () => {
     expect(incHandler).not.toMatch(/topic\??\.startsWith\s*\(/);
     expect(namespace).toContain('INC subscriptions require a queryless topic identity');
     expect(namespace).toContain('function isConventionTopic');
+    expect(namespace).toContain("return /^napplet:[^/?#]+\\/[^/?#]+$/.test(path);");
+    expect(namespace).toContain('if (!isConventionTopic(topic)) return { topic };');
     expect(namespace).toContain("isConventionTopic(topic) && (topic.includes('?') || topic.includes('#'))");
+    expect(namespace).toContain('payload: Object.fromEntries(entries)');
     expect(namespace).toContain('function deliverOpened');
     expect(namespace).toContain('function closeChannelState');
     expect(namespace).toContain("reason: 'buffer overflow'");
