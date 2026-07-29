@@ -15,6 +15,10 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
+      release_sha:
+        description: 'Validated main commit to publish (set by Version Packages automation)'
+        type: string
+        default: ''
       skip_npm:
         description: 'Skip npm publish for registry-repair dispatches; tag releases always publish npm'
         type: boolean
@@ -39,7 +43,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # full history so changeset can read version state
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_sha || github.sha }}
           submodules: recursive
+
+      - name: Verify the requested release commit is on main
+        env:
+          RELEASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.release_sha || github.sha }}
+        run: |
+          git fetch origin main
+          git rev-parse --verify "${RELEASE_SHA}^{commit}"
+          git merge-base --is-ancestor "$RELEASE_SHA" origin/main
 
       - uses: pnpm/action-setup@v3
 

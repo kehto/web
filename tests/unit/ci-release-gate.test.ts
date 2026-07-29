@@ -11,6 +11,10 @@ function releaseWorkflowSource() {
   return readFileSync(join(process.cwd(), '.github', 'workflows', 'release.yml'), 'utf8');
 }
 
+function versionPackagesWorkflowSource() {
+  return readFileSync(join(process.cwd(), '.github', 'workflows', 'publish.yml'), 'utf8');
+}
+
 describe('CI release-only gates', () => {
   test('skips docs generation for generated Version Packages metadata', () => {
     expect(workflowSource()).toMatch(
@@ -28,5 +32,17 @@ describe('CI release-only gates', () => {
     const release = releaseWorkflowSource();
     expect(release).toContain('npm install -g npm@11.17.0');
     expect(release).not.toContain('npm install -g npm@latest');
+  });
+
+  test('routes each merged Version Packages commit through the sole OIDC publishing workflow', () => {
+    const versionPackages = versionPackagesWorkflowSource();
+    const release = releaseWorkflowSource();
+    expect(versionPackages).toContain('name: Version Packages');
+    expect(versionPackages).toContain("pullRequest.title === 'Version Packages'");
+    expect(versionPackages).toContain("pullRequest.head.ref === 'changeset-release/main'");
+    expect(versionPackages).toContain('gh workflow run release.yml');
+    expect(versionPackages).toContain('--raw-field release_sha="$RELEASE_SHA"');
+    expect(release).toContain("ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_sha || github.sha }}");
+    expect(release).toContain('git merge-base --is-ancestor "$RELEASE_SHA" origin/main');
   });
 });
