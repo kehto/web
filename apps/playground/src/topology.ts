@@ -199,6 +199,28 @@ function makePort(parent: HTMLElement, xPct: number, yPct: number): HTMLElement 
   return port;
 }
 
+/**
+ * Keep LeaderLine's body-level SVGs inside the scrollable topology canvas.
+ *
+ * LeaderLine renders each SVG under document.body, while the node elements live
+ * inside #topology-pane. Without an explicit clip, paths for off-screen nodes
+ * spill into the relay activity and debugger panels and look detached from
+ * their endpoints.
+ */
+function clipLinesToTopologyPane(topologyPane: HTMLElement | null): void {
+  if (!topologyPane) return;
+
+  const paneRect = topologyPane.getBoundingClientRect();
+  for (const line of document.querySelectorAll<SVGSVGElement>('svg.leader-line')) {
+    const lineRect = line.getBoundingClientRect();
+    const top = Math.max(0, paneRect.top - lineRect.top);
+    const right = Math.max(0, lineRect.right - paneRect.right);
+    const bottom = Math.max(0, lineRect.bottom - paneRect.bottom);
+    const left = Math.max(0, paneRect.left - lineRect.left);
+    line.style.clipPath = `inset(${top}px ${right}px ${bottom}px ${left}px)`;
+  }
+}
+
 export function initTopologyEdges(topology: DemoTopology): EdgeFlasher {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const lines = new Map<string, any>();
@@ -250,9 +272,13 @@ export function initTopologyEdges(topology: DemoTopology): EdgeFlasher {
     } catch { /* best-effort — may fail if elements not visible */ }
   }
 
-  // Shared repositioner — calls line.position() on every active line
+  const topologyPane = document.getElementById('topology-pane');
+
+  // Shared repositioner — calls line.position() on every active line and
+  // keeps LeaderLine's document-level SVG output within the node canvas.
   const repositionAll = () => {
     lines.forEach((line) => { try { line.position(); } catch { /* best-effort */ } });
+    clipLinesToTopologyPane(topologyPane);
   };
 
   // Reposition lines when topology layout or inspector pane changes size
@@ -264,7 +290,6 @@ export function initTopologyEdges(topology: DemoTopology): EdgeFlasher {
 
   // Reposition lines when the topology pane scrolls — LeaderLine SVGs live
   // on document.body and don't move with the scroll container automatically.
-  const topologyPane = document.getElementById('topology-pane');
   if (topologyPane) {
     topologyPane.addEventListener('scroll', repositionAll, { passive: true });
   }
@@ -272,6 +297,7 @@ export function initTopologyEdges(topology: DemoTopology): EdgeFlasher {
   // Safety net: reposition after window resize in case flex reflow settles
   // after LeaderLine's built-in positionByWindowResize handler fires.
   window.addEventListener('resize', repositionAll, { passive: true });
+  repositionAll();
 
   return {
     flash(edgeId: string, cls: 'active' | 'blocked'): void {

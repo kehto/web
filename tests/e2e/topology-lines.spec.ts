@@ -40,4 +40,42 @@ test.describe('topology connector lines (BUG-01/BUG-02)', () => {
       )
       .toBeGreaterThanOrEqual(1);
   });
+
+  test('clips body-level connector SVGs to the topology scroll canvas', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+    await expect
+      .poll(
+        async () => page.evaluate(() => document.querySelectorAll('svg.leader-line').length),
+        { timeout: 20_000 },
+      )
+      .toBeGreaterThanOrEqual(1);
+
+    const initial = await page.evaluate(() => {
+      const pane = document.getElementById('topology-pane');
+      if (!pane) return null;
+      const paneRect = pane.getBoundingClientRect();
+      const lines = [...document.querySelectorAll<SVGSVGElement>('svg.leader-line')];
+      return {
+        hasOffCanvasLine: lines.some((line) => line.getBoundingClientRect().bottom > paneRect.bottom),
+        allClipped: lines.every((line) => line.style.clipPath.startsWith('inset(')),
+      };
+    });
+
+    expect(initial).toEqual({ hasOffCanvasLine: true, allClipped: true });
+
+    await page.evaluate(async () => {
+      const pane = document.getElementById('topology-pane');
+      pane?.scrollTo({ top: 220 });
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    });
+
+    await expect
+      .poll(
+        async () => page.evaluate(() =>
+          [...document.querySelectorAll<SVGSVGElement>('svg.leader-line')]
+            .every((line) => line.style.clipPath.startsWith('inset('))),
+      )
+      .toBe(true);
+  });
 });
