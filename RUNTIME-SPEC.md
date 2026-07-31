@@ -103,6 +103,10 @@ and convention dispatch. A successful result includes `handled`, `handler`,
 `windowId`, and `convention`; the target receives the selected convention
 through runtime-attested `inc.event`.
 
+The request `archetype` selects the handler role, while `convention` shapes the
+opaque payload. They are orthogonal N:M values: a manifest role may advertise a
+convention whose URI archetype token differs from that role's slug.
+
 ## Content-Addressed Loading & Identity
 
 Napplets are content-addressed. The runtime resolves and renders a napplet from

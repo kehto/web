@@ -207,6 +207,10 @@ describe('playground gateway artifact guard', () => {
       ],
     })).not.toThrow();
 
+    expect(() => definePlaygroundNappletConfig('bookmark-reader', {
+      archetypes: [{ slug: 'bookmark', convention: 'napplet:note/open' }],
+    })).not.toThrow();
+
     const invalid: unknown[] = [
       { slug: '', convention: 'napplet:profile/open' },
       { slug: 'Profile', convention: 'napplet:Profile/open' },
@@ -219,7 +223,6 @@ describe('playground gateway artifact guard', () => {
       { slug: 'profile', convention: 'NAP-1' },
       { slug: 'profile', convention: 'napplet:profile/open?x=1' },
       { slug: 'profile', convention: 'napplet:profile/open#section' },
-      { slug: 'profile', convention: 'napplet:note/open' },
       { slug: 'profile', convention: 'napplet:profile/open', eventKinds: [0] },
     ];
     for (const archetype of invalid) {

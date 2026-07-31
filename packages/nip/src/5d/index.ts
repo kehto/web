@@ -164,19 +164,14 @@ function archetypesFromTags(
         'numbered NAP identifier is not an archetype convention',
       );
     }
-    const conventionMatch = /^napplet:([^/?#\s]+)\/([^/?#\s]+)$/.exec(convention);
-    if (!conventionMatch) {
+    if (!/^napplet:[^/?#\s]+\/[^/?#\s]+$/.test(convention)) {
       throw new NappletResolutionError(
         'invalid-manifest',
         'archetype convention must be a queryless napplet:<archetype>/<intent> identity',
       );
     }
-    if (conventionMatch[1] !== slug) {
-      throw new NappletResolutionError(
-        'invalid-manifest',
-        'archetype slug must match the convention archetype',
-      );
-    }
+    // NAP-INTENT keeps a routing archetype and a payload convention
+    // orthogonal: one convention may serve multiple archetypes and vice versa.
 
     if (tag.length !== 3) {
       throw new NappletResolutionError(

@@ -176,6 +176,16 @@ describe('archetype + source parsing', () => {
     ]);
   });
 
+  it('accepts a convention whose URI archetype differs from the routing archetype', () => {
+    const { event } = buildManifest({
+      archetypes: [['bookmark', 'napplet:note/open']],
+    });
+
+    expect(parseNappletManifest(event).archetypes).toEqual([
+      { slug: 'bookmark', convention: 'napplet:note/open' },
+    ]);
+  });
+
   it('yields an empty array when no archetype tag is present', () => {
     const { event } = buildManifest();
     const m = parseNappletManifest(event);
@@ -190,7 +200,6 @@ describe('archetype + source parsing', () => {
     ['fragment-bearing convention', ['feed', 'napplet:feed/open#section']],
     ['whitespace in convention', ['feed', 'napplet:feed/open now']],
     ['malformed convention', ['feed', 'napplet:feed']],
-    ['mismatched convention archetype', ['feed', 'napplet:profile/open']],
     ['empty slug', ['', 'napplet:feed/open']],
     ['uppercase slug', ['Feed', 'napplet:Feed/open']],
     ['whitespace slug', [' feed', 'napplet:feed/open']],

@@ -411,6 +411,8 @@ describe('NIP-5D conformance static guards', () => {
   it('keeps active intent and manifest surfaces on exact convention contracts', () => {
     const publishedIntentTypes = readRepoFile(installedCoreDist);
     const resolver = readRepoFile('packages/services/src/catalog-intent-resolver.ts');
+    const manifestParser = readRepoFile('packages/nip/src/5d/index.ts');
+    const playgroundManifest = readRepoFile('apps/playground/napplets/shared-vite-config.ts');
     const paja = readRepoFile('packages/paja/src/browser-adapter.ts');
     const pajaIntent = [
       sourceBetween(
@@ -469,6 +471,11 @@ describe('NIP-5D conformance static guards', () => {
     expect(pajaIntent).toContain('catalog: new InstalledNappletCatalog()');
     expect(pajaIntent).toContain('controller: new BrowserIntentController(');
     expect(paja).not.toContain('DEV_INTENT');
+
+    for (const source of [manifestParser, playgroundManifest]) {
+      expect(source).toContain('orthogonal');
+      expect(source).not.toContain('must match the convention archetype');
+    }
 
     for (const file of activeArchetypeMetadataFiles) {
       const source = removeComments(readRepoFile(file));

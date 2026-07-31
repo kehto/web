@@ -69,6 +69,13 @@ function validateRequires(nappletType: string, requires: readonly string[]): str
   });
 }
 
+/**
+ * Validate the Kehto-owned portion of a manifest archetype declaration.
+ *
+ * Routing archetypes and payload conventions are orthogonal N:M values under
+ * NAP-INTENT, so this validates convention syntax without coupling its URI
+ * archetype token to the routing slug.
+ */
 function validateArchetypes(
   nappletType: string,
   archetypes: ReadonlyArray<PlaygroundArchetype>,
@@ -99,14 +106,10 @@ function validateArchetypes(
     if (/^NAP-\d+$/.test(convention)) {
       throw new Error(`${nappletType} numbered NAP identifier is not a convention`);
     }
-    const match = /^napplet:([^/?#\s]+)\/([^/?#\s]+)$/.exec(convention);
-    if (!match) {
+    if (!/^napplet:[^/?#\s]+\/[^/?#\s]+$/.test(convention)) {
       throw new Error(
         `${nappletType} manifest archetype convention must be a queryless napplet:<archetype>/<intent> identity`,
       );
-    }
-    if (match[1] !== slug) {
-      throw new Error(`${nappletType} manifest archetype slug must match the convention archetype`);
     }
     return {
       slug,
