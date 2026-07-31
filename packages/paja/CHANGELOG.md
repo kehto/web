@@ -1,5 +1,18 @@
 # @kehto/paja
 
+## 0.11.0
+
+### Minor Changes
+
+- a8cc3cf: Add Paja's incrementally warmed, active-account-scoped social cache behind standard identity and OUTBOX services, with request-scoped capability checks that prevent OUTBOX-only callers from observing private follow-derived cache entries.
+
+### Patch Changes
+
+- Updated dependencies [a8cc3cf]
+  - @kehto/runtime@0.21.0
+  - @kehto/services@0.19.0
+  - @kehto/shell@0.19.2
+
 ## 0.10.0
 
 ### Minor Changes
