@@ -5,9 +5,9 @@ milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 106
 status: completed
 stopped_at: Phase 106 current-Napplet release complete; v1.29 ready for milestone completion
-last_updated: "2026-08-02T16:45:24Z"
+last_updated: "2026-08-02T18:32:29Z"
 last_activity: 2026-08-02
-last_activity_desc: "Completed quick task 260802-o1w: refreshed PR #229 after the published NAP-INTENT fixes"
+last_activity_desc: "Completed quick task 260802-q92: finished Paja's advertised NAP development surface"
 progress:
   total_phases: 6
   completed_phases: 6
@@ -32,7 +32,7 @@ Phase: 106 (Active-Surface Conformance and Release) — COMPLETE
 Plan: 3 of 3
 Status: All v1.29 phases complete — eight-package Napplet-0.31-compatible npm/JSR release published and downstream-verified
 
-Last activity: 2026-08-02 — Completed quick task 260802-o1w: refreshed PR #229 after the published NAP-INTENT fixes
+Last activity: 2026-08-02 — Completed quick task 260802-q92: finished Paja's advertised NAP development surface
 
 ## Performance Metrics
 
@@ -221,6 +221,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260728-pub | Publish Kehto against the current Napplet line | 2026-07-28 | 9390eca / b61b8cf | Verified | [260728-pub-update-kehto-compatibility-for-current-n](./quick/260728-pub-update-kehto-compatibility-for-current-n/) |
 | 260802-lpw | Adopt the published NAP-INTENT package fixes in Kehto | 2026-08-02 | 32b629b | Verified | [260802-lpw-adopt-the-published-nap-intent-package-f](./quick/260802-lpw-adopt-the-published-nap-intent-package-f/) |
 | 260802-o1w | Refresh PR #229 after #232 while retaining the host-side NAP-INTENT parser fix | 2026-08-02 | 599f55c | Verified | [260802-o1w-refresh-kehto-web-229-by-rebasing-fix-in](./quick/260802-o1w-refresh-kehto-web-229-by-rebasing-fix-in/) |
+| 260802-q92 | Finish every advertised Paja NAP adapter and replace native confirmation prompts | 2026-08-02 | ee4ca3e | Verified | [260802-q92-finish-paja-nap-capability-closeout-with](./quick/260802-q92-finish-paja-nap-capability-closeout-with/) |
 
 ## Session Continuity
 
