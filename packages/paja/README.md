@@ -184,9 +184,10 @@ kehto paja \
 
 ## NAP-UPLOAD modes
 
-Paja keeps `memory` as the default upload simulator. It returns deterministic
-`kehto-dev://` results and does not store bytes. Opt into real Blossom storage
-with a shell-owned server and an active Dev, NIP-07, or NIP-46 signer:
+Paja keeps `memory` as the default unadvertised upload fixture. It does not
+register `window.napplet.upload`, return success, or store bytes. Opt into real
+Blossom storage with a shell-owned server and an active Dev, NIP-07, or NIP-46
+signer:
 
 ```bash
 kehto paja \

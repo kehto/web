@@ -30,10 +30,10 @@ the production Paja `shell.init` environment.
 | `webrtc` | simulated | Local payload echo and fake peer; no `RTCPeerConnection`, data channel, or Nostr signaling. |
 | `media` | real | Browser Media Session bridge exists; retain browser-visible ownership/action/cleanup proof. |
 | `notify` | implemented on branch | Host-rendered, origin-attributed text notifications now provide explicit user permission, channels, badges, actions, clicks, dismissals, controls, and per-window cleanup. The generic service delegates every operation and fails closed without a presentation backend. |
-| `config` | real host data, simulation-labelled | Handler returns host configuration. Remove any implication that simulation metadata proves a production backend. |
-| `resource` | unsafe partial | Real `fetch` and cancellation exist, but Paja grants `*` to every origin and uses a fixed identity. Bind verified manifest grants and per-window identity. |
+| `config` | partial | Wire handlers and shallow schema checks exist, but Paja returns a global simulation object rather than schema-validated, defaulted, `(dTag, aggregateHash)`-scoped values. Implement recursive Core Subset validation, schema/value persistence, a shell-owned settings UI, live commits, and truthful no-schema behavior. |
+| `resource` | implemented data scheme on branch | Paja now exposes a real, no-network `data:` backend with per-window identity, exact `null`-origin grants, decoded-byte MIME classification, raw SVG/HTML rejection, 10 MiB and 100-URL limits, window-scoped cancellation, and current wire-only results. Network schemes return `unsupported-scheme` until a redirect/DNS-safe host proxy exists. |
 | `cvm` | implemented on branch | Paja now registers the real CEP-4/NIP-44 encrypted MCP-over-Nostr transport only with a live relay boundary. Publications use Paja relay policy; inbound wraps and inner events are signature-checked and correlated only to the expected server; window destruction closes orphaned sessions. |
-| `upload` | real Blossom / simulated memory rail | Blossom path is real. Memory mode stays explicit test/dev mode and cannot justify default production advertisement. |
+| `upload` | implemented Blossom on branch | Only the real consent-gated, signer-authorized Blossom backend can register or advertise upload. The memory fixture no longer creates a service, upload hook, capability, or `kehto-dev://` success. |
 | `intent` | real | Installed verified catalog, runtime tabs, readiness, reuse, and source-independent delivery exist. |
 | `count` | real when relay backend supports it | Count delegates to the live relay backend and rejects broad empty filters. |
 

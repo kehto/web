@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import type { EventTemplate, NostrEvent, NostrFilter } from '@napplet/core';
 import type { Signer } from '@kehto/runtime';
 
+import { createPajaAdapter } from './browser-adapter.js';
 import { createPajaUploadRuntime } from './browser-upload.js';
+import { resolvePajaFrameEnvironment } from './browser-target-frame.js';
+import type { PajaHostConfig } from './options.js';
 import { normalizePajaSimulation } from './simulation.js';
 
 const PUBKEY = 'a'.repeat(64);
@@ -46,6 +49,44 @@ function blossomEvent(pubkey: string, createdAt: number, servers: string[]): Nos
 }
 
 describe('createPajaUploadRuntime', () => {
+  it('never registers or advertises the memory fixture and advertises only a usable Blossom backend', async () => {
+    const config = {
+      window: { id: 'upload-window', dTag: 'upload-napplet', aggregateHash: 'upload-hash' },
+    } as PajaHostConfig;
+    const memory = createPajaAdapter(
+      config,
+      () => normalizePajaSimulation({ upload: { mode: 'memory' } }),
+      () => {},
+      () => {},
+      () => true,
+    );
+    expect(memory.services?.upload).toBeUndefined();
+    expect(memory.upload).toBeUndefined();
+    expect(resolvePajaFrameEnvironment(memory, config.window).capabilities.domains).not.toContain('upload');
+
+    const activeSigner = signer();
+    const blossom = createPajaAdapter(
+      config,
+      () => normalizePajaSimulation({
+        upload: { mode: 'blossom', servers: ['https://blossom.example'] },
+      }),
+      () => {},
+      () => {},
+      () => true,
+      {
+        getSigner: () => activeSigner,
+        getMethod: () => 'nip07',
+        getPubkey: () => PUBKEY,
+      },
+    );
+    await vi.waitFor(() => expect(blossom.upload?.getUploader()).toEqual({ rails: ['blossom'] }));
+    expect(blossom.services?.upload?.descriptor.name).toBe('upload');
+    expect(resolvePajaFrameEnvironment(blossom, config.window).capabilities.domains).toContain('upload');
+
+    (memory.relayPool.getRelayPool() as unknown as { close(): void }).close();
+    (blossom.relayPool.getRelayPool() as unknown as { close(): void }).close();
+  });
+
   it('uploads disclosed bytes to the first explicit shell-owned Blossom server', async () => {
     const bytes = new Uint8Array([1, 2, 3, 4]);
     const sha256 = await sha256Hex(bytes);

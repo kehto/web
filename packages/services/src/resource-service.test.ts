@@ -5,11 +5,11 @@
  *   a. createResourceService({}) throws with message matching /H-03/ (constructor H-03 guard)
  *   b. createResourceService({ fetch }) throws (missing isOriginGranted + getConnectGrants + resolveIdentity)
  *   c. Full options succeeds; descriptor.name === 'resource'
- *   d. resource.bytes for ungranted origin emits bytes.error code='denied'; fetch NEVER called
+ *   d. resource.bytes for ungranted origin emits blocked-by-policy; fetch NEVER called
  *   e. resource.bytes for granted origin calls fetch once + emits bytes.result with correct fields
- *   f. resource.cancel with matching requestId aborts controller; bytes.error code='canceled'
- *   g. Invalid URL → bytes.error code='invalid-url'
- *   h. Fetch reject (non-abort) → bytes.error code='network-error'
+ *   f. resource.cancel aborts and drops the late terminal envelope
+ *   g. Invalid URL → bytes.error error='invalid-request'
+ *   h. Fetch reject (non-abort) → bytes.error error='network-error'
  *   i. onWindowDestroyed(w) aborts all in-flight requests for that window
  *   j. resource.info emits advisory runtime info
  *   k. resource.info provider failures emit resource.info.error
@@ -51,6 +51,12 @@ function makeOpts(overrides: Partial<ResourceServiceOptions> = {}): ResourceServ
     resolveIdentity,
     getConnectGrants,
     isOriginGranted,
+    resourceInfo: {
+      schemes: [
+        { scheme: 'http', enabled: true },
+        { scheme: 'https', enabled: true },
+      ],
+    },
     ...overrides,
   };
 }
@@ -84,7 +90,9 @@ describe('createResourceService', () => {
 
   // ─── (c) full options succeeds ─────────────────────────────────────────────
   it('(c) succeeds with all four options; descriptor.name === resource', () => {
-    const opts = makeOpts();
+    const opts = makeOpts({
+      resourceInfo: { schemes: [{ scheme: 'http', enabled: true }] },
+    });
     const svc = createResourceService(opts);
     expect(svc).toBeDefined();
     expect(svc.descriptor.name).toBe('resource');
@@ -92,7 +100,7 @@ describe('createResourceService', () => {
   });
 
   // ─── (d) ungranted origin: denied, fetch never called ─────────────────────
-  it('(d) resource.bytes for ungranted origin emits bytes.error code=denied; fetch NOT called', async () => {
+  it('(d) resource.bytes for ungranted origin emits blocked-by-policy; fetch NOT called', async () => {
     const opts = makeOpts();
     const svc = createResourceService(opts);
     const { sent, send } = collectSent();
@@ -107,10 +115,10 @@ describe('createResourceService', () => {
 
     expect(opts.fetch).not.toHaveBeenCalled();
     expect(sent).toHaveLength(1);
-    const err = sent[0] as { type: string; requestId: string; code: string };
+    const err = sent[0] as { type: string; id: string; error: string };
     expect(err.type).toBe('resource.bytes.error');
-    expect(err.requestId).toBe('r1');
-    expect(err.code).toBe('denied');
+    expect(err.id).toBe('r1');
+    expect(err.error).toBe('blocked-by-policy');
   });
 
   // ─── (e) granted origin: fetch called, bytes.result emitted ──────────────
@@ -140,20 +148,22 @@ describe('createResourceService', () => {
     const [calledUrl, calledInit] = (opts.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, { method?: string; headers?: Record<string, string>; signal: AbortSignal }];
     expect(calledUrl).toBe(`${GRANTED_ORIGIN}/api/data`);
     expect(calledInit.method).toBe('GET');
-    expect(calledInit.headers?.['x-custom']).toBe('yes');
+    expect(calledInit.headers).toBeUndefined();
     expect(calledInit.signal).toBeInstanceOf(AbortSignal);
 
     expect(sent).toHaveLength(1);
-    const result = sent[0] as { type: string; requestId: string; status: number; headers: Record<string, string>; bodyBase64: string };
+    const result = sent[0] as { type: string; id: string; blob: Blob; mime: string; requestId?: string; headers?: unknown; bodyBase64?: string };
     expect(result.type).toBe('resource.bytes.result');
-    expect(result.requestId).toBe('r2');
-    expect(result.status).toBe(200);
-    // Decode check: base64 round-trips to original body
-    expect(atob(result.bodyBase64)).toBe(bodyText);
+    expect(result.id).toBe('r2');
+    expect(result.mime).toBe('text/plain');
+    expect(await result.blob.text()).toBe(bodyText);
+    expect(result).not.toHaveProperty('requestId');
+    expect(result).not.toHaveProperty('headers');
+    expect(result).not.toHaveProperty('bodyBase64');
   });
 
-  // ─── (f) resource.cancel with matching requestId → canceled ──────────────
-  it('(f) resource.cancel with matching requestId aborts in-flight fetch; bytes.error code=canceled', async () => {
+  // ─── (f) resource.cancel drops the late terminal envelope ────────────────
+  it('(f) resource.cancel aborts its window-scoped request and emits no terminal envelope', async () => {
     let capturedSignal!: AbortSignal;
 
     const opts = makeOpts({
@@ -189,15 +199,11 @@ describe('createResourceService', () => {
     await flushPromises(); // second flush for the abort rejection path
 
     expect(capturedSignal.aborted).toBe(true);
-    expect(sent).toHaveLength(1);
-    const err = sent[0] as { type: string; requestId: string; code: string };
-    expect(err.type).toBe('resource.bytes.error');
-    expect(err.requestId).toBe('r3');
-    expect(err.code).toBe('canceled');
+    expect(sent).toHaveLength(0);
   });
 
-  // ─── (g) invalid URL → bytes.error code=invalid-url ──────────────────────
-  it('(g) invalid URL emits bytes.error code=invalid-url; fetch NOT called', async () => {
+  // ─── (g) invalid URL → bytes.error invalid-request ───────────────────────
+  it('(g) invalid URL emits invalid-request; fetch NOT called', async () => {
     const opts = makeOpts();
     const svc = createResourceService(opts);
     const { sent, send } = collectSent();
@@ -212,9 +218,9 @@ describe('createResourceService', () => {
 
     expect(opts.fetch).not.toHaveBeenCalled();
     expect(sent).toHaveLength(1);
-    const err = sent[0] as { type: string; code: string };
+    const err = sent[0] as { type: string; error: string };
     expect(err.type).toBe('resource.bytes.error');
-    expect(err.code).toBe('invalid-url');
+    expect(err.error).toBe('invalid-request');
   });
 
   // ─── (h) fetch reject (non-abort) → bytes.error code=network-error ────────
@@ -236,9 +242,9 @@ describe('createResourceService', () => {
     await flushPromises();
 
     expect(sent).toHaveLength(1);
-    const err = sent[0] as { type: string; code: string };
+    const err = sent[0] as { type: string; error: string };
     expect(err.type).toBe('resource.bytes.error');
-    expect(err.code).toBe('network-error');
+    expect(err.error).toBe('network-error');
   });
 
   // ─── (i) onWindowDestroyed aborts all in-flight for that window ────────────
@@ -374,17 +380,17 @@ describe('createResourceService', () => {
     const result = sent[0] as {
       type: string;
       id: string;
-      requestId: string;
       blob: Blob;
       mime: string;
-      bodyBase64: string;
+      requestId?: string;
+      bodyBase64?: string;
     };
     expect(result.type).toBe('resource.bytes.result');
     expect(result.id).toBe('current-1');
-    expect(result.requestId).toBe('current-1');
     expect(result.mime).toBe('text/plain');
     expect(await result.blob.text()).toBe(bodyText);
-    expect(atob(result.bodyBase64)).toBe(bodyText);
+    expect(result.requestId).toBeUndefined();
+    expect(result.bodyBase64).toBeUndefined();
   });
 
   // ─── (m) resource.bytesMany ordered partial result ───────────────────────
@@ -465,6 +471,63 @@ describe('createResourceService', () => {
       type: 'resource.bytesMany.error',
       id: 'bulk-empty',
       error: 'invalid-request',
+    });
+  });
+
+  it('rejects schemes that resource.info does not enable before origin policy or fetch', async () => {
+    const opts = makeOpts({
+      resourceInfo: { schemes: [{ scheme: 'http', enabled: true }] },
+    });
+    const svc = createResourceService(opts);
+    const { sent, send } = collectSent();
+
+    svc.handleMessage(WINDOW_ID, {
+      type: 'resource.bytes',
+      id: 'scheme-off',
+      url: 'https://example.com/image.png',
+    } as NappletMessage, send);
+    await flushPromises();
+
+    expect(opts.isOriginGranted).not.toHaveBeenCalled();
+    expect(opts.fetch).not.toHaveBeenCalled();
+    expect(sent[0]).toMatchObject({
+      type: 'resource.bytes.error',
+      id: 'scheme-off',
+      error: 'unsupported-scheme',
+    });
+  });
+
+  it('enforces disclosed response and bulk caps', async () => {
+    const opts = makeOpts({
+      resourceInfo: {
+        schemes: [{ scheme: 'http', enabled: true }],
+        maxBytes: 3,
+        maxUrls: 1,
+      },
+      fetch: vi.fn(async () => new Response('four', {
+        headers: { 'content-type': 'text/plain' },
+      })),
+    });
+    const svc = createResourceService(opts);
+    const single = collectSent();
+    svc.handleMessage(WINDOW_ID, {
+      type: 'resource.bytes',
+      id: 'too-big',
+      url: `${GRANTED_ORIGIN}/large`,
+    } as NappletMessage, single.send);
+    await flushPromises();
+    expect(single.sent[0]).toMatchObject({ error: 'too-large' });
+
+    const bulk = collectSent();
+    svc.handleMessage(WINDOW_ID, {
+      type: 'resource.bytesMany',
+      id: 'too-many',
+      urls: [`${GRANTED_ORIGIN}/one`, `${GRANTED_ORIGIN}/two`],
+    } as NappletMessage, bulk.send);
+    await flushPromises();
+    expect(bulk.sent[0]).toMatchObject({
+      type: 'resource.bytesMany.error',
+      error: 'too-large',
     });
   });
 

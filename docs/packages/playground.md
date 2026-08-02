@@ -72,9 +72,10 @@ subscribe/unsubscribe protocol. The mandatory shell is likewise host-owned:
 `@napplet/shim@0.29.2` does not provide `window.napplet.shell`; Kehto's prelude
 installs it before one bare ready/init handshake.
 
-The pinned NAP authority has no standalone `NAP-RESOURCE.md`; this package uses
-the NAP-IDENTITY `resource.bytes` delegation and existing Kehto resource policy,
-without claiming new resource wire semantics or NAP-DM behavior.
+Resource demo behavior targets draft NAP-RESOURCE at exact ref
+`fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1` together with Kehto's resource
+hardening policy. The playground does not define new wire semantics or NAP-DM
+behavior.
 
 ## Scope Boundaries
 

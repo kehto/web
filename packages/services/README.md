@@ -44,9 +44,8 @@ Current draft posture:
 - `createNotifyService` handles direct `notify.*` envelopes. It is not an INC
   topic handler.
 - `createOutboxService` supports `outbox.getEvent` from draft NAP-OUTBOX. Single-event lookups run through shell-owned relay routing and only return events whose ID matches the request. The draft wire contract keeps `outbox.query` one-shot and `outbox.subscribe` streaming; Kehto's concrete `createRelayPoolOutboxRouter` additionally exposes host-side `queryStream()` so verified query events can arrive before asynchronous NIP-65 discovery completes.
-- `createResourceService` retains Kehto-local `resource.bytesMany` compatibility behavior. It is not presented as standalone NAP-RESOURCE wire authority; profile media authority is NAP-IDENTITY's delegated `resource.bytes` contract.
+- `createResourceService` implements the draft NAP-RESOURCE request lifecycle and current result shapes. It fail-closes when no scheme is configured, checks per-identity origin grants, enforces disclosed size/bulk caps, scopes cancellation to the requesting window, drops cancelled terminal envelopes, and never forwards response headers. The host policy fetch must return byte-classified output and owns scheme-specific SSRF, redirect, integrity, and SVG handling.
 - `createUploadService` supports `upload.info` from draft NAP-UPLOAD. Hosts may expose configured rails, return URL forms, maximum bytes, and MIME type policy without requiring napplets to start an upload.
-- `createResourceService` retains `resource.info` and `resource.bytesMany` as Kehto-local compatibility behavior. They do not infer missing standalone NAP-RESOURCE wire semantics.
 - `createDmService` keeps NAP-DM request correlation, subscriptions, and message normalization in runtime-owned code. Adapters cover concrete transports: NIP-17 gift wraps via `nostr-tools`, structural NDR runtimes with relay hooks, and Cordn/ContextVM coordinator clients. Kehto mirrors NAP-DM wire types locally until `@napplet/core` / `@napplet/nap` publish them.
 
 ## NAP-INTENT manifest resolver

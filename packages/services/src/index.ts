@@ -91,8 +91,9 @@ export type {
   ConfigSchemaValidation,
 } from './config-service.js';
 
-export { createResourceService } from './resource-service.js';
+export { createResourceService, ResourceServiceError } from './resource-service.js';
 export type {
+  ResourceErrorCode,
   ResourceInfo,
   ResourceInfoContext,
   ResourceInfoProvider,

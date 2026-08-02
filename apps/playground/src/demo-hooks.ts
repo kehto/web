@@ -251,6 +251,14 @@ function createDemoResourceHandler(): ServiceHandler {
       const entry = sessionRegistryRef?.getEntryByWindowId(windowId);
       return entry ? { dTag: entry.dTag, aggregateHash: entry.aggregateHash } : null;
     },
+    resourceInfo: {
+      schemes: [
+        { scheme: 'http', enabled: true },
+        { scheme: 'https', enabled: true },
+      ],
+      maxBytes: 10 * 1024 * 1024,
+      maxUrls: 100,
+    },
   });
 }
 

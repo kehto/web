@@ -147,8 +147,10 @@ kehto paja --config kehto.dev.json --theme dark
 
 ## Use Real Blossom Uploads
 
-Paja's default `memory` upload mode is a simulator and stores nothing. Add an
-explicit shell-owned Blossom server for real `window.napplet.upload` traffic:
+Paja's default `memory` upload mode is an unadvertised fixture and stores
+nothing. It does not create `window.napplet.upload` or make
+`shell.supports("upload")` true. Add an explicit shell-owned Blossom server for
+real upload traffic:
 
 ```json
 {

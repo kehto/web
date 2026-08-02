@@ -33,10 +33,6 @@ import {
   type IntentCandidate,
   type IntentRequest,
   type NotifyServiceOptions,
-  type Uploader,
-  type UploadRequest,
-  type UploadResult,
-  type UploadStatus,
 } from '@kehto/services';
 import {
   createNostrCvmTransport,
@@ -62,6 +58,7 @@ import { createPajaUploadRuntime, type PajaUploadRuntime } from './browser-uploa
 import { createPajaSocialCache } from './browser-social-cache.js';
 import { createPajaCommonBackend } from './browser-common.js';
 import { createPajaListsBackend } from './browser-lists.js';
+import { createPajaDataResourceFetch, pajaResourceInfo } from './browser-resource.js';
 import {
   PAJA_LIVE_QUERY_WAIT_MS,
   createPajaContactListLoader,
@@ -172,40 +169,6 @@ function createWorkerRelay(events: NostrEvent[]) {
     },
     count(req: unknown): Promise<number> {
       return this.query(req).then((matched) => matched.length);
-    },
-  };
-}
-
-function createDevUploader(getSimulation: () => PajaSimulation): Uploader {
-  return {
-    async upload(request: UploadRequest, ctx): Promise<UploadResult> {
-      const simulation = getSimulation();
-      if (simulation.upload.mode === 'disabled') {
-        throw new Error('upload simulation is disabled');
-      }
-      const size = request.data instanceof Blob ? request.data.size : request.data.byteLength;
-      const result: UploadResult = {
-        ok: true,
-        uploadId: ctx.uploadId,
-        status: 'complete',
-        rail: request.rail ?? simulation.upload.rail ?? 'dev-memory',
-        url: `kehto-dev://${simulation.upload.rail ?? 'dev-memory'}/${ctx.uploadId}`,
-        size,
-        mimeType: request.mimeType ?? (request.data instanceof Blob ? request.data.type : undefined),
-      };
-      ctx.onStatus({ ...result, updatedAt: Date.now() });
-      return result;
-    },
-    async status(uploadId: string): Promise<UploadStatus> {
-      const simulation = getSimulation();
-      return {
-        ok: simulation.upload.mode !== 'disabled',
-        uploadId,
-        status: simulation.upload.mode === 'disabled' ? 'failed' : 'complete',
-        rail: simulation.upload.rail ?? 'dev-memory',
-        url: `kehto-dev://${simulation.upload.rail ?? 'dev-memory'}/${uploadId}`,
-        updatedAt: Date.now(),
-      };
     },
   };
 }
@@ -407,10 +370,11 @@ function createDevServices(
   const services: Record<string, ServiceHandler> = {
     keys: createKeysService(),
     resource: createResourceService({
-      fetch: (url, init) => fetch(url, init),
-      isOriginGranted: () => true,
-      getConnectGrants: () => ['*'],
-      resolveIdentity: () => ({ dTag: 'dev-target', aggregateHash: 'paja' }),
+      fetch: createPajaDataResourceFetch(),
+      isOriginGranted: (origin, grants) => grants.includes(origin),
+      getConnectGrants: () => ['null'],
+      resolveIdentity: (windowId) => getIdentity?.(windowId) ?? null,
+      resourceInfo: pajaResourceInfo(),
     }),
   };
 
@@ -474,18 +438,7 @@ function createDevServices(
       }),
     });
   }
-  if (getSimulation().upload.mode === 'memory') {
-    services.upload = createUploadService({
-      uploader: createDevUploader(getSimulation),
-      uploadInfo: () => ({
-        rails: [{
-          rail: getSimulation().upload.rail ?? 'dev-memory',
-          enabled: true,
-          returns: ['kehto-dev'],
-        }],
-      }),
-    });
-  } else if (uploadRuntime) {
+  if (uploadRuntime) {
     services.upload = createUploadService({
       uploader: uploadRuntime.uploader,
       uploadInfo: uploadRuntime.uploadInfo as UploadInfoProvider,
@@ -610,7 +563,10 @@ export function createPajaAdapter(
     uploadRuntime,
     signerProvider,
     resolvedIntentHost,
-    getIdentity,
+    getIdentity ?? (() => ({
+      dTag: config.window.dTag,
+      aggregateHash: config.window.aggregateHash,
+    })),
     userActivation,
     notifyOptions,
   );
@@ -637,20 +593,16 @@ export function createPajaAdapter(
     config: { getNappUpdateBehavior: () => 'auto-grant' },
     hotkeys: { executeHotkeyFromForward: forwardPajaHotkey },
     workerRelay: { getWorkerRelay: () => createWorkerRelay(workerRelayEvents) },
-    upload: getSimulation().upload.mode === 'memory'
-      ? { getUploader: () => ({ rails: [getSimulation().upload.rail ?? 'dev-memory'] }) }
-      : uploadRuntime
-        ? { getUploader: uploadRuntime.getBackend }
-        : undefined,
+    upload: uploadRuntime ? { getUploader: uploadRuntime.getBackend } : undefined,
     intent: { isAvailable: () => getSimulation().intent.enabled },
     link: { isAvailable: () => getSimulation().capabilities.domains.link },
     common: { isAvailable: () => Object.hasOwn(services, 'common') },
     lists: { isAvailable: () => Object.hasOwn(services, 'lists') },
     serial: { isAvailable: () => Object.hasOwn(services, 'serial') },
     ble: { isAvailable: () => Object.hasOwn(services, 'ble') },
-    webrtc: { isAvailable: () => getSimulation().capabilities.domains.webrtc },
+    webrtc: { isAvailable: () => Object.hasOwn(services, 'webrtc') },
     crypto: {
-      verifyEvent: async () => true,
+      verifyEvent: async (event) => verifyEvent(event as Parameters<typeof verifyEvent>[0]),
     },
   };
 }

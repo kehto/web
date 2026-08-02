@@ -3,8 +3,7 @@
  *
  * Shell-side reference implementation for the canonical NAP-RESOURCE wire
  * protocol (`internal-resource.ts` in @kehto/shell/src/types; kehto-internal
- * model per PROJECT.md Decision #31. Kehto keeps legacy single-fetch fields
- * for existing callers and also emits the current NAP-RESOURCE fields.
+ * model per PROJECT.md Decision #31.
  * Handles:
  *   Inbound:  resource.info, resource.bytes, resource.bytesMany, resource.cancel
  *   Outbound: resource.info.result, resource.info.error,
@@ -14,16 +13,10 @@
  * ──────────────────────── SCOPE BOUNDARY (RESOURCE-01) ────────────────────────
  * NAP-RESOURCE is an **authenticated fetch proxy** — read-only, atomic.
  *
- * This service is NOT responsible for:
- *   - Streaming / chunked responses (host-app concern)
- *   - Response caching / conditional requests (host-app concern)
- *   - Upload / POST body construction (NAP-RESOURCE v1.7 is read-only)
- *   - Redirect limits, MIME sniffing, SVG rasterization (host-fetch concern)
- *   - Private-IP blocking, SSRF mitigation (host-provided-fetch responsibility)
- *
- * These belong to the host-app's `fetch` implementation per D7 and
- * SHELL-RESOURCE-POLICY.md (Phase 40 Plan 40-03). Kehto ships a reference
- * service; production hardening is the host app's concern.
+ * The host fetch boundary performs scheme-specific I/O and MUST return only a
+ * policy-checked, byte-classified response. This service independently enforces
+ * identity, scheme disclosure, origin grants, bulk limits, response-size caps,
+ * cancellation, and the current wire shape. It never forwards upstream headers.
  * ──────────────────────────────────────────────────────────────────────────────
  *
  * Host integration: provide `fetch`, `isOriginGranted`, `getConnectGrants`,
@@ -85,12 +78,13 @@ export type ResourceInfoProvider =
  */
 export interface ResourceServiceOptions {
   /**
-   * Host-supplied fetch implementation. Receives the URL, a partial init
-   * (method, headers, signal), and must return a `Response`-compatible promise.
+   * Host-supplied policy fetch implementation. Receives the URL, a partial init
+   * (method, headers, signal), and returns a sanitized `Response`.
    *
-   * The host's `fetch` is the ONLY place to implement redirect limits, MIME
-   * sniffing, SVG rasterization, private-IP / SSRF blocking, etc.
-   * This service does NOT filter: it proxies transparently.
+   * The returned `content-type` MUST be derived from inspected output bytes,
+   * never an upstream header. The host boundary also owns redirect-by-redirect
+   * private-address checks, SVG rasterization, and scheme-specific integrity.
+   * Throw `ResourceServiceError` to preserve a protocol error classification.
    *
    * @param url - The URL from the resource.bytes request
    * @param init - Method, headers (from napplet), and an AbortSignal
@@ -142,7 +136,7 @@ export interface ResourceServiceOptions {
    *
    * Provide a static snapshot or a resolver when the shell wants to disclose
    * configured schemes and coarse limits. Omit to expose the reference
-   * service's conservative default (`https` enabled, no numeric limits).
+   * service's fail-closed default (no enabled schemes or numeric limits).
    */
   resourceInfo?: ResourceInfoProvider;
 }
@@ -153,29 +147,12 @@ export interface ResourceServiceOptions {
  */
 export type ResourceService = ServiceHandler;
 
-/**
- * Convert an ArrayBuffer to base64 string, safe for both browser and Node.
- * Chunked in 0x8000-byte slices to avoid `String.fromCharCode(...largeArray)`
- * stack overflow on large responses.
- */
-function arrayBufferToBase64(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf);
-  const CHUNK = 0x8000; // 32 KB
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-  }
-  return btoa(binary);
-}
-
 interface ResourceRequestState {
-  inFlight: Map<string, { controller: AbortController; windowId: string }>;
+  inFlight: Map<string, { controller: AbortController; windowId: string; requestId: string }>;
   perWindow: Map<string, Set<string>>;
 }
 
-type LegacyResourceErrorCode = 'denied' | 'invalid-url' | 'canceled' | 'network-error';
-
-type ResourceErrorCode =
+export type ResourceErrorCode =
   | 'invalid-request'
   | 'not-found'
   | 'blocked-by-policy'
@@ -186,29 +163,41 @@ type ResourceErrorCode =
   | 'network-error'
   | 'quota-exceeded';
 
+/** A host policy failure with a stable NAP-RESOURCE error classification. */
+export class ResourceServiceError extends Error {
+  /**
+   * @param code - Canonical NAP-RESOURCE error code.
+   * @param message - Diagnostic detail safe to return to the napplet.
+   */
+  constructor(readonly code: ResourceErrorCode, message: string) {
+    super(message);
+    this.name = 'ResourceServiceError';
+  }
+}
+
 type ResourceFetchSuccess = {
   ok: true;
   url: string;
   blob: Blob;
   mime: string;
-  status: number;
-  headers: Record<string, string>;
-  bodyBase64: string;
 };
 
 type ResourceFetchFailure = {
   ok: false;
   url: string;
   error: ResourceErrorCode;
-  code: LegacyResourceErrorCode;
   message: string;
 };
 
 type ResourceFetchItem = ResourceFetchSuccess | ResourceFetchFailure;
 
 const DEFAULT_RESOURCE_INFO: ResourceInfo = {
-  schemes: [{ scheme: 'https', enabled: true }],
+  schemes: [],
 };
+
+function requestKey(windowId: string, requestId: string): string {
+  return `${windowId}\u0000${requestId}`;
+}
 
 function assertResourceOptions(options: ResourceServiceOptions): void {
   if (
@@ -231,35 +220,34 @@ function trackRequest(
   windowId: string,
   controller: AbortController,
 ): void {
-  state.inFlight.set(requestId, { controller, windowId });
+  const key = requestKey(windowId, requestId);
+  state.inFlight.set(key, { controller, windowId, requestId });
   if (!state.perWindow.has(windowId)) {
     state.perWindow.set(windowId, new Set());
   }
-  state.perWindow.get(windowId)!.add(requestId);
+  state.perWindow.get(windowId)!.add(key);
 }
 
-function untrackRequest(state: ResourceRequestState, requestId: string): void {
-  const entry = state.inFlight.get(requestId);
+function untrackRequest(state: ResourceRequestState, windowId: string, requestId: string): void {
+  const key = requestKey(windowId, requestId);
+  const entry = state.inFlight.get(key);
   if (entry) {
-    state.inFlight.delete(requestId);
-    state.perWindow.get(entry.windowId)?.delete(requestId);
+    state.inFlight.delete(key);
+    state.perWindow.get(entry.windowId)?.delete(key);
   }
 }
 
 function sendResourceError(
   send: (m: NappletMessage) => void,
   requestId: string,
-  code: LegacyResourceErrorCode,
   message: string,
-  error: ResourceErrorCode = toResourceError(code),
+  error: ResourceErrorCode,
   type: 'resource.bytes.error' | 'resource.bytesMany.error' = 'resource.bytes.error',
 ): void {
   send({
     type,
     id: requestId,
-    requestId,
     error,
-    code,
     message,
   } as NappletMessage);
 }
@@ -267,24 +255,10 @@ function sendResourceError(
 function sendBytesManyError(
   send: (m: NappletMessage) => void,
   requestId: string,
-  code: LegacyResourceErrorCode,
   message: string,
   error: ResourceErrorCode,
 ): void {
-  sendResourceError(send, requestId, code, message, error, 'resource.bytesMany.error');
-}
-
-function toResourceError(code: LegacyResourceErrorCode): ResourceErrorCode {
-  switch (code) {
-    case 'denied':
-      return 'blocked-by-policy';
-    case 'invalid-url':
-      return 'invalid-request';
-    case 'canceled':
-      return 'timeout';
-    case 'network-error':
-      return 'network-error';
-  }
+  sendResourceError(send, requestId, message, error, 'resource.bytesMany.error');
 }
 
 function parseResourceUrl(url: string): URL | null {
@@ -295,16 +269,9 @@ function parseResourceUrl(url: string): URL | null {
   }
 }
 
-function collectResponseHeaders(response: Response): Record<string, string> {
-  const headers: Record<string, string> = {};
-  response.headers.forEach((value, key) => {
-    headers[key] = value;
-  });
-  return headers;
-}
-
 function responseMime(response: Response): string {
-  return response.headers.get('content-type') || 'application/octet-stream';
+  return response.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase()
+    || 'application/octet-stream';
 }
 
 function responseBlob(buffer: ArrayBuffer, mime: string): Blob {
@@ -368,20 +335,30 @@ function resourceInvalidRequest(url: string, message: string): ResourceFetchFail
     ok: false,
     url,
     error: 'invalid-request',
-    code: 'invalid-url',
     message,
+  };
+}
+
+function classifyResourceFailure(error: unknown): { error: ResourceErrorCode; message: string } {
+  return {
+    error: error instanceof ResourceServiceError ? error.code : 'network-error',
+    message: error instanceof Error ? error.message : String(error),
   };
 }
 
 async function fetchResourceItem(
   options: ResourceServiceOptions,
   identity: { dTag: string; aggregateHash: string },
+  info: ResourceInfo,
   url: string,
-  init: { method?: string; headers?: Readonly<Record<string, string>> } | undefined,
   signal: AbortSignal,
 ): Promise<ResourceFetchItem> {
   const parsedUrl = parseResourceUrl(url);
   if (!parsedUrl) return resourceInvalidRequest(url, `invalid URL: ${url}`);
+  const scheme = parsedUrl.protocol.slice(0, -1).toLowerCase();
+  if (!info.schemes.some((item) => item.enabled && item.scheme.toLowerCase() === scheme)) {
+    return { ok: false, url, error: 'unsupported-scheme', message: `scheme ${scheme} is not enabled` };
+  }
   const origin = parsedUrl.origin;
   const grants = options.getConnectGrants(identity.dTag, identity.aggregateHash);
   if (!options.isOriginGranted(origin, grants)) {
@@ -389,28 +366,25 @@ async function fetchResourceItem(
       ok: false,
       url,
       error: 'blocked-by-policy',
-      code: 'denied',
       message: `origin ${origin} not granted`,
     };
   }
 
   try {
     const response = await options.fetch(url, {
-      method: init?.method,
-      headers: init?.headers ? { ...init.headers } : undefined,
+      method: 'GET',
       signal,
     });
     const buffer = await response.arrayBuffer();
-    const headers = collectResponseHeaders(response);
+    if (info.maxBytes !== undefined && buffer.byteLength > info.maxBytes) {
+      return { ok: false, url, error: 'too-large', message: `resource exceeds ${info.maxBytes} bytes` };
+    }
     const mime = responseMime(response);
     return {
       ok: true,
       url,
       blob: responseBlob(buffer, mime),
       mime,
-      status: response.status,
-      headers,
-      bodyBase64: arrayBufferToBase64(buffer),
     };
   } catch (err: unknown) {
     const isAbort =
@@ -419,8 +393,7 @@ async function fetchResourceItem(
     return {
       ok: false,
       url,
-      error: isAbort ? 'timeout' : 'network-error',
-      code: isAbort ? 'canceled' : 'network-error',
+      error: isAbort ? 'timeout' : err instanceof ResourceServiceError ? err.code : 'network-error',
       message: err instanceof Error ? err.message : String(err),
     };
   }
@@ -430,13 +403,13 @@ async function handleBytes(
   options: ResourceServiceOptions,
   state: ResourceRequestState,
   windowId: string,
-  msg: { requestId: string; url: string; init?: { method?: string; headers?: Readonly<Record<string, string>> } },
+  msg: { requestId: string; url: string },
   send: (m: NappletMessage) => void,
 ): Promise<void> {
-  const { requestId, url, init } = msg;
+  const { requestId, url } = msg;
   const identity = options.resolveIdentity(windowId);
   if (!identity) {
-    sendResourceError(send, requestId, 'denied', 'napplet identity not resolvable', 'blocked-by-policy');
+    sendResourceError(send, requestId, 'napplet identity not resolvable', 'blocked-by-policy');
     return;
   }
 
@@ -444,23 +417,26 @@ async function handleBytes(
   trackRequest(state, requestId, windowId, controller);
 
   try {
-    const item = await fetchResourceItem(options, identity, url, init, controller.signal);
+    const info = await resolveResourceInfo(options, windowId);
+    const item = await fetchResourceItem(options, identity, info, url, controller.signal);
+    if (controller.signal.aborted) return;
     if (!item.ok) {
-      sendResourceError(send, requestId, item.code, item.message, item.error);
+      sendResourceError(send, requestId, item.message, item.error);
       return;
     }
     send({
       type: 'resource.bytes.result',
       id: requestId,
-      requestId,
       blob: item.blob,
       mime: item.mime,
-      status: item.status,
-      headers: item.headers,
-      bodyBase64: item.bodyBase64,
     } as NappletMessage);
+  } catch (error: unknown) {
+    if (!controller.signal.aborted) {
+      const failure = classifyResourceFailure(error);
+      sendResourceError(send, requestId, failure.message, failure.error);
+    }
   } finally {
-    untrackRequest(state, requestId);
+    untrackRequest(state, windowId, requestId);
   }
 }
 
@@ -468,18 +444,31 @@ async function handleBytesMany(
   options: ResourceServiceOptions,
   state: ResourceRequestState,
   windowId: string,
-  msg: { requestId: string; urls: readonly string[]; init?: { method?: string; headers?: Readonly<Record<string, string>> } },
+  msg: { requestId: string; urls: readonly string[] },
   send: (m: NappletMessage) => void,
 ): Promise<void> {
-  const { requestId, urls, init } = msg;
+  const { requestId, urls } = msg;
   if (!Array.isArray(urls) || urls.length === 0 || urls.some((url) => typeof url !== 'string')) {
-    sendBytesManyError(send, requestId, 'invalid-url', 'resource.bytesMany requires a non-empty urls array', 'invalid-request');
+    sendBytesManyError(send, requestId, 'resource.bytesMany requires a non-empty urls array', 'invalid-request');
     return;
   }
 
   const identity = options.resolveIdentity(windowId);
   if (!identity) {
-    sendBytesManyError(send, requestId, 'denied', 'napplet identity not resolvable', 'blocked-by-policy');
+    sendBytesManyError(send, requestId, 'napplet identity not resolvable', 'blocked-by-policy');
+    return;
+  }
+
+  let info: ResourceInfo;
+  try {
+    info = await resolveResourceInfo(options, windowId);
+  } catch (error: unknown) {
+    const failure = classifyResourceFailure(error);
+    sendBytesManyError(send, requestId, failure.message, failure.error);
+    return;
+  }
+  if (info.maxUrls !== undefined && urls.length > info.maxUrls) {
+    sendBytesManyError(send, requestId, `resource.bytesMany exceeds ${info.maxUrls} URLs`, 'too-large');
     return;
   }
 
@@ -488,7 +477,8 @@ async function handleBytesMany(
   try {
     const items: Array<Record<string, unknown>> = [];
     for (const url of urls) {
-      const item = await fetchResourceItem(options, identity, url, init, controller.signal);
+      const item = await fetchResourceItem(options, identity, info, url, controller.signal);
+      if (controller.signal.aborted) return;
       if (item.ok) {
         items.push({
           url: item.url,
@@ -501,7 +491,6 @@ async function handleBytesMany(
           url: item.url,
           ok: false,
           error: item.error,
-          code: item.code,
           message: item.message,
         });
       }
@@ -509,16 +498,20 @@ async function handleBytesMany(
     send({
       type: 'resource.bytesMany.result',
       id: requestId,
-      requestId,
       items,
     } as NappletMessage);
+  } catch (error: unknown) {
+    if (!controller.signal.aborted) {
+      const failure = classifyResourceFailure(error);
+      sendBytesManyError(send, requestId, failure.message, failure.error);
+    }
   } finally {
-    untrackRequest(state, requestId);
+    untrackRequest(state, windowId, requestId);
   }
 }
 
-function handleCancel(state: ResourceRequestState, requestId: string): void {
-  const entry = state.inFlight.get(requestId);
+function handleCancel(state: ResourceRequestState, windowId: string, requestId: string): void {
+  const entry = state.inFlight.get(requestKey(windowId, requestId));
   if (entry) {
     entry.controller.abort();
   }
@@ -527,11 +520,11 @@ function handleCancel(state: ResourceRequestState, requestId: string): void {
 function destroyWindowRequests(state: ResourceRequestState, windowId: string): void {
   const requestIds = state.perWindow.get(windowId);
   if (!requestIds) return;
-  for (const requestId of requestIds) {
-    const entry = state.inFlight.get(requestId);
+  for (const key of requestIds) {
+    const entry = state.inFlight.get(key);
     if (entry) {
       entry.controller.abort();
-      state.inFlight.delete(requestId);
+      state.inFlight.delete(key);
     }
   }
   state.perWindow.delete(windowId);
@@ -571,7 +564,7 @@ function destroyWindowRequests(state: ResourceRequestState, windowId: string): v
 export function createResourceService(options: ResourceServiceOptions): ResourceService {
   assertResourceOptions(options);
   const state: ResourceRequestState = {
-    inFlight: new Map<string, { controller: AbortController; windowId: string }>(),
+    inFlight: new Map(),
     perWindow: new Map<string, Set<string>>(),
   };
 
@@ -596,11 +589,14 @@ export function createResourceService(options: ResourceServiceOptions): Resource
             id?: string;
             requestId?: string;
             url: string;
-            init?: { method?: string; headers?: Readonly<Record<string, string>> };
           };
           const requestId = requestIdFromMessage(m);
-          if (!requestId || typeof m.url !== 'string') return;
-          handleBytes(options, state, windowId, { requestId, url: m.url, init: m.init }, send).catch(() => { /* errors surface via send() */ });
+          if (!requestId) return;
+          if (typeof m.url !== 'string') {
+            sendResourceError(send, requestId, 'resource.bytes requires a URL', 'invalid-request');
+            return;
+          }
+          handleBytes(options, state, windowId, { requestId, url: m.url }, send).catch(() => { /* errors surface via send() */ });
           return;
         }
 
@@ -617,18 +613,17 @@ export function createResourceService(options: ResourceServiceOptions): Resource
             id?: string;
             requestId?: string;
             urls?: readonly string[];
-            init?: { method?: string; headers?: Readonly<Record<string, string>> };
           };
           const requestId = requestIdFromMessage(m);
           if (!requestId) return;
-          handleBytesMany(options, state, windowId, { requestId, urls: m.urls ?? [], init: m.init }, send).catch(() => { /* errors surface via send() */ });
+          handleBytesMany(options, state, windowId, { requestId, urls: m.urls ?? [] }, send).catch(() => { /* errors surface via send() */ });
           return;
         }
 
         case 'resource.cancel': {
           const m = message as NappletMessage & { id?: string; requestId?: string };
           const requestId = requestIdFromMessage(m);
-          if (requestId) handleCancel(state, requestId);
+          if (requestId) handleCancel(state, windowId, requestId);
           return;
         }
 

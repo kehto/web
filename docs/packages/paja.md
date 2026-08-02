@@ -286,9 +286,9 @@ Blossom behavior targets pinned
 
 ### NAP-UPLOAD
 
-Upload mode defaults to `memory`, an explicit simulator that reports the
-`dev-memory` rail and returns a `kehto-dev://` URL without storing bytes.
-`blossom` mode is opt-in through
+Upload mode defaults to `memory`, an explicit unadvertised fixture that stores
+nothing. It does not register an upload service, expose an upload hook, or
+return `kehto-dev://` success values. `blossom` mode is opt-in through
 `simulation.upload.mode` or `--upload-mode blossom`. Repeat
 `--upload-server <url>` for an ordered explicit list; CLI server values replace
 the config-file list. Paja uses only the first effective server in this release
@@ -328,6 +328,23 @@ with exact aggregate counts and `approximate: false`. Broad empty filters are
 refused as too expensive, and setting `relay.mode` to `disabled` also disables
 `count` advertisement.
 
+### NAP-RESOURCE
+
+Paja implements the draft
+[NAP-RESOURCE at `fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md)
+with a real, deliberately data-only backend. `resource.info` reports only
+`data:` plus the enforced 10 MiB response and 100-URL bulk caps. The host
+decodes bytes, ignores the data URL's declared media type, classifies a narrow
+safe image/audio/video/font/text set, and rejects raw SVG, HTML, invalid UTF-8,
+and unrecognized binary data. Requests are identity- and window-scoped;
+cancellation drops late terminal envelopes.
+
+Paja does not advertise HTTPS, Blossom, Hashtree, or Nostr resource schemes.
+Those schemes fail with `unsupported-scheme` until the host has the required
+redirect-by-redirect DNS/private-address checks, integrity verification, and
+SVG rasterization. The previous wildcard origin grant and fixed development
+identity have been removed.
+
 ## Environment Simulation
 
 The normalized simulation object controls:
@@ -338,7 +355,7 @@ The normalized simulation object controls:
 - Live, memory fixture, or disabled relay/outbox behavior.
 - Local, memory, or disabled storage mode advertisement.
 - Memory or disabled artifact/cache metadata.
-- Memory simulator, real Blossom, or disabled upload mode; shell-owned servers,
+- Unadvertised memory fixture, real Blossom, or disabled upload mode; shell-owned servers,
   BUD-03 discovery, maximum bytes, and MIME policy.
 - Media, notification, intent, and CVM availability.
 - Config values returned by `config.get`.

@@ -1,10 +1,9 @@
 <!--
   Kehto file: docs/policies/SHELL-RESOURCE-POLICY.md
 
-  Status corrected in Phase 105: this is Kehto's non-normative host hardening
-  policy, not a mirror of a NAP-RESOURCE specification. napplet/naps master at
-  5ac0490461ca6fec2f0d2e45b4835cf9bc08de24 has no standalone NAP-RESOURCE.md.
-  Do not infer a resource wire extension from this document.
+  This is Kehto's host-hardening companion to draft NAP-RESOURCE at exact ref
+  fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1. The upstream document is protocol
+  authority; this file records Kehto deployment and adapter obligations.
 
   Kehto file:line cross-references (RESOURCE-05):
     - createResourceService factory:       packages/services/src/resource-service.ts (export function createResourceService)
@@ -30,8 +29,8 @@
     - Oversize response limits (stream-abort; recommended 10 MiB default per fetch)
     - Scheme allowlist (https:, data:, blossom:sha256:, nostr:<bech32>; block file:, gopher:, ftp:, etc.)
 
-  Kehto's resource implementation is read-only host policy. It does not define
-  a standalone NAP wire shape, capability advertisement, or result fields.
+  Kehto's resource implementation is read-only host policy. Wire shape,
+  capability advertisement, and result fields come from the pinned draft.
 
   Note on Kehto demo-mode relaxations (not production-conformant):
     The apps/playground hostFetch does NOT enforce the private-IP block list (demo runs
@@ -42,20 +41,17 @@
 
 # Shell Resource Policy Checklist
 
-> Kehto host-hardening guide for core 0.31.1 / nap 0.31.2 consumers using profile-media
-> `resource.bytes` delegation.
-> This is not a standalone NAP-RESOURCE specification and does not define wire
-> messages, fields, or capability strings.
+> Kehto host-hardening guide for draft NAP-RESOURCE consumers. The pinned
+> upstream draft, not this checklist, defines wire messages and fields.
 
 ## Status
 
-`napplet/naps` master at `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` has no
-standalone `NAP-RESOURCE.md`. For profile picture and banner bytes, authority is
-NAP-IDENTITY's explicit `resource.bytes` delegation plus the published
-`@napplet/core` 0.31.1 / `@napplet/nap` 0.31.2 declarations. This document is a
-non-normative Kehto deployment checklist; its MUST/SHOULD labels are local
-hardening requirements, not protocol language. It does not infer any missing
-resource wire semantics.
+Draft NAP-RESOURCE at
+`fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1` is the working protocol authority.
+This non-normative checklist explains how Kehto hosts satisfy its security
+requirements. Paja currently enables only a locally decoded `data:` backend;
+network schemes stay disabled until the corresponding host boundary meets this
+checklist.
 
 ## Why this exists
 
@@ -66,9 +62,8 @@ internal addresses, exfiltrate cloud-metadata credentials, or scan the deployer'
 intranet on behalf of an attacker-supplied URL. This checklist makes Kehto's
 operator-visible hardening decisions explicit.
 
-Shells that do not meet the local hardening requirements below SHOULD NOT be
-deployed in adversarial contexts. They are not classified here as NAP-RESOURCE
-protocol non-conformance.
+Shells that advertise a network scheme without meeting the mandatory hardening
+requirements below are not NAP-RESOURCE conformant.
 
 
 ## Private-IP Block List (MUST, at DNS-resolution time)
@@ -93,16 +88,16 @@ URL-parse-time checks (looking at the literal hostname) are NOT sufficient — a
 
 - [ ] Validation runs **after** DNS resolves to an IP, **before** the TCP connection is opened
 - [ ] Each redirect hop is re-validated independently against the same list
-- [ ] Failed validation emits `code: "blocked-by-policy"` with an error string identifying the matching range (so deployers can debug policy)
+- [ ] Failed validation emits `error: "blocked-by-policy"` with diagnostic detail identifying the matching range
 - [ ] Additional addresses MAY be allowed behind explicit shell-administrator policy (enterprise on-prem services), but the default for community-deployed shells MUST be restrictive
 
 
 ## Sidecar Pre-Resolution (default OFF)
 
 Where a Kehto host elects to pre-fetch resources referenced by an event, it may
-maintain a host-local sidecar cache. That cache is not a NAP wire field or
-published resource contract; profile media remains constrained to the explicit
-NAP-IDENTITY `resource.bytes(url)` delegation.
+maintain an identity-scoped sidecar cache using NAP-RESOURCE's
+`ResourceSidecarEntry` contract and a carrier-owned field such as
+`RelayEventResult.sidecar.resources`.
 
 ### Privacy rationale (why default OFF)
 
@@ -153,7 +148,7 @@ The upstream `Content-Type` header is attacker-controlled. A content host can de
 
 - [ ] Classify response bytes via a byte-sniffing strategy ([WHATWG MIME Sniffing Standard](https://mimesniff.spec.whatwg.org/) or equivalent)
 - [ ] **Never** pass through the upstream `Content-Type` header to the napplet
-- [ ] Enforce a **scheme-appropriate MIME allowlist**; bytes whose sniffed MIME falls outside the allowlist are rejected with `code: "blocked-by-policy"`
+- [ ] Enforce a **scheme-appropriate MIME allowlist**; bytes whose sniffed MIME falls outside the allowlist are rejected with `error: "blocked-by-policy"`
 
 ### Recommended baseline allowlist (image-rendering shells)
 
@@ -174,7 +169,7 @@ Public hosts can 302 to internal addresses. Without per-hop re-validation, a red
 
 - [ ] Cap redirect chain at **5 hops**
 - [ ] **Each hop is re-validated independently** against the private-IP block list (DNS pinning per hop)
-- [ ] Excess hops or a redirect to a blocked address emits `code: "blocked-by-policy"`
+- [ ] Excess hops or a redirect to a blocked address emits `error: "blocked-by-policy"`
 
 
 ## Recommended Operational Caps (SHOULD)
@@ -183,11 +178,11 @@ These mitigate resource-exhaustion attacks against the shell itself.
 
 | Cap | Recommended default | On exceed |
 |-----|---------------------|-----------|
-| Per-response size | **10 MiB** | `code: "too-large"` |
-| Per-URL fetch timeout (wall-clock) | **30 seconds** | `code: "timeout"` |
-| Per-napplet concurrent in-flight `resource.bytes` calls | **10** | `code: "blocked-by-policy"` |
-| Per-napplet `resource.bytes` rate limit (sliding window) | **60 calls / minute** | `code: "blocked-by-policy"` |
-| Per-napplet outstanding-Blob quota | **~50 MiB** | `code: "quota-exceeded"` |
+| Per-response size | **10 MiB** | `error: "too-large"` |
+| Per-URL fetch timeout (wall-clock) | **30 seconds** | `error: "timeout"` |
+| Per-napplet concurrent in-flight `resource.bytes` calls | **10** | `error: "blocked-by-policy"` |
+| Per-napplet `resource.bytes` rate limit (sliding window) | **60 calls / minute** | `error: "blocked-by-policy"` |
+| Per-napplet outstanding-Blob quota | **~50 MiB** | `error: "quota-exceeded"` |
 
 Community-deployed shells SHOULD NOT raise the response size cap above ~50 MiB without explicit operator opt-in.
 
@@ -210,7 +205,7 @@ Only the canonical schemes plus shell-administrator opt-ins are dispatched. Smug
 
 - [ ] `data:` (RFC 2397) — decoded in-shim with zero shell round-trip; size cap still applies on the decoded `Blob`
 - [ ] `https:` — full Default Resource Policy applies
-- [ ] `blossom:sha256:<hex>` — shell verifies hash against the URL's declared digest **before** delivery; mismatch → `code: "decode-failed"`
+- [ ] `blossom:sha256:<hex>` — shell verifies hash against the URL's declared digest **before** delivery; mismatch → `error: "decode-failed"`
 - [ ] `nostr:<bech32>` — single-hop NIP-19 resolution; recursive resolution is **not** the shell's job
 
 ### Never enable by default
@@ -219,17 +214,17 @@ Only the canonical schemes plus shell-administrator opt-ins are dispatched. Smug
 - [ ] `gopher:`, `dict:`, `ftp:`, `tftp:` — protocol smuggling vectors
 - [ ] `http:` (cleartext) — opt-in only behind explicit shell-administrator policy (e.g., enterprise on-prem services)
 
-Unknown schemes emit `code: "unsupported-scheme"`.
+Unknown schemes emit `error: "unsupported-scheme"`.
 
 
 ## Capability Advertisement Boundary
 
-No standalone NAP-RESOURCE document authorizes resource-specific capability
-advertisement. Do not infer `nap:resource` or `resource:scheme:*` support
-strings from this policy. Hosts may continue to expose independently documented
-Kehto policy capabilities, but they must not present them as NAP authority.
+NAP-RESOURCE authorizes the optional `resource` domain. A host advertises it
+only when a real service is live. `resource.info.schemes` reports enabled
+schemes; it is advisory and never grants authority by itself.
 
-- [ ] Do not advertise `nap:resource` or `resource:scheme:*` as a published NAP contract.
+- [ ] Advertise `resource` only when at least one real, policy-enforced scheme is enabled.
+- [ ] Keep disabled schemes out of the enabled `resource.info` set and return `unsupported-scheme` without I/O.
 - [ ] If a host advertises `perm:strict-csp`, document that it is a Kehto host
   policy and independently verify the enforced iframe CSP.
 
@@ -247,16 +242,14 @@ Use this as a deployment sign-off:
 - [ ] Sidecar bytes obey the same MIME/SVG/size policy as direct calls
 - [ ] Single-flight cache scoped per `(dTag, aggregateHash)`
 - [ ] Scheme dispatch is a whitelist; smuggling-prone schemes blocked
-- [ ] No resource capability advertisement is represented as standalone NAP authority
+- [ ] Resource capability advertisement reflects a live service and truthful scheme disclosure
 - [ ] Resource bytes treated as observable (cleartext over postMessage); deployers document this in user-facing notice if relevant
 
 
 ## References
 
-- [NAP-IDENTITY](https://github.com/napplet/naps) at
-  `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` — profile-media
-  `resource.bytes` delegation; `napplet/naps` has no standalone
-  `NAP-RESOURCE.md` at this ref
+- [NAP-RESOURCE](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md)
+  at exact draft ref `fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1`
 - Published `@napplet/core` 0.31.1 / `@napplet/nap` 0.31.2 declarations — released
   implementation contract, NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`,
   napplet/web#199 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
