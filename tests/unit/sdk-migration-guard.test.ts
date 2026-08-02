@@ -49,18 +49,20 @@ const protocolPackageNames = [
 ] as const;
 
 const protocolPackageVersions: Record<(typeof protocolPackageNames)[number], string> = {
-  '@napplet/core': '0.31.0',
-  '@napplet/nap': '0.31.0',
-  '@napplet/sdk': '0.27.0',
-  '@napplet/shim': '0.29.0',
-  '@napplet/vite-plugin': '0.14.0',
+  '@napplet/core': '0.31.1',
+  '@napplet/nap': '0.31.2',
+  '@napplet/sdk': '0.27.2',
+  '@napplet/shim': '0.29.2',
+  '@napplet/vite-plugin': '0.14.1',
 };
 
 const protocolAuthorities = Object.freeze({
   napIntent: '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24',
   napIdentityTheme: '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24',
-  publishedSource: '7b675622e13870628ce174833d7b2a33cf32a0ab',
-  publishedRelease: '03ad65b66413e5798536ef48695ffc4c2508f2c3',
+  publishedSource: '3037200c932488f14f7f369b8583c39c9c16510a',
+  publishedSourceMerge: 'b3f0007867eac109fa4917fac9c285d3b7cc6155',
+  publishedRelease: 'a79e7f4638f70f4557d4183faee9348847bb8cc7',
+  publishedReleaseMerge: 'dc1d24153c759152b6ba31a6ec9bea967798f2df',
 });
 
 // Only these executable product paths are migration evidence. Archived plans,
@@ -271,8 +273,10 @@ describe('current @napplet package graph guard', () => {
     expect(protocolAuthorities).toEqual({
       napIntent: '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24',
       napIdentityTheme: '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24',
-      publishedSource: '7b675622e13870628ce174833d7b2a33cf32a0ab',
-      publishedRelease: '03ad65b66413e5798536ef48695ffc4c2508f2c3',
+      publishedSource: '3037200c932488f14f7f369b8583c39c9c16510a',
+      publishedSourceMerge: 'b3f0007867eac109fa4917fac9c285d3b7cc6155',
+      publishedRelease: 'a79e7f4638f70f4557d4183faee9348847bb8cc7',
+      publishedReleaseMerge: 'dc1d24153c759152b6ba31a6ec9bea967798f2df',
     });
 
     const publishedContract = readFileSync(

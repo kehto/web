@@ -4,6 +4,14 @@ import { describe, expect, it } from 'vitest';
 
 const ROOT = process.cwd();
 const PACKAGE_VERSIONS = {
+  '@napplet/core': '0.31.1',
+  '@napplet/nap': '0.31.2',
+  '@napplet/shim': '0.29.2',
+  '@napplet/sdk': '0.27.2',
+  '@napplet/vite-plugin': '0.14.1',
+} as const;
+
+const SUPERSEDED_EXACT_MATRIX = {
   '@napplet/core': '0.31.0',
   '@napplet/nap': '0.31.0',
   '@napplet/shim': '0.29.0',
@@ -110,6 +118,10 @@ describe('published Napplet package alignment', () => {
 
     for (const [name, version] of Object.entries(PACKAGE_VERSIONS)) {
       expect(lock, `final package snapshot for ${name}`).toContain(`'${name}@${version}':`);
+    }
+
+    for (const [name, version] of Object.entries(SUPERSEDED_EXACT_MATRIX)) {
+      expect(lock, `superseded ${name}@${version} snapshot`).not.toContain(`'${name}@${version}':`);
     }
   });
 

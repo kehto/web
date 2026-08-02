@@ -11,7 +11,7 @@ import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-
 
 const REQUIRED_NAPS = ['resource', 'theme'] as const;
 // Match the 5s deadline every other playground napplet uses: the host prelude
-// and @napplet/shim@0.29.0 with @napplet/core@0.31.0 install window.napplet domain objects before
+// and @napplet/shim@0.29.2 with @napplet/core@0.31.1 install window.napplet domain objects before
 // authored code runs, but slower CI can still race the iframe bootstrap.
 const CAPABILITY_WAIT_MS = 5_000;
 const CAPABILITY_WAIT_INTERVAL_MS = 25;

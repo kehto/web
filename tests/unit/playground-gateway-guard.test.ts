@@ -142,7 +142,7 @@ describe('playground gateway artifact guard', () => {
       expect(media).toContain('URL.createObjectURL(blob)');
       expect(media).toContain('URL.revokeObjectURL(url)');
     }
-    expect(source.resourceDemo).toContain('@napplet/core@0.31.0');
+    expect(source.resourceDemo).toContain('@napplet/core@0.31.1');
     expect(source.resourceDemo).toContain('URL.createObjectURL(blob)');
     expect(source.resourceDemo).toContain('URL.revokeObjectURL(currentObjectUrl)');
     expect(source.themeBroadcast).toContain('theme.napplet?.theme?.get()');
