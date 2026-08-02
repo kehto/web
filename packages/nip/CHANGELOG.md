@@ -1,5 +1,12 @@
 # @kehto/nip
 
+## 0.5.2
+
+### Patch Changes
+
+- 1d51ac4: Accept valid NAP-INTENT manifest archetype/convention pairs when their routing
+  slug and convention URI archetype differ.
+
 ## 0.5.1
 
 ### Patch Changes
