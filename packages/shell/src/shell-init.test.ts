@@ -65,6 +65,7 @@ describe('buildShellCapabilities', () => {
     ['webrtc', { webrtc: { isAvailable: () => false } }],
     ['dm', {}],
     ['count', {}],
+    ['fs', {}],
   ];
 
   it.each(unwiredDomains)('does not advertise unwired service-only domain %s', (domain, adapter) => {
@@ -89,6 +90,7 @@ describe('buildShellCapabilities', () => {
         webrtc: service('webrtc'),
         dm: service('dm'),
         count: service('count'),
+        fs: service('fs'),
       },
       upload: { getUploader: () => ({ rails: ['nip96'] }) },
       intent: { isAvailable: () => true },
@@ -104,7 +106,7 @@ describe('buildShellCapabilities', () => {
     expect(buildShellCapabilities(hooks).domains).toEqual([
       'relay', 'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify',
       'outbox', 'config', 'resource', 'cvm', 'upload', 'intent', 'link', 'common',
-      'lists', 'serial', 'ble', 'webrtc', 'dm', 'count',
+      'lists', 'serial', 'ble', 'webrtc', 'dm', 'count', 'fs',
     ]);
   });
 });

@@ -26,6 +26,8 @@ describe('runtime ACL state', () => {
     expect(acl.check('', 'chat', 'hash', 'cvm:call')).toBe(true);
     expect(acl.check('', 'chat', 'hash', 'notify:send')).toBe(true);
     expect(acl.check('', 'chat', 'hash', 'theme:read')).toBe(true);
+    expect(acl.check('', 'chat', 'hash', 'fs:read')).toBe(true);
+    expect(acl.check('', 'chat', 'hash', 'fs:write')).toBe(true);
 
     acl.persist();
     const restored = createAclState(persistence, 'permissive');
@@ -35,6 +37,8 @@ describe('runtime ACL state', () => {
     expect(restored.check('', 'chat', 'hash', 'cvm:call')).toBe(true);
     expect(restored.check('', 'chat', 'hash', 'notify:send')).toBe(true);
     expect(restored.check('', 'chat', 'hash', 'theme:read')).toBe(true);
+    expect(restored.check('', 'chat', 'hash', 'fs:read')).toBe(true);
+    expect(restored.check('', 'chat', 'hash', 'fs:write')).toBe(true);
   });
 
   it('restores all runtime capabilities after blocking and unblocking a fresh permissive identity', () => {

@@ -8,6 +8,7 @@ const RUNTIME_NATIVE_DOMAINS = [
 const SERVICE_ONLY_DOMAINS = [
   'outbox', 'config', 'resource', 'cvm', 'upload', 'intent', 'link', 'common',
   'lists', 'serial', 'ble', 'webrtc', 'dm', 'count',
+  'fs',
 ] as const;
 
 /**
@@ -77,7 +78,6 @@ function isServiceDomainLive(hooks: ShellAdapter, domain: string): boolean {
     case 'serial': return hooks.serial?.isAvailable() === true;
     case 'ble': return hooks.ble?.isAvailable() === true;
     case 'webrtc': return hooks.webrtc?.isAvailable() === true;
-    case 'dm': return hooks.dm !== undefined;
     default: return true;
   }
 }

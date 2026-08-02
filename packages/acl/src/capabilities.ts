@@ -44,6 +44,9 @@ export const ALL_CAPABILITIES = [
   // NAP-DM — runtime-mediated direct messages: read = status/conversations/
   // messages/subscribe/unsubscribe and receive pushes; write = send.
   'dm:read', 'dm:write',
+  // NAP-FS — runtime-owned virtual filesystem: discovery/read/list/pickers/
+  // watches vs byte writes, create, delete, move, and save destinations.
+  'fs:read', 'fs:write',
 ] as const;
 
 /** Union of every capability string in ALL_CAPABILITIES. */
@@ -83,3 +86,7 @@ export const CAP_INTENT_WRITE    = 'intent:write' as const;
 export const CAP_DM_READ         = 'dm:read' as const;
 /** dm.send */
 export const CAP_DM_WRITE        = 'dm:write' as const;
+/** fs.info / pickFile(s) / pickDirectory / stat / list / read / watch / unwatch / changed */
+export const CAP_FS_READ         = 'fs:read' as const;
+/** fs.pickSaveFile / write / mkdir / remove / move */
+export const CAP_FS_WRITE        = 'fs:write' as const;

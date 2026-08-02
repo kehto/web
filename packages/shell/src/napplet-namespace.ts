@@ -1465,6 +1465,35 @@ function nappletNamespacePrelude(domains: string[]): void {
     };
   }
 
+  function makeFs(): Record<string, unknown> {
+    const withOptions = (payload: Record<string, unknown>, options: unknown) => {
+      if (options !== undefined) payload.options = options;
+      return payload;
+    };
+    const req = (
+      action: string,
+      payload: Record<string, unknown>,
+      map: (msg: RuntimeMessage) => unknown,
+    ) => request({ type: `fs.${action}`, ...payload }, `fs.${action}.result`, map);
+    return {
+      info: () => req('info', {}, (msg) => fieldOrThrow(msg, 'info', 'fs.info.result missing info')),
+      pickFile: (options?: unknown) => req('pickFile', withOptions({}, options), (msg) => fieldOrThrow(msg, 'result', 'fs.pickFile.result missing result')),
+      pickFiles: (options?: unknown) => req('pickFiles', withOptions({}, options), (msg) => fieldOrThrow(msg, 'result', 'fs.pickFiles.result missing result')),
+      pickDirectory: (options?: unknown) => req('pickDirectory', withOptions({}, options), (msg) => fieldOrThrow(msg, 'result', 'fs.pickDirectory.result missing result')),
+      pickSaveFile: (options?: unknown) => req('pickSaveFile', withOptions({}, options), (msg) => fieldOrThrow(msg, 'result', 'fs.pickSaveFile.result missing result')),
+      stat: (path: string) => req('stat', { path }, (msg) => fieldOrThrow(msg, 'metadata', 'fs.stat.result missing metadata')),
+      list: (path: string) => req('list', { path }, (msg) => fieldOrThrow(msg, 'entries', 'fs.list.result missing entries')),
+      read: (path: string, options?: unknown) => req('read', withOptions({ path }, options), (msg) => fieldOrThrow(msg, 'result', 'fs.read.result missing result')),
+      write: (path: string, data: string, options?: unknown) => req('write', withOptions({ path, data }, options), (msg) => fieldOrThrow(msg, 'result', 'fs.write.result missing result')),
+      mkdir: (path: string, options?: unknown) => req('mkdir', withOptions({ path }, options), (msg) => voidResult(msg, 'fs mkdir failed')),
+      remove: (path: string, recursive?: boolean) => req('remove', { path, ...(recursive === undefined ? {} : { recursive }) }, (msg) => voidResult(msg, 'fs remove failed')),
+      move: (fromPath: string, toPath: string) => req('move', { fromPath, toPath }, (msg) => voidResult(msg, 'fs move failed')),
+      watch: (path: string, options?: unknown) => req('watch', withOptions({ path }, options), (msg) => fieldOrThrow(msg, 'watchId', 'fs.watch.result missing watchId')),
+      unwatch: (watchId: string) => req('unwatch', { watchId }, (msg) => voidResult(msg, 'fs unwatch failed')),
+      onChanged: (callback: (change: unknown) => void) => domainEventHandle('fs.changed', callback, (msg) => msg.change),
+    };
+  }
+
   const shell = makeShell();
   let inc: Record<string, unknown> | undefined;
   let identity: Record<string, unknown> | undefined;
@@ -1528,6 +1557,7 @@ function nappletNamespacePrelude(domains: string[]): void {
       case 'common': return makeCommon();
       case 'serial': return makeSerial();
       case 'dm': return makeDm();
+      case 'fs': return makeFs();
       default: return {};
     }
   }

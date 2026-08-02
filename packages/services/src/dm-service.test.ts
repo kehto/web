@@ -53,6 +53,9 @@ function createRelay(): DmRelayPool & { published: NostrEvent[]; subs: SubRecord
         }
       }
     },
+    async query(filters) {
+      return published.filter((event) => filters.some((filter) => matches(event, filter)));
+    },
     selectRelayTier() {
       return ['ws://127.0.0.1:10547'];
     },
@@ -123,6 +126,78 @@ describe('createDmService', () => {
       },
     });
   });
+
+  it('emits an error-only result when an adapter request fails', async () => {
+    const service = createDmService({
+      adapter: {
+        status: () => ({ available: true, implementations: ['test'], capabilities: ['history'] }),
+        conversations: () => { throw new Error('history denied'); },
+        messages: () => ({ messages: [] }),
+        send: async () => { throw new Error('send denied'); },
+        subscribe: () => ({ subscriptionId: 'unused' }),
+        unsubscribe: () => ({ ok: true }),
+      },
+    });
+    const sent: NappletMessage[] = [];
+
+    service.handleMessage('win', { type: 'dm.conversations', id: 'error-1' } as NappletMessage, (msg) => sent.push(msg));
+
+    await waitFor(() => sent[0]);
+    expect(sent[0]).toEqual({ type: 'dm.conversations.result', id: 'error-1', error: 'history denied' });
+    expect(sent[0]).not.toHaveProperty('conversations');
+  });
+
+  it('sends subscribe result before buffered live pushes and scopes unsubscribe to its window', async () => {
+    const unsubscribe = vi.fn(() => ({ ok: true }));
+    const service = createDmService({
+      adapter: {
+        status: () => ({ available: true, implementations: ['test'], capabilities: ['subscribe'] }),
+        conversations: () => ({ conversations: [] }),
+        messages: () => ({ messages: [] }),
+        send: async () => ({
+          ok: true,
+          message: {
+            id: 'unused',
+            conversationId: 'direct:a,b',
+            senderPubkey: 'a',
+            createdAt: 1,
+            content: 'unused',
+            status: 'sent',
+          },
+        }),
+        subscribe: (_request, onMessage) => {
+          onMessage({
+            id: 'early',
+            conversationId: 'direct:a,b',
+            senderPubkey: 'b',
+            createdAt: 1,
+            content: 'already live',
+            status: 'received',
+          });
+          return { subscriptionId: 'owned-by-a' };
+        },
+        unsubscribe,
+      },
+    });
+    const ownerMessages: NappletMessage[] = [];
+    const attackerMessages: NappletMessage[] = [];
+
+    service.handleMessage('window-a', { type: 'dm.subscribe', id: 'sub-1' } as NappletMessage, (msg) => ownerMessages.push(msg));
+    await waitFor(() => (ownerMessages.length === 2 ? ownerMessages : undefined));
+    service.handleMessage(
+      'window-b',
+      { type: 'dm.unsubscribe', id: 'unsub-b', subscriptionId: 'owned-by-a' } as NappletMessage,
+      (msg) => attackerMessages.push(msg),
+    );
+
+    expect(ownerMessages.map((message) => message.type)).toEqual(['dm.subscribe.result', 'dm.message']);
+    expect(attackerMessages).toEqual([{
+      type: 'dm.unsubscribe.result',
+      id: 'unsub-b',
+      error: 'subscription not found',
+    }]);
+    expect(unsubscribe).not.toHaveBeenCalled();
+  });
 });
 
 describe('createNip17DmAdapter', () => {
@@ -144,6 +219,41 @@ describe('createNip17DmAdapter', () => {
     expect(relay.published.every((event) => event.kind === 1059)).toBe(true);
     expect(relay.subs[0].relayUrls).toEqual(['ws://127.0.0.1:10547']);
     expect(bob.unsubscribe(sub.subscriptionId)).toEqual({ ok: true });
+  });
+
+  it('hydrates encrypted relay history into a fresh adapter instance', async () => {
+    const relay = createRelay();
+    const aliceSk = generateSecretKey();
+    const bobSk = generateSecretKey();
+    const alice = createNip17DmAdapter({ ownerSecretKey: aliceSk, relayPool: relay });
+    const bobPubkey = getPublicKey(bobSk);
+
+    await alice.send({ recipients: [bobPubkey], content: 'durable relay history' });
+    const freshBob = createNip17DmAdapter({ ownerSecretKey: bobSk, relayPool: relay });
+    const conversations = await freshBob.conversations();
+
+    expect(conversations.conversations).toHaveLength(1);
+    const page = await freshBob.messages({ conversationId: conversations.conversations[0]!.id });
+    expect(page.messages).toEqual([
+      expect.objectContaining({ content: 'durable relay history', senderPubkey: getPublicKey(aliceSk) }),
+    ]);
+  });
+
+  it('rejects a forged gift wrap before exposing cleartext', async () => {
+    const relay = createRelay();
+    const aliceSk = generateSecretKey();
+    const bobSk = generateSecretKey();
+    const alice = createNip17DmAdapter({ ownerSecretKey: aliceSk, relayPool: relay });
+    const bob = createNip17DmAdapter({ ownerSecretKey: bobSk, relayPool: relay });
+    const bobPubkey = getPublicKey(bobSk);
+
+    await alice.send({ recipients: [bobPubkey], content: 'valid before tamper' });
+    const received: string[] = [];
+    await bob.subscribe({}, (message) => received.push(message.content));
+    await relay.publish({ ...relay.published[0]!, sig: '0'.repeat(128) });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(received).toEqual([]);
   });
 });
 

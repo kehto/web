@@ -1565,4 +1565,46 @@ describe('NIP-5D napplet namespace prelude', () => {
       uploadSubscription.close();
     });
   });
+
+  it('injects the complete NAP-FS API with correlated results and id-less changes', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['fs'] }), target);
+
+    await withGlobalWindow(target, async () => {
+      const fs = requireDomain('fs');
+      expect(Object.keys(fs).sort()).toEqual([
+        'info', 'list', 'mkdir', 'move', 'onChanged', 'pickDirectory', 'pickFile',
+        'pickFiles', 'pickSaveFile', 'read', 'remove', 'stat', 'unwatch', 'watch', 'write',
+      ].sort());
+
+      const read = fs.read('/workspace/note.txt', { offset: 2, length: 4 }) as Promise<unknown>;
+      const request = target.postedMessages.at(-1);
+      expect(request).toMatchObject({
+        type: 'fs.read',
+        id: 'id-1',
+        path: '/workspace/note.txt',
+        options: { offset: 2, length: 4 },
+      });
+      target.dispatchParentMessage({
+        type: 'fs.read.result',
+        id: request?.id,
+        result: { data: 'dGVzdA==', offset: 2, bytesRead: 4, eof: true, size: 6 },
+      });
+      await expect(read).resolves.toMatchObject({ data: 'dGVzdA==', bytesRead: 4 });
+
+      const write = fs.write('/workspace/note.txt', '***', { mode: 'replace' }) as Promise<unknown>;
+      const writeRequest = target.postedMessages.at(-1);
+      target.dispatchParentMessage({ type: 'fs.write.result', id: writeRequest?.id, error: 'invalid-data' });
+      await expect(write).rejects.toThrow('invalid-data');
+
+      const changes: unknown[] = [];
+      const subscription = fs.onChanged((change: unknown) => changes.push(change)) as { close(): void };
+      target.dispatchParentMessage({
+        type: 'fs.changed',
+        change: { watchId: 'watch-1', path: '/workspace/note.txt', kind: 'modified' },
+      });
+      expect(changes).toEqual([{ watchId: 'watch-1', path: '/workspace/note.txt', kind: 'modified' }]);
+      subscription.close();
+    });
+  });
 });

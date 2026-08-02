@@ -81,40 +81,43 @@ export function createDmService(options: DmServiceOptions): DmService {
 
       switch (message.type) {
         case 'dm.status':
-          void Promise.resolve(adapter.status())
+          void Promise.resolve().then(() => adapter.status())
             .then((status) => send({ type: 'dm.status.result', id: requestId, ...status } as NappletMessage))
             .catch((error) => send({ type: 'dm.status.result', id: requestId, error: err(error) } as NappletMessage));
           return;
 
         case 'dm.conversations':
-          void Promise.resolve(adapter.conversations(message as DmConversationsMessage))
+          void Promise.resolve().then(() => adapter.conversations(message as DmConversationsMessage))
             .then((page) => send({ type: 'dm.conversations.result', id: requestId, ...page } as NappletMessage))
             .catch((error) =>
-              send({ type: 'dm.conversations.result', id: requestId, conversations: [], error: err(error) } as NappletMessage),
+              send({ type: 'dm.conversations.result', id: requestId, error: err(error) } as NappletMessage),
             );
           return;
 
         case 'dm.messages':
-          void Promise.resolve(adapter.messages(message as DmMessagesMessage))
+          void Promise.resolve().then(() => adapter.messages(message as DmMessagesMessage))
             .then((page) => send({ type: 'dm.messages.result', id: requestId, ...page } as NappletMessage))
             .catch((error) =>
-              send({ type: 'dm.messages.result', id: requestId, messages: [], error: err(error) } as NappletMessage),
+              send({ type: 'dm.messages.result', id: requestId, error: err(error) } as NappletMessage),
             );
           return;
 
         case 'dm.send':
-          void adapter
-            .send(message as DmSendMessage)
+          void Promise.resolve()
+            .then(() => adapter.send(message as DmSendMessage))
             .then((result) => send({ type: 'dm.send.result', id: requestId, ...result } as NappletMessage))
             .catch((error) => send({ type: 'dm.send.result', id: requestId, error: err(error) } as NappletMessage));
           return;
 
         case 'dm.subscribe': {
             let activeSubscriptionId = '';
-            void Promise.resolve(
+            const pending: Parameters<Parameters<DmAdapter['subscribe']>[1]>[0][] = [];
+            void Promise.resolve().then(() =>
               adapter.subscribe(message as DmSubscribeMessage, (dmMessage) => {
                 if (activeSubscriptionId.length > 0) {
                   send({ type: 'dm.message', subscriptionId: activeSubscriptionId, message: dmMessage } as NappletMessage);
+                } else {
+                  pending.push(dmMessage);
                 }
               }),
             )
@@ -122,6 +125,10 @@ export function createDmService(options: DmServiceOptions): DmService {
                 remember(windowId, subscription.subscriptionId);
                 activeSubscriptionId = subscription.subscriptionId;
                 send({ type: 'dm.subscribe.result', id: requestId, ...subscription } as NappletMessage);
+                for (const dmMessage of pending) {
+                  send({ type: 'dm.message', subscriptionId: activeSubscriptionId, message: dmMessage } as NappletMessage);
+                }
+                pending.length = 0;
               })
               .catch((error) => {
                 send({ type: 'dm.subscribe.result', id: requestId, error: err(error) } as NappletMessage);
@@ -131,16 +138,20 @@ export function createDmService(options: DmServiceOptions): DmService {
 
         case 'dm.unsubscribe': {
           const subId = (message as DmUnsubscribeMessage).subscriptionId;
-          if (typeof subId !== 'string' || subId.length === 0) {
-            send({ type: 'dm.unsubscribe.result', id: requestId, ok: false, error: 'subscription not found' } as NappletMessage);
+          if (
+            typeof subId !== 'string'
+            || subId.length === 0
+            || ownedSubscriptions.get(windowId)?.has(subId) !== true
+          ) {
+            send({ type: 'dm.unsubscribe.result', id: requestId, error: 'subscription not found' } as NappletMessage);
             return;
           }
-          void Promise.resolve(adapter.unsubscribe(subId))
+          void Promise.resolve().then(() => adapter.unsubscribe(subId))
             .then((ok) => {
               forget(windowId, subId);
               send({ type: 'dm.unsubscribe.result', id: requestId, ...ok } as NappletMessage);
             })
-            .catch((error) => send({ type: 'dm.unsubscribe.result', id: requestId, ok: false, error: err(error) } as NappletMessage));
+            .catch((error) => send({ type: 'dm.unsubscribe.result', id: requestId, error: err(error) } as NappletMessage));
           return;
         }
 

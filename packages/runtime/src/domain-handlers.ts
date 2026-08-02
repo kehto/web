@@ -37,6 +37,7 @@ export type RuntimeDomainHandlers = {
   ble: DomainHandler;
   webrtc: DomainHandler;
   dm: DomainHandler;
+  fs: DomainHandler;
 };
 
 export function createRuntimeDomainHandlers(context: RuntimeDomainContext): RuntimeDomainHandlers {
@@ -59,6 +60,7 @@ export function createRuntimeDomainHandlers(context: RuntimeDomainContext): Runt
     ble: (windowId, msg) => handleServiceOnlyMessage(context, 'ble', windowId, msg),
     webrtc: (windowId, msg) => handleServiceOnlyMessage(context, 'webrtc', windowId, msg),
     dm: (windowId, msg) => handleServiceOnlyMessage(context, 'dm', windowId, msg),
+    fs: (windowId, msg) => handleServiceOnlyMessage(context, 'fs', windowId, msg),
   };
 }
 
@@ -172,7 +174,7 @@ function handleThemeMessage(context: RuntimeDomainContext, windowId: string, msg
 
 function handleServiceOnlyMessage(
   context: RuntimeDomainContext,
-  name: 'config' | 'resource' | 'cvm' | 'outbox' | 'upload' | 'intent' | 'link' | 'common' | 'lists' | 'serial' | 'ble' | 'webrtc' | 'dm',
+  name: 'config' | 'resource' | 'cvm' | 'outbox' | 'upload' | 'intent' | 'link' | 'common' | 'lists' | 'serial' | 'ble' | 'webrtc' | 'dm' | 'fs',
   windowId: string,
   msg: NappletMessage,
 ): void {

@@ -6,7 +6,13 @@
  */
 
 import type { NostrEvent, NostrFilter } from '@napplet/core';
-import { getPublicKey } from 'nostr-tools/pure';
+import * as nip44 from 'nostr-tools/nip44';
+import {
+  getEventHash,
+  getPublicKey,
+  validateEvent,
+  verifyEvent,
+} from 'nostr-tools/pure';
 import * as nip17 from 'nostr-tools/nip17';
 import type {
   DmAdapter,
@@ -25,6 +31,7 @@ import type {
 import { DmMemoryStore } from './dm-memory-store.js';
 
 const NIP17_GIFT_WRAP_KIND = 1059;
+const NIP59_SEAL_KIND = 13;
 let subscriptionCounter = 0;
 
 /** Options for {@link createNip17DmAdapter}. */
@@ -37,6 +44,8 @@ export interface Nip17DmAdapterOptions {
   relays?: string[];
   /** Optional normalized message store. Defaults to an in-memory store. */
   store?: DmMemoryStore;
+  /** Runtime policy invoked once before encrypted relay publication. */
+  authorizeSend?(request: DmSendRequest): boolean | Promise<boolean>;
 }
 
 interface LiveSub {
@@ -53,6 +62,181 @@ function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
 }
 
+class Nip17DmRuntime {
+  private readonly ownerPubkey: string;
+  private readonly store: DmMemoryStore;
+  private readonly live = new Map<string, LiveSub>();
+  private historyLoaded = false;
+  private historyLoading: Promise<void> | null = null;
+
+  constructor(private readonly options: Nip17DmAdapterOptions) {
+    this.ownerPubkey = getPublicKey(options.ownerSecretKey);
+    this.store = options.store ?? new DmMemoryStore();
+  }
+
+  adapter(): DmAdapter {
+    return {
+      status: () => this.status(),
+      conversations: (query) => this.conversations(query),
+      messages: (query) => this.messages(query),
+      send: (request) => this.send(request),
+      subscribe: (request, onMessage) => this.subscribe(request, onMessage),
+      unsubscribe: (subscriptionId) => this.unsubscribe(subscriptionId),
+      close: () => this.close(),
+    };
+  }
+
+  private relaysFor(filters: NostrFilter[]): string[] {
+    return this.options.relays && this.options.relays.length > 0
+      ? this.options.relays
+      : this.options.relayPool.selectRelayTier(filters);
+  }
+
+  private normalizeRumor(rumor: NostrEvent, status: DmMessage['status']): DmMessage | null {
+    if (rumor.kind !== 14) return null;
+    const participants = [...new Set([this.ownerPubkey, rumor.pubkey, ...tagsFor(rumor.tags, 'p')])];
+    const conversationId = this.store.conversationIdFor(participants);
+    return this.store.upsertMessage({
+      id: rumor.id,
+      conversationId,
+      senderPubkey: rumor.pubkey,
+      createdAt: rumor.created_at,
+      content: rumor.content,
+      status,
+    }, participants);
+  }
+
+  private decryptEvent(event: NostrEvent): unknown {
+    return JSON.parse(nip44.decrypt(
+      event.content,
+      nip44.getConversationKey(this.options.ownerSecretKey, event.pubkey),
+    ));
+  }
+
+  private unwrapVerified(wrap: NostrEvent): NostrEvent | null {
+    if (
+      wrap.kind !== NIP17_GIFT_WRAP_KIND
+      || !verifyEvent(wrap)
+      || !wrap.tags.some((tag) => tag[0] === 'p' && tag[1] === this.ownerPubkey)
+    ) return null;
+    try {
+      const seal = this.decryptEvent(wrap);
+      if (
+        !validateEvent(seal)
+        || typeof (seal as { id?: unknown }).id !== 'string'
+        || typeof (seal as { sig?: unknown }).sig !== 'string'
+        || seal.kind !== NIP59_SEAL_KIND
+      ) return null;
+      const signedSeal = seal as NostrEvent;
+      if (!verifyEvent(signedSeal)) return null;
+      const rumor = this.decryptEvent(signedSeal);
+      if (!validateEvent(rumor)) return null;
+      const candidate = rumor as NostrEvent;
+      if (
+        candidate.kind !== 14
+        || candidate.pubkey !== signedSeal.pubkey
+        || typeof candidate.id !== 'string'
+        || candidate.id !== getEventHash(candidate)
+      ) return null;
+      return candidate;
+    } catch {
+      return null;
+    }
+  }
+
+  private ingestWrap(wrap: NostrEvent, status: DmMessage['status']): DmMessage | null {
+    const rumor = this.unwrapVerified(wrap);
+    return rumor ? this.normalizeRumor(rumor, status) : null;
+  }
+
+  private async loadHistory(): Promise<void> {
+    if (this.historyLoaded || !this.options.relayPool.query) return;
+    this.historyLoading ??= (async () => {
+      const filters = [{ kinds: [NIP17_GIFT_WRAP_KIND], '#p': [this.ownerPubkey], limit: 1_000 }] as NostrFilter[];
+      const wraps = await this.options.relayPool.query!(filters, this.relaysFor(filters));
+      for (const wrap of wraps) this.ingestWrap(wrap, 'received');
+      this.historyLoaded = true;
+    })().finally(() => { this.historyLoading = null; });
+    await this.historyLoading;
+  }
+
+  private status(): DmStatus {
+    return {
+      available: this.options.relayPool.isAvailable(),
+      ownerPubkey: this.ownerPubkey,
+      implementations: ['nip17'],
+      capabilities: ['send', 'receive', 'subscribe', 'history'],
+    };
+  }
+
+  private async conversations(query?: DmConversationQuery): Promise<DmConversationPage> {
+    await this.loadHistory();
+    return this.store.conversations(query);
+  }
+
+  private async messages(query: DmMessageQuery): Promise<DmMessagePage> {
+    await this.loadHistory();
+    return this.store.messages(query);
+  }
+
+  private async send(request: DmSendRequest): Promise<DmSendResult> {
+    if (!this.options.relayPool.isAvailable()) throw new Error('relay unavailable');
+    if (!Array.isArray(request.recipients) || request.recipients.length === 0) throw new Error('invalid recipient');
+    if (request.recipients.some((recipient) => !/^[0-9a-f]{64}$/.test(recipient))) throw new Error('invalid recipient');
+    if (typeof request.content !== 'string' || request.content.length === 0) throw new Error('content required');
+    if (this.options.authorizeSend && !await this.options.authorizeSend(request)) throw new Error('forbidden');
+    const recipients = [...new Set(request.recipients)];
+    const wraps = nip17.wrapManyEvents(
+      this.options.ownerSecretKey,
+      recipients.map((publicKey) => ({ publicKey })),
+      request.content,
+    ) as NostrEvent[];
+    for (const wrap of wraps) await Promise.resolve(this.options.relayPool.publish(wrap));
+    const conversationId = request.conversationId ?? this.store.conversationIdFor([this.ownerPubkey, ...recipients]);
+    const message = this.store.upsertMessage({
+      id: request.clientMessageId ?? wraps[0]?.id ?? `dm-${nowSeconds()}`,
+      conversationId,
+      senderPubkey: this.ownerPubkey,
+      createdAt: nowSeconds(),
+      content: request.content,
+      status: 'sent',
+    }, [this.ownerPubkey, ...recipients]);
+    return { ok: true, message };
+  }
+
+  private async subscribe(
+    request: DmSubscribeRequest,
+    onMessage: (message: DmMessage) => void,
+  ): Promise<DmSubscription> {
+    if (!this.options.relayPool.isAvailable()) throw new Error('relay unavailable');
+    await this.loadHistory();
+    const subscriptionId = `dm-nip17-${++subscriptionCounter}`;
+    const filters = [{ kinds: [NIP17_GIFT_WRAP_KIND], '#p': [this.ownerPubkey] }] as NostrFilter[];
+    const handle = this.options.relayPool.subscribe(filters, (item) => {
+      if (item === 'EOSE') return;
+      const message = this.ingestWrap(item, 'received');
+      if (!message) return;
+      const sub = this.live.get(subscriptionId);
+      if (sub && (!sub.conversationId || sub.conversationId === message.conversationId)) sub.onMessage(message);
+    }, this.relaysFor(filters));
+    this.live.set(subscriptionId, { handle, conversationId: request.conversationId, onMessage });
+    return { subscriptionId };
+  }
+
+  private unsubscribe(subscriptionId: string): { ok: boolean } {
+    const sub = this.live.get(subscriptionId);
+    if (!sub) return { ok: false };
+    sub.handle.unsubscribe();
+    this.live.delete(subscriptionId);
+    return { ok: true };
+  }
+
+  private close(): void {
+    for (const sub of this.live.values()) sub.handle.unsubscribe();
+    this.live.clear();
+  }
+}
+
 /**
  * Create a concrete NIP-17 NAP-DM adapter.
  *
@@ -60,118 +244,5 @@ function nowSeconds(): number {
  * @returns DM adapter for {@link createDmService}.
  */
 export function createNip17DmAdapter(options: Nip17DmAdapterOptions): DmAdapter {
-  const ownerPubkey = getPublicKey(options.ownerSecretKey);
-  const store = options.store ?? new DmMemoryStore();
-  const live = new Map<string, LiveSub>();
-
-  function relaysFor(filters: NostrFilter[]): string[] {
-    return options.relays && options.relays.length > 0
-      ? options.relays
-      : options.relayPool.selectRelayTier(filters);
-  }
-
-  function normalizeRumor(rumor: NostrEvent, status: DmMessage['status']): DmMessage | null {
-    if (rumor.kind !== 14) return null;
-    const participants = [...new Set([ownerPubkey, rumor.pubkey, ...tagsFor(rumor.tags, 'p')])];
-    const conversationId = store.conversationIdFor(participants);
-    return store.upsertMessage(
-      {
-        id: rumor.id,
-        conversationId,
-        senderPubkey: rumor.pubkey,
-        createdAt: rumor.created_at,
-        content: rumor.content,
-        status,
-      },
-      participants,
-    );
-  }
-
-  return {
-    status(): DmStatus {
-      return {
-        available: options.relayPool.isAvailable(),
-        ownerPubkey,
-        implementations: ['nip17'],
-        capabilities: ['send', 'receive', 'subscribe', 'history'],
-      };
-    },
-
-    conversations(query?: DmConversationQuery): DmConversationPage {
-      return store.conversations(query);
-    },
-
-    messages(query: DmMessageQuery): DmMessagePage {
-      return store.messages(query);
-    },
-
-    async send(request: DmSendRequest): Promise<DmSendResult> {
-      if (!options.relayPool.isAvailable()) throw new Error('relay unavailable');
-      if (!Array.isArray(request.recipients) || request.recipients.length === 0) {
-        throw new Error('recipient required');
-      }
-      if (typeof request.content !== 'string' || request.content.length === 0) {
-        throw new Error('content required');
-      }
-      const recipients = [...new Set(request.recipients)];
-      const wraps = nip17.wrapManyEvents(
-        options.ownerSecretKey,
-        recipients.map((publicKey) => ({ publicKey })),
-        request.content,
-      ) as NostrEvent[];
-      for (const wrap of wraps) await Promise.resolve(options.relayPool.publish(wrap));
-      const conversationId = request.conversationId ?? store.conversationIdFor([ownerPubkey, ...recipients]);
-      const message = store.upsertMessage(
-        {
-          id: request.clientMessageId ?? wraps[0]?.id ?? `dm-${nowSeconds()}`,
-          conversationId,
-          senderPubkey: ownerPubkey,
-          createdAt: nowSeconds(),
-          content: request.content,
-          status: 'sent',
-        },
-        [ownerPubkey, ...recipients],
-      );
-      return { ok: true, message };
-    },
-
-    subscribe(request: DmSubscribeRequest, onMessage: (message: DmMessage) => void): DmSubscription {
-      if (!options.relayPool.isAvailable()) throw new Error('relay unavailable');
-      const subscriptionId = `dm-nip17-${++subscriptionCounter}`;
-      const filters = [{ kinds: [NIP17_GIFT_WRAP_KIND], '#p': [ownerPubkey] }] as NostrFilter[];
-      const handle = options.relayPool.subscribe(
-        filters,
-        (item) => {
-          if (item === 'EOSE') return;
-          let rumor: NostrEvent;
-          try {
-            rumor = nip17.unwrapEvent(item, options.ownerSecretKey) as NostrEvent;
-          } catch {
-            return;
-          }
-          const message = normalizeRumor(rumor, 'received');
-          if (!message) return;
-          for (const sub of live.values()) {
-            if (!sub.conversationId || sub.conversationId === message.conversationId) sub.onMessage(message);
-          }
-        },
-        relaysFor(filters),
-      );
-      live.set(subscriptionId, { handle, conversationId: request.conversationId, onMessage });
-      return { subscriptionId };
-    },
-
-    unsubscribe(subscriptionId: string) {
-      const sub = live.get(subscriptionId);
-      if (!sub) return { ok: false };
-      sub.handle.unsubscribe();
-      live.delete(subscriptionId);
-      return { ok: true };
-    },
-
-    close(): void {
-      for (const sub of live.values()) sub.handle.unsubscribe();
-      live.clear();
-    },
-  };
+  return new Nip17DmRuntime(options).adapter();
 }

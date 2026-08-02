@@ -296,3 +296,12 @@ export type {
   DmSubscription,
   DmTimestamp,
 } from './dm-types.js';
+
+export { createFsService, FsServiceError } from './fs-service.js';
+export type {
+  FsBackend,
+  FsBackendChange,
+  FsBackendWatch,
+  FsService,
+  FsServiceOptions,
+} from './fs-service.js';

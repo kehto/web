@@ -37,6 +37,8 @@ const CAP_INTENT_READ    = 1 << 21;   // 2097152 (NAP-INTENT archetype introspec
 const CAP_INTENT_WRITE   = 1 << 22;   // 4194304 (NAP-INTENT cross-napplet dispatch)
 const CAP_DM_READ        = 1 << 23;   // 8388608 (NAP-DM read/history/subscription)
 const CAP_DM_WRITE       = 1 << 24;   // 16777216 (NAP-DM send)
+const CAP_FS_READ        = 1 << 25;   // 33554432 (NAP-FS discovery/read/watch)
+const CAP_FS_WRITE       = 1 << 26;   // 67108864 (NAP-FS mutations)
 
 const CAP_MAP: Record<Capability, number> = {
   'relay:read': CAP_RELAY_READ,
@@ -63,6 +65,8 @@ const CAP_MAP: Record<Capability, number> = {
   'intent:write': CAP_INTENT_WRITE,
   'dm:read': CAP_DM_READ,
   'dm:write': CAP_DM_WRITE,
+  'fs:read': CAP_FS_READ,
+  'fs:write': CAP_FS_WRITE,
 };
 
 const RUNTIME_CAP_ALL = Object.values(CAP_MAP).reduce((bits, bit) => bits | bit, 0);

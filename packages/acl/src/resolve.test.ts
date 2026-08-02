@@ -517,6 +517,24 @@ describe('resolveCapabilitiesNap', () => {
     });
   });
 
+  describe('fs domain (NAP-FS runtime-owned virtual filesystem)', () => {
+    it.each(['info', 'pickFile', 'pickFiles', 'pickDirectory', 'stat', 'list', 'read', 'watch', 'unwatch'])(
+      'fs.%s -> sender fs:read',
+      (action) => expect(resolveCapabilitiesNap({ type: `fs.${action}` })).toEqual({ senderCap: 'fs:read', recipientCap: null }),
+    );
+
+    it.each(['pickSaveFile', 'write', 'mkdir', 'remove', 'move'])(
+      'fs.%s -> sender fs:write',
+      (action) => expect(resolveCapabilitiesNap({ type: `fs.${action}` })).toEqual({ senderCap: 'fs:write', recipientCap: null }),
+    );
+
+    it('gates read and write results by their matching recipient authority', () => {
+      expect(resolveCapabilitiesNap({ type: 'fs.read.result' })).toEqual({ senderCap: null, recipientCap: 'fs:read' });
+      expect(resolveCapabilitiesNap({ type: 'fs.write.result' })).toEqual({ senderCap: null, recipientCap: 'fs:write' });
+      expect(resolveCapabilitiesNap({ type: 'fs.changed' })).toEqual({ senderCap: null, recipientCap: 'fs:read' });
+    });
+  });
+
   describe('ALL_CAPABILITIES content', () => {
     it('contains the 7 v1.2 capability strings', () => {
       expect(ALL_CAPABILITIES).toContain('identity:read');
@@ -557,6 +575,11 @@ describe('resolveCapabilitiesNap', () => {
     it('contains dm:read and dm:write (NAP-DM)', () => {
       expect(ALL_CAPABILITIES).toContain('dm:read');
       expect(ALL_CAPABILITIES).toContain('dm:write');
+    });
+
+    it('contains fs:read and fs:write (NAP-FS)', () => {
+      expect(ALL_CAPABILITIES).toContain('fs:read');
+      expect(ALL_CAPABILITIES).toContain('fs:write');
     });
 
     it('does NOT contain the removed signer capability strings', () => {

@@ -362,6 +362,20 @@ function dmMap(action: string): CapabilityResolution {
   return { senderCap: 'dm:read', recipientCap: null };
 }
 
+/** `fs.*` — NAP-FS virtual filesystem read/watch vs mutation authority. */
+function fsMap(action: string): CapabilityResolution {
+  const result = action.endsWith('.result') || action.endsWith('.error');
+  const base = result ? action.slice(0, action.lastIndexOf('.')) : action;
+  const write = base === 'pickSaveFile'
+    || base === 'write'
+    || base === 'mkdir'
+    || base === 'remove'
+    || base === 'move';
+  if (action === 'changed') return { senderCap: null, recipientCap: 'fs:read' };
+  if (result) return { senderCap: null, recipientCap: write ? 'fs:write' : 'fs:read' };
+  return { senderCap: write ? 'fs:write' : 'fs:read', recipientCap: null };
+}
+
 /**
  * `theme.*` — napplet read gate vs shell-initiated push.
  *
@@ -474,6 +488,7 @@ export function resolveCapabilitiesNap(msg: NapMessage): CapabilityResolution {
     case 'upload':   return uploadMap(action);      // NAP-UPLOAD shell-mediated file/blob upload
     case 'intent':   return intentMap(action);      // NAP-INTENT archetype intent dispatch
     case 'dm':       return dmMap(action);          // NAP-DM runtime-mediated direct messages
+    case 'fs':       return fsMap(action);          // NAP-FS runtime-owned virtual filesystem
     default:         return { senderCap: null, recipientCap: null };
   }
 }

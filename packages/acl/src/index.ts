@@ -73,7 +73,7 @@ export { migrateAclState } from './migrate.js';
 export type { CapabilityResolution, NapMessage } from './resolve.js';
 export { resolveCapabilitiesNap } from './resolve.js';
 
-// Canonical capability strings (v1.2 — 8-domain NIP-5D surface)
+// Canonical capability strings
 export {
   ALL_CAPABILITIES,
   CAP_IDENTITY_READ,
@@ -84,5 +84,9 @@ export {
   CAP_NOTIFY_CHANNEL,
   CAP_THEME_READ,
   CAP_CVM_CALL,
+  CAP_DM_READ,
+  CAP_DM_WRITE,
+  CAP_FS_READ,
+  CAP_FS_WRITE,
 } from './capabilities.js';
 export type { Capability } from './capabilities.js';

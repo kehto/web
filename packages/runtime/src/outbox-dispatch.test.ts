@@ -319,3 +319,35 @@ describe('runtime dm domain dispatch', () => {
     expect(ctx.sent).toHaveLength(0);
   });
 });
+
+describe('runtime fs domain dispatch', () => {
+  let ctx: MockRuntimeContext;
+  let runtime: Runtime;
+
+  beforeEach(() => {
+    ctx = createMockRuntimeAdapter();
+    runtime = createRuntime(ctx.hooks);
+    runtime.sessionRegistry.register(WINDOW_ID, session());
+    runtime.aclState.grant('', DTAG, HASH, 'fs:read');
+    runtime.aclState.grant('', DTAG, HASH, 'fs:write');
+  });
+
+  it('routes FS reads and mutations to the registered service', () => {
+    const received: NappletMessage[] = [];
+    runtime.registerService('fs', {
+      descriptor: { name: 'fs', version: '1.0.0' },
+      handleMessage(_wid, msg) { received.push(msg); },
+    });
+
+    runtime.handleMessage(WINDOW_ID, { type: 'fs.info', id: 'fi-1' } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'fs.read', id: 'fr-1', path: '/workspace/a' } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'fs.write', id: 'fw-1', path: '/workspace/a', data: '' } as NappletMessage);
+
+    expect(received.map((message) => message.type)).toEqual(['fs.info', 'fs.read', 'fs.write']);
+  });
+
+  it('does not emit a synthetic FS result without a registered backend', () => {
+    expect(() => runtime.handleMessage(WINDOW_ID, { type: 'fs.info', id: 'fi-2' } as NappletMessage)).not.toThrow();
+    expect(ctx.sent).toHaveLength(0);
+  });
+});
