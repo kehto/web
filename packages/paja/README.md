@@ -28,14 +28,13 @@ page, and host config surface. Local target-url mode keeps one target iframe
 with a reload loop and a development console wired through a real
 `ShellBridge`, `@kehto/runtime`, and service adapters for the current web NAP
 surface: relay/outbox, storage, identity, keys, config, resource, theme, notify,
-media, upload, intent, count, link, common, lists, serial, BLE, WebRTC, CVM, and
-inc. Relay/outbox defaults to live public relays
+media, upload, intent, count, link, common, lists, serial, BLE, WebRTC, DM, FS,
+CVM, and inc. Relay/outbox defaults to live public relays
 and uses NIP-65 relay-list bootstrap plus kind `3` contact-list reads for
 identity flows; `--relay-mode memory` is the explicit deterministic fixture
-mode and does not advertise relay, outbox, or count. `shell` is the mandatory, non-toggleable handshake domain; the deprecated legacy package
-path remains an upstream compatibility alias to `inc`. The upstream `dm` domain
-and `fs` domain are not advertised because Paja has no real host backend for
-either one.
+mode and does not advertise relay, outbox, count, or DM. `shell` is the
+mandatory, non-toggleable handshake domain; the deprecated legacy package path
+remains an upstream compatibility alias to `inc`.
 
 ## Dev-server CORS requirement
 
@@ -62,8 +61,8 @@ The console shows supported interfaces with per-domain injection toggles,
 runtime ACL controls, signer controls, and a filterable message log with visible
 error details. Paja auto-connects a browser NIP-07 signer when `window.nostr` is
 available, can connect to a bunker/NIP-46 URI, and only uses the generated local
-development signer when the Dev signer button is selected. Sign, publish,
-Blossom upload, and external-link requests use one serialized in-page
+development signer when the Dev signer button is selected. Sign, publish, DM
+send, filesystem picker, Blossom upload, and external-link requests use one serialized in-page
 confirmation dialog. Deny has initial focus, Escape denies, and there is no
 bypass list. Upload consent identifies the requesting napplet, file, MIME type,
 size, selected server, and durable public effect before bytes leave the browser.
@@ -83,13 +82,35 @@ This implementation tracks pinned
 and the kind/tag conventions in
 [NIP-100 PR #363 at `ead1cd6`](https://github.com/nostr-protocol/nips/pull/363).
 
+DM is advertised only with live relays and Paja's selected Dev signer, whose
+runtime-owned secret key can create and unwrap real NIP-17 gift wraps. Sends
+receive one explicit plaintext/recipient confirmation, publish only verified
+kind-1059 envelopes through the authorized relay path, and reload encrypted
+history from relays rather than treating a memory fixture as persistence.
+Napplets receive normalized NAP-DM messages, never secret keys, seals, rumors,
+or relay sockets. This implementation follows draft
+[NAP-DM `a0a48588`](https://github.com/napplet/naps/blob/a0a48588b3c9caca9540cccec19635b85231a00f/naps/NAP-DM.md).
+
+FS is advertised only after Paja successfully opens the browser's real
+origin-private filesystem. Each verified napplet identity gets a durable OPFS
+`/workspace`; browser file/directory pickers add session-only opaque virtual
+mounts after host approval. The backend implements metadata, directory lists,
+bounded range reads, canonical padded-base64 writes, replace/append/patch,
+revisions and preconditions, recursive mkdir/remove, atomic handle moves when
+the browser supports them, and advisory watches over actual storage. Host
+paths and handles never cross the NIP-5D boundary. This implementation follows
+draft [NAP-FS `b640cf33`](https://github.com/napplet/naps/blob/b640cf337c0481f0f9a0216c00843f797a5c6df6/naps/NAP-FS.md).
+
 Other domains are equally capability-bound. Relay, outbox, and count require
 live relays; count uses NIP-45 `COUNT` without downloading events. Storage
 requires writable `localStorage`; the memory setting is an unadvertised fixture.
 Keys requires a document listener, media requires the browser Media Session
 API, notifications require Paja's host renderer, links require browser
 navigation, and intent requires the installed-catalog/runtime-tab host
-controller. Missing host boundaries remove those domains from `shell.init`.
+controller. DM also requires the Dev signer and live relays; FS requires a
+successful OPFS probe, while picker calls additionally require the corresponding
+browser API and a host-owned approval click. Missing host boundaries remove
+those domains from `shell.init`.
 Live relay URLs are validated before advertisement, fixture events and local
 publish echoes never enter live reads, and relay event sidecars disclose only
 sources that the relay pool actually observed.

@@ -55,7 +55,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 - The published `@napplet/core@0.31.1` and `@napplet/shim@0.29.2` line does not supply a generic mandatory shell surface. Kehto therefore retains this host-owned prelude under NAP-SHELL `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until an upstream correction is reviewed.
 - Advertises `count` in shell capabilities and the injected `window.napplet` namespace only when `ShellAdapter.services.count` is wired, so `shell.supports("count")` tracks an actual NAP-COUNT backend.
 - Surfaces unroutable inbound messages via the optional `ShellAdapter.onUnroutedMessage` hook (`UnroutedMessageInfo`) — observe-only; the bridge still drops messages from unidentified or unregistered windows, but hosts can now log them instead of debugging a silent vanish.
-- Advertises `dm` in shell capabilities when `hooks.dm` is present, unless disabled by host domain policy.
+- Advertises and injects `dm` or `fs` only when the matching runtime service is registered and host domain policy permits it.
 - Treats `keys.forward` as napplet-to-shell only; shell-initiated key actions are emitted as `keys.action` through the keys proxy/runtime service path.
 - Keeps identity/theme proxy delivery fail-closed. Hosts publish automatic changes only through `ShellBridge.publishIdentityChanged()` / `publishTheme()`, which filter by live session, granted domain, and current ACL.
 - Must not expose `window.nostr` to napplets.

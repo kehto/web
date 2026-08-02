@@ -42,6 +42,7 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 | Outbox | `createOutboxService`, `createRelayPoolOutboxRouter`, `OutboxRouter`, `StreamingOutboxRouter`, `OutboxQueryStream`, `OutboxQueryStreamSink` |
 | Shell-mediated helpers | `createLinkService`, `LinkServiceOptions`, `LinkOpenContext`, `createCommonService`, `CommonServiceOptions`, `CommonServiceContext`, `createListsService`, `ListsServiceOptions`, `ListsServiceContext`, `createSerialService`, `SerialServiceOptions`, `SerialServiceContext`, `createBleService`, `BleServiceOptions`, `BleServiceContext`, `createWebrtcService`, `WebrtcServiceOptions`, `WebrtcServiceContext` |
 | DM | `createDmService`, `createNip17DmAdapter`, `createNdrDmAdapter`, `createNdrRelayTransport`, `createCordnDmAdapter`, `createCordnRelayCoordinatorClient`, `DmServiceOptions`, `DmAdapter`, `DmRelayPool`, `Nip17DmAdapterOptions`, `NdrDmAdapterOptions`, `NdrRelayTransportOptions`, `CordnDmAdapterOptions`, `CordnRelayCoordinatorOptions` |
+| FS | `createFsService`, `FsServiceError`, `FsServiceOptions`, `FsBackend`, `FsBackendWatch`, `FsBackendChange` |
 
 ## Scope Boundaries
 
@@ -59,7 +60,8 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
   sidecar hints instead of treating every requested relay as an observed source.
 - `createCountService()` implements the NAP-COUNT `count.query` service shape. Backends count NIP-01 filter matches through relay COUNT support, local indexes, or caches and may return exact counts, approximate/HLL metadata, relays, or refusal errors such as `unsupported-filter` and `too-expensive`; they must not return matching events.
 - BLE and WebRTC hook contexts expose `emit(...)` so host bridges can send runtime-owned event envelopes back to the requesting napplet.
-- NAP-DM support keeps request correlation, subscriptions, and normalized message shape in `createDmService`; NIP-17, NDR, and Cordn specifics live behind adapters. Relay-backed helper bridges cover NDR runtime hooks and Cordn coordinator methods without adding hard package dependencies.
+- NAP-DM support keeps request correlation, per-window subscriptions, and packaged message shapes in `createDmService`; the concrete NIP-17 adapter verifies gift wraps and hydrates encrypted relay history, while NDR and Cordn specifics remain behind structural adapters.
+- NAP-FS support keeps same-id results and per-window watch ownership in `createFsService`; injected backends own real persistence, virtual-path policy, picker mediation, byte validation, revisions, mutation atomicity, and watch observation.
 - `createRelayPoolOutboxRouter()` starts validated relay hints or fallback reads before asynchronous NIP-65 discovery settles. Its host-side `queryStream()` emits verified results incrementally and exposes the existing aggregate through `result`; the draft NAP-OUTBOX wire query remains one-shot.
 - Does not create a runtime or shell bridge by itself.
 

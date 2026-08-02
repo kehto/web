@@ -47,7 +47,8 @@ Current draft posture:
 - `createResourceService` implements the draft NAP-RESOURCE request lifecycle and current result shapes. It fail-closes when no scheme is configured, checks per-identity origin grants, enforces disclosed size/bulk caps, scopes cancellation to the requesting window, drops cancelled terminal envelopes, and never forwards response headers. The host policy fetch must return byte-classified output and owns scheme-specific SSRF, redirect, integrity, and SVG handling.
 - `createUploadService` supports `upload.info` from draft NAP-UPLOAD. Hosts may expose configured rails, return URL forms, maximum bytes, and MIME type policy without requiring napplets to start an upload.
 - `createConfigService` implements draft NAP-CONFIG's shell-writer boundary: recursive bounded-subset schema validation, per-window schema/subscription state, deterministic defaults, invalid/orphan removal, version rollback rejection, scoped host persistence hooks, and settings-UI commits. Reads before schema registration fail closed with `no-schema`.
-- `createDmService` keeps NAP-DM request correlation, subscriptions, and message normalization in runtime-owned code. Adapters cover concrete transports: NIP-17 gift wraps via `nostr-tools`, structural NDR runtimes with relay hooks, and Cordn/ContextVM coordinator clients. Kehto mirrors NAP-DM wire types locally until `@napplet/core` / `@napplet/nap` publish them.
+- `createDmService` keeps NAP-DM request correlation, per-window subscriptions, and packaged message shapes in runtime-owned code. Adapters cover concrete transports: verified NIP-17 gift wraps and relay history via `nostr-tools`, structural NDR runtimes with relay hooks, and Cordn/ContextVM coordinator clients.
+- `createFsService` keeps NAP-FS result correlation and per-window watch identity in runtime-owned code. An injected `FsBackend` owns real persistence, virtual-path policy, picker mediation, byte validation, revisions, mutations, and watch observation.
 
 ## NAP-INTENT manifest resolver
 
@@ -552,6 +553,10 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 - `createNip17DmAdapter` — concrete NIP-17 gift-wrap adapter backed by `nostr-tools/nip17` and an injected relay pool. The owner secret key stays shell/runtime-owned.
 - `createNdrDmAdapter` / `createNdrRelayTransport` — structural adapter for Nostr Double Ratchet runtimes plus a relay transport bridge for app-owned `nostrSubscribe` / `nostrFetch` / `nostrPublish` hooks.
 - `createCordnDmAdapter` / `createCordnRelayCoordinatorClient` — structural adapter for Cordn/ContextVM clients plus a relay-backed coordinator bridge for `PostGroupMessage`, `FetchGroupMessages`, and `SubscribeGroupMessages`.
+
+### FS NAP
+- `createFsService` — all `fs.*` request/result envelopes plus scoped `fs.changed` pushes. It guarantees same-id results, error/success-field exclusivity, cross-window watch isolation, and window-destroy cleanup.
+- `FsBackend` — host contract for runtime-owned virtual paths, real picker/storage handles, bounded range I/O, atomic writes, directory mutation, and advisory watches. `FsServiceError` maps failures to the closed NAP-FS error set.
 
 ### Theme NAP
 - `createThemeService` — `theme.get` plus automatic `theme.changed` delivery

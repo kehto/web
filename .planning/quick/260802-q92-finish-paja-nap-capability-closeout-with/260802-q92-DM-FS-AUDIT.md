@@ -71,7 +71,8 @@ reference service, or Paja backend. Paja explicitly defers and omits `fs`.
    patch writes, revision/absence preconditions, mkdir, removal, move, watch,
    unwatch, and scoped `fs.changed` pushes.
 6. Accept only canonical RFC 4648 padded base64 and count decoded bytes. Enforce
-   read/write/watch/in-flight limits and return the closed NAP-FS error set.
+   read/write/watch limits, serialize mutations, and return the closed NAP-FS
+   error set.
 7. Successful responses omit `error` and include all success fields; failures
    include `error` and omit success fields. Every request gets exactly one
    same-ID result; pushes have no request id.
@@ -81,9 +82,19 @@ reference service, or Paja backend. Paja explicitly defers and omits `fs`.
 ## Cross-surface closure
 
 - Add `fs:read` and `fs:write` ACL capabilities without reusing persisted bits.
+
+### FS closure-size quality exception
+
+`createPajaBrowserFsBackend` intentionally retains the OPFS root, identity-root
+cache, session-only picker grants, mutation queue, and live watch handles in one
+module-private closure. These objects carry filesystem authority; exporting or
+passing a mutable context between helpers would enlarge the authority surface.
+The source therefore has one local `complexity/function-too-long` scanner
+exception for this factory. No repository scanner rule is disabled. Pure
+browser-handle, path, picker-hint, and byte helpers live in
+`browser-fs-support.ts`; authority-bearing state remains inside the factory.
 - Wire runtime dispatch, shell live-domain resolution, injected FS projection,
   Paja service registration, capability controls, parity declarations, tests,
   docs, and package changesets together.
 - Extend the existing PR rather than claiming completion from service-only or
   wire-only code.
-

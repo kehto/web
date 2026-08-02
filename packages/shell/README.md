@@ -34,7 +34,7 @@ Current draft behaviors this package enforces:
 - `window.napplet.shell.supports(domain)` answers synchronously and locally from the cached first `shell.init` environment. It returns `false` before `shell.init`, for unknown values, and for domains that are not live and granted to that napplet; it never sends a support-query message.
 - Five optional per-domain proxies — `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` — can be composed between napplet and runtime to intercept request traffic per NAP. They are NOT wired by default. Identity/theme proxy `emit()` compatibility members fail closed; hosts must deliver automatic changes through `ShellBridge.publishIdentityChanged()` / `publishTheme()`, which enforce live session, granted domain, and current ACL.
 - `keys.forward` is napplet-to-shell only. Active napplets suppress locally-bound keys from `keys.bindings` before forwarding; shell-initiated action triggers use `keys.action`.
-- `buildShellCapabilities()` advertises only live domains (including `dm` when the host adapter provides `hooks.dm`); disabled domains are absent from the delivered `domains` and named services snapshots.
+- `buildShellCapabilities()` advertises only live domains. Registered `dm` and `fs` services are injected only when their handlers exist; disabled domains are absent from the delivered `domains` and named services snapshots.
 
 ### NAP-INC binding and channel contract
 

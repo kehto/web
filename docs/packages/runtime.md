@@ -52,7 +52,7 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
   reported; failures are not buffered and release their pending replay
   reservation so the same deterministic signed event can be retried.
 - Routes the NAP-COUNT `count.query` domain through a registered `count` service. The runtime validates non-empty filters and returns `count.query.result` refusals such as `invalid-filter` or `count-unavailable` instead of emulating counts by fetching event payloads.
-- Routes service-only NAP domains such as `dm` through registered handlers, so chat backends stay outside core runtime dispatch.
+- Routes service-only NAP domains such as `dm` and `fs` through registered handlers, so protocol backends stay outside core runtime dispatch.
 - Does not own browser `window`, iframe creation, DOM, `postMessage` listeners, or localStorage implementation details.
 - Browser concerns live in `@kehto/shell`.
 

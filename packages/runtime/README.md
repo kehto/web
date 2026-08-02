@@ -34,6 +34,7 @@ The runtime is built around the current draft dispatch contract from `@napplet/c
 - **notify** — `notify.send`, `notify.channel.register`, badge/permission flows
 - **relay** — `relay.publish`, `relay.publishEncrypted`, `relay.subscribe`
 - **dm** — `dm.status`, `dm.conversations`, `dm.messages`, `dm.send`, runtime service dispatch
+- **fs** — `fs.info`, pickers, metadata, byte I/O, mutations, watches, runtime service dispatch
 - **storage** — `storage.get/set/remove/keys` with quota enforcement
 - **theme** — `theme.get` and automatic recipient-authorized `theme.changed`
 
@@ -199,7 +200,7 @@ runtime.handleMessage('window-1', {
 ### Service dispatch
 - `routeServiceMessage` — domain-prefix router into the service registry
 - `notifyServiceWindowDestroyed` — lifecycle fan-out to every service handler
-- Service-only NAP domains, including `dm`, route through handlers registered with `runtime.registerService('<domain>', handler)`.
+- Service-only NAP domains, including `dm` and `fs`, route through handlers registered with `runtime.registerService('<domain>', handler)`.
 
 ### Types
 40+ interfaces — including `Runtime`, `RuntimeAdapter`, `SendToNapplet`, `RelayPoolAdapter`, `ServiceHandler`, `ServiceRegistry`, `NappletMessage`, `SessionEntry`, `AclEntryExternal`, `AclCheckEvent`, and the per-adapter hook types — are exported from `./types.js` for host-app integration.

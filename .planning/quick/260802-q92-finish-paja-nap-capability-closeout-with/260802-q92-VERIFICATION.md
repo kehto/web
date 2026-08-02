@@ -1,6 +1,6 @@
 ---
 phase: quick-260802-q92
-verified: 2026-08-02T22:50:00Z
+verified: 2026-08-02T23:34:17Z
 status: passed
 score: 7/7 must-haves verified
 behavior_unverified: 0
@@ -16,10 +16,10 @@ overrides_applied: 0
 | 1 | No Paja runtime path uses native `window.confirm`. | VERIFIED | Static guards and browser tests prove sign, publish, upload, device, WebRTC, notification, and link consent use the serialized host dialog. |
 | 2 | Consent is serialized, accessible, and fail-closed. | VERIFIED | Unit and browser tests cover labelled/described markup, denial-first focus, Escape, queueing, teardown, disclosure, and no pre-consent egress. |
 | 3 | Native host domains perform real effects only when their browser boundary exists. | VERIFIED | KEYS dispatches document events; LINK hands safe HTTP(S) URLs to `window.open`; MEDIA uses Media Session; SERIAL and BLE use browser device APIs; NOTIFY renders host UI. Each domain is omitted when its boundary is absent. |
-| 4 | Every Paja-advertised NAP domain has a real backend. | VERIFIED | The implementation audit traces all 21 optional domains plus mandatory SHELL. Relay-dependent domains require live `nostr-tools`; storage/config require writable durable storage; upload requires Blossom; WebRTC requires real peer/data-channel APIs, live encrypted signaling, and a signer. Memory fixtures do not advertise capabilities. |
-| 5 | Network, signer, and lifecycle claims are truthful. | VERIFIED | Live relay reads exclude fixtures/local echoes and report observed provenance; COUNT uses NIP-45; COMMON/LISTS publish signed Nostr events; CVM/WebRTC use encrypted Nostr signaling; RESOURCE is data-only; teardown tests cover subscriptions, windows, devices, and sessions. |
-| 6 | Release artifacts and documentation match shipped behavior. | VERIFIED | Paja/services READMEs, package docs, the implementation matrix, and the Paja/services minor changeset describe conditional real backends and explicitly unadvertised memory fixtures. `dm` and `fs` remain unadvertised. |
-| 7 | All repository release gates pass. | VERIFIED | Build 32/32; type-check 17/17; unit 139 files / 1,622 tests; Playwright 81 passed / 1 optional external vector skipped; strict docs passed; AI-slop 100/100; diff check passed. |
+| 4 | Every Paja-advertised NAP domain has a real backend. | VERIFIED | The implementation audit traces all 23 optional domains plus mandatory SHELL. Relay-dependent domains require live `nostr-tools`; storage/config require writable durable storage; upload requires Blossom; WebRTC requires real peer/data-channel APIs, live encrypted signaling, and a signer; DM requires live relays plus the NIP-17-capable Dev signer; FS requires a successful OPFS probe. Memory fixtures do not advertise capabilities. |
+| 5 | Network, signer, filesystem, and lifecycle claims are truthful. | VERIFIED | Live relay reads exclude fixtures/local echoes and report observed provenance; COUNT uses NIP-45; COMMON/LISTS publish signed Nostr events; CVM/WebRTC use encrypted Nostr signaling; DM verifies and decrypts relay-persisted NIP-17 wraps; FS persists identity-scoped bytes in OPFS and keeps picker handles opaque; teardown tests cover subscriptions, watches, windows, devices, and sessions. |
+| 6 | Release artifacts and documentation match shipped behavior. | VERIFIED | ACL/runtime/shell/services/Paja READMEs, package docs, the all-domain implementation matrix, and minor changesets for every changed public package describe conditional real backends and explicitly unadvertised memory fixtures. |
+| 7 | All repository release gates pass. | VERIFIED | Build 32/32; type-check 17/17; unit 142 files / 1,657 tests; isolated Playwright 81 passed / 1 optional external vector skipped; strict docs and CSP audits passed; AI-slop 100/100; diff check passed. |
 
 ## Implemented domain set
 
@@ -27,14 +27,17 @@ Paja always provides mandatory `shell`. It advertises the following domains only
 when the stated real backend is available:
 
 - Live relay/network: `relay`, `outbox`, `count`, `common`, `lists`, `cvm`.
-- Signer/social: `identity` (with the specified empty signed-out state).
-- Durable browser state/UI: `storage`, `config`, `theme`.
+- Signer/social: `identity` (with the specified empty signed-out state) and
+  `dm` (live relay plus Paja Dev signer, with real NIP-17 gift wraps).
+- Durable browser state/UI: `storage`, `config`, `theme`, and `fs` (identity-
+  scoped OPFS plus session-only opaque picker mounts).
 - Browser host integration: `keys`, `link`, `media`, `notify`, `intent`.
 - External data/device boundaries: `resource`, `upload`, `serial`, `ble`, `webrtc`.
 - Runtime-owned authenticated routing: `inc`.
 
-`dm` and `fs` are not advertised and were not added. Memory relay, storage, and
-upload modes remain explicit fixtures and cannot enable capability discovery.
+Memory relay, storage, and upload modes remain explicit fixtures and cannot
+enable capability discovery. DM and FS likewise disappear when their real
+relay/signer or OPFS boundary is unavailable.
 
 ## Protocol authority
 
@@ -63,6 +66,8 @@ The implementation was checked against merged `napplet/naps`
 | WEBRTC | `5fae95dd2c8e59bd06c654e0845656add077dcda` |
 | CVM | `ad68a938236e9230324e377cd005008a315ff402` |
 | INC | `c5cd06f7be6d4690b303949abb26e87ff62f4729` |
+| DM | `a0a48588b3c9caca9540cccec19635b85231a00f` |
+| FS | `b640cf337c0481f0f9a0216c00843f797a5c6df6` |
 
 WebRTC signaling was also checked against NIP-100 draft PR #363 head
 `ead1cd6ca6b5b789d70e0d146d17266a2e8e2fba`. The result is conformant for the
@@ -72,8 +77,9 @@ advertised Paja surface; no Kehto-local wire extension was introduced.
 
 - `pnpm build` — passed, 32 tasks.
 - `pnpm type-check` — passed, 17 tasks.
-- `pnpm test:unit` — passed, 139 files / 1,622 tests.
-- `pnpm test:e2e` — passed, 81 tests; one opt-in external vector skipped.
+- `pnpm test:unit` — passed, 142 files / 1,657 tests.
+- `CI=1 pnpm test:e2e` — passed, 81 tests; one opt-in external vector skipped.
 - `pnpm docs:check` — passed.
-- `npx aislop@0.12.0 scan` — 100/100 Healthy.
+- `pnpm audit:csp` — passed.
+- `npx aislop@0.12.0 scan -d` — 100/100 Healthy.
 - `git diff --check` — passed.

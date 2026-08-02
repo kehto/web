@@ -240,20 +240,30 @@ is live:
 
 `relay`, `outbox`, `identity`, `storage`, `inc`, `theme`, `keys`, `link`,
 `common`, `lists`, `serial`, `ble`, `webrtc`, `media`, `notify`, `config`,
-`resource`, `cvm`, `upload`, `intent`, and `count`.
+`resource`, `cvm`, `upload`, `intent`, `count`, `dm`, and `fs`.
 
 `shell` is represented as the mandatory handshake domain rather than an
 injected availability domain. The deprecated legacy compatibility package path
 is represented as an upstream alias to `inc`; upstream
-`@napplet/nap` does not register a separate runtime domain for that alias. The
-upstream `dm` and `fs` domains are not advertised: Paja has no real host backend
-for either domain, and this documentation does not imply NAP-DM or NAP-FS
-behavior.
+`@napplet/nap` does not register a separate runtime domain for that alias.
+
+`dm` is conditional on live relays plus Paja's selected Dev signer. The
+runtime-owned key creates and verifies actual NIP-17 gift wraps, history is
+loaded from relays, and one host confirmation covers the cleartext send before
+validated kind-1059 envelopes are published. It follows draft
+[NAP-DM `a0a48588`](https://github.com/napplet/naps/blob/a0a48588b3c9caca9540cccec19635b85231a00f/naps/NAP-DM.md).
+
+`fs` is conditional on a successful OPFS probe. It provides an
+identity-scoped durable `/workspace`, browser-mediated session picker grants,
+strict virtual paths, bounded range I/O, canonical base64, revisions,
+replace/append/patch writes, directory mutation, supported atomic moves, and
+advisory watches without exposing browser handles or host paths. It follows
+draft [NAP-FS `b640cf33`](https://github.com/napplet/naps/blob/b640cf337c0481f0f9a0216c00843f797a5c6df6/naps/NAP-FS.md).
 
 Default service wiring uses live relay/outbox behavior, localStorage state
 persistence through the runtime, browser or configured identity, schema-validated
 identity-scoped config and host-owned theme, notification, media, upload, intent, resource, common-profile,
-bookmark-list, serial, BLE, WebRTC, and CVM adapters. `keys.forward` dispatches
+bookmark-list, serial, BLE, WebRTC, NIP-17 DM, OPFS, and CVM adapters. `keys.forward` dispatches
 an unbound forwarded keystroke in the host context. `link.open` accepts only
 HTTP(S), asks for consent, and opens with `noopener,noreferrer`.
 Relay/outbox uses NIP-65 relay lists (`kind:10002`) with fallback relays, and the

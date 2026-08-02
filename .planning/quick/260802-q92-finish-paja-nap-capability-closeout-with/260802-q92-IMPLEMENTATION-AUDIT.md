@@ -36,6 +36,8 @@ the production Paja `shell.init` environment.
 | `upload` | implemented Blossom on branch | Only the real consent-gated, signer-authorized Blossom backend can register or advertise upload. The memory fixture no longer creates a service, upload hook, capability, or `kehto-dev://` success. |
 | `intent` | implemented with real host controller | Installed verified catalog, resolved runtime tabs, readiness, generation-safe reuse, authorization, and source-independent delivery exist. The former default no-op target controller is removed; no host controller means no service or capability. |
 | `count` | implemented live on branch | Sends NIP-45 `COUNT` to the first accepting configured relay with bounded fallback, preserves multi-filter OR semantics, discloses the relay actually used, and never downloads matching event payloads. Broad empty filters and memory relay mode fail closed. |
+| `dm` | implemented live on branch | Paja registers NAP-DM only for its real Dev signer plus live relay transport. The service creates and verifies NIP-17 gift wraps, queries durable relay history before returning conversations/messages, publishes only after recipient/plaintext consent, orders subscription results before pushes, scopes subscriptions per window, and rejects forged wraps. Memory relay mode and non-NIP-17-capable signers do not advertise the domain. Checked against NAP-DM draft `a0a48588b3c9caca9540cccec19635b85231a00f`. |
+| `fs` | implemented browser filesystem on branch | Paja registers NAP-FS only after a successful OPFS probe. Each napplet identity receives a durable hashed `/workspace`; session-only picker mounts expose opaque virtual paths without leaking host handles or paths. The backend implements bounded ranged reads, canonical base64, revisions and write preconditions, serialized atomic writes/appends, directories, move-or-unsupported behavior, removal, scoped advisory watches, picker consent, and window cleanup. Checked against NAP-FS draft `b640cf337c0481f0f9a0216c00843f797a5c6df6`. |
 
 ## Exact specification authorities refreshed 2026-08-02
 
@@ -46,7 +48,7 @@ for merged active documents and these exact draft heads: RELAY `0be8abce`, OUTBO
 `fa6bcc69`, NOTIFY `e14f5c9d`, MEDIA `2b2d29e9`, UPLOAD `a7cc1746`, INTENT
 `a718915d`, COUNT `c7447f7e`, LINK `e2514335`, COMMON `de603e20`, LISTS
 `72fddac5`, SERIAL `a3891d4b`, BLE `e14de22a`, WEBRTC `5fae95dd`, CVM
-`ad68a938`, and INC `c5cd06f7`.
+`ad68a938`, INC `c5cd06f7`, DM `a0a48588`, and FS `b640cf33`.
 
 ## Execution sequence
 
