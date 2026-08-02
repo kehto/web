@@ -63,6 +63,7 @@ import { BrowserIntentController } from './browser-intent-controller.js';
 import { InstalledNappletCatalog } from './installed-napplet-catalog.js';
 import { createPajaUploadRuntime, type PajaUploadRuntime } from './browser-upload.js';
 import { createPajaSocialCache } from './browser-social-cache.js';
+import { createPajaCommonBackend } from './browser-common.js';
 import {
   PAJA_LIVE_QUERY_WAIT_MS,
   createPajaContactListLoader,
@@ -132,8 +133,6 @@ export type PajaIdentityProvider = (
   windowId?: string,
 ) => Pick<SessionEntry, 'dTag' | 'aggregateHash'>;
 
-const DEV_COMMON_PUBKEY = '1'.repeat(64);
-const DEV_COMMON_EVENT_ID = '2'.repeat(64);
 const DEV_SIGNER_SECRET_KEY = generateSecretKey();
 /** Paja development signer public key. */
 export const PAJA_DEV_SIGNER_PUBKEY = getPublicKey(DEV_SIGNER_SECRET_KEY);
@@ -396,6 +395,11 @@ function createDevServices(
     getActivePubkey: () => getRuntimePubkey(getSimulation, signerProvider),
     subscribeSignerChange: signerProvider?.subscribe?.bind(signerProvider),
   });
+  const commonBackend = createPajaCommonBackend({
+    relay: backend,
+    getRelays: () => getPajaRelayUrls(getSimulation()),
+    getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider),
+  });
   void socialCache.refreshActiveIdentity();
   const services: Record<string, ServiceHandler> = {
     keys: createKeysService(),
@@ -511,19 +515,14 @@ function createDevServices(
       },
     });
   }
-  if (getSimulation().capabilities.domains.common) {
+  if (getSimulation().capabilities.domains.common && getSimulation().relay.mode === 'live') {
     services.common = createCommonService({
-      getProfile: (target) => ({
-        ok: true,
-        pubkey: target || getSimulation().identity.pubkey || DEV_COMMON_PUBKEY,
-        profile: { name: 'paja', displayName: 'Kehto Paja' },
-        relays: getPajaRelayUrls(getSimulation()),
-      }),
-      follows: () => ({ ok: true, pubkeys: [getSimulation().identity.pubkey || DEV_COMMON_PUBKEY] }),
-      follow: () => ({ ok: true, eventId: DEV_COMMON_EVENT_ID }),
-      unfollow: () => ({ ok: true, eventId: DEV_COMMON_EVENT_ID }),
-      react: () => ({ ok: true, eventId: DEV_COMMON_EVENT_ID }),
-      report: () => ({ ok: true, eventId: DEV_COMMON_EVENT_ID }),
+      getProfile: (target) => commonBackend.getProfile(target),
+      follows: () => commonBackend.follows(),
+      follow: (pubkeys) => commonBackend.follow(pubkeys),
+      unfollow: (pubkeys) => commonBackend.unfollow(pubkeys),
+      react: (targetEventId, reaction, customEmojiHref) => commonBackend.react(targetEventId, reaction, customEmojiHref),
+      report: (target, reason, text) => commonBackend.report(target, reason, text),
     });
   }
   if (getSimulation().capabilities.domains.lists) {
@@ -643,7 +642,7 @@ export function createPajaAdapter(
         : undefined,
     intent: { isAvailable: () => getSimulation().intent.enabled },
     link: { isAvailable: () => getSimulation().capabilities.domains.link },
-    common: { isAvailable: () => getSimulation().capabilities.domains.common },
+    common: { isAvailable: () => Object.hasOwn(services, 'common') },
     lists: { isAvailable: () => getSimulation().capabilities.domains.lists },
     serial: { isAvailable: () => Object.hasOwn(services, 'serial') },
     ble: { isAvailable: () => Object.hasOwn(services, 'ble') },

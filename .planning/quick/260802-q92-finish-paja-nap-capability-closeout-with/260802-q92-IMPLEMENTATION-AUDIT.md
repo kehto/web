@@ -23,7 +23,7 @@ the production Paja `shell.init` environment.
 | `theme` | real | Host-owned mutable theme and browser broadcast exist. |
 | `keys` | real | Document-level keybinding registry and host forwarding exist. |
 | `link` | real | Consent-gated HTTP(S) browser handoff exists. |
-| `common` | simulated | Profile/follows return fixed data; mutations return one fixed event ID. Replace with relay queries and signed/published Nostr events. |
+| `common` | implemented on branch | Live relay reads normalize hex/npub/nprofile targets, verify latest kind 0/3 events, and return raw profile events. Follow-list changes preserve unrelated state and are idempotently signed/published; reactions and reports resolve native events and publish verified NIP-25/NIP-56 events. Mutations fail closed without a signer, and memory relay mode does not advertise the domain. |
 | `lists` | simulated | Development store mutates an in-memory map and returns a fixed event ID. Replace with signed Nostr list reads/mutations/publication. |
 | `serial` | implemented on branch | Uses `navigator.serial`, a host-click chooser, port streams, disconnect/state events, redacted session IDs, ordered writes, and per-window cleanup. Capability is absent when the browser API or activation broker is unavailable. |
 | `ble` | implemented on branch | Uses the Web Bluetooth chooser and GATT services/characteristics/descriptors for reads, writes, notifications, disconnect, redacted session IDs, and per-window cleanup. Capability is absent when the browser API or activation broker is unavailable. |
