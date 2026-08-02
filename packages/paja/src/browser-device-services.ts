@@ -278,7 +278,7 @@ export function createBrowserSerialController(
     },
     close,
     destroyWindow(windowId) {
-      for (const session of [...sessions.values()]) {
+      for (const session of sessions.values()) {
         if (session.windowId !== windowId) continue;
         sessions.delete(session.id);
         void closeSerialSession(session, 'napplet closed');
@@ -492,7 +492,7 @@ export function createBrowserBleController(
     },
     close,
     destroyWindow(windowId) {
-      for (const session of [...sessions.values()]) {
+      for (const session of sessions.values()) {
         if (session.windowId !== windowId) continue;
         sessions.delete(session.id);
         void closeBleSession(session, 'napplet closed');
