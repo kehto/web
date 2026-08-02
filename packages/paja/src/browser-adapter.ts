@@ -47,10 +47,7 @@ import {
 import type { Theme, ThemeChangedMessage } from '@napplet/nap/theme/types';
 import { finalizeEvent, generateSecretKey, getPublicKey, verifyEvent } from 'nostr-tools/pure';
 
-import {
-  createDevListStore,
-  createDevWebrtcController,
-} from './development-services.js';
+import { createDevWebrtcController } from './development-services.js';
 import {
   createBrowserBleController,
   createBrowserSerialController,
@@ -64,6 +61,7 @@ import { InstalledNappletCatalog } from './installed-napplet-catalog.js';
 import { createPajaUploadRuntime, type PajaUploadRuntime } from './browser-upload.js';
 import { createPajaSocialCache } from './browser-social-cache.js';
 import { createPajaCommonBackend } from './browser-common.js';
+import { createPajaListsBackend } from './browser-lists.js';
 import {
   PAJA_LIVE_QUERY_WAIT_MS,
   createPajaContactListLoader,
@@ -400,6 +398,11 @@ function createDevServices(
     getRelays: () => getPajaRelayUrls(getSimulation()),
     getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider),
   });
+  const listsBackend = createPajaListsBackend({
+    relay: backend,
+    getRelays: () => getPajaRelayUrls(getSimulation()),
+    getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider),
+  });
   void socialCache.refreshActiveIdentity();
   const services: Record<string, ServiceHandler> = {
     keys: createKeysService(),
@@ -525,12 +528,11 @@ function createDevServices(
       report: (target, reason, text) => commonBackend.report(target, reason, text),
     });
   }
-  if (getSimulation().capabilities.domains.lists) {
-    const listStore = createDevListStore();
+  if (getSimulation().capabilities.domains.lists && getSimulation().relay.mode === 'live') {
     services.lists = createListsService({
-      supported: listStore.supported,
-      add: listStore.add,
-      remove: listStore.remove,
+      supported: () => listsBackend.supported(),
+      add: (list, items, options) => listsBackend.add(list, items, options),
+      remove: (list, items, options) => listsBackend.remove(list, items, options),
     });
   }
   if (getSimulation().capabilities.domains.serial) {
@@ -643,7 +645,7 @@ export function createPajaAdapter(
     intent: { isAvailable: () => getSimulation().intent.enabled },
     link: { isAvailable: () => getSimulation().capabilities.domains.link },
     common: { isAvailable: () => Object.hasOwn(services, 'common') },
-    lists: { isAvailable: () => getSimulation().capabilities.domains.lists },
+    lists: { isAvailable: () => Object.hasOwn(services, 'lists') },
     serial: { isAvailable: () => Object.hasOwn(services, 'serial') },
     ble: { isAvailable: () => Object.hasOwn(services, 'ble') },
     webrtc: { isAvailable: () => getSimulation().capabilities.domains.webrtc },
