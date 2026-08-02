@@ -545,7 +545,7 @@ function createDevServices(
  * @param userActivation - Host-click broker for device chooser APIs.
  * @param notifyOptions - Host-backed notification presentation hooks.
  * @param configOptions - Host-backed scoped persistence and settings UI hooks.
- * @returns Shell adapter for `createShellBridge`.
+ * @returns Shell adapter plus a startup promise for asynchronous host probes.
  */
 export function createPajaAdapter(
   config: PajaHostConfig,
@@ -560,7 +560,7 @@ export function createPajaAdapter(
   userActivation?: PajaUserActivationHandler,
   notifyOptions?: NotifyServiceOptions,
   configOptions?: ConfigServiceOptions,
-): ShellAdapter {
+): ShellAdapter & { readonly ready: Promise<void> } {
   const relayBackend = createPajaRelayBackend(getSimulation, confirmRequest);
   const relayConfig = createPajaRelayConfig(getSimulation);
   const uploadRuntime = getSimulation().upload.mode === 'blossom'
@@ -599,7 +599,7 @@ export function createPajaAdapter(
     configOptions,
   );
   const services = serviceBundle.services;
-  void createPajaBrowserFsBackend({
+  const ready = createPajaBrowserFsBackend({
     getIdentity: (windowId) => getIdentity?.(windowId) ?? {
       dTag: config.window.dTag,
       aggregateHash: config.window.aggregateHash,
@@ -619,6 +619,7 @@ export function createPajaAdapter(
     }
   });
   return {
+    ready,
     relayPool: createPajaRelayHooks(relayBackend, getSimulation, relayConfig),
     relayConfig,
     windowManager: { createWindow: () => null },

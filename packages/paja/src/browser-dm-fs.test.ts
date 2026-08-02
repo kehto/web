@@ -96,7 +96,8 @@ describe('Paja real FS availability', () => {
     );
 
     expect(adapter.services?.fs).toBeUndefined();
-    await vi.waitFor(() => expect(adapter.services?.fs?.descriptor.name).toBe('fs'));
+    await adapter.ready;
+    expect(adapter.services?.fs?.descriptor.name).toBe('fs');
     expect(getDirectory).toHaveBeenCalledOnce();
     expect(resolvePajaFrameEnvironment(adapter, CONFIG.window).capabilities.domains).toContain('fs');
     await vi.waitFor(() => expect(environmentChanged).toHaveBeenCalledOnce());
@@ -112,7 +113,7 @@ describe('Paja real FS availability', () => {
       () => {},
       () => true,
     );
-    await Promise.resolve();
+    await unavailable.ready;
     expect(unavailable.services?.fs).toBeUndefined();
     expect(resolvePajaFrameEnvironment(unavailable, CONFIG.window).capabilities.domains).not.toContain('fs');
     closeAdapter(unavailable);
@@ -128,7 +129,8 @@ describe('Paja real FS availability', () => {
       () => {},
       () => true,
     );
-    await vi.waitFor(() => expect(disabled.services?.fs).toBeDefined());
+    await disabled.ready;
+    expect(disabled.services?.fs).toBeDefined();
     expect(resolvePajaFrameEnvironment(disabled, CONFIG.window).capabilities.domains).not.toContain('fs');
     closeAdapter(disabled);
   });

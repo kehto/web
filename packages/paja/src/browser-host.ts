@@ -600,6 +600,7 @@ async function installPajaHost(): Promise<void> {
       catalog: runtime.catalog,
       controller: intentController,
     }, confirmationController.activation, notifyController?.serviceOptions, configController?.serviceOptions);
+  await adapter.ready;
   const bridge = createShellBridge(adapter);
   const stopIdentityChanges = signerController.subscribe(() => {
     bridge.publishIdentityChanged(adapter.auth.getUserPubkey() ?? '');
