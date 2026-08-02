@@ -78,22 +78,25 @@ Kehto's runtime packages target the current `@napplet` line:
 
 | Package                 | Version  | Role                                            |
 | ----------------------- | -------- | ----------------------------------------------- |
-| `@napplet/core`         | `0.31.0` | protocol types, constants, `createDispatch` / `registerNap` |
-| `@napplet/nap`          | `0.31.0` | NAP capability helpers |
-| `@napplet/sdk`          | `0.27.0` | napplet-side SDK (playground napplets)          |
-| `@napplet/shim`         | `0.29.0` | generic non-shell NAP domains; does not supply mandatory shell |
-| `@napplet/vite-plugin`  | `0.14.0` | napplet build/sign plugin |
+| `@napplet/core`         | `0.31.1` | protocol types, constants, `createDispatch` / `registerNap` |
+| `@napplet/nap`          | `0.31.2` | NAP capability helpers |
+| `@napplet/sdk`          | `0.27.2` | napplet-side SDK (playground napplets)          |
+| `@napplet/shim`         | `0.29.2` | generic non-shell NAP domains; does not supply mandatory shell |
+| `@napplet/vite-plugin`  | `0.14.1` | napplet build/sign plugin |
+| `@napplet/conformance`  | `0.16.2` | registry-audited conformance artifact; not a Kehto dependency |
 
 The runtime's domain dispatcher routes via `createDispatch()` + `registerNap()`
 from `@napplet/core` (the rename of the former `registerNap` / `NapHandler`
-surface). The selected packages are published from canonical INTENT/INC source
-`7b675622e13870628ce174833d7b2a33cf32a0ab` and release
-`03ad65b66413e5798536ef48695ffc4c2508f2c3`.
+surface). The NAP-INTENT patch artifacts are from napplet/web#199 source
+`3037200c932488f14f7f369b8583c39c9c16510a`, merged as
+`b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 head
+`a79e7f4638f70f4557d4183faee9348847bb8cc7`, merged as release source
+`dc1d24153c759152b6ba31a6ec9bea967798f2df`.
 
 ## Published Intent Contract
 
 NAP-INTENT public `Intent*` request, result, and catalog types are the canonical
-published core/nap 0.31.0 declarations; Kehto retains no local mirror.
+published core 0.31.1 / nap 0.31.2 declarations; Kehto retains no local mirror.
 `intent.invoke` accepts a structured `IntentRequest`, defaults `action` to
 `open`, and produces one final `IntentResult` after target selection, readiness,
 and convention dispatch. A successful result includes `handled`, `handler`,
@@ -150,7 +153,7 @@ may preflight optional availability by checking required
 ### Published shell-package exception
 
 NAP-SHELL at `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` remains mandatory.
-Published core 0.31.0 and shim 0.29.0 omit a generic mandatory
+Published core 0.31.1 and shim 0.29.2 omit a generic mandatory
 `window.napplet.shell` surface, so Kehto retains its host-owned, parent-bound
 prelude. This is a locked upstream package-drift exception, not a claim that
 the shim supplies shell.

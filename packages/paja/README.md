@@ -130,7 +130,7 @@ identity. A superseded target/source, failed open/readiness, or terminal send is
 handled by the controller's replacement/retry/terminal policy and produces a
 canonical failed `IntentResult`.
 
-`@napplet/shim@0.29.0` supplies no generic shell API. Kehto deliberately keeps
+`@napplet/shim@0.29.2` supplies no generic shell API. Kehto deliberately keeps
 its host-owned mandatory `window.napplet.shell` prelude: it installs the live
 receiver before the one bare `shell.ready`, caches the first `shell.init`, and
 provides local `ready()`, `supports()`, read-only `services`, and one-shot

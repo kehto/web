@@ -6,7 +6,7 @@ This directory holds the **Layer-A fixture napplets** used by the Playwright har
 
 Each fixture is a minimal helper-based package named `@kehto/fixture-nap-<domain>`:
 
-- `package.json` — exact `@napplet/shim`, `@napplet/sdk`, and `@napplet/nap` 0.5.0 deps; `vite build` + `vite preview` scripts (mirrors demo napplets)
+- `package.json` — exact published `@napplet/nap@0.31.2`, `@napplet/shim@0.29.2`, `@napplet/sdk@0.27.2`, and `@napplet/vite-plugin@0.14.1` pins (plus `@napplet/core@0.31.1` where declared); `vite build` + `vite preview` scripts mirror demo napplets.
 - `vite.config.ts` — `nip5aManifest({ nappletType: 'fixture-nap-<domain>' })`
 - `tsconfig.json` — strict TS, ESNext, DOM lib (mirrors demo napplets)
 - `index.html` — minimal HTML with `<title>nap-<domain> fixture</title>` and required DOM sentinels

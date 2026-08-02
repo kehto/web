@@ -67,7 +67,7 @@ bootstrap, while target assets and HMR still resolve through the framework dev
 server. The runtime reload button reinitializes the Kehto shell state around the
 same target URL.
 
-The published `@napplet/shim@0.29.0` remains non-shell. Paja therefore retains
+The published `@napplet/shim@0.29.2` remains non-shell. Paja therefore retains
 Kehto's host-owned mandatory `window.napplet.shell` prelude, installed before
 one bare `shell.ready`; its first `shell.init` is cached for local `ready()`,
 `supports()`, read-only `services`, and one-shot `onReady()`. `shell` is not a

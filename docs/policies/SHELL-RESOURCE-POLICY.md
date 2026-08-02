@@ -42,7 +42,7 @@
 
 # Shell Resource Policy Checklist
 
-> Kehto host-hardening guide for core/nap 0.31.0 consumers using profile-media
+> Kehto host-hardening guide for core 0.31.1 / nap 0.31.2 consumers using profile-media
 > `resource.bytes` delegation.
 > This is not a standalone NAP-RESOURCE specification and does not define wire
 > messages, fields, or capability strings.
@@ -52,7 +52,7 @@
 `napplet/naps` master at `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` has no
 standalone `NAP-RESOURCE.md`. For profile picture and banner bytes, authority is
 NAP-IDENTITY's explicit `resource.bytes` delegation plus the published
-`@napplet/core` / `@napplet/nap` 0.31.0 declarations. This document is a
+`@napplet/core` 0.31.1 / `@napplet/nap` 0.31.2 declarations. This document is a
 non-normative Kehto deployment checklist; its MUST/SHOULD labels are local
 hardening requirements, not protocol language. It does not infer any missing
 resource wire semantics.
@@ -257,8 +257,10 @@ Use this as a deployment sign-off:
   `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` — profile-media
   `resource.bytes` delegation; `napplet/naps` has no standalone
   `NAP-RESOURCE.md` at this ref
-- Published `@napplet/core` / `@napplet/nap` 0.31.0 declarations — released
-  implementation contract, source `7b675622e13870628ce174833d7b2a33cf32a0ab`,
-  release `03ad65b66413e5798536ef48695ffc4c2508f2c3`
+- Published `@napplet/core` 0.31.1 / `@napplet/nap` 0.31.2 declarations — released
+  implementation contract, NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`,
+  napplet/web#199 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
+  `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release
+  source `dc1d24153c759152b6ba31a6ec9bea967798f2df`
 - [NIP-5D Conformance](./NIP-5D-CONFORMANCE.md) — napplet-shell protocol alignment; Security Considerations subsection covers strict-CSP posture and `sandbox="allow-scripts"` reaffirmation
 - [WHATWG MIME Sniffing Standard](https://mimesniff.spec.whatwg.org/) — recommended byte-sniffing reference

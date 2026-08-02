@@ -221,7 +221,7 @@ is not delivered to; failed open/readiness attempts follow the private
 retry/replacement policy. The final result includes the handled target's d-tag,
 window identifier, and convention.
 
-The published `@napplet/shim@0.29.0` is intentionally non-shell. Kehto's
+The published `@napplet/shim@0.29.2` is intentionally non-shell. Kehto's
 host-owned prelude remains responsible for mandatory `window.napplet.shell`,
 the one bare `shell.ready` / first `shell.init` handshake, and local cached
 `ready()`, `supports()`, read-only `services`, and one-shot `onReady()`.

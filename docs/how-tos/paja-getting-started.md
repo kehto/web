@@ -57,7 +57,7 @@ Use **Interfaces** to turn individual `window.napplet.<domain>` injection on or
 off. Paja reloads the target after each toggle, and the next `shell.init`
 advertises the changed support surface.
 
-`shell` is not an interface toggle. `@napplet/shim@0.29.0` does not supply a
+`shell` is not an interface toggle. `@napplet/shim@0.29.2` does not supply a
 generic shell API, so Paja's Kehto-owned prelude always installs mandatory
 `window.napplet.shell` before one bare `shell.ready`. It caches the first
 `shell.init` for local `ready()`, `supports()`, read-only `services`, and
