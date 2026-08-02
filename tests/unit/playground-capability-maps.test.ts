@@ -11,6 +11,10 @@ describe('playground capability maps', () => {
     expect(DEMO_CAPABILITY_LABELS['dm:write']).toBe('DM Write');
     expect(DEMO_CAPABILITY_HINTS['dm:read']).toBe('direct-message read access');
     expect(DEMO_CAPABILITY_HINTS['dm:write']).toBe('direct-message write access');
+    expect(DEMO_CAPABILITY_LABELS['fs:read']).toBe('Filesystem Read');
+    expect(DEMO_CAPABILITY_LABELS['fs:write']).toBe('Filesystem Write');
+    expect(DEMO_CAPABILITY_HINTS['fs:read']).toBe('virtual-filesystem read and watch access');
+    expect(DEMO_CAPABILITY_HINTS['fs:write']).toBe('virtual-filesystem mutation access');
   });
 
   it('keeps the shell-host ACL snapshot exhaustive for the Capability union', () => {
@@ -21,5 +25,7 @@ describe('playground capability maps', () => {
 
     expect(accessControls).toContain("'dm:read': hasCapability('dm:read')");
     expect(accessControls).toContain("'dm:write': hasCapability('dm:write')");
+    expect(accessControls).toContain("'fs:read': hasCapability('fs:read')");
+    expect(accessControls).toContain("'fs:write': hasCapability('fs:write')");
   });
 });

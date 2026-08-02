@@ -16,6 +16,8 @@ export const DEMO_CAPABILITY_LABELS: Record<Capability, string> = {
   // DM service or establish an authorization policy.
   'dm:read': 'DM Read',
   'dm:write': 'DM Write',
+  'fs:read': 'Filesystem Read',
+  'fs:write': 'Filesystem Write',
   'relay:read': 'Relay Subscribe',
   'relay:write': 'Relay Publish / INC Send',
   'cache:read': 'Cache Read',
@@ -43,6 +45,8 @@ export const DEMO_CAPABILITY_LABELS: Record<Capability, string> = {
 export const DEMO_CAPABILITY_HINTS: Record<Capability, string> = {
   'dm:read': 'direct-message read access',
   'dm:write': 'direct-message write access',
+  'fs:read': 'virtual-filesystem read and watch access',
+  'fs:write': 'virtual-filesystem mutation access',
   'relay:read': 'relay subscribe / inc receive',
   'relay:write': 'relay publish / inc send',
   'cache:read': 'cache read access',

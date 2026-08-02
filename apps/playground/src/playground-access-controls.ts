@@ -196,6 +196,8 @@ export class PlaygroundAccessControls {
       const capabilities: Record<Capability, boolean> = {
         'dm:read': hasCapability('dm:read'),
         'dm:write': hasCapability('dm:write'),
+        'fs:read': hasCapability('fs:read'),
+        'fs:write': hasCapability('fs:write'),
         'relay:read': hasCapability('relay:read'),
         'relay:write': hasCapability('relay:write'),
         'cache:read': hasCapability('cache:read'),

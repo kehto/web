@@ -16,6 +16,7 @@ import type { PajaSimulation } from './simulation.js';
 export const PAJA_NIP65_RELAY_LIST_KIND = 10_002;
 export const PAJA_CONTACT_LIST_KIND = 3;
 const PAJA_WEBRTC_SIGNAL_KIND = 25_050;
+const NIP17_GIFT_WRAP_KIND = 1_059;
 /**
  * Maximum raw kind-3 candidates returned for verification. The newest candidates
  * (with event-ID tie-breaking) retain deterministic replacement while bounding
@@ -32,6 +33,8 @@ export interface PajaRelayBackend extends RelayPoolLike {
   observedRelayUrls(eventId: string): string[];
   /** Publish a consent-authorized, signed WebRTC signal without per-ICE prompts. */
   publishWebrtcSignal(relayUrls: string[], event: NostrEvent): Promise<void>;
+  /** Publish a consent-authorized NIP-17 gift wrap without a second generic publish prompt. */
+  publishDmGiftWrap(relayUrls: string[], event: NostrEvent): Promise<void>;
   isAvailable(): boolean;
   close(): void;
 }
@@ -364,6 +367,19 @@ export function createPajaRelayBackend(
       }
       const outcomes = await publishLive(livePool, relayUrls, event);
       if (!Object.values(outcomes).some(Boolean)) throw new Error('signaling unavailable');
+      retainPublishedEvent(event, 'live');
+    },
+    async publishDmGiftWrap(relayUrls, event) {
+      if (
+        getSimulation().relay.mode !== 'live'
+        || relayUrls.length === 0
+        || event.kind !== NIP17_GIFT_WRAP_KIND
+        || !verifyEvent(event)
+      ) {
+        throw new Error('DM relay publication failed');
+      }
+      const outcomes = await publishLive(livePool, relayUrls, event);
+      if (!Object.values(outcomes).some(Boolean)) throw new Error('DM relay publication failed');
       retainPublishedEvent(event, 'live');
     },
     isAvailable,

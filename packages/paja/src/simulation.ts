@@ -26,6 +26,8 @@ export type PajaCapabilityDomain =
   | 'serial'
   | 'ble'
   | 'webrtc'
+  | 'dm'
+  | 'fs'
   | 'cvm'
   | 'inc';
 
@@ -174,6 +176,8 @@ export const PAJA_SIMULATION_DOMAINS: readonly PajaCapabilityDomain[] = [
   'serial',
   'ble',
   'webrtc',
+  'dm',
+  'fs',
   'cvm',
   'inc',
 ];
@@ -218,6 +222,7 @@ export function normalizePajaSimulation(
   if (relayMode === 'disabled') {
     domains.relay = false;
     domains.outbox = false;
+    domains.dm = false;
   }
 
   const uploadMode = raw?.upload?.mode ?? (domains.upload ? 'memory' : 'disabled');
@@ -232,7 +237,10 @@ export function normalizePajaSimulation(
   }
   if (!intentEnabled) domains.intent = false;
 
-  if (!domains.relay) domains.count = false;
+  if (!domains.relay) {
+    domains.count = false;
+    domains.dm = false;
+  }
 
   const mediaEnabled = raw?.media?.enabled ?? domains.media;
   if (!domains.media && mediaEnabled) {

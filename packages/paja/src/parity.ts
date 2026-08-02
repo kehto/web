@@ -38,8 +38,8 @@ export const PAJA_UPSTREAM_WEB_DOMAINS = [
 
 /** Domains required during the initial Paja handshake. */
 export const PAJA_HANDSHAKE_DOMAINS = ['shell'] as const;
-/** Domains intentionally deferred until their runtime service exists. */
-export const PAJA_DEFERRED_DOMAINS = ['dm', 'fs'] as const;
+/** Upstream domains intentionally deferred because no runtime implementation exists. */
+export const PAJA_DEFERRED_DOMAINS = [] as const;
 
 /** Compatibility aliases for renamed upstream capability domains. */
 export const PAJA_COMPATIBILITY_ALIASES = {
@@ -69,6 +69,8 @@ export const PAJA_ADVERTISED_DOMAINS = [
   'upload',
   'intent',
   'count',
+  'dm',
+  'fs',
 ] as const;
 
 /** Service names Paja expects the host runtime to provide. */
@@ -92,6 +94,8 @@ export const PAJA_REQUIRED_SERVICES = [
   'theme',
   'upload',
   'count',
+  'dm',
+  'fs',
 ] as const;
 
 /**

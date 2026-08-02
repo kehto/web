@@ -217,6 +217,27 @@ function describeConfirmation(request: PajaConfirmationRequest): ConfirmationCop
       request.warning,
     );
   }
+  if (request.action === 'dm') {
+    return confirmationCopy(
+      'Send this encrypted message?',
+      'A napplet requests NIP-17 direct-message delivery.',
+      'Send message',
+      `Recipients: ${request.recipients.join(', ')}`,
+      `Content: ${request.content.slice(0, 240)}`,
+      request.warning,
+    );
+  }
+  if (request.action === 'fs') {
+    return confirmationCopy(
+      'Choose filesystem access?',
+      'A napplet requests a browser-mediated filesystem selection.',
+      'Open chooser',
+      `Napplet window: ${request.windowId}`,
+      `Selection: ${request.kind}`,
+      `Purpose: ${request.description}`,
+      'The browser will show its file or directory chooser next.',
+    );
+  }
   if (!('event' in request)) throw new Error(`Unsupported confirmation action: ${request.action}`);
   const event = request.event as { kind?: unknown; content?: unknown };
   const kind = typeof event.kind === 'number' ? event.kind : 'unknown';
@@ -286,6 +307,21 @@ function recordPajaConfirmation(
       windowId: request.windowId,
       dTag: request.napplet.dTag,
       aggregateHash: request.napplet.aggregateHash,
+    });
+    return;
+  }
+  if (request.action === 'dm') {
+    appendPajaMessageLog(state, 'paja', {
+      type: `paja.dm.${allowed ? 'confirmed' : 'denied'}`,
+      recipients: request.recipients,
+    });
+    return;
+  }
+  if (request.action === 'fs') {
+    appendPajaMessageLog(state, 'paja', {
+      type: `paja.fs.${allowed ? 'confirmed' : 'denied'}`,
+      windowId: request.windowId,
+      kind: request.kind,
     });
     return;
   }

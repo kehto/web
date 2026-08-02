@@ -12,6 +12,7 @@ import {
   createCatalogIntentResolver,
   createCountService,
   createCvmService,
+  createFsService,
   createIdentityService,
   createIntentService,
   createKeysService,
@@ -31,6 +32,7 @@ import {
   type IntentCandidate,
   type IntentRequest,
   type ConfigServiceOptions,
+  type DmService,
   type NotifyServiceOptions,
 } from '@kehto/services';
 import {
@@ -40,8 +42,7 @@ import {
   type NostrFilterLike,
 } from '@kehto/services/cvm-nostr-transport';
 import type { Theme, ThemeChangedMessage } from '@napplet/nap/theme/types';
-import { finalizeEvent, generateSecretKey, getPublicKey, verifyEvent } from 'nostr-tools/pure';
-import * as nip44 from 'nostr-tools/nip44';
+import { verifyEvent } from 'nostr-tools/pure';
 
 import {
   createBrowserBleController,
@@ -59,6 +60,12 @@ import { createPajaCommonBackend } from './browser-common.js';
 import { createPajaListsBackend } from './browser-lists.js';
 import { createPajaDataResourceFetch, pajaResourceInfo } from './browser-resource.js';
 import { createPajaWebrtcController } from './browser-webrtc.js';
+import { createPajaBrowserFsBackend } from './browser-fs.js';
+import {
+  PAJA_DEV_SIGNER_PUBKEY,
+  createPajaDevDmService,
+  createPajaDevSigner,
+} from './browser-dev-runtime.js';
 import {
   createPajaRelayConfig,
   createPajaRelayHooks,
@@ -73,9 +80,9 @@ import {
   createPajaRelayBackend,
   createPajaRelayListLoader,
   getPajaRelayUrls,
-  matchesAnyFilter,
   type PajaRelayBackend,
 } from './browser-relay-runtime.js';
+import { createPajaWorkerRelay } from './browser-worker-relay.js';
 
 /** Confirmation request emitted before Paja signs, publishes, or uploads. */
 export type PajaConfirmationRequest =
@@ -118,6 +125,18 @@ export type PajaConfirmationRequest =
       readonly napplet: { readonly dTag: string; readonly aggregateHash: string };
       readonly scope: string;
       readonly warning: string;
+    }
+  | {
+      readonly action: 'dm';
+      readonly recipients: readonly string[];
+      readonly content: string;
+      readonly warning: string;
+    }
+  | {
+      readonly action: 'fs';
+      readonly windowId: string;
+      readonly kind: 'file' | 'files' | 'directory' | 'save-file';
+      readonly description: string;
     };
 
 /** Async-capable host policy callback for user-visible Paja operations. */
@@ -142,26 +161,7 @@ export type PajaIdentityProvider = (
   windowId?: string,
 ) => Pick<SessionEntry, 'dTag' | 'aggregateHash'>;
 
-const DEV_SIGNER_SECRET_KEY = generateSecretKey();
-
-/** Paja development signer public key. */
-export const PAJA_DEV_SIGNER_PUBKEY = getPublicKey(DEV_SIGNER_SECRET_KEY);
-
-function createWorkerRelay(events: NostrEvent[]) {
-  return {
-    event(event: NostrEvent) {
-      events.push(event);
-      return Promise.resolve({ ok: true });
-    },
-    query(req: unknown): Promise<NostrEvent[]> {
-      const filters = Array.isArray(req) ? req.slice(2).filter((item): item is NostrFilter => typeof item === 'object' && item !== null) : [];
-      return Promise.resolve(events.filter((event) => matchesAnyFilter(event, filters)));
-    },
-    count(req: unknown): Promise<number> {
-      return this.query(req).then((matched) => matched.length);
-    },
-  };
-}
+export { PAJA_DEV_SIGNER_PUBKEY } from './browser-dev-runtime.js';
 
 interface PajaIntentHost {
   readonly catalog: InstalledNappletCatalog;
@@ -252,34 +252,6 @@ export function createDevTheme(mode: PajaSimulation['theme']['mode'], values: Pa
   } as Theme;
 }
 
-function createDevSigner(
-  getSimulation: () => PajaSimulation,
-  confirmRequest: PajaConfirmationHandler,
-): Signer {
-  return {
-    getPublicKey: () => PAJA_DEV_SIGNER_PUBKEY,
-    getRelays: () => Object.fromEntries(getPajaRelayUrls(getSimulation()).map((relay) => [relay, { read: true, write: true }])),
-    async signEvent(event: Parameters<typeof finalizeEvent>[0]): Promise<NostrEvent> {
-      if (!await confirmRequest({ action: 'sign', event: event as Partial<NostrEvent> })) {
-        throw new Error('Paja signing request denied');
-      }
-      const template = { ...event };
-      template.created_at ??= Math.floor(Date.now() / 1000);
-      template.tags ??= [];
-      template.content ??= '';
-      return finalizeEvent(template, DEV_SIGNER_SECRET_KEY) as NostrEvent;
-    },
-    nip44: {
-      encrypt(pubkey, plaintext) {
-        return Promise.resolve(nip44.encrypt(plaintext, nip44.getConversationKey(DEV_SIGNER_SECRET_KEY, pubkey)));
-      },
-      decrypt(pubkey, ciphertext) {
-        return Promise.resolve(nip44.decrypt(ciphertext, nip44.getConversationKey(DEV_SIGNER_SECRET_KEY, pubkey)));
-      },
-    },
-  };
-}
-
 function getRuntimePubkey(
   getSimulation: () => PajaSimulation,
   signerProvider?: PajaSignerProvider,
@@ -296,7 +268,7 @@ function createRuntimeSigner(
 ): Signer | null {
   const signer = signerProvider?.getSigner();
   if (!signer) {
-    if (signerProvider?.getMethod() === 'dev') return createDevSigner(getSimulation, confirmRequest);
+    if (signerProvider?.getMethod() === 'dev') return createPajaDevSigner(getSimulation, confirmRequest);
     const fixedPubkey = getSimulation().identity.pubkey;
     if (fixedPubkey) {
       return {
@@ -522,16 +494,36 @@ function createDevServices(
     })
     : null;
   const webrtcService = webrtcController ? createWebrtcService(webrtcController.serviceOptions) : null;
+  let dmService: DmService | null = null;
+
+  function setDmAvailability(enabled: boolean): boolean {
+    const wasEnabled = Object.hasOwn(services, 'dm');
+    if (enabled && !dmService) {
+      dmService = createPajaDevDmService(backend, getAllRelays, confirmRequest);
+      services.dm = dmService;
+    } else if (!enabled && dmService) {
+      dmService.dispose();
+      dmService = null;
+      delete services.dm;
+    }
+    return wasEnabled !== enabled;
+  }
 
   function refreshAvailability(): boolean {
-    const wasEnabled = Object.hasOwn(services, 'webrtc');
-    const enabled = getSimulation().capabilities.domains.webrtc
+    const wasWebrtcEnabled = Object.hasOwn(services, 'webrtc');
+    const webrtcEnabled = getSimulation().capabilities.domains.webrtc
       && getSimulation().relay.mode === 'live'
       && backend.isAvailable()
       && webrtcController?.refreshAvailability() === true;
-    if (enabled && webrtcService) services.webrtc = webrtcService;
+    if (webrtcEnabled && webrtcService) services.webrtc = webrtcService;
     else delete services.webrtc;
-    return wasEnabled !== enabled;
+    const dmChanged = setDmAvailability(
+      getSimulation().capabilities.domains.dm
+      && getSimulation().relay.mode === 'live'
+      && backend.isAvailable()
+      && signerProvider?.getMethod() === 'dev',
+    );
+    return wasWebrtcEnabled !== webrtcEnabled || dmChanged;
   }
   refreshAvailability();
 
@@ -607,6 +599,17 @@ export function createPajaAdapter(
     configOptions,
   );
   const services = serviceBundle.services;
+  void createPajaBrowserFsBackend({
+    getIdentity: (windowId) => getIdentity?.(windowId) ?? {
+      dTag: config.window.dTag,
+      aggregateHash: config.window.aggregateHash,
+    },
+    userActivation,
+  }).then((fsBackend) => {
+    if (!fsBackend) return;
+    services.fs = createFsService({ backend: fsBackend });
+    if (getSimulation().capabilities.domains.fs) queueMicrotask(() => onEnvironmentChanged?.());
+  });
   signerProvider?.subscribe?.(() => {
     const availabilityChanged = serviceBundle.refreshAvailability();
     if (uploadRuntime) {
@@ -639,7 +642,7 @@ export function createPajaAdapter(
     },
     config: { getNappUpdateBehavior: () => 'auto-grant' },
     hotkeys: { executeHotkeyFromForward: forwardPajaHotkey },
-    workerRelay: { getWorkerRelay: () => createWorkerRelay(workerRelayEvents) },
+    workerRelay: { getWorkerRelay: () => createPajaWorkerRelay(workerRelayEvents) },
     upload: uploadRuntime ? { getUploader: uploadRuntime.getBackend } : undefined,
     intent: { isAvailable: () => Object.hasOwn(services, 'intent') },
     link: { isAvailable: () => Object.hasOwn(services, 'link') },
