@@ -8,6 +8,7 @@
 
 import type {
   NappletMessage,
+  SerialEvent,
   SerialOpenRequest,
   SerialOpenResult,
 } from '@napplet/core';
@@ -24,6 +25,8 @@ const SERIAL_SERVICE_VERSION = '1.0.0';
 export interface SerialServiceContext {
   /** Window id of the requesting napplet. */
   windowId: string;
+  /** Emit a runtime-owned serial event back to the requesting napplet. */
+  emit(event: SerialEvent): void;
 }
 
 /** Options for {@link createSerialService}. */
@@ -89,6 +92,15 @@ function unsupported(resultType: string, id: string): NappletMessage {
   } as NappletMessage;
 }
 
+function createContext(windowId: string, send: Send): SerialServiceContext {
+  return {
+    windowId,
+    emit(event) {
+      send({ type: 'serial.event', event } as NappletMessage);
+    },
+  };
+}
+
 /**
  * Create the NAP-SERIAL reference service.
  *
@@ -100,7 +112,7 @@ export function createSerialService(options: SerialServiceOptions = {}): Service
     descriptor: SERIAL_DESCRIPTOR,
     handleMessage(windowId: string, message: NappletMessage, send: Send): void {
       const id = (message as NappletMessage & { id?: string }).id ?? '';
-      const context = { windowId };
+      const context = createContext(windowId, send);
 
       if (message.type === 'serial.open') {
         if (!options.open) {

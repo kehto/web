@@ -45,11 +45,14 @@ import type { Theme, ThemeChangedMessage } from '@napplet/nap/theme/types';
 import { finalizeEvent, generateSecretKey, getPublicKey, verifyEvent } from 'nostr-tools/pure';
 
 import {
-  createDevBleController,
   createDevListStore,
-  createDevSerialController,
   createDevWebrtcController,
 } from './development-services.js';
+import {
+  createBrowserBleController,
+  createBrowserSerialController,
+  type PajaUserActivationHandler,
+} from './browser-device-services.js';
 import type { PajaHostConfig } from './options.js';
 import type { PajaSignerMethod } from './browser-signers.js';
 import type { PajaSimulation } from './simulation.js';
@@ -90,6 +93,12 @@ export type PajaConfirmationRequest =
       readonly napplet: { readonly dTag: string; readonly aggregateHash: string };
       readonly url: string;
       readonly label?: string;
+    }
+  | {
+      readonly action: 'serial' | 'ble';
+      readonly windowId: string;
+      readonly label?: string;
+      readonly details: string;
     };
 
 /** Async-capable host policy callback for user-visible Paja operations. */
@@ -363,6 +372,7 @@ function createDevServices(
   signerProvider?: PajaSignerProvider,
   intentHost: PajaIntentHost = createDefaultIntentHost(),
   getIdentity?: PajaIdentityProvider,
+  userActivation?: PajaUserActivationHandler,
 ): Record<string, ServiceHandler> {
   const notification = createNotificationService({ maxPerWindow: 50 });
   const theme = createThemeService({
@@ -523,10 +533,12 @@ function createDevServices(
     });
   }
   if (getSimulation().capabilities.domains.serial) {
-    services.serial = createSerialService(createDevSerialController());
+    const controller = userActivation ? createBrowserSerialController(userActivation) : null;
+    if (controller) services.serial = createSerialService(controller);
   }
   if (getSimulation().capabilities.domains.ble) {
-    services.ble = createBleService(createDevBleController());
+    const controller = userActivation ? createBrowserBleController(userActivation) : null;
+    if (controller) services.ble = createBleService(controller);
   }
   if (getSimulation().capabilities.domains.webrtc) {
     services.webrtc = createWebrtcService(createDevWebrtcController());
@@ -559,6 +571,7 @@ export function createPajaAdapter(
   getIdentity?: PajaIdentityProvider,
   onEnvironmentChanged?: () => void,
   intentHost?: PajaIntentHost,
+  userActivation?: PajaUserActivationHandler,
 ): ShellAdapter {
   const relayBackend = createPajaRelayBackend(getSimulation, confirmRequest);
   const uploadRuntime = getSimulation().upload.mode === 'blossom'
@@ -582,6 +595,18 @@ export function createPajaAdapter(
   });
   const workerRelayEvents: NostrEvent[] = [];
   const resolvedIntentHost = intentHost ?? createDefaultIntentHost();
+  const services = createDevServices(
+    relayBackend,
+    getSimulation,
+    onThemeService,
+    onThemeBroadcast,
+    confirmRequest,
+    uploadRuntime,
+    signerProvider,
+    resolvedIntentHost,
+    getIdentity,
+    userActivation,
+  );
   return {
     relayPool: createRelayHooks(relayBackend, getSimulation),
     relayConfig: {
@@ -598,17 +623,7 @@ export function createPajaAdapter(
       getUserPubkey: () => getRuntimePubkey(getSimulation, signerProvider),
       getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider),
     },
-    services: createDevServices(
-      relayBackend,
-      getSimulation,
-      onThemeService,
-      onThemeBroadcast,
-      confirmRequest,
-      uploadRuntime,
-      signerProvider,
-      resolvedIntentHost,
-      getIdentity,
-    ),
+    services,
     get capabilities() {
       return { disabledDomains: getSimulation().capabilities.disabledDomains };
     },
@@ -624,8 +639,8 @@ export function createPajaAdapter(
     link: { isAvailable: () => getSimulation().capabilities.domains.link },
     common: { isAvailable: () => getSimulation().capabilities.domains.common },
     lists: { isAvailable: () => getSimulation().capabilities.domains.lists },
-    serial: { isAvailable: () => getSimulation().capabilities.domains.serial },
-    ble: { isAvailable: () => getSimulation().capabilities.domains.ble },
+    serial: { isAvailable: () => Object.hasOwn(services, 'serial') },
+    ble: { isAvailable: () => Object.hasOwn(services, 'ble') },
     webrtc: { isAvailable: () => getSimulation().capabilities.domains.webrtc },
     crypto: {
       verifyEvent: async () => true,

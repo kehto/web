@@ -61,13 +61,33 @@ describe('createSerialService', () => {
     service.handleMessage(WINDOW_ID, { type: 'serial.close', id: 'close-2', sessionId: 'serial-session-1', reason: 'done' } as NappletMessage, send);
     await flush();
 
-    expect(options.open).toHaveBeenCalledWith(REQUEST, { windowId: WINDOW_ID });
-    expect(options.write).toHaveBeenCalledWith('serial-session-1', [1, 2, 3], { windowId: WINDOW_ID });
-    expect(options.close).toHaveBeenCalledWith('serial-session-1', 'done', { windowId: WINDOW_ID });
+    expect(options.open).toHaveBeenCalledWith(REQUEST, expect.objectContaining({ windowId: WINDOW_ID }));
+    expect(options.write).toHaveBeenCalledWith('serial-session-1', [1, 2, 3], expect.objectContaining({ windowId: WINDOW_ID }));
+    expect(options.close).toHaveBeenCalledWith('serial-session-1', 'done', expect.objectContaining({ windowId: WINDOW_ID }));
     expect(sent).toEqual([
       { type: 'serial.open.result', id: 'open-2', session: OPEN_RESULT.session },
       { type: 'serial.write.result', id: 'write-2' },
       { type: 'serial.close.result', id: 'close-2' },
+    ]);
+  });
+
+  it('lets the host deliver serial data and lifecycle events', async () => {
+    const service = createSerialService({
+      open: (_request, context) => {
+        context.emit({ type: 'state', sessionId: 'serial-session-1', state: 'open' });
+        context.emit({ type: 'data', sessionId: 'serial-session-1', data: [4, 5, 6] });
+        return OPEN_RESULT;
+      },
+    });
+    const { sent, send } = collectSent();
+
+    service.handleMessage(WINDOW_ID, { type: 'serial.open', id: 'open-events', request: REQUEST } as NappletMessage, send);
+    await flush();
+
+    expect(sent).toEqual([
+      { type: 'serial.event', event: { type: 'state', sessionId: 'serial-session-1', state: 'open' } },
+      { type: 'serial.event', event: { type: 'data', sessionId: 'serial-session-1', data: [4, 5, 6] } },
+      { type: 'serial.open.result', id: 'open-events', session: OPEN_RESULT.session },
     ]);
   });
 

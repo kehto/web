@@ -5,18 +5,22 @@ import {
 import { appendPajaMessageLog } from './browser-devtools.js';
 import { createPajaSignerController } from './browser-signers.js';
 import type { PajaBrowserState } from './browser-host.js';
+import type { PajaUserActivationHandler } from './browser-device-services.js';
 
 /** Coordinates queued Paja operation confirmations. */
 export interface PajaConfirmationController {
   /** Queue one request and resolve after the user approves or denies it. */
   readonly confirm: PajaConfirmationHandler;
+  /** Run a chooser or permission API synchronously from the approval click. */
+  readonly activation: PajaUserActivationHandler;
   /** Deny queued work and detach host-page listeners. */
   dispose(): void;
 }
 
 interface PendingConfirmation {
   readonly request: PajaConfirmationRequest;
-  readonly resolve: (allowed: boolean) => void;
+  readonly approve: () => void;
+  readonly deny: () => void;
 }
 
 interface ConfirmationCopy {
@@ -72,7 +76,8 @@ export function createPajaConfirmationController(
     active = null;
     if (ready && dialog.open) dialog.close();
     recordPajaConfirmation(getState(), current.request, allowed);
-    current.resolve(allowed);
+    if (allowed) current.approve();
+    else current.deny();
     previousFocus?.focus();
     previousFocus = null;
     queueMicrotask(pump);
@@ -97,9 +102,34 @@ export function createPajaConfirmationController(
         return false;
       }
       return new Promise<boolean>((resolve) => {
-        queue.push({ request, resolve });
+        queue.push({ request, approve: () => resolve(true), deny: () => resolve(false) });
         pump();
       });
+    },
+    activation: {
+      run(request, operation) {
+        if (!ready || disposed) {
+          recordPajaConfirmation(getState(), request, false);
+          return Promise.reject(new Error('user activation unavailable'));
+        }
+        return new Promise((resolve, reject) => {
+          queue.push({
+            request,
+            approve() {
+              let result;
+              try {
+                result = operation();
+              } catch (error) {
+                reject(error);
+                return;
+              }
+              Promise.resolve(result).then(resolve, reject);
+            },
+            deny: () => reject(new Error(`${request.action} request denied`)),
+          });
+          pump();
+        });
+      },
     },
     dispose() {
       if (disposed) return;
@@ -112,7 +142,7 @@ export function createPajaConfirmationController(
       settle(false);
       for (const pending of queue.splice(0)) {
         recordPajaConfirmation(getState(), pending.request, false);
-        pending.resolve(false);
+        pending.deny();
       }
     },
   };
@@ -146,6 +176,21 @@ function describeConfirmation(request: PajaConfirmationRequest): ConfirmationCop
       approveLabel: 'Open link',
     };
   }
+  if (request.action === 'serial' || request.action === 'ble') {
+    const device = request.action === 'serial' ? 'serial port' : 'Bluetooth device';
+    return {
+      title: `Connect a ${device}?`,
+      summary: `A napplet requests access to a ${device}.`,
+      details: [
+        `Napplet window: ${request.windowId}`,
+        ...(request.label ? [`Purpose: ${request.label}`] : []),
+        request.details,
+        'The browser will show its device chooser next.',
+      ].join('\n'),
+      approveLabel: 'Choose device',
+    };
+  }
+  if (!('event' in request)) throw new Error(`Unsupported confirmation action: ${request.action}`);
   const event = request.event as { kind?: unknown; content?: unknown };
   const kind = typeof event.kind === 'number' ? event.kind : 'unknown';
   const content = typeof event.content === 'string' && event.content.length > 0
@@ -190,6 +235,15 @@ function recordPajaConfirmation(
     });
     return;
   }
+  if (request.action === 'serial' || request.action === 'ble') {
+    appendPajaMessageLog(state, 'paja', {
+      type: `paja.${request.action}.${allowed ? 'confirmed' : 'denied'}`,
+      windowId: request.windowId,
+      label: request.label,
+    });
+    return;
+  }
+  if (!('event' in request)) return;
   const event = request.event as { kind?: unknown };
   appendPajaMessageLog(state, 'paja', {
     type: `paja.${request.action}.${allowed ? 'confirmed' : 'denied'}`,

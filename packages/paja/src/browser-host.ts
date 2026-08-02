@@ -587,7 +587,7 @@ async function installPajaHost(): Promise<void> {
   }, () => stateRef?.reload(), {
       catalog: runtime.catalog,
       controller: intentController,
-    });
+    }, confirmationController.activation);
   const bridge = createShellBridge(adapter);
   themeBroadcast.attach(bridge);
   bridgeRef = bridge;
