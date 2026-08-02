@@ -50,7 +50,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       button { border: 1px solid var(--line); color: var(--text); background: #20241f; height: 26px; padding: 0 10px; border-radius: 4px; font: inherit; cursor: pointer; }
       button:hover { border-color: var(--accent); }
       label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; }
-      select, input { border: 1px solid var(--line); color: var(--text); background: #20241f; height: 26px; border-radius: 4px; font: inherit; }
+      select, input, textarea { border: 1px solid var(--line); color: var(--text); background: #20241f; min-height: 26px; border-radius: 4px; font: inherit; }
       main { min-height: 0; display: grid; grid-template-columns: var(--paja-console-column) minmax(0, 1fr); }
       .console { min-height: 0; overflow: auto; border-right: 1px solid var(--line); background: #121512; padding: 10px; display: flex; flex-direction: column; gap: 12px; }
       .section { display: grid; gap: 8px; }
@@ -90,6 +90,18 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
       .confirmation-dialog { width: min(520px, calc(100% - 48px)); max-width: none; border: 0; padding: 0; background: transparent; color: var(--text); }
       .confirmation-dialog::backdrop { background: rgb(0 0 0 / 0.68); }
+      .config-dialog { width: min(620px, calc(100% - 48px)); max-width: none; max-height: min(760px, calc(100% - 48px)); border: 0; padding: 0; background: transparent; color: var(--text); }
+      .config-dialog::backdrop { background: rgb(0 0 0 / 0.68); }
+      .config-dialog .dialog { width: 100%; max-height: inherit; grid-template-rows: auto auto minmax(0, 1fr) auto auto; }
+      .config-fields { min-height: 0; overflow: auto; display: grid; gap: 12px; }
+      .config-field { display: grid; align-items: stretch; gap: 5px; white-space: normal; }
+      .config-field-label { color: var(--text); font-weight: 600; }
+      .config-field input:not([type="checkbox"]), .config-field select, .config-field textarea { width: 100%; padding: 4px 7px; }
+      .config-field textarea { resize: vertical; }
+      .config-field small, .config-empty { color: var(--muted); }
+      .config-group { margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 4px; display: grid; gap: 10px; }
+      .config-group legend { color: var(--accent); padding: 0 5px; }
+      .config-error { min-height: 1.4em; color: #e6a5a5; }
       .paja-notification-center { position: fixed; right: 16px; bottom: 46px; z-index: 10; width: min(360px, calc(100vw - 32px)); display: grid; gap: 8px; pointer-events: none; }
       .paja-notification { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 6px; background: #181b19; box-shadow: 0 10px 30px rgb(0 0 0 / 0.45); pointer-events: auto; }
       .paja-notification[data-priority="high"], .paja-notification[data-priority="urgent"] { border-left-color: #e89b5b; }
@@ -160,6 +172,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
     <div class="paja-notification-badges" id="paja-notification-badges" aria-label="Napplet notification badges"></div>
     <section class="paja-notification-center" id="paja-notification-center" aria-label="Napplet notifications" aria-live="polite"></section>
     ${renderConfirmationDialog()}
+    ${renderConfigDialog()}
     ${renderDuplicateDialog()}
     <footer class="bar bottom">
       <span>mode: <code>${escapeHtml(getModeLabel(config))}</code></span>
@@ -183,6 +196,21 @@ function renderConfirmationDialog(): string {
         <div class="dialog-actions">
           <button type="button" id="paja-confirmation-deny">Deny</button>
           <button type="button" id="paja-confirmation-approve">Approve</button>
+        </div>
+      </div>
+    </dialog>`;
+}
+
+function renderConfigDialog(): string {
+  return `<dialog class="config-dialog" id="paja-config-dialog" aria-labelledby="paja-config-title" aria-describedby="paja-config-description">
+      <div class="dialog">
+        <div class="dialog-title" id="paja-config-title">Napplet settings</div>
+        <div class="dialog-copy" id="paja-config-description"></div>
+        <div class="config-fields" id="paja-config-fields"></div>
+        <div class="config-error" id="paja-config-error" role="alert"></div>
+        <div class="dialog-actions">
+          <button type="button" id="paja-config-cancel">Cancel</button>
+          <button type="button" id="paja-config-save">Save</button>
         </div>
       </div>
     </dialog>`;

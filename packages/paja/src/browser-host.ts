@@ -70,6 +70,7 @@ import {
 } from './runtime-resolver.js';
 import { reportTargetCorsDiagnostic } from './browser-target-diagnostics.js';
 import { createPajaNotifyController } from './browser-notify.js';
+import { createPajaConfigController } from './browser-config.js';
 import {
   PAJA_SIMULATION_DOMAINS,
   summarizePajaSimulation,
@@ -589,12 +590,16 @@ async function installPajaHost(): Promise<void> {
     getIdentity: getWindowIdentity,
     isEnabled: () => getSimulation().notifications.enabled && getSimulation().notifications.grant,
   });
+  const configController = createPajaConfigController({
+    getIdentity: getWindowIdentity,
+    getInitialValues: () => ({ ...getSimulation().config.values }),
+  });
   const adapter = createPajaAdapter(config, getSimulation, (theme) => {
     runtime.themeService = theme;
   }, themeBroadcast.onBroadcast, confirmationController.confirm, signerController, getWindowIdentity, () => stateRef?.reload(), {
       catalog: runtime.catalog,
       controller: intentController,
-    }, confirmationController.activation, notifyController?.serviceOptions);
+    }, confirmationController.activation, notifyController?.serviceOptions, configController?.serviceOptions);
   const bridge = createShellBridge(adapter);
   themeBroadcast.attach(bridge);
   bridgeRef = bridge;
@@ -623,6 +628,7 @@ async function installPajaHost(): Promise<void> {
   window.addEventListener('pagehide', stopIntentCatalogChanges, { once: true });
   window.addEventListener('pagehide', () => confirmationController.dispose(), { once: true });
   window.addEventListener('pagehide', () => notifyController?.dispose(), { once: true });
+  window.addEventListener('pagehide', () => configController?.dispose(), { once: true });
 
   window.__KEHTO_PAJA__ = state;
 

@@ -246,8 +246,8 @@ upstream `dm` domain is not advertised: Paja has no deterministic development
 DM backend and this documentation does not imply any NAP-DM behavior.
 
 Default service wiring uses live relay/outbox behavior, localStorage state
-persistence through the runtime, browser or configured identity, deterministic
-config/theme, notification, media, upload, intent, resource, common-profile,
+persistence through the runtime, browser or configured identity, schema-validated
+identity-scoped config and deterministic theme, notification, media, upload, intent, resource, common-profile,
 bookmark-list, serial, BLE, WebRTC, and CVM adapters. `keys.forward` dispatches
 an unbound forwarded keystroke in the host context. `link.open` accepts only
 HTTP(S), asks for consent, and opens with `noopener,noreferrer`.
@@ -358,7 +358,9 @@ The normalized simulation object controls:
 - Unadvertised memory fixture, real Blossom, or disabled upload mode; shell-owned servers,
   BUD-03 discovery, maximum bytes, and MIME policy.
 - Media, notification, intent, and CVM availability.
-- Config values returned by `config.get`.
+- Initial config values used only after schema registration when an identity has
+  no saved shell settings. Paja validates/defaults and persists later host UI
+  commits under `(dTag, aggregateHash)`; it does not expose a napplet write path.
 - Theme mode and values returned by `theme.get`.
 
 The top bar includes a theme selector and reload button; the bottom bar

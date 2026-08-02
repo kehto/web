@@ -182,6 +182,13 @@ kehto paja \
 }
 ```
 
+Configured `config.values` are only a seed for identities with no saved
+settings. A napplet must register a valid NAP-CONFIG schema before any values
+are delivered. Paja then validates/defaults the seed, persists commits under
+the host-resolved `(dTag, aggregateHash)`, and exposes a shell-owned settings
+dialog; napplets remain read-only. If durable browser storage or that host UI
+is unavailable, Paja does not advertise `config`.
+
 ## NAP-UPLOAD modes
 
 Paja keeps `memory` as the default unadvertised upload fixture. It does not

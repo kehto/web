@@ -84,8 +84,13 @@ export type {
 export { createThemeService } from './theme-service.js';
 export type { ThemeServiceOptions, ThemeService } from './theme-service.js';
 
-export { createConfigService } from './config-service.js';
+export {
+  createConfigService,
+  resolveConfigValues,
+  validateConfigSchema,
+} from './config-service.js';
 export type {
+  ConfigSettingsContext,
   ConfigServiceOptions,
   ConfigService,
   ConfigSchemaValidation,

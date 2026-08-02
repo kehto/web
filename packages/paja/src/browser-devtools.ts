@@ -195,7 +195,7 @@ export function createPajaPostMessageProxy(
           appendPajaMessageLog(
             context?.state ?? state,
             'shell->napplet',
-            msg,
+            redactPajaMessageForLog(msg),
             context?.windowId ?? windowId,
           );
           return target.postMessage(msg, targetOrigin, transfer);
@@ -213,6 +213,29 @@ export function createPajaPostMessageProxy(
   realToProxy.set(realWin, proxy);
   proxyContexts.set(proxy, { state, windowId });
   return proxy;
+}
+
+/**
+ * Remove NAP-CONFIG values from Paja's developer message log.
+ *
+ * A registered schema may mark individual properties as secrets. Redacting
+ * every `config.values` payload avoids retaining those cleartext values in a
+ * second host-owned surface without needing to duplicate schema state here.
+ *
+ * @param message - Outbound runtime message before delivery.
+ * @returns The original message or a metadata-only CONFIG log record.
+ */
+export function redactPajaMessageForLog(message: unknown): unknown {
+  if (!isRecord(message) || message.type !== 'config.values') return message;
+  return {
+    type: 'config.values',
+    ...(typeof message.id === 'string' ? { id: message.id } : {}),
+    values: '[redacted by host]',
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**

@@ -8,6 +8,7 @@ import {
 import {
   createPajaPostMessageProxy,
   installPajaOriginRegistryProxy,
+  redactPajaMessageForLog,
 } from './browser-devtools.js';
 
 const originalRegistryMethods = {
@@ -93,5 +94,21 @@ describe('Paja origin-registry proxy', () => {
     );
 
     bridge.destroy();
+  });
+});
+
+describe('Paja message-log redaction', () => {
+  it('never retains NAP-CONFIG values', () => {
+    expect(redactPajaMessageForLog({
+      type: 'config.values',
+      id: 'get-1',
+      values: { apiKey: 'cleartext-secret' },
+    })).toEqual({
+      type: 'config.values',
+      id: 'get-1',
+      values: '[redacted by host]',
+    });
+    const relay = { type: 'relay.eose', subId: 'sub-1' };
+    expect(redactPajaMessageForLog(relay)).toBe(relay);
   });
 });

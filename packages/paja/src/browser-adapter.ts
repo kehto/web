@@ -32,6 +32,7 @@ import {
   createWebrtcService,
   type IntentCandidate,
   type IntentRequest,
+  type ConfigServiceOptions,
   type NotifyServiceOptions,
 } from '@kehto/services';
 import {
@@ -329,25 +330,14 @@ function createDevServices(
   getIdentity?: PajaIdentityProvider,
   userActivation?: PajaUserActivationHandler,
   notifyOptions?: NotifyServiceOptions,
+  configOptions?: ConfigServiceOptions,
 ): Record<string, ServiceHandler> {
   const theme = createThemeService({
     initialTheme: createDevTheme(getSimulation().theme.mode, getSimulation().theme.values),
     onBroadcast: onThemeBroadcast,
   });
   onThemeService(theme);
-  const config = createConfigService({
-    getValues: () => ({
-      ...getSimulation().config.values,
-      simulation: {
-        identity: getSimulation().identity.mode,
-        relay: getSimulation().relay.mode,
-        storage: getSimulation().storage.mode,
-        cache: getSimulation().cache.mode,
-        upload: getSimulation().upload.mode,
-        theme: getSimulation().theme.mode,
-      },
-    }),
-  });
+  const config = configOptions ? createConfigService(configOptions) : null;
   const baseOutboxRouter = createOutboxRouter(backend, getSimulation, confirmRequest, signerProvider);
   const socialCache = createPajaSocialCache({
     baseRouter: baseOutboxRouter,
@@ -428,7 +418,7 @@ function createDevServices(
   }
   if (getSimulation().media.enabled) services.media = createMediaService();
   if (getSimulation().capabilities.domains.theme) services.theme = theme.handler;
-  if (getSimulation().capabilities.domains.config) services.config = config.handler;
+  if (getSimulation().capabilities.domains.config && config) services.config = config.handler;
   if (getSimulation().cvm.enabled && getSimulation().relay.mode === 'live' && backend.isAvailable()) {
     services.cvm = createCvmService({
       transport: createNostrCvmTransport({
@@ -517,6 +507,7 @@ function createDevServices(
  * @param intentHost - Installed catalog, target controller, and user policy.
  * @param userActivation - Host-click broker for device chooser APIs.
  * @param notifyOptions - Host-backed notification presentation hooks.
+ * @param configOptions - Host-backed scoped persistence and settings UI hooks.
  * @returns Shell adapter for `createShellBridge`.
  */
 export function createPajaAdapter(
@@ -531,6 +522,7 @@ export function createPajaAdapter(
   intentHost?: PajaIntentHost,
   userActivation?: PajaUserActivationHandler,
   notifyOptions?: NotifyServiceOptions,
+  configOptions?: ConfigServiceOptions,
 ): ShellAdapter {
   const relayBackend = createPajaRelayBackend(getSimulation, confirmRequest);
   const uploadRuntime = getSimulation().upload.mode === 'blossom'
@@ -569,6 +561,7 @@ export function createPajaAdapter(
     })),
     userActivation,
     notifyOptions,
+    configOptions,
   );
   return {
     relayPool: createRelayHooks(relayBackend, getSimulation),

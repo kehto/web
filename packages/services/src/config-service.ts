@@ -19,37 +19,33 @@
  * (H-07 in PITFALLS.md) — such state belongs in NAP-STORAGE.
  * ──────────────────────────────────────────────────────────────────────────────────
  *
- * Host integration: provide `getValues()` returning the current
- * `ConfigValues` snapshot. Call the returned `publishValues(newValues)`
- * whenever the configuration changes — the service fans the new snapshot
- * out to every napplet that has an active `config.subscribe`.
+ * Host integration: provide `getValues(windowId)` and `saveValues(windowId,
+ * values)` backed by storage scoped to the source window's napplet identity.
+ * The service validates and defaults every snapshot before delivery.
  *
- * Optional: provide `registerSchema` to accept napplet-declared schemas at
- * runtime (the ref impl does a minimal shape check using the Core Subset
- * validator; use `ajv` in host impls that need strict draft-07 conformance).
- * Provide `openSettings` to open a shell-side UI for the napplet (no
- * response envelope — fire-and-forget UI hook).
+ * Provide `openSettings` to render the shell-owned settings UI. Optional
+ * hooks may add host policy around schema acceptance and lifecycle cleanup.
  *
  * @example
  * ```ts
  * import { createConfigService } from '@kehto/services';
  *
- * const configFixtures = { theme: 'dark', density: 'compact', recentSearches: [] };
+ * const configFixtures = new Map<string, ConfigValues>();
  * const config = createConfigService({
- *   getValues: () => ({ ...configFixtures }),
+ *   getValues: (windowId) => ({ ...configFixtures.get(windowId) }),
+ *   saveValues: (windowId, values) => configFixtures.set(windowId, values),
  * });
  * runtime.registerService('config', config.handler);
  *
  * // Later, when shell-side values change:
- * configFixtures.theme = 'light';
- * config.publishValues({ ...configFixtures });
+ * config.publishValues({ theme: 'light' }, 'window-1');
  * ```
  */
 
 import type { NappletMessage } from '@napplet/core';
 // DRIFT-CORE-06 — Phase 11-deviation: ServiceDescriptor dropped from @napplet/core
 // v0.2.0+ (napplet phase-81). Re-exported from @kehto/runtime (canonical home after Phase 24 DRIFT-01).
-import type { ServiceDescriptor, ServiceHandler } from '@kehto/runtime';
+import type { ServiceHandler } from '@kehto/runtime';
 import type {
   ConfigGetMessage,
   ConfigRegisterSchemaMessage,
@@ -60,17 +56,18 @@ import type {
   ConfigSchemaErrorCode,
   NappletConfigSchema,
 } from '@napplet/nap/config/types';
+import {
+  configValuesConform,
+  resolveConfigValues,
+  validateConfigSchema,
+  type ConfigSchemaValidation,
+} from './config-schema.js';
+
+export { resolveConfigValues, validateConfigSchema } from './config-schema.js';
+export type { ConfigSchemaValidation } from './config-schema.js';
 
 /** Config service version — follows semver. */
 const CONFIG_SERVICE_VERSION = '1.0.0';
-
-/**
- * Shape returned by a successful `registerSchema` result (ok=true) or a
- * rejection (ok=false + code + error). Mirrors the wire envelope fields.
- */
-export type ConfigSchemaValidation =
-  | { ok: true }
-  | { ok: false; code: ConfigSchemaErrorCode; error: string };
 
 /**
  * Configuration options for `createConfigService` (options-as-bridge
@@ -79,8 +76,9 @@ export type ConfigSchemaValidation =
  * @example
  * ```ts
  * const config = createConfigService({
- *   getValues: () => ({ theme: 'dark', density: 'compact' }),
- *   openSettings: (windowId, section) => showSettingsPanel(windowId, section),
+ *   getValues: (windowId) => loadScopedValues(windowId),
+ *   saveValues: (windowId, values) => saveScopedValues(windowId, values),
+ *   openSettings: (windowId, section, context) => showSettingsPanel(windowId, section, context),
  * });
  * ```
  */
@@ -90,7 +88,10 @@ export interface ConfigServiceOptions {
    * Called on every `config.get` and at every `config.subscribe` initial push.
    * Implementations should return a fresh object (not a mutable reference).
    */
-  getValues(): ConfigValues;
+  getValues(windowId: string): ConfigValues;
+
+  /** Persist one shell-validated full snapshot after settings UI commit. */
+  saveValues?: (windowId: string, values: ConfigValues) => void;
 
   /**
    * Optional: receive notification when a napplet subscribes to config updates.
@@ -106,9 +107,9 @@ export interface ConfigServiceOptions {
   /**
    * Optional: validate and store a napplet-provided schema.
    *
-   * If omitted, the ref impl runs its own Core Subset check (hand-coded
-   * validator; 30-50 lines) and returns ok/reject. Hosts that need strict
-   * draft-07 conformance should provide an ajv-backed implementation.
+   * The reference implementation always runs its complete bounded Core Subset
+   * validator first. This hook may add host policy such as version acceptance
+   * or durable schema persistence, but cannot weaken protocol validation.
    *
    * Return shape mirrors `config.registerSchema.result` wire envelope
    * (minus the `id` — the dispatch layer correlates).
@@ -122,10 +123,27 @@ export interface ConfigServiceOptions {
   /**
    * Optional: open the shell-side settings UI for this napplet.
    * Fire-and-forget — no response envelope per the wire spec.
-   * If omitted, `config.openSettings` is silently dropped (D10 allows
-   * the config-demo napplet to function without a settings UI).
+   * If omitted, `config.openSettings` is silently dropped. A conformant host
+   * must supply this hook before advertising the CONFIG domain.
    */
-  openSettings?: (windowId: string, section: string | undefined) => void;
+  openSettings?: (
+    windowId: string,
+    section: string | undefined,
+    context: ConfigSettingsContext,
+  ) => void;
+
+  /** Release host-owned transient UI or state for a destroyed window. */
+  onWindowDestroyed?: (windowId: string) => void;
+}
+
+/** Shell-owned settings state and commit boundary passed to host UI code. */
+export interface ConfigSettingsContext {
+  /** Accepted schema for this live napplet window. */
+  readonly schema: NappletConfigSchema;
+  /** Current validated/defaulted values. */
+  readonly values: ConfigValues;
+  /** Validate, persist, and publish a full settings snapshot. */
+  commit(values: ConfigValues): ConfigValues;
 }
 
 /**
@@ -144,83 +162,16 @@ export interface ConfigService {
    * push from correlated `config.get` response).
    *
    * @param values - The new configuration snapshot (full object, not a diff)
+   * @param windowId - Optional source window scope. Omit only for a host-wide
+   *   update that should be independently validated for every subscriber.
    */
-  publishValues(values: ConfigValues): void;
-}
+  publishValues(values: ConfigValues, windowId?: string): void;
 
-/**
- * Minimal JSON Schema validator covering the NAP-CONFIG Core Subset:
- * type: object / string / number / boolean / array, required[], default, properties.
- *
- * Explicitly rejects: $ref, pattern, oneOf/anyOf/allOf/not, if/then/else.
- * Returns { ok: true } on shape sanity, otherwise an error code per the
- * canonical ConfigSchemaErrorCode union.
- *
- * Host apps that need strict draft-07 conformance should supply a custom
- * `registerSchema` callback backed by ajv@8.
- */
-function validateCoreSubset(schema: unknown): ConfigSchemaValidation {
-  if (typeof schema !== 'object' || schema === null || Array.isArray(schema)) {
-    return { ok: false, code: 'invalid-schema', error: 'schema root must be an object' };
-  }
-  const s = schema as Record<string, unknown>;
+  /** Return the accepted schema for one live window, or null. */
+  getSchema(windowId: string): NappletConfigSchema | null;
 
-  // Reject forbidden keywords (NAP-CONFIG Core Subset limits per spec).
-  if ('$ref' in s) {
-    return { ok: false, code: 'ref-not-allowed', error: '$ref is not permitted in the Core Subset' };
-  }
-  if ('pattern' in s) {
-    return {
-      ok: false,
-      code: 'pattern-not-allowed',
-      error: 'pattern is not permitted in the Core Subset',
-    };
-  }
-  if ('oneOf' in s || 'anyOf' in s || 'allOf' in s || 'not' in s) {
-    return {
-      ok: false,
-      code: 'invalid-schema',
-      error: 'oneOf/anyOf/allOf/not are not permitted in the Core Subset',
-    };
-  }
-  if ('if' in s || 'then' in s || 'else' in s) {
-    return {
-      ok: false,
-      code: 'invalid-schema',
-      error: 'if/then/else are not permitted in the Core Subset',
-    };
-  }
-  if (s.type !== 'object') {
-    return { ok: false, code: 'invalid-schema', error: 'schema root must have type: "object"' };
-  }
-
-  // Shallow properties check: each declared property must use a supported type.
-  const props = s.properties;
-  if (props !== undefined && (typeof props !== 'object' || props === null)) {
-    return { ok: false, code: 'invalid-schema', error: 'properties must be an object' };
-  }
-  if (props) {
-    for (const [key, val] of Object.entries(props as Record<string, unknown>)) {
-      if (typeof val !== 'object' || val === null) {
-        return {
-          ok: false,
-          code: 'invalid-schema',
-          error: `property "${key}" must be an object schema`,
-        };
-      }
-      const pv = val as Record<string, unknown>;
-      const ALLOWED_TYPES = new Set(['string', 'number', 'boolean', 'array', 'object']);
-      if (pv.type !== undefined && !ALLOWED_TYPES.has(pv.type as string)) {
-        return {
-          ok: false,
-          code: 'invalid-schema',
-          error: `property "${key}" must have type: string|number|boolean|array|object`,
-        };
-      }
-    }
-  }
-
-  return { ok: true };
+  /** Return the current validated/defaulted values for one live window, or null. */
+  getValues(windowId: string): ConfigValues | null;
 }
 
 /**
@@ -249,128 +200,276 @@ function validateCoreSubset(schema: unknown): ConfigSchemaValidation {
  * import { createConfigService } from '@kehto/services';
  *
  * const config = createConfigService({
- *   getValues: () => ({ theme: 'dark', density: 'compact' }),
- *   openSettings: (windowId, section) => openSettingsUI(section),
+ *   getValues: (windowId) => loadScopedValues(windowId),
+ *   saveValues: (windowId, values) => saveScopedValues(windowId, values),
+ *   openSettings: (windowId, section, context) => openSettingsUI(section, context),
  * });
  * runtime.registerService('config', config.handler);
  *
- * // Push a live update to all subscribers:
- * config.publishValues({ theme: 'light', density: 'compact' });
+ * // Push one externally-originated scoped update:
+ * config.publishValues({ theme: 'light', density: 'compact' }, 'window-1');
  * ```
  */
 export function createConfigService(options: ConfigServiceOptions): ConfigService {
-  /**
-   * Per-window subscriber set. Maps windowId → the send callback captured at
-   * `config.subscribe` time. `publishValues` fans out to every entry.
-   */
-  const subscribers = new Map<string, (msg: NappletMessage) => void>();
+  return new ConfigServiceController(options);
+}
 
-  const descriptor: ServiceDescriptor = {
-    name: 'config',
-    version: CONFIG_SERVICE_VERSION,
-    description: 'NAP-CONFIG reference service — shell-writes, napplet-reads configuration',
-  };
+interface RegisteredConfigSchema {
+  readonly schema: NappletConfigSchema;
+  readonly version?: number;
+}
 
-  const handler: ServiceHandler = {
-    descriptor,
+class ConfigServiceController implements ConfigService {
+  private readonly subscribers = new Map<string, (message: NappletMessage) => void>();
+  private readonly schemas = new Map<string, RegisteredConfigSchema>();
+  readonly handler: ServiceHandler;
 
-    handleMessage(
-      windowId: string,
-      message: NappletMessage,
-      send: (msg: NappletMessage) => void,
-    ): void {
-      switch (message.type) {
-        case 'config.get': {
-          const m = message as ConfigGetMessage;
-          const reply: ConfigValuesMessage = {
-            type: 'config.values',
-            id: m.id,
-            values: options.getValues(),
-          };
-          send(reply as NappletMessage);
-          return;
-        }
-
-        case 'config.subscribe': {
-          // Capture the send callback so publishValues can fan pushes out.
-          subscribers.set(windowId, send);
-          // Immediate initial snapshot push — no `id` (push form per wire spec).
-          const push: ConfigValuesMessage = {
-            type: 'config.values',
-            values: options.getValues(),
-          };
-          send(push as NappletMessage);
-          options.onSubscribe?.(windowId);
-          return;
-        }
-
-        case 'config.unsubscribe': {
-          subscribers.delete(windowId);
-          options.onUnsubscribe?.(windowId);
-          return;
-        }
-
-        case 'config.registerSchema': {
-          const m = message as ConfigRegisterSchemaMessage;
-          // Delegate to host-supplied validator if present; otherwise use
-          // the built-in Core Subset hand-coded validator (D12).
-          const validation: ConfigSchemaValidation = options.registerSchema
-            ? options.registerSchema(windowId, m.schema, m.version)
-            : validateCoreSubset(m.schema);
-
-          const result: ConfigRegisterSchemaResultMessage = validation.ok
-            ? { type: 'config.registerSchema.result', id: m.id, ok: true }
-            : {
-                type: 'config.registerSchema.result',
-                id: m.id,
-                ok: false,
-                code: validation.code,
-                error: validation.error,
-              };
-          send(result as NappletMessage);
-          return;
-        }
-
-        case 'config.openSettings': {
-          const m = message as ConfigOpenSettingsMessage;
-          // Silently dropped if openSettings hook not provided (D10).
-          options.openSettings?.(windowId, m.section);
-          return;
-        }
-
-        default:
-          // Unknown config.* message — silently ignored per NIP-5D.
-          return;
-      }
-    },
-
-    onWindowDestroyed(windowId: string): void {
-      // A napplet iframe was destroyed — drop any active subscription so we
-      // don't retain the stale send callback in the subscribers map.
-      subscribers.delete(windowId);
-    },
-  };
-
-  /**
-   * Broadcast a new config values snapshot to every subscribed napplet.
-   * Each subscriber receives a `config.values` push envelope (no `id` —
-   * absence of `id` distinguishes a push from a correlated `config.get`
-   * response per the NAP-CONFIG wire spec).
-   */
-  function publishValues(values: ConfigValues): void {
-    const envelope: ConfigValuesMessage = {
-      type: 'config.values',
-      values,
+  constructor(private readonly options: ConfigServiceOptions) {
+    this.handler = {
+      descriptor: {
+        name: 'config',
+        version: CONFIG_SERVICE_VERSION,
+        description: 'NAP-CONFIG reference service — shell-writes, napplet-reads configuration',
+      },
+      handleMessage: (windowId, message, send) => this.handleMessage(windowId, message, send),
+      onWindowDestroyed: (windowId) => this.destroyWindow(windowId),
     };
-    for (const send of subscribers.values()) {
-      try {
-        send(envelope as NappletMessage);
-      } catch {
-        // Subscriber's send callback threw (e.g., iframe gone without
-        // onWindowDestroyed firing yet). Best-effort — drop silently.
-      }
+  }
+
+  getSchema(windowId: string): NappletConfigSchema | null {
+    const schema = this.schemas.get(windowId)?.schema;
+    return schema ? structuredClone(schema) : null;
+  }
+
+  getValues(windowId: string): ConfigValues | null {
+    const schema = this.schemas.get(windowId)?.schema;
+    if (!schema) return null;
+    const values = resolveConfigValues(schema, this.options.getValues(windowId));
+    return configValuesConform(schema as Record<string, unknown>, values) ? values : null;
+  }
+
+  publishValues(values: ConfigValues, windowId?: string): void {
+    if (windowId) {
+      this.publishWindowValues(windowId, values);
+      return;
+    }
+    for (const target of this.subscribers.keys()) this.publishWindowValues(target, values);
+  }
+
+  private handleMessage(
+    windowId: string,
+    message: NappletMessage,
+    send: (message: NappletMessage) => void,
+  ): void {
+    switch (message.type) {
+      case 'config.get':
+        this.handleGet(windowId, message as ConfigGetMessage, send);
+        return;
+      case 'config.subscribe':
+        this.handleSubscribe(windowId, send);
+        return;
+      case 'config.unsubscribe':
+        this.subscribers.delete(windowId);
+        this.options.onUnsubscribe?.(windowId);
+        return;
+      case 'config.registerSchema':
+        this.handleRegisterSchema(windowId, message as ConfigRegisterSchemaMessage, send);
+        return;
+      case 'config.openSettings':
+        this.handleOpenSettings(windowId, message as ConfigOpenSettingsMessage, send);
+        return;
+      default:
+        return;
     }
   }
 
-  return { handler, publishValues };
+  private handleGet(
+    windowId: string,
+    message: ConfigGetMessage,
+    send: (message: NappletMessage) => void,
+  ): void {
+    const values = this.getValues(windowId);
+    if (!values) {
+      this.sendValuesUnavailable(send, windowId);
+      return;
+    }
+    const reply: ConfigValuesMessage = {
+      type: 'config.values',
+      id: message.id,
+      values,
+    };
+    send(reply as NappletMessage);
+  }
+
+  private handleSubscribe(
+    windowId: string,
+    send: (message: NappletMessage) => void,
+  ): void {
+    this.subscribers.set(windowId, send);
+    const values = this.getValues(windowId);
+    if (values) {
+      send({ type: 'config.values', values } as NappletMessage);
+    } else {
+      this.sendValuesUnavailable(send, windowId);
+    }
+    this.options.onSubscribe?.(windowId);
+  }
+
+  private handleRegisterSchema(
+    windowId: string,
+    message: ConfigRegisterSchemaMessage,
+    send: (message: NappletMessage) => void,
+  ): void {
+    const nextVersion = message.version ?? readSchemaVersion(message.schema);
+    let validation = this.validateRegistration(windowId, message, nextVersion);
+    if (validation.ok) validation = this.persistRegisteredSchema(windowId, message.schema, nextVersion);
+    const result: ConfigRegisterSchemaResultMessage = validation.ok
+      ? { type: 'config.registerSchema.result', id: message.id, ok: true }
+      : {
+          type: 'config.registerSchema.result',
+          id: message.id,
+          ok: false,
+          code: validation.code,
+          error: validation.error,
+        };
+    send(result as NappletMessage);
+    if (validation.ok) this.publishWindowValues(windowId);
+  }
+
+  private validateRegistration(
+    windowId: string,
+    message: ConfigRegisterSchemaMessage,
+    nextVersion: number | undefined,
+  ): ConfigSchemaValidation {
+    let validation = validateConfigSchema(message.schema);
+    if (validation.ok && message.version !== undefined && (!Number.isSafeInteger(message.version) || message.version < 0)) {
+      validation = { ok: false, code: 'invalid-schema', error: 'version must be a non-negative integer' };
+    }
+    const priorVersion = this.schemas.get(windowId)?.version;
+    if (validation.ok && priorVersion !== undefined && nextVersion !== undefined && nextVersion < priorVersion) {
+      validation = { ok: false, code: 'version-conflict', error: 'schema version cannot move backwards' };
+    }
+    if (!validation.ok || !this.options.registerSchema) return validation;
+    try {
+      return this.options.registerSchema(windowId, message.schema, message.version);
+    } catch (cause) {
+      return {
+        ok: false,
+        code: 'invalid-schema',
+        error: cause instanceof Error ? cause.message : 'host schema policy failed',
+      };
+    }
+  }
+
+  private persistRegisteredSchema(
+    windowId: string,
+    schema: NappletConfigSchema,
+    version: number | undefined,
+  ): ConfigSchemaValidation {
+    try {
+      const resolved = resolveConfigValues(schema, this.options.getValues(windowId));
+      this.options.saveValues?.(windowId, resolved);
+      this.schemas.set(windowId, {
+        schema: structuredClone(schema),
+        ...(version !== undefined ? { version } : {}),
+      });
+      return { ok: true };
+    } catch (cause) {
+      return {
+        ok: false,
+        code: 'invalid-schema',
+        error: cause instanceof Error ? cause.message : 'host configuration persistence failed',
+      };
+    }
+  }
+
+  private handleOpenSettings(
+    windowId: string,
+    message: ConfigOpenSettingsMessage,
+    send: (message: NappletMessage) => void,
+  ): void {
+    const record = this.schemas.get(windowId);
+    if (!record) {
+      sendSchemaError(send, 'no-schema', 'no configuration schema is registered');
+      return;
+    }
+    const values = resolveConfigValues(record.schema, this.options.getValues(windowId));
+    const section = message.section && schemaHasSection(record.schema, message.section)
+      ? message.section
+      : undefined;
+    this.options.openSettings?.(windowId, section, {
+      schema: structuredClone(record.schema),
+      values,
+      commit: (next) => this.commitValues(windowId, next),
+    });
+  }
+
+  private commitValues(windowId: string, values: ConfigValues): ConfigValues {
+    const schema = this.schemas.get(windowId)?.schema;
+    if (!schema) throw new Error('no configuration schema is registered');
+    const resolved = resolveConfigValues(schema, values);
+    if (!configValuesConform(schema as Record<string, unknown>, resolved)) {
+      throw new Error('required configuration values are missing or invalid');
+    }
+    this.options.saveValues?.(windowId, resolved);
+    this.publishWindowValues(windowId, resolved);
+    return resolved;
+  }
+
+  private publishWindowValues(windowId: string, supplied?: ConfigValues): void {
+    const send = this.subscribers.get(windowId);
+    const schema = this.schemas.get(windowId)?.schema;
+    if (!send || !schema) return;
+    const values = supplied ? resolveConfigValues(schema, supplied) : this.getValues(windowId);
+    if (!values || !configValuesConform(schema as Record<string, unknown>, values)) return;
+    try {
+      send({ type: 'config.values', values } as NappletMessage);
+    } catch {
+      this.subscribers.delete(windowId);
+    }
+  }
+
+  private sendValuesUnavailable(
+    send: (message: NappletMessage) => void,
+    windowId: string,
+  ): void {
+    if (!this.schemas.has(windowId)) {
+      sendSchemaError(send, 'no-schema', 'no configuration schema is registered');
+      return;
+    }
+    sendSchemaError(send, 'invalid-schema', 'configuration requires valid values before delivery');
+  }
+
+  private destroyWindow(windowId: string): void {
+    this.subscribers.delete(windowId);
+    this.schemas.delete(windowId);
+    this.options.onWindowDestroyed?.(windowId);
+  }
+}
+function sendSchemaError(
+  send: (message: NappletMessage) => void,
+  code: ConfigSchemaErrorCode,
+  error: string,
+): void {
+  send({ type: 'config.schemaError', code, error } as NappletMessage);
+}
+
+function readSchemaVersion(schema: NappletConfigSchema): number | undefined {
+  const version = (schema as Record<string, unknown>).$version;
+  return Number.isSafeInteger(version) && Number(version) >= 0 ? Number(version) : undefined;
+}
+
+function schemaHasSection(schema: NappletConfigSchema, section: string): boolean {
+  const properties = (schema as Record<string, unknown>).properties;
+  if (!isRecord(properties)) return false;
+  for (const child of Object.values(properties)) {
+    if (!isRecord(child)) continue;
+    if (child['x-napplet-section'] === section) return true;
+    if (child.type === 'object' && schemaHasSection(child as NappletConfigSchema, section)) return true;
+  }
+  return false;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
