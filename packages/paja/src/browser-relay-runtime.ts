@@ -27,6 +27,9 @@ export const PAJA_LIVE_QUERY_WAIT_MS = 4_000;
 export interface PajaRelayBackend extends RelayPoolLike {
   query(relayUrls: string[], filters: NostrFilter[], maxWaitMs?: number): Promise<NostrEvent[]>;
   publishToRelays(relayUrls: string[], event: NostrEvent): Promise<Record<string, boolean>>;
+  countWithRelay(relayUrls: string[], filters: NostrFilter[]): Promise<{ count: number; relay: string }>;
+  /** Relay URLs on which nostr-tools actually observed an event. */
+  observedRelayUrls(eventId: string): string[];
   /** Publish a consent-authorized, signed WebRTC signal without per-ICE prompts. */
   publishWebrtcSignal(relayUrls: string[], event: NostrEvent): Promise<void>;
   isAvailable(): boolean;
@@ -184,37 +187,81 @@ async function publishLive(pool: SimplePool, relayUrls: string[], event: NostrEv
   return Object.fromEntries(relayUrls.map((relayUrl, index) => [relayUrl, results[index]?.status === 'fulfilled']));
 }
 
+async function countLive(
+  pool: SimplePool,
+  relayUrls: string[],
+  filters: NostrFilter[],
+): Promise<{ count: number; relay: string }> {
+  let failure: unknown = new Error('count unavailable');
+  for (const relayUrl of relayUrls) {
+    const controller = new AbortController();
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<never>((_resolve, reject) => {
+      timeout = setTimeout(() => {
+        controller.abort();
+        reject(new Error('count timeout'));
+      }, PAJA_LIVE_QUERY_WAIT_MS);
+    });
+    try {
+      const relay = await Promise.race([
+        pool.ensureRelay(relayUrl, {
+          connectionTimeout: PAJA_LIVE_QUERY_WAIT_MS,
+          abort: controller.signal,
+        }),
+        timedOut,
+      ]);
+      const count = await Promise.race([
+        relay.count(filters as Filter[], { id: null }),
+        timedOut,
+      ]);
+      if (!Number.isSafeInteger(count) || count < 0) throw new Error('invalid count');
+      return { count, relay: relayUrl };
+    } catch (error) {
+      failure = error;
+    } finally {
+      if (timeout !== undefined) clearTimeout(timeout);
+    }
+  }
+  throw failure;
+}
+
 export function createPajaRelayBackend(
   getSimulation: () => PajaSimulation,
   confirmRequest: PajaConfirmationHandler,
   livePool = new SimplePool(),
 ): PajaRelayBackend {
-  const events: NostrEvent[] = getSimulation().relay.fixtures.flatMap(toNostrEvent);
+  livePool.trackRelays = true;
+  const fixtureEvents: NostrEvent[] = getSimulation().relay.fixtures.flatMap(toNostrEvent);
+  const acceptedMemoryEvents: NostrEvent[] = [];
   const subscribers = new Set<{
     filters: NostrFilter[];
     next(item: NostrEvent | 'EOSE'): void;
   }>();
 
   const isAvailable = () => getSimulation().relay.mode !== 'disabled' && getPajaRelayUrls(getSimulation()).length > 0;
+  const cachedEvents = (): NostrEvent[] => getSimulation().relay.mode === 'memory'
+      ? [...fixtureEvents, ...acceptedMemoryEvents]
+      : [];
   const query = async (relayUrls: string[], filters: NostrFilter[], maxWaitMs?: number): Promise<NostrEvent[]> => {
-    const memoryEvents = collectMemoryEvents(events, filters);
-    if (getSimulation().relay.mode !== 'live' || relayUrls.length === 0) return memoryEvents;
+    const cached = collectMemoryEvents(cachedEvents(), filters);
+    if (getSimulation().relay.mode !== 'live' || relayUrls.length === 0) return cached;
     const liveEvents = await queryLive(livePool, relayUrls, filters, maxWaitMs);
     const out = new Map<string, NostrEvent>();
-    for (const event of [...memoryEvents, ...liveEvents]) out.set(event.id, event);
+    for (const event of [...cached, ...liveEvents]) out.set(event.id, event);
     return [...out.values()].sort((a, b) => b.created_at - a.created_at);
   };
   const queryContactListCandidates: ContactListCandidateQuery = async (relayUrls, filters, maxWaitMs, signal) => {
-    const memoryEvents = collectMemoryEvents(events, filters);
-    if (signal?.aborted || getSimulation().relay.mode !== 'live' || relayUrls.length === 0) return memoryEvents;
+    const cached = collectMemoryEvents(cachedEvents(), filters);
+    if (signal?.aborted || getSimulation().relay.mode !== 'live' || relayUrls.length === 0) return cached;
     const liveEvents = await queryLive(livePool, relayUrls, filters, maxWaitMs, true, signal);
     const out = new Map<string, NostrEvent>();
-    for (const event of [...memoryEvents, ...liveEvents]) out.set(event.id, event);
+    for (const event of [...cached, ...liveEvents]) out.set(event.id, event);
     return [...out.values()].sort((a, b) => b.created_at - a.created_at);
   };
 
-  function retainPublishedEvent(event: NostrEvent): void {
-    events.push(event);
+  function retainPublishedEvent(event: NostrEvent, mode: PajaSimulation['relay']['mode']): void {
+    if (mode !== 'memory') return;
+    acceptedMemoryEvents.push(event);
     for (const subscriber of subscribers) {
       if (matchesAnyFilter(event, subscriber.filters)) subscriber.next(event);
     }
@@ -239,7 +286,7 @@ export function createPajaRelayBackend(
     if (!Object.values(outcomes).some(Boolean)) {
       return { outcomes, error: 'publish failed' };
     }
-    retainPublishedEvent(event);
+    retainPublishedEvent(event, simulation.relay.mode);
     return { outcomes };
   }
 
@@ -253,7 +300,7 @@ export function createPajaRelayBackend(
             next: (item: NostrEvent | 'EOSE') => next(item),
           };
           subscribers.add(subscriber);
-          for (const event of collectMemoryEvents(events, filters)) next(event);
+          for (const event of collectMemoryEvents(cachedEvents(), filters)) next(event);
           const liveSub = getSimulation().relay.mode === 'live'
             ? subscribeLive(livePool, relayUrls, filters, subscriber.next)
             : null;
@@ -277,18 +324,30 @@ export function createPajaRelayBackend(
       return {
         subscribe(observer: { next: (event: unknown) => void; complete: () => void; error: () => void }) {
           const filters = normalizedFilters(filtersInput);
+          let active = true;
           query(relayUrls, filters)
             .then((matched) => {
+              if (!active) return;
               for (const event of matched) observer.next(event);
               observer.complete();
             })
-            .catch(() => observer.error());
-          return { unsubscribe() { /* no-op */ } };
+            .catch(() => {
+              if (active) observer.error();
+            });
+          return { unsubscribe() { active = false; } };
         },
       };
     },
     async count(relayUrls: string[], filters: NostrFilter[]): Promise<number> {
-      return (await query(relayUrls, normalizedFilters(filters))).length;
+      if (getSimulation().relay.mode !== 'live') throw new Error('count unavailable');
+      return (await countLive(livePool, relayUrls, normalizedFilters(filters))).count;
+    },
+    async countWithRelay(relayUrls, filters) {
+      if (getSimulation().relay.mode !== 'live') throw new Error('count unavailable');
+      return countLive(livePool, relayUrls, normalizedFilters(filters));
+    },
+    observedRelayUrls(eventId) {
+      return [...(livePool.seenOn?.get(eventId) ?? [])].map((relay) => relay.url);
     },
     query,
     async publishToRelays(relayUrls, event) {
@@ -305,7 +364,7 @@ export function createPajaRelayBackend(
       }
       const outcomes = await publishLive(livePool, relayUrls, event);
       if (!Object.values(outcomes).some(Boolean)) throw new Error('signaling unavailable');
-      retainPublishedEvent(event);
+      retainPublishedEvent(event, 'live');
     },
     isAvailable,
     close() {
@@ -366,9 +425,10 @@ async function getSignerRelayUrls(
 async function getBootstrapRelayUrls(
   getSimulation: () => PajaSimulation,
   signerProvider: PajaSignerProvider | undefined,
+  getHostRelayUrls?: () => string[],
 ): Promise<string[]> {
   return dedupeRelayUrls([
-    ...getPajaRelayUrls(getSimulation()),
+    ...(getHostRelayUrls?.() ?? getPajaRelayUrls(getSimulation())),
     ...await getSignerRelayUrls(signerProvider, 'read'),
   ]);
 }
@@ -381,10 +441,11 @@ export function createPajaContactListLoader(
   backend: PajaRelayBackend,
   getSimulation: () => PajaSimulation,
   signerProvider?: PajaSignerProvider,
+  getHostRelayUrls?: () => string[],
 ): (pubkey: string, signal?: AbortSignal) => Promise<NostrEvent[]> {
   return async (pubkey: string, signal?: AbortSignal): Promise<NostrEvent[]> => {
     if (!/^[0-9a-fA-F]{64}$/.test(pubkey) || signal?.aborted) return [];
-    const relayUrls = await getBootstrapRelayUrls(getSimulation, signerProvider);
+    const relayUrls = await getBootstrapRelayUrls(getSimulation, signerProvider, getHostRelayUrls);
     if (signal?.aborted) return [];
     const filters = [{
       kinds: [PAJA_CONTACT_LIST_KIND],
@@ -424,13 +485,18 @@ export function createPajaRelayListLoader(
   backend: PajaRelayBackend,
   getSimulation: () => PajaSimulation,
   signerProvider?: PajaSignerProvider,
+  getHostRelayUrls?: () => string[],
 ): (pubkeys: string[]) => Promise<Map<string, RelayListEntry>> {
   const registry = createNip65Registry();
   return async (pubkeys: string[]) => {
     const uniquePubkeys = [...new Set(pubkeys.filter((pubkey) => /^[0-9a-fA-F]{64}$/.test(pubkey)))];
     const missing = uniquePubkeys.filter((pubkey) => !registry.has(pubkey));
     if (missing.length > 0) {
-      const events = await backend.query(await getBootstrapRelayUrls(getSimulation, signerProvider), [{
+      const events = await backend.query(await getBootstrapRelayUrls(
+        getSimulation,
+        signerProvider,
+        getHostRelayUrls,
+      ), [{
         kinds: [PAJA_NIP65_RELAY_LIST_KIND],
         authors: missing,
         limit: Math.max(missing.length * 2, 10),

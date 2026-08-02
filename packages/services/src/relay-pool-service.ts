@@ -45,13 +45,13 @@ export interface RelayPoolServiceOptions {
    * Subscribe to events matching filters. Returns handle with unsubscribe().
    *
    * @param filters - NIP-01 filter objects
-   * @param callback - Receives matching events or 'EOSE'
+   * @param callback - Receives matching events or 'EOSE' plus optional observed relay URLs
    * @param relayUrls - Optional relay URL hints
    * @returns Handle to cancel the subscription
    */
   subscribe(
     filters: NostrFilter[],
-    callback: (item: NostrEvent | 'EOSE') => void,
+    callback: (item: NostrEvent | 'EOSE', observedRelayUrls?: string[]) => void,
     relayUrls?: string[],
   ): { unsubscribe(): void };
 
@@ -200,7 +200,7 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
           }
         }, EOSE_FALLBACK_MS);
 
-        const handle = options.subscribe(filters, (item) => {
+        const handle = options.subscribe(filters, (item, observedRelayUrls) => {
           if (item === 'EOSE') {
             clearTimeout(eoseTimer);
             if (!eoseSent) {
@@ -209,7 +209,11 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
             }
             return;
           }
-          send({ type: 'relay.event', subId, result: createRelayEventResultWithHints(item, relayUrls) } as NappletMessage);
+          send({
+            type: 'relay.event',
+            subId,
+            result: createRelayEventResultWithHints(item, observedRelayUrls ?? relayUrls),
+          } as NappletMessage);
         }, relayUrls);
 
         tracked.set(subKey, { handle, eoseTimer });

@@ -233,14 +233,14 @@ export function createCoordinatedRelay(options: CoordinatedRelayOptions): Servic
             ? relayMessage.relay
             : undefined;
           const relayUrls = relayHint ? [relayHint] : options.relayPool.selectRelayTier(filters);
-          tracked.relayHandle = options.relayPool.subscribe(filters, (item) => {
+          tracked.relayHandle = options.relayPool.subscribe(filters, (item, observedRelayUrls) => {
             if (item === 'EOSE') {
               clearTimeout(tracked.eoseTimer);
               tracked.relayEose = true;
               maybeSendEose(subKey, subId, send);
               return;
             }
-            deliver(item, relayUrls);
+            deliver(item, observedRelayUrls ?? relayUrls);
             // Store relay events in cache
             if (cacheAvailable) {
               try { options.cache.store(item); } catch { /* best-effort */ }

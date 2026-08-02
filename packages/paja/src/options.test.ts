@@ -155,11 +155,32 @@ describe('@kehto/paja options', () => {
     expect(options.simulation.capabilities.disabledDomains).toEqual(expect.arrayContaining(['relay', 'outbox', 'upload', 'intent']));
   });
 
+  it('keeps the memory storage fixture unadvertised', () => {
+    const options = normalizePajaOptions({
+      targetUrl: 'http://127.0.0.1:5173',
+      simulation: { storage: { mode: 'memory' } },
+    });
+
+    expect(options.simulation.storage.mode).toBe('memory');
+    expect(options.simulation.capabilities.disabledDomains).toContain('storage');
+  });
+
   it('rejects invalid fixed identity config before serving', () => {
     expect(() => normalizePajaOptions({
       targetUrl: 'http://127.0.0.1:5173',
       simulation: { identity: { mode: 'fixed', pubkey: 'short' } },
     })).toThrow(/identity.pubkey/);
+  });
+
+  it.each([
+    ['relative', 'relay.example'],
+    ['HTTP', 'https://relay.example'],
+    ['credentials', 'wss://user:secret@relay.example'],
+  ])('rejects %s live relay URLs before advertising relay access', (_case, url) => {
+    expect(() => normalizePajaOptions({
+      targetUrl: 'http://127.0.0.1:5173',
+      simulation: { relay: { mode: 'live', urls: [url] } },
+    })).toThrow(/live relay URLs/);
   });
 
   it('normalizes shell-owned Blossom upload policy and keeps memory as the default simulator', () => {

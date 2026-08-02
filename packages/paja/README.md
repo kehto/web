@@ -32,9 +32,10 @@ media, upload, intent, count, link, common, lists, serial, BLE, WebRTC, CVM, and
 inc. Relay/outbox defaults to live public relays
 and uses NIP-65 relay-list bootstrap plus kind `3` contact-list reads for
 identity flows; `--relay-mode memory` is the explicit deterministic fixture
-mode. `shell` is the mandatory, non-toggleable handshake domain; the deprecated legacy package
+mode and does not advertise relay, outbox, or count. `shell` is the mandatory, non-toggleable handshake domain; the deprecated legacy package
 path remains an upstream compatibility alias to `inc`. The upstream `dm` domain
-is not advertised until Paja wires a deterministic development DM backend.
+and `fs` domain are not advertised because Paja has no real host backend for
+either one.
 
 ## Dev-server CORS requirement
 
@@ -81,6 +82,17 @@ This implementation tracks pinned
 [NAP-WEBRTC `5fae95dd2c8e59bd06c654e0845656add077dcda`](https://github.com/napplet/naps/blob/5fae95dd2c8e59bd06c654e0845656add077dcda/naps/NAP-WEBRTC.md)
 and the kind/tag conventions in
 [NIP-100 PR #363 at `ead1cd6`](https://github.com/nostr-protocol/nips/pull/363).
+
+Other domains are equally capability-bound. Relay, outbox, and count require
+live relays; count uses NIP-45 `COUNT` without downloading events. Storage
+requires writable `localStorage`; the memory setting is an unadvertised fixture.
+Keys requires a document listener, media requires the browser Media Session
+API, notifications require Paja's host renderer, links require browser
+navigation, and intent requires the installed-catalog/runtime-tab host
+controller. Missing host boundaries remove those domains from `shell.init`.
+Live relay URLs are validated before advertisement, fixture events and local
+publish echoes never enter live reads, and relay event sidecars disclose only
+sources that the relay pool actually observed.
 
 ## Standard identity and social-cache boundary
 

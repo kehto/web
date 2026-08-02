@@ -159,7 +159,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
     const hostSource = readFileSync(new URL('./browser-host.ts', import.meta.url), 'utf8');
 
     expect(adapterSource).toContain('createRelayPoolOutboxRouter');
-    expect(adapterSource).toContain('createPajaRelayListLoader(backend, getSimulation, signerProvider)');
+    expect(adapterSource).toContain('() => relayConfig.getRelayUrls([\'discovery\', \'super\']),');
     expect(relaySource).toContain('createNip65Registry');
     expect(relaySource).toContain('export const PAJA_NIP65_RELAY_LIST_KIND = 10_002;');
     expect(relaySource).toContain('export const PAJA_CONTACT_LIST_KIND = 3;');
@@ -169,6 +169,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(relaySource).toContain('backend.query(await getBootstrapRelayUrls(getSimulation, signerProvider), [{');
     expect(intentSource).toContain('...getPajaRelayUrls(context.runtime.currentSimulation),');
     expect(hostSource).toContain('if (hasNip07Signer()) void state.connectNip07();');
+    expect(hostSource).toContain("bridge.publishIdentityChanged(adapter.auth.getUserPubkey() ?? '');");
   });
 
   it('keeps the private social cache inside the established identity and outbox host boundary', () => {
@@ -177,7 +178,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
     const diagnosticsSource = readFileSync(new URL('./browser-target-diagnostics.ts', import.meta.url), 'utf8');
 
     expect(adapterSource).toContain("import { createPajaSocialCache } from './browser-social-cache.js';");
-    expect(adapterSource).toContain('const baseOutboxRouter = createOutboxRouter(backend, getSimulation, confirmRequest, signerProvider);');
+    expect(adapterSource).toContain('const baseOutboxRouter = createOutboxRouter(backend, getSimulation, relayConfig, confirmRequest, signerProvider);');
     expect(adapterSource).toContain('baseRouter: baseOutboxRouter,');
     expect(adapterSource).toContain('getQueryRouter: (windowId, context) => socialCache.decorate(');
     expect(adapterSource).toContain("context?.hasCapability(windowId, 'identity:read') ?? false");

@@ -80,6 +80,32 @@ describe('createRelayPoolService', () => {
     }]);
   });
 
+  it('reports observed relay URLs instead of relays merely requested', () => {
+    const service = createRelayPoolService({
+      subscribe: (_filters, callback) => {
+        callback(event, ['wss://observed.test']);
+        callback('EOSE');
+        return { unsubscribe() {} };
+      },
+      publish: vi.fn(),
+      selectRelayTier: () => ['wss://requested.test'],
+      isAvailable: () => true,
+    });
+    const sent: NappletMessage[] = [];
+
+    service.handleMessage(
+      'window-a',
+      { type: 'relay.subscribe', id: 'observed', subId: 'sub-observed', filters: [{ kinds: [1] }] } as NappletMessage,
+      (message) => sent.push(message),
+    );
+
+    expect(sent[0]).toEqual({
+      type: 'relay.event',
+      subId: 'sub-observed',
+      result: { event, sidecar: { relayHints: ['wss://observed.test'] } },
+    });
+  });
+
   it('returns a canonical failure without publishing when the pool is unavailable', () => {
     const publish = vi.fn();
     const service = createRelayPoolService({

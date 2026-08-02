@@ -8,7 +8,7 @@ describe('Paja host actions', () => {
   });
 
   it('opens only web URLs in an opener-isolated browser context', () => {
-    const open = vi.fn();
+    const open = vi.fn(() => ({ closed: false }));
     vi.stubGlobal('window', { open });
 
     expect(openPajaExternalLink(new URL('https://example.test/article'))).toBe(true);
@@ -30,6 +30,12 @@ describe('Paja host actions', () => {
     });
 
     expect(openPajaExternalLink(new URL('https://example.test/blocked'))).toBe(false);
+  });
+
+  it('reports an accepted handoff even when opener isolation hides the new context', () => {
+    vi.stubGlobal('window', { open: vi.fn(() => null) });
+
+    expect(openPajaExternalLink(new URL('https://example.test/article'))).toBe(true);
   });
 
   it('dispatches forwarded NAP-KEYS events in the host context', () => {

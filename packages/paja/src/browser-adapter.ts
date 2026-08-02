@@ -1,7 +1,5 @@
 import type { NostrEvent, NostrFilter } from '@napplet/core';
 import type {
-  RelayPoolHooks,
-  RelayPoolLike,
   SessionEntry,
   ServiceHandler,
   ShellAdapter,
@@ -61,6 +59,13 @@ import { createPajaCommonBackend } from './browser-common.js';
 import { createPajaListsBackend } from './browser-lists.js';
 import { createPajaDataResourceFetch, pajaResourceInfo } from './browser-resource.js';
 import { createPajaWebrtcController } from './browser-webrtc.js';
+import {
+  createPajaRelayConfig,
+  createPajaRelayHooks,
+  hasWritableLocalStorage,
+  isPajaRelayAllowed,
+  type PajaRelayConfigRuntime,
+} from './browser-relay-policy.js';
 import {
   PAJA_LIVE_QUERY_WAIT_MS,
   createPajaContactListLoader,
@@ -138,33 +143,9 @@ export type PajaIdentityProvider = (
 ) => Pick<SessionEntry, 'dTag' | 'aggregateHash'>;
 
 const DEV_SIGNER_SECRET_KEY = generateSecretKey();
+
 /** Paja development signer public key. */
 export const PAJA_DEV_SIGNER_PUBKEY = getPublicKey(DEV_SIGNER_SECRET_KEY);
-function createRelayHooks(pool: RelayPoolLike, getSimulation: () => PajaSimulation): RelayPoolHooks {
-  const cleanups = new Map<string, () => void>();
-  return {
-    getRelayPool: () => pool,
-    trackSubscription(subKey, cleanup) {
-      cleanups.set(subKey, cleanup);
-    },
-    untrackSubscription(subKey) {
-      cleanups.get(subKey)?.();
-      cleanups.delete(subKey);
-    },
-    openScopedRelay: () => {},
-    closeScopedRelay: () => {},
-    publishToScopedRelay: async (_windowId, event) => {
-      if (getSimulation().relay.mode === 'disabled') return false;
-      try {
-        await pool.publish(getPajaRelayUrls(getSimulation()), event);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    selectRelayTier: () => getPajaRelayUrls(getSimulation()),
-  };
-}
 
 function createWorkerRelay(events: NostrEvent[]) {
   return {
@@ -199,19 +180,6 @@ interface PajaIntentHost {
   ): boolean | Promise<boolean>;
 }
 
-function createDefaultIntentHost(): PajaIntentHost {
-  return {
-    catalog: new InstalledNappletCatalog(),
-    controller: new BrowserIntentController({
-      openOrReuse: () => null,
-      waitForReady: () => undefined,
-      isCurrent: () => false,
-      getWindowId: () => null,
-      send: () => undefined,
-    }),
-  };
-}
-
 function createPajaCvmRelayPool(backend: PajaRelayBackend): CvmRelayPool {
   return {
     subscribe(relays: string[], filter: NostrFilterLike, params) {
@@ -235,13 +203,19 @@ function createPajaCvmRelayPool(backend: PajaRelayBackend): CvmRelayPool {
 function createOutboxRouter(
   backend: PajaRelayBackend,
   getSimulation: () => PajaSimulation,
+  relayConfig: PajaRelayConfigRuntime,
   confirmRequest: PajaConfirmationHandler,
   signerProvider?: PajaSignerProvider,
 ) {
   return createRelayPoolOutboxRouter({
     relayPool: createPajaOutboxRelayPool(backend),
-    loadRelayLists: createPajaRelayListLoader(backend, getSimulation, signerProvider),
-    fallbackRelays: getPajaRelayUrls(getSimulation()),
+    loadRelayLists: createPajaRelayListLoader(
+      backend,
+      getSimulation,
+      signerProvider,
+      () => relayConfig.getRelayUrls(['discovery', 'super']),
+    ),
+    fallbackRelays: relayConfig.outboxRelays,
     signEvent: async (template) => {
       const signer = createRuntimeSigner(getSimulation, confirmRequest, signerProvider);
       if (!signer?.signEvent) throw new Error('no signer configured');
@@ -253,6 +227,7 @@ function createOutboxRouter(
       return signer.signEvent(event);
     },
     verifyEvent: (event) => verifyEvent(event as Parameters<typeof verifyEvent>[0]),
+    isRelayAllowed: (url) => isPajaRelayAllowed(url, () => relayConfig.getRelayUrls()),
     defaultTimeoutMs: PAJA_LIVE_QUERY_WAIT_MS,
   });
 }
@@ -342,12 +317,13 @@ interface PajaServiceBundle {
 function createDevServices(
   backend: PajaRelayBackend,
   getSimulation: () => PajaSimulation,
+  relayConfig: PajaRelayConfigRuntime,
   onThemeService: (theme: ReturnType<typeof createThemeService>) => void,
   onThemeBroadcast: (envelope: ThemeChangedMessage) => void,
   confirmRequest: PajaConfirmationHandler,
   uploadRuntime?: PajaUploadRuntime,
   signerProvider?: PajaSignerProvider,
-  intentHost: PajaIntentHost = createDefaultIntentHost(),
+  intentHost?: PajaIntentHost,
   getIdentity?: PajaIdentityProvider,
   userActivation?: PajaUserActivationHandler,
   notifyOptions?: NotifyServiceOptions,
@@ -359,27 +335,29 @@ function createDevServices(
   });
   onThemeService(theme);
   const config = configOptions ? createConfigService(configOptions) : null;
-  const baseOutboxRouter = createOutboxRouter(backend, getSimulation, confirmRequest, signerProvider);
+  const getReadRelays = () => relayConfig.getRelayUrls(['discovery', 'super']);
+  const getWriteRelays = () => relayConfig.getRelayUrls(['outbox']);
+  const getAllRelays = () => relayConfig.getRelayUrls();
+  const baseOutboxRouter = createOutboxRouter(backend, getSimulation, relayConfig, confirmRequest, signerProvider);
   const socialCache = createPajaSocialCache({
     baseRouter: baseOutboxRouter,
-    loadContactList: createPajaContactListLoader(backend, getSimulation, signerProvider),
+    loadContactList: createPajaContactListLoader(backend, getSimulation, signerProvider, getReadRelays),
     verifyEvent: (event) => verifyEvent(event as Parameters<typeof verifyEvent>[0]),
     getActivePubkey: () => getRuntimePubkey(getSimulation, signerProvider),
     subscribeSignerChange: signerProvider?.subscribe?.bind(signerProvider),
   });
   const commonBackend = createPajaCommonBackend({
     relay: backend,
-    getRelays: () => getPajaRelayUrls(getSimulation()),
+    getRelays: getAllRelays,
     getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider),
   });
   const listsBackend = createPajaListsBackend({
     relay: backend,
-    getRelays: () => getPajaRelayUrls(getSimulation()),
+    getRelays: getAllRelays,
     getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider),
   });
   void socialCache.refreshActiveIdentity();
   const services: Record<string, ServiceHandler> = {
-    keys: createKeysService(),
     resource: createResourceService({
       fetch: createPajaDataResourceFetch(),
       isOriginGranted: (origin, grants) => grants.includes(origin),
@@ -388,16 +366,25 @@ function createDevServices(
       resourceInfo: pajaResourceInfo(),
     }),
   };
+  if (getSimulation().capabilities.domains.keys && typeof document !== 'undefined') {
+    services.keys = createKeysService({ listenerTarget: document });
+  }
 
-  if (getSimulation().relay.mode !== 'disabled') {
+  if (getSimulation().relay.mode === 'live') {
     services.relay = createRelayPoolService({
-      subscribe: (filters, callback, relayUrls) => backend.subscription(relayUrls ?? getPajaRelayUrls(getSimulation()), filters).subscribe((item) => {
+      subscribe: (filters, callback, relayUrls) => backend.subscription(
+        (relayUrls ?? getReadRelays()).filter((url) => isPajaRelayAllowed(url, getAllRelays)),
+        filters,
+      ).subscribe((item) => {
         if (item === 'EOSE' || (typeof item === 'object' && item !== null)) {
-          callback(item as NostrEvent | 'EOSE');
+          callback(
+            item as NostrEvent | 'EOSE',
+            item === 'EOSE' ? undefined : backend.observedRelayUrls((item as NostrEvent).id),
+          );
         }
       }),
-      publish: (event) => backend.publish(getPajaRelayUrls(getSimulation()), event),
-      selectRelayTier: () => getPajaRelayUrls(getSimulation()),
+      publish: (event) => backend.publish(getWriteRelays(), event),
+      selectRelayTier: getReadRelays,
       isAvailable: () => backend.isAvailable(),
     });
     services.outbox = createOutboxService({
@@ -408,15 +395,16 @@ function createDevServices(
       ),
     });
   }
-  if (getSimulation().capabilities.domains.count && typeof backend.count === 'function') {
+  if (getSimulation().capabilities.domains.count && getSimulation().relay.mode === 'live') {
     services.count = createCountService({
       count: async ({ filters }) => {
-        const relays = getPajaRelayUrls(getSimulation());
+        const relays = getReadRelays();
+        const result = await backend.countWithRelay(relays, filters);
         return {
           ok: true,
-          count: await backend.count!(relays, filters),
+          count: result.count,
           approximate: false,
-          relays,
+          relays: [result.relay],
         };
       },
       isFilterSupported: (filter) => {
@@ -437,13 +425,18 @@ function createDevServices(
   if (getSimulation().notifications.enabled && notifyOptions) {
     services.notify = createNotifyService(notifyOptions);
   }
-  if (getSimulation().media.enabled) services.media = createMediaService();
+  if (
+    getSimulation().media.enabled
+    && typeof navigator !== 'undefined'
+    && 'mediaSession' in navigator
+    && typeof document !== 'undefined'
+  ) services.media = createMediaService({ mediaSessionTarget: navigator.mediaSession, documentTarget: document });
   if (getSimulation().capabilities.domains.theme) services.theme = theme.handler;
   if (getSimulation().capabilities.domains.config && config) services.config = config.handler;
   if (getSimulation().cvm.enabled && getSimulation().relay.mode === 'live' && backend.isAvailable()) {
     services.cvm = createCvmService({
       transport: createNostrCvmTransport({
-        defaultRelays: getPajaRelayUrls(getSimulation()),
+        defaultRelays: relayConfig.allRelays,
         pool: createPajaCvmRelayPool(backend),
         clientInfo: { name: '@kehto/paja', version: '0.11.0' },
       }),
@@ -455,7 +448,7 @@ function createDevServices(
       uploadInfo: uploadRuntime.uploadInfo as UploadInfoProvider,
     });
   }
-  if (getSimulation().intent.enabled) {
+  if (getSimulation().intent.enabled && intentHost) {
     const resolver = createCatalogIntentResolver({
       loadCatalog: () => intentHost.catalog.intentCatalog(),
       targets: intentHost.controller,
@@ -467,7 +460,11 @@ function createDevServices(
       resolver,
     });
   }
-  if (getSimulation().capabilities.domains.link) {
+  if (
+    getSimulation().capabilities.domains.link
+    && typeof window !== 'undefined'
+    && typeof window.open === 'function'
+  ) {
     services.link = createLinkService({
       open: async ({ windowId, url, options }) => {
         const napplet = getIdentity?.(windowId) ?? { dTag: 'dev-target', aggregateHash: 'paja' };
@@ -511,12 +508,12 @@ function createDevServices(
     ? createPajaWebrtcController({
       relay: {
         subscribe(filters, onEvent) {
-          const subscription = backend.subscription(getPajaRelayUrls(getSimulation()), filters).subscribe((item) => {
+          const subscription = backend.subscription(getAllRelays(), filters).subscribe((item) => {
             if (typeof item === 'object' && item !== null) onEvent(item as NostrEvent);
           });
           return { close: () => subscription.unsubscribe() };
         },
-        publish: (event) => backend.publishWebrtcSignal(getPajaRelayUrls(getSimulation()), event),
+        publish: (event) => backend.publishWebrtcSignal(getAllRelays(), event),
       },
       getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider),
       getPubkey: () => getRuntimePubkey(getSimulation, signerProvider),
@@ -573,13 +570,14 @@ export function createPajaAdapter(
   configOptions?: ConfigServiceOptions,
 ): ShellAdapter {
   const relayBackend = createPajaRelayBackend(getSimulation, confirmRequest);
+  const relayConfig = createPajaRelayConfig(getSimulation);
   const uploadRuntime = getSimulation().upload.mode === 'blossom'
     ? createPajaUploadRuntime({
         getSimulation,
         getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider),
         getProviderPubkey: () => signerProvider?.getPubkey() ?? null,
         queryDiscovery: (relayUrls, filters) => relayBackend.query(relayUrls, filters),
-        getRelayUrls: () => getPajaRelayUrls(getSimulation()),
+        getRelayUrls: () => relayConfig.getRelayUrls(['discovery', 'super']),
         confirmRequest,
         getNappletIdentity: (windowId) => getIdentity?.(windowId) ?? {
           dTag: config.window.dTag,
@@ -590,16 +588,16 @@ export function createPajaAdapter(
     : undefined;
   void uploadRuntime?.refreshIdentity();
   const workerRelayEvents: NostrEvent[] = [];
-  const resolvedIntentHost = intentHost ?? createDefaultIntentHost();
   const serviceBundle = createDevServices(
     relayBackend,
     getSimulation,
+    relayConfig,
     onThemeService,
     onThemeBroadcast,
     confirmRequest,
     uploadRuntime,
     signerProvider,
-    resolvedIntentHost,
+    intentHost,
     getIdentity ?? (() => ({
       dTag: config.window.dTag,
       aggregateHash: config.window.aggregateHash,
@@ -618,16 +616,8 @@ export function createPajaAdapter(
     }
   });
   return {
-    relayPool: createRelayHooks(relayBackend, getSimulation),
-    relayConfig: {
-      addRelay: () => {},
-      removeRelay: () => {},
-      getRelayConfig: () => {
-        const relays = getPajaRelayUrls(getSimulation());
-        return { discovery: relays, super: relays, outbox: relays };
-      },
-      getNip66Suggestions: () => getPajaRelayUrls(getSimulation()),
-    },
+    relayPool: createPajaRelayHooks(relayBackend, getSimulation, relayConfig),
+    relayConfig,
     windowManager: { createWindow: () => null },
     auth: {
       getUserPubkey: () => getRuntimePubkey(getSimulation, signerProvider),
@@ -635,14 +625,24 @@ export function createPajaAdapter(
     },
     services,
     get capabilities() {
-      return { disabledDomains: getSimulation().capabilities.disabledDomains };
+      const disabled = new Set(getSimulation().capabilities.disabledDomains);
+      if (
+        getSimulation().relay.mode !== 'live'
+        || !relayBackend.isAvailable()
+        || !Object.hasOwn(services, 'relay')
+      ) disabled.add('relay');
+      if (getSimulation().storage.mode !== 'local' || !hasWritableLocalStorage()) disabled.add('storage');
+      for (const domain of ['identity', 'theme', 'keys', 'media', 'notify'] as const) {
+        if (!Object.hasOwn(services, domain)) disabled.add(domain);
+      }
+      return { disabledDomains: [...disabled] };
     },
     config: { getNappUpdateBehavior: () => 'auto-grant' },
     hotkeys: { executeHotkeyFromForward: forwardPajaHotkey },
     workerRelay: { getWorkerRelay: () => createWorkerRelay(workerRelayEvents) },
     upload: uploadRuntime ? { getUploader: uploadRuntime.getBackend } : undefined,
-    intent: { isAvailable: () => getSimulation().intent.enabled },
-    link: { isAvailable: () => getSimulation().capabilities.domains.link },
+    intent: { isAvailable: () => Object.hasOwn(services, 'intent') },
+    link: { isAvailable: () => Object.hasOwn(services, 'link') },
     common: { isAvailable: () => Object.hasOwn(services, 'common') },
     lists: { isAvailable: () => Object.hasOwn(services, 'lists') },
     serial: { isAvailable: () => Object.hasOwn(services, 'serial') },

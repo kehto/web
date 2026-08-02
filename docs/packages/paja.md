@@ -78,6 +78,10 @@ kehto paja \
   --config-value 'density="compact"'
 ```
 
+`--storage-mode memory` is an explicit unadvertised fixture setting. Production
+storage capability requires writable `localStorage` so NAP-STORAGE values
+survive reloads.
+
 The config-file form is the same raw option object:
 
 ```json
@@ -231,8 +235,8 @@ the one bare `shell.ready` / first `shell.init` handshake, and local cached
 
 ## NAP and Service Parity
 
-Paja advertises the web NAP domains that can be reached through the
-current Kehto runtime and deterministic development adapters:
+Paja can advertise the following web NAP domains when their real host backend
+is live:
 
 `relay`, `outbox`, `identity`, `storage`, `inc`, `theme`, `keys`, `link`,
 `common`, `lists`, `serial`, `ble`, `webrtc`, `media`, `notify`, `config`,
@@ -242,19 +246,24 @@ current Kehto runtime and deterministic development adapters:
 injected availability domain. The deprecated legacy compatibility package path
 is represented as an upstream alias to `inc`; upstream
 `@napplet/nap` does not register a separate runtime domain for that alias. The
-upstream `dm` domain is not advertised: Paja has no deterministic development
-DM backend and this documentation does not imply any NAP-DM behavior.
+upstream `dm` and `fs` domains are not advertised: Paja has no real host backend
+for either domain, and this documentation does not imply NAP-DM or NAP-FS
+behavior.
 
 Default service wiring uses live relay/outbox behavior, localStorage state
 persistence through the runtime, browser or configured identity, schema-validated
-identity-scoped config and deterministic theme, notification, media, upload, intent, resource, common-profile,
+identity-scoped config and host-owned theme, notification, media, upload, intent, resource, common-profile,
 bookmark-list, serial, BLE, WebRTC, and CVM adapters. `keys.forward` dispatches
 an unbound forwarded keystroke in the host context. `link.open` accepts only
 HTTP(S), asks for consent, and opens with `noopener,noreferrer`.
 Relay/outbox uses NIP-65 relay lists (`kind:10002`) with fallback relays, and the
 identity service reads contact lists (`kind:3`) so social-graph napplets can be
-tested against real account state. `--relay-mode memory` switches relay/outbox
-to deterministic fixture/event-store behavior when a test needs isolation.
+tested against real account state. `--relay-mode memory` retains an internal
+fixture/event store for tests but does not register or advertise relay, outbox,
+or count. Live relay URLs are validated as credential-free `ws:`/`wss:` URLs;
+fixture events and local publish echoes never enter live reads, relay-tier edits
+drive the corresponding transports, and event sidecars contain only relay URLs
+that the pool actually observed.
 
 WebRTC is conditional rather than simulated: the domain is advertised only
 with a browser `RTCPeerConnection` implementation, live relay access, and a
@@ -334,10 +343,11 @@ include direct URL, MIME type, hash, size, and NIP-94 `url`, optional `m`, `x`,
 and `size` tags. This behavior targets the draft
 [NAP-UPLOAD at `a7cc174`](https://github.com/napplet/naps/blob/a7cc17463cbf5d9cb87884b31071bc4fc826034c/naps/NAP-UPLOAD.md).
 
-The `count` domain uses the active Paja relay backend to answer `count.query`
-with exact aggregate counts and `approximate: false`. Broad empty filters are
-refused as too expensive, and setting `relay.mode` to `disabled` also disables
-`count` advertisement.
+The `count` domain sends NIP-45 `COUNT` with the complete OR-filter set to the
+first configured relay that accepts the request. It reports that actual relay,
+returns its exact count with `approximate: false`, and never downloads matching
+event payloads. Broad empty filters are refused as too expensive; disabled or
+memory relay mode also disables `count` advertisement.
 
 ### NAP-RESOURCE
 

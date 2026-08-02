@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import type { NappletMessage } from '@napplet/core';
 import type { ServiceRuntimeContext } from '@kehto/runtime';
+import { buildShellCapabilities } from '@kehto/shell';
 import type { PajaResolvedPointer } from './runtime-resolver.js';
 import { createPajaAdapter } from './browser-adapter.js';
 import { BrowserIntentController } from './browser-intent-controller.js';
@@ -111,6 +112,50 @@ async function sendIntent(
 }
 
 describe('Paja browser adapter intent composition', () => {
+  it('does not advertise an intent simulator when no real host controller is provided', () => {
+    const adapter = createPajaAdapter(
+      { window: { id: 'paja', dTag: 'paja', aggregateHash: 'aggregate' } } as PajaHostConfig,
+      () => normalizePajaSimulation({ relay: { mode: 'disabled' }, intent: { enabled: true } }),
+      () => {},
+      () => {},
+      () => true,
+    );
+
+    expect(adapter.services?.intent).toBeUndefined();
+    expect(adapter.intent?.isAvailable()).toBe(false);
+    expect(buildShellCapabilities(adapter).domains).not.toEqual(expect.arrayContaining([
+      'keys',
+      'media',
+      'notify',
+      'intent',
+      'link',
+    ]));
+    (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
+  });
+
+  it('does not expose runtime fallback domains after enabling absent host services', () => {
+    let simulation = normalizePajaSimulation({
+      capabilities: { domains: { identity: false, theme: false } },
+      relay: { mode: 'memory' },
+    });
+    const adapter = createPajaAdapter(
+      { window: { id: 'paja', dTag: 'paja', aggregateHash: 'aggregate' } } as PajaHostConfig,
+      () => simulation,
+      () => {},
+      () => {},
+      () => true,
+    );
+
+    simulation = normalizePajaSimulation({ relay: { mode: 'live' } });
+
+    expect(buildShellCapabilities(adapter).domains).not.toEqual(expect.arrayContaining([
+      'relay',
+      'identity',
+      'theme',
+    ]));
+    (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
+  });
+
   it('uses closed verified installations for availability and handlers without a live frame', async () => {
     const { adapter, catalog } = makeAdapter();
     catalog.install(resolvedNapplet());

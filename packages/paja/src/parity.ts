@@ -46,7 +46,7 @@ export const PAJA_COMPATIBILITY_ALIASES = {
   [PAJA_LEGACY_COMPATIBILITY_DOMAIN]: 'inc',
 } as const;
 
-/** Domains Paja advertises through its simulated shell capability surface. */
+/** Domains Paja may advertise when each corresponding host backend is live. */
 export const PAJA_ADVERTISED_DOMAINS = [
   'relay',
   'outbox',

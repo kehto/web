@@ -527,7 +527,10 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 - `createRelayPoolService` — `relay.publish`, `relay.publishEncrypted`,
   `relay.subscribe` fan-out (`relay:read` / `relay:write`). Publish handlers
   receive only runtime-signed events and settle with canonical
-  `{ ok, event, eventId }` or `{ ok: false, error }` result envelopes.
+  `{ ok, event, eventId }` or `{ ok: false, error }` result envelopes. Subscribe
+  adapters may pass observed relay URLs as the callback's second argument so
+  `RelayEventResult.sidecar.relayHints` records provenance rather than the
+  larger requested relay set.
 - `createCacheService` — offline event cache (`cache:read` / `cache:write`).
 - `createCoordinatedRelay` — composite service that bundles relay-pool + cache
   with read-through behavior and the same canonical publish result.

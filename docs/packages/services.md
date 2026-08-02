@@ -54,7 +54,9 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 - Host apps provide backing bridges/callbacks for browser, native, signer, relay, fetch, notification, and media behavior.
 - Relay services receive runtime-signed events and always settle publish calls
   with the NAP-RELAY result shape: `{ ok: true, event, eventId }` on success or
-  `{ ok: false, error }` on failure.
+  `{ ok: false, error }` on failure. Relay subscribe adapters can provide
+  observed source URLs as a second callback argument; those become event
+  sidecar hints instead of treating every requested relay as an observed source.
 - `createCountService()` implements the NAP-COUNT `count.query` service shape. Backends count NIP-01 filter matches through relay COUNT support, local indexes, or caches and may return exact counts, approximate/HLL metadata, relays, or refusal errors such as `unsupported-filter` and `too-expensive`; they must not return matching events.
 - BLE and WebRTC hook contexts expose `emit(...)` so host bridges can send runtime-owned event envelopes back to the requesting napplet.
 - NAP-DM support keeps request correlation, subscriptions, and normalized message shape in `createDmService`; NIP-17, NDR, and Cordn specifics live behind adapters. Relay-backed helper bridges cover NDR runtime hooks and Cordn coordinator methods without adding hard package dependencies.

@@ -601,6 +601,9 @@ async function installPajaHost(): Promise<void> {
       controller: intentController,
     }, confirmationController.activation, notifyController?.serviceOptions, configController?.serviceOptions);
   const bridge = createShellBridge(adapter);
+  const stopIdentityChanges = signerController.subscribe(() => {
+    bridge.publishIdentityChanged(adapter.auth.getUserPubkey() ?? '');
+  });
   themeBroadcast.attach(bridge);
   bridgeRef = bridge;
   installPajaOriginRegistryProxy(originRegistry, () => stateRef);
@@ -626,6 +629,7 @@ async function installPajaHost(): Promise<void> {
 
   const stopIntentCatalogChanges = subscribePajaIntentCatalogChanges(state, context);
   window.addEventListener('pagehide', stopIntentCatalogChanges, { once: true });
+  window.addEventListener('pagehide', stopIdentityChanges, { once: true });
   window.addEventListener('pagehide', () => confirmationController.dispose(), { once: true });
   window.addEventListener('pagehide', () => notifyController?.dispose(), { once: true });
   window.addEventListener('pagehide', () => configController?.dispose(), { once: true });
