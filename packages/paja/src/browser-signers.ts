@@ -1,7 +1,7 @@
 import type { NostrEvent } from '@napplet/core';
 import type { Signer } from '@kehto/runtime';
 
-import type { PajaConfirmationRequest } from './browser-adapter.js';
+import type { PajaConfirmationHandler } from './browser-adapter.js';
 import {
   createNip46Client,
   parseBunkerUri,
@@ -56,7 +56,7 @@ interface Nip07Signer {
 }
 
 interface PajaSignerControllerOptions {
-  confirmRequest(request: PajaConfirmationRequest): boolean;
+  confirmRequest: PajaConfirmationHandler;
   onChange(state: PajaSignerState): void;
 }
 
@@ -78,7 +78,7 @@ function readNip07Signer(): Nip07Signer | null {
 
 function createConfirmedSigner(
   signer: Signer,
-  confirmRequest: (request: PajaConfirmationRequest) => boolean,
+  confirmRequest: PajaConfirmationHandler,
 ): Signer {
   return {
     ...signer,
@@ -86,7 +86,7 @@ function createConfirmedSigner(
       if (typeof signer.signEvent !== 'function') {
         throw new Error('Signer does not support event signing');
       }
-      if (!confirmRequest({ action: 'sign', event })) {
+      if (!await confirmRequest({ action: 'sign', event })) {
         throw new Error('Paja signing request denied');
       }
       return signer.signEvent(event);

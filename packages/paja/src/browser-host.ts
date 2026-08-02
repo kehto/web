@@ -13,7 +13,7 @@ import {
   PAJA_DEV_SIGNER_PUBKEY,
 } from './browser-adapter.js';
 import {
-  confirmPajaRequest,
+  createPajaConfirmationController,
   createHostSignerController,
   hasNip07Signer,
 } from './browser-host-signer.js';
@@ -573,11 +573,18 @@ async function installPajaHost(): Promise<void> {
     () => contextRef,
     { persistTabs: persistRuntimeTabs },
   ));
-  const signerController = createHostSignerController(() => stateRef, setSimulationStatus);
+  const confirmationController = createPajaConfirmationController(() => stateRef);
+  const signerController = createHostSignerController(
+    () => stateRef,
+    setSimulationStatus,
+    confirmationController.confirm,
+  );
   const adapter = createPajaAdapter(config, getSimulation, (theme) => {
     runtime.themeService = theme;
-  }, themeBroadcast.onBroadcast, (request) => confirmPajaRequest(stateRef, request), signerController, () =>
-    getTargetIdentity(config, stateRef?.resolvedTarget), () => stateRef?.reload(), {
+  }, themeBroadcast.onBroadcast, confirmationController.confirm, signerController, (windowId) => {
+    const tabTarget = stateRef?.tabs.find((tab) => tab.windowId === windowId)?.resolvedTarget;
+    return getTargetIdentity(config, tabTarget ?? stateRef?.resolvedTarget);
+  }, () => stateRef?.reload(), {
       catalog: runtime.catalog,
       controller: intentController,
     });
@@ -607,6 +614,7 @@ async function installPajaHost(): Promise<void> {
 
   const stopIntentCatalogChanges = subscribePajaIntentCatalogChanges(state, context);
   window.addEventListener('pagehide', stopIntentCatalogChanges, { once: true });
+  window.addEventListener('pagehide', () => confirmationController.dispose(), { once: true });
 
   window.__KEHTO_PAJA__ = state;
 

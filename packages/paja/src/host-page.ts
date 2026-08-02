@@ -85,7 +85,11 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .dialog-backdrop[hidden] { display: none; }
       .dialog { width: min(420px, 100%); border: 1px solid var(--line); border-radius: 6px; background: #181b19; box-shadow: 0 18px 60px rgb(0 0 0 / 0.45); padding: 16px; display: grid; gap: 14px; }
       .dialog-title { font-weight: 700; color: var(--text); }
+      .dialog-copy { color: var(--muted); }
+      .dialog-details { margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 4px; background: #0b0d0b; color: var(--text); font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
       .dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+      .confirmation-dialog { width: min(520px, calc(100% - 48px)); max-width: none; border: 0; padding: 0; background: transparent; color: var(--text); }
+      .confirmation-dialog::backdrop { background: rgb(0 0 0 / 0.68); }
       @media (max-width: 900px) {
         .top { grid-template-columns: minmax(0, 1fr); }
         .top-console { display: none; }
@@ -140,6 +144,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       </aside>
       ${renderStage(config, targetLabel)}
     </main>
+    ${renderConfirmationDialog()}
     ${renderDuplicateDialog()}
     <footer class="bar bottom">
       <span>mode: <code>${escapeHtml(getModeLabel(config))}</code></span>
@@ -152,6 +157,20 @@ export function renderPajaHtml(config: PajaHostConfig): string {
     <script type="module" src="./__kehto/browser-host.js"></script>
   </body>
 </html>`;
+}
+
+function renderConfirmationDialog(): string {
+  return `<dialog class="confirmation-dialog" id="paja-confirmation-dialog" aria-labelledby="paja-confirmation-title" aria-describedby="paja-confirmation-summary paja-confirmation-details">
+      <div class="dialog">
+        <div class="dialog-title" id="paja-confirmation-title">Confirm Paja request</div>
+        <div class="dialog-copy" id="paja-confirmation-summary"></div>
+        <pre class="dialog-details" id="paja-confirmation-details"></pre>
+        <div class="dialog-actions">
+          <button type="button" id="paja-confirmation-deny">Deny</button>
+          <button type="button" id="paja-confirmation-approve">Approve</button>
+        </div>
+      </div>
+    </dialog>`;
 }
 
 function renderStage(config: PajaHostConfig, targetLabel: string): string {

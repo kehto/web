@@ -8,7 +8,7 @@ import {
   type Uploader,
 } from '@kehto/services';
 
-import type { PajaConfirmationRequest } from './browser-adapter.js';
+import type { PajaConfirmationHandler } from './browser-adapter.js';
 import {
   normalizeUploadServers,
   type PajaSimulation,
@@ -29,7 +29,7 @@ export interface PajaUploadRuntimeOptions {
   readonly getProviderPubkey: () => string | null;
   readonly queryDiscovery: (relayUrls: string[], filters: NostrFilter[]) => Promise<NostrEvent[]>;
   readonly getRelayUrls: () => string[];
-  readonly confirmRequest: (request: PajaConfirmationRequest) => boolean;
+  readonly confirmRequest: PajaConfirmationHandler;
   readonly getNappletIdentity: (windowId: string) => NappletIdentity;
   readonly fetch?: typeof fetch;
   readonly subscribeSignerChange?: (listener: () => void) => () => void;
@@ -131,7 +131,7 @@ export function createPajaUploadRuntime(options: PajaUploadRuntimeOptions): Paja
       if (!snapshot) return failure(ctx.uploadId, 'no signer available');
       const server = effectiveServers(simulation, snapshot.pubkey, discovered)[0];
       if (!server) return failure(ctx.uploadId, 'no server configured');
-      if (!options.confirmRequest({
+      if (!await options.confirmRequest({
         action: 'upload',
         windowId: ctx.windowId,
         napplet: options.getNappletIdentity(ctx.windowId),

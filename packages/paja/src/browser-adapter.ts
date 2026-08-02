@@ -83,7 +83,19 @@ export type PajaConfirmationRequest =
       readonly mimeType?: string;
       readonly server: string;
       readonly warning: string;
+    }
+  | {
+      readonly action: 'link';
+      readonly windowId: string;
+      readonly napplet: { readonly dTag: string; readonly aggregateHash: string };
+      readonly url: string;
+      readonly label?: string;
     };
+
+/** Async-capable host policy callback for user-visible Paja operations. */
+export type PajaConfirmationHandler = (
+  request: PajaConfirmationRequest,
+) => boolean | Promise<boolean>;
 
 /** Paja runtime signer provider. */
 export interface PajaSignerProvider {
@@ -98,7 +110,9 @@ export interface PajaSignerProvider {
 }
 
 /** Identity provider for Paja's simulated target identity. */
-export type PajaIdentityProvider = () => Pick<SessionEntry, 'dTag' | 'aggregateHash'>;
+export type PajaIdentityProvider = (
+  windowId?: string,
+) => Pick<SessionEntry, 'dTag' | 'aggregateHash'>;
 
 const DEV_COMMON_PUBKEY = '1'.repeat(64);
 const DEV_COMMON_EVENT_ID = '2'.repeat(64);
@@ -248,7 +262,7 @@ function createDevCvmTransport(getSimulation: () => PajaSimulation): CvmTranspor
 function createOutboxRouter(
   backend: PajaRelayBackend,
   getSimulation: () => PajaSimulation,
-  confirmRequest: (request: PajaConfirmationRequest) => boolean,
+  confirmRequest: PajaConfirmationHandler,
   signerProvider?: PajaSignerProvider,
 ) {
   return createRelayPoolOutboxRouter({
@@ -292,13 +306,13 @@ export function createDevTheme(mode: PajaSimulation['theme']['mode'], values: Pa
 
 function createDevSigner(
   getSimulation: () => PajaSimulation,
-  confirmRequest: (request: PajaConfirmationRequest) => boolean,
+  confirmRequest: PajaConfirmationHandler,
 ): Signer {
   return {
     getPublicKey: () => PAJA_DEV_SIGNER_PUBKEY,
     getRelays: () => Object.fromEntries(getPajaRelayUrls(getSimulation()).map((relay) => [relay, { read: true, write: true }])),
     async signEvent(event: Parameters<typeof finalizeEvent>[0]): Promise<NostrEvent> {
-      if (!confirmRequest({ action: 'sign', event: event as Partial<NostrEvent> })) {
+      if (!await confirmRequest({ action: 'sign', event: event as Partial<NostrEvent> })) {
         throw new Error('Paja signing request denied');
       }
       const template = { ...event };
@@ -321,7 +335,7 @@ function getRuntimePubkey(
 
 function createRuntimeSigner(
   getSimulation: () => PajaSimulation,
-  confirmRequest: (request: PajaConfirmationRequest) => boolean,
+  confirmRequest: PajaConfirmationHandler,
   signerProvider?: PajaSignerProvider,
 ): Signer | null {
   const signer = signerProvider?.getSigner();
@@ -344,10 +358,11 @@ function createDevServices(
   getSimulation: () => PajaSimulation,
   onThemeService: (theme: ReturnType<typeof createThemeService>) => void,
   onThemeBroadcast: (envelope: ThemeChangedMessage) => void,
-  confirmRequest: (request: PajaConfirmationRequest) => boolean,
+  confirmRequest: PajaConfirmationHandler,
   uploadRuntime?: PajaUploadRuntime,
   signerProvider?: PajaSignerProvider,
   intentHost: PajaIntentHost = createDefaultIntentHost(),
+  getIdentity?: PajaIdentityProvider,
 ): Record<string, ServiceHandler> {
   const notification = createNotificationService({ maxPerWindow: 50 });
   const theme = createThemeService({
@@ -441,7 +456,16 @@ function createDevServices(
   if (getSimulation().capabilities.domains.config) services.config = config.handler;
   if (getSimulation().cvm.enabled) services.cvm = createCvmService({ transport: createDevCvmTransport(getSimulation) });
   if (getSimulation().upload.mode === 'memory') {
-    services.upload = createUploadService({ uploader: createDevUploader(getSimulation) });
+    services.upload = createUploadService({
+      uploader: createDevUploader(getSimulation),
+      uploadInfo: () => ({
+        rails: [{
+          rail: getSimulation().upload.rail ?? 'dev-memory',
+          enabled: true,
+          returns: ['kehto-dev'],
+        }],
+      }),
+    });
   } else if (uploadRuntime) {
     services.upload = createUploadService({
       uploader: uploadRuntime.uploader,
@@ -462,7 +486,17 @@ function createDevServices(
   }
   if (getSimulation().capabilities.domains.link) {
     services.link = createLinkService({
-      open: ({ url }) => ({ status: url.protocol === 'https:' || url.protocol === 'http:' ? 'opened' : 'denied' }),
+      open: async ({ windowId, url, options }) => {
+        const napplet = getIdentity?.(windowId) ?? { dTag: 'dev-target', aggregateHash: 'paja' };
+        const allowed = await confirmRequest({
+          action: 'link',
+          windowId,
+          napplet,
+          url: url.href,
+          ...(options?.label ? { label: options.label } : {}),
+        });
+        return { status: allowed && openPajaExternalLink(url) ? 'opened' : 'denied' };
+      },
     });
   }
   if (getSimulation().capabilities.domains.common) {
@@ -520,7 +554,7 @@ export function createPajaAdapter(
   getSimulation: () => PajaSimulation,
   onThemeService: (theme: ReturnType<typeof createThemeService>) => void,
   onThemeBroadcast: (envelope: ThemeChangedMessage) => void,
-  confirmRequest: (request: PajaConfirmationRequest) => boolean,
+  confirmRequest: PajaConfirmationHandler,
   signerProvider?: PajaSignerProvider,
   getIdentity?: PajaIdentityProvider,
   onEnvironmentChanged?: () => void,
@@ -535,7 +569,7 @@ export function createPajaAdapter(
         queryDiscovery: (relayUrls, filters) => relayBackend.query(relayUrls, filters),
         getRelayUrls: () => getPajaRelayUrls(getSimulation()),
         confirmRequest,
-        getNappletIdentity: () => getIdentity?.() ?? {
+        getNappletIdentity: (windowId) => getIdentity?.(windowId) ?? {
           dTag: config.window.dTag,
           aggregateHash: config.window.aggregateHash,
         },
@@ -573,12 +607,13 @@ export function createPajaAdapter(
       uploadRuntime,
       signerProvider,
       resolvedIntentHost,
+      getIdentity,
     ),
     get capabilities() {
       return { disabledDomains: getSimulation().capabilities.disabledDomains };
     },
     config: { getNappUpdateBehavior: () => 'auto-grant' },
-    hotkeys: { executeHotkeyFromForward: () => {} },
+    hotkeys: { executeHotkeyFromForward: forwardPajaHotkey },
     workerRelay: { getWorkerRelay: () => createWorkerRelay(workerRelayEvents) },
     upload: getSimulation().upload.mode === 'memory'
       ? { getUploader: () => ({ rails: [getSimulation().upload.rail ?? 'dev-memory'] }) }
@@ -596,4 +631,40 @@ export function createPajaAdapter(
       verifyEvent: async () => true,
     },
   };
+}
+
+/**
+ * Hand an allowed external web URL to the browser without exposing an opener.
+ *
+ * @param url - Absolute URL already validated by the NAP-LINK service.
+ * @returns Whether the browser accepted the navigation handoff.
+ */
+export function openPajaExternalLink(url: URL): boolean {
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return false;
+  try {
+    window.open(url.href, '_blank', 'noopener,noreferrer');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Replay a NAP-KEYS forwarded keystroke in Paja's host context.
+ *
+ * @param event - Normalized keyboard fields received from the napplet.
+ */
+export function forwardPajaHotkey(event: {
+  key: string;
+  code: string;
+  ctrlKey: boolean;
+  altKey: boolean;
+  shiftKey: boolean;
+  metaKey: boolean;
+}): void {
+  window.dispatchEvent(new KeyboardEvent('keydown', {
+    ...event,
+    bubbles: true,
+    cancelable: true,
+  }));
 }

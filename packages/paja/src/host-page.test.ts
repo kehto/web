@@ -23,6 +23,11 @@ describe('@kehto/paja host page', () => {
     expect(html).toContain('data-target-url="http://127.0.0.1:5173/"');
     expect(html).toContain('id="simulation-theme"');
     expect(html).toContain('id="simulation-status"');
+    expect(html).toContain('id="paja-confirmation-dialog"');
+    expect(html).toContain('aria-labelledby="paja-confirmation-title"');
+    expect(html).toContain('id="paja-confirmation-deny"');
+    expect(html).toContain('id="paja-confirmation-approve"');
+    expect(html).not.toContain('window.confirm');
     expect(html).toContain('identity:anon relay:live:4 storage:local upload:memory:simulator theme:dark off:none');
     expect(html).not.toContain('src="http://127.0.0.1:5173/"');
     expect(html).toContain('src="./__kehto/browser-host.js"');

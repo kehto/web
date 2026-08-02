@@ -152,12 +152,15 @@ The console includes:
   next matching request is allowed or denied by the real runtime gate.
 - **Signer** — Paja auto-connects a browser NIP-07 signer when `window.nostr`
   is available, can connect to a bunker/NIP-46 URI, and only uses the generated
-  development signer when the Dev signer button is selected. Every request to
-  sign an event or publish an event opens a browser confirmation prompt. Paja
-  has no bypass list or allow-once whitelist. A denied prompt or a live publish
-  with no accepting relay returns a canonical failure and does not enter
-  Paja's in-memory relay view. Its scoped-relay hook likewise waits for the
-  backend result and returns `false` after denial or transport failure.
+  development signer when the Dev signer button is selected. Sign, publish,
+  Blossom upload, and external-link requests use one serialized in-page
+  confirmation dialog. Deny has initial focus, Escape denies, and Paja has no
+  bypass list or allow-once whitelist. Upload consent shows the requesting
+  napplet, file, MIME type, size, server, and durable public effect before
+  bytes leave the browser. A denial or a live publish with no accepting relay
+  returns a canonical failure and does not enter Paja's in-memory relay view.
+  Its scoped-relay hook likewise waits for the backend result and returns
+  `false` after denial or transport failure.
 - **Messages** — inbound and outbound envelopes are logged with a text filter,
   including Paja system events such as interface changes, ACL changes, signer
   connection changes, signing/publish confirmations, and visible details for
@@ -231,8 +234,9 @@ the one bare `shell.ready` / first `shell.init` handshake, and local cached
 Paja advertises the web NAP domains that can be reached through the
 current Kehto runtime and deterministic development adapters:
 
-`relay`, `outbox`, `identity`, `storage`, `inc`, `theme`, `keys`, `media`,
-`notify`, `config`, `resource`, `cvm`, `upload`, `intent`, and `count`.
+`relay`, `outbox`, `identity`, `storage`, `inc`, `theme`, `keys`, `link`,
+`common`, `lists`, `serial`, `ble`, `webrtc`, `media`, `notify`, `config`,
+`resource`, `cvm`, `upload`, `intent`, and `count`.
 
 `shell` is represented as the mandatory handshake domain rather than an
 injected availability domain. The deprecated legacy compatibility package path
@@ -243,7 +247,10 @@ DM backend and this documentation does not imply any NAP-DM behavior.
 
 Default service wiring uses live relay/outbox behavior, localStorage state
 persistence through the runtime, browser or configured identity, deterministic
-config/theme, notification, media, upload, intent, resource, and CVM adapters.
+config/theme, notification, media, upload, intent, resource, common-profile,
+bookmark-list, serial, BLE, WebRTC, and CVM adapters. `keys.forward` dispatches
+an unbound forwarded keystroke in the host context. `link.open` accepts only
+HTTP(S), asks for consent, and opens with `noopener,noreferrer`.
 Relay/outbox uses NIP-65 relay lists (`kind:10002`) with fallback relays, and the
 identity service reads contact lists (`kind:3`) so social-graph napplets can be
 tested against real account state. `--relay-mode memory` switches relay/outbox
@@ -272,14 +279,16 @@ completeness remain outside this behavior.
 [NAP-IDENTITY `6461e4b37c29dc09a20dff35d9515889c4433874`](https://github.com/napplet/naps/blob/6461e4b37c29dc09a20dff35d9515889c4433874/naps/NAP-IDENTITY.md)
 is byte-identical to the phase's recorded `napplet/naps` master document. Pinned
 [NAP-OUTBOX `4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e`](https://github.com/napplet/naps/blob/4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e/naps/NAP-OUTBOX.md)
-and installed `@napplet/nap@0.29.0` types govern this PoC because current master
+and installed `@napplet/nap@0.31.2` types govern this PoC because current master
 has no NAP-OUTBOX path. This is not a current-master OUTBOX conformance claim.
-Blossom behavior remains Phase 103 scope.
+Blossom behavior targets pinned
+[NAP-UPLOAD `a7cc17463cbf5d9cb87884b31071bc4fc826034c`](https://github.com/napplet/naps/blob/a7cc17463cbf5d9cb87884b31071bc4fc826034c/naps/NAP-UPLOAD.md).
 
 ### NAP-UPLOAD
 
-Upload mode defaults to `memory`, an explicit simulator that returns a
-`kehto-dev://` URL without storing bytes. `blossom` mode is opt-in through
+Upload mode defaults to `memory`, an explicit simulator that reports the
+`dev-memory` rail and returns a `kehto-dev://` URL without storing bytes.
+`blossom` mode is opt-in through
 `simulation.upload.mode` or `--upload-mode blossom`. Repeat
 `--upload-server <url>` for an ordered explicit list; CLI server values replace
 the config-file list. Paja uses only the first effective server in this release

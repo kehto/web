@@ -9,7 +9,7 @@ import {
 import type { Filter } from 'nostr-tools/filter';
 import { SimplePool } from 'nostr-tools/pool';
 
-import type { PajaConfirmationRequest, PajaSignerProvider } from './browser-adapter.js';
+import type { PajaConfirmationHandler, PajaSignerProvider } from './browser-adapter.js';
 import type { PajaSimulation } from './simulation.js';
 
 export const PAJA_NIP65_RELAY_LIST_KIND = 10_002;
@@ -182,7 +182,7 @@ async function publishLive(pool: SimplePool, relayUrls: string[], event: NostrEv
 
 export function createPajaRelayBackend(
   getSimulation: () => PajaSimulation,
-  confirmRequest: (request: PajaConfirmationRequest) => boolean,
+  confirmRequest: PajaConfirmationHandler,
   livePool = new SimplePool(),
 ): PajaRelayBackend {
   const events: NostrEvent[] = getSimulation().relay.fixtures.flatMap(toNostrEvent);
@@ -225,7 +225,7 @@ export function createPajaRelayBackend(
     if (simulation.relay.mode === 'disabled') {
       return { outcomes: rejected, error: 'relay unavailable' };
     }
-    if (!confirmRequest({ action: 'publish', event })) {
+    if (!await confirmRequest({ action: 'publish', event })) {
       return { outcomes: rejected, error: 'publish denied' };
     }
 
