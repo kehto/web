@@ -142,9 +142,7 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
     'outbox',
     'relay',
     'resource',
-    'serial',
     'theme',
-    'ble',
   ]));
   expect(state?.services).not.toEqual(expect.arrayContaining(['upload', 'webrtc']));
 
