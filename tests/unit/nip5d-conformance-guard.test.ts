@@ -132,14 +132,14 @@ const relayPublishRoutingSurfaces = [
     markers: [
       'const attempt = await attemptPublish(relayUrls, event);',
       'if (attempt.error) throw new Error(attempt.error);',
-      'retainPublishedEvent(event);',
+      'retainPublishedEvent(event, simulation.relay.mode);',
     ],
   },
   {
-    file: 'packages/paja/src/browser-adapter.ts',
+    file: 'packages/paja/src/browser-relay-policy.ts',
     markers: [
       'publishToScopedRelay: async',
-      'await pool.publish(getPajaRelayUrls(getSimulation()), event);',
+      'await pool.publish([active.relayUrl], event);',
       '} catch {',
     ],
   },
@@ -361,14 +361,16 @@ describe('NIP-5D conformance static guards', () => {
   it("keeps Paja's verified catalog separate from frame and controller authority", () => {
     const catalog = readRepoFile('packages/paja/src/installed-napplet-catalog.ts');
     const adapter = readRepoFile('packages/paja/src/browser-adapter.ts');
+    const host = readRepoFile('packages/paja/src/browser-host.ts');
     const controller = readRepoFile('packages/paja/src/browser-intent-controller.ts');
 
     expect(catalog).toContain('manifestToIntentCatalogEntry');
     expect(catalog).toContain('PajaResolvedPointer');
     expect(catalog).not.toMatch(/\b(?:Window|HTMLIFrameElement|MessagePort|contentWindow)\b/);
     expect(catalog).not.toContain('DEV_INTENT');
-    expect(adapter).toContain('catalog: new InstalledNappletCatalog()');
-    expect(adapter).toContain('controller: new BrowserIntentController(');
+    expect(adapter).toContain('intentHost?: PajaIntentHost');
+    expect(host).toContain('catalog: new InstalledNappletCatalog()');
+    expect(host).toContain('const intentController = new BrowserIntentController(');
     expect(controller).toContain('await this.options.waitForReady(generation);');
     expect(controller).toContain('await this.options.isCurrent(generation)');
     expect(controller).toContain('return { windowId };');
@@ -414,16 +416,17 @@ describe('NIP-5D conformance static guards', () => {
     const manifestParser = readRepoFile('packages/nip/src/5d/index.ts');
     const playgroundManifest = readRepoFile('apps/playground/napplets/shared-vite-config.ts');
     const paja = readRepoFile('packages/paja/src/browser-adapter.ts');
+    const pajaHost = readRepoFile('packages/paja/src/browser-host.ts');
     const pajaIntent = [
       sourceBetween(
         paja,
         'interface PajaIntentHost',
-        'function createDevCvmTransport',
+        'function createPajaCvmRelayPool',
       ),
       sourceBetween(
         paja,
-        'if (getSimulation().intent.enabled)',
-        'if (getSimulation().capabilities.domains.link)',
+        'if (getSimulation().intent.enabled && intentHost)',
+        'services.link = createLinkService',
       ),
     ].join('\n');
     const forbiddenCanonicalField = /\b(?:protocol|protocols)\s*(?:\?|):/;
@@ -468,8 +471,9 @@ describe('NIP-5D conformance static guards', () => {
     expect(paja).toContain('InstalledNappletCatalog');
     expect(paja).toContain('BrowserIntentController');
     expect(paja).toContain('createCatalogIntentResolver');
-    expect(pajaIntent).toContain('catalog: new InstalledNappletCatalog()');
-    expect(pajaIntent).toContain('controller: new BrowserIntentController(');
+    expect(paja).toContain('intentHost?: PajaIntentHost');
+    expect(pajaHost).toContain('catalog: new InstalledNappletCatalog()');
+    expect(pajaHost).toContain('const intentController = new BrowserIntentController(');
     expect(paja).not.toContain('DEV_INTENT');
 
     for (const source of [manifestParser, playgroundManifest]) {

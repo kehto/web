@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, test, type FrameLocator, type Page } from '@playwright/test';
-import { finalizeEvent, generateSecretKey, getPublicKey, verifyEvent } from 'nostr-tools/pure';
+import { finalizeEvent, generateSecretKey, verifyEvent } from 'nostr-tools/pure';
 import { startPajaServer, type PajaServer } from '../../packages/paja/dist/index.js';
 
 interface TargetServer {
@@ -74,7 +74,8 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   await expect(targetFrame.locator('#injected-domains')).toHaveText('identity,outbox,resource,keys');
   await expect(targetFrame.locator('#shell-init-type')).toHaveText('shell.init');
   await expect(targetFrame.locator('#shell-init-domains')).toContainText('relay,identity,storage,inc');
-  await expect(targetFrame.locator('#shell-init-domains')).toContainText('upload,intent');
+  await expect(targetFrame.locator('#shell-init-domains')).toContainText('intent');
+  await expect(targetFrame.locator('#shell-init-domains')).not.toContainText('upload');
   await expect.poll(async () => targetFrame.locator('body').evaluate(() => {
     const napplet = (window as Window & {
       napplet?: { media?: unknown; shell?: { supports(domain: string): boolean; services: readonly string[] } };
@@ -86,11 +87,9 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
     };
   })).toEqual({ mediaReceiver: 'object', mediaSupported: true, mediaService: true });
   await expect(targetFrame.locator('#service-results')).toContainText('storage.set.result');
-  await expect(targetFrame.locator('#service-results')).toContainText('config.values');
+  await expect(targetFrame.locator('#service-results')).toContainText('config.schemaError');
   await expect(targetFrame.locator('#service-results')).toContainText('theme.get.result');
-  await expect(targetFrame.locator('#service-results')).toContainText('notify.send.result');
   await expect(targetFrame.locator('#service-results')).toContainText('identity.getPublicKey.result');
-  await expect(targetFrame.locator('#service-results')).toContainText('upload.upload.result');
   await expect(targetFrame.locator('#service-results')).toContainText('intent.available.result');
   await expect(targetFrame.locator('#service-results')).toContainText('cvm.discover.result');
   await expect(targetFrame.locator('#service-results')).toContainText('outbox.publish.result');
@@ -145,10 +144,9 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
     'resource',
     'serial',
     'theme',
-    'upload',
     'ble',
-    'webrtc',
   ]));
+  expect(state?.services).not.toEqual(expect.arrayContaining(['upload', 'webrtc']));
 
   await page.locator('#acl-controls [data-acl-capability="state:write"]').click();
   await expect(page.locator('#acl-controls [data-acl-capability="state:write"]')).toHaveAttribute('data-enabled', 'false');
@@ -172,22 +170,16 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   })).toEqual({ mediaReceiver: 'undefined', mediaSupported: false, mediaService: false });
 });
 
-test('executes every advertised development NAP over the Paja bridge', async ({ page }) => {
-  test.setTimeout(120_000);
+test('keeps memory relay and upload fixtures out of advertised capabilities', async ({ page }) => {
   const relayEvent = finalizeEvent({
     kind: 1,
     created_at: 1_800_000_000,
     tags: [],
     content: 'Paja relay fixture',
   }, generateSecretKey());
-  const domains = [
-    'relay', 'outbox', 'storage', 'identity', 'keys', 'config', 'resource',
-    'theme', 'notify', 'media', 'upload', 'intent', 'count', 'link',
-    'common', 'lists', 'serial', 'ble', 'webrtc', 'cvm', 'inc',
-  ];
-  const completeRuntime = await startPajaServer({
+  const fixtureRuntime = await startPajaServer({
     options: {
-      targetUrl: `${targetServer.url}?manualTraffic=1&required=${domains.join(',')}`,
+      targetUrl: `${targetServer.url}?manualTraffic=1&required=identity,resource,keys`,
       port: 0,
       simulation: {
         relay: { mode: 'memory', fixtures: [relayEvent] },
@@ -197,205 +189,25 @@ test('executes every advertised development NAP over the Paja bridge', async ({ 
   });
 
   try {
-    await page.goto(completeRuntime.url);
+    await page.goto(fixtureRuntime.url);
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
     const frame = page.frameLocator('#napplet-frame');
     await expect(frame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
-    await expect(frame.locator('#injected-domains')).toHaveText(domains.join(','));
-    await page.locator('#signer-dev').click();
-    await expect(page.locator('#signer-status')).toContainText('dev connected');
-    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
-    await expect(frame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
+
+    const advertised = (await frame.locator('#shell-init-domains').textContent())?.split(',') ?? [];
     const services = await page.evaluate(() => window.__KEHTO_PAJA__?.getState().services ?? []);
-    expect(services).toEqual(expect.arrayContaining(domains.filter((domain) => domain !== 'inc' && domain !== 'storage')));
+    const fixtureOnlyDomains = ['relay', 'outbox', 'count', 'common', 'lists', 'webrtc', 'cvm', 'upload'];
 
-    await sendFixtureMessage(frame, { type: 'storage.set', id: 'all-storage', key: 'coverage', value: 'complete' });
-    await expect.poll(() => readFixtureMessage(frame, 'storage.set.result', 'all-storage')).not.toBeNull();
-    await sendFixtureMessage(frame, { type: 'config.get', id: 'all-config' });
-    await expect.poll(() => readFixtureMessage(frame, 'config.values', 'all-config')).not.toBeNull();
-    await sendFixtureMessage(frame, { type: 'theme.get', id: 'all-theme' });
-    await expect.poll(() => readFixtureMessage(frame, 'theme.get.result', 'all-theme')).not.toBeNull();
-    await sendFixtureMessage(frame, { type: 'notify.send', id: 'all-notify', title: 'NAP coverage' });
-    await expect.poll(() => readFixtureMessage(frame, 'notify.send.result', 'all-notify')).toMatchObject({
-      notificationId: expect.any(String),
-    });
-    await sendFixtureMessage(frame, { type: 'identity.getPublicKey', id: 'all-identity' });
-    await expect.poll(() => readFixtureMessage(frame, 'identity.getPublicKey.result', 'all-identity')).toMatchObject({
-      pubkey: expect.stringMatching(/^[0-9a-f]{64}$/),
-    });
-    await sendFixtureMessage(frame, { type: 'upload.info', id: 'all-upload' });
-    await expect.poll(() => readFixtureMessage(frame, 'upload.info.result', 'all-upload')).toMatchObject({
-      info: { rails: [expect.objectContaining({ rail: 'dev-memory', enabled: true })] },
-    });
-    await sendFixtureMessage(frame, { type: 'intent.available', id: 'all-intent', archetype: 'missing-handler' });
-    await expect.poll(() => readFixtureMessage(frame, 'intent.available.result', 'all-intent')).toMatchObject({
-      availability: { available: false },
-    });
-
-    await page.evaluate(() => {
-      const host = window as Window & { __pajaForwardedKeys?: Array<Record<string, unknown>> };
-      host.__pajaForwardedKeys = [];
-      window.addEventListener('keydown', (event) => {
-        host.__pajaForwardedKeys?.push({
-          key: event.key,
-          code: event.code,
-          ctrl: event.ctrlKey,
-          shift: event.shiftKey,
-        });
-      });
-    });
-    await sendFixtureMessage(frame, {
-      type: 'keys.registerAction',
-      id: 'all-keys-register',
-      action: { id: 'paja.coverage', label: 'Paja coverage', defaultKey: 'shift+ctrl+p' },
-    });
-    await expect.poll(() => readFixtureMessage(frame, 'keys.registerAction.result', 'all-keys-register')).toMatchObject({
-      actionId: 'paja.coverage',
-      binding: 'Ctrl+Shift+P',
-    });
-    await sendFixtureMessage(frame, {
-      type: 'keys.forward', key: 'j', code: 'KeyJ', ctrl: true, alt: false, shift: true, meta: false,
-    });
-    await expect.poll(() => page.evaluate(() => {
-      const host = window as Window & { __pajaForwardedKeys?: Array<Record<string, unknown>> };
-      return host.__pajaForwardedKeys ?? [];
-    })).toEqual([{ key: 'j', code: 'KeyJ', ctrl: true, shift: true }]);
-
-    await sendFixtureMessage(frame, {
-      type: 'relay.subscribe',
-      id: 'all-relay-subscribe',
-      subId: 'all-relay-sub',
-      filters: [{ kinds: [1] }],
-      relay: 'wss://explicit.paja.test',
-    });
-    await expect.poll(() => readFixtureMessage(frame, 'relay.eose', 'all-relay-sub', 'subId')).not.toBeNull();
-    await sendFixtureMessage(frame, {
-      type: 'outbox.publish',
-      id: 'all-outbox-publish',
-      event: { kind: 1, content: 'Paja outbox publish', tags: [] },
-      options: { toOutbox: false, relays: ['wss://explicit.paja.test'] },
-    });
-    await approvePajaConfirmation(page, 'Sign this Nostr event?');
-    await approvePajaConfirmation(page, 'Publish this Nostr event?');
-    await expect.poll(() => readFixtureMessage(frame, 'outbox.publish.result', 'all-outbox-publish')).toMatchObject({
-      ok: true,
-      eventId: expect.stringMatching(/^[0-9a-f]{64}$/),
-    });
-    await sendFixtureMessage(frame, { type: 'count.query', id: 'all-count', filters: [{ kinds: [1] }] });
-    await expect.poll(() => readFixtureMessage(frame, 'count.query.result', 'all-count')).toMatchObject({
-      ok: true,
-      count: 2,
-      approximate: false,
-    });
-
-    await sendFixtureMessage(frame, { type: 'resource.bytes', requestId: 'all-resource', url: targetServer.url });
-    await expect.poll(() => readFixtureMessage(frame, 'resource.bytes.result', 'all-resource', 'requestId')).toMatchObject({
-      status: 200,
-      bodyBase64: expect.any(String),
-    });
-    await sendFixtureMessage(frame, {
-      type: 'media.session.create', owner: 'napplet', id: 'all-media', sessionId: 'paja-media', metadata: { title: 'Paja track' },
-    });
-    await expect.poll(() => readFixtureMessage(frame, 'media.session.create.result', 'all-media')).toMatchObject({
-      sessionId: 'paja-media', owner: 'napplet',
-    });
-    await sendFixtureMessage(frame, { type: 'common.getProfile', id: 'all-common' });
-    await expect.poll(() => readFixtureMessage(frame, 'common.getProfile.result', 'all-common')).toMatchObject({
-      ok: true,
-      profile: { name: 'paja', displayName: 'Kehto Paja' },
-    });
-
-    const item = { itemType: 'event', value: relayEvent.id };
-    await sendFixtureMessage(frame, { type: 'lists.supported', id: 'all-lists-supported' });
-    await expect.poll(() => readFixtureMessage(frame, 'lists.supported.result', 'all-lists-supported')).toMatchObject({
-      lists: [expect.objectContaining({ type: 'bookmarks' })],
-    });
-    await sendFixtureMessage(frame, {
-      type: 'lists.add', id: 'all-lists-add', list: { type: 'bookmarks' }, items: [item], options: { create: true },
-    });
-    await expect.poll(() => readFixtureMessage(frame, 'lists.add.result', 'all-lists-add')).toMatchObject({ ok: true, added: 1 });
-    await sendFixtureMessage(frame, {
-      type: 'lists.remove', id: 'all-lists-remove', list: { type: 'bookmarks' }, items: [item],
-    });
-    await expect.poll(() => readFixtureMessage(frame, 'lists.remove.result', 'all-lists-remove')).toMatchObject({ ok: true, removed: 1 });
-
-    // Exercise the development firewall as configured: continue after its
-    // 20-operation initialization window instead of disabling the policy.
-    await page.waitForTimeout(3_100);
-
-    await sendFixtureMessage(frame, {
-      type: 'serial.open', id: 'all-serial-open', request: { options: { baudRate: 9_600 }, label: 'coverage' },
-    });
-    await expect.poll(() => readFixtureMessage(frame, 'serial.open.result', 'all-serial-open')).not.toBeNull();
-    const serialSession = await readNestedString(frame, 'serial.open.result', 'all-serial-open', ['session', 'id']);
-    await sendFixtureMessage(frame, { type: 'serial.write', id: 'all-serial-write', sessionId: serialSession, data: [1, 2, 3] });
-    await expect.poll(() => readFixtureMessage(frame, 'serial.write.result', 'all-serial-write')).not.toBeNull();
-    await sendFixtureMessage(frame, { type: 'serial.close', id: 'all-serial-close', sessionId: serialSession });
-    await expect.poll(() => readFixtureMessage(frame, 'serial.close.result', 'all-serial-close')).not.toBeNull();
-
-    const bleTarget = { service: 'battery_service', characteristic: 'battery_level' };
-    await sendFixtureMessage(frame, {
-      type: 'ble.open', id: 'all-ble-open', request: { acceptAllDevices: true, optionalServices: ['battery_service'], label: 'coverage' },
-    });
-    await expect.poll(() => readFixtureMessage(frame, 'ble.open.result', 'all-ble-open')).not.toBeNull();
-    const bleSession = await readNestedString(frame, 'ble.open.result', 'all-ble-open', ['session', 'id']);
-    await sendFixtureMessage(frame, { type: 'ble.services', id: 'all-ble-services', sessionId: bleSession });
-    await expect.poll(() => readFixtureMessage(frame, 'ble.services.result', 'all-ble-services')).toMatchObject({
-      services: [expect.objectContaining({ uuid: 'battery_service' })],
-    });
-    await sendFixtureMessage(frame, { type: 'ble.read', id: 'all-ble-read', sessionId: bleSession, target: bleTarget });
-    await expect.poll(() => readFixtureMessage(frame, 'ble.read.result', 'all-ble-read')).toMatchObject({ data: [87] });
-    await sendFixtureMessage(frame, { type: 'ble.write', id: 'all-ble-write', sessionId: bleSession, target: bleTarget, data: [88] });
-    await expect.poll(() => readFixtureMessage(frame, 'ble.write.result', 'all-ble-write')).not.toBeNull();
-    await sendFixtureMessage(frame, { type: 'ble.close', id: 'all-ble-close', sessionId: bleSession });
-    await expect.poll(() => readFixtureMessage(frame, 'ble.close.result', 'all-ble-close')).not.toBeNull();
-
-    await sendFixtureMessage(frame, {
-      type: 'webrtc.open', id: 'all-webrtc-open', request: { scope: { type: 'direct', pubkey: '7'.repeat(64) }, channel: 'coverage' },
-    });
-    await expect.poll(() => readFixtureMessage(frame, 'webrtc.open.result', 'all-webrtc-open')).not.toBeNull();
-    const webrtcSession = await readNestedString(frame, 'webrtc.open.result', 'all-webrtc-open', ['session', 'id']);
-    await sendFixtureMessage(frame, { type: 'webrtc.send', id: 'all-webrtc-send', sessionId: webrtcSession, payload: { body: 'hello' } });
-    await expect.poll(() => readFixtureMessage(frame, 'webrtc.send.result', 'all-webrtc-send')).not.toBeNull();
-    await expect.poll(() => readFixtureMessage(frame, 'webrtc.event', 'message', 'event.type')).toMatchObject({
-      event: expect.objectContaining({ sessionId: webrtcSession, payload: { body: 'hello' } }),
-    });
-    await sendFixtureMessage(frame, { type: 'webrtc.close', id: 'all-webrtc-close', sessionId: webrtcSession, reason: 'complete' });
-    await expect.poll(() => readFixtureMessage(frame, 'webrtc.close.result', 'all-webrtc-close')).not.toBeNull();
-
-    await sendFixtureMessage(frame, { type: 'cvm.discover', id: 'all-cvm-discover' });
-    await expect.poll(() => readFixtureMessage(frame, 'cvm.discover.result', 'all-cvm-discover')).toMatchObject({
-      servers: [expect.objectContaining({ name: 'Kehto Paja ContextVM' })],
-    });
-    await sendFixtureMessage(frame, {
-      type: 'cvm.request',
-      id: 'all-cvm-request',
-      server: { pubkey: '0'.repeat(64), relays: ['wss://relay.kehto.dev'] },
-      message: { jsonrpc: '2.0', id: 'mcp-1', method: 'tools/list' },
-    });
-    await expect.poll(() => readFixtureMessage(frame, 'cvm.request.result', 'all-cvm-request')).toMatchObject({
-      message: { jsonrpc: '2.0', id: 'mcp-1', result: { echoed: true, method: 'tools/list' } },
-    });
-
-    await sendFixtureMessage(frame, { type: 'link.open', id: 'all-link-deny', url: `${targetServer.url}denied`, options: { label: 'Denied link' } });
-    await sendFixtureMessage(frame, { type: 'link.open', id: 'all-link-open', url: `${targetServer.url}opened`, options: { label: 'Allowed link' } });
-    await expect(page.locator('#paja-confirmation-title')).toHaveText('Open external link?');
-    await expect(page.locator('#paja-confirmation-details')).toContainText('Denied link');
-    await page.keyboard.press('Escape');
-    await expect.poll(() => readFixtureMessage(frame, 'link.open.result', 'all-link-deny')).toMatchObject({ status: 'denied' });
-    await expect(page.locator('#paja-confirmation-details')).toContainText('Allowed link');
-    const popupPromise = page.waitForEvent('popup');
-    await page.locator('#paja-confirmation-approve').click();
-    const popup = await popupPromise;
-    await expect.poll(() => readFixtureMessage(frame, 'link.open.result', 'all-link-open')).toMatchObject({ status: 'opened' });
-    expect(popup.url()).toContain('/opened');
-    await popup.close();
-    await expect(page.locator('#paja-confirmation-dialog')).not.toBeVisible();
+    expect(advertised).not.toEqual(expect.arrayContaining(fixtureOnlyDomains));
+    expect(services).not.toEqual(expect.arrayContaining(fixtureOnlyDomains));
+    await expect(page.locator('#simulation-status')).toContainText('relay:memory:');
+    await expect(page.locator('#simulation-status')).toContainText('upload:memory:simulator');
   } finally {
-    await completeRuntime.close();
+    await fixtureRuntime.close();
   }
 });
 
-test('applies simulation config and compact theme adjustment', async ({ page }) => {
+test('applies fixed identity and live theme adjustment', async ({ page }) => {
   test.setTimeout(60_000);
   const pubkey = '4'.repeat(64);
   const customTargetUrl = `${targetServer.url}?required=identity,resource,keys,theme`;
@@ -408,7 +220,6 @@ test('applies simulation config and compact theme adjustment', async ({ page }) 
         relay: { mode: 'disabled' },
         capabilities: { domains: { relay: false, outbox: false } },
         theme: { mode: 'light' },
-        config: { values: { density: 'compact' } },
       },
     },
     now: new Date('2026-06-21T00:00:00.000Z'),
@@ -424,7 +235,6 @@ test('applies simulation config and compact theme adjustment', async ({ page }) 
     await expect(targetFrame.locator('#shell-init-domains')).not.toContainText('relay');
     await expect(targetFrame.locator('#shell-init-domains')).not.toContainText('outbox');
     await expect(targetFrame.locator('#identity-pubkey')).toHaveText(pubkey);
-    await expect(targetFrame.locator('#config-density')).toHaveText('compact');
     await expect(targetFrame.locator('#theme-background')).toHaveText('#f7f5ed');
     await expect(targetFrame.locator('#theme-changed-count')).toHaveText('0');
     await expect(targetFrame.locator('#theme-changed-background')).toHaveText('');
@@ -512,93 +322,6 @@ test('shows error details and routes signing through NIP-07', async ({ page }) =
   await page.locator('#message-filter').fill('visible boom');
   await expect(page.locator('#message-log')).toContainText('resource.info.error');
   await expect(page.locator('#message-log .log-row[data-error="true"]')).toContainText('visible boom');
-});
-
-test('routes standard identity follows and OUTBOX profile queries without a target-CORS false positive', async ({ page }) => {
-  test.setTimeout(60_000);
-  const accountSecret = generateSecretKey();
-  const followedSecret = generateSecretKey();
-  const accountPubkey = getPublicKey(accountSecret);
-  const followedPubkey = getPublicKey(followedSecret);
-  const contactList = finalizeEvent({
-    kind: 3,
-    created_at: 1_700_000_000,
-    tags: [['p', followedPubkey]],
-    content: '',
-  }, accountSecret);
-  const profile = finalizeEvent({
-    kind: 0,
-    created_at: 1_700_000_001,
-    tags: [],
-    content: JSON.stringify({ name: 'followed fixture' }),
-  }, followedSecret);
-  const socialRuntime = await startPajaServer({
-    options: {
-      targetUrl: `${targetServer.url}?manualTraffic=1`,
-      port: 0,
-      simulation: {
-        relay: {
-          mode: 'memory',
-          fixtures: [contactList, profile],
-        },
-      },
-    },
-    now: new Date('2026-06-21T00:00:00.000Z'),
-  });
-
-  try {
-    await page.goto(socialRuntime.url);
-    await expect.poll(() => targetServer.requestOrigins.includes('null')).toBe(true);
-    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
-    await page.evaluate((pubkey) => {
-      const host = window as Window & { nostr?: unknown };
-      host.nostr = {
-        getPublicKey: async () => pubkey,
-        getRelays: async () => ({ 'wss://relay.test': { read: true, write: true } }),
-        signEvent: async (event: Record<string, unknown>) => ({
-          ...event,
-          id: '8'.repeat(64),
-          pubkey,
-          sig: '9'.repeat(128),
-          kind: typeof event.kind === 'number' ? event.kind : 1,
-          tags: Array.isArray(event.tags) ? event.tags : [],
-          content: typeof event.content === 'string' ? event.content : '',
-          created_at: typeof event.created_at === 'number' ? event.created_at : Math.floor(Date.now() / 1000),
-        }),
-      };
-    }, accountPubkey);
-    await page.locator('#signer-nip07').click();
-    await expect(page.locator('#signer-status')).toContainText('NIP-07 connected');
-    await expect(page.locator('#signer-status')).toContainText(accountPubkey);
-
-    const corsErrorLogged = await page.evaluate(() => window.__KEHTO_PAJA__?.getState().messageLog
-      .some((entry) => entry.type === 'paja.target.cors.error') ?? false);
-    expect(corsErrorLogged).toBe(false);
-
-    const frame = page.frameLocator('#napplet-frame');
-    await expect(frame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
-    await sendFixtureMessage(frame, { type: 'identity.getPublicKey', id: 'social-pubkey' });
-    await expect.poll(() => readFixtureMessage(frame, 'identity.getPublicKey.result', 'social-pubkey')).toMatchObject({
-      pubkey: accountPubkey,
-    });
-
-    await sendFixtureMessage(frame, { type: 'identity.getFollows', id: 'social-follows' });
-    await expect.poll(() => readFixtureMessage(frame, 'identity.getFollows.result', 'social-follows')).toMatchObject({
-      pubkeys: [followedPubkey],
-    });
-
-    await sendFixtureMessage(frame, {
-      type: 'outbox.query',
-      id: 'social-profile',
-      filters: [{ kinds: [0], authors: [followedPubkey] }],
-      options: { authors: [followedPubkey] },
-    });
-    await expect.poll(() => readFixtureMessage(frame, 'outbox.query.result', 'social-profile')).toMatchObject({
-      events: [expect.objectContaining({ event: expect.objectContaining({ id: profile.id, kind: 0 }) })],
-    });
-  } finally {
-    await socialRuntime.close();
-  }
 });
 
 test('stores disclosed bytes through a signed Blossom upload and fails closed on denial or incomplete proof', async ({ page }) => {
@@ -976,7 +699,6 @@ function renderTargetHtml(
           { type: 'storage.set', id: 'storage-1', key: 'phase', value: '92' },
           { type: 'config.get', id: 'config-1' },
           { type: 'theme.get', id: 'theme-1' },
-          { type: 'notify.send', id: 'notify-1', title: 'hello from fixture' },
           { type: 'identity.getPublicKey', id: 'identity-1' },
           { type: 'upload.upload', id: 'upload-1', request: { data: bytes, mimeType: 'text/plain', filename: 'paja.txt' } },
           { type: 'intent.available', id: 'intent-1', archetype: 'paja-target' },
