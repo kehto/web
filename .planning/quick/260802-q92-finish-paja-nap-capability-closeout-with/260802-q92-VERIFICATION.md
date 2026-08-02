@@ -1,9 +1,9 @@
 ---
 phase: quick-260802-q92
 verified: 2026-08-02T18:32:29Z
-status: passed
-score: 7/7 must-haves verified
-behavior_unverified: 0
+status: failed
+score: 3/7 must-haves verified
+behavior_unverified: 4
 overrides_applied: 0
 ---
 
@@ -16,7 +16,7 @@ overrides_applied: 0
 | 1 | No Paja runtime path uses native `window.confirm`. | VERIFIED | Static search finds only the negative host-page assertion; sign, publish, upload, and link Playwright flows use the HTML dialog. |
 | 2 | Consent is serialized, accessible, and fail-closed. | VERIFIED | Dialog markup has labelled/described relationships; E2E proves queued links, Deny-first behavior, Escape denial, and upload disclosure before egress. |
 | 3 | NAP-KEYS forwarding and NAP-LINK handoff execute in the host. | VERIFIED | New unit tests prove normalized host key dispatch, HTTP(S)-only opens, opener isolation, and failure handling; browser E2E proves both operations. |
-| 4 | All 21 advertised Paja domains execute through the bridge. | VERIFIED | `executes every advertised development NAP over the Paja bridge` passes for relay, outbox, identity, storage, inc, theme, keys, link, common, lists, serial, ble, webrtc, media, notify, config, resource, cvm, upload, intent, and count. |
+| 4 | All 21 advertised Paja domains execute through real backends. | FAILED | The E2E test proved only bridge envelopes. COMMON/LISTS/CVM/NOTIFY are canned, SERIAL/BLE/WEBRTC use memory controllers, RESOURCE grants every origin, and the default memory upload rail is not external upload. |
 | 5 | Upload consent and result metadata are truthful. | VERIFIED | Blossom E2E proves disclosure precedes bytes, denial sends no bytes, and incomplete proof fails closed; memory `upload.info` reports `dev-memory`. |
 | 6 | Current scoped dependencies are installed without unrelated churn. | VERIFIED | Frozen install passes; manifests retain the 0.31 peer window; resolved versions are core 0.31.1 and nap 0.31.2. Registry outdated output contains no `@napplet/*` entry. |
 | 7 | Release gates and documentation pass. | VERIFIED | Build, type-check, 1,569 unit tests, 82 browser tests, strict docs, diff check, and AI-slop 100/100 all pass. |
@@ -55,6 +55,7 @@ repository's bleeding-edge upstream policy.
 
 ## Gaps
 
-No goal gaps remain. `dm` and `fs` are outside this task because Paja does not
-advertise them, and the one skipped Playwright case requires an explicitly
-provided live Good Morning Protocol pointer.
+The full backend audit and implementation are active. `dm` and `fs` remain outside
+this task because Paja does not advertise them; every advertised domain plus the
+mandatory `shell` domain is in scope. Passing message-shape tests do not close a
+domain without evidence of its real backend effect and lifecycle.
