@@ -5,9 +5,9 @@ milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 106
 status: completed
 stopped_at: Phase 106 current-Napplet release complete; v1.29 ready for milestone completion
-last_updated: "2026-07-28T18:55:51Z"
-last_activity: 2026-07-28
-last_activity_desc: Phase 106 corrective Napplet 0.31 release complete
+last_updated: "2026-08-02T15:57:43Z"
+last_activity: 2026-08-02
+last_activity_desc: "Completed quick task 260802-lpw: adopted published NAP-INTENT package fixes"
 progress:
   total_phases: 6
   completed_phases: 6
@@ -32,7 +32,7 @@ Phase: 106 (Active-Surface Conformance and Release) — COMPLETE
 Plan: 3 of 3
 Status: All v1.29 phases complete — eight-package Napplet-0.31-compatible npm/JSR release published and downstream-verified
 
-Last activity: 2026-07-28 — Phase 106 current-Napplet publication gap closed
+Last activity: 2026-08-02 — Completed quick task 260802-lpw: adopted published NAP-INTENT package fixes
 
 ## Performance Metrics
 
@@ -219,6 +219,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260726-g8r | Update AGENTS.md to require Kehto worktrees under ~/.worktrees/kehto | 2026-07-26 | 683018b | Verified | [260726-g8r-update-agents-md-to-require-kehto-worktr](./quick/260726-g8r-update-agents-md-to-require-kehto-worktr/) |
 | 260728-fv2 | Record completed Phase 106 npm and JSR publication and downstream proof | 2026-07-28 | bec8074 | Verified | [260728-fv2-record-completed-phase-106-npm-and-jsr-p](./quick/260728-fv2-record-completed-phase-106-npm-and-jsr-p/) |
 | 260728-pub | Publish Kehto against the current Napplet line | 2026-07-28 | 9390eca / b61b8cf | Verified | [260728-pub-update-kehto-compatibility-for-current-n](./quick/260728-pub-update-kehto-compatibility-for-current-n/) |
+| 260802-lpw | Adopt the published NAP-INTENT package fixes in Kehto | 2026-08-02 | 32b629b | Verified | [260802-lpw-adopt-the-published-nap-intent-package-f](./quick/260802-lpw-adopt-the-published-nap-intent-package-f/) |
 
 ## Session Continuity
 
