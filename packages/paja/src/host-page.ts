@@ -90,6 +90,19 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
       .confirmation-dialog { width: min(520px, calc(100% - 48px)); max-width: none; border: 0; padding: 0; background: transparent; color: var(--text); }
       .confirmation-dialog::backdrop { background: rgb(0 0 0 / 0.68); }
+      .paja-notification-center { position: fixed; right: 16px; bottom: 46px; z-index: 10; width: min(360px, calc(100vw - 32px)); display: grid; gap: 8px; pointer-events: none; }
+      .paja-notification { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 6px; background: #181b19; box-shadow: 0 10px 30px rgb(0 0 0 / 0.45); pointer-events: auto; }
+      .paja-notification[data-priority="high"], .paja-notification[data-priority="urgent"] { border-left-color: #e89b5b; }
+      .paja-notification-header { display: flex; align-items: center; gap: 8px; }
+      .paja-notification-origin { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 11px; }
+      .paja-notification-close { height: 22px; padding: 0 6px; color: var(--muted); font-size: 11px; }
+      .paja-notification-body { height: auto; min-height: 28px; padding: 0; border: 0; background: transparent; display: grid; gap: 3px; text-align: left; }
+      .paja-notification-body:hover { border-color: transparent; }
+      .paja-notification-body span { color: var(--muted); }
+      .paja-notification-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 6px; }
+      .paja-notification-action { height: 24px; }
+      .paja-notification-badges { position: fixed; right: 12px; top: 7px; z-index: 11; display: flex; gap: 6px; pointer-events: none; }
+      .paja-notification-badge { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 7px; border: 1px solid #5f724f; border-radius: 999px; background: #24301f; color: var(--text); font-size: 11px; }
       @media (max-width: 900px) {
         .top { grid-template-columns: minmax(0, 1fr); }
         .top-console { display: none; }
@@ -144,6 +157,8 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       </aside>
       ${renderStage(config, targetLabel)}
     </main>
+    <div class="paja-notification-badges" id="paja-notification-badges" aria-label="Napplet notification badges"></div>
+    <section class="paja-notification-center" id="paja-notification-center" aria-label="Napplet notifications" aria-live="polite"></section>
     ${renderConfirmationDialog()}
     ${renderDuplicateDialog()}
     <footer class="bar bottom">

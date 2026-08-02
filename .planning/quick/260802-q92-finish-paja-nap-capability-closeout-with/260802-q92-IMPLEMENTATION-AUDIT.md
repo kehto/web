@@ -25,11 +25,11 @@ the production Paja `shell.init` environment.
 | `link` | real | Consent-gated HTTP(S) browser handoff exists. |
 | `common` | simulated | Profile/follows return fixed data; mutations return one fixed event ID. Replace with relay queries and signed/published Nostr events. |
 | `lists` | simulated | Development store mutates an in-memory map and returns a fixed event ID. Replace with signed Nostr list reads/mutations/publication. |
-| `serial` | simulated | Memory session map records writes; no `navigator.serial`, read loop, disconnect, or device permission. |
-| `ble` | simulated | Fixed device/services/read byte and memory writes; no Web Bluetooth/GATT/notifications/disconnect. |
+| `serial` | implemented on branch | Uses `navigator.serial`, a host-click chooser, port streams, disconnect/state events, redacted session IDs, ordered writes, and per-window cleanup. Capability is absent when the browser API or activation broker is unavailable. |
+| `ble` | implemented on branch | Uses the Web Bluetooth chooser and GATT services/characteristics/descriptors for reads, writes, notifications, disconnect, redacted session IDs, and per-window cleanup. Capability is absent when the browser API or activation broker is unavailable. |
 | `webrtc` | simulated | Local payload echo and fake peer; no `RTCPeerConnection`, data channel, or Nostr signaling. |
 | `media` | real | Browser Media Session bridge exists; retain browser-visible ownership/action/cleanup proof. |
-| `notify` | stub | `createNotifyService` explicitly describes itself as a stub; dismiss, badge, and channel registration are no-ops. Add shell-rendered/browser notification state and permission lifecycle. |
+| `notify` | implemented on branch | Host-rendered, origin-attributed text notifications now provide explicit user permission, channels, badges, actions, clicks, dismissals, controls, and per-window cleanup. The generic service delegates every operation and fails closed without a presentation backend. |
 | `config` | real host data, simulation-labelled | Handler returns host configuration. Remove any implication that simulation metadata proves a production backend. |
 | `resource` | unsafe partial | Real `fetch` and cancellation exist, but Paja grants `*` to every origin and uses a fixed identity. Bind verified manifest grants and per-window identity. |
 | `cvm` | simulated | Development transport returns a deterministic echo. Wire the existing Nostr CVM transport to the live relay pool and signer/encryption backend. |

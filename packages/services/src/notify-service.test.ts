@@ -1,16 +1,7 @@
-/**
- * notify-service.test.ts — Unit tests for the notify NAP service.
- *
- * Covers the 5 napplet->shell request types from @napplet/nap/notify:
- *   notify.send, notify.dismiss, notify.badge, notify.channel.register,
- *   notify.permission.request.
- *
- * Also covers unknown-action error shape and ACL-denial envelope shape.
- */
-
-import { describe, it, expect } from 'vitest';
-import { createNotifyService } from './notify-service.js';
 import type { NappletMessage } from '@napplet/core';
+import type { NotifyPresentation } from './notify-service.js';
+import { describe, expect, it, vi } from 'vitest';
+import { createNotifyService } from './notify-service.js';
 
 const WINDOW_ID = 'win-test-1';
 
@@ -18,222 +9,156 @@ function makeMsg(type: string, fields: Record<string, unknown> = {}): NappletMes
   return { type, ...fields } as NappletMessage;
 }
 
+async function settle(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 describe('createNotifyService', () => {
-  it('returns a ServiceHandler with the notify descriptor', () => {
-    const service = createNotifyService();
-    expect(service.descriptor.name).toBe('notify');
-    expect(service.descriptor.version).toBe('1.0.0');
-    expect(typeof service.descriptor.description).toBe('string');
-  });
-
-  // ── notify.send ──────────────────────────────────────────────────────────
-
-  it('notify.send produces notify.send.result with generated notificationId', () => {
+  it('fails closed when notification presentation is unavailable', async () => {
     const service = createNotifyService();
     const sent: NappletMessage[] = [];
-    const send = (msg: NappletMessage): void => { sent.push(msg); };
 
-    service.handleMessage(
-      WINDOW_ID,
-      makeMsg('notify.send', { id: 'n1', title: 'hi' }),
-      send,
-    );
+    service.handleMessage(WINDOW_ID, makeMsg('notify.send', { id: 'n1', title: 'hi' }), (message) => sent.push(message));
+    service.handleMessage(WINDOW_ID, makeMsg('notify.permission.request', { id: 'p1' }), (message) => sent.push(message));
+    await settle();
 
-    expect(sent).toHaveLength(1);
-    expect(sent[0].type).toBe('notify.send.result');
-    expect((sent[0] as any).id).toBe('n1');
-    const notificationId = (sent[0] as any).notificationId;
-    expect(typeof notificationId).toBe('string');
-    expect(notificationId.length).toBeGreaterThan(0);
+    expect(sent).toEqual([
+      {
+        type: 'notify.send.result',
+        id: 'n1',
+        error: 'notification presentation unavailable',
+      },
+      { type: 'notify.permission.result', id: 'p1', granted: false },
+    ]);
   });
 
-  it('notify.send honors options.generateId', () => {
-    const service = createNotifyService({ generateId: () => 'custom-id-xyz' });
-    const sent: NappletMessage[] = [];
-    const send = (msg: NappletMessage): void => { sent.push(msg); };
-
-    service.handleMessage(
-      WINDOW_ID,
-      makeMsg('notify.send', { id: 'n1', title: 'hi' }),
-      send,
-    );
-
-    expect((sent[0] as any).notificationId).toBe('custom-id-xyz');
-  });
-
-  it('notify.send invokes options.onSend with windowId + payload', () => {
-    const received: Array<{ windowId: string; type: string; id: string; title: string }> = [];
+  it('delegates presentation and returns an id only after delivery succeeds', async () => {
+    const present = vi.fn(async (_presentation: NotifyPresentation) => {});
     const service = createNotifyService({
-      onSend: (windowId, msg) => {
-        received.push({ windowId, type: msg.type, id: msg.id, title: msg.title });
-      },
+      generateId: () => 'host-notification-7',
+      present,
+      controls: ['toasts', 'actions'],
     });
-    const send = (_msg: NappletMessage): void => {};
+    const sent: NappletMessage[] = [];
 
     service.handleMessage(
       WINDOW_ID,
-      makeMsg('notify.send', { id: 'n-trace', title: 'payload-trace' }),
-      send,
+      makeMsg('notify.send', { id: 'n1', title: 'New message', body: 'Hello' }),
+      (message) => sent.push(message),
     );
+    await settle();
 
-    expect(received).toEqual([{
+    expect(present).toHaveBeenCalledWith(expect.objectContaining({
       windowId: WINDOW_ID,
-      type: 'notify.send',
-      id: 'n-trace',
-      title: 'payload-trace',
+      notificationId: 'host-notification-7',
+      message: expect.objectContaining({ title: 'New message', body: 'Hello' }),
+      emit: expect.any(Function),
+    }));
+    expect(sent).toEqual([
+      { type: 'notify.controls', controls: ['toasts', 'actions'] },
+      { type: 'notify.send.result', id: 'n1', notificationId: 'host-notification-7' },
+    ]);
+  });
+
+  it('reports host delivery failures without assigning a notification id', async () => {
+    const service = createNotifyService({
+      present: () => Promise.reject(new Error('rate limited')),
+    });
+    const sent: NappletMessage[] = [];
+
+    service.handleMessage(WINDOW_ID, makeMsg('notify.send', { id: 'n1', title: 'hi' }), (message) => sent.push(message));
+    await settle();
+
+    expect(sent).toEqual([{ type: 'notify.send.result', id: 'n1', error: 'rate limited' }]);
+  });
+
+  it('routes host interactions to the requesting napplet', async () => {
+    const presentations: NotifyPresentation[] = [];
+    const service = createNotifyService({
+      present: (value) => { presentations.push(value); },
+    });
+    const sent: NappletMessage[] = [];
+
+    service.handleMessage(WINDOW_ID, makeMsg('notify.send', { id: 'n1', title: 'hi' }), (message) => sent.push(message));
+    await settle();
+    const presentation = presentations[0];
+    presentation.emit({ type: 'notify.clicked', notificationId: presentation.notificationId });
+    presentation.emit({ type: 'notify.action', notificationId: presentation.notificationId, actionId: 'open' });
+    presentation.emit({ type: 'notify.dismissed', notificationId: presentation.notificationId, reason: 'user' });
+    presentation.emit({ type: 'notify.clicked', notificationId: presentation.notificationId });
+
+    expect(sent.slice(1)).toEqual([
+      { type: 'notify.clicked', notificationId: 'shell-1' },
+      { type: 'notify.action', notificationId: 'shell-1', actionId: 'open' },
+      { type: 'notify.dismissed', notificationId: 'shell-1', reason: 'user' },
+    ]);
+  });
+
+  it('delegates dismiss, badge, channel, and permission operations', async () => {
+    const dismiss = vi.fn();
+    const setBadge = vi.fn();
+    const registerChannel = vi.fn();
+    const requestPermission = vi.fn(async () => true);
+    const service = createNotifyService({
+      present: () => {},
+      dismiss,
+      setBadge,
+      registerChannel,
+      requestPermission,
+    });
+    const sent: NappletMessage[] = [];
+
+    service.handleMessage(WINDOW_ID, makeMsg('notify.send', { id: 'n1', title: 'hi' }), (message) => sent.push(message));
+    await settle();
+    service.handleMessage(WINDOW_ID, makeMsg('notify.dismiss', { notificationId: 'shell-1' }), (message) => sent.push(message));
+    service.handleMessage(WINDOW_ID, makeMsg('notify.dismiss', { notificationId: 'unknown' }), (message) => sent.push(message));
+    service.handleMessage(WINDOW_ID, makeMsg('notify.badge', { count: 3.8 }), (message) => sent.push(message));
+    service.handleMessage(WINDOW_ID, makeMsg('notify.channel.register', {
+      channelId: 'messages',
+      label: 'Messages',
+    }), (message) => sent.push(message));
+    service.handleMessage(WINDOW_ID, makeMsg('notify.permission.request', {
+      id: 'p1',
+      channel: 'messages',
+    }), (message) => sent.push(message));
+    await settle();
+
+    expect(dismiss).toHaveBeenCalledTimes(1);
+    expect(dismiss).toHaveBeenCalledWith(WINDOW_ID, 'shell-1');
+    expect(setBadge).toHaveBeenCalledWith(WINDOW_ID, 3);
+    expect(registerChannel).toHaveBeenCalledWith(WINDOW_ID, expect.objectContaining({ channelId: 'messages' }));
+    expect(requestPermission).toHaveBeenCalledWith(WINDOW_ID, 'messages');
+    expect(sent).toContainEqual({ type: 'notify.permission.result', id: 'p1', granted: true });
+  });
+
+  it('cleans active notifications and host state when a window is destroyed', async () => {
+    const dismiss = vi.fn();
+    const destroyWindow = vi.fn();
+    const service = createNotifyService({ present: () => {}, dismiss, destroyWindow });
+
+    service.handleMessage(WINDOW_ID, makeMsg('notify.send', { id: 'n1', title: 'one' }), () => {});
+    service.handleMessage(WINDOW_ID, makeMsg('notify.send', { id: 'n2', title: 'two' }), () => {});
+    await settle();
+    service.onWindowDestroyed?.(WINDOW_ID);
+
+    expect(dismiss.mock.calls).toEqual([
+      [WINDOW_ID, 'shell-1'],
+      [WINDOW_ID, 'shell-2'],
+    ]);
+    expect(destroyWindow).toHaveBeenCalledWith(WINDOW_ID);
+  });
+
+  it('returns an error envelope for unknown notify methods', () => {
+    const service = createNotifyService();
+    const sent: NappletMessage[] = [];
+
+    service.handleMessage(WINDOW_ID, makeMsg('notify.bogus', { id: 'x' }), (message) => sent.push(message));
+
+    expect(sent).toEqual([{
+      type: 'notify.bogus.error',
+      id: 'x',
+      error: 'Unknown notify method: notify.bogus',
     }]);
-  });
-
-  // ── fire-and-forget actions ──────────────────────────────────────────────
-
-  it('notify.dismiss emits zero envelopes', () => {
-    const service = createNotifyService();
-    const sent: NappletMessage[] = [];
-    const send = (msg: NappletMessage): void => { sent.push(msg); };
-
-    service.handleMessage(
-      WINDOW_ID,
-      makeMsg('notify.dismiss', { notificationId: 'shell-42' }),
-      send,
-    );
-
-    expect(sent).toHaveLength(0);
-  });
-
-  it('notify.badge emits zero envelopes', () => {
-    const service = createNotifyService();
-    const sent: NappletMessage[] = [];
-    const send = (msg: NappletMessage): void => { sent.push(msg); };
-
-    service.handleMessage(
-      WINDOW_ID,
-      makeMsg('notify.badge', { count: 3 }),
-      send,
-    );
-
-    expect(sent).toHaveLength(0);
-  });
-
-  it('notify.channel.register emits zero envelopes', () => {
-    const service = createNotifyService();
-    const sent: NappletMessage[] = [];
-    const send = (msg: NappletMessage): void => { sent.push(msg); };
-
-    service.handleMessage(
-      WINDOW_ID,
-      makeMsg('notify.channel.register', {
-        channelId: 'messages',
-        label: 'Messages',
-      }),
-      send,
-    );
-
-    expect(sent).toHaveLength(0);
-  });
-
-  // ── notify.permission.request ────────────────────────────────────────────
-
-  it('notify.permission.request produces notify.permission.result with granted:true by default', () => {
-    const service = createNotifyService();
-    const sent: NappletMessage[] = [];
-    const send = (msg: NappletMessage): void => { sent.push(msg); };
-
-    service.handleMessage(
-      WINDOW_ID,
-      makeMsg('notify.permission.request', { id: 'p1' }),
-      send,
-    );
-
-    expect(sent).toHaveLength(1);
-    expect(sent[0].type).toBe('notify.permission.result');
-    expect((sent[0] as any).id).toBe('p1');
-    expect((sent[0] as any).granted).toBe(true);
-  });
-
-  it('notify.permission.request honors options.defaultGrant=false', () => {
-    const service = createNotifyService({ defaultGrant: false });
-    const sent: NappletMessage[] = [];
-    const send = (msg: NappletMessage): void => { sent.push(msg); };
-
-    service.handleMessage(
-      WINDOW_ID,
-      makeMsg('notify.permission.request', { id: 'p2' }),
-      send,
-    );
-
-    expect(sent).toHaveLength(1);
-    expect(sent[0].type).toBe('notify.permission.result');
-    expect((sent[0] as any).id).toBe('p2');
-    expect((sent[0] as any).granted).toBe(false);
-  });
-
-  // ── unknown action ───────────────────────────────────────────────────────
-
-  it('unknown notify.* action produces .error envelope', () => {
-    const service = createNotifyService();
-    const sent: NappletMessage[] = [];
-    const send = (msg: NappletMessage): void => { sent.push(msg); };
-
-    service.handleMessage(
-      WINDOW_ID,
-      makeMsg('notify.bogus', { id: 'x' }),
-      send,
-    );
-
-    expect(sent).toHaveLength(1);
-    expect(sent[0].type).toBe('notify.bogus.error');
-    expect((sent[0] as any).id).toBe('x');
-    expect((sent[0] as any).error).toMatch(/unknown/i);
-  });
-
-  // ── ACL denial (runtime-composed denial envelope shape) ──────────────────
-
-  it('notify.* request denied by ACL produces .error envelope without reaching the service', () => {
-    // Emulate the runtime's ACL gate composed around the service.
-    const service = createNotifyService();
-    const serviceCalls: string[] = [];
-    const wrappedService = {
-      descriptor: service.descriptor,
-      handleMessage(windowId: string, msg: NappletMessage, send: (m: NappletMessage) => void): void {
-        serviceCalls.push(msg.type);
-        service.handleMessage(windowId, msg, send);
-      },
-    };
-
-    const enforcer = {
-      check: (): { allowed: boolean; reason: string } => ({
-        allowed: false,
-        reason: 'capability_missing: notify:send',
-      }),
-    };
-
-    const sent: NappletMessage[] = [];
-    const send = (msg: NappletMessage): void => { sent.push(msg); };
-
-    function dispatch(windowId: string, msg: NappletMessage): void {
-      const check = enforcer.check();
-      if (!check.allowed) {
-        const id = (msg as NappletMessage & { id?: string }).id ?? '';
-        send({ type: `${msg.type}.error`, id, error: check.reason } as NappletMessage);
-        return;
-      }
-      wrappedService.handleMessage(windowId, msg, send);
-    }
-
-    dispatch(WINDOW_ID, makeMsg('notify.send', { id: 'n-deny', title: 'hi' }));
-
-    expect(sent).toHaveLength(1);
-    expect(sent[0].type).toBe('notify.send.error');
-    expect((sent[0] as any).id).toBe('n-deny');
-    expect((sent[0] as any).error).toMatch(/capability_missing|denied|notify:send/);
-    // Service must NOT have been invoked when denied.
-    expect(serviceCalls).toHaveLength(0);
-  });
-
-  // ── lifecycle ────────────────────────────────────────────────────────────
-
-  it('onWindowDestroyed does not throw', () => {
-    const service = createNotifyService();
-    expect(() => service.onWindowDestroyed?.(WINDOW_ID)).not.toThrow();
   });
 });

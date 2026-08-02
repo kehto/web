@@ -75,7 +75,11 @@ export type {
 export type { MediaAction } from '@napplet/nap/media/types';
 
 export { createNotifyService } from './notify-service.js';
-export type { NotifyServiceOptions } from './notify-service.js';
+export type {
+  NotifyInteractionMessage,
+  NotifyPresentation,
+  NotifyServiceOptions,
+} from './notify-service.js';
 
 export { createThemeService } from './theme-service.js';
 export type { ThemeServiceOptions, ThemeService } from './theme-service.js';

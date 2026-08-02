@@ -20,7 +20,6 @@ import {
   createLinkService,
   createListsService,
   createMediaService,
-  createNotificationService,
   createNotifyService,
   createOutboxService,
   createRelayPoolOutboxRouter,
@@ -36,6 +35,7 @@ import {
   type IntentCandidate,
   type IntentRequest,
   type McpMessage,
+  type NotifyServiceOptions,
   type Uploader,
   type UploadRequest,
   type UploadResult,
@@ -99,6 +99,12 @@ export type PajaConfirmationRequest =
       readonly windowId: string;
       readonly label?: string;
       readonly details: string;
+    }
+  | {
+      readonly action: 'notify';
+      readonly windowId: string;
+      readonly napplet: { readonly dTag: string; readonly aggregateHash: string };
+      readonly channel?: string;
     };
 
 /** Async-capable host policy callback for user-visible Paja operations. */
@@ -373,8 +379,8 @@ function createDevServices(
   intentHost: PajaIntentHost = createDefaultIntentHost(),
   getIdentity?: PajaIdentityProvider,
   userActivation?: PajaUserActivationHandler,
+  notifyOptions?: NotifyServiceOptions,
 ): Record<string, ServiceHandler> {
-  const notification = createNotificationService({ maxPerWindow: 50 });
   const theme = createThemeService({
     initialTheme: createDevTheme(getSimulation().theme.mode, getSimulation().theme.values),
     onBroadcast: onThemeBroadcast,
@@ -457,9 +463,8 @@ function createDevServices(
       getFollows: socialCache.getFollows,
     });
   }
-  if (getSimulation().notifications.enabled) {
-    services.notifications = notification;
-    services.notify = createNotifyService({ defaultGrant: getSimulation().notifications.grant });
+  if (getSimulation().notifications.enabled && notifyOptions) {
+    services.notify = createNotifyService(notifyOptions);
   }
   if (getSimulation().media.enabled) services.media = createMediaService();
   if (getSimulation().capabilities.domains.theme) services.theme = theme.handler;
@@ -559,6 +564,8 @@ function createDevServices(
  * @param getIdentity - Optional simulated target identity provider.
  * @param onEnvironmentChanged - Invoked when asynchronous host wiring changes.
  * @param intentHost - Installed catalog, target controller, and user policy.
+ * @param userActivation - Host-click broker for device chooser APIs.
+ * @param notifyOptions - Host-backed notification presentation hooks.
  * @returns Shell adapter for `createShellBridge`.
  */
 export function createPajaAdapter(
@@ -572,6 +579,7 @@ export function createPajaAdapter(
   onEnvironmentChanged?: () => void,
   intentHost?: PajaIntentHost,
   userActivation?: PajaUserActivationHandler,
+  notifyOptions?: NotifyServiceOptions,
 ): ShellAdapter {
   const relayBackend = createPajaRelayBackend(getSimulation, confirmRequest);
   const uploadRuntime = getSimulation().upload.mode === 'blossom'
@@ -606,6 +614,7 @@ export function createPajaAdapter(
     resolvedIntentHost,
     getIdentity,
     userActivation,
+    notifyOptions,
   );
   return {
     relayPool: createRelayHooks(relayBackend, getSimulation),

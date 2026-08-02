@@ -174,7 +174,13 @@ import { createNotifyService } from '@kehto/services';
 
 // Dynamic registration — allows lazy loading or post-login setup
 bridge.runtime.registerService('notify', createNotifyService({
-  onSend: (_windowId, message) => showNotification(message),
+  present: ({ notificationId, message, emit }) => showNotification({
+    notificationId,
+    message,
+    onClick: () => emit({ type: 'notify.clicked', notificationId }),
+  }),
+  dismiss: (_windowId, notificationId) => dismissNotification(notificationId),
+  requestPermission: (_windowId, channel) => requestNotificationPermission(channel),
 }));
 ```
 

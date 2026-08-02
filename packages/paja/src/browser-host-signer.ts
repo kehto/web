@@ -30,6 +30,19 @@ interface ConfirmationCopy {
   readonly approveLabel: string;
 }
 
+function confirmationDetails(...lines: Array<string | undefined>): string {
+  return lines.filter((line): line is string => line !== undefined).join('\n');
+}
+
+function confirmationCopy(
+  title: string,
+  summary: string,
+  approveLabel: string,
+  ...details: Array<string | undefined>
+): ConfirmationCopy {
+  return { title, summary, details: confirmationDetails(...details), approveLabel };
+}
+
 /**
  * Create Paja's accessible, fail-closed confirmation queue.
  *
@@ -150,45 +163,49 @@ export function createPajaConfirmationController(
 
 function describeConfirmation(request: PajaConfirmationRequest): ConfirmationCopy {
   if (request.action === 'upload') {
-    return {
-      title: 'Upload this file?',
-      summary: `${request.napplet.dTag} requests a public upload.`,
-      details: [
-        `Napplet: ${request.napplet.dTag} (${request.windowId})`,
-        `File: ${request.filename ?? '(unnamed blob)'}`,
-        `Size: ${request.size} bytes`,
-        `Type: ${request.mimeType ?? 'application/octet-stream'}`,
-        `Server: ${request.server}`,
-        request.warning,
-      ].join('\n'),
-      approveLabel: 'Upload',
-    };
+    return confirmationCopy(
+      'Upload this file?',
+      `${request.napplet.dTag} requests a public upload.`,
+      'Upload',
+      `Napplet: ${request.napplet.dTag} (${request.windowId})`,
+      `File: ${request.filename ?? '(unnamed blob)'}`,
+      `Size: ${request.size} bytes`,
+      `Type: ${request.mimeType ?? 'application/octet-stream'}`,
+      `Server: ${request.server}`,
+      request.warning,
+    );
   }
   if (request.action === 'link') {
-    return {
-      title: 'Open external link?',
-      summary: `${request.napplet.dTag} requests browser navigation.`,
-      details: [
-        `Napplet: ${request.napplet.dTag} (${request.windowId})`,
-        ...(request.label ? [`Label: ${request.label}`] : []),
-        `Destination: ${request.url}`,
-      ].join('\n'),
-      approveLabel: 'Open link',
-    };
+    return confirmationCopy(
+      'Open external link?',
+      `${request.napplet.dTag} requests browser navigation.`,
+      'Open link',
+      `Napplet: ${request.napplet.dTag} (${request.windowId})`,
+      request.label ? `Label: ${request.label}` : undefined,
+      `Destination: ${request.url}`,
+    );
   }
   if (request.action === 'serial' || request.action === 'ble') {
     const device = request.action === 'serial' ? 'serial port' : 'Bluetooth device';
-    return {
-      title: `Connect a ${device}?`,
-      summary: `A napplet requests access to a ${device}.`,
-      details: [
-        `Napplet window: ${request.windowId}`,
-        ...(request.label ? [`Purpose: ${request.label}`] : []),
-        request.details,
-        'The browser will show its device chooser next.',
-      ].join('\n'),
-      approveLabel: 'Choose device',
-    };
+    return confirmationCopy(
+      `Connect a ${device}?`,
+      `A napplet requests access to a ${device}.`,
+      'Choose device',
+      `Napplet window: ${request.windowId}`,
+      request.label ? `Purpose: ${request.label}` : undefined,
+      request.details,
+      'The browser will show its device chooser next.',
+    );
+  }
+  if (request.action === 'notify') {
+    return confirmationCopy(
+      'Allow notifications?',
+      `${request.napplet.dTag} requests permission to show shell notifications.`,
+      'Allow notifications',
+      `Napplet: ${request.napplet.dTag} (${request.windowId})`,
+      `Identity: ${request.napplet.aggregateHash}`,
+      `Channel: ${request.channel ?? 'all notifications'}`,
+    );
   }
   if (!('event' in request)) throw new Error(`Unsupported confirmation action: ${request.action}`);
   const event = request.event as { kind?: unknown; content?: unknown };
@@ -240,6 +257,16 @@ function recordPajaConfirmation(
       type: `paja.${request.action}.${allowed ? 'confirmed' : 'denied'}`,
       windowId: request.windowId,
       label: request.label,
+    });
+    return;
+  }
+  if (request.action === 'notify') {
+    appendPajaMessageLog(state, 'paja', {
+      type: `paja.notify.${allowed ? 'confirmed' : 'denied'}`,
+      windowId: request.windowId,
+      dTag: request.napplet.dTag,
+      aggregateHash: request.napplet.aggregateHash,
+      channel: request.channel,
     });
     return;
   }

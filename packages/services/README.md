@@ -108,7 +108,16 @@ runtime.registerService(
 // Notification service — direct NIP-5D notify.* envelopes.
 runtime.registerService(
   'notify',
-  createNotifyService({ onSend: (_windowId, message) => updateBadge(message) }),
+  createNotifyService({
+    present: ({ notificationId, message, emit }) => notificationCenter.show({
+      notificationId,
+      title: message.title,
+      body: message.body,
+      onClick: () => emit({ type: 'notify.clicked', notificationId }),
+    }),
+    dismiss: (_windowId, notificationId) => notificationCenter.dismiss(notificationId),
+    requestPermission: (_windowId, channel) => notificationPolicy.request(channel),
+  }),
 );
 
 // Lists service — shell-owned NIP-51 metadata and mutations.
@@ -574,7 +583,7 @@ complete normal result without `error`: this explicit policy reconciles the
 draft error-only example without a mixed theme/error extension.
 
 ### Types
-`AudioSource`, `AudioServiceOptions`, `Notification`, `NotificationServiceOptions`, `IdentityServiceOptions`, `RelayPoolServiceOptions`, `CacheServiceOptions`, `CoordinatedRelayOptions`, `KeysServiceOptions`, `MediaServiceOptions`, `NotifyServiceOptions`, `ThemeServiceOptions`, `ThemeService`, `IntentOpenOptions`, `IntentRequest`, `IntentResult`, `IntentCandidate`, `IntentAvailability`, `IntentResolver`, `IntentTargetController`, `IntentDispatchParams`, `IntentTargetDispatch`, `BleServiceOptions`, `BleServiceContext`, `WebrtcServiceOptions`, `WebrtcServiceContext`, `DmServiceOptions`, `DmAdapter`, `DmRelayPool`, `Nip17DmAdapterOptions`, `NdrDmAdapterOptions`, `CordnDmAdapterOptions`.
+`AudioSource`, `AudioServiceOptions`, `Notification`, `NotificationServiceOptions`, `IdentityServiceOptions`, `RelayPoolServiceOptions`, `CacheServiceOptions`, `CoordinatedRelayOptions`, `KeysServiceOptions`, `MediaServiceOptions`, `NotifyServiceOptions`, `NotifyPresentation`, `NotifyInteractionMessage`, `ThemeServiceOptions`, `ThemeService`, `IntentOpenOptions`, `IntentRequest`, `IntentResult`, `IntentCandidate`, `IntentAvailability`, `IntentResolver`, `IntentTargetController`, `IntentDispatchParams`, `IntentTargetDispatch`, `BleServiceOptions`, `BleServiceContext`, `WebrtcServiceOptions`, `WebrtcServiceContext`, `DmServiceOptions`, `DmAdapter`, `DmRelayPool`, `Nip17DmAdapterOptions`, `NdrDmAdapterOptions`, `CordnDmAdapterOptions`.
 
 ## API Reference
 

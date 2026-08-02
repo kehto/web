@@ -195,7 +195,7 @@ Options:
   --upload-server <url>       Add a shell-owned Blossom server (repeatable).
   --media <state>             enabled or disabled.
   --notifications <state>     enabled or disabled.
-  --notify-grant <bool>       true or false default notification grant.
+  --notify-grant <bool>       Allow or block interactive notification permission prompts.
   --theme <mode>              dark or light.
   --config-value <key=json>   Add a JSON config value.
   --capability <domain:on|off> Toggle an advertised capability domain.

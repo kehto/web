@@ -69,6 +69,7 @@ import {
   type PajaResolvedPointer,
 } from './runtime-resolver.js';
 import { reportTargetCorsDiagnostic } from './browser-target-diagnostics.js';
+import { createPajaNotifyController } from './browser-notify.js';
 import {
   PAJA_SIMULATION_DOMAINS,
   summarizePajaSimulation,
@@ -579,15 +580,21 @@ async function installPajaHost(): Promise<void> {
     setSimulationStatus,
     confirmationController.confirm,
   );
-  const adapter = createPajaAdapter(config, getSimulation, (theme) => {
-    runtime.themeService = theme;
-  }, themeBroadcast.onBroadcast, confirmationController.confirm, signerController, (windowId) => {
+  const getWindowIdentity = (windowId?: string) => {
     const tabTarget = stateRef?.tabs.find((tab) => tab.windowId === windowId)?.resolvedTarget;
     return getTargetIdentity(config, tabTarget ?? stateRef?.resolvedTarget);
-  }, () => stateRef?.reload(), {
+  };
+  const notifyController = createPajaNotifyController({
+    confirm: confirmationController.confirm,
+    getIdentity: getWindowIdentity,
+    isEnabled: () => getSimulation().notifications.enabled && getSimulation().notifications.grant,
+  });
+  const adapter = createPajaAdapter(config, getSimulation, (theme) => {
+    runtime.themeService = theme;
+  }, themeBroadcast.onBroadcast, confirmationController.confirm, signerController, getWindowIdentity, () => stateRef?.reload(), {
       catalog: runtime.catalog,
       controller: intentController,
-    }, confirmationController.activation);
+    }, confirmationController.activation, notifyController?.serviceOptions);
   const bridge = createShellBridge(adapter);
   themeBroadcast.attach(bridge);
   bridgeRef = bridge;
@@ -615,6 +622,7 @@ async function installPajaHost(): Promise<void> {
   const stopIntentCatalogChanges = subscribePajaIntentCatalogChanges(state, context);
   window.addEventListener('pagehide', stopIntentCatalogChanges, { once: true });
   window.addEventListener('pagehide', () => confirmationController.dispose(), { once: true });
+  window.addEventListener('pagehide', () => notifyController?.dispose(), { once: true });
 
   window.__KEHTO_PAJA__ = state;
 

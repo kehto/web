@@ -85,7 +85,6 @@ export const PAJA_REQUIRED_SERVICES = [
   'ble',
   'webrtc',
   'media',
-  'notifications',
   'notify',
   'outbox',
   'relay',

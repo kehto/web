@@ -70,15 +70,16 @@ window.addEventListener('message', bridge.handleMessage);
 The bridge exposes the underlying runtime. Register service handlers before loading napplet iframes.
 
 ```ts
-import { createNotifyService, createThemeService } from '@kehto/services';
+import { createThemeService } from '@kehto/services';
 
-bridge.runtime.registerService('notify', createNotifyService());
 bridge.runtime.registerService('theme', createThemeService({
   getTheme: () => ({ colors: {}, title: 'Default' }),
 }));
 ```
 
-Use real host callbacks as you move beyond the minimal shell.
+Register optional domains only when their real host backends are available. In
+particular, a backendless `createNotifyService()` fails closed and must not be
+used to advertise notification delivery.
 
 ## 4. Load one sandboxed napplet
 

@@ -27,6 +27,8 @@ describe('@kehto/paja host page', () => {
     expect(html).toContain('aria-labelledby="paja-confirmation-title"');
     expect(html).toContain('id="paja-confirmation-deny"');
     expect(html).toContain('id="paja-confirmation-approve"');
+    expect(html).toContain('id="paja-notification-center"');
+    expect(html).toContain('id="paja-notification-badges"');
     expect(html).not.toContain('window.confirm');
     expect(html).toContain('identity:anon relay:live:4 storage:local upload:memory:simulator theme:dark off:none');
     expect(html).not.toContain('src="http://127.0.0.1:5173/"');
