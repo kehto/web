@@ -30,17 +30,20 @@ import {
   type UploadInfoProvider,
   createUploadService,
   createWebrtcService,
-  type CvmServer,
-  type CvmTransport,
   type IntentCandidate,
   type IntentRequest,
-  type McpMessage,
   type NotifyServiceOptions,
   type Uploader,
   type UploadRequest,
   type UploadResult,
   type UploadStatus,
 } from '@kehto/services';
+import {
+  createNostrCvmTransport,
+  type CvmRelayPool,
+  type NostrEventLike,
+  type NostrFilterLike,
+} from '@kehto/services/cvm-nostr-transport';
 import type { Theme, ThemeChangedMessage } from '@napplet/nap/theme/types';
 import { finalizeEvent, generateSecretKey, getPublicKey, verifyEvent } from 'nostr-tools/pure';
 
@@ -134,14 +137,6 @@ const DEV_COMMON_EVENT_ID = '2'.repeat(64);
 const DEV_SIGNER_SECRET_KEY = generateSecretKey();
 /** Paja development signer public key. */
 export const PAJA_DEV_SIGNER_PUBKEY = getPublicKey(DEV_SIGNER_SECRET_KEY);
-const DEV_CVM_SERVER: CvmServer = {
-  pubkey: '0'.repeat(64),
-  name: 'Kehto Paja ContextVM',
-  description: 'Deterministic development ContextVM adapter',
-  relays: ['wss://relay.kehto.dev'],
-  capabilities: ['echo'],
-};
-
 function createRelayHooks(pool: RelayPoolLike, getSimulation: () => PajaSimulation): RelayPoolHooks {
   const cleanups = new Map<string, () => void>();
   return {
@@ -248,28 +243,22 @@ function createDefaultIntentHost(): PajaIntentHost {
   };
 }
 
-function createDevCvmTransport(getSimulation: () => PajaSimulation): CvmTransport {
+function createPajaCvmRelayPool(backend: PajaRelayBackend): CvmRelayPool {
   return {
-    async discover() {
-      if (!getSimulation().cvm.enabled) return [];
-      return [{ ...DEV_CVM_SERVER, relays: getPajaRelayUrls(getSimulation()) }];
-    },
-    async request(_server, message): Promise<McpMessage> {
-      const id = typeof message.id === 'string' || typeof message.id === 'number' ? message.id : 'paja';
+    subscribe(relays: string[], filter: NostrFilterLike, params) {
+      const subscription = backend.subscription(relays, [filter as NostrFilter]).subscribe((item) => {
+        if (item === 'EOSE') params.oneose?.();
+        else if (typeof item === 'object' && item !== null) params.onevent?.(item as NostrEventLike);
+      });
       return {
-        jsonrpc: '2.0',
-        id,
-        result: {
-          echoed: true,
-          method: typeof message.method === 'string' ? message.method : null,
+        close() {
+          subscription.unsubscribe();
         },
       };
     },
-    async close() {},
-    onEvent() {
-      return {
-        close() {},
-      };
+    async publish(relays: string[], event: NostrEventLike) {
+      const outcomes = await backend.publishToRelays(relays, event as NostrEvent);
+      if (!Object.values(outcomes).some(Boolean)) throw new Error('publish failed');
     },
   };
 }
@@ -469,7 +458,15 @@ function createDevServices(
   if (getSimulation().media.enabled) services.media = createMediaService();
   if (getSimulation().capabilities.domains.theme) services.theme = theme.handler;
   if (getSimulation().capabilities.domains.config) services.config = config.handler;
-  if (getSimulation().cvm.enabled) services.cvm = createCvmService({ transport: createDevCvmTransport(getSimulation) });
+  if (getSimulation().cvm.enabled && getSimulation().relay.mode === 'live' && backend.isAvailable()) {
+    services.cvm = createCvmService({
+      transport: createNostrCvmTransport({
+        defaultRelays: getPajaRelayUrls(getSimulation()),
+        pool: createPajaCvmRelayPool(backend),
+        clientInfo: { name: '@kehto/paja', version: '0.11.0' },
+      }),
+    });
+  }
   if (getSimulation().upload.mode === 'memory') {
     services.upload = createUploadService({
       uploader: createDevUploader(getSimulation),

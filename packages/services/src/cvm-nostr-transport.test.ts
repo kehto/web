@@ -53,12 +53,12 @@ function createServerPool(serverSecretKey: Uint8Array, serverBehavior: (mcp: Mcp
     },
   };
 
-  function deliverEncrypted(mcp: McpMessage): void {
+  function deliverEncrypted(mcp: McpMessage, signingKey = serverSecretKey): void {
     const clientPubkey = (subs.find((s) => !s.closed && Array.isArray((s.filter as { ['#p']?: string[] })['#p']))!
       .filter as { ['#p']: string[] })['#p'][0];
     const innerServer = finalizeEvent(
       { kind: 25910, created_at: Math.floor(Date.now() / 1000), tags: [['p', clientPubkey]], content: JSON.stringify(mcp) },
-      serverSecretKey,
+      signingKey,
     );
     const wrapSk = generateSecretKey();
     const wck = nip44.getConversationKey(wrapSk, clientPubkey);
@@ -73,7 +73,7 @@ function createServerPool(serverSecretKey: Uint8Array, serverBehavior: (mcp: Mcp
     }, 0);
   }
 
-  return { pool, serverPubkey, subs, publishedPlain };
+  return { pool, serverPubkey, subs, publishedPlain, deliverEncrypted };
 }
 
 describe('createNostrCvmTransport', () => {
@@ -127,6 +127,42 @@ describe('createNostrCvmTransport', () => {
     await expect(
       transport.request({ pubkey: serverPubkey }, { jsonrpc: '2.0', id: 1, method: 'tools/list' }, { timeoutMs: 40 }),
     ).rejects.toThrow('relay timeout');
+  });
+
+  it('ignores a correlated response signed by a different server', async () => {
+    const serverSk = generateSecretKey();
+    const { pool, serverPubkey, publishedPlain, deliverEncrypted } = createServerPool(serverSk, () => null);
+    const transport = createNostrCvmTransport({ pool, defaultRelays: RELAYS, clientSecretKey: generateSecretKey() });
+    const response = transport.request(
+      { pubkey: serverPubkey },
+      { jsonrpc: '2.0', id: 9, method: 'tools/list' },
+      { timeoutMs: 40 },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    deliverEncrypted(
+      { jsonrpc: '2.0', id: publishedPlain[0].id, result: { tools: [{ name: 'forged' }] } },
+      generateSecretKey(),
+    );
+
+    await expect(response).rejects.toThrow('relay timeout');
+  });
+
+  it('propagates relay publication failure without waiting for timeout', async () => {
+    const pool: CvmRelayPool = {
+      subscribe() {
+        return { close() {} };
+      },
+      publish() {
+        return Promise.reject(new Error('relay rejected'));
+      },
+    };
+    const transport = createNostrCvmTransport({ pool, defaultRelays: RELAYS });
+
+    await expect(transport.request(
+      { pubkey: 'a'.repeat(64) },
+      { jsonrpc: '2.0', id: 1, method: 'tools/list' },
+      { timeoutMs: 1_000 },
+    )).rejects.toThrow('relay rejected');
   });
 
   it('throws "server not found" when no relays are available', async () => {

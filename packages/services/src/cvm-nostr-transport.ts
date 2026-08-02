@@ -30,7 +30,7 @@
  */
 
 import { SimplePool } from 'nostr-tools/pool';
-import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools/pure';
+import { finalizeEvent, generateSecretKey, getPublicKey, verifyEvent } from 'nostr-tools/pure';
 import * as nip44 from 'nostr-tools/nip44';
 import type { Event as NostrToolsEvent, Filter as NostrToolsFilter } from 'nostr-tools';
 
@@ -92,7 +92,7 @@ export interface CvmRelayPool {
     filter: NostrFilterLike,
     params: { onevent?: (event: NostrEventLike) => void; oneose?: () => void },
   ): CvmSubCloser;
-  publish(relays: string[], event: NostrEventLike): unknown;
+  publish(relays: string[], event: NostrEventLike): void | Promise<unknown>;
 }
 
 /** Options for {@link createNostrCvmTransport}. */
@@ -121,6 +121,8 @@ interface PendingRequest {
   timer: ReturnType<typeof setTimeout>;
   /** The caller's original JSON-RPC id, restored on the response. */
   originalId: string | number | undefined;
+  /** Server identity that must sign the correlated inner response. */
+  serverPubkey: string;
 }
 
 interface ServerSession {
@@ -154,8 +156,10 @@ function simplePoolAdapter(sp: SimplePool): CvmRelayPool {
         oneose: params.oneose,
       });
     },
-    publish(relays, event) {
-      return sp.publish(relays, event as NostrToolsEvent);
+    async publish(relays, event) {
+      const attempts = sp.publish(relays, event as NostrToolsEvent);
+      if (attempts.length === 0) throw new Error('server not found');
+      await Promise.any(attempts);
     },
   };
 }
@@ -233,6 +237,8 @@ export function createNostrCvmTransport(
   }
 
   function handleInbound(event: NostrEventLike): void {
+    if (!verifyEvent(event as NostrToolsEvent)) return;
+    if (!event.tags.some((tag) => tag[0] === 'p' && tag[1] === clientPubkey)) return;
     if (!rememberWrap(event.id)) return;
     let serverPubkey: string;
     let mcp: McpMessage;
@@ -240,6 +246,8 @@ export function createNostrCvmTransport(
       if (encrypt) {
         const conversationKey = nip44.getConversationKey(clientSecretKey, event.pubkey);
         const inner = JSON.parse(nip44.decrypt(event.content, conversationKey)) as NostrEventLike;
+        if (!verifyEvent(inner as NostrToolsEvent)) return;
+        if (!inner.tags.some((tag) => tag[0] === 'p' && tag[1] === clientPubkey)) return;
         serverPubkey = inner.pubkey;
         mcp = JSON.parse(inner.content) as McpMessage;
       } else {
@@ -253,6 +261,7 @@ export function createNostrCvmTransport(
     const id = mcp.id;
     if (id != null && pending.has(String(id))) {
       const entry = pending.get(String(id))!;
+      if (entry.serverPubkey !== serverPubkey) return;
       pending.delete(String(id));
       clearTimeout(entry.timer);
       entry.resolve({ ...mcp, id: entry.originalId });
@@ -265,13 +274,13 @@ export function createNostrCvmTransport(
     }
   }
 
-  function publishMcp(server: CvmServerRef, relays: string[], message: McpMessage): void {
+  async function publishMcp(server: CvmServerRef, relays: string[], message: McpMessage): Promise<void> {
     const inner = finalizeEvent(
       { kind: KIND_CVM, created_at: Math.floor(Date.now() / 1000), tags: [['p', server.pubkey]], content: JSON.stringify(message) },
       clientSecretKey,
     ) as NostrEventLike;
     if (!encrypt) {
-      pool.publish(relays, inner);
+      await pool.publish(relays, inner);
       return;
     }
     const wrapSecretKey = generateSecretKey();
@@ -290,7 +299,7 @@ export function createNostrCvmTransport(
       },
       wrapSecretKey,
     ) as NostrEventLike;
-    pool.publish(relays, wrap);
+    await pool.publish(relays, wrap);
   }
 
   function sendCorrelated(
@@ -307,14 +316,12 @@ export function createNostrCvmTransport(
         pending.delete(correlationId);
         reject(new Error('relay timeout'));
       }, timeout);
-      pending.set(correlationId, { resolve, reject, timer, originalId });
-      try {
-        publishMcp(server, relays, outgoing);
-      } catch (err) {
+      pending.set(correlationId, { resolve, reject, timer, originalId, serverPubkey: server.pubkey });
+      void publishMcp(server, relays, outgoing).catch((err: unknown) => {
         pending.delete(correlationId);
         clearTimeout(timer);
         reject(err instanceof Error ? err : new Error('publish failed'));
-      }
+      });
     });
   }
 
@@ -346,7 +353,7 @@ export function createNostrCvmTransport(
           timeout,
         );
         // notifications/initialized completes the handshake; no response expected.
-        publishMcp(server, session.relays, { jsonrpc: '2.0', method: 'notifications/initialized' });
+        await publishMcp(server, session.relays, { jsonrpc: '2.0', method: 'notifications/initialized' });
         session.initialized = true;
       } catch {
         throw new Error('initialization failed');

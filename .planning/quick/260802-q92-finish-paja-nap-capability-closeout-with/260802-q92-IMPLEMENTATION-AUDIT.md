@@ -32,7 +32,7 @@ the production Paja `shell.init` environment.
 | `notify` | implemented on branch | Host-rendered, origin-attributed text notifications now provide explicit user permission, channels, badges, actions, clicks, dismissals, controls, and per-window cleanup. The generic service delegates every operation and fails closed without a presentation backend. |
 | `config` | real host data, simulation-labelled | Handler returns host configuration. Remove any implication that simulation metadata proves a production backend. |
 | `resource` | unsafe partial | Real `fetch` and cancellation exist, but Paja grants `*` to every origin and uses a fixed identity. Bind verified manifest grants and per-window identity. |
-| `cvm` | simulated | Development transport returns a deterministic echo. Wire the existing Nostr CVM transport to the live relay pool and signer/encryption backend. |
+| `cvm` | implemented on branch | Paja now registers the real CEP-4/NIP-44 encrypted MCP-over-Nostr transport only with a live relay boundary. Publications use Paja relay policy; inbound wraps and inner events are signature-checked and correlated only to the expected server; window destruction closes orphaned sessions. |
 | `upload` | real Blossom / simulated memory rail | Blossom path is real. Memory mode stays explicit test/dev mode and cannot justify default production advertisement. |
 | `intent` | real | Installed verified catalog, runtime tabs, readiness, reuse, and source-independent delivery exist. |
 | `count` | real when relay backend supports it | Count delegates to the live relay backend and rejects broad empty filters. |

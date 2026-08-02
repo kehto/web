@@ -23,6 +23,7 @@ function createMockTransport(overrides: Partial<CvmTransport> = {}): MockTranspo
     discover: overrides.discover ?? vi.fn(async () => [] as CvmServer[]),
     request: overrides.request ?? vi.fn(async () => ({ jsonrpc: '2.0', id: 1, result: {} } as McpMessage)),
     close: overrides.close ?? vi.fn(async () => {}),
+    dispose: overrides.dispose ?? vi.fn(),
     onEvent:
       overrides.onEvent ??
       ((handler) => {
@@ -167,8 +168,10 @@ describe('createCvmService', () => {
       svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'r1', server: SERVER, message: { jsonrpc: '2.0', id: 1 } } as NappletMessage, send);
       await flush();
       svc.onWindowDestroyed?.(WINDOW);
+      await flush();
       transport.emitEvent(SERVER, { jsonrpc: '2.0', method: 'notifications/progress' });
       expect(sent.some((m) => m.type === 'cvm.event')).toBe(false);
+      expect(transport.close).toHaveBeenCalledWith({ pubkey: SERVER.pubkey });
     });
   });
 
@@ -182,5 +185,6 @@ describe('createCvmService', () => {
   it('dispose() detaches the transport event subscription', () => {
     svc.dispose();
     expect(transport.eventClosed()).toBe(true);
+    expect(transport.dispose).toHaveBeenCalledOnce();
   });
 });

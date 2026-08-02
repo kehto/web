@@ -61,6 +61,8 @@ export interface CvmTransport {
    * request (e.g. notifications). Returns a handle whose `close()` detaches.
    */
   onEvent(handler: (server: CvmServerRef, message: McpMessage) => void): { close(): void };
+  /** Release all transport resources when the owning service is disposed. */
+  dispose?(): void;
 }
 
 /** Options for {@link createCvmService}. */
@@ -200,11 +202,17 @@ export function createCvmService(options: CvmServiceOptions): CvmService {
       sendByWindow.delete(windowId);
       for (const [pubkey, windows] of windowsByServer) {
         windows.delete(windowId);
-        if (windows.size === 0) windowsByServer.delete(pubkey);
+        if (windows.size === 0) {
+          windowsByServer.delete(pubkey);
+          void transport.close({ pubkey }).catch(() => {});
+        }
       }
     },
     dispose(): void {
       eventSub.close();
+      transport.dispose?.();
+      sendByWindow.clear();
+      windowsByServer.clear();
     },
   };
 }
