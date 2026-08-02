@@ -43,8 +43,8 @@ import {
 } from '@kehto/services/cvm-nostr-transport';
 import type { Theme, ThemeChangedMessage } from '@napplet/nap/theme/types';
 import { finalizeEvent, generateSecretKey, getPublicKey, verifyEvent } from 'nostr-tools/pure';
+import * as nip44 from 'nostr-tools/nip44';
 
-import { createDevWebrtcController } from './development-services.js';
 import {
   createBrowserBleController,
   createBrowserSerialController,
@@ -60,6 +60,7 @@ import { createPajaSocialCache } from './browser-social-cache.js';
 import { createPajaCommonBackend } from './browser-common.js';
 import { createPajaListsBackend } from './browser-lists.js';
 import { createPajaDataResourceFetch, pajaResourceInfo } from './browser-resource.js';
+import { createPajaWebrtcController } from './browser-webrtc.js';
 import {
   PAJA_LIVE_QUERY_WAIT_MS,
   createPajaContactListLoader,
@@ -105,6 +106,13 @@ export type PajaConfirmationRequest =
       readonly windowId: string;
       readonly napplet: { readonly dTag: string; readonly aggregateHash: string };
       readonly channel?: string;
+    }
+  | {
+      readonly action: 'webrtc';
+      readonly windowId: string;
+      readonly napplet: { readonly dTag: string; readonly aggregateHash: string };
+      readonly scope: string;
+      readonly warning: string;
     };
 
 /** Async-capable host policy callback for user-visible Paja operations. */
@@ -286,6 +294,14 @@ function createDevSigner(
       template.content ??= '';
       return finalizeEvent(template, DEV_SIGNER_SECRET_KEY) as NostrEvent;
     },
+    nip44: {
+      encrypt(pubkey, plaintext) {
+        return Promise.resolve(nip44.encrypt(plaintext, nip44.getConversationKey(DEV_SIGNER_SECRET_KEY, pubkey)));
+      },
+      decrypt(pubkey, ciphertext) {
+        return Promise.resolve(nip44.decrypt(ciphertext, nip44.getConversationKey(DEV_SIGNER_SECRET_KEY, pubkey)));
+      },
+    },
   };
 }
 
@@ -318,6 +334,11 @@ function createRuntimeSigner(
   return signer;
 }
 
+interface PajaServiceBundle {
+  readonly services: Record<string, ServiceHandler>;
+  refreshAvailability(): boolean;
+}
+
 function createDevServices(
   backend: PajaRelayBackend,
   getSimulation: () => PajaSimulation,
@@ -331,7 +352,7 @@ function createDevServices(
   userActivation?: PajaUserActivationHandler,
   notifyOptions?: NotifyServiceOptions,
   configOptions?: ConfigServiceOptions,
-): Record<string, ServiceHandler> {
+): PajaServiceBundle {
   const theme = createThemeService({
     initialTheme: createDevTheme(getSimulation().theme.mode, getSimulation().theme.values),
     onBroadcast: onThemeBroadcast,
@@ -486,11 +507,38 @@ function createDevServices(
     const controller = userActivation ? createBrowserBleController(userActivation) : null;
     if (controller) services.ble = createBleService(controller);
   }
-  if (getSimulation().capabilities.domains.webrtc) {
-    services.webrtc = createWebrtcService(createDevWebrtcController());
-  }
+  const webrtcController = getSimulation().relay.mode === 'live' && backend.isAvailable()
+    ? createPajaWebrtcController({
+      relay: {
+        subscribe(filters, onEvent) {
+          const subscription = backend.subscription(getPajaRelayUrls(getSimulation()), filters).subscribe((item) => {
+            if (typeof item === 'object' && item !== null) onEvent(item as NostrEvent);
+          });
+          return { close: () => subscription.unsubscribe() };
+        },
+        publish: (event) => backend.publishWebrtcSignal(getPajaRelayUrls(getSimulation()), event),
+      },
+      getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider),
+      getPubkey: () => getRuntimePubkey(getSimulation, signerProvider),
+      getIdentity: getIdentity ?? (() => ({ dTag: 'dev-target', aggregateHash: 'paja' })),
+      confirm: confirmRequest,
+    })
+    : null;
+  const webrtcService = webrtcController ? createWebrtcService(webrtcController.serviceOptions) : null;
 
-  return services;
+  function refreshAvailability(): boolean {
+    const wasEnabled = Object.hasOwn(services, 'webrtc');
+    const enabled = getSimulation().capabilities.domains.webrtc
+      && getSimulation().relay.mode === 'live'
+      && backend.isAvailable()
+      && webrtcController?.refreshAvailability() === true;
+    if (enabled && webrtcService) services.webrtc = webrtcService;
+    else delete services.webrtc;
+    return wasEnabled !== enabled;
+  }
+  refreshAvailability();
+
+  return { services, refreshAvailability };
 }
 
 /**
@@ -541,12 +589,9 @@ export function createPajaAdapter(
       })
     : undefined;
   void uploadRuntime?.refreshIdentity();
-  signerProvider?.subscribe?.(() => {
-    void uploadRuntime?.refreshIdentity().finally(() => onEnvironmentChanged?.());
-  });
   const workerRelayEvents: NostrEvent[] = [];
   const resolvedIntentHost = intentHost ?? createDefaultIntentHost();
-  const services = createDevServices(
+  const serviceBundle = createDevServices(
     relayBackend,
     getSimulation,
     onThemeService,
@@ -563,6 +608,15 @@ export function createPajaAdapter(
     notifyOptions,
     configOptions,
   );
+  const services = serviceBundle.services;
+  signerProvider?.subscribe?.(() => {
+    const availabilityChanged = serviceBundle.refreshAvailability();
+    if (uploadRuntime) {
+      void uploadRuntime.refreshIdentity().finally(() => onEnvironmentChanged?.());
+    } else if (availabilityChanged) {
+      onEnvironmentChanged?.();
+    }
+  });
   return {
     relayPool: createRelayHooks(relayBackend, getSimulation),
     relayConfig: {

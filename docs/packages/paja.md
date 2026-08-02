@@ -256,6 +256,17 @@ identity service reads contact lists (`kind:3`) so social-graph napplets can be
 tested against real account state. `--relay-mode memory` switches relay/outbox
 to deterministic fixture/event-store behavior when a test needs isolation.
 
+WebRTC is conditional rather than simulated: the domain is advertised only
+with a browser `RTCPeerConnection` implementation, live relay access, and a
+connected NIP-44 signer. Paja owns peer connections and data channels, obtains
+explicit session consent, signs kind-25050 Nostr signaling, encrypts
+offer/answer SDP, and keeps application payloads exclusively on the data
+channel. Signer changes tear down sessions and refresh the shell environment;
+napplets never receive SDP, ICE internals, relay sockets, or browser networking
+objects. The signaling boundary follows pinned
+[NAP-WEBRTC `5fae95dd2c8e59bd06c654e0845656add077dcda`](https://github.com/napplet/naps/blob/5fae95dd2c8e59bd06c654e0845656add077dcda/naps/NAP-WEBRTC.md)
+and [NIP-100 PR #363 head `ead1cd6`](https://github.com/nostr-protocol/nips/pull/363).
+
 ### Standard identity and private social cache
 
 A signed-in napplet uses the existing `identity.getPublicKey`,

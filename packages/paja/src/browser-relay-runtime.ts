@@ -8,12 +8,14 @@ import {
 } from '@kehto/nip/65';
 import type { Filter } from 'nostr-tools/filter';
 import { SimplePool } from 'nostr-tools/pool';
+import { verifyEvent } from 'nostr-tools/pure';
 
 import type { PajaConfirmationHandler, PajaSignerProvider } from './browser-adapter.js';
 import type { PajaSimulation } from './simulation.js';
 
 export const PAJA_NIP65_RELAY_LIST_KIND = 10_002;
 export const PAJA_CONTACT_LIST_KIND = 3;
+const PAJA_WEBRTC_SIGNAL_KIND = 25_050;
 /**
  * Maximum raw kind-3 candidates returned for verification. The newest candidates
  * (with event-ID tie-breaking) retain deterministic replacement while bounding
@@ -25,6 +27,8 @@ export const PAJA_LIVE_QUERY_WAIT_MS = 4_000;
 export interface PajaRelayBackend extends RelayPoolLike {
   query(relayUrls: string[], filters: NostrFilter[], maxWaitMs?: number): Promise<NostrEvent[]>;
   publishToRelays(relayUrls: string[], event: NostrEvent): Promise<Record<string, boolean>>;
+  /** Publish a consent-authorized, signed WebRTC signal without per-ICE prompts. */
+  publishWebrtcSignal(relayUrls: string[], event: NostrEvent): Promise<void>;
   isAvailable(): boolean;
   close(): void;
 }
@@ -289,6 +293,19 @@ export function createPajaRelayBackend(
     query,
     async publishToRelays(relayUrls, event) {
       return (await attemptPublish(relayUrls, event)).outcomes;
+    },
+    async publishWebrtcSignal(relayUrls, event) {
+      if (
+        getSimulation().relay.mode !== 'live'
+        || relayUrls.length === 0
+        || event.kind !== PAJA_WEBRTC_SIGNAL_KIND
+        || !verifyEvent(event)
+      ) {
+        throw new Error('signaling unavailable');
+      }
+      const outcomes = await publishLive(livePool, relayUrls, event);
+      if (!Object.values(outcomes).some(Boolean)) throw new Error('signaling unavailable');
+      retainPublishedEvent(event);
     },
     isAvailable,
     close() {

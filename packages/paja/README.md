@@ -71,6 +71,17 @@ and is not added to Paja's in-memory relay view. Paja's scoped-relay hook
 likewise waits for the backend result and returns `false` after denial or
 transport failure.
 
+WebRTC is advertised only when the host has the browser WebRTC API, a live
+relay boundary, and a connected signer with NIP-44 support. Paja owns the
+`RTCPeerConnection` and data channels, uses signed kind-25050 Nostr events for
+encrypted offer/answer signaling, and asks for explicit session consent with a
+network-metadata warning. Napplets receive only NAP session/events and JSON data
+channel payloads—never SDP, ICE state, relay sockets, or peer-connection objects.
+This implementation tracks pinned
+[NAP-WEBRTC `5fae95dd2c8e59bd06c654e0845656add077dcda`](https://github.com/napplet/naps/blob/5fae95dd2c8e59bd06c654e0845656add077dcda/naps/NAP-WEBRTC.md)
+and the kind/tag conventions in
+[NIP-100 PR #363 at `ead1cd6`](https://github.com/nostr-protocol/nips/pull/363).
+
 ## Standard identity and social-cache boundary
 
 A signed-in napplet reads Paja identity and social data only through existing

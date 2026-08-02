@@ -207,6 +207,16 @@ function describeConfirmation(request: PajaConfirmationRequest): ConfirmationCop
       `Channel: ${request.channel ?? 'all notifications'}`,
     );
   }
+  if (request.action === 'webrtc') {
+    return confirmationCopy(
+      'Start a peer connection?',
+      `${request.napplet.dTag} requests a WebRTC data session.`,
+      'Connect',
+      `Napplet: ${request.napplet.dTag} (${request.windowId})`,
+      `Scope: ${request.scope}`,
+      request.warning,
+    );
+  }
   if (!('event' in request)) throw new Error(`Unsupported confirmation action: ${request.action}`);
   const event = request.event as { kind?: unknown; content?: unknown };
   const kind = typeof event.kind === 'number' ? event.kind : 'unknown';
@@ -267,6 +277,15 @@ function recordPajaConfirmation(
       dTag: request.napplet.dTag,
       aggregateHash: request.napplet.aggregateHash,
       channel: request.channel,
+    });
+    return;
+  }
+  if (request.action === 'webrtc') {
+    appendPajaMessageLog(state, 'paja', {
+      type: `paja.webrtc.${allowed ? 'confirmed' : 'denied'}`,
+      windowId: request.windowId,
+      dTag: request.napplet.dTag,
+      aggregateHash: request.napplet.aggregateHash,
     });
     return;
   }
