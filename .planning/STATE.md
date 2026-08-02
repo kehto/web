@@ -5,9 +5,9 @@ milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 106
 status: completed
 stopped_at: Phase 106 current-Napplet release complete; v1.29 ready for milestone completion
-last_updated: "2026-08-02T15:57:43Z"
+last_updated: "2026-08-02T16:45:24Z"
 last_activity: 2026-08-02
-last_activity_desc: "Completed quick task 260802-lpw: adopted published NAP-INTENT package fixes"
+last_activity_desc: "Completed quick task 260802-o1w: refreshed PR #229 after the published NAP-INTENT fixes"
 progress:
   total_phases: 6
   completed_phases: 6
@@ -32,7 +32,7 @@ Phase: 106 (Active-Surface Conformance and Release) — COMPLETE
 Plan: 3 of 3
 Status: All v1.29 phases complete — eight-package Napplet-0.31-compatible npm/JSR release published and downstream-verified
 
-Last activity: 2026-08-02 — Completed quick task 260802-lpw: adopted published NAP-INTENT package fixes
+Last activity: 2026-08-02 — Completed quick task 260802-o1w: refreshed PR #229 after the published NAP-INTENT fixes
 
 ## Performance Metrics
 
@@ -117,8 +117,8 @@ Baseline contract: `napplet/naps@6461e4b37c29dc09a20dff35d9515889c4433874`. Prop
 - Full conformance also requires active SHELL, INTENT, INC, IDENTITY, and THEME corrections.
 - `kehto/web#203` tracks implementation against the proposed resolutions: exact queryless identity and binding-owned query transposition from #89/#90, plus the #92 symmetric-channel reply. The issue remains open until Kehto implementation and positive/negative tests satisfy its close criteria.
 - Merged `napplet/naps@5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INC.md` resolves Phase 102's repeated unopened-handle conflict: retain every trusted-parent handle in the binding and enforce the permitted per-napplet concurrent-channel maximum at authenticated runtime admission. Plan 102-14 owns the correction.
-- Final package adoption is complete against the current published core 0.31.0,
-  nap 0.31.0, shim 0.29.0, SDK 0.27.0, and Vite plugin 0.14.0 line. Kehto
+- Final package adoption is complete against the current published core 0.31.1,
+  nap 0.31.2, shim 0.29.2, SDK 0.27.2, and Vite plugin 0.14.1 line. Kehto
   Paja 0.10.0 and its dependency graph accept the core/nap 0.31 peer window.
 
 ### Key Context for v1.21 (Phases 86–89)
@@ -220,6 +220,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260728-fv2 | Record completed Phase 106 npm and JSR publication and downstream proof | 2026-07-28 | bec8074 | Verified | [260728-fv2-record-completed-phase-106-npm-and-jsr-p](./quick/260728-fv2-record-completed-phase-106-npm-and-jsr-p/) |
 | 260728-pub | Publish Kehto against the current Napplet line | 2026-07-28 | 9390eca / b61b8cf | Verified | [260728-pub-update-kehto-compatibility-for-current-n](./quick/260728-pub-update-kehto-compatibility-for-current-n/) |
 | 260802-lpw | Adopt the published NAP-INTENT package fixes in Kehto | 2026-08-02 | 32b629b | Verified | [260802-lpw-adopt-the-published-nap-intent-package-f](./quick/260802-lpw-adopt-the-published-nap-intent-package-f/) |
+| 260802-o1w | Refresh PR #229 after #232 while retaining the host-side NAP-INTENT parser fix | 2026-08-02 | 599f55c | Verified | [260802-o1w-refresh-kehto-web-229-by-rebasing-fix-in](./quick/260802-o1w-refresh-kehto-web-229-by-rebasing-fix-in/) |
 
 ## Session Continuity
 
