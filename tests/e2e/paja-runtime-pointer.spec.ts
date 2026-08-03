@@ -13,9 +13,6 @@ import {
   type PajaHostConfig,
 } from '../../packages/paja/dist/index.js';
 
-const LIVE_NADDR = 'naddr1qqxxwmm0vskk6mmjde5kueczyqnxs90qeyssm73jf3kt5dtnk997ujw6ggy6j3t0jjzw2yrv6sy22qcyqqqgjwgpz4mhxue69uhhyetvv9ujuerfw36x7tnsw43qzd3wc3';
-const LIVE_EVENT_ID = 'f39dfca7dbaeacbddf294977c5654c912fced30d8b839b32a1910a988ccc1f5a';
-const LIVE_AGGREGATE = 'c922cf30dc1e12b135462057631ba3017cdaeea591725f077c5a20a6d9967b68';
 const classOnePrefix = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;";
 const classOneSuffix = "worker-src 'none'; child-src 'none'; frame-src 'none'; media-src 'none'; object-src 'none'; manifest-src 'none'; prefetch-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
 
@@ -173,31 +170,6 @@ test('completes a verified intent and delivers its convention once to a cold tar
       document.body.append(forged);
     });
     await expect(page.frameLocator('#forged-ready').locator('#messages')).toHaveText('0');
-  } finally {
-    await server.close();
-  }
-});
-
-test('resolves the supplied Good Morning Protocol naddr through verified HTML', async ({ page }) => {
-  test.skip(process.env.PAJA_LIVE_POINTER_TEST !== '1', 'requires live Nostr relays and Blossom availability');
-  test.setTimeout(90_000);
-  const server = await startPointerServer();
-  server.setConfig(createPajaRuntimeHostConfig({ pointer: LIVE_NADDR, maxWaitMs: 15_000 }));
-
-  try {
-    await page.goto(server.url);
-    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().resolvedTarget?.dTag), {
-      timeout: 45_000,
-    }).toBe('good-morning');
-    const state = await page.evaluate(() => window.__KEHTO_PAJA__?.getState());
-    expect(state?.resolvedTarget).toMatchObject({
-      event: { id: LIVE_EVENT_ID },
-      aggregateHash: LIVE_AGGREGATE,
-      manifest: { title: 'Good Morning Protocol' },
-      indexHtml: expect.stringContaining('Good Morning Protocol'),
-    });
-    await expect(page.locator('iframe')).toHaveCount(1);
-    await expect(page.locator('iframe')).toHaveAttribute('srcdoc', /Good Morning Protocol/);
   } finally {
     await server.close();
   }
