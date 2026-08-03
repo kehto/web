@@ -5,9 +5,9 @@ milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 106
 status: completed
 stopped_at: Phase 106 current-Napplet release complete; v1.29 ready for milestone completion
-last_updated: "2026-08-02T18:32:29Z"
-last_activity: 2026-08-02
-last_activity_desc: "Completed quick task 260802-q92: finished Paja's advertised NAP development surface"
+last_updated: "2026-08-03T16:54:45Z"
+last_activity: 2026-08-03
+last_activity_desc: "Completed quick task 260803-osr: removed the app-specific live pointer canary"
 progress:
   total_phases: 6
   completed_phases: 6
@@ -32,7 +32,7 @@ Phase: 106 (Active-Surface Conformance and Release) — COMPLETE
 Plan: 3 of 3
 Status: All v1.29 phases complete — eight-package Napplet-0.31-compatible npm/JSR release published and downstream-verified
 
-Last activity: 2026-08-02 — Completed quick task 260802-q92: finished Paja's advertised NAP development surface
+Last activity: 2026-08-03 — Completed quick task 260803-osr: removed the app-specific live pointer canary
 
 ## Performance Metrics
 
@@ -222,6 +222,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260802-lpw | Adopt the published NAP-INTENT package fixes in Kehto | 2026-08-02 | 32b629b | Verified | [260802-lpw-adopt-the-published-nap-intent-package-f](./quick/260802-lpw-adopt-the-published-nap-intent-package-f/) |
 | 260802-o1w | Refresh PR #229 after #232 while retaining the host-side NAP-INTENT parser fix | 2026-08-02 | 599f55c | Verified | [260802-o1w-refresh-kehto-web-229-by-rebasing-fix-in](./quick/260802-o1w-refresh-kehto-web-229-by-rebasing-fix-in/) |
 | 260802-q92 | Finish every advertised Paja NAP adapter and replace native confirmation prompts | 2026-08-02 | ee4ca3e | Verified | [260802-q92-finish-paja-nap-capability-closeout-with](./quick/260802-q92-finish-paja-nap-capability-closeout-with/) |
+| 260803-osr | Remove the Good Morning-specific live pointer canary from PR #234 | 2026-08-03 | eb24855 | Verified | [260803-osr-remove-the-good-morning-specific-live-po](./quick/260803-osr-remove-the-good-morning-specific-live-po/) |
 
 ## Session Continuity
 
