@@ -84,6 +84,50 @@ describe('createBrowserSerialController', () => {
     ]);
     expect(port.close).toHaveBeenCalledOnce();
   });
+
+  it('continues ordered writes after an earlier writer rejects', async () => {
+    const { activation } = activationLog();
+    const rejected = new Error('write failed');
+    const firstWriter = {
+      write: vi.fn(async () => { throw rejected; }),
+      releaseLock: vi.fn(),
+    };
+    const secondWriter = {
+      write: vi.fn(async () => {}),
+      releaseLock: vi.fn(),
+    };
+    const writable = {
+      getWriter: vi.fn()
+        .mockReturnValueOnce(firstWriter)
+        .mockReturnValueOnce(secondWriter),
+    } as unknown as WritableStream<Uint8Array>;
+    class FakePort extends EventTarget {
+      readonly readable = null;
+      readonly writable = writable;
+      readonly open = vi.fn(async () => {});
+      readonly close = vi.fn(async () => {});
+      getInfo() {
+        return {};
+      }
+    }
+    const controller = createBrowserSerialController(activation, {
+      requestPort: vi.fn(async () => new FakePort()),
+    });
+    const { session } = await controller!.open!(
+      { options: { baudRate: 9_600 } },
+      { windowId: 'window-a', emit: () => {} },
+    );
+
+    await expect(controller!.write!(session.id, [1], { windowId: 'window-a', emit: () => {} }))
+      .rejects.toBe(rejected);
+    await expect(controller!.write!(session.id, [2], { windowId: 'window-a', emit: () => {} }))
+      .resolves.toBeUndefined();
+
+    expect(firstWriter.write).toHaveBeenCalledWith(Uint8Array.from([1]));
+    expect(secondWriter.write).toHaveBeenCalledWith(Uint8Array.from([2]));
+    expect(firstWriter.releaseLock).toHaveBeenCalledOnce();
+    expect(secondWriter.releaseLock).toHaveBeenCalledOnce();
+  });
 });
 
 describe('createBrowserBleController', () => {
