@@ -49,7 +49,7 @@ export interface Nip17DmAdapterOptions {
 }
 
 interface LiveSub {
-  handle: { unsubscribe(): void };
+  handle?: { unsubscribe(): void };
   conversationId?: string;
   onMessage(message: DmMessage): void;
 }
@@ -212,27 +212,38 @@ class Nip17DmRuntime {
     await this.loadHistory();
     const subscriptionId = `dm-nip17-${++subscriptionCounter}`;
     const filters = [{ kinds: [NIP17_GIFT_WRAP_KIND], '#p': [this.ownerPubkey] }] as NostrFilter[];
-    const handle = this.options.relayPool.subscribe(filters, (item) => {
-      if (item === 'EOSE') return;
-      const message = this.ingestWrap(item, 'received');
-      if (!message) return;
-      const sub = this.live.get(subscriptionId);
-      if (sub && (!sub.conversationId || sub.conversationId === message.conversationId)) sub.onMessage(message);
-    }, this.relaysFor(filters));
-    this.live.set(subscriptionId, { handle, conversationId: request.conversationId, onMessage });
-    return { subscriptionId };
+    const sub: LiveSub = { conversationId: request.conversationId, onMessage };
+    this.live.set(subscriptionId, sub);
+    try {
+      const handle = this.options.relayPool.subscribe(filters, (item) => {
+        if (item === 'EOSE') return;
+        const message = this.ingestWrap(item, 'received');
+        if (!message) return;
+        const active = this.live.get(subscriptionId);
+        if (active && (!active.conversationId || active.conversationId === message.conversationId)) active.onMessage(message);
+      }, this.relaysFor(filters));
+      if (this.live.get(subscriptionId) !== sub) {
+        handle.unsubscribe();
+        throw new Error('subscription cancelled');
+      }
+      sub.handle = handle;
+      return { subscriptionId };
+    } catch (error) {
+      this.live.delete(subscriptionId);
+      throw error;
+    }
   }
 
   private unsubscribe(subscriptionId: string): { ok: boolean } {
     const sub = this.live.get(subscriptionId);
     if (!sub) return { ok: false };
-    sub.handle.unsubscribe();
+    sub.handle?.unsubscribe();
     this.live.delete(subscriptionId);
     return { ok: true };
   }
 
   private close(): void {
-    for (const sub of this.live.values()) sub.handle.unsubscribe();
+    for (const sub of this.live.values()) sub.handle?.unsubscribe();
     this.live.clear();
   }
 }
