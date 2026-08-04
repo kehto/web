@@ -106,4 +106,62 @@ describe('createFsService', () => {
     service.onWindowDestroyed?.('window-a');
     expect(close).toHaveBeenCalledOnce();
   });
+
+  it('closes a watch that resolves after its window is destroyed', async () => {
+    let resolveWatch: ((watch: { close(): void }) => void) | undefined;
+    let push: ((change: FsBackendChange) => void) | undefined;
+    const close = vi.fn();
+    const service = createFsService({
+      backend: backendFixture({
+        watch: (_windowId, _path, _options, onChange) => {
+          push = onChange;
+          return new Promise((resolve) => { resolveWatch = resolve; });
+        },
+      }),
+    });
+    const sent: NappletMessage[] = [];
+
+    service.handleMessage(
+      'window-a',
+      { type: 'fs.watch', id: 'watch-late', path: '/workspace' } as NappletMessage,
+      (message) => sent.push(message),
+    );
+    await waitFor(() => resolveWatch !== undefined);
+    service.onWindowDestroyed?.('window-a');
+    resolveWatch?.({ close });
+    await waitFor(() => sent.length === 1);
+    push?.({ path: '/workspace/late.txt', kind: 'modified' });
+
+    expect(close).toHaveBeenCalledOnce();
+    expect(sent).toEqual([{ type: 'fs.watch.result', id: 'watch-late', error: 'cancelled' }]);
+  });
+
+  it('does not emit a synchronous backend change before the watch is owned', async () => {
+    let push: ((change: FsBackendChange) => void) | undefined;
+    const service = createFsService({
+      backend: backendFixture({
+        watch: (_windowId, _path, _options, onChange) => {
+          onChange({ path: '/workspace/initial.txt', kind: 'modified' });
+          push = onChange;
+          return { close() {} };
+        },
+      }),
+    });
+    const sent: NappletMessage[] = [];
+
+    service.handleMessage(
+      'window-a',
+      { type: 'fs.watch', id: 'watch-sync', path: '/workspace' } as NappletMessage,
+      (message) => sent.push(message),
+    );
+    await waitFor(() => sent.length === 1);
+    push?.({ path: '/workspace/live.txt', kind: 'modified' });
+
+    expect(sent).toHaveLength(2);
+    expect(sent[0]).toMatchObject({ type: 'fs.watch.result', id: 'watch-sync', watchId: expect.any(String) });
+    expect(sent[1]).toMatchObject({
+      type: 'fs.changed',
+      change: { path: '/workspace/live.txt', kind: 'modified' },
+    });
+  });
 });
