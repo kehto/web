@@ -171,6 +171,34 @@ describe('createConfigService', () => {
     expect(openSettings).toHaveBeenCalledWith('window-1', undefined, expect.any(Object));
   });
 
+  it('shapes rejected host reads for get and openSettings without a values payload', () => {
+    let rejectReads = false;
+    const service = createConfigService({
+      getValues: () => {
+        if (rejectReads) throw new Error('host values are unavailable');
+        return {};
+      },
+      openSettings: vi.fn(),
+    });
+    const sent: NappletMessage[] = [];
+    const send = (item: NappletMessage): void => { sent.push(item); };
+
+    service.handler.handleMessage('window-1', message('config.registerSchema', {
+      id: 'schema-1',
+      schema: SCHEMA,
+    }), send);
+    rejectReads = true;
+
+    expect(() => service.handler.handleMessage('window-1', message('config.get', { id: 'get-1' }), send)).not.toThrow();
+    expect(() => service.handler.handleMessage('window-1', message('config.openSettings'), send)).not.toThrow();
+
+    expect(sent.slice(1)).toEqual([
+      { type: 'config.schemaError', code: 'invalid-schema', error: 'host values are unavailable' },
+      { type: 'config.schemaError', code: 'invalid-schema', error: 'host values are unavailable' },
+    ]);
+    expect(sent).not.toContainEqual(expect.objectContaining({ type: 'config.values', id: 'get-1' }));
+  });
+
   it('never delivers a snapshot that is missing required user input', () => {
     const openSettings = vi.fn();
     const service = createConfigService({ getValues: () => ({}), openSettings });
