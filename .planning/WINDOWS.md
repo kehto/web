@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 20
+open_count: 21
 waived_count: 0
 fixed_count: 7
-total_count: 27
-last_updated: 2026-07-27T11:14:53.368Z
+total_count: 28
+last_updated: 2026-08-04T10:00:54.503Z
 ---
 
 # Broken Windows Ledger
@@ -42,6 +42,7 @@ last_updated: 2026-07-27T11:14:53.368Z
 | 25 | 105 | deviation | tests/e2e/paja-single-window.spec.ts |  | Canonical INC reload assertion fails after target replacement; deferred outside Plan 105-07 pointer lifecycle scope. | fixed |  | 2026-07-27T10:18:12.404Z | 2026-07-27T10:25:54.201Z |
 | 26 | 105 | deviation | tests/unit/sdk-migration-guard.test.ts |  | Excluded generated dependency directories from classified active-source evidence. | open |  | 2026-07-27T11:14:53.294Z |  |
 | 27 | 105 | deviation | tests/unit/sdk-migration-guard.test.ts |  | Made guard classification assertions test declarations rather than their own literals. | open |  | 2026-07-27T11:14:53.368Z |  |
+| 28 | quick-260804-dql | unrun-verify | .aislop/config.yml |  | AI-slop gate could not run because pnpm exec aislop reports Command not found | open |  | 2026-08-04T10:00:54.503Z |  |
 
 ````json
 [
@@ -367,6 +368,18 @@ last_updated: 2026-07-27T11:14:53.368Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-27T11:14:53.368Z",
+    "resolved_at": null
+  },
+  {
+    "id": 28,
+    "kind": "unrun-verify",
+    "phase": "quick-260804-dql",
+    "file": ".aislop/config.yml",
+    "line": null,
+    "description": "AI-slop gate could not run because pnpm exec aislop reports Command not found",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-04T10:00:54.503Z",
     "resolved_at": null
   }
 ]
