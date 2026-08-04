@@ -488,11 +488,13 @@ export function createBrowserBleController(
       }
     },
     async unsubscribe(sessionId, target): Promise<void> {
-      const subscription = getSession(sessionId).subscriptions.get(targetKey(target));
+      const session = getSession(sessionId);
+      const key = targetKey(target);
+      const subscription = session.subscriptions.get(key);
       if (!subscription) return;
       subscription.characteristic.removeEventListener('characteristicvaluechanged', subscription.listener);
+      session.subscriptions.delete(key);
       await subscription.characteristic.stopNotifications();
-      getSession(sessionId).subscriptions.delete(targetKey(target));
     },
     close,
     destroyWindow(windowId) {
