@@ -144,7 +144,8 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
     'resource',
     'theme',
   ]));
-  expect(state?.services).not.toEqual(expect.arrayContaining(['upload', 'webrtc']));
+  expect(state?.services).not.toContain('upload');
+  expect(state?.services).not.toContain('webrtc');
 
   await page.locator('#acl-controls [data-acl-capability="state:write"]').click();
   await expect(page.locator('#acl-controls [data-acl-capability="state:write"]')).toHaveAttribute('data-enabled', 'false');
@@ -196,8 +197,10 @@ test('keeps memory relay and upload fixtures out of advertised capabilities', as
     const services = await page.evaluate(() => window.__KEHTO_PAJA__?.getState().services ?? []);
     const fixtureOnlyDomains = ['relay', 'outbox', 'count', 'common', 'lists', 'webrtc', 'cvm', 'upload'];
 
-    expect(advertised).not.toEqual(expect.arrayContaining(fixtureOnlyDomains));
-    expect(services).not.toEqual(expect.arrayContaining(fixtureOnlyDomains));
+    for (const domain of fixtureOnlyDomains) {
+      expect(advertised).not.toContain(domain);
+      expect(services).not.toContain(domain);
+    }
     await expect(page.locator('#simulation-status')).toContainText('relay:memory:');
     await expect(page.locator('#simulation-status')).toContainText('upload:memory:simulator');
   } finally {

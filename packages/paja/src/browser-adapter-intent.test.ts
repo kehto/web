@@ -123,13 +123,12 @@ describe('Paja browser adapter intent composition', () => {
 
     expect(adapter.services?.intent).toBeUndefined();
     expect(adapter.intent?.isAvailable()).toBe(false);
-    expect(buildShellCapabilities(adapter).domains).not.toEqual(expect.arrayContaining([
-      'keys',
-      'media',
-      'notify',
-      'intent',
-      'link',
-    ]));
+    const domains = buildShellCapabilities(adapter).domains;
+    expect(domains).not.toContain('keys');
+    expect(domains).not.toContain('media');
+    expect(domains).not.toContain('notify');
+    expect(domains).not.toContain('intent');
+    expect(domains).not.toContain('link');
     (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
   });
 
