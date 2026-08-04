@@ -203,7 +203,7 @@ export function createPajaCommonBackend(options: PajaCommonBackendOptions): Paja
   };
 
   const mutateFollows = async (values: string[], add: boolean): Promise<CommonActionResult> => {
-    const targets = values.map(npub);
+    const targets = values.map(pubkey);
     if (targets.some((target) => target === null)) return { ok: false, error: 'invalid-pubkey' };
     try {
       const active = await signer();
