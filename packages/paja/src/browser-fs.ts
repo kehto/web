@@ -62,6 +62,11 @@ export interface PajaBrowserFsOptions {
   pickerApi?: BrowserPickerApi;
 }
 
+interface PendingBackendWatch {
+  readonly windowId: string;
+  closed: boolean;
+}
+
 
 /**
  * Probe OPFS and create Paja's persistent, identity-scoped browser backend.
@@ -84,6 +89,7 @@ export async function createPajaBrowserFsBackend(options: PajaBrowserFsOptions):
   const workspaceCache = new Map<string, Promise<BrowserDirectoryHandle>>();
   const pickedByWindow = new Map<string, Map<string, Mount>>();
   const backendWatches = new Set<BackendWatchRecord>();
+  const pendingBackendWatches = new Set<PendingBackendWatch>();
   let mutationTail = Promise.resolve();
 
   async function mutate<T>(operation: () => Promise<T>): Promise<T> {
@@ -269,6 +275,10 @@ export async function createPajaBrowserFsBackend(options: PajaBrowserFsOptions):
       if (watch.closed || (!covered(watch, change.path) && (!change.fromPath || !covered(watch, change.fromPath)))) continue;
       watch.onChange(change);
     }
+  }
+
+  function assertPendingWatch(pending: PendingBackendWatch): void {
+    if (pending.closed || !pendingBackendWatches.has(pending)) throw new FsServiceError('cancelled');
   }
 
   async function pollWatch(watch: BackendWatchRecord): Promise<void> {
@@ -512,34 +522,50 @@ export async function createPajaBrowserFsBackend(options: PajaBrowserFsOptions):
     },
 
     async watch(windowId, path, watchOptions?: FsWatchOptions, onChange?: (change: FsBackendChange) => void): Promise<FsBackendWatch> {
-      const count = [...backendWatches].filter((watch) => watch.windowId === windowId && !watch.closed).length;
+      const count = [...backendWatches].filter((watch) => watch.windowId === windowId && !watch.closed).length
+        + [...pendingBackendWatches].filter((watch) => watch.windowId === windowId && !watch.closed).length;
       if (count >= MAX_WATCH_COUNT) throw new FsServiceError('policy-denied');
-      const entry = await resolveExisting(windowId, path);
-      requirePermission(entry, 'watch');
-      const callback = onChange ?? (() => undefined);
-      const record: BackendWatchRecord = {
-        windowId,
-        path: entry.path,
-        directory: entry.handle.kind === 'directory',
-        recursive: watchOptions?.recursive === true,
-        onChange: callback,
-        snapshot: await snapshotEntry(entry, watchOptions?.recursive === true),
-        closed: false,
-      };
-      record.timer = setInterval(() => { void pollWatch(record); }, WATCH_INTERVAL_MS);
-      backendWatches.add(record);
-      return {
-        close() {
-          if (record.closed) return;
-          record.closed = true;
-          if (record.timer !== undefined) clearInterval(record.timer);
-          backendWatches.delete(record);
-        },
-      };
+      const pending: PendingBackendWatch = { windowId, closed: false };
+      pendingBackendWatches.add(pending);
+      try {
+        const entry = await resolveExisting(windowId, path);
+        assertPendingWatch(pending);
+        requirePermission(entry, 'watch');
+        const snapshot = await snapshotEntry(entry, watchOptions?.recursive === true);
+        assertPendingWatch(pending);
+        const callback = onChange ?? (() => undefined);
+        const record: BackendWatchRecord = {
+          windowId,
+          path: entry.path,
+          directory: entry.handle.kind === 'directory',
+          recursive: watchOptions?.recursive === true,
+          onChange: callback,
+          snapshot,
+          closed: false,
+        };
+        backendWatches.add(record);
+        record.timer = setInterval(() => { void pollWatch(record); }, WATCH_INTERVAL_MS);
+        return {
+          close() {
+            if (record.closed) return;
+            record.closed = true;
+            if (record.timer !== undefined) clearInterval(record.timer);
+            backendWatches.delete(record);
+          },
+        };
+      } finally {
+        pendingBackendWatches.delete(pending);
+      }
     },
 
     onWindowDestroyed(windowId): void {
       pickedByWindow.delete(windowId);
+      for (const pending of pendingBackendWatches) {
+        if (pending.windowId === windowId) {
+          pending.closed = true;
+          pendingBackendWatches.delete(pending);
+        }
+      }
       for (const watch of backendWatches) {
         if (watch.windowId !== windowId) continue;
         watch.closed = true;
@@ -550,6 +576,8 @@ export async function createPajaBrowserFsBackend(options: PajaBrowserFsOptions):
 
     close(): void {
       pickedByWindow.clear();
+      for (const pending of pendingBackendWatches) pending.closed = true;
+      pendingBackendWatches.clear();
       for (const watch of backendWatches) {
         watch.closed = true;
         if (watch.timer !== undefined) clearInterval(watch.timer);
