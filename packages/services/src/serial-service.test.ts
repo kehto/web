@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { NappletMessage, SerialOpenRequest, SerialOpenResult } from '@napplet/core';
 
-import { createSerialService, type SerialServiceOptions } from './serial-service.js';
+import {
+  createSerialService,
+  type SerialServiceContext,
+  type SerialServiceOptions,
+} from './serial-service.js';
 
 const WINDOW_ID = 'win-serial';
 const REQUEST: SerialOpenRequest = { options: { baudRate: 9600 }, label: 'demo serial' };
@@ -88,6 +92,36 @@ describe('createSerialService', () => {
       { type: 'serial.event', event: { type: 'state', sessionId: 'serial-session-1', state: 'open' } },
       { type: 'serial.event', event: { type: 'data', sessionId: 'serial-session-1', data: [4, 5, 6] } },
       { type: 'serial.open.result', id: 'open-events', session: OPEN_RESULT.session },
+    ]);
+  });
+
+  it('suppresses a destroyed window context after that window id is reused', async () => {
+    let resolveFirstOpen!: (result: SerialOpenResult) => void;
+    let firstContext!: SerialServiceContext;
+    let opens = 0;
+    const service = createSerialService({
+      open: (_request, context) => {
+        opens += 1;
+        if (opens === 1) {
+          firstContext = context;
+          return new Promise<SerialOpenResult>((resolve) => { resolveFirstOpen = resolve; });
+        }
+        return OPEN_RESULT;
+      },
+    });
+    const { sent, send } = collectSent();
+
+    service.handleMessage(WINDOW_ID, { type: 'serial.open', id: 'first-open', request: REQUEST } as NappletMessage, send);
+    service.onWindowDestroyed?.(WINDOW_ID);
+    service.handleMessage(WINDOW_ID, { type: 'serial.open', id: 'second-open', request: REQUEST } as NappletMessage, send);
+    await flush();
+
+    resolveFirstOpen(OPEN_RESULT);
+    await flush();
+    firstContext.emit({ type: 'data', sessionId: 'serial-session-1', data: [9] });
+
+    expect(sent).toEqual([
+      { type: 'serial.open.result', id: 'second-open', session: OPEN_RESULT.session },
     ]);
   });
 
