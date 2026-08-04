@@ -84,6 +84,32 @@ describe('NAP-CONFIG schema boundary', () => {
       nested: { enabled: true },
     });
   });
+
+  it('preserves additional values when an object explicitly allows them', () => {
+    const openSchema = {
+      type: 'object',
+      additionalProperties: true,
+      properties: {
+        name: { type: 'string' },
+        nested: {
+          type: 'object',
+          additionalProperties: true,
+          properties: { enabled: { type: 'boolean' } },
+        },
+      },
+    } as NappletConfigSchema;
+
+    expect(validateConfigSchema(openSchema)).toEqual({ ok: true });
+    expect(resolveConfigValues(openSchema, {
+      name: 'Paja',
+      extra: { values: ['kept', 2, true] },
+      nested: { enabled: true, label: 'also kept' },
+    })).toEqual({
+      name: 'Paja',
+      extra: { values: ['kept', 2, true] },
+      nested: { enabled: true, label: 'also kept' },
+    });
+  });
 });
 
 describe('createConfigService', () => {

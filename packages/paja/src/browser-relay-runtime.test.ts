@@ -93,6 +93,7 @@ import {
   type PajaRelayBackend,
 } from './browser-relay-runtime.js';
 import { createPajaAdapter } from './browser-adapter.js';
+import { isPajaRelayAllowed } from './browser-relay-policy.js';
 import type { PajaHostConfig } from './options.js';
 import { normalizePajaSimulation } from './simulation.js';
 
@@ -123,6 +124,14 @@ function createPajaRelayService(backend: PajaRelayBackend) {
 }
 
 describe('@kehto/paja effective relay URLs', () => {
+  it('rejects private IPv4-mapped IPv6 relays unless the host configured them', () => {
+    const privateMapped = 'wss://[::ffff:10.0.0.1]/';
+
+    expect(isPajaRelayAllowed(privateMapped, () => [])).toBe(false);
+    expect(isPajaRelayAllowed('wss://[::ffff:127.0.0.1]/', () => [])).toBe(false);
+    expect(isPajaRelayAllowed(privateMapped, () => [privateMapped])).toBe(true);
+  });
+
   it('returns configured live relay URLs in their configured order', () => {
     const simulation = normalizePajaSimulation({
       relay: {

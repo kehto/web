@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { FsServiceError, type FsBackend, type FsBackendWatch } from '@kehto/services';
 
 import { createPajaBrowserFsBackend } from './browser-fs.js';
-import { base64Bytes, MAX_WRITE_BYTES, revision } from './browser-fs-support.js';
+import { base64Bytes, MAX_WATCH_COUNT, MAX_WRITE_BYTES, revision } from './browser-fs-support.js';
 
 abstract class MemoryHandle {
   abstract readonly kind: 'file' | 'directory';
@@ -258,6 +258,37 @@ describe('createPajaBrowserFsBackend', () => {
 
     expect(code(error)).toBe('cancelled');
     expect(watch).toBeUndefined();
+    expect(interval).not.toHaveBeenCalled();
+  });
+
+  it('reserves pending browser watches against the per-window watch limit', async () => {
+    const root = new MemoryDirectory('root');
+    const fs = await backend(root);
+    const getDirectoryHandle = root.getDirectoryHandle.bind(root);
+    const releases: Array<() => void> = [];
+    root.getDirectoryHandle = async (name, options) => {
+      await new Promise<void>((resolve) => { releases.push(resolve); });
+      return getDirectoryHandle(name, options);
+    };
+    const interval = vi.spyOn(globalThis, 'setInterval');
+
+    const pending = Array.from({ length: MAX_WATCH_COUNT }, () =>
+      fs.watch('window-a', '/workspace', undefined, () => undefined));
+    // The first watch owns the shared mount-resolution promise; all pending
+    // calls still reserve their policy slots before awaiting that promise.
+    await waitFor(() => releases.length === 1);
+
+    await expect(fs.watch('window-a', '/workspace', undefined, () => undefined)).rejects.toSatisfy(
+      (error: unknown) => code(error) === 'policy-denied',
+    );
+
+    fs.onWindowDestroyed?.('window-a');
+    releases[0]?.();
+    const results = await Promise.allSettled(pending);
+    interval.mockRestore();
+
+    expect(results).toHaveLength(MAX_WATCH_COUNT);
+    expect(results.every((result) => result.status === 'rejected' && code(result.reason) === 'cancelled')).toBe(true);
     expect(interval).not.toHaveBeenCalled();
   });
 
