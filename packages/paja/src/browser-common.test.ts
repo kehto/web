@@ -67,6 +67,24 @@ describe('createPajaCommonBackend', () => {
     expect(queries[0].relays).toEqual(['wss://profile.example/', 'wss://relay.example/']);
   });
 
+  it('excludes disallowed nprofile relay hints from profile queries', async () => {
+    const profileKey = generateSecretKey();
+    const profilePubkey = getPublicKey(profileKey);
+    const profile = signedEvent(profileKey, {
+      kind: 0,
+      created_at: 10,
+      tags: [],
+      content: JSON.stringify({ name: 'alice' }),
+    });
+    const { backend, queries } = relayBackend([profile]);
+    const common = createPajaCommonBackend({ relay: backend, getRelays: () => RELAYS, getSigner: () => null });
+    const target = nprofileEncode({ pubkey: profilePubkey, relays: ['ws://127.0.0.1:8080', 'wss://profile.example'] });
+
+    await expect(common.getProfile(target)).resolves.toEqual(expect.objectContaining({ ok: true, pubkey: profilePubkey }));
+
+    expect(queries[0].relays).toEqual(['wss://profile.example/', 'wss://relay.example/']);
+  });
+
   it('reads, merges, signs, and publishes idempotent NIP-02 follow lists', async () => {
     const ownerKey = generateSecretKey();
     const owner = signer(ownerKey);
