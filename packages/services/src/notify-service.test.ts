@@ -149,6 +149,52 @@ describe('createNotifyService', () => {
     expect(destroyWindow).toHaveBeenCalledWith(WINDOW_ID);
   });
 
+  it('closes a presentation that resolves after its window is destroyed without sending a result', async () => {
+    let resolvePresentation!: () => void;
+    let presentation!: NotifyPresentation;
+    const dismiss = vi.fn();
+    const service = createNotifyService({
+      present: (value) => {
+        presentation = value;
+        return new Promise<void>((resolve) => { resolvePresentation = resolve; });
+      },
+      dismiss,
+    });
+    const sent: NappletMessage[] = [];
+
+    service.handleMessage(WINDOW_ID, makeMsg('notify.send', { id: 'n1', title: 'late' }), (message) => sent.push(message));
+    service.onWindowDestroyed?.(WINDOW_ID);
+    resolvePresentation();
+    await settle();
+    presentation.emit({ type: 'notify.clicked', notificationId: presentation.notificationId });
+
+    expect(sent).toEqual([]);
+    expect(dismiss.mock.calls).toEqual([
+      [WINDOW_ID, 'shell-1'],
+      [WINDOW_ID, 'shell-1'],
+    ]);
+  });
+
+  it('rejects a destroyed presentation callback after the window id is reused', async () => {
+    const presentations: NotifyPresentation[] = [];
+    const service = createNotifyService({
+      present: (presentation) => { presentations.push(presentation); },
+    });
+    const sent: NappletMessage[] = [];
+
+    service.handleMessage(WINDOW_ID, makeMsg('notify.send', { id: 'n1', title: 'first' }), (message) => sent.push(message));
+    await settle();
+    service.onWindowDestroyed?.(WINDOW_ID);
+    service.handleMessage(WINDOW_ID, makeMsg('notify.send', { id: 'n2', title: 'second' }), (message) => sent.push(message));
+    await settle();
+    presentations[0]!.emit({ type: 'notify.clicked', notificationId: presentations[0]!.notificationId });
+
+    expect(sent).toEqual([
+      { type: 'notify.send.result', id: 'n1', notificationId: 'shell-1' },
+      { type: 'notify.send.result', id: 'n2', notificationId: 'shell-2' },
+    ]);
+  });
+
   it('returns an error envelope for unknown notify methods', () => {
     const service = createNotifyService();
     const sent: NappletMessage[] = [];
