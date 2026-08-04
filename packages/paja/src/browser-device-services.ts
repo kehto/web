@@ -266,7 +266,7 @@ export function createBrowserSerialController(
       if (!session || session.closing || !session.port.writable) {
         throw new Error('serial session is not writable');
       }
-      session.writeTail = session.writeTail.then(async () => {
+      const write = session.writeTail.then(async () => {
         const writer = session.port.writable!.getWriter();
         try {
           await writer.write(Uint8Array.from(data));
@@ -274,7 +274,11 @@ export function createBrowserSerialController(
           writer.releaseLock();
         }
       });
-      await session.writeTail;
+      session.writeTail = write.then(
+        () => undefined,
+        () => undefined,
+      );
+      await write;
     },
     close,
     destroyWindow(windowId) {
