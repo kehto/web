@@ -24,6 +24,7 @@ class FakeElement {
   checked = false;
   selected = false;
   open = false;
+  closeCalls = 0;
 
   append(...nodes: FakeElement[]): void {
     this.children.push(...nodes);
@@ -47,7 +48,16 @@ class FakeElement {
     for (const listener of this.listeners.get('click') ?? []) listener();
   }
 
+  emit(type: string): void {
+    for (const listener of this.listeners.get(type) ?? []) listener();
+  }
+
+  listenerCount(type: string): number {
+    return this.listeners.get(type)?.size ?? 0;
+  }
+
   close(): void {
+    this.closeCalls += 1;
     this.open = false;
   }
 
@@ -168,6 +178,50 @@ describe('Paja NAP-CONFIG browser backend', () => {
       storage: readOnly,
       getIdentity: () => ({ dTag: 'test', aggregateHash: 'hash' }),
     })).toBeNull();
+  });
+
+  it('settles native dialog cancel and close once, then disposes every listener', () => {
+    const document = new FakeDocument();
+    const controller = createPajaConfigController({
+      document: document as unknown as Document,
+      storage: new FakeStorage(),
+      getIdentity: () => ({ dTag: 'weather', aggregateHash: 'hash-a' }),
+    })!;
+    const service = createConfigService(controller.serviceOptions);
+    const dialog = document.roots.get('paja-config-dialog')!;
+    const cancel = document.roots.get('paja-config-cancel')!;
+    const save = document.roots.get('paja-config-save')!;
+    const fields = document.roots.get('paja-config-fields')!;
+
+    send(service, 'window-a', 'config.registerSchema', { id: 'schema-a', schema: SCHEMA });
+    send(service, 'window-a', 'config.openSettings');
+    const firstTheme = fields.find((element) => element.children.some((child) => child.value === '"light"'))!;
+    firstTheme.value = '"light"';
+    expect(dialog.listenerCount('cancel')).toBe(1);
+    expect(dialog.listenerCount('close')).toBe(1);
+    dialog.emit('cancel');
+    dialog.close();
+    dialog.emit('close');
+    expect(fields.children).toHaveLength(0);
+    save.click();
+
+    expect(dialog.closeCalls).toBe(1);
+    expect(service.getValues('window-a')).toEqual({ theme: 'dark' });
+
+    send(service, 'window-a', 'config.openSettings');
+    const secondTheme = fields.find((element) => element.children.some((child) => child.value === '"light"'))!;
+    secondTheme.value = '"light"';
+    dialog.close();
+    dialog.emit('close');
+    expect(fields.children).toHaveLength(0);
+    save.click();
+    expect(service.getValues('window-a')).toEqual({ theme: 'dark' });
+
+    controller.dispose();
+    expect(cancel.listenerCount('click')).toBe(0);
+    expect(save.listenerCount('click')).toBe(0);
+    expect(dialog.listenerCount('cancel')).toBe(0);
+    expect(dialog.listenerCount('close')).toBe(0);
   });
 
   it('registers CONFIG only when the complete host controller exists', () => {
