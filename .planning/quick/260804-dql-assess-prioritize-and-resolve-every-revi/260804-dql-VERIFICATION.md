@@ -1,7 +1,7 @@
 ---
 phase: quick-260804-dql
 verified: 2026-08-04T10:40:45Z
-status: passed
+status: gaps_found
 score: 4/4 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
@@ -16,6 +16,10 @@ re_verification:
 ---
 
 # Quick 260804-dql Verification Report
+
+> Reopened on 2026-08-04 after a five-finding general PR comment was discovered
+> outside the review-thread inventory. The report below is the prior C01–C21
+> verification and is not the final state for C22–C26.
 
 **Task Goal:** Assess, prioritize, and resolve every review comment on kehto/web#234; fix valid findings one by one, dismiss invalid or duplicate comments with evidence, push, and verify exact-head CI.
 

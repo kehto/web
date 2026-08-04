@@ -3,8 +3,8 @@ pr: https://github.com/kehto/web/pull/234
 captured_at: 2026-08-04
 captured_head: 4fdf37c1d6ea65caab04b81e35596dded4fa71a9
 live_threads: 16
-live_claims: 21
-status: review-resolved
+live_claims: 26
+status: reopened-general-comment
 validated_source_head: 0c1afc14e23def27821532963a336230c889d636
 validated_ci_run: https://github.com/kehto/web/actions/runs/30900620514
 validated_changeset_guard: https://github.com/kehto/web/actions/runs/30900620528
@@ -83,3 +83,16 @@ is intentionally blank until the assigned plan completes its focused regression.
    Source head `0c1afc14e23def27821532963a336230c889d636` passed CI run
    [30900620514](https://github.com/kehto/web/actions/runs/30900620514) and Changeset
    Guard run [30900620528](https://github.com/kehto/web/actions/runs/30900620528).
+
+## General-review follow-up
+
+The thread-only reconciliation missed [this general PR comment](https://github.com/kehto/web/pull/234#issuecomment-5177710726).
+Plan 08 reopens the task for its five distinct claims.
+
+| Claim | Comment | P | Anchor | Assessment and authority mapping | Status |
+| --- | --- | --- | --- | --- | --- |
+| C22 | `IC_kwDOR8P3P87ymiaG` | P2 | `browser-fs.ts` watch allocation | **Stale/already fixed.** Current source counts both active and pending backend watches and reserves a pending record before its first await. A-FS requires active-watch limits and identifies watches as a DoS surface. A 16-pending-call regression proves the 17th is denied and teardown leaves no timer. | Dismissed by evidence; regression `a44d555`; reply pending |
+| C23 | same comment | P2 | `dm-service.ts` error results | **Spec-conformant.** A-DM defines page-or-error and ok-or-error unions and says other result fields are undefined when `error` is present. Installed `@napplet/nap@0.31.2` encodes success fields as optional `undefined` on the error branch. The existing changeset now calls out the compatibility change. | Dismissed by authority; release note `8349d74`; reply pending |
+| C24 | same comment | P1 | `browser-relay-policy.ts` | **Not reproducible.** URL canonicalization removes the dotted tail, then Paja's existing no-dot host rejection blocks every unconfigured mapped literal before the IPv6 branch. The regression proves mapped private and loopback literals are rejected while the deliberate explicit-configuration exception remains. | Dismissed by evidence; regression `a44d555`; reply pending |
+| C25 | same comment | P1 | `config-schema.ts` | **Valid, fixed.** A-CONFIG includes boolean `additionalProperties` in its supported subset and overrides the JSON Schema default only at the top level. Resolution now preserves safe JSON catch-all values, honors the nested default, and retains closed top-level behavior. | Fixed `8349d74`; regression `a44d555` + nested-default coverage in fix; reply pending |
+| C26 | same comment | P3 | `browser-fs.ts` write path | **Valid, fixed.** `existing = handle` was never read after assignment and has been removed. | Fixed `8349d74`; existing write suite passes; reply pending |

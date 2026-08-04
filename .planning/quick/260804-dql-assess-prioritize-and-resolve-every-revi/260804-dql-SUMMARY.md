@@ -1,10 +1,16 @@
 ---
 phase: quick-260804-dql
-status: complete
+status: reopened
 completed: 2026-08-04
 ---
 
 # Quick Task 260804-dql Summary
+
+Reopened after a general PR comment containing C22–C26 was found outside the
+review-thread API. Plan 08 owns the follow-up; the completion record below applies
+to C01–C21 and will be reconciled again after the new claims are closed. Local
+Plan 08 implementation and all full gates pass; remote push, reply, live audit,
+and exact-head CI remain.
 
 Assessed all 21 claims across the 16 live review threads on kehto/web#234
 against their exact immutable NAP/NIP authorities and current code. Every claim
