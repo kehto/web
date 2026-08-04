@@ -89,9 +89,38 @@ describe('createSerialService', () => {
     await flush();
 
     expect(sent).toEqual([
+      { type: 'serial.open.result', id: 'open-events', session: OPEN_RESULT.session },
       { type: 'serial.event', event: { type: 'state', sessionId: 'serial-session-1', state: 'open' } },
       { type: 'serial.event', event: { type: 'data', sessionId: 'serial-session-1', data: [4, 5, 6] } },
-      { type: 'serial.open.result', id: 'open-events', session: OPEN_RESULT.session },
+    ]);
+  });
+
+  it('suppresses serial events after their session closes or window is destroyed', async () => {
+    const contexts: SerialServiceContext[] = [];
+    const service = createSerialService({
+      open: (_request, context) => {
+        contexts.push(context);
+        return OPEN_RESULT;
+      },
+      close: vi.fn(),
+    });
+    const { sent, send } = collectSent();
+
+    service.handleMessage(WINDOW_ID, { type: 'serial.open', id: 'open-before-close', request: REQUEST } as NappletMessage, send);
+    await flush();
+    service.handleMessage(WINDOW_ID, { type: 'serial.close', id: 'close-1', sessionId: 'serial-session-1' } as NappletMessage, send);
+    await flush();
+    contexts[0]!.emit({ type: 'data', sessionId: 'serial-session-1', data: [1] });
+
+    service.handleMessage(WINDOW_ID, { type: 'serial.open', id: 'open-before-destroy', request: REQUEST } as NappletMessage, send);
+    await flush();
+    service.onWindowDestroyed?.(WINDOW_ID);
+    contexts[1]!.emit({ type: 'data', sessionId: 'serial-session-1', data: [2] });
+
+    expect(sent).toEqual([
+      { type: 'serial.open.result', id: 'open-before-close', session: OPEN_RESULT.session },
+      { type: 'serial.close.result', id: 'close-1' },
+      { type: 'serial.open.result', id: 'open-before-destroy', session: OPEN_RESULT.session },
     ]);
   });
 
