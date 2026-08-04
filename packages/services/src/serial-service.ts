@@ -108,21 +108,36 @@ function createContext(windowId: string, send: Send): SerialServiceContext {
  * @returns A runtime service handler for the `serial` domain.
  */
 export function createSerialService(options: SerialServiceOptions = {}): ServiceHandler {
+  const windows = new Map<string, object>();
+
+  const currentWindow = (windowId: string): object => {
+    const existing = windows.get(windowId);
+    if (existing) return existing;
+    const record = {};
+    windows.set(windowId, record);
+    return record;
+  };
+
   return {
     descriptor: SERIAL_DESCRIPTOR,
     handleMessage(windowId: string, message: NappletMessage, send: Send): void {
       const id = (message as NappletMessage & { id?: string }).id ?? '';
-      const context = createContext(windowId, send);
+      const record = currentWindow(windowId);
+      const isCurrent = (): boolean => windows.get(windowId) === record;
+      const currentSend: Send = (outbound) => {
+        if (isCurrent()) send(outbound);
+      };
+      const context = createContext(windowId, currentSend);
 
       if (message.type === 'serial.open') {
         if (!options.open) {
-          send(unsupported('serial.open.result', id));
+          currentSend(unsupported('serial.open.result', id));
           return;
         }
         const serialMessage = message as SerialOpenMessage;
         settle(
           () => options.open!(serialMessage.request, context),
-          send,
+          currentSend,
           (error) => ({ type: 'serial.open.result', id, error } as NappletMessage),
           (result) => ({ type: 'serial.open.result', id, session: result.session } as NappletMessage),
         );
@@ -131,13 +146,13 @@ export function createSerialService(options: SerialServiceOptions = {}): Service
 
       if (message.type === 'serial.write') {
         if (!options.write) {
-          send(unsupported('serial.write.result', id));
+          currentSend(unsupported('serial.write.result', id));
           return;
         }
         const serialMessage = message as SerialWriteMessage;
         settle(
           () => options.write!(serialMessage.sessionId, serialMessage.data, context),
-          send,
+          currentSend,
           (error) => ({ type: 'serial.write.result', id, error } as NappletMessage),
           () => ({ type: 'serial.write.result', id } as NappletMessage),
         );
@@ -146,26 +161,27 @@ export function createSerialService(options: SerialServiceOptions = {}): Service
 
       if (message.type === 'serial.close') {
         if (!options.close) {
-          send(unsupported('serial.close.result', id));
+          currentSend(unsupported('serial.close.result', id));
           return;
         }
         const serialMessage = message as SerialCloseMessage;
         settle(
           () => options.close!(serialMessage.sessionId, serialMessage.reason, context),
-          send,
+          currentSend,
           (error) => ({ type: 'serial.close.result', id, error } as NappletMessage),
           () => ({ type: 'serial.close.result', id } as NappletMessage),
         );
         return;
       }
 
-      send({
+      currentSend({
         type: `${message.type}.error`,
         id,
         error: `Unknown serial method: ${message.type}`,
       } as NappletMessage);
     },
     onWindowDestroyed(windowId: string): void {
+      windows.delete(windowId);
       options.destroyWindow?.(windowId);
     },
   };
