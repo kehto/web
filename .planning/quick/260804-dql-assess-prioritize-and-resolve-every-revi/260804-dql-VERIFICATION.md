@@ -1,7 +1,7 @@
 ---
 phase: quick-260804-dql
 verified: 2026-08-04T10:40:45Z
-status: gaps_found
+status: passed
 score: 4/4 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
@@ -17,9 +17,8 @@ re_verification:
 
 # Quick 260804-dql Verification Report
 
-> Reopened on 2026-08-04 after a five-finding general PR comment was discovered
-> outside the review-thread inventory. The report below is the prior C01–C21
-> verification and is not the final state for C22–C26.
+> Re-verified after C22–C26 from the general PR comment were assessed, fixed or
+> dismissed with evidence, pushed, answered, and validated by exact-head CI.
 
 **Task Goal:** Assess, prioritize, and resolve every review comment on kehto/web#234; fix valid findings one by one, dismiss invalid or duplicate comments with evidence, push, and verify exact-head CI.
 
@@ -33,10 +32,10 @@ re_verification:
 
 | # | Truth | Status | Evidence |
 | --- | --- | --- | --- |
-| 1 | Every live review claim is assessed against protocol authority and repository evidence. | ✓ VERIFIED | The reconciled inventory contains 21 claim rows across 16 stable GitHub thread IDs, immutable NAP/NIP references, and claim-level assessment; live GraphQL returns the same 16 threads. |
-| 2 | Every valid claim is fixed with a regression and atomic commit; invalid/duplicate claims are recorded with evidence. | ✓ VERIFIED | The cited source/test/doc commits are ancestors of `0c1afc1`; 11 focused regression files passed 73 tests. Each of the 16 live evidence replies cites the relevant authority, commit, and regression. |
-| 3 | All review threads are answered and resolved after supporting work is pushed, and exact-head CI succeeds. | ✓ VERIFIED | Local HEAD, `origin/feat/paja-nap-implementation-closeout`, and PR #234 head are all `0c1afc14e23def27821532963a336230c889d636`; GraphQL reports 0 unresolved threads and 16 evidence replies. CI `30900620514` and Changeset Guard `30900620528` succeeded for that SHA. |
-| 4 | The durable closeout record reflects the final remote reconciliation. | ✓ VERIFIED | Inventory frontmatter is `review-resolved`, names the exact source head and both runs, and records 21 resolved claim rows with 16 reply links. Plan 07 summary exists with `status: complete`. |
+| 1 | Every live review claim is assessed against protocol authority and repository evidence. | ✓ VERIFIED | The reconciled inventory contains 26 claim rows: 21 across 16 stable GitHub thread IDs plus five in the identified general comment, with immutable NAP/NIP references and claim-level assessment. |
+| 2 | Every valid claim is fixed with a regression and atomic commit; invalid/duplicate claims are recorded with evidence. | ✓ VERIFIED | Plan 08 adds `a44d555` and `8349d74`: 47 focused tests pass, C22/C24 have evidence regressions, C23 has an authority-backed release note, and C25/C26 are fixed. |
+| 3 | All review threads are answered and resolved after supporting work is pushed, and exact-head CI succeeds. | ✓ VERIFIED | Source head `62580e11fbf8d6e486ba59a85f3ea859d9a1bb12` was pushed before the itemized general-comment reply; GraphQL reports 16 threads and 0 unresolved, with no later comments. CI `30904927876` and Changeset Guard `30904927931` succeeded for that SHA. |
+| 4 | The durable closeout record reflects the final remote reconciliation. | ✓ VERIFIED | Inventory frontmatter is `review-resolved`, names the exact source head and both runs, records 26 dispositions, and Plans 07 and 08 both have complete summaries. |
 
 **Score:** 4/4 truths verified (0 present, behavior-unverified)
 
@@ -44,17 +43,17 @@ re_verification:
 
 | Artifact | Expected | Status | Details |
 | --- | --- | --- | --- |
-| `.planning/quick/260804-dql-assess-prioritize-and-resolve-every-revi/260804-dql-REVIEW-INVENTORY.md` | Final evidence ledger for every live claim. | ✓ VERIFIED | Substantive 21-claim ledger, exact source SHA, CI/Changeset evidence, 16 reply links, and resolved state for every row. |
-| `.planning/quick/260804-dql-assess-prioritize-and-resolve-every-revi/260804-dql-07-SUMMARY.md` | Final aggregate proof for the gate/push/reply/resolve/CI plan. | ✓ VERIFIED | Exists with `status: complete` and exact remote reconciliation evidence. |
+| `.planning/quick/260804-dql-assess-prioritize-and-resolve-every-revi/260804-dql-REVIEW-INVENTORY.md` | Final evidence ledger for every live claim. | ✓ VERIFIED | Substantive 26-claim ledger, exact source SHA, CI/Changeset evidence, and resolved/evidence-backed state for every row. |
+| Plan 07 and Plan 08 summaries | Aggregate proof for both gate/push/reply/resolve/CI waves. | ✓ VERIFIED | Both exist with `status: complete` and exact remote reconciliation evidence. |
 | Review source and regression files | Implement all accepted review fixes. | ✓ VERIFIED | Relevant production files contain the claimed policy/lifecycle fixes; their 11 focused suites passed 73 tests. |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 | --- | --- | --- | --- | --- |
-| Live GitHub thread IDs | Inventory claims | Stable thread/comment IDs and reply links | ✓ WIRED | 16 live thread IDs map to 21 inventory claims; all 21 rows are resolved and reference the corresponding 16 replies. |
+| Live GitHub review surfaces | Inventory claims | Stable thread/comment IDs and reply links | ✓ WIRED | 16 live thread IDs map to C01–C21; the general comment maps to C22–C26 and the itemized evidence reply. |
 | Supporting commits | Live replies and resolutions | Reply cites commit/regression; commit is an ancestor of pushed head | ✓ WIRED | Every thread has one reviewer comment and one author evidence reply; cited commits are ancestors of the PR head, which equals the remote branch head. |
-| PR head | CI and Changeset Guard runs | `head_sha` equality | ✓ WIRED | Both completed-success runs report `0c1afc14e23def27821532963a336230c889d636`. |
+| PR source head | CI and Changeset Guard runs | `head_sha` equality | ✓ WIRED | Both completed-success runs report `62580e11fbf8d6e486ba59a85f3ea859d9a1bb12`. |
 
 ### Data-Flow Trace (Level 4)
 
@@ -67,7 +66,7 @@ re_verification:
 | Behavior | Command | Result | Status |
 | --- | --- | --- | --- |
 | Review-fix regression coverage | `pnpm exec vitest run` on 11 implicated Paja/services test files | 11 files, 73 tests passed | ✓ PASS |
-| Browser E2E coverage for independently forbidden domains | Exact-head GitHub CI run `30900620514` | Playwright job completed successfully for `0c1afc1` | ✓ PASS |
+| Browser E2E coverage | Exact-head GitHub CI run `30904927876` | Playwright job completed successfully for `62580e1` | ✓ PASS |
 | PR remote reconciliation | GitHub GraphQL `reviewThreads(first:100)` and commit check-runs query | 16 total threads, 0 unresolved; 6/6 completed-success check runs | ✓ PASS |
 
 ### Requirements Coverage
