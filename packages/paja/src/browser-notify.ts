@@ -125,10 +125,10 @@ export function createPajaNotifyController(
   const present = async (presentation: NotifyPresentation): Promise<void> => {
     if (disposed) throw new Error('notification center unavailable');
     const { windowId, notificationId, message, emit } = presentation;
-    if (!await requestPermission(windowId, message.channel)) throw new Error('permission denied');
-    if (message.channel && !channels.get(windowId)?.has(message.channel)) {
+    if (message.channel !== undefined && !channels.get(windowId)?.has(message.channel)) {
       throw new Error('invalid channel');
     }
+    if (!await requestPermission(windowId, message.channel)) throw new Error('permission denied');
 
     const article = document.createElement('article');
     article.className = 'paja-notification';
