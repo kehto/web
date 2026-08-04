@@ -203,13 +203,17 @@ function validateAnnotations(schema: Record<string, unknown>, path: string): Con
 
 function validateDefault(schema: Record<string, unknown>, path: string): ConfigSchemaValidation {
   if (!Object.hasOwn(schema, 'default')) return { ok: true };
-  if (!configValuesConform(schema, schema.default)) {
+  if (!configValueConforms(schema, schema.default, path === '$')) {
     return { ok: false, code: 'invalid-schema', error: `${path}.default does not validate against its schema` };
   }
   return { ok: true };
 }
 
 export function configValuesConform(schema: Record<string, unknown>, value: unknown): boolean {
+  return configValueConforms(schema, value, true);
+}
+
+function configValueConforms(schema: Record<string, unknown>, value: unknown, topLevel: boolean): boolean {
   if (Array.isArray(schema.enum) && !schema.enum.some((item) => Object.is(item, value))) return false;
   if (schema.type === 'string') {
     return typeof value === 'string' && withinLength(value.length, schema.minLength, schema.maxLength);
@@ -225,21 +229,27 @@ export function configValuesConform(schema: Record<string, unknown>, value: unkn
     return Array.isArray(value)
       && isRecord(schema.items)
       && withinLength(value.length, schema.minItems, schema.maxItems)
-      && value.every((item) => configValuesConform(schema.items as Record<string, unknown>, item));
+      && value.every((item) => configValueConforms(schema.items as Record<string, unknown>, item, false));
   }
   if (schema.type === 'object') {
     if (!isRecord(value)) return false;
     const properties = isRecord(schema.properties) ? schema.properties : {};
-    if (Object.keys(value).some((key) => !Object.hasOwn(properties, key))) return false;
     if (Array.isArray(schema.required) && schema.required.some((key) => typeof key === 'string' && !Object.hasOwn(value, key))) {
       return false;
     }
     return Object.entries(value).every(([key, child]) => {
       const childSchema = properties[key];
-      return isRecord(childSchema) && configValuesConform(childSchema, child);
+      return isRecord(childSchema)
+        ? configValueConforms(childSchema, child, false)
+        : allowsAdditionalProperties(schema, topLevel) && cloneJsonConfigValue(child) !== undefined;
     });
   }
   return false;
+}
+
+function allowsAdditionalProperties(schema: Record<string, unknown>, topLevel: boolean): boolean {
+  return schema.additionalProperties === true
+    || (!topLevel && schema.additionalProperties === undefined);
 }
 
 function isPrimitiveForType(value: unknown, type: string): boolean {
@@ -260,13 +270,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /** Apply schema defaults and drop values that do not validate. */
 export function resolveConfigValues(schema: NappletConfigSchema, values: ConfigValues): ConfigValues {
-  return resolveObjectValues(schema as Record<string, unknown>, isRecord(values) ? values : {}, {}) as ConfigValues;
+  return resolveObjectValues(schema as Record<string, unknown>, isRecord(values) ? values : {}, {}, true) as ConfigValues;
 }
 
 function resolveObjectValues(
   schema: Record<string, unknown>,
   input: Record<string, unknown>,
   inheritedDefault: Record<string, unknown>,
+  topLevel: boolean,
 ): Record<string, unknown> {
   const output: Record<string, unknown> = {};
   const ownDefault = isRecord(schema.default) ? schema.default : {};
@@ -275,7 +286,15 @@ function resolveObjectValues(
     if (!isRecord(childValue)) continue;
     const candidate = Object.hasOwn(input, key) ? input[key] : defaults[key];
     const resolved = resolveConfigValue(childValue, candidate);
-    if (resolved !== undefined) output[key] = resolved;
+    if (resolved !== undefined) setConfigValue(output, key, resolved);
+  }
+  if (allowsAdditionalProperties(schema, topLevel)) {
+    const properties = isRecord(schema.properties) ? schema.properties : {};
+    for (const [key, candidate] of Object.entries({ ...defaults, ...input })) {
+      if (Object.hasOwn(properties, key)) continue;
+      const resolved = cloneJsonConfigValue(candidate);
+      if (resolved !== undefined) setConfigValue(output, key, resolved);
+    }
   }
   return output;
 }
@@ -295,7 +314,7 @@ function resolveTypedConfigValue(schema: Record<string, unknown>, value: unknown
   switch (schema.type) {
     case 'object': {
       if (!isRecord(value)) return undefined;
-      const resolved = resolveObjectValues(schema, value, {});
+      const resolved = resolveObjectValues(schema, value, {}, false);
       return Array.isArray(schema.required)
         && schema.required.some((key) => typeof key === 'string' && !Object.hasOwn(resolved, key))
         ? undefined
@@ -317,8 +336,32 @@ function resolveTypedConfigValue(schema: Record<string, unknown>, value: unknown
   }
 }
 
+function cloneJsonConfigValue(value: unknown, seen = new Set<object>()): unknown {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+  if (typeof value !== 'object' || seen.has(value)) return undefined;
+  seen.add(value);
+  try {
+    if (Array.isArray(value)) {
+      const output = value.map((item) => cloneJsonConfigValue(item, seen));
+      return output.some((item) => item === undefined) ? undefined : output;
+    }
+    const entries: Array<[string, unknown]> = [];
+    for (const [key, child] of Object.entries(value)) {
+      const resolved = cloneJsonConfigValue(child, seen);
+      if (resolved === undefined) return undefined;
+      entries.push([key, resolved]);
+    }
+    return Object.fromEntries(entries);
+  } finally {
+    seen.delete(value);
+  }
+}
+
+function setConfigValue(output: Record<string, unknown>, key: string, value: unknown): void {
+  Object.defineProperty(output, key, { value, enumerable: true, configurable: true, writable: true });
+}
+
 function withinLength(value: number, minimum: unknown, maximum: unknown): boolean {
   return (typeof minimum !== 'number' || value >= minimum) && (typeof maximum !== 'number' || value <= maximum);
 }
-
-

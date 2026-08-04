@@ -110,6 +110,25 @@ describe('NAP-CONFIG schema boundary', () => {
       nested: { enabled: true, label: 'also kept' },
     });
   });
+
+  it('defaults only the top-level object to closed additional properties', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        nested: {
+          type: 'object',
+          properties: { enabled: { type: 'boolean' } },
+        },
+      },
+    } as NappletConfigSchema;
+
+    expect(resolveConfigValues(schema, {
+      orphan: 'drop at the NAP-CONFIG boundary',
+      nested: { enabled: true, extension: 'keep under JSON Schema defaults' },
+    })).toEqual({
+      nested: { enabled: true, extension: 'keep under JSON Schema defaults' },
+    });
+  });
 });
 
 describe('createConfigService', () => {

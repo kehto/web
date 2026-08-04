@@ -449,7 +449,6 @@ export async function createPajaBrowserFsBackend(options: PajaBrowserFsOptions):
           }
           const fileAfter = await handle.getFile();
           emitMutation({ path: parent.parsed.path, kind: existing ? 'modified' : 'created' });
-          existing = handle;
           return { bytesWritten: bytes.byteLength, size: fileAfter.size };
         } catch (error) {
           throw errorFromBrowser(error);
