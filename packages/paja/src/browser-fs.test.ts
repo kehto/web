@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { FsServiceError, type FsBackend } from '@kehto/services';
 
 import { createPajaBrowserFsBackend } from './browser-fs.js';
+import { base64Bytes, MAX_WRITE_BYTES, revision } from './browser-fs-support.js';
 
 abstract class MemoryHandle {
   abstract readonly kind: 'file' | 'directory';
@@ -123,6 +124,25 @@ function code(error: unknown): string | undefined {
 }
 
 describe('createPajaBrowserFsBackend', () => {
+  it('rejects oversized encoded writes before base64 decoding', () => {
+    const encodedLength = Math.ceil((MAX_WRITE_BYTES + 1) / 3) * 4;
+    const encoded = `${'A'.repeat(encodedLength - 1)}=`;
+    const decode = vi.spyOn(globalThis, 'atob');
+
+    expect(() => base64Bytes(encoded)).toThrow(expect.objectContaining({ code: 'too-large' }));
+    expect(decode).not.toHaveBeenCalled();
+
+    decode.mockRestore();
+  });
+
+  it('rejects oversized revision candidates before reading file bytes', async () => {
+    const arrayBuffer = vi.fn<() => Promise<ArrayBuffer>>();
+    const file = { size: 16 * 1024 * 1024 + 1, lastModified: 0, arrayBuffer, slice: vi.fn() };
+
+    await expect(revision(file)).rejects.toSatisfy((error: unknown) => code(error) === 'too-large');
+    expect(arrayBuffer).not.toHaveBeenCalled();
+  });
+
   it('persists real bytes in an identity-scoped OPFS workspace with revisions and ranges', async () => {
     const root = new MemoryDirectory('root');
     const first = await backend(root);
