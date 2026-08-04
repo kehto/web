@@ -79,7 +79,7 @@ export interface FsService extends ServiceHandler {
 
 interface OwnedWatch {
   readonly windowId: string;
-  readonly handle: FsBackendWatch;
+  handle?: FsBackendWatch;
 }
 
 const FS_DESCRIPTOR: ServiceDescriptor = {
@@ -105,12 +105,12 @@ export function createFsService(options: FsServiceOptions): FsService {
   const watches = new Map<string, OwnedWatch>();
   const watchesByWindow = new Map<string, Set<string>>();
 
-  function ownWatch(windowId: string, watchId: string, handle: FsBackendWatch): void {
-    watches.set(watchId, { windowId, handle });
-    let ids = watchesByWindow.get(windowId);
+  function ownWatch(watchId: string, owned: OwnedWatch): void {
+    watches.set(watchId, owned);
+    let ids = watchesByWindow.get(owned.windowId);
     if (!ids) {
       ids = new Set();
-      watchesByWindow.set(windowId, ids);
+      watchesByWindow.set(owned.windowId, ids);
     }
     ids.add(watchId);
   }
@@ -145,7 +145,7 @@ export function createFsService(options: FsServiceOptions): FsService {
   function closeWindowWatches(windowId: string): void {
     for (const watchId of watchesByWindow.get(windowId) ?? []) {
       const owned = forgetWatch(watchId);
-      if (owned) void Promise.resolve(owned.handle.close()).catch(() => undefined);
+      if (owned?.handle) void Promise.resolve(owned.handle.close()).catch(() => undefined);
     }
   }
 
@@ -195,16 +195,22 @@ export function createFsService(options: FsServiceOptions): FsService {
         case 'fs.watch': {
           const watchId = `fs-watch-${++watchCounter}`;
           result(send, 'fs.watch.result', id, async () => {
+            const owned: OwnedWatch = { windowId };
+            ownWatch(watchId, owned);
             const handle = await options.backend.watch(
               windowId,
               input.path as string,
               input.options as FsWatchOptions | undefined,
               (change) => {
-                if (watches.get(watchId)?.windowId !== windowId) return;
+                if (watches.get(watchId) !== owned || owned.handle === undefined) return;
                 send({ type: 'fs.changed', change: { ...change, watchId } } as NappletMessage);
               },
             );
-            ownWatch(windowId, watchId, handle);
+            if (watches.get(watchId) !== owned) {
+              await Promise.resolve(handle.close()).catch(() => undefined);
+              throw new FsServiceError('cancelled');
+            }
+            owned.handle = handle;
             return watchId;
           }, 'watchId');
           return;
@@ -217,7 +223,7 @@ export function createFsService(options: FsServiceOptions): FsService {
             return;
           }
           const forgotten = forgetWatch(watchId);
-          result(send, 'fs.unwatch.result', id, () => forgotten?.handle.close());
+          result(send, 'fs.unwatch.result', id, () => forgotten?.handle?.close());
           return;
         }
         default:
