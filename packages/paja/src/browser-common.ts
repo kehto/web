@@ -17,6 +17,7 @@ import {
   PAJA_LIVE_QUERY_WAIT_MS,
   type PajaRelayBackend,
 } from './browser-relay-runtime.js';
+import { isPajaRelayAllowed } from './browser-relay-policy.js';
 
 const HEX_64 = /^[0-9a-f]{64}$/i;
 const SHORTCODE = /^:[a-zA-Z0-9_+-]+:$/;
@@ -69,7 +70,10 @@ function profileTarget(target: string, defaults: string[]): ProfileTarget | null
     if (decoded.type === 'nprofile') {
       return {
         pubkey: decoded.data.pubkey.toLowerCase(),
-        relays: relayUrls([...(decoded.data.relays ?? []), ...defaults]),
+        relays: relayUrls([
+          ...(decoded.data.relays ?? []).filter((relay) => isPajaRelayAllowed(relay, () => defaults)),
+          ...defaults,
+        ]),
       };
     }
   } catch {
