@@ -119,6 +119,19 @@ describe('createPajaCommonBackend', () => {
     expect(published[1].tags).toContainEqual(['alt', 'contacts']);
   });
 
+  it('accepts canonical hex pubkeys for follow and unfollow', async () => {
+    const owner = signer();
+    const target = getPublicKey(generateSecretKey());
+    const { backend, published } = relayBackend();
+    const common = createPajaCommonBackend({ relay: backend, getRelays: () => RELAYS, getSigner: () => owner });
+
+    await expect(common.follow([target])).resolves.toMatchObject({ ok: true });
+    expect(published[0]?.tags).toContainEqual(['p', target]);
+
+    await expect(common.unfollow([target])).resolves.toMatchObject({ ok: true });
+    expect(published[1]?.tags).not.toContainEqual(['p', target]);
+  });
+
   it('resolves a native event and publishes a NIP-25 custom emoji reaction', async () => {
     const targetKey = generateSecretKey();
     const target = signedEvent(targetKey, { kind: 1, created_at: 10, tags: [], content: 'hello' });
