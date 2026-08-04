@@ -213,4 +213,62 @@ describe('createBrowserBleController', () => {
     ]);
     expect(server.disconnect).toHaveBeenCalledOnce();
   });
+
+  it('releases a failed notification unsubscribe before reporting its platform error', async () => {
+    const { activation } = activationLog();
+    const stopped = new Error('stop notifications failed');
+    class FakeCharacteristic extends EventTarget {
+      readonly uuid = 'characteristic-a';
+      readonly properties = { notify: true };
+      value: DataView | null = null;
+      readonly startNotifications = vi.fn(async () => this);
+      readonly stopNotifications = vi.fn(async () => { throw stopped; });
+      async readValue() {
+        return new DataView(new ArrayBuffer(0));
+      }
+      async writeValueWithResponse() {}
+      async writeValueWithoutResponse() {}
+      async getDescriptor(): Promise<never> {
+        throw new Error('descriptor not configured');
+      }
+    }
+    const characteristic = new FakeCharacteristic();
+    const service = {
+      uuid: 'service-a',
+      getCharacteristics: vi.fn(async () => [characteristic]),
+      getCharacteristic: vi.fn(async () => characteristic),
+    };
+    const server = {
+      connected: true,
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      getPrimaryServices: vi.fn(async () => [service]),
+      getPrimaryService: vi.fn(async () => service),
+    };
+    server.connect.mockImplementation(async () => server);
+    class FakeDevice extends EventTarget {
+      readonly id = 'browser-stable-id';
+      readonly gatt = server;
+    }
+    const controller = createBrowserBleController(activation, {
+      requestDevice: vi.fn(async () => new FakeDevice()),
+    });
+    const events: BleEvent[] = [];
+    const { session } = await controller!.open!(
+      { filters: [{ services: ['service-a'] }] },
+      { windowId: 'window-b', emit: (event) => events.push(event) },
+    );
+    const target = { service: 'service-a', characteristic: 'characteristic-a' };
+    await controller!.subscribe!(session.id, target, { windowId: 'window-b', emit: () => {} });
+
+    await expect(controller!.unsubscribe!(session.id, target, { windowId: 'window-b', emit: () => {} }))
+      .rejects.toBe(stopped);
+    characteristic.value = new DataView(Uint8Array.from([1]).buffer);
+    characteristic.dispatchEvent(new Event('characteristicvaluechanged'));
+    await expect(controller!.unsubscribe!(session.id, target, { windowId: 'window-b', emit: () => {} }))
+      .resolves.toBeUndefined();
+
+    expect(events).toEqual([{ type: 'state', sessionId: session.id, state: 'open' }]);
+    expect(characteristic.stopNotifications).toHaveBeenCalledOnce();
+  });
 });
