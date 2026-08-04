@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { FsServiceError, type FsBackend } from '@kehto/services';
+import { FsServiceError, type FsBackend, type FsBackendWatch } from '@kehto/services';
 
 import { createPajaBrowserFsBackend } from './browser-fs.js';
 import { base64Bytes, MAX_WRITE_BYTES, revision } from './browser-fs-support.js';
@@ -119,6 +119,14 @@ async function backend(
   return result;
 }
 
+async function waitFor(predicate: () => boolean): Promise<void> {
+  for (let attempts = 0; attempts < 20; attempts += 1) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  throw new Error('timed out');
+}
+
 function code(error: unknown): string | undefined {
   return error instanceof FsServiceError ? error.code : undefined;
 }
@@ -219,6 +227,38 @@ describe('createPajaBrowserFsBackend', () => {
       { path: '/workspace/projects', kind: 'deleted' },
     ]));
     await watch.close();
+  });
+
+  it('does not register a browser watch after its window is destroyed during path resolution', async () => {
+    const root = new MemoryDirectory('root');
+    const fs = await backend(root);
+    const getDirectoryHandle = root.getDirectoryHandle.bind(root);
+    let releaseResolution: (() => void) | undefined;
+    let delayed = true;
+    root.getDirectoryHandle = async (name, options) => {
+      if (delayed) {
+        delayed = false;
+        await new Promise<void>((resolve) => { releaseResolution = resolve; });
+      }
+      return getDirectoryHandle(name, options);
+    };
+    const interval = vi.spyOn(globalThis, 'setInterval');
+    let watch: FsBackendWatch | undefined;
+    let error: unknown;
+
+    const pending = fs.watch('window-a', '/workspace', undefined, () => undefined)
+      .then((handle) => { watch = handle; })
+      .catch((reason: unknown) => { error = reason; });
+    await waitFor(() => releaseResolution !== undefined);
+    fs.onWindowDestroyed?.('window-a');
+    releaseResolution?.();
+    await pending;
+    await watch?.close();
+    interval.mockRestore();
+
+    expect(code(error)).toBe('cancelled');
+    expect(watch).toBeUndefined();
+    expect(interval).not.toHaveBeenCalled();
   });
 
   it('maps browser picker handles to session-only virtual paths through host activation', async () => {
