@@ -288,7 +288,8 @@ class ConfigServiceController implements ConfigService {
     message: ConfigGetMessage,
     send: (message: NappletMessage) => void,
   ): void {
-    const values = this.getValues(windowId);
+    const values = this.readValues(windowId, send);
+    if (values === undefined) return;
     if (!values) {
       this.sendValuesUnavailable(send, windowId);
       return;
@@ -306,12 +307,13 @@ class ConfigServiceController implements ConfigService {
     send: (message: NappletMessage) => void,
   ): void {
     this.subscribers.set(windowId, send);
-    const values = this.getValues(windowId);
-    if (values) {
-      send({ type: 'config.values', values } as NappletMessage);
-    } else {
+    const values = this.readValues(windowId, send);
+    if (values === undefined) return;
+    if (!values) {
       this.sendValuesUnavailable(send, windowId);
+      return;
     }
+    send({ type: 'config.values', values } as NappletMessage);
     this.options.onSubscribe?.(windowId);
   }
 
@@ -393,7 +395,17 @@ class ConfigServiceController implements ConfigService {
       sendSchemaError(send, 'no-schema', 'no configuration schema is registered');
       return;
     }
-    const values = resolveConfigValues(record.schema, this.options.getValues(windowId));
+    let values: ConfigValues;
+    try {
+      values = resolveConfigValues(record.schema, this.options.getValues(windowId));
+    } catch (cause) {
+      sendSchemaError(
+        send,
+        'invalid-schema',
+        cause instanceof Error ? cause.message : 'host configuration read failed',
+      );
+      return;
+    }
     const section = message.section && schemaHasSection(record.schema, message.section)
       ? message.section
       : undefined;
@@ -426,6 +438,22 @@ class ConfigServiceController implements ConfigService {
       send({ type: 'config.values', values } as NappletMessage);
     } catch {
       this.subscribers.delete(windowId);
+    }
+  }
+
+  private readValues(
+    windowId: string,
+    send: (message: NappletMessage) => void,
+  ): ConfigValues | null | undefined {
+    try {
+      return this.getValues(windowId);
+    } catch (cause) {
+      sendSchemaError(
+        send,
+        'invalid-schema',
+        cause instanceof Error ? cause.message : 'host configuration read failed',
+      );
+      return undefined;
     }
   }
 
