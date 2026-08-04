@@ -33,7 +33,7 @@ the production Paja `shell.init` environment.
 | `config` | implemented on branch | The service recursively enforces the bounded Core Subset, rejects unsupported constraints/defaults/depth, resolves defaults, drops orphans, isolates live schemas/subscriptions, and fails closed before schema registration. Paja persists post-validation snapshots by host-resolved `(dTag, aggregateHash)`, renders a shell-owned settings dialog with masked secret inputs, publishes only committed values, cleans window UI state, redacts all `config.values` from its message log, and omits the domain if durable storage or the UI boundary is unavailable. Checked against draft `448013e6d8cb8c75dce49576b3e7c0d46d960eac`. |
 | `resource` | implemented data scheme on branch | Paja now exposes a real, no-network `data:` backend with per-window identity, exact `null`-origin grants, decoded-byte MIME classification, raw SVG/HTML rejection, 10 MiB and 100-URL limits, window-scoped cancellation, and current wire-only results. Network schemes return `unsupported-scheme` until a redirect/DNS-safe host proxy exists. |
 | `cvm` | implemented on branch | Paja now registers the real CEP-4/NIP-44 encrypted MCP-over-Nostr transport only with a live relay boundary. Publications use Paja relay policy; inbound wraps and inner events are signature-checked and correlated only to the expected server; window destruction closes orphaned sessions. |
-| `upload` | implemented Blossom on branch | Only the real consent-gated, signer-authorized Blossom backend can register or advertise upload. The memory fixture no longer creates a service, upload hook, capability, or `kehto-dev://` success. |
+| `upload` | implemented Blossom on branch | Only the real consent-gated, signer-authorized Blossom backend can register or advertise upload. The memory fixture no longer creates a service, upload hook, capability, or `kehto-dev://` success. Checked against NAP-UPLOAD draft `a7cc17463cbf5d9cb87884b31071bc4fc826034c`. |
 | `intent` | implemented with real host controller | Installed verified catalog, resolved runtime tabs, readiness, generation-safe reuse, authorization, and source-independent delivery exist. The former default no-op target controller is removed; no host controller means no service or capability. |
 | `count` | implemented live on branch | Sends NIP-45 `COUNT` to the first accepting configured relay with bounded fallback, preserves multi-filter OR semantics, discloses the relay actually used, and never downloads matching event payloads. Broad empty filters and memory relay mode fail closed. |
 | `dm` | implemented live on branch | Paja registers NAP-DM only for its real Dev signer plus live relay transport. The service creates and verifies NIP-17 gift wraps, queries durable relay history before returning conversations/messages, publishes only after recipient/plaintext consent, orders subscription results before pushes, scopes subscriptions per window, and rejects forged wraps. Memory relay mode and non-NIP-17-capable signers do not advertise the domain. Checked against NAP-DM draft `a0a48588b3c9caca9540cccec19635b85231a00f`. |
@@ -42,13 +42,49 @@ the production Paja `shell.init` environment.
 ## Exact specification authorities refreshed 2026-08-02
 
 The implementation must recheck each ref immediately before changing its domain.
-Current authorities include merged `origin/master@5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`
-for merged active documents and these exact draft heads: RELAY `0be8abce`, OUTBOX
-`4589a8f9`, STORAGE `f71e84eb`, KEYS `cecb6425`, CONFIG `448013e6`, RESOURCE
-`fa6bcc69`, NOTIFY `e14f5c9d`, MEDIA `2b2d29e9`, UPLOAD `a7cc1746`, INTENT
-`a718915d`, COUNT `c7447f7e`, LINK `e2514335`, COMMON `de603e20`, LISTS
-`72fddac5`, SERIAL `a3891d4b`, BLE `e14de22a`, WEBRTC `5fae95dd`, CVM
-`ad68a938`, INC `c5cd06f7`, DM `a0a48588`, and FS `b640cf33`.
+The recorded merged authority is
+`origin/master@5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`; the exact draft heads are
+RELAY `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`, OUTBOX
+`4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e`, STORAGE
+`f71e84ebca7474db260346cbfc2d88f41b4e421e`, KEYS
+`cecb64257e0ac29926bb746832a477c553ab307c`, CONFIG
+`448013e6d8cb8c75dce49576b3e7c0d46d960eac`, RESOURCE
+`fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1`, NOTIFY
+`e14f5c9d6a6dd2a69ccf79668c4a3c1e955e1ac9`, MEDIA
+`2b2d29e90c30b994bf5035a65b57e5fe7f08a9a2`, UPLOAD
+`a7cc17463cbf5d9cb87884b31071bc4fc826034c`, INTENT
+`a718915ddefa2f03a0126579601f59d8bd86f7c4`, COUNT
+`c7447f7e3e33e08dad0448851f750044ef75965f`, LINK
+`e25143355f6d416bfce73b12ec814f1c795ec16a`, COMMON
+`de603e205a9b498f252be9a5e8e6825c4648df39`, LISTS
+`72fddac5def8f9bcbedd01dd942c530d89e335e0`, SERIAL
+`a3891d4bab8ec9418a1ebacba9e261b89b7297ee`, BLE
+`e14de22a794d24c2431834105d50efd0bd89d459`, WEBRTC
+`5fae95dd2c8e59bd06c654e0845656add077dcda`, CVM
+`ad68a938236e9230324e377cd005008a315ff402`, INC
+`c5cd06f7be6d4690b303949abb26e87ff62f4729`, DM
+`a0a48588b3c9caca9540cccec19635b85231a00f`, and FS
+`b640cf337c0481f0f9a0216c00843f797a5c6df6`. NIP-5D namespace, transport,
+lifecycle identity, rejection, and security rules were checked at
+`eb45dfd7335b7f88cb53781984c553581d2b4c34`.
+
+These immutable documents were fetched and read in full again on 2026-08-04.
+Their API and wire-direction tables, request/result and error shapes, runtime or
+shell lifecycle obligations, and security sections remain consistent with the
+domain classifications above. In particular, DM coverage includes correlated
+requests, id-less `dm.message` pushes, scoped subscription cleanup, and
+runtime-owned keys/relay state; FS coverage includes canonical base64 bytes,
+`invalid-data`/`too-large` handling, scoped watch cleanup, and bounded byte work.
+
+## Release metadata coverage
+
+Compared with `origin/main`, shipped source changes are confined to
+`@kehto/paja`, `@kehto/services`, `@kehto/acl`, `@kehto/runtime`, and
+`@kehto/shell`. `.changeset/bright-paja-dialogs.md` already assigns a minor bump
+to all five and describes the real NAP adapters, NIP-17 DM, OPFS filesystem,
+consent, and fail-closed host boundaries. Application, test-only, documentation,
+and planning changes do not require another package bump, so no redundant
+changeset is needed.
 
 ## Execution sequence
 
