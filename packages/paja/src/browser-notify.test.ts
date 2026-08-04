@@ -161,4 +161,29 @@ describe('createPajaNotifyController', () => {
     expect(confirm).not.toHaveBeenCalled();
     expect(document.center.children).toHaveLength(0);
   });
+
+  it('rejects an unregistered channel before requesting notification permission', async () => {
+    const document = new FakeDocument();
+    const confirm = vi.fn(async () => true);
+    const controller = createPajaNotifyController({
+      confirm,
+      isEnabled: () => true,
+      document: document as unknown as Document,
+    })!;
+
+    await expect(controller.serviceOptions.present?.({
+      windowId: 'window-1',
+      notificationId: 'notification-1',
+      message: {
+        type: 'notify.send',
+        id: 'request-1',
+        title: 'Unknown channel',
+        channel: 'unregistered',
+      },
+      emit: () => {},
+    })).rejects.toThrow('invalid channel');
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(document.center.children).toHaveLength(0);
+  });
 });
