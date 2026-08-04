@@ -63,15 +63,21 @@ export function createPajaConfigController(
   let bindings: ConfigFieldBinding[] = [];
   let disposed = false;
 
-  const close = (): void => {
+  const settle = (): void => {
+    if (!active) return;
     active = null;
     bindings = [];
     fields.replaceChildren();
     error.textContent = '';
+  };
+
+  const close = (): void => {
+    settle();
     if (dialog.open) dialog.close();
   };
 
   const onCancel = (): void => close();
+  const onDialogExit = (): void => settle();
   const onSave = (): void => {
     if (!active || disposed) return;
     try {
@@ -88,6 +94,8 @@ export function createPajaConfigController(
   };
   cancel.addEventListener('click', onCancel);
   save.addEventListener('click', onSave);
+  dialog.addEventListener('cancel', onDialogExit);
+  dialog.addEventListener('close', onDialogExit);
 
   const getValues = (windowId: string): ConfigValues => {
     try {
@@ -110,6 +118,7 @@ export function createPajaConfigController(
     context: ConfigSettingsContext,
   ): void => {
     if (disposed) return;
+    close();
     active = { windowId, context };
     bindings = [];
     fields.replaceChildren();
@@ -132,7 +141,6 @@ export function createPajaConfigController(
       empty.textContent = section ? `No editable settings in section “${section}”.` : 'No editable settings.';
       fields.append(empty);
     }
-    if (dialog.open) dialog.close();
     dialog.showModal();
   };
 
@@ -150,6 +158,8 @@ export function createPajaConfigController(
       disposed = true;
       cancel.removeEventListener('click', onCancel);
       save.removeEventListener('click', onSave);
+      dialog.removeEventListener('cancel', onDialogExit);
+      dialog.removeEventListener('close', onDialogExit);
       close();
     },
   };
