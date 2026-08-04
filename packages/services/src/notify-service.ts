@@ -129,14 +129,20 @@ export function createNotifyService(options: NotifyServiceOptions = {}): Service
     const windowNotifications = active.get(windowId) ?? new Set<string>();
     windowNotifications.add(notificationId);
     active.set(windowId, windowNotifications);
+    const ownsWindow = (): boolean => active.get(windowId) === windowNotifications;
+    const ownsNotification = (): boolean => ownsWindow() && windowNotifications.has(notificationId);
     const emit = (interaction: NotifyInteractionMessage): void => {
-      if (!windowNotifications.has(notificationId)) return;
+      if (!ownsNotification()) return;
       if (interaction.type === 'notify.dismissed') windowNotifications.delete(notificationId);
       send(interaction as NappletMessage);
     };
 
     try {
       await options.present({ windowId, notificationId, message, emit });
+      if (!ownsWindow()) {
+        if (options.dismiss) forget(options.dismiss(windowId, notificationId), options.onError);
+        return;
+      }
       const result: NotifySendResultMessage = {
         type: 'notify.send.result',
         id: message.id,
@@ -144,6 +150,7 @@ export function createNotifyService(options: NotifyServiceOptions = {}): Service
       };
       send(result as NappletMessage);
     } catch (error) {
+      if (!ownsWindow()) return;
       windowNotifications.delete(notificationId);
       if (windowNotifications.size === 0) active.delete(windowId);
       const result: NotifySendResultMessage = {
