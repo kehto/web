@@ -246,7 +246,7 @@ describe('createPajaBrowserFsBackend', () => {
     let watch: FsBackendWatch | undefined;
     let error: unknown;
 
-    const pending = fs.watch('window-a', '/workspace', undefined, () => undefined)
+    const pending = Promise.resolve(fs.watch('window-a', '/workspace', undefined, () => undefined))
       .then((handle) => { watch = handle; })
       .catch((reason: unknown) => { error = reason; });
     await waitFor(() => releaseResolution !== undefined);
