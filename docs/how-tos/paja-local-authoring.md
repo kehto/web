@@ -71,7 +71,16 @@ The published `@napplet/shim@0.29.2` remains non-shell. Paja therefore retains
 Kehto's host-owned mandatory `window.napplet.shell` prelude, installed before
 one bare `shell.ready`; its first `shell.init` is cached for local `ready()`,
 `supports()`, read-only `services`, and one-shot `onReady()`. `shell` is not a
-manifest-optional toggle, and Paja does not advertise NAP-DM behavior.
+manifest-optional toggle. Optional `dm` follows NIP-5D's truthful-presence rule:
+Paja advertises it only while the **Dev** signer is selected, relay mode is
+`live`, the relay backend is available, and the DM interface toggle is enabled.
+In that state Paja routes NAP-DM through its runtime-owned NIP-17 adapter for
+history, consent-gated send, and live subscriptions; memory relay mode and
+NIP-07/NIP-46/fixed-identity modes do not advertise `dm`. See the immutable
+[NIP-5D authority at
+`eb45dfd7335b7f88cb53781984c553581d2b4c34`](https://github.com/nostr-protocol/nips/blob/eb45dfd7335b7f88cb53781984c553581d2b4c34/5D.md)
+and [NAP-DM at
+`a0a48588b3c9caca9540cccec19635b85231a00f`](https://github.com/napplet/naps/blob/a0a48588b3c9caca9540cccec19635b85231a00f/naps/NAP-DM.md).
 
 ## Allow the Sandboxed Frame's Origin
 
