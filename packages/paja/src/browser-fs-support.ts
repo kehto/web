@@ -5,6 +5,8 @@ import { FsServiceError, type FsBackendChange } from '@kehto/services';
 
 export const MAX_READ_BYTES = 1024 * 1024;
 export const MAX_WRITE_BYTES = 1024 * 1024;
+/** Maximum file size eligible for an in-memory revision digest. */
+export const MAX_REVISION_BYTES = 16 * 1024 * 1024;
 export const MAX_WATCH_COUNT = 16;
 export const WATCH_INTERVAL_MS = 1_000;
 export const WORKSPACE_PERMISSIONS: FsPermission[] = ['read', 'write', 'create', 'delete', 'list', 'watch'];
@@ -178,12 +180,15 @@ export function safePickedName(name: string): string {
 
 export function base64Bytes(value: unknown): Uint8Array<ArrayBuffer> {
   if (typeof value !== 'string' || !CANONICAL_BASE64.test(value)) throw new FsServiceError('invalid-data');
+  const paddingBytes = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0;
+  const decodedLength = (value.length / 4) * 3 - paddingBytes;
+  if (decodedLength > MAX_WRITE_BYTES) throw new FsServiceError('too-large');
   try {
     const binary = atob(value);
     const bytes = new Uint8Array(binary.length);
     for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
-    if (bytes.byteLength > MAX_WRITE_BYTES || encodeBase64(bytes) !== value) {
-      throw new FsServiceError(bytes.byteLength > MAX_WRITE_BYTES ? 'too-large' : 'invalid-data');
+    if (encodeBase64(bytes) !== value) {
+      throw new FsServiceError('invalid-data');
     }
     return bytes;
   } catch (error) {
@@ -212,6 +217,7 @@ export function validateRange(options: FsReadOptions | undefined): { offset: num
 }
 
 export async function revision(file: BrowserFile): Promise<string> {
+  if (file.size > MAX_REVISION_BYTES) throw new FsServiceError('too-large');
   const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
   return `sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
 }
