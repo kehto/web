@@ -221,6 +221,29 @@ describe('createNip17DmAdapter', () => {
     expect(bob.unsubscribe(sub.subscriptionId)).toEqual({ ok: true });
   });
 
+  it('delivers a relay message emitted synchronously while NIP-17 subscription setup returns', async () => {
+    const relay = createRelay();
+    const aliceSk = generateSecretKey();
+    const bobSk = generateSecretKey();
+    const alice = createNip17DmAdapter({ ownerSecretKey: aliceSk, relayPool: relay });
+    const bob = createNip17DmAdapter({ ownerSecretKey: bobSk, relayPool: relay });
+    await alice.send({ recipients: [getPublicKey(bobSk)], content: 'synchronous first message' });
+    const subscribe = relay.subscribe.bind(relay);
+    relay.subscribe = (filters, callback, relayUrls) => {
+      const handle = subscribe(filters, callback, relayUrls);
+      for (const event of relay.published) {
+        if (filters.some((filter) => matches(event, filter))) callback(event);
+      }
+      return handle;
+    };
+    const received: string[] = [];
+
+    const sub = await bob.subscribe({}, (message) => received.push(message.content));
+
+    expect(received).toEqual(['synchronous first message']);
+    expect(bob.unsubscribe(sub.subscriptionId)).toEqual({ ok: true });
+  });
+
   it('hydrates encrypted relay history into a fresh adapter instance', async () => {
     const relay = createRelay();
     const aliceSk = generateSecretKey();
