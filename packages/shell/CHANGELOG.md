@@ -1,5 +1,23 @@
 # @kehto/shell
 
+## 0.20.0
+
+### Minor Changes
+
+- d237979: Complete Paja's advertised NAP adapters with real host backends, including
+  NIP-17 direct messages over live relays and an identity-scoped OPFS filesystem.
+  Replace native confirmation prompts with serialized in-page consent and make
+  notification, device, DM, and filesystem services fail closed when their host
+  boundary is unavailable. NAP-DM error results now use the draft's exclusive
+  error branch and no longer include legacy success fields such as empty page
+  arrays or `ok: false`.
+
+### Patch Changes
+
+- Updated dependencies [d237979]
+  - @kehto/acl@0.18.0
+  - @kehto/runtime@0.22.0
+
 ## 0.19.2
 
 ### Patch Changes
