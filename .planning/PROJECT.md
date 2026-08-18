@@ -6,19 +6,19 @@
 
 Provide a modular, framework-agnostic runtime for hosting napplet applications — so any Nostr client can embed sandboxed mini-apps by integrating @kehto/shell.
 
-## Current Milestone: v1.29 Napplet Convention and Runtime Conformance
+## Current Milestone: v1.30 Experimental IPC Shell Projection
 
-**Goal:** Conform Kehto to `napplet/naps@6461e4b`: remove numbered cross-napplet negotiation, adopt `napplet:<archetype>/<intent>[...?params]` conventions, and close every active contract gap in NAP-SHELL, NAP-INTENT, NAP-INC, NAP-IDENTITY, and NAP-THEME.
+**Goal:** Build an experimental Unix-domain-socket shell projection that carries canonical NIP-5D envelopes between a host and a napplet process, producing implementation evidence for a future `napplet/naps` IPC specification.
 
 **Target features:**
-- **Domain-only NAP-SHELL:** `supports(domain)`, truthful grants, exactly-once bootstrap, no pre-session capability traffic, and no numbered capability metadata.
-- **Convention-based intent and manifests:** `convention`/`conventions`, verified installed-manifest catalogs, user-controlled resolution, convention-bearing archetype tags, and contract-shaped result errors.
-- **Complete INC identity/channel parity:** dTag identities, opaque exact topics and IDs, full subscription/channel API, open-time authorization, and lifecycle cleanup.
-- **Identity/theme wire parity:** result-only failure shapes, readonly/change semantics, NAP-RESOURCE-mediated profile media, and atomic single-broadcast theme updates.
-- **Published-package proof:** consume the convention-capable Napplet release line once the concurrent `napplet/web` chase publishes it; do not guess unpublished APIs.
-- **Release-ready evidence:** focused and full unit/e2e/docs/quality gates, active-surface drift guard, changesets, and a concise PR.
+- **New `@kehto/ipc` package:** provide a shell-side IPC projection without changing the existing browser/postMessage shell.
+- **Raw Unix-domain-socket transport:** exchange canonical NIP-5D envelopes without Tauri, Electron, browser `postMessage`, `window.napplet.*` injection, or a client helper.
+- **Runtime semantic reuse:** preserve existing dispatch, ACL, identity, and lifecycle behavior at the `RuntimeAdapter` transport seam.
+- **Host-bound connection identity:** determine and validate a secure connection topology during research rather than trusting napplet-supplied identity.
+- **Runnable process proof:** demonstrate bidirectional request/result traffic and host-originated delivery between a reference host and napplet process.
+- **Specification drafting evidence:** record framing, channel naming, identity binding, lifecycle, trust boundaries, errors, and unresolved questions for `napplet/naps`.
 
-**Key context:** Normative authority is `napplet/naps` master commit `6461e4b37c29dc09a20dff35d9515889c4433874`; Kehto baseline is canonical `origin/main` at `bb3929b3523b75356fd65f658f9bd14c7ff697e4`. The complete delta and package gate are recorded in `.planning/NAP-CONVENTIONS-6461E4B-DELTA-AUDIT.md`. Topic/query ambiguity tracking is `kehto/web#203`.
+**Key context:** No authoritative IPC projection currently exists in `napplet/naps`. This milestone is intentionally a spec-gap experiment: its wire choices are bounded implementation hypotheses and must be documented as findings rather than presented as established NAP behavior. Scope is POSIX Unix-domain sockets only.
 
 ## Latest Milestone: v1.18 Napplet Firewall (shipped 2026-06-15)
 
@@ -66,19 +66,10 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Status:** All six v1.29 phases are complete and the current package line is
-published. Corrective source PR #220 supplied the missing Changeset and merged
-as `9390eca7d294375e8330730c411ed5aef74a7a61`; generated Version Packages PR
-#221 merged as exact release source
-`b61b8cf5e4e40859b0fba6c6e690dc9726f03431`. Exact-source CI, Pages, and
-AI-slop runs passed, and Release #30389303760 published all eight intended
-versions to npm and JSR.
-
-The upstream specification and active-surface audits, canonical Napplet 0.31
-package adoption, real Paja/playground flows, focused and full regression
-gates, exact-SHA CI, changeset accounting, public-registry verification, and
-clean downstream Paja 0.10.0 installation are complete. The Phase 105 visual
-audit remains explicit non-passing post-merge debt and is not visual sign-off.
+**Status:** Defining requirements and a roadmap for v1.30. The preceding v1.29
+protocol/runtime conformance package line is published and downstream-verified.
+The Phase 105 visual audit remains explicit non-passing debt and is unrelated
+to this IPC experiment.
 
 ## Previous Milestone: v1.20 NIP-5D Content-Addressed Runtime Resolution
 
@@ -318,4 +309,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-28 after the Phase 106 publication follow-up — the v1.29 package line is available on npm and JSR; the 12/24 UI audit remains explicit non-passing debt.*
+*Last updated: 2026-08-18 after starting the v1.30 Experimental IPC Shell Projection milestone.*

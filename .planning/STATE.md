@@ -1,20 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.29
-milestone_name: Napplet Convention and Runtime Conformance
-current_phase: 106
-status: completed
-stopped_at: Phase 106 current-Napplet release complete; v1.29 ready for milestone completion
-last_updated: "2026-08-04T10:41:35Z"
-last_activity: 2026-08-04
-last_activity_desc: "Completed quick task 260804-dql: resolved every PR #234 review claim"
+milestone: v1.30
+milestone_name: Experimental IPC Shell Projection
+status: planning
+last_updated: "2026-08-18T14:11:41.842Z"
+last_activity: 2026-08-18
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 47
-  completed_plans: 47
-  percent: 100
-current_phase_name: Active-Surface Conformance and Release
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -28,11 +24,10 @@ See: .planning/PROJECT.md (updated 2026-07-28)
 
 ## Current Position
 
-Phase: 106 (Active-Surface Conformance and Release) — COMPLETE
-Plan: 3 of 3
-Status: All v1.29 phases complete — eight-package Napplet-0.31-compatible npm/JSR release published and downstream-verified
-
-Last activity: 2026-08-04 — Completed quick task 260804-dql: resolved every PR #234 review claim
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-08-18 — Milestone v1.30 started
 
 ## Performance Metrics
 
