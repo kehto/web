@@ -77,12 +77,12 @@ findings rather than normative protocol behavior.
 4. Outbound messages remain ordered and bounded while socket backpressure is respected.
 5. Stale-path recovery and cleanup remove only resources owned by the matching endpoint registration.
 
-**Plans:** 2/5 plans executed
+**Plans:** 3/5 plans executed
 
 - [x] 107-01-PLAN.md
 - [x] 107-02-PLAN.md
 - [ ] 107-03-PLAN.md
-- [ ] 107-04-PLAN.md
+- [x] 107-04-PLAN.md
 - [ ] 107-05-PLAN.md
 
 ### Phase 108: Runtime Shell Composition
@@ -121,7 +121,7 @@ findings rather than normative protocol behavior.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 107. IPC Transport Foundation | 2/5 | In Progress|  |
+| 107. IPC Transport Foundation | 3/5 | In Progress|  |
 | 108. Runtime Shell Composition | 0/TBD | Not started | — |
 | 109. Runnable Proof and Drafting Evidence | 0/TBD | Not started | — |
 

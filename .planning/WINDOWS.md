@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 23
+open_count: 25
 waived_count: 0
 fixed_count: 7
-total_count: 30
-last_updated: 2026-08-18T16:17:24.532Z
+total_count: 32
+last_updated: 2026-08-18T16:23:46.132Z
 ---
 
 # Broken Windows Ledger
@@ -45,6 +45,8 @@ last_updated: 2026-08-18T16:17:24.532Z
 | 28 | quick-260804-dql | unrun-verify | .aislop/config.yml |  | AI-slop gate could not run because pnpm exec aislop reports Command not found | open |  | 2026-08-04T10:00:54.503Z |  |
 | 29 | 107 | unrun-verify | packages/shell-ipc |  | Local AI-slop gate was not run because the aislop executable is unavailable. | open |  | 2026-08-18T16:13:51.134Z |  |
 | 30 | 107 | unrun-verify | packages/shell-ipc |  | Local AI-slop gate was not run because the aislop executable is unavailable. | open |  | 2026-08-18T16:17:24.532Z |  |
+| 31 | 107 | deviation | packages/shell-ipc/src/ipc-shell.ts |  | Forwarded endpoint queue limits and terminal diagnostics to accepted peers. | open |  | 2026-08-18T16:23:46.078Z |  |
+| 32 | 107 | deviation | .changeset/quiet-rice-queue.md |  | Added required release changeset for shipped shell IPC behavior. | open |  | 2026-08-18T16:23:46.132Z |  |
 
 ````json
 [
@@ -406,6 +408,30 @@ last_updated: 2026-08-18T16:17:24.532Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-18T16:17:24.532Z",
+    "resolved_at": null
+  },
+  {
+    "id": 31,
+    "kind": "deviation",
+    "phase": "107",
+    "file": "packages/shell-ipc/src/ipc-shell.ts",
+    "line": null,
+    "description": "Forwarded endpoint queue limits and terminal diagnostics to accepted peers.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-18T16:23:46.078Z",
+    "resolved_at": null
+  },
+  {
+    "id": 32,
+    "kind": "deviation",
+    "phase": "107",
+    "file": ".changeset/quiet-rice-queue.md",
+    "line": null,
+    "description": "Added required release changeset for shipped shell IPC behavior.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-18T16:23:46.132Z",
     "resolved_at": null
   }
 ]
