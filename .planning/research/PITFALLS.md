@@ -106,7 +106,7 @@
 | Runtime egress | Write directly without endpoint lookup/generation check | Resolve the current bound connection and serialize through its ordered queue. |
 | NAP-SHELL | Send `shell.init` on accept | Wait for the first bare `shell.ready`; send exactly once. |
 | Host push | Bypass domain/capability eligibility | Reuse runtime/shell eligibility semantics before delivery. |
-| Process fixture | Depend on `@kehto/ipc` client code | Use raw `node:net` so the wire is independently demonstrated. |
+| Process fixture | Depend on `@kehto/shell-ipc` client code | Use raw `node:net` so the wire is independently demonstrated. |
 
 ## Performance Traps
 

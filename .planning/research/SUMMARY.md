@@ -7,7 +7,7 @@
 
 ## Executive Summary
 
-The safest useful experiment is a new Node-only `@kehto/ipc` shell package that projects unchanged NIP-5D envelopes over pathname Unix-domain stream sockets. It should reuse `@kehto/runtime` rather than modify dispatch semantics. The current runtime already supplies the key transport seam: ingress is `Runtime.handleMessage(windowId, envelope)`, egress is `RuntimeAdapter.sendToNapplet`, and lifecycle cleanup is exposed through `destroyWindow` and the session registry.
+The safest useful experiment is a new Node-only `@kehto/shell-ipc` package that projects unchanged NIP-5D envelopes over pathname Unix-domain stream sockets. It should reuse `@kehto/runtime` rather than modify dispatch semantics. The current runtime already supplies the key transport seam: ingress is `Runtime.handleMessage(windowId, envelope)`, egress is `RuntimeAdapter.sendToNapplet`, and lifecycle cleanup is exposed through `destroyWindow` and the session registry.
 
 For v1.30, each napplet endpoint should receive a dedicated socket created and identity-bound by the host. This avoids inventing an authentication/multiplexing handshake. The peer sends a bare `shell.ready`; only then does the shell establish the source-bound session and return exactly one `shell.init`. The reference napplet uses raw `node:net` primitives, proving that the projection is independently implementable and does not depend on interface injection or a Kehto client helper.
 
@@ -49,7 +49,7 @@ No new third-party production dependency is recommended.
 
 ### Architecture Approach
 
-The host registers an endpoint with immutable `{ windowId, dTag, aggregateHash }` and a per-napplet environment. `@kehto/ipc` creates a dedicated socket inside a private directory and binds any accepted connection to that registration. A bounded RFC 7464 codec turns bytes into NIP-5D envelopes. `shell.ready` is handled locally; all later ingress enters the existing runtime. Runtime egress resolves the live endpoint and enters an ordered write queue. Close/error/unregister uses a registration generation to tear down only the matching runtime session and socket resources.
+The host registers an endpoint with immutable `{ windowId, dTag, aggregateHash }` and a per-napplet environment. `@kehto/shell-ipc` creates a dedicated socket inside a private directory and binds any accepted connection to that registration. A bounded RFC 7464 codec turns bytes into NIP-5D envelopes. `shell.ready` is handled locally; all later ingress enters the existing runtime. Runtime egress resolves the live endpoint and enters an ordered write queue. Close/error/unregister uses a registration generation to tear down only the matching runtime session and socket resources.
 
 **Major components:**
 1. JSON-sequence codec — framing, validation, and input bounds.
@@ -74,7 +74,7 @@ The host registers an endpoint with immutable `{ windowId, dTag, aggregateHash }
 
 **Rationale:** Framing, limits, and host-bound identity are foundational and must be explicit before runtime composition.
 
-**Delivers:** `@kehto/ipc` package skeleton, RFC 7464 codec, endpoint types/registry, private socket lifecycle, and adversarial unit tests.
+**Delivers:** `@kehto/shell-ipc` package skeleton, RFC 7464 codec, endpoint types/registry, private socket lifecycle, and adversarial unit tests.
 
 **Avoids:** Chunk/message confusion, oversized inputs, global paths, and identity claims from wire data.
 
@@ -104,7 +104,7 @@ The host registers an endpoint with immutable `{ windowId, dTag, aggregateHash }
 
 Phases needing deeper planning research:
 - **Phase 107:** Select and document concrete default frame/queue limits after auditing active envelope sizes, especially resource payloads.
-- **Phase 108:** Decide whether transport-neutral NAP-SHELL helpers should be shared from `@kehto/shell` or parity-locked within `@kehto/ipc` without introducing a runtime change.
+- **Phase 108:** Decide whether transport-neutral NAP-SHELL helpers should be shared from `@kehto/shell` or parity-locked within `@kehto/shell-ipc` without introducing a runtime change.
 - **Phase 109:** Define the exact artifact format suitable for proposing an IPC projection upstream.
 
 ## Confidence Assessment

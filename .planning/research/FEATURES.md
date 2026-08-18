@@ -65,7 +65,7 @@ Lifecycle + real transport ──enables──> runnable process proof ──pro
 
 ### Launch With (v1.30)
 
-- [ ] Publishable experimental `@kehto/ipc` package with explicit stability warning.
+- [ ] Publishable experimental `@kehto/shell-ipc` package with explicit stability warning.
 - [ ] Dedicated private Unix socket per host-registered endpoint.
 - [ ] RFC 7464 encoder/decoder with bounded input and fail-closed error handling.
 - [ ] Source-bound NAP-SHELL handshake and unchanged runtime dispatch.

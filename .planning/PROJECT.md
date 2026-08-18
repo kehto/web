@@ -11,7 +11,7 @@ Provide a modular, framework-agnostic runtime for hosting napplet applications â
 **Goal:** Build an experimental Unix-domain-socket shell projection that carries canonical NIP-5D envelopes between a host and a napplet process, producing implementation evidence for a future `napplet/naps` IPC specification.
 
 **Target features:**
-- **New `@kehto/ipc` package:** provide a shell-side IPC projection without changing the existing browser/postMessage shell.
+- **New `@kehto/shell-ipc` package:** provide a shell-side IPC projection without changing the existing browser/postMessage shell.
 - **Raw Unix-domain-socket transport:** exchange canonical NIP-5D envelopes without Tauri, Electron, browser `postMessage`, `window.napplet.*` injection, or a client helper.
 - **Runtime semantic reuse:** preserve existing dispatch, ACL, identity, and lifecycle behavior at the `RuntimeAdapter` transport seam.
 - **Host-bound connection identity:** determine and validate a secure connection topology during research rather than trusting napplet-supplied identity.

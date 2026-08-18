@@ -31,7 +31,7 @@
 | Tool | Purpose | Notes |
 |------|---------|-------|
 | tsup | ESM package build | Follow existing package output conventions. |
-| Turborepo | Workspace build ordering | Add `@kehto/ipc#build` after `@kehto/runtime#build`. |
+| Turborepo | Workspace build ordering | Add `@kehto/shell-ipc#build` after `@kehto/runtime#build`. |
 | Node child processes | Real transport verification | Spawn a raw `node:net` napplet fixture and assert process-visible outcomes. |
 | Existing docs/quality gates | Package completeness | Add README, docs package page, typed exports, changeset, and AI-slop coverage. |
 
@@ -40,8 +40,8 @@
 No new production library is recommended. The package should use Node built-ins and existing workspace packages.
 
 ```bash
-pnpm --filter @kehto/ipc build
-pnpm --filter @kehto/ipc test:unit
+pnpm --filter @kehto/shell-ipc build
+pnpm --filter @kehto/shell-ipc test:unit
 ```
 
 ## Alternatives Considered
@@ -52,7 +52,7 @@ pnpm --filter @kehto/ipc test:unit
 | One socket per endpoint | Shared multiplexed socket | After the projection defines a separate authenticated connection handshake and needs high endpoint counts. |
 | RFC 7464 framing | Newline-delimited JSON | For an intentionally informal prototype where a standards-track framing reference is not valuable. |
 | RFC 7464 framing | Fixed-width length prefix | If later profiling shows JSON-sequence scanning is a bottleneck or binary payload transport becomes normative. |
-| Raw `node:net` client in the fixture | `@kehto/ipc` client helper | Only if a later milestone adds a napplet-side API; the user explicitly excluded it here. |
+| Raw `node:net` client in the fixture | `@kehto/shell-ipc` client helper | Only if a later milestone adds a napplet-side API; the user explicitly excluded it here. |
 
 ## What NOT to Use
 
@@ -79,8 +79,8 @@ pnpm --filter @kehto/ipc test:unit
 
 | Package A | Compatible With | Notes |
 |-----------|-----------------|-------|
-| `@kehto/ipc` experimental line | `@kehto/runtime` workspace current | Keep runtime semantics unchanged; depend on public runtime types and methods. |
-| `@kehto/ipc` | `@napplet/core >=0.31.0 <0.32.0` | Match current runtime envelope range. |
+| `@kehto/shell-ipc` experimental line | `@kehto/runtime` workspace current | Keep runtime semantics unchanged; depend on public runtime types and methods. |
+| `@kehto/shell-ipc` | `@napplet/core >=0.31.0 <0.32.0` | Match current runtime envelope range. |
 | `node:net` Unix IPC | Node >=20 on POSIX | Pathname sockets work on Linux and macOS; Windows named pipes are out of scope. |
 
 ## Sources

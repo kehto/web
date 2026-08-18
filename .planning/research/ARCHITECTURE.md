@@ -11,7 +11,7 @@
 ```text
 Host process
 ┌─────────────────────────────────────────────────────────────┐
-│ @kehto/ipc                                                 │
+│ @kehto/shell-ipc                                           │
 │  endpoint registry ──> private UDS listener per endpoint   │
 │       │                         │                           │
 │       │ host identity          │ RFC 7464 codec + bounds   │
@@ -24,7 +24,7 @@ Host process
 ┌──────────────────────────────────────v──────────────────────┐
 │ Reference napplet process                                  │
 │ node:net raw client + inline RFC 7464 encode/decode         │
-│ no @kehto/ipc client helper, no injected interface          │
+│ no @kehto/shell-ipc client helper, no injected interface    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -172,7 +172,7 @@ socket close/error or host unregister
 
 | Boundary | Communication | Notes |
 |----------|---------------|-------|
-| `@kehto/ipc` ↔ `@kehto/runtime` | Public factory/types/methods | Reuse `createRuntime`, `RuntimeAdapter`, `handleMessage`, `sessionRegistry`, and `destroyWindow`. |
+| `@kehto/shell-ipc` ↔ `@kehto/runtime` | Public factory/types/methods | Reuse `createRuntime`, `RuntimeAdapter`, `handleMessage`, `sessionRegistry`, and `destroyWindow`. |
 | IPC endpoint ↔ NAP-SHELL coordinator | Parsed envelopes | Bare ready only; identity and environment are host-owned. |
 | Runtime egress ↔ socket | `SendToNapplet` | Preserve per-window ordering and apply backpressure. |
 | Reference host ↔ napplet process | Socket path out of band | Do not put identity claims into socket frames or process arguments. |
@@ -194,7 +194,7 @@ One write can become several reads and several writes can become one read. Use a
 
 ### Sharing Browser Registries
 
-`originRegistry` binds `Window` objects and `postMessage`; importing it into `@kehto/ipc` would couple projections. Use a projection-specific endpoint registry with the same security invariants.
+`originRegistry` binds `Window` objects and `postMessage`; importing it into `@kehto/shell-ipc` would couple projections. Use a projection-specific endpoint registry with the same security invariants.
 
 ### Identity in the First Frame
 
