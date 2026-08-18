@@ -1,5 +1,6 @@
-import { stat } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
 import { connect, type Socket } from 'node:net';
+import { tmpdir } from 'node:os';
 import { dirname } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_IPC_LIMITS as exportedLimits, createIpcTransport as createExportedIpcTransport } from './index.js';
@@ -64,6 +65,33 @@ describe('createIpcTransport', () => {
     await expect(createIpcTransport({
       limits: { [name]: value } as never,
     })).rejects.toMatchObject({ code: 'INVALID_LIMIT' });
+  });
+
+  it.each([
+    ['a Map', new Map([['policy', 'original']])],
+    ['a Set', new Set(['policy'])],
+    ['a Date', new Date()],
+    ['a function', () => undefined],
+    ['undefined', undefined],
+    ['NaN', Number.NaN],
+    ['Infinity', Number.POSITIVE_INFINITY],
+    ['a cycle', (() => { const value: { self?: unknown } = {}; value.self = value; return value; })()],
+  ])('rejects %s in environment before allocating a production endpoint', async (_description, environment) => {
+    const baseDirectory = await mkdtemp(`${tmpdir()}/kehto-ipc-invalid-registration-`);
+    const transport = await createIpcTransport({ baseDirectory });
+
+    try {
+      await expect(transport.registerEndpoint({
+        windowId: 'invalid-registration',
+        dTag: 'example',
+        aggregateHash: 'abc123',
+        environment: { invalid: environment } as never,
+      }, { onEnvelope() {} })).rejects.toMatchObject({ code: 'INVALID_REGISTRATION' });
+      await expect(readdir(baseDirectory)).resolves.toEqual([]);
+    } finally {
+      await transport.close();
+      await rm(baseDirectory, { recursive: true, force: true });
+    }
   });
 
   it('carries an immutable host-bound envelope through a raw Unix socket in both directions', async () => {

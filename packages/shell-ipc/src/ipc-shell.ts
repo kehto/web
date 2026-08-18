@@ -148,7 +148,115 @@ export async function createIpcTransport(options: IpcTransportOptions = {}): Pro
 }
 
 function cloneAndFreezeRegistration(registration: IpcEndpointRegistration): IpcEndpointRegistration {
-  return recursivelyFreeze(structuredClone(registration));
+  validateEndpointRegistration(registration);
+  try {
+    return recursivelyFreeze(structuredClone(registration));
+  } catch (error) {
+    throw invalidRegistration(error instanceof Error ? error.message : 'could not be cloned.');
+  }
+}
+
+function validateEndpointRegistration(registration: IpcEndpointRegistration): void {
+  try {
+    const record = assertPlainObject(registration, 'must be a plain object.');
+    const fields = ['windowId', 'dTag', 'aggregateHash', 'environment'] as const;
+    const propertyNames = Object.getOwnPropertyNames(record);
+    if (Object.getOwnPropertySymbols(record).length > 0
+      || propertyNames.length !== fields.length
+      || !fields.every((field) => Object.hasOwn(record, field))) {
+      throw invalidRegistration('must contain only windowId, dTag, aggregateHash, and environment.');
+    }
+    for (const field of ['windowId', 'dTag', 'aggregateHash'] as const) {
+      const descriptor = Object.getOwnPropertyDescriptor(record, field);
+      if (!descriptor?.enumerable || !Object.hasOwn(descriptor, 'value') || typeof descriptor.value !== 'string') {
+        throw invalidRegistration(`${field} must be an enumerable string property.`);
+      }
+    }
+    const environment = Object.getOwnPropertyDescriptor(record, 'environment');
+    if (!environment?.enumerable || !Object.hasOwn(environment, 'value')) {
+      throw invalidRegistration('environment must be an enumerable property.');
+    }
+    assertPlainObject(environment.value, 'environment must be a plain object.');
+    assertJsonValue(environment.value, new Set<object>());
+  } catch (error) {
+    if (error instanceof IpcTransportError) throw error;
+    throw invalidRegistration(error instanceof Error ? error.message : 'is invalid.');
+  }
+}
+
+function assertJsonValue(value: unknown, ancestors: Set<object>): void {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return;
+  if (typeof value === 'number') {
+    if (Number.isFinite(value)) return;
+    throw invalidRegistration('environment contains a non-finite number.');
+  }
+  if (typeof value !== 'object') throw invalidRegistration('environment contains a non-JSON value.');
+  if (ancestors.has(value)) throw invalidRegistration('environment contains a cycle.');
+
+  ancestors.add(value);
+  try {
+    if (Array.isArray(value)) {
+      assertJsonArray(value, ancestors);
+      return;
+    }
+    const record = assertPlainObject(value, 'environment contains a non-plain object.');
+    assertJsonObject(record, ancestors);
+  } finally {
+    ancestors.delete(value);
+  }
+}
+
+function assertJsonArray(value: unknown[], ancestors: Set<object>): void {
+  if (Object.getPrototypeOf(value) !== Array.prototype) {
+    throw invalidRegistration('environment contains a non-plain array.');
+  }
+  if (Object.getOwnPropertySymbols(value).length > 0) {
+    throw invalidRegistration('environment contains symbol properties.');
+  }
+  const propertyNames = Object.getOwnPropertyNames(value);
+  if (propertyNames.length !== value.length + 1) {
+    throw invalidRegistration('environment contains a sparse array or custom array properties.');
+  }
+  for (const name of propertyNames) {
+    if (name === 'length') continue;
+    if (!isArrayIndex(name, value.length)) {
+      throw invalidRegistration('environment contains custom array properties.');
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, name);
+    if (!descriptor?.enumerable || !Object.hasOwn(descriptor, 'value')) {
+      throw invalidRegistration('environment contains an accessor or non-enumerable property.');
+    }
+    assertJsonValue(descriptor.value, ancestors);
+  }
+}
+
+function assertJsonObject(value: Record<string, unknown>, ancestors: Set<object>): void {
+  if (Object.getOwnPropertySymbols(value).length > 0) {
+    throw invalidRegistration('environment contains symbol properties.');
+  }
+  for (const name of Object.getOwnPropertyNames(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, name);
+    if (!descriptor?.enumerable || !Object.hasOwn(descriptor, 'value')) {
+      throw invalidRegistration('environment contains an accessor or non-enumerable property.');
+    }
+    assertJsonValue(descriptor.value, ancestors);
+  }
+}
+
+function assertPlainObject(value: unknown, reason: string): Record<string, unknown> {
+  if (value === null || typeof value !== 'object') throw invalidRegistration(reason);
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) throw invalidRegistration(reason);
+  return value as Record<string, unknown>;
+}
+
+function isArrayIndex(value: string, length: number): boolean {
+  const index = Number(value);
+  return Number.isInteger(index) && index >= 0 && index < length && String(index) === value;
+}
+
+function invalidRegistration(reason: string): IpcTransportError {
+  return new IpcTransportError('INVALID_REGISTRATION', `IPC endpoint registration ${reason}`);
 }
 
 function assertNoPeerBindingClaims(envelope: JsonSequenceEnvelope): boolean {

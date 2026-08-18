@@ -17,7 +17,8 @@ export interface IpcTransportLimits {
 export type IpcEnvironmentValue = string | number | boolean | null | readonly IpcEnvironmentValue[] | { readonly [key: string]: IpcEnvironmentValue };
 
 /**
- * Host-owned endpoint identity, cloned and recursively frozen before listener allocation.
+ * Host-owned endpoint identity, validated as a finite acyclic JSON tree, then cloned and
+ * recursively frozen before listener allocation.
  * No member is accepted from a peer or represents peer-selected session state.
  */
 export interface IpcEndpointRegistration {
@@ -29,6 +30,7 @@ export interface IpcEndpointRegistration {
 
 /** Machine-readable reasons an IPC endpoint or accepted peer cannot continue. */
 export type IpcTransportErrorCode =
+  | 'INVALID_REGISTRATION'
   | 'PEER_IDENTITY_CLAIM'
   | 'INVALID_FRAMING'
   | 'INVALID_UTF8'

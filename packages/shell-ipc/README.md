@@ -31,7 +31,10 @@ documented spec gap, not an alternate NAP wire contract.
 - The package is Node.js >=20 and POSIX Unix-socket only; it is not a browser,
   Windows named-pipe, TCP, or napplet-facing client API.
 - Endpoint registration metadata (`windowId`, `dTag`, aggregate hash, and
-  environment) is cloned and frozen by the host before the listener exists.
+  environment) is validated, cloned, and frozen by the host before the listener
+  exists. The environment must be a finite, acyclic JSON tree of primitives,
+  arrays, and plain objects; unsupported values are rejected with
+  `IpcTransportError` before directory or listener allocation.
   Peer frames that claim any of that host-bound metadata are rejected.
 - Private directories, pathname ownership checks, and host-held pathname
   distribution reduce accidental sharing and pathname substitution risks. They
