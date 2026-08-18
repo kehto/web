@@ -14,7 +14,16 @@ export const DEFAULT_IPC_LIMITS = Object.freeze({
   maxOutboundQueueBytes: 1_048_576,
 });
 
-export type IpcTransportErrorCode = 'PEER_IDENTITY_CLAIM' | 'INVALID_ENVELOPE' | 'ENDPOINT_ALREADY_REGISTERED' | 'TRANSPORT_CLOSED';
+/** Machine-readable reasons an IPC endpoint or accepted peer cannot continue. */
+export type IpcTransportErrorCode =
+  | 'PEER_IDENTITY_CLAIM'
+  | 'INVALID_ENVELOPE'
+  | 'ENDPOINT_ALREADY_REGISTERED'
+  | 'TRANSPORT_CLOSED'
+  | 'INVALID_LIMIT'
+  | 'OUTBOUND_QUEUE_OVERFLOW'
+  | 'OUTBOUND_WRITE_FAILED'
+  | 'OUTBOUND_QUEUE_CLOSED';
 
 /** Typed transport error for a terminal experimental IPC carrier condition. */
 export class IpcTransportError extends Error {
@@ -196,7 +205,13 @@ export async function createIpcTransport(options: IpcTransportOptions = {}): Pro
       };
 
       server = createServer((socket) => {
-        const queue = createOutboundQueue(socket);
+        const queue = createOutboundQueue(socket, {
+          maxOutboundQueueFrames: limits.maxOutboundQueueFrames,
+          maxOutboundQueueBytes: limits.maxOutboundQueueBytes,
+          onTerminal(error) {
+            diagnostic(error.code, registration);
+          },
+        });
         peers.set(socket, queue);
         socket.on('error', () => undefined);
         socket.on('close', () => {

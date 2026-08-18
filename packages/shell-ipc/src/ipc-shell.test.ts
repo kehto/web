@@ -103,4 +103,32 @@ describe('createIpcTransport', () => {
     await expect(stat(endpoint?.path ?? '')).rejects.toMatchObject({ code: 'ENOENT' });
     await expect(stat(dirname(endpoint?.path ?? ''))).rejects.toMatchObject({ code: 'ENOENT' });
   });
+
+  it('applies endpoint outbound limits and reports only the overflowing peer', async () => {
+    const diagnostics: string[] = [];
+    const transport = await createIpcTransport({
+      limits: { maxOutboundQueueFrames: 0, maxOutboundQueueBytes: 0 },
+      onDiagnostic(diagnostic) {
+        diagnostics.push(diagnostic.code);
+      },
+    });
+    const endpoint = await transport.registerEndpoint({
+      windowId: 'outbound-limit',
+      dTag: 'example',
+      aggregateHash: 'abc123',
+      environment: {},
+    }, { onEnvelope() {} });
+    const client = await connectPeer(endpoint.path);
+
+    try {
+      const closed = waitForClose(client);
+      expect(() => endpoint.send({ type: 'shell.init' } as never)).toThrow('OUTBOUND_QUEUE_OVERFLOW');
+      await closed;
+      expect(diagnostics).toEqual(['OUTBOUND_QUEUE_OVERFLOW']);
+    } finally {
+      client.destroy();
+      await endpoint.close();
+      await transport.close();
+    }
+  });
 });
