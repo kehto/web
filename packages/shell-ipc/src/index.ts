@@ -5,6 +5,7 @@ export type {
   IpcEndpoint,
   IpcEndpointHooks,
   IpcEndpointRegistration,
+  IpcEnvironmentValue,
   IpcTransport,
   IpcTransportErrorCode,
   IpcTransportLimits,

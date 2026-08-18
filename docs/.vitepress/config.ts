@@ -81,6 +81,7 @@ export default defineConfig({
           { text: '@kehto/firewall', link: '/packages/firewall' },
           { text: '@kehto/runtime', link: '/packages/runtime' },
           { text: '@kehto/shell', link: '/packages/shell' },
+          { text: '@kehto/shell-ipc', link: '/packages/shell-ipc' },
           { text: '@kehto/services', link: '/packages/services' },
           { text: '@kehto/nip', link: '/packages/nip' },
           { text: '@kehto/wm', link: '/packages/wm' },
