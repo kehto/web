@@ -22,7 +22,7 @@
 
 ### IPC Transport
 
-- [ ] **IPC-01**: A host integrator can create one dedicated pathname Unix-domain socket endpoint per napplet registration inside a short, private directory, with guarded stale-path handling and owned-resource cleanup.
+- [x] **IPC-01**: A host integrator can create one dedicated pathname Unix-domain socket endpoint per napplet registration inside a short, private directory, with guarded stale-path handling and owned-resource cleanup.
 - [x] **IPC-02**: A raw socket peer can exchange unchanged canonical NIP-5D JSON envelopes through an RFC 7464 JSON text-sequence codec that correctly handles partial and coalesced stream chunks.
 - [x] **IPC-03**: The projection rejects malformed, truncated, invalid-UTF-8, and oversized frames without dispatching them, and applies documented finite frame and buffer limits.
 - [x] **IPC-04**: Runtime egress preserves per-endpoint message order while respecting socket backpressure and a documented finite outbound-queue limit.
@@ -73,7 +73,7 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| IPC-01 | Phase 107 | Pending |
+| IPC-01 | Phase 107 | Complete |
 | IPC-02 | Phase 107 | Complete |
 | IPC-03 | Phase 107 | Complete |
 | IPC-04 | Phase 107 | Complete |

@@ -4,17 +4,17 @@ milestone: v1.30
 milestone_name: Experimental IPC Shell Projection
 current_phase: 107
 current_phase_name: IPC Transport Foundation
-status: executing
-stopped_at: Completed 107-05-PLAN.md
-last_updated: "2026-08-18T16:29:32.801Z"
+status: verifying
+stopped_at: Completed 107-03-PLAN.md
+last_updated: "2026-08-18T16:37:39.695Z"
 last_activity: 2026-08-18
 last_activity_desc: Phase 107 execution started
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 4
-  percent: 0
+  completed_plans: 5
+  percent: 33
 ---
 
 # Project State
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-28)
 
 Phase: 107 (IPC Transport Foundation) — EXECUTING
 Plan: 5 of 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-18 — Phase 107 execution started
 
 ## Performance Metrics
@@ -107,6 +107,7 @@ Last activity: 2026-08-18 — Phase 107 execution started
 | Phase 107 P02 | 2m | 1 tasks | 2 files |
 | Phase 107 P04 | 3min | 2 tasks | 5 files |
 | Phase 107 P05 | 5min | 2 tasks | 8 files |
+| Phase 107 P03 | 5min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -230,8 +231,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-08-18T16:29:32.793Z
-Stopped at: Completed 107-05-PLAN.md
+Last session: 2026-08-18T16:37:39.688Z
+Stopped at: Completed 107-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -349,3 +350,5 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: Phase 107 Plan 02 delivers complete canonical records synchronously in wire order and propagates host callback errors.
 - [Phase ?]: Count and byte limits retain callback-pending writes until completion callbacks settle.
 - [Phase ?]: Accepted peers receive endpoint-configured outbound limits and one host-bound terminal diagnostic.
+- [Phase ?]: IPC socket cleanup requires unchanged device/inode/mode fingerprints and never treats a substituted entry as owned.
+- [Phase ?]: Endpoint reservations are inserted synchronously and lifecycle callbacks act only on their current safe-integer generation.
