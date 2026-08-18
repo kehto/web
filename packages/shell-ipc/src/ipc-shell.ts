@@ -76,8 +76,7 @@ export async function createIpcTransport(options: IpcTransportOptions = {}): Pro
             maxBufferedInputBytes: limits.maxBufferedInputBytes,
             onEnvelope(envelope) {
               if (!assertNoPeerBindingClaims(envelope)) {
-                rejectPeer('PEER_IDENTITY_CLAIM', 'IPC peer attempted to claim host-bound endpoint identity.');
-                return;
+                throw new IpcTransportError('PEER_IDENTITY_CLAIM', 'IPC peer attempted to claim host-bound endpoint identity.');
               }
               hooks.onEnvelope(envelope as unknown as NappletMessage, registration);
             },

@@ -138,4 +138,34 @@ describe('createIpcTransport', () => {
       await transport.close();
     }
   });
+
+  it('rejects a coalesced valid frame after a peer identity claim', async () => {
+    const received: unknown[] = [];
+    const transport = await createIpcTransport();
+    const endpoint = await transport.registerEndpoint({
+      windowId: 'identity-claim',
+      dTag: 'example',
+      aggregateHash: 'abc123',
+      environment: {},
+    }, {
+      onEnvelope(envelope) {
+        received.push(envelope);
+      },
+    });
+    const peer = await connectPeer(endpoint.path);
+
+    try {
+      const closed = waitForClose(peer);
+      peer.write(Buffer.concat([
+        encodeJsonSequence({ type: 'shell.ready', windowId: 'peer-controlled' }),
+        encodeJsonSequence({ type: 'shell.ready' }),
+      ]));
+      await closed;
+      expect(received).toEqual([]);
+    } finally {
+      peer.destroy();
+      await endpoint.close();
+      await transport.close();
+    }
+  });
 });
