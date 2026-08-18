@@ -5,15 +5,15 @@ milestone_name: Experimental IPC Shell Projection
 current_phase: 107
 current_phase_name: IPC Transport Foundation
 status: executing
-stopped_at: Phase 106 current-Napplet package line published and downstream-verified
-last_updated: "2026-08-18T16:05:30.866Z"
+stopped_at: Completed 107-01-PLAN.md
+last_updated: "2026-08-18T16:13:51.504Z"
 last_activity: 2026-08-18
-last_activity_desc: v1.30 roadmap drafted with 17/17 requirements mapped
+last_activity_desc: Phase 107 execution started
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 5
-  completed_plans: 0
+  completed_plans: 1
   percent: 0
 ---
 
@@ -24,14 +24,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-28)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Experimental `@kehto/shell-ipc` projection over POSIX Unix-domain sockets
+**Current focus:** Phase 107 — IPC Transport Foundation
 
 ## Current Position
 
-Phase: 107 of 109 (IPC Transport Foundation)
-Plan: —
+Phase: 107 (IPC Transport Foundation) — EXECUTING
+Plan: 2 of 5
 Status: Ready to execute
-Last activity: 2026-08-18 — v1.30 roadmap drafted with 17/17 requirements mapped
+Last activity: 2026-08-18 — Phase 107 execution started
 
 ## Performance Metrics
 
@@ -103,6 +103,7 @@ Last activity: 2026-08-18 — v1.30 roadmap drafted with 17/17 requirements mapp
 | Phase 106 P01 | 10m | 3 tasks | 6 files |
 | Phase 106 P02 | 5m | 2 tasks | 1 files |
 | Phase 106 P03 | 18m | 2 tasks | 2 files |
+| Phase 107 P01 | 6m | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -226,8 +227,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-07-28T18:55:51Z
-Stopped at: Phase 106 current-Napplet package line published and downstream-verified
+Last session: 2026-08-18T16:13:51.496Z
+Stopped at: Completed 107-01-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -339,3 +340,5 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: The post-Phase-106 publication follow-up is distinct from the original PR-readiness boundary and is complete only with exact-main CI/Pages, successful npm/JSR publishing, direct registry metadata, and a clean downstream install/import/build.
 - [Phase ?]: A release is not current merely because its workflow succeeded; the published Kehto peer window must accept the registry's current Napplet `latest` line.
 - [Phase ?]: Corrective PR #220 supplies the eight-package Changeset omitted from the prior release path; PR #221 and Release #30389303760 publish the Napplet 0.31-compatible line.
+- [Phase ?]: Phase 107 Plan 01 binds a recursively frozen host registration before any IPC listener side effect.
+- [Phase ?]: Phase 107 Plan 01 treats private Unix-socket paths as host-only routing information, never cryptographic peer authentication.

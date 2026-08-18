@@ -7,11 +7,14 @@
 
 - Specification checked: `napplet/naps` `origin/master` at
   `c0f7dd14460622fc3a9870ea57a538474cf776fa`.
+
 - No IPC projection exists at that ref. This milestone is an experimental
   specification-gap implementation, not a claim of normative NIP-5D behavior.
+
 - Carrier-neutral NAP-SHELL and NAP-INC invariants remain authoritative:
   runtime-attested endpoint identity, one bare `shell.ready`, exactly one
   `shell.init`, and no capability traffic before session establishment.
+
 - Scope is a Node.js shell projection over POSIX pathname Unix-domain stream
   sockets. The existing browser/postMessage shell remains unchanged.
 
@@ -26,7 +29,7 @@
 
 ### Identity and Lifecycle
 
-- [ ] **BIND-01**: A host integrator registers immutable `windowId`, napplet dTag, aggregate hash, and environment metadata before listening; a peer cannot supply or replace its projected identity through wire messages.
+- [x] **BIND-01**: A host integrator registers immutable `windowId`, napplet dTag, aggregate hash, and environment metadata before listening; a peer cannot supply or replace its projected identity through wire messages.
 - [ ] **BIND-02**: Each registered endpoint admits at most one active peer, and connection replacement or delayed close events cannot tear down a newer registration or session.
 - [ ] **BIND-03**: A connected peer establishes its session with one bare `shell.ready`, receives exactly one `shell.init`, and cannot access capability handlers before readiness.
 - [ ] **BIND-04**: Graceful close, abrupt disconnect, explicit unregister, and host shutdown tear down only the matching runtime session, connection, listener, socket path, and owned directory resources.
@@ -74,7 +77,7 @@
 | IPC-02 | Phase 107 | Pending |
 | IPC-03 | Phase 107 | Pending |
 | IPC-04 | Phase 107 | Pending |
-| BIND-01 | Phase 107 | Pending |
+| BIND-01 | Phase 107 | Complete |
 | BIND-02 | Phase 108 | Pending |
 | BIND-03 | Phase 108 | Pending |
 | BIND-04 | Phase 108 | Pending |
@@ -89,6 +92,7 @@
 | SPEC-04 | Phase 109 | Pending |
 
 **Coverage:**
+
 - v1.30 requirements: 17 total
 - Mapped to phases: 17
 - Unmapped: 0 ✓
