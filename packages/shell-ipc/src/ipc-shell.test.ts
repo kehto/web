@@ -20,16 +20,29 @@ function waitForClose(socket: Socket): Promise<void> {
 }
 
 function receiveFrame(socket: Socket): Promise<unknown> {
+  return receiveFrames(socket, 1).then(([frame]) => frame);
+}
+
+function receiveFrames(socket: Socket, count: number): Promise<unknown[]> {
   return new Promise((resolve, reject) => {
     let buffered = Buffer.alloc(0);
+    const frames: unknown[] = [];
     socket.on('data', (chunk: Buffer) => {
       buffered = Buffer.concat([buffered, chunk]);
-      const end = buffered.indexOf(0x0a);
-      if (end === -1) return;
-      try {
-        resolve(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(buffered.subarray(1, end))));
-      } catch (error) {
-        reject(error);
+      while (true) {
+        const end = buffered.indexOf(0x0a);
+        if (end === -1) return;
+        try {
+          frames.push(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(buffered.subarray(1, end))));
+          buffered = buffered.subarray(end + 1);
+          if (frames.length === count) {
+            resolve(frames);
+            return;
+          }
+        } catch (error) {
+          reject(error);
+          return;
+        }
       }
     });
   });
@@ -164,6 +177,35 @@ describe('createIpcTransport', () => {
       expect(received).toEqual([]);
     } finally {
       peer.destroy();
+      await endpoint.close();
+      await transport.close();
+    }
+  });
+
+  it('continues broadcasting after one peer outbound queue overflows', async () => {
+    const transport = await createIpcTransport({
+      limits: { maxOutboundQueueFrames: 1, maxOutboundQueueBytes: 10_000_000 },
+    });
+    const endpoint = await transport.registerEndpoint({
+      windowId: 'peer-isolation',
+      dTag: 'example',
+      aggregateHash: 'abc123',
+      environment: {},
+    }, { onEnvelope() {} });
+    const slowPeer = await connectPeer(endpoint.path);
+    const first = { type: 'shell.init', padding: 'x'.repeat(5_000_000) };
+    const second = { type: 'shell.init', sequence: 2 };
+    let healthyPeer: Socket | undefined;
+
+    try {
+      endpoint.send(first as never);
+      healthyPeer = await connectPeer(endpoint.path);
+      const received = receiveFrame(healthyPeer);
+      expect(() => endpoint.send(second as never)).toThrow('OUTBOUND_QUEUE_OVERFLOW');
+      await expect(received).resolves.toEqual(second);
+    } finally {
+      slowPeer.destroy();
+      healthyPeer?.destroy();
       await endpoint.close();
       await transport.close();
     }

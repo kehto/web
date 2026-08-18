@@ -115,7 +115,15 @@ export async function createIpcTransport(options: IpcTransportOptions = {}): Pro
           registration,
           send(envelope) {
             const frame = encodeJsonSequence(envelope);
-            for (const queue of peers.values()) queue.enqueue(frame);
+            let failure: unknown;
+            for (const queue of peers.values()) {
+              try {
+                queue.enqueue(frame);
+              } catch (error) {
+                failure ??= error;
+              }
+            }
+            if (failure) throw failure;
           },
           close: closeEndpoint,
         };
