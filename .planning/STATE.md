@@ -5,15 +5,15 @@ milestone_name: Experimental IPC Shell Projection
 current_phase: 107
 current_phase_name: IPC Transport Foundation
 status: executing
-stopped_at: Completed 107-01-PLAN.md
-last_updated: "2026-08-18T16:13:51.504Z"
+stopped_at: Completed 107-02-PLAN.md
+last_updated: "2026-08-18T16:17:24.896Z"
 last_activity: 2026-08-18
 last_activity_desc: Phase 107 execution started
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 5
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-28)
 ## Current Position
 
 Phase: 107 (IPC Transport Foundation) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-08-18 — Phase 107 execution started
 
@@ -104,6 +104,7 @@ Last activity: 2026-08-18 — Phase 107 execution started
 | Phase 106 P02 | 5m | 2 tasks | 1 files |
 | Phase 106 P03 | 18m | 2 tasks | 2 files |
 | Phase 107 P01 | 6m | 2 tasks | 11 files |
+| Phase 107 P02 | 2m | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -227,8 +228,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-08-18T16:13:51.496Z
-Stopped at: Completed 107-01-PLAN.md
+Last session: 2026-08-18T16:17:24.888Z
+Stopped at: Completed 107-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -342,3 +343,5 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: Corrective PR #220 supplies the eight-package Changeset omitted from the prior release path; PR #221 and Release #30389303760 publish the Napplet 0.31-compatible line.
 - [Phase ?]: Phase 107 Plan 01 binds a recursively frozen host registration before any IPC listener side effect.
 - [Phase ?]: Phase 107 Plan 01 treats private Unix-socket paths as host-only routing information, never cryptographic peer authentication.
+- [Phase ?]: Phase 107 Plan 02 copies each Uint8Array ingress chunk into decoder-owned Buffer storage before buffering.
+- [Phase ?]: Phase 107 Plan 02 delivers complete canonical records synchronously in wire order and propagates host callback errors.
