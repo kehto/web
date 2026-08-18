@@ -1,120 +1,216 @@
-# Architecture Research - v1.17 Landing Page Branding
+# Architecture Research
 
-**Project:** Kehto Runtime - v1.17 Beautify the SPA Landing Page
-**Researched:** 2026-06-06
-**Scope:** Integration architecture for the static `/web/` portal.
-
----
+**Domain:** Host-side NIP-5D projection over Unix-domain sockets
+**Researched:** 2026-08-18
+**Confidence:** HIGH for Kehto integration; MEDIUM for the experimental wire contract
 
 ## Recommended Architecture
 
-Keep the portal static and make the brand/motion layer an enhancement.
+### System Overview
 
 ```text
-web/
-  index.html
-  assets/
-    landing.css
-    landing.js
-
-scripts/build-pages.mjs
-  copy web/index.html -> .pages/index.html
-  copy web/assets/* -> .pages/assets/*
-  copy node_modules/gsap/dist/gsap.min.js -> .pages/assets/vendor/gsap.min.js
+Host process
+┌─────────────────────────────────────────────────────────────┐
+│ @kehto/ipc                                                 │
+│  endpoint registry ──> private UDS listener per endpoint   │
+│       │                         │                           │
+│       │ host identity          │ RFC 7464 codec + bounds   │
+│       v                         v                           │
+│  NAP-SHELL coordinator ──> @kehto/runtime                  │
+│  shell.ready/init             handleMessage/sendToNapplet  │
+└──────────────────────────────────────┬──────────────────────┘
+                                       │ pathname socket
+                                       │ canonical envelopes
+┌──────────────────────────────────────v──────────────────────┐
+│ Reference napplet process                                  │
+│ node:net raw client + inline RFC 7464 encode/decode         │
+│ no @kehto/ipc client helper, no injected interface          │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-The public page references:
+### Component Responsibilities
 
-- `/web/assets/landing.css`
-- `/web/assets/vendor/gsap.min.js`
-- `/web/assets/landing.js`
+| Component | Responsibility | Typical Implementation |
+|-----------|----------------|------------------------|
+| Endpoint registry | Own immutable `{ windowId, dTag, aggregateHash }`, socket path, generation, and connection state | Map scoped to one IPC shell instance; host registration creates entries. |
+| Socket directory manager | Create a short private directory, validate paths, and clean stale resources safely | `fs.mkdtemp`, explicit mode verification, guarded cleanup. |
+| Endpoint listener | Accept at most one active connection for the registered endpoint | Dedicated `net.Server` per endpoint for the experiment. |
+| JSON-sequence codec | Incrementally decode and encode canonical envelopes | RFC 7464 RS + UTF-8 JSON + LF with configurable frame/queue bounds. |
+| NAP-SHELL coordinator | Gate session creation on bare `shell.ready` and emit one scoped `shell.init` | Transport-neutral logic mirroring current web invariants, keyed by endpoint generation rather than `Window`. |
+| Runtime adapter | Route ingress to `runtime.handleMessage` and runtime egress to the bound socket | `sendToNapplet(windowId, envelope)` resolves the live endpoint connection. |
+| Lifecycle coordinator | Tear down runtime and filesystem state together | On close/error/unregister call `runtime.destroyWindow`, unregister the session, close queues/listeners, and unlink safely. |
+| Reference host/napplet | Prove real process behavior | Host registers identity and launches a raw `node:net` client fixture with its socket path. |
 
-This keeps the first page simple, reviewable, and compatible with the current GitHub Pages route contract.
+## Recommended Project Structure
 
-## DOM Structure
+```text
+packages/ipc/
+├── package.json
+├── tsconfig.json
+├── tsup.config.ts
+├── README.md
+└── src/
+    ├── index.ts                 # public exports
+    ├── types.ts                 # host adapter, endpoint, diagnostics
+    ├── json-sequence.ts         # bounded RFC 7464 codec
+    ├── socket-directory.ts      # private path creation/cleanup
+    ├── endpoint-registry.ts     # identity + generation + connection state
+    ├── shell-session.ts         # shell.ready/init lifecycle
+    └── ipc-shell.ts             # runtime composition and public factory
 
-Recommended `web/index.html` structure:
+tests/fixtures/ipc/
+├── host.ts                      # runnable reference host
+└── napplet.ts                   # raw node:net client
 
-- Fixed background canvas/SVG with `aria-hidden="true"` and `pointer-events: none`.
-- Semantic `main` with brand/hero region.
-- Kehto wordmark as visible text, not image-only.
-- Alpha notice as readable body content.
-- `nav` with the same two destination anchors.
-- Footer with restrained reference-implementation language.
+tests/unit/
+└── ipc-shell-integration.test.ts
 
-No card-in-card layout. Destination blocks can be framed, but they should read as route choices in the same spatial system as the hero.
+docs/packages/ipc.md             # docs gate package page
+docs/protocol/IPC-PROJECTION-FINDINGS.md
+```
 
-## Motion System
+### Structure Rationale
 
-`web/assets/landing.js` owns the progressive enhancement:
+- **Codec isolated from sockets:** fragmentation, coalescing, malformed frames, and bounds can be tested deterministically.
+- **Identity registry isolated from wire parsing:** makes it impossible for envelope fields to become identity authority accidentally.
+- **NAP-SHELL lifecycle isolated from browser types:** permits parity tests without importing DOM globals.
+- **Reference fixture outside the package:** demonstrates raw interoperability without implying a client API.
 
-- Detect `window.gsap`; if absent, leave the static page intact.
-- Detect reduced motion with `window.matchMedia('(prefers-reduced-motion: reduce)')`.
-- Use `gsap.matchMedia()` to split desktop/mobile/reduced-motion behavior.
-- Build one entrance timeline with shared defaults.
-- Add destination click handlers that preserve normal modifier-key behavior and only intercept ordinary same-window clicks.
-- Run a short exit timeline, then set `window.location.href`.
-- Clean up listeners if matchMedia reverts.
+## Architectural Patterns
 
-Suggested timeline order:
+### Pattern 1: Host-Registered Endpoint
 
-1. Liquid background fades from static composition to slow motion.
-2. Wordmark mask/reveal.
-3. Hero summary and alpha notice lift/fade in.
-4. Destination routes reveal with a small stagger.
-5. Footer settles.
+**What:** The host provides verified identity and receives a dedicated socket address before the peer connects.
 
-## Liquid Accent
+**When to use:** Every v1.30 endpoint.
 
-Preferred: canvas 2D layer.
+**Trade-offs:** Strongly simplifies trust and routing; one listener per endpoint costs more file descriptors than multiplexing but is appropriate for an experiment.
 
-- Small set of points moving in a bounded field.
-- Render soft fields/metaballs/noise in muted yellow/black with very low alpha.
-- Clamp device pixel ratio to avoid expensive high-DPR canvases.
-- Pause or static-render under reduced motion.
-- Keep frame loop independent from layout; update only canvas pixels.
+```typescript
+const endpoint = await shell.registerEndpoint({
+  windowId: 'process-1',
+  identity: { dTag: 'notes', aggregateHash: 'abc123' },
+  environment: { capabilities: { domains: ['storage'] }, services: [] },
+});
+```
 
-Alternative: SVG filter/gradient layer.
+The shape is illustrative, not a locked public API.
 
-- Use GSAP to animate filter attributes or gradient positions slowly.
-- Lower risk than canvas if visual verification shows canvas artifacts.
+### Pattern 2: Transport-Neutral Runtime Composition
 
-## Build and Audit Changes
+**What:** Preserve `Runtime.handleMessage(windowId, envelope)` and implement only `sendToNapplet` plus session lifecycle around the socket.
 
-`scripts/build-pages.mjs` should copy `web/assets` into `.pages/assets` and vendor GSAP from `node_modules`.
+**When to use:** All NAP traffic after `shell.ready`.
 
-`scripts/audit-pages-artifact.mjs` should add focused checks:
+**Trade-offs:** Maximizes parity and avoids runtime changes; NAP-SHELL coordination must have explicit parity tests with the web shell to prevent drift.
 
-- `.pages/assets/landing.css` exists.
-- `.pages/assets/landing.js` exists.
-- `.pages/assets/vendor/gsap.min.js` exists.
-- `.pages/index.html` references the expected `/web/assets/...` paths.
-- Existing `/web/playground/` and `/web/docs/` link checks remain.
+### Pattern 3: Generation-Bound Lifecycle
 
-Existing `tests/unit/playground-gateway-guard.test.ts` already validates Pages scripts and route constants. A new focused test can cover the portal asset contract if the audit script alone is not enough.
+**What:** Each host registration has a monotonic/opaque generation. Exactly-once init and cleanup are scoped to that generation.
 
-## Integration Boundaries
+**When to use:** Re-registration or process restart under a stable `windowId`.
 
-In scope:
+**Trade-offs:** Slightly more state, but prevents a late close/error from an old socket destroying a replacement session.
 
-- `web/index.html`
-- `web/assets/*`
-- `scripts/build-pages.mjs`
-- `scripts/audit-pages-artifact.mjs`
-- Focused tests for portal artifact contract
-- Root package manifest/lockfile for GSAP
+### Pattern 4: Bounded Write Queue
 
-Out of scope:
+**What:** Serialize outbound frames in order, pause when `socket.write()` returns false, resume on `drain`, and close on configured queue overflow.
 
-- Playground application UI.
-- VitePress docs theme.
-- Runtime package APIs.
-- Protocol, NUB, ACL, or gateway identity behavior.
-- Public route changes.
+**When to use:** All runtime-originated delivery.
 
-## Suggested Build Order
+**Trade-offs:** Required for safety and ordering; produces an explicit projection policy for slow consumers.
 
-1. Establish static brand system and semantic markup while preserving current links.
-2. Add asset-copy and audit support for portal CSS/JS and vendored GSAP.
-3. Add GSAP entrance/exit transitions with reduced-motion behavior.
-4. Add liquid accent and visual QA across desktop/mobile/reduced-motion.
+## Data Flow
+
+### Registration and Handshake
+
+```text
+Host verifies/assigns identity
+    ↓
+registerEndpoint(identity, environment)
+    ↓
+create private pathname socket and bind endpoint generation
+    ↓
+raw napplet connects and sends framed { type: "shell.ready" }
+    ↓
+register source-bound runtime session
+    ↓
+send exactly one framed { type: "shell.init", capabilities, services }
+```
+
+### Request/Result
+
+```text
+socket bytes → bounded decoder → envelope validation
+    → runtime.handleMessage(windowId, envelope)
+    → ACL/firewall/domain handler
+    → RuntimeAdapter.sendToNapplet(windowId, result)
+    → ordered encoder/write queue → socket bytes
+```
+
+### Host Push
+
+```text
+host/runtime event → eligibility checks → sendToNapplet
+    → endpoint lookup → ordered frame → raw napplet decoder
+```
+
+### Teardown
+
+```text
+socket close/error or host unregister
+    → generation check
+    → runtime.destroyWindow(windowId)
+    → sessionRegistry.unregister(windowId)
+    → close listener and pending queue
+    → guarded socket-path/private-directory cleanup
+```
+
+## Integration Points
+
+### Internal Boundaries
+
+| Boundary | Communication | Notes |
+|----------|---------------|-------|
+| `@kehto/ipc` ↔ `@kehto/runtime` | Public factory/types/methods | Reuse `createRuntime`, `RuntimeAdapter`, `handleMessage`, `sessionRegistry`, and `destroyWindow`. |
+| IPC endpoint ↔ NAP-SHELL coordinator | Parsed envelopes | Bare ready only; identity and environment are host-owned. |
+| Runtime egress ↔ socket | `SendToNapplet` | Preserve per-window ordering and apply backpressure. |
+| Reference host ↔ napplet process | Socket path out of band | Do not put identity claims into socket frames or process arguments. |
+| IPC findings ↔ `napplet/naps` | Documentation | Clearly separate inherited NAP rules from experimental projection choices. |
+
+## Build Order
+
+1. Codec and endpoint identity invariants.
+2. Private socket lifecycle and bounded delivery.
+3. NAP-SHELL/runtime composition.
+4. Real process proof and parity/security tests.
+5. Drafting findings, package docs, and release metadata.
+
+## Anti-Patterns
+
+### Treating `data` Events as Messages
+
+One write can become several reads and several writes can become one read. Use an incremental codec with tests for both cases.
+
+### Sharing Browser Registries
+
+`originRegistry` binds `Window` objects and `postMessage`; importing it into `@kehto/ipc` would couple projections. Use a projection-specific endpoint registry with the same security invariants.
+
+### Identity in the First Frame
+
+An envelope is controlled by the napplet. Identity must already be bound to the accepted socket before parsing `shell.ready`.
+
+### Cleanup Without Generations
+
+A late event from a replaced socket can erase a new session. Gate teardown and exactly-once state by registration generation.
+
+## Sources
+
+- Kehto graph: `createShellBridge` → `adaptHooks`/`createRuntime`; `createMessageHandler` session gate; `handleShellReady`; `Runtime.destroyWindow`.
+- https://nodejs.org/download/release/latest-v20.x/docs/api/net.html — IPC server/client lifecycle, path limits, stale paths, and backpressure.
+- https://www.rfc-editor.org/info/rfc7464/ — incremental JSON sequence format.
+- `napplet/naps` `origin/master@c0f7dd14460622fc3a9870ea57a538474cf776fa` — source-bound NAP-SHELL identity and carrier-neutral NAP-INC sender attestation.
+
+---
+*Architecture research for: Experimental NIP-5D Unix IPC projection*
+*Researched: 2026-08-18*
