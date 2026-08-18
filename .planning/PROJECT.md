@@ -42,6 +42,7 @@ Provide a modular, framework-agnostic runtime for hosting napplet applications �
 | @kehto/acl | `packages/acl` | Pure ACL module — zero deps, WASM-ready capability enforcement |
 | @kehto/runtime | `packages/runtime` | Protocol engine — message dispatch, AUTH, subscriptions, ACL gates |
 | @kehto/shell | `packages/shell` | Browser adapter — ShellBridge, signer proxy, storage proxy, audio |
+| @kehto/shell-ipc | `packages/shell-ipc` | Experimental Node/POSIX Unix-socket projection with bounded RFC 7464 transport |
 | @kehto/services | `packages/services` | Reference service handlers — audio, notifications, extensible |
 | @kehto/nip66 | `packages/nip66` | Relay-discovery aggregation utility |
 | @kehto/wm | `packages/wm` | Structural window-management contracts |
@@ -66,10 +67,12 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Status:** Defining requirements and a roadmap for v1.30. The preceding v1.29
-protocol/runtime conformance package line is published and downstream-verified.
-The Phase 105 visual audit remains explicit non-passing debt and is unrelated
-to this IPC experiment.
+**Status:** Phase 107 complete. `@kehto/shell-ipc` now provides the private,
+bounded, race-safe POSIX transport foundation; Phase 108 will compose that
+carrier with the existing runtime shell semantics. The preceding v1.29
+protocol/runtime conformance package line remains published and
+downstream-verified. The Phase 105 visual audit remains explicit non-passing
+debt and is unrelated to this IPC experiment.
 
 ## Previous Milestone: v1.20 NIP-5D Content-Addressed Runtime Resolution
 
@@ -290,6 +293,9 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 | 42 | The Phase 105 12/24 UI audit remains non-passing post-merge debt | The audit is acknowledged and owned by Kehto maintainers, but Phase 106 closes protocol/runtime conformance only and must not imply visual approval. | 2026-07-27 |
 | 43 | v1.29 registry publication is a separate terminal proof after PR readiness | Release completion requires exact-main CI and Pages, successful npm/JSR workflow steps, direct registry metadata for all seven versions, and a clean downstream install/import/build; Release #30350331202 and the recorded consumer smoke provide that proof. | 2026-07-28 |
 | 44 | Phase 106 publication must remain compatible with the current Napplet `latest` line | PR #211 had no package changeset and the former Kehto release accepted only Napplet 0.29. Corrective PR #220 added explicit eight-package release intent and canonical 0.31 adoption; Version Packages PR #221 plus Release #30389303760 published and downstream-verified the current line. | 2026-07-28 |
+| 45 | `@kehto/shell-ipc` is an experimental POSIX carrier, not a normative NAP projection | `napplet/naps` `origin/master@c0f7dd14460622fc3a9870ea57a538474cf776fa` defines no IPC carrier. RFC 7464 framing, Unix-socket lifecycle, limits, and trust choices are bounded implementation evidence for later drafting. | 2026-08-18 |
+| 46 | IPC endpoint identity is host-bound before listen and never accepted from peer envelopes | The transport validates, clones, and recursively freezes JSON-compatible registration metadata before filesystem/listener allocation; peer binding claims terminate ingress before dispatch. | 2026-08-18 |
+| 47 | Private Unix-socket paths are routing handles, not authentication | Mode-0700 directories and path secrecy reduce accidental exposure but provide no cryptographic identity or hostile-same-UID protection; that boundary is explicit in source and public docs. | 2026-08-18 |
 
 ## Evolution
 
@@ -309,4 +315,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-18 after starting the v1.30 Experimental IPC Shell Projection milestone.*
+*Last updated: 2026-08-18 after completing Phase 107 IPC Transport Foundation.*

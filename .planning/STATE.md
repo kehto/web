@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.30
 milestone_name: Experimental IPC Shell Projection
-current_phase: 107
-current_phase_name: IPC Transport Foundation
-status: verifying
-stopped_at: Completed 107-06-PLAN.md
-last_updated: "2026-08-18T17:18:51.154Z"
+current_phase: 108
+current_phase_name: Runtime Shell Composition
+status: planning
+stopped_at: Phase 107 complete, ready to plan Phase 108
+last_updated: "2026-08-18T17:28:50.104Z"
 last_activity: 2026-08-18
-last_activity_desc: Phase 107 execution started
+last_activity_desc: Phase 107 complete, transitioned to Phase 108
 progress:
   total_phases: 3
   completed_phases: 1
@@ -21,23 +21,23 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-28)
+See: .planning/PROJECT.md (updated 2026-08-18)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 107 — IPC Transport Foundation
+**Current focus:** Phase 108 — Runtime Shell Composition
 
 ## Current Position
 
-Phase: 107 (IPC Transport Foundation) — EXECUTING
-Plan: 5 of 5
-Status: Phase complete — ready for verification
-Last activity: 2026-08-18 — Phase 107 execution started
+Phase: 108 — Runtime Shell Composition
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-08-18 — Phase 107 complete, transitioned to Phase 108
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 45
+- Total plans completed: 51
 - Average duration: ~6m
 - Total execution time: ~6 minutes
 
@@ -54,6 +54,7 @@ Last activity: 2026-08-18 — Phase 107 execution started
 | 104 | 6 | - | - |
 | 105 | 12 | - | - |
 | 106 | 3 | - | - |
+| 107 | 6 | - | - |
 **Per-Plan Metrics:**
 
 | Plan | Duration | Tasks | Files |
@@ -113,6 +114,12 @@ Last activity: 2026-08-18 — Phase 107 execution started
 ## Accumulated Context
 
 Full decision log lives in `.planning/PROJECT.md` Key Decisions table.
+
+### Key Context for v1.30
+
+- Phase 107 shipped the experimental `@kehto/shell-ipc` Node/POSIX transport foundation with bounded RFC 7464 framing, per-peer backpressure, and race-safe Unix-socket ownership.
+- Endpoint registration is validated, cloned, and recursively frozen before listener allocation; peer-controlled binding claims are terminal before host dispatch.
+- Authority checked: `napplet/naps origin/master@c0f7dd14460622fc3a9870ea57a538474cf776fa` defines no IPC carrier. All carrier choices remain experimental evidence, and private paths are routing handles rather than hostile-same-UID authentication.
 
 ### Key Context for v1.29
 
@@ -232,13 +239,13 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-08-18T17:18:51.147Z
-Stopped at: Completed 107-06-PLAN.md
+Last session: 2026-08-18
+Stopped at: Phase 107 complete, ready to plan Phase 108
 Resume file: None
 
 ## Operator Next Steps
 
-- Archive the completed v1.29 milestone when maintainers are ready.
+- Continue v1.30 with Phase 108 runtime shell composition over the verified IPC carrier.
 - Track the Phase 105 12/24 UI findings as a separately scoped post-merge follow-up.
 
 ### Key Context for v1.22 (Phases 90–94)
