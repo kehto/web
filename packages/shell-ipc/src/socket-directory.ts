@@ -1,6 +1,6 @@
 import { chmod, lstat, mkdtemp, realpath, rmdir, unlink } from 'node:fs/promises';
 import { connect, type Server } from 'node:net';
-import { basename, join, relative, resolve } from 'node:path';
+import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { IpcTransportError } from './types.js';
 
 const SOCKET_BASENAME = 'endpoint.sock';
@@ -167,7 +167,7 @@ export function sameFingerprint(left: PathFingerprint, right: PathFingerprint): 
 /** Refuse paths that escape an already-resolved owned root. */
 export function assertContainedPath(root: string, candidate: string): void {
   const relativePath = relative(root, candidate);
-  if (relativePath === '' || relativePath === '..' || relativePath.startsWith(`..${join('')}`) || relativePath.startsWith('../')) {
+  if (relativePath === '' || relativePath === '..' || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath)) {
     throw new IpcTransportError('PATH_OWNERSHIP_MISMATCH', 'IPC path escapes its owned directory.');
   }
 }

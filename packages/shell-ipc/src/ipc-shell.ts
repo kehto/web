@@ -38,44 +38,26 @@ export async function createIpcTransport(options: IpcTransportOptions = {}): Pro
     });
   };
   const unregisterEndpoint = async (windowId: string): Promise<void> => {
-    await endpoints.get(windowId)?.endpoint?.close();
+    const record = endpoints.get(windowId);
+    if (!record) return;
+    if (record.endpoint) {
+      await record.endpoint.close();
+      return;
+    }
+    endpoints.rollbackRegistration(record.windowId, record.generation);
   };
 
   return {
     async registerEndpoint(input, hooks) {
       if (transportClosed) throw new IpcTransportError('TRANSPORT_CLOSED', 'IPC transport is closed.');
-      if (endpoints.get(input.windowId)) {
-        throw new IpcTransportError('ENDPOINT_ALREADY_REGISTERED', `IPC endpoint ${input.windowId} is already registered.`);
-      }
       const registration = cloneAndFreezeRegistration(input);
-      const reservation = endpoints.reserve(registration);
+      const reservation = endpoints.reserveRegistration(registration);
       let directory: Awaited<ReturnType<typeof createSocketDirectory>> | undefined;
+      let server: Server | undefined;
       try {
-        directory = await createSocketDirectory(options.baseDirectory ?? tmpdir(), limits.maxPathBytes);
+        directory = await createSocketDirectory(options.baseDirectory ?? tmpdir(), limits.maxPathBytes, reservation.generation);
         const activeDirectory = directory;
         const peers = new Map<Socket, OutboundQueue>();
-        let endpointClosed = false;
-        let server: Server;
-        const closeEndpoint = async (): Promise<void> => {
-          if (endpointClosed || !endpoints.compareAndRemove(reservation.windowId, reservation.generation)) return;
-          endpointClosed = true;
-          for (const [peer, queue] of peers) {
-            queue.close();
-            peer.destroy();
-          }
-          peers.clear();
-          await closeServer(server);
-          await activeDirectory.close();
-        };
-        const endpoint: IpcEndpoint = {
-          path: activeDirectory.path,
-          registration,
-          send(envelope) {
-            const frame = encodeJsonSequence(envelope);
-            for (const queue of peers.values()) queue.enqueue(frame);
-          },
-          close: closeEndpoint,
-        };
         server = createServer((socket) => {
           const queue = createOutboundQueue(socket, {
             maxOutboundQueueFrames: limits.maxOutboundQueueFrames,
@@ -113,11 +95,38 @@ export async function createIpcTransport(options: IpcTransportOptions = {}): Pro
             }
           });
         });
-        endpoints.activate(reservation, { directory: activeDirectory, server, endpoint, peers });
-        await listen(server, activeDirectory.path);
+        let closePromise: Promise<void> | undefined;
+        const closeEndpoint = (): Promise<void> => {
+          closePromise ??= (async () => {
+            const current = endpoints.beginClosing(reservation.windowId, reservation.generation);
+            if (!current) return;
+          for (const [peer, queue] of peers) {
+            queue.close();
+            peer.destroy();
+          }
+          peers.clear();
+            await closeServer(server);
+          await activeDirectory.close();
+            endpoints.removeIfCurrentGeneration(reservation.windowId, reservation.generation);
+          })();
+          return closePromise;
+        };
+        const endpoint: IpcEndpoint = {
+          path: activeDirectory.path,
+          registration,
+          send(envelope) {
+            const frame = encodeJsonSequence(envelope);
+            for (const queue of peers.values()) queue.enqueue(frame);
+          },
+          close: closeEndpoint,
+        };
+        endpoints.activateRegistration(reservation, { directory: activeDirectory, server, endpoint, peers });
+        if (transportClosed) throw new IpcTransportError('TRANSPORT_CLOSED', 'IPC transport is closed.');
+        await activeDirectory.listen(server);
         return endpoint;
       } catch (error) {
-        endpoints.compareAndRemove(reservation.windowId, reservation.generation);
+        endpoints.rollbackRegistration(reservation.windowId, reservation.generation);
+        await closeServer(server);
         await directory?.close();
         throw error;
       }
@@ -147,13 +156,13 @@ function recursivelyFreeze<T>(value: T): T {
   return value;
 }
 
-function listen(server: Server, socketPath: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(socketPath, () => { server.off('error', reject); resolve(); });
-  });
-}
-
-function closeServer(server: Server): Promise<void> {
-  return new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+function closeServer(server: Server | undefined): Promise<void> {
+  if (!server) return Promise.resolve();
+  return new Promise((resolve, reject) => server.close((error) => {
+    if (!error || (error as NodeJS.ErrnoException).code === 'ERR_SERVER_NOT_RUNNING') {
+      resolve();
+      return;
+    }
+    reject(error);
+  }));
 }
