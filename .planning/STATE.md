@@ -5,15 +5,15 @@ milestone_name: Experimental IPC Shell Projection
 current_phase: 107
 current_phase_name: IPC Transport Foundation
 status: verifying
-stopped_at: Completed 107-03-PLAN.md
-last_updated: "2026-08-18T16:37:39.695Z"
+stopped_at: Completed 107-06-PLAN.md
+last_updated: "2026-08-18T17:18:51.154Z"
 last_activity: 2026-08-18
 last_activity_desc: Phase 107 execution started
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 6
+  completed_plans: 6
   percent: 33
 ---
 
@@ -108,6 +108,7 @@ Last activity: 2026-08-18 — Phase 107 execution started
 | Phase 107 P04 | 3min | 2 tasks | 5 files |
 | Phase 107 P05 | 5min | 2 tasks | 8 files |
 | Phase 107 P03 | 5min | 2 tasks | 6 files |
+| Phase 107 P06 | 6min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -231,8 +232,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-08-18T16:37:39.688Z
-Stopped at: Completed 107-03-PLAN.md
+Last session: 2026-08-18T17:18:51.147Z
+Stopped at: Completed 107-06-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -352,3 +353,4 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: Accepted peers receive endpoint-configured outbound limits and one host-bound terminal diagnostic.
 - [Phase ?]: IPC socket cleanup requires unchanged device/inode/mode fingerprints and never treats a substituted entry as owned.
 - [Phase ?]: Endpoint reservations are inserted synchronously and lifecycle callbacks act only on their current safe-integer generation.
+- [Phase ?]: The pinned napplet/naps object defines no IPC carrier; NAP-INC endpoint binding remains carrier-neutral rather than an IPC projection.
