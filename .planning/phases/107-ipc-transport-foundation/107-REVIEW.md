@@ -1,6 +1,6 @@
 ---
 phase: 107-ipc-transport-foundation
-reviewed: 2026-08-18T16:57:16Z
+reviewed: 2026-08-18T17:21:02Z
 depth: standard
 files_reviewed: 23
 files_reviewed_list:
@@ -29,43 +29,37 @@ files_reviewed_list:
   - typedoc.json
 findings:
   critical: 0
-  warning: 1
+  warning: 0
   info: 0
-  total: 1
-status: issues_found
+  total: 0
+status: clean
 ---
 
 # Phase 107: Code Review Report
 
-**Reviewed:** 2026-08-18T16:57:16Z
+**Reviewed:** 2026-08-18T17:21:02Z
 **Depth:** standard
 **Files Reviewed:** 23
-**Status:** issues_found
+**Status:** clean
 
 ## Summary
 
-The original blockers remain resolved: a peer identity claim now terminates decoding before a coalesced follow-up frame can be delivered; one failed outbound peer no longer suppresses delivery attempts to later peers; and invalid transport limits reject before a transport is returned.
+All prior review findings are resolved. Peer identity claims take the terminal decoder path, per-peer outbound failures do not prevent attempts to deliver to healthy peers, and transport limits validate before a transport is returned.
 
-The public-package documentation integration is complete and docs-gate compatible. `IpcEnvironmentValue` is re-exported from the package root, listed on the package page, and emitted successfully by strict TypeDoc. Focused validation passed: package type-check, 63 IPC tests, strict TypeDoc, and `pnpm docs:check`.
+The registration boundary now rejects mutable or non-JSON environment values before endpoint reservation or filesystem/listener allocation. Its tests cover `Map`, `Set`, `Date`, functions, `undefined`, non-finite numbers, and cycles. `IpcEnvironmentValue` remains exported from the public barrel and strict TypeDoc accepts the public API.
 
-One runtime boundary defect remains: the newly public JSON-compatible environment type is only compile-time enforced, while the implementation accepts mutable non-JSON containers and exposes the supposedly frozen clone through `endpoint.registration`.
+Both public package documents cite `napplet/naps` `c0f7dd14460622fc3a9870ea57a538474cf776fa`, accurately state that it defines no IPC carrier, and clarify that NAP-INC's generic authenticated-endpoint binding statement is carrier-neutral rather than an IPC projection. The experimental, non-authentication, non-cryptographic-identity, and hostile-same-UID boundaries remain explicit.
+
+Validation passed: pinned-authority assertions, package type-check, package build, 71 IPC tests, strict TypeDoc, and `pnpm docs:check`.
+
+All reviewed files meet the applicable correctness, security, and documentation-integration requirements. No issues found.
 
 ## Narrative Findings (AI reviewer)
 
-## Warnings
-
-### WR-01: Runtime accepts mutable non-JSON environment metadata despite the immutable binding contract
-
-**Classification:** WARNING
-
-**File:** `packages/shell-ipc/src/ipc-shell.ts:150-187`
-
-**Issue:** `cloneAndFreezeRegistration()` clones and freezes arbitrary runtime input without validating that `environment` is an `IpcEnvironmentValue` tree. For example, a JavaScript caller (or a TypeScript caller using an assertion) can register `environment: new Map([['policy', 'original']])`. `structuredClone()` preserves the `Map`, and `Object.freeze()` does not freeze its entries; because `endpoint.registration` is public, `endpoint.registration.environment.set('policy', 'mutated')` succeeds. Later `onEnvelope` calls then receive changed host-bound metadata. This contradicts the documented and planned invariant that the environment is JSON-compatible and recursively immutable before listening.
-
-**Fix:** Validate the complete registration at the public boundary before cloning/listening. Recursively accept only JSON primitives, arrays, and plain objects; reject `Map`, `Set`, `Date`, functions, `undefined`, non-finite numbers, and cycles with a typed `IpcTransportError`. Then clone and freeze the validated JSON tree. Add a production-endpoint test that attempts the `Map` input and asserts registration is rejected (and that no directory/listener is created).
+No narrative findings.
 
 ---
 
-_Reviewed: 2026-08-18T16:57:16Z_
+_Reviewed: 2026-08-18T17:21:02Z_
 _Reviewer: the agent (gsd-code-reviewer)_
 _Depth: standard_
