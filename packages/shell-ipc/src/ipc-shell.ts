@@ -60,13 +60,62 @@ export interface IpcEndpointHooks {
 export interface IpcEndpoint {
   readonly path: string;
   readonly registration: IpcEndpointRegistration;
+  /**
+   * Queue one canonical envelope for each connected peer in FIFO order.
+   *
+   * @param envelope - Canonical envelope to encode as one experimental RFC 7464 frame.
+   * @returns Nothing.
+   * @example
+   * ```ts
+   * endpoint.send({ type: 'shell.init' } as NappletMessage);
+   * ```
+   */
   send(envelope: NappletMessage): void;
+  /**
+   * Close the endpoint and its owned peers, listener, socket path, and directory.
+   *
+   * @returns A promise that resolves after owned resources are released.
+   * @example
+   * ```ts
+   * await endpoint.close();
+   * ```
+   */
   close(): Promise<void>;
 }
 
 export interface IpcTransport {
+  /**
+   * Create one host-bound private socket endpoint.
+   *
+   * @param registration - Immutable host identity and environment metadata.
+   * @param hooks - Synchronous canonical-envelope receiver.
+   * @returns The host-only endpoint handle.
+   * @example
+   * ```ts
+   * const endpoint = await transport.registerEndpoint(registration, hooks);
+   * ```
+   */
   registerEndpoint(registration: IpcEndpointRegistration, hooks: IpcEndpointHooks): Promise<IpcEndpoint>;
+  /**
+   * Remove one host-registered endpoint if it exists.
+   *
+   * @param windowId - Host-bound registration identity.
+   * @returns A promise that resolves once any matching endpoint is closed.
+   * @example
+   * ```ts
+   * await transport.unregisterEndpoint('window-1');
+   * ```
+   */
   unregisterEndpoint(windowId: string): Promise<void>;
+  /**
+   * Close every endpoint owned by this transport.
+   *
+   * @returns A promise that resolves after all owned resources are released.
+   * @example
+   * ```ts
+   * await transport.close();
+   * ```
+   */
   close(): Promise<void>;
 }
 
@@ -80,6 +129,13 @@ interface EndpointRecord {
  * Create an experimental Node >=20/POSIX-only carrier for canonical envelopes.
  * Its framing, lifecycle, limits, and trust boundary are projection policy—not normative NAP or NIP authority.
  * A private pathname is host-only connection information, not cryptographic peer authentication.
+ *
+ * @param options - Optional private-directory, carrier-limit, and diagnostic hooks.
+ * @returns A transport that owns only the endpoints registered through it.
+ * @example
+ * ```ts
+ * const transport = await createIpcTransport();
+ * ```
  */
 export async function createIpcTransport(options: IpcTransportOptions = {}): Promise<IpcTransport> {
   const limits: IpcTransportLimits = { ...DEFAULT_IPC_LIMITS, ...options.limits };

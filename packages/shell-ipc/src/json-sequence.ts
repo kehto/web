@@ -57,7 +57,7 @@ export function createJsonSequenceDecoder(options: JsonSequenceDecoderOptions): 
         fail('IPC JSON text-sequence frame exceeds the configured byte limit.');
       }
 
-      let decoded: string;
+      let decoded = '';
       try {
         decoded = new TextDecoder('utf-8', { fatal: true }).decode(payload);
       } catch {
@@ -71,10 +71,14 @@ export function createJsonSequenceDecoder(options: JsonSequenceDecoderOptions): 
         fail('IPC JSON text-sequence frame is not valid JSON.');
       }
 
-      if (parsed === null || Array.isArray(parsed) || typeof parsed !== 'object' || typeof parsed.type !== 'string') {
+      if (parsed === null || Array.isArray(parsed) || typeof parsed !== 'object') {
         fail('IPC JSON text-sequence frame is not a canonical envelope.');
       }
-      options.onEnvelope(parsed as JsonSequenceEnvelope);
+      const envelope = parsed as Record<string, unknown>;
+      if (typeof envelope.type !== 'string') {
+        fail('IPC JSON text-sequence frame is not a canonical envelope.');
+      }
+      options.onEnvelope(envelope as JsonSequenceEnvelope);
     }
   };
 
