@@ -1,4 +1,5 @@
-export { createIpcTransport, DEFAULT_IPC_LIMITS, IpcTransportError } from './ipc-shell.js';
+export { createIpcTransport, DEFAULT_IPC_LIMITS } from './ipc-shell.js';
+export { IpcTransportError } from './types.js';
 export type {
   IpcDiagnostic,
   IpcEndpoint,
@@ -8,4 +9,4 @@ export type {
   IpcTransportErrorCode,
   IpcTransportLimits,
   IpcTransportOptions,
-} from './ipc-shell.js';
+} from './types.js';

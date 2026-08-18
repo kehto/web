@@ -4,7 +4,8 @@ import { dirname } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_IPC_LIMITS as exportedLimits, createIpcTransport as createExportedIpcTransport } from './index.js';
 import { encodeJsonSequence } from './json-sequence.js';
-import { DEFAULT_IPC_LIMITS, createIpcTransport, type IpcEndpointRegistration } from './ipc-shell.js';
+import { DEFAULT_IPC_LIMITS, createIpcTransport } from './ipc-shell.js';
+import type { IpcEndpointRegistration } from './types.js';
 
 function connectPeer(path: string): Promise<Socket> {
   return new Promise((resolve, reject) => {
