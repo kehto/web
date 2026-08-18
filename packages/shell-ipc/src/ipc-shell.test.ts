@@ -2,8 +2,9 @@ import { stat } from 'node:fs/promises';
 import { connect, type Socket } from 'node:net';
 import { dirname } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_IPC_LIMITS as exportedLimits, createIpcTransport as createExportedIpcTransport } from './index.js';
 import { encodeJsonSequence } from './json-sequence.js';
-import { createIpcTransport, type IpcEndpointRegistration } from './ipc-shell.js';
+import { DEFAULT_IPC_LIMITS, createIpcTransport, type IpcEndpointRegistration } from './ipc-shell.js';
 
 function connectPeer(path: string): Promise<Socket> {
   return new Promise((resolve, reject) => {
@@ -34,6 +35,11 @@ function receiveFrame(socket: Socket): Promise<unknown> {
 }
 
 describe('createIpcTransport', () => {
+  it('retains the tracer public exports at the package root', () => {
+    expect(createExportedIpcTransport).toBe(createIpcTransport);
+    expect(exportedLimits).toBe(DEFAULT_IPC_LIMITS);
+  });
+
   it('carries an immutable host-bound envelope through a raw Unix socket in both directions', async () => {
     const received: unknown[] = [];
     let boundRegistration: IpcEndpointRegistration | undefined;
