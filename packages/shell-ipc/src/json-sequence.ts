@@ -1,17 +1,16 @@
+import { IpcTransportError } from './types.js';
+
 /** Byte markers used by the experimental RFC 7464 carrier. */
 export const RS = 0x1e;
 /** Byte markers used by the experimental RFC 7464 carrier. */
 export const LF = 0x0a;
-
 /** A decoded canonical envelope accepted by the carrier. */
 export type JsonSequenceEnvelope = Record<string, unknown> & { type: string };
-
 export interface JsonSequenceDecoderOptions {
   readonly maxFrameBytes: number;
   readonly maxBufferedInputBytes: number;
   readonly onEnvelope: (envelope: JsonSequenceEnvelope) => void;
 }
-
 export interface JsonSequenceDecoder {
   push(chunk: Uint8Array): void;
   end(): void;
@@ -23,71 +22,60 @@ export function encodeJsonSequence(envelope: unknown): Buffer {
   return Buffer.concat([Buffer.from([RS]), payload, Buffer.from([LF])]);
 }
 
-/**
- * Create the bounded, fail-closed decoder used by the experimental IPC carrier.
- * The carrier policy is not normative NAP or NIP protocol authority.
- */
+/** Create the bounded, irreversible fail-closed decoder for the experimental IPC carrier. */
 export function createJsonSequenceDecoder(options: JsonSequenceDecoderOptions): JsonSequenceDecoder {
+  validateLimit('maxFrameBytes', options.maxFrameBytes);
+  validateLimit('maxBufferedInputBytes', options.maxBufferedInputBytes);
   let buffered = Buffer.alloc(0);
   let closed = false;
-
-  const fail = (message: string): never => {
+  const fail = (code: ConstructorParameters<typeof IpcTransportError>[0], message: string): never => {
     closed = true;
     buffered = Buffer.alloc(0);
-    throw new Error(message);
+    throw new IpcTransportError(code, message);
   };
-
+  const requireOpen = (): void => {
+    if (closed) throw new IpcTransportError('DECODER_CLOSED', 'IPC JSON text-sequence decoder is closed.');
+  };
   const process = (): void => {
     while (buffered.length > 0) {
-      if (buffered[0] !== RS) {
-        fail('IPC input must begin each JSON text-sequence record with RS.');
-      }
-
+      if (buffered[0] !== RS) fail('INVALID_FRAMING', 'IPC input must begin each JSON text-sequence record with RS.');
       const lineEnd = buffered.indexOf(LF, 1);
       if (lineEnd === -1) {
-        if (buffered.length - 1 > options.maxFrameBytes) {
-          fail('IPC JSON text-sequence frame exceeds the configured byte limit.');
-        }
+        if (buffered.length - 1 > options.maxFrameBytes) fail('FRAME_TOO_LARGE', 'IPC JSON text-sequence frame exceeds the configured byte limit.');
         return;
       }
-
       const payload = buffered.subarray(1, lineEnd);
       buffered = buffered.subarray(lineEnd + 1);
-      if (payload.length > options.maxFrameBytes) {
-        fail('IPC JSON text-sequence frame exceeds the configured byte limit.');
-      }
-
-      let envelope: JsonSequenceEnvelope;
+      if (payload.length > options.maxFrameBytes) fail('FRAME_TOO_LARGE', 'IPC JSON text-sequence frame exceeds the configured byte limit.');
       try {
-        envelope = decodeEnvelope(payload);
+        options.onEnvelope(decodeEnvelope(payload));
       } catch (error) {
-        if (error instanceof SyntaxError) fail('IPC JSON text-sequence frame is not valid JSON.');
-        if (error instanceof TypeError) fail(error.message);
+        if (error instanceof IpcTransportError) fail(error.code, error.message);
         throw error;
       }
-      options.onEnvelope(envelope);
     }
   };
-
   return {
     push(chunk) {
-      if (closed) throw new Error('IPC JSON text-sequence decoder is closed.');
+      requireOpen();
       if (chunk.length === 0) return;
-      const ownedChunk = Buffer.from(chunk);
-      buffered = Buffer.concat([buffered, ownedChunk]);
-      if (buffered.length > options.maxBufferedInputBytes) {
-        fail('IPC input exceeds the configured buffer limit.');
-      }
+      const owned = Buffer.from(chunk);
+      if (buffered.length + owned.length > options.maxBufferedInputBytes) fail('INPUT_BUFFER_OVERFLOW', 'IPC input exceeds the configured buffer limit.');
+      buffered = Buffer.concat([buffered, owned]);
       process();
     },
     end() {
-      if (closed) return;
-      if (buffered.length > 0) {
-        fail('IPC peer ended with an incomplete JSON text-sequence frame.');
-      }
+      requireOpen();
+      if (buffered.length > 0) fail('TRUNCATED_FRAME', 'IPC peer ended with an incomplete JSON text-sequence frame.');
       closed = true;
     },
   };
+}
+
+function validateLimit(name: string, value: number): void {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new IpcTransportError('INVALID_LIMIT', `${name} must be a positive safe integer.`);
+  }
 }
 
 function decodeEnvelope(payload: Buffer): JsonSequenceEnvelope {
@@ -95,18 +83,16 @@ function decodeEnvelope(payload: Buffer): JsonSequenceEnvelope {
   try {
     decoded = new TextDecoder('utf-8', { fatal: true }).decode(payload);
   } catch {
-    throw new TypeError('IPC JSON text-sequence frame is not valid UTF-8.');
+    throw new IpcTransportError('INVALID_UTF8', 'IPC JSON text-sequence frame is not valid UTF-8.');
   }
-  return assertCanonicalEnvelope(JSON.parse(decoded));
-}
-
-function assertCanonicalEnvelope(value: unknown): JsonSequenceEnvelope {
-  if (value === null || Array.isArray(value) || typeof value !== 'object') {
-    throw new TypeError('IPC JSON text-sequence frame is not a canonical envelope.');
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(decoded);
+  } catch {
+    throw new IpcTransportError('MALFORMED_JSON', 'IPC JSON text-sequence frame is not valid JSON.');
   }
-  const envelope = value as Record<string, unknown>;
-  if (typeof envelope.type !== 'string') {
-    throw new TypeError('IPC JSON text-sequence frame is not a canonical envelope.');
+  if (parsed === null || Array.isArray(parsed) || typeof parsed !== 'object' || typeof (parsed as { type?: unknown }).type !== 'string') {
+    throw new IpcTransportError('INVALID_ENVELOPE', 'IPC JSON text-sequence frame is not a canonical envelope.');
   }
-  return envelope as JsonSequenceEnvelope;
+  return parsed as JsonSequenceEnvelope;
 }
