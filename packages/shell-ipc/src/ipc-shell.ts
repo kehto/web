@@ -28,7 +28,7 @@ export const DEFAULT_IPC_LIMITS = Object.freeze({
  * ```
  */
 export async function createIpcTransport(options: IpcTransportOptions = {}): Promise<IpcTransport> {
-  const limits: IpcTransportLimits = { ...DEFAULT_IPC_LIMITS, ...options.limits };
+  const limits = validateTransportLimits(options.limits);
   const endpoints = createEndpointRegistry();
   let transportClosed = false;
   const diagnostic = (code: IpcTransportErrorCode, registration: IpcEndpointRegistration): void => {
@@ -153,6 +153,30 @@ function cloneAndFreezeRegistration(registration: IpcEndpointRegistration): IpcE
 
 function assertNoPeerBindingClaims(envelope: JsonSequenceEnvelope): boolean {
   return !['windowId', 'dTag', 'aggregateHash', 'environment'].some((key) => Object.hasOwn(envelope, key));
+}
+
+function validateTransportLimits(overrides: Partial<IpcTransportLimits> | undefined): IpcTransportLimits {
+  const limits: IpcTransportLimits = { ...DEFAULT_IPC_LIMITS, ...overrides };
+  const positiveLimits = {
+    maxPathBytes: limits.maxPathBytes,
+    maxFrameBytes: limits.maxFrameBytes,
+    maxBufferedInputBytes: limits.maxBufferedInputBytes,
+  };
+  const nonNegativeLimits = {
+    maxOutboundQueueFrames: limits.maxOutboundQueueFrames,
+    maxOutboundQueueBytes: limits.maxOutboundQueueBytes,
+  };
+  for (const [name, value] of Object.entries(positiveLimits)) {
+    if (!Number.isSafeInteger(value) || value <= 0) {
+      throw new IpcTransportError('INVALID_LIMIT', `${name} must be a positive safe integer.`);
+    }
+  }
+  for (const [name, value] of Object.entries(nonNegativeLimits)) {
+    if (!Number.isSafeInteger(value) || value < 0) {
+      throw new IpcTransportError('INVALID_LIMIT', `${name} must be a non-negative safe integer.`);
+    }
+  }
+  return limits;
 }
 
 function recursivelyFreeze<T>(value: T): T {

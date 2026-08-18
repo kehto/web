@@ -54,6 +54,18 @@ describe('createIpcTransport', () => {
     expect(exportedLimits).toBe(DEFAULT_IPC_LIMITS);
   });
 
+  it.each([
+    ['maxPathBytes', 0],
+    ['maxFrameBytes', 0],
+    ['maxBufferedInputBytes', 0],
+    ['maxOutboundQueueFrames', -1],
+    ['maxOutboundQueueBytes', -1],
+  ])('rejects invalid transport limit %s before endpoint registration', async (name, value) => {
+    await expect(createIpcTransport({
+      limits: { [name]: value } as never,
+    })).rejects.toMatchObject({ code: 'INVALID_LIMIT' });
+  });
+
   it('carries an immutable host-bound envelope through a raw Unix socket in both directions', async () => {
     const received: unknown[] = [];
     let boundRegistration: IpcEndpointRegistration | undefined;
