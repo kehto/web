@@ -2,13 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.30
 milestone_name: Experimental IPC Shell Projection
-status: ready_to_plan
-last_updated: "2026-08-18T15:11:35Z"
+current_phase: 107
+current_phase_name: IPC Transport Foundation
+status: executing
+stopped_at: Phase 106 current-Napplet package line published and downstream-verified
+last_updated: "2026-08-18T16:05:30.866Z"
 last_activity: 2026-08-18
+last_activity_desc: v1.30 roadmap drafted with 17/17 requirements mapped
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
+  total_plans: 5
   completed_plans: 0
   percent: 0
 ---
@@ -26,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-28)
 
 Phase: 107 of 109 (IPC Transport Foundation)
 Plan: —
-Status: Ready to plan
+Status: Ready to execute
 Last activity: 2026-08-18 — v1.30 roadmap drafted with 17/17 requirements mapped
 
 ## Performance Metrics

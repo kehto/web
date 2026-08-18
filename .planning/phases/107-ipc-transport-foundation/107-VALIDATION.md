@@ -38,11 +38,15 @@ created: 2026-08-18
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 107-01-01 | 01 | 1 | IPC-02 | T-107-01 | Framing preserves canonical envelopes across every stream split and coalesced record. | unit | `pnpm vitest run packages/shell-ipc/src/json-sequence.test.ts -x` | ❌ W0 | ⬜ pending |
-| 107-01-02 | 01 | 1 | IPC-03 | T-107-02 | Invalid UTF-8, malformed/truncated records, and finite-limit violations close before receiver dispatch. | unit | `pnpm vitest run packages/shell-ipc/src/json-sequence.test.ts -x` | ❌ W0 | ⬜ pending |
-| 107-02-01 | 02 | 2 | IPC-01 | T-107-03 | Endpoint creation and cleanup remain contained to a private owned directory and matching socket path. | filesystem integration | `pnpm vitest run packages/shell-ipc/src/socket-directory.test.ts -x` | ❌ W0 | ⬜ pending |
-| 107-02-02 | 02 | 2 | BIND-01 | T-107-04 | Host metadata is cloned and frozen before listen; peer frames cannot supply or replace identity. | unit + local socket smoke | `pnpm vitest run packages/shell-ipc/src/endpoint-registry.test.ts -x` | ❌ W0 | ⬜ pending |
-| 107-03-01 | 03 | 3 | IPC-04 | T-107-05 | Egress remains ordered, pauses on `write() === false`, resumes on `drain`, and closes on count or byte overflow. | unit | `pnpm vitest run packages/shell-ipc/src/outbound-queue.test.ts -x` | ❌ W0 | ⬜ pending |
+| 107-01-01 | 01 | 1 | BIND-01 | T-107-01 | A raw socket traverses the production endpoint bidirectionally while all wire identity claims fail before host callback. | local socket tracer | `pnpm vitest run packages/shell-ipc/src/ipc-shell.test.ts -x` | ❌ W0 | ⬜ pending |
+| 107-01-02 | 01 | 1 | BIND-01 | T-107-04 | The locked package name/path builds as ESM with no runtime/session or external transport dependency. | build + type + unit | `pnpm --filter @kehto/shell-ipc build && pnpm --filter @kehto/shell-ipc type-check && pnpm --filter @kehto/shell-ipc test:unit` | ❌ W0 | ⬜ pending |
+| 107-02-01 | 02 | 2 | IPC-02 | T-107-06 | Every byte/UTF-8 split, coalesced record, empty stream, independent decoder, and callback order preserves canonical envelopes. | unit | `pnpm vitest run packages/shell-ipc/src/json-sequence.test.ts packages/shell-ipc/src/ipc-shell.test.ts -x` | ❌ W0 | ⬜ pending |
+| 107-03-01 | 03 | 4 | IPC-01 | T-107-10/T-107-11 | Mode-0700 path creation, liveness/fingerprint stale recovery, substitution refusal, and owned cleanup use real POSIX fixtures. | filesystem integration | `pnpm vitest run packages/shell-ipc/src/socket-directory.test.ts packages/shell-ipc/src/ipc-shell.test.ts -x` | ❌ W0 | ⬜ pending |
+| 107-03-02 | 03 | 4 | IPC-01 | T-107-12/T-107-13 | Parallel/failed/repeated registration and delayed cleanup preserve only the current generation's resources. | deterministic concurrency unit | `pnpm vitest run packages/shell-ipc/src/endpoint-registry.test.ts packages/shell-ipc/src/socket-directory.test.ts packages/shell-ipc/src/ipc-shell.test.ts -x` | ❌ W0 | ⬜ pending |
+| 107-04-01 | 04 | 2 | IPC-04 | T-107-15/T-107-17 | Empty/exact/+1 count-byte bounds and safe-integer validation use encoded Buffer accounting including callback-pending writes. | unit | `pnpm vitest run packages/shell-ipc/src/outbound-queue.test.ts packages/shell-ipc/src/ipc-shell.test.ts -x` | ❌ W0 | ⬜ pending |
+| 107-04-02 | 04 | 2 | IPC-04 | T-107-16/T-107-18 | One writer owner preserves FIFO across false/drain/reentrant/stale events and cannot resume after terminal close. | deterministic concurrency unit | `pnpm vitest run packages/shell-ipc/src/outbound-queue.test.ts packages/shell-ipc/src/ipc-shell.test.ts -x` | ❌ W0 | ⬜ pending |
+| 107-05-01 | 05 | 3 | BIND-01 | T-107-02 | Public host binding remains recursively frozen and private generations prevent stale record removal. | unit + declaration build | `pnpm vitest run packages/shell-ipc/src/ipc-shell.test.ts -x && pnpm --filter @kehto/shell-ipc build` | ❌ W0 | ⬜ pending |
+| 107-05-02 | 05 | 3 | IPC-03 | T-107-05/T-107-07/T-107-08 | Invalid framing/UTF-8/JSON/shape, peer-binding claims, EOF truncation, and exact/+1 byte limits terminate before dispatch and cannot resynchronize. | unit | `pnpm vitest run packages/shell-ipc/src/json-sequence.test.ts packages/shell-ipc/src/ipc-shell.test.ts -x` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -51,6 +55,7 @@ created: 2026-08-18
 ## Wave 0 Requirements
 
 - [ ] `packages/shell-ipc/package.json`, `tsconfig.json`, and `tsup.config.ts` — publishable Node ESM workspace skeleton.
+- [ ] `packages/shell-ipc/src/ipc-shell.test.ts` — production raw `node:net` tracer and immutable host-binding vectors.
 - [ ] `packages/shell-ipc/src/json-sequence.test.ts` — exhaustive framing and rejection vectors for IPC-02 and IPC-03.
 - [ ] `packages/shell-ipc/src/socket-directory.test.ts` — owned-path and containment vectors for IPC-01.
 - [ ] `packages/shell-ipc/src/endpoint-registry.test.ts` — immutable host registration vectors for BIND-01.

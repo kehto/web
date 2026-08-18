@@ -315,26 +315,21 @@ expect(createJsonSequenceDecoder(limits).push(Buffer.concat([frame, frame]))).to
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
 | A1 | A conservative 90-byte pathname threshold is sufficient for the project’s supported POSIX targets. | Common Pitfalls | Hosts with a shorter OS limit could fail to bind; use a configurable documented threshold if support matrix differs. |
-| A2 | Initial defaults should be `maxFrameBytes: 1 MiB`, `maxBufferedInputBytes: 2 MiB`, `maxOutboundQueueFrames: 64`, and `maxOutboundQueueBytes: 1 MiB`. | Open Questions / Architecture Patterns | Workload may need different latency/memory trade-offs; values are experimental, not NAP requirements. |
-| A3 | `fs.mkdtemp` plus guarded ownership/containment checks is adequate for the same-user local threat boundary. | Don't Hand-Roll | It is not peer authentication; a stronger hostile-local-user model needs an explicit OS credential/auth design. |
-| A4 | A fatal `TextDecoder` is preferable to a `StringDecoder` for final record decoding, while `StringDecoder` remains a documented option for chunk reassembly. | Common Pitfalls | Implementation must verify Node typing/runtime support for chosen decoder baseline. |
+| A2 | The experimental defaults are `maxFrameBytes: 1 MiB`, `maxBufferedInputBytes: 2 MiB`, `maxOutboundQueueFrames: 64`, and `maxOutboundQueueBytes: 1 MiB`. | Open Questions (RESOLVED) / Architecture Patterns | Workload may need different latency/memory trade-offs; values are experimental, configurable carrier policy rather than NAP requirements. |
+| A3 | `fs.mkdtemp` plus guarded ownership/containment checks and host-held pathname distribution define the local threat boundary. | Open Questions (RESOLVED) / Don't Hand-Roll | This policy provides neither cryptographic peer authentication nor protection from a hostile same-UID process; either guarantee requires a separate OS credential/authentication design. |
+| A4 | A fatal `TextDecoder` is preferable to a `StringDecoder` for final record decoding, while `StringDecoder` remains a documented option for chunk reassembly. | Common Pitfalls | Node `>=20` supplies the selected decoder and filesystem baseline. |
+| A5 | `@kehto/shell-ipc` declares `engines.node: ">=20"`. | Open Questions (RESOLVED) / Standard Stack | Consumers on older Node releases are unsupported by this experimental package. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **What exact documented limit defaults should ship?**
-   - What we know: Requirements require finite limits but provide no values. [VERIFIED: project REQUIREMENTS.md]
-   - What's unclear: Expected canonical envelope size and host push burst profile.
-   - Recommendation: Plan Phase 107 with `1 MiB` frame, `2 MiB` buffered input, `64` frames/`1 MiB` outbound queue as experimental defaults; expose all as validated options and record observed integration values. [ASSUMED]
+   - Resolution: Ship `maxFrameBytes: 1 MiB`, `maxBufferedInputBytes: 2 MiB`, `maxOutboundQueueFrames: 64`, and `maxOutboundQueueBytes: 1 MiB` as validated, configurable experimental defaults. These values are carrier policy, not NAP requirements. [ASSUMED]
 
 2. **What local threat boundary can the package claim?**
-   - What we know: RFC 7464 provides no cryptographic integrity, and a pathname socket is a filesystem-visible resource. [CITED: https://www.rfc-editor.org/rfc/rfc7464.html] [CITED: https://nodejs.org/api/net.html]
-   - What's unclear: Whether future consumers require protection from a same-UID hostile process.
-   - Recommendation: Document only private-directory containment and host-held pathname distribution; explicitly state that this phase provides no cryptographic peer authentication. [ASSUMED]
+   - Resolution: Claim only private-directory containment and host-held pathname distribution. The package provides no cryptographic peer authentication and no protection from a hostile same-UID process. [ASSUMED]
 
 3. **Which Node version is the package support floor?**
-   - What we know: This workspace currently runs Node `v26.7.0`, while IPC APIs used here have long-standing support. [VERIFIED: local environment] [CITED: https://nodejs.org/api/net.html]
-   - What's unclear: The project’s published engine policy is not declared in root `package.json`.
-   - Recommendation: Planner should add an explicit `engines.node` decision or verify CI’s Node version before choosing `TextDecoder`/filesystem API assumptions. [ASSUMED]
+   - Resolution: Declare `engines.node: ">=20"` for `@kehto/shell-ipc`; Node 20 is the selected support floor for the fatal `TextDecoder`, filesystem, ESM, and test assumptions used by this phase. [ASSUMED]
 
 ## Environment Availability
 
@@ -434,7 +429,7 @@ expect(createJsonSequenceDecoder(limits).push(Buffer.concat([frame, frame]))).to
 
 - Standard stack: HIGH — Node built-ins and existing workspace seams are directly verified; no external dependency is needed.
 - Architecture: HIGH — matches existing browser→runtime ingress seam and approved milestone architecture. [VERIFIED: codebase-memory MCP]
-- Pitfalls: MEDIUM — Node/RFC mechanics are authoritative; exact resource limits and local threat model remain experimental policy.
+- Pitfalls: MEDIUM — Node/RFC mechanics are authoritative; the exact resource limits, Node `>=20` floor, and local threat boundary are resolved experimental policy.
 
 **Research date:** 2026-08-18
 **Valid until:** 2026-09-17 for Node/RFC mechanics; revisit experimental policy before package publication.
