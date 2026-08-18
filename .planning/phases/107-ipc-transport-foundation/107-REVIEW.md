@@ -1,12 +1,13 @@
 ---
 phase: 107-ipc-transport-foundation
-reviewed: 2026-08-18T17:40:00Z
+reviewed: 2026-08-18T16:57:16Z
 depth: standard
-files_reviewed: 17
+files_reviewed: 23
 files_reviewed_list:
   - .changeset/quiet-rice-queue.md
   - packages/shell-ipc/jsr.json
   - packages/shell-ipc/package.json
+  - packages/shell-ipc/README.md
   - packages/shell-ipc/src/endpoint-registry.test.ts
   - packages/shell-ipc/src/endpoint-registry.ts
   - packages/shell-ipc/src/index.ts
@@ -21,92 +22,50 @@ files_reviewed_list:
   - packages/shell-ipc/src/types.ts
   - packages/shell-ipc/tsconfig.json
   - packages/shell-ipc/tsup.config.ts
+  - docs/.vitepress/config.ts
+  - docs/packages/index.md
+  - docs/packages/shell-ipc.md
+  - docs/reference/api.md
+  - typedoc.json
 findings:
-  critical: 3
-  warning: 0
+  critical: 0
+  warning: 1
   info: 0
-  total: 3
+  total: 1
 status: issues_found
 ---
 
 # Phase 107: Code Review Report
 
-**Reviewed:** 2026-08-18T17:40:00Z
+**Reviewed:** 2026-08-18T16:57:16Z
 **Depth:** standard
-**Files Reviewed:** 17
+**Files Reviewed:** 23
 **Status:** issues_found
 
 ## Summary
 
-The IPC package has bounded framing, owned socket directories, and targeted race tests, but three ship-blocking isolation and fail-closed defects remain. The focused suite passes (56 tests), yet it does not cover a coalesced post-rejection frame, peer-to-peer broadcast isolation, or validation of all transport-level limits before accepting a connection.
+The original blockers remain resolved: a peer identity claim now terminates decoding before a coalesced follow-up frame can be delivered; one failed outbound peer no longer suppresses delivery attempts to later peers; and invalid transport limits reject before a transport is returned.
 
-## Critical Issues
+The public-package documentation integration is complete and docs-gate compatible. `IpcEnvironmentValue` is re-exported from the package root, listed on the package page, and emitted successfully by strict TypeDoc. Focused validation passed: package type-check, 63 IPC tests, strict TypeDoc, and `pnpm docs:check`.
 
-### CR-01: Peer identity rejection does not make the decoder terminal
+One runtime boundary defect remains: the newly public JSON-compatible environment type is only compile-time enforced, while the implementation accepts mutable non-JSON containers and exposes the supposedly frozen clone through `endpoint.registration`.
 
-**Classification:** BLOCKER
+## Narrative Findings (AI reviewer)
 
-**File:** `packages/shell-ipc/src/ipc-shell.ts:77-82`
+## Warnings
 
-**Issue:** A forbidden top-level binding claim calls `socket.destroy()` and returns normally from `onEnvelope`. `createJsonSequenceDecoder()` has already retained the rest of the received chunk and continues its loop after that callback returns. A peer can therefore write an identity-claim record followed by a valid record in the same chunk; the second record reaches `hooks.onEnvelope` before the asynchronous destroy takes effect. This contradicts the required first-invalid-record fail-closed behavior and lets an unauthenticated peer dispatch after a protocol violation. I reproduced this with `RS + claimed shell.ready + LF + RS + valid shell.ready + LF`; the valid envelope was delivered.
+### WR-01: Runtime accepts mutable non-JSON environment metadata despite the immutable binding contract
 
-**Fix:** Turn the claim into a decoder error so its existing `fail()` path clears the buffer and closes the decoder, then let the data handler emit the diagnostic and destroy the socket. Add a regression using both records in one `write()` and assert zero receiver invocations.
+**Classification:** WARNING
 
-```ts
-onEnvelope(envelope) {
-  if (!assertNoPeerBindingClaims(envelope)) {
-    throw new IpcTransportError(
-      'PEER_IDENTITY_CLAIM',
-      'IPC peer attempted to claim host-bound endpoint identity.',
-    );
-  }
-  hooks.onEnvelope(envelope as unknown as NappletMessage, registration);
-}
-```
+**File:** `packages/shell-ipc/src/ipc-shell.ts:150-187`
 
-### CR-02: One overflowed peer aborts delivery to all later peers
+**Issue:** `cloneAndFreezeRegistration()` clones and freezes arbitrary runtime input without validating that `environment` is an `IpcEnvironmentValue` tree. For example, a JavaScript caller (or a TypeScript caller using an assertion) can register `environment: new Map([['policy', 'original']])`. `structuredClone()` preserves the `Map`, and `Object.freeze()` does not freeze its entries; because `endpoint.registration` is public, `endpoint.registration.environment.set('policy', 'mutated')` succeeds. Later `onEnvelope` calls then receive changed host-bound metadata. This contradicts the documented and planned invariant that the environment is JSON-compatible and recursively immutable before listening.
 
-**Classification:** BLOCKER
-
-**File:** `packages/shell-ipc/src/ipc-shell.ts:117-120`
-
-**Issue:** `OutboundQueue.enqueue()` intentionally throws after terminating an overflowing queue, but `endpoint.send()` does not isolate that exception. The `for` loop stops at the first saturated peer, so every peer later in insertion order silently misses that envelope. A slow peer that connected first can thus deny egress to healthy peers, contrary to the per-peer queue design. With two real connections, a one-frame limit, and two immediate sends, the first connection overflowed and the second received only the first frame.
-
-**Fix:** Attempt delivery to every currently connected queue, retain the first terminal error for the caller after the loop (or make send non-throwing and use diagnostics), and add a two-peer regression where the first queue is saturated and the second receives the same later frame.
-
-```ts
-send(envelope) {
-  const frame = encodeJsonSequence(envelope);
-  let failure: unknown;
-  for (const queue of peers.values()) {
-    try {
-      queue.enqueue(frame);
-    } catch (error) {
-      failure ??= error;
-    }
-  }
-  if (failure) throw failure;
-}
-```
-
-### CR-03: Invalid transport limits can throw uncaught from an accepted-socket callback
-
-**Classification:** BLOCKER
-
-**File:** `packages/shell-ipc/src/ipc-shell.ts:30-31, 61-76`
-
-**Issue:** The transport spreads `options.limits` without validating it. Frame/buffer limits are validated only when `createJsonSequenceDecoder()` runs inside the `createServer` connection listener; outbound limits are likewise validated by `createOutboundQueue()` there. A JavaScript consumer can create/register a transport with, for example, `maxFrameBytes: 0` or `maxOutboundQueueFrames: -1`; the next peer connection throws during the EventEmitter callback with no surrounding catch, which can terminate the Node process. `maxPathBytes` is also never checked as a finite positive integer.
-
-**Fix:** Normalize and validate every transport limit before allocating the registry or returning the transport: positive safe integers for pathname/frame/input bounds and non-negative safe integers for queue bounds. Throw `IpcTransportError('INVALID_LIMIT', ...)` from `createIpcTransport()`. Add transport-level tests for every invalid field and verify an invalid options object rejects before endpoint registration or peer connection.
-
-```ts
-const limits = validateTransportLimits(options.limits);
-// validateTransportLimits applies defaults and rejects invalid values here,
-// not in the connection callback.
-```
+**Fix:** Validate the complete registration at the public boundary before cloning/listening. Recursively accept only JSON primitives, arrays, and plain objects; reject `Map`, `Set`, `Date`, functions, `undefined`, non-finite numbers, and cycles with a typed `IpcTransportError`. Then clone and freeze the validated JSON tree. Add a production-endpoint test that attempts the `Map` input and asserts registration is rejected (and that no directory/listener is created).
 
 ---
 
-_Reviewed: 2026-08-18T17:40:00Z_
+_Reviewed: 2026-08-18T16:57:16Z_
 _Reviewer: the agent (gsd-code-reviewer)_
 _Depth: standard_
