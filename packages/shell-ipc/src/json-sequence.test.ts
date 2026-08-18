@@ -75,7 +75,6 @@ describe('RFC 7464 JSON text-sequence codec', () => {
 
   it('delivers coalesced frames synchronously in wire order', () => {
     const records: JsonSequenceEnvelope[] = [];
-    const decoder = createRecordingDecoder(records);
     const envelopes = [
       { type: 'shell.ready' },
       { type: 'shell.init', content: 'é' },
@@ -93,7 +92,7 @@ describe('RFC 7464 JSON text-sequence codec', () => {
     phase = 'during push';
     synchronousDecoder.push(new Uint8Array(Buffer.concat(envelopes.map(encodeJsonSequence))));
     phase = 'after push';
-    decoder.end();
+    synchronousDecoder.end();
 
     expect(records).toEqual(envelopes);
   });
