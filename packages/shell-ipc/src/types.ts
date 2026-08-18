@@ -39,11 +39,16 @@ export type IpcTransportErrorCode =
   | 'INPUT_BUFFER_OVERFLOW'
   | 'DECODER_CLOSED'
   | 'ENDPOINT_ALREADY_REGISTERED'
+  | 'ENDPOINT_EXISTS'
   | 'TRANSPORT_CLOSED'
   | 'INVALID_LIMIT'
   | 'OUTBOUND_QUEUE_OVERFLOW'
   | 'OUTBOUND_WRITE_FAILED'
-  | 'OUTBOUND_QUEUE_CLOSED';
+  | 'OUTBOUND_QUEUE_CLOSED'
+  | 'PATH_TOO_LONG'
+  | 'PATH_OWNERSHIP_MISMATCH'
+  | 'PATH_SUBSTITUTED'
+  | 'STALE_GENERATION';
 
 /** Typed terminal error for the experimental IPC carrier. */
 export class IpcTransportError extends Error {
