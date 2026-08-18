@@ -46,12 +46,13 @@ pnpm add @kehto/shell-ipc @napplet/core
   or environment metadata is rejected.
 - The NAP registry at
   [`napplet/naps` `c0f7dd14460622fc3a9870ea57a538474cf776fa`](https://github.com/napplet/naps/tree/c0f7dd14460622fc3a9870ea57a538474cf776fa)
-  defines NAPs as transport-agnostic and lists native OS-process IPC only as a
-  possible projection. No NAP specifies this carrier, so it is an explicit
-  experimental projection/spec gap rather than an alternate NAP wire contract.
+  defines no IPC carrier. NAP-INC's generic statement that a projection binds
+  its authenticated endpoint is carrier-neutral and is not an IPC projection.
+  This package is an explicit experimental specification-gap implementation,
+  not an alternate or normative NAP wire contract.
 - Private directories, pathname ownership checks, and host-held pathname
   distribution reduce accidental sharing and pathname substitution. They do
-  **not** authenticate or authorize peers and are not cryptographic identity.
+  not authenticate or authorize peers and are not cryptographic identity.
 - The threat model is deliberately bounded: hostile processes under the same
   operating-system UID are out of scope. Do not use this carrier when hostile
   same-UID peer resistance is required.

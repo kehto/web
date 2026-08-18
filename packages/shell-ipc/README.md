@@ -22,9 +22,10 @@ bounded input and outbound queues.
 
 The NAP registry at
 [`napplet/naps` `c0f7dd14460622fc3a9870ea57a538474cf776fa`](https://github.com/napplet/naps/tree/c0f7dd14460622fc3a9870ea57a538474cf776fa)
-defines capability seams as transport-agnostic and lists native OS-process IPC
-only as a possible projection. No NAP currently defines this carrier. This is a
-documented spec gap, not an alternate NAP wire contract.
+defines no IPC carrier. NAP-INC's generic statement that a projection binds its
+authenticated endpoint is carrier-neutral and is not an IPC projection. This
+package is an experimental documented spec gap, not an alternate or normative
+NAP wire contract.
 
 ## Security and scope boundaries
 
@@ -38,7 +39,7 @@ documented spec gap, not an alternate NAP wire contract.
   Peer frames that claim any of that host-bound metadata are rejected.
 - Private directories, pathname ownership checks, and host-held pathname
   distribution reduce accidental sharing and pathname substitution risks. They
-  are **not** peer authentication, authorization, or cryptographic identity.
+  are not peer authentication, authorization, or cryptographic identity.
 - The bounded threat model excludes hostile processes running under the same
   operating-system UID. Such a process can access paths available to that UID;
   do not use this carrier where protection from hostile same-UID peers is a
