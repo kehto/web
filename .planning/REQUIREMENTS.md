@@ -68,33 +68,31 @@
 
 ## Traceability
 
-Traceability is populated when the milestone roadmap is approved.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| IPC-01 | — | Pending |
-| IPC-02 | — | Pending |
-| IPC-03 | — | Pending |
-| IPC-04 | — | Pending |
-| BIND-01 | — | Pending |
-| BIND-02 | — | Pending |
-| BIND-03 | — | Pending |
-| BIND-04 | — | Pending |
-| PROOF-01 | — | Pending |
-| PROOF-02 | — | Pending |
-| PROOF-03 | — | Pending |
-| PROOF-04 | — | Pending |
-| PROOF-05 | — | Pending |
-| SPEC-01 | — | Pending |
-| SPEC-02 | — | Pending |
-| SPEC-03 | — | Pending |
-| SPEC-04 | — | Pending |
+| IPC-01 | Phase 107 | Pending |
+| IPC-02 | Phase 107 | Pending |
+| IPC-03 | Phase 107 | Pending |
+| IPC-04 | Phase 107 | Pending |
+| BIND-01 | Phase 107 | Pending |
+| BIND-02 | Phase 108 | Pending |
+| BIND-03 | Phase 108 | Pending |
+| BIND-04 | Phase 108 | Pending |
+| PROOF-01 | Phase 108 | Pending |
+| PROOF-02 | Phase 109 | Pending |
+| PROOF-03 | Phase 109 | Pending |
+| PROOF-04 | Phase 108 | Pending |
+| PROOF-05 | Phase 109 | Pending |
+| SPEC-01 | Phase 109 | Pending |
+| SPEC-02 | Phase 109 | Pending |
+| SPEC-03 | Phase 109 | Pending |
+| SPEC-04 | Phase 109 | Pending |
 
 **Coverage:**
 - v1.30 requirements: 17 total
-- Mapped to phases: 0
-- Unmapped: 17
+- Mapped to phases: 17
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-08-18*
-*Last updated: 2026-08-18 after initial definition*
+*Last updated: 2026-08-18 after v1.30 roadmap creation*

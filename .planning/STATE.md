@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v1.30
 milestone_name: Experimental IPC Shell Projection
-status: planning
-last_updated: "2026-08-18T14:11:41.842Z"
+status: ready_to_plan
+last_updated: "2026-08-18T15:11:35Z"
 last_activity: 2026-08-18
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-28)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** v1.29 current-Napplet publication complete; milestone archival and the separate Phase 105 UI-debt follow-up remain
+**Current focus:** Experimental `@kehto/shell-ipc` projection over POSIX Unix-domain sockets
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 107 of 109 (IPC Transport Foundation)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-08-18 — Milestone v1.30 started
+Status: Ready to plan
+Last activity: 2026-08-18 — v1.30 roadmap drafted with 17/17 requirements mapped
 
 ## Performance Metrics
 
