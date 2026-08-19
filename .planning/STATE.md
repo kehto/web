@@ -32,7 +32,7 @@ Phase: 106 (Active-Surface Conformance and Release) — COMPLETE
 Plan: 3 of 3
 Status: All v1.29 phases complete — eight-package Napplet-0.31-compatible npm/JSR release published and downstream-verified
 
-Last activity: 2026-08-19 — Completed quick task 260819-hwm: added canonical Blossom NAP-RESOURCE support to Paja
+Last activity: 2026-08-19 — Completed quick task 260819-i86: added a root command for the static pointer-entry Paja Runtime
 
 ## Performance Metrics
 
@@ -225,6 +225,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260803-osr | Remove the Good Morning-specific live pointer canary from PR #234 | 2026-08-03 | eb24855 | Verified | [260803-osr-remove-the-good-morning-specific-live-po](./quick/260803-osr-remove-the-good-morning-specific-live-po/) |
 | 260804-dql | Assess, prioritize, and resolve every review comment on PR #234 | 2026-08-04 | 0c1afc1 | Verified | [260804-dql-assess-prioritize-and-resolve-every-revi](./quick/260804-dql-assess-prioritize-and-resolve-every-revi/) |
 | 260819-hwm | Add canonical Blossom scheme support to Paja NAP-RESOURCE with hash verification | 2026-08-19 | b966aef | Verified | [260819-hwm-add-canonical-blossom-scheme-support-to-](./quick/260819-hwm-add-canonical-blossom-scheme-support-to-/) |
+| 260819-i86 | Add a root pnpm script to run the static pointer-entry Paja runtime locally | 2026-08-19 | 77235dd | Verified | [260819-i86-add-a-root-pnpm-script-to-run-the-static](./quick/260819-i86-add-a-root-pnpm-script-to-run-the-static/) |
 
 ## Session Continuity
 
