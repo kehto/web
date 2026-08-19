@@ -620,6 +620,9 @@ describe('playground gateway artifact guard', () => {
     expect(packageJson.scripts?.['audit:pages']).toBe('pnpm site:audit');
     expect(packageJson.scripts?.dev).toBeUndefined();
     expect(packageJson.scripts?.preview).toBeUndefined();
+    expect(packageJson.scripts?.paja).toBe(
+      'pnpm --filter @kehto/paja... build && node scripts/build-paja-pages.mjs && PAGES_PREVIEW_PATH=/web/paja/ node scripts/serve-pages.mjs',
+    );
     expect(packageJson.scripts?.['site:audit']).toBe('node scripts/audit-pages-artifact.mjs');
     expect(packageJson.scripts?.['site:build']).toBe('pnpm site:build:playground && pnpm site:build:paja && pnpm site:build:docs && pnpm site:build:pages');
     expect(packageJson.scripts?.['site:build:docs']).toBe('VITEPRESS_BASE=/web/docs/ pnpm docs:check');
@@ -682,6 +685,7 @@ describe('playground gateway artifact guard', () => {
     expect(pagesScript).toContain('build-paja-pages.mjs');
     expect(pagesScript).toContain("join(docsOutput, 'api')");
     expect(pagesServeScript).toContain("const publicBase = '/web/';");
+    expect(pagesServeScript).toContain('process.env.PAGES_PREVIEW_PATH || publicBase');
     expect(pagesServeScript).toContain('artifactPathFromRequest');
     expect(pagesServeScript).toContain('Run pnpm site:build first.');
     expect(pagesServeScript).toContain('Kehto web preview:');
