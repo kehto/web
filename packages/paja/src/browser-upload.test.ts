@@ -117,6 +117,7 @@ describe('createPajaUploadRuntime', () => {
     });
 
     await runtime.refreshIdentity();
+    expect(runtime.getServers()).toEqual(['https://blossom.example']);
     const result = await runtime.uploader.upload({
       rail: 'blossom',
       data: bytes.buffer,
@@ -180,6 +181,7 @@ describe('createPajaUploadRuntime', () => {
     expect(runtime.uploadInfo()).toEqual({
       rails: [{ rail: 'blossom', enabled: true, returns: ['https'] }],
     });
+    expect(runtime.getServers()).toEqual(['https://two.example', 'http://localhost:3000']);
     await runtime.uploader.upload({ data: new Uint8Array([5]).buffer }, context('discovered'));
 
     expect(queryDiscovery).toHaveBeenCalledTimes(1);
