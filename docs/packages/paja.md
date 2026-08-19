@@ -363,18 +363,27 @@ memory relay mode also disables `count` advertisement.
 
 Paja implements the draft
 [NAP-RESOURCE at `fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md)
-with a real, deliberately data-only backend. `resource.info` reports only
-`data:` plus the enforced 10 MiB response and 100-URL bulk caps. The host
-decodes bytes, ignores the data URL's declared media type, classifies a narrow
-safe image/audio/video/font/text set, and rejects raw SVG, HTML, invalid UTF-8,
-and unrecognized binary data. Requests are identity- and window-scoped;
-cancellation drops late terminal envelopes.
+with real `data:` and content-addressed `blossom:` backends. `resource.info`
+always reports `data:` and reports `blossom` only while at least one usable
+host-owned server is configured. Both expose the enforced 10 MiB response and
+100-URL bulk caps. The host ignores declared or upstream media types,
+classifies a narrow safe image/audio/video/font/text set, and rejects raw SVG,
+HTML, invalid UTF-8, and unrecognized binary data. Requests are identity- and
+window-scoped; cancellation drops late terminal envelopes.
 
-Paja does not advertise HTTPS, Blossom, Hashtree, or Nostr resource schemes.
-Those schemes fail with `unsupported-scheme` until the host has the required
-redirect-by-redirect DNS/private-address checks, integrity verification, and
-SVG rasterization. The previous wildcard origin grant and fixed development
-identity have been removed.
+The only accepted Blossom form is `blossom:sha256:<64 hex characters>`. Paja
+uses runtime-pointer server hints plus explicit or already-warmed upload server
+settings, preserving their order and removing duplicates. HTTPS is accepted;
+HTTP is restricted to loopback development. There is no public default, the
+napplet cannot select an upstream origin, redirects are refused, and Paja
+verifies the returned bytes against the requested SHA-256 before delivery. A
+hash mismatch is `decode-failed`; missing blobs are `not-found`.
+
+Direct HTTPS, HTTP, Hashtree, and Nostr resource schemes remain unadvertised
+and fail with `unsupported-scheme`. HTTP(S) is an internal transport detail for
+the host-selected `blossom:` backend, not permission for arbitrary network
+URLs. The previous wildcard origin grant and fixed development identity remain
+removed.
 
 ## Environment Simulation
 
