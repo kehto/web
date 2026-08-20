@@ -1,5 +1,11 @@
 # @kehto/paja
 
+## 0.13.0
+
+### Minor Changes
+
+- 65c53be: Support canonical `blossom:sha256:<hex>` NAP-RESOURCE requests through Paja's host-configured Blossom servers with response caps, MIME sniffing, redirect refusal, and SHA-256 verification.
+
 ## 0.12.0
 
 ### Minor Changes
