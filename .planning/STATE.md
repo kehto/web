@@ -5,15 +5,15 @@ milestone_name: Experimental IPC Shell Projection
 current_phase: 109
 current_phase_name: Runnable Proof and Drafting Evidence
 status: executing
-stopped_at: Completed 108-03-PLAN.md
-last_updated: "2026-08-20T13:58:21.373Z"
+stopped_at: Completed 109-01-PLAN.md
+last_updated: "2026-08-20T14:03:18.067Z"
 last_activity: 2026-08-20
 last_activity_desc: Phase 108 complete, transitioned to Phase 109
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 12
-  completed_plans: 9
+  completed_plans: 10
   percent: 67
 ---
 
@@ -24,14 +24,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-18)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 108 — Runtime Shell Composition
+**Current focus:** Phase 109 — Runnable Proof and Drafting Evidence
 
 ## Current Position
 
 Phase: 109 — Runnable Proof and Drafting Evidence
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-08-20 — Phase 108 complete, transitioned to Phase 109
+Plan: 1 of 3 complete
+Status: Executing
+Last activity: 2026-08-20 — Plan 109-01 completed raw IPC process proof
 
 ## Performance Metrics
 
@@ -114,6 +114,7 @@ Last activity: 2026-08-20 — Phase 108 complete, transitioned to Phase 109
 | Phase 108 P01 | 7min | 1 tasks | 6 files |
 | Phase 108 P02 | 9min | 2 tasks | 2 files |
 | Phase 108 P03 | 7m | 2 tasks | 4 files |
+| Phase 109 P1 | 5min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -243,13 +244,13 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-08-20T13:24:00.860Z
-Stopped at: Completed 108-03-PLAN.md
+Last session: 2026-08-20T14:03:18.056Z
+Stopped at: Completed 109-01-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
 
-- Continue v1.30 with Phase 108 runtime shell composition over the verified IPC carrier.
+- Continue v1.30 with Plans 109-02 and 109-03: public drafting evidence and release gates for the verified IPC carrier.
 - Track the Phase 105 12/24 UI findings as a separately scoped post-merge follow-up.
 
 ### Key Context for v1.22 (Phases 90–94)
@@ -370,3 +371,4 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: Phase 108 Plan 02 retires private IPC connection tokens before runtime destroyWindow/session unregister, so stale close callbacks cannot tear down replacement sessions.
 - [Phase ?]: A registration-less factory returns a shared IPC composition while the registration-bearing overload preserves the existing one-endpoint projection.
 - [Phase ?]: Endpoint record identity plus private peer generations authorize IPC teardown; host window IDs alone never authorize stale cleanup.
+- [Phase ?]: Phase 109 proof keeps the raw napplet Node-only and uses the public IPC shell export with redacted process milestones.
