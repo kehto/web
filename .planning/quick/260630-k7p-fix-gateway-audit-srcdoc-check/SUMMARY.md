@@ -15,4 +15,3 @@ and CSP injection as separate semantic invariants.
 
 The current `scripts/audit-gateway-artifacts.mjs` preserves that invariant against
 the refactored `playground-frame-loader.ts` implementation.
-

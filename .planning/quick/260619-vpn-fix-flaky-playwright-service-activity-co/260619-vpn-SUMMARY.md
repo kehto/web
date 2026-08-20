@@ -16,4 +16,3 @@ assertions. The change reached the default branch through merge commit `bdb15b6`
 
 The current `tests/e2e/shell-ui-state-surfaces.spec.ts` retains the conjunctive poll
 and explicit counter assertions.
-

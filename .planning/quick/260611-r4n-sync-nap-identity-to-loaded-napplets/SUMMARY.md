@@ -18,4 +18,3 @@ browser proof. Phase 103 later hardened and reverified the same contract.
 - The identity service resolves the signer afresh for each request.
 - The playground publishes exact signer transitions.
 - The signer-persistence Playwright coverage proves reload and feed behavior.
-

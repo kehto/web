@@ -15,4 +15,3 @@ merged through `e9469b4` (PR #151), including tests, docs, and release metadata.
 
 Current namespace tests retain public wrapper argument forwarding coverage. Phase
 103 subsequently hardened the surface without invalidating this completion.
-
