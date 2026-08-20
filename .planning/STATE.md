@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.30
 milestone_name: Experimental IPC Shell Projection
-current_phase: 109
-status: completed
+status: Awaiting next milestone
 stopped_at: Completed 109-03-PLAN.md
-last_updated: "2026-08-20T14:37:47.251Z"
+last_updated: "2026-08-20T15:18:31.670Z"
 last_activity: 2026-08-20
-last_activity_desc: Phase 109 complete
+last_activity_desc: Milestone v1.30 completed and archived
 progress:
   total_phases: 3
   completed_phases: 3
   total_plans: 12
   completed_plans: 12
   percent: 100
+current_phase: 109
 current_phase_name: Runnable Proof and Drafting Evidence
 ---
 
@@ -21,17 +21,17 @@ current_phase_name: Runnable Proof and Drafting Evidence
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-08-18)
+See: .planning/PROJECT.md (updated 2026-08-20)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 109 — Runnable Proof and Drafting Evidence
+**Current focus:** Planning the next milestone
 
 ## Current Position
 
-Phase: 109
-Plan: Not started
-Status: All phases complete
-Last activity: 2026-08-20 — Phase 109 complete
+Phase: Milestone v1.30 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-08-20 — Milestone v1.30 completed and archived
 
 ## Performance Metrics
 
@@ -253,8 +253,7 @@ Resume file: None
 
 ## Operator Next Steps
 
-- Continue v1.30 with Plans 109-02 and 109-03: public drafting evidence and release gates for the verified IPC carrier.
-- Track the Phase 105 12/24 UI findings as a separately scoped post-merge follow-up.
+- Start the next milestone with /gsd-new-milestone
 
 ### Key Context for v1.22 (Phases 90–94)
 

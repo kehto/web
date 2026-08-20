@@ -6,21 +6,21 @@
 
 Provide a modular, framework-agnostic runtime for hosting napplet applications — so any Nostr client can embed sandboxed mini-apps by integrating @kehto/shell.
 
-## Current Milestone: v1.30 Experimental IPC Shell Projection
+## Latest Milestone: v1.30 Experimental IPC Shell Projection (shipped 2026-08-20)
 
 **Goal:** Build an experimental Unix-domain-socket shell projection that carries canonical NIP-5D envelopes between a host and a napplet process, producing implementation evidence for a future `napplet/naps` IPC specification.
 
-**Target features:**
+**Delivered:**
 - **New `@kehto/shell-ipc` package:** provide a shell-side IPC projection without changing the existing browser/postMessage shell.
 - **Raw Unix-domain-socket transport:** exchange canonical NIP-5D envelopes without Tauri, Electron, browser `postMessage`, `window.napplet.*` injection, or a client helper.
 - **Runtime semantic reuse:** preserve existing dispatch, ACL, identity, and lifecycle behavior at the `RuntimeAdapter` transport seam.
-- **Host-bound connection identity:** determine and validate a secure connection topology during research rather than trusting napplet-supplied identity.
+- **Host-bound connection identity:** validate, clone, and freeze registration metadata before listening rather than trusting napplet-supplied identity.
 - **Runnable process proof:** demonstrate bidirectional request/result traffic and host-originated delivery between a reference host and napplet process.
 - **Specification drafting evidence:** record framing, channel naming, identity binding, lifecycle, trust boundaries, errors, and unresolved questions for `napplet/naps`.
 
 **Key context:** No authoritative IPC projection currently exists in `napplet/naps`. This milestone is intentionally a spec-gap experiment: its wire choices are bounded implementation hypotheses and must be documented as findings rather than presented as established NAP behavior. Scope is POSIX Unix-domain sockets only.
 
-## Latest Milestone: v1.18 Napplet Firewall (shipped 2026-06-15)
+## Previous Milestone: v1.18 Napplet Firewall (shipped 2026-06-15)
 
 **Goal:** Add `@kehto/firewall` — a behavioral anti-abuse gate that observes napplet messages at the runtime choke point and applies configurable rate/burst/content rules with allow/deny/ask policies and focus-aware tightening. Composes with the ACL (static authorization) without replacing it.
 
@@ -67,15 +67,15 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Status:** All v1.30 phases are complete and awaiting milestone audit. The new
-`@kehto/shell-ipc` package includes the bounded POSIX transport, shared-runtime
-host composition, hardened standalone host/raw-process proof, synchronized
-public documentation, parity/drafting evidence, and release Changeset. The
-pinned `napplet/naps` ref defines no IPC carrier, so every Unix-specific choice
-remains explicitly experimental and non-normative. The preceding v1.29
-protocol/runtime conformance package line remains published and
-downstream-verified. The Phase 105 visual audit remains explicit non-passing
-debt and is unrelated to this IPC experiment.
+**Status:** v1.30 shipped and passed its milestone audit with 17/17 requirements,
+3/3 verified phases, 17/17 cross-phase integrations, and 6/6 end-to-end flows.
+The new `@kehto/shell-ipc` package includes the bounded POSIX transport,
+shared-runtime host composition, hardened standalone host/raw-process proof,
+synchronized public documentation, parity/drafting evidence, and release
+Changeset. The pinned `napplet/naps` ref defines no IPC carrier, so every
+Unix-specific choice remains explicitly experimental and non-normative. The
+Phase 105 visual audit remains explicit non-passing debt and is unrelated to
+this IPC experiment. Current focus is planning the next milestone.
 
 ## Previous Milestone: v1.20 NIP-5D Content-Addressed Runtime Resolution
 
@@ -322,4 +322,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-20 after completing Phase 109 Runnable Proof and Drafting Evidence.*
+*Last updated: 2026-08-20 after shipping v1.30 Experimental IPC Shell Projection.*

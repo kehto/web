@@ -1,5 +1,20 @@
 # Milestones: Kehto Runtime
 
+## v1.30 Experimental IPC Shell Projection (Shipped: 2026-08-20)
+
+**Phases completed:** 3 phases, 12 plans, 10 tasks
+
+**Key accomplishments:**
+
+- Shipped an experimental Node/POSIX ESM package with private pathname sockets, immutable host-bound identity, and bounded RFC 7464 ingress/egress.
+- Preserved exact NAP-SHELL readiness, runtime ACL/capability policy, and shared-runtime NAP-INC lifecycle behavior without changing the browser shell.
+- Made endpoint close, unregister, replacement, and host shutdown join one generation-safe, ownership-safe teardown contract.
+- Proved correlated runtime results, eligibility-checked pushes, and graceful/SIGKILL cleanup with a standalone public-ESM host and raw `node:net` child.
+- Documented the checked `napplet/naps` spec gap, web/IPC parity, local-peer threat boundary, bounded implementation choices, and upstream drafting questions.
+- Completed package docs, a 0.x minor Changeset, adversarial review, security verification, 17/17 requirements, and the final release-evidence matrix.
+
+---
+
 ## v1.17 Beautify the SPA Landing Page (Shipped: 2026-06-06)
 
 **Phases completed:** 3 phases (77-79), 3 plans, 15 requirements.
