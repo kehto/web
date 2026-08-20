@@ -68,11 +68,12 @@ asynchronously. It supplies frozen registration and the deployment-owned
 runtime adapter without `sendToNapplet`; the IPC projection supplies targeted
 egress. The child receives only `KEHTO_IPC_SOCKET_PATH` and no registration
 identity/environment. Spawning is direct (`shell:false`), stdin/stdout/stderr
-are inherited, numeric exits are preserved, and signal exits are conventional
+are inherited without filtering, numeric exits are preserved, and signal exits are conventional
 `128 + signal number` statuses. Explicit close, forwarded host signals, timeout
 escalation, and terminal current-ready-peer disconnect all converge on one
-cleanup result. CLI output redacts registration values and private endpoint
-paths.
+cleanup result. Shell-owned CLI usage/error text redacts registration values and
+private endpoint paths; inherited child application output is intentionally not
+filtered and may report its own socket environment.
 
 ## Runnable evidence
 

@@ -95,8 +95,11 @@ preserved, while signal exits use `128 + signal number`. A current ready peer
 disconnect is terminal for the process host and is reported as
 `peer-disconnected` after session teardown.
 
-CLI success and failure output deliberately redact registration data and private
-endpoint paths. The endpoint pathname is available only to the direct host API.
+Shell-owned CLI usage and failure output deliberately redact registration data and
+private endpoint paths. Child stdout and stderr are inherited unchanged: a raw
+child can print its own socket environment, so application output is outside the
+shell-owned confidentiality boundary. The endpoint pathname is available to the
+direct host API.
 
 ## Proof-only example configuration
 
