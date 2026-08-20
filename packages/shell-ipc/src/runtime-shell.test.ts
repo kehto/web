@@ -1,6 +1,6 @@
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { access, mkdtemp, readdir, rm } from 'node:fs/promises';
 import { connect, type Socket } from 'node:net';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { RuntimeAdapter } from '@kehto/runtime';
 import { createIpcShellProjection } from './index.js';
 import { encodeJsonSequence } from './json-sequence.js';
@@ -202,5 +202,86 @@ describe('createIpcShellProjection', () => {
     } finally {
       await rm(baseDirectory, { recursive: true, force: true });
     }
+  });
+
+  it('tears down only the current ready peer before accepting a replacement', async () => {
+    const baseDirectory = await mkdtemp('/tmp/k-ipc-runtime-shell-cleanup-');
+    const projection = await createIpcShellProjection({
+      baseDirectory,
+      registration,
+      runtimeAdapter: createAdapter([], []),
+    });
+    const first = await connectPeer(projection.path);
+    const firstFrames = collectFrames(first);
+    const destroyWindow = vi.spyOn(projection.runtime, 'destroyWindow');
+    const unregister = vi.spyOn(projection.runtime.sessionRegistry, 'unregister');
+
+    try {
+      first.write(encodeJsonSequence({ type: 'shell.ready' }));
+      await waitFor(() => firstFrames.length === 1);
+      const firstSession = projection.runtime.sessionRegistry.getEntryByWindowId(registration.windowId);
+      expect(firstSession).toBeDefined();
+
+      const firstClosed = waitForClose(first);
+      first.end();
+      await firstClosed;
+      await waitFor(() => destroyWindow.mock.calls.length === 1);
+      expect(unregister).toHaveBeenCalledWith(registration.windowId);
+      expect(destroyWindow.mock.invocationCallOrder[0]).toBeLessThan(unregister.mock.invocationCallOrder[0]);
+      expect(projection.runtime.sessionRegistry.getEntryByWindowId(registration.windowId)).toBeUndefined();
+      await expect(access(projection.path)).resolves.toBeUndefined();
+
+      const replacement = await connectPeer(projection.path);
+      const replacementFrames = collectFrames(replacement);
+      try {
+        replacement.write(encodeJsonSequence({ type: 'shell.ready' }));
+        await waitFor(() => replacementFrames.length === 1);
+        const replacementSession = projection.runtime.sessionRegistry.getEntryByWindowId(registration.windowId);
+        expect(replacementSession).toBeDefined();
+
+        // A stale operation on the already-retired peer must not touch the replacement.
+        first.destroy();
+        await new Promise((resolve) => setTimeout(resolve, 15));
+        expect(destroyWindow).toHaveBeenCalledTimes(1);
+        expect(unregister).toHaveBeenCalledTimes(1);
+        expect(projection.runtime.sessionRegistry.getEntryByWindowId(registration.windowId)).toBe(replacementSession);
+      } finally {
+        replacement.destroy();
+      }
+    } finally {
+      first.destroy();
+      await projection.close();
+      await rm(baseDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it('uses the same cleanup path for abrupt peer destruction and projection shutdown', async () => {
+    const baseDirectory = await mkdtemp('/tmp/k-ipc-runtime-shell-shutdown-');
+    const projection = await createIpcShellProjection({
+      baseDirectory,
+      registration,
+      runtimeAdapter: createAdapter([], []),
+    });
+    const peer = await connectPeer(projection.path);
+    const frames = collectFrames(peer);
+    const destroyWindow = vi.spyOn(projection.runtime, 'destroyWindow');
+    const unregister = vi.spyOn(projection.runtime.sessionRegistry, 'unregister');
+    const destroy = vi.spyOn(projection.runtime, 'destroy');
+
+    peer.write(encodeJsonSequence({ type: 'shell.ready' }));
+    await waitFor(() => frames.length === 1);
+    const peerClosed = waitForClose(peer);
+    peer.destroy(new Error('abrupt test disconnect'));
+    await peerClosed;
+    await waitFor(() => destroyWindow.mock.calls.length === 1);
+    expect(unregister).toHaveBeenCalledTimes(1);
+
+    await projection.close();
+    await projection.close();
+    expect(destroyWindow).toHaveBeenCalledTimes(1);
+    expect(unregister).toHaveBeenCalledTimes(1);
+    expect(destroy).toHaveBeenCalledTimes(1);
+    await expect(access(projection.path)).rejects.toThrow();
+    await rm(baseDirectory, { recursive: true, force: true });
   });
 });

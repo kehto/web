@@ -218,7 +218,26 @@ export async function createIpcShellProjection(options: IpcShellProjectionOption
   const registration = options.registration;
   let connectionGeneration = 0;
   let activeConnection: ProjectionConnection | undefined;
+  let projectionClosePromise: Promise<void> | undefined;
   let runtime: Runtime;
+
+  /**
+   * Retire exactly one host-owned connection generation before any runtime cleanup can invoke
+   * callbacks. The token is deliberately private projection state: peer envelopes never select
+   * either the window or the generation that is allowed to tear down runtime state.
+   */
+  const teardownConnection = (windowId: string, generation: number): boolean => {
+    const connection = activeConnection;
+    if (!connection
+      || windowId !== registration.windowId
+      || connection.generation !== generation) {
+      return false;
+    }
+    activeConnection = undefined;
+    runtime.destroyWindow(windowId);
+    runtime.sessionRegistry.unregister(windowId);
+    return true;
+  };
 
   const runtimeAdapter: RuntimeAdapter = {
     ...options.runtimeAdapter,
@@ -249,8 +268,9 @@ export async function createIpcShellProjection(options: IpcShellProjectionOption
       };
     },
     onPeerClosed(peer) {
-      if (activeConnection?.peer !== peer) return;
-      activeConnection = undefined;
+      const connection = activeConnection;
+      if (!connection || connection.peer !== peer) return;
+      teardownConnection(registration.windowId, connection.generation);
     },
     onEnvelope(envelope, frozenRegistration, peer) {
       const connection = activeConnection;
@@ -273,8 +293,14 @@ export async function createIpcShellProjection(options: IpcShellProjectionOption
     registration: endpoint.registration as IpcShellEndpointRegistration,
     runtime,
     async close() {
-      await endpoint.close();
-      await transport.close();
+      projectionClosePromise ??= (async () => {
+        const connection = activeConnection;
+        if (connection) teardownConnection(registration.windowId, connection.generation);
+        await endpoint.close();
+        await transport.close();
+        runtime.destroy();
+      })();
+      await projectionClosePromise;
     },
   };
 }
