@@ -1,10 +1,11 @@
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const hostPath = resolve(process.cwd(), 'packages/shell-ipc/examples/ipc-projection-reference-host.mjs');
 const childPath = resolve(process.cwd(), 'packages/shell-ipc/tests/fixtures/raw-ipc-napplet.mjs');
+const adversarialChildPath = resolve(process.cwd(), 'packages/shell-ipc/tests/fixtures/adversarial-ipc-napplet.mjs');
 
 interface TranscriptRecord {
   readonly source: 'child' | 'host';
@@ -25,9 +26,34 @@ interface HostRun {
   readonly exited: Promise<{ readonly code: number | null; readonly signal: NodeJS.Signals | null }>;
 }
 
-function spawnHost(baseDirectory: string, mode: 'graceful' | 'forced'): HostRun {
-  const child = spawn(process.execPath, [hostPath, '--base-dir', baseDirectory, '--mode', mode], {
+interface HostOptions {
+  readonly baseDirectory?: string;
+  readonly mode: 'graceful' | 'forced';
+  readonly arguments?: readonly string[];
+  readonly childPath?: string;
+  readonly testCase?: 'forged' | 'malformed' | 'duplicate' | 'unterminated' | 'oversize';
+  readonly flagOrder?: 'mode-first' | 'base-first';
+}
+
+function spawnHost(options: HostOptions): HostRun {
+  const defaultArguments = options.flagOrder === 'base-first'
+    ? [
+      ...(options.baseDirectory ? ['--base-dir', options.baseDirectory] : []),
+      '--mode', options.mode,
+    ]
+    : [
+      '--mode', options.mode,
+      ...(options.baseDirectory ? ['--base-dir', options.baseDirectory] : []),
+    ];
+  const argumentsForHost = options.arguments ?? defaultArguments;
+  const child = spawn(process.execPath, [hostPath, ...argumentsForHost], {
     stdio: ['ignore', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      NODE_ENV: 'test',
+      ...(options.childPath ? { KEHTO_IPC_PROJECTION_TEST_CHILD: options.childPath } : {}),
+      ...(options.testCase ? { KEHTO_IPC_PROJECTION_TEST_CASE: options.testCase } : {}),
+    },
   });
   const records: TranscriptRecord[] = [];
   let stdout = '';
@@ -65,6 +91,8 @@ function recordIndex(records: readonly TranscriptRecord[], source: TranscriptRec
 
 function expectProof(records: readonly TranscriptRecord[], mode: 'graceful' | 'forced'): void {
   const init = recordIndex(records, 'child', 'shell.init');
+  const serviceDispatch = recordIndex(records, 'host', 'service-dispatch');
+  const serviceResult = recordIndex(records, 'host', 'service-result');
   const result = records.findIndex((record) => record.source === 'child' && record.milestone === 'result' && record.id === 'ipc-proof-available');
   const push = recordIndex(records, 'host', 'context-push');
   const receivedPush = recordIndex(records, 'child', 'intent.changed');
@@ -72,8 +100,10 @@ function expectProof(records: readonly TranscriptRecord[], mode: 'graceful' | 'f
 
   expect(init).toBeGreaterThanOrEqual(0);
   expect(records.filter((record) => record.source === 'child' && record.milestone === 'shell.init')).toHaveLength(1);
-  expect(result).toBeGreaterThan(init);
-  expect(push).toBeGreaterThan(result);
+  expect(serviceDispatch).toBeGreaterThan(init);
+  expect(serviceResult).toBeGreaterThan(serviceDispatch);
+  expect(result).toBeGreaterThan(serviceResult);
+  expect(push).toBeGreaterThan(serviceResult);
   expect(records[push]).toMatchObject({ delivered: true });
   expect(receivedPush).toBeGreaterThan(push);
   expect(cleanup).toEqual([expect.objectContaining({
@@ -85,10 +115,32 @@ function expectProof(records: readonly TranscriptRecord[], mode: 'graceful' | 'f
   if (mode === 'forced') expect(records).toContainEqual(expect.objectContaining({ source: 'host', milestone: 'child-exit', signal: 'SIGKILL' }));
 }
 
+async function expectFailedProof(baseDirectory: string, testCase: NonNullable<HostOptions['testCase']>): Promise<void> {
+  await writeFile(resolve(baseDirectory, 'caller-sentinel.txt'), testCase, 'utf8');
+  const run = spawnHost({ baseDirectory, mode: 'graceful', childPath: adversarialChildPath, testCase });
+  try {
+    await expect(awaitExit(run)).resolves.toMatchObject({ code: 1, signal: null });
+    await expect(readFile(resolve(baseDirectory, 'caller-sentinel.txt'), 'utf8')).resolves.toBe(testCase);
+    await expect(readdir(baseDirectory)).resolves.toEqual(['caller-sentinel.txt']);
+  } finally {
+    if (!run.child.killed && run.child.exitCode === null) run.child.kill('SIGKILL');
+  }
+}
+
 describe('IPC projection raw-process proof', () => {
-  it('proves the graceful public-ESM host, exact shell lifecycle, runtime result, and eligible push', async () => {
-    const baseDirectory = await mkdtemp('/tmp/k-ipc-process-graceful-');
-    const run = spawnHost(baseDirectory, 'graceful');
+  it('runs the exact documented command without --base-dir', async () => {
+    const run = spawnHost({ mode: 'graceful' });
+    try {
+      await expect(awaitExit(run)).resolves.toMatchObject({ code: 0, signal: null });
+      expectProof(run.records, 'graceful');
+    } finally {
+      if (!run.child.killed && run.child.exitCode === null) run.child.kill('SIGKILL');
+    }
+  });
+
+  it('accepts --base-dir in either flag order', async () => {
+    const baseDirectory = await mkdtemp('/tmp/k-ipc-process-order-');
+    const run = spawnHost({ baseDirectory, mode: 'graceful', flagOrder: 'base-first' });
     try {
       await expect(awaitExit(run)).resolves.toMatchObject({ code: 0, signal: null });
       expectProof(run.records, 'graceful');
@@ -99,9 +151,21 @@ describe('IPC projection raw-process proof', () => {
     }
   });
 
+  it.each([
+    ['duplicate --mode', ['--mode', 'graceful', '--mode', 'forced']],
+    ['unknown flag', ['--mode', 'graceful', '--unknown', 'value']],
+  ])('rejects %s CLI arguments', async (_label, argumentsForHost) => {
+    const run = spawnHost({ mode: 'graceful', arguments: argumentsForHost });
+    try {
+      await expect(awaitExit(run)).resolves.toMatchObject({ code: 1, signal: null });
+    } finally {
+      if (!run.child.killed && run.child.exitCode === null) run.child.kill('SIGKILL');
+    }
+  });
+
   it('proves SIGKILL after the same runtime result and eligible push converges on cleanup', async () => {
     const baseDirectory = await mkdtemp('/tmp/k-ipc-process-forced-');
-    const run = spawnHost(baseDirectory, 'forced');
+    const run = spawnHost({ baseDirectory, mode: 'forced' });
     try {
       await expect(awaitExit(run)).resolves.toMatchObject({ code: 0, signal: null });
       expectProof(run.records, 'forced');
@@ -112,15 +176,34 @@ describe('IPC projection raw-process proof', () => {
     }
   });
 
+  it('does not let forged child stdout create host service or push proof', async () => {
+    const baseDirectory = await mkdtemp('/tmp/k-ipc-process-forged-');
+    try {
+      await expectFailedProof(baseDirectory, 'forged');
+    } finally {
+      await rm(baseDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it.each(['malformed', 'duplicate', 'unterminated', 'oversize'] as const)(
+    'rejects %s child control output and preserves caller-owned cleanup boundaries',
+    async (testCase) => {
+      const baseDirectory = await mkdtemp(`/tmp/k-ipc-process-${testCase}-`);
+      try {
+        await expectFailedProof(baseDirectory, testCase);
+      } finally {
+        await rm(baseDirectory, { recursive: true, force: true });
+      }
+    },
+  );
+
   it('keeps the raw napplet Node-only and the reference host on public seams', async () => {
     const [rawNapplet, referenceHost] = await Promise.all([readFile(childPath, 'utf8'), readFile(hostPath, 'utf8')]);
     const imports = [...rawNapplet.matchAll(/(?:import\s+(?:[^'";]+?\s+from\s+)?|import\()(['"])([^'"]+)\1/g)].map((match) => match[2]);
 
-    expect(imports).toContain('node:net');
-    expect(imports).not.toHaveLength(0);
-    expect(imports.every((specifier) => specifier.startsWith('node:'))).toBe(true);
+    expect(imports).toEqual(['node:net']);
     expect(rawNapplet).toContain('0x1e');
-    expect(rawNapplet).not.toMatch(/@kehto|@napplet|window\.|postMessage|tauri|electron/i);
+    expect(rawNapplet).not.toMatch(/\b(?:require|createRequire)\b|@kehto|@napplet|window\.|postMessage|tauri|electron|shell-ipc|napplet.*(?:sdk|client|helper)/i);
     expect(referenceHost).toContain("from '@kehto/shell-ipc'");
     expect(referenceHost).not.toMatch(/@kehto\/shell-ipc\/src|\.\/src\/|injectEvent|\.send\(/);
   });

@@ -63,6 +63,10 @@ node packages/shell-ipc/examples/ipc-projection-reference-host.mjs --mode gracef
 node packages/shell-ipc/examples/ipc-projection-reference-host.mjs --mode forced
 ```
 
+An optional `--base-dir <path>` may appear before or after `--mode`; it stays
+caller-owned, including if a proof run fails. The host cleans only the endpoint
+resources it created there.
+
 The host launches a separate [raw `node:net` napplet](https://github.com/kehto/web/blob/main/packages/shell-ipc/tests/fixtures/raw-ipc-napplet.mjs)
 that has no Kehto import, helper SDK, interface injection, or browser path. The
 focused [process proof](https://github.com/kehto/web/blob/main/packages/shell-ipc/src/ipc-projection-process.test.ts)

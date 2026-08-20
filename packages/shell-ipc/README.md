@@ -88,6 +88,10 @@ node packages/shell-ipc/examples/ipc-projection-reference-host.mjs --mode gracef
 node packages/shell-ipc/examples/ipc-projection-reference-host.mjs --mode forced
 ```
 
+`--base-dir <path>` is optional and may appear before or after `--mode`. When
+supplied, that directory remains caller-owned: the host removes only its own
+endpoint resources, including when the proof fails.
+
 The raw child uses only Node built-ins and local RFC 7464 framing. It has no
 `@kehto/*` import, browser `postMessage`, injected `window.napplet.*` interface,
 or reusable napplet helper. It is process evidence, not a shipped napplet SDK.
