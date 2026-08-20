@@ -84,6 +84,43 @@ const registration: IpcShellEndpointRegistration = {
 };
 
 describe('createIpcShellProjection', () => {
+  it('joins endpoint close and unregister before re-registering the same window', async () => {
+    const baseDirectory = await mkdtemp('/tmp/k-ipc-runtime-shell-close-join-');
+    const composition = await createIpcShellProjection({ baseDirectory, runtimeAdapter: createAdapter([], []) });
+    const hostRegistration: IpcShellEndpointRegistration = {
+      windowId: 'ipc-close-join',
+      dTag: 'ipc-close-join',
+      aggregateHash: 'close-join',
+      environment: { capabilities: { domains: ['inc'] }, services: [] },
+    };
+    const endpoint = await composition.registerEndpoint(hostRegistration);
+    const peer = await connectPeer(endpoint.path);
+    const frames = collectFrames(peer);
+
+    try {
+      peer.write(encodeJsonSequence({ type: 'shell.ready' }));
+      await waitFor(() => frames.length === 1);
+
+      const endpointClose = endpoint.close();
+      const unregister = composition.unregisterEndpoint(hostRegistration.windowId);
+      await unregister;
+      await endpointClose;
+      await expect(access(endpoint.path)).rejects.toThrow();
+
+      const replacement = await composition.registerEndpoint(hostRegistration);
+      await expect(access(replacement.path)).resolves.toBeUndefined();
+
+      const replacementClose = replacement.close();
+      const shutdown = composition.close();
+      await Promise.all([replacementClose, shutdown]);
+      await expect(access(replacement.path)).rejects.toThrow();
+    } finally {
+      peer.destroy();
+      await composition.close();
+      await rm(baseDirectory, { recursive: true, force: true });
+    }
+  });
+
   it('does not let an old endpoint handle close its same-window replacement', async () => {
     const baseDirectory = await mkdtemp('/tmp/k-ipc-runtime-shell-stale-endpoint-');
     const composition = await createIpcShellProjection({ baseDirectory, runtimeAdapter: createAdapter([], []) });

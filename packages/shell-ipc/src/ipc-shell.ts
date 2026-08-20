@@ -281,21 +281,21 @@ export async function createIpcShellProjection(
     return true;
   };
 
-  const closeRecord = async (record: ShellEndpointRecord): Promise<void> => {
-    if (record.closePromise) {
-      await record.closePromise;
-      return;
-    }
-    if (records.get(record.registration.windowId) !== record) return;
+  const closeRecord = (record: ShellEndpointRecord): Promise<void> => {
+    if (record.closePromise) return record.closePromise;
+    if (records.get(record.registration.windowId) !== record) return Promise.resolve();
     record.closePromise ??= (async () => {
-      // Delete the route first so runtime teardown cannot egress to a retiring peer. A new
-      // endpoint cannot use this record because all subsequent work compares record identity.
-      records.delete(record.registration.windowId);
+      // Retire the peer before runtime cleanup can egress, but keep the record reachable until
+      // carrier cleanup settles so close(), unregisterEndpoint(), and composition.close() join
+      // this exact promise. A same-window registration may begin only after removal below.
       const connection = record.activeConnection;
       if (connection) teardownConnection(record, connection);
       await record.endpoint.close();
+      if (records.get(record.registration.windowId) === record) {
+        records.delete(record.registration.windowId);
+      }
     })();
-    await record.closePromise;
+    return record.closePromise;
   };
 
   const registerEndpoint = async (input: IpcShellEndpointRegistration): Promise<IpcShellEndpoint> => {
@@ -355,9 +355,9 @@ export async function createIpcShellProjection(
   const composition: IpcShellComposition = {
     runtime,
     registerEndpoint,
-    async unregisterEndpoint(windowId) {
+    unregisterEndpoint(windowId) {
       const record = records.get(windowId);
-      if (record) await closeRecord(record);
+      return record ? closeRecord(record) : Promise.resolve();
     },
     async close() {
       compositionClosing = true;
