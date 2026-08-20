@@ -1,9 +1,9 @@
 ---
 phase: 108
 slug: runtime-shell-composition
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-08-20
 ---
 
@@ -20,7 +20,7 @@ created: 2026-08-20
 | **Verified one-shot syntax** | `pnpm vitest run <files> --reporter=dot` |
 | **Quick run command after Wave 0** | `pnpm vitest run packages/shell-ipc/src/runtime-shell.test.ts packages/shell-ipc/src/ipc-shell.test.ts --reporter=dot` |
 | **Full suite command** | `pnpm test:unit` |
-| **Current baseline proof** | `pnpm vitest run packages/shell-ipc/src/ipc-shell.test.ts --reporter=dot` passed 18/18 on Vitest 4.1.2 before planning |
+| **Final focused proof** | `pnpm vitest run packages/shell-ipc/src/runtime-shell.test.ts packages/shell-ipc/src/ipc-shell.test.ts packages/runtime/src/runtime.test.ts tests/unit/nap-inc-conformance.test.ts --reporter=dot` passed 52/52 on Vitest 4.1.2 on 2026-08-20 |
 | **Estimated feedback** | under 10 seconds focused; repository suite sampled after each wave |
 
 All commands are one-shot `vitest run` invocations. No watch flag and no unsupported short fail-fast option is used.
@@ -39,20 +39,20 @@ All commands are one-shot `vitest run` invocations. No watch flag and no unsuppo
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---|---:|---:|---|---|---|---|---|---|---|
-| 108-01-01 | 01 | 1 | BIND-03, PROOF-01 | T-108-01..06, T-108-SC | One admitted raw peer sends exact bare readiness, receives one init, binds host identity, and reaches the unchanged runtime while a concurrent peer/pre-ready/payload-ready path stays inert. | raw-socket tracer + declaration/static boundary | `pnpm vitest run packages/shell-ipc/src/runtime-shell.test.ts packages/shell-ipc/src/ipc-shell.test.ts --reporter=dot && pnpm --filter @kehto/shell-ipc build && pnpm --filter @kehto/shell-ipc type-check` | ❌ Wave 0 creates `runtime-shell.test.ts` | ⬜ pending |
-| 108-02-01 | 02 | 2 | BIND-02, BIND-04 | T-108-07, T-108-08, T-108-11, T-108-12 | Graceful, abrupt, endpoint, unregister, and projection-close paths clean only the matching token; delayed old close preserves replacement and sibling state. | raw-socket lifecycle/race integration | `pnpm vitest run packages/shell-ipc/src/runtime-shell.test.ts packages/shell-ipc/src/ipc-shell.test.ts packages/runtime/src/runtime.test.ts --reporter=dot` | ❌ Wave 0 creates, task expands | ⬜ pending |
-| 108-02-02 | 02 | 2 | PROOF-04 | T-108-09, T-108-10 | Real runtime environment/host domain gates, ACL, capability eligibility, source identity, targeted egress, and NAP-INC cleanup remain enforced. | runtime parity + conformance | `pnpm vitest run packages/shell-ipc/src/runtime-shell.test.ts tests/unit/nap-inc-conformance.test.ts --reporter=dot` | ❌ Wave 0 creates, task expands | ⬜ pending |
-| 108-03-01 | 03 | 3 | BIND-04 | T-108-13, T-108-15, T-108-16, T-108-17 | Public endpoint close/unregister and composition shutdown apply ordered generation-safe runtime/session/carrier teardown without harming replacements or siblings. | raw-socket lifecycle/race gap closure | `pnpm vitest run packages/shell-ipc/src/runtime-shell.test.ts packages/shell-ipc/src/ipc-shell.test.ts --reporter=dot && pnpm --filter @kehto/shell-ipc type-check` | ✅ existing file expands RED-first | ⬜ pending |
-| 108-03-02 | 03 | 3 | PROOF-04 | T-108-14, T-108-18 | Two dedicated endpoints share one runtime; A close delivers runtime-produced canonical inc.channel.closed only to surviving, still-usable B. | raw-socket NAP-INC integration + conformance | `pnpm vitest run packages/shell-ipc/src/runtime-shell.test.ts packages/shell-ipc/src/ipc-shell.test.ts packages/runtime/src/runtime.test.ts tests/unit/nap-inc-conformance.test.ts --reporter=dot && pnpm --filter @kehto/shell-ipc build && pnpm --filter @kehto/shell-ipc type-check` | ✅ existing file expands RED-first | ⬜ pending |
+| 108-01-01 | 01 | 1 | BIND-03, PROOF-01 | T-108-01..06, T-108-SC | One admitted raw peer sends exact bare readiness, receives one init, binds host identity, and reaches the unchanged runtime while a concurrent peer/pre-ready/payload-ready path stays inert. | raw-socket tracer + declaration/static boundary | `pnpm vitest run packages/shell-ipc/src/runtime-shell.test.ts packages/shell-ipc/src/ipc-shell.test.ts --reporter=dot && pnpm --filter @kehto/shell-ipc build && pnpm --filter @kehto/shell-ipc type-check` | ✅ `runtime-shell.test.ts` | ✅ green |
+| 108-02-01 | 02 | 2 | BIND-02, BIND-04 | T-108-07, T-108-08, T-108-11, T-108-12 | Graceful, abrupt, endpoint, unregister, and projection-close paths clean only the matching token; delayed old close preserves replacement and sibling state. | raw-socket lifecycle/race integration | `pnpm vitest run packages/shell-ipc/src/runtime-shell.test.ts packages/shell-ipc/src/ipc-shell.test.ts packages/runtime/src/runtime.test.ts --reporter=dot` | ✅ `runtime-shell.test.ts` | ✅ green |
+| 108-02-02 | 02 | 2 | PROOF-04 | T-108-09, T-108-10 | Real runtime environment/host domain gates, ACL, capability eligibility, source identity, targeted egress, and NAP-INC cleanup remain enforced. | runtime parity + conformance | `pnpm vitest run packages/shell-ipc/src/runtime-shell.test.ts tests/unit/nap-inc-conformance.test.ts --reporter=dot` | ✅ `runtime-shell.test.ts` | ✅ green |
+| 108-03-01 | 03 | 3 | BIND-04 | T-108-13, T-108-15, T-108-16, T-108-17 | Public endpoint close/unregister and composition shutdown apply ordered generation-safe runtime/session/carrier teardown without harming replacements or siblings. | raw-socket lifecycle/race gap closure | `pnpm vitest run packages/shell-ipc/src/runtime-shell.test.ts packages/shell-ipc/src/ipc-shell.test.ts --reporter=dot && pnpm --filter @kehto/shell-ipc type-check` | ✅ `runtime-shell.test.ts` | ✅ green |
+| 108-03-02 | 03 | 3 | PROOF-04 | T-108-14, T-108-18 | Two dedicated endpoints share one runtime; A close delivers runtime-produced canonical inc.channel.closed only to surviving, still-usable B. | raw-socket NAP-INC integration + conformance | `pnpm vitest run packages/shell-ipc/src/runtime-shell.test.ts packages/shell-ipc/src/ipc-shell.test.ts packages/runtime/src/runtime.test.ts tests/unit/nap-inc-conformance.test.ts --reporter=dot && pnpm --filter @kehto/shell-ipc build && pnpm --filter @kehto/shell-ipc type-check` | ✅ `runtime-shell.test.ts` | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠ flaky*
 
 ## Wave 0 Requirements
 
-- [ ] `packages/shell-ipc/src/runtime-shell.test.ts` — first action of tracer Task 108-01-01 creates failing raw-socket fixtures for single-peer admission, exact readiness, host-bound session identity, payload-ready diagnostic, pre-ready inertness, and targeted runtime egress.
-- [ ] The fixture builds a local `RuntimeAdapter` from public `@kehto/runtime` types; it does not import runtime test utilities or edit runtime/browser-shell code.
-- [ ] The fixture reuses the established raw `node:net`, RFC 7464, close-wait, and `try/finally` patterns from `ipc-shell.test.ts` while owning its helpers locally.
-- [ ] Wave 0 is complete only when the focused file exists and the initial readiness expectation has been observed red before production implementation.
+- [x] `packages/shell-ipc/src/runtime-shell.test.ts` was created RED-first and now covers single-peer admission, exact readiness, host-bound session identity, payload-ready diagnostic, pre-ready inertness, and targeted runtime egress.
+- [x] The fixture builds a local `RuntimeAdapter` from public `@kehto/runtime` types; it imports no runtime test utility and does not edit runtime/browser-shell code.
+- [x] The fixture uses raw `node:net`, RFC 7464, close-wait, and `try/finally` cleanup patterns while owning its helpers locally.
+- [x] Wave 0 was observed red before production implementation, as recorded in Plan 01's TDD task evidence.
 
 ## Phase Gate
 
@@ -82,14 +82,14 @@ None. Same-UID peer authentication remains an explicitly accepted Phase 107 carr
 | GOAL | — | Connected processes receive authenticated NAP-SHELL/runtime guarantees through IPC lifecycle binding. | 01, 02, 03 | COVERED | Executed plans establish the single-endpoint path; Plan 03 closes verified public-lifecycle and shared-runtime proof gaps. |
 | REQ | BIND-02 | One active peer; delayed/stale events cannot destroy replacement. | 02 | COVERED | Plan 01 establishes the tracer seam; Plan 02 owns the complete requirement and frontmatter claim. |
 | REQ | BIND-03 | Bare ready, one init, no capability handler before readiness. | 01 | COVERED | Exact key check, duplicate idempotency, payload-ready diagnostic, and pre-ready inertness. |
-| REQ | BIND-04 | Matching graceful/abrupt/unregister/shutdown cleanup. | 02, 03 | GAP CLOSURE PLANNED | Verification found the Plan 02 implementation lacked host-usable endpoint close/unregister; Plan 03 exposes and proves it. |
+| REQ | BIND-04 | Matching graceful/abrupt/unregister/shutdown cleanup. | 02, 03 | COVERED | Raw lifecycle tests cover graceful and abrupt peer loss, endpoint close, explicit unregister, joined concurrent cleanup, same-window re-registration, and composition shutdown. |
 | REQ | PROOF-01 | Public runtime composition without runtime/envelope/browser-shell change. | 01 | COVERED | First-party workspace dependency plus static source-boundary assertion. |
-| REQ | PROOF-04 | ACL/capability/identity/handshake/lifecycle parity. | 02, 03 | GAP CLOSURE PLANNED | Local policy parity passed; Plan 03 adds the missing shared-runtime, two-endpoint NAP-INC survivor proof. |
+| REQ | PROOF-04 | ACL/capability/identity/handshake/lifecycle parity. | 02, 03 | COVERED | Raw policy and shared-runtime tests prove host identity, domain/ACL enforcement, exact readiness, token-safe lifecycle, NAP-INC survivor notification, and post-close usability. |
 | RESEARCH | R-01 | Opaque targeted peer lifecycle seam; generic broadcast remains compatible. | 01 | COVERED | Queue-bound handle exposes no Socket/path/token. |
 | RESEARCH | R-02 | `createIpcShellProjection` owns peer/readiness/runtime state. | 01, 03 | COVERED | Plan 03 restores the researched multi-registration host composition while retaining the executed single-registration convenience. |
 | RESEARCH | R-03 | Payload-bearing ready policy. | 01 | COVERED | Ignore without session/init and emit redacted `SHELL_READY_PAYLOAD_IGNORED`. |
 | RESEARCH | R-04 | Add first-party `@kehto/runtime@workspace:^` and lock metadata. | 01 | COVERED | Strictly required by implementation/declaration imports. |
-| RESEARCH | R-05 | Token-guard destroyWindow then session unregister. | 02, 03 | GAP CLOSURE PLANNED | Plan 03 binds the proven ordering to public endpoint/unregister/shutdown ownership and stale endpoint generations. |
+| RESEARCH | R-05 | Token-guard destroyWindow then session unregister. | 02, 03 | COVERED | Spied lifecycle test proves destroy precedes unregister; stale peer and stale endpoint-handle tests prove only the matching current generation is retired. |
 | RESEARCH | R-06 | Runtime eligibility/ACL/INC behavior remains authoritative. | 02, 03 | COVERED | Plan 03 delegates channel authorization/cleanup/notification to one unchanged shared Runtime; no IPC-local dispatcher/ACL. |
 | CONTEXT | D-01 | Keep @kehto/shell-ipc and POSIX Unix sockets only. | 01 | COVERED | Tracer and public types cite D-01. |
 | CONTEXT | D-02 | Canonical envelopes unchanged; IPC metadata outside wire. | 01, 02 | COVERED | Targeted sender accepts NappletMessage only; tests assert unchanged objects. |
@@ -101,13 +101,23 @@ None. Same-UID peer authentication remains an explicitly accepted Phase 107 carr
 
 ## Validation Sign-Off Checklist
 
-- [ ] Every task has an automated command using Vitest 4.1.2 one-shot syntax.
-- [ ] Wave 0 creates the only missing focused test before production implementation.
-- [ ] The gap-closure plan repeats only the failed BIND-04 and PROOF-04 IDs; BIND-02, BIND-03, and PROOF-01 remain assigned only to their original plans.
-- [ ] D-01 through D-06 are cited in executable plan bodies and covered by the source audit.
-- [ ] Same-wave file overlap is zero; Plan 108-03 depends on 108-02 before reopening the tightly coupled public types/barrel, `ipc-shell.ts`, and lifecycle test.
-- [ ] Runtime and browser-shell source remain unchanged.
-- [ ] Phase 109 artifacts remain outside the modified-file sets.
-- [ ] Set `nyquist_compliant: true`, `wave_0_complete: true`, and `status: validated` only after the recorded execution evidence is green.
+- [x] Every task has an automated command using Vitest 4.1.2 one-shot syntax.
+- [x] Wave 0 created the focused raw-socket tracer before production implementation.
+- [x] The gap-closure plan repeats only BIND-04 and PROOF-04; BIND-02, BIND-03, and PROOF-01 remain assigned to their original plans.
+- [x] D-01 through D-06 are covered by the source and focused behavioral audit.
+- [x] Plan 108-03 follows 108-02 before reopening the coupled composition/test seam.
+- [x] Runtime and browser-shell source remained unchanged (`git diff 1eaf462..HEAD -- packages/runtime/src packages/shell/src` is empty).
+- [x] Phase 109 artifacts remain outside the modified-file sets.
+- [x] `nyquist_compliant: true`, `wave_0_complete: true`, and `status: validated` are supported by a green 52-test focused run plus package build/type-check.
 
-**Approval:** draft — Wave 3 gap-closure coverage added; execution evidence pending
+**Approval:** Nyquist-compliant — no automated test gaps found.
+
+## Validation Audit 2026-08-20
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+
+The audit reran the four-file behavioral gate: 52 tests passed. It includes raw Unix-socket proofs for BIND-02/BIND-03/BIND-04 and PROOF-04; PROOF-01 is additionally protected by the successful package build/type-check and the empty runtime/browser-shell source-boundary diff.
