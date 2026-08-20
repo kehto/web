@@ -1,5 +1,5 @@
 import type { Signer } from '@kehto/runtime';
-import { nip04 } from 'nostr-tools';
+import * as nip44 from 'nostr-tools/nip44';
 import {
   finalizeEvent,
   generateSecretKey,
@@ -123,7 +123,7 @@ async function sendRequestWithId(
   }
 
   const payload = JSON.stringify({ id: correlationId, method, params });
-  const encryptedContent = await nip04.encrypt(state.localSecretKey, state.bunkerPubkey, payload);
+  const encryptedContent = nip44.encrypt(payload, nip44.getConversationKey(state.localSecretKey, state.bunkerPubkey));
   const signedEvent = finalizeEvent({
     kind: 24_133,
     created_at: Math.floor(Date.now() / 1000),
@@ -156,8 +156,7 @@ async function handleRelayMessage(state: Nip46ClientState, data: string): Promis
 
   let response: { id: string; result?: unknown; error?: string };
   try {
-    const decrypted = await nip04.decrypt(state.localSecretKey, state.bunkerPubkey, event.content);
-    response = JSON.parse(decrypted) as { id: string; result?: unknown; error?: string };
+    response = JSON.parse(nip44.decrypt(event.content, nip44.getConversationKey(state.localSecretKey, state.bunkerPubkey))) as { id: string; result?: unknown; error?: string };
   } catch {
     return;
   }
