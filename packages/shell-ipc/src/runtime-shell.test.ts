@@ -186,6 +186,61 @@ describe('createIpcShellProjection', () => {
     }
   });
 
+  it('binds runtime identity, capability gates, and shell.init to the frozen transport registration', async () => {
+    const baseDirectory = await mkdtemp('/tmp/k-ipc-runtime-shell-frozen-registration-');
+    const hotkeys: string[] = [];
+    const mutableRegistration = {
+      windowId: 'frozen-window',
+      dTag: 'frozen-napplet',
+      aggregateHash: 'frozen-hash',
+      environment: {
+        capabilities: { domains: ['keys'] },
+        services: ['original-service'],
+      },
+    };
+    const projection = await createIpcShellProjection({
+      baseDirectory,
+      registration: mutableRegistration,
+      runtimeAdapter: createAdapter(hotkeys, []),
+    });
+    mutableRegistration.windowId = 'caller-mutated-window';
+    mutableRegistration.dTag = 'caller-mutated-napplet';
+    mutableRegistration.aggregateHash = 'caller-mutated-hash';
+    mutableRegistration.environment.capabilities.domains.splice(0, 1);
+    mutableRegistration.environment.services.push('caller-mutated-service');
+    const peer = await connectPeer(projection.path);
+    const frames = collectFrames(peer);
+
+    try {
+      peer.write(encodeJsonSequence({ type: 'shell.ready' }));
+      await waitFor(() => frames.length === 1);
+      expect(projection.registration).toMatchObject({
+        windowId: 'frozen-window',
+        dTag: 'frozen-napplet',
+        aggregateHash: 'frozen-hash',
+      });
+      expect(frames).toEqual([{
+        type: 'shell.init',
+        capabilities: { domains: ['keys'] },
+        services: ['original-service'],
+      }]);
+      expect(projection.runtime.sessionRegistry.getEntryByWindowId('frozen-window')).toMatchObject({
+        windowId: 'frozen-window',
+        dTag: 'frozen-napplet',
+        aggregateHash: 'frozen-hash',
+      });
+      expect(projection.runtime.sessionRegistry.getEntryByWindowId('caller-mutated-window')).toBeUndefined();
+
+      peer.write(encodeJsonSequence({ type: 'keys.forward', key: 'f', code: 'KeyF' }));
+      await waitFor(() => hotkeys.length === 1);
+      expect(hotkeys).toEqual(['KeyF']);
+    } finally {
+      peer.destroy();
+      await projection.close();
+      await rm(baseDirectory, { recursive: true, force: true });
+    }
+  });
+
   it('rejects invalid shell capability registration before allocating a socket directory', async () => {
     const baseDirectory = await mkdtemp('/tmp/k-ipc-runtime-shell-invalid-');
 

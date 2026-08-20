@@ -215,11 +215,61 @@ interface ProjectionConnection {
  */
 export async function createIpcShellProjection(options: IpcShellProjectionOptions): Promise<IpcShellProjection> {
   validateShellRegistration(options.registration);
-  const registration = options.registration;
   let connectionGeneration = 0;
   let activeConnection: ProjectionConnection | undefined;
   let projectionClosePromise: Promise<void> | undefined;
-  let runtime: Runtime;
+  const transport = await createIpcTransport({
+    baseDirectory: options.baseDirectory,
+    limits: options.limits,
+    onDiagnostic: options.onDiagnostic,
+  });
+  const endpoint = await transport.registerEndpoint(options.registration, {
+    onPeerConnected(peer) {
+      if (activeConnection) return false;
+      if (connectionGeneration >= Number.MAX_SAFE_INTEGER) return false;
+      activeConnection = {
+        generation: ++connectionGeneration,
+        peer,
+        ready: false,
+        payloadReadyDiagnosticSent: false,
+      };
+    },
+    onPeerClosed(peer) {
+      const connection = activeConnection;
+      if (!connection || connection.peer !== peer) return;
+      teardownConnection(registration.windowId, connection.generation);
+    },
+    onEnvelope(envelope, frozenRegistration, peer) {
+      const connection = activeConnection;
+      if (!connection || connection.peer !== peer || frozenRegistration !== registration) return;
+      if (isShellReady(envelope)) {
+        registerReadyPeer(runtime, options.runtimeAdapter, registration, connection);
+        return;
+      }
+      if (isPayloadBearingShellReady(envelope)) {
+        reportPayloadBearingReady(options, registration, connection);
+        return;
+      }
+      if (!connection.ready) return;
+      runtime.handleMessage(registration.windowId, envelope);
+    },
+  });
+  // The transport has validated, cloned, and recursively frozen this exact host assignment before
+  // listening. Runtime identity, gates, sessions, and shell.init must never observe the caller's
+  // mutable input object after this point.
+  const registration = endpoint.registration as IpcShellEndpointRegistration;
+  const runtimeAdapter: RuntimeAdapter = {
+    ...options.runtimeAdapter,
+    sendToNapplet(windowId, message) {
+      if (windowId !== registration.windowId || !activeConnection?.ready || !isCanonicalEnvelope(message)) return;
+      activeConnection.peer.send(message);
+    },
+    isDomainAllowed(windowId, domain) {
+      if (windowId !== registration.windowId || !registration.environment.capabilities.domains.includes(domain)) return false;
+      return options.runtimeAdapter.isDomainAllowed?.(windowId, domain) ?? true;
+    },
+  };
+  const runtime = createRuntime(runtimeAdapter);
 
   /**
    * Retire exactly one host-owned connection generation before any runtime cleanup can invoke
@@ -238,55 +288,6 @@ export async function createIpcShellProjection(options: IpcShellProjectionOption
     runtime.sessionRegistry.unregister(windowId);
     return true;
   };
-
-  const runtimeAdapter: RuntimeAdapter = {
-    ...options.runtimeAdapter,
-    sendToNapplet(windowId, message) {
-      if (windowId !== registration.windowId || !activeConnection?.ready || !isCanonicalEnvelope(message)) return;
-      activeConnection.peer.send(message);
-    },
-    isDomainAllowed(windowId, domain) {
-      if (windowId !== registration.windowId || !registration.environment.capabilities.domains.includes(domain)) return false;
-      return options.runtimeAdapter.isDomainAllowed?.(windowId, domain) ?? true;
-    },
-  };
-  runtime = createRuntime(runtimeAdapter);
-  const transport = await createIpcTransport({
-    baseDirectory: options.baseDirectory,
-    limits: options.limits,
-    onDiagnostic: options.onDiagnostic,
-  });
-  const endpoint = await transport.registerEndpoint(registration, {
-    onPeerConnected(peer) {
-      if (activeConnection) return false;
-      if (connectionGeneration >= Number.MAX_SAFE_INTEGER) return false;
-      activeConnection = {
-        generation: ++connectionGeneration,
-        peer,
-        ready: false,
-        payloadReadyDiagnosticSent: false,
-      };
-    },
-    onPeerClosed(peer) {
-      const connection = activeConnection;
-      if (!connection || connection.peer !== peer) return;
-      teardownConnection(registration.windowId, connection.generation);
-    },
-    onEnvelope(envelope, frozenRegistration, peer) {
-      const connection = activeConnection;
-      if (!connection || connection.peer !== peer || frozenRegistration.windowId !== registration.windowId) return;
-      if (isShellReady(envelope)) {
-        registerReadyPeer(runtime, options.runtimeAdapter, registration, connection);
-        return;
-      }
-      if (isPayloadBearingShellReady(envelope)) {
-        reportPayloadBearingReady(options, registration, connection);
-        return;
-      }
-      if (!connection.ready) return;
-      runtime.handleMessage(registration.windowId, envelope);
-    },
-  });
 
   return {
     path: endpoint.path,
