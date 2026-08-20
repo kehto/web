@@ -1,4 +1,5 @@
-import { stat } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises';
+import { join } from 'node:path';
 import type { RuntimeAdapter } from '@kehto/runtime';
 import { describe, expect, it } from 'vitest';
 import { launchIpcShellHost } from './index.js';
@@ -16,6 +17,19 @@ function createAdapter(): Omit<RuntimeAdapter, 'sendToNapplet'> {
     relayConfig: { addRelay() {}, removeRelay() {}, getRelayConfig: () => ({ discovery: [], super: [], outbox: [] }), getNip66Suggestions: () => [] },
     services: {},
   };
+}
+
+function registration(windowId: string) {
+  return {
+    windowId,
+    dTag: `${windowId}-d-tag`,
+    aggregateHash: `${windowId}-hash`,
+    environment: { capabilities: { domains: [] as string[] }, services: [] },
+  };
+}
+
+async function temporaryBase(): Promise<string> {
+  return mkdtemp('/tmp/kehto-ipc-host-');
 }
 
 describe('launchIpcShellHost', () => {
@@ -94,5 +108,76 @@ describe('launchIpcShellHost', () => {
       command: { file: process.execPath, args: ['-e', script] },
     });
     await expect(host.waitForExit()).resolves.toMatchObject({ status: 137, signal: 'SIGKILL', reason: 'peer-disconnected' });
+  });
+
+  it('retains a frozen registration clone when the caller mutates its input after launch', async () => {
+    const callerRegistration = registration('host-frozen-window');
+    const host = await launchIpcShellHost({
+      registration: callerRegistration,
+      runtimeAdapter: createAdapter(),
+      command: { file: process.execPath, args: ['-e', 'setInterval(() => {}, 1_000)'] },
+    });
+    callerRegistration.windowId = 'caller-mutated-window';
+    callerRegistration.environment.capabilities.domains.push('caller-mutated-domain');
+    expect(host.registration.windowId).toBe('host-frozen-window');
+    expect(host.registration.environment.capabilities.domains).toEqual([]);
+    expect(Object.isFrozen(host.registration)).toBe(true);
+    expect(Object.isFrozen(host.registration.environment)).toBe(true);
+    expect(Object.isFrozen(host.registration.environment.capabilities.domains)).toBe(true);
+    await host.close();
+  });
+
+  it('scrubs stale KEHTO_IPC values from direct child environment', async () => {
+    const base = await temporaryBase();
+    const report = join(base, 'environment.json');
+    try {
+      const script = "require('node:fs').writeFileSync(process.argv[1],JSON.stringify(Object.fromEntries(Object.entries(process.env).filter(([key])=>key.startsWith('KEHTO_IPC_')))))";
+      const host = await launchIpcShellHost({
+        baseDirectory: base,
+        registration: registration('host-environment-window'),
+        runtimeAdapter: createAdapter(),
+        command: {
+          file: process.execPath,
+          args: ['-e', script, report],
+          env: { KEHTO_IPC_SOCKET_PATH: 'stale-path', KEHTO_IPC_STALE: 'stale-secret' },
+        },
+      });
+      await host.waitForExit();
+      const environment = JSON.parse(await readFile(report, 'utf8')) as Record<string, string>;
+      expect(Object.keys(environment)).toEqual(['KEHTO_IPC_SOCKET_PATH']);
+      expect(environment.KEHTO_IPC_SOCKET_PATH).toBe(host.endpointPath);
+      expect(environment.KEHTO_IPC_STALE).toBeUndefined();
+      await expect(stat(host.endpointPath)).rejects.toMatchObject({ code: 'ENOENT' });
+    } finally {
+      await rm(base, { recursive: true, force: true });
+    }
+  });
+
+  it('restores host signal listener counts after real child cleanup', async () => {
+    const before = new Map(['SIGHUP', 'SIGINT', 'SIGTERM'].map((signal) => [signal, process.listenerCount(signal)]));
+    const host = await launchIpcShellHost({
+      registration: registration('host-listeners-window'),
+      runtimeAdapter: createAdapter(),
+      command: { file: process.execPath, args: ['-e', 'process.exit(0)'] },
+    });
+    await host.waitForExit();
+    for (const [signal, count] of before) expect(process.listenerCount(signal)).toBe(count);
+  });
+
+  it('cleans its endpoint directory when spawn fails', async () => {
+    const base = await temporaryBase();
+    const before = new Map(['SIGHUP', 'SIGINT', 'SIGTERM'].map((signal) => [signal, process.listenerCount(signal)]));
+    try {
+      await expect(launchIpcShellHost({
+        baseDirectory: base,
+        registration: registration('host-spawn-failure-window'),
+        runtimeAdapter: createAdapter(),
+        command: { file: join(base, 'missing-executable'), args: [] },
+      })).rejects.toThrow();
+      await expect(readdir(base)).resolves.toEqual([]);
+      for (const [signal, count] of before) expect(process.listenerCount(signal)).toBe(count);
+    } finally {
+      await rm(base, { recursive: true, force: true });
+    }
   });
 });

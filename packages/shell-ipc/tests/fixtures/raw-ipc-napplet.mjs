@@ -9,7 +9,7 @@ function readArguments(argv) {
   for (let index = 0; index < argv.length; index += 2) {
     const flag = argv[index];
     const value = argv[index + 1];
-    if (flag === '--mode' && ['graceful', 'forced', 'disconnect', 'disconnect-ignore-term', 'ignore-term', 'signal-hup', 'signal-int', 'signal-term', 'exit-23'].includes(value)) mode = value;
+    if (flag === '--mode' && ['graceful', 'forced', 'disconnect', 'disconnect-ignore-term', 'ignore-term', 'signal-hup', 'signal-int', 'signal-term', 'exit-23', 'report-env'].includes(value)) mode = value;
   }
   const path = process.env.KEHTO_IPC_SOCKET_PATH;
   if (!path || !mode || argv.length !== 2) throw new Error('Invalid raw napplet arguments.');
@@ -58,6 +58,12 @@ function testReadyDelay() {
 
 try {
   const { path, mode } = readArguments(process.argv.slice(2));
+  if (mode === 'report-env') {
+    const environment = Object.fromEntries(Object.entries(process.env)
+      .filter(([name]) => name.startsWith('KEHTO_IPC_')));
+    emit('environment', { environment });
+    process.exit(0);
+  }
   let initCount = 0;
   let requested = false;
   let receivedResult = false;
@@ -102,6 +108,7 @@ try {
         if (mode === 'disconnect-ignore-term') process.on('SIGTERM', () => emit('sigterm'));
         socket.end();
         emit('hold');
+        setInterval(() => {}, 1_000);
       } else if (mode === 'signal-hup') process.kill(process.pid, 'SIGHUP');
       else if (mode === 'signal-int') process.kill(process.pid, 'SIGINT');
       else if (mode === 'signal-term') process.kill(process.pid, 'SIGTERM');
