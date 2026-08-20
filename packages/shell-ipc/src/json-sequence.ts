@@ -1,8 +1,6 @@
 import { IpcTransportError } from './types.js';
 
-/** Byte markers used by the experimental RFC 7464 carrier. */
 export const RS = 0x1e;
-/** Byte markers used by the experimental RFC 7464 carrier. */
 export const LF = 0x0a;
 /** A decoded canonical envelope accepted by the carrier. */
 export type JsonSequenceEnvelope = Record<string, unknown> & { type: string };
