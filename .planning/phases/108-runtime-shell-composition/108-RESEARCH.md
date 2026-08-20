@@ -344,16 +344,16 @@ await expect(receiveFrame(peer)).resolves.toMatchObject({ type: 'storage.get.res
 | A3 | An opaque `IpcPeer` lifecycle hook is the smallest compatible transport extension. | Patterns | A different internal hook can meet the same invariant if it preserves existing API behavior. |
 | A4 | `origin: 'ipc'` is suitable local `SessionEntry` bookkeeping. | Pattern 2 | It is an IPC spec-gap value and must not become wire-visible or identity authority. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should malformed/payload-bearing `shell.ready` close the peer or be silently ignored?**
    - What we know: NAP-SHELL defines a bare message; the Phase 107 decoder already fails closed on malformed carrier input. [CITED: https://github.com/napplet/naps/blob/c0f7dd14460622fc3a9870ea57a538474cf776fa/naps/NAP-SHELL.md] [VERIFIED: Phase 107 VERIFICATION.md]
    - What's unclear: The pinned NAP does not prescribe an IPC terminal-error policy for otherwise canonical extra payload fields. [CITED: https://github.com/napplet/naps/blob/c0f7dd14460622fc3a9870ea57a538474cf776fa/naps/NAP-SHELL.md]
-   - Recommendation: Ignore without establishing a session and emit a redacted diagnostic; reserve terminal close for carrier-invalid data and identity-claim violations. [ASSUMED]
+   - **RESOLVED:** Keep the peer connected, ignore the payload-bearing `shell.ready`, create no session or `shell.init`, and emit only a redacted diagnostic; reserve terminal close for carrier-invalid data and identity-claim violations. [ASSUMED]
 
 2. **Should Phase 108 update public package README/docs and add a Changeset?**
    - What we know: AGENTS.md normally requires docs alongside public code, but the context assigns publishable package quality, complete docs, and Changeset work to Phase 109. [VERIFIED: AGENTS.md] [VERIFIED: project CONTEXT.md]
-   - Recommendation: Keep Phase 108 to exported JSDoc and no release metadata; Phase 109 must document the final public surface and add the Changeset after the proof stabilizes it. [ASSUMED]
+   - **RESOLVED:** Phase 108 includes exported JSDoc only; the README, public package documentation, and Changeset are explicitly Phase 109 scope. [ASSUMED]
 
 ## Environment Availability
 
