@@ -1,9 +1,9 @@
 ---
 phase: 109
 slug: runnable-proof-and-drafting-evidence
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-08-20
 ---
 
@@ -42,20 +42,20 @@ All Vitest commands are one-shot `vitest run` invocations. No watch mode, invent
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---|---:|---:|---|---|---|---|---|---|---|
-| 109-01-01 | 01 | 1 | PROOF-02, PROOF-03, PROOF-05 | T-109-01..05, T-109-07 | Public-ESM host and raw built-in-only child prove exact ready/init, same-id real service result, eligible context push, redacted transcript, and graceful cleanup. | spawned-process integration + static fixture guard | `pnpm --filter @kehto/shell-ipc build && pnpm vitest run packages/shell-ipc/src/ipc-projection-process.test.ts --reporter=dot` | ❌ W0 | ⬜ pending |
-| 109-01-02 | 01 | 1 | PROOF-02, PROOF-03, PROOF-05 | T-109-04, T-109-06 | A real SIGKILL after result/push converges with graceful termination on matching session/path/directory cleanup. | spawned-process lifecycle/race integration | `pnpm --filter @kehto/shell-ipc build && pnpm vitest run packages/shell-ipc/src/ipc-projection-process.test.ts packages/shell-ipc/src/runtime-shell.test.ts --reporter=dot && pnpm --filter @kehto/shell-ipc type-check` | ❌ W0 | ⬜ pending |
-| 109-02-01 | 02 | 2 | SPEC-01 | T-109-09, T-109-10, T-109-12 | Public docs use real exports/commands and preserve experimental/no-auth/same-UID limits. | process regression + strict docs build | `pnpm vitest run packages/shell-ipc/src/ipc-projection-process.test.ts --reporter=dot && pnpm docs:check` | ✅ existing docs | ⬜ pending |
-| 109-02-02 | 02 | 2 | SPEC-02, SPEC-03 | T-109-08..13 | Discoverable matrix/drafting record pins exact authority, classifies every responsibility, and separates invariants from local choices. | VitePress/TypeDoc audit + static wording | `pnpm docs:check` plus the positive `rg -q` checks in Plan 109-02 | ❌ new page | ⬜ pending |
-| 109-03-01 | 03 | 3 | SPEC-04 | T-109-14 | Exactly one pending shell-ipc Changeset remains minor and describes complete shipped output. | release-metadata static guard | `test "$(rg -l '"@kehto/shell-ipc"' .changeset --glob '*.md')" = '.changeset/quiet-rice-queue.md' && rg -q '"@kehto/shell-ipc": minor' .changeset/quiet-rice-queue.md` | ✅ existing | ⬜ pending |
-| 109-03-02 | 03 | 3 | SPEC-04 | T-109-15..19 | Final source passes focused/package/full/relevant-E2E/docs/scanner/diff/no-touch gates without fabricated or stale evidence. | integrated release gate | Full one-shot command in Plan 109-03 Task 02 | N/A | ⬜ pending |
+| 109-01-01 | 01 | 1 | PROOF-02, PROOF-03, PROOF-05 | T-109-01..05, T-109-07 | Public-ESM host and raw built-in-only child prove exact ready/init, same-id real service result, eligible context push, redacted transcript, and graceful cleanup. | spawned-process integration + static fixture guard | `pnpm --filter @kehto/shell-ipc build && pnpm vitest run packages/shell-ipc/src/ipc-projection-process.test.ts --reporter=dot` | ✅ | ✅ green |
+| 109-01-02 | 01 | 1 | PROOF-02, PROOF-03, PROOF-05 | T-109-04, T-109-06 | A real SIGKILL after result/push converges with graceful termination on matching session/path/directory cleanup. | spawned-process lifecycle/race integration | `pnpm --filter @kehto/shell-ipc build && pnpm vitest run packages/shell-ipc/src/ipc-projection-process.test.ts packages/shell-ipc/src/runtime-shell.test.ts --reporter=dot && pnpm --filter @kehto/shell-ipc type-check` | ✅ | ✅ green |
+| 109-02-01 | 02 | 2 | SPEC-01 | T-109-09, T-109-10, T-109-12 | Public docs use real exports/commands and preserve experimental/no-auth/same-UID limits. | process regression + strict docs build | `pnpm vitest run packages/shell-ipc/src/ipc-projection-process.test.ts --reporter=dot && pnpm docs:check` | ✅ | ✅ green |
+| 109-02-02 | 02 | 2 | SPEC-02, SPEC-03 | T-109-08..13 | Discoverable matrix/drafting record pins exact authority, classifies every responsibility, and separates invariants from local choices. | VitePress/TypeDoc audit + static wording | `pnpm docs:check` plus the positive `rg -q` checks in Plan 109-02 | ✅ | ✅ green |
+| 109-03-01 | 03 | 3 | SPEC-04 | T-109-14 | Exactly one pending shell-ipc Changeset remains minor and describes complete shipped output. | release-metadata static guard | `test "$(rg -l '"@kehto/shell-ipc"' .changeset --glob '*.md')" = '.changeset/quiet-rice-queue.md' && rg -q '"@kehto/shell-ipc": minor' .changeset/quiet-rice-queue.md` | ✅ | ✅ green |
+| 109-03-02 | 03 | 3 | SPEC-04 | T-109-15..19 | Final source passes focused/package/full/relevant-E2E/docs/scanner/diff/no-touch gates without fabricated or stale evidence. | integrated release gate | Full one-shot command in Plan 109-03 Task 02 | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠ flaky*
 
 ## Wave 0 Requirements
 
-- [ ] `packages/shell-ipc/src/ipc-projection-process.test.ts` — create RED-first with graceful request/result/push/static/cleanup assertions.
-- [ ] `packages/shell-ipc/examples/ipc-projection-reference-host.mjs` — add only after the RED process assertion fails.
-- [ ] `packages/shell-ipc/tests/fixtures/raw-ipc-napplet.mjs` — add only after the RED process assertion fails; keep local codec and Node-only imports.
+- [x] `packages/shell-ipc/src/ipc-projection-process.test.ts` — RED-first process proof now exercises graceful, SIGKILL, CLI, forged, malformed, duplicate, unterminated, oversize, and timeout boundaries.
+- [x] `packages/shell-ipc/examples/ipc-projection-reference-host.mjs` — public-ESM host passes both direct and spawned proof.
+- [x] `packages/shell-ipc/tests/fixtures/raw-ipc-napplet.mjs` — local codec and exact `node:net` import are covered by static and behavioral checks.
 - [x] Existing Vitest, Node >=20, shell-ipc build, and Unix-socket infrastructure require no installation.
 
 ## Phase Gate
@@ -126,7 +126,25 @@ None. Protocol-authority/security wording is checked by exact source, docs audit
 - [x] No new external package or legitimacy checkpoint is needed.
 - [x] No same-wave file overlap exists; waves are strictly 01 → 02 → 03.
 - [x] No Playwright source is added because there is no UI/browser behavior.
-- [ ] Wave 0 files exist and pass.
-- [ ] `nyquist_compliant: true` and `status: validated` will be set by validate-phase after execution.
+- [x] Wave 0 files exist and pass.
+- [x] `nyquist_compliant: true` and `status: validated` set after Nyquist audit.
 
-**Approval:** Draft — executable coverage is complete; runtime evidence is pending Wave 0 execution.
+**Approval:** Validated — all Phase 109 requirements have automated green evidence.
+
+## Validation Audit 2026-08-20
+
+| Metric | Count |
+|--------|-------|
+| Requirements audited | 7 |
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+
+### Current Evidence
+
+- `pnpm --filter @kehto/shell-ipc build && pnpm vitest run packages/shell-ipc/src/ipc-projection-process.test.ts packages/shell-ipc/src/runtime-shell.test.ts --reporter=dot` — 2 files, 22 tests green. This includes real raw-process request/result and push, SIGKILL cleanup, CLI parsing, forged child transcript rejection, malformed/duplicate/unterminated/oversize transcript rejection, and normal-versus-test timeout behavior.
+- `node packages/shell-ipc/examples/ipc-projection-reference-host.mjs --mode graceful` — green, producing the ordered redacted raw-child/host transcript and all-true cleanup record.
+- `pnpm docs:check` plus exact pinned-authority, route, and sole-minor-Changeset static checks — green.
+- `node --check` passed for the reference host and both raw/adversarial child fixtures; `git diff --check` and the Phase 108 baseline no-touch scan for runtime/browser/E2E source were empty.
+
+No test gap was safe or necessary to add: the existing process suite directly covers every Phase 109 requirement, including the adversarial regressions identified during review. The NAP source remains `napplet/naps origin/master@c0f7dd14460622fc3a9870ea57a538474cf776fa`; it defines no IPC carrier, which is documented as an experimental specification gap rather than a conformance claim.
