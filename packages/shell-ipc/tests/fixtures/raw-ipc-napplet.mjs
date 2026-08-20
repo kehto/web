@@ -5,15 +5,14 @@ const LINE_FEED = 0x0a;
 const REQUEST_ID = 'ipc-proof-available';
 
 function readArguments(argv) {
-  let path;
   let mode;
   for (let index = 0; index < argv.length; index += 2) {
     const flag = argv[index];
     const value = argv[index + 1];
-    if (flag === '--path' && typeof value === 'string') path = value;
-    if (flag === '--mode' && (value === 'graceful' || value === 'forced')) mode = value;
+    if (flag === '--mode' && ['graceful', 'forced', 'disconnect', 'ignore-term', 'signal-hup', 'signal-int', 'signal-term', 'exit-23'].includes(value)) mode = value;
   }
-  if (!path || !mode || argv.length !== 4) throw new Error('Invalid raw napplet arguments.');
+  const path = process.env.KEHTO_IPC_SOCKET_PATH;
+  if (!path || !mode || argv.length !== 2) throw new Error('Invalid raw napplet arguments.');
   return { path, mode };
 }
 
@@ -99,7 +98,17 @@ try {
       receivedPush = true;
       emit('intent.changed');
       if (mode === 'graceful') socket.end();
-      else emit('hold');
+      else if (mode === 'disconnect') {
+        socket.end();
+        emit('hold');
+      } else if (mode === 'signal-hup') process.kill(process.pid, 'SIGHUP');
+      else if (mode === 'signal-int') process.kill(process.pid, 'SIGINT');
+      else if (mode === 'signal-term') process.kill(process.pid, 'SIGTERM');
+      else if (mode === 'exit-23') process.exit(23);
+      else {
+        if (mode === 'ignore-term') process.on('SIGTERM', () => emit('sigterm'));
+        emit('hold');
+      }
       return;
     }
     throw new Error('Unexpected host envelope.');

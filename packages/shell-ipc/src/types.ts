@@ -212,6 +212,11 @@ export interface IpcTransport {
 export interface IpcShellCompositionOptions extends IpcTransportOptions {
   /** The host's public runtime adapter, composed with projection-local egress and domain gates. */
   readonly runtimeAdapter: import('@kehto/runtime').RuntimeAdapter;
+  /**
+   * Observe loss of the current peer after its ready session has been removed.
+   * This is carrier observability only; it does not expose the peer or alter teardown.
+   */
+  readonly onPeerDisconnected?: (registration: IpcShellEndpointRegistration) => void;
 }
 
 /** Options for the backwards-compatible one-endpoint IPC NAP-SHELL convenience projection. */
@@ -287,4 +292,69 @@ export interface IpcShellProjection extends IpcShellEndpoint {
    * ```
    */
   close(): Promise<void>;
+}
+
+/** Direct executable and argv contract for one raw IPC napplet process. */
+export interface IpcShellHostCommand {
+  /** Executable filename; command strings are intentionally unsupported. */
+  readonly file: string;
+  /** Literal executable arguments passed without shell interpretation. */
+  readonly args?: readonly string[];
+  /** Optional child working directory. */
+  readonly cwd?: string;
+  /** Optional child environment baseline before the projection socket fact is injected. */
+  readonly env?: NodeJS.ProcessEnv;
+}
+
+/** Host-owned configuration shared by the public API and trusted CLI configuration module. */
+export interface IpcShellHostConfig extends IpcTransportOptions {
+  /** Immutable host-bound identity and NAP-SHELL environment. */
+  readonly registration: IpcShellEndpointRegistration;
+  /** Runtime services and policy; projection-local targeted egress is supplied internally. */
+  readonly runtimeAdapter: Omit<import('@kehto/runtime').RuntimeAdapter, 'sendToNapplet'>;
+  /** Bounded delay before a requested shutdown escalates to SIGKILL. */
+  readonly shutdownGraceMs?: number;
+}
+
+/** Full public launch configuration for one raw IPC napplet process. */
+export interface IpcShellHostOptions extends IpcShellHostConfig {
+  /** Executable and literal argv owned by this host lifecycle. */
+  readonly command: IpcShellHostCommand;
+}
+
+/** Why the owned raw child reached its terminal lifecycle result. */
+export type IpcShellHostExitReason =
+  | 'numeric-exit'
+  | 'independent-child-signal'
+  | 'explicit-close'
+  | 'forwarded-host-signal'
+  | 'peer-disconnected'
+  | 'shutdown-timeout';
+
+/** Stable terminal status of one owned raw child and IPC projection. */
+export interface IpcShellHostExit {
+  /** Process-compatible status: numeric child code or `128 + signal number`. */
+  readonly status: number;
+  /** Child numeric exit code when one was produced. */
+  readonly code: number | null;
+  /** Child termination signal when one was produced. */
+  readonly signal: NodeJS.Signals | null;
+  /** Lifecycle source that initiated or observed terminal shutdown. */
+  readonly reason: IpcShellHostExitReason;
+}
+
+/** Host-only handle for one launched raw IPC napplet process. */
+export interface IpcShellHost {
+  /** Frozen registration captured by the IPC projection before child spawn. */
+  readonly registration: IpcShellEndpointRegistration;
+  /** OS process identifier of the owned child. */
+  readonly childPid: number;
+  /** Runtime composed for this one host-bound child endpoint. */
+  readonly runtime: import('@kehto/runtime').Runtime;
+  /** Private endpoint pathname; never emitted by the packaged CLI. */
+  readonly endpointPath: string;
+  /** Join the one terminal cleanup result. */
+  waitForExit(): Promise<IpcShellHostExit>;
+  /** Request idempotent SIGTERM shutdown and join the one terminal cleanup result. */
+  close(): Promise<IpcShellHostExit>;
 }

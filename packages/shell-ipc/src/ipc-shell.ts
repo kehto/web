@@ -207,6 +207,7 @@ interface ShellEndpointRecord {
   nextPeerGeneration: number;
   activeConnection: ProjectionConnection | undefined;
   closePromise: Promise<void> | undefined;
+  hostClosing: boolean;
 }
 
 /**
@@ -272,12 +273,13 @@ export async function createIpcShellProjection(
    * The endpoint record and connection generation are private state; peer envelopes never select
    * the window or lifecycle generation allowed to tear down runtime state.
    */
-  const teardownConnection = (record: ShellEndpointRecord, connection: ProjectionConnection): boolean => {
+  const teardownConnection = (record: ShellEndpointRecord, connection: ProjectionConnection, observeDisconnect = false): boolean => {
     if (record.activeConnection !== connection || connection.generation <= 0) return false;
     record.activeConnection = undefined;
     if (!connection.ready) return true;
     runtime.destroyWindow(record.registration.windowId);
     runtime.sessionRegistry.unregister(record.registration.windowId);
+    if (observeDisconnect && !record.hostClosing) options.onPeerDisconnected?.(record.registration);
     return true;
   };
 
@@ -288,6 +290,7 @@ export async function createIpcShellProjection(
       // Retire the peer before runtime cleanup can egress, but keep the record reachable until
       // carrier cleanup settles so close(), unregisterEndpoint(), and composition.close() join
       // this exact promise. A same-window registration may begin only after removal below.
+      record.hostClosing = true;
       const connection = record.activeConnection;
       if (connection) teardownConnection(record, connection);
       await record.endpoint.close();
@@ -317,7 +320,7 @@ export async function createIpcShellProjection(
       onPeerClosed(peer) {
         const connection = record?.activeConnection;
         if (!record || !connection || connection.peer !== peer) return;
-        teardownConnection(record, connection);
+        teardownConnection(record, connection, true);
       },
       onEnvelope(envelope, frozenRegistration, peer) {
         const connection = record?.activeConnection;
@@ -343,6 +346,7 @@ export async function createIpcShellProjection(
       nextPeerGeneration: 0,
       activeConnection: undefined,
       closePromise: undefined,
+      hostClosing: false,
     };
     records.set(registration.windowId, record);
     return {
