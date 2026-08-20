@@ -34,6 +34,8 @@ There are two host-facing layers:
 - `createIpcShellProjection({ runtimeAdapter, ...transportOptions })` composes
   that carrier with one Runtime, its sessions, ACL, capability checks, and
   endpoint lifecycle. It can register several host-bound endpoints.
+- `launchIpcShellHost(options)` owns one projection and one raw child process;
+  `kehto-ipc-shell` is the installed executable for that API.
 
 Endpoint registration is validated, cloned, and frozen before listening. The
 host chooses `windowId`, `dTag`, aggregate hash, and environment; a peer cannot
@@ -73,24 +75,40 @@ mapping, environment-domain, and ACL/capability eligibility checks before they
 can be sent. Graceful close, abrupt peer loss, unregister, and shutdown use
 generation-matched cleanup so an old endpoint cannot tear down a replacement.
 
-## Run the reference proof
+## Run a raw IPC napplet
 
-The repository includes a [standalone reference host](./examples/ipc-projection-reference-host.mjs)
+The supported executable keeps deployment-specific registration, services,
+persistence, and policy in a trusted ESM configuration module. It accepts only
+an executable and literal argv after `--`; it never invokes a shell.
+
+```bash
+kehto-ipc-shell --host ./host-config.mjs -- node ./raw-napplet.mjs --mode graceful
+```
+
+The module must provide a named `createIpcShellHostConfig()` factory returning
+frozen host registration and a runtime adapter without `sendToNapplet`. The
+projection supplies targeted egress itself. A child receives only
+`KEHTO_IPC_SOCKET_PATH`; it receives no window ID, d-tag, aggregate hash, or
+registration environment. The host owns signals, a bounded SIGTERM-to-SIGKILL
+shutdown grace period, and endpoint/session cleanup. Numeric exits are
+preserved, while signal exits use `128 + signal number`. A current ready peer
+disconnect is terminal for the process host and is reported as
+`peer-disconnected` after session teardown.
+
+CLI success and failure output deliberately redact registration data and private
+endpoint paths. The endpoint pathname is available only to the direct host API.
+
+## Proof-only example configuration
+
+The repository includes a [proof-only host configuration](./examples/ipc-projection-reference-host.mjs)
 and a [raw Node `node:net` napplet](./tests/fixtures/raw-ipc-napplet.mjs).
-The host imports the public package build, launches that separate raw process,
-and proves one bare ready/init exchange, a correlated `intent.available`
-request/result, a policy-checked runtime push, and cleanup in graceful and
-forced-child modes.
+The configuration is consumed by the production executable; it does not spawn,
+signal, or clean up a child itself.
 
 ```bash
 pnpm --filter @kehto/shell-ipc build
-node packages/shell-ipc/examples/ipc-projection-reference-host.mjs --mode graceful
-node packages/shell-ipc/examples/ipc-projection-reference-host.mjs --mode forced
+node packages/shell-ipc/dist/cli.js --host packages/shell-ipc/examples/ipc-projection-reference-host.mjs -- node packages/shell-ipc/tests/fixtures/raw-ipc-napplet.mjs --mode graceful
 ```
-
-`--base-dir <path>` is optional and may appear before or after `--mode`. When
-supplied, that directory remains caller-owned: the host removes only its own
-endpoint resources, including when the proof fails.
 
 The raw child uses only Node built-ins and local RFC 7464 framing. It has no
 `@kehto/*` import, browser `postMessage`, injected `window.napplet.*` interface,
@@ -117,6 +135,12 @@ or reusable napplet helper. It is process evidence, not a shipped napplet SDK.
 - `createIpcShellProjection(options)` creates either a multi-endpoint
   `IpcShellComposition` or the one-registration `IpcShellProjection`
   convenience projection.
+- `launchIpcShellHost(options)` returns the host-only process lifecycle:
+  frozen registration, child PID, Runtime, private endpoint path,
+  `waitForExit()`, and idempotent `close()`.
+- `IpcShellHostCommand`, `IpcShellHostConfig`, `IpcShellHostOptions`,
+  `IpcShellHost`, `IpcShellHostExit`, and `IpcShellHostExitReason` describe the
+  public raw-process boundary and terminal status contract.
 - `IpcShellComposition` and `IpcShellCompositionOptions` describe the shared
   Runtime and its `registerEndpoint`, `unregisterEndpoint`, and `close` APIs.
 - `IpcShellEndpoint` exposes host-only `path`, frozen `registration`, and

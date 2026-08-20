@@ -29,6 +29,7 @@ pnpm add @kehto/shell-ipc @napplet/core
 | Version | `0.1.0` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
+| Executable | `kehto-ipc-shell` -> `./dist/cli.js` |
 | Peer dependency | `@napplet/core >=0.31.0 <0.32.0` |
 | First-party dependency | `@kehto/runtime workspace:^` |
 | Node engine | `>=20` |
@@ -41,6 +42,7 @@ pnpm add @kehto/shell-ipc @napplet/core
 |------|---------|
 | Transport factory | `createIpcTransport`, `DEFAULT_IPC_LIMITS`, `IpcTransport` |
 | Runtime composition | `createIpcShellProjection`, `IpcShellComposition`, `IpcShellCompositionOptions` |
+| Process host | `launchIpcShellHost`, `IpcShellHost`, `IpcShellHostCommand`, `IpcShellHostConfig`, `IpcShellHostOptions`, `IpcShellHostExit` |
 | Host endpoint lifecycle | `IpcShellEndpoint`, `IpcShellEndpointRegistration`, `IpcShellProjection`, `IpcShellProjectionOptions` |
 | Transport endpoint lifecycle | `IpcEndpoint`, `IpcEndpointRegistration`, `IpcEndpointHooks`, `IpcEnvironmentValue` |
 | Configuration | `IpcTransportOptions`, `IpcTransportLimits`, `IpcShellCapabilities`, `IpcShellEnvironment` |
@@ -53,19 +55,36 @@ exposes `runtime`, `registerEndpoint`, `unregisterEndpoint`, and `close`;
 `IpcShellEndpoint` is host-only and exposes `path`, frozen `registration`, and
 `close`.
 
+## Production runnable shell
+
+Run arbitrary raw-process argv through the installed executable:
+
+```bash
+kehto-ipc-shell --host ./host-config.mjs -- node ./raw-napplet.mjs --mode graceful
+```
+
+`host-config.mjs` exports `createIpcShellHostConfig()`, synchronously or
+asynchronously. It supplies frozen registration and the deployment-owned
+runtime adapter without `sendToNapplet`; the IPC projection supplies targeted
+egress. The child receives only `KEHTO_IPC_SOCKET_PATH` and no registration
+identity/environment. Spawning is direct (`shell:false`), stdin/stdout/stderr
+are inherited, numeric exits are preserved, and signal exits are conventional
+`128 + signal number` statuses. Explicit close, forwarded host signals, timeout
+escalation, and terminal current-ready-peer disconnect all converge on one
+cleanup result. CLI output redacts registration values and private endpoint
+paths.
+
 ## Runnable evidence
 
 Build and run the actual [reference host](https://github.com/kehto/web/blob/main/packages/shell-ipc/examples/ipc-projection-reference-host.mjs):
 
 ```bash
 pnpm --filter @kehto/shell-ipc build
-node packages/shell-ipc/examples/ipc-projection-reference-host.mjs --mode graceful
-node packages/shell-ipc/examples/ipc-projection-reference-host.mjs --mode forced
+node packages/shell-ipc/dist/cli.js --host packages/shell-ipc/examples/ipc-projection-reference-host.mjs -- node packages/shell-ipc/tests/fixtures/raw-ipc-napplet.mjs --mode graceful
 ```
 
-An optional `--base-dir <path>` may appear before or after `--mode`; it stays
-caller-owned, including if a proof run fails. The host cleans only the endpoint
-resources it created there.
+The reference host is a proof-only ESM configuration module consumed by the
+production executable; it has no duplicate child process lifecycle.
 
 The host launches a separate [raw `node:net` napplet](https://github.com/kehto/web/blob/main/packages/shell-ipc/tests/fixtures/raw-ipc-napplet.mjs)
 that has no Kehto import, helper SDK, interface injection, or browser path. The

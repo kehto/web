@@ -2,4 +2,4 @@
 "@kehto/shell-ipc": minor
 ---
 
-Ship the experimental POSIX IPC shell projection with bounded RFC 7464 transport, host-bound runtime-shell composition, exact readiness and targeted policy-checked delivery, runnable raw-process request/result and push proof, and explicit parity and upstream drafting evidence.
+Ship `launchIpcShellHost` and the `kehto-ipc-shell` executable for the experimental POSIX IPC projection. Trusted ESM host configuration now owns registration and runtime policy while raw children receive only the private socket path. The host exposes deterministic numeric/signal/timeout and current-ready-peer-disconnect lifecycle results, redacts CLI output, and retains the raw-process runtime proof.
