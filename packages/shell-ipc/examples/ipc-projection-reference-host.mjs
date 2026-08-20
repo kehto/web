@@ -100,6 +100,17 @@ function testChildPath() {
   return resolve(process.env.KEHTO_IPC_PROJECTION_TEST_CHILD);
 }
 
+function proofTimeout() {
+  if (process.env.NODE_ENV !== 'test') return 10_000;
+  const requestedTimeout = process.env.KEHTO_IPC_PROJECTION_TEST_PROOF_TIMEOUT_MS;
+  if (requestedTimeout === undefined) return 10_000;
+  const timeout = Number(requestedTimeout);
+  if (!Number.isSafeInteger(timeout) || timeout < 1 || timeout > 10_000) {
+    throw new Error('Invalid test proof timeout.');
+  }
+  return timeout;
+}
+
 async function main() {
   const { baseDirectory: suppliedDirectory, mode } = readArguments(process.argv.slice(2));
   const ownsBaseDirectory = !suppliedDirectory;
@@ -196,9 +207,8 @@ async function main() {
       && childMilestones.has('shell.init')
       && childMilestones.has('result')
       && childMilestones.has('intent.changed');
-    const proofTimeout = process.env.NODE_ENV === 'test' ? 1_000 : 10_000;
     await Promise.race([
-      waitFor(proofComplete, 'trusted host and raw child proof milestones', proofTimeout),
+      waitFor(proofComplete, 'trusted host and raw child proof milestones', proofTimeout()),
       transcriptFailure,
     ]);
     if (serviceFailure) throw serviceFailure;
@@ -228,9 +238,8 @@ async function main() {
     emit('cleanup', cleanup);
     cleanupEmitted = true;
   } finally {
-    if (child && !childExited) {
-      child.kill('SIGKILL');
-      await Promise.race([childExit.catch(() => undefined), delay(2_000)]);
+    if (child && !childExited && child.kill('SIGKILL')) {
+      await Promise.race([childExit.catch(() => undefined), delay(500)]);
     }
     await composition.close();
     if (ownsBaseDirectory) await rm(baseDirectory, { recursive: true, force: true });

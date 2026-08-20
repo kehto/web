@@ -48,6 +48,15 @@ function fail() {
   process.stderr.write('Raw IPC napplet failed.\n');
 }
 
+function testReadyDelay() {
+  if (process.env.NODE_ENV !== 'test') return 0;
+  const requestedDelay = process.env.KEHTO_IPC_PROJECTION_TEST_CHILD_READY_DELAY_MS;
+  if (requestedDelay === undefined) return 0;
+  const delay = Number(requestedDelay);
+  if (!Number.isSafeInteger(delay) || delay < 0 || delay > 9_000) throw new Error('Invalid test ready delay.');
+  return delay;
+}
+
 try {
   const { path, mode } = readArguments(process.argv.slice(2));
   let initCount = 0;
@@ -62,8 +71,13 @@ try {
 
   socket = connect(path);
   socket.once('connect', () => {
-    emit('shell.ready');
-    socket.write(encode({ type: 'shell.ready' }));
+    const sendReady = () => {
+      emit('shell.ready');
+      socket.write(encode({ type: 'shell.ready' }));
+    };
+    const readyDelay = testReadyDelay();
+    if (readyDelay === 0) sendReady();
+    else setTimeout(sendReady, readyDelay);
   });
   socket.on('data', createDecoder((message) => {
     if (message.type === 'shell.init') {

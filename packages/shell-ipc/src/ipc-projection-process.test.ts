@@ -32,6 +32,8 @@ interface HostOptions {
   readonly arguments?: readonly string[];
   readonly childPath?: string;
   readonly testCase?: 'forged' | 'malformed' | 'duplicate' | 'unterminated' | 'oversize';
+  readonly proofTimeoutMilliseconds?: number;
+  readonly childReadyDelayMilliseconds?: number;
   readonly flagOrder?: 'mode-first' | 'base-first';
 }
 
@@ -53,6 +55,12 @@ function spawnHost(options: HostOptions): HostRun {
       NODE_ENV: 'test',
       ...(options.childPath ? { KEHTO_IPC_PROJECTION_TEST_CHILD: options.childPath } : {}),
       ...(options.testCase ? { KEHTO_IPC_PROJECTION_TEST_CASE: options.testCase } : {}),
+      ...(options.proofTimeoutMilliseconds !== undefined
+        ? { KEHTO_IPC_PROJECTION_TEST_PROOF_TIMEOUT_MS: String(options.proofTimeoutMilliseconds) }
+        : {}),
+      ...(options.childReadyDelayMilliseconds !== undefined
+        ? { KEHTO_IPC_PROJECTION_TEST_CHILD_READY_DELAY_MS: String(options.childReadyDelayMilliseconds) }
+        : {}),
     },
   });
   const records: TranscriptRecord[] = [];
@@ -117,9 +125,17 @@ function expectProof(records: readonly TranscriptRecord[], mode: 'graceful' | 'f
 
 async function expectFailedProof(baseDirectory: string, testCase: NonNullable<HostOptions['testCase']>): Promise<void> {
   await writeFile(resolve(baseDirectory, 'caller-sentinel.txt'), testCase, 'utf8');
-  const run = spawnHost({ baseDirectory, mode: 'graceful', childPath: adversarialChildPath, testCase });
+  const startedAt = Date.now();
+  const run = spawnHost({
+    baseDirectory,
+    mode: 'graceful',
+    childPath: adversarialChildPath,
+    testCase,
+    proofTimeoutMilliseconds: 250,
+  });
   try {
     await expect(awaitExit(run)).resolves.toMatchObject({ code: 1, signal: null });
+    expect(Date.now() - startedAt).toBeLessThan(1_000);
     await expect(readFile(resolve(baseDirectory, 'caller-sentinel.txt'), 'utf8')).resolves.toBe(testCase);
     await expect(readdir(baseDirectory)).resolves.toEqual(['caller-sentinel.txt']);
   } finally {
@@ -135,6 +151,21 @@ describe('IPC projection raw-process proof', () => {
       expectProof(run.records, 'graceful');
     } finally {
       if (!run.child.killed && run.child.exitCode === null) run.child.kill('SIGKILL');
+    }
+  });
+
+  it('keeps the ten-second proof deadline for a delayed normal child under NODE_ENV=test', async () => {
+    const baseDirectory = await mkdtemp('/tmp/k-ipc-process-normal-deadline-');
+    const startedAt = Date.now();
+    const run = spawnHost({ baseDirectory, mode: 'graceful', childReadyDelayMilliseconds: 1_200 });
+    try {
+      await expect(awaitExit(run)).resolves.toMatchObject({ code: 0, signal: null });
+      expect(Date.now() - startedAt).toBeGreaterThanOrEqual(1_000);
+      expectProof(run.records, 'graceful');
+      await expect(readdir(baseDirectory)).resolves.toEqual([]);
+    } finally {
+      if (!run.child.killed && run.child.exitCode === null) run.child.kill('SIGKILL');
+      await rm(baseDirectory, { recursive: true, force: true });
     }
   });
 
