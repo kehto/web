@@ -100,7 +100,10 @@ findings rather than normative protocol behavior.
 4. Capability traffic before readiness is rejected or ignored consistently, while post-ready traffic remains subject to existing ACL and capability eligibility.
 5. Graceful close, abrupt disconnect, unregister, and host shutdown clean up only the matching session, connection, listener, path, and owned directory.
 
-**Plans:** TBD
+**Plans:** 1/2 plans executed
+
+- [x] 108-01-PLAN.md
+- [ ] 108-02-PLAN.md
 
 ### Phase 109: Runnable Proof and Drafting Evidence
 
@@ -124,7 +127,7 @@ findings rather than normative protocol behavior.
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 107. IPC Transport Foundation | 6/6 | Complete    | 2026-08-18 |
-| 108. Runtime Shell Composition | 0/TBD | Not started | — |
+| 108. Runtime Shell Composition | 1/2 | In Progress|  |
 | 109. Runnable Proof and Drafting Evidence | 0/TBD | Not started | — |
 
 ---

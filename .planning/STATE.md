@@ -5,15 +5,15 @@ milestone_name: Experimental IPC Shell Projection
 current_phase: 108
 current_phase_name: Runtime Shell Composition
 status: executing
-stopped_at: Phase 107 complete, ready to plan Phase 108
-last_updated: "2026-08-20T12:51:12.621Z"
-last_activity: 2026-08-18
-last_activity_desc: Phase 107 complete, transitioned to Phase 108
+stopped_at: Completed 108-01-PLAN.md
+last_updated: "2026-08-20T12:57:49.370Z"
+last_activity: 2026-08-20
+last_activity_desc: Completed Phase 108 Plan 01 runtime shell tracer
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 8
-  completed_plans: 6
+  completed_plans: 7
   percent: 33
 ---
 
@@ -29,9 +29,9 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 ## Current Position
 
 Phase: 108 — Runtime Shell Composition
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-08-18 — Phase 107 complete, transitioned to Phase 108
+Plan: 2 of 2
+Status: Executing
+Last activity: 2026-08-20 — Completed Phase 108 Plan 01 runtime shell tracer
 
 ## Performance Metrics
 
@@ -110,6 +110,7 @@ Last activity: 2026-08-18 — Phase 107 complete, transitioned to Phase 108
 | Phase 107 P05 | 5min | 2 tasks | 8 files |
 | Phase 107 P03 | 5min | 2 tasks | 6 files |
 | Phase 107 P06 | 6min | 1 tasks | 2 files |
+| Phase 108 P01 | 7min | 1 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -239,8 +240,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-08-18
-Stopped at: Phase 107 complete, ready to plan Phase 108
+Last session: 2026-08-20T12:57:49.348Z
+Stopped at: Completed 108-01-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -361,3 +362,5 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: IPC socket cleanup requires unchanged device/inode/mode fingerprints and never treats a substituted entry as owned.
 - [Phase ?]: Endpoint reservations are inserted synchronously and lifecycle callbacks act only on their current safe-integer generation.
 - [Phase ?]: The pinned napplet/naps object defines no IPC carrier; NAP-INC endpoint binding remains carrier-neutral rather than an IPC projection.
+- [Phase ?]: IPC projection binds host registration and opaque peer state outside canonical envelopes.
+- [Phase ?]: Only exact bare shell.ready creates the IPC session and emits shell.init.
