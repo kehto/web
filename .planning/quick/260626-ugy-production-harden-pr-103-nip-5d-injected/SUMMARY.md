@@ -1,3 +1,7 @@
+---
+status: complete
+---
+
 # Quick Task 260626-ugy Summary
 
 Status: complete
