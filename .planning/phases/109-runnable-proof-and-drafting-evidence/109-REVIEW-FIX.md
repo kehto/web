@@ -1,24 +1,24 @@
 ---
 phase: 109-runnable-proof-and-drafting-evidence
-fixed_at: 2026-08-20T15:35:00Z
+fixed_at: 2026-08-20T16:00:00Z
 review_path: .planning/phases/109-runnable-proof-and-drafting-evidence/109-REVIEW.md
 iteration: 1
-findings_in_scope: 6
-fixed: 6
+findings_in_scope: 7
+fixed: 7
 skipped: 0
 status: all_fixed
 ---
 
 # Phase 109: Code Review Fix Report
 
-**Fixed at:** 2026-08-20T15:35:00Z
+**Fixed at:** 2026-08-20T16:00:00Z
 **Source review:** `.planning/phases/109-runnable-proof-and-drafting-evidence/109-REVIEW.md`
 **Iteration:** 1
 
 **Summary:**
 
-- Findings in scope: 6
-- Fixed: 6
+- Findings in scope: 7
+- Fixed: 7
 - Skipped: 0
 
 ## Fixed Issues
@@ -59,16 +59,22 @@ status: all_fixed
 **Commit:** bf53b84
 **Applied fix:** The guard requires the complete import list to equal `node:net` and rejects CommonJS, helper, package, and browser tokens.
 
+### WR-02: Normal proof deadline under test execution
+
+**Files modified:** `packages/shell-ipc/examples/ipc-projection-reference-host.mjs`, `packages/shell-ipc/src/ipc-projection-process.test.ts`, `packages/shell-ipc/tests/fixtures/raw-ipc-napplet.mjs`
+**Commit:** de62115
+**Applied fix:** Normal runs keep their ten-second deadline under `NODE_ENV=test`; only adversarial fixtures pass an explicit short test timeout. A delayed normal child proves the full deadline remains available, while malformed/unterminated output remains prompt.
+
 ## Verification
 
 - `pnpm --filter @kehto/shell-ipc build` — passed.
-- `pnpm vitest run packages/shell-ipc/src/ipc-projection-process.test.ts packages/shell-ipc/src/runtime-shell.test.ts --reporter=dot` — passed (21 tests).
+- `pnpm vitest run packages/shell-ipc/src/ipc-projection-process.test.ts packages/shell-ipc/src/runtime-shell.test.ts --reporter=dot` — passed (22 tests).
 - `pnpm --filter @kehto/shell-ipc type-check` — passed.
 - `node --check` for both changed `.mjs` fixtures — passed.
 - `pnpm docs:check` could not run in the isolated fixer worktree because its deliberately minimal dependency links omit unrelated workspace packages; the failure was missing-module/TypeDoc errors outside this change, not a documentation error.
 
 ---
 
-_Fixed: 2026-08-20T15:35:00Z_
+_Fixed: 2026-08-20T16:00:00Z_
 _Fixer: the agent (gsd-code-fixer)_
 _Iteration: 1_
