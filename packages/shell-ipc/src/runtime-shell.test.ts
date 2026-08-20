@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { RuntimeAdapter } from '@kehto/runtime';
 import { createIpcShellProjection } from './index.js';
 import { encodeJsonSequence } from './json-sequence.js';
-import type { IpcDiagnostic, IpcShellEndpointRegistration } from './types.js';
+import type { IpcDiagnostic, IpcShellEndpointRegistration, IpcShellProjection } from './types.js';
 
 function connectPeer(path: string): Promise<Socket> {
   return new Promise((resolve, reject) => {
@@ -433,6 +433,137 @@ describe('createIpcShellProjection', () => {
         await new Promise((resolve) => setTimeout(resolve, 15));
         expect(destroyWindow).toHaveBeenCalledTimes(1);
         expect(unregister).toHaveBeenCalledTimes(1);
+        expect(projection.runtime.sessionRegistry.getEntryByWindowId(registration.windowId)).toBe(replacementSession);
+      } finally {
+        replacement.destroy();
+      }
+    } finally {
+      first.destroy();
+      await projection.close();
+      await rm(baseDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it('observes exactly one current ready-peer disconnect after runtime session teardown', async () => {
+    const baseDirectory = await mkdtemp('/tmp/k-ipc-runtime-shell-disconnect-');
+    const observations: Array<{ readonly sessionWasRemoved: boolean }> = [];
+    let projection: IpcShellProjection | undefined;
+    projection = await createIpcShellProjection({
+      baseDirectory,
+      registration,
+      runtimeAdapter: createAdapter([], []),
+      onPeerDisconnected(disconnectedRegistration) {
+        observations.push({
+          sessionWasRemoved: projection?.runtime.sessionRegistry.getEntryByWindowId(disconnectedRegistration.windowId) === undefined,
+        });
+      },
+    });
+    const peer = await connectPeer(projection.path);
+    const frames = collectFrames(peer);
+
+    try {
+      peer.write(encodeJsonSequence({ type: 'shell.ready' }));
+      await waitFor(() => frames.length === 1);
+      expect(projection.runtime.sessionRegistry.getEntryByWindowId(registration.windowId)).toBeDefined();
+
+      const closed = waitForClose(peer);
+      peer.end();
+      await closed;
+      await waitFor(() => observations.length === 1);
+      expect(observations).toEqual([{ sessionWasRemoved: true }]);
+      expect(projection.runtime.sessionRegistry.getEntryByWindowId(registration.windowId)).toBeUndefined();
+
+      peer.destroy();
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      expect(observations).toHaveLength(1);
+    } finally {
+      peer.destroy();
+      await projection.close();
+      await rm(baseDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it('does not observe pre-ready or host-owned peer closes as disconnects', async () => {
+    const preReadyBase = await mkdtemp('/tmp/k-ipc-runtime-shell-pre-ready-');
+    const preReadyObservations: IpcShellEndpointRegistration[] = [];
+    const preReadyProjection = await createIpcShellProjection({
+      baseDirectory: preReadyBase,
+      registration,
+      runtimeAdapter: createAdapter([], []),
+      onPeerDisconnected(disconnectedRegistration) { preReadyObservations.push(disconnectedRegistration); },
+    });
+    const preReadyPeer = await connectPeer(preReadyProjection.path);
+
+    try {
+      const closed = waitForClose(preReadyPeer);
+      preReadyPeer.end();
+      await closed;
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      expect(preReadyObservations).toEqual([]);
+      expect(preReadyProjection.runtime.sessionRegistry.getEntryByWindowId(registration.windowId)).toBeUndefined();
+    } finally {
+      preReadyPeer.destroy();
+      await preReadyProjection.close();
+      await rm(preReadyBase, { recursive: true, force: true });
+    }
+
+    const hostCloseBase = await mkdtemp('/tmp/k-ipc-runtime-shell-host-close-');
+    const hostCloseObservations: IpcShellEndpointRegistration[] = [];
+    const hostCloseProjection = await createIpcShellProjection({
+      baseDirectory: hostCloseBase,
+      registration,
+      runtimeAdapter: createAdapter([], []),
+      onPeerDisconnected(disconnectedRegistration) { hostCloseObservations.push(disconnectedRegistration); },
+    });
+    const hostClosePeer = await connectPeer(hostCloseProjection.path);
+    const hostCloseFrames = collectFrames(hostClosePeer);
+
+    try {
+      hostClosePeer.write(encodeJsonSequence({ type: 'shell.ready' }));
+      await waitFor(() => hostCloseFrames.length === 1);
+      const hostCloseClosed = waitForClose(hostClosePeer);
+      await hostCloseProjection.close();
+      await hostCloseClosed;
+      expect(hostCloseObservations).toEqual([]);
+      expect(hostCloseProjection.runtime.sessionRegistry.getEntryByWindowId(registration.windowId)).toBeUndefined();
+    } finally {
+      hostClosePeer.destroy();
+      await hostCloseProjection.close();
+      await rm(hostCloseBase, { recursive: true, force: true });
+    }
+  });
+
+  it('ignores a delayed old-peer close after a replacement becomes current', async () => {
+    const baseDirectory = await mkdtemp('/tmp/k-ipc-runtime-shell-stale-disconnect-');
+    const observations: IpcShellEndpointRegistration[] = [];
+    const projection = await createIpcShellProjection({
+      baseDirectory,
+      registration,
+      runtimeAdapter: createAdapter([], []),
+      onPeerDisconnected(disconnectedRegistration) { observations.push(disconnectedRegistration); },
+    });
+    const first = await connectPeer(projection.path);
+    const firstFrames = collectFrames(first);
+
+    try {
+      first.write(encodeJsonSequence({ type: 'shell.ready' }));
+      await waitFor(() => firstFrames.length === 1);
+      const firstClosed = waitForClose(first);
+      first.end();
+      await firstClosed;
+      await waitFor(() => observations.length === 1);
+
+      const replacement = await connectPeer(projection.path);
+      const replacementFrames = collectFrames(replacement);
+      try {
+        replacement.write(encodeJsonSequence({ type: 'shell.ready' }));
+        await waitFor(() => replacementFrames.length === 1);
+        const replacementSession = projection.runtime.sessionRegistry.getEntryByWindowId(registration.windowId);
+        expect(replacementSession).toBeDefined();
+
+        first.destroy();
+        await new Promise((resolve) => setTimeout(resolve, 15));
+        expect(observations).toHaveLength(1);
         expect(projection.runtime.sessionRegistry.getEntryByWindowId(registration.windowId)).toBe(replacementSession);
       } finally {
         replacement.destroy();
