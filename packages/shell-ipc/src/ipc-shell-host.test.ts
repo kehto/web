@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises';
+import { access, mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { RuntimeAdapter } from '@kehto/runtime';
 import { describe, expect, it } from 'vitest';
@@ -32,6 +32,18 @@ async function temporaryBase(): Promise<string> {
   return mkdtemp('/tmp/kehto-ipc-host-');
 }
 
+async function waitForFile(path: string): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    try {
+      await access(path);
+      return;
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+  }
+  throw new Error(`Timed out waiting for child milestone ${path}.`);
+}
+
 describe('launchIpcShellHost', () => {
   it('is exported as the production process-host entry point', () => {
     expect(launchIpcShellHost).toBeTypeOf('function');
@@ -53,6 +65,8 @@ describe('launchIpcShellHost', () => {
   });
 
   it('returns one deferred terminal promise for concurrent close and wait calls', async () => {
+    const base = await temporaryBase();
+    const ready = join(base, 'child-ready');
     const host = await launchIpcShellHost({
       shutdownGraceMs: 100,
       registration: {
@@ -60,21 +74,25 @@ describe('launchIpcShellHost', () => {
         environment: { capabilities: { domains: [] }, services: [] },
       },
       runtimeAdapter: createAdapter(),
-      command: { file: process.execPath, args: ['-e', "process.on('SIGTERM',()=>{});setInterval(()=>{},1000)"] },
+      command: { file: process.execPath, args: ['-e', "process.on('SIGTERM',()=>{});require('node:fs').writeFileSync(process.argv[1],'ready');setInterval(()=>{},1000)", ready] },
     });
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    const close1 = host.close();
-    const close2 = host.close();
-    const wait1 = host.waitForExit();
-    const wait2 = host.waitForExit();
-    expect(close1).toBe(close2);
-    expect(close1).toBe(wait1);
-    expect(wait1).toBe(wait2);
-    let settled = false;
-    void close1.then(() => { settled = true; });
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(settled).toBe(false);
-    await expect(close1).resolves.toMatchObject({ status: 137, signal: 'SIGKILL', reason: 'shutdown-timeout' });
+    try {
+      await waitForFile(ready);
+      const close1 = host.close();
+      const close2 = host.close();
+      const wait1 = host.waitForExit();
+      const wait2 = host.waitForExit();
+      expect(close1).toBe(close2);
+      expect(close1).toBe(wait1);
+      expect(wait1).toBe(wait2);
+      let settled = false;
+      void close1.then(() => { settled = true; });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(settled).toBe(false);
+      await expect(close1).resolves.toMatchObject({ status: 137, signal: 'SIGKILL', reason: 'shutdown-timeout' });
+    } finally {
+      await rm(base, { recursive: true, force: true });
+    }
   });
 
   it.each([

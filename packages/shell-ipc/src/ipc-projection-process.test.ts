@@ -77,7 +77,7 @@ describe('kehto-ipc-shell built binary', () => {
       stdout: 'Usage: kehto-ipc-shell --host ./host-config.mjs -- <executable> [...argv]\n',
       stderr: '',
     });
-  });
+  }, 20_000);
 
   it.each([
     ['missing host value', ['--host']],
