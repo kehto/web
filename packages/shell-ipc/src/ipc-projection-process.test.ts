@@ -35,4 +35,28 @@ describe('kehto-ipc-shell built binary', () => {
     await expect(run(['--host', hostPath, '--', './definitely-not-an-executable']))
       .resolves.toMatchObject({ code: 1, stderr: 'kehto-ipc-shell: launch failed\n' });
   });
+
+  it.each([
+    ['--host', hostPath], ['--', process.execPath, '-e', '0'],
+    ['--host', hostPath, '--host', hostPath, '--', process.execPath, '-e', '0'],
+    ['--host', hostPath, '--unexpected', '--', process.execPath, '-e', '0'],
+  ])('rejects malformed CLI grammar with exact usage: %j', async (arguments_) => {
+    await expect(run(arguments_)).resolves.toEqual({
+      code: 1,
+      stdout: '',
+      stderr: 'Usage: kehto-ipc-shell --host ./host-config.mjs -- <executable> [...argv]\n',
+    });
+  });
+
+  it.each(['./missing-host-config.mjs', './package.json'])('safely rejects invalid host modules: %s', async (host) => {
+    await expect(run(['--host', host, '--', process.execPath, '-e', '0']))
+      .resolves.toMatchObject({ code: 1, stderr: 'kehto-ipc-shell: host configuration failed\n' });
+  });
+
+  it('passes shell metacharacters literally rather than interpreting them', async () => {
+    const sentinel = resolve(packageRoot, 'shell-was-used');
+    const result = await run(['--host', hostPath, '--', process.execPath, '-e', 'process.exit(0)', `;touch ${sentinel}`]);
+    expect(result.code).toBe(0);
+    expect(() => execFileSync('test', ['-e', sentinel])).toThrow();
+  });
 });
