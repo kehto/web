@@ -11,7 +11,7 @@ function readArguments(argv) {
     const flag = argv[index];
     const value = argv[index + 1];
     if (flag === '--path' && typeof value === 'string') path = value;
-    if (flag === '--mode' && value === 'graceful') mode = value;
+    if (flag === '--mode' && (value === 'graceful' || value === 'forced')) mode = value;
   }
   if (!path || !mode || argv.length !== 4) throw new Error('Invalid raw napplet arguments.');
   return { path, mode };
@@ -84,7 +84,8 @@ try {
       if (!receivedResult || receivedPush) throw new Error('Unexpected intent push.');
       receivedPush = true;
       emit('intent.changed');
-      socket.end();
+      if (mode === 'graceful') socket.end();
+      else emit('hold');
       return;
     }
     throw new Error('Unexpected host envelope.');

@@ -15,7 +15,7 @@ function readArguments(argv) {
     const flag = argv[index];
     const value = argv[index + 1];
     if (flag === '--base-dir' && typeof value === 'string') baseDirectory = value;
-    if (flag === '--mode' && value === 'graceful') mode = value;
+    if (flag === '--mode' && (value === 'graceful' || value === 'forced')) mode = value;
   }
   if (!mode || argv.length !== 4) throw new Error('Invalid reference host arguments.');
   return { baseDirectory, mode };
@@ -153,8 +153,16 @@ async function main() {
     });
 
     await waitFor(() => milestones.has('shell.init') && milestones.has('result') && milestones.has('intent.changed'), 'raw proof milestones');
-    const exited = await childExit;
-    if (exited.code !== 0 || exited.signal !== null) throw new Error(`Raw child exited unexpectedly: ${stderr ? 'diagnostic available' : 'no diagnostic'}`);
+    if (mode === 'forced') {
+      await waitFor(() => milestones.has('hold'), 'raw child hold');
+      child.kill('SIGKILL');
+      const terminated = await childExit;
+      if (terminated.signal !== 'SIGKILL') throw new Error('Forced proof did not observe SIGKILL.');
+      emit('child-exit', { signal: 'SIGKILL' });
+    } else {
+      const exited = await childExit;
+      if (exited.code !== 0 || exited.signal !== null) throw new Error(`Raw child exited unexpectedly: ${stderr ? 'diagnostic available' : 'no diagnostic'}`);
+    }
     await waitFor(() => composition.runtime.sessionRegistry.getEntryByWindowId(WINDOW_ID) === undefined, 'runtime session cleanup');
     await endpoint.close();
     await composition.close();
