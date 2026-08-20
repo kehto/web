@@ -84,6 +84,79 @@ const registration: IpcShellEndpointRegistration = {
 };
 
 describe('createIpcShellProjection', () => {
+  it('composes dedicated endpoints through one runtime and retires only the closed endpoint', async () => {
+    const baseDirectory = await mkdtemp('/tmp/k-ipc-runtime-shell-composition-');
+    const composition = await createIpcShellProjection({
+      baseDirectory,
+      runtimeAdapter: createAdapter([], []),
+    });
+    const endpointA = await composition.registerEndpoint({
+      windowId: 'ipc-composition-a',
+      dTag: 'ipc-composition-a',
+      aggregateHash: 'composition-a',
+      environment: { capabilities: { domains: ['inc'] }, services: [] },
+    });
+    const endpointB = await composition.registerEndpoint({
+      windowId: 'ipc-composition-b',
+      dTag: 'ipc-composition-b',
+      aggregateHash: 'composition-b',
+      environment: { capabilities: { domains: ['inc'] }, services: [] },
+    });
+    const peerA = await connectPeer(endpointA.path);
+    const peerB = await connectPeer(endpointB.path);
+    const framesA = collectFrames(peerA);
+    const framesB = collectFrames(peerB);
+    const destroyWindow = vi.spyOn(composition.runtime, 'destroyWindow');
+    const unregister = vi.spyOn(composition.runtime.sessionRegistry, 'unregister');
+    const destroy = vi.spyOn(composition.runtime, 'destroy');
+
+    try {
+      peerA.write(encodeJsonSequence({ type: 'shell.ready' }));
+      peerB.write(encodeJsonSequence({ type: 'shell.ready' }));
+      await waitFor(() => framesA.length === 1 && framesB.length === 1);
+      expect(composition.runtime.sessionRegistry.getEntryByWindowId('ipc-composition-a')).toBeDefined();
+      const sessionB = composition.runtime.sessionRegistry.getEntryByWindowId('ipc-composition-b');
+      expect(sessionB).toBeDefined();
+
+      peerA.write(encodeJsonSequence({ type: 'inc.channel.open', id: 'open-a-b', target: 'ipc-composition-b' }));
+      await waitFor(() => framesA.some((frame) => (frame as { type?: string }).type === 'inc.channel.open.result')
+        && framesB.some((frame) => (frame as { type?: string }).type === 'inc.channel.opened'));
+      const opened = framesB.find((frame) => (frame as { type?: string }).type === 'inc.channel.opened') as { channelId: string; peer: string };
+      expect(opened).toMatchObject({ peer: 'ipc-composition-a' });
+      const result = framesA.find((frame) => (frame as { type?: string }).type === 'inc.channel.open.result') as { channelId: string; peer: string };
+      expect(result).toMatchObject({ channelId: opened.channelId, peer: 'ipc-composition-b' });
+
+      await endpointA.close();
+      await waitFor(() => framesB.some((frame) => (frame as { type?: string }).type === 'inc.channel.closed'));
+      expect(framesB.filter((frame) => (frame as { type?: string }).type === 'inc.channel.closed')).toEqual([
+        { type: 'inc.channel.closed', channelId: opened.channelId, reason: 'peer destroyed' },
+      ]);
+      expect(destroyWindow).toHaveBeenCalledWith('ipc-composition-a');
+      expect(unregister).toHaveBeenCalledWith('ipc-composition-a');
+      expect(destroyWindow.mock.invocationCallOrder[0]).toBeLessThan(unregister.mock.invocationCallOrder[0]);
+      expect(composition.runtime.sessionRegistry.getEntryByWindowId('ipc-composition-b')).toBe(sessionB);
+      await expect(access(endpointA.path)).rejects.toThrow();
+      await expect(access(endpointB.path)).resolves.toBeUndefined();
+
+      peerB.write(encodeJsonSequence({ type: 'inc.channel.list', id: 'list-after-a-close' }));
+      await waitFor(() => framesB.some((frame) => (frame as { type?: string; id?: string }).type === 'inc.channel.list.result'
+        && (frame as { id?: string }).id === 'list-after-a-close'));
+      expect(framesB.at(-1)).toEqual({ type: 'inc.channel.list.result', id: 'list-after-a-close', channels: [] });
+
+      await composition.unregisterEndpoint('ipc-composition-b');
+      await composition.unregisterEndpoint('ipc-composition-b');
+      expect(unregister).toHaveBeenCalledTimes(2);
+      await composition.close();
+      await composition.close();
+      expect(destroy).toHaveBeenCalledTimes(1);
+    } finally {
+      peerA.destroy();
+      peerB.destroy();
+      await composition.close();
+      await rm(baseDirectory, { recursive: true, force: true });
+    }
+  });
+
   it('binds one raw peer through exact readiness and public runtime dispatch', async () => {
     const baseDirectory = await mkdtemp('/tmp/k-ipc-runtime-shell-');
     const diagnostics: IpcDiagnostic[] = [];
