@@ -120,10 +120,10 @@ findings rather than normative protocol behavior.
 4. A web/IPC parity matrix and drafting findings document record the checked upstream ref, shared and carrier-specific responsibilities, security assumptions, bounded choices, and unresolved questions.
 5. Focused transport and process tests plus the Changeset, build, type-check, unit, relevant end-to-end, docs, and AI-slop gates all pass.
 
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 - [x] 109-01-PLAN.md
-- [ ] 109-02-PLAN.md
+- [x] 109-02-PLAN.md
 - [ ] 109-03-PLAN.md
 
 ## Progress
@@ -134,7 +134,7 @@ findings rather than normative protocol behavior.
 |-------|----------------|--------|-----------|
 | 107. IPC Transport Foundation | 6/6 | Complete    | 2026-08-18 |
 | 108. Runtime Shell Composition | 3/3 | Complete    | 2026-08-20 |
-| 109. Runnable Proof and Drafting Evidence | 1/3 | In Progress|  |
+| 109. Runnable Proof and Drafting Evidence | 2/3 | In Progress|  |
 
 ---
 *ROADMAP.md last updated: 2026-08-18 after v1.30 roadmap creation.*
