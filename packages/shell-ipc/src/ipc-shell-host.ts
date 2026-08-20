@@ -28,7 +28,10 @@ export async function launchIpcShellHost(options: IpcShellHostOptions): Promise<
   const graceMs = options.shutdownGraceMs ?? DEFAULT_SHUTDOWN_GRACE_MS;
   let requestedReason: IpcShellHostExitReason | undefined;
   let terminationTimer: NodeJS.Timeout | undefined;
-  let terminalPromise: Promise<IpcShellHostExit> | undefined;
+  let peerDisconnectTimer: NodeJS.Timeout | undefined;
+  let resolveTerminal!: (result: IpcShellHostExit) => void;
+  const terminalPromise = new Promise<IpcShellHostExit>((resolve) => { resolveTerminal = resolve; });
+  let completed = false;
   let childExited = false;
   let child: ChildProcess | undefined;
   let projection: IpcShellProjection | undefined;
@@ -42,24 +45,28 @@ export async function launchIpcShellHost(options: IpcShellHostOptions): Promise<
     if (terminationTimer) clearTimeout(terminationTimer);
     terminationTimer = undefined;
   };
+  const clearPeerDisconnectTimer = (): void => {
+    if (peerDisconnectTimer) clearTimeout(peerDisconnectTimer);
+    peerDisconnectTimer = undefined;
+  };
   const cleanup = async (): Promise<void> => {
     clearTerminationTimer();
+    clearPeerDisconnectTimer();
     removeSignalHandlers();
     await projection?.close();
   };
   const complete = (code: number | null, signal: NodeJS.Signals | null): Promise<IpcShellHostExit> => {
-    terminalPromise ??= (async () => {
-      childExited = true;
-      clearTerminationTimer();
-      const reason = requestedReason ?? (signal ? 'independent-child-signal' : 'numeric-exit');
-      const status = code ?? signalStatus(signal);
-      await cleanup();
-      return { status, code, signal, reason };
-    })();
+    if (completed) return terminalPromise;
+    completed = true;
+    childExited = true;
+    const reason = requestedReason ?? (signal ? 'independent-child-signal' : 'numeric-exit');
+    const result = { status: code ?? signalStatus(signal), code, signal, reason };
+    void cleanup().then(() => resolveTerminal(result));
     return terminalPromise;
   };
-  const requestTermination = (reason: IpcShellHostExitReason, signal: NodeJS.Signals): Promise<IpcShellHostExit> | undefined => {
-    if (terminalPromise) return terminalPromise;
+  const requestTermination = (reason: IpcShellHostExitReason, signal: NodeJS.Signals): Promise<IpcShellHostExit> => {
+    if (completed) return terminalPromise;
+    clearPeerDisconnectTimer();
     requestedReason ??= reason;
     const liveChild = child;
     if (!liveChild || childExited) return terminalPromise;
@@ -70,7 +77,7 @@ export async function launchIpcShellHost(options: IpcShellHostOptions): Promise<
         liveChild.kill('SIGKILL');
       }
     }, graceMs);
-    return undefined;
+    return terminalPromise;
   };
 
   try {
@@ -84,7 +91,13 @@ export async function launchIpcShellHost(options: IpcShellHostOptions): Promise<
       limits: options.limits,
       onDiagnostic: options.onDiagnostic,
       onPeerDisconnected() {
-        requestTermination('peer-disconnected', 'SIGTERM');
+        if (completed || requestedReason || peerDisconnectTimer) return;
+        // The socket closes during a normal process exit before ChildProcess emits `exit`.
+        // Give the already-pending exit one event-loop turn before treating a live peer loss
+        // as a host-terminal condition.
+        peerDisconnectTimer = setTimeout(() => {
+          if (!completed && !requestedReason && !childExited) requestTermination('peer-disconnected', 'SIGTERM');
+        }, 25);
       },
     });
     const commandEnv: NodeJS.ProcessEnv = { ...(options.command.env ?? process.env) };
@@ -126,12 +139,8 @@ export async function launchIpcShellHost(options: IpcShellHostOptions): Promise<
     childPid: ownedChild.pid!,
     runtime: projection.runtime,
     endpointPath: projection.path,
-    waitForExit: () => terminalPromise ?? new Promise((resolve) => {
-      ownedChild.once('exit', (code, signal) => { void complete(code, signal).then(resolve); });
-    }),
-    close: () => requestTermination('explicit-close', 'SIGTERM') ?? (terminalPromise ?? Promise.resolve({
-      status: 0, code: 0, signal: null, reason: 'explicit-close' as const,
-    })),
+    waitForExit: () => terminalPromise,
+    close: () => requestTermination('explicit-close', 'SIGTERM'),
   };
   return host;
 }

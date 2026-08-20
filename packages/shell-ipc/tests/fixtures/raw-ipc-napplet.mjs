@@ -9,7 +9,7 @@ function readArguments(argv) {
   for (let index = 0; index < argv.length; index += 2) {
     const flag = argv[index];
     const value = argv[index + 1];
-    if (flag === '--mode' && ['graceful', 'forced', 'disconnect', 'ignore-term', 'signal-hup', 'signal-int', 'signal-term', 'exit-23'].includes(value)) mode = value;
+    if (flag === '--mode' && ['graceful', 'forced', 'disconnect', 'disconnect-ignore-term', 'ignore-term', 'signal-hup', 'signal-int', 'signal-term', 'exit-23'].includes(value)) mode = value;
   }
   const path = process.env.KEHTO_IPC_SOCKET_PATH;
   if (!path || !mode || argv.length !== 2) throw new Error('Invalid raw napplet arguments.');
@@ -98,7 +98,8 @@ try {
       receivedPush = true;
       emit('intent.changed');
       if (mode === 'graceful') socket.end();
-      else if (mode === 'disconnect') {
+      else if (mode === 'disconnect' || mode === 'disconnect-ignore-term') {
+        if (mode === 'disconnect-ignore-term') process.on('SIGTERM', () => emit('sigterm'));
         socket.end();
         emit('hold');
       } else if (mode === 'signal-hup') process.kill(process.pid, 'SIGHUP');
