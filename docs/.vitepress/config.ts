@@ -92,6 +92,7 @@ export default defineConfig({
         text: 'Reference',
         items: [
           { text: 'API Reference', link: '/reference/api' },
+          { text: 'Experimental IPC Projection', link: '/reference/experimental-ipc-projection' },
           { text: 'Troubleshooting', link: '/guides/troubleshooting' },
           { text: 'Docs Site Runbook', link: '/guides/docs-site-runbook' },
         ],
