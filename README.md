@@ -41,6 +41,17 @@ If you are building a host app, start with the
 [minimal host shell tutorial](./docs/tutorials/minimal-host-shell.md), then use
 the package table below to jump into the implementation surface you need.
 
+To run the same pointer-entry Paja Runtime published on GitHub Pages, use:
+
+```bash
+pnpm install
+pnpm paja
+```
+
+Then open <http://127.0.0.1:4175/web/paja/> and enter a napplet `naddr` or
+`nevent`. This builds only Paja and its workspace dependencies, not the
+playground or documentation site.
+
 ## Packages
 
 | Package | Use it for | Package root | Markdown docs | VitePress docs |

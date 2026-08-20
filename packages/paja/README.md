@@ -268,6 +268,21 @@ signer, discovery author, and signed authorization pubkeys must agree; a fixed
 pubkey without `signEvent` is read-only. This implements the draft
 [NAP-UPLOAD at `a7cc174`](https://github.com/napplet/naps/blob/a7cc17463cbf5d9cb87884b31071bc4fc826034c/naps/NAP-UPLOAD.md).
 
+## NAP-RESOURCE schemes
+
+Paja supports locally decoded `data:` URLs and canonical
+`blossom:sha256:<hex>` resources. Blossom hashes are resolved only through
+host-owned runtime-pointer or upload server settings; there is no public
+default. Servers use HTTPS, with plain HTTP allowed only for loopback
+development. Paja refuses redirects, caps responses at 10 MiB, verifies the
+requested SHA-256, and derives MIME from the returned bytes before delivery.
+
+Direct `http:` and `https:` resource URLs remain disabled. They are distinct
+from the HTTP(S) transport selected internally for a `blossom:` identifier and
+still require a general DNS/private-address-safe fetch proxy. This behavior
+targets draft
+[NAP-RESOURCE at `fa6bcc6`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md).
+
 Full package docs: [`docs/packages/paja.md`](../../docs/packages/paja.md).
 Getting started: [`docs/how-tos/paja-getting-started.md`](../../docs/how-tos/paja-getting-started.md).
 Local authoring how-to: [`docs/how-tos/paja-local-authoring.md`](../../docs/how-tos/paja-local-authoring.md).

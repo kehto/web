@@ -58,7 +58,7 @@ import { createPajaUploadRuntime, type PajaUploadRuntime } from './browser-uploa
 import { createPajaSocialCache } from './browser-social-cache.js';
 import { createPajaCommonBackend } from './browser-common.js';
 import { createPajaListsBackend } from './browser-lists.js';
-import { createPajaDataResourceFetch, pajaResourceInfo } from './browser-resource.js';
+import { createPajaResourceFetch, pajaResourceInfo } from './browser-resource.js';
 import { createPajaWebrtcController } from './browser-webrtc.js';
 import { createPajaBrowserFsBackend } from './browser-fs.js';
 import {
@@ -293,6 +293,7 @@ function createDevServices(
   onThemeService: (theme: ReturnType<typeof createThemeService>) => void,
   onThemeBroadcast: (envelope: ThemeChangedMessage) => void,
   confirmRequest: PajaConfirmationHandler,
+  getBlossomServers: () => readonly string[],
   uploadRuntime?: PajaUploadRuntime,
   signerProvider?: PajaSignerProvider,
   intentHost?: PajaIntentHost,
@@ -331,11 +332,11 @@ function createDevServices(
   void socialCache.refreshActiveIdentity();
   const services: Record<string, ServiceHandler> = {
     resource: createResourceService({
-      fetch: createPajaDataResourceFetch(),
+      fetch: createPajaResourceFetch({ getBlossomServers }),
       isOriginGranted: (origin, grants) => grants.includes(origin),
       getConnectGrants: () => ['null'],
       resolveIdentity: (windowId) => getIdentity?.(windowId) ?? null,
-      resourceInfo: pajaResourceInfo(),
+      resourceInfo: () => pajaResourceInfo(getBlossomServers()),
     }),
   };
   if (getSimulation().capabilities.domains.keys && typeof document !== 'undefined') {
@@ -578,6 +579,10 @@ export function createPajaAdapter(
         subscribeSignerChange: signerProvider?.subscribe?.bind(signerProvider),
       })
     : undefined;
+  const getBlossomServers = () => [
+    ...(config.target?.pointer?.blossomServers ?? []),
+    ...(uploadRuntime?.getServers() ?? getSimulation().upload.servers),
+  ];
   void uploadRuntime?.refreshIdentity();
   const workerRelayEvents: NostrEvent[] = [];
   const serviceBundle = createDevServices(
@@ -587,6 +592,7 @@ export function createPajaAdapter(
     onThemeService,
     onThemeBroadcast,
     confirmRequest,
+    getBlossomServers,
     uploadRuntime,
     signerProvider,
     intentHost,
