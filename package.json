@@ -23,6 +23,7 @@
     "test:serve": "pnpm --filter @test/harness dev",
     "test:serve:demo": "pnpm --filter @kehto/playground preview --port 4174",
     "lint": "turbo run lint",
+    "paja": "pnpm --filter @kehto/paja... build && node scripts/build-paja-pages.mjs && PAGES_PREVIEW_PATH=/web/paja/ node scripts/serve-pages.mjs",
     "site:audit": "node scripts/audit-pages-artifact.mjs",
     "site:build": "pnpm site:build:playground && pnpm site:build:paja && pnpm site:build:docs && pnpm site:build:pages",
     "site:build:docs": "VITEPRESS_BASE=/web/docs/ pnpm docs:check",

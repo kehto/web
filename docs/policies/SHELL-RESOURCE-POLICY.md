@@ -49,8 +49,12 @@
 Draft NAP-RESOURCE at
 `fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1` is the working protocol authority.
 This non-normative checklist explains how Kehto hosts satisfy its security
-requirements. Paja currently enables only a locally decoded `data:` backend;
-network schemes stay disabled until the corresponding host boundary meets this
+requirements. Paja enables a locally decoded `data:` backend plus canonical
+`blossom:sha256:<hex>` through host-owned server settings. The Blossom backend
+has no default origin, refuses redirects, verifies the requested hash, caps and
+sniffs returned bytes, and permits cleartext transport
+only for explicitly configured loopback development. Arbitrary `http:` and
+`https:` resource URLs stay disabled until a general host boundary meets this
 checklist.
 
 ## Why this exists

@@ -6,8 +6,13 @@ import { extname, join, normalize, relative, resolve, sep } from 'node:path';
 const repoRoot = resolve(new URL('..', import.meta.url).pathname);
 const artifactRoot = resolve(repoRoot, process.env.PAGES_OUT_DIR || '.pages');
 const publicBase = '/web/';
+const previewPath = process.env.PAGES_PREVIEW_PATH || publicBase;
 const defaultHost = process.env.HOST || '127.0.0.1';
 const defaultPort = Number.parseInt(process.env.PORT || process.env.PAGES_PREVIEW_PORT || '4175', 10);
+
+if (!previewPath.startsWith(publicBase)) {
+  throw new Error(`Pages preview path must start with ${publicBase}: ${previewPath}`);
+}
 
 const contentTypes = new Map([
   ['.css', 'text/css; charset=utf-8'],
@@ -53,7 +58,7 @@ function handleRequest(request, response) {
   const url = new URL(request.url || '/', `http://${defaultHost}`);
 
   if (url.pathname === '/') {
-    redirect(response, publicBase);
+    redirect(response, previewPath);
     return;
   }
 
@@ -105,7 +110,7 @@ function listen(port) {
   });
 
   server.listen(port, defaultHost, () => {
-    console.log(`Kehto web preview: http://${defaultHost}:${port}${publicBase}`);
+    console.log(`Kehto web preview: http://${defaultHost}:${port}${previewPath}`);
   });
 }
 

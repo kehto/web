@@ -40,6 +40,8 @@ export interface PajaUploadRuntime {
   readonly uploader: Uploader;
   readonly uploadInfo: () => UploadInfo;
   readonly getBackend: () => { rails: string[] } | null;
+  /** Return the current host-owned Blossom server preference order. */
+  readonly getServers: () => readonly string[];
   refreshIdentity(): Promise<void>;
   dispose(): void;
 }
@@ -191,6 +193,12 @@ export function createPajaUploadRuntime(options: PajaUploadRuntimeOptions): Paja
     return uploadInfo().rails[0]?.enabled ? { rails: ['blossom'] } : null;
   }
 
+  function getServers(): readonly string[] {
+    const simulation = options.getSimulation();
+    if (simulation.upload.servers.length > 0) return simulation.upload.servers;
+    return identity ? effectiveServers(simulation, identity.pubkey, discovered) : [];
+  }
+
   const unsubscribe = options.subscribeSignerChange?.(() => {
     void refreshIdentity();
   });
@@ -199,6 +207,7 @@ export function createPajaUploadRuntime(options: PajaUploadRuntimeOptions): Paja
     uploader,
     uploadInfo,
     getBackend,
+    getServers,
     refreshIdentity,
     dispose: () => unsubscribe?.(),
   };
