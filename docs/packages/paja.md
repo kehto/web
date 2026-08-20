@@ -179,8 +179,9 @@ NIP-5D snapshot, root, or named manifest event id (`5129`, `15129`, or `35129`).
 In both cases Paja verifies the signed manifest, aggregate hash, and every
 Blossom blob, then injects the same runtime-owned `window.napplet.<domain>`
 namespace before assigning iframe `srcdoc`. Before that namespace prelude, Paja
-inserts Kehto's local Class-1 CSP: default deny; inline script/style;
-`data:`/`blob:` images and `data:` fonts; `connect-src` limited exclusively to
+inserts Kehto's local Class-1 CSP: default deny; inline script/style; WebAssembly
+compilation through the narrow `'wasm-unsafe-eval'` source while JavaScript string
+evaluation stays blocked; `data:`/`blob:` images and `data:` fonts; `connect-src` limited exclusively to
 the resolved relay and Blossom origins; explicit worker, child, frame, media,
 object, manifest, prefetch, base, and form denial; and final
 `frame-ancestors 'self'`. NIP-5D requires the verified `srcdoc` and opaque

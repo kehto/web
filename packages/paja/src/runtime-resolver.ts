@@ -192,7 +192,7 @@ export function injectPajaRuntimeCsp(html: string, origins: readonly string[]): 
     : "connect-src 'none'";
   const value = [
     "default-src 'none'",
-    "script-src 'unsafe-inline'",
+    "script-src 'unsafe-inline' 'wasm-unsafe-eval'",
     "style-src 'unsafe-inline'",
     'img-src data: blob:',
     'font-src data:',
