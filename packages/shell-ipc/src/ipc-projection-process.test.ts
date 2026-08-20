@@ -99,6 +99,19 @@ describe('IPC projection raw-process proof', () => {
     }
   });
 
+  it('proves SIGKILL after the same runtime result and eligible push converges on cleanup', async () => {
+    const baseDirectory = await mkdtemp('/tmp/k-ipc-process-forced-');
+    const run = spawnHost(baseDirectory, 'forced');
+    try {
+      await expect(awaitExit(run)).resolves.toMatchObject({ code: 0, signal: null });
+      expectProof(run.records, 'forced');
+      await expect(readdir(baseDirectory)).resolves.toEqual([]);
+    } finally {
+      if (!run.child.killed && run.child.exitCode === null) run.child.kill('SIGKILL');
+      await rm(baseDirectory, { recursive: true, force: true });
+    }
+  });
+
   it('keeps the raw napplet Node-only and the reference host on public seams', async () => {
     const [rawNapplet, referenceHost] = await Promise.all([readFile(childPath, 'utf8'), readFile(hostPath, 'utf8')]);
     const imports = [...rawNapplet.matchAll(/(?:import\s+(?:[^'";]+?\s+from\s+)?|import\()(['"])([^'"]+)\1/g)].map((match) => match[2]);
