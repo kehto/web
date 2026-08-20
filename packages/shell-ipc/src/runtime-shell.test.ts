@@ -1,6 +1,5 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { connect, type Socket } from 'node:net';
-import { tmpdir } from 'node:os';
 import { describe, expect, it } from 'vitest';
 import type { RuntimeAdapter } from '@kehto/runtime';
 import { createIpcShellProjection } from './index.js';
@@ -86,7 +85,7 @@ const registration: IpcShellEndpointRegistration = {
 
 describe('createIpcShellProjection', () => {
   it('binds one raw peer through exact readiness and public runtime dispatch', async () => {
-    const baseDirectory = await mkdtemp(`${tmpdir()}/kehto-ipc-runtime-shell-`);
+    const baseDirectory = await mkdtemp('/tmp/k-ipc-runtime-shell-');
     const diagnostics: IpcDiagnostic[] = [];
     const hotkeys: string[] = [];
     const aclChecks: string[] = [];
@@ -123,6 +122,9 @@ describe('createIpcShellProjection', () => {
         capabilities: { domains: ['keys'] },
         services: [],
       }]);
+      expect(Object.isFrozen(projection.registration)).toBe(true);
+      expect(Object.isFrozen(projection.registration.environment)).toBe(true);
+      expect(Object.isFrozen(projection.registration.environment.capabilities)).toBe(true);
       const session = projection.runtime.sessionRegistry.getEntryByWindowId(registration.windowId);
       expect(session).toMatchObject({
         pubkey: '',
@@ -146,10 +148,15 @@ describe('createIpcShellProjection', () => {
       await secondClosed;
       expect(secondFrames).toEqual([]);
 
+      peer.write(encodeJsonSequence({ type: 'keys.registerAction', id: 'bound-action', action: { id: 'action-1' } }));
+      await waitFor(() => peerFrames.length === 2);
+      expect(peerFrames[1]).toEqual({ type: 'keys.registerAction.result', id: 'bound-action', actionId: 'action-1' });
+      expect(secondFrames).toEqual([]);
+
       peer.write(encodeJsonSequence({ type: 'keys.forward', key: 'y', code: 'KeyY' }));
       await waitFor(() => hotkeys.length === 1);
       expect(hotkeys).toEqual(['KeyY']);
-      expect(aclChecks).toEqual(['hotkey:forward']);
+      expect(aclChecks).toEqual(['keys:bind', 'keys:forward']);
     } finally {
       peer.destroy();
       secondPeer?.destroy();
@@ -159,7 +166,7 @@ describe('createIpcShellProjection', () => {
   });
 
   it('keeps peer-provided endpoint identity terminal under the projection binding guard', async () => {
-    const baseDirectory = await mkdtemp(`${tmpdir()}/kehto-ipc-runtime-shell-identity-`);
+    const baseDirectory = await mkdtemp('/tmp/k-ipc-runtime-shell-identity-');
     const projection = await createIpcShellProjection({
       baseDirectory,
       registration,
@@ -175,6 +182,24 @@ describe('createIpcShellProjection', () => {
     } finally {
       peer.destroy();
       await projection.close();
+      await rm(baseDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects invalid shell capability registration before allocating a socket directory', async () => {
+    const baseDirectory = await mkdtemp('/tmp/k-ipc-runtime-shell-invalid-');
+
+    try {
+      await expect(createIpcShellProjection({
+        baseDirectory,
+        registration: {
+          ...registration,
+          environment: { capabilities: { domains: ['keys', 7] as never }, services: [] },
+        },
+        runtimeAdapter: createAdapter([], []),
+      })).rejects.toMatchObject({ code: 'INVALID_REGISTRATION' });
+      await expect(readdir(baseDirectory)).resolves.toEqual([]);
+    } finally {
       await rm(baseDirectory, { recursive: true, force: true });
     }
   });

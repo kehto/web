@@ -28,6 +28,24 @@ export interface IpcEndpointRegistration {
   readonly environment: { readonly [key: string]: IpcEnvironmentValue };
 }
 
+/** Immutable NAP-SHELL environment bound by the host before an IPC peer connects. */
+export interface IpcShellEnvironment {
+  readonly [key: string]: IpcEnvironmentValue;
+  readonly capabilities: IpcShellCapabilities;
+  readonly services: readonly string[];
+}
+
+/** Immutable capability shape required by the IPC NAP-SHELL projection. */
+export interface IpcShellCapabilities {
+  readonly [key: string]: IpcEnvironmentValue;
+  readonly domains: readonly string[];
+}
+
+/** Host-owned registration used by the experimental IPC NAP-SHELL projection. */
+export interface IpcShellEndpointRegistration extends Omit<IpcEndpointRegistration, 'environment'> {
+  readonly environment: IpcShellEnvironment;
+}
+
 /** Machine-readable reasons an IPC endpoint or accepted peer cannot continue. */
 export type IpcTransportErrorCode =
   | 'INVALID_REGISTRATION'
@@ -50,7 +68,9 @@ export type IpcTransportErrorCode =
   | 'PATH_TOO_LONG'
   | 'PATH_OWNERSHIP_MISMATCH'
   | 'PATH_SUBSTITUTED'
-  | 'STALE_GENERATION';
+  | 'STALE_GENERATION'
+  | 'CONCURRENT_PEER'
+  | 'SHELL_READY_PAYLOAD_IGNORED';
 
 /** Typed terminal error for the experimental IPC carrier. */
 export class IpcTransportError extends Error {
@@ -60,7 +80,7 @@ export class IpcTransportError extends Error {
   }
 }
 
-/** A redacted terminal diagnostic associated only with host-held endpoint identity. */
+/** A redacted diagnostic associated only with host-held endpoint identity. */
 export interface IpcDiagnostic {
   readonly code: IpcTransportErrorCode;
   readonly registration: Pick<IpcEndpointRegistration, 'windowId' | 'dTag' | 'aggregateHash'>;
@@ -73,9 +93,55 @@ export interface IpcTransportOptions {
   readonly onDiagnostic?: (diagnostic: IpcDiagnostic) => void;
 }
 
+/**
+ * Opaque handle for one accepted IPC peer.
+ *
+ * It intentionally exposes only queue-bound canonical-envelope egress and terminal close;
+ * peer identity, Socket ownership, connection tokens, and registration metadata remain host-private.
+ */
+export interface IpcPeerConnection {
+  /**
+   * Send one unchanged canonical envelope only to this accepted peer.
+   *
+   * @param envelope - A NIP-5D envelope to encode as one RFC 7464 frame.
+   * @returns Nothing.
+   */
+  send(envelope: NappletMessage): void;
+  /**
+   * Idempotently close this peer's socket and queue.
+   *
+   * @returns Nothing.
+   */
+  close(): void;
+}
+
 /** Host callback invoked only after a canonical envelope clears carrier validation. */
 export interface IpcEndpointHooks {
-  readonly onEnvelope: (envelope: NappletMessage, registration: IpcEndpointRegistration) => void;
+  /**
+   * Decide whether an accepted peer may begin decoded ingress.
+   *
+   * @param peer - Opaque, queue-bound handle for the accepted peer.
+   * @param registration - The frozen host registration for this endpoint.
+   * @returns `false` to close the peer before decoded ingress; any other result admits it.
+   */
+  readonly onPeerConnected?: (peer: IpcPeerConnection, registration: IpcEndpointRegistration) => boolean | void;
+  /**
+   * Observe the exactly-once terminal lifecycle of an admitted peer.
+   *
+   * @param peer - Opaque handle for the terminal peer.
+   * @param registration - The frozen host registration for this endpoint.
+   * @returns Nothing.
+   */
+  readonly onPeerClosed?: (peer: IpcPeerConnection, registration: IpcEndpointRegistration) => void;
+  /**
+   * Receive a canonical envelope after carrier validation and peer admission.
+   *
+   * @param envelope - Unchanged canonical envelope decoded from the peer.
+   * @param registration - The frozen host registration for this endpoint.
+   * @param peer - Opaque handle for the source peer.
+   * @returns Nothing.
+   */
+  readonly onEnvelope: (envelope: NappletMessage, registration: IpcEndpointRegistration, peer: IpcPeerConnection) => void;
 }
 
 /** A host-owned private endpoint; no client helper or peer identity input is exposed. */
@@ -137,6 +203,39 @@ export interface IpcTransport {
    * @example
    * ```ts
    * await transport.close();
+   * ```
+   */
+  close(): Promise<void>;
+}
+
+/** Options for an experimental host-only IPC NAP-SHELL projection. */
+export interface IpcShellProjectionOptions extends IpcTransportOptions {
+  /** Frozen host identity and NAP-SHELL environment; never peer-provided. */
+  readonly registration: IpcShellEndpointRegistration;
+  /** The host's public runtime adapter, composed with projection-local egress and domain gates. */
+  readonly runtimeAdapter: import('@kehto/runtime').RuntimeAdapter;
+}
+
+/**
+ * Host handle for one experimental Unix-socket NAP-SHELL projection.
+ *
+ * The IPC carrier topology is an explicit experimental spec gap checked against
+ * `napplet/naps` `origin/master@c0f7dd14460622fc3a9870ea57a538474cf776fa`.
+ */
+export interface IpcShellProjection {
+  /** Private host-held pathname for the one registered endpoint. */
+  readonly path: string;
+  /** Immutable registration used to bind source identity and NAP-SHELL environment. */
+  readonly registration: IpcShellEndpointRegistration;
+  /** Public runtime instance composed by this projection. */
+  readonly runtime: import('@kehto/runtime').Runtime;
+  /**
+   * Close the projection's endpoint and owned transport resources.
+   *
+   * @returns A promise that resolves after carrier resources are released.
+   * @example
+   * ```ts
+   * await projection.close();
    * ```
    */
   close(): Promise<void>;

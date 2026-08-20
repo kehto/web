@@ -1,11 +1,24 @@
 import { createServer, type Server, type Socket } from 'node:net';
 import { tmpdir } from 'node:os';
 import type { NappletMessage } from '@napplet/core';
+import { createRuntime, type Runtime, type RuntimeAdapter } from '@kehto/runtime';
 import { createEndpointRegistry } from './endpoint-registry.js';
 import { createJsonSequenceDecoder, encodeJsonSequence, type JsonSequenceEnvelope } from './json-sequence.js';
 import { createOutboundQueue, type OutboundQueue } from './outbound-queue.js';
 import { createSocketDirectory } from './socket-directory.js';
-import { IpcTransportError, type IpcEndpoint, type IpcEndpointRegistration, type IpcTransport, type IpcTransportErrorCode, type IpcTransportLimits, type IpcTransportOptions } from './types.js';
+import {
+  IpcTransportError,
+  type IpcEndpoint,
+  type IpcEndpointRegistration,
+  type IpcPeerConnection,
+  type IpcShellEndpointRegistration,
+  type IpcShellProjection,
+  type IpcShellProjectionOptions,
+  type IpcTransport,
+  type IpcTransportErrorCode,
+  type IpcTransportLimits,
+  type IpcTransportOptions,
+} from './types.js';
 
 /** Experimental default resource bounds for the Node/POSIX-only IPC carrier. */
 export const DEFAULT_IPC_LIMITS = Object.freeze({
@@ -58,6 +71,7 @@ export async function createIpcTransport(options: IpcTransportOptions = {}): Pro
         directory = await createSocketDirectory(options.baseDirectory ?? tmpdir(), limits.maxPathBytes, reservation.generation);
         const activeDirectory = directory;
         const peers = new Map<Socket, OutboundQueue>();
+        const peerStates = new Map<Socket, PeerState>();
         server = createServer((socket) => {
           const queue = createOutboundQueue(socket, {
             maxOutboundQueueFrames: limits.maxOutboundQueueFrames,
@@ -65,8 +79,31 @@ export async function createIpcTransport(options: IpcTransportOptions = {}): Pro
             onTerminal(error) { diagnostic(error.code, registration); },
           });
           peers.set(socket, queue);
+          let closed = false;
+          const peer: IpcPeerConnection = {
+            send(envelope) {
+              queue.enqueue(encodeJsonSequence(envelope));
+            },
+            close() {
+              socket.destroy();
+            },
+          };
+          const closePeer = (): void => {
+            if (closed) return;
+            closed = true;
+            queue.close();
+            peers.delete(socket);
+            peerStates.delete(socket);
+            hooks.onPeerClosed?.(peer, registration);
+          };
+          peerStates.set(socket, { peer, closePeer });
           socket.on('error', () => undefined);
-          socket.on('close', () => { queue.close(); peers.delete(socket); });
+          socket.on('close', closePeer);
+          if (hooks.onPeerConnected?.(peer, registration) === false) {
+            diagnostic('CONCURRENT_PEER', registration);
+            peer.close();
+            return;
+          }
           const rejectPeer = (code: IpcTransportErrorCode, message: string): void => {
             diagnostic(code, registration);
             socket.destroy(new IpcTransportError(code, message));
@@ -78,7 +115,7 @@ export async function createIpcTransport(options: IpcTransportOptions = {}): Pro
               if (!assertNoPeerBindingClaims(envelope)) {
                 throw new IpcTransportError('PEER_IDENTITY_CLAIM', 'IPC peer attempted to claim host-bound endpoint identity.');
               }
-              hooks.onEnvelope(envelope as unknown as NappletMessage, registration);
+              hooks.onEnvelope(envelope as unknown as NappletMessage, registration, peer);
             },
           });
           socket.on('data', (chunk: Buffer) => {
@@ -99,11 +136,12 @@ export async function createIpcTransport(options: IpcTransportOptions = {}): Pro
           closePromise ??= (async () => {
             const current = endpoints.beginClosing(reservation.windowId, reservation.generation);
             if (!current) return;
-          for (const [peer, queue] of peers) {
-            queue.close();
-            peer.destroy();
+          for (const state of peerStates.values()) {
+            state.closePeer();
+            state.peer.close();
           }
           peers.clear();
+          peerStates.clear();
             await closeServer(server);
           await activeDirectory.close();
             endpoints.removeIfCurrentGeneration(reservation.windowId, reservation.generation);
@@ -145,6 +183,181 @@ export async function createIpcTransport(options: IpcTransportOptions = {}): Pro
       await Promise.all(endpoints.values().map((record) => unregisterEndpoint(record.windowId)));
     },
   };
+}
+
+interface PeerState {
+  readonly peer: IpcPeerConnection;
+  closePeer(): void;
+}
+
+interface ProjectionConnection {
+  readonly generation: number;
+  readonly peer: IpcPeerConnection;
+  ready: boolean;
+  payloadReadyDiagnosticSent: boolean;
+}
+
+/**
+ * Create an experimental POSIX IPC projection that binds one raw peer to the public runtime seam.
+ *
+ * The carrier topology is intentionally experimental: NAP-SHELL and NAP-INC lifecycle rules were
+ * checked against `napplet/naps` `origin/master@c0f7dd14460622fc3a9870ea57a538474cf776fa`, which
+ * defines no IPC carrier. This factory accepts host-held registration only and never exposes a
+ * browser, interface-injection, desktop-framework, or napplet-side helper surface.
+ *
+ * @param options - Host runtime adapter, frozen registration, and private transport options.
+ * @returns A host projection with a private pathname, public runtime, and owned close lifecycle.
+ * @example
+ * ```ts
+ * const projection = await createIpcShellProjection({ registration, runtimeAdapter });
+ * await projection.close();
+ * ```
+ */
+export async function createIpcShellProjection(options: IpcShellProjectionOptions): Promise<IpcShellProjection> {
+  validateShellRegistration(options.registration);
+  const registration = options.registration;
+  let connectionGeneration = 0;
+  let activeConnection: ProjectionConnection | undefined;
+  let runtime: Runtime;
+
+  const runtimeAdapter: RuntimeAdapter = {
+    ...options.runtimeAdapter,
+    sendToNapplet(windowId, message) {
+      if (windowId !== registration.windowId || !activeConnection?.ready || !isCanonicalEnvelope(message)) return;
+      activeConnection.peer.send(message);
+    },
+    isDomainAllowed(windowId, domain) {
+      if (windowId !== registration.windowId || !registration.environment.capabilities.domains.includes(domain)) return false;
+      return options.runtimeAdapter.isDomainAllowed?.(windowId, domain) ?? true;
+    },
+  };
+  runtime = createRuntime(runtimeAdapter);
+  const transport = await createIpcTransport({
+    baseDirectory: options.baseDirectory,
+    limits: options.limits,
+    onDiagnostic: options.onDiagnostic,
+  });
+  const endpoint = await transport.registerEndpoint(registration, {
+    onPeerConnected(peer) {
+      if (activeConnection) return false;
+      if (connectionGeneration >= Number.MAX_SAFE_INTEGER) return false;
+      activeConnection = {
+        generation: ++connectionGeneration,
+        peer,
+        ready: false,
+        payloadReadyDiagnosticSent: false,
+      };
+    },
+    onPeerClosed(peer) {
+      if (activeConnection?.peer !== peer) return;
+      activeConnection = undefined;
+    },
+    onEnvelope(envelope, frozenRegistration, peer) {
+      const connection = activeConnection;
+      if (!connection || connection.peer !== peer || frozenRegistration.windowId !== registration.windowId) return;
+      if (isShellReady(envelope)) {
+        registerReadyPeer(runtime, options.runtimeAdapter, registration, connection);
+        return;
+      }
+      if (isPayloadBearingShellReady(envelope)) {
+        reportPayloadBearingReady(options, registration, connection);
+        return;
+      }
+      if (!connection.ready) return;
+      runtime.handleMessage(registration.windowId, envelope);
+    },
+  });
+
+  return {
+    path: endpoint.path,
+    registration: endpoint.registration as IpcShellEndpointRegistration,
+    runtime,
+    async close() {
+      await endpoint.close();
+      await transport.close();
+    },
+  };
+}
+
+function registerReadyPeer(
+  runtime: Runtime,
+  runtimeAdapter: RuntimeAdapter,
+  registration: IpcShellEndpointRegistration,
+  connection: ProjectionConnection,
+): void {
+  if (connection.ready) return;
+  runtime.sessionRegistry.register(registration.windowId, {
+    pubkey: '',
+    windowId: registration.windowId,
+    origin: 'ipc',
+    type: 'nip5d',
+    dTag: registration.dTag,
+    aggregateHash: registration.aggregateHash,
+    registeredAt: Date.now(),
+    instanceId: runtimeAdapter.crypto.randomUUID(),
+    provenance: 'nip-5d',
+  });
+  connection.ready = true;
+  connection.peer.send({
+    type: 'shell.init',
+    capabilities: registration.environment.capabilities,
+    services: registration.environment.services,
+  } as NappletMessage);
+}
+
+function reportPayloadBearingReady(
+  options: IpcShellProjectionOptions,
+  registration: IpcShellEndpointRegistration,
+  connection: ProjectionConnection,
+): void {
+  if (connection.payloadReadyDiagnosticSent) return;
+  connection.payloadReadyDiagnosticSent = true;
+  options.onDiagnostic?.({
+    code: 'SHELL_READY_PAYLOAD_IGNORED',
+    registration: {
+      windowId: registration.windowId,
+      dTag: registration.dTag,
+      aggregateHash: registration.aggregateHash,
+    },
+  });
+}
+
+function isShellReady(envelope: NappletMessage): boolean {
+  return envelope.type === 'shell.ready'
+    && Object.getOwnPropertyNames(envelope).length === 1
+    && Object.hasOwn(envelope, 'type');
+}
+
+function isPayloadBearingShellReady(envelope: NappletMessage): boolean {
+  return envelope.type === 'shell.ready' && !isShellReady(envelope);
+}
+
+function isCanonicalEnvelope(message: unknown[] | NappletMessage): message is NappletMessage {
+  return !Array.isArray(message)
+    && typeof message === 'object'
+    && message !== null
+    && typeof (message as { type?: unknown }).type === 'string';
+}
+
+function validateShellRegistration(registration: IpcShellEndpointRegistration): void {
+  const environment = registration.environment;
+  if (!isRecord(environment)
+    || !isRecord(environment.capabilities)
+    || !isStringArray(environment.capabilities.domains)
+    || !isStringArray(environment.services)) {
+    throw new IpcTransportError(
+      'INVALID_REGISTRATION',
+      'IPC shell registration requires capabilities.domains and services string arrays.',
+    );
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isStringArray(value: unknown): value is readonly string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
 }
 
 function cloneAndFreezeRegistration(registration: IpcEndpointRegistration): IpcEndpointRegistration {

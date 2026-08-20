@@ -624,6 +624,10 @@ importers:
         version: 5.9.3
 
   packages/shell-ipc:
+    dependencies:
+      '@kehto/runtime':
+        specifier: workspace:^
+        version: link:../runtime
     devDependencies:
       '@napplet/core':
         specifier: '>=0.31.0 <0.32.0'

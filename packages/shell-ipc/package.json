@@ -49,5 +49,8 @@
     "ipc",
     "unix-socket",
     "experimental"
-  ]
+  ],
+  "dependencies": {
+    "@kehto/runtime": "workspace:^"
+  }
 }

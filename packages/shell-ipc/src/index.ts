@@ -1,4 +1,4 @@
-export { createIpcTransport, DEFAULT_IPC_LIMITS } from './ipc-shell.js';
+export { createIpcShellProjection, createIpcTransport, DEFAULT_IPC_LIMITS } from './ipc-shell.js';
 export { IpcTransportError } from './types.js';
 export type {
   IpcDiagnostic,
@@ -6,6 +6,12 @@ export type {
   IpcEndpointHooks,
   IpcEndpointRegistration,
   IpcEnvironmentValue,
+  IpcPeerConnection,
+  IpcShellCapabilities,
+  IpcShellEndpointRegistration,
+  IpcShellEnvironment,
+  IpcShellProjection,
+  IpcShellProjectionOptions,
   IpcTransport,
   IpcTransportErrorCode,
   IpcTransportLimits,
