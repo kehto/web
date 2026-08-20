@@ -30,16 +30,16 @@
 ### Identity and Lifecycle
 
 - [x] **BIND-01**: A host integrator registers immutable `windowId`, napplet dTag, aggregate hash, and environment metadata before listening; a peer cannot supply or replace its projected identity through wire messages.
-- [ ] **BIND-02**: Each registered endpoint admits at most one active peer, and connection replacement or delayed close events cannot tear down a newer registration or session.
+- [x] **BIND-02**: Each registered endpoint admits at most one active peer, and connection replacement or delayed close events cannot tear down a newer registration or session.
 - [x] **BIND-03**: A connected peer establishes its session with one bare `shell.ready`, receives exactly one `shell.init`, and cannot access capability handlers before readiness.
-- [ ] **BIND-04**: Graceful close, abrupt disconnect, explicit unregister, and host shutdown tear down only the matching runtime session, connection, listener, socket path, and owned directory resources.
+- [x] **BIND-04**: Graceful close, abrupt disconnect, explicit unregister, and host shutdown tear down only the matching runtime session, connection, listener, socket path, and owned directory resources.
 
 ### Runtime Proof
 
 - [x] **PROOF-01**: A host integrator can compose `@kehto/shell-ipc` with the public `@kehto/runtime` transport seam while leaving runtime dispatch, canonical envelope shapes, and the browser `@kehto/shell` implementation unchanged.
 - [ ] **PROOF-02**: A reference host and napplet process complete at least one correlated NIP-5D request/result round trip over the Unix-domain socket.
 - [ ] **PROOF-03**: The reference host delivers at least one runtime-originated push message to the connected napplet process over the same projection.
-- [ ] **PROOF-04**: Automated parity tests prove runtime ACL, capability eligibility, source identity, handshake idempotency, and session lifecycle behavior remain enforced through the IPC projection.
+- [x] **PROOF-04**: Automated parity tests prove runtime ACL, capability eligibility, source identity, handshake idempotency, and session lifecycle behavior remain enforced through the IPC projection.
 - [ ] **PROOF-05**: The reference napplet process uses only raw Node.js `node:net` and local framing code, with no injected `window.napplet.*` interface and no Kehto napplet-side helper dependency.
 
 ### Experimental Evidence
@@ -78,13 +78,13 @@
 | IPC-03 | Phase 107 | Complete |
 | IPC-04 | Phase 107 | Complete |
 | BIND-01 | Phase 107 | Complete |
-| BIND-02 | Phase 108 | Pending |
+| BIND-02 | Phase 108 | Complete |
 | BIND-03 | Phase 108 | Complete |
-| BIND-04 | Phase 108 | Pending |
+| BIND-04 | Phase 108 | Complete |
 | PROOF-01 | Phase 108 | Complete |
 | PROOF-02 | Phase 109 | Pending |
 | PROOF-03 | Phase 109 | Pending |
-| PROOF-04 | Phase 108 | Pending |
+| PROOF-04 | Phase 108 | Complete |
 | PROOF-05 | Phase 109 | Pending |
 | SPEC-01 | Phase 109 | Pending |
 | SPEC-02 | Phase 109 | Pending |

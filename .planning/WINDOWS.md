@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 25
+open_count: 26
 waived_count: 0
 fixed_count: 7
-total_count: 32
-last_updated: 2026-08-18T16:23:46.132Z
+total_count: 33
+last_updated: 2026-08-20T13:02:18.719Z
 ---
 
 # Broken Windows Ledger
@@ -47,6 +47,7 @@ last_updated: 2026-08-18T16:23:46.132Z
 | 30 | 107 | unrun-verify | packages/shell-ipc |  | Local AI-slop gate was not run because the aislop executable is unavailable. | open |  | 2026-08-18T16:17:24.532Z |  |
 | 31 | 107 | deviation | packages/shell-ipc/src/ipc-shell.ts |  | Forwarded endpoint queue limits and terminal diagnostics to accepted peers. | open |  | 2026-08-18T16:23:46.078Z |  |
 | 32 | 107 | deviation | .changeset/quiet-rice-queue.md |  | Added required release changeset for shipped shell IPC behavior. | open |  | 2026-08-18T16:23:46.132Z |  |
+| 33 | 108 | lint-warning | packages/shell-ipc/src/json-sequence.ts | 3 | Pre-existing aislop narrative-comment warnings leave the repository score at 97/100; unchanged and outside Plan 108-02 ownership. | open |  | 2026-08-20T13:02:18.719Z |  |
 
 ````json
 [
@@ -432,6 +433,18 @@ last_updated: 2026-08-18T16:23:46.132Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-18T16:23:46.132Z",
+    "resolved_at": null
+  },
+  {
+    "id": 33,
+    "kind": "lint-warning",
+    "phase": "108",
+    "file": "packages/shell-ipc/src/json-sequence.ts",
+    "line": 3,
+    "description": "Pre-existing aislop narrative-comment warnings leave the repository score at 97/100; unchanged and outside Plan 108-02 ownership.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-20T13:02:18.719Z",
     "resolved_at": null
   }
 ]
