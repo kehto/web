@@ -4,9 +4,9 @@ milestone: v1.30
 milestone_name: Experimental IPC Shell Projection
 status: Awaiting next milestone
 stopped_at: Completed 109-03-PLAN.md
-last_updated: "2026-08-20T15:18:31.670Z"
+last_updated: "2026-08-20T17:00:00.000Z"
 last_activity: 2026-08-20
-last_activity_desc: Milestone v1.30 completed and archived
+last_activity_desc: Verified production-runnable experimental IPC shell
 progress:
   total_phases: 3
   completed_phases: 3
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-08-20)
 Phase: Milestone v1.30 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-08-20 — Milestone v1.30 completed and archived
+Last activity: 2026-08-20 — Verified production-runnable experimental IPC shell
 
 ## Performance Metrics
 
@@ -244,6 +244,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260802-q92 | Finish every advertised Paja NAP adapter and replace native confirmation prompts | 2026-08-02 | ee4ca3e | Verified | [260802-q92-finish-paja-nap-capability-closeout-with](./quick/260802-q92-finish-paja-nap-capability-closeout-with/) |
 | 260803-osr | Remove the Good Morning-specific live pointer canary from PR #234 | 2026-08-03 | eb24855 | Verified | [260803-osr-remove-the-good-morning-specific-live-po](./quick/260803-osr-remove-the-good-morning-specific-live-po/) |
 | 260804-dql | Assess, prioritize, and resolve every review comment on PR #234 | 2026-08-04 | 0c1afc1 | Verified | [260804-dql-assess-prioritize-and-resolve-every-revi](./quick/260804-dql-assess-prioritize-and-resolve-every-revi/) |
+| 260820-ne7 | Implement a production-runnable experimental IPC shell | 2026-08-20 | 08318e1 | Verified | [260820-ne7-implement-a-production-runnable-experime](./quick/260820-ne7-implement-a-production-runnable-experime/) |
 
 ## Session Continuity
 
