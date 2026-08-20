@@ -58,7 +58,7 @@ napplet-side helper added.
 - `pnpm --filter @kehto/shell-ipc test:unit` — 117 passed.
 - `pnpm build` — passed (33 packages).
 - `pnpm type-check` — passed.
-- `pnpm test:unit` — 1,798 passed (150 files).
+- `pnpm test:unit` — 1,801 passed (150 files) on the branch merged with current `origin/main`.
 - `CI=1 pnpm test:e2e` — 81 Playwright tests passed on the final exact tree.
 - `pnpm docs:check` — passed (10 public package docs).
 - `pnpm dlx aislop@0.12.0 scan --changes --base origin/main` — 100/100.
