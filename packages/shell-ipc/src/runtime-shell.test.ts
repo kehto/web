@@ -284,4 +284,92 @@ describe('createIpcShellProjection', () => {
     await expect(access(projection.path)).rejects.toThrow();
     await rm(baseDirectory, { recursive: true, force: true });
   });
+
+  it('keeps host-bound identity and runtime domain and ACL gates intact after readiness', async () => {
+    const baseDirectory = await mkdtemp('/tmp/k-ipc-runtime-shell-policy-');
+    const allowedHotkeys: string[] = [];
+    const allowedAcl: string[] = [];
+    const allowed = await createIpcShellProjection({
+      baseDirectory,
+      registration,
+      runtimeAdapter: createAdapter(allowedHotkeys, allowedAcl),
+    });
+    const allowedPeer = await connectPeer(allowed.path);
+    const allowedFrames = collectFrames(allowedPeer);
+
+    try {
+      allowedPeer.write(encodeJsonSequence({ type: 'shell.ready' }));
+      await waitFor(() => allowedFrames.length === 1);
+      const entry = allowed.runtime.sessionRegistry.getEntryByWindowId(registration.windowId);
+      expect(entry).toMatchObject({
+        windowId: registration.windowId,
+        dTag: registration.dTag,
+        aggregateHash: registration.aggregateHash,
+        instanceId: 'host-generated-instance-id',
+      });
+
+      allowedPeer.write(encodeJsonSequence({ type: 'keys.forward', key: 'a', code: 'KeyA' }));
+      await waitFor(() => allowedHotkeys.length === 1);
+      expect(allowedHotkeys).toEqual(['KeyA']);
+      expect(allowedAcl).toContain('keys:forward');
+
+      allowed.runtime.aclState.block('', registration.dTag, registration.aggregateHash);
+      allowedPeer.write(encodeJsonSequence({ type: 'keys.forward', key: 'b', code: 'KeyB' }));
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      expect(allowedHotkeys).toEqual(['KeyA']);
+      expect(allowedAcl).toContain('keys:forward');
+    } finally {
+      allowedPeer.destroy();
+      await allowed.close();
+      await rm(baseDirectory, { recursive: true, force: true });
+    }
+
+    const deniedDirectory = await mkdtemp('/tmp/k-ipc-runtime-shell-domain-');
+    const deniedHotkeys: string[] = [];
+    const denied = await createIpcShellProjection({
+      baseDirectory: deniedDirectory,
+      registration,
+      runtimeAdapter: {
+        ...createAdapter(deniedHotkeys, []),
+        isDomainAllowed: () => false,
+      },
+    });
+    const deniedPeer = await connectPeer(denied.path);
+    const deniedFrames = collectFrames(deniedPeer);
+    try {
+      deniedPeer.write(encodeJsonSequence({ type: 'shell.ready' }));
+      await waitFor(() => deniedFrames.length === 1);
+      deniedPeer.write(encodeJsonSequence({ type: 'keys.forward', key: 'c', code: 'KeyC' }));
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      expect(deniedHotkeys).toEqual([]);
+    } finally {
+      deniedPeer.destroy();
+      await denied.close();
+      await rm(deniedDirectory, { recursive: true, force: true });
+    }
+
+    const environmentDirectory = await mkdtemp('/tmp/k-ipc-runtime-shell-environment-');
+    const environmentHotkeys: string[] = [];
+    const environmentDenied = await createIpcShellProjection({
+      baseDirectory: environmentDirectory,
+      registration: {
+        ...registration,
+        environment: { capabilities: { domains: [] }, services: [] },
+      },
+      runtimeAdapter: createAdapter(environmentHotkeys, []),
+    });
+    const environmentPeer = await connectPeer(environmentDenied.path);
+    const environmentFrames = collectFrames(environmentPeer);
+    try {
+      environmentPeer.write(encodeJsonSequence({ type: 'shell.ready' }));
+      await waitFor(() => environmentFrames.length === 1);
+      environmentPeer.write(encodeJsonSequence({ type: 'keys.forward', key: 'd', code: 'KeyD' }));
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      expect(environmentHotkeys).toEqual([]);
+    } finally {
+      environmentPeer.destroy();
+      await environmentDenied.close();
+      await rm(environmentDirectory, { recursive: true, force: true });
+    }
+  });
 });
