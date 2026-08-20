@@ -5,15 +5,15 @@ milestone_name: Experimental IPC Shell Projection
 current_phase: 108
 current_phase_name: Runtime Shell Composition
 status: verifying
-stopped_at: Completed 108-02-PLAN.md
-last_updated: "2026-08-20T13:02:46.691Z"
+stopped_at: Completed 108-03-PLAN.md
+last_updated: "2026-08-20T13:24:00.871Z"
 last_activity: 2026-08-20
 last_activity_desc: Completed Phase 108 Plan 01 runtime shell tracer
 progress:
   total_phases: 3
   completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 9
+  completed_plans: 9
   percent: 67
 ---
 
@@ -112,6 +112,7 @@ Last activity: 2026-08-20 — Completed Phase 108 Plan 01 runtime shell tracer
 | Phase 107 P06 | 6min | 1 tasks | 2 files |
 | Phase 108 P01 | 7min | 1 tasks | 6 files |
 | Phase 108 P02 | 9min | 2 tasks | 2 files |
+| Phase 108 P03 | 7m | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -241,8 +242,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-08-20T13:02:46.679Z
-Stopped at: Completed 108-02-PLAN.md
+Last session: 2026-08-20T13:24:00.860Z
+Stopped at: Completed 108-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -366,3 +367,5 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: IPC projection binds host registration and opaque peer state outside canonical envelopes.
 - [Phase ?]: Only exact bare shell.ready creates the IPC session and emits shell.init.
 - [Phase ?]: Phase 108 Plan 02 retires private IPC connection tokens before runtime destroyWindow/session unregister, so stale close callbacks cannot tear down replacement sessions.
+- [Phase ?]: A registration-less factory returns a shared IPC composition while the registration-bearing overload preserves the existing one-endpoint projection.
+- [Phase ?]: Endpoint record identity plus private peer generations authorize IPC teardown; host window IDs alone never authorize stale cleanup.
