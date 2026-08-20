@@ -196,10 +196,11 @@ export function createPajaRuntimeHostConfig(
     readonly relays?: readonly string[];
     readonly blossomServers?: readonly string[];
     readonly maxWaitMs?: number;
+    readonly simulation?: PajaSimulationRawOptions;
   } = {},
   now: Date = new Date(),
 ): PajaHostConfig {
-  const base = createPajaHostConfigBase(normalizePajaSimulation({}));
+  const base = createPajaHostConfigBase(normalizePajaSimulation(options.simulation));
   return {
     ...base,
     target: {
