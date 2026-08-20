@@ -11,6 +11,9 @@ import {
   type IpcEndpoint,
   type IpcEndpointRegistration,
   type IpcPeerConnection,
+  type IpcShellComposition,
+  type IpcShellCompositionOptions,
+  type IpcShellEndpoint,
   type IpcShellEndpointRegistration,
   type IpcShellProjection,
   type IpcShellProjectionOptions,
@@ -197,6 +200,15 @@ interface ProjectionConnection {
   payloadReadyDiagnosticSent: boolean;
 }
 
+interface ShellEndpointRecord {
+  readonly endpoint: IpcEndpoint;
+  readonly registration: IpcShellEndpointRegistration;
+  readonly generation: number;
+  nextPeerGeneration: number;
+  activeConnection: ProjectionConnection | undefined;
+  closePromise: Promise<void> | undefined;
+}
+
 /**
  * Create an experimental POSIX IPC projection that binds one raw peer to the public runtime seam.
  *
@@ -213,97 +225,147 @@ interface ProjectionConnection {
  * await projection.close();
  * ```
  */
-export async function createIpcShellProjection(options: IpcShellProjectionOptions): Promise<IpcShellProjection> {
-  validateShellRegistration(options.registration);
-  let connectionGeneration = 0;
-  let activeConnection: ProjectionConnection | undefined;
-  let projectionClosePromise: Promise<void> | undefined;
+export function createIpcShellProjection(options: IpcShellProjectionOptions): Promise<IpcShellProjection>;
+/**
+ * Create a shared experimental POSIX IPC shell composition without registering an endpoint.
+ *
+ * @param options - Host runtime adapter and private transport options.
+ * @returns A shared runtime composition that owns explicit endpoint lifecycle.
+ * @example
+ * ```ts
+ * const composition = await createIpcShellProjection({ runtimeAdapter });
+ * const endpoint = await composition.registerEndpoint(registration);
+ * ```
+ */
+export function createIpcShellProjection(options: IpcShellCompositionOptions): Promise<IpcShellComposition>;
+export async function createIpcShellProjection(
+  options: IpcShellCompositionOptions | IpcShellProjectionOptions,
+): Promise<IpcShellComposition | IpcShellProjection> {
+  const singleRegistration = 'registration' in options ? options.registration : undefined;
+  if (singleRegistration) validateShellRegistration(singleRegistration);
+  let endpointGeneration = 0;
+  let compositionClosePromise: Promise<void> | undefined;
+  const records = new Map<string, ShellEndpointRecord>();
   const transport = await createIpcTransport({
     baseDirectory: options.baseDirectory,
     limits: options.limits,
     onDiagnostic: options.onDiagnostic,
   });
-  const endpoint = await transport.registerEndpoint(options.registration, {
-    onPeerConnected(peer) {
-      if (activeConnection) return false;
-      if (connectionGeneration >= Number.MAX_SAFE_INTEGER) return false;
-      activeConnection = {
-        generation: ++connectionGeneration,
-        peer,
-        ready: false,
-        payloadReadyDiagnosticSent: false,
-      };
-    },
-    onPeerClosed(peer) {
-      const connection = activeConnection;
-      if (!connection || connection.peer !== peer) return;
-      teardownConnection(registration.windowId, connection.generation);
-    },
-    onEnvelope(envelope, frozenRegistration, peer) {
-      const connection = activeConnection;
-      if (!connection || connection.peer !== peer || frozenRegistration !== registration) return;
-      if (isShellReady(envelope)) {
-        registerReadyPeer(runtime, options.runtimeAdapter, registration, connection);
-        return;
-      }
-      if (isPayloadBearingShellReady(envelope)) {
-        reportPayloadBearingReady(options, registration, connection);
-        return;
-      }
-      if (!connection.ready) return;
-      runtime.handleMessage(registration.windowId, envelope);
-    },
-  });
-  // The transport has validated, cloned, and recursively frozen this exact host assignment before
-  // listening. Runtime identity, gates, sessions, and shell.init must never observe the caller's
-  // mutable input object after this point.
-  const registration = endpoint.registration as IpcShellEndpointRegistration;
   const runtimeAdapter: RuntimeAdapter = {
     ...options.runtimeAdapter,
     sendToNapplet(windowId, message) {
-      if (windowId !== registration.windowId || !activeConnection?.ready || !isCanonicalEnvelope(message)) return;
-      activeConnection.peer.send(message);
+      const record = records.get(windowId);
+      if (!record?.activeConnection?.ready || !isCanonicalEnvelope(message)) return;
+      record.activeConnection.peer.send(message);
     },
     isDomainAllowed(windowId, domain) {
-      if (windowId !== registration.windowId || !registration.environment.capabilities.domains.includes(domain)) return false;
+      const record = records.get(windowId);
+      if (!record || !record.registration.environment.capabilities.domains.includes(domain)) return false;
       return options.runtimeAdapter.isDomainAllowed?.(windowId, domain) ?? true;
     },
   };
   const runtime = createRuntime(runtimeAdapter);
 
   /**
-   * Retire exactly one host-owned connection generation before any runtime cleanup can invoke
-   * callbacks. The token is deliberately private projection state: peer envelopes never select
-   * either the window or the generation that is allowed to tear down runtime state.
+   * Retire exactly one host-owned peer generation before runtime cleanup can invoke callbacks.
+   * The endpoint record and connection generation are private state; peer envelopes never select
+   * the window or lifecycle generation allowed to tear down runtime state.
    */
-  const teardownConnection = (windowId: string, generation: number): boolean => {
-    const connection = activeConnection;
-    if (!connection
-      || windowId !== registration.windowId
-      || connection.generation !== generation) {
-      return false;
-    }
-    activeConnection = undefined;
-    runtime.destroyWindow(windowId);
-    runtime.sessionRegistry.unregister(windowId);
+  const teardownConnection = (record: ShellEndpointRecord, connection: ProjectionConnection): boolean => {
+    if (record.activeConnection !== connection || connection.generation <= 0) return false;
+    record.activeConnection = undefined;
+    if (!connection.ready) return true;
+    runtime.destroyWindow(record.registration.windowId);
+    runtime.sessionRegistry.unregister(record.registration.windowId);
     return true;
   };
 
-  return {
-    path: endpoint.path,
-    registration: endpoint.registration as IpcShellEndpointRegistration,
+  const closeRecord = async (record: ShellEndpointRecord): Promise<void> => {
+    if (records.get(record.registration.windowId) !== record) return;
+    record.closePromise ??= (async () => {
+      // Delete the route first so runtime teardown cannot egress to a retiring peer. A new
+      // endpoint cannot use this record because all subsequent work compares record identity.
+      records.delete(record.registration.windowId);
+      const connection = record.activeConnection;
+      if (connection) teardownConnection(record, connection);
+      await record.endpoint.close();
+    })();
+    await record.closePromise;
+  };
+
+  const registerEndpoint = async (input: IpcShellEndpointRegistration): Promise<IpcShellEndpoint> => {
+    validateShellRegistration(input);
+    if (endpointGeneration >= Number.MAX_SAFE_INTEGER) throw new RangeError('IPC shell endpoint generation exceeds the safe integer range.');
+    let record: ShellEndpointRecord | undefined;
+    const endpoint = await transport.registerEndpoint(input, {
+      onPeerConnected(peer) {
+        if (!record || records.get(record.registration.windowId) !== record || record.activeConnection) return false;
+        if (record.nextPeerGeneration >= Number.MAX_SAFE_INTEGER) return false;
+        record.activeConnection = {
+          generation: ++record.nextPeerGeneration,
+          peer,
+          ready: false,
+          payloadReadyDiagnosticSent: false,
+        };
+      },
+      onPeerClosed(peer) {
+        const connection = record?.activeConnection;
+        if (!record || !connection || connection.peer !== peer) return;
+        teardownConnection(record, connection);
+      },
+      onEnvelope(envelope, frozenRegistration, peer) {
+        const connection = record?.activeConnection;
+        if (!record || records.get(record.registration.windowId) !== record
+          || !connection || connection.peer !== peer || frozenRegistration !== record.registration) return;
+        if (isShellReady(envelope)) {
+          registerReadyPeer(runtime, options.runtimeAdapter, record.registration, connection);
+          return;
+        }
+        if (isPayloadBearingShellReady(envelope)) {
+          reportPayloadBearingReady(options, record.registration, connection);
+          return;
+        }
+        if (!connection.ready) return;
+        runtime.handleMessage(record.registration.windowId, envelope);
+      },
+    });
+    const registration = endpoint.registration as IpcShellEndpointRegistration;
+    record = {
+      endpoint,
+      registration,
+      generation: ++endpointGeneration,
+      nextPeerGeneration: 0,
+      activeConnection: undefined,
+      closePromise: undefined,
+    };
+    records.set(registration.windowId, record);
+    return {
+      path: endpoint.path,
+      registration,
+      close: () => closeRecord(record!),
+    };
+  };
+
+  const composition: IpcShellComposition = {
     runtime,
+    registerEndpoint,
+    async unregisterEndpoint(windowId) {
+      const record = records.get(windowId);
+      if (record) await closeRecord(record);
+    },
     async close() {
-      projectionClosePromise ??= (async () => {
-        const connection = activeConnection;
-        if (connection) teardownConnection(registration.windowId, connection.generation);
-        await endpoint.close();
+      compositionClosePromise ??= (async () => {
+        await Promise.all([...records.values()].map((record) => closeRecord(record)));
         await transport.close();
         runtime.destroy();
       })();
-      await projectionClosePromise;
+      await compositionClosePromise;
     },
   };
+
+  if (!singleRegistration) return composition;
+  const endpoint = await registerEndpoint(singleRegistration);
+  return { path: endpoint.path, registration: endpoint.registration, runtime, close: composition.close };
 }
 
 function registerReadyPeer(
@@ -333,7 +395,7 @@ function registerReadyPeer(
 }
 
 function reportPayloadBearingReady(
-  options: IpcShellProjectionOptions,
+  options: Pick<IpcTransportOptions, 'onDiagnostic'>,
   registration: IpcShellEndpointRegistration,
   connection: ProjectionConnection,
 ): void {

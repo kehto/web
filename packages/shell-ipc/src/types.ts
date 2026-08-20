@@ -208,12 +208,64 @@ export interface IpcTransport {
   close(): Promise<void>;
 }
 
-/** Options for an experimental host-only IPC NAP-SHELL projection. */
-export interface IpcShellProjectionOptions extends IpcTransportOptions {
-  /** Frozen host identity and NAP-SHELL environment; never peer-provided. */
-  readonly registration: IpcShellEndpointRegistration;
+/** Options shared by an experimental host-only IPC NAP-SHELL composition. */
+export interface IpcShellCompositionOptions extends IpcTransportOptions {
   /** The host's public runtime adapter, composed with projection-local egress and domain gates. */
   readonly runtimeAdapter: import('@kehto/runtime').RuntimeAdapter;
+}
+
+/** Options for the backwards-compatible one-endpoint IPC NAP-SHELL convenience projection. */
+export interface IpcShellProjectionOptions extends IpcShellCompositionOptions {
+  /** Frozen host identity and NAP-SHELL environment; never peer-provided. */
+  readonly registration: IpcShellEndpointRegistration;
+}
+
+/** A host-only endpoint registered through an IPC shell composition. */
+export interface IpcShellEndpoint {
+  /** Private host-held pathname for this endpoint. */
+  readonly path: string;
+  /** Immutable registration used to bind source identity and NAP-SHELL environment. */
+  readonly registration: IpcShellEndpointRegistration;
+  /**
+   * Retire this endpoint's current session before closing its carrier resources.
+   *
+   * @returns A promise that resolves after the matching endpoint has been released.
+   * @example
+   * ```ts
+   * await endpoint.close();
+   * ```
+   */
+  close(): Promise<void>;
+}
+
+/** A shared Runtime with one dedicated host-owned IPC endpoint per registration. */
+export interface IpcShellComposition {
+  /** Public runtime instance shared by every endpoint in this composition. */
+  readonly runtime: import('@kehto/runtime').Runtime;
+  /**
+   * Register one immutable host-bound endpoint on the shared runtime.
+   *
+   * @param registration - Host-owned identity and NAP-SHELL environment.
+   * @returns A host-only endpoint lifecycle handle.
+   * @example
+   * ```ts
+   * const endpoint = await composition.registerEndpoint(registration);
+   * ```
+   */
+  registerEndpoint(registration: IpcShellEndpointRegistration): Promise<IpcShellEndpoint>;
+  /**
+   * Close the endpoint currently held for one host window identifier.
+   *
+   * @param windowId - A host-held registration identifier.
+   * @returns A promise that resolves after matching lifecycle cleanup.
+   */
+  unregisterEndpoint(windowId: string): Promise<void>;
+  /**
+   * Close every current endpoint then destroy the shared runtime once.
+   *
+   * @returns A promise that resolves after all composition resources are released.
+   */
+  close(): Promise<void>;
 }
 
 /**
@@ -222,11 +274,7 @@ export interface IpcShellProjectionOptions extends IpcTransportOptions {
  * The IPC carrier topology is an explicit experimental spec gap checked against
  * `napplet/naps` `origin/master@c0f7dd14460622fc3a9870ea57a538474cf776fa`.
  */
-export interface IpcShellProjection {
-  /** Private host-held pathname for the one registered endpoint. */
-  readonly path: string;
-  /** Immutable registration used to bind source identity and NAP-SHELL environment. */
-  readonly registration: IpcShellEndpointRegistration;
+export interface IpcShellProjection extends IpcShellEndpoint {
   /** Public runtime instance composed by this projection. */
   readonly runtime: import('@kehto/runtime').Runtime;
   /**
