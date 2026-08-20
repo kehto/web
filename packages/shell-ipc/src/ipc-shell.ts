@@ -115,7 +115,7 @@ export async function createIpcTransport(options: IpcTransportOptions = {}): Pro
               if (!assertNoPeerBindingClaims(envelope)) {
                 throw new IpcTransportError('PEER_IDENTITY_CLAIM', 'IPC peer attempted to claim host-bound endpoint identity.');
               }
-              hooks.onEnvelope(envelope as unknown as NappletMessage, registration, peer);
+              hooks.onEnvelope(envelope as NappletMessage, registration, peer);
             },
           });
           socket.on('data', (chunk: Buffer) => {

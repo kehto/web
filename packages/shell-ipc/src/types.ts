@@ -41,7 +41,7 @@ export interface IpcShellCapabilities {
   readonly domains: readonly string[];
 }
 
-/** Host-owned registration used by the experimental IPC NAP-SHELL projection. */
+/** IPC shell endpoint registration. */
 export interface IpcShellEndpointRegistration extends Omit<IpcEndpointRegistration, 'environment'> {
   readonly environment: IpcShellEnvironment;
 }
