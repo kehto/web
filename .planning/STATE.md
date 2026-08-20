@@ -5,16 +5,16 @@ milestone_name: Experimental IPC Shell Projection
 current_phase: 109
 current_phase_name: Runnable Proof and Drafting Evidence
 status: executing
-stopped_at: Completed 109-02-PLAN.md
-last_updated: "2026-08-20T14:09:22.133Z"
+stopped_at: Completed 109-03-PLAN.md
+last_updated: "2026-08-20T14:12:30.632Z"
 last_activity: 2026-08-20
 last_activity_desc: Plan 109-01 completed raw IPC process proof
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 12
-  completed_plans: 11
-  percent: 67
+  completed_plans: 12
+  percent: 100
 ---
 
 # Project State
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 ## Current Position
 
 Phase: 109 — Runnable Proof and Drafting Evidence
-Plan: 2 of 3 complete
+Plan: 3 of 3 complete
 Status: Ready to execute
 Last activity: 2026-08-20 — Plan 109-01 completed raw IPC process proof
 
@@ -116,6 +116,7 @@ Last activity: 2026-08-20 — Plan 109-01 completed raw IPC process proof
 | Phase 108 P03 | 7m | 2 tasks | 4 files |
 | Phase 109 P1 | 5min | 2 tasks | 3 files |
 | Phase 109 P02 | 12m | 2 tasks | 4 files |
+| Phase 109 P03 | 3m | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -245,8 +246,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-08-20T14:09:22.122Z
-Stopped at: Completed 109-02-PLAN.md
+Last session: 2026-08-20T14:12:30.621Z
+Stopped at: Completed 109-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -375,3 +376,5 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: Phase 109 proof keeps the raw napplet Node-only and uses the public IPC shell export with redacted process milestones.
 - [Phase ?]: Pinned napplet/naps origin/master@c0f7dd14460622fc3a9870ea57a538474cf776fa is carrier-neutral authority that defines no IPC carrier.
 - [Phase ?]: Private path containment is documented as non-authentication; hostile same-UID resistance remains outside the IPC projection threat model.
+- [Phase ?]: The one pending @kehto/shell-ipc Changeset remains a 0.x minor and describes the complete experimental projection rather than only transport egress.
+- [Phase ?]: The POSIX process carrier receives the existing NIP-5D browser contract as a regression gate, not a new browser E2E surface.

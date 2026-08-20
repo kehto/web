@@ -47,7 +47,7 @@
 - [x] **SPEC-01**: `@kehto/shell-ipc` is a publishable ESM package whose public API, README, package documentation, and stability warning clearly identify the projection as Node/POSIX-only and experimental.
 - [x] **SPEC-02**: A web/IPC parity matrix records which NIP-5D and NAP-SHELL responsibilities are shared, carrier-specific, intentionally absent, or unresolved.
 - [x] **SPEC-03**: A drafting findings document records the exact `napplet/naps` ref checked plus framing, endpoint naming, identity binding, trust boundaries, lifecycle, errors, limits, security assumptions, and unresolved specification questions suitable for upstream discussion.
-- [ ] **SPEC-04**: The package ships with focused unit and process-integration coverage, a Changeset, synchronized package docs, and passing repository build, type-check, unit, relevant end-to-end, docs, and AI-slop gates.
+- [x] **SPEC-04**: The package ships with focused unit and process-integration coverage, a Changeset, synchronized package docs, and passing repository build, type-check, unit, relevant end-to-end, docs, and AI-slop gates.
 
 ## Future Requirements
 
@@ -89,7 +89,7 @@
 | SPEC-01 | Phase 109 | Complete |
 | SPEC-02 | Phase 109 | Complete |
 | SPEC-03 | Phase 109 | Complete |
-| SPEC-04 | Phase 109 | Pending |
+| SPEC-04 | Phase 109 | Complete |
 
 **Coverage:**
 
