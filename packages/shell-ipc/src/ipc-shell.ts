@@ -244,6 +244,7 @@ export async function createIpcShellProjection(
   const singleRegistration = 'registration' in options ? options.registration : undefined;
   if (singleRegistration) validateShellRegistration(singleRegistration);
   let endpointGeneration = 0;
+  let compositionClosing = false;
   let compositionClosePromise: Promise<void> | undefined;
   const records = new Map<string, ShellEndpointRecord>();
   const transport = await createIpcTransport({
@@ -281,6 +282,10 @@ export async function createIpcShellProjection(
   };
 
   const closeRecord = async (record: ShellEndpointRecord): Promise<void> => {
+    if (record.closePromise) {
+      await record.closePromise;
+      return;
+    }
     if (records.get(record.registration.windowId) !== record) return;
     record.closePromise ??= (async () => {
       // Delete the route first so runtime teardown cannot egress to a retiring peer. A new
@@ -294,6 +299,7 @@ export async function createIpcShellProjection(
   };
 
   const registerEndpoint = async (input: IpcShellEndpointRegistration): Promise<IpcShellEndpoint> => {
+    if (compositionClosing) throw new IpcTransportError('TRANSPORT_CLOSED', 'IPC shell composition is closing.');
     validateShellRegistration(input);
     if (endpointGeneration >= Number.MAX_SAFE_INTEGER) throw new RangeError('IPC shell endpoint generation exceeds the safe integer range.');
     let record: ShellEndpointRecord | undefined;
@@ -354,6 +360,7 @@ export async function createIpcShellProjection(
       if (record) await closeRecord(record);
     },
     async close() {
+      compositionClosing = true;
       compositionClosePromise ??= (async () => {
         await Promise.all([...records.values()].map((record) => closeRecord(record)));
         await transport.close();

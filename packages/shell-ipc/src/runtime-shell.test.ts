@@ -84,6 +84,30 @@ const registration: IpcShellEndpointRegistration = {
 };
 
 describe('createIpcShellProjection', () => {
+  it('does not let an old endpoint handle close its same-window replacement', async () => {
+    const baseDirectory = await mkdtemp('/tmp/k-ipc-runtime-shell-stale-endpoint-');
+    const composition = await createIpcShellProjection({ baseDirectory, runtimeAdapter: createAdapter([], []) });
+    const hostRegistration: IpcShellEndpointRegistration = {
+      windowId: 'ipc-stale-endpoint',
+      dTag: 'ipc-stale-endpoint',
+      aggregateHash: 'stale-endpoint',
+      environment: { capabilities: { domains: ['inc'] }, services: [] },
+    };
+
+    try {
+      const oldEndpoint = await composition.registerEndpoint(hostRegistration);
+      await oldEndpoint.close();
+      const replacement = await composition.registerEndpoint(hostRegistration);
+      await oldEndpoint.close();
+      await expect(access(replacement.path)).resolves.toBeUndefined();
+      await composition.unregisterEndpoint(hostRegistration.windowId);
+      await expect(access(replacement.path)).rejects.toThrow();
+    } finally {
+      await composition.close();
+      await rm(baseDirectory, { recursive: true, force: true });
+    }
+  });
+
   it('composes dedicated endpoints through one runtime and retires only the closed endpoint', async () => {
     const baseDirectory = await mkdtemp('/tmp/k-ipc-runtime-shell-composition-');
     const composition = await createIpcShellProjection({
