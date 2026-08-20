@@ -67,15 +67,15 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Status:** Phases 107 and 108 are complete. `@kehto/shell-ipc` now provides a
-private, bounded POSIX transport plus a shared-runtime host composition with
-exact NAP-SHELL readiness, host-bound frozen identity, targeted egress, and
-generation-safe endpoint lifecycle cleanup. Phase 109 will add the standalone
-host/napplet process proof, public package documentation, release metadata, and
-specification-drafting findings. The preceding v1.29 protocol/runtime
-conformance package line remains published and downstream-verified. The Phase
-105 visual audit remains explicit non-passing debt and is unrelated to this IPC
-experiment.
+**Status:** All v1.30 phases are complete and awaiting milestone audit. The new
+`@kehto/shell-ipc` package includes the bounded POSIX transport, shared-runtime
+host composition, hardened standalone host/raw-process proof, synchronized
+public documentation, parity/drafting evidence, and release Changeset. The
+pinned `napplet/naps` ref defines no IPC carrier, so every Unix-specific choice
+remains explicitly experimental and non-normative. The preceding v1.29
+protocol/runtime conformance package line remains published and
+downstream-verified. The Phase 105 visual audit remains explicit non-passing
+debt and is unrelated to this IPC experiment.
 
 ## Previous Milestone: v1.20 NIP-5D Content-Addressed Runtime Resolution
 
@@ -300,6 +300,8 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 | 46 | IPC endpoint identity is host-bound before listen and never accepted from peer envelopes | The transport validates, clones, and recursively freezes JSON-compatible registration metadata before filesystem/listener allocation; peer binding claims terminate ingress before dispatch. | 2026-08-18 |
 | 47 | One IPC host composition may register multiple independently bound endpoints over one public Runtime | Shared runtime state is required for canonical cross-napplet lifecycle behavior such as NAP-INC survivor notification; each endpoint still owns a frozen registration, one active peer, private generations, readiness, and a targeted egress route. | 2026-08-20 |
 | 48 | IPC lifecycle completion is represented by one record-owned promise | Endpoint close, explicit unregister, and host shutdown join the same ordered retire → `destroyWindow` → session unregister → carrier-cleanup operation, so awaited unregister permits immediate safe same-window registration. | 2026-08-20 |
+| 49 | Runnable IPC proof milestones are host-authored, not trusted from child stdout | The reference child may report bounded observations, but same-ID service results, eligibility-checked pushes, route cleanup, and success milestones are established independently by the host/runtime so the child cannot forge proof. | 2026-08-20 |
+| 50 | Same-UID pathname access is an accepted experimental boundary, not local-peer authentication | Private directories, permissions, frozen identity, and redacted diagnostics provide containment only. Hostile same-UID resistance remains an unresolved upstream IPC-contract question. | 2026-08-20 |
 | 47 | Private Unix-socket paths are routing handles, not authentication | Mode-0700 directories and path secrecy reduce accidental exposure but provide no cryptographic identity or hostile-same-UID protection; that boundary is explicit in source and public docs. | 2026-08-18 |
 
 ## Evolution
@@ -320,4 +322,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-20 after completing Phase 108 Runtime Shell Composition.*
+*Last updated: 2026-08-20 after completing Phase 109 Runnable Proof and Drafting Evidence.*
