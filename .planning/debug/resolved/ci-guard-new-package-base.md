@@ -1,5 +1,5 @@
 ---
-status: awaiting_human_verify
+status: resolved
 trigger: "PR #236 Detect CI Scope fails when a newly added package is absent from the base commit"
 created: 2026-08-20
 updated: 2026-08-20
@@ -18,9 +18,9 @@ updated: 2026-08-20
 ## Current Focus
 
 - hypothesis: "The guard enumerates package manifests from the head tree but unconditionally git-shows the same path from the base tree, conflating a missing new-package base manifest with an unreadable existing manifest."
-- test: "Await a PR #236 CI rerun after the fix is committed and pushed."
+- test: "Confirm the pushed PR #236 CI rerun executes the dependency-direction step without requiring a base manifest for packages/shell-ipc/package.json."
 - expecting: "The Detect CI Scope job passes the dependency-direction step for packages/shell-ipc/package.json."
-- next_action: "Commit and push the scoped guard/test change, then confirm GitHub Actions run Detect CI Scope succeeds before marking this session resolved."
+- next_action: "Resolved and archived after PR #236 CI proof."
 - reasoning_checkpoint:
     hypothesis: "The guard fails for new packages because main calls manifestAt(base, path) for every changed head manifest; a package absent from the base tree has no prior declaration to compare."
     confirming_evidence:
@@ -77,6 +77,11 @@ updated: 2026-08-20
   finding: "Target and adjacent tests passed (11 tests in dependency-direction and CI-release suites); no Stryker configuration exists; the diff adds a base-tree probe and regression cases without deleting behavior; temporarily reverting only the script made the new-package regression fail, and reapplying restored passing tests plus the recorded PR base/head command."
   implication: "All applicable acceptance signals pass, with mutation testing explicitly skipped because this repository has no configured mutation runner."
 
+- timestamp: "2026-08-20T15:28:52Z"
+  source: "PR #236 CI run 32386365901, Detect CI Scope job 96481734490"
+  finding: "The pushed fix commit d8dc3fd643e942693b50efd8e5ce3d9a776521f7 completed Detect CI Scope successfully."
+  implication: "The CI workflow accepts the newly added packages/shell-ipc manifest and the original PR failure is resolved in its production execution path."
+
 ## Eliminated
 
 - hypothesis: "The shell-ipc manifest contains a dependency decrease."
@@ -109,6 +114,9 @@ updated: 2026-08-20
     fixed_on_reapply: true
     detail: "Reverting only the script made the head-only-package test fail; reapplying made both focused suites and the exact PR base/head command pass."
   guardrail_verdict: accepted
+  production_ci:
+    result: pass
+    detail: "PR #236 CI run 32386365901 completed Detect CI Scope successfully for commit d8dc3fd643e942693b50efd8e5ce3d9a776521f7."
 - files_changed:
   - "scripts/check-napplet-dependency-direction.mjs"
   - "tests/unit/napplet-dependency-direction-guard.test.ts"
