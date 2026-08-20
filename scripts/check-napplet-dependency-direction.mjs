@@ -39,6 +39,10 @@ function manifestAt(revision, path) {
   }
 }
 
+function manifestExistsAt(revision, path) {
+  return runGit(['ls-tree', '--name-only', revision, '--', path]).trim() === path;
+}
+
 function parseVersion(specifier) {
   if (typeof specifier !== 'string') return null;
   const match = specifier.match(/(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?/);
@@ -104,7 +108,9 @@ function main() {
   const violations = [];
   try {
     for (const path of changedManifestPaths(base, head)) {
-      violations.push(...validateManifest(path, manifestAt(base, path), manifestAt(head, path)));
+      const headManifest = manifestAt(head, path);
+      if (!manifestExistsAt(base, path)) continue;
+      violations.push(...validateManifest(path, manifestAt(base, path), headManifest));
     }
   } catch (error) {
     console.error(`Napplet dependency direction check failed closed: ${error instanceof Error ? error.message : String(error)}`);
