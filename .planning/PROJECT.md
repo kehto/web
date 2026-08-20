@@ -67,12 +67,15 @@ This repo was extracted from the [@napplet monorepo](https://github.com/sandwich
 
 ## Current State
 
-**Status:** Phase 107 complete. `@kehto/shell-ipc` now provides the private,
-bounded, race-safe POSIX transport foundation; Phase 108 will compose that
-carrier with the existing runtime shell semantics. The preceding v1.29
-protocol/runtime conformance package line remains published and
-downstream-verified. The Phase 105 visual audit remains explicit non-passing
-debt and is unrelated to this IPC experiment.
+**Status:** Phases 107 and 108 are complete. `@kehto/shell-ipc` now provides a
+private, bounded POSIX transport plus a shared-runtime host composition with
+exact NAP-SHELL readiness, host-bound frozen identity, targeted egress, and
+generation-safe endpoint lifecycle cleanup. Phase 109 will add the standalone
+host/napplet process proof, public package documentation, release metadata, and
+specification-drafting findings. The preceding v1.29 protocol/runtime
+conformance package line remains published and downstream-verified. The Phase
+105 visual audit remains explicit non-passing debt and is unrelated to this IPC
+experiment.
 
 ## Previous Milestone: v1.20 NIP-5D Content-Addressed Runtime Resolution
 
@@ -295,6 +298,8 @@ v1.6 unblocked hyprgate v2.0 by closing 6 of 8 Kehto Migration gap-analysis issu
 | 44 | Phase 106 publication must remain compatible with the current Napplet `latest` line | PR #211 had no package changeset and the former Kehto release accepted only Napplet 0.29. Corrective PR #220 added explicit eight-package release intent and canonical 0.31 adoption; Version Packages PR #221 plus Release #30389303760 published and downstream-verified the current line. | 2026-07-28 |
 | 45 | `@kehto/shell-ipc` is an experimental POSIX carrier, not a normative NAP projection | `napplet/naps` `origin/master@c0f7dd14460622fc3a9870ea57a538474cf776fa` defines no IPC carrier. RFC 7464 framing, Unix-socket lifecycle, limits, and trust choices are bounded implementation evidence for later drafting. | 2026-08-18 |
 | 46 | IPC endpoint identity is host-bound before listen and never accepted from peer envelopes | The transport validates, clones, and recursively freezes JSON-compatible registration metadata before filesystem/listener allocation; peer binding claims terminate ingress before dispatch. | 2026-08-18 |
+| 47 | One IPC host composition may register multiple independently bound endpoints over one public Runtime | Shared runtime state is required for canonical cross-napplet lifecycle behavior such as NAP-INC survivor notification; each endpoint still owns a frozen registration, one active peer, private generations, readiness, and a targeted egress route. | 2026-08-20 |
+| 48 | IPC lifecycle completion is represented by one record-owned promise | Endpoint close, explicit unregister, and host shutdown join the same ordered retire → `destroyWindow` → session unregister → carrier-cleanup operation, so awaited unregister permits immediate safe same-window registration. | 2026-08-20 |
 | 47 | Private Unix-socket paths are routing handles, not authentication | Mode-0700 directories and path secrecy reduce accidental exposure but provide no cryptographic identity or hostile-same-UID protection; that boundary is explicit in source and public docs. | 2026-08-18 |
 
 ## Evolution
@@ -315,4 +320,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-18 after completing Phase 107 IPC Transport Foundation.*
+*Last updated: 2026-08-20 after completing Phase 108 Runtime Shell Composition.*

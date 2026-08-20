@@ -59,7 +59,7 @@ findings rather than normative protocol behavior.
 ## Phases
 
 - [x] **Phase 107: IPC Transport Foundation** - establish the package boundary, bounded RFC 7464 stream codec, private socket lifecycle, host registration, and backpressure-safe egress. (completed 2026-08-18)
-- [ ] **Phase 108: Runtime Shell Composition** - bind authenticated connections to NAP-SHELL session and runtime lifecycle semantics without changing the browser shell.
+- [x] **Phase 108: Runtime Shell Composition** - bind authenticated connections to NAP-SHELL session and runtime lifecycle semantics without changing the browser shell. (completed 2026-08-20)
 - [ ] **Phase 109: Runnable Proof and Drafting Evidence** - prove raw-process bidirectional behavior, publishable package quality, and specification-ready findings.
 
 ## Phase Details
@@ -100,7 +100,7 @@ findings rather than normative protocol behavior.
 4. Capability traffic before readiness is rejected or ignored consistently, while post-ready traffic remains subject to existing ACL and capability eligibility.
 5. Graceful close, abrupt disconnect, unregister, and host shutdown clean up only the matching session, connection, listener, path, and owned directory.
 
-**Plans:** 3/3 plans executed
+**Plans:** 3/3 plans complete
 
 - [x] 108-03-PLAN.md
 
@@ -129,7 +129,7 @@ findings rather than normative protocol behavior.
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 107. IPC Transport Foundation | 6/6 | Complete    | 2026-08-18 |
-| 108. Runtime Shell Composition | 3/3 | In Progress|  |
+| 108. Runtime Shell Composition | 3/3 | Complete    | 2026-08-20 |
 | 109. Runnable Proof and Drafting Evidence | 0/TBD | Not started | — |
 
 ---
