@@ -2,22 +2,22 @@
 
 Use these pages when you need to choose or integrate one part of Kehto. Each page is grounded in the package manifest and source barrel for the current repository state.
 
-> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
-> protocol. NAP contracts and package APIs are not final; use these package
-> pages as current implementation guidance, not as a stability guarantee.
+> **Alpha status:** Kehto is an early toolkit for a draft NIP-5D protocol. NAP
+> contracts and package APIs are not final; use these package pages as current
+> implementation guidance, not as a stability guarantee.
 
 | Package | Page | Role |
 |---------|------|------|
 | `@kehto/acl` | [ACL](./acl.md) | Pure capability state and enforcement primitives. |
 | `@kehto/cli` | [CLI](./cli.md) | Top-level `kehto` command namespace, including `kehto paja`. |
-| `@kehto/paja` | [Paja](./paja.md) | Single-window local authoring workshop for loading a target app URL in a Kehto iframe. |
+| `@kehto/paja` | [Paja](./paja.md) | Reference developer runtime and local authoring workshop. |
 | `@kehto/firewall` | [Firewall](./firewall.md) | Pure behavioral abuse-detection engine (temporal complement to ACL). |
 | `@kehto/runtime` | [Runtime](./runtime.md) | Browser-agnostic NIP-5D protocol engine. |
 | `@kehto/shell` | [Shell](./shell.md) | Browser shell adapter over the runtime. |
 | `@kehto/services` | [Services](./services.md) | Reference service handlers for runtime domains. |
 | `@kehto/nip` | [NIP utilities](./nip.md) | Unique Nostr NIP utilities, including NIP-5A/5D napplet artifact verification and Cache Storage reuse. |
 | `@kehto/wm` | [Window Management](./wm.md) | Structural window-management contracts. |
-| `@kehto/playground` | [Playground](./playground.md) | 9-napplet demo and verification target. |
+| `@kehto/playground` | [Playground](./playground.md) | 9-napplet protocol visualization and verification target. |
 
 ## Reading Order
 

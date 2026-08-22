@@ -2,7 +2,7 @@
 
 Single-window Paja local authoring workshop for napplet development.
 
-> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. The Paja API is new in v1.22 planning work
 > and is not yet a stability guarantee for final NAP contracts.
 
@@ -363,13 +363,23 @@ memory relay mode also disables `count` advertisement.
 
 Paja implements the draft
 [NAP-RESOURCE at `fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md)
-with real `data:` and content-addressed `blossom:` backends. `resource.info`
-always reports `data:` and reports `blossom` only while at least one usable
-host-owned server is configured. Both expose the enforced 10 MiB response and
-100-URL bulk caps. The host ignores declared or upstream media types,
-classifies a narrow safe image/audio/video/font/text set, and rejects raw SVG,
-HTML, invalid UTF-8, and unrecognized binary data. Requests are identity- and
-window-scoped; cancellation drops late terminal envelopes.
+with real `data:`, `http:`, `https:`, and content-addressed `blossom:` backends.
+`resource.info` always reports `data`, `https`, and `http`; it additionally
+reports `blossom` only while at least one usable host-owned server is
+configured. This disclosure is advisory, not an authorization grant. All paths
+expose the enforced 10 MiB response and 100-URL bulk caps. The host ignores
+declared or upstream media types, classifies a narrow safe
+image/audio/video/font/text set, and rejects raw SVG, HTML, invalid UTF-8, and
+unrecognized binary data. Cancellation remains window-scoped and drops late
+terminal envelopes.
+
+Paja deliberately accepts arbitrary HTTP(S) origins because it is a developer
+runtime. It uses browser `fetch` with credentials omitted and no referrer. The
+browser still decides which response bytes JavaScript may read: a network or
+CORS rejection becomes `network-error`, while a CORS-readable response is
+returned normally. Plain HTTP may also be rejected by the browser's mixed-content
+rules when Paja itself is served securely. This resource choice is independent
+of Paja's signer confirmation boundary.
 
 The only accepted Blossom form is `blossom:sha256:<64 hex characters>`. Paja
 uses runtime-pointer server hints plus explicit or already-warmed upload server
@@ -379,11 +389,10 @@ napplet cannot select an upstream origin, redirects are refused, and Paja
 verifies the returned bytes against the requested SHA-256 before delivery. A
 hash mismatch is `decode-failed`; missing blobs are `not-found`.
 
-Direct HTTPS, HTTP, Hashtree, and Nostr resource schemes remain unadvertised
-and fail with `unsupported-scheme`. HTTP(S) is an internal transport detail for
-the host-selected `blossom:` backend, not permission for arbitrary network
-URLs. The previous wildcard origin grant and fixed development identity remain
-removed.
+Hashtree, Nostr, and other unimplemented schemes remain unadvertised and fail
+with `unsupported-scheme`. HTTP(S) dispatch and Blossom dispatch are separate:
+an ordinary web URL is fetched directly, while `blossom:` can only resolve an
+exact digest through Paja's configured server list.
 
 ## Environment Simulation
 

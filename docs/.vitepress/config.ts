@@ -100,7 +100,7 @@ export default defineConfig({
         items: [
           { text: 'Policy Index', link: '/policies/' },
           { text: 'NIP-5D Conformance', link: '/policies/NIP-5D-CONFORMANCE' },
-          { text: 'Shell Resource Policy', link: '/policies/SHELL-RESOURCE-POLICY' },
+          { text: 'Runtime Resource Boundary', link: '/policies/SHELL-RESOURCE-POLICY' },
         ],
       },
       {

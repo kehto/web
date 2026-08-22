@@ -270,17 +270,21 @@ pubkey without `signEvent` is read-only. This implements the draft
 
 ## NAP-RESOURCE schemes
 
-Paja supports locally decoded `data:` URLs and canonical
-`blossom:sha256:<hex>` resources. Blossom hashes are resolved only through
-host-owned runtime-pointer or upload server settings; there is no public
-default. Servers use HTTPS, with plain HTTP allowed only for loopback
-development. Paja refuses redirects, caps responses at 10 MiB, verifies the
-requested SHA-256, and derives MIME from the returned bytes before delivery.
+Paja's developer-runtime policy accepts arbitrary `http:` and `https:` resource
+URLs so a normal remote image does not look broken merely because its origin was
+not pre-granted. Paja resolves those URLs with browser `fetch`, omits credentials
+and referrer data, caps responses at 10 MiB, and classifies MIME from returned
+bytes. Browser network and CORS rules still apply: an unreadable response is the
+canonical `network-error`, while any CORS-readable response is returned as NAP
+bytes.
 
-Direct `http:` and `https:` resource URLs remain disabled. They are distinct
-from the HTTP(S) transport selected internally for a `blossom:` identifier and
-still require a general DNS/private-address-safe fetch proxy. This behavior
-targets draft
+`data:` remains locally decoded. `blossom:` is a separate, content-addressed
+boundary and is advertised only when at least one usable host-owned
+runtime-pointer or upload server is configured. The only accepted identifier is
+`blossom:sha256:<hex>`; Paja refuses redirects, verifies the requested SHA-256,
+and permits plain-HTTP Blossom transport only for configured loopback
+development servers. Resource-origin permissiveness does not alter Paja's
+independent signer confirmations. This behavior targets draft
 [NAP-RESOURCE at `fa6bcc6`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md).
 
 Full package docs: [`docs/packages/paja.md`](../../docs/packages/paja.md).

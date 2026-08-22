@@ -2,7 +2,7 @@
 
 Browser adapter over @kehto/runtime — ShellBridge and domain proxies.
 
-> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. NAP contracts and injected-domain behavior are still draft; treat
 > this package as current implementation guidance.
 

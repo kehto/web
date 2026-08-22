@@ -2,7 +2,7 @@
 
 Pure, WASM-ready behavioral firewall engine for the napplet protocol — zero dependencies, zero side effects.
 
-> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. The firewall engine API is not yet final; treat this package
 > as current implementation guidance, not as a stable protocol guarantee.
 

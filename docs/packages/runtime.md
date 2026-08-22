@@ -2,7 +2,7 @@
 
 Browser-agnostic protocol engine for NIP-5D napplet hosting.
 
-> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. Runtime APIs and NAP dispatch contracts are not final.
 
 ## Install

@@ -1,6 +1,11 @@
 # @kehto/demo
 
-Reference consumer of the current napplet protocol draft — a 9-napplet browser demo that hosts `@kehto/runtime` + `@kehto/shell` and exercises Kehto's supported NIP-5D NAP surfaces end-to-end. Acts as both the Playwright test harness target (`:4174` preview build) and the showcase for external integrators evaluating Kehto as an early runtime implementation.
+Visualization of the current napplet protocol draft — a 9-napplet browser demo
+that hosts `@kehto/runtime` + `@kehto/shell` and exercises Kehto's supported
+NIP-5D NAP surfaces end-to-end. It is both the Playwright test harness target
+(`:4174` preview build) and an integration showcase. It is not the reference
+runtime and does not define Kehto-wide runtime policy; Paja is the reference
+developer runtime.
 
 > **Alpha status:** NIP-5D is still under development, and NAP contracts are not
 > final. The playground demonstrates Kehto's current behavior; it is not proof
@@ -52,7 +57,7 @@ back-compat window, so legacy `inc.*` envelopes still reach the same handler
 | feed | identity, relay, resource, intent, theme | `identity.getPublicKey`, `relay.subscribe`, `resource.bytes`, structured `intent.invoke` (`profile` / `open` / `napplet:profile/open`) | [apps/playground/napplets/feed/src/](./napplets/feed/src/) |
 | preferences | storage, theme | `storage.set`, `storage.get`, `theme.changed` allowlisted listener | [apps/playground/napplets/preferences/src/](./napplets/preferences/src/) |
 | profile-viewer | inc, relay, resource, theme | `inc.on` (`napplet:profile/open`), `relay.subscribe`, `resource.bytes` | [apps/playground/napplets/profile-viewer/src/](./napplets/profile-viewer/src/) |
-| resource-demo | resource, connect | `resource.bytesMany`, connect grant/CSP fixture | [apps/playground/napplets/resource-demo/src/](./napplets/resource-demo/src/) |
+| resource-demo | resource, theme | `resource.bytesMany`, host grant/CSP visualization | [apps/playground/napplets/resource-demo/src/](./napplets/resource-demo/src/) |
 | toaster | notify | `notify.create`, `notify.list`, `notify.dismiss` | [apps/playground/napplets/toaster/src/](./napplets/toaster/src/) |
 
 Retained but disabled source folders:
@@ -122,12 +127,11 @@ never used; controller retry and terminal policy remain host-owned.
 Profile-viewer registers `inc.on('napplet:profile/open', …)` early. It validates
 the delivered `pubkey`,
 loads kind-0 metadata, and obtains profile pictures/banners through
-`resourceBytes(url)`. It creates Blob URLs only from those bytes and revokes
-them on replacement, stale completion, image error, profile clear, and
-`pagehide`; it never writes a remote profile URL directly to an image. There is
-currently no standalone `NAP-RESOURCE.md` at the pinned NAP authority, so this
-documents the explicit NAP-IDENTITY `resource.bytes` delegation and Kehto's
-existing resource policy without inventing additional resource wire behavior.
+`resourceBytes(url)`. The runtime resolves the URL and returns bytes; the napplet
+creates a Blob URL from those bytes and revokes it on replacement, stale
+completion, image error, profile clear, and `pagehide`. This follows merged
+NAP-IDENTITY at `a040914b4bbd3a5cd8a14b0f316a723c968ebfb2` and draft
+NAP-RESOURCE at `fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1`.
 
 Theme is synchronized by reading the current value with `theme.get` and then
 receiving one automatic `theme.changed` per eligible frame after a host update;
