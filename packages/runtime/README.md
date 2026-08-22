@@ -100,6 +100,15 @@ includes `handled`, `handler`, `windowId`, and `convention`. The target receives
 one runtime-attested `inc.event` carrying that queryless convention and opaque
 payload; `intent.deliver` is not part of the merged contract.
 
+## NAP-OUTBOX denial boundary
+
+Kehto follows draft [NAP-OUTBOX PR #32 at
+`4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e`](https://github.com/napplet/naps/pull/32).
+ACL and firewall policy may reject an outbox query, but the rejection stays on
+the protocol-defined correlated result wire: `outbox.query.result` with
+`events: []` and `error`. The runtime does not synthesize an
+`outbox.query.error` message.
+
 The canonical public `Intent*` contracts are the released `@napplet/core` /
 `@napplet/nap` declarations; Kehto retains no local type mirror.
 

@@ -39,7 +39,6 @@ export interface PajaRuntimeTab {
 }
 
 export interface PajaRuntimeTabState extends PajaDevtoolsState {
-  resolvedTarget: PajaResolvedPointer | null;
   pointerValue: string;
   pointerStatus: string;
   tabs: PajaRuntimeTab[];

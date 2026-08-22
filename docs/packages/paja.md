@@ -152,8 +152,10 @@ The console includes:
   a domain updates the live capability override and reloads the target so the
   next `shell.init` reflects the changed support surface.
 - **ACL** — every runtime capability can be granted or revoked for the target
-  napplet identity. The controls write through `bridge.runtime.aclState`, so the
-  next matching request is allowed or denied by the real runtime gate.
+  napplet identity. In runtime-pointer mode, both the displayed state and the
+  mutation use the active tab's resolver-verified d-tag and aggregate hash. The
+  controls write through `bridge.runtime.aclState`, rerender immediately, and
+  the next matching request is allowed or denied by the real runtime gate.
 - **Signer** — Paja auto-connects a browser NIP-07 signer when `window.nostr`
   is available, can connect to a bunker/NIP-46 URI, and only uses the generated
   development signer when the Dev signer button is selected. Sign, publish,
