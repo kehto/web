@@ -24,13 +24,13 @@ export interface PajaResourceFetchOptions {
 }
 
 /**
- * Create Paja's policy-bound NAP-RESOURCE fetch boundary.
+ * Create Paja's developer-oriented NAP-RESOURCE fetch boundary.
  *
  * `data:` bytes are decoded locally. Canonical `blossom:sha256:<hex>` URLs are
  * resolved only through host-configured Blossom servers, with redirects
- * disabled and SHA-256 verified before delivery. Arbitrary network URLs remain
- * disabled. All bytes are capped and classified locally; upstream media types
- * are ignored.
+ * disabled and SHA-256 verified before delivery. Direct HTTP(S) URLs are
+ * resolved from any origin through the browser, subject to its CORS rules. All
+ * bytes are capped and classified locally; upstream media types are ignored.
  *
  * @param options - Host-owned Blossom server and transport hooks.
  * @returns A sanitized resource fetch implementation.
@@ -46,6 +46,9 @@ export function createPajaResourceFetch(
     }
     if (url.protocol === 'blossom:') {
       return fetchBlossomResource(value, init.signal, options);
+    }
+    if (url.protocol === 'http:' || url.protocol === 'https:') {
+      return fetchNetworkResource(value, init.signal, options.fetch ?? globalThis.fetch);
     }
     if (url.protocol !== 'data:') {
       throw new ResourceServiceError('unsupported-scheme', `Paja does not enable ${url.protocol}`);
@@ -74,7 +77,11 @@ export function createPajaResourceFetch(
  * @returns Current resource schemes and enforced limits.
  */
 export function pajaResourceInfo(blossomServers: readonly string[] = []): ResourceInfo {
-  const schemes = [{ scheme: 'data', enabled: true }];
+  const schemes = [
+    { scheme: 'data', enabled: true },
+    { scheme: 'https', enabled: true },
+    { scheme: 'http', enabled: true },
+  ];
   if (usableBlossomServers(blossomServers).length > 0) {
     schemes.push({ scheme: 'blossom', enabled: true });
   }
@@ -83,6 +90,41 @@ export function pajaResourceInfo(blossomServers: readonly string[] = []): Resour
     maxBytes: PAJA_RESOURCE_MAX_BYTES,
     maxUrls: PAJA_RESOURCE_MAX_URLS,
   };
+}
+
+async function fetchNetworkResource(
+  value: string,
+  signal: AbortSignal,
+  fetcher: typeof fetch,
+): Promise<Response> {
+  let response: Response;
+  try {
+    response = await fetcher(value, {
+      method: 'GET',
+      signal,
+      credentials: 'omit',
+      referrerPolicy: 'no-referrer',
+    });
+  } catch (error: unknown) {
+    if (signal.aborted || isAbortError(error)) throw error;
+    throw new ResourceServiceError(
+      'network-error',
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+  if (response.status === 404 || response.status === 410) {
+    throw new ResourceServiceError('not-found', 'HTTP resource was not found');
+  }
+  if (!response.ok) {
+    throw new ResourceServiceError('network-error', `HTTP resource returned ${response.status}`);
+  }
+
+  const bytes = await readCappedResponse(response, signal);
+  const mime = sniffSafeResourceMime(bytes);
+  if (!mime) {
+    throw new ResourceServiceError('decode-failed', 'resource bytes are not an enabled safe media type');
+  }
+  return new Response(arrayBufferFor(bytes), { headers: { 'content-type': mime } });
 }
 
 async function fetchBlossomResource(

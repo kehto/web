@@ -6,6 +6,14 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 
 const nappletFixturesDir = path.resolve(__dirname, '../../fixtures/napplets');
 
+const RESOURCE_CORS_REDIRECT_PATH = '/resource-cors/redirect.png';
+const RESOURCE_CORS_FINAL_PATH = '/resource-cors/final.png';
+const RESOURCE_CORS_FINAL_URL = `http://localhost:4173${RESOURCE_CORS_FINAL_PATH}`;
+const RESOURCE_CORS_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'base64',
+);
+
 const mimeTypes: Record<string, string> = {
   '.html': 'text/html',
   '.js': 'application/javascript',
@@ -67,9 +75,48 @@ function serveNapplets(): Plugin {
   };
 }
 
+function serveResourceCorsFixture(
+  req: IncomingMessage,
+  res: ServerResponse,
+  next: () => void,
+): void {
+  const urlPath = req.url?.split('?')[0];
+  if (urlPath === RESOURCE_CORS_REDIRECT_PATH) {
+    res.statusCode = 302;
+    res.setHeader('Location', RESOURCE_CORS_FINAL_URL);
+    res.removeHeader('Access-Control-Allow-Origin');
+    res.end();
+    return;
+  }
+  if (urlPath === RESOURCE_CORS_FINAL_PATH) {
+    res.statusCode = 200;
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Length', RESOURCE_CORS_PNG.byteLength);
+    res.end(RESOURCE_CORS_PNG);
+    return;
+  }
+  next();
+}
+
+/**
+ * Reproduce a displayable cross-origin image whose redirect is not CORS-readable.
+ */
+function resourceCorsFixture(): Plugin {
+  return {
+    name: 'resource-cors-fixture',
+    configureServer(server) {
+      server.middlewares.use(serveResourceCorsFixture);
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(serveResourceCorsFixture);
+    },
+  };
+}
+
 export default defineConfig({
   root: __dirname,
-  plugins: [serveNapplets()],
+  plugins: [resourceCorsFixture(), serveNapplets()],
   resolve: {
     alias: {
       '@test/helpers': path.resolve(__dirname, '../../helpers'),
