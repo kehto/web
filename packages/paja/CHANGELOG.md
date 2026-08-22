@@ -1,5 +1,26 @@
 # @kehto/paja
 
+## 0.15.0
+
+### Minor Changes
+
+- c8264c6: Forward optional signer caller context through the policy-neutral runtime and
+  shell hooks. Add Paja's signer-, napplet-, and target-scoped remembered signing
+  choices: one event, one event kind, or warned napplet trust, with explicit
+  revocation. Relay publication and host-internal signing confirmations remain
+  independent.
+
+### Patch Changes
+
+- b2449e4: Keep NAP resource resolution runtime-owned: the service kernel delegates valid
+  URLs by default while retaining optional origin-grant hooks, and Paja permits
+  browser-readable HTTP(S) resources alongside data and configured Blossom URLs.
+- Updated dependencies [c8264c6]
+- Updated dependencies [b2449e4]
+  - @kehto/runtime@0.22.1
+  - @kehto/shell@0.20.1
+  - @kehto/services@0.20.1
+
 ## 0.14.0
 
 ### Minor Changes

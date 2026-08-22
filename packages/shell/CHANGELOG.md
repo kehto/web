@@ -1,5 +1,17 @@
 # @kehto/shell
 
+## 0.20.1
+
+### Patch Changes
+
+- c8264c6: Forward optional signer caller context through the policy-neutral runtime and
+  shell hooks. Add Paja's signer-, napplet-, and target-scoped remembered signing
+  choices: one event, one event kind, or warned napplet trust, with explicit
+  revocation. Relay publication and host-internal signing confirmations remain
+  independent.
+- Updated dependencies [c8264c6]
+  - @kehto/runtime@0.22.1
+
 ## 0.20.0
 
 ### Minor Changes

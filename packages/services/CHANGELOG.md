@@ -1,5 +1,15 @@
 # @kehto/services
 
+## 0.20.1
+
+### Patch Changes
+
+- b2449e4: Keep NAP resource resolution runtime-owned: the service kernel delegates valid
+  URLs by default while retaining optional origin-grant hooks, and Paja permits
+  browser-readable HTTP(S) resources alongside data and configured Blossom URLs.
+- Updated dependencies [c8264c6]
+  - @kehto/runtime@0.22.1
+
 ## 0.20.0
 
 ### Minor Changes
