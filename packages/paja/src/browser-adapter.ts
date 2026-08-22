@@ -83,12 +83,17 @@ import {
   type PajaRelayBackend,
 } from './browser-relay-runtime.js';
 import { createPajaWorkerRelay } from './browser-worker-relay.js';
+import type {
+  PajaSignerRequestContext,
+  PajaSignerSource,
+} from './browser-signer-consent.js';
 
 /** Confirmation request emitted before Paja signs, publishes, or uploads. */
 export type PajaConfirmationRequest =
   | {
       readonly action: 'sign' | 'publish';
       readonly event: NostrEvent | Partial<NostrEvent>;
+      readonly signerContext?: PajaSignerRequestContext;
     }
   | {
       readonly action: 'upload';
@@ -147,7 +152,7 @@ export type PajaConfirmationHandler = (
 /** Paja runtime signer provider. */
 export interface PajaSignerProvider {
   /** Active signer, if connected. */
-  getSigner(): Signer | null;
+  getSigner(source?: PajaSignerSource): Signer | null;
   /** Selected signer backend. */
   getMethod(): PajaSignerMethod;
   /** Active signer pubkey, if connected. */
@@ -265,10 +270,13 @@ function createRuntimeSigner(
   getSimulation: () => PajaSimulation,
   confirmRequest: PajaConfirmationHandler,
   signerProvider?: PajaSignerProvider,
+  source?: PajaSignerSource,
 ): Signer | null {
-  const signer = signerProvider?.getSigner();
+  const signer = signerProvider?.getSigner(source);
   if (!signer) {
-    if (signerProvider?.getMethod() === 'dev') return createPajaDevSigner(getSimulation, confirmRequest);
+    if (signerProvider?.getMethod() === 'dev') {
+      return createPajaDevSigner(getSimulation, confirmRequest, source);
+    }
     const fixedPubkey = getSimulation().identity.pubkey;
     if (fixedPubkey) {
       return {
@@ -559,6 +567,20 @@ export function createPajaAdapter(
   notifyOptions?: NotifyServiceOptions,
   configOptions?: ConfigServiceOptions,
 ): ShellAdapter & { readonly ready: Promise<void> } {
+  const resolveIdentity = (windowId?: string) => getIdentity?.(windowId) ?? {
+    dTag: config.window.dTag,
+    aggregateHash: config.window.aggregateHash,
+  };
+  const signerSource = (windowId: string): PajaSignerSource => {
+    const napplet = resolveIdentity(windowId);
+    return {
+      windowId,
+      napplet,
+      runtimeScope: config.target?.mode === 'iframe-url'
+        ? `target-url:${config.target.url}`
+        : `artifact:${napplet.aggregateHash}`,
+    };
+  };
   const relayBackend = createPajaRelayBackend(getSimulation, confirmRequest);
   const relayConfig = createPajaRelayConfig(getSimulation);
   const uploadRuntime = getSimulation().upload.mode === 'blossom'
@@ -569,10 +591,7 @@ export function createPajaAdapter(
         queryDiscovery: (relayUrls, filters) => relayBackend.query(relayUrls, filters),
         getRelayUrls: () => relayConfig.getRelayUrls(['discovery', 'super']),
         confirmRequest,
-        getNappletIdentity: (windowId) => getIdentity?.(windowId) ?? {
-          dTag: config.window.dTag,
-          aggregateHash: config.window.aggregateHash,
-        },
+        getNappletIdentity: resolveIdentity,
         subscribeSignerChange: signerProvider?.subscribe?.bind(signerProvider),
       })
     : undefined;
@@ -593,20 +612,14 @@ export function createPajaAdapter(
     uploadRuntime,
     signerProvider,
     intentHost,
-    getIdentity ?? (() => ({
-      dTag: config.window.dTag,
-      aggregateHash: config.window.aggregateHash,
-    })),
+    resolveIdentity,
     userActivation,
     notifyOptions,
     configOptions,
   );
   const services = serviceBundle.services;
   const ready = createPajaBrowserFsBackend({
-    getIdentity: (windowId) => getIdentity?.(windowId) ?? {
-      dTag: config.window.dTag,
-      aggregateHash: config.window.aggregateHash,
-    },
+    getIdentity: resolveIdentity,
     userActivation,
   }).then((fsBackend) => {
     if (!fsBackend) return;
@@ -628,7 +641,12 @@ export function createPajaAdapter(
     windowManager: { createWindow: () => null },
     auth: {
       getUserPubkey: () => getRuntimePubkey(getSimulation, signerProvider),
-      getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider),
+      getSigner: (windowId) => createRuntimeSigner(
+        getSimulation,
+        confirmRequest,
+        signerProvider,
+        windowId ? signerSource(windowId) : undefined,
+      ),
     },
     services,
     get capabilities() {

@@ -51,6 +51,9 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
   `{ ok: false, error }`. Async relay adapters settle before success is
   reported; failures are not buffered and release their pending replay
   reservation so the same deterministic signed event can be retried.
+- Passes the originating runtime window to `AuthAdapter.getSigner(windowId?)`
+  when available. This is policy-neutral context for host runtimes; Kehto does
+  not prescribe prompting, persistence, grant scope, or denial policy.
 - Routes the NAP-COUNT `count.query` domain through a registered `count` service. The runtime validates non-empty filters and returns `count.query.result` refusals such as `invalid-filter` or `count-unavailable` instead of emulating counts by fetching event payloads.
 - Routes service-only NAP domains such as `dm` and `fs` through registered handlers, so protocol backends stay outside core runtime dispatch.
 - Does not own browser `window`, iframe creation, DOM, `postMessage` listeners, or localStorage implementation details.

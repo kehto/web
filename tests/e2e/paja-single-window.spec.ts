@@ -31,6 +31,34 @@ const shimPrelude = readFileSync(
 let targetServer: TargetServer;
 let runtimeServer: PajaServer;
 
+async function installTestNip07Signer(page: Page, pubkey: string): Promise<void> {
+  await page.addInitScript((signerPubkey) => {
+    const signedEvents: unknown[] = [];
+    const host = window as unknown as {
+      nostr?: unknown;
+      __pajaTestSignerEvents?: unknown[];
+    };
+    host.__pajaTestSignerEvents = signedEvents;
+    host.nostr = {
+      getPublicKey: async () => signerPubkey,
+      getRelays: async () => ({ 'wss://relay.test': { read: true, write: true } }),
+      signEvent: async (event: Record<string, unknown>) => {
+        signedEvents.push(event);
+        return {
+          ...event,
+          id: '8'.repeat(64),
+          pubkey: signerPubkey,
+          sig: '9'.repeat(128),
+          kind: typeof event.kind === 'number' ? event.kind : 1,
+          tags: Array.isArray(event.tags) ? event.tags : [],
+          content: typeof event.content === 'string' ? event.content : '',
+          created_at: typeof event.created_at === 'number' ? event.created_at : Math.floor(Date.now() / 1000),
+        };
+      },
+    };
+  }, pubkey);
+}
+
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async () => {
@@ -64,7 +92,8 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   await expect(page.locator('.console')).toBeVisible();
   await expect(page.locator('#interface-toggles [data-interface-domain="identity"]')).toHaveAttribute('data-enabled', 'true');
   await expect(page.locator('#acl-controls [data-acl-capability="state:write"]')).toHaveAttribute('data-enabled', 'true');
-  await expect(page.locator('#signer-status')).toContainText('every sign/publish request prompts');
+  await expect(page.locator('#signer-status')).toContainText('signing asks every time');
+  await expect(page.locator('#signer-status')).toContainText('publishing asks every time');
   await expect(page.locator('iframe')).toHaveCount(1);
   await expect(page.locator('#napplet-frame')).toHaveAttribute('sandbox', 'allow-scripts');
   await expect(page.locator('#napplet-frame')).not.toHaveAttribute('sandbox', /allow-same-origin/);
@@ -271,31 +300,7 @@ test('applies fixed identity and live theme adjustment', async ({ page }) => {
 test('shows error details and routes signing through NIP-07', async ({ page }) => {
   test.setTimeout(60_000);
   const pubkey = '7'.repeat(64);
-  await page.addInitScript((signerPubkey) => {
-    const signedEvents: unknown[] = [];
-    const host = window as unknown as {
-      nostr?: unknown;
-      __pajaTestSignerEvents?: unknown[];
-    };
-    host.__pajaTestSignerEvents = signedEvents;
-    host.nostr = {
-      getPublicKey: async () => signerPubkey,
-      getRelays: async () => ({ 'wss://relay.test': { read: true, write: true } }),
-      signEvent: async (event: Record<string, unknown>) => {
-        signedEvents.push(event);
-        return {
-          ...event,
-          id: '8'.repeat(64),
-          pubkey: signerPubkey,
-          sig: '9'.repeat(128),
-          kind: typeof event.kind === 'number' ? event.kind : 1,
-          tags: Array.isArray(event.tags) ? event.tags : [],
-          content: typeof event.content === 'string' ? event.content : '',
-          created_at: typeof event.created_at === 'number' ? event.created_at : Math.floor(Date.now() / 1000),
-        };
-      },
-    };
-  }, pubkey);
+  await installTestNip07Signer(page, pubkey);
 
   await page.goto(runtimeServer.url);
   await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
@@ -323,6 +328,94 @@ test('shows error details and routes signing through NIP-07', async ({ page }) =
   await page.locator('#message-filter').fill('visible boom');
   await expect(page.locator('#message-log')).toContainText('resource.info.error');
   await expect(page.locator('#message-log .log-row[data-error="true"]')).toContainText('visible boom');
+});
+
+test('remembers exact kind or napplet signer consent and exposes revocation', async ({ page }) => {
+  test.setTimeout(60_000);
+  await installTestNip07Signer(page, '7'.repeat(64));
+  const signerRuntime = await startPajaServer({
+    options: {
+      targetUrl: `${targetServer.url}?required=relay&manualTraffic=1`,
+      port: 0,
+    },
+    now: new Date('2026-06-21T00:00:00.000Z'),
+  });
+  try {
+    await page.goto(signerRuntime.url);
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
+    await expect(page.locator('#signer-status')).toContainText('NIP-07 connected');
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
+    const frame = page.frameLocator('#napplet-frame');
+    await expect(frame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
+
+    const sendPublish = async (id: string, kind: number): Promise<void> => {
+      await sendFixtureMessage(frame, {
+        type: 'relay.publish',
+        id,
+        event: {
+          kind,
+          created_at: Math.floor(Date.now() / 1000),
+          tags: [],
+          content: `${id}:${kind}`,
+        },
+      });
+    };
+    const denyPublish = async (id: string): Promise<void> => {
+      await expect(page.locator('#paja-confirmation-dialog')).toBeVisible();
+      await expect(page.locator('#paja-confirmation-title')).toHaveText('Publish this Nostr event?');
+      await expect(page.locator('#paja-signer-consent')).toBeHidden();
+      await page.locator('#paja-confirmation-deny').click();
+      await expect.poll(() => readFixtureMessage(frame, 'relay.publish.result', id)).toMatchObject({
+        ok: false,
+        error: 'publish denied',
+      });
+    };
+
+    await sendPublish('remember-kind-1', 1);
+    await expect(page.locator('#paja-confirmation-title')).toHaveText('Sign this Nostr event?');
+    await expect(page.locator('#paja-confirmation-summary')).toContainText('dev-target requests a signature');
+    await expect(page.locator('#paja-signer-consent')).toBeVisible();
+    await expect(page.locator('#paja-signer-consent-warning')).toContainText('will sign any event');
+    await page.locator('#paja-signer-consent-kind').check();
+    await page.locator('#paja-confirmation-approve').click();
+    await denyPublish('remember-kind-1');
+    await expect(page.locator('#signer-status')).toContainText('1 remembered signing approval');
+    await expect(page.locator('#signer-consent-clear')).toBeVisible();
+
+    await sendPublish('remember-kind-2', 1);
+    await denyPublish('remember-kind-2');
+
+    await page.reload();
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
+    await expect(page.locator('#signer-status')).toContainText('1 remembered signing approval');
+    await expect(page.locator('#signer-status')).toContainText('NIP-07 connected');
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
+    await expect(frame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
+    await sendPublish('remember-kind-after-reload', 1);
+    await denyPublish('remember-kind-after-reload');
+
+    await sendPublish('trust-napplet-1', 30_023);
+    await expect(page.locator('#paja-confirmation-title')).toHaveText('Sign this Nostr event?');
+    await page.locator('#paja-signer-consent-napplet').check();
+    await page.locator('#paja-confirmation-approve').click();
+    await denyPublish('trust-napplet-1');
+
+    await sendPublish('trust-napplet-2', 7);
+    await denyPublish('trust-napplet-2');
+
+    await page.locator('#signer-consent-clear').click();
+    await expect(page.locator('#signer-consent-clear')).toBeHidden();
+    await expect(page.locator('#signer-status')).toContainText('signing asks every time');
+    await sendPublish('after-revoke', 1);
+    await expect(page.locator('#paja-confirmation-title')).toHaveText('Sign this Nostr event?');
+    await page.locator('#paja-confirmation-deny').click();
+    await expect.poll(() => readFixtureMessage(frame, 'relay.publish.result', 'after-revoke')).toMatchObject({
+      ok: false,
+      error: 'Paja signing request denied',
+    });
+  } finally {
+    await signerRuntime.close();
+  }
 });
 
 test('stores disclosed bytes through a signed Blossom upload and fails closed on denial or incomplete proof', async ({ page }) => {

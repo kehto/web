@@ -63,6 +63,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .signer-controls { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 6px; }
       .signer-controls button[data-active="true"] { border-color: var(--accent); color: var(--text); background: #2a2a1d; }
       .signer-controls input { min-width: 0; padding: 0 8px; }
+      .signer-consent-clear { width: 100%; margin-top: 6px; }
       .pointer-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
       .pointer-status { min-width: 0; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
       .log-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
@@ -90,6 +91,13 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
       .confirmation-dialog { width: min(520px, calc(100% - 48px)); max-width: none; border: 0; padding: 0; background: transparent; color: var(--text); }
       .confirmation-dialog::backdrop { background: rgb(0 0 0 / 0.68); }
+      .signer-consent { margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 4px; display: grid; gap: 8px; }
+      .signer-consent[hidden] { display: none; }
+      .signer-consent legend { color: var(--accent); padding: 0 5px; }
+      .signer-consent label { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 8px; }
+      .signer-consent input { margin-top: 3px; }
+      .signer-consent-trust { padding: 8px; border: 1px solid #9a5d2f; border-radius: 4px; background: #332014; }
+      .signer-consent-warning { display: block; margin-top: 4px; color: #ffbd80; font-weight: 700; }
       .config-dialog { width: min(620px, calc(100% - 48px)); max-width: none; max-height: min(760px, calc(100% - 48px)); border: 0; padding: 0; background: transparent; color: var(--text); }
       .config-dialog::backdrop { background: rgb(0 0 0 / 0.68); }
       .config-dialog .dialog { width: 100%; max-height: inherit; grid-template-rows: auto auto minmax(0, 1fr) auto auto; }
@@ -157,6 +165,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
           <div class="section-title">Signer</div>
           <div class="signer" id="signer-status">loading</div>
           <div class="signer-controls" id="signer-controls"></div>
+          <button type="button" class="signer-consent-clear" id="signer-consent-clear" hidden>Forget remembered approvals</button>
         </section>
         <section class="section">
           <div class="section-title">Messages</div>
@@ -193,6 +202,23 @@ function renderConfirmationDialog(): string {
         <div class="dialog-title" id="paja-confirmation-title">Confirm Paja request</div>
         <div class="dialog-copy" id="paja-confirmation-summary"></div>
         <pre class="dialog-details" id="paja-confirmation-details"></pre>
+        <fieldset class="signer-consent" id="paja-signer-consent" hidden>
+          <legend>Remember this signing choice</legend>
+          <label>
+            <input type="radio" name="paja-signer-consent" id="paja-signer-consent-once" value="once" checked>
+            <span>Sign this event only</span>
+          </label>
+          <label>
+            <input type="radio" name="paja-signer-consent" id="paja-signer-consent-kind" value="kind">
+            <span>Always sign kind <code id="paja-signer-consent-kind-value"></code> for this napplet identity and target</span>
+          </label>
+          <label class="signer-consent-trust">
+            <input type="radio" name="paja-signer-consent" id="paja-signer-consent-napplet" value="napplet" aria-describedby="paja-signer-consent-warning">
+            <span>Trust <strong id="paja-signer-consent-napplet-value"></strong> for every event kind at this target
+              <span class="signer-consent-warning" id="paja-signer-consent-warning">Warning: Paja will sign any event this napplet identity requests without asking again. Direct-target trust survives code reloads at the same URL.</span>
+            </span>
+          </label>
+        </fieldset>
         <div class="dialog-actions">
           <button type="button" id="paja-confirmation-deny">Deny</button>
           <button type="button" id="paja-confirmation-approve">Approve</button>

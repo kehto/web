@@ -220,7 +220,17 @@ can switch to a bunker/NIP-46 URI, and exposes a Dev signer button for explicit
 synthetic local signing. Without a browser signer, bunker URI, fixed identity, or
 Dev signer selection, `identity.getPublicKey` reports no connected account
 instead of inventing one. Every sign, publish, Blossom upload, or external-link
-request uses Paja's in-page confirmation dialog before it runs.
+request uses Paja's in-page confirmation dialog before it runs. Signing starts
+as one-time consent. Napplet-attributed requests can remember one exact event
+kind or, after a prominent warning, trust every kind from that napplet identity
+and Paja target. Remembered choices are scoped to the signer pubkey, host-owned
+d-tag and aggregate hash, plus the verified runtime-pointer artifact or exact
+direct-target URL. Direct-target trust survives code reloads at that URL.
+Choices can be revoked from the Signer panel and never skip the separate publish
+confirmation. A full Paja host reload generates a new ephemeral Dev key and
+therefore asks again; a stable NIP-07/NIP-46 account can reuse its saved choice.
+If browser storage refuses revocation, Paja retains the listed choice and logs
+the failure.
 
 ## Read Social Data Through Standard NAP Messages
 

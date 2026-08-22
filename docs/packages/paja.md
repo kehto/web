@@ -158,8 +158,23 @@ The console includes:
   is available, can connect to a bunker/NIP-46 URI, and only uses the generated
   development signer when the Dev signer button is selected. Sign, publish,
   Blossom upload, and external-link requests use one serialized in-page
-  confirmation dialog. Deny has initial focus, Escape denies, and Paja has no
-  bypass list or allow-once whitelist. Upload consent shows the requesting
+  confirmation dialog. Deny has initial focus and Escape denies. Napplet-scoped
+  signing defaults to one-time approval. The dialog can instead remember the
+  exact event kind or trust every kind from that napplet identity and target; the
+  trust option has a prominent warning. Grants are keyed by active signer
+  pubkey, host-owned napplet d-tag and aggregate hash, and the Paja target
+  boundary. Runtime pointers use their verified artifact hash; direct targets
+  use the exact target URL, with an explicit warning that trust survives code
+  reloads at that URL. Another signer, identity, artifact, or target asks again.
+  Unknown identity/kind remains one-shot, denials are never remembered, and
+  **Forget remembered approvals** revokes all saved signer choices. Publish and
+  other operation confirmations remain independent prompts. If browser storage
+  refuses deletion, Paja retains the listed approval and logs the failed
+  revocation. A full host reload creates a new ephemeral Dev signer and asks
+  again; stable NIP-07/NIP-46 accounts can reuse their saved choices. This is
+  Paja policy permitted by draft
+  [NAP-RELAY PR #2 at `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`](https://github.com/napplet/naps/pull/2), not a
+  Kehto runtime default. Upload consent shows the requesting
   napplet, file, MIME type, size, server, and durable public effect before
   bytes leave the browser. A denial or a live publish with no accepting relay
   returns a canonical failure and does not enter Paja's in-memory relay view.

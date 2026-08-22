@@ -12,10 +12,18 @@ import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools/pure
 import type { PajaRelayBackend } from './browser-relay-runtime.js';
 import { getPajaRelayUrls } from './browser-relay-runtime.js';
 import type { PajaSimulation } from './simulation.js';
+import type {
+  PajaSignerRequestContext,
+  PajaSignerSource,
+} from './browser-signer-consent.js';
 
 type DevRuntimeConfirmation = (
   request:
-    | { readonly action: 'sign'; readonly event: NostrEvent | Partial<NostrEvent> }
+    | {
+        readonly action: 'sign';
+        readonly event: NostrEvent | Partial<NostrEvent>;
+        readonly signerContext?: PajaSignerRequestContext;
+      }
     | { readonly action: 'dm'; readonly recipients: readonly string[]; readonly content: string; readonly warning: string },
 ) => boolean | Promise<boolean>;
 
@@ -28,12 +36,20 @@ export const PAJA_DEV_SIGNER_PUBKEY = getPublicKey(DEV_SIGNER_SECRET_KEY);
 export function createPajaDevSigner(
   getSimulation: () => PajaSimulation,
   confirm: DevRuntimeConfirmation,
+  source?: PajaSignerSource,
 ): Signer {
   return {
     getPublicKey: () => PAJA_DEV_SIGNER_PUBKEY,
     getRelays: () => Object.fromEntries(getPajaRelayUrls(getSimulation()).map((relay) => [relay, { read: true, write: true }])),
     async signEvent(event: Parameters<typeof finalizeEvent>[0]): Promise<NostrEvent> {
-      if (!await confirm({ action: 'sign', event: event as Partial<NostrEvent> })) {
+      const signerContext = source
+        ? { ...source, signerPubkey: PAJA_DEV_SIGNER_PUBKEY }
+        : undefined;
+      if (!await confirm({
+        action: 'sign',
+        event: event as Partial<NostrEvent>,
+        ...(signerContext ? { signerContext } : {}),
+      })) {
         throw new Error('Paja signing request denied');
       }
       const template = { ...event };

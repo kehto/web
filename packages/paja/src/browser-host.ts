@@ -84,6 +84,7 @@ export interface PajaBrowserState {
   services: string[];
   simulation: PajaSimulation;
   signer: PajaSignerState;
+  signerConsentCount: number;
   resolvedTarget: PajaResolvedPointer | null;
   pointerValue: string;
   pointerStatus: string;
@@ -102,6 +103,7 @@ export interface PajaBrowserState {
   useDevSigner(): void;
   connectNip07(): Promise<void>;
   connectBunker(uri: string): Promise<void>;
+  clearSignerConsent(): void;
   loadPointer(value: string): Promise<void>;
   clearLog(): void;
   getState(): {
@@ -112,6 +114,7 @@ export interface PajaBrowserState {
     services: string[];
     simulation: PajaSimulation;
     signer: PajaSignerState;
+    signerConsentCount: number;
     resolvedTarget: PajaResolvedPointer | null;
     pointerStatus: string;
     activeTabId: string | null;
@@ -137,6 +140,7 @@ let bridgeRef: ShellBridge | null = null;
 
 type PajaThemeService = { publishTheme(theme: ReturnType<typeof createDevTheme>): unknown };
 type PajaSignerController = ReturnType<typeof createHostSignerController>;
+type PajaConfirmationController = ReturnType<typeof createPajaConfirmationController>;
 
 export interface PajaHostRuntimeState extends PajaRuntimeTabRuntime {
   currentSimulation: PajaSimulation;
@@ -157,6 +161,7 @@ export interface PajaBrowserStateContext extends PajaRuntimeTabContext {
   bridge: ShellBridge;
   adapter: ReturnType<typeof createPajaAdapter>;
   signerController: PajaSignerController;
+  confirmationController: PajaConfirmationController;
   capabilities: ShellCapabilities;
   runtime: PajaHostRuntimeState;
 }
@@ -464,6 +469,7 @@ function snapshotPajaBrowserState(state: PajaBrowserState, runtime: PajaHostRunt
     services: state.services,
     simulation: runtime.currentSimulation,
     signer: state.signer,
+    signerConsentCount: state.signerConsentCount,
     resolvedTarget: state.resolvedTarget,
     pointerStatus: state.pointerStatus,
     activeTabId: state.activeTabId,
@@ -480,13 +486,22 @@ function snapshotPajaBrowserState(state: PajaBrowserState, runtime: PajaHostRunt
 }
 
 function createPajaBrowserState(context: PajaBrowserStateContext): PajaBrowserState {
-  const { config, bridge, adapter, signerController, capabilities, runtime } = context;
+  const {
+    config,
+    bridge,
+    adapter,
+    signerController,
+    confirmationController,
+    capabilities,
+    runtime,
+  } = context;
   return {
     config,
     capabilities,
     services: Object.keys(adapter.services ?? {}).sort(),
     simulation: runtime.currentSimulation,
     signer: signerController.getState(),
+    signerConsentCount: confirmationController.getSignerConsentCount(),
     resolvedTarget: null,
     pointerValue: readInitialPointerValue(config),
     pointerStatus: config.target.mode === 'runtime-pointer' ? 'idle' : '',
@@ -539,6 +554,14 @@ function createPajaBrowserState(context: PajaBrowserStateContext): PajaBrowserSt
     connectBunker(uri) {
       return signerController.connectBunker(uri);
     },
+    clearSignerConsent() {
+      const cleared = confirmationController.clearSignerConsent();
+      appendPajaMessageLog(this, 'paja', {
+        type: cleared
+          ? 'paja.signer-consent.cleared'
+          : 'paja.signer-consent.clear-failed',
+      });
+    },
     async loadPointer(value) {
       await loadRuntimePointer(this, context, value);
     },
@@ -575,7 +598,16 @@ async function installPajaHost(): Promise<void> {
     () => contextRef,
     { persistTabs: persistRuntimeTabs },
   ));
-  const confirmationController = createPajaConfirmationController(() => stateRef);
+  const confirmationController = createPajaConfirmationController(
+    () => stateRef,
+    {
+      onSignerConsentChange(count) {
+        if (!stateRef) return;
+        stateRef.signerConsentCount = count;
+        setSimulationStatus(stateRef);
+      },
+    },
+  );
   const signerController = createHostSignerController(
     () => stateRef,
     setSimulationStatus,
@@ -616,6 +648,7 @@ async function installPajaHost(): Promise<void> {
     bridge,
     adapter,
     signerController,
+    confirmationController,
     capabilities,
     runtime,
     navigateFrame,

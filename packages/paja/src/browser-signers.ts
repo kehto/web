@@ -2,6 +2,10 @@ import type { NostrEvent } from '@napplet/core';
 import type { Signer } from '@kehto/runtime';
 
 import type { PajaConfirmationHandler } from './browser-adapter.js';
+import type {
+  PajaSignerRequestContext,
+  PajaSignerSource,
+} from './browser-signer-consent.js';
 import {
   createNip46Client,
   parseBunkerUri,
@@ -32,7 +36,7 @@ export interface PajaSignerController {
   /** Return a copy of current signer state. */
   getState(): PajaSignerState;
   /** Return the active runtime signer, if one is connected. */
-  getSigner(): Signer | null;
+  getSigner(source?: PajaSignerSource): Signer | null;
   /** Return the selected signer backend. */
   getMethod(): PajaSignerMethod;
   /** Return the active signer pubkey, if one is connected. */
@@ -79,6 +83,7 @@ function readNip07Signer(): Nip07Signer | null {
 function createConfirmedSigner(
   signer: Signer,
   confirmRequest: PajaConfirmationHandler,
+  source?: PajaSignerSource,
 ): Signer {
   return {
     ...signer,
@@ -86,12 +91,31 @@ function createConfirmedSigner(
       if (typeof signer.signEvent !== 'function') {
         throw new Error('Signer does not support event signing');
       }
-      if (!await confirmRequest({ action: 'sign', event })) {
+      const signerContext = await resolveSignerContext(signer, source);
+      if (!await confirmRequest({
+        action: 'sign',
+        event,
+        ...(signerContext ? { signerContext } : {}),
+      })) {
         throw new Error('Paja signing request denied');
       }
       return signer.signEvent(event);
     },
   };
+}
+
+async function resolveSignerContext(
+  signer: Signer,
+  source?: PajaSignerSource,
+): Promise<PajaSignerRequestContext | undefined> {
+  if (!source || typeof signer.getPublicKey !== 'function') return undefined;
+  try {
+    const signerPubkey = await signer.getPublicKey();
+    if (!/^[0-9a-f]{64}$/i.test(signerPubkey)) return undefined;
+    return { ...source, signerPubkey };
+  } catch {
+    return undefined;
+  }
 }
 
 function createNip07Adapter(signer: Nip07Signer): Signer {
@@ -135,7 +159,10 @@ export function createPajaSignerController(options: PajaSignerControllerOptions)
 
   return {
     getState: () => cloneState(state),
-    getSigner: () => activeSigner,
+    getSigner(source) {
+      if (!activeSigner) return null;
+      return createConfirmedSigner(activeSigner, options.confirmRequest, source);
+    },
     getMethod: () => state.method,
     getPubkey: () => state.pubkey,
     subscribe(listener) {
@@ -161,7 +188,7 @@ export function createPajaSignerController(options: PajaSignerControllerOptions)
         const signer = readNip07Signer();
         if (!signer) throw new Error('NIP-07 signer not found');
         const pubkey = await signer.getPublicKey!();
-        activeSigner = createConfirmedSigner(createNip07Adapter(signer), options.confirmRequest);
+        activeSigner = createNip07Adapter(signer);
         update({ method: 'nip07', status: 'connected', pubkey, relay: null, error: null });
       } catch (error) {
         activeSigner = null;
@@ -192,7 +219,7 @@ export function createPajaSignerController(options: PajaSignerControllerOptions)
         });
         const pubkey = await client.connect();
         activeClient = client;
-        activeSigner = createConfirmedSigner(client.getSigner(), options.confirmRequest);
+        activeSigner = client.getSigner();
         update({ method: 'nip46', status: 'connected', pubkey, relay: parsed.relay, error: null });
       } catch (error) {
         closeClient();

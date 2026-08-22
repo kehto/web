@@ -119,9 +119,18 @@ Paja begins without a writable signer. Select **Dev**, use **NIP-07** to connect
 a browser extension signer, or paste a `bunker://` or `nostrconnect://` URI and
 choose **Bunker** for a NIP-46 signer. Every sign, publish, Blossom upload, or
 external-link request opens Paja's serialized in-page confirmation dialog.
-Deny has initial focus, Escape denies, and there is no bypass list or remembered
-allow rule. A configured fixed pubkey remains read-only unless the connected
-signer proves the same pubkey.
+Deny has initial focus and Escape denies. Signing defaults to one-time approval;
+for a napplet-attributed request, you can instead remember the exact event kind
+or trust every kind from that napplet identity and Paja target. The trust choice
+warns that future events will be signed without another prompt. Choices are
+isolated by signer pubkey, host-owned d-tag and aggregate hash, plus the verified
+runtime-pointer artifact or exact direct-target URL. Direct-target trust
+survives code reloads at that URL. **Forget remembered approvals** revokes every
+saved choice; if browser storage refuses deletion, Paja keeps it listed and
+logs the failure. A full Paja host reload creates another ephemeral Dev signer
+and asks again, while the same NIP-07/NIP-46 account can reuse saved choices.
+Publish and other operation prompts remain independent. A configured fixed
+pubkey remains read-only unless the connected signer proves the same pubkey.
 
 ## More
 

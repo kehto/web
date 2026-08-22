@@ -20,7 +20,7 @@ export function createIdentityHandler(context: IdentityHandlerContext): Identity
     }
 
     const action = msg.type.slice('identity.'.length);
-    const signer = hooks.auth.getSigner();
+    const signer = hooks.auth.getSigner(windowId);
     const fallback = createCanonicalDomainResult(msg);
     if (!fallback) return;
     const sendResult = (payload: Record<string, unknown> = {}) => {

@@ -49,6 +49,9 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 - Owns browser integration: `window`, `postMessage`, iframe session identity, gateway loading, shell capabilities, origin/session registries, and browser-specific adapters.
 - Forwards an asynchronous `RelayPoolLike.publish()` promise through its
   runtime adapter so `relay.publish.result` reflects transport settlement.
+- Forwards the originating runtime window to `AuthHooks.getSigner(windowId?)`
+  when available. The optional context lets a host implement caller-aware
+  signer consent without making that policy part of Kehto's shell adapter.
 - Preserves an asynchronous `RelayPoolHooks.publishToScopedRelay()` result so
   scoped publication does not report success before transport acceptance.
 - Provides `injectNappletNamespacePrelude()` for optional NIP-5D domains plus mandatory NAP-SHELL before authored `srcdoc` scripts execute. The prelude installs its receiver before one `shell.ready`, caches the first parent `shell.init`, and prevents napplet namespace reassignment from removing `shell`.

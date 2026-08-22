@@ -241,10 +241,11 @@ describe('NIP-5D Envelope Dispatch', () => {
         publishToScopedRelay: () => false,
         isAvailable: () => relayAvailable,
       };
+      const getSigner = vi.fn((_windowId?: string) => ({ signEvent }));
       const publishingContext = createMockRuntimeAdapter({
         auth: {
           getUserPubkey: () => signedEvent.pubkey,
-          getSigner: () => ({ signEvent }),
+          getSigner,
         },
         relayPool,
       });
@@ -257,6 +258,7 @@ describe('NIP-5D Envelope Dispatch', () => {
         setRelayAvailable(available: boolean) {
           relayAvailable = available;
         },
+        getSigner,
         signEvent,
       };
     }
@@ -403,6 +405,7 @@ describe('NIP-5D Envelope Dispatch', () => {
       await Promise.resolve();
 
       expect(publishing.signEvent).toHaveBeenCalledWith(template);
+      expect(publishing.getSigner).toHaveBeenCalledWith(WINDOW_ID);
       expect(publishing.publish).toHaveBeenCalledWith(signedEvent);
       expect(findEnvelopeResponse(publishing.ctx.sent, 'relay.publish.result')).toEqual({
         type: 'relay.publish.result',
@@ -686,14 +689,15 @@ describe('NIP-5D Envelope Dispatch', () => {
     });
 
     it('identity.getPublicKey returns pubkey when signer is configured', async () => {
+      const getSigner = vi.fn((_windowId?: string) => ({
+        getPublicKey: () => 'user_pubkey_hex',
+        signEvent: async (e: any) => ({ ...e, sig: 'signed' }),
+        getRelays: () => ({}),
+      }));
       const ctxWithSigner = createMockRuntimeAdapter({
         auth: {
           getUserPubkey: () => 'user_pubkey_hex',
-          getSigner: () => ({
-            getPublicKey: () => 'user_pubkey_hex',
-            signEvent: async (e: any) => ({ ...e, sig: 'signed' }),
-            getRelays: () => ({}),
-          }),
+          getSigner,
         },
       });
       const runtimeWithSigner = createRuntime(ctxWithSigner.hooks);
@@ -708,6 +712,7 @@ describe('NIP-5D Envelope Dispatch', () => {
         windowId: WINDOW_ID,
         message: { type: 'identity.getPublicKey.result', id: 'req-pk', pubkey: 'user_pubkey_hex' },
       }]);
+      expect(getSigner).toHaveBeenCalledWith(WINDOW_ID);
     });
 
     it('identity.getPublicKey returns one exact empty-public-key result when the signer rejects', async () => {
