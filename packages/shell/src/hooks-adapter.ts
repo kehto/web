@@ -157,8 +157,8 @@ function createAuthAdapter(shellHooks: ShellAdapter): AuthAdapter {
     getUserPubkey(): string | null {
       return shellHooks.auth.getUserPubkey();
     },
-    getSigner(): Signer | null {
-      return shellHooks.auth.getSigner();
+    getSigner(windowId?: string): Signer | null {
+      return shellHooks.auth.getSigner(windowId);
     },
   };
 }

@@ -51,6 +51,12 @@ the relay backend. Success returns exactly one correlated
 Signing, replay, relay, and service failures return `ok: false` plus `error`
 and are never buffered as successful local publications.
 
+`AuthAdapter.getSigner(windowId?)` receives the originating runtime window when
+one exists. Kehto forwards that context as a policy mechanism; it does not
+decide whether a host prompts once, remembers a narrowly scoped approval, or
+refuses the request. Hosts that do not need caller-aware signer policy can
+ignore the optional argument.
+
 The released `@napplet/nap@0.31.2` SDK accepts `EventTemplate`, while its
 `RelayPublishMessage.event` declaration still says `NostrEvent`; Kehto records
 that mismatch as upstream package drift and follows the NAP wire direction.

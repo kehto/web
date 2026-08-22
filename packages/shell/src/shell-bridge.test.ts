@@ -37,7 +37,9 @@ import type { Theme } from '@napplet/nap/theme/types';
  * `adaptHooks` without errors. Every hook returns the smallest acceptable
  * value; the bridge's `publishTheme` path does not read from any of them.
  */
-function makeTestHooks(): ShellAdapter {
+function makeTestHooks(
+  getSigner: ShellAdapter['auth']['getSigner'] = () => null,
+): ShellAdapter {
   return {
     relayPool: {
       getRelayPool: () => null,
@@ -59,7 +61,7 @@ function makeTestHooks(): ShellAdapter {
     },
     auth: {
       getUserPubkey: () => null,
-      getSigner: () => null,
+      getSigner,
     },
     config: {
       getNappUpdateBehavior: () => 'banner',
@@ -200,6 +202,39 @@ describe('ShellBridge.publishTheme (TH-03, Plan 13-02)', () => {
       }),
     ).not.toThrow();
 
+    bridge.destroy();
+  });
+});
+
+describe('ShellBridge signer caller context', () => {
+  beforeEach(() => originRegistry.clear());
+  afterEach(() => originRegistry.clear());
+
+  it('forwards the originating window ID without choosing signer policy', async () => {
+    const signedEvent = {
+      id: 'a'.repeat(64),
+      pubkey: 'b'.repeat(64),
+      created_at: 1,
+      kind: 1,
+      tags: [],
+      content: 'hello',
+      sig: 'c'.repeat(128),
+    };
+    const getSigner = vi.fn((_windowId?: string) => ({
+      signEvent: async () => signedEvent,
+    }));
+    const bridge = createShellBridge(makeTestHooks(getSigner));
+    const iframe = makeFakeIframe();
+    establishReadySession(bridge, iframe, 'win-signer', ['relay']);
+
+    bridge.runtime.handleMessage('win-signer', {
+      type: 'relay.publish',
+      id: 'signer-context',
+      event: { created_at: 1, kind: 1, tags: [], content: 'hello' },
+    } as never);
+    await Promise.resolve();
+
+    expect(getSigner).toHaveBeenCalledWith('win-signer');
     bridge.destroy();
   });
 });

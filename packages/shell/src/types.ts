@@ -106,9 +106,16 @@ export interface WindowManagerHooks {
 export interface AuthHooks {
   /** Get the current user's pubkey, or null if not logged in. */
   getUserPubkey(): string | null;
-  /** Get the NIP-07 compatible signer, or null if unavailable. */
+  /**
+   * Get the NIP-07 compatible signer, or null if unavailable.
+   *
+   * The optional window ID lets a shell bind its own signer policy to the
+   * requesting napplet without imposing that policy in Kehto.
+   *
+   * @param windowId - Originating napplet window, when available
+   */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getSigner(): any | null;
+  getSigner(windowId?: string): any | null;
 }
 
 /** Hook for config. */
