@@ -303,11 +303,8 @@ function createFirewallGate(config: FirewallGateConfig): (windowId: string, enve
         return 'drop';
       }
 
-      const id = (envelope as NappletMessage & { id?: string }).id ?? '';
-      const type = denialResponseType(envelope);
-      if (type) {
-        hooks.sendToNapplet(windowId, { type, id, error: `firewall: ${reason}` } as NappletMessage);
-      }
+      const denial = createDenialResponse(envelope, `firewall: ${reason}`);
+      if (denial) hooks.sendToNapplet(windowId, denial);
 
       hooks.onFirewallEvent?.({ windowId, napplet, opClass, decision, action, ruleId, reason, message: envelope } as FirewallEvent);
 
@@ -335,6 +332,20 @@ function denialResponseType(envelope: NappletMessage): string | null {
   }
   if (envelope.type.startsWith('inc.')) return null;
   return `${envelope.type}.error`;
+}
+
+function createDenialResponse(envelope: NappletMessage, error: string): NappletMessage | null {
+  const id = (envelope as NappletMessage & { id?: string }).id ?? '';
+  if (envelope.type === 'outbox.query') {
+    return {
+      type: 'outbox.query.result',
+      id,
+      events: [],
+      error,
+    } as NappletMessage;
+  }
+  const type = denialResponseType(envelope);
+  return type ? { type, id, error } as NappletMessage : null;
 }
 
 function createMessageHandler(
@@ -374,12 +385,9 @@ function createMessageHandler(
           return;
         }
 
-        const id = (envelope as NappletMessage & { id?: string }).id ?? '';
         const error = formatDenialReason(result.capability);
-        const type = denialResponseType(envelope);
-        if (type) {
-          hooks.sendToNapplet(windowId, { type, id, error } as NappletMessage);
-        }
+        const denial = createDenialResponse(envelope, error);
+        if (denial) hooks.sendToNapplet(windowId, denial);
         return;
       }
     }
