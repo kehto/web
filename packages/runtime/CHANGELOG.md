@@ -1,5 +1,11 @@
 # @kehto/runtime
 
+## 0.22.2
+
+### Patch Changes
+
+- d6a1ecd: Keep Paja ACL controls synchronized with the active resolver-verified napplet identity, and return denied outbox queries through the canonical `outbox.query.result` error shape.
+
 ## 0.22.1
 
 ### Patch Changes
