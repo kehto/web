@@ -1,4 +1,4 @@
-# Kehto Runtime
+# Kehto Runtime Toolkit
 
 [![CI](https://github.com/kehto/web/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kehto/web/actions/workflows/ci.yml)
 [![Version Packages](https://github.com/kehto/web/actions/workflows/publish.yml/badge.svg)](https://github.com/kehto/web/actions/workflows/publish.yml)
@@ -6,10 +6,11 @@
 [![Publish Web to GitHub Pages](https://github.com/kehto/web/actions/workflows/playground-pages.yml/badge.svg?branch=main)](https://github.com/kehto/web/actions/workflows/playground-pages.yml)
 [![AI Slop Score](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkehto%2Fweb%2Fmain%2F.github%2Fbadges%2Faislop-score.json)](https://github.com/kehto/web/actions/workflows/aislop-badge.yml)
 
-Kehto is an early web-based runtime implementation for NIP-5D Nostr applets
-("napplets"). It is one runtime, not the runtime for the ecosystem. It is likely
-the first implementation and may become a useful reference implementation as
-other napplet runtimes emerge.
+Kehto is an unopinionated toolkit and protocol kernel for building NIP-5D Nostr
+applet ("napplet") runtimes. It supplies routing, lifecycle, capability, service,
+and browser-shell primitives without deciding a runtime's origin, signer, or
+deployment policy. Paja is Kehto's reference developer runtime; the playground
+is a visualization and integration fixture.
 
 > **Alpha status:** kehto/web is under heavy development and is far from complete,
 > It presently offers components but still requires the implementer to
@@ -24,8 +25,8 @@ It provides packages for building a napplet host client by handling capability
 enforcement, message routing, host service registration, gateway artifacts, and
 development tooling. The applet-side packages (`@napplet/core`, `@napplet/shim`,
 `@napplet/sdk`, and `@napplet/vite-plugin`) live in the
-[@napplet](https://github.com/sandwichfarm/napplet) repo; Kehto implements an
-example runtime and NIP-5D shell.
+[@napplet](https://github.com/sandwichfarm/napplet) repo; Kehto supplies the
+runtime toolkit, while Paja demonstrates one complete implementation.
 
 ## Start Here
 
@@ -63,7 +64,8 @@ playground or documentation site.
 | `@kehto/services` | Reference handlers for identity, relay, keys, media, notify, config, resource, cache, theme, and audio surfaces. | [packages/services](./packages/services/) | [docs/packages/services.md](./docs/packages/services.md) | [Services docs](https://kehto.github.io/web/docs/packages/services) |
 | `@kehto/nip` | Tree-shakable bundle of unique Nostr NIP utilities, including NIP-5A/5D napplet artifact verification and optional Cache Storage reuse, plus NIP-51/65/66/89 helpers. | [packages/nip](./packages/nip/) | [docs/packages/nip.md](./docs/packages/nip.md) | [NIP docs](https://kehto.github.io/web/docs/packages/nip) |
 | `@kehto/wm` | Structural window-management contracts for shell-owned layout strategies. | [packages/wm](./packages/wm/) | [docs/packages/wm.md](./docs/packages/wm.md) | [WM docs](https://kehto.github.io/web/docs/packages/wm) |
-| `@kehto/playground` | 10-napplet browser demo and integration verification target. | [apps/playground](./apps/playground/) | [docs/packages/playground.md](./docs/packages/playground.md) | [Playground docs](https://kehto.github.io/web/docs/packages/playground) |
+| `@kehto/paja` | Reference developer runtime with concrete browser, relay, resource, and signer choices. | [packages/paja](./packages/paja/) | [docs/packages/paja.md](./docs/packages/paja.md) | [Paja docs](https://kehto.github.io/web/docs/packages/paja) |
+| `@kehto/playground` | 9-napplet protocol visualization and integration verification target. | [apps/playground](./apps/playground/) | [docs/packages/playground.md](./docs/packages/playground.md) | [Playground docs](https://kehto.github.io/web/docs/packages/playground) |
 
 Package roots link to package-local READMEs and source. Markdown docs are the
 same pages used by the VitePress site.
@@ -86,8 +88,10 @@ same pages used by the VitePress site.
 
 ## Playground Demo
 
-The playground is the reference host application. It loads 10 sandboxed napplets
-through the same gateway artifact shape used by the static Pages build.
+The playground visualizes protocol and toolkit behavior. It loads 9 sandboxed
+napplets through the same gateway artifact shape used by the static Pages build;
+it is not Kehto's reference runtime and does not define runtime policy. Use Paja
+for the reference developer-runtime implementation.
 
 - Public demo: <https://kehto.github.io/web/playground/>
 - Local app root: [apps/playground](./apps/playground/)

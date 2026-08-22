@@ -1,24 +1,26 @@
-# Kehto Runtime Documentation
+# Kehto Runtime Toolkit Documentation
 
-Kehto is an early runtime implementation for NIP-5D napplets. It is one runtime,
-not the runtime for the napplet ecosystem. It is likely the first implementation
-and may become a useful reference implementation as other runtimes are built.
+Kehto is an unopinionated toolkit and protocol kernel for building NIP-5D
+napplet runtimes. It supplies reusable host-side machinery without choosing one
+origin, signer, or deployment policy for every implementer. Paja is Kehto's
+reference developer runtime; the playground is a visualization and verification
+fixture.
 
 > **Alpha status:** NIP-5D is still under development, and NAP contracts are not
 > final. Package APIs, capability names, `requires` declarations, and
 > injected-domain behavior may change as the spec evolves. See
 > [Alpha Status](./alpha-status.md).
 
-Kehto provides host-side packages that let a Nostr client embed sandboxed napplet iframe applications: access control, protocol dispatch, browser shell integration, reference services, relay discovery, and shell-owned window-management contracts.
+Kehto provides host-side packages that let a Nostr client embed sandboxed napplet iframe applications: access control, protocol dispatch, browser shell integration, service building blocks, relay discovery, and shell-owned window-management contracts.
 
-Kehto works with the `@napplet` packages. `@napplet/core`, `@napplet/shim`, `@napplet/nap`, and `@napplet/vite-plugin` define the portable napplet-side protocol and build surface. Kehto consumes those contracts and implements the shell/runtime side.
+Kehto works with the `@napplet` packages. `@napplet/core`, `@napplet/shim`, `@napplet/nap`, and `@napplet/vite-plugin` define the portable napplet-side protocol and build surface. Kehto consumes those contracts and provides runtime and shell implementation tools.
 
 ## Start Here
 
 | Reader | Start path | What you are trying to do |
 |--------|------------|----------------------------|
 | Host-app implementer | Runtime implementation guide | Build a shell that hosts sandboxed napplets. |
-| Protocol evaluator | Alpha status | Understand what is still draft-stage before treating Kehto as a reference implementation. |
+| Protocol evaluator | Alpha status | Understand what remains draft-stage and distinguish Kehto's toolkit from Paja's reference choices. |
 | Package API consumer | Package reference | Understand one `@kehto/*` package and its exports. |
 | Napplet author | Napplet integration tutorial | Declare `requires`, check injected domains, and use NAP helpers safely. |
 | Maintainer | Docs maintenance guide | Keep README, site, API reference, and milestone history aligned. |
@@ -33,7 +35,8 @@ Kehto works with the `@napplet` packages. `@napplet/core`, `@napplet/shim`, `@na
 | `@kehto/services` | Reference service handlers for identity, relay, keys, media, notify, config, resource, cache, theme, and audio. |
 | `@kehto/nip` | Framework-agnostic unique Nostr NIP utilities (NIP-51 lists, NIP-65 outbox, NIP-66 relay discovery, NIP-89 app handlers). |
 | `@kehto/wm` | Structural window-management contracts for consumer-owned layout strategies. |
-| `@kehto/playground` | 9-napplet browser demo and Playwright verification target. |
+| `@kehto/paja` | Reference developer runtime with concrete browser and service policies. |
+| `@kehto/playground` | 9-napplet protocol visualization and Playwright verification target. |
 
 ## Current Documentation Shape
 

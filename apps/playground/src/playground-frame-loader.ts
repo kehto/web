@@ -16,10 +16,7 @@ import {
 } from './napplet-resolver.js';
 import type { NappletInfo } from './shell-host.js';
 
-/**
- * Static per-dTag origin allowlist for the `connect-src` CSP injected into
- * srcdoc iframes. Only resource-demo needs a non-empty allowlist.
- */
+/** Static per-dTag origins visualized in the injected iframe CSP. */
 const STATIC_ORIGIN_ALLOWLIST: ReadonlyMap<string, readonly string[]> = new Map([
   ['resource-demo', [RESOURCE_DEMO_REMOTE_IMAGE_ORIGIN]],
 ]);

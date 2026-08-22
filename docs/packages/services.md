@@ -2,7 +2,7 @@
 
 Reference service handlers for Kehto runtime implementations.
 
-> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. Service envelopes and NAP contracts are not final.
 
 ## Install
@@ -63,6 +63,15 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 - NAP-DM support keeps request correlation, per-window subscriptions, and packaged message shapes in `createDmService`; the concrete NIP-17 adapter verifies gift wraps and hydrates encrypted relay history, while NDR and Cordn specifics remain behind structural adapters.
 - NAP-FS support keeps same-id results and per-window watch ownership in `createFsService`; injected backends own real persistence, virtual-path policy, picker mediation, byte validation, revisions, mutation atomicity, and watch observation.
 - `createRelayPoolOutboxRouter()` starts validated relay hints or fallback reads before asynchronous NIP-65 discovery settles. Its host-side `queryStream()` emits verified results incrementally and exposes the existing aggregate through `result`; the draft NAP-OUTBOX wire query remains one-shot.
+- `createResourceService()` is a policy-neutral NAP-RESOURCE kernel. Its required
+  `fetch` callback owns resolution and accepts every syntactically valid URL by
+  default; the optional `resource.info.schemes` disclosure is advisory and is
+  never used as an authorization gate. A runtime may opt into Kehto's origin
+  grant adapter by supplying `isOriginGranted`, `getConnectGrants`, and
+  `resolveIdentity` together. Resolver-specific policy, scheme support, redirect
+  behavior, MIME classification, and browser CORS handling remain runtime
+  decisions. An ordinary browser fetch rejection maps to `network-error` unless
+  the injected resolver returns a more specific `ResourceServiceError`.
 - Does not create a runtime or shell bridge by itself.
 
 ## API Reference

@@ -333,9 +333,6 @@ function createDevServices(
   const services: Record<string, ServiceHandler> = {
     resource: createResourceService({
       fetch: createPajaResourceFetch({ getBlossomServers }),
-      isOriginGranted: (origin, grants) => grants.includes(origin),
-      getConnectGrants: () => ['null'],
-      resolveIdentity: (windowId) => getIdentity?.(windowId) ?? null,
       resourceInfo: () => pajaResourceInfo(getBlossomServers()),
     }),
   };

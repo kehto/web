@@ -22,14 +22,11 @@ import type {
 import type { Theme, ThemeChangedMessage } from '@napplet/nap/theme/types';
 import { RESOURCE_DEMO_REMOTE_IMAGE_ORIGIN } from './main-preferences.js';
 
-/**
- * Static per-dTag origin allowlist for `getConnectGrants` (Task 4 static-allowlist).
- * resource-demo is the only napplet that fetches external resources; all others
- * receive an empty array (deny all origins).
- */
+/** Static per-dTag origins used by the playground's grant visualization. */
 const STATIC_CONNECT_GRANTS: ReadonlyMap<string, readonly string[]> = new Map([
   ['resource-demo', [RESOURCE_DEMO_REMOTE_IMAGE_ORIGIN]],
 ]);
+const RESOURCE_E2E_ORIGIN = 'http://localhost:4173';
 import {
   createIdentityService,
   createNotificationService,
@@ -242,11 +239,23 @@ async function hostFetch(
   }
 }
 
+function getDemoConnectGrants(dTag: string): readonly string[] {
+  const configured = STATIC_CONNECT_GRANTS.get(dTag) ?? [];
+  if (
+    dTag === 'resource-demo'
+    && window.location.hostname === 'localhost'
+    && window.location.port === '4174'
+  ) {
+    return [...configured, RESOURCE_E2E_ORIGIN];
+  }
+  return configured;
+}
+
 function createDemoResourceHandler(): ServiceHandler {
   return createResourceService({
     fetch: hostFetch,
     isOriginGranted: (origin, grants) => grants.includes(origin),
-    getConnectGrants: (dTag, _aggregateHash) => STATIC_CONNECT_GRANTS.get(dTag) ?? [],
+    getConnectGrants: (dTag, _aggregateHash) => getDemoConnectGrants(dTag),
     resolveIdentity: (windowId) => {
       const entry = sessionRegistryRef?.getEntryByWindowId(windowId);
       return entry ? { dTag: entry.dTag, aggregateHash: entry.aggregateHash } : null;

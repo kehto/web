@@ -2,7 +2,7 @@
 
 Browser adapter over `@kehto/runtime` for iframe/session hosting.
 
-> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. Injected-domain behavior and NAP contracts are not final.
 
 ## Install

@@ -29,9 +29,13 @@ afterEach(() => {
 });
 
 describe('Paja resource backend', () => {
-  it('discloses Blossom only when a valid host-owned server is available', () => {
+  it('discloses permissive browser network schemes and Blossom when configured', () => {
     expect(pajaResourceInfo()).toEqual({
-      schemes: [{ scheme: 'data', enabled: true }],
+      schemes: [
+        { scheme: 'data', enabled: true },
+        { scheme: 'https', enabled: true },
+        { scheme: 'http', enabled: true },
+      ],
       maxBytes: PAJA_RESOURCE_MAX_BYTES,
       maxUrls: PAJA_RESOURCE_MAX_URLS,
     });
@@ -42,6 +46,8 @@ describe('Paja resource backend', () => {
     ])).toEqual({
       schemes: [
         { scheme: 'data', enabled: true },
+        { scheme: 'https', enabled: true },
+        { scheme: 'http', enabled: true },
         { scheme: 'blossom', enabled: true },
       ],
       maxBytes: PAJA_RESOURCE_MAX_BYTES,
@@ -89,15 +95,43 @@ describe('Paja resource backend', () => {
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
   });
 
-  it('rejects malformed identifiers, hash mismatches, oversize responses, raw SVG, and direct network URLs', async () => {
+  it('resolves arbitrary HTTP(S) origins through the browser and classifies returned bytes', async () => {
+    const fetchFn = vi.fn(async () => new Response('{"network":true}', {
+      headers: { 'content-type': 'image/svg+xml' },
+    }));
+    const fetchResource = createPajaResourceFetch({ fetch: fetchFn });
+    const signal = new AbortController().signal;
+
+    const httpsResponse = await fetchResource('https://media.example/avatar', { signal });
+    const httpResponse = await fetchResource('http://localhost:3000/avatar', { signal });
+
+    expect(fetchFn).toHaveBeenNthCalledWith(1, 'https://media.example/avatar', expect.objectContaining({
+      method: 'GET',
+      credentials: 'omit',
+      referrerPolicy: 'no-referrer',
+    }));
+    expect(fetchFn).toHaveBeenNthCalledWith(2, 'http://localhost:3000/avatar', expect.any(Object));
+    expect(httpsResponse.headers.get('content-type')).toBe('application/json');
+    expect(httpResponse.headers.get('content-type')).toBe('application/json');
+  });
+
+  it('maps browser CORS rejection to the canonical network error', async () => {
+    const fetchResource = createPajaResourceFetch({
+      fetch: vi.fn(async () => { throw new TypeError('Failed to fetch'); }),
+    });
+
+    await expect(fetchResource('https://media.example/avatar', {
+      signal: new AbortController().signal,
+    })).rejects.toMatchObject({ code: 'network-error', message: 'Failed to fetch' });
+  });
+
+  it('rejects malformed identifiers, hash mismatches, oversize responses, raw SVG, and unknown schemes', async () => {
     const fetchResource = createPajaResourceFetch();
     const signal = new AbortController().signal;
 
     await expect(fetchResource('data:image/svg+xml,%3Csvg%3E%3C/svg%3E', { signal }))
       .rejects.toMatchObject({ code: 'decode-failed' });
-    await expect(fetchResource('https://example.com/image.png', { signal }))
-      .rejects.toMatchObject({ code: 'unsupported-scheme' });
-    await expect(fetchResource('http://localhost/image.png', { signal }))
+    await expect(fetchResource('ftp://example.com/image.png', { signal }))
       .rejects.toMatchObject({ code: 'unsupported-scheme' });
 
     const blossomFetch = createPajaResourceFetch({
@@ -143,7 +177,7 @@ describe('Paja resource backend', () => {
       .rejects.toMatchObject({ name: 'AbortError' });
   });
 
-  it('routes data bytes through the service and denies HTTPS without network access', async () => {
+  it('routes data and arbitrary HTTPS bytes through the service', async () => {
     const adapter = createPajaAdapter(
       CONFIG,
       () => normalizePajaSimulation({ relay: { mode: 'disabled' } }),
@@ -170,17 +204,22 @@ describe('Paja resource backend', () => {
     });
     expect(await result.blob.text()).toBe('hello world');
 
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{"remote":true}', {
+      headers: { 'content-type': 'text/html' },
+    })));
     service?.handleMessage('resource-window', {
       type: 'resource.bytes',
       id: 'https-1',
       url: 'https://example.com/tracker.png',
     } as NappletMessage, (message) => sent.push(message));
     await flushPromises();
-    expect(sent[1]).toMatchObject({
-      type: 'resource.bytes.error',
+    const httpsResult = sent[1] as NappletMessage & { blob: Blob; mime: string };
+    expect(httpsResult).toMatchObject({
+      type: 'resource.bytes.result',
       id: 'https-1',
-      error: 'unsupported-scheme',
+      mime: 'application/json',
     });
+    expect(await httpsResult.blob.text()).toBe('{"remote":true}');
 
     (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
   });
