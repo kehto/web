@@ -59,7 +59,9 @@ warning, when the target would block the sandboxed frame.
 
 The console shows supported interfaces with per-domain injection toggles,
 runtime ACL controls, signer controls, and a filterable message log with visible
-error details. Paja auto-connects a browser NIP-07 signer when `window.nostr` is
+error details. In runtime-pointer mode, ACL controls always display and mutate
+the active tab's resolver-verified d-tag and aggregate hash; a grant or revoke
+rerenders that same identity immediately. Paja auto-connects a browser NIP-07 signer when `window.nostr` is
 available, can connect to a bunker/NIP-46 URI, and only uses the generated local
 development signer when the Dev signer button is selected. Sign, publish, DM
 send, filesystem picker, Blossom upload, and external-link requests use one serialized in-page

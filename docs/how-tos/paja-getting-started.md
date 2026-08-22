@@ -72,8 +72,9 @@ one-shot `onReady()` behavior.
 
 Use **ACL** to grant or revoke runtime capabilities such as `state:write`,
 `notify:send`, `outbox:write`, and `upload:write`. These controls write through
-Kehto runtime ACL state; denials come back through the normal runtime error
-envelopes.
+Kehto runtime ACL state for the active napplet identity. Denials use each NAP's
+defined failure shape; for example, a denied `outbox.query` returns a correlated
+`outbox.query.result` with `events: []` and `error`.
 
 ## 6. Watch Messages
 

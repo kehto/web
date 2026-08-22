@@ -55,6 +55,10 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
   when available. This is policy-neutral context for host runtimes; Kehto does
   not prescribe prompting, persistence, grant scope, or denial policy.
 - Routes the NAP-COUNT `count.query` domain through a registered `count` service. The runtime validates non-empty filters and returns `count.query.result` refusals such as `invalid-filter` or `count-unavailable` instead of emulating counts by fetching event payloads.
+- Keeps ACL and firewall rejection of `outbox.query` on the canonical
+  `outbox.query.result` wire with the request `id`, `events: []`, and `error`, as
+  defined by draft [NAP-OUTBOX PR #32 at
+  `4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e`](https://github.com/napplet/naps/pull/32).
 - Routes service-only NAP domains such as `dm` and `fs` through registered handlers, so protocol backends stay outside core runtime dispatch.
 - Does not own browser `window`, iframe creation, DOM, `postMessage` listeners, or localStorage implementation details.
 - Browser concerns live in `@kehto/shell`.
