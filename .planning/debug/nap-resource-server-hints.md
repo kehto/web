@@ -1,6 +1,6 @@
 ---
 slug: nap-resource-server-hints
-status: investigating
+status: blocked
 trigger: "chase NAP-RESOURCE: resource now includes server hints, make any required changes throughout the stack, and implement; napplet/web packages are not yet updated, so stop when you hit that boundary and await"
 created: 2026-08-22
 updated: 2026-08-22
@@ -25,7 +25,7 @@ updated: 2026-08-22
 hypothesis: CONFIRMED. The new contract changes the web API and request envelopes owned by `napplet/web`: `bytes` gains per-resource `servers`, `bytesMany` replaces `urls` with per-entry `requests`, and `ResourceInfo` gains optional `maxServers`. Kehto must consume those canonical package types after they exist rather than introduce a second local public contract.
 test: Compare exact NAP-RESOURCE head `9511232` (semantic commit `7531258`) with the current `napplet/web` core/runtime API, NAP resource types, transport, shim, and SDK, then trace the corresponding Kehto host consumers.
 expecting: The first implementation boundary is an unchanged `napplet/web` resource API/wire package surface; Kehto changes remain pending until that contract is available.
-next_action: await updated `@napplet/core` and `@napplet/nap` resource contracts, then implement and verify every enumerated Kehto consumer in one conformant change.
+next_action: await updated `@napplet/core` and `@napplet/nap` resource contracts, then resume this session and implement every enumerated Kehto consumer in one conformant change.
 
 ## Authority
 
@@ -51,6 +51,9 @@ next_action: await updated `@napplet/core` and `@napplet/nap` resource contracts
 - timestamp: 2026-08-22
   finding: Kehto's reference service currently forwards only `(url, init)` to runtime resolvers, parses only `urls` for bulk requests, and Paja selects only configured default Blossom servers.
   confirms: Once upstream types land, Kehto must carry each request's accepted `servers` into the resolver, preserve per-entry hints for bulk requests, expose `maxServers`, and merge hint/default/fallback tiers without placing hints in cache identity.
+- timestamp: 2026-08-22
+  finding: Three consecutive live audits fetched every `napplet/web` remote ref and found no commit containing `maxServers` or the new `bytesMany(requests...)` API; NAP-RESOURCE PR #80 remained at pre-hint head `fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1`.
+  confirms: The same external package-contract blocker persists and no spec-conformant Kehto implementation can proceed without creating the forbidden local substitute contract.
 
 ## Eliminated
 
