@@ -92,6 +92,15 @@ test('resolves a stale embedded hint through configured live relays in the runni
     );
     await expect(frame).toHaveAttribute('sandbox', /allow-scripts/);
     await expect(frame).not.toHaveAttribute('sandbox', /allow-same-origin/);
+
+    const outboxRead = page.locator('#acl-controls [data-acl-capability="outbox:read"]');
+    await expect(outboxRead).toHaveAttribute('data-enabled', 'true');
+    await outboxRead.click();
+    await expect(outboxRead).toHaveAttribute('data-enabled', 'false');
+    await expect(page.locator('#message-log [data-message-type="paja.acl.revoke"]')).toHaveCount(1);
+    await outboxRead.click();
+    await expect(outboxRead).toHaveAttribute('data-enabled', 'true');
+    await expect(page.locator('#message-log [data-message-type="paja.acl.grant"]')).toHaveCount(1);
   } finally {
     await server.close();
   }

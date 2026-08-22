@@ -8,6 +8,8 @@ import {
 
 import type { PajaHostConfig } from './options.js';
 import type { PajaSignerState } from './browser-signers.js';
+import { getTargetIdentity } from './browser-target-frame.js';
+import type { PajaResolvedPointer } from './runtime-resolver.js';
 import {
   PAJA_SIMULATION_DOMAINS,
   type PajaCapabilityDomain,
@@ -36,6 +38,8 @@ export interface PajaMessageLogEntry {
 export interface PajaDevtoolsState {
   /** Current host config. */
   readonly config: PajaHostConfig;
+  /** Resolver-verified identity of the active runtime-pointer target. */
+  resolvedTarget: PajaResolvedPointer | null;
   /** Current simulation model. */
   simulation: PajaSimulation;
   /** Current signer state. */
@@ -133,14 +137,6 @@ function describeMessageDetail(raw: unknown): string {
 
 function domainEnabled(simulation: PajaSimulation, domain: PajaCapabilityDomain): boolean {
   return simulation.capabilities.domains[domain] === true;
-}
-
-function getTargetIdentity(config: PajaHostConfig): { pubkey: string; dTag: string; aggregateHash: string } {
-  return {
-    pubkey: '',
-    dTag: config.window.dTag,
-    aggregateHash: config.window.aggregateHash,
-  };
 }
 
 /**
@@ -364,7 +360,7 @@ function renderInterfaceControls(state: PajaDevtoolsState): void {
 function renderAclControls(state: PajaDevtoolsState, bridge: ShellBridge | null): void {
   const container = document.getElementById('acl-controls');
   if (!container) return;
-  const identity = getTargetIdentity(state.config);
+  const identity = getTargetIdentity(state.config, state.resolvedTarget);
   container.replaceChildren(...ALL_CAPABILITIES.map((capability) => {
     const allowed = bridge?.runtime.aclState.check(
       identity.pubkey,
