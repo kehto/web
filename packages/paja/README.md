@@ -155,6 +155,20 @@ runtime tabs in local storage so returning to `/web/paja/` restores the previous
 pointer set. An explicit pointer in the URL still takes precedence over restored
 tabs.
 
+The static artifact defaults to Paja's standard live relays and memory uploads.
+To point it at specific live relays or Blossom upload servers, pass
+comma-separated host lists when generating the artifact:
+
+```bash
+PAJA_RELAY_URLS="wss://relay.example,wss://relay.example.net" \
+PAJA_UPLOAD_SERVERS="https://blossom.example" \
+node scripts/build-paja-pages.mjs
+```
+
+When `PAJA_UPLOAD_SERVERS` is set, the runtime enables the Blossom upload rail
+with server discovery and uses those servers for Blossom NAP-RESOURCE
+resolution too.
+
 ## Installed intent handlers and delivery
 
 Paja keeps resolver-verified pointer and manifest facts in an installed catalog,

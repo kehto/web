@@ -133,6 +133,24 @@ describe('@kehto/paja options', () => {
     });
   });
 
+  it('passes an explicit simulation override through to the static runtime', () => {
+    const hostConfig = createPajaRuntimeHostConfig({
+      simulation: {
+        relay: { mode: 'live', urls: ['wss://relay.example'] },
+        upload: { mode: 'blossom', servers: ['https://blossom.example'] },
+      },
+    }, new Date('2026-06-30T00:00:00.000Z'));
+
+    expect(hostConfig.simulation.relay).toMatchObject({
+      mode: 'live',
+      urls: ['wss://relay.example'],
+    });
+    expect(hostConfig.simulation.upload).toMatchObject({
+      mode: 'blossom',
+      servers: ['https://blossom.example'],
+    });
+  });
+
   it('normalizes fixed identity and disabled capability modes', () => {
     const pubkey = '1'.repeat(64);
     const options = normalizePajaOptions({

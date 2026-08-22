@@ -34,12 +34,31 @@ function ensureFile(path, label) {
   }
 }
 
+function readCommaSeparated(value) {
+  return (value ?? '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
 ensureFile(browserHostScript, 'Paja browser host bundle');
 rmSync(outputDir, { recursive: true, force: true });
 mkdirSync(join(outputDir, '__kehto'), { recursive: true });
 writeFileSync(join(outputDir, '.nojekyll'), '');
 
-const hostConfig = createPajaRuntimeHostConfig({}, new Date('2026-06-30T00:00:00.000Z'));
+const relayUrls = readCommaSeparated(process.env.PAJA_RELAY_URLS);
+const uploadServers = readCommaSeparated(process.env.PAJA_UPLOAD_SERVERS);
+const simulation = relayUrls.length > 0 || uploadServers.length > 0
+  ? {
+      ...(relayUrls.length > 0 ? { relay: { mode: 'live', urls: relayUrls } } : {}),
+      ...(uploadServers.length > 0 ? { upload: { mode: 'blossom', servers: uploadServers, discoverServers: true } } : {}),
+    }
+  : undefined;
+
+const hostConfig = createPajaRuntimeHostConfig(
+  simulation ? { simulation } : {},
+  new Date('2026-06-30T00:00:00.000Z'),
+);
 writeFileSync(join(outputDir, 'index.html'), renderPajaHtml(hostConfig));
 writeFileSync(join(outputDir, '__kehto', 'config.json'), `${JSON.stringify(hostConfig, null, 2)}\n`);
 copyFileSync(browserHostScript, join(outputDir, '__kehto', 'browser-host.js'));
