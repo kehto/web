@@ -63,7 +63,7 @@ function fakeFetcher(routes: Record<string, () => { ok: boolean; json?: unknown;
 }
 
 describe('injectCspMeta', () => {
-  const classOnePrefix = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;";
+  const classOnePrefix = "default-src 'none'; script-src 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;";
   const classOneSuffix = "worker-src 'none'; child-src 'none'; frame-src 'none'; media-src 'none'; object-src 'none'; manifest-src 'none'; prefetch-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
 
   it('injects the complete Class-1 policy with sorted, deduplicated grants into <head>', () => {
@@ -74,6 +74,7 @@ describe('injectCspMeta', () => {
     );
     expect(out).not.toContain("connect-src 'self'");
     expect(out).not.toContain('connect-src *');
+    expect(out).not.toContain("'unsafe-eval'");
     // sits inside <head>
     expect(out.indexOf('Content-Security-Policy')).toBeLessThan(out.indexOf('</head>'));
     expect(out.indexOf('<head>')).toBeLessThan(out.indexOf('Content-Security-Policy'));

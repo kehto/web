@@ -36,7 +36,7 @@ const expectedRequires: Record<(typeof expectedNapplets)[number], readonly strin
   toaster: ['notify', 'theme'],
 };
 
-const classOnePrefix = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;";
+const classOnePrefix = "default-src 'none'; script-src 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;";
 const classOneSuffix = "worker-src 'none'; child-src 'none'; frame-src 'none'; media-src 'none'; object-src 'none'; manifest-src 'none'; prefetch-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
 
 test('playground loads all napplets via verified srcdoc with opaque origins', async ({ page }) => {

@@ -219,8 +219,9 @@ shim capability.
 
 Before Paja assigns a verified runtime-pointer document to `srcdoc`, it inserts
 Kehto's local Class-1 CSP before the host-owned namespace prelude. The policy
-denies all defaults; permits inline script/style, `data:`/`blob:` images, and
-`data:` fonts; grants `connect-src` only to the resolved relay and Blossom
+denies all defaults; permits inline script/style, WebAssembly compilation through
+the narrow `'wasm-unsafe-eval'` source, `data:`/`blob:` images, and `data:` fonts;
+keeps JavaScript string evaluation blocked; grants `connect-src` only to the resolved relay and Blossom
 origins; explicitly denies worker, child, frame, media, object, manifest,
 prefetch, base, and form capabilities; and ends with `frame-ancestors 'self'`.
 The NIP-5D verified-srcdoc and opaque-sandbox rules do not mandate this CSP;
