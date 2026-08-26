@@ -2,19 +2,18 @@
  * resource-demo napplet -- fetches a remote image through the resource service
  * and renders it as a visible resource preview.
  *
- * Uses the injected NAP-RESOURCE projection to fetch remote bytes and surface
- * the response as an object URL.
+ * Uses the published NAP-RESOURCE SDK over the injected host projection to
+ * fetch remote bytes and surface the response as an object URL.
  */
+import '@napplet/shim';
+import { resourceBytesMany } from '@napplet/nap/resource/sdk';
 import { getMissingNapDomains } from '../../domain-availability';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
 
 const REQUIRED_NAPS = ['resource', 'theme'] as const;
 // Match the 5s deadline every other playground napplet uses: the host prelude
-// installs window.napplet domain objects before authored code runs, but slower
-// CI can still race the iframe bootstrap. The pinned @napplet/core@0.31.1 and
-// @napplet/shim@0.29.2 package line is retained for graph alignment, but this
-// napplet must not import the legacy shim because it replaces the draft-aware
-// host resource projection with the old bulk `urls` shape.
+// and @napplet/shim@0.30.0 install canonical window.napplet domain objects
+// before authored code runs, but slower CI can still race the iframe bootstrap.
 const CAPABILITY_WAIT_MS = 5_000;
 const CAPABILITY_WAIT_INTERVAL_MS = 25;
 
@@ -53,39 +52,6 @@ async function waitForRequiredNaps(): Promise<void> {
   }
 }
 
-type ResourceBytesManyItem =
-  | {
-      url: string;
-      ok: true;
-      blob: Blob;
-      mime: string;
-    }
-  | {
-      url: string;
-      ok: false;
-      error: string;
-      code?: string;
-      message?: string;
-    };
-
-interface HintAwareResourceApi {
-  bytesMany(
-    requests: Array<{ url: string; servers?: string[] }>,
-  ): Promise<ResourceBytesManyItem[]>;
-}
-
-function getResourceApi(): HintAwareResourceApi {
-  const resource: unknown = Reflect.get(window.napplet, 'resource');
-  if (
-    typeof resource !== 'object'
-    || resource === null
-    || typeof Reflect.get(resource, 'bytesMany') !== 'function'
-  ) {
-    throw new Error('unsupported NAP capability: resource');
-  }
-  return resource as HintAwareResourceApi;
-}
-
 function setRemoteImageFromBlob(blob: Blob): void {
   if (currentObjectUrl) {
     URL.revokeObjectURL(currentObjectUrl);
@@ -112,8 +78,7 @@ async function init(): Promise<void> {
   sourceEl.textContent = REMOTE_IMAGE_URL;
   bulkEl.textContent = 'bulk loading';
 
-  const resource = getResourceApi();
-  const items = await resource.bytesMany(REMOTE_IMAGE_URLS.map((url) => ({ url })));
+  const items = await resourceBytesMany(REMOTE_IMAGE_URLS.map((url) => ({ url })));
   const first = items[0];
   if (!first?.ok) {
     imageEl.removeAttribute('src');
