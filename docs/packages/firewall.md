@@ -28,7 +28,7 @@ pnpm add @kehto/firewall
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.31.0 <0.32.0` |
+| `@napplet/core` | `>=0.32.0 <0.33.0` |
 
 ## Primary APIs
 

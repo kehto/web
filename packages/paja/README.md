@@ -156,7 +156,7 @@ outside this behavior.
 [NAP-IDENTITY at `6461e4b37c29dc09a20dff35d9515889c4433874`](https://github.com/napplet/naps/blob/6461e4b37c29dc09a20dff35d9515889c4433874/naps/NAP-IDENTITY.md)
 is byte-identical to the recorded `napplet/naps` master document for this phase.
 Pinned [NAP-OUTBOX at `4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e`](https://github.com/napplet/naps/blob/4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e/naps/NAP-OUTBOX.md)
-together with installed `@napplet/nap@0.31.2` types is the PoC contract because
+together with installed `@napplet/nap@0.32.0` types is the PoC contract because
 current master has no NAP-OUTBOX path. Paja therefore makes no current-master
 OUTBOX conformance claim. Blossom upload behavior targets pinned
 [NAP-UPLOAD at `a7cc17463cbf5d9cb87884b31071bc4fc826034c`](https://github.com/napplet/naps/blob/a7cc17463cbf5d9cb87884b31071bc4fc826034c/naps/NAP-UPLOAD.md).
@@ -210,7 +210,7 @@ identity. A superseded target/source, failed open/readiness, or terminal send is
 handled by the controller's replacement/retry/terminal policy and produces a
 canonical failed `IntentResult`.
 
-`@napplet/shim@0.29.2` supplies no generic shell API. Kehto deliberately keeps
+`@napplet/shim@0.30.0` supplies no generic shell API. Kehto deliberately keeps
 its host-owned mandatory `window.napplet.shell` prelude: it installs the live
 receiver before the one bare `shell.ready`, caches the first `shell.init`, and
 provides local `ready()`, `supports()`, read-only `services`, and one-shot
@@ -320,8 +320,10 @@ Paja refuses redirects, verifies the requested SHA-256, and permits plain-HTTP
 transport only for configured loopback development defaults. Browser-only Paja
 cannot pin DNS results, so production runtimes must add the draft's DNS-time
 private-address checks. This behavior targets draft
-[NAP-RESOURCE at `9511232`](https://github.com/napplet/naps/blob/9511232f69313aa7953d110e35d32cc28d506f66/naps/NAP-RESOURCE.md), with package projection
-[`napplet/web#205@bfaa2428`](https://github.com/napplet/web/pull/205).
+[NAP-RESOURCE at `9511232`](https://github.com/napplet/naps/blob/9511232f69313aa7953d110e35d32cc28d506f66/naps/NAP-RESOURCE.md), with the merged package implementation
+[`napplet/web#206@19e0029b`](https://github.com/napplet/web/pull/206) released as
+`@napplet/core`/`@napplet/nap` 0.32.0, `@napplet/shim` 0.30.0, and
+`@napplet/sdk` 0.28.0.
 
 Full package docs: [`docs/packages/paja.md`](../../docs/packages/paja.md).
 Getting started: [`docs/how-tos/paja-getting-started.md`](../../docs/how-tos/paja-getting-started.md).

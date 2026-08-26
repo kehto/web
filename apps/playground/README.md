@@ -31,7 +31,7 @@ The active playground boot path is production-equivalent:
 2. The shared config lets `@napplet/vite-plugin` validate and sign the normal external-asset graph, then Kehto's post-build plugin rewrites the final gateway artifact to a single HTML file and recomputes the manifest.
 3. Each napplet build emits exactly `dist/index.html` plus `dist/.nip5a-manifest.json`.
 4. The shell resolves the manifest, verifies the signed content-addressed bytes, binds the iframe origin to the computed `(dTag, aggregateHash)`, and writes the verified HTML through `iframe.srcdoc`.
-5. Before authored scripts run, the shell prepends Kehto's local Class-1 CSP and a host-owned NIP-5D prelude outside the signed artifact bytes. The policy denies all defaults, permits inline script/style and WebAssembly compilation through the narrow `'wasm-unsafe-eval'` source while keeping JavaScript string evaluation blocked, permits `data:`/`blob:` images and `data:` fonts, and limits `connect-src` to caller-granted origins. It explicitly denies worker, child, frame, media, object, manifest, prefetch, base, and form capabilities, then ends with `frame-ancestors 'self'`. It always installs mandatory `window.napplet.shell`, then filters optional domains to the verified manifest allowlist. The published `@napplet/shim@0.29.2` is non-shell, so this Kehto prelude remains the required receiver before one bare `shell.ready`, the first `shell.init` cache, and local `ready()`, `supports()`, read-only `services`, and one-shot `onReady()` behavior. `shell.ready` establishes the runtime session.
+5. Before authored scripts run, the shell prepends Kehto's local Class-1 CSP and a host-owned NIP-5D prelude outside the signed artifact bytes. The policy denies all defaults, permits inline script/style and WebAssembly compilation through the narrow `'wasm-unsafe-eval'` source while keeping JavaScript string evaluation blocked, permits `data:`/`blob:` images and `data:` fonts, and limits `connect-src` to caller-granted origins. It explicitly denies worker, child, frame, media, object, manifest, prefetch, base, and form capabilities, then ends with `frame-ancestors 'self'`. It always installs mandatory `window.napplet.shell`, then filters optional domains to the verified manifest allowlist. The published `@napplet/shim@0.30.0` is non-shell, so this Kehto prelude remains the required receiver before one bare `shell.ready`, the first `shell.init` cache, and local `ready()`, `supports()`, read-only `services`, and one-shot `onReady()` behavior. `shell.ready` establishes the runtime session.
 6. The iframe sandbox remains opaque-origin: `allow-scripts` only, no `allow-same-origin`.
 
 The gateway route may still serve manifest/blob data as a local accelerator or debugging surface, but it is not the identity authority. New tests and docs should treat verified `srcdoc` loading plus `(dTag, aggregateHash)` provenance as the canonical playground boot path.
@@ -150,7 +150,7 @@ contract is merged
 [`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INC.md)
 on `napplet/naps` master
 `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`. Released
-`@napplet/nap@0.31.2` and merged NAP-INC both deliver one `IncEvent`.
+`@napplet/nap@0.32.0` and merged NAP-INC both deliver one `IncEvent`.
 
 ## ACL Surface
 
