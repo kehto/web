@@ -1,5 +1,11 @@
 # @kehto/paja
 
+## 0.15.2
+
+### Patch Changes
+
+- e5ff746: Permit verified WebAssembly napplets to compile under Paja's runtime-pointer CSP while keeping JavaScript string evaluation blocked.
+
 ## 0.15.1
 
 ### Patch Changes
