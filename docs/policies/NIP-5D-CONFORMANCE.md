@@ -161,6 +161,13 @@ they are either:
 - a documented NAP domain envelope whose SDK helper surface is incomplete; or
 - a demo/test-only envelope listed in the milestone raw-envelope allowlist.
 
+NAP-RESOURCE host projections follow exact draft ref
+`9511232f69313aa7953d110e35d32cc28d506f66` and package contract
+`napplet/web#205` head `bfaa2428503d1e9d7fa4677998500e6a0b188b28`:
+single requests carry optional `servers`, while bulk requests carry
+`requests: [{ url, servers? }]`. The playground resource demo uses that injected
+API and no longer needs a raw-envelope exception.
+
 ### Phase 58 Raw-Envelope Allowlist
 
 | Envelope | Location | Classification | Boundary |
@@ -175,7 +182,6 @@ they are either:
 | `webrtc.*.result` / `webrtc.event` | `apps/playground/napplets/webrtc-demo/src/main.ts` | Disabled source / NAP helper-surface gap | The retained WebRTC demo source is not hosted by the playground. Until it is replaced with a real demo or deleted, raw result/event listeners stay confined to webrtc-demo, parent-source-bound, and correlation-id/type narrowed. |
 | `notify.create` | `apps/playground/napplets/toaster/src/main.ts` | NAP helper-surface gap | Notify service supports create/list, but `@napplet/nap/notify/sdk` lacks create/list helpers. Raw use must stay source-bound and confined to toaster. |
 | `notify.list` | `apps/playground/napplets/toaster/src/main.ts` | NAP helper-surface gap | Same toaster-only helper gap as `notify.create`; raw replies are accepted only from `window.parent`. |
-| `resource.bytesMany` | `apps/playground/napplets/resource-demo/src/main.ts` | NAP helper-surface gap | Draft NAP-RESOURCE `fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1` defines the wire operation, while the installed SDK lacks the helper. Raw use is confined to resource-demo, parent-source-bound, and type-narrowed. |
 | `theme.changed` | `apps/playground/src/theme.ts` | NAP helper-surface gap | Theme change is an automatic shell-to-napplet envelope; the raw listener is parent-source-bound and type-narrowed. No subscribe/unsubscribe wire action exists. |
 
 New raw `window.parent.postMessage()` protocol envelopes in playground napplets

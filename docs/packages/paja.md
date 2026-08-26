@@ -380,12 +380,12 @@ memory relay mode also disables `count` advertisement.
 ### NAP-RESOURCE
 
 Paja implements the draft
-[NAP-RESOURCE at `fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md)
+[NAP-RESOURCE at `9511232f69313aa7953d110e35d32cc28d506f66`](https://github.com/napplet/naps/blob/9511232f69313aa7953d110e35d32cc28d506f66/naps/NAP-RESOURCE.md)
 with real `data:`, `http:`, `https:`, and content-addressed `blossom:` backends.
-`resource.info` always reports `data`, `https`, and `http`; it additionally
-reports `blossom` only while at least one usable host-owned server is
-configured. This disclosure is advisory, not an authorization grant. All paths
-expose the enforced 10 MiB response and 100-URL bulk caps. The host ignores
+`resource.info` reports all four schemes because each Blossom request can carry
+accepted server hints without a host default. This disclosure is advisory, not
+an authorization grant. All paths expose the enforced 10 MiB response,
+100-URL bulk, and eight-server per-resource caps. The host ignores
 declared or upstream media types, classifies a narrow safe
 image/audio/video/font/text set, and rejects raw SVG, HTML, invalid UTF-8, and
 unrecognized binary data. Cancellation remains window-scoped and drops late
@@ -400,12 +400,15 @@ rules when Paja itself is served securely. This resource choice is independent
 of Paja's signer confirmation boundary.
 
 The only accepted Blossom form is `blossom:sha256:<64 hex characters>`. Paja
-uses runtime-pointer server hints plus explicit or already-warmed upload server
-settings, preserving their order and removing duplicates. HTTPS is accepted;
-HTTP is restricted to loopback development. There is no public default, the
-napplet cannot select an upstream origin, redirects are refused, and Paja
-verifies the returned bytes against the requested SHA-256 before delivery. A
-hash mismatch is `decode-failed`; missing blobs are `not-found`.
+accepts public-looking HTTPS request hints, discards invalid/private literals,
+deduplicates equivalent origins, and tries accepted hints before runtime-pointer
+and upload defaults. The combined list is capped at eight. Host-configured HTTP
+is restricted to loopback development; request hints never permit it. Redirects
+are refused and Paja verifies the returned bytes against the requested SHA-256
+before delivery. A hash mismatch is `decode-failed`; all-definitive misses are
+`not-found`; any inconclusive transport failure without success is
+`network-error`. Browser-only Paja cannot pin DNS resolution, so production
+runtimes still must perform the draft's DNS-time private-address checks.
 
 Hashtree, Nostr, and other unimplemented schemes remain unadvertised and fail
 with `unsupported-scheme`. HTTP(S) dispatch and Blossom dispatch are separate:

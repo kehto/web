@@ -311,13 +311,17 @@ canonical `network-error`, while any CORS-readable response is returned as NAP
 bytes.
 
 `data:` remains locally decoded. `blossom:` is a separate, content-addressed
-boundary and is advertised only when at least one usable host-owned
-runtime-pointer or upload server is configured. The only accepted identifier is
-`blossom:sha256:<hex>`; Paja refuses redirects, verifies the requested SHA-256,
-and permits plain-HTTP Blossom transport only for configured loopback
-development servers. Resource-origin permissiveness does not alter Paja's
-independent signer confirmations. This behavior targets draft
-[NAP-RESOURCE at `fa6bcc6`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md).
+boundary and is advertised because each request may provide server locations
+without a host default. Paja accepts only public-looking HTTPS origin hints,
+discards invalid/private literals, deduplicates them, and tries them before
+host-configured runtime-pointer or upload defaults. The combined list is capped
+at eight candidates. The only accepted identifier is `blossom:sha256:<hex>`;
+Paja refuses redirects, verifies the requested SHA-256, and permits plain-HTTP
+transport only for configured loopback development defaults. Browser-only Paja
+cannot pin DNS results, so production runtimes must add the draft's DNS-time
+private-address checks. This behavior targets draft
+[NAP-RESOURCE at `9511232`](https://github.com/napplet/naps/blob/9511232f69313aa7953d110e35d32cc28d506f66/naps/NAP-RESOURCE.md), with package projection
+[`napplet/web#205@bfaa2428`](https://github.com/napplet/web/pull/205).
 
 Full package docs: [`docs/packages/paja.md`](../../docs/packages/paja.md).
 Getting started: [`docs/how-tos/paja-getting-started.md`](../../docs/how-tos/paja-getting-started.md).
