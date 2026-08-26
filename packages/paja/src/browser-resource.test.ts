@@ -4,6 +4,7 @@ import { createPajaAdapter } from './browser-adapter.js';
 import {
   createPajaResourceFetch,
   PAJA_RESOURCE_MAX_BYTES,
+  PAJA_RESOURCE_MAX_SERVERS,
   PAJA_RESOURCE_MAX_URLS,
   pajaResourceInfo,
 } from './browser-resource.js';
@@ -29,21 +30,8 @@ afterEach(() => {
 });
 
 describe('Paja resource backend', () => {
-  it('discloses permissive browser network schemes and Blossom when configured', () => {
+  it('discloses permissive browser network schemes and request-hinted Blossom support', () => {
     expect(pajaResourceInfo()).toEqual({
-      schemes: [
-        { scheme: 'data', enabled: true },
-        { scheme: 'https', enabled: true },
-        { scheme: 'http', enabled: true },
-      ],
-      maxBytes: PAJA_RESOURCE_MAX_BYTES,
-      maxUrls: PAJA_RESOURCE_MAX_URLS,
-    });
-    expect(pajaResourceInfo([
-      'https://blossom.example/',
-      'http://localhost:3000',
-      'http://public.example',
-    ])).toEqual({
       schemes: [
         { scheme: 'data', enabled: true },
         { scheme: 'https', enabled: true },
@@ -52,7 +40,59 @@ describe('Paja resource backend', () => {
       ],
       maxBytes: PAJA_RESOURCE_MAX_BYTES,
       maxUrls: PAJA_RESOURCE_MAX_URLS,
+      maxServers: PAJA_RESOURCE_MAX_SERVERS,
     });
+  });
+
+  it('resolves Blossom bytes from accepted request hints before configured defaults', async () => {
+    const bytes = new TextEncoder().encode('{"from":"request-hint"}');
+    const hash = await sha256Hex(bytes);
+    const fetchFn = vi.fn(async () => new Response(bytes));
+    const fetchResource = createPajaResourceFetch({
+      getBlossomServers: () => ['https://default.example'],
+      fetch: fetchFn,
+    });
+
+    const response = await fetchResource(`blossom:sha256:${hash}`, {
+      signal: new AbortController().signal,
+      servers: [
+        'http://public.example',
+        'https://localhost',
+        'https://hint.example/',
+        'https://HINT.example',
+      ],
+    });
+
+    expect(fetchFn).toHaveBeenCalledOnce();
+    expect(fetchFn).toHaveBeenCalledWith(`https://hint.example/${hash}`, expect.objectContaining({
+      redirect: 'error',
+    }));
+    expect(await response.text()).toBe('{"from":"request-hint"}');
+  });
+
+  it('caps request hints and reports an inconclusive fallback as network-error', async () => {
+    const servers = Array.from(
+      { length: PAJA_RESOURCE_MAX_SERVERS + 2 },
+      (_, index) => `https://hint-${index}.example`,
+    );
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce(new Response(null, { status: 404 }))
+      .mockRejectedValue(new TypeError('transport failed'));
+    const fetchResource = createPajaResourceFetch({
+      getBlossomServers: () => ['https://default.example'],
+      fetch: fetchFn,
+    });
+
+    await expect(fetchResource(`blossom:sha256:${'d'.repeat(64)}`, {
+      signal: new AbortController().signal,
+      servers,
+    })).rejects.toMatchObject({ code: 'network-error' });
+
+    expect(fetchFn).toHaveBeenCalledTimes(PAJA_RESOURCE_MAX_SERVERS);
+    expect(fetchFn).not.toHaveBeenCalledWith(
+      `https://default.example/${'d'.repeat(64)}`,
+      expect.anything(),
+    );
   });
 
   it('classifies decoded bytes instead of trusting the declared media type', async () => {
@@ -224,26 +264,13 @@ describe('Paja resource backend', () => {
     (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
   });
 
-  it('routes verified Blossom bytes through the NAP service using runtime-pointer server hints', async () => {
+  it('routes a napplet-provided Blossom server hint through the service without a host default', async () => {
     const bytes = new TextEncoder().encode('hello from blossom');
     const hash = await sha256Hex(bytes);
     const fetchFn = vi.fn(async () => new Response(bytes));
     vi.stubGlobal('fetch', fetchFn);
-    const config = {
-      ...CONFIG,
-      target: {
-        mode: 'runtime-pointer',
-        url: 'about:blank',
-        hmrStrategy: 'none',
-        pointer: {
-          relays: [],
-          blossomServers: ['https://blossom.example'],
-          maxWaitMs: 5_000,
-        },
-      },
-    } as PajaHostConfig;
     const adapter = createPajaAdapter(
-      config,
+      CONFIG,
       () => normalizePajaSimulation({ relay: { mode: 'disabled' } }),
       () => {},
       () => {},
@@ -256,6 +283,7 @@ describe('Paja resource backend', () => {
       type: 'resource.bytes',
       id: 'blossom-1',
       url: `blossom:sha256:${hash}`,
+      servers: ['https://blossom.example'],
     } as NappletMessage, (message) => sent.push(message));
     await flushPromises();
 

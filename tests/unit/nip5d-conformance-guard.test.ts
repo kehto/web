@@ -49,13 +49,11 @@ const rawListenerFiles = [
   'apps/playground/napplets/ble-demo/src/main.ts',
   'apps/playground/napplets/serial-demo/src/main.ts',
   'apps/playground/napplets/webrtc-demo/src/main.ts',
-  'apps/playground/napplets/resource-demo/src/main.ts',
   'apps/playground/napplets/toaster/src/main.ts',
 ] as const;
 
 const rawPostMessageTypes: Record<string, readonly string[]> = {
   'apps/playground/napplets/cvm-relatr/src/main.ts': ['cvm.discover', 'cvm.request'],
-  'apps/playground/napplets/resource-demo/src/main.ts': ['resource.bytesMany'],
   'apps/playground/napplets/toaster/src/main.ts': ['notify.create', 'notify.list'],
 };
 
@@ -64,7 +62,6 @@ const policyAllowlistTypes = [
   'cvm.request',
   'notify.create',
   'notify.list',
-  'resource.bytesMany',
   'theme.changed',
 ] as const;
 
@@ -99,6 +96,33 @@ const relaySubscribeRoutingSurfaces = [
   {
     file: 'tests/unit/playground-relay-service.test.ts',
     markers: ['relay: \'wss://explicit.test\'', 'expect(pool.log.requests).toHaveLength(0)'],
+  },
+] as const;
+
+const resourceServerHintRoutingSurfaces = [
+  {
+    file: 'packages/shell/src/napplet-namespace.ts',
+    markers: ['servers: Array.from(options.servers)', "type: 'resource.bytesMany'", 'requests: Array.from(requests || []'],
+  },
+  {
+    file: 'packages/shell/src/types/internal-resource.ts',
+    markers: ['maxServers?: number;', 'servers?: readonly string[];', 'requests: readonly {'],
+  },
+  {
+    file: 'packages/services/src/resource-service.ts',
+    markers: ['maxServers?: number;', 'servers?: readonly string[];', 'm.requests ?? []', "parsedUrl.protocol === 'blossom:'"],
+  },
+  {
+    file: 'packages/paja/src/browser-resource.ts',
+    markers: ['PAJA_RESOURCE_MAX_SERVERS = 8', 'init.servers ?? []', 'resolveBlossomServers(', 'normalizePublicBlossomHint('],
+  },
+  {
+    file: 'packages/paja/src/browser-resource.test.ts',
+    markers: ['accepted request hints before configured defaults', 'reports an inconclusive fallback as network-error'],
+  },
+  {
+    file: 'apps/playground/napplets/resource-demo/src/main.ts',
+    markers: ['interface HintAwareResourceApi', 'servers?: string[]', 'REMOTE_IMAGE_URLS.map((url) => ({ url }))'],
   },
 ] as const;
 
@@ -177,12 +201,6 @@ const rawListenerTypeGuards: Record<string, readonly string[]> = {
   'apps/playground/napplets/ble-demo/src/main.ts': ['msg.type !== resultType'],
   'apps/playground/napplets/serial-demo/src/main.ts': ['msg.type !== resultType'],
   'apps/playground/napplets/webrtc-demo/src/main.ts': ['msg.type !== resultType'],
-  'apps/playground/napplets/resource-demo/src/main.ts': [
-    "envelope.type === 'resource.bytes.result'",
-    "envelope.type === 'resource.bytes.error'",
-    "envelope.type === 'resource.bytesMany.result'",
-    "envelope.type === 'resource.bytesMany.error'",
-  ],
   'apps/playground/napplets/toaster/src/main.ts': [
     "type === 'notify.created'",
     "type === 'notify.listed'",
@@ -634,6 +652,15 @@ describe('NIP-5D conformance static guards', () => {
     expect(fields).toEqual(['id', 'subId', 'filters', 'relay']);
 
     for (const { file, markers } of relaySubscribeRoutingSurfaces) {
+      const source = readRepoFile(file);
+      for (const marker of markers) {
+        expect(source, `${file} missing ${marker}`).toContain(marker);
+      }
+    }
+  });
+
+  it('keeps NAP-RESOURCE server hints wired through shell, services, Paja, playground, and tests', () => {
+    for (const { file, markers } of resourceServerHintRoutingSurfaces) {
       const source = readRepoFile(file);
       for (const marker of markers) {
         expect(source, `${file} missing ${marker}`).toContain(marker);

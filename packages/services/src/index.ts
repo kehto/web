@@ -99,6 +99,8 @@ export type {
 export { createResourceService, ResourceServiceError } from './resource-service.js';
 export type {
   ResourceErrorCode,
+  ResourceBytesRequest,
+  ResourceFetchInit,
   ResourceInfo,
   ResourceInfoContext,
   ResourceInfoProvider,

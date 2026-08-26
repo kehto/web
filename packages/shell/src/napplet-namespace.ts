@@ -1039,11 +1039,21 @@ function nappletNamespacePrelude(domains: string[]): void {
 
   function makeResource(): Record<string, unknown> {
     const objectUrls = new Set<string>();
-    const bytes = (url: string) => request({ type: 'resource.bytes', url }, 'resource.bytes.result', (msg) => msg.blob);
+    const bytes = (url: string, options?: { servers?: string[] }) => request({
+      type: 'resource.bytes',
+      url,
+      ...(Array.isArray(options?.servers) ? { servers: Array.from(options.servers) } : {}),
+    }, 'resource.bytes.result', (msg) => msg.blob);
     return {
       info: () => request({ type: 'resource.info' }, 'resource.info.result', (msg) => msg.info),
       bytes,
-      bytesMany: (urls: string[]) => request({ type: 'resource.bytesMany', urls }, 'resource.bytesMany.result', (msg) => Array.isArray(msg.items) ? msg.items : []),
+      bytesMany: (requests: Array<{ url: string; servers?: string[] }>) => request({
+        type: 'resource.bytesMany',
+        requests: Array.from(requests || [], (entry) => ({
+          url: entry.url,
+          ...(Array.isArray(entry.servers) ? { servers: Array.from(entry.servers) } : {}),
+        })),
+      }, 'resource.bytesMany.result', (msg) => Array.isArray(msg.items) ? msg.items : []),
       bytesAsObjectURL(url: string) {
         let objectUrl = '';
         const handle = {

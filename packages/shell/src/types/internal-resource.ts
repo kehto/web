@@ -36,6 +36,7 @@ export interface ResourceInfo {
   }[];
   maxBytes?: number;
   maxUrls?: number;
+  maxServers?: number;
 }
 
 /** Inbound: napplet asks for advisory resource policy and scheme support. */
@@ -56,6 +57,8 @@ export interface ResourceBytesRequest {
   /** Legacy Kehto correlation ID. */
   requestId?: ResourceRequestId;
   url: string;
+  /** Advisory Blossom server locations. Ignored for other schemes. */
+  servers?: readonly string[];
   /** Optional subset of fetch init (method, headers). Body bytes are shell-proxy-internal. */
   init?: {
     method?: string;
@@ -82,7 +85,10 @@ export interface ResourceCancelRequest {
 export interface ResourceBytesManyRequest {
   type: 'resource.bytesMany';
   id: ResourceRequestId;
-  urls: readonly string[];
+  requests: readonly {
+    url: string;
+    servers?: readonly string[];
+  }[];
 }
 
 /**

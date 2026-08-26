@@ -15,7 +15,8 @@
  *   k. resource.info provider failures emit resource.info.error
  *   l. resource.bytes emits current NAP-RESOURCE id/blob/mime fields
  *   m. resource.bytesMany preserves order and returns per-URL success/error items
- *   n. resource.bytesMany with empty urls emits a top-level bytesMany.error
+ *   n. resource.bytesMany with empty requests emits a top-level bytesMany.error
+ *   o. Blossom server hints reach the resolver for single and bulk requests
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -33,7 +34,7 @@ const DENIED_ORIGIN = 'https://untrusted.example';
 
 /** Build minimal valid options with injectable mocks. */
 function makeOpts(overrides: Partial<ResourceServiceOptions> = {}): ResourceServiceOptions {
-  const mockFetch = vi.fn(async (_url: string, _init: { method?: string; headers?: Record<string, string>; signal: AbortSignal }): Promise<Response> => {
+  const mockFetch = vi.fn(async (_url: string, _init: { method?: string; headers?: Record<string, string>; signal: AbortSignal; servers?: readonly string[] }): Promise<Response> => {
     const body = JSON.stringify({ ok: true });
     return new Response(body, { status: 200, headers: { 'content-type': 'application/json' } });
   });
@@ -309,6 +310,7 @@ describe('createResourceService', () => {
         ],
         maxBytes: 1024,
         maxUrls: 8,
+        maxServers: 4,
       },
     });
     const svc = createResourceService(opts);
@@ -333,6 +335,7 @@ describe('createResourceService', () => {
           ],
           maxBytes: 1024,
           maxUrls: 8,
+          maxServers: 4,
         },
       },
     ]);
@@ -421,10 +424,10 @@ describe('createResourceService', () => {
     svc.handleMessage(WINDOW_ID, {
       type: 'resource.bytesMany',
       id: 'bulk-1',
-      urls: [
-        `${GRANTED_ORIGIN}/one`,
-        `${DENIED_ORIGIN}/two`,
-        `${GRANTED_ORIGIN}/three`,
+      requests: [
+        { url: `${GRANTED_ORIGIN}/one` },
+        { url: `${DENIED_ORIGIN}/two` },
+        { url: `${GRANTED_ORIGIN}/three` },
       ],
     } as NappletMessage, send);
 
@@ -464,7 +467,7 @@ describe('createResourceService', () => {
   });
 
   // ─── (n) resource.bytesMany invalid top-level request ────────────────────
-  it('(n) resource.bytesMany with empty urls emits a top-level invalid-request error', async () => {
+  it('(n) resource.bytesMany with empty requests emits a top-level invalid-request error', async () => {
     const opts = makeOpts();
     const svc = createResourceService(opts);
     const { sent, send } = collectSent();
@@ -472,7 +475,7 @@ describe('createResourceService', () => {
     svc.handleMessage(WINDOW_ID, {
       type: 'resource.bytesMany',
       id: 'bulk-empty',
-      urls: [],
+      requests: [],
     } as NappletMessage, send);
 
     await flushPromises();
@@ -484,6 +487,48 @@ describe('createResourceService', () => {
       id: 'bulk-empty',
       error: 'invalid-request',
     });
+  });
+
+  it('(o) carries per-resource Blossom server hints and ignores them for other schemes', async () => {
+    const opts = makeOpts({
+      fetch: vi.fn(async () => new Response('hinted', {
+        headers: { 'content-type': 'text/plain' },
+      })),
+    });
+    const svc = createResourceService(opts);
+    const single = collectSent();
+
+    svc.handleMessage(WINDOW_ID, {
+      type: 'resource.bytes',
+      id: 'hint-single',
+      url: `blossom:sha256:${'a'.repeat(64)}`,
+      servers: ['https://one.example', 'https://two.example'],
+    } as NappletMessage, single.send);
+    await flushPromises();
+
+    expect(opts.fetch).toHaveBeenNthCalledWith(1, `blossom:sha256:${'a'.repeat(64)}`, expect.objectContaining({
+      servers: ['https://one.example', 'https://two.example'],
+    }));
+    expect(single.sent[0]).toMatchObject({ type: 'resource.bytes.result', id: 'hint-single' });
+
+    const bulk = collectSent();
+    svc.handleMessage(WINDOW_ID, {
+      type: 'resource.bytesMany',
+      id: 'hint-bulk',
+      requests: [
+        { url: `blossom:sha256:${'b'.repeat(64)}`, servers: ['https://bulk.example'] },
+        { url: 'https://media.example/image.png', servers: ['https://ignored.example'] },
+      ],
+    } as NappletMessage, bulk.send);
+    await flushPromises();
+
+    expect(opts.fetch).toHaveBeenNthCalledWith(2, `blossom:sha256:${'b'.repeat(64)}`, expect.objectContaining({
+      servers: ['https://bulk.example'],
+    }));
+    expect(opts.fetch).toHaveBeenNthCalledWith(3, 'https://media.example/image.png', expect.not.objectContaining({
+      servers: expect.anything(),
+    }));
+    expect(bulk.sent[0]).toMatchObject({ type: 'resource.bytesMany.result', id: 'hint-bulk' });
   });
 
   it('keeps resource.info scheme disclosure advisory instead of authorizing fetches', async () => {
@@ -561,7 +606,7 @@ describe('createResourceService', () => {
     svc.handleMessage(WINDOW_ID, {
       type: 'resource.bytesMany',
       id: 'too-many',
-      urls: [`${GRANTED_ORIGIN}/one`, `${GRANTED_ORIGIN}/two`],
+      requests: [{ url: `${GRANTED_ORIGIN}/one` }, { url: `${GRANTED_ORIGIN}/two` }],
     } as NappletMessage, bulk.send);
     await flushPromises();
     expect(bulk.sent[0]).toMatchObject({
