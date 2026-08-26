@@ -17,7 +17,7 @@ pnpm add @kehto/services
 ## Published Napplet Compatibility
 
 `@kehto/services` publishes against `@napplet/core` and `@napplet/nap`
-`>=0.31.0 <0.32.0`. The exact installed contracts are core 0.31.1 / nap 0.31.2
+`>=0.32.0 <0.33.0`. The exact installed contracts are core 0.32.0 / nap 0.32.0
 from NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`,
 napplet/web#199 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release

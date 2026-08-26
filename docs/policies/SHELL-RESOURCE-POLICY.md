@@ -9,9 +9,11 @@ The protocol authority is draft
 [NAP-RESOURCE](https://github.com/napplet/naps/blob/9511232f69313aa7953d110e35d32cc28d506f66/naps/NAP-RESOURCE.md)
 at exact ref `9511232f69313aa7953d110e35d32cc28d506f66`, with the
 server-hint semantics introduced by `75312589cdc5012be0ac09d7aa87e265564d3bf8`.
-The package projection is pinned to
-[`napplet/web#205`](https://github.com/napplet/web/pull/205) head
-`bfaa2428503d1e9d7fa4677998500e6a0b188b28`. Merged
+The package projection was merged in
+[`napplet/web#206`](https://github.com/napplet/web/pull/206) at
+`19e0029b228127769a0ebdcf0b6b2f30293bd284` and published from
+`b007587afbefb0ce5592825d6ec1fc5b026c7b08` as `@napplet/core` and
+`@napplet/nap` 0.32.0, `@napplet/shim` 0.30.0, and `@napplet/sdk` 0.28.0. Merged
 [NAP-IDENTITY](https://github.com/napplet/naps/blob/a040914b4bbd3a5cd8a14b0f316a723c968ebfb2/naps/NAP-IDENTITY.md)
 at exact ref `a040914b4bbd3a5cd8a14b0f316a723c968ebfb2` delegates profile
 picture and banner retrieval through NAP-RESOURCE. Those documents, together

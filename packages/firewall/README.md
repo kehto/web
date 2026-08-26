@@ -15,7 +15,7 @@ pnpm add @kehto/firewall
 ## Published Napplet Compatibility
 
 The published peer compatibility floor is `@napplet/core`
-`>=0.31.0 <0.32.0`, admitting the current core 0.31.1 / nap 0.31.2 convention contract line.
+`>=0.32.0 <0.33.0`, admitting the current core 0.32.0 / nap 0.32.0 convention contract line.
 
 ## Overview
 
