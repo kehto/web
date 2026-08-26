@@ -11,7 +11,10 @@ import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-
 const REQUIRED_NAPS = ['resource', 'theme'] as const;
 // Match the 5s deadline every other playground napplet uses: the host prelude
 // installs window.napplet domain objects before authored code runs, but slower
-// CI can still race the iframe bootstrap.
+// CI can still race the iframe bootstrap. The pinned @napplet/core@0.31.1 and
+// @napplet/shim@0.29.2 package line is retained for graph alignment, but this
+// napplet must not import the legacy shim because it replaces the draft-aware
+// host resource projection with the old bulk `urls` shape.
 const CAPABILITY_WAIT_MS = 5_000;
 const CAPABILITY_WAIT_INTERVAL_MS = 25;
 
