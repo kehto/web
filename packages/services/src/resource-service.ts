@@ -46,33 +46,20 @@
  */
 
 import type { NappletMessage } from '@napplet/core';
+import type {
+  ResourceBytesRequest,
+  ResourceInfo,
+} from '@napplet/nap/resource/types';
 import type { ServiceDescriptor, ServiceHandler } from '@kehto/runtime';
+
+export type {
+  ResourceBytesRequest,
+  ResourceInfo,
+  ResourceSchemeInfo,
+} from '@napplet/nap/resource/types';
 
 /** Resource service version — follows semver. */
 const RESOURCE_SERVICE_VERSION = '1.0.0';
-
-/** Runtime-disclosed support for one resource URL scheme. */
-export interface ResourceSchemeInfo {
-  scheme: string;
-  enabled: boolean;
-}
-
-/** Advisory resource capability and policy limits disclosed by the runtime. */
-export interface ResourceInfo {
-  schemes: ResourceSchemeInfo[];
-  maxBytes?: number;
-  maxUrls?: number;
-  /** Maximum Blossom server candidates considered for one resource. */
-  maxServers?: number;
-}
-
-/** One URL and its optional per-resource Blossom server hints. */
-export interface ResourceBytesRequest {
-  /** URL identifying the resource. */
-  url: string;
-  /** Ordered advisory Blossom server origins. Ignored for other schemes. */
-  servers?: readonly string[];
-}
 
 /** Read-only metadata passed from the resource service to a runtime resolver. */
 export interface ResourceFetchInit {
@@ -547,7 +534,7 @@ async function handleBytesMany(
   }
 }
 
-function hasValidServerHints(request: ResourceBytesRequest): boolean {
+function hasValidServerHints(request: { servers?: readonly unknown[] }): boolean {
   return request.servers === undefined
     || (Array.isArray(request.servers) && request.servers.every((server) => typeof server === 'string'));
 }
