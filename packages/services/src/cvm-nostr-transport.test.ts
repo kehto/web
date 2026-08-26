@@ -138,13 +138,14 @@ describe('createNostrCvmTransport', () => {
       { jsonrpc: '2.0', id: 9, method: 'tools/list' },
       { timeoutMs: 40 },
     );
+    const rejection = expect(response).rejects.toThrow('relay timeout');
     await new Promise((resolve) => setTimeout(resolve, 0));
     deliverEncrypted(
       { jsonrpc: '2.0', id: publishedPlain[0].id, result: { tools: [{ name: 'forged' }] } },
       generateSecretKey(),
     );
 
-    await expect(response).rejects.toThrow('relay timeout');
+    await rejection;
   });
 
   it('propagates relay publication failure without waiting for timeout', async () => {
