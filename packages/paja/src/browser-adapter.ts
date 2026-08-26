@@ -341,7 +341,7 @@ function createDevServices(
   const services: Record<string, ServiceHandler> = {
     resource: createResourceService({
       fetch: createPajaResourceFetch({ getBlossomServers }),
-      resourceInfo: () => pajaResourceInfo(getBlossomServers()),
+      resourceInfo: () => pajaResourceInfo(),
     }),
   };
   if (getSimulation().capabilities.domains.keys && typeof document !== 'undefined') {

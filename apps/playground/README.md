@@ -131,7 +131,8 @@ loads kind-0 metadata, and obtains profile pictures/banners through
 creates a Blob URL from those bytes and revokes it on replacement, stale
 completion, image error, profile clear, and `pagehide`. This follows merged
 NAP-IDENTITY at `a040914b4bbd3a5cd8a14b0f316a723c968ebfb2` and draft
-NAP-RESOURCE at `fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1`.
+NAP-RESOURCE at `9511232f69313aa7953d110e35d32cc28d506f66`. The resource demo
+uses canonical per-resource `bytesMany([{ url, servers? }])` requests.
 
 Theme is synchronized by reading the current value with `theme.get` and then
 receiving one automatic `theme.changed` per eligible frame after a host update;

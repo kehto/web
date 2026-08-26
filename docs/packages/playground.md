@@ -75,7 +75,8 @@ subscribe/unsubscribe protocol. The mandatory shell is likewise host-owned:
 installs it before one bare ready/init handshake.
 
 Resource demo behavior targets draft NAP-RESOURCE at exact ref
-`fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1`. Its static grants and iframe CSP
+`9511232f69313aa7953d110e35d32cc28d506f66`. It uses the injected canonical
+`bytesMany([{ url, servers? }])` projection rather than a raw envelope. Its static grants and iframe CSP
 visualize one host policy; they are not Kehto kernel requirements. The playground
 does not define new wire semantics, runtime origin policy, or NAP-DM behavior.
 

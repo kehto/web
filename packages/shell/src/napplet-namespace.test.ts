@@ -562,6 +562,54 @@ describe('NIP-5D napplet namespace prelude', () => {
     });
   });
 
+  it('projects canonical per-resource server hints for resource bytes and bytesMany', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
+
+    const resource = target.napplet?.resource as {
+      bytes: (url: string, options?: { servers?: string[] }) => Promise<Blob>;
+      bytesMany: (
+        requests: Array<{ url: string; servers?: string[] }>,
+      ) => Promise<Array<{ url: string; ok: boolean }>>;
+    };
+    const url = `blossom:sha256:${'a'.repeat(64)}`;
+    const single = resource.bytes(url, { servers: ['https://cdn.example'] });
+    const singleRequest = withoutShellReady(target).at(-1);
+    expect(singleRequest).toEqual({
+      type: 'resource.bytes',
+      id: 'id-1',
+      url,
+      servers: ['https://cdn.example'],
+    });
+    const blob = new Blob(['rom']);
+    target.dispatchParentMessage({
+      type: 'resource.bytes.result',
+      id: singleRequest?.id,
+      blob,
+      mime: 'application/octet-stream',
+    });
+    await expect(single).resolves.toBe(blob);
+
+    const requests = [
+      { url, servers: ['https://one.example'] },
+      { url: 'https://media.example/image.png' },
+    ];
+    const many = resource.bytesMany(requests);
+    const manyRequest = withoutShellReady(target).at(-1);
+    expect(manyRequest).toEqual({
+      type: 'resource.bytesMany',
+      id: 'id-2',
+      requests,
+    });
+    const items = requests.map(({ url: requestUrl }) => ({ url: requestUrl, ok: false }));
+    target.dispatchParentMessage({
+      type: 'resource.bytesMany.result',
+      id: manyRequest?.id,
+      items,
+    });
+    await expect(many).resolves.toEqual(items);
+  });
+
   it('keeps identity read-only, canonical, and parent-authenticated after direct reassignment', async () => {
     const target = createPreludeTestWindow();
     runPrelude(renderNappletNamespacePrelude({ domains: ['identity'] }), target);

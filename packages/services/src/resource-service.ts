@@ -62,6 +62,28 @@ export interface ResourceInfo {
   schemes: ResourceSchemeInfo[];
   maxBytes?: number;
   maxUrls?: number;
+  /** Maximum Blossom server candidates considered for one resource. */
+  maxServers?: number;
+}
+
+/** One URL and its optional per-resource Blossom server hints. */
+export interface ResourceBytesRequest {
+  /** URL identifying the resource. */
+  url: string;
+  /** Ordered advisory Blossom server origins. Ignored for other schemes. */
+  servers?: readonly string[];
+}
+
+/** Read-only metadata passed from the resource service to a runtime resolver. */
+export interface ResourceFetchInit {
+  /** Read-only HTTP method selected by the service. */
+  method?: string;
+  /** Optional runtime-owned request headers. */
+  headers?: Record<string, string>;
+  /** Request-scoped cancellation signal. */
+  signal: AbortSignal;
+  /** Advisory Blossom server origins for this resource only. */
+  servers?: readonly string[];
 }
 
 /** Context passed to a host-provided resource info resolver. */
@@ -93,11 +115,11 @@ export interface ResourceServiceOptions {
    * canonical protocol error classification.
    *
    * @param url - The URL from the resource.bytes request
-   * @param init - Read-only method and request-scoped AbortSignal
+   * @param init - Read-only method, request-scoped AbortSignal, and optional advisory Blossom servers
    */
   fetch(
     url: string,
-    init: { method?: string; headers?: Record<string, string>; signal: AbortSignal }
+    init: ResourceFetchInit,
   ): Promise<Response>;
 
   /**
@@ -308,6 +330,7 @@ function normalizeResourceInfo(info: ResourceInfo): ResourceInfo {
       : [],
     ...(typeof info.maxBytes === 'number' ? { maxBytes: info.maxBytes } : {}),
     ...(typeof info.maxUrls === 'number' ? { maxUrls: info.maxUrls } : {}),
+    ...(typeof info.maxServers === 'number' ? { maxServers: info.maxServers } : {}),
   };
 }
 
@@ -365,12 +388,13 @@ async function fetchResourceItem(
   options: ResourceServiceOptions,
   windowId: string,
   info: ResourceInfo,
-  url: string,
+  request: ResourceBytesRequest,
   signal: AbortSignal,
 ): Promise<ResourceFetchItem> {
+  const { url } = request;
   const parsedUrl = parseResourceUrl(url);
   if (!parsedUrl) return resourceInvalidRequest(url, `invalid URL: ${url}`);
-  if (options.isOriginGranted && options.getConnectGrants) {
+  if (parsedUrl.origin !== 'null' && options.isOriginGranted && options.getConnectGrants) {
     const identity = options.resolveIdentity?.(windowId) ?? null;
     if (!identity) {
       return {
@@ -396,6 +420,9 @@ async function fetchResourceItem(
     const response = await options.fetch(url, {
       method: 'GET',
       signal,
+      ...(parsedUrl.protocol === 'blossom:' && request.servers !== undefined
+        ? { servers: [...request.servers] }
+        : {}),
     });
     const buffer = await response.arrayBuffer();
     if (info.maxBytes !== undefined && buffer.byteLength > info.maxBytes) {
@@ -425,16 +452,16 @@ async function handleBytes(
   options: ResourceServiceOptions,
   state: ResourceRequestState,
   windowId: string,
-  msg: { requestId: string; url: string },
+  msg: { requestId: string } & ResourceBytesRequest,
   send: (m: NappletMessage) => void,
 ): Promise<void> {
-  const { requestId, url } = msg;
+  const { requestId, ...request } = msg;
   const controller = new AbortController();
   trackRequest(state, requestId, windowId, controller);
 
   try {
     const info = await resolveResourceInfo(options, windowId);
-    const item = await fetchResourceItem(options, windowId, info, url, controller.signal);
+    const item = await fetchResourceItem(options, windowId, info, request, controller.signal);
     if (controller.signal.aborted) return;
     if (!item.ok) {
       sendResourceError(send, requestId, item.message, item.error);
@@ -460,12 +487,12 @@ async function handleBytesMany(
   options: ResourceServiceOptions,
   state: ResourceRequestState,
   windowId: string,
-  msg: { requestId: string; urls: readonly string[] },
+  msg: { requestId: string; requests: readonly ResourceBytesRequest[] },
   send: (m: NappletMessage) => void,
 ): Promise<void> {
-  const { requestId, urls } = msg;
-  if (!Array.isArray(urls) || urls.length === 0 || urls.some((url) => typeof url !== 'string')) {
-    sendBytesManyError(send, requestId, 'resource.bytesMany requires a non-empty urls array', 'invalid-request');
+  const { requestId, requests } = msg;
+  if (!isResourceRequestList(requests)) {
+    sendBytesManyError(send, requestId, 'resource.bytesMany requires a non-empty requests array', 'invalid-request');
     return;
   }
 
@@ -477,7 +504,7 @@ async function handleBytesMany(
     sendBytesManyError(send, requestId, failure.message, failure.error);
     return;
   }
-  if (info.maxUrls !== undefined && urls.length > info.maxUrls) {
+  if (info.maxUrls !== undefined && requests.length > info.maxUrls) {
     sendBytesManyError(send, requestId, `resource.bytesMany exceeds ${info.maxUrls} URLs`, 'too-large');
     return;
   }
@@ -486,8 +513,8 @@ async function handleBytesMany(
   trackRequest(state, requestId, windowId, controller);
   try {
     const items: Array<Record<string, unknown>> = [];
-    for (const url of urls) {
-      const item = await fetchResourceItem(options, windowId, info, url, controller.signal);
+    for (const request of requests) {
+      const item = await fetchResourceItem(options, windowId, info, request, controller.signal);
       if (controller.signal.aborted) return;
       if (item.ok) {
         items.push({
@@ -518,6 +545,22 @@ async function handleBytesMany(
   } finally {
     untrackRequest(state, windowId, requestId);
   }
+}
+
+function hasValidServerHints(request: ResourceBytesRequest): boolean {
+  return request.servers === undefined
+    || (Array.isArray(request.servers) && request.servers.every((server) => typeof server === 'string'));
+}
+
+function isResourceRequestList(value: unknown): value is readonly ResourceBytesRequest[] {
+  return Array.isArray(value)
+    && value.length > 0
+    && value.every((request) => (
+      typeof request === 'object'
+      && request !== null
+      && typeof (request as ResourceBytesRequest).url === 'string'
+      && hasValidServerHints(request as ResourceBytesRequest)
+    ));
 }
 
 function handleCancel(state: ResourceRequestState, windowId: string, requestId: string): void {
@@ -598,14 +641,19 @@ export function createResourceService(options: ResourceServiceOptions): Resource
             id?: string;
             requestId?: string;
             url: string;
+            servers?: readonly string[];
           };
           const requestId = requestIdFromMessage(m);
           if (!requestId) return;
-          if (typeof m.url !== 'string') {
-            sendResourceError(send, requestId, 'resource.bytes requires a URL', 'invalid-request');
+          if (typeof m.url !== 'string' || !hasValidServerHints(m)) {
+            sendResourceError(send, requestId, 'resource.bytes requires a URL and optional string servers', 'invalid-request');
             return;
           }
-          handleBytes(options, state, windowId, { requestId, url: m.url }, send).catch(() => { /* errors surface via send() */ });
+          handleBytes(options, state, windowId, {
+            requestId,
+            url: m.url,
+            ...(m.servers !== undefined ? { servers: [...m.servers] } : {}),
+          }, send).catch(() => { /* errors surface via send() */ });
           return;
         }
 
@@ -621,11 +669,11 @@ export function createResourceService(options: ResourceServiceOptions): Resource
           const m = message as NappletMessage & {
             id?: string;
             requestId?: string;
-            urls?: readonly string[];
+            requests?: readonly ResourceBytesRequest[];
           };
           const requestId = requestIdFromMessage(m);
           if (!requestId) return;
-          handleBytesMany(options, state, windowId, { requestId, urls: m.urls ?? [] }, send).catch(() => { /* errors surface via send() */ });
+          handleBytesMany(options, state, windowId, { requestId, requests: m.requests ?? [] }, send).catch(() => { /* errors surface via send() */ });
           return;
         }
 

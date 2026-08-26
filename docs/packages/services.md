@@ -38,7 +38,7 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 | Relay/cache/count | `createRelayPoolService`, `RelayPoolServiceOptions`, `createCacheService`, `CacheServiceOptions`, `HostCacheBridge`, `createCoordinatedRelay`, `CoordinatedRelayOptions`, `createCountService`, `CountServiceOptions`, `CountRequest`, `CountResult` |
 | Keys | `createKeysService`, `KeysServiceOptions`, `HostKeysBridge`, `HostKeyEvent` |
 | Media | `createMediaService`, `createBrowserMediaBridge`, `MediaServiceOptions`, `HostMediaBridge`, `MediaAction` |
-| Notify/theme/config/resource | `createNotifyService`, `NotifyServiceOptions`, `createThemeService`, `ThemeServiceOptions`, `ThemeService`, `createConfigService`, `ConfigServiceOptions`, `ConfigService`, `ConfigSchemaValidation`, `createResourceService`, `ResourceServiceOptions`, `ResourceService` |
+| Notify/theme/config/resource | `createNotifyService`, `NotifyServiceOptions`, `createThemeService`, `ThemeServiceOptions`, `ThemeService`, `createConfigService`, `ConfigServiceOptions`, `ConfigService`, `ConfigSchemaValidation`, `createResourceService`, `ResourceServiceOptions`, `ResourceFetchInit`, `ResourceBytesRequest`, `ResourceInfo`, `ResourceService` |
 | Outbox | `createOutboxService`, `createRelayPoolOutboxRouter`, `OutboxRouter`, `StreamingOutboxRouter`, `OutboxQueryStream`, `OutboxQueryStreamSink` |
 | Shell-mediated helpers | `createLinkService`, `LinkServiceOptions`, `LinkOpenContext`, `createCommonService`, `CommonServiceOptions`, `CommonServiceContext`, `createListsService`, `ListsServiceOptions`, `ListsServiceContext`, `createSerialService`, `SerialServiceOptions`, `SerialServiceContext`, `createBleService`, `BleServiceOptions`, `BleServiceContext`, `createWebrtcService`, `WebrtcServiceOptions`, `WebrtcServiceContext` |
 | DM | `createDmService`, `createNip17DmAdapter`, `createNdrDmAdapter`, `createNdrRelayTransport`, `createCordnDmAdapter`, `createCordnRelayCoordinatorClient`, `DmServiceOptions`, `DmAdapter`, `DmRelayPool`, `Nip17DmAdapterOptions`, `NdrDmAdapterOptions`, `NdrRelayTransportOptions`, `CordnDmAdapterOptions`, `CordnRelayCoordinatorOptions` |
@@ -65,12 +65,15 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 - `createRelayPoolOutboxRouter()` starts validated relay hints or fallback reads before asynchronous NIP-65 discovery settles. Its host-side `queryStream()` emits verified results incrementally and exposes the existing aggregate through `result`; the draft NAP-OUTBOX wire query remains one-shot.
 - `createResourceService()` is a policy-neutral NAP-RESOURCE kernel. Its required
   `fetch` callback owns resolution and accepts every syntactically valid URL by
-  default; the optional `resource.info.schemes` disclosure is advisory and is
+  default. Canonical single and bulk requests preserve optional per-resource
+  Blossom `servers`; resolver `init.servers` is populated only for `blossom:`.
+  `resource.info` can disclose `maxServers` alongside byte and URL caps. The
+  optional `resource.info.schemes` disclosure is advisory and is
   never used as an authorization gate. A runtime may opt into Kehto's origin
   grant adapter by supplying `isOriginGranted`, `getConnectGrants`, and
   `resolveIdentity` together. Resolver-specific policy, scheme support, redirect
-  behavior, MIME classification, and browser CORS handling remain runtime
-  decisions. An ordinary browser fetch rejection maps to `network-error` unless
+  behavior, hint validation/fallback, MIME classification, and browser CORS
+  handling remain runtime decisions. An ordinary browser fetch rejection maps to `network-error` unless
   the injected resolver returns a more specific `ResourceServiceError`.
 - Does not create a runtime or shell bridge by itself.
 
