@@ -106,11 +106,20 @@ const resourceServerHintRoutingSurfaces = [
   },
   {
     file: 'packages/shell/src/types/internal-resource.ts',
-    markers: ['maxServers?: number;', 'servers?: readonly string[];', 'requests: readonly {'],
+    markers: [
+      "from '@napplet/nap/resource/types'",
+      'ResourceBytesItem as CanonicalResourceBytesItem',
+      'requests: readonly CanonicalResourceBytesRequest[]',
+    ],
   },
   {
     file: 'packages/services/src/resource-service.ts',
-    markers: ['maxServers?: number;', 'servers?: readonly string[];', 'm.requests ?? []', "parsedUrl.protocol === 'blossom:'"],
+    markers: [
+      "from '@napplet/nap/resource/types'",
+      'servers?: readonly string[];',
+      'm.requests ?? []',
+      "parsedUrl.protocol === 'blossom:'",
+    ],
   },
   {
     file: 'packages/paja/src/browser-resource.ts',
@@ -122,7 +131,7 @@ const resourceServerHintRoutingSurfaces = [
   },
   {
     file: 'apps/playground/napplets/resource-demo/src/main.ts',
-    markers: ['interface HintAwareResourceApi', 'servers?: string[]', 'REMOTE_IMAGE_URLS.map((url) => ({ url }))'],
+    markers: ["import '@napplet/shim'", "from '@napplet/nap/resource/sdk'", 'REMOTE_IMAGE_URLS.map((url) => ({ url }))'],
   },
 ] as const;
 

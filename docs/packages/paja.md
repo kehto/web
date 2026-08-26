@@ -31,8 +31,8 @@ app package's development scripts.
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.31.0 <0.32.0` |
-| `@napplet/nap` | `>=0.31.0 <0.32.0` |
+| `@napplet/core` | `>=0.32.0 <0.33.0` |
+| `@napplet/nap` | `>=0.32.0 <0.33.0` |
 | `nostr-tools` | `>=2.23.3 <=2.x` |
 
 ## Primary APIs
@@ -246,7 +246,7 @@ is not delivered to; failed open/readiness attempts follow the private
 retry/replacement policy. The final result includes the handled target's d-tag,
 window identifier, and convention.
 
-The published `@napplet/shim@0.29.2` is intentionally non-shell. Kehto's
+The published `@napplet/shim@0.30.0` is intentionally non-shell. Kehto's
 host-owned prelude remains responsible for mandatory `window.napplet.shell`,
 the one bare `shell.ready` / first `shell.init` handshake, and local cached
 `ready()`, `supports()`, read-only `services`, and one-shot `onReady()`.
@@ -327,7 +327,7 @@ completeness remain outside this behavior.
 [NAP-IDENTITY `6461e4b37c29dc09a20dff35d9515889c4433874`](https://github.com/napplet/naps/blob/6461e4b37c29dc09a20dff35d9515889c4433874/naps/NAP-IDENTITY.md)
 is byte-identical to the phase's recorded `napplet/naps` master document. Pinned
 [NAP-OUTBOX `4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e`](https://github.com/napplet/naps/blob/4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e/naps/NAP-OUTBOX.md)
-and installed `@napplet/nap@0.31.2` types govern this PoC because current master
+and installed `@napplet/nap@0.32.0` types govern this PoC because current master
 has no NAP-OUTBOX path. This is not a current-master OUTBOX conformance claim.
 Blossom behavior targets pinned
 [NAP-UPLOAD `a7cc17463cbf5d9cb87884b31071bc4fc826034c`](https://github.com/napplet/naps/blob/a7cc17463cbf5d9cb87884b31071bc4fc826034c/naps/NAP-UPLOAD.md).

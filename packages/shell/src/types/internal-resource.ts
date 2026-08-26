@@ -2,15 +2,11 @@
  * @file internal-resource.ts
  *
  * Kehto-internal shell-side resource wire types. Per PROJECT.md Decision #31,
- * this is NOT a staging-ground duplicate of upstream `@napplet/nap/resource`:
- * Phase 44 audit confirmed the two surfaces diverge substantively — different
- * field names (kehto's legacy `requestId` vs upstream `id`; kehto's legacy
- * `bodyBase64` vs upstream `blob` + `mime`), different message-type names
- * (`ResourceBytesRequest` vs `ResourceBytesMessage`), and disjoint error
- * vocabularies (kehto: 4 codes `{denied, canceled, network-error, invalid-url}`;
- * upstream: 8 codes `{not-found, blocked-by-policy,
- * timeout, too-large, unsupported-scheme, decode-failed, network-error,
- * quota-exceeded}`).
+ * this is NOT a staging-ground duplicate of upstream `@napplet/nap/resource`.
+ * Canonical resource info, per-resource request, and result-item shapes are
+ * imported from the published package. The remaining local envelopes retain
+ * Kehto's legacy compatibility fields (`requestId`, `bodyBase64`, status, and
+ * headers) alongside the current `id`, `blob`, and `mime` fields.
  *
  * `resource-service.ts` now emits both legacy single-fetch compatibility
  * fields and the current upstream-compatible fields.
@@ -22,22 +18,19 @@
  *             resource.bytesMany.result, resource.bytesMany.error
  */
 
+import type {
+  ResourceBytesItem as CanonicalResourceBytesItem,
+  ResourceBytesRequest as CanonicalResourceBytesRequest,
+  ResourceInfo,
+} from '@napplet/nap/resource/types';
+
+export type { ResourceInfo } from '@napplet/nap/resource/types';
+
 /**
  * Unique id for correlating a `resource.bytes` request to its later result /
  * error / cancel envelope.
  */
 export type ResourceRequestId = string;
-
-/** Advisory resource capability and policy limits disclosed by the runtime. */
-export interface ResourceInfo {
-  schemes: readonly {
-    scheme: string;
-    enabled: boolean;
-  }[];
-  maxBytes?: number;
-  maxUrls?: number;
-  maxServers?: number;
-}
 
 /** Inbound: napplet asks for advisory resource policy and scheme support. */
 export interface ResourceInfoRequest {
@@ -85,10 +78,7 @@ export interface ResourceCancelRequest {
 export interface ResourceBytesManyRequest {
   type: 'resource.bytesMany';
   id: ResourceRequestId;
-  requests: readonly {
-    url: string;
-    servers?: readonly string[];
-  }[];
+  requests: readonly CanonicalResourceBytesRequest[];
 }
 
 /**
@@ -139,19 +129,7 @@ export interface ResourceBytesError {
 /**
  * Current NAP-RESOURCE bulk result item.
  */
-export type ResourceBytesManyItem =
-  | {
-      url: string;
-      ok: true;
-      blob: Blob;
-      mime: string;
-    }
-  | {
-      url: string;
-      ok: false;
-      error: string;
-      message?: string;
-    };
+export type ResourceBytesManyItem = CanonicalResourceBytesItem;
 
 /**
  * Outbound: ordered bulk fetch result.

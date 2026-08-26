@@ -78,10 +78,10 @@ Kehto's runtime packages target the current `@napplet` line:
 
 | Package                 | Version  | Role                                            |
 | ----------------------- | -------- | ----------------------------------------------- |
-| `@napplet/core`         | `0.31.1` | protocol types, constants, `createDispatch` / `registerNap` |
-| `@napplet/nap`          | `0.31.2` | NAP capability helpers |
-| `@napplet/sdk`          | `0.27.2` | napplet-side SDK (playground napplets)          |
-| `@napplet/shim`         | `0.29.2` | generic non-shell NAP domains; does not supply mandatory shell |
+| `@napplet/core`         | `0.32.0` | protocol types, constants, `createDispatch` / `registerNap` |
+| `@napplet/nap`          | `0.32.0` | NAP capability helpers |
+| `@napplet/sdk`          | `0.28.0` | napplet-side SDK (playground napplets)          |
+| `@napplet/shim`         | `0.30.0` | generic non-shell NAP domains; does not supply mandatory shell |
 | `@napplet/vite-plugin`  | `0.14.1` | napplet build/sign plugin |
 | `@napplet/conformance`  | `0.16.2` | registry-audited conformance artifact; not a Kehto dependency |
 
@@ -96,7 +96,7 @@ surface). The NAP-INTENT patch artifacts are from napplet/web#199 source
 ## Published Intent Contract
 
 NAP-INTENT public `Intent*` request, result, and catalog types are the canonical
-published core 0.31.1 / nap 0.31.2 declarations; Kehto retains no local mirror.
+published core 0.32.0 / nap 0.32.0 declarations; Kehto retains no local mirror.
 `intent.invoke` accepts a structured `IntentRequest`, defaults `action` to
 `open`, and produces one final `IntentResult` after target selection, readiness,
 and convention dispatch. A successful result includes `handled`, `handler`,
@@ -157,7 +157,7 @@ may preflight optional availability by checking required
 ### Published shell-package exception
 
 NAP-SHELL at `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` remains mandatory.
-Published core 0.31.1 and shim 0.29.2 omit a generic mandatory
+Published core 0.32.0 and shim 0.30.0 omit a generic mandatory
 `window.napplet.shell` surface, so Kehto retains its host-owned, parent-bound
 prelude. This is a locked upstream package-drift exception, not a claim that
 the shim supplies shell.

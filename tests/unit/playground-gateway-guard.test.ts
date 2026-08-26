@@ -142,7 +142,8 @@ describe('playground gateway artifact guard', () => {
       expect(media).toContain('URL.createObjectURL(blob)');
       expect(media).toContain('URL.revokeObjectURL(url)');
     }
-    expect(source.resourceDemo).toContain('@napplet/core@0.31.1');
+    expect(source.resourceDemo).toContain("import '@napplet/shim'");
+    expect(source.resourceDemo).toContain("from '@napplet/nap/resource/sdk'");
     expect(source.resourceDemo).toContain('URL.createObjectURL(blob)');
     expect(source.resourceDemo).toContain('URL.revokeObjectURL(currentObjectUrl)');
     expect(source.themeBroadcast).toContain('theme.napplet?.theme?.get()');
@@ -710,7 +711,7 @@ describe('playground gateway artifact guard', () => {
     expect(turbo).toContain('"VITEPRESS_BASE"');
 
     expect(resourceDemo).toContain('REMOTE_IMAGE_URL');
-    expect(resourceDemo).toContain('resource.bytesMany');
+    expect(resourceDemo).toContain('resourceBytesMany');
     expect(resourceDemo).toContain('loaded remote images');
     expect(resourceDemo).toContain('bulk loaded');
     expect(resourceDemo).toContain('currentObjectUrl');

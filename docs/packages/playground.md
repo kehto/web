@@ -71,7 +71,7 @@ replacement, error, clear, and `pagehide`—never direct remote image URLs.
 `theme.get` supplies the current complete state and each eligible frame receives
 one automatic synchronized `theme.changed` after an update. There is no
 subscribe/unsubscribe protocol. The mandatory shell is likewise host-owned:
-`@napplet/shim@0.29.2` does not provide `window.napplet.shell`; Kehto's prelude
+`@napplet/shim@0.30.0` does not provide `window.napplet.shell`; Kehto's prelude
 installs it before one bare ready/init handshake.
 
 Resource demo behavior targets draft NAP-RESOURCE at exact ref
