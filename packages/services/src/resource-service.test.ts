@@ -157,11 +157,17 @@ describe('createResourceService', () => {
     await flushPromises();
 
     expect(opts.fetch).toHaveBeenCalledOnce();
-    const [calledUrl, calledInit] = (opts.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, { method?: string; headers?: Record<string, string>; signal: AbortSignal }];
+    const [calledUrl, calledInit] = (opts.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, {
+      method?: string;
+      headers?: Record<string, string>;
+      signal: AbortSignal;
+      windowId?: string;
+    }];
     expect(calledUrl).toBe(`${GRANTED_ORIGIN}/api/data`);
     expect(calledInit.method).toBe('GET');
     expect(calledInit.headers).toBeUndefined();
     expect(calledInit.signal).toBeInstanceOf(AbortSignal);
+    expect(calledInit.windowId).toBe(WINDOW_ID);
 
     expect(sent).toHaveLength(1);
     const result = sent[0] as { type: string; id: string; blob: Blob; mime: string; requestId?: string; headers?: unknown; bodyBase64?: string };

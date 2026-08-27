@@ -183,8 +183,10 @@ node scripts/build-paja-pages.mjs
 ```
 
 When `PAJA_UPLOAD_SERVERS` is set, the runtime enables the Blossom upload rail
-with server discovery and uses those servers for Blossom NAP-RESOURCE
-resolution too.
+and also makes those servers explicit NAP-RESOURCE fallbacks. It is not needed
+for read-side discovery: resources learned through OUTBOX use their event hints
+and hinted-author/publisher server lists first, then the active shell user's
+published list.
 
 ## Installed intent handlers and delivery
 
@@ -313,9 +315,19 @@ bytes.
 `data:` remains locally decoded. `blossom:` is a separate, content-addressed
 boundary and is advertised because each request may provide server locations
 without a host default. Paja accepts only public-looking HTTPS origin hints,
-discards invalid/private literals, deduplicates them, and tries them before
-host-configured runtime-pointer or upload defaults. The combined list is capped
-at eight candidates. The only accepted identifier is `blossom:sha256:<hex>`;
+discards invalid/private literals, and deduplicates them. For a canonical URL
+previously returned to the same napplet window by `outbox.getEvent`,
+`outbox.query`, or `outbox.subscribe`, Paja retains bounded event context
+without prefetching bytes. Resolution tries request and
+event-local server hints first, then lazily queries hinted authors' and the
+event publisher's newest BUD-03 kind `10063` lists through the verified
+NIP-65-aware OUTBOX router, then queries the active shell user's BUD-03 list
+through that same router, then uses host-configured runtime-pointer and
+upload-runtime fallbacks. The user-list
+lookup works independently of upload mode; an upload runtime may reuse the same
+servers when present. ROM-specific event and publisher locations retain
+priority over the user/runtime fallbacks. The combined list is capped at eight
+candidates. The only accepted identifier is `blossom:sha256:<hex>`;
 Paja refuses redirects, verifies the requested SHA-256, and permits plain-HTTP
 transport only for configured loopback development defaults. Browser-only Paja
 cannot pin DNS results, so production runtimes must add the draft's DNS-time
@@ -323,7 +335,8 @@ private-address checks. This behavior targets draft
 [NAP-RESOURCE at `9511232`](https://github.com/napplet/naps/blob/9511232f69313aa7953d110e35d32cc28d506f66/naps/NAP-RESOURCE.md), with the merged package implementation
 [`napplet/web#206@19e0029b`](https://github.com/napplet/web/pull/206) released as
 `@napplet/core`/`@napplet/nap` 0.32.0, `@napplet/shim` 0.30.0, and
-`@napplet/sdk` 0.28.0.
+`@napplet/sdk` 0.28.0. Publisher discovery follows
+[Blossom BUD-03 at `b5bd280`](https://github.com/hzrd149/blossom/blob/b5bd2801d1763aa635fc8fea7a76597e0eb18990/buds/03.md).
 
 Full package docs: [`docs/packages/paja.md`](../../docs/packages/paja.md).
 Getting started: [`docs/how-tos/paja-getting-started.md`](../../docs/how-tos/paja-getting-started.md).

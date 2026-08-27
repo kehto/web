@@ -401,19 +401,34 @@ of Paja's signer confirmation boundary.
 
 The only accepted Blossom form is `blossom:sha256:<64 hex characters>`. Paja
 accepts public-looking HTTPS request hints, discards invalid/private literals,
-deduplicates equivalent origins, and tries accepted hints before runtime-pointer
-and upload defaults. The combined list is capped at eight. Host-configured HTTP
-is restricted to loopback development; request hints never permit it. Redirects
-are refused and Paja verifies the returned bytes against the requested SHA-256
-before delivery. A hash mismatch is `decode-failed`; all-definitive misses are
-`not-found`; any inconclusive transport failure without success is
+and deduplicates equivalent origins. `outbox.getEvent`, `outbox.query`, and
+`outbox.subscribe` results privately index canonical Blossom references,
+explicit event `server`/structured-source hints, legacy BUD-10 `xs`/`as` hints,
+and the verified event publisher for that source window. A later
+`resource.bytes` for the URL tries request and event-local
+servers first, then lazily reads hinted authors' and the event publisher's
+newest BUD-03 kind `10063` list through the base OUTBOX router, then tries
+the active shell user's BUD-03 list through the same router, then
+runtime-pointer and upload-runtime defaults. The user-list lookup does not
+depend on Blossom upload mode. Paja does not prefetch event resources and works
+while upload mode remains `memory`. Event state is bounded, memory-only, and
+cleared with the napplet window. Server-list lookups are cached for five
+minutes; incomplete misses remain retryable.
+
+The combined list is capped at eight. Host-configured HTTP is restricted to
+loopback development; request, event, and publisher hints never permit it.
+Redirects are refused and Paja verifies the returned bytes against the requested
+SHA-256 before delivery. A hash mismatch is `decode-failed`; all-definitive
+misses are `not-found`; any inconclusive transport failure without success is
 `network-error`. Browser-only Paja cannot pin DNS resolution, so production
-runtimes still must perform the draft's DNS-time private-address checks.
+runtimes still must perform the draft's DNS-time private-address checks. The
+publisher lookup follows
+[BUD-03 `b5bd2801d1763aa635fc8fea7a76597e0eb18990`](https://github.com/hzrd149/blossom/blob/b5bd2801d1763aa635fc8fea7a76597e0eb18990/buds/03.md).
 
 Hashtree, Nostr, and other unimplemented schemes remain unadvertised and fail
 with `unsupported-scheme`. HTTP(S) dispatch and Blossom dispatch are separate:
 an ordinary web URL is fetched directly, while `blossom:` can only resolve an
-exact digest through Paja's configured server list.
+exact digest through accepted request, event, publisher, or configured servers.
 
 ## Environment Simulation
 

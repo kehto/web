@@ -69,6 +69,8 @@ export interface ResourceFetchInit {
   headers?: Record<string, string>;
   /** Request-scoped cancellation signal. */
   signal: AbortSignal;
+  /** Authenticated source window, for runtime-private scoped policy state. */
+  windowId?: string;
   /** Advisory Blossom server origins for this resource only. */
   servers?: readonly string[];
 }
@@ -407,6 +409,7 @@ async function fetchResourceItem(
     const response = await options.fetch(url, {
       method: 'GET',
       signal,
+      windowId,
       ...(parsedUrl.protocol === 'blossom:' && request.servers !== undefined
         ? { servers: [...request.servers] }
         : {}),

@@ -25,7 +25,9 @@ with NIP-5D, take precedence over this non-normative implementer guide.
 limits, per-resource request projection, and result/error envelopes. The
 runtime supplies the resolver through `fetch(url, init)`. For `blossom:` only,
 `init.servers` carries the request's ordered advisory locations; other schemes
-never receive that metadata.
+never receive that metadata. `init.windowId` is authenticated runtime context,
+not napplet payload, and lets a resolver keep policy state scoped to the source
+window without extending the NAP wire.
 
 The default Kehto path is permissive delegation:
 
@@ -89,6 +91,17 @@ browser-only developer runtime, Paja cannot independently pin DNS resolution;
 production resolvers still must perform NAP-RESOURCE's DNS-time private-address
 checks before connecting and on every redirect.
 
+Paja also retains bounded per-window context for canonical Blossom references
+returned by `outbox.getEvent`, `outbox.query`, or `outbox.subscribe`. On a later
+byte request it orders event-local server hints before hinted authors' and the
+verified event publisher's newest BUD-03 kind-10063 lists, then the active shell
+user's BUD-03 list, followed by configured runtime fallbacks. Author, publisher,
+and user lists are read lazily through the same NIP-65-aware OUTBOX router,
+independently of upload mode, so reading events never prefetches their blobs.
+This is a runtime-default policy within NAP-RESOURCE's second tier, not a new
+wire field or an upload-mode dependency. It follows Blossom BUD-03 at exact ref
+[`b5bd2801d1763aa635fc8fea7a76597e0eb18990`](https://github.com/hzrd149/blossom/blob/b5bd2801d1763aa635fc8fea7a76597e0eb18990/buds/03.md).
+
 The playground is a visualization, not the reference runtime. It retains static
 origin grants and iframe CSP fixtures so implementers can see and test the
 optional grant-policy path. Those fixtures do not establish Kehto-wide policy.
@@ -99,6 +112,8 @@ optional grant-policy path. Those fixtures do not establish Kehto-wide policy.
   optional origin-grant adapter.
 - `packages/paja/src/browser-resource.ts` — Paja's concrete browser, data, and
   Blossom resolution choices.
+- `packages/paja/src/browser-blossom-events.ts` — per-window OUTBOX resource
+  context and author/publisher/user BUD-03 discovery.
 - `apps/playground/src/demo-hooks.ts` — playground grant visualization.
 - `tests/e2e/nap-resource.spec.ts` — browser evidence for image loading versus
   fetch-visible bytes and canonical failure.
