@@ -1,5 +1,11 @@
 # @kehto/paja
 
+## 0.16.2
+
+### Patch Changes
+
+- bdd3a53: Classify checksum-valid Game Boy ROM resources from their canonical header bytes so verified Blossom ROM blobs reach napplets instead of failing MIME decoding.
+
 ## 0.16.1
 
 ### Patch Changes
