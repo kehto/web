@@ -1,5 +1,11 @@
 # @kehto/paja
 
+## 0.16.3
+
+### Patch Changes
+
+- 7b2f482: Retain verified pointer-manifest Blossom servers as window-scoped resource fallbacks.
+
 ## 0.16.2
 
 ### Patch Changes
