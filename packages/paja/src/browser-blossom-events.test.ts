@@ -212,7 +212,13 @@ describe('createPajaBlossomEventResolver', () => {
       getConfiguredServers: () => ['https://runtime.example'],
     });
 
+    resolver.setWindowServers('first-window', ['https://pointer.example']);
     await resolver.decorate(baseRouter, 'first-window').query([{ kinds: [32_560] }]);
+    await expect(resolver.getServers(RESOURCE_URL, 'first-window')).resolves.toEqual([
+      'https://event.example',
+      'https://pointer.example',
+      'https://runtime.example',
+    ]);
     await expect(resolver.getServers(RESOURCE_URL, 'second-window')).resolves.toEqual([
       'https://runtime.example',
     ]);

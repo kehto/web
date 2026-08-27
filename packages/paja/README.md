@@ -186,7 +186,8 @@ When `PAJA_UPLOAD_SERVERS` is set, the runtime enables the Blossom upload rail
 and also makes those servers explicit NAP-RESOURCE fallbacks. It is not needed
 for read-side discovery: resources learned through OUTBOX use their event hints
 and hinted-author/publisher server lists first, then the active shell user's
-published list.
+published list, the current window's verified pointer-manifest servers, and
+finally configured runtime fallbacks.
 
 ## Installed intent handlers and delivery
 
@@ -324,8 +325,8 @@ without prefetching bytes. Resolution tries request and
 event-local server hints first, then lazily queries hinted authors' and the
 event publisher's newest BUD-03 kind `10063` lists through the verified
 NIP-65-aware OUTBOX router, then queries the active shell user's BUD-03 list
-through that same router, then uses host-configured runtime-pointer and
-upload-runtime fallbacks. The user-list
+through that same router, then uses the current window's verified
+pointer-manifest servers, followed by upload-runtime fallbacks. The user-list
 lookup works independently of upload mode; an upload runtime may reuse the same
 servers when present. ROM-specific event and publisher locations retain
 priority over the user/runtime fallbacks. The combined list is capped at eight
@@ -333,8 +334,14 @@ candidates. The only accepted identifier is `blossom:sha256:<hex>`;
 Paja refuses redirects, verifies the requested SHA-256, and permits plain-HTTP
 transport only for configured loopback development defaults. Browser-only Paja
 cannot pin DNS results, so production runtimes must add the draft's DNS-time
-private-address checks. This behavior targets draft
-[NAP-RESOURCE at `9511232`](https://github.com/napplet/naps/blob/9511232f69313aa7953d110e35d32cc28d506f66/naps/NAP-RESOURCE.md), with the merged package implementation
+private-address checks. The current
+[NAP-RESOURCE draft at `fa6bcc6`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md)
+assigns fetching and policy to the runtime and defines no wire-level Blossom
+server-hint field. Retaining verified manifest servers per window is therefore
+Paja host policy, informed by the current
+[NIP-5D draft at `24711d9`](https://github.com/nostr-protocol/nips/blob/24711d9c47bbdd07908bf1d52bf677d9cbc530f0/5D.md),
+which defines manifest `server` tags. The existing request-server compatibility
+path comes from the earlier NAP-RESOURCE draft at `9511232`, with the merged package implementation
 [`napplet/web#206@19e0029b`](https://github.com/napplet/web/pull/206) released as
 `@napplet/core`/`@napplet/nap` 0.32.0, `@napplet/shim` 0.30.0, and
 `@napplet/sdk` 0.28.0. Publisher discovery follows

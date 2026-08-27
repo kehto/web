@@ -161,6 +161,7 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
       () => {},
       () => true,
     );
+    adapter.setWindowBlossomServers('rom-window', ['https://pointer.example']);
     const outboxMessages: NappletMessage[] = [];
     adapter.services?.outbox?.handleMessage('rom-window', {
       type: 'outbox.query',
@@ -183,12 +184,68 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
       `https://event.example/${HASH}`,
       `https://publisher.example/${HASH}`,
       `https://user-list.example/${HASH}`,
+      `https://pointer.example/${HASH}`,
       `https://runtime.example/${HASH}`,
     ]);
     const result = resourceMessages[0] as NappletMessage & { blob: Blob };
     expect(result).toMatchObject({
       type: 'resource.bytes.result',
       id: 'rom-bytes-all-tiers',
+    });
+    expect(await result.blob.text()).toBe('publisher ROM bytes');
+    expect(adapter.upload).toBeUndefined();
+    (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
+  });
+
+  it('uses verified pointer servers anonymously when the ROM and publisher have no hints', async () => {
+    const rom = event('6', 32_560, [
+      ['resource', RESOURCE_URL, 'blossom'],
+    ]);
+    outboxQuery.mockImplementation(async (filters: Array<{ kinds?: number[] }>) => ({
+      events: filters[0]?.kinds?.includes(10_063) ? [] : [{ event: rom }],
+    }));
+
+    const bytes = new TextEncoder().encode('publisher ROM bytes');
+    const fetcher = vi.fn(async (url: string) => url.startsWith('https://pointer.example/')
+      ? new Response(bytes)
+      : new Response(null, { status: 404 }));
+    vi.stubGlobal('fetch', fetcher);
+
+    const adapter = createPajaAdapter(
+      CONFIG,
+      () => normalizePajaSimulation({
+        relay: { mode: 'live' },
+        upload: { mode: 'memory', servers: [], discoverServers: false },
+      }),
+      () => {},
+      () => {},
+      () => true,
+    );
+    adapter.setWindowBlossomServers('rom-window', ['https://pointer.example']);
+
+    const outboxMessages: NappletMessage[] = [];
+    adapter.services?.outbox?.handleMessage('rom-window', {
+      type: 'outbox.query',
+      id: 'anonymous-rom-query',
+      filters: [{ kinds: [32_560] }],
+    } as NappletMessage, (message) => outboxMessages.push(message));
+    await vi.waitFor(() => expect(outboxMessages).toHaveLength(1));
+
+    const resourceMessages: NappletMessage[] = [];
+    adapter.services?.resource?.handleMessage('rom-window', {
+      type: 'resource.bytes',
+      id: 'anonymous-rom-bytes',
+      url: RESOURCE_URL,
+    } as NappletMessage, (message) => resourceMessages.push(message));
+    await vi.waitFor(() => expect(resourceMessages).toHaveLength(1));
+
+    expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
+      `https://pointer.example/${HASH}`,
+    ]);
+    const result = resourceMessages[0] as NappletMessage & { blob: Blob };
+    expect(result).toMatchObject({
+      type: 'resource.bytes.result',
+      id: 'anonymous-rom-bytes',
     });
     expect(await result.blob.text()).toBe('publisher ROM bytes');
     expect(adapter.upload).toBeUndefined();
