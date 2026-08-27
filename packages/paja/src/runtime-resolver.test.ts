@@ -175,6 +175,7 @@ describe('Paja runtime pointer resolver', () => {
 
     expect(resolved.dTag).toBe(manifest.dTag);
     expect(resolved.aggregateHash).toBe(manifest.aggregateHash);
+    expect(resolved.blossomServers).toEqual([BLOSSOM]);
     expect(resolved.indexHtml).toContain('<body>ok</body>');
     expect(pool.filters[0]).toMatchObject({
       kinds: [PAJA_NAPPLET_MANIFEST_KIND],

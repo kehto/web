@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
+  bindRuntimeTabBlossomServers,
   createPajaShareUrl,
   parseRuntimeTabsSnapshot,
   runtimeTabGenerationId,
@@ -53,5 +54,20 @@ describe('@kehto/paja runtime tabs', () => {
   it('keys retained readiness to the exact tab generation rather than the pointer descriptor', () => {
     expect(runtimeTabGenerationId({ id: 'tab-3', generation: 7 })).toBe('tab-3:7');
     expect(runtimeTabGenerationId({ id: 'tab-3', generation: 8 })).toBe('tab-3:8');
+  });
+
+  it('binds verified pointer servers to the exact runtime window before navigation', () => {
+    const setWindowBlossomServers = vi.fn();
+
+    bindRuntimeTabBlossomServers(
+      { setWindowBlossomServers },
+      'paja-window:tab-2:4',
+      { blossomServers: ['https://pointer.example'] },
+    );
+
+    expect(setWindowBlossomServers).toHaveBeenCalledWith(
+      'paja-window:tab-2:4',
+      ['https://pointer.example'],
+    );
   });
 });

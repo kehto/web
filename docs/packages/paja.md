@@ -410,8 +410,9 @@ and the verified event publisher for that source window. A later
 `resource.bytes` for the URL tries request and event-local
 servers first, then lazily reads hinted authors' and the event publisher's
 newest BUD-03 kind `10063` list through the base OUTBOX router, then tries
-the active shell user's BUD-03 list through the same router, then
-runtime-pointer and upload-runtime defaults. The user-list lookup does not
+the active shell user's BUD-03 list through the same router, then the current
+window's verified pointer-manifest servers, and finally upload-runtime defaults.
+The user-list lookup does not
 depend on Blossom upload mode. Paja does not prefetch event resources and works
 while upload mode remains `memory`. Event state is bounded, memory-only, and
 cleared with the napplet window. Server-list lookups are cached for five
@@ -426,11 +427,18 @@ misses are `not-found`; any inconclusive transport failure without success is
 runtimes still must perform the draft's DNS-time private-address checks. The
 publisher lookup follows
 [BUD-03 `b5bd2801d1763aa635fc8fea7a76597e0eb18990`](https://github.com/hzrd149/blossom/blob/b5bd2801d1763aa635fc8fea7a76597e0eb18990/buds/03.md).
+The current
+[NAP-RESOURCE draft `fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md)
+leaves fetch policy to the runtime and has no wire-level Blossom server-hint
+field. Paja's window-scoped pointer fallback is host policy informed by NIP-5D's
+manifest `server` tags at draft head
+[`24711d9c47bbdd07908bf1d52bf677d9cbc530f0`](https://github.com/nostr-protocol/nips/blob/24711d9c47bbdd07908bf1d52bf677d9cbc530f0/5D.md).
 
 Hashtree, Nostr, and other unimplemented schemes remain unadvertised and fail
 with `unsupported-scheme`. HTTP(S) dispatch and Blossom dispatch are separate:
 an ordinary web URL is fetched directly, while `blossom:` can only resolve an
-exact digest through accepted request, event, publisher, or configured servers.
+exact digest through accepted request, event, publisher, verified pointer, or
+configured servers.
 
 ## Environment Simulation
 

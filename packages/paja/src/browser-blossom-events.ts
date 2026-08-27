@@ -60,6 +60,8 @@ export interface PajaBlossomEventResolver {
   decorate(router: OutboxRouter, windowId: string): OutboxRouter;
   /** Resolve event hints, publisher/user lists, and runtime fallbacks for one URL. */
   getServers(url: string, windowId?: string): Promise<readonly string[]>;
+  /** Retain verified runtime-pointer server hints for one source window. */
+  setWindowServers(windowId: string, servers: readonly string[]): void;
   /** Release event-derived context when its source window is destroyed. */
   clearWindow(windowId: string): void;
 }
@@ -77,6 +79,7 @@ export function createPajaBlossomEventResolver(
   const now = options.now ?? Date.now;
   const ttl = Math.max(0, options.serverListTtlMs ?? DEFAULT_SERVER_LIST_TTL_MS);
   const windows = new Map<string, Map<string, ResourceContext[]>>();
+  const windowServers = new Map<string, string[]>();
   const serverLists = new Map<string, ServerListCacheEntry>();
   const pendingServerLists = new Map<string, Promise<string[]>>();
 
@@ -164,8 +167,20 @@ export function createPajaBlossomEventResolver(
       );
       for (const list of lists) appendUnique(servers, list);
     }
+    if (windowId) appendUnique(servers, windowServers.get(windowId) ?? []);
     appendUnique(servers, options.getConfiguredServers());
     return servers.slice(0, PAJA_RESOURCE_MAX_SERVERS);
+  }
+
+  function setWindowServers(windowId: string, servers: readonly string[]): void {
+    if (!windowId) return;
+    const normalized: string[] = [];
+    for (const value of servers) {
+      const server = normalizePublicBlossomServer(value);
+      if (server) appendUnique(normalized, [server]);
+    }
+    if (normalized.length > 0) windowServers.set(windowId, normalized);
+    else windowServers.delete(windowId);
   }
 
   async function discoverServerList(pubkey: string): Promise<string[]> {
@@ -218,7 +233,11 @@ export function createPajaBlossomEventResolver(
     observe,
     decorate,
     getServers,
-    clearWindow: (windowId) => windows.delete(windowId),
+    setWindowServers,
+    clearWindow(windowId) {
+      windows.delete(windowId);
+      windowServers.delete(windowId);
+    },
   };
 }
 

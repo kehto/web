@@ -167,6 +167,14 @@ export type PajaIdentityProvider = (
   windowId?: string,
 ) => Pick<SessionEntry, 'dTag' | 'aggregateHash'>;
 
+/** Paja shell adapter with private verified-pointer resource context wiring. */
+export interface PajaShellAdapter extends ShellAdapter {
+  /** Startup promise for asynchronous host probes. */
+  readonly ready: Promise<void>;
+  /** Bind verified runtime-pointer Blossom hints to one authenticated window. */
+  setWindowBlossomServers(windowId: string, servers: readonly string[]): void;
+}
+
 export { PAJA_DEV_SIGNER_PUBKEY } from './browser-dev-runtime.js';
 
 interface PajaIntentHost {
@@ -293,6 +301,7 @@ function createRuntimeSigner(
 interface PajaServiceBundle {
   readonly services: Record<string, ServiceHandler>;
   refreshAvailability(): boolean;
+  setWindowBlossomServers(windowId: string, servers: readonly string[]): void;
 }
 
 function createDevServices(
@@ -552,7 +561,11 @@ function createDevServices(
   }
   refreshAvailability();
 
-  return { services, refreshAvailability };
+  return {
+    services,
+    refreshAvailability,
+    setWindowBlossomServers: blossomEventResolver.setWindowServers,
+  };
 }
 
 /**
@@ -585,7 +598,7 @@ export function createPajaAdapter(
   userActivation?: PajaUserActivationHandler,
   notifyOptions?: NotifyServiceOptions,
   configOptions?: ConfigServiceOptions,
-): ShellAdapter & { readonly ready: Promise<void> } {
+): PajaShellAdapter {
   const resolveIdentity = (windowId?: string) => getIdentity?.(windowId) ?? {
     dTag: config.window.dTag,
     aggregateHash: config.window.aggregateHash,
@@ -655,6 +668,7 @@ export function createPajaAdapter(
   });
   return {
     ready,
+    setWindowBlossomServers: serviceBundle.setWindowBlossomServers,
     relayPool: createPajaRelayHooks(relayBackend, getSimulation, relayConfig),
     relayConfig,
     windowManager: { createWindow: () => null },
