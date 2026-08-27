@@ -1,5 +1,17 @@
 # @kehto/shell
 
+## 0.21.0
+
+### Minor Changes
+
+- 3231957: Adopt the NAP-RESOURCE Blossom server-hint contract across the injected shell API, reference service, and Paja runtime. Single requests now carry optional advisory servers, bulk requests use per-resource request objects, and Paja validates, caps, and tries accepted hints before host defaults.
+
+### Patch Changes
+
+- Updated dependencies [3231957]
+  - @kehto/runtime@0.23.0
+  - @kehto/acl@0.19.0
+
 ## 0.20.1
 
 ### Patch Changes
