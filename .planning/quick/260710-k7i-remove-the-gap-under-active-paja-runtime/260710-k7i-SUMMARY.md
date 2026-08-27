@@ -1,3 +1,7 @@
+---
+status: complete
+---
+
 # Quick Task 260710-k7i Summary
 
 ## Status

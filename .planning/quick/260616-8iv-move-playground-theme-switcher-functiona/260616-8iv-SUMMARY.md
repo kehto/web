@@ -1,4 +1,5 @@
 ---
+status: complete
 task: 260616-8iv
 title: Move playground theme-switcher to host context
 type: quick

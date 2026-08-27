@@ -1,0 +1,1 @@
+No external API integration: Phase 107 creates a Node/POSIX Unix-domain socket transport with Node built-ins and an internal workspace type seam; it does not call or wrap any external service API or SDK.

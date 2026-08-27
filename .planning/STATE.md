@@ -1,44 +1,43 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.29
-milestone_name: Napplet Convention and Runtime Conformance
-current_phase: 106
-status: completed
-stopped_at: Phase 106 current-Napplet release complete; v1.29 ready for milestone completion
-last_updated: "2026-08-04T10:41:35Z"
-last_activity: 2026-08-04
-last_activity_desc: "Completed quick task 260804-dql: resolved every PR #234 review claim"
+milestone: v1.30
+milestone_name: Experimental IPC Shell Projection
+status: Awaiting next milestone
+stopped_at: Completed 109-03-PLAN.md
+last_updated: "2026-08-20T17:00:00.000Z"
+last_activity: 2026-08-20
+last_activity_desc: Verified production-runnable experimental IPC shell
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 47
-  completed_plans: 47
+  total_phases: 3
+  completed_phases: 3
+  total_plans: 12
+  completed_plans: 12
   percent: 100
-current_phase_name: Active-Surface Conformance and Release
+current_phase: 109
+current_phase_name: Runnable Proof and Drafting Evidence
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-28)
+See: .planning/PROJECT.md (updated 2026-08-20)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** v1.29 current-Napplet publication complete; milestone archival and the separate Phase 105 UI-debt follow-up remain
+**Current focus:** Planning the next milestone
 
 ## Current Position
 
-Phase: 106 (Active-Surface Conformance and Release) — COMPLETE
-Plan: 3 of 3
-Status: All v1.29 phases complete — eight-package Napplet-0.31-compatible npm/JSR release published and downstream-verified
-
-Last activity: 2026-08-19 — Completed quick task 260819-i86: added a root command for the static pointer-entry Paja Runtime
+Phase: Milestone v1.30 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-08-20 — Verified production-runnable experimental IPC shell
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 45
+- Total plans completed: 57
 - Average duration: ~6m
 - Total execution time: ~6 minutes
 
@@ -55,6 +54,9 @@ Last activity: 2026-08-19 — Completed quick task 260819-i86: added a root comm
 | 104 | 6 | - | - |
 | 105 | 12 | - | - |
 | 106 | 3 | - | - |
+| 107 | 6 | - | - |
+| 108 | 3 | - | - |
+| 109 | 3 | - | - |
 **Per-Plan Metrics:**
 
 | Plan | Duration | Tasks | Files |
@@ -104,10 +106,28 @@ Last activity: 2026-08-19 — Completed quick task 260819-i86: added a root comm
 | Phase 106 P01 | 10m | 3 tasks | 6 files |
 | Phase 106 P02 | 5m | 2 tasks | 1 files |
 | Phase 106 P03 | 18m | 2 tasks | 2 files |
+| Phase 107 P01 | 6m | 2 tasks | 11 files |
+| Phase 107 P02 | 2m | 1 tasks | 2 files |
+| Phase 107 P04 | 3min | 2 tasks | 5 files |
+| Phase 107 P05 | 5min | 2 tasks | 8 files |
+| Phase 107 P03 | 5min | 2 tasks | 6 files |
+| Phase 107 P06 | 6min | 1 tasks | 2 files |
+| Phase 108 P01 | 7min | 1 tasks | 6 files |
+| Phase 108 P02 | 9min | 2 tasks | 2 files |
+| Phase 108 P03 | 7m | 2 tasks | 4 files |
+| Phase 109 P1 | 5min | 2 tasks | 3 files |
+| Phase 109 P02 | 12m | 2 tasks | 4 files |
+| Phase 109 P03 | 3m | 2 tasks | 1 files |
 
 ## Accumulated Context
 
 Full decision log lives in `.planning/PROJECT.md` Key Decisions table.
+
+### Key Context for v1.30
+
+- Phase 107 shipped the experimental `@kehto/shell-ipc` Node/POSIX transport foundation with bounded RFC 7464 framing, per-peer backpressure, and race-safe Unix-socket ownership.
+- Endpoint registration is validated, cloned, and recursively frozen before listener allocation; peer-controlled binding claims are terminal before host dispatch.
+- Authority checked: `napplet/naps origin/master@c0f7dd14460622fc3a9870ea57a538474cf776fa` defines no IPC carrier. All carrier choices remain experimental evidence, and private paths are routing handles rather than hostile-same-UID authentication.
 
 ### Key Context for v1.29
 
@@ -226,17 +246,17 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260804-dql | Assess, prioritize, and resolve every review comment on PR #234 | 2026-08-04 | 0c1afc1 | Verified | [260804-dql-assess-prioritize-and-resolve-every-revi](./quick/260804-dql-assess-prioritize-and-resolve-every-revi/) |
 | 260819-hwm | Add canonical Blossom scheme support to Paja NAP-RESOURCE with hash verification | 2026-08-19 | b966aef | Verified | [260819-hwm-add-canonical-blossom-scheme-support-to-](./quick/260819-hwm-add-canonical-blossom-scheme-support-to-/) |
 | 260819-i86 | Add a root pnpm script to run the static pointer-entry Paja runtime locally | 2026-08-19 | 77235dd | Verified | [260819-i86-add-a-root-pnpm-script-to-run-the-static](./quick/260819-i86-add-a-root-pnpm-script-to-run-the-static/) |
+| 260820-ne7 | Implement a production-runnable experimental IPC shell | 2026-08-20 | 08318e1 | Verified | [260820-ne7-implement-a-production-runnable-experime](./quick/260820-ne7-implement-a-production-runnable-experime/) |
 
 ## Session Continuity
 
-Last session: 2026-07-28T18:55:51Z
-Stopped at: Phase 106 current-Napplet package line published and downstream-verified
+Last session: 2026-08-20T14:12:30.621Z
+Stopped at: Completed 109-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
 
-- Archive the completed v1.29 milestone when maintainers are ready.
-- Track the Phase 105 12/24 UI findings as a separately scoped post-merge follow-up.
+- Start the next milestone with /gsd-new-milestone
 
 ### Key Context for v1.22 (Phases 90–94)
 
@@ -342,3 +362,22 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: The post-Phase-106 publication follow-up is distinct from the original PR-readiness boundary and is complete only with exact-main CI/Pages, successful npm/JSR publishing, direct registry metadata, and a clean downstream install/import/build.
 - [Phase ?]: A release is not current merely because its workflow succeeded; the published Kehto peer window must accept the registry's current Napplet `latest` line.
 - [Phase ?]: Corrective PR #220 supplies the eight-package Changeset omitted from the prior release path; PR #221 and Release #30389303760 publish the Napplet 0.31-compatible line.
+- [Phase ?]: Phase 107 Plan 01 binds a recursively frozen host registration before any IPC listener side effect.
+- [Phase ?]: Phase 107 Plan 01 treats private Unix-socket paths as host-only routing information, never cryptographic peer authentication.
+- [Phase ?]: Phase 107 Plan 02 copies each Uint8Array ingress chunk into decoder-owned Buffer storage before buffering.
+- [Phase ?]: Phase 107 Plan 02 delivers complete canonical records synchronously in wire order and propagates host callback errors.
+- [Phase ?]: Count and byte limits retain callback-pending writes until completion callbacks settle.
+- [Phase ?]: Accepted peers receive endpoint-configured outbound limits and one host-bound terminal diagnostic.
+- [Phase ?]: IPC socket cleanup requires unchanged device/inode/mode fingerprints and never treats a substituted entry as owned.
+- [Phase ?]: Endpoint reservations are inserted synchronously and lifecycle callbacks act only on their current safe-integer generation.
+- [Phase ?]: The pinned napplet/naps object defines no IPC carrier; NAP-INC endpoint binding remains carrier-neutral rather than an IPC projection.
+- [Phase ?]: IPC projection binds host registration and opaque peer state outside canonical envelopes.
+- [Phase ?]: Only exact bare shell.ready creates the IPC session and emits shell.init.
+- [Phase ?]: Phase 108 Plan 02 retires private IPC connection tokens before runtime destroyWindow/session unregister, so stale close callbacks cannot tear down replacement sessions.
+- [Phase ?]: A registration-less factory returns a shared IPC composition while the registration-bearing overload preserves the existing one-endpoint projection.
+- [Phase ?]: Endpoint record identity plus private peer generations authorize IPC teardown; host window IDs alone never authorize stale cleanup.
+- [Phase ?]: Phase 109 proof keeps the raw napplet Node-only and uses the public IPC shell export with redacted process milestones.
+- [Phase ?]: Pinned napplet/naps origin/master@c0f7dd14460622fc3a9870ea57a538474cf776fa is carrier-neutral authority that defines no IPC carrier.
+- [Phase ?]: Private path containment is documented as non-authentication; hostile same-UID resistance remains outside the IPC projection threat model.
+- [Phase ?]: The one pending @kehto/shell-ipc Changeset remains a 0.x minor and describes the complete experimental projection rather than only transport egress.
+- [Phase ?]: The POSIX process carrier receives the existing NIP-5D browser contract as a regression gate, not a new browser E2E surface.

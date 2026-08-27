@@ -81,6 +81,7 @@ export default defineConfig({
           { text: '@kehto/firewall', link: '/packages/firewall' },
           { text: '@kehto/runtime', link: '/packages/runtime' },
           { text: '@kehto/shell', link: '/packages/shell' },
+          { text: '@kehto/shell-ipc', link: '/packages/shell-ipc' },
           { text: '@kehto/services', link: '/packages/services' },
           { text: '@kehto/nip', link: '/packages/nip' },
           { text: '@kehto/wm', link: '/packages/wm' },
@@ -91,6 +92,7 @@ export default defineConfig({
         text: 'Reference',
         items: [
           { text: 'API Reference', link: '/reference/api' },
+          { text: 'Experimental IPC Projection', link: '/reference/experimental-ipc-projection' },
           { text: 'Troubleshooting', link: '/guides/troubleshooting' },
           { text: 'Docs Site Runbook', link: '/guides/docs-site-runbook' },
         ],

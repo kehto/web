@@ -20,13 +20,13 @@ importers:
     devDependencies:
       '@changesets/cli':
         specifier: ^2.30.0
-        version: 2.30.0
+        version: 2.30.0(@types/node@20.19.43)
       '@playwright/test':
         specifier: ^1.54.0
         version: 1.59.1
       '@vitest/coverage-v8':
         specifier: ^4.1.2
-        version: 4.1.2(vitest@4.1.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 4.1.2(vitest@4.1.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       nostr-tools:
         specifier: ^2.23.3
         version: 2.23.3(typescript@5.9.3)
@@ -41,7 +41,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.2
-        version: 4.1.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 4.1.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground:
     dependencies:
@@ -84,7 +84,7 @@ importers:
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       '@types/qrcode':
         specifier: ^1.5.6
         version: 1.5.6
@@ -93,10 +93,10 @@ importers:
         version: 5.9.3
       unocss:
         specifier: ^66.2.0
-        version: 66.6.7(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 66.6.7(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/ble-demo:
     dependencies:
@@ -109,13 +109,13 @@ importers:
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/bot:
     dependencies:
@@ -131,13 +131,13 @@ importers:
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/chat:
     dependencies:
@@ -156,13 +156,13 @@ importers:
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/common-demo:
     dependencies:
@@ -175,13 +175,13 @@ importers:
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/composer:
     dependencies:
@@ -200,13 +200,13 @@ importers:
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/cvm-relatr:
     dependencies:
@@ -222,13 +222,13 @@ importers:
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/feed:
     dependencies:
@@ -247,13 +247,13 @@ importers:
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/link-demo:
     dependencies:
@@ -266,13 +266,13 @@ importers:
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/lists-demo:
     dependencies:
@@ -285,13 +285,13 @@ importers:
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/preferences:
     dependencies:
@@ -307,13 +307,13 @@ importers:
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/profile-viewer:
     dependencies:
@@ -329,13 +329,13 @@ importers:
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/resource-demo:
     dependencies:
@@ -351,13 +351,13 @@ importers:
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/serial-demo:
     dependencies:
@@ -370,13 +370,13 @@ importers:
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/toaster:
     dependencies:
@@ -392,13 +392,13 @@ importers:
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   apps/playground/napplets/webrtc-demo:
     dependencies:
@@ -411,19 +411,19 @@ importers:
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   docs:
     devDependencies:
       vitepress:
         specifier: ^1.6.4
-        version: 1.6.4(@algolia/client-search@5.52.1)(jiti@2.6.1)(postcss@8.5.15)(qrcode@1.5.4)(typescript@5.9.3)(yaml@2.8.3)
+        version: 1.6.4(@algolia/client-search@5.52.1)(@types/node@20.19.43)(jiti@2.6.1)(postcss@8.5.15)(qrcode@1.5.4)(typescript@5.9.3)(yaml@2.8.3)
 
   packages/acl:
     devDependencies:
@@ -463,7 +463,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.2
-        version: 4.1.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 4.1.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   packages/firewall:
     devDependencies:
@@ -494,7 +494,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.2
-        version: 4.1.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 4.1.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   packages/paja:
     dependencies:
@@ -537,7 +537,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.2
-        version: 4.1.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 4.1.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   packages/runtime:
     dependencies:
@@ -568,7 +568,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.2
-        version: 4.1.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 4.1.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   packages/services:
     dependencies:
@@ -593,7 +593,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.2
-        version: 4.1.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 4.1.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   packages/shell:
     dependencies:
@@ -623,6 +623,28 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  packages/shell-ipc:
+    dependencies:
+      '@kehto/runtime':
+        specifier: workspace:^
+        version: link:../runtime
+    devDependencies:
+      '@napplet/core':
+        specifier: '>=0.31.0 <0.32.0'
+        version: 0.31.1
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.43
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.15)(typescript@5.9.3)(yaml@2.8.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.2
+        version: 4.1.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
+
   packages/wm:
     devDependencies:
       typescript:
@@ -646,7 +668,7 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   tests/fixtures/napplets/nap-identity:
     dependencies:
@@ -662,13 +684,13 @@ importers:
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   tests/fixtures/napplets/nap-inc:
     dependencies:
@@ -684,13 +706,13 @@ importers:
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   tests/fixtures/napplets/nap-notify:
     dependencies:
@@ -706,13 +728,13 @@ importers:
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   tests/fixtures/napplets/nap-relay:
     dependencies:
@@ -731,13 +753,13 @@ importers:
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   tests/fixtures/napplets/nap-storage:
     dependencies:
@@ -753,13 +775,13 @@ importers:
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   tests/fixtures/napplets/nap-theme:
     dependencies:
@@ -775,13 +797,13 @@ importers:
     devDependencies:
       '@napplet/vite-plugin':
         specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
         specifier: ^6.4.2
-        version: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+        version: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
 packages:
 
@@ -1781,6 +1803,9 @@ packages:
 
   '@types/node@12.20.55':
     resolution: {integrity: sha512-J8xLz7q2OFulZ2cyGTLE1TbbZcjpno7FaN6zdJNrgAdrJ+DZzh/uFR6YrTb4C+nXakvud8Q4+rbhoIWlYQbUFQ==}
+
+  '@types/node@20.19.43':
+    resolution: {integrity: sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA==}
 
   '@types/qrcode@1.5.6':
     resolution: {integrity: sha512-te7NQcV2BOvdj2b1hCAHzAoMNuj65kNBMz0KBaxM6c3VGBOhU0dURQKOtH8CFNI/dsKkwlv32p26qYQTWoB5bw==}
@@ -2955,6 +2980,9 @@ packages:
   unconfig@7.5.0:
     resolution: {integrity: sha512-oi8Qy2JV4D3UQ0PsopR28CzdQ3S/5A1zwsUwp/rosSbfhJ5z7b90bIyTwi/F7hCLD4SGcZVjDzd4XoUQcEanvA==}
 
+  undici-types@6.21.0:
+    resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
+
   unist-util-is@6.0.1:
     resolution: {integrity: sha512-LsiILbtBETkDz8I9p1dQ0uyRUWuaQzd/cuEeS1hoRSyW5E5XGmTzlwY1OrNzzakGowI9Dr/I8HVaw4hTtnxy8g==}
 
@@ -3308,7 +3336,7 @@ snapshots:
     dependencies:
       '@changesets/types': 6.1.0
 
-  '@changesets/cli@2.30.0':
+  '@changesets/cli@2.30.0(@types/node@20.19.43)':
     dependencies:
       '@changesets/apply-release-plan': 7.1.0
       '@changesets/assemble-release-plan': 6.0.9
@@ -3324,7 +3352,7 @@ snapshots:
       '@changesets/should-skip-package': 0.1.2
       '@changesets/types': 6.1.0
       '@changesets/write': 0.4.0
-      '@inquirer/external-editor': 1.0.3
+      '@inquirer/external-editor': 1.0.3(@types/node@20.19.43)
       '@manypkg/get-packages': 1.1.3
       ansi-colors: 4.1.3
       enquirer: 2.4.1
@@ -3620,10 +3648,12 @@ snapshots:
       '@iconify/types': 2.0.0
       mlly: 1.8.2
 
-  '@inquirer/external-editor@1.0.3':
+  '@inquirer/external-editor@1.0.3(@types/node@20.19.43)':
     dependencies:
       chardet: 2.1.1
       iconv-lite: 0.7.2
+    optionalDependencies:
+      '@types/node': 20.19.43
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
@@ -3685,10 +3715,10 @@ snapshots:
     transitivePeerDependencies:
       - json-schema-to-ts
 
-  '@napplet/vite-plugin@0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))':
+  '@napplet/vite-plugin@0.14.1(typescript@5.9.3)(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))':
     dependencies:
       nostr-tools: 2.23.3(typescript@5.9.3)
-      vite: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+      vite: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
     transitivePeerDependencies:
       - typescript
 
@@ -4025,6 +4055,10 @@ snapshots:
 
   '@types/node@12.20.55': {}
 
+  '@types/node@20.19.43':
+    dependencies:
+      undici-types: 6.21.0
+
   '@types/qrcode@1.5.6':
     dependencies:
       '@types/node': 12.20.55
@@ -4154,7 +4188,7 @@ snapshots:
     dependencies:
       '@unocss/core': 66.6.7
 
-  '@unocss/vite@66.6.7(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))':
+  '@unocss/vite@66.6.7(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))':
     dependencies:
       '@jridgewell/remapping': 2.3.5
       '@unocss/config': 66.6.7
@@ -4165,14 +4199,14 @@ snapshots:
       pathe: 2.0.3
       tinyglobby: 0.2.15
       unplugin-utils: 0.3.1
-      vite: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+      vite: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
-  '@vitejs/plugin-vue@5.2.4(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))(vue@3.5.34(typescript@5.9.3))':
+  '@vitejs/plugin-vue@5.2.4(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))(vue@3.5.34(typescript@5.9.3))':
     dependencies:
-      vite: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+      vite: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
       vue: 3.5.34(typescript@5.9.3)
 
-  '@vitest/coverage-v8@4.1.2(vitest@4.1.2(jiti@2.6.1)(yaml@2.8.3))':
+  '@vitest/coverage-v8@4.1.2(vitest@4.1.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))':
     dependencies:
       '@bcoe/v8-coverage': 1.0.2
       '@vitest/utils': 4.1.2
@@ -4184,7 +4218,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.0.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.2(jiti@2.6.1)(yaml@2.8.3)
+      vitest: 4.1.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   '@vitest/expect@4.1.2':
     dependencies:
@@ -4195,13 +4229,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.2(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))':
+  '@vitest/mocker@4.1.2(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))':
     dependencies:
       '@vitest/spy': 4.1.2
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+      vite: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
 
   '@vitest/pretty-format@4.1.2':
     dependencies:
@@ -5324,6 +5358,8 @@ snapshots:
       quansync: 1.0.0
       unconfig-core: 7.5.0
 
+  undici-types@6.21.0: {}
+
   unist-util-is@6.0.1:
     dependencies:
       '@types/unist': 3.0.3
@@ -5349,7 +5385,7 @@ snapshots:
 
   universalify@0.1.2: {}
 
-  unocss@66.6.7(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3)):
+  unocss@66.6.7(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)):
     dependencies:
       '@unocss/cli': 66.6.7
       '@unocss/core': 66.6.7
@@ -5367,7 +5403,7 @@ snapshots:
       '@unocss/transformer-compile-class': 66.6.7
       '@unocss/transformer-directives': 66.6.7
       '@unocss/transformer-variant-group': 66.6.7
-      '@unocss/vite': 66.6.7(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+      '@unocss/vite': 66.6.7(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
     transitivePeerDependencies:
       - '@emnapi/core'
       - '@emnapi/runtime'
@@ -5397,7 +5433,7 @@ snapshots:
       '@types/unist': 3.0.3
       vfile-message: 4.0.3
 
-  vite@6.4.2(jiti@2.6.1)(yaml@2.8.3):
+  vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3):
     dependencies:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.4)
@@ -5406,11 +5442,12 @@ snapshots:
       rollup: 4.60.1
       tinyglobby: 0.2.15
     optionalDependencies:
+      '@types/node': 20.19.43
       fsevents: 2.3.3
       jiti: 2.6.1
       yaml: 2.8.3
 
-  vitepress@1.6.4(@algolia/client-search@5.52.1)(jiti@2.6.1)(postcss@8.5.15)(qrcode@1.5.4)(typescript@5.9.3)(yaml@2.8.3):
+  vitepress@1.6.4(@algolia/client-search@5.52.1)(@types/node@20.19.43)(jiti@2.6.1)(postcss@8.5.15)(qrcode@1.5.4)(typescript@5.9.3)(yaml@2.8.3):
     dependencies:
       '@docsearch/css': 3.8.2
       '@docsearch/js': 3.8.2(@algolia/client-search@5.52.1)
@@ -5419,7 +5456,7 @@ snapshots:
       '@shikijs/transformers': 2.5.0
       '@shikijs/types': 2.5.0
       '@types/markdown-it': 14.1.2
-      '@vitejs/plugin-vue': 5.2.4(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))(vue@3.5.34(typescript@5.9.3))
+      '@vitejs/plugin-vue': 5.2.4(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))(vue@3.5.34(typescript@5.9.3))
       '@vue/devtools-api': 7.7.9
       '@vue/shared': 3.5.34
       '@vueuse/core': 12.8.2(typescript@5.9.3)
@@ -5428,7 +5465,7 @@ snapshots:
       mark.js: 8.11.1
       minisearch: 7.2.0
       shiki: 2.5.0
-      vite: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+      vite: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
       vue: 3.5.34(typescript@5.9.3)
     optionalDependencies:
       postcss: 8.5.15
@@ -5462,10 +5499,10 @@ snapshots:
       - universal-cookie
       - yaml
 
-  vitest@4.1.2(jiti@2.6.1)(yaml@2.8.3):
+  vitest@4.1.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3):
     dependencies:
       '@vitest/expect': 4.1.2
-      '@vitest/mocker': 4.1.2(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+      '@vitest/mocker': 4.1.2(vite@6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3))
       '@vitest/pretty-format': 4.1.2
       '@vitest/runner': 4.1.2
       '@vitest/snapshot': 4.1.2
@@ -5482,8 +5519,10 @@ snapshots:
       tinyexec: 1.0.4
       tinyglobby: 0.2.15
       tinyrainbow: 3.1.0
-      vite: 6.4.2(jiti@2.6.1)(yaml@2.8.3)
+      vite: 6.4.2(@types/node@20.19.43)(jiti@2.6.1)(yaml@2.8.3)
       why-is-node-running: 2.3.0
+    optionalDependencies:
+      '@types/node': 20.19.43
     transitivePeerDependencies:
       - jiti
       - less

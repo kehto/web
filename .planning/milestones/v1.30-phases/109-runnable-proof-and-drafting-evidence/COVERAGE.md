@@ -1,0 +1,1 @@
+No external API integration: Phase 109 uses Node built-ins plus the existing first-party `@kehto/shell-ipc`/`@kehto/runtime` workspace surfaces; it installs no SDK, calls no external service API, and adds no browser IPC client.
