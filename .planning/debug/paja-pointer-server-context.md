@@ -1,5 +1,5 @@
 ---
-status: fixing
+status: resolved
 trigger: "Deployed Paja still returns Blossom blocked-by-policy for GBColor when no signer supplies a working server list"
 created: 2026-08-27
 updated: 2026-08-27
@@ -27,15 +27,12 @@ reproduction: Open deployed Paja without a signer, resolve GBColor event
 hypothesis: Confirmed. Paja uses verified pointer-event server tags to resolve
   the napplet artifact but discards them before window-scoped NAP-RESOURCE
   resolution.
-test: Reproduce without a signer and compare the pointer event, selected ROM
-  event, publisher kind-10063 list, and resource resolver candidate inputs.
-expecting: The pointer has `cdn.hzrd149.com`; the ROM has no server hints; the
-  publisher has no kind-10063 event; no pointer servers reach the resource
-  resolver.
-next_action: Retain normalized pointer-event servers in `PajaResolvedPointer`,
-  expose them as window-scoped runtime defaults after event/publisher/user
-  discovery, add anonymous regression coverage, and verify the released Pages
-  artifact against the original unsigned GBColor flow.
+test: Re-run the original deployed flow in a fresh browser without a signer and
+  observe the exact ROM HTTP responses plus terminal NAP-RESOURCE envelope.
+expecting: After the ROM-local candidate misses, the verified pointer server
+  returns the exact ROM and Paja emits `resource.bytes.result`.
+result: Passed on the Pages artifact deployed from `37c6fca`.
+next_action: None; the reported failure is resolved and released in Paja 0.16.3.
 
 ## Evidence
 
@@ -70,6 +67,18 @@ next_action: Retain normalized pointer-event servers in `PajaResolvedPointer`,
 - timestamp: 2026-08-27T20:27:00Z
   result: Full local validation passed: build, type-check, 1,719 unit tests,
     strict docs, 84 Playwright tests, and AI-slop 100/100.
+- timestamp: 2026-08-27T20:33:00Z
+  result: PR 260 and Version Packages PR 261 merged. Automated release run
+    33113454065 published `@kehto/paja@0.16.3` to npm and JSR, and Pages run
+    33113318023 deployed exact commit
+    `37c6fca5a4f00f95901aad75a8b0f606fef9d7d8`.
+- timestamp: 2026-08-27T20:34:00Z
+  result: A fresh deployed browser with no signer loaded 137 global games,
+    selected NHL Blades of Steel, received 404 from `blssm.us`, then fetched
+    1,048,576 bytes from `cdn.hzrd149.com` with SHA-256
+    `5a7915efb3edcbb4b4bce512359e63ad6f6ba782b0534f4bd37d8838d5df6f53`.
+    The host log contained `resource.bytes` followed by
+    `resource.bytes.result`, with no `resource.bytes.error`.
 
 ## Eliminated
 
@@ -91,8 +100,9 @@ fix: Normalize and retain verified manifest `server` tags in the resolved
   pointer, bind them to the exact runtime window before iframe navigation, and
   add them after request/event/publisher/user discovery but before configured
   fallbacks. Clear the pointer context with the window.
-verification: Local regression and repository gates are green. Release and
-  unsigned deployed GBColor verification remain pending.
+verification: Local regression and all repository gates are green. Paja 0.16.3
+  is published to npm and JSR. The exact unsigned GBColor/NHL Blades of Steel
+  flow passes on the Pages artifact deployed from `37c6fca`.
 files_changed: `packages/paja/src/runtime-resolver.ts`,
   `packages/paja/src/browser-runtime-tabs.ts`,
   `packages/paja/src/browser-adapter.ts`,
