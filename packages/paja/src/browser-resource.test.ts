@@ -70,6 +70,29 @@ describe('Paja resource backend', () => {
     expect(await response.text()).toBe('{"from":"request-hint"}');
   });
 
+  it('awaits source-scoped event defaults for a canonical Blossom request', async () => {
+    const bytes = new TextEncoder().encode('{"from":"publisher-list"}');
+    const hash = await sha256Hex(bytes);
+    const getBlossomServers = vi.fn(async () => ['https://publisher.example']);
+    const fetchFn = vi.fn(async () => new Response(bytes));
+    const fetchResource = createPajaResourceFetch({ getBlossomServers, fetch: fetchFn });
+
+    const response = await fetchResource(`blossom:sha256:${hash}`, {
+      signal: new AbortController().signal,
+      windowId: 'rom-window',
+    });
+
+    expect(getBlossomServers).toHaveBeenCalledWith({
+      url: `blossom:sha256:${hash}`,
+      windowId: 'rom-window',
+    });
+    expect(fetchFn).toHaveBeenCalledWith(
+      `https://publisher.example/${hash}`,
+      expect.objectContaining({ redirect: 'error' }),
+    );
+    expect(await response.text()).toBe('{"from":"publisher-list"}');
+  });
+
   it('caps request hints and reports an inconclusive fallback as network-error', async () => {
     const servers = Array.from(
       { length: PAJA_RESOURCE_MAX_SERVERS + 2 },

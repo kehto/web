@@ -39,7 +39,7 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 | Keys | `createKeysService`, `KeysServiceOptions`, `HostKeysBridge`, `HostKeyEvent` |
 | Media | `createMediaService`, `createBrowserMediaBridge`, `MediaServiceOptions`, `HostMediaBridge`, `MediaAction` |
 | Notify/theme/config/resource | `createNotifyService`, `NotifyServiceOptions`, `createThemeService`, `ThemeServiceOptions`, `ThemeService`, `createConfigService`, `ConfigServiceOptions`, `ConfigService`, `ConfigSchemaValidation`, `createResourceService`, `ResourceServiceOptions`, `ResourceFetchInit`, `ResourceBytesRequest`, `ResourceInfo`, `ResourceService` |
-| Outbox | `createOutboxService`, `createRelayPoolOutboxRouter`, `OutboxRouter`, `StreamingOutboxRouter`, `OutboxQueryStream`, `OutboxQueryStreamSink` |
+| Outbox | `createOutboxService`, `OutboxServiceOptions`, `createRelayPoolOutboxRouter`, `OutboxRouter`, `StreamingOutboxRouter`, `OutboxQueryStream`, `OutboxQueryStreamSink` |
 | Shell-mediated helpers | `createLinkService`, `LinkServiceOptions`, `LinkOpenContext`, `createCommonService`, `CommonServiceOptions`, `CommonServiceContext`, `createListsService`, `ListsServiceOptions`, `ListsServiceContext`, `createSerialService`, `SerialServiceOptions`, `SerialServiceContext`, `createBleService`, `BleServiceOptions`, `BleServiceContext`, `createWebrtcService`, `WebrtcServiceOptions`, `WebrtcServiceContext` |
 | DM | `createDmService`, `createNip17DmAdapter`, `createNdrDmAdapter`, `createNdrRelayTransport`, `createCordnDmAdapter`, `createCordnRelayCoordinatorClient`, `DmServiceOptions`, `DmAdapter`, `DmRelayPool`, `Nip17DmAdapterOptions`, `NdrDmAdapterOptions`, `NdrRelayTransportOptions`, `CordnDmAdapterOptions`, `CordnRelayCoordinatorOptions` |
 | FS | `createFsService`, `FsServiceError`, `FsServiceOptions`, `FsBackend`, `FsBackendWatch`, `FsBackendChange` |
@@ -63,10 +63,16 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 - NAP-DM support keeps request correlation, per-window subscriptions, and packaged message shapes in `createDmService`; the concrete NIP-17 adapter verifies gift wraps and hydrates encrypted relay history, while NDR and Cordn specifics remain behind structural adapters.
 - NAP-FS support keeps same-id results and per-window watch ownership in `createFsService`; injected backends own real persistence, virtual-path policy, picker mediation, byte validation, revisions, mutation atomicity, and watch observation.
 - `createRelayPoolOutboxRouter()` starts validated relay hints or fallback reads before asynchronous NIP-65 discovery settles. Its host-side `queryStream()` emits verified results incrementally and exposes the existing aggregate through `result`; the draft NAP-OUTBOX wire query remains one-shot.
+- `createOutboxService()` accepts a source-scoped `getReadRouter` for
+  `outbox.getEvent`, `outbox.query`, and `outbox.subscribe`, while the optional
+  `getQueryRouter` can layer query-only policy or caching on top.
 - `createResourceService()` is a policy-neutral NAP-RESOURCE kernel. Its required
   `fetch` callback owns resolution and accepts every syntactically valid URL by
   default. Canonical single and bulk requests preserve optional per-resource
   Blossom `servers`; resolver `init.servers` is populated only for `blossom:`.
+  Resolver `init.windowId` carries the authenticated source as private host
+  context so a runtime can scope policy or event-derived location state without
+  adding a napplet-controlled wire field.
   `resource.info` can disclose `maxServers` alongside byte and URL caps. The
   optional `resource.info.schemes` disclosure is advisory and is
   never used as an authorization gate. A runtime may opt into Kehto's origin

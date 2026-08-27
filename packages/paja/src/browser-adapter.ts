@@ -55,6 +55,7 @@ import type { PajaSimulation } from './simulation.js';
 import { BrowserIntentController } from './browser-intent-controller.js';
 import { InstalledNappletCatalog } from './installed-napplet-catalog.js';
 import { createPajaUploadRuntime, type PajaUploadRuntime } from './browser-upload.js';
+import { createPajaBlossomEventResolver } from './browser-blossom-events.js';
 import { createPajaSocialCache } from './browser-social-cache.js';
 import { createPajaCommonBackend } from './browser-common.js';
 import { createPajaListsBackend } from './browser-lists.js';
@@ -301,7 +302,7 @@ function createDevServices(
   onThemeService: (theme: ReturnType<typeof createThemeService>) => void,
   onThemeBroadcast: (envelope: ThemeChangedMessage) => void,
   confirmRequest: PajaConfirmationHandler,
-  getBlossomServers: () => readonly string[],
+  getConfiguredBlossomServers: () => readonly string[],
   uploadRuntime?: PajaUploadRuntime,
   signerProvider?: PajaSignerProvider,
   intentHost?: PajaIntentHost,
@@ -320,6 +321,11 @@ function createDevServices(
   const getWriteRelays = () => relayConfig.getRelayUrls(['outbox']);
   const getAllRelays = () => relayConfig.getRelayUrls();
   const baseOutboxRouter = createOutboxRouter(backend, getSimulation, relayConfig, confirmRequest, signerProvider);
+  const blossomEventResolver = createPajaBlossomEventResolver({
+    baseRouter: baseOutboxRouter,
+    getDefaultAuthors: () => [getRuntimePubkey(getSimulation, signerProvider)],
+    getConfiguredServers: getConfiguredBlossomServers,
+  });
   const socialCache = createPajaSocialCache({
     baseRouter: baseOutboxRouter,
     loadContactList: createPajaContactListLoader(backend, getSimulation, signerProvider, getReadRelays),
@@ -338,11 +344,20 @@ function createDevServices(
     getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider),
   });
   void socialCache.refreshActiveIdentity();
-  const services: Record<string, ServiceHandler> = {
-    resource: createResourceService({
-      fetch: createPajaResourceFetch({ getBlossomServers }),
-      resourceInfo: () => pajaResourceInfo(),
+  const resourceService = createResourceService({
+    fetch: createPajaResourceFetch({
+      getBlossomServers: ({ url, windowId }) => blossomEventResolver.getServers(url, windowId),
     }),
+    resourceInfo: () => pajaResourceInfo(),
+  });
+  const services: Record<string, ServiceHandler> = {
+    resource: {
+      ...resourceService,
+      onWindowDestroyed(windowId) {
+        resourceService.onWindowDestroyed?.(windowId);
+        blossomEventResolver.clearWindow(windowId);
+      },
+    },
   };
   if (getSimulation().capabilities.domains.keys && typeof document !== 'undefined') {
     services.keys = createKeysService({ listenerTarget: document });
@@ -367,9 +382,13 @@ function createDevServices(
     });
     services.outbox = createOutboxService({
       router: baseOutboxRouter,
-      getQueryRouter: (windowId, context) => socialCache.decorate(
-        baseOutboxRouter,
-        () => context?.hasCapability(windowId, 'identity:read') ?? false,
+      getReadRouter: (windowId) => blossomEventResolver.decorate(baseOutboxRouter, windowId),
+      getQueryRouter: (windowId, context) => blossomEventResolver.decorate(
+        socialCache.decorate(
+          baseOutboxRouter,
+          () => context?.hasCapability(windowId, 'identity:read') ?? false,
+        ),
+        windowId,
       ),
     });
   }
@@ -595,7 +614,7 @@ export function createPajaAdapter(
         subscribeSignerChange: signerProvider?.subscribe?.bind(signerProvider),
       })
     : undefined;
-  const getBlossomServers = () => [
+  const getConfiguredBlossomServers = () => [
     ...(config.target?.pointer?.blossomServers ?? []),
     ...(uploadRuntime?.getServers() ?? getSimulation().upload.servers),
   ];
@@ -608,7 +627,7 @@ export function createPajaAdapter(
     onThemeService,
     onThemeBroadcast,
     confirmRequest,
-    getBlossomServers,
+    getConfiguredBlossomServers,
     uploadRuntime,
     signerProvider,
     intentHost,
