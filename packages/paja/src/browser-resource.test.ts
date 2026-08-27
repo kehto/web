@@ -25,6 +25,26 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
+function gameBoyRomVector(): Uint8Array {
+  const bytes = new Uint8Array(32 * 1024);
+  bytes.set([
+    0xce, 0xed, 0x66, 0x66, 0xcc, 0x0d, 0x00, 0x0b,
+    0x03, 0x73, 0x00, 0x83, 0x00, 0x0c, 0x00, 0x0d,
+    0x00, 0x08, 0x11, 0x1f, 0x88, 0x89, 0x00, 0x0e,
+    0xdc, 0xcc, 0x6e, 0xe6, 0xdd, 0xdd, 0xd9, 0x99,
+    0xbb, 0xbb, 0x67, 0x63, 0x6e, 0x0e, 0xec, 0xcc,
+    0xdd, 0xdc, 0x99, 0x9f, 0xbb, 0xb9, 0x33, 0x3e,
+  ], 0x104);
+  bytes.set(new TextEncoder().encode('KEHTO TEST'), 0x134);
+  bytes[0x143] = 0x80;
+  let checksum = 0;
+  for (let index = 0x134; index <= 0x14c; index += 1) {
+    checksum = (checksum - (bytes[index] ?? 0) - 1) & 0xff;
+  }
+  bytes[0x14d] = checksum;
+  return bytes;
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -155,6 +175,27 @@ describe('Paja resource backend', () => {
       redirect: 'error',
     }));
     expect(response.headers.get('content-type')).toBe('application/json');
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
+  });
+
+  it('classifies a checksum-valid Game Boy ROM from its canonical header bytes', async () => {
+    const bytes = gameBoyRomVector();
+    const hash = await sha256Hex(bytes);
+    const fetchResource = createPajaResourceFetch({
+      getBlossomServers: () => ['https://roms.example'],
+      fetch: vi.fn(async () => new Response(
+        bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
+        {
+          headers: { 'content-type': 'text/html' },
+        },
+      )),
+    });
+
+    const response = await fetchResource(`blossom:sha256:${hash}`, {
+      signal: new AbortController().signal,
+    });
+
+    expect(response.headers.get('content-type')).toBe('application/vnd.nintendo.gb-rom');
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
   });
 

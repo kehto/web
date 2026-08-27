@@ -16,6 +16,14 @@ export const PAJA_RESOURCE_MAX_SERVERS = 8;
 
 const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });
 const BLOSSOM_RESOURCE_PATTERN = /^blossom:sha256:([0-9a-f]{64})$/i;
+const GAME_BOY_NINTENDO_LOGO = [
+  0xce, 0xed, 0x66, 0x66, 0xcc, 0x0d, 0x00, 0x0b,
+  0x03, 0x73, 0x00, 0x83, 0x00, 0x0c, 0x00, 0x0d,
+  0x00, 0x08, 0x11, 0x1f, 0x88, 0x89, 0x00, 0x0e,
+  0xdc, 0xcc, 0x6e, 0xe6, 0xdd, 0xdd, 0xd9, 0x99,
+  0xbb, 0xbb, 0x67, 0x63, 0x6e, 0x0e, 0xec, 0xcc,
+  0xdd, 0xdc, 0x99, 0x9f, 0xbb, 0xb9, 0x33, 0x3e,
+] as const;
 
 /** Host-owned inputs for Paja's NAP-RESOURCE fetch boundary. */
 export interface PajaResourceFetchOptions {
@@ -372,7 +380,17 @@ function sniffSafeResourceMime(bytes: Uint8Array): string | null {
   if (ascii(bytes, 4, 8) === 'ftyp') return 'video/mp4';
   if (ascii(bytes, 0, 4) === 'wOFF') return 'font/woff';
   if (ascii(bytes, 0, 4) === 'wOF2') return 'font/woff2';
+  if (isGameBoyRom(bytes)) return 'application/vnd.nintendo.gb-rom';
   return sniffSafeTextMime(bytes);
+}
+
+function isGameBoyRom(bytes: Uint8Array): boolean {
+  if (bytes.byteLength < 0x150 || !startsWith(bytes, GAME_BOY_NINTENDO_LOGO, 0x104)) return false;
+  let checksum = 0;
+  for (let index = 0x134; index <= 0x14c; index += 1) {
+    checksum = (checksum - (bytes[index] ?? 0) - 1) & 0xff;
+  }
+  return checksum === bytes[0x14d];
 }
 
 function sniffSafeTextMime(bytes: Uint8Array): string | null {
