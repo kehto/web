@@ -189,7 +189,7 @@ dirty files left in the tree.
 ### 6. Releases (changesets)
 
 Publishing runs from GitHub Actions, split across two workflows. `publish.yml` handles
-**versioning and release handoff** (the Version Packages PR); `release.yml` is the **sole publisher**
+**versioning** (the Version Packages PR); `release.yml` is the **sole publisher**
 (npm + JSR via OIDC). They are split because npm Trusted Publishing keys on the workflow
 filename — only one workflow may publish a given package, and `release.yml` holds that
 registration. Do not run `pnpm publish-packages` locally.
@@ -211,8 +211,12 @@ registration. Do not run `pnpm publish-packages` locally.
    validation) for generated `package.json`, `jsr.json`, changelog,
    changeset-deletion, and docs-package version row changes. Do not rerun full CI,
    unit tests, or Playwright for those generated-only changes.
-4. Merge the Version Packages PR only after its release-metadata guard is green. The successful
-   `publish.yml` run then dispatches `release.yml` with that exact target SHA. Before a recovery
+4. Merge the Version Packages PR only after its release-metadata guard is green. The
+   `release.yml` workflow observes that successful main CI run directly, verifies the commit is
+   the merged Version Packages PR, and publishes that exact target SHA. Direct `workflow_run`
+   triggering preserves the human CI actor required by JSR OIDC; do not reintroduce a
+   `GITHUB_TOKEN`-authored nested workflow dispatch, whose `github-actions[bot]` actor is not an
+   `@kehto` scope member. Before a recovery
    tag or manual `release.yml` dispatch, re-check the actual target commit on
    `main`: fetch `origin/main`, identify the target SHA, and confirm the GitHub CI run
    for that same SHA completed successfully. For source-change commits this means Build
@@ -226,7 +230,7 @@ registration. Do not run `pnpm publish-packages` locally.
    releasing. Never push a release tag or dispatch `release.yml` while the target SHA's
    CI, docs, Pages, or Publish prerequisite state is failed, pending, skipped
    unexpectedly, or belongs to an older commit.
-5. After the target SHA is verified, `publish.yml` automatically triggers the release. Push a
+5. After the target SHA is verified, `release.yml` automatically admits the successful CI event. Push a
    `v<next>` tag or run `release.yml` via `workflow_dispatch` only for a deliberate recovery.
    Branch protection owns the required CI gate
    before merge; `release.yml` only builds publish artifacts, runs `changeset publish`
@@ -282,22 +286,23 @@ pnpm test:e2e       # Playwright e2e (builds first; CI runs workers=1)
 Publishing runs from GitHub Actions, not from local `pnpm publish-packages`. The flow is
 split across two workflows:
 
-- **`publish.yml` (versioning + handoff):** after CI succeeds on `main`, merging feature PRs
+- **`publish.yml` (versioning):** after CI succeeds on `main`, merging feature PRs
   with changesets makes it create/update the **Version Packages** PR (`changeset version`
-  + `jsr.json` sync). After a Version Packages merge passes CI, it dispatches `release.yml`
-  with the verified commit SHA. It does **not** publish itself.
+  + `jsr.json` sync). It does **not** publish or dispatch the publisher.
 - **`release.yml` (publishing):** builds publish artifacts, then publishes to **npm**
   (`changeset publish`) and **JSR** (`npx jsr publish` per `packages/*`), both via npm/JSR
   **OIDC Trusted Publishing**. It does not rerun CI validation; branch protection must
   require the CI workflow before release commits reach `main`. It is the **only** workflow
   that publishes, because npm Trusted Publishing keys on the workflow filename — only one
   workflow can publish a given package, and `release.yml` holds that registration.
-  Triggered automatically by Version Packages handoff, by pushing a `v*` tag, or via
+  Triggered automatically by the successful main CI event for a merged Version Packages
+  commit, by pushing a `v*` tag, or via
   `workflow_dispatch` (recovery).
 
 So a release is: merge feature PR → green main CI lets `publish.yml` open the Version
-Packages PR → verify Version Packages docs rows and CI → merge it → `publish.yml` dispatches
-`release.yml` for the verified target SHA → `release.yml` publishes npm + JSR. Do not use a
+Packages PR → verify Version Packages docs rows and CI → merge it → the successful main CI
+event directly triggers `release.yml` for the verified target SHA → `release.yml` publishes
+npm + JSR. Do not use a
 recovery tag or dispatch from a target SHA whose CI/docs state is failed, pending, stale, or
 unverified.
 
