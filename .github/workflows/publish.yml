@@ -9,11 +9,11 @@ name: Version Packages
 #   changelogs. It does NOT publish here.
 #
 # Publishing to npm + JSR is owned entirely by release.yml, which holds the npm
-# OIDC Trusted Publisher. After the Version Packages PR's CI succeeds, this
-# workflow dispatches release.yml with that exact commit SHA. npm Trusted
-# Publishing keys on the workflow filename, so only one workflow may publish a
-# given package — keeping publishing in release.yml avoids the 404 that the
-# unregistered workflow gets.
+# OIDC Trusted Publisher. release.yml observes the same successful main CI run
+# directly and admits only merged Version Packages commits. This preserves the
+# human CI actor required by JSR OIDC instead of replacing it with
+# github-actions[bot] through a nested workflow dispatch. npm Trusted Publishing
+# keys on the workflow filename, so only release.yml publishes packages.
 #
 # CI owns validation on the main commit; this workflow starts only after CI
 # succeeds and does not rerun unit/docs/Playwright gates.
@@ -61,36 +61,3 @@ jobs:
           version: pnpm version-packages
         env:
           GITHUB_TOKEN: ${{ secrets.CHANGESETS_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
-
-  release:
-    needs: version
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write
-      contents: read
-      pull-requests: read
-    steps:
-      - name: Detect a merged Version Packages commit
-        id: version_packages
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { data: pullRequests } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              commit_sha: context.payload.workflow_run.head_sha,
-            });
-            const versionPackages = pullRequests.some((pullRequest) => (
-              pullRequest.merged_at !== null
-              && pullRequest.title === 'Version Packages'
-              && pullRequest.head.ref === 'changeset-release/main'
-            ));
-            core.setOutput('is_version_packages', versionPackages);
-
-      - name: Dispatch the sole publishing workflow for a Version Packages commit
-        if: ${{ steps.version_packages.outputs.is_version_packages == 'true' }}
-        env:
-          GH_TOKEN: ${{ secrets.CHANGESETS_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
-          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref main --raw-field release_sha="$RELEASE_SHA"
