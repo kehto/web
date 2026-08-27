@@ -308,7 +308,9 @@ Paja's developer-runtime policy accepts arbitrary `http:` and `https:` resource
 URLs so a normal remote image does not look broken merely because its origin was
 not pre-granted. Paja resolves those URLs with browser `fetch`, omits credentials
 and referrer data, caps responses at 10 MiB, and classifies MIME from returned
-bytes. Browser network and CORS rules still apply: an unreadable response is the
+bytes. Its byte classifier recognizes checksum-valid Game Boy ROM headers as
+`application/vnd.nintendo.gb-rom`; it never trusts a server-supplied media type.
+Browser network and CORS rules still apply: an unreadable response is the
 canonical `network-error`, while any CORS-readable response is returned as NAP
 bytes.
 

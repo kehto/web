@@ -387,9 +387,11 @@ accepted server hints without a host default. This disclosure is advisory, not
 an authorization grant. All paths expose the enforced 10 MiB response,
 100-URL bulk, and eight-server per-resource caps. The host ignores
 declared or upstream media types, classifies a narrow safe
-image/audio/video/font/text set, and rejects raw SVG, HTML, invalid UTF-8, and
-unrecognized binary data. Cancellation remains window-scoped and drops late
-terminal envelopes.
+image/audio/video/font/text set plus checksum-valid Game Boy ROM headers, and
+rejects raw SVG, HTML, invalid UTF-8, and unrecognized binary data. Game Boy ROM
+results use `application/vnd.nintendo.gb-rom` regardless of the upstream
+`Content-Type`. Cancellation remains window-scoped and drops late terminal
+envelopes.
 
 Paja deliberately accepts arbitrary HTTP(S) origins because it is a developer
 runtime. It uses browser `fetch` with credentials omitted and no referrer. The
