@@ -74,6 +74,9 @@ next_action: None; merge the verified fix and release the updated shell package.
   result: Single and batch cancellation tests each failed RED before wiring and
     passed GREEN afterward. An abort now rejects with `AbortError`, emits the
     existing `resource.cancel`, removes correlation, and ignores late results.
+- timestamp: 2026-09-04T14:00:00Z
+  result: Final reviewed validation passed: build 32/32, type-check 17/17, unit
+    tests 1,723/1,723, strict docs, 84/84 Playwright tests, and AI-slop 100/100.
 
 ## Eliminated
 
@@ -98,9 +101,10 @@ fix: Let resource byte and batch correlation wait for the runtime's terminal res
   own fetch deadlines and callers own explicit cancellation, consistent with
   NAP-RESOURCE PR #80 at `fa6bcc69`.
 verification: Four regressions failed before their respective implementation change
-  and pass afterward. The first full repository gate run passed, and the real
-  deployed large-asset napplet reaches the game launch screen through patched Paja
-  after a 113-second active transfer. Final gates follow the cancellation review fix.
+  and pass afterward. Build, type-check, 1,723 unit tests, strict docs, 84 Playwright
+  tests, and AI-slop 100/100 pass on the reviewed implementation. The real deployed
+  large-asset napplet reaches the game launch screen through patched Paja after a
+  113-second active transfer.
 files_changed: `packages/shell/src/napplet-namespace.ts`,
   `packages/shell/src/napplet-namespace.test.ts`,
   `docs/policies/SHELL-RESOURCE-POLICY.md`, patch changeset, and this debug record.
