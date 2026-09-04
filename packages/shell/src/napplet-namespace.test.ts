@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   injectNappletNamespacePrelude,
   renderNappletNamespacePrelude,
@@ -608,6 +608,79 @@ describe('NIP-5D napplet namespace prelude', () => {
       items,
     });
     await expect(many).resolves.toEqual(items);
+  });
+
+  it('keeps an active resource transfer pending beyond the ordinary request timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      const target = createPreludeTestWindow();
+      runPrelude(renderNappletNamespacePrelude({ domains: ['resource', 'identity'] }), target);
+      const napplet = target.napplet as {
+        resource: { bytes: (url: string) => Promise<Blob> };
+        identity: { getPublicKey: () => Promise<string> };
+      };
+      const url = `blossom:sha256:${'b'.repeat(64)}`;
+      const transfer = napplet.resource.bytes(url);
+      const ordinary = napplet.identity.getPublicKey();
+      let transferState = 'pending';
+      let ordinaryState = 'pending';
+      void transfer.then(
+        () => { transferState = 'resolved'; },
+        () => { transferState = 'rejected'; },
+      );
+      void ordinary.then(
+        () => { ordinaryState = 'resolved'; },
+        () => { ordinaryState = 'rejected'; },
+      );
+
+      await vi.advanceTimersByTimeAsync(30_001);
+
+      expect(ordinaryState).toBe('rejected');
+      expect(transferState).toBe('pending');
+      const request = withoutShellReady(target).find((message) => message.type === 'resource.bytes');
+      const blob = new Blob(['late resource']);
+      target.dispatchParentMessage({
+        type: 'resource.bytes.result',
+        id: request?.id,
+        blob,
+        mime: 'application/octet-stream',
+      });
+      await expect(transfer).resolves.toBe(blob);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps an active resource batch pending beyond the ordinary request timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      const target = createPreludeTestWindow();
+      runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
+      const resource = target.napplet?.resource as {
+        bytesMany: (
+          requests: Array<{ url: string; servers?: string[] }>,
+        ) => Promise<Array<{ url: string; ok: boolean; blob?: Blob }>>;
+      };
+      const requests = [
+        { url: `blossom:sha256:${'c'.repeat(64)}`, servers: ['https://cdn.example'] },
+      ];
+      const transfer = resource.bytesMany(requests);
+      let transferState = 'pending';
+      void transfer.then(
+        () => { transferState = 'resolved'; },
+        () => { transferState = 'rejected'; },
+      );
+
+      await vi.advanceTimersByTimeAsync(30_001);
+
+      expect(transferState).toBe('pending');
+      const request = withoutShellReady(target).find((message) => message.type === 'resource.bytesMany');
+      const items = [{ url: requests[0]!.url, ok: true, blob: new Blob(['late batch resource']) }];
+      target.dispatchParentMessage({ type: 'resource.bytesMany.result', id: request?.id, items });
+      await expect(transfer).resolves.toEqual(items);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('keeps identity read-only, canonical, and parent-authenticated after direct reassignment', async () => {

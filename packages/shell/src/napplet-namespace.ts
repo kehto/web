@@ -123,11 +123,13 @@ function nappletNamespacePrelude(domains: string[]): void {
     message: RuntimeMessage,
     resultType: string,
     map: (message: RuntimeMessage) => T,
-    options: { rejectOnError?: boolean } = {},
+    options: { rejectOnError?: boolean; timeoutMs?: number | null } = {},
   ): Promise<T> {
     const requestId = message.id ?? id();
     const outbound = { ...message, id: requestId };
+    const timeoutMs = options.timeoutMs === undefined ? requestTimeoutMs : options.timeoutMs;
     return new Promise<T>((resolve, reject) => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
       const off = listen((event) => {
         if (!isParentMessage(event)) return;
         const incoming = event.data;
@@ -136,7 +138,7 @@ function nappletNamespacePrelude(domains: string[]): void {
         if (msg.type !== resultType && msg.type !== `${message.type}.error`) return;
         if (msg.id !== requestId) return;
         off();
-        clearTimeout(timer);
+        if (timer !== undefined) clearTimeout(timer);
         const error = typeof msg.error === 'string' ? msg.error : '';
         if (error && options.rejectOnError !== false) {
           reject(new Error(error));
@@ -148,10 +150,12 @@ function nappletNamespacePrelude(domains: string[]): void {
           reject(err);
         }
       });
-      const timer = setTimeout(() => {
-        off();
-        reject(new Error(`${message.type} timed out`));
-      }, requestTimeoutMs);
+      if (timeoutMs !== null) {
+        timer = setTimeout(() => {
+          off();
+          reject(new Error(`${message.type} timed out`));
+        }, timeoutMs);
+      }
       post(outbound);
     });
   }
@@ -1043,7 +1047,7 @@ function nappletNamespacePrelude(domains: string[]): void {
       type: 'resource.bytes',
       url,
       ...(Array.isArray(options?.servers) ? { servers: Array.from(options.servers) } : {}),
-    }, 'resource.bytes.result', (msg) => msg.blob);
+    }, 'resource.bytes.result', (msg) => msg.blob, { timeoutMs: null });
     return {
       info: () => request({ type: 'resource.info' }, 'resource.info.result', (msg) => msg.info),
       bytes,
@@ -1053,7 +1057,7 @@ function nappletNamespacePrelude(domains: string[]): void {
           url: entry.url,
           ...(Array.isArray(entry.servers) ? { servers: Array.from(entry.servers) } : {}),
         })),
-      }, 'resource.bytesMany.result', (msg) => Array.isArray(msg.items) ? msg.items : []),
+      }, 'resource.bytesMany.result', (msg) => Array.isArray(msg.items) ? msg.items : [], { timeoutMs: null }),
       bytesAsObjectURL(url: string) {
         let objectUrl = '';
         const handle = {
