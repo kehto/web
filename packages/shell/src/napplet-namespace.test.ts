@@ -651,6 +651,41 @@ describe('NIP-5D napplet namespace prelude', () => {
     }
   });
 
+  it('lets callers cancel a resource transfer after the ordinary request timeout', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
+    const resource = target.napplet?.resource as {
+      bytes: (url: string, options?: { signal?: AbortSignal }) => Promise<Blob>;
+    };
+    const controller = new AbortController();
+    const transfer = resource.bytes(`blossom:sha256:${'d'.repeat(64)}`, { signal: controller.signal });
+    const request = withoutShellReady(target).find((message) => message.type === 'resource.bytes');
+    let transferState = 'pending';
+    let transferError: unknown;
+    void transfer.then(
+      () => { transferState = 'resolved'; },
+      (error: unknown) => {
+        transferState = 'rejected';
+        transferError = error;
+      },
+    );
+
+    controller.abort();
+    await Promise.resolve();
+
+    expect(transferState).toBe('rejected');
+    expect(transferError).toMatchObject({ name: 'AbortError' });
+    expect(withoutShellReady(target).at(-1)).toEqual({ type: 'resource.cancel', id: request?.id });
+    target.dispatchParentMessage({
+      type: 'resource.bytes.result',
+      id: request?.id,
+      blob: new Blob(['ignored late resource']),
+      mime: 'application/octet-stream',
+    });
+    await Promise.resolve();
+    expect(transferState).toBe('rejected');
+  });
+
   it('keeps an active resource batch pending beyond the ordinary request timeout', async () => {
     vi.useFakeTimers();
     try {
@@ -681,6 +716,44 @@ describe('NIP-5D napplet namespace prelude', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('lets callers cancel a resource batch after the ordinary request timeout', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
+    const resource = target.napplet?.resource as {
+      bytesMany: (
+        requests: Array<{ url: string; servers?: string[] }>,
+        options?: { signal?: AbortSignal },
+      ) => Promise<Array<{ url: string; ok: boolean; blob?: Blob }>>;
+    };
+    const requests = [{ url: `blossom:sha256:${'e'.repeat(64)}` }];
+    const controller = new AbortController();
+    const transfer = resource.bytesMany(requests, { signal: controller.signal });
+    const request = withoutShellReady(target).find((message) => message.type === 'resource.bytesMany');
+    let transferState = 'pending';
+    let transferError: unknown;
+    void transfer.then(
+      () => { transferState = 'resolved'; },
+      (error: unknown) => {
+        transferState = 'rejected';
+        transferError = error;
+      },
+    );
+
+    controller.abort();
+    await Promise.resolve();
+
+    expect(transferState).toBe('rejected');
+    expect(transferError).toMatchObject({ name: 'AbortError' });
+    expect(withoutShellReady(target).at(-1)).toEqual({ type: 'resource.cancel', id: request?.id });
+    target.dispatchParentMessage({
+      type: 'resource.bytesMany.result',
+      id: request?.id,
+      items: [{ url: requests[0]!.url, ok: true, blob: new Blob(['ignored late batch']) }],
+    });
+    await Promise.resolve();
+    expect(transferState).toBe('rejected');
   });
 
   it('keeps identity read-only, canonical, and parent-authenticated after direct reassignment', async () => {

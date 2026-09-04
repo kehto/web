@@ -39,7 +39,8 @@ The default Kehto path is permissive delegation:
 - resolver-returned bytes and MIME are carried on the NAP wire;
 - napplet-side `resource.bytes` and `resource.bytesMany` correlation remains
   open until the runtime sends a terminal result or error; runtimes own fetch
-  deadlines and callers own explicit cancellation;
+  deadlines and callers own explicit `AbortSignal` cancellation, which emits
+  `resource.cancel` and drops late terminal envelopes;
 - explicit `ResourceServiceError` codes are preserved; and
 - an unexpected resolver failure becomes the canonical `network-error`.
 

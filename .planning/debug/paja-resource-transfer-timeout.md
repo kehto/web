@@ -66,6 +66,14 @@ next_action: None; merge the verified fix and release the updated shell package.
     Blossom. Its first resource result arrived after the old deadline, all ten
     results completed in 113,382 ms, the wrapper was replaced by the game launch
     screen, and Chromium reported zero page errors.
+- timestamp: 2026-09-04T13:52:00Z
+  result: Independent review rejected the first fix because removing the local
+    deadline without exposing NAP-RESOURCE cancellation could retain a listener
+    forever when a runtime never sends a terminal envelope.
+- timestamp: 2026-09-04T13:54:00Z
+  result: Single and batch cancellation tests each failed RED before wiring and
+    passed GREEN afterward. An abort now rejects with `AbortError`, emits the
+    existing `resource.cancel`, removes correlation, and ignores late results.
 
 ## Eliminated
 
@@ -84,13 +92,15 @@ root_cause: The injected `window.napplet` namespace applied its ordinary absolut
   continued downloading. Late terminal results were logged by Paja but ignored by
   the iframe.
 fix: Let resource byte and batch correlation wait for the runtime's terminal result
-  or error. Keep the existing 30-second deadline for ordinary request/response
-  domains. Document that runtimes own fetch deadlines and callers own explicit
-  cancellation, consistent with NAP-RESOURCE PR #80 at `fa6bcc69`.
-verification: Both regressions failed before their respective implementation change
-  and pass afterward. All repository gates pass, and the real deployed large-asset
-  napplet reaches the game launch screen through patched Paja after a 113-second
-  active transfer.
+  or error. Expose the canonical `AbortSignal` option so callers can cancel, emit
+  `resource.cancel`, remove the listener, and drop late results. Keep the existing
+  30-second deadline for ordinary request/response domains. Document that runtimes
+  own fetch deadlines and callers own explicit cancellation, consistent with
+  NAP-RESOURCE PR #80 at `fa6bcc69`.
+verification: Four regressions failed before their respective implementation change
+  and pass afterward. The first full repository gate run passed, and the real
+  deployed large-asset napplet reaches the game launch screen through patched Paja
+  after a 113-second active transfer. Final gates follow the cancellation review fix.
 files_changed: `packages/shell/src/napplet-namespace.ts`,
   `packages/shell/src/napplet-namespace.test.ts`,
   `docs/policies/SHELL-RESOURCE-POLICY.md`, patch changeset, and this debug record.
