@@ -1,6 +1,9 @@
 import { originRegistry, type ShellAdapter, type ShellBridge } from '@kehto/shell';
 
-import { PAJA_DEV_SIGNER_PUBKEY } from './browser-adapter.js';
+import {
+  PAJA_DEV_SIGNER_PUBKEY,
+  type PajaShellAdapter,
+} from './browser-adapter.js';
 import {
   appendPajaMessageLog,
   renderPajaDevtools,
@@ -39,7 +42,6 @@ export interface PajaRuntimeTab {
 }
 
 export interface PajaRuntimeTabState extends PajaDevtoolsState {
-  resolvedTarget: PajaResolvedPointer | null;
   pointerValue: string;
   pointerStatus: string;
   tabs: PajaRuntimeTab[];
@@ -60,7 +62,7 @@ export interface PajaRuntimeTabContext {
   config: PajaHostConfig;
   stage: HTMLElement;
   bridge: ShellBridge;
-  adapter: ShellAdapter;
+  adapter: PajaShellAdapter;
   runtime: PajaRuntimeTabRuntime;
   navigateFrame(
     frame: HTMLIFrameElement,
@@ -93,6 +95,15 @@ export function resolvedTargetKey(target: PajaResolvedPointer): string {
 /** Return the opaque identity of one live runtime-tab generation. */
 export function runtimeTabGenerationId(tab: Pick<PajaRuntimeTab, 'id' | 'generation'>): string {
   return `${tab.id}:${tab.generation}`;
+}
+
+/** Bind verified pointer servers to the exact runtime-tab window generation. */
+export function bindRuntimeTabBlossomServers(
+  adapter: Pick<PajaShellAdapter, 'setWindowBlossomServers'>,
+  windowId: string,
+  resolvedTarget: Pick<PajaResolvedPointer, 'blossomServers'>,
+): void {
+  adapter.setWindowBlossomServers(windowId, resolvedTarget.blossomServers);
 }
 
 export function getActiveTab(state: PajaRuntimeTabState): PajaRuntimeTab | null {
@@ -436,13 +447,15 @@ function startRuntimeTabNavigation(
   tab.status = 'booting';
   context.setStatus(state, 'booting');
   renderRuntimeTabs(state);
+  const windowId = runtimeTabWindowId(context.config, tab);
+  bindRuntimeTabBlossomServers(context.adapter, windowId, tab.resolvedTarget);
   void context.navigateFrame(
     tab.frame,
     context.config,
     generation,
     context.adapter,
     tab.resolvedTarget,
-    runtimeTabWindowId(context.config, tab),
+    windowId,
     () => tab.generation === generation,
     (windowId) => {
       if (tab.generation !== generation) return;

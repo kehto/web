@@ -1,5 +1,32 @@
 # @kehto/services
 
+## 0.21.1
+
+### Patch Changes
+
+- 2cd912d: Let Paja resolve OUTBOX-carried Blossom resources from event-local server hints, hinted authors' and the verified event publisher's BUD-03 lists, and the active shell user's published list before configured runtime fallbacks, independently of upload mode. Resource resolvers now receive the authenticated source window as private runtime context, and OUTBOX hosts can select a source-scoped router for every event-returning read.
+
+## 0.21.0
+
+### Minor Changes
+
+- 3231957: Adopt the NAP-RESOURCE Blossom server-hint contract across the injected shell API, reference service, and Paja runtime. Single requests now carry optional advisory servers, bulk requests use per-resource request objects, and Paja validates, caps, and tries accepted hints before host defaults.
+
+### Patch Changes
+
+- Updated dependencies [3231957]
+  - @kehto/runtime@0.23.0
+
+## 0.20.1
+
+### Patch Changes
+
+- b2449e4: Keep NAP resource resolution runtime-owned: the service kernel delegates valid
+  URLs by default while retaining optional origin-grant hooks, and Paja permits
+  browser-readable HTTP(S) resources alongside data and configured Blossom URLs.
+- Updated dependencies [c8264c6]
+  - @kehto/runtime@0.22.1
+
 ## 0.20.0
 
 ### Minor Changes

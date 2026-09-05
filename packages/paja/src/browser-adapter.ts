@@ -55,6 +55,7 @@ import type { PajaSimulation } from './simulation.js';
 import { BrowserIntentController } from './browser-intent-controller.js';
 import { InstalledNappletCatalog } from './installed-napplet-catalog.js';
 import { createPajaUploadRuntime, type PajaUploadRuntime } from './browser-upload.js';
+import { createPajaBlossomEventResolver } from './browser-blossom-events.js';
 import { createPajaSocialCache } from './browser-social-cache.js';
 import { createPajaCommonBackend } from './browser-common.js';
 import { createPajaListsBackend } from './browser-lists.js';
@@ -83,12 +84,17 @@ import {
   type PajaRelayBackend,
 } from './browser-relay-runtime.js';
 import { createPajaWorkerRelay } from './browser-worker-relay.js';
+import type {
+  PajaSignerRequestContext,
+  PajaSignerSource,
+} from './browser-signer-consent.js';
 
 /** Confirmation request emitted before Paja signs, publishes, or uploads. */
 export type PajaConfirmationRequest =
   | {
       readonly action: 'sign' | 'publish';
       readonly event: NostrEvent | Partial<NostrEvent>;
+      readonly signerContext?: PajaSignerRequestContext;
     }
   | {
       readonly action: 'upload';
@@ -147,7 +153,7 @@ export type PajaConfirmationHandler = (
 /** Paja runtime signer provider. */
 export interface PajaSignerProvider {
   /** Active signer, if connected. */
-  getSigner(): Signer | null;
+  getSigner(source?: PajaSignerSource): Signer | null;
   /** Selected signer backend. */
   getMethod(): PajaSignerMethod;
   /** Active signer pubkey, if connected. */
@@ -160,6 +166,14 @@ export interface PajaSignerProvider {
 export type PajaIdentityProvider = (
   windowId?: string,
 ) => Pick<SessionEntry, 'dTag' | 'aggregateHash'>;
+
+/** Paja shell adapter with private verified-pointer resource context wiring. */
+export interface PajaShellAdapter extends ShellAdapter {
+  /** Startup promise for asynchronous host probes. */
+  readonly ready: Promise<void>;
+  /** Bind verified runtime-pointer Blossom hints to one authenticated window. */
+  setWindowBlossomServers(windowId: string, servers: readonly string[]): void;
+}
 
 export { PAJA_DEV_SIGNER_PUBKEY } from './browser-dev-runtime.js';
 
@@ -265,10 +279,13 @@ function createRuntimeSigner(
   getSimulation: () => PajaSimulation,
   confirmRequest: PajaConfirmationHandler,
   signerProvider?: PajaSignerProvider,
+  source?: PajaSignerSource,
 ): Signer | null {
-  const signer = signerProvider?.getSigner();
+  const signer = signerProvider?.getSigner(source);
   if (!signer) {
-    if (signerProvider?.getMethod() === 'dev') return createPajaDevSigner(getSimulation, confirmRequest);
+    if (signerProvider?.getMethod() === 'dev') {
+      return createPajaDevSigner(getSimulation, confirmRequest, source);
+    }
     const fixedPubkey = getSimulation().identity.pubkey;
     if (fixedPubkey) {
       return {
@@ -284,6 +301,7 @@ function createRuntimeSigner(
 interface PajaServiceBundle {
   readonly services: Record<string, ServiceHandler>;
   refreshAvailability(): boolean;
+  setWindowBlossomServers(windowId: string, servers: readonly string[]): void;
 }
 
 function createDevServices(
@@ -293,7 +311,7 @@ function createDevServices(
   onThemeService: (theme: ReturnType<typeof createThemeService>) => void,
   onThemeBroadcast: (envelope: ThemeChangedMessage) => void,
   confirmRequest: PajaConfirmationHandler,
-  getBlossomServers: () => readonly string[],
+  getConfiguredBlossomServers: () => readonly string[],
   uploadRuntime?: PajaUploadRuntime,
   signerProvider?: PajaSignerProvider,
   intentHost?: PajaIntentHost,
@@ -312,6 +330,11 @@ function createDevServices(
   const getWriteRelays = () => relayConfig.getRelayUrls(['outbox']);
   const getAllRelays = () => relayConfig.getRelayUrls();
   const baseOutboxRouter = createOutboxRouter(backend, getSimulation, relayConfig, confirmRequest, signerProvider);
+  const blossomEventResolver = createPajaBlossomEventResolver({
+    baseRouter: baseOutboxRouter,
+    getDefaultAuthors: () => [getRuntimePubkey(getSimulation, signerProvider)],
+    getConfiguredServers: getConfiguredBlossomServers,
+  });
   const socialCache = createPajaSocialCache({
     baseRouter: baseOutboxRouter,
     loadContactList: createPajaContactListLoader(backend, getSimulation, signerProvider, getReadRelays),
@@ -330,14 +353,20 @@ function createDevServices(
     getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider),
   });
   void socialCache.refreshActiveIdentity();
-  const services: Record<string, ServiceHandler> = {
-    resource: createResourceService({
-      fetch: createPajaResourceFetch({ getBlossomServers }),
-      isOriginGranted: (origin, grants) => grants.includes(origin),
-      getConnectGrants: () => ['null'],
-      resolveIdentity: (windowId) => getIdentity?.(windowId) ?? null,
-      resourceInfo: () => pajaResourceInfo(getBlossomServers()),
+  const resourceService = createResourceService({
+    fetch: createPajaResourceFetch({
+      getBlossomServers: ({ url, windowId }) => blossomEventResolver.getServers(url, windowId),
     }),
+    resourceInfo: () => pajaResourceInfo(),
+  });
+  const services: Record<string, ServiceHandler> = {
+    resource: {
+      ...resourceService,
+      onWindowDestroyed(windowId) {
+        resourceService.onWindowDestroyed?.(windowId);
+        blossomEventResolver.clearWindow(windowId);
+      },
+    },
   };
   if (getSimulation().capabilities.domains.keys && typeof document !== 'undefined') {
     services.keys = createKeysService({ listenerTarget: document });
@@ -362,9 +391,13 @@ function createDevServices(
     });
     services.outbox = createOutboxService({
       router: baseOutboxRouter,
-      getQueryRouter: (windowId, context) => socialCache.decorate(
-        baseOutboxRouter,
-        () => context?.hasCapability(windowId, 'identity:read') ?? false,
+      getReadRouter: (windowId) => blossomEventResolver.decorate(baseOutboxRouter, windowId),
+      getQueryRouter: (windowId, context) => blossomEventResolver.decorate(
+        socialCache.decorate(
+          baseOutboxRouter,
+          () => context?.hasCapability(windowId, 'identity:read') ?? false,
+        ),
+        windowId,
       ),
     });
   }
@@ -528,7 +561,11 @@ function createDevServices(
   }
   refreshAvailability();
 
-  return { services, refreshAvailability };
+  return {
+    services,
+    refreshAvailability,
+    setWindowBlossomServers: blossomEventResolver.setWindowServers,
+  };
 }
 
 /**
@@ -561,7 +598,21 @@ export function createPajaAdapter(
   userActivation?: PajaUserActivationHandler,
   notifyOptions?: NotifyServiceOptions,
   configOptions?: ConfigServiceOptions,
-): ShellAdapter & { readonly ready: Promise<void> } {
+): PajaShellAdapter {
+  const resolveIdentity = (windowId?: string) => getIdentity?.(windowId) ?? {
+    dTag: config.window.dTag,
+    aggregateHash: config.window.aggregateHash,
+  };
+  const signerSource = (windowId: string): PajaSignerSource => {
+    const napplet = resolveIdentity(windowId);
+    return {
+      windowId,
+      napplet,
+      runtimeScope: config.target?.mode === 'iframe-url'
+        ? `target-url:${config.target.url}`
+        : `artifact:${napplet.aggregateHash}`,
+    };
+  };
   const relayBackend = createPajaRelayBackend(getSimulation, confirmRequest);
   const relayConfig = createPajaRelayConfig(getSimulation);
   const uploadRuntime = getSimulation().upload.mode === 'blossom'
@@ -572,14 +623,11 @@ export function createPajaAdapter(
         queryDiscovery: (relayUrls, filters) => relayBackend.query(relayUrls, filters),
         getRelayUrls: () => relayConfig.getRelayUrls(['discovery', 'super']),
         confirmRequest,
-        getNappletIdentity: (windowId) => getIdentity?.(windowId) ?? {
-          dTag: config.window.dTag,
-          aggregateHash: config.window.aggregateHash,
-        },
+        getNappletIdentity: resolveIdentity,
         subscribeSignerChange: signerProvider?.subscribe?.bind(signerProvider),
       })
     : undefined;
-  const getBlossomServers = () => [
+  const getConfiguredBlossomServers = () => [
     ...(config.target?.pointer?.blossomServers ?? []),
     ...(uploadRuntime?.getServers() ?? getSimulation().upload.servers),
   ];
@@ -592,24 +640,18 @@ export function createPajaAdapter(
     onThemeService,
     onThemeBroadcast,
     confirmRequest,
-    getBlossomServers,
+    getConfiguredBlossomServers,
     uploadRuntime,
     signerProvider,
     intentHost,
-    getIdentity ?? (() => ({
-      dTag: config.window.dTag,
-      aggregateHash: config.window.aggregateHash,
-    })),
+    resolveIdentity,
     userActivation,
     notifyOptions,
     configOptions,
   );
   const services = serviceBundle.services;
   const ready = createPajaBrowserFsBackend({
-    getIdentity: (windowId) => getIdentity?.(windowId) ?? {
-      dTag: config.window.dTag,
-      aggregateHash: config.window.aggregateHash,
-    },
+    getIdentity: resolveIdentity,
     userActivation,
   }).then((fsBackend) => {
     if (!fsBackend) return;
@@ -626,12 +668,18 @@ export function createPajaAdapter(
   });
   return {
     ready,
+    setWindowBlossomServers: serviceBundle.setWindowBlossomServers,
     relayPool: createPajaRelayHooks(relayBackend, getSimulation, relayConfig),
     relayConfig,
     windowManager: { createWindow: () => null },
     auth: {
       getUserPubkey: () => getRuntimePubkey(getSimulation, signerProvider),
-      getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider),
+      getSigner: (windowId) => createRuntimeSigner(
+        getSimulation,
+        confirmRequest,
+        signerProvider,
+        windowId ? signerSource(windowId) : undefined,
+      ),
     },
     services,
     get capabilities() {

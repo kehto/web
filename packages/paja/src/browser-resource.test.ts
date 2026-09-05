@@ -4,6 +4,7 @@ import { createPajaAdapter } from './browser-adapter.js';
 import {
   createPajaResourceFetch,
   PAJA_RESOURCE_MAX_BYTES,
+  PAJA_RESOURCE_MAX_SERVERS,
   PAJA_RESOURCE_MAX_URLS,
   pajaResourceInfo,
 } from './browser-resource.js';
@@ -24,29 +25,117 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
+function gameBoyRomVector(): Uint8Array {
+  const bytes = new Uint8Array(32 * 1024);
+  bytes.set([
+    0xce, 0xed, 0x66, 0x66, 0xcc, 0x0d, 0x00, 0x0b,
+    0x03, 0x73, 0x00, 0x83, 0x00, 0x0c, 0x00, 0x0d,
+    0x00, 0x08, 0x11, 0x1f, 0x88, 0x89, 0x00, 0x0e,
+    0xdc, 0xcc, 0x6e, 0xe6, 0xdd, 0xdd, 0xd9, 0x99,
+    0xbb, 0xbb, 0x67, 0x63, 0x6e, 0x0e, 0xec, 0xcc,
+    0xdd, 0xdc, 0x99, 0x9f, 0xbb, 0xb9, 0x33, 0x3e,
+  ], 0x104);
+  bytes.set(new TextEncoder().encode('KEHTO TEST'), 0x134);
+  bytes[0x143] = 0x80;
+  let checksum = 0;
+  for (let index = 0x134; index <= 0x14c; index += 1) {
+    checksum = (checksum - (bytes[index] ?? 0) - 1) & 0xff;
+  }
+  bytes[0x14d] = checksum;
+  return bytes;
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
 describe('Paja resource backend', () => {
-  it('discloses Blossom only when a valid host-owned server is available', () => {
+  it('discloses permissive browser network schemes and request-hinted Blossom support', () => {
     expect(pajaResourceInfo()).toEqual({
-      schemes: [{ scheme: 'data', enabled: true }],
-      maxBytes: PAJA_RESOURCE_MAX_BYTES,
-      maxUrls: PAJA_RESOURCE_MAX_URLS,
-    });
-    expect(pajaResourceInfo([
-      'https://blossom.example/',
-      'http://localhost:3000',
-      'http://public.example',
-    ])).toEqual({
       schemes: [
         { scheme: 'data', enabled: true },
+        { scheme: 'https', enabled: true },
+        { scheme: 'http', enabled: true },
         { scheme: 'blossom', enabled: true },
       ],
       maxBytes: PAJA_RESOURCE_MAX_BYTES,
       maxUrls: PAJA_RESOURCE_MAX_URLS,
+      maxServers: PAJA_RESOURCE_MAX_SERVERS,
     });
+  });
+
+  it('resolves Blossom bytes from accepted request hints before configured defaults', async () => {
+    const bytes = new TextEncoder().encode('{"from":"request-hint"}');
+    const hash = await sha256Hex(bytes);
+    const fetchFn = vi.fn(async () => new Response(bytes));
+    const fetchResource = createPajaResourceFetch({
+      getBlossomServers: () => ['https://default.example'],
+      fetch: fetchFn,
+    });
+
+    const response = await fetchResource(`blossom:sha256:${hash}`, {
+      signal: new AbortController().signal,
+      servers: [
+        'http://public.example',
+        'https://localhost',
+        'https://hint.example/',
+        'https://HINT.example',
+      ],
+    });
+
+    expect(fetchFn).toHaveBeenCalledOnce();
+    expect(fetchFn).toHaveBeenCalledWith(`https://hint.example/${hash}`, expect.objectContaining({
+      redirect: 'error',
+    }));
+    expect(await response.text()).toBe('{"from":"request-hint"}');
+  });
+
+  it('awaits source-scoped event defaults for a canonical Blossom request', async () => {
+    const bytes = new TextEncoder().encode('{"from":"publisher-list"}');
+    const hash = await sha256Hex(bytes);
+    const getBlossomServers = vi.fn(async () => ['https://publisher.example']);
+    const fetchFn = vi.fn(async () => new Response(bytes));
+    const fetchResource = createPajaResourceFetch({ getBlossomServers, fetch: fetchFn });
+
+    const response = await fetchResource(`blossom:sha256:${hash}`, {
+      signal: new AbortController().signal,
+      windowId: 'rom-window',
+    });
+
+    expect(getBlossomServers).toHaveBeenCalledWith({
+      url: `blossom:sha256:${hash}`,
+      windowId: 'rom-window',
+    });
+    expect(fetchFn).toHaveBeenCalledWith(
+      `https://publisher.example/${hash}`,
+      expect.objectContaining({ redirect: 'error' }),
+    );
+    expect(await response.text()).toBe('{"from":"publisher-list"}');
+  });
+
+  it('caps request hints and reports an inconclusive fallback as network-error', async () => {
+    const servers = Array.from(
+      { length: PAJA_RESOURCE_MAX_SERVERS + 2 },
+      (_, index) => `https://hint-${index}.example`,
+    );
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce(new Response(null, { status: 404 }))
+      .mockRejectedValue(new TypeError('transport failed'));
+    const fetchResource = createPajaResourceFetch({
+      getBlossomServers: () => ['https://default.example'],
+      fetch: fetchFn,
+    });
+
+    await expect(fetchResource(`blossom:sha256:${'d'.repeat(64)}`, {
+      signal: new AbortController().signal,
+      servers,
+    })).rejects.toMatchObject({ code: 'network-error' });
+
+    expect(fetchFn).toHaveBeenCalledTimes(PAJA_RESOURCE_MAX_SERVERS);
+    expect(fetchFn).not.toHaveBeenCalledWith(
+      `https://default.example/${'d'.repeat(64)}`,
+      expect.anything(),
+    );
   });
 
   it('classifies decoded bytes instead of trusting the declared media type', async () => {
@@ -89,15 +178,64 @@ describe('Paja resource backend', () => {
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
   });
 
-  it('rejects malformed identifiers, hash mismatches, oversize responses, raw SVG, and direct network URLs', async () => {
+  it('classifies a checksum-valid Game Boy ROM from its canonical header bytes', async () => {
+    const bytes = gameBoyRomVector();
+    const hash = await sha256Hex(bytes);
+    const fetchResource = createPajaResourceFetch({
+      getBlossomServers: () => ['https://roms.example'],
+      fetch: vi.fn(async () => new Response(
+        bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
+        {
+          headers: { 'content-type': 'text/html' },
+        },
+      )),
+    });
+
+    const response = await fetchResource(`blossom:sha256:${hash}`, {
+      signal: new AbortController().signal,
+    });
+
+    expect(response.headers.get('content-type')).toBe('application/vnd.nintendo.gb-rom');
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
+  });
+
+  it('resolves arbitrary HTTP(S) origins through the browser and classifies returned bytes', async () => {
+    const fetchFn = vi.fn(async () => new Response('{"network":true}', {
+      headers: { 'content-type': 'image/svg+xml' },
+    }));
+    const fetchResource = createPajaResourceFetch({ fetch: fetchFn });
+    const signal = new AbortController().signal;
+
+    const httpsResponse = await fetchResource('https://media.example/avatar', { signal });
+    const httpResponse = await fetchResource('http://localhost:3000/avatar', { signal });
+
+    expect(fetchFn).toHaveBeenNthCalledWith(1, 'https://media.example/avatar', expect.objectContaining({
+      method: 'GET',
+      credentials: 'omit',
+      referrerPolicy: 'no-referrer',
+    }));
+    expect(fetchFn).toHaveBeenNthCalledWith(2, 'http://localhost:3000/avatar', expect.any(Object));
+    expect(httpsResponse.headers.get('content-type')).toBe('application/json');
+    expect(httpResponse.headers.get('content-type')).toBe('application/json');
+  });
+
+  it('maps browser CORS rejection to the canonical network error', async () => {
+    const fetchResource = createPajaResourceFetch({
+      fetch: vi.fn(async () => { throw new TypeError('Failed to fetch'); }),
+    });
+
+    await expect(fetchResource('https://media.example/avatar', {
+      signal: new AbortController().signal,
+    })).rejects.toMatchObject({ code: 'network-error', message: 'Failed to fetch' });
+  });
+
+  it('rejects malformed identifiers, hash mismatches, oversize responses, raw SVG, and unknown schemes', async () => {
     const fetchResource = createPajaResourceFetch();
     const signal = new AbortController().signal;
 
     await expect(fetchResource('data:image/svg+xml,%3Csvg%3E%3C/svg%3E', { signal }))
       .rejects.toMatchObject({ code: 'decode-failed' });
-    await expect(fetchResource('https://example.com/image.png', { signal }))
-      .rejects.toMatchObject({ code: 'unsupported-scheme' });
-    await expect(fetchResource('http://localhost/image.png', { signal }))
+    await expect(fetchResource('ftp://example.com/image.png', { signal }))
       .rejects.toMatchObject({ code: 'unsupported-scheme' });
 
     const blossomFetch = createPajaResourceFetch({
@@ -143,7 +281,7 @@ describe('Paja resource backend', () => {
       .rejects.toMatchObject({ name: 'AbortError' });
   });
 
-  it('routes data bytes through the service and denies HTTPS without network access', async () => {
+  it('routes data and arbitrary HTTPS bytes through the service', async () => {
     const adapter = createPajaAdapter(
       CONFIG,
       () => normalizePajaSimulation({ relay: { mode: 'disabled' } }),
@@ -170,41 +308,33 @@ describe('Paja resource backend', () => {
     });
     expect(await result.blob.text()).toBe('hello world');
 
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{"remote":true}', {
+      headers: { 'content-type': 'text/html' },
+    })));
     service?.handleMessage('resource-window', {
       type: 'resource.bytes',
       id: 'https-1',
       url: 'https://example.com/tracker.png',
     } as NappletMessage, (message) => sent.push(message));
     await flushPromises();
-    expect(sent[1]).toMatchObject({
-      type: 'resource.bytes.error',
+    const httpsResult = sent[1] as NappletMessage & { blob: Blob; mime: string };
+    expect(httpsResult).toMatchObject({
+      type: 'resource.bytes.result',
       id: 'https-1',
-      error: 'unsupported-scheme',
+      mime: 'application/json',
     });
+    expect(await httpsResult.blob.text()).toBe('{"remote":true}');
 
     (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
   });
 
-  it('routes verified Blossom bytes through the NAP service using runtime-pointer server hints', async () => {
+  it('routes a napplet-provided Blossom server hint through the service without a host default', async () => {
     const bytes = new TextEncoder().encode('hello from blossom');
     const hash = await sha256Hex(bytes);
     const fetchFn = vi.fn(async () => new Response(bytes));
     vi.stubGlobal('fetch', fetchFn);
-    const config = {
-      ...CONFIG,
-      target: {
-        mode: 'runtime-pointer',
-        url: 'about:blank',
-        hmrStrategy: 'none',
-        pointer: {
-          relays: [],
-          blossomServers: ['https://blossom.example'],
-          maxWaitMs: 5_000,
-        },
-      },
-    } as PajaHostConfig;
     const adapter = createPajaAdapter(
-      config,
+      CONFIG,
       () => normalizePajaSimulation({ relay: { mode: 'disabled' } }),
       () => {},
       () => {},
@@ -217,6 +347,7 @@ describe('Paja resource backend', () => {
       type: 'resource.bytes',
       id: 'blossom-1',
       url: `blossom:sha256:${hash}`,
+      servers: ['https://blossom.example'],
     } as NappletMessage, (message) => sent.push(message));
     await flushPromises();
 

@@ -1,6 +1,6 @@
 {
   "name": "@kehto/playground",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,8 +13,8 @@
     "@kehto/runtime": "workspace:^",
     "@kehto/services": "workspace:^",
     "@kehto/shell": "workspace:^",
-    "@napplet/core": "0.31.1",
-    "@napplet/nap": "0.31.2",
+    "@napplet/core": "0.32.0",
+    "@napplet/nap": "0.32.0",
     "@snort/worker-relay": "^2.0.1",
     "applesauce-core": "^6.1.0",
     "applesauce-relay": "^6.0.3",

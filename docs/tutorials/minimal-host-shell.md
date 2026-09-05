@@ -2,7 +2,7 @@
 
 This tutorial shows the smallest shape of a browser host that embeds one sandboxed napplet through Kehto.
 
-> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. Use this tutorial as current implementation guidance; NAP contracts,
 > capability names, and helper APIs may change.
 

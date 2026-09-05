@@ -74,6 +74,44 @@ describe('createOutboxService', () => {
     expect(svc.descriptor.name).toBe('outbox');
   });
 
+  it('selects a source-scoped read router for getEvent, query, and subscribe', async () => {
+    const router = mockRouter();
+    const scopedRouter = mockRouter();
+    const getReadRouter = vi.fn(() => scopedRouter);
+    const svc = createOutboxService({ router, getReadRouter });
+    const c = collector();
+
+    svc.handleMessage(WINDOW, {
+      type: 'outbox.getEvent',
+      id: 'scoped-event',
+      eventId: EVENT.id,
+    } as NappletMessage, c.send);
+    svc.handleMessage(WINDOW, {
+      type: 'outbox.query',
+      id: 'scoped-query',
+      filters: [{ kinds: [1] }],
+    } as NappletMessage, c.send);
+    svc.handleMessage(WINDOW, {
+      type: 'outbox.subscribe',
+      subId: 'scoped-subscription',
+      filters: [{ kinds: [1] }],
+    } as NappletMessage, c.send);
+    await Promise.resolve();
+
+    expect(getReadRouter).toHaveBeenCalledTimes(3);
+    expect(getReadRouter).toHaveBeenCalledWith(WINDOW, undefined);
+    expect(scopedRouter.getEvent).toHaveBeenCalledWith(EVENT.id, undefined);
+    expect(scopedRouter.query).toHaveBeenCalledWith([{ kinds: [1] }], undefined);
+    expect(scopedRouter.subscribe).toHaveBeenCalledWith(
+      [{ kinds: [1] }],
+      undefined,
+      expect.any(Object),
+    );
+    expect(router.getEvent).not.toHaveBeenCalled();
+    expect(router.query).not.toHaveBeenCalled();
+    expect(router.subscribe).not.toHaveBeenCalled();
+  });
+
   describe('outbox.getEvent', () => {
     it('passes event id and options to the router and returns getEvent.result', async () => {
       const router = mockRouter();

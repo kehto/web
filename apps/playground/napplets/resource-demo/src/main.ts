@@ -2,17 +2,18 @@
  * resource-demo napplet -- fetches a remote image through the resource service
  * and renders it as a visible resource preview.
  *
- * Phase 58 raw-envelope allowlist: the demo intentionally uses resource.bytesMany
- * to fetch remote bytes and surface the response as an object URL.
+ * Uses the published NAP-RESOURCE SDK over the injected host projection to
+ * fetch remote bytes and surface the response as an object URL.
  */
 import '@napplet/shim';
+import { resourceBytesMany } from '@napplet/nap/resource/sdk';
 import { getMissingNapDomains } from '../../domain-availability';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
 
 const REQUIRED_NAPS = ['resource', 'theme'] as const;
 // Match the 5s deadline every other playground napplet uses: the host prelude
-// and @napplet/shim@0.29.2 with @napplet/core@0.31.1 install window.napplet domain objects before
-// authored code runs, but slower CI can still race the iframe bootstrap.
+// and @napplet/shim@0.30.0 install canonical window.napplet domain objects
+// before authored code runs, but slower CI can still race the iframe bootstrap.
 const CAPABILITY_WAIT_MS = 5_000;
 const CAPABILITY_WAIT_INTERVAL_MS = 25;
 
@@ -51,86 +52,6 @@ async function waitForRequiredNaps(): Promise<void> {
   }
 }
 
-type ResourceBytesResult = {
-  type: 'resource.bytes.result';
-  requestId: string;
-  status: number;
-  headers: Readonly<Record<string, string>>;
-  bodyBase64: string;
-};
-
-type ResourceBytesError = {
-  type: 'resource.bytes.error';
-  id?: string;
-  requestId?: string;
-  error?: string;
-  code?: string;
-  message?: string;
-};
-
-type ResourceBytesManyItem =
-  | {
-      url: string;
-      ok: true;
-      blob: Blob;
-      mime: string;
-    }
-  | {
-      url: string;
-      ok: false;
-      error: string;
-      code?: string;
-      message?: string;
-    };
-
-type ResourceBytesManyResult = {
-  type: 'resource.bytesMany.result';
-  id: string;
-  requestId?: string;
-  items: ResourceBytesManyItem[];
-};
-
-type ResourceBytesManyError = {
-  type: 'resource.bytesMany.error';
-  id: string;
-  requestId?: string;
-  error: string;
-  code?: string;
-  message?: string;
-};
-
-function newRequestId(): string {
-  return `res-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function dispatchResourceBytesMany(requestId: string, urls: readonly string[]): void {
-  window.parent.postMessage(
-    { type: 'resource.bytesMany', id: requestId, urls },
-    '*',
-  );
-}
-
-function decodeBase64(bodyBase64: string): Uint8Array {
-  const binary = atob(bodyBase64);
-  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
-}
-
-function setRemoteImageFromBytes(bytes: Uint8Array, contentType: string | undefined): void {
-  if (currentObjectUrl) {
-    URL.revokeObjectURL(currentObjectUrl);
-    currentObjectUrl = null;
-  }
-  const blob = new Blob([bytes], { type: contentType || 'image/png' });
-  const objectUrl = URL.createObjectURL(blob);
-  currentObjectUrl = objectUrl;
-  imageEl.src = objectUrl;
-  imageEl.addEventListener('load', () => {
-    URL.revokeObjectURL(objectUrl);
-    if (currentObjectUrl === objectUrl) currentObjectUrl = null;
-  }, { once: true });
-  sourceEl.textContent = REMOTE_IMAGE_URL;
-}
-
 function setRemoteImageFromBlob(blob: Blob): void {
   if (currentObjectUrl) {
     URL.revokeObjectURL(currentObjectUrl);
@@ -153,63 +74,23 @@ async function init(): Promise<void> {
   });
   await waitForRequiredNaps();
 
-  const requestId = newRequestId();
   setStatus('loading remote images', 'gray');
   sourceEl.textContent = REMOTE_IMAGE_URL;
   bulkEl.textContent = 'bulk loading';
 
-  const handleMessage = (event: MessageEvent) => {
-    if (event.source !== window.parent) return;
-    const envelope = event.data as ResourceBytesResult | ResourceBytesError | ResourceBytesManyResult | ResourceBytesManyError | null;
-    if (!envelope || typeof envelope !== 'object') return;
-    const envelopeId = 'id' in envelope ? envelope.id : envelope.requestId;
-    if (envelopeId !== requestId) return;
-
-    if (envelope.type === 'resource.bytes.result') {
-      const bytes = decodeBase64(envelope.bodyBase64);
-      setRemoteImageFromBytes(bytes, envelope.headers['content-type'] ?? undefined);
-      setStatus(`loaded remote image (${envelope.status})`, 'green');
-      window.removeEventListener('message', handleMessage);
-      return;
-    }
-
-    if (envelope.type === 'resource.bytes.error') {
-      imageEl.removeAttribute('src');
-      sourceEl.textContent = `${REMOTE_IMAGE_URL} — ${envelope.error ?? envelope.code}: ${envelope.message ?? ''}`;
-      setStatus('image fetch failed', 'red');
-      window.removeEventListener('message', handleMessage);
-      return;
-    }
-
-    if (envelope.type === 'resource.bytesMany.result') {
-      const first = envelope.items[0];
-      if (!first?.ok) {
-        imageEl.removeAttribute('src');
-        sourceEl.textContent = `${REMOTE_IMAGE_URL} — ${first?.error ?? 'missing-result'}: ${first?.message ?? ''}`;
-        bulkEl.textContent = 'bulk failed';
-        setStatus('image fetch failed', 'red');
-        window.removeEventListener('message', handleMessage);
-        return;
-      }
-      setRemoteImageFromBlob(first.blob);
-      const successes = envelope.items.filter((item) => item.ok).length;
-      bulkEl.textContent = `bulk loaded ${successes}/${envelope.items.length}`;
-      setStatus(`loaded remote images (${successes}/${envelope.items.length})`, 'green');
-      window.removeEventListener('message', handleMessage);
-      return;
-    }
-
-    if (envelope.type === 'resource.bytesMany.error') {
-      imageEl.removeAttribute('src');
-      sourceEl.textContent = `${REMOTE_IMAGE_URL} — ${envelope.error}: ${envelope.message ?? ''}`;
-      bulkEl.textContent = 'bulk failed';
-      setStatus('image fetch failed', 'red');
-      window.removeEventListener('message', handleMessage);
-    }
-  };
-
-  window.addEventListener('message', handleMessage);
-  dispatchResourceBytesMany(requestId, REMOTE_IMAGE_URLS);
+  const items = await resourceBytesMany(REMOTE_IMAGE_URLS.map((url) => ({ url })));
+  const first = items[0];
+  if (!first?.ok) {
+    imageEl.removeAttribute('src');
+    sourceEl.textContent = `${REMOTE_IMAGE_URL} — ${first?.error ?? 'missing-result'}: ${first?.message ?? ''}`;
+    bulkEl.textContent = 'bulk failed';
+    setStatus('image fetch failed', 'red');
+    return;
+  }
+  setRemoteImageFromBlob(first.blob);
+  const successes = items.filter((item) => item.ok).length;
+  bulkEl.textContent = `bulk loaded ${successes}/${items.length}`;
+  setStatus(`loaded remote images (${successes}/${items.length})`, 'green');
 }
 
 init().catch((err) => {

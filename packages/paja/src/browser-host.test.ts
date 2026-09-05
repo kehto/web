@@ -180,7 +180,10 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(adapterSource).toContain("import { createPajaSocialCache } from './browser-social-cache.js';");
     expect(adapterSource).toContain('const baseOutboxRouter = createOutboxRouter(backend, getSimulation, relayConfig, confirmRequest, signerProvider);');
     expect(adapterSource).toContain('baseRouter: baseOutboxRouter,');
-    expect(adapterSource).toContain('getQueryRouter: (windowId, context) => socialCache.decorate(');
+    expect(adapterSource).toContain('getReadRouter: (windowId) => blossomEventResolver.decorate(baseOutboxRouter, windowId)');
+    expect(adapterSource).toContain('getQueryRouter: (windowId, context) => blossomEventResolver.decorate(');
+    expect(adapterSource).toContain('socialCache.decorate(');
+    expect(adapterSource).toContain('uploadRuntime?.getServers()');
     expect(adapterSource).toContain("context?.hasCapability(windowId, 'identity:read') ?? false");
     expect(adapterSource).toContain('getFollows: socialCache.getFollows,');
     expect(adapterSource).toContain('getActivePubkey: () => getRuntimePubkey(getSimulation, signerProvider),');
@@ -199,7 +202,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(hostSource).toContain('startFrameNavigation(state, context);\n    void reportTargetCorsDiagnostic(state);');
   });
 
-  it('uses the selected development signer identity before a fixed simulation identity', () => {
+  it('uses the selected development signer identity and binds signing to the requesting napplet', async () => {
     const simulationPubkey = 'c'.repeat(64);
     const simulation = normalizePajaOptions({
       targetUrl: 'http://127.0.0.1:5173',
@@ -209,17 +212,34 @@ describe('@kehto/paja browser host runtime source guards', () => {
       targetUrl: 'http://127.0.0.1:5173',
       simulation: { identity: { mode: 'fixed', pubkey: simulationPubkey } },
     }));
+    const confirmRequest = vi.fn(() => true);
     const adapter = createPajaAdapter(
       config,
       () => simulation,
       () => {},
       () => {},
-      () => true,
+      confirmRequest,
       { getSigner: () => null, getMethod: () => 'dev', getPubkey: () => null },
+      (windowId) => ({ dTag: `napplet-${windowId}`, aggregateHash: `hash-${windowId}` }),
     );
 
     expect(adapter.auth.getUserPubkey()).toBe(PAJA_DEV_SIGNER_PUBKEY);
     expect(adapter.auth.getSigner()?.getPublicKey()).toBe(PAJA_DEV_SIGNER_PUBKEY);
+    await adapter.auth.getSigner('window-a')?.signEvent?.({
+      kind: 1,
+      created_at: 1,
+      tags: [],
+      content: 'hello',
+    });
+    expect(confirmRequest).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'sign',
+      signerContext: {
+        windowId: 'window-a',
+        runtimeScope: 'target-url:http://127.0.0.1:5173/',
+        napplet: { dTag: 'napplet-window-a', aggregateHash: 'hash-window-a' },
+        signerPubkey: PAJA_DEV_SIGNER_PUBKEY,
+      },
+    }));
   });
 
   it('clears stale single-frame ownership before target reload readiness transitions', () => {

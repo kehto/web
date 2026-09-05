@@ -1,11 +1,11 @@
 # Phase 25 (v1.4): CI-04 requirement
-# Tag-triggered (and manually dispatchable) release workflow — runs
+# Successful-Version-Packages-CI, tag, and manual release workflow — runs
 # `pnpm changeset publish` via npm OIDC Trusted Publishing (no NPM_TOKEN),
 # then `npx jsr publish` via JSR OIDC. Branch protection must require CI before
 # merge; release builds publish artifacts but does not rerun CI validation.
 #
 # A manual `workflow_dispatch` can finish a partial release — e.g. publish JSR
-# packages created after the original tag run. npm/JSR skip already-published
+# packages after a registry-specific failure. npm/JSR skip already-published
 # versions, so dispatch is a safe recovery path for an already-validated commit.
 name: Release
 
@@ -13,10 +13,14 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       release_sha:
-        description: 'Validated main commit to publish (set by Version Packages automation)'
+        description: 'Validated main commit to publish during manual recovery'
         type: string
         default: ''
       skip_npm:
@@ -32,23 +36,67 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false  # release runs are serialized; never cancel mid-publish
 
-permissions:
-  contents: write  # needed to push tags/release commits if changeset creates them
-  id-token: write  # REQUIRED: mints the OIDC token npm exchanges for Trusted Publishing
-
 jobs:
-  release:
+  authorize:
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    outputs:
+      should_release: ${{ steps.release.outputs.should_release }}
+      release_sha: ${{ steps.release.outputs.release_sha }}
+    steps:
+      - name: Admit a verified release trigger
+        id: release
+        uses: actions/github-script@v7
+        env:
+          MANUAL_RELEASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.release_sha || '' }}
+        with:
+          script: |
+            if (context.eventName !== 'workflow_run') {
+              core.setOutput('should_release', 'true');
+              core.setOutput('release_sha', process.env.MANUAL_RELEASE_SHA || context.sha);
+              return;
+            }
+
+            const workflowRun = context.payload.workflow_run;
+            if (workflowRun.conclusion !== 'success') {
+              core.setOutput('should_release', 'false');
+              core.setOutput('release_sha', workflowRun.head_sha);
+              return;
+            }
+
+            const { data: pullRequests } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: workflowRun.head_sha,
+            });
+            const versionPackages = pullRequests.some((pullRequest) => (
+              pullRequest.merged_at !== null
+              && pullRequest.title === 'Version Packages'
+              && pullRequest.head.ref === 'changeset-release/main'
+            ));
+            core.setOutput('should_release', String(versionPackages));
+            core.setOutput('release_sha', workflowRun.head_sha);
+
+  release:
+    needs: authorize
+    if: ${{ needs.authorize.outputs.should_release == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # needed to push tags/release commits if changeset creates them
+      id-token: write  # REQUIRED: mints the OIDC token npm/JSR exchange for publishing
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # full history so changeset can read version state
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_sha || github.sha }}
+          ref: ${{ needs.authorize.outputs.release_sha }}
           submodules: recursive
 
       - name: Verify the requested release commit is on main
         env:
-          RELEASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.release_sha || github.sha }}
+          RELEASE_SHA: ${{ needs.authorize.outputs.release_sha }}
         run: |
           git fetch origin main
           git rev-parse --verify "${RELEASE_SHA}^{commit}"
@@ -83,9 +131,9 @@ jobs:
         run: pnpm changeset publish
 
       # ── JSR publish ─────────────────────────────────────────────────────────
-      # JSR publishes from the SAME tag as npm, reading the same package.json
-      # versions, so the two registries stay in lockstep (no version-skew window
-      # that a push-to-main JSR trigger would open). JSR auths via the job's
+      # JSR publishes from the same admitted commit as npm, reading the same
+      # package.json versions, so the two registries stay in lockstep. JSR auths
+      # via the job's
       # `id-token: write` OIDC — no JSR_TOKEN secret — once each @kehto/* package
       # is linked to kehto/web under the @kehto scope at jsr.io.
       #

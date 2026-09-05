@@ -198,7 +198,19 @@ export interface OutboxServiceOptions {
   /** The outbox router the shell uses to reach relays. Required. */
   router: OutboxRouter;
   /**
-   * Optionally selects a request-scoped router for a live napplet source.
+   * Optionally selects a source-scoped router for event-returning reads.
+   *
+   * The selected router is used for `outbox.getEvent`, `outbox.query`, and
+   * `outbox.subscribe`. A query-specific router takes precedence when both
+   * hooks are supplied.
+   *
+   * @param windowId - The authenticated source window for the request.
+   * @param context - Narrow runtime context for source-bound policy checks.
+   * @returns Router used for that source's event-returning reads.
+   */
+  getReadRouter?(windowId: string, context: ServiceRuntimeContext | undefined): OutboxRouter;
+  /**
+   * Optionally selects a query-specific router for a live napplet source.
    *
    * @param windowId - The authenticated source window for the request.
    * @param context - Narrow runtime context for source-bound policy checks.
@@ -358,7 +370,7 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
   if (!options || typeof options.router !== 'object' || options.router === null) {
     throw new Error('createOutboxService: options.router is required');
   }
-  const { router, getQueryRouter } = options;
+  const { router, getReadRouter, getQueryRouter } = options;
   let runtimeContext: ServiceRuntimeContext | undefined;
 
   // Active subscriptions keyed by `windowId:subId` for lifecycle management.
@@ -372,7 +384,9 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
       send({ type: 'outbox.query.result', id, events: [], error: 'invalid filter' } as NappletMessage);
       return;
     }
-    const queryRouter = getQueryRouter?.(windowId, runtimeContext) ?? router;
+    const queryRouter = getQueryRouter?.(windowId, runtimeContext)
+      ?? getReadRouter?.(windowId, runtimeContext)
+      ?? router;
     void queryRouter
       .query(filters, sanitizeQueryOptions(m.options))
       .then((result) =>
@@ -413,7 +427,8 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
       },
     };
 
-    subscriptions.set(subKey, router.subscribe(filters, sanitizeSubscribeOptions(m.options), sink));
+    const readRouter = getReadRouter?.(windowId, runtimeContext) ?? router;
+    subscriptions.set(subKey, readRouter.subscribe(filters, sanitizeSubscribeOptions(m.options), sink));
   }
 
   function handleClose(windowId: string, msg: NappletMessage, send: Send): void {
@@ -478,7 +493,7 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
     handleMessage(windowId: string, message: NappletMessage, send: Send): void {
       switch (message.type) {
         case 'outbox.getEvent':
-          handleGetEvent(router, message, send);
+          handleGetEvent(getReadRouter?.(windowId, runtimeContext) ?? router, message, send);
           return;
         case 'outbox.query':
           handleQuery(windowId, message, send);

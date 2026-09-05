@@ -143,8 +143,15 @@ export interface AuthAdapter {
   /** Get the current user's pubkey, or null if not logged in. */
   getUserPubkey(): string | null;
 
-  /** Get the signer, or null if unavailable. */
-  getSigner(): Signer | null;
+  /**
+   * Get the signer, or null if unavailable.
+   *
+   * Runtimes may use `windowId` to bind signer policy to the requesting
+   * napplet. Implementations that do not need caller context may ignore it.
+   *
+   * @param windowId - Originating napplet window, when the request is window-scoped
+   */
+  getSigner(windowId?: string): Signer | null;
 }
 
 /** Config adapter — runtime behavior settings. */

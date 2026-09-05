@@ -2,7 +2,7 @@
 
 Browser adapter over `@kehto/runtime` for iframe/session hosting.
 
-> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. Injected-domain behavior and NAP contracts are not final.
 
 ## Install
@@ -16,7 +16,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 | Field | Value |
 |-------|-------|
 | Source | `packages/shell/package.json`, `packages/shell/src/index.ts` |
-| Version | `0.20.0` |
+| Version | `0.21.1` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Dependencies | `@kehto/acl`, `@kehto/runtime` |
@@ -26,8 +26,8 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.31.0 <0.32.0` |
-| `@napplet/nap` | `>=0.31.0 <0.32.0` |
+| `@napplet/core` | `>=0.32.0 <0.33.0` |
+| `@napplet/nap` | `>=0.32.0 <0.33.0` |
 | `nostr-tools` | `>=2.23.3 <=2.x` |
 
 ## Primary APIs
@@ -49,10 +49,14 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 - Owns browser integration: `window`, `postMessage`, iframe session identity, gateway loading, shell capabilities, origin/session registries, and browser-specific adapters.
 - Forwards an asynchronous `RelayPoolLike.publish()` promise through its
   runtime adapter so `relay.publish.result` reflects transport settlement.
+- Forwards the originating runtime window to `AuthHooks.getSigner(windowId?)`
+  when available. The optional context lets a host implement caller-aware
+  signer consent without making that policy part of Kehto's shell adapter.
 - Preserves an asynchronous `RelayPoolHooks.publishToScopedRelay()` result so
   scoped publication does not report success before transport acceptance.
 - Provides `injectNappletNamespacePrelude()` for optional NIP-5D domains plus mandatory NAP-SHELL before authored `srcdoc` scripts execute. The prelude installs its receiver before one `shell.ready`, caches the first parent `shell.init`, and prevents napplet namespace reassignment from removing `shell`.
-- The published `@napplet/core@0.31.1` and `@napplet/shim@0.29.2` line does not supply a generic mandatory shell surface. Kehto therefore retains this host-owned prelude under NAP-SHELL `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until an upstream correction is reviewed.
+- Its injected resource projection carries NAP-RESOURCE's optional per-resource Blossom `servers`, including the canonical bulk `requests: [{ url, servers? }]` shape.
+- The published `@napplet/core@0.32.0` and `@napplet/shim@0.30.0` line does not supply a generic mandatory shell surface. Kehto therefore retains this host-owned prelude under NAP-SHELL `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until an upstream correction is reviewed.
 - Advertises `count` in shell capabilities and the injected `window.napplet` namespace only when `ShellAdapter.services.count` is wired, so `shell.supports("count")` tracks an actual NAP-COUNT backend.
 - Surfaces unroutable inbound messages via the optional `ShellAdapter.onUnroutedMessage` hook (`UnroutedMessageInfo`) — observe-only; the bridge still drops messages from unidentified or unregistered windows, but hosts can now log them instead of debugging a silent vanish.
 - Advertises and injects `dm` or `fs` only when the matching runtime service is registered and host domain policy permits it.

@@ -13,7 +13,7 @@ import {
   type PajaHostConfig,
 } from '../../packages/paja/dist/index.js';
 
-const classOnePrefix = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;";
+const classOnePrefix = "default-src 'none'; script-src 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;";
 const classOneSuffix = "worker-src 'none'; child-src 'none'; frame-src 'none'; media-src 'none'; object-src 'none'; manifest-src 'none'; prefetch-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
 
 interface PointerServer {
@@ -92,6 +92,44 @@ test('resolves a stale embedded hint through configured live relays in the runni
     );
     await expect(frame).toHaveAttribute('sandbox', /allow-scripts/);
     await expect(frame).not.toHaveAttribute('sandbox', /allow-same-origin/);
+
+    const outboxRead = page.locator('#acl-controls [data-acl-capability="outbox:read"]');
+    await expect(outboxRead).toHaveAttribute('data-enabled', 'true');
+    await outboxRead.click();
+    await expect(outboxRead).toHaveAttribute('data-enabled', 'false');
+    await expect(page.locator('#message-log [data-message-type="paja.acl.revoke"]')).toHaveCount(1);
+    await outboxRead.click();
+    await expect(outboxRead).toHaveAttribute('data-enabled', 'true');
+    await expect(page.locator('#message-log [data-message-type="paja.acl.grant"]')).toHaveCount(1);
+  } finally {
+    await server.close();
+  }
+});
+
+test('compiles verified WebAssembly while JavaScript string evaluation stays blocked', async ({ page }) => {
+  test.setTimeout(30_000);
+  const server = await startPointerServer();
+  const relay = 'wss://intent-fixture.example';
+  const fixture = createPointerFixture(server.url, 'wasm-target', wasmTargetHtml(), []);
+  server.blobs.set(fixture.hash, fixture.bytes);
+  server.setConfig({
+    ...createPajaRuntimeHostConfig({ pointer: fixture.pointer, maxWaitMs: 2_000 }),
+    simulation: normalizePajaSimulation({ relay: { mode: 'live', urls: [relay] } }),
+  });
+  await page.routeWebSocket(`${relay}/`, (socket) => {
+    socket.onMessage((message) => {
+      const request = JSON.parse(String(message)) as unknown[];
+      if (request[0] !== 'REQ' || typeof request[1] !== 'string') return;
+      socket.send(JSON.stringify(['EVENT', request[1], fixture.event]));
+      socket.send(JSON.stringify(['EOSE', request[1]]));
+    });
+  });
+
+  try {
+    await page.goto(server.url);
+    const frame = page.frameLocator('iframe');
+    await expect(frame.locator('#wasm-status')).toHaveText('ready');
+    await expect(frame.locator('#eval-status')).toHaveText('blocked');
   } finally {
     await server.close();
   }
@@ -296,5 +334,19 @@ function targetIntentHtml(): string {
       document.getElementById('delivery-pubkey').textContent = event.payload && event.payload.pubkey || '';
     });
     window.parent.postMessage({ type: 'shell.ready' }, '*');
+  </script></body></html>`;
+}
+
+function wasmTargetHtml(): string {
+  return `<!doctype html><html><body><div id="wasm-status">pending</div><div id="eval-status">pending</div><script>
+    WebAssembly.instantiate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0]))
+      .then(() => { document.getElementById('wasm-status').textContent = 'ready'; })
+      .catch((error) => { document.getElementById('wasm-status').textContent = error.name; });
+    try {
+      Function('return 1')();
+      document.getElementById('eval-status').textContent = 'allowed';
+    } catch {
+      document.getElementById('eval-status').textContent = 'blocked';
+    }
   </script></body></html>`;
 }

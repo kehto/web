@@ -216,7 +216,7 @@ function handleLoadedNapplet(): void {
 }
 
 // No pre-render grants needed: resource-demo origin allowlist is sourced from
-// STATIC_ORIGIN_ALLOWLIST in shell-host.ts (Task 4 static-allowlist).
+// STATIC_ORIGIN_ALLOWLIST in the frame loader.
 function pregrantBeforeRender(_identity: LoadedNappletIdentity): void { return; }
 
 for (const napplet of DEMO_NAPPLETS) {

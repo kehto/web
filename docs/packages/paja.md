@@ -2,7 +2,7 @@
 
 Single-window Paja local authoring workshop for napplet development.
 
-> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. The Paja API is new in v1.22 planning work
 > and is not yet a stability guarantee for final NAP contracts.
 
@@ -20,7 +20,7 @@ app package's development scripts.
 | Field | Value |
 |-------|-------|
 | Source | `packages/paja/package.json`, `packages/paja/src/index.ts` |
-| Version | `0.13.0` |
+| Version | `0.16.3` |
 | Runtime entry | `./dist/index.js` |
 | CLI runner entry | `./dist/cli.js` |
 | Types entry | `./dist/index.d.ts` |
@@ -31,8 +31,8 @@ app package's development scripts.
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.31.0 <0.32.0` |
-| `@napplet/nap` | `>=0.31.0 <0.32.0` |
+| `@napplet/core` | `>=0.32.0 <0.33.0` |
+| `@napplet/nap` | `>=0.32.0 <0.33.0` |
 | `nostr-tools` | `>=2.23.3 <=2.x` |
 
 ## Primary APIs
@@ -152,14 +152,31 @@ The console includes:
   a domain updates the live capability override and reloads the target so the
   next `shell.init` reflects the changed support surface.
 - **ACL** — every runtime capability can be granted or revoked for the target
-  napplet identity. The controls write through `bridge.runtime.aclState`, so the
-  next matching request is allowed or denied by the real runtime gate.
+  napplet identity. In runtime-pointer mode, both the displayed state and the
+  mutation use the active tab's resolver-verified d-tag and aggregate hash. The
+  controls write through `bridge.runtime.aclState`, rerender immediately, and
+  the next matching request is allowed or denied by the real runtime gate.
 - **Signer** — Paja auto-connects a browser NIP-07 signer when `window.nostr`
   is available, can connect to a bunker/NIP-46 URI, and only uses the generated
   development signer when the Dev signer button is selected. Sign, publish,
   Blossom upload, and external-link requests use one serialized in-page
-  confirmation dialog. Deny has initial focus, Escape denies, and Paja has no
-  bypass list or allow-once whitelist. Upload consent shows the requesting
+  confirmation dialog. Deny has initial focus and Escape denies. Napplet-scoped
+  signing defaults to one-time approval. The dialog can instead remember the
+  exact event kind or trust every kind from that napplet identity and target; the
+  trust option has a prominent warning. Grants are keyed by active signer
+  pubkey, host-owned napplet d-tag and aggregate hash, and the Paja target
+  boundary. Runtime pointers use their verified artifact hash; direct targets
+  use the exact target URL, with an explicit warning that trust survives code
+  reloads at that URL. Another signer, identity, artifact, or target asks again.
+  Unknown identity/kind remains one-shot, denials are never remembered, and
+  **Forget remembered approvals** revokes all saved signer choices. Publish and
+  other operation confirmations remain independent prompts. If browser storage
+  refuses deletion, Paja retains the listed approval and logs the failed
+  revocation. A full host reload creates a new ephemeral Dev signer and asks
+  again; stable NIP-07/NIP-46 accounts can reuse their saved choices. This is
+  Paja policy permitted by draft
+  [NAP-RELAY PR #2 at `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`](https://github.com/napplet/naps/pull/2), not a
+  Kehto runtime default. Upload consent shows the requesting
   napplet, file, MIME type, size, server, and durable public effect before
   bytes leave the browser. A denial or a live publish with no accepting relay
   returns a canonical failure and does not enter Paja's in-memory relay view.
@@ -179,8 +196,9 @@ NIP-5D snapshot, root, or named manifest event id (`5129`, `15129`, or `35129`).
 In both cases Paja verifies the signed manifest, aggregate hash, and every
 Blossom blob, then injects the same runtime-owned `window.napplet.<domain>`
 namespace before assigning iframe `srcdoc`. Before that namespace prelude, Paja
-inserts Kehto's local Class-1 CSP: default deny; inline script/style;
-`data:`/`blob:` images and `data:` fonts; `connect-src` limited exclusively to
+inserts Kehto's local Class-1 CSP: default deny; inline script/style; WebAssembly
+compilation through the narrow `'wasm-unsafe-eval'` source while JavaScript string
+evaluation stays blocked; `data:`/`blob:` images and `data:` fonts; `connect-src` limited exclusively to
 the resolved relay and Blossom origins; explicit worker, child, frame, media,
 object, manifest, prefetch, base, and form denial; and final
 `frame-ancestors 'self'`. NIP-5D requires the verified `srcdoc` and opaque
@@ -228,7 +246,7 @@ is not delivered to; failed open/readiness attempts follow the private
 retry/replacement policy. The final result includes the handled target's d-tag,
 window identifier, and convention.
 
-The published `@napplet/shim@0.29.2` is intentionally non-shell. Kehto's
+The published `@napplet/shim@0.30.0` is intentionally non-shell. Kehto's
 host-owned prelude remains responsible for mandatory `window.napplet.shell`,
 the one bare `shell.ready` / first `shell.init` handshake, and local cached
 `ready()`, `supports()`, read-only `services`, and one-shot `onReady()`.
@@ -309,7 +327,7 @@ completeness remain outside this behavior.
 [NAP-IDENTITY `6461e4b37c29dc09a20dff35d9515889c4433874`](https://github.com/napplet/naps/blob/6461e4b37c29dc09a20dff35d9515889c4433874/naps/NAP-IDENTITY.md)
 is byte-identical to the phase's recorded `napplet/naps` master document. Pinned
 [NAP-OUTBOX `4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e`](https://github.com/napplet/naps/blob/4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e/naps/NAP-OUTBOX.md)
-and installed `@napplet/nap@0.31.2` types govern this PoC because current master
+and installed `@napplet/nap@0.32.0` types govern this PoC because current master
 has no NAP-OUTBOX path. This is not a current-master OUTBOX conformance claim.
 Blossom behavior targets pinned
 [NAP-UPLOAD `a7cc17463cbf5d9cb87884b31071bc4fc826034c`](https://github.com/napplet/naps/blob/a7cc17463cbf5d9cb87884b31071bc4fc826034c/naps/NAP-UPLOAD.md).
@@ -362,28 +380,65 @@ memory relay mode also disables `count` advertisement.
 ### NAP-RESOURCE
 
 Paja implements the draft
-[NAP-RESOURCE at `fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md)
-with real `data:` and content-addressed `blossom:` backends. `resource.info`
-always reports `data:` and reports `blossom` only while at least one usable
-host-owned server is configured. Both expose the enforced 10 MiB response and
-100-URL bulk caps. The host ignores declared or upstream media types,
-classifies a narrow safe image/audio/video/font/text set, and rejects raw SVG,
-HTML, invalid UTF-8, and unrecognized binary data. Requests are identity- and
-window-scoped; cancellation drops late terminal envelopes.
+[NAP-RESOURCE at `9511232f69313aa7953d110e35d32cc28d506f66`](https://github.com/napplet/naps/blob/9511232f69313aa7953d110e35d32cc28d506f66/naps/NAP-RESOURCE.md)
+with real `data:`, `http:`, `https:`, and content-addressed `blossom:` backends.
+`resource.info` reports all four schemes because each Blossom request can carry
+accepted server hints without a host default. This disclosure is advisory, not
+an authorization grant. All paths expose the enforced 10 MiB response,
+100-URL bulk, and eight-server per-resource caps. The host ignores
+declared or upstream media types, classifies a narrow safe
+image/audio/video/font/text set plus checksum-valid Game Boy ROM headers, and
+rejects raw SVG, HTML, invalid UTF-8, and unrecognized binary data. Game Boy ROM
+results use `application/vnd.nintendo.gb-rom` regardless of the upstream
+`Content-Type`. Cancellation remains window-scoped and drops late terminal
+envelopes.
+
+Paja deliberately accepts arbitrary HTTP(S) origins because it is a developer
+runtime. It uses browser `fetch` with credentials omitted and no referrer. The
+browser still decides which response bytes JavaScript may read: a network or
+CORS rejection becomes `network-error`, while a CORS-readable response is
+returned normally. Plain HTTP may also be rejected by the browser's mixed-content
+rules when Paja itself is served securely. This resource choice is independent
+of Paja's signer confirmation boundary.
 
 The only accepted Blossom form is `blossom:sha256:<64 hex characters>`. Paja
-uses runtime-pointer server hints plus explicit or already-warmed upload server
-settings, preserving their order and removing duplicates. HTTPS is accepted;
-HTTP is restricted to loopback development. There is no public default, the
-napplet cannot select an upstream origin, redirects are refused, and Paja
-verifies the returned bytes against the requested SHA-256 before delivery. A
-hash mismatch is `decode-failed`; missing blobs are `not-found`.
+accepts public-looking HTTPS request hints, discards invalid/private literals,
+and deduplicates equivalent origins. `outbox.getEvent`, `outbox.query`, and
+`outbox.subscribe` results privately index canonical Blossom references,
+explicit event `server`/structured-source hints, legacy BUD-10 `xs`/`as` hints,
+and the verified event publisher for that source window. A later
+`resource.bytes` for the URL tries request and event-local
+servers first, then lazily reads hinted authors' and the event publisher's
+newest BUD-03 kind `10063` list through the base OUTBOX router, then tries
+the active shell user's BUD-03 list through the same router, then the current
+window's verified pointer-manifest servers, and finally upload-runtime defaults.
+The user-list lookup does not
+depend on Blossom upload mode. Paja does not prefetch event resources and works
+while upload mode remains `memory`. Event state is bounded, memory-only, and
+cleared with the napplet window. Server-list lookups are cached for five
+minutes; incomplete misses remain retryable.
 
-Direct HTTPS, HTTP, Hashtree, and Nostr resource schemes remain unadvertised
-and fail with `unsupported-scheme`. HTTP(S) is an internal transport detail for
-the host-selected `blossom:` backend, not permission for arbitrary network
-URLs. The previous wildcard origin grant and fixed development identity remain
-removed.
+The combined list is capped at eight. Host-configured HTTP is restricted to
+loopback development; request, event, and publisher hints never permit it.
+Redirects are refused and Paja verifies the returned bytes against the requested
+SHA-256 before delivery. A hash mismatch is `decode-failed`; all-definitive
+misses are `not-found`; any inconclusive transport failure without success is
+`network-error`. Browser-only Paja cannot pin DNS resolution, so production
+runtimes still must perform the draft's DNS-time private-address checks. The
+publisher lookup follows
+[BUD-03 `b5bd2801d1763aa635fc8fea7a76597e0eb18990`](https://github.com/hzrd149/blossom/blob/b5bd2801d1763aa635fc8fea7a76597e0eb18990/buds/03.md).
+The current
+[NAP-RESOURCE draft `fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md)
+leaves fetch policy to the runtime and has no wire-level Blossom server-hint
+field. Paja's window-scoped pointer fallback is host policy informed by NIP-5D's
+manifest `server` tags at draft head
+[`24711d9c47bbdd07908bf1d52bf677d9cbc530f0`](https://github.com/nostr-protocol/nips/blob/24711d9c47bbdd07908bf1d52bf677d9cbc530f0/5D.md).
+
+Hashtree, Nostr, and other unimplemented schemes remain unadvertised and fail
+with `unsupported-scheme`. HTTP(S) dispatch and Blossom dispatch are separate:
+an ordinary web URL is fetched directly, while `blossom:` can only resolve an
+exact digest through accepted request, event, publisher, verified pointer, or
+configured servers.
 
 ## Environment Simulation
 

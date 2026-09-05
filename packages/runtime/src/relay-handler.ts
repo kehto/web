@@ -9,7 +9,7 @@ import {
   relayEventResultFromCarrier,
   type RelayEventResult,
 } from './relay-result.js';
-import type { RuntimeAdapter, ServiceHandler, ServiceRegistry } from './types.js';
+import type { RuntimeAdapter, ServiceHandler, ServiceRegistry, Signer } from './types.js';
 
 declare function setTimeout(callback: () => void, ms: number): unknown;
 declare function clearTimeout(id: unknown): void;
@@ -219,7 +219,7 @@ function handleRelayPublish(
     return;
   }
 
-  const signer = hooks.auth.getSigner();
+  const signer = hooks.auth.getSigner(windowId);
   const signEvent = signer?.signEvent?.bind(signer);
   if (!signEvent) {
     sendRelayPublishResult(hooks, windowId, id, false, undefined, 'no signer configured');
@@ -360,14 +360,14 @@ function handleRelayPublishEncrypted(
     replyPe(false, { error: `unsupported encryption scheme: ${encryption}` });
     return;
   }
-  const peSigner = hooks.auth.getSigner();
+  const peSigner = hooks.auth.getSigner(windowId);
   if (!peSigner) { replyPe(false, { error: 'no signer configured' }); return; }
   if (!eventTemplate || typeof eventTemplate !== 'object') {
     replyPe(false, { error: 'invalid event template' });
     return;
   }
 
-  publishEncrypted(context, windowId, id, recipient, encryption, eventTemplate, replyPe);
+  publishEncrypted(context, windowId, id, recipient, encryption, eventTemplate, peSigner, replyPe);
 }
 
 function publishEncrypted(
@@ -377,12 +377,9 @@ function publishEncrypted(
   recipient: string,
   encryption: 'nip04' | 'nip44' | string,
   eventTemplate: EventTemplate,
+  peSigner: Signer,
   replyPe: (ok: boolean, extra?: Record<string, unknown>) => void,
 ): void {
-  const { hooks } = context;
-  const peSigner = hooks.auth.getSigner();
-  if (!peSigner) return;
-
   (async (): Promise<void> => {
     try {
       const plaintext = String((eventTemplate as { content?: unknown }).content ?? '');

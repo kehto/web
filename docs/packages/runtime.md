@@ -2,7 +2,7 @@
 
 Browser-agnostic protocol engine for NIP-5D napplet hosting.
 
-> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. Runtime APIs and NAP dispatch contracts are not final.
 
 ## Install
@@ -16,7 +16,7 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 | Field | Value |
 |-------|-------|
 | Source | `packages/runtime/package.json`, `packages/runtime/src/index.ts` |
-| Version | `0.22.0` |
+| Version | `0.23.0` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Dependencies | `@kehto/acl`, `@noble/hashes`, `@noble/curves` |
@@ -26,8 +26,8 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.31.0 <0.32.0` |
-| `@napplet/nap` | `>=0.31.0 <0.32.0` |
+| `@napplet/core` | `>=0.32.0 <0.33.0` |
+| `@napplet/nap` | `>=0.32.0 <0.33.0` |
 
 ## Primary APIs
 
@@ -51,7 +51,14 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
   `{ ok: false, error }`. Async relay adapters settle before success is
   reported; failures are not buffered and release their pending replay
   reservation so the same deterministic signed event can be retried.
+- Passes the originating runtime window to `AuthAdapter.getSigner(windowId?)`
+  when available. This is policy-neutral context for host runtimes; Kehto does
+  not prescribe prompting, persistence, grant scope, or denial policy.
 - Routes the NAP-COUNT `count.query` domain through a registered `count` service. The runtime validates non-empty filters and returns `count.query.result` refusals such as `invalid-filter` or `count-unavailable` instead of emulating counts by fetching event payloads.
+- Keeps ACL and firewall rejection of `outbox.query` on the canonical
+  `outbox.query.result` wire with the request `id`, `events: []`, and `error`, as
+  defined by draft [NAP-OUTBOX PR #32 at
+  `4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e`](https://github.com/napplet/naps/pull/32).
 - Routes service-only NAP domains such as `dm` and `fs` through registered handlers, so protocol backends stay outside core runtime dispatch.
 - Does not own browser `window`, iframe creation, DOM, `postMessage` listeners, or localStorage implementation details.
 - Browser concerns live in `@kehto/shell`.

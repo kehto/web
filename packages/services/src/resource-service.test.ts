@@ -2,11 +2,11 @@
  * resource-service.test.ts — Unit tests for the NAP-RESOURCE reference service factory.
  *
  * Test plan:
- *   a. createResourceService({}) throws with message matching /H-03/ (constructor H-03 guard)
- *   b. createResourceService({ fetch }) throws (missing isOriginGranted + getConnectGrants + resolveIdentity)
- *   c. Full options succeeds; descriptor.name === 'resource'
- *   d. resource.bytes for ungranted origin emits blocked-by-policy; fetch NEVER called
- *   e. resource.bytes for granted origin calls fetch once + emits bytes.result with correct fields
+ *   a. createResourceService({}) throws when the runtime resolver is missing
+ *   b. createResourceService({ fetch }) succeeds without a Kehto-selected policy
+ *   c. Optional origin policy hooks remain available to runtime implementers
+ *   d. resource.bytes for an origin rejected by optional runtime policy never calls fetch
+ *   e. resource.bytes delegates to the runtime resolver and emits current result fields
  *   f. resource.cancel aborts and drops the late terminal envelope
  *   g. Invalid URL → bytes.error error='invalid-request'
  *   h. Fetch reject (non-abort) → bytes.error error='network-error'
@@ -15,12 +15,13 @@
  *   k. resource.info provider failures emit resource.info.error
  *   l. resource.bytes emits current NAP-RESOURCE id/blob/mime fields
  *   m. resource.bytesMany preserves order and returns per-URL success/error items
- *   n. resource.bytesMany with empty urls emits a top-level bytesMany.error
+ *   n. resource.bytesMany with empty requests emits a top-level bytesMany.error
+ *   o. Blossom server hints reach the resolver for single and bulk requests
  */
 
 import { describe, it, expect, vi } from 'vitest';
 import type { NappletMessage } from '@napplet/core';
-import { createResourceService } from './resource-service.js';
+import { createResourceService, ResourceServiceError } from './resource-service.js';
 import type { ResourceServiceOptions } from './resource-service.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -33,24 +34,13 @@ const DENIED_ORIGIN = 'https://untrusted.example';
 
 /** Build minimal valid options with injectable mocks. */
 function makeOpts(overrides: Partial<ResourceServiceOptions> = {}): ResourceServiceOptions {
-  const mockFetch = vi.fn(async (_url: string, _init: { method?: string; headers?: Record<string, string>; signal: AbortSignal }): Promise<Response> => {
+  const mockFetch = vi.fn(async (_url: string, _init: { method?: string; headers?: Record<string, string>; signal: AbortSignal; servers?: readonly string[] }): Promise<Response> => {
     const body = JSON.stringify({ ok: true });
     return new Response(body, { status: 200, headers: { 'content-type': 'application/json' } });
   });
 
-  const resolveIdentity = vi.fn((_windowId: string) => ({ dTag: DTAG, aggregateHash: HASH }));
-
-  const getConnectGrants = vi.fn((_dTag: string, _hash: string): readonly string[] => [GRANTED_ORIGIN]);
-
-  const isOriginGranted = vi.fn((origin: string, grants: readonly string[]): boolean =>
-    grants.includes(origin)
-  );
-
   return {
     fetch: mockFetch,
-    resolveIdentity,
-    getConnectGrants,
-    isOriginGranted,
     resourceInfo: {
       schemes: [
         { scheme: 'http', enabled: true },
@@ -58,6 +48,19 @@ function makeOpts(overrides: Partial<ResourceServiceOptions> = {}): ResourceServ
       ],
     },
     ...overrides,
+  } as ResourceServiceOptions;
+}
+
+function originPolicy(): Pick<
+  ResourceServiceOptions,
+  'resolveIdentity' | 'getConnectGrants' | 'isOriginGranted'
+> {
+  return {
+    resolveIdentity: vi.fn((_windowId: string) => ({ dTag: DTAG, aggregateHash: HASH })),
+    getConnectGrants: vi.fn((_dTag: string, _hash: string): readonly string[] => [GRANTED_ORIGIN]),
+    isOriginGranted: vi.fn((origin: string, grants: readonly string[]): boolean =>
+      grants.includes(origin)
+    ),
   };
 }
 
@@ -77,20 +80,29 @@ function flushPromises(): Promise<void> {
 
 describe('createResourceService', () => {
 
-  // ─── (a) H-03 guard: empty options throws ──────────────────────────────────
-  it('(a) throws with H-03 message when called with empty options', () => {
-    expect(() => createResourceService({} as ResourceServiceOptions)).toThrow(/H-03/);
+  // ─── (a) Runtime resolver guard: empty options throws ──────────────────────
+  it('(a) throws when called without a runtime resource resolver', () => {
+    expect(() => createResourceService({} as ResourceServiceOptions)).toThrow(/fetch/);
   });
 
-  // ─── (b) partial options also throws ───────────────────────────────────────
-  it('(b) throws when only fetch is provided (missing isOriginGranted, getConnectGrants, resolveIdentity)', () => {
-    const fetchMock = vi.fn();
-    expect(() => createResourceService({ fetch: fetchMock } as unknown as ResourceServiceOptions)).toThrow(/H-03/);
+  // ─── (b) Kehto does not select runtime policy ──────────────────────────────
+  it('(b) accepts a runtime resource resolver without origin-policy hooks', () => {
+    const fetchMock = vi.fn(async () => new Response('ok'));
+    expect(() => createResourceService({ fetch: fetchMock })).not.toThrow();
   });
 
-  // ─── (c) full options succeeds ─────────────────────────────────────────────
-  it('(c) succeeds with all four options; descriptor.name === resource', () => {
+  it('(b) rejects a partially configured optional origin policy', () => {
+    const fetchMock = vi.fn(async () => new Response('ok'));
+    expect(() => createResourceService({
+      fetch: fetchMock,
+      isOriginGranted: () => true,
+    })).toThrow(/isOriginGranted, getConnectGrants, resolveIdentity/);
+  });
+
+  // ─── (c) optional runtime policy succeeds ──────────────────────────────────
+  it('(c) accepts optional runtime-owned origin policy; descriptor.name === resource', () => {
     const opts = makeOpts({
+      ...originPolicy(),
       resourceInfo: { schemes: [{ scheme: 'http', enabled: true }] },
     });
     const svc = createResourceService(opts);
@@ -100,8 +112,8 @@ describe('createResourceService', () => {
   });
 
   // ─── (d) ungranted origin: denied, fetch never called ─────────────────────
-  it('(d) resource.bytes for ungranted origin emits blocked-by-policy; fetch NOT called', async () => {
-    const opts = makeOpts();
+  it('(d) optional runtime origin policy can reject before fetch', async () => {
+    const opts = makeOpts(originPolicy());
     const svc = createResourceService(opts);
     const { sent, send } = collectSent();
 
@@ -121,8 +133,8 @@ describe('createResourceService', () => {
     expect(err.error).toBe('blocked-by-policy');
   });
 
-  // ─── (e) granted origin: fetch called, bytes.result emitted ──────────────
-  it('(e) resource.bytes for granted origin calls fetch and emits bytes.result', async () => {
+  // ─── (e) runtime resolver: fetch called, bytes.result emitted ────────────
+  it('(e) resource.bytes delegates to the runtime resolver and emits bytes.result', async () => {
     const bodyText = 'hello world';
     const opts = makeOpts({
       fetch: vi.fn(async (_url, _init) => {
@@ -145,11 +157,17 @@ describe('createResourceService', () => {
     await flushPromises();
 
     expect(opts.fetch).toHaveBeenCalledOnce();
-    const [calledUrl, calledInit] = (opts.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, { method?: string; headers?: Record<string, string>; signal: AbortSignal }];
+    const [calledUrl, calledInit] = (opts.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, {
+      method?: string;
+      headers?: Record<string, string>;
+      signal: AbortSignal;
+      windowId?: string;
+    }];
     expect(calledUrl).toBe(`${GRANTED_ORIGIN}/api/data`);
     expect(calledInit.method).toBe('GET');
     expect(calledInit.headers).toBeUndefined();
     expect(calledInit.signal).toBeInstanceOf(AbortSignal);
+    expect(calledInit.windowId).toBe(WINDOW_ID);
 
     expect(sent).toHaveLength(1);
     const result = sent[0] as { type: string; id: string; blob: Blob; mime: string; requestId?: string; headers?: unknown; bodyBase64?: string };
@@ -298,6 +316,7 @@ describe('createResourceService', () => {
         ],
         maxBytes: 1024,
         maxUrls: 8,
+        maxServers: 4,
       },
     });
     const svc = createResourceService(opts);
@@ -322,6 +341,7 @@ describe('createResourceService', () => {
           ],
           maxBytes: 1024,
           maxUrls: 8,
+          maxServers: 4,
         },
       },
     ]);
@@ -396,6 +416,7 @@ describe('createResourceService', () => {
   // ─── (m) resource.bytesMany ordered partial result ───────────────────────
   it('(m) resource.bytesMany preserves input order and keeps per-URL failures local', async () => {
     const opts = makeOpts({
+      ...originPolicy(),
       fetch: vi.fn(async (url: string) => {
         return new Response(url.endsWith('/one') ? 'first' : 'third', {
           status: 200,
@@ -409,10 +430,10 @@ describe('createResourceService', () => {
     svc.handleMessage(WINDOW_ID, {
       type: 'resource.bytesMany',
       id: 'bulk-1',
-      urls: [
-        `${GRANTED_ORIGIN}/one`,
-        `${DENIED_ORIGIN}/two`,
-        `${GRANTED_ORIGIN}/three`,
+      requests: [
+        { url: `${GRANTED_ORIGIN}/one` },
+        { url: `${DENIED_ORIGIN}/two` },
+        { url: `${GRANTED_ORIGIN}/three` },
       ],
     } as NappletMessage, send);
 
@@ -452,7 +473,7 @@ describe('createResourceService', () => {
   });
 
   // ─── (n) resource.bytesMany invalid top-level request ────────────────────
-  it('(n) resource.bytesMany with empty urls emits a top-level invalid-request error', async () => {
+  it('(n) resource.bytesMany with empty requests emits a top-level invalid-request error', async () => {
     const opts = makeOpts();
     const svc = createResourceService(opts);
     const { sent, send } = collectSent();
@@ -460,7 +481,7 @@ describe('createResourceService', () => {
     svc.handleMessage(WINDOW_ID, {
       type: 'resource.bytesMany',
       id: 'bulk-empty',
-      urls: [],
+      requests: [],
     } as NappletMessage, send);
 
     await flushPromises();
@@ -474,9 +495,54 @@ describe('createResourceService', () => {
     });
   });
 
-  it('rejects schemes that resource.info does not enable before origin policy or fetch', async () => {
+  it('(o) carries per-resource Blossom server hints and ignores them for other schemes', async () => {
+    const opts = makeOpts({
+      fetch: vi.fn(async () => new Response('hinted', {
+        headers: { 'content-type': 'text/plain' },
+      })),
+    });
+    const svc = createResourceService(opts);
+    const single = collectSent();
+
+    svc.handleMessage(WINDOW_ID, {
+      type: 'resource.bytes',
+      id: 'hint-single',
+      url: `blossom:sha256:${'a'.repeat(64)}`,
+      servers: ['https://one.example', 'https://two.example'],
+    } as NappletMessage, single.send);
+    await flushPromises();
+
+    expect(opts.fetch).toHaveBeenNthCalledWith(1, `blossom:sha256:${'a'.repeat(64)}`, expect.objectContaining({
+      servers: ['https://one.example', 'https://two.example'],
+    }));
+    expect(single.sent[0]).toMatchObject({ type: 'resource.bytes.result', id: 'hint-single' });
+
+    const bulk = collectSent();
+    svc.handleMessage(WINDOW_ID, {
+      type: 'resource.bytesMany',
+      id: 'hint-bulk',
+      requests: [
+        { url: `blossom:sha256:${'b'.repeat(64)}`, servers: ['https://bulk.example'] },
+        { url: 'https://media.example/image.png', servers: ['https://ignored.example'] },
+      ],
+    } as NappletMessage, bulk.send);
+    await flushPromises();
+
+    expect(opts.fetch).toHaveBeenNthCalledWith(2, `blossom:sha256:${'b'.repeat(64)}`, expect.objectContaining({
+      servers: ['https://bulk.example'],
+    }));
+    expect(opts.fetch).toHaveBeenNthCalledWith(3, 'https://media.example/image.png', expect.not.objectContaining({
+      servers: expect.anything(),
+    }));
+    expect(bulk.sent[0]).toMatchObject({ type: 'resource.bytesMany.result', id: 'hint-bulk' });
+  });
+
+  it('keeps resource.info scheme disclosure advisory instead of authorizing fetches', async () => {
     const opts = makeOpts({
       resourceInfo: { schemes: [{ scheme: 'http', enabled: true }] },
+      fetch: vi.fn(async () => new Response('runtime-resolved', {
+        headers: { 'content-type': 'text/plain' },
+      })),
     });
     const svc = createResourceService(opts);
     const { sent, send } = collectSent();
@@ -488,12 +554,36 @@ describe('createResourceService', () => {
     } as NappletMessage, send);
     await flushPromises();
 
-    expect(opts.isOriginGranted).not.toHaveBeenCalled();
-    expect(opts.fetch).not.toHaveBeenCalled();
+    expect(opts.fetch).toHaveBeenCalledOnce();
+    expect(sent[0]).toMatchObject({
+      type: 'resource.bytes.result',
+      id: 'scheme-off',
+      mime: 'text/plain',
+    });
+  });
+
+  it('preserves a runtime resolver unsupported-scheme decision', async () => {
+    const opts = makeOpts({
+      resourceInfo: { schemes: [{ scheme: 'https', enabled: true }] },
+      fetch: vi.fn(async () => {
+        throw new ResourceServiceError('unsupported-scheme', 'runtime does not resolve https:');
+      }),
+    });
+    const svc = createResourceService(opts);
+    const { sent, send } = collectSent();
+
+    svc.handleMessage(WINDOW_ID, {
+      type: 'resource.bytes',
+      id: 'runtime-policy',
+      url: 'https://example.com/image.png',
+    } as NappletMessage, send);
+    await flushPromises();
+
     expect(sent[0]).toMatchObject({
       type: 'resource.bytes.error',
-      id: 'scheme-off',
+      id: 'runtime-policy',
       error: 'unsupported-scheme',
+      message: 'runtime does not resolve https:',
     });
   });
 
@@ -522,7 +612,7 @@ describe('createResourceService', () => {
     svc.handleMessage(WINDOW_ID, {
       type: 'resource.bytesMany',
       id: 'too-many',
-      urls: [`${GRANTED_ORIGIN}/one`, `${GRANTED_ORIGIN}/two`],
+      requests: [{ url: `${GRANTED_ORIGIN}/one` }, { url: `${GRANTED_ORIGIN}/two` }],
     } as NappletMessage, bulk.send);
     await flushPromises();
     expect(bulk.sent[0]).toMatchObject({

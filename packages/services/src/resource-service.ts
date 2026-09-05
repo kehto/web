@@ -11,16 +11,18 @@
  *             resource.bytesMany.result, resource.bytesMany.error
  *
  * ──────────────────────── SCOPE BOUNDARY (RESOURCE-01) ────────────────────────
- * NAP-RESOURCE is an **authenticated fetch proxy** — read-only, atomic.
+ * NAP-RESOURCE is a runtime-mediated byte resolver — read-only, atomic.
  *
- * The host fetch boundary performs scheme-specific I/O and MUST return only a
- * policy-checked, byte-classified response. This service independently enforces
- * identity, scheme disclosure, origin grants, bulk limits, response-size caps,
- * cancellation, and the current wire shape. It never forwards upstream headers.
+ * Kehto owns neutral wire lifecycle, cancellation, result projection, and
+ * policy tooling. The runtime supplies the resolver and decides whether to use
+ * the origin-grant hooks, which schemes to resolve, and which limits to expose.
+ * Advisory `resource.info` scheme disclosure never authorizes or blocks a byte
+ * request.
  * ──────────────────────────────────────────────────────────────────────────────
  *
- * Host integration: provide `fetch`, `isOriginGranted`, `getConnectGrants`,
- * and `resolveIdentity`. ALL FOUR are required from day one (H-03 prevention).
+ * Runtime integration requires only `fetch`. A runtime MAY also install the
+ * optional origin-policy adapter (`isOriginGranted`, `getConnectGrants`, and
+ * `resolveIdentity` together).
  *
  * @example
  * ```ts
@@ -28,31 +30,49 @@
  *
  * const resourceSvc = createResourceService({
  *   fetch: (url, init) => globalThis.fetch(url, init),
+ * });
+ * runtime.registerService('resource', resourceSvc);
+ * ```
+ *
+ * @example
+ * ```ts
+ * const resourceSvc = createResourceService({
+ *   fetch: (url, init) => runtimeResources.resolve(url, init),
  *   isOriginGranted: (origin, grants) => grants.includes(origin),
  *   getConnectGrants: (dTag, hash) => myOriginGrantStore.getOrigins(dTag, hash),
  *   resolveIdentity: (windowId) => sessionRegistry.getEntryByWindowId(windowId) ?? null,
  * });
- * runtime.registerService('resource', resourceSvc);
  * ```
  */
 
 import type { NappletMessage } from '@napplet/core';
+import type {
+  ResourceBytesRequest,
+  ResourceInfo,
+} from '@napplet/nap/resource/types';
 import type { ServiceDescriptor, ServiceHandler } from '@kehto/runtime';
+
+export type {
+  ResourceBytesRequest,
+  ResourceInfo,
+  ResourceSchemeInfo,
+} from '@napplet/nap/resource/types';
 
 /** Resource service version — follows semver. */
 const RESOURCE_SERVICE_VERSION = '1.0.0';
 
-/** Runtime-disclosed support for one resource URL scheme. */
-export interface ResourceSchemeInfo {
-  scheme: string;
-  enabled: boolean;
-}
-
-/** Advisory resource capability and policy limits disclosed by the runtime. */
-export interface ResourceInfo {
-  schemes: ResourceSchemeInfo[];
-  maxBytes?: number;
-  maxUrls?: number;
+/** Read-only metadata passed from the resource service to a runtime resolver. */
+export interface ResourceFetchInit {
+  /** Read-only HTTP method selected by the service. */
+  method?: string;
+  /** Optional runtime-owned request headers. */
+  headers?: Record<string, string>;
+  /** Request-scoped cancellation signal. */
+  signal: AbortSignal;
+  /** Authenticated source window, for runtime-private scoped policy state. */
+  windowId?: string;
+  /** Advisory Blossom server origins for this resource only. */
+  servers?: readonly string[];
 }
 
 /** Context passed to a host-provided resource info resolver. */
@@ -69,34 +89,33 @@ export type ResourceInfoProvider =
 /**
  * Options for `createResourceService` (options-as-bridge per v1.6 Decision 18).
  *
- * ALL FOUR fields are required. The factory throws at construction if any is
- * missing — H-03 prevention: the grants source (`getConnectGrants`) MUST be
- * wired from day one so there is no window where resource requests bypass the
- * grant check.
- *
- * @see PITFALLS.md:228 (H-03) — grants-source coupling must be present at construction
+ * `fetch` is the only required field. Kehto does not select a runtime's scheme
+ * or origin policy. The optional origin-policy fields form one adapter and must
+ * therefore be supplied together when a runtime chooses to use it.
  */
 export interface ResourceServiceOptions {
   /**
-   * Host-supplied policy fetch implementation. Receives the URL, a partial init
-   * (method, headers, signal), and returns a sanitized `Response`.
+   * Runtime-supplied resource resolver. Receives the requested URL and returns
+   * a byte-classified `Response`.
    *
-   * The returned `content-type` MUST be derived from inspected output bytes,
-   * never an upstream header. The host boundary also owns redirect-by-redirect
-   * private-address checks, SVG rasterization, and scheme-specific integrity.
-   * Throw `ResourceServiceError` to preserve a protocol error classification.
+   * The runtime owns scheme dispatch and every NAP-RESOURCE policy decision.
+   * The returned `content-type` must describe the runtime-classified bytes, not
+   * an untrusted upstream header. Throw `ResourceServiceError` to preserve a
+   * canonical protocol error classification.
    *
    * @param url - The URL from the resource.bytes request
-   * @param init - Method, headers (from napplet), and an AbortSignal
+   * @param init - Read-only method, request-scoped AbortSignal, and optional advisory Blossom servers
    */
   fetch(
     url: string,
-    init: { method?: string; headers?: Record<string, string>; signal: AbortSignal }
+    init: ResourceFetchInit,
   ): Promise<Response>;
 
   /**
    * Returns true if `origin` is present in `grants` (the list returned by
    * `getConnectGrants` for the napplet's dTag + aggregateHash).
+   * Optional: when omitted with `getConnectGrants`, Kehto delegates directly
+   * to the runtime resolver without an origin-grant decision.
    *
    * The reference implementation is simply `grants.includes(origin)`. Host apps
    * may provide normalized-origin comparison if needed.
@@ -104,22 +123,20 @@ export interface ResourceServiceOptions {
    * @param origin - Parsed origin of the requested URL (scheme + host + port)
    * @param grants - Readonly list from getConnectGrants for this napplet identity
    */
-  isOriginGranted(origin: string, grants: readonly string[]): boolean;
+  isOriginGranted?(origin: string, grants: readonly string[]): boolean;
 
   /**
    * Returns the list of allowed fetch origins for the given napplet identity.
    * Called on every `resource.bytes` request — must be synchronous and fast.
+   * Optional and paired with `isOriginGranted` plus `resolveIdentity`.
    *
    * Host-supplied grant source (e.g. a static per-dTag allowlist map, or any
    * other host-controlled policy). Returns an empty array to deny all origins.
    *
-   * H-03 prevention: REQUIRED from day one — factory throws on construction
-   * if omitted.
-   *
    * @param dTag - The napplet's d-tag (from session registry)
    * @param aggregateHash - The napplet's aggregate hash (from session registry)
    */
-  getConnectGrants(dTag: string, aggregateHash: string): readonly string[];
+  getConnectGrants?(dTag: string, aggregateHash: string): readonly string[];
 
   /**
    * Resolve a windowId to the napplet's identity (dTag + aggregateHash).
@@ -129,14 +146,14 @@ export interface ResourceServiceOptions {
    *
    * @param windowId - The iframe window identifier
    */
-  resolveIdentity(windowId: string): { dTag: string; aggregateHash: string } | null;
+  resolveIdentity?(windowId: string): { dTag: string; aggregateHash: string } | null;
 
   /**
    * Advisory NAP-RESOURCE introspection exposed through `resource.info`.
    *
    * Provide a static snapshot or a resolver when the shell wants to disclose
-   * configured schemes and coarse limits. Omit to expose the reference
-   * service's fail-closed default (no enabled schemes or numeric limits).
+   * configured schemes and coarse limits. Scheme disclosure is advisory and is
+   * never used as fetch authorization. Omit to disclose no schemes or limits.
    */
   resourceInfo?: ResourceInfoProvider;
 }
@@ -163,7 +180,7 @@ export type ResourceErrorCode =
   | 'network-error'
   | 'quota-exceeded';
 
-/** A host policy failure with a stable NAP-RESOURCE error classification. */
+/** A runtime resolver failure with a stable NAP-RESOURCE error classification. */
 export class ResourceServiceError extends Error {
   /**
    * @param code - Canonical NAP-RESOURCE error code.
@@ -200,17 +217,26 @@ function requestKey(windowId: string, requestId: string): string {
 }
 
 function assertResourceOptions(options: ResourceServiceOptions): void {
+  if (typeof options?.fetch !== 'function') {
+    throw new Error(
+      '[RESOURCE-01] createResourceService requires a runtime-provided fetch resolver.',
+    );
+  }
+  const hasOriginPolicy =
+    options.isOriginGranted !== undefined || options.getConnectGrants !== undefined;
   if (
-    typeof options?.fetch !== 'function' ||
-    typeof options?.isOriginGranted !== 'function' ||
-    typeof options?.getConnectGrants !== 'function' ||
-    typeof options?.resolveIdentity !== 'function'
+    hasOriginPolicy && (
+      typeof options.isOriginGranted !== 'function'
+      || typeof options.getConnectGrants !== 'function'
+      || typeof options.resolveIdentity !== 'function'
+    )
   ) {
     throw new Error(
-      '[RESOURCE-01 / H-03] createResourceService requires {fetch, isOriginGranted, getConnectGrants, resolveIdentity} ' +
-      '— all four options are required from day one. ' +
-      'The grants source (getConnectGrants) MUST be wired at construction time to prevent unguarded fetch proxying.',
+      '[RESOURCE-01] optional origin policy requires {isOriginGranted, getConnectGrants, resolveIdentity} together.',
     );
+  }
+  if (options.resolveIdentity !== undefined && typeof options.resolveIdentity !== 'function') {
+    throw new Error('[RESOURCE-01] resolveIdentity must be a function when provided.');
   }
 }
 
@@ -293,6 +319,7 @@ function normalizeResourceInfo(info: ResourceInfo): ResourceInfo {
       : [],
     ...(typeof info.maxBytes === 'number' ? { maxBytes: info.maxBytes } : {}),
     ...(typeof info.maxUrls === 'number' ? { maxUrls: info.maxUrls } : {}),
+    ...(typeof info.maxServers === 'number' ? { maxServers: info.maxServers } : {}),
   };
 }
 
@@ -302,7 +329,7 @@ async function resolveResourceInfo(
 ): Promise<ResourceInfo> {
   const configured = options.resourceInfo ?? DEFAULT_RESOURCE_INFO;
   const info = typeof configured === 'function'
-    ? await configured({ windowId, identity: options.resolveIdentity(windowId) })
+    ? await configured({ windowId, identity: options.resolveIdentity?.(windowId) ?? null })
     : configured;
   return normalizeResourceInfo(info);
 }
@@ -348,32 +375,44 @@ function classifyResourceFailure(error: unknown): { error: ResourceErrorCode; me
 
 async function fetchResourceItem(
   options: ResourceServiceOptions,
-  identity: { dTag: string; aggregateHash: string },
+  windowId: string,
   info: ResourceInfo,
-  url: string,
+  request: ResourceBytesRequest,
   signal: AbortSignal,
 ): Promise<ResourceFetchItem> {
+  const { url } = request;
   const parsedUrl = parseResourceUrl(url);
   if (!parsedUrl) return resourceInvalidRequest(url, `invalid URL: ${url}`);
-  const scheme = parsedUrl.protocol.slice(0, -1).toLowerCase();
-  if (!info.schemes.some((item) => item.enabled && item.scheme.toLowerCase() === scheme)) {
-    return { ok: false, url, error: 'unsupported-scheme', message: `scheme ${scheme} is not enabled` };
-  }
-  const origin = parsedUrl.origin;
-  const grants = options.getConnectGrants(identity.dTag, identity.aggregateHash);
-  if (!options.isOriginGranted(origin, grants)) {
-    return {
-      ok: false,
-      url,
-      error: 'blocked-by-policy',
-      message: `origin ${origin} not granted`,
-    };
+  if (parsedUrl.origin !== 'null' && options.isOriginGranted && options.getConnectGrants) {
+    const identity = options.resolveIdentity?.(windowId) ?? null;
+    if (!identity) {
+      return {
+        ok: false,
+        url,
+        error: 'blocked-by-policy',
+        message: 'napplet identity not resolvable for runtime origin policy',
+      };
+    }
+    const origin = parsedUrl.origin;
+    const grants = options.getConnectGrants(identity.dTag, identity.aggregateHash);
+    if (!options.isOriginGranted(origin, grants)) {
+      return {
+        ok: false,
+        url,
+        error: 'blocked-by-policy',
+        message: `origin ${origin} not granted by runtime policy`,
+      };
+    }
   }
 
   try {
     const response = await options.fetch(url, {
       method: 'GET',
       signal,
+      windowId,
+      ...(parsedUrl.protocol === 'blossom:' && request.servers !== undefined
+        ? { servers: [...request.servers] }
+        : {}),
     });
     const buffer = await response.arrayBuffer();
     if (info.maxBytes !== undefined && buffer.byteLength > info.maxBytes) {
@@ -403,22 +442,16 @@ async function handleBytes(
   options: ResourceServiceOptions,
   state: ResourceRequestState,
   windowId: string,
-  msg: { requestId: string; url: string },
+  msg: { requestId: string } & ResourceBytesRequest,
   send: (m: NappletMessage) => void,
 ): Promise<void> {
-  const { requestId, url } = msg;
-  const identity = options.resolveIdentity(windowId);
-  if (!identity) {
-    sendResourceError(send, requestId, 'napplet identity not resolvable', 'blocked-by-policy');
-    return;
-  }
-
+  const { requestId, ...request } = msg;
   const controller = new AbortController();
   trackRequest(state, requestId, windowId, controller);
 
   try {
     const info = await resolveResourceInfo(options, windowId);
-    const item = await fetchResourceItem(options, identity, info, url, controller.signal);
+    const item = await fetchResourceItem(options, windowId, info, request, controller.signal);
     if (controller.signal.aborted) return;
     if (!item.ok) {
       sendResourceError(send, requestId, item.message, item.error);
@@ -444,18 +477,12 @@ async function handleBytesMany(
   options: ResourceServiceOptions,
   state: ResourceRequestState,
   windowId: string,
-  msg: { requestId: string; urls: readonly string[] },
+  msg: { requestId: string; requests: readonly ResourceBytesRequest[] },
   send: (m: NappletMessage) => void,
 ): Promise<void> {
-  const { requestId, urls } = msg;
-  if (!Array.isArray(urls) || urls.length === 0 || urls.some((url) => typeof url !== 'string')) {
-    sendBytesManyError(send, requestId, 'resource.bytesMany requires a non-empty urls array', 'invalid-request');
-    return;
-  }
-
-  const identity = options.resolveIdentity(windowId);
-  if (!identity) {
-    sendBytesManyError(send, requestId, 'napplet identity not resolvable', 'blocked-by-policy');
+  const { requestId, requests } = msg;
+  if (!isResourceRequestList(requests)) {
+    sendBytesManyError(send, requestId, 'resource.bytesMany requires a non-empty requests array', 'invalid-request');
     return;
   }
 
@@ -467,7 +494,7 @@ async function handleBytesMany(
     sendBytesManyError(send, requestId, failure.message, failure.error);
     return;
   }
-  if (info.maxUrls !== undefined && urls.length > info.maxUrls) {
+  if (info.maxUrls !== undefined && requests.length > info.maxUrls) {
     sendBytesManyError(send, requestId, `resource.bytesMany exceeds ${info.maxUrls} URLs`, 'too-large');
     return;
   }
@@ -476,8 +503,8 @@ async function handleBytesMany(
   trackRequest(state, requestId, windowId, controller);
   try {
     const items: Array<Record<string, unknown>> = [];
-    for (const url of urls) {
-      const item = await fetchResourceItem(options, identity, info, url, controller.signal);
+    for (const request of requests) {
+      const item = await fetchResourceItem(options, windowId, info, request, controller.signal);
       if (controller.signal.aborted) return;
       if (item.ok) {
         items.push({
@@ -510,6 +537,22 @@ async function handleBytesMany(
   }
 }
 
+function hasValidServerHints(request: { servers?: readonly unknown[] }): boolean {
+  return request.servers === undefined
+    || (Array.isArray(request.servers) && request.servers.every((server) => typeof server === 'string'));
+}
+
+function isResourceRequestList(value: unknown): value is readonly ResourceBytesRequest[] {
+  return Array.isArray(value)
+    && value.length > 0
+    && value.every((request) => (
+      typeof request === 'object'
+      && request !== null
+      && typeof (request as ResourceBytesRequest).url === 'string'
+      && hasValidServerHints(request as ResourceBytesRequest)
+    ));
+}
+
 function handleCancel(state: ResourceRequestState, windowId: string, requestId: string): void {
   const entry = state.inFlight.get(requestKey(windowId, requestId));
   if (entry) {
@@ -537,15 +580,14 @@ function destroyWindowRequests(state: ResourceRequestState, windowId: string): v
  * `resource.bytes`, `resource.bytesMany`, `resource.cancel`, and their
  * result/error envelopes.
  *
- * On-construction guard (H-03 prevention): all four options are validated at
- * factory call time. If any is missing, the factory throws immediately with a
- * message containing `[RESOURCE-01 / H-03]` so misconfigured shell apps fail
- * loudly at startup rather than silently at first dispatch.
+ * The runtime resolver is validated at construction. Runtime implementers may
+ * additionally install the origin-grant adapter; Kehto provides and enforces
+ * the hook contract without selecting the grants or requiring that policy.
  *
  * Returns a `ServiceHandler` (no `publishValues`-style surface — resource has
  * no shell-initiated push beyond the response/error path).
  *
- * @param options - REQUIRED: fetch, isOriginGranted, getConnectGrants, resolveIdentity
+ * @param options - Runtime resolver plus optional runtime-owned policy helpers
  * @returns ServiceHandler to register via `runtime.registerService('resource', handler)`
  *
  * @example
@@ -553,7 +595,7 @@ function destroyWindowRequests(state: ResourceRequestState, windowId: string): v
  * import { createResourceService } from '@kehto/services';
  *
  * const svc = createResourceService({
- *   fetch: (url, init) => globalThis.fetch(url, init),
+ *   fetch: (url, init) => runtimeResources.resolve(url, init),
  *   isOriginGranted: (origin, grants) => grants.includes(origin),
  *   getConnectGrants: (dTag, hash) => myOriginGrantStore.getOrigins(dTag, hash),
  *   resolveIdentity: (windowId) => sessionRegistry.getEntryByWindowId(windowId) ?? null,
@@ -572,7 +614,7 @@ export function createResourceService(options: ResourceServiceOptions): Resource
     name: 'resource',
     version: RESOURCE_SERVICE_VERSION,
     description:
-      'NAP-RESOURCE reference service — shell-proxied authenticated fetch (RESOURCE-01..06)',
+      'NAP-RESOURCE service — runtime-resolved byte transport (RESOURCE-01..06)',
   };
 
   const handler: ServiceHandler = {
@@ -589,14 +631,19 @@ export function createResourceService(options: ResourceServiceOptions): Resource
             id?: string;
             requestId?: string;
             url: string;
+            servers?: readonly string[];
           };
           const requestId = requestIdFromMessage(m);
           if (!requestId) return;
-          if (typeof m.url !== 'string') {
-            sendResourceError(send, requestId, 'resource.bytes requires a URL', 'invalid-request');
+          if (typeof m.url !== 'string' || !hasValidServerHints(m)) {
+            sendResourceError(send, requestId, 'resource.bytes requires a URL and optional string servers', 'invalid-request');
             return;
           }
-          handleBytes(options, state, windowId, { requestId, url: m.url }, send).catch(() => { /* errors surface via send() */ });
+          handleBytes(options, state, windowId, {
+            requestId,
+            url: m.url,
+            ...(m.servers !== undefined ? { servers: [...m.servers] } : {}),
+          }, send).catch(() => { /* errors surface via send() */ });
           return;
         }
 
@@ -612,11 +659,11 @@ export function createResourceService(options: ResourceServiceOptions): Resource
           const m = message as NappletMessage & {
             id?: string;
             requestId?: string;
-            urls?: readonly string[];
+            requests?: readonly ResourceBytesRequest[];
           };
           const requestId = requestIdFromMessage(m);
           if (!requestId) return;
-          handleBytesMany(options, state, windowId, { requestId, urls: m.urls ?? [] }, send).catch(() => { /* errors surface via send() */ });
+          handleBytesMany(options, state, windowId, { requestId, requests: m.requests ?? [] }, send).catch(() => { /* errors surface via send() */ });
           return;
         }
 

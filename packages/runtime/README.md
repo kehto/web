@@ -2,7 +2,7 @@
 
 Browser-agnostic protocol engine for the napplet protocol.
 
-> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. NAP contracts and runtime APIs are not final; treat this package as
 > current implementation guidance, not as a stable protocol guarantee.
 
@@ -15,8 +15,8 @@ pnpm add @kehto/runtime
 ## Published Napplet Compatibility
 
 `@kehto/runtime` publishes against `@napplet/core` and `@napplet/nap`
-`>=0.31.0 <0.32.0`. The exact installed convention contracts are core 0.31.1 /
-nap 0.31.2 from NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`,
+`>=0.32.0 <0.33.0`. The exact installed convention contracts are core 0.32.0 /
+nap 0.32.0 from NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`,
 napplet/web#199 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release
 source `dc1d24153c759152b6ba31a6ec9bea967798f2df`.
@@ -51,7 +51,13 @@ the relay backend. Success returns exactly one correlated
 Signing, replay, relay, and service failures return `ok: false` plus `error`
 and are never buffered as successful local publications.
 
-The released `@napplet/nap@0.31.2` SDK accepts `EventTemplate`, while its
+`AuthAdapter.getSigner(windowId?)` receives the originating runtime window when
+one exists. Kehto forwards that context as a policy mechanism; it does not
+decide whether a host prompts once, remembers a narrowly scoped approval, or
+refuses the request. Hosts that do not need caller-aware signer policy can
+ignore the optional argument.
+
+The released `@napplet/nap@0.32.0` SDK accepts `EventTemplate`, while its
 `RelayPublishMessage.event` declaration still says `NostrEvent`; Kehto records
 that mismatch as upstream package drift and follows the NAP wire direction.
 
@@ -93,6 +99,15 @@ readied the verified target and dispatched its convention. The final result
 includes `handled`, `handler`, `windowId`, and `convention`. The target receives
 one runtime-attested `inc.event` carrying that queryless convention and opaque
 payload; `intent.deliver` is not part of the merged contract.
+
+## NAP-OUTBOX denial boundary
+
+Kehto follows draft [NAP-OUTBOX PR #32 at
+`4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e`](https://github.com/napplet/naps/pull/32).
+ACL and firewall policy may reject an outbox query, but the rejection stays on
+the protocol-defined correlated result wire: `outbox.query.result` with
+`events: []` and `error`. The runtime does not synthesize an
+`outbox.query.error` message.
 
 The canonical public `Intent*` contracts are the released `@napplet/core` /
 `@napplet/nap` declarations; Kehto retains no local type mirror.

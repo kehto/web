@@ -2,7 +2,7 @@
 
 Browser adapter over @kehto/runtime — ShellBridge and domain proxies.
 
-> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. NAP contracts and injected-domain behavior are still draft; treat
 > this package as current implementation guidance.
 
@@ -15,7 +15,7 @@ pnpm add @kehto/shell
 ## Published Napplet Compatibility
 
 `@kehto/shell` publishes against `@napplet/core` and `@napplet/nap`
-`>=0.31.0 <0.32.0`. The installed core 0.31.1 / nap 0.31.2 contracts follow
+`>=0.32.0 <0.33.0`. The installed core 0.32.0 / nap 0.32.0 contracts follow
 NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`, napplet/web#199
 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release
@@ -30,7 +30,12 @@ The primary entry point is `createShellBridge()` — it owns the postMessage lis
 Current draft behaviors this package enforces:
 
 - The shell does not inject a host-provided nostr object into napplets — NIP-5D explicitly forbids napplet-visible signing. Napplets call `relay.publish` / `relay.publishEncrypted` and the shell mediates the signing flow internally (NIP-44 default, NIP-04 opt-in for encrypted envelopes).
-- `injectNappletNamespacePrelude()` implements the NIP-5D injected-domain bootstrap and mandatory NAP-SHELL shim: hosts prepend it to `srcdoc` outside verified artifact bytes, install the parent-bound `shell.init` receiver, emit one `shell.ready`, and expose callable NAP interfaces before authored scripts run. Optional namespaces are filtered to the bare-domain allowlist; `shell` is always retained. Published core 0.31.1 and shim 0.29.2 omit generic mandatory shell, so Kehto retains this host-owned prelude under NAP-SHELL `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until an upstream correction is reviewed.
+- `AuthHooks.getSigner(windowId?)` receives the originating iframe window ID
+  when the runtime can identify it. The shell forwards this optional context
+  without imposing a consent policy; host runtimes may ignore it or use it to
+  resolve their own identity-scoped signer decisions.
+- `injectNappletNamespacePrelude()` implements the NIP-5D injected-domain bootstrap and mandatory NAP-SHELL shim: hosts prepend it to `srcdoc` outside verified artifact bytes, install the parent-bound `shell.init` receiver, emit one `shell.ready`, and expose callable NAP interfaces before authored scripts run. Optional namespaces are filtered to the bare-domain allowlist; `shell` is always retained. Published core 0.32.0 and shim 0.30.0 omit generic mandatory shell, so Kehto retains this host-owned prelude under NAP-SHELL `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until an upstream correction is reviewed.
+- The injected resource projection follows draft NAP-RESOURCE `9511232f69313aa7953d110e35d32cc28d506f66`: `bytes(url, { servers? })` carries advisory Blossom locations and `bytesMany(requests)` keeps each `{ url, servers? }` entry intact.
 - `window.napplet.shell.supports(domain)` answers synchronously and locally from the cached first `shell.init` environment. It returns `false` before `shell.init`, for unknown values, and for domains that are not live and granted to that napplet; it never sends a support-query message.
 - Five optional per-domain proxies — `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` — can be composed between napplet and runtime to intercept request traffic per NAP. They are NOT wired by default. Identity/theme proxy `emit()` compatibility members fail closed; hosts must deliver automatic changes through `ShellBridge.publishIdentityChanged()` / `publishTheme()`, which enforce live session, granted domain, and current ACL.
 - `keys.forward` is napplet-to-shell only. Active napplets suppress locally-bound keys from `keys.bindings` before forwarding; shell-initiated action triggers use `keys.action`.
@@ -56,7 +61,7 @@ dispatch, and does not infer payload kinds. Runtime delivery supplies the
 **runtime-attested dTag**; no caller sender is accepted, topic source exclusion
 is runtime-owned, and IDs and payloads are opaque.
 
-Merged NAP-INC and released `@napplet/nap@0.31.2` both deliver one `IncEvent`
+Merged NAP-INC and released `@napplet/nap@0.32.0` both deliver one `IncEvent`
 to `on(topic, callback)`.
 
 For channels, runtime ACL checks are open-only rather than per-message. The

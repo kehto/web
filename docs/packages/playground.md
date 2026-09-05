@@ -1,6 +1,8 @@
 # @kehto/playground
 
-Browser playground that hosts 9 demo napplets and demonstrates Kehto integration behavior.
+Browser visualization that hosts 9 demo napplets and demonstrates Kehto
+integration behavior. Paja, not the playground, is Kehto's reference developer
+runtime.
 
 > **Alpha status:** The playground shows Kehto's current behavior for the draft
 > NIP-5D protocol. It is not a stability guarantee for NAP contracts or helper APIs.
@@ -18,7 +20,7 @@ pnpm --filter @kehto/playground preview --port 4174
 | Field | Value |
 |-------|-------|
 | Source | `apps/playground/package.json`, `apps/playground/README.md` |
-| Version | `0.1.6` |
+| Version | `0.1.11` |
 | Private | `true` |
 | Scripts | `dev`, `build`, `preview` |
 
@@ -69,13 +71,14 @@ replacement, error, clear, and `pagehide`—never direct remote image URLs.
 `theme.get` supplies the current complete state and each eligible frame receives
 one automatic synchronized `theme.changed` after an update. There is no
 subscribe/unsubscribe protocol. The mandatory shell is likewise host-owned:
-`@napplet/shim@0.29.2` does not provide `window.napplet.shell`; Kehto's prelude
+`@napplet/shim@0.30.0` does not provide `window.napplet.shell`; Kehto's prelude
 installs it before one bare ready/init handshake.
 
 Resource demo behavior targets draft NAP-RESOURCE at exact ref
-`fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1` together with Kehto's resource
-hardening policy. The playground does not define new wire semantics or NAP-DM
-behavior.
+`9511232f69313aa7953d110e35d32cc28d506f66`. It uses the injected canonical
+`bytesMany([{ url, servers? }])` projection rather than a raw envelope. Its static grants and iframe CSP
+visualize one host policy; they are not Kehto kernel requirements. The playground
+does not define new wire semantics, runtime origin policy, or NAP-DM behavior.
 
 ## Scope Boundaries
 

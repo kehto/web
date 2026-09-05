@@ -123,20 +123,38 @@ function nappletNamespacePrelude(domains: string[]): void {
     message: RuntimeMessage,
     resultType: string,
     map: (message: RuntimeMessage) => T,
-    options: { rejectOnError?: boolean } = {},
+    options: {
+      rejectOnError?: boolean;
+      timeoutMs?: number | null;
+      signal?: AbortSignal;
+      cancelOnAbort?: boolean;
+    } = {},
   ): Promise<T> {
     const requestId = message.id ?? id();
     const outbound = { ...message, id: requestId };
+    const timeoutMs = options.timeoutMs === undefined ? requestTimeoutMs : options.timeoutMs;
+    if (options.signal?.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
     return new Promise<T>((resolve, reject) => {
-      const off = listen((event) => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let off: (() => void) | undefined;
+      const cleanup = (): void => {
+        off?.();
+        if (timer !== undefined) clearTimeout(timer);
+        options.signal?.removeEventListener('abort', abort);
+      };
+      const abort = (): void => {
+        cleanup();
+        if (options.cancelOnAbort) post({ type: 'resource.cancel', id: requestId });
+        reject(new DOMException('Aborted', 'AbortError'));
+      };
+      off = listen((event) => {
         if (!isParentMessage(event)) return;
         const incoming = event.data;
         if (typeof incoming !== 'object' || incoming === null) return;
         const msg = incoming as RuntimeMessage;
         if (msg.type !== resultType && msg.type !== `${message.type}.error`) return;
         if (msg.id !== requestId) return;
-        off();
-        clearTimeout(timer);
+        cleanup();
         const error = typeof msg.error === 'string' ? msg.error : '';
         if (error && options.rejectOnError !== false) {
           reject(new Error(error));
@@ -148,10 +166,13 @@ function nappletNamespacePrelude(domains: string[]): void {
           reject(err);
         }
       });
-      const timer = setTimeout(() => {
-        off();
-        reject(new Error(`${message.type} timed out`));
-      }, requestTimeoutMs);
+      if (timeoutMs !== null) {
+        timer = setTimeout(() => {
+          cleanup();
+          reject(new Error(`${message.type} timed out`));
+        }, timeoutMs);
+      }
+      options.signal?.addEventListener('abort', abort, { once: true });
       post(outbound);
     });
   }
@@ -1039,11 +1060,32 @@ function nappletNamespacePrelude(domains: string[]): void {
 
   function makeResource(): Record<string, unknown> {
     const objectUrls = new Set<string>();
-    const bytes = (url: string) => request({ type: 'resource.bytes', url }, 'resource.bytes.result', (msg) => msg.blob);
+    const bytes = (url: string, options?: { servers?: string[]; signal?: AbortSignal }) => request({
+      type: 'resource.bytes',
+      url,
+      ...(Array.isArray(options?.servers) ? { servers: Array.from(options.servers) } : {}),
+    }, 'resource.bytes.result', (msg) => msg.blob, {
+      timeoutMs: null,
+      signal: options?.signal,
+      cancelOnAbort: true,
+    });
     return {
       info: () => request({ type: 'resource.info' }, 'resource.info.result', (msg) => msg.info),
       bytes,
-      bytesMany: (urls: string[]) => request({ type: 'resource.bytesMany', urls }, 'resource.bytesMany.result', (msg) => Array.isArray(msg.items) ? msg.items : []),
+      bytesMany: (
+        requests: Array<{ url: string; servers?: string[] }>,
+        options?: { signal?: AbortSignal },
+      ) => request({
+        type: 'resource.bytesMany',
+        requests: Array.from(requests || [], (entry) => ({
+          url: entry.url,
+          ...(Array.isArray(entry.servers) ? { servers: Array.from(entry.servers) } : {}),
+        })),
+      }, 'resource.bytesMany.result', (msg) => Array.isArray(msg.items) ? msg.items : [], {
+        timeoutMs: null,
+        signal: options?.signal,
+        cancelOnAbort: true,
+      }),
       bytesAsObjectURL(url: string) {
         let objectUrl = '';
         const handle = {

@@ -4,6 +4,12 @@ import {
 } from './browser-adapter.js';
 import { appendPajaMessageLog } from './browser-devtools.js';
 import { createPajaSignerController } from './browser-signers.js';
+import {
+  createPajaSignerConsentStore,
+  isPajaSignerConsentContext,
+  type PajaSignerConsentMatch,
+  type PajaSignerRequestContext,
+} from './browser-signer-consent.js';
 import type { PajaBrowserState } from './browser-host.js';
 import type { PajaUserActivationHandler } from './browser-device-services.js';
 
@@ -13,8 +19,20 @@ export interface PajaConfirmationController {
   readonly confirm: PajaConfirmationHandler;
   /** Run a chooser or permission API synchronously from the approval click. */
   readonly activation: PajaUserActivationHandler;
+  /** Remove every exact-identity signer decision remembered by Paja. */
+  clearSignerConsent(): boolean;
+  /** Count remembered kind and exact-napplet signer decisions. */
+  getSignerConsentCount(): number;
   /** Deny queued work and detach host-page listeners. */
   dispose(): void;
+}
+
+/** Browser persistence and lifecycle callbacks for the confirmation UI. */
+export interface PajaConfirmationControllerOptions {
+  /** Durable signer-consent storage. Defaults to browser localStorage. */
+  readonly storage?: Storage | null;
+  /** Called after remembered signer decisions change. */
+  readonly onSignerConsentChange?: (count: number) => void;
 }
 
 interface PendingConfirmation {
@@ -28,6 +46,18 @@ interface ConfirmationCopy {
   readonly summary: string;
   readonly details: string;
   readonly approveLabel: string;
+}
+
+type SignerApprovalMode =
+  | 'once'
+  | 'remember-kind'
+  | 'trust-napplet'
+  | 'remembered-kind'
+  | 'remembered-napplet';
+
+interface SignerConsentCandidate {
+  readonly context: PajaSignerRequestContext;
+  readonly kind: number;
 }
 
 function confirmationDetails(...lines: Array<string | undefined>): string {
@@ -47,10 +77,12 @@ function confirmationCopy(
  * Create Paja's accessible, fail-closed confirmation queue.
  *
  * @param getState - Returns current Paja browser state for decision logging.
+ * @param options - Durable signer-consent storage and lifecycle callback
  * @returns Controller shared by signer, relay, link, and upload operations.
  */
 export function createPajaConfirmationController(
   getState: () => PajaBrowserState | null,
+  options: PajaConfirmationControllerOptions = {},
 ): PajaConfirmationController {
   const dialog = document.getElementById('paja-confirmation-dialog');
   const title = document.getElementById('paja-confirmation-title');
@@ -58,26 +90,98 @@ export function createPajaConfirmationController(
   const details = document.getElementById('paja-confirmation-details');
   const approve = document.getElementById('paja-confirmation-approve');
   const deny = document.getElementById('paja-confirmation-deny');
+  const signerConsent = document.getElementById('paja-signer-consent');
+  const signerConsentOnce = document.getElementById('paja-signer-consent-once');
+  const signerConsentKind = document.getElementById('paja-signer-consent-kind');
+  const signerConsentNapplet = document.getElementById('paja-signer-consent-napplet');
+  const signerConsentKindValue = document.getElementById('paja-signer-consent-kind-value');
+  const signerConsentNappletValue = document.getElementById('paja-signer-consent-napplet-value');
   const ready = dialog instanceof HTMLDialogElement
     && title instanceof HTMLElement
     && summary instanceof HTMLElement
     && details instanceof HTMLElement
     && approve instanceof HTMLButtonElement
     && deny instanceof HTMLButtonElement;
+  const signerConsentReady = signerConsent instanceof HTMLFieldSetElement
+    && signerConsentOnce instanceof HTMLInputElement
+    && signerConsentKind instanceof HTMLInputElement
+    && signerConsentNapplet instanceof HTMLInputElement
+    && signerConsentKindValue instanceof HTMLElement
+    && signerConsentNappletValue instanceof HTMLElement;
+  const consentStore = createPajaSignerConsentStore(
+    options.storage === undefined ? undefined : options.storage,
+  );
   const queue: PendingConfirmation[] = [];
   let active: PendingConfirmation | null = null;
   let previousFocus: HTMLElement | null = null;
   let disposed = false;
 
+  const reportSignerConsentChange = () => {
+    options.onSignerConsentChange?.(consentStore.count());
+  };
+
+  const configureSignerConsent = (request: PajaConfirmationRequest) => {
+    if (!signerConsentReady) return;
+    signerConsent.hidden = true;
+    signerConsentOnce.checked = true;
+    signerConsentKind.checked = false;
+    signerConsentNapplet.checked = false;
+    const candidate = signerConsentCandidate(request);
+    if (!candidate) return;
+    signerConsent.hidden = false;
+    signerConsentKindValue.textContent = String(candidate.kind);
+    signerConsentNappletValue.textContent = candidate.context.napplet.dTag;
+  };
+
+  const rememberSignerChoice = (
+    request: PajaConfirmationRequest,
+  ): SignerApprovalMode => {
+    if (!signerConsentReady) return 'once';
+    const candidate = signerConsentCandidate(request);
+    if (!candidate) return 'once';
+    if (signerConsentNapplet.checked && consentStore.trustNapplet(candidate.context)) {
+      reportSignerConsentChange();
+      return 'trust-napplet';
+    }
+    if (signerConsentKind.checked && consentStore.rememberKind(candidate.context, candidate.kind)) {
+      reportSignerConsentChange();
+      return 'remember-kind';
+    }
+    return 'once';
+  };
+
+  const rememberedSignerChoice = (
+    request: PajaConfirmationRequest,
+  ): PajaSignerConsentMatch | null => {
+    const candidate = signerConsentCandidate(request);
+    return candidate ? consentStore.match(candidate.context, candidate.kind) : null;
+  };
+
   const pump = () => {
     if (!ready || disposed || active) return;
-    active = queue.shift() ?? null;
+    while (!active && queue.length > 0) {
+      const candidate = queue.shift() ?? null;
+      if (!candidate) break;
+      const remembered = rememberedSignerChoice(candidate.request);
+      if (!remembered) {
+        active = candidate;
+        break;
+      }
+      recordPajaConfirmation(
+        getState(),
+        candidate.request,
+        true,
+        remembered === 'kind' ? 'remembered-kind' : 'remembered-napplet',
+      );
+      candidate.approve();
+    }
     if (!active) return;
     const copy = describeConfirmation(active.request);
     title.textContent = copy.title;
     summary.textContent = copy.summary;
     details.textContent = copy.details;
     approve.textContent = copy.approveLabel;
+    configureSignerConsent(active.request);
     previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     dialog.showModal();
     deny.focus();
@@ -88,7 +192,8 @@ export function createPajaConfirmationController(
     if (!current) return;
     active = null;
     if (ready && dialog.open) dialog.close();
-    recordPajaConfirmation(getState(), current.request, allowed);
+    const approvalMode = allowed ? rememberSignerChoice(current.request) : undefined;
+    recordPajaConfirmation(getState(), current.request, allowed, approvalMode);
     if (allowed) current.approve();
     else current.deny();
     previousFocus?.focus();
@@ -144,6 +249,12 @@ export function createPajaConfirmationController(
         });
       },
     },
+    clearSignerConsent() {
+      const cleared = consentStore.clear();
+      reportSignerConsentChange();
+      return cleared;
+    },
+    getSignerConsentCount: () => consentStore.count(),
     dispose() {
       if (disposed) return;
       disposed = true;
@@ -159,6 +270,21 @@ export function createPajaConfirmationController(
       }
     },
   };
+}
+
+function signerConsentCandidate(
+  request: PajaConfirmationRequest,
+): SignerConsentCandidate | null {
+  if (request.action !== 'sign' || !request.signerContext) return null;
+  if (!isPajaSignerConsentContext(request.signerContext)) return null;
+  const kind = (request.event as { kind?: unknown }).kind;
+  if (
+    typeof kind !== 'number'
+    || !Number.isSafeInteger(kind)
+    || kind < 0
+    || kind > 65_535
+  ) return null;
+  return { context: request.signerContext, kind };
 }
 
 function describeConfirmation(request: PajaConfirmationRequest): ConfirmationCopy {
@@ -244,12 +370,26 @@ function describeConfirmation(request: PajaConfirmationRequest): ConfirmationCop
   const content = typeof event.content === 'string' && event.content.length > 0
     ? event.content.slice(0, 240)
     : '(empty content)';
+  const signerContext = request.signerContext;
   return {
     title: request.action === 'sign' ? 'Sign this Nostr event?' : 'Publish this Nostr event?',
     summary: request.action === 'sign'
-      ? 'The active signer will authorize this event.'
+      ? signerContext
+        ? `${signerContext.napplet.dTag} requests a signature from the active signer.`
+        : 'A Paja host operation requests a signature from the active signer.'
       : 'Paja will send this event to the configured relay set.',
-    details: `Kind: ${kind}\nContent: ${content}`,
+    details: confirmationDetails(
+      signerContext
+        ? `Napplet: ${signerContext.napplet.dTag} (${signerContext.windowId})`
+        : undefined,
+      signerContext ? `Identity hash: ${signerContext.napplet.aggregateHash}` : undefined,
+      signerContext?.runtimeScope.startsWith('target-url:')
+        ? `Target URL: ${signerContext.runtimeScope.slice('target-url:'.length)}`
+        : undefined,
+      signerContext ? `Signer: ${signerContext.signerPubkey}` : undefined,
+      `Kind: ${kind}`,
+      `Content: ${content}`,
+    ),
     approveLabel: request.action === 'sign' ? 'Sign' : 'Publish',
   };
 }
@@ -258,6 +398,7 @@ function recordPajaConfirmation(
   state: PajaBrowserState | null,
   request: PajaConfirmationRequest,
   allowed: boolean,
+  signerApprovalMode?: SignerApprovalMode,
 ): void {
   if (request.action === 'upload') {
     appendPajaMessageLog(state, 'paja', {
@@ -327,9 +468,16 @@ function recordPajaConfirmation(
   }
   if (!('event' in request)) return;
   const event = request.event as { kind?: unknown };
+  const signerContext = request.signerContext;
   appendPajaMessageLog(state, 'paja', {
     type: `paja.${request.action}.${allowed ? 'confirmed' : 'denied'}`,
     kind: typeof event.kind === 'number' ? event.kind : 'unknown',
+    windowId: signerContext?.windowId,
+    dTag: signerContext?.napplet.dTag,
+    aggregateHash: signerContext?.napplet.aggregateHash,
+    runtimeScope: signerContext?.runtimeScope,
+    signerPubkey: signerContext?.signerPubkey,
+    approval: signerApprovalMode,
   });
 }
 

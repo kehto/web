@@ -1,5 +1,81 @@
 # @kehto/paja
 
+## 0.16.3
+
+### Patch Changes
+
+- 7b2f482: Retain verified pointer-manifest Blossom servers as window-scoped resource fallbacks.
+
+## 0.16.2
+
+### Patch Changes
+
+- bdd3a53: Classify checksum-valid Game Boy ROM resources from their canonical header bytes so verified Blossom ROM blobs reach napplets instead of failing MIME decoding.
+
+## 0.16.1
+
+### Patch Changes
+
+- 2cd912d: Let Paja resolve OUTBOX-carried Blossom resources from event-local server hints, hinted authors' and the verified event publisher's BUD-03 lists, and the active shell user's published list before configured runtime fallbacks, independently of upload mode. Resource resolvers now receive the authenticated source window as private runtime context, and OUTBOX hosts can select a source-scoped router for every event-returning read.
+- Updated dependencies [2cd912d]
+  - @kehto/services@0.21.1
+
+## 0.16.0
+
+### Minor Changes
+
+- 3231957: Adopt the NAP-RESOURCE Blossom server-hint contract across the injected shell API, reference service, and Paja runtime. Single requests now carry optional advisory servers, bulk requests use per-resource request objects, and Paja validates, caps, and tries accepted hints before host defaults.
+
+### Patch Changes
+
+- Updated dependencies [3231957]
+  - @kehto/services@0.21.0
+  - @kehto/shell@0.21.0
+  - @kehto/runtime@0.23.0
+  - @kehto/acl@0.19.0
+  - @kehto/firewall@0.6.0
+
+## 0.15.2
+
+### Patch Changes
+
+- e5ff746: Permit verified WebAssembly napplets to compile under Paja's runtime-pointer CSP while keeping JavaScript string evaluation blocked.
+
+## 0.15.1
+
+### Patch Changes
+
+- d6a1ecd: Keep Paja ACL controls synchronized with the active resolver-verified napplet identity, and return denied outbox queries through the canonical `outbox.query.result` error shape.
+- Updated dependencies [d6a1ecd]
+  - @kehto/runtime@0.22.2
+
+## 0.15.0
+
+### Minor Changes
+
+- c8264c6: Forward optional signer caller context through the policy-neutral runtime and
+  shell hooks. Add Paja's signer-, napplet-, and target-scoped remembered signing
+  choices: one event, one event kind, or warned napplet trust, with explicit
+  revocation. Relay publication and host-internal signing confirmations remain
+  independent.
+
+### Patch Changes
+
+- b2449e4: Keep NAP resource resolution runtime-owned: the service kernel delegates valid
+  URLs by default while retaining optional origin-grant hooks, and Paja permits
+  browser-readable HTTP(S) resources alongside data and configured Blossom URLs.
+- Updated dependencies [c8264c6]
+- Updated dependencies [b2449e4]
+  - @kehto/runtime@0.22.1
+  - @kehto/shell@0.20.1
+  - @kehto/services@0.20.1
+
+## 0.14.0
+
+### Minor Changes
+
+- 8e09918: Allow the static GitHub Pages Paja runtime to be built with explicit live relay and Blossom upload backends. `build-paja-pages.mjs` now honors comma-separated `PAJA_RELAY_URLS` and `PAJA_UPLOAD_SERVERS` environment variables, and `createPajaRuntimeHostConfig` accepts a `simulation` override. When neither env var is set, the static build keeps its previous defaults.
+
 ## 0.13.0
 
 ### Minor Changes

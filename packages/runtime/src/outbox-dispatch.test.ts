@@ -129,7 +129,7 @@ describe('runtime outbox domain dispatch', () => {
     expect(ctx.sent).toHaveLength(0);
   });
 
-  it('denies outbox.query for a blocked napplet (ACL gate → outbox.query.error)', () => {
+  it('denies outbox.query with the canonical correlated result shape', () => {
     const received: NappletMessage[] = [];
     runtime.registerService('outbox', {
       descriptor: { name: 'outbox', version: '1.0.0' },
@@ -140,9 +140,37 @@ describe('runtime outbox domain dispatch', () => {
     runtime.handleMessage(WINDOW_ID, { type: 'outbox.query', id: 'q3', filters: FILTERS } as NappletMessage);
 
     expect(received).toHaveLength(0); // service never reached
-    const err = findEnvelopeResponse(ctx.sent, 'outbox.query.error');
-    expect(err).toBeDefined();
-    expect((err as { id?: string }).id).toBe('q3');
+    expect(ctx.sent).toEqual([{
+      windowId: WINDOW_ID,
+      message: {
+        type: 'outbox.query.result',
+        id: 'q3',
+        events: [],
+        error: 'denied: outbox:read',
+      },
+    }]);
+  });
+
+  it('uses the same canonical outbox.query result for a firewall denial', () => {
+    const received: NappletMessage[] = [];
+    runtime.registerService('outbox', {
+      descriptor: { name: 'outbox', version: '1.0.0' },
+      handleMessage(_wid, msg) { received.push(msg); },
+    });
+    runtime.firewallState.setPolicy(DTAG, 'deny');
+
+    runtime.handleMessage(WINDOW_ID, { type: 'outbox.query', id: 'q4', filters: FILTERS } as NappletMessage);
+
+    expect(received).toHaveLength(0);
+    expect(ctx.sent).toEqual([{
+      windowId: WINDOW_ID,
+      message: {
+        type: 'outbox.query.result',
+        id: 'q4',
+        events: [],
+        error: expect.stringMatching(/^firewall:/),
+      },
+    }]);
   });
 
 });

@@ -8,6 +8,8 @@ import {
 
 import type { PajaHostConfig } from './options.js';
 import type { PajaSignerState } from './browser-signers.js';
+import { getTargetIdentity } from './browser-target-frame.js';
+import type { PajaResolvedPointer } from './runtime-resolver.js';
 import {
   PAJA_SIMULATION_DOMAINS,
   type PajaCapabilityDomain,
@@ -36,10 +38,14 @@ export interface PajaMessageLogEntry {
 export interface PajaDevtoolsState {
   /** Current host config. */
   readonly config: PajaHostConfig;
+  /** Resolver-verified identity of the active runtime-pointer target. */
+  resolvedTarget: PajaResolvedPointer | null;
   /** Current simulation model. */
   simulation: PajaSimulation;
   /** Current signer state. */
   signer: PajaSignerState;
+  /** Number of remembered exact-identity signer decisions. */
+  signerConsentCount: number;
   /** Lowercase text filter for message log rows. */
   messageFilter: string;
   /** Accumulated message log rows. */
@@ -54,6 +60,8 @@ export interface PajaDevtoolsState {
   connectNip07(): Promise<void>;
   /** Connect signer controls to a bunker URI. */
   connectBunker(uri: string): Promise<void>;
+  /** Revoke every remembered signer decision. */
+  clearSignerConsent(): void;
 }
 
 const PAJA_LOG_LIMIT = 500;
@@ -129,14 +137,6 @@ function describeMessageDetail(raw: unknown): string {
 
 function domainEnabled(simulation: PajaSimulation, domain: PajaCapabilityDomain): boolean {
   return simulation.capabilities.domains[domain] === true;
-}
-
-function getTargetIdentity(config: PajaHostConfig): { pubkey: string; dTag: string; aggregateHash: string } {
-  return {
-    pubkey: '',
-    dTag: config.window.dTag,
-    aggregateHash: config.window.aggregateHash,
-  };
 }
 
 /**
@@ -360,7 +360,7 @@ function renderInterfaceControls(state: PajaDevtoolsState): void {
 function renderAclControls(state: PajaDevtoolsState, bridge: ShellBridge | null): void {
   const container = document.getElementById('acl-controls');
   if (!container) return;
-  const identity = getTargetIdentity(state.config);
+  const identity = getTargetIdentity(state.config, state.resolvedTarget);
   container.replaceChildren(...ALL_CAPABILITIES.map((capability) => {
     const allowed = bridge?.runtime.aclState.check(
       identity.pubkey,
@@ -383,7 +383,8 @@ function renderAclControls(state: PajaDevtoolsState, bridge: ShellBridge | null)
 function renderSignerStatus(state: PajaDevtoolsState, signerPubkey: string): void {
   const el = document.getElementById('signer-status');
   const controls = document.getElementById('signer-controls');
-  if (!el || !controls) return;
+  const clearConsent = document.getElementById('signer-consent-clear');
+  if (!el || !controls || !(clearConsent instanceof HTMLButtonElement)) return;
 
   const fallbackPubkey = state.simulation.identity.pubkey || (state.signer.method === 'dev' ? signerPubkey : '');
   const pubkey = state.simulation.identity.pubkey || state.signer.pubkey || (state.signer.method === 'dev' ? signerPubkey : '');
@@ -400,7 +401,14 @@ function renderSignerStatus(state: PajaDevtoolsState, signerPubkey: string): voi
     : state.signer.status === 'error'
     ? `${methodLabel} error: ${state.signer.error ?? 'unknown error'} · fallback pubkey ${fallbackPubkey}`
     : `${methodLabel} ${state.signer.status} · pubkey ${pubkey || '(none)'}${relay}`;
-  el.textContent = `${prefix} · every sign/publish request prompts`;
+  const consentSummary = state.signerConsentCount === 0
+    ? 'signing asks every time'
+    : `${state.signerConsentCount} remembered signing approval${state.signerConsentCount === 1 ? '' : 's'}`;
+  el.textContent = `${prefix} · ${consentSummary} · publishing asks every time`;
+
+  clearConsent.hidden = state.signerConsentCount === 0;
+  clearConsent.textContent = `Forget ${state.signerConsentCount} remembered approval${state.signerConsentCount === 1 ? '' : 's'}`;
+  clearConsent.onclick = () => state.clearSignerConsent();
 
   const previousInput = controls.querySelector<HTMLInputElement>('#signer-bunker-uri')?.value ?? '';
   const devButton = document.createElement('button');

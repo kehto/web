@@ -59,12 +59,29 @@ warning, when the target would block the sandboxed frame.
 
 The console shows supported interfaces with per-domain injection toggles,
 runtime ACL controls, signer controls, and a filterable message log with visible
-error details. Paja auto-connects a browser NIP-07 signer when `window.nostr` is
+error details. In runtime-pointer mode, ACL controls always display and mutate
+the active tab's resolver-verified d-tag and aggregate hash; a grant or revoke
+rerenders that same identity immediately. Paja auto-connects a browser NIP-07 signer when `window.nostr` is
 available, can connect to a bunker/NIP-46 URI, and only uses the generated local
 development signer when the Dev signer button is selected. Sign, publish, DM
 send, filesystem picker, Blossom upload, and external-link requests use one serialized in-page
-confirmation dialog. Deny has initial focus, Escape denies, and there is no
-bypass list. Upload consent identifies the requesting napplet, file, MIME type,
+confirmation dialog. Deny has initial focus and Escape denies. A napplet-scoped
+sign request defaults to one-time approval, with explicit options to remember
+that event kind or trust every kind from the napplet identity and target. The trust
+choice carries a visible warning. Remembered signing authority is keyed by the
+active signer pubkey, host-owned napplet d-tag and aggregate hash, and the Paja
+target boundary. Runtime pointers are isolated by verified artifact hash;
+direct development targets are isolated by exact target URL, and their trust
+survives code reloads at that URL. Changing the signer, identity, artifact, or
+target asks again. Missing source identity or a nonnumeric kind remains
+one-shot, denials are never remembered, and the signer controls can revoke
+every remembered approval. If durable deletion fails, Paja keeps the approval
+listed and logs the failure instead of claiming revocation. A full Paja host
+reload creates a new ephemeral Dev signer and therefore asks again; a stable
+NIP-07 or NIP-46 account can reuse its saved choice. Publish and other operation
+confirmations continue to prompt independently. This is Paja runtime policy under draft
+[NAP-RELAY PR #2 at `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`](https://github.com/napplet/naps/pull/2), not
+a Kehto kernel default. Upload consent identifies the requesting napplet, file, MIME type,
 size, selected server, and durable public effect before bytes leave the browser.
 A denial or a live publish with no accepting relay returns a canonical failure
 and is not added to Paja's in-memory relay view. Paja's scoped-relay hook
@@ -139,7 +156,7 @@ outside this behavior.
 [NAP-IDENTITY at `6461e4b37c29dc09a20dff35d9515889c4433874`](https://github.com/napplet/naps/blob/6461e4b37c29dc09a20dff35d9515889c4433874/naps/NAP-IDENTITY.md)
 is byte-identical to the recorded `napplet/naps` master document for this phase.
 Pinned [NAP-OUTBOX at `4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e`](https://github.com/napplet/naps/blob/4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e/naps/NAP-OUTBOX.md)
-together with installed `@napplet/nap@0.31.2` types is the PoC contract because
+together with installed `@napplet/nap@0.32.0` types is the PoC contract because
 current master has no NAP-OUTBOX path. Paja therefore makes no current-master
 OUTBOX conformance claim. Blossom upload behavior targets pinned
 [NAP-UPLOAD at `a7cc17463cbf5d9cb87884b31071bc4fc826034c`](https://github.com/napplet/naps/blob/a7cc17463cbf5d9cb87884b31071bc4fc826034c/naps/NAP-UPLOAD.md).
@@ -154,6 +171,23 @@ or `/web/paja/?nevent=...` link for that pointer, and the browser remembers open
 runtime tabs in local storage so returning to `/web/paja/` restores the previous
 pointer set. An explicit pointer in the URL still takes precedence over restored
 tabs.
+
+The static artifact defaults to Paja's standard live relays and memory uploads.
+To point it at specific live relays or Blossom upload servers, pass
+comma-separated host lists when generating the artifact:
+
+```bash
+PAJA_RELAY_URLS="wss://relay.example,wss://relay.example.net" \
+PAJA_UPLOAD_SERVERS="https://blossom.example" \
+node scripts/build-paja-pages.mjs
+```
+
+When `PAJA_UPLOAD_SERVERS` is set, the runtime enables the Blossom upload rail
+and also makes those servers explicit NAP-RESOURCE fallbacks. It is not needed
+for read-side discovery: resources learned through OUTBOX use their event hints
+and hinted-author/publisher server lists first, then the active shell user's
+published list, the current window's verified pointer-manifest servers, and
+finally configured runtime fallbacks.
 
 ## Installed intent handlers and delivery
 
@@ -179,7 +213,7 @@ identity. A superseded target/source, failed open/readiness, or terminal send is
 handled by the controller's replacement/retry/terminal policy and produces a
 canonical failed `IntentResult`.
 
-`@napplet/shim@0.29.2` supplies no generic shell API. Kehto deliberately keeps
+`@napplet/shim@0.30.0` supplies no generic shell API. Kehto deliberately keeps
 its host-owned mandatory `window.napplet.shell` prelude: it installs the live
 receiver before the one bare `shell.ready`, caches the first `shell.init`, and
 provides local `ready()`, `supports()`, read-only `services`, and one-shot
@@ -188,8 +222,9 @@ shim capability.
 
 Before Paja assigns a verified runtime-pointer document to `srcdoc`, it inserts
 Kehto's local Class-1 CSP before the host-owned namespace prelude. The policy
-denies all defaults; permits inline script/style, `data:`/`blob:` images, and
-`data:` fonts; grants `connect-src` only to the resolved relay and Blossom
+denies all defaults; permits inline script/style, WebAssembly compilation through
+the narrow `'wasm-unsafe-eval'` source, `data:`/`blob:` images, and `data:` fonts;
+keeps JavaScript string evaluation blocked; grants `connect-src` only to the resolved relay and Blossom
 origins; explicitly denies worker, child, frame, media, object, manifest,
 prefetch, base, and form capabilities; and ends with `frame-ancestors 'self'`.
 The NIP-5D verified-srcdoc and opaque-sandbox rules do not mandate this CSP;
@@ -270,18 +305,47 @@ pubkey without `signEvent` is read-only. This implements the draft
 
 ## NAP-RESOURCE schemes
 
-Paja supports locally decoded `data:` URLs and canonical
-`blossom:sha256:<hex>` resources. Blossom hashes are resolved only through
-host-owned runtime-pointer or upload server settings; there is no public
-default. Servers use HTTPS, with plain HTTP allowed only for loopback
-development. Paja refuses redirects, caps responses at 10 MiB, verifies the
-requested SHA-256, and derives MIME from the returned bytes before delivery.
+Paja's developer-runtime policy accepts arbitrary `http:` and `https:` resource
+URLs so a normal remote image does not look broken merely because its origin was
+not pre-granted. Paja resolves those URLs with browser `fetch`, omits credentials
+and referrer data, caps responses at 10 MiB, and classifies MIME from returned
+bytes. Its byte classifier recognizes checksum-valid Game Boy ROM headers as
+`application/vnd.nintendo.gb-rom`; it never trusts a server-supplied media type.
+Browser network and CORS rules still apply: an unreadable response is the
+canonical `network-error`, while any CORS-readable response is returned as NAP
+bytes.
 
-Direct `http:` and `https:` resource URLs remain disabled. They are distinct
-from the HTTP(S) transport selected internally for a `blossom:` identifier and
-still require a general DNS/private-address-safe fetch proxy. This behavior
-targets draft
-[NAP-RESOURCE at `fa6bcc6`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md).
+`data:` remains locally decoded. `blossom:` is a separate, content-addressed
+boundary and is advertised because each request may provide server locations
+without a host default. Paja accepts only public-looking HTTPS origin hints,
+discards invalid/private literals, and deduplicates them. For a canonical URL
+previously returned to the same napplet window by `outbox.getEvent`,
+`outbox.query`, or `outbox.subscribe`, Paja retains bounded event context
+without prefetching bytes. Resolution tries request and
+event-local server hints first, then lazily queries hinted authors' and the
+event publisher's newest BUD-03 kind `10063` lists through the verified
+NIP-65-aware OUTBOX router, then queries the active shell user's BUD-03 list
+through that same router, then uses the current window's verified
+pointer-manifest servers, followed by upload-runtime fallbacks. The user-list
+lookup works independently of upload mode; an upload runtime may reuse the same
+servers when present. ROM-specific event and publisher locations retain
+priority over the user/runtime fallbacks. The combined list is capped at eight
+candidates. The only accepted identifier is `blossom:sha256:<hex>`;
+Paja refuses redirects, verifies the requested SHA-256, and permits plain-HTTP
+transport only for configured loopback development defaults. Browser-only Paja
+cannot pin DNS results, so production runtimes must add the draft's DNS-time
+private-address checks. The current
+[NAP-RESOURCE draft at `fa6bcc6`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md)
+assigns fetching and policy to the runtime and defines no wire-level Blossom
+server-hint field. Retaining verified manifest servers per window is therefore
+Paja host policy, informed by the current
+[NIP-5D draft at `24711d9`](https://github.com/nostr-protocol/nips/blob/24711d9c47bbdd07908bf1d52bf677d9cbc530f0/5D.md),
+which defines manifest `server` tags. The existing request-server compatibility
+path comes from the earlier NAP-RESOURCE draft at `9511232`, with the merged package implementation
+[`napplet/web#206@19e0029b`](https://github.com/napplet/web/pull/206) released as
+`@napplet/core`/`@napplet/nap` 0.32.0, `@napplet/shim` 0.30.0, and
+`@napplet/sdk` 0.28.0. Publisher discovery follows
+[Blossom BUD-03 at `b5bd280`](https://github.com/hzrd149/blossom/blob/b5bd2801d1763aa635fc8fea7a76597e0eb18990/buds/03.md).
 
 Full package docs: [`docs/packages/paja.md`](../../docs/packages/paja.md).
 Getting started: [`docs/how-tos/paja-getting-started.md`](../../docs/how-tos/paja-getting-started.md).

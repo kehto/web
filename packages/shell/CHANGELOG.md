@@ -1,5 +1,37 @@
 # @kehto/shell
 
+## 0.21.1
+
+### Patch Changes
+
+- 872db9d: Keep resource byte requests pending until the runtime returns a terminal result
+  or error instead of applying the namespace's ordinary request deadline. Callers
+  can cancel pending transfers with the canonical `AbortSignal` option.
+
+## 0.21.0
+
+### Minor Changes
+
+- 3231957: Adopt the NAP-RESOURCE Blossom server-hint contract across the injected shell API, reference service, and Paja runtime. Single requests now carry optional advisory servers, bulk requests use per-resource request objects, and Paja validates, caps, and tries accepted hints before host defaults.
+
+### Patch Changes
+
+- Updated dependencies [3231957]
+  - @kehto/runtime@0.23.0
+  - @kehto/acl@0.19.0
+
+## 0.20.1
+
+### Patch Changes
+
+- c8264c6: Forward optional signer caller context through the policy-neutral runtime and
+  shell hooks. Add Paja's signer-, napplet-, and target-scoped remembered signing
+  choices: one event, one event kind, or warned napplet trust, with explicit
+  revocation. Relay publication and host-internal signing confirmations remain
+  independent.
+- Updated dependencies [c8264c6]
+  - @kehto/runtime@0.22.1
+
 ## 0.20.0
 
 ### Minor Changes

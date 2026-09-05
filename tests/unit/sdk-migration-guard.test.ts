@@ -49,10 +49,10 @@ const protocolPackageNames = [
 ] as const;
 
 const protocolPackageVersions: Record<(typeof protocolPackageNames)[number], string> = {
-  '@napplet/core': '0.31.1',
-  '@napplet/nap': '0.31.2',
-  '@napplet/sdk': '0.27.2',
-  '@napplet/shim': '0.29.2',
+  '@napplet/core': '0.32.0',
+  '@napplet/nap': '0.32.0',
+  '@napplet/sdk': '0.28.0',
+  '@napplet/shim': '0.30.0',
   '@napplet/vite-plugin': '0.14.1',
 };
 
@@ -63,6 +63,11 @@ const protocolAuthorities = Object.freeze({
   publishedSourceMerge: 'b3f0007867eac109fa4917fac9c285d3b7cc6155',
   publishedRelease: 'a79e7f4638f70f4557d4183faee9348847bb8cc7',
   publishedReleaseMerge: 'dc1d24153c759152b6ba31a6ec9bea967798f2df',
+  napResource: '9511232f69313aa7953d110e35d32cc28d506f66',
+  resourceSource: 'bfaa2428503d1e9d7fa4677998500e6a0b188b28',
+  resourceMerge: '19e0029b228127769a0ebdcf0b6b2f30293bd284',
+  resourceRelease: 'de1cb7ebb94c4acb76e5671babcf077247170af1',
+  resourcePublish: 'b007587afbefb0ce5592825d6ec1fc5b026c7b08',
 });
 
 // Only these executable product paths are migration evidence. Archived plans,
@@ -277,6 +282,11 @@ describe('current @napplet package graph guard', () => {
       publishedSourceMerge: 'b3f0007867eac109fa4917fac9c285d3b7cc6155',
       publishedRelease: 'a79e7f4638f70f4557d4183faee9348847bb8cc7',
       publishedReleaseMerge: 'dc1d24153c759152b6ba31a6ec9bea967798f2df',
+      napResource: '9511232f69313aa7953d110e35d32cc28d506f66',
+      resourceSource: 'bfaa2428503d1e9d7fa4677998500e6a0b188b28',
+      resourceMerge: '19e0029b228127769a0ebdcf0b6b2f30293bd284',
+      resourceRelease: 'de1cb7ebb94c4acb76e5671babcf077247170af1',
+      resourcePublish: 'b007587afbefb0ce5592825d6ec1fc5b026c7b08',
     });
 
     const publishedContract = readFileSync(
@@ -328,11 +338,11 @@ describe('current @napplet package graph guard', () => {
     }
   });
 
-  it('admits only the current @napplet 0.31 line on published kehto packages', () => {
+  it('admits only the current @napplet 0.32 line on published kehto packages', () => {
     // Kehto runtime packages track the current NAP contract so new canonical
     // fields are wired through runtime, services, shell, Paja, docs, and tests.
-    const PEER_RANGE = '>=0.31.0 <0.32.0';
-    const DEV_RANGE = '>=0.31.0 <0.32.0';
+    const PEER_RANGE = '>=0.32.0 <0.33.0';
+    const DEV_RANGE = '>=0.32.0 <0.33.0';
     for (const dir of publicPackageDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {

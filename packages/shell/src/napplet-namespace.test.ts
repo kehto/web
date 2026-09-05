@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   injectNappletNamespacePrelude,
   renderNappletNamespacePrelude,
@@ -560,6 +560,200 @@ describe('NIP-5D napplet namespace prelude', () => {
       topic: 'profile:open',
       payload: { pubkey: 'pubkey-1' },
     });
+  });
+
+  it('projects canonical per-resource server hints for resource bytes and bytesMany', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
+
+    const resource = target.napplet?.resource as {
+      bytes: (url: string, options?: { servers?: string[] }) => Promise<Blob>;
+      bytesMany: (
+        requests: Array<{ url: string; servers?: string[] }>,
+      ) => Promise<Array<{ url: string; ok: boolean }>>;
+    };
+    const url = `blossom:sha256:${'a'.repeat(64)}`;
+    const single = resource.bytes(url, { servers: ['https://cdn.example'] });
+    const singleRequest = withoutShellReady(target).at(-1);
+    expect(singleRequest).toEqual({
+      type: 'resource.bytes',
+      id: 'id-1',
+      url,
+      servers: ['https://cdn.example'],
+    });
+    const blob = new Blob(['rom']);
+    target.dispatchParentMessage({
+      type: 'resource.bytes.result',
+      id: singleRequest?.id,
+      blob,
+      mime: 'application/octet-stream',
+    });
+    await expect(single).resolves.toBe(blob);
+
+    const requests = [
+      { url, servers: ['https://one.example'] },
+      { url: 'https://media.example/image.png' },
+    ];
+    const many = resource.bytesMany(requests);
+    const manyRequest = withoutShellReady(target).at(-1);
+    expect(manyRequest).toEqual({
+      type: 'resource.bytesMany',
+      id: 'id-2',
+      requests,
+    });
+    const items = requests.map(({ url: requestUrl }) => ({ url: requestUrl, ok: false }));
+    target.dispatchParentMessage({
+      type: 'resource.bytesMany.result',
+      id: manyRequest?.id,
+      items,
+    });
+    await expect(many).resolves.toEqual(items);
+  });
+
+  it('keeps an active resource transfer pending beyond the ordinary request timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      const target = createPreludeTestWindow();
+      runPrelude(renderNappletNamespacePrelude({ domains: ['resource', 'identity'] }), target);
+      const napplet = target.napplet as {
+        resource: { bytes: (url: string) => Promise<Blob> };
+        identity: { getPublicKey: () => Promise<string> };
+      };
+      const url = `blossom:sha256:${'b'.repeat(64)}`;
+      const transfer = napplet.resource.bytes(url);
+      const ordinary = napplet.identity.getPublicKey();
+      let transferState = 'pending';
+      let ordinaryState = 'pending';
+      void transfer.then(
+        () => { transferState = 'resolved'; },
+        () => { transferState = 'rejected'; },
+      );
+      void ordinary.then(
+        () => { ordinaryState = 'resolved'; },
+        () => { ordinaryState = 'rejected'; },
+      );
+
+      await vi.advanceTimersByTimeAsync(30_001);
+
+      expect(ordinaryState).toBe('rejected');
+      expect(transferState).toBe('pending');
+      const request = withoutShellReady(target).find((message) => message.type === 'resource.bytes');
+      const blob = new Blob(['late resource']);
+      target.dispatchParentMessage({
+        type: 'resource.bytes.result',
+        id: request?.id,
+        blob,
+        mime: 'application/octet-stream',
+      });
+      await expect(transfer).resolves.toBe(blob);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('lets callers cancel a resource transfer after the ordinary request timeout', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
+    const resource = target.napplet?.resource as {
+      bytes: (url: string, options?: { signal?: AbortSignal }) => Promise<Blob>;
+    };
+    const controller = new AbortController();
+    const transfer = resource.bytes(`blossom:sha256:${'d'.repeat(64)}`, { signal: controller.signal });
+    const request = withoutShellReady(target).find((message) => message.type === 'resource.bytes');
+    let transferState = 'pending';
+    let transferError: unknown;
+    void transfer.then(
+      () => { transferState = 'resolved'; },
+      (error: unknown) => {
+        transferState = 'rejected';
+        transferError = error;
+      },
+    );
+
+    controller.abort();
+    await Promise.resolve();
+
+    expect(transferState).toBe('rejected');
+    expect(transferError).toMatchObject({ name: 'AbortError' });
+    expect(withoutShellReady(target).at(-1)).toEqual({ type: 'resource.cancel', id: request?.id });
+    target.dispatchParentMessage({
+      type: 'resource.bytes.result',
+      id: request?.id,
+      blob: new Blob(['ignored late resource']),
+      mime: 'application/octet-stream',
+    });
+    await Promise.resolve();
+    expect(transferState).toBe('rejected');
+  });
+
+  it('keeps an active resource batch pending beyond the ordinary request timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      const target = createPreludeTestWindow();
+      runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
+      const resource = target.napplet?.resource as {
+        bytesMany: (
+          requests: Array<{ url: string; servers?: string[] }>,
+        ) => Promise<Array<{ url: string; ok: boolean; blob?: Blob }>>;
+      };
+      const requests = [
+        { url: `blossom:sha256:${'c'.repeat(64)}`, servers: ['https://cdn.example'] },
+      ];
+      const transfer = resource.bytesMany(requests);
+      let transferState = 'pending';
+      void transfer.then(
+        () => { transferState = 'resolved'; },
+        () => { transferState = 'rejected'; },
+      );
+
+      await vi.advanceTimersByTimeAsync(30_001);
+
+      expect(transferState).toBe('pending');
+      const request = withoutShellReady(target).find((message) => message.type === 'resource.bytesMany');
+      const items = [{ url: requests[0]!.url, ok: true, blob: new Blob(['late batch resource']) }];
+      target.dispatchParentMessage({ type: 'resource.bytesMany.result', id: request?.id, items });
+      await expect(transfer).resolves.toEqual(items);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('lets callers cancel a resource batch after the ordinary request timeout', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
+    const resource = target.napplet?.resource as {
+      bytesMany: (
+        requests: Array<{ url: string; servers?: string[] }>,
+        options?: { signal?: AbortSignal },
+      ) => Promise<Array<{ url: string; ok: boolean; blob?: Blob }>>;
+    };
+    const requests = [{ url: `blossom:sha256:${'e'.repeat(64)}` }];
+    const controller = new AbortController();
+    const transfer = resource.bytesMany(requests, { signal: controller.signal });
+    const request = withoutShellReady(target).find((message) => message.type === 'resource.bytesMany');
+    let transferState = 'pending';
+    let transferError: unknown;
+    void transfer.then(
+      () => { transferState = 'resolved'; },
+      (error: unknown) => {
+        transferState = 'rejected';
+        transferError = error;
+      },
+    );
+
+    controller.abort();
+    await Promise.resolve();
+
+    expect(transferState).toBe('rejected');
+    expect(transferError).toMatchObject({ name: 'AbortError' });
+    expect(withoutShellReady(target).at(-1)).toEqual({ type: 'resource.cancel', id: request?.id });
+    target.dispatchParentMessage({
+      type: 'resource.bytesMany.result',
+      id: request?.id,
+      items: [{ url: requests[0]!.url, ok: true, blob: new Blob(['ignored late batch']) }],
+    });
+    await Promise.resolve();
+    expect(transferState).toBe('rejected');
   });
 
   it('keeps identity read-only, canonical, and parent-authenticated after direct reassignment', async () => {

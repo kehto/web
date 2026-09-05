@@ -2,7 +2,7 @@
 
 Top-level Kehto command namespace for local tooling.
 
-> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. CLI commands are not yet a stability guarantee for final NAP
 > contracts.
 
@@ -17,7 +17,7 @@ pnpm add -D @kehto/cli
 | Field | Value |
 |-------|-------|
 | Source | `packages/cli/package.json`, `packages/cli/src/index.ts` |
-| Version | `0.4.3` |
+| Version | `0.5.0` |
 | Runtime entry | `./dist/index.js` |
 | Binary | `kehto` |
 | Types entry | `./dist/index.d.ts` |

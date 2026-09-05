@@ -1,6 +1,6 @@
 {
   "name": "@kehto/services",
-  "version": "0.20.0",
+  "version": "0.21.1",
   "description": "Reference service implementations for the napplet protocol — notifications and extensible service handlers",
   "type": "module",
   "main": "./dist/index.js",
@@ -32,13 +32,13 @@
     }
   },
   "peerDependencies": {
-    "@napplet/core": ">=0.31.0 <0.32.0",
-    "@napplet/nap": ">=0.31.0 <0.32.0",
+    "@napplet/core": ">=0.32.0 <0.33.0",
+    "@napplet/nap": ">=0.32.0 <0.33.0",
     "nostr-tools": ">=2.23.3 <=2.x"
   },
   "devDependencies": {
-    "@napplet/core": ">=0.31.0 <0.32.0",
-    "@napplet/nap": ">=0.31.0 <0.32.0",
+    "@napplet/core": ">=0.32.0 <0.33.0",
+    "@napplet/nap": ">=0.32.0 <0.33.0",
     "nostr-tools": "^2.23.3",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3",

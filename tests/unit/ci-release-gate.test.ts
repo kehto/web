@@ -34,15 +34,19 @@ describe('CI release-only gates', () => {
     expect(release).not.toContain('npm install -g npm@latest');
   });
 
-  test('routes each merged Version Packages commit through the sole OIDC publishing workflow', () => {
+  test('preserves the main CI actor when routing Version Packages to the sole publisher', () => {
     const versionPackages = versionPackagesWorkflowSource();
     const release = releaseWorkflowSource();
     expect(versionPackages).toContain('name: Version Packages');
-    expect(versionPackages).toContain("pullRequest.title === 'Version Packages'");
-    expect(versionPackages).toContain("pullRequest.head.ref === 'changeset-release/main'");
-    expect(versionPackages).toContain('gh workflow run release.yml');
-    expect(versionPackages).toContain('--raw-field release_sha="$RELEASE_SHA"');
-    expect(release).toContain("ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_sha || github.sha }}");
+    expect(versionPackages).not.toContain('gh workflow run release.yml');
+    expect(release).toContain('workflow_run:');
+    expect(release).toContain('workflows: [CI]');
+    expect(release).toContain("if (context.eventName !== 'workflow_run')");
+    expect(release).toContain("pullRequest.title === 'Version Packages'");
+    expect(release).toContain("pullRequest.head.ref === 'changeset-release/main'");
+    expect(release).toContain("if: ${{ needs.authorize.outputs.should_release == 'true' }}");
+    expect(release).toContain('id-token: write');
+    expect(release).toContain('ref: ${{ needs.authorize.outputs.release_sha }}');
     expect(release).toContain('git merge-base --is-ancestor "$RELEASE_SHA" origin/main');
   });
 });

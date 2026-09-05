@@ -33,7 +33,7 @@ implementation authority. `RUNTIME-SPEC.md` is internal runtime guidance.
   `b3f0007867eac109fa4917fac9c285d3b7cc6155`; and Version Packages #198 head
   `a79e7f4638f70f4557d4183faee9348847bb8cc7`, merged as release source
   `dc1d24153c759152b6ba31a6ec9bea967798f2df`. The current exact line is core
-  `0.31.1`, nap `0.31.2`, shim `0.29.2`, SDK `0.27.2`, and Vite plugin `0.14.1`.
+  `0.32.0`, nap `0.32.0`, shim `0.30.0`, SDK `0.28.0`, and Vite plugin `0.14.1`.
 
 ### Active NAP-RELAY boundary
 
@@ -47,7 +47,7 @@ success or `error` on failure. Runtime, `createRelayPoolService`,
 event and result contract. Failed publications are not delivered through the
 runtime's successful-event buffer.
 
-The released `@napplet/nap@0.31.2` SDK accepts `EventTemplate`, but the package's
+The released `@napplet/nap@0.32.0` SDK accepts `EventTemplate`, but the package's
 `RelayPublishMessage.event` declaration still names `NostrEvent`. That is
 recorded upstream drift, not authority to let a napplet bypass shell signing.
 
@@ -71,7 +71,7 @@ events, or runtime payload-kind inference. The runtime attaches a
 delivered events, does not accept caller `sender`, keeps payloads and IDs
 opaque, and excludes the source endpoint from topic fan-out.
 
-Merged NAP-INC and released `@napplet/nap@0.31.2` both define
+Merged NAP-INC and released `@napplet/nap@0.32.0` both define
 `on(topic, callback)` with one `IncEvent`.
 
 INC channel authorization is open-only: ACL and target liveness are evaluated
@@ -139,7 +139,7 @@ Current NIP-5D runtime availability is injected
   `services`, `onReady()`, and the `shell.ready` / `shell.init` lifecycle. The
   runtime prelude installs its parent-bound receiver before emitting readiness;
   napplet artifacts are not required to bundle their own handshake.
-- Published core `0.31.1` and shim `0.29.2` omit a generic mandatory shell
+- Published core `0.32.0` and shim `0.30.0` omit a generic mandatory shell
   implementation. Kehto retains the host-owned NAP-SHELL prelude under
   `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until a corrected upstream release
   is reviewed; the shim is never documented as supplying shell.
@@ -161,6 +161,14 @@ they are either:
 - a documented NAP domain envelope whose SDK helper surface is incomplete; or
 - a demo/test-only envelope listed in the milestone raw-envelope allowlist.
 
+NAP-RESOURCE host projections follow exact draft ref
+`9511232f69313aa7953d110e35d32cc28d506f66` and package contract
+merged in `napplet/web#206` at `19e0029b228127769a0ebdcf0b6b2f30293bd284`
+and released by `b007587afbefb0ce5592825d6ec1fc5b026c7b08`:
+single requests carry optional `servers`, while bulk requests carry
+`requests: [{ url, servers? }]`. The playground resource demo uses the published
+shim and resource SDK over that injected API and needs no raw-envelope exception.
+
 ### Phase 58 Raw-Envelope Allowlist
 
 | Envelope | Location | Classification | Boundary |
@@ -175,7 +183,6 @@ they are either:
 | `webrtc.*.result` / `webrtc.event` | `apps/playground/napplets/webrtc-demo/src/main.ts` | Disabled source / NAP helper-surface gap | The retained WebRTC demo source is not hosted by the playground. Until it is replaced with a real demo or deleted, raw result/event listeners stay confined to webrtc-demo, parent-source-bound, and correlation-id/type narrowed. |
 | `notify.create` | `apps/playground/napplets/toaster/src/main.ts` | NAP helper-surface gap | Notify service supports create/list, but `@napplet/nap/notify/sdk` lacks create/list helpers. Raw use must stay source-bound and confined to toaster. |
 | `notify.list` | `apps/playground/napplets/toaster/src/main.ts` | NAP helper-surface gap | Same toaster-only helper gap as `notify.create`; raw replies are accepted only from `window.parent`. |
-| `resource.bytesMany` | `apps/playground/napplets/resource-demo/src/main.ts` | NAP helper-surface gap | Draft NAP-RESOURCE `fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1` defines the wire operation, while the installed SDK lacks the helper. Raw use is confined to resource-demo, parent-source-bound, and type-narrowed. |
 | `theme.changed` | `apps/playground/src/theme.ts` | NAP helper-surface gap | Theme change is an automatic shell-to-napplet envelope; the raw listener is parent-source-bound and type-narrowed. No subscribe/unsubscribe wire action exists. |
 
 New raw `window.parent.postMessage()` protocol envelopes in playground napplets

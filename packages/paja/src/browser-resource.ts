@@ -11,26 +11,40 @@ import { normalizeUploadServers } from './simulation.js';
 export const PAJA_RESOURCE_MAX_BYTES = 10 * 1024 * 1024;
 /** Maximum URLs accepted by one Paja resource bulk request. */
 export const PAJA_RESOURCE_MAX_URLS = 100;
+/** Maximum combined request-hint and host-default Blossom servers per resource. */
+export const PAJA_RESOURCE_MAX_SERVERS = 8;
 
 const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });
 const BLOSSOM_RESOURCE_PATTERN = /^blossom:sha256:([0-9a-f]{64})$/i;
+const GAME_BOY_NINTENDO_LOGO = [
+  0xce, 0xed, 0x66, 0x66, 0xcc, 0x0d, 0x00, 0x0b,
+  0x03, 0x73, 0x00, 0x83, 0x00, 0x0c, 0x00, 0x0d,
+  0x00, 0x08, 0x11, 0x1f, 0x88, 0x89, 0x00, 0x0e,
+  0xdc, 0xcc, 0x6e, 0xe6, 0xdd, 0xdd, 0xd9, 0x99,
+  0xbb, 0xbb, 0x67, 0x63, 0x6e, 0x0e, 0xec, 0xcc,
+  0xdd, 0xdc, 0x99, 0x9f, 0xbb, 0xb9, 0x33, 0x3e,
+] as const;
 
 /** Host-owned inputs for Paja's NAP-RESOURCE fetch boundary. */
 export interface PajaResourceFetchOptions {
-  /** Return the current ordered Blossom server candidates. */
-  readonly getBlossomServers?: () => readonly string[];
+  /** Return ordered runtime candidates for this source-scoped Blossom URL. */
+  readonly getBlossomServers?: (context: {
+    readonly url: string;
+    readonly windowId?: string;
+  }) => readonly string[] | Promise<readonly string[]>;
   /** Fetch implementation used for configured Blossom server requests. */
   readonly fetch?: typeof fetch;
 }
 
 /**
- * Create Paja's policy-bound NAP-RESOURCE fetch boundary.
+ * Create Paja's developer-oriented NAP-RESOURCE fetch boundary.
  *
  * `data:` bytes are decoded locally. Canonical `blossom:sha256:<hex>` URLs are
- * resolved only through host-configured Blossom servers, with redirects
- * disabled and SHA-256 verified before delivery. Arbitrary network URLs remain
- * disabled. All bytes are capped and classified locally; upstream media types
- * are ignored.
+ * resolved through accepted request hints followed by host-configured Blossom
+ * servers, with redirects disabled and SHA-256 verified before delivery.
+ * Direct HTTP(S) URLs are resolved from any origin through the browser,
+ * subject to its CORS rules. All bytes are capped and classified locally;
+ * upstream media types are ignored.
  *
  * @param options - Host-owned Blossom server and transport hooks.
  * @returns A sanitized resource fetch implementation.
@@ -45,7 +59,16 @@ export function createPajaResourceFetch(
       throw new ResourceServiceError('invalid-request', 'NAP-RESOURCE is read-only');
     }
     if (url.protocol === 'blossom:') {
-      return fetchBlossomResource(value, init.signal, options);
+      return fetchBlossomResource(
+        value,
+        init.signal,
+        init.servers ?? [],
+        init.windowId,
+        options,
+      );
+    }
+    if (url.protocol === 'http:' || url.protocol === 'https:') {
+      return fetchNetworkResource(value, init.signal, options.fetch ?? globalThis.fetch);
     }
     if (url.protocol !== 'data:') {
       throw new ResourceServiceError('unsupported-scheme', `Paja does not enable ${url.protocol}`);
@@ -70,24 +93,63 @@ export function createPajaResourceFetch(
 /**
  * Return Paja's truthful NAP-RESOURCE policy disclosure.
  *
- * @param blossomServers - Current host-owned Blossom server candidates.
  * @returns Current resource schemes and enforced limits.
  */
-export function pajaResourceInfo(blossomServers: readonly string[] = []): ResourceInfo {
-  const schemes = [{ scheme: 'data', enabled: true }];
-  if (usableBlossomServers(blossomServers).length > 0) {
-    schemes.push({ scheme: 'blossom', enabled: true });
-  }
+export function pajaResourceInfo(): ResourceInfo {
+  const schemes = [
+    { scheme: 'data', enabled: true },
+    { scheme: 'https', enabled: true },
+    { scheme: 'http', enabled: true },
+    { scheme: 'blossom', enabled: true },
+  ];
   return {
     schemes,
     maxBytes: PAJA_RESOURCE_MAX_BYTES,
     maxUrls: PAJA_RESOURCE_MAX_URLS,
+    maxServers: PAJA_RESOURCE_MAX_SERVERS,
   };
+}
+
+async function fetchNetworkResource(
+  value: string,
+  signal: AbortSignal,
+  fetcher: typeof fetch,
+): Promise<Response> {
+  let response: Response;
+  try {
+    response = await fetcher(value, {
+      method: 'GET',
+      signal,
+      credentials: 'omit',
+      referrerPolicy: 'no-referrer',
+    });
+  } catch (error: unknown) {
+    if (signal.aborted || isAbortError(error)) throw error;
+    throw new ResourceServiceError(
+      'network-error',
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+  if (response.status === 404 || response.status === 410) {
+    throw new ResourceServiceError('not-found', 'HTTP resource was not found');
+  }
+  if (!response.ok) {
+    throw new ResourceServiceError('network-error', `HTTP resource returned ${response.status}`);
+  }
+
+  const bytes = await readCappedResponse(response, signal);
+  const mime = sniffSafeResourceMime(bytes);
+  if (!mime) {
+    throw new ResourceServiceError('decode-failed', 'resource bytes are not an enabled safe media type');
+  }
+  return new Response(arrayBufferFor(bytes), { headers: { 'content-type': mime } });
 }
 
 async function fetchBlossomResource(
   value: string,
   signal: AbortSignal,
+  requestServers: readonly string[],
+  windowId: string | undefined,
   options: PajaResourceFetchOptions,
 ): Promise<Response> {
   const match = BLOSSOM_RESOURCE_PATTERN.exec(value);
@@ -95,15 +157,18 @@ async function fetchBlossomResource(
     throw new ResourceServiceError('invalid-request', 'expected blossom:sha256:<64 hex characters>');
   }
   const expectedHash = match[1].toLowerCase();
-  const servers = usableBlossomServers(options.getBlossomServers?.() ?? []);
+  const configuredServers = await options.getBlossomServers?.({ url: value, windowId }) ?? [];
+  if (signal.aborted) throw new DOMException('Resource request cancelled', 'AbortError');
+  const servers = resolveBlossomServers(requestServers, configuredServers);
   if (servers.length === 0) {
-    throw new ResourceServiceError('blocked-by-policy', 'Paja has no configured Blossom server');
+    throw new ResourceServiceError('blocked-by-policy', 'Paja has no accepted Blossom server');
   }
 
   const fetcher = options.fetch ?? globalThis.fetch;
   let foundHashMismatch = false;
   let foundNotFound = false;
-  let lastNetworkMessage = 'all configured Blossom servers failed';
+  let foundInconclusive = false;
+  let lastNetworkMessage = 'all accepted Blossom servers failed';
   for (const server of servers) {
     if (signal.aborted) throw new DOMException('Resource request cancelled', 'AbortError');
     const resourceUrl = `${server}/${expectedHash}`;
@@ -114,9 +179,12 @@ async function fetchBlossomResource(
         signal,
         redirect: 'error',
         cache: 'no-store',
+        credentials: 'omit',
+        referrerPolicy: 'no-referrer',
       });
     } catch (error: unknown) {
       if (signal.aborted || isAbortError(error)) throw error;
+      foundInconclusive = true;
       lastNetworkMessage = error instanceof Error ? error.message : String(error);
       continue;
     }
@@ -125,6 +193,7 @@ async function fetchBlossomResource(
       continue;
     }
     if (!response.ok) {
+      foundInconclusive = true;
       lastNetworkMessage = `Blossom server returned HTTP ${response.status}`;
       continue;
     }
@@ -144,10 +213,83 @@ async function fetchBlossomResource(
   if (foundHashMismatch) {
     throw new ResourceServiceError('decode-failed', 'Blossom response did not match the requested SHA-256');
   }
+  if (foundInconclusive) {
+    throw new ResourceServiceError('network-error', lastNetworkMessage);
+  }
   if (foundNotFound) {
     throw new ResourceServiceError('not-found', 'Blossom resource was not found');
   }
   throw new ResourceServiceError('network-error', lastNetworkMessage);
+}
+
+function resolveBlossomServers(
+  requestServers: readonly string[],
+  configuredServers: readonly string[],
+): string[] {
+  const servers: string[] = [];
+  for (const value of requestServers) {
+    const server = normalizePublicBlossomServer(value);
+    if (server && !servers.includes(server)) servers.push(server);
+    if (servers.length === PAJA_RESOURCE_MAX_SERVERS) return servers;
+  }
+  for (const server of usableBlossomServers(configuredServers)) {
+    if (!servers.includes(server)) servers.push(server);
+    if (servers.length === PAJA_RESOURCE_MAX_SERVERS) break;
+  }
+  return servers;
+}
+
+/** Normalize an untrusted Blossom hint to one public HTTPS origin. */
+export function normalizePublicBlossomServer(value: string): string | null {
+  if (typeof value !== 'string' || value.trim().length === 0) return null;
+  try {
+    const url = new URL(value.trim());
+    if (
+      url.protocol !== 'https:'
+      || url.username
+      || url.password
+      || url.search
+      || url.hash
+      || url.pathname !== '/'
+      || !isPublicHostname(url.hostname)
+    ) return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+// Paja is a browser-only developer runtime: reject obvious local/private
+// literals here, while production resolvers must additionally enforce the
+// NAP-RESOURCE DNS-time address check before connecting and after redirects.
+function isPublicHostname(value: string): boolean {
+  const hostname = value.replace(/^\[|\]$/gu, '').toLowerCase();
+  if (
+    hostname === 'localhost'
+    || hostname.endsWith('.localhost')
+    || hostname.endsWith('.local')
+    || hostname.endsWith('.internal')
+    || !hostname.includes('.')
+  ) return false;
+  if (hostname.includes(':')) {
+    return hostname !== '::'
+      && hostname !== '::1'
+      && !hostname.startsWith('::ffff:')
+      && !/^(?:fc|fd|fe[89ab]|ff)/iu.test(hostname)
+      && !hostname.startsWith('2001:db8:');
+  }
+  const octets = hostname.split('.').map(Number);
+  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) return true;
+  const [first, second] = octets as [number, number, number, number];
+  return first !== 0
+    && first !== 10
+    && first !== 127
+    && first < 224
+    && !(first === 100 && second >= 64 && second <= 127)
+    && !(first === 169 && second === 254)
+    && !(first === 172 && second >= 16 && second <= 31)
+    && !(first === 192 && second === 168)
+    && !(first === 198 && (second === 18 || second === 19));
 }
 
 function usableBlossomServers(values: readonly string[]): string[] {
@@ -238,7 +380,17 @@ function sniffSafeResourceMime(bytes: Uint8Array): string | null {
   if (ascii(bytes, 4, 8) === 'ftyp') return 'video/mp4';
   if (ascii(bytes, 0, 4) === 'wOFF') return 'font/woff';
   if (ascii(bytes, 0, 4) === 'wOF2') return 'font/woff2';
+  if (isGameBoyRom(bytes)) return 'application/vnd.nintendo.gb-rom';
   return sniffSafeTextMime(bytes);
+}
+
+function isGameBoyRom(bytes: Uint8Array): boolean {
+  if (bytes.byteLength < 0x150 || !startsWith(bytes, GAME_BOY_NINTENDO_LOGO, 0x104)) return false;
+  let checksum = 0;
+  for (let index = 0x134; index <= 0x14c; index += 1) {
+    checksum = (checksum - (bytes[index] ?? 0) - 1) & 0xff;
+  }
+  return checksum === bytes[0x14d];
 }
 
 function sniffSafeTextMime(bytes: Uint8Array): string | null {

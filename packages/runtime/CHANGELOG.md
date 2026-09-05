@@ -1,5 +1,33 @@
 # @kehto/runtime
 
+## 0.23.0
+
+### Minor Changes
+
+- 3231957: Adopt the NAP-RESOURCE Blossom server-hint contract across the injected shell API, reference service, and Paja runtime. Single requests now carry optional advisory servers, bulk requests use per-resource request objects, and Paja validates, caps, and tries accepted hints before host defaults.
+
+### Patch Changes
+
+- Updated dependencies [3231957]
+  - @kehto/acl@0.19.0
+  - @kehto/firewall@0.6.0
+
+## 0.22.2
+
+### Patch Changes
+
+- d6a1ecd: Keep Paja ACL controls synchronized with the active resolver-verified napplet identity, and return denied outbox queries through the canonical `outbox.query.result` error shape.
+
+## 0.22.1
+
+### Patch Changes
+
+- c8264c6: Forward optional signer caller context through the policy-neutral runtime and
+  shell hooks. Add Paja's signer-, napplet-, and target-scoped remembered signing
+  choices: one event, one event kind, or warned napplet trust, with explicit
+  revocation. Relay publication and host-internal signing confirmations remain
+  independent.
+
 ## 0.22.0
 
 ### Minor Changes

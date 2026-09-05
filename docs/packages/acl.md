@@ -2,7 +2,7 @@
 
 Pure capability state and enforcement primitives for the napplet protocol.
 
-> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. Capability names and NAP contracts are not final.
 
 ## Install
@@ -16,7 +16,7 @@ pnpm add @kehto/acl @napplet/core @napplet/nap
 | Field | Value |
 |-------|-------|
 | Source | `packages/acl/package.json`, `packages/acl/src/index.ts` |
-| Version | `0.18.0` |
+| Version | `0.19.0` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Exported subpaths | `.`, `./capabilities` |
@@ -26,8 +26,8 @@ pnpm add @kehto/acl @napplet/core @napplet/nap
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.31.0 <0.32.0` |
-| `@napplet/nap` | `>=0.31.0 <0.32.0` |
+| `@napplet/core` | `>=0.32.0 <0.33.0` |
+| `@napplet/nap` | `>=0.32.0 <0.33.0` |
 
 ## Primary APIs
 

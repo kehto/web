@@ -4,7 +4,7 @@ Reference service handlers for the napplet protocol — identity, relay pool,
 cache, keys, media, notify, theme, link, common, lists, serial, BLE, WebRTC,
 and DM.
 
-> **Alpha status:** Kehto is an early runtime implementation for a draft NIP-5D
+> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. NAP contracts and service envelopes are not final; treat these
 > handlers as reference implementations for the current draft.
 
@@ -17,7 +17,7 @@ pnpm add @kehto/services
 ## Published Napplet Compatibility
 
 `@kehto/services` publishes against `@napplet/core` and `@napplet/nap`
-`>=0.31.0 <0.32.0`. The exact installed contracts are core 0.31.1 / nap 0.31.2
+`>=0.32.0 <0.33.0`. The exact installed contracts are core 0.32.0 / nap 0.32.0
 from NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`,
 napplet/web#199 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release
@@ -43,8 +43,8 @@ Current draft posture:
 - `createKeysService` and `createMediaService` ship real reference backends as of v1.4 (see the dedicated sections below). `createKeysService` attaches a document-level `keydown` listener by default and delivers `keys.action` push envelopes to registered napplets; `createMediaService` mirrors session metadata and playback state to `navigator.mediaSession` and emits `media.command` push envelopes on OS transport events. Both accept a host-bridge option (`HostKeysBridge` / `HostMediaBridge`) so Electron / Tauri / native shells can swap in OS-level backends without re-implementing the wire-protocol bookkeeping.
 - `createNotifyService` handles direct `notify.*` envelopes. It is not an INC
   topic handler.
-- `createOutboxService` supports `outbox.getEvent` from draft NAP-OUTBOX. Single-event lookups run through shell-owned relay routing and only return events whose ID matches the request. The draft wire contract keeps `outbox.query` one-shot and `outbox.subscribe` streaming; Kehto's concrete `createRelayPoolOutboxRouter` additionally exposes host-side `queryStream()` so verified query events can arrive before asynchronous NIP-65 discovery completes.
-- `createResourceService` implements the draft NAP-RESOURCE request lifecycle and current result shapes. It fail-closes when no scheme is configured, checks per-identity origin grants, enforces disclosed size/bulk caps, scopes cancellation to the requesting window, drops cancelled terminal envelopes, and never forwards response headers. The host policy fetch must return byte-classified output and owns scheme-specific SSRF, redirect, integrity, and SVG handling.
+- `createOutboxService` supports `outbox.getEvent` from draft NAP-OUTBOX. Single-event lookups run through shell-owned relay routing and only return events whose ID matches the request. Hosts can provide `getReadRouter` to scope all event-returning reads (`getEvent`, query, and subscription) to the authenticated source window, plus `getQueryRouter` when one-shot queries need an additional decorator. The draft wire contract keeps `outbox.query` one-shot and `outbox.subscribe` streaming; Kehto's concrete `createRelayPoolOutboxRouter` additionally exposes host-side `queryStream()` so verified query events can arrive before asynchronous NIP-65 discovery completes.
+- `createResourceService` implements NAP-RESOURCE at exact draft head `9511232f69313aa7953d110e35d32cc28d506f66` without choosing a runtime's network policy. Single requests carry optional advisory Blossom `servers`; bulk requests use canonical per-resource `requests: [{ url, servers? }]` entries. The service forwards hints to the injected resolver only for `blossom:`, preserves order and per-entry failures, and exposes optional `resource.info.maxServers`. By default it delegates every syntactically valid URL to the resolver; `resource.info.schemes` remains advisory. Runtimes that want hierarchical-origin grants can supply `isOriginGranted`, `getConnectGrants`, and `resolveIdentity` together, while scheme resolvers retain responsibility for hint validation, SSRF protection, redirects, and fallback policy. The service enforces supplied size/bulk caps, scopes cancellation to the requesting window, drops cancelled terminal envelopes, never forwards response headers, and preserves explicit `ResourceServiceError` codes.
 - `createUploadService` supports `upload.info` from draft NAP-UPLOAD. Hosts may expose configured rails, return URL forms, maximum bytes, and MIME type policy without requiring napplets to start an upload.
 - `createConfigService` implements draft NAP-CONFIG's shell-writer boundary: recursive bounded-subset schema validation, per-window schema/subscription state, deterministic defaults, invalid/orphan removal, version rollback rejection, scoped host persistence hooks, and settings-UI commits. Reads before schema registration fail closed with `no-schema`.
 - `createDmService` keeps NAP-DM request correlation, per-window subscriptions, and packaged message shapes in runtime-owned code. Adapters cover concrete transports: verified NIP-17 gift wraps and relay history via `nostr-tools`, structural NDR runtimes with relay hooks, and Cordn/ContextVM coordinator clients.

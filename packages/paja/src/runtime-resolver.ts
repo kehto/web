@@ -12,6 +12,8 @@ import {
   type ResolvedNapplet,
 } from '@kehto/nip/5d';
 
+import { normalizePublicBlossomServer } from './browser-resource.js';
+
 /** Named/addressable NIP-5D napplet manifest kind (`35129`). */
 export const PAJA_NAPPLET_MANIFEST_KIND = NAPPLET_KIND_NAMED;
 /** All NIP-5D napplet manifest kinds accepted by Paja pointers (`5129`, `15129`, `35129`). */
@@ -147,7 +149,7 @@ export async function resolvePajaPointer(
   const ownsPool = options.pool === undefined;
   try {
     const event = await resolvePointerEvent(pointer, pool, relays, normalizeMaxWaitMs(options.maxWaitMs));
-    const blossomServers = [...(options.blossomServers ?? [])];
+    const blossomServers = resolvePointerBlossomServers(event, options.blossomServers ?? []);
     const resolved = await resolveNapplet({
       event,
       cache: await openNappletArtifactCache({ requireStorageEstimate: false }),
@@ -176,6 +178,24 @@ export async function resolvePajaPointer(
   }
 }
 
+function resolvePointerBlossomServers(
+  event: NostrEvent,
+  configured: readonly string[],
+): string[] {
+  const servers: string[] = [];
+  for (const value of event.tags.flatMap(
+    (tag) => tag[0] === 'server' && tag[1] ? [tag[1]] : [],
+  )) {
+    const normalized = normalizePublicBlossomServer(value);
+    if (normalized && !servers.includes(normalized)) servers.push(normalized);
+  }
+  for (const value of configured) {
+    const server = normalizePublicBlossomServer(value) ?? value;
+    if (!servers.includes(server)) servers.push(server);
+  }
+  return servers;
+}
+
 /**
  * Inject Kehto's Class-1 CSP for verified runtime-pointer srcdoc output.
  * NIP-5D mandates the verified srcdoc and opaque sandbox, but this baseline CSP
@@ -192,7 +212,7 @@ export function injectPajaRuntimeCsp(html: string, origins: readonly string[]): 
     : "connect-src 'none'";
   const value = [
     "default-src 'none'",
-    "script-src 'unsafe-inline'",
+    "script-src 'unsafe-inline' 'wasm-unsafe-eval'",
     "style-src 'unsafe-inline'",
     'img-src data: blob:',
     'font-src data:',

@@ -1,6 +1,11 @@
 # @kehto/demo
 
-Reference consumer of the current napplet protocol draft — a 9-napplet browser demo that hosts `@kehto/runtime` + `@kehto/shell` and exercises Kehto's supported NIP-5D NAP surfaces end-to-end. Acts as both the Playwright test harness target (`:4174` preview build) and the showcase for external integrators evaluating Kehto as an early runtime implementation.
+Visualization of the current napplet protocol draft — a 9-napplet browser demo
+that hosts `@kehto/runtime` + `@kehto/shell` and exercises Kehto's supported
+NIP-5D NAP surfaces end-to-end. It is both the Playwright test harness target
+(`:4174` preview build) and an integration showcase. It is not the reference
+runtime and does not define Kehto-wide runtime policy; Paja is the reference
+developer runtime.
 
 > **Alpha status:** NIP-5D is still under development, and NAP contracts are not
 > final. The playground demonstrates Kehto's current behavior; it is not proof
@@ -26,7 +31,7 @@ The active playground boot path is production-equivalent:
 2. The shared config lets `@napplet/vite-plugin` validate and sign the normal external-asset graph, then Kehto's post-build plugin rewrites the final gateway artifact to a single HTML file and recomputes the manifest.
 3. Each napplet build emits exactly `dist/index.html` plus `dist/.nip5a-manifest.json`.
 4. The shell resolves the manifest, verifies the signed content-addressed bytes, binds the iframe origin to the computed `(dTag, aggregateHash)`, and writes the verified HTML through `iframe.srcdoc`.
-5. Before authored scripts run, the shell prepends Kehto's local Class-1 CSP and a host-owned NIP-5D prelude outside the signed artifact bytes. The policy denies all defaults, permits only inline script/style plus `data:`/`blob:` images and `data:` fonts, and limits `connect-src` to caller-granted origins. It explicitly denies worker, child, frame, media, object, manifest, prefetch, base, and form capabilities, then ends with `frame-ancestors 'self'`. It always installs mandatory `window.napplet.shell`, then filters optional domains to the verified manifest allowlist. The published `@napplet/shim@0.29.2` is non-shell, so this Kehto prelude remains the required receiver before one bare `shell.ready`, the first `shell.init` cache, and local `ready()`, `supports()`, read-only `services`, and one-shot `onReady()` behavior. `shell.ready` establishes the runtime session.
+5. Before authored scripts run, the shell prepends Kehto's local Class-1 CSP and a host-owned NIP-5D prelude outside the signed artifact bytes. The policy denies all defaults, permits inline script/style and WebAssembly compilation through the narrow `'wasm-unsafe-eval'` source while keeping JavaScript string evaluation blocked, permits `data:`/`blob:` images and `data:` fonts, and limits `connect-src` to caller-granted origins. It explicitly denies worker, child, frame, media, object, manifest, prefetch, base, and form capabilities, then ends with `frame-ancestors 'self'`. It always installs mandatory `window.napplet.shell`, then filters optional domains to the verified manifest allowlist. The published `@napplet/shim@0.30.0` is non-shell, so this Kehto prelude remains the required receiver before one bare `shell.ready`, the first `shell.init` cache, and local `ready()`, `supports()`, read-only `services`, and one-shot `onReady()` behavior. `shell.ready` establishes the runtime session.
 6. The iframe sandbox remains opaque-origin: `allow-scripts` only, no `allow-same-origin`.
 
 The gateway route may still serve manifest/blob data as a local accelerator or debugging surface, but it is not the identity authority. New tests and docs should treat verified `srcdoc` loading plus `(dTag, aggregateHash)` provenance as the canonical playground boot path.
@@ -52,7 +57,7 @@ back-compat window, so legacy `inc.*` envelopes still reach the same handler
 | feed | identity, relay, resource, intent, theme | `identity.getPublicKey`, `relay.subscribe`, `resource.bytes`, structured `intent.invoke` (`profile` / `open` / `napplet:profile/open`) | [apps/playground/napplets/feed/src/](./napplets/feed/src/) |
 | preferences | storage, theme | `storage.set`, `storage.get`, `theme.changed` allowlisted listener | [apps/playground/napplets/preferences/src/](./napplets/preferences/src/) |
 | profile-viewer | inc, relay, resource, theme | `inc.on` (`napplet:profile/open`), `relay.subscribe`, `resource.bytes` | [apps/playground/napplets/profile-viewer/src/](./napplets/profile-viewer/src/) |
-| resource-demo | resource, connect | `resource.bytesMany`, connect grant/CSP fixture | [apps/playground/napplets/resource-demo/src/](./napplets/resource-demo/src/) |
+| resource-demo | resource, theme | `resource.bytesMany`, host grant/CSP visualization | [apps/playground/napplets/resource-demo/src/](./napplets/resource-demo/src/) |
 | toaster | notify | `notify.create`, `notify.list`, `notify.dismiss` | [apps/playground/napplets/toaster/src/](./napplets/toaster/src/) |
 
 Retained but disabled source folders:
@@ -122,12 +127,12 @@ never used; controller retry and terminal policy remain host-owned.
 Profile-viewer registers `inc.on('napplet:profile/open', …)` early. It validates
 the delivered `pubkey`,
 loads kind-0 metadata, and obtains profile pictures/banners through
-`resourceBytes(url)`. It creates Blob URLs only from those bytes and revokes
-them on replacement, stale completion, image error, profile clear, and
-`pagehide`; it never writes a remote profile URL directly to an image. There is
-currently no standalone `NAP-RESOURCE.md` at the pinned NAP authority, so this
-documents the explicit NAP-IDENTITY `resource.bytes` delegation and Kehto's
-existing resource policy without inventing additional resource wire behavior.
+`resourceBytes(url)`. The runtime resolves the URL and returns bytes; the napplet
+creates a Blob URL from those bytes and revokes it on replacement, stale
+completion, image error, profile clear, and `pagehide`. This follows merged
+NAP-IDENTITY at `a040914b4bbd3a5cd8a14b0f316a723c968ebfb2` and draft
+NAP-RESOURCE at `9511232f69313aa7953d110e35d32cc28d506f66`. The resource demo
+uses canonical per-resource `bytesMany([{ url, servers? }])` requests.
 
 Theme is synchronized by reading the current value with `theme.get` and then
 receiving one automatic `theme.changed` per eligible frame after a host update;
@@ -145,7 +150,7 @@ contract is merged
 [`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INC.md)
 on `napplet/naps` master
 `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`. Released
-`@napplet/nap@0.31.2` and merged NAP-INC both deliver one `IncEvent`.
+`@napplet/nap@0.32.0` and merged NAP-INC both deliver one `IncEvent`.
 
 ## ACL Surface
 

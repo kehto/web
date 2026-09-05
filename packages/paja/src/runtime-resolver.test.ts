@@ -119,7 +119,7 @@ function fakeFetcher(hash: string, bytes: Uint8Array) {
 }
 
 describe('Paja runtime pointer resolver', () => {
-  const classOnePrefix = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;";
+  const classOnePrefix = "default-src 'none'; script-src 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;";
   const classOneSuffix = "worker-src 'none'; child-src 'none'; frame-src 'none'; media-src 'none'; object-src 'none'; manifest-src 'none'; prefetch-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
 
   it('injects the complete Class-1 policy with only sorted, deduplicated grants', () => {
@@ -133,6 +133,7 @@ describe('Paja runtime pointer resolver', () => {
     );
     expect(out).not.toContain("connect-src 'self'");
     expect(out).not.toContain('connect-src *');
+    expect(out).not.toContain("'unsafe-eval'");
   });
 
   it("uses the complete Class-1 policy with connect-src 'none' for no grants", () => {
@@ -174,6 +175,7 @@ describe('Paja runtime pointer resolver', () => {
 
     expect(resolved.dTag).toBe(manifest.dTag);
     expect(resolved.aggregateHash).toBe(manifest.aggregateHash);
+    expect(resolved.blossomServers).toEqual([BLOSSOM]);
     expect(resolved.indexHtml).toContain('<body>ok</body>');
     expect(pool.filters[0]).toMatchObject({
       kinds: [PAJA_NAPPLET_MANIFEST_KIND],
