@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: resolved
 trigger: "Resolve kehto/web#267 in a new PR"
 created: 2026-09-07
 ---
@@ -23,7 +23,7 @@ created: 2026-09-07
 
 - Root cause: registries and host unsubscribe handles use actionId alone; unregister ignores caller windowId.
 - Fix: collision-resistant JSON tuple keys for registries and unsubscribe handles, explicit original actionId on entries, and owner-local index deletion. Public types and wire payloads are unchanged.
-- Next: full browser verification, then push and open the PR.
+- Next: push and open the verified independent PR; no merge requested.
 
 ## Evidence
 
@@ -34,3 +34,4 @@ created: 2026-09-07
 - The original issue reproduction, with assertions unchanged, passes against the built services package in both document and hostBridge configurations. Each window retains its own binding and first-window unregister leaves the second intact.
 - The README Electron adapter now keeps a per-chord callback set. Executed its actual TypeScript example after transpilation with an in-memory globalShortcut stand-in: shared dispatch, scoped unsubscribe, and final native-registration cleanup pass. Real Electron/OS integration was not run.
 - Independent read-only review approved the implementation and spec-policy documentation with no blocking findings.
+- Full Playwright suite passed 84/84 Chromium tests after all builds completed. NAP-KEYS PR #9 head was rechecked and remains cecb64257e0ac29926bb746832a477c553ab307c. Result: conformant with the explicit Kehto ownership policy for the draft's implicit uniqueness scope.
