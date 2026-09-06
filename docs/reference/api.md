@@ -18,6 +18,7 @@ The docs site build runs API generation first through the root `docs:site:build`
 | `@kehto/firewall` | <a href="../api/modules/_kehto_firewall.html" target="_self"><code>docs/api/modules/_kehto_firewall.html</code></a> |
 | `@kehto/runtime` | <a href="../api/modules/_kehto_runtime.html" target="_self"><code>docs/api/modules/_kehto_runtime.html</code></a> |
 | `@kehto/shell` | <a href="../api/modules/_kehto_shell.html" target="_self"><code>docs/api/modules/_kehto_shell.html</code></a> |
+| `@kehto/shell-ipc` | <a href="../api/modules/_kehto_shell-ipc.html" target="_self"><code>docs/api/modules/_kehto_shell-ipc.html</code></a> |
 | `@kehto/services` | <a href="../api/modules/_kehto_services.html" target="_self"><code>docs/api/modules/_kehto_services.html</code></a> |
 | `@kehto/nip` | <a href="../api/modules/_kehto_nip.html" target="_self"><code>docs/api/modules/_kehto_nip.html</code></a> |
 | `@kehto/wm` | <a href="../api/modules/_kehto_wm.html" target="_self"><code>docs/api/modules/_kehto_wm.html</code></a> |

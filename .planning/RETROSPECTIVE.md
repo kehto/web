@@ -484,6 +484,85 @@
 
 ---
 
+## Milestone: v1.30 — Experimental IPC Shell Projection
+
+**Shipped:** 2026-08-20
+**Phases:** 3 (107-109) | **Plans:** 12 | **Requirements:** 17/17 | **Unit:** 1771
+
+### What Was Built
+
+- **Phase 107 — IPC Transport Foundation.** Added the experimental
+  `@kehto/shell-ipc` Node/POSIX package with private pathname sockets, owned-byte
+  RFC 7464 framing, immutable host-bound registration, bounded ingress/egress,
+  backpressure, generations, and ownership-safe cleanup.
+- **Phase 108 — Runtime Shell Composition.** Composed multiple IPC endpoints over
+  one public `Runtime`, preserved exact NAP-SHELL readiness and policy behavior,
+  and made endpoint close, unregister, and shutdown join one ordered lifecycle
+  promise.
+- **Phase 109 — Runnable Proof and Drafting Evidence.** Added a public-ESM host and
+  raw `node:net` child proof for correlated results, policy-checked pushes,
+  graceful/SIGKILL cleanup, package documentation, a web/IPC parity matrix,
+  drafting findings, and release intent.
+
+### What Worked
+
+- **The spec-gap boundary stayed explicit.** Every phase checked
+  `napplet/naps origin/master@c0f7dd14460622fc3a9870ea57a538474cf776fa`, reused
+  carrier-neutral NAP-SHELL/NAP-INC invariants, and labeled Unix-specific choices
+  experimental rather than normative.
+- **Adversarial review materially improved the proof.** Review found forged child
+  milestones, caller-directory deletion, unbounded parser cleanup, a permissive
+  raw-child guard, and a CI timeout hazard; focused regressions closed each issue
+  before verification.
+- **Shared-runtime verification caught a real lifecycle requirement.** The
+  two-endpoint NAP-INC survivor flow forced composition and cleanup to be tested as
+  a host concern instead of isolated endpoint behavior.
+
+### What Was Inefficient
+
+- **Generated accomplishments included deviation prose.** The archive helper
+  promoted two `Rule 1` notes into key accomplishments, requiring manual review of
+  the milestone record.
+- **Historical planning metadata delayed closeout.** Twenty-six completed quick
+  tasks lacked the exact summary status contract, and two fixed debug sessions had
+  not been archived.
+- **JSR recovery remained actor-sensitive.** Automated release handoff ran as
+  `github-actions[bot]` and failed scope membership, while the same release path
+  succeeded when manually dispatched by the authorized scope member.
+
+### Patterns Established
+
+- **Host-authored process proof.** A child may report bounded observations, but
+  runtime results, eligible pushes, route cleanup, and proof success are established
+  independently by the host.
+- **One promise per retiring endpoint record.** All public teardown entry points
+  join the same identity-safe lifecycle operation, allowing immediate same-window
+  re-registration after awaited cleanup.
+- **Carrier parity is a classification exercise.** Shared runtime invariants,
+  carrier-specific responsibilities, intentional absences, and unresolved spec
+  questions are recorded separately.
+
+### Key Lessons
+
+1. A raw transport proof is only trustworthy when the host independently observes
+   the milestones the peer could forge.
+2. Lifecycle APIs need a public, awaitable completion contract, not merely internal
+   cleanup after socket close.
+3. Exact-trigger release comparisons can distinguish source/workflow defects from
+   registry-side actor authorization.
+
+### Cost Observations
+
+- **Model mix:** Frontier autonomous leader with specialist planning, execution,
+  review, verification, security, and integration agents.
+- **Sessions:** One autonomous run from Phase 107 through audit, recovery, and
+  milestone archive.
+- **Notable:** Final evidence passed build (33 tasks), type-check (18 tasks), 1771
+  unit tests, selected NIP-5D Playwright, strict docs audit, security review, and a
+  17/17 milestone integration audit.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -497,6 +576,7 @@
 | v1.8 | 1 autonomous run | 5 | Upstream alignment, decrypt surface, audit-clean closeout |
 | v1.13 | 1 autonomous run | 5 | Documentation strategy, VitePress site, generated API docs, and docs quality gate |
 | v1.17 | 1 autonomous run | 3 | Static-first public brand polish, GSAP progressive enhancement, and visual route checks |
+| v1.30 | 1 autonomous run | 3 | Experimental IPC carrier, adversarial process proof, and spec-gap drafting evidence |
 
 ### Cumulative Quality
 
@@ -507,6 +587,7 @@
 | v1.8 | 86 (E2E) + 543 unit | 0 | No new dependencies |
 | v1.13 | 89 (E2E baseline) + 562 unit | 0 | Site-only VitePress/TypeDoc dependencies isolated to `docs/` |
 | v1.17 | 570 unit + browser visual checks | 0 | GSAP vendored into Pages artifact |
+| v1.30 | 1771 unit + selected NIP-5D E2E | 0 | No client helper or desktop-framework dependency |
 
 Note: v1.3 test count reflects E2E Playwright specs only; unit tests carried forward from v1.2 unchanged. The drop from 449 → 47 is a change of instrument (v1.2 counted all Vitest specs; v1.3 E2E-10 gates specifically on Playwright suite green).
 

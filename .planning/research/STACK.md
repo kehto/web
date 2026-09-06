@@ -1,101 +1,97 @@
-# Technology Stack - v1.17 Landing Page Branding
+# Stack Research
 
-**Project:** Kehto Runtime - v1.17 Beautify the SPA Landing Page
-**Researched:** 2026-06-06
-**Scope:** Stack additions and delivery constraints for the public `/web/` portal only. Runtime packages, playground internals, docs content, and protocol behavior are not part of this milestone.
+**Domain:** Experimental NIP-5D projection over POSIX Unix-domain sockets
+**Researched:** 2026-08-18
+**Confidence:** HIGH for Node/Unix socket mechanics; MEDIUM for the projection contract because no IPC specification exists yet
 
----
+## Recommended Stack
 
-## 1. Current Portal Baseline
+### Core Technologies
 
-The landing page is a static HTML portal at `web/index.html`. `scripts/build-pages.mjs` copies that file to `.pages/index.html`, then adds the playground and docs roots beside it. `scripts/audit-pages-artifact.mjs` currently verifies that the built portal contains links to `/web/playground/` and `/web/docs/`.
+| Technology | Version | Purpose | Why Recommended |
+|------------|---------|---------|-----------------|
+| Node.js | >=20 | Host and reference napplet processes | Kehto already targets modern ESM TypeScript; `node:net` provides stable stream-based Unix-domain-socket servers and clients without another runtime dependency. |
+| TypeScript | ^5.9.3 | Package implementation and public contracts | Matches the monorepo and preserves strict, ESM-only package conventions. |
+| `@kehto/runtime` | workspace current (`0.22.0`) | NIP-5D dispatch, ACL, firewall, subscriptions, and lifecycle | Its `RuntimeAdapter.sendToNapplet`, `Runtime.handleMessage`, `sessionRegistry`, and `destroyWindow` already form the transport-neutral seam. |
+| `@napplet/core` | >=0.31.0 <0.32.0 | Canonical `NappletMessage` envelopes | Keeps IPC payload semantics identical to the web projection. |
+| RFC 7464 JSON text sequences | RFC 7464 | Stream framing | Unix stream sockets do not preserve message boundaries. UTF-8 JSON texts prefixed by RS (`0x1e`) and terminated by LF provide an established incremental framing format with resynchronization rules. |
 
-Implications:
+### Supporting Libraries
 
-- The portal has no existing bundler entrypoint.
-- Any new CSS, JS, font, or media asset needs an explicit static asset copy path in `scripts/build-pages.mjs`.
-- Public asset paths must resolve under the GitHub Pages project base `/web/`.
-- The page must remain useful without JavaScript because it is the top-level route to the playground and docs.
+| Library | Version | Purpose | When to Use |
+|---------|---------|---------|-------------|
+| `node:net` | Node built-in | Create/listen/connect to Unix-domain sockets | Always; no third-party socket wrapper is needed. |
+| `node:fs/promises` | Node built-in | Private runtime directory, permissions, stale-path inspection, cleanup | Always on the host side. |
+| `node:os` / `node:path` | Node built-in | Short temporary socket paths | Always; socket path limits are typically 107 bytes on Linux and 103 bytes on macOS. |
+| `node:child_process` | Node built-in | Runnable host/napplet proof | Reference fixture only; the package should not require the host to launch napplets itself. |
+| Vitest | ^4.1.2 | Framing, lifecycle, security, and process integration tests | Match existing repository test tooling. |
 
-## 2. GSAP Status
+### Development Tools
 
-Official GSAP docs describe GSAP as framework-agnostic JavaScript that can be loaded through npm, yarn, or a simple script tag. The docs also state that GSAP and its plugins are available on npm as of GSAP 3.13+.
+| Tool | Purpose | Notes |
+|------|---------|-------|
+| tsup | ESM package build | Follow existing package output conventions. |
+| Turborepo | Workspace build ordering | Add `@kehto/shell-ipc#build` after `@kehto/runtime#build`. |
+| Node child processes | Real transport verification | Spawn a raw `node:net` napplet fixture and assert process-visible outcomes. |
+| Existing docs/quality gates | Package completeness | Add README, docs package page, typed exports, changeset, and AI-slop coverage. |
 
-`npm view gsap version license dist.unpackedSize --json` on 2026-06-06 reports:
+## Installation
 
-```json
-{
-  "version": "3.15.0",
-  "license": "Standard 'no charge' license: https://gsap.com/standard-license.",
-  "dist.unpackedSize": 6258071
-}
+No new production library is recommended. The package should use Node built-ins and existing workspace packages.
+
+```bash
+pnpm --filter @kehto/shell-ipc build
+pnpm --filter @kehto/shell-ipc test:unit
 ```
 
-Recommended use for this repo:
+## Alternatives Considered
 
-- Add `gsap` as an explicit root package dependency for this user-requested milestone.
-- Keep implementation to GSAP core unless a phase proves a plugin is needed.
-- Copy `node_modules/gsap/dist/gsap.min.js` into the Pages artifact during `build:pages` so the public portal does not depend on a CDN at runtime.
-- Load a local versioned GSAP script before the portal animation script.
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|-------------------------|
+| Pathname Unix-domain sockets | Linux abstract sockets | Only for a Linux-only projection; abstract sockets are not portable to macOS and do not provide filesystem permission controls. |
+| One socket per endpoint | Shared multiplexed socket | After the projection defines a separate authenticated connection handshake and needs high endpoint counts. |
+| RFC 7464 framing | Newline-delimited JSON | For an intentionally informal prototype where a standards-track framing reference is not valuable. |
+| RFC 7464 framing | Fixed-width length prefix | If later profiling shows JSON-sequence scanning is a bottleneck or binary payload transport becomes normative. |
+| Raw `node:net` client in the fixture | `@kehto/shell-ipc` client helper | Only if a later milestone adds a napplet-side API; the user explicitly excluded it here. |
 
-Rejected stack paths:
+## What NOT to Use
 
-- CDN-only GSAP: simpler, but makes the portal's first impression depend on a third-party request.
-- Adding a web framework or full portal bundler: unnecessary for one static page and contrary to Kehto's small static Pages artifact.
-- Adding a full fluid-simulation library: too much weight for a low-contrast background accent.
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| Tauri or Electron IPC | Adds a host framework and does not validate a carrier-neutral local IPC projection. | POSIX Unix-domain sockets through `node:net`. |
+| Browser `postMessage` or `MessagePort` | Re-tests the existing web projection rather than IPC between processes. | Unix stream sockets. |
+| Unframed JSON writes | A stream read can split or combine writes; one `data` event is not one envelope. | Incremental RFC 7464 decoder. |
+| Linux peer credentials as the only identity anchor | Node core does not expose a portable macOS/Linux credential API, and Linux mechanisms do not define the cross-platform projection. | Host-assigned endpoint identity plus a private per-endpoint socket path. |
+| New runtime dispatcher | Would duplicate ACL, firewall, session, and service semantics. | Adapt the existing `@kehto/runtime` public surface. |
 
-## 3. GSAP Motion Primitives
+## Stack Patterns by Variant
 
-Use GSAP timelines for page-level choreography. Official docs show timeline defaults cascading duration/ease into child tweens, which fits a restrained system where entrance, card reveal, liquid accent, and exit transitions share one motion language.
+**For the v1.30 experiment:**
+- Use a host-created private directory and a dedicated pathname socket for each endpoint.
+- Bind `{ windowId, dTag, aggregateHash }` before accepting traffic.
+- Use RFC 7464 frames containing unchanged NIP-5D envelope objects.
 
-Use `gsap.matchMedia()` for responsive and reduced-motion behavior. Official docs describe it as a media-query wrapper that automatically reverts animations when conditions stop matching and explicitly call out `prefers-reduced-motion` support.
+**For a future standardized shared socket:**
+- Add a projection-defined authentication and multiplexing handshake first.
+- Do not infer identity from `windowId`, `dTag`, or other fields sent by an untrusted peer.
 
-Recommended motion constraints:
+## Version Compatibility
 
-- One master entrance timeline with shared defaults.
-- One short exit timeline for `/web/playground/` and `/web/docs/` clicks before navigation.
-- Reduced-motion mode must skip choreography, render final states immediately, and either freeze or greatly simplify the liquid accent.
-- Use transform/opacity/filter-friendly properties for DOM animation; avoid layout-thrashing dimensions.
-
-## 4. Liquid Accent Strategy
-
-The requested "subtle but complex liquid simulation" should be implemented as a lightweight page accent, not a full physics feature.
-
-Preferred implementation:
-
-- A fixed background `<canvas>` or SVG layer behind content.
-- Low-contrast muted-yellow and near-black values with alpha below the content layer.
-- A small particle/metaball/noise field animated by `requestAnimationFrame` or `gsap.ticker`.
-- Pointer influence can be minimal and optional; the page should still feel alive without interaction.
-- Reduced-motion mode renders a static composition.
-
-Fallback implementation if canvas cost or verification is poor:
-
-- Layered CSS/SVG radial gradients and filter turbulence animated slowly with GSAP.
-
-Do not add Three.js, Pixi, WebGL fluid packages, or shader libraries for this milestone unless the user explicitly widens scope.
-
-## 5. Verification Stack
-
-Minimum verification expected for implementation phases:
-
-- `pnpm build:pages`
-- `pnpm audit:pages`
-- Focused unit/static guard for portal asset copying and required `/web/` links.
-- `git diff --check`
-
-Visual verification should be added during execution:
-
-- Browser screenshot of `.pages/index.html` served under `/web/`.
-- Reduced-motion browser check.
-- Mobile-width screenshot.
-- Basic canvas/nonblank check if the liquid accent uses canvas.
+| Package A | Compatible With | Notes |
+|-----------|-----------------|-------|
+| `@kehto/shell-ipc` experimental line | `@kehto/runtime` workspace current | Keep runtime semantics unchanged; depend on public runtime types and methods. |
+| `@kehto/shell-ipc` | `@napplet/core >=0.31.0 <0.32.0` | Match current runtime envelope range. |
+| `node:net` Unix IPC | Node >=20 on POSIX | Pathname sockets work on Linux and macOS; Windows named pipes are out of scope. |
 
 ## Sources
 
-- GSAP Installation: https://gsap.com/docs/v3/Installation/
-- GSAP Core: https://gsap.com/docs/v3/GSAP/
-- GSAP Timeline: https://gsap.com/docs/v3/GSAP/Timeline/
-- GSAP matchMedia: https://gsap.com/docs/v3/GSAP/gsap.matchMedia%28%29/
-- Local portal source: `web/index.html`
-- Local Pages builder/audit: `scripts/build-pages.mjs`, `scripts/audit-pages-artifact.mjs`
+- https://nodejs.org/download/release/latest-v20.x/docs/api/net.html — IPC path support, path limits, crash-stale paths, lifecycle, and write backpressure.
+- https://nodejs.org/docs/latest-v20.x/api/fs.html — temporary directory and filesystem operations.
+- https://www.rfc-editor.org/info/rfc7464/ — standard UTF-8 JSON text sequence framing.
+- https://man7.org/linux/man-pages/man7/unix.7.html — pathname socket permissions, portability limits, and peer credentials.
+- `napplet/naps` `origin/master@c0f7dd14460622fc3a9870ea57a538474cf776fa` — NAP-SHELL and NAP-INC carrier-neutral identity constraints; no IPC projection document exists.
+- Kehto knowledge graph — `createShellBridge`, `adaptHooks`, `createMessageHandler`, `handleShellReady`, and `Runtime.destroyWindow` integration seams.
+
+---
+*Stack research for: Experimental NIP-5D Unix IPC projection*
+*Researched: 2026-08-18*

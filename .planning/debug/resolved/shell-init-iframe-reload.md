@@ -1,5 +1,5 @@
 ---
-status: fixed
+status: resolved
 trigger: "Evaluate and resolve kehto/web#99: shell.init is not resent when an iframe reloads with the same windowId"
 created: "2026-06-26T09:13:24Z"
 updated: "2026-06-26T09:25:00Z"

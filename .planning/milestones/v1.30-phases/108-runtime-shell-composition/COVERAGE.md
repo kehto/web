@@ -1,0 +1,1 @@
+No external API integration: Phase 108 links the existing first-party `@kehto/runtime` workspace package into `@kehto/shell-ipc` and uses Node/POSIX built-ins only; it does not call or wrap an external service API or SDK.

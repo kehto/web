@@ -14,6 +14,7 @@ Use these pages when you need to choose or integrate one part of Kehto. Each pag
 | `@kehto/firewall` | [Firewall](./firewall.md) | Pure behavioral abuse-detection engine (temporal complement to ACL). |
 | `@kehto/runtime` | [Runtime](./runtime.md) | Browser-agnostic NIP-5D protocol engine. |
 | `@kehto/shell` | [Shell](./shell.md) | Browser shell adapter over the runtime. |
+| `@kehto/shell-ipc` | [Shell IPC](./shell-ipc.md) | Experimental Node.js/POSIX Unix-socket carrier for canonical envelopes. |
 | `@kehto/services` | [Services](./services.md) | Reference service handlers for runtime domains. |
 | `@kehto/nip` | [NIP utilities](./nip.md) | Unique Nostr NIP utilities, including NIP-5A/5D napplet artifact verification and Cache Storage reuse. |
 | `@kehto/wm` | [Window Management](./wm.md) | Structural window-management contracts. |
@@ -23,11 +24,12 @@ Use these pages when you need to choose or integrate one part of Kehto. Each pag
 
 1. Start with `@kehto/runtime` if you are building a host.
 2. Add `@kehto/shell` when you need browser iframe/session integration.
-3. Add `@kehto/services` for reference implementations of runtime services.
-4. Use `@kehto/acl` directly when you need capability-state persistence or policy tests, and `@kehto/firewall` for behavioral rate-limiting and abuse detection over time.
-5. Use `@kehto/nip` and `@kehto/wm` as optional utilities.
-6. Use `@kehto/cli` for package scripts such as `kehto paja`.
-7. Use `@kehto/paja` directly when embedding or extending the Paja implementation API.
-8. Use the playground page to reproduce integrated behavior locally.
+3. Use `@kehto/shell-ipc` only for its experimental Node.js/POSIX host carrier; it does not authenticate hostile same-UID peers.
+4. Add `@kehto/services` for reference implementations of runtime services.
+5. Use `@kehto/acl` directly when you need capability-state persistence or policy tests, and `@kehto/firewall` for behavioral rate-limiting and abuse detection over time.
+6. Use `@kehto/nip` and `@kehto/wm` as optional utilities.
+7. Use `@kehto/cli` for package scripts such as `kehto paja`.
+8. Use `@kehto/paja` directly when embedding or extending the Paja implementation API.
+9. Use the playground page to reproduce integrated behavior locally.
 
 Generated API reference lives under `docs/api/`. Package pages link to generated module pages for the public packages included in TypeDoc.

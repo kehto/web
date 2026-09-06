@@ -35,6 +35,40 @@ function createHistory(baseManifest: Manifest, headManifest: Manifest): { root: 
   return { root, base, head: git(root, ['rev-parse', 'HEAD']).trim() };
 }
 
+function createNewPackageHistory(headManifest: Manifest | string): { root: string; base: string; head: string } {
+  const root = mkdtempSync(join(tmpdir(), 'kehto-napplet-direction-'));
+  git(root, ['init', '--quiet']);
+  git(root, ['config', 'user.email', 'test@example.com']);
+  git(root, ['config', 'user.name', 'Dependency Direction Test']);
+  git(root, ['commit', '--allow-empty', '--quiet', '-m', 'base']);
+  const base = git(root, ['rev-parse', 'HEAD']).trim();
+
+  mkdirSync(join(root, 'packages', 'new-package'), { recursive: true });
+  const content = typeof headManifest === 'string' ? headManifest : `${JSON.stringify(headManifest, null, 2)}\n`;
+  writeFileSync(join(root, 'packages', 'new-package', 'package.json'), content);
+  git(root, ['add', 'packages/new-package/package.json']);
+  git(root, ['commit', '--quiet', '-m', 'add package']);
+  return { root, base, head: git(root, ['rev-parse', 'HEAD']).trim() };
+}
+
+function createMalformedBaseHistory(): { root: string; base: string; head: string } {
+  const root = mkdtempSync(join(tmpdir(), 'kehto-napplet-direction-'));
+  mkdirSync(join(root, 'packages', 'demo'), { recursive: true });
+  git(root, ['init', '--quiet']);
+  git(root, ['config', 'user.email', 'test@example.com']);
+  git(root, ['config', 'user.name', 'Dependency Direction Test']);
+
+  writeFileSync(join(root, 'packages', 'demo', 'package.json'), '{invalid json\n');
+  git(root, ['add', 'packages/demo/package.json']);
+  git(root, ['commit', '--quiet', '-m', 'base']);
+  const base = git(root, ['rev-parse', 'HEAD']).trim();
+
+  writeFileSync(join(root, 'packages', 'demo', 'package.json'), '{"dependencies":{"@napplet/core":"0.31.0"}}\n');
+  git(root, ['add', 'packages/demo/package.json']);
+  git(root, ['commit', '--quiet', '-m', 'head']);
+  return { root, base, head: git(root, ['rev-parse', 'HEAD']).trim() };
+}
+
 function runGuard(root: string, base: string, head: string) {
   return spawnSync(process.execPath, [SCRIPT, '--base', base, '--head', head], {
     cwd: root,
@@ -106,6 +140,40 @@ describe('Napplet dependency direction guard', () => {
     try {
       const result = runGuard(history.root, history.base, history.head);
       expect(result.status, result.stderr).toBe(0);
+    } finally {
+      rmSync(history.root, { recursive: true, force: true });
+    }
+  });
+
+  it('accepts a @napplet dependency declaration in a package added after base', () => {
+    const history = createNewPackageHistory({
+      dependencies: { '@napplet/core': '0.31.0' },
+    });
+    try {
+      const result = runGuard(history.root, history.base, history.head);
+      expect(result.status, result.stderr).toBe(0);
+    } finally {
+      rmSync(history.root, { recursive: true, force: true });
+    }
+  });
+
+  it('fails closed when an existing base manifest is malformed', () => {
+    const history = createMalformedBaseHistory();
+    try {
+      const result = runGuard(history.root, history.base, history.head);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(`could not parse ${history.base}:packages/demo/package.json`);
+    } finally {
+      rmSync(history.root, { recursive: true, force: true });
+    }
+  });
+
+  it('fails closed when a head-only package manifest is malformed', () => {
+    const history = createNewPackageHistory('{invalid json\n');
+    try {
+      const result = runGuard(history.root, history.base, history.head);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(`could not parse ${history.head}:packages/new-package/package.json`);
     } finally {
       rmSync(history.root, { recursive: true, force: true });
     }

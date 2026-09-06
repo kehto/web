@@ -1,0 +1,59 @@
+{
+  "name": "@kehto/shell-ipc",
+  "version": "0.1.0",
+  "description": "Experimental Node/POSIX Unix-socket carrier for canonical napplet envelopes",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "kehto-ipc-shell": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@napplet/core": ">=0.31.0 <0.32.0"
+  },
+  "devDependencies": {
+    "@napplet/core": ">=0.31.0 <0.32.0",
+    "@types/node": "^20.0.0",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.2"
+  },
+  "scripts": {
+    "build": "tsup",
+    "type-check": "tsc --noEmit",
+    "test:unit": "cd ../.. && vitest run --config vitest.config.ts packages/shell-ipc"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kehto/web.git",
+    "directory": "packages/shell-ipc"
+  },
+  "keywords": [
+    "napplet",
+    "kehto",
+    "ipc",
+    "unix-socket",
+    "experimental"
+  ],
+  "dependencies": {
+    "@kehto/runtime": "workspace:^"
+  }
+}

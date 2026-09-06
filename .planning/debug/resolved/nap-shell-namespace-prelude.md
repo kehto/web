@@ -1,5 +1,5 @@
 ---
-status: fixed
+status: resolved
 trigger: "Resolve kehto/web#186: NAP-SHELL is not injected by the NIP-5D namespace prelude; identify the AGENTS.md gap that allowed the protocol violation"
 created: "2026-07-11T16:00:00Z"
 updated: "2026-07-11T16:20:00Z"
