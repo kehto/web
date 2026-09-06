@@ -29,7 +29,6 @@ import { resolveShellEnvironment } from './shell-init.js';
 import { renderNappletNamespacePrelude } from './napplet-namespace.js';
 import type { ShellAdapter, SessionEntry } from './types.js';
 import type { Theme } from '@napplet/nap/theme/types';
-import { DEFAULT_BURST_MAX_OPS } from '@kehto/firewall';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -150,6 +149,7 @@ describe('ShellBridge initialization burst lifecycle', () => {
           theme: { descriptor: { name: 'theme', version: '1.0.0' }, handleMessage: service },
         },
       });
+      const maxOps = bridge.runtime.firewallState.getConfig().burstGuard.maxOps;
       const evaluate = vi.spyOn(bridge.runtime.firewallState, 'evaluate');
       const firstFrame = makeFakeIframe();
       const firstWin = firstFrame as unknown as Window;
@@ -165,15 +165,15 @@ describe('ShellBridge initialization burst lifecycle', () => {
 
       try {
         const firstEntry = establishReadySession(bridge, firstFrame, 'burst-window', ['theme']);
-        requestTheme(firstWin, DEFAULT_BURST_MAX_OPS);
-        expect(service).toHaveBeenCalledTimes(DEFAULT_BURST_MAX_OPS);
+        requestTheme(firstWin, maxOps);
+        expect(service).toHaveBeenCalledTimes(maxOps);
 
         // Changing request payloads cannot renew host-owned initialization state.
         send(firstWin, { type: 'shell.ready', instanceId: 'forged', registeredAt: 0 });
         expect(bridge.runtime.sessionRegistry.getEntryByWindowId('burst-window')).toBe(firstEntry);
         expect(firstFrame.postMessage).not.toHaveBeenCalled();
         requestTheme(firstWin);
-        expect(service).toHaveBeenCalledTimes(DEFAULT_BURST_MAX_OPS);
+        expect(service).toHaveBeenCalledTimes(maxOps);
         expect(evaluate.mock.results.at(-1)?.value).toMatchObject({ decision: 'reject', ruleId: 'burst' });
 
         const nextFrame = replacement === 'stable WindowProxy' ? firstFrame : makeFakeIframe();
@@ -191,13 +191,13 @@ describe('ShellBridge initialization burst lifecycle', () => {
         expect(evaluate).toHaveBeenCalledTimes(evaluationsBeforeUntrusted);
         expect(bridge.runtime.sessionRegistry.getEntryByWindowId('burst-window')).toBe(nextEntry);
 
-        requestTheme(nextWin, DEFAULT_BURST_MAX_OPS);
-        expect(service).toHaveBeenCalledTimes(DEFAULT_BURST_MAX_OPS * 2);
+        requestTheme(nextWin, maxOps);
+        expect(service).toHaveBeenCalledTimes(maxOps * 2);
         expect(evaluate.mock.results.at(-1)?.value).toMatchObject({ decision: 'pass' });
 
         send(nextWin, { type: 'shell.ready' });
         requestTheme(nextWin);
-        expect(service).toHaveBeenCalledTimes(DEFAULT_BURST_MAX_OPS * 2);
+        expect(service).toHaveBeenCalledTimes(maxOps * 2);
         expect(evaluate.mock.results.at(-1)?.value).toMatchObject({ decision: 'reject', ruleId: 'burst' });
       } finally {
         bridge.destroy();
