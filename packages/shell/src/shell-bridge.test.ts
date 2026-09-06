@@ -29,6 +29,7 @@ import { resolveShellEnvironment } from './shell-init.js';
 import { renderNappletNamespacePrelude } from './napplet-namespace.js';
 import type { ShellAdapter, SessionEntry } from './types.js';
 import type { Theme } from '@napplet/nap/theme/types';
+import { DEFAULT_BURST_MAX_OPS } from '@kehto/firewall';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -125,6 +126,85 @@ function establishReadySession(
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
+
+describe('ShellBridge initialization burst lifecycle', () => {
+  beforeEach(() => {
+    originRegistry.clear();
+    vi.spyOn(Date, 'now').mockReturnValue(1_000_000);
+  });
+
+  afterEach(() => {
+    originRegistry.clear();
+    vi.restoreAllMocks();
+  });
+
+  // NAP-SHELL at napplet/naps a040914: duplicate readiness cannot replace a
+  // session. Only a trusted source registration starts another lifecycle.
+  it.each(['replacement source', 'stable WindowProxy'])(
+    'renews the burst budget for a %s with the same logical window ID',
+    (replacement) => {
+      const service = vi.fn();
+      const bridge = createShellBridge({
+        ...makeTestHooks(),
+        services: {
+          theme: { descriptor: { name: 'theme', version: '1.0.0' }, handleMessage: service },
+        },
+      });
+      const evaluate = vi.spyOn(bridge.runtime.firewallState, 'evaluate');
+      const firstFrame = makeFakeIframe();
+      const firstWin = firstFrame as unknown as Window;
+      const send = (source: Window, data: Record<string, unknown>) => {
+        bridge.handleMessage({ source, origin: 'null', data } as MessageEvent);
+      };
+      let requestId = 0;
+      const requestTheme = (source: Window, count = 1) => {
+        for (let i = 0; i < count; i++) {
+          send(source, { type: 'theme.get', id: `theme-${++requestId}` });
+        }
+      };
+
+      try {
+        const firstEntry = establishReadySession(bridge, firstFrame, 'burst-window', ['theme']);
+        requestTheme(firstWin, DEFAULT_BURST_MAX_OPS);
+        expect(service).toHaveBeenCalledTimes(DEFAULT_BURST_MAX_OPS);
+
+        // Changing request payloads cannot renew host-owned initialization state.
+        send(firstWin, { type: 'shell.ready', instanceId: 'forged', registeredAt: 0 });
+        expect(bridge.runtime.sessionRegistry.getEntryByWindowId('burst-window')).toBe(firstEntry);
+        expect(firstFrame.postMessage).not.toHaveBeenCalled();
+        requestTheme(firstWin);
+        expect(service).toHaveBeenCalledTimes(DEFAULT_BURST_MAX_OPS);
+        expect(evaluate.mock.results.at(-1)?.value).toMatchObject({ decision: 'reject', ruleId: 'burst' });
+
+        const nextFrame = replacement === 'stable WindowProxy' ? firstFrame : makeFakeIframe();
+        const nextWin = nextFrame as unknown as Window;
+        const nextEntry = establishReadySession(bridge, nextFrame, 'burst-window', ['theme']);
+        expect(nextEntry).not.toBe(firstEntry);
+        expect(nextEntry.registeredAt).toBe(firstEntry.registeredAt);
+
+        const evaluationsBeforeUntrusted = evaluate.mock.calls.length;
+        const unknownWin = makeFakeIframe() as unknown as Window;
+        for (const source of replacement === 'replacement source' ? [firstWin, unknownWin] : [unknownWin]) {
+          send(source, { type: 'shell.ready' });
+          requestTheme(source);
+        }
+        expect(evaluate).toHaveBeenCalledTimes(evaluationsBeforeUntrusted);
+        expect(bridge.runtime.sessionRegistry.getEntryByWindowId('burst-window')).toBe(nextEntry);
+
+        requestTheme(nextWin, DEFAULT_BURST_MAX_OPS);
+        expect(service).toHaveBeenCalledTimes(DEFAULT_BURST_MAX_OPS * 2);
+        expect(evaluate.mock.results.at(-1)?.value).toMatchObject({ decision: 'pass' });
+
+        send(nextWin, { type: 'shell.ready' });
+        requestTheme(nextWin);
+        expect(service).toHaveBeenCalledTimes(DEFAULT_BURST_MAX_OPS * 2);
+        expect(evaluate.mock.results.at(-1)?.value).toMatchObject({ decision: 'reject', ruleId: 'burst' });
+      } finally {
+        bridge.destroy();
+      }
+    },
+  );
+});
 
 describe('ShellBridge.publishTheme (TH-03, Plan 13-02)', () => {
   beforeEach(() => {

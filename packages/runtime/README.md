@@ -194,6 +194,19 @@ runtime.handleMessage('window-1', {
 - `createSessionRegistry` — bidirectional windowId ↔ `SessionEntry` store
 - `createNappKeyRegistry` — deprecated alias retained for v1.1 migration consumers
 
+`runtime.sessionRegistry.register(windowId, entry)` establishes a fresh trusted
+source lifecycle and retires that window's previous initialization burst budget,
+including when the host reuses the window ID, timestamp, or entry object. Ordinary
+messages and `destroyWindow()` alone do not renew the budget. The shell registers
+only on the first `shell.ready` for each host-attested source registration, so
+duplicate readiness signals cannot bypass the startup limit. Per-napplet rate
+limits remain shared across registrations and versions.
+
+Standalone registries accept an optional second `onRegister(windowId)` callback.
+The runtime uses it to call `firewallState.resetInitBudget(windowId)`, which removes
+only the selected startup counter and preserves policy and token buckets. Custom
+implementations of `FirewallStateContainer` must provide this method.
+
 ### ACL state container
 - `createAclState` — persistence-backed wrapper around `@kehto/acl` state
 

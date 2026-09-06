@@ -59,6 +59,18 @@ export interface FirewallStateContainer {
    */
   evaluate(observation: Observation): EvaluateResult;
   /**
+   * Retire one initialization budget when the host establishes a fresh lifecycle.
+   * Preserves all per-napplet rate buckets and policy configuration.
+   *
+   * @param initKey - Host-owned initialization key used in firewall observations
+   * @returns Nothing
+   * @example
+   * ```ts
+   * firewall.resetInitBudget('window-1');
+   * ```
+   */
+  resetInitBudget(initKey: string): void;
+  /**
    * Set a per-napplet policy override (allow / deny / ask).
    *
    * @param napplet - The napplet dTag (version-agnostic identity key).
@@ -126,6 +138,13 @@ export function createFirewallState(
       const result = evaluate(config, counters, observation);
       counters = result.newState;   // CRITICAL: advance ephemeral counter state
       return result;
+    },
+
+    resetInitBudget(initKey: string): void {
+      if (!Object.hasOwn(counters.bursts, initKey)) return;
+      const bursts = { ...counters.bursts };
+      delete bursts[initKey];
+      counters = { ...counters, bursts };
     },
 
     setPolicy(napplet: string, policy: NappletPolicy): void {

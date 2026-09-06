@@ -13,7 +13,7 @@ import type { SessionEntry, PendingUpdate, PendingUpdateNotifier } from './types
  * ```
  */
 export interface SessionRegistry {
-  /** Register a napplet entry, mapping windowId to pubkey and vice versa. */
+  /** Establish a fresh host-attested lifecycle, mapping windowId to pubkey and vice versa. */
   register(windowId: string, entry: SessionEntry): void;
   /** Unregister a napplet by windowId, removing both mappings. */
   unregister(windowId: string): void;
@@ -63,6 +63,7 @@ export type NappKeyRegistry = SessionRegistry;
  * Create a new SessionRegistry instance.
  *
  * @param notifier - Optional callback invoked when pending updates change
+ * @param onRegister - Optional host callback invoked for each fresh registration, including replacement of the same windowId
  * @returns A SessionRegistry instance
  *
  * @example
@@ -72,7 +73,10 @@ export type NappKeyRegistry = SessionRegistry;
  * });
  * ```
  */
-export function createSessionRegistry(notifier?: PendingUpdateNotifier): SessionRegistry {
+export function createSessionRegistry(
+  notifier?: PendingUpdateNotifier,
+  onRegister?: (windowId: string) => void,
+): SessionRegistry {
   const byWindowId = new Map<string, string>();
   const byPubkey = new Map<string, SessionEntry>();
   const byWindowIdEntry = new Map<string, SessionEntry>();
@@ -83,6 +87,7 @@ export function createSessionRegistry(notifier?: PendingUpdateNotifier): Session
       byWindowId.set(windowId, entry.pubkey);
       byPubkey.set(entry.pubkey, entry);
       byWindowIdEntry.set(windowId, entry);
+      onRegister?.(windowId);
     },
 
     unregister(windowId: string): void {

@@ -65,4 +65,22 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 
 ## API Reference
 
+### Registration and initialization limits
+
+Each trusted `runtime.sessionRegistry.register(windowId, entry)` starts a fresh
+initialization budget, even when a replacement iframe retains the logical window
+ID. Duplicate `shell.ready` messages do not re-register a live source, and neither
+request fields nor `destroyWindow()` alone reset the budget. The default startup
+guard still rejects operation 21 within three seconds; ordinary per-napplet rate
+limits remain shared across registrations and versions.
+
+`createSessionRegistry(notifier?, onRegister?)` supports a host registration callback.
+The runtime wires it to `firewallState.resetInitBudget(windowId)`, which retires only
+that startup counter. Custom `FirewallStateContainer` implementations must implement
+`resetInitBudget(initKey)` while preserving other counters and policy.
+
+This is Kehto host policy, conformant with the source-bound, idempotent lifecycle in
+[NAP-SHELL at `a040914`](https://github.com/napplet/naps/blob/a040914b4bbd3a5cd8a14b0f316a723c968ebfb2/naps/NAP-SHELL.md).
+It changes no NIP-5D wire messages or NAP-THEME result behavior.
+
 - Generated module: <a href="../api/modules/_kehto_runtime.html" target="_self"><code>docs/api/modules/_kehto_runtime.html</code></a>
