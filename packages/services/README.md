@@ -251,6 +251,8 @@ export interface HostKeysBridge {
    *   - invoke `callback` exactly once per matching chord event (implementations
    *     are responsible for any OS-autorepeat filtering)
    *   - invoke `callback` synchronously during the event delivery
+   *   - remove only this subscription when its unsubscribe handle is called;
+   *     other callbacks for the same chord must remain live
    *   - accept the string chord format documented by @napplet/nap/keys
    *     (e.g. `'Ctrl+Shift+K'`, `'Cmd+P'`)
    */
@@ -300,16 +302,33 @@ keys.destroy();
 Custom bridge path — swap in Electron's `globalShortcut`:
 
 ```ts
-import { createKeysService, type HostKeysBridge } from '@kehto/services';
+import { createKeysService, type HostKeysBridge, type HostKeyEvent } from '@kehto/services';
 import { globalShortcut } from 'electron';
 
+const subscribers = new Map<string, Set<(event: HostKeyEvent) => void>>();
 const electronBridge: HostKeysBridge = {
   subscribe(chord, cb) {
-    globalShortcut.register(chord, () => cb({
-      key: '', code: '',
-      ctrlKey: false, altKey: false, shiftKey: false, metaKey: false,
-    } as KeyboardEvent));
-    return () => globalShortcut.unregister(chord);
+    let callbacks = subscribers.get(chord);
+    if (!callbacks) {
+      const group = new Set<(event: HostKeyEvent) => void>();
+      const registered = globalShortcut.register(chord, () => {
+        for (const callback of group) callback({
+          key: '', code: '',
+          ctrlKey: false, altKey: false, shiftKey: false, metaKey: false,
+        });
+      });
+      if (!registered) throw new Error(`Cannot register ${chord}`);
+      callbacks = group;
+      subscribers.set(chord, callbacks);
+    }
+    callbacks.add(cb);
+    return () => {
+      if (!callbacks.delete(cb)) return;
+      if (callbacks.size === 0) {
+        globalShortcut.unregister(chord);
+        subscribers.delete(chord);
+      }
+    };
   },
 };
 
@@ -321,6 +340,23 @@ runtime.registerService('keys', createKeysService({ hostBridge: electronBridge }
 Plug a `HostKeysBridge` when the default document listener is insufficient: Electron or Tauri apps that need to register OS-level global hotkeys (chords delivered even when the host window is not focused), native shells that route chords through a platform-specific hotkey manager (macOS Carbon, Linux X11 grab, Windows RegisterHotKey), or test harnesses that inject synthetic events through a controlled `EventTarget`. The bridge owns subscription lifecycle; the service retains per-window bookkeeping (so `onWindowDestroyed` cleanup stays identical across paths).
 
 A napplet drives this end to end via `@napplet/sdk` — `keys.registerAction` to claim a chord and `keys.onAction` to receive dispatches against the real backend. After a successful bound registration, the service pushes a complete `keys.bindings` list for that napplet/window, using entries shaped as `{ actionId, key }`. It pushes the complete list again after `keys.unregisterAction` removes a binding, including an empty list when no bindings remain. Injected shims use that list to suppress locally-bound keydowns before forwarding.
+
+Action IDs are local to the trusted window passed by the runtime. Two windows may
+each register `game.a`, including with the same suggested key, without replacing
+one another's bindings. Unregistering or destroying one window removes only its
+actions and bridge subscriptions. Binding lists and `keys.action` messages retain
+the original app-local action ID; callers do not need to invent window-specific IDs.
+Re-registering an action in the same window retains the existing rebind behavior:
+a valid available chord replaces that window's binding, a reserved chord removes
+its previous binding, and a malformed chord or failed bridge subscription leaves
+the previous binding intact.
+
+This ownership scope is an explicit Kehto policy for the scope left implicit by
+[NAP-KEYS PR #9 at `cecb642`](https://github.com/napplet/naps/blob/cecb64257e0ac29926bb746832a477c553ab307c/naps/NAP-KEYS.md).
+The draft describes duplicate-action errors but does not mandate service-global
+IDs or forbid same-owner updates. Window-scoped ownership preserves its per-napplet
+binding delivery and adds no wire fields. Chord conflicts retain the existing
+behavior: matching registered actions receive their own `keys.action` push.
 
 ### Reserved Chords
 

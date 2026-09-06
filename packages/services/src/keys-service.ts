@@ -5,7 +5,7 @@
  *   - keys.forward          -> invokes options.onForward (hotkey passthrough, fire-and-forget)
  *   - keys.registerAction   -> parses action.defaultKey into a normalized chord binding,
  *                              stores bound subscriptions in an in-memory registry keyed
- *                              by actionId, tracks windowId ownership so onWindowDestroyed
+ *                              by windowId + actionId so onWindowDestroyed
  *                              can auto-unsubscribe, echoes { actionId, binding } as .result
  *                              when a binding is assigned, and pushes the window's complete
  *                              keys.bindings list
@@ -48,6 +48,7 @@ import type {
   KeysActionMessage,
 } from '@napplet/nap/keys/types';
 import {
+  actionRegistryKey,
   chordSpecKey,
   eventKey,
   formatChord,
@@ -97,17 +98,8 @@ export interface HostKeyEvent {
  *
  * @example
  * ```ts
- * // Host-app pseudocode (Electron main-process relay):
- * const electronBridge: HostKeysBridge = {
- *   subscribe(chord, cb) {
- *     const handle = globalShortcut.register(chord, () => cb({ key: '', code: '', ctrlKey: false, altKey: false, shiftKey: false, metaKey: false }));
- *     return () => globalShortcut.unregister(chord);
- *   },
- *   registerGlobalHotkey: (chord) => globalShortcut.register(chord, () => {}),
- *   onGlobalHotkey: (cb) => globalHotkeyBridge.on('global-hotkey', (_, chord) => cb(chord)),
- * };
- *
- * const keys = createKeysService({ hostBridge: electronBridge });
+ * declare const hostBridge: HostKeysBridge;
+ * const keys = createKeysService({ hostBridge });
  * runtime.registerService('keys', keys);
  * ```
  */
@@ -119,6 +111,8 @@ export interface HostKeysBridge {
    *   - invoke `callback` exactly once per matching chord event (implementations
    *     are responsible for any OS-autorepeat filtering)
    *   - invoke `callback` synchronously during the event delivery
+   *   - remove only this subscription when its unsubscribe handle is called;
+   *     other callbacks for the same chord must remain live
    *   - accept the string chord format documented by @napplet/nap/keys
    *     (e.g. `'Ctrl+Shift+K'`, `'Cmd+P'`)
    */
@@ -191,7 +185,7 @@ export interface KeysServiceOptions {
   /**
    * Optional pluggable backend for chord subscription. When provided, the
    * service delegates `keys.registerAction` → `bridge.subscribe(chord, cb)`
-   * and stores the returned unsubscribe handle keyed on `actionId`. The
+   * and stores the returned unsubscribe handle keyed on windowId + actionId. The
    * default document-listener path is NOT attached when `hostBridge` is
    * provided — the bridge is authoritative. See {@link HostKeysBridge}.
    */
@@ -237,7 +231,7 @@ function bindActionEntry(
   chord: ChordSpec,
   chordString: string,
 ): void {
-  registry.set(actionId, { chord, chordString, windowId });
+  registry.set(actionRegistryKey(windowId, actionId), { actionId, chord, chordString, windowId });
   rememberActionForWindow(windowIndex, windowId, actionId);
 }
 
@@ -390,10 +384,11 @@ export function createKeysService(
     const bridgeWindowActions = new Map<string, Set<string>>();
     const bridgeActionRegistry = new Map<string, ActionEntry>();
     const bridgeSendHandles = new Map<string, (msg: NappletMessage) => void>();
-    // actionId → unsubscribe handle returned from bridge.subscribe.
+    // (windowId, actionId) → unsubscribe handle returned from bridge.subscribe.
     const unsubscribeHandles = new Map<string, () => void>();
 
     const handleBridgeRegisterAction: RegisterActionHandler = (windowId, m, send) => {
+      const registryKey = actionRegistryKey(windowId, m.action.id);
       bridgeSendHandles.set(windowId, send);
       let binding: string | undefined;
       const changedWindowIds = new Set<string>();
@@ -402,8 +397,8 @@ export function createKeysService(
         try {
           const chord = parseChord(m.action.defaultKey);
           const normalizedChord = formatChord(chord);
-          const existingEntry = bridgeActionRegistry.get(m.action.id);
-          const existing = unsubscribeHandles.get(m.action.id);
+          const existingEntry = bridgeActionRegistry.get(registryKey);
+          const existing = unsubscribeHandles.get(registryKey);
           let nextUnsubscribe: (() => void) | undefined;
 
           if (!isUnavailableBinding(chord)) {
@@ -434,14 +429,14 @@ export function createKeysService(
             } catch {
               /* best-effort */
             }
-            unsubscribeHandles.delete(m.action.id);
+            unsubscribeHandles.delete(registryKey);
           }
           if (existingEntry) changedWindowIds.add(existingEntry.windowId);
-          removeActionFromWindowIndex(m.action.id, bridgeWindowActions);
-          bridgeActionRegistry.delete(m.action.id);
+          removeActionFromWindowIndex(windowId, m.action.id, bridgeWindowActions);
+          bridgeActionRegistry.delete(registryKey);
 
           if (nextUnsubscribe) {
-            unsubscribeHandles.set(m.action.id, nextUnsubscribe);
+            unsubscribeHandles.set(registryKey, nextUnsubscribe);
             binding = bindActionAndMarkChanged(
               bridgeActionRegistry,
               bridgeWindowActions,
@@ -472,19 +467,20 @@ export function createKeysService(
       );
     };
 
-    const handleBridgeUnregisterAction: UnregisterActionHandler = (_windowId, m, send) => {
+    const handleBridgeUnregisterAction: UnregisterActionHandler = (windowId, m, send) => {
       if (!m.actionId) return;
-      const unsubscribe = unsubscribeHandles.get(m.actionId);
-      const entry = bridgeActionRegistry.get(m.actionId);
+      const registryKey = actionRegistryKey(windowId, m.actionId);
+      const unsubscribe = unsubscribeHandles.get(registryKey);
+      const entry = bridgeActionRegistry.get(registryKey);
       if (!unsubscribe) return;
       try {
         unsubscribe();
       } catch {
         /* best-effort */
       }
-      unsubscribeHandles.delete(m.actionId);
-      bridgeActionRegistry.delete(m.actionId);
-      removeActionFromWindowIndex(m.actionId, bridgeWindowActions);
+      unsubscribeHandles.delete(registryKey);
+      bridgeActionRegistry.delete(registryKey);
+      removeActionFromWindowIndex(windowId, m.actionId, bridgeWindowActions);
       if (entry) {
         const ownerSend = bridgeSendHandles.get(entry.windowId) ?? send;
         pushBindings(entry.windowId, bridgeActionRegistry, bridgeWindowActions, ownerSend);
@@ -507,7 +503,8 @@ export function createKeysService(
         const actions = bridgeWindowActions.get(windowId);
         if (!actions) return;
         for (const actionId of actions) {
-          const unsubscribe = unsubscribeHandles.get(actionId);
+          const registryKey = actionRegistryKey(windowId, actionId);
+          const unsubscribe = unsubscribeHandles.get(registryKey);
           if (unsubscribe) {
             try {
               unsubscribe();
@@ -515,8 +512,8 @@ export function createKeysService(
               /* best-effort */
             }
           }
-          unsubscribeHandles.delete(actionId);
-          bridgeActionRegistry.delete(actionId);
+          unsubscribeHandles.delete(registryKey);
+          bridgeActionRegistry.delete(registryKey);
         }
         bridgeWindowActions.delete(windowId);
         bridgeSendHandles.delete(windowId);
@@ -538,7 +535,7 @@ export function createKeysService(
     };
   }
 
-  const actionRegistry = new Map<string, ActionEntry>(); // actionId → {chord, chordString, windowId}
+  const actionRegistry = new Map<string, ActionEntry>(); // (windowId, actionId) → owned binding
   const windowActions = new Map<string, Set<string>>(); // windowId → Set<actionId>
   // Per-window `send` callback captured at registerAction time. Used to push
   // keys.action envelopes back to the owning napplet on chord match — this is
@@ -595,13 +592,13 @@ export function createKeysService(
     // Canonical shell→napplet push: emit keys.action to the owning napplet via
     // its captured send callback. The SDK's keys.onAction helper subscribes to
     // this envelope.
-    for (const [actionId, entry] of actionRegistry.entries()) {
+    for (const entry of actionRegistry.values()) {
       if (chordMatches(entry.chord, ev)) {
         const send = sendHandles.get(entry.windowId);
         if (send) {
           const payload: KeysActionMessage = {
             type: 'keys.action',
-            actionId,
+            actionId: entry.actionId,
           };
           send(payload as NappletMessage);
         }
@@ -615,6 +612,7 @@ export function createKeysService(
   target.addEventListener('keydown', listener);
 
   const handleDocumentRegisterAction: RegisterActionHandler = (windowId, m, send) => {
+    const registryKey = actionRegistryKey(windowId, m.action.id);
     // Capture (or refresh) the per-window send callback. The runtime's service
     // handler contract keeps `send` valid until onWindowDestroyed(windowId).
     sendHandles.set(windowId, send);
@@ -625,11 +623,11 @@ export function createKeysService(
       try {
         const chord = parseChord(m.action.defaultKey);
         const normalizedChord = formatChord(chord);
-        const existing = actionRegistry.get(m.action.id);
+        const existing = actionRegistry.get(registryKey);
         if (existing) {
           changedWindowIds.add(existing.windowId);
-          removeActionFromWindowIndex(m.action.id, windowActions);
-          actionRegistry.delete(m.action.id);
+          removeActionFromWindowIndex(windowId, m.action.id, windowActions);
+          actionRegistry.delete(registryKey);
         }
         if (!isUnavailableBinding(chord)) {
           binding = bindActionAndMarkChanged(actionRegistry, windowActions, changedWindowIds, m.action.id, windowId, chord, normalizedChord);
@@ -648,10 +646,12 @@ export function createKeysService(
     pushChangedBindings(changedWindowIds, actionRegistry, windowActions, sendHandles, send);
   };
 
-  const handleDocumentUnregisterAction: UnregisterActionHandler = (_windowId, m, send) => {
-    if (!m.actionId || !actionRegistry.has(m.actionId)) return;
-    const entry = actionRegistry.get(m.actionId)!;
-    actionRegistry.delete(m.actionId);
+  const handleDocumentUnregisterAction: UnregisterActionHandler = (windowId, m, send) => {
+    if (!m.actionId) return;
+    const registryKey = actionRegistryKey(windowId, m.actionId);
+    const entry = actionRegistry.get(registryKey);
+    if (!entry) return;
+    actionRegistry.delete(registryKey);
     const set = windowActions.get(entry.windowId);
     if (set) {
       set.delete(m.actionId);
@@ -676,7 +676,7 @@ export function createKeysService(
     onWindowDestroyed(windowId: string): void {
       const actions = windowActions.get(windowId);
       if (actions) {
-        for (const actionId of actions) actionRegistry.delete(actionId);
+        for (const actionId of actions) actionRegistry.delete(actionRegistryKey(windowId, actionId));
         windowActions.delete(windowId);
       }
       sendHandles.delete(windowId);

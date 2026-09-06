@@ -18,9 +18,16 @@ export interface ChordSpec {
 }
 /** Registry entry mapping a registered actionId to its owning window + chord. */
 export interface ActionEntry {
+  actionId: string;
   chord: ChordSpec;
   chordString: string;
   windowId: string;
+}
+
+// NAP-KEYS PR #9 at cecb642 leaves uniqueness scope implicit. Kehto scopes
+// registrations to their trusted source window; wire IDs remain app-local.
+export function actionRegistryKey(windowId: string, actionId: string): string {
+  return JSON.stringify([windowId, actionId]);
 }
 
 const MODIFIER_ALIASES: Record<string, keyof Pick<ChordSpec, 'ctrl' | 'alt' | 'shift' | 'meta'>> = {
@@ -125,7 +132,7 @@ export function bindingsForWindow(
   if (!actionIds) return [];
   const bindings: KeyBinding[] = [];
   for (const actionId of actionIds) {
-    const entry = registry.get(actionId);
+    const entry = registry.get(actionRegistryKey(windowId, actionId));
     if (!entry || entry.windowId !== windowId) continue;
     bindings.push({ actionId, key: entry.chordString });
   }
@@ -146,10 +153,10 @@ export function pushBindings(
 }
 
 export function removeActionFromWindowIndex(
+  windowId: string,
   actionId: string,
   windowIndex: Map<string, Set<string>>,
 ): void {
-  for (const [wid, set] of windowIndex.entries()) {
-    if (set.delete(actionId) && set.size === 0) windowIndex.delete(wid);
-  }
+  const actions = windowIndex.get(windowId);
+  if (actions?.delete(actionId) && actions.size === 0) windowIndex.delete(windowId);
 }

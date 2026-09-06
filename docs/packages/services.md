@@ -53,6 +53,14 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
   runtime attaches the sender to delivered INC events from the authenticated
   endpoint, so a service must not fabricate an INC delivery.
 - Host apps provide backing bridges/callbacks for browser, native, signer, relay, fetch, notification, and media behavior.
+- Keys actions belong to the trusted runtime window plus the app-local action ID.
+  Two windows can register the same ID independently in both document and
+  `hostBridge` backends. Unregister and window teardown affect only the owner;
+  binding/action pushes preserve the original action ID. Same-window re-registration
+  retains the existing rebind behavior. This is an explicit ownership policy for
+  the uniqueness scope left implicit by [NAP-KEYS PR #9 at
+  `cecb642`](https://github.com/napplet/naps/blob/cecb64257e0ac29926bb746832a477c553ab307c/naps/NAP-KEYS.md),
+  with no wire changes.
 - Relay services receive runtime-signed events and always settle publish calls
   with the NAP-RELAY result shape: `{ ok: true, event, eventId }` on success or
   `{ ok: false, error }` on failure. Relay subscribe adapters can provide
