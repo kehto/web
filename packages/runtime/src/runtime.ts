@@ -246,8 +246,8 @@ function buildObservation(
     size,
     initElapsedMs,
     // `windowId` comes from the host's source-bound session lookup, never the
-    // napplet message envelope. It scopes startup burst accounting to this
-    // registered realm while rate limits remain dTag-wide.
+    // napplet message envelope. Trusted register() calls retire this key's
+    // previous startup budget; ordinary messages cannot reset it.
     initKey: windowId,
     focused: focus.focused,
     msSinceFocusGain: focus.msSinceFocusGain,
@@ -548,7 +548,10 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   const subscriptions = new Map<string, SubscriptionEntry>();
   const serviceRegistry: ServiceRegistry = { ...hooks.services };
   const registeredServices = createRegisteredServices(serviceRegistry);
-  const sessionRegistry = createSessionRegistry(hooks.onPendingUpdate);
+  const firewallState = createFirewallState(hooks.firewallPersistence);
+  const sessionRegistry = createSessionRegistry(hooks.onPendingUpdate, (windowId) => {
+    firewallState.resetInitBudget(windowId);
+  });
   let incRuntime: IncRuntime | null = null;
   const aclState = createAclState(hooks.aclPersistence, 'permissive', (mutation) => {
     if (mutation.type === 'revoke' && mutation.capability !== 'relay:read') return;
@@ -558,7 +561,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
       }
     }
   });
-  const firewallState = createFirewallState(hooks.firewallPersistence);
   const manifestCache = createManifestCache(hooks.manifestPersistence);
   const replayDetector = createReplayDetector(
     hooks.getConfigOverrides

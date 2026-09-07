@@ -20,6 +20,35 @@ function makeObs(napplet = 'chat', now = Date.now()) {
 }
 
 describe('runtime firewall state', () => {
+  it('retires only the selected startup counter without mutating returned state or rate budgets', () => {
+    const firewall = createFirewallState();
+    firewall.setRateLimit('chat', 'relay:write', { capacity: 2, windowMs: 60_000, action: 'block' });
+    const observation = { ...makeObs('chat', 1_000_000), initElapsedMs: 0, initKey: 'first' };
+    firewall.evaluate(observation);
+    const previous = firewall.evaluate({ ...observation, initKey: 'second' });
+    const config = firewall.getConfig();
+
+    firewall.resetInitBudget('first');
+    firewall.resetInitBudget('missing');
+    const next = firewall.evaluate({ ...observation, initElapsedMs: 4_000 });
+    expect(next).toMatchObject({ decision: 'reject', ruleId: 'rate:opclass' });
+    expect(next.newState.bursts).toEqual({ second: previous.newState.bursts.second });
+    expect(Object.keys(previous.newState.bursts)).toEqual(['first', 'second']);
+    expect(firewall.getConfig()).toBe(config);
+  });
+
+  it('keeps one startup counter across repeated same-key registrations', () => {
+    const firewall = createFirewallState();
+    for (let i = 0; i < 50; i++) {
+      firewall.resetInitBudget('window');
+      const result = firewall.evaluate({
+        ...makeObs('chat', 1_000_000), initElapsedMs: 0, initKey: 'window',
+      });
+      expect(Object.keys(result.newState.bursts)).toEqual(['window']);
+      expect(result.newState.bursts.window.count).toBe(1);
+    }
+  });
+
   it('constructs without a persistence backend and evaluates observations', () => {
     const firewall = createFirewallState();
     const result = firewall.evaluate(makeObs());
