@@ -1,5 +1,17 @@
 # @kehto/services
 
+## 0.21.2
+
+### Patch Changes
+
+- 850563b: Scope keys action registrations and bridge unsubscribe handles to their owning
+  runtime window. Multiple windows may use the same app-local action ID without
+  replacing or unregistering each other's bindings. Preserve same-window rebinding,
+  original wire action IDs, and independent window destruction/reload in both
+  document and hostBridge backends.
+- Updated dependencies [b16d64a]
+  - @kehto/runtime@0.24.0
+
 ## 0.21.1
 
 ### Patch Changes
