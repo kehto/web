@@ -1,5 +1,15 @@
 # @kehto/demo
 
+## 0.1.13
+
+### Patch Changes
+
+- Updated dependencies [b16d64a]
+- Updated dependencies [850563b]
+  - @kehto/runtime@0.24.0
+  - @kehto/services@0.21.2
+  - @kehto/shell@0.21.2
+
 ## 0.1.12
 
 ### Patch Changes
