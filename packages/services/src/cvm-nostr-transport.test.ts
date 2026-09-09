@@ -29,6 +29,7 @@ function createServerPool(serverSecretKey: Uint8Array, serverBehavior: (mcp: Mcp
   const serverPubkey = getPublicKey(serverSecretKey);
   const subs: SubRecord[] = [];
   const publishedPlain: McpMessage[] = [];
+  const publishedInnerTags: string[][][] = [];
 
   const pool: CvmRelayPool = {
     subscribe(relays, filter, params) {
@@ -43,6 +44,7 @@ function createServerPool(serverSecretKey: Uint8Array, serverBehavior: (mcp: Mcp
         const inner = JSON.parse(nip44.decrypt(event.content, ck)) as NostrEvt;
         const mcp = JSON.parse(inner.content) as McpMessage;
         publishedPlain.push(mcp);
+        publishedInnerTags.push(inner.tags);
         const result = serverBehavior(mcp);
         if (result === null || result === undefined) return;
         const responseMcp: McpMessage = { jsonrpc: '2.0', id: mcp.id, result };
@@ -73,13 +75,13 @@ function createServerPool(serverSecretKey: Uint8Array, serverBehavior: (mcp: Mcp
     }, 0);
   }
 
-  return { pool, serverPubkey, subs, publishedPlain, deliverEncrypted };
+  return { pool, serverPubkey, subs, publishedPlain, publishedInnerTags, deliverEncrypted };
 }
 
 describe('createNostrCvmTransport', () => {
   it('round-trips an MCP request through CEP-4 gift wrap and restores the caller id', async () => {
     const serverSk = generateSecretKey();
-    const { pool, serverPubkey, publishedPlain } = createServerPool(serverSk, (mcp) =>
+    const { pool, serverPubkey, publishedPlain, publishedInnerTags } = createServerPool(serverSk, (mcp) =>
       mcp.method === 'tools/list' ? { tools: [{ name: 'calculate_trust_score' }] } : null,
     );
     const transport = createNostrCvmTransport({ pool, defaultRelays: RELAYS, clientSecretKey: generateSecretKey() });
@@ -94,6 +96,12 @@ describe('createNostrCvmTransport', () => {
     // The wire id sent to the server was a unique correlation id, not 42.
     expect(publishedPlain[0].id).not.toBe(42);
     expect(publishedPlain[0].method).toBe('tools/list');
+    expect(publishedInnerTags[0]).toEqual(expect.arrayContaining([
+      ['support_encryption'],
+      ['support_encryption_ephemeral'],
+      ['support_oversized_transfer'],
+      ['support_open_stream'],
+    ]));
   });
 
   it('performs the initialize handshake before the request when options.initialize is set', async () => {
@@ -117,6 +125,126 @@ describe('createNostrCvmTransport', () => {
     expect(seen).toContain('notifications/initialized');
     expect(seen).toContain('tools/call');
     expect((result.result as { isError: boolean }).isError).toBe(false);
+  });
+
+  it('injects a progressToken into tools/call and preserves an explicit token', async () => {
+    const serverSk = generateSecretKey();
+    const { pool, serverPubkey, publishedPlain } = createServerPool(serverSk, (mcp) =>
+      mcp.method === 'tools/call' ? { ok: true } : null,
+    );
+    const transport = createNostrCvmTransport({ pool, defaultRelays: RELAYS, clientSecretKey: generateSecretKey() });
+
+    await transport.request(
+      { pubkey: serverPubkey },
+      { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'models.list', arguments: {} } },
+    );
+    const firstMeta = (publishedPlain[0].params as { _meta: { progressToken: string } })._meta;
+    expect(firstMeta.progressToken).toMatch(/^cvm-/);
+
+    await transport.request(
+      { pubkey: serverPubkey },
+      {
+        jsonrpc: '2.0', id: 2, method: 'tools/call',
+        params: { name: 'chat.complete', arguments: {}, _meta: { progressToken: 'stream-explicit' } },
+      },
+    );
+    const secondMeta = (publishedPlain[1].params as { _meta: { progressToken: string } })._meta;
+    expect(secondMeta.progressToken).toBe('stream-explicit');
+  });
+
+  it('reassembles an out-of-order CEP-22 oversized response and restores the caller id', async () => {
+    const serverSk = generateSecretKey();
+    const { pool, serverPubkey, publishedPlain, deliverEncrypted } = createServerPool(serverSk, () => null);
+    const transport = createNostrCvmTransport({ pool, defaultRelays: RELAYS, clientSecretKey: generateSecretKey() });
+
+    const responsePromise = transport.request(
+      { pubkey: serverPubkey },
+      { jsonrpc: '2.0', id: 77, method: 'tools/list' },
+      { timeoutMs: 1_000 },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const correlationId = publishedPlain[0].id;
+    const payload = JSON.stringify({
+      jsonrpc: '2.0',
+      id: correlationId,
+      result: { tools: [{ name: 'über-tool' }], padding: 'x'.repeat(128) },
+    });
+    const bytes = new TextEncoder().encode(payload);
+    const digestBytes = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+    const digest = [...digestBytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+    const split = Math.floor(payload.length / 2);
+    const chunks = [payload.slice(0, split), payload.slice(split)];
+    const token = 'oversized-77';
+    const progress = (value: number, cvm: Record<string, unknown>): McpMessage => ({
+      jsonrpc: '2.0',
+      method: 'notifications/progress',
+      params: { progressToken: token, progress: value, cvm },
+    });
+
+    deliverEncrypted(progress(1, {
+      type: 'oversized-transfer', frameType: 'start', digest: `sha256:${digest}`,
+      totalBytes: bytes.byteLength, totalChunks: chunks.length,
+    }));
+    // Response chunks start at progress=2; deliver out of order to prove the
+    // reassembler sorts by progress rather than arrival order.
+    deliverEncrypted(progress(3, { type: 'oversized-transfer', frameType: 'chunk', data: chunks[1] }));
+    deliverEncrypted(progress(2, { type: 'oversized-transfer', frameType: 'chunk', data: chunks[0] }));
+    deliverEncrypted(progress(4, { type: 'oversized-transfer', frameType: 'end' }));
+
+    const response = await responsePromise;
+    expect(response.id).toBe(77);
+    expect((response.result as { tools: Array<{ name: string }> }).tools[0].name).toBe('über-tool');
+  });
+
+  it('fans CEP-41 open-stream frames out through onEvent without resolving the request', async () => {
+    const serverSk = generateSecretKey();
+    const { pool, serverPubkey, publishedPlain, deliverEncrypted } = createServerPool(serverSk, () => null);
+    const transport = createNostrCvmTransport({ pool, defaultRelays: RELAYS, clientSecretKey: generateSecretKey() });
+    const events: McpMessage[] = [];
+    transport.onEvent((_server, message) => events.push(message));
+
+    const responsePromise = transport.request(
+      { pubkey: serverPubkey },
+      { jsonrpc: '2.0', id: 88, method: 'tools/call' },
+      { timeoutMs: 1_000 },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const correlationId = publishedPlain[0].id;
+    const frame: McpMessage = {
+      jsonrpc: '2.0',
+      method: 'notifications/progress',
+      params: {
+        progressToken: 'stream-88',
+        progress: 2,
+        cvm: { type: 'open-stream', frameType: 'chunk', chunkIndex: 0, data: '{"choices":[]}' },
+      },
+    };
+    deliverEncrypted(frame);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(events).toHaveLength(1);
+    expect((events[0].params as { cvm: { type: string } }).cvm.type).toBe('open-stream');
+
+    // Keepalive pings are fanned out and answered with a pong carrying the
+    // same progressToken + nonce.
+    deliverEncrypted({
+      jsonrpc: '2.0',
+      method: 'notifications/progress',
+      params: {
+        progressToken: 'stream-88', progress: 3,
+        cvm: { type: 'open-stream', frameType: 'ping', nonce: 'nonce-1' },
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const pong = publishedPlain.find((message) => {
+      const params = message.params as { progressToken?: string; cvm?: { frameType?: string; nonce?: string } } | undefined;
+      return params?.progressToken === 'stream-88' && params.cvm?.frameType === 'pong';
+    });
+    expect(pong).toBeDefined();
+    expect((pong!.params as { cvm: { nonce: string } }).cvm.nonce).toBe('nonce-1');
+
+    // A separate normal response settles the request; the progress frame does not.
+    deliverEncrypted({ jsonrpc: '2.0', id: correlationId, result: { ok: true } });
+    await expect(responsePromise).resolves.toMatchObject({ id: 88, result: { ok: true } });
   });
 
   it('rejects with "relay timeout" when no response arrives', async () => {
