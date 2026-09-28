@@ -7,6 +7,7 @@ import {
   type ShellCapabilities,
 } from '@kehto/shell';
 
+import { createPajaConsolePanel } from './browser-console-panel.js';
 import {
   createDevTheme,
   createPajaAdapter,
@@ -576,6 +577,7 @@ function createPajaBrowserState(context: PajaBrowserStateContext): PajaBrowserSt
 }
 
 async function installPajaHost(): Promise<void> {
+  const consolePanel = createPajaConsolePanel();
   const config = await readLatestConfig(readConfig());
   const stage = getStage();
   const frame = config.target.mode === 'runtime-pointer' ? null : getFrame();
@@ -667,6 +669,7 @@ async function installPajaHost(): Promise<void> {
   window.addEventListener('pagehide', () => confirmationController.dispose(), { once: true });
   window.addEventListener('pagehide', () => notifyController?.dispose(), { once: true });
   window.addEventListener('pagehide', () => configController?.dispose(), { once: true });
+  window.addEventListener('pagehide', () => consolePanel.dispose(), { once: true });
 
   window.__KEHTO_PAJA__ = state;
 

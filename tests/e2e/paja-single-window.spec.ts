@@ -198,6 +198,58 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   })).toEqual({ mediaReceiver: 'undefined', mediaSupported: false, mediaService: false });
 });
 
+test('collapses the development console to the left and restores it with one button', async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.goto(runtimeServer.url);
+  await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
+
+  const consolePanel = page.locator('#paja-console');
+  const consoleCell = page.locator('.top-console');
+  const toggle = page.locator('#paja-console-toggle');
+  const stage = page.locator('#napplet-stage');
+  const targetFrame = page.frameLocator('#napplet-frame');
+  const stageWidth = async (): Promise<number> => Math.round((await stage.boundingBox())?.width ?? 0);
+
+  await expect(targetFrame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
+  const loadId = await targetFrame.locator('#load-id').textContent();
+  const generation = await page.evaluate(() => window.__KEHTO_PAJA__?.getState().generation ?? -1);
+
+  await expect(consolePanel).toBeVisible();
+  await expect(consoleCell).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(toggle).toHaveAttribute('aria-label', 'Collapse the Paja development console');
+  const expandedStageWidth = await stageWidth();
+
+  await toggle.click();
+
+  await expect(page.locator('html')).toHaveAttribute('data-paja-console', 'collapsed');
+  await expect(consolePanel).toBeHidden();
+  await expect(consoleCell).toBeHidden();
+  await expect(toggle).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(toggle).toHaveAttribute('aria-label', 'Expand the Paja development console');
+  await expect.poll(stageWidth).toBeGreaterThan(expandedStageWidth);
+  expect((await toggle.boundingBox())?.x ?? Number.POSITIVE_INFINITY).toBeLessThan(40);
+
+  // Collapsing is presentation-only: the loaded napplet keeps its runtime state.
+  expect(await page.evaluate(() => window.__KEHTO_PAJA__?.getState().generation)).toBe(generation);
+  expect(await targetFrame.locator('#load-id').textContent()).toBe(loadId);
+  await expect(targetFrame.locator('#target-status')).toHaveText('shell-init received');
+
+  await page.reload();
+
+  await expect(consolePanel).toBeHidden();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+  await toggle.click();
+
+  await expect(consolePanel).toBeVisible();
+  await expect(consoleCell).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect.poll(stageWidth).toBe(expandedStageWidth);
+  await expect(targetFrame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
+});
+
 test('keeps memory relay and upload fixtures out of advertised capabilities', async ({ page }) => {
   const relayEvent = finalizeEvent({
     kind: 1,
