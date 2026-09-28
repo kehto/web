@@ -146,6 +146,14 @@ host requests it once per target-url boot and, for anything other than
 on the console with the remedy. `classifyTargetCors` and `probeTargetCors` are
 exported for reuse.
 
+The console is a collapsible left column. It starts expanded, and one chevron
+button in the top bar collapses it to the left and restores it; the toggle stays
+visible in both states, so a collapsed console is always one press away, and the
+choice is remembered per browser origin. Collapsing is CSS-only presentation:
+the target iframe is never navigated or recreated, so the running napplet keeps
+its generation, message log, and shell state while the stage reclaims the full
+width.
+
 The console includes:
 
 - **Interfaces** — every supported Paja domain has an injection toggle. Toggling
