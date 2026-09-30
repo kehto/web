@@ -83,21 +83,39 @@ used to advertise notification delivery.
 
 ## 4. Load one sandboxed napplet
 
-Use the same security posture as the playground: opaque-origin iframe, scripts only, no same-origin.
+First resolve the manifest with `@kehto/nip/5d`: verify its signature, each blob
+hash and the aggregate. Derive `identity`, `verifiedHtml`, and `requiredDomains`
+from that verified result. Reject missing required domains before creating the
+iframe. Gateway output is an untrusted accelerator, never identity authority.
 
 ```ts
+import { originRegistry, prepareNappletSrcdoc, resolveShellEnvironment } from '@kehto/shell';
+
+// These values come from completed artifact verification, not host assertions.
+const environment = resolveShellEnvironment(adapter, identity);
+if (requiredDomains.some((domain) => !environment.capabilities.domains.includes(domain))) {
+  throw new Error('Napplet requires unavailable domains');
+}
+const srcdoc = prepareNappletSrcdoc(verifiedHtml, {
+  domains: environment.capabilities.domains,
+  csp: { directives: { 'media-src': ['blob:'] } },
+});
 const iframe = document.createElement('iframe');
-iframe.sandbox.add('allow-scripts');
-iframe.src = '/napplet-gateway/example-dtag/example-hash/index.html';
+iframe.sandbox.value = 'allow-scripts';
+const windowId = crypto.randomUUID();
 document.body.append(iframe);
+if (!iframe.contentWindow) throw new Error('Iframe window unavailable');
+originRegistry.register(iframe.contentWindow, windowId, identity);
+originRegistry.setEnvironment(iframe.contentWindow, environment);
+iframe.srcdoc = srcdoc;
 ```
 
-Before marking the napplet usable, register the session identity from the gateway metadata and manifest. In the playground this is handled by the shell-host gateway path; host apps should keep the same ordering:
-
-1. Fetch manifest metadata.
-2. Resolve `(dTag, aggregateHash)`.
-3. Register session identity.
-4. Navigate the iframe to the gateway artifact.
+The shell places validated CSP first in `head`, followed by the mandatory
+namespace bootstrap. `shell.ready` establishes the runtime session. Keep the
+original verified bytes for identity and caching; the prepared document is a
+rendered copy. Follow the same registration procedure for replacement frames.
+See [CSP enforcement](../policies/NIP-5D-CONFORMANCE.md#shell-csp-enforcement)
+for host overrides and constraints.
 
 For repeated loads, add the optional NIP-5D artifact cache during the resolve
 step. The cache reuses verified bytes only; it does not replace manifest,

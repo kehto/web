@@ -1,5 +1,5 @@
 import {
-  injectNappletNamespacePrelude,
+  prepareNappletSrcdoc,
   originRegistry,
 } from '@kehto/shell';
 
@@ -9,7 +9,6 @@ import {
 } from './demo-hooks.js';
 import { RESOURCE_DEMO_REMOTE_IMAGE_ORIGIN } from './main-preferences.js';
 import {
-  injectCspMeta,
   PLAYGROUND_MANIFEST_AUTHOR,
   resolvePlaygroundNapplet,
   type PlaygroundNapplet,
@@ -138,10 +137,10 @@ export async function loadPlaygroundNapplet(
 
   if (options.beforeRender) await options.beforeRender({ dTag, aggregateHash });
   const origins = STATIC_ORIGIN_ALLOWLIST.get(dTag) ?? [];
-  iframe.srcdoc = injectNappletNamespacePrelude(
-    injectCspMeta(resolved.indexHtml, origins),
-    environment.capabilities,
-  );
+  iframe.srcdoc = prepareNappletSrcdoc(resolved.indexHtml, {
+    domains: environment.capabilities.domains,
+    csp: { connectOrigins: origins },
+  });
 
   return info;
 }

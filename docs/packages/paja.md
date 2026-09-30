@@ -195,16 +195,17 @@ manifest (`35129`) by author and `d` tag; `nevent` pointers resolve a specific
 NIP-5D snapshot, root, or named manifest event id (`5129`, `15129`, or `35129`).
 In both cases Paja verifies the signed manifest, aggregate hash, and every
 Blossom blob, then injects the same runtime-owned `window.napplet.<domain>`
-namespace before assigning iframe `srcdoc`. Before that namespace prelude, Paja
-inserts Kehto's local Class-1 CSP: default deny; inline script/style; WebAssembly
-compilation through the narrow `'wasm-unsafe-eval'` source while JavaScript string
-evaluation stays blocked; `data:`/`blob:` images and `data:` fonts; `connect-src` limited exclusively to
-the resolved relay and Blossom origins; explicit worker, child, frame, media,
-object, manifest, prefetch, base, and form denial; and final
-`frame-ancestors 'self'`. NIP-5D requires the verified `srcdoc` and opaque
-`allow-scripts` sandbox, but not this CSP baseline, so the policy is a Kehto
-security decision. Local target-URL mode remains outside the verified-pointer
-policy path. Loading an already-running napplet
+namespace before assigning iframe `srcdoc`. Paja uses the shell's `prepareNappletSrcdoc` to insert validated CSP first,
+then the mandatory namespace. Defaults permit inline script/style, WASM byte
+compilation, `data:`/`blob:` images and `data:` fonts, with other resource classes
+denied. Direct connections require exact resolved relay/Blossom origins or
+explicit host grants. `createPajaRuntimeHostConfig({ csp: { connectOrigins,
+directives } })` accepts host policy changes; shell validation rejects broad
+JavaScript evaluation, wildcard connections and policies that disable the
+bootstrap. The [CSP contract](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#shell-csp-enforcement)
+distinguishes enforced recommendations from configurable defaults. Configure
+`frame-ancestors` through the host HTTP response. Local target-URL mode retains
+its separate development policy. Loading an already-running napplet
 opens an in-page choice to load another instance, switch to the existing tab, or
 cancel. Each tab includes a share control that copies a `/web/paja/?naddr=...`
 or `/web/paja/?nevent=...` link for that pointer, and the browser remembers open

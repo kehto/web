@@ -120,7 +120,7 @@ function fakeFetcher(hash: string, bytes: Uint8Array) {
 
 describe('Paja runtime pointer resolver', () => {
   const classOnePrefix = "default-src 'none'; script-src 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;";
-  const classOneSuffix = "worker-src 'none'; child-src 'none'; frame-src 'none'; media-src 'none'; object-src 'none'; manifest-src 'none'; prefetch-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
+  const classOneSuffix = "worker-src 'none'; child-src 'none'; frame-src 'none'; media-src 'none'; object-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'";
 
   it('injects the complete Class-1 policy with only sorted, deduplicated grants', () => {
     const out = injectPajaRuntimeCsp(

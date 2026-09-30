@@ -120,3 +120,4 @@ export type {
   BrowserIntentGeneration,
   BrowserIntentTerminalReason,
 } from './browser-intent-controller.js';
+export type { NappletCspOptions, NappletCspDirectives, NappletCspDirective } from '@kehto/shell';
