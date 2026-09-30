@@ -5,9 +5,9 @@ milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 106
 status: completed
 stopped_at: Phase 106 current-Napplet release complete; v1.29 ready for milestone completion
-last_updated: "2026-08-04T10:41:35Z"
-last_activity: 2026-08-04
-last_activity_desc: "Completed quick task 260804-dql: resolved every PR #234 review claim"
+last_updated: "2026-09-30T17:04:02+00:00"
+last_activity: 2026-09-30
+last_activity_desc: "Completed quick task 260930-gbm: shell CSP enforcement with host overrides"
 progress:
   total_phases: 6
   completed_phases: 6
@@ -32,7 +32,7 @@ Phase: 106 (Active-Surface Conformance and Release) — COMPLETE
 Plan: 3 of 3
 Status: All v1.29 phases complete — eight-package Napplet-0.31-compatible npm/JSR release published and downstream-verified
 
-Last activity: 2026-08-19 — Completed quick task 260819-i86: added a root command for the static pointer-entry Paja Runtime
+Last activity: 2026-09-30 — Completed quick task 260930-gbm: shell CSP enforcement with host overrides
 
 ## Performance Metrics
 
@@ -226,6 +226,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260804-dql | Assess, prioritize, and resolve every review comment on PR #234 | 2026-08-04 | 0c1afc1 | Verified | [260804-dql-assess-prioritize-and-resolve-every-revi](./quick/260804-dql-assess-prioritize-and-resolve-every-revi/) |
 | 260819-hwm | Add canonical Blossom scheme support to Paja NAP-RESOURCE with hash verification | 2026-08-19 | b966aef | Verified | [260819-hwm-add-canonical-blossom-scheme-support-to-](./quick/260819-hwm-add-canonical-blossom-scheme-support-to-/) |
 | 260819-i86 | Add a root pnpm script to run the static pointer-entry Paja runtime locally | 2026-08-19 | 77235dd | Verified | [260819-i86-add-a-root-pnpm-script-to-run-the-static](./quick/260819-i86-add-a-root-pnpm-script-to-run-the-static/) |
+
+| 260930-gbm | Enforce NIP-5D CSP in shell with validated host overrides | 2026-09-30 | 375b1ee | Verified | [260930-gbm-enforce-nip-5d-csp-in-shell-with-validat](./quick/260930-gbm-enforce-nip-5d-csp-in-shell-with-validat/) |
 
 ## Session Continuity
 

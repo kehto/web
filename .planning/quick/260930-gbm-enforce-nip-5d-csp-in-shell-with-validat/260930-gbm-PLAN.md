@@ -1,6 +1,6 @@
 ---
 mode: quick-full
-status: planned
+status: complete
 must_haves:
   truths:
     - Shell owns a default CSP and validates host changes against NIP-5D constraints.
