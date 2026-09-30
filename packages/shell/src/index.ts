@@ -7,6 +7,10 @@ export {
   renderNappletNamespacePrelude,
 } from './napplet-namespace.js';
 export type { NappletNamespacePreludeOptions } from './napplet-namespace.js';
+export { buildNappletCsp, injectNappletCsp, renderNappletCspMeta } from './napplet-csp.js';
+export type { NappletCspDirective, NappletCspDirectives, NappletCspOptions } from './napplet-csp.js';
+export { prepareNappletSrcdoc } from './napplet-srcdoc.js';
+export type { NappletSrcdocOptions } from './napplet-srcdoc.js';
 
 // Hooks adapter — for advanced integrators who need to customize the adapter
 export { adaptHooks } from './hooks-adapter.js';

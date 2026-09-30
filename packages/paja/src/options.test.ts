@@ -151,6 +151,15 @@ describe('@kehto/paja options', () => {
     });
   });
 
+  it('carries host CSP through the serialized runtime configuration', () => {
+    const csp = {
+      connectOrigins: ['https://api.example'],
+      directives: { 'media-src': ['blob:'], 'img-src': ["'none'"] },
+    };
+    const config = createPajaRuntimeHostConfig({ csp });
+    expect(JSON.parse(JSON.stringify(config)).csp).toEqual(csp);
+  });
+
   it('normalizes fixed identity and disabled capability modes', () => {
     const pubkey = '1'.repeat(64);
     const options = normalizePajaOptions({

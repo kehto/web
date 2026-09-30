@@ -64,7 +64,7 @@ function fakeFetcher(routes: Record<string, () => { ok: boolean; json?: unknown;
 
 describe('injectCspMeta', () => {
   const classOnePrefix = "default-src 'none'; script-src 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;";
-  const classOneSuffix = "worker-src 'none'; child-src 'none'; frame-src 'none'; media-src 'none'; object-src 'none'; manifest-src 'none'; prefetch-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
+  const classOneSuffix = "worker-src 'none'; child-src 'none'; frame-src 'none'; media-src 'none'; object-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'";
 
   it('injects the complete Class-1 policy with sorted, deduplicated grants into <head>', () => {
     const html = '<html><head><title>x</title></head><body></body></html>';

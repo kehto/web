@@ -16,6 +16,7 @@
  * iframe.
  */
 
+import { injectNappletCsp } from '@kehto/shell';
 import type { NostrEvent } from 'nostr-tools';
 import { resolveNapplet, fetchBlob, openNappletArtifactCache } from '@kehto/nip/5d';
 import { parseNip65RelayList, selectWriteRelays } from '@kehto/nip/65';
@@ -34,44 +35,14 @@ export type Fetcher = (url: string) => Promise<Response>;
 /**
  * Inject Kehto's Class-1 Content-Security-Policy `<meta http-equiv>` into the
  * assembled HTML. Under `srcdoc` the iframe has an opaque origin and no HTTP
- * response, so the CSP must travel inside the document. NIP-5D mandates the
- * verified srcdoc and opaque sandbox, but this baseline CSP is Kehto policy.
+ * response, so the CSP must travel inside the document. The shell enforces NIP-5D CSP placement and validates connection grants.
  *
  * @param html - The verified, assembled `/index.html`
  * @param origins - Granted connect-src origins (empty → `'none'`)
  * @returns HTML with the CSP meta inside `<head>`
  */
 export function injectCspMeta(html: string, origins: readonly string[]): string {
-  const grantedOrigins = [...new Set(origins)].sort();
-  const connectSrc = grantedOrigins.length > 0
-    ? `connect-src ${grantedOrigins.join(' ')}`
-    : "connect-src 'none'";
-  const value = [
-    "default-src 'none'",
-    "script-src 'unsafe-inline' 'wasm-unsafe-eval'",
-    "style-src 'unsafe-inline'",
-    'img-src data: blob:',
-    'font-src data:',
-    connectSrc,
-    "worker-src 'none'",
-    "child-src 'none'",
-    "frame-src 'none'",
-    "media-src 'none'",
-    "object-src 'none'",
-    "manifest-src 'none'",
-    "prefetch-src 'none'",
-    "base-uri 'none'",
-    "form-action 'none'",
-    "frame-ancestors 'self'",
-  ].join('; ');
-  const meta = `<meta http-equiv="Content-Security-Policy" content="${value}">`;
-  if (/<head[^>]*>/i.test(html)) {
-    return html.replace(/<head[^>]*>/i, (open) => `${open}${meta}`);
-  }
-  if (/<html[^>]*>/i.test(html)) {
-    return html.replace(/<html[^>]*>/i, (open) => `${open}<head>${meta}</head>`);
-  }
-  return `${meta}${html}`;
+  return injectNappletCsp(html, { connectOrigins: origins });
 }
 
 /** A fully resolved, verified napplet. The shell injects the CSP and sets srcdoc. */
