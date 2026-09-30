@@ -1,5 +1,12 @@
 # @kehto/paja
 
+## 0.16.5
+
+### Patch Changes
+
+- Updated dependencies [11d9e90]
+  - @kehto/services@0.22.0
+
 ## 0.16.4
 
 ### Patch Changes
