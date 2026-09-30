@@ -1,3 +1,7 @@
+---
+status: complete
+---
+
 # Quick Task 260710-jmo Summary
 
 ## Status

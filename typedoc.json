@@ -9,6 +9,7 @@
     "packages/nip",
     "packages/runtime",
     "packages/shell",
+    "packages/shell-ipc",
     "packages/services",
     "packages/wm"
   ],

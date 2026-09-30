@@ -1,3 +1,7 @@
+---
+status: complete
+---
+
 # Quick Task 260703-oi0 Summary
 
 ## Result

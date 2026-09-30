@@ -1,3 +1,7 @@
+---
+status: complete
+---
+
 # Quick Summary: Fix docs package version rows after release version bump
 
 ## Result

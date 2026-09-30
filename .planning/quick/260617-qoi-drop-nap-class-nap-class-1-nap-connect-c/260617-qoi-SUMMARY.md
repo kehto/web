@@ -1,4 +1,5 @@
 ---
+status: complete
 phase: quick
 plan: 260617-qoi
 subsystem: runtime,shell,services,playground,tests,docs
