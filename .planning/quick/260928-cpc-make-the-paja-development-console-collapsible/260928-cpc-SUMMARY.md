@@ -60,3 +60,35 @@ CI keeps using its pinned `/usr/bin/chromium`.
 The branch could not be pushed: the only available GitHub credential
 (`sh1ftred`) has `READ` permission on `kehto/web`, so branch push and PR
 creation are blocked until a writable credential is provided.
+
+## Rebase onto current `main`
+
+Rebased the three task commits from the old branch point `a7e0d12f`
+(Version Packages #270) onto `088a51c8` (Version Packages #273), picking up
+`11d9e907` (`paja: add ContextVM framed streaming transport`, #265). The rebase
+applied cleanly with no conflicts and no manual resolution.
+
+No semantic overlap: #265 changes `packages/services/src/cvm-nostr-transport.ts`
+and package versions, while this task changes `packages/paja/src/browser-console-panel*`,
+`packages/paja/src/host-page.ts`, and docs. `docs/packages/paja.md` was touched by
+both, but only in disjoint regions — the `| Version | \`0.16.5\` |` row from #273
+is intact next to this task's collapsible-console documentation.
+
+Gates re-run at `251e3d2d` on top of `088a51c8`:
+
+- `pnpm build` — passed (32 tasks)
+- `pnpm type-check` — passed (17 tasks)
+- `pnpm test:unit` — 150 files, 1,801 tests passed (includes #265's new
+  `cvm-nostr-transport` suite)
+- `pnpm docs:check` — passed (9 package docs, TypeDoc targets, VitePress routes)
+- `pnpm test:e2e tests/e2e/paja-single-window.spec.ts tests/e2e/paja-runtime-pointer.spec.ts`
+  — 12 passed, including the new collapse/restore case
+- `pnpm dlx aislop@0.12.0 scan --changes --base origin/main` — 100/100, zero findings
+
+Note: a whole-repo `aislop scan` now reports 99/100 because of one pre-existing
+warning on `main` — `packages/services/src/cvm-nostr-transport.ts` is 1200 lines
+against the 700-line limit, introduced by `11d9e907`. That is upstream debt, not
+this branch's; this change is clean at 100/100. Splitting that file belongs in a
+separate change.
+
+The push blocker below still applies.
