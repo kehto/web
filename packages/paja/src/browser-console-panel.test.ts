@@ -1,166 +1,109 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  createPajaConsolePanel,
+  installPajaConsolePanel,
   PAJA_CONSOLE_COLLAPSE_LABEL,
   PAJA_CONSOLE_EXPAND_LABEL,
-  PAJA_CONSOLE_PANEL_DATASET_KEY,
   PAJA_CONSOLE_PANEL_STORAGE_KEY,
   PAJA_CONSOLE_TOGGLE_ID,
-  parsePajaConsolePanelState,
-  type PajaConsolePanelDocument,
-  type PajaConsolePanelElement,
 } from './browser-console-panel.js';
 
-class FakeElement implements PajaConsolePanelElement {
-  readonly dataset: Record<string, string | undefined> = {};
-  readonly attributes = new Map<string, string>();
-  readonly listeners = new Set<() => void>();
-
-  setAttribute(name: string, value: string): void {
-    this.attributes.set(name, value);
-  }
-
-  addEventListener(_type: 'click', listener: () => void): void {
-    this.listeners.add(listener);
-  }
-
-  removeEventListener(_type: 'click', listener: () => void): void {
-    this.listeners.delete(listener);
-  }
-
-  click(): void {
-    for (const listener of [...this.listeners]) listener();
-  }
-
-  attribute(name: string): string | null {
-    return this.attributes.get(name) ?? null;
-  }
-}
-
-class FakeDocument implements PajaConsolePanelDocument {
-  readonly documentElement = new FakeElement();
-  readonly roots = new Map<string, FakeElement>([[PAJA_CONSOLE_TOGGLE_ID, new FakeElement()]]);
-
-  getElementById(id: string): FakeElement | null {
-    return this.roots.get(id) ?? null;
-  }
-}
-
-class FakeStorage implements Storage {
-  readonly records = new Map<string, string>();
-  writes = 0;
-  throwOnWrite = false;
-
-  get length(): number { return this.records.size; }
-  clear(): void { this.records.clear(); }
-  getItem(key: string): string | null { return this.records.get(key) ?? null; }
-  key(index: number): string | null { return [...this.records.keys()][index] ?? null; }
-  removeItem(key: string): void { this.records.delete(key); }
-  setItem(key: string, value: string): void {
-    if (this.throwOnWrite) throw new Error('storage denied');
-    this.writes += 1;
-    this.records.set(key, value);
-  }
-}
-
-function createHarness(storage = new FakeStorage()): {
-  readonly document: FakeDocument;
-  readonly root: FakeElement;
-  readonly button: FakeElement;
-  readonly storage: FakeStorage;
+function createHarness(preference: string | null = null): {
+  root: { dataset: Record<string, string> };
+  button: EventTarget;
+  attributes: Map<string, string>;
+  storage: { getItem: ReturnType<typeof vi.fn>; setItem: ReturnType<typeof vi.fn> };
 } {
-  const document = new FakeDocument();
-  const button = document.roots.get(PAJA_CONSOLE_TOGGLE_ID)!;
-  return { document, root: document.documentElement, button, storage };
+  const root = { dataset: {} as Record<string, string> };
+  const attributes = new Map<string, string>();
+  const button = Object.assign(new EventTarget(), {
+    setAttribute: (name: string, value: string) => attributes.set(name, value),
+  });
+  const storage = { getItem: vi.fn(() => preference), setItem: vi.fn() };
+  vi.stubGlobal('document', {
+    documentElement: root,
+    getElementById: (id: string) => id === PAJA_CONSOLE_TOGGLE_ID ? button : null,
+  });
+  vi.stubGlobal('localStorage', storage);
+  return { root, button, attributes, storage };
 }
+
+const click = (button: EventTarget): boolean => button.dispatchEvent(new Event('click'));
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('@kehto/paja console panel', () => {
-  it('treats every unrecognized stored preference as expanded', () => {
-    expect(parsePajaConsolePanelState(null)).toBe('expanded');
-    expect(parsePajaConsolePanelState(undefined)).toBe('expanded');
-    expect(parsePajaConsolePanelState('')).toBe('expanded');
-    expect(parsePajaConsolePanelState('Expanded')).toBe('expanded');
-    expect(parsePajaConsolePanelState('collapsed ')).toBe('expanded');
-    expect(parsePajaConsolePanelState('collapsed')).toBe('collapsed');
+  it.each([null, '', 'Expanded', 'collapsed ', 'expanded'])('starts expanded for preference %s', (value) => {
+    const { root, attributes, storage } = createHarness(value);
+    installPajaConsolePanel();
+    expect(root.dataset.pajaConsole).toBe('expanded');
+    expect(attributes.get('aria-expanded')).toBe('true');
+    expect(attributes.get('aria-label')).toBe(PAJA_CONSOLE_COLLAPSE_LABEL);
+    expect(storage.getItem).toHaveBeenCalledWith(PAJA_CONSOLE_PANEL_STORAGE_KEY);
+    expect(storage.setItem).not.toHaveBeenCalled();
   });
 
-  it('expands by default and collapses to the left through the toggle button', () => {
-    const harness = createHarness();
-    const panel = createPajaConsolePanel({
-      document: harness.document,
-      storage: harness.storage,
+  it('collapses, persists, restores, and detaches the listener', () => {
+    const { root, button, attributes, storage } = createHarness();
+    const dispose = installPajaConsolePanel();
+    click(button);
+    expect(root.dataset.pajaConsole).toBe('collapsed');
+    expect(attributes.get('aria-expanded')).toBe('false');
+    expect(attributes.get('aria-label')).toBe(PAJA_CONSOLE_EXPAND_LABEL);
+    expect(attributes.get('title')).toBe(PAJA_CONSOLE_EXPAND_LABEL);
+    expect(storage.setItem).toHaveBeenLastCalledWith(PAJA_CONSOLE_PANEL_STORAGE_KEY, 'collapsed');
+
+    click(button);
+    expect(root.dataset.pajaConsole).toBe('expanded');
+    expect(attributes.get('aria-expanded')).toBe('true');
+    expect(attributes.get('aria-label')).toBe(PAJA_CONSOLE_COLLAPSE_LABEL);
+    expect(attributes.get('title')).toBe(PAJA_CONSOLE_COLLAPSE_LABEL);
+    expect(storage.setItem).toHaveBeenLastCalledWith(PAJA_CONSOLE_PANEL_STORAGE_KEY, 'expanded');
+
+    dispose();
+    click(button);
+    expect(root.dataset.pajaConsole).toBe('expanded');
+    expect(storage.setItem).toHaveBeenCalledTimes(2);
+  });
+
+  it('restores a collapsed preference without rewriting storage', () => {
+    const { root, attributes, storage } = createHarness('collapsed');
+    installPajaConsolePanel();
+    expect(root.dataset.pajaConsole).toBe('collapsed');
+    expect(attributes.get('aria-expanded')).toBe('false');
+    expect(attributes.get('aria-label')).toBe(PAJA_CONSOLE_EXPAND_LABEL);
+    expect(storage.setItem).not.toHaveBeenCalled();
+  });
+
+  it('keeps toggling when storage reads and writes throw', () => {
+    const { root, button, storage } = createHarness();
+    const denied = (): never => { throw new Error('storage denied'); };
+    storage.getItem.mockImplementation(denied);
+    storage.setItem.mockImplementation(denied);
+    installPajaConsolePanel();
+    expect(root.dataset.pajaConsole).toBe('expanded');
+    click(button);
+    expect(root.dataset.pajaConsole).toBe('collapsed');
+    click(button);
+    expect(root.dataset.pajaConsole).toBe('expanded');
+  });
+
+  it('tolerates an inaccessible storage global', () => {
+    const { root, button } = createHarness();
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get() { throw new Error('storage denied'); },
     });
-
-    expect(panel.getState()).toBe('expanded');
-    expect(harness.root.dataset[PAJA_CONSOLE_PANEL_DATASET_KEY]).toBe('expanded');
-    expect(harness.button.attribute('aria-expanded')).toBe('true');
-    expect(harness.button.attribute('aria-label')).toBe(PAJA_CONSOLE_COLLAPSE_LABEL);
-    expect(harness.storage.records.get(PAJA_CONSOLE_PANEL_STORAGE_KEY)).toBeUndefined();
-    expect(harness.storage.writes).toBe(0);
-
-    harness.button.click();
-
-    expect(panel.getState()).toBe('collapsed');
-    expect(harness.root.dataset[PAJA_CONSOLE_PANEL_DATASET_KEY]).toBe('collapsed');
-    expect(harness.button.attribute('aria-expanded')).toBe('false');
-    expect(harness.button.attribute('aria-label')).toBe(PAJA_CONSOLE_EXPAND_LABEL);
-    expect(harness.button.attribute('title')).toBe(PAJA_CONSOLE_EXPAND_LABEL);
-    expect(harness.storage.records.get(PAJA_CONSOLE_PANEL_STORAGE_KEY)).toBe('collapsed');
-
-    harness.button.click();
-
-    expect(panel.getState()).toBe('expanded');
-    expect(harness.root.dataset[PAJA_CONSOLE_PANEL_DATASET_KEY]).toBe('expanded');
-    expect(harness.button.attribute('aria-expanded')).toBe('true');
-    expect(harness.button.attribute('aria-label')).toBe(PAJA_CONSOLE_COLLAPSE_LABEL);
-    expect(harness.storage.records.get(PAJA_CONSOLE_PANEL_STORAGE_KEY)).toBe('expanded');
+    installPajaConsolePanel();
+    click(button);
+    expect(root.dataset.pajaConsole).toBe('collapsed');
   });
 
-  it('restores a collapsed console from browser storage on the next host load', () => {
-    const storage = new FakeStorage();
-    storage.setItem(PAJA_CONSOLE_PANEL_STORAGE_KEY, 'collapsed');
-
-    const harness = createHarness(storage);
-    const panel = createPajaConsolePanel({ document: harness.document, storage });
-
-    expect(panel.getState()).toBe('collapsed');
-    expect(harness.root.dataset[PAJA_CONSOLE_PANEL_DATASET_KEY]).toBe('collapsed');
-    expect(harness.button.attribute('aria-expanded')).toBe('false');
-    expect(harness.button.attribute('aria-label')).toBe(PAJA_CONSOLE_EXPAND_LABEL);
-  });
-
-  it('keeps collapsing in-session when preference storage refuses the write', () => {
-    const harness = createHarness();
-    harness.storage.throwOnWrite = true;
-    const panel = createPajaConsolePanel({ document: harness.document, storage: harness.storage });
-
-    harness.button.click();
-
-    expect(panel.getState()).toBe('collapsed');
-    expect(harness.root.dataset[PAJA_CONSOLE_PANEL_DATASET_KEY]).toBe('collapsed');
-  });
-
-  it('stops toggling after disposal and stays safe without a host button', () => {
-    const harness = createHarness();
-    const panel = createPajaConsolePanel({ document: harness.document, storage: harness.storage });
-
-    expect(harness.button.listeners.size).toBe(1);
-    harness.button.click();
-    expect(panel.getState()).toBe('collapsed');
-
-    panel.dispose();
-
-    expect(harness.button.listeners.size).toBe(0);
-    harness.button.click();
-    expect(panel.getState()).toBe('collapsed');
-
-    const documentWithoutButton = new FakeDocument();
-    documentWithoutButton.roots.delete(PAJA_CONSOLE_TOGGLE_ID);
-    const orphan = createPajaConsolePanel({ document: documentWithoutButton, storage: null });
-
-    expect(orphan.getState()).toBe('expanded');
-    expect(orphan.toggle()).toBe('collapsed');
-    expect(documentWithoutButton.documentElement.dataset[PAJA_CONSOLE_PANEL_DATASET_KEY]).toBe('collapsed');
+  it('is safe to install and dispose without a toggle button', () => {
+    const { root } = createHarness();
+    vi.stubGlobal('document', { documentElement: root, getElementById: () => null });
+    const dispose = installPajaConsolePanel();
+    expect(root.dataset.pajaConsole).toBe('expanded');
+    expect(dispose).not.toThrow();
   });
 });
