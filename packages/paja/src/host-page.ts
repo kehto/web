@@ -1,3 +1,8 @@
+import {
+  PAJA_CONSOLE_COLLAPSE_LABEL,
+  PAJA_CONSOLE_PANEL_ID,
+  PAJA_CONSOLE_TOGGLE_ID,
+} from './browser-console-panel.js';
 import type { PajaHostConfig } from './options.js';
 import { summarizePajaSimulation } from './simulation.js';
 
@@ -34,12 +39,23 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .bar { display: flex; align-items: center; gap: 14px; min-width: 0; padding: 0 12px; background: var(--bar); border-color: var(--line); }
       .top { display: grid; grid-template-columns: var(--paja-console-column) minmax(0, 1fr); align-items: stretch; gap: 0; padding: 0; border-bottom: 1px solid var(--line); }
       .top-console { min-width: 0; display: flex; align-items: center; gap: 14px; padding: 0 12px; border-right: 1px solid var(--line); }
-      .top-stage { min-width: 0; display: flex; align-items: stretch; gap: 14px; padding: 0 12px 0 0; overflow: hidden; }
+      .top-stage { min-width: 0; display: flex; align-items: stretch; gap: 14px; padding: 0 12px 0 10px; overflow: hidden; }
       .bottom { border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
       .brand { font-weight: 700; letter-spacing: 0; color: var(--accent); white-space: nowrap; }
       .brand-product { color: var(--text); }
       .target { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
       .spacer { flex: 1; min-width: 0; }
+      .console-toggle { align-self: center; flex: 0 0 auto; width: 28px; height: 24px; padding: 0; display: inline-grid; place-items: center; color: var(--text); }
+      .console-toggle-glyph { font-size: 15px; line-height: 1; }
+      .console-toggle-glyph::before { content: '\\00ab'; }
+      html[data-paja-console="collapsed"] .console-toggle-glyph::before { content: '\\00bb'; }
+      /* Collapsing is presentation-only: the console column and its top-bar cell
+         leave the grid and the stage reclaims the full width, so the target
+         iframe keeps its identity, generation, and loaded napplet. */
+      html[data-paja-console="collapsed"] .top,
+      html[data-paja-console="collapsed"] main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+      html[data-paja-console="collapsed"] .top-console,
+      html[data-paja-console="collapsed"] .console { display: none; }
       .tabs { display: flex; align-items: stretch; align-self: flex-end; gap: 4px; min-width: 120px; max-width: min(100%, 760px); overflow-x: auto; scrollbar-width: thin; }
       .tabs:empty { display: none; }
       .tab { min-width: 116px; max-width: 240px; height: 30px; display: grid; grid-template-columns: minmax(0, 1fr) 24px 24px; align-items: center; gap: 2px; border: 1px solid var(--line); border-bottom-color: transparent; background: #151815; color: var(--muted); border-radius: 5px 5px 0 0; padding: 0 2px 0 9px; }
@@ -127,6 +143,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
         .top { grid-template-columns: minmax(0, 1fr); }
         .top-console { display: none; }
         .top-stage { padding-left: 0; }
+        .console-toggle { margin-left: 8px; }
         main { grid-template-columns: 1fr; grid-template-rows: minmax(240px, 40vh) minmax(0, 1fr); }
         .console { border-right: 0; border-bottom: 1px solid var(--line); }
       }
@@ -139,6 +156,15 @@ export function renderPajaHtml(config: PajaHostConfig): string {
         <div class="target" title="${targetLabel}">${targetLabel}</div>
       </div>
       <div class="top-stage">
+        <button
+          type="button"
+          id="${PAJA_CONSOLE_TOGGLE_ID}"
+          class="console-toggle"
+          aria-expanded="true"
+          aria-controls="${PAJA_CONSOLE_PANEL_ID}"
+          aria-label="${PAJA_CONSOLE_COLLAPSE_LABEL}"
+          title="${PAJA_CONSOLE_COLLAPSE_LABEL}"
+        ><span class="console-toggle-glyph" aria-hidden="true"></span></button>
         <div class="tabs" id="napplet-tabs" role="tablist" aria-label="Loaded napplets"></div>
         <div class="spacer"></div>
         <label>theme
@@ -151,7 +177,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       </div>
     </header>
     <main>
-      <aside class="console" aria-label="Paja development controls">
+      <aside class="console" id="${PAJA_CONSOLE_PANEL_ID}" aria-label="Paja development controls">
         ${renderPointerControls(config)}
         <section class="section">
           <div class="section-title">Interfaces</div>
