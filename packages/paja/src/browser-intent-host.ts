@@ -6,6 +6,7 @@ import {
   type BrowserIntentGeneration,
 } from './browser-intent-controller.js';
 import {
+  activateRuntimeTab,
   addRuntimeTab,
   closeRuntimeTab,
   renderRuntimeTabs,
@@ -72,6 +73,13 @@ export function createPajaIntentTargetOptions(
         && params.behavior?.newWindow !== true
         && params.behavior?.reuse !== false
       ) {
+        // Bring the reused handler tab to the foreground so intent dispatch
+        // always surfaces the target surface, matching the new-tab path.
+        // `behavior.focus` defaults to active; an explicit `false` opts out.
+        if (params.behavior?.focus !== false) {
+          activateRuntimeTab(state, context, current.id);
+          effects.persistTabs?.(state);
+        }
         return bindPajaIntentGeneration(current, record, context.runtime);
       }
 
