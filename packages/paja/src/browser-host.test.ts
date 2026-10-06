@@ -376,7 +376,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
       } as PajaResolvedPointer;
       const makeTab = (id: string, dTag: string, aggregateHash: string, windowId: string, resolvedTarget: PajaResolvedPointer) => {
         const source = { postMessage: vi.fn() } as unknown as Window;
-        const tab = { id, generation: 1, resolvedTarget, frame: { contentWindow: source, remove: vi.fn() }, windowId, status: 'ready' as const, pointerValue: `naddr-${dTag}` };
+        const tab = { id, generation: 1, resolvedTarget, frame: { contentWindow: source, remove: vi.fn(), hidden: id !== 'tab-other' }, windowId, status: 'ready' as const, pointerValue: `naddr-${dTag}` };
         originRegistry.register(source, windowId, { dTag, aggregateHash });
         return { tab, source };
       };
@@ -400,6 +400,8 @@ describe('@kehto/paja browser host runtime source guards', () => {
       // Default (focus unset): the reuse path foregrounds the handler tab.
       await controller.dispatch({ handler: 'profile-viewer', sender: 'feed', archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: {} });
       expect(state.activeTabId).toBe('tab-reused');
+      expect(reused.tab.frame.hidden).toBe(false);
+      expect(other.tab.frame.hidden).toBe(true);
       expect(context.runtime.currentWindowId).toBe('window-reused');
       expect(setStatus).toHaveBeenCalledWith(state, 'ready');
       expect(persistTabs).toHaveBeenCalled();
@@ -408,11 +410,15 @@ describe('@kehto/paja browser host runtime source guards', () => {
       // focus: false opts out of focus stealing but still delivers.
       state.activeTabId = 'tab-other';
       context.runtime.currentWindowId = 'window-other';
+      other.tab.frame.hidden = false;
+      reused.tab.frame.hidden = true;
       persistTabs.mockClear();
       setStatus.mockClear();
       (reused.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage.mockClear();
       await controller.dispatch({ handler: 'profile-viewer', sender: 'feed', archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: {}, behavior: { focus: false } });
       expect(state.activeTabId).toBe('tab-other');
+      expect(other.tab.frame.hidden).toBe(false);
+      expect(reused.tab.frame.hidden).toBe(true);
       expect(context.runtime.currentWindowId).toBe('window-other');
       expect(setStatus).not.toHaveBeenCalled();
       expect(persistTabs).not.toHaveBeenCalled();

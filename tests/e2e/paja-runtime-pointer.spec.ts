@@ -213,6 +213,82 @@ test('completes a verified intent and delivers its convention once to a cold tar
   }
 });
 
+test('foregrounds a reused intent handler unless focus is explicitly disabled', async ({ page }) => {
+  test.setTimeout(60_000);
+  const server = await startPointerServer();
+  const source = createPointerFixture(server.url, 'intent-source', sourceIntentHtml(), ['intent']);
+  const target = createPointerFixture(server.url, 'profile-target', targetIntentHtml(), ['inc'], [
+    ['archetype', 'profile', 'napplet:profile/open'],
+  ]);
+  const relay = 'wss://intent-fixture.example';
+  server.blobs.set(source.hash, source.bytes);
+  server.blobs.set(target.hash, target.bytes);
+  server.setConfig(createPajaRuntimeHostConfig({
+    pointer: source.pointer,
+    maxWaitMs: 2_000,
+    simulation: { relay: { mode: 'live', urls: [relay] } },
+  }));
+  await page.routeWebSocket(`${relay}/`, (socket) => {
+    socket.onMessage((message) => {
+      const request = JSON.parse(String(message)) as unknown[];
+      if (request[0] !== 'REQ' || typeof request[1] !== 'string') return;
+      socket.send(JSON.stringify(['EVENT', request[1], source.event]));
+      socket.send(JSON.stringify(['EVENT', request[1], target.event]));
+      socket.send(JSON.stringify(['EOSE', request[1]]));
+    });
+  });
+
+  try {
+    await page.goto(server.url);
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().tabs[0]?.status)).toBe('ready');
+    await page.evaluate((pointer) => window.__KEHTO_PAJA__?.loadPointer(pointer), target.pointer);
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().tabs[1]?.status)).toBe('ready');
+    const installed = await page.evaluate(() => window.__KEHTO_PAJA__!.getState().messageLog
+      .filter((entry) => entry.type === 'paja.pointer.resolved').map((entry) => JSON.parse(entry.preview)));
+    expect(installed).toEqual(expect.arrayContaining([
+      expect.objectContaining({ dTag: 'intent-source', archetypes: [], requires: ['intent'], intentEligible: false }),
+      expect.objectContaining({ dTag: 'profile-target', archetypes: [{ slug: 'profile', convention: 'napplet:profile/open' }], requires: ['inc'], intentEligible: true }),
+    ]));
+    const tabs = await page.evaluate(() => window.__KEHTO_PAJA__!.getState().tabs);
+    const sourceId = tabs.find((tab) => tab.title === 'intent-source')!.id;
+    const targetId = tabs.find((tab) => tab.title === 'profile-target')!.id;
+    const sourceFrame = page.locator(`#napplet-frame-${sourceId}`);
+    const targetFrame = page.locator(`#napplet-frame-${targetId}`);
+    const deliveries = page.frameLocator(`#napplet-frame-${targetId}`).locator('#delivery-count');
+
+    for (const [index, focus] of [undefined, false, true].entries()) {
+      await page.evaluate((id) => window.__KEHTO_PAJA__!.activateTab(id), sourceId);
+      await expect(sourceFrame).toBeVisible();
+      await expect(targetFrame).toBeHidden();
+      await sourceFrame.evaluate((frame, requestedFocus) => {
+        if (!(frame instanceof HTMLIFrameElement)) throw new Error('Missing verified source frame');
+        frame.contentWindow!.postMessage({
+          type: 'test.invoke',
+          ...(requestedFocus === undefined ? {} : { behavior: { focus: requestedFocus } }),
+        }, '*');
+      }, focus);
+      await expect(deliveries).toHaveText(String(index + 1));
+      await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().messageLog
+        .filter((entry) => entry.type === 'test.source.accepted').length)).toBe(index + 1);
+      if (focus === false) {
+        await expect(sourceFrame).toBeVisible();
+        await expect(targetFrame).toBeHidden();
+      } else {
+        await expect(sourceFrame).toBeHidden();
+        await expect(targetFrame).toBeVisible();
+      }
+      const snapshot = await page.evaluate(() => window.__KEHTO_PAJA__!.getState());
+      expect(snapshot.activeTabId).toBe(focus === false ? sourceId : targetId);
+      expect(snapshot.tabs.map((tab) => tab.id)).toEqual(tabs.map((tab) => tab.id));
+      const persisted = await page.evaluate(() => JSON.parse(localStorage.getItem('kehto:paja:runtime-tabs:v1')!));
+      expect(persisted.activeIndex).toBe(focus === false ? 0 : 1);
+    }
+    await expect(page.frameLocator(`#napplet-frame-${targetId}`).locator('#delivery-pubkey')).toHaveText('f'.repeat(64));
+  } finally {
+    await server.close();
+  }
+});
+
 async function startPointerServer(): Promise<PointerServer> {
   const browserHost = readFileSync(new URL('../../packages/paja/dist/browser-host.js', import.meta.url), 'utf8');
   const blobs = new Map<string, Buffer>();
@@ -315,6 +391,7 @@ function sourceIntentHtml(): string {
       if (event.data && event.data.type === 'test.invoke') {
         window.parent.postMessage({ type: 'intent.invoke', id: 'source-intent', request: {
           archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: { pubkey: '${'f'.repeat(64)}' },
+          ...(event.data.behavior === undefined ? {} : { behavior: event.data.behavior }),
         } }, '*');
       }
       if (event.data && event.data.type === 'intent.invoke.result' && event.data.result && event.data.result.ok) {

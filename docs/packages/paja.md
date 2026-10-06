@@ -247,6 +247,13 @@ explicit handler d-tag is valid only when it names a compatible installed record
 and passes sender-aware explicit authorization. A current frame is only a later
 delivery endpoint, never selection authority.
 
+Reusing a handler tab activates it and remembers the new active tab, unless the
+caller supplies `behavior.focus: false`. That opt-out preserves the active tab
+and still delivers to the reused handler. Newly created handler tabs retain
+their existing activation behavior. Pointer installation logs declared
+archetypes and required domains; Paja warns when archetypes lack `inc`, which
+its current convention delivery policy requires.
+
 Paja may reuse a current target or start a cold one, but it waits for the
 current target generation's registered `MessageEvent.source` and real
 `shell.ready` session before one target-only `inc.event`. A replaced generation

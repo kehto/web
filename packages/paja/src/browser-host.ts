@@ -417,24 +417,12 @@ async function loadRuntimePointer(
     const manifestArchetypes = resolvedTarget.manifest.archetypes;
     const manifestRequires = resolvedTarget.manifest.requires;
     const intentEligible = manifestRequires.includes('inc') && manifestArchetypes.length > 0;
-    if (manifestArchetypes.length > 0) {
-      console.info(
-        '[paja] napplet %s installed; archetypes=%o requires=%o intent-eligible=%s',
+    if (manifestArchetypes.length > 0 && !intentEligible) {
+      console.warn(
+        '[paja] napplet %s declares archetypes but is NOT intent-eligible: missing "inc" in requires. ' +
+        'Add a ["requires","inc"] tag to its manifest to route intents to it.',
         resolvedTarget.dTag,
-        manifestArchetypes.map((a) => `${a.slug} -> ${a.convention}`),
-        manifestRequires,
-        intentEligible,
       );
-      if (!intentEligible) {
-        console.warn(
-          '[paja] napplet %s declares archetypes but is NOT intent-eligible: %s. ' +
-          'Add a ["requires","inc"] tag to its manifest to route intents to it.',
-          resolvedTarget.dTag,
-          manifestRequires.includes('inc') ? 'unexpected' : 'missing "inc" in requires',
-        );
-      }
-    } else {
-      console.info('[paja] napplet %s installed (no archetypes declared)', resolvedTarget.dTag);
     }
     const pointerStatus = `${resolvedTarget.dTag}:${resolvedTarget.aggregateHash.slice(0, 12)}`;
     setPointerStatus(state, pointerStatus);
@@ -442,6 +430,9 @@ async function loadRuntimePointer(
       type: 'paja.pointer.resolved',
       dTag: resolvedTarget.dTag,
       aggregateHash: resolvedTarget.aggregateHash,
+      archetypes: manifestArchetypes,
+      requires: manifestRequires,
+      intentEligible,
     });
     const duplicate = options.skipDuplicatePrompt ? undefined : state.tabs.find((tab) => tab.key === resolvedTargetKey(resolvedTarget));
     if (duplicate) {

@@ -217,6 +217,13 @@ identity. A superseded target/source, failed open/readiness, or terminal send is
 handled by the controller's replacement/retry/terminal policy and produces a
 canonical failed `IntentResult`.
 
+Reusing a handler tab activates it and remembers the new active tab, unless the
+caller supplies `behavior.focus: false`. That opt-out preserves the active tab
+and still delivers to the reused handler. Newly created handler tabs retain
+their existing activation behavior. Pointer installation logs declared
+archetypes and required domains; Paja warns when archetypes lack `inc`, which
+its current convention delivery policy requires.
+
 `@napplet/shim@0.30.0` supplies no generic shell API. Kehto deliberately keeps
 its host-owned mandatory `window.napplet.shell` prelude: it installs the live
 receiver before the one bare `shell.ready`, caches the first `shell.init`, and
