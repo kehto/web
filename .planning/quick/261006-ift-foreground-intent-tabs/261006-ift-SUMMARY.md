@@ -3,7 +3,9 @@ quick_id: 261006-ift
 status: complete
 completed: 2026-10-06
 code_commit: e99451be
-docs_commit: bc5b7385
+refactor_commit: 4ebf3604
+docs_commit: da8dc309
+rebased_onto: bbbca649 (origin/main, "feat(paja): add a collapsible development console (#274)")
 ---
 
 # Quick Task 261006-ift Summary
@@ -28,6 +30,10 @@ replace my window") hit it on every click, which is how the report arrived.
 - `browser-intent-host.ts` foregrounds the reused handler and persists the
   selection unconditionally, matching the cold/new-tab path. No readiness,
   generation, source-binding, or retry policy moved.
+- `recordInstalledIntentSurface()` now owns the `paja.pointer.resolved` entry
+  and the missing-INC warning. `browser-host.ts` is already over the 700-line
+  reviewability limit, so the install diagnostics no longer grow it (755 lines,
+  down from 758 on main); the changed-file slop gate is back to 100/100.
 - Reused targets keep the caller's tab open. Paja tabs never replace one
   another, so the "do not replace the caller" half of a `focus: false` hint is
   still honored; only the invisible-delivery reading is dropped.
@@ -57,12 +63,17 @@ requested: the spec already assigns this decision to the runtime.
 
 ## Verification
 
+Rebased onto `origin/main` `bbbca649` (the merged collapsible-console PR #274
+landed in `browser-host.ts`, `browser-host.test.ts`, the package docs, and the
+README, so the rebase was required before CI could run at all).
+
 - `pnpm vitest run packages/paja/src/browser-host.test.ts` — 19 passed
-- `pnpm test:unit` — 149 files, 1,797 tests passed
+- `pnpm test:unit` — 150 files, 1,808 tests passed
+- `pnpm build` — 32 tasks passed
 - `pnpm type-check` — 17 tasks passed
 - PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=… npx playwright test
   tests/e2e/paja-runtime-pointer.spec.ts tests/e2e/paja-single-window.spec.ts
-  — 12 passed (the reused-tab case reproduced the bug before the fix: handler
+  — 14 passed (the reused-tab case reproduced the bug before the fix: handler
   iframe still hidden on the `focus: false` iteration)
 - `pnpm docs:check` — 9 package docs, TypeDoc targets, VitePress routes passed
 - `pnpm dlx aislop@0.12.0 scan --changes --base origin/main --json` — 100/100,

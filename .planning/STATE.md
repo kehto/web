@@ -227,7 +227,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260819-hwm | Add canonical Blossom scheme support to Paja NAP-RESOURCE with hash verification | 2026-08-19 | b966aef | Verified | [260819-hwm-add-canonical-blossom-scheme-support-to-](./quick/260819-hwm-add-canonical-blossom-scheme-support-to-/) |
 | 260819-i86 | Add a root pnpm script to run the static pointer-entry Paja runtime locally | 2026-08-19 | 77235dd | Verified | [260819-i86-add-a-root-pnpm-script-to-run-the-static](./quick/260819-i86-add-a-root-pnpm-script-to-run-the-static/) |
 | 260928-cpc | Make the Paja development console collapsible | 2026-09-28 | d3706a9c | Verified | [260928-cpc-make-the-paja-development-console-collapsible](./quick/260928-cpc-make-the-paja-development-console-collapsible/) |
-| 261006-ift | Foreground a reused intent handler tab for every behavior.focus hint | 2026-10-06 | e99451be / bc5b7385 | Verified | [261006-ift-foreground-intent-tabs](./quick/261006-ift-foreground-intent-tabs/) |
+| 261006-ift | Foreground a reused intent handler tab for every behavior.focus hint | 2026-10-06 | e99451be / 4ebf3604 / da8dc309 | Verified | [261006-ift-foreground-intent-tabs](./quick/261006-ift-foreground-intent-tabs/) |
 
 ## Session Continuity
 

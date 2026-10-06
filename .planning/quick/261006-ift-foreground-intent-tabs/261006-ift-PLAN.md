@@ -40,7 +40,14 @@ explicit `false` kept the current tab selected and delivered into a hidden tab.
 - Keep the existing readiness, generation, source-binding, and retry policy
   untouched.
 
-## Task 4: Guards, docs, and parity
+## Task 4: Keep the diagnostics off the oversized host shell
+
+- `origin/main` had already grown `browser-host.ts` past the 700-line
+  reviewability limit (758) when the collapsible console landed, so the install
+  diagnostics moved into `recordInstalledIntentSurface()` in
+  `browser-intent-host.ts` beside the delivery policy they describe.
+
+## Task 5: Guards, docs, and parity
 
 - Unit-test `focus: false`, `focus: true`, and unset on the reuse path:
   caller hidden, handler visible, live window swapped, delivery sent once.
