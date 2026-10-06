@@ -73,13 +73,18 @@ export function createPajaIntentTargetOptions(
         && params.behavior?.newWindow !== true
         && params.behavior?.reuse !== false
       ) {
-        // Bring the reused handler tab to the foreground so intent dispatch
-        // always surfaces the target surface, matching the new-tab path.
-        // `behavior.focus` defaults to active; an explicit `false` opts out.
-        if (params.behavior?.focus !== false) {
-          activateRuntimeTab(state, context, current.id);
-          effects.persistTabs?.(state);
-        }
+        // A delivered intent is a navigation, so the handler surface must become
+        // the visible one, matching the new-tab path below. Paja is a single-stage
+        // tab workspace: a tab is either selected or invisible, so an unselected
+        // handler would silently receive a payload the user cannot see. NAP-INTENT
+        // defines `behavior` fields as hints that "runtime workspace and lifecycle
+        // policy remain authoritative"
+        // (`napplet/naps`, NAP-INTENT.md, draft `nap-intent` a718915d; "Focus the
+        // target surface" on master a040914b), so `behavior.focus` — `false`
+        // included — does not demote delivery to a hidden tab. Reuse still leaves
+        // the caller's tab open, so nothing is replaced or hidden from the tab bar.
+        activateRuntimeTab(state, context, current.id);
+        effects.persistTabs?.(state);
         return bindPajaIntentGeneration(current, record, context.runtime);
       }
 

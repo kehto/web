@@ -213,7 +213,13 @@ test('completes a verified intent and delivers its convention once to a cold tar
   }
 });
 
-test('foregrounds a reused intent handler unless focus is explicitly disabled', async ({ page }) => {
+test('foregrounds a reused intent handler for every behavior.focus hint', async ({ page }) => {
+  // NAP-INTENT calls `behavior` fields hints that "runtime workspace and
+  // lifecycle policy remain authoritative"
+  // (`napplet/naps@a718915ddefa2f03a0126579601f59d8bd86f7c4`, NAP-INTENT.md shell
+  // behavior). Paja's workspace policy is one visible tab per stage, so a
+  // delivered intent always selects the handler tab: `focus: false` cannot mean
+  // "deliver into a hidden tab", which no caller can observe or undo.
   test.setTimeout(60_000);
   const server = await startPointerServer();
   const source = createPointerFixture(server.url, 'intent-source', sourceIntentHtml(), ['intent']);
@@ -270,18 +276,14 @@ test('foregrounds a reused intent handler unless focus is explicitly disabled', 
       await expect(deliveries).toHaveText(String(index + 1));
       await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().messageLog
         .filter((entry) => entry.type === 'test.source.accepted').length)).toBe(index + 1);
-      if (focus === false) {
-        await expect(sourceFrame).toBeVisible();
-        await expect(targetFrame).toBeHidden();
-      } else {
-        await expect(sourceFrame).toBeHidden();
-        await expect(targetFrame).toBeVisible();
-      }
+      await expect(sourceFrame).toBeHidden();
+      await expect(targetFrame).toBeVisible();
       const snapshot = await page.evaluate(() => window.__KEHTO_PAJA__!.getState());
-      expect(snapshot.activeTabId).toBe(focus === false ? sourceId : targetId);
+      expect(snapshot.activeTabId).toBe(targetId);
+      // Reuse keeps the caller's tab open; only its selection changes.
       expect(snapshot.tabs.map((tab) => tab.id)).toEqual(tabs.map((tab) => tab.id));
       const persisted = await page.evaluate(() => JSON.parse(localStorage.getItem('kehto:paja:runtime-tabs:v1')!));
-      expect(persisted.activeIndex).toBe(focus === false ? 0 : 1);
+      expect(persisted.activeIndex).toBe(1);
     }
     await expect(page.frameLocator(`#napplet-frame-${targetId}`).locator('#delivery-pubkey')).toHaveText('f'.repeat(64));
   } finally {

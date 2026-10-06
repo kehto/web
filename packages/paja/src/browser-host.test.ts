@@ -356,7 +356,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
     }
   });
 
-  it('activates the reused handler tab on intent dispatch unless behavior.focus is false', async () => {
+  it('activates the reused handler tab for every behavior.focus hint', async () => {
     // `activateRuntimeTab` inspects `document`, `HTMLElement`, and
     // `HTMLInputElement`. `instanceof` evaluates its right-hand side first, so
     // every constructor it names must exist even when the lookup returns null.
@@ -407,7 +407,8 @@ describe('@kehto/paja browser host runtime source guards', () => {
       expect(persistTabs).toHaveBeenCalled();
       expect((reused.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).toHaveBeenCalledTimes(1);
 
-      // focus: false opts out of focus stealing but still delivers.
+      // focus: false is a hint the tab workspace cannot honor as an unselected
+      // tab; delivery stays visible and the caller's tab stays open.
       state.activeTabId = 'tab-other';
       context.runtime.currentWindowId = 'window-other';
       other.tab.frame.hidden = false;
@@ -415,13 +416,27 @@ describe('@kehto/paja browser host runtime source guards', () => {
       persistTabs.mockClear();
       setStatus.mockClear();
       (reused.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage.mockClear();
-      await controller.dispatch({ handler: 'profile-viewer', sender: 'feed', archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: {}, behavior: { focus: false } });
-      expect(state.activeTabId).toBe('tab-other');
-      expect(other.tab.frame.hidden).toBe(false);
-      expect(reused.tab.frame.hidden).toBe(true);
-      expect(context.runtime.currentWindowId).toBe('window-other');
-      expect(setStatus).not.toHaveBeenCalled();
-      expect(persistTabs).not.toHaveBeenCalled();
+      await controller.dispatch({ handler: 'profile-viewer', sender: 'feed', archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: {}, behavior: { focus: false, reuse: true } });
+      expect(state.activeTabId).toBe('tab-reused');
+      expect(other.tab.frame.hidden).toBe(true);
+      expect(reused.tab.frame.hidden).toBe(false);
+      expect(context.runtime.currentWindowId).toBe('window-reused');
+      expect(setStatus).toHaveBeenCalledWith(state, 'ready');
+      expect(persistTabs).toHaveBeenCalled();
+      expect((reused.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).toHaveBeenCalledTimes(1);
+
+      // focus: true behaves identically in a single-stage tab workspace.
+      state.activeTabId = 'tab-other';
+      context.runtime.currentWindowId = 'window-other';
+      other.tab.frame.hidden = false;
+      reused.tab.frame.hidden = true;
+      persistTabs.mockClear();
+      setStatus.mockClear();
+      (reused.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage.mockClear();
+      await controller.dispatch({ handler: 'profile-viewer', sender: 'feed', archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: {}, behavior: { focus: true } });
+      expect(state.activeTabId).toBe('tab-reused');
+      expect(reused.tab.frame.hidden).toBe(false);
+      expect(context.runtime.currentWindowId).toBe('window-reused');
       expect((reused.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).toHaveBeenCalledTimes(1);
     } finally {
       originRegistry.clear();
