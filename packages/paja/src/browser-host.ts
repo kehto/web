@@ -25,6 +25,7 @@ import {
   createPajaIntentTargetOptions,
   markRuntimeTabReady,
   pajaPointerResolverOptions,
+  recordInstalledIntentSurface,
   subscribePajaIntentCatalogChanges,
 } from './browser-intent-host.js';
 import { InstalledNappletCatalog } from './installed-napplet-catalog.js';
@@ -414,26 +415,9 @@ async function loadRuntimePointer(
   try {
     const resolvedTarget = await resolvePajaPointer(pointer, pajaPointerResolverOptions(context));
     runtime.catalog.install(resolvedTarget);
-    const manifestArchetypes = resolvedTarget.manifest.archetypes;
-    const manifestRequires = resolvedTarget.manifest.requires;
-    const intentEligible = manifestRequires.includes('inc') && manifestArchetypes.length > 0;
-    if (manifestArchetypes.length > 0 && !intentEligible) {
-      console.warn(
-        '[paja] napplet %s declares archetypes but is NOT intent-eligible: missing "inc" in requires. ' +
-        'Add a ["requires","inc"] tag to its manifest to route intents to it.',
-        resolvedTarget.dTag,
-      );
-    }
     const pointerStatus = `${resolvedTarget.dTag}:${resolvedTarget.aggregateHash.slice(0, 12)}`;
     setPointerStatus(state, pointerStatus);
-    appendPajaMessageLog(state, 'paja', {
-      type: 'paja.pointer.resolved',
-      dTag: resolvedTarget.dTag,
-      aggregateHash: resolvedTarget.aggregateHash,
-      archetypes: manifestArchetypes,
-      requires: manifestRequires,
-      intentEligible,
-    });
+    recordInstalledIntentSurface(state, resolvedTarget);
     const duplicate = options.skipDuplicatePrompt ? undefined : state.tabs.find((tab) => tab.key === resolvedTargetKey(resolvedTarget));
     if (duplicate) {
       const choice = await showDuplicatePointerDialog();
