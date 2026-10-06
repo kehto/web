@@ -59,7 +59,11 @@ warning, when the target would block the sandboxed frame.
 
 The console shows supported interfaces with per-domain injection toggles,
 runtime ACL controls, signer controls, and a filterable message log with visible
-error details. In runtime-pointer mode, ACL controls always display and mutate
+error details. It starts expanded and collapses to the left with the chevron
+button in the top bar; the same button brings the whole panel back. Collapsing
+is presentation-only — the target iframe keeps its identity and the loaded
+napplet keeps running — and Paja remembers the choice per browser origin. In
+runtime-pointer mode, ACL controls always display and mutate
 the active tab's resolver-verified d-tag and aggregate hash; a grant or revoke
 rerenders that same identity immediately. Paja auto-connects a browser NIP-07 signer when `window.nostr` is
 available, can connect to a bunker/NIP-46 URI, and only uses the generated local
