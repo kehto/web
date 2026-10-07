@@ -14,6 +14,7 @@ import {
 } from './browser-runtime-tabs.js';
 import { createPajaPostMessageProxy } from './browser-devtools.js';
 import { getPajaRelayUrls } from './browser-relay-runtime.js';
+import { isPajaLocalTarget } from './local-target.js';
 import {
   matchesInstalledNappletRecord,
   type InstalledNappletCatalog,
@@ -56,15 +57,19 @@ export function createPajaIntentTargetOptions(
 
       // A catalog replacement may retain the d-tag while replacing the verified
       // aggregate. Remove stale tabs before choosing any live delivery target.
+      // Local development tabs never came from the catalog: they are neither
+      // stale catalog tabs nor eligible verified delivery targets.
       for (const stale of state.tabs) {
         if (
-          stale.resolvedTarget.dTag === params.handler
+          !isPajaLocalTarget(stale.resolvedTarget)
+          && stale.resolvedTarget.dTag === params.handler
           && !matchesInstalledNappletRecord(record, stale.resolvedTarget)
         ) closeRuntimeTab(state, context, stale.id);
       }
 
       const current = state.tabs.find((tab) =>
-        matchesInstalledNappletRecord(record, tab.resolvedTarget)
+        !isPajaLocalTarget(tab.resolvedTarget)
+        && matchesInstalledNappletRecord(record, tab.resolvedTarget)
         && isCurrentRuntimeTabGeneration(state, context, tab),
       );
       if (

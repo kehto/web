@@ -59,6 +59,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .tabs { display: flex; align-items: stretch; align-self: flex-end; gap: 4px; min-width: 120px; max-width: min(100%, 760px); overflow-x: auto; scrollbar-width: thin; }
       .tabs:empty { display: none; }
       .tab { min-width: 116px; max-width: 240px; height: 30px; display: grid; grid-template-columns: minmax(0, 1fr) 24px 24px; align-items: center; gap: 2px; border: 1px solid var(--line); border-bottom-color: transparent; background: #151815; color: var(--muted); border-radius: 5px 5px 0 0; padding: 0 2px 0 9px; }
+      .tab[data-source="local"] { grid-template-columns: minmax(0, 1fr) 24px; }
       .tab[data-active="true"] { color: var(--text); border-color: var(--accent); border-bottom-color: #151815; background: #20241f; }
       .tab-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; text-align: left; }
       .tab-share, .tab-close { width: 20px; height: 20px; padding: 0; border: 0; background: transparent; color: var(--muted); display: inline-grid; place-items: center; }
@@ -80,7 +81,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .signer-controls button[data-active="true"] { border-color: var(--accent); color: var(--text); background: #2a2a1d; }
       .signer-controls input { min-width: 0; padding: 0 8px; }
       .signer-consent-clear { width: 100%; margin-top: 6px; }
-      .pointer-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+      .pointer-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }
       .pointer-status { min-width: 0; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
       .log-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
       .log-list { min-height: 160px; max-height: 38vh; overflow: auto; border: 1px solid var(--line); border-radius: 4px; background: #0b0d0b; }
@@ -94,6 +95,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .stage { min-width: 0; min-height: 0; position: relative; background: #050705; }
       .empty-stage { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 12px; }
       .empty-stage[hidden] { display: none; }
+      .stage.drop-active { outline: 2px dashed var(--accent); outline-offset: -6px; }
       .tab-panel { position: absolute; inset: 0; min-width: 0; min-height: 0; }
       .tab-panel[hidden] { display: none; }
       iframe { width: 100%; height: 100%; border: 0; background: white; display: block; }
@@ -271,7 +273,7 @@ function renderConfigDialog(): string {
 function renderStage(config: PajaHostConfig, targetLabel: string): string {
   if (config.target.mode === 'runtime-pointer') {
     return `<section class="stage" id="napplet-stage" aria-label="Loaded napplet runtimes">
-        <div class="empty-stage" id="empty-runtime-stage">Load a napplet pointer to start a runtime tab.</div>
+        <div class="empty-stage" id="empty-runtime-stage">Load a napplet pointer or drop an index.html to start a runtime tab.</div>
       </section>`;
   }
   return `<section class="stage" id="napplet-stage">
@@ -300,6 +302,8 @@ function renderPointerControls(config: PajaHostConfig): string {
           <form class="pointer-controls" id="runtime-pointer-form">
             <input id="runtime-pointer-input" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="naddr or nevent" aria-label="Runtime napplet pointer" value="${value}">
             <button type="submit" id="runtime-pointer-load">Load</button>
+            <button type="button" id="runtime-local-open" title="Open a self-contained single-file index.html">Open file…</button>
+            <input id="runtime-local-file" type="file" accept=".html,.htm,text/html" aria-label="Local napplet index.html" hidden>
           </form>
           <div class="pointer-status" id="runtime-pointer-status" aria-live="polite">idle</div>
         </section>`;

@@ -7,9 +7,10 @@ import {
   type SessionEntry,
 } from '@kehto/shell';
 
+import type { PajaRuntimeTarget } from './local-target.js';
 import type { PajaHostConfig } from './options.js';
 import type { PajaShellEnvironment } from './parity.js';
-import { injectPajaRuntimeCsp, type PajaResolvedPointer } from './runtime-resolver.js';
+import { injectPajaRuntimeCsp } from './runtime-resolver.js';
 
 /**
  * Resolve Paja's one authoritative environment from a trusted frame identity.
@@ -28,7 +29,7 @@ export function resolvePajaFrameEnvironment(
 
 export function getTargetIdentity(
   config: PajaHostConfig,
-  resolvedTarget?: PajaResolvedPointer | null,
+  resolvedTarget?: PajaRuntimeTarget | null,
 ): Pick<SessionEntry, 'pubkey' | 'dTag' | 'aggregateHash'> {
   return {
     pubkey: '',
@@ -40,7 +41,7 @@ export function getTargetIdentity(
 /** Build the immutable origin identity assigned before a Paja frame executes. */
 export function getTargetOriginIdentity(
   config: PajaHostConfig,
-  resolvedTarget?: PajaResolvedPointer | null,
+  resolvedTarget?: PajaRuntimeTarget | null,
 ): OriginIdentity {
   const target = getTargetIdentity(config, resolvedTarget);
   return Object.freeze({ dTag: target.dTag, aggregateHash: target.aggregateHash });
@@ -66,7 +67,7 @@ export async function navigateFrame(
   config: PajaHostConfig,
   generation: number,
   adapter: ShellAdapter,
-  resolvedTarget?: PajaResolvedPointer | null,
+  resolvedTarget?: PajaRuntimeTarget | null,
   windowId?: string,
   isCurrent?: () => boolean,
   onRegistered?: (windowId: string | null) => void,
@@ -75,6 +76,8 @@ export async function navigateFrame(
   const environment = resolvePajaFrameEnvironment(adapter, identity);
   const domains = environment.capabilities.domains;
   if (config.target.mode === 'runtime-pointer') {
+    // Verified pointers and local development files share this branch: the
+    // same pre-execution registration, CSP, prelude, and sandboxed srcdoc.
     if (!resolvedTarget) {
       frame.removeAttribute('src');
       frame.srcdoc = '<!doctype html><html><body></body></html>';

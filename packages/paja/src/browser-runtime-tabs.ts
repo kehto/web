@@ -9,6 +9,7 @@ import {
   renderPajaDevtools,
   type PajaDevtoolsState,
 } from './browser-devtools.js';
+import { isPajaLocalTarget, type PajaRuntimeTarget } from './local-target.js';
 import type { PajaHostConfig } from './options.js';
 import type { PajaResolvedPointer } from './runtime-resolver.js';
 import type { PajaSimulation } from './simulation.js';
@@ -34,7 +35,7 @@ export interface PajaRuntimeTab {
   key: string;
   pointerValue: string;
   pointerStatus: string;
-  resolvedTarget: PajaResolvedPointer;
+  resolvedTarget: PajaRuntimeTarget;
   frame: HTMLIFrameElement;
   generation: number;
   windowId: string | null;
@@ -69,7 +70,7 @@ export interface PajaRuntimeTabContext {
     config: PajaHostConfig,
     generation: number,
     adapter: ShellAdapter,
-    resolvedTarget: PajaResolvedPointer,
+    resolvedTarget: PajaRuntimeTarget,
     windowId: string,
     isCurrent?: () => boolean,
     onRegistered?: (windowId: string | null) => void,
@@ -83,7 +84,19 @@ export interface PajaRuntimeTabContext {
 
 export type PajaDuplicateChoice = 'load-again' | 'open-tab' | 'cancel';
 
-export function resolvedTargetKey(target: PajaResolvedPointer): string {
+/**
+ * Return the duplicate-detection key for a runtime target.
+ *
+ * @param target - Verified pointer or local development file.
+ * @returns `kind:pubkey:dTag:aggregateHash` for pointers, `local:dTag:aggregateHash` for local files.
+ *
+ * @example
+ * ```ts
+ * state.tabs.find((tab) => tab.key === resolvedTargetKey(target));
+ * ```
+ */
+export function resolvedTargetKey(target: PajaRuntimeTarget): string {
+  if (isPajaLocalTarget(target)) return ['local', target.dTag, target.aggregateHash].join(':');
   return [
     target.event.kind,
     target.event.pubkey,
@@ -97,12 +110,16 @@ export function runtimeTabGenerationId(tab: Pick<PajaRuntimeTab, 'id' | 'generat
   return `${tab.id}:${tab.generation}`;
 }
 
-/** Bind verified pointer servers to the exact runtime-tab window generation. */
+/**
+ * Bind verified pointer servers to the exact runtime-tab window generation.
+ * Local development files carry no server hints, so they keep the host defaults.
+ */
 export function bindRuntimeTabBlossomServers(
   adapter: Pick<PajaShellAdapter, 'setWindowBlossomServers'>,
   windowId: string,
-  resolvedTarget: Pick<PajaResolvedPointer, 'blossomServers'>,
+  resolvedTarget: Pick<PajaResolvedPointer, 'blossomServers'> | PajaRuntimeTarget,
 ): void {
+  if (isPajaLocalTarget(resolvedTarget)) return;
   adapter.setWindowBlossomServers(windowId, resolvedTarget.blossomServers);
 }
 
@@ -125,13 +142,14 @@ export function createPajaShareUrl(pointerValue: string, href = window.location.
 }
 
 export function snapshotRuntimeTabs(state: PajaRuntimeTabsSnapshotState): PajaRuntimeTabsSnapshot | null {
-  const pointers = state.tabs
-    .map((tab) => tab.pointerValue.trim())
-    .filter((pointer) => pointer.length > 0);
+  // Local-file tabs have no pointer and cannot be re-read after a reload, so
+  // only pointer tabs persist and the active index counts pointer tabs only.
+  const persisted = state.tabs.filter((tab) => tab.pointerValue.trim().length > 0);
+  const pointers = persisted.map((tab) => tab.pointerValue.trim());
   if (pointers.length === 0) return null;
   const activeIndex = Math.max(
     0,
-    state.tabs.findIndex((tab) => tab.id === state.activeTabId),
+    persisted.findIndex((tab) => tab.id === state.activeTabId),
   );
   return {
     version: 1,
@@ -232,7 +250,7 @@ export function addRuntimeTab(
   state: PajaRuntimeTabState,
   context: PajaRuntimeTabContext,
   pointerValue: string,
-  resolvedTarget: PajaResolvedPointer,
+  resolvedTarget: PajaRuntimeTarget,
 ): PajaRuntimeTab {
   state.generation += 1;
   const tab: PajaRuntimeTab = {
@@ -314,10 +332,11 @@ function renderTab(state: PajaRuntimeTabState, tab: PajaRuntimeTab): HTMLElement
   tabButton.className = 'tab';
   tabButton.dataset.tabId = tab.id;
   tabButton.dataset.active = String(tab.id === state.activeTabId);
+  tabButton.dataset.source = isPajaLocalTarget(tab.resolvedTarget) ? 'local' : 'pointer';
   tabButton.setAttribute('role', 'tab');
   tabButton.setAttribute('aria-selected', String(tab.id === state.activeTabId));
   tabButton.tabIndex = 0;
-  tabButton.title = tab.pointerValue;
+  tabButton.title = tab.pointerValue || tab.title;
   tabButton.addEventListener('click', () => state.activateTab(tab.id));
   tabButton.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -328,7 +347,8 @@ function renderTab(state: PajaRuntimeTabState, tab: PajaRuntimeTab): HTMLElement
   const label = document.createElement('span');
   label.className = 'tab-label';
   label.textContent = tab.title;
-  tabButton.append(label, renderShareButton(tab), renderCloseButton(state, tab));
+  if (isPajaLocalTarget(tab.resolvedTarget)) tabButton.append(label, renderCloseButton(state, tab));
+  else tabButton.append(label, renderShareButton(tab), renderCloseButton(state, tab));
   return tabButton;
 }
 
@@ -396,7 +416,19 @@ function getPointerParamName(pointer: string): 'naddr' | 'nevent' | 'pointer' {
   return 'pointer';
 }
 
-function resolvedTargetTitle(target: PajaResolvedPointer): string {
+/**
+ * Return the tab title for a runtime target.
+ *
+ * @param target - Verified pointer or local development file.
+ * @returns The local file name, else the manifest title, else the dTag or hash prefix.
+ *
+ * @example
+ * ```ts
+ * tab.title = resolvedTargetTitle(target);
+ * ```
+ */
+export function resolvedTargetTitle(target: PajaRuntimeTarget): string {
+  if (isPajaLocalTarget(target)) return target.fileName;
   const titleTag = target.event.tags.find((tag) => tag[0] === 'title')?.[1];
   const title = typeof target.manifest.title === 'string' && target.manifest.title.trim().length > 0
     ? target.manifest.title.trim()
