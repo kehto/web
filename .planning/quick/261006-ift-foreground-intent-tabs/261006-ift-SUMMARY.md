@@ -5,6 +5,7 @@ completed: 2026-10-06
 code_commit: e99451be
 refactor_commit: 4ebf3604
 docs_commit: da8dc309
+regression_commit: 99c7488c
 rebased_onto: bbbca649 (origin/main, "feat(paja): add a collapsible development console (#274)")
 ---
 
@@ -78,3 +79,28 @@ README, so the rebase was required before CI could run at all).
 - `pnpm docs:check` — 9 package docs, TypeDoc targets, VitePress routes passed
 - `pnpm dlx aislop@0.12.0 scan --changes --base origin/main --json` — 100/100,
   zero findings
+
+## Review follow-up: intent-surface warning regression (99c7488c)
+
+PR review flagged that the missing-INC warning branch in
+`recordInstalledIntentSurface()` had no coverage: the Playwright spec only
+loaded manifests with no archetypes (`intentEligible: false` via the empty
+archetype list) or archetypes plus `inc` (eligible), so the
+archetypes-without-`inc` shape — the only path that fires the warning — was
+never exercised, and no unit test referenced the function or the warning
+string.
+
+- `packages/paja/src/browser-intent-host.test.ts` (new) covers all three
+  manifest shapes against `recordInstalledIntentSurface()`: archetypes
+  without `inc` warns once and logs `intentEligible: false`; archetypes with
+  `inc` logs `intentEligible: true` without warning; no archetypes never
+  warns. The wrong-manifest cases are pinned by `not.toHaveBeenCalled()`.
+- `tests/e2e/paja-runtime-pointer.spec.ts` loads a third fixture,
+  `unroutable-target` (`note` archetype, `requires: ["theme"]`), in the
+  reused-handler spec and asserts its `paja.pointer.resolved` row plus the
+  browser console warning. The fixture declares a distinct archetype so it
+  never competes with `profile-target` for the delivered intent.
+
+Verification: `pnpm build` (32 tasks), `pnpm type-check` (17 tasks),
+`pnpm test:unit` (151 files, 1,811 tests), the pointer Playwright spec (4
+passed), and the changed-file slop gate (100/100) all green.
