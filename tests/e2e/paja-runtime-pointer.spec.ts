@@ -277,7 +277,7 @@ test('opens local single-file index.html through the picker and drop without per
 });
 
 for (const blockedStorage of [false, true]) {
-  test(`resource servers save live verified bytes and clear without frame reload (storage blocked: ${blockedStorage})`, async ({ page }) => {
+  test(`sidebar accordion and resource servers preserve live verified bytes without frame reload (storage blocked: ${blockedStorage})`, async ({ page }) => {
     test.setTimeout(60_000);
     const server = await startPointerServer();
     const bytes = Buffer.from('verified browser resource bytes');
@@ -324,6 +324,21 @@ for (const blockedStorage of [false, true]) {
       await page.goto(server.url);
       await expect(page.frameLocator('iframe').locator('#ready')).toHaveText('ready');
       const original = await snapshot();
+      await expect(page.locator('#paja-console > details')).toHaveCount(6);
+      expect(await page.locator('#paja-console > details').evaluateAll((sections) => sections.map((section) => section.getAttribute('data-paja-section')))).toEqual(['pointer', 'interfaces', 'acl', 'signer', 'resource-servers', 'messages']);
+      const frameNode = await page.locator('iframe').elementHandle();
+      const frameWindow = await page.locator('iframe').evaluateHandle((frame) => (frame as HTMLIFrameElement).contentWindow);
+      const pointer = page.locator('#runtime-pointer-section');
+      await pointer.locator('summary').click();
+      await page.locator('#paja-section-messages > summary').click();
+      await expect(pointer).not.toHaveAttribute('open');
+      await expect(page.locator('#paja-section-messages')).not.toHaveAttribute('open');
+      expect(await snapshot()).toEqual(original);
+      expect(await frameNode!.evaluate((node, originalWindow) => node === document.querySelector('iframe') && (node as HTMLIFrameElement).contentWindow === originalWindow, frameWindow)).toBe(true);
+      await pointer.locator('summary').click();
+      await expect(page.locator('#runtime-pointer-input')).toHaveValue(fixture.pointer);
+      await page.locator('#runtime-local-open').click();
+      await page.locator('#paja-section-messages > summary').click();
       await input.fill(' EXTRA.Example \nhttps://extra.example:443/');
       await save.focus();
       await save.press('Enter');
@@ -369,9 +384,12 @@ for (const blockedStorage of [false, true]) {
         await expect(input).toBeVisible();
         expect(await input.evaluate((element) => element.getBoundingClientRect().width)).toBeGreaterThan(200);
         expect(await page.locator('#paja-resource-servers-help').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-        await page.screenshot({ path: `/tmp/opencode/jux-resource-servers-${blockedStorage}-${width}.png` });
+        await page.screenshot({ path: `/tmp/opencode/n18-sidebar-pointer-${blockedStorage}-${width}.png` });
       }
+      await pointer.locator('summary').click();
+      await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('kehto:paja:sidebar-sections:v1') ?? '{}').pointer)).toBe(true);
       await page.reload();
+      await expect(pointer).not.toHaveAttribute('open');
       await expect(input).toHaveValue('');
     } finally {
       await server.close();
