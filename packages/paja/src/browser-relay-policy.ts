@@ -210,9 +210,9 @@ export function createPajaRelayHooks(
 
 /** Return whether browser localStorage accepts and reads a reversible probe. */
 export function hasWritableLocalStorage(): boolean {
-  if (typeof localStorage === 'undefined') return false;
   let previous: string | null = null;
   try {
+    if (typeof localStorage === 'undefined') return false;
     previous = localStorage.getItem(PAJA_STORAGE_PROBE_KEY);
     localStorage.setItem(PAJA_STORAGE_PROBE_KEY, '1');
     const available = localStorage.getItem(PAJA_STORAGE_PROBE_KEY) === '1';

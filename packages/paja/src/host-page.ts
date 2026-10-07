@@ -78,6 +78,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .section[open] > summary .section-chevron { transform: rotate(90deg); }
       .section-body { padding: 0 12px 12px; display: grid; gap: 8px; }
       .resource-servers { display: grid; gap: 8px; }
+      .resource-servers > label { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
       .section-title { color: var(--accent); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0; }
       .resource-servers { min-width: 0; }
       .resource-servers label { white-space: normal; }
