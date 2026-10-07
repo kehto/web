@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
-import { createPajaResourceSettings } from './browser-resource-settings.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createPajaResourceSettings, installPajaResourceSettings } from './browser-resource-settings.js';
 
 const KEY = 'kehto:paja:resource-servers';
+afterEach(() => vi.unstubAllGlobals());
 
 function storage(initial?: string) {
   const values = new Map(initial === undefined ? [] : [[KEY, initial]]);
@@ -28,6 +29,7 @@ describe('host resource server settings', () => {
     'http://cdn.example', 'ftp://cdn.example', '//cdn.example', 'https:cdn.example',
     'https://cdn.example/path', 'https://user:secret@cdn.example', 'https://cdn.example?q=1',
     'https://cdn.example#fragment', 'https://cdn.example?', 'https://cdn.example#', 'https://cdn.example\\',
+    'https://cdn.example/path/..', 'https://cd\tn.example',
     'localhost', 'host.local', 'host.internal', 'host.localhost', 'not a domain', 'https://',
     '127.0.0.1', '10.1.2.3', '172.16.0.1', '192.168.1.2', '169.254.1.2',
     'https://[::1]', 'https://[fd00::1]', 'https://[::ffff:127.0.0.1]',
@@ -84,5 +86,34 @@ describe('host resource server settings', () => {
     expect(settings.save('<img src=x onerror=alert(1)>').ok).toBe(false);
     expect(store.setItem).not.toHaveBeenCalled();
     expect(settings.getStatus()).toBe('No extra resource servers saved.');
+  });
+
+  it('only saves on submit, uses safe inline feedback, and detaches its listener', () => {
+    const store = storage();
+    const form = new EventTarget();
+    const attributes = new Map<string, string>();
+    const input = { value: '', setAttribute: (key: string, value: string) => attributes.set(key, value) };
+    const status = { textContent: '' };
+    const elements = new Map<string, unknown>([
+      ['paja-resource-servers-form', form], ['paja-resource-servers-input', input], ['paja-resource-servers-status', status],
+    ]);
+    vi.stubGlobal('document', { getElementById: (id: string) => elements.get(id) });
+    vi.stubGlobal('localStorage', store);
+    const settings = installPajaResourceSettings();
+    input.value = 'draft.example';
+    expect(store.setItem).not.toHaveBeenCalled();
+    expect(form.dispatchEvent(new Event('submit', { cancelable: true }))).toBe(false);
+    expect(input.value).toBe('https://draft.example');
+    expect(settings.getServers()).toEqual(['https://draft.example']);
+    input.value = '<img src=x onerror=alert(1)>';
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+    expect(attributes.get('aria-invalid')).toBe('true');
+    expect(status.textContent).toContain('Line 1:');
+    expect(status.textContent).not.toContain('<img');
+    expect(settings.getServers()).toEqual(['https://draft.example']);
+    settings.dispose();
+    input.value = 'ignored.example';
+    form.dispatchEvent(new Event('submit'));
+    expect(settings.getServers()).toEqual(['https://draft.example']);
   });
 });

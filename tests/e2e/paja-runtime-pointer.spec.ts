@@ -276,6 +276,126 @@ test('opens local single-file index.html through the picker and drop without per
   }
 });
 
+for (const blockedStorage of [false, true]) {
+  test(`resource servers save live verified bytes and clear without frame reload (storage blocked: ${blockedStorage})`, async ({ page }) => {
+    test.setTimeout(60_000);
+    const server = await startPointerServer();
+    const bytes = Buffer.from('verified browser resource bytes');
+    const hash = createHash('sha256').update(bytes).digest('hex');
+    const fixture = createPointerFixture(server.url, 'resource-settings-target', resourceSettingsHtml(hash), ['resource']);
+    server.blobs.set(fixture.hash, fixture.bytes);
+    server.setConfig({
+      ...createPajaRuntimeHostConfig({ pointer: fixture.pointer, maxWaitMs: 2_000 }),
+      simulation: normalizePajaSimulation({ relay: { mode: 'live', urls: ['wss://intent-fixture.example'] } }),
+    });
+    await page.routeWebSocket('wss://intent-fixture.example/', (socket) => {
+      socket.onMessage((message) => {
+        const request = JSON.parse(String(message)) as unknown[];
+        if (request[0] !== 'REQ' || typeof request[1] !== 'string') return;
+        const filter = request[2] as { kinds?: number[] };
+        if (filter.kinds?.includes(NAPPLET_KIND_NAMED)) socket.send(JSON.stringify(['EVENT', request[1], fixture.event]));
+        socket.send(JSON.stringify(['EOSE', request[1]]));
+      });
+    });
+    const fetched: string[] = [];
+    await page.route('https://*.example/**', async (route) => {
+      fetched.push(route.request().url());
+      await route.fulfill({ status: 200, body: bytes, headers: { 'access-control-allow-origin': '*', 'content-type': 'text/plain' } });
+    });
+    if (blockedStorage) {
+      await page.addInitScript(() => {
+        for (const method of ['getItem', 'setItem', 'removeItem'] as const) {
+          const original = Storage.prototype[method];
+          Storage.prototype[method] = function (key: string, ...args: string[]) {
+            if (key === 'kehto:paja:resource-servers') throw new DOMException('Blocked', 'SecurityError');
+            return Reflect.apply(original, this, [key, ...args]);
+          };
+        }
+      });
+    }
+    const input = page.getByLabel('Resource servers', { exact: true });
+    const save = page.locator('#paja-resource-servers-save');
+    const status = page.locator('#paja-resource-servers-status');
+    const snapshot = () => page.evaluate(() => ({
+      tabs: window.__KEHTO_PAJA__?.getState().tabs.map(({ id, windowId, generation }) => ({ id, windowId, generation })),
+      srcdocs: Array.from(document.querySelectorAll('iframe'), (frame) => frame.srcdoc),
+    }));
+    try {
+      await page.goto(server.url);
+      await expect(page.frameLocator('iframe').locator('#ready')).toHaveText('ready');
+      const original = await snapshot();
+      await input.fill(' EXTRA.Example \nhttps://extra.example:443/');
+      await save.focus();
+      await save.press('Enter');
+      await expect(input).toHaveValue('https://extra.example');
+      await expect(status).toContainText(blockedStorage ? 'session-only' : 'saved for this host origin');
+      expect(await snapshot()).toEqual(original);
+      const frame = page.frameLocator('iframe');
+      await frame.locator('#read').click();
+      await expect(frame.locator('#result')).toHaveText('verified browser resource bytes');
+      expect(fetched).toEqual([`https://extra.example/${hash}`]);
+      await input.fill('valid.example\nhttp://private.example');
+      await save.click();
+      await expect(status).toContainText('Line 2:');
+      await expect(input).toHaveAttribute('aria-invalid', 'true');
+      await frame.locator('#read').click();
+      await expect(frame.locator('#count')).toHaveText('2');
+      expect(fetched.at(-1)).toBe(`https://extra.example/${hash}`);
+      expect(await snapshot()).toEqual(original);
+      if (!blockedStorage) {
+        await page.reload();
+        await expect(input).toHaveValue('https://extra.example');
+        await expect(frame.locator('#ready')).toHaveText('ready');
+      }
+      const restored = await snapshot();
+      await input.fill('replacement.example');
+      await save.click();
+      await expect(input).toHaveAttribute('aria-invalid', 'false');
+      await frame.locator('#read').click();
+      await expect(frame.locator('#result')).toHaveText('verified browser resource bytes');
+      await expect.poll(() => fetched.at(-1)).toBe(`https://replacement.example/${hash}`);
+      expect(await snapshot()).toEqual(restored);
+      await input.fill('');
+      await save.click();
+      await expect(status).toContainText(blockedStorage ? 'session-only' : 'cleared from this host origin');
+      const beforeClearRead = fetched.length;
+      await frame.locator('#read').click();
+      await expect(frame.locator('#result')).toHaveText('blocked-by-policy');
+      expect(fetched).toHaveLength(beforeClearRead);
+      expect(await snapshot()).toEqual(restored);
+      for (const width of [1280, 390]) {
+        await page.setViewportSize({ width, height: 900 });
+        await input.scrollIntoViewIfNeeded();
+        await expect(input).toBeVisible();
+        expect(await input.evaluate((element) => element.getBoundingClientRect().width)).toBeGreaterThan(200);
+        expect(await page.locator('#paja-resource-servers-help').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+        await page.screenshot({ path: `/tmp/opencode/jux-resource-servers-${blockedStorage}-${width}.png` });
+      }
+      await page.reload();
+      await expect(input).toHaveValue('');
+    } finally {
+      await server.close();
+    }
+  });
+}
+
+function resourceSettingsHtml(hash: string): string {
+  return `<!doctype html><html><body><div id="ready">booting</div><button id="read">Read</button><div id="result"></div><div id="count">0</div><script>
+    let count = 0;
+    window.napplet.shell.onReady(() => { document.getElementById('ready').textContent = 'ready'; });
+    document.getElementById('read').onclick = () => {
+      document.getElementById('result').textContent = 'pending';
+      parent.postMessage({type:'resource.bytes',id:'read-' + (++count),url:'blossom:sha256:${hash}'}, '*');
+    };
+    window.addEventListener('message', async (event) => {
+      if (event.source !== parent || !event.data.id?.startsWith('read-')) return;
+      const message = event.data;
+      document.getElementById('result').textContent = message.blob ? await message.blob.text() : message.error;
+      document.getElementById('count').textContent = String(count);
+    });
+  </script></body></html>`;
+}
+
 async function startPointerServer(): Promise<PointerServer> {
   const browserHost = readFileSync(new URL('../../packages/paja/dist/browser-host.js', import.meta.url), 'utf8');
   const blobs = new Map<string, Buffer>();

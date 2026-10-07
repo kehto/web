@@ -8,7 +8,9 @@ function normalizeDraft(draft: string): readonly string[] {
     const value = line.trim();
     if (!value) continue;
     const candidate = /^[a-z0-9.-]+(?::\d+)?$/iu.test(value) ? `https://${value}` : value;
-    const origin = normalizePublicBlossomServer(candidate);
+    // Do not let URL parsing repair malformed schemes/backslashes or erase empty delimiters.
+    const origin = /^https:\/\/[^/\\?#\s]+\/?$/iu.test(candidate)
+      ? normalizePublicBlossomServer(candidate) : null;
     if (!origin) throw new Error(`Line ${index + 1}: enter a public HTTPS origin or bare domain (no path, credentials, query or fragment).`);
     if (!servers.includes(origin)) servers.push(origin);
   }

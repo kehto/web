@@ -1,7 +1,7 @@
 import type { NappletMessage } from '@napplet/core';
 import { afterEach, expect, it, vi } from 'vitest';
 import { createPajaAdapter } from './browser-adapter.js';
-import type { PajaHostConfig } from './options.js';
+import { createPajaRuntimeHostConfig } from './options.js';
 import { normalizePajaSimulation } from './simulation.js';
 import { createPajaResourceSettings } from './browser-resource-settings.js';
 
@@ -17,10 +17,7 @@ it('uses live extra servers after existing defaults across windows and clears on
     ? new Response(bytes) : new Response(null, { status: 404 }));
   vi.stubGlobal('fetch', fetchFn);
   const simulation = normalizePajaSimulation({ relay: { mode: 'disabled' }, upload: { servers: ['https://default.example'] } });
-  const config = {
-    window: { id: 'one', dTag: 'resource-settings', aggregateHash: 'resource-settings-hash' },
-    target: { pointer: { blossomServers: ['https://pointer.example'] } },
-  } as PajaHostConfig;
+  const config = createPajaRuntimeHostConfig({ blossomServers: ['https://pointer.example'] });
   const adapter = createPajaAdapter(config, () => simulation, () => {}, () => {}, () => true,
     undefined, undefined, undefined, undefined, undefined, undefined, undefined, settings.getServers);
   adapter.setWindowBlossomServers('one', ['https://window-one.example']);
@@ -54,6 +51,25 @@ it('uses live extra servers after existing defaults across windows and clears on
     ].map((origin) => `${origin}/${hash}`));
     expect(simulation.upload.servers).toEqual(['https://default.example']);
     expect(config.target.pointer?.blossomServers).toEqual(['https://pointer.example']);
+    settings.save(Array.from({ length: 10 }, (_, index) => `extra-${index}.example`).join('\n'));
+    fetchFn.mockClear();
+    expect(await read('one', 'capped')).toMatchObject({ type: 'resource.bytes.result' });
+    // A failed candidate cannot extend the existing combined eight-server budget.
+    fetchFn.mockImplementation(async () => new Response(null, { status: 404 }));
+    fetchFn.mockClear();
+    expect(await read('one', 'all-miss')).toMatchObject({ type: 'resource.bytes.error' });
+    expect(fetchFn).toHaveBeenCalledTimes(8);
+    expect(fetchFn.mock.calls.at(-1)?.[0]).toBe(`https://extra-3.example/${hash}`);
+    fetchFn.mockClear();
+    fetchFn.mockResolvedValueOnce(new Response(bytes));
+    const direct = await new Promise<NappletMessage & { blob: Blob }>((resolve) => {
+      adapter.services!.resource!.handleMessage('one', {
+        type: 'resource.bytes', id: 'direct', url: 'https://direct.example/file',
+      } as NappletMessage, (message) => resolve(message as NappletMessage & { blob: Blob }));
+    });
+    expect(await direct.blob.text()).toBe('verified extra server bytes');
+    expect(fetchFn).toHaveBeenCalledOnce();
+    expect(fetchFn).toHaveBeenCalledWith('https://direct.example/file', expect.anything());
   } finally {
     (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
   }
