@@ -113,6 +113,9 @@ test('sidebar accordion preserves controls, frames, drawer preferences and flush
   await expect(messages.locator('summary')).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(messages).not.toHaveAttribute('open');
+  const logCount = await page.evaluate(() => window.__KEHTO_PAJA__!.getState().messageLog.length);
+  await page.locator('#acl-controls [data-acl-capability="state:write"]').click();
+  await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__!.getState().messageLog.length)).toBeGreaterThan(logCount);
   await acl.locator('summary').click();
   await expect(acl).not.toHaveAttribute('open');
   await resources.locator('summary').click();
@@ -122,6 +125,7 @@ test('sidebar accordion preserves controls, frames, drawer preferences and flush
   await expect(page.locator('#paja-resource-servers-status')).toContainText('saved for this host origin');
   await messages.locator('summary').click();
   await expect(page.locator('#message-log')).toContainText('shell.ready');
+  await expect(page.locator('#message-log')).toContainText('paja.acl');
   await page.getByLabel('Filter message log').fill('shell.ready');
   await page.locator('#clear-log').click();
   await expect(page.locator('#message-log')).toBeEmpty();
