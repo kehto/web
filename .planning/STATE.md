@@ -35,6 +35,8 @@ Status: All v1.29 phases complete — eight-package Napplet-0.31-compatible npm/
 
 Last activity: 2026-10-07 — Completed quick task 261007-jux: live extra Blossom resource lookup settings; 1863 unit tests, 89 e2e tests, slop 100/100
 
+Shipping: quick task 261007-jux pushed on `feat/paja-local-index-html`; existing PR [#278](https://github.com/kehto/web/pull/278) updated with extra Resource servers settings and combined verification evidence. Awaiting CI/review; not merged.
+
 ## Performance Metrics
 
 **Velocity:**

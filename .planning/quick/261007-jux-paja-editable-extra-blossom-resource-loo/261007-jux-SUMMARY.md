@@ -111,6 +111,12 @@ Playwright commands use `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/google-chr
 
 ## Completion
 
+Shipped on the requested `feat/paja-local-index-html` branch to existing PR
+[#278](https://github.com/kehto/web/pull/278). The PR title/body now cover both
+local-file loading and extra Blossom resource servers, with updated combined
+verification counts and bounded NAP findings. Security and goal verification
+artifacts were added after final diff review; zero open blocking threats.
+
 All three planned tasks and all final gates are complete. Final full-suite log:
 `/tmp/opencode/jux-full-test-e2e-complete.log`; final slop log:
 `/tmp/opencode/jux-full-slop.log`. Existing file-size warnings are
