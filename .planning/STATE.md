@@ -5,11 +5,11 @@ milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 106
 current_phase_name: Active-Surface Conformance and Release
 status: completed
-stopped_at: "Completed quick 261007-jux: extra Blossom resource server settings; all gates green"
-last_updated: "2026-10-07T19:41:45.584Z"
+stopped_at: "Completed quick 261007-md2: Resource servers below Messages; exact concise helper; all gates green; parent owns shipment"
+last_updated: "2026-10-07T21:13:50.033Z"
 last_activity: 2026-10-07
 last_activity_desc: "Completed quick task 261007-jux: live extra Blossom resource lookup settings"
-state_head: ecdc9f6e3e58a2b71a165db48fb09871aaacdef8
+state_head: a27b55b892f711367810e94c14ea1cd8960bad2a
 progress:
   total_phases: 6
   completed_phases: 6
@@ -235,8 +235,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-10-07T19:41:45.342Z
-Stopped at: Completed quick 261007-jux: extra Blossom resource server settings; all gates green
+Last session: 2026-10-07T21:13:49.797Z
+Stopped at: Completed quick 261007-md2: Resource servers below Messages; exact concise helper; all gates green; parent owns shipment
 Resume file: None
 
 ## Operator Next Steps
