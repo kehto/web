@@ -47,7 +47,7 @@ Each subpath ships its own `README.md` with full API docs and examples.
 ## NIP-5D Artifact Cache
 
 `@kehto/nip/5d` includes the host-side resolver used by the playground to verify
-NIP-5D manifests, NIP-5A aggregates, and Blossom blob bytes before rendering a
+NIP-5D manifests and Blossom artifact bytes (legacy: NIP-5A aggregates) before rendering a
 napplet. Browser hosts can pass an optional `NappletArtifactCache` to
 `resolveNapplet()`; the included `CacheStorageNappletArtifactCache` stores only
 verified blobs and aggregate metadata in Cache Storage.
@@ -56,7 +56,7 @@ Use [`openNappletArtifactCache()`](../api/functions/_kehto_nip..openNappletArtif
 to feature-detect Cache Storage and fall back to network-only loading when the
 browser cannot open a cache. The cache is an optimization: cached blobs are
 still re-hashed before use, and writes happen only after the signature,
-aggregate, and every blob hash have been verified.
+content identity, and every blob hash have been verified.
 
 Implementation guide:
 [Implement a napplet artifact cache](../how-tos/implement-napplet-artifact-cache.md).
@@ -82,3 +82,13 @@ case, no framework coupling, no module-global state).
 - NIP-5D module: <a href="../api/modules/_kehto_nip.5d.html" target="_self"><code>docs/api/modules/_kehto_nip.5d.html</code></a>
 - Artifact cache opener: <a href="../api/functions/_kehto_nip..openNappletArtifactCache.html" target="_self"><code>openNappletArtifactCache</code></a>
 - Cache adapter class: <a href="../api/classes/_kehto_nip..CacheStorageNappletArtifactCache.html" target="_self"><code>CacheStorageNappletArtifactCache</code></a>
+
+## NIP-5D event compatibility
+
+Current manifests use a direct artifact `x` hash, plain-text `content`, independent
+`z`/`i` routing declarations, and required `R` / optional `O` domains. Kehto also
+accepts legacy aggregate events through an isolated compatibility adapter.
+Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
+for current events; legacy identities keep their original aggregate. Both paths
+verify signatures and bytes before runtime injection and `srcdoc` execution.
+For the schema and removal boundary, see [event migration](../migrations/NIP-5D-EVENT-SCHEMA.md).
