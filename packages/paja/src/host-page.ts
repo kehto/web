@@ -185,13 +185,6 @@ export function renderPajaHtml(config: PajaHostConfig): string {
     <main>
       <aside class="console" id="${PAJA_CONSOLE_PANEL_ID}" aria-label="Paja development controls">
         ${renderPointerControls(config)}
-        <form class="section resource-servers" id="paja-resource-servers-form">
-          <label class="section-title" for="paja-resource-servers-input">Resource servers</label>
-          <textarea id="paja-resource-servers-input" rows="3" aria-describedby="paja-resource-servers-help paja-resource-servers-status" spellcheck="false"></textarea>
-          <small id="paja-resource-servers-help">One public HTTPS origin per line; bare domains use HTTPS. Extras apply to subsequent Blossom requests across all running tabs, not upload destinations. Save blank to clear extras.</small>
-          <button type="submit" id="paja-resource-servers-save">Save</button>
-          <div id="paja-resource-servers-status" role="status" aria-live="polite"></div>
-        </form>
         <section class="section">
           <div class="section-title">Interfaces</div>
           <div class="switch-grid" id="interface-toggles"></div>
@@ -214,6 +207,13 @@ export function renderPajaHtml(config: PajaHostConfig): string {
           </div>
           <div class="log-list" id="message-log" aria-live="polite"></div>
         </section>
+        <form class="section resource-servers" id="paja-resource-servers-form">
+          <label class="section-title" for="paja-resource-servers-input">Resource servers</label>
+          <textarea id="paja-resource-servers-input" rows="3" aria-describedby="paja-resource-servers-help paja-resource-servers-status" spellcheck="false"></textarea>
+          <small id="paja-resource-servers-help">Extra Blossom lookup servers, one per line. Domains use HTTPS.</small>
+          <button type="submit" id="paja-resource-servers-save">Save</button>
+          <div id="paja-resource-servers-status" role="status" aria-live="polite"></div>
+        </form>
       </aside>
       ${renderStage(config, targetLabel)}
     </main>
