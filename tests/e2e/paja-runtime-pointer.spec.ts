@@ -213,6 +213,69 @@ test('completes a verified intent and delivers its convention once to a cold tar
   }
 });
 
+test('opens local single-file index.html through the picker and drop without persisting it', async ({ page }) => {
+  test.setTimeout(30_000);
+  const server = await startPointerServer();
+  const localHtml = (label: string) => `<!doctype html><html><head><meta name="napplet-id" content="${label}"><title>${label}</title></head><body><div id="status">booting</div><script>
+    // The runtime-owned NAP-SHELL prelude emits shell.ready; the file only awaits shell.init.
+    window.napplet.shell.ready().then((environment) => {
+      document.getElementById('status').textContent = 'init:' + Array.isArray(environment.services);
+    });
+  </script></body></html>`;
+  const pickedBytes = Buffer.from(localHtml('picked-local'));
+  const pickedHash = createHash('sha256').update(pickedBytes).digest('hex');
+  const pickedAggregate = computeAggregateHash([{ path: '/index.html', sha256: pickedHash }]);
+  server.setConfig(createPajaRuntimeHostConfig({ maxWaitMs: 2_000 }));
+
+  try {
+    await page.goto(server.url);
+    await expect(page.locator('#empty-runtime-stage')).toHaveText(
+      'Load a napplet pointer or drop an index.html to start a runtime tab.',
+    );
+    await page.locator('#runtime-local-file').setInputFiles({
+      name: 'picked.html',
+      mimeType: 'text/html',
+      buffer: pickedBytes,
+    });
+
+    const picked = page.locator('iframe').first();
+    await expect(page.frameLocator('iframe').first().locator('#status')).toHaveText('init:true');
+    await expect(page.locator('#napplet-tabs .tab-label')).toHaveText(['picked.html']);
+    await expect(page.locator('#napplet-tabs .tab-share')).toHaveCount(0);
+    const srcdoc = await picked.getAttribute('srcdoc');
+    expect(srcdoc).toContain(classOnePrefix);
+    expect(srcdoc).toContain(`connect-src 'none'; ${classOneSuffix}`);
+    expect(srcdoc!.indexOf('Content-Security-Policy')).toBeLessThan(srcdoc!.indexOf('data-kehto-nip5d-injection'));
+    await expect(picked).toHaveAttribute('sandbox', 'allow-scripts');
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
+    const state = await page.evaluate(() => window.__KEHTO_PAJA__?.getState());
+    expect(state?.tabs[0]?.initSent).toBe(true);
+    expect(state?.resolvedTarget).toMatchObject({
+      source: 'local',
+      fileName: 'picked.html',
+      dTag: 'picked-local',
+      aggregateHash: pickedAggregate,
+    });
+    expect(state?.tabs).toMatchObject([{ title: 'picked.html', pointerValue: '' }]);
+    const logTypes = state?.messageLog.map((entry) => entry.type) ?? [];
+    expect(logTypes).toEqual(expect.arrayContaining(['paja.local.load', 'paja.local.loaded', 'shell.ready', 'shell.init']));
+
+    await page.evaluate((html) => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([html], 'dropped.html', { type: 'text/html' }));
+      document.dispatchEvent(new DragEvent('drop', { dataTransfer: transfer, bubbles: true, cancelable: true }));
+    }, localHtml('dropped-local'));
+    await expect(page.locator('#napplet-tabs .tab-label')).toHaveText(['picked.html', 'dropped.html']);
+    await expect(page.frameLocator('iframe').nth(1).locator('#status')).toHaveText('init:true');
+
+    await page.reload();
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().tabs.length)).toBe(0);
+    await expect(page.locator('#empty-runtime-stage')).toBeVisible();
+  } finally {
+    await server.close();
+  }
+});
+
 async function startPointerServer(): Promise<PointerServer> {
   const browserHost = readFileSync(new URL('../../packages/paja/dist/browser-host.js', import.meta.url), 'utf8');
   const blobs = new Map<string, Buffer>();
