@@ -72,6 +72,10 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .console { min-height: 0; overflow: auto; border-right: 1px solid var(--line); background: #121512; padding: 10px; display: flex; flex-direction: column; gap: 12px; }
       .section { display: grid; gap: 8px; }
       .section-title { color: var(--accent); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0; }
+      .resource-servers { min-width: 0; }
+      .resource-servers label { white-space: normal; }
+      .resource-servers textarea { width: 100%; min-width: 0; padding: 6px; resize: vertical; }
+      .resource-servers small, .resource-servers [role="status"] { color: var(--muted); overflow-wrap: anywhere; }
       .switch-grid, .acl-grid { display: flex; flex-wrap: wrap; gap: 6px; }
       .toggle { height: 24px; padding: 0 8px; color: var(--muted); }
       .toggle[data-enabled="true"] { color: var(--text); border-color: #5f724f; background: #24301f; }
@@ -181,6 +185,13 @@ export function renderPajaHtml(config: PajaHostConfig): string {
     <main>
       <aside class="console" id="${PAJA_CONSOLE_PANEL_ID}" aria-label="Paja development controls">
         ${renderPointerControls(config)}
+        <form class="section resource-servers" id="paja-resource-servers-form">
+          <label class="section-title" for="paja-resource-servers-input">Resource servers</label>
+          <textarea id="paja-resource-servers-input" rows="3" aria-describedby="paja-resource-servers-help paja-resource-servers-status" spellcheck="false"></textarea>
+          <small id="paja-resource-servers-help">One public HTTPS origin per line; bare domains use HTTPS. Extras apply to subsequent Blossom requests across all running tabs, not upload destinations. Save blank to clear extras.</small>
+          <button type="submit" id="paja-resource-servers-save">Save</button>
+          <div id="paja-resource-servers-status" role="status" aria-live="polite"></div>
+        </form>
         <section class="section">
           <div class="section-title">Interfaces</div>
           <div class="switch-grid" id="interface-toggles"></div>

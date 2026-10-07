@@ -3,6 +3,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { createPajaAdapter } from './browser-adapter.js';
 import type { PajaHostConfig } from './options.js';
 import { normalizePajaSimulation } from './simulation.js';
+import { createPajaResourceSettings } from './browser-resource-settings.js';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -10,8 +11,9 @@ it('uses live extra servers after existing defaults across windows and clears on
   const bytes = new TextEncoder().encode('verified extra server bytes');
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
-  let extras: readonly string[] = ['https://extra.example'];
-  const fetchFn = vi.fn(async (url: string) => url.startsWith(extras[0] ?? 'https://absent.example')
+  const settings = createPajaResourceSettings(() => { throw new Error('Storage blocked'); });
+  expect(settings.save('extra.example')).toMatchObject({ ok: true, message: expect.stringContaining('session-only') });
+  const fetchFn = vi.fn(async (url: string) => url.startsWith(settings.getServers()[0] ?? 'https://absent.example')
     ? new Response(bytes) : new Response(null, { status: 404 }));
   vi.stubGlobal('fetch', fetchFn);
   const simulation = normalizePajaSimulation({ relay: { mode: 'disabled' }, upload: { servers: ['https://default.example'] } });
@@ -20,7 +22,7 @@ it('uses live extra servers after existing defaults across windows and clears on
     target: { pointer: { blossomServers: ['https://pointer.example'] } },
   } as PajaHostConfig;
   const adapter = createPajaAdapter(config, () => simulation, () => {}, () => {}, () => true,
-    undefined, undefined, undefined, undefined, undefined, undefined, undefined, () => extras);
+    undefined, undefined, undefined, undefined, undefined, undefined, undefined, settings.getServers);
   adapter.setWindowBlossomServers('one', ['https://window-one.example']);
   adapter.setWindowBlossomServers('two', ['https://window-two.example']);
   const read = (windowId: string, id: string) => new Promise<NappletMessage & { blob: Blob }>((resolve) => {
@@ -39,12 +41,12 @@ it('uses live extra servers after existing defaults across windows and clears on
         'https://pointer.example', 'https://default.example', 'https://extra.example',
       ].map((origin) => `${origin}/${hash}`));
     }
-    extras = ['https://replacement.example'];
+    settings.save('replacement.example');
     for (const windowId of ['one', 'two']) {
       expect(await read(windowId, `replace-${windowId}`)).toMatchObject({ type: 'resource.bytes.result' });
       expect(fetchFn).toHaveBeenLastCalledWith(`https://replacement.example/${hash}`, expect.anything());
     }
-    extras = [];
+    settings.save('');
     fetchFn.mockClear();
     expect(await read('two', 'clear')).toMatchObject({ type: 'resource.bytes.error', error: 'not-found' });
     expect(fetchFn.mock.calls.map(([url]) => url)).toEqual([

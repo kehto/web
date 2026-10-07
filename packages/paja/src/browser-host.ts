@@ -1,3 +1,4 @@
+import { installPajaResourceSettings } from './browser-resource-settings.js';
 import {
   buildShellCapabilities,
   createShellBridge,
@@ -588,6 +589,7 @@ function createPajaBrowserState(context: PajaBrowserStateContext): PajaBrowserSt
 
 async function installPajaHost(): Promise<void> {
   const disposeConsolePanel = installPajaConsolePanel();
+  const resourceSettings = installPajaResourceSettings();
   const config = await readLatestConfig(readConfig());
   const stage = getStage();
   const frame = config.target.mode === 'runtime-pointer' ? null : getFrame();
@@ -643,7 +645,7 @@ async function installPajaHost(): Promise<void> {
   }, themeBroadcast.onBroadcast, confirmationController.confirm, signerController, getWindowIdentity, () => stateRef?.reload(), {
       catalog: runtime.catalog,
       controller: intentController,
-    }, confirmationController.activation, notifyController?.serviceOptions, configController?.serviceOptions);
+    }, confirmationController.activation, notifyController?.serviceOptions, configController?.serviceOptions, resourceSettings.getServers);
   await adapter.ready;
   const bridge = createShellBridge(adapter);
   const stopIdentityChanges = signerController.subscribe(() => {
@@ -680,6 +682,7 @@ async function installPajaHost(): Promise<void> {
   window.addEventListener('pagehide', () => notifyController?.dispose(), { once: true });
   window.addEventListener('pagehide', () => configController?.dispose(), { once: true });
   window.addEventListener('pagehide', disposeConsolePanel, { once: true });
+  window.addEventListener('pagehide', resourceSettings.dispose, { once: true });
 
   window.__KEHTO_PAJA__ = state;
 
