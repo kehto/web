@@ -144,6 +144,36 @@ Current NIP-5D runtime availability is injected
   `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until a corrected upstream release
   is reviewed; the shim is never documented as supplying shell.
 
+### Paja local development targets
+
+Paja runtime-pointer mode can open a local single-file `index.html` (file picker
+or drag and drop). Checked on 2026-10-07 against NIP-5D PR #2303 head
+`dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7` (`5D.md`) and NAP-SHELL
+at `napplet/naps` master `a040914b4bbd3a5cd8a14b0f316a723c968ebfb2`, which is
+byte-identical to the recorded `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`.
+
+- **Conformant:** the identity is computed from the file's own bytes, never
+  accepted from the host. It is registered against the frame `Window` before any
+  code runs. The bytes load only through `srcdoc` under `sandbox="allow-scripts"`.
+  The CSP meta and the `window.napplet` prelude (including mandatory `shell` and
+  the unchanged `shell.ready` / `shell.init` handshake) are injected outside the
+  hashed bytes.
+- **Intentional spec-gap decision:** NIP-5D Identity steps 1-3 (resolve and
+  verify a signed manifest, then fetch and verify its Blossom artifact) cannot
+  apply to an unsigned local file. Local files are a Paja development-host
+  affordance outside the NIP-5D resolution path, in the same category as
+  target-URL authoring mode. They never enter Paja's verified installed catalog
+  and are never intent delivery targets. The `dTag` comes from the NIP-5D
+  `<meta name="napplet-id">` publishing metadata when present, otherwise
+  `local-<file-stem>`. That metadata only labels an unverified development
+  target. It is not a manifest claim.
+- **Recorded drift, not changed here:** the current NIP-5D draft defines the
+  artifact hash as the manifest's single `x` tag over `/index.html`. Kehto's
+  `@kehto/nip/5d` resolver still verifies NIP-5A `path` tags plus an aggregate
+  `x` tag. Local targets use the same NIP-5A single-path aggregate as that
+  resolver, so a local file and its published single-file build share one
+  identity.
+
 ## Extension Classification
 
 | Surface | Classification | Contract |

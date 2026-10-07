@@ -45,6 +45,7 @@ app package's development scripts.
 | Host config | `createPajaHostConfig`, `createPajaRuntimeHostConfig`, `PajaHostConfig`, `PajaPointerRuntimeConfig`, `formatPajaUrl` |
 | Host page | `renderPajaHtml`, bundled `/__kehto/browser-host.js` runtime bootstrap |
 | Runtime pointers | `decodePajaPointer`, `resolvePajaPointer`, `injectPajaRuntimeCsp`, `PAJA_NAPPLET_MANIFEST_KIND`, `PAJA_NAPPLET_MANIFEST_KINDS` |
+| Local files | `createPajaLocalTarget`, `isPajaLocalTarget`, `isPajaLocalHtmlFile`, `readNappletIdMeta`, `findRelativeAssetReferences`, `PAJA_LOCAL_SINGLE_FILE_HINT`, `PajaLocalTarget`, `PajaLocalFileInput`, `PajaRuntimeTarget` |
 | Parity metadata | `PAJA_UPSTREAM_WEB_DOMAINS`, `PAJA_ADVERTISED_DOMAINS`, `PAJA_HANDSHAKE_DOMAINS`, `PAJA_COMPATIBILITY_ALIASES`, `PAJA_REQUIRED_SERVICES`, `getMissingAdvertisedDomains`, `getMissingServices` |
 | Readiness | `waitForTargetUrl`, `ReadinessError`, `WaitForTargetUrlOptions`, `ReadinessFetch` |
 | Server | `startPajaServer`, `PajaServer`, `PajaServerOptions` |
@@ -230,6 +231,34 @@ the UI distinguishes deadline or connection failure from the clean case where
 all queried relays reached EOSE without a matching manifest. Wider relay search
 does not weaken loading: manifest signature, aggregate, Blossom hash, and
 `srcdoc` verification still fail closed.
+
+### Local `index.html` files
+
+In runtime-pointer mode, Paja can also open a napplet straight from disk. Use
+**Open file…** next to **Load**, or drop an `index.html` anywhere on the Paja
+page (not onto a running napplet frame, which receives its own drag events).
+The file opens in a new runtime tab named after the file.
+
+- **Identity comes from the bytes.** Paja hashes the exact file bytes (`sha256`)
+  and derives `aggregateHash` as the NIP-5A aggregate over the single
+  `/index.html` path entry. That is the same derivation the resolver checks for a
+  published single-file napplet, so editing the file gives it a new identity. The
+  `dTag` comes from the NIP-5D publishing metadata
+  `<meta name="napplet-id" content="…">`. Without it, Paja uses
+  `local-<file-stem>`.
+- **Same loading path as verified pointers.** Paja registers the identity before
+  the frame runs. It injects the Class-1 CSP (with `connect-src 'none'`, since a
+  local file has no relay or Blossom hints) and then the runtime-owned
+  `window.napplet` prelude, including mandatory `shell`. The bytes go in through
+  `srcdoc` under the same `allow-scripts` sandbox.
+- **Development only and unverified.** A local file has no signed manifest. It
+  never enters the installed napplet catalog, never becomes an intent delivery
+  target, has no share link, and is not restored after a page reload.
+- **Self-contained single-file HTML only.** A `srcdoc` document has no base URL,
+  and the CSP denies network loads, so relative `<script src>`, stylesheets, and
+  images do not load. Paja lists relative references it finds in the status line
+  and the message log. Build with an inlining bundler (for example
+  `vite-plugin-singlefile`). Opening a folder or zip of assets is not supported.
 
 ### Installed catalog and intent lifecycle
 

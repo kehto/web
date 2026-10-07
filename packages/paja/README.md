@@ -193,6 +193,34 @@ and hinted-author/publisher server lists first, then the active shell user's
 published list, the current window's verified pointer-manifest servers, and
 finally configured runtime fallbacks.
 
+## Local `index.html` files
+
+In runtime-pointer mode, Paja can also open a napplet straight from disk. Use
+**Open file…** next to **Load**, or drop an `index.html` anywhere on the Paja
+page (not onto a running napplet frame, which receives its own drag events).
+The file opens in a new runtime tab named after the file.
+
+- **Identity comes from the bytes.** Paja hashes the exact file bytes (`sha256`)
+  and derives `aggregateHash` as the NIP-5A aggregate over the single
+  `/index.html` path entry. That is the same derivation the resolver checks for a
+  published single-file napplet, so editing the file gives it a new identity. The
+  `dTag` comes from the NIP-5D publishing metadata
+  `<meta name="napplet-id" content="…">`. Without it, Paja uses
+  `local-<file-stem>`.
+- **Same loading path as verified pointers.** Paja registers the identity before
+  the frame runs. It injects the Class-1 CSP (with `connect-src 'none'`, since a
+  local file has no relay or Blossom hints) and then the runtime-owned
+  `window.napplet` prelude, including mandatory `shell`. The bytes go in through
+  `srcdoc` under the same `allow-scripts` sandbox.
+- **Development only and unverified.** A local file has no signed manifest. It
+  never enters the installed napplet catalog, never becomes an intent delivery
+  target, has no share link, and is not restored after a page reload.
+- **Self-contained single-file HTML only.** A `srcdoc` document has no base URL,
+  and the CSP denies network loads, so relative `<script src>`, stylesheets, and
+  images do not load. Paja lists relative references it finds in the status line
+  and the message log. Build with an inlining bundler (for example
+  `vite-plugin-singlefile`). Opening a folder or zip of assets is not supported.
+
 ## Installed intent handlers and delivery
 
 Paja keeps resolver-verified pointer and manifest facts in an installed catalog,
