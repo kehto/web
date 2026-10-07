@@ -226,9 +226,16 @@ test('foregrounds a reused intent handler for every behavior.focus hint', async 
   const target = createPointerFixture(server.url, 'profile-target', targetIntentHtml(), ['inc'], [
     ['archetype', 'profile', 'napplet:profile/open'],
   ]);
+  // Declares an archetype without `inc`: unroutable for intents, and the host
+  // must flag it in the log and on the console. Uses a distinct archetype so
+  // it never competes with `profile-target` for the delivered intent below.
+  const unroutable = createPointerFixture(server.url, 'unroutable-target', unroutableTargetHtml(), ['theme'], [
+    ['archetype', 'note', 'napplet:note/open'],
+  ]);
   const relay = 'wss://intent-fixture.example';
   server.blobs.set(source.hash, source.bytes);
   server.blobs.set(target.hash, target.bytes);
+  server.blobs.set(unroutable.hash, unroutable.bytes);
   server.setConfig(createPajaRuntimeHostConfig({
     pointer: source.pointer,
     maxWaitMs: 2_000,
@@ -240,8 +247,13 @@ test('foregrounds a reused intent handler for every behavior.focus hint', async 
       if (request[0] !== 'REQ' || typeof request[1] !== 'string') return;
       socket.send(JSON.stringify(['EVENT', request[1], source.event]));
       socket.send(JSON.stringify(['EVENT', request[1], target.event]));
+      socket.send(JSON.stringify(['EVENT', request[1], unroutable.event]));
       socket.send(JSON.stringify(['EOSE', request[1]]));
     });
+  });
+  const warnings: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'warning') warnings.push(message.text());
   });
 
   try {
@@ -249,12 +261,16 @@ test('foregrounds a reused intent handler for every behavior.focus hint', async 
     await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().tabs[0]?.status)).toBe('ready');
     await page.evaluate((pointer) => window.__KEHTO_PAJA__?.loadPointer(pointer), target.pointer);
     await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().tabs[1]?.status)).toBe('ready');
+    await page.evaluate((pointer) => window.__KEHTO_PAJA__?.loadPointer(pointer), unroutable.pointer);
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().tabs[2]?.status)).toBe('ready');
     const installed = await page.evaluate(() => window.__KEHTO_PAJA__!.getState().messageLog
       .filter((entry) => entry.type === 'paja.pointer.resolved').map((entry) => JSON.parse(entry.preview)));
     expect(installed).toEqual(expect.arrayContaining([
       expect.objectContaining({ dTag: 'intent-source', archetypes: [], requires: ['intent'], intentEligible: false }),
       expect.objectContaining({ dTag: 'profile-target', archetypes: [{ slug: 'profile', convention: 'napplet:profile/open' }], requires: ['inc'], intentEligible: true }),
+      expect.objectContaining({ dTag: 'unroutable-target', archetypes: [{ slug: 'note', convention: 'napplet:note/open' }], requires: ['theme'], intentEligible: false }),
     ]));
+    expect(warnings.some((text) => text.includes('NOT intent-eligible') && text.includes('unroutable-target'))).toBe(true);
     const tabs = await page.evaluate(() => window.__KEHTO_PAJA__!.getState().tabs);
     const sourceId = tabs.find((tab) => tab.title === 'intent-source')!.id;
     const targetId = tabs.find((tab) => tab.title === 'profile-target')!.id;
@@ -399,6 +415,15 @@ function sourceIntentHtml(): string {
       if (event.data && event.data.type === 'intent.invoke.result' && event.data.result && event.data.result.ok) {
         window.parent.postMessage({ type: 'test.source.accepted' }, '*');
       }
+    });
+    window.parent.postMessage({ type: 'shell.ready' }, '*');
+  </script></body></html>`;
+}
+
+function unroutableTargetHtml(): string {
+  return `<!doctype html><html><body><div id="unroutable-status">booting</div><script>
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'shell.init') document.getElementById('unroutable-status').textContent = 'ready';
     });
     window.parent.postMessage({ type: 'shell.ready' }, '*');
   </script></body></html>`;
