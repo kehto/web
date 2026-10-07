@@ -77,6 +77,22 @@ test.afterAll(async () => {
   await targetServer.close();
 });
 
+test('sidebar accordion tracer restores independent native keyboard collapse', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto(runtimeServer.url);
+  const interfaces = page.locator('[data-paja-section="interfaces"]');
+  const acl = page.locator('[data-paja-section="acl"]');
+  await expect(interfaces).toHaveAttribute('open', '');
+  await interfaces.locator('summary').focus();
+  await page.keyboard.press('Enter');
+  await expect(interfaces).not.toHaveAttribute('open');
+  await expect(acl).toHaveAttribute('open', '');
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('kehto:paja:sidebar-sections:v1') ?? '{}').interfaces)).toBe(true);
+  await page.reload();
+  await expect(interfaces).not.toHaveAttribute('open');
+  await expect(acl).toHaveAttribute('open', '');
+});
+
 test('hosts one sandboxed target iframe and reinitializes it on reload', async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto(runtimeServer.url);

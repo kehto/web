@@ -18,9 +18,15 @@ describe('@kehto/paja host page', () => {
       expect(html).toContain('<small id="paja-resource-servers-help">Extra Blossom lookup servers, one per line. Domains use HTTPS.</small>');
       const aside = html.match(/<aside\b[^>]*>([\s\S]*?)<\/aside>/)?.[1];
       expect(aside).toBeDefined();
-      expect(aside!.indexOf('id="message-log"')).toBeLessThan(aside!.indexOf('id="paja-resource-servers-form"'));
-      expect(aside).toMatch(/id="message-log"[^>]*><\/div>\s*<\/section>\s*<form class="section resource-servers" id="paja-resource-servers-form">/);
-      expect(aside).toMatch(/<\/form>\s*$/);
+      expect(aside!.indexOf('id="paja-resource-servers-form"')).toBeLessThan(aside!.indexOf('id="message-log"'));
+      const keys = [...aside!.matchAll(/data-paja-section="([^"]+)"/g)].map((match) => match[1]);
+      expect(keys).toEqual(config.target.mode === 'runtime-pointer'
+        ? ['pointer', 'interfaces', 'acl', 'signer', 'resource-servers', 'messages']
+        : ['interfaces', 'acl', 'signer', 'resource-servers', 'messages']);
+      expect(aside!.match(/<details[^>]* open>/g)).toHaveLength(keys.length);
+      expect(aside!.match(/<summary class="section-title">/g)).toHaveLength(keys.length);
+      expect(aside).not.toMatch(/<details[^>]* name=/);
+      expect(aside).toMatch(/id="message-log"[^>]*><\/div>\s*<\/div><\/details>\s*$/);
     }
   });
   it('renders minimal top and bottom bars with one sandboxed iframe', () => {
