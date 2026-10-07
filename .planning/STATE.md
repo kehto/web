@@ -5,11 +5,11 @@ milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 106
 current_phase_name: Active-Surface Conformance and Release
 status: completed
-stopped_at: "Completed quick 261007-md2: Resource servers below Messages; exact concise helper; all gates green; parent owns shipment"
-last_updated: "2026-10-07T21:13:50.033Z"
+stopped_at: "Completed quick 261007-n18: all sections flush persisted accordions; Messages last; full gates green; parent owns shipment"
+last_updated: "2026-10-07T22:00:27.550Z"
 last_activity: 2026-10-07
 last_activity_desc: "Completed quick task 261007-jux: live extra Blossom resource lookup settings"
-state_head: a27b55b892f711367810e94c14ea1cd8960bad2a
+state_head: 11e4a34325a3739d26d71f5659e531bd69b00036
 progress:
   total_phases: 6
   completed_phases: 6
@@ -232,11 +232,12 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260928-cpc | Make the Paja development console collapsible | 2026-09-28 | d3706a9c | Verified | [260928-cpc-make-the-paja-development-console-collapsible](./quick/260928-cpc-make-the-paja-development-console-collapsible/) |
 | 261007-j7k | Paja: load a napplet from a local single-file index.html (file picker + drag-and-drop) | 2026-10-07 | 8f13c56 | complete | [261007-j7k-paja-load-napplet-from-local-index-html](./quick/261007-j7k-paja-load-napplet-from-local-index-html/) |
 | 261007-jux | Paja: editable extra Blossom resource lookup servers with live all-tab settings | 2026-10-07 | ecdc9f6e | complete | [261007-jux-paja-editable-extra-blossom-resource-loo](./quick/261007-jux-paja-editable-extra-blossom-resource-loo/) |
+| 261007-n18 | Paja: flush independent persisted sidebar accordions, Messages last | 2026-10-07 | 11e4a343 | complete | [261007-n18-paja-flush-sidebar-accordions-with-persi](./quick/261007-n18-paja-flush-sidebar-accordions-with-persi/) |
 
 ## Session Continuity
 
-Last session: 2026-10-07T21:13:49.797Z
-Stopped at: Completed quick 261007-md2: Resource servers below Messages; exact concise helper; all gates green; parent owns shipment
+Last session: 2026-10-07T22:00:27.303Z
+Stopped at: Completed quick 261007-n18: all sections flush persisted accordions; Messages last; full gates green; parent owns shipment
 Resume file: None
 
 ## Operator Next Steps
