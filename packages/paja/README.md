@@ -57,6 +57,15 @@ Any dev server works as long as it answers `Origin: null` with
 and logs a `paja.target.cors.error` entry in the message log, plus a console
 warning, when the target would block the sandboxed frame.
 
+Every drawer section is a flush, independent native accordion: **Pointer** (in
+runtime-pointer mode), **Interfaces**, **ACL**, **Signer**, **Resource servers**,
+then **Messages** last. Headers support Enter/Space, visible keyboard focus and
+state chevrons; bodies keep their padding and live controls when hidden. Sections
+start expanded unless a validated origin-local boolean preference says otherwise.
+The collapsed map uses `kehto:paja:sidebar-sections:v1`, separately from whole-drawer
+visibility and resource server values. Storage failures leave session-only toggles
+usable; collapsing never reloads the running app or discards unsaved drafts.
+
 The console shows supported interfaces with per-domain injection toggles,
 runtime ACL controls, signer controls, and a filterable message log with visible
 error details. It starts expanded and collapses to the left with the chevron

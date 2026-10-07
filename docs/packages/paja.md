@@ -155,6 +155,14 @@ the target iframe is never navigated or recreated, so the running napplet keeps
 its generation, message log, and shell state while the stage reclaims the full
 width.
 
+All sections are flush independent native accordions, expanded by default:
+**Pointer** where present, **Interfaces**, **ACL**, **Signer**, **Resource servers**,
+and **Messages** last. Enter/Space toggle focused headers; visible focus and chevrons
+show their state. Hidden bodies retain controls, drafts and the running app.
+Origin-local `kehto:paja:sidebar-sections:v1` stores validated collapsed booleans,
+independently of whole-drawer visibility and resource settings. Invalid preferences
+default expanded; unavailable storage leaves toggles usable for the session.
+
 The console includes:
 
 - **Interfaces** — every supported Paja domain has an injection toggle. Toggling
@@ -191,6 +199,8 @@ The console includes:
   returns a canonical failure and does not enter Paja's in-memory relay view.
   Its scoped-relay hook likewise waits for the backend result and returns
   `false` after denial or transport failure.
+- **Resource servers** — extra Blossom lookup origins with a newline textarea and
+  Save button, immediately before the final Messages section (see below).
 - **Messages** — inbound and outbound envelopes are logged with a text filter,
   including Paja system events such as interface changes, ACL changes, signer
   connection changes, signing/publish confirmations, and visible details for

@@ -71,6 +71,15 @@ bootstrap, while target assets and HMR still resolve through the framework dev
 server. The runtime reload button reinitializes the Kehto shell state around the
 same target URL.
 
+Each section is also an independent flush native accordion: **Pointer** where
+present, **Interfaces**, **ACL**, **Signer**, **Resource servers**, then **Messages**
+last. Use Enter/Space on a focused header; focus outlines and chevrons indicate
+state. Sections start expanded and remember collapsed booleans per origin under
+`kehto:paja:sidebar-sections:v1`. Invalid entries are ignored and storage failures
+leave session-only toggles usable. These preferences are separate from whole-drawer
+visibility and saved resource origins. Closing a section retains its live controls,
+unsaved drafts and the running app; reopen it to continue editing.
+
 The published `@napplet/shim@0.30.0` remains non-shell. Paja therefore retains
 Kehto's host-owned mandatory `window.napplet.shell` prelude, installed before
 one bare `shell.ready`; its first `shell.init` is cached for local `ready()`,
