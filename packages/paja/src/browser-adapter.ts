@@ -585,6 +585,8 @@ function createDevServices(
  * @param configOptions - Host-backed scoped persistence and settings UI hooks.
  * @param getExtraResourceServers - Host-owned live extra Blossom lookup origins, appended after defaults; does not select upload destinations.
  * @returns Shell adapter plus a startup promise for asynchronous host probes.
+ * @example
+ * const adapter = createPajaAdapter(config, getSimulation, onThemeService, onThemeBroadcast, confirmRequest);
  */
 export function createPajaAdapter(
   config: PajaHostConfig,

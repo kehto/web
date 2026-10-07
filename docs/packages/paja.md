@@ -448,12 +448,40 @@ and the verified event publisher for that source window. A later
 servers first, then lazily reads hinted authors' and the event publisher's
 newest BUD-03 kind `10063` list through the base OUTBOX router, then tries
 the active shell user's BUD-03 list through the same router, then the current
-window's verified pointer-manifest servers, and finally upload-runtime defaults.
+window's verified pointer-manifest servers, upload-runtime defaults, and finally
+the sidebar's extra resource servers.
 The user-list lookup does not
 depend on Blossom upload mode. Paja does not prefetch event resources and works
 while upload mode remains `memory`. Event state is bounded, memory-only, and
 cleared with the napplet window. Server-list lookups are cached for five
 minutes; incomplete misses remain retryable.
+
+**Resource servers** is a host-owned newline textarea and **Save** button in
+both target modes, not a NAP-CONFIG field or CLI/config option. Bare domains
+(including optional ports) use HTTPS: `cdn.example` becomes
+`https://cdn.example`. Save trims blanks, canonicalizes public HTTPS origins and
+deduplicates in order; an invalid line rejects the entire save atomically.
+Credentials, non-root paths, query/fragment delimiters, HTTP and local/private
+literals are rejected. Save blank to remove only extras.
+
+The list is stored under `kehto:paja:resource-servers` in origin-scoped
+`localStorage`, independently of uploads and per-napplet configuration. Stored
+JSON is revalidated before use. Failed persistence still applies valid changes
+session-only, with explicit feedback that a previously saved list may return
+after reload. Successful saves affect subsequent Blossom requests across all
+running tabs without reloading frames or resetting event context. Extras are
+the last candidates in the existing eight-server budget, so a full earlier
+list can prevent them from being tried. They do not select upload destinations,
+change initial pointer/artifact resolution, redirect direct HTTP(S) reads or
+expand napplet CSP/network grants.
+
+This setting was checked against pinned
+[NAP-RESOURCE `9511232f69313aa7953d110e35d32cc28d506f66`](https://github.com/napplet/naps/blob/9511232f69313aa7953d110e35d32cc28d506f66/naps/NAP-RESOURCE.md)
+and current PR #80 head `fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1` below.
+It is runtime-owned lookup policy, not a wire migration: the newer draft removes
+request `servers` and uses bulk `urls` instead of `requests`. Existing packaged
+wire compatibility remains unchanged; this does not claim full DNS-time network
+conformance for a browser-only runtime.
 
 The combined list is capped at eight. Host-configured HTTP is restricted to
 loopback development; request, event, and publisher hints never permit it.

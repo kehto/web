@@ -337,6 +337,25 @@ pubkey without `signEvent` is read-only. This implements the draft
 
 ## NAP-RESOURCE schemes
 
+The development sidebar's **Resource servers** textarea adds read-only Blossom
+lookup origins in both target-URL and runtime-pointer modes. Enter one public
+HTTPS origin per line (`cdn.example` is shorthand for `https://cdn.example`)
+and press **Save**. Blanks are ignored and equivalent origins are deduplicated
+in first-seen order. A bad line rejects the whole save without changing the
+active or saved list; credentials, paths, queries, fragments, HTTP and obvious
+local/private hosts are rejected. Saving blank clears only these extras.
+
+Valid saves apply to subsequent Blossom requests across all running tabs,
+without reloading their frames. The list persists in the host origin's
+`localStorage`; if storage fails, it remains usable **session-only**, and the
+status warns that an older saved list may return after reload. Extras are
+appended after existing request/event/user/window/configured defaults. The
+combined eight-server cap remains: extras may not be reached if earlier
+candidates fill it. This setting does not change upload destinations,
+per-napplet NAP-CONFIG, initial pointer/artifact loading, direct HTTP(S) resource
+URLs, or napplet CSP/network grants. Browser CORS and the DNS limitation below
+still apply.
+
 Paja's developer-runtime policy accepts arbitrary `http:` and `https:` resource
 URLs so a normal remote image does not look broken merely because its origin was
 not pre-granted. Paja resolves those URLs with browser `fetch`, omits credentials
@@ -358,7 +377,8 @@ event-local server hints first, then lazily queries hinted authors' and the
 event publisher's newest BUD-03 kind `10063` lists through the verified
 NIP-65-aware OUTBOX router, then queries the active shell user's BUD-03 list
 through that same router, then uses the current window's verified
-pointer-manifest servers, followed by upload-runtime fallbacks. The user-list
+pointer-manifest servers, followed by upload-runtime fallbacks and saved extra
+resource servers. The user-list
 lookup works independently of upload mode; an upload runtime may reuse the same
 servers when present. ROM-specific event and publisher locations retain
 priority over the user/runtime fallbacks. The combined list is capped at eight
