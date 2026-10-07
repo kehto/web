@@ -1,0 +1,1 @@
+No external API integration: this quick task exposes private Paja host settings through the existing Blossom resource-fetch callback; it adds no external API, SDK, service, endpoint, or protocol integration.

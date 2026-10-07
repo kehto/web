@@ -1,20 +1,21 @@
 ---
-gsd_state_version: 1.0
+gsd_state_version: "1.0"
 milestone: v1.29
 milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 106
+current_phase_name: Active-Surface Conformance and Release
 status: completed
-stopped_at: Phase 106 current-Napplet release complete; v1.29 ready for milestone completion
-last_updated: "2026-08-04T10:41:35Z"
-last_activity: 2026-08-04
-last_activity_desc: "Completed quick task 260804-dql: resolved every PR #234 review claim"
+stopped_at: "Completed quick 261007-jux: extra Blossom resource server settings; all gates green"
+last_updated: "2026-10-07T19:41:45.584Z"
+last_activity: 2026-10-07
+last_activity_desc: "Completed quick task 261007-jux: live extra Blossom resource lookup settings"
+state_head: ecdc9f6e3e58a2b71a165db48fb09871aaacdef8
 progress:
   total_phases: 6
   completed_phases: 6
   total_plans: 47
   completed_plans: 47
   percent: 100
-current_phase_name: Active-Surface Conformance and Release
 ---
 
 # Project State
@@ -32,7 +33,7 @@ Phase: 106 (Active-Surface Conformance and Release) — COMPLETE
 Plan: 3 of 3
 Status: All v1.29 phases complete — eight-package Napplet-0.31-compatible npm/JSR release published and downstream-verified
 
-Last activity: 2026-09-28 — Completed quick task 260928-cpc: made the Paja development console collapsible
+Last activity: 2026-10-07 — Completed quick task 261007-jux: live extra Blossom resource lookup settings; 1863 unit tests, 89 e2e tests, slop 100/100
 
 ## Performance Metrics
 
@@ -228,11 +229,12 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260819-i86 | Add a root pnpm script to run the static pointer-entry Paja runtime locally | 2026-08-19 | 77235dd | Verified | [260819-i86-add-a-root-pnpm-script-to-run-the-static](./quick/260819-i86-add-a-root-pnpm-script-to-run-the-static/) |
 | 260928-cpc | Make the Paja development console collapsible | 2026-09-28 | d3706a9c | Verified | [260928-cpc-make-the-paja-development-console-collapsible](./quick/260928-cpc-make-the-paja-development-console-collapsible/) |
 | 261007-j7k | Paja: load a napplet from a local single-file index.html (file picker + drag-and-drop) | 2026-10-07 | 8f13c56 | complete | [261007-j7k-paja-load-napplet-from-local-index-html](./quick/261007-j7k-paja-load-napplet-from-local-index-html/) |
+| 261007-jux | Paja: editable extra Blossom resource lookup servers with live all-tab settings | 2026-10-07 | ecdc9f6e | complete | [261007-jux-paja-editable-extra-blossom-resource-loo](./quick/261007-jux-paja-editable-extra-blossom-resource-loo/) |
 
 ## Session Continuity
 
-Last session: 2026-07-28T18:55:51Z
-Stopped at: Phase 106 current-Napplet package line published and downstream-verified
+Last session: 2026-10-07T19:41:45.342Z
+Stopped at: Completed quick 261007-jux: extra Blossom resource server settings; all gates green
 Resume file: None
 
 ## Operator Next Steps
