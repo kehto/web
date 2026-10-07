@@ -4,9 +4,13 @@ import {
   bindRuntimeTabBlossomServers,
   createPajaShareUrl,
   parseRuntimeTabsSnapshot,
+  resolvedTargetKey,
+  resolvedTargetTitle,
   runtimeTabGenerationId,
   snapshotRuntimeTabs,
 } from './browser-runtime-tabs.js';
+import { createPajaLocalTarget } from './local-target.js';
+import type { PajaResolvedPointer } from './runtime-resolver.js';
 
 describe('@kehto/paja runtime tabs', () => {
   it('builds clean share links for naddr, nevent, and fallback pointers', () => {
@@ -69,5 +73,44 @@ describe('@kehto/paja runtime tabs', () => {
       'paja-window:tab-2:4',
       ['https://pointer.example'],
     );
+  });
+  it('leaves local-file tabs out of persistence and counts the active index among pointer tabs', () => {
+    expect(snapshotRuntimeTabs({
+      activeTabId: 'tab-3',
+      tabs: [
+        { id: 'tab-1', pointerValue: '' },
+        { id: 'tab-2', pointerValue: 'naddr1one' },
+        { id: 'tab-3', pointerValue: 'nevent1two' },
+      ],
+    })).toEqual({ version: 1, pointers: ['naddr1one', 'nevent1two'], activeIndex: 1 });
+    expect(snapshotRuntimeTabs({
+      activeTabId: 'tab-1',
+      tabs: [{ id: 'tab-1', pointerValue: '' }, { id: 'tab-2', pointerValue: 'naddr1one' }],
+    })).toEqual({ version: 1, pointers: ['naddr1one'], activeIndex: 0 });
+    expect(snapshotRuntimeTabs({ activeTabId: 'tab-1', tabs: [{ id: 'tab-1', pointerValue: '' }] })).toBeNull();
+  });
+
+  it('keys and titles local-file tabs by file identity, separate from pointer keys', async () => {
+    const local = await createPajaLocalTarget({ name: 'feed.html', text: '<!doctype html><p>feed</p>' });
+    const pointer = {
+      event: { kind: 35_129, pubkey: 'a'.repeat(64), tags: [['title', 'Feed']] },
+      manifest: { title: 'Feed' },
+      dTag: 'local-feed',
+      aggregateHash: local.aggregateHash,
+    } as unknown as PajaResolvedPointer;
+
+    expect(resolvedTargetKey(local)).toBe(`local:local-feed:${local.aggregateHash}`);
+    expect(resolvedTargetKey(pointer)).toBe(`35129:${'a'.repeat(64)}:local-feed:${local.aggregateHash}`);
+    expect(resolvedTargetTitle(local)).toBe('feed.html');
+    expect(resolvedTargetTitle(pointer)).toBe('Feed');
+  });
+
+  it('does not bind Blossom servers for local-file tabs', async () => {
+    const setWindowBlossomServers = vi.fn();
+    const local = await createPajaLocalTarget({ name: 'index.html', text: '<p>local</p>' });
+
+    bindRuntimeTabBlossomServers({ setWindowBlossomServers }, 'paja-window:tab-1:1', local);
+
+    expect(setWindowBlossomServers).not.toHaveBeenCalled();
   });
 });

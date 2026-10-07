@@ -84,6 +84,8 @@ describe('@kehto/paja host page', () => {
     expect(html).toContain('id="kehto-paja-config"');
     expect(html).toContain('https://example.test/%3Cnapplet%3E');
     expect(html).not.toContain('https://example.test/<napplet>');
+    expect(html).not.toContain('id="runtime-local-file"');
+    expect(html).not.toContain('id="runtime-local-open"');
   });
 
   it('renders runtime pointer controls without target-url HMR', () => {
@@ -105,6 +107,12 @@ describe('@kehto/paja host page', () => {
     expect(html).toContain('id="duplicate-cancel">cancel</button>');
     expect(html).not.toContain('cancel &lt;do nothing&gt;');
     expect(html).toContain('value="nevent1test"');
+    expect(html).toContain('<button type="button" id="runtime-local-open"');
+    expect(html).toContain('<input id="runtime-local-file" type="file" accept=".html,.htm,text/html"');
+    expect(html).toContain('.pointer-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }');
+    expect(html).toContain('.stage.drop-active { outline: 2px dashed var(--accent);');
+    expect(html).toContain('.tab[data-source="local"] { grid-template-columns: minmax(0, 1fr) 24px; }');
+    expect(html).toContain('Load a napplet pointer or drop an index.html to start a runtime tab.');
     expect(html).toContain('mode: <code>runtime-pointer</code>');
     expect(html).toContain('hmr: <code>none</code>');
     expect(html).not.toContain('<iframe id="napplet-frame"');
