@@ -9,6 +9,7 @@ import {
 } from '@kehto/shell';
 
 import { installPajaConsolePanel } from './browser-console-panel.js';
+import { installPajaSidebarSections } from './browser-sidebar-sections.js';
 import {
   createDevTheme,
   createPajaAdapter,
@@ -589,6 +590,8 @@ function createPajaBrowserState(context: PajaBrowserStateContext): PajaBrowserSt
 
 async function installPajaHost(): Promise<void> {
   const disposeConsolePanel = installPajaConsolePanel();
+  const disposeSidebarSections = installPajaSidebarSections();
+  window.addEventListener('pagehide', disposeSidebarSections, { once: true });
   const resourceSettings = installPajaResourceSettings();
   const config = await readLatestConfig(readConfig());
   const stage = getStage();

@@ -69,8 +69,15 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; }
       select, input, textarea { border: 1px solid var(--line); color: var(--text); background: #20241f; min-height: 26px; border-radius: 4px; font: inherit; }
       main { min-height: 0; display: grid; grid-template-columns: var(--paja-console-column) minmax(0, 1fr); }
-      .console { min-height: 0; overflow: auto; border-right: 1px solid var(--line); background: #121512; padding: 10px; display: flex; flex-direction: column; gap: 12px; }
-      .section { display: grid; gap: 8px; }
+      .console { min-height: 0; overflow: auto; border-right: 1px solid var(--line); background: #121512; padding: 0; display: flex; flex-direction: column; gap: 0; }
+      .section { flex-shrink: 0; margin: 0; border-radius: 0; border-bottom: 1px solid var(--line); }
+      .section > summary { display: flex; align-items: center; justify-content: space-between; padding: 12px; cursor: pointer; list-style: none; }
+      .section > summary::-webkit-details-marker { display: none; }
+      .section > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+      .section-chevron { transition: transform 120ms; }
+      .section[open] > summary .section-chevron { transform: rotate(90deg); }
+      .section-body { padding: 0 12px 12px; display: grid; gap: 8px; }
+      .resource-servers { display: grid; gap: 8px; }
       .section-title { color: var(--accent); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0; }
       .resource-servers { min-width: 0; }
       .resource-servers label { white-space: normal; }
@@ -185,35 +192,38 @@ export function renderPajaHtml(config: PajaHostConfig): string {
     <main>
       <aside class="console" id="${PAJA_CONSOLE_PANEL_ID}" aria-label="Paja development controls">
         ${renderPointerControls(config)}
-        <section class="section">
-          <div class="section-title">Interfaces</div>
+        <details class="section" id="paja-section-interfaces" data-paja-section="interfaces" open>
+          <summary class="section-title">Interfaces<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
           <div class="switch-grid" id="interface-toggles"></div>
-        </section>
-        <section class="section">
-          <div class="section-title">ACL</div>
+        </div></details>
+        <details class="section" id="paja-section-acl" data-paja-section="acl" open>
+          <summary class="section-title">ACL<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
           <div class="acl-grid" id="acl-controls"></div>
-        </section>
-        <section class="section">
-          <div class="section-title">Signer</div>
+        </div></details>
+        <details class="section" id="paja-section-signer" data-paja-section="signer" open>
+          <summary class="section-title">Signer<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
           <div class="signer" id="signer-status">loading</div>
           <div class="signer-controls" id="signer-controls"></div>
           <button type="button" class="signer-consent-clear" id="signer-consent-clear" hidden>Forget remembered approvals</button>
-        </section>
-        <section class="section">
-          <div class="section-title">Messages</div>
-          <div class="log-tools">
-            <input id="message-filter" type="search" autocomplete="off" placeholder="filter messages" aria-label="Filter message log">
-            <button type="button" id="clear-log">Clear</button>
-          </div>
-          <div class="log-list" id="message-log" aria-live="polite"></div>
-        </section>
-        <form class="section resource-servers" id="paja-resource-servers-form">
+        </div></details>
+        <details class="section" id="paja-section-resource-servers" data-paja-section="resource-servers" open>
+          <summary class="section-title">Resource servers<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
+        <form class="resource-servers" id="paja-resource-servers-form">
           <label class="section-title" for="paja-resource-servers-input">Resource servers</label>
           <textarea id="paja-resource-servers-input" rows="3" aria-describedby="paja-resource-servers-help paja-resource-servers-status" spellcheck="false"></textarea>
           <small id="paja-resource-servers-help">Extra Blossom lookup servers, one per line. Domains use HTTPS.</small>
           <button type="submit" id="paja-resource-servers-save">Save</button>
           <div id="paja-resource-servers-status" role="status" aria-live="polite"></div>
         </form>
+        </div></details>
+        <details class="section" id="paja-section-messages" data-paja-section="messages" open>
+          <summary class="section-title">Messages<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
+          <div class="log-tools">
+            <input id="message-filter" type="search" autocomplete="off" placeholder="filter messages" aria-label="Filter message log">
+            <button type="button" id="clear-log">Clear</button>
+          </div>
+          <div class="log-list" id="message-log" aria-live="polite"></div>
+        </div></details>
       </aside>
       ${renderStage(config, targetLabel)}
     </main>
@@ -308,8 +318,8 @@ function renderDuplicateDialog(): string {
 function renderPointerControls(config: PajaHostConfig): string {
   if (config.target.mode !== 'runtime-pointer') return '';
   const value = escapeAttribute(config.target.pointer?.value ?? '');
-  return `<section class="section" id="runtime-pointer-section">
-          <div class="section-title">Pointer</div>
+  return `<details class="section" id="runtime-pointer-section" data-paja-section="pointer" open>
+          <summary class="section-title">Pointer<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
           <form class="pointer-controls" id="runtime-pointer-form">
             <input id="runtime-pointer-input" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="naddr or nevent" aria-label="Runtime napplet pointer" value="${value}">
             <button type="submit" id="runtime-pointer-load">Load</button>
@@ -317,7 +327,7 @@ function renderPointerControls(config: PajaHostConfig): string {
             <input id="runtime-local-file" type="file" accept=".html,.htm,text/html" aria-label="Local napplet index.html" hidden>
           </form>
           <div class="pointer-status" id="runtime-pointer-status" aria-live="polite">idle</div>
-        </section>`;
+        </div></details>`;
 }
 
 function getModeLabel(config: PajaHostConfig): string {
