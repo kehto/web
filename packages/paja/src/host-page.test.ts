@@ -3,6 +3,22 @@ import { createPajaHostConfig, createPajaRuntimeHostConfig, normalizePajaOptions
 import { renderPajaHtml } from './host-page.js';
 
 describe('@kehto/paja host page', () => {
+  it('renders the same accessible resource settings in both target modes', () => {
+    const configs = [
+      createPajaHostConfig(normalizePajaOptions({ targetUrl: 'http://127.0.0.1:5173' })),
+      createPajaRuntimeHostConfig({}),
+    ];
+    for (const config of configs) {
+      const html = renderPajaHtml(config);
+      expect(html.match(/id="paja-resource-servers-form"/g)).toHaveLength(1);
+      expect(html).toContain('for="paja-resource-servers-input">Resource servers</label>');
+      expect(html).toContain('aria-describedby="paja-resource-servers-help paja-resource-servers-status"');
+      expect(html).toContain('id="paja-resource-servers-save">Save</button>');
+      expect(html).toContain('id="paja-resource-servers-status" role="status" aria-live="polite"');
+      expect(html).toContain('bare domains use HTTPS');
+      expect(html).toContain('across all running tabs, not upload destinations');
+    }
+  });
   it('renders minimal top and bottom bars with one sandboxed iframe', () => {
     const options = normalizePajaOptions({ targetUrl: 'http://127.0.0.1:5173' });
     const config = createPajaHostConfig(options, new Date('2026-06-21T00:00:00.000Z'));
