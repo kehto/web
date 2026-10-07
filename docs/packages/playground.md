@@ -38,7 +38,7 @@ pnpm --filter @kehto/playground preview --port 4174
 
 | Area | Surface |
 |------|---------|
-| Gateway loading | `/napplet-gateway/<dTag>/<aggregateHash>/index.html` |
+| Verified loading | Relay manifest → Blossom bytes → signature/hash checks → opaque `srcdoc` |
 | Demo source | `apps/playground/src/` |
 | Napplet source | `apps/playground/napplets/<name>/` |
 | Verification | Playwright E2E target served by `preview` on port `4174` |
@@ -89,3 +89,13 @@ does not define new wire semantics, runtime origin policy, or NAP-DM behavior.
 ## API Reference
 
 The playground is private and does not generate package API reference. Use its README and E2E specs as integration evidence.
+
+## NIP-5D event compatibility
+
+Current manifests use a direct artifact `x` hash, plain-text `content`, independent
+`z`/`i` routing declarations, and required `R` / optional `O` domains. Kehto also
+accepts legacy aggregate events through an isolated compatibility adapter.
+Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
+for current events; legacy identities keep their original aggregate. Both paths
+verify signatures and bytes before runtime injection and `srcdoc` execution.
+For the schema and removal boundary, see [event migration](../migrations/NIP-5D-EVENT-SCHEMA.md).

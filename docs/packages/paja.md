@@ -201,8 +201,7 @@ verified napplets into ShellBridge-backed iframe tabs from pasted `naddr` or
 `nevent` pointers. `naddr` pointers resolve the latest matching NIP-5D named
 manifest (`35129`) by author and `d` tag; `nevent` pointers resolve a specific
 NIP-5D snapshot, root, or named manifest event id (`5129`, `15129`, or `35129`).
-In both cases Paja verifies the signed manifest, aggregate hash, and every
-Blossom blob, then injects the same runtime-owned `window.napplet.<domain>`
+In both cases Paja verifies the signed manifest and artifact hash (or legacy aggregate and blobs), then injects the same runtime-owned `window.napplet.<domain>`
 namespace before assigning iframe `srcdoc`. Before that namespace prelude, Paja
 inserts Kehto's local Class-1 CSP: default deny; inline script/style; WebAssembly
 compilation through the narrow `'wasm-unsafe-eval'` source while JavaScript string
@@ -228,7 +227,7 @@ When relay simulation is disabled, configured relay URLs are not added as
 fallbacks. Connection, fanout, and EOSE share one pointer-resolution deadline;
 the UI distinguishes deadline or connection failure from the clean case where
 all queried relays reached EOSE without a matching manifest. Wider relay search
-does not weaken loading: manifest signature, aggregate, Blossom hash, and
+does not weaken loading: manifest signature, artifact/legacy-aggregate verification, Blossom hash, and
 `srcdoc` verification still fail closed.
 
 ### Installed catalog and intent lifecycle
@@ -489,3 +488,13 @@ the next iframe reload.
 - Generated module: <a href="../api/modules/_kehto_paja.html" target="_self"><code>docs/api/modules/_kehto_paja.html</code></a>
 - Getting started: [Paja getting started](/how-tos/paja-getting-started)
 - Local authoring how-to: [Use Paja for local napplet authoring](/how-tos/paja-local-authoring)
+
+## NIP-5D event compatibility
+
+Current manifests use a direct artifact `x` hash, plain-text `content`, independent
+`z`/`i` routing declarations, and required `R` / optional `O` domains. Kehto also
+accepts legacy aggregate events through an isolated compatibility adapter.
+Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
+for current events; legacy identities keep their original aggregate. Both paths
+verify signatures and bytes before runtime injection and `srcdoc` execution.
+For the schema and removal boundary, see [event migration](https://kehto.github.io/web/docs/migrations/NIP-5D-EVENT-SCHEMA.html).

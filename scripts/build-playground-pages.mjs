@@ -87,7 +87,7 @@ function extractDTag(manifest, expectedName, manifestPath) {
 function extractRequires(manifest, manifestPath) {
   if (!Array.isArray(manifest.tags)) return [];
   return manifest.tags
-    .filter((tag) => Array.isArray(tag) && tag[0] === 'requires')
+    .filter((tag) => Array.isArray(tag) && tag[0] === 'R')
     .map((tag) => tag[1])
     .map((name) => {
       if (typeof name !== 'string' || !SHORT_NAP_NAME_PATTERN.test(name)) {

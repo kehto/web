@@ -30,6 +30,7 @@ describe('InstalledNappletCatalog', () => {
       restart: { name: 'profile-viewer', containerId: 'profile-viewer-frame' },
       title: 'Profile Viewer',
       requires: ['inc'],
+      optional: [],
       archetypes: [{ slug: 'profile', convention: 'napplet:profile/open' }],
     }]);
     expect(catalog.intentCatalog()).toEqual([expect.objectContaining({
@@ -66,4 +67,15 @@ describe('InstalledNappletCatalog', () => {
     getInstalledNappletCatalog().remove('profile-viewer');
     expect(getInstalledNappletCatalog().get('profile-viewer')).toBeUndefined();
   });
+});
+
+
+it('retains optional INC integration without converting it into a load requirement', () => {
+  const catalog = new InstalledNappletCatalog();
+  catalog.install({ ...resolvedProfile, requires: [], optional: ['inc', 'unavailable'] }, {
+    name: 'profile-viewer', containerId: 'profile-viewer-frame',
+  });
+  expect(catalog.get('profile-viewer')?.requires).toEqual([]);
+  expect(catalog.get('profile-viewer')?.optional).toEqual(['inc', 'unavailable']);
+  expect(catalog.intentCatalog()[0].archetypes.profile.conventions).toEqual(['napplet:profile/open']);
 });

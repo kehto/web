@@ -9,7 +9,7 @@ This tutorial shows the smallest shape of a browser host that embeds one sandbox
 ## 1. Install the runtime packages
 
 ```bash
-pnpm add @kehto/runtime @kehto/shell @kehto/services @napplet/core @napplet/nap nostr-tools
+pnpm add @kehto/runtime @kehto/shell @kehto/services @kehto/nip @napplet/core @napplet/nap nostr-tools
 ```
 
 Use `@kehto/runtime` for the protocol engine, `@kehto/shell` for browser iframe/message integration, and `@kehto/services` for reference service handlers.
@@ -86,23 +86,34 @@ used to advertise notification delivery.
 Use the same security posture as the playground: opaque-origin iframe, scripts only, no same-origin.
 
 ```ts
+import { resolveNapplet } from '@kehto/nip/5d';
+import { originRegistry, resolveShellEnvironment, injectNappletNamespacePrelude } from '@kehto/shell';
+
+// event comes from relays; fetchBlob returns untrusted bytes by SHA-256.
+const resolved = await resolveNapplet({ event, fetchBlob });
+const identity = { dTag: resolved.dTag, aggregateHash: resolved.aggregateHash };
+const environment = resolveShellEnvironment(adapter, identity);
+const missing = resolved.manifest.requires.filter(
+  (domain) => domain !== 'shell' && !environment.capabilities.domains.includes(domain),
+);
+if (missing.length) throw new Error(`Unavailable required domains: ${missing.join(', ')}`);
 const iframe = document.createElement('iframe');
 iframe.sandbox.add('allow-scripts');
-iframe.src = '/napplet-gateway/example-dtag/example-hash/index.html';
 document.body.append(iframe);
+originRegistry.register(iframe.contentWindow!, 'example', identity);
+originRegistry.setEnvironment(iframe.contentWindow!, environment);
+iframe.srcdoc = injectNappletNamespacePrelude(resolved.indexHtml, environment.capabilities);
 ```
 
-Before marking the napplet usable, register the session identity from the gateway metadata and manifest. In the playground this is handled by the shell-host gateway path; host apps should keep the same ordering:
+The resolver verifies both current artifact events and legacy aggregate events.
+`aggregateHash` is the existing API name for the verified content identity. Host
+namespace and recommended CSP injection happen after verification, outside signed
+bytes. Optional manifest domains do not grant authority or prevent loading.
+Gateways may provide bytes, but their metadata cannot establish identity.
 
-1. Fetch manifest metadata.
-2. Resolve `(dTag, aggregateHash)`.
-3. Register session identity.
-4. Navigate the iframe to the gateway artifact.
-
-For repeated loads, add the optional NIP-5D artifact cache during the resolve
-step. The cache reuses verified bytes only; it does not replace manifest,
-aggregate, or blob-hash verification. See
-[Implement a napplet artifact cache](../how-tos/implement-napplet-artifact-cache.md).
+For repeated loads, pass the optional cache to `resolveNapplet`; cached bytes
+are reverified. See [artifact caching](../how-tos/implement-napplet-artifact-cache.md)
+and [event migration](../migrations/NIP-5D-EVENT-SCHEMA.md).
 
 ## 5. Tear down cleanly
 

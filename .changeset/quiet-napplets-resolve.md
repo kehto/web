@@ -1,0 +1,9 @@
+---
+"@kehto/paja": patch
+"@kehto/shell": patch
+"@kehto/services": patch
+---
+
+Resolve current NIP-5D single-artifact manifests while preserving legacy aggregate events through an isolated compatibility adapter. Normalize required and optional domains and independent intent advertisements without granting capabilities. Verify both formats before cache writes and iframe execution. Paja checks required domains before rendering and the shell accepts verified root/snapshot identities with an empty d-tag. Existing aggregateHash fields retain their names and carry the current artifact hash or original legacy aggregate.
+
+Intent catalog role maps also accept valid role names that coincide with JavaScript object prototype properties.

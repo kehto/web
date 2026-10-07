@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [
     nip5aManifest({
       nappletType: 'fixture-nap-theme',
+      description: 'fixture-nap-theme protocol test fixture',
     }),
   ],
   build: {

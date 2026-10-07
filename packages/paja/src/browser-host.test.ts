@@ -72,7 +72,8 @@ describe('@kehto/paja browser host runtime source guards', () => {
 
     expect(source).toContain('injectNappletNamespacePrelude(');
     expect(source).toContain('const domains = environment.capabilities.domains;');
-    expect(source).not.toContain('manifest.requires');
+    expect(source).toContain("resolvedTarget.manifest.requires.filter((domain) => domain !== 'shell' && !domains.includes(domain))");
+    expect(source).not.toContain('domains: resolvedTarget.manifest.requires');
     expect(source).toContain("fetch(new URL('./__kehto/target.html', window.location.href)");
     expect(source).toContain('frame.removeAttribute(\'src\');');
     expect(source).toContain('frame.srcdoc = injectNappletNamespacePrelude(');

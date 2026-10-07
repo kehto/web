@@ -6,6 +6,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { verifyEvent } from 'nostr-tools/pure';
@@ -234,16 +235,16 @@ describe('playground gateway artifact guard', () => {
     }
   });
 
-  it('recomputes a signed final manifest with repeated scoped convention tags and path-only aggregate identity', () => {
+  it('recomputes a signed final manifest with independent role/intent tags and direct artifact identity', () => {
     const firstDir = mkdtempSync(join(tmpdir(), 'kehto-profile-manifest-'));
     const secondDir = mkdtempSync(join(tmpdir(), 'kehto-profile-manifest-'));
     const seed = (dir: string): void => {
       writeFileSync(join(dir, '.nip5a-manifest.json'), JSON.stringify({
         created_at: 1_700_000_000,
-        content: '',
+        content: 'Profile viewer',
         tags: [
           ['d', 'profile-viewer'],
-          ['requires', 'inc'],
+          ['R', 'inc'],
           ['archetype', 'profile', 'NAP-1'],
         ],
       }));
@@ -279,12 +280,13 @@ describe('playground gateway artifact guard', () => {
         aggregateHash: string;
         tags: string[][];
       };
-      expect(manifest.tags.filter((tag) => tag[0] === 'archetype')).toEqual([
-        ['archetype', 'profile', 'napplet:profile/open'],
-        ['archetype', 'profile', 'napplet:profile/open'],
-      ]);
+      expect(manifest.tags.filter((tag) => tag[0] === 'z')).toEqual([['z', 'profile']]);
+      expect(manifest.tags.filter((tag) => tag[0] === 'i')).toEqual([['i', 'napplet:profile/open']]);
+      expect(manifest.tags.filter((tag) => tag[0] === 'x')).toEqual([['x', manifest.aggregateHash]]);
+      expect(manifest.tags.some((tag) => tag[0] === 'path')).toBe(false);
       expect(manifest.tags.flat()).not.toContain('NAP-1');
       expect(manifest.aggregateHash).toBe(secondManifest.aggregateHash);
+      expect(manifest.aggregateHash).toBe(createHash('sha256').update(readFileSync(join(firstDir, 'index.html'))).digest('hex'));
       expect(verifyEvent(manifest as Parameters<typeof verifyEvent>[0])).toBe(true);
     } finally {
       rmSync(firstDir, { recursive: true, force: true });
@@ -797,4 +799,21 @@ describe('playground gateway artifact guard', () => {
     expect(script).toContain('data-route-link');
     expect(script).toContain('window.location.href = anchor.href');
   });
+});
+
+
+it('preserves publisher metadata and advertised intent parameters during final-byte signing', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'kehto-current-metadata-'));
+  try {
+    const retained = [['z', 'feed'], ['i', 'napplet:note/open', 'filters', 'relays'], ['R', 'relay'], ['O', 'inc']];
+    writeFileSync(join(dir, '.nip5a-manifest.json'), JSON.stringify({ content: 'Authored description', tags: [['d', 'test'], ...retained] }));
+    const html = '<html><head><meta name="napplet-optional" content="inc"></head></html>';
+    recomputeManifest(dir, html, [{ slug: 'feed', convention: 'napplet:note/open' }]);
+    const result = JSON.parse(readFileSync(join(dir, '.nip5a-manifest.json'), 'utf8'));
+    expect(result.tags).toEqual([['d', 'test'], ['x', createHash('sha256').update(html).digest('hex')], ...retained]);
+    expect(result.content).toBe('Authored description');
+    expect(verifyEvent(result)).toBe(true);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

@@ -331,21 +331,6 @@ function sha256Bytes(data: string | Buffer): string {
   return createHash('sha256').update(data).digest('hex');
 }
 
-// NIP-5A aggregate hash: per published file the line `"<sha256> <abs-path>\n"`,
-// sorted ascending, concatenated UTF-8, SHA-256 → lowercase hex.
-function computeAggregateHash(pathEntries: Array<[string, string]>): string {
-  const lines = pathEntries.map(([absPath, hash]) => `${hash} ${absPath}\n`);
-  lines.sort();
-  return sha256Bytes(lines.join(''));
-}
-
-function resetAggregateHashMeta(html: string): string {
-  return html.replace(
-    /<meta name="napplet-aggregate-hash" content="[^"]*">/,
-    '<meta name="napplet-aggregate-hash" content="">',
-  );
-}
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
 }
@@ -409,51 +394,35 @@ export function recomputeManifest(
     throw new Error('[playground-single-file] existing manifest is missing a d tag');
   }
 
-  const htmlForHash = resetAggregateHashMeta(inlinedHtml);
-  writeFileSync(join(distPath, 'index.html'), htmlForHash);
-
-  // NIP-5A: the aggregate covers `path` tags only — the real published files,
-  // each at its absolute path. The served bytes are exactly the bytes that hash
-  // to the `path` tag (no aggregate-hash <meta> rewrite), so a content-addressed
-  // runtime can fetch each blob by hash and verify it.
-  const pathEntries: Array<[string, string]> = []; // [absPath, sha256]
-  for (const relativePath of walkDir(distPath)) {
-    if (relativePath === '.nip5a-manifest.json') continue;
-    const filePath = join(distPath, relativePath);
-    const hash = relativePath === 'index.html'
-      ? sha256Bytes(htmlForHash)
-      : sha256Bytes(readFileSync(filePath));
-    pathEntries.push([`/${relativePath.split(sep).join('/')}`, hash]);
+  if (typeof existing.content !== 'string' || !existing.content.trim()) {
+    throw new Error('[playground-single-file] manifest description is required');
   }
-
-  const aggregateHash = computeAggregateHash(pathEntries);
-  const pathTags = pathEntries.map(([absPath, hash]) => ['path', absPath, hash]);
-  // Re-emit the validated canonical archetype tags after the playground
-  // single-file rewrite. They are not part of the NIP-5A aggregate.
-  const archetypeTags = archetypes.map((archetype) => [
-    'archetype',
-    archetype.slug,
-    archetype.convention,
-  ]);
+  writeFileSync(join(distPath, 'index.html'), inlinedHtml);
+  const artifactHash = sha256Bytes(inlinedHtml);
+  // Current NIP-5D hashes the final artifact directly. z and i are independent
+  // advertisements; this build configuration is an authoring convenience only.
+  const roleTags = [...new Set(archetypes.map(({ slug }) => slug))].map((slug) => ['z', slug]);
+  const intentTags = [...new Set(archetypes.map(({ convention }) => convention))]
+    .map((identity) => ['i', identity]);
   const tags = [
     ['d', dTag],
-    ...pathTags,
-    ['x', aggregateHash, 'aggregate'],
-    ...retainedTags.filter((tag) => tag[0] !== 'archetype'),
-    ...archetypeTags,
+    ['x', artifactHash],
+    ...retainedTags.filter((tag) => !['archetype', 'requires', 'description'].includes(tag[0])),
+    ...roleTags.filter((tag) => !retainedTags.some((existingTag) => existingTag[0] === 'z' && existingTag[1] === tag[1])),
+    ...intentTags.filter((tag) => !retainedTags.some((existingTag) => existingTag[0] === 'i' && existingTag[1] === tag[1])),
   ];
   const event = {
     kind: NAPPLET_MANIFEST_KIND,
     created_at: existing.created_at ?? Math.floor(Date.now() / 1e3),
     tags,
-    content: existing.content ?? '',
+    content: existing.content,
   };
   const privkeyBytes = hexToBytes(process.env.VITE_DEV_PRIVKEY_HEX ?? PLAYGROUND_MANIFEST_PRIVKEY_HEX);
   const signedEvent = finalizeEvent(event, privkeyBytes);
   const pubkey = getPublicKey(privkeyBytes);
   writeFileSync(
     manifestPath,
-    JSON.stringify({ ...signedEvent, aggregateHash, pubkey }, null, 2),
+    JSON.stringify({ ...signedEvent, artifactHash, aggregateHash: artifactHash, pubkey }, null, 2),
   );
 }
 
@@ -510,6 +479,7 @@ export function definePlaygroundNappletConfig(
       playgroundSingleFileArtifact(archetypes),
       nip5aManifest({
         nappletType,
+        description: `${nappletType} playground napplet`,
         // Let the upstream plugin validate and sign Vite's normal external-asset
         // graph first. The playground plugin below owns the final single-file
         // rewrite because it also injects the hosted-shell bootstrap and

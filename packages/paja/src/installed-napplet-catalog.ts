@@ -24,6 +24,8 @@ export interface InstalledNappletRecord {
   readonly title?: string;
   /** Verified NAP domains required by the artifact. */
   readonly requires: readonly string[];
+  /** Optional integrations; declarations do not grant capabilities. */
+  readonly optional?: readonly string[];
   /** Exact manifest convention contracts used for intent eligibility. */
   readonly archetypes: readonly {
     readonly slug: string;
@@ -64,6 +66,7 @@ export class InstalledNappletCatalog {
       pointer: copyPointer(resolved.pointer),
       ...(resolved.manifest.title === undefined ? {} : { title: resolved.manifest.title }),
       requires: [...resolved.manifest.requires],
+      optional: [...(resolved.manifest.optional ?? [])],
       archetypes: resolved.manifest.archetypes.map((archetype) => ({
         slug: archetype.slug,
         convention: archetype.convention,
@@ -112,7 +115,7 @@ export class InstalledNappletCatalog {
   /** Return exact handler candidates derived only from installed manifests. */
   intentCatalog(): IntentCatalogEntry[] {
     return this.installed()
-      .filter((record) => record.requires.includes('inc'))
+      .filter((record) => (record.requires.includes('inc') || record.optional?.includes('inc')))
       .map((record) => manifestToIntentCatalogEntry({
       dTag: record.dTag,
       ...(record.title === undefined ? {} : { title: record.title }),
@@ -164,6 +167,7 @@ function freezeRecord(record: Omit<InstalledNappletRecord, 'archetypes'> & {
   return Object.freeze({
     ...record,
     requires: Object.freeze([...record.requires]),
+    optional: Object.freeze([...(record.optional ?? [])]),
     archetypes: Object.freeze(record.archetypes.map((archetype) =>
       Object.freeze({ ...archetype }))),
   });

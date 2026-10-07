@@ -33,7 +33,19 @@ implementation authority. `RUNTIME-SPEC.md` is internal runtime guidance.
   `b3f0007867eac109fa4917fac9c285d3b7cc6155`; and Version Packages #198 head
   `a79e7f4638f70f4557d4183faee9348847bb8cc7`, merged as release source
   `dc1d24153c759152b6ba31a6ec9bea967798f2df`. The current exact line is core
-  `0.32.0`, nap `0.32.0`, shim `0.30.0`, SDK `0.28.0`, and Vite plugin `0.14.1`.
+  `0.32.0`, nap `0.32.0`, shim `0.30.0`, SDK `0.28.0`, and Vite plugin `0.15.0`.
+
+### Current event schema and retained compatibility
+
+Checked NIP-5D `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7/5D.md`
+and NAP-INTENT/NAP-SHELL at
+`napplet/naps@a040914b4bbd3a5cd8a14b0f316a723c968ebfb2`. Current writer source:
+`napplet/web@831d3dd5056b84bc03982966279ed8b9167152f8` (Vite plugin 0.15.0).
+Current `x` artifact hashes, `content`, `z`/`i`, and `R`/`O` are authoritative.
+Legacy `path`/aggregate events remain a temporary compatibility extension,
+isolated in `packages/nip/src/5d/legacy-manifest.ts`. Never retry malformed current
+events through that adapter. Keep paired-schema tests until it is removed.
+See [migration and removal policy](../migrations/NIP-5D-EVENT-SCHEMA.md).
 
 ### Active NAP-RELAY boundary
 
