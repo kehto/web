@@ -130,7 +130,7 @@ export function installLocalFileControls(load: (file: File) => Promise<void>): (
   const input = document.getElementById('runtime-local-file');
   const open = document.getElementById('runtime-local-open');
   const stage = document.getElementById('napplet-stage');
-  if (!(input instanceof HTMLInputElement) || !(open instanceof HTMLButtonElement)) return () => {};
+  if (!(input instanceof HTMLInputElement) || !(open instanceof HTMLButtonElement)) return disposeNothing;
 
   let dragDepth = 0;
   const setDropActive = (active: boolean) => stage?.classList.toggle('drop-active', active);
@@ -181,4 +181,8 @@ export function installLocalFileControls(load: (file: File) => Promise<void>): (
     document.removeEventListener('dragleave', onDragLeave);
     document.removeEventListener('drop', onDrop);
   };
+}
+
+function disposeNothing(): void {
+  // Nothing was installed: the host page rendered no local-file controls.
 }
