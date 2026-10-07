@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: complete
 ---
 # Adopt current NIP-5D events with removable legacy compatibility
 
