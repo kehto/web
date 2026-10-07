@@ -15,8 +15,12 @@ describe('@kehto/paja host page', () => {
       expect(html).toContain('aria-describedby="paja-resource-servers-help paja-resource-servers-status"');
       expect(html).toContain('id="paja-resource-servers-save">Save</button>');
       expect(html).toContain('id="paja-resource-servers-status" role="status" aria-live="polite"');
-      expect(html).toContain('bare domains use HTTPS');
-      expect(html).toContain('across all running tabs, not upload destinations');
+      expect(html).toContain('<small id="paja-resource-servers-help">Extra Blossom lookup servers, one per line. Domains use HTTPS.</small>');
+      const aside = html.match(/<aside\b[^>]*>([\s\S]*?)<\/aside>/)?.[1];
+      expect(aside).toBeDefined();
+      expect(aside!.indexOf('id="message-log"')).toBeLessThan(aside!.indexOf('id="paja-resource-servers-form"'));
+      expect(aside).toMatch(/id="message-log"[^>]*><\/div>\s*<\/section>\s*<form class="section resource-servers" id="paja-resource-servers-form">/);
+      expect(aside).toMatch(/<\/form>\s*$/);
     }
   });
   it('renders minimal top and bottom bars with one sandboxed iframe', () => {
