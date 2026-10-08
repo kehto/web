@@ -32,7 +32,7 @@ Phase: 106 (Active-Surface Conformance and Release) — COMPLETE
 Plan: 3 of 3
 Status: All v1.29 phases complete — eight-package Napplet-0.31-compatible npm/JSR release published and downstream-verified
 
-Last activity: 2026-10-08 — Completed quick task 261008-fr1: support both Blossom resource prefixes in Paja
+Last activity: 2026-10-08 — Completed quick task 261008-gbn: accept BUD-10 resource URIs in Paja
 
 ## Performance Metrics
 
@@ -228,6 +228,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260819-i86 | Add a root pnpm script to run the static pointer-entry Paja runtime locally | 2026-08-19 | 77235dd | Verified | [260819-i86-add-a-root-pnpm-script-to-run-the-static](./quick/260819-i86-add-a-root-pnpm-script-to-run-the-static/) |
 | 260928-cpc | Make the Paja development console collapsible | 2026-09-28 | d3706a9c | Verified | [260928-cpc-make-the-paja-development-console-collapsible](./quick/260928-cpc-make-the-paja-development-console-collapsible/) |
 | 261008-fr1 | Support both Blossom resource prefixes in Paja | 2026-10-08 | 03fa4977 | Verified | [261008-fr1](./quick/261008-fr1-SUMMARY.md) |
+| 261008-gbn | Accept BUD-10 resource URIs with extensions, discovery hints and verified sizes in Paja | 2026-10-08 | 2b3952b8 | Verified | [261008-gbn](./quick/261008-gbn-SUMMARY.md) |
 
 ## Session Continuity
 
