@@ -328,7 +328,7 @@ describe('Paja resource backend', () => {
     (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
   });
 
-  it('routes a napplet-provided Blossom server hint through the service without a host default', async () => {
+  it.each(['blossom:', 'blossom:sha256:'])('routes a %s server hint through the service without a host default', async (prefix) => {
     const bytes = new TextEncoder().encode('hello from blossom');
     const hash = await sha256Hex(bytes);
     const fetchFn = vi.fn(async () => new Response(bytes));
@@ -346,7 +346,7 @@ describe('Paja resource backend', () => {
     service?.handleMessage('resource-window', {
       type: 'resource.bytes',
       id: 'blossom-1',
-      url: `blossom:sha256:${hash}`,
+      url: `${prefix}${hash}`,
       servers: ['https://blossom.example'],
     } as NappletMessage, (message) => sent.push(message));
     await flushPromises();
