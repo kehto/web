@@ -286,6 +286,18 @@ describe('Paja resource backend', () => {
     }
   });
 
+  it.each(ENCODED_TEXT_CASES.slice(0, 2))('rejects $name markup hidden beyond the encoded prefix inspection bound', async ({ width, littleEndian }) => {
+    const bytes = encodedTextVector(`${' '.repeat(600)}<svg></svg>`, width, littleEndian, true);
+    const hash = await sha256Hex(bytes);
+    const fetchResource = createPajaResourceFetch({
+      getBlossomServers: () => ['https://blossom.example'],
+      fetch: vi.fn(async () => new Response(bytes)),
+    });
+    await expect(fetchResource(`blossom:sha256:${hash}`, {
+      signal: new AbortController().signal,
+    })).rejects.toMatchObject({ code: 'decode-failed' });
+  });
+
   it.each([
     [new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), 'image/png'],
     [new Uint8Array([0xff, 0xd8, 0xff]), 'image/jpeg'],

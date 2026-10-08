@@ -409,13 +409,7 @@ function classifyTextBytes(bytes: Uint8Array): ResourceClassification {
   // Inspect markup before strict decoding: invalid UTF-8 or NUL later in an
   // active document must not turn a blocked prefix into opaque Blossom bytes.
   const normalized = new TextDecoder().decode(bytes).trimStart().toLowerCase();
-  if (
-    normalized.startsWith('<svg')
-    || normalized.startsWith('<?xml')
-    || normalized.startsWith('<!doctype html')
-    || normalized.startsWith('<html')
-    || normalized.startsWith('<script')
-  ) return { kind: 'blocked' };
+  if (hasBlockedMarkupPrefix(normalized) || hasBlockedEncodedMarkup(bytes)) return { kind: 'blocked' };
   let text: string;
   try {
     text = UTF8_DECODER.decode(bytes);
@@ -432,4 +426,38 @@ function classifyTextBytes(bytes: Uint8Array): ResourceClassification {
     }
   }
   return { kind: 'recognized', mime: 'text/plain' };
+}
+
+function hasBlockedMarkupPrefix(text: string): boolean {
+  const normalized = text.trimStart().toLowerCase();
+  return (
+    normalized.startsWith('<svg')
+    || normalized.startsWith('<?xml')
+    || normalized.startsWith('<!doctype html')
+    || normalized.startsWith('<html')
+    || normalized.startsWith('<script')
+  );
+}
+
+function hasBlockedEncodedMarkup(bytes: Uint8Array): boolean {
+  // Conservatively reject identifiable UTF-32 documents; no UTF-32 media
+  // format is enabled. Check these before the overlapping UTF-16LE BOM.
+  if (
+    startsWith(bytes, [0xff, 0xfe, 0x00, 0x00])
+    || startsWith(bytes, [0x00, 0x00, 0xfe, 0xff])
+    || startsWith(bytes, [0x3c, 0x00, 0x00, 0x00])
+    || startsWith(bytes, [0x00, 0x00, 0x00, 0x3c])
+  ) return true;
+
+  let encoding: string;
+  if (startsWith(bytes, [0xff, 0xfe]) || startsWith(bytes, [0x3c, 0x00])) {
+    encoding = 'utf-16le';
+  } else if (startsWith(bytes, [0xfe, 0xff]) || startsWith(bytes, [0x00, 0x3c])) {
+    encoding = 'utf-16be';
+  } else {
+    return false;
+  }
+  const prefix = new TextDecoder(encoding).decode(bytes.subarray(0, 1024));
+  // A whitespace-only truncated prefix cannot establish nonmarkup content.
+  return hasBlockedMarkupPrefix(prefix) || (bytes.byteLength > 1024 && prefix.trim().length === 0);
 }

@@ -114,6 +114,12 @@ binary. HTTP(S) and locally decoded `data:` retain recognized-type-only policy.
 SVG, HTML, XML and script prefixes remain rejected, including documents with
 NUL or invalid-UTF-8 suffixes; integrity verification does not make active
 markup safe.
+The encoding guard inspects UTF-16LE/BE when a BOM or initial alternating `<`
+bytes identify it, applying the same blocked-prefix policy within the first
+1 KiB. Whitespace-only truncated encoded prefixes and identifiable UTF-32 BOM
+or initial `<` document signatures are conservatively rejected. UTF-16 nonmarkup
+remains eligible for opaque Blossom delivery; this is not a general XML parser
+or a universal markup-security guarantee.
 
 Paja also retains bounded per-window context for canonical Blossom references
 returned by `outbox.getEvent`, `outbox.query`, or `outbox.subscribe`. On a later
