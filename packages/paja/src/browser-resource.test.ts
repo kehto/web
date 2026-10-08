@@ -45,6 +45,25 @@ function gameBoyRomVector(): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
+function encodedTextVector(text: string, width: 2 | 4, littleEndian: boolean, bom: boolean): Uint8Array<ArrayBuffer> {
+  const bytes = new Uint8Array((text.length + Number(bom)) * width);
+  const view = new DataView(bytes.buffer);
+  const units = bom ? [0xfeff] : [];
+  for (let index = 0; index < text.length; index += 1) units.push(text.charCodeAt(index));
+  for (const [index, unit] of units.entries()) {
+    if (width === 2) view.setUint16(index * width, unit, littleEndian);
+    else view.setUint32(index * width, unit, littleEndian);
+  }
+  return bytes;
+}
+
+const ENCODED_TEXT_CASES = [
+  { name: 'UTF-16LE', width: 2, littleEndian: true },
+  { name: 'UTF-16BE', width: 2, littleEndian: false },
+  { name: 'UTF-32LE', width: 4, littleEndian: true },
+  { name: 'UTF-32BE', width: 4, littleEndian: false },
+] as const;
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -161,6 +180,109 @@ describe('Paja resource backend', () => {
       await expect(fetchResource(`blossom:sha256:${hash}`, {
         signal: new AbortController().signal,
       })).rejects.toMatchObject({ code: 'decode-failed' });
+    }
+  });
+
+  it.each(ENCODED_TEXT_CASES)('rejects byte-identifiable $name markup before opaque delivery', async ({ width, littleEndian }) => {
+    for (const bom of [false, true]) {
+      for (const markup of [
+        '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+        '<?xml version="1.0"?><svg></svg>',
+        '<HTML></HTML>',
+        '<!DOCTYPE HTML><html></html>',
+        '<ScRiPt>alert(1)</ScRiPt>',
+      ]) {
+        const bytes = encodedTextVector(bom ? ` \t${markup}` : markup, width, littleEndian, bom);
+        const hash = await sha256Hex(bytes);
+        const fetchResource = createPajaResourceFetch({
+          getBlossomServers: () => ['https://blossom.example'],
+          fetch: vi.fn(async () => new Response(bytes, { headers: { 'content-type': 'image/png' } })),
+        });
+        await expect(fetchResource(`blossom:sha256:${hash}`, {
+          signal: new AbortController().signal,
+        })).rejects.toMatchObject({ code: 'decode-failed' });
+      }
+    }
+  });
+
+  it('isolates encoded markup errors from opaque adapter bulk siblings', async () => {
+    const cases: { bytes: Uint8Array<ArrayBuffer>; blocked: boolean }[] = [
+      { bytes: new Uint8Array([0x00, 0x01, 0x02, 0xff]), blocked: false },
+    ];
+    for (const { width, littleEndian } of ENCODED_TEXT_CASES) {
+      for (const bom of [false, true]) {
+        cases.push({
+          bytes: encodedTextVector('<?xml version="1.0"?><svg></svg>', width, littleEndian, bom),
+          blocked: true,
+        });
+        if (width === 2) {
+          cases.push({ bytes: encodedTextVector('ordinary text', width, littleEndian, bom), blocked: false });
+        }
+      }
+    }
+    const hashes = await Promise.all(cases.map(({ bytes }) => sha256Hex(bytes)));
+    const urls = hashes.map((hash) => `blossom:sha256:${hash}`);
+    vi.stubGlobal('fetch', vi.fn(async (value: string) => {
+      const index = hashes.indexOf(value.split('/').at(-1) ?? '');
+      expect(index).toBeGreaterThanOrEqual(0);
+      return new Response(cases[index]?.bytes, { headers: { 'content-type': 'text/plain' } });
+    }));
+    const adapter = createPajaAdapter(
+      CONFIG,
+      () => normalizePajaSimulation({ relay: { mode: 'disabled' } }),
+      () => {},
+      () => {},
+      () => true,
+    );
+    try {
+      const sent: NappletMessage[] = [];
+      adapter.services?.resource?.handleMessage('resource-window', {
+        type: 'resource.bytesMany', id: 'encoded-bulk',
+        requests: urls.map((url) => ({ url, servers: ['https://blossom.example'] })),
+      } as unknown as NappletMessage, (message) => sent.push(message));
+      await vi.waitFor(() => expect(sent).toHaveLength(1));
+      const result = sent[0] as NappletMessage & {
+        items: { url: string; ok: boolean; blob?: Blob; mime?: string; error?: string }[];
+      };
+      expect(result).toMatchObject({ type: 'resource.bytesMany.result', id: 'encoded-bulk' });
+      expect(result.items.map((item) => item.url)).toEqual(urls);
+      for (const [index, { bytes, blocked }] of cases.entries()) {
+        const item = result.items[index];
+        if (blocked) {
+          expect(item).toMatchObject({ ok: false, error: 'decode-failed' });
+          expect(item).not.toHaveProperty('blob');
+        } else {
+          expect(item).toMatchObject({ ok: true, mime: 'application/octet-stream' });
+          expect(item?.blob?.type).toBe('application/octet-stream');
+          expect(new Uint8Array(await item!.blob!.arrayBuffer())).toEqual(bytes);
+        }
+      }
+      await flushPromises();
+      expect(sent).toHaveLength(1);
+    } finally {
+      (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
+    }
+  });
+
+  it.each(ENCODED_TEXT_CASES.slice(0, 2))('keeps $name nonmarkup opaque without broadening HTTP or data', async ({ width, littleEndian }) => {
+    for (const bom of [false, true]) {
+      const bytes = encodedTextVector('ordinary text', width, littleEndian, bom);
+      const hash = await sha256Hex(bytes);
+      const fetchResource = createPajaResourceFetch({
+        getBlossomServers: () => ['https://blossom.example'],
+        fetch: vi.fn(async () => new Response(bytes, { headers: { 'content-type': 'text/html' } })),
+      });
+      const signal = new AbortController().signal;
+      const response = await fetchResource(`blossom:sha256:${hash}`, { signal });
+      expect(response.headers.get('content-type')).toBe('application/octet-stream');
+      expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
+      for (const url of [
+        'https://media.example/encoded-text',
+        'http://media.example/encoded-text',
+        `data:text/plain;base64,${btoa(String.fromCharCode(...bytes))}`,
+      ]) {
+        await expect(fetchResource(url, { signal })).rejects.toMatchObject({ code: 'decode-failed' });
+      }
     }
   });
 
