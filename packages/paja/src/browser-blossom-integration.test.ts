@@ -52,6 +52,38 @@ afterEach(() => {
 });
 
 describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
+  it.each(['blossom:', 'blossom:sha256:'])('falls through repeated %s URI xs to requested author lists without OUTBOX observation', async (prefix) => {
+    const bytes = new TextEncoder().encode('request author fixture');
+    const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), (byte) => byte.toString(16).padStart(2, '0')).join('');
+    outboxQuery.mockImplementation(async (filters: Array<{ authors?: string[] }>) => ({
+      events: [{ event: event('1', 10_063, [['server', filters[0]?.authors?.[0] === PUBLISHER
+        ? 'https://author-one.example' : 'https://author-two.example']], '', filters[0]?.authors?.[0]) }],
+    }));
+    const fetcher = vi.fn(async (url: string) => url.startsWith('https://author-two.example/')
+      ? new Response(bytes) : new Response(null, { status: 404 }));
+    vi.stubGlobal('fetch', fetcher);
+    const adapter = createPajaAdapter(CONFIG,
+      () => normalizePajaSimulation({ relay: { mode: 'live' }, upload: { mode: 'memory', servers: [], discoverServers: false } }),
+      () => {}, () => {}, () => true);
+    try {
+      const sent: NappletMessage[] = [];
+      adapter.services?.resource?.handleMessage('rom-window', {
+        type: 'resource.bytes', id: 'author-uri',
+        url: `${prefix}${hash}.gbc?xs=one.example&xs=two.example&as=${PUBLISHER}&as=${SHELL_SIGNER}&sz=${bytes.length}`,
+      } as NappletMessage, (message) => sent.push(message));
+      await vi.waitFor(() => expect(sent).toHaveLength(1));
+      expect(sent[0]).toMatchObject({ type: 'resource.bytes.result', id: 'author-uri', mime: 'text/plain' });
+      expect(await (sent[0] as NappletMessage & { blob: Blob }).blob.text()).toBe('request author fixture');
+      expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
+        `https://one.example/${hash}.gbc`, `https://two.example/${hash}.gbc`,
+        `https://author-one.example/${hash}.gbc`, `https://author-two.example/${hash}.gbc`,
+      ]);
+      expect(outboxQuery).toHaveBeenCalledTimes(2);
+    } finally {
+      (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
+    }
+  });
+
   it.each(['blossom:', 'blossom:sha256:'])('reads an extension-bearing %s URI with xs and exact sz without an observed event', async (prefix) => {
     const bytes = new TextEncoder().encode('{"fixture":"BUD-10"}');
     const digest = await crypto.subtle.digest('SHA-256', bytes);
