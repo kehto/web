@@ -19,6 +19,16 @@ at exact ref `a040914b4bbd3a5cd8a14b0f316a723c968ebfb2` delegates profile
 picture and banner retrieval through NAP-RESOURCE. Those documents, together
 with NIP-5D, take precedence over this non-normative implementer guide.
 
+For issue #279's opaque Blossom MIME policy, the authority rechecked is
+[NAP-RESOURCE PR #80](https://github.com/napplet/naps/pull/80) at exact head
+[`fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md).
+The change preserves byte sniffing, hash verification, complete Blob delivery,
+ordered independent bulk results and no raw SVG delivery. This is a bounded
+conformance result, not full draft compliance. The installed server-hint wire
+projection described below predates that head; developer HTTP policy, DNS-time
+enforcement differences and SVG rejection instead of rasterization also remain
+pre-existing, out-of-scope differences.
+
 ## Kehto's boundary
 
 `createResourceService()` owns NAP request correlation, cancellation, bulk
@@ -94,6 +104,16 @@ Configured loopback HTTP remains a Paja-only local-development default. As a
 browser-only developer runtime, Paja cannot independently pin DNS resolution;
 production resolvers still must perform NAP-RESOURCE's DNS-time private-address
 checks before connecting and on every redirect.
+
+All Paja resource reads are capped at 10 MiB and classified from bytes, never
+upstream `Content-Type`. Recognized image/audio/video/font/text/JSON and
+checksum-valid Game Boy ROM formats retain their sniffed MIME. Only canonical
+Blossom bytes that pass capped reads and matching SHA-256 may use
+`application/octet-stream` for unknown opaque invalid-UTF-8 or NUL-bearing
+binary. HTTP(S) and locally decoded `data:` retain recognized-type-only policy.
+SVG, HTML, XML and script prefixes remain rejected, including documents with
+NUL or invalid-UTF-8 suffixes; integrity verification does not make active
+markup safe.
 
 Paja also retains bounded per-window context for canonical Blossom references
 returned by `outbox.getEvent`, `outbox.query`, or `outbox.subscribe`. On a later
