@@ -15,7 +15,7 @@ export const PAJA_RESOURCE_MAX_URLS = 100;
 export const PAJA_RESOURCE_MAX_SERVERS = 8;
 
 const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });
-const BLOSSOM_RESOURCE_PATTERN = /^blossom:sha256:([0-9a-f]{64})$/i;
+const BLOSSOM_RESOURCE_PATTERN = /^blossom:(?:sha256:)?([0-9a-f]{64})$/i;
 const GAME_BOY_NINTENDO_LOGO = [
   0xce, 0xed, 0x66, 0x66, 0xcc, 0x0d, 0x00, 0x0b,
   0x03, 0x73, 0x00, 0x83, 0x00, 0x0c, 0x00, 0x0d,
@@ -39,7 +39,8 @@ export interface PajaResourceFetchOptions {
 /**
  * Create Paja's developer-oriented NAP-RESOURCE fetch boundary.
  *
- * `data:` bytes are decoded locally. Canonical `blossom:sha256:<hex>` URLs are
+ * `data:` bytes are decoded locally. `blossom:<hex>` URLs and the
+ * `blossom:sha256:<hex>` compatibility alias are
  * resolved through accepted request hints followed by host-configured Blossom
  * servers, with redirects disabled and SHA-256 verified before delivery.
  * Direct HTTP(S) URLs are resolved from any origin through the browser,
@@ -154,7 +155,7 @@ async function fetchBlossomResource(
 ): Promise<Response> {
   const match = BLOSSOM_RESOURCE_PATTERN.exec(value);
   if (!match?.[1]) {
-    throw new ResourceServiceError('invalid-request', 'expected blossom:sha256:<64 hex characters>');
+    throw new ResourceServiceError('invalid-request', 'expected blossom:<64 hex characters> or blossom:sha256:<64 hex characters>');
   }
   const expectedHash = match[1].toLowerCase();
   const configuredServers = await options.getBlossomServers?.({ url: value, windowId }) ?? [];

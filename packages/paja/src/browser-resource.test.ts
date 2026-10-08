@@ -64,7 +64,7 @@ describe('Paja resource backend', () => {
     });
   });
 
-  it('resolves Blossom bytes from accepted request hints before configured defaults', async () => {
+  it.each(['blossom:', 'blossom:sha256:'])('resolves %s bytes from accepted request hints before configured defaults', async (prefix) => {
     const bytes = new TextEncoder().encode('{"from":"request-hint"}');
     const hash = await sha256Hex(bytes);
     const fetchFn = vi.fn(async () => new Response(bytes));
@@ -73,7 +73,7 @@ describe('Paja resource backend', () => {
       fetch: fetchFn,
     });
 
-    const response = await fetchResource(`blossom:sha256:${hash}`, {
+    const response = await fetchResource(`${prefix}${hash}`, {
       signal: new AbortController().signal,
       servers: [
         'http://public.example',
@@ -90,20 +90,20 @@ describe('Paja resource backend', () => {
     expect(await response.text()).toBe('{"from":"request-hint"}');
   });
 
-  it('awaits source-scoped event defaults for a canonical Blossom request', async () => {
+  it.each(['blossom:', 'blossom:sha256:'])('awaits source-scoped event defaults for a %s request', async (prefix) => {
     const bytes = new TextEncoder().encode('{"from":"publisher-list"}');
     const hash = await sha256Hex(bytes);
     const getBlossomServers = vi.fn(async () => ['https://publisher.example']);
     const fetchFn = vi.fn(async () => new Response(bytes));
     const fetchResource = createPajaResourceFetch({ getBlossomServers, fetch: fetchFn });
 
-    const response = await fetchResource(`blossom:sha256:${hash}`, {
+    const response = await fetchResource(`${prefix}${hash}`, {
       signal: new AbortController().signal,
       windowId: 'rom-window',
     });
 
     expect(getBlossomServers).toHaveBeenCalledWith({
-      url: `blossom:sha256:${hash}`,
+      url: `${prefix}${hash}`,
       windowId: 'rom-window',
     });
     expect(fetchFn).toHaveBeenCalledWith(
@@ -113,7 +113,7 @@ describe('Paja resource backend', () => {
     expect(await response.text()).toBe('{"from":"publisher-list"}');
   });
 
-  it('caps request hints and reports an inconclusive fallback as network-error', async () => {
+  it.each(['blossom:', 'blossom:sha256:'])('caps %s request hints and reports an inconclusive fallback as network-error', async (prefix) => {
     const servers = Array.from(
       { length: PAJA_RESOURCE_MAX_SERVERS + 2 },
       (_, index) => `https://hint-${index}.example`,
@@ -126,7 +126,7 @@ describe('Paja resource backend', () => {
       fetch: fetchFn,
     });
 
-    await expect(fetchResource(`blossom:sha256:${'d'.repeat(64)}`, {
+    await expect(fetchResource(`${prefix}${'d'.repeat(64)}`, {
       signal: new AbortController().signal,
       servers,
     })).rejects.toMatchObject({ code: 'network-error' });
@@ -149,7 +149,7 @@ describe('Paja resource backend', () => {
     expect(await response.text()).toBe('{"actual":"json"}');
   });
 
-  it('fetches canonical Blossom bytes from HTTPS or loopback HTTP servers and verifies the hash', async () => {
+  it.each(['blossom:', 'blossom:sha256:'])('fetches %s bytes from HTTPS or loopback HTTP servers and verifies the hash', async (prefix) => {
     const bytes = new TextEncoder().encode('{"from":"blossom"}');
     const hash = await sha256Hex(bytes);
     const fetchFn = vi.fn()
@@ -160,7 +160,8 @@ describe('Paja resource backend', () => {
       fetch: fetchFn,
     });
 
-    const response = await fetchResource(`blossom:sha256:${hash}`, {
+    const mixedCaseHash = hash.replace(/[a-f]/g, (letter, index) => index % 2 ? letter.toUpperCase() : letter);
+    const response = await fetchResource(`${prefix}${mixedCaseHash}`, {
       method: 'GET',
       signal: new AbortController().signal,
     });
@@ -169,6 +170,8 @@ describe('Paja resource backend', () => {
       method: 'GET',
       redirect: 'error',
       cache: 'no-store',
+      credentials: 'omit',
+      referrerPolicy: 'no-referrer',
     }));
     expect(fetchFn).toHaveBeenNthCalledWith(2, `http://localhost:3000/${hash}`, expect.objectContaining({
       method: 'GET',
@@ -229,7 +232,7 @@ describe('Paja resource backend', () => {
     })).rejects.toMatchObject({ code: 'network-error', message: 'Failed to fetch' });
   });
 
-  it('rejects malformed identifiers, hash mismatches, oversize responses, raw SVG, and unknown schemes', async () => {
+  it.each(['blossom:', 'blossom:sha256:'])('rejects malformed %s identifiers, hash mismatches, oversize responses, raw SVG, and unknown schemes', async (prefix) => {
     const fetchResource = createPajaResourceFetch();
     const signal = new AbortController().signal;
 
@@ -242,9 +245,9 @@ describe('Paja resource backend', () => {
       getBlossomServers: () => ['https://blossom.example'],
       fetch: vi.fn(async () => new Response('wrong bytes')),
     });
-    await expect(blossomFetch('blossom:sha256:not-a-hash', { signal }))
+    await expect(blossomFetch(`${prefix}not-a-hash`, { signal }))
       .rejects.toMatchObject({ code: 'invalid-request' });
-    await expect(blossomFetch(`blossom:sha256:${'a'.repeat(64)}`, { signal }))
+    await expect(blossomFetch(`${prefix}${'a'.repeat(64)}`, { signal }))
       .rejects.toMatchObject({ code: 'decode-failed' });
 
     const oversizeFetch = createPajaResourceFetch({
@@ -253,7 +256,7 @@ describe('Paja resource backend', () => {
         headers: { 'content-length': String(PAJA_RESOURCE_MAX_BYTES + 1) },
       })),
     });
-    await expect(oversizeFetch(`blossom:sha256:${'b'.repeat(64)}`, { signal }))
+    await expect(oversizeFetch(`${prefix}${'b'.repeat(64)}`, { signal }))
       .rejects.toMatchObject({ code: 'too-large' });
 
     const svg = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
@@ -262,23 +265,56 @@ describe('Paja resource backend', () => {
       getBlossomServers: () => ['https://blossom.example'],
       fetch: vi.fn(async () => new Response(svg)),
     });
-    await expect(svgFetch(`blossom:sha256:${svgHash}`, { signal }))
+    await expect(svgFetch(`${prefix}${svgHash}`, { signal }))
       .rejects.toMatchObject({ code: 'decode-failed' });
   });
 
-  it('maps missing Blossom blobs and preserves cancellation', async () => {
+  it.each(['blossom:', 'blossom:sha256:'])('maps missing %s blobs and preserves cancellation', async (prefix) => {
     const fetchResource = createPajaResourceFetch({
       getBlossomServers: () => ['https://blossom.example'],
       fetch: vi.fn(async () => new Response(null, { status: 404 })),
     });
     const signal = new AbortController().signal;
-    await expect(fetchResource(`blossom:sha256:${'c'.repeat(64)}`, { signal }))
+    await expect(fetchResource(`${prefix}${'c'.repeat(64)}`, { signal }))
       .rejects.toMatchObject({ code: 'not-found' });
 
     const controller = new AbortController();
     controller.abort();
-    await expect(fetchResource(`blossom:sha256:${'c'.repeat(64)}`, { signal: controller.signal }))
+    await expect(fetchResource(`${prefix}${'c'.repeat(64)}`, { signal: controller.signal }))
       .rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it.each(['blossom:', 'blossom:sha256:'])('rejects malformed %s hashes and suffixes before discovery or fetch', async (prefix) => {
+    const fetchFn = vi.fn();
+    const getBlossomServers = vi.fn();
+    const fetchResource = createPajaResourceFetch({ fetch: fetchFn, getBlossomServers });
+    const signal = new AbortController().signal;
+    const hash = 'a'.repeat(64);
+    for (const identifier of [
+      'a'.repeat(63), 'a'.repeat(65), `${'a'.repeat(63)}g`,
+      `sha512:${hash}`, `${hash}.png`, `${hash}?xs=example.com`, `${hash}#fragment`,
+    ]) {
+      await expect(fetchResource(`${prefix}${identifier}`, { signal }))
+        .rejects.toMatchObject({ code: 'invalid-request' });
+    }
+    expect(getBlossomServers).not.toHaveBeenCalled();
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it.each(['blossom:', 'blossom:sha256:'])('caps streamed %s bytes without a declared size', async (prefix) => {
+    const fetchResource = createPajaResourceFetch({
+      getBlossomServers: () => ['https://blossom.example'],
+      fetch: vi.fn(async () => new Response(new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array(PAJA_RESOURCE_MAX_BYTES));
+          controller.enqueue(new Uint8Array(1));
+          controller.close();
+        },
+      }))),
+    });
+    await expect(fetchResource(`${prefix}${'a'.repeat(64)}`, {
+      signal: new AbortController().signal,
+    })).rejects.toMatchObject({ code: 'too-large' });
   });
 
   it('routes data and arbitrary HTTPS bytes through the service', async () => {

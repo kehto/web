@@ -52,9 +52,12 @@ afterEach(() => {
 });
 
 describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
-  it('uses event hints before the event publisher list with upload disabled', async () => {
+  it.each(['blossom:', 'blossom:sha256:'])('uses event hints before the event publisher list with upload disabled (%s)', async (prefix) => {
+    const bytes = new TextEncoder().encode('publisher ROM bytes');
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
     const rom = event('1', 32_560, [
-      ['resource', `blossom:${HASH}.gbc?xs=event.example`, 'blossom'],
+      ['resource', `blossom:${hash}.gbc?xs=event.example`, 'blossom'],
     ]);
     const serverList = event('2', 10_063, [
       ['server', 'https://publisher.example'],
@@ -65,7 +68,6 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
         : [{ event: rom }],
     }));
 
-    const bytes = new TextEncoder().encode('publisher ROM bytes');
     const fetcher = vi.fn(async (url: string) => url.startsWith('https://event.example/')
       ? new Response(null, { status: 404 })
       : new Response(bytes));
@@ -95,18 +97,18 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
     resource?.handleMessage('rom-window', {
       type: 'resource.bytes',
       id: 'rom-bytes',
-      url: RESOURCE_URL,
+      url: `${prefix}${hash}`,
     } as NappletMessage, (message) => resourceMessages.push(message));
     await vi.waitFor(() => expect(resourceMessages).toHaveLength(1));
 
     expect(fetcher).toHaveBeenNthCalledWith(
       1,
-      `https://event.example/${HASH}`,
+      `https://event.example/${hash}`,
       expect.objectContaining({ redirect: 'error' }),
     );
     expect(fetcher).toHaveBeenNthCalledWith(
       2,
-      `https://publisher.example/${HASH}`,
+      `https://publisher.example/${hash}`,
       expect.objectContaining({ redirect: 'error' }),
     );
     const result = resourceMessages[0] as NappletMessage & { blob: Blob };

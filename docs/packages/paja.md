@@ -409,10 +409,12 @@ returned normally. Plain HTTP may also be rejected by the browser's mixed-conten
 rules when Paja itself is served securely. This resource choice is independent
 of Paja's signer confirmation boundary.
 
-The only accepted Blossom form is `blossom:sha256:<64 hex characters>`. Paja
+Paja accepts `blossom:<hash>` and the `blossom:sha256:<hash>` compatibility
+alias, each requiring exactly 64 hexadecimal characters. Both forms use the
+same SHA-256 verification, byte caps, local MIME safety, and server policy. Paja
 accepts public-looking HTTPS request hints, discards invalid/private literals,
 and deduplicates equivalent origins. `outbox.getEvent`, `outbox.query`, and
-`outbox.subscribe` results privately index canonical Blossom references,
+`outbox.subscribe` results privately index Blossom references,
 explicit event `server`/structured-source hints, legacy BUD-10 `xs`/`as` hints,
 and the verified event publisher for that source window. A later
 `resource.bytes` for the URL tries request and event-local

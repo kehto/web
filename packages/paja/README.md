@@ -322,7 +322,7 @@ bytes.
 `data:` remains locally decoded. `blossom:` is a separate, content-addressed
 boundary and is advertised because each request may provide server locations
 without a host default. Paja accepts only public-looking HTTPS origin hints,
-discards invalid/private literals, and deduplicates them. For a canonical URL
+discards invalid/private literals, and deduplicates them. For a Blossom URL
 previously returned to the same napplet window by `outbox.getEvent`,
 `outbox.query`, or `outbox.subscribe`, Paja retains bounded event context
 without prefetching bytes. Resolution tries request and
@@ -334,7 +334,9 @@ pointer-manifest servers, followed by upload-runtime fallbacks. The user-list
 lookup works independently of upload mode; an upload runtime may reuse the same
 servers when present. ROM-specific event and publisher locations retain
 priority over the user/runtime fallbacks. The combined list is capped at eight
-candidates. The only accepted identifier is `blossom:sha256:<hex>`;
+candidates. Paja accepts `blossom:<hash>` and the `blossom:sha256:<hash>`
+compatibility alias, each requiring exactly 64 hexadecimal characters.
+Both forms share the same byte caps and local MIME safety checks.
 Paja refuses redirects, verifies the requested SHA-256, and permits plain-HTTP
 transport only for configured loopback development defaults. Browser-only Paja
 cannot pin DNS results, so production runtimes must add the draft's DNS-time
