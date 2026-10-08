@@ -217,6 +217,18 @@ describe('Paja resource backend', () => {
         });
         if (width === 2) {
           cases.push({ bytes: encodedTextVector('ordinary text', width, littleEndian, bom), blocked: false });
+          if (bom) {
+            for (const spaces of [508, 509, 510]) {
+              cases.push({
+                bytes: encodedTextVector(`${' '.repeat(spaces)}<svg></svg>`, width, littleEndian, true),
+                blocked: true,
+              });
+            }
+            cases.push({
+              bytes: encodedTextVector(`${' '.repeat(600)}ordinary text`, width, littleEndian, true),
+              blocked: false,
+            });
+          }
         }
       }
     }
@@ -286,16 +298,20 @@ describe('Paja resource backend', () => {
     }
   });
 
-  it.each(ENCODED_TEXT_CASES.slice(0, 2))('rejects $name markup hidden beyond the encoded prefix inspection bound', async ({ width, littleEndian }) => {
-    const bytes = encodedTextVector(`${' '.repeat(600)}<svg></svg>`, width, littleEndian, true);
-    const hash = await sha256Hex(bytes);
-    const fetchResource = createPajaResourceFetch({
-      getBlossomServers: () => ['https://blossom.example'],
-      fetch: vi.fn(async () => new Response(bytes)),
-    });
-    await expect(fetchResource(`blossom:sha256:${hash}`, {
-      signal: new AbortController().signal,
-    })).rejects.toMatchObject({ code: 'decode-failed' });
+  it.each(ENCODED_TEXT_CASES.slice(0, 2).flatMap((encoding) =>
+    [507, 508, 509, 510, 511, 600, 4096].map((spaces) => ({ ...encoding, spaces })),
+  ))('rejects $name markup after $spaces spaces without truncating the opening tag', async ({ width, littleEndian, spaces }) => {
+    for (const markup of ['<svg></svg>', '<?xml version="1.0"?><svg></svg>', '<html></html>', '<!doctype html>', '<script></script>']) {
+      const bytes = encodedTextVector(`${' '.repeat(spaces)}${markup}`, width, littleEndian, true);
+      const hash = await sha256Hex(bytes);
+      const fetchResource = createPajaResourceFetch({
+        getBlossomServers: () => ['https://blossom.example'],
+        fetch: vi.fn(async () => new Response(bytes)),
+      });
+      await expect(fetchResource(`blossom:sha256:${hash}`, {
+        signal: new AbortController().signal,
+      })).rejects.toMatchObject({ code: 'decode-failed' });
+    }
   });
 
   it.each([
