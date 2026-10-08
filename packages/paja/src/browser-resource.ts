@@ -82,11 +82,11 @@ export function createPajaResourceFetch(
     if (bytes.byteLength > PAJA_RESOURCE_MAX_BYTES) {
       throw new ResourceServiceError('too-large', `resource exceeds ${PAJA_RESOURCE_MAX_BYTES} bytes`);
     }
-    const mime = sniffSafeResourceMime(bytes);
-    if (!mime) {
+    const classification = classifyResourceBytes(bytes);
+    if (classification.kind !== 'recognized') {
       throw new ResourceServiceError('decode-failed', 'resource bytes are not an enabled safe media type');
     }
-    return new Response(arrayBufferFor(bytes), { headers: { 'content-type': mime } });
+    return new Response(arrayBufferFor(bytes), { headers: { 'content-type': classification.mime } });
   };
 }
 
@@ -138,11 +138,11 @@ async function fetchNetworkResource(
   }
 
   const bytes = await readCappedResponse(response, signal);
-  const mime = sniffSafeResourceMime(bytes);
-  if (!mime) {
+  const classification = classifyResourceBytes(bytes);
+  if (classification.kind !== 'recognized') {
     throw new ResourceServiceError('decode-failed', 'resource bytes are not an enabled safe media type');
   }
-  return new Response(arrayBufferFor(bytes), { headers: { 'content-type': mime } });
+  return new Response(arrayBufferFor(bytes), { headers: { 'content-type': classification.mime } });
 }
 
 async function fetchBlossomResource(
@@ -203,10 +203,11 @@ async function fetchBlossomResource(
       foundHashMismatch = true;
       continue;
     }
-    const mime = sniffSafeResourceMime(bytes);
-    if (!mime) {
+    const classification = classifyResourceBytes(bytes);
+    if (classification.kind === 'blocked') {
       throw new ResourceServiceError('decode-failed', 'resource bytes are not an enabled safe media type');
     }
+    const mime = classification.kind === 'recognized' ? classification.mime : 'application/octet-stream';
     return new Response(arrayBufferFor(bytes), { headers: { 'content-type': mime } });
   }
 
@@ -368,7 +369,18 @@ function ascii(bytes: Uint8Array, start: number, end: number): string {
   return String.fromCharCode(...bytes.subarray(start, end));
 }
 
-function sniffSafeResourceMime(bytes: Uint8Array): string | null {
+type ResourceClassification =
+  | { kind: 'recognized'; mime: string }
+  | { kind: 'opaque' }
+  | { kind: 'blocked' };
+
+function classifyResourceBytes(bytes: Uint8Array): ResourceClassification {
+  const mime = sniffBinaryMime(bytes);
+  if (mime) return { kind: 'recognized', mime };
+  return classifyTextBytes(bytes);
+}
+
+function sniffBinaryMime(bytes: Uint8Array): string | null {
   if (startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'image/png';
   if (startsWith(bytes, [0xff, 0xd8, 0xff])) return 'image/jpeg';
   if (ascii(bytes, 0, 6) === 'GIF87a' || ascii(bytes, 0, 6) === 'GIF89a') return 'image/gif';
@@ -381,7 +393,7 @@ function sniffSafeResourceMime(bytes: Uint8Array): string | null {
   if (ascii(bytes, 0, 4) === 'wOFF') return 'font/woff';
   if (ascii(bytes, 0, 4) === 'wOF2') return 'font/woff2';
   if (isGameBoyRom(bytes)) return 'application/vnd.nintendo.gb-rom';
-  return sniffSafeTextMime(bytes);
+  return null;
 }
 
 function isGameBoyRom(bytes: Uint8Array): boolean {
@@ -393,29 +405,31 @@ function isGameBoyRom(bytes: Uint8Array): boolean {
   return checksum === bytes[0x14d];
 }
 
-function sniffSafeTextMime(bytes: Uint8Array): string | null {
-  let text: string;
-  try {
-    text = UTF8_DECODER.decode(bytes);
-  } catch {
-    return null;
-  }
-  if (/\u0000/u.test(text)) return null;
-  const normalized = text.trimStart().toLowerCase();
+function classifyTextBytes(bytes: Uint8Array): ResourceClassification {
+  // Inspect markup before strict decoding: invalid UTF-8 or NUL later in an
+  // active document must not turn a blocked prefix into opaque Blossom bytes.
+  const normalized = new TextDecoder().decode(bytes).trimStart().toLowerCase();
   if (
     normalized.startsWith('<svg')
     || normalized.startsWith('<?xml')
     || normalized.startsWith('<!doctype html')
     || normalized.startsWith('<html')
     || normalized.startsWith('<script')
-  ) return null;
+  ) return { kind: 'blocked' };
+  let text: string;
+  try {
+    text = UTF8_DECODER.decode(bytes);
+  } catch {
+    return { kind: 'opaque' };
+  }
+  if (/\u0000/u.test(text)) return { kind: 'opaque' };
   if (normalized.startsWith('{') || normalized.startsWith('[')) {
     try {
       JSON.parse(text);
-      return 'application/json';
+      return { kind: 'recognized', mime: 'application/json' };
     } catch {
-      return 'text/plain';
+      return { kind: 'recognized', mime: 'text/plain' };
     }
   }
-  return 'text/plain';
+  return { kind: 'recognized', mime: 'text/plain' };
 }
