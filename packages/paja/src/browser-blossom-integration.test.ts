@@ -52,6 +52,32 @@ afterEach(() => {
 });
 
 describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
+  it.each(['blossom:', 'blossom:sha256:'])('reads an extension-bearing %s URI with xs and exact sz without an observed event', async (prefix) => {
+    const bytes = new TextEncoder().encode('{"fixture":"BUD-10"}');
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+    const fetcher = vi.fn(async () => new Response(bytes, {
+      headers: { 'content-type': 'image/png', 'content-length': String(bytes.length) },
+    }));
+    vi.stubGlobal('fetch', fetcher);
+    const adapter = createPajaAdapter(CONFIG,
+      () => normalizePajaSimulation({ relay: { mode: 'disabled' } }),
+      () => {}, () => {}, () => true);
+    try {
+      const sent: NappletMessage[] = [];
+      adapter.services?.resource?.handleMessage('rom-window', {
+        type: 'resource.bytes', id: 'uri-bytes',
+        url: `${prefix}${hash.toUpperCase()}.gbc?xs=cdn.example&sz=${bytes.length}`,
+      } as NappletMessage, (message) => sent.push(message));
+      await vi.waitFor(() => expect(sent).toHaveLength(1));
+      expect(sent[0]).toMatchObject({ type: 'resource.bytes.result', id: 'uri-bytes', mime: 'application/json' });
+      expect(await (sent[0] as NappletMessage & { blob: Blob }).blob.text()).toBe('{"fixture":"BUD-10"}');
+      expect(fetcher).toHaveBeenCalledWith(`https://cdn.example/${hash}.gbc`, expect.objectContaining({ redirect: 'error' }));
+    } finally {
+      (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
+    }
+  });
+
   it.each(['blossom:', 'blossom:sha256:'])('uses event hints before the event publisher list with upload disabled (%s)', async (prefix) => {
     const bytes = new TextEncoder().encode('publisher ROM bytes');
     const digest = await crypto.subtle.digest('SHA-256', bytes);
