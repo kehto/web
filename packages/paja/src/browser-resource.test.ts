@@ -50,6 +50,54 @@ afterEach(() => {
 });
 
 describe('Paja resource backend', () => {
+  it('delivers hash-verified opaque Blossom bytes with a runtime-owned MIME', async () => {
+    const bytes = new Uint8Array([0x80, 0xff, 0x00, 0x42]);
+    const hash = await sha256Hex(bytes);
+    const fetchResource = createPajaResourceFetch({
+      getBlossomServers: () => ['https://blossom.example'],
+      fetch: vi.fn(async () => new Response(bytes, { headers: { 'content-type': 'text/html' } })),
+    });
+
+    const response = await fetchResource(`blossom:sha256:${hash}`, {
+      signal: new AbortController().signal,
+    });
+
+    expect(response.headers.get('content-type')).toBe('application/octet-stream');
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
+  });
+
+  it('routes opaque Blossom bytes through the actual adapter resource service', async () => {
+    const bytes = new Uint8Array([0x80, 0xff, 0x00, 0x42]);
+    const hash = await sha256Hex(bytes);
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(bytes)));
+    const adapter = createPajaAdapter(
+      CONFIG,
+      () => normalizePajaSimulation({ relay: { mode: 'disabled' } }),
+      () => {},
+      () => {},
+      () => true,
+    );
+    try {
+      const sent: NappletMessage[] = [];
+      adapter.services?.resource?.handleMessage('resource-window', {
+        type: 'resource.bytes',
+        id: 'opaque-1',
+        url: `blossom:sha256:${hash}`,
+        servers: ['https://blossom.example'],
+      } as NappletMessage, (message) => sent.push(message));
+      await vi.waitFor(() => expect(sent).toHaveLength(1));
+
+      const result = sent[0] as NappletMessage & { blob: Blob; mime: string };
+      expect(result).toMatchObject({
+        type: 'resource.bytes.result', id: 'opaque-1', mime: 'application/octet-stream',
+      });
+      expect(result.blob.type).toBe('application/octet-stream');
+      expect(new Uint8Array(await result.blob.arrayBuffer())).toEqual(bytes);
+    } finally {
+      (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
+    }
+  });
+
   it('discloses permissive browser network schemes and request-hinted Blossom support', () => {
     expect(pajaResourceInfo()).toEqual({
       schemes: [
