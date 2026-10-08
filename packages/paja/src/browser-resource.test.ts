@@ -50,6 +50,74 @@ afterEach(() => {
 });
 
 describe('Paja resource backend', () => {
+  it.each(['blossom:', 'blossom:sha256:'])('validates %s URI syntax and sz before I/O', async (prefix) => {
+    const fetchFn = vi.fn();
+    const getBlossomServers = vi.fn();
+    const read = createPajaResourceFetch({ fetch: fetchFn, getBlossomServers });
+    const hash = 'a'.repeat(64);
+    const signal = new AbortController().signal;
+    for (const suffix of [
+      '.png/other', '.png\\other', '.png.jpg', '.%2f', '.png%5cother', '.png#',
+      '?sz=', '?sz=0', '?sz=-1', '?sz=%2B1', '?sz=1.5', '?sz=1e3',
+      '?sz=9007199254740992', '?sz=1&sz=1', '?as=bad', '?xs=%zz', '?unknown=%FF',
+      '?xs=bad host', `?xs=${'x'.repeat(8192)}`, '?sz=1%00',
+    ]) {
+      await expect(read(`${prefix}${hash}${suffix}`, { signal })).rejects.toMatchObject({ code: 'invalid-request' });
+    }
+    await expect(read(`${prefix}${hash}?sz=${PAJA_RESOURCE_MAX_BYTES + 1}`, { signal }))
+      .rejects.toMatchObject({ code: 'too-large' });
+    expect(getBlossomServers).not.toHaveBeenCalled();
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it('cancels a size-mismatched header and falls back without trusting extension or MIME', async () => {
+    const bytes = new TextEncoder().encode('{"size":"verified"}');
+    const hash = await sha256Hex(bytes);
+    const cancel = vi.fn();
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce(new Response(new ReadableStream({ cancel }), {
+        headers: { 'content-length': String(bytes.length + 1) },
+      }))
+      .mockResolvedValueOnce(new Response(bytes, { headers: { 'content-type': 'image/png' } }));
+    const read = createPajaResourceFetch({ fetch: fetchFn });
+    const response = await read(`blossom:${hash}.png?xs=one.example&xs=two.example&sz=${bytes.length}`, {
+      signal: new AbortController().signal,
+    });
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(fetchFn.mock.calls.map(([url]) => url)).toEqual([
+      `https://one.example/${hash}.png`, `https://two.example/${hash}.png`,
+    ]);
+    expect(response.headers.get('content-type')).toBe('application/json');
+    expect(await response.text()).toBe('{"size":"verified"}');
+  });
+
+  it.each([undefined, 'invalid'])('rejects actual size mismatch when Content-Length is %s', async (length) => {
+    const bytes = new TextEncoder().encode('exact bytes');
+    const hash = await sha256Hex(bytes);
+    const read = createPajaResourceFetch({
+      fetch: vi.fn(async () => new Response(bytes, { headers: length ? { 'content-length': length } : {} })),
+    });
+    await expect(read(`blossom:${hash}.txt?xs=cdn.example&sz=${bytes.length + 1}`, {
+      signal: new AbortController().signal,
+    })).rejects.toMatchObject({ code: 'decode-failed' });
+  });
+
+  it('never upgrades unsafe URI hints into trusted loopback config', async () => {
+    const bytes = new TextEncoder().encode('public policy');
+    const hash = await sha256Hex(bytes);
+    const fetchFn = vi.fn(async () => new Response(bytes));
+    const read = createPajaResourceFetch({ fetch: fetchFn });
+    const hints = ['http://public.example', 'http://localhost:3000', 'https://127.0.0.1',
+      'https://user:pass@cdn.example', 'https://cdn.example/path', 'https://cdn.example?key=value'];
+    await expect(read(`blossom:${hash}.txt?${hints.map((hint) => `xs=${encodeURIComponent(hint)}`).join('&')}`, {
+      signal: new AbortController().signal,
+    })).rejects.toMatchObject({ code: 'blocked-by-policy' });
+    expect(fetchFn).not.toHaveBeenCalled();
+    const trusted = createPajaResourceFetch({ fetch: fetchFn, getBlossomServers: () => ['http://localhost:3000'] });
+    await trusted(`blossom:${hash}.txt?xs=http://localhost:3000`, { signal: new AbortController().signal });
+    expect(fetchFn).toHaveBeenCalledWith(`http://localhost:3000/${hash}.txt`, expect.anything());
+  });
+
   it('discloses permissive browser network schemes and request-hinted Blossom support', () => {
     expect(pajaResourceInfo()).toEqual({
       schemes: [
@@ -292,7 +360,7 @@ describe('Paja resource backend', () => {
     const hash = 'a'.repeat(64);
     for (const identifier of [
       'a'.repeat(63), 'a'.repeat(65), `${'a'.repeat(63)}g`,
-      `sha512:${hash}`, `${hash}.png`, `${hash}?xs=example.com`, `${hash}#fragment`,
+      `sha512:${hash}`, `${hash}.`, `${hash}.png/other`, `${hash}#fragment`,
     ]) {
       await expect(fetchResource(`${prefix}${identifier}`, { signal }))
         .rejects.toMatchObject({ code: 'invalid-request' });

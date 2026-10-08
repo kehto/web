@@ -6,6 +6,7 @@ import {
 } from '@kehto/services';
 
 import { normalizeUploadServers } from './simulation.js';
+import { parsePajaBlossomUri } from './browser-blossom-uri.js';
 
 /** Maximum decoded payload exposed by Paja's local data-resource backend. */
 export const PAJA_RESOURCE_MAX_BYTES = 10 * 1024 * 1024;
@@ -15,7 +16,6 @@ export const PAJA_RESOURCE_MAX_URLS = 100;
 export const PAJA_RESOURCE_MAX_SERVERS = 8;
 
 const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });
-const BLOSSOM_RESOURCE_PATTERN = /^blossom:(?:sha256:)?([0-9a-f]{64})$/i;
 const GAME_BOY_NINTENDO_LOGO = [
   0xce, 0xed, 0x66, 0x66, 0xcc, 0x0d, 0x00, 0x0b,
   0x03, 0x73, 0x00, 0x83, 0x00, 0x0c, 0x00, 0x0d,
@@ -153,14 +153,19 @@ async function fetchBlossomResource(
   windowId: string | undefined,
   options: PajaResourceFetchOptions,
 ): Promise<Response> {
-  const match = BLOSSOM_RESOURCE_PATTERN.exec(value);
-  if (!match?.[1]) {
-    throw new ResourceServiceError('invalid-request', 'expected blossom:<64 hex characters> or blossom:sha256:<64 hex characters>');
+  const parsed = parsePajaBlossomUri(value);
+  if (!parsed) {
+    throw new ResourceServiceError('invalid-request', 'invalid Blossom URI');
   }
-  const expectedHash = match[1].toLowerCase();
+  if (parsed.expectedSize !== undefined && parsed.expectedSize > PAJA_RESOURCE_MAX_BYTES) throw resourceTooLarge();
+  const expectedHash = parsed.hash;
   const configuredServers = await options.getBlossomServers?.({ url: value, windowId }) ?? [];
   if (signal.aborted) throw new DOMException('Resource request cancelled', 'AbortError');
-  const servers = resolveBlossomServers(requestServers, configuredServers);
+  const uriServers = parsed.servers.flatMap((value) => {
+    const server = normalizeBlossomUriServer(value);
+    return server ? [server] : [];
+  });
+  const servers = resolveBlossomServers([...requestServers, ...uriServers], configuredServers);
   if (servers.length === 0) {
     throw new ResourceServiceError('blocked-by-policy', 'Paja has no accepted Blossom server');
   }
@@ -172,7 +177,7 @@ async function fetchBlossomResource(
   let lastNetworkMessage = 'all accepted Blossom servers failed';
   for (const server of servers) {
     if (signal.aborted) throw new DOMException('Resource request cancelled', 'AbortError');
-    const resourceUrl = `${server}/${expectedHash}`;
+    const resourceUrl = `${server}/${expectedHash}${parsed.extension ? `.${parsed.extension}` : ''}`;
     let response: Response;
     try {
       response = await fetcher(resourceUrl, {
@@ -199,8 +204,17 @@ async function fetchBlossomResource(
       continue;
     }
 
+    const declared = response.headers.get('content-length');
+    if (declared !== null && Number(declared) > PAJA_RESOURCE_MAX_BYTES) throw resourceTooLarge();
+    if (parsed.expectedSize !== undefined && declared !== null && /^[0-9]+$/u.test(declared)
+      && Number(declared) !== parsed.expectedSize) {
+      await response.body?.cancel();
+      foundHashMismatch = true;
+      continue;
+    }
     const bytes = await readCappedResponse(response, signal);
-    if (!verifyBlobHash(bytes, expectedHash)) {
+    if ((parsed.expectedSize !== undefined && bytes.byteLength !== parsed.expectedSize)
+      || !verifyBlobHash(bytes, expectedHash)) {
       foundHashMismatch = true;
       continue;
     }
@@ -212,7 +226,7 @@ async function fetchBlossomResource(
   }
 
   if (foundHashMismatch) {
-    throw new ResourceServiceError('decode-failed', 'Blossom response did not match the requested SHA-256');
+    throw new ResourceServiceError('decode-failed', 'Blossom response did not match the requested SHA-256 or size');
   }
   if (foundInconclusive) {
     throw new ResourceServiceError('network-error', lastNetworkMessage);
@@ -241,6 +255,14 @@ function resolveBlossomServers(
 }
 
 /** Normalize an untrusted Blossom hint to one public HTTPS origin. */
+export function normalizeBlossomUriServer(value: string): string | null {
+  if (/^[a-z0-9.-]+(?::\d+)?$/i.test(value)) {
+    return normalizePublicBlossomServer(`https://${value}`);
+  }
+  return normalizePublicBlossomServer(value);
+}
+
+/** Normalize an untrusted explicit server to one public HTTPS origin. */
 export function normalizePublicBlossomServer(value: string): string | null {
   if (typeof value !== 'string' || value.trim().length === 0) return null;
   try {
