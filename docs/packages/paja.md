@@ -403,10 +403,10 @@ binary as `application/octet-stream`, after capped reads and matching SHA-256.
 Known formats retain sniffed MIME; Game Boy ROM results use
 `application/vnd.nintendo.gb-rom` regardless of upstream `Content-Type`.
 Cancellation remains window-scoped and drops late terminal envelopes.
-Byte-identifiable UTF-16 markup is checked within the first 1 KiB; identifiable
-UTF-32 document signatures and whitespace-only truncated encoded prefixes are
-conservatively rejected. UTF-16 nonmarkup can remain opaque. This is a bounded
-encoding guard, not a general markup parser.
+Byte-identifiable UTF-16 markup is checked by decoding the complete capped
+buffer; identifiable UTF-32 document signatures are conservatively rejected.
+UTF-16 nonmarkup can remain opaque. This encoding guard is bounded by the
+response size cap, not a general markup parser.
 
 Paja deliberately accepts arbitrary HTTP(S) origins because it is a developer
 runtime. It uses browser `fetch` with credentials omitted and no referrer. The

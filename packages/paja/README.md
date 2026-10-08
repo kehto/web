@@ -322,9 +322,9 @@ Only capped, SHA-256-verified canonical Blossom resources may return unknown
 opaque bytes as `application/octet-stream`. Recognized formats retain their
 sniffed MIME. SVG, HTML, XML and script prefixes remain blocked, even with NUL or
 invalid-UTF-8 suffixes; upstream headers never override classification.
-Byte-identifiable UTF-16 markup uses a bounded prefix check; identifiable UTF-32
-document signatures and inconclusive whitespace-only encoded prefixes are
-conservatively rejected. This encoding guard is not a general markup parser.
+Byte-identifiable UTF-16 markup is checked by decoding the complete capped
+buffer; identifiable UTF-32 document signatures are conservatively rejected.
+This encoding guard is not a general markup parser.
 
 `data:` remains locally decoded. `blossom:` is a separate, content-addressed
 boundary and is advertised because each request may provide server locations

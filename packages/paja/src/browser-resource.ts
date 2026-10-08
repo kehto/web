@@ -457,7 +457,5 @@ function hasBlockedEncodedMarkup(bytes: Uint8Array): boolean {
   } else {
     return false;
   }
-  const prefix = new TextDecoder(encoding).decode(bytes.subarray(0, 1024));
-  // A whitespace-only truncated prefix cannot establish nonmarkup content.
-  return hasBlockedMarkupPrefix(prefix) || (bytes.byteLength > 1024 && prefix.trim().length === 0);
+  return hasBlockedMarkupPrefix(new TextDecoder(encoding).decode(bytes));
 }
