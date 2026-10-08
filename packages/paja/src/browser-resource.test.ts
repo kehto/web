@@ -25,7 +25,7 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-function gameBoyRomVector(): Uint8Array {
+function gameBoyRomVector(): Uint8Array<ArrayBuffer> {
   const bytes = new Uint8Array(32 * 1024);
   bytes.set([
     0xce, 0xed, 0x66, 0x66, 0xcc, 0x0d, 0x00, 0x0b,
