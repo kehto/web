@@ -2,4 +2,4 @@
 "@kehto/paja": patch
 ---
 
-Accept `blossom:<hash>` alongside the `blossom:sha256:<hash>` compatibility alias in Paja resource requests. Both forms require exactly 64 hexadecimal characters and share the existing integrity, MIME safety, size, and transport checks.
+Accept Blossom resource URIs with optional safe extensions, repeated `xs` server and `as` author hints, and exact positive `sz` byte verification. Preserve extensions in blob GET paths without trusting them for MIME, and reuse bounded, source-window-aware discovery through existing BUD-03 lookups. Retain extensionless and mixed-case-hash reads for both `blossom:<hash>` and `blossom:sha256:<hash>`, with the existing public-HTTPS hint/configured-loopback policy, SHA-256 verification, byte caps, and cancellation. Upload descriptors are unchanged; this is local read compatibility, not full BUD-10 conformance.
