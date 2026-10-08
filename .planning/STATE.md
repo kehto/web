@@ -32,7 +32,7 @@ Phase: 106 (Active-Surface Conformance and Release) — COMPLETE
 Plan: 3 of 3
 Status: All v1.29 phases complete — eight-package Napplet-0.31-compatible npm/JSR release published and downstream-verified
 
-Last activity: 2026-10-08 — Completed quick task 261008-dhm: verified opaque Blossom resource support for issue #279
+Last activity: 2026-10-08 — Shipped quick task 261008-dhm: opaque Blossom resource support for issue #279, PR #281
 
 ## Performance Metrics
 
