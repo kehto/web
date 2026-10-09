@@ -6,13 +6,14 @@ import {
   type BrowserIntentGeneration,
 } from './browser-intent-controller.js';
 import {
+  activateRuntimeTab,
   addRuntimeTab,
   closeRuntimeTab,
   renderRuntimeTabs,
   runtimeTabGenerationId,
   type PajaRuntimeTab,
 } from './browser-runtime-tabs.js';
-import { createPajaPostMessageProxy } from './browser-devtools.js';
+import { createPajaPostMessageProxy, appendPajaMessageLog } from './browser-devtools.js';
 import { getPajaRelayUrls } from './browser-relay-runtime.js';
 import {
   matchesInstalledNappletRecord,
@@ -72,6 +73,18 @@ export function createPajaIntentTargetOptions(
         && params.behavior?.newWindow !== true
         && params.behavior?.reuse !== false
       ) {
+        // A delivered intent is a navigation, so the handler surface must become
+        // the visible one, matching the new-tab path below. Paja is a single-stage
+        // tab workspace: a tab is either selected or invisible, so an unselected
+        // handler would silently receive a payload the user cannot see. NAP-INTENT
+        // defines `behavior` fields as hints that "runtime workspace and lifecycle
+        // policy remain authoritative"
+        // (`napplet/naps`, NAP-INTENT.md, draft `nap-intent` a718915d; "Focus the
+        // target surface" on master a040914b), so `behavior.focus` — `false`
+        // included — does not demote delivery to a hidden tab. Reuse still leaves
+        // the caller's tab open, so nothing is replaced or hidden from the tab bar.
+        activateRuntimeTab(state, context, current.id);
+        effects.persistTabs?.(state);
         return bindPajaIntentGeneration(current, record, context.runtime);
       }
 
@@ -139,6 +152,41 @@ export function createPajaIntentTargetOptions(
       }, '*');
     },
   };
+}
+
+/**
+ * Record one verified napplet's declared intent surface in the Paja message log.
+ *
+ * Intent eligibility is derived, not declared: Paja delivers a convention only
+ * to a handler that accepts `inc`, so a manifest that advertises archetypes
+ * without `["requires","inc"]` is unroutable and gets an explicit warning
+ * instead of leaving its author to infer that from a failed dispatch.
+ *
+ * @param state - Current Paja browser state.
+ * @param resolvedTarget - Resolver-verified pointer that was just installed.
+ */
+export function recordInstalledIntentSurface(
+  state: PajaBrowserState,
+  resolvedTarget: PajaResolvedPointer,
+): void {
+  const archetypes = resolvedTarget.manifest.archetypes;
+  const requires = resolvedTarget.manifest.requires;
+  const intentEligible = requires.includes('inc') && archetypes.length > 0;
+  if (archetypes.length > 0 && !intentEligible) {
+    console.warn(
+      '[paja] napplet %s declares archetypes but is NOT intent-eligible: missing "inc" in requires. ' +
+      'Add a ["requires","inc"] tag to its manifest to route intents to it.',
+      resolvedTarget.dTag,
+    );
+  }
+  appendPajaMessageLog(state, 'paja', {
+    type: 'paja.pointer.resolved',
+    dTag: resolvedTarget.dTag,
+    aggregateHash: resolvedTarget.aggregateHash,
+    archetypes,
+    requires,
+    intentEligible,
+  });
 }
 
 /**

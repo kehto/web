@@ -82,6 +82,7 @@ const GROUPS = {
   ],
   paja: [
     'tests/e2e/paja-single-window.spec.ts',
+    'tests/e2e/paja-runtime-pointer.spec.ts',
   ],
   relay: [
     'tests/e2e/acl-revoke-relay-write.spec.ts',

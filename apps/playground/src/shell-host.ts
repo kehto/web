@@ -237,7 +237,14 @@ function intentGeneration(generation: PlaygroundIntentGeneration): IntentGenerat
   throw new Error('intent target generation is no longer available');
 }
 
-/** Whether an intent dispatch permits selecting an already-live target frame. */
+/**
+ * Whether an intent dispatch permits selecting an already-live target frame.
+ *
+ * `behavior.focus` is deliberately not consulted: it is a hint for how the
+ * runtime focuses a surface, never permission to deliver into a surface the
+ * user cannot see (`napplet/naps`, NAP-INTENT.md, draft `nap-intent`
+ * a718915d — "runtime workspace and lifecycle policy remain authoritative").
+ */
 export function shouldReuseIntentTarget(params: IntentDispatchParams): boolean {
   return params.behavior?.newWindow !== true && params.behavior?.reuse !== false;
 }
