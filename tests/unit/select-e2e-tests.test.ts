@@ -41,13 +41,16 @@ describe('selectE2eTests', () => {
     ]);
   });
 
-  test('narrows paja package changes to the paja browser spec', () => {
+  test('narrows paja package changes to both host and verified-pointer browser specs', () => {
     const result = selectE2eTests([
       'packages/paja/src/server.ts',
     ]);
 
     expect(result.runE2e).toBe(true);
-    expect(result.specs).toEqual(['tests/e2e/paja-single-window.spec.ts']);
+    expect(result.specs).toEqual([
+      'tests/e2e/paja-runtime-pointer.spec.ts',
+      'tests/e2e/paja-single-window.spec.ts',
+    ]);
   });
 
   test('narrows relay domain changes to relay-related browser specs', () => {

@@ -20,7 +20,7 @@ app package's development scripts.
 | Field | Value |
 |-------|-------|
 | Source | `packages/paja/package.json`, `packages/paja/src/index.ts` |
-| Version | `0.16.5` |
+| Version | `0.17.1` |
 | Runtime entry | `./dist/index.js` |
 | CLI runner entry | `./dist/cli.js` |
 | Types entry | `./dist/index.d.ts` |
@@ -248,6 +248,15 @@ candidates go to the host chooser; an unresolved ambiguity is rejected. An
 explicit handler d-tag is valid only when it names a compatible installed record
 and passes sender-aware explicit authorization. A current frame is only a later
 delivery endpoint, never selection authority.
+
+Reusing a handler tab activates it and remembers the new active tab. Paja's stage
+shows exactly one tab, so a delivered intent always selects the handler tab:
+`behavior.focus` is a hint, and honoring `false` as "deliver into the hidden
+tab" would report a handled intent whose surface the user never sees. Reuse
+still leaves the caller's tab open, so nothing is replaced. Newly created
+handler tabs behave the same way. Pointer installation logs declared
+archetypes and required domains; Paja warns when archetypes lack `inc`, which
+its current convention delivery policy requires.
 
 Paja may reuse a current target or start a cold one, but it waits for the
 current target generation's registered `MessageEvent.source` and real

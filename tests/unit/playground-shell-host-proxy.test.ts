@@ -134,4 +134,16 @@ describe('playground intent target reuse', () => {
     expect(shouldReuseIntentTarget({ ...request, behavior: { newWindow: true } })).toBe(false);
     expect(shouldReuseIntentTarget({ ...request, behavior: { reuse: false } })).toBe(false);
   });
+
+  it('reuses the live target for either focus hint', () => {
+    const request = {
+      handler: 'target',
+      sender: 'source',
+      archetype: 'note',
+      action: 'open',
+      convention: 'napplet:note/open',
+    };
+    expect(shouldReuseIntentTarget({ ...request, behavior: { focus: false, reuse: true } })).toBe(true);
+    expect(shouldReuseIntentTarget({ ...request, behavior: { focus: true, reuse: true } })).toBe(true);
+  });
 });

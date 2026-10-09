@@ -1,5 +1,12 @@
 # @kehto/cli
 
+## 0.5.1
+
+### Patch Changes
+
+- Updated dependencies [bbbca64]
+  - @kehto/paja@0.17.0
+
 ## 0.5.0
 
 ### Minor Changes
