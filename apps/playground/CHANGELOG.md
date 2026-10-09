@@ -1,5 +1,15 @@
 # @kehto/demo
 
+## 0.1.15
+
+### Patch Changes
+
+- Updated dependencies [62f1c6d]
+- Updated dependencies [62f1c6d]
+  - @kehto/nip@0.6.0
+  - @kehto/shell@0.21.3
+  - @kehto/services@0.22.1
+
 ## 0.1.14
 
 ### Patch Changes
