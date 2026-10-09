@@ -28,15 +28,14 @@ function indexBlob() {
   return { bytes, hash: sha256hex(bytes) };
 }
 
-function buildManifest(dTag = 'chat') {
+function buildManifestFixture(dTag = 'chat', format: 'current' | 'legacy' = 'legacy') {
   const index = indexBlob();
-  const aggregate = computeAggregateHash([{ path: '/index.html', sha256: index.hash }]);
+  const aggregate = format === 'current' ? index.hash : computeAggregateHash([{ path: '/index.html', sha256: index.hash }]);
   const tags = [
     ['d', dTag],
-    ['path', '/index.html', index.hash],
-    ['x', aggregate, 'aggregate'],
+    ...(format === 'current' ? [['x', index.hash]] : [['path', '/index.html', index.hash], ['x', aggregate, 'aggregate']]),
   ];
-  const event = finalizeEvent({ kind: 35129, created_at: 1_700_000_000, tags, content: '' }, SK);
+  const event = finalizeEvent({ kind: 35129, created_at: 1_700_000_000, tags, content: format === 'current' ? 'Chat fixture' : '' }, SK);
   return { event, index, aggregate };
 }
 
@@ -91,7 +90,8 @@ describe('injectCspMeta', () => {
   });
 });
 
-describe('resolvePlaygroundNapplet', () => {
+describe.each(['current', 'legacy'] as const)('resolvePlaygroundNapplet %s', (format) => {
+  const buildManifest = (dTag = 'chat') => buildManifestFixture(dTag, format);
   const optsFor = (event: NostrEvent, index: { bytes: Uint8Array; hash: string }, dTag = 'chat') => ({
     dTag,
     relayDiscoveryUrl: DISCOVERY,

@@ -20,7 +20,7 @@ app package's development scripts.
 | Field | Value |
 |-------|-------|
 | Source | `packages/paja/package.json`, `packages/paja/src/index.ts` |
-| Version | `0.16.5` |
+| Version | `0.17.1` |
 | Runtime entry | `./dist/index.js` |
 | CLI runner entry | `./dist/cli.js` |
 | Types entry | `./dist/index.d.ts` |
@@ -201,8 +201,7 @@ verified napplets into ShellBridge-backed iframe tabs from pasted `naddr` or
 `nevent` pointers. `naddr` pointers resolve the latest matching NIP-5D named
 manifest (`35129`) by author and `d` tag; `nevent` pointers resolve a specific
 NIP-5D snapshot, root, or named manifest event id (`5129`, `15129`, or `35129`).
-In both cases Paja verifies the signed manifest, aggregate hash, and every
-Blossom blob, then injects the same runtime-owned `window.napplet.<domain>`
+In both cases Paja verifies the signed manifest and artifact hash (or legacy aggregate and blobs), then injects the same runtime-owned `window.napplet.<domain>`
 namespace before assigning iframe `srcdoc`. Before that namespace prelude, Paja
 inserts Kehto's local Class-1 CSP: default deny; inline script/style; WebAssembly
 compilation through the narrow `'wasm-unsafe-eval'` source while JavaScript string
@@ -228,7 +227,7 @@ When relay simulation is disabled, configured relay URLs are not added as
 fallbacks. Connection, fanout, and EOSE share one pointer-resolution deadline;
 the UI distinguishes deadline or connection failure from the clean case where
 all queried relays reached EOSE without a matching manifest. Wider relay search
-does not weaken loading: manifest signature, aggregate, Blossom hash, and
+does not weaken loading: manifest signature, artifact/legacy-aggregate verification, Blossom hash, and
 `srcdoc` verification still fail closed.
 
 ### Installed catalog and intent lifecycle
@@ -241,15 +240,27 @@ teardown does not remove the catalog entry. This lets an installed handler be
 discovered and cold-started even when it has no live frame.
 
 Availability and selection derive solely from that installed catalog's exact
-convention contracts. A compatible default may be used; multiple compatible
+convention contracts. Required or optional INC declarations are eligible only when
+INC is available in the target's host-resolved environment. Missing optional INC
+still permits frame loading. Nameless root/snapshot artifacts may also run, but
+are excluded from the dTag-keyed intent catalog. A compatible default may be used; multiple compatible
 candidates go to the host chooser; an unresolved ambiguity is rejected. An
 explicit handler d-tag is valid only when it names a compatible installed record
 and passes sender-aware explicit authorization. A current frame is only a later
 delivery endpoint, never selection authority.
 
+Reusing a handler tab activates it and remembers the new active tab. Paja's stage
+shows exactly one tab, so a delivered intent always selects the handler tab:
+`behavior.focus` is a hint, and honoring `false` as "deliver into the hidden
+tab" would report a handled intent whose surface the user never sees. Reuse
+still leaves the caller's tab open, so nothing is replaced. Newly created
+handler tabs behave the same way. Pointer installation logs declared
+archetypes and required domains; Paja warns when archetypes lack `inc`, which
+its current convention delivery policy requires.
+
 Paja may reuse a current target or start a cold one, but it waits for the
 current target generation's registered `MessageEvent.source` and real
-`shell.ready` session before one target-only `inc.event`. A replaced generation
+`shell.ready` session before one target-only `intent.deliver`. A replaced generation
 is not delivered to; failed open/readiness attempts follow the private
 retry/replacement policy. The final result includes the handled target's d-tag,
 window identifier, and convention.
@@ -396,18 +407,25 @@ an authorization grant. All paths expose the enforced 10 MiB response,
 100-URL bulk, and eight-server per-resource caps. The host ignores
 declared or upstream media types, classifies a narrow safe
 image/audio/video/font/text set plus checksum-valid Game Boy ROM headers, and
-rejects raw SVG, HTML, invalid UTF-8, and unrecognized binary data. Game Boy ROM
-results use `application/vnd.nintendo.gb-rom` regardless of the upstream
-`Content-Type`. Cancellation remains window-scoped and drops late terminal
-envelopes.
+rejects SVG, HTML, XML and script prefixes, including NUL-bearing or
+invalid-UTF-8 suffixes. HTTP(S) and `data:` still require recognized types.
+Canonical Blossom alone may deliver unknown opaque invalid-UTF-8 or NUL-bearing
+binary as `application/octet-stream`, after capped reads and matching SHA-256.
+Known formats retain sniffed MIME; Game Boy ROM results use
+`application/vnd.nintendo.gb-rom` regardless of upstream `Content-Type`.
+Cancellation remains window-scoped and drops late terminal envelopes.
+Byte-identifiable UTF-16 markup is checked by decoding the complete capped
+buffer; identifiable UTF-32 document signatures are conservatively rejected.
+UTF-16 nonmarkup can remain opaque. This encoding guard is bounded by the
+response size cap, not a general markup parser.
 
 Paja deliberately accepts arbitrary HTTP(S) origins because it is a developer
 runtime. It uses browser `fetch` with credentials omitted and no referrer. The
 browser still decides which response bytes JavaScript may read: a network or
-CORS rejection becomes `network-error`, while a CORS-readable response is
-returned normally. Plain HTTP may also be rejected by the browser's mixed-content
-rules when Paja itself is served securely. This resource choice is independent
-of Paja's signer confirmation boundary.
+CORS rejection becomes `network-error`, while a CORS-readable response still
+passes byte caps and MIME policy. Plain HTTP may also be rejected by the
+browser's mixed-content rules when Paja itself is served securely. This resource
+choice is independent of Paja's signer confirmation boundary.
 
 Paja accepts `blossom:<hash>.gbc?xs=cdn.example&as=<pubkey>&sz=32768` and the
 `blossom:sha256:<hash>.gbc?xs=cdn.example&sz=32768` compatibility alias,
@@ -461,8 +479,13 @@ hint policy does not attempt BUD-10's suggested HTTP retry. Upload descriptors a
 URI generation remain unchanged.
 The current
 [NAP-RESOURCE draft `fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md)
-leaves fetch policy to the runtime and has no wire-level Blossom server-hint
-field. Paja's window-scoped pointer fallback is host policy informed by NIP-5D's
+was rechecked at PR #80's exact head for the opaque Blossom policy. This change
+preserves byte-derived MIME, hash verification, complete Blobs, ordered
+independent bulk results and no raw SVG delivery. It does not claim full draft
+compliance: existing developer HTTP policy, DNS enforcement, SVG rejection
+instead of rasterization, and server-hint wire drift remain out of scope. The
+draft has no wire-level Blossom server-hint field. Paja's window-scoped pointer
+fallback is host policy informed by NIP-5D's
 manifest `server` tags at draft head
 [`24711d9c47bbdd07908bf1d52bf677d9cbc530f0`](https://github.com/nostr-protocol/nips/blob/24711d9c47bbdd07908bf1d52bf677d9cbc530f0/5D.md).
 
@@ -513,3 +536,13 @@ the next iframe reload.
 - Generated module: <a href="../api/modules/_kehto_paja.html" target="_self"><code>docs/api/modules/_kehto_paja.html</code></a>
 - Getting started: [Paja getting started](/how-tos/paja-getting-started)
 - Local authoring how-to: [Use Paja for local napplet authoring](/how-tos/paja-local-authoring)
+
+## NIP-5D event compatibility
+
+Current manifests use a direct artifact `x` hash, plain-text `content`, independent
+`z`/`i` routing declarations, and required `R` / optional `O` domains. Kehto also
+accepts legacy aggregate events through an isolated compatibility adapter.
+Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
+for current events; legacy identities keep their original aggregate. Both paths
+verify signatures and bytes before runtime injection and `srcdoc` execution.
+For the schema and removal boundary, see [event migration](https://kehto.github.io/web/docs/migrations/NIP-5D-EVENT-SCHEMA.html).

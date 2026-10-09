@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [
     nip5aManifest({
       nappletType: 'fixture-nap-relay',
+      description: 'fixture-nap-relay protocol test fixture',
     }),
   ],
   build: {

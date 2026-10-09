@@ -106,6 +106,7 @@ export default defineConfig({
       {
         text: 'Migration Archive',
         items: [
+          { text: 'NIP-5D Event Schema', link: '/migrations/NIP-5D-EVENT-SCHEMA' },
           { text: 'Archive Index', link: '/migrations/' },
           { text: 'Migration README', link: '/migrations/README' },
         ],

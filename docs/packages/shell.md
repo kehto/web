@@ -68,3 +68,27 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 ## API Reference
 
 - Generated module: <a href="../api/modules/_kehto_shell.html" target="_self"><code>docs/api/modules/_kehto_shell.html</code></a>
+
+## NIP-5D event compatibility
+
+Current manifests use a direct artifact `x` hash, plain-text `content`, independent
+`z`/`i` routing declarations, and required `R` / optional `O` domains. Kehto also
+accepts legacy aggregate events through an isolated compatibility adapter.
+Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
+for current events; legacy identities keep their original aggregate. Both paths
+verify signatures and bytes before runtime injection and `srcdoc` execution.
+For the schema and removal boundary, see [event migration](https://kehto.github.io/web/docs/migrations/NIP-5D-EVENT-SCHEMA.html).
+
+### Intent delivery
+
+The injected `window.napplet.intent.onDelivery(handler)` returns a closeable
+subscription and drains buffered parent deliveries in order. Register it to
+receive `{ sender, archetype, action, convention, payload? }`; INC is not required.
+Its receiver is installed before `shell.ready` and survives namespace reassignment.
+A throwing listener does not prevent delivery to other listeners.
+
+When no canonical listener is registered, matching legacy INC listeners can
+consume the delivery locally. This emits `KEHTO_COMPAT_INTENT_INC` once per
+iframe; a delivery is never replayed to both APIs. See [compatibility tracking](https://github.com/kehto/web/blob/main/docs/compatibility.md).
+This aligns delivery with NAP-INTENT at `25b29ee`; broader invocation/result
+changes and the packaged SDK upgrade remain deferred.

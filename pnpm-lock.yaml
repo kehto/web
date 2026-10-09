@@ -83,8 +83,8 @@ importers:
         version: 1.5.4
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.15.0
+        version: 0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       '@types/qrcode':
         specifier: ^1.5.6
         version: 1.5.6
@@ -108,8 +108,8 @@ importers:
         version: 0.30.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.15.0
+        version: 0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -130,8 +130,8 @@ importers:
         version: 0.30.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.15.0
+        version: 0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -155,8 +155,8 @@ importers:
         version: 0.30.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.15.0
+        version: 0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -174,8 +174,8 @@ importers:
         version: 0.30.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.15.0
+        version: 0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -199,8 +199,8 @@ importers:
         version: 0.30.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.15.0
+        version: 0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -221,8 +221,8 @@ importers:
         version: 0.30.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.15.0
+        version: 0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -246,8 +246,8 @@ importers:
         version: 0.30.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.15.0
+        version: 0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -265,8 +265,8 @@ importers:
         version: 0.30.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.15.0
+        version: 0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -284,8 +284,8 @@ importers:
         version: 0.30.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.15.0
+        version: 0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -306,8 +306,8 @@ importers:
         version: 0.30.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.15.0
+        version: 0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -328,8 +328,8 @@ importers:
         version: 0.30.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.15.0
+        version: 0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -350,8 +350,8 @@ importers:
         version: 0.30.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.15.0
+        version: 0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -369,8 +369,8 @@ importers:
         version: 0.30.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.15.0
+        version: 0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -391,8 +391,8 @@ importers:
         version: 0.30.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.15.0
+        version: 0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -410,8 +410,8 @@ importers:
         version: 0.30.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.15.0
+        version: 0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -661,8 +661,8 @@ importers:
         version: 0.30.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.15.0
+        version: 0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -683,8 +683,8 @@ importers:
         version: 0.30.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.15.0
+        version: 0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -705,8 +705,8 @@ importers:
         version: 0.30.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.15.0
+        version: 0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -730,8 +730,8 @@ importers:
         version: 0.30.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.15.0
+        version: 0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -752,8 +752,8 @@ importers:
         version: 0.30.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.15.0
+        version: 0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -774,8 +774,8 @@ importers:
         version: 0.30.0
     devDependencies:
       '@napplet/vite-plugin':
-        specifier: 0.14.1
-        version: 0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
+        specifier: 0.15.0
+        version: 0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -1350,8 +1350,8 @@ packages:
   '@napplet/shim@0.30.0':
     resolution: {integrity: sha512-aGkHuT6NI28rC1x8LXDKnF7XTv8RVf1WieItCJqKag14jQqxUOIuDUqFru1uzE5BIj6TnuqO3LRwvQzxuw7BwQ==}
 
-  '@napplet/vite-plugin@0.14.1':
-    resolution: {integrity: sha512-WIs5CP9+lWOOuuItlO39tjvlWxuFJmb1xLyXcuM6BlV9LTmbO2bAkU1mXcz9G0mPSRQnxzTRf4RckP9J0O6Yug==}
+  '@napplet/vite-plugin@0.15.0':
+    resolution: {integrity: sha512-dKkmxwsM3DbZbRuKsYpgbWM64ZG17od3zKBZurcGHU4Q1xdlhkoLpr430SEhmpCYSXYX7CSVQpl7YXgyabkFdw==}
     peerDependencies:
       vite: ^6.4.2
 
@@ -3685,7 +3685,7 @@ snapshots:
     transitivePeerDependencies:
       - json-schema-to-ts
 
-  '@napplet/vite-plugin@0.14.1(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))':
+  '@napplet/vite-plugin@0.15.0(typescript@5.9.3)(vite@6.4.2(jiti@2.6.1)(yaml@2.8.3))':
     dependencies:
       nostr-tools: 2.23.3(typescript@5.9.3)
       vite: 6.4.2(jiti@2.6.1)(yaml@2.8.3)

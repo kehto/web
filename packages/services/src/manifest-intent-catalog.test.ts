@@ -41,3 +41,10 @@ describe('manifestToIntentCatalogEntry', () => {
       .toThrow(/archetype/);
   });
 });
+
+
+it('keeps a declared constructor role separate from object prototypes', () => {
+  expect(manifestToIntentCatalogEntry({
+    dTag: 'tools', archetypes: [{ slug: 'constructor', convention: 'napplet:tool/open' }],
+  }).archetypes.constructor).toEqual({ actions: ['open'], conventions: ['napplet:tool/open'] });
+});

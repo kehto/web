@@ -82,7 +82,7 @@ Kehto's runtime packages target the current `@napplet` line:
 | `@napplet/nap`          | `0.32.0` | NAP capability helpers |
 | `@napplet/sdk`          | `0.28.0` | napplet-side SDK (playground napplets)          |
 | `@napplet/shim`         | `0.30.0` | generic non-shell NAP domains; does not supply mandatory shell |
-| `@napplet/vite-plugin`  | `0.14.1` | napplet build/sign plugin |
+| `@napplet/vite-plugin`  | `0.15.0` | napplet build/sign plugin |
 | `@napplet/conformance`  | `0.16.2` | registry-audited conformance artifact; not a Kehto dependency |
 
 The runtime's domain dispatcher routes via `createDispatch()` + `registerNap()`
@@ -116,26 +116,24 @@ verified bytes — the gateway is never in the trust path:
    relay selection (by kind + author, plus `d` for named napplets) and verify the
    event signature. Manifest kinds are `35129` (named/addressable, carries `d`),
    `15129` (root/replaceable), and `5129` (snapshot/regular).
-2. Fetch each `path` blob from Blossom by sha256 and verify `sha256(blob)` equals
-   the `path` tag hash.
-3. Recompute the NIP-5A aggregate from the `path` tags and assert it equals the
-   `["x","<hex>","aggregate"]` tag. This aggregate is the napplet's content
-   address.
-4. Assemble the verified `/index.html` and inject it via `iframe.srcdoc` (with the
-   `connect-src` CSP as a `<meta http-equiv>` so the policy holds inside the
-   opaque-origin iframe).
+2. Require one lowercase-hex `x` hash, fetch the `/index.html` blob from Blossom,
+   and verify its SHA-256 against the signed hash.
+3. Bind `(dTag, artifactHash)` before execution. Existing Kehto host, ACL, and cache
+   APIs call this field `aggregateHash`; for current events it is the artifact hash.
+4. Inject the verified bytes through `iframe.srcdoc`, adding the runtime namespace
+   and CSP outside the bytes used to compute identity. Gateways remain untrusted.
 
-A napplet's identity is the `(dTag, aggregateHash)` tuple **computed** from these
-verified bytes. The runtime MUST NOT accept identity from a host or gateway. Any
-verification failure rejects the load — no iframe is rendered with unverified
-bytes. A gateway MAY serve bytes as an accelerator, but its output is verified
-against the signed manifest like any other source.
+`@kehto/nip/5d` normalizes current events and explicit legacy aggregate events.
+Legacy parsing and NIP-5A verification live in `legacy-manifest.ts`; loaders and
+caches share signature and blob checks across both formats. Legacy identity stays
+unchanged. See [event-schema migration](docs/migrations/NIP-5D-EVENT-SCHEMA.md).
 
-Resolution primitives live in `@kehto/nip/5a` (aggregate hash) and `@kehto/nip/5d`
-(manifest parse, signature/aggregate/blob verification, `resolveNapplet`). The
-manifest parser also reads the NIP-5D `archetype` (`["archetype","<slug>","<NAP-N>"]`)
-and optional `source` tags into structured `archetypes` / `source` fields on
-`NappletManifest`.
+Current `content` is a plain-text description. `z` and `i` advertise independent
+roles and accepted intents, including parameter names; their N:M projection feeds
+the intent catalog. `R` requirements are checked against host availability; `O`
+integrations never block load. Neither grants capabilities. Icons remain generic
+unless verified and decoded independently; lineage and HTML metadata never supply
+execution authority. NAP-SHELL is always available regardless of declarations.
 
 ## Injected Domain Availability
 
@@ -209,8 +207,8 @@ The active NIP-5D primitives are:
 - unknown sources and unrecognized `type` values are silently ignored (see
   [Unknown-`type` handling](#unknown-type-handling));
 - napplet identity is the `(dTag, aggregateHash)` tuple computed by the runtime
-  from the verified manifest bytes (NIP-5A aggregate), bound at iframe creation;
-- manifest `requires` tags use short NAP/domain names;
+  from verified artifact bytes (legacy: NIP-5A aggregate), bound at iframe creation;
+- manifest `R`/`O` tags use bare NAP domains (legacy: `requires`);
 - hosted `window.napplet.<domain>` presence reflects shell-provided runtime
   domain availability before authored scripts execute;
 - mandatory `window.napplet.shell` is injected by every Kehto host and caches the

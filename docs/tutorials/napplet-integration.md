@@ -75,4 +75,4 @@ pnpm --filter ./apps/playground/napplets/<name> build
 pnpm --filter @kehto/playground preview --port 4174
 ```
 
-The meaningful proof path is `/napplet-gateway/<dTag>/<aggregateHash>/index.html`, not a direct dev-server file URL.
+The proof path is signed relay manifest → verified Blossom artifact bytes → runtime injection → opaque iframe `srcdoc`. Gateway output remains untrusted.

@@ -62,7 +62,7 @@ unknown-quota budget.
 `resolveNapplet()` owns the trust boundary:
 
 1. It verifies the manifest signature.
-2. It recomputes the NIP-5A aggregate.
+2. It reads the single artifact hash (legacy: recomputes the NIP-5A aggregate).
 3. It reads cached blobs by SHA-256 when present.
 4. It re-hashes cached bytes before using them.
 5. It fetches missing or invalid blobs from the caller's `fetchBlob`.
@@ -126,3 +126,8 @@ the resolved napplet or a network-only retry path.
   [`openNappletArtifactCache`](../api/functions/_kehto_nip..openNappletArtifactCache.html),
   [`CacheStorageNappletArtifactCache`](../api/classes/_kehto_nip..CacheStorageNappletArtifactCache.html),
   [`NappletArtifactCache`](../api/interfaces/_kehto_nip..NappletArtifactCache.html)
+
+Current event hashes identify `/index.html` directly. Existing cache record and
+API names containing `aggregate` remain compatibility names for that identity.
+Legacy aggregate events still verify every declared blob. See
+[event-schema migration](../migrations/NIP-5D-EVENT-SCHEMA.md).
